@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "kind": "reverify",
+  "task_id": "0154-example",
+  "project_id": "demo",
+  "reason": "fix-up",
+  "previous": {
+    "verdict": "reject",
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "findings": ["cmd-01: the migration named in the check is not in the PR"]
+  },
+  "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "pr_url": "https://github.com/example/demo/pull/154",
+  "fixups": [
+    "Added the migration the rejected check named. This PR does not touch the live store."
+  ],
+  "packet": {
+    "project_excerpt": "Schema changes land as migrations in the PR. Nothing here is applied to production by the verifier.",
+    "spec_refs": ["SPEC §storage"],
+    "task_file": "docs/delivery/tasks/0154-example.md",
+    "dod_checks": ["cmd-01"],
+    "evidence": ["GitHub Actions formal unit/lint is green at bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+  }
+}

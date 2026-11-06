@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:question_answer.schema.json",
+  "title": "ControlPlaneQuestionAnswer",
+  "description": "Spec maintainer answer at QUEUE_ROOT/questions/<question_id>.answer.json (SPEC §17.5). Written by the spec maintainer; no secrets.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "question_id",
+    "project_id",
+    "verdict",
+    "reasoning",
+    "answered_by",
+    "answered_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "question_id": {
+      "type": "string",
+      "pattern": "^sm-"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "resolved",
+        "needs_operator",
+        "not_a_spec_question"
+      ]
+    },
+    "ruling": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reasoning": {
+      "type": "string",
+      "minLength": 1
+    },
+    "commit_sha": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "files_changed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "question_for_operator": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "guidance": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "answered_by": {
+      "type": "string",
+      "enum": [
+        "spec_maintainer",
+        "operator_via_maintainer"
+      ]
+    },
+    "session_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "answered_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "supersedes": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Previous answer object when rewritten (e.g. needs_operator → resolved by the operator in session)"
+    },
+    "written_by": {
+      "type": "string",
+      "enum": [
+        "maintainer",
+        "seat"
+      ],
+      "description": "seat = copied unchanged from the Claude JSON result because the file was missing (§17.3 step 7)"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "resolved"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "ruling",
+          "commit_sha",
+          "files_changed"
+        ],
+        "properties": {
+          "ruling": {
+            "type": "string",
+            "minLength": 1
+          },
+          "commit_sha": {
+            "type": "string",
+            "minLength": 4
+          },
+          "files_changed": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "enum": [
+              "needs_operator"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "question_for_operator"
+        ],
+        "properties": {
+          "question_for_operator": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "answered_by": {
+            "enum": [
+              "operator_via_maintainer"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "supersedes"
+        ],
+        "properties": {
+          "supersedes": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  ]
+}

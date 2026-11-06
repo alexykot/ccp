@@ -1,0 +1,10 @@
+review_points:
+  - id: R1
+    name: publishable
+    goal: The repository can be published. The SPEC is restructured into normative rules, the privacy scrub is done, and the leak check passes with a full denylist.
+    status: current
+    opened: "2026-11-05"
+  - id: R2
+    name: delivery refinements
+    goal: Generic delivery improvements raised by managed products' tool proposals and accepted in triage, built once the repository is publishable.
+    status: planned

@@ -1,0 +1,370 @@
+"""The verifier's record and the runner's merge gate (SPEC §15.3), and the re-verify packet."""
+from __future__ import annotations
+
+import io
+import json
+import os
+import subprocess
+import tempfile
+import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from unittest import mock
+
+from ccp import cli, verify
+from tests.helpers import Product
+
+ROOT = Path(__file__).resolve().parents[1]
+HEAD_A = "a" * 40
+HEAD_B = "b" * 40
+
+
+class MergeGate(unittest.TestCase):
+    def setUp(self):
+        self.p = Product()
+        self._q = tempfile.TemporaryDirectory()
+        self.q = Path(self._q.name)
+        self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)})
+        self.env.start()
+
+    def tearDown(self):
+        self.env.stop()
+        self.p.cleanup()
+        self._q.cleanup()
+
+    def binding(self) -> None:
+        (self.q / "project.yaml").write_text("project_id: demo\n")
+
+    def verdict(self, task: str, **fields: object) -> None:
+        body = {
+            "task_id": task, "project_id": "demo", "verdict": "approve",
+            "checked_at": "2026-10-16T12:00:00Z",
+            "checks": [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it"}],
+            **fields,
+        }
+        d = self.q / "verification"
+        d.mkdir(exist_ok=True)
+        (d / f"{task}.json").write_text(json.dumps(body))
+
+    def check(self, task: str, head: str):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.main(["--root", str(self.p.root), "verify", "check", task, "--head", head])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_schema_names_head_sha_and_does_not_require_it_globally(self):
+        schema = json.loads((ROOT / "contracts/verification.schema.json").read_text())
+        self.assertIn("head_sha", schema["properties"])
+        self.assertEqual(schema["properties"]["head_sha"]["pattern"], "^[0-9a-fA-F]{7,40}$")
+        self.assertNotIn("head_sha", schema["required"])
+
+    def test_an_approve_matches_and_a_different_head_is_refused(self):
+        self.binding()
+        self.verdict("0001-a", head_sha=HEAD_A)
+        code, out, err = self.check("0001-a", HEAD_A)
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(json.loads(out)["ok"])
+        code, out, err = self.check("0001-a", HEAD_B)
+        self.assertEqual(code, 1)
+        self.assertIn("differs", err)
+        self.assertFalse(json.loads(out)["ok"])
+
+    def test_a_non_approve_is_refused(self):
+        self.binding()
+        self.verdict("0001-a", verdict="reject", head_sha=HEAD_A)
+        code, _, err = self.check("0001-a", HEAD_A)
+        self.assertEqual(code, 1)
+        self.assertIn("not approve", err)
+
+    def test_a_missing_head_sha_passes_check_and_a_different_one_is_refused(self):
+        self.binding()
+        self.verdict("0001-a")
+        code, out, err = self.check("0001-a", HEAD_A)
+        self.assertEqual(code, 0, out + err)
+        self.verdict("0001-a", head_sha=HEAD_A)
+        code, _, err = self.check("0001-a", HEAD_B)
+        self.assertEqual(code, 1)
+        self.assertIn("differs", err)
+
+    def test_a_short_sha_matches_the_full_one(self):
+        self.binding()
+        self.verdict("0001-a", head_sha=HEAD_A[:7])
+        code, out, err = self.check("0001-a", HEAD_A)
+        self.assertEqual(code, 0, out + err)
+        self.verdict("0001-a", head_sha=HEAD_A)
+        code, out, err = self.check("0001-a", HEAD_A[:7])
+        self.assertEqual(code, 0, out + err)
+
+    def test_reverify_example_matches_the_schema_and_the_briefs_name_it(self):
+        schema = json.loads((ROOT / "contracts/reverify_packet.schema.json").read_text())
+        example = json.loads((ROOT / "contracts/reverify_packet.example.json").read_text())
+        for key in schema["required"]:
+            self.assertIn(key, example)
+        for key in schema["properties"]["packet"]["required"]:
+            self.assertIn(key, example["packet"])
+        self.assertRegex(example["head_sha"], schema["properties"]["head_sha"]["pattern"])
+        self.assertEqual(example["kind"], "reverify")
+        self.assertEqual(example["reason"], "fix-up")
+        self.assertGreaterEqual(len(example["fixups"]), 1)
+        verifier = (ROOT / "plugin/agents/delivery-verifier.md").read_text()
+        self.assertIn("head_sha", verifier)
+        self.assertIn("contracts/reverify_packet.schema.json", verifier)
+        self.assertIn("contracts/reverify_packet.example.json", verifier)
+
+
+def approve(task: str = "0001-a", **fields: object) -> dict:
+    """A verdict that passes every rule: what the verifier writes for an approve at HEAD_A."""
+    return {
+        "task_id": task, "project_id": "demo", "verdict": "approve", "head_sha": HEAD_A,
+        "checks": [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it"}],
+        "gate": {"runs": [{"command": "scripts/unit.sh", "exit_code": 0, "tests_run": 412,
+                           "tests_skipped": 0, "seconds": 88.5},
+                          {"command": "scripts/lint.sh", "exit_code": 0}]},
+        **fields,
+    }
+
+
+class Record(unittest.TestCase):
+    """`ccp verify record`: the schema and the rules it cannot hold, before anything is written."""
+
+    def setUp(self):
+        self.p = Product()
+        self._q = tempfile.TemporaryDirectory()
+        self.q = Path(self._q.name)
+        (self.q / "project.yaml").write_text("project_id: demo\n")
+        self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)})
+        self.env.start()
+
+    def tearDown(self):
+        self.env.stop()
+        self.p.cleanup()
+        self._q.cleanup()
+
+    def record(self, body: object):
+        src = self.q / "in.json"
+        src.write_text(json.dumps(body))
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.main(["--root", str(self.p.root), "verify", "record", str(src)])
+        return code, out.getvalue(), err.getvalue()
+
+    def written(self) -> Path:
+        return self.q / "verification" / "0001-a.json"
+
+    def test_ci_run_needs_ci_in_the_binding(self):
+        rec = approve()
+        rec["gate"]["ci_run"] = "https://github.com/x/y/actions/runs/1"
+        code, _, err = self.record(rec)
+        self.assertNotEqual(code, 0)
+        self.assertIn("gate.ci_run", err)
+        self.assertFalse(self.written().exists())
+        (self.q / "project.yaml").write_text("project_id: demo\nci: github-actions\n")
+        code, out, err = self.record(rec)
+        self.assertEqual(code, 0, out + err)
+
+    def test_an_invalid_record_is_refused_and_nothing_is_written(self):
+        # PROC-23: 9 of 84 record versions failed the contract.
+        for bad, needle in (
+            (approve(verdict="changes_requested"), "is not one of approve, reject"),
+            (approve(base_sha=HEAD_B), "unexpected key base_sha"),
+            (approve(findings=[{"text": "x"}]), "record.findings[0]"),
+            (approve(checks=[{"dod_check_id": "cmd-01", "pass": True}]), "missing evidence"),
+            (approve(head_sha=None), "is not string"),
+        ):
+            code, _, err = self.record(bad)
+            self.assertEqual(code, 1, err)
+            self.assertIn(needle, err)
+            self.assertIn("nothing written", err)
+            self.assertFalse(self.written().exists())
+
+    def test_checked_at_is_stamped_when_absent_and_never_later_than_now(self):
+        code, out, err = self.record(approve())
+        self.assertEqual(code, 0, err)
+        rec = json.loads(self.written().read_text())
+        stamped = datetime.fromisoformat(rec["checked_at"].replace("Z", "+00:00"))
+        self.assertLess(abs((datetime.now(timezone.utc) - stamped).total_seconds()), 5)
+        later = (datetime.now(timezone.utc) + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        code, _, err = self.record(approve(checked_at=later))
+        self.assertEqual(code, 1)
+        self.assertIn("is later than now", err)
+
+    def test_a_check_not_run_is_neither_a_pass_nor_a_fail(self):
+        unrun = {"dod_check_id": "data-01", "ran": False, "pass": None, "rests_on": "the operator's paste, 15:49",
+                 "evidence": "not run by the verifier: the live store is the Mac's"}
+        code, _, err = self.record(approve(checks=[unrun]))
+        self.assertEqual(code, 0, err)
+        code, _, err = self.record(approve(checks=[{**unrun, "pass": True}]))
+        self.assertEqual(code, 1)
+        self.assertIn("neither a pass nor a fail", err)
+        code, _, err = self.record(approve(checks=[{k: v for k, v in unrun.items() if k != "rests_on"}]))
+        self.assertIn("rests_on", err)
+        code, _, err = self.record(approve(checks=[{**unrun, "ran": True}]))
+        self.assertIn("pass is null", err)
+
+    def test_an_approve_with_a_failed_check_is_refused(self):
+        code, _, err = self.record(approve(checks=[{"dod_check_id": "cmd-01", "pass": False, "evidence": "exit 1"}]))
+        self.assertEqual(code, 1)
+        self.assertIn("an approve with a failed check (cmd-01)", err)
+        code, _, err = self.record(approve(verdict="reject",
+                                           checks=[{"dod_check_id": "cmd-01", "pass": False, "evidence": "exit 1"}]))
+        self.assertEqual(code, 0, err)
+
+    def test_a_record_may_carry_every_access_mode_a_binding_declares(self):
+        # S4: a binding saying verifier_access.mode local-cli, which the record contract refused.
+        binding = json.loads((ROOT / "contracts/project.schema.json").read_text())
+        for mode in binding["properties"]["verifier_access"]["properties"]["mode"]["enum"]:
+            code, _, err = self.record(approve(access_mode=mode))
+            self.assertEqual(code, 0, (mode, err))
+
+    def test_record_refuses_the_approve_merge_ok_would_refuse(self):
+        # S5: an approve with no head or gate was written, then refused at merge time.
+        for drop, needle in (("head_sha", "names no head_sha"), ("gate", "carries no gate")):
+            body = approve()
+            del body[drop]
+            code, _, err = self.record(body)
+            self.assertEqual(code, 1, drop)
+            self.assertIn(needle, err)
+        reject = approve(verdict="reject")
+        del reject["head_sha"], reject["gate"]
+        code, _, err = self.record(reject)
+        self.assertEqual(code, 0, err)
+
+    def test_the_example_record_passes_and_the_verifier_brief_names_it(self):
+        example = json.loads((ROOT / "contracts/verification.example.json").read_text())
+        code, _, err = self.record({**example, "task_id": "0001-a", "project_id": "demo"})
+        self.assertEqual(code, 0, err)
+        self.assertIn("contracts/verification.example.json",
+                      (ROOT / "plugin/agents/delivery-verifier.md").read_text())
+
+    def test_an_approve_needs_head_sha_and_the_validator_fails_closed_on_an_unknown_keyword(self):
+        body = approve()
+        del body["head_sha"]
+        code, _, err = self.record(body)
+        self.assertEqual(code, 1)
+        self.assertIn("names no head_sha", err)
+        self.assertEqual(verify.schema_errors(1, {"oneOf": []}),
+                         ["record: the schema uses oneOf, which ccp verify cannot check"])
+
+
+class MergeOk(unittest.TestCase):
+    """`ccp verify merge-ok`: a committed approval at the PR's head (PROC-12)."""
+
+    def setUp(self):
+        self.p = Product()
+        self._q = tempfile.TemporaryDirectory()
+        self.q = Path(self._q.name)
+        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\n")
+        self.pr = {"number": 7, "state": "OPEN", "headRefOid": HEAD_A, "mergedAt": None}
+        gh = self.q / "fake-gh"
+        gh.write_text("#!/bin/sh\ncat \"$(dirname \"$0\")/pr.json\"\n")
+        gh.chmod(0o755)
+        self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), "CCP_GH_BIN": str(gh)})
+        self.env.start()
+
+    def tearDown(self):
+        self.env.stop()
+        self.p.cleanup()
+        self._q.cleanup()
+
+    def put(self, rec: dict, name: str = "0001-a") -> Path:
+        d = self.q / "verification"
+        d.mkdir(exist_ok=True)
+        path = d / f"{name}.json"
+        path.write_text(json.dumps(rec))
+        return path
+
+    def ok(self, *extra: str):
+        (self.q / "pr.json").write_text(json.dumps(self.pr))
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.main(["--root", str(self.p.root), "verify", "merge-ok", "7", *extra])
+        return code, json.loads(out.getvalue()) if out.getvalue() else {}, err.getvalue()
+
+    def test_an_approval_at_the_open_head_with_its_gate_may_merge(self):
+        self.put(approve(checked_at=now_iso()))
+        code, body, err = self.ok("--task", "0001-a")
+        self.assertEqual(code, 0, err)
+        self.assertTrue(body["ok"])
+        self.assertEqual((body["head_sha"], body["recorded"], body["unrun_checks"]), (HEAD_A, "written", []))
+        self.assertEqual([r["command"] for r in body["gate_runs"]], ["scripts/unit.sh", "scripts/lint.sh"])
+        # A short approved sha still merges on the PR's full head (gh needs a full OID).
+        self.put(approve(head_sha=HEAD_A[:7], checked_at=now_iso()))
+        code, body, err = self.ok("--task", "0001-a")
+        self.assertEqual((code, body["match_head_commit"]), (0, HEAD_A), err)
+
+    def test_each_reason_not_to_merge_is_named(self):
+        cases = (
+            ({"headRefOid": HEAD_B}, {}, "is not the approved head"),
+            ({}, {"gate": None}, "carries no gate"),
+            ({}, {"gate": {"runs": [{"command": "scripts/lint.sh", "exit_code": 1}]}},
+             "gate run 'scripts/lint.sh' exited 1"),
+            ({}, {"verdict": "reject"}, "the verdict is 'reject', not approve"),
+            ({}, {"head_sha": None}, "names no head_sha"),
+            ({}, {"project_id": "other"}, "not demo"),
+            ({}, {"task_id": "0009-z"}, "the record's task_id is '0009-z', not 0001-a"),
+            ({}, {"checks": [{"dod_check_id": "cmd-01", "pass": False, "evidence": "exit 1"}]},
+             "an approve with a failed check (cmd-01)"),
+            ({"state": "MERGED", "mergedAt": "2026-10-16T21:33:30Z"}, {},
+             "PR 7 is merged at 2026-10-16T21:33:30Z; the approval was recorded after it"),
+        )
+        for pr, rec, needle in cases:
+            self.pr = {"number": 7, "state": "OPEN", "headRefOid": HEAD_A, "mergedAt": None, **pr}
+            body = {k: v for k, v in approve(checked_at=now_iso(), **rec).items() if v is not None}
+            self.put(body)
+            code, out, err = self.ok("--task", "0001-a")
+            self.assertEqual(code, 1, (needle, err))
+            self.assertIn(needle, err)
+            self.assertFalse(out["ok"])
+
+    def test_a_pr_without_a_task_reads_its_pr_record(self):
+        code, _, err = self.ok()
+        self.assertEqual(code, 1)
+        self.assertIn("no verification record verification/pr-7.json", err)
+        self.put(approve(task="pr-7", checked_at=now_iso()), name="pr-7")
+        code, _, err = self.ok()
+        self.assertEqual(code, 0, err)
+
+    def test_in_a_git_checkout_the_record_must_be_committed_after_its_checked_at(self):
+        def git(*a: str) -> subprocess.CompletedProcess:
+            return subprocess.run(["git", "-C", str(self.q), "-c", "user.email=t@t", "-c", "user.name=t", *a],
+                                  check=True, capture_output=True, text=True)
+        git("init", "-q")
+        self.put(approve(checked_at=now_iso()))
+        code, _, err = self.ok("--task", "0001-a")
+        self.assertEqual(code, 1)
+        self.assertIn("is not committed as it stands", err)
+        # S9: a committed reject overwritten by an approve that is not committed.
+        self.put(approve(verdict="reject", checked_at=now_iso()))
+        git("add", "verification/0001-a.json")
+        git("commit", "-qm", "reject")
+        self.put(approve(checked_at=now_iso()))
+        code, _, err = self.ok("--task", "0001-a")
+        self.assertEqual(code, 1)
+        self.assertIn("is not committed as it stands", err)
+        git("add", "verification/0001-a.json")
+        git("commit", "-qm", "verdict")
+        code, body, err = self.ok("--task", "0001-a")
+        self.assertEqual(code, 0, err)
+        self.assertTrue(body["recorded"].startswith("commit "))
+        # A rounded-up checked_at, later than the commit that recorded it (pr-158: 18:18:12 vs 18:20:00).
+        later = (datetime.now(timezone.utc) + timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.put(approve(checked_at=later))
+        git("commit", "-qam", "verdict, rounded")
+        code, _, err = self.ok("--task", "0001-a")
+        self.assertEqual(code, 1)
+        self.assertIn("is after the record was recorded", err)
+
+    def test_no_gh_is_a_configuration_error(self):
+        with mock.patch.dict(os.environ, {"CCP_GH_BIN": str(self.q / "no-such-gh")}):
+            code, _, err = self.ok("--task", "0001-a")
+        self.assertEqual(code, 2)
+        self.assertIn("is not installed", err)
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+if __name__ == "__main__":
+    unittest.main()

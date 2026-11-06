@@ -1,0 +1,77 @@
+---
+task_id: 0027-ccp-init
+renamed_from: 0027-cpl-init
+title: ccp init scaffolds a product and writes its binding from one source of truth
+status: pending
+kind: feature
+depends_on: ["0026-readme-homepage"]
+spec_refs: ["S4", "S8"]
+review_point: R1
+paths: ["ccp/", "scripts/team.sh", "scripts/observability/lib.py", "docs/spec/01-model.md", "docs/cli/", "README.md", "tests/"]
+created: 2026-11-06
+updated: 2026-11-06
+---
+
+# Task: 0027-ccp-init
+
+## Intent
+
+A new user adopts a product with one command. `ccp init` run in a product's repository writes the
+product footprint (§4.3) and the local binding and queue (§8.3), and every reader of the binding
+sees the same values. The README's manual adoption steps shrink to that command.
+
+## Context (not checked)
+
+- Today the binding has two homes: `ccp where` and `ccp` resolve `$PLANE/projects/<id>.yaml`, while
+  `team.sh`, `ccp/queue.py`'s binding readers and `ccp/verify.py` read `PROJECT_YAML` or
+  `QUEUE_ROOT/project.yaml`. The README tells the user to copy one to the other, which drifts after
+  an edit.
+- Either the queue copy is written and refreshed by `ccp` from the plane binding (on `init` and
+  whenever `ccp` resolves a binding newer than the copy), or every reader goes through one resolver
+  and the copy is retired. The implementer picks one, records it in §8.3, and says which in the PR.
+
+## Scope
+
+- **In:** `ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--force]`:
+  copies `templates/docs-project/{PROJECT,SPEC}.md` and the delivery templates, writes a minimal
+  `plane.json`, adds `.plane-runtime/` to `.gitignore`, merges the plugin anchor into
+  `.claude/settings.json` (never overwriting other keys), appends the one `CLAUDE.md` line once,
+  writes the binding and creates the queue; refuses to overwrite existing files without `--force`;
+  the single source of truth for the binding; §8.3 and `docs/cli/` updated; the README quick start
+  uses `ccp init`.
+- **Out:** remote marketplace setup; the hosted store (§29).
+
+## dod_checks
+
+- id: `init-01`
+  story: As a new user, I adopt an empty repository with one command.
+  setup: a scratch `HOME`, a clone of the PR head, an empty git repository.
+  steps:
+    1. Run `ccp init --project-id demo` in the repository.
+    2. Run `ccp tasks check`, `ccp docs check` and `ccp where`.
+  expect: the footprint files exist; the checks pass; `ccp where` prints the binding and the queue.
+  dry run: n/a — `ccp init` does not exist yet.
+- id: `init-02`
+  story: As an operator, a binding edit reaches every reader.
+  setup: the repository from `init-01`.
+  steps:
+    1. Change `runner.name` to `steward` in the binding `ccp where` names.
+    2. Run `QUEUE_ROOT=<queue> scripts/team.sh runner spawn --scope <a task>`.
+  expect: the printed spawn asks for the name `steward`.
+  dry run: n/a — without a manual copy, `team.sh` still reads the old queue copy.
+- id: `init-03`
+  story: As a user with an existing setup, `init` does not clobber my files.
+  setup: a repository with its own `.claude/settings.json` holding another key, and a `CLAUDE.md`.
+  steps:
+    1. Run `ccp init --project-id demo` twice.
+  expect: the other settings key survives; the `CLAUDE.md` line appears once; existing docs are not
+    overwritten without `--force`.
+  dry run: n/a.
+
+## Implementation notes
+
+*Append-only, newest last.*
+
+## Verification notes
+
+*Append-only.*

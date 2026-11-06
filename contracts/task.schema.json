@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:task.schema.json",
+  "title": "ControlPlaneTask",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "project_id",
+    "title",
+    "goal",
+    "status",
+    "created_at"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable id shared with durable docs/ DAG"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string"
+    },
+    "goal": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "leased",
+        "implementing",
+        "implemented",
+        "reviewing",
+        "fixing",
+        "reviewed",
+        "submitted",
+        "verifying",
+        "merging",
+        "done",
+        "blocked",
+        "failed",
+        "dropped"
+      ]
+    },
+    "spec_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "dod_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "description"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "description": "Short title; full walkthrough lives in durable task markdown under dod_checks."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "api",
+              "ui",
+              "data",
+              "other"
+            ],
+            "default": "other"
+          }
+        }
+      },
+      "default": [],
+      "description": "Task-specific verifier walkthroughs. Each item: stable id + description; durable markdown should expand to user-story form (story, setup, steps, expect). No dependencies or non-observable policy here."
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "task_id list that must be done (or waived) before claim/verify. Authoritative for gating — never only mentioned inside dod_checks prose."
+    },
+    "durable_path": {
+      "type": "string",
+      "description": "Path under product docs/, e.g. docs/delivery/tasks.md#slice-x"
+    },
+    "env_slug": {
+      "type": "string",
+      "description": "Adapter env / worktree slug"
+    },
+    "claude_session_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "pr_url": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "integration_branch": {
+      "type": "string"
+    },
+    "waiting_on": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "operator_decision",
+        "reauth",
+        "quota",
+        "steerer",
+        "spec_maintainer",
+        "design_seat",
+        "runner",
+        "null-class",
+        "operator_step",
+        null
+      ],
+      "description": "spec_maintainer = blocked on an open spec-maintainer question (§17); steerer stays for projects without a spec_maintainer block"
+    },
+    "waiting_on_since": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "planned_resume_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "description": "Structured resume/reset time (quota resets_at). Watchdog prefers this over prose notes."
+    },
+    "quota_class": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "session",
+        "credit",
+        null
+      ]
+    },
+    "implementation_started_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "lease_holder": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lease_expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

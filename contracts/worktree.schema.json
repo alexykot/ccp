@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:worktree.schema.json",
+  "title": "ControlPlaneWorktree",
+  "description": "SPEC §12.1: one plane-made worktree, QUEUE_ROOT/worktrees/<name>.json, written by `ccp wt`.",
+  "type": "object",
+  "required": ["name", "kind", "task_id", "nnnn", "seat", "tag", "path", "state", "created_at"],
+  "properties": {
+    "name": {"type": "string", "pattern": "^(impl|rev|ver|mut|mac)-[0-9]+(-[0-9]+)?$"},
+    "kind": {"enum": ["impl", "rev", "ver", "mut", "mac"]},
+    "task_id": {"type": "string"},
+    "nnnn": {"type": "string"},
+    "seat": {"type": "string", "description": "The seat it serves: impl, rev or ver by default"},
+    "tag": {"type": "string", "description": "A tag for the hooks: main, or mut / mac for those kinds"},
+    "path": {"type": "string"},
+    "branch": {"type": ["string", "null"], "description": "task/<id> for impl; null for the detached kinds"},
+    "base": {"type": "string", "description": "impl: the ref it branched from"},
+    "sha": {"type": ["string", "null"], "description": "The head a detached worktree was made at"},
+    "state": {"enum": ["created", "up", "down"]},
+    "up_at": {"type": "string"},
+    "urls": {"type": "array", "items": {"type": "object", "required": ["name", "url"],
+             "properties": {"name": {"type": "string", "minLength": 1}, "url": {"type": "string"}}}},
+    "adopted": {"type": "boolean", "description": "A worktree made before records, adopted by `ccp wt create`"},
+    "created_at": {"type": "string"}
+  }
+}

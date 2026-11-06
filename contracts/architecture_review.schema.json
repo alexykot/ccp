@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:architecture_review.schema.json",
+  "title": "ControlPlaneArchitectureReview",
+  "description": "SPEC §19 (and §21: a docs audit report is the same shape, id prefix `da-`, doc-* categories). The reviewer's report: the final message of an isolated read-only Claude session running the architecture-review skill. The plane writes it to QUEUE_ROOT/reviews/<review_id>.json (runtime; the durable record is the triage's docs/delivery/reviews/<review_id>.md). No secrets.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "review_id",
+    "project_id",
+    "head",
+    "summary",
+    "findings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "review_id": {
+      "type": "string",
+      "pattern": "^(ar|da)-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{4}$"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "head": {
+      "type": "string",
+      "minLength": 7
+    },
+    "base": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "intended_model": {
+      "type": "string"
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "inventoried": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "not_checked": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "skipped_known": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 25,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "title",
+          "category",
+          "severity",
+          "confidence",
+          "what",
+          "evidence",
+          "fix",
+          "proposal"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^F[0-9]{2}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "enum": [
+              "holdover",
+              "not-first-class",
+              "duplication",
+              "vocabulary-drift",
+              "dead-surface",
+              "incoherence",
+              "unobserved",
+              "cost",
+              "rule-cost",
+              "doc-wrong",
+              "doc-missing",
+              "doc-aspirational",
+              "doc-padding",
+              "doc-history"
+            ]
+          },
+          "severity": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "confidence": {
+            "enum": [
+              "high",
+              "medium"
+            ]
+          },
+          "what": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "design_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fix": {
+            "enum": [
+              "remove",
+              "merge",
+              "rename",
+              "fold-into",
+              "surface",
+              "wire",
+              "decide",
+              "rewrite",
+              "cut",
+              "add"
+            ]
+          },
+          "proposal": {
+            "type": "string",
+            "minLength": 1
+          },
+          "touches": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "code",
+                "schema",
+                "config",
+                "docs",
+                "ops"
+              ]
+            }
+          },
+          "needs_decision": {
+            "type": "boolean"
+          },
+          "prior": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

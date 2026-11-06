@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# The plane's main moves only by merged pull requests: refuse a commit on main (CLAUDE.md).
+# Installed by scripts/install-git-hooks.sh. CCP_ALLOW_MAIN_COMMIT=1 overrides (emergencies only).
+branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$branch" = main ] && [ -z "${CCP_ALLOW_MAIN_COMMIT:-}" ]; then
+  echo "pre-commit: refusing to commit on main. Develop on a branch in a worktree: scripts/dev-worktree.sh <branch>" >&2
+  exit 1
+fi

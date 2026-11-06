@@ -1,0 +1,83 @@
+{
+  "project_id": "control-plane",
+  "task_log": {
+    "dir": "docs/delivery"
+  },
+  "package_docs": {
+    "language": "python",
+    "doc_name": "CLAUDE.md",
+    "exempt_dirs": [
+      ".git",
+      ".idea",
+      ".claude",
+      "docs",
+      "node_modules",
+      "__pycache__",
+      ".venv",
+      ".claude-plugin",
+      "plugin",
+      "agents",
+      "skills",
+      "templates",
+      "queue",
+      "scripts/queue",
+      "tests/data"
+    ],
+    "docstring_globs": [
+      "ccp/**/*.py",
+      "scripts/observability/*.py"
+    ],
+    "source_suffixes": [
+      ".py",
+      ".sql",
+      ".json",
+      ".md",
+      ".sh"
+    ]
+  },
+  "adr": {
+    "dir": "docs/adr",
+    "index": "docs/adr/INDEX.md",
+    "strict": true
+  },
+  "docs": {
+    "checks": [
+      {
+        "id": "leak-check",
+        "cmd": "scripts/leak-check.sh"
+      }
+    ]
+  },
+  "suite": {
+    "lanes": {
+      "gate": [
+        "scripts/gate.sh"
+      ],
+      "full": [
+        "scripts/gate.sh"
+      ]
+    },
+    "exclusive_lanes": [
+      "gate",
+      "full"
+    ]
+  },
+  "auth_check": {
+    "probes": [
+      {
+        "id": "gh",
+        "cmd": "gh auth status >/dev/null 2>&1"
+      },
+      {
+        "id": "claude_login",
+        "cmd": "claude auth status 2>/dev/null | python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin).get(\"loggedIn\") else 1)'"
+      }
+    ]
+  },
+  "estimate": {
+    "auto": false
+  },
+  "review_points": {
+    "file": "docs/delivery/review-points.yaml"
+  }
+}

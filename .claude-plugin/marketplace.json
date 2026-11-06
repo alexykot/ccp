@@ -1,0 +1,13 @@
+{
+  "name": "ccp",
+  "owner": {
+    "name": "CCP maintainers"
+  },
+  "plugins": [
+    {
+      "name": "ccp",
+      "source": "./plugin",
+      "description": "CCP (Claude Control Plane): seats, skills and hooks (SPEC §29)."
+    }
+  ]
+}

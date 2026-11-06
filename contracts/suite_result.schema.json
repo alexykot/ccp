@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:suite_result.schema.json",
+  "title": "ControlPlaneSuiteResult",
+  "description": "The gate-result contract (SPEC §14.1): what a test command run by `ccp suite run` may write to the path in CCP_SUITE_RESULT. When written, its numbers are the run's record; otherwise ccp reads the output with plane.json suite.count_re and suite.summary. Only the counters and the failure ids are read; failure ids are shown in the run's summary, never recorded. Anything else is ignored.",
+  "type": "object",
+  "anyOf": [{"required": ["tests"]}, {"required": ["ran"]}, {"required": ["cached"]}],
+  "properties": {
+    "tests": {"type": "integer", "minimum": 0, "description": "Tests that ran in this run (not those served from a cache)."},
+    "ran": {"type": "integer", "minimum": 0, "description": "For a product with a test cache: units run, in the product's unit (tests, modules, files)."},
+    "cached": {"type": "integer", "minimum": 0, "description": "Units whose result the product's cache served on identical inputs, which count as run (verify.accept_cache)."},
+    "cached_tests": {"type": "integer", "minimum": 0, "description": "The tests behind the cached units, from their last runs."},
+    "skipped": {"type": "integer", "minimum": 0},
+    "failed": {"type": "integer", "minimum": 0, "description": "Failing tests; defaults to the length of failures."},
+    "seconds": {"type": "number", "minimum": 0, "description": "The gate's own timing. Informative: the record keeps ccp's wall time."},
+    "failures": {
+      "type": "array",
+      "items": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}, "message": {"type": "string"}}}
+    },
+    "extra": {"type": "object", "description": "Product-specific; ignored by the plane."}
+  }
+}

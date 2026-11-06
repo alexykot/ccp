@@ -1,0 +1,72 @@
+# Standing pre-merge Definition of Done (template)
+# Project adapters supply params; the harness owns phase order.
+# Out of scope this iteration: Playwright, post-merge smoke, production promote.
+
+version: 1
+name: standing-pre-merge
+
+phases:
+  - id: unit_lint
+    owner: formal_gate
+    must:
+      - unit_tests_pass
+      - lint_pass
+    notes: >
+      The formal gate is the verifier's own run of the product's unit and lint commands on the PR
+      head, recorded in its verdict's `gate` (SPEC §27.1). A CI workflow
+      (templates/github/workflows/formal-unit-lint.yml) is an option beside it.
+
+  - id: same_session_mk_pr_review
+    owner: implementer_reviewer
+    must:
+      - mk_pr_via_implementer_resume   # --resume same Claude session; cold /mk-pr forbidden
+      - clean_subagent_review           # /review in separate clean context
+      - safe_fixes_applied_or_filed
+      - decisions_classified            # implementation | spec → questions/escalations
+
+  - id: formal_submit
+    owner: formal_gate
+    must:
+      - unit_lint
+      - pr_exists
+      - review_artifact_present
+      - no_open_spec_escalation
+    sets_status: submitted
+
+  - id: verifier_approve
+    owner: verifier
+    must:
+      - each_dod_check_evidenced
+      - verdict_approve_or_reject
+    notes: >
+      Verifier APPROVES only. Does not merge.
+      The verifier proves each check itself; an evidence pack is optional.
+
+  - id: implementer_merge
+    owner: implementer
+    must:
+      - verifier_verdict_approve
+      - merge_to_integration            # the configured merge step (SPEC §15.5)
+      - merge_sha_recorded
+    sets_status: done
+    notes: >
+      Conflicts stay with Implementer. Production promote is human-gated.
+      The runner merges, once ccp verify merge-ok exits 0 (§25.3, §27.1).
+
+# Task kinds (SPEC §26.8). A task's frontmatter `kind` (default feature) adds its own standing DoD.
+kinds:
+  feature:
+    must: []                            # the phases above, and the task's own dod_checks
+  refactor:
+    must:
+      - behaviour_unchanged             # a change to behaviour or stored data is a feature task
+      - suite_and_scenario_checks_pass
+      - no_test_expectation_changed     # except where the task names it
+      - spec_unchanged
+    notes: Cites rule_refs or review_refs, never spec_refs/adr_refs. Reviewer and verifier check the four.
+
+project_params:
+  # Filled per product via adapter / project.yaml — examples only
+  integration_branch: null
+  durable_docs_path: docs/delivery/
+  proof_surfaces: []   # e.g. [api, app]

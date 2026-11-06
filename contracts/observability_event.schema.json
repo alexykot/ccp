@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:observability_event.schema.json",
+  "title": "ControlPlaneObservabilityEvent",
+  "description": "One JSONL line in QUEUE_ROOT/observability/events.jsonl. Append-only; never rewrite history.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "at",
+    "project_id",
+    "task_id",
+    "actor",
+    "type",
+    "op",
+    "payload"
+  ],
+  "properties": {
+    "at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp of the event"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "description": "Durable/runtime task id. Empty string allowed for seat-only or project-level events (auth, seat heartbeat)."
+    },
+    "actor": {
+      "type": "string",
+      "enum": [
+        "task-runner",
+        "task-verifier",
+        "delivery-watchdog",
+        "design-seat",
+        "adapter",
+        "operator",
+        "system",
+        "plane-session"
+      ]
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "phase",
+        "waiting_on",
+        "lease",
+        "claude",
+        "auth",
+        "seat",
+        "durable",
+        "note",
+        "question",
+        "spec_maintainer",
+        "architecture_review",
+        "docs_audit",
+        "architect",
+        "gate",
+        "runner",
+        "run",
+        "review",
+        "verify",
+        "allowance",
+        "plane",
+        "suite",
+        "prefer",
+        "hold",
+        "hosting"
+      ],
+      "description": "question / spec_maintainer added by SPEC §17.8; architecture_review by §19.10; docs_audit by §21; gate / runner by §23.7; architect by §19; run, review, verify, allowance and plane by §23.2; suite by §14.1; prefer by §10.4 (ccp tasks prefer); hold by §10.4 (ccp tasks hold); hosting is historical (Grok hosting, removed 2026-11-05): old ledger rows carry it, nothing writes it and readers skip it"
+    },
+    "op": {
+      "type": "string",
+      "enum": [
+        "set",
+        "clear",
+        "transition",
+        "launch",
+        "exit",
+        "heartbeat",
+        "reconcile",
+        "raised",
+        "answered",
+        "escalated",
+        "resolved_by_operator",
+        "rebound",
+        "opened",
+        "decided",
+        "spawn",
+        "scope",
+        "rotate",
+        "stop",
+        "switch",
+        "bound",
+        "stopped",
+        "reported",
+        "abandoned",
+        "recorded",
+        "sample",
+        "proposed",
+        "again",
+        "triaged",
+        "armed",
+        "fired"
+      ]
+    },
+    "payload": {
+      "type": "object",
+      "description": "Type/op-specific fields. Extra keys allowed for forward compat. No secrets.",
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,328 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:architect_report.schema.json",
+  "title": "ControlPlaneArchitectReport",
+  "description": "SPEC §19.3, §19.7. The architect's report: the final message of an isolated read-only Claude session running the architect skill, in mode `pass` (id prefix `ar-`) or `shape` (`sh-`). §19's report plus mode, lenses, rule_changes and metrics; a shape adds adr and shape. `ccp architect run` writes it to QUEUE_ROOT/reviews/<review_id>.json (runtime; the durable record is the triage's docs/delivery/reviews/<review_id>.md). A finding's category must belong to one of the report's lenses; a pass carries at most 25 findings, a shape at most 10. No secrets.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "review_id",
+    "project_id",
+    "head",
+    "summary",
+    "findings",
+    "mode",
+    "lenses",
+    "rule_changes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "review_id": {
+      "type": "string",
+      "pattern": "^(ar|sh)-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{4}$"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "head": {
+      "type": "string",
+      "minLength": 7
+    },
+    "base": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "intended_model": {
+      "type": "string"
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "inventoried": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "not_checked": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "skipped_known": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 25,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "title",
+          "category",
+          "severity",
+          "confidence",
+          "what",
+          "evidence",
+          "fix",
+          "proposal"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^F[0-9]{2}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "enum": [
+              "holdover",
+              "not-first-class",
+              "duplication",
+              "vocabulary-drift",
+              "dead-surface",
+              "incoherence",
+              "unobserved",
+              "cost",
+              "rule-cost",
+              "doc-wrong",
+              "doc-missing",
+              "doc-aspirational",
+              "doc-padding",
+              "doc-history",
+              "test-cost",
+              "test-brittle",
+              "process-cost"
+            ]
+          },
+          "severity": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "confidence": {
+            "enum": [
+              "high",
+              "medium"
+            ]
+          },
+          "what": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "design_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fix": {
+            "enum": [
+              "remove",
+              "merge",
+              "rename",
+              "fold-into",
+              "surface",
+              "wire",
+              "decide",
+              "rewrite",
+              "cut",
+              "add"
+            ]
+          },
+          "proposal": {
+            "type": "string",
+            "minLength": 1
+          },
+          "touches": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "code",
+                "schema",
+                "config",
+                "docs",
+                "ops"
+              ]
+            }
+          },
+          "needs_decision": {
+            "type": "boolean"
+          },
+          "prior": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "category": {
+                  "const": "rule-cost"
+                }
+              },
+              "required": [
+                "category"
+              ]
+            },
+            "then": {
+              "required": [
+                "needs_decision"
+              ],
+              "properties": {
+                "needs_decision": {
+                  "const": true
+                },
+                "fix": {
+                  "const": "decide"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "mode": {
+      "enum": [
+        "pass",
+        "shape"
+      ]
+    },
+    "lenses": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "structure",
+          "docs",
+          "tests",
+          "process"
+        ]
+      },
+      "description": "structure: §19's categories + rule-cost; docs: §21's + doc-history; tests: test-cost, test-brittle; process: process-cost"
+    },
+    "adr": {
+      "type": "string",
+      "description": "shape only: the ADR shaped, as ADR-NNNN"
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Numbers the architect measured that its findings rest on"
+    },
+    "rule_changes": {
+      "type": "array",
+      "description": "Proposed changes to the house rules (architect.rules_doc)",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "rule",
+          "action",
+          "check"
+        ],
+        "properties": {
+          "rule": {
+            "type": "string",
+            "pattern": "^E[0-9]+$"
+          },
+          "action": {
+            "enum": [
+              "add",
+              "amend",
+              "delete"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "check": {
+            "type": "string",
+            "minLength": 1,
+            "description": "pass | budget | command, and what it runs or measures"
+          },
+          "why": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "shape": {
+      "type": "object",
+      "description": "shape only",
+      "properties": {
+        "hot_spots": {
+          "type": "array"
+        },
+        "preparatory_refactors": {
+          "type": "array"
+        },
+        "single_sources": {
+          "type": "array"
+        },
+        "task_graph": {
+          "type": "array"
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "description": "Not written by the architect"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "shape"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "adr",
+          "shape"
+        ],
+        "properties": {
+          "findings": {
+            "maxItems": 10
+          }
+        }
+      }
+    }
+  ]
+}

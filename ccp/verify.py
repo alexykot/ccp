@@ -1,0 +1,549 @@
+"""The verifier's record and the runner's merge gate (SPEC §15.3).
+
+  ccp verify record FILE|-              validate a verdict, then write verification/<task_id>.json
+  ccp verify merge-ok PR [--task ID]    may the runner merge this PR now? (exit 0 only if so)
+  ccp verify check TASK_ID --head SHA   the record covers this head (the adapter path, no `gh`)
+
+A record is validated against `contracts/verification.schema.json` itself (a stdlib subset of
+JSON Schema, so the plane takes no dependency) and against the rules the schema cannot hold:
+a check the verifier did not run is neither a pass nor a fail, `checked_at` is the clock time
+the verdict was reached.
+
+An approve is one head, every check it ran passed, and the formal gate the verifier ran
+(`gate.runs`, every exit 0). `record` holds an approve to that, so a verdict it writes is one
+`merge-ok` accepts.
+
+`merge-ok` is the merge rule made mechanical: the PR is open; its head is the record's
+`head_sha`; the record is such an approve; and it was recorded (committed, when the queue is a git
+checkout; written, otherwise) no earlier than its `checked_at`. A verdict at another head, one recorded after the merge, or one relayed
+in a message is not an approval. A PR that is not a task's is approved in
+`verification/pr-<n>.json`, whose `task_id` is `pr-<n>`.
+
+A product whose plane.json sets `verify.accept_cache` lets its content-keyed test cache stand in
+for a rerun: a unit the verifier's own gate run reports as a hit on identical inputs counts as
+run. `record` then holds an approve to a gate run that says how many units ran and how many were
+cached (`ran`, `cached`; a record written earlier says `modules_ran`, `modules_cached`), and, on a
+task whose gate is cold (`cold_gate`), to a cold run with nothing cached.
+
+A gate run may name the `ccp suite run` that ran it (`suite_id`, §14.1): `record` fills its exit
+code, tests, skips, seconds and units ran and cached from that recorded run (the gate's result
+file, or the output's counts), so the verifier types none of them.
+
+`record` also refuses an approve of a task whose latest fix round is newer than its last review, or
+of a head other than the one that review judged (§15.2, the runner brief's step 7), unless the open
+verify run carries the override `ccp prompt verify --allow-unreviewed-fix` recorded.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+from datetime import datetime, timedelta, timezone
+from fnmatch import fnmatchcase
+from pathlib import Path
+from typing import Any
+
+from ccp.envvars import envvar
+from ccp.config import Config
+
+SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "verification.schema.json"
+# Clocks on two machines differ a little; a minute is the slack, not a rounding allowance.
+SKEW = timedelta(seconds=60)
+SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_TYPES = {"object": dict, "array": list, "string": str, "boolean": bool, "null": type(None)}
+# Keywords that only describe; every other keyword must be one `schema_errors` enforces.
+_ANNOTATIONS = {"$schema", "$id", "title", "description", "default"}
+
+
+def _ci(queue: Path) -> bool:
+    """The binding opts into CI (`ci: github-actions`, §15.3): only then may a verdict cite `gate.ci_run`."""
+    path = queue / "project.yaml"
+    if not path.is_file() and os.environ.get("PROJECT_YAML"):
+        path = Path(os.environ["PROJECT_YAML"])
+    text = path.read_text() if path.is_file() else ""
+    return re.search(r"^ci:\s*['\"]?github-actions\b", text, re.M) is not None
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _iso(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse_dt(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$", value):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _is(value: Any, typ: str) -> bool:
+    if typ == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if typ == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    return isinstance(value, _TYPES[typ])
+
+
+def schema_errors(value: Any, schema: dict[str, Any], at: str = "record") -> list[str]:
+    """Where `value` breaks `schema`. Only the keywords the plane's contracts use are known; an
+    unknown one is an error, so a contract change cannot silently weaken this check."""
+    unknown = set(schema) - _ANNOTATIONS - {"type", "enum", "required", "properties", "additionalProperties",
+                                            "items", "minItems", "minLength", "minimum", "pattern", "format"}
+    if unknown:
+        return [f"{at}: the schema uses {', '.join(sorted(unknown))}, which ccp verify cannot check"]
+    types = schema.get("type")
+    if types is not None:
+        types = [types] if isinstance(types, str) else types
+        if not any(_is(value, t) for t in types):
+            return [f"{at}: {json.dumps(value)[:60]} is not {' or '.join(types)}"]
+    errs: list[str] = []
+    if "enum" in schema and value not in schema["enum"]:
+        errs.append(f"{at}: {json.dumps(value)[:60]} is not one of {', '.join(map(str, schema['enum']))}")
+    if isinstance(value, str):
+        if len(value) < schema.get("minLength", 0):
+            errs.append(f"{at}: shorter than {schema['minLength']}")
+        if "pattern" in schema and not re.search(schema["pattern"], value):
+            errs.append(f"{at}: {value!r} does not match {schema['pattern']}")
+        if schema.get("format") == "date-time" and _parse_dt(value) is None:
+            errs.append(f"{at}: {value!r} is not an RFC 3339 date-time")
+    if "minimum" in schema and _is(value, "number") and value < schema["minimum"]:
+        errs.append(f"{at}: {value} is below {schema['minimum']}")
+    if isinstance(value, list):
+        if len(value) < schema.get("minItems", 0):
+            errs.append(f"{at}: fewer than {schema['minItems']} item(s)")
+        for i, item in enumerate(value):
+            errs += schema_errors(item, schema.get("items", {}), f"{at}[{i}]")
+    if isinstance(value, dict):
+        props = schema.get("properties", {})
+        for k in schema.get("required", []):
+            if k not in value:
+                errs.append(f"{at}: missing {k}")
+        for k, v in value.items():
+            if k in props:
+                errs += schema_errors(v, props[k], f"{at}.{k}")
+            elif schema.get("additionalProperties") is False:
+                errs.append(f"{at}: unexpected key {k}")
+    return errs
+
+
+def record_errors(rec: Any, now: datetime | None = None) -> list[str]:
+    """The schema, then what it cannot say. With `now`, a `checked_at` later than now fails."""
+    errs = schema_errors(rec, json.loads(SCHEMA.read_text()))
+    if not isinstance(rec, dict):
+        return errs
+    for i, c in enumerate(rec.get("checks") or []):
+        if not isinstance(c, dict):
+            continue
+        name = f"checks[{i}] ({c.get('dod_check_id')})"
+        if c.get("ran", True) is False:
+            if c.get("pass") is not None:
+                errs.append(f"{name}: a check the verifier did not run is neither a pass nor a fail: pass is null")
+            if not c.get("rests_on"):
+                errs.append(f"{name}: a check the verifier did not run names whose claim it rests on (rests_on)")
+        elif c.get("pass") is None:
+            errs.append(f"{name}: pass is null, so ran is false and rests_on says whose claim it rests on")
+    checked = _parse_dt(rec.get("checked_at"))
+    if now is not None and checked is not None and checked > now + SKEW:
+        errs.append(f"checked_at {rec.get('checked_at')} is later than now ({_iso(now)}): "
+                    "it is the clock time the verdict was reached")
+    return errs
+
+
+def _gate_runs(rec: dict[str, Any]) -> list[Any]:
+    gate = rec.get("gate")
+    return (gate.get("runs") or []) if isinstance(gate, dict) else []
+
+
+def approve_errors(rec: dict[str, Any]) -> list[str]:
+    """Why an `approve` is not one: a check it ran failed, it names no head, or it carries no
+    passing gate. Nothing for another verdict."""
+    if rec.get("verdict") != "approve":
+        return []
+    errs = []
+    failed = [str(c.get("dod_check_id")) for c in rec.get("checks") or []
+              if isinstance(c, dict) and c.get("ran", True) is not False and c.get("pass") is False]
+    if failed:
+        errs.append(f"an approve with a failed check ({', '.join(failed)}): a check that failed is a reject")
+    if not str(rec.get("head_sha") or "").strip():
+        errs.append("the record names no head_sha: an approval is of one head")
+    runs = _gate_runs(rec)
+    if not runs:
+        errs.append("the record carries no gate: the verifier's own unit and lint runs at the head (§15.3)")
+    for r in runs:
+        if isinstance(r, dict) and r.get("exit_code") != 0:
+            errs.append(f"gate run {r.get('command')!r} exited {r.get('exit_code')}")
+    return errs
+
+
+# A gate run that names a recorded `ccp suite run` (§14.1) takes these from it, where it does not say them.
+GATE_FROM_SUITE = {"exit_code": "exit_code", "tests_run": "tests", "tests_skipped": "skipped", "seconds": "seconds",
+                   "ran": "ran", "cached": "cached"}
+
+
+def gate_counts(r: dict[str, Any]) -> tuple[Any, Any]:
+    """A gate run's units ran and cached; a run recorded before the gate-result contract names them
+    `modules_ran` and `modules_cached`."""
+    return (r["ran"] if "ran" in r else r.get("modules_ran"), r["cached"] if "cached" in r else r.get("modules_cached"))
+
+
+def _latest_verify(queue: Path, task_id: str) -> str:
+    """The task's latest verify run id, or "" when it has none."""
+    from ccp import runs  # noqa: PLC0415
+    try:
+        found = [r for r in runs.all_runs(queue, task_id) if r.get("phase") == "verify"]
+    except Exception:  # noqa: BLE001
+        return ""
+    return str(max(found, key=lambda r: runs.parse_id(str(r["run_id"]))[2])["run_id"]) if found else ""
+
+
+def fill_gate(queue: Path, rec: dict[str, Any]) -> list[str]:
+    """§14.1: each `gate.runs` entry with a `suite_id` is filled from that recorded suite run: its
+    exit code, tests, skips, seconds and units ran and cached, and a `command` naming it when the
+    entry has none. A number the entry gives itself stays; an exit code that differs from the
+    recorded one is refused. The suite run must be recorded, ended, and bound to this task's latest
+    verify run: an unbound run, another phase's, or an earlier verify round's (an older head) is refused."""
+    gate = rec.get("gate")
+    entries = [r for r in (gate.get("runs") or []) if isinstance(r, dict) and r.get("suite_id")] \
+        if isinstance(gate, dict) and isinstance(gate.get("runs"), list) else []
+    if not entries:
+        return []
+    from ccp import suite  # noqa: PLC0415
+    try:
+        rows = {r.get("suite_id"): r for r in suite.fold(queue)}
+    except Exception:  # noqa: BLE001
+        rows = {}
+    errs = []
+    latest: str | None = None
+    for e in entries:
+        sid = str(e["suite_id"])
+        row = rows.get(sid)
+        if row is None:
+            errs.append(f"gate run suite_id {sid}: no such suite run is recorded (ccp suite list)")
+            continue
+        if row.get("state") not in ("passed", "failed", "interrupted"):
+            errs.append(f"gate run suite_id {sid}: that suite run has not ended ({row.get('state')})")
+            continue
+        bound = str(row.get("run_id") or "")
+        if not bound:
+            errs.append(f"gate run suite_id {sid}: that suite run is bound to no run; a gate is run with "
+                        f"`ccp suite run --run <your verify run>`")
+            continue
+        if row.get("task_id") != rec.get("task_id") or row.get("phase") != "verify":
+            errs.append(f"gate run suite_id {sid}: that suite run is {bound}'s, not a verify run of {rec.get('task_id')}")
+            continue
+        if latest is None:
+            latest = _latest_verify(queue, str(rec.get("task_id") or ""))
+        if bound != latest:
+            errs.append(f"gate run suite_id {sid}: that suite run is {bound}'s, an earlier verify round; "
+                        f"{rec.get('task_id')}'s latest verify run is {latest or 'unknown'}: cite a gate run of it")
+            continue
+        if "exit_code" in e and e["exit_code"] != row.get("exit_code"):
+            errs.append(f"gate run suite_id {sid}: exit_code {e['exit_code']} differs from the recorded {row.get('exit_code')}")
+            continue
+        for key, src in GATE_FROM_SUITE.items():
+            if key not in e and row.get(src) is not None:
+                e[key] = row[src]
+        e.setdefault("command", f"ccp suite run --lane {row.get('lane') or '-'} -- {row.get('cmd') or '?'} "
+                                f"({row.get('argc', 0)} args)")
+    return errs
+
+
+def cache_rule(cfg: Config) -> dict[str, Any] | None:
+    """plane.json `verify.accept_cache`, or None when the product does not accept cache hits."""
+    return (cfg.verify or {}).get("accept_cache") or None
+
+
+def cold_gate(cfg: Config, meta: dict[str, Any]) -> bool:
+    """Whether this task's gate runs cold under the product's cache rule: its frontmatter says
+    `gate: cold`, or its id matches one of `cold_tasks` (a rollout, say). False without the rule."""
+    rule = cache_rule(cfg)
+    if not rule:
+        return False
+    tid = str(meta.get("task_id") or "")
+    return str(meta.get("gate") or "").strip().lower() == "cold" or any(fnmatchcase(tid, g) for g in rule["cold_tasks"])
+
+
+def cache_errors(cfg: Config, rec: dict[str, Any]) -> list[str]:
+    """Under `verify.accept_cache`, why an approve's gate does not say what the cache did: no run
+    gives its units ran and cached, or a cold-gate task's run was warm. Nothing otherwise."""
+    if not cache_rule(cfg) or rec.get("verdict") != "approve":
+        return []
+    counted = [r for r in _gate_runs(rec) if isinstance(r, dict) and None not in gate_counts(r)]
+    if not counted:
+        return ["the product accepts its test cache's hits (plane.json verify.accept_cache): the gate run of the "
+                "suite gives ran and cached (the gate's result file, or its output's counts, §14.1)"]
+    from ccp.queue import QueueError, task_meta  # noqa: PLC0415
+    tid = str(rec.get("task_id") or "")
+    if tid.startswith("pr-"):
+        return []
+    try:
+        meta = task_meta(cfg, tid)
+    except QueueError:
+        return []
+    cold = [r for r in counted if not gate_counts(r)[1] and r.get("cold") is True]
+    if cold_gate(cfg, meta) and not cold:  # a warm run beside a cold one is fine; a cold one is required
+        return [f"{tid}'s gate is cold (gate: cold, or verify.accept_cache.cold_tasks): a gate run of the suite "
+                "is cold (`cold: true`) with nothing cached"]
+    return []
+
+
+def review_errors(queue: Path, rec: dict[str, Any]) -> list[str]:
+    """§15.2, belt and braces to `ccp prompt verify`: an approve of a head with a fix round after the
+    task's last review (or commits after the head it judged) is refused, unless the task's open verify
+    run carries the override `ccp prompt verify --allow-unreviewed-fix --reason` recorded. Nothing for a
+    reject, or for a PR that is not a task's."""
+    from ccp import runs  # noqa: PLC0415
+    from ccp.queue import QueueError  # noqa: PLC0415
+
+    tid = str(rec.get("task_id") or "")
+    if rec.get("verdict") != "approve" or not tid or tid.startswith("pr-"):
+        return []
+    try:
+        why = runs.unreviewed_fix(queue, tid, str(rec.get("head_sha") or "").strip() or None)
+        run = runs.latest_open(queue, tid, "verify") if why else None
+    except QueueError:
+        return []
+    if why is None or (run is not None and run.get("allow_unreviewed_fix")):
+        return []
+    return [f"{why}; an approve stands only when `ccp prompt verify --allow-unreviewed-fix --reason` recorded "
+            "the override on this verify run"]
+
+
+def _load(path: Path) -> dict[str, Any] | str:
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        return f"verification file is not JSON: {exc}"
+    if not isinstance(data, dict):
+        return "verification file is not an object"
+    return data
+
+
+def heads_match(approved: str, pr_head: str) -> bool:
+    """True when the two shas are the same commit. A short sha matches a full one."""
+    a, b = approved.lower(), pr_head.lower()
+    if len(a) < 7 or len(b) < 7:
+        return False
+    return a == b or a.startswith(b) or b.startswith(a)
+
+
+def refusal(queue: Path, task_id: str, pr_head: str) -> str | None:
+    """Why the runner must not merge, or None when the verdict covers this PR head."""
+    path = queue / "verification" / f"{task_id}.json"
+    if not path.is_file():
+        return f"no verification file for {task_id}"
+    loaded = _load(path)
+    if isinstance(loaded, str):
+        return loaded
+    errs = record_errors(loaded)
+    if errs:
+        return "the verification record is not valid: " + "; ".join(errs)
+    if loaded.get("verdict") != "approve":
+        return f"verdict is {loaded.get('verdict')!r}, not approve"
+    recorded = loaded.get("head_sha")
+    if not isinstance(recorded, str) or not recorded.strip():
+        return None
+    if not heads_match(recorded.strip(), pr_head.strip()):
+        return f"PR head {pr_head} differs from head_sha {recorded}"
+    return None
+
+
+def write_record(queue: Path, rec: Any, now: datetime) -> tuple[list[str], Path | None]:
+    """Validate `rec` and write it to verification/<task_id>.json. Nothing is written on an error."""
+    if isinstance(rec, dict) and "checked_at" not in rec:
+        rec = {**rec, "checked_at": _iso(now)}
+    errs = record_errors(rec, now)
+    if isinstance(rec, dict):
+        errs += approve_errors(rec)
+    if isinstance(rec, dict) and isinstance(rec.get("gate"), dict) and rec["gate"].get("ci_run") and not _ci(queue):
+        errs.append("gate.ci_run: this product's binding has no `ci: github-actions`, so a CI run is not evidence "
+                    "(SPEC §15.3: the gate is the verifier's own run, never CI). Remove it.")
+    if errs:
+        return errs, None
+    if not SAFE_ID_RE.match(str(rec["task_id"])):
+        return [f"task_id {rec['task_id']!r} is not a file name"], None
+    path = queue / "verification" / f"{rec['task_id']}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(rec, indent=2, ensure_ascii=False) + "\n")
+    tmp.replace(path)
+    return [], path
+
+
+def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True)
+
+
+def recorded_at(queue: Path, path: Path) -> tuple[datetime | None, str]:
+    """When the record was recorded, and how. In a git checkout: the commit that last changed it,
+    which must hold it as it is. Otherwise (the usual queue): when it was written."""
+    top = _git(queue, "rev-parse", "--show-toplevel")
+    if top.returncode != 0:
+        return datetime.fromtimestamp(path.stat().st_mtime, timezone.utc), "written"
+    rel = os.path.relpath(path.resolve(), Path(top.stdout.strip()).resolve())
+    if _git(queue, "ls-files", "--error-unmatch", "--", rel).returncode != 0 \
+            or _git(queue, "status", "--porcelain", "--", rel).stdout.strip():
+        return None, f"{rel} is not committed as it stands: commit the record, then merge"
+    log = _git(queue, "log", "-1", "--format=%H %cI", "--", rel).stdout.split()
+    return datetime.fromisoformat(log[1]), f"commit {log[0][:12]}"
+
+
+class NoGh(Exception):
+    """`gh` cannot run here: a configuration problem, not a refusal."""
+
+
+def _pr_facts(root: Path, pr: str) -> dict[str, Any] | str:
+    gh = envvar("CCP_GH_BIN") or "gh"
+    try:
+        proc = subprocess.run([gh, "pr", "view", pr, "--json", "number,state,headRefOid,mergedAt"],
+                              cwd=root, capture_output=True, text=True)
+    except FileNotFoundError as exc:
+        raise NoGh(f"{gh} is not installed: merge-ok reads the PR with gh") from exc
+    if proc.returncode != 0:
+        return f"could not read PR {pr}: {(proc.stderr or proc.stdout).strip()}"
+    try:
+        facts = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        return f"gh printed no JSON for PR {pr}: {exc}"
+    return facts if isinstance(facts, dict) else f"gh printed no object for PR {pr}"
+
+
+def merge_ok(cfg: Config, queue: Path, pr: str, task_id: str | None) -> tuple[list[str], dict[str, Any]]:
+    """Every reason the runner may not merge `pr` now (none means it may), and what was checked."""
+    rid = task_id or f"pr-{pr}"
+    path = queue / "verification" / f"{rid}.json"
+    body: dict[str, Any] = {"pr": pr, "record": f"verification/{rid}.json"}
+    facts = _pr_facts(cfg.root, pr)
+    if isinstance(facts, str):
+        return [facts], body
+    head = str(facts.get("headRefOid") or "")
+    body["pr_head"] = head
+    if not path.is_file():
+        return [f"no verification record verification/{rid}.json"
+                + ("" if task_id else " (a task PR names its task with --task)")], body
+    rec = _load(path)
+    if isinstance(rec, str):
+        return [rec], body
+    reasons = record_errors(rec)
+    if rec.get("project_id") != cfg.project_id:
+        reasons.append(f"the record is for project {rec.get('project_id')!r}, not {cfg.project_id}")
+    if rec.get("task_id") != rid:
+        reasons.append(f"the record's task_id is {rec.get('task_id')!r}, not {rid}")
+    if rec.get("verdict") != "approve":
+        reasons.append(f"the verdict is {rec.get('verdict')!r}, not approve")
+    reasons += approve_errors(rec)
+    recorded_head = str(rec.get("head_sha") or "")
+    if recorded_head and not heads_match(recorded_head, head):
+        reasons.append(f"the PR head {head[:12]} is not the approved head {recorded_head[:12]}: "
+                       "a push after the verdict needs a new verdict (re-verify packet)")
+    body["gate_runs"] = _gate_runs(rec)
+    when, how = recorded_at(queue, path)
+    body["recorded"] = how
+    if when is None:
+        reasons.append(how)
+    else:
+        body["recorded_at"] = _iso(when)
+        checked = _parse_dt(rec.get("checked_at"))
+        if checked is not None and checked > when + SKEW:
+            reasons.append(f"checked_at {rec.get('checked_at')} is after the record was recorded "
+                           f"({_iso(when)}): checked_at is the clock time the verdict was reached")
+    state = str(facts.get("state") or "")
+    if state != "OPEN":
+        merged = _parse_dt(facts.get("mergedAt"))
+        when_s = f" at {_iso(merged)}" if merged else ""
+        order = ""
+        if merged and when:
+            order = f"; the approval was recorded {'before' if when <= merged else 'after'} it"
+        reasons.append(f"PR {pr} is {state.lower() or 'not open'}{when_s}{order}")
+    body["unrun_checks"] = [c.get("dod_check_id") for c in rec.get("checks") or []
+                            if isinstance(c, dict) and c.get("ran", True) is False]
+    body["head_sha"] = recorded_head
+    if not reasons:
+        body["match_head_commit"] = head  # the PR's full head, which the approval names
+    return reasons, body
+
+
+def _note_run(cfg: Config, queue: Path, rec: dict[str, Any]) -> str | None:
+    """§10.3: the verdict on the task's open verify run, and a `verify/recorded` event. The verifier's
+    `ccp report` closes the run. A verdict with no open run (a PR that is not a task's, a record
+    written before the toolkit) is still recorded; it only has no run to note."""
+    from ccp import runs  # noqa: PLC0415
+    from ccp.queue import QueueError, emit  # noqa: PLC0415
+
+    try:
+        run = runs.latest_open(queue, str(rec["task_id"]), "verify")
+        if run is None:
+            return None
+        run.update(verdict=rec["verdict"], head=rec.get("head_sha"), verdict_at=rec.get("checked_at"))
+        runs.save(queue, run)
+        emit(queue, cfg, str(rec["task_id"]), "verify", "recorded",
+             {"run_id": run["run_id"], "verdict": rec["verdict"], "head_sha": rec.get("head_sha") or ""}, "task-verifier")
+        return run["run_id"]
+    except QueueError as exc:
+        print(f"ccp verify record: the verdict is written; noting it on its run failed: {exc}", file=sys.stderr)
+        return None
+
+
+def _queue() -> Path | None:
+    q = os.environ.get("QUEUE_ROOT")
+    if not q or not Path(q).is_dir():
+        print("ccp verify: set QUEUE_ROOT to this project's runtime queue", file=sys.stderr)
+        return None
+    return Path(q)
+
+
+def main(cfg: Config, a: Any) -> int:
+    queue = _queue()
+    if queue is None:
+        return 2
+    if a.action == "record":
+        try:
+            rec = json.loads(sys.stdin.read() if a.target == "-" else Path(a.target).read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"ccp verify record: {exc}", file=sys.stderr)
+            return 2
+        errs = fill_gate(queue, rec) if isinstance(rec, dict) else []
+        errs = errs or (cache_errors(cfg, rec) if isinstance(rec, dict) else [])
+        errs = errs or (review_errors(queue, rec) if isinstance(rec, dict) else [])
+        if not errs:
+            errs, path = write_record(queue, rec, _now())
+        if errs:
+            print("ccp verify record: refused, nothing written", file=sys.stderr)
+            for e in errs:
+                print(f"  {e}", file=sys.stderr)
+            return 1
+        run_id = _note_run(cfg, queue, rec)
+        print(json.dumps({"ok": True, "path": str(path), "task_id": rec["task_id"], "verdict": rec["verdict"],
+                          "head_sha": rec.get("head_sha"), "run_id": run_id}, indent=2))
+        return 0
+    if a.action == "merge-ok":
+        if not str(a.target or "").isdigit():
+            print("ccp verify merge-ok: give the PR number", file=sys.stderr)
+            return 2
+        try:
+            reasons, body = merge_ok(cfg, queue, a.target, a.task)
+        except NoGh as exc:
+            print(f"ccp verify: {exc}", file=sys.stderr)
+            return 2
+        body = {"ok": not reasons, **body, **({"reasons": reasons} if reasons else {})}
+        for r in reasons:
+            print(f"ccp verify merge-ok: {r}", file=sys.stderr)
+        print(json.dumps(body, indent=2))
+        return 1 if reasons else 0
+    if not str(a.head or "").strip():
+        print("ccp verify: --head is the PR head the runner would merge", file=sys.stderr)
+        return 2
+    reason = refusal(queue, a.target, a.head)
+    if reason:
+        print(f"ccp verify: {reason}", file=sys.stderr)
+        print(json.dumps({"ok": False, "task_id": a.target, "reason": reason}, indent=2))
+        return 1
+    print(json.dumps({"ok": True, "task_id": a.target, "head_sha": a.head}, indent=2))
+    return 0

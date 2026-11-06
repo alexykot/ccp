@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="60">
+<title>Delivery board</title>
+<link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f2937'/%3E%3Crect x='6' y='17' width='5' height='9' rx='1' fill='%2393c5fd'/%3E%3Crect x='13.5' y='11' width='5' height='15' rx='1' fill='%2393c5fd'/%3E%3Crect x='21' y='14' width='5' height='12' rx='1' fill='%2393c5fd'/%3E%3C/svg%3E">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --other: #b9b8b1;
+  --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --other: #5a5955;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --other: #5a5955;
+}
+* { box-sizing: border-box; }
+/* Layout: a fluid dashboard. A header strip (blockers, tiles, Now) on every tab, then one tab of
+   cards in an auto-filling grid: about 4 columns on a 16" laptop, 6 on a 21:9 screen, 1 on a phone. */
+body { margin: 0; background: var(--page); color: var(--ink);
+  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif; }
+main { padding-block: 16px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+@media (min-width: 900px) { main { padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); } }
+@media (min-width: 1400px) { main { padding-left: max(32px, env(safe-area-inset-left, 0px)); padding-right: max(32px, env(safe-area-inset-right, 0px)); } }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; }
+main > header { margin-bottom: 12px; }
+h1 { font-size: 20px; margin: 0; font-weight: 650; }
+h2 { font-size: 15px; margin: 0 0 10px; font-weight: 620; text-wrap: balance; }
+.meta { color: var(--ink-2); font-size: 13px; }
+.grow { flex: 1; }
+button.theme { background: none; border: 1px solid var(--axis); color: var(--ink-2); border-radius: 6px;
+  padding: 2px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.card { background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.tile { background: var(--surface); border: 1px solid var(--grid); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.tile .k { color: var(--ink-2); font-size: 12px; }
+.tile .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.tile .d { color: var(--muted); font-size: 12px; }
+/* Two halves inside a card: side by side when the card is wide enough, stacked when not. */
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 14px; }
+.cols > * { min-width: 0; }
+.banner { border-radius: 8px; padding: 8px 12px; font-size: 13px; display: flex; gap: 8px;
+  border: 1px solid var(--grid); background: var(--surface); }
+.banner + .banner { margin-top: 8px; }
+.banner b { white-space: nowrap; }
+.banner.critical { border-color: var(--critical); }
+.banner.critical b { color: var(--critical); } .banner.warning b { color: var(--serious); }
+.banner.good b { color: var(--good); }
+/* The header strip: blockers first, then the tiles and Now side by side where there is room. */
+.strip { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
+.strip .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; }
+.strip .row > .tiles { flex: 1 1 960px; min-width: 0; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+.strip .row > .now { flex: 1 1 480px; min-width: 0; }
+.now dl { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; font-size: 13px; }
+.now dl > div { min-width: 0; max-width: 100%; }
+.now dt { color: var(--ink-2); font-size: 12px; }
+.now dd { margin: 0; overflow-wrap: anywhere; }
+.now h2 { margin-bottom: 6px; }
+/* Tabs: hash-routed (#tab=<name>), keys 1 to 5, sticky above the cards. */
+nav.tabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--page); display: flex; gap: 2px;
+  overflow-x: auto; border-bottom: 1px solid var(--axis); margin-bottom: 14px; scrollbar-width: none; }
+nav.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--ink-2); font: inherit; font-weight: 560;
+  padding: 9px 12px 7px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+nav.tabs button:hover { color: var(--ink); }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--s1); }
+nav.tabs button:focus-visible, button:focus-visible { outline: 2px solid var(--s1); outline-offset: 1px; }
+nav.tabs kbd { font: inherit; font-size: 11px; color: var(--muted); }
+.badge { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 9px; font-size: 11px; line-height: 17px; text-align: center;
+  background: var(--grid); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.badge.warn { background: var(--serious); color: #fff; }
+nav.tabs .hint { margin-left: auto; align-self: center; color: var(--muted); font-size: 12px; padding: 0 4px; white-space: nowrap; }
+@media (max-width: 700px) { nav.tabs kbd, nav.tabs .hint { display: none; } nav.tabs button { padding: 9px 9px 7px; } }
+/* The grid of cards. A column is at least 400px (15vw on a wide screen); wide cards span 2, 3 or 4
+   columns once that many exist, so a phone never gets an implicit extra column. The classes give
+   each card its least span; fillRows() then widens the cards of a short row, in proportion, until
+   the row is full, so no row ends in empty columns (cards keep their reading order). */
+.pane[hidden] { display: none; }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, max(400px, 15vw)), 1fr));
+  align-items: start; grid-auto-flow: row; }
+.grid > * { min-width: 0; }
+.grid > .all { grid-column: 1 / -1; }
+@media (min-width: 880px) { .grid > .s2, .grid > .s3, .grid > .s4 { grid-column: span 2; } }
+@media (min-width: 1300px) { .grid > .s3, .grid > .s4 { grid-column: span 3; } }
+@media (min-width: 1720px) { .grid > .s4 { grid-column: span 4; } }
+@media (min-width: 2200px) { .grid > .w2 { grid-column: span 2; } .grid > .w4 { grid-column: span 4; } }
+.grid > .tiles.all { grid-template-columns: repeat(auto-fill, minmax(170px, 260px)); }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+/* A long table scrolls inside its card, under a sticky header, so one card never sets a row's height. */
+.tall { max-height: min(70vh, 760px); overflow: auto; }
+.tall th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.subgrid { display: grid; gap: 4px 18px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.subgrid > * { min-width: 0; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+th { text-align: left; color: var(--ink-2); font-weight: 560; border-bottom: 1px solid var(--axis); padding: 4px 6px; }
+td { border-bottom: 1px solid var(--grid); padding: 4px 6px; vertical-align: top; }
+td.n, th.n { text-align: right; }
+.scroll { overflow-x: auto; max-width: 100%; }
+.muted { color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); margin: 6px 0 2px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.meter { position: relative; height: 12px; background: var(--grid); border-radius: 6px; margin: 8px 0 4px; }
+.meter .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: var(--s1); }
+.meter .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+/* A chart never grows past a readable height on a very wide card. */
+.grid svg { max-height: 360px; }
+svg text { fill: var(--muted); font-size: 11px; }
+#tip { position: fixed; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--axis);
+  border-radius: 6px; padding: 6px 8px; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.15); display: none; z-index: 9;
+  max-width: 280px; font-variant-numeric: tabular-nums; }
+details summary { cursor: pointer; color: var(--ink-2); font-size: 12px; margin-top: 8px; }
+ul.plain { margin: 0; padding-left: 18px; } ul.plain li { margin: 2px 0; overflow-wrap: anywhere; }
+code { font-size: 12px; }
+.meter.small { height: 8px; margin: 4px 0 2px; }
+.meter .fill.over { background: var(--critical); }
+.sev { display: inline-flex; height: 10px; width: 90px; border-radius: 3px; overflow: hidden; vertical-align: -1px; background: var(--grid); }
+.sev i { display: block; height: 100%; }
+.chips span { display: inline-block; border: 1px solid var(--grid); border-radius: 10px; padding: 0 7px; margin: 1px 4px 1px 0; font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+ol.notes { margin: 0; padding-left: 0; list-style: none; } ol.notes li { padding: 5px 0; border-bottom: 1px solid var(--grid); font-size: 13px; overflow-wrap: anywhere; }
+ol.notes .muted { font-size: 12px; }
+h3 { font-size: 13px; margin: 12px 0 6px; font-weight: 600; color: var(--ink-2); }
+/* The drill-down: a full sheet on a laptop or phone; on a screen 1600px or wider, a drawer taking the
+   right 40% while the tab's cards reflow into the rest. */
+#drill { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 8; overflow-y: auto; padding: 24px 16px; }
+#drill[hidden] { display: none; }
+#drill .sheet { background: var(--surface); color: var(--ink); border: 1px solid var(--axis); border-radius: 10px; max-width: 1040px;
+  margin: 0 auto; padding: 14px 16px 18px; }
+#drill .sheet header { margin-bottom: 8px; }
+#drill .note { border-left: 3px solid var(--warning); padding: 2px 8px; color: var(--ink-2); font-size: 13px; margin: 6px 0; }
+#drill .tiles { margin-bottom: 14px; }
+@media (max-width: 600px) { #drill { padding: 8px 0; } #drill .sheet { border-radius: 0; padding: 12px 16px; } }
+@media (min-width: 1600px) {
+  #drill { inset: 0 0 0 auto; width: 40vw; background: var(--page); border-left: 1px solid var(--axis); padding: 16px 20px 16px 16px;
+    box-shadow: -6px 0 18px rgba(0,0,0,.12); }
+  #drill .sheet { max-width: none; }
+  :root[data-drill="open"] main { margin-right: 40vw; }
+}
+/* The review-point filter (§22.4) above a list of tasks or ADRs; rows it hides take no space. */
+.rpf { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); margin: -4px 0 8px; }
+.rpf select { font: inherit; font-size: 12px; color: var(--ink); background: var(--surface); border: 1px solid var(--axis);
+  border-radius: 6px; padding: 1px 4px; max-width: 100%; }
+[data-rp][hidden] { display: none; }
+.goal { white-space: pre-line; overflow-wrap: anywhere; }
+[data-drill] { cursor: pointer; }
+tr[data-drill]:hover td { background: var(--grid); }
+button.link { background: none; border: 0; padding: 0; font: inherit; color: var(--s1); cursor: pointer; text-align: left; }
+@media (prefers-reduced-motion: no-preference) { nav.tabs button { transition: color .12s, border-color .12s; } }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<div id="tip" role="tooltip"></div>
+<div id="drill" hidden role="dialog" aria-modal="true" aria-label="Task drill-down"></div>
+<script>
+const B = /*__BOARD__*/null;
+const SEATS = [["implementer", "--s1"], ["reviewer", "--s2"], ["verifier", "--s3"], ["runner", "--s4"],
+               ["design-seat", "--s5"], ["other seats", "--s6"], ["unattributed", "--other"]];
+// Named seats keep their own slot; any other attributed bucket (a teammate, a run with no seat) is "other seats".
+const NAMED = ["implementer", "reviewer", "verifier", "runner", "design-seat"];
+const bucket = (day, s) => s === "unattributed" ? (day.unattributed || 0)
+  : s === "other seats" ? Object.entries(day).filter(([k]) => !NAMED.includes(k) && k !== "unattributed").reduce((a, [, v]) => a + v, 0)
+  : (day[s] || 0);
+const TOK = ["input_tokens", "output_tokens", "cache_read_tokens", "cache_creation_tokens"];
+const $ = (h) => { const t = document.createElement("template"); t.innerHTML = h.trim(); return t.content; };
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const fmtTok = (n) => n == null ? "–" : n >= 1e9 ? (n / 1e9).toFixed(1) + "B" : n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? Math.round(n / 1e3) + "k" : String(n);
+const fmtH = (s) => s == null ? "–" : s >= 3600 ? (s / 3600).toFixed(1) + "h" : Math.round(s / 60) + "m";
+const sum = (o) => TOK.reduce((a, k) => a + (o?.[k] || 0), 0);
+const seatOf = (k) => SEATS.find(([n]) => n === k) ? k : "unattributed";
+const ago = (iso) => { if (!iso) return "–"; const m = (Date.now() - Date.parse(iso)) / 60000;
+  return m < 1 ? "just now" : m < 60 ? Math.round(m) + " min ago" : m < 1440 ? (m / 60).toFixed(1) + " h ago" : (m / 1440).toFixed(1) + " d ago"; };
+const tip = document.getElementById("tip");
+function showTip(e, html) { tip.innerHTML = html; tip.style.display = "block";
+  const x = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8), y = Math.min(e.clientY + 12, innerHeight - tip.offsetHeight - 8);
+  tip.style.left = x + "px"; tip.style.top = y + "px"; }
+function hideTip() { tip.style.display = "none"; }
+
+// §28.1 Now: one row per live seat, its pinned and observed model and effort (ccp/seats.py).
+function seatsCard(S) {
+  if (!S) return "";
+  const mo = (m, e) => `${esc(m || "–")} · ${esc(e || "–")}`;
+  let body;
+  if (S.error) body = `<div class="banner critical" role="status"><b>⚠ Seats failed</b><span>${esc(S.error)}</span></div>`;
+  else {
+    body = "";
+    body += `<div class="scroll"><table style="min-width:900px"><tr><th>Team</th><th>Seat</th><th>Status</th><th>Since</th><th>Pinned</th><th>Observed</th><th>Check</th><th>Last activity</th></tr>
+    ${(S.rows || []).map((r) => { const e = r.expected || {}, o = r.observed, mm = r.mismatch || [];
+      const check = mm.length ? `<b style="color:var(${e.advisory ? "--serious" : "--critical"})">⚠ ${e.advisory ? "advice: " : ""}${esc(mm.join("; "))}</b>` : o && (e.model || e.effort) ? `<span style="color:var(--good)">✓ as pinned</span>` : `<span class="muted">–</span>`;
+      const la = r.last_activity;
+      return `<tr><td>${esc(r.team)}</td><td>${esc(r.seat)}</td><td>${esc(r.status)}${r.stale ? ` <b style="color:var(--serious)">⚠ ${esc(r.stale)}</b>` : ""}</td><td style="white-space:nowrap">${r.since ? esc(ago(r.since)) : "–"}</td>
+        <td title="${esc(e.source || "")}">${e.model || e.effort ? mo(e.model, e.effort) : `<span class="muted">${esc(e.source || "–")}</span>`}${e.advisory ? ' <span class="muted">(advisory)</span>' : ""}</td>
+        <td>${o ? mo(o.model, o.effort) + (o.other_models?.length ? ` <span class="muted">also ${esc(o.other_models.join(", "))}</span>` : "") : `<span class="muted">${esc(r.observed_note || "–")}</span>`}</td>
+        <td>${check}${(r.notes || []).map((x) => `<div class="muted">${esc(x)}</div>`).join("")}</td><td style="white-space:nowrap" title="${esc(la?.source || "")}">${la ? esc(ago(la.at)) + ` <span class="muted">${esc(la.source || "")}</span>` : "–"}</td></tr>`; }).join("")}
+    </table></div><p class="meta">Pinned: the definitions, the run records, <code>telemetry.design_seat</code> and the headless flags (hover for the source). Observed: the seat's latest requests in the telemetry, the model with most tokens within ${esc(S.window_minutes)} min of its last one${S.telemetry ? "" : ". No telemetry has been received for this project yet"}.</p>`;
+  }
+  return `<section class="card"><h2>Seats</h2>${body}</section>`;
+}
+function legend(items) { return `<div class="legend">${items.map(([n, v]) => `<span><i style="background:var(${v})"></i>${esc(n)}</span>`).join("")}</div>`; }
+
+// Charts draw in CSS pixels: each records draw(W) and its hover binding, and fitCharts() redraws
+// it at its container's width once the page is laid out and whenever that width changes, so axis
+// text stays 11px in a narrow card and a wide card gets a wide chart (heights stay fixed).
+const CHARTS = [];
+function chart(id, draw, bind, W) { CHARTS.push({id, draw, bind, w: W}); setTimeout(bind, 0); return draw(W); }
+function fitCharts() {
+  for (const c of CHARTS) { const el = document.getElementById(c.id), w = el ? Math.round(el.clientWidth || 0) : 0;
+    if (w < 120 || Math.abs(w - c.w) < 4) continue;
+    c.w = w; el.innerHTML = c.draw(w); c.bind(); }
+}
+
+function stackedDays(daily) {
+  const days = Object.keys(daily || {}).sort().slice(-14);
+  if (!days.length) return `<p class="muted">No usage recorded yet. It starts once the user settings (<code>~/.claude/settings.json</code>) carry <code>ccp otel env</code> and the receiver runs.</p>`;
+  const totals = days.map((d) => SEATS.reduce((a, [s]) => a + bucket(daily[d], s), 0));
+  const draw = (W) => {
+  const H = 220, L = 48, Bm = 22, T = 8, bw = Math.max(6, Math.min(40, (W - L) / days.length - 6));
+  const max = Math.max(...totals, 1), y = (v) => T + (H - T - Bm) * (1 - v / max);
+  let g = "";
+  for (let i = 0; i <= 3; i++) { const v = max * i / 3, yy = y(v);
+    g += `<line x1="${L}" x2="${W}" y1="${yy}" y2="${yy}" stroke="var(--grid)"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end">${fmtTok(v)}</text>`; }
+  days.forEach((d, i) => {
+    const x = L + 4 + i * ((W - L - 4) / days.length);
+    let acc = 0;
+    SEATS.forEach(([s, v]) => {
+      const val = bucket(daily[d], s);
+      if (!val) return;
+      const y0 = y(acc), y1 = y(acc + val); acc += val;
+      g += `<rect x="${x}" y="${y1}" width="${bw}" height="${Math.max(0, y0 - y1)}" fill="var(${v})" stroke="var(--surface)" stroke-width="2" rx="2"/>`;
+    });
+    g += `<rect class="hit" data-i="${i}" x="${x - 2}" y="${T}" width="${bw + 4}" height="${H - T - Bm}" fill="transparent"/>`;
+    if (days.length <= 8 || i % (W < 700 ? 3 : 2) === days.length % (W < 700 ? 3 : 2)) g += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${d.slice(5)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tokens per day by seat">${g}</svg>`; };
+  const bind = () => document.querySelectorAll("#days .hit").forEach((r) => {
+    const d = days[+r.dataset.i];
+    r.addEventListener("mousemove", (e) => showTip(e, `<b>${esc(d)}</b><br>` + SEATS.map(([s]) => {
+      const v = bucket(daily[d], s);
+      return v ? `${esc(s)}: ${fmtTok(v)}` : ""; }).filter(Boolean).join("<br>") + `<br><b>total ${fmtTok(totals[+r.dataset.i])}</b>`));
+    r.addEventListener("mouseleave", hideTip); });
+  const table = `<details><summary>Table</summary><div class="scroll"><table><tr><th>Day</th>${SEATS.map(([s]) => `<th class="n">${s}</th>`).join("")}<th class="n">total</th></tr>${days.map((d, i) => `<tr><td>${esc(d)}</td>${SEATS.map(([s]) => `<td class="n">${fmtTok(bucket(daily[d], s))}</td>`).join("")}<td class="n">${fmtTok(totals[i])}</td></tr>`).join("")}</table></div></details>`;
+  return `<div id="days">${chart("days", draw, bind, 1100)}</div>${legend(SEATS.map(([s, v]) => [s, v]))}${table}`;
+}
+
+// §28.1 drill-down (ccp/drill.py): each task's wall time split, in fixed slot order.
+const SPLIT = [["model", "model_s", "--s1"], ["suite", "suite_s", "--s2"], ["other tools", "other_s", "--s3"],
+               ["idle", "idle_s", "--s4"], ["runner, between runs", "runner_s", "--s5"], ["unmeasured", "unknown_s", "--other"], ["live, no telemetry yet", "live_s", "--axis"]];
+const SEGK = {m: "--s1", s: "--s2", o: "--s3", i: "--s4", u: "--other", l: "--axis"};
+const fmtD = (s) => s == null || isNaN(s) ? "–" : s >= 3600 ? (s / 3600).toFixed(1) + "h" : s >= 60 ? Math.round(s / 60) + "m" : Math.round(s) + "s";
+const drillOf = (id) => { const D = B.drill || {}; return Object.prototype.hasOwnProperty.call(D, id) && D[id] && typeof D[id] === "object" && (D[id].split || D[id]._error) ? D[id] : null; };
+const DRILL_IDS = [];  // data-drill="<index>" → task id
+const drillAttr = (id) => { if (!drillOf(id)) return ""; let i = DRILL_IDS.indexOf(id); if (i < 0) { DRILL_IDS.push(id); i = DRILL_IDS.length - 1; } return ` data-drill="${i}"`; };
+const splitTip = (sp) => SPLIT.map(([n, k]) => sp && sp[k] ? `${esc(n)} ${fmtD(sp[k])}` : "").filter(Boolean).join(" · ");
+
+function wallBars(tasks) {
+  const ts = tasks.filter((t) => t.wall_s).slice(-30);
+  if (!ts.length) return `<p class="muted">No timed tasks yet.</p>`;
+  const sorted = ts.map((t) => t.wall_s).sort((a, b) => a - b), med = sorted[Math.floor(sorted.length / 2)];
+  // One long outlier (a task leased across a handover) would flatten the rest: cap the scale, mark clipped bars.
+  const max = Math.max(Math.min(sorted[sorted.length - 1], Math.max(3 * med, sorted[Math.floor(0.9 * (sorted.length - 1))])), 1);
+  const draw = (W) => { const H = 200, L = 48, Bm = 20, T = 14;
+  const bw = Math.max(2, (W - L - 4) / ts.length - (W < 700 ? 2 : 4)), y = (v) => T + (H - T - Bm) * (1 - Math.min(v, max) / max);
+  let g = "";
+  for (let i = 0; i <= 3; i++) { const v = max * i / 3, yy = y(v);
+    g += `<line x1="${L}" x2="${W}" y1="${yy}" y2="${yy}" stroke="var(--grid)"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end">${fmtH(v)}</text>`; }
+  ts.forEach((t, i) => { const x = L + 4 + i * ((W - L - 4) / ts.length), yy = y(t.wall_s), D = drillOf(t.task_id);
+    const sp = D ? D.split : null, parts = sp ? SPLIT.map(([, k, c]) => [Number(sp[k]) || 0, c]).filter(([v]) => v > 0) : [];
+    const tot = parts.reduce((a, [v]) => a + v, 0);
+    if (tot > 0) { let y0 = H - Bm; for (const [v, c] of parts) { const hgt = (H - Bm - yy) * v / tot;
+        g += `<rect x="${x}" y="${y0 - hgt}" width="${bw}" height="${Math.max(0, hgt)}" fill="var(${c})"/>`; y0 -= hgt; } }
+    else g += `<rect x="${x}" y="${yy}" width="${bw}" height="${H - Bm - yy}" fill="var(--other)" rx="2"/>`;
+    g += `<rect class="hit" data-i="${i}"${drillAttr(t.task_id)} x="${x}" y="${yy}" width="${bw}" height="${H - Bm - yy}" fill="transparent"/>`;
+    if (t.wall_s > max) g += `<text x="${x + bw / 2}" y="${yy - 3}" text-anchor="middle" style="fill:var(--ink-2)">▲ ${fmtH(t.wall_s)}</text>`; });
+  g += `<text x="${L + 4}" y="${H - 4}">${esc(ts[0].task_id.slice(0, 4))}</text><text x="${W}" y="${H - 4}" text-anchor="end">${esc(ts[ts.length - 1].task_id.slice(0, 4))}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Wall time per task, split into model, suite, other tools, idle and runner time">${g}</svg>`; };
+  const bind = () => document.querySelectorAll("#wall .hit").forEach((r) => { const t = ts[+r.dataset.i], D = drillOf(t.task_id);
+    r.addEventListener("mousemove", (e) => showTip(e, `<b>${esc(t.task_id)}</b><br>wall ${fmtH(t.wall_s)} · implement ${fmtH(t.implementing_s)} · review ${fmtH(t.reviewing_s)} · verify ${fmtH(t.verifying_s)}<br>rounds: review ${t.review_rounds ?? "–"}, verify ${t.verify_rounds ?? "–"}, fix ${t.fix_rounds ?? "–"}<br>tokens ${fmtTok(Object.values(t.tokens || {}).reduce((a, b) => a + b, 0))}${D ? `<br>${splitTip(D.split)}${D.note ? "<br>" + esc(D.note) : ""}<br><i>click for the drill-down</i>` : ""}`));
+    r.addEventListener("mouseleave", hideTip); });
+  return `<div id="wall">${chart("wall", draw, bind, 1100)}</div>${legend(SPLIT.map(([n, , c]) => [n, c]))}`;
+}
+
+function decodeSegs(s) {
+  const out = [];
+  for (const tok of String(s || "").split(" ")) { const m = /^([msoiul])(\d+(?:\.\d+)?)\+(\d+(?:\.\d+)?)$/.exec(tok);
+    if (m) out.push([m[1], +m[2], +m[3]]); }
+  return out;
+}
+
+// One task's drill-down: its runs on a time axis, each split into model / suite / other tools / idle.
+function drillHtml(id) {
+  const D = drillOf(id);
+  if (!D) return `<div class="sheet"><p class="muted">No drill-down for this task.</p><button class="theme" data-close="1">Close</button></div>`;
+  if (D._error) return `<div class="sheet"><header><h2 style="margin:0">${esc(D.task_id)}</h2><span class="grow"></span><button class="theme" data-close="1">Close</button></header><div class="banner critical" role="status"><b>⚠ This drill-down failed</b><span>${esc(D._error)}</span></div></div>`;
+  const runs = Array.isArray(D.runs) ? D.runs : [], phases = Array.isArray(D.phases) ? D.phases : [], waits = Array.isArray(D.waits) ? D.waits : [];
+  const wall = Number(D.wall_s) || Math.max(1, ...runs.map((r) => (Number(r.off) || 0) + (Number(r.wall_s) || 0)), ...phases.map((p) => (Number(p.off) || 0) + (Number(p.s) || 0)));
+  const rows = [...runs.map((r) => ({label: String(r.run_id || "").split("/").slice(1).join("/") || "run", off: Number(r.off) || 0, s: Number(r.wall_s) || 0, segs: decodeSegs(r.segments), r})),
+    ...phases.map((p) => ({label: String(p.phase || "phase"), off: Number(p.off) || 0, s: Number(p.s) || 0, segs: [["u", 0, Number(p.s) || 0]], p}))];
+  if (waits.length) rows.push({label: "waiting on", waits});
+  const W = 1000, L = 96, RH = 18, G = 8, T = 6, Ax = 22, H = T + rows.length * (RH + G) + Ax, x = (s) => L + (W - L - 6) * Math.min(Math.max(s, 0), wall) / wall;
+  let g = `<rect x="${L}" y="${T - 2}" width="${W - L - 6}" height="${rows.length * (RH + G)}" fill="none" stroke="var(--grid)"/>`;
+  for (let i = 0; i <= 4; i++) { const s = wall * i / 4, xx = x(s);
+    g += `<line x1="${xx}" x2="${xx}" y1="${T - 2}" y2="${H - Ax + 2}" stroke="var(--grid)"/><text x="${xx}" y="${H - 6}" text-anchor="${i === 0 ? "start" : i === 4 ? "end" : "middle"}">+${fmtD(s)}</text>`; }
+  rows.forEach((row, i) => { const yy = T + i * (RH + G);
+    g += `<text x="${L - 6}" y="${yy + RH - 5}" text-anchor="end" style="fill:var(--ink-2)">${esc(row.label.slice(0, 14))}</text>`;
+    if (row.waits) { for (const w of row.waits) g += `<rect x="${x(Number(w.off) || 0)}" y="${yy + 3}" width="${Math.max(1, x((Number(w.off) || 0) + (Number(w.s) || 0)) - x(Number(w.off) || 0))}" height="${RH - 6}" fill="var(--ink-2)" rx="2"/>`; }
+    else { for (const [k, a, d] of row.segs) g += `<rect x="${x(row.off + a)}" y="${yy}" width="${Math.max(0.5, x(row.off + a + d) - x(row.off + a))}" height="${RH}" fill="var(${SEGK[k]})"/>`;
+      if (!row.segs.length && row.s) g += `<rect x="${x(row.off)}" y="${yy}" width="${Math.max(1, x(row.off + row.s) - x(row.off))}" height="${RH}" fill="var(--other)"/>`; }
+    g += `<rect class="dhit" data-i="${i}" x="${L}" y="${yy - 2}" width="${W - L - 6}" height="${RH + 4}" fill="transparent"/>`; });
+  const sp = D.split || {}, rd = D.rounds || {};
+  let h = `<div class="sheet"><header><h2 style="margin:0">${esc(D.task_id)}</h2><span class="meta">${D.open ? "open · " + esc(D.status || "?") : "merged " + esc((D.merged_at || "").slice(0, 16).replace("T", " "))} · wall ${fmtD(D.wall_s)} · ${esc((D.start_at || "?").slice(0, 16).replace("T", " "))} to ${esc((D.end_at || "?").slice(0, 16).replace("T", " "))} UTC</span><span class="grow"></span><button class="theme" data-close="1">Close</button></header>`;
+  if (D.note) h += `<p class="note">${esc(D.note)}${phases.length ? ": phases from the prompt stamps and report file times, approximate" : ""}.</p>`;
+  h += `<div class="tiles">${SPLIT.map(([n, k, c]) => sp[k] ? `<div class="tile"><div class="k"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(${c});margin-right:5px"></i>${esc(n)}</div><div class="v">${fmtD(sp[k])}</div><div class="d">${D.wall_s ? Math.round(100 * sp[k] / D.wall_s) + "% of wall" : ""}</div></div>` : "").join("")}
+    <div class="tile"><div class="k">Rounds</div><div class="v">${Number(rd.review) || 0}/${Number(rd.verify) || 0}/${Number(rd.fix) || 0}</div><div class="d">review / verify / fix</div></div>
+    ${D.queue_wait_s != null ? `<div class="tile"><div class="k">Queue wait</div><div class="v">${fmtD(D.queue_wait_s)}</div><div class="d">last dependency merged to claim, before the wall time</div></div>` : ""}
+    ${!runs.length && D.reported_suite_s ? `<div class="tile"><div class="k">Suite: lines, at least</div><div class="v">${fmtD(D.reported_suite_s)}</div><div class="d">one full run per report; more are not recorded</div></div>` : ""}
+    ${D.tokens ? `<div class="tile"><div class="k">Tokens</div><div class="v">${fmtTok(D.tokens)}</div><div class="d">$${(Number(D.cost_usd) || 0).toFixed(2)} estimate</div></div>` : ""}</div>`;
+  h += `<div id="dline" class="scroll"><svg style="min-width:640px" viewBox="0 0 ${W} ${H}" role="img" aria-label="Runs of ${esc(D.task_id)} on a time axis">${g}</svg></div>${legend([["model", "--s1"], ["suite", "--s2"], ["other tools", "--s3"], ["idle", "--s4"], ["unmeasured", "--other"], ["live, no telemetry yet", "--axis"], ["waiting on", "--ink-2"]])}${D.overlap_s ? `<p class="meta">Runs overlapped for ${fmtD(D.overlap_s)}; the split counts each instant once (model, then suite, other tools, idle).</p>` : ""}`;
+  if (runs.length) h += `<h3>Runs</h3><div class="scroll"><table style="min-width:900px"><tr><th>Run</th><th>Model · effort</th><th class="n">start</th><th class="n">wall</th><th class="n">model</th><th class="n">suite</th><th class="n">other</th><th class="n">idle</th><th>Suite runs</th><th class="n">tokens</th><th class="n">cost</th><th>Result</th></tr>
+    ${runs.map((r) => { const su = r.suites || {}, mm = Array.isArray(r.models) && r.models.length ? r.models.join(", ") : r.expected_model, ee = Array.isArray(r.efforts) && r.efforts.length ? r.efforts.join(", ") : r.expected_effort;
+      const lanes = Object.entries(su.by_lane || {}).map(([k, v]) => `${esc(k)} ${Number(v && v.n) || 0}× ${fmtD(Number(v && v.s))}`).join(", ");
+      return `<tr><td style="white-space:nowrap">${esc(String(r.run_id || "").split("/").slice(1).join("/"))}</td><td>${esc(mm || "–")} · ${esc(ee || "–")}${(r.flags || []).length ? ` <b style="color:var(--critical)">⚠ ${esc(r.flags.join("; "))}</b>` : ""}</td>
+        <td class="n">+${fmtD(r.off)}</td><td class="n">${fmtD(r.wall_s)}</td><td class="n">${fmtD(r.model_s)}</td><td class="n">${fmtD(r.suite_s)}</td><td class="n">${fmtD(r.other_s)}</td><td class="n">${fmtD(r.idle_s)}</td>
+        <td>${Number(su.runs) || 0}${su.killed ? `, <b style="color:var(--critical)">${Number(su.killed)} killed</b>` : ""}${su.failed ? `, ${Number(su.failed)} failed` : ""}${lanes ? ` <span class="muted">(${lanes})</span>` : ""}</td>
+        <td class="n">${fmtTok(r.tokens || null)}</td><td class="n">${r.cost_usd ? "$" + Number(r.cost_usd).toFixed(2) : "–"}</td><td>${esc(r.verdict || r.outcome || r.state || "–")}${r.telemetry_note ? ` <span class="muted">${esc(r.telemetry_note)}</span>` : ""}${r.live_since ? ` <span class="muted">live, no telemetry since ${esc(String(r.live_since).slice(11, 16))} UTC</span>` : ""}${r.stale_run ? ` <b style="color:var(--serious)">still open after its task closed</b>` : ""}${r.state === "abandoned" ? ` <span class="muted">abandoned: ${esc(r.abandoned_reason || "no reason recorded")}</span>` : ""}${r.coarsened ? ` <span class="muted">(timeline coarsened)</span>` : ""}</td></tr>`; }).join("")}
+    </table></div>
+    <details><summary>Suite runs, one by one</summary><div class="scroll"><table><tr><th>Run</th><th class="n">start</th><th>Lane</th><th class="n">tests</th><th class="n">seconds</th><th class="n">exit</th><th>State</th></tr>
+    ${runs.map((r) => ((r.suites || {}).list || []).map((x) => `<tr><td>${esc(String(r.run_id || "").split("/").slice(1).join("/"))}</td><td class="n">+${fmtD(x.off)}</td><td>${esc(x.lane || "–")}</td><td class="n">${esc(x.tests ?? "–")}</td><td class="n">${x.s == null ? "–" : Math.round(Number(x.s))}</td><td class="n">${esc(x.exit ?? "–")}</td><td>${esc(x.state || "–")}</td></tr>`).join("") + (r.suites && r.suites.more ? `<tr><td colspan="7" class="muted">${Number(r.suites.more)} more</td></tr>` : "")).join("")}
+    </table></div></details>`;
+  if (phases.length) h += `<h3>Phases</h3><table><tr><th>Phase</th><th class="n">start</th><th class="n">length</th><th class="n">its Suite: line</th></tr>${phases.map((p) => `<tr><td>${esc(p.phase)}</td><td class="n">+${fmtD(p.off)}</td><td class="n">${fmtD(p.s)}</td><td class="n">${p.suite_s == null ? "–" : Math.round(Number(p.suite_s)) + " s"}</td></tr>`).join("")}</table>`;
+  if (waits.length) h += `<h3>Waits</h3><table><tr><th>Waiting on</th><th class="n">from</th><th class="n">for</th><th>Detail</th></tr>${waits.map((w) => `<tr><td>${esc(w.on)}${w.open ? " <b>(still waiting)</b>" : ""}</td><td class="n">+${fmtD(w.off)}</td><td class="n">${fmtD(w.s)}</td><td class="muted">${esc([w.detail, w.cleared].filter(Boolean).join(" · "))}</td></tr>`).join("")}</table>`;
+  const rs = Array.isArray(D.reported_suites) ? D.reported_suites : [];
+  if (rs.length) h += `<h3>Suite lines in the reports</h3><p class="meta">${rs.map((x) => `${esc(x.report)}: ${esc(x.tests ?? "–")} tests, ${x.s == null ? "–" : Math.round(Number(x.s))} s${x.cached == null ? "" : `, modules ${esc(x.ran ?? "–")} ran, ${esc(x.cached)} cached`}`).join(" · ")}</p>`;
+  if (D.suites_unbound) h += `<p class="meta">${Number(D.suites_unbound)} suite run(s) recorded against the task but no run.</p>`;
+  h += safe("Estimate", () => estDrill(D.task_id));
+  const fr = Array.isArray(D.friction) ? D.friction : [];
+  h += `<h3>Friction notes${D.friction_total > fr.length ? ` (latest ${fr.length} of ${Number(D.friction_total)})` : ""}</h3>${fr.length ? `<ol class="notes">${fr.map((n) => `<li><span class="muted">${esc((n.at || "").slice(0, 16).replace("T", " "))} · ${esc(n.by || "-")}</span><br>${esc(n.text)}</li>`).join("")}</ol>` : `<p class="muted">None.</p>`}`;
+  h += `<p class="meta">Model: a request in flight (the union of its spans, so overlapping requests count once). Suite: a recorded <code>ccp suite run</code> with no request in flight. Other tools and idle: the gaps with neither; the telemetry has no tool spans, so a gap under 10 minutes is other tools (edits, reads, git, commands not run through <code>ccp suite</code>) and one of 10 minutes or more is idle. Runner: the task's time outside every run (launching, reading reports, merging). Waits overlap the rest. <code>ccp board task ${esc(String(D.task_id).slice(0, 4))}</code> prints the same.</p></div>`;
+  return h;
+}
+// §26.3 estimates (advisory): the stored rows per task, the agent's (phase B) ahead of the baseline.
+const ESTP = ["implement", "review", "fix", "verify"];
+function estTasks() { const E = B && B.estimates; return E && E.tasks && typeof E.tasks === "object" ? E.tasks : {}; }
+function estRow(id) { const T = estTasks(); return Object.prototype.hasOwnProperty.call(T, id) ? T[id] : null; }
+function estOf(id) { const t = estRow(id); return t ? (t.agent || t.baseline || null) : null; }
+const num = (v) => v == null || v === "" || isNaN(Number(v)) ? null : Number(v);
+// Phase D: an estimate shows its calibrated bands (`cal`) by default, the stored (raw) ones on hover.
+function estCal(e) { const c = e && e.cal; return c && c.total && num(c.total.p50_s) != null ? c : null; }
+function estRange(e, raw) { const c = raw ? null : estCal(e), src = c || e || {}, t = src.total || {}, k = src.tokens || {};
+  return num(t.p50_s) == null ? "" : `${fmtD(num(t.p50_s))}–${fmtD(num(t.p90_s))}${num(k.p50) != null ? " · " + fmtTok(num(k.p50)) + " tok" : ""}`; }
+function estSpan(e) { const c = estCal(e);
+  return `<span title="${esc((e.source || "") + " estimate, P50–P90 wall" + (c ? ", calibrated (raw " + estRange(e, true) + ")" : "") + (e.tier ? ", reference class: " + e.tier : "") + (e.refs && e.refs.length ? " (" + e.refs.join(", ") + ")" : "") + (e.reasoning ? ". " + e.reasoning : ""))}">${esc(estRange(e))}</span>`; }
+function estCell(id) { const t = estRow(id), e = estOf(id); if (!e) return '<span class="muted">–</span>';
+  // The agent's estimate first, the baseline beside it (SPEC §26.6 phase B).
+  return t.agent && t.baseline ? `${estSpan(t.agent)} <span class="muted">· base ${estSpan(t.baseline)}</span>` : estSpan(e); }
+const pct = (s) => s && s.n ? `${Math.round(100 * Number(s.share_p50))}% / ${Math.round(100 * Number(s.share_p90))}%` : "–";
+function estimationCard(E) {
+  if (!E) return "";
+  if (E._error) return `<section class="card s2"><h2>Estimation</h2><div class="banner critical" role="status"><b>⚠ Estimates failed to load</b><span>${esc(E._error)}</span></div></section>`;
+  const A = E.accuracy || {}, S = A.sources || {}, bs = S.baseline || {}, ag = S.agent || {};
+  const cell = (s) => `<td class="n">${pct(s)}</td><td class="n">${s && s.median_ratio != null ? esc(s.median_ratio) + "×" : "–"}</td><td class="n">${s && s.n ? Number(s.n) : 0}</td>`;
+  const rows = [["Wall time", "wall"], ["Tokens", "tokens"], ["Cost", "cost"]].map(([n, k]) => `<tr><td>${n}</td>${cell(bs[k])}${cell(ag[k])}</tr>`).join("");
+  const bias = (src) => { const g = (A.bias || {})[src] || {}; const out = [];
+    for (const [grp, d] of Object.entries(g)) for (const [k, v] of Object.entries(d || {})) out.push(`<tr><td>${esc(grp)}</td><td>${esc(k)}</td><td class="n">${pct(v)}</td><td class="n">${v && v.median_ratio != null ? esc(v.median_ratio) + "×" : "–"}</td><td class="n">${Number(v && v.n) || 0}</td></tr>`);
+    return out.join(""); };
+  const b = bias("baseline"), ba = bias("agent"), X = E.estimator || {};
+  const spend = num(X.calls) ? `<p>Estimator seat (${esc((X.pins || {}).model || "?")}, ${esc((X.pins || {}).effort || "?")}): ${Number(X.estimates) || 0} estimate(s) from ${Number(X.calls)} call(s), ${Number(X.failed) || 0} failed; $${(num(X.cost_usd) || 0).toFixed(2)} in all, $${(num(X.cost_usd_7d) || 0).toFixed(2)} in the last 7 days${num(X.per_estimate_usd) != null ? `, $${num(X.per_estimate_usd).toFixed(2)} per estimate` : ""}.</p>` : `<p class="muted">The estimator seat has made no call yet (<code>ccp tasks estimate --all</code>).</p>`;
+  return `<section class="card s2"><h2>Estimation</h2>
+    <h3>Raw estimates, as stored</h3>
+    <div class="scroll"><table><tr><th rowspan="2"></th><th colspan="3">Baseline (reference class)</th><th colspan="3">Agent</th></tr>
+    <tr><th class="n">≤P50 / ≤P90</th><th class="n">actual/P50</th><th class="n">n</th><th class="n">≤P50 / ≤P90</th><th class="n">actual/P50</th><th class="n">n</th></tr>${rows}</table></div>
+    ${spend}
+    <h3>Wall-time bias, baseline</h3>${b ? `<div class="scroll tall"><table><tr><th>By</th><th>Group</th><th class="n">≤P50 / ≤P90</th><th class="n">actual/P50</th><th class="n">n</th></tr>${b}</table></div>` : `<p class="muted">Too few tasks per group yet.</p>`}
+    ${ba ? `<h3>Wall-time bias, agent</h3><div class="scroll tall"><table><tr><th>By</th><th>Group</th><th class="n">≤P50 / ≤P90</th><th class="n">actual/P50</th><th class="n">n</th></tr>${ba}</table></div>` : ""}
+    ${calibrationBlock(E.calibration)}
+    <p class="meta">${Number(A.actuals) || 0} task(s) with actuals. A calibrated estimate has about 50% of actuals at or under P50 and 90% under P90; an actual/P50 median above 1 means the estimates run low. Each task is scored on the latest estimate made before the task started (a live one ahead of a backfilled one, which uses only the tasks merged before that start). The agent column is the estimator seat's; it is scored only once tasks it estimated before they started have merged. Advisory: estimates gate nothing (SPEC §26.3).</p></section>`;
+}
+// Phase D (ccp/calibrate.py): the factors, their sample sizes and the rolling-origin check.
+const xf = (v) => num(v) == null ? "–" : "×" + num(v).toFixed(2);
+const sh = (s) => s && s.n ? `${Math.round(100 * Number(s.share_p50))}% / ${Math.round(100 * Number(s.share_p90))}%` : "–";
+function calibrationBlock(C) {
+  if (!C) return "";
+  if (C._error) return `<div class="banner warning" role="status"><b>⚠ Calibration failed</b><span>${esc(C._error)}</span></div>`;
+  const F = C.factors || {}, V = C.evaluation || {}, srcs = [["baseline", "Baseline"], ["agent", "Agent"]];
+  const rows = srcs.map(([s, n]) => [["wall", "Wall time"], ["tokens", "Tokens"], ["cost", "Cost"]].map(([m, mn]) => {
+    const f = (F[s] || {})[m] || {}, v = (V[s] || {})[m] || {};
+    return `<tr><td>${n}</td><td>${mn}</td><td class="n">${sh(v.raw)}</td><td class="n">${sh(v.calibrated)}</td><td class="n">${f.fitted ? xf(f.bias) : "1.0"}</td><td class="n">${f.fitted ? xf(f.width) : "1.0"}</td><td class="n">${Number(f.n) || 0}</td><td class="muted">${f.fitted ? `k ${esc(f.k)}` : esc(f.note || "")}</td></tr>`; }).join("")).join("");
+  const grp = srcs.map(([s, n]) => { const f = (F[s] || {}).wall || {}; if (!f.fitted) return "";
+    const out = [];
+    for (const g of ["kind", "family"]) for (const [k, v] of Object.entries(f[g] || {})) if (v && Number(v.n) >= 2) out.push(`<tr><td>${n}</td><td>${esc(g)}</td><td>${esc(k)}</td><td class="n">${xf(v.bias)}</td><td class="n">${xf(v.raw)}</td><td class="n">${Number(v.n) || 0}</td><td class="n">${num(v.weight) == null ? "–" : Math.round(100 * num(v.weight)) + "%"}</td></tr>`);
+    return out.join(""); }).join("");
+  const R = C.rho || {};
+  return `<h3>Calibration (phase D)</h3>
+    <div class="scroll"><table><tr><th>Source</th><th>Metric</th><th class="n">≤P50 / ≤P90 raw</th><th class="n">calibrated</th><th class="n">bias</th><th class="n">width</th><th class="n">n</th><th></th></tr>${rows}</table></div>
+    <p class="meta">Coverage is the rolling-origin check: each task's calibration was fitted only on tasks merged before it started, then applied to it (out of sample). Bias multiplies P50; width raises P90/P50 to its power (never under 1, so a P90 is only widened). Recent tasks weigh more (half-life ${esc((C.settings || {}).half_life ?? "–")} merges); with fewer than ${esc((C.settings || {}).min_pairs ?? "–")} pairs the factors are 1.0. The board, the Queue tab's estimates and the forecast use calibrated values; hover an estimate for the raw one.</p>
+    ${grp ? `<h3>Wall-time bias by kind and family, shrunk</h3><div class="scroll tall"><table><tr><th>Source</th><th>By</th><th>Group</th><th class="n">factor</th><th class="n">raw median</th><th class="n">n</th><th class="n">own weight</th></tr>${grp}</table></div><p class="meta">A group's factor is its own median actual/P50 shrunk toward its prior (a kind toward the overall, a family toward its kind) by n/(n+k), k fitted across the families (empirical Bayes).</p>` : ""}
+    <p class="meta">Forecast correlation ρ ${esc(R.value ?? "–")} (${R.use_fitted ? "fitted" : "default"}): ${esc(R.choice || "")}. Fitted ρ ${esc(R.fitted_value ?? R.raw ?? "–")}${R.n != null ? ` (n ${esc(R.n)}${R.se != null ? `, standard error ${esc(R.se)}` : ""})` : ""}: ${esc(R.note || "")}${R.lag1 != null ? `; consecutive tasks alone correlate at ${esc(R.lag1)}` : ""}.</p>`;
+}
+function estDrill(id) {
+  const t = estRow(id); if (!t) return "";
+  const e = t.agent_scored || t.baseline_scored || t.agent || t.baseline, a = t.actual;
+  if (!e && !a) return "";
+  const ph = (e && e.phases) || {}, ap = (a && a.phases) || {};
+  const band = (x) => x && num(x.p50_s) != null ? `${fmtD(num(x.p50_s))}–${fmtD(num(x.p90_s))}` : "–";
+  const mark = (v, x) => v == null || !x || num(x.p90_s) == null ? "" : v > num(x.p90_s) ? ' <b style="color:var(--serious)">over P90</b>' : v <= num(x.p50_s) ? ' <span class="muted">≤P50</span>' : "";
+  const tk = (e && e.tokens) || {}, cs = (e && e.cost_usd) || {}, c = estCal(e), cf = (c && c.factors) || {};
+  const tkb = (x) => x && num(x.p50) != null ? fmtTok(num(x.p50)) + "–" + fmtTok(num(x.p90)) : "–";
+  const csb = (x) => x && num(x.p50) != null ? "$" + num(x.p50).toFixed(2) + "–$" + num(x.p90).toFixed(2) : "–";
+  const ftip = (m) => { const f = cf[m]; return f ? ` title="${esc(f.fitted ? `bias ×${f.bias} (${f.group}, n ${f.n_group}), width ×${f.width} (n ${f.n})` : `factors 1.0: n ${f.n}, too few pairs`)}"` : ""; };
+  const markP = (v, x) => v == null || !x || num(x.p90) == null ? "" : v > num(x.p90) ? ' <b style="color:var(--serious)">over P90</b>' : v <= num(x.p50) ? ' <span class="muted">≤P50</span>' : "";
+  const tot = c && c.total;
+  return `<h3>Estimate${a ? " against actual" : ""}</h3><table><tr><th>Phase</th><th class="n">raw P50–P90</th><th class="n">calibrated</th>${a ? '<th class="n">actual</th>' : ""}</tr>
+    ${ESTP.map((p) => `<tr><td>${p}</td><td class="n">${band(ph[p])}</td><td class="n muted">–</td>${a ? `<td class="n">${ap[p] == null ? "–" : fmtD(num(ap[p]))}${mark(num(ap[p]), ph[p])}</td>` : ""}</tr>`).join("")}
+    <tr><td><b>total</b></td><td class="n">${band(e && e.total)}</td><td class="n"${ftip("wall")}>${band(tot)}</td>${a ? `<td class="n">${fmtD(num(a.wall_s))}${mark(num(a.wall_s), tot || (e && e.total))}</td>` : ""}</tr>
+    <tr><td>tokens</td><td class="n">${tkb(tk)}</td><td class="n"${ftip("tokens")}>${tkb(c && c.tokens)}</td>${a ? `<td class="n">${fmtTok(num(a.tokens))}${markP(num(a.tokens), (c && c.tokens) || tk)}</td>` : ""}</tr>
+    <tr><td>cost</td><td class="n">${csb(cs)}</td><td class="n"${ftip("cost")}>${csb(c && c.cost_usd)}</td>${a ? `<td class="n">${num(a.cost_usd) == null ? "–" : "$" + num(a.cost_usd).toFixed(2)}${markP(num(a.cost_usd), (c && c.cost_usd) || cs)}</td>` : ""}</tr></table>
+    <p class="meta">Calibrated: the raw band times the calibration's factors as they stand now (phase D; hover for them). Phases stay raw: the factors are fitted on totals. The marks compare the actual with the calibrated band where there is one.</p>
+    <p class="meta">${e ? `${esc(e.source)} estimate v${esc(e.version)}${e.backfill ? " (backfilled)" : ""}, reference class ${esc(e.tier || "–")}${e.refs && e.refs.length ? ": " + e.refs.map((x) => `<code>${esc(String(x).slice(0, 4))}</code>`).join(", ") : ""}.` : "No estimate before it merged."}${a && a.phases_from === "spans" ? " Phases before run records: review includes any fix." : ""} Advisory (SPEC §26.3).</p>${e && e.reasoning ? `<p class="meta">Estimator: ${esc(e.reasoning)}</p>` : ""}${e && e.complexity && typeof e.complexity === "object" ? `<p class="meta">${Object.entries(e.complexity).map(([k, v]) => `<span title="${esc((v && v.reason) || "")}">${esc(k)} <b>${esc((v && v.rating) || "?")}</b></span>`).join(" · ")}</p>` : ""}`;
+}
+// §26.4 phase C: the forecast (ccp/forecast.py). Every figure is an estimate: P50 / P90, advisory.
+const fcWhen = (iso) => { const t = Date.parse(iso); return iso == null ? "–" : isNaN(t) ? esc(iso) : esc(new Date(t).toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"})); };
+const fcPct = (v) => num(v) == null ? "–" : Math.round(num(v)) + "%";
+const fcBand = (b, f) => b && num(b.p50) != null ? `${f(num(b.p50))} / ${f(num(b.p90))}` : "–";
+function fcAllowLine(F, short) {
+  // "R8 P50: +31% → 56% by Thu 14:00; fits before the reset" or "… spills ~6% (P90)"
+  const b = F && (F.point || F.backlog); const x = b && b.allowance; if (!x || !x.burn || !b.eta) return "";
+  const who = F.point ? esc(F.review_point || "point") : "backlog";
+  const sp = num(x.spill && x.spill.p90), sp50 = num(x.spill && x.spill.p50);
+  const ex = x.exhausts || {};
+  // 100% first: work that runs the allowance out never "fits"
+  const tail = ex.p50 ? `exhausts the weekly allowance ~${fcWhen(ex.p50)}` : ex.p90_early ? `may exhaust the weekly allowance ~${fcWhen(ex.p90_early)} (P90)`
+    : sp50 != null && sp50 >= 0.5 ? `spills ~${Math.round(sp50)}% (P50)` : sp != null && sp >= 0.5 ? `spills ~${Math.round(sp)}% (P90)` : "fits before the reset";
+  return `${who} P50: +${fcPct(x.burn.p50).replace("%", "")}% → ${fcPct(x.pct.p50)} by ${fcWhen(b.eta.p50)}; ${tail}${short ? "" : " (estimate)"}`;
+}
+function fcCol(b, label, allowed, F5) {
+  if (!b) return "";
+  if (b.same_as_point) return `<div><h3>${label}</h3><p class="muted">The same ${num(b.tasks) ?? 0} task(s) as the review point: every open task is tagged to it.</p></div>`;
+  const x = b.allowance, un = Object.entries(b.unreached || {});
+  return `<div><h3>${label}</h3><table>
+    <tr><td>Tasks</td><td>${"done" in b ? `${num(b.done) ?? 0} done · ` : ""}${num(b.tasks) ?? 0} remaining${b.unestimated ? ` <span class="muted">(${num(b.unestimated)} without an estimate)</span>` : ""}</td></tr>
+    <tr><td>ETA P50 / P90</td><td>${b.eta ? `${fcWhen(b.eta.p50)} / ${fcWhen(b.eta.p90)}` : "–"} <span class="muted">(${fcBand(b.hours, (h) => h.toFixed(1))} h)</span></td></tr>
+    <tr><td>Tokens P50 / P90</td><td>${fcBand(b.tokens, fmtTok)}</td></tr>
+    <tr><td>Cost P50 / P90</td><td>${fcBand(b.cost_usd, (c) => "$" + Math.round(c))}</td></tr>
+    ${allowed && x && x.burn ? `<tr><td>Weekly % P50 / P90</td><td>${fcBand(x.burn, (v) => "+" + Math.round(v) + "%")} → ${fcBand(x.pct, (v) => Math.round(v) + "%")}</td></tr>
+    <tr><td>Fits</td><td>${Math.round(100 * (num(x.fits_share) ?? 0))}% of trials <span class="muted">(end before the reset, under 100%)</span>${num(x.spill && x.spill.p90) ? ` · spills ${fcBand(x.spill, (v) => Math.round(v) + "%")}` : ""}</td></tr>
+    ${x.exhausts && (x.exhausts.p50 || x.exhausts.p90_early) ? `<tr><td>Allowance runs out</td><td><b>${x.exhausts.p50 ? `exhausts the weekly allowance (100%) around ${fcWhen(x.exhausts.p50)}` : `may exhaust the weekly allowance: 100% in ${Math.round(100 * (num(x.exhausts.share) ?? 0))}% of trials`}</b> <span class="muted">(P90 early ${fcWhen(x.exhausts.p90_early)})</span></td></tr>` : ""}` : ""}
+    ${b.session && b.session.pauses ? `<tr><td>5-hour limit</td><td>pauses P50 ${esc(num(b.session.pauses.p50) ?? 0)} (${esc((num(b.session.paused_h && b.session.paused_h.p50) ?? 0).toFixed(1))} h) / P90 ${esc(num(b.session.pauses.p90) ?? 0)} (${esc((num(b.session.paused_h && b.session.paused_h.p90) ?? 0).toFixed(1))} h) <span class="muted">(work stops at ${esc((F5 || {}).park_pct ?? "–")}% of the 5-hour window until it resets; r5 ${esc((F5 || {}).r5 ?? "–")}, included in the ETA)</span></td></tr>` : ""}
+    ${(b.waits_flagged || []).length ? `<tr><td>Waits open now</td><td>${b.waits_flagged.map((t) => `<code>${esc(t)}</code>`).join(", ")} <span class="muted">(not modelled)</span></td></tr>` : ""}
+    ${(b.waits_expected || []).length ? `<tr><td>Waits expected</td><td>${num(b.waits_expected.length)} task(s) <span class="muted">(the estimator's; not modelled)</span></td></tr>` : ""}
+    ${un.length ? `<tr><td>Left out</td><td>${un.map(([t, w]) => `<code>${esc(t)}</code> <span class="muted">(${esc(w)})</span>`).join(", ")}</td></tr>` : ""}
+  </table></div>`;
+}
+function forecastCard(F) {
+  if (!F) return "";
+  if (F._error) return `<section class="card s2"><h2>Forecast</h2><div class="banner critical" role="status"><b>⚠ Forecast failed</b><span>${esc(F._error)}</span></div></section>`;
+  if (F.note) return `<section class="card s2"><h2>Forecast</h2><p class="muted">${esc(F.note)}</p></section>`;
+  const A = F.allowance || {}, ok = A && !A.unavailable && A.fit, tp = F.throughput || {};
+  const cr = Object.entries((ok && A.crossings) || {}).map(([lv, c]) => `<li>${esc(Math.round(num(lv) ?? 0))}% crossed: P50 ${c && c.p50 ? fcWhen(c.p50) : "not before the reset"} · P90 (early) ${c && c.p90_early ? fcWhen(c.p90_early) : "not before the reset"} <span class="muted">(${Math.round(100 * (num(c && c.share) ?? 0))}% of trials, reset ${fcWhen(A.resets_at)})</span></li>`).join("");
+  return `<section class="card s2"><h2>Forecast</h2><div class="cols">${fcCol(F.point, `Review point ${esc(F.review_point || "–")}`, ok, F.session)}${fcCol(F.backlog, "Open backlog", ok, F.session)}</div>
+    ${ok ? `<ul class="plain"><li>Weekly allowance now ${fcPct(A.pct_now)} <span class="muted">(sample ${fcPct(A.pct_sample)} ${A.sample_at ? esc(ago(A.sample_at)) : ""}, +${esc((num(A.added_since_sample) ?? 0).toFixed(1))}% fitted since)</span></li>${cr}</ul>`
+      : A && A.unavailable ? `<p class="muted">Allowance projection unavailable: ${esc((A.fit && (A.fit.note || A.fit.error)) || "no fit")}.</p>` : ""}
+    <p class="meta">Estimates, not commitments: P50 / P90 over ${num(F.trials) ?? 0} seeded trials of the order <code>ccp tasks next</code> would take, each task drawn from its ${esc(Object.entries(F.sources || {}).map(([k, v]) => `${k} ${v}`).join(", "))} estimate (a lognormal through its P50 and P90, the P90 capped at 4× P50${num(F.calibrated_tasks) ? `, ${num(F.calibrated_tasks)} calibrated` : ""}; tasks' draws correlate at ρ ${esc((F.rho || {}).value ?? "0.3")}, ${(F.rho || {}).fitted ? "fitted from history" : "the default"}). Throughput: ${esc(tp.text || "–")}. Waits on the operator are not modelled. Advisory: gates nothing (SPEC §26.6).</p></section>`;
+}
+function allowanceFitLines(F) {
+  const A = F && F.allowance, f = A && A.fit; if (!f) return "";
+  if (A.unavailable || !f.chosen) return `<li>Fit (weekly % per usage): <span class="muted">${esc(f.note || f.error || "none yet")}</span></li>`;
+  return `<li>Fit (weekly % per usage): <b>${esc(f.chosen)}</b>, ${esc(f.per_unit_text)} · leave-one-out error ${esc(f.loo_rmse)} pp per interval <span class="muted">(${num(f.n) ?? 0} intervals of ${num(f.samples) ?? 0} samples, mean ${esc(f.mean_interval_h)} h, mean rise ${esc(f.mean_delta)} pp)</span></li>
+    <li>Models tried: ${Object.entries(f.models || {}).map(([k, v]) => `${esc(k)} ${esc(v && v.loo_rmse)}`).join(" · ") || "–"} <span class="muted">(lowest error wins)</span></li>
+    <li>5-hour window: ${F.session && F.session.modelled ? `r5 ${esc(F.session.r5)} (5-hour % per weekly %, n ${esc(num(F.session.n) ?? 0)}), ${fcPct(F.session.pct_now)} now, park at ${esc(F.session.park_pct)}%` : `<span class="muted">${esc((F.session && F.session.note) || "not modelled")}</span>`}</li>
+    <li>Use outside the plane: ${f.baseline_pct_per_h == null ? "unknown" : esc(f.baseline_pct_per_h) + "%/h"} <span class="muted">(${esc(f.non_plane || "no system sink")}, ${esc(f.baseline_hours ?? "–")} h${f.baseline_floored ? `, averaged as ${esc(f.baseline_span_h ?? 72)} h` : ""})</span>${f.note ? ` <span class="muted">${esc(f.note)}</span>` : ""}</li>`;
+}
+// The page's address: #tab=<tab>&task=<id>. The 60 s reload reopens both; a bad value is ignored.
+const TABS = [["performance", "Performance"], ["quality", "Quality"], ["backlog", "Backlog"], ["queue", "Queue"], ["health", "Plane health"]];
+const TAB_KEYS = TABS.map(([k]) => k);
+let CUR_TAB = "performance", DRILL_ID = null;
+function hashParams() {
+  const o = Object.create(null), h = typeof location !== "undefined" ? String(location.hash || "") : "";
+  for (const kv of h.replace(/^#/, "").split("&")) { const i = kv.indexOf("=");
+    if (i > 0) try { o[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) {} }
+  return o;
+}
+function writeHash() {
+  try { history.replaceState(null, "", "#tab=" + CUR_TAB + (DRILL_ID != null ? "&task=" + encodeURIComponent(DRILL_ID) : "")); } catch (e) {}
+}
+function openDrill(id) {
+  const el = document.getElementById("drill");
+  if (!el || !drillOf(id)) return;
+  el.innerHTML = drillHtml(id); el.hidden = false; DRILL_ID = id;
+  try { document.documentElement.dataset.drill = "open"; } catch (e) {}
+  try { el.setAttribute("aria-modal", typeof matchMedia === "function" && matchMedia("(min-width: 1600px)").matches ? "false" : "true"); } catch (e) {}
+  writeHash();
+  const D = drillOf(id), runs = Array.isArray(D.runs) ? D.runs : [], phases = Array.isArray(D.phases) ? D.phases : [];
+  el.querySelectorAll("#dline .dhit").forEach((r) => { const i = +r.dataset.i, x = runs[i], p = phases[i - runs.length];
+    r.addEventListener("mousemove", (e) => showTip(e, x ? `<b>${esc(x.run_id)}</b><br>wall ${fmtD(x.wall_s)} · model ${fmtD(x.model_s)} · suite ${fmtD(x.suite_s)} · other ${fmtD(x.other_s)} · idle ${fmtD(x.idle_s)}${x.unknown_s ? " · unmeasured " + fmtD(x.unknown_s) : ""}${x.live_s ? " · live, no telemetry " + fmtD(x.live_s) : ""}<br>${Number((x.suites || {}).runs) || 0} suite run(s) · ${fmtTok(x.tokens || null)} tokens`
+      : p ? `<b>${esc(p.phase)}</b><br>${fmtD(p.s)} from +${fmtD(p.off)}` : `<b>waiting on</b><br>${(D.waits || []).map((w) => `${esc(w.on)} ${fmtD(w.s)}`).join("<br>")}`));
+    r.addEventListener("mouseleave", hideTip); });
+}
+function closeDrill() {
+  const el = document.getElementById("drill");
+  if (el) { el.hidden = true; el.innerHTML = ""; }
+  DRILL_ID = null;
+  try { delete document.documentElement.dataset.drill; } catch (e) {}
+  hideTip();
+  writeHash();
+}
+// Fill each row of the shown tab: the CSS spans are the least widths, and a row that cannot take the
+// next card shares its spare columns among its own cards, in proportion to their spans.
+function fillRows(grid) {
+  if (!grid || !grid.children || typeof getComputedStyle !== "function") return;
+  const kids = [...grid.children];
+  kids.forEach((k) => { k.style.gridColumn = ""; });
+  const cols = getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length;
+  if (cols < 2) return;
+  const spanOf = (k) => { const cs = getComputedStyle(k);
+    if (cs.gridColumnEnd === "-1") return cols;
+    const m = /span (\d+)/.exec(cs.gridColumnStart + " " + cs.gridColumnEnd); return Math.min(cols, m ? +m[1] : 1); };
+  let row = [], used = 0;
+  const widen = () => { let spare = cols - used; if (!row.length || spare <= 0) return;
+    const add = row.map(([, sp]) => Math.floor((cols - used) * sp / used));
+    spare -= add.reduce((a, b) => a + b, 0);
+    for (let i = 0; spare > 0; i = (i + 1) % row.length, spare--) add[i]++;
+    row.forEach(([k, sp], i) => { if (add[i]) k.style.gridColumn = "span " + (sp + add[i]); }); };
+  for (const k of kids) { const sp = spanOf(k);
+    if (used + sp > cols) { widen(); row = []; used = 0; }
+    row.push([k, sp]); used += sp; }
+  widen();
+}
+function relayout() {
+  const p = document.querySelector ? document.querySelector(".pane:not([hidden])") : null;
+  if (p) fillRows(p);
+  fitCharts();
+}
+// Show one tab's cards; the others stay in the page, hidden. Each tab keeps its own scroll position.
+const SCROLL = {};
+function showTab(t, keepScroll) {
+  if (!TAB_KEYS.includes(t)) return;
+  if (typeof scrollY === "number" && !keepScroll) SCROLL[CUR_TAB] = scrollY;
+  CUR_TAB = t;
+  document.querySelectorAll(".pane").forEach((p) => { p.hidden = p.dataset.tab !== t; });
+  document.querySelectorAll("nav.tabs [role=tab]").forEach((b) => { const on = b.dataset.tab === t;
+    b.setAttribute("aria-selected", on ? "true" : "false"); b.tabIndex = on ? 0 : -1; });
+  try { localStorage.setItem("board-tab", t); } catch (e) {}
+  writeHash();
+  try { relayout(); } catch (e) {}
+  if (!keepScroll && typeof scrollTo === "function") { const nav = document.querySelector && document.querySelector("nav.tabs");
+    const top = nav ? nav.getBoundingClientRect().top + scrollY : 0;
+    scrollTo(0, SCROLL[t] != null ? SCROLL[t] : Math.min(scrollY, top)); }
+}
+
+// Small bar charts for the Quality section: items [{label, value, tip}], hover tooltips, a table beside.
+let barsN = 0;
+function bars(items, opts = {}) {
+  const id = "bars" + (++barsN), fmt = opts.fmt || ((v) => String(v)), color = opts.color || "--s1";
+  const vals = items.map((x) => x.value).filter((v) => v != null);
+  if (vals.length < (opts.min || 1)) return `<p class="muted">${esc(opts.empty || "Nothing recorded yet.")}</p>`;
+  const max = Math.max(...vals, opts.floor || 1);
+  const draw = (W) => { const H = opts.H || 110, L = 40, Bm = 18, T = 8;
+  const step = (W - L - 4) / items.length, bw = Math.max(2, Math.min(28, step - 2)), y = (v) => T + (H - T - Bm) * (1 - v / max);
+  let g = "";
+  for (let i = 0; i <= 2; i++) { const v = max * i / 2, yy = y(v);
+    g += `<line x1="${L}" x2="${W}" y1="${yy}" y2="${yy}" stroke="var(--grid)"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end">${esc(fmt(v))}</text>`; }
+  items.forEach((x, i) => { if (x.value == null) return; const xx = L + 4 + i * step, yy = y(x.value);
+    if (x.value) g += `<rect x="${xx}" y="${yy}" width="${bw}" height="${H - Bm - yy}" fill="var(${color})" rx="2"/>`;
+    g += `<rect class="hit" data-i="${i}" x="${xx - 1}" y="${T}" width="${bw + 2}" height="${H - T - Bm}" fill="transparent"/>`; });
+  if (items.length) g += `<text x="${L + 4}" y="${H - 4}">${esc(items[0].label)}</text><text x="${W}" y="${H - 4}" text-anchor="end">${esc(items[items.length - 1].label)}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label || "")}">${g}</svg>`; };
+  const bind = () => document.querySelectorAll(`#${id} .hit`).forEach((r) => { const x = items[+r.dataset.i];
+    r.addEventListener("mousemove", (e) => showTip(e, `<b>${esc(x.label)}</b><br>${esc(x.tip || fmt(x.value))}`));
+    r.addEventListener("mouseleave", hideTip); });
+  const table = `<details><summary>Table</summary><div class="scroll"><table><tr><th>${esc(opts.col || "")}</th><th class="n">${esc(opts.unit || "value")}</th></tr>${items.slice().reverse().map((x) => `<tr><td>${esc(x.label)}</td><td class="n">${x.value == null ? "–" : esc(fmt(x.value))}</td></tr>`).join("")}</table></div></details>`;
+  return `<div id="${id}">${chart(id, draw, bind, 520)}</div>${table}`;
+}
+const SEV = [["critical", "--critical"], ["high", "--serious"], ["medium", "--warning"], ["low", "--s1"], ["info", "--other"]];
+function sevBar(sev) {
+  const n = Object.values(sev || {}).reduce((a, b) => a + b, 0);
+  if (!n) return "–";
+  return `<span class="sev" title="${esc(Object.entries(sev).map(([k, v]) => k + " " + v).join(", "))}">${SEV.map(([k, v]) => sev[k] ? `<i style="width:${100 * sev[k] / n}%;background:var(${v})"></i>` : "").join("")}</span> ${n}`;
+}
+const chips = (o) => Object.entries(o || {}).length ? `<span class="chips">${Object.entries(o).map(([k, v]) => `<span>${esc(k)} ${esc(v)}</span>`).join("")}</span>` : "–";
+function meter(v, limit, label) {
+  const pct = limit ? Math.min(100, 100 * (v || 0) / limit) : 0, over = limit != null && v > limit;
+  return `<div>${label}</div><div class="meter small" aria-hidden="true"><div class="fill${over ? " over" : ""}" style="width:${pct}%"></div></div>`;
+}
+
+function quality(Q, tasks) {
+  if (!Q) return "";
+  const A = Q.architect, R = Q.rules, F = Q.friction, H = Q.history || [];
+  let html = "";
+  const E = Q.errors || {}, NAMES = {architect: "Architect", rules: "House rules", friction: "Friction", tasks: "Task log"};
+  for (const [k, e] of Object.entries(E)) html += `<div class="banner critical all" role="status"><b>⚠ ${esc(NAMES[k] || k)} section failed</b><span>${esc(e)}</span></div>`;
+  const s = A?.settings || {};
+  html += `<div class="tiles all">
+    ${A ? `<div class="tile"><div class="k">Architect pass</div><div class="v">${A.due ? "due" : A.running.length ? "running" : "not due"}</div><div class="d">last ${A.last ? ago(A.last.started_at) : "never"} · ${A.done_since_last ?? "–"}/${s.every_n_tasks} tasks</div></div>
+    <div class="tile"><div class="k">Awaiting triage</div><div class="v">${A.awaiting_triage.length}</div><div class="d">${A.backfills ? A.backfills + " sha backfill(s) unfinished" : "blocks after " + s.triage_grace_tasks + " merges"}</div></div>
+    <div class="tile"><div class="k">Architect tasks open</div><div class="v">${A.filed.open.length}</div><div class="d">of ${A.filed.total} filed by triage</div></div>` : ""}
+    ${R ? `<div class="tile"><div class="k">Budgets over</div><div class="v">${R.budgets_over}</div><div class="d">of ${R.budgets.length} · rules doc ${R.lines}/${R.rules_max_lines} lines</div></div>` : ""}
+    ${F ? `<div class="tile"><div class="k">Friction notes, 7 days</div><div class="v">${F.last_7d}</div><div class="d">${F.since_last_pass}${F.notes_due != null ? "/" + F.notes_due : ""} since the last pass</div></div>` : ""}
+  </div>`;
+  if (!A && !R && !E.architect && !E.rules) html += `<p class="muted all">No architect block in <code>docs/delivery/plane.json</code>: no passes, house rules or budgets to show.</p>`;
+  if (A) {
+    const rows = A.passes.slice().reverse();
+    html += `<section class="card s3 w4"><h2>Architect passes and triage</h2><div class="cols"><div>
+      ${meter(A.done_since_last, s.every_n_tasks, `Tasks done since the last pass: <b>${A.done_since_last ?? "–"}</b> of ${s.every_n_tasks}`)}
+      ${meter(A.notes_since_last, s.notes_due, `Friction notes since: <b>${A.notes_since_last ?? "–"}</b> of ${s.notes_due}`)}
+      ${meter(A.days_since_last, s.max_days, `Days since: <b>${A.days_since_last ?? "–"}</b> of ${s.max_days} (with a merge)`)}
+      ${A.drift && A.drift.drift_ratio != null ? meter(A.drift.drift_ratio, A.drift.drift_limit, `Wall-time drift: <b>${A.drift.drift_ratio}×</b> (pass due above ${A.drift.drift_limit}×)`) : ""}
+      <p class="meta">${esc(A.reason || "")}</p>
+      ${A.shape_due.length ? `<p>Shape due for ${A.shape_due.map(esc).join(", ")}</p>` : ""}
+      ${A.failed_in_a_row ? `<p style="color:var(--critical)">The last ${A.failed_in_a_row} pass(es) failed.</p>` : ""}
+      ${s.refactor_every ? `<p class="meta">Feature tasks since the last refactor: ${A.features_since_refactor ?? "–"} (a refactor goes first at ${s.refactor_every})</p>` : ""}
+    </div><div><ul class="plain">
+      <li>Passes: ${chips(A.passes_by_status)}${A.unreadable ? ` <b style="color:var(--critical)">⚠ ${Number(A.unreadable)} unreadable</b>` : ""}</li>
+      <li>Findings by severity: ${sevBar(A.severity_total)}</li>
+      <li>Finding dispositions: ${chips(A.dispositions_total)}</li>
+      <li>Rule changes: ${chips(A.rule_dispositions_total)}</li>
+      <li>Tasks filed by triage: ${chips(A.filed.by_status)}</li>
+    </ul>${A.filed.open.length ? `<h3>Still open</h3><ul class="plain">${A.filed.open.map((t) => `<li><code>${esc(t.task_id.slice(0, 4))}</code> ${esc(t.title || t.task_id)} <span class="muted">(${esc(t.kind || "?")}, ${esc(t.status)})</span></li>`).join("")}</ul>` : ""}</div></div>
+    <div class="scroll"><table style="min-width:760px"><tr><th>Started</th><th>Pass</th><th>Status</th><th>Findings</th><th class="n">rules</th><th>Triage</th><th>Tasks filed</th></tr>
+    ${rows.map((p) => `<tr title="${esc(p.due_reason || "")}"><td style="white-space:nowrap">${esc((p.started_at || "").slice(0, 16).replace("T", " "))}</td><td style="white-space:nowrap"><code>${esc(p.review_id)}</code>${p.mode && p.mode !== "pass" ? " " + esc(p.mode) + (p.adr ? " " + esc(p.adr) : "") : ""}</td>
+      <td>${esc(p.status)}${p.error ? ` <span class="muted">${esc(p.error)}</span>` : ""}</td><td>${sevBar(p.severity)}</td><td class="n">${p.rule_changes ?? "–"}</td>
+      <td>${chips(p.dispositions)}</td><td>${p.tasks_created.map((t) => `<span title="${esc(t.title || "")}">${esc(t.task_id.slice(0, 4))} <span class="muted">${esc(t.status)}</span></span>`).join(", ") || "–"}</td></tr>`).join("")}
+    </table></div>${legend(SEV.map(([k, v]) => [k, v]))}</section>`;
+  }
+  if (F) {
+    const days = Object.entries(F.per_day || {}).map(([d, v]) => ({label: d.slice(5), value: v, tip: `${v} note(s) on ${d}`}));
+    html += `<section class="card s2"><h2>Friction notes</h2><div class="cols"><div>
+      <h3>Per day, last ${days.length} days</h3>${bars(days, {color: "--s2", col: "day", unit: "notes", label: "Friction notes per day", empty: "No friction notes yet."})}
+      <ul class="plain"><li>By seat: ${chips(F.by_seat)}</li><li>By source: ${chips(F.by_source)}</li>
+      <li>Per week: ${chips(F.per_week)}</li><li>Most notes: ${(F.top_tasks || []).map(([t, n]) => `<code>${esc(String(t).slice(0, 4))}</code> ×${n}`).join(", ") || "–"}</li>
+      <li class="muted">Notes carry no category, so there are no themes.</li></ul></div>
+      <div><h3>Latest ${F.recent.length}</h3>${F.recent.length ? `<ol class="notes">${F.recent.map((n) => `<li><span class="muted">${esc((n.at || "").slice(0, 16).replace("T", " "))} · ${esc(n.task_id || "-")} · ${esc(n.by || n.source || "-")}</span><br>${esc(n.text)}</li>`).join("")}</ol>` : `<p class="muted">None.</p>`}</div></div></section>`;
+  }
+  if (R) {
+    html += `<section class="card"><h2>House rules and budgets</h2>
+      ${meter(R.lines, R.rules_max_lines, `<code>${esc(R.rules_doc || "no rules doc")}</code>: <b>${R.lines}</b> of ${R.rules_max_lines} lines, ${R.rules} rules`)}
+      <p>Checked by: ${chips(R.by_check)}</p>
+      <p class="meta">Product checks the verifier runs (<code>ccp docs check</code>): ${R.checks.length ? R.checks.map(esc).join(", ") : "none"}. Their results are not recorded, so the board does not show them.</p>
+      ${R.doc_errors.length ? `<ul class="plain">${R.doc_errors.map((e) => `<li style="color:var(--critical)">${esc(e)}</li>`).join("")}</ul>` : ""}
+      ${R.budgets.length ? `<div class="scroll"><table><tr><th>Rule</th><th>Covers</th><th class="n">largest</th><th class="n">limit</th><th></th></tr>
+      ${R.budgets.map((b) => `<tr><td>${esc(b.id)}</td><td><code>${esc(b.target)}</code> <span class="muted">${b.files} file(s)${b.missing ? ", " + b.missing + " missing" : ""}</span></td>
+        <td class="n" title="${esc(b.max_path || "")}">${b.max ?? "–"}${b.over ? ` <b style="color:var(--critical)">⚠ ${b.over} over</b>` : ""}</td><td class="n">${b.limit} ${b.measure === "max_lines" ? "lines" : "bytes"}</td>
+        <td style="min-width:70px"><div class="meter small"><div class="fill${b.over ? " over" : ""}" style="width:${Math.min(100, 100 * (b.max || 0) / b.limit)}%"></div></div></td></tr>`).join("")}</table></div>` : `<p class="muted">No budgets in <code>architect.budgets</code>.</p>`}
+    </section>`;
+  }
+  if (H.length) {
+    const series = [["friction_total", "Friction notes, all", "--s2"], ["budgets_over", "Budgets over", "--critical"], ["filed_open", "Architect tasks open", "--s1"], ["rules_lines", "Rules doc lines", "--s3"], ["suite_cold_s", "Cold suite seconds, median of last 5", "--s1"], ["suite_warm_s", "Warm suite seconds, median of last 5", "--s2"], ["suite_part_s", "Part-lane seconds, median of last 5", "--s4"]];
+    html += `<section class="card s3 w4"><h2>Quality trend, daily snapshots</h2>${H.length < 2 ? `<p class="muted">One snapshot so far (${esc(H[0].date)}); trends draw from the second day.</p>` : `<div class="subgrid">${series.map(([k, label, c]) => `<div><h3>${label}</h3>${bars(H.map((h) => ({label: String(h.date).slice(5), value: h[k] ?? null})), {color: c, col: "day", unit: label, label})}</div>`).join("")}</div>`}</section>`;
+  }
+  return html;
+}
+
+// §27.2 suite and prompt per task (Performance tab). Shown with the quality block, as before.
+function suiteCard(Q, tasks) {
+  if (!Q) return "";
+  const timed = (tasks || []).slice(-30);
+  // §27.2: cold runs are the suite's time; warm (modules cached) and part-lane runs are their own series
+  const suiteBars = (k) => timed.map((t) => ({label: t.task_id.slice(0, 4), value: t.metrics?.["suite_seconds" + k] ?? null, tip: `suite ${t.metrics?.["suite_seconds" + k] ?? "–"} s, ${t.metrics?.["suite_tests" + k] ?? "–"} tests`}));
+  const suite = suiteBars(""), suiteWarm = suiteBars("_warm"), suitePart = suiteBars("_part");
+  const prompt = timed.map((t) => ({label: t.task_id.slice(0, 4), value: t.implement_prompt_chars || null, tip: `implement prompt ${t.implement_prompt_chars ?? "–"} chars, ${t.prompts ?? "–"} prompts`}));
+  const fmtS = (v) => Math.round(v) + "s";
+  return `<section class="card s2"><h2>Suite and prompt, last 30 merged</h2><div class="subgrid"><div><h3>Cold suite seconds per task (ccp suite runs, nothing cached)</h3>${bars(suite, {fmt: fmtS, col: "task", unit: "seconds", label: "Cold suite seconds per task", empty: "No cold suite runs recorded yet."})}
+    </div><div><h3>Warm suite seconds per task (modules cached; not the suite's time)</h3>${bars(suiteWarm, {fmt: fmtS, color: "--s2", col: "task", unit: "seconds", label: "Warm suite seconds per task", empty: "No warm suite runs recorded."})}
+    </div><div><h3>Part-lane seconds per task (a subset of modules)</h3>${bars(suitePart, {fmt: fmtS, color: "--s4", col: "task", unit: "seconds", label: "Part-lane seconds per task", empty: "No part-lane runs recorded."})}
+    </div><div><h3>Implementer prompt size per task</h3>${bars(prompt, {fmt: (v) => v >= 1000 ? Math.round(v / 1000) + "k" : String(v), color: "--s3", col: "task", unit: "chars", label: "Implementer prompt characters per task", empty: "No prompt audits yet."})}</div></div></section>`;
+}
+
+// §28 priority 5, §22.10: Plan and backlog (ccp/plan.py). Every string from a task or an ADR goes through esc().
+function burnup(days) {
+  if (!days || days.length < 2) return `<p class="muted">Burn-up draws from the second day of the task log.</p>`;
+  const max = Math.max(...days.map((d) => d.total), 1);
+  const draw = (W) => { const H = 220, L = 40, Bm = 20, T = 10;
+  const x = (i) => L + 4 + i * (W - L - 8) / (days.length - 1), y = (v) => T + (H - T - Bm) * (1 - v / max);
+  let g = "";
+  for (let i = 0; i <= 3; i++) { const v = Math.round(max * i / 3), yy = y(v);
+    g += `<line x1="${L}" x2="${W}" y1="${yy}" y2="${yy}" stroke="var(--grid)"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end">${v}</text>`; }
+  const line = (k, c, dash) => `<polyline fill="none" stroke="var(${c})" stroke-width="2"${dash ? ' stroke-dasharray="5 4"' : ""} points="${days.map((d, i) => `${x(i)},${y(d[k])}`).join(" ")}"/>`;
+  g += line("total", "--ink-2", true) + line("done", "--s1", false);
+  const step = (W - L - 8) / (days.length - 1);
+  days.forEach((d, i) => { g += `<rect class="hit" data-i="${i}" x="${x(i) - step / 2}" y="${T}" width="${step}" height="${H - T - Bm}" fill="transparent"/>`; });
+  g += `<text x="${L + 4}" y="${H - 4}">${esc(days[0].date.slice(5))}</text><text x="${W}" y="${H - 4}" text-anchor="end">${esc(days[days.length - 1].date.slice(5))}</text>`;
+  const last = days[days.length - 1];
+  g += `<text x="${W - 4}" y="${y(last.done) - 6}" text-anchor="end" style="fill:var(--ink-2)">${last.done} done</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tasks done against tasks in the log, per day">${g}</svg>`; };
+  const bind = () => document.querySelectorAll("#burnup .hit").forEach((r) => { const d = days[+r.dataset.i];
+    r.addEventListener("mousemove", (e) => showTip(e, `<b>${esc(d.date)}</b><br>done ${d.done} of ${d.total}`));
+    r.addEventListener("mouseleave", hideTip); });
+  const table = `<details><summary>Table</summary><div class="scroll"><table><tr><th>Day</th><th class="n">done</th><th class="n">in the log</th></tr>${days.slice().reverse().map((d) => `<tr><td>${esc(d.date)}</td><td class="n">${d.done}</td><td class="n">${d.total}</td></tr>`).join("")}</table></div></details>`;
+  return `<div id="burnup">${chart("burnup", draw, bind, 640)}</div>${legend([["done", "--s1"], ["in the log (not dropped), dashed", "--ink-2"]])}${table}`;
+}
+
+// Open tasks in rows by depth (a task sits below every open task it waits on), five to a row, so it
+// stays legible at phone width; a list beside it carries the same facts as text.
+function depGraph(G) {
+  if (!G || !G.nodes.length) return `<p class="muted">No open tasks.</p>`;
+  const NW = 62, NH = 20, GX = 8, PER = 5, RH = 34, W = PER * NW + (PER - 1) * GX, pos = {};
+  let row = 0, g = "";
+  const depths = [...new Set(G.nodes.map((n) => n.depth))].sort((a, b) => a - b);
+  for (const d of depths) {
+    const ns = G.nodes.filter((n) => n.depth === d);
+    ns.forEach((n, i) => { pos[n.id] = {x: (i % PER) * (NW + GX), y: (row + Math.floor(i / PER)) * RH + 4}; });
+    row += Math.ceil(ns.length / PER);
+  }
+  const H = row * RH + 4;
+  for (const [a, b] of G.edges) { const p = pos[a], q = pos[b]; if (!p || !q) continue;
+    g += `<line x1="${p.x + NW / 2}" y1="${p.y + NH}" x2="${q.x + NW / 2}" y2="${q.y}" stroke="var(--axis)" stroke-width="1"/>`; }
+  for (const n of G.nodes) { const p = pos[n.id];
+    const fill = n.in_flight ? "var(--s1)" : n.ready ? "var(--s3)" : "var(--surface)";
+    const ink = n.in_flight || n.ready ? "#fff" : "var(--ink)";
+    const mark = n.in_flight ? "▶ " : n.ready ? "✓ " : "";
+    g += `<g><title>${esc(n.id)} · ${esc(n.title)}${n.waiting_on.length ? " · waits on " + esc(n.waiting_on.map((x) => x.slice(0, 4)).join(", ")) : ""}</title>
+      <rect x="${p.x}" y="${p.y}" width="${NW}" height="${NH}" rx="4" fill="${fill}" stroke="${n.kind === "refactor" ? "var(--s4)" : "var(--axis)"}" stroke-width="${n.kind === "refactor" ? 2 : 1}"${n.in_scope === false ? ' stroke-dasharray="3 2" opacity="0.6"' : ""}/>
+      <text x="${p.x + NW / 2}" y="${p.y + 14}" text-anchor="middle" style="fill:${ink};font-size:11px">${mark}${esc(n.id.slice(0, 4))}</text></g>`; }
+  const list = `<details><summary>As a list</summary><ul class="plain">${G.nodes.map((n) => `<li><code>${esc(n.id.slice(0, 4))}</code> ${esc(n.title)} <span class="muted">(${n.in_flight ? "in flight" : n.ready ? "ready" : n.waiting_on.length ? "waits on " + esc(n.waiting_on.map((x) => x.slice(0, 4)).join(", ")) : esc(n.status)}${n.kind === "refactor" ? ", refactor" : ""}${n.in_scope === false ? ", outside the scope" : ""}${n.done_deps ? ", " + n.done_deps + " done dep(s)" : ""})</span></li>`).join("")}</ul></details>`;
+  return `<svg viewBox="-2 0 ${W + 4} ${H}" style="max-width:560px" role="img" aria-label="Open tasks and their open dependencies">${g}</svg>
+    ${legend([["▶ in flight", "--s1"], ["✓ ready", "--s3"], ["waiting (outlined)", "--axis"], ["refactor (amber edge)", "--s4"]])}<p class="meta">Dashed and faded: outside the runner's scope. Hover a task for its title and what it waits on.</p>
+    ${G.truncated ? `<p class="muted">The first ${G.nodes.length} of ${G.open} open tasks.</p>` : ""}${list}`;
+}
+
+// Returns the Queue tab's cards and the Backlog tab's; a section error shows on the tab it belongs to.
+// §22.7: the review-point filter. CUR_RP is the current point; each select names its rows' container.
+let CUR_RP = null;
+function applyRpf(key, v) {
+  const want = v === "current" ? CUR_RP : v;
+  document.querySelectorAll(`[data-rpf-rows="${key}"] [data-rp]`).forEach((r) => {
+    const have = (r.getAttribute("data-rp") || "").split(" ").filter(Boolean);
+    r.hidden = !(v === "all" || (v === "none" ? !have.length : have.includes(want)));
+  });
+}
+function restoreRpf() {
+  document.querySelectorAll("select[data-rpf]").forEach((sel) => {
+    let v = null; try { v = localStorage.getItem("board-rpf-" + sel.getAttribute("data-rpf")); } catch (e) {}
+    if (v && Array.from(sel.options || []).some((o) => o.value === v)) { sel.value = v; applyRpf(sel.getAttribute("data-rpf"), v); }
+  });
+}
+function plan(P) {
+  if (!P) return {queue: "", backlog: ""};
+  let html = "", bl = "";  // html: the Queue tab; bl: the Backlog tab
+  const NAMES = {tasks: "Task log", adrs: "ADR register", review_points: "Review points", register: "Review-point register", ready: "Ready queue", graph: "Dependency graph", burnup: "Burn-up", plan: "Plan"};
+  const ON_QUEUE = ["tasks", "review_points", "register", "ready", "plan"], ON_BACKLOG = ["tasks", "adrs", "graph", "burnup", "plan"];
+  for (const [k, e] of Object.entries(P.errors || {})) { const b = `<div class="banner critical all" role="status"><b>⚠ ${esc(NAMES[k] || k)} section failed</b><span>${esc(e)}</span></div>`;
+    if (ON_QUEUE.includes(k) || !ON_BACKLOG.includes(k)) html += b;
+    if (ON_BACKLOG.includes(k)) bl += b; }
+  const REG = P.register || {};
+  for (const e of REG.errors || []) html += `<div class="banner critical all" role="status"><b>⚠ Review-point register</b><span>${esc(e)}</span></div>`;
+  if (REG.exists === false) html += `<div class="banner warning all" role="status"><b>◐ No review-point register</b><span>${esc(REG.path)}: review points are unchecked. Create it with each point's id (R&lt;n&gt;), short name and goal, written with the operator (SPEC §22.1).</span></div>`;
+  if (REG.mismatch) html += `<div class="banner warning all" role="status"><b>⚠ Review point</b><span>${esc(REG.mismatch)}</span></div>`;
+  const c = P.counts || {}, live = Object.entries(c).filter(([k]) => k !== "dropped").reduce((a, [, v]) => a + v, 0);
+  const R = P.ready || {}, items = R.items || [], A = P.adrs, RP = P.review_points || [], cur = RP.find((g) => g.current);
+  CUR_RP = cur ? cur.id : (REG.current || null);
+  const rpName = (id) => { const g = RP.find((x) => x.id === id); return g && g.name ? String(g.name) : ""; };
+  const rpLabel = (id) => id ? esc(id) + (rpName(id) ? " · " + esc(rpName(id)) : "") : "–";
+  const short = (s, n) => { s = String(s ?? ""); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+  const rpSel = (key) => `<label class="rpf">Review point <select data-rpf="${key}"><option value="all">All</option>${CUR_RP ? `<option value="current">Current (${esc(CUR_RP)})</option>` : ""}${RP.slice().reverse().map((g) => `<option value="${esc(g.id)}">${rpLabel(g.id)}</option>`).join("")}<option value="none">None</option></select></label>`;
+  const adrs = (A?.items || []), built = adrs.filter((i) => i.built_pct != null);
+  const doneTile = `<div class="tile"><div class="k">Tasks done</div><div class="v">${c.done || 0}/${live}</div><div class="d">${c.dropped || 0} dropped · ${Object.entries(c).filter(([k]) => !["done", "dropped"].includes(k)).map(([k, v]) => esc(k) + " " + v).join(" · ") || "none open"}</div></div>`;
+  const qt = html + `<div class="tiles all">${doneTile}
+    <div class="tile"><div class="k">Ready now</div><div class="v">${items.filter((t) => !t.in_flight).length}</div><div class="d">${items.length ? "next pick " + esc(items[0].task_id.slice(0, 4)) + (items[0].in_flight ? " (in flight)" : "") : "nothing ready"}${R.scope_size ? " · scope " + R.scope_size : " · whole log"}</div></div>
+    ${cur ? `<div class="tile" title="${esc(cur.goal || "")}"><div class="k">Review point ${rpLabel(cur.id)}</div><div class="v">${cur.done}/${cur.tasks}</div><div class="d">${cur.remaining} remaining${cur.unstamped ? " · " + cur.unstamped + " from the scope" : ""}</div></div>` : ""}
+  </div>`;
+  html = "";  // the errors went above the Queue tiles
+  bl += `<div class="tiles all">${doneTile}
+    <div class="tile"><div class="k">ADRs</div><div class="v">${adrs.length}</div><div class="d">${built.filter((i) => i.built_pct === 100).length} fully built · ${built.filter((i) => i.built_pct < 100).length} in progress</div></div>
+  </div>`;
+  const byId = {}; for (const t of P.tasks || []) byId[t.task_id] = t;
+  // The current review point: what it is for, how far it is, what is open and which ADRs it builds.
+  html += safe("Current review point", () => { if (!cur) return "";
+    const pct = cur.tasks ? Math.round(100 * cur.done / cur.tasks) : 0, flight = new Set(R.in_flight || []), ready = new Set(items.map((t) => t.task_id));
+    const open = (cur.open_ids || []).map((id) => byId[id] || {task_id: id, title: "", status: "?"});
+    const groups = [["In flight", open.filter((t) => flight.has(t.task_id))], ["Ready", open.filter((t) => !flight.has(t.task_id) && ready.has(t.task_id))],
+      ["Blocked", open.filter((t) => !flight.has(t.task_id) && !ready.has(t.task_id) && t.status === "blocked")],
+      ["Waiting on dependencies", open.filter((t) => !flight.has(t.task_id) && !ready.has(t.task_id) && t.status !== "blocked")]];
+    const li = (t) => `<li><code>${esc(String(t.task_id).slice(0, 4))}</code> ${esc(t.title)}</li>`;
+    const ad = cur.adrs || [];
+    return `<section class="card s2"><h2>Current review point: ${rpLabel(cur.id)}</h2>
+    ${cur.goal ? `<p class="goal">${esc(cur.goal)}</p>` : `<p class="muted">${cur.in_register ? "No goal written." : "Not in the review-point register: no name or goal."}</p>`}
+    <div class="meter" role="img" aria-label="${pct}% done"><div class="fill" style="width:${pct}%"></div></div>
+    <p class="meta">${cur.done}/${cur.tasks} done (${pct}%) · ${cur.remaining} open${cur.unstamped ? ` · ${cur.unstamped} from the runner's scope, not tagged yet` : ""}${cur.status ? " · " + esc(cur.status) : ""}${cur.opened ? " · opened " + esc(cur.opened) : ""}</p>
+    <div class="cols"><div><h3>Open tasks</h3>${open.length ? groups.filter(([, v]) => v.length).map(([k, v]) => `<p class="meta">${k} (${v.length})</p><ul class="plain">${v.slice(0, 30).map(li).join("")}</ul>`).join("") : `<p class="muted">None open.</p>`}</div>
+    <div><h3>ADRs it builds</h3>${ad.length ? `<div class="scroll"><table><tr><th>ADR</th><th class="n">in ${esc(cur.id)}</th><th class="n">overall</th></tr>
+    ${ad.map((a) => `<tr><td title="${esc(a.title || "")}">${esc(a.id)}${a.named ? "" : ' <span class="muted">(cited)</span>'}</td><td class="n">${a.point ? `${a.point.built_pct}% <span class="muted">${a.point.done}/${a.point.tasks}</span><div class="meter small"><div class="fill" style="width:${a.point.built_pct}%"></div></div>` : '<span class="muted">no tasks</span>'}</td><td class="n">${a.built_pct == null ? "–" : a.built_pct + "%"}</td></tr>`).join("")}</table></div>` : `<p class="muted">No ADR names this point, and its tasks cite none.</p>`}</div></div>
+    <p class="meta">Tasks attach with <code>review_point: ${esc(cur.id)}</code> when scoped; ADRs with <code>review_points: [${esc(cur.id)}]</code>. Built in the point: its tasks citing the ADR, done over all.</p></section>`; });
+  // §16.3: the pick `ccp tasks next` returns (plan.ready_queue's next), not always row 0: with several tasks
+  // held, in-flight rows are skipped and a head of the line that cannot join yet means no pick (slots_full)
+  const nx = "next" in R ? items.find((t) => t.task_id === R.next) : items[0], queued = items.filter((t) => !t.in_flight && t !== nx);
+  const FL = ((B && B.now) || {}).flight || [];
+  const rpTag = (id) => id ? ` <span class="muted" title="${esc(rpName(id))}">${esc(id)}</span>` : "";
+  html += `<section class="card s2"><h2>Ready queue</h2>${items.length ? rpSel("ready") : ""}<div data-rpf-rows="ready">${nx ? `<p data-rp="${esc(nx.review_point || "")}"><b>Next pick:</b> <code>${esc(nx.task_id.slice(0, 4))}</code> ${esc(nx.title)}${nx.kind === "refactor" ? ' <span class="muted">(refactor)</span>' : ""}${rpTag(nx.review_point)} <span class="est">${estCell(nx.task_id)}</span><br><span class="muted">${nx.in_flight ? "already in flight: <code>ccp tasks next</code> returns it, to resume. " : ""}${esc(nx.why)}</span></p>` : R.slots_full ? `<p class="muted"><b>Slots full</b>${R.slots_full.head ? ": <code>" + esc(R.slots_full.head.slice(0, 4)) + "</code> waits" : ""} (${esc(R.slots_full.reason)}). <code>ccp tasks next</code> exits 7: the runner carries on with what it holds.</p>` : `<p class="muted">Nothing ready${R.scope_size ? " in the scope" : ""}: <code>ccp tasks next</code> exits 3.</p>`}
+    ${queued.length ? `<h3>Then</h3><ol class="notes tall">${queued.map((t) => `<li data-rp="${esc(t.review_point || "")}"><code>${esc(t.task_id.slice(0, 4))}</code> ${esc(t.title)}${t.kind === "refactor" ? ' <span class="muted">(refactor)</span>' : ""}${rpTag(t.review_point)} <span class="est">${estCell(t.task_id)}</span><br><span class="muted">${esc(t.why)}</span></li>`).join("")}</ol>` : ""}</div>
+    ${FL.length ? `<h3>In flight</h3><ul class="plain">${FL.map((f) => `<li><code>${esc(f.task_id.slice(0, 4))}</code> ${esc(f.phase || "?")} for ${esc(ago(f.since))}${f.holder && (f.holder !== "runner" || FL.some((x) => x.holder && x.holder !== "runner")) ? " · " + esc(f.holder) : ""}${f.waiting_on ? ", waits on " + esc(f.waiting_on) : ""}</li>`).join("")}</ul>`
+      : (R.in_flight || []).length ? `<h3>In flight</h3><p>${R.in_flight.map((x) => `<code>${esc(x.slice(0, 4))}</code>`).join(", ")}</p>` : ""}
+    ${(Array.isArray(R.preferred) ? R.preferred : []).filter((p) => p && p.state !== "ready").map((p) => `<p class="meta">The lead's preference <code>${esc(p.task_id)}</code> is ${esc(p.state)}.</p>`).join("")}
+    <p class="meta">The next pick is what <code>ccp tasks next</code> returns now (the same selection); the rest, the order it would take them in if each merged in turn.</p></section>`;
+  html += safe("Review points", () => `<section class="card s2"><h2>Review points</h2>${RP.length ? `<div class="scroll"><table style="min-width:640px"><tr><th>Point</th><th>Goal</th><th>Status</th><th class="n">done</th><th class="n">open</th><th>Opened</th><th>Closed</th><th></th></tr>
+    ${RP.slice().reverse().map((g) => `<tr><td style="white-space:nowrap">${g.current ? '<b style="color:var(--s1)">● </b>' : ""}<b>${esc(g.id)}</b>${g.name ? " · " + esc(g.name) : ""}${g.current ? ' <span class="muted">now</span>' : ""}${g.runner && !g.current ? ' <span class="muted">(runner)</span>' : ""}</td>
+      <td title="${esc(g.goal || "")}">${g.goal ? esc(short(g.goal, 90)) : `<span class="muted">${g.in_register ? "–" : "not in the register"}</span>`}</td><td>${esc(g.status || "–")}</td>
+      <td class="n">${g.done}/${g.tasks}</td><td class="n">${g.remaining}</td><td style="white-space:nowrap">${esc(g.opened || (g.first_done_at || "–").slice(0, 10))}</td><td style="white-space:nowrap">${esc(g.closed || (g.status === "closed" ? (g.last_done_at || "–").slice(0, 10) : "–"))}</td>
+      <td style="min-width:70px"><div class="meter small"><div class="fill" style="width:${g.tasks ? 100 * g.done / g.tasks : 0}%"></div></div></td></tr>`).join("")}</table></div>` : `<p class="muted">No review-point register, no task carries a <code>review_point</code>, and the runner has none.</p>`}
+    <p class="meta">${REG.exists ? `From the register <code>${esc(REG.path)}</code> and each task's <code>review_point</code>, set when the task is scoped` : `No register yet (<code>${esc(REG.path || "docs/delivery/review-points.yaml")}</code>): points from each task's <code>review_point</code> only`}; <code>ccp tasks close</code> stamps the runner's point into a task that has none. Opened falls back to the first done task, closed to the last.</p></section>`);
+  bl += `<section class="card s2 w4"><h2>ADR register</h2>${A && !A.enabled ? `<p class="meta">No <code>adr</code> block in plane.json: ADRs by number, from the tasks' <code>adr_refs</code> only.</p>` : ""}
+    ${(A?.errors || []).length ? `<ul class="plain">${A.errors.map((e) => `<li style="color:var(--critical)">⚠ ${esc(e)}</li>`).join("")}</ul>` : ""}
+    ${adrs.length ? rpSel("adrs") + `<div class="scroll tall"><table style="min-width:820px" data-rpf-rows="adrs"><tr><th>ADR</th><th>Title</th><th>Status</th><th>Date</th><th>Points</th><th>Built</th><th>Decisions</th></tr>
+    ${adrs.slice().reverse().map((i) => { const named = i.review_points || [], cited = Object.keys(i.by_point || {}).filter((k) => !named.includes(k));
+      return `<tr data-rp="${esc([...named, ...cited].join(" "))}"${i.status === "superseded" || i.archived ? ' class="muted"' : ""}><td style="white-space:nowrap">${esc(i.id)}</td><td>${esc(i.title || "–")}</td>
+      <td>${esc(i.status || "–")}${i.superseded_by ? " by " + esc(i.superseded_by) : ""}${i.supersedes.length ? ` <span class="muted">supersedes ${i.supersedes.map(esc).join(", ")}</span>` : ""}</td><td style="white-space:nowrap">${esc(i.date || "–")}</td>
+      <td style="white-space:nowrap">${named.map((x) => { const b = (i.by_point || {})[x]; return `<span title="${esc(rpName(x))}">${esc(x)}</span>${b ? ` <span class="muted">${b.built_pct}%</span>` : ""}`; }).join("<br>")}${cited.length ? `${named.length ? "<br>" : ""}<span class="muted" title="cited by tasks on these points">${cited.map((x) => `${esc(x)} ${(i.by_point || {})[x].built_pct}%`).join(", ")}</span>` : ""}${named.length || cited.length ? "" : "–"}</td>
+      <td style="min-width:90px" title="${esc(i.open.join(", "))}">${i.built_pct == null ? `<span class="muted">${i.built_from === "decisions" ? "n/a · all retired" : "no tasks"}</span>` : `${i.built_pct}% <span class="muted">${i.built_from === "decisions" ? `${i.built_decisions}/${i.standing_decisions} decisions` : `${i.done}/${i.tasks} tasks`}</span><div class="meter small"><div class="fill" style="width:${i.built_pct}%"></div></div>`}</td>
+      <td class="muted" style="font-size:12px">${(i.decisions || []).some((d) => d.state) ? (i.decisions || []).map((d) => `<span title="${esc(d.by ? "by " + d.by : "")}">${esc(d.id)} ${esc(d.state || "?")}</span>`).join(" · ") : esc(i.in_force || "")}</td></tr>`; }).join("")}</table></div>` : `<p class="muted">No ADRs.</p>`}
+    <p class="meta">Built: when the ADR records its decisions' states, built or live over its decisions not retired (a decision with no state counts as not built; n/a when every decision is retired); otherwise done over the tasks that cite the ADR in <code>adr_refs</code>, dropped ones left out. Points: the ADR's own <code>review_points</code>, with built % over its tasks on that point; in grey, points its citing tasks are on that the ADR does not name.</p></section>`;
+  bl += `<div class="stack s2"><section class="card"><h2>Burn-up</h2>${safe("Burn-up", () => burnup(P.burnup))}</section>
+    <section class="card"><h2>Dependency graph, open tasks</h2>${safe("Dependency graph", () => depGraph(P.graph))}</section></div>`;
+  const open = (P.tasks || []).filter((t) => !["done", "dropped"].includes(t.status));
+  const recent = (P.tasks || []).filter((t) => t.status === "done" && t.done_at).sort((a, b) => a.done_at < b.done_at ? 1 : -1).slice(0, 15);
+  const row = (t) => `<tr data-rp="${esc(t.review_point || "")}"><td style="white-space:nowrap"><code>${esc(t.task_id.slice(0, 4))}</code></td><td>${esc(t.title)}</td><td>${esc(t.status)}</td><td>${esc(t.kind)}</td><td title="${esc(rpName(t.review_point))}">${esc(t.review_point || "–")}</td><td>${esc(t.adr_refs.join(", ") || "–")}</td><td>${t.pr ? "#" + esc(t.pr) : "–"} ${t.merge_sha ? `<code>${esc(t.merge_sha.slice(0, 7))}</code>` : ""}</td><td style="white-space:nowrap">${esc((t.done_at || "").slice(0, 10))}</td><td class="n" style="white-space:nowrap">${estCell(t.task_id)}</td></tr>`;
+  const head = `<tr><th>Task</th><th>Title</th><th>Status</th><th>Kind</th><th>Point</th><th>ADRs</th><th>PR</th><th>Done</th><th class="n" title="advisory, SPEC §26.3">Estimate P50–P90</th></tr>`;
+  html += `<section class="card s4"><h2>Task board</h2>${rpSel("tasks")}<div data-rpf-rows="tasks"><h3>Open (${open.length})</h3>${open.length ? `<div class="scroll tall"><table style="min-width:860px">${head}${open.map(row).join("")}</table></div>` : `<p class="muted">None.</p>`}
+    <h3>Done most recently</h3>${recent.length ? `<div class="scroll"><table style="min-width:860px">${head}${recent.map(row).join("")}</table></div>` : `<p class="muted">None.</p>`}
+    <details><summary>Every task (${(P.tasks || []).length})</summary><div class="scroll tall"><table style="min-width:860px">${head}${(P.tasks || []).map(row).join("")}</table></div></details></div></section>`;
+  return {queue: html, queueTiles: qt, backlog: bl};
+}
+
+// A renderer that throws shows its own banner; the rest of the page still renders.
+function tabSafe(name, fn) {
+  try { return fn(); } catch (e) {
+    return `<div class="banner critical all" role="status"><b>⚠ ${esc(name)} tab failed</b><span>${esc(e && e.message || e)}</span></div>`;
+  }
+}
+function safe(name, fn) {
+  try { return fn(); } catch (e) {
+    return `<div class="banner critical" role="status"><b>⚠ ${esc(name)} section failed</b><span>${esc(e && e.message || e)}</span></div>`;
+  }
+}
+// §22: a review point as "R8 · pre-beta" (escaped), its name from the plan's review points.
+function rpText(id, P) {
+  if (!id) return "";
+  const g = P && Array.isArray(P.review_points) ? P.review_points.find((x) => x.id === id) : null;
+  return esc(id) + (g && g.name ? " · " + esc(g.name) : "");
+}
+// The Now strip in the header: what runs, what it is on, and whether a seat runs off its pin.
+function nowStrip(n, w, P) {
+  const S = n.seats || {}, rows = Array.isArray(S.rows) ? S.rows : [], mm = rows.filter((r) => (r.mismatch || []).length);
+  const item = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
+  const task = w.task_id ? (drillOf(w.task_id) ? `<button class="link" type="button"${drillAttr(w.task_id)}>${esc(w.task_id)}</button>` : esc(w.task_id)) : "–";
+  const pref = P && P.ready && P.ready.preferred;
+  const waiting = (n.waits || []).length + (n.gates || []).length + (n.questions || []).length;
+  const rp = rpText(w.review_point, P);
+  let h = item("Runner", `${esc(w.status || "–")}${rp ? " · " + rp : ""} · scope ${esc(n.scope_size ?? "–")}`);
+  h += item("Task", `${task}${w.phase ? " · " + esc(w.phase) : ""}${w.phase_since ? " · " + esc(ago(w.phase_since)) : ""}`);
+  h += item("Workers", `${(n.open_runs || []).length} open${waiting ? ` · <b style="color:var(--serious)">${waiting} waiting</b>` : ""}`);
+  h += item("Seats", S.error ? `<b style="color:var(--critical)">⚠ seats failed</b>` : `${rows.length} listed${mm.length ? mm.map((r) => ` · <b style="color:var(${(r.expected || {}).advisory ? "--serious" : "--critical"})">⚠ ${esc(r.seat)}: ${esc(r.mismatch.join("; "))}</b>`).join("") : rows.length ? ` · <span style="color:var(--good)">✓ as pinned</span>` : ""}`);
+  const prefState = (id) => ((Array.isArray(pref) ? pref : []).find((p) => p && p.task_id === id) || {}).state;
+  const nts = n.next_tasks && Array.isArray(n.next_tasks.tasks) ? n.next_tasks.tasks : [];
+  if (nts.length) h += item("Next (lead)", `${nts.map((id) => { const st = prefState(id); return esc(id) + (st && st !== "ready" ? ` <span class="muted">${esc(st)}</span>` : ""); }).join(" → ")} <span class="muted">(${esc([n.next_tasks.by || "?", n.next_tasks.reason].filter(Boolean).join(", "))})</span>`);
+  if ((n.held || []).length) h += item("Held", n.held.map((x) => `${esc(x.task_id)} <span class="muted">(${esc([x.by || "?", x.reason].filter(Boolean).join(", "))})</span>`).join(", "));
+  return `<section class="card now" aria-label="Now"><h2>Now</h2><dl>${h}</dl></section>`;
+}
+// The tab icon: bars, plus a status dot (red: a blocker or failed rebuild; amber: a warning or advice;
+// green: nothing to look at), so a pinned tab shows the board's state without opening it.
+function setFavicon(level) {
+  try {
+    const dot = {critical: "#ef4444", warning: "#f59e0b", good: "#22c55e"}[level] || "#22c55e";
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='#1f2937'/>` +
+      `<rect x='5' y='17' width='5' height='9' rx='1' fill='#93c5fd'/><rect x='12' y='11' width='5' height='15' rx='1' fill='#93c5fd'/>` +
+      `<rect x='19' y='14' width='5' height='12' rx='1' fill='#93c5fd'/><circle cx='25' cy='7' r='5.5' fill='${dot}' stroke='#1f2937' stroke-width='2'/></svg>`;
+    const el = document.getElementById("favicon");
+    if (el) el.href = "data:image/svg+xml," + encodeURIComponent(svg);
+  } catch (e) { /* the icon is decoration: never break the page */ }
+}
+
+function render() {
+  if (!B) { document.getElementById("app").append($(`<p>No board data. Run <code>ccp board build</code>.</p>`)); return; }
+  const n = B.now || {}, u = B.usage || {}, w = n.work || {}, a = n.allowance || {}, last = a.latest || {};
+  let weekTok = null;
+  try { weekTok = Object.entries(u.daily || {}).sort().slice(-7).reduce((x, [, d]) => x + Object.values(d).reduce((p, q) => p + q, 0), 0); } catch (e) {}
+  const seven = last.seven_day, cp = a.checkpoint;
+  const merged7 = B.trend?.tasks_merged_7d ?? 0;
+  const tr = B.trend || {};
+  const rw = n.refactors_waiting;  // §20.4: outstanding refactors outside the scope (null without the architect seat)
+  const h = B.health || {};
+  const hp = hashParams(), stored = (() => { try { return localStorage.getItem("board-tab"); } catch (e) { return null; } })();
+  CUR_TAB = TAB_KEYS.includes(hp.tab) ? hp.tab : TAB_KEYS.includes(stored) ? stored : "performance";
+  // The header strip, on every tab: blockers, the plane's own blocking items, tiles, Now.
+  let top = `<header><h1>${esc(B.project_id)}</h1><span class="meta">board built ${ago(B.generated_at)} · plane ${esc(B.plane?.head || "?")}</span><span class="grow"></span><button class="theme" id="theme">Theme</button></header>`;
+  // Each piece of the strip, each card and each tab is guarded: a throw shows its own banner and the
+  // rest of the page renders (§28.3). A tab that fails as a whole says "<tab> tab failed" in its pane.
+  const bans = safe("Blockers", () => { let bans = "";
+  for (const b of B.blockers || []) bans += `<div class="banner critical" role="status"><b>⚠ Blocker</b><span>${esc(b)}</span></div>`;
+  if (h.last_rebuild_failure) bans += `<div class="banner critical" role="status"><b>⚠ Last rebuild failed</b><span>${esc(typeof h.last_rebuild_failure === "string" ? h.last_rebuild_failure : JSON.stringify(h.last_rebuild_failure))} · Plane health tab</span></div>`;
+  if ((h.stale_sources || []).length) bans += `<div class="banner warning" role="status"><b>⚠ Stale sources</b><span>${h.stale_sources.map(esc).join(", ")} · Plane health tab</span></div>`;
+  if ((h.divergence || []).length) bans += `<div class="banner warning" role="status"><b>⚠ Queue and task log disagree</b><span>${h.divergence.map(esc).join("; ")}</span></div>`;
+  for (const x of u.advice || []) bans += `<div class="banner warning" role="status"><b>◐ Advice</b><span>${esc(x)}</span></div>`;
+  return bans; });
+  setFavicon((B.blockers || []).length || h.last_rebuild_failure ? "critical"
+    : ((h.stale_sources || []).length || (h.divergence || []).length || (u.advice || []).length) ? "warning" : "good");
+  try { document.title = `${B.project_id || "Delivery"} board${(B.blockers || []).length ? ` · ${(B.blockers || []).length} blocker${(B.blockers || []).length > 1 ? "s" : ""}` : ""}`; } catch (e) { /* title is decoration */ }
+  const tiles = safe("Tiles", () => `<div class="tiles">
+    <div class="tile"><div class="k">Weekly allowance</div><div class="v">${seven == null ? "?" : seven.toFixed(0) + "%"}</div>
+      <div class="meter" aria-hidden="true"><div class="fill" style="width:${Math.min(100, seven || 0)}%"></div>${cp != null ? `<div class="mark" style="left:${cp}%"></div>` : ""}</div>
+      <div class="d">checkpoint ${cp ?? "–"}%${a.decision_lapsed_at ? ` · decision lapsed at the counter reset ${esc(String(a.decision_lapsed_at).slice(0, 16).replace("T", " "))}` : ""} · ${last.resets_at ? "resets " + new Date(last.resets_at).toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"}) : "reset unknown"}</div>
+      ${(() => { try { const t = fcAllowLine(B.forecast, true); return t ? `<div class="d" title="estimate, advisory (SPEC §26.4)">${t}</div>` : ""; } catch (e) { return ""; } })()}</div>
+    <div class="tile"><div class="k">Tokens, last 7 days</div><div class="v">${fmtTok(weekTok)}</div><div class="d">cost estimate $${(u.total?.cost_usd ?? 0).toFixed(2)} all time</div></div>
+    <div class="tile"><div class="k">Attributed to runs or seats</div><div class="v">${u.coverage == null ? "–" : (u.coverage * 100).toFixed(1) + "%"}</div><div class="d">${u.traces ? "from trace spans" : "no traces: time windows only"}</div></div>
+    <div class="tile"><div class="k">Tasks merged, 7 days</div><div class="v">${merged7}</div><div class="d">median wall ${fmtH(tr.median_wall_s_last10)} (prior 10: ${fmtH(tr.median_wall_s_prior10)})</div></div>
+    <div class="tile"><div class="k">Review + verify rounds</div><div class="v">${tr.median_review_verify_rounds ?? "–"}</div><div class="d">median per task</div></div>
+    <div class="tile"><div class="k">Tokens per task</div><div class="v">${fmtTok(tr.median_tokens_per_task)}</div><div class="d">median, tasks with usage</div></div>
+    ${rw ? `<div class="tile" title="${esc(rw.ids.join(", "))}"><div class="k">Refactors waiting</div><div class="v">${rw.count}</div><div class="d">${rw.count ? `oldest ${esc(rw.oldest_task_id || "?")} · ${rw.oldest_age_days == null ? "age unknown" : rw.oldest_age_days.toFixed(0) + " d"}` : "none waiting"}${rw.count && rw.mode === "deps" ? " · the next review point takes them" : ""}</div></div>` : ""}
+  </div>`);
+  top += `<div class="strip">${bans ? `<div>${bans}</div>` : ""}<div class="row">${tiles}${safe("Now", () => nowStrip(n, w, B.plan))}</div></div>`;
+
+  // Performance tab. Cards added after the wall-time card land here too.
+  const perf_html = tabSafe("Performance", () => { let html = safe("Seats", () => seatsCard(n.seats)).replace('<section class="card">', '<section class="card s3">');
+  html += safe("Tokens by seat", () => `<section class="card"><h2>Tokens by seat</h2><div class="scroll"><table><tr><th>Seat</th><th class="n">input</th><th class="n">output</th><th class="n">cache read</th><th class="n">cache write</th><th class="n">calls</th><th class="n">cost</th></tr>
+    ${Object.entries(u.seats || {}).map(([s, v]) => `<tr><td>${esc(s)}</td><td class="n">${fmtTok(v.input_tokens)}</td><td class="n">${fmtTok(v.output_tokens)}</td><td class="n">${fmtTok(v.cache_read_tokens)}</td><td class="n">${fmtTok(v.cache_creation_tokens)}</td><td class="n">${v.requests}</td><td class="n">${v.cost_usd == null ? "–" : "$" + Number(v.cost_usd).toFixed(2)}</td></tr>`).join("")}
+    <tr><td class="muted">unattributed</td><td class="n">${fmtTok(u.unattributed?.input_tokens)}</td><td class="n">${fmtTok(u.unattributed?.output_tokens)}</td><td class="n">${fmtTok(u.unattributed?.cache_read_tokens)}</td><td class="n">${fmtTok(u.unattributed?.cache_creation_tokens)}</td><td class="n">${u.unattributed?.requests ?? 0}</td><td class="n">${u.unattributed?.cost_usd == null ? "–" : "$" + Number(u.unattributed.cost_usd).toFixed(2)}</td></tr>
+  </table></div><p class="meta">Cost: an estimate at list prices, $${(u.total?.cost_usd ?? 0).toFixed(2)} in all.</p></section>`);
+  html += safe("Tokens per day", () => `<section class="card s2"><h2>Tokens per day, by seat</h2>${stackedDays(u.daily)}</section>`);
+  html += safe("Wall time per task", () => `<section class="card s2"><h2>Wall time per task, last 30 merged</h2>${wallBars(B.tasks)}
+    ${B.drill && B.drill._error ? `<div class="banner critical" role="status"><b>⚠ Drill-down failed</b><span>${esc(B.drill._error)}</span></div>` : `<p class="meta">Click a bar or a row for that task's runs on a time axis. Model, suite, other tools and idle are measured inside runs from 2026-10-21 (telemetry from its evening); runner is the time between runs.</p>`}
+    <details><summary>Per-task table</summary><div class="scroll tall"><table style="min-width:980px"><tr><th>Task</th><th>Merged</th><th class="n">wall</th><th class="n">impl</th><th class="n">review</th><th class="n">verify</th><th class="n">model</th><th class="n">suite</th><th class="n">other</th><th class="n">idle</th><th class="n">runner</th><th class="n">rounds r/v/f</th><th class="n">lines</th><th class="n">tokens</th><th>flags</th></tr>
+    ${B.tasks.slice().reverse().map((t) => { const D = drillOf(t.task_id), sp = D && D.telemetry === "runs" ? D.split : null, c = (k) => sp ? fmtD(sp[k]) : "–";
+      return `<tr${drillAttr(t.task_id)}><td>${D ? `<button class="link" type="button">${esc(t.task_id)}</button>` : esc(t.task_id)}</td><td>${esc((t.merged_at || "").slice(0, 16).replace("T", " "))}</td><td class="n">${fmtH(t.wall_s)}</td><td class="n">${fmtH(t.implementing_s)}</td><td class="n">${fmtH(t.reviewing_s)}</td><td class="n">${fmtH(t.verifying_s)}</td><td class="n">${c("model_s")}</td><td class="n">${c("suite_s")}</td><td class="n">${c("other_s")}</td><td class="n">${c("idle_s")}</td><td class="n">${D && D.runs && D.runs.length ? fmtD(D.split.runner_s) : "–"}</td><td class="n">${t.review_rounds ?? "–"}/${t.verify_rounds ?? "–"}/${t.fix_rounds ?? "–"}</td><td class="n">${t.lines ?? "–"}</td><td class="n">${fmtTok(Object.values(t.tokens || {}).reduce((a, b) => a + b, 0) || null)}</td><td>${esc((t.flags || []).join("; "))}</td></tr>`; }).join("")}
+    </table></div></details></section>`);
+  html += safe("Runs with usage", () => { const runsRows = (B.runs || []).slice(-40).reverse();
+  return `<section class="card s2"><h2>Runs with usage</h2>${runsRows.length ? `<div class="scroll tall"><table><tr><th>Run</th><th>Seat</th><th>Pinned</th><th>Observed</th><th class="n">tokens</th><th class="n">calls</th></tr>
+    ${runsRows.map((r) => `<tr><td>${esc(r.run_id)}</td><td>${esc(r.seat)}</td><td>${esc(r.expected_model || "–")} · ${esc(r.expected_effort || "–")}</td><td>${esc(r.usage.observed_models.join(", ") || "–")} · ${esc(r.usage.observed_efforts.join(", ") || "–")}${r.flags.length ? ` <b style="color:var(--critical)">⚠ ${esc(r.flags.join("; "))}</b>` : ""}</td><td class="n">${fmtTok(sum(r.usage))}</td><td class="n">${r.usage.requests}</td></tr>`).join("")}
+    </table></div>` : `<p class="muted">No run has usage yet.</p>`}</section>`; });
+  html += safe("Suite and prompt", () => suiteCard(B.quality, B.tasks));
+  html += safe("Headless runs", () => { const hl = (B.headless || []).slice(-20).reverse();
+  return hl.length ? `<section class="card"><h2>Headless runs</h2><div class="scroll"><table><tr><th>When</th><th>Kind</th><th class="n">turns</th><th class="n">time</th><th class="n">cost</th></tr>
+    ${hl.map((x) => `<tr title="${esc(x.review_id || "")}"><td style="white-space:nowrap">${esc(String(x.at || "").slice(0, 16).replace("T", " "))}</td><td>${esc(x.kind || "–")}</td><td class="n">${esc(x.num_turns ?? "–")}</td><td class="n">${x.duration_ms == null ? "–" : fmtD(Number(x.duration_ms) / 1000)}</td><td class="n">${x.total_cost_usd == null ? "–" : "$" + (Number(x.total_cost_usd) || 0).toFixed(2)}</td></tr>`).join("")}
+    </table></div></section>` : ""; });
+  return html; });
+
+  // Quality tab.
+  const quality_html = tabSafe("Quality", () => (quality(B.quality, B.tasks) || `<p class="muted all">No quality data in this board.</p>`)
+    + safe("Estimation", () => estimationCard(B.estimates)));
+
+  // Queue and Backlog tabs (the plan section).
+  let PL;
+  try { PL = plan(B.plan); } catch (e) { const b = `<div class="banner critical all" role="status"><b>⚠ Plan section failed</b><span>${esc(e && e.message || e)}</span></div>`; PL = {queue: b, backlog: b}; }
+  const queue_html = tabSafe("Queue", () => (PL.queueTiles || "") + safe("Now, in detail", () => `<section class="card"><h2>Now, in detail</h2><table>
+    <tr><td>Runner</td><td>${esc(w.status || "–")}${w.review_point ? " · " + rpText(w.review_point, B.plan) : ""} · scope ${n.scope_size} · done since spawn ${w.runner_tasks_done ?? 0}</td></tr>
+    <tr><td>Task</td><td>${w.task_id && drillOf(w.task_id) ? `<button class="link" type="button"${drillAttr(w.task_id)}>${esc(w.task_id)}</button>` : esc(w.task_id || "–")}</td></tr>
+    ${(n.held || []).length ? `<tr><td>Held</td><td>${n.held.map((h) => `${esc(h.task_id)} <span class="muted">(${esc([h.by || "?", h.reason].filter(Boolean).join(", "))})</span>`).join("<br>")}</td></tr>` : ""}
+    ${n.next_tasks && Array.isArray(n.next_tasks.tasks) && n.next_tasks.tasks.length ? `<tr><td>Next</td><td>${n.next_tasks.tasks.map(esc).join(" → ")} <span class="muted">(${esc([n.next_tasks.by || "?", n.next_tasks.reason].filter(Boolean).join(", "))})</span></td></tr>` : ""}
+    <tr><td>Phase</td><td>${esc(w.phase || "–")} ${w.phase_since ? "· " + ago(w.phase_since) : ""}</td></tr>
+    <tr><td>Workers</td><td>${n.open_runs.length ? n.open_runs.map((r) => `${esc(r.run_id)} <span class="muted">(${esc(r.state)})</span>`).join("<br>") : "–"}</td></tr>
+    <tr><td>Waiting</td><td>${[...n.waits.map((x) => `${esc(x.task_id)} on ${esc(x.waiting_on)}`), ...n.gates.map((g) => `gate ${esc(g.id)} (${esc(g.class)})`), ...n.questions.map((q) => `question ${esc(q.id)}`)].join("<br>") || "nothing"}</td></tr>
+  </table></section>`) + safe("Forecast", () => forecastCard(B.forecast)) + (PL.queue || `<p class="muted all">No plan data in this board.</p>`)
+    + safe("Refactors waiting", () => rw && rw.count ? `<section class="card"><h2>Refactors waiting</h2><p>${rw.ids.map((x) => `<code>${esc(x)}</code>`).join(", ")}</p><p class="meta">Outside the scope${rw.mode === "deps" ? "; the next review point takes them" : ""}.</p></section>` : ""));
+
+  // Plane health tab: the plane's own housekeeping.
+  const health_html = tabSafe("Plane health", () => safe("Plane health", () => `<section class="card s2"><h2>Plane health</h2><div class="cols"><div><table><tr><th>Source</th><th class="n">updated</th></tr>
+    ${Object.entries(h.sources || {}).map(([k, v]) => `<tr><td>${esc(k)}${(h.stale_sources || []).includes(k) ? ' <b style="color:var(--critical)">⚠ stale</b>' : v.live ? ` <span class="muted">${esc(v.live)}</span>` : ""}</td><td class="n">${v.age_minutes == null ? "never" : v.age_minutes < 60 ? Math.round(v.age_minutes) + " min" : (v.age_minutes / 60).toFixed(1) + " h"}</td></tr>`).join("")}</table></div>
+    <div><ul class="plain">
+      <li>Attribution: ${Object.entries(u.how || {}).map(([k, v]) => `${esc(k)} ${v}`).join(" · ") || "–"}</li>
+      ${Object.keys(u.unattributed_sources || {}).length ? `<li>Unattributed by agent: ${Object.entries(u.unattributed_sources).map(([k, v]) => `<code>${esc(k)}</code> ×${v}`).join(", ")}</li>` : ""}
+      <li>Queue scripts that are not the plane's: ${(h.scripts || []).length ? (h.scripts || []).map((s) => `<code>${esc(s.replace(/ differs from.*$/, "").replace(/^(unknown|drifted): scripts\//, (m, k) => k + " "))}</code>`).join(", ") : "none"}</li>
+      <li>Open ccp proposals: ${(h.proposals_open || []).length ? h.proposals_open.map((p) => `${esc(p.need)} <span class="muted">(×${p.again + 1})</span>`).join("; ") : "none"}</li>
+      <li>Queue vs task log: ${(h.divergence || []).length ? h.divergence.map(esc).join("; ") : "in agreement"}</li>
+      <li>Headless runs recorded: ${(B.headless || []).length}</li>
+      <li>Last rebuild failure: ${h.last_rebuild_failure ? esc(typeof h.last_rebuild_failure === "string" ? h.last_rebuild_failure : JSON.stringify(h.last_rebuild_failure)) : "none"}</li>
+    </ul></div></div></section>`) + safe("Allowance", () => { const dec = Array.isArray(a.decisions) ? a.decisions : [];
+  return `<section class="card"><h2>Allowance</h2><ul class="plain"><li>Weekly: <b>${seven == null ? "?" : seven.toFixed(0) + "%"}</b> · 5-hour: ${last.five_hour == null ? (seven != null ? "no limit" : "?") : Number(last.five_hour).toFixed(0) + "%"} · read ${last.at ? esc(ago(last.at)) : "never"}</li>
+    <li>Checkpoint in force: ${cp ?? "–"}%${a.project_checkpoint != null ? ` <span class="muted">(project's own ${esc(a.project_checkpoint)}%)</span>` : ""}${a.decision_lapsed_at ? ` · decision lapsed at the counter reset ${esc(String(a.decision_lapsed_at).slice(0, 16).replace("T", " "))}` : ""}</li>
+    ${safe("Allowance fit", () => allowanceFitLines(B.forecast))}</ul>
+    <h3>Checkpoint decisions this week</h3>${dec.length ? `<ol class="notes">${dec.slice().reverse().map((d) => `<li><span class="muted">${esc(String(d.at || "").slice(0, 16).replace("T", " "))} · ${esc(d.by || "-")} · to ${esc(d.to ?? "–")}% at ${esc(d.seven_day_then ?? "–")}%${d.lapsed_at ? ` · lapsed at the counter reset ${esc(String(d.lapsed_at).slice(0, 16).replace("T", " "))}` : ""}</span><br>${esc(d.reason || "")}</li>`).join("")}</ol>` : `<p class="muted">None.</p>`}</section>`; }));
+
+  // Tab badges: a count where it helps the choice of tab.
+  const Q = B.quality || {}, P = B.plan || {}, S = n.seats || {};
+  const count = (f) => { try { return Number(f()) || 0; } catch (e) { return 0; } };
+  const ready = count(() => ((P.ready || {}).items || []).filter((t) => !t.in_flight).length);
+  const triage = count(() => ((Q.architect || {}).awaiting_triage || []).length);
+  const seatWarn = count(() => (S.error ? 1 : 0) + (Array.isArray(S.rows) ? S.rows.filter((r) => (r.mismatch || []).length).length : 0));
+  const healthWarn = count(() => (h.stale_sources || []).length + (h.scripts || []).length + (h.divergence || []).length + (h.last_rebuild_failure ? 1 : 0));
+  const BADGE = {performance: [seatWarn, true], quality: [triage, true], backlog: [0, false], queue: [ready, false], health: [healthWarn, true]};
+  const TITLE = {performance: "seats off their pin", quality: "reports awaiting triage", queue: "tasks ready", health: "plane warnings"};
+  const nav = `<nav class="tabs" role="tablist" aria-label="Board sections">${TABS.map(([k, label], i) => { const [c, warn] = BADGE[k];
+    return `<button type="button" role="tab" id="tab-${k}" data-tab="${k}" aria-controls="pane-${k}" aria-selected="${k === CUR_TAB}" tabindex="${k === CUR_TAB ? 0 : -1}"><kbd>${i + 1}</kbd>${label}${c ? ` <span class="badge${warn ? " warn" : ""}" title="${c} ${TITLE[k]}">${c}</span>` : ""}</button>`; }).join("")}<span class="hint">keys 1–5</span></nav>`;
+  const pane = (k, body) => `<div class="pane grid" id="pane-${k}" data-tab="${k}" role="tabpanel" aria-labelledby="tab-${k}"${k === CUR_TAB ? "" : " hidden"}>${body}</div>`;
+  const html = top + nav + pane("performance", perf_html) + pane("quality", quality_html) + pane("backlog", tabSafe("Backlog", () => PL.backlog || `<p class="muted all">No plan data in this board.</p>`))
+    + pane("queue", queue_html) + pane("health", health_html);
+  document.getElementById("app").append($(html));
+  const app = document.getElementById("app"), panel = document.getElementById("drill");
+  app.addEventListener("click", (e) => { const c = e.target && e.target.closest ? e.target : null;
+    const tb = c && c.closest("nav.tabs [data-tab]"); if (tb) { showTab(tb.dataset.tab); return; }
+    const t = c && c.closest("[data-drill]"); if (t) openDrill(DRILL_IDS[+t.getAttribute("data-drill")]); });
+  app.addEventListener("change", (e) => { const sel = e.target && e.target.closest ? e.target.closest("select[data-rpf]") : null;
+    if (!sel) return; const k = sel.getAttribute("data-rpf"); applyRpf(k, sel.value);
+    try { localStorage.setItem("board-rpf-" + k, sel.value); } catch (er) {} relayout(); });
+  try { restoreRpf(); } catch (e) {}
+  if (panel) panel.addEventListener("click", (e) => { if (e.target === panel || (e.target.closest && e.target.closest("[data-close]"))) closeDrill(); });
+  if (typeof addEventListener === "function") {
+    addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && panel && !panel.hidden) { closeDrill(); return; }
+      if (e.metaKey || e.ctrlKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || "")) return;
+      const i = "12345".indexOf(e.key);
+      if (i >= 0 && e.key.length === 1) { showTab(TAB_KEYS[i]); return; }
+      if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && e.target && e.target.getAttribute && e.target.getAttribute("role") === "tab") {
+        const j = (TAB_KEYS.indexOf(CUR_TAB) + (e.key === "ArrowRight" ? 1 : TAB_KEYS.length - 1)) % TAB_KEYS.length;
+        showTab(TAB_KEYS[j]); const b = document.getElementById("tab-" + TAB_KEYS[j]); if (b && b.focus) b.focus(); }
+    });
+    // The page reloads every minute: keep the tab, each tab's scroll and the drill-down's scroll.
+    addEventListener("pagehide", () => { try { SCROLL[CUR_TAB] = scrollY;
+      sessionStorage.setItem("board-scroll", JSON.stringify({tabs: SCROLL, drill: panel && !panel.hidden ? panel.scrollTop : 0})); } catch (e) {} });
+  }
+  writeHash();
+  try { relayout(); if (typeof ResizeObserver === "function") new ResizeObserver(() => relayout()).observe(app); } catch (e) {}
+  if (typeof location !== "undefined" && hp.task) {  // the page reloads every minute: keep the open drill-down
+    try { openDrill(hp.task); } catch (e) {} }
+  try { const sv = JSON.parse(sessionStorage.getItem("board-scroll") || "null");
+    if (sv && sv.tabs) { Object.assign(SCROLL, sv.tabs); if (typeof SCROLL[CUR_TAB] === "number") scrollTo(0, SCROLL[CUR_TAB]); }
+    if (sv && sv.drill && panel && !panel.hidden) panel.scrollTop = sv.drill; } catch (e) {}
+  document.getElementById("theme").addEventListener("click", () => {
+    const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    r.dataset.theme = dark ? "light" : "dark"; try { localStorage.setItem("board-theme", r.dataset.theme); } catch (e) {} });
+}
+try { const t = localStorage.getItem("board-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+render();
+</script>
+</body>
+</html>

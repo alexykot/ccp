@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:allowance.schema.json",
+  "title": "ControlPlaneAllowanceReading",
+  "description": "SPEC §25.2: what `telemetry.allowance_cmd` prints: any number of named usage windows, each with its percentage used (0 or more; a figure past 100 is kept as read) and its reset time. Either the generic form, or the legacy one: an object per window with `utilization` and `resets_at` (e.g. `five_hour`, `seven_day`). A window whose figure is null or missing keeps its reset and gates nothing; an empty or unreadable reading is unknown, never zero.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "windows"
+      ],
+      "properties": {
+        "windows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The window's name; `telemetry.windows` gives it a kind and a threshold"
+              },
+              "pct": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "description": "Percentage of the window's allowance used"
+              },
+              "resets_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "When the window resets"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "not": {
+        "required": [
+          "windows"
+        ]
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "utilization": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "resets_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  ]
+}

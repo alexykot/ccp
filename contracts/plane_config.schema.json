@@ -1,0 +1,1007 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:plane_config.schema.json",
+  "title": "ControlPlaneProductConfig",
+  "description": "SPEC §8.1. The product-owned docs/delivery/plane.json read by `ccp`. Its presence is the product's opt-in to ccp. Every key but project_id has a plane default (ccp/config.py); unknown keys are refused. No secrets.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "_note": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Same id as the plane binding; written into INDEX.yaml"
+    },
+    "task_log": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dir": {
+          "type": "string",
+          "default": "docs/delivery",
+          "description": "Holds tasks/ and INDEX.yaml"
+        },
+        "statuses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "pending",
+            "done",
+            "dropped"
+          ],
+          "description": "Deprecated and not read: a task file's statuses are fixed, pending | done | dropped (SPEC §5)"
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Frontmatter keys every task carries",
+          "default": [
+            "task_id",
+            "title",
+            "status",
+            "depends_on",
+            "spec_refs",
+            "created",
+            "updated"
+          ]
+        },
+        "refs_any": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "At least one of these frontmatter lists is non-empty",
+          "default": [
+            "spec_refs"
+          ]
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "`## <name>` headings every task carries: the canonical six by default (SPEC §5); a product may require more. `Context (not verified)` is read as `Context (not checked)`",
+          "default": [
+            "Intent",
+            "Context (not checked)",
+            "Scope",
+            "dod_checks",
+            "Implementation notes",
+            "Verification notes"
+          ]
+        },
+        "kinds": {
+          "type": "object",
+          "description": "SPEC §5.4, §20: per task kind, refs_any (the ref lists it cites at least one of; default the task log's refs_any) and forbid (ref lists it leaves empty). Read only with the architect block on",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "refs_any": {"type": "array", "items": {"type": "string"}},
+              "forbid": {"type": "array", "items": {"type": "string"}}
+            }
+          },
+          "default": {
+            "feature": {},
+            "refactor": {"refs_any": ["rule_refs", "review_refs"], "forbid": ["spec_refs", "adr_refs"]}
+          }
+        },
+        "reviews_dir": {
+          "type": "string",
+          "default": "reviews",
+          "description": "Shaping and triage records (sh-*.md, ar-*.md), relative to dir (SPEC §19.6)"
+        },
+        "max_checks": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 6
+        },
+        "soft_words": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Words refused inside ## dod_checks"
+        },
+        "review_point_pattern": {
+          "type": "string",
+          "default": "^R[0-9]+$",
+          "description": "SPEC §22.1, §22: while the product keeps no review-point register, a task's `review_point` matches this and `ccp tasks close` stamps only a point that does. Once the register exists it is ignored, with a warning: review points are then R<n> and listed in the register."
+        },
+        "index": {
+          "type": "boolean",
+          "default": true,
+          "description": "SPEC §5.7: keep the generated INDEX.yaml (its format frozen), or none"
+        },
+        "dry_run": {
+          "type": "boolean",
+          "default": false,
+          "description": "SPEC §21.1: ccp tasks check refuses a task not done or dropped whose dod_check has a step that runs a backticked command (`N. Run `...``) but neither a `dry run (`<sha>`):` line nor `dry run: n/a — <reason>`"
+        }
+      }
+    },
+    "package_docs": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Absent: package-doc rules and the docs audit are off",
+      "properties": {
+        "doc_name": {
+          "type": "string",
+          "default": ".claude.md"
+        },
+        "claude_md_dirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Directories documented by an auto-loaded CLAUDE.md instead of doc_name",
+          "default": []
+        },
+        "language": {
+          "type": "string",
+          "enum": ["python", "none"],
+          "default": "python",
+          "description": "SPEC §21: the language pack (ccp/doclang). It adds its source suffixes and directory names to the core's and runs its per-file checks over docstring_globs; none runs the language-neutral core alone"
+        },
+        "source_suffixes": {
+          "type": ["array", "null"],
+          "items": {"type": "string"},
+          "default": null,
+          "description": "null: the core's (.sql, .json, .md) plus the language pack's. A list replaces both"
+        },
+        "exempt_dirs": {
+          "type": ["array", "null"],
+          "items": {"type": "string"},
+          "default": null,
+          "description": "Directory names (any depth) or root-relative paths never judged. null: the core's plus the language pack's. A list replaces both"
+        },
+        "path_ref_suffixes": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^\\."},
+          "default": [".py", ".sql", ".json", ".md", ".sh"],
+          "description": "Backticked paths with these suffixes in a package doc must exist"
+        },
+        "size_ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 0.5
+        },
+        "banned_headings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "future",
+            "planned",
+            "next steps",
+            "roadmap",
+            "todo"
+          ]
+        },
+        "docstring_globs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Root-relative globs of files that get the language pack's per-file checks (python: a module docstring)",
+          "default": []
+        },
+        "rules": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "description": "SPEC §21.6: opt-in generic rules (ccp/docrules.py), each off until named",
+          "properties": {
+            "citations": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["globs", "targets"],
+              "properties": {"globs": {"type": "array", "items": {"type": "string"}}, "targets": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "ignore": {"type": "array", "items": {"type": "string"}, "description": "Regexes: matching lines are skipped"}},
+              "description": "Outside fenced code, every SPEC ref (ids.spec.prefix + number, .n subsections, ranges) in files under globs names a heading in a target doc; every [x](doc.md#anchor) link names an existing heading (GitHub anchors)"
+            },
+            "no_ids": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["globs"],
+              "properties": {"globs": {"type": "array", "items": {"type": "string"}}, "patterns": {"type": "array", "items": {"type": "string"}}},
+              "description": "No line of a file under globs carries a delivery id: by default task ids, zero-padded task numbers and 'task N' at the product's width; patterns (regexes) replace the defaults"
+            },
+            "history_attr": {"type": "string", "minLength": 1, "description": "Git attribute marking history paths: the rules above skip them; ccp docs history-paths lists them"},
+            "no_overlap": {"type": "boolean", "description": "No two check commands (architect.checks, docs.checks) run the same command or the same test module"},
+            "no_call_bullets": {"type": "boolean", "description": "python pack: a module docstring does not list functions as backticked call bullets"}
+          }
+        }
+      }
+    },
+    "docs": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §21.5: product commands ccp docs check runs, not tied to a house rule",
+      "properties": {
+        "checks": {
+          "type": "array",
+          "default": [],
+          "description": "Run in the product root by ccp docs check; exit 0 = pass",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "cmd"],
+            "properties": {"id": {"type": "string", "minLength": 1}, "cmd": {"type": "string", "minLength": 1}, "timeout_seconds": {"type": "integer", "minimum": 1, "default": 600}}
+          }
+        }
+      }
+    },
+    "docs_audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "every_days": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 7
+        },
+        "call_timeout_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 30
+        },
+        "shape_only_dirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Read for structure only; values never quoted",
+          "default": []
+        },
+        "private_dirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Denied to the auditor's Read tool and named in its prompt",
+          "default": []
+        }
+      },
+      "description": "Read by `ccp docs audit` while there is no architect block (§19)"
+    },
+    "architect": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §8.1. Absent: the architect seat is off (no exit 4 at `ccp tasks next`, no shaping check, no rule checks); project.yaml architecture_review and docs_audit are read by their aliases instead (§19). Every value is checked",
+      "properties": {
+        "rules_doc": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Product path of the house rules, e.g. docs/ENGINEERING.md (template: templates/docs-project/ENGINEERING.md)"
+        },
+        "rules_max_lines": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 150,
+          "description": "ccp docs check fails a longer rules doc"
+        },
+        "every_n_tasks": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 4,
+          "description": "A pass is due once this many tasks are done since the last pass (operator, 2026-10-14)"
+        },
+        "max_days": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 14,
+          "description": "Or this many days since the last pass, with at least one task done"
+        },
+        "notes_due": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3,
+          "description": "Or this many friction notes since the last pass"
+        },
+        "drift_ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.5,
+          "description": "Or the median wall time of the last 5 tasks is above this times the 10 before"
+        },
+        "grace_tasks": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 1,
+          "description": "ccp tasks next exits 4 once a due pass is unstarted this many merges later"
+        },
+        "triage_grace_tasks": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 2,
+          "description": "ccp tasks next exits 4 once a report has waited this many merges for triage"
+        },
+        "shape_adrs": {
+          "type": "boolean",
+          "default": false,
+          "description": "ccp tasks check fails a pending task citing an ADR with no sh-*.md record (needs shape_from_task)"
+        },
+        "shape_from_task": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]{4}(-|$)",
+          "default": null,
+          "description": "Only tasks numbered from this one on are checked"
+        },
+        "refactor_every": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 4,
+          "description": "After this many features merge since the last refactor, next returns a ready refactor first (0: off)"
+        },
+        "refactor_in_scope": {
+          "enum": ["deps", true, false],
+          "default": "deps",
+          "description": "deps: a refactor joins a scope only when a scope task depends on it, and the rest go to the top of the next review point's scope; true: every runner's scope; false: only a scope that names it (SPEC §20.4)"
+        },
+        "call_timeout_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 45,
+          "description": "Wall-clock limit on the architect call"
+        },
+        "max_new_tasks": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 5,
+          "description": "Cap on tasks one triage may create"
+        },
+        "probes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [],
+          "description": "Read-only command prefixes the architect may run (each becomes Bash(<probe>:*))"
+        },
+        "checks": {
+          "type": "array",
+          "default": [],
+          "description": "Product commands run by ccp docs check, so the verifier gates on them (exit 0 = pass)",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "cmd"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^E[0-9]+$",
+                "description": "The house rule this enforces"
+              },
+              "cmd": {
+                "type": "string",
+                "minLength": 1
+              },
+              "timeout_seconds": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 600
+              }
+            }
+          }
+        },
+        "budgets": {
+          "type": "array",
+          "default": [],
+          "description": "ccp budgets over tracked files. Diagnostics: measured by `ccp architect due` (a breach makes a pass due) and `ccp health`, never by `ccp docs check`",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id"
+            ],
+            "oneOf": [
+              {
+                "required": [
+                  "glob"
+                ]
+              },
+              {
+                "required": [
+                  "path"
+                ]
+              }
+            ],
+            "anyOf": [
+              {
+                "required": [
+                  "max_lines"
+                ]
+              },
+              {
+                "required": [
+                  "max_bytes"
+                ]
+              }
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^E[0-9]+$",
+                "description": "The house rule this enforces"
+              },
+              "glob": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "max_lines": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "max_bytes": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [],
+          "description": "Numbers ccp health record accepts besides the built-in suite series (suite_seconds, suite_tests and their _warm, _part and _unverified kinds, SPEC §27.2)"
+        },
+        "areas": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "description": "Area name -> globs; ccp health splits each merge's files and lines by them"
+        },
+        "shape_only_dirs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [],
+          "description": "Read for structure only; values never quoted (from docs_audit)"
+        },
+        "private_dirs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [],
+          "description": "Denied to the architect's Read tool and named in its prompt"
+        }
+      }
+    },
+    "prompts": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §13.2: the product's own rules for worker prompts, rendered after the plane template.",
+      "properties": {
+        "fragment": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Product path of the fragment (e.g. docs/delivery/WORKERS.md)."
+        },
+        "worker_env": {
+          "type": "object",
+          "description": "SPEC §13: NAME: template. `ccp prompt` renders each ({{run_id}}, {{task_id}}, {{nnnn}}, {{phase}}, {{worktree}}, {{main_checkout}}, {{queue_root}}, {{project_id}}) into the run's env file, which the prompt tells the worker to source in each command.",
+          "propertyNames": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "reconcile": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §10.5 `ccp tasks close`: the product's records beside the task file.",
+      "properties": {
+        "log": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "entry"
+          ],
+          "description": "Prepend one entry to a product log. `entry` is a Python format string with date, task_id, nnnn, pr, head, head7, merge_sha, merge7, summary, review_point, title; it goes before the first line matching the regex `before` (or at the end).",
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "entry": {
+              "type": "string",
+              "minLength": 1
+            },
+            "before": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "hooks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Product commands run in the runner worktree, with TASK_ID, PR, HEAD_SHA, MERGE_SHA, SUMMARY and QUEUE_ROOT set. Their changes join the reconcile commit. A hook must be idempotent: a close re-run after a failure runs the hooks again."
+        }
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Legacy (before SPEC §12): worktree_dir and worktree_links read as worktrees.dir and worktrees.links; post_close commands still run once at close. New products use worktrees and env.",
+      "properties": {
+        "worktree_dir": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Where `ccp tasks claim` makes task worktrees, relative to the main checkout (impl-NNNN); reviewers and verifiers use rev-NNNN and ver-NNNN beside them."
+        },
+        "worktree_links": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Paths linked into each task worktree from the main checkout (e.g. .venv)."
+        },
+        "post_close": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Commands `ccp tasks close` runs in the main checkout after the reconcile; {task_id} and {nnnn} are filled in. A failure is a warning."
+        }
+      }
+    },
+    "worktrees": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §12.1: where `ccp wt` makes worktrees and what it links into them.",
+      "properties": {
+        "dir": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Relative to the main checkout; worktrees are named <kind>-<nnnn>[-<n>] (impl, rev, ver, mut, mac). Null: no plane-made worktrees."
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Paths linked into each worktree from the main checkout (e.g. a virtualenv)."
+        }
+      }
+    },
+    "env": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §12.1 env hooks: shell command templates run in the worktree. {task_id} {nnnn} {kind} {seat} {tag} {worktree} {main_checkout} {name} are filled in (other braces are literal) and also set as CCP_WT_<FIELD>.",
+      "properties": {
+        "setup": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "When a worktree is made; a failure removes it again."
+        },
+        "teardown": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "When a worktree is removed (close, drop, release, gc, `ccp wt remove`); a failure is a warning."
+        },
+        "up": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "`ccp wt up`: start what the worktree serves; a failure leaves it down and exits non-zero."
+        },
+        "down": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "`ccp wt down` (and before removal of an up worktree); a failure is a warning."
+        },
+        "urls": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Prints a JSON list of {name, url}, any length: what the worktree serves (recorded on up; `ccp wt urls`)."
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 600
+        }
+      }
+    },
+    "merge": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §10.5: the merge `ccp tasks close` runs.",
+      "properties": {
+        "command": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "A template naming {pr}, {head_sha} (required: the merge is pinned to the verified head) and {task_id}; null: gh pr merge {pr} --squash --match-head-commit {head_sha}."
+        }
+      }
+    },
+    "auth_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §30: auth probes the runner runs before each task (`ccp tasks claim`, `ccp auth check`).",
+      "properties": {
+        "probes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "cmd"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "cmd": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Exit 0 = the credential works. Never print a secret."
+              }
+            }
+          }
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 60
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §24, §25.",
+      "properties": {
+        "otel_port": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "allowance_cmd": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "allowance_stop_weekly": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "SPEC §25.3: the weekly checkpoint (percent). A new claim stops there until the lead records the operator's decision (ccp allowance continue)."
+        },
+        "session_park_pct": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": 95,
+          "description": "SPEC §25.4 the session park: `ccp tasks claim` and `ccp prompt` refuse (exit 6) and park the task at this 5-hour %. null: no park, no session wake, no 5-hour modelling in the forecast."
+        },
+        "session_wake_arm_pct": {
+          "type": "number",
+          "default": 50,
+          "description": "SPEC §25.4: from this 5-hour %, `ccp allowance session-wake` tells the lead to arm a one-shot wake, and claim and prompt warn while none is armed."
+        },
+        "session_wake_margin_s": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600,
+          "default": 180,
+          "description": "SPEC §25.4: the wake (and a parked task's planned_resume_at) is the 5-hour window's reset plus this many seconds."
+        },
+        "windows": {"type": ["object", "null"], "default": null, "description": "SPEC §25.4 the usage windows: {<name>: {kind: weekly|session, stop_pct, park_pct}}, merged over the built-in seven_day (weekly, stop_pct = allowance_stop_weekly) and five_hour (session, park_pct = session_park_pct). The most constrained window of each kind gates.", "propertyNames": {"pattern": "^[A-Za-z][A-Za-z0-9_-]{0,31}$"}, "additionalProperties": {"type": "object", "additionalProperties": false, "properties": {"kind": {"enum": ["weekly", "session"]}, "stop_pct": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 100}, "park_pct": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 100}}}},
+        "design_seat": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "description": "SPEC §24.5: the lead's expected model and effort. Advice only: the plane flags a difference, it never sets them.",
+          "properties": {
+            "model": {
+              "type": "string",
+              "minLength": 1
+            },
+            "effort": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "board": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §28.3.",
+      "properties": {
+        "refresh_minutes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "suite": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §14.1: `ccp suite run`'s named lanes and its test-count pattern.",
+      "properties": {
+        "exclusive_lanes": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$"}, "default": [], "description": "SPEC §16.6: lanes that run one at a time in the queue (a run with no --lane is `full`). A run that finds one held exits 75 at once and runs nothing."},
+        "lanes": {
+          "type": "object",
+          "description": "A lane name to the argv `ccp suite run --lane NAME` runs from the checkout's root.",
+          "propertyNames": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$"
+          },
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "count_re": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "A regular expression whose first group is a test count, matched per output line and summed. Default: unittest's `Ran N tests in`."
+        },
+        "roles": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "SPEC §14.1: the lane name the product gives each role the plane reads. Default: each role's own name.",
+          "properties": {
+            "full": {"type": "string", "description": "The whole suite; a run with no --lane is this lane."},
+            "gate": {"type": "string", "description": "The formal gate."},
+            "part": {"type": "string", "description": "A subset of the tests."}
+          }
+        },
+        "log_keep_days": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "SPEC §14.1: summary-mode logs in the queue (runs/<task>/*-suite-*.log, runs/_suite-logs/) older than this many days are removed when a `ccp suite run` starts. Default 14."
+        },
+        "summary": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "description": "SPEC §14.1: what `ccp suite run` reads from the output when the gate writes no result file (CCP_SUITE_RESULT, contracts/suite_result.schema.json), and what summary mode shows. Each `*_re` is a regular expression or a list of them; a key left out keeps its default (Python unittest's failures and skips; no cache counters).",
+          "properties": {
+            "failed_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "First group a failure count, summed. Default: unittest's `FAILED (failures=N` and `errors=N`."},
+            "skipped_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "First group a skip count, summed. Default: unittest's `skipped=N`."},
+            "ran_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "First group the units (tests, modules, files) that ran, for a product with a test cache. Default: none (set it, or write the gate's result file)."},
+            "cached_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "First group the units the product's cache served as hits. Default: none."},
+            "cached_tests_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "First group the tests behind the cached units, from their last runs, recorded as cached_tests. Default: none."},
+            "modules_ran_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "Deprecated name of ran_re."},
+            "modules_cached_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "Deprecated name of cached_re."},
+            "section_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "The line after a `====` rule that starts a failing test's section. Default: `FAIL:`, `ERROR:`, `UNEXPECTED SUCCESS:`."},
+            "show_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "Lines shown whatever the result (at most 20). Default: none."},
+            "tail_lines": {"type": "integer", "minimum": 0, "description": "The log's last lines a failure shows. Default 40."},
+            "max_chars": {"type": "integer", "minimum": 1000, "description": "The cap on what a failure shows. Default 40000."}
+          }
+        }
+      }
+    },
+    "estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §26.3: task estimation (advisory). The reference-class baseline and the estimator seat read these.",
+      "properties": {
+        "reference_since": {"type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "default": null, "description": "Tasks merged before this date (a process change) are left out of every reference class"},
+        "k": {"type": "integer", "minimum": 5, "maximum": 8, "default": 6, "description": "The reference class's size"},
+        "auto": {"type": "boolean", "default": false, "description": "Phase B: `ccp tasks check` and `ccp tasks index` start the estimator seat in the background for open tasks whose agent estimate is missing or stale (at most 10 per batch, one batch at a time). Off by default: `ccp tasks estimate --all` runs it by hand"},
+        "spec_paths": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": ["docs/SPEC.md", "SPEC.md", "docs/spec/*.md", "spec/*.md"], "description": "SPEC §26.3: where the estimator looks for cited SPEC headings (globs relative to the product root, in order)"},
+        "path_suffixes": {"type": ["array", "null"], "items": {"type": "string", "pattern": "^\\."}, "default": null, "description": "SPEC §26.3: suffixes that make a backticked token a cited path (null: the built-in list)"}
+      }
+    },
+    "review_points": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §22: the review-point register, a product file listing each point's id (R<n>), short name, goal, status (planned|current|closed) and dates. With the file present, every review point a task, ADR, spawn or close names must be one of its ids.",
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "default": "docs/delivery/review-points.yaml",
+          "description": "The register, relative to the product root"
+        }
+      }
+    },
+    "adr": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §6: the product's ADRs (`ccp adr`). The block is the opt-in: with it `ccp docs check` checks every ADR, the links between them, the decisions the tasks cite, and the index.",
+      "properties": {
+        "dir": {
+          "type": "string",
+          "minLength": 1,
+          "default": "docs/adr",
+          "description": "Holds the ADRs, `NNNN-slug.md` or `<prefix>NNNN-slug.md` (ids.adr); subdirectories (an archive) included"
+        },
+        "index": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "The generated ADR index (`ccp adr index`), or null for none"
+        },
+        "statuses": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [
+            "proposed",
+            "accepted",
+            "in-progress",
+            "implemented",
+            "rejected",
+            "superseded",
+            "withdrawn",
+            "retired"
+          ]
+        },
+        "transitions": {
+          "type": "object",
+          "additionalProperties": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "default": {"proposed": ["accepted", "rejected", "withdrawn"], "accepted": ["superseded", "retired"],
+                      "in-progress": ["accepted", "superseded", "retired"], "implemented": ["superseded", "retired"]},
+          "description": "The moves `ccp adr status` allows: a status to the statuses it may become; every name must be in `statuses`"
+        },
+        "strict": {
+          "type": "boolean",
+          "default": false,
+          "description": "Turn the ADR warnings (non-canonical decision markers, missing reverse links, done tasks citing not_built decisions) into `ccp docs check` failures"
+        },
+        "template": {
+          "type": ["string", "null"],
+          "default": null,
+          "description": "A product template for `ccp adr new` (format fields id, title, title_q, date), or null for the plane's"
+        }
+      }
+    },
+    "parallel": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §16: several tasks in flight under one runner. Absent, or max_in_flight 1: one task at a time.",
+      "properties": {
+        "max_in_flight": {"type": "integer", "minimum": 1, "maximum": 4, "default": 1, "description": "The most tasks the runner holds at once (§16.3 rule 1)."},
+        "exclusive": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": [], "description": "Paths and globs (** spans directories) whose tasks run alone: files concurrent edits cannot be merged in safely (§16.3 rule 4)."},
+        "session_ceiling_pct": {"type": "number", "exclusiveMinimum": 0, "maximum": 100, "default": 60, "description": "A second task is claimed only while the account's 5-hour usage is below this (§16.3 rule 5)."}
+      }
+    },
+    "ids": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §7: the product's id and reference patterns. Every id the plane reads in the product's docs is parsed with these; an absent key keeps the default.",
+      "properties": {
+        "task": {"type": "object", "additionalProperties": false, "properties": {
+          "width": {"type": "integer", "minimum": 1, "maximum": 9, "default": 4, "description": "Digits in a task number: task files are NNNN-kebab-slug.md"}}},
+        "adr": {"type": "object", "additionalProperties": false, "properties": {
+          "prefix": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,15}$", "default": "ADR-", "description": "ADR id prefix: ids read <prefix><number>"},
+          "width": {"type": "integer", "minimum": 1, "maximum": 9, "default": 4, "description": "Digits in an ADR number"}}},
+        "spec": {"type": "object", "additionalProperties": false, "properties": {
+          "prefix": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,15}$", "default": "S", "description": "SPEC section ref prefix: S12, S3–S5"}}},
+        "rule": {"type": "object", "additionalProperties": false, "properties": {
+          "pattern": {"type": "string", "minLength": 1, "default": "E[0-9]+", "description": "Regular expression a house-rule id matches in full"}}},
+        "review_point": {"type": "object", "additionalProperties": false, "properties": {
+          "pattern": {"type": "string", "minLength": 1, "default": "R[1-9][0-9]*", "description": "Regular expression a review-point register id matches in full; its first run of digits orders the points"}}}
+      }
+    },
+    "verify": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §15.3: the verifier's gate. Absent, or accept_cache null: the verifier's brief is unchanged.",
+      "properties": {
+        "accept_cache": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "max_age_days"
+          ],
+          "description": "The product's content-keyed test cache stands in for a rerun: a unit (test, module or file, the product's unit) the verifier's own gate run reports as a hit on identical inputs counts as run; the gate run records ran and cached (from the gate's result file or its output's counts, §14.1), and the verify report's Suite: line ends `ran <r>, cached <c>`.",
+          "properties": {
+            "max_age_days": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "An entry older than this is no hit (the product's cache reruns it)."
+            },
+            "cold_tasks": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "Task-id globs whose gate is cold (a rollout, say), beside a task's own `gate: cold` frontmatter."
+            },
+            "review": {
+              "type": "boolean",
+              "description": "SPEC §15.3: the reviewer's touched and dependent tests may run through the same cache, a hit counting as run; its test-order and mutation runs stay uncached. Default false: the review brief is unchanged."
+            }
+          }
+        }
+      }
+    }
+  }
+}

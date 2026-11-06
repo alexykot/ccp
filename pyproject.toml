@@ -1,0 +1,19 @@
+[project]
+name = "control-plane-ccp"
+version = "0.1.0"
+description = "ccp: the command-line tool of CCP (Claude Control Plane)"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+ccp = "ccp.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["ccp"]
+
+[tool.setuptools.package-data]
+ccp = ["*.html"]

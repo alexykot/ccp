@@ -1,0 +1,4 @@
+{
+  "_note": "Copy to the product as docs/delivery/plane.json (plane SPEC §8.1). Only project_id is required; add a package_docs block to opt into package-doc rules, and an architect block (SPEC §8.1) to turn on the architect seat: house rules, enforced passes, refactor capacity.",
+  "project_id": "example-product"
+}

@@ -1,0 +1,7 @@
+__pycache__/
+*.egg-info/
+build/
+
+# Local configuration: never versioned (the run checkout keeps it until the backend holds it)
+projects/
+CLAUDE.local.md

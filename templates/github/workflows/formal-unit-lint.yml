@@ -1,0 +1,82 @@
+# Template: formal unit/lint as CI (SPEC §15.3). An option, not the gate.
+# Copy into the product repo as .github/workflows/formal-unit-lint.yml.
+# The unit_lint gate is the verifier's own run at the PR head, recorded in its verdict's `gate`.
+# A green run here is evidence the verifier may cite. A product that copies it sets
+# `ci: github-actions` in its binding.
+# It does not call an agent, and it does not read secrets, .env, or password vaults.
+#
+# Store tests (Postgres + pgvector). The service below is the option: a product
+# with no store tests sets EXPECT_STORE_TESTS to "0" and may delete the service.
+# Left at "1", a skipped test whose name matches STORE_TEST_PATTERN fails the
+# job, and so does a run in which no such test ran. Store tests must not skip
+# silently under CI. The postgres password is the ephemeral service default,
+# not a product credential.
+name: formal-unit-lint
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+jobs:
+  unit-lint:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      STORE_TEST_PATTERN: "store|pgvector"
+      EXPECT_STORE_TESTS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Unit tests
+        run: |
+          set -o pipefail
+          if [ -x scripts/gate.sh ]; then
+            bash scripts/gate.sh | tee unit.out
+          elif [ -x scripts/unit.sh ]; then
+            bash scripts/unit.sh | tee unit.out
+          elif [ -d tests ]; then
+            python3 -m unittest discover -s tests -t . -v | tee unit.out
+          else
+            echo "formal gate: no unit tests wired (scripts/gate.sh, scripts/unit.sh or tests/)" >&2
+            exit 1
+          fi
+      - name: Store tests did not skip
+        run: |
+          python3 - <<'PY'
+          import os, re, sys
+          text = open("unit.out", encoding="utf-8", errors="replace").read()
+          pattern = os.environ.get("STORE_TEST_PATTERN") or "store|pgvector"
+          expect = os.environ.get("EXPECT_STORE_TESTS") == "1"
+          skipped = [ln for ln in text.splitlines()
+                     if re.search(r"\bskipped\b", ln, re.I) and re.search(pattern, ln, re.I)]
+          if skipped:
+              print("formal gate: store tests skipped under CI", file=sys.stderr)
+              print("\n".join(skipped), file=sys.stderr)
+              sys.exit(1)
+          if expect and not re.search(pattern, text, re.I):
+              print("formal gate: EXPECT_STORE_TESTS=1 but no test matched STORE_TEST_PATTERN", file=sys.stderr)
+              sys.exit(1)
+          PY
+      - name: Lint
+        run: |
+          if [ -x scripts/lint.sh ]; then
+            bash scripts/lint.sh
+          else
+            echo "formal gate: scripts/lint.sh is missing" >&2
+            exit 1
+          fi

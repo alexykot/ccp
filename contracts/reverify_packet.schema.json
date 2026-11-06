@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:reverify_packet.schema.json",
+  "title": "ControlPlaneReverifyPacket",
+  "description": "SPEC §10.2, §15.6. The packet the runner hands the verifier when a task is verified again after a fix-up, or because the PR head moved since the verdict. It is not the verdict. The verifier writes a new verification/<task_id>.json whose head_sha is this packet's head_sha. An example is contracts/reverify_packet.example.json. No secrets.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "task_id",
+    "project_id",
+    "reason",
+    "previous",
+    "head_sha",
+    "pr_url",
+    "fixups",
+    "packet"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "kind": {
+      "const": "reverify"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reason": {
+      "enum": ["fix-up", "head-moved"],
+      "description": "fix-up: the verifier rejected and the implementer changed the PR. head-moved: the verdict was approve, then the PR head changed."
+    },
+    "previous": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict", "head_sha", "findings"],
+      "properties": {
+        "verdict": {
+          "enum": ["approve", "reject"]
+        },
+        "head_sha": {
+          "type": ["string", "null"],
+          "description": "head_sha of the verdict being replaced. Null only when that verdict predated the field."
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "What the previous verdict named. Empty when reason is head-moved and the previous verdict was approve."
+        }
+      }
+    },
+    "head_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{7,40}$",
+      "description": "The PR head the verifier must judge now, and must write as head_sha on the new verdict."
+    },
+    "pr_url": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fixups": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "What changed since the previous verdict. Required to be non-empty when reason is fix-up. Empty when the only change is that the head moved and there is no new commit message to quote."
+    },
+    "packet": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The same fixed packet as a first verify: no implementer transcript.",
+      "required": ["project_excerpt", "spec_refs", "task_file", "dod_checks", "evidence"],
+      "properties": {
+        "project_excerpt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "spec_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "task_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dod_checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "reason": {
+            "const": "fix-up"
+          }
+        },
+        "required": ["reason"]
+      },
+      "then": {
+        "properties": {
+          "fixups": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}

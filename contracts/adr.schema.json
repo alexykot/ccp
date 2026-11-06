@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:adr.schema.json",
+  "title": "ControlPlaneAdrFrontmatter",
+  "description": "SPEC §6.2: an ADR's YAML frontmatter. Ids follow plane.json `ids.adr` (default ADR-NNNN). Undeclared keys are read and warned about by `ccp docs check`, refused under `adr.strict`.",
+  "type": "object",
+  "required": ["id", "title", "status", "date"],
+  "additionalProperties": true,
+  "properties": {
+    "id": {"type": "string", "minLength": 1, "description": "<prefix><number>, equal to the file's number"},
+    "title": {"type": "string", "minLength": 1},
+    "status": {"type": "string", "minLength": 1, "description": "One of plane.json adr.statuses; moved by `ccp adr status` along adr.transitions"},
+    "date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "description": "When the ADR was proposed"},
+    "deciders": {"type": "string", "description": "Who decides"},
+    "supersedes": {"type": "array", "items": {"$ref": "#/$defs/link"}, "description": "ADRs or decisions this ADR replaces"},
+    "superseded_by": {"oneOf": [{"$ref": "#/$defs/link"}, {"type": "array", "items": {"$ref": "#/$defs/link"}}],
+                      "description": "The ADR(s) that replace this one as a whole; status superseded needs it"},
+    "amends": {"type": "array", "items": {"$ref": "#/$defs/link"}, "description": "ADRs or decisions this ADR changes without replacing"},
+    "review_points": {"type": "array", "items": {"type": "string"}, "description": "Review points it is built in (the register's ids)"},
+    "spec_refs": {"type": "array", "items": {"type": "string"}, "description": "SPEC sections it relies on or changes"},
+    "decisions": {"type": "array", "items": {"$ref": "#/$defs/decision"},
+                  "description": "Each decision's build state, one entry per decision in the body"},
+    "notes": {"type": "string", "description": "Free text: dated status notes (`ccp adr status --note`), anything the fields do not hold"}
+  },
+  "$defs": {
+    "link": {"type": "string", "pattern": "^([A-Za-z][A-Za-z0-9_-]*)?[0-9]+( D[0-9]+[a-z]?)?$",
+             "description": "<ADR id>, or <ADR id> D<n> for one decision"},
+    "decision": {"type": "string",
+                 "pattern": "^D[0-9]+[a-z]? (not_built|built|live|retired)( by [A-Za-z][A-Za-z0-9_-]*[0-9]+( D[0-9]+[a-z]?)?)?( — .*)?$",
+                 "description": "D<n> <state>[ by <ADR id>[ D<n>]][ — <note>]; state not_built | built | live | retired"}
+  }
+}

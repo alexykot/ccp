@@ -1,0 +1,49 @@
+{
+  "task_id": "0042-example-task",
+  "project_id": "demo",
+  "verdict": "approve",
+  "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "access_mode": "local-cli",
+  "checks": [
+    {
+      "dod_check_id": "cmd-01",
+      "pass": true,
+      "evidence": "ran `app example --dry-run` at the head: exit 0, 3 rows"
+    },
+    {
+      "dod_check_id": "data-01",
+      "ran": false,
+      "pass": null,
+      "rests_on": "The operator's live run, pasted into the task notes",
+      "evidence": "needs the live store, which the verifier cannot reach"
+    }
+  ],
+  "gate": {
+    "runs": [
+      {
+        "command": "scripts/gate.sh",
+        "exit_code": 0,
+        "tests_run": 412,
+        "tests_skipped": 0,
+        "seconds": 88.5
+      },
+      {
+        "command": "scripts/lint.sh",
+        "exit_code": 0
+      },
+      {
+        "command": "ccp tasks check",
+        "exit_code": 0
+      },
+      {
+        "command": "ccp docs check",
+        "exit_code": 0
+      }
+    ]
+  },
+  "findings": [
+    "data-01 was not run by the verifier; this approve relies on it"
+  ],
+  "merge_requested": true,
+  "checked_at": "2026-10-16T09:12:47Z"
+}

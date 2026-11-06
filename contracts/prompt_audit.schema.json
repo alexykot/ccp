@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:prompt_audit.schema.json",
+  "title": "ControlPlanePromptAudit",
+  "description": "Layer 2 alpha prompt audit file at QUEUE_ROOT/prompts/<task_id>/<UTC>_<phase>.json. Runtime queue only — never commit to product git or control-plane git.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "at",
+    "project_id",
+    "task_id",
+    "phase",
+    "actor",
+    "session_id",
+    "resume",
+    "argv",
+    "env_stripped",
+    "wallet",
+    "git_head",
+    "worktree",
+    "durable_task_path",
+    "spec_refs",
+    "prompt_body",
+    "prompt_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "phase": {
+      "type": "string",
+      "description": "implement | fix-review | mk-pr | review | verify | merge | …"
+    },
+    "actor": {
+      "type": "string",
+      "enum": [
+        "task-runner",
+        "task-verifier",
+        "delivery-watchdog",
+        "design-seat",
+        "adapter",
+        "operator",
+        "system",
+        "plane-session"
+      ]
+    },
+    "session_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "resume": {
+      "type": "boolean"
+    },
+    "argv": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "env_stripped": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Names of env vars stripped before launch. Values must never appear."
+    },
+    "wallet": {
+      "type": "string",
+      "enum": [
+        "prepaid_oauth"
+      ]
+    },
+    "git_head": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "worktree": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "durable_task_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "spec_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "prompt_body": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Full user/prompt string the plane constructed. Required for alpha. No secrets."
+    },
+    "prompt_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

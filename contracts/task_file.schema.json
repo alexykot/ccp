@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:task_file.schema.json",
+  "title": "ControlPlaneTaskFile",
+  "description": "The frontmatter of a task file, docs/delivery/tasks/<task_id>.md (SPEC §5). Knowledge and outcomes only: who is working on a task, and in which phase, is runtime state in the queue (contracts/task.schema.json). A product may require more keys (plane.json task_log.required); keys it adds are allowed.",
+  "type": "object",
+  "required": [
+    "task_id",
+    "title",
+    "status",
+    "depends_on",
+    "created",
+    "updated"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "The file name without .md: NNNN-kebab-slug (the number's width is plane.json ids.task.width, default 4)"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "done",
+        "dropped",
+        "in_progress",
+        "blocked"
+      ],
+      "description": "pending, done or dropped. in_progress and blocked are legacy, read only, as pending (ccp tasks check warns)"
+    },
+    "kind": {
+      "type": "string",
+      "default": "feature",
+      "description": "A key of plane.json task_log.kinds (default feature, refactor); read only with the architect block on (§20)"
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Task ids that sort earlier"
+    },
+    "created": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "updated": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "spec_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "SPEC sections the task must satisfy"
+    },
+    "adr_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "ADR refs: NNNN, NNNN Dn, or NNNN <section anchor> (§7)"
+    },
+    "rule_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "House-rule ids (ids.rule.pattern, default E<n>)"
+    },
+    "review_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Review findings, <review_id>#F<nn>"
+    },
+    "review_point": {
+      "type": "string",
+      "description": "The review point whose scope the task belongs to (§22.1, §22.2)"
+    },
+    "paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Files or globs the task touches, declared by its writer; parallel safety reads these before the Scope In item (§16.3)"
+    },
+    "parallel": {
+      "type": [
+        "boolean",
+        "string"
+      ],
+      "description": "true: changes no file and runs beside anything; false: always alone (§16.3)"
+    },
+    "shaping": {
+      "type": "string",
+      "pattern": "^waived\\s*[—–:-]+\\s*\\S",
+      "description": "shaping: waived — <reason> (§19.6)"
+    },
+    "gate": {
+      "const": "cold",
+      "description": "The verifier runs the gate cold, accepting no cache (§15.3)"
+    },
+    "mac_only": {
+      "type": [
+        "boolean",
+        "string"
+      ],
+      "description": "A product's marker for a step only the operator's machine can run"
+    },
+    "renamed_from": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "description": "The old id (or ids) when the task-log owner amended this task's id (same number)"
+    }
+  },
+  "not": {
+    "anyOf": [
+      {
+        "required": [
+          "waiting_on"
+        ]
+      },
+      {
+        "required": [
+          "waiting_on_since"
+        ]
+      },
+      {
+        "required": [
+          "lease"
+        ]
+      },
+      {
+        "required": [
+          "lease_holder"
+        ]
+      },
+      {
+        "required": [
+          "lease_expires_at"
+        ]
+      },
+      {
+        "required": [
+          "session_id"
+        ]
+      },
+      {
+        "required": [
+          "claude_session_id"
+        ]
+      },
+      {
+        "required": [
+          "ports"
+        ]
+      },
+      {
+        "required": [
+          "planned_resume_at"
+        ]
+      },
+      {
+        "required": [
+          "quota_class"
+        ]
+      },
+      {
+        "required": [
+          "implementation_started_at"
+        ]
+      }
+    ],
+    "description": "Runtime keys never appear in a task file (SPEC §4)"
+  }
+}

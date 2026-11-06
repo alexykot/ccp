@@ -1,0 +1,527 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:observability_now.schema.json",
+  "title": "ControlPlaneObservabilityNow",
+  "description": "Derived ops-board snapshot at QUEUE_ROOT/observability/now.json. Regenerated from events.jsonl + live probes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "project_id",
+    "queue_root",
+    "auth",
+    "seats",
+    "tasks",
+    "blockers",
+    "totals"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "queue_root": {
+      "type": "string",
+      "description": "Absolute QUEUE_ROOT path used for this rebuild"
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overall",
+        "checked_at",
+        "ambient_api_key",
+        "failed_checks"
+      ],
+      "properties": {
+        "overall": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "degraded",
+            "expired"
+          ]
+        },
+        "checked_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ambient_api_key": {
+          "type": "boolean"
+        },
+        "failed_checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "seats": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "last_wake_at",
+          "wake_kind",
+          "last_action",
+          "cron_expected",
+          "stale"
+        ],
+        "properties": {
+          "last_wake_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "wake_kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "cron",
+              "priority",
+              "manual",
+              null
+            ]
+          },
+          "last_action": {
+            "type": "string"
+          },
+          "cron_expected": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Cron spec for scheduled seats (delivery-watchdog '*/30 * * * *'), or 'event' for event-only seats (task-verifier: no routine, never time-stale)."
+          },
+          "stale": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_id",
+          "durable_status",
+          "runtime_status",
+          "phase",
+          "waiting_on",
+          "waiting_on_since",
+          "planned_resume_at",
+          "quota_class",
+          "implementation_started_at",
+          "wall_hours",
+          "work_hours",
+          "wait_hours",
+          "pr_url",
+          "head_sha",
+          "running_pid",
+          "running_pid_alive",
+          "lease_holder",
+          "prompt_last_ref"
+        ],
+        "properties": {
+          "task_id": {
+            "type": "string"
+          },
+          "durable_status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runtime_status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phase": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "waiting_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "quota",
+              "reauth",
+              "operator_decision",
+              "runner",
+              "steerer",
+              "spec_maintainer",
+              "design_seat",
+              "null-class",
+              "operator_step",
+              null
+            ]
+          },
+          "waiting_on_since": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "planned_resume_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quota_class": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "session",
+              "credit",
+              null
+            ]
+          },
+          "implementation_started_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "wall_hours": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "work_hours": {
+            "type": "number"
+          },
+          "wait_hours": {
+            "type": "number"
+          },
+          "backstop_hours": {
+            "type": "number",
+            "description": "Deprecated, read only: written by snapshots before the twelve-hour backstop was retired (2026-11-05, ADR-0032)"
+          },
+          "backstop_breached": {
+            "type": "boolean",
+            "description": "Deprecated, read only: written by snapshots before the twelve-hour backstop was retired (2026-11-05, ADR-0032)"
+          },
+          "pr_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "head_sha": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "running_pid": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "running_pid_alive": {
+            "type": "boolean"
+          },
+          "lease_holder": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prompt_last_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "wait_hours_by_reason": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "§17.8: wait hours split by waiting_on reason (same set/clear intervals as wait_hours)"
+          }
+        }
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_id",
+          "kind",
+          "since",
+          "detail"
+        ],
+        "properties": {
+          "task_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "quota",
+              "reauth",
+              "operator_decision",
+              "spec_maintainer",
+              "design_seat",
+              "operator_step",
+              "stale_seat",
+              "verify_stale",
+              "backstop",
+              "ambient_key",
+              "other"
+            ]
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tasks_active",
+        "tasks_done",
+        "tasks_blocked",
+        "open_blockers"
+      ],
+      "properties": {
+        "tasks_active": {
+          "type": "integer"
+        },
+        "tasks_done": {
+          "type": "integer"
+        },
+        "tasks_blocked": {
+          "type": "integer"
+        },
+        "open_blockers": {
+          "type": "integer"
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "description": "§17.8 spec-maintainer questions (open first)",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "question_id",
+          "status",
+          "verdict",
+          "raised_by",
+          "blocks",
+          "waiting_on",
+          "since",
+          "maintainer_wait_hours",
+          "operator_wait_hours"
+        ],
+        "properties": {
+          "question_id": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "answered",
+              "escalated"
+            ]
+          },
+          "verdict": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "resolved",
+              "needs_operator",
+              "not_a_spec_question",
+              null
+            ]
+          },
+          "route": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "spec_maintainer",
+              "design_seat",
+              "steerer",
+              null
+            ]
+          },
+          "dispatch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "raised_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "waiting_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "spec_maintainer",
+              "design_seat",
+              "operator_decision",
+              "steerer",
+              null
+            ]
+          },
+          "since": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "maintainer_wait_hours": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "operator_wait_hours": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "spec_maintainer": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Deprecated: always null. It held the headless maintainer's binding and lock, removed on 2026-11-05 (§17); an older now.json may carry an object.",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "alias",
+        "session_id",
+        "lock"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "claude-session"
+          ]
+        },
+        "alias": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "session_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "agent_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lock": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "held",
+            "holder",
+            "since",
+            "stale"
+          ],
+          "properties": {
+            "held": {
+              "type": "boolean"
+            },
+            "holder": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "since": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "stale": {
+              "type": "boolean"
+            },
+            "question_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

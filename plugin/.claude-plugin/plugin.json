@@ -1,0 +1,7 @@
+{
+  "name": "ccp",
+  "description": "CCP's (Claude Control Plane) seats, skills and hooks for a managed product (SPEC §29): the runner and its workers, the architect, spec-maintainer, review-triage and writing-tasks skills, and the orientation, run-binding and runner-idle hooks.",
+  "author": {
+    "name": "CCP maintainers"
+  }
+}

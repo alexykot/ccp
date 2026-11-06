@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:architecture_review_triage.schema.json",
+  "title": "ControlPlaneArchitectureReviewTriage",
+  "description": "SPEC §19.8. Written by the task-log owner (spec maintainer, steerer or team lead) to QUEUE_ROOT/reviews/<review_id>.triage.json after following docs/delivery/REVIEW-TRIAGE.md. For an architect report (§19.8): every rule-cost finding is needs_operator, and every proposed rule change has a rule_changes entry. An applied change needs a commit sha, or commit_sha \"pending\" plus pending_change so triage can finalise before that commit is on the integration branch. No secrets.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "review_id",
+    "project_id",
+    "triaged_at",
+    "record",
+    "tasks_created",
+    "dispositions",
+    "answered_by"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "review_id": {
+      "type": "string",
+      "pattern": "^(ar|da|sh)-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{4}$"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "triaged_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "commit_sha": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Sha of the triage commit, null when nothing was committed, or the string pending when an applied rule change is not on the integration branch yet. pending requires pending_change. ccp architect triage --backfill <id> <sha> replaces pending once the commit exists."
+    },
+    "pending_change": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What the applied rule change will commit, while commit_sha is pending. Kept after backfill as the record of what was outstanding."
+    },
+    "record": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tasks_created": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-[a-z0-9-]+$"
+      }
+    },
+    "dispositions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "finding",
+          "disposition",
+          "reason"
+        ],
+        "properties": {
+          "finding": {
+            "type": "string"
+          },
+          "disposition": {
+            "enum": [
+              "task",
+              "spec",
+              "defer",
+              "needs_operator",
+              "duplicate",
+              "reject"
+            ]
+          },
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "question_for_operator": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "answered_by": {
+      "enum": [
+        "spec_maintainer",
+        "steerer",
+        "operator_via_maintainer"
+      ]
+    },
+    "session_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rule_changes": {
+      "type": "array",
+      "description": "§19.8: one entry per rule change the architect proposed",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "rule",
+          "action",
+          "disposition",
+          "reason"
+        ],
+        "properties": {
+          "rule": {
+            "type": "string",
+            "pattern": "^E[0-9]+$"
+          },
+          "action": {
+            "enum": [
+              "add",
+              "amend",
+              "delete"
+            ]
+          },
+          "disposition": {
+            "enum": [
+              "applied",
+              "rejected",
+              "needs_operator"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
