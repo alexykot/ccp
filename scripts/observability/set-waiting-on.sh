@@ -49,7 +49,7 @@ Env:
 
 Watchdog precedence: do not set waiting_on=reauth in a way that SIGTERMs a live
 prepaid Claude session if that session does not need the failed check (e.g. ADC).
-Record auth degraded via emit-event.sh --type auth and rebuild-now.sh instead.
+Record auth degraded via emit-event.sh --type auth instead.
 EOF
 }
 
