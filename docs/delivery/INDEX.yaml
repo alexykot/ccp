@@ -227,3 +227,8 @@ tasks:
     title: The declared Python floor matches what runs the plane
     depends_on: []
     path: tasks/0045-python-floor-and-import-guard.md
+  - id: 0046-test-fence-clears-queue-root
+    status: pending
+    title: The test fence clears an inherited QUEUE_ROOT
+    depends_on: []
+    path: tasks/0046-test-fence-clears-queue-root.md
