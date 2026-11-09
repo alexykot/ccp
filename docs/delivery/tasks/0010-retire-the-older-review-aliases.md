@@ -28,6 +28,12 @@ The architect seat is the only review command: `scripts/architecture-review.sh` 
   with no `architect` block). A plane.json `docs_audit` block is refused as an unknown key; a
   binding's `architecture_review` block stays allowed by the schema and unread. The §31 approval
   is the RULINGS §26.13 row (retire the aliases; code: task 0010, operator, 2026-11-06).
+- Ruling sm-20261109T215112Z-eb25 (2026-11-09): this task's PR also drops the rest of the SPEC
+  text that describes the retired alias. In §1's seat table the row becomes **Architect**, launched
+  by `ccp architect` (no docs auditor, no `ccp docs audit run`). The config-block table's §21 row
+  loses `docs_audit` and its docs-audit settings, keeping `package_docs` and `docs`. §24.4's list of
+  plane-launched headless kinds names only kinds the code still launches. The §31 approval is the
+  same RULINGS §26.13 row.
 
 ## Scope
 
@@ -81,6 +87,19 @@ The architect seat is the only review command: `scripts/architecture-review.sh` 
   `origin/main` (task 0046). Two SPEC passages outside the ruling still name the removed alias:
   `docs/spec/01-model.md`, the seat table (`ccp docs audit run`) and the config-block table (a
   `docs_audit` block). Both are left for a ruling.
+- 2026-11-09 (implementer, round 3): Applied ruling sm-20261109T215112Z-eb25, recorded in Context.
+  `docs/spec/01-model.md`: the seat-table row is now **Architect**, launched by `ccp architect`, and
+  the config-block table's §21 row keeps only `package_docs` and `docs`. The model-pin table's
+  "Architect, docs auditor" row is now "Architect", following the seat-table edit.
+  `docs/spec/04-observability.md` §24.4 names only the headless kinds the code still launches:
+  architect and estimator. The architect's triage is not listed, because `ccp architect triage`
+  sends its prompt to the lead and launches no `claude -p`. Merged `origin/main` (task 0011):
+  `contracts/project.schema.json` keeps both changes, and ADR-0034 records D5 and D6 as built.
+- A last grep of docs/ and plugin/ for "docs audit", "docs_audit" and "architecture-review" finds
+  only retirement notes, map or history rows, ruling records and this task's own text. It also
+  finds the two skills' fallback to the "Architecture review" / "Docs audit" sections of a
+  product's `LOCAL.md`. Those name a product's own section headings, not the removed command, so
+  they stay.
 
 ## Verification notes
 
