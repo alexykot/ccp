@@ -1,7 +1,7 @@
 ---
 task_id: 0010-retire-the-older-review-aliases
 title: Retire the older architecture-review and docs-audit aliases
-status: pending
+status: done
 kind: feature
 depends_on: ["0008-spec-switch-to-parts"]
 spec_refs: ["S19"]
@@ -9,7 +9,7 @@ adr_refs: ["0034 D5"]
 review_point: R1
 paths: ["scripts/architecture-review.sh", "scripts/observability/architecture_review.py", "ccp/docaudit.py", "ccp/cli.py", "ccp/seats.py", "ccp/config.py", "scripts/sync-product-docs.sh", "plugin/", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-09
 ---
 
 # Task: 0010-retire-the-older-review-aliases
@@ -103,4 +103,4 @@ The architect seat is the only review command: `scripts/architecture-review.sh` 
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-09 — verifier, PR #3 head `24b1d48` (squash `948dba4`): APPROVE. Passed: code-01, compat-01. Gate: `env -u QUEUE_ROOT scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0010-retire-the-older-review-aliases.json.

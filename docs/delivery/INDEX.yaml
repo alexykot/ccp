@@ -48,7 +48,7 @@ tasks:
     depends_on: [0008-spec-switch-to-parts]
     path: tasks/0009-privacy-scrub.md
   - id: 0010-retire-the-older-review-aliases
-    status: pending
+    status: done
     title: Retire the older architecture-review and docs-audit aliases
     depends_on: [0008-spec-switch-to-parts]
     path: tasks/0010-retire-the-older-review-aliases.md
