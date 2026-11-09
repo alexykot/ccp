@@ -516,7 +516,8 @@ def cmd_run(cfg: Config, q: Path, a: argparse.Namespace, actor: str) -> int:
         audit = subprocess.run(
             ["bash", str(OBS / "write-prompt-audit.sh"), "--task-id", ARCH.audit_task, "--phase", f"architect-{mode}",
              "--prompt-file", "-", "--argv", json.dumps(argv), "--actor", actor, "--project-id", pid,
-             "--worktree", pr, "--git-head", head, "--notes", f"review_id={rid}"],
+             "--worktree", pr, "--git-head", head, "--notes", f"review_id={rid}"]
+            + (["--keep-body"] if (cfg.prompts or {}).get("keep_body") else []),  # §23.8
             input=prompt, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(q)})
         if audit.returncode != 0:
             raise RuntimeError(f"write-prompt-audit failed: {audit.stderr.strip()}")

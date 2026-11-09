@@ -115,11 +115,19 @@ Contract: `contracts/prompt_audit.schema.json`.
   "worktree": "/path",
   "durable_task_path": "docs/delivery/tasks/….md",
   "spec_refs": ["…"],
-  "prompt_body": "FULL TEXT given to Claude",
   "prompt_sha256": "…",
+  "prompt_chars": 1234,
+  "prompt_body": "the full text, only when plane.json prompts.keep_body is true",
   "notes": "optional"
 }
 ```
+
+`prompt_body` is opt-in (`prompts.keep_body`, default false; ADR-0034 D8): without it the audit holds
+the hash and the length, and an `argv` entry that is the prompt itself reads `<prompt>`. Health's
+prompt sizes (§27.1) read `prompt_chars`, or the body's length in an audit from before it.
+`prompts.audit_keep_days` (default null, keep all) has `ccp prompt` remove audits older than that
+many days, by the stamp in the file name, each time it writes one; the rendered prompt and env
+files beside them are not audits and stay. `prune-prompts.sh` prunes on demand.
 
 
 ## 20.4 Acceptance (plane-level)
@@ -127,7 +135,7 @@ Contract: `contracts/prompt_audit.schema.json`.
 1. `status.sh` on Mac shows 0001/0002/0003 with correct runtime vs durable divergence until reconciled.
 2. After a deliberate `waiting_on=quota` park with `resets_at`, `now.json` shows `wait_hours` increasing and `planned_resume_at` set; after clear, wait interval closes.
 3. `ccp tasks claim` and `close` write seat heartbeats; no seat is ever stale and no blocker comes from seat or verifier silence (§18.3).
-4. One Runner Claude launch produces a `prompts/…json` with non-empty `prompt_body` and a matching `claude/launch` event `prompt_ref`.
+4. One Runner Claude launch produces a `prompts/…json` with `prompt_sha256` (and `prompt_body` only under `prompts.keep_body`) and a matching `claude/launch` event `prompt_ref`.
 5. Merging a task updates durable status or records an explicit reconcile event in the same session as merge.
 6. No secrets in events, `now.json`, prompts, or escalation email.
 

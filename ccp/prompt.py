@@ -3,7 +3,8 @@
 Four parts, in order: the plane template `templates/prompts/<phase>.md`, then `_common.md` (rules for
 every worker and the report contract) with the product's fragment (`plane.json` `prompts.fragment`)
 and the runner's `--note`. The command writes the prompt beside the run (`prompts/<task>/<phase>[-n]-prompt.md`),
-its §23.8 audit, opens the run (§11.1) and moves the task's phase. It prints the Agent call to make:
+its §23.8 audit (the full text only under `prompts.keep_body`; audits older than
+`prompts.audit_keep_days` are pruned), opens the run (§11.1) and moves the task's phase. It prints the Agent call to make:
 the agent type and a description that starts with the run's task and phase; the prompt is the
 file's text, verbatim. The runner never passes `model` (§2). First it samples the allowance: at the
 5-hour park % it parks the task and refuses, exit 6, writing nothing else (§25.4 the session park).
@@ -18,6 +19,7 @@ import json
 import os
 import re
 import subprocess
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +32,7 @@ from ccp.queue import (CCP_BIN, OBS, PLANE, QueueError, git, integration_branch,
 TEMPLATES = PLANE / "templates" / "prompts"
 SECTION_RE = re.compile(r"\{\{([#^])(\w+)\}\}(.*?)\{\{/\2\}\}", re.S)
 VAR_RE = re.compile(r"\{\{(\w+)\}\}")
+AUDIT_RE = re.compile(r"^(\d{8}T\d{6}Z)_.+\.json$")  # §23.8: prompts/<task_id>/<UTC>_<phase>.json
 NOTE_MAX = 4000  # §13.2; 500 until 2026-10-22
 PHASE_STATUS = {"implement": "implementing", "fix": "fixing", "review": "reviewing", "verify": "verifying"}
 REPORT_LINES = {
@@ -201,10 +204,39 @@ def audit(q: Path, cfg: Config, task_id: str, phase: str, prompt_file: Path, run
         cmd += ["--worktree", worktree]
     if note:
         cmd += ["--notes", note]
+    if (cfg.prompts or {}).get("keep_body"):
+        cmd += ["--keep-body"]
     r = subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(q)})
     if r.returncode != 0:
         raise QueueError(f"write-prompt-audit: {(r.stderr or r.stdout).strip()}", 1)
     return r.stdout.strip().splitlines()[-1].strip() if r.stdout.strip() else ""
+
+
+def prune_audits(q: Path, cfg: Config, now: datetime | None = None) -> int:
+    """§23.8: remove prompt audits older than `prompts.audit_keep_days`, by the UTC stamp in their
+    name (a copied queue rewrites mtimes). Only audit files go; the rendered prompts and env files
+    beside them stay. Returns how many went; null keeps every audit."""
+    days = (cfg.prompts or {}).get("audit_keep_days")
+    d = q / "prompts"
+    if not days or not d.is_dir():
+        return 0
+    cutoff = (now or datetime.now(timezone.utc)) - timedelta(days=days)
+    gone = 0
+    for f in d.rglob("*.json"):
+        m = AUDIT_RE.match(f.name)
+        if not m or not f.is_file():
+            continue
+        try:
+            at = datetime.strptime(m.group(1), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if at < cutoff:
+            try:
+                f.unlink()
+                gone += 1
+            except OSError:
+                pass
+    return gone
 
 
 def review_gate(q: Path, tid: str, phase: str, a: Any) -> dict[str, str] | None:
@@ -323,6 +355,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     report.parent.mkdir(parents=True, exist_ok=True)
     prompt_file.write_text(body)
     ref = audit(q, cfg, tid, phase, prompt_file, run_id, meta, worktree if phase in ("implement", "fix") else own, note)
+    prune_audits(q, cfg)
     warnings: list[str] = list(session_warn)
     rec = runs.open_run(q, cfg, tid, phase, prompt_ref=ref, note=note, supersede=a.supersede, warnings=warnings, by=caller,
                         extra={"pr": a.pr or None, "head": a.head or None,

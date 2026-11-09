@@ -118,7 +118,10 @@ ARCHITECT_DEFAULTS: dict[str, Any] = {
 }
 # §13.2: the product's own rules for worker prompts, rendered after the plane template.
 # §13: `worker_env` names variables each worker's commands get, from these templates.
-PROMPTS_DEFAULTS: dict[str, Any] = {"fragment": None, "worker_env": {}}
+# §23.8: `keep_body` keeps the full prompt text in each prompt audit (off: ids, refs, hash and length
+# only); `audit_keep_days` prunes audits older than that many days when `ccp prompt` writes one
+# (null keeps them all).
+PROMPTS_DEFAULTS: dict[str, Any] = {"fragment": None, "worker_env": {}, "keep_body": False, "audit_keep_days": None}
 WORKER_ENV_FIELDS = ("run_id", "task_id", "nnnn", "phase", "worktree", "main_checkout", "queue_root", "project_id")
 # §10.5 `ccp tasks close`: the product's records beside the task file. `log` prepends one entry to a
 # product log (an `entry` template, placed before the first line matching `before`); `hooks` are
@@ -542,6 +545,11 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
         bad.append("review_points.file must be a path relative to the product root")
     if not _opt_str(out["prompts"]["fragment"]):
         bad.append("prompts.fragment must be a path")
+    if not isinstance(out["prompts"]["keep_body"], bool):
+        bad.append("prompts.keep_body must be true or false")
+    akd = out["prompts"]["audit_keep_days"]
+    if akd is not None and (isinstance(akd, bool) or not isinstance(akd, int) or akd < 1):
+        bad.append("prompts.audit_keep_days must be an integer >= 1 (days a prompt audit is kept), or null to keep all")
     wenv = out["prompts"]["worker_env"]
     if not isinstance(wenv, dict):
         bad.append("prompts.worker_env must be an object of NAME: template")

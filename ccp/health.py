@@ -490,13 +490,15 @@ def _task_queue(q: Path, tid: str, ev: dict[str, Any], bodies: bool = True) -> d
                 launches[_phase(m.group(2))].append(e)
             if not bodies:
                 continue
-            try:
-                body = str(json.loads(f.read_text()).get("prompt_body") or "")
-            except (OSError, ValueError):
-                body = ""
-            prompt_chars += len(body)
+            try:  # §23.8: the audit's length; an audit from before it, its body
+                rec = json.loads(f.read_text())
+                n = rec.get("prompt_chars")
+                n = n if isinstance(n, int) and not isinstance(n, bool) else len(str(rec.get("prompt_body") or ""))
+            except (OSError, ValueError, AttributeError):
+                n = 0
+            prompt_chars += n
             if m.group(2).startswith("implement"):
-                impl_chars = max(impl_chars, len(body))
+                impl_chars = max(impl_chars, n)
     recorded = [x for x in (ev.get("first"), min([t for v in launches.values() for t in v], default=None)) if x]
     try:
         prog = json.loads((q / "progress" / f"{tid}.json").read_text()).get("events") or []

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:control-plane:contracts:prompt_audit.schema.json",
   "title": "ControlPlanePromptAudit",
-  "description": "Layer 2 alpha prompt audit file at QUEUE_ROOT/prompts/<task_id>/<UTC>_<phase>.json. Runtime queue only — never commit to product git or control-plane git.",
+  "description": "Prompt audit file at QUEUE_ROOT/prompts/<task_id>/<UTC>_<phase>.json (SPEC §23.8): ids, refs, the prompt's sha256 and length; the full text only when the product opts in (plane.json prompts.keep_body). Runtime queue only — never commit to product git or control-plane git.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -21,7 +21,6 @@
     "worktree",
     "durable_task_path",
     "spec_refs",
-    "prompt_body",
     "prompt_sha256"
   ],
   "properties": {
@@ -111,11 +110,16 @@
     "prompt_body": {
       "type": "string",
       "minLength": 1,
-      "description": "Full user/prompt string the plane constructed. Required for alpha. No secrets."
+      "description": "Full prompt string the plane constructed, present only when the product sets plane.json prompts.keep_body (off by default). No secrets."
     },
     "prompt_sha256": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
+    },
+    "prompt_chars": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Length of the prompt in characters (SPEC §27.1 prompt sizes). Absent from audits written before it."
     },
     "notes": {
       "type": "string"
