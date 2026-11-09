@@ -2,7 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:control-plane:contracts:observability_now.schema.json",
   "title": "ControlPlaneObservabilityNow",
-  "description": "Derived ops-board snapshot at QUEUE_ROOT/observability/now.json. Regenerated from events.jsonl + live probes.",
+  "description": "Deprecated: the retired ops snapshot once written to QUEUE_ROOT/observability/now.json (SPEC §23.4, ADR-0034 D7). Nothing writes or reads it; the board (board.schema.json) is the status. Kept as the record of its shape.",
+  "deprecated": true,
   "type": "object",
   "additionalProperties": false,
   "required": [

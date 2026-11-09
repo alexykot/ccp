@@ -14,7 +14,7 @@ This directory is **runtime only**: leases, live Claude session ids, `running.js
   last-session.json      # last assessed session
   work.json              # optional hot pointer at active durable task id
   blocker.md             # optional; Claude/runtime blocker text
-  observability/         # events.jsonl, now.json, STATUS.md, seats/*.json
+  observability/         # events.jsonl, seats/*.json
   prompts/<task_id>/     # Layer 2 audit JSON — never commit
   scripts/               # optional project-local copies of plane scripts
 ```
@@ -41,7 +41,7 @@ For example:
 
 ## Observability
 
-`scripts/observability/status.sh` folds `observability/events.jsonl` + live probes into `observability/now.json`. See `scripts/observability/README.md` and SPEC §20.
+`ccp board build` folds the ledger and the queue files into `board/board.json`; `ccp board status` is its summary (SPEC §23.4, §28). See `scripts/observability/README.md`.
 
 ## See also
 

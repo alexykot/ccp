@@ -86,7 +86,8 @@ Non-normative notes behind SPEC §10. The rules are in `docs/spec/04-observabili
   The command never waits for the build, prints nothing about it, and keeps its exit code when the
   spawn fails. The request is skipped without QUEUE_ROOT and when `board/` cannot be made. `CCP_NO_BOARD_REFRESH=1` turns it off (the tests set
   it). The 5-minute timer stays, for changes made outside `ccp`.
-- `status.sh` and `rebuild-now.sh` still run, with a note that `ccp board` supersedes them.
+- `status.sh` and `rebuild-now.sh` are retired with the snapshot they wrote (§23.4); `ccp board status`
+  is the status.
 - **The queue follows the log**. The task file
   is the source of truth for status (§4), so the board treats a wait, gate or question whose task
   is `done` or `dropped` in its task file as resolved, never as a blocker. It lists it under plane

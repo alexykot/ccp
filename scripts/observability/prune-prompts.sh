@@ -16,7 +16,7 @@ This script is a stub until the operator asks to prune.
 Safety:
   - Refuses to delete unless PRUNE_PROMPTS=1 AND --apply
   - Default mode is --dry-run (prints what would be removed)
-  - Never touches events.jsonl / now.json / product git
+  - Never touches events.jsonl / product git
 
 Options:
   --older-than-days N   candidates older than N days (mtime)

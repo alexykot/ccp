@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Fold QUEUE_ROOT/observability/events.jsonl + live probes into now.json / STATUS.md.
+"""The event ledger shared by `ccp` and the observability scripts: QUEUE_ROOT/observability/events.jsonl.
+
+It validates and appends events, holds the work.json lock, the shared constants and the alias table
+for values renamed over time, and folds a task's events into its timers. The board (`ccp board`,
+SPEC §28) is the status; the older snapshot and its scripts are retired (SPEC §23.4).
 
 Timer formula (stable — see README.md):
 
@@ -15,7 +19,6 @@ Do not change this formula without a SPEC + README note.
 
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import re
@@ -25,7 +28,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 1
 SEAT_IDS = ("task-runner", "task-verifier", "delivery-watchdog", "design-seat")
 ACTORS = SEAT_IDS + ("adapter", "operator", "system", "plane-session")  # plane-session: §31.5 triage
 # §17.8 adds question + spec_maintainer types and their ops; §19.10 adds architecture_review;
@@ -77,17 +79,6 @@ EVENT_OPS = (
 )
 WAIT_REASONS = ("quota", "reauth", "operator_decision", "runner", "steerer", "spec_maintainer", "design_seat", "null-class",
                 "operator_step")
-BLOCKER_KINDS = ("quota", "reauth", "operator_decision", "spec_maintainer", "design_seat", "operator_step",
-                 "ambient_key", "other",
-                 # read-only: a snapshot written before 2026-11-05 may carry the retired twelve-hour
-                 # backstop blocker (ADR-0032 D2); nothing emits it any more.
-                 "backstop",
-                 # read-only: an older snapshot may carry the retired seat-stale and verify-stale
-                 # blockers (§18.3, ADR-0034 D6); nothing emits them any more.
-                 "stale_seat", "verify_stale")
-# Waits that surface as their own blocker kind (a question-driven operator_decision wait keeps that kind,
-# detail=question_id).
-WAIT_BLOCKER_KINDS = ("quota", "reauth", "operator_decision", "spec_maintainer", "design_seat", "operator_step")
 
 OPEN_GATE_STATUSES = ("open", "waiting_operator")
 
@@ -205,8 +196,8 @@ DEFAULT_CRON = "*/10 * * * *"
 #   delivery-watchdog  */30 24/7 (was */10)
 #   task-verifier      event-only — NO routine; the runner's subagent
 #   task-runner        unchanged default (*/10) unless its heartbeat says otherwise
-# These are only the heartbeat's recorded `cron_expected` defaults: the snapshot reads every
-# seat as event-only.
+# These are only the heartbeat's recorded `cron_expected` defaults: every seat is event-only
+# (§18.3).
 EVENT_ONLY = "event"
 EVENT_ONLY_VALUES = {"event", "event-only", "none", "null", ""}
 EVENT_ONLY_SEATS = {"task-verifier", "design-seat"}
@@ -258,16 +249,6 @@ def parse_dt(value: Any) -> datetime:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
-
-
-def hours_between(start: datetime, end: datetime) -> float:
-    return max(0.0, (end - start).total_seconds() / 3600.0)
-
-
-def round_hours(value: float | None) -> float | None:
-    if value is None:
-        return None
-    return round(float(value), 1)
 
 
 def looks_like_secret(text: str) -> bool:
@@ -396,18 +377,6 @@ def append_event(root: Path, ev: dict[str, Any]) -> dict[str, Any]:
     with dest.open("a") as fh:
         fh.write(line + "\n")
     return ev
-
-
-def pid_alive(pid: int | None) -> bool:
-    if not pid:
-        return False
-    if os.environ.get("OBS_SKIP_PS") == "1":
-        return False
-    try:
-        os.kill(int(pid), 0)
-        return True
-    except (OSError, ValueError, TypeError):
-        return False
 
 
 def new_task_state(task_id: str) -> dict[str, Any]:
@@ -692,102 +661,6 @@ def lock_is_stale(lock: dict[str, Any], now: datetime | None = None, host: str |
     return expired
 
 
-def load_question_files(root: Path) -> dict[str, dict[str, Any]]:
-    out: dict[str, dict[str, Any]] = {}
-    qdir = root / "questions"
-    if not qdir.is_dir():
-        return out
-    for path in sorted(qdir.glob("sm-*.json")):
-        if path.name.endswith(".answer.json"):
-            continue
-        try:
-            data = read_json(path)
-        except (OSError, json.JSONDecodeError):
-            continue
-        if not isinstance(data, dict):
-            continue
-        qid = data.get("question_id") or path.stem
-        ans_path = qdir / f"{qid}.answer.json"
-        answer = None
-        if ans_path.is_file():
-            try:
-                answer = read_json(ans_path)
-            except (OSError, json.JSONDecodeError):
-                answer = None
-        data["_answer"] = answer if isinstance(answer, dict) else None
-        out[qid] = data
-    return out
-
-
-def build_questions(
-    root: Path, extra: dict[str, Any], tasks: dict[str, dict[str, Any]], now: datetime
-) -> list[dict[str, Any]]:
-    merged: dict[str, dict[str, Any]] = {k: dict(v) for k, v in (extra.get("questions") or {}).items()}
-    for qid, data in load_question_files(root).items():
-        q = merged.setdefault(qid, {"question_id": qid, "since": data.get("asked_at")})
-        ans = data.get("_answer") or {}
-        q.update(
-            {
-                "task_id": data.get("task_id") or q.get("task_id"),
-                "status": data.get("status") or q.get("status") or "open",
-                "route": data.get("route") or q.get("route"),
-                "dispatch": data.get("dispatch") or q.get("dispatch"),
-                "raised_by": data.get("raised_by") or q.get("raised_by"),
-                "blocks": list(data.get("blocks") or q.get("blocks") or ([data["task_id"]] if data.get("task_id") else [])),
-                "since": data.get("asked_at") or q.get("since"),
-            }
-        )
-        if ans.get("verdict"):
-            q["verdict"] = ans.get("verdict")
-    rows = []
-    for qid, q in merged.items():
-        blocks = list(q.get("blocks") or [])
-        waiting = None
-        for tid in blocks:
-            st = tasks.get(tid) or {}
-            if st.get("waiting_on") in ("spec_maintainer", "operator_decision", "steerer") \
-                    and str(st.get("wait_detail") or "") == qid:
-                waiting = st["waiting_on"]
-                break
-
-        def q_hours(reason: str) -> float | None:
-            vals = []
-            for tid in [q.get("task_id")] + blocks:
-                st = tasks.get(tid or "") or {}
-                sec = (st.get("wait_by_qid") or {}).get(f"{qid}|{reason}")
-                if sec:
-                    vals.append(sec)
-                    if tid == q.get("task_id"):
-                        break
-            return round_hours(max(vals) / 3600.0) if vals else 0.0
-
-        status = q.get("status") or "open"
-        if status not in ("open", "answered", "escalated"):
-            status = "open"
-        verdict = q.get("verdict")
-        if verdict not in ("resolved", "needs_operator", "not_a_spec_question"):
-            verdict = None
-        route = q.get("route") if q.get("route") in ("spec_maintainer", "steerer") else None
-        rows.append(
-            {
-                "question_id": qid,
-                "task_id": q.get("task_id"),
-                "status": status,
-                "verdict": verdict,
-                "route": route,
-                "dispatch": q.get("dispatch"),
-                "raised_by": q.get("raised_by"),
-                "blocks": blocks,
-                "waiting_on": waiting,
-                "since": q.get("since"),
-                "maintainer_wait_hours": q_hours("spec_maintainer"),
-                "operator_wait_hours": q_hours("operator_decision"),
-            }
-        )
-    rows.sort(key=lambda r: (0 if r["status"] in ("open", "escalated") else 1, str(r.get("since") or "")))
-    return rows
-
-
 def default_cron(sid: str | None) -> str:
     return SEAT_DEFAULT_CRON.get(sid or "", DEFAULT_CRON)
 
@@ -805,37 +678,6 @@ def empty_seat(sid: str | None = None) -> dict[str, Any]:
         "last_action": "",
         "cron_expected": default_cron(sid),
     }
-
-
-def merge_task_file(st: dict[str, Any], task: dict[str, Any]) -> None:
-    # Events win for timers / waiting_on / runtime_status. Task JSON fills gaps.
-    if st.get("runtime_status") is None and task.get("status"):
-        st["runtime_status"] = task.get("status")
-    if not st.get("implementation_started_at"):
-        st["implementation_started_at"] = task.get("implementation_started_at")
-    if st.get("lease_holder") is None:
-        st["lease_holder"] = task.get("lease_holder")
-    if not st.get("pr_url"):
-        st["pr_url"] = task.get("pr_url")
-    if not st.get("head_sha"):
-        st["head_sha"] = task.get("merge_sha") or task.get("head_sha")
-    if st.get("waiting_on") is None and task.get("waiting_on"):
-        st["waiting_on"] = task.get("waiting_on")
-        st["waiting_on_since"] = task.get("waiting_on_since")
-        st["planned_resume_at"] = task.get("planned_resume_at")
-        st["quota_class"] = task.get("quota_class")
-    if not st.get("phase") and task.get("status"):
-        st["phase"] = task.get("status")
-
-
-def merge_work_json(st: dict[str, Any], work: dict[str, Any]) -> None:
-    if work.get("waiting_on") and st.get("waiting_on") is None:
-        st["waiting_on"] = work.get("waiting_on")
-        st["waiting_on_since"] = work.get("waiting_on_since")
-        st["planned_resume_at"] = work.get("planned_resume_at") or work.get("resets_at")
-        st["quota_class"] = work.get("quota_class")
-    if work.get("pr_url") and not st.get("pr_url"):
-        st["pr_url"] = work["pr_url"]
 
 
 def parse_index_statuses(text: str) -> dict[str, str]:
@@ -943,76 +785,6 @@ def load_durable_statuses(root: Path) -> dict[str, str]:
     return out
 
 
-def load_auth_file(root: Path) -> dict[str, Any]:
-    path = root / "auth" / "status.json"
-    auth = {
-        "overall": "ok",
-        "checked_at": None,
-        "ambient_api_key": False,
-        "failed_checks": [],
-    }
-    if not path.is_file():
-        return auth
-    try:
-        data = read_json(path)
-    except (OSError, json.JSONDecodeError):
-        return auth
-    if not isinstance(data, dict):
-        return auth
-    overall = data.get("overall") or data.get("state") or "ok"
-    if overall == "fail":
-        overall = "expired"
-    if overall not in ("ok", "degraded", "expired"):
-        overall = "degraded" if overall != "ok" else "ok"
-    failed = data.get("reasons") or data.get("failed_checks") or []
-    if isinstance(failed, list):
-        auth["failed_checks"] = [str(x) for x in failed]
-    checks = data.get("checks") or []
-    if isinstance(checks, list):
-        for c in checks:
-            if isinstance(c, dict) and c.get("status") in ("expired", "missing", "fail"):
-                cid = str(c.get("id") or c.get("label") or "check")
-                if cid not in auth["failed_checks"]:
-                    auth["failed_checks"].append(cid)
-    ambient = data.get("ambient_api_key")
-    if ambient is None:
-        ambient = any("ambient" in str(x).lower() for x in auth["failed_checks"])
-    auth["ambient_api_key"] = bool(ambient)
-    auth["checked_at"] = data.get("checked_at")
-    if auth["ambient_api_key"] and overall == "ok":
-        overall = "degraded"
-    auth["overall"] = overall
-    return auth
-
-
-def load_running(root: Path) -> dict[str, Any]:
-    path = root / "running.json"
-    if not path.is_file():
-        return {}
-    try:
-        data = read_json(path)
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
-def load_seat_file(path: Path) -> dict[str, Any]:
-    seat = empty_seat(path.stem)
-    try:
-        data = read_json(path)
-    except (OSError, json.JSONDecodeError):
-        return seat
-    if not isinstance(data, dict):
-        return seat
-    seat["last_wake_at"] = data.get("last_wake_at")
-    seat["wake_kind"] = data.get("wake_kind")
-    seat["last_action"] = data.get("last_action") or data.get("action_summary") or ""
-    seat["cron_expected"] = data.get("cron_expected") or default_cron(path.stem)
-    if path.stem in EVENT_ONLY_SEATS:
-        seat["cron_expected"] = EVENT_ONLY  # policy: legacy */10 files do not re-arm a verifier cadence
-    return seat
-
-
 def _yaml_block_scalars(text: str, block: str) -> dict[str, str]:
     """Tiny YAML subset: indented `key: value` scalars under a top-level `block:`."""
     out: dict[str, str] = {}
@@ -1087,403 +859,3 @@ def email_cfg(root: Path) -> dict[str, str]:
 
 def project_seat_agent(root: Path, role: str) -> str | None:
     return _yaml_block_scalars(project_yaml_text(root), "seats").get(role)
-
-
-def build_now(root: Path) -> dict[str, Any]:
-    now = utcnow()
-    now_s = fmt_dt(now)
-    events = load_events(events_path(root))
-    tasks: dict[str, dict[str, Any]] = {}
-    seats = {sid: empty_seat(sid) for sid in SEAT_IDS}
-    auth = load_auth_file(root)
-
-    extra: dict[str, Any] = {"questions": {}, "lock": None}
-    for ev in events:
-        apply_event(tasks, seats, auth, ev, extra)
-
-    durable = load_durable_statuses(root)
-    tasks_dir = root / "tasks"
-    if tasks_dir.is_dir():
-        for path in sorted(tasks_dir.glob("*.json")):
-            try:
-                task = read_json(path)
-            except (OSError, json.JSONDecodeError):
-                continue
-            if not isinstance(task, dict):
-                continue
-            tid = task.get("task_id") or path.stem
-            st = tasks.setdefault(tid, new_task_state(tid))
-            merge_task_file(st, task)
-
-    work_path = root / "work.json"
-    work: dict[str, Any] = {}
-    if work_path.is_file():
-        try:
-            loaded = read_json(work_path)
-            if isinstance(loaded, dict):
-                work = loaded
-                tid = work.get("task_id") or work.get("task")
-                if tid:
-                    st = tasks.setdefault(tid, new_task_state(tid))
-                    merge_work_json(st, work)
-        except (OSError, json.JSONDecodeError):
-            work = {}
-
-    running = load_running(root)
-    running_tid = running.get("task_id") or running.get("task")
-    running_pid = running.get("pid") or running.get("claude_pid")
-    try:
-        running_pid = int(running_pid) if running_pid is not None else None
-    except (TypeError, ValueError):
-        running_pid = None
-
-    seats_dir = root / "observability" / "seats"
-    if seats_dir.is_dir():
-        for path in seats_dir.glob("*.json"):
-            sid = path.stem
-            file_seat = load_seat_file(path)
-            seats.setdefault(sid, empty_seat(sid))
-            # Heartbeat files on disk are liveness authority when newer.
-            ev_wake = seats[sid].get("last_wake_at")
-            file_wake = file_seat.get("last_wake_at")
-            use_file = False
-            if file_wake and not ev_wake:
-                use_file = True
-            elif file_wake and ev_wake:
-                try:
-                    use_file = parse_dt(file_wake) >= parse_dt(ev_wake)
-                except Exception:
-                    use_file = True
-            if use_file:
-                seats[sid].update({k: file_seat[k] for k in ("last_wake_at", "wake_kind", "last_action", "cron_expected")})
-            elif not seats[sid].get("cron_expected"):
-                seats[sid]["cron_expected"] = file_seat.get("cron_expected") or default_cron(sid)
-
-    for tid, st in tasks.items():
-        accrue(st, now)
-        if not st.get("durable_status"):
-            st["durable_status"] = durable.get(tid)
-        if running_tid == tid and running_pid:
-            st["claude_pid"] = running_pid
-            st["claude_open"] = True
-
-    for seat in seats.values():
-        # §18.3: every seat is event-only; there is no stale rule for seats.
-        seat["cron_expected"] = EVENT_ONLY
-
-    project_id = os.environ.get("PROJECT_ID") or work.get("project_id")
-    if not project_id:
-        project_id = next((e.get("project_id") for e in events if e.get("project_id")), None)
-    if not project_id and (root / "tasks").is_dir():
-        for path in sorted((root / "tasks").glob("*.json")):
-            try:
-                data = read_json(path)
-            except (OSError, json.JSONDecodeError):
-                continue
-            if isinstance(data, dict) and data.get("project_id"):
-                project_id = data["project_id"]
-                break
-    project_id = project_id or root.name
-
-    board_tasks = []
-    blockers: list[dict[str, Any]] = []
-    for tid in sorted(tasks):
-        st = tasks[tid]
-        started = st.get("implementation_started_at")
-        wall = hours_between(parse_dt(started), now) if started else None
-        runtime = st.get("runtime_status")
-        pid = st.get("claude_pid")
-        try:
-            pid_i = int(pid) if pid is not None else None
-        except (TypeError, ValueError):
-            pid_i = None
-        alive = pid_alive(pid_i) if pid_i else False
-        waiting = st.get("waiting_on") or None
-        row = {
-            "task_id": tid,
-            "durable_status": st.get("durable_status"),
-            "runtime_status": runtime,
-            "phase": st.get("phase"),
-            "waiting_on": waiting,
-            "waiting_on_since": st.get("waiting_on_since"),
-            "planned_resume_at": st.get("planned_resume_at"),
-            "quota_class": st.get("quota_class"),
-            "implementation_started_at": started,
-            "wall_hours": round_hours(wall),
-            "work_hours": round_hours(st.get("work_seconds", 0.0) / 3600.0) or 0.0,
-            "wait_hours": round_hours(st.get("wait_seconds", 0.0) / 3600.0) or 0.0,
-            "pr_url": st.get("pr_url"),
-            "head_sha": st.get("head_sha"),
-            "running_pid": pid_i,
-            "running_pid_alive": alive,
-            "lease_holder": st.get("lease_holder"),
-            "prompt_last_ref": st.get("prompt_last_ref"),
-        }
-        by_reason = {
-            r: round_hours(sec / 3600.0) or 0.0
-            for r, sec in sorted((st.get("wait_by_reason") or {}).items())
-            if sec > 0
-        }
-        if by_reason:
-            row["wait_hours_by_reason"] = by_reason
-        board_tasks.append(row)
-
-        if waiting in WAIT_BLOCKER_KINDS:
-            blockers.append(
-                {
-                    "task_id": tid,
-                    "kind": waiting,
-                    "since": st.get("waiting_on_since") or started or now_s,
-                    "detail": st.get("wait_detail") or f"waiting_on={waiting}",
-                }
-            )
-        elif waiting:
-            blockers.append(
-                {
-                    "task_id": tid,
-                    "kind": "other",
-                    "since": st.get("waiting_on_since") or now_s,
-                    "detail": f"waiting_on={waiting}"
-                    + (f" {st.get('wait_detail')}" if st.get("wait_detail") else ""),
-                }
-            )
-
-    if auth.get("ambient_api_key"):
-        tid = next((t["task_id"] for t in board_tasks if t.get("runtime_status") in MID_FLIGHT), "")
-        blockers.append(
-            {
-                "task_id": tid,
-                "kind": "ambient_key",
-                "since": auth.get("checked_at") or now_s,
-                "detail": "ambient product API key present; delivery launches stay prepaid-stripped; overall at best degraded",
-            }
-        )
-
-    active = sum(1 for t in board_tasks if t.get("runtime_status") in MID_FLIGHT)
-    done = sum(1 for t in board_tasks if t.get("runtime_status") == "done")
-    blocked = sum(1 for t in board_tasks if t.get("waiting_on"))
-
-    return {
-        "schema_version": SCHEMA_VERSION,
-        "generated_at": now_s,
-        "project_id": project_id,
-        "queue_root": str(root),
-        "auth": {
-            "overall": auth.get("overall") or "ok",
-            "checked_at": auth.get("checked_at"),
-            "ambient_api_key": bool(auth.get("ambient_api_key")),
-            "failed_checks": list(auth.get("failed_checks") or []),
-        },
-        "seats": {
-            sid: {
-                "last_wake_at": seats[sid].get("last_wake_at"),
-                "wake_kind": seats[sid].get("wake_kind"),
-                "last_action": seats[sid].get("last_action") or "",
-                "cron_expected": seats[sid].get("cron_expected") or default_cron(sid),
-            }
-            for sid in sorted(seats)
-        },
-        "tasks": board_tasks,
-        "blockers": blockers,
-        "questions": build_questions(root, extra, tasks, now),
-        "spec_maintainer": None,  # the headless maintainer and its lock were removed (§17, 2026-11-05)
-        "totals": {
-            "tasks_active": active,
-            "tasks_done": done,
-            "tasks_blocked": blocked,
-            "open_blockers": len(blockers),
-        },
-    }
-
-
-def render_status_md(now: dict[str, Any]) -> str:
-    lines = [
-        f"# Delivery observability — {now.get('project_id')}",
-        "",
-        f"Generated: `{now.get('generated_at')}`  ",
-        f"Queue: `{now.get('queue_root')}`  ",
-        f"Auth: **{now.get('auth', {}).get('overall')}**"
-        + (" · ambient API key present" if now.get("auth", {}).get("ambient_api_key") else ""),
-        "",
-        "## Seats",
-        "",
-        "| Seat | Last wake | Kind | Last action |",
-        "| --- | --- | --- | --- |",
-    ]
-    for sid, seat in (now.get("seats") or {}).items():
-        lines.append(
-            f"| `{sid}` | {seat.get('last_wake_at') or '—'} | {seat.get('wake_kind') or '—'} | "
-            f"{seat.get('last_action') or ''} |"
-        )
-    lines += ["", "## Tasks", ""]
-    if not now.get("tasks"):
-        lines.append("_No tasks in events or `tasks/*.json`._")
-    else:
-        lines += [
-            "| Task | Runtime | Durable | Phase | Wait | Wall / work / wait | Prompt |",
-            "| --- | --- | --- | --- | --- | --- | --- |",
-        ]
-        for t in now["tasks"]:
-            timers = f"{t.get('wall_hours')} / {t.get('work_hours')} / {t.get('wait_hours')}"
-            wait = t.get("waiting_on") or "—"
-            if t.get("planned_resume_at"):
-                wait += f" → {t['planned_resume_at']}"
-            diverge = ""
-            if t.get("durable_status") and t.get("runtime_status") and t["durable_status"] != t["runtime_status"]:
-                diverge = " · DIVERGE"
-            lines.append(
-                f"| `{t['task_id']}` | {t.get('runtime_status')}{diverge} | {t.get('durable_status') or '—'} | "
-                f"{t.get('phase') or '—'} | {wait} | {timers} | {t.get('prompt_last_ref') or '—'} |"
-            )
-    lines += ["", "## Blockers", ""]
-    if not now.get("blockers"):
-        lines.append("_None._")
-    else:
-        for b in now["blockers"]:
-            lines.append(f"- **{b.get('kind')}** `{b.get('task_id')}` since {b.get('since')} — {b.get('detail')}")
-    lines += ["", "## Spec questions (§17)", "", "_The team lead answers spec questions._"]
-    qs = now.get("questions") or []
-    lines += [""]
-    if not qs:
-        lines.append("_No spec questions._")
-    else:
-        lines += [
-            "| Question | Status | Verdict | Dispatch | Raised by | Blocks | Waiting on | Maintainer h | Operator h |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
-        ]
-        for q in qs:
-            lines.append(
-                f"| `{q['question_id']}` | {q.get('status')} | {q.get('verdict') or '—'} | {q.get('dispatch') or '—'} | "
-                f"{q.get('raised_by') or '—'} | {', '.join(q.get('blocks') or []) or '—'} | {q.get('waiting_on') or '—'} | "
-                f"{q.get('maintainer_wait_hours')} | {q.get('operator_wait_hours')} |"
-            )
-    tot = now.get("totals") or {}
-    lines += [
-        "",
-        "## Totals",
-        "",
-        f"active={tot.get('tasks_active')} done={tot.get('tasks_done')} "
-        f"blocked={tot.get('tasks_blocked')} open_blockers={tot.get('open_blockers')}",
-        "",
-        "No secrets.",
-        "",
-    ]
-    return "\n".join(lines)
-
-
-def print_human(now: dict[str, Any]) -> None:
-    auth = now.get("auth") or {}
-    tot = now.get("totals") or {}
-    print(f"project  {now.get('project_id')}")
-    print(f"generated {now.get('generated_at')}")
-    print(f"queue    {now.get('queue_root')}")
-    print(
-        f"auth     {auth.get('overall')}"
-        + (" ambient_api_key=true" if auth.get("ambient_api_key") else "")
-        + (f" failed={auth.get('failed_checks')}" if auth.get("failed_checks") else "")
-    )
-    print("")
-    print("SEATS")
-    for sid, seat in (now.get("seats") or {}).items():
-        print(
-            f"  {sid:22} wake={seat.get('last_wake_at') or '—':22} "
-            f"kind={seat.get('wake_kind') or '—':8} {seat.get('last_action') or ''}"
-        )
-    print("")
-    print("TASKS")
-    if not now.get("tasks"):
-        print("  (none)")
-    for t in now.get("tasks") or []:
-        diverge = ""
-        if t.get("durable_status") and t.get("runtime_status") and t["durable_status"] != t["runtime_status"]:
-            diverge = " DIVERGE"
-        wait = t.get("waiting_on") or "null"
-        resume = f" resume={t['planned_resume_at']}" if t.get("planned_resume_at") else ""
-        print(
-            f"  {t['task_id']:28} runtime={t.get('runtime_status')} durable={t.get('durable_status')}"
-            f"{diverge} phase={t.get('phase')} wait={wait}{resume}"
-        )
-        print(
-            f"  {'':28} wall={t.get('wall_hours')} work={t.get('work_hours')} "
-            f"wait_h={t.get('wait_hours')} "
-            f"pid={t.get('running_pid')} alive={t.get('running_pid_alive')} prompt={t.get('prompt_last_ref')}"
-        )
-        if t.get("wait_hours_by_reason"):
-            parts = " ".join(f"{k}={v}" for k, v in t["wait_hours_by_reason"].items())
-            print(f"  {'':28} wait_by_reason: {parts}")
-    print("")
-    qs = now.get("questions") or []
-    print("QUESTIONS")
-    if not qs:
-        print("  (none)")
-    for q in qs:
-        print(
-            f"  {q['question_id']:28} status={q.get('status')} verdict={q.get('verdict') or '—'} "
-            f"dispatch={q.get('dispatch') or '—'} raised_by={q.get('raised_by') or '—'} "
-            f"blocks={','.join(q.get('blocks') or [])} waiting_on={q.get('waiting_on') or '—'}"
-        )
-        print(
-            f"  {'':28} wait: spec_maintainer={q.get('maintainer_wait_hours')}h operator={q.get('operator_wait_hours')}h"
-        )
-    print("")
-    print("BLOCKERS")
-    if not now.get("blockers"):
-        print("  (none)")
-    for b in now.get("blockers") or []:
-        print(f"  {b.get('kind'):12} {b.get('task_id')} since {b.get('since')} — {b.get('detail')}")
-    print("")
-    print(
-        f"totals   active={tot.get('tasks_active')} done={tot.get('tasks_done')} "
-        f"blocked={tot.get('tasks_blocked')} open_blockers={tot.get('open_blockers')}"
-    )
-
-
-def write_snapshot(root: Path, now: dict[str, Any]) -> None:
-    dest_dir = root / "observability"
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    write_json(dest_dir / "now.json", now)
-    (dest_dir / "STATUS.md").write_text(render_status_md(now))
-
-
-def cmd_rebuild(root: Path) -> dict[str, Any]:
-    now = build_now(root)
-    write_snapshot(root, now)
-    print(f"rebuild-now: wrote {root / 'observability' / 'now.json'}")
-    print(f"rebuild-now: wrote {root / 'observability' / 'STATUS.md'}")
-    return now
-
-
-def has_blockers(now: dict[str, Any]) -> bool:
-    # An older snapshot's seat `stale` flag is ignored: there is no stale rule for seats (§18.3).
-    return bool(now.get("blockers"))
-
-
-def cmd_status(root: Path, rebuild: bool) -> int:
-    now = cmd_rebuild(root) if rebuild else None
-    if now is None:
-        path = root / "observability" / "now.json"
-        if not path.is_file():
-            now = cmd_rebuild(root)
-        else:
-            now = read_json(path)
-    print_human(now)
-    return 1 if has_blockers(now) else 0
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Control-plane observability fold/status")
-    parser.add_argument("command", choices=("rebuild", "status"))
-    parser.add_argument("--queue-root", default=None)
-    parser.add_argument("--no-rebuild", action="store_true")
-    args = parser.parse_args(argv)
-    if args.queue_root:
-        os.environ["QUEUE_ROOT"] = args.queue_root
-    root = queue_root()
-    if args.command == "rebuild":
-        cmd_rebuild(root)
-        return 0
-    return cmd_status(root, rebuild=not args.no_rebuild)
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

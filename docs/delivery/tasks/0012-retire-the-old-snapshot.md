@@ -50,6 +50,21 @@ The board is the status: nothing writes or reads `observability/now.json` or `ST
 
 *Append-only, newest last.*
 
+- 2026-11-09 (implementer): `scripts/observability/rebuild-now.sh` and `status.sh` are deleted. `lib.py`
+  loses the snapshot writer and its CLI (`build_now`, `render_status_md`, `print_human`, `write_snapshot`,
+  `cmd_rebuild`, `has_blockers`, `cmd_status`, `main`) and the helpers and constants only it used
+  (`hours_between`, `round_hours`, `pid_alive`, the question, task, work, auth, running and seat-file
+  loaders, `SCHEMA_VERSION`, `BLOCKER_KINDS`, `WAIT_BLOCKER_KINDS`). The event fold that
+  `spec_maintainer.py` uses (`apply_event`, `accrue`, `new_task_state`) stays. No code in `ccp/` or
+  `plugin/` read the snapshot, so no reader moved; the board already lists waits, gates and questions.
+  `contracts/observability_now.schema.json` is marked deprecated. The READMEs and package docs, plus
+  `docs/cli/04-observability.md`, `docs/design/board.md`, `docs/design/observability.md` and
+  `queue/README.md`, now name the board as the status; the one remaining match for code-01 is the
+  retirement note in `scripts/observability/README.md`. The backstop and stale-blocker tests check
+  the board and `ccp board status` instead of the snapshot; `tests/test_snapshot_retired.py` is new.
+  SPEC §17.8 (`docs/spec/02-delivery.md`) still describes `now.json`'s `questions` array: left for a
+  SPEC edit.
+
 ## Verification notes
 
 *Append-only.*
