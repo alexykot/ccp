@@ -26,72 +26,13 @@ One JSON object per line. Append-only; never rewrite history. Contract: `contrac
 
 Seat ids / actors for the three operational seats: `task-runner`, `task-verifier`, `delivery-watchdog`. `task_id` may be empty on seat-only or project-level auth events.
 
-#### 20.1.3 Snapshot schema (`now.json`)
+#### 20.1.3 The retired snapshot
 
-Regenerate by folding `events.jsonl` + live probes (`ps` for pid, `auth/status.json`). Contract: `contracts/observability_now.schema.json`. Writer: `scripts/observability/rebuild-now.sh`.
-
-*Amended by §28.3: replaced by `board/board.json`, built by `ccp board build`.*
-
-```json
-{
-  "schema_version": 1,
-  "generated_at": "RFC3339",
-  "project_id": "example",
-  "queue_root": "/absolute/path",
-  "auth": {
-    "overall": "ok|degraded|expired",
-    "checked_at": "RFC3339",
-    "ambient_api_key": false,
-    "failed_checks": []
-  },
-  "seats": {
-    "<seat_id>": {
-      "last_wake_at": "RFC3339|null",
-      "wake_kind": "cron|priority|manual|null",
-      "last_action": "string",
-      "cron_expected": "event"
-    }
-  },
-  "tasks": [
-    {
-      "task_id": "0007-example-task",
-      "durable_status": "pending|…",
-      "runtime_status": "implemented|…",
-      "phase": "review|…",
-      "waiting_on": "quota|null",
-      "waiting_on_since": "RFC3339|null",
-      "planned_resume_at": "RFC3339|null",
-      "quota_class": "session|credit|null",
-      "implementation_started_at": "RFC3339|null",
-      "wall_hours": 47.4,
-      "work_hours": 0.0,
-      "wait_hours": 0.0,
-      "pr_url": "…",
-      "head_sha": "…",
-      "running_pid": null,
-      "running_pid_alive": false,
-      "lease_holder": "…",
-      "prompt_last_ref": "prompts/…/….json|null"
-    }
-  ],
-  "blockers": [
-    {
-      "task_id": "…",
-      "kind": "quota|reauth|operator_decision|spec_maintainer|design_seat|operator_step|ambient_key|other",
-      "since": "RFC3339",
-      "detail": "…"
-    }
-  ],
-  "questions": [],
-  "spec_maintainer": null,
-  "totals": {
-    "tasks_active": 1,
-    "tasks_done": 1,
-    "tasks_blocked": 1,
-    "open_blockers": 1
-  }
-}
-```
+The older snapshot (`now.json`, `STATUS.md`) and its scripts (`rebuild-now.sh`, `status.sh`) are
+retired (SPEC §23.4, ADR-0034 D7): nothing writes or reads them, and an old copy left in a queue is
+ignored. The board (`board/board.json`, built by `ccp board build`, §28) is the status, and
+`ccp board status` its terminal summary. The deprecated `contracts/observability_now.schema.json`
+records the snapshot's shape.
 
 
 #### 20.2.2 Audit file schema
@@ -132,12 +73,12 @@ files beside them are not audits and stay. `prune-prompts.sh` prunes on demand.
 
 ## 20.4 Acceptance (plane-level)
 
-1. `status.sh` on Mac shows 0001/0002/0003 with correct runtime vs durable divergence until reconciled.
-2. After a deliberate `waiting_on=quota` park with `resets_at`, `now.json` shows `wait_hours` increasing and `planned_resume_at` set; after clear, wait interval closes.
+1. `ccp board status` shows runtime against durable divergence until reconciled.
+2. After a deliberate `waiting_on=quota` park with `resets_at`, the wait is a blocker of `ccp board status`; after clear, the wait interval closes.
 3. `ccp tasks claim` and `close` write seat heartbeats; no seat is ever stale and no blocker comes from seat or verifier silence (§18.3).
 4. One Runner Claude launch produces a `prompts/…json` with `prompt_sha256` (and `prompt_body` only under `prompts.keep_body`) and a matching `claude/launch` event `prompt_ref`.
 5. Merging a task updates durable status or records an explicit reconcile event in the same session as merge.
-6. No secrets in events, `now.json`, prompts, or escalation email.
+6. No secrets in events, the board, prompts, or escalation email.
 
 Items 1 and 4–5 need live Mac `QUEUE_ROOT` after merge. Plane CI / examples cover fold + emit + wait timers.
 

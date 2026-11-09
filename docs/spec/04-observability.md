@@ -70,7 +70,7 @@ Folded from the ledger (the formulas are fixed; `scripts/observability/README.md
 
 - `wall_hours` = now − `implementation_started_at` (null if never started).
 - `wait_hours` = the sum of the intervals where `waiting_on != null` (set → clear), plus the open
-  interval while waiting; `wait_hours_by_reason` splits the same intervals by reason.
+  interval while waiting.
 - `work_hours` = the sum of the intervals where the phase is an active one (implementing, review,
   verify, merge, and the aliases `implement`, `mk-pr`, `fix-review`) **and** `waiting_on` is null
   **and** a worker launch is open. It is never computed as `wall − wait`.
@@ -84,7 +84,7 @@ The board (§28) carries both the durable status (`durable_status`) and the runt
 is open: a task waiting, a gate or question open, a stale source while a runner runs (§28.3), or the
 allowance at its checkpoint. A cron wrapper can rely on that exit code. The board is the status: the
 older snapshot (`now.json`, `STATUS.md`) and the scripts that write or read it (`status.sh`,
-`rebuild-now.sh`) are retired (code: task 0012); `emit-event.sh` and `set-waiting-on.sh` remain as
+`rebuild-now.sh`) are retired; `emit-event.sh` and `set-waiting-on.sh` remain as
 wrappers over `ccp`.
 
 ### 23.5 Durable reconciliation

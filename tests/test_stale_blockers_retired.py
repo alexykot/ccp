@@ -1,6 +1,7 @@
-"""ADR-0034 D6, SPEC §18.3: no seat stale rule and no verify-stale blocker. The snapshot raises neither
-for a silent seat or a verifier with no progress, ignores the binding's old threshold knob, still
-records heartbeats, and a queue whose last snapshot carries the retired blockers still rebuilds."""
+"""ADR-0034 D6, SPEC §18.3: no seat stale rule and no verify-stale blocker. The board raises neither
+for a silent seat or a verifier with no progress, ignores the binding's old threshold knob, heartbeats
+are still recorded, and a queue whose last snapshot (retired, §23.4) carries the retired blockers
+still builds."""
 from __future__ import annotations
 
 import json
@@ -57,23 +58,16 @@ class StaleBlockersRetired(ToolkitFixture, unittest.TestCase):
         return subprocess.run(["bash", str(OBS / script), *args], env=self.obs_env(**extra),
                               capture_output=True, text=True, timeout=60)
 
-    def test_an_old_queue_rebuilds_with_neither_blocker(self):
-        r = self.run_obs("rebuild-now.sh", VERIFY_STALE_MINUTES="1")
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        now = json.loads((self.q / "observability" / "now.json").read_text())
-        self.assertFalse(RETIRED & {b["kind"] for b in now["blockers"]}, now["blockers"])
-        self.assertEqual(now["blockers"], [])
-        seat = now["seats"]["task-runner"]
-        self.assertEqual(seat["last_wake_at"], OLD_WAKE)       # the heartbeat is still read
-        self.assertEqual(seat["cron_expected"], "event")
-        self.assertNotIn("stale", seat)
-        self.assertTrue(all("stale" not in s for s in now["seats"].values()))
-
+    def test_the_board_and_its_status_raise_neither_blocker(self):
         code, body, out, err = self.ccp("board", "build")
         self.assertEqual(code, 0, out + err)
         board = Path(body["board"]).read_text()
         for kind in RETIRED:
             self.assertNotIn(kind, board)
+        code, _, out, err = self.ccp("board", "status")
+        self.assertEqual(code, 0, out + err)
+        for kind in RETIRED:
+            self.assertNotIn(kind, out)
 
     def test_the_board_builds_over_an_old_snapshot_it_never_rebuilt(self):
         code, body, out, err = self.ccp("board", "build")
@@ -84,8 +78,8 @@ class StaleBlockersRetired(ToolkitFixture, unittest.TestCase):
 
     def test_an_old_seat_stale_flag_alone_is_not_a_blocker(self):
         (self.q / "observability" / "now.json").write_text(json.dumps({**self.old_now, "blockers": []}))
-        r = self.run_obs("status.sh", "--no-rebuild")
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        code, _, out, err = self.ccp("board", "status")
+        self.assertEqual(code, 0, out + err)
 
     def test_heartbeats_are_still_written(self):
         r = self.run_obs("heartbeat.sh", "task-verifier", "--wake-kind", "priority", "--task-id", TID)
@@ -94,11 +88,8 @@ class StaleBlockersRetired(ToolkitFixture, unittest.TestCase):
         self.assertTrue(seat["last_wake_at"])
         last = json.loads((self.q / "observability" / "events.jsonl").read_text().splitlines()[-1])
         self.assertEqual((last["type"], last["op"], last["payload"]["seat_id"]), ("seat", "heartbeat", "task-verifier"))
-        r = self.run_obs("rebuild-now.sh")
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        now = json.loads((self.q / "observability" / "now.json").read_text())
-        self.assertEqual(now["seats"]["task-verifier"]["last_wake_at"], seat["last_wake_at"])
-        self.assertEqual(now["blockers"], [])
+        code, _, out, err = self.ccp("board", "status")
+        self.assertEqual(code, 0, out + err)
 
 
 if __name__ == "__main__":
