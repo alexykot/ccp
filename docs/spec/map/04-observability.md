@@ -9,7 +9,7 @@ Rows of the pre-restructure `SPEC.md` whose content goes to `docs/spec/04-observ
 | §20.1 | Layer 1 — Ops board | §23.1 |  |
 | §20.1.1 | Source of truth | §23.1 | the snapshot and status files → replaced by the board (§28.1) |
 | §20.1.2 | Event log schema (`events.jsonl`) | §23.2 | example → `docs/design/observability.md` |
-| §20.1.3 | Snapshot schema (`now.json`) | §23.3, §28.1, operator (obsolete?) | timer rules → §23.3; the snapshot → board; `now.json` and `STATUS.md` still written → operator; example → design |
+| §20.1.3 | Snapshot schema (`now.json`) | §23.3, §28.1, operator (obsolete?) | timer rules → §23.3; the snapshot → board; `now.json` and `STATUS.md` retired (task 0012); example → design |
 | §20.1.5 | Status CLI + remote read | §23.4, operator (obsolete?), `docs/cli/04-observability.md` | the status rule (non-zero on an open blocker) → §23.4; the remote-blindness rule (emailed digest, copy to a personal path) looks obsolete → operator; the script list → cli |
 | §20.1.6 | Durable reconciliation | §23.5 |  |
 | §20.1.7 | Structured quota / auth fields | §23.6 |  |

@@ -75,7 +75,7 @@ answer file; `process` applies it.
 | Board | an open question, like a wait or an open gate, is a blocker of `ccp board status` (SPEC §23.4). |
 | Runtime files | `QUEUE_ROOT/questions/sm-*.json` (+ `.answer.json`) |
 
-The timer formula above is unchanged; `wait_hours_by_reason` splits the same wait intervals by reason.
+The timer formula below is unchanged; the ledger fold in `lib.py` also splits the same wait intervals by reason.
 
 ```bash
 export QUEUE_ROOT=… PROJECT_YAML=…/projects/<project_id>.yaml

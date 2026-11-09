@@ -23,6 +23,13 @@ The board is the status: nothing writes or reads `observability/now.json` or `ST
 - §23.4 states the target rule; ADR-0034 D7 records the ruling.
 - Before deleting, find every reader (hooks, team.py, health, tests) and move it to the board or the ledger.
 - Old `now.json` files left in queues are ignored.
+- Ruling `sm-20261109T225130Z-6af9` (spec maintainer, 2026-11-09): in this task's PR, (1) §17.8 deletes
+  the sentence from "`now.json` has a top-level `questions` array…" through "…its `spec_maintainer`
+  field is always `null` (deprecated)."; (2) `docs/spec/map/04-observability.md` keeps the §20.1.3
+  row's history and changes only its last cell to say `now.json` and `STATUS.md` are retired (task
+  0012); (3) §11.2 drops "docs-audit lock" from its list of process locks, a leftover of task 0010.
+  The §31 approval for (1) and (3) is the operator's recorded rulings in `docs/spec/RULINGS.md` (the
+  §20.1.3 row for task 0012, the §26.13 row for task 0010).
 
 ## Scope
 
