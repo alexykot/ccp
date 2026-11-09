@@ -3,7 +3,7 @@ model and effort, against what the plane pins.
 
 One row per live seat of the Claude team: the design seat (the lead), the runner (the binding's
 `runner` teammate), each open worker run (pending, running or stopped, with its phase), each
-headless pass in progress (architect, docs audit, the estimator), and any other telemetry seat
+headless pass in progress (architect, the estimator), and any other telemetry seat
 seen in the last WINDOW_MINUTES (a teammate, or a seat the receiver adds).
 
 Expected (pinned) values come from the pins in effect: a run's record (what `ccp prompt` read from
@@ -323,14 +323,15 @@ def _lock_alive(q: Path, lock_name: str, rid: str) -> bool:
 
 
 def _headless(q: Path, team: str, recent: dict[str, Any], now: float) -> tuple[list[dict[str, Any]], set[str]]:
-    """Architect passes and docs audits recorded as running (read only: the board never reaps), and
-    the telemetry seats they claim: the `ccp.seat` tag a plane-launched `claude -p` carries
-    (`architect-<mode>`, `docs-audit`; §24). A pass whose lock is gone or stale past the reaper's
-    grace is flagged "lock gone"."""
+    """Architect passes recorded as running (read only: the board never reaps), and the telemetry
+    seats they claim: the `ccp.seat` tag a plane-launched `claude -p` carries (`architect-<mode>`;
+    §24). An older queue's docs-audit record is read the same way. A pass whose lock is gone or
+    stale past the reaper's grace is flagged "lock gone"."""
     from ccp import architect  # noqa: PLC0415
     rows, claimed = [], set()
     exp = None
     for state, lock_name, label, tag in (("architect.json", "architect.lock", "architect", "architect-{mode}"),
+                                         # A reader of old records: the retired docs-audit seat's state (§19.12).
                                          ("docs-audit.json", "docs-audit.lock", "docs audit", "docs-audit")):
         st = read_json(q / state, {}) or {}
         reviews = st.get("reviews") if isinstance(st, dict) else None

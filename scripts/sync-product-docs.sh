@@ -8,8 +8,7 @@
 # Managed copies (in product_root):
 #   docs/delivery/CONTROL-PLANE.md   always (role-neutral orientation, template plugin/orientation.md)
 #   docs/delivery/SPEC-MAINTAINER.md  only when the binding declares a spec_maintainer block (SPEC §17)
-#   docs/delivery/REVIEW-TRIAGE.md    always (review triage protocol: architect §19.8, architecture review §19,
-#                                     docs audit §21.7)
+#   docs/delivery/REVIEW-TRIAGE.md    always (the architect's review triage protocol, SPEC §19.8)
 #   .claude/skills/architect/SKILL.md  always (the architect skill, SPEC §19; template
 #                                      plugin/skills/architect/SKILL.md). It replaces the
 #                                      architecture-review and docs-audit skills (§19): a sync removes

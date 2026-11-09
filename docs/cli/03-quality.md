@@ -10,9 +10,7 @@ the working directory).
 | `ccp tasks check` | Hold the task log to the canonical format | Free | §21.1 |
 | `ccp docs check` | Package-doc rules, opted-in generic rules, house rules' shape, `architect.checks`, `docs.checks`, the ADR check and `ccp tasks check` | Free | §21.2 |
 | `ccp docs history-paths [--attr A]` | Tracked paths carrying the history attribute, one per line | Free | §21.6 |
-| `ccp docs audit due\|run [--force]\|triage <id>\|status` | The docs review as its own kind (an alias of `ccp architect` once a product has the `architect` block). Needs `QUEUE_ROOT` | `run` launches one Claude session | §21.7, §19.12 |
 | `ccp architect due \| run [--mode pass\|shape] [--lens L,…] [--adr ID] [--force] [--detach] [--scope IDS] \| triage <id> [--backfill <id> <sha>] \| status` | The architect seat. Needs `QUEUE_ROOT` | `run` launches one Claude session | §19 |
-| `scripts/architecture-review.sh due\|run\|triage\|status` | Older alias of `ccp architect` | as above | §19.12 |
 | `ccp budgets check --base REF` | House-rule budgets on the files this change grew | Free | §20.2 |
 | `ccp health note --text T [--task ID]` / `ccp health record --task ID --metric k=v …` | Record a worker's friction line or metric. Needs `QUEUE_ROOT` | Free | §19.6 |
 | `ccp review-points [list\|show R<n>] [--json]` | Read the register | Free, read-only | §22.8 |

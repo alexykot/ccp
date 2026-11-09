@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:control-plane:contracts:architecture_review.schema.json",
   "title": "ControlPlaneArchitectureReview",
-  "description": "SPEC §19 (and §21: a docs audit report is the same shape, id prefix `da-`, doc-* categories). The reviewer's report: the final message of an isolated read-only Claude session running the architecture-review skill. The plane writes it to QUEUE_ROOT/reviews/<review_id>.json (runtime; the durable record is the triage's docs/delivery/reviews/<review_id>.md). No secrets.",
+  "description": "The report shape of the retired architecture review and docs audit (SPEC §19.12; a docs audit's id prefix `da-`, doc-* categories), kept as the shape of older queue records: nothing writes it any more. The reviewer's report: the final message of an isolated read-only Claude session running the architecture-review skill. The plane writes it to QUEUE_ROOT/reviews/<review_id>.json (runtime; the durable record is the triage's docs/delivery/reviews/<review_id>.md). No secrets.",
   "type": "object",
   "additionalProperties": true,
   "required": [
