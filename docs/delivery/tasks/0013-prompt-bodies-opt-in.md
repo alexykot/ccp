@@ -49,6 +49,28 @@ A prompt audit records ids, refs and the prompt's hash; the full prompt text is 
 
 *Append-only, newest last.*
 
+- 2026-11-09 (implementer): Two knobs in plane.json `prompts`. `keep_body` (bool, default false).
+  `audit_keep_days` (int >= 1 or null, default null = keep all). Both are checked in `ccp/config.py`
+  and named in `contracts/plane_config.schema.json`.
+  - `write-prompt-audit.sh` writes `prompt_body` only with `--keep-body`. It always writes
+    `prompt_sha256` and a new `prompt_chars`. Without the body, an argv entry that is the prompt
+    itself becomes `<prompt>`; the architect passes its prompt in argv.
+  - `contracts/prompt_audit.schema.json`: `prompt_body` is optional and `prompt_chars` is added.
+  - `ccp prompt` passes `--keep-body` from the knob. After writing its audit it removes audits older
+    than `audit_keep_days`, across `prompts/**` and judged by the UTC stamp in the file name
+    (`prompt.prune_audits`). Rendered prompts, env files and other names stay.
+  - Outside the listed paths: `ccp/architect.py` and `ccp/estimator.py` pass `--keep-body` from the
+    same knob. `ccp/health.py` reads `prompt_chars` for the §27.1 prompt sizes and falls back to
+    the body's length for older audits (E9). `team.py`'s runner-spawn and runner-scope audits keep
+    the default, with no body.
+  - `prune-prompts.sh` keeps its behaviour as the on-demand tool. Only its "alpha keep-all" framing
+    changed.
+  - `tests/test_architect.py` now reads the prompt from the stub's argv rather than the audit's
+    `prompt_body`; the assertions are unchanged.
+  - ADR-0034 D8 is recorded as built.
+  - Open: the SPEC passages still say "code: task 0013" (§23.8, §23.9), and §8.1's `prompts` row does
+    not name the knobs. The default retention age is also open. All are in the run report.
+
 ## Verification notes
 
 *Append-only.*
