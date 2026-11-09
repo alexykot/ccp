@@ -50,6 +50,27 @@ The architect seat is the only review command: `scripts/architecture-review.sh` 
 
 *Append-only, newest last.*
 
+- 2026-11-09 (implementer): Removed `scripts/architecture-review.sh`, `ccp/docaudit.py`, the
+  `ccp docs audit` subcommand (and its board-refresh entries) and `tests/test_docaudit.py`.
+  `scripts/observability/architecture_review.py` keeps only the review kit the architect uses:
+  `Kind`, lock, validation, rendering, triage. The alias-only `AR` kind, the project.yaml
+  `architecture_review` reader, due/run/status/main and the CLI entry point are gone. Every
+  function now takes its kind, and `triage` takes a required `max_new` with no `probes`, which it
+  never used. The plane.json `docs_audit` key, its defaults and its schema block are gone, so a
+  `docs_audit` block is now refused as an unknown key. No bound product carries one.
+- Old records stay readable. `ccp/seats.py` still reads `docs-audit.json`, with a comment saying
+  it is a reader of old records. `lib.py` keeps the `architecture_review` and `docs_audit` event
+  types for older ledgers. `contracts/project.schema.json` still allows a binding's
+  `architecture_review` block, which nothing reads. `sync-product-docs.sh` still reports and
+  removes leftover managed copies of the two older skills as `retired`.
+- New `tests/test_review_aliases_retired.py`: board and health against a queue that holds older
+  alias state, reports and events, plus the removed command. The alias tests in `test_architect.py`
+  and `test_team_hosting.py` are gone. Briefs, skills, package docs and design notes were updated.
+  ADR-0034 D5 is recorded as built.
+- Not done, pending a ruling: SPEC §19.12's parenthetical ("still in the code until task 0010
+  removes them") and §21.7's second sentence (`ccp docs audit` with no architect block) now
+  describe removed code. The task gives no SPEC edit, so both are left for the runner or the lead.
+
 ## Verification notes
 
 *Append-only.*
