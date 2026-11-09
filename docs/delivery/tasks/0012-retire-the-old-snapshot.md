@@ -1,7 +1,7 @@
 ---
 task_id: 0012-retire-the-old-snapshot
 title: Retire now.json, STATUS.md and their scripts
-status: pending
+status: done
 kind: feature
 depends_on: ["0008-spec-switch-to-parts"]
 spec_refs: ["S23", "S28"]
@@ -9,7 +9,7 @@ adr_refs: ["0034 D7"]
 review_point: R1
 paths: ["scripts/observability/rebuild-now.sh", "scripts/observability/status.sh", "scripts/observability/lib.py", "scripts/observability/README.md", "scripts/queue/README.md", "contracts/observability_now.schema.json", "ccp/", "plugin/", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-09
 ---
 
 # Task: 0012-retire-the-old-snapshot
@@ -101,4 +101,4 @@ The board is the status: nothing writes or reads `observability/now.json` or `ST
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-09 — verifier, PR #6 head `98f6d9f` (squash `77c3ea6`): APPROVE. Passed: code-01, board-01. Gate: `env -u QUEUE_ROOT scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0012-retire-the-old-snapshot.json.
