@@ -200,7 +200,7 @@ tasks:
   - id: 0040-operator-notification-triggers
     status: pending
     title: The plane defines when the operator is notified; a product setting names the channel
-    depends_on: []
+    depends_on: [0039-operator-sign-off-record]
     path: tasks/0040-operator-notification-triggers.md
   - id: 0041-product-declared-report-fields
     status: pending

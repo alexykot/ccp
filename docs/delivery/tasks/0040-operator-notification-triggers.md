@@ -3,7 +3,7 @@ task_id: 0040-operator-notification-triggers
 title: The plane defines when the operator is notified; a product setting names the channel
 status: pending
 kind: feature
-depends_on: []
+depends_on: [0039-operator-sign-off-record]
 spec_refs: ["S3", "S17"]
 review_point: R3
 paths: ["docs/spec/", "ccp/", "plugin/", "tests/"]
