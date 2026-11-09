@@ -274,8 +274,7 @@ Every default above can be overridden per product. `shape` is started by the tas
 
 `scripts/architecture-review.sh` and `ccp docs audit`, the thin aliases of the architect seat, are
 retired: every bound project has moved to the architect seat. A sync removes a product's leftover
-managed copies of the two older skills and `--check` reports them as `retired`. (The aliases are
-still in the code until task 0010 removes them.)
+managed copies of the two older skills and `--check` reports them as `retired`.
 
 ## 20. House rules, budgets and refactors
 
@@ -480,12 +479,7 @@ Each is off until named.
 ### 21.7 The docs lens
 
 What a rule cannot see, whether each doc's statements are true of the code beside it, is the
-architect's `docs` lens (§19.4). With no `architect` block, `ccp docs audit` runs the same review as
-its own kind (§19.12): due when `package_docs` is set, nothing is running or awaiting triage, and
-either no audit has run or the product HEAD moved and `every_days` (default 7) passed; run, report
-validation, triage and events as in §19.7, §19.8 and §19.10 (event type `docs_audit`, state
-`QUEUE_ROOT/docs-audit.json`, reports `reviews/da-<ts>-<hex>.json`), with the directories
-`ccp docs check` judges and the `shape_only_dirs` and `private_dirs` paths listed in its prompt.
+architect's `docs` lens (§19.4).
 
 ### 21.8 Who runs the checks
 

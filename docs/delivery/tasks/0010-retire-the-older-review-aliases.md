@@ -23,6 +23,11 @@ The architect seat is the only review command: `scripts/architecture-review.sh` 
 - Every bound project has moved to the architect seat (ADR-0034 D5); §19.12 already states the aliases as retired.
 - A sync keeps reporting a product's leftover managed copies of the two older skills as `retired`.
 - Old queue records written by the aliases (reviews, state files) stay readable by the board and health.
+- Ruling sm-20261109T212706Z-3761 (2026-11-09): this task's PR deletes the §19.12 parenthetical
+  that says the aliases are still in the code, and the second sentence of §21.7 (`ccp docs audit`
+  with no `architect` block). A plane.json `docs_audit` block is refused as an unknown key; a
+  binding's `architecture_review` block stays allowed by the schema and unread. The §31 approval
+  is the RULINGS §26.13 row (retire the aliases; code: task 0010, operator, 2026-11-06).
 
 ## Scope
 
@@ -70,6 +75,12 @@ The architect seat is the only review command: `scripts/architecture-review.sh` 
 - Not done, pending a ruling: SPEC §19.12's parenthetical ("still in the code until task 0010
   removes them") and §21.7's second sentence (`ccp docs audit` with no architect block) now
   describe removed code. The task gives no SPEC edit, so both are left for the runner or the lead.
+- 2026-11-09 (implementer, round 2): Applied ruling sm-20261109T212706Z-3761. SPEC §19.12 loses
+  its parenthetical saying the aliases are still in the code, and §21.7 keeps only its first
+  sentence. The ruling also asked for the Context bullet above, which records it. Merged
+  `origin/main` (task 0046). Two SPEC passages outside the ruling still name the removed alias:
+  `docs/spec/01-model.md`, the seat table (`ccp docs audit run`) and the config-block table (a
+  `docs_audit` block). Both are left for a ruling.
 
 ## Verification notes
 
