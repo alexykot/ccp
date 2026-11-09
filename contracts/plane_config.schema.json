@@ -135,7 +135,7 @@
     "package_docs": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Absent: package-doc rules and the docs audit are off",
+      "description": "Absent: package-doc rules are off",
       "properties": {
         "doc_name": {
           "type": "string",
@@ -244,43 +244,10 @@
         }
       }
     },
-    "docs_audit": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "every_days": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 7
-        },
-        "call_timeout_minutes": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 30
-        },
-        "shape_only_dirs": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Read for structure only; values never quoted",
-          "default": []
-        },
-        "private_dirs": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Denied to the auditor's Read tool and named in its prompt",
-          "default": []
-        }
-      },
-      "description": "Read by `ccp docs audit` while there is no architect block (§19)"
-    },
     "architect": {
       "type": "object",
       "additionalProperties": false,
-      "description": "SPEC §8.1. Absent: the architect seat is off (no exit 4 at `ccp tasks next`, no shaping check, no rule checks); project.yaml architecture_review and docs_audit are read by their aliases instead (§19). Every value is checked",
+      "description": "SPEC §8.1. Absent: the architect seat is off (no exit 4 at `ccp tasks next`, no shaping check, no rule checks). Every value is checked",
       "properties": {
         "rules_doc": {
           "type": [
@@ -492,7 +459,7 @@
             "minLength": 1
           },
           "default": [],
-          "description": "Read for structure only; values never quoted (from docs_audit)"
+          "description": "Read for structure only; values never quoted"
         },
         "private_dirs": {
           "type": "array",

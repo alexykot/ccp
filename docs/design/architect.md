@@ -5,16 +5,15 @@ left room, and walk-throughs. The SPEC states the rules; nothing here overrides 
 
 ## How it is built
 
-- **One review machine, several kinds.** `scripts/observability/architecture_review.py` defines a
-  `Kind` (state file, lock, id prefix, event type, categories, triage command). The architect pass,
-  the older architecture review and the docs audit are kinds of it, so isolation, the prompt audit,
-  report validation and triage are shared. `tests/test_docaudit.py` runs both older kinds through
-  run and triage against a stub `claude`.
+- **One review kit.** `scripts/observability/architecture_review.py` defines a `Kind` (state file,
+  lock, id prefix, event type, categories, triage command) and the lock, report and triage
+  validation, rendering and triage hand-off every kind shares. The architect (`ccp/architect.py`)
+  is its one kind.
 - **Shared helpers.** The driver reuses the headless-call helpers (lock, quota detection, Claude
   JSON parsing, binding readers) from `scripts/observability/spec_maintainer.py`. The durable `done`
   count is `load_durable_statuses` over the product's task log.
-- **The skill loads by slash command.** The reviewer prompt starts with `/architect` (formerly
-  `/architecture-review`) so Claude Code loads the skill, and tells the model to read the skill file
+- **The skill loads by slash command.** The reviewer prompt starts with `/architect` so Claude Code
+  loads the skill, and tells the model to read the skill file
   if it did not load.
 - **Uncommitted edits in the tree.** The working tree may hold another session's uncommitted edits
   (an implementer working in the main checkout); the prompt then tells the reviewer to read
@@ -22,37 +21,21 @@ left room, and walk-throughs. The SPEC states the rules; nothing here overrides 
 - **Managed copies (before the plugin).** A sync used to put a skill's managed-copy header after its
   YAML frontmatter, because Claude Code reads the frontmatter first; `--check` found the header
   anywhere near the top. The plugin now ships the skills.
-- **Stub for tests:** `DA_CLAUDE_BIN` (and `AR_CLAUDE_BIN` for the older kind) replaces `claude`.
+- **Stub for tests:** `DA_CLAUDE_BIN` replaces `claude`.
   The loop was dry-run with the stub: due → run → reported → triage → triaged → the actions; the
   failure path (no JSON gives `failed`, raw output kept) and the board rebuild with the new events.
 
-## The older review kinds
+## The retired review kinds
 
-Before the architect seat, the plane ran two separate review kinds; they remain behind the aliases
-of SPEC §19.12 and §21.7 for a product without an `architect` block.
-
-- **Architecture review.** Binding: the optional `architecture_review` block in the product's
-  `project.yaml` (in `contracts/project.schema.json`), with `architecture_review.enabled: true`
-  (`enabled: false` or no block: no scheduled reviews, `run --force` still works),
-  `every_n_tasks`, `max_days`, `call_timeout_minutes`, `max_new_tasks` and
-  `architecture_review.probes`. Driver `scripts/architecture-review.sh`
-  (`architecture-review.sh triage <review_id>` and the rest), logic in
-  `scripts/observability/architecture_review.py`. Report contract
-  `contracts/architecture_review.schema.json`. Runtime: `QUEUE_ROOT/architecture-review.json`,
-  `architecture-review.lock`, `reviews/<review_id>.json`, `.md` and `.triage.json`; prompt audits
-  under `prompts/architecture-review/`. Durable record `docs/delivery/reviews/<review_id>.md`.
-  Project hints and known-intentional oddities lived in an "Architecture review" section of the
-  product-owned `docs/delivery/LOCAL.md`; the house rules' *Known intentional* section replaced it.
-- **Docs audit.** Trigger `ccp --root <product_root> docs audit due` after the architecture review's;
-  run `claude -p "/docs-audit …"` under `docs-audit.lock`; reports
-  `QUEUE_ROOT/reviews/da-<ts>-<hex>.json`; triage `ccp docs audit triage <id>`.
-- **Skills before the plugin.** The skills shipped as templates
-  (`templates/claude-skills/architecture-review/SKILL.md`,
-  `templates/claude-skills/docs-audit/SKILL.md`, `templates/claude-skills/architect/SKILL.md`) and
-  were synced into each product as managed copies (`.claude/skills/architecture-review/SKILL.md`,
-  `.claude/skills/docs-audit/SKILL.md`, `.claude/skills/architect/SKILL.md`), with the triage
-  protocol from `templates/docs-delivery/REVIEW-TRIAGE.md`. The plugin now ships `architect` and
-  `review-triage`.
+The architecture review and the docs audit, and their aliases `scripts/architecture-review.sh` and
+`ccp docs audit`, are retired (SPEC §19.12, ADR-0034 D5). Nothing writes their records any more,
+but an older queue may still hold them, and the board and `ccp health` read it as before:
+`architecture-review.json` and `docs-audit.json` (a `running` docs-audit record still shows as a
+headless seat), `reviews/ar-*` and `reviews/da-*`, and the `architecture_review` and `docs_audit`
+event types in the ledger. A binding's `architecture_review` block in `project.yaml` is read by
+nothing; a `docs_audit` block in `plane.json` is refused as an unknown key. A sync still removes
+a product's leftover managed copies of the two older skills, and `--check` reports them as
+`retired`.
 
 ## Choices made where the rules left room
 
@@ -85,10 +68,8 @@ of SPEC §19.12 and §21.7 for a product without an `architect` block.
 - **Report and triage contracts.** A finding's category must belong to the run's lenses, and
   `rule-cost` also needs fix `decide`. The triage file gains `rule_changes` (`applied`, `rejected`
   or `needs_operator`, with a reason).
-- **Older kinds after the move.** With an `architect` block, `architecture-review.sh` and
-  `ccp docs audit` run `ccp architect <action>`; without one they run as before, using the
-  `architect` skill's lens once the two older skills are gone. Event type `architect` uses the older
-  kinds' ops.
+- **Event ops.** Event type `architect` uses the ops and payloads of the retired review kinds'
+  event types.
 - **Refactor reach.** `ccp/tasklog.py` has `scope_deps` (the transitive dependencies of the scope's
   open tasks), `refactor_reach` (the refactors outside the scope `next` may return, each with the
   scope task that needs it) and `waiting_refactors` (pending refactors the scope neither names nor

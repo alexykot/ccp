@@ -81,16 +81,6 @@ DOCS_DEFAULTS: dict[str, Any] = {"checks": []}
 DOC_RULES = {"citations": {"globs", "targets", "ignore"}, "no_ids": {"globs", "patterns"}, "history_attr": None,
              "no_overlap": None, "no_call_bullets": None}
 
-DOCS_AUDIT_DEFAULTS: dict[str, Any] = {
-    "every_days": 7,
-    "call_timeout_minutes": 30,
-    # Read for structure only; the auditor never quotes their values (the skill says so).
-    "shape_only_dirs": [],
-    # Never read at all (not added to the reviewer's reach; the skill names them too).
-    "private_dirs": [],
-}
-
-
 ARCHITECT_DEFAULTS: dict[str, Any] = {
     # The house rules (SPEC §20.1): a product path, or None for none yet.
     "rules_doc": None,
@@ -122,7 +112,7 @@ ARCHITECT_DEFAULTS: dict[str, Any] = {
     "metrics": [],
     # Globs that split a merge's files into areas for `ccp health` (§27).
     "areas": {},
-    # From the docs audit (§21.7): read for structure only / never read.
+    # Paths the architect reads for structure only (values never quoted) / never reads (§19.11).
     "shape_only_dirs": [],
     "private_dirs": [],
 }
@@ -253,7 +243,6 @@ class Config:
     project_id: str
     task_log: dict[str, Any]
     package_docs: dict[str, Any] | None
-    docs_audit: dict[str, Any]
     docs: dict[str, Any] = field(default_factory=lambda: copy.deepcopy(DOCS_DEFAULTS))
     architect: dict[str, Any] | None = None
     prompts: dict[str, Any] | None = None
@@ -807,8 +796,8 @@ def load(root: Path) -> Config:
         raise ConfigError(f"{CONFIG_REL}: `project_id` is required")
     if not PROJECT_ID_RE.match(str(raw["project_id"]).strip()):
         raise ConfigError(f"{CONFIG_REL}: project_id {raw['project_id']!r} is not lowercase letters, digits and hyphens")
-    unknown = sorted(set(raw) - {"$schema", "_note", "project_id", "task_log", "package_docs", "docs_audit",
-                                 "architect", "prompts", "reconcile", "adapter", "worktrees", "env", "merge",
+    unknown = sorted(set(raw) - {"$schema", "_note", "project_id", "task_log", "package_docs", "architect",
+                                 "prompts", "reconcile", "adapter", "worktrees", "env", "merge",
                                  "auth_check", "telemetry", "board", "suite",
                                  "adr", "verify", "review_points", "estimate", "parallel", "ids", "docs"})
     if unknown:
@@ -827,7 +816,6 @@ def load(root: Path) -> Config:
         task_log=_task_log(tl),
         package_docs=_package_docs(pkg),
         docs=_docs(raw.get("docs")),
-        docs_audit=_merge(DOCS_AUDIT_DEFAULTS, raw.get("docs_audit"), "docs_audit"),
         architect=_architect(raw.get("architect"), ids),
         ids=ids,
         adr=_adr(raw.get("adr")),

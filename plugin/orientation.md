@@ -19,7 +19,7 @@ whose lead is the design seat (plane SPEC §2).
 | Task Runner: claims tasks, launches the implementer, reviewer and verifier, merges, reconciles | A **teammate** of the lead (agent type `delivery-runner`); its workers are its own subagents |
 | Task Verifier: judges each task against its `dod_checks` | The runner's fresh subagent (agent type `delivery-verifier`), given a fixed packet |
 | Liveness, quota waits, wakes | No watchdog: the lead sees idle and failure notices; a `TeammateIdle` hook keeps the runner going |
-| Architect (SPEC §19; the architecture reviewer and docs auditor before it) | A fresh read-only `claude -p` that `ccp` makes due and `ccp tasks next` enforces; the task-log owner triages its report |
+| Architect (SPEC §19) | A fresh read-only `claude -p` that `ccp` makes due and `ccp tasks next` enforces; the task-log owner triages its report |
 
 ## Where truth lives
 

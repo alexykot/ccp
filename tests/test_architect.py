@@ -464,32 +464,6 @@ class RuleChangesAndShape(Harness):
         self.assertIn("category 'test-cost'", " ".join(res["errors"]))
 
 
-class Aliases(Harness):
-    def test_docs_audit_and_architecture_review_alias_dp_architect(self):
-        code, out, err = self.ccp("docs", "audit", "due")
-        self.assertIn("running `ccp architect due`", err)
-        self.assertIn("done_since_last", json.loads(out))
-        from ccp import architect  # noqa: F401  (scripts/observability on sys.path)
-        import architecture_review as ar
-        buf, ebuf = io.StringIO(), io.StringIO()
-        with redirect_stdout(buf), redirect_stderr(ebuf):
-            ar.main(["due"])
-        self.assertIn("running `ccp architect due`", ebuf.getvalue())
-        self.assertIn("done_since_last", json.loads(buf.getvalue()))
-
-    def test_without_the_block_the_old_commands_run_the_architect_skill(self):
-        (self.p.root / "docs/delivery/plane.json").write_text(json.dumps({"project_id": "demo", "package_docs": {}}))
-        self.p.write("app/.claude.md", "# app\n")
-        self.p.write("app/x.py", '"""x."""\n' + "x = 1\n" * 10)
-        git(self.p.root, "add", "-A")
-        git(self.p.root, "commit", "-qm", "app")
-        self.stub_report([{**FINDING, "id": "D01", "category": "doc-history", "fix": "cut"}])
-        code, res, _ = self.dpj("docs", "audit", "run")
-        self.assertEqual(res["outcome"], "reported", res)
-        argv = json.loads(Path(str(self.report) + ".argv").read_text())
-        self.assertTrue(argv[argv.index("-p") + 1].startswith("/architect mode=pass lenses=docs "))
-
-
 class NoHostingLine(Harness):
     """A binding without the old `hosting` line is a Claude team like any other."""
 

@@ -22,11 +22,10 @@ Live queue state lives **outside** product git (e.g. `$HOME/projects/.delivery-q
   questions/<task_id>/<n>.json          # implementation-class questions the Runner answers itself
   questions/sm-<UTC>-<hex>.json         # SPEC §17 spec-maintainer question (flat; raised via ../spec-maintainer-ask.sh)
   questions/sm-<UTC>-<hex>.answer.json  # spec-maintainer answer (contracts/question_answer.schema.json)
-  architecture-review.json              # §19 review state (last review, per-review status)
-  architecture-review.lock              # §19 reviewer-run lock
+  architecture-review.json, docs-audit.json  # the retired aliases' state (§19.12): older queues only, read, never written
   architect.json                        # §19 architect state (last pass, per-report status, when each trigger was first seen)
   architect.lock                        # §19 architect-run lock
-  reviews/<review_id>.json|.md|.triage.json  # §19/§21.7 report, rendering, triage (durable record is product docs/delivery/reviews/)
+  reviews/<review_id>.json|.md|.triage.json  # §19 report, rendering, triage (durable record is product docs/delivery/reviews/)
   reviews/<review_id>.log               # §19 a detached architect run's output
   health/notes.jsonl                    # §27.2 friction notes (ccp health note)
   health/metrics.jsonl                  # §27.2 numbers: suite series from ccp report, others from ccp health record
@@ -49,7 +48,6 @@ Live queue state lives **outside** product git (e.g. `$HOME/projects/.delivery-q
 | `ccp tasks claim\|phase\|wait\|resume\|release\|drop\|close` | Every task-state change (SPEC §10.5): the lease, the phase, waits, and the ledger events |
 | `../formal-submit.template.sh` | Unit/lint + PR + review artifact; no spec judgement |
 | `../spec-maintainer-ask.sh` | SPEC §17 spec question: `raise`, `<qid>` (apply the lead's answer), `blocked` |
-| `../architecture-review.sh` | SPEC §19 structural review: `due`, `run`, `triage`, `status` (an alias of `ccp architect` for a product with an `architect` block) |
 
 Contracts: `../../contracts/*.schema.json`.
 

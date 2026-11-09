@@ -31,8 +31,8 @@ Non-normative notes behind SPEC §10. The rules are in `docs/spec/04-observabili
   each in `ccp board status`, for every live seat: its team, the seat, status and since, the model
   and effort §2 pins, the model and effort observed, a check, and the last activity.
   - **Seats.** The design seat; the runner (the binding's `runner` block); each
-    open worker run (pending, running or stopped) with its phase; each architect pass or docs audit
-    recorded as `running` (read only: the board never reaps one); and any other telemetry seat with
+    open worker run (pending, running or stopped) with its phase; each architect pass recorded as
+    `running`, and an older queue's docs-audit record likewise (read only: the board never reaps one); and any other telemetry seat with
     requests in the last 30 minutes, shown as not pinned.
   - **Pinned.** A run's record (what `ccp prompt` read from its definition), else the definition in
     effect (`runs.definition`: the product's `.claude/agents` copy while it has one, else the
@@ -42,7 +42,7 @@ Non-normative notes behind SPEC §10. The rules are in `docs/spec/04-observabili
     seat's requests in the 30 minutes up to its latest, the model with the most tokens (so a helper
     call on a small model does not hide the main loop), with the effort of its latest request on
     that model. `ccp usage --json` leaves `recent` out. A headless pass reads the seat its
-    `ccp.seat` tag names (`architect-<mode>`, `docs-audit`, §24). Without a request the row says "no telemetry yet". A worker's model must equal its pin; the design seat's is compared with any
+    `ccp.seat` tag names (`architect-<mode>`, or `docs-audit` for an older queue's record; §24). Without a request the row says "no telemetry yet". A worker's model must equal its pin; the design seat's is compared with any
     `[...]` suffix (`[1m]`) stripped on both sides.
   - **Headless sessions are not the lead's.** A session the plane launched (its rows tagged with a
     seat, or its id in `headless-usage.jsonl`) is set aside on the design-seat and runner rows,
@@ -72,7 +72,7 @@ Non-normative notes behind SPEC §10. The rules are in `docs/spec/04-observabili
   - prompt, report, and verify record;
   - plane propose and triage;
   - allowance continue, and allowance status with `--sample`;
-  - architect run and triage, and docs audit run and triage;
+  - architect run and triage;
   - agent start and stop (the subagent hooks, so the board's open runs keep up);
   - health note and record;
   - tasks next when `--allow-overdue` records its friction note.

@@ -3,7 +3,7 @@ name: review-triage
 description: The control plane's review triage protocol (SPEC §19, §19.8): how the task-log owner triages an architect or review report into tasks, house-rule changes, waivers and questions for the operator. Use it when asked to triage an architect report or a review in a control-plane project.
 ---
 <!--
-  Control-plane review triage protocol (SPEC §19; docs audit §21.7; architect §19.8). Installed in every product repo
+  Control-plane review triage protocol (SPEC §19; architect §19.8). Installed in every product repo
   at docs/delivery/REVIEW-TRIAGE.md by scripts/sync-product-docs.sh (SPEC §9.5). Read by the
   owner of the task log, the team lead (the spec maintainer). Sync drops this comment.
   Source: control-plane plugin/skills/review-triage/SKILL.md.
@@ -16,11 +16,9 @@ its kind:
 
 - an **architect pass** (`ar-…`, SPEC §19, `ccp architect`): the project's structural health
   through four lenses (structure, docs, tests, process), with proposed changes to the house rules
-  (`rule_changes`). Products with an `architect` block get only this kind;
+  (`rule_changes`);
 - an **architect shape** (`sh-…`, SPEC §19.5): advice on an accepted ADR before it is tasked
-  (see *After a shape*, below);
-- an **architecture review** (`ar-…`, SPEC §19) or a **docs audit** (`da-…`, SPEC §21.7), in a
-  product that has not moved to the architect.
+  (see *After a shape*, below).
 
 Doc findings are doc edits: group them into one or two doc-fix tasks rather than one task per
 finding. Re-read this file every time you triage; it is the whole of your standing instructions

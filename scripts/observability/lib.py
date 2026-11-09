@@ -31,7 +31,8 @@ ACTORS = SEAT_IDS + ("adapter", "operator", "system", "plane-session")  # plane-
 # §17.8 adds question + spec_maintainer types and their ops; §19.10 adds architecture_review;
 # §21 adds docs_audit (same ops and payloads: both are §19 review kinds); §23.7 adds gate + runner
 # (gate opened/decided, runner spawn/scope/rotate/stop) and the design-seat actor;
-# §19 adds architect (a third review kind: passes and shapes).
+# §19 adds architect (a third review kind: passes and shapes). The first two are retired (§19.12):
+# their types stay so an older ledger still reads; nothing writes them any more.
 # §23.2 adds the toolkit's ledger: run (a worker launch: opened, bound, stopped, reported, abandoned),
 # review and verify (recorded verdicts), allowance (samples) and plane (ccp proposals). None of them
 # moves a task phase or a timer: the `phase` events ccp writes beside them do that. §14.1 adds suite
@@ -183,7 +184,8 @@ REQUIRED_PAYLOAD = {
     ("suite", "recorded"): ("suite_id", "exit_code", "seconds"),
     ("prefer", "set"): ("by", "reason"),
     ("prefer", "clear"): ("was", "reason"),
-    # §19.10 architecture review (project-level: task_id is empty; never touches task timers)
+    # The retired architecture review and docs audit (§19.12): readers of old records only.
+    # Review events are project-level: task_id is empty; they never touch task timers.
     ("architecture_review", "launch"): ("review_id", "phase", "prompt_ref"),
     ("architecture_review", "exit"): ("review_id", "phase", "exit_code"),
     ("architecture_review", "transition"): ("review_id", "from", "to"),
