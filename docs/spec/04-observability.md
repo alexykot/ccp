@@ -117,7 +117,7 @@ its task file is resolved, never a blocker; the board lists it as queue-against-
 | `progress/<id>/<phase>-report.md` (`progress/<task_id>/<phase>-report.md`) | each worker submits its full report with `ccp report <run_id> FILE`, then tells the runner by `SendMessage` |
 | `verification/<id>.json` | the verifier subagent, through `ccp verify record` |
 | `review/` | the reviewer subagent |
-| `prompts/<task_id>/<UTC>_<phase>.json` | the runner, before each worker launch (the full prompt it passes, `session_id` replaced by the worker's name); the lead, before each runner spawn (`phase: runner-spawn`) |
+| `prompts/<task_id>/<UTC>_<phase>.json` | the runner, before each worker launch (the audit of the prompt it passes, `session_id` replaced by the worker's name; §23.8); the lead, before each runner spawn (`phase: runner-spawn`) |
 | `questions/sm-*.json` | the runner |
 | `questions/*.answer.json` | the lead |
 | `escalations/**` | the runner opens; the lead closes |
@@ -129,25 +129,28 @@ removed; nothing writes or reads it.
 
 ### 23.8 The prompt audit
 
-- Before every worker launch the plane owns, the full prompt is written to
+- Before every worker launch the plane owns, an audit of the prompt is written to
   `QUEUE_ROOT/prompts/<task_id>/<UTC-timestamp>_<phase>.json` (`contracts/prompt_audit.schema.json`,
   `scripts/observability/write-prompt-audit.sh`), and its path is the launch event's `prompt_ref`.
 - The file holds the argv, the stripped environment keys, the wallet, the git head, the worktree, the
-  task's path and spec refs and the prompt's sha256. The full prompt text (`prompt_body`) is kept only
-  when the product opts in; it is off by default, in line with records that carry ids and counts,
-  not content (code: task 0013).
+  task's path and spec refs, and the prompt's sha256 and length (`prompt_chars`). The full prompt text
+  (`prompt_body`) is kept only when the product opts in with plane.json `prompts.keep_body`; it is off
+  by default, in line with records that carry ids and counts, not content.
 - No API key, token or `.env` content goes in it. It lives in the runtime queue only, never in a
   product's git or the plane's.
-- Prompt audits are pruned by age (code: task 0013; until then
-  `scripts/observability/prune-prompts.sh` prunes by age or count on demand).
+- Prompt audits are pruned by age when plane.json `prompts.audit_keep_days` is set: each time
+  `ccp prompt` writes an audit, it removes the audits under `QUEUE_ROOT/prompts/` whose name stamps
+  are older than that many days. Unset (`null`, the default), every audit is kept. Only audit files
+  are pruned: the rendered prompt the runner reads (`prompts/<task_id>/<phase>[-n]-prompt.md`) and
+  other files stay. `scripts/observability/prune-prompts.sh` prunes by age or count on demand.
 - Out of scope: full tool-call transcripts, and browser traces (the verifier's evidence holds those).
 
 ### 23.9 Knobs
 
 | Knob | Default |
 | --- | --- |
-| Full prompt bodies in the audit | off (opt-in; task 0013) |
-| Prompt audit retention | by age (task 0013) |
+| Full prompt bodies in the audit (`prompts.keep_body`) | `false` (opt-in) |
+| Prompt audit retention in days (`prompts.audit_keep_days`) | `null`: every audit is kept |
 
 ## 24. Usage and telemetry
 

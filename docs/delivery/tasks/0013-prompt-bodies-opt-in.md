@@ -22,6 +22,14 @@ A prompt audit records ids, refs and the prompt's hash; the full prompt text is 
 
 - §23.8 states the target rule; ADR-0034 D8 records it, amending ADR-0019.
 - The run binding and reports must not depend on `prompt_body` being present.
+- Ruling sm-20261109T230726Z-b5b5 (spec maintainer, 2026-11-09): this task also updates §23.8, the
+  §23.9 knobs table and the §8.1 `prompts` row to name `prompts.keep_body` (default false) and
+  `prompts.audit_keep_days` (default null: keep every audit, so an upgrade prunes nothing), and
+  removes the "task 0013" markers. The rendered prompt the runner reads
+  (`prompts/<task>/<phase>[-n]-prompt.md`) stays outside pruning. The §31 approval is the
+  `docs/spec/RULINGS.md` row for this task (§20.2, the prompt audit). Standing ruling for R1: a task
+  that carries out a RULINGS row naming it also rewords, in the same PR, every SPEC or docs passage
+  the change makes false, listing each edit with its old text in the PR body; history records stay.
 
 ## Scope
 
@@ -70,6 +78,12 @@ A prompt audit records ids, refs and the prompt's hash; the full prompt text is 
   - ADR-0034 D8 is recorded as built.
   - Open: the SPEC passages still say "code: task 0013" (§23.8, §23.9), and §8.1's `prompts` row does
     not name the knobs. The default retention age is also open. All are in the run report.
+- 2026-11-09 (implementer, round 2): applied ruling sm-20261109T230726Z-b5b5. §23.7's prompts row,
+  §23.8, the §23.9 knobs table, and §8.1's `prompts` row and example now name `prompts.keep_body`
+  (false) and `prompts.audit_keep_days` (null); the "task 0013" markers are gone. §23.8 states the
+  retention rule as built, including that the rendered prompt files stay. `docs/design/architect.md`
+  says the friction notes reach the next architect prompt, not its audit (the audit no longer holds
+  the text by default). Merged `origin/main` (tasks 0010 to 0012) with no conflicts.
 
 ## Verification notes
 
