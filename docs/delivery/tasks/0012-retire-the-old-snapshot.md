@@ -71,6 +71,14 @@ The board is the status: nothing writes or reads `observability/now.json` or `ST
   the board and `ccp board status` instead of the snapshot; `tests/test_snapshot_retired.py` is new.
   SPEC §17.8 (`docs/spec/02-delivery.md`) still describes `now.json`'s `questions` array: left for a
   SPEC edit.
+- 2026-11-09 (implementer, round 2): `origin/main` (tasks 0010 and 0011) merged in; the
+  `scripts/CLAUDE.md` and `scripts/observability/CLAUDE.md` conflicts keep both tasks' changes, and
+  `lib.py` keeps task 0010's retirement comments. Ruling `sm-20261109T225130Z-6af9` applied: §17.8
+  loses the `now.json` sentence, §11.2 loses the docs-audit lock, and the §20.1.3 map row's last cell
+  says the snapshot is retired. The observability README describes the fold's wait-by-reason split
+  instead of the snapshot's `wait_hours_by_reason`. Left for a ruling: §23.3 still names
+  `wait_hours_by_reason`, and nothing now outputs the §23.3 timers; §18.3 says old snapshots holding
+  `stale_seat` or `verify_stale` "stay readable", though nothing reads a snapshot any more.
 
 ## Verification notes
 
