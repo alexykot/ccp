@@ -53,7 +53,7 @@ tasks:
     depends_on: [0008-spec-switch-to-parts]
     path: tasks/0010-retire-the-older-review-aliases.md
   - id: 0011-retire-stale-seat-and-verify-stale
-    status: pending
+    status: done
     title: Retire the seat stale rule, stale_seat and verify_stale
     depends_on: [0008-spec-switch-to-parts]
     path: tasks/0011-retire-stale-seat-and-verify-stale.md

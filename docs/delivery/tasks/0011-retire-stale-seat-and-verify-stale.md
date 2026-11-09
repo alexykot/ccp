@@ -1,7 +1,7 @@
 ---
 task_id: 0011-retire-stale-seat-and-verify-stale
 title: Retire the seat stale rule, stale_seat and verify_stale
-status: pending
+status: done
 kind: feature
 depends_on: ["0008-spec-switch-to-parts"]
 spec_refs: ["S18", "S23"]
@@ -9,7 +9,7 @@ adr_refs: ["0034 D6"]
 review_point: R1
 paths: ["scripts/observability/lib.py", "scripts/observability/heartbeat.sh", "scripts/observability/README.md", "contracts/observability_now.schema.json", "contracts/project.schema.json", "ccp/config.py", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-09
 ---
 
 # Task: 0011-retire-stale-seat-and-verify-stale
@@ -87,4 +87,4 @@ The snapshot raises no `stale_seat` and no `verify_stale` blocker, and the bindi
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-09 — verifier, PR #5 head `635a8c8` (squash `b139ca7`): APPROVE. Passed: code-01, compat-01. Gate: `env -u QUEUE_ROOT scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0011-retire-stale-seat-and-verify-stale.json.
