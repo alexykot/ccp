@@ -147,3 +147,28 @@ tasks:
     title: The CLI is renamed from cpl to ccp, with a temporary cpl shim
     depends_on: []
     path: tasks/0029-rename-the-cli-to-ccp.md
+  - id: 0030-gate-stages-in-plane-json
+    status: pending
+    title: Gate stages are declared in plane.json and run by ccp
+    depends_on: []
+    path: tasks/0030-gate-stages-in-plane-json.md
+  - id: 0031-gate-fits-the-agent-shell-limit
+    status: pending
+    title: The gate's run fits the agent's foreground shell limit
+    depends_on: [0030-gate-stages-in-plane-json]
+    path: tasks/0031-gate-fits-the-agent-shell-limit.md
+  - id: 0032-architect-checks-overlap-lint
+    status: pending
+    title: ccp refuses architect checks that cover the same test twice
+    depends_on: []
+    path: tasks/0032-architect-checks-overlap-lint.md
+  - id: 0033-package-doc-convention-owned-by-the-plane
+    status: pending
+    title: The plane owns the package-doc convention
+    depends_on: []
+    path: tasks/0033-package-doc-convention-owned-by-the-plane.md
+  - id: 0034-starter-house-rules
+    status: pending
+    title: The plane ships an optional starter set of house rules
+    depends_on: [0033-package-doc-convention-owned-by-the-plane]
+    path: tasks/0034-starter-house-rules.md
