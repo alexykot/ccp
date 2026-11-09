@@ -5,3 +5,6 @@ build/
 # Local configuration: never versioned (the run checkout keeps it until the backend holds it)
 projects/
 CLAUDE.local.md
+
+# Runner and task worktrees (plane.json worktrees.dir)
+.plane-runtime/

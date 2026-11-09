@@ -3,6 +3,9 @@
   "task_log": {
     "dir": "docs/delivery"
   },
+  "worktrees": {
+    "dir": ".plane-runtime"
+  },
   "package_docs": {
     "language": "python",
     "doc_name": "CLAUDE.md",
