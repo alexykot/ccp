@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# status.sh — human ops-board summary. Exit non-zero if open blockers or stale seats.
+# status.sh — human ops-board summary. Exit non-zero if open blockers.
 
 set -euo pipefail
 echo "note: superseded by \`ccp board status|build\` (SPEC §28.3); this still prints the §23 snapshot" >&2
@@ -14,12 +14,9 @@ Usage:
 Print a one-screen digest of $QUEUE_ROOT/observability/now.json
 (tasks, blockers, work/wait hours, seats, auth).
 
-Exit 0 if no open blockers and no stale seats.
-Exit 1 if any open blocker (incl. verify_stale) or stale seat (cron wrappers).
+Exit 0 if no open blockers.
+Exit 1 if any open blocker (cron wrappers). Seats are never stale (SPEC §18.3).
 
-verify_stale = task submitted/verifying with no verdict and no verifier
-progress for >= VERIFY_STALE_MINUTES (default 30; project.yaml
-cadence.verify_stale_minutes). Watchdog wakes the Verifier seat on it.
 Spec maintainer (SPEC §17): also lists spec-maintainer questions (status,
 verdict, dispatch, blocked tasks), the lock holder, and wait timers split
 into spec_maintainer vs operator_decision (per question and per task wait_hours_by_reason).
@@ -38,7 +35,6 @@ Env:
   DURABLE_DOCS  optional
   OBS_NOW       optional RFC3339 pin
   OBS_SKIP_PS=1 skip pid probe
-  VERIFY_STALE_MINUTES optional (default 30)
   PROJECT_YAML  optional project.yaml (else $QUEUE_ROOT/project.yaml) — spec_maintainer block
 
   -h, --help

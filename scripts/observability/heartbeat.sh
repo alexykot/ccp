@@ -12,8 +12,8 @@ Usage:
 
 Seat ids: task-runner | task-verifier | delivery-watchdog
 
-task-verifier is event-only: woken by Task Runner (formal-submit) or by the
-Watchdog (verify_stale). Heartbeat with --wake-kind priority --task-id <id>.
+Every seat is event-only and never time-stale (SPEC §18.3): a heartbeat records
+the last wake, it raises no blocker. task-verifier: --wake-kind priority --task-id <id>.
 
 On every wake (cron, priority, or manual):
   1. Write $QUEUE_ROOT/observability/seats/<seat_id>.json

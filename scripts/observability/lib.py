@@ -78,11 +78,14 @@ EVENT_OPS = (
 )
 WAIT_REASONS = ("quota", "reauth", "operator_decision", "runner", "steerer", "spec_maintainer", "design_seat", "null-class",
                 "operator_step")
-BLOCKER_KINDS = ("quota", "reauth", "operator_decision", "spec_maintainer", "design_seat", "operator_step", "stale_seat",
-                 "verify_stale", "ambient_key", "other",
+BLOCKER_KINDS = ("quota", "reauth", "operator_decision", "spec_maintainer", "design_seat", "operator_step",
+                 "ambient_key", "other",
                  # read-only: a snapshot written before 2026-11-05 may carry the retired twelve-hour
                  # backstop blocker (ADR-0032 D2); nothing emits it any more.
-                 "backstop")
+                 "backstop",
+                 # read-only: an older snapshot may carry the retired seat-stale and verify-stale
+                 # blockers (§18.3, ADR-0034 D6); nothing emits them any more.
+                 "stale_seat", "verify_stale")
 # Waits that surface as their own blocker kind (a question-driven operator_decision wait keeps that kind,
 # detail=question_id).
 WAIT_BLOCKER_KINDS = ("quota", "reauth", "operator_decision", "spec_maintainer", "design_seat", "operator_step")
@@ -202,9 +205,10 @@ REQUIRED_PAYLOAD = {
 DEFAULT_CRON = "*/10 * * * *"
 # Seat cadence (operator, 2026-09-24, token-burn reduction):
 #   delivery-watchdog  */30 24/7 (was */10)
-#   task-verifier      event-only — NO routine; woken by Runner on formal-submit
-#                      or by Watchdog on verify_stale. Never time-stale.
+#   task-verifier      event-only — NO routine; the runner's subagent
 #   task-runner        unchanged default (*/10) unless its heartbeat says otherwise
+# These are only the heartbeat's recorded `cron_expected` defaults: the snapshot reads every
+# seat as event-only.
 EVENT_ONLY = "event"
 EVENT_ONLY_VALUES = {"event", "event-only", "none", "null", ""}
 EVENT_ONLY_SEATS = {"task-verifier", "design-seat"}
@@ -215,17 +219,7 @@ SEAT_DEFAULT_CRON = {
     "design-seat": EVENT_ONLY,
 }
 # §18.3: no seat runs on a routine (the team lead sees idle and failure notices directly), so
-# every seat is event-only and never time-stale on the board.
-# Stale floor; per-seat threshold = max(floor, 2.5 × cron interval):
-#   */10 → 25m (unchanged), */30 → 75m.
-STALE_AFTER_SECONDS = 25 * 60
-STALE_INTERVAL_MULTIPLIER = 2.5
-# verify_stale: task submitted/verifying with no verdict and no verifier progress
-# (verifier event or task-scoped heartbeat) for >= this many minutes. Aligned with
-# the 30m Watchdog tick → worst-case detection ~60m after submit.
-# Override: env VERIFY_STALE_MINUTES or project.yaml cadence.verify_stale_minutes.
-VERIFY_STALE_MINUTES_DEFAULT = 30
-VERIFY_PHASES = {"submitted", "verifying", "verify"}
+# every seat is event-only: there is no stale rule for seats and no verifier-progress timer.
 SECRET_VALUE_RE = re.compile(
     r"(sk-ant-[A-Za-z0-9_-]{8,}"
     r"|-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----"
@@ -440,8 +434,6 @@ def new_task_state(task_id: str) -> dict[str, Any]:
         "lease_expires_at": None,
         "prompt_last_ref": None,
         "wait_detail": None,
-        "verify_since": None,
-        "verifier_last_at": None,
         "wait_by_reason": {},
         "wait_by_qid": {},
     }
@@ -534,8 +526,6 @@ def apply_event(
             seats[sid]["last_action"] = payload.get("action_summary") or ""
             if payload.get("cron_expected"):
                 seats[sid]["cron_expected"] = payload["cron_expected"]
-        if sid == "task-verifier" and task_id:
-            tasks.setdefault(task_id, new_task_state(task_id))["verifier_last_at"] = ev["at"]
         return
 
     if typ == "auth" and op == "transition":
@@ -553,16 +543,9 @@ def apply_event(
 
     st = tasks.setdefault(task_id, new_task_state(task_id))
     accrue(st, at)
-    if ev.get("actor") == "task-verifier":
-        st["verifier_last_at"] = ev["at"]
 
     if typ == "phase" and op == "transition":
         dest = payload.get("to")
-        if dest in VERIFY_PHASES:
-            if dest == "submitted" or not st.get("verify_since"):
-                st["verify_since"] = ev["at"]
-        else:
-            st["verify_since"] = None
         st["phase"] = dest
         if dest in STATUS_ENUM:
             st["runtime_status"] = dest
@@ -817,34 +800,12 @@ def is_event_only(sid: str | None, cron: str | None) -> bool:
     return str(cron or "").strip().lower() in EVENT_ONLY_VALUES
 
 
-def cron_interval_seconds(cron: str | None) -> int | None:
-    """Minute-field interval for simple specs (`*/N …` → N min; `M * * * *` → 60 min)."""
-    fields = str(cron or "").split()
-    if not fields:
-        return None
-    minute = fields[0]
-    m = re.fullmatch(r"\*/(\d+)", minute)
-    if m and int(m.group(1)) > 0:
-        return int(m.group(1)) * 60
-    if re.fullmatch(r"\d+", minute) and len(fields) > 1 and fields[1] == "*":
-        return 60 * 60
-    return None
-
-
-def stale_after_seconds(cron: str | None) -> int:
-    interval = cron_interval_seconds(cron)
-    if not interval:
-        return STALE_AFTER_SECONDS
-    return max(STALE_AFTER_SECONDS, int(interval * STALE_INTERVAL_MULTIPLIER))
-
-
 def empty_seat(sid: str | None = None) -> dict[str, Any]:
     return {
         "last_wake_at": None,
         "wake_kind": None,
         "last_action": "",
         "cron_expected": default_cron(sid),
-        "stale": False,
     }
 
 
@@ -1130,53 +1091,6 @@ def project_seat_agent(root: Path, role: str) -> str | None:
     return _yaml_block_scalars(project_yaml_text(root), "seats").get(role)
 
 
-def verify_stale_minutes(root: Path) -> int:
-    raw = os.environ.get("VERIFY_STALE_MINUTES") or _yaml_block_scalars(
-        project_yaml_text(root), "cadence"
-    ).get("verify_stale_minutes")
-    try:
-        val = int(str(raw).strip()) if raw else VERIFY_STALE_MINUTES_DEFAULT
-    except ValueError:
-        val = VERIFY_STALE_MINUTES_DEFAULT
-    return val if val > 0 else VERIFY_STALE_MINUTES_DEFAULT
-
-
-def task_file_updated_at(root: Path, task_id: str) -> str | None:
-    path = root / "tasks" / f"{task_id}.json"
-    if not path.is_file():
-        return None
-    try:
-        data = read_json(path)
-        if isinstance(data, dict) and data.get("updated_at"):
-            return str(data["updated_at"])
-    except (OSError, json.JSONDecodeError):
-        pass
-    try:
-        return fmt_dt(datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc))
-    except OSError:
-        return None
-
-
-def verdict_written_since(root: Path, task_id: str, since: datetime) -> bool:
-    path = root / "verification" / f"{task_id}.json"
-    if not path.is_file():
-        return False
-    try:
-        return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc) >= since
-    except OSError:
-        return False
-
-
-def future_resume(st: dict[str, Any], now: datetime) -> bool:
-    raw = st.get("planned_resume_at")
-    if not raw or not st.get("waiting_on"):
-        return False
-    try:
-        return parse_dt(raw) > now
-    except Exception:
-        return False
-
-
 def build_now(root: Path) -> dict[str, Any]:
     now = utcnow()
     now_s = fmt_dt(now)
@@ -1255,55 +1169,9 @@ def build_now(root: Path) -> dict[str, Any]:
             st["claude_pid"] = running_pid
             st["claude_open"] = True
 
-    mid_unparked = []
-    for st in tasks.values():
-        status = st.get("runtime_status")
-        if status in MID_FLIGHT and not future_resume(st, now):
-            mid_unparked.append(st["task_id"])
-
     for seat in seats.values():
-        # §18.3: every seat is event-only, never time-stale; see verify_stale below.
+        # §18.3: every seat is event-only; there is no stale rule for seats.
         seat["cron_expected"] = EVENT_ONLY
-        seat["stale_after_seconds"] = None
-        seat["stale"] = False
-
-    verify_stale_min = verify_stale_minutes(root)
-    verifier_agent = project_seat_agent(root, "verifier") or "task-verifier"
-    verify_stale: list[dict[str, Any]] = []
-    for tid, st in tasks.items():
-        if st.get("runtime_status") not in ("submitted", "verifying"):
-            continue
-        if st.get("waiting_on"):
-            continue  # parked (e.g. waiting_on=runner for a localhost-only packet) — other blockers cover it
-        since_raw = st.get("verify_since") or task_file_updated_at(root, tid)
-        if not since_raw:
-            continue
-        try:
-            since = parse_dt(since_raw)
-        except Exception:
-            continue
-        if verdict_written_since(root, tid, since):
-            continue  # verdict exists; Runner owns next step (Wake B)
-        last = since
-        if st.get("verifier_last_at"):
-            try:
-                last = max(last, parse_dt(st["verifier_last_at"]))
-            except Exception:
-                pass
-        age_min = (now - last).total_seconds() / 60.0
-        if age_min >= verify_stale_min:
-            verify_stale.append(
-                {
-                    "task_id": tid,
-                    "kind": "verify_stale",
-                    "since": fmt_dt(last),
-                    "detail": (
-                        f"runtime_status={st.get('runtime_status')} no verdict and no verifier progress for "
-                        f"{int(age_min)}m (threshold {verify_stale_min}m) — Watchdog: wake verifier seat "
-                        f"{verifier_agent} with task_id={tid}"
-                    ),
-                }
-            )
 
     project_id = os.environ.get("PROJECT_ID") or work.get("project_id")
     if not project_id:
@@ -1382,24 +1250,6 @@ def build_now(root: Path) -> dict[str, Any]:
                 }
             )
 
-    for sid, seat in seats.items():
-        if seat.get("stale"):
-            target = mid_unparked[0] if mid_unparked else ""
-            blockers.append(
-                {
-                    "task_id": target or sid,
-                    "kind": "stale_seat",
-                    "since": seat.get("last_wake_at") or now_s,
-                    "detail": (
-                        f"{sid} last_wake_at={seat.get('last_wake_at')} (stale after "
-                        f"{int((seat.get('stale_after_seconds') or STALE_AFTER_SECONDS) / 60)}m with mid-flight work; "
-                        f"cron_expected={seat.get('cron_expected')})"
-                    ),
-                }
-            )
-
-    blockers.extend(verify_stale)
-
     if auth.get("ambient_api_key"):
         tid = next((t["task_id"] for t in board_tasks if t.get("runtime_status") in MID_FLIGHT), "")
         blockers.append(
@@ -1432,7 +1282,6 @@ def build_now(root: Path) -> dict[str, Any]:
                 "wake_kind": seats[sid].get("wake_kind"),
                 "last_action": seats[sid].get("last_action") or "",
                 "cron_expected": seats[sid].get("cron_expected") or default_cron(sid),
-                "stale": bool(seats[sid].get("stale")),
             }
             for sid in sorted(seats)
         },
@@ -1460,13 +1309,13 @@ def render_status_md(now: dict[str, Any]) -> str:
         "",
         "## Seats",
         "",
-        "| Seat | Last wake | Kind | Stale | Last action |",
-        "| --- | --- | --- | --- | --- |",
+        "| Seat | Last wake | Kind | Last action |",
+        "| --- | --- | --- | --- |",
     ]
     for sid, seat in (now.get("seats") or {}).items():
         lines.append(
             f"| `{sid}` | {seat.get('last_wake_at') or '—'} | {seat.get('wake_kind') or '—'} | "
-            f"{'YES' if seat.get('stale') else 'no'} | {seat.get('last_action') or ''} |"
+            f"{seat.get('last_action') or ''} |"
         )
     lines += ["", "## Tasks", ""]
     if not now.get("tasks"):
@@ -1538,10 +1387,9 @@ def print_human(now: dict[str, Any]) -> None:
     print("")
     print("SEATS")
     for sid, seat in (now.get("seats") or {}).items():
-        flag = "STALE" if seat.get("stale") else "ok"
         print(
             f"  {sid:22} wake={seat.get('last_wake_at') or '—':22} "
-            f"kind={seat.get('wake_kind') or '—':8} {flag}  {seat.get('last_action') or ''}"
+            f"kind={seat.get('wake_kind') or '—':8} {seat.get('last_action') or ''}"
         )
     print("")
     print("TASKS")
@@ -1607,10 +1455,9 @@ def cmd_rebuild(root: Path) -> dict[str, Any]:
     return now
 
 
-def has_stale_or_blockers(now: dict[str, Any]) -> bool:
-    if now.get("blockers"):
-        return True
-    return any(s.get("stale") for s in (now.get("seats") or {}).values())
+def has_blockers(now: dict[str, Any]) -> bool:
+    # An older snapshot's seat `stale` flag is ignored: there is no stale rule for seats (§18.3).
+    return bool(now.get("blockers"))
 
 
 def cmd_status(root: Path, rebuild: bool) -> int:
@@ -1622,7 +1469,7 @@ def cmd_status(root: Path, rebuild: bool) -> int:
         else:
             now = read_json(path)
     print_human(now)
-    return 1 if has_stale_or_blockers(now) else 0
+    return 1 if has_blockers(now) else 0
 
 
 def main(argv: list[str] | None = None) -> int:
