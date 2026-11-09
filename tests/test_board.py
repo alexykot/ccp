@@ -146,10 +146,7 @@ class Refresh(ToolkitFixture, unittest.TestCase):
                 n = r.call_count
                 cli.refresh_board(cfg, argparse.Namespace(group=group, action=sub), 0)
                 self.assertEqual(r.call_count - n, int(fires), (group, sub))
-            for ns, fires in ((dict(group="docs", cmd="audit", action="run"), True),
-                              (dict(group="docs", cmd="audit", action="triage"), True),
-                              (dict(group="docs", cmd="audit", action="due"), False),
-                              (dict(group="docs", cmd="check"), False),
+            for ns, fires in ((dict(group="docs", cmd="check"), False),
                               (dict(group="tasks", cmd="next"), False),
                               (dict(group="tasks", cmd="next", board_dirty=True), True),
                               (dict(group="allowance", action="status", board_dirty=True), True)):

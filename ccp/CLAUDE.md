@@ -13,7 +13,7 @@ normative, and a module that disagrees with it is the bug.
 - **The runtime queue:** `queue.py` (QUEUE_ROOT, the ledger, the runner's work.json), `lifecycle.py` (claim,
   phase, wait, release, close), `selection.py` and `parallel.py` (what the runner may take),
   `runs.py`, `report.py`, `verify.py`, `suite.py`, `wt.py`, `prompt.py`, `plane.py`.
-- **Seats that run headless:** `architect.py`, `docaudit.py`, `estimator.py`.
+- **Seats that run headless:** `architect.py`, `estimator.py`.
 - **Measurement and the board:** `health.py`, `estimate.py`, `calibrate.py`, `forecast.py`,
   `usage.py`, `otel.py`, `seats.py`, `board.py`, `drill.py`, `plan.py`, `quality.py`, `backfill.py`.
 

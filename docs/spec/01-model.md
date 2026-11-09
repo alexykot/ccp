@@ -53,7 +53,7 @@ Non-goals, for now:
 | **Implementer** | the runner's **subagent**, agent type `ccp:delivery-implementer`, in the task's worktree (§12) | edit the worktree; make safe fixes; open the pull request from the session that built the change | merge; set a task done; promote to production; invent intent |
 | **Reviewer** | the runner's fresh subagent, agent type `ccp:delivery-reviewer`, with no implementer context | review the change and write its report | share the implementer's context |
 | **Verifier** | the runner's fresh subagent, agent type `ccp:delivery-verifier`, with a fixed packet (§4.1) and no implementer context | run the formal gate itself at the PR head and prove each `dod_check`; approve or reject through `ccp verify record` (§15); raise spec questions and hold approval until answered | merge; edit source; rewrite SPEC or PROJECT |
-| **Architect, docs auditor** | a fresh headless read-only Claude session that `ccp architect` or `ccp docs audit run` launches (§19, §21); its runs are recorded with `modelUsage` | read the product; run read-only commands and the binding's probes; return one report | edit, commit, write, spend, send, triage or create tasks |
+| **Architect** | a fresh headless read-only Claude session that `ccp architect` launches (§19, §21); its runs are recorded with `modelUsage` | read the product; run read-only commands and the binding's probes; return one report | edit, commit, write, spend, send, triage or create tasks |
 
 Each of the runner's steps is a `ccp` command (§10): no hand-written queue state, prompts or
 reconcile edits. The lead reads the board (§28) rather than asking the runner, and is told the plane's triage
@@ -94,7 +94,7 @@ the lead session's settings:
 | Implementer | `claude-opus-5-5` | `high` |
 | Reviewer | `claude-sonnet-5-5` | `high` |
 | Verifier | `claude-sonnet-5-5` | `high` |
-| Architect, docs auditor | `claude-opus-5-5` | `high` (`--model`, `--effort`) |
+| Architect | `claude-opus-5-5` | `high` (`--model`, `--effort`) |
 
 - Models are **full ids**, never aliases: with an alias (`opus`, `sonnet`) or `inherit`, a subagent
   of the lead's model family runs on the lead's exact model, including its `[1m]` suffix. Moving to
@@ -528,7 +528,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `ids` | id and reference patterns | §7 |
 | `task_log` | task directory, required keys and sections, `refs_any`, `kinds`, `max_checks`, soft words, `dry_run`, `reviews_dir`, `index`; the statuses are fixed | §5, §10 |
 | `adr` | `dir`, `index` (or `null`), `statuses`, `transitions`, `strict`, `template` (or `null` for the plane's) | §6 |
-| `package_docs`, `docs`, `docs_audit` | doc checks (`claude_md_dirs`, `language`, `path_ref_suffixes`, `docstring_globs`, `rules`), product check commands, the docs audit (`every_days`, `shape_only_dirs`, `private_dirs`) | §21 |
+| `package_docs`, `docs` | doc checks (`claude_md_dirs`, `language`, `path_ref_suffixes`, `docstring_globs`, `rules`), product check commands | §21 |
 | `architect` | the architect seat, house rules, budgets, refactors | §19, §20 |
 | `review_points` | the review-point register | §22 |
 | `worktrees`, `env`, `merge`, `auth_check` | worktrees and environment hooks (`ccp wt`), the merge step (`merge.command`), credential probes (`auth_check.probes`) | §12, §15, §30 |

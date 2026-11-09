@@ -205,9 +205,8 @@ not product work and counts with the system sink (§26.5).
 
 `ccp board build` attributes every request, in this order:
 
-- a plane-launched headless session (architect, docs audit, architecture review and its triage,
-  estimator) is its kind's seat, its subagents included; `board/headless-usage.jsonl` records the
-  session id;
+- a plane-launched headless session (architect, estimator) is its kind's seat, its subagents
+  included; `board/headless-usage.jsonl` records the session id;
 - a span `agent_id` → the run bound to it (§11); `<name>@session-…` → the teammate of that name
   (the runner, or any name a `runner` event recorded);
 - a call with no `agent_id` goes by its session's cwd: the product root is the lead's

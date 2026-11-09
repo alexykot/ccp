@@ -84,7 +84,7 @@ JSON receiver.
   when `seven_day` is at or above `telemetry.allowance_stop_weekly`. An unreadable sample is
   recorded with nulls and never stops a claim. *(2026-10-23: claim and `ccp prompt` also park at the
   5-hour park %, exit 6, §25.4 the session park.)*
-- **Headless runs.** `ccp architect run` and `architecture-review.sh run` append `claude -p`'s
+- **Headless runs.** `ccp architect run` appends `claude -p`'s
   `modelUsage`, `total_cost_usd` and turns to `board/headless-usage.jsonl`.
 - **From the review (2026-10-21).**
   - The receiver refuses what it cannot keep: 415 for a body that is not JSON (an exporter left on

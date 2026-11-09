@@ -4,6 +4,6 @@
 (`QUEUE_ROOT/observability/events.jsonl`), holds the work.json lock and the alias table for values
 renamed over time (old values are read, only new ones written). `team.py` runs the runner teammate's
 lifecycle and the gate ledger, `spec_maintainer.py` spec questions to the lead,
-`architecture_review.py` the isolated structural review. The shell scripts are thin single writers:
-`set-waiting-on.sh` (the only writer of `waiting_on`), `emit-event.sh`, `heartbeat.sh`,
+`architecture_review.py` the review kit the architect seat runs on (§19). The shell scripts are thin
+single writers: `set-waiting-on.sh` (the only writer of `waiting_on`), `emit-event.sh`, `heartbeat.sh`,
 `prune-prompts.sh`, `write-prompt-audit.sh`. The status is the board (`ccp board`, §28).

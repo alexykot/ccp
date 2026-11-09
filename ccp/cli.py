@@ -14,7 +14,6 @@
   ccp adr new TITLE | status N STATUS [--note T] | decide N Dn STATE [--by REF] [--note T]
           | supersede OLD NEW [--decisions D2,D4] [--by Dn] [--archive] | check | index [--stdout]
           | list [--json] | migrate --markers [--dry-run]                     (ADRs, SPEC §6)
-  ccp docs audit due | run [--force] | triage <id> | status        (alias of `ccp architect` once moved)
   ccp architect due | run [--mode pass|shape] [--lens L,…] [--adr ID] [--force] [--detach] [--scope IDS]
                | triage <id> | status
   ccp health [--since DATE] [--json] | note --text T [--task ID] | record --task ID --metric k=v …
@@ -41,12 +40,12 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
 `tasks` and `docs check` are free and deterministic (`index` writes INDEX.yaml; `docs check` also
 holds the house rules' shape and runs the product's `architect.checks`; every budget is `architect due`'s
 and `health`'s; `budgets check` gates only on the files a change grew). With an `architect` block, `tasks next` reads the queue
-(QUEUE_ROOT) and exits 4 while a pass or a triage is overdue (§19.6). `architect run` and
-`docs audit run` launch a headless read-only Claude session; they and `health note|record` need
-QUEUE_ROOT. Exit codes: 0 ok, 1 check failures or a failed run, 2 usage or configuration, 3 not
-due / busy / nothing ready, 4 an architect pass or triage is overdue, 5 the weekly allowance
-checkpoint (claim), 6 the session park: the 5-hour window is at its park % (claim, prompt; §25.4),
-7 the runner holds what it can: carry on with the tasks in flight (next, claim; §16.3).
+(QUEUE_ROOT) and exits 4 while a pass or a triage is overdue (§19.6). `architect run` launches a
+headless read-only Claude session; it and `health note|record` need QUEUE_ROOT. Exit codes: 0 ok,
+1 check failures or a failed run, 2 usage or configuration, 3 not due / busy / nothing ready, 4 an
+architect pass or triage is overdue, 5 the weekly allowance checkpoint (claim), 6 the session park:
+the 5-hour window is at its park % (claim, prompt; §25.4), 7 the runner holds what it can: carry on
+with the tasks in flight (next, claim; §16.3).
 """
 from __future__ import annotations
 
@@ -417,10 +416,6 @@ def cmd_adr(cfg: config.Config, a: argparse.Namespace) -> int:
                   + (f"  [{', '.join(map(str, pts))}]" if pts else "")
                   + (f"  built {b[0]}/{b[1]}" if b and b[1] else "  all decisions retired" if b else ""))
     return 0
-
-def cmd_docs_audit(cfg: config.Config, a: argparse.Namespace) -> int:
-    from ccp import docaudit
-    return docaudit.main(cfg, a)
 
 
 def cmd_architect(cfg: config.Config, a: argparse.Namespace) -> int:
@@ -1064,12 +1059,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true", help="list: JSON")
     p.add_argument("--dir", help="list: the ADR directory (default: plane.json adr.dir, else docs/adr)")
     p.set_defaults(fn=cmd_adr)
-    p = d.add_parser("audit", help="headless read-only docs audit (needs QUEUE_ROOT)")
-    p.add_argument("action", choices=("due", "run", "triage", "status"))
-    p.add_argument("review_id", nargs="?", help="triage: the audit id (da-...)")
-    p.add_argument("--force", action="store_true", help="run even if not due (on demand)")
-    p.add_argument("--actor")
-    p.set_defaults(fn=cmd_docs_audit)
 
     p = sub.add_parser("architect", help="the architect seat: passes, shapes and their triage (needs QUEUE_ROOT)")
     p.add_argument("action", choices=("due", "run", "triage", "status"))
@@ -1263,7 +1252,7 @@ def cmd_where(cfg: config.Config, _a: argparse.Namespace) -> int:
 REFRESHES = {("tasks", "claim"), ("tasks", "release"), ("tasks", "drop"), ("tasks", "phase"), ("tasks", "wait"), ("tasks", "resume"), ("tasks", "close"),
              ("prompt",), ("report",), ("verify", "record"), ("plane", "propose"), ("plane", "triage"),
              ("allowance", "continue"), ("architect", "run"), ("architect", "triage"),
-             ("docs", "audit", "run"), ("docs", "audit", "triage"), ("agent", "start"), ("agent", "stop"),
+             ("agent", "start"), ("agent", "stop"),
              ("health", "note"), ("health", "record")}
 
 

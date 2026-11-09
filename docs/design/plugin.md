@@ -42,7 +42,7 @@ input's agent type is the teammate's name, not the plugin type (the idle hook ma
   from the plugin's definition, unless the product still has its own copy in `.claude/agents/`.
   `team.sh runner spawn` names the product's own runner type while it has the copy.
 - **The project lookup.** A binding (`projects/*.yaml`) maps a product checkout to its queue;
-  `ccp architect`, `ccp docs audit` and triage use the product's own architect skill and
+  `ccp architect` and its triage use the product's own architect skill and
   `REVIEW-TRIAGE.md` while it has them, else the plugin's, and add `--plugin-dir` for headless runs.
   The lookup needs both a valid `project_id` and a binding whose `product_root` is this checkout or
   its main checkout, so a scratch clone or a fork naming a live project's id gets no queue.

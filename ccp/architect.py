@@ -3,7 +3,7 @@
 One seat owns a product's structural health across four lenses (structure, docs, tests, process).
 A fresh, read-only `claude -p` runs the product's managed `architect` skill and returns one report;
 the task-log owner triages it under `docs/delivery/REVIEW-TRIAGE.md`. Everything after the call is
-§19's review machinery (`architecture_review.py`), as a third review *kind* with its own state
+§19's review kit (`architecture_review.py`), as a review *kind* with its own state
 (`architect.json`), lock (`architect.lock`) and id prefixes: `ar-` for a pass, `sh-` for a shape.
 
 `ccp` computes when a pass is due, so no seat has to remember it (§19.6), from:
@@ -749,7 +749,7 @@ def cmd_triage(cfg: Config, q: Path, rid: str, actor: str) -> int:
     s = _settings(cfg)
     rp = ar.report_path(q, rid)
     report = read_json(rp) if rp.is_file() else {}
-    return ar.triage(q, rid, actor, ARCH, max_new=s["max_new_tasks"], probes=s["probes"],
+    return ar.triage(q, rid, actor, ARCH, max_new=s["max_new_tasks"],
                      prompt_extra=triage_extra(cfg, report), extra_check=triage_check,
                      product_dir=str(cfg.root))
 

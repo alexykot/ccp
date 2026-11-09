@@ -17,7 +17,6 @@ PLANE = Path(__file__).resolve().parents[1]
 TEAM = PLANE / "scripts" / "team.sh"
 ASK = PLANE / "scripts" / "spec-maintainer-ask.sh"
 HOOK = PLANE / "plugin" / "hooks" / "runner-idle.sh"
-AR = PLANE / "scripts" / "observability" / "architecture_review.py"
 
 
 class TeamCase(unittest.TestCase):
@@ -349,16 +348,6 @@ class TestTeamLeadQuestions(TeamCase):
         self.assertEqual(ok.returncode, 0, ok.stderr)
         self.assertEqual(json.loads(ok.stdout)["blocks"], ["0002-b", "0001-a"])
         self.assertEqual(self.task_wait("0002-b"), "spec_maintainer")
-
-    def test_triage_hands_off_to_lead(self):
-        rid = "ar-20260930T200000Z-abcd"
-        (self.q / "reviews").mkdir()
-        (self.q / "reviews" / f"{rid}.json").write_text("{}")
-        r = self.run_cmd("python3", AR, "triage", rid)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        res = json.loads(r.stdout)
-        self.assertEqual((res["outcome"], res["actions"][0]["action"]), ("sent_async", "send_message_to_lead"))
-        self.assertIn("architecture-review.sh triage", res["actions"][0]["detail"])
 
 
 class TestIdleHook(TeamCase):

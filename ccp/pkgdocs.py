@@ -7,7 +7,7 @@ with a title, names no file that is gone, plans nothing, and stays shorter than 
 source. The language pack (`package_docs.language`, ccp/doclang) adds its source suffixes and
 directory names, and its per-file checks over `docstring_globs` (Python: a module docstring that
 says what the module does). Opt-in generic rules are ccp/docrules.py. Staleness a rule cannot see
-is the headless `ccp docs audit` instead.
+is the architect's docs lens instead (`ccp architect`, §21.7).
 """
 from __future__ import annotations
 
