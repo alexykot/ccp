@@ -121,11 +121,7 @@ Heartbeat files on disk are the authority.
 
 **Cadence (2026-09-24):** Watchdog `*/30 * * * *` 24/7; Task Verifier **event-only** (`cron_expected: event`, no routine); Runner unchanged (`*/10` default). `heartbeat.sh` defaults `--cron-expected` per seat.
 
-**Stale (default):** scheduled seat `last_wake_at` older than **max(25 min, 2.5 × cron interval)** — `*/10` → 25m, `*/30` → 75m — while any task is mid-flight **and** not in a deliberate wait with `planned_resume_at` still in the future → `stale=true` + blocker `stale_seat`. Event-only seats (Verifier) are never time-stale.
-
-**Verify stale:** task `submitted`/`verifying`, `waiting_on` null, no verdict (`verification/<task_id>.json` not written since entering `submitted`), and no `task-verifier` event / task-scoped heartbeat for **≥ 30 min** → blocker `verify_stale` (detail names `project.yaml` `seats.verifier`). Watchdog wakes that Verifier seat with the `task_id`. Threshold: env `VERIFY_STALE_MINUTES` > `project.yaml` `cadence.verify_stale_minutes` > 30.
-
-Do **not** run a second Watchdog permanently. Optional Control Plane Developer backup only when the primary Watchdog heartbeat is stale.
+**No stale rule (SPEC §18.3):** every seat is event-only in the snapshot and never time-stale. Heartbeats still record each seat's last wake (`ccp tasks claim` and `close` write them), but nothing raises a seat-stale or verify-stale blocker, and a seat row has no `stale` flag. The binding's `cadence` verify-stale threshold is accepted and ignored. An older `now.json` carrying those blockers or a seat `stale` flag still reads; the next rebuild drops them.
 
 ## Layer 2 prompt audit
 

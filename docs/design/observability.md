@@ -49,8 +49,7 @@ Regenerate by folding `events.jsonl` + live probes (`ps` for pid, `auth/status.j
       "last_wake_at": "RFC3339|null",
       "wake_kind": "cron|priority|manual|null",
       "last_action": "string",
-      "cron_expected": "*/30 * * * *|event",
-      "stale": true
+      "cron_expected": "event"
     }
   },
   "tasks": [
@@ -78,7 +77,7 @@ Regenerate by folding `events.jsonl` + live probes (`ps` for pid, `auth/status.j
   "blockers": [
     {
       "task_id": "…",
-      "kind": "quota|reauth|operator_decision|spec_maintainer|stale_seat|verify_stale|ambient_key|other",
+      "kind": "quota|reauth|operator_decision|spec_maintainer|design_seat|operator_step|ambient_key|other",
       "since": "RFC3339",
       "detail": "…"
     }
@@ -127,7 +126,7 @@ Contract: `contracts/prompt_audit.schema.json`.
 
 1. `status.sh` on Mac shows 0001/0002/0003 with correct runtime vs durable divergence until reconciled.
 2. After a deliberate `waiting_on=quota` park with `resets_at`, `now.json` shows `wait_hours` increasing and `planned_resume_at` set; after clear, wait interval closes.
-3. Watchdog wake writes seat heartbeat; forcing staleness (past the seat threshold with mid-flight task) surfaces `stale_seat` blocker; a `submitted` task with no verdict/Verifier progress for ≥30m surfaces `verify_stale`.
+3. `ccp tasks claim` and `close` write seat heartbeats; no seat is ever stale and no blocker comes from seat or verifier silence (§18.3).
 4. One Runner Claude launch produces a `prompts/…json` with non-empty `prompt_body` and a matching `claude/launch` event `prompt_ref`.
 5. Merging a task updates durable status or records an explicit reconcile event in the same session as merge.
 6. No secrets in events, `now.json`, prompts, or escalation email.

@@ -76,8 +76,7 @@
           "last_wake_at",
           "wake_kind",
           "last_action",
-          "cron_expected",
-          "stale"
+          "cron_expected"
         ],
         "properties": {
           "last_wake_at": {
@@ -106,10 +105,11 @@
               "string",
               "null"
             ],
-            "description": "Cron spec for scheduled seats (delivery-watchdog '*/30 * * * *'), or 'event' for event-only seats (task-verifier: no routine, never time-stale)."
+            "description": "'event': every seat is event-only (SPEC §18.3). An older snapshot may hold a heartbeat's cron spec."
           },
           "stale": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Deprecated, read only: written by snapshots before the seat stale rule was retired (SPEC §18.3, ADR-0034 D6)"
           }
         }
       }
@@ -288,6 +288,7 @@
           },
           "kind": {
             "type": "string",
+            "description": "The last three kinds are deprecated, read only: written by snapshots before the twelve-hour backstop (ADR-0032 D2) and the stale_seat and verify_stale blockers (SPEC §18.3, ADR-0034 D6) were retired",
             "enum": [
               "quota",
               "reauth",
@@ -295,11 +296,11 @@
               "spec_maintainer",
               "design_seat",
               "operator_step",
-              "stale_seat",
-              "verify_stale",
-              "backstop",
               "ambient_key",
-              "other"
+              "other",
+              "backstop",
+              "stale_seat",
+              "verify_stale"
             ]
           },
           "since": {
