@@ -172,3 +172,58 @@ tasks:
     title: The plane ships an optional starter set of house rules
     depends_on: [0033-package-doc-convention-owned-by-the-plane]
     path: tasks/0034-starter-house-rules.md
+  - id: 0035-the-judge-never-produces-its-evidence
+    status: pending
+    title: The seat that rules never produces the evidence it rules on
+    depends_on: []
+    path: tasks/0035-the-judge-never-produces-its-evidence.md
+  - id: 0036-outside-changes-reach-main-through-a-task
+    status: pending
+    title: Changes made outside the plane reach the integration branch through a task
+    depends_on: []
+    path: tasks/0036-outside-changes-reach-main-through-a-task.md
+  - id: 0037-worker-brief-rules
+    status: pending
+    title: Generic worker rules go into the implementer, reviewer and verifier briefs
+    depends_on: []
+    path: tasks/0037-worker-brief-rules.md
+  - id: 0038-lead-and-runner-lessons-in-briefs-and-tools
+    status: pending
+    title: Lead and runner lessons go into the plane's briefs and tools
+    depends_on: []
+    path: tasks/0038-lead-and-runner-lessons-in-briefs-and-tools.md
+  - id: 0039-operator-sign-off-record
+    status: pending
+    title: Operator sign-off is a plane record that ccp tasks close enforces
+    depends_on: []
+    path: tasks/0039-operator-sign-off-record.md
+  - id: 0040-operator-notification-triggers
+    status: pending
+    title: The plane defines when the operator is notified; a product setting names the channel
+    depends_on: []
+    path: tasks/0040-operator-notification-triggers.md
+  - id: 0041-product-declared-report-fields
+    status: pending
+    title: Products declare required report fields that ccp report checks
+    depends_on: []
+    path: tasks/0041-product-declared-report-fields.md
+  - id: 0042-releases-keep-products-green
+    status: pending
+    title: A plane release keeps conforming products green
+    depends_on: []
+    path: tasks/0042-releases-keep-products-green.md
+  - id: 0043-leased-task-file-edited-only-in-its-pr
+    status: pending
+    title: A claimed task's file is edited only in its PR
+    depends_on: []
+    path: tasks/0043-leased-task-file-edited-only-in-its-pr.md
+  - id: 0044-ccp-mutate
+    status: pending
+    title: ccp mutate proves a test bites
+    depends_on: []
+    path: tasks/0044-ccp-mutate.md
+  - id: 0045-python-floor-and-import-guard
+    status: pending
+    title: The declared Python floor matches what runs the plane
+    depends_on: []
+    path: tasks/0045-python-floor-and-import-guard.md

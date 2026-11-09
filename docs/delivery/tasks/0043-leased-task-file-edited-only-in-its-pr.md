@@ -1,0 +1,55 @@
+---
+task_id: 0043-leased-task-file-edited-only-in-its-pr
+title: A claimed task's file is edited only in its PR
+status: pending
+kind: feature
+depends_on: []
+spec_refs: ["S10", "S16"]
+review_point: R3
+paths: ["ccp/", "docs/spec/", "scripts/git-hooks/", "plugin/", "tests/"]
+created: 2026-11-09
+updated: 2026-11-09
+---
+
+# Task: 0043-leased-task-file-edited-only-in-its-pr
+
+## Intent
+
+Once a task is claimed, its file is not edited on the integration branch. A ruling or amendment on a claimed task goes to the runner and lands in the task's PR; `ccp` warns on or refuses an integration-branch commit touching a leased task's file.
+
+## Context (not checked)
+
+- Raised in triage of a managed product's tool proposals; the rules touched are §10 and §16.
+- The implementer works from the brief on its branch and appends notes to the same file; an edit on the integration branch after the claim is unseen by the implementer and conflicts at merge.
+- The operator ruled on 9 Nov 2026 to adopt this, reversing an earlier decline.
+- **SPEC change (§31):** this task changes a § rule — the lease rules in §10. It needs the operator's approval at build: the PR carries the CURRENT → PROPOSED text and quotes the ruling.
+
+## Scope
+
+- **In:** §10 states the rule; a check (`ccp tasks check --lease`, used by the plane's commit hook template and the lead's tools) flags a commit on the integration branch that changes the file of a task with a live lease; the lead's orientation and the spec-maintainer skill route amendments to the runner.
+- **Out:** forge-side branch protection.
+
+## dod_checks
+
+- id: `check-01`
+  story: As a runner, an edit to my claimed task on the integration branch is caught.
+  setup: a scratch product with task 0001 leased and a commit on the integration branch editing its file.
+  steps:
+    1. Run the check.
+  expect: it fails, naming the task and the lease holder.
+  dry run: n/a — the behaviour does not exist yet.
+- id: `check-02`
+  story: As a lead, unleased task files can be edited.
+  setup: the same edit with no lease.
+  steps:
+    1. Run the check.
+  expect: it passes.
+  dry run: n/a — the behaviour does not exist yet.
+
+## Implementation notes
+
+*Append-only, newest last.*
+
+## Verification notes
+
+*Append-only.*

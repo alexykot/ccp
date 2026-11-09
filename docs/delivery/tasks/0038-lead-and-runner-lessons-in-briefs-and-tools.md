@@ -1,0 +1,53 @@
+---
+task_id: 0038-lead-and-runner-lessons-in-briefs-and-tools
+title: Lead and runner lessons go into the plane's briefs and tools
+status: pending
+kind: feature
+depends_on: []
+spec_refs: ["S2", "S13", "S16"]
+review_point: R3
+paths: ["plugin/", "scripts/team.sh", "docs/spec/", "tests/"]
+created: 2026-11-09
+updated: 2026-11-09
+---
+
+# Task: 0038-lead-and-runner-lessons-in-briefs-and-tools
+
+## Intent
+
+Behaviours every product's lead and runner meet become plane rules and tool behaviour: subagents run long commands in the foreground (an agent waiting on a background command stalls); `team.sh` runner spawn shuts the old runner down first; the lead directs runners with `ccp tasks prefer`, never a message (a message races the claim); after an interrupted command, check git, the store and the ledger before reporting it did nothing.
+
+## Context (not checked)
+
+- Raised in triage of a managed product's tool proposals; the rules touched are §2 and §13 and §16.
+- These are properties of the plane's team model and the agent harness, not of any product; today they live in one product's lead memory.
+
+## Scope
+
+- **In:** `scripts/team.sh` spawn stops a running runner before starting the new one; the runner, worker and orientation briefs state the foreground, prefer and interrupted-command rules; §16 notes the single-runner spawn.
+- **Out:** a watchdog seat.
+
+## dod_checks
+
+- id: `check-01`
+  story: As a lead, spawning a runner replaces the old one.
+  setup: a fake team with a runner running.
+  steps:
+    1. Run `team.sh` runner spawn.
+  expect: the old runner is stopped before the new one starts; only one is left.
+  dry run: n/a — the behaviour does not exist yet.
+- id: `check-02`
+  story: As a plane developer, the briefs state the rules.
+  setup: the PR head.
+  steps:
+    1. Run the plugin tests.
+  expect: each rule is found in its brief.
+  dry run: n/a — the behaviour does not exist yet.
+
+## Implementation notes
+
+*Append-only, newest last.*
+
+## Verification notes
+
+*Append-only.*
