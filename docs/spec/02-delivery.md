@@ -1022,8 +1022,7 @@ Every seat is event-only under the Claude team: never time-stale. `design-seat`,
 `task-verifier` are seat ids; the toolkit writes heartbeats (`observability/seats/<seat_id>.json`,
 `seat`/`heartbeat` events, `heartbeat.sh`), and `ccp tasks claim` and `close` write them. There is no
 stale rule for seats and no `stale_seat` blocker, and no `verify_stale` blocker: the verifier is the
-runner's subagent and reports by message and file (§15). Old snapshots that hold `stale_seat` or
-`verify_stale` stay readable.
+runner's subagent and reports by message and file (§15).
 
 ### 18.4 Quota
 

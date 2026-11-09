@@ -30,6 +30,18 @@ The board is the status: nothing writes or reads `observability/now.json` or `ST
   0012); (3) §11.2 drops "docs-audit lock" from its list of process locks, a leftover of task 0010.
   The §31 approval for (1) and (3) is the operator's recorded rulings in `docs/spec/RULINGS.md` (the
   §20.1.3 row for task 0012, the §26.13 row for task 0010).
+- Ruling `sm-20261109T231657Z-56cd` (spec maintainer, 2026-11-09): in this task's PR, (1) §23.3 keeps
+  the timers (wall, wait, work hours) and drops only the clause "; `wait_hours_by_reason` splits the
+  same intervals by reason", a field of the retired snapshot; whether the timers have a consumer is a
+  separate follow-up for the operator, not this task; (2) §18.3 deletes "Old snapshots that hold
+  `stale_seat` or `verify_stale` stay readable.", since nothing reads a snapshot after this task.
+  Standing ruling for the rest of R1: when a task carries out an operator ruling in
+  `docs/spec/RULINGS.md` that names the task, the implementer also removes or rewords, in the same PR
+  and without asking, every SPEC or docs passage the change makes false, including transitional
+  markers ("task NNNN", "until task NNNN") and descriptions of what the task retires. Each edit is
+  listed with its old text in the PR body's §31 section, citing the RULINGS row. Ask only when an edit
+  would remove or change a rule the row does not cover, or when no row names the task. History records
+  (ADRs, done tasks, RULINGS, the spec map's history columns) stay as written.
 
 ## Scope
 
@@ -79,6 +91,13 @@ The board is the status: nothing writes or reads `observability/now.json` or `ST
   instead of the snapshot's `wait_hours_by_reason`. Left for a ruling: §23.3 still names
   `wait_hours_by_reason`, and nothing now outputs the §23.3 timers; §18.3 says old snapshots holding
   `stale_seat` or `verify_stale` "stay readable", though nothing reads a snapshot any more.
+- 2026-11-09 (implementer, round 3): ruling `sm-20261109T231657Z-56cd` applied: §23.3 drops the
+  `wait_hours_by_reason` clause and keeps the timers; §18.3 loses the "Old snapshots … stay readable"
+  sentence. Under the standing ruling, §23.4 drops its "(code: task 0012)" marker. A final grep over
+  the repo (history records aside) for the retired names, "snapshot", "task 0012" and "stay readable"
+  finds only retirement notes, the deprecated schema, the board's own daily snapshots and tests. The
+  §23 title ("Ledger, snapshot and queue data") is left as is: it is a heading that the table of
+  contents and the spec map repeat, and the section still states the snapshot's retirement.
 
 ## Verification notes
 
