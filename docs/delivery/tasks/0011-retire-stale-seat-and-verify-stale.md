@@ -23,6 +23,12 @@ The snapshot raises no `stale_seat` and no `verify_stale` blocker, and the bindi
 - §18.3 states the target rule; ADR-0034 D6 records the ruling.
 - `ccp tasks claim` and `close` write heartbeats; keep them.
 - A binding that still sets `cadence.verify_stale_minutes` is accepted and ignored.
+- Ruling (lead, 2026-11-09, question sm-20261109T214211Z-429f): this task also edits SPEC. §18.3's
+  last sentence ("The snapshot code and the binding's `cadence.verify_stale_minutes` still carry both
+  until task 0011 removes them; old snapshots holding them stay readable.") becomes "Old snapshots
+  that hold `stale_seat` or `verify_stale` stay readable."; §8.3's "(§18.3; code: task 0011)"
+  becomes "(§18.3)". §31 approval: the operator's rulings in `docs/spec/RULINGS.md` (rows §20.1.4,
+  §12.1, §20.1.8 and §20.6/§25.8, operator, 2026-11-06).
 
 ## Scope
 
@@ -74,6 +80,10 @@ The snapshot raises no `stale_seat` and no `verify_stale` blocker, and the bindi
   holding them stay readable.") and §8.3's "(code: task 0011)" now describe removed code. The task
   gives no SPEC edit, so both are left for the runner or the lead. `ccp/config.py` (in `paths`)
   needed no change: it reads `plane.json`, not the binding.
+- 2026-11-09 (implementer, round 2): per the ruling recorded in Context, SPEC §18.3's last sentence
+  and §8.3's "(code: task 0011)" are edited; the "Not done, pending a ruling" note above is resolved.
+  No other SPEC passage describes the stale rule, `stale_seat` or `verify_stale` as present
+  behaviour (the `docs/spec/map/` rows and `RULINGS.md` record old sections and rulings).
 
 ## Verification notes
 

@@ -612,7 +612,7 @@ runner:
 - A `spec_maintainer` block is accepted, deprecated: the lead is every project's spec maintainer
   (§17). `seats.runner`, `seats.verifier`, `seats.watchdog` and `email` are
   ignored, as is a leftover `hosting:` line. `cadence.verify_stale_minutes` is retired with the
-  `verify_stale` blocker (§18.3; code: task 0011).
+  `verify_stale` blocker (§18.3).
 
 ### 8.4 Configuration knobs
 
