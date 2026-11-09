@@ -41,6 +41,15 @@ The optional CI template ships no database service, an empty `STORE_TEST_PATTERN
 
 *Append-only, newest last.*
 
+- 2026-11-09, implementer: `templates/github/workflows/formal-unit-lint.yml` now has no `services`
+  block and no `DATABASE_URL`. Its job `env` sets `STORE_TEST_PATTERN: ""` and
+  `EXPECT_STORE_TESTS: "0"`, and its header comment says how a product with store tests opts in
+  (§15.7). The store step no longer falls back to a built-in pattern. With an empty pattern it checks
+  nothing and passes, and it fails when `EXPECT_STORE_TESTS=1` comes with an empty pattern. With a
+  pattern set, the skip and no-match failures are unchanged. No test read the template before this,
+  so the new `tests/test_ci_template.py` reads the job's keys and env and runs the step's embedded
+  Python against sample `unit.out` files.
+
 ## Verification notes
 
 *Append-only.*
