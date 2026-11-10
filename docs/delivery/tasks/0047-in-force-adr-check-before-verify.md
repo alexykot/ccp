@@ -1,7 +1,7 @@
 ---
 task_id: 0047-in-force-adr-check-before-verify
 title: The in-force ADR check runs before the verdict, not only at close
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S6", "S15"]
@@ -76,4 +76,4 @@ for a head that would turn the integration branch red at close.
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #25 head `3d28676` (squash `d91df62`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0047-in-force-adr-check-before-verify.json.
