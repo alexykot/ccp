@@ -49,6 +49,16 @@ updated: 2026-11-06
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): the knob is `docs.workers` (integer >= 1, default 1, so the default
+  stays serial). It is checked in `ccp/config.py` `_docs` and is in the schema's `docs` block.
+  `rules.run_checks` is the shared runner for `docs.checks` and `architect.checks`. With
+  workers > 1 it runs each call's checks on a thread pool of that size, capped at the number of
+  checks. Each check keeps its own `run_command` timeout and process group, and the failures are
+  listed in declared order, whatever order the checks finish in. The two lists still run one after
+  the other, in one pool per list, so the `check E<n>` and `docs check <id>` lines are the same as a
+  serial run's. The task gives no SPEC text, so §21.5 still describes serial runs: the SPEC line for
+  the knob is an open question for the lead.
+
 ## Verification notes
 
 *Append-only.*
