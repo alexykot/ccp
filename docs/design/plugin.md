@@ -46,8 +46,9 @@ input's agent type is the teammate's name, not the plugin type (the idle hook ma
   `REVIEW-TRIAGE.md` while it has them, else the plugin's, and add `--plugin-dir` for headless runs.
   The lookup needs both a valid `project_id` and a binding whose `product_root` is this checkout or
   its main checkout, so a scratch clone or a fork naming a live project's id gets no queue.
-  The test suite sets `CCP_NO_BINDING_QUEUE=1` (`tests/__init__.py`), so no test reaches a live
-  queue.
+  The test suite sets `CCP_NO_BINDING_QUEUE=1` and clears an inherited `QUEUE_ROOT` and
+  `PROJECT_YAML` (`tests/__init__.py`), so no test reaches a live queue, even in a seat that
+  exports one.
 - **The checkout warning.** Every `ccp` call warns on stderr when its checkout has local changes to
   tracked files, is off `main`, or is behind its last-fetched `origin/main`; git runs with
   `--no-optional-locks`, and a head detached exactly at `origin/main` counts as `main`. `CCP_DEV=1`
