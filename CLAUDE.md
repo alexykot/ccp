@@ -23,6 +23,8 @@ Rules:
   session's cwd if the session was in it. It:
   - fast-forwards the dev checkout;
   - moves the run checkout and restarts the telemetry receiver;
+  - checks each bound product's integration branch against the new rules and prints what went
+    stale (SPEC §29.3): tell that product's lead;
   - checks that the receiver is up;
   - removes the worktree.
 - **The telemetry receiver can't be restarted from inside Claude Code.** If `release.sh` reports it
