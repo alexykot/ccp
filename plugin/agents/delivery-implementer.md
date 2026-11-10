@@ -27,7 +27,12 @@ don't redesign around it.
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
   the merge base and go by what it says, not by the number.
 - Work only in the worktree your prompt names, on its `task/<task_id>` branch.
-- Run every shell command in the foreground.
+- Run every shell command in the foreground, a long one too (a test suite, a build): an agent
+  waiting on a background command stalls.
+- After a command that was interrupted (a timeout, a cancelled call, a lost shell), check git
+  (`git status`, `git log`), the store it writes (the queue's records, the product's data) and
+  the ledger (`$QUEUE_ROOT/observability/events.jsonl`) before you report that it did nothing: it
+  may have done part or all of its work.
 - Open a PR when asked; **never merge it**. The runner merges after the verifier approves.
 - A product question you can't answer from the task file, the cited SPEC or the product docs goes in
   your report as an open question: the runner answers it or takes it to the lead. Don't guess intent.

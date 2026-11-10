@@ -48,6 +48,18 @@ Behaviours every product's lead and runner meet become plane rules and tool beha
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): single-runner `team.sh runner spawn` treats the runner as live when
+  `work.json` `status` is `running` or `draining` and it was not rotated since its spawn (a rotation
+  already printed its shutdown). Then it emits `runner`/`stop` (`reason: respawn`) before
+  `runner`/`spawn`, puts a `shutdown_teammate` action for the bound name ahead of `spawn_teammate`,
+  and returns `stopped: <name>`. `spawn --slot` (several runners) is unchanged: §16.5 already
+  respawns no live slot on `--count`. §16.5 gains one descriptive sentence (§31.1, the task's own
+  feature).
+- 2026-11-10 (implementer): the foreground rule (with its reason) and the interrupted-command rule are
+  in the orientation, the runner and the three worker briefs; the prefer rule's reason ("races the
+  claim") is in the orientation and the runner brief, not the workers', which never direct a runner.
+  §13.1 is not changed: the task gives no text for it.
+
 ## Verification notes
 
 *Append-only.*
