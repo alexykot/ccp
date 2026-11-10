@@ -594,6 +594,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `gate` | the agent's shell limit and the gate's cut line (`shell_limit_seconds`, `cut_line_seconds`) | §14.6 |
 | `suite`, `verify` | test runs and lanes (an argv or ordered `{name, cmd}` stages), verification and cache acceptance (`verify.accept_cache`), the fix rounds that need no new review (`verify.skip_review`) | §14, §15 |
 | `parallel` | several runners | §16 |
+| `report` | the verdicts every implementer report must state (`report.required_fields`) | §13.4 |
 | `telemetry`, `board`, `estimate` | usage, allowance windows, the board, estimation | §24–§28 |
 
 An example, with neutral values:

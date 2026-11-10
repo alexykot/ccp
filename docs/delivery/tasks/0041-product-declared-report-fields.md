@@ -48,6 +48,24 @@ A product declares verdict lines every implementer report must state (for exampl
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): plane.json gains a `report` block, `required_fields: [{name, values}]`
+  (default none; `ccp/config.py` validates it, `contracts/plane_config.schema.json` lists it). A name is a
+  letter then up to 39 letters, digits, spaces, `_` or `-`, unique without regard to case, and none of the
+  lines `ccp report` already reads; values are a non-empty list of distinct one-line strings.
+- `ccp report` (`ccp/report.py` `fields`) requires each declared field on implement and fix reports with
+  `Outcome: done` only (as `PR:` and `Head:`): the line `<name>: <value>`, the name without regard to case
+  (bold or a bullet allowed), the value the longest declared one the line starts with, followed by the
+  line's end or a non-word character (so a reason may follow). Missing or another value: refused, naming the
+  field and its allowed values. Accepted values are kept on the run as `fields` and printed by `ccp report`.
+- Prompts: implement and fix list each declared field with its values in the report lines; the review prompt
+  shows the task's latest done implement or fix report's verdicts (`not stated` for a report from before the
+  declaration) and `ccp prompt review` prints them as `report_fields`, which is how the runner sees them
+  (the plane renders no runner prompt; `plugin/agents/delivery-runner.md` says so). The verify prompt is not
+  changed: the task names the implementer, runner and reviewer only.
+- SPEC: the task gave no CURRENT -> PROPOSED text; §13.4 gains a bullet describing the feature and §8.1's
+  block table a `report` row, written by the implementer as description of the task's own feature (§31.1);
+  flagged in the report.
+
 ## Verification notes
 
 *Append-only.*

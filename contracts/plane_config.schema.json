@@ -1099,6 +1099,37 @@
           "description": "How long one run of the command may take; at the limit its process group is killed and the run counts as the test failing."
         }
       }
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §13.4: what a worker's report must state beyond the plane's own lines. Absent: nothing more.",
+      "properties": {
+        "required_fields": {
+          "type": "array",
+          "default": [],
+          "description": "Verdict lines every implement or fix report with `Outcome: done` must state, as `<name>: <value>` with one of the declared values (the name matched without regard to case). `ccp report` refuses a report missing one or giving another value; the implement and fix prompts list them, and the review prompt shows the latest implementer report's.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "values"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9 _-]{0,39}$",
+                "description": "The line's name, unique without regard to case; not one of the lines ccp report already reads (Outcome, PR, Head, Verdict, Severity, Suite)."
+              },
+              "values": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {"type": "string", "minLength": 1, "pattern": "^\\S(.*\\S)?$"},
+                "description": "The allowed values, one line each."
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

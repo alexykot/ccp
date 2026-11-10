@@ -14,7 +14,10 @@ The report is the worker's own words plus a few lines `ccp` reads:
   with no `Suite:` line gets them from the run's latest `full` or `gate` lane run when it passed
   (after a failed one, a warning and nothing filled; a failed run's numbers never reach `ccp health`
   from the record) (§14.1);
-- a `## Friction` section: `- ` lines, or `none`.
+- a `## Friction` section: `- ` lines, or `none`;
+- implement and fix, when done: each verdict the product declares in plane.json
+  `report.required_fields`, as `<name>: <value>` with one of its declared values (§13.4). They are
+  kept on the run (`fields`) and shown in the review prompt; whether a verdict is right is not judged.
 
 A report that lacks one is refused with what is missing, and nothing is written. An accepted one
 is stored at the run's report path, its friction lines are recorded for `ccp health` (what the
@@ -51,6 +54,33 @@ SUITE_FROM_RE = re.compile(r"^[^\w\n]*Suite:[\s*_]*from\s+(st-[A-Za-z0-9-]+)", r
 SUITE_ANY_RE = re.compile(r"^[^\w\n]*Suite:.*$", re.I | re.M)
 AUTO_ROLES = ("full", "gate")  # a report with no Suite: line takes its run's latest of these roles' lanes (§14.1)
 FRICTION_RE = re.compile(r"^##\s+Friction[ \t]*\r?$", re.M)
+FIELD_PHASES = ("implement", "fix")  # §13.4: the reports that state the product's declared verdicts
+
+
+def fields(text: str, declared: list[dict[str, Any]]) -> tuple[dict[str, str], list[str]]:
+    """§13.4: each declared verdict's line, `<name>: <value>` (the name without regard to case, bold
+    or a bullet allowed), its value one of the declared values (the longest that fits, then the
+    line's end or a non-word character, so a reason may follow). The values found, by declared name
+    and spelling, and an error naming the field and its allowed values for each missing or other one."""
+    got: dict[str, str] = {}
+    errs: list[str] = []
+    for f in declared:
+        name, values = f["name"], list(f["values"])
+        allowed = ", ".join(f"`{v}`" for v in values)
+        m = re.search(rf"^[^\w\n]*{re.escape(name)}[ \t*_]*:[ \t*_`]*(.*?)[ \t]*\r?$", text, re.I | re.M)
+        if not m:
+            errs.append(f"no `{name}: <value>` line: this product requires it on every implementer report, "
+                        f"one of {allowed} (plane.json report.required_fields)")
+            continue
+        said = m.group(1)
+        hit = next((v for v in sorted(values, key=len, reverse=True)
+                    if said.lower().startswith(v.lower()) and not re.match(r"\w", said[len(v):len(v) + 1])), None)
+        if hit is None:
+            errs.append(f"`{name}:` says `{said[:80]}`; the allowed values are {allowed} "
+                        "(plane.json report.required_fields)")
+        else:
+            got[name] = hit
+    return got, errs
 
 
 def cache_counts(line: str) -> tuple[int, int] | None:
@@ -147,7 +177,8 @@ def fill_suite(q: Path, run_id: str, phase: str, parsed: dict[str, Any], accept_
     return [], []
 
 
-def parse(phase: str, text: str, accept_cache: bool = False) -> tuple[dict[str, Any], list[str]]:
+def parse(phase: str, text: str, accept_cache: bool = False,
+          declared: list[dict[str, Any]] | None = None) -> tuple[dict[str, Any], list[str]]:
     errs: list[str] = []
     out: dict[str, Any] = {}
     m = OUTCOME_RE.search(text)
@@ -196,6 +227,9 @@ def parse(phase: str, text: str, accept_cache: bool = False) -> tuple[dict[str, 
         out["suite_from"] = f.group(1)
     elif u := SUITE_ANY_RE.search(text):
         out["suite_unparsed"] = u.group(0).strip()[:200]
+    if phase in FIELD_PHASES and done and declared:
+        out["fields"], ferrs = fields(text, declared)
+        errs += ferrs
     fr = friction(text)
     if fr is None:
         errs.append("no `## Friction` section of `- ` lines, or the single line `none`")
@@ -215,7 +249,8 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
         raise QueueError(f"{file}: no such report file", 2)
     text = src.read_text()
     from ccp.verify import cache_rule  # noqa: PLC0415
-    parsed, errs = parse(rec["phase"], text, accept_cache=bool(cache_rule(cfg)))
+    parsed, errs = parse(rec["phase"], text, accept_cache=bool(cache_rule(cfg)),
+                         declared=(cfg.report or {}).get("required_fields") or [])
     fill_errs, fill_warnings = fill_suite(q, run_id, rec["phase"], parsed, bool(cache_rule(cfg)),
                                           tuple(lane_for(cfg, r) for r in AUTO_ROLES))
     errs += fill_errs
@@ -254,7 +289,7 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
     rec.update(reported_at=iso(), outcome=parsed["outcome"], report=str(dest),
                friction_count=len(parsed.get("friction") or []),
                **{k: parsed[k] for k in ("pr", "head", "verdict", "severity", "suite_tests", "suite_seconds", "suite_ran",
-                                         "suite_cached", "suite_from", "suite_filled") if k in parsed})
+                                         "suite_cached", "suite_from", "suite_filled", "fields") if k in parsed})
     runs.save(q, rec)
     emit(q, cfg, tid, "run", "reported", {"run_id": run_id, "outcome": rec["outcome"]},
          _actor_for(rec["seat"]))
@@ -264,7 +299,7 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
              _actor_for(rec["seat"]))
     return {"ok": True, "run_id": run_id, "report": str(dest), **{k: v for k, v in rec.items() if k in (
         "outcome", "pr", "head", "verdict", "severity", "suite_tests", "suite_seconds", "suite_ran", "suite_cached",
-        "suite_from", "suite_filled", "friction_count",
+        "suite_from", "suite_filled", "friction_count", "fields",
         "suite_runs_recorded", "suite_s_recorded")}, **({"warnings": warnings} if warnings else {})}
 
 
