@@ -189,8 +189,8 @@ ADR_DEFAULTS: dict[str, Any] = {"dir": "docs/adr", "index": None,
                                                 "in-progress": ["accepted", "superseded", "retired"],
                                                 "implemented": ["superseded", "retired"]},
                                 "strict": False, "template": None}
-# §14.1 `ccp suite run`: named lanes (a lane name to the argv it runs, from the checkout's root) and
-# the regular expression whose first group is a test count in the suite's output (summed over every
+# §14.1 `ccp suite run`: named lanes (a lane name to the argv it runs, from the checkout's root, or to
+# an ordered list of `{name, cmd}` stages, §14.2) and the regular expression whose first group is a test count in the suite's output (summed over every
 # line that matches; the default reads unittest's "Ran N tests in Xs").
 SUITE_DEFAULTS: dict[str, Any] = {"lanes": {}, "count_re": None, "summary": None, "log_keep_days": 14,
                                   # SPEC §16.6: lanes that run one at a time in a queue (a run with no lane
@@ -237,6 +237,10 @@ SKIP_REVIEW_FIELDS = ("task_id", "reviewed", "head", "from")
 SUITE_LANE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,31}$")
 # §5, §14.1: the placeholder a gate lane is written with before the product names its own command.
 LANE_PLACEHOLDER = "<your test command>"
+# §14.2: a lane's stages are `{name, cmd}` (a stage name is a lane-like label; `cmd` a shell command run
+# from the root). The gate role's staged lane ends with the plane's doc checks under this name.
+SUITE_STAGE_KEYS = {"name", "cmd"}
+PLANE_DOCS_STAGE = "plane-docs"
 _INTS = {"rules_max_lines": 1, "every_n_tasks": 1, "max_days": 1, "notes_due": 1, "grace_tasks": 0,
          "triage_grace_tasks": 0, "refactor_every": 0, "call_timeout_minutes": 1, "max_new_tasks": 0}
 _STR_LISTS = ("probes", "metrics", "shape_only_dirs", "private_dirs")
@@ -501,6 +505,30 @@ def _str_list(v: Any) -> bool:
     return isinstance(v, list) and all(isinstance(x, str) and x.strip() for x in v)
 
 
+def lane_stages(v: Any) -> list[dict[str, str]] | None:
+    """A `suite.lanes` value's stages (§14.2) when it is the staged form, a list of objects; None for
+    the argv form."""
+    if isinstance(v, list) and v and all(isinstance(x, dict) for x in v):
+        return v
+    return None
+
+
+def _stages_problem(lane: str, v: list[dict[str, Any]]) -> str | None:
+    seen: set[str] = set()
+    for i, st in enumerate(v):
+        name = st.get("name")
+        if set(st) != SUITE_STAGE_KEYS or not isinstance(name, str) or not SUITE_LANE_RE.match(name) \
+                or not isinstance(st.get("cmd"), str) or not st["cmd"].strip():
+            return (f"suite.lanes.{lane}[{i}] must be {{name, cmd}}: a stage name (lowercase, at most 32 "
+                    "characters) and a non-empty shell command")
+        if name == PLANE_DOCS_STAGE:
+            return f"suite.lanes.{lane}[{i}]: the stage name {PLANE_DOCS_STAGE!r} is the plane's own (§14.2)"
+        if name in seen:
+            return f"suite.lanes.{lane}: the stage name {name!r} is given twice"
+        seen.add(name)
+    return None
+
+
 def _rel_path(v: Any) -> bool:
     """A path relative to the product root that names less than the whole root: not empty, not absolute,
     no `..`, no `:` pathspec magic, and not `.` or anything that normalises to it."""
@@ -683,10 +711,16 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     if isinstance(rm, bool) or not isinstance(rm, int) or rm < 1:
         bad.append("board.refresh_minutes must be an integer >= 1")
     lanes = out["suite"]["lanes"]
-    if not isinstance(lanes, dict) or not all(isinstance(k, str) and SUITE_LANE_RE.match(k) and _str_list(v) and v
-                                              for k, v in lanes.items()):
-        bad.append("suite.lanes must map a lane name (lowercase, at most 32 characters) to a non-empty argv list")
-    elif held := [k for k, v in lanes.items() if any(LANE_PLACEHOLDER in a for a in v)]:
+    if not isinstance(lanes, dict) or not all(
+            isinstance(k, str) and SUITE_LANE_RE.match(k) and (_str_list(v) and v or lane_stages(v) is not None)
+            for k, v in lanes.items()):
+        bad.append("suite.lanes must map a lane name (lowercase, at most 32 characters) to a non-empty argv list "
+                   "or a non-empty list of {name, cmd} stages")
+    elif staged := [p for k, v in lanes.items() if (st := lane_stages(v)) is not None
+                    and (p := _stages_problem(k, st))]:
+        bad.append(staged[0])
+    elif held := [k for k, v in lanes.items()
+                  if any(LANE_PLACEHOLDER in a for a in ([x["cmd"] for x in lane_stages(v) or []] or v))]:
         bad.append(f"suite.lanes {', '.join(held)} still hold the placeholder {LANE_PLACEHOLDER!r}: "
                    "write the command that runs the product's tests in its place")
     xl = out["suite"]["exclusive_lanes"]

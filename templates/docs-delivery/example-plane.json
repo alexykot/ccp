@@ -1,4 +1,12 @@
 {
-  "_note": "Copy to the product as docs/delivery/plane.json (plane SPEC §8.1). Only project_id is required; add a package_docs block to opt into package-doc rules, and an architect block (SPEC §8.1) to turn on the architect seat: house rules, enforced passes, refactor capacity.",
-  "project_id": "example-product"
+  "_note": "Copy to the product as docs/delivery/plane.json (plane SPEC §8.1). Only project_id is required; add a package_docs block to opt into package-doc rules, and an architect block (SPEC §8.1) to turn on the architect seat: house rules, enforced passes, refactor capacity. suite.lanes.gate shows a gate as named stages, run in order until one fails; ccp adds the plane's doc checks as the last stage, so no stage calls ccp (SPEC §14.2). Write your own commands in place of these.",
+  "project_id": "example-product",
+  "suite": {
+    "lanes": {
+      "gate": [
+        {"name": "lint", "cmd": "scripts/lint.sh"},
+        {"name": "tests", "cmd": "scripts/test.sh"}
+      ]
+    }
+  }
 }

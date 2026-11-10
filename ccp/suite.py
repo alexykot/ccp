@@ -39,8 +39,11 @@ it becomes its command, so the outer run captures the output.
 the `full` role's lane, `suite.roles`) runs one at a time in the queue (SPEC §16.6): a run that finds it held exits 75 at once,
 naming the holder and its usual duration, runs nothing, and counts `lane_busy` on its run. A run
 that records nothing (no QUEUE_ROOT, recording off) takes no lock: recording never blocks tests.
-Without `-- COMMAND`, it runs the argv `plane.json` `suite.lanes` names for that lane, from the
-checkout's root.
+Without `-- COMMAND`, it runs what `plane.json` `suite.lanes` names for that lane, from the
+checkout's root: an argv, run as one stage named after the lane, or an ordered list of `{name, cmd}`
+stages (§14.2), each run by the shell, in order, timed, until one exits non-zero. The gate role's staged
+lane ends with the plane's doc checks as the stage `plane-docs`. Such a run records `stages` (name,
+seconds, exit code of each that ran) and `failed_stage` on its `ended` row and event.
 
 The record is `QUEUE_ROOT/runs/_suites.jsonl`, append-only: a `started` row when the command
 starts and an `ended` row when it ends, sharing a `suite_id`. The `ended` row also goes into the
@@ -71,7 +74,7 @@ from typing import Any
 
 from ccp.envvars import envvar, for_child
 from ccp import runs
-from ccp.config import SUITE_LANE_RE, Config, lane_for
+from ccp.config import PLANE_DOCS_STAGE, SUITE_LANE_RE, Config, lane_for, lane_stages
 from ccp.queue import QueueError, emit, iso, root
 
 DEFAULT_COUNT_RE = r"^Ran (\d+) tests? in "
@@ -252,9 +255,24 @@ def _pump(src: Any, fd: int, counter: _Counter) -> None:
 
 
 def resolve_argv(cfg: Config | None, lane: str | None, command: list[str] | None) -> list[str]:
-    """The argv to run. A command after `--` always runs, whatever else is wrong."""
+    """The argv to run, for a single-command run. A command after `--` always runs, whatever else is wrong."""
+    stages = resolve_stages(cfg, lane, command)
+    return stages[0]["argv"]
+
+
+def plane_docs_argv(cfg: Config) -> list[str]:
+    """The built-in stage's command (§14.2): this `ccp`'s own `docs check`, in the product root."""
+    exe = Path(__file__).resolve().parent.parent / "bin" / "ccp"
+    head = [sys.executable, str(exe)] if exe.is_file() else [sys.executable, "-m", "ccp"]
+    return [*head, "--root", str(cfg.root), "docs", "check"]
+
+
+def resolve_stages(cfg: Config | None, lane: str | None, command: list[str] | None) -> list[dict[str, Any]]:
+    """The stages to run, in order (§14.2): `[{name, argv}]`. A command after `--` is one unnamed stage;
+    a lane's argv is one stage named after the lane; a staged lane is its `{name, cmd}` stages, each run
+    by the shell, and the gate role's ends with the plane's doc checks (`plane-docs`)."""
     if command:
-        return list(command)
+        return [{"name": None, "argv": list(command)}]
     if lane is None:
         raise QueueError("give the command after `--` (ccp suite run --lane full -- scripts/gate.sh), "
                          "or a --lane that plane.json suite.lanes names", 2)
@@ -262,7 +280,13 @@ def resolve_argv(cfg: Config | None, lane: str | None, command: list[str] | None
     if not lanes or lane not in lanes:
         known = ", ".join(sorted(lanes or {})) or "none"
         raise QueueError(f"plane.json suite.lanes names no lane {lane!r} (lanes: {known}): give the command after `--`", 2)
-    return list(lanes[lane])
+    declared = lane_stages(lanes[lane])
+    if declared is None:
+        return [{"name": lane, "argv": list(lanes[lane])}]
+    out = [{"name": st["name"], "argv": ["/bin/sh", "-c", st["cmd"]], "staged": True} for st in declared]
+    if cfg is not None and lane == lane_for(cfg, "gate"):
+        out.append({"name": PLANE_DOCS_STAGE, "argv": plane_docs_argv(cfg), "staged": True})
+    return out
 
 
 def _usage_problem(a: Any) -> str | None:
@@ -425,6 +449,31 @@ def summary_line(suite_id: str, code: int, lane: str | None, seconds: float, tes
     return out
 
 
+def stages_line(suite_id: str, done: list[dict[str, Any]], not_run: list[str]) -> str:
+    """A staged lane's line (§14.2): each stage that ran, its result and seconds, then those not run."""
+    parts = [f"{d['name']} {'passed' if d['exit_code'] == 0 else 'FAILED (exit ' + str(d['exit_code']) + ')'} "
+             f"{d['seconds']:.1f} s" for d in done]
+    return (f"ccp suite: {suite_id}: stages: {', '.join(parts) or 'none ran'}"
+            + (f"; not run: {', '.join(not_run)}" if not_run else ""))
+
+
+def _sum(vals: list[Any]) -> int | None:
+    """The sum of the counters given, or None when none is."""
+    got = [v for v in vals if v is not None]
+    return sum(got) if got else None
+
+
+def _stage_mark(fd: int | None, text: str) -> None:
+    """A staged lane's start and end lines for a stage: into the log, or on stderr when streaming."""
+    try:
+        data = text.encode("utf-8", "replace")
+        target = fd if fd is not None else 2
+        while data:
+            data = data[os.write(target, data):]
+    except OSError:
+        pass
+
+
 def _fit_tail(lines: list[str], budget: int) -> tuple[list[str], int]:
     """The last lines that fit in budget chars, cut from the front: the log's end always survives.
     How many lines were dropped."""
@@ -443,7 +492,7 @@ def _fit_tail(lines: list[str], budget: int) -> tuple[list[str], int]:
 
 def render_summary(suite_id: str, log: Path, code: int, lane: str | None, seconds: float, tests: int | None,
                    fields: dict[str, int | None], sig_name: str | None, dig: dict[str, Any] | None,
-                   max_chars: int) -> str:
+                   max_chars: int, stage_text: str | None = None) -> str:
     """Summary mode's closing text. Always: every `show_re` line, then the result line and the
     log's path, last. On a failure, before them: the failing tests' sections, then the log's last
     lines not inside a shown section. The budget (max_chars) goes to the sections first, less a
@@ -501,6 +550,8 @@ def render_summary(suite_id: str, log: Path, code: int, lane: str | None, second
                 parts.extend(body)
     if show_text:
         parts.append(show_text)
+    if stage_text:
+        parts.append(stage_text)
     end = summary_line(suite_id, code, lane, seconds, tests, fields, sig_name)
     where = f"ccp suite: full log: {log} (read it with grep -n or sed -n; never cat it whole)" if failed \
         else f"ccp suite: log: {log}"
@@ -713,6 +764,81 @@ def _same_file(a: int, b: int) -> bool:
         return False
 
 
+def _run_stage(argv: list[str], env: dict[str, str], log_fd: int | None, merged: bool, own_group: bool,
+               counters: list[_Counter], current: dict[str, Any]) -> tuple[int, float]:
+    """Run one stage's command to its end: (its return code, as Popen gives it, and its seconds). Its
+    output goes to the log, or is copied through and counted as it arrives. A command that cannot
+    start returns 127 (not found) or 126 and says why."""
+    t0 = time.monotonic()
+    if log_fd is not None:  # the file itself, both streams: the order is the command's own
+        pipes: dict[str, Any] = {"stdout": log_fd, "stderr": subprocess.STDOUT, "env": env}
+    else:
+        pipes = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT if merged else subprocess.PIPE, "env": env}
+    try:
+        try:
+            proc = subprocess.Popen(argv, **pipes, **(_group(0) if own_group else {}))
+        except TypeError:  # no process-group support here: the command still runs, in ccp's group
+            own_group = False
+            proc = subprocess.Popen(argv, **pipes)
+    except OSError as e:
+        print(f"ccp suite: {argv[0]}: {e.strerror or e}", file=sys.stderr)
+        return (127 if isinstance(e, FileNotFoundError) else 126), time.monotonic() - t0
+    current.update(proc=proc, group=own_group)
+    dog_w = None
+    if own_group:
+        try:
+            r_fd, dog_w = os.pipe()
+            subprocess.Popen([sys.executable, "-I", "-c", WATCHDOG], stdin=r_fd, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, close_fds=True, **_group(proc.pid))
+            os.close(r_fd)
+        except Exception:  # noqa: BLE001  (no watchdog: the run goes on)
+            dog_w = None
+    pumps = []
+    if log_fd is None:
+        pumps.append(threading.Thread(target=_pump, args=(proc.stdout, 1, counters[0]), daemon=True))
+        if not merged:
+            pumps.append(threading.Thread(target=_pump, args=(proc.stderr, 2, counters[1]), daemon=True))
+    try:
+        for t in pumps:
+            t.start()
+        while True:
+            try:
+                rc = proc.wait()
+                break
+            except InterruptedError:
+                continue
+        # A background child of the command may hold the pipe open: give its output a moment, then go.
+        deadline = time.monotonic() + DRAIN_SECONDS
+        for t in pumps:
+            t.join(max(0.0, deadline - time.monotonic()))
+    finally:
+        current.clear()
+        if dog_w is not None:
+            try:
+                os.write(dog_w, b"x")  # ccp ends normally: the watchdog leaves the group alone
+                os.close(dog_w)
+            except OSError:
+                pass
+    return rc, time.monotonic() - t0
+
+
+def _passthrough_stages(stages: list[dict[str, Any]], env: dict[str, str] | None = None) -> int:
+    """A nested `ccp suite run` of a staged lane: run the stages in order in the caller's environment,
+    stop at the first that fails, and record nothing."""
+    code = 0
+    for stage in stages:
+        _flush()
+        try:
+            rc = subprocess.call(stage["argv"], env=dict(os.environ) if env is None else env)
+        except OSError as e:
+            print(f"ccp suite: {stage['argv'][0]}: {e.strerror or e}", file=sys.stderr)
+            return 127 if isinstance(e, FileNotFoundError) else 126
+        code = 128 - rc if rc < 0 else rc
+        if code != 0:
+            break
+    return code
+
+
 def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | None = None, record: bool = True,
         caller_env: dict[str, str] | None = None) -> int:
     warn = warn or _Warn()
@@ -721,10 +847,11 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         print(f"ccp suite: {problem}", file=sys.stderr)
         return 2
     try:
-        argv = resolve_argv(cfg, a.lane, command)
+        stages = resolve_stages(cfg, a.lane, command)
     except QueueError as e:
         print(f"ccp suite: {e}", file=sys.stderr)
         return e.code
+    argv = stages[0]["argv"]
     mode = _mode(a)
     log_arg = getattr(a, "log", None)
     if log_arg:
@@ -733,6 +860,8 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         os.chdir(cfg.root)  # a named lane runs from the checkout's root, as a product script expects
     _reopen_closed_std_fds()
     if envvar("CCP_SUITE_ID"):
+        if len(stages) > 1:
+            return _passthrough_stages(stages, caller_env)  # the outer `ccp suite run` records this time
         return _passthrough(argv, caller_env)  # the outer `ccp suite run` records this time
     if problem:
         warn(f"{problem}: running the command without recording it")
@@ -750,7 +879,8 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
             q = root()
             bound = _bind(cfg, q, a, warn)
             started = {"op": "started", "suite_id": suite_id, "at": iso(), "lane": a.lane,
-                       "cmd": Path(argv[0]).name[:64], "argc": len(argv) - 1, "output": mode, **bound}
+                       **({"cmd": "stages", "argc": len(stages)} if stages[0].get("staged") else
+                          {"cmd": Path(argv[0]).name[:64], "argc": len(argv) - 1}), "output": mode, **bound}
     except Exception as e:  # noqa: BLE001  (recording never blocks the tests)
         warn(f"not recorded ({str(e).splitlines()[0][:200] if str(e) else type(e).__name__}): running the tests anyway")
         q = started = None
@@ -843,44 +973,15 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
     # too), except under a terminal, where the command must stay in the foreground group.
     own_group = not os.isatty(0)
     merged = _same_file(1, 2)  # one destination: one pipe, so the interleaving is kept
-    # The caller's environment and CCP_SUITE_ID, nothing else (§14.1): a test cache that hashes the
-    # environment finds the same entries from a plain shell and from `ccp suite run`.
-    result_path = Path(tempfile.gettempdir()) / f"ccp-suite-result-{suite_id}.json"
-    env = {**(os.environ if caller_env is None else caller_env),
-           **for_child({"CCP_SUITE_ID": suite_id, "CCP_SUITE_RESULT": str(result_path)})}
-    if log_fd is not None:  # the file itself, both streams: the order is the command's own
-        pipes = {"stdout": log_fd, "stderr": subprocess.STDOUT, "env": env}
-    else:
-        pipes = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT if merged else subprocess.PIPE, "env": env}
-    try:
-        try:
-            proc = subprocess.Popen(argv, **pipes, **(_group(0) if own_group else {}))
-        except TypeError:  # no process-group support here: the command still runs, in ccp's group
-            own_group = False
-            proc = subprocess.Popen(argv, **pipes)
-    except OSError as e:
-        code = 127 if isinstance(e, FileNotFoundError) else 126
-        print(f"ccp suite: {argv[0]}: {e.strerror or e}", file=sys.stderr)
-        if log_fd is not None:
-            os.close(log_fd)
-        _finish(cfg, q, started, warn, code, time.monotonic() - t0, None, None, {}, log)
-        return code
-    if log_fd is not None:
-        os.close(log_fd)  # the command holds its own copy
-    dog_w = None
-    if own_group:
-        try:
-            r_fd, dog_w = os.pipe()
-            subprocess.Popen([sys.executable, "-I", "-c", WATCHDOG], stdin=r_fd, stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL, close_fds=True, **_group(proc.pid))
-            os.close(r_fd)
-        except Exception:  # noqa: BLE001  (no watchdog: the run goes on)
-            dog_w = None
+    current: dict[str, Any] = {}  # the stage's process, for the signal handler
 
     def forward(sig: int, _frame: Any) -> None:
         got.append(sig)
+        proc = current.get("proc")
+        if proc is None:
+            return
         try:
-            os.killpg(proc.pid, sig) if own_group else proc.send_signal(sig)
+            os.killpg(proc.pid, sig) if current.get("group") else proc.send_signal(sig)
         except OSError:
             pass
     old = {}
@@ -890,39 +991,43 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         except (ValueError, OSError):  # not the main thread
             pass
     counters = [_Counter(pattern, fpats), _Counter(pattern, fpats)]
-    pumps = []
-    if log is None:
-        pumps.append(threading.Thread(target=_pump, args=(proc.stdout, 1, counters[0]), daemon=True))
-        if not merged:
-            pumps.append(threading.Thread(target=_pump, args=(proc.stderr, 2, counters[1]), daemon=True))
+    staged = bool(stages[0].get("staged"))
+    done: list[dict[str, Any]] = []  # §14.2: each stage that ran: name, seconds, exit code
+    results: list[tuple[dict[str, Any] | None, str | None]] = []
+    code, rc = 0, 0
     try:
-        for t in pumps:
-            t.start()
-        while True:
-            try:
-                rc = proc.wait()
+        for i, stage in enumerate(stages):
+            if got:
+                break  # interrupted: no later stage starts
+            if staged:
+                _stage_mark(log_fd, f"ccp suite: stage {stage['name']}: started\n")
+            # The caller's environment and CCP_SUITE_ID, nothing else (§14.1): a test cache that hashes the
+            # environment finds the same entries from a plain shell and from `ccp suite run`. Each stage
+            # writes its own result file.
+            result_path = Path(tempfile.gettempdir()) / f"ccp-suite-result-{suite_id}{f'-{i}' if i else ''}.json"
+            env = {**(os.environ if caller_env is None else caller_env),
+                   **for_child({"CCP_SUITE_ID": suite_id, "CCP_SUITE_RESULT": str(result_path)})}
+            rc, s_secs = _run_stage(stage["argv"], env, log_fd, merged, own_group, counters, current)
+            code = 128 - rc if rc < 0 else rc
+            results.append(read_result(result_path))
+            if stage["name"] is not None:
+                done.append({"name": stage["name"], "seconds": round(s_secs, 3), "exit_code": code})
+            if staged:
+                _stage_mark(log_fd, f"ccp suite: stage {stage['name']}: exit {code}, {s_secs:.1f} s\n")
+            if code != 0:
                 break
-            except InterruptedError:
-                continue
-        # A background child of the command may hold the pipe open: give its output a moment, then go.
-        deadline = time.monotonic() + DRAIN_SECONDS
-        for t in pumps:
-            t.join(max(0.0, deadline - time.monotonic()))
     finally:
         for s, h in old.items():
             try:
                 signal.signal(s, h)
             except (ValueError, OSError):
                 pass
-        if dog_w is not None:
-            try:
-                os.write(dog_w, b"x")  # ccp ends normally: the watchdog leaves the group alone
-                os.close(dog_w)
-            except OSError:
-                pass
+        if log_fd is not None:
+            os.close(log_fd)
     seconds = time.monotonic() - t0
-    code = 128 - rc if rc < 0 else rc
     sig = got[0] if got else (-rc if rc < 0 else None)
+    failed_stage = done[-1]["name"] if done and code != 0 else None
+    not_run = [st["name"] for st in stages[len(done):]] if staged else []
     dig = None
     if log is not None:
         try:  # the counts and the failure's text, from the log; reading it never costs the exit code
@@ -940,27 +1045,38 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         vals = [c.sums[f] for c in counters if f in c.sums]
         fields[f] = sum(vals) if vals else None
     source = "output"
-    result, problem = read_result(result_path)
+    valid = [r for r, _p in results if r is not None]
+    problem = next((p for _r, p in results if p), None)
     failures: list[str] = []
-    if result is not None:  # §14.3: the gate's own result is authoritative: every counter is its
+    if valid:  # §14.3: the gate's own result is authoritative: every counter is its (summed over the stages)
         source = "result"
-        tests = result.get("tests")
-        fields = {f: result.get(f) for f in SUMMARY_FIELDS}
-        if "failed" not in result and isinstance(result.get("failures"), list):
-            fields["failed"] = len(result["failures"])
-        failures = [str(x.get("id")) for x in result.get("failures") or [] if isinstance(x, dict) and x.get("id")]
+        tests = _sum([r.get("tests") for r in valid])
+        per = []
+        for r in valid:
+            one = {f: r.get(f) for f in SUMMARY_FIELDS}
+            if "failed" not in r and isinstance(r.get("failures"), list):
+                one["failed"] = len(r["failures"])
+            per.append(one)
+        fields = {f: _sum([x[f] for x in per]) for f in SUMMARY_FIELDS}
+        failures = [str(x.get("id")) for r in valid for x in r.get("failures") or []
+                    if isinstance(x, dict) and x.get("id")]
     if tests is None and fields.get("ran") == 0 and fields.get("cached"):
         tests = 0  # every unit was a cache hit: no test ran, and that is a count (§14.5)
+    stage_text = stages_line(suite_id, done, not_run) if staged else None
     if log is not None:
         _say(render_summary(suite_id, log, code, a.lane, seconds, tests, fields, _sig_name(sig), dig,
-                            scfg["max_chars"]))
+                            scfg["max_chars"], stage_text))
+    elif stage_text:
+        _say(stage_text + "\n")
     if problem:  # its own line, never swallowed by the one-warning limit; also on the record
-        _say(f"ccp suite: {suite_id}: the gate's result file was not used ({problem}); the output's counts stand\n")
+        _say(f"ccp suite: {suite_id}: the gate's result file was not used ({problem}); "
+             + ("the other stages' results stand\n" if valid else "the output's counts stand\n"))
     if failures:
         shown = failures[:SHOW_MAX]
         _say(f"ccp suite: {suite_id}: failing (from the gate's result): {', '.join(_cut(x) for x in shown)}"
              + (f" and {len(failures) - len(shown)} more" if len(failures) > len(shown) else "") + "\n")
-    _finish(cfg, q, started, warn, code, seconds, tests, sig, fields, log, source, problem)
+    _finish(cfg, q, started, warn, code, seconds, tests, sig, fields, log, source, problem,
+            done if stages[0]["name"] is not None else None, failed_stage)
     if lane_fd is not None and lane_fd >= 0 and q is not None:
         release_lane(q, suite_id)  # a normal end: the next holder is not told this one died
     return code
@@ -1023,7 +1139,8 @@ def _sig_name(sig: int | None) -> str | None:
 
 def _finish(cfg: Config | None, q: Path | None, started: dict[str, Any] | None, warn: _Warn, code: int,
             seconds: float, tests: int | None, sig: int | None, fields: dict[str, int | None] | None = None,
-            log: Path | None = None, source: str = "output", problem: str | None = None) -> None:
+            log: Path | None = None, source: str = "output", problem: str | None = None,
+            stages: list[dict[str, Any]] | None = None, failed_stage: str | None = None) -> None:
     if q is None or started is None:
         return
     name = _sig_name(sig)
@@ -1031,14 +1148,17 @@ def _finish(cfg: Config | None, q: Path | None, started: dict[str, Any] | None, 
     row = {"op": "ended", "suite_id": started["suite_id"], "at": iso(), "exit_code": code,
            "seconds": round(seconds, 3), "tests": tests, **nums, "counts_from": source,
            **({"result_problem": problem[:80]} if problem else {}),
-           "log": str(log) if log else None, "interrupted": name}
+           "log": str(log) if log else None, "interrupted": name,
+           **({"stages": stages, "failed_stage": failed_stage} if stages is not None else {})}
     try:
         _append(q, row)
         if cfg is not None:
             emit(q, cfg, started.get("task_id") or "", "suite", "recorded",
                  {"suite_id": started["suite_id"], "run_id": started.get("run_id"), "phase": started.get("phase"),
                   "lane": started.get("lane"), "exit_code": code, "seconds": row["seconds"], "tests": tests, **nums,
-                  "counts_from": source, "interrupted": name}, _actor_for(started.get("seat")))
+                  "counts_from": source, "interrupted": name,
+                  **({"stages": stages, "failed_stage": failed_stage} if stages is not None else {})},
+                 _actor_for(started.get("seat")))
     except Exception as e:  # noqa: BLE001
         warn(f"the run's end was not recorded ({str(e).splitlines()[0][:200] if str(e) else type(e).__name__})")
         return
