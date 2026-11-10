@@ -56,6 +56,19 @@ updated: 2026-11-10
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): `ccp mutate --run RUN_ID --test ID --mutant M …` in `ccp/mutate.py`, with
+  a plane.json `mutate` block (`command` naming `{test}`, `timeout_seconds` 600) in `ccp/config.py` and
+  `contracts/plane_config.schema.json`, the CLI in `ccp/cli.py`, SPEC §20.6 and a row in
+  `docs/cli/03-quality.md`. `ccp wt create --kind mut` already existed (§12.1), so `ccp/wt.py` is
+  unchanged. Choices the task left open, each the narrowest found: the call runs only from a recorded
+  `mut` worktree of the run's task, for an open run; a substitution's old text must occur exactly once;
+  a value with no `=>` is a patch; the named test runs once unmutated first and a failure there stops
+  the call (exit 1, nothing recorded); a run killed at the timeout counts as the test failing
+  (`timed_out: true`); exit 0 when every mutant is killed, 1 when one survived; a SIGTERM restores the
+  files and exits 143. Rows go on the run record's `mutation` list, ids and numbers only (a digest
+  stands for the mutant's text); the test output goes to `<run record>-mutate.log`; one `run`/`recorded`
+  event per call. Tests: `tests/test_mutate.py`.
+
 ## Verification notes
 
 *Append-only.*
