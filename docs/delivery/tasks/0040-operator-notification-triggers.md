@@ -68,6 +68,18 @@ The plane defines when the lead must notify the operator (a blocker, a decision 
   needs the operator's approval (§31). Outside the declared paths: `ccp/config.py`, the contract,
   `scripts/observability/team.py` and `spec_maintainer.py`, `docs/cli/02-delivery.md`, `ccp/CLAUDE.md`.
   Tests: `tests/test_notify.py`.
+- 2026-11-10 — implementer, fix round 1 (review of PR #43). The command now reads an empty stdin
+  (`wt.run_cmd(..., no_stdin=True)`, a new keyword; other callers unchanged): a channel such as `mail`
+  that reads its body from stdin would otherwise wait on `ccp`'s own stdin until the timeout and the
+  notice would be lost. A close also sends `review_point_done` on the retry that records the task
+  done after a close that crashed between its reconcile commit and the queue's record (`reconciled`
+  but the queue's status not yet `done`); a re-run that finds both done still sends nothing. §3.6
+  now says the command runs with an empty stdin in the checkout the call came from, as reconcile
+  hooks do (the binding's product root for a gate or a spec question), not "the product root"; and
+  that each trigger sends once per call, so a repeated wait, `gate ask-operator` or refused claim
+  sends again. A test pins that a claim refused at the checkpoint with no channel runs nothing and
+  its refusal carries no `notify:` warning. Left for the lead: §19, `plugin/orientation.md`,
+  ADR-0004 D5 and ADR-0034 still say nothing emails (review MINOR-4).
 
 ## Verification notes
 

@@ -226,16 +226,19 @@ The channel is plane.json `notify` (§8.1): `command`, a shell command (default 
 
 - With no command the channel is the lead's session: the runner raises the trigger to the lead, who
   brings it to the operator (§17.10), and no command runs.
-- With one, `ccp` runs it in the product root on each trigger, besides the lead's session. Its
-  environment carries the trigger and ids only: `CCP_NOTIFY_TRIGGER`, `CCP_PROJECT_ID`,
-  `CCP_TASK_ID`, `CCP_NOTIFY_ID` (the gate, question or review point), `CCP_NOTIFY_REASON` (the
-  wait's reason), and all of them as one line, `CCP_NOTIFY_LINE`. Never a brief, a question's text or
-  file content. The command is the product's (an email, a chat message, another tool); the plane
-  ships no client.
+- With one, `ccp` runs it on each trigger, besides the lead's session, with an empty stdin, in the
+  checkout the call came from, as reconcile hooks run (for a gate or a spec question, the binding's
+  product root). Its environment carries the trigger and ids only: `CCP_NOTIFY_TRIGGER`,
+  `CCP_PROJECT_ID`, `CCP_TASK_ID`, `CCP_NOTIFY_ID` (the gate, question or review point),
+  `CCP_NOTIFY_REASON` (the wait's reason), and all of them as one line, `CCP_NOTIFY_LINE`. Never a
+  brief, a question's text or file content. The command is the product's (an email, a chat message,
+  another tool); the plane ships no client.
 - Sending is best effort: a command that fails or overruns its timeout is a `notify:` warning on the
-  step, which has happened all the same; the lead's session still carries the trigger. A re-run of
-  a close that only finds the reconcile done, or of `process` on an answer it already applied, sends
-  nothing.
+  step, which has happened all the same; the lead's session still carries the trigger.
+- Each trigger sends once per call: a repeated wait, `gate ask-operator` or refused claim sends
+  again. A close sends on the call that reconciles, or on the retry that records the task done
+  after a close that crashed in between; a re-run that finds both done sends nothing, nor does
+  `process` on an answer it already applied.
 
 ## 4. Product footprint
 

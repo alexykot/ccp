@@ -1139,10 +1139,12 @@ def _reconciled(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, h
     heartbeat(q, f"closed {tid}", task_id=tid)
     warnings += _estimate_actuals(cfg, q, tid)
     # §3.6: the close that leaves its review point with no open task tells the operator, once: on the
-    # call that reconciled, not on a re-run that only finds the reconcile done
+    # call that reconciled, or on the retry that records the task done after a close that crashed in
+    # between; not on a re-run that finds both done
     rp = str(stamp or meta.get("review_point") or "")
+    first = not reconciled or st.get("status") != "done"
     notified = notify.send(cfg, "review_point_done", task_id=tid, ident=rp) \
-        if not reconciled and notify.channel(cfg) and notify.review_point_done(cfg, rp) else None
+        if first and notify.channel(cfg) and notify.review_point_done(cfg, rp) else None
     warnings += notify.warnings(notified)
     return {"ok": True, "task_id": tid, "pr": pr, "head": head, "merge_sha": merge, "reconcile_sha": reconcile,
             "merged_now": not already, "reconciled_now": not reconciled, "committed": paths, "warnings": warnings,

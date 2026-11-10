@@ -93,16 +93,17 @@ def context(cfg: Config, st: dict[str, Any]) -> dict[str, str]:
 
 
 def run_cmd(line: str, cwd: Path, timeout: int, extra_env: dict[str, str] | None = None,
-            log: Path | None = None) -> tuple[int, str]:
+            log: Path | None = None, no_stdin: bool = False) -> tuple[int, str]:
     """Run a shell command in its own process group; on timeout the whole group is killed. Returns the
     exit code (124 on timeout) and the last OUT_CAP characters of its combined output.
 
     With `log`, output goes to that file, not a pipe, and the call returns when the shell exits: a
     service the command started in the background keeps running (and writing to the log) without
-    holding the call open."""
+    holding the call open. With `log` or `no_stdin`, the command reads an empty stdin, not the caller's."""
     env = {**os.environ, **(extra_env or {})}
     if log is None:
         p = subprocess.Popen(["/bin/sh", "-c", line], cwd=str(cwd), env=env, stdout=subprocess.PIPE,
+                             stdin=subprocess.DEVNULL if no_stdin else None,
                              stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True)
         try:
             out, _ = p.communicate(timeout=timeout)

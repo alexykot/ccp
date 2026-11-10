@@ -5,9 +5,11 @@ clears: `reauth`, `operator_step`), a `decision` (a wait on `operator_decision`:
 operator, a spec question answered `needs_operator`), `review_point_done` (a close that leaves its
 review point with no open task) and `allowance_checkpoint` (a claim refused at the weekly checkpoint).
 
-plane.json `notify.command` names the channel: a shell command run in the product root on each
-trigger, given the trigger and ids only in its environment (`CCP_NOTIFY_TRIGGER`, `CCP_PROJECT_ID`,
-`CCP_TASK_ID`, `CCP_NOTIFY_ID`, `CCP_NOTIFY_REASON`, and all of them as one line, `CCP_NOTIFY_LINE`).
+plane.json `notify.command` names the channel: a shell command run, with an empty stdin, in the
+checkout the call came from (as reconcile hooks are; for a gate or a spec question, the binding's
+product root) on each trigger, given the trigger and ids only in its environment
+(`CCP_NOTIFY_TRIGGER`, `CCP_PROJECT_ID`, `CCP_TASK_ID`, `CCP_NOTIFY_ID`, `CCP_NOTIFY_REASON`, and all
+of them as one line, `CCP_NOTIFY_LINE`).
 Null, the default, is the lead's session: no command runs, and the lead raises it there as before.
 Sending is best effort: a command that fails or overruns `notify.timeout_seconds` is a warning on the
 step, never a refusal, and the step itself has already happened.
@@ -61,7 +63,8 @@ def send(cfg: Config, trigger: str, task_id: str = "", ident: str = "", reason: 
                      "CCP_NOTIFY_LINE": line(trigger, cfg.project_id, task_id, ident, reason)})
     timeout = int((cfg.notify or {}).get("timeout_seconds") or 30)
     try:
-        code, _ = wt.run_cmd(cmd, cfg.root, timeout, env)
+        # an empty stdin: a channel that reads a body (`mail`) must not wait on ccp's own
+        code, _ = wt.run_cmd(cmd, cfg.root, timeout, env, no_stdin=True)
     except OSError as exc:
         return {"trigger": trigger, "exit": None, "warning": f"notify: the {trigger} command could not start ({exc})"}
     out: dict[str, Any] = {"trigger": trigger, "exit": code}

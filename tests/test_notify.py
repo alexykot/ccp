@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -85,6 +86,25 @@ class Channel(ToolkitFixture, unittest.TestCase):
         self.assertEqual(body["notified"]["exit"], 124)
         self.assertIn("timed out", body["warnings"][0])
 
+    def test_a_command_that_reads_stdin_gets_an_empty_one_not_ccp_s(self):
+        # ccp's own stdin is a pipe nobody closes: a command reading it would wait out its timeout
+        self.set_plane(notify={"command": f"cat >/dev/null && {APPEND}", "timeout_seconds": 10})
+        r, w = os.pipe()
+        saved = os.dup(0)
+        os.dup2(r, 0)
+        try:
+            started = time.monotonic()
+            code, body, out, err = self.ccp("tasks", "wait", "0002", "reauth", root=self.main)
+            took = time.monotonic() - started
+        finally:
+            os.dup2(saved, 0)
+            for fd in (saved, r, w):
+                os.close(fd)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["notified"]["exit"], 0)
+        self.assertLess(took, 5)
+        self.assertEqual([r[0] for r in sent(self.out)], ["blocker"])
+
     # ------------------------------------------------------------------ allowance checkpoint
 
     def test_a_claim_refused_at_the_weekly_checkpoint_notifies(self):
@@ -135,6 +155,22 @@ class Channel(ToolkitFixture, unittest.TestCase):
         self.ccp("tasks", "close", "0002", "--pr", "7")  # a re-run finds the reconcile done: nothing more
         self.assertEqual(len(sent(self.out)), 1)
 
+    def test_the_retry_of_a_close_that_crashed_after_its_reconcile_notifies_once(self):
+        self.tag("0001", "0002")
+        self._to_approved_pr()
+        with mock.patch("ccp.lifecycle._cleanup", side_effect=RuntimeError("crashed")):
+            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertNotEqual(code, 0, out + err)
+        self.assertIn("status: done", git(self.main, "show", "origin/main:" + TASK_FILE))  # the reconcile landed
+        self.assertNotEqual(json.loads((self.q / "tasks/0002-second.json").read_text())["status"], "done")
+        self.assertEqual(sent(self.out), [])
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 0, out + err)
+        self.assertFalse(body["reconciled_now"])
+        self.assertEqual([(r[0], r[3]) for r in sent(self.out)], [("review_point_done", "R1")])
+        self.ccp("tasks", "close", "0002", "--pr", "7")  # the queue says done now: nothing more
+        self.assertEqual(len(sent(self.out)), 1)
+
     def test_a_close_that_leaves_its_review_point_open_notifies_nothing(self):
         self.write("docs/delivery/tasks/0003-third.md",
                    (self.main / TASK_FILE).read_text().replace("0002-second", "0003-third"))
@@ -160,6 +196,19 @@ class NoChannel(ToolkitFixture, unittest.TestCase):
         self.assertNotIn("warnings", body)
         self.assertEqual(json.loads((self.q / "tasks/0002-second.json").read_text())["waiting_on"], "operator_step")
         self.assertFalse(out.exists())
+
+
+    def test_a_claim_refused_at_the_checkpoint_is_refused_as_today_and_nothing_runs(self):
+        reading = Path(self._tmp.name) / "reading.json"
+        reading.write_text(json.dumps({"five_hour": {"utilization": 10}, "seven_day": {"utilization": 90}}))
+        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
+        cfg["telemetry"] = {"allowance_cmd": f"cat '{reading}'", "allowance_stop_weekly": 80}
+        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        with mock.patch("ccp.wt.run_cmd", side_effect=AssertionError("a command ran")):
+            code, _, _, err = self.ccp("tasks", "claim", "0002", root=self.main)
+        self.assertEqual(code, 5, err)
+        self.assertIn("allowance checkpoint", err)
+        self.assertNotIn("notify:", err)
 
 
 class Config(unittest.TestCase):
