@@ -6,9 +6,9 @@ kind: feature
 depends_on: []
 spec_refs: ["S29"]
 review_point: R3
-paths: ["pyproject.toml", "README.md", "ccp/", "tests/", "docs/spec/"]
+paths: ["pyproject.toml", "README.md", "docs/spec/05-operations.md", "tests/test_py39_import.py", "tests/test_python_floor*.py"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0045-python-floor-and-import-guard
