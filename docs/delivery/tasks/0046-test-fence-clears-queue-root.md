@@ -1,14 +1,14 @@
 ---
 task_id: 0046-test-fence-clears-queue-root
 title: The test fence clears an inherited QUEUE_ROOT
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S14"]
 review_point: R1
 paths: ["tests/__init__.py", "tests/"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0046-test-fence-clears-queue-root
@@ -72,4 +72,4 @@ fence clears an inherited `QUEUE_ROOT`, so no test reads a live queue (§14).
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #12 head `5417076` (squash `23b8ecf`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `python3 -m unittest tests.test_pkgdocs_config tests.test_fence` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0046-test-fence-clears-queue-root.json.
