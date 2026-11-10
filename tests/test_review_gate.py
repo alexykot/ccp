@@ -135,6 +135,121 @@ class ReviewGate(ToolkitFixture, unittest.TestCase):
 
 
 
+class RepeatVerify(ToolkitFixture, unittest.TestCase):
+    """SPEC §15.6 rule 4: a verify round with no fix round since the last says why, from the
+    runner's `--note`, and the reason reaches the verifier's record."""
+    run_phase = ReviewGate.run_phase
+    review = ReviewGate.review
+    fix = ReviewGate.fix
+    verdict = ReviewGate.verdict
+
+    def setUp(self):
+        super().setUp()
+        clock = iter(f"2026-10-22T{10 + i // 60:02d}:{i % 60:02d}:00Z" for i in range(600))
+        patch = mock.patch("ccp.runs.iso", side_effect=lambda: next(clock))
+        patch.start()
+        self.addCleanup(patch.stop)
+        self.ccp("tasks", "claim", "0002")
+
+    def verify_round(self, head: str = A, verdict: str = "reject"):
+        code, body, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", head)
+        self.assertEqual(code, 0, out + err)
+        code, _, out, err = self.verdict(head, verdict)
+        self.assertEqual(code, 0, out + err)
+        code, _, out, err = self.report(body["run_id"], f"Outcome: done\nVerdict: {verdict}\nHead: {head}\n"
+                                                         "## Friction\nnone\n")
+        self.assertEqual(code, 0, out + err)
+        return body["run_id"]
+
+    def test_a_second_verify_with_no_fix_since_needs_a_note(self):
+        self.review()
+        first = self.verify_round()
+        code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A)
+        self.assertEqual(code, 4, out + err)
+        self.assertIn("SPEC §15.6 rule 4", err)
+        self.assertIn(first, err)
+        self.assertFalse((self.q / "runs/0002-second/verify-2.json").exists())  # nothing opened
+        code, body, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A,
+                                        "--note", "the gate timed out on a slow runner")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["repeat_verify"], {"after": first})
+        run = json.loads((self.q / "runs/0002-second/verify-2.json").read_text())
+        self.assertEqual(run["repeat_verify"], {"after": first})
+        self.assertEqual(run["note"], "the gate timed out on a slow runner")
+
+    def test_a_note_file_gives_the_reason_too(self):
+        self.review()
+        self.verify_round()
+        f = Path(self._tmp.name) / "why.txt"
+        f.write_text("head moved by an integration merge\n")
+        code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A, "--note-file", str(f))
+        self.assertEqual(code, 0, out + err)
+
+    def test_a_fix_round_since_the_last_verify_needs_no_note(self):
+        self.review()
+        self.verify_round()
+        self.fix()
+        self.review(B)
+        code, body, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", B)
+        self.assertEqual(code, 0, out + err)
+        self.assertNotIn("repeat_verify", body)
+
+    def test_a_verify_run_that_never_reported_is_no_round(self):
+        self.review()
+        self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A)
+        code, body, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A, "--supersede")
+        self.assertEqual(code, 0, out + err)
+        self.assertNotIn("repeat_verify", body)
+
+    def test_a_fix_opened_in_the_same_second_counts_and_an_abandoned_one_does_not(self):
+        from ccp import verify
+        self.review()
+        first = self.verify_round()
+        self.ccp("prompt", "fix", "0002", "--pr", "7", "--head", A)
+        runs_dir = self.q / "runs/0002-second"
+        fix = json.loads((runs_dir / "fix.json").read_text())
+        fix["opened_at"] = json.loads((runs_dir / "verify.json").read_text())["opened_at"]
+        (runs_dir / "fix.json").write_text(json.dumps(fix))
+        self.assertIsNone(verify.repeat_round(self.q, "0002-second"))
+        fix["abandoned_at"] = fix["opened_at"]
+        (runs_dir / "fix.json").write_text(json.dumps(fix))
+        self.assertEqual(verify.repeat_round(self.q, "0002-second"), first)
+
+    def test_the_reason_reaches_the_verifiers_record(self):
+        self.review()
+        first = self.verify_round()
+        self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A, "--note", "flaky gate, rerun")
+        code, _, out, err = self.verdict(A)
+        self.assertEqual(code, 0, out + err)
+        rec = json.loads((self.q / "verification/0002-second.json").read_text())
+        held = [f for f in rec["findings"] if "flaky gate, rerun" in f]
+        self.assertEqual(len(held), 1, rec["findings"])
+        self.assertIn(first, held[0])
+
+    def test_a_finding_that_already_holds_the_reason_is_not_repeated(self):
+        self.review()
+        self.verify_round()
+        self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A, "--note", "flaky gate, rerun")
+        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec.update(task_id="0002-second", head_sha=A, verdict="approve", findings=["rerun: flaky gate, rerun"])
+        rec.pop("checked_at", None)
+        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it"}]
+        f = Path(self._tmp.name) / "verdict.json"
+        f.write_text(json.dumps(rec))
+        code, _, out, err = self.ccp("verify", "record", str(f))
+        self.assertEqual(code, 0, out + err)
+        rec = json.loads((self.q / "verification/0002-second.json").read_text())
+        self.assertEqual(rec["findings"], ["rerun: flaky gate, rerun"])
+
+    def test_a_first_verify_leaves_the_findings_alone(self):
+        self.review()
+        self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A, "--note", "first look")
+        code, _, out, err = self.verdict(A)
+        self.assertEqual(code, 0, out + err)
+        rec = json.loads((self.q / "verification/0002-second.json").read_text())
+        self.assertFalse(any("first look" in f for f in rec.get("findings") or []))
+
+
 class MergeIn(ToolkitFixture, unittest.TestCase):
     """§15.2: merging the integration branch in, the PR's own change
     unchanged, needs no new review; a changed diff still does."""

@@ -1049,7 +1049,8 @@ class GateFromSuite(SuiteFixture, unittest.TestCase):
         rec = json.loads((self.q / "runs/0002-second/verify.json").read_text())
         rec.update(reported_at="2026-10-22T00:00:00Z", outcome="done")
         (self.q / "runs/0002-second/verify.json").write_text(json.dumps(rec))
-        code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", "b" * 40)
+        code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", "b" * 40,
+                                     "--note", "a second round with no fix since")
         self.assertEqual(code, 0, out + err)
         code, _, _, err = self.record([{"suite_id": old}])
         self.assertEqual(code, 1)

@@ -8,6 +8,8 @@ its §23.8 audit (the full text only under `prompts.keep_body`; audits older tha
 the agent type and a description that starts with the run's task and phase; the prompt is the
 file's text, verbatim. The runner never passes `model` (§2). First it samples the allowance: at the
 5-hour park % it parks the task and refuses, exit 6, writing nothing else (§25.4 the session park).
+A verify round with no fix round since the task's last verify round needs `--note` with the reason
+(§15.6 rule 4): without it the command refuses, exit 4, nothing opened.
 
 Templates use `{{name}}`, `{{#name}}…{{/name}}` (kept when the value is not empty) and
 `{{^name}}…{{/name}}` (kept when it is). A name the renderer does not know is an error, so a
@@ -263,6 +265,21 @@ def review_gate(q: Path, tid: str, phase: str, a: Any) -> dict[str, str] | None:
     return {"reason": reason, "was": why}
 
 
+def repeat_gate(q: Path, tid: str, phase: str, note: str | None) -> dict[str, str] | None:
+    """§15.6 rule 4: a verify round with no fix round since the task's last verify round says why, from
+    `--note` (or `--note-file`); without one it is refused (exit 4), nothing opened. Returns what to
+    record on the run (`repeat_verify`: the verify run it follows), or None."""
+    if phase != "verify":
+        return None
+    after = verify.repeat_round(q, tid)
+    if after is None:
+        return None
+    if not note:
+        raise QueueError(f"{after} reported and no fix round opened since: a verify round with no fix round since "
+                         'the last says why (SPEC §15.6 rule 4). Give the reason with --note "<why>"', 4)
+    return {"after": after}
+
+
 def opener(q: Path, tid: str, st: dict[str, Any], holder: str | None) -> str | None:
     """§16.4: the runner slot opening a round of `tid`. Only the slot holding the lease may: `--holder`
     names the caller, and another slot is refused (exit 3). With several slots `--holder` is required;
@@ -303,6 +320,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     # (best effort: only the park refuses; a failed sample or wait write is a warning)
     session_warn = usage.session_step(cfg, q, tid, lambda: usage.sample_allowance(cfg, q, gate=False), f"ccp prompt {phase}")
     override = review_gate(q, tid, phase, a)
+    repeat = repeat_gate(q, tid, phase, note)
     runs.check_pending(q, runs.AGENT_TYPE[phase], a.supersede, caller)
     runs.check_running_rounds(q, tid, phase, caller, a.supersede)
     n = runs.next_round(q, tid, phase)
@@ -361,7 +379,8 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
                         extra={"pr": a.pr or None, "head": a.head or None,
                                # §14.1: a suite run from inside this worktree binds to the run
                                "worktree": (worktree if phase in ("implement", "fix") else own) or None,
-                               **({"allow_unreviewed_fix": override} if override else {})})
+                               **({"allow_unreviewed_fix": override} if override else {}),
+                               **({"repeat_verify": repeat} if repeat else {})})
     if rec["run_id"] != run_id:  # a run of this phase was opened between our count and now
         raise QueueError(f"run id moved from {run_id} to {rec['run_id']} while rendering: run ccp prompt again", 1)
     if override:
@@ -375,6 +394,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     return {"ok": True, "run_id": run_id, "phase": phase, "round": n, "prompt_path": str(prompt_file),
             "report_path": str(report), "prompt_ref": ref, "env_file": env_file or None, "expected_model": rec["expected_model"],
             "expected_effort": rec["expected_effort"], **({"allow_unreviewed_fix": override} if override else {}),
+            **({"repeat_verify": repeat} if repeat else {}),
             **({"warnings": warnings} if warnings else {}),
             "agent_call": {"subagent_type": runs.definition(cfg, runs.AGENT_TYPE[phase])[0], "description": desc,
                            "prompt": f"the text of {prompt_file}, verbatim", "model": "never pass it (SPEC §2)"}}
