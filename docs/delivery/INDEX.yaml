@@ -173,7 +173,7 @@ tasks:
     depends_on: [0033-package-doc-convention-owned-by-the-plane]
     path: tasks/0034-starter-house-rules.md
   - id: 0035-the-judge-never-produces-its-evidence
-    status: pending
+    status: done
     title: The seat that rules never produces the evidence it rules on
     depends_on: []
     path: tasks/0035-the-judge-never-produces-its-evidence.md

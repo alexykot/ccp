@@ -1,14 +1,14 @@
 ---
 task_id: 0035-the-judge-never-produces-its-evidence
 title: The seat that rules never produces the evidence it rules on
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S2", "S15"]
 review_point: R3
 paths: ["docs/spec/", "plugin/", "ccp/", "contracts/", "tests/"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0035-the-judge-never-produces-its-evidence
@@ -77,4 +77,4 @@ Separation of duties becomes a plane rule: the seat that rules on a task (the le
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #31 head `0700a86` (squash `d345eaf`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check && ccp docs check` exit 0. Record: verification/0035-the-judge-never-produces-its-evidence.json.
