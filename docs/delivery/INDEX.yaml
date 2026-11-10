@@ -183,7 +183,7 @@ tasks:
     depends_on: []
     path: tasks/0036-outside-changes-reach-main-through-a-task.md
   - id: 0037-worker-brief-rules
-    status: pending
+    status: done
     title: Generic worker rules go into the implementer, reviewer and verifier briefs
     depends_on: []
     path: tasks/0037-worker-brief-rules.md

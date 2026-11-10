@@ -1,7 +1,7 @@
 ---
 task_id: 0037-worker-brief-rules
 title: Generic worker rules go into the implementer, reviewer and verifier briefs
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13"]
@@ -50,4 +50,4 @@ The worker briefs carry three generic rules: a test module that the task's chang
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #34 head `62ac7dc` (squash `dafc4d5`): APPROVE. Passed: check-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0037-worker-brief-rules.json.
