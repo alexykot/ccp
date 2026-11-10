@@ -56,6 +56,20 @@ A task can carry text the operator must sign (a SPEC CURRENT → PROPOSED, a con
 
 *Append-only, newest last.*
 
+- 2026-11-10 — implementer. The field is `sign_off: brief`, `build` or `[brief, build]` (`ccp tasks check`
+  refuses any other value; `contracts/task_file.schema.json`). `ccp tasks sign-off <id> --by --words
+  [--stage] [--head]` (`ccp/lifecycle.py` `sign_off`) records a `sign_off` `recorded` event in the ledger
+  (stage, by, words, head; the event's `at` is when): a new event type, so `scripts/observability/lib.py`
+  and `contracts/observability_event.schema.json` list it (lib.py is outside the declared paths). A brief
+  sign-off covers the commit that last changed the task file; a build one the verified head
+  (`verification/<id>.json`) unless `--head` is given. `ccp tasks claim` refuses (exit 3) a new claim whose
+  brief sign-off is missing, before the auth probes; `ccp tasks close` refuses (exit 1, nothing merged) a
+  missing sign-off of either declared stage or a build sign-off at another head than the one it merges, and
+  on a re-run after a hand merge it refuses to reconcile without it. Staleness applies to build sign-offs
+  only: a brief one is signed before the PR exists, so a PR-head check would always fail it. SPEC: §3.2
+  item 9 and a new §3.5, §10.5 claim and close step 1; the text is the implementer's draft and needs the
+  operator's approval (§31). Tests: `tests/test_sign_off.py`.
+
 ## Verification notes
 
 *Append-only.*
