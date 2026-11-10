@@ -241,6 +241,12 @@
             "required": ["id", "cmd"],
             "properties": {"id": {"type": "string", "minLength": 1}, "cmd": {"type": "string", "minLength": 1}, "timeout_seconds": {"type": "integer", "minimum": 1, "default": 600}}
           }
+        },
+        "workers": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "How many check commands (docs.checks, and architect.checks) ccp docs check runs at once, each under its own timeout; results in declared order. 1 runs them one after another"
         }
       }
     },

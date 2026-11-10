@@ -93,7 +93,7 @@ tasks:
     depends_on: []
     path: tasks/0018-reason-for-a-repeat-verify.md
   - id: 0019-parallel-doc-checks
-    status: pending
+    status: done
     title: Run docs.checks and architect.checks in parallel, opt-in
     depends_on: []
     path: tasks/0019-parallel-doc-checks.md

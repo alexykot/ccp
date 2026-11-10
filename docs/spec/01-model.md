@@ -547,7 +547,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `ids` | id and reference patterns | §7 |
 | `task_log` | task directory, required keys and sections, `refs_any`, `kinds`, `max_checks`, soft words, `dry_run`, `reviews_dir`, `index`; the statuses are fixed | §5, §10 |
 | `adr` | `dir`, `index` (or `null`), `statuses`, `transitions`, `strict`, `template` (or `null` for the plane's) | §6 |
-| `package_docs`, `docs` | doc checks (`claude_md_dirs`, `language`, `path_ref_suffixes`, `docstring_globs`, `rules`), product check commands | §21 |
+| `package_docs`, `docs` | doc checks (`claude_md_dirs`, `language`, `path_ref_suffixes`, `docstring_globs`, `rules`), product check commands (`docs.checks`, `docs.workers`) | §21 |
 | `architect` | the architect seat, house rules, budgets, refactors | §19, §20 |
 | `review_points` | the review-point register | §22 |
 | `worktrees`, `env`, `merge`, `auth_check` | worktrees and environment hooks (`ccp wt`), the merge step (`merge.command`), credential probes (`auth_check.probes`) | §12, §15, §30 |
