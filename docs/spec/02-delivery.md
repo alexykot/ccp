@@ -478,7 +478,8 @@ not the path. A row naming `modules_ran` and `modules_cached` reads as `ran` and
   `exit_code`, `tests_run`, `tests_skipped`, `seconds`, `ran` and `cached` are filled from that run
   where the entry leaves them out, and `command` names it when absent. The suite run must be bound to
   the task's latest verify run. A differing `exit_code`, an unknown, unfinished or unbound run,
-  another phase's, or an earlier verify round's is refused. `cold` stays the verifier's to give.
+  another phase's, or an earlier verify round's is refused. `cold` is filled as `true` when the cited
+  run has `cached == 0` and the entry leaves it out; an explicit `cold` from the verifier wins.
 - **Logs are pruned.** A recording `ccp suite run` removes summary-mode logs
   (`runs/<task>/*-suite-st-*.log`, `runs/_suite-logs/st-*.log`) older than `suite.log_keep_days`
   (default 14): no other file, no symlink, nothing outside `runs/`, at most 5,000 looked at, a failure
@@ -547,7 +548,8 @@ globs>], "review": <bool>}`):
   option, nothing cached); `ccp tasks check` refuses another `gate` value;
 - the gate run records `ran` and `cached` from its `ccp suite run` (the result file, else the
   product's `suite.summary` patterns; `modules_ran`/`modules_cached` read the same) and `cold: true`
-  for a cold run. `ccp verify record` refuses an approve with no gate run giving both counts, and on a
+  for a cold run; a cited suite run with `cached == 0` gives it (§14.4), and an explicit value still
+  wins. `ccp verify record` refuses an approve with no gate run giving both counts, and on a
   cold-gate task one whose counted run is not cold with nothing cached. The verify report's `Suite:`
   line ends `ran <r>, cached <c>`, and `ccp report` refuses a verify report without them;
 - a suite run with cached units, from any worker, is a warm run, filed under `suite_seconds_warm`,

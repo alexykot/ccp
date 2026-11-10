@@ -21,6 +21,7 @@ updated: 2026-11-06
 ## Context (not checked)
 
 - `ran` and `cached` already fill from the gate's `suite_id`; `cold` never did, so every cold task's approve needed a hand edit.
+- Operator's ruling (2026-11-10, sm-20261110T094507Z-0f40): "In PR #16, with this ruling in task 0020's Context. (1) section 14.4: replace '`cold` stays the verifier's to give.' with '`cold` is filled as `true` when the cited run has `cached == 0` and the entry leaves it out; an explicit `cold` from the verifier wins.' (2) section 15.3: wherever it says the verifier must set `cold: true` by hand for a cold task, say instead that a cited suite run with `cached == 0` satisfies it, and an explicit value still wins. Keep the rest of the cold rule (when a task needs a cold run) unchanged. (3) The `part_lane` render value in `ccp/prompt.py` is accepted as the narrowest change the prompt wording needs. List it in the PR body as outside the declared paths. Section 31: the passages are made false by the task's own feature (cold inference, from the triage the operator accepted, ADR-0035), so the operator's 2026-11-10 ruling covers them. Quote it and the old text. No merge gate."
 
 ## Scope
 
@@ -49,6 +50,11 @@ updated: 2026-11-06
   `suite.roles`) on the mutation-run instruction; that needed one render value in ccp/prompt.py, outside
   the task's `paths`. Open: SPEC §14.4 ("`cold` stays the verifier's to give") and §15.3 ("and `cold: true`
   for a cold run") still describe the old rule; the task gave no SPEC edit, so none was written.
+
+- 2026-11-10 (implementer, round 2): per the operator's 2026-11-10 ruling (Context), SPEC §14.4 now says
+  `cold` is filled as `true` from a cited run with `cached == 0` when the entry leaves it out, an explicit
+  `cold` winning; §15.3 says a cited suite run with `cached == 0` gives `cold: true`, an explicit value still
+  winning. No other SPEC, docs/cli or plugin sentence said who sets `cold`. No code change this round.
 
 ## Verification notes
 
