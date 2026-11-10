@@ -6,7 +6,7 @@ kind: feature
 depends_on: []
 spec_refs: ["S29"]
 review_point: R3
-paths: ["scripts/sync-product-docs.sh", "scripts/run-checkout.sh", "docs/spec/05-operations.md", "tests/test_release.py", "tests/test_sync*.py"]
+paths: ["scripts/sync-product-docs.sh", "scripts/run-checkout.sh", "docs/spec/05-operations.md", "tests/test_release.py", ".github/", "tests/test_sync*.py"]
 created: 2026-11-09
 updated: 2026-11-10
 ---

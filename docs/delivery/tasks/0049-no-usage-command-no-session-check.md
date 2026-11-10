@@ -23,6 +23,7 @@ unknown".
 
 - §16.3 rule 5 refuses a claim beside others when no usage reading exists. A product with no usage
   command, for example on a plan with no session limit, therefore never gets a second runner.
+- The fix belongs in `ccp/parallel.py` or `ccp/usage.py`; `claim` only forwards the sample. If `ccp/lifecycle.py` must change, say so in the report: it is not in this task's paths.
 - Operator ruling, 2026-11-10, approving this § change: §16.3 rule 5 gains the sentence "A product
   without `telemetry.allowance_cmd` reads no usage: the rule passes." Quote it in the PR's §31 section.
 
