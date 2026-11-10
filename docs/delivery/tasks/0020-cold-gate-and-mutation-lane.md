@@ -41,6 +41,15 @@ updated: 2026-11-06
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): `fill_gate` (ccp/verify.py) marks a `gate.runs` entry `cold: true` when it cites a
+  `suite_id` whose recorded run has `cached` 0, the entry's own `cached` is 0 after filling, and the entry
+  gives no `cold`; a `cold` the verifier writes (true or false) stays, and an entry citing no suite run is
+  not marked. The verify prompt now says `record` marks such a run cold instead of asking for `cold: true`.
+  The review and verify prompts name the `part` role's lane (`--lane {{part_lane}}`, from plane.json
+  `suite.roles`) on the mutation-run instruction; that needed one render value in ccp/prompt.py, outside
+  the task's `paths`. Open: SPEC §14.4 ("`cold` stays the verifier's to give") and §15.3 ("and `cold: true`
+  for a cold run") still describe the old rule; the task gave no SPEC edit, so none was written.
+
 ## Verification notes
 
 *Append-only.*
