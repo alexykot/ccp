@@ -79,6 +79,17 @@ operator's approval of the new text.
 
 *Append-only, newest last.*
 
+- 2026-11-10 — implementer: `refs.Ids.task_mention_patterns(numbers)` and `delivery_id_patterns(numbers)`
+  are now methods over the task log's numbers (`tasklog.task_numbers`, the `NNNN-slug.md` files at the
+  product's width), embedded as an alternation; no numbers, no task patterns. A task id is matched by
+  its number, not its whole id (as Scope says), and never when a file extension (`.\w`) follows it. The
+  bare form keeps the zero-padded requirement (a number at the width that does not start with `0` is
+  never bare). `task <n>` takes an optional colon (`Task: 7`), as Scope lists it, and the number
+  padded or not, up to the width. Stamp ids (`ar-`, `sh-`, `sm-`) always match. `pkgdocs.check` reads
+  the numbers once and passes them to `ids_check` and `docrules.check` (`rules.no_ids`); each reads
+  them itself when called alone. §21.3 restates the forms and the comment scope; §21.6's `no_ids`
+  wording is untouched (the task gives no §21.6 edit), and §21.3 now says `no_ids` uses the same forms.
+
 ## Verification notes
 
 *Append-only.*
