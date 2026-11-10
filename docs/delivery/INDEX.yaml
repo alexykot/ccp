@@ -68,7 +68,7 @@ tasks:
     depends_on: [0008-spec-switch-to-parts]
     path: tasks/0013-prompt-bodies-opt-in.md
   - id: 0014-neutral-ci-template
-    status: pending
+    status: done
     title: Neutral defaults in the CI template
     depends_on: [0008-spec-switch-to-parts]
     path: tasks/0014-neutral-ci-template.md

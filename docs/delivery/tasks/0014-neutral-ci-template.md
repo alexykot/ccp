@@ -1,7 +1,7 @@
 ---
 task_id: 0014-neutral-ci-template
 title: Neutral defaults in the CI template
-status: pending
+status: done
 kind: feature
 depends_on: ["0008-spec-switch-to-parts"]
 spec_refs: ["S15"]
@@ -9,7 +9,7 @@ adr_refs: ["0034 D12"]
 review_point: R1
 paths: ["templates/github/workflows/formal-unit-lint.yml", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # Task: 0014-neutral-ci-template
@@ -64,4 +64,4 @@ The optional CI template ships no database service, an empty `STORE_TEST_PATTERN
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #8 head `1d4ead7` (squash `70e590f`): APPROVE. Passed: tmpl-01. Gate: `env -u QUEUE_ROOT scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0014-neutral-ci-template.json.
