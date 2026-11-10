@@ -269,6 +269,13 @@ The seat is on when `plane.json` has an `architect` block (§8; unknown keys are
 | `probes`, `checks`, `budgets` | — | Read-only probes (§19.7), product check commands and budgets (§20.1, §20.2) |
 | `areas`, `metrics`, `private_dirs`, `shape_only_dirs` | — | Path groups for measurements, extra metrics (§27), paths the architect may not read, paths judged on shape only |
 
+**No test under two checks.** A test runs once per gate, and a failure belongs to one check. The
+config is refused when two `checks` select the same tests: each check's `cmd` resolves to the test
+modules, classes and tests it names (`tests.test_x`, `tests.test_x.Case`, `tests/test_x.py::Case`).
+Two checks overlap when they name the same module, class or test, or one contains the other. The
+refusal names both checks and the shared module or class. A test directory or a `discover` run
+names no module and is not judged.
+
 Every default above can be overridden per product. `shape` is started by the task-log owner, when
 `ccp tasks check` fails on an unshaped ADR; it never runs on its own when an ADR is accepted.
 
