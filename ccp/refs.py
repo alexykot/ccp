@@ -86,10 +86,11 @@ class Ids:
     @cached_property
     def task_mention_patterns(self) -> tuple[str, ...]:
         """A task named in prose or code, at the product's width: its id (number, `-`, slug), its
-        zero-padded number standing alone, or `task <n>` / `task #<n>`."""
+        zero-padded number standing alone (a sentence's full stop may follow it, a decimal's digits
+        may not), or `task <n>` / `task #<n>`."""
         w = self.task_width
         return (rf"(?<![\w-])\d{{{w}}}-[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?![\w-])",
-                rf"(?<![\w.-])0\d{{{w - 1}}}(?![\w.-])",
+                rf"(?<![\w.-])0\d{{{w - 1}}}(?![\w-]|\.\w)",
                 rf"(?i:\btask\s+#?)\d{{1,{w}}}\b")
 
     @cached_property
