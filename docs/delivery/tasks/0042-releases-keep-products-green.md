@@ -1,7 +1,7 @@
 ---
 task_id: 0042-releases-keep-products-green
 title: A plane release keeps conforming products green
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S29"]
@@ -74,4 +74,4 @@ When a plane release is installed, `ccp` checks each bound product's integration
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #41 head `d4f898e` (squash `32c2573`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0042-releases-keep-products-green.json.
