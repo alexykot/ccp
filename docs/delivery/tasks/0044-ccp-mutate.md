@@ -1,7 +1,7 @@
 ---
 task_id: 0044-ccp-mutate
 title: ccp mutate proves a test bites
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12", "S15"]
@@ -71,4 +71,4 @@ updated: 2026-11-10
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #38 head `7f7ecd8` (squash `a63ce64`): APPROVE. Passed: none. Not run by the verifier: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0044-ccp-mutate.json.

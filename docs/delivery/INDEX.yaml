@@ -218,7 +218,7 @@ tasks:
     depends_on: []
     path: tasks/0043-leased-task-file-edited-only-in-its-pr.md
   - id: 0044-ccp-mutate
-    status: pending
+    status: done
     title: ccp mutate proves a test bites
     depends_on: []
     path: tasks/0044-ccp-mutate.md
