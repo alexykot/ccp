@@ -178,7 +178,7 @@ tasks:
     depends_on: []
     path: tasks/0035-the-judge-never-produces-its-evidence.md
   - id: 0036-outside-changes-reach-main-through-a-task
-    status: pending
+    status: done
     title: Changes made outside the plane reach the integration branch through a task
     depends_on: []
     path: tasks/0036-outside-changes-reach-main-through-a-task.md
