@@ -1,7 +1,7 @@
 ---
 task_id: 0041-product-declared-report-fields
 title: Products declare required report fields that ccp report checks
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S8", "S13"]
@@ -68,4 +68,4 @@ A product declares verdict lines every implementer report must state (for exampl
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #42 head `c007759` (squash `487a489`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0041-product-declared-report-fields.json.

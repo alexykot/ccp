@@ -203,7 +203,7 @@ tasks:
     depends_on: [0039-operator-sign-off-record]
     path: tasks/0040-operator-notification-triggers.md
   - id: 0041-product-declared-report-fields
-    status: pending
+    status: done
     title: Products declare required report fields that ccp report checks
     depends_on: []
     path: tasks/0041-product-declared-report-fields.md
