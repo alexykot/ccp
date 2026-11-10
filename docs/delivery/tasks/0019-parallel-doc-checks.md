@@ -22,6 +22,14 @@ updated: 2026-11-06
 
 - Checks run serially today; a product with many slow checks waits on their sum.
 - Serving checks from a product's own cache is product work.
+- Lead's ruling, 2026-11-10 (on the round-1 open question): "Add the proposed text to section 21.5
+  in PR #15, replacing whatever there says the checks run serially: '`docs.workers` (default 1) is how
+  many check commands (`docs.checks` and `architect.checks`) run at once, each under its own timeout;
+  results are reported in declared order.' Also add `docs.workers` wherever the SPEC or docs/cli lists
+  the `docs` block's keys. Record this ruling in task 0019's Context. Section 31: section 21.5's serial
+  description is made false by the task's change. The knob is the task's own approved scope (parallel
+  doc checks, from the triage the operator accepted, ADR-0035), so the operator's 2026-11-10 ruling
+  covers it. Quote it and the old text in the PR body. No merge gate."
 
 ## Scope
 
@@ -58,6 +66,10 @@ updated: 2026-11-06
   the other, in one pool per list, so the `check E<n>` and `docs check <id>` lines are the same as a
   serial run's. The task gives no SPEC text, so §21.5 still describes serial runs: the SPEC line for
   the knob is an open question for the lead.
+- 2026-11-10 (implementer, round 2): per the lead's ruling in Context, §21.5 now carries the
+  `docs.workers` sentence (it had no explicit serial wording, so the sentence is added after the
+  process-group line), and §8.1's block table names `docs.checks` and `docs.workers`. docs/cli lists
+  no `docs` block keys, so it is unchanged.
 
 ## Verification notes
 
