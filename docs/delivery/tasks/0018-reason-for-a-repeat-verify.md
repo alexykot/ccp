@@ -1,7 +1,7 @@
 ---
 task_id: 0018-reason-for-a-repeat-verify
 title: Enforce a reason for a verify round with no fix since the last
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S15"]
@@ -9,7 +9,7 @@ adr_refs: []
 review_point: R2
 paths: ["ccp/prompt.py", "ccp/verify.py", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # Task: 0018-reason-for-a-repeat-verify
@@ -54,4 +54,4 @@ updated: 2026-11-06
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #14 head `91f9ea8` (squash `5f66d3c`): APPROVE. Passed: verify-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0018-reason-for-a-repeat-verify.json.
