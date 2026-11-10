@@ -68,9 +68,38 @@ class Placeholders(unittest.TestCase):
     def test_a_quoted_placeholder_passes(self):
         self.p.task("0001-a")
         append(self.p, "0001-a", "- The check names `NNNN-kebab-slug` and ``As a <role>``, and\n"
-                                 "  `One line,\n  imperative` and `<preconditions` too.\n\n"
+                                 "  `One line, imperative` and `<preconditions` too.\n\n"
                                  "```\ncreated: YYYY-MM-DD\n```\n\n~~~text\n<concrete, observable result>\n~~~\n")
         self.assertEqual(self.errs(), [])
+
+    def test_the_refusal_says_backticks_quote_the_text(self):
+        self.p.task("0001-a")
+        append(self.p, "0001-a", "- dates are written YYYY-MM-DD\n")
+        errs = self.placeholder_errs()
+        self.assertEqual(len(errs), 1, errs)
+        self.assertTrue(errs[0].endswith("or put it in backticks if you mean the text itself"), errs[0])
+
+    def test_a_stray_backtick_does_not_hide_a_later_line(self):
+        self.p.task("0001-a")
+        append(self.p, "0001-a", "steps: run `ccp\nexpect: <concrete, observable result>\nnotes: end` ok\n")
+        errs = self.placeholder_errs()
+        self.assertEqual(len(errs), 1, errs)
+        self.assertIn("'<concrete, observable result>'", errs[0])
+
+    def test_a_fence_closes_only_on_a_bare_line_as_long_as_its_opener(self):
+        self.p.task("0001-a")
+        append(self.p, "0001-a", "```\nfoo\n```python\nYYYY-MM-DD\n```\n\n"
+                                 "````\n```\nNNNN-kebab-slug\n`````\n")
+        self.assertEqual(self.errs(), [])
+
+    def test_line_numbers_count_newlines_only(self):
+        self.p.task("0001-a")
+        f = self.p.root / "docs/delivery/tasks/0001-a.md"
+        n = f.read_text().count("\n") + 2
+        append(self.p, "0001-a", "a\x0cb\nYYYY-MM-DD\n")
+        errs = self.placeholder_errs()
+        self.assertEqual(len(errs), 1, errs)
+        self.assertTrue(errs[0].startswith(f"docs/delivery/tasks/0001-a.md:{n}: "), errs[0])
 
     def test_a_code_span_does_not_reach_across_a_paragraph(self):
         self.p.task("0001-a")

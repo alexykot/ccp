@@ -81,8 +81,10 @@ INDEX_ID_RE = re.compile(r"^  - id: (\S+)$", re.M)
 # not filled in. A placeholder inside a code span or a fenced block is quoted, not left, so it is not read.
 PLACEHOLDERS = ("NNNN-kebab-slug", "YYYY-MM-DD", "As a <role>", "<preconditions",
                 "<concrete, observable result>", "One line, imperative")
-FENCE_RE = re.compile(r"^[ \t]*(```|~~~)[^\n]*\n.*?^[ \t]*\1[^\n]*$", re.M | re.S)
-CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)(?:(?!\n[ \t]*\n).)+?(?<!`)\1(?!`)", re.S)
+# A fence closes on a line of only its own character, at least as many as opened it; a code span
+# stays on one line, so one stray backtick cannot quote the lines after it.
+FENCE_RE = re.compile(r"^[ \t]*(?P<f>(?P<c>[`~])(?P=c){2,})[^\n]*\n.*?^[ \t]*(?P=f)(?P=c)*[ \t]*$", re.M | re.S)
+CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)[^\n]+?(?<!`)\1(?!`)")
 # §5.2: what an empty ref list that includes spec_refs is told to do.
 SPEC_REFS_HINT = " — list the SPEC sections this task answers to in `spec_refs` and cite them in its text (§5.2)"
 
@@ -284,8 +286,9 @@ def _check_placeholders(t: dict[str, Any], rel: str) -> list[str]:
     if t.get("status") in TERMINAL:
         return []
     text = CODE_SPAN_RE.sub(_blank, FENCE_RE.sub(_blank, t["_text"]))
-    return [f"{rel}:{n}: template placeholder {ph!r} is still there — write the task's own text in its place (§5)"
-            for n, line in enumerate(text.splitlines(), 1) for ph in PLACEHOLDERS if ph in line]
+    return [f"{rel}:{n}: template placeholder {ph!r} is still there — write the task's own text in its place "
+            "(§5), or put it in backticks if you mean the text itself"
+            for n, line in enumerate(text.split("\n"), 1) for ph in PLACEHOLDERS if ph in line]
 
 
 def _spec_hint(lists: list[str]) -> str:

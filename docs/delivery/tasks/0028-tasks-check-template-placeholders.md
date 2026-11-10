@@ -82,6 +82,14 @@ each placeholder still there, so a new user or an agent fixes it before a runner
 - SPEC §5 gets a note on the three refusals. Tests: `tests/test_task_placeholders.py`.
 - 2026-11-10 — Second round, per ruling sm-20261110T012002Z-e580: the writing-tasks skill's
   refusal list names the three new refusals; the ruling is recorded under Context; §21.1 unchanged.
+- 2026-11-10 — Fix round 1 (review-2):
+  - A code span now stays on one line, so one stray backtick cannot quote the placeholders on the
+    lines after it.
+  - A fence closes only on a line holding just its own character, at least as many as opened it.
+    A closer with an info string no longer closes the block.
+  - The refusal ends "or put it in backticks if you mean the text itself", so a task that means a
+    placeholder literally knows how to quote it.
+  - Line numbers count `\n` only, not the other breaks that `splitlines()` splits on.
 
 ## Verification notes
 
