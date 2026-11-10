@@ -1,7 +1,7 @@
 ---
 task_id: 0017-drop-the-top-level-lease
 title: Drop work.json's top-level lease
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S16", "S23"]
@@ -9,7 +9,7 @@ adr_refs: []
 review_point: R2
 paths: ["ccp/lifecycle.py", "ccp/queue.py", "ccp/forecast.py", "scripts/observability/lib.py", "contracts/", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # Task: 0017-drop-the-top-level-lease
@@ -63,4 +63,4 @@ updated: 2026-11-06
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #13 head `aa593e4` (squash `110c964`): APPROVE. Passed: lease-01, code-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check && ccp docs check` exit 0. Record: verification/0017-drop-the-top-level-lease.json.
