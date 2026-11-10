@@ -428,15 +428,44 @@ A gate lane declared as stages also runs it as its last stage, `plane-docs` (§1
 
 ### 21.3 Package-doc rules: the core
 
+The plane owns the package-doc convention; a product's docs and the plane's own instructions point
+here rather than restate it. A product's docs come in three tiers, by how a session loads them (§9.6):
+
+| Tier | File | Loaded |
+|---|---|---|
+| Project brief | the root `CLAUDE.md` | always |
+| Package doc | `CLAUDE.md` in a source directory (`claude_md_dirs`, or `doc_name: CLAUDE.md`) | automatically, when a session reads a file under that directory |
+| On-demand package doc | `doc_name` (default `.claude.md`) in a source directory | when a session reads it |
+
+A package doc is a map of what exists in its directory: what each part is for and where to look. It
+is never a record of what a task did; that is the task log and Git.
+
 The rules are opt-in: they run only with a `package_docs` block. The core is language-neutral.
 Every directory below the root that holds source (not exempt) carries a package doc (`doc_name`, or
-`CLAUDE.md` for `claude_md_dirs`). Each doc:
+`CLAUDE.md` for `claude_md_dirs`), and the language pack's files carry module docstrings (§21.4).
+Each doc:
 
 - opens with a `# ` title;
 - has no heading naming a plan (`banned_headings`);
 - is no longer than `size_ratio` × its directory's source lines;
 - names no backticked path with a `path_ref_suffixes` suffix (default `.py .sql .json .md .sh`)
-  that exists neither from the root nor from its directory.
+  that exists neither from the root nor from its directory;
+- names no delivery id (below).
+
+**No delivery ids (`no_delivery_ids`, default `true`).** No line of a package doc, and no code
+comment of a file under `docstring_globs`, carries a task, finding or ruling id. Comments are what
+the language pack reads as comments (§21.4): strings and docstrings are not comments. Each is
+reported as `file:line` with the ids it carries. The plane's ids are:
+
+- a task: its id (`NNNN-slug`), its zero-padded number standing alone (`0042`, which a full stop may
+  follow and a decimal's digits may not) or `task 42` / `task #0042`, at `ids.task.width` (§7);
+- an architect pass or one of its findings: `ar-<stamp>-<hex4>` or `sh-<stamp>-<hex4>`, with
+  `#F<n>` for a finding;
+- a spec question, whose answer is a ruling (§17): `sm-<stamp>-<hex4>`.
+
+`delivery_id_patterns` adds the product's own ids (its findings, rulings, tickets) as regexes,
+checked when the config loads. `false` turns the check off. Paths under `rules.history_attr`
+(§21.6) are skipped.
 
 In a git checkout only tracked files count. The root is not judged: its `CLAUDE.md` is the project
 brief.
@@ -450,7 +479,7 @@ to the core's (`.sql .json .md`; `.git .idea .claude docs node_modules`) unless 
 `docstring_globs`. `language: none` with `docstring_globs` set warns.
 
 - **python:** source `.py`, exempt `__pycache__ .venv`. Each file under `docstring_globs` (skipping
-  `__pycache__`) parses and carries a module docstring. Opt-in `rules.no_call_bullets: true`: the
+  `__pycache__`) parses and carries a module docstring. Its comments are its `#` comments. Opt-in `rules.no_call_bullets: true`: the
   docstring does not list functions as backticked call bullets (`` - `name(...)` ``).
 
 A pack is a module in `ccp/doclang/`.
