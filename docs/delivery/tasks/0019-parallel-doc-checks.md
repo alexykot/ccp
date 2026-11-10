@@ -1,7 +1,7 @@
 ---
 task_id: 0019-parallel-doc-checks
 title: Run docs.checks and architect.checks in parallel, opt-in
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S20", "S21"]
@@ -9,7 +9,7 @@ adr_refs: []
 review_point: R2
 paths: ["ccp/rules.py", "ccp/config.py", "contracts/plane_config.schema.json", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # Task: 0019-parallel-doc-checks
@@ -73,4 +73,4 @@ updated: 2026-11-06
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #15 head `9465b80` (squash `b11f622`): APPROVE. Passed: par-01, par-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0019-parallel-doc-checks.json.
