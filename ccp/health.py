@@ -21,12 +21,13 @@ Everything comes from data the plane already holds; nothing here is a target or 
   cannot be shown cold or warm `suite_seconds_unverified`. Only a run with no suite record falls back
   to its `Suite:` line.
 
-A task's **active time** is its wall time less the time it waited (`waits_s`): its `waiting_on` waits,
-set to clear (an open one to the merge), and its suite runs' waits on an exclusive lane (§16.6: a
-`started` row's `wait_s`, a `busy` row's `waited_s` in `runs/_suites.jsonl`), each instant counted
-once and only inside the task's wall time. The trend is the median active time of the last 5 timed
-tasks against the 10 before them; above `architect.drift_ratio` is drift, one of the architect's
-triggers (§19.6), so a wait on the operator, the lead or a lane never reads as slower work.
+A task's **active time** is its wall time less the time it waited (`waits_s`): every `waiting_on`
+interval, set to clear, whatever it waited on (§23.3's waits; an open one runs to the merge), and its
+suite runs' waits on an exclusive lane (§16.6: a `started` row's `wait_s`, a `busy` row's `waited_s`
+in `runs/_suites.jsonl`), each instant counted once and only inside the task's wall time. The trend
+is the median active time of the last 5 timed tasks against the 10 before them; above
+`architect.drift_ratio` is drift, one of the architect's triggers (§19.6), so time spent waiting
+never reads as slower work.
 """
 from __future__ import annotations
 

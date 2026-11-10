@@ -21,6 +21,14 @@ The architect's drift trigger compares active time (wall time minus time waiting
 ## Context (not checked)
 
 - Wall time includes sign-off holds and lane waits, which inflated the drift ratio.
+- Ruling (2026-11-10, on the implementer's open question): "The broader reading is right. Drift
+  subtracts every `waiting_on` interval, whatever its reason (operator, lead, quota, reauth, runner),
+  plus exclusive-lane waits. Active time is time not spent waiting, and a quota or reauth wait is no
+  more the task's work than an operator wait. State it by reference to section 23.3's wait
+  definition rather than as a second list of reasons (one home per fact), naming exclusive-lane
+  waits as the one addition. Record this in task 0022's Context. The task's Intent listed examples,
+  not an exhaustive set. Section 31: this is the task's own feature (ADR-0035 D3, which the operator
+  accepted), so the 2026-11-10 ruling covers any SPEC wording. No merge gate."
 
 ## Scope
 
@@ -51,6 +59,12 @@ The architect's drift trigger compares active time (wall time minus time waiting
   read as examples. SPEC §19.6 item 4 reworded from ADR-0035 D3 (the task gave no CURRENT → PROPOSED
   text). `docs/design/board.md`'s "wall-time drift" became "active-time drift" so the doc stays true
   (outside the declared paths). Thresholds unchanged.
+- 2026-11-10 (implementer, round 2): per the ruling in Context, SPEC §19.6 item 4 now defines active
+  time by reference to §23.3's `wait_hours` (every `waiting_on` interval, whatever it waited on),
+  naming exclusive-lane waits as the one addition, instead of listing reasons. The `health.py`
+  module docstring dropped its "operator, the lead or a lane" list the same way. No code change: the
+  wait rule (`drill._waits`, read by `health.waits_s`) already took every `waiting_on` event with no
+  list of reasons of its own, and the tests already cover a `quota` wait.
 
 ## Verification notes
 

@@ -110,10 +110,10 @@ log. A pass is due when **any** of these holds (each threshold is a knob, §19.1
 4. **Health drift.** `ccp health` finds the median active time of the last 5 tasks above
    `drift_ratio` (default 1.5) times the median of the 10 before them (drift needs 15 timed tasks),
    or a house-rule budget (§20.2) over its limit on the integration branch. A task's active time is
-   its wall time less its waits: its `waiting_on` waits, set to clear, and its exclusive-lane waits
-   (§16.6), each instant counted once. A task waiting on the operator, the lead or a lane does not
-   count as slower work. Drift and budget triggers fire only when the last pass did not see them, so
-   a lasting drift does not call a pass at every merge.
+   its wall time less its waits: every interval §23.3's `wait_hours` counts, whatever it waited on,
+   plus its suite runs' waits on an exclusive lane (§16.6), each instant counted once and only inside
+   its wall time. Time spent waiting does not count as slower work. Drift and budget triggers fire
+   only when the last pass did not see them, so a lasting drift does not call a pass at every merge.
 5. **On demand.** The owner or the operator runs `ccp architect run --force`. It works with no
    `architect` block too (an on-demand pass needs no scheduled reviews), but it is still refused
    while a pass is running or a report awaits triage; a `shape` run is refused only while one is
