@@ -89,6 +89,12 @@ operator's approval of the new text.
   the numbers once and passes them to `ids_check` and `docrules.check` (`rules.no_ids`); each reads
   them itself when called alone. §21.3 restates the forms and the comment scope; §21.6's `no_ids`
   wording is untouched (the task gives no §21.6 edit), and §21.3 now says `no_ids` uses the same forms.
+- 2026-11-10 — implementer (fix round 1): §21.6's `no_ids` default sentence now points at §21.3's
+  task forms, matched the same way (logged tasks only, an empty log gives none), instead of listing the
+  old unconditional forms, so the two sections agree with the code. §21.3 adds that a task's own file
+  name counts as a file name (never flagged). New test `test_task_numbers_take_only_task_files_at_the_width`
+  pins that `tasklog.task_numbers` ignores `README.md`, `INDEX.md`, wrong-width numbers, uppercase
+  slugs and non-`.md` files.
 
 ## Verification notes
 

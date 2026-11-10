@@ -484,11 +484,12 @@ only in files under `docstring_globs`, as the language pack reads them (§21.4):
 reported as `file:line` with the ids it carries. The plane's ids are:
 
 - a task in the task log, at `ids.task.width` (§7): its id (`NNNN-slug`), unless a file extension
-  follows it (`0001-init.sql` is a file name); its zero-padded number standing alone (`0042`, which
-  a full stop may follow and a decimal's digits may not); or `task 42`, `task #0042` or `Task: 42`.
-  Each counts only when its number names a task file in the task log, which `ccp docs check` reads
-  once per run: a number that names none (`chmod 0644`, `task 2026`, `2026-q3-review`) is not an
-  id. The same task forms, matched the same way, are `rules.no_ids`'s default (§21.6);
+  follows it (`0001-init.sql` is a file name, a task's own file name included); its zero-padded
+  number standing alone (`0042`, which a full stop may follow and a decimal's digits may not); or
+  `task 42`, `task #0042` or `Task: 42`. Each counts only when its number names a task file in the
+  task log, which `ccp docs check` reads once per run: a number that names none (`chmod 0644`,
+  `task 2026`, `2026-q3-review`) is not an id. The same task forms, matched the same way, are
+  `rules.no_ids`'s default (§21.6);
 - always, an architect pass or one of its findings: `ar-<stamp>-<hex4>` or `sh-<stamp>-<hex4>`,
   with `#F<n>` for a finding;
 - always, a spec question, whose answer is a ruling (§17): `sm-<stamp>-<hex4>`.
@@ -537,9 +538,10 @@ Each is off until named.
   punctuation other than `-` and `_` removed, spaces to `-`, a repeated heading numbered `-1`, `-2`,
   …).
 - **`no_ids: {globs, patterns?}`.** No line of a file under `globs` carries a delivery id, reported
-  as `file:line`. By default: a task id (`NNNN-slug`), a zero-padded task number (`0042`) and
-  `task 42` / `task #0042`, at the product's task width. Other ids (findings, tickets) are the
-  product's own regex `patterns`, which replace the defaults and are checked when the config loads.
+  as `file:line`. By default: the task forms of §21.3, matched the same way (only a task in the task
+  log counts, so an empty log gives none), at the product's task width. Other ids (findings,
+  tickets) are the product's own regex `patterns`, which replace the defaults and are checked when
+  the config loads.
 - **`history_attr: <name>`.** Tracked files whose git attribute `<name>` is set are history
   (untracked files never are); the rules above skip them, and `ccp docs history-paths` lists them for
   the product's own absence checks. When git cannot answer, nothing counts as history.
