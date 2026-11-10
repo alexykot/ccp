@@ -666,8 +666,8 @@ that names none unless it is `ran: false` with `rests_on`, and one whose evidenc
 on the task produced (`lead`, `runner`, §2.3) unless its `operator_step` names an approved operator
 step: the task's gate `<task_id>-<n>` (§17.9) of class `operator`, closed and approved (a standing
 approval is such a gate). It names the check and the seat; an `operator_step` that is not such a gate
-is refused whoever produced the evidence. `ccp verify merge-ok` and `ccp verify check` read a record written
-before the field and refuse a ruling seat's evidence on the same terms.
+is refused whoever produced the evidence. `ccp verify merge-ok` and `ccp verify check` read a
+record written before the field and refuse a ruling seat's evidence on the same terms.
 
 ### 15.5 Merge
 
