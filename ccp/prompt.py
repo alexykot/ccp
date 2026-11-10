@@ -62,6 +62,31 @@ SUITE_LANES = {
 SUITE_LANES["fix"] = SUITE_LANES["implement"]
 
 
+def report_lines(cfg: Config, phase: str) -> str:
+    """The report contract's phase lines; for implement and fix, a line naming each verdict the product
+    declares in plane.json `report.required_fields` with its allowed values (§13.4)."""
+    declared = (cfg.report or {}).get("required_fields") or []
+    if phase not in ("implement", "fix") or not declared:
+        return REPORT_LINES[phase]
+    each = "; ".join(f"`{f['name']}: " + "|".join(f["values"]) + "`" for f in declared)
+    return REPORT_LINES[phase] + ("   - When done, a line for each verdict this product requires (plane.json "
+                                  f"`report.required_fields`), with one of the values shown: {each}.\n")
+
+
+def reported_verdicts(cfg: Config, q: Path, task_id: str) -> tuple[str, dict[str, str]]:
+    """§13.4: the declared verdicts as the task's latest done implement or fix report states them, by
+    declared name ("not stated" for one its report predates), and that run's id; ("", {}) when the
+    product declares none or no such report is in."""
+    declared = (cfg.report or {}).get("required_fields") or []
+    done = [r for r in runs.all_runs(q, task_id) if r.get("phase") in ("implement", "fix")
+            and runs.state(r) == "reported" and r.get("outcome") == "done"]
+    if not declared or not done:
+        return "", {}
+    last = max(done, key=lambda r: str(r.get("reported_at") or ""))
+    got = last.get("fields") or {}
+    return last["run_id"], {f["name"]: got.get(f["name"], "not stated") for f in declared}
+
+
 def suite_lanes(cfg: Config, phase: str) -> str:
     from ccp.config import SUITE_ROLES, lane_for  # noqa: PLC0415
     return SUITE_LANES[phase].format(**{r: lane_for(cfg, r) for r in SUITE_ROLES})
@@ -373,6 +398,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     env_file, env_list = worker_env(cfg, q, prompt_file, {
         "run_id": run_id, "task_id": tid, "nnnn": nnnn, "phase": phase, "worktree": workdir,
         "main_checkout": str(main_checkout(cfg)), "queue_root": str(q), "project_id": cfg.project_id})
+    verdicts_run, verdicts = reported_verdicts(cfg, q, tid) if phase == "review" else ("", {})
     cited = tasklog._as_list(meta.get("spec_refs")) + tasklog._as_list(meta.get("adr_refs")) \
         + tasklog._as_list(meta.get("rule_refs")) + tasklog._as_list(meta.get("review_refs"))
     values: dict[str, Any] = {
@@ -391,7 +417,9 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "prior_reports": prior_reports(q, tid, phase),
         "queue_root": str(q), "ccp": ccp_command(cfg), "report_path": str(report),
         "runner": holder_teammate(q, tid),  # §10.2, §16.4: the runner that holds this task, as bound
-        "report_lines": REPORT_LINES[phase], "suite_lanes": suite_lanes(cfg, phase),
+        "report_lines": report_lines(cfg, phase), "suite_lanes": suite_lanes(cfg, phase),
+        # §13.4: the product's declared verdicts, as the latest implementer report states them
+        "report_verdicts": "; ".join(f"`{k}: {v}`" for k, v in verdicts.items()), "report_verdicts_run": verdicts_run,
         "part_lane": lane_for(cfg, "part"),  # §14.1: the lane a subset or a mutation run goes through
         "worker_env": env_list, "worker_env_file": env_file,
         # §15.3: the product's content-keyed test cache, when its plane.json accepts the hits
@@ -432,6 +460,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
             "expected_effort": rec["expected_effort"], **({"allow_unreviewed_fix": override} if override else {}),
             **({"review_skip": skipped} if skipped else {}),
             **({"repeat_verify": repeat} if repeat else {}),
+            **({"report_fields": {"run_id": verdicts_run, "fields": verdicts}} if verdicts else {}),
             **({"warnings": warnings} if warnings else {}),
             "agent_call": {"subagent_type": runs.definition(cfg, runs.AGENT_TYPE[phase])[0], "description": desc,
                            "prompt": f"the text of {prompt_file}, verbatim", "model": "never pass it (SPEC §2)"}}

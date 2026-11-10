@@ -248,6 +248,12 @@ SKIP_REVIEW_FIELDS = ("task_id", "reviewed", "head", "from")
 # shell-quoted; null, the default, means the product has none and `ccp mutate` refuses);
 # `timeout_seconds` bounds one run of it (a mutant that hangs the test is killed).
 MUTATE_DEFAULTS: dict[str, Any] = {"command": None, "timeout_seconds": 600}
+# §13.4: verdict lines every done implement or fix report must state, each `{name, values}`: the line
+# is `<name>: <one of values>`. `ccp report` refuses a report missing one; none by default.
+REPORT_DEFAULTS: dict[str, Any] = {"required_fields": []}
+REPORT_FIELD_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9 _-]{0,39}$")
+# The lines `ccp report` already reads: a declared field may not take one of their names.
+REPORT_OWN_LINES = ("outcome", "pr", "head", "verdict", "severity", "suite")
 SUITE_LANE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,31}$")
 # §5, §14.1: the placeholder a gate lane is written with before the product names its own command.
 LANE_PLACEHOLDER = "<your test command>"
@@ -291,6 +297,7 @@ class Config:
     estimate: dict[str, Any] | None = None
     parallel: dict[str, Any] | None = None
     mutate: dict[str, Any] | None = None
+    report: dict[str, Any] | None = None
     # Whether plane.json names task_log.review_point_pattern itself (§22: ignored, with a warning,
     # once the product keeps a review-point register).
     review_point_pattern_set: bool = False
@@ -605,6 +612,34 @@ def _opt_str(v: Any) -> bool:
     return v is None or (isinstance(v, str) and bool(v.strip()))
 
 
+def _report_fields(fields: Any) -> list[str]:
+    """§13.4 `report.required_fields`: a list of `{name, values}`, names unique and none of the lines
+    `ccp report` already reads, values a non-empty list of distinct one-line strings."""
+    where = "report.required_fields"
+    if not isinstance(fields, list):
+        return [f"{where} must be a list of {{name, values}}"]
+    bad: list[str] = []
+    seen: set[str] = set()
+    for i, f in enumerate(fields):
+        if not isinstance(f, dict) or set(f) != {"name", "values"}:
+            bad.append(f"{where}[{i}] must be {{name, values}}")
+            continue
+        name, values = f["name"], f["values"]
+        if not isinstance(name, str) or not REPORT_FIELD_NAME_RE.match(name) or name != name.strip():
+            bad.append(f"{where}[{i}].name must be a letter then up to 39 letters, digits, spaces, `_` or `-`")
+        elif name.lower() in REPORT_OWN_LINES:
+            bad.append(f"{where}[{i}].name {name!r} is a line ccp report already reads")
+        elif name.lower() in seen:
+            bad.append(f"{where}[{i}].name {name!r} is declared twice")
+        else:
+            seen.add(name.lower())
+        if not (isinstance(values, list) and values and all(
+                isinstance(v, str) and v.strip() == v and v and "\n" not in v and "\r" not in v for v in values)
+                and len({v.lower() for v in values}) == len(values)):
+            bad.append(f"{where}[{i}].values must be a non-empty list of distinct one-line strings")
+    return bad
+
+
 def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """The §10 blocks, merged with their defaults and checked value by value: they drive merges,
     commits and commands, so a wrong type fails loudly."""
@@ -623,7 +658,8 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
            "review_points": _merge(REVIEW_POINTS_DEFAULTS, raw.get("review_points"), "review_points"),
            "estimate": _merge(ESTIMATE_DEFAULTS, raw.get("estimate"), "estimate"),
            "parallel": _merge(PARALLEL_DEFAULTS, raw.get("parallel"), "parallel"),
-           "mutate": _merge(MUTATE_DEFAULTS, raw.get("mutate"), "mutate")}
+           "mutate": _merge(MUTATE_DEFAULTS, raw.get("mutate"), "mutate"),
+           "report": _merge(REPORT_DEFAULTS, raw.get("report"), "report")}
     bad = []
     if not isinstance(raw.get("task_log", {}).get("index", True), bool):
         bad.append("task_log.index must be true or false")
@@ -657,6 +693,7 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     rpf = out["review_points"]["file"]
     if not (isinstance(rpf, str) and rpf.strip()) or rpf.startswith("/") or ".." in Path(rpf).parts:
         bad.append("review_points.file must be a path relative to the product root")
+    bad += _report_fields(out["report"]["required_fields"])
     if not _opt_str(out["prompts"]["fragment"]):
         bad.append("prompts.fragment must be a path")
     if not isinstance(out["prompts"]["keep_body"], bool):
@@ -959,7 +996,7 @@ def load(root: Path) -> Config:
                                  "prompts", "reconcile", "adapter", "worktrees", "env", "merge",
                                  "auth_check", "telemetry", "board", "gate", "suite",
                                  "adr", "verify", "review_points", "estimate", "parallel", "ids", "docs",
-                                 "mutate"})
+                                 "mutate", "report"})
     if unknown:
         raise ConfigError(f"{CONFIG_REL}: unknown top-level key(s): {', '.join(unknown)}")
     bad_ids = refs.validate(raw.get("ids"))

@@ -73,7 +73,10 @@ neither the handback nor the Agent call's return value:
   `$QUEUE_ROOT/progress/<task_id>/<phase>[-n]-report.md`, records its `Suite:` line and Friction lines
   for `ccp health`, and closes the run. Workers run their tests through `ccp suite run` (SPEC §14.1);
   `ccp report` warns when a `Suite:` line has no recorded suite run, and `ccp usage --task <id>` shows
-  the time each run spent in tests;
+  the time each run spent in tests. When the product declares verdicts every implementer report must
+  state (plane.json `report.required_fields`, SPEC §13.4), it refuses an implement or fix report
+  missing one, keeps them on the run (`fields`), and `ccp prompt review` prints them
+  (`report_fields`) and shows them to the reviewer;
 - a short `SendMessage` to you, by your teammate name, naming the report. `ccp prompt` writes the
   name the lead bound for the runner that holds the task (one runner: `work.json` `runner`; several:
   the holder slot's `bound_name`); after a rotation the harness may have named you `runner-2` or the
