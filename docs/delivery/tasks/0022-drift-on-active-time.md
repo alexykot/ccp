@@ -65,6 +65,11 @@ The architect's drift trigger compares active time (wall time minus time waiting
   module docstring dropped its "operator, the lead or a lane" list the same way. No code change: the
   wait rule (`drill._waits`, read by `health.waits_s`) already took every `waiting_on` event with no
   list of reasons of its own, and the tests already cover a `quota` wait.
+- 2026-11-10 (implementer, round 4): per the lead's rulings, ADR-0035 D3 is flipped to built (task
+  0022), and D1 and D2 to built (task 0021: they were missed when 0021 merged, which left `main`
+  failing the ADR check). D4 is untouched (task 0023's). The board page's drift meter label at
+  `ccp/board_page.html` reads "Active-time drift" (outside the declared paths); no test or doc
+  pinned the old string, so it has no test of its own.
 
 ## Verification notes
 

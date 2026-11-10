@@ -6,9 +6,9 @@ date: "2026-11-06"
 deciders: operator
 spec_refs: [S5, S15, S19, S20, S31]
 decisions:
-  - "D1 not_built"
-  - "D2 not_built"
-  - "D3 not_built"
+  - "D1 built — task 0021"
+  - "D2 built — task 0021"
+  - "D3 built — task 0022"
   - "D4 not_built"
   - "D5 live"
   - "D6 live"
