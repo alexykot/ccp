@@ -550,7 +550,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `package_docs`, `docs` | doc checks (`claude_md_dirs`, `language`, `path_ref_suffixes`, `docstring_globs`, `rules`), product check commands (`docs.checks`, `docs.workers`) | §21 |
 | `architect` | the architect seat, house rules, budgets, refactors | §19, §20 |
 | `review_points` | the review-point register | §22 |
-| `worktrees`, `env`, `merge`, `auth_check` | worktrees and environment hooks (`ccp wt`), the merge step (`merge.command`), credential probes (`auth_check.probes`) | §12, §15, §30 |
+| `worktrees`, `env`, `merge`, `auth_check` | worktrees and environment hooks (`ccp wt`), the merge step (`merge.command`) and the paths that do not make a head behind the tip (`merge.behind_tip_ignore`), credential probes (`auth_check.probes`) | §12, §15, §16, §30 |
 | `prompts` | the worker prompt fragment and `worker_env`; the prompt audit's `keep_body` (default `false`) and `audit_keep_days` (default `null`, keep all) | §13, §23.8 |
 | `reconcile` | commands run at close | §10 |
 | `suite`, `verify` | test runs and lanes, verification and cache acceptance (`verify.accept_cache`) | §14, §15 |

@@ -143,7 +143,8 @@ ENV_DEFAULTS: dict[str, Any] = {"setup": None, "teardown": None, "up": None, "do
 ENV_HOOKS = ("setup", "teardown", "up", "down", "urls")
 WT_FIELDS = ("task_id", "nnnn", "kind", "seat", "tag", "worktree", "main_checkout", "name")
 # §10.5: the merge `ccp tasks close` runs (null = `gh pr merge {pr} --squash --match-head-commit {head_sha}`).
-MERGE_DEFAULTS: dict[str, Any] = {"command": None}
+# `behind_tip_ignore` (§16.5 rule 4): paths whose commits on the tip do not make a head behind it.
+MERGE_DEFAULTS: dict[str, Any] = {"command": None, "behind_tip_ignore": []}
 MERGE_FIELDS = ("pr", "head_sha", "task_id")
 
 
@@ -762,6 +763,10 @@ def _worktree_blocks(raw: dict[str, Any], out: dict[str, Any]) -> list[str]:
         bad.append("merge.command must be a shell command, or null for the default")
     elif mc is not None and "{head_sha}" not in mc:
         bad.append("merge.command must name {head_sha}: the merge is pinned to the verified head (§15.5)")
+    bti = out["merge"]["behind_tip_ignore"]
+    if not isinstance(bti, list) or not all(isinstance(x, str) and x.strip() and not x.startswith(("/", ":"))
+                                            and ".." not in Path(x).parts for x in bti):
+        bad.append("merge.behind_tip_ignore must be a list of paths relative to the product root")
     au = out["auth_check"]
     pr = au["probes"]
     if not isinstance(pr, list) or not all(isinstance(x, dict) and set(x) == {"id", "cmd"}
