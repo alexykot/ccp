@@ -809,7 +809,8 @@ allowed only when all hold; otherwise it refuses with exit 7, naming the rule an
 5. The account's session-window usage, sampled at this claim, is below `session_ceiling_pct` (the
    gating session window, §25). A sample whose weekly figure is known but has no session figure
    means the account has no session limit: the rule passes. A sample with neither (no
-   `allowance_cmd`, a failed read) refuses.
+   `allowance_cmd`, a failed read) refuses. A product without `telemetry.allowance_cmd` reads no
+   usage: the rule passes.
 
 A claim into an empty active set is judged as single-runner; a resume is never refused by these
 rules. A claim by a runner that already holds a task not closed or released refuses (exit 7).
