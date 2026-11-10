@@ -1,7 +1,7 @@
 ---
 task_id: 0049-no-usage-command-no-session-check
 title: A product without a usage command gets no session-limit check on parallel claims
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S16", "S25"]
@@ -74,4 +74,4 @@ unknown".
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #36 head `2a3079d` (squash `11e12af`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0049-no-usage-command-no-session-check.json.
