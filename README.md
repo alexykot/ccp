@@ -88,62 +88,34 @@ or update it with `/plugin` in Claude Code; keep both on the same release.
 
 ### 2. Adopt a product
 
-Run these from the root of the product's repository:
+Run this from the root of the product's repository:
 
 ```bash
-PLANE=~/ccp
-PROJECT_ID=my-product
-
-# Product docs and the delivery folder (in git)
-mkdir -p docs/delivery/tasks .claude
-cp "$PLANE"/templates/docs-project/{PROJECT,SPEC}.md docs/
-cp "$PLANE"/templates/docs-delivery/{TEMPLATE-task,WRITING-tasks,standing-dod}.md docs/delivery/
-cat > docs/delivery/plane.json <<EOF
-{
-  "project_id": "$PROJECT_ID",
-  "worktrees": {"dir": ".plane-runtime"},
-  "suite": {"lanes": {"gate": ["python3", "-m", "unittest", "discover", "-s", "tests"]}}
-}
-EOF
-echo '.plane-runtime/' >> .gitignore
-
-# The plugin anchor: every session in this repo loads the plane's plugin, `ccp@ccp`.
-cat > .claude/settings.json <<'EOF'
-{
-  "extraKnownMarketplaces": {
-    "ccp": {
-      "source": {"source": "github", "repo": "alexykot/ccp"},
-      "autoUpdate": true
-    }
-  },
-  "enabledPlugins": {"ccp@ccp": true},
-  "env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}
-}
-EOF
-echo 'This repo is delivered by CCP (Claude Control Plane): its plugin and `ccp`.' >> CLAUDE.md
-
-# The local binding and queue (outside git)
-QUEUE=~/.delivery-queue/$PROJECT_ID
-mkdir -p "$QUEUE" "$PLANE/projects"
-cat > "$PLANE/projects/$PROJECT_ID.yaml" <<EOF
-project_id: $PROJECT_ID
-integration_branch: main
-product_root: $PWD
-durable_docs_path: docs/delivery/
-queue_root: $QUEUE
-runner:
-  agent_type: ccp:delivery-runner
-  name: runner
-  worktree: $PWD/.plane-runtime/runner
-EOF
-cp "$PLANE/projects/$PROJECT_ID.yaml" "$QUEUE/project.yaml"
+ccp init --project-id my-product --gate "python3 -m unittest discover -s tests"
 ```
 
-- Put your own test command in the `gate` lane; the example is Python's.
-- If the product already has a `.claude/settings.json`, merge these keys into it.
-- The binding lives in `$PLANE/projects/` (gitignored), where `ccp` finds a product from its
-  directory. The queue keeps a copy, `project.yaml`, which the team scripts read: after editing the
-  binding, copy it again.
+In the repository it writes `docs/PROJECT.md` and `docs/SPEC.md` from the templates, the delivery
+templates and a minimal `plane.json` in `docs/delivery/`, and `INDEX.yaml`. It adds `.plane-runtime/`
+to `.gitignore`. It merges the plugin anchor into `.claude/settings.json`, leaving its other keys
+alone:
+
+```json
+"extraKnownMarketplaces": {
+  "ccp": {"source": {"source": "github", "repo": "alexykot/ccp"}, "autoUpdate": true}
+},
+"enabledPlugins": {"ccp@ccp": true},
+"env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}
+```
+
+It appends one line to `CLAUDE.md`, once: "This repo is delivered by CCP (Claude Control Plane): its
+plugin and `ccp`." Outside the repository it writes the binding, `$PLANE/projects/my-product.yaml`,
+and creates the queue, `~/.delivery-queue/my-product/` (`--queue-root` picks another).
+
+- Put your own test command in `--gate`; the example is Python's.
+- It never overwrites a file without `--force`: it keeps the file and lists it as kept, so running it
+  again is safe.
+- The binding is the one place for the product root, the queue and the runner: edit it there, and
+  `ccp`, the team scripts and the hooks all read the change. `ccp where` names it.
 
 ### 3. Write a first task and check
 
@@ -283,6 +255,7 @@ in that product (SPEC §31.4).
 
 | Command | What it does |
 |---|---|
+| `ccp init` | Adopt a product: its docs, `plane.json`, the plugin anchor, the binding and the queue |
 | `ccp tasks list` · `next` · `check` · `index` | List the backlog, pick the next task, validate the log, rebuild `INDEX.yaml` |
 | `ccp tasks claim <task>` · `close <task> --pr N` | Take a task's lease; close it after merge |
 | `ccp tasks prefer` · `hold` · `release` · `drop` | Steer the order; pause, free or drop a task |

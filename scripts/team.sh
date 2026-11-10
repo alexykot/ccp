@@ -26,7 +26,7 @@
 #   team.sh gate list [--open]
 #
 # Prints one JSON object; `actions` lists what the seat must still do itself (spawn, message).
-# Env: QUEUE_ROOT (required), PROJECT_YAML (default $QUEUE_ROOT/project.yaml). No secrets.
+# Env: QUEUE_ROOT (required), PROJECT_YAML (default: the binding naming QUEUE_ROOT, SPEC §8.3). No secrets.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 exec python3 "$HERE/observability/team.py" "$@"

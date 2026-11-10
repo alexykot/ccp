@@ -389,7 +389,7 @@ def triage(root: Path, rid: str, actor: str, kind: Kind, max_new: int, prompt_ex
     """Hand one report of this kind to the task-log owner, or apply its triage file (§19.8).
 
     The architect (§19) passes `max_new` (its `max_new_tasks`), `prompt_extra` for §19.8's steps,
-    `extra_check(triage, report) -> errors`, and `product_dir` for a queue whose project.yaml names
+    `extra_check(triage, report) -> errors`, and `product_dir` for a queue whose binding (§8.3) names
     no product_root."""
     if not kind.rid_re.match(rid):
         die(f"bad review id {rid!r}", 2)

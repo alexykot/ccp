@@ -36,6 +36,8 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp plane propose --need T --generic T [--task ID] [--workaround T] [--frequency F] | propose --again ID
             | triage ID --accept|--merge-into ID|--decline --reason T | list [--open] | check
   ccp agent start|stop          (the SubagentStart / SubagentStop hooks; hook JSON on stdin)
+  ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--force]
+            (adopt this repository: footprint, binding and queue, SPEC §4.3, §8.3)
 
 `tasks` and `docs check` are free and deterministic (`index` writes INDEX.yaml; `docs check` also
 holds the house rules' shape and runs the product's `architect.checks`; every budget is `architect due`'s
@@ -1006,8 +1008,18 @@ def build_parser() -> argparse.ArgumentParser:
                                                        "5-hour window has reset, and say how to resume the runner")
     p.set_defaults(fn=_toolkit(_allowance))
 
-    sub.add_parser("where", help="this product's project id, queue root and plane checkout (SPEC §9.2)") \
+    sub.add_parser("where", help="this product's project id, binding, queue root and plane checkout (SPEC §9.2)") \
         .set_defaults(fn=cmd_where)
+
+    p = sub.add_parser("init", help="adopt this repository: the product footprint, the binding and the queue "
+                                    "(SPEC §4.3, §8.3); keeps existing files unless --force")
+    p.add_argument("--project-id", help="the project id (default: plane.json's, else the directory's name)")
+    p.add_argument("--queue-root", help="the queue directory (default: ~/.delivery-queue/<project_id>)")
+    p.add_argument("--integration-branch", help="the binding's integration branch (default: main)")
+    p.add_argument("--gate", help="the gate lane's command, written to plane.json suite.lanes.gate; "
+                                  "not applied when plane.json exists and is kept (no --force)")
+    p.add_argument("--force", action="store_true", help="overwrite the files init writes")
+    p.set_defaults(fn=None)
 
     p = sub.add_parser("agent", help="the SubagentStart / SubagentStop hooks: bind and stop runs (SPEC §11.1)")
     p.add_argument("action", choices=("start", "stop"))
@@ -1100,28 +1112,34 @@ def build_parser() -> argparse.ArgumentParser:
     return ap
 
 
-def binding_queue_root(cfg: config.Config) -> str | None:
-    """SPEC §9.2: the project's queue, from this plane's binding (projects/<project_id>.yaml), and
-    only when the binding's product_root is this checkout or its main checkout. A scratch clone or
-    a fork that names a live project's id gets nothing."""
-    import re  # noqa: PLC0415
+def binding_file(cfg: config.Config) -> Path | None:
+    """SPEC §8.3, §9.2: this product's binding, `<bindings>/<project_id>.yaml`, and only when its
+    product_root is this checkout or its main checkout. A scratch clone or a fork that names a live
+    project's id gets nothing."""
     from ccp.prompt import main_checkout  # noqa: PLC0415
-    from ccp.queue import PLANE  # noqa: PLC0415
+    from ccp.queue import lib  # noqa: PLC0415
     if not config.PROJECT_ID_RE.match(cfg.project_id):
         return None
-    b = PLANE / "projects" / f"{cfg.project_id}.yaml"
+    b = lib.bindings_dir() / f"{cfg.project_id}.yaml"
     if not b.is_file():
         return None
-    text = b.read_text()
-
-    def scalar(key: str) -> str | None:
-        m = re.search(rf"^{key}:\s*([^#\n]+)", text, re.M)
-        return m.group(1).strip().strip("'\"") if m else None
-    root = scalar("product_root")
-    if not root or Path(root).resolve() not in (cfg.root.resolve(), main_checkout(cfg).resolve()):
+    root = _scalar(b.read_text(), "product_root")
+    if not root or Path(root).expanduser().resolve() not in (cfg.root.resolve(), main_checkout(cfg).resolve()):
         return None
-    q = scalar("queue_root")
-    return q if q and Path(q).is_dir() else None
+    return b
+
+
+def _scalar(text: str, key: str) -> str | None:
+    import re  # noqa: PLC0415
+    m = re.search(rf"^{key}:\s*([^#\n]+)", text, re.M)
+    return m.group(1).strip().strip("'\"") if m else None
+
+
+def binding_queue_root(cfg: config.Config) -> str | None:
+    """SPEC §9.2: the project's queue, from this product's binding (`binding_file`)."""
+    b = binding_file(cfg)
+    q = _scalar(b.read_text(), "queue_root") if b else None
+    return str(Path(q).expanduser()) if q and Path(q).expanduser().is_dir() else None
 
 
 def checkout_warning() -> str | None:
@@ -1238,9 +1256,14 @@ def cmd_usage(cfg: config.Config, a: argparse.Namespace) -> int:
 
 
 def cmd_where(cfg: config.Config, _a: argparse.Namespace) -> int:
-    from ccp.queue import CCP_BIN, PLANE  # noqa: PLC0415
+    """SPEC §9.2: the project, its binding (§8.3, through the one resolver), the queue, the plane
+    checkout and the `ccp` path."""
+    from ccp.queue import CCP_BIN, PLANE, lib  # noqa: PLC0415
+    q = os.environ.get("QUEUE_ROOT")
+    b = lib.binding_path(Path(q)) if q else binding_file(cfg)
     print(json.dumps({"project_id": cfg.project_id, "product_root": str(cfg.root),
-                      "queue_root": os.environ.get("QUEUE_ROOT"), "plane": str(PLANE), "ccp": str(CCP_BIN)}))
+                      "binding": str(b) if b else None, "queue_root": q,
+                      "plane": str(PLANE), "ccp": str(CCP_BIN)}))
     return 0
 
 
@@ -1307,6 +1330,9 @@ def main(argv: list[str] | None = None) -> int:
     warn = checkout_warning()
     if warn:
         print(f"warning: {warn}", file=sys.stderr)
+    if a.group == "init":  # it writes plane.json, so it runs before one loads (§8.3)
+        from ccp import init  # noqa: PLC0415
+        return init.main(a.root, a)
     if a.group == "suite" and a.cmd == "run":  # it runs even where plane.json does not load
         from ccp import suite  # noqa: PLC0415
         return suite.main_run(a, command)

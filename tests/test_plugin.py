@@ -110,7 +110,7 @@ class Lookup(unittest.TestCase):
 
     def where(self, env: dict) -> dict:
         out = io.StringIO()
-        with mock.patch("ccp.queue.PLANE", self.plane), mock.patch.dict(os.environ, env), redirect_stdout(out):
+        with mock.patch.dict(os.environ, {"CCP_BINDINGS_DIR": str(self.plane / "projects"), **env}), redirect_stdout(out):
             env_q = os.environ.pop("QUEUE_ROOT", None)
             try:
                 self.assertEqual(cli.main(["--root", str(self.p.root), "where"]), 0)
@@ -125,6 +125,12 @@ class Lookup(unittest.TestCase):
 
     def test_tests_never_read_a_binding(self):
         self.assertIsNone(self.where({})["queue_root"])
+
+    def test_where_names_the_binding_it_resolved(self):
+        self.assertEqual(self.where({"CCP_NO_BINDING_QUEUE": "0"})["binding"], str(self.plane / "projects/demo.yaml"))
+        self.assertEqual(self.where({})["binding"], str(self.plane / "projects/demo.yaml"))  # no queue: still named
+        (self.plane / "projects/demo.yaml").write_text(f"project_id: demo\nproduct_root: /elsewhere\nqueue_root: {self.q}\n")
+        self.assertIsNone(self.where({})["binding"])
 
     def test_a_scratch_clone_naming_a_live_project_gets_nothing(self):
         (self.plane / "projects/demo.yaml").write_text(f"project_id: demo\nproduct_root: /elsewhere\nqueue_root: {self.q}\n")

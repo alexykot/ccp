@@ -1,7 +1,7 @@
 # Delivery-log templates
 
 Templates for a product's `docs/delivery/`, the **durable task log** (plane SPEC §4.2, §5). The
-plane's README quick start copies them; this file is not copied.
+plane's `ccp init` copies them; this file is not copied.
 
 The task log lives in the product's git and is permanent: tasks are never deleted, and their status
 and notes stay in history. It sits beside `docs/PROJECT.md` and `docs/SPEC.md` (or `docs/spec/`),

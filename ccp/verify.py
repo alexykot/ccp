@@ -59,10 +59,8 @@ _ANNOTATIONS = {"$schema", "$id", "title", "description", "default"}
 
 def _ci(queue: Path) -> bool:
     """The binding opts into CI (`ci: github-actions`, §15.3): only then may a verdict cite `gate.ci_run`."""
-    path = queue / "project.yaml"
-    if not path.is_file() and os.environ.get("PROJECT_YAML"):
-        path = Path(os.environ["PROJECT_YAML"])
-    text = path.read_text() if path.is_file() else ""
+    from ccp.queue import binding_text  # noqa: PLC0415
+    text = binding_text(queue)
     return re.search(r"^ci:\s*['\"]?github-actions\b", text, re.M) is not None
 
 

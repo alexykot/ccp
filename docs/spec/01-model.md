@@ -245,18 +245,19 @@ A tension between SPEC and PROJECT goes to the design seat, which rules and comm
 - its permission allowlist in `.claude/settings.json`, because plugins cannot ship permissions. The
   allowlist names `ccp`, not a path.
 
-**The anchor, written once** (two settings entries naming the plane, not a version, so a release
-needs no product commit):
+**The anchor, written once by `ccp init` (§4.5)**: two settings entries naming the plane, not a
+version, so a release needs no product commit, and the agent-team flag the hosting needs (§2.2):
 
 ```json
 "extraKnownMarketplaces": {
-  "control-plane": {"source": {"source": "github", "repo": "alexykot/ccp"}, "autoUpdate": true}
+  "ccp": {"source": {"source": "github", "repo": "alexykot/ccp"}, "autoUpdate": true}
 },
-"enabledPlugins": {"ccp@ccp": true}
+"enabledPlugins": {"ccp@ccp": true},
+"env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}
 ```
 
-plus one line in the product's `CLAUDE.md`: "This repo is delivered by the control plane: its plugin
-`control-plane` and `ccp`." Nothing else about the plane goes into the product. Everything the plane
+plus one line in the product's `CLAUDE.md`: "This repo is delivered by CCP (Claude Control Plane):
+its plugin and `ccp`." Nothing else about the plane goes into the product. Everything the plane
 owns (agents, skills, hooks, the orientation) reaches the product at run time from the plugin (§9)
 and `ccp` on PATH (§29).
 
@@ -273,12 +274,21 @@ nothing, and `scripts/sync-product-docs.sh` notes that it can be removed.
 
 ### 4.5 Adopting a product
 
-1. Copy the PROJECT, SPEC and delivery templates (`templates/docs-project/`,
-   `templates/docs-delivery/`) into the product.
-2. Commit `docs/delivery/plane.json` (§8.1), configuring its worktrees and environment hooks (§12),
-   and run `ccp tasks index` when it keeps an index.
-3. Add the anchor (§4.3) and the one `CLAUDE.md` line.
-4. Add the local binding (§8.3) and create its queue directory, `.delivery-queue/<project_id>/`.
+A product is adopted by running `ccp init` in its repository. It writes:
+
+- the PROJECT, SPEC and delivery templates (`templates/docs-project/`, `templates/docs-delivery/`);
+- a minimal `docs/delivery/plane.json` (§8.1): the project id, the worktrees directory and, with
+  `--gate`, the gate lane; and `INDEX.yaml` when the product keeps one (§5.7);
+- `.plane-runtime/` in `.gitignore`;
+- the anchor merged into `.claude/settings.json`, leaving its other keys and values alone, and the
+  one `CLAUDE.md` line, once (§4.3);
+- outside the repository, the local binding and its queue directory (§8.3).
+
+It keeps a file that already exists and lists it as kept, unless given `--force`, so running it again
+changes nothing. It refuses, writing nothing, when keeping would leave the product inconsistent: a
+`plane.json` naming another project id, a binding for the id naming another product root or another
+`--queue-root`, or a `.claude/settings.json` that is not a JSON object. The product commits what it
+wrote, and adds its own worktree and environment hooks to `plane.json` (§12).
 
 ## 5. Task files
 
@@ -606,8 +616,15 @@ runner:
 ```
 
 - `ccp` maps a directory to its binding (`product_root`, or its main checkout for a worktree) and the
-  binding to its queue (§9.2). The queue holds a copy of the binding, `QUEUE_ROOT/project.yaml`
-  (`project.yaml`).
+  binding to its queue (§9.2).
+- The binding is the one source of truth. Every reader (`ccp`, the team scripts, the hooks) resolves
+  it through one resolver, so an edit to it reaches them all. For a queue, the resolver takes
+  `PROJECT_YAML` when it names a file, else the binding whose `queue_root` is that queue. The queue
+  holds no copy: a `QUEUE_ROOT/project.yaml` left from before is read only when no binding names the
+  queue. `ccp where` names the binding it resolved.
+- `ccp init` writes the binding and creates its queue (default `~/.delivery-queue/<project_id>/`),
+  with the product footprint (§4.3). It keeps an existing binding unless given `--force`, and refuses
+  one that names another product root.
 - A binding whose `product_root` is the plane's own repository is the plane managing itself; its
   usage counts as non-product use (§24).
 - A `spec_maintainer` block is accepted, deprecated: the lead is every project's spec maintainer
@@ -645,7 +662,7 @@ A hook receives `CLAUDE_PROJECT_DIR`. `ccp` maps it to a binding (§8.3, `projec
 no hook entry names a path. A directory that maps to no binding makes every hook a no-op. When
 `QUEUE_ROOT` is unset, `ccp` sets it from the binding for the `project_id` in the product's
 `plane.json`, the same from the main checkout and from any worktree; `ccp where` prints the project,
-the queue, the plane checkout and the `ccp` path.
+the binding file's path, the queue, the plane checkout and the `ccp` path.
 
 ### 9.3 Orientation
 
