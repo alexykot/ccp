@@ -725,35 +725,23 @@ def resolve_durable_docs_dir(root: Path) -> Path | None:
 
     Order:
       1. DURABLE_DOCS env
-      2. PROJECT_YAML / QUEUE_ROOT/project.yaml / PLANE_PROJECT_YAML
-         fields: durable_docs (abs) OR product_root + durable_docs_path
+      2. the binding (`binding_path`): durable_docs (abs) OR product_root + durable_docs_path
     """
     env = os.environ.get("DURABLE_DOCS")
     if env:
         return Path(env).expanduser()
 
-    yaml_candidates: list[Path] = []
-    for key in ("PROJECT_YAML", "PLANE_PROJECT_YAML"):
-        v = os.environ.get(key)
-        if v:
-            yaml_candidates.append(Path(v).expanduser())
-    yaml_candidates.append(root / "project.yaml")
-
-    for ypath in yaml_candidates:
-        if not ypath.is_file():
-            continue
-        try:
-            data = _parse_simple_yaml_scalar_map(ypath.read_text())
-        except OSError:
-            continue
-        abs_docs = data.get("durable_docs") or data.get("durable_docs_abs")
-        if abs_docs:
-            return Path(abs_docs).expanduser()
-        product_root = data.get("product_root") or data.get("hamlet_root")
-        rel = data.get("durable_docs_path") or "docs/delivery"
-        if product_root:
-            return (Path(product_root).expanduser() / rel).resolve()
-
+    text = project_yaml_text(root)
+    if not text:
+        return None
+    data = _parse_simple_yaml_scalar_map(text)
+    abs_docs = data.get("durable_docs") or data.get("durable_docs_abs")
+    if abs_docs:
+        return Path(abs_docs).expanduser()
+    product_root = data.get("product_root") or data.get("hamlet_root")
+    rel = data.get("durable_docs_path") or "docs/delivery"
+    if product_root:
+        return (Path(product_root).expanduser() / rel).resolve()
     return None
 
 
@@ -805,21 +793,51 @@ def _yaml_block_scalars(text: str, block: str) -> dict[str, str]:
     return out
 
 
-def project_yaml_text(root: Path) -> str:
+def bindings_dir() -> Path:
+    """SPEC §8.3: this plane's bindings, `projects/` beside its code (`CCP_BINDINGS_DIR` overrides it)."""
+    return Path(os.environ.get("CCP_BINDINGS_DIR") or Path(__file__).resolve().parents[2] / "projects")
+
+
+def _same_dir(a: str, b: Path) -> bool:
+    try:
+        return Path(a).expanduser().resolve() == b.resolve()
+    except (OSError, RuntimeError):
+        return False
+
+
+def binding_path(root: Path) -> Path | None:
+    """SPEC §8.3: the one resolver every binding reader goes through, for the queue `root`.
+
+    1. `PROJECT_YAML` (or `PLANE_PROJECT_YAML`), when it names a file: an explicit choice;
+    2. the binding in `bindings_dir()` whose `queue_root` is this queue;
+    3. `QUEUE_ROOT/project.yaml`, the retired queue copy, read only when no binding names the queue
+       (a queue set up before the copy was retired).
+    """
     for key in ("PROJECT_YAML", "PLANE_PROJECT_YAML"):
         v = os.environ.get(key)
         if v and Path(v).expanduser().is_file():
-            try:
-                return Path(v).expanduser().read_text()
-            except OSError:
-                pass
-    p = root / "project.yaml"
-    if p.is_file():
+            return Path(v).expanduser()
+    d = bindings_dir()
+    for b in sorted(d.glob("*.yaml")) if d.is_dir() else []:
         try:
-            return p.read_text()
+            m = re.search(r"^queue_root:\s*([^#\n]+)", b.read_text(), re.M)
         except OSError:
-            return ""
-    return ""
+            continue
+        if m and _same_dir(m.group(1).strip().strip("'\""), root):
+            return b
+    p = root / "project.yaml"
+    return p if p.is_file() else None
+
+
+def project_yaml_text(root: Path) -> str:
+    """The binding's text for the queue `root` (`binding_path`), or "" when there is none."""
+    p = binding_path(root)
+    if p is None:
+        return ""
+    try:
+        return p.read_text()
+    except OSError:
+        return ""
 
 
 def _yaml_nested_map(text: str, block: str, key: str) -> dict[str, str]:

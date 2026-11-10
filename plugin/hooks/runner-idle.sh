@@ -54,7 +54,9 @@ if not arg("--queue-root"):
 if not root.is_dir() or not (root / "work.json").is_file():
     sys.exit(0)   # no queue, or no runner has ever run here: nothing to keep working, nothing to log
 
-yml = (root / "project.yaml").read_text() if (root / "project.yaml").is_file() else ""
+# SPEC §8.3: the binding `ccp where` resolved; a product on managed copies keeps its queue copy.
+yml_p = Path(where["binding"]) if not arg("--queue-root") and where.get("binding") else root / "project.yaml"
+yml = yml_p.read_text() if yml_p.is_file() else ""
 def block(name):
     out, inside = {}, False
     for line in yml.splitlines():

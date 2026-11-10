@@ -42,7 +42,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp.envvars import envvar
-from ccp.queue import PLANE, launchd_bootout, launchd_reload, run_ccp, run_ccp_warning
+from ccp.queue import launchd_bootout, launchd_reload, run_ccp, run_ccp_warning
 
 DEFAULT_PORT = 4318
 MAX_BODY = 16 * 1024 * 1024  # on the wire, and again after gzip
@@ -118,7 +118,8 @@ def _row(a: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
 
 
 def bindings_dir() -> Path:
-    return Path(envvar("CCP_BINDINGS_DIR") or PLANE / "projects")
+    from ccp.queue import lib  # noqa: PLC0415
+    return lib.bindings_dir()
 
 
 def claude_projects_dir() -> Path:
