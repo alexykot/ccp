@@ -29,6 +29,8 @@ HEADING_RE = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$")
 # (`tests.test_x`, `tests.test_x.Case.test_y`): the module part is what two checks must not share.
 TEST_PATH_RE = re.compile(r"\b(tests?/[\w/.-]*?\w)\.py\b")
 TEST_DOTTED_RE = re.compile(r"(?<![\w/.])(tests?(?:\.[A-Za-z_]\w*)+)")
+# A path selector with what follows it (`::Case`, `::Case::test_y`), to resolve a class or a test.
+TEST_SELECTOR_PATH_RE = re.compile(r"\b(tests?/[\w/.-]*?\w)\.py\b((?:::\w+)*)")
 
 
 def _rules(cfg: Config) -> dict:
@@ -178,6 +180,13 @@ def test_modules(cmd: str) -> set[str]:
             mod.append(part)
         out.add(".".join(mod))
     return out
+
+
+def test_selectors(cmd: str) -> set[str]:
+    """The tests a check command selects, as dotted names down to the class or test it names
+    (`tests/test_x.py::Case` is `tests.test_x.Case`)."""
+    out = {m.replace("/", ".") + rest.replace("::", ".") for m, rest in TEST_SELECTOR_PATH_RE.findall(cmd)}
+    return out | set(TEST_DOTTED_RE.findall(cmd))
 
 
 def no_overlap(cfg: Config) -> list[str]:

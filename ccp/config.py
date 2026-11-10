@@ -512,7 +512,25 @@ def _architect(given: Any, ids: refs.Ids = refs.DEFAULT) -> dict[str, Any] | Non
         t = c.get("timeout_seconds", 600)
         if isinstance(t, bool) or not isinstance(t, int) or t < 1:
             raise ConfigError(f"{CONFIG_REL}: architect.checks[{i}].timeout_seconds must be an integer >= 1")
+    overlaps = _check_overlaps(a["checks"])
+    if overlaps:
+        raise ConfigError(f"{CONFIG_REL}: architect.checks: " + "; ".join(overlaps)
+                          + " (a test runs once per gate, under one check)")
     return a
+
+
+def _check_overlaps(checks: list[dict[str, Any]]) -> list[str]:
+    """§19.11: each pair of checks whose test selectors meet, the same module, class or test, or one
+    inside the other, naming both ids and the narrower selector, which both would run."""
+    from ccp import docrules  # noqa: PLC0415
+    sels = [(c["id"], docrules.test_selectors(c["cmd"])) for c in checks]
+    out = []
+    for i, (a, sa) in enumerate(sels):
+        for b, sb in sels[i + 1:]:
+            shared = {max(x, y, key=len) for x in sa for y in sb
+                      if x == y or y.startswith(x + ".") or x.startswith(y + ".")}
+            out += [f"{a} and {b} both select {s}" for s in sorted(shared)]
+    return out
 
 
 def _str_list(v: Any) -> bool:
