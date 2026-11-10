@@ -41,6 +41,17 @@ updated: 2026-11-06
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): `ccp prompt verify` refuses, exit 4 and nothing opened, when the task's
+  latest verify run that reported has no fix run (not abandoned) opened at or after it, unless
+  `--note` or `--note-file` gives the reason (SPEC §15.6 rule 4; `prompt.repeat_gate`,
+  `verify.repeat_round`). A verify run that never reported (abandoned or still open) is no round, so
+  relaunching one needs no note; a fix opened in the same second counts as newer, as in the §15.2
+  gate. The opened run records `repeat_verify: {"after": <prior verify run id>}` beside its `note`,
+  and `ccp verify record` adds the note to the record's `findings` when that run carries
+  `repeat_verify` and no finding already holds it (`verify.fill_reason`). One existing test that
+  opened a second verify round with no fix (`tests/test_suite.py`) now passes `--note`; its
+  expectations are unchanged.
+
 ## Verification notes
 
 *Append-only.*
