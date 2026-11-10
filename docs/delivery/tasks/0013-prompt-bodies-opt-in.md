@@ -1,7 +1,7 @@
 ---
 task_id: 0013-prompt-bodies-opt-in
 title: Make full prompt bodies opt-in, with retention by age
-status: pending
+status: done
 kind: feature
 depends_on: ["0008-spec-switch-to-parts"]
 spec_refs: ["S23"]
@@ -9,7 +9,7 @@ adr_refs: ["0034 D8"]
 review_point: R1
 paths: ["scripts/observability/write-prompt-audit.sh", "scripts/observability/prune-prompts.sh", "ccp/prompt.py", "ccp/config.py", "contracts/prompt_audit.schema.json", "contracts/plane_config.schema.json", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # Task: 0013-prompt-bodies-opt-in
@@ -87,4 +87,4 @@ A prompt audit records ids, refs and the prompt's hash; the full prompt text is 
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #7 head `7a79f11` (squash `b44d1f7`): APPROVE. Passed: audit-01, audit-02. Gate: `env -u QUEUE_ROOT scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0013-prompt-bodies-opt-in.json.

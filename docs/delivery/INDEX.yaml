@@ -63,7 +63,7 @@ tasks:
     depends_on: [0008-spec-switch-to-parts]
     path: tasks/0012-retire-the-old-snapshot.md
   - id: 0013-prompt-bodies-opt-in
-    status: pending
+    status: done
     title: Make full prompt bodies opt-in, with retention by age
     depends_on: [0008-spec-switch-to-parts]
     path: tasks/0013-prompt-bodies-opt-in.md
