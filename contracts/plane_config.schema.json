@@ -960,7 +960,7 @@
     "verify": {
       "type": "object",
       "additionalProperties": false,
-      "description": "SPEC §15.3: the verifier's gate. Absent, or accept_cache null: the verifier's brief is unchanged.",
+      "description": "SPEC §15.3: the verifier's gate. Absent, or accept_cache null: the verifier's brief is unchanged. SPEC §15.2: skip_review, the fix rounds that need no new review.",
       "properties": {
         "accept_cache": {
           "type": [
@@ -989,6 +989,32 @@
             "review": {
               "type": "boolean",
               "description": "SPEC §15.3: the reviewer's touched and dependent tests may run through the same cache, a hit counting as run; its test-order and mutation runs stay uncached. Default false: the review brief is unchanged."
+            }
+          }
+        },
+        "skip_review": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "paths",
+            "proof"
+          ],
+          "default": null,
+          "description": "SPEC §15.2: a fix round whose diff touches only `paths`, and that `proof` passes, goes to verify with no new review. Null: every fix round is reviewed again.",
+          "properties": {
+            "paths": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "string", "minLength": 1, "pattern": "^[^/:]"},
+              "description": "Paths relative to the product root, as git pathspecs (a directory covers everything under it); not the root itself."
+            },
+            "proof": {
+              "type": "string",
+              "minLength": 1,
+              "description": "A shell command run in the product root on the fix diff, with {task_id}, {reviewed} (the head the last review judged), {head} and {from} (the tree the fix diff starts from: the reviewed change on the head's integration base) filled in; exit 0 = the fix is proven."
             }
           }
         }

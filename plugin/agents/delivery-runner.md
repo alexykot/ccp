@@ -107,7 +107,8 @@ before anything else.
    no implementer context. When it finds a BLOCKER or MAJOR, `ccp prompt fix <task_id> --pr <n> --head <sha>`
    launches the implementer on the findings, then review again. `ccp` enforces it: `ccp prompt verify`
    refuses (exit 4) while a fix round is newer than the last review, or the head is not the one that
-   review judged, and `ccp verify record` refuses the approve. Only on the lead's or the operator's word:
+   review judged, and `ccp verify record` refuses the approve, unless the product's `verify.skip_review`
+   proves the fix (only declared paths touched, its proof command passing). Only on the lead's or the operator's word:
    `ccp prompt verify … --allow-unreviewed-fix --reason "<their words>"`, recorded as a friction note.
 8. **Verify.** `ccp prompt verify <task_id> --pr <n> --head <sha>`: a fresh `delivery-verifier` subagent
    with the fixed packet. It writes its verdict with `ccp verify record` and reports APPROVE or REJECT with the

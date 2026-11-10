@@ -228,8 +228,12 @@ SUITE_SUMMARY_ALIASES = {"modules_ran_re": "ran_re", "modules_cached_re": "cache
 # counts as run; an entry over `max_age_days` is no hit; a task whose id matches a `cold_tasks` glob,
 # or whose frontmatter says `gate: cold`, has a cold gate. `review: true` extends the rule to the
 # reviewer's touched and dependent modules (its order and mutation runs stay uncached).
-VERIFY_DEFAULTS: dict[str, Any] = {"accept_cache": None}
+# `skip_review` (null = off, §15.2): a fix round whose diff touches only `paths` (relative to the product
+# root) and that the product's `proof` command passes (exit 0) goes to verify with no new review.
+VERIFY_DEFAULTS: dict[str, Any] = {"accept_cache": None, "skip_review": None}
 ACCEPT_CACHE_DEFAULTS: dict[str, Any] = {"max_age_days": None, "cold_tasks": [], "review": False}
+SKIP_REVIEW_KEYS = {"paths", "proof"}
+SKIP_REVIEW_FIELDS = ("task_id", "reviewed", "head", "from")
 SUITE_LANE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,31}$")
 # §5, §14.1: the placeholder a gate lane is written with before the product names its own command.
 LANE_PLACEHOLDER = "<your test command>"
@@ -497,6 +501,13 @@ def _str_list(v: Any) -> bool:
     return isinstance(v, list) and all(isinstance(x, str) and x.strip() for x in v)
 
 
+def _rel_path(v: Any) -> bool:
+    """A path relative to the product root that names less than the whole root: not empty, not absolute,
+    no `..`, no `:` pathspec magic, and not `.` or anything that normalises to it."""
+    return (isinstance(v, str) and bool(v.strip()) and not v.startswith(("/", ":")) and ".." not in Path(v).parts
+            and os.path.normpath(v) != ".")
+
+
 def _opt_str(v: Any) -> bool:
     return v is None or (isinstance(v, str) and bool(v.strip()))
 
@@ -728,6 +739,16 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 bad.append("verify.accept_cache.cold_tasks must be a list of task-id globs")
             if not isinstance(ac["review"], bool):
                 bad.append("verify.accept_cache.review must be true or false")
+    sr = out["verify"]["skip_review"]
+    if sr is not None:
+        if not isinstance(sr, dict) or set(sr) != SKIP_REVIEW_KEYS:
+            bad.append("verify.skip_review must be {paths, proof}, or null for off")
+        else:
+            if not isinstance(sr["paths"], list) or not sr["paths"] or not all(_rel_path(x) for x in sr["paths"]):
+                bad.append("verify.skip_review.paths must be a non-empty list of paths relative to the product root, "
+                           "none of them the root itself")
+            if not (isinstance(sr["proof"], str) and sr["proof"].strip()):
+                bad.append("verify.skip_review.proof must be a shell command (exit 0 = the fix is proven)")
     if bad:
         raise ConfigError(f"{CONFIG_REL}: " + "; ".join(bad))
     return out

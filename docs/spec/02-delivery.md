@@ -521,7 +521,8 @@ verifier did not run is not a pass, with the one exception of §15.3. The gate n
 - **Review starts on a settled head.** The runner opens a review (`ccp prompt review --head`) only
   once the task's open spec questions are answered and their rulings are on the PR. A commit landing
   while a review runs makes its head stale.
-- **A fix round is reviewed again before it is verified.** `ccp prompt verify` refuses (exit 4,
+- **A fix round is reviewed again before it is verified**, unless a proof covers it (the next rule).
+  `ccp prompt verify` refuses (exit 4,
   nothing opened) when the task's latest fix run that was not abandoned opened no later than its
   latest review run that reported `done`, or when `--head` is not the head that review judged (its
   run's `head`; a short sha matches). A head that differs from the reviewed one only by merging the
@@ -532,7 +533,18 @@ verifier did not run is not a pass, with the one exception of §15.3. The gate n
   `--allow-unreviewed-fix --reason "<their words>"` opens it anyway: the run records `allow_unreviewed_fix` (`reason`, `was`), a friction note
   with source `allow-unreviewed-fix` goes to `health/notes.jsonl`, and a `note`/`set` event to the
   ledger. `ccp verify record` refuses an approve under the same condition (judged at the record's
-  `head_sha`) unless the task's open verify run carries that override; a reject is never held back.
+  `head_sha`) unless the task's open verify run carries that override, or a `review_skip` at that
+  head; a reject is never held back.
+- **A proven fix within declared paths needs no new review** (ADR-0035 D4). plane.json
+  `verify.skip_review` (`{"paths": [<paths>], "proof": "<command>"}`; null, the default, is off) lets
+  a fix round opened since the last review that reported `done` go straight to verify when: the fix
+  diff, from the reviewed head's change carried onto the head's base on the integration branch (it
+  must merge cleanly) to the head, touches at least one file and only files under `paths` (git
+  pathspecs relative to the product root, never the root itself); and the product's `proof` command,
+  run in the product root on that diff with `{task_id}`, `{reviewed}` (the head the review judged),
+  `{head}` and `{from}` (the tree the fix diff starts from) filled in, exits 0. Otherwise the refusal
+  stands and says why the skip does not apply. The verify run records `review_skip` (`reviewed`,
+  `head`, `fix`, `files`, a count). The prover is product tooling, not the plane's.
 
 ### 15.3 A product's test cache
 
