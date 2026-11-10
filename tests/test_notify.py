@@ -69,6 +69,14 @@ class Channel(ToolkitFixture, unittest.TestCase):
         self.ccp("tasks", "resume", "0002", "done by hand", root=self.main)
         self.assertEqual([r[0] for r in sent(self.out)], ["blocker"])
 
+    def test_a_resume_named_for_an_operator_wait_sends_nothing(self):
+        self.ccp("tasks", "wait", "0002", "operator_step", root=self.main)
+        for reason in ("operator_step", "reauth", "operator_decision"):
+            code, body, out, err = self.ccp("tasks", "resume", "0002", reason, root=self.main)
+            self.assertEqual(code, 0, out + err)
+            self.assertNotIn("notified", body)
+        self.assertEqual([r[0] for r in sent(self.out)], ["blocker"])
+
     def test_a_failing_command_warns_and_the_wait_stands(self):
         self.set_plane(notify={"command": "exit 3"})
         self.assertEqual(self.ccp("tasks", "claim", "0002", root=self.main)[0], 0)
@@ -197,7 +205,6 @@ class NoChannel(ToolkitFixture, unittest.TestCase):
         self.assertEqual(json.loads((self.q / "tasks/0002-second.json").read_text())["waiting_on"], "operator_step")
         self.assertFalse(out.exists())
 
-
     def test_a_claim_refused_at_the_checkpoint_is_refused_as_today_and_nothing_runs(self):
         reading = Path(self._tmp.name) / "reading.json"
         reading.write_text(json.dumps({"five_hour": {"utilization": 10}, "seven_day": {"utilization": 90}}))
@@ -299,6 +306,22 @@ class Gates(unittest.TestCase):
         self.run_script("spec-maintainer-ask.sh", "process", qid)
         self.assertEqual([(r[0], r[2], r[3]) for r in sent(self.out)], [("decision", "0001-a", qid)])
         self.assertNotIn("A or B", self.out.read_text())
+
+    def test_a_needs_operator_answer_already_recorded_sends_no_second_decision(self):
+        res = self.run_script("spec-maintainer-ask.sh", "raise", "--raised-by", "task-runner", "--task-id", "0001-a",
+                              "--text", "Which?", "--inconsistency", "task vs SPEC", "--spec-refs", "S1", "--tried", "x")
+        qid = res["question_id"]
+        (self.q / "questions" / f"{qid}.answer.json").write_text(json.dumps({
+            "schema_version": 1, "question_id": qid, "project_id": "demo", "verdict": "needs_operator",
+            "ruling": None, "reasoning": "product call", "commit_sha": None, "files_changed": [],
+            "question_for_operator": "A or B?", "guidance": None, "answered_by": "spec_maintainer",
+            "session_id": "lead", "answered_at": "2026-09-30T20:00:00Z", "supersedes": None}))
+        self.run_script("spec-maintainer-ask.sh", "process", qid)
+        # the question's record is open again, but its event log already holds the needs_operator answer
+        qf = self.q / "questions" / f"{qid}.json"
+        qf.write_text(json.dumps({**json.loads(qf.read_text()), "status": "open"}))
+        self.assertEqual(self.run_script("spec-maintainer-ask.sh", "process", qid)["outcome"], "answered")
+        self.assertEqual([(r[0], r[3]) for r in sent(self.out)], [("decision", qid)])
 
 
 if __name__ == "__main__":

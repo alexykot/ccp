@@ -767,8 +767,8 @@ the binding file's path, the queue, the plane checkout and the `ccp` path.
     Claude session unless its role says so); rulings and durable facts live in git, never only in a
     session's memory;
   - how questions flow: implementation questions go to the runner, spec questions to the design
-    seat, and only the design seat may bring a question to the operator; Claude never emails anyone,
-    and on the triggers of §3.6 `ccp` runs the product's notify command if it names one;
+    seat, and only the design seat may bring a question to the operator; on the triggers of §3.6
+    the operator is also notified (the plane names the triggers, the product the channel);
   - where each role's instructions are: an implementer's task prompt and the standing definition of
     done (`docs/delivery/standing-dod.md`); the design seat's `spec-maintainer` skill; an interactive session with the operator has no
     delivery role unless given one;

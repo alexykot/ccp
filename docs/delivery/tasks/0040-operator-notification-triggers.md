@@ -80,6 +80,18 @@ The plane defines when the lead must notify the operator (a blocker, a decision 
   sends again. A test pins that a claim refused at the checkpoint with no channel runs nothing and
   its refusal carries no `notify:` warning. Left for the lead: §19, `plugin/orientation.md`,
   ADR-0004 D5 and ADR-0034 still say nothing emails (review MINOR-4).
+- 2026-11-10 — implementer, fix round 2 (lead's direction on the review and verify of PR #43). The
+  leftover "nothing emails" statements now point to §3.6 (the plane's triggers, the product's
+  channel): §19 in `docs/spec/03-quality.md`, the §9.3 orientation bullet in `docs/spec/01-model.md`,
+  `plugin/orientation.md`, and a code comment in `scripts/observability/architecture_review.py` and
+  `tests/test_architect.py`. A new ADR-0037 (status proposed; the approval of this task's PR accepts
+  it) records the change: its D2 supersedes ADR-0004 D5 (`ccp adr supersede 0004 0037 --decisions D5
+  --by D2`, so D5 is retired) and amends ADR-0034 D13, whose body now notes it. The worker prompt's
+  "No email" (`templates/prompts/_common.md`) is a worker's rule, not the operator's channel, and
+  stays. Two guards are now pinned: a `ccp tasks resume` named for an operator wait sends nothing
+  (`action == "set"`), and a `process` that reaches a `needs_operator` answer its event log already
+  holds sends no second decision (`not already`). Outside the declared paths: `docs/adr/`,
+  `docs/spec/03-quality.md`, `scripts/observability/architecture_review.py`, `tests/test_architect.py`.
 
 ## Verification notes
 

@@ -40,3 +40,4 @@
 | [ADR-0034](0034-spec-restructure-rulings.md) | SPEC restructure rulings | accepted | 2026-11-06 |  |
 | [ADR-0035](0035-tool-proposal-triage-rulings-2026-11-06.md) | Tool-proposal triage rulings (2026-11-06) | accepted | 2026-11-06 |  |
 | [ADR-0036](0036-project-name-ccp-and-its-repository.md) | Project name CCP and repository alexykot/ccp | accepted | 2026-11-06 |  |
+| [ADR-0037](0037-the-plane-names-when-the-operator-is-notified.md) | The plane names when the operator is notified; the product names the channel | proposed | 2026-11-10 |  |
