@@ -769,6 +769,11 @@ def _suite_list(cfg: config.Config, a: argparse.Namespace):
     return suite.listing(cfg, a)
 
 
+def _mutate(cfg: config.Config, a: argparse.Namespace):
+    from ccp import mutate, wt  # noqa: PLC0415
+    return mutate.run(cfg, wt._queue_root(), a.run, a.test, a.mutant or [])
+
+
 def _plane(cfg: config.Config, a: argparse.Namespace):
     from ccp import plane
     return {"propose": plane.propose, "triage": plane.triage, "list": plane.listing, "check": plane.check}[a.cmd](cfg, a)
@@ -969,6 +974,15 @@ def build_parser() -> argparse.ArgumentParser:
     p = su.add_parser("list", help="the recorded suite runs and their totals per run and per task (JSON)")
     p.add_argument("--task", help="only this task's")
     p.set_defaults(fn=_toolkit(_suite_list))
+
+    p = sub.add_parser("mutate", help="does a test bite: apply each mutant in a mutation worktree, run the named test, "
+                                      "record killed or survived on the run (SPEC §20.6; needs QUEUE_ROOT)")
+    p.add_argument("--run", required=True, help="the calling seat's run (<task_id>/<phase>[-n]); it must be open")
+    p.add_argument("--test", required=True, help="the test id plane.json mutate.command runs ({test})")
+    p.add_argument("--mutant", action="append", required=True,
+                   help="<file>:<old>=><new> (the old text once in the file, relative to the worktree), or a patch "
+                        "file; repeat for more")
+    p.set_defaults(fn=_toolkit(_mutate))
 
     pl = sub.add_parser("plane", help="propose a ccp tool; the queue's script check (SPEC §31.4)") \
         .add_subparsers(dest="cmd", required=True)

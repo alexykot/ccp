@@ -244,6 +244,10 @@ VERIFY_DEFAULTS: dict[str, Any] = {"accept_cache": None, "skip_review": None}
 ACCEPT_CACHE_DEFAULTS: dict[str, Any] = {"max_age_days": None, "cold_tasks": [], "review": False}
 SKIP_REVIEW_KEYS = {"paths", "proof"}
 SKIP_REVIEW_FIELDS = ("task_id", "reviewed", "head", "from")
+# §20.6 `ccp mutate`: `command` runs one named test (a shell template naming `{test}`, filled in
+# shell-quoted; null, the default, means the product has none and `ccp mutate` refuses);
+# `timeout_seconds` bounds one run of it (a mutant that hangs the test is killed).
+MUTATE_DEFAULTS: dict[str, Any] = {"command": None, "timeout_seconds": 600}
 SUITE_LANE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,31}$")
 # §5, §14.1: the placeholder a gate lane is written with before the product names its own command.
 LANE_PLACEHOLDER = "<your test command>"
@@ -286,6 +290,7 @@ class Config:
     review_points: dict[str, Any] | None = None
     estimate: dict[str, Any] | None = None
     parallel: dict[str, Any] | None = None
+    mutate: dict[str, Any] | None = None
     # Whether plane.json names task_log.review_point_pattern itself (§22: ignored, with a warning,
     # once the product keeps a review-point register).
     review_point_pattern_set: bool = False
@@ -617,7 +622,8 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
            "verify": _merge(VERIFY_DEFAULTS, raw.get("verify"), "verify"),
            "review_points": _merge(REVIEW_POINTS_DEFAULTS, raw.get("review_points"), "review_points"),
            "estimate": _merge(ESTIMATE_DEFAULTS, raw.get("estimate"), "estimate"),
-           "parallel": _merge(PARALLEL_DEFAULTS, raw.get("parallel"), "parallel")}
+           "parallel": _merge(PARALLEL_DEFAULTS, raw.get("parallel"), "parallel"),
+           "mutate": _merge(MUTATE_DEFAULTS, raw.get("mutate"), "mutate")}
     bad = []
     if not isinstance(raw.get("task_log", {}).get("index", True), bool):
         bad.append("task_log.index must be true or false")
@@ -850,6 +856,14 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
                            "none of them the root itself")
             if not (isinstance(sr["proof"], str) and sr["proof"].strip()):
                 bad.append("verify.skip_review.proof must be a shell command (exit 0 = the fix is proven)")
+    mu = out["mutate"]
+    if not _opt_str(mu["command"]):
+        bad.append("mutate.command must be a shell command naming {test}, or null for none")
+    elif mu["command"] is not None and "{test}" not in mu["command"]:
+        bad.append("mutate.command must name {test}: it runs the one test a mutant is judged by (§20.6)")
+    t = mu["timeout_seconds"]
+    if isinstance(t, bool) or not isinstance(t, int) or t < 1:
+        bad.append("mutate.timeout_seconds must be an integer >= 1")
     if bad:
         raise ConfigError(f"{CONFIG_REL}: " + "; ".join(bad))
     return out
@@ -944,7 +958,8 @@ def load(root: Path) -> Config:
     unknown = sorted(set(raw) - {"$schema", "_note", "project_id", "task_log", "package_docs", "architect",
                                  "prompts", "reconcile", "adapter", "worktrees", "env", "merge",
                                  "auth_check", "telemetry", "board", "gate", "suite",
-                                 "adr", "verify", "review_points", "estimate", "parallel", "ids", "docs"})
+                                 "adr", "verify", "review_points", "estimate", "parallel", "ids", "docs",
+                                 "mutate"})
     if unknown:
         raise ConfigError(f"{CONFIG_REL}: unknown top-level key(s): {', '.join(unknown)}")
     bad_ids = refs.validate(raw.get("ids"))
