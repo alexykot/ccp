@@ -49,6 +49,18 @@ Separation of duties becomes a plane rule: the seat that rules on a task (the le
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): each `checks[]` item of the verify record gains `produced_by` (the seats of
+  §2.1 plus `operator`: verifier, implementer, reviewer, architect, operator, runner, lead) and an
+  optional `operator_step` (the approving gate's id, `<task_id>-<n>`). `ccp verify record` requires
+  `produced_by` on every check, and refuses, naming the check and the seat, evidence produced by the
+  lead or the runner unless `operator_step` names the task's gate file that is class `operator`,
+  closed and approved (a standing approval writes such a file). A named `operator_step` that is not
+  such a gate is refused whoever produced the evidence. `merge-ok` and `check` read records written
+  before the field (E9) but refuse a ruling seat's evidence on the same terms. Gate runs carry no
+  producer: §15.1 makes them the verifier's own. SPEC §2.3, §15.4 and §15.8 drafted for the operator's
+  approval; the verifier and runner briefs state the rule. Tests: `tests/test_verify_producer.py`;
+  existing fixtures recorded through `ccp verify record` now name `produced_by: verifier`.
+
 ## Verification notes
 
 *Append-only.*
