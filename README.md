@@ -61,7 +61,8 @@ pass that reviews the product's structure. The **operator** is you.
 ### Prerequisites
 
 - `git`, with `user.name` and `user.email` set; the product is a git repository.
-- Python 3.10 or newer (`ccp` uses only the standard library).
+- Python 3.9 or newer (`ccp` uses only the standard library; on macOS the launchd services run it
+  with the system `python3`).
 - [Claude Code](https://docs.claude.com/en/docs/claude-code).
 - **Claude Code agent teams**: experimental and off by default; CCP needs them. They are turned on
   with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, which step 2 puts in the product's

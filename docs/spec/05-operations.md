@@ -25,6 +25,11 @@ ADR-0023 and ADR-0024 carry the reasons.
   stderr when the run checkout has local changes, is not on `main`, or is behind `origin/main`.
 - The per-product bindings (`projects/<project_id>.yaml`) are local and gitignored in the run
   checkout; a release never loses them.
+- The plane runs on Python 3.9 or newer, standard library only (`requires-python` in
+  `pyproject.toml`). launchd runs the receiver and the board through `bin/ccp`, whose
+  `#!/usr/bin/env python3` finds the system `python3` (3.9 on macOS), so every module imports on 3.9.
+  A module with a union annotation (`int | None`) postpones annotations
+  (`from __future__ import annotations`); the suite fails on one that does not, naming the module and line.
 
 ### 29.3 Compatibility across a release
 
