@@ -49,7 +49,8 @@ scalar() {
 # SPEC §29.3: after a release, run the new `ccp docs check`, `ccp tasks check` and (with an `adr` block)
 # `ccp adr check` on each bound product's integration branch: origin/<branch> as the product last
 # fetched it, else its local <branch>. They run in a shared clone in a temp dir, so nothing is written
-# to the product. A stale product is reported, never fixed, and never fails the update.
+# to the product. A branch without docs/delivery/plane.json (not adopted) is not checked. A stale
+# product is reported, never fixed, and never fails the update.
 check_products() {
   local bdir="${CCP_BINDINGS_DIR:-$RUN/projects}" ccp="$RUN/bin/ccp" b pid root branch sha ref tmp c out rc stale=0
   [ -d "$bdir" ] || return 0
@@ -73,6 +74,9 @@ check_products() {
         || ! git -C "$tmp/p" checkout -q --detach "$sha" >/dev/null 2>&1; then
       rm -rf "$tmp"; echo "run-checkout: product $pid: not checked: cannot check out $branch ${sha:0:7}"; continue
     fi
+    if [ ! -f "$tmp/p/docs/delivery/plane.json" ]; then
+      rm -rf "$tmp"; echo "run-checkout: product $pid: not checked: $branch has no docs/delivery/plane.json (not adopted)"; continue
+    fi
     local checks=("docs check" "tasks check") failed="" report=""
     if python3 -c 'import json,sys; sys.exit(0 if isinstance(json.load(open(sys.argv[1])).get("adr"), dict) else 1)' \
         "$tmp/p/docs/delivery/plane.json" 2>/dev/null; then
@@ -85,7 +89,8 @@ check_products() {
         "$ccp" --root "$tmp/p" $c 2>&1)" || rc=$?
       if [ "$rc" -ne 0 ]; then
         failed="${failed:+$failed, }ccp $c"
-        report+="$(printf '%s\n' "$out" | head -n 20 | sed 's/^/    /')"$'\n'
+        # sed reads all of it: `head` would close the pipe early and kill this script under pipefail.
+        report+="$(printf '%s\n' "$out" | sed -n '1,20s/^/    /p')"$'\n'
       fi
     done
     rm -rf "$tmp"

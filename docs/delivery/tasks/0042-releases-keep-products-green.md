@@ -63,6 +63,14 @@ When a plane release is installed, `ccp` checks each bound product's integration
   steps in `CLAUDE.md` and the `release.sh` header name the new check. Tests: `tests/test_sync_on_release.py`.
 - `.github` joins `package_docs.exempt_dirs` in `docs/delivery/plane.json`: it holds GitHub's config, not
   source, so it carries no `CLAUDE.md` (the self-hosting docs check failed on it otherwise).
+- 2026-11-10 (implementer, fix round 1): a binding whose integration branch has no
+  `docs/delivery/plane.json` (a product that has not adopted `ccp`) now prints `not checked` and is
+  skipped, rather than reported STALE on every release for a product that was never green. A failing
+  check's output is cut to 20 lines with `sed -n` instead of `head`, which closed the pipe early and,
+  under `pipefail`, killed the update when a check printed more than the pipe buffer, leaving the
+  remaining products unchecked. The SPEC §29.3 bullets name the not-adopted case and the migrate-command
+  bullet is reworded (same meaning). Tests: `test_a_product_that_has_not_adopted_ccp_is_not_checked`,
+  `test_a_check_that_prints_a_lot_neither_kills_the_update_nor_floods_it`.
 
 ## Verification notes
 

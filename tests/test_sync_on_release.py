@@ -146,6 +146,33 @@ class ReleaseChecksProducts(unittest.TestCase):
         self.assertIn("not checked", self.product_line(r.stdout, "gone"))
         self.assertIn("not checked", self.product_line(r.stdout, "nobranch"))
 
+    def test_a_product_that_has_not_adopted_ccp_is_not_checked(self):
+        root = self.d / "unadopted"
+        root.mkdir()
+        (root / "README.md").write_text("a product\n")
+        git(root, "init", "-q", "-b", "main")
+        git(root, "add", "README.md")
+        git(root, "commit", "-qm", "no plane.json")
+        self.bind("unadopted", root)
+        self.plane_commit(NEW_CCP, "new rules")
+        r = self.update()
+        line = self.product_line(r.stdout, "unadopted")
+        self.assertIn("not checked", line)
+        self.assertIn("docs/delivery/plane.json", line)
+        self.assertNotIn("STALE", r.stdout)
+        self.assertNotIn("tell each one's lead", r.stdout)
+
+    def test_a_check_that_prints_a_lot_neither_kills_the_update_nor_floods_it(self):
+        self.bind("big", self.product("big", adr=False))
+        self.bind("later", self.product("later", adr=False))
+        self.plane_commit("#!/bin/sh\npython3 -c \"import sys; sys.stdout.write('noise\\n' * 40000)\"\nexit 1\n",
+                          "a check that prints 240 KB and fails")
+        r = self.update()
+        self.assertIn("STALE", self.product_line(r.stdout, "big"))
+        self.assertIn("STALE", self.product_line(r.stdout, "later"))  # the products after it are still checked
+        self.assertIn("2 product(s) went stale", r.stdout)
+        self.assertEqual(r.stdout.count("    noise\n"), 2 * 2 * 20)  # two checks per product, 20 lines each
+
 
 if __name__ == "__main__":
     unittest.main()
