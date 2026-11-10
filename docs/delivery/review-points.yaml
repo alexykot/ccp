@@ -2,13 +2,17 @@ review_points:
   - id: R1
     name: publishable
     goal: The repository can be published. The SPEC is restructured into normative rules, the privacy scrub is done, and the leak check passes with a full denylist.
-    status: current
+    status: closed
     opened: "2026-11-05"
+    closed: "2026-11-10"
   - id: R2
     name: delivery refinements
     goal: Generic delivery improvements raised by managed products' tool proposals and accepted in triage, built once the repository is publishable.
-    status: planned
+    status: closed
+    opened: "2026-11-10"
+    closed: "2026-11-10"
   - id: R3
     name: proposal intake
     goal: Generic concerns found written into a managed product's own docs and tools move into the plane - gate stages, doc conventions, separation of duties, operator sign-off and notification, worker and lead rules, release safety and mutation checks.
-    status: planned
+    status: current
+    opened: "2026-11-10"
