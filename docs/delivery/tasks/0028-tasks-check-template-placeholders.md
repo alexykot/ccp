@@ -61,6 +61,18 @@ each placeholder still there, so a new user or an agent fixes it before a runner
 
 *Append-only, newest last.*
 
+- 2026-11-10 — `ccp tasks check` reads each task not yet `done` or `dropped` for the template's
+  placeholders (`tasklog.PLACEHOLDERS`) and refuses each one with its file and line. Text inside a
+  code span or a fenced block is skipped as quoted, so this task's own Scope passes. A code span
+  never runs past a blank line, and an unclosed fence hides nothing. Done and dropped tasks are
+  history and are not read, as with the dry-run check.
+- A refusal for missing refs, where `spec_refs` is one of the lists the task may cite, now says to
+  list the SPEC sections in `spec_refs` and cite them in the text. That covers both the task log's
+  `refs_any` and a kind's own `refs_any`.
+- `plane.json` validation refuses a `suite.lanes` argv with an item that contains
+  `<your test command>`, naming the lane (`config.LANE_PLACEHOLDER`).
+- SPEC §5 gets a note on the three refusals. Tests: `tests/test_task_placeholders.py`.
+
 ## Verification notes
 
 *Append-only.*
