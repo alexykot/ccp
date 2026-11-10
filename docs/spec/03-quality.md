@@ -478,15 +478,20 @@ Each doc:
 - names no delivery id (below).
 
 **No delivery ids (`no_delivery_ids`, default `true`).** No line of a package doc, and no code
-comment of a file under `docstring_globs`, carries a task, finding or ruling id. Comments are what
-the language pack reads as comments (§21.4): strings and docstrings are not comments. Each is
+comment of a file under `docstring_globs`, carries a task, finding or ruling id. Comments are read
+only in files under `docstring_globs`, as the language pack reads them (§21.4): a product without
+`docstring_globs` gets no comment check, and strings and docstrings are not comments. Each is
 reported as `file:line` with the ids it carries. The plane's ids are:
 
-- a task: its id (`NNNN-slug`), its zero-padded number standing alone (`0042`, which a full stop may
-  follow and a decimal's digits may not) or `task 42` / `task #0042`, at `ids.task.width` (§7);
-- an architect pass or one of its findings: `ar-<stamp>-<hex4>` or `sh-<stamp>-<hex4>`, with
-  `#F<n>` for a finding;
-- a spec question, whose answer is a ruling (§17): `sm-<stamp>-<hex4>`.
+- a task in the task log, at `ids.task.width` (§7): its id (`NNNN-slug`), unless a file extension
+  follows it (`0001-init.sql` is a file name); its zero-padded number standing alone (`0042`, which
+  a full stop may follow and a decimal's digits may not); or `task 42`, `task #0042` or `Task: 42`.
+  Each counts only when its number names a task file in the task log, which `ccp docs check` reads
+  once per run: a number that names none (`chmod 0644`, `task 2026`, `2026-q3-review`) is not an
+  id. The same task forms, matched the same way, are `rules.no_ids`'s default (§21.6);
+- always, an architect pass or one of its findings: `ar-<stamp>-<hex4>` or `sh-<stamp>-<hex4>`,
+  with `#F<n>` for a finding;
+- always, a spec question, whose answer is a ruling (§17): `sm-<stamp>-<hex4>`.
 
 `delivery_id_patterns` adds the product's own ids (its findings, rulings, tickets) as regexes,
 checked when the config loads. `false` turns the check off. Paths under `rules.history_attr`

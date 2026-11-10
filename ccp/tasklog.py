@@ -700,6 +700,14 @@ def next_task(cfg: Config, scope: list[str] | None = None,
     return r[0][0] if r else None
 
 
+def task_numbers(cfg: Config) -> frozenset[str]:
+    """The numbers of the tasks in the task log (its `NNNN-slug.md` files), as written (`0042`)."""
+    ids = refs.ids(cfg)
+    if not cfg.tasks_dir.is_dir():
+        return frozenset()
+    return frozenset(m.group(1) for f in cfg.tasks_dir.glob("*.md") if (m := ids.task_file_re.match(f.name)))
+
+
 def next_number(cfg: Config) -> str:
     """The next free NNNN, for a seat or tool filing a new task."""
     ids = refs.ids(cfg)

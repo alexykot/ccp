@@ -6,15 +6,16 @@ The language-neutral core: every directory holding source carries a package doc,
 with a title, names no file that is gone, plans nothing, and stays shorter than a fraction of its
 source. The language pack (`package_docs.language`, ccp/doclang) adds its source suffixes and
 directory names, and its per-file checks over `docstring_globs` (Python: a module docstring that
-says what the module does). Package docs and code comments name no delivery id (a task, an
-architect finding, a spec question's ruling, or the product's own patterns): a package doc is a map
-of what exists, and the task log is the record. Opt-in generic rules are ccp/docrules.py.
+says what the module does). Package docs and code comments name no delivery id (a task in the task
+log, an architect finding, a spec question's ruling, or the product's own patterns): a package doc is
+a map of what exists, and the task log is the record. Opt-in generic rules are ccp/docrules.py.
 Staleness a rule cannot see is the architect's docs lens instead (`ccp architect`, §21.7).
 """
 from __future__ import annotations
 
 import re
 import subprocess
+from collections.abc import Iterable
 from pathlib import Path
 
 from ccp import doclang, refs
@@ -164,21 +165,24 @@ def pack_check(cfg: Config) -> list[str]:
     return errs
 
 
-def delivery_id_re(cfg: Config) -> re.Pattern[str]:
-    """The plane's delivery ids at the product's widths (refs) and the product's own patterns."""
-    pats = (*refs.ids(cfg).delivery_id_patterns, *cfg.package_docs["delivery_id_patterns"])
+def delivery_id_re(cfg: Config, numbers: Iterable[str]) -> re.Pattern[str]:
+    """The plane's delivery ids at the product's widths (refs), a task only when its number is one of
+    `numbers` (the task log's), and the product's own patterns."""
+    pats = (*refs.ids(cfg).delivery_id_patterns(numbers), *cfg.package_docs["delivery_id_patterns"])
     return re.compile("|".join(f"(?:{x})" for x in pats))
 
 
-def ids_check(cfg: Config) -> list[str]:
+def ids_check(cfg: Config, numbers: Iterable[str] | None = None) -> list[str]:
     """Rule 7: no task, finding or ruling id in a package doc (a map of what exists, not a record of
     what a task did) or in a code comment of a file under `docstring_globs`, read by the language
-    pack. Off with `no_delivery_ids: false`; history paths (§21.6) are skipped."""
+    pack. A task counts only when it is in the task log (`numbers`, read here when not given). Off
+    with `no_delivery_ids: false`; history paths (§21.6) are skipped."""
     pd = cfg.package_docs
     if not pd["no_delivery_ids"]:
         return []
-    from ccp import docrules  # noqa: PLC0415
-    rx, skip = delivery_id_re(cfg), docrules.history_paths(cfg)
+    from ccp import docrules, tasklog  # noqa: PLC0415
+    numbers = tasklog.task_numbers(cfg) if numbers is None else numbers
+    rx, skip = delivery_id_re(cfg, numbers), docrules.history_paths(cfg)
     lines: list[tuple[str, int, str, str]] = []
     for d in source_dirs(cfg):
         doc = doc_for(cfg, d)
@@ -210,7 +214,9 @@ def check(cfg: Config) -> list[str]:
     product has not opted in."""
     if cfg.package_docs is None:
         return []
-    from ccp import docrules, rules  # noqa: PLC0415
+    from ccp import docrules, rules, tasklog  # noqa: PLC0415
+    numbers = tasklog.task_numbers(cfg)   # once per run: both id checks match tasks against it
     # A declined starter rule naming `package_docs` turns the package-doc rules off (§20.5).
-    own = [] if "package_docs" in rules.declined_keys(cfg) else core_check(cfg) + pack_check(cfg) + ids_check(cfg)
-    return own + docrules.check(cfg)
+    own = ([] if "package_docs" in rules.declined_keys(cfg)
+           else core_check(cfg) + pack_check(cfg) + ids_check(cfg, numbers))
+    return own + docrules.check(cfg, numbers)

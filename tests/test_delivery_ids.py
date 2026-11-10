@@ -6,8 +6,9 @@ import re
 import subprocess
 import unittest
 from contextlib import redirect_stdout
+from unittest import mock
 
-from ccp import cli, config, pkgdocs, refs
+from ccp import cli, config, pkgdocs, refs, tasklog
 from tests.helpers import Product
 
 SRC = '"""Does one thing."""\n' + "\n".join(f"x{i} = {i}" for i in range(40)) + "\n"
@@ -15,8 +16,19 @@ RULING = "sm-20260925T083400Z-a1b2"
 FINDING = "ar-20261001T120000Z-0f3c#F02"
 
 
+# The tasks the fixtures' docs and comments name: a task id counts only when its task is in the log.
+TASKS = ("0003-fixture", "0004-parse", "0005-store", "0007-add-login", "0009-cli", "0012-entry",
+         "0042-fix-the-thing")
+
+
+def log(p: Product, *tids: str) -> Product:
+    for tid in tids:
+        p.task(tid)
+    return p
+
+
 def product(**pd) -> Product:
-    p = Product({"package_docs": {"docstring_globs": ["app/**/*.py"], **pd}})
+    p = log(Product({"package_docs": {"docstring_globs": ["app/**/*.py"], **pd}}), *TASKS)
     p.write("app/.claude.md", "# app\n\nThe app's entry point.\n")
     p.write("app/main.py", SRC)
     return p
@@ -65,7 +77,7 @@ class PackageDocs(unittest.TestCase):
             p.cleanup()
 
     def test_a_claude_md_package_doc_is_checked(self):
-        p = Product({"package_docs": {"claude_md_dirs": ["lib"]}})
+        p = log(Product({"package_docs": {"claude_md_dirs": ["lib"]}}), *TASKS)
         try:
             p.write("lib/CLAUDE.md", "# lib\n\nBuilt by task #3.\n")
             p.write("lib/q.sql", "select 1;\n" * 10)
@@ -82,7 +94,7 @@ class PackageDocs(unittest.TestCase):
             p.cleanup()
 
     def test_the_task_width_comes_from_the_ids_block(self):
-        p = Product({"ids": {"task": {"width": 5}}, "package_docs": {}})
+        p = log(Product({"ids": {"task": {"width": 5}}, "package_docs": {}}), "00012-wide-id", "0012-narrow")
         try:
             p.write("lib/.claude.md", "# lib\n\n00012 and 00012-wide-id, not 0012.\n")
             p.write("lib/q.sql", "select 1;\n" * 10)
@@ -142,7 +154,7 @@ class CodeComments(unittest.TestCase):
             p.cleanup()
 
     def test_language_none_reads_no_comments_but_checks_package_docs(self):
-        p = Product({"package_docs": {"language": "none"}})
+        p = log(Product({"package_docs": {"language": "none"}}), *TASKS)
         try:
             p.write("lib/.claude.md", "# lib\n\nAdded in 0012.\n")
             p.write("lib/q.sql", "-- task 4\n" + "select 1;\n" * 10)
@@ -211,14 +223,115 @@ class Config(unittest.TestCase):
                 p.cleanup()
 
 
+class TaskLog(unittest.TestCase):
+    """A task id counts only when its task is in the product's task log."""
+
+    def scratch(self, doc: str, **pd) -> Product:
+        p = log(Product({"package_docs": {"docstring_globs": ["app/**/*.py"], **pd}}), "0001-setup", "0007-add-login")
+        p.write("app/.claude.md", "# app\n\n" + doc)
+        p.write("app/main.py", SRC)
+        return p
+
+    def test_ordinary_numbers_file_names_and_years_are_not_ids(self):
+        doc = "Run chmod 0644 on it.\nMigrations start at 0001-init.sql.\nSee task 2026.\nThe plan 2026-q3-review.\n"
+        p = self.scratch(doc)
+        try:
+            self.assertEqual(pkgdocs.check(p.cfg), [])
+            p.write("app/main.py", SRC + "".join(f"y = 1  # {line}\n" for line in doc.splitlines()))
+            self.assertEqual(pkgdocs.check(p.cfg), [])
+        finally:
+            p.cleanup()
+
+    def test_ids_of_logged_tasks_and_the_planes_stamp_ids_are_flagged(self):
+        p = self.scratch("Added by 0007-add-login.\nSee task 7.\nDone in 0007.\nRuled in sm-20261110T000000Z-abcd.\n"
+                         "Per Task: 1.\n")
+        try:
+            errs = failures(p)
+            self.assertRegex(errs, r"app/\.claude\.md:3:.*names delivery id\(s\) 0007-add-login;")
+            self.assertRegex(errs, r"app/\.claude\.md:4:.*names delivery id\(s\) task 7;")
+            self.assertRegex(errs, r"app/\.claude\.md:5:.*names delivery id\(s\) 0007;")
+            self.assertRegex(errs, r"app/\.claude\.md:6:.*names delivery id\(s\) sm-20261110T000000Z-abcd;")
+            self.assertRegex(errs, r"app/\.claude\.md:7:.*names delivery id\(s\) Task: 1;")
+            self.assertEqual(len(errs.splitlines()), 5, errs)
+        finally:
+            p.cleanup()
+
+    def test_a_task_not_in_the_log_is_not_an_id(self):
+        p = self.scratch("Not 0002-other-thing, task 3, 0008 or task #0042.\n")
+        try:
+            self.assertEqual(pkgdocs.check(p.cfg), [])
+        finally:
+            p.cleanup()
+
+    def test_a_task_id_followed_by_a_file_extension_is_a_name(self):
+        p = self.scratch("The tasks/0007-add-login.md file and 0001-setup.sh.\n")
+        try:
+            self.assertEqual(pkgdocs.check(p.cfg), [])
+        finally:
+            p.cleanup()
+
+    def test_with_no_task_log_the_stamp_ids_are_still_flagged(self):
+        p = Product({"package_docs": {}})
+        try:
+            p.write("lib/.claude.md", f"# lib\n\nSee 0001-setup, task 1 and 0001.\n{FINDING}\n")
+            p.write("lib/q.sql", "select 1;\n" * 10)
+            errs = pkgdocs.check(p.cfg)
+            self.assertEqual(len(errs), 1, errs)
+            self.assertRegex(errs[0], rf"lib/\.claude\.md:4:.*{re.escape(FINDING)}")
+        finally:
+            p.cleanup()
+
+    def test_the_off_switch_still_turns_real_ids_off(self):
+        p = self.scratch("Added by 0007-add-login.\n", no_delivery_ids=False)
+        try:
+            self.assertEqual(pkgdocs.check(p.cfg), [])
+        finally:
+            p.cleanup()
+
+    def test_the_no_ids_rule_matches_only_logged_tasks_too(self):
+        p = self.scratch("", rules={"no_ids": {"globs": ["docs/*.md"]}})
+        try:
+            p.write("docs/a.md", "chmod 0644, 0001-init.sql, task 2026, plan 2026-q3-review.\n"
+                                  "Added by 0007-add-login, task 7 and 0001.\n")
+            self.assertEqual(failures(p), "rule no_ids: docs/a.md:2 carries delivery id(s) 0007-add-login, task 7, "
+                                          "0001; ids belong in the task log, not the code")
+        finally:
+            p.cleanup()
+
+    def test_one_docs_check_reads_the_task_log_once(self):
+        p = self.scratch("Added by 0007-add-login.\n", rules={"no_ids": {"globs": ["docs/*.md"]}})
+        try:
+            p.write("docs/a.md", "task 7\n")
+            with mock.patch.object(tasklog, "task_numbers", wraps=tasklog.task_numbers) as read:
+                errs = failures(p)
+            self.assertEqual(read.call_count, 1)
+            self.assertIn("app/.claude.md:3:", errs)
+            self.assertIn("rule no_ids: docs/a.md:1", errs)
+        finally:
+            p.cleanup()
+
+
 class Patterns(unittest.TestCase):
     def test_the_planes_ids_match_whole(self):
-        rx = re.compile("|".join(f"(?:{x})" for x in refs.DEFAULT.delivery_id_patterns))
-        for s in ("0042", "0042-fix-it", "task 42", "Task #0042", RULING, FINDING, "sh-20261001T120000Z-00ff"):
+        rx = re.compile("|".join(f"(?:{x})" for x in refs.DEFAULT.delivery_id_patterns(["0042", "0007"])))
+        for s in ("0042", "0042-fix-it", "task 42", "Task #0042", "task 07", "Task: 7", "TASK:  0042", RULING,
+                  FINDING, "sh-20261001T120000Z-00ff"):
             self.assertEqual([m.group(0) for m in rx.finditer(f"see {s} here")], [s], s)
         self.assertEqual(rx.findall("added in 0042."), ["0042"])
-        for s in ("1.0042", "0042.5", "0042.x", "2026", "x0042", "sm-2026", "ar-20261001T120000Z-0f3c5", "ADR-0031"):
+        self.assertEqual(rx.findall("added in 0042-fix-it."), ["0042-fix-it"])
+        for s in ("1.0042", "0042.5", "0042.x", "0042-fix-it.md", "2026", "x0042", "sm-2026",
+                  "ar-20261001T120000Z-0f3c5", "ADR-0031", "0043", "0043-fix-it", "task 43", "task 420", "task 00042",
+                  "task 142"):
             self.assertEqual(rx.findall(f"see {s} here"), [], s)
+
+    def test_no_task_numbers_give_no_task_patterns(self):
+        self.assertEqual(refs.DEFAULT.task_mention_patterns([]), ())
+        self.assertEqual(refs.DEFAULT.task_mention_patterns(["42", "00042"]), ())   # not at the width
+        self.assertEqual(len(refs.DEFAULT.delivery_id_patterns([])), 2)
+
+    def test_a_number_that_is_not_zero_padded_is_never_bare(self):
+        rx = re.compile("|".join(f"(?:{x})" for x in refs.DEFAULT.task_mention_patterns(["1234"])))
+        self.assertEqual(rx.findall("in 1234, 1234-the-id and task 1234"), ["1234-the-id", "task 1234"])
 
 
 if __name__ == "__main__":
