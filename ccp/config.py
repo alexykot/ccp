@@ -229,6 +229,8 @@ SUITE_SUMMARY_ALIASES = {"modules_ran_re": "ran_re", "modules_cached_re": "cache
 VERIFY_DEFAULTS: dict[str, Any] = {"accept_cache": None}
 ACCEPT_CACHE_DEFAULTS: dict[str, Any] = {"max_age_days": None, "cold_tasks": [], "review": False}
 SUITE_LANE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,31}$")
+# §5, §14.1: the placeholder a gate lane is written with before the product names its own command.
+LANE_PLACEHOLDER = "<your test command>"
 _INTS = {"rules_max_lines": 1, "every_n_tasks": 1, "max_days": 1, "notes_due": 1, "grace_tasks": 0,
          "triage_grace_tasks": 0, "refactor_every": 0, "call_timeout_minutes": 1, "max_new_tasks": 0}
 _STR_LISTS = ("probes", "metrics", "shape_only_dirs", "private_dirs")
@@ -667,6 +669,9 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     if not isinstance(lanes, dict) or not all(isinstance(k, str) and SUITE_LANE_RE.match(k) and _str_list(v) and v
                                               for k, v in lanes.items()):
         bad.append("suite.lanes must map a lane name (lowercase, at most 32 characters) to a non-empty argv list")
+    elif held := [k for k, v in lanes.items() if any(LANE_PLACEHOLDER in a for a in v)]:
+        bad.append(f"suite.lanes {', '.join(held)} still hold the placeholder {LANE_PLACEHOLDER!r}: "
+                   "write the command that runs the product's tests in its place")
     xl = out["suite"]["exclusive_lanes"]
     if not isinstance(xl, list) or not all(isinstance(x, str) and SUITE_LANE_RE.match(x) for x in xl):
         bad.append("suite.exclusive_lanes must be a list of lane names")

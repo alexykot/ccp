@@ -77,6 +77,14 @@ DRY_RUN_RE = re.compile(r"^[ \t]*dry run \(`?[0-9a-f]{7,40}`?\):[ \t]*(?:\n[ \t]
 DRY_RUN_NA_RE = re.compile(r"^[ \t]*dry run:[ \t]*n/a[ \t]*[—–-]+[ \t]*(?:\n[ \t]*)?(?!<[^>\n]*>[ \t]*$)\S", re.I | re.M)
 DRY_RUN_LINE_RE = re.compile(r"^[ \t]*dry run\b.*$", re.I | re.M)
 INDEX_ID_RE = re.compile(r"^  - id: (\S+)$", re.M)
+# §5: the plane template's placeholders. One left in a task file not yet done or dropped is a copy
+# not filled in. A placeholder inside a code span or a fenced block is quoted, not left, so it is not read.
+PLACEHOLDERS = ("NNNN-kebab-slug", "YYYY-MM-DD", "As a <role>", "<preconditions",
+                "<concrete, observable result>", "One line, imperative")
+FENCE_RE = re.compile(r"^[ \t]*(```|~~~)[^\n]*\n.*?^[ \t]*\1[^\n]*$", re.M | re.S)
+CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)(?:(?!\n[ \t]*\n).)+?(?<!`)\1(?!`)", re.S)
+# §5.2: what an empty ref list that includes spec_refs is told to do.
+SPEC_REFS_HINT = " — list the SPEC sections this task answers to in `spec_refs` and cite them in its text (§5.2)"
 
 
 @functools.lru_cache(maxsize=8)
@@ -241,7 +249,7 @@ def _check_kind(cfg: Config, t: dict[str, Any], rel: str) -> list[str]:
         return errs
     need = kind_refs(cfg, kind)
     if not any(_as_list(t.get(k)) for k in need):
-        errs.append(f"{rel}: a {kind} cites " + " or ".join(REF_LABELS.get(k, k) for k in need))
+        errs.append(f"{rel}: a {kind} cites " + " or ".join(REF_LABELS.get(k, k) for k in need) + _spec_hint(need))
     for r in _as_list(t.get("rule_refs")) if "rule_refs" in need else []:
         if not refs.ids(cfg).is_rule_id(r):
             errs.append(f"{rel}: rule_refs entry {r!r} is not a house-rule id ({refs.ids(cfg).rule_shape})")
@@ -263,6 +271,26 @@ def _check_dry_runs(t: dict[str, Any], rel: str) -> list[str]:
             errs.append(f"{rel}: dod_check `{m.group(1)}` runs a command but records no `dry run (<commit>):` "
                         "line from its writer's run, nor `dry run: n/a — <reason>` (task_log.dry_run, WRITING-tasks.md)")
     return errs
+
+
+def _blank(m: re.Match[str]) -> str:
+    """The matched text as spaces, its line breaks kept, so line numbers still count."""
+    return re.sub(r"[^\n]", " ", m.group(0))
+
+
+def _check_placeholders(t: dict[str, Any], rel: str) -> list[str]:
+    """§5: a task not yet done or dropped that still holds a template placeholder is a copy not
+    filled in. Names each placeholder and its line; quoted ones (code spans, fenced blocks) pass."""
+    if t.get("status") in TERMINAL:
+        return []
+    text = CODE_SPAN_RE.sub(_blank, FENCE_RE.sub(_blank, t["_text"]))
+    return [f"{rel}:{n}: template placeholder {ph!r} is still there — write the task's own text in its place (§5)"
+            for n, line in enumerate(text.splitlines(), 1) for ph in PLACEHOLDERS if ph in line]
+
+
+def _spec_hint(lists: list[str]) -> str:
+    """The hint for a task that cites none of `lists`, when spec_refs is one of them."""
+    return SPEC_REFS_HINT if "spec_refs" in lists else ""
 
 
 def _check_shaping(cfg: Config, t: dict[str, Any], rel: str, shaped: set[int]) -> list[str]:
@@ -425,12 +453,13 @@ def check(cfg: Config) -> list[str]:
                 errs.append(f"{rel}: depends_on `{dep}`, which runs later — "
                             "dependencies must precede (filesystem sort is execution order)")
         if not own_refs and tl["refs_any"] and not any(_as_list(t.get(k)) for k in tl["refs_any"]):
-            errs.append(f"{rel}: cites none of {', '.join(tl['refs_any'])}")
+            errs.append(f"{rel}: cites none of {', '.join(tl['refs_any'])}" + _spec_hint(tl["refs_any"]))
         if cfg.architect is not None:
             errs += _check_kind(cfg, t, rel)
         if "gate" in t and str(t.get("gate") or "").strip().lower() != "cold":
             errs.append(f"{rel}: gate {t.get('gate')!r} is not `cold`, the one value it takes (§15.3)")
         errs += _check_shaping(cfg, t, rel, shaped)
+        errs += _check_placeholders(t, rel)
         for s in tl["sections"]:  # the canonical six by default; a product may require more
             if _section(t["_text"], s) is None:
                 errs.append(f"{rel}: missing section `## {s}`")
