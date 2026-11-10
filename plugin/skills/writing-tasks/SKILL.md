@@ -152,7 +152,12 @@ or more than `max_checks` checks, duplicate check ids, soft language inside `## 
 a task file that is gone (restore it as `dropped`), a number held by another file without
 `renamed_from`, a kind's ref rules broken, and (with `shape_adrs`) a new task citing an unshaped ADR
 without a waiver. A `review_point` not in the register (or, without one, not matching
-`task_log.review_point_pattern`).
+`task_log.review_point_pattern`). A task not yet `done` or `dropped` that still holds a template
+placeholder (`NNNN-kebab-slug`, `YYYY-MM-DD`, `As a <role>`, `<preconditions`,
+`<concrete, observable result>`, `One line, imperative`), named with its line; a placeholder quoted
+in a code span or a fenced block is not read. A task citing nothing, where `spec_refs` is one of the
+lists it may cite, is told to list the SPEC sections in `spec_refs` and cite them in its text.
+`plane.json` validation refuses a `suite.lanes` command that holds `<your test command>`.
 
 ## When the operator says "not verifiable"
 
