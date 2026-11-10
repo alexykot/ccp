@@ -667,11 +667,10 @@ Tasks in unrelated parts of a codebase need not wait for each other (ADR-0012). 
 worktrees, workers and merge worktree; a teammate's Agent call blocks until its worker ends, so one
 runner runs one worker at a time. Correctness never rests on declared paths: a task merges only from
 a head that contains the current integration tip (the task log and the paths in
-`merge.behind_tip_ignore` aside, §16.5 rule 4), verified there, and
-git resolves the rest with no merge lock. Two merges that conflict: the later fails, and its
-implementer resolves it. A merge landing between another task's catch-up and its merge is a small
-window, accepted. Declared paths only decide what to start together. Off (`max_in_flight: 1`) is the
-single-runner behaviour, exactly.
+`merge.behind_tip_ignore` aside, §16.5 rule 4), verified there, and git resolves the rest with no
+merge lock. Two merges that conflict: the later fails, and its implementer resolves it. A merge
+landing between another task's catch-up and its merge is a small window, accepted. Declared paths
+only decide what to start together. Off (`max_in_flight: 1`) is the single-runner behaviour, exactly.
 
 ### 16.2 The knob
 
@@ -685,8 +684,8 @@ No `parallel` block, or `max_in_flight: 1`: one task at a time. `max_in_flight` 
 `exclusive` lists paths and globs (`**` spans directories) whose concurrent edits git cannot merge
 safely (a schema or migration file); `session_ceiling_pct` defaults to 60. `merge.behind_tip_ignore`
 (empty by default) lists the paths whose commits on the tip do not make a head behind it (§16.5 rule
-4); it applies with one runner too. Config loading validates these blocks; unknown keys are refused. Lowering `parallel.max_in_flight` is completed by `stop --slot` for the
-extra slots.
+4); it applies with one runner too. Config loading validates these blocks; unknown keys are refused.
+Lowering `parallel.max_in_flight` is completed by `stop --slot` for the extra slots.
 
 ### 16.3 Which tasks may start together
 
