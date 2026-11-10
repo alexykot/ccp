@@ -98,7 +98,7 @@ tasks:
     depends_on: []
     path: tasks/0019-parallel-doc-checks.md
   - id: 0020-cold-gate-and-mutation-lane
-    status: pending
+    status: done
     title: A gate run with nothing cached counts as cold; the verify prompt names the mutation lane
     depends_on: []
     path: tasks/0020-cold-gate-and-mutation-lane.md

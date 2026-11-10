@@ -1,7 +1,7 @@
 ---
 task_id: 0020-cold-gate-and-mutation-lane
 title: A gate run with nothing cached counts as cold; the verify prompt names the mutation lane
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S15"]
@@ -9,7 +9,7 @@ adr_refs: []
 review_point: R2
 paths: ["ccp/verify.py", "templates/prompts/verify.md", "templates/prompts/review.md", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # Task: 0020-cold-gate-and-mutation-lane
@@ -58,4 +58,4 @@ updated: 2026-11-06
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #16 head `e3b65d9` (squash `8c14d4f`): APPROVE. Passed: cold-01. Gate: `ccp suite run --lane gate -- gate.sh (0 args)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0020-cold-gate-and-mutation-lane.json.
