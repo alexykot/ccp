@@ -1,14 +1,14 @@
 ---
 task_id: 0030-gate-stages-in-plane-json
 title: Gate stages are declared in plane.json and run by ccp
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S8", "S14", "S21"]
 review_point: R3
 paths: ["ccp/", "docs/spec/", "templates/", "tests/"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0030-gate-stages-in-plane-json
@@ -78,4 +78,4 @@ A product declares its gate as named stages in `plane.json` (name and command ea
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #22 head `4436b1a` (squash `f0eda93`): APPROVE. Passed: check-01, check-02, check-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0030-gate-stages-in-plane-json.json.
