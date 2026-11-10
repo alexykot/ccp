@@ -31,6 +31,7 @@ def starter_product(declined: dict | None = None, **package_docs) -> Product:
     p = Product(cfg)
     p.write("docs/SPEC.md", "# SPEC\n\n## Flows\n")
     p.write("docs/PROJECT.md", "# PROJECT\n")
+    p.task("0012-add-the-thing")          # the current-docs fault names it: only a logged task is an id
     p.index()
     return p
 

@@ -5,9 +5,9 @@ Each rule is off until `package_docs.rules` names it, and each is language-neutr
 - `citations: {globs, targets, ignore?}`: every SPEC ref in a file under `globs` names a heading of
   a `targets` doc, and every markdown link to a doc heading (`[x](path.md#anchor)`) names a heading
   that exists. Fenced code is skipped on both sides.
-- `no_ids: {globs, patterns?}`: files under `globs` carry no delivery ids. By default these are task
-  ids (`NNNN-slug`), zero-padded task numbers and `task NNNN`, at the product's task width; any
-  other id (findings, tickets) is the product's own `patterns`.
+- `no_ids: {globs, patterns?}`: files under `globs` carry no delivery ids. By default these are the
+  tasks in the task log, named as the package-doc check names them (`refs.task_mention_patterns`);
+  any other id (findings, tickets) is the product's own `patterns`.
 - `history_attr: <name>`: tracked paths carrying that git attribute are history and are skipped
   by the rules above; `ccp docs history-paths` lists them for a product's own absence checks.
 - `no_overlap: true`: no two check commands (`architect.checks`, `docs.checks`) run the same
@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+from collections.abc import Iterable
 from pathlib import Path
 
 from ccp import refs
@@ -156,8 +157,10 @@ def citations(cfg: Config, rule: dict, skip: set[str]) -> list[str]:
     return errs
 
 
-def no_ids(cfg: Config, rule: dict, skip: set[str]) -> list[str]:
-    pats = rule.get("patterns") or refs.ids(cfg).task_mention_patterns
+def no_ids(cfg: Config, rule: dict, skip: set[str], numbers: Iterable[str]) -> list[str]:
+    pats = rule.get("patterns") or refs.ids(cfg).task_mention_patterns(numbers)
+    if not pats:
+        return []
     rx = re.compile("|".join(f"(?:{x})" for x in pats))
     errs = []
     for f in _files(cfg, rule["globs"], skip):
@@ -206,8 +209,9 @@ def no_overlap(cfg: Config) -> list[str]:
     return errs
 
 
-def check(cfg: Config) -> list[str]:
-    """The opted-in rules' failures; [] when none is configured."""
+def check(cfg: Config, numbers: Iterable[str] | None = None) -> list[str]:
+    """The opted-in rules' failures; [] when none is configured. `numbers` are the task log's (read
+    here when not given)."""
     r = _rules(cfg)
     if not r:
         return []
@@ -216,7 +220,10 @@ def check(cfg: Config) -> list[str]:
     if r.get("citations"):
         errs += citations(cfg, r["citations"], skip)
     if r.get("no_ids"):
-        errs += no_ids(cfg, r["no_ids"], skip)
+        if numbers is None:
+            from ccp import tasklog  # noqa: PLC0415
+            numbers = tasklog.task_numbers(cfg)
+        errs += no_ids(cfg, r["no_ids"], skip, numbers)
     if r.get("no_overlap"):
         errs += no_overlap(cfg)
     return errs

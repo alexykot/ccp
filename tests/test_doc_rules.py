@@ -169,6 +169,8 @@ class Rules(unittest.TestCase):
     def test_no_ids_default_and_custom_patterns(self):
         p = self.product({"no_ids": {"globs": ["src/*.py", "tests/*.py"]}})
         try:
+            p.task("0042-fix-the-thing")
+            p.task("0123-another")
             p.write("src/a.py", "import os  # noqa: F401\nx = 1  # see 0042-fix-the-thing\n"
                                 "# task 42, then 0123; 2026 and 1.0042 are not ids\n")
             p.write("tests/test_b.py", "def test_ok():\n    pass\n")
@@ -193,6 +195,8 @@ class Rules(unittest.TestCase):
         try:
             subprocess.run(["git", "init", "-q"], cwd=p.root, check=True)
             p.write(".gitattributes", "docs/log/** history\n")
+            p.task("0042-fix-the-thing")
+            p.task("0043-another-thing")
             p.write("docs/log/2026.md", "merged 0042-fix-the-thing\n")
             p.write("src/notes.md", "do 0043-another-thing\n")
             subprocess.run(["git", "add", "-A"], cwd=p.root, check=True)
