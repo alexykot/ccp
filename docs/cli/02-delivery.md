@@ -30,7 +30,7 @@ argument takes the full id or its number.
 | `ccp report <run_id> FILE` | each worker | §13.4 |
 | `ccp agent start\|stop` | the harness's hooks | §11.1 |
 | `ccp runs gc [--dry-run]` | lead, runner | §11.1 |
-| `ccp verify record FILE` | verifier | §15.4, §15.6 |
+| `ccp verify record FILE` | verifier | §15.4, §15.6, §6.7 |
 | `ccp verify merge-ok <pr> [--task <task_id>]` | runner | §15.5 |
 | `ccp verify check <task_id> --head <sha>` | a merge step without `gh` | §15.5 |
 | `ccp auth check` | runner, lead | §10.5 |

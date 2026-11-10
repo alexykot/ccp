@@ -31,7 +31,10 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   writes `verification/<task_id>.json` in the queue. Never write that file by hand. The verdict is
   `approve` or `reject`, with `head_sha` (the PR head you judged) and `gate`. `record` refuses an
   approve with a failed check, no `head_sha` or no passing gate, and the runner will not merge a PR
-  whose head differs from it. A valid example is `contracts/verification.example.json`. On a PR that
+  whose head differs from it. Under `adr.strict` it also refuses an approve of a head on which a
+  decision the task cites is still recorded `not_built` (SPEC §6.7, §15.4): closing the task would
+  fail the in-force ADR check. That is a reject naming the decision and its `ccp adr decide` fix.
+  A valid example is `contracts/verification.example.json`. On a PR that
   is not a task's, `task_id` is exactly `pr-<n>`. `checked_at` is the clock time you reached the
   verdict; leave it out and `record` stamps it.
 - A check someone else ran where you cannot (a Mac-only step whose output is in the task's notes)
