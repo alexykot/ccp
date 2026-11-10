@@ -208,6 +208,36 @@ class TestRunner(TeamCase):
         _, res, _ = self.team("runner", "stop", "--drain")
         self.assertEqual(res["actions"][0]["name"], "runner")
 
+    def test_a_spawn_over_a_live_runner_stops_it_first(self):
+        """§16.5: one runner at a time; the old one's shutdown comes before the new spawn."""
+        self.team("runner", "spawn", "--scope", "0001-a")
+        self.team("runner", "bind", "--name", "runner-old")
+        for status in ("running", "draining"):
+            with self.subTest(status=status):
+                if status == "draining":
+                    self.team("runner", "stop", "--drain")
+                    self.team("runner", "bind", "--name", "runner-old")
+                code, res, err = self.team("runner", "spawn")
+                self.assertEqual(code, 0, err)
+                self.assertEqual([(a["action"], a["name"]) for a in res["actions"]],
+                                 [("shutdown_teammate", "runner-old"), ("spawn_teammate", "runner")])
+                self.assertEqual(res["stopped"], "runner-old")
+                ops = [(e["op"], e["payload"].get("name"), e["payload"].get("reason"))
+                       for e in self.events() if e["type"] == "runner"][-2:]
+                self.assertEqual(ops, [("stop", "runner-old", "respawn"), ("spawn", "runner", None)])
+                w = json.loads((self.q / "work.json").read_text())
+                self.assertEqual((w["status"], w["runner"]), ("running", "runner"))
+                self.assertNotIn("runners", w)
+        # nothing live: a stopped runner, or one a rotation shut down already, gets no second stop
+        for before in (("runner", "stop"), ("runner", "rotate")):
+            with self.subTest(before=before):
+                self.team(*before)
+                n = len(self.events())
+                _, res, _ = self.team("runner", "spawn", "--scope", "0001-a")
+                self.assertEqual([a["action"] for a in res["actions"]], ["spawn_teammate"])
+                self.assertNotIn("stopped", res)
+                self.assertEqual([e["op"] for e in self.events()[n:] if e["type"] == "runner"], ["spawn"])
+
     def test_a_spawn_after_a_rotation_waits_for_the_bind(self):
         """§10.2: until the lead binds the fresh runner, the hook keeps no teammate working."""
         self.team("runner", "spawn", "--scope", "0001-a")

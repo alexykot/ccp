@@ -93,6 +93,33 @@ class WorkerRules(unittest.TestCase):
                 self.assertEqual(missing_rules(without_bullet(text, tokens[0])), [rule], (a, rule))
 
 
+# SPEC §2, §13, §16: the team's lessons, each by the tokens it carries; the last token is the one
+# only that rule uses, so it appears once.
+LESSONS = {
+    "long commands run in the foreground": ("foreground", "background command stalls"),
+    "the lead directs runners with `ccp tasks prefer`, never a message": ("ccp tasks prefer", "races the claim"),
+    "an interrupted command is checked before it is called a no-op": ("interrupted", "git", "the ledger",
+                                                                     "did nothing"),
+}
+LESSON_BRIEFS = {
+    "orientation.md": tuple(LESSONS),
+    "agents/delivery-runner.md": tuple(LESSONS),
+    **{f"agents/delivery-{a}.md": ("long commands run in the foreground",
+                                   "an interrupted command is checked before it is called a no-op")
+       for a in ("implementer", "reviewer", "verifier")},
+}
+
+
+class TeamLessons(unittest.TestCase):
+    def test_each_brief_states_its_lessons_once(self):
+        for brief, rules in LESSON_BRIEFS.items():
+            text = (PLUGIN / brief).read_text()
+            for rule in rules:
+                tokens = LESSONS[rule]
+                self.assertEqual([t for t in tokens if t not in text], [], (brief, rule))
+                self.assertEqual(text.count(tokens[-1]), 1, (brief, rule))
+
+
 class Hooks(unittest.TestCase):
     def setUp(self):
         self.p = Product()

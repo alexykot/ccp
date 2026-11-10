@@ -18,7 +18,13 @@ standing instructions. You may be a fresh runner picking up where another left o
 
 `ccp` is on PATH (SPEC §29.4). The plane's scripts (`team.sh`, `spec-maintainer-ask.sh`) live in the
 plane checkout, `$PLANE`: the `plane` that `ccp where` prints. Run every shell command in the
-**foreground** (subagents are the exception: below).
+**foreground** (subagents are the exception: below), a long one too: an agent waiting on a
+background command stalls.
+
+After a command that was interrupted (a timeout, a cancelled call, a lost shell), check git (`git status`,
+`git log`), the store (`work.json`, `tasks/<id>.json`, the run records) and the ledger
+(`$QUEUE_ROOT/observability/events.jsonl`) before you report that it did nothing: a `ccp` step may have
+done part or all of its work.
 
 ## Your tools are `ccp` (SPEC §10)
 
@@ -92,7 +98,8 @@ before anything else.
    blocks `next`** (below): handle it, then ask `next` again. Read its `architect:` lines on stderr
    too, and act on them now. Always take `next`'s pick: it already honours the lead's preference
    (`ccp tasks prefer`; its `why:` line says so). A lead's message "take X next" is not an order to
-   you: ask the lead to run `ccp tasks prefer X` (several ids set an order), and take what `next` names.
+   you (a message races the claim: it can arrive after another task is claimed): ask the lead to run
+   `ccp tasks prefer X` (several ids set an order), and take what `next` names.
 3. **Claim.** `ccp tasks claim <task_id>`: the lease, `work.json`, the task's queue file, its
    worktree on `task/<task_id>`, a heartbeat. It prints the worktree.
 4. **Auth.** The claim runs the product's auth probes (`auth_check.probes`). Exit 8 means one failed:

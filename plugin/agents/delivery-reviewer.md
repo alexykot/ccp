@@ -29,7 +29,12 @@ propose new scope.
   the PR's merge base before calling a citation wrong.
 
 - Read only. Don't edit, commit, push, approve or merge. The implementer fixes; the runner merges.
-- Run commands in the foreground. Running the tests is fine.
+- Run commands in the foreground, long ones too: an agent waiting on a background command stalls.
+  Running the tests is fine.
+- After a command that was interrupted (a timeout, a cancelled call, a lost shell), check git
+  (`git status`, `git log`), the store it writes (the queue's records, the product's data) and
+  the ledger (`$QUEUE_ROOT/observability/events.jsonl`) before you report that it did nothing: it
+  may have done part or all of its work.
 - Never write a script, helper or wrapper to automate a plane step. If you needed a tool you did not
   have, say so in your report's Friction section; the runner proposes it (SPEC §31.4).
 

@@ -572,11 +572,16 @@ def cmd_runner(args: argparse.Namespace) -> int:
         if audit.returncode != 0:
             die(f"write-prompt-audit failed: {audit.stderr.strip()}")
         prompt_ref = audit.stdout.strip().splitlines()[-1]
-        emit(root, "", LEAD, "runner", "spawn", {"name": rc["name"], "scope": scope, "prompt_ref": prompt_ref,
-                                                  "review_point": rp, "refactors_added": added})
         # §10.2: after a rotation the old teammate may still hold the name, so the harness may name the
         # fresh one otherwise; until the lead binds it, the hook nudges no one.
         pending = bool(w.get("runner_rotated_at")) and str(w.get("runner_rotated_at")) >= str(w.get("runner_spawned_at") or "")
+        # §16.5: one runner at a time. A runner still recorded live (running or draining, not rotated
+        # since its spawn: a rotation shut it down already) is stopped before the new one starts.
+        old = live_name(rc, w) if w.get("status") in ("running", "draining") and not pending else None
+        if old:
+            emit(root, "", LEAD, "runner", "stop", {"name": old, "reason": "respawn"})
+        emit(root, "", LEAD, "runner", "spawn", {"name": rc["name"], "scope": scope, "prompt_ref": prompt_ref,
+                                                  "review_point": rp, "refactors_added": added})
         save_work(root, {"status": "running", "scope": scope, "review_point": rp,
                          "review_point_refactors": rp_refactors, "runner_bind_pending": pending,
                          "runner": rc["name"], "runner_spawned_at": fmt_dt(utcnow()), "runner_tasks_done": 0})
@@ -592,10 +597,15 @@ def cmd_runner(args: argparse.Namespace) -> int:
                        "takes one out.")
         for rpw in rp_warnings:
             print(f"warning: {rpw}", file=sys.stderr)
+        stop = [{"action": "shutdown_teammate", "name": old,
+                 "detail": f"First, before the spawn: send {old} the shutdown_request and wait for its "
+                           "acknowledgement; without one, stop it (TaskStop). If it is gone already (a restarted "
+                           "lead session), go on. Spawn only once it is gone: one runner at a time."}] if old else []
         return out({"outcome": "spawn_recorded", "prompt_ref": prompt_ref, "scope": scope, "refactors_added": added,
                     **({"warnings": rp_warnings} if rp_warnings else {}),
-                    "actions": [{"action": "spawn_teammate", "name": rc["name"], "subagent_type": rc["agent_type"],
-                                 "prompt": prompt, "detail": detail}]})
+                    **({"stopped": old} if old else {}),
+                    "actions": stop + [{"action": "spawn_teammate", "name": rc["name"],
+                                        "subagent_type": rc["agent_type"], "prompt": prompt, "detail": detail}]})
 
     if args.op == "bind":
         name = (args.name or "").strip()
