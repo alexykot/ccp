@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp import refs, runs, tasklog, verify
-from ccp.config import Config
+from ccp.config import Config, lane_for
 from ccp.queue import (CCP_BIN, OBS, PLANE, QueueError, git, integration_branch, load_task_state, load_work, phase_move,
                        runner_slots,
                        holder_teammate, root, task_meta)
@@ -358,6 +358,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "queue_root": str(q), "ccp": ccp_command(cfg), "report_path": str(report),
         "runner": holder_teammate(q, tid),  # §10.2, §16.4: the runner that holds this task, as bound
         "report_lines": REPORT_LINES[phase], "suite_lanes": suite_lanes(cfg, phase),
+        "part_lane": lane_for(cfg, "part"),  # §14.1: the lane a subset or a mutation run goes through
         "worker_env": env_list, "worker_env_file": env_file,
         # §15.3: the product's content-keyed test cache, when its plane.json accepts the hits
         "accept_cache": bool(verify.cache_rule(cfg)), "cache_max_age_days": (verify.cache_rule(cfg) or {}).get("max_age_days") or "",

@@ -27,7 +27,8 @@ task whose gate is cold (`cold_gate`), to a cold run with nothing cached.
 
 A gate run may name the `ccp suite run` that ran it (`suite_id`, §14.1): `record` fills its exit
 code, tests, skips, seconds and units ran and cached from that recorded run (the gate's result
-file, or the output's counts), so the verifier types none of them.
+file, or the output's counts), and marks a run with nothing cached `cold`, so the verifier types none
+of them.
 
 `record` also refuses an approve of a task whose latest fix round is newer than its last review, or
 of a head other than the one that review judged (§15.2, the runner brief's step 7), unless the open
@@ -208,7 +209,8 @@ def _latest_verify(queue: Path, task_id: str) -> str:
 def fill_gate(queue: Path, rec: dict[str, Any]) -> list[str]:
     """§14.1: each `gate.runs` entry with a `suite_id` is filled from that recorded suite run: its
     exit code, tests, skips, seconds and units ran and cached, and a `command` naming it when the
-    entry has none. A number the entry gives itself stays; an exit code that differs from the
+    entry has none; a recorded run with nothing cached (`cached` 0) is marked `cold: true` when the
+    entry does not say `cold`. A number the entry gives itself stays; an exit code that differs from the
     recorded one is refused. The suite run must be recorded, ended, and bound to this task's latest
     verify run: an unbound run, another phase's, or an earlier verify round's (an older head) is refused."""
     gate = rec.get("gate")
@@ -252,6 +254,8 @@ def fill_gate(queue: Path, rec: dict[str, Any]) -> list[str]:
         for key, src in GATE_FROM_SUITE.items():
             if key not in e and row.get(src) is not None:
                 e[key] = row[src]
+        if "cold" not in e and row.get("cached") == 0 and gate_counts(e)[1] == 0:
+            e["cold"] = True  # §15.3: a recorded run with nothing cached is a cold run
         e.setdefault("command", f"ccp suite run --lane {row.get('lane') or '-'} -- {row.get('cmd') or '?'} "
                                 f"({row.get('argc', 0)} args)")
     return errs

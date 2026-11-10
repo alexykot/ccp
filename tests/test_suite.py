@@ -1074,6 +1074,44 @@ class GateFromSuite(SuiteFixture, unittest.TestCase):
         self.assertEqual(code, 1, out + err)  # an approve on a failed gate: the filled exit code says so
         self.assertIn("exited 1", err)
 
+    def cold_gate_task(self) -> None:
+        """The product accepts its cache's hits and 0002's gate is cold (§15.3)."""
+        p = self.runner / "docs/delivery/plane.json"
+        cfg = json.loads(p.read_text())
+        cfg["verify"] = {"accept_cache": {"max_age_days": 3, "cold_tasks": []}}
+        p.write_text(json.dumps(cfg))
+        t = self.runner / "docs/delivery/tasks/0002-second.md"
+        t.write_text(t.read_text().replace("status: pending", "status: pending\ngate: cold", 1))
+
+    def gate_cached(self, cached: int) -> str:
+        self.tally()
+        script = f"print('Ran 5 tests in 0.1s'); print('OK'); print('gate: 5 modules ran, {cached} cached; 5 tests ran in 0 s')"
+        self.run_suite("--run", "0002-second/verify", "--lane", "gate", "--", PY, "-c", script)
+        return self.rows()[-1]["suite_id"]
+
+    def test_a_recorded_run_with_nothing_cached_counts_as_cold(self):
+        sid = self.gate_cached(0)
+        self.cold_gate_task()
+        code, _, out, err = self.record([{"suite_id": sid}, {"command": "ccp docs check", "exit_code": 0}])
+        self.assertEqual(code, 0, out + err)
+        runs_ = json.loads((self.q / "verification/0002-second.json").read_text())["gate"]["runs"]
+        self.assertEqual((runs_[0]["cached"], runs_[0]["cold"]), (0, True))
+        self.assertNotIn("cold", runs_[1])  # a run citing no suite run is not marked
+
+    def test_a_recorded_run_with_cached_units_is_not_cold(self):
+        sid = self.gate_cached(3)
+        self.cold_gate_task()
+        code, _, _, err = self.record([{"suite_id": sid}])
+        self.assertEqual(code, 1)
+        self.assertIn("gate is cold", err)
+
+    def test_the_verifiers_own_cold_stays(self):
+        sid = self.gate_cached(0)
+        code, _, out, err = self.record([{"suite_id": sid, "cold": False}])
+        self.assertEqual(code, 0, out + err)
+        run = json.loads((self.q / "verification/0002-second.json").read_text())["gate"]["runs"][0]
+        self.assertIs(run["cold"], False)
+
 
 class Digest(unittest.TestCase):
     def digest(self, text: bytes, **over) -> dict:
@@ -1326,3 +1364,16 @@ class LaneRoles(SuiteFixture, unittest.TestCase):
         p.write_text(json.dumps(cfg))
         with self.assertRaises(config.ConfigError):
             config.load(self.runner)
+
+    def test_the_mutation_runs_name_the_part_roles_lane(self):
+        p = self.runner / "docs/delivery/plane.json"
+        cfg = json.loads(p.read_text())
+        cfg.setdefault("suite", {})["roles"] = {"part": "subset"}
+        p.write_text(json.dumps(cfg))
+        self.ccp("tasks", "claim", "0002")
+        for phase, marker in (("review", "and any mutation run"), ("verify", "is mutation-tested")):
+            code, _, out, err = self.ccp("prompt", phase, "0002", "--pr", "7", "--head", "a" * 40)
+            self.assertEqual(code, 0, out + err)
+            text = (self.q / f"prompts/0002-second/{phase}-prompt.md").read_text()
+            line = next(ln for ln in text.splitlines() if marker in ln)
+            self.assertIn("`--lane subset`", line, phase)
