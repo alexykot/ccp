@@ -158,7 +158,7 @@ tasks:
     depends_on: [0030-gate-stages-in-plane-json]
     path: tasks/0031-gate-fits-the-agent-shell-limit.md
   - id: 0032-architect-checks-overlap-lint
-    status: pending
+    status: done
     title: ccp refuses architect checks that cover the same test twice
     depends_on: []
     path: tasks/0032-architect-checks-overlap-lint.md

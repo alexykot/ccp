@@ -1,14 +1,14 @@
 ---
 task_id: 0032-architect-checks-overlap-lint
 title: ccp refuses architect checks that cover the same test twice
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S19"]
 review_point: R3
 paths: ["ccp/", "tests/"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0032-architect-checks-overlap-lint
@@ -63,4 +63,4 @@ updated: 2026-11-09
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #24 head `fe682fa` (squash `affd2c9`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0032-architect-checks-overlap-lint.json.
