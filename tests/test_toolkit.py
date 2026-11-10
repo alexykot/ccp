@@ -169,7 +169,8 @@ class ToolkitFixture:
         rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head)
         rec.pop("checked_at", None)
-        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it"}]
+        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",
+                          "produced_by": "verifier"}]
         f = Path(self._tmp.name) / "verdict.json"
         f.write_text(json.dumps(rec))
         code, body, out, err = self.ccp("verify", "record", str(f))
@@ -448,7 +449,8 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head)
         rec.pop("checked_at", None)
-        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it"}]
+        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",
+                          "produced_by": "verifier"}]
         f = Path(self._tmp.name) / "late.json"
         f.write_text(json.dumps(rec))
         self.assertEqual(self.ccp("verify", "record", str(f))[0], 0)

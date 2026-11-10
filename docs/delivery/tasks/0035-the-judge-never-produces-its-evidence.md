@@ -49,6 +49,32 @@ Separation of duties becomes a plane rule: the seat that rules on a task (the le
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): each `checks[]` item of the verify record gains `produced_by` (the seats of
+  §2.1 plus `operator`: verifier, implementer, reviewer, architect, operator, runner, lead) and an
+  optional `operator_step` (the approving gate's id, `<task_id>-<n>`). `ccp verify record` requires
+  `produced_by` on every check, and refuses, naming the check and the seat, evidence produced by the
+  lead or the runner unless `operator_step` names the task's gate file that is class `operator`,
+  closed and approved (a standing approval writes such a file). A named `operator_step` that is not
+  such a gate is refused whoever produced the evidence. `merge-ok` and `check` read records written
+  before the field (E9) but refuse a ruling seat's evidence on the same terms. Gate runs carry no
+  producer: §15.1 makes them the verifier's own. SPEC §2.3, §15.4 and §15.8 drafted for the operator's
+  approval; the verifier and runner briefs state the rule. Tests: `tests/test_verify_producer.py`;
+  existing fixtures recorded through `ccp verify record` now name `produced_by: verifier`.
+- 2026-11-10 (implementer, fix round 1): the gate file an `operator_step` names must itself name
+  this task (`task_id`) and this step (`escalation_id`), so a file under the task's directory that
+  belongs to another gate is refused. SPEC §15.8 PROPOSED now says the lead or the runner runs a
+  check only as an approved operator step, matching §2.3, §15.4 and the code (it said the lead never
+  does). Review MINOR 3 (a check closed by a ruling with no underlying evidence) is left for the
+  lead's ruling.
+- 2026-11-10 (implementer, fix round 2): the lead ruled on review MINOR 3. A ruling is not evidence:
+  a check the owner's ruling closed (`ran: false`, `rests_on` naming it, ADR-0035 D7) names in
+  `produced_by` the seat whose evidence the ruling weighed, never `lead`, and names none when no
+  evidence underlies the waiver. `ccp verify record` accepts a check with no `produced_by` only when
+  it is `ran: false` with `rests_on`; a ruling seat named as producer is still refused, and a named
+  `operator_step` is still checked. The schema keeps `produced_by` optional (records written before
+  the field are read) and its description states the exception. SPEC §15.4 and the verifier brief
+  say so. Merged origin/main (task 0036).
+
 ## Verification notes
 
 *Append-only.*

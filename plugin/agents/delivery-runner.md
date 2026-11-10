@@ -137,6 +137,10 @@ before anything else.
 10. **Operator step.** If the task has one: open a gate unless a standing approval covers it,
     `ccp tasks phase <task_id> operator`, and run it from your runner worktree only once
     `team.sh gate status <id>` exits 0.
+    You rule on the task, so you never produce the evidence its verdict rests on (SPEC §2.3, §15.4):
+    never run a task's checks for the verifier. The one exception is an approved operator step: its
+    output may be evidence, and the verifier records it as `produced_by: runner` with `operator_step`
+    naming the gate's id; `ccp verify record` refuses the runner's or the lead's evidence otherwise.
 11. Back to step 2.
 
 **Waits** go through `ccp tasks wait <task_id> <reason> [--detail …]` and `ccp tasks resume <task_id>
