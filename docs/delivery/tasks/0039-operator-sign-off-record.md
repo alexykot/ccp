@@ -1,7 +1,7 @@
 ---
 task_id: 0039-operator-sign-off-record
 title: Operator sign-off is a plane record that ccp tasks close enforces
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3", "S10"]
@@ -82,4 +82,4 @@ A task can carry text the operator must sign (a SPEC CURRENT → PROPOSED, a con
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #39 head `5160fdf` (squash `4aac01e`): APPROVE. Passed: none. Not run by the verifier: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0039-operator-sign-off-record.json.
