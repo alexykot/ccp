@@ -1,7 +1,7 @@
 ---
 task_id: 0036-outside-changes-reach-main-through-a-task
 title: Changes made outside the plane reach the integration branch through a task
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S10", "S15"]
@@ -64,4 +64,4 @@ Code or docs changed outside the plane's flow (another agent, the operator direc
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #32 head `3a7a318` (squash `2406b2e`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0036-outside-changes-reach-main-through-a-task.json.
