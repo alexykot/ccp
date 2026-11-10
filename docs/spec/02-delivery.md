@@ -181,6 +181,35 @@ ready, not due, or busy; 4 refused by a review rule (§15.2) or a refused gate (
 allowance checkpoint (§25); 6 the session park (§25); 7 no slot for this runner now (§16.3);
 8 an auth probe failed (§10.5); 75 an exclusive test lane is held (§16.6).
 
+### 10.7 Changes from outside the plane
+
+A change made outside the runner (by another agent, the operator directly, a tool) reaches the
+integration branch through a task (§15.6 rule 7): the lead writes a task for it, and the change comes
+in on that task's branch through implement, review, verify and the gate like any other.
+
+A change that merged first gets an **after-the-fact task**: a task, of the kind its change fits,
+whose frontmatter `covers:` lists the merged commits (an inline list of shas, each 7 to 40 hex
+digits, a prefix naming its commit). The lead names those commits in the task's Scope and writes its
+dod_checks for what the change lacks against the standing DoD (tests, SPEC text, docs), so the
+implementer, review and verify see the named change through the task file.
+
+**`ccp tasks orphans --since <ref> [--json]`** lists the commits on the integration branch's
+first-parent history after `<ref>` that no task covers, oldest first. The integration branch is the
+binding's (with `QUEUE_ROOT` set), else `main`; the tip is `origin/<branch>` when that ref is in the
+checkout, else the local branch, and nothing is fetched. The task log read is the checkout's, so a
+covering task merged on the remote counts once the checkout has it. A commit is covered when:
+
+1. it is a task's merge (§27.1): a merge commit, or a commit whose subject ends `(#N)`, that merged
+   a `task/<NNNN>-…` branch or whose subject starts `Task <NNNN>: `, for a task in the log;
+2. it is a reconcile commit as `ccp tasks close` writes it (`Reconcile <NNNN>: done (PR #<n>,
+   squash <sha>)`, §10.5) for a task in the log;
+3. a task not `dropped` names it in `covers:`; or
+4. it changes nothing outside the task log (its task files, `INDEX.yaml`, the reconcile log).
+
+A merge commit is one commit: its change against its first parent. A `covers:` entry that is not a
+sha is a warning. Exit 0 with nothing listed, 1 with a commit listed, 2 when a ref does not
+resolve. It reads git and the task log only and writes nothing; it blocks no push.
+
 ## 11. Runs and process locks
 
 ### 11.1 Runs
@@ -679,9 +708,10 @@ They hold for every PR the runner merges, a task's or not (ADR-0011).
    implementer's output, Verification notes by the verifier's record through `ccp tasks close`,
    `dropped` by the task-log owner (the lead).
 7. **Code from outside the runner** reaches the integration branch through the task log: a task
-   file, then implement, review, verify and gate. The lead's own commits to the integration branch
-   keep `ccp docs check` green; a house rule whose check command does not exist yet goes in as
-   `check: pass` until the task that builds it lands.
+   file, then implement, review, verify and gate; a change that merged first gets an after-the-fact
+   task, and `ccp tasks orphans` lists the commits no task covers (§10.7). The lead's own commits to
+   the integration branch keep `ccp docs check` green; a house rule whose check command does not
+   exist yet goes in as `check: pass` until the task that builds it lands.
 
 ### 15.7 Optional CI and store tests
 

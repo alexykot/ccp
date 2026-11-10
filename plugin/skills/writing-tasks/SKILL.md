@@ -33,6 +33,7 @@ One `key: value` per line; lists inline (`["a", "b"]`), on one line.
 | `parallel` | `true`: changes no file and runs beside anything; `false`: always alone |
 | `shaping` | `waived — <reason>`, only for an ADR that truly needs no shape |
 | `gate` | `cold`: the verifier accepts no test cache for this task |
+| `covers` | an after-the-fact task's merged commits (shas, 7 to 40 hex digits) that came in outside the plane; `ccp tasks orphans` stops listing them (SPEC §10.7) |
 
 Never write runtime state here (`waiting_on`, leases, session ids, ports): `ccp tasks check` refuses it.
 
