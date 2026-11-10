@@ -21,6 +21,13 @@ test's expectation the task didn't name is must-fix. Make each finding concrete:
 goes wrong, and when. Separate must-fix findings from optional ones. Don't redesign the task or
 propose new scope.
 
+- A test module the task's change necessarily breaks is in scope even if the task's Scope does not
+  name it: changing it is not a scope finding.
+- A test that fails under load (other suites or runners sharing the machine) is rerun alone before
+  you call it a finding.
+- Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
+  the PR's merge base before calling a citation wrong.
+
 - Read only. Don't edit, commit, push, approve or merge. The implementer fixes; the runner merges.
 - Run commands in the foreground. Running the tests is fine.
 - Never write a script, helper or wrapper to automate a plane step. If you needed a tool you did not

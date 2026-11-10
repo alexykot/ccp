@@ -64,6 +64,35 @@ class ThePlugin(unittest.TestCase):
         self.assertTrue(text.startswith("# CCP — Claude Control Plane"))
 
 
+# SPEC §13.1: the generic rules every worker brief states, each by the tokens its bullet carries.
+WORKER_RULES = {
+    "a test module the change necessarily breaks is in scope": ("necessarily breaks", "is in scope"),
+    "a test failing under load is rerun alone first": ("fails under load", "rerun alone"),
+    "a task file's line numbers may be stale": ("may be stale", "merge base"),
+}
+
+
+def missing_rules(text: str) -> list[str]:
+    return [r for r, tokens in WORKER_RULES.items() if not all(t in text for t in tokens)]
+
+
+def without_bullet(text: str, token: str) -> str:
+    """The text less the `- ` bullet (with its indented continuation lines) that holds the token."""
+    bullets = re.split(r"(?m)^(?=- )", text)
+    return "".join(b for b in bullets if token not in re.split(r"(?m)^(?!- |  )", b, maxsplit=1)[0])
+
+
+class WorkerRules(unittest.TestCase):
+    def test_each_worker_brief_states_each_rule_once(self):
+        for a in ("implementer", "reviewer", "verifier"):
+            text = (PLUGIN / "agents" / f"delivery-{a}.md").read_text()
+            self.assertEqual(missing_rules(text), [], a)
+            for rule, tokens in WORKER_RULES.items():
+                for t in tokens:
+                    self.assertEqual(text.count(t), 1, (a, t))
+                self.assertEqual(missing_rules(without_bullet(text, tokens[0])), [rule], (a, rule))
+
+
 class Hooks(unittest.TestCase):
     def setUp(self):
         self.p = Product()
