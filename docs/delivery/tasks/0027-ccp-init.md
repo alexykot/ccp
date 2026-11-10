@@ -110,6 +110,14 @@ sees the same values. The README's manual adoption steps shrink to that command.
   source (`ANCHOR`, `CLAUDE_LINE`); the README's step 2 quotes both, and `tests/test_init.py` checks
   that SPEC §4.3 and the README quote them exactly. init-01..init-03 walked in scratch directories:
   each passes as written, and none expects a refusal, so the keep-existing-files behaviour stays.
+- 2026-11-10 (implementer, fix round 1, review MINOR 1 and 2): init now runs every check before its
+  first write, so these become refusals (exit 2, nothing written) under §4.5's existing rule instead of
+  a traceback after a partial write. The checks are: a `--gate` that `shlex` cannot split; a kept `plane.json`
+  that `config.load` rejects (for example an unknown key); a product root or queue path holding `#`.
+  The `#` case refuses any `#`, not only ` #`, because the binding readers (`lib.binding_path`,
+  `otel._scalar`, init's own `_scalar`) cut at any `#`. The `--gate` help says it is not applied when
+  `plane.json` is kept, and the kept list then reads `docs/delivery/plane.json (--gate not applied)`.
+  The SPEC does not change.
 
 ## Verification notes
 

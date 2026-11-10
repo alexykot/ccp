@@ -1016,7 +1016,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--project-id", help="the project id (default: plane.json's, else the directory's name)")
     p.add_argument("--queue-root", help="the queue directory (default: ~/.delivery-queue/<project_id>)")
     p.add_argument("--integration-branch", help="the binding's integration branch (default: main)")
-    p.add_argument("--gate", help="the gate lane's command, written to plane.json suite.lanes.gate")
+    p.add_argument("--gate", help="the gate lane's command, written to plane.json suite.lanes.gate; "
+                                  "not applied when plane.json exists and is kept (no --force)")
     p.add_argument("--force", action="store_true", help="overwrite the files init writes")
     p.set_defaults(fn=None)
 

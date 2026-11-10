@@ -8,8 +8,10 @@ truth: every reader resolves it through `lib.binding_path`, and no copy goes int
 
 It never overwrites a file without `--force`: an existing file is kept and listed as kept, so a
 second run, or a run after the binding was edited, changes nothing. It refuses, writing nothing, when
-keeping a file would leave the product inconsistent: a `plane.json` naming another project id, a
-binding for the id that names another product root, or a settings file that is not a JSON object.
+keeping a file would leave the product inconsistent: a `plane.json` naming another project id or
+not loading, a binding for the id that names another product root, or a settings file that is not a
+JSON object. It also refuses, writing nothing, a `--gate` it cannot split and a product root or
+queue path holding `#`, which every binding reader cuts off as a comment.
 """
 from __future__ import annotations
 
@@ -114,6 +116,16 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     if plane_json.is_file() and existing_id != pid and not force:
         raise QueueError(f"ccp init: {config.CONFIG_REL} names project {existing_id!r}, not {pid!r}; "
                          "pass that id, or --force to rewrite it", 2)
+    keep_plane_json = plane_json.is_file() and not force
+    if keep_plane_json:
+        try:
+            config.load(root)
+        except config.ConfigError as e:
+            raise QueueError(f"ccp init: {e}; fix it, or --force to rewrite it", 2) from e
+    try:
+        plane_json_new = plane_json_text(pid, gate)
+    except ValueError as e:
+        raise QueueError(f"ccp init: --gate {gate!r} is not a shell command line ({e})", 2) from e
 
     binding = lib.bindings_dir() / f"{pid}.yaml"
     old = binding.read_text() if binding.is_file() else None
@@ -131,6 +143,10 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
                              "edit the binding, or --force to rewrite it", 2)
         q = Path(bound_q).expanduser() if bound_q else q
     q = (q or Path.home() / ".delivery-queue" / pid).resolve()
+    for what, path in (("product root", product_root), ("queue path", q)):
+        if "#" in str(path):
+            raise QueueError(f"ccp init: the {what} {path} holds `#`, which the binding readers cut off "
+                             "as a comment; use a path without it", 2)
     settings = root / ".claude" / "settings.json"
     merged_settings, settings_changed = _merged_settings(settings)  # refuses before anything is written
 
@@ -147,7 +163,8 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
 
     for rel, tpl in COPIES.items():
         put(root / rel, (TEMPLATES / tpl).read_text(), rel)
-    put(plane_json, plane_json_text(pid, gate), config.CONFIG_REL)
+    put(plane_json, plane_json_new,
+        config.CONFIG_REL + (" (--gate not applied)" if gate and keep_plane_json else ""))
     (root / "docs" / "delivery" / "tasks").mkdir(parents=True, exist_ok=True)
 
     gi = root / ".gitignore"

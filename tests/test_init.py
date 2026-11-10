@@ -102,6 +102,13 @@ class Adopt(InitCase):
         cfg = json.loads((self.repo / "docs/delivery/plane.json").read_text())
         self.assertEqual(cfg["suite"]["lanes"]["gate"], ["python3", "-m", "unittest", "discover", "-s", "tests"])
 
+    def test_a_gate_against_a_kept_plane_json_is_listed_as_not_applied(self):
+        self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        code, res = self.init("--project-id", "demo", "--gate", "make test")
+        self.assertEqual(code, 0, res)
+        self.assertIn("docs/delivery/plane.json (--gate not applied)", res["kept"])
+        self.assertNotIn("suite", json.loads((self.repo / "docs/delivery/plane.json").read_text()))
+
     def test_the_id_defaults_to_plane_json_then_the_directory(self):
         code, res = self.init()
         self.assertEqual((code, res["project_id"]), (0, "repo"))
@@ -226,6 +233,33 @@ class Refusals(InitCase):
             (self.repo / ".claude/settings.json").write_text(text)
             self.assert_refused_untouched("--project-id", "demo")
             self.assertEqual((self.repo / ".claude/settings.json").read_text(), text)
+
+    def test_a_gate_that_does_not_split(self):
+        err = self.assert_refused_untouched("--project-id", "demo", "--gate", 'echo "x')
+        self.assertIn("--gate", err)
+        self.assertFalse(self.binding.exists())
+
+    def test_a_kept_plane_json_that_does_not_load(self):
+        (self.repo / "docs/delivery").mkdir(parents=True)
+        (self.repo / "docs/delivery/plane.json").write_text(json.dumps({"project_id": "demo", "bogus": 1}))
+        err = self.assert_refused_untouched("--project-id", "demo")
+        self.assertIn("bogus", err)
+        self.assertFalse(self.binding.exists())
+        self.assertFalse(self.queue.exists())
+
+    def test_a_path_holding_a_hash(self):
+        repo = self.repo.parent / "my repo #1"
+        repo.mkdir()
+        self.git("init", "-q", ".", cwd=repo)
+        self.repo = repo
+        err = self.assert_refused_untouched("--project-id", "demo")
+        self.assertIn("product root", err)
+        self.assertFalse(self.binding.exists())
+        self.repo = self.repo.parent / "repo"
+        err = self.assert_refused_untouched("--project-id", "demo", "--queue-root", str(self.home / "q #2"))
+        self.assertIn("queue path", err)
+        self.assertFalse(self.binding.exists())
+        self.assertFalse((self.home / "q #2").exists())
 
 
 class OneBinding(InitCase):
