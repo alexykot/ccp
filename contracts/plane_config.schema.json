@@ -199,6 +199,17 @@
           "description": "Root-relative globs of files that get the language pack's per-file checks (python: a module docstring)",
           "default": []
         },
+        "no_delivery_ids": {
+          "type": "boolean",
+          "default": true,
+          "description": "SPEC §21.3: no task, finding or ruling id in a package doc or in a code comment of a file under docstring_globs; false turns the check off"
+        },
+        "delivery_id_patterns": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "default": [],
+          "description": "Regexes for the product's own ids (findings, rulings, tickets), checked beside the plane's"
+        },
         "rules": {
           "type": "object",
           "additionalProperties": false,

@@ -3,12 +3,15 @@
 Python documents a module with its docstring, so each `.py` file under `package_docs.docstring_globs`
 must carry one. Opt-in (`package_docs.rules.no_call_bullets: true`): the docstring says what the
 module does rather than list its functions as backticked call bullets (`- `foo()` …`), which go
-stale with every rename and repeat the code.
+stale with every rename and repeat the code. The core's delivery-id check reads the file's `#`
+comments through this pack; strings, docstrings included, are not comments.
 """
 from __future__ import annotations
 
 import ast
+import io
 import re
+import tokenize
 from pathlib import Path
 
 from ccp.doclang import Pack
@@ -44,6 +47,16 @@ def no_call_bullets(path: Path, rel: str) -> list[str]:
             "module does, not its API"] if n else []
 
 
+def comments(path: Path) -> list[tuple[int, str]]:
+    """The file's `#` comments, (line, text); docstrings and other strings are code, not comments. A
+    file that does not tokenize gives none: the docstring check reports that it does not parse."""
+    try:
+        toks = tokenize.generate_tokens(io.StringIO(path.read_text(errors="replace")).readline)
+        return [(t.start[0], t.string) for t in toks if t.type == tokenize.COMMENT]
+    except (tokenize.TokenError, SyntaxError):
+        return []
+
+
 PACK = Pack(
     name="python",
     source_suffixes=(".py",),
@@ -52,4 +65,5 @@ PACK = Pack(
     file_checks=(has_docstring,),
     optional_checks={"no_call_bullets": no_call_bullets},
     file_skip_dirs=("__pycache__",),
+    comments=comments,
 )

@@ -73,6 +73,10 @@ PACKAGE_DOCS_DEFAULTS: dict[str, Any] = {
     "path_ref_suffixes": [".py", ".sql", ".json", ".md", ".sh"],
     # Files under these globs get the language pack's per-file checks (Python: a module docstring).
     "docstring_globs": [],
+    # No task, finding or ruling id in a package doc or a code comment (§21.3); false turns it off.
+    "no_delivery_ids": True,
+    # The product's own id regexes (its findings, rulings, tickets), checked beside the plane's.
+    "delivery_id_patterns": [],
     # Opt-in generic rules (ccp/docrules.py), each off until configured.
     "rules": {},
 }
@@ -410,6 +414,16 @@ def _package_docs(given: Any) -> dict[str, Any] | None:
     if not (isinstance(pd["path_ref_suffixes"], list)
             and all(isinstance(x, str) and x.startswith(".") for x in pd["path_ref_suffixes"])):
         raise ConfigError(f"{CONFIG_REL}: package_docs.path_ref_suffixes must be a list like [\".py\", \".md\"]")
+    if not isinstance(pd["no_delivery_ids"], bool):
+        raise ConfigError(f"{CONFIG_REL}: package_docs.no_delivery_ids must be true or false")
+    pats = pd["delivery_id_patterns"]
+    if not (isinstance(pats, list) and all(isinstance(x, str) and x for x in pats)):
+        raise ConfigError(f"{CONFIG_REL}: package_docs.delivery_id_patterns must be a list of regexes")
+    for rx in pats:
+        try:
+            re.compile(rx)
+        except re.error as e:
+            raise ConfigError(f"{CONFIG_REL}: package_docs.delivery_id_patterns: {rx!r} is not a regex ({e})") from None
     rules = pd["rules"]
     if not isinstance(rules, dict) or set(rules) - set(DOC_RULES):
         raise ConfigError(f"{CONFIG_REL}: package_docs.rules takes only {', '.join(DOC_RULES)}")
