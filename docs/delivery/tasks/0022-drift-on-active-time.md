@@ -1,7 +1,7 @@
 ---
 task_id: 0022-drift-on-active-time
 title: Architect drift measured on active time
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S19", "S27"]
@@ -9,7 +9,7 @@ adr_refs: ["0035 D3"]
 review_point: R2
 paths: ["ccp/health.py", "ccp/architect.py", "docs/spec/03-quality.md", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # Task: 0022-drift-on-active-time
@@ -73,4 +73,4 @@ The architect's drift trigger compares active time (wall time minus time waiting
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #18 head `7af0495` (squash `a73efad`): APPROVE. Passed: drift-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0022-drift-on-active-time.json.
