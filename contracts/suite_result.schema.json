@@ -17,6 +17,16 @@
       "type": "array",
       "items": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}, "message": {"type": "string"}}}
     },
-    "extra": {"type": "object", "description": "Product-specific; ignored by the plane."}
+    "extra": {"type": "object", "description": "Product-specific; ignored by the plane."},
+    "stages": {
+      "type": "array",
+      "description": "SPEC \u00a714.2: set by ccp, not the command, for a lane plane.json names: each stage that ran, in order. A command's own value is ignored.",
+      "items": {
+        "type": "object",
+        "required": ["name", "seconds", "exit_code"],
+        "properties": {"name": {"type": "string"}, "seconds": {"type": "number", "minimum": 0}, "exit_code": {"type": "integer"}}
+      }
+    },
+    "failed_stage": {"type": ["string", "null"], "description": "SPEC \u00a714.2: set by ccp: the stage whose non-zero exit stopped the run, or null."}
   }
 }

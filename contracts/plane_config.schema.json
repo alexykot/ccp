@@ -790,17 +790,43 @@
         "exclusive_lanes": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$"}, "default": [], "description": "SPEC §16.6: lanes that run one at a time in the queue (a run with no --lane is `full`). A run that finds one held exits 75 at once and runs nothing."},
         "lanes": {
           "type": "object",
-          "description": "A lane name to the argv `ccp suite run --lane NAME` runs from the checkout's root.",
+          "description": "SPEC \u00a714.2: a lane name to what `ccp suite run --lane NAME` runs from the checkout's root: an argv (one stage, named after the lane), or an ordered list of {name, cmd} stages, run in order until one fails. The gate role's staged lane ends with the plane's doc checks as the stage `plane-docs`.",
           "propertyNames": {
             "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$"
           },
           "additionalProperties": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "type": "string",
-              "minLength": 1
-            }
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["name", "cmd"],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$",
+                      "not": {"const": "plane-docs"},
+                      "description": "The stage's name, unique in the lane; `plane-docs` is the plane's own."
+                    },
+                    "cmd": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "A shell command, run from the checkout's root; exit 0 = the stage passed."
+                    }
+                  }
+                }
+              }
+            ]
           }
         },
         "count_re": {

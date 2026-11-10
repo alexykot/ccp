@@ -392,7 +392,7 @@ plane reads three lane **roles**: `full` (the implementer's and fixer's full sui
 verifier's formal gate, whose script picks its own lanes) and `part` (a subset, such as the
 reviewer's modules or a mutation check). plane.json `suite.roles` names the product's lane for each
 (default: the role's own name; a role left out keeps it; two roles may not share a lane); the prompts,
-the report's auto-fill and the health series use these names. `--lane` is a short label; without `-- <command>` it runs the argv plane.json `suite.lanes` gives that lane, from the checkout's root. A run
+the report's auto-fill and the health series use these names. `--lane` is a short label; without `-- <command>` it runs what plane.json `suite.lanes` gives that lane, from the checkout's root: an argv, or stages (§14.2). A run
 with no `--lane` is recorded without a lane (filed as part); for an exclusive lane's lock and its
 usual duration it counts as the `full` role's lane. `ccp report` warns, never refuses, when a report
 has a `Suite:` line but no suite run is recorded for its run.
@@ -401,6 +401,17 @@ has a `Suite:` line but no suite run is recorded for its run.
 
 - It runs the command in the foreground with stdin inherited and exits with its exit code (128 + N
   when signal N ended it).
+- **Stages.** A `suite.lanes` entry may be an ordered list of `{name, cmd}` stages instead of an argv:
+  a stage name is a lane-like label, unique in the lane; `cmd` is a shell command (`/bin/sh -c`), exit
+  0 = pass. `ccp` runs the stages in order from the checkout's root, times each, and stops at the
+  first that exits non-zero or that a signal ends: no later stage runs, and the run exits with that
+  stage's code. Each stage gets its own `CCP_SUITE_RESULT`. The gate role's staged lane ends with a
+  stage `ccp` adds itself, `plane-docs`, which runs `ccp docs check` (§21.2), so no product stage calls
+  `ccp`; no product stage may take that name, and no other lane gets it. An argv lane runs as one stage
+  named after the lane, with no `plane-docs` stage; a command after `--` is no stage. With stages, a
+  line marks each stage's start and end in the log (on stderr with `--full`), and the summary gets one
+  line before its last: each stage that ran, passed or FAILED with its exit code, and its seconds, then
+  the stages not run. A nested run (below) of a staged lane runs its stages in order, unrecorded.
 - **Summary mode** is the default when stdin is not a terminal (`--summary` forces it). The
   command's stdout and stderr both go to one log file, in the order written: `--log PATH`, else next
   to the run's record (`QUEUE_ROOT/runs/<task>/<phase>[-n]-suite-<suite_id>.log`), else
@@ -440,7 +451,10 @@ has a `Suite:` line but no suite run is recorded for its run.
   cached units), `skipped`, `failed`, `failures` (`[{id, message?}]`), `seconds` and `extra`; at
   least one of `tests`, `ran`, `cached`. When written and valid it is the run's record: the output's
   counts are not used, a counter it leaves out is absent (null), and `failed` defaults to the number
-  of `failures`. It is read without following a symlink, at most 1 MB, and removed once read. Only
+  of `failures`. It is read without following a symlink, at most 1 MB, and removed once read. For a
+  lane plane.json names, `ccp` adds `stages` (`[{name, seconds, exit_code}]`, each stage that ran, in
+  order) and `failed_stage` (the stage whose non-zero exit stopped the run, or null) to the run's
+  result (§14.2); with several stages, the counters of every stage's valid result are summed. Only
   counters are recorded; failure ids are shown in the summary and never recorded; `seconds` (the
   record keeps `ccp`'s wall time), `message` and `extra` are ignored. An invalid result gets its own
   summary line and a `result_problem` label, and the output's counts stand. `counts_from` says which
@@ -462,9 +476,10 @@ has a `Suite:` line but no suite run is recorded for its run.
 `QUEUE_ROOT/runs/_suites.jsonl`, append-only: a `started` and an `ended` row per run sharing a
 `suite_id`, and a `suite/recorded` event at the end. Numbers, ids and short labels only: the lane,
 the output mode (`output`), the command's basename and argument count; the `ended` row adds `tests`,
-`failed`, `skipped`, `ran`, `cached`, `cached_tests` (null when not found), `counts_from` and summary
-mode's `log` path. Never the command's arguments, never its output; the event carries the numbers,
-not the path. A row naming `modules_ran` and `modules_cached` reads as `ran` and `cached`.
+`failed`, `skipped`, `ran`, `cached`, `cached_tests` (null when not found), `counts_from`, summary
+mode's `log` path and, for a lane plane.json names, `stages` and `failed_stage` (§14.3). A staged
+lane's `started` row has `cmd` `stages` and its stage count as `argc`. Never the command's arguments,
+never its output; the event carries the numbers and the stages, not the path. A row naming `modules_ran` and `modules_cached` reads as `ran` and `cached`.
 
 - **Reports cite them.** `Suite: from <suite_id>`, the preferred form, takes the tests, seconds and
   units ran and cached of that run, which must be recorded against the report's run and have ended

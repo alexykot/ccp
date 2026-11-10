@@ -56,6 +56,26 @@ A product declares its gate as named stages in `plane.json` (name and command ea
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): Stages live in the existing `suite.lanes` block: a lane's value is either
+  today's argv or an ordered list of `{name, cmd}` stages (`name` a lane-like label, unique in the lane;
+  `cmd` a shell string run by `/bin/sh -c` from the root, as `docs.checks` commands are). `ccp suite run
+  --lane L` (no `--` command) resolves the lane to stages (`suite.resolve_stages`), runs them one by one
+  in its own loop (`suite._run_stage`: the old spawn, signal, watchdog and pump code, now per stage),
+  stops at the first non-zero exit or signal, and exits with that stage's code. The built-in stage is
+  `plane-docs` (`config.PLANE_DOCS_STAGE`, refused as a product stage name): this `ccp`'s own `--root
+  <root> docs check`, appended last, only to the gate role's lane (`suite.roles`), only when that lane
+  is declared as stages; an argv lane runs as one stage named after the lane and gets no `plane-docs`,
+  so it passes as before. The gate result: every lane run from plane.json records `stages` (`[{name,
+  seconds, exit_code}]`, the stages that ran) and `failed_stage` (or null) on its `ended` row and
+  `suite/recorded` event; a `--` command records neither. Each stage gets its own `CCP_SUITE_RESULT`
+  file; valid results' counters are summed. A staged lane's summary carries a stages line (and marks
+  each stage's start and end in the log, on stderr with `--full`); its `started` row says `cmd: stages`
+  with the stage count as `argc`. A nested staged run executes the stages in order, unrecorded. SPEC
+  edits: §8.1 table row and example, §14.1 (lane sentence), §14.2 (a new Stages bullet), §14.3
+  (`stages`, `failed_stage`, summed results), §14.4 (row and event fields), §21.2 (one sentence). Also
+  changed, outside the task's `paths`: `contracts/plane_config.schema.json` (lanes take either form)
+  and `contracts/suite_result.schema.json` (`stages`, `failed_stage`), which the config and §14.3 cite.
+
 ## Verification notes
 
 *Append-only.*

@@ -39,8 +39,11 @@ it becomes its command, so the outer run captures the output.
 the `full` role's lane, `suite.roles`) runs one at a time in the queue (SPEC §16.6): a run that finds it held exits 75 at once,
 naming the holder and its usual duration, runs nothing, and counts `lane_busy` on its run. A run
 that records nothing (no QUEUE_ROOT, recording off) takes no lock: recording never blocks tests.
-Without `-- COMMAND`, it runs the argv `plane.json` `suite.lanes` names for that lane, from the
-checkout's root.
+Without `-- COMMAND`, it runs what `plane.json` `suite.lanes` names for that lane, from the
+checkout's root: an argv, run as one stage named after the lane, or an ordered list of `{name, cmd}`
+stages (§14.2), each run by the shell, in order, timed, until one exits non-zero. The gate role's staged
+lane ends with the plane's doc checks as the stage `plane-docs`. Such a run records `stages` (name,
+seconds, exit code of each that ran) and `failed_stage` on its `ended` row and event.
 
 The record is `QUEUE_ROOT/runs/_suites.jsonl`, append-only: a `started` row when the command
 starts and an `ended` row when it ends, sharing a `suite_id`. The `ended` row also goes into the

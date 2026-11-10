@@ -417,6 +417,7 @@ generic rules (§21.6), the house rules' shape and line cap and the `architect.c
 (§20.1), the product's `docs.checks` commands (§21.5), the ADR check (§6), and `ccp tasks check`.
 It is free and deterministic. It is part of the verifier's gate (§15), run by the verifier itself at
 the PR head, and `ccp docs check` clean is part of the standing DoD where the product declares it.
+A gate lane declared as stages also runs it as its last stage, `plane-docs` (§14.2).
 
 ### 21.3 Package-doc rules: the core
 
