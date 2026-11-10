@@ -141,6 +141,36 @@ class Claims(ParallelFixture, unittest.TestCase):
         self.assertTrue(out.startswith("0003-third"), out)
         self.assertEqual(self.claim("0003")[0], 0)
 
+    def _allowance_cmd(self, cmd):
+        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
+        cfg["telemetry"] = {"allowance_cmd": cmd} if cmd else {}
+        self.write("docs/delivery/plane.json", json.dumps(cfg))
+
+    def test_without_a_usage_command_a_second_task_is_claimed(self):
+        self._allowance_cmd(None)
+        self.assertEqual(self.claim("0002")[0], 0)
+        code, _, out, err = self.claim("0003")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.work()["in_flight"], ["0002-second", "0003-third"])
+
+    def test_without_a_usage_command_next_offers_a_second_task(self):
+        self._allowance_cmd(None)
+        self.assertEqual(self.claim("0002")[0], 0)
+        board = self.q / "board" / "allowance.jsonl"  # a fresh reading left from before is not judged
+        stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 60))
+        board.parent.mkdir(parents=True, exist_ok=True)
+        board.write_text(json.dumps({"at": stamp, "five_hour": 80, "seven_day": 5}) + "\n")
+        code, _, out, _ = self.next()
+        self.assertEqual(code, 0, out)
+        self.assertTrue(out.startswith("0003-third"), out)
+
+    def test_a_usage_command_that_prints_nothing_still_refuses(self):
+        self.assertEqual(self.claim("0002")[0], 0)
+        self._allowance_cmd("true")
+        code, _, out, err = self.claim("0003")
+        self.assertEqual(code, 7, out + err)
+        self.assertIn("rule 5", err)
+
     def test_a_resume_is_never_refused(self):
         self.assertEqual(self.claim("0002")[0], 0)
         self.assertEqual(self.claim("0003")[0], 0)

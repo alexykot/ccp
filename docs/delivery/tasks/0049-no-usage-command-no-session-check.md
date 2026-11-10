@@ -63,6 +63,15 @@ unknown".
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): `parallel.join_refusal` judges rule 5 only when `parallel.reads_usage(cfg)`
+  (a non-empty `telemetry.allowance_cmd`), so `ccp tasks claim` and `ccp tasks next` (both go through
+  it) pass rule 5 for a product with no usage command, whatever `board/allowance.jsonl` holds. With a
+  command set, rule 5 is unchanged: a weekly-only reading passes, an empty or failed one refuses.
+  `ccp/lifecycle.py` is untouched. §16.3 rule 5 gains the operator-approved sentence.
+- 2026-11-10 (implementer, fix round 1): §16.3 rule 5's "A sample with neither (no `allowance_cmd`,
+  a failed read) refuses" becomes "A sample with neither (a failed read) refuses": the task's change
+  made "no `allowance_cmd`" false, so this is a §31.1 correction under the task's acceptance.
+
 ## Verification notes
 
 *Append-only.*
