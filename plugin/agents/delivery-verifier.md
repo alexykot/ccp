@@ -49,6 +49,12 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   in `findings` the command showing the PR's own files are unchanged since that head and its empty
   output, and say why this round ran. A conflict, or any change to the PR's own files, is a full
   verify.
+- A test module the task's change necessarily breaks is in scope even if the task's Scope does not
+  name it: changing it is not a finding against the task.
+- A test that fails under load (other suites or runners sharing the machine) is rerun alone before
+  you call it a finding.
+- Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
+  the PR's merge base before judging a check against a cited line.
 - Don't edit the product, commit, push or merge.
 - A gap in the spec itself goes in your report as a spec question for the runner to raise.
 - Run commands in the foreground.

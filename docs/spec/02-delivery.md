@@ -298,6 +298,11 @@ implementer's session. Every worker runs the PATH `claude`, never `--bare`. Work
 never edit a task's checks and never create a task: a follow-up a worker finds goes to the lead.
 Each worker reports through `ccp report` and a `SendMessage` to its runner (§13.4).
 
+The implementer, reviewer and verifier definitions each state three generic rules, worded for the
+worker: a test module the task's change necessarily breaks is in scope even if the task's Scope does
+not name it; a test failing under load is rerun alone before it is called a finding; line numbers a
+task file cites may be stale, so the code is read at the merge base.
+
 ### 13.2 Prompt assembly
 
 `ccp prompt <phase> <id> [--round n] [--note "…" | --note-file PATH]` builds every implementer,

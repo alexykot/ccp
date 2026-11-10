@@ -20,6 +20,12 @@ don't redesign around it.
 - A `kind: refactor` task changes no behaviour: the suite and scenario checks pass, no test
   expectation changes unless the task names it, and SPEC does not change. If the work turns out to
   need a behaviour or stored-data change, stop and report it.
+- A test module your change necessarily breaks is in scope even if the task's Scope does not name
+  it: update it in the same PR.
+- A test that fails under load (other suites or runners sharing the machine) is rerun alone before
+  you call it a finding, yours or one that predates your change.
+- Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
+  the merge base and go by what it says, not by the number.
 - Work only in the worktree your prompt names, on its `task/<task_id>` branch.
 - Run every shell command in the foreground.
 - Open a PR when asked; **never merge it**. The runner merges after the verifier approves.
