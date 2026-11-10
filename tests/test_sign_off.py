@@ -95,6 +95,25 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
         self.assertEqual(code, 0, out + err)
 
+    def test_close_refuses_a_declared_brief_sign_off_that_is_not_recorded(self):
+        self._to_approved_pr()  # claimed before the task declared its sign-offs
+        self.declare("[brief, build]")
+        code, _, out, err = self.sign("--stage", "build")
+        self.assertEqual(code, 0, out + err)
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 1)
+        self.assertIn("no brief sign-off", err)
+        self.assertNotIn("build sign-off", err)
+        self.assertFalse((self.ghstate / "merge-called").exists())
+
+    def test_a_malformed_sign_off_value_refuses_the_close(self):
+        self._to_approved_pr()
+        self.declare("true")
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 1)
+        self.assertIn("ccp tasks check", err)
+        self.assertFalse((self.ghstate / "merge-called").exists())
+
     # ------------------------------------------------------------------ claim
 
     def test_a_missing_brief_sign_off_refuses_the_claim(self):
@@ -109,6 +128,41 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         task_commit = git(self.main, "log", "-1", "--format=%H", "--", TASK_FILE)
         self.assertEqual(body["sign_off"]["head"], task_commit)  # the commit of the text signed
         self.assertEqual(self.ccp("tasks", "claim", "0002")[0], 0)
+
+    def test_a_brief_sign_off_is_stale_once_the_task_file_changes(self):
+        self.declare("brief")
+        self.assertEqual(self.sign()[0], 0)
+        p = self.main / TASK_FILE
+        p.write_text(p.read_text().replace("title: Second", "title: Second, reworded", 1))
+        git(self.main, "commit", "-q", "-am", "0002 reworded")
+        git(self.main, "push", "-q", "origin", "main")
+        git(self.runner, "checkout", "-q", "--detach", "origin/main")
+        code, _, _, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 3)
+        self.assertIn("stale", err)
+        self.assertFalse((self.q / "tasks/0002-second.json").exists())
+        self.assertEqual(self.sign()[0], 0)
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
+
+    def test_a_brief_sign_off_at_a_later_commit_covers_the_text(self):
+        self.declare("brief")
+        self.write("other.txt", "not the task file\n")
+        git(self.main, "add", "other.txt")
+        git(self.main, "commit", "-q", "-m", "an unrelated change")
+        later = git(self.main, "rev-parse", "HEAD")
+        self.assertNotEqual(later, git(self.main, "log", "-1", "--format=%H", "--", TASK_FILE))
+        self.assertEqual(self.sign("--head", later)[0], 0)
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
+
+    def test_a_malformed_sign_off_value_refuses_the_claim(self):
+        self.declare("brief, build")
+        code, _, _, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 3)
+        self.assertIn("ccp tasks check", err)
+        self.assertFalse((self.q / "tasks/0002-second.json").exists())
+        self.assertFalse((self.main / ".rt" / "impl-0002").exists())
 
     def test_a_build_sign_off_does_not_hold_back_the_claim(self):
         self.declare("build")

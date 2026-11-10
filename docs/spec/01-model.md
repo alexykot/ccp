@@ -189,6 +189,9 @@ it in its frontmatter, `sign_off:`:
   that merges.
 - `[brief, build]`: both.
 
+Any other value (no stage, or one that is not `brief` or `build`) fails `ccp tasks check`, and claim
+and close refuse the task until it is fixed.
+
 The lead records each sign-off with `ccp tasks sign-off <id> --by <who> --words "…"
 [--stage brief|build] [--head <sha>]`: a `sign_off` `recorded` event in the ledger (§23.2) with
 `stage`, `by`, `words` and `head`; the event's `at` is when. A `build` sign-off's head defaults to the
@@ -196,10 +199,12 @@ verified head (`verification/<id>.json`); without one the command refuses unless
 A later record of a stage replaces the earlier. The command refuses (exit 2) a task that declares
 no `sign_off`, a stage it does not declare, and, when it declares both, a call without `--stage`.
 
-`ccp tasks claim` refuses a task whose `brief` sign-off is missing; `ccp tasks close` refuses one
-whose declared sign-off is missing, or whose `build` sign-off covers another head than the one it
-merges (stale: the operator signs the new head) (§10.5). How the operator is asked is not part of
-this rule.
+`ccp tasks claim` refuses a task whose `brief` sign-off is missing, or whose head does not contain
+the commit that last changed the task file in the checkout it claims from (stale: the text changed
+after the signing, and the operator signs it again); a head that is that commit or a descendant of it
+holds. `ccp tasks close` refuses one whose declared sign-off is missing, or whose `build` sign-off
+covers another head than the one it merges (stale: the operator signs the new head) (§10.5). How the
+operator is asked is not part of this rule.
 
 ## 4. Product footprint
 

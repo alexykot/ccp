@@ -86,7 +86,7 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
             from ccp import parallel  # noqa: PLC0415
             raise QueueError(f"{holder} already holds {', '.join(map(str, mine))}: one task per runner (SPEC §16.4). "
                              "Carry on with it", parallel.EXIT_SLOTS)
-    if not resumed and (gaps := sign_off_gaps(q, meta, ["brief"])):  # §3.5: text known at the brief is signed first
+    if not resumed and (gaps := sign_off_gaps(q, meta, ["brief"], text_in=cfg)):  # §3.5: brief text is signed first
         raise QueueError("claim refused, nothing taken: " + "; ".join(gaps), 3)
     from ccp import parallel, usage  # noqa: PLC0415
     if not resumed and (cfg.auth_check or {}).get("probes"):  # §30: the auth probes, before each task
@@ -620,10 +620,16 @@ def sign_off(cfg: Config, task: str, stage: str | None, by: str, words: str, hea
     return {"ok": True, "task_id": tid, "sign_off": {**payload, "at": ev.get("at")}}
 
 
-def sign_off_gaps(q: Path, meta: dict[str, Any], stages: list[str], head: str | None = None) -> list[str]:
-    """§3.5: why the task's declared sign-offs among `stages` do not hold: one missing, or, given the head
-    about to merge, a `build` sign-off recorded for another head (stale). [] when they hold."""
+def sign_off_gaps(q: Path, meta: dict[str, Any], stages: list[str], head: str | None = None,
+                  text_in: Config | None = None) -> list[str]:
+    """§3.5: why the task's declared sign-offs among `stages` do not hold: a `sign_off:` value the plane
+    cannot read (fails closed), one missing, or, given the head about to merge, a `build` sign-off recorded
+    for another head (stale), or, given the checkout the task file is read from (`text_in`, at the claim),
+    a `brief` sign-off whose head does not contain the commit that last changed the task file (stale).
+    [] when they hold."""
     tid = str(meta["task_id"])
+    if why := tasklog.sign_off_malformed(meta):
+        return [f"{tid}: {why}; fix the task file (`ccp tasks check` names it)"]
     have = sign_offs(q, tid)
     out: list[str] = []
     for stage in tasklog.sign_off_stages(meta):
@@ -640,7 +646,31 @@ def sign_off_gaps(q: Path, meta: dict[str, Any], stages: list[str], head: str | 
                 out.append(f"{tid}'s build sign-off is stale: signed at {signed[:12] or 'no head'}, the head to "
                            f"merge is {head[:12]}; the operator signs the new head (`ccp tasks sign-off {tid} "
                            "--stage build`, SPEC §3.5)")
+        elif stage == "brief" and text_in is not None:
+            out += _brief_stale(text_in, meta, str(got.get("head") or ""))
     return out
+
+
+def _brief_stale(cfg: Config, meta: dict[str, Any], signed: str) -> list[str]:
+    """§3.5: a `brief` sign-off holds while its head contains the commit that last changed the task file
+    (that commit, or a descendant of it): an edit to the text after the signing makes it stale."""
+    tid, rel = str(meta["task_id"]), cfg.rel(meta["_file"])
+    r = git(cfg.root, "log", "-1", "--format=%H", "--", rel)
+    last = r.stdout.strip() if r.returncode == 0 else ""
+    again = f"the operator signs the text again (`ccp tasks sign-off {tid} --stage brief`, SPEC §3.5)"
+    if not last:
+        return [f"{rel} has no commit in {cfg.root}, so its brief sign-off covers no known text: commit it, then "
+                + again]
+    if not SHA_RE.match(signed.lower()):
+        return [f"{tid}'s brief sign-off records no head: " + again]
+    rc = git(cfg.root, "merge-base", "--is-ancestor", last, signed).returncode
+    if rc == 0:
+        return []
+    if rc == 1:
+        return [f"{tid}'s brief sign-off is stale: signed at {signed[:12]}, and {rel} changed after it, at "
+                f"{last[:12]}; " + again]
+    return [f"{tid}'s brief sign-off covers {signed[:12]}, which is not a commit in {cfg.root}: fetch it, or "
+            + again]
 
 
 # ---------------------------------------------------------------------------------------- close
