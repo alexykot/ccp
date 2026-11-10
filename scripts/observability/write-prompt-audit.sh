@@ -12,9 +12,12 @@ Usage:
   write-prompt-audit.sh --task-id ID --phase PHASE --prompt-file FILE [options]
   write-prompt-audit.sh --task-id ID --phase PHASE --prompt-file -
 
-Write a Layer 2 alpha prompt audit file (full prompt_body + sha256) under
+Write a prompt audit file (ids, refs, the prompt's sha256 and length) under
 $QUEUE_ROOT/prompts/<task_id>/<UTC>_<phase>.json and print the relative path
-(prompt_ref) for the matching claude/launch event.
+(prompt_ref) for the matching claude/launch event. The full prompt text
+(prompt_body) is kept only with --keep-body: the product's plane.json
+prompts.keep_body, off by default (SPEC §23.8). Without it, an argv entry that
+is the prompt itself is written as <prompt>.
 
 Call this BEFORE every plane-owned Claude invocation:
   claude -p, --resume, /mk-pr, /review.
@@ -23,6 +26,7 @@ Options:
   --task-id ID
   --phase PHASE           implement | fix-review | mk-pr | review | …
   --prompt-file FILE|-    full prompt body (required, non-empty)
+  --keep-body             keep the full text as prompt_body (prompts.keep_body)
   --session-id UUID
   --resume                mark resume=true
   --argv JSON             JSON array of argv strings
@@ -57,6 +61,7 @@ PHASE=""
 PROMPT_FILE=""
 SESSION_ID=""
 RESUME="false"
+KEEP_BODY="false"
 ARGV='["claude","-p"]'
 ACTOR_IN="${ACTOR:-task-runner}"
 PROJECT_IN="${PROJECT_ID:-}"
@@ -73,6 +78,7 @@ while [[ $# -gt 0 ]]; do
     --prompt-file) PROMPT_FILE="${2:-}"; shift 2 ;;
     --session-id) SESSION_ID="${2:-}"; shift 2 ;;
     --resume) RESUME="true"; shift ;;
+    --keep-body) KEEP_BODY="true"; shift ;;
     --argv) ARGV="${2:-}"; shift 2 ;;
     --actor) ACTOR_IN="${2:-}"; shift 2 ;;
     --project-id) PROJECT_IN="${2:-}"; shift 2 ;;
@@ -98,7 +104,7 @@ if [[ "$PROMPT_FILE" == "-" ]]; then
 fi
 [[ -f "$PROMPT_FILE" ]] || { echo "write-prompt-audit: missing prompt file" >&2; exit 2; }
 
-export QUEUE_ROOT TASK_ID PHASE PROMPT_FILE SESSION_ID RESUME ARGV ACTOR_IN PROJECT_IN
+export QUEUE_ROOT TASK_ID PHASE PROMPT_FILE SESSION_ID RESUME KEEP_BODY ARGV ACTOR_IN PROJECT_IN
 export GIT_HEAD WORKTREE DURABLE SPEC_REFS NOTES
 export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
 
@@ -163,6 +169,9 @@ if not project_id:
     die("project_id required (--project-id, $PROJECT_ID, or task JSON)")
 
 digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+keep_body = os.environ.get("KEEP_BODY") == "true"
+if not keep_body:  # SPEC §23.8: no prompt text unless the product opts in, argv included
+    argv = ["<prompt>" if a == body or (a.strip() and a.strip() == body.strip()) else a for a in argv]
 obj = {
     "schema_version": 1,
     "at": now_s,
@@ -179,9 +188,11 @@ obj = {
     "worktree": os.environ.get("WORKTREE") or None,
     "durable_task_path": os.environ.get("DURABLE") or None,
     "spec_refs": spec_refs,
-    "prompt_body": body,
     "prompt_sha256": digest,
+    "prompt_chars": len(body),
 }
+if keep_body:
+    obj["prompt_body"] = body
 notes = os.environ.get("NOTES") or ""
 if notes:
     obj["notes"] = notes

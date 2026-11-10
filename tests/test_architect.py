@@ -2,6 +2,7 @@
 against a stub `claude` (DA_CLAUDE_BIN). Acceptance checks docs/design/architect.md #1, #2 and #6 are named below."""
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import os
@@ -301,12 +302,11 @@ class FrictionTriggersAPass(Harness):
         self.assertIn("3 friction note(s) since none", info["reason"])
         self.stub_report([])
         self.dpj("architect", "run")
-        audits = sorted((self.q / "prompts" / "architect").glob("*_architect-pass.json"))
-        body = json.loads(audits[-1].read_text())["prompt_body"]
+        argv = json.loads(Path(str(self.report) + ".argv").read_text())
+        body = argv[argv.index("-p") + 1]  # the prompt the headless call got
         for t in texts:
             self.assertIn(t, body)
         self.assertIn("/architect mode=pass lenses=structure,docs,tests,process", body)
-        argv = json.loads(Path(str(self.report) + ".argv").read_text())
         self.assertIn("--model claude-opus-5-5 --effort high", " ".join(argv))
         code, info, _ = self.dpj("architect", "due")
         self.assertEqual(code, 3)  # the notes were seen by that pass
@@ -443,7 +443,8 @@ class RuleChangesAndShape(Harness):
         md = (self.q / "reviews" / f"{rid}.md").read_text()
         self.assertIn("ADR: ADR-0031", md)
         self.assertIn("### Hot spots\n\n- app/a.py", md)
-        body = json.loads(sorted((self.q / "prompts" / "architect").glob("*_architect-shape.json"))[-1].read_text())["prompt_body"]
+        argv = json.loads(Path(str(self.report) + ".argv").read_text())
+        body = argv[argv.index("-p") + 1]  # the prompt the headless call got
         self.assertIn("ADR to shape: ADR-0031 (docs/adr/0031-detach.md)", body)
         self.assertNotIn("last", self.state())
         code, res, _ = self.dpj("architect", "triage", rid)
@@ -457,6 +458,27 @@ class RuleChangesAndShape(Harness):
         self.assertEqual(self.dpj("architect", "due")[1]["shape_due"], ["ADR-0031"])
         self.p.write("docs/delivery/reviews/sh-20261014T000000Z-abcd.md", "ADR: ADR-0031\n")
         self.assertEqual(self.dpj("architect", "due")[1]["shape_due"], [])
+
+    def test_the_audit_keeps_the_prompt_text_only_when_the_product_opts_in(self):
+        """§23.8: off by default, the audit holds the prompt's hash and length, and the argv entry
+        that is the prompt reads `<prompt>`; `prompts.keep_body` keeps the text."""
+        self.stub_report([])
+        self.assertEqual(self.dpj("architect", "run", "--force")[0], 0)
+        argv = json.loads(Path(str(self.report) + ".argv").read_text())
+        prompt = argv[argv.index("-p") + 1]
+        audit = json.loads(sorted((self.q / "prompts" / "architect").glob("*_architect-pass.json"))[-1].read_text())
+        self.assertNotIn("prompt_body", audit)
+        self.assertEqual(audit["prompt_sha256"], hashlib.sha256(prompt.encode()).hexdigest())
+        self.assertEqual(audit["prompt_chars"], len(prompt))
+        self.assertEqual(audit["argv"][audit["argv"].index("-p") + 1], "<prompt>")
+        self.assertNotIn(prompt, json.dumps(audit))
+        pj = self.p.root / "docs/delivery/plane.json"
+        pj.write_text(json.dumps({**json.loads(pj.read_text()), "prompts": {"keep_body": True}}))
+        self.assertEqual(self.dpj("architect", "run", "--force")[0], 0)
+        argv = json.loads(Path(str(self.report) + ".argv").read_text())
+        audit = json.loads(sorted((self.q / "prompts" / "architect").glob("*_architect-pass.json"))[-1].read_text())
+        self.assertEqual(audit["prompt_body"], argv[argv.index("-p") + 1])
+        self.assertEqual(audit["argv"][audit["argv"].index("-p") + 1], audit["prompt_body"])
 
     def test_a_finding_outside_the_lenses_is_refused(self):
         self.stub_report([{**FINDING, "category": "test-cost"}])

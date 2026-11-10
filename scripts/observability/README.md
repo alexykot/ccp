@@ -36,7 +36,7 @@ Seat ids (match actor enum): `task-runner`, `task-verifier`, `delivery-watchdog`
 | `set-waiting-on.sh` | **Event first**, then `work.json` / `tasks/*.json` wait fields. `--task-only` leaves `work.json` alone unless it names the task (`ccp tasks sync`). |
 | `heartbeat.sh` | Write `seats/<id>.json` + `seat/heartbeat` event (every wake). |
 | `write-prompt-audit.sh` | Layer 2 file; prints `prompt_ref` for `claude/launch`. |
-| `prune-prompts.sh` | Optional retention. **Default off** (alpha keep-all). |
+| `prune-prompts.sh` | Prune audits on demand. Retention by age is plane.json `prompts.audit_keep_days`, applied by `ccp prompt`. |
 | `spec_maintainer.py` | SPEC §17 logic behind `../spec-maintainer-ask.sh` (question file, waits, answer validation and application); also the headless-`claude -p` helpers the architect and reviews use |
 
 Every script accepts `-h` / `--help`.
@@ -124,10 +124,10 @@ Heartbeat files on disk record each seat's last wake.
 
 Before every plane-owned `claude -p` / `--resume` / `/mk-pr` / `/review`:
 
-1. `write-prompt-audit.sh` → `prompts/<task_id>/<UTC>_<phase>.json` with full `prompt_body` + `prompt_sha256`.
+1. `write-prompt-audit.sh` → `prompts/<task_id>/<UTC>_<phase>.json` with `prompt_sha256` + `prompt_chars`; the full `prompt_body` only with `--keep-body` (plane.json `prompts.keep_body`, off by default).
 2. `emit-event.sh --type claude --op launch` with that relative `prompt_ref`.
 
-Never commit `prompts/` to product git or this repo. `prune-prompts.sh` exists but stays off until the operator says prune (`PRUNE_PROMPTS=1` + `--apply`).
+Never commit `prompts/` to product git or this repo. `ccp prompt` prunes audits older than plane.json `prompts.audit_keep_days` (default null: keep all); `prune-prompts.sh` prunes on demand (`PRUNE_PROMPTS=1` + `--apply`).
 
 ## Secrets
 
