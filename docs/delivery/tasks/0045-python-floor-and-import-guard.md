@@ -1,7 +1,7 @@
 ---
 task_id: 0045-python-floor-and-import-guard
 title: The declared Python floor matches what runs the plane
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S29"]
@@ -48,6 +48,18 @@ The Python version the plane declares matches the interpreter that runs it. laun
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): chose the 3.9 floor everywhere. Every `ccp` module already imports under
+  the system `python3` (3.9.6), and both plists run `bin/ccp`, whose `#!/usr/bin/env python3` finds
+  the system `python3` on launchd's PATH, so `ccp/otel.py`, `ccp/board.py` and
+  `scripts/run-checkout.sh` are unchanged. `requires-python` is `>=3.9`, the README says 3.9, and
+  §29.2 gains one bullet describing the floor and the guard (description of this task's feature,
+  §31.1). `tests/test_py39_import.py` is replaced by `tests/test_python_floor.py`: an AST check of
+  every annotation site (parameters, `*args`/`**kwargs`, returns, annotated assignments at any level)
+  for a `|` in a module without `from __future__ import annotations`, reported as `<module>:<line>`.
+  It reads the floor from `requires-python` and applies only below 3.10; a second test holds the
+  README's floor to `requires-python`. A `|` outside an annotation (a default, a flag mask) is not
+  flagged.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #40 head `55bcd9e` (squash `07a50eb`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0045-python-floor-and-import-guard.json.

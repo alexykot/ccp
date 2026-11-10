@@ -2,7 +2,7 @@
 name = "control-plane-ccp"
 version = "0.1.0"
 description = "ccp: the command-line tool of CCP (Claude Control Plane)"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 dependencies = []
 
 [project.scripts]
