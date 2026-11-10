@@ -181,6 +181,31 @@ class NoClobber(InitCase):
         self.assertEqual(res["written"], [])
         self.assertEqual(res["merged"], [])
 
+    def test_an_anchor_key_the_product_set_keeps_its_value(self):
+        mine = {"ccp": {"source": {"source": "directory", "path": "/opt/my-ccp"}},
+                "other": {"source": {"source": "github", "repo": "x/y"}}}
+        text = json.dumps({"extraKnownMarketplaces": mine, "enabledPlugins": {"ccp@ccp": False, "other@x": True},
+                           "env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"}}, indent=4)
+        (self.repo / ".claude/settings.json").write_text(text)
+        code, res = self.init("--project-id", "demo")
+        self.assertEqual(code, 0, res)
+        self.assertEqual((self.repo / ".claude/settings.json").read_text(), text)
+        self.assertNotIn(".claude/settings.json", res["merged"])
+
+    def test_an_anchor_block_gains_only_the_missing_entries(self):
+        mine = {"source": {"source": "directory", "path": "/opt/my-ccp"}}
+        (self.repo / ".claude/settings.json").write_text(json.dumps(
+            {"extraKnownMarketplaces": {"ccp": mine, "other": {"source": {"source": "github", "repo": "x/y"}}},
+             "enabledPlugins": {"ccp@ccp": False}}))
+        code, res = self.init("--project-id", "demo")
+        self.assertEqual(code, 0, res)
+        settings = json.loads((self.repo / ".claude/settings.json").read_text())
+        self.assertEqual(settings["extraKnownMarketplaces"],
+                         {"ccp": mine, "other": {"source": {"source": "github", "repo": "x/y"}}})
+        self.assertEqual(settings["enabledPlugins"], {"ccp@ccp": False})
+        self.assertEqual(settings["env"], ccp_init.ANCHOR["env"])
+        self.assertIn(".claude/settings.json", res["merged"])
+
     def test_force_overwrites_the_files_init_writes(self):
         self.assertEqual(self.init("--project-id", "demo")[0], 0)
         (self.repo / "docs/SPEC.md").write_text("# My spec\n")
@@ -255,6 +280,7 @@ class Refusals(InitCase):
         err = self.assert_refused_untouched("--project-id", "demo")
         self.assertIn("product root", err)
         self.assertFalse(self.binding.exists())
+        self.assertFalse(self.queue.exists())
         self.repo = self.repo.parent / "repo"
         err = self.assert_refused_untouched("--project-id", "demo", "--queue-root", str(self.home / "q #2"))
         self.assertIn("queue path", err)

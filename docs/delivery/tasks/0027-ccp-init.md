@@ -118,6 +118,14 @@ sees the same values. The README's manual adoption steps shrink to that command.
   `otel._scalar`, init's own `_scalar`) cut at any `#`. The `--gate` help says it is not applied when
   `plane.json` is kept, and the kept list then reads `docs/delivery/plane.json (--gate not applied)`.
   The SPEC does not change.
+- 2026-11-10 (implementer, fix round 2, the lead's asks and review-2 NIT 1): two `NoClobber` tests pin
+  §4.5's "other keys and values are left alone" for the anchor keys themselves. A settings file that
+  already sets every anchor key to a different value stays byte-for-byte, with nothing merged. In a
+  nested anchor block, init adds only the missing entries: the product's own `ccp` marketplace source
+  and its `other` marketplace survive. `ccp/init.py` already used `setdefault`, so the code did not
+  change. With `block[k] = v` in its place, exactly these two tests fail. SPEC §9.2 now names the
+  binding file's path among what `ccp where` prints (the `binding` field this task added). The
+  `#`-root refusal test also checks that the queue directory stays absent.
 
 ## Verification notes
 

@@ -662,7 +662,7 @@ A hook receives `CLAUDE_PROJECT_DIR`. `ccp` maps it to a binding (§8.3, `projec
 no hook entry names a path. A directory that maps to no binding makes every hook a no-op. When
 `QUEUE_ROOT` is unset, `ccp` sets it from the binding for the `project_id` in the product's
 `plane.json`, the same from the main checkout and from any worktree; `ccp where` prints the project,
-the queue, the plane checkout and the `ccp` path.
+the binding file's path, the queue, the plane checkout and the `ccp` path.
 
 ### 9.3 Orientation
 
