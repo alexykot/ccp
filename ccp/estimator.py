@@ -464,7 +464,8 @@ def call(cfg: Config, q: Path, prompt: str, run_id: str, tid: str, actor: str = 
         ["bash", str(PLANE / "scripts" / "observability" / "write-prompt-audit.sh"), "--task-id", SEAT, "--phase", "estimate",
          "--prompt-file", "-", "--argv", json.dumps(argv[:argv.index("-p") + 1] + ["<prompt>"] + argv[argv.index("-p") + 2:]),
          "--actor", actor, "--project-id", cfg.project_id, "--worktree", str(cfg.root),
-         "--notes", f"run_id={run_id} task_id={tid}"],
+         "--notes", f"run_id={run_id} task_id={tid}"]
+        + (["--keep-body"] if (cfg.prompts or {}).get("keep_body") else []),  # §23.8
         input=prompt, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(q)})
     if audit.returncode != 0:
         raise RuntimeError(f"write-prompt-audit failed: {audit.stderr.strip()[:300]}")

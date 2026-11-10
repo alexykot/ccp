@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# prune-prompts.sh — optional Layer 2 retention. DEFAULT OFF until the operator says prune.
+# prune-prompts.sh — prune prompt audits on demand. Retention by age is plane.json
+# prompts.audit_keep_days, applied by `ccp prompt` (SPEC §23.8); this script is the manual tool.
 
 set -euo pipefail
 
@@ -10,13 +11,13 @@ usage() {
 Usage:
   prune-prompts.sh [--older-than-days N] [--keep-last N] [--apply]
 
-Alpha default: keep all prompt audit files.
-This script is a stub until the operator asks to prune.
+Retention by age is plane.json prompts.audit_keep_days, applied by `ccp prompt`
+each time it writes an audit (SPEC §23.8). This script prunes on demand.
 
 Safety:
   - Refuses to delete unless PRUNE_PROMPTS=1 AND --apply
   - Default mode is --dry-run (prints what would be removed)
-  - Never touches events.jsonl / now.json / product git
+  - Never touches events.jsonl / product git
 
 Options:
   --older-than-days N   candidates older than N days (mtime)
@@ -58,7 +59,7 @@ if [[ ! -d "$PROMPT_ROOT" ]]; then
 fi
 
 if [[ -z "$OLDER" && -z "$KEEP" ]]; then
-  echo "prune-prompts: DEFAULT OFF (alpha keep-all)."
+  echo "prune-prompts: nothing selected (retention by age is plane.json prompts.audit_keep_days)."
   echo "prune-prompts: pass --older-than-days N and/or --keep-last N to list candidates."
   echo "prune-prompts: deletion requires PRUNE_PROMPTS=1 and --apply."
   exit 0

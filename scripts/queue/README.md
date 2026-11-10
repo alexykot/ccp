@@ -36,7 +36,6 @@ Live queue state lives **outside** product git (e.g. `$HOME/projects/.delivery-q
   work.json
   running.json
   observability/events.jsonl
-  observability/now.json
   observability/seats/<seat_id>.json
   prompts/<task_id>/          # Layer 2; never commit
 ```
@@ -51,7 +50,7 @@ Live queue state lives **outside** product git (e.g. `$HOME/projects/.delivery-q
 
 Contracts: `../../contracts/*.schema.json`.
 
-Observability (SPEC §23): `../observability/` — `emit-event.sh`, `set-waiting-on.sh` (event **before** wait-field writes), `rebuild-now.sh`, `status.sh`. Waiting_on changes must go through `set-waiting-on.sh`.
+Observability (SPEC §23): `../observability/` — `emit-event.sh`, `set-waiting-on.sh` (event **before** wait-field writes); the status is `ccp board status` (§28). Waiting_on changes must go through `set-waiting-on.sh`.
 
 ## Rules
 

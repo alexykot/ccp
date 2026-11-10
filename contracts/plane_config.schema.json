@@ -475,7 +475,7 @@
     "prompts": {
       "type": "object",
       "additionalProperties": false,
-      "description": "SPEC §13.2: the product's own rules for worker prompts, rendered after the plane template.",
+      "description": "SPEC §13.2: the product's own rules for worker prompts, rendered after the plane template; SPEC §23.8: what the prompt audit keeps and for how long.",
       "properties": {
         "fragment": {
           "type": [
@@ -493,6 +493,18 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "keep_body": {
+          "type": "boolean",
+          "description": "SPEC §23.8: keep the full prompt text (prompt_body) in each prompt audit. Default false: the audit holds ids, refs and the prompt's sha256 and length."
+        },
+        "audit_keep_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "SPEC §23.8: prompt audits (QUEUE_ROOT/prompts/**/<UTC>_<phase>.json) older than this many days, by the stamp in their name, are removed when `ccp prompt` writes an audit. Default null: all are kept."
         }
       }
     },

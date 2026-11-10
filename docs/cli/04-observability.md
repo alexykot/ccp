@@ -29,5 +29,6 @@ command follows are in the SPEC, not here.
 | `ccp health record --task <id> --metric <name>=<n>` | Record a product metric |
 | `ccp health note --text TEXT` | Record a friction note |
 
-Scripts kept as wrappers over `ccp`: `scripts/observability/status.sh`, `emit-event.sh`,
-`rebuild-now.sh`, `set-waiting-on.sh`, `heartbeat.sh`, `write-prompt-audit.sh`, `prune-prompts.sh`.
+Scripts kept as wrappers over `ccp`: `scripts/observability/emit-event.sh`, `set-waiting-on.sh`,
+`heartbeat.sh`, `write-prompt-audit.sh`, `prune-prompts.sh`. `status.sh` and `rebuild-now.sh` are
+retired: the status is `ccp board status` (§23.4).

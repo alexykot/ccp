@@ -217,7 +217,7 @@ reported in.
 
 ### 11.2 Process locks
 
-The plane's process locks (the architect, docs-audit, estimator and review locks) share one rule. A
+The plane's process locks (the architect, estimator and review locks) share one rule. A
 lock file records `pid`, `host`, `since` and `ttl_seconds`. It is **stale** when its `pid` is dead on
 this host, even inside the TTL, or, for a lock from another host (whose pid cannot be checked), once
 `now > since + ttl_seconds`. A stale lock may be broken by any process that wants it. Take is atomic
@@ -938,9 +938,7 @@ gate's "no open spec escalation" applies to a task only while an open question l
 `spec_maintainer` (`set`, `clear`, `rebound`) rows and `claude` events with `phase: spec-maintainer`
 in older ledgers are read past; nothing writes them. `waiting_on` is `spec_maintainer` while a
 question is open and `operator_decision` once escalated, `detail` naming the `question_id`; both are
-blocker kinds. `now.json` has a top-level `questions` array (`question_id`, `status`, `verdict`,
-`raised_by`, `blocks`, `waiting_on`, `since`, `maintainer_wait_hours`, `operator_wait_hours`) and
-per-task `wait_hours_by_reason`; its `spec_maintainer` field is always `null` (deprecated).
+blocker kinds.
 
 ### 17.9 Gate decisions
 
@@ -1024,8 +1022,7 @@ Every seat is event-only under the Claude team: never time-stale. `design-seat`,
 `task-verifier` are seat ids; the toolkit writes heartbeats (`observability/seats/<seat_id>.json`,
 `seat`/`heartbeat` events, `heartbeat.sh`), and `ccp tasks claim` and `close` write them. There is no
 stale rule for seats and no `stale_seat` blocker, and no `verify_stale` blocker: the verifier is the
-runner's subagent and reports by message and file (§15). Old snapshots that hold `stale_seat` or
-`verify_stale` stay readable.
+runner's subagent and reports by message and file (§15).
 
 ### 18.4 Quota
 

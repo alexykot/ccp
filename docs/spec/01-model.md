@@ -532,7 +532,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `architect` | the architect seat, house rules, budgets, refactors | §19, §20 |
 | `review_points` | the review-point register | §22 |
 | `worktrees`, `env`, `merge`, `auth_check` | worktrees and environment hooks (`ccp wt`), the merge step (`merge.command`), credential probes (`auth_check.probes`) | §12, §15, §30 |
-| `prompts` | the worker prompt fragment and `worker_env` | §13 |
+| `prompts` | the worker prompt fragment and `worker_env`; the prompt audit's `keep_body` (default `false`) and `audit_keep_days` (default `null`, keep all) | §13, §23.8 |
 | `reconcile` | commands run at close | §10 |
 | `suite`, `verify` | test runs and lanes, verification and cache acceptance (`verify.accept_cache`) | §14, §15 |
 | `parallel` | several runners | §16 |
@@ -556,7 +556,8 @@ An example, with neutral values:
   "private_dirs": [".env"]
 },
 "prompts": { "fragment": "docs/delivery/WORKERS.md",
-             "worker_env": { "<NAME>": "<template: {{main_checkout}}, {{worktree}}, {{queue_root}}, …>" } },
+             "worker_env": { "<NAME>": "<template: {{main_checkout}}, {{worktree}}, {{queue_root}}, …>" },
+             "keep_body": false, "audit_keep_days": null },
 "reconcile": { "hooks": ["<product command, run in the runner worktree>"] },
 "telemetry": { "otel_port": 4318, "allowance_cmd": "<command printing the allowance JSON>" },
 "board": { "refresh_minutes": 5 },

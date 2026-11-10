@@ -1,7 +1,7 @@
 ---
 task_id: 0013-prompt-bodies-opt-in
 title: Make full prompt bodies opt-in, with retention by age
-status: pending
+status: done
 kind: feature
 depends_on: ["0008-spec-switch-to-parts"]
 spec_refs: ["S23"]
@@ -9,7 +9,7 @@ adr_refs: ["0034 D8"]
 review_point: R1
 paths: ["scripts/observability/write-prompt-audit.sh", "scripts/observability/prune-prompts.sh", "ccp/prompt.py", "ccp/config.py", "contracts/prompt_audit.schema.json", "contracts/plane_config.schema.json", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # Task: 0013-prompt-bodies-opt-in
@@ -22,6 +22,14 @@ A prompt audit records ids, refs and the prompt's hash; the full prompt text is 
 
 - §23.8 states the target rule; ADR-0034 D8 records it, amending ADR-0019.
 - The run binding and reports must not depend on `prompt_body` being present.
+- Ruling sm-20261109T230726Z-b5b5 (spec maintainer, 2026-11-09): this task also updates §23.8, the
+  §23.9 knobs table and the §8.1 `prompts` row to name `prompts.keep_body` (default false) and
+  `prompts.audit_keep_days` (default null: keep every audit, so an upgrade prunes nothing), and
+  removes the "task 0013" markers. The rendered prompt the runner reads
+  (`prompts/<task>/<phase>[-n]-prompt.md`) stays outside pruning. The §31 approval is the
+  `docs/spec/RULINGS.md` row for this task (§20.2, the prompt audit). Standing ruling for R1: a task
+  that carries out a RULINGS row naming it also rewords, in the same PR, every SPEC or docs passage
+  the change makes false, listing each edit with its old text in the PR body; history records stay.
 
 ## Scope
 
@@ -49,6 +57,34 @@ A prompt audit records ids, refs and the prompt's hash; the full prompt text is 
 
 *Append-only, newest last.*
 
+- 2026-11-09 (implementer): Two knobs in plane.json `prompts`. `keep_body` (bool, default false).
+  `audit_keep_days` (int >= 1 or null, default null = keep all). Both are checked in `ccp/config.py`
+  and named in `contracts/plane_config.schema.json`.
+  - `write-prompt-audit.sh` writes `prompt_body` only with `--keep-body`. It always writes
+    `prompt_sha256` and a new `prompt_chars`. Without the body, an argv entry that is the prompt
+    itself becomes `<prompt>`; the architect passes its prompt in argv.
+  - `contracts/prompt_audit.schema.json`: `prompt_body` is optional and `prompt_chars` is added.
+  - `ccp prompt` passes `--keep-body` from the knob. After writing its audit it removes audits older
+    than `audit_keep_days`, across `prompts/**` and judged by the UTC stamp in the file name
+    (`prompt.prune_audits`). Rendered prompts, env files and other names stay.
+  - Outside the listed paths: `ccp/architect.py` and `ccp/estimator.py` pass `--keep-body` from the
+    same knob. `ccp/health.py` reads `prompt_chars` for the §27.1 prompt sizes and falls back to
+    the body's length for older audits (E9). `team.py`'s runner-spawn and runner-scope audits keep
+    the default, with no body.
+  - `prune-prompts.sh` keeps its behaviour as the on-demand tool. Only its "alpha keep-all" framing
+    changed.
+  - `tests/test_architect.py` now reads the prompt from the stub's argv rather than the audit's
+    `prompt_body`; the assertions are unchanged.
+  - ADR-0034 D8 is recorded as built.
+  - Open: the SPEC passages still say "code: task 0013" (§23.8, §23.9), and §8.1's `prompts` row does
+    not name the knobs. The default retention age is also open. All are in the run report.
+- 2026-11-09 (implementer, round 2): applied ruling sm-20261109T230726Z-b5b5. §23.7's prompts row,
+  §23.8, the §23.9 knobs table, and §8.1's `prompts` row and example now name `prompts.keep_body`
+  (false) and `prompts.audit_keep_days` (null); the "task 0013" markers are gone. §23.8 states the
+  retention rule as built, including that the rendered prompt files stay. `docs/design/architect.md`
+  says the friction notes reach the next architect prompt, not its audit (the audit no longer holds
+  the text by default). Merged `origin/main` (tasks 0010 to 0012) with no conflicts.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #7 head `7a79f11` (squash `b44d1f7`): APPROVE. Passed: audit-01, audit-02. Gate: `env -u QUEUE_ROOT scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0013-prompt-bodies-opt-in.json.
