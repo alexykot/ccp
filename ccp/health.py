@@ -21,8 +21,12 @@ Everything comes from data the plane already holds; nothing here is a target or 
   cannot be shown cold or warm `suite_seconds_unverified`. Only a run with no suite record falls back
   to its `Suite:` line.
 
-The trend is the median wall time of the last 5 timed tasks against the 10 before them; above
-`architect.drift_ratio` is drift, one of the architect's triggers (§19.6).
+A task's **active time** is its wall time less the time it waited (`waits_s`): its `waiting_on` waits,
+set to clear (an open one to the merge), and its suite runs' waits on an exclusive lane (§16.6: a
+`started` row's `wait_s`, a `busy` row's `waited_s` in `runs/_suites.jsonl`), each instant counted
+once and only inside the task's wall time. The trend is the median active time of the last 5 timed
+tasks against the 10 before them; above `architect.drift_ratio` is drift, one of the architect's
+triggers (§19.6), so a wait on the operator, the lead or a lane never reads as slower work.
 """
 from __future__ import annotations
 
@@ -445,6 +449,9 @@ def _queue_view(q: Path) -> dict[str, dict[str, Any]]:
     view: dict[str, dict[str, Any]] = {}
     for ev in _jsonl(_events_path(q)):
         tid = ev.get("task_id")
+        if tid and ev.get("type") == "waiting_on":  # the waits active time leaves out (`waits_s`)
+            view.setdefault(tid, {"first": None, "verify_moves": 0}).setdefault("waiting", []).append(ev)
+            continue
         if not tid or ev.get("type") not in ("phase", "lease", "claude"):
             continue
         at = _epoch(ev.get("at", ""))
@@ -461,6 +468,29 @@ def _queue_view(q: Path) -> dict[str, dict[str, Any]]:
         if ev.get("type") == "phase" and str((ev.get("payload") or {}).get("to")) in ("verifying", "verify"):
             v["verify_moves"] += 1
     return view
+
+
+def lane_waits(q: Path) -> dict[str, list[tuple[float, float]]]:
+    """Per task, its suite runs' waits on an exclusive lane (§16.6) as (start, end) epochs: a `started`
+    row's `wait_s` ends at its `at` (the run's start), a `busy` row's `waited_s` at its own `at`."""
+    from ccp import suite  # noqa: PLC0415
+    out: dict[str, list[tuple[float, float]]] = {}
+    for row in _jsonl(suite.path(q)):
+        key = {"started": "wait_s", "busy": "waited_s"}.get(str(row.get("op")))
+        w = row.get(key) if key else None
+        at = _epoch(str(row.get("at") or ""))
+        if not row.get("task_id") or at is None or isinstance(w, bool) or not isinstance(w, (int, float)) or w <= 0:
+            continue
+        out.setdefault(str(row["task_id"]), []).append((at - w, at))
+    return out
+
+
+def waits_s(waiting: list[dict[str, Any]], lanes: list[tuple[float, float]], lo: float, hi: float) -> int:
+    """The seconds of [lo, hi] a task spent waiting: its `waiting_on` events' set → clear intervals (one
+    still set runs to `hi`) and its lane waits, each instant counted once."""
+    from ccp import drill  # noqa: PLC0415  (drill reads health; the wait and interval rules are its)
+    iv = [(w["start"], w["end"]) for w in drill._waits(waiting, None, hi)] + list(lanes)
+    return round(drill.length(drill.clip(drill.union(iv), lo, hi)))
 
 
 def _phase(name: str) -> str:
@@ -543,12 +573,15 @@ def _median(xs: list[float]) -> float | None:
 
 
 def trend(rows: list[dict[str, Any]], ratio: float) -> dict[str, Any]:
+    """The drift (§19.6) on active time: the median `active_s` of the last 5 timed tasks against the 10
+    before them. `median_wall_s` stays beside it, for reading."""
     walls = [r["wall_s"] for r in rows if r.get("wall_s") is not None]
-    last, before = walls[-LAST:], walls[-(LAST + BEFORE):-LAST]
+    active = [r["active_s"] for r in rows if r.get("active_s") is not None]
+    last, before = active[-LAST:], active[-(LAST + BEFORE):-LAST]
     m_last, m_before = _median(last), _median(before)
     r = round(m_last / m_before, 2) if m_last is not None and m_before and len(before) == BEFORE else None
-    return {"timed_tasks": len(walls), "median_wall_s": _median(walls), "median_last5_s": m_last,
-            "median_before10_s": m_before, "drift_ratio": r, "drift_limit": ratio,
+    return {"timed_tasks": len(active), "median_wall_s": _median(walls), "median_active_s": _median(active),
+            "median_last5_s": m_last, "median_before10_s": m_before, "drift_ratio": r, "drift_limit": ratio,
             "drift": r is not None and r > ratio}
 
 
@@ -566,6 +599,7 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
     stats = numstat(cfg, {m["sha"] for m in ms}) if files else {}
     areas = [(n, [glob_re(g) for g in gs]) for n, gs in a["areas"].items()]
     ev = _queue_view(q) if q else {}
+    lanes = lane_waits(q) if q else {}
     metrics: dict[str, dict[str, Any]] = {}
     entries = suite_view(_jsonl(_metrics_path(q))) if q else []
     for m in entries:  # a task's latest of each; the suite's are filed per kind (file_suites)
@@ -586,6 +620,12 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
             qd = _task_queue(q, r["task_id"], ev.get(r["task_id"], {}), bodies=files)
             start = qd.pop("start")
             r["wall_s"] = round(r["_at"] - start) if start is not None and start <= r["_at"] else None
+            if r["wall_s"] is not None:
+                r["waits_s"] = waits_s(ev.get(r["task_id"], {}).get("waiting") or [], lanes.get(r["task_id"], []),
+                                       start, r["_at"])
+                r["active_s"] = r["wall_s"] - r["waits_s"]
+            else:
+                r["waits_s"] = r["active_s"] = None
             r.update(qd)
         r["metrics"] = metrics.get(r["task_id"], {})
         del r["_at"]
@@ -604,9 +644,9 @@ def _h(s: float | None) -> str:
 def summary_text(report: dict[str, Any], n: int = 10) -> str:
     """A compact view for the architect's prompt."""
     t = report["trend"]
-    lines = [f"Timed tasks: {t['timed_tasks']}; median wall {_h(t['median_wall_s'])}; last 5 {_h(t['median_last5_s'])}"
-             f" vs the 10 before {_h(t['median_before10_s'])} (ratio {t['drift_ratio'] if t['drift_ratio'] is not None else '-'},"
-             f" drift above {t['drift_limit']})."]
+    lines = [f"Timed tasks: {t['timed_tasks']}; median wall {_h(t['median_wall_s'])}, active {_h(t.get('median_active_s'))};"
+             f" active time of the last 5 {_h(t['median_last5_s'])} vs the 10 before {_h(t['median_before10_s'])}"
+             f" (ratio {t['drift_ratio'] if t['drift_ratio'] is not None else '-'}, drift above {t['drift_limit']})."]
     st = report.get("suite") or {}
     if any((st.get(k) or {}).get("runs") for k in SUITE_KINDS):
         def one(k: str, label: str) -> str:
@@ -617,7 +657,8 @@ def summary_text(report: dict[str, Any], n: int = 10) -> str:
             [one("cold", "cold (the suite's time)"), one("warm", "warm (units cached)"), one("part", "part lane")])
             + f"; {(st.get('unverified') or {}).get('runs', 0)} unverified, in no series.")
     for r in report["tasks"][-n:] if n else []:
-        lines.append(f"- {r['task_id']}: merged {r['merged_at']}, wall {_h(r.get('wall_s'))} (impl {_h(r.get('implementing_s'))},"
+        lines.append(f"- {r['task_id']}: merged {r['merged_at']}, wall {_h(r.get('wall_s'))}, active {_h(r.get('active_s'))}"
+                     f" (impl {_h(r.get('implementing_s'))},"
                      f" review {_h(r.get('reviewing_s'))}, verify {_h(r.get('verifying_s'))}), fix rounds {r.get('fix_rounds', '-')},"
                      f" verify rounds {r.get('verify_rounds', '-')}, {r['files']} files / {r['lines']} lines {r['areas']},"
                      f" prompts {r.get('prompt_chars', '-')} chars" + (f", {r['metrics']}" if r.get("metrics") else ""))

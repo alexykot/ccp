@@ -11,7 +11,8 @@ the task-log owner triages it under `docs/delivery/REVIEW-TRIAGE.md`. Everything
 - **cadence:** `every_n_tasks` tasks done since the last pass, or `max_days` with at least one;
 - **a review point closing:** every task in the scope `ccp tasks next` was given is done;
 - **friction:** `notes_due` friction notes since the last pass;
-- **drift:** `ccp health` drift, or a budget failing, that the last pass did not see.
+- **drift:** `ccp health` drift (on active time: wall time less waits), or a budget failing, that the last
+  pass did not see.
 
 `gate()` is what `ccp tasks next` enforces: exit 4 once a due pass has gone unstarted for
 `grace_tasks` more merges (or nothing is left to merge), or a report has waited `triage_grace_tasks`
@@ -187,7 +188,7 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
     if cfg.architect is not None:
         drift = health.trend(health.collect(cfg, q, files=False)["tasks"], a["drift_ratio"])
         if drift["drift"] and not last.get("health_drift"):
-            reasons.append(("drift", f"health drift: median wall of the last 5 tasks is {drift['drift_ratio']}x "
+            reasons.append(("drift", f"health drift: median active time of the last 5 tasks is {drift['drift_ratio']}x "
                                      f"the 10 before (limit {a['drift_ratio']})", -1))
     budgets = rules.budget_failures(cfg) if cfg.architect is not None else []
     new_budgets = [b for b in budgets if b.split(":", 1)[0] not in set(last.get("budget_ids") or [])]
