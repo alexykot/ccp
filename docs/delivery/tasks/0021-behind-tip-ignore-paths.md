@@ -48,6 +48,15 @@ A product setting (empty by default) lists paths whose commits on the integratio
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): The setting is plane.json `parallel.behind_tip_ignore` (paths relative to the
+  product root, a directory covering everything under it; empty by default; validated in `ccp/config.py`
+  and the schema). `lifecycle.behind_tip` is the one check, shared by `ccp tasks close` and
+  `ccp prompt verify`; it adds the declared paths to the task-log exclusions of the `git log` pathspec.
+  Close keeps its behaviour on an unreadable tip (refuse) or head (warn). `ccp prompt verify` runs the
+  check only with several runners, as close does, refusing exit 4 with nothing opened; a tip or head it
+  cannot fetch is a warning in its output, and close still checks. SPEC §15.6 rule 2 and §16.5 rule 4
+  carry the rule, worded from ADR-0035 D1 and D2.
+
 ## Verification notes
 
 *Append-only.*
