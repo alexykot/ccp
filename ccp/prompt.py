@@ -8,6 +8,8 @@ its §23.8 audit (the full text only under `prompts.keep_body`; audits older tha
 the agent type and a description that starts with the run's task and phase; the prompt is the
 file's text, verbatim. The runner never passes `model` (§2). First it samples the allowance: at the
 5-hour park % it parks the task and refuses, exit 6, writing nothing else (§25.4 the session park).
+A verify of a fix round that no review has seen is refused, exit 4, nothing opened, unless the product's
+`verify.skip_review` proves the fix or the lead's word overrides it (§15.2).
 A verify round with no fix round since the task's last verify round needs `--note` with the reason
 (§15.6 rule 4): without it the command refuses, exit 4, nothing opened. A verify of a head that lacks the
 integration tip, beyond the task log and `merge.behind_tip_ignore`, refuses the same way, with one runner
@@ -243,28 +245,34 @@ def prune_audits(q: Path, cfg: Config, now: datetime | None = None) -> int:
     return gone
 
 
-def review_gate(q: Path, tid: str, phase: str, a: Any) -> dict[str, str] | None:
+def review_gate(cfg: Config, q: Path, tid: str, phase: str,
+                a: Any) -> tuple[dict[str, str] | None, dict[str, Any] | None]:
     """§15.2: a verify of a head with a fix round after the last review is refused (exit 4), unless the
-    runner passes `--allow-unreviewed-fix --reason "<the lead's or the operator's words>"`. Returns the override
-    to record on the run (a friction note and a ledger event), or None."""
+    product's `verify.skip_review` proves the fix, or the runner passes `--allow-unreviewed-fix --reason "<the
+    lead's or the operator's words>"`. Returns what to record on the run: the override (a friction note and a
+    ledger event) and the proven skip, each None when it does not apply."""
     allow = bool(getattr(a, "allow_unreviewed_fix", False))
     reason = (getattr(a, "reason", None) or "").strip()
     if phase != "verify":
         if allow:
             raise QueueError("--allow-unreviewed-fix is for `ccp prompt verify` only", 2)
-        return None
+        return None, None
     if allow and not reason:
         raise QueueError('--allow-unreviewed-fix needs --reason "<the lead\'s or the operator\'s words>"', 2)
     why = runs.unreviewed_fix(q, tid, a.head)
     if why is None:
-        return None
+        return None, None
+    skipped, unproven = verify.skip_review(cfg, q, tid, a.head, a.pr)
+    if skipped:
+        return None, skipped
     if not allow:
-        raise QueueError(f"{why}. Override once, on the lead's or the operator's word: "
+        no_skip = f" (verify.skip_review does not apply: {unproven})" if unproven else ""
+        raise QueueError(f"{why}{no_skip}. Override once, on the lead's or the operator's word: "
                          '--allow-unreviewed-fix --reason "<their words>"', 4)
     from ccp import health  # noqa: PLC0415
     if health.looks_like_secret(reason):
         raise QueueError("--reason looks like it holds a secret; say it without the value", 2)
-    return {"reason": reason, "was": why}
+    return {"reason": reason, "was": why}, None
 
 
 def repeat_gate(q: Path, tid: str, phase: str, note: str | None) -> dict[str, str] | None:
@@ -344,7 +352,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     # §25.4 the session park: no run opens at or past the 5-hour park % (exit 6, the task parked)
     # (best effort: only the park refuses; a failed sample or wait write is a warning)
     session_warn = usage.session_step(cfg, q, tid, lambda: usage.sample_allowance(cfg, q, gate=False), f"ccp prompt {phase}")
-    override = review_gate(q, tid, phase, a)
+    override, skipped = review_gate(cfg, q, tid, phase, a)
     repeat = repeat_gate(q, tid, phase, note)
     tip_warn = tip_gate(cfg, q, tid, phase, a)
     runs.check_pending(q, runs.AGENT_TYPE[phase], a.supersede, caller)
@@ -407,6 +415,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
                                # §14.1: a suite run from inside this worktree binds to the run
                                "worktree": (worktree if phase in ("implement", "fix") else own) or None,
                                **({"allow_unreviewed_fix": override} if override else {}),
+                               **({"review_skip": skipped} if skipped else {}),
                                **({"repeat_verify": repeat} if repeat else {})})
     if rec["run_id"] != run_id:  # a run of this phase was opened between our count and now
         raise QueueError(f"run id moved from {run_id} to {rec['run_id']} while rendering: run ccp prompt again", 1)
@@ -421,6 +430,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     return {"ok": True, "run_id": run_id, "phase": phase, "round": n, "prompt_path": str(prompt_file),
             "report_path": str(report), "prompt_ref": ref, "env_file": env_file or None, "expected_model": rec["expected_model"],
             "expected_effort": rec["expected_effort"], **({"allow_unreviewed_fix": override} if override else {}),
+            **({"review_skip": skipped} if skipped else {}),
             **({"repeat_verify": repeat} if repeat else {}),
             **({"warnings": warnings} if warnings else {}),
             "agent_call": {"subagent_type": runs.definition(cfg, runs.AGENT_TYPE[phase])[0], "description": desc,

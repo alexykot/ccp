@@ -553,7 +553,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `worktrees`, `env`, `merge`, `auth_check` | worktrees and environment hooks (`ccp wt`), the merge step (`merge.command`) and the paths that do not make a head behind the tip (`merge.behind_tip_ignore`), credential probes (`auth_check.probes`) | §12, §15, §16, §30 |
 | `prompts` | the worker prompt fragment and `worker_env`; the prompt audit's `keep_body` (default `false`) and `audit_keep_days` (default `null`, keep all) | §13, §23.8 |
 | `reconcile` | commands run at close | §10 |
-| `suite`, `verify` | test runs and lanes, verification and cache acceptance (`verify.accept_cache`) | §14, §15 |
+| `suite`, `verify` | test runs and lanes, verification and cache acceptance (`verify.accept_cache`), the fix rounds that need no new review (`verify.skip_review`) | §14, §15 |
 | `parallel` | several runners | §16 |
 | `telemetry`, `board`, `estimate` | usage, allowance windows, the board, estimation | §24–§28 |
 

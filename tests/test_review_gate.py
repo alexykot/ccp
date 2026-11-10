@@ -53,6 +53,7 @@ class ReviewGate(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 4, out + err)
         self.assertIn("fix round 0002-second/fix is newer than the last review 0002-second/review: "
                       "run `ccp prompt review` first (runner brief step 7)", err)
+        self.assertNotIn("verify.skip_review", err)  # off by default: no skip is tried
         self.assertFalse((self.q / "runs/0002-second/verify.json").exists())  # nothing opened
 
     def test_a_review_after_the_fix_is_allowed(self):

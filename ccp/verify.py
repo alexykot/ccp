@@ -32,7 +32,9 @@ of them.
 
 `record` also refuses an approve of a task whose latest fix round is newer than its last review, or
 of a head other than the one that review judged (§15.2, the runner brief's step 7), unless the open
-verify run carries the override `ccp prompt verify --allow-unreviewed-fix` recorded.
+verify run carries the override `ccp prompt verify --allow-unreviewed-fix` recorded, or the skip
+`skip_review` proved for that head: a product with `verify.skip_review` lets a fix whose diff touches only
+the declared paths, and that the product's proof command passes, go to verify with no new review.
 
 A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_round`) carries the
 runner's `--note` as its reason; `record` adds that reason to the record's `findings` when no finding
@@ -318,8 +320,80 @@ def review_errors(queue: Path, rec: dict[str, Any]) -> list[str]:
         return []
     if why is None or (run is not None and run.get("allow_unreviewed_fix")):
         return []
+    skipped = (run or {}).get("review_skip") or {}
+    if skipped and heads_match(str(skipped.get("head") or ""), str(rec.get("head_sha") or "").strip()):
+        return []  # §15.2: this verify run's head is a fix the product's proof passed, within verify.skip_review.paths
     return [f"{why}; an approve stands only when `ccp prompt verify --allow-unreviewed-fix --reason` recorded "
-            "the override on this verify run"]
+            "the override on this verify run, or verify.skip_review proved this head's fix"]
+
+
+PROOF_TIMEOUT = 600  # seconds the product's verify.skip_review.proof may take; a timeout proves nothing
+
+
+def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | None) -> tuple[dict[str, Any] | None, str]:
+    """§15.2: may a verify of `head` skip the review of the task's latest fix round? Only with plane.json
+    `verify.skip_review` set, a fix run (not abandoned) opened since the last review that reported done,
+    and that review's head on record. The fix diff runs from the reviewed change carried onto the head's
+    base on the integration branch (`git merge-tree` of the reviewed head and that base, which must merge
+    cleanly) to the head, so an integration merge in between is not counted as the fix's. It must touch
+    at least one file and only files under `paths` (git pathspecs, as `merge.behind_tip_ignore`), and the
+    product's `proof` command, run in the product root with `{task_id}`, `{reviewed}`, `{head}` and
+    `{from}` (the tree the fix diff starts from) filled in, must exit 0. Returns what to record on the
+    verify run, or None and why not ("" when the setting is off or there is no fix to judge)."""
+    from ccp import rules, runs  # noqa: PLC0415
+    from ccp.config import fill  # noqa: PLC0415
+    from ccp.queue import git, integration_branch  # noqa: PLC0415
+
+    rule = (cfg.verify or {}).get("skip_review")
+    if not rule:
+        return None, ""
+    rs = [r for r in runs.all_runs(queue, task_id) if runs.state(r) != "abandoned"]
+    fixes = [r for r in rs if r.get("phase") == "fix"]
+    reviews = [r for r in rs if r.get("phase") == "review" and runs.state(r) == "reported" and r.get("outcome") == "done"]
+    if not fixes or not reviews or str(reviews[-1].get("opened_at") or "") > str(fixes[-1].get("opened_at") or ""):
+        return None, ""
+    reviewed = str(reviews[-1].get("head") or "").strip()
+    if not reviewed:
+        return None, ""
+    integ = integration_branch(queue)
+    git(cfg.root, "fetch", "-q", "origin")
+    shas = []
+    for sha in (reviewed, head.strip()):
+        if git(cfg.root, "cat-file", "-e", f"{sha}^{{commit}}").returncode != 0:
+            for ref in ([f"refs/pull/{pr}/head"] if pr else []) + [f"task/{task_id}"]:
+                if git(cfg.root, "fetch", "-q", "origin", ref).returncode == 0 \
+                        and git(cfg.root, "cat-file", "-e", f"{sha}^{{commit}}").returncode == 0:
+                    break
+        r = git(cfg.root, "rev-parse", "--verify", "-q", f"{sha}^{{commit}}")
+        if r.returncode != 0:
+            return None, f"{sha[:12]} could not be fetched"
+        shas.append(r.stdout.strip())
+    reviewed, head = shas
+    base = git(cfg.root, "merge-base", head, f"origin/{integ}")
+    if base.returncode != 0:
+        return None, f"the head has no merge base with origin/{integ}"
+    tree = git(cfg.root, "merge-tree", "--write-tree", "--no-messages", reviewed, base.stdout.strip())
+    if tree.returncode != 0 or not tree.stdout.split():
+        return None, f"the reviewed head does not merge cleanly onto the head's base on origin/{integ}"
+    start = tree.stdout.split()[0]
+    paths = [str(x) for x in rule["paths"]]
+    touched = git(cfg.root, "diff", "--name-only", "--no-renames", start, head)  # a rename names both of its paths
+    outside = git(cfg.root, "diff", "--name-only", "--no-renames", start, head, "--", ".", *[f":!{x}" for x in paths])
+    if touched.returncode != 0 or outside.returncode != 0:
+        return None, "the fix diff could not be read"
+    files, beyond = touched.stdout.split("\n"), outside.stdout.split("\n")
+    files, beyond = [f for f in files if f], [f for f in beyond if f]
+    if not files:
+        return None, "the fix changes no file of its own"
+    if beyond:
+        return None, (f"the fix touches {len(beyond)} file(s) outside verify.skip_review.paths "
+                      f"({', '.join(beyond[:5])})")
+    code, _ = rules.run_command(cfg, fill(str(rule["proof"]), {"task_id": task_id, "reviewed": reviewed, "head": head,
+                                                               "from": start}), PROOF_TIMEOUT)
+    if code != 0:
+        return None, ("the proof (verify.skip_review.proof) "
+                      + (f"timed out after {PROOF_TIMEOUT}s" if code is None else f"exited {code}"))
+    return {"reviewed": reviewed, "head": head, "fix": str(fixes[-1]["run_id"]), "files": len(files)}, ""
 
 
 def repeat_round(queue: Path, task_id: str) -> str | None:
