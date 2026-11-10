@@ -20,6 +20,7 @@ A task whose change adds a field to a record the plane checks (such as the verif
 ## Context (not checked)
 
 - Raised while delivering the separation-of-duties task: the verifier wrote the record with the PR head's `bin/ccp`, and `ccp verify merge-ok` with the run checkout's older `ccp` refused it ('unexpected key'); the close had to use the head's `bin/ccp`. Every task that extends a checked record hits this.
+- §31: this task's SPEC text describes its own feature. If the operator's standing ruling for such text (given for R3, 2026-11-10) is not extended to R4, the merge waits on their approval.
 
 ## Scope
 

@@ -20,6 +20,7 @@ A product starting its first single runner gets the runner's worktree from the p
 ## Context (not checked)
 
 - The plane's own first single runner found `.plane-runtime/runner` missing and made it by hand; `ccp tasks worktree` only makes slotted worktrees.
+- §31: this task's SPEC text describes its own feature. If the operator's standing ruling for such text (given for R3, 2026-11-10) is not extended to R4, the merge waits on their approval.
 
 ## Scope
 

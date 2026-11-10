@@ -20,6 +20,7 @@ The runner can launch a round that only merges the integration tip into a task b
 ## Context (not checked)
 
 - Today only `ccp prompt fix` counts as a fix round; tip merges and rulings ran as `implement-N` with `--note-file`, which mislabels the run and its prompt.
+- §31: this task's SPEC text describes its own feature. If the operator's standing ruling for such text (given for R3, 2026-11-10) is not extended to R4, the merge waits on their approval.
 
 ## Scope
 

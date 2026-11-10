@@ -21,6 +21,7 @@ A gate stage run in a task worktree gets that worktree's `CCP_WT_*` fields (its 
 
 - Raised by a managed product: a per-worktree resource (a scratch database, a port, a cache dir) set up by the worktree's env hook was unreachable from a staged gate lane unless the caller set a variable by hand.
 - Env hooks already receive `CCP_WT_*`; stages do not.
+- §31: this task's SPEC text describes its own feature. If the operator's standing ruling for such text (given for R3, 2026-11-10) is not extended to R4, the merge waits on their approval.
 
 ## Scope
 

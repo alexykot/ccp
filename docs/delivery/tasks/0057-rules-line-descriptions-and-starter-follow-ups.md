@@ -22,6 +22,7 @@ A rules-doc line `check: docs — <key> — <what it measures>` parses with its 
 - From the review of the starter-rules task: (M1) the trailing description is a parse error; (M2) the refs-resolve rule promises a path check but names only `package_docs.rules.citations`, and declining the package-maps rule drops the whole `package_docs` block, `no_delivery_ids` included; (M3) `ccp init --starter-rules` leaves `architect.rules_doc` unset, so the rules marked `pass` are judged by nobody.
 - NITs: the no-dates rule checks only `no_ids` and `history_attr`; the template says 'starter-rules.md beside this file', which is false in a product.
 - Verifiers checking a change by hand must run the worktree's `bin/ccp`, not `ccp` on PATH (the run checkout).
+- §31: this task's SPEC text describes its own feature. If the operator's standing ruling for such text (given for R3, 2026-11-10) is not extended to R4, the merge waits on their approval.
 
 ## Scope
 

@@ -21,6 +21,7 @@ A gate run that a signal stops between two stages exits non-zero (128 + the sign
 
 - Found in the review of the gate-stages task: a SIGTERM or SIGINT between stages can leave the run exiting 0; the row records `interrupted` but `failed_stage` is null.
 - §14's text on interrupted runs already treats them as not passed; this makes the exit code agree. If the stage section of §14 needs a sentence, it states only this behaviour.
+- §31: this task's SPEC text describes its own feature. If the operator's standing ruling for such text (given for R3, 2026-11-10) is not extended to R4, the merge waits on their approval.
 
 ## Scope
 

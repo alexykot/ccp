@@ -21,6 +21,7 @@ A reviewer or verifier can run the `ccp` of the worktree under review (`ccp wt e
 
 - `ccp` on PATH is the run checkout, which predates the change under review, so new subcommands cannot be run as `ccp`.
 - The outside-changes task added `covers` to task frontmatter but could not edit §5.2, which was outside its paths.
+- §31: this task's SPEC text describes its own feature. If the operator's standing ruling for such text (given for R3, 2026-11-10) is not extended to R4, the merge waits on their approval.
 
 ## Scope
 
