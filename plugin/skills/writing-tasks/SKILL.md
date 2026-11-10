@@ -33,6 +33,7 @@ One `key: value` per line; lists inline (`["a", "b"]`), on one line.
 | `parallel` | `true`: changes no file and runs beside anything; `false`: always alone |
 | `shaping` | `waived — <reason>`, only for an ADR that truly needs no shape |
 | `gate` | `cold`: the verifier accepts no test cache for this task |
+| `sign_off` | text the operator must sign (a SPEC CURRENT → PROPOSED, a contract): `brief` when the task carries it, signed before the claim; `build` when the build finds it, signed after verify at the head that merges; `[brief, build]` for both. The lead records each with `ccp tasks sign-off`; claim and close refuse without it (SPEC §3.5) |
 | `covers` | an after-the-fact task's merged commits (shas, 7 to 40 hex digits) that came in outside the plane; `ccp tasks orphans` stops listing them (SPEC §10.7) |
 
 Never write runtime state here (`waiting_on`, leases, session ids, ports): `ccp tasks check` refuses it.

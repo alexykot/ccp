@@ -62,6 +62,9 @@ TERMINAL = ("done", "dropped")
 # Older files may still carry an in-flight status. It reads as its canonical state, with a warning.
 LEGACY_STATUSES = {"in_progress": "pending", "blocked": "pending"}
 KINDS = ("feature", "refactor")
+# §3.5: the operator sign-offs a task may declare (`sign_off:`): `brief`, on text known when the task is
+# written, recorded before the claim; `build`, on text the build finds, recorded after verify for the PR head.
+SIGN_OFF_STAGES = ("brief", "build")
 REFACTOR_REFS = ("rule_refs", "review_refs")  # the default refactor rule (task_log.kinds)
 WAIVER_RE = re.compile(r"^waived\s*[—–:-]+\s*\S")
 ADR_LINE_RE = re.compile(r"^\W*adr\W*:(.*)$", re.I | re.M)
@@ -191,6 +194,24 @@ def load(cfg: Config) -> list[dict[str, Any]]:
 
 def _as_list(v: Any) -> list[str]:
     return v if isinstance(v, list) else ([] if v in (None, "") else [v])
+
+
+def sign_off_stages(t: dict[str, Any]) -> list[str]:
+    """§3.5: the sign-offs the task declares (`sign_off: brief`, `build` or both), in that order."""
+    want = {str(x).strip().lower() for x in _as_list(t.get("sign_off"))}
+    return [s for s in SIGN_OFF_STAGES if s in want]
+
+
+def sign_off_malformed(t: dict[str, Any]) -> str | None:
+    """§3.5: why the task's `sign_off:` value is not one the plane reads (no stage, or one that is not
+    brief or build), or None when it is absent or well formed."""
+    if "sign_off" not in t:
+        return None
+    so = [str(x).strip().lower() for x in _as_list(t["sign_off"])]
+    if so and all(x in SIGN_OFF_STAGES for x in so):
+        return None
+    return (f"sign_off {t['sign_off']!r} names no stage, or one that is not "
+            f"{' or '.join(SIGN_OFF_STAGES)} (SPEC §3.5)")
 
 
 def kind_of(t: dict[str, Any]) -> str:
@@ -459,6 +480,8 @@ def check(cfg: Config) -> list[str]:
             errs.append(f"{rel}: cites none of {', '.join(tl['refs_any'])}" + _spec_hint(tl["refs_any"]))
         if cfg.architect is not None:
             errs += _check_kind(cfg, t, rel)
+        if why := sign_off_malformed(t):  # §3.5: brief, build or both
+            errs.append(f"{rel}: {why}")
         if "gate" in t and str(t.get("gate") or "").strip().lower() != "cold":
             errs.append(f"{rel}: gate {t.get('gate')!r} is not `cold`, the one value it takes (§15.3)")
         errs += _check_shaping(cfg, t, rel, shaped)

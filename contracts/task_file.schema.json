@@ -103,6 +103,31 @@
       "pattern": "^waived\\s*[—–:-]+\\s*\\S",
       "description": "shaping: waived — <reason> (§19.6)"
     },
+    "sign_off": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "enum": [
+        "brief",
+        "build",
+        [
+          "brief"
+        ],
+        [
+          "build"
+        ],
+        [
+          "brief",
+          "build"
+        ],
+        [
+          "build",
+          "brief"
+        ]
+      ],
+      "description": "The operator sign-offs the task needs (§3.5): brief, on text known when it is written, recorded before the claim; build, on text the build finds, recorded after verify for the head that merges; or both"
+    },
     "gate": {
       "const": "cold",
       "description": "The verifier runs the gate cold, accepting no cache (§15.3)"
