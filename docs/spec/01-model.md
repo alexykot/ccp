@@ -245,18 +245,19 @@ A tension between SPEC and PROJECT goes to the design seat, which rules and comm
 - its permission allowlist in `.claude/settings.json`, because plugins cannot ship permissions. The
   allowlist names `ccp`, not a path.
 
-**The anchor, written once** (two settings entries naming the plane, not a version, so a release
-needs no product commit):
+**The anchor, written once by `ccp init` (§4.5)**: two settings entries naming the plane, not a
+version, so a release needs no product commit, and the agent-team flag the hosting needs (§2.2):
 
 ```json
 "extraKnownMarketplaces": {
-  "control-plane": {"source": {"source": "github", "repo": "alexykot/ccp"}, "autoUpdate": true}
+  "ccp": {"source": {"source": "github", "repo": "alexykot/ccp"}, "autoUpdate": true}
 },
-"enabledPlugins": {"ccp@ccp": true}
+"enabledPlugins": {"ccp@ccp": true},
+"env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}
 ```
 
-plus one line in the product's `CLAUDE.md`: "This repo is delivered by the control plane: its plugin
-`control-plane` and `ccp`." Nothing else about the plane goes into the product. Everything the plane
+plus one line in the product's `CLAUDE.md`: "This repo is delivered by CCP (Claude Control Plane):
+its plugin and `ccp`." Nothing else about the plane goes into the product. Everything the plane
 owns (agents, skills, hooks, the orientation) reaches the product at run time from the plugin (§9)
 and `ccp` on PATH (§29).
 
@@ -273,12 +274,21 @@ nothing, and `scripts/sync-product-docs.sh` notes that it can be removed.
 
 ### 4.5 Adopting a product
 
-1. Copy the PROJECT, SPEC and delivery templates (`templates/docs-project/`,
-   `templates/docs-delivery/`) into the product.
-2. Commit `docs/delivery/plane.json` (§8.1), configuring its worktrees and environment hooks (§12),
-   and run `ccp tasks index` when it keeps an index.
-3. Add the anchor (§4.3) and the one `CLAUDE.md` line.
-4. Add the local binding (§8.3) and create its queue directory, `.delivery-queue/<project_id>/`.
+A product is adopted by running `ccp init` in its repository. It writes:
+
+- the PROJECT, SPEC and delivery templates (`templates/docs-project/`, `templates/docs-delivery/`);
+- a minimal `docs/delivery/plane.json` (§8.1): the project id, the worktrees directory and, with
+  `--gate`, the gate lane; and `INDEX.yaml` when the product keeps one (§5.7);
+- `.plane-runtime/` in `.gitignore`;
+- the anchor merged into `.claude/settings.json`, leaving its other keys and values alone, and the
+  one `CLAUDE.md` line, once (§4.3);
+- outside the repository, the local binding and its queue directory (§8.3).
+
+It keeps a file that already exists and lists it as kept, unless given `--force`, so running it again
+changes nothing. It refuses, writing nothing, when keeping would leave the product inconsistent: a
+`plane.json` naming another project id, a binding for the id naming another product root or another
+`--queue-root`, or a `.claude/settings.json` that is not a JSON object. The product commits what it
+wrote, and adds its own worktree and environment hooks to `plane.json` (§12).
 
 ## 5. Task files
 

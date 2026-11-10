@@ -35,6 +35,16 @@ sees the same values. The README's manual adoption steps shrink to that command.
   text in the PR body's "Operator approval (SPEC S31)" section and citing the RULINGS row. Ask only
   when an edit would change a rule the row does not cover, or when no row names the task. History
   records stay as written.
+- Ruling sm-20261110T010828Z-0e49 (2026-11-10), in PR #10: (1) §4.5 "Adopting a product" becomes the
+  `ccp init` path: the command, what it writes, and the manual steps only as what init does, not as a
+  second procedure. (2) §4.3's anchor example and the `CLAUDE.md` line match exactly what `ccp init`
+  writes; there is one source for both, and the README quotes the same text. (3) §8.3's single
+  resolver, with the queue copy of the binding retired, is confirmed: it is the task's own scope.
+  (4) Keeping existing files is fine as long as every dod_check passes as written; where a check
+  expects a refusal without `--force`, the check wins. (5) The `plugin/hooks/runner-idle.sh` edit is
+  accepted if it only follows the binding-source change; the PR body lists it as outside the declared
+  paths. No RULINGS row names this task, so these § edits need the operator's GitHub review approval
+  (§31) before the merge.
 
 ## Scope
 
@@ -94,6 +104,12 @@ sees the same values. The README's manual adoption steps shrink to that command.
   plane.json's, else the directory name. It also writes `INDEX.yaml` (task_log.index defaults on) and
   merges `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, as the README's manual steps did. The anchor and
   the `CLAUDE.md` line follow the README (marketplace `ccp`), not SPEC §4.3's example; see the report.
+- 2026-11-10 (implementer, round 2, ruling sm-20261110T010828Z-0e49): SPEC §4.5 now describes `ccp init`
+  and what it writes, keeps and refuses; §4.3's anchor example gains the `ccp` marketplace key and the
+  agent-team `env` entry, and its `CLAUDE.md` line is the one init writes. `ccp/init.py` holds the one
+  source (`ANCHOR`, `CLAUDE_LINE`); the README's step 2 quotes both, and `tests/test_init.py` checks
+  that SPEC §4.3 and the README quote them exactly. init-01..init-03 walked in scratch directories:
+  each passes as written, and none expects a refusal, so the keep-existing-files behaviour stays.
 
 ## Verification notes
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -17,6 +18,8 @@ TEAM = PLANE / "scripts" / "team.sh"
 HOOK = PLANE / "plugin" / "hooks" / "runner-idle.sh"
 sys.path.insert(0, str(PLANE / "scripts" / "observability"))
 import lib  # noqa: E402
+
+from ccp import init as ccp_init  # noqa: E402
 
 GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
            "GIT_COMMITTER_EMAIL": "t@example.com", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
@@ -69,10 +72,11 @@ class Adopt(InitCase):
                          {"project_id": "demo", "worktrees": {"dir": ".plane-runtime"}})
         self.assertIn(".plane-runtime/", (self.repo / ".gitignore").read_text().splitlines())
         settings = json.loads((self.repo / ".claude/settings.json").read_text())
+        self.assertEqual(settings, ccp_init.ANCHOR)
         self.assertTrue(settings["enabledPlugins"]["ccp@ccp"])
         self.assertIn("ccp", settings["extraKnownMarketplaces"])
         self.assertEqual(settings["env"]["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"], "1")
-        self.assertEqual(len((self.repo / "CLAUDE.md").read_text().splitlines()), 1)
+        self.assertEqual((self.repo / "CLAUDE.md").read_text(), ccp_init.CLAUDE_LINE + "\n")
         self.assertTrue(self.queue.is_dir())
         self.assertFalse((self.queue / "project.yaml").exists())  # §8.3: no copy in the queue
         b = self.binding.read_text()
@@ -120,6 +124,27 @@ class Adopt(InitCase):
         self.assertEqual(code, 0, res)
         self.assertIn(f"product_root: {self.repo}", self.binding.read_text().splitlines())
         self.assertTrue((wt / "docs/delivery/plane.json").is_file())
+
+
+class OneSource(unittest.TestCase):
+    """SPEC §4.3 and the README quote the anchor and the CLAUDE.md line exactly as init writes them."""
+
+    def assert_quotes(self, text: str):
+        blocks = [b for b in re.findall(r"```json\n(.*?)```", text, re.S) if '"extraKnownMarketplaces"' in b]
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual(json.loads("{" + blocks[0] + "}"), ccp_init.ANCHOR)
+        self.assertIn(f'"{ccp_init.CLAUDE_LINE}"', " ".join(text.split()))
+
+    def section(self, path: str, heading: str) -> str:
+        text = (PLANE / path).read_text()
+        start = text.index(heading)
+        return text[start:text.index("\n#", start + len(heading))]
+
+    def test_spec_4_3_quotes_what_init_writes(self):
+        self.assert_quotes(self.section("docs/spec/01-model.md", "### 4.3 What a product holds"))
+
+    def test_the_readme_quotes_what_init_writes(self):
+        self.assert_quotes(self.section("README.md", "### 2. Adopt a product"))
 
 
 class NoClobber(InitCase):

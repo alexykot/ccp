@@ -96,10 +96,20 @@ ccp init --project-id my-product --gate "python3 -m unittest discover -s tests"
 
 In the repository it writes `docs/PROJECT.md` and `docs/SPEC.md` from the templates, the delivery
 templates and a minimal `plane.json` in `docs/delivery/`, and `INDEX.yaml`. It adds `.plane-runtime/`
-to `.gitignore` and merges the plugin anchor (`ccp@ccp`, the agent-teams flag) into
-`.claude/settings.json`, leaving its other keys alone. It appends the one `CLAUDE.md` line. Outside
-the repository it writes the binding, `$PLANE/projects/my-product.yaml`, and creates the queue,
-`~/.delivery-queue/my-product/` (`--queue-root` picks another).
+to `.gitignore`. It merges the plugin anchor into `.claude/settings.json`, leaving its other keys
+alone:
+
+```json
+"extraKnownMarketplaces": {
+  "ccp": {"source": {"source": "github", "repo": "alexykot/ccp"}, "autoUpdate": true}
+},
+"enabledPlugins": {"ccp@ccp": true},
+"env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}
+```
+
+It appends one line to `CLAUDE.md`, once: "This repo is delivered by CCP (Claude Control Plane): its
+plugin and `ccp`." Outside the repository it writes the binding, `$PLANE/projects/my-product.yaml`,
+and creates the queue, `~/.delivery-queue/my-product/` (`--queue-root` picks another).
 
 - Put your own test command in `--gate`; the example is Python's.
 - It never overwrites a file without `--force`: it keeps the file and lists it as kept, so running it

@@ -33,11 +33,14 @@ COPIES = {
     "docs/delivery/standing-dod.md": "docs-delivery/standing-dod.md",
 }
 WORKTREES_DIR = ".plane-runtime"
-# §4.3: the anchor names the plane's marketplace, not a version, so a release needs no product commit.
-MARKETPLACE = {"ccp": {"source": {"source": "github", "repo": "alexykot/ccp"}, "autoUpdate": True}}
-PLUGIN = "ccp@ccp"
-# The agent team the plane runs on is behind this flag (README prerequisites).
-TEAM_ENV = {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}
+# §4.3: the anchor and the CLAUDE.md line, the one source the SPEC and the README quote. The anchor
+# names the plane's marketplace, not a version, so a release needs no product commit; the env entry
+# turns on the agent team the plane runs on (§2.2).
+ANCHOR: dict[str, dict[str, Any]] = {
+    "extraKnownMarketplaces": {"ccp": {"source": {"source": "github", "repo": "alexykot/ccp"}, "autoUpdate": True}},
+    "enabledPlugins": {"ccp@ccp": True},
+    "env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"},
+}
 CLAUDE_LINE = "This repo is delivered by CCP (Claude Control Plane): its plugin and `ccp`."
 
 
@@ -83,7 +86,7 @@ def _merged_settings(path: Path) -> tuple[dict[str, Any], bool]:
         if not isinstance(data, dict):
             raise QueueError(f"ccp init: {path} is not a JSON object; fix it, then run init again", 2)
     before = json.dumps(data, sort_keys=True)
-    for key, add in (("extraKnownMarketplaces", MARKETPLACE), ("enabledPlugins", {PLUGIN: True}), ("env", TEAM_ENV)):
+    for key, add in ANCHOR.items():
         block = data.setdefault(key, {})
         if not isinstance(block, dict):
             raise QueueError(f"ccp init: {path}: `{key}` is not an object; fix it, then run init again", 2)
