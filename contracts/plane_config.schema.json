@@ -1079,6 +1079,26 @@
           }
         }
       }
+    },
+    "mutate": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §20.6: `ccp mutate`, the command that runs one named test against a mutant in a mutation worktree. Absent, or command null: `ccp mutate` refuses (exit 2).",
+      "properties": {
+        "command": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "pattern": "\\{test\\}",
+          "default": null,
+          "description": "A shell command run in the mutation worktree's root that runs the one test named by {test} (filled in shell-quoted); exit 0 = the test passed, anything else = it failed."
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 600,
+          "description": "How long one run of the command may take; at the limit its process group is killed and the run counts as the test failing."
+        }
+      }
     }
   }
 }
