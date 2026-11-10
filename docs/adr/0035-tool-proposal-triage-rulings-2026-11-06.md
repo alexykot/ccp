@@ -9,7 +9,7 @@ decisions:
   - "D1 built"
   - "D2 built"
   - "D3 built — task 0022"
-  - "D4 not_built"
+  - "D4 built — task 0023"
   - "D5 live"
   - "D6 live"
   - "D7 live"

@@ -49,6 +49,25 @@ A generic setting lists paths a fix round may touch without a fresh review; a pr
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): The setting is plane.json `verify.skip_review`: `{"paths": [...], "proof": "<command>"}`,
+  null (off) by default, beside `verify.accept_cache` because it governs what `ccp prompt verify` and
+  `ccp verify record` accept, as the cache rule does; `merge.*` is about the head against the tip.
+  `paths` are git pathspecs relative to the product root, validated like `merge.behind_tip_ignore`
+  (no empty, absolute, `..` or `:`-magic entry) and also refusing `.` or anything that normalises to it;
+  both keys are required. The hook contract: `proof` runs in the product root (through `rules.run_command`,
+  600 s, a timeout proves nothing) with `{task_id}`, `{reviewed}`, `{head}` and `{from}` filled in; exit 0
+  = proven. The fix diff runs from `{from}`, the tree of `git merge-tree --write-tree <reviewed>
+  <merge-base(head, origin/<integration>)>` (the reviewed change on the head's base), to the head, so an
+  integration merge in between is not counted as the fix's; a reviewed change that does not merge
+  cleanly onto that base is reviewed again. The skip needs a fix run opened since the last review that
+  reported done, and a fix diff touching at least one file (`--no-renames`, so a rename names both
+  paths), all under `paths`. A proven skip is recorded on the verify run as `review_skip` (`reviewed`,
+  `head`, `fix`, `files`: ids and a count), and `ccp verify record` takes an approve at that head; a
+  refusal names why the skip did not apply. The logic is `verify.skip_review`; `prompt.review_gate` calls
+  it only when `runs.unreviewed_fix` would refuse. Also edited: SPEC §15.2 (and the §8 config table in
+  `docs/spec/01-model.md`), the runner brief step 7 (`plugin/agents/delivery-runner.md`), ADR-0035 D4
+  flipped to built.
+
 ## Verification notes
 
 *Append-only.*
