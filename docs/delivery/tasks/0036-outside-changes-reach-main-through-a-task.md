@@ -56,6 +56,11 @@ Code or docs changed outside the plane's flow (another agent, the operator direc
   shared with `behind_tip`). Wiring needed `ccp/cli.py` and a row in `docs/cli/02-delivery.md`,
   outside the declared paths. The lead's orientation and the writing-tasks skill name it.
   Tests: `tests/test_orphans.py`.
+- 2026-11-10 — implementer (fix round 1): §10.7 no longer promises that review and verify are handed
+  the `covers:` commits (nothing does that); it says the lead names them in the after-the-fact task's
+  Scope and dod_checks, so the workers see them through the task file. §10.7 also says the task log
+  read is the checkout's, so a covering task merged on the remote counts once the checkout has it.
+  §15.6 rule 7 rewrapped to the file's width. SPEC text only; no code or test change.
 
 ## Verification notes
 

@@ -189,14 +189,15 @@ in on that task's branch through implement, review, verify and the gate like any
 
 A change that merged first gets an **after-the-fact task**: a task, of the kind its change fits,
 whose frontmatter `covers:` lists the merged commits (an inline list of shas, each 7 to 40 hex
-digits, a prefix naming its commit). Its implementer brings the named change up to the standing DoD
-(the tests, SPEC text and docs it lacks), and its review and verify judge the named commits' change
-together with the PR's own.
+digits, a prefix naming its commit). The lead names those commits in the task's Scope and writes its
+dod_checks for what the change lacks against the standing DoD (tests, SPEC text, docs), so the
+implementer, review and verify see the named change through the task file.
 
 **`ccp tasks orphans --since <ref> [--json]`** lists the commits on the integration branch's
 first-parent history after `<ref>` that no task covers, oldest first. The integration branch is the
 binding's (with `QUEUE_ROOT` set), else `main`; the tip is `origin/<branch>` when that ref is in the
-checkout, else the local branch, and nothing is fetched. A commit is covered when:
+checkout, else the local branch, and nothing is fetched. The task log read is the checkout's, so a
+covering task merged on the remote counts once the checkout has it. A commit is covered when:
 
 1. it is a task's merge (§27.1): a merge commit, or a commit whose subject ends `(#N)`, that merged
    a `task/<NNNN>-…` branch or whose subject starts `Task <NNNN>: `, for a task in the log;
@@ -708,9 +709,9 @@ They hold for every PR the runner merges, a task's or not (ADR-0011).
    `dropped` by the task-log owner (the lead).
 7. **Code from outside the runner** reaches the integration branch through the task log: a task
    file, then implement, review, verify and gate; a change that merged first gets an after-the-fact
-   task, and `ccp tasks orphans` lists the commits no task covers (§10.7). The lead's own commits to the integration branch
-   keep `ccp docs check` green; a house rule whose check command does not exist yet goes in as
-   `check: pass` until the task that builds it lands.
+   task, and `ccp tasks orphans` lists the commits no task covers (§10.7). The lead's own commits to
+   the integration branch keep `ccp docs check` green; a house rule whose check command does not
+   exist yet goes in as `check: pass` until the task that builds it lands.
 
 ### 15.7 Optional CI and store tests
 
