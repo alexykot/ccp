@@ -36,8 +36,9 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp plane propose --need T --generic T [--task ID] [--workaround T] [--frequency F] | propose --again ID
             | triage ID --accept|--merge-into ID|--decline --reason T | list [--open] | check
   ccp agent start|stop          (the SubagentStart / SubagentStop hooks; hook JSON on stdin)
-  ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--force]
-            (adopt this repository: footprint, binding and queue, SPEC §4.3, §8.3)
+  ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--starter-rules] [--force]
+            (adopt this repository: footprint, binding and queue, SPEC §4.3, §8.3; the starter
+            house rules, §20.5)
 
 `tasks` and `docs check` are free and deterministic (`index` writes INDEX.yaml; `docs check` also
 holds the house rules' shape and runs the product's `architect.checks`; every budget is `architect due`'s
@@ -265,8 +266,10 @@ def cmd_docs_check(cfg: config.Config, _a: argparse.Namespace) -> int:
     # The task log and the house rules are part of the documentation contract: one command, one gate.
     from ccp import adr  # noqa: PLC0415
     docs_checks = [f"docs check {e}" for e in rules.run_checks(cfg, cfg.docs["checks"])]  # §21.5 docs.checks
-    code = _print_errs("docs", pkgdocs.check(cfg) + tasklog.check(cfg) + rules.check(cfg) + adr.check(cfg)
-                       + docs_checks, "")
+    code = _print_errs("docs", pkgdocs.check(cfg) + tasklog.check(cfg) + rules.check(cfg) + rules.starter_check(cfg)
+                       + adr.check(cfg) + docs_checks, "")
+    for n in rules.starter_notes(cfg):  # §20.5: what the product declined, and the checks that skips
+        print(f"  {n}")
     from ccp import reviewpoints  # noqa: PLC0415
     warns = plane_path_warnings(cfg) + reviewpoints.notes(cfg) + adr.warnings(cfg) + pkgdocs.notes(cfg)
     for w in warns:
@@ -1018,6 +1021,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--integration-branch", help="the binding's integration branch (default: main)")
     p.add_argument("--gate", help="the gate lane's command, written to plane.json suite.lanes.gate; "
                                   "not applied when plane.json exists and is kept (no --force)")
+    p.add_argument("--starter-rules", action="store_true",
+                   help="adopt the plane's starter house rules (SPEC §20.5): docs/ENGINEERING.md and their "
+                        "plane.json settings; the settings are not applied to a kept plane.json")
     p.add_argument("--force", action="store_true", help="overwrite the files init writes")
     p.set_defaults(fn=None)
 

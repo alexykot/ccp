@@ -276,9 +276,11 @@ nothing, and `scripts/sync-product-docs.sh` notes that it can be removed.
 
 A product is adopted by running `ccp init` in its repository. It writes:
 
-- the PROJECT, SPEC and delivery templates (`templates/docs-project/`, `templates/docs-delivery/`);
-- a minimal `docs/delivery/plane.json` (§8.1): the project id, the worktrees directory and, with
-  `--gate`, the gate lane; and `INDEX.yaml` when the product keeps one (§5.7);
+- the PROJECT, SPEC and delivery templates (`templates/docs-project/`, `templates/docs-delivery/`)
+  and, with `--starter-rules`, the starter house rules as `docs/ENGINEERING.md` (§20.5);
+- a minimal `docs/delivery/plane.json` (§8.1): the project id, the worktrees directory, with
+  `--gate` the gate lane, and with `--starter-rules` `docs.starter_rules` and the `package_docs`
+  settings the starter rules' checks name; and `INDEX.yaml` when the product keeps one (§5.7);
 - `.plane-runtime/` in `.gitignore`;
 - the anchor merged into `.claude/settings.json`, leaving its other keys and values alone, and the
   one `CLAUDE.md` line, once (§4.3);
@@ -551,7 +553,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `ids` | id and reference patterns | §7 |
 | `task_log` | task directory, required keys and sections, `refs_any`, `kinds`, `max_checks`, soft words, `dry_run`, `reviews_dir`, `index`; the statuses are fixed | §5, §10 |
 | `adr` | `dir`, `index` (or `null`), `statuses`, `transitions`, `strict`, `template` (or `null` for the plane's) | §6 |
-| `package_docs`, `docs` | doc checks (`claude_md_dirs`, `language`, `path_ref_suffixes`, `docstring_globs`, `no_delivery_ids`, `delivery_id_patterns`, `rules`), product check commands (`docs.checks`, `docs.workers`) | §21 |
+| `package_docs`, `docs` | doc checks (`claude_md_dirs`, `language`, `path_ref_suffixes`, `docstring_globs`, `no_delivery_ids`, `delivery_id_patterns`, `rules`), product check commands (`docs.checks`, `docs.workers`), the starter house rules (`docs.starter_rules`, §20.5) | §21 |
 | `architect` | the architect seat, house rules, budgets, refactors | §19, §20 |
 | `review_points` | the review-point register | §22 |
 | `worktrees`, `env`, `merge`, `auth_check` | worktrees and environment hooks (`ccp wt`), the merge step (`merge.command`) and the paths that do not make a head behind the tip (`merge.behind_tip_ignore`), credential probes (`auth_check.probes`) | §12, §15, §16, §30 |

@@ -240,7 +240,7 @@
     "docs": {
       "type": "object",
       "additionalProperties": false,
-      "description": "SPEC §21.5: product commands ccp docs check runs, not tied to a house rule",
+      "description": "SPEC §21.5: product commands ccp docs check runs, not tied to a house rule; §20.5: the starter house rules adopted",
       "properties": {
         "checks": {
           "type": "array",
@@ -258,6 +258,20 @@
           "minimum": 1,
           "default": 1,
           "description": "How many check commands (docs.checks, and architect.checks) ccp docs check runs at once, each under its own timeout; results in declared order. 1 runs them one after another"
+        },
+        "starter_rules": {
+          "type": ["object", "null"],
+          "default": null,
+          "additionalProperties": false,
+          "description": "SPEC §20.5: the plane's starter house rules adopted (null: not adopted). ccp docs check fails while an adopted rule's docs check is not set, and does not run a declined rule's",
+          "properties": {
+            "declined": {
+              "type": "object",
+              "default": {},
+              "description": "Starter rule name -> the product's reason for declining it",
+              "additionalProperties": {"type": "string", "minLength": 1}
+            }
+          }
         }
       }
     },

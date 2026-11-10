@@ -12,6 +12,8 @@ Each rule is off until `package_docs.rules` names it, and each is language-neutr
   by the rules above; `ccp docs history-paths` lists them for a product's own absence checks.
 - `no_overlap: true`: no two check commands (`architect.checks`, `docs.checks`) run the same
   command or the same test module.
+
+A rule named by a starter house rule the product declined (§20.5) does not run, configured or not.
 """
 from __future__ import annotations
 
@@ -34,7 +36,10 @@ TEST_SELECTOR_PATH_RE = re.compile(r"\b(tests?/[\w/.-]*?\w)\.py\b((?:::\w+)*)")
 
 
 def _rules(cfg: Config) -> dict:
-    return (cfg.package_docs or {}).get("rules") or {}
+    """The configured rules, less those a declined starter rule names (§20.5)."""
+    from ccp import rules  # noqa: PLC0415
+    off = {k.rsplit(".", 1)[1] for k in rules.declined_keys(cfg) if k.startswith("package_docs.rules.")}
+    return {k: v for k, v in ((cfg.package_docs or {}).get("rules") or {}).items() if k not in off}
 
 
 def history_paths(cfg: Config, attr: str | None = None) -> set[str]:

@@ -131,7 +131,8 @@ a product or design decision, report it with `needs_decision: true` and say what
 
 The house rules are short on purpose: every implementer reads them. Each rule has an id `E<n>` and
 a `check:` (`pass`: you judge it; `budget`: an `architect.budgets` entry; `command`: an
-`architect.checks` entry, run by `ccp docs check`). Propose:
+`architect.checks` entry, run by `ccp docs check`; `docs`: a rule `ccp docs check` runs, named by its
+`plane.json` key). Propose:
 
 - **add** a rule where a finding shows a standard the project keeps breaking (one registry per
   concept, what tests may assert, what a doc may restate), with the check that would enforce it;

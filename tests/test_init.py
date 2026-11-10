@@ -109,6 +109,27 @@ class Adopt(InitCase):
         self.assertIn("docs/delivery/plane.json (--gate not applied)", res["kept"])
         self.assertNotIn("suite", json.loads((self.repo / "docs/delivery/plane.json").read_text()))
 
+    def test_starter_rules_are_offered_and_adopted(self):
+        code, res = self.init("--project-id", "demo", "--starter-rules")
+        self.assertEqual(code, 0, res)
+        self.assertIn("docs/ENGINEERING.md", res["written"])
+        self.assertEqual((self.repo / "docs/ENGINEERING.md").read_text(),
+                         (PLANE / "templates/docs-project/starter-rules.md").read_text())
+        cfg = json.loads((self.repo / "docs/delivery/plane.json").read_text())
+        self.assertEqual({k: cfg[k] for k in ccp_init.STARTER_CONFIG}, ccp_init.STARTER_CONFIG)
+        r = self.ccp("docs", "check")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(self.init("--project-id", "demo")[1]["written"])
+
+    def test_starter_rules_against_a_kept_plane_json_are_listed_as_not_applied(self):
+        self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        self.assertFalse((self.repo / "docs/ENGINEERING.md").exists())
+        code, res = self.init("--project-id", "demo", "--gate", "make test", "--starter-rules")
+        self.assertEqual(code, 0, res)
+        self.assertIn("docs/delivery/plane.json (--gate, --starter-rules not applied)", res["kept"])
+        self.assertIn("docs/ENGINEERING.md", res["written"])
+        self.assertNotIn("docs", json.loads((self.repo / "docs/delivery/plane.json").read_text()))
+
     def test_the_id_defaults_to_plane_json_then_the_directory(self):
         code, res = self.init()
         self.assertEqual((code, res["project_id"]), (0, "repo"))

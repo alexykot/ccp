@@ -48,6 +48,31 @@ The plane ships a starter set of generic house rules a product may adopt or decl
 
 *Append-only, newest last.*
 
+- 2026-11-10 — The starter set is `templates/docs-project/starter-rules.md`, a rules doc in the §20.1
+  format and the set's one home: seven rules (E1–E7), each with its purpose, a `starter: <name>` line
+  and its check. `ccp/rules.py` reads the set from it (`starter_rules()`); a template that does not
+  parse is an error, not an empty set.
+- The house-rules format gains a fourth check kind, `docs — <plane.json key>[, …]`: a rule `ccp docs
+  check` runs (`package_docs` or `package_docs.rules.<name>`). With an architect block, `check_doc`
+  fails when a named key is unknown or not set. The three mechanical starter rules use it
+  (`current-docs`: `no_ids` + `history_attr`; `package-maps`: `package_docs`; `refs-resolve`:
+  `citations`); the other four are `pass`.
+- Adoption and declines live in `plane.json` `docs.starter_rules` (default `null`; `{}` adopts all;
+  `{"declined": {"<name>": "<reason>"}}`); unknown names and empty reasons are refused at load.
+  Adopted: `ccp docs check` fails while an adopted rule's `docs` check is not set. Declined: the keys
+  its check names are not run (`pkgdocs.check` skips the package-doc rules, `docrules._rules` drops
+  the opt-in rule, so a declined `history_attr` no longer marks history), unless an adopted rule names
+  the same key; `ccp docs check` prints one line per decline with its reason.
+- `ccp init --starter-rules` writes the set to `docs/ENGINEERING.md` and, into a plane.json it
+  writes, `docs.starter_rules` and neutral `package_docs` settings (`language: none`,
+  `history_attr: history`, `no_ids` and `citations` over `docs/*.md` against `docs/SPEC.md`), so a
+  fresh product is clean. Against a kept plane.json the settings are listed as not applied, like
+  `--gate`. It does not set `architect.rules_doc` (that would turn the architect seat on).
+- SPEC: §20.1 (the `docs` kind), §20.5 (new: adopt, decline, override), §21.2, the §19.3 pieces table,
+  §8.1 and §4.5, drafted from the Intent. Also the schema (`contracts/`), the architect skill's list
+  of check kinds (`plugin/`), the rules template's comment and the CLI reference; `contracts/` and
+  `plugin/` sit outside the task's `paths`.
+
 ## Verification notes
 
 *Append-only.*

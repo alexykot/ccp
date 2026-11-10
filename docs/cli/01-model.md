@@ -14,7 +14,7 @@ Call syntax and flags for the commands of SPEC part `docs/spec/01-model.md`. The
 | `ccp adr migrate --markers [--dry-run]` | rewrite non-canonical decision markers | §6.3 |
 | `ccp docs adr index\|list` | the same as `ccp adr index\|list` | §6.6 |
 | `ccp tasks index [--stdout]` | regenerate `INDEX.yaml` | §5.7 |
-| `ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--force]` | adopt this repository: the templates, `plane.json`, `.gitignore`, the plugin anchor and the `CLAUDE.md` line, the binding and its queue; keeps existing files unless `--force` | §4.3, §8.3 |
+| `ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--starter-rules] [--force]` | adopt this repository: the templates, `plane.json`, `.gitignore`, the plugin anchor and the `CLAUDE.md` line, the binding and its queue; `--starter-rules` adds the starter house rules and their settings; keeps existing files unless `--force` | §4.3, §4.5, §8.3, §20.5 |
 | `ccp where` | the project, binding, queue, plane checkout and `ccp` path for this directory | §8.3, §9.2 |
 
 Global: `--root DIR` (else `$CCP_ROOT`, else the git top level), §8.2.

@@ -77,7 +77,7 @@ class RulesDoc(unittest.TestCase):
         self.p.write("docs/ENGINEERING.md", RULES.replace("check: command", "check: budget").replace("check: pass", "check: maybe"))
         e = "\n".join(rules.check_doc(self.p.cfg))
         self.assertIn("rule E1 is checked by a budget, but architect.budgets has no E1", e)
-        self.assertIn("rule E2: check 'maybe' is not pass, budget or command", e)
+        self.assertIn("rule E2: check 'maybe' is not pass, budget, command or docs", e)
         self.p.write("docs/ENGINEERING.md", RULES.replace("- **E1** The core never imports the paused code.\n  check: command\n", ""))
         self.assertIn("architect.checks: E1 names no rule in docs/ENGINEERING.md", "\n".join(rules.check_doc(self.p.cfg)))
 

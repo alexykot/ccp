@@ -47,7 +47,7 @@ diagnostics, never targets.
 | --- | --- |
 | Skill | The plugin's `architect` skill. It carries the structure and docs lenses that replaced the `architecture-review` and `docs-audit` skills |
 | Triage protocol | The plugin's `review-triage` skill (a product may still carry `docs/delivery/REVIEW-TRIAGE.md`) |
-| House rules | Product-owned, at `plane.json` `architect.rules_doc`; template `templates/docs-project/ENGINEERING.md` (§20.1) |
+| House rules | Product-owned, at `plane.json` `architect.rules_doc`; template `templates/docs-project/ENGINEERING.md` (§20.1), optional starter set `templates/docs-project/starter-rules.md` (§20.5) |
 | Driver | `ccp architect due \| run [--mode pass\|shape] [--lens L,…] [--adr ID] [--force] \| triage <id> \| status` |
 | Measurements | `ccp health [--since DATE] [--json]`, `ccp health note`, `ccp health record` (§27) |
 | Contracts | `contracts/architect_report.schema.json`: the report with `mode`, `lenses`, `rule_changes` and `metrics`; the triage contract `contracts/architecture_review_triage.schema.json` with §19.8's dispositions |
@@ -306,14 +306,17 @@ lines (default 150), which `ccp docs check` enforces.
 - **Known intentional:** deliberate oddities, so passes do not raise them again.
 
 **Every rule has an id and a check.** A rule is a list item opening `- **E<n>**` (the id pattern is
-`ids.rule`, §7), and its check a line opening `check: pass|budget|command`:
+`ids.rule`, §7), and its check a line opening `check: pass|budget|command|docs`:
 
 - `budget`: a `ccp` budget in `architect.budgets` with the rule's id;
 - `command`: a product command in `architect.checks` (`{id, cmd, timeout_seconds?}`, default
   timeout 600), exit 0 = pass, run inside `ccp docs check` so the verifier gates on it (§21.2);
+- `docs`: a rule `ccp docs check` runs, named after a dash by its `plane.json` key, several
+  separated by commas: `package_docs` (§21.3, §21.4) or `package_docs.rules.<name>` (§21.6);
 - `pass`: the architect judges it.
 
-A budget or command rule needs its entry, and every entry needs its rule. A rule with neither a
+A budget or command rule needs its entry, a docs rule needs each key it names set, and every entry
+needs its rule. A rule with neither a
 check nor a lens that judges it is deleted at the next pass. `ccp docs check` holds the doc's shape,
 its line cap and the `architect.checks` commands.
 
@@ -387,6 +390,27 @@ The board shows the waiting refactors (`now.refactors_waiting`: count, ids, the 
 with no scope in `work.json`, every pending refactor; `null` without an `architect` block), and
 `ccp board status` prints a line when the count is not zero (§28).
 
+### 20.5 Starter rules
+
+The plane ships an optional starter set of generic house rules, `templates/docs-project/starter-rules.md`,
+in the format of §20.1: one owner for every count or list, one home per fact, tests check behaviour,
+deterministic tests, current-only docs, package docs are maps, and every reference resolves. Each
+rule states its purpose, names itself in the set on a `starter: <name>` line, and names its check;
+where the check is mechanical it is a `docs` check. No starter rule is mandatory.
+
+- **Adopt.** `docs.starter_rules` in `plane.json` adopts the set (default `null`: not adopted; `{}`
+  adopts every rule). `ccp init --starter-rules` writes the set to `docs/ENGINEERING.md` and, in a
+  `plane.json` it writes, `docs.starter_rules` and the `package_docs` settings its `docs` checks name
+  (§4.5). With the set adopted, `ccp docs check` fails while an adopted rule's `docs` check is not
+  set, naming the rule and the key.
+- **Decline.** The product names the rule with its reason in `docs.starter_rules.declined`
+  (`{"<name>": "<reason>"}`) and deletes it from its rules doc. `ccp docs check` does not run what a
+  declined rule's check names, set or not, unless an adopted rule names it too, and prints each
+  decline with its reason. A name outside the set is refused when the config loads.
+- **Override.** The product tunes its check's settings in `plane.json` (globs, targets, patterns) or
+  rewords the rule in its own rules doc; to replace the check, it declines the rule and writes its
+  own in its place.
+
 ## 21. Doc checks
 
 ### 21.1 `ccp tasks check`: the task-log rules
@@ -420,8 +444,9 @@ such a task is superseded instead. Inline `# comments` in frontmatter are ignore
 ### 21.2 `ccp docs check`
 
 `ccp docs check` runs, in the product root: the package-doc rules (§21.3, §21.4) and the opted-in
-generic rules (§21.6), the house rules' shape and line cap and the `architect.checks` commands
-(§20.1), the product's `docs.checks` commands (§21.5), the ADR check (§6), and `ccp tasks check`.
+generic rules (§21.6), less those a declined starter rule names, the house rules' shape and line cap
+and the `architect.checks` commands (§20.1), the adopted starter rules' settings (§20.5), the
+product's `docs.checks` commands (§21.5), the ADR check (§6), and `ccp tasks check`.
 It is free and deterministic. It is part of the verifier's gate (§15), run by the verifier itself at
 the PR head, and `ccp docs check` clean is part of the standing DoD where the product declares it.
 A gate lane declared as stages also runs it as its last stage, `plane-docs` (§14.2).
