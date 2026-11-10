@@ -89,6 +89,22 @@ class Producer(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("record.checks[0].produced_by", err)
 
+    def test_only_a_check_a_ruling_closed_may_name_no_producer(self):
+        waived = {"ran": False, "pass": None, "rests_on": "the lead's ruling, gate 0001-a-1"}
+        code, _, err = self.record(check(None, **waived))
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("produced_by", json.loads(self.written().read_text())["checks"][0])
+        self.written().unlink()
+        for fields in ({"ran": True}, {"ran": False, "pass": None}):
+            code, _, err = self.record(check(None, **fields))
+            self.assertEqual(code, 1, fields)
+            self.assertIn("checks[0] (data-01)", err)
+            self.assertIn("names no produced_by", err)
+            self.assertFalse(self.written().exists())
+        code, _, err = self.record(check("lead", **waived))
+        self.assertEqual(code, 1)
+        self.assertIn("produced by the lead", err)
+
     def test_seats_that_do_not_rule_may_produce_evidence(self):
         schema = json.loads((ROOT / "contracts/verification.schema.json").read_text())
         seats = schema["properties"]["checks"]["items"]["properties"]["produced_by"]["enum"]

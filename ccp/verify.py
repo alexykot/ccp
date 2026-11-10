@@ -41,9 +41,10 @@ cite is still recorded `not_built` (§6.7's in-force check, run before the verdi
 close has marked the task done), naming the decision and the `ccp adr decide` that flips it.
 
 Each check names the seat that produced its evidence (`produced_by`, §2.3, §15.4). `record` refuses
-a check without one, and evidence produced by a seat that rules on the task (the lead, the runner)
-unless its `operator_step` names an approved `operator` gate of the task (§17.9); `merge-ok` and
-`check` read a record written before the field, and still refuse a ruling seat's evidence.
+a check without one (a check a ruling closed, `ran: false` with `rests_on`, may leave it out), and
+evidence produced by a seat that rules on the task (the lead, the runner) unless its `operator_step`
+names an approved `operator` gate of the task (§17.9); `merge-ok` and `check` read a record written
+before the field, and still refuse a ruling seat's evidence.
 
 A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_round`) carries the
 runner's `--note` as its reason; `record` adds that reason to the record's `findings` when no finding
@@ -202,9 +203,10 @@ def _operator_step_refusal(queue: Path, task_id: str, step: str) -> str | None:
 
 def producer_errors(queue: Path, rec: dict[str, Any], require: bool = True) -> list[str]:
     """§2.3, §15.4: each check names the seat that produced its evidence (`produced_by`; with
-    `require`, a check without one is refused, as `record` writes it; a record written before the
-    field is read without it), and none was produced by a seat that rules on the task unless its
-    `operator_step` names an approved operator gate of the task. A named `operator_step` must be one."""
+    `require`, a check without one is refused, as `record` writes it, unless a ruling closed it:
+    `ran: false` and `rests_on` set; a record written before the field is read without it), and none
+    was produced by a seat that rules on the task unless its `operator_step` names an approved
+    operator gate of the task. A named `operator_step` must be one."""
     errs: list[str] = []
     task_id = str(rec.get("task_id") or "")
     for i, c in enumerate(rec.get("checks") or []):
@@ -212,11 +214,17 @@ def producer_errors(queue: Path, rec: dict[str, Any], require: bool = True) -> l
             continue
         name = f"checks[{i}] ({c.get('dod_check_id')})"
         seat, step = c.get("produced_by"), c.get("operator_step")
-        if seat is None:
-            if require:
-                errs.append(f"{name}: names no produced_by, the seat that produced its evidence (§15.4)")
-            continue
         why = _operator_step_refusal(queue, task_id, step) if isinstance(step, str) and step else None
+        if seat is None:
+            # A ruling is not evidence: a check the ruling closed (`ran: false`, `rests_on` naming
+            # it, ADR-0035 D7) with no evidence under it names no producer.
+            ruled = c.get("ran", True) is False and bool(c.get("rests_on"))
+            if require and not ruled:
+                errs.append(f"{name}: names no produced_by, the seat that produced its evidence (§15.4); only "
+                            "a check closed by a ruling (ran: false, rests_on naming it) may leave it out")
+            if why:
+                errs.append(f"{name}: {why}")
+            continue
         if seat in RULING_SEATS and not step:
             errs.append(f"{name}: its evidence was produced by the {seat}, a seat that rules on the task: the seat "
                         "that rules never produces the evidence it rules on (§2.3), unless it is an operator step "

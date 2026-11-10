@@ -66,6 +66,14 @@ Separation of duties becomes a plane rule: the seat that rules on a task (the le
   check only as an approved operator step, matching §2.3, §15.4 and the code (it said the lead never
   does). Review MINOR 3 (a check closed by a ruling with no underlying evidence) is left for the
   lead's ruling.
+- 2026-11-10 (implementer, fix round 2): the lead ruled on review MINOR 3. A ruling is not evidence:
+  a check the owner's ruling closed (`ran: false`, `rests_on` naming it, ADR-0035 D7) names in
+  `produced_by` the seat whose evidence the ruling weighed, never `lead`, and names none when no
+  evidence underlies the waiver. `ccp verify record` accepts a check with no `produced_by` only when
+  it is `ran: false` with `rests_on`; a ruling seat named as producer is still refused, and a named
+  `operator_step` is still checked. The schema keeps `produced_by` optional (records written before
+  the field are read) and its description states the exception. SPEC §15.4 and the verifier brief
+  say so. Merged origin/main (task 0036).
 
 ## Verification notes
 

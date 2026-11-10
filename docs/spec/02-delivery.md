@@ -658,12 +658,15 @@ A product with `ci: github-actions` in its binding may cite a green CI run at th
 `gate.ci_run` otherwise.
 
 Each check names the seat that produced its evidence (`produced_by`: `verifier`, `implementer`,
-`reviewer`, `architect`, `operator`, `runner` or `lead`), whether the verifier ran it or not. `ccp
-verify record` refuses a check that names none, and one whose evidence a seat that rules on the task
-produced (`lead`, `runner`, §2.3) unless its `operator_step` names an approved operator step: the
-task's gate `<task_id>-<n>` (§17.9) of class `operator`, closed and approved (a standing approval is
-such a gate). It names the check and the seat; an `operator_step` that is not such a gate is refused
-whoever produced the evidence. `ccp verify merge-ok` and `ccp verify check` read a record written
+`reviewer`, `architect`, `operator`, `runner` or `lead`), whether the verifier ran it or not. A ruling
+is not evidence: a check the owner's ruling closed is `ran: false` with `rests_on` naming the ruling
+(ADR-0035 D7), and its `produced_by` names the seat that produced the evidence the ruling weighed,
+never `lead`; with no evidence under the waiver it names none. `ccp verify record` refuses a check
+that names none unless it is `ran: false` with `rests_on`, and one whose evidence a seat that rules
+on the task produced (`lead`, `runner`, §2.3) unless its `operator_step` names an approved operator
+step: the task's gate `<task_id>-<n>` (§17.9) of class `operator`, closed and approved (a standing
+approval is such a gate). It names the check and the seat; an `operator_step` that is not such a gate
+is refused whoever produced the evidence. `ccp verify merge-ok` and `ccp verify check` read a record written
 before the field and refuse a ruling seat's evidence on the same terms.
 
 ### 15.5 Merge
