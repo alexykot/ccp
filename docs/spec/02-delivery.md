@@ -628,6 +628,15 @@ A product with `ci: github-actions` in its binding may cite a green CI run at th
 (`gate.ci_run`) beside its own runs, never in place of them; `ccp verify record` refuses a
 `gate.ci_run` otherwise.
 
+Each check names the seat that produced its evidence (`produced_by`: `verifier`, `implementer`,
+`reviewer`, `architect`, `operator`, `runner` or `lead`), whether the verifier ran it or not. `ccp
+verify record` refuses a check that names none, and one whose evidence a seat that rules on the task
+produced (`lead`, `runner`, §2.3) unless its `operator_step` names an approved operator step: the
+task's gate `<task_id>-<n>` (§17.9) of class `operator`, closed and approved (a standing approval is
+such a gate). It names the check and the seat; an `operator_step` that is not such a gate is refused
+whoever produced the evidence. `ccp verify merge-ok` and `ccp verify check` read a record written
+before the field and refuse a ruling seat's evidence on the same terms.
+
 ### 15.5 Merge
 
 The runner merges a PR only when `ccp verify merge-ok <pr> --task <task_id>` exits 0, and then pinned
@@ -703,8 +712,9 @@ a product credential.
   The task may merge code-only, the step listed as a follow-up. A parked step, and any check needing
   that machine, runs in a worktree of its own at the PR head (`ccp wt create --kind mac`), never in
   the main checkout.
-- **The seat that rules does not produce its evidence.** The lead never runs a task's checks; with
-  the no-combined-seats rule (§2), the verifier is the only producer of a verdict's evidence.
+- **The seat that rules does not produce its evidence.** The lead never runs a task's checks, and the
+  runner runs one only as an approved operator step; the verify record names each check's producer
+  and `ccp verify` refuses a ruling seat's evidence otherwise (§2.3, §15.4).
 - **Shaping waivers.** The task-log owner never writes a shape of its own (§19.5). A task citing an
   ADR with no shaping record waits for the architect's shape unless its frontmatter carries `shaping: waived — <reason>`.
 - **Triage of a committed file.** A triage file written by hand is applied with `ccp architect triage --apply <id>`: it validates the file, finalises `architect.json` (a `triage_sent` report

@@ -40,6 +40,11 @@ Under `adr.strict`, `record` also refuses an approve of a head on which a decisi
 cite is still recorded `not_built` (§6.7's in-force check, run before the verdict rather than only once
 close has marked the task done), naming the decision and the `ccp adr decide` that flips it.
 
+Each check names the seat that produced its evidence (`produced_by`, §2.3, §15.4). `record` refuses
+a check without one, and evidence produced by a seat that rules on the task (the lead, the runner)
+unless its `operator_step` names an approved `operator` gate of the task (§17.9); `merge-ok` and
+`check` read a record written before the field, and still refuse a ruling seat's evidence.
+
 A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_round`) carries the
 runner's `--note` as its reason; `record` adds that reason to the record's `findings` when no finding
 holds it yet (`fill_reason`).
@@ -162,6 +167,58 @@ def record_errors(rec: Any, now: datetime | None = None) -> list[str]:
     if now is not None and checked is not None and checked > now + SKEW:
         errs.append(f"checked_at {rec.get('checked_at')} is later than now ({_iso(now)}): "
                     "it is the clock time the verdict was reached")
+    return errs
+
+
+# §2.3: the seats that rule on a task. Evidence either produced is refused unless it came from an
+# operator step the operator approved (an approved `operator` gate of the task, §17.9).
+RULING_SEATS = ("lead", "runner")
+
+
+def _operator_step_refusal(queue: Path, task_id: str, step: str) -> str | None:
+    """Why `step` is not an approved operator step of `task_id`, or None when it is: the gate file
+    `escalations/<task_id>/<n>.json` (§17.9) is closed, approved and of class `operator`."""
+    prefix = f"{task_id}-"
+    n = step[len(prefix):] if step.startswith(prefix) else ""
+    if not n.isdigit() or not SAFE_ID_RE.match(task_id):
+        return f"operator_step {step!r} is not a gate of this task ({task_id}-<n>)"
+    path = queue / "escalations" / task_id / f"{n}.json"
+    try:
+        gate = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return f"operator_step {step!r}: no gate file escalations/{task_id}/{n}.json"
+    if not isinstance(gate, dict):
+        return f"operator_step {step!r}: the gate file is not an object"
+    if gate.get("class") != "operator":
+        return f"operator_step {step!r} is a {gate.get('class')!r} gate, not an operator step"
+    if gate.get("status") != "closed" or gate.get("decision") != "approved":
+        return f"operator_step {step!r} is not approved (status {gate.get('status')!r}, decision {gate.get('decision')!r})"
+    return None
+
+
+def producer_errors(queue: Path, rec: dict[str, Any], require: bool = True) -> list[str]:
+    """§2.3, §15.4: each check names the seat that produced its evidence (`produced_by`; with
+    `require`, a check without one is refused, as `record` writes it; a record written before the
+    field is read without it), and none was produced by a seat that rules on the task unless its
+    `operator_step` names an approved operator gate of the task. A named `operator_step` must be one."""
+    errs: list[str] = []
+    task_id = str(rec.get("task_id") or "")
+    for i, c in enumerate(rec.get("checks") or []):
+        if not isinstance(c, dict):
+            continue
+        name = f"checks[{i}] ({c.get('dod_check_id')})"
+        seat, step = c.get("produced_by"), c.get("operator_step")
+        if seat is None:
+            if require:
+                errs.append(f"{name}: names no produced_by, the seat that produced its evidence (§15.4)")
+            continue
+        why = _operator_step_refusal(queue, task_id, step) if isinstance(step, str) and step else None
+        if seat in RULING_SEATS and not step:
+            errs.append(f"{name}: its evidence was produced by the {seat}, a seat that rules on the task: the seat "
+                        "that rules never produces the evidence it rules on (§2.3), unless it is an operator step "
+                        "the operator approved (operator_step: the approved gate's id)")
+        elif why:
+            errs.append(f"{name}: produced by the {seat}: {why}")
     return errs
 
 
@@ -485,7 +542,7 @@ def refusal(queue: Path, task_id: str, pr_head: str) -> str | None:
     loaded = _load(path)
     if isinstance(loaded, str):
         return loaded
-    errs = record_errors(loaded)
+    errs = record_errors(loaded) + producer_errors(queue, loaded, require=False)
     if errs:
         return "the verification record is not valid: " + "; ".join(errs)
     if loaded.get("verdict") != "approve":
@@ -505,6 +562,7 @@ def write_record(queue: Path, rec: Any, now: datetime) -> tuple[list[str], Path 
     errs = record_errors(rec, now)
     if isinstance(rec, dict):
         errs += approve_errors(rec)
+        errs += producer_errors(queue, rec)
     if isinstance(rec, dict) and isinstance(rec.get("gate"), dict) and rec["gate"].get("ci_run") and not _ci(queue):
         errs.append("gate.ci_run: this product's binding has no `ci: github-actions`, so a CI run is not evidence "
                     "(SPEC §15.3: the gate is the verifier's own run, never CI). Remove it.")
@@ -582,6 +640,7 @@ def merge_ok(cfg: Config, queue: Path, pr: str, task_id: str | None) -> tuple[li
     if rec.get("verdict") != "approve":
         reasons.append(f"the verdict is {rec.get('verdict')!r}, not approve")
     reasons += approve_errors(rec)
+    reasons += producer_errors(queue, rec, require=False)
     recorded_head = str(rec.get("head_sha") or "")
     if recorded_head and not heads_match(recorded_head, head):
         reasons.append(f"the PR head {head[:12]} is not the approved head {recorded_head[:12]}: "

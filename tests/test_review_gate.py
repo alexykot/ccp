@@ -41,7 +41,8 @@ class ReviewGate(ToolkitFixture, unittest.TestCase):
         rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head, verdict=verdict)
         rec.pop("checked_at", None)
-        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": verdict == "approve", "evidence": "ran it"}]
+        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": verdict == "approve", "evidence": "ran it",
+                          "produced_by": "verifier"}]
         f = Path(self._tmp.name) / "verdict.json"
         f.write_text(json.dumps(rec))
         return self.ccp("verify", "record", str(f))
@@ -234,7 +235,8 @@ class RepeatVerify(ToolkitFixture, unittest.TestCase):
         rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=A, verdict="approve", findings=["rerun: flaky gate, rerun"])
         rec.pop("checked_at", None)
-        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it"}]
+        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",
+                          "produced_by": "verifier"}]
         f = Path(self._tmp.name) / "verdict.json"
         f.write_text(json.dumps(rec))
         code, _, out, err = self.ccp("verify", "record", str(f))

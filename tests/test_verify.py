@@ -117,7 +117,7 @@ def approve(task: str = "0001-a", **fields: object) -> dict:
     """A verdict that passes every rule: what the verifier writes for an approve at HEAD_A."""
     return {
         "task_id": task, "project_id": "demo", "verdict": "approve", "head_sha": HEAD_A,
-        "checks": [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it"}],
+        "checks": [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it", "produced_by": "verifier"}],
         "gate": {"runs": [{"command": "scripts/unit.sh", "exit_code": 0, "tests_run": 412,
                            "tests_skipped": 0, "seconds": 88.5},
                           {"command": "scripts/lint.sh", "exit_code": 0}]},
@@ -191,7 +191,7 @@ class Record(unittest.TestCase):
 
     def test_a_check_not_run_is_neither_a_pass_nor_a_fail(self):
         unrun = {"dod_check_id": "data-01", "ran": False, "pass": None, "rests_on": "the operator's paste, 15:49",
-                 "evidence": "not run by the verifier: the live store is the Mac's"}
+                 "evidence": "not run by the verifier: the live store is the Mac's", "produced_by": "operator"}
         code, _, err = self.record(approve(checks=[unrun]))
         self.assertEqual(code, 0, err)
         code, _, err = self.record(approve(checks=[{**unrun, "pass": True}]))
@@ -203,11 +203,13 @@ class Record(unittest.TestCase):
         self.assertIn("pass is null", err)
 
     def test_an_approve_with_a_failed_check_is_refused(self):
-        code, _, err = self.record(approve(checks=[{"dod_check_id": "cmd-01", "pass": False, "evidence": "exit 1"}]))
+        code, _, err = self.record(approve(checks=[{"dod_check_id": "cmd-01", "pass": False, "evidence": "exit 1",
+                                                    "produced_by": "verifier"}]))
         self.assertEqual(code, 1)
         self.assertIn("an approve with a failed check (cmd-01)", err)
         code, _, err = self.record(approve(verdict="reject",
-                                           checks=[{"dod_check_id": "cmd-01", "pass": False, "evidence": "exit 1"}]))
+                                           checks=[{"dod_check_id": "cmd-01", "pass": False, "evidence": "exit 1",
+                                                     "produced_by": "verifier"}]))
         self.assertEqual(code, 0, err)
 
     def test_a_record_may_carry_every_access_mode_a_binding_declares(self):
