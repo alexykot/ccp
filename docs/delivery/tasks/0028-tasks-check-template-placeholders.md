@@ -1,14 +1,14 @@
 ---
 task_id: 0028-tasks-check-template-placeholders
 title: ccp tasks check refuses untouched template placeholders
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5"]
 review_point: R1
 paths: ["ccp/", "docs/spec/01-model.md", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # Task: 0028-tasks-check-template-placeholders
@@ -93,4 +93,4 @@ each placeholder still there, so a new user or an agent fixes it before a runner
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #11 head `6e34017` (squash `da9b757`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0028-tasks-check-template-placeholders.json.

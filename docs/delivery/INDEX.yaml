@@ -138,7 +138,7 @@ tasks:
     depends_on: [0026-readme-homepage]
     path: tasks/0027-ccp-init.md
   - id: 0028-tasks-check-template-placeholders
-    status: pending
+    status: done
     title: ccp tasks check refuses untouched template placeholders
     depends_on: []
     path: tasks/0028-tasks-check-template-placeholders.md
