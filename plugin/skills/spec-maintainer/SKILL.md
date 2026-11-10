@@ -137,6 +137,12 @@ in. Everything above applies, with these differences.
   weekly usage, the time until reset (`ccp allowance status`) and the tasks still outstanding. If they
   say go on, record their decision in their words, `ccp allowance continue --to <percent> --reason "…"`,
   then tell the runner to resume. If they say stop, let the runner stop. You never decide it alone.
+- **When the operator must hear** (SPEC §3.6): a `blocker` (a task waits on `reauth` or
+  `operator_step`), a `decision` (a gate you take to them, a `needs_operator` answer), a
+  `review_point_done` (a close leaves its review point with no open task) and an
+  `allowance_checkpoint`. Tell them here in your session. When the product's plane.json names a
+  `notify.command`, `ccp` has already run it with the trigger and ids; a `notify:` warning means it
+  failed, and your session is the only route.
 - **The 5-hour session limit is not the operator's call** (SPEC §25.4): the runner parks at
   `telemetry.session_park_pct` (exit 6) and you resume it with the session wake, as the orientation
   says (`ccp allowance session-wake`). Arm the wake before the limit: at the limit your own turn fails.
@@ -171,5 +177,5 @@ in. Everything above applies, with these differences.
 ## What you never do
 
 - Change runtime task state, waiting_on, or events, except through `team.sh` as team lead (above).
-- Email anyone.
+- Email anyone yourself (the product's notify command is `ccp`'s, SPEC §3.6).
 - Run the implementer or touch source code.

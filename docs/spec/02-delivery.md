@@ -938,7 +938,7 @@ taken over with a warning. Busy exits are recorded on the run (`lane_busy`).
 Every worker question is classified `implementation` or `spec` (`spec` when unsure); `/review`
 decisions use the same split. An **implementation** question is answered by the runner (no source
 edits by it) and the worker resumes. A **spec** question goes to the spec maintainer, which is the
-team lead (ADR-0005), through the question channel (§17.3). Nothing emails: whatever needs the operator is raised in the lead's session (§17.10). None of
+team lead (ADR-0005), through the question channel (§17.3). Whatever needs the operator is raised in the lead's session (§17.10), and on a trigger of §3.6 reaches the product's notify channel too. None of
 this relaxes the rules on keys and wallets (§30), quota (§18.4), operator gates (§3.2) or the ledger
 and observability (§23).
 
@@ -1107,8 +1107,11 @@ the lead, who takes it to the operator.
 
 ### 17.10 Route to the operator
 
-Nothing emails. Whatever needs the operator is raised in the lead's session: the runner's question or
-gate reaches the lead through the mailbox, and the lead asks the operator or decides it (§17.9). The
+Whatever needs the operator is raised in the lead's session: the runner's question or gate reaches
+the lead through the mailbox, and the lead asks the operator or decides it (§17.9). The plane sends
+nothing itself: on the triggers of §3.6 (`blocker`, `decision`, `review_point_done`,
+`allowance_checkpoint`) `ccp` also runs the product's notify command, which may email or message the
+operator; with none, the lead's session is the only route. The
 operator may open a runner directly; what they say there counts as coming from them but does not move
 authority: the runner still records gates through escalation files.
 

@@ -297,6 +297,22 @@ def set_wait(root: Path, action: str, tid: str, reason: str, actor: str, pid: st
         die(f"set-waiting-on {action} {tid} failed: {r.stderr.strip()}")
 
 
+def notify_operator(root: Path, trigger: str, task_id: str, ident: str) -> list[str]:
+    """SPEC §3.6: run the product's notify command for a trigger, when its plane.json names one. Best
+    effort: no product root or plane.json, or one that cannot be read, sends nothing; returns the
+    warnings to show (a command that failed, or a plane.json that could not be read)."""
+    prod = product_root(root)
+    if not prod or not (Path(prod) / "docs" / "delivery" / "plane.json").is_file():
+        return []
+    sys.path.insert(0, str(HERE.parents[1]))
+    from ccp import config as ccp_config, notify  # noqa: PLC0415
+    try:
+        cfg = ccp_config.load(Path(prod))
+    except Exception as e:  # noqa: BLE001  (the step happened; only the notice is lost)
+        return [f"notify: could not read the product's plane.json ({e}); raise the {trigger} in the lead's session"]
+    return notify.warnings(notify.send(cfg, trigger, task_id=task_id, ident=ident))
+
+
 def product_root(root: Path) -> str:
     for line in project_yaml_text(root).splitlines():
         m = re.match(r"^product_root:\s*(\S+)", line)
@@ -383,7 +399,9 @@ def act_on_answer(root: Path, qp: Path, q: dict[str, Any], ans: dict[str, Any], 
             set_wait(root, "set", tid, "operator_decision", actor, pid, qid)
             moved.append(tid)
         result["waiting_on_operator"] = moved
-        # The lead is asking the operator in its own session; nothing emails.
+        if not already and (warn := notify_operator(root, "decision", str(q.get("task_id") or ""), qid)):
+            result["warnings"] = result.get("warnings", []) + warn
+        # The lead asks the operator in its own session; a notify command, if any, has had the trigger (§3.6).
         result["actions"].append({
             "action": "wait_for_lead",
             "detail": "The design seat is asking the operator in its own session. It rewrites the answer file "

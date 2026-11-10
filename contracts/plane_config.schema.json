@@ -1130,6 +1130,25 @@
           }
         }
       }
+    },
+    "notify": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §3.6: the operator's channel. Absent, or command null: the lead's session, and no command runs.",
+      "properties": {
+        "command": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "default": null,
+          "description": "A shell command run in the product root on each trigger (blocker, decision, review_point_done, allowance_checkpoint), given the trigger and ids only in its environment: CCP_NOTIFY_TRIGGER, CCP_PROJECT_ID, CCP_TASK_ID, CCP_NOTIFY_ID, CCP_NOTIFY_REASON and CCP_NOTIFY_LINE. A failure is a warning; it never stops the step."
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 30,
+          "description": "How long one run of the command may take; at the limit it is killed and the step warns."
+        }
+      }
     }
   }
 }

@@ -38,7 +38,9 @@ whose lead is the design seat (plane SPEC §2).
   project) go to the spec maintainer.
 - Only the spec maintainer may escalate to the operator.
 - Claude never emails the operator or anyone else. To raise a question,
-  message the lead.
+  message the lead. On a blocker, a decision, a finished review point or the
+  allowance checkpoint, `ccp` also runs the product's notify command if it
+  names one (plane SPEC §3.6).
 
 ## Tools
 

@@ -154,7 +154,9 @@ before anything else.
 11. Back to step 2.
 
 **Waits** go through `ccp tasks wait <task_id> <reason> [--detail …]` and `ccp tasks resume <task_id>
-<what cleared it>` (gates and spec questions set and clear their own waits).
+<what cleared it>` (gates and spec questions set and clear their own waits). A wait on `reauth`,
+`operator_step` or `operator_decision` also runs the product's notify command, if it names one (SPEC
+§3.6); raise the blocker to the lead as always, and pass on any `notify:` warning `ccp` prints.
 
 ## Several runners (SPEC §16)
 
