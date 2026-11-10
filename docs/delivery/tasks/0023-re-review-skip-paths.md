@@ -1,7 +1,7 @@
 ---
 task_id: 0023-re-review-skip-paths
 title: Declared paths a fix may touch without re-review, with a product proof hook
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S15"]
@@ -9,7 +9,7 @@ adr_refs: ["0035 D4"]
 review_point: R2
 paths: ["ccp/prompt.py", "ccp/verify.py", "ccp/config.py", "contracts/plane_config.schema.json", "docs/spec/02-delivery.md", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # Task: 0023-re-review-skip-paths
@@ -70,4 +70,4 @@ A generic setting lists paths a fix round may touch without a fresh review; a pr
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #20 head `5e639c6` (squash `e7545b7`): APPROVE. Passed: skip-01, skip-02. Gate: `scripts/gate.sh (ccp suite run --lane gate)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0023-re-review-skip-paths.json.

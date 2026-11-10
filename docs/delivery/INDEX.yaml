@@ -113,7 +113,7 @@ tasks:
     depends_on: []
     path: tasks/0022-drift-on-active-time.md
   - id: 0023-re-review-skip-paths
-    status: pending
+    status: done
     title: Declared paths a fix may touch without re-review, with a product proof hook
     depends_on: []
     path: tasks/0023-re-review-skip-paths.md
