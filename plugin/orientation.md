@@ -28,6 +28,8 @@ whose lead is the design seat (plane SPEC §2).
 - Runtime state (leases, sessions, questions, gates, events): the queue folder outside this repo.
   A Claude session never edits it by hand unless its role doc says so.
 - Rulings and durable facts live in git, never only in a session's memory.
+- Package docs and code comments follow the plane's package-doc convention (plane SPEC §21.3);
+  `ccp docs check` holds them to it.
 
 ## How questions flow
 
