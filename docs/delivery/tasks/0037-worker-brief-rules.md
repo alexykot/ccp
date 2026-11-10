@@ -41,6 +41,13 @@ The worker briefs carry three generic rules: a test module that the task's chang
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): All three rules apply to all three briefs, worded for each worker
+  (implementer: update the broken module in the same PR; reviewer and verifier: changing it is not a
+  finding; line numbers read at the merge base, the PR's for review and verify). The rules are bullets
+  in `plugin/agents/delivery-{implementer,reviewer,verifier}.md`; §13.1 lists them in one paragraph.
+  `tests/test_plugin.py` `WorkerRules` pins two tokens per rule, each once per brief, and checks that
+  dropping a rule's bullet leaves exactly that rule missing.
+
 ## Verification notes
 
 *Append-only.*
