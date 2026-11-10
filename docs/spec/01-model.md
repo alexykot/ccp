@@ -301,6 +301,15 @@ skill, then the product's `docs/delivery/WRITING-tasks.md`. Standing definition 
 `templates/docs-delivery/standing-dod.md`, the plane's items then the product's. Frontmatter
 contract: `contracts/task_file.schema.json`.
 
+A copy of the template that was not filled in fails `ccp tasks check`:
+- A task file not yet `done` or `dropped` that still holds `NNNN-kebab-slug`, `YYYY-MM-DD`,
+  `As a <role>`, `<preconditions`, `<concrete, observable result>` or `One line, imperative` is
+  refused. The message names each placeholder and its line. A placeholder quoted in a code span or a
+  fenced block is not read.
+- A task that cites no ref list, where `spec_refs` is one of the lists it may cite, is told to list
+  the SPEC sections in `spec_refs` and cite them in its text.
+- `plane.json` validation refuses a `suite.lanes` command that holds `<your test command>`.
+
 ### 5.1 File
 
 `docs/delivery/tasks/<task_id>.md` (`task_log.dir`). `task_id` is the file name: a number of

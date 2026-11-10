@@ -23,6 +23,14 @@ each placeholder still there, so a new user or an agent fixes it before a runner
 - A newcomer following the README copied `TEMPLATE-task.md` and got a terse "cites none of
   spec_refs" error from empty `spec_refs`, while other placeholders passed silently.
 - The same applies to `plane.json`: a gate lane left as `<your test command>` runs and fails late.
+- Ruling sm-20261110T012002Z-e580 (spec maintainer, 2026-11-10): keep the §5 note, since the Scope
+  asks for it. It is new § text with no RULINGS row, so the merge waits for the operator's approval
+  (§31). Add the new refusals to the writing-tasks skill's "What `ccp tasks check` refuses" list,
+  which is guidance and should be complete. Leave §21.1 as it is: it is not false. Done and dropped
+  tasks are not scanned, and a placeholder inside a code span or a fenced block is skipped.
+- Standing R1 ruling: where a RULINGS row names the task, its implementer cleans up stale SPEC and
+  docs passages without asking. No row names this task, so it applies here only through the ruling
+  above.
 
 ## Scope
 
@@ -60,6 +68,28 @@ each placeholder still there, so a new user or an agent fixes it before a runner
 ## Implementation notes
 
 *Append-only, newest last.*
+
+- 2026-11-10 — `ccp tasks check` reads each task not yet `done` or `dropped` for the template's
+  placeholders (`tasklog.PLACEHOLDERS`) and refuses each one with its file and line. Text inside a
+  code span or a fenced block is skipped as quoted, so this task's own Scope passes. A code span
+  never runs past a blank line, and an unclosed fence hides nothing. Done and dropped tasks are
+  history and are not read, as with the dry-run check.
+- A refusal for missing refs, where `spec_refs` is one of the lists the task may cite, now says to
+  list the SPEC sections in `spec_refs` and cite them in the text. That covers both the task log's
+  `refs_any` and a kind's own `refs_any`.
+- `plane.json` validation refuses a `suite.lanes` argv with an item that contains
+  `<your test command>`, naming the lane (`config.LANE_PLACEHOLDER`).
+- SPEC §5 gets a note on the three refusals. Tests: `tests/test_task_placeholders.py`.
+- 2026-11-10 — Second round, per ruling sm-20261110T012002Z-e580: the writing-tasks skill's
+  refusal list names the three new refusals; the ruling is recorded under Context; §21.1 unchanged.
+- 2026-11-10 — Fix round 1 (review-2):
+  - A code span now stays on one line, so one stray backtick cannot quote the placeholders on the
+    lines after it.
+  - A fence closes only on a line holding just its own character, at least as many as opened it.
+    A closer with an info string no longer closes the block.
+  - The refusal ends "or put it in backticks if you mean the text itself", so a task that means a
+    placeholder literally knows how to quote it.
+  - Line numbers count `\n` only, not the other breaks that `splitlines()` splits on.
 
 ## Verification notes
 
