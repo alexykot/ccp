@@ -88,7 +88,7 @@ tasks:
     depends_on: []
     path: tasks/0017-drop-the-top-level-lease.md
   - id: 0018-reason-for-a-repeat-verify
-    status: pending
+    status: done
     title: Enforce a reason for a verify round with no fix since the last
     depends_on: []
     path: tasks/0018-reason-for-a-repeat-verify.md

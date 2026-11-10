@@ -32,6 +32,10 @@ file, or the output's counts), so the verifier types none of them.
 `record` also refuses an approve of a task whose latest fix round is newer than its last review, or
 of a head other than the one that review judged (§15.2, the runner brief's step 7), unless the open
 verify run carries the override `ccp prompt verify --allow-unreviewed-fix` recorded.
+
+A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_round`) carries the
+runner's `--note` as its reason; `record` adds that reason to the record's `findings` when no finding
+holds it yet (`fill_reason`).
 """
 from __future__ import annotations
 
@@ -314,6 +318,48 @@ def review_errors(queue: Path, rec: dict[str, Any]) -> list[str]:
             "the override on this verify run"]
 
 
+def repeat_round(queue: Path, task_id: str) -> str | None:
+    """§15.6 rule 4: the task's latest verify run that reported, when no fix run (not abandoned) opened
+    since it; None otherwise. A verify run that never reported (abandoned, or still open) was no round.
+    A tie (one second) counts the fix as newer: a fix opens only once a report exists to fix from."""
+    from ccp import runs  # noqa: PLC0415
+
+    rs = [r for r in runs.all_runs(queue, task_id) if runs.state(r) != "abandoned"]
+    done = [r for r in rs if r.get("phase") == "verify" and runs.state(r) == "reported"]
+    if not done:
+        return None
+    last = done[-1]
+    since = str(last.get("opened_at") or "")
+    if any(r.get("phase") == "fix" and str(r.get("opened_at") or "") >= since for r in rs):
+        return None
+    return str(last["run_id"])
+
+
+def fill_reason(queue: Path, rec: dict[str, Any]) -> None:
+    """§15.6 rule 4: a verify round opened with no fix round since the last (`repeat_verify` on the
+    task's open verify run) says why in the record's `findings`, from the runner's `--note`. The note
+    is added unless a finding already holds it; a record with no such run is left as it is."""
+    from ccp import runs  # noqa: PLC0415
+    from ccp.queue import QueueError  # noqa: PLC0415
+
+    tid = str(rec.get("task_id") or "")
+    if not tid or tid.startswith("pr-"):
+        return
+    try:
+        run = runs.latest_open(queue, tid, "verify")
+    except QueueError:
+        return
+    note = str((run or {}).get("note") or "").strip()
+    repeat = (run or {}).get("repeat_verify")
+    if not repeat or not note:
+        return
+    findings = rec.setdefault("findings", [])
+    if not isinstance(findings, list):
+        return  # the contract check names it
+    if not any(isinstance(f, str) and note in f for f in findings):
+        findings.append(f"repeat verify round, no fix round since {repeat.get('after')}: {note}")
+
+
 def _load(path: Path) -> dict[str, Any] | str:
     try:
         data = json.loads(path.read_text())
@@ -510,6 +556,8 @@ def main(cfg: Config, a: Any) -> int:
         errs = fill_gate(queue, rec) if isinstance(rec, dict) else []
         errs = errs or (cache_errors(cfg, rec) if isinstance(rec, dict) else [])
         errs = errs or (review_errors(queue, rec) if isinstance(rec, dict) else [])
+        if not errs and isinstance(rec, dict):
+            fill_reason(queue, rec)
         if not errs:
             errs, path = write_record(queue, rec, _now())
         if errs:
