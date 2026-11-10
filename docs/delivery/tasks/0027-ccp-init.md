@@ -29,6 +29,12 @@ sees the same values. The README's manual adoption steps shrink to that command.
 - Either the queue copy is written and refreshed by `ccp` from the plane binding (on `init` and
   whenever `ccp` resolves a binding newer than the copy), or every reader goes through one resolver
   and the copy is retired. The implementer picks one, records it in §8.3, and says which in the PR.
+- Standing ruling from the lead for R1: when a task carries out an operator ruling recorded in
+  docs/spec/RULINGS.md that names the task, the implementer also removes or rewords, in the same PR
+  and without asking, every SPEC/docs passage the change makes false, listing each edit with its old
+  text in the PR body's "Operator approval (SPEC S31)" section and citing the RULINGS row. Ask only
+  when an edit would change a rule the row does not cover, or when no row names the task. History
+  records stay as written.
 
 ## Scope
 
@@ -71,6 +77,23 @@ sees the same values. The README's manual adoption steps shrink to that command.
 ## Implementation notes
 
 *Append-only, newest last.*
+
+- 2026-11-10 (implementer): binding design: **one resolver, the queue copy retired**. `lib.binding_path`
+  (scripts/observability/lib.py) is the resolver: `PROJECT_YAML` when it names a file, else the binding
+  in `lib.bindings_dir()` (`CCP_BINDINGS_DIR`, else `<plane>/projects`) whose `queue_root` is the queue,
+  else a leftover `QUEUE_ROOT/project.yaml` (read only when no binding names the queue, E9). Every
+  binding reader goes through it: `lib.project_yaml_text` and `resolve_durable_docs_dir` (so
+  `team.sh`, `queue.binding_*`, `spec_maintainer.py`), `verify._ci`, `otel.bindings_dir`, `cli.binding_file`
+  and `binding_queue_root`; `ccp where` gains `binding`; `plugin/hooks/runner-idle.sh` reads the
+  binding `ccp where` names in plugin mode (outside the declared paths: it read the queue copy
+  directly). Recorded in SPEC §8.3.
+- `ccp init` (ccp/init.py): keeps every existing file unless `--force` and lists it as kept, so a rerun
+  or a rerun after a binding edit changes nothing; refuses (exit 2, nothing written) on a plane.json
+  naming another id, a binding for the id naming another product root, a kept binding naming
+  another `--queue-root`, or settings that are not a JSON object. The project id defaults to
+  plane.json's, else the directory name. It also writes `INDEX.yaml` (task_log.index defaults on) and
+  merges `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, as the README's manual steps did. The anchor and
+  the `CLAUDE.md` line follow the README (marketplace `ccp`), not SPEC §4.3's example; see the report.
 
 ## Verification notes
 

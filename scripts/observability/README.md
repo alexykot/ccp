@@ -78,7 +78,7 @@ answer file; `process` applies it.
 The timer formula below is unchanged; the ledger fold in `lib.py` also splits the same wait intervals by reason.
 
 ```bash
-export QUEUE_ROOT=… PROJECT_YAML=…/projects/<project_id>.yaml
+export QUEUE_ROOT=…   # the binding naming this queue is read (SPEC §8.3)
 ../spec-maintainer-ask.sh raise --raised-by task-runner --task-id <id> --text "…" --inconsistency "…" --spec-refs '["docs/SPEC.md#…"]'
 ../spec-maintainer-ask.sh <question_id>        # apply the lead's answer (or re-print the lead message)
 ../spec-maintainer-ask.sh blocked --task-id <id>

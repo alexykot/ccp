@@ -606,8 +606,15 @@ runner:
 ```
 
 - `ccp` maps a directory to its binding (`product_root`, or its main checkout for a worktree) and the
-  binding to its queue (§9.2). The queue holds a copy of the binding, `QUEUE_ROOT/project.yaml`
-  (`project.yaml`).
+  binding to its queue (§9.2).
+- The binding is the one source of truth. Every reader (`ccp`, the team scripts, the hooks) resolves
+  it through one resolver, so an edit to it reaches them all. For a queue, the resolver takes
+  `PROJECT_YAML` when it names a file, else the binding whose `queue_root` is that queue. The queue
+  holds no copy: a `QUEUE_ROOT/project.yaml` left from before is read only when no binding names the
+  queue. `ccp where` names the binding it resolved.
+- `ccp init` writes the binding and creates its queue (default `~/.delivery-queue/<project_id>/`),
+  with the product footprint (§4.3). It keeps an existing binding unless given `--force`, and refuses
+  one that names another product root.
 - A binding whose `product_root` is the plane's own repository is the plane managing itself; its
   usage counts as non-product use (§24).
 - A `spec_maintainer` block is accepted, deprecated: the lead is every project's spec maintainer
