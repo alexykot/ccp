@@ -1,7 +1,7 @@
 ---
 task_id: 0048-delivery-id-check-false-hits
 title: The default-on delivery-id check matches only the ids the plane writes
-status: pending
+status: done
 kind: bug
 depends_on: [0033-package-doc-convention-owned-by-the-plane]
 spec_refs: ["S21"]
@@ -98,4 +98,4 @@ operator's approval of the new text.
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #29 head `6d43bfb` (squash `e766323`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `python3 -m ccp tasks check` exit 0, `python3 -m ccp docs check` exit 0. Record: verification/0048-delivery-id-check-false-hits.json.
