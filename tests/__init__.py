@@ -13,6 +13,9 @@ os.environ["CCP_USER_SETTINGS"] = "/nonexistent/claude-user-settings-guard.json"
 os.environ["CCP_RUN_CHECKOUT"] = "/nonexistent/control-plane-run-guard"
 os.environ["CCP_OTEL_LABEL"] = "ccp.test.no-such-receiver"  # run-checkout.sh never signals the live one
 os.environ["CCP_BINDINGS_DIR"] = "/nonexistent/control-plane-bindings-guard"
+# §14: a seat's exported queue and binding never reach a test; the tests that need one set their own.
+for _k in ("QUEUE_ROOT", "PROJECT_YAML"):
+    os.environ.pop(_k, None)
 # §24: `ccp otel status` warns on these in the shell; a developer's own settings must not reach the tests.
 for _k in ("OTEL_LOG_USER_PROMPTS", "OTEL_LOG_TOOL_DETAILS"):
     os.environ.pop(_k, None)
