@@ -73,7 +73,7 @@ tasks:
     depends_on: [0008-spec-switch-to-parts]
     path: tasks/0014-neutral-ci-template.md
   - id: 0015-flag-untriaged-proposals
-    status: pending
+    status: done
     title: Flag a tool proposal left untriaged for seven days
     depends_on: [0008-spec-switch-to-parts]
     path: tasks/0015-flag-untriaged-proposals.md

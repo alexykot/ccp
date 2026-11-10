@@ -1,7 +1,7 @@
 ---
 task_id: 0015-flag-untriaged-proposals
 title: Flag a tool proposal left untriaged for seven days
-status: pending
+status: done
 kind: feature
 depends_on: ["0008-spec-switch-to-parts"]
 spec_refs: ["S31"]
@@ -9,7 +9,7 @@ adr_refs: ["0034 D11"]
 review_point: R1
 paths: ["ccp/plane.py", "ccp/board.py", "ccp/board_page.html", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # Task: 0015-flag-untriaged-proposals
@@ -61,4 +61,4 @@ A plane proposal untriaged for seven days is flagged in `ccp plane list` and on 
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #9 head `85db6df` (squash `fac5e76`): APPROVE. Passed: flag-01. Gate: `env -u QUEUE_ROOT scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0015-flag-untriaged-proposals.json.
