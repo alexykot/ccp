@@ -411,6 +411,39 @@ where the check is mechanical it is a `docs` check. No starter rule is mandatory
   rewords the rule in its own rules doc; to replace the check, it declines the rule and writes its
   own in its place.
 
+### 20.6 Mutation checks (`ccp mutate`)
+
+`ccp mutate --run <run_id> --test <id> --mutant <m> [--mutant <m> …]` tells "the test passes" from
+"the test checks something", in any language. It runs in a mutation worktree (`ccp wt create --kind
+mut`, §12.1) and changes nothing else.
+
+- **The product's command.** plane.json `mutate.command` is a shell template that runs one test,
+  `{test}` (required) filled in shell-quoted; exit 0 means the test passed. It runs in the worktree's
+  root, in its own process group, killed after `mutate.timeout_seconds` (default 600); a run killed
+  at the limit counts as the test failing. With no command (`null`, the default) `ccp mutate` refuses
+  (exit 2).
+- **A mutant** is `<file>:<old>=><new>`, the text `old` found exactly once in `file` (a path relative
+  to the worktree's root, inside it) replaced by `new`, or the path of a patch `git apply` takes. A
+  value with no `=>` is a patch. Every mutant is checked before any test runs; one that does not
+  apply refuses the call (exit 2), nothing run.
+- **Killed only when the named test fails.** The test first runs unmutated; when it fails, the call
+  stops (exit 1), nothing applied or recorded. Then each mutant is applied alone, the test runs, and
+  the mutant is `killed` when it exits non-zero and `survived` when it exits 0. Another test the
+  mutant breaks does not count.
+- **The tree is restored** after each mutant: every file it touched is written back byte for byte
+  (a file it made is removed) and checked before the next. A file that cannot be restored stops the
+  call (exit 1). A SIGTERM restores the files and exits 143.
+- **Bound to the calling seat's run.** `--run` names the run, which must be open (not reported or
+  abandoned), and the worktree must be a recorded `mut` worktree of the run's task; otherwise it
+  refuses (exit 2). Each mutant adds a row to the run record's `mutation` list: the test id, the
+  mutant's number, `kind` (`text` or `patch`), the files it touched, a 12-character digest, the
+  outcome, the exit code, the seconds, `timed_out` and the worktree's name; never the mutant's text
+  or the test's output, which goes to `<run record>-mutate.log` beside the run record. The call ends
+  with one `run`/`recorded` event (run id and the counts).
+- **Exit codes:** 0 when every mutant was killed, 1 when one survived.
+
+Choosing mutants is the seat's; the plane ships no mutation operators.
+
 ## 21. Doc checks
 
 ### 21.1 `ccp tasks check`: the task-log rules
