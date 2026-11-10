@@ -73,6 +73,10 @@ Role docs come from the ccp plugin: agents `ccp:delivery-*`, skills
   To direct the runner's next tasks, the lead runs `ccp tasks prefer <id> [<id>…] --reason "…"`, never a
   "take X next" message: `ccp tasks next` returns the first ready one, and its claim removes only that
   one (SPEC §10.4). A new list replaces the old; `--clear` empties it.
+  **Changes from outside the plane** (another agent, the operator, a tool) reach the integration
+  branch through a task you write (SPEC §10.7). `ccp tasks orphans --since <ref>` lists the
+  commits that merged without one: for each, write an after-the-fact task naming it in `covers:`,
+  so review and verify cover it.
   **The 5-hour session wake** (SPEC §25.4): at the limit your own turn fails too, so arm the wake
   early. On every runner message, and on any 5-hour warning, run `ccp allowance session-wake --sample`.
   When it prints `arm: true`, call CronCreate with its `cron`, `recurring: false` and its `prompt`,
