@@ -92,6 +92,13 @@ The plane defines when the lead must notify the operator (a blocker, a decision 
   (`action == "set"`), and a `process` that reaches a `needs_operator` answer its event log already
   holds sends no second decision (`not already`). Outside the declared paths: `docs/adr/`,
   `docs/spec/03-quality.md`, `scripts/observability/architecture_review.py`, `tests/test_architect.py`.
+- Fix round 3 (lead's instruction; review-3 MINOR-1, verify-2): ADR-0037's Context no longer names
+  the source proposal's id or a date; it says the plane triaged a proposal to this effect from a
+  managed product's tool proposals, and the operator's approval of this task's merge gate is the
+  decision. ADR-0037 is `accepted` (`ccp adr status 0037 accepted`, a dated note: the acceptance is
+  the operator's approval of this PR at its merge gate), so main never carries a proposed ADR that
+  supersedes an accepted one; D1 and D2 are recorded `built` (`ccp adr decide`), since this PR builds
+  both. INDEX.md regenerated with `ccp adr index`.
 
 ## Verification notes
 

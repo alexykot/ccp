@@ -1,13 +1,16 @@
 ---
 id: ADR-0037
 title: "The plane names when the operator is notified; the product names the channel"
-status: proposed
+status: accepted
 date: "2026-11-10"
 deciders: operator
 spec_refs: [S3, S17]
 amends: ["ADR-0034 D13"]
-notes: "Proposed with task 0040; the operator's approval of that task's PR, its merge gate (SPEC §31), accepts it."
+notes: |-
+  Proposed with task 0040; the operator's approval of that task's PR, its merge gate (SPEC §31), accepts it.
+  2026-11-10: status proposed → accepted: the operator's approval of task 0040's PR at its merge gate (SPEC §31)
 supersedes: ["ADR-0004 D5"]
+decisions: ["D1 built", "D2 built"]
 ---
 # ADR-0037 — The plane names when the operator is notified; the product names the channel
 
@@ -16,9 +19,10 @@ supersedes: ["ADR-0004 D5"]
 ADR-0004 D5 said nothing sends email, and ADR-0034 D13 repeated it for credit problems: whatever
 needs the operator is raised in the lead's session. Every operator needs to hear about blockers and
 decisions, but how depends on the operator's setup, not the plane, so a product that wanted another
-channel had to override a plane rule. The operator accepted plane proposal 72a5 on 2026-11-09: the
-plane defines when the operator is notified, and a product setting names the channel. Task 0040
-builds it; its approval is that task's merge gate.
+channel had to override a plane rule. The plane triaged a proposal to this effect from a managed
+product's tool proposals: the plane defines when the operator is notified, and a product setting
+names the channel. Task 0040 builds it; the operator's approval of task 0040's merge gate is the
+decision.
 
 ## Decision
 
