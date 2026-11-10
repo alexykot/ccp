@@ -451,6 +451,8 @@ A pack is a module in `ccp/doclang/`.
 root, exit 0 = pass, like `architect.checks` (§20.1) but not tied to a house rule. A failure is
 reported as `docs check <id>` (a house-rule check as `check <id>`). Both kinds run in their own
 process group, killed whole on timeout, and keep the last 20,000 characters of output.
+`docs.workers` (default 1) is how many check commands (`docs.checks` and `architect.checks`) run at
+once, each under its own timeout; results are reported in declared order.
 
 ### 21.6 Opt-in generic rules (`package_docs.rules`)
 
