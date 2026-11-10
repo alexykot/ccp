@@ -246,8 +246,9 @@ Non-normative notes behind SPEC §10. The rules are in `docs/spec/04-observabili
     3. **Backlog:** tasks done and ADR tiles, the ADR register, burn-up, the dependency graph.
     4. **Queue:** Now in detail (workers, waits, gates, questions), the ready queue, review points,
        the task board, refactors waiting.
-    5. **Plane health:** sources, attribution, script drift, open proposals, queue against the task
-       log, the last rebuild failure, and the allowance with this week's checkpoint decisions.
+    5. **Plane health:** sources, attribution, script drift, open proposals (a stale one flagged and
+       counted among the tab's warnings, §31.4), queue against the task log, the last rebuild
+       failure, and the allowance with this week's checkpoint decisions.
     A tab label carries a count where it helps: seats off their pin (Performance), reports
     awaiting triage (Quality), ready tasks (Queue), plane warnings (Plane health).
   - **Drill-down:** `#tab=<name>&task=<id>`. On a screen 1600 px or wider it opens as a drawer

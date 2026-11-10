@@ -83,6 +83,18 @@ class Layout(Fixture, unittest.TestCase):
             self.assertNotIn(raw, html)
         self.assertNotIn(HOSTILE, html)
 
+    def test_a_stale_proposal_is_flagged_in_plane_health_and_counts_in_its_badge(self):
+        self.seed()
+        b = self.build()[0]
+        b["health"]["proposals_open"] = [{"id": "pp-old", "need": "old need", "again": 0, "stale": True},
+                                         {"id": "pp-new", "need": "new need", "again": 0, "stale": False}]
+        html, _ = self.page(b, "#tab=health")
+        line = re.search(r"Open ccp proposals: (.*?)</li>", html).group(1)
+        old, new = line.split("; ")
+        self.assertIn("untriaged 7+ days", old)
+        self.assertNotIn("untriaged 7+ days", new)
+        self.assertRegex(html, r'id="tab-health"[^>]*>.*?<span class="badge warn"[^>]*>1</span>')
+
     def test_a_card_that_throws_shows_its_banner_and_the_rest_renders(self):
         self.seed()
         b = self.build()[0]
