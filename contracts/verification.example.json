@@ -8,14 +8,16 @@
     {
       "dod_check_id": "cmd-01",
       "pass": true,
-      "evidence": "ran `app example --dry-run` at the head: exit 0, 3 rows"
+      "evidence": "ran `app example --dry-run` at the head: exit 0, 3 rows",
+      "produced_by": "verifier"
     },
     {
       "dod_check_id": "data-01",
       "ran": false,
       "pass": null,
       "rests_on": "The operator's live run, pasted into the task notes",
-      "evidence": "needs the live store, which the verifier cannot reach"
+      "evidence": "needs the live store, which the verifier cannot reach",
+      "produced_by": "operator"
     }
   ],
   "gate": {

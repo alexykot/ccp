@@ -36,7 +36,8 @@ class CacheFixture(ToolkitFixture):
         rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", project_id="demo", head_sha="a" * 40)
         rec.pop("checked_at", None)
-        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it"}]
+        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",
+                          "produced_by": "verifier"}]
         rec["gate"] = {"runs": gate_runs}
         f = Path(self._tmp.name) / "verdict.json"
         f.write_text(json.dumps(rec))

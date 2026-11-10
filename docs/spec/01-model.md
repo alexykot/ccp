@@ -79,7 +79,10 @@ tasks.
 ### 2.3 Separation of duties
 
 - **No combined seats.** A seat does not take another seat's duties.
-- **The seat that rules does not produce the evidence it is judged on** (§15).
+- **The seat that rules never produces the evidence it rules on.** The seats that rule on a task are
+  the lead and the runner at a gate. Evidence either produced does not count, except an operator step
+  the operator approved (an approved `operator` gate, §17.9). The verify record names the seat that
+  produced each piece of evidence, and `ccp verify` holds it to this rule (§15.4).
 - Authority granted in a role's instructions applies only to that role.
 
 ### 2.4 Models, effort and tools

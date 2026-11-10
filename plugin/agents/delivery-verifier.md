@@ -40,6 +40,15 @@ and scenario checks pass, no test expectation changed unless the task names it, 
 - A check someone else ran where you cannot (a Mac-only step whose output is in the task's notes)
   is `ran: false`, `pass: null`, with `rests_on` naming whose claim it rests on. It is neither a
   pass nor a fail; say in `findings` whether your verdict relies on it.
+- Every check names the seat that produced its evidence: `produced_by` (`verifier` for what you ran,
+  else `implementer`, `reviewer`, `architect`, `operator`, `runner` or `lead`). The seat that rules on
+  the task never produces the evidence it rules on (SPEC §2.3, §15.4): `record` refuses evidence the
+  lead or the runner produced unless it came from an operator step the operator approved, with
+  `operator_step` naming that approved `operator` gate (`<task_id>-<n>`). Evidence the ruling seat
+  produced with no approved step proves nothing: run the check yourself, or reject.
+- A ruling is not evidence. A check the owner's ruling closed is `ran: false`, `rests_on` naming
+  the ruling; its `produced_by` names the seat whose evidence the ruling weighed, never `lead`, and
+  is left out when no evidence underlies the waiver.
 - A re-verify after a fix-up, or after that head moved, uses `contracts/reverify_packet.schema.json`
   (example `contracts/reverify_packet.example.json`). Judge the packet's `head_sha` and write it
   on the new verdict.
