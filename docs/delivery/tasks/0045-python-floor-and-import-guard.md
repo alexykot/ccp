@@ -1,7 +1,7 @@
 ---
 task_id: 0045-python-floor-and-import-guard
 title: The declared Python floor matches what runs the plane
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S29"]
@@ -62,4 +62,4 @@ The Python version the plane declares matches the interpreter that runs it. laun
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #40 head `55bcd9e` (squash `07a50eb`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0045-python-floor-and-import-guard.json.
