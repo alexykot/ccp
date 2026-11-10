@@ -1,14 +1,14 @@
 ---
 task_id: 0034-starter-house-rules
 title: The plane ships an optional starter set of house rules
-status: pending
+status: done
 kind: feature
 depends_on: [0033-package-doc-convention-owned-by-the-plane]
 spec_refs: ["S20"]
 review_point: R3
 paths: ["docs/", "templates/", "ccp/", "tests/"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0034-starter-house-rules
@@ -75,4 +75,4 @@ The plane ships a starter set of generic house rules a product may adopt or decl
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #28 head `76da352` (squash `9e6fe63`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0034-starter-house-rules.json.

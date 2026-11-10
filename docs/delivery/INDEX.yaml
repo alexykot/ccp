@@ -168,7 +168,7 @@ tasks:
     depends_on: []
     path: tasks/0033-package-doc-convention-owned-by-the-plane.md
   - id: 0034-starter-house-rules
-    status: pending
+    status: done
     title: The plane ships an optional starter set of house rules
     depends_on: [0033-package-doc-convention-owned-by-the-plane]
     path: tasks/0034-starter-house-rules.md
