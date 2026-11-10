@@ -477,9 +477,9 @@ has a `Suite:` line but no suite run is recorded for its run.
 `suite_id`, and a `suite/recorded` event at the end. Numbers, ids and short labels only: the lane,
 the output mode (`output`), the command's basename and argument count; the `ended` row adds `tests`,
 `failed`, `skipped`, `ran`, `cached`, `cached_tests` (null when not found), `counts_from`, summary
-mode's `log` path and, for a lane plane.json names, `stages` and `failed_stage` (§14.3). A staged
+mode's `log` path, `cold` (§14.6) and, for a lane plane.json names, `stages` and `failed_stage` (§14.3). A staged
 lane's `started` row has `cmd` `stages` and its stage count as `argc`. Never the command's arguments,
-never its output; the event carries the numbers and the stages, not the path. A row naming `modules_ran` and `modules_cached` reads as `ran` and `cached`.
+never its output; the event carries the numbers, `cold` and the stages, not the path. A row naming `modules_ran` and `modules_cached` reads as `ran` and `cached`.
 
 - **Reports cite them.** `Suite: from <suite_id>`, the preferred form, takes the tests, seconds and
   units ran and cached of that run, which must be recorded against the report's run and have ended
@@ -513,6 +513,27 @@ When a command is given after `--`, it runs and its exit code is returned even w
 not set, there is no git checkout, `plane.json` is unreadable, an option is wrong (a bad `--lane`
 label or `--phase`, an unknown flag) or a write fails. `ccp` prints one `ccp suite:` warning and
 records nothing more. Only with no command to run does it exit 2.
+
+### 14.6 The gate fits the agent's shell limit
+
+An agent runs the gate in its own foreground shell, which its harness ends at a fixed limit (600 s in
+Claude Code). A cold gate run must fit that limit with room to spare.
+
+- **Knobs:** plane.json `gate.shell_limit_seconds` (default 600), the harness's limit, and
+  `gate.cut_line_seconds` (default null: 90% of the limit), the line below it; the line is at most
+  the limit.
+- **Every run records whether it was cold:** the `ended` row and its event carry `cold`: `true` when
+  the run counted nothing cached (`cached` 0), `false` when any unit was cached, null when it gave no
+  `cached` count. A command's own `cold` in its result file is ignored.
+- **Judged on cold runs only.** `ccp health` judges the latest cold run of the gate role's lane,
+  cold as §27.2 decides (passed, counted tests, and nothing cached or no test cache yet). Warm,
+  unverified, failed, interrupted and killed runs, and other lanes' runs, are not judged.
+- **Over the line** (longer than `cut_line_seconds`), `ccp health` reports the run (its suite id,
+  task and start), its seconds, the line, the limit and its slowest stage (§14.2; none for a run
+  with no stage timings), and the gate gets a refactor task (§20.3) that brings its cold run under
+  the line. **Over the limit** it is reported as a health breach (`over_limit`). Under the line it
+  reports nothing. `ccp health --json` carries it as `gate_time` (`finding` null when there is none),
+  and the architect's health summary carries the same line.
 
 ## 15. Review, verification and merge
 

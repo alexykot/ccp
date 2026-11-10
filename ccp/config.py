@@ -167,6 +167,11 @@ TELEMETRY_DEFAULTS: dict[str, Any] = {"otel_port": 4318, "allowance_cmd": None, 
                                       # allowance_stop_weekly; five_hour: session, parking at session_park_pct)
                                       "windows": None}
 BOARD_DEFAULTS: dict[str, Any] = {"refresh_minutes": 5}
+# §14.6 the gate's time: `shell_limit_seconds` is the agent harness's foreground command limit, which a
+# cold gate run must fit; `cut_line_seconds` (null: 90% of the limit) the lower line above which the
+# gate is cut down. `ccp health` judges the latest cold gate run against both.
+GATE_DEFAULTS: dict[str, Any] = {"shell_limit_seconds": 600, "cut_line_seconds": None}
+GATE_CUT_SHARE = 0.9  # the cut line's default, as a share of the limit
 # §26.3 estimation: `reference_since` (YYYY-MM-DD, or null) leaves tasks merged before a process change
 # out of every reference class; `k` is the reference class's size (5 to 8).
 ESTIMATE_DEFAULTS: dict[str, Any] = {"reference_since": None, "k": 6, "auto": False,  # auto: §26.3 phase B triggers
@@ -269,6 +274,7 @@ class Config:
     auth_check: dict[str, Any] | None = None
     telemetry: dict[str, Any] | None = None
     board: dict[str, Any] | None = None
+    gate: dict[str, Any] | None = None
     suite: dict[str, Any] | None = None
     adr: dict[str, Any] | None = None
     verify: dict[str, Any] | None = None
@@ -343,6 +349,14 @@ def config_warnings(cfg: Any) -> list[str]:
     """What plane.json says that is accepted but has no effect, for `ccp tasks check` to show."""
     return [f"{CONFIG_REL}: suite.summary.{old} is ignored: {SUITE_SUMMARY_ALIASES[old]} is given too and wins "
             "(remove the old name, §14.1)" for old in getattr(cfg, "suite_aliases_ignored", ())]
+
+
+def gate_limits(cfg: Any) -> tuple[float, float]:
+    """(the shell limit, the cut line) in seconds (plane.json `gate`, §14.6); the defaults without one."""
+    g = (getattr(cfg, "gate", None) or GATE_DEFAULTS) if cfg is not None else GATE_DEFAULTS
+    limit = g.get("shell_limit_seconds") or GATE_DEFAULTS["shell_limit_seconds"]
+    cut = g.get("cut_line_seconds")
+    return limit, (cut if cut is not None else round(limit * GATE_CUT_SHARE, 3))
 
 
 def lane_for(cfg: Any, role: str) -> str:
@@ -552,6 +566,7 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
            "auth_check": _merge(AUTH_CHECK_DEFAULTS, raw.get("auth_check"), "auth_check"),
            "telemetry": _merge(TELEMETRY_DEFAULTS, raw.get("telemetry"), "telemetry"),
            "board": _merge(BOARD_DEFAULTS, raw.get("board"), "board"),
+           "gate": _merge(GATE_DEFAULTS, raw.get("gate"), "gate"),
            "suite": _suite(raw.get("suite")),
            "verify": _merge(VERIFY_DEFAULTS, raw.get("verify"), "verify"),
            "review_points": _merge(REVIEW_POINTS_DEFAULTS, raw.get("review_points"), "review_points"),
@@ -710,6 +725,12 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     rm = out["board"]["refresh_minutes"]
     if isinstance(rm, bool) or not isinstance(rm, int) or rm < 1:
         bad.append("board.refresh_minutes must be an integer >= 1")
+    lim, cut = out["gate"]["shell_limit_seconds"], out["gate"]["cut_line_seconds"]
+    if not (_num(lim) and lim > 0):
+        bad.append("gate.shell_limit_seconds must be a number of seconds above 0")
+    elif cut is not None and not (_num(cut) and 0 < cut <= lim):
+        bad.append("gate.cut_line_seconds must be a number of seconds above 0, at most gate.shell_limit_seconds, "
+                   "or null for 90% of it")
     lanes = out["suite"]["lanes"]
     if not isinstance(lanes, dict) or not all(
             isinstance(k, str) and SUITE_LANE_RE.match(k) and (_str_list(v) and v or lane_stages(v) is not None)
@@ -876,7 +897,7 @@ def load(root: Path) -> Config:
         raise ConfigError(f"{CONFIG_REL}: project_id {raw['project_id']!r} is not lowercase letters, digits and hyphens")
     unknown = sorted(set(raw) - {"$schema", "_note", "project_id", "task_log", "package_docs", "architect",
                                  "prompts", "reconcile", "adapter", "worktrees", "env", "merge",
-                                 "auth_check", "telemetry", "board", "suite",
+                                 "auth_check", "telemetry", "board", "gate", "suite",
                                  "adr", "verify", "review_points", "estimate", "parallel", "ids", "docs"})
     if unknown:
         raise ConfigError(f"{CONFIG_REL}: unknown top-level key(s): {', '.join(unknown)}")

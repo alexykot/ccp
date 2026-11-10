@@ -526,6 +526,8 @@ and `cached`.
   on, cold needs evidence.
 - Failed, interrupted and killed runs are in no series. Warm, part, unverified and duplicate entries
   never enter the cold series. `ccp health` shows each series apart (`suite` in `--json`).
+- **Gate time:** `ccp health` judges the latest cold gate run against the shell limit and the
+  cut line (§14.6; `gate_time` in `--json`).
 
 ## 28. The board
 

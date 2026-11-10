@@ -25,7 +25,7 @@ command follows are in the SPEC, not here.
 | `ccp estimate accuracy [--json]` | The accuracy panel |
 | `ccp estimate calibration [--json]` | The calibration factors and rolling check (§26.6) |
 | `ccp forecast [--point R<n> \| --backlog] [--json]` | The completion forecast and allowance projection (§26.4) |
-| `ccp health [--json]` | Measurements and suite series (§27) |
+| `ccp health [--json]` | Measurements, suite series (§27) and the gate's time against the shell limit (§14.6) |
 | `ccp health record --task <id> --metric <name>=<n>` | Record a product metric |
 | `ccp health note --text TEXT` | Record a friction note |
 

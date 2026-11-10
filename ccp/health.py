@@ -20,6 +20,9 @@ Everything comes from data the plane already holds; nothing here is a target or 
   unit cached is `suite_seconds_warm`, a run in any other lane `suite_seconds_part`, and one that
   cannot be shown cold or warm `suite_seconds_unverified`. Only a run with no suite record falls back
   to its `Suite:` line.
+- **gate time** (§14.6): the latest cold run of the gate role's lane, from `runs/_suites.jsonl`, against
+  plane.json `gate`'s cut line and shell limit; over the line it is reported with its slowest stage,
+  over the limit as a breach. Warm and unverified runs are not judged.
 
 A task's **active time** is its wall time less the time it waited (`waits_s`): every `waiting_on`
 interval, set to clear, whatever it waited on (§23.3's waits; an open one runs to the merge), and its
@@ -419,6 +422,53 @@ def suite_trend(entries: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
+def gate_time(cfg: Config | None, q: Path, rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """The gate's time against the agent's shell limit (§14.6): the latest cold run of the gate role's
+    lane (cold as §27.2 decides: passed, counted tests, nothing cached or no test cache yet), judged
+    against plane.json `gate`'s cut line and limit. `finding` is that run when it took longer than the
+    line (`over_limit` when longer than the limit, a health breach), with its slowest stage; else None.
+    Warm and unverified runs are never judged."""
+    from ccp.config import gate_limits, lane_for  # noqa: PLC0415
+    limit, line = gate_limits(cfg)
+    lane = lane_for(cfg, "gate")
+    rows = _folded(q) if rows is None else rows
+    mine = [s for s in rows if s.get("lane") == lane and s.get("state") == "passed"]
+    start = cache_start(cfg, q, rows) if mine else None
+
+    def cache_then(s: dict[str, Any]) -> bool:
+        return start is not None and (_epoch(str(s.get("started_at") or "")) or 0) >= start
+
+    cold = [s for s in mine if classify(s, cache_then(s), lanes=(lane,)) == "cold"
+            and isinstance(s.get("seconds"), (int, float)) and not isinstance(s.get("seconds"), bool)]
+    latest = cold[-1] if cold else None
+    finding = None
+    if latest is not None and latest["seconds"] > line:
+        stages = [st for st in latest.get("stages") or [] if isinstance(st, dict)
+                  and isinstance(st.get("seconds"), (int, float)) and not isinstance(st.get("seconds"), bool)]
+        slow = max(stages, key=lambda st: st["seconds"], default=None)
+        finding = {"suite_id": latest.get("suite_id"), "task_id": latest.get("task_id"), "run_id": latest.get("run_id"),
+                   "started_at": latest.get("started_at"), "seconds": _seconds(latest["seconds"]),
+                   "over_limit": latest["seconds"] > limit,
+                   "slowest_stage": {"name": slow.get("name"), "seconds": _seconds(slow["seconds"])} if slow else None}
+    return {"lane": lane, "limit_s": limit, "line_s": line, "cold_runs": len(cold),
+            "latest": {"suite_id": latest.get("suite_id"), "seconds": _seconds(latest["seconds"])} if latest else None,
+            "finding": finding}
+
+
+def gate_text(g: dict[str, Any] | None) -> str | None:
+    """One line for a gate-time finding (§14.6), or None when there is none."""
+    f = (g or {}).get("finding")
+    if not f:
+        return None
+    slow = f.get("slowest_stage")
+    where = f"slowest stage {slow['name']} {slow['seconds']:g} s" if slow else "no stage timings recorded"
+    head = (f"Gate over the shell limit (a health breach): cold gate run {f['suite_id']}" if f["over_limit"]
+            else f"Gate over the cut line: cold gate run {f['suite_id']}")
+    return (f"{head} ({f.get('task_id') or 'no task'}, {f.get('started_at') or '-'}) took {f['seconds']:g} s;"
+            f" cut line {g['line_s']:g} s, shell limit {g['limit_s']:g} s; {where}."
+            " It calls for a refactor task that brings the cold gate under the line (§14.6).")
+
+
 def _report_line(q: Path, run: dict[str, Any]) -> str | None:
     """The `Suite:` line of a run's stored report, if any."""
     from ccp import runs  # noqa: PLC0415
@@ -635,6 +685,10 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
                            "queue": str(q) if q else None}
     if files:
         out["budget_failures"] = budget_failures(cfg)  # diagnostics; `ccp architect due` makes them a trigger
+        try:  # §14.6: a damaged suites file or report never breaks health
+            out["gate_time"] = gate_time(cfg, q) if q else None
+        except Exception:  # noqa: BLE001
+            out["gate_time"] = None
     return out
 
 
@@ -657,6 +711,8 @@ def summary_text(report: dict[str, Any], n: int = 10) -> str:
         lines.append("Suite time (ccp suite records): " + "; ".join(
             [one("cold", "cold (the suite's time)"), one("warm", "warm (units cached)"), one("part", "part lane")])
             + f"; {(st.get('unverified') or {}).get('runs', 0)} unverified, in no series.")
+    if gt := gate_text(report.get("gate_time")):
+        lines.append(gt)
     for r in report["tasks"][-n:] if n else []:
         lines.append(f"- {r['task_id']}: merged {r['merged_at']}, wall {_h(r.get('wall_s'))}, active {_h(r.get('active_s'))}"
                      f" (impl {_h(r.get('implementing_s'))},"
