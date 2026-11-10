@@ -48,6 +48,19 @@ updated: 2026-11-09
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): The lint runs in config validation (`config._architect` via
+  `_check_overlaps`), so `ccp` refuses an overlapping `architect` block with exit 2 on every command,
+  `ccp docs check` included. There is no `ccp architect check` command, and none was added. Selectors
+  come from each check's `cmd`: dotted names and `tests/…py[::Case[::test]]` paths
+  (`docrules.test_selectors`, next to the opt-in rule's `test_modules`, using the same patterns).
+  Two checks overlap when a selector of one equals or contains, by dotted component, a selector of
+  the other. The refusal names both check ids and the narrower selector. Two different classes of
+  one module do not overlap. `discover` and directories resolve to nothing and are not judged. Only
+  `architect.checks` is linted. The opt-in `package_docs.rules.no_overlap` (module level, both check
+  lists) is unchanged. A managed product's current `architect.checks` loads clean (checked
+  read-only). The §19.11 paragraph is the implementer's draft: the task named no SPEC text (see the
+  report).
+
 ## Verification notes
 
 *Append-only.*

@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -268,6 +269,38 @@ class ArchitectConfig(unittest.TestCase):
             with self.subTest(block=block):
                 with self.assertRaisesRegex(config.ConfigError, needle.replace("(", r"\(").replace(")", r"\)")):
                     self.load(block)
+
+    def test_checks_that_select_the_same_tests_are_refused(self):
+        for cmds, shared in (
+                (["python3 -m unittest tests.test_a", "python3 -m unittest tests.test_a"], "tests.test_a"),
+                (["python3 -m unittest tests.test_a", "pytest tests/test_a.py::Case"], "tests.test_a.Case"),
+                (["python3 tests/test_a.py", "python3 -m unittest tests.test_a.Case.test_one"],
+                 "tests.test_a.Case.test_one")):
+            with self.subTest(cmds=cmds):
+                with self.assertRaises(config.ConfigError) as cm:
+                    self.load({"checks": [{"id": "E1", "cmd": cmds[0]}, {"id": "E2", "cmd": cmds[1]}]})
+                self.assertRegex(str(cm.exception), rf"\bE1\b.*\bE2\b.*\b{re.escape(shared)}(?![\w.])")
+
+    def test_an_overlapping_config_fails_docs_check(self):
+        p = Product({"architect": {"checks": [{"id": "E1", "cmd": "python3 -m unittest tests.test_a"},
+                                              {"id": "E2", "cmd": "python3 -m unittest tests.test_a"}]}})
+        try:
+            err = io.StringIO()
+            with redirect_stdout(io.StringIO()), redirect_stderr(err):
+                code = cli.main(["--root", str(p.root), "docs", "check"])
+            self.assertEqual(code, 2)
+            self.assertRegex(err.getvalue(), r"\bE1\b.*\bE2\b.*\btests\.test_a(?![\w.])")
+        finally:
+            p.cleanup()
+
+    def test_checks_that_select_different_tests_load(self):
+        for cmds in (["python3 -m unittest tests.test_a", "python3 -m unittest tests.test_b"],
+                     ["python3 -m unittest tests.test_a.One", "pytest tests/test_a.py::Two"],
+                     ["python3 -m unittest tests.test_a", "python3 -m unittest tests.test_ab"],
+                     ["python3 -m unittest discover -s tests", "true"]):
+            with self.subTest(cmds=cmds):
+                a = self.load({"checks": [{"id": "E1", "cmd": cmds[0]}, {"id": "E2", "cmd": cmds[1]}]}).architect
+                self.assertEqual([c["id"] for c in a["checks"]], ["E1", "E2"])
 
     def test_example_binding_from_the_spec_loads(self):
         a = self.load({"rules_doc": "docs/ENGINEERING.md", "rules_max_lines": 150, "every_n_tasks": 4, "max_days": 14,
