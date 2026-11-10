@@ -177,7 +177,8 @@ RULING_SEATS = ("lead", "runner")
 
 def _operator_step_refusal(queue: Path, task_id: str, step: str) -> str | None:
     """Why `step` is not an approved operator step of `task_id`, or None when it is: the gate file
-    `escalations/<task_id>/<n>.json` (§17.9) is closed, approved and of class `operator`."""
+    `escalations/<task_id>/<n>.json` (§17.9) names this task and step, is closed, approved and of
+    class `operator`."""
     prefix = f"{task_id}-"
     n = step[len(prefix):] if step.startswith(prefix) else ""
     if not n.isdigit() or not SAFE_ID_RE.match(task_id):
@@ -189,6 +190,9 @@ def _operator_step_refusal(queue: Path, task_id: str, step: str) -> str | None:
         return f"operator_step {step!r}: no gate file escalations/{task_id}/{n}.json"
     if not isinstance(gate, dict):
         return f"operator_step {step!r}: the gate file is not an object"
+    if gate.get("task_id") != task_id or gate.get("escalation_id") != step:
+        return (f"operator_step {step!r}: the gate file names task {gate.get('task_id')!r} and step "
+                f"{gate.get('escalation_id')!r}, not this task and step")
     if gate.get("class") != "operator":
         return f"operator_step {step!r} is a {gate.get('class')!r} gate, not an operator step"
     if gate.get("status") != "closed" or gate.get("decision") != "approved":

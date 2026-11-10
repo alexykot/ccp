@@ -712,8 +712,8 @@ a product credential.
   The task may merge code-only, the step listed as a follow-up. A parked step, and any check needing
   that machine, runs in a worktree of its own at the PR head (`ccp wt create --kind mac`), never in
   the main checkout.
-- **The seat that rules does not produce its evidence.** The lead never runs a task's checks, and the
-  runner runs one only as an approved operator step; the verify record names each check's producer
+- **The seat that rules does not produce its evidence.** The lead or the runner runs a task's check
+  only as an approved operator step; the verify record names each check's producer
   and `ccp verify` refuses a ruling seat's evidence otherwise (§2.3, §15.4).
 - **Shaping waivers.** The task-log owner never writes a shape of its own (§19.5). A task citing an
   ADR with no shaping record waits for the architect's shape unless its frontmatter carries `shaping: waived — <reason>`.

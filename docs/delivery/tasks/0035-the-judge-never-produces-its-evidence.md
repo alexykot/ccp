@@ -60,6 +60,12 @@ Separation of duties becomes a plane rule: the seat that rules on a task (the le
   producer: §15.1 makes them the verifier's own. SPEC §2.3, §15.4 and §15.8 drafted for the operator's
   approval; the verifier and runner briefs state the rule. Tests: `tests/test_verify_producer.py`;
   existing fixtures recorded through `ccp verify record` now name `produced_by: verifier`.
+- 2026-11-10 (implementer, fix round 1): the gate file an `operator_step` names must itself name
+  this task (`task_id`) and this step (`escalation_id`), so a file under the task's directory that
+  belongs to another gate is refused. SPEC §15.8 PROPOSED now says the lead or the runner runs a
+  check only as an approved operator step, matching §2.3, §15.4 and the code (it said the lead never
+  does). Review MINOR 3 (a check closed by a ruling with no underlying evidence) is left for the
+  lead's ruling.
 
 ## Verification notes
 

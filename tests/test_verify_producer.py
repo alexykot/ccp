@@ -115,6 +115,8 @@ class Producer(unittest.TestCase):
             (self.gate(4, **{"class": "spend"}), "not an operator step"),
             (f"{TASK}-9", "no gate file"),
             (self.gate(1, task="0002-b"), "is not a gate of this task"),
+            (self.gate(5, task_id="0002-b"), "not this task and step"),
+            (self.gate(6, escalation_id=f"{TASK}-1"), "not this task and step"),
             (TASK, "is not a gate of this task"),
             (f"{TASK}-x", "is not a gate of this task"),
         )
