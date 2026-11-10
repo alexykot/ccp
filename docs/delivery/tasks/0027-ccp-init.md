@@ -2,14 +2,14 @@
 task_id: 0027-ccp-init
 renamed_from: 0027-cpl-init
 title: ccp init scaffolds a product and writes its binding from one source of truth
-status: pending
+status: done
 kind: feature
 depends_on: ["0026-readme-homepage"]
 spec_refs: ["S4", "S8"]
 review_point: R1
 paths: ["ccp/", "scripts/team.sh", "scripts/observability/lib.py", "docs/spec/01-model.md", "docs/cli/", "README.md", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # Task: 0027-ccp-init
@@ -129,4 +129,4 @@ sees the same values. The README's manual adoption steps shrink to that command.
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #10 head `2efd30a` (squash `910ce99`): APPROVE. Passed: init-01, init-02, init-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0027-ccp-init.json.

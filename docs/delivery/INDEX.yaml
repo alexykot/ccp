@@ -133,7 +133,7 @@ tasks:
     depends_on: []
     path: tasks/0026-readme-homepage.md
   - id: 0027-ccp-init
-    status: pending
+    status: done
     title: ccp init scaffolds a product and writes its binding from one source of truth
     depends_on: [0026-readme-homepage]
     path: tasks/0027-ccp-init.md
