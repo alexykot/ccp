@@ -49,6 +49,14 @@ updated: 2026-11-06
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): `ccp tasks claim` no longer writes work.json `lease`; the lease is the task's own
+  (`tasks/<id>.json` `lease_holder`). Claim (`save_work(drop=...)`), `_leave_work` (release, drop, sync) and
+  close remove an old file's top-level `lease`, whichever task it names; `_leave_work` now writes when only
+  that key is there, so the early return no longer leaves it behind. The forecast's `_flight_elapsed` still
+  reads an old file's `lease` (after `claimed_at`), commented as the tolerant reader (E9). `code-01` now
+  shows that single hit. Open: SPEC §16.4 still names `lease` among work.json's "acted on last" fields; the
+  task carries no SPEC edit, so it is left for the lead.
+
 ## Verification notes
 
 *Append-only.*
