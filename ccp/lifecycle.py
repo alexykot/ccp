@@ -817,6 +817,27 @@ def _push(cfg: Config, integ: str) -> None:
         raise _Moved(f"git push: {(r.stderr or r.stdout).strip()[:200]}")
 
 
+def reconcile_subject(cfg: Config, tid: str, pr: str, merge: str) -> str:
+    """The subject of the commit `close` writes for its reconcile (§10.5); `reconcile_re` reads it back."""
+    return f"Reconcile {refs.ids(cfg).task_number(tid)}: done (PR #{pr}, squash {merge[:7]})"
+
+
+def reconcile_re(cfg: Config) -> re.Pattern[str]:
+    """A reconcile subject as `reconcile_subject` writes it; group 1 is the task's number (§10.7)."""
+    w = refs.ids(cfg).task_width
+    return re.compile(rf"^Reconcile ([0-9]{{{w}}}): done \(PR #[0-9]+, squash [0-9a-f]{{7,40}}\)$")
+
+
+def task_log_paths(cfg: Config) -> list[str]:
+    """The task log's paths, relative to the product root: its task files, INDEX.yaml and the
+    reconcile log when the product keeps one (§16.5 rule 4, §10.7)."""
+    out = [cfg.rel(cfg.tasks_dir), cfg.rel(cfg.index_path)]
+    log = (cfg.reconcile or {}).get("log") or {}
+    if isinstance(log, dict) and log.get("path"):
+        out.append(str(log["path"]))
+    return out
+
+
 class Unjudged(Exception):
     """behind_tip could not judge: `what` is "tip" (origin/<integ> could not be fetched) or "head" (the head
     could not be found, locally or fetched)."""
@@ -841,11 +862,7 @@ def behind_tip(cfg: Config, pr: str | None, tid: str, head: str, integ: str) -> 
                 break
         else:
             raise Unjudged("head", f"the head {head[:7]} could not be fetched")
-    skip = [cfg.rel(cfg.tasks_dir), cfg.rel(cfg.index_path)]
-    log = (cfg.reconcile or {}).get("log") or {}
-    if isinstance(log, dict) and log.get("path"):
-        skip.append(str(log["path"]))
-    skip += [str(x) for x in ((cfg.merge or {}).get("behind_tip_ignore") or [])]
+    skip = task_log_paths(cfg) + [str(x) for x in ((cfg.merge or {}).get("behind_tip_ignore") or [])]
     r = git(cfg.root, "log", "--format=%h", f"{head}..origin/{integ}", "--", ".", *[f":!{x}" for x in skip])
     return r.stdout.split() if r.returncode == 0 else []
 
@@ -940,7 +957,7 @@ def _reconcile_once(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: st
             raise QueueError("the reconcile fails `ccp tasks check`:\n  " + "\n  ".join(errs[:10]), 1)
         paths = _changed(cfg.root)
         git(cfg.root, "add", "--", *paths, check=True)
-        msg = f"Reconcile {refs.ids(cfg).task_number(tid)}: done (PR #{pr}, squash {merge[:7]})"
+        msg = reconcile_subject(cfg, tid, pr, merge)
         if envvar("CCP_COMMIT_TRAILER"):
             msg += "\n\n" + envvar("CCP_COMMIT_TRAILER")
         git(cfg.root, "commit", "-q", "-m", msg, "--", *paths, check=True)

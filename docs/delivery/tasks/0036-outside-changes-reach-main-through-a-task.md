@@ -1,7 +1,7 @@
 ---
 task_id: 0036-outside-changes-reach-main-through-a-task
 title: Changes made outside the plane reach the integration branch through a task
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S10", "S15"]
@@ -48,6 +48,20 @@ Code or docs changed outside the plane's flow (another agent, the operator direc
 
 *Append-only, newest last.*
 
+- 2026-11-10 — implementer: SPEC §10.7 (new) describes the path, the after-the-fact task (frontmatter
+  `covers:`, a list of commit shas) and `ccp tasks orphans --since <ref> [--json]`; §15.6 rule 7 points
+  to it. The report lives in `ccp/health.py` (`uncovered`, `orphans_main`), reusing `merges` with a
+  `written` flag so a squash names its task only as `Task NNNN: …`; `ccp/lifecycle.py` now holds the
+  reconcile subject (`reconcile_subject`, `reconcile_re`) and the task-log paths (`task_log_paths`,
+  shared with `behind_tip`). Wiring needed `ccp/cli.py` and a row in `docs/cli/02-delivery.md`,
+  outside the declared paths. The lead's orientation and the writing-tasks skill name it.
+  Tests: `tests/test_orphans.py`.
+- 2026-11-10 — implementer (fix round 1): §10.7 no longer promises that review and verify are handed
+  the `covers:` commits (nothing does that); it says the lead names them in the after-the-fact task's
+  Scope and dod_checks, so the workers see them through the task file. §10.7 also says the task log
+  read is the checkout's, so a covering task merged on the remote counts once the checkout has it.
+  §15.6 rule 7 rewrapped to the file's width. SPEC text only; no code or test change.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #32 head `3a7a318` (squash `2406b2e`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0036-outside-changes-reach-main-through-a-task.json.

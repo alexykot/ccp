@@ -16,3 +16,7 @@ review_points:
     goal: Generic concerns found written into a managed product's own docs and tools move into the plane - gate stages, doc conventions, separation of duties, operator sign-off and notification, worker and lead rules, release safety and mutation checks.
     status: current
     opened: "2026-11-10"
+  - id: R4
+    name: follow-ups
+    goal: Fixes and follow-ups found while delivering R1–R3, and generic needs raised since.
+    status: planned

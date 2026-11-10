@@ -178,7 +178,7 @@ tasks:
     depends_on: []
     path: tasks/0035-the-judge-never-produces-its-evidence.md
   - id: 0036-outside-changes-reach-main-through-a-task
-    status: pending
+    status: done
     title: Changes made outside the plane reach the integration branch through a task
     depends_on: []
     path: tasks/0036-outside-changes-reach-main-through-a-task.md
@@ -238,7 +238,7 @@ tasks:
     depends_on: []
     path: tasks/0047-in-force-adr-check-before-verify.md
   - id: 0048-delivery-id-check-false-hits
-    status: pending
+    status: done
     title: The default-on delivery-id check matches only the ids the plane writes
     depends_on: [0033-package-doc-convention-owned-by-the-plane]
     path: tasks/0048-delivery-id-check-false-hits.md
@@ -247,3 +247,58 @@ tasks:
     title: A product without a usage command gets no session-limit check on parallel claims
     depends_on: []
     path: tasks/0049-no-usage-command-no-session-check.md
+  - id: 0050-gate-interrupt-never-passes
+    status: pending
+    title: A gate interrupted between stages never exits 0
+    depends_on: []
+    path: tasks/0050-gate-interrupt-never-passes.md
+  - id: 0051-close-keeps-the-main-checkout-head
+    status: pending
+    title: ccp tasks close never moves the main checkout's HEAD
+    depends_on: []
+    path: tasks/0051-close-keeps-the-main-checkout-head.md
+  - id: 0052-single-runner-worktree
+    status: pending
+    title: ccp creates a single runner's worktree
+    depends_on: []
+    path: tasks/0052-single-runner-worktree.md
+  - id: 0053-run-order-follows-dependencies
+    status: pending
+    title: The run order follows depends_on, not the file number
+    depends_on: []
+    path: tasks/0053-run-order-follows-dependencies.md
+  - id: 0054-stages-get-worktree-fields
+    status: pending
+    title: Gate stages receive the worktree's fields
+    depends_on: []
+    path: tasks/0054-stages-get-worktree-fields.md
+  - id: 0055-merge-and-ruling-rounds
+    status: pending
+    title: Merge-only and ruling rounds are rounds of their own
+    depends_on: []
+    path: tasks/0055-merge-and-ruling-rounds.md
+  - id: 0056-shell-limit-finding-files-a-task
+    status: pending
+    title: A gate over the shell-limit line gets its refactor task
+    depends_on: []
+    path: tasks/0056-shell-limit-finding-files-a-task.md
+  - id: 0057-rules-line-descriptions-and-starter-follow-ups
+    status: pending
+    title: Rules lines take a description; starter-rules follow-ups
+    depends_on: []
+    path: tasks/0057-rules-line-descriptions-and-starter-follow-ups.md
+  - id: 0058-r1-r2-leftovers
+    status: pending
+    title: R1 and R2 leftovers
+    depends_on: []
+    path: tasks/0058-r1-r2-leftovers.md
+  - id: 0059-newer-record-fields-verify-and-close
+    status: pending
+    title: Tasks that add a record field can be verified and closed
+    depends_on: []
+    path: tasks/0059-newer-record-fields-verify-and-close.md
+  - id: 0060-run-the-worktrees-own-ccp
+    status: pending
+    title: Workers can run a worktree's own ccp; §5.2 lists covers
+    depends_on: []
+    path: tasks/0060-run-the-worktrees-own-ccp.md

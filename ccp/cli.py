@@ -1,6 +1,7 @@
 """`ccp` — every command the plane runs inside a product checkout (SPEC §10, §19).
 
   ccp tasks list [--status S] | next [--scope IDS] [--allow-overdue REASON] [--explain] | check | index [--stdout]
+  ccp tasks orphans --since REF [--json]  (the lead: integration-branch commits no task covers, SPEC §10.7)
   ccp docs check
   ccp budgets check --base REF  (house-rule budgets on the files this change grew, SPEC §20.2)
   ccp tasks estimate ID | --all [--max N] [--detach]                           (the estimator seat, SPEC §26.3)
@@ -619,6 +620,11 @@ def cmd_estimate(cfg: config.Config, a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_tasks_orphans(cfg: config.Config, a: argparse.Namespace) -> int:
+    from ccp import health  # noqa: PLC0415
+    return health.orphans_main(cfg, a)
+
+
 def cmd_tasks_backfill(cfg: config.Config, a: argparse.Namespace) -> int:
     """§22.6: one line per done task without a point (task, point, evidence), then the counts; --json the body."""
     from ccp import backfill  # noqa: PLC0415
@@ -854,6 +860,12 @@ def build_parser() -> argparse.ArgumentParser:
                                   "mid-flight is skipped: close it, or release it, first")
     p.add_argument("--dry-run", action="store_true", help="print the planned changes, write nothing")
     p.set_defaults(fn=life)
+    p = t.add_parser("orphans", help="the integration branch's commits since a ref that no task covers: not a task's "
+                                     "merge or reconcile, not named in a task's covers:, changing more than the task "
+                                     "log. Exit 1 when it lists one (SPEC §10.7)")
+    p.add_argument("--since", required=True, help="the ref to list from (its own commit is not listed)")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(fn=cmd_tasks_orphans)
     p = t.add_parser("backfill-review-points",
                      help="stamp review_point into done tasks closed before close stamped it, from the queue's runner "
                           "history; working tree only, never overwrites (SPEC §22.6; needs QUEUE_ROOT)")

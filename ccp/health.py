@@ -24,6 +24,11 @@ Everything comes from data the plane already holds; nothing here is a target or 
   plane.json `gate`'s cut line and shell limit; over the line it is reported with its slowest stage,
   over the limit as a breach. Warm and unverified runs are not judged.
 
+- **uncovered commits** (§10.7, `ccp tasks orphans`): the commits on the integration branch's
+  first-parent history since a ref that no task covers: not a task's merge (the rule above, a squash
+  naming its task only as `Task NNNN: …`, the form the implementer is asked for), not a
+  reconcile commit naming a task, not named in a task's `covers:`, and changing more than the task log.
+
 A task's **active time** is its wall time less the time it waited (`waits_s`): every `waiting_on`
 interval, set to clear, whatever it waited on (§23.3's waits; an open one runs to the merge), and its
 suite runs' waits on an exclusive lane (§16.6: a `started` row's `wait_s`, a `busy` row's `waited_s`
@@ -108,15 +113,22 @@ def _git(root: Path, *a: str) -> str:
     return r.stdout if r.returncode == 0 else ""
 
 
-def merges(cfg: Config, tasks: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
-    """Task merges on HEAD's first-parent history, oldest first."""
+def _written_task_re(width: int) -> re.Pattern[str]:
+    """A squash subject in the form the implement prompt asks for: `Task 0042: …` (§10.7)."""
+    return re.compile(rf"^Task (\d{{{width}}}): ")
+
+
+def merges(cfg: Config, tasks: list[dict[str, Any]] | None = None, rev: str = "HEAD",
+           written: bool = False) -> list[dict[str, Any]]:
+    """Task merges on the first-parent history of `rev` (HEAD, or a range), oldest first. With
+    `written`, a squash names its task only in the form the plane writes (`Task 0042: …`)."""
     tasks = tasks if tasks is not None else tasklog.load(cfg)
     by_num = {refs.ids(cfg).task_number(t.get("task_id")): str(t.get("task_id")) for t in tasks}
     w = refs.ids(cfg).task_width
-    merge_re, branch_re = _merge_task_re(w), _branch_task_re(w)
+    merge_re, branch_re = (_written_task_re(w) if written else _merge_task_re(w)), _branch_task_re(w)
     out = []
     for rec in _git(cfg.root, "log", "--first-parent", "--reverse", "--format=%x01%H%x1f%P%x1f%ct%x1f%s%x1f%b",
-                    "HEAD").split("\x01")[1:]:
+                    rev).split("\x01")[1:]:
         sha, parents, ct, subject, body = (rec.split("\x1f") + [""] * 5)[:5]
         if len(parents.split()) < 2 and not PR_SUFFIX_RE.search(subject):
             continue
@@ -124,6 +136,91 @@ def merges(cfg: Config, tasks: list[dict[str, Any]] | None = None) -> list[dict[
         if m and m.group(1) in by_num:
             out.append({"sha": sha, "task_id": by_num[m.group(1)], "at": int(ct), "subject": subject.strip()})
     return out
+
+
+COVERS_RE = re.compile(r"^[0-9a-f]{7,40}$")  # a `covers:` entry: a commit's sha or a prefix of it (§10.7)
+
+
+def _covers(tasks: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
+    """The commit prefixes the log's tasks name in `covers:` (a dropped task covers nothing), and the
+    entries that are not a sha, as warnings."""
+    named, bad = [], []
+    for t in tasks:
+        for e in tasklog._as_list(t.get("covers")):
+            e = str(e).strip()
+            if not COVERS_RE.match(e):
+                bad.append(f"{t.get('task_id')}: covers {e!r} is not a commit sha (7 to 40 hex digits)")
+            elif t.get("status") != "dropped":
+                named.append(e)
+    return named, bad
+
+
+def _resolve(cfg: Config, ref: str) -> str | None:
+    sha = _git(cfg.root, "rev-parse", "--verify", "-q", f"{ref}^{{commit}}").strip()
+    return sha or None
+
+
+def integration_tip(cfg: Config, q: Path | None) -> str:
+    """§10.7: `origin/<integration branch>` when that ref is here, else the local branch; the branch is
+    the binding's (QUEUE_ROOT), else `main`. Nothing is fetched."""
+    from ccp.queue import integration_branch  # noqa: PLC0415
+    integ = integration_branch(q) if q else "main"
+    return f"origin/{integ}" if _resolve(cfg, f"origin/{integ}") else integ
+
+
+def uncovered(cfg: Config, since: str, tip: str) -> dict[str, Any]:
+    """§10.7: the commits on `tip`'s first-parent history after `since` that no task covers, oldest
+    first. Covered: a task's merge (`merges`), a reconcile commit naming a task of the log, a commit a
+    task not dropped names in `covers:`, and one that changes nothing outside the task log. Raises
+    ValueError for a ref that does not resolve."""
+    from ccp.lifecycle import reconcile_re, task_log_paths  # noqa: PLC0415
+    for ref in (since, tip):
+        if not _resolve(cfg, ref):
+            raise ValueError(f"{ref!r} is not a commit here")
+    tasks = tasklog.load(cfg)
+    rng = f"{since}..{tip}"
+    merged = {m["sha"] for m in merges(cfg, tasks, rng, written=True)}
+    nums = {refs.ids(cfg).task_number(t.get("task_id")) for t in tasks}
+    rec_re = reconcile_re(cfg)
+    named, warnings = _covers(tasks)
+    log = task_log_paths(cfg)
+
+    def in_log(path: str) -> bool:
+        return any(path == x or path.startswith(x.rstrip("/") + "/") for x in log)
+
+    out = []
+    for rec in _git(cfg.root, "log", "--first-parent", "-m", "--reverse", "--name-only",
+                    "--format=%x01%H%x1f%s%x1f", rng).split("\x01")[1:]:
+        sha, subject, files = (rec.split("\x1f") + [""] * 3)[:3]
+        if sha in merged or any(sha.startswith(n) for n in named):
+            continue
+        m = rec_re.match(subject.strip())
+        if m and m.group(1) in nums:
+            continue
+        if all(in_log(f) for f in files.split("\n") if f.strip()):
+            continue
+        out.append({"sha": sha, "subject": subject.strip()})
+    return {"since": since, "tip": tip, "uncovered": out, "warnings": warnings}
+
+
+def orphans_main(cfg: Config, a: Any) -> int:
+    """`ccp tasks orphans --since REF [--json]` (§10.7): exit 0 with nothing listed, 1 with a commit
+    listed, 2 for a ref that does not resolve."""
+    try:
+        r = uncovered(cfg, a.since, integration_tip(cfg, _queue(False)))
+    except ValueError as e:
+        print(f"ccp tasks orphans: {e}", file=sys.stderr)
+        return 2
+    for w in r["warnings"]:
+        print(f"warning: {w}", file=sys.stderr)
+    if a.json:
+        print(json.dumps(r, indent=2))
+    else:
+        for c in r["uncovered"]:
+            print(f"{c['sha'][:7]} {c['subject']}")
+        if not r["uncovered"]:
+            print(f"no uncovered commits on {r['tip']} since {r['since']}")
+    return 1 if r["uncovered"] else 0
 
 
 def numstat(cfg: Config, shas: set[str]) -> dict[str, list[tuple[str, int]]]:
