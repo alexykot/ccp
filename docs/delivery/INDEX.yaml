@@ -232,3 +232,8 @@ tasks:
     title: The test fence clears an inherited QUEUE_ROOT
     depends_on: []
     path: tasks/0046-test-fence-clears-queue-root.md
+  - id: 0047-in-force-adr-check-before-verify
+    status: pending
+    title: The in-force ADR check runs before the verdict, not only at close
+    depends_on: []
+    path: tasks/0047-in-force-adr-check-before-verify.md
