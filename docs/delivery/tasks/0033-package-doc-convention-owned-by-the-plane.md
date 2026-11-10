@@ -1,14 +1,14 @@
 ---
 task_id: 0033-package-doc-convention-owned-by-the-plane
 title: The plane owns the package-doc convention
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S9", "S21"]
 review_point: R3
 paths: ["ccp/", "docs/spec/", "plugin/", "tests/"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0033-package-doc-convention-owned-by-the-plane
@@ -77,4 +77,4 @@ The package-doc system becomes a plane feature with one definition: the tiers (t
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #26 head `c1815bf` (squash `526e74a`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0033-package-doc-convention-owned-by-the-plane.json.
