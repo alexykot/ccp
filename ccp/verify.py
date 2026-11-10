@@ -36,6 +36,10 @@ verify run carries the override `ccp prompt verify --allow-unreviewed-fix` recor
 `skip_review` proved for that head: a product with `verify.skip_review` lets a fix whose diff touches only
 the declared paths, and that the product's proof command passes, go to verify with no new review.
 
+Under `adr.strict`, `record` also refuses an approve of a head on which a decision the task's `adr_refs`
+cite is still recorded `not_built` (§6.7's in-force check, run before the verdict rather than only once
+close has marked the task done), naming the decision and the `ccp adr decide` that flips it.
+
 A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_round`) carries the
 runner's `--note` as its reason; `record` adds that reason to the record's `findings` when no finding
 holds it yet (`fill_reason`).
@@ -325,6 +329,23 @@ def review_errors(queue: Path, rec: dict[str, Any]) -> list[str]:
         return []  # §15.2: this verify run's head is a fix the product's proof passed, within verify.skip_review.paths
     return [f"{why}; an approve stands only when `ccp prompt verify --allow-unreviewed-fix --reason` recorded "
             "the override on this verify run, or verify.skip_review proved this head's fix"]
+
+
+def adr_errors(cfg: Config, rec: dict[str, Any]) -> list[str]:
+    """§6.7 before the verdict (§15.4): an approve of a head on which a decision the task cites is still
+    recorded `not_built` is refused under `adr.strict`, since closing the task would turn the integration
+    branch red (`adr.in_force_at`). Nothing for a reject, or for a PR that is not a task's."""
+    from ccp import adr  # noqa: PLC0415
+    from ccp.queue import QueueError, task_meta  # noqa: PLC0415
+
+    tid = str(rec.get("task_id") or "")
+    if rec.get("verdict") != "approve" or not tid or tid.startswith("pr-") or cfg.adr is None:
+        return []
+    try:
+        meta = task_meta(cfg, tid)
+    except QueueError:
+        return []
+    return adr.in_force_at(cfg, meta, str(rec.get("head_sha") or ""))
 
 
 PROOF_TIMEOUT = 600  # seconds the product's verify.skip_review.proof may take; a timeout proves nothing
@@ -634,6 +655,7 @@ def main(cfg: Config, a: Any) -> int:
         errs = fill_gate(queue, rec) if isinstance(rec, dict) else []
         errs = errs or (cache_errors(cfg, rec) if isinstance(rec, dict) else [])
         errs = errs or (review_errors(queue, rec) if isinstance(rec, dict) else [])
+        errs = errs or (adr_errors(cfg, rec) if isinstance(rec, dict) else [])
         if not errs and isinstance(rec, dict):
             fill_reason(queue, rec)
         if not errs:

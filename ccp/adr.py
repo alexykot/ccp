@@ -587,7 +587,7 @@ def analyse(cfg: Config) -> tuple[list[dict[str, Any]], list[str], list[str]]:
                 errs.append(f"{tid}: adr_refs {ref!r}: {m['_path']} has no decision D{r.decision}")
                 continue
             st = states.get((r.number, r.decision))
-            if t.get("status") == "done" and st is not None and st["state"] == "not_built":
+            if t.get("status") == "done" and not_in_force(st):
                 soft.append(f"{tid}: done, and cites {ids.adr_id(r.number)} D{r.decision}, which {m['_path']} "
                             "records as not_built (`ccp adr decide` it built or live)")
     # the index
@@ -614,6 +614,80 @@ def warnings(cfg: Config) -> list[str]:
     if cfg.adr is None or not adr_dir(cfg).is_dir():
         return []
     return analyse(cfg)[2]
+
+
+def not_in_force(state: dict[str, Any] | None) -> bool:
+    """§6.7 in force: a decision a done task cites must not be recorded `not_built`. One rule for the
+    check (`analyse`) and for the verdict (`in_force_at`)."""
+    return state is not None and state["state"] == "not_built"
+
+
+def _at(cfg: Config, head: str, rel: str) -> str | None:
+    r = subprocess.run(["git", "-C", str(cfg.root), "show", f"{head}:{rel}"], capture_output=True)
+    return r.stdout.decode("utf-8", errors="replace") if r.returncode == 0 else None
+
+
+def in_force_at(cfg: Config, task: dict[str, Any], head: str) -> list[str]:
+    """§6.7's in-force check run on a task's PR head before its verdict (§15.4): closing the task marks
+    it done, so each decision its `adr_refs` cite that the head's ADRs record as `not_built` would fail
+    the check on the integration branch. Read from the git objects at `head` in this checkout: the task
+    file (the checkout's when the head has none) and the ADR files under `adr.dir`. One line per such
+    decision, naming it and the `ccp adr decide` that flips it; nothing without `adr.strict` (the
+    check only warns then) or when the task cites no decision. A head this checkout does not hold is
+    refused when there is a decision to judge."""
+    from ccp import tasklog  # noqa: PLC0415  (as in analyse)
+
+    if cfg.adr is None or not _settings(cfg).get("strict"):
+        return []
+    ids = refs.ids(cfg)
+    tid = str(task.get("task_id") or task["_file"].stem)
+    rel = cfg.rel(task["_file"])
+
+    def cited(meta: dict[str, Any]) -> list[tuple[int, str]]:
+        out = []
+        for ref in tasklog._as_list(meta.get("adr_refs")):
+            r = ids.parse_adr_ref(ref)
+            if r is not None and r.decision is not None:
+                out.append((r.number, r.decision))
+        return out
+
+    head = str(head or "").strip()
+    resolved = subprocess.run(["git", "-C", str(cfg.root), "rev-parse", "--verify", "-q", f"{head}^{{commit}}"],
+                              capture_output=True, text=True) if head else None
+    if resolved is None or resolved.returncode != 0:
+        if not cited(task):
+            return []
+        return [f"{tid} cites ADR decisions, and the PR head {head[:12] or '(none)'} is not in this checkout "
+                "(git fetch it): the in-force ADR check (SPEC §6.7) runs on the head before an approve"]
+    head = resolved.stdout.strip()
+    text = _at(cfg, head, rel)
+    decisions = cited(tasklog.frontmatter(text.replace("\r\n", "\n")) if text is not None else task)
+    if not decisions:
+        return []
+    d = cfg.rel(adr_dir(cfg))
+    listed = subprocess.run(["git", "-C", str(cfg.root), "ls-tree", "-r", "--name-only", head, "--", d],
+                            capture_output=True, text=True)
+    by_num: dict[int, str] = {}
+    for name in sorted(listed.stdout.splitlines()) if listed.returncode == 0 else []:
+        m = ids.adr_file_re.match(Path(name).name)
+        if m:
+            by_num.setdefault(int(m.group(1)), name)
+    errs: list[str] = []
+    for n, dec in decisions:
+        path = by_num.get(n)
+        body = _at(cfg, head, path) if path else None
+        try:
+            fm = split(body)[0] if body is not None else None
+            meta = parse(fm) if fm is not None else {}
+        except ParseError:
+            meta = {}  # `ccp adr check` names an unreadable frontmatter; the gate runs it
+        states = {x["id"]: x for x in (parse_decision(s) for s in _as_list(meta.get("decisions"))) if x}
+        if not_in_force(states.get(dec)):
+            errs.append(f"{tid} cites {ids.adr_id(n)} D{dec}, which {path} records as not_built at the PR head "
+                        f"{head[:12]}: closing the task marks it done, and the in-force ADR check (SPEC §6.7, "
+                        f"adr.strict) then fails on the integration branch; flip it on the PR head: "
+                        f"`ccp adr decide {n} D{dec} built` (or live)")
+    return errs
 
 
 def _cell(s: Any) -> str:
