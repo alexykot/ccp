@@ -6,9 +6,9 @@ kind: feature
 depends_on: []
 spec_refs: ["S12", "S15"]
 review_point: R3
-paths: ["ccp/", "docs/spec/", "docs/cli/", "tests/"]
+paths: ["ccp/mutate.py", "ccp/wt.py", "docs/spec/03-quality.md", "docs/cli/", "tests/test_mutate*.py", "tests/test_wt.py"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0044-ccp-mutate
@@ -21,10 +21,11 @@ updated: 2026-11-09
 
 - Raised in triage of a managed product's tool proposals; the rules touched are §12 and §15.
 - Reviewers and verifiers in any product need to know a test checks the behaviour it names; products build their own language-specific wrappers for the same mechanism.
+- Paths (lead, 2026-11-10): the SPEC text for `ccp mutate` goes in `docs/spec/03-quality.md` (a new subsection) and `docs/cli/`, not in `02-delivery.md`, so this task can run beside the delivery-section tasks. `ccp/cli.py` and `ccp/config.py` are left out of every task's paths on purpose: their edits are small and git resolves them (§16.1).
 
 ## Scope
 
-- **In:** `ccp wt create --kind mut`; `ccp mutate --mutant <file:old=>new | patch> --test <id>` runs the product's `mutate.command` with the test id, restores the tree, and records killed or survived per mutant in the run; the verifier brief says when to use it; §12 and §15 describe it; a CLI doc page.
+- **In:** `ccp wt create --kind mut`; `ccp mutate --mutant <file:old=>new | patch> --test <id>` runs the product's `mutate.command` with the test id, restores the tree, and records killed or survived per mutant in the run; a new subsection of `docs/spec/03-quality.md` describes it, and a CLI doc page. §12 and §15 and the verifier brief are not edited here: a cross-reference from them is a follow-up, so this task can run beside the delivery-section tasks.
 - **Out:** choosing mutants automatically; language-specific mutation operators.
 
 ## dod_checks

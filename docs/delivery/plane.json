@@ -82,5 +82,8 @@
   },
   "review_points": {
     "file": "docs/delivery/review-points.yaml"
+  },
+  "parallel": {
+    "max_in_flight": 2
   }
 }

@@ -6,9 +6,9 @@ kind: feature
 depends_on: []
 spec_refs: ["S13"]
 review_point: R3
-paths: ["plugin/agents/", "docs/spec/", "tests/"]
+paths: ["plugin/agents/", "docs/spec/02-delivery.md", "tests/test_plugin.py"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0037-worker-brief-rules

@@ -6,9 +6,9 @@ kind: feature
 depends_on: [0039-operator-sign-off-record]
 spec_refs: ["S3", "S17"]
 review_point: R3
-paths: ["docs/spec/", "ccp/", "plugin/", "tests/"]
+paths: ["docs/spec/01-model.md", "docs/spec/02-delivery.md", "ccp/notify.py", "ccp/lifecycle.py", "plugin/", "tests/test_notify*.py"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0040-operator-notification-triggers

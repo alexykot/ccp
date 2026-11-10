@@ -6,9 +6,9 @@ kind: feature
 depends_on: []
 spec_refs: ["S3", "S10"]
 review_point: R3
-paths: ["ccp/", "docs/spec/", "contracts/", "plugin/skills/", "tests/"]
+paths: ["ccp/lifecycle.py", "ccp/tasklog.py", "ccp/queue.py", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "contracts/", "plugin/skills/", "tests/test_sign_off*.py"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0039-operator-sign-off-record

@@ -6,9 +6,9 @@ kind: feature
 depends_on: []
 spec_refs: ["S29"]
 review_point: R3
-paths: ["scripts/", "ccp/", "docs/spec/", "tests/"]
+paths: ["scripts/sync-product-docs.sh", "scripts/run-checkout.sh", "docs/spec/05-operations.md", "tests/test_release.py", ".github/", "tests/test_sync*.py"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0042-releases-keep-products-green

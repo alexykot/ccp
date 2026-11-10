@@ -242,3 +242,8 @@ tasks:
     title: The default-on delivery-id check matches only the ids the plane writes
     depends_on: [0033-package-doc-convention-owned-by-the-plane]
     path: tasks/0048-delivery-id-check-false-hits.md
+  - id: 0049-no-usage-command-no-session-check
+    status: pending
+    title: A product without a usage command gets no session-limit check on parallel claims
+    depends_on: []
+    path: tasks/0049-no-usage-command-no-session-check.md

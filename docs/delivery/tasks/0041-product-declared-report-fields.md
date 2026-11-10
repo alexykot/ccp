@@ -6,9 +6,9 @@ kind: feature
 depends_on: []
 spec_refs: ["S8", "S13"]
 review_point: R3
-paths: ["ccp/", "docs/spec/", "plugin/agents/", "tests/"]
+paths: ["ccp/report.py", "ccp/prompt.py", "docs/spec/02-delivery.md", "plugin/agents/", "tests/test_report*.py"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0041-product-declared-report-fields

@@ -6,9 +6,9 @@ kind: feature
 depends_on: []
 spec_refs: ["S2", "S13", "S16"]
 review_point: R3
-paths: ["plugin/", "scripts/team.sh", "docs/spec/", "tests/"]
+paths: ["plugin/", "scripts/team.sh", "scripts/observability/", "docs/spec/02-delivery.md", "tests/test_team*.py", "tests/test_plugin.py"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0038-lead-and-runner-lessons-in-briefs-and-tools
