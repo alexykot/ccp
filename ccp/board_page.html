@@ -615,7 +615,7 @@ function quality(Q, tasks) {
       ${meter(A.done_since_last, s.every_n_tasks, `Tasks done since the last pass: <b>${A.done_since_last ?? "–"}</b> of ${s.every_n_tasks}`)}
       ${meter(A.notes_since_last, s.notes_due, `Friction notes since: <b>${A.notes_since_last ?? "–"}</b> of ${s.notes_due}`)}
       ${meter(A.days_since_last, s.max_days, `Days since: <b>${A.days_since_last ?? "–"}</b> of ${s.max_days} (with a merge)`)}
-      ${A.drift && A.drift.drift_ratio != null ? meter(A.drift.drift_ratio, A.drift.drift_limit, `Wall-time drift: <b>${A.drift.drift_ratio}×</b> (pass due above ${A.drift.drift_limit}×)`) : ""}
+      ${A.drift && A.drift.drift_ratio != null ? meter(A.drift.drift_ratio, A.drift.drift_limit, `Active-time drift: <b>${A.drift.drift_ratio}×</b> (pass due above ${A.drift.drift_limit}×)`) : ""}
       <p class="meta">${esc(A.reason || "")}</p>
       ${A.shape_due.length ? `<p>Shape due for ${A.shape_due.map(esc).join(", ")}</p>` : ""}
       ${A.failed_in_a_row ? `<p style="color:var(--critical)">The last ${A.failed_in_a_row} pass(es) failed.</p>` : ""}

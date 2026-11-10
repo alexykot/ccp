@@ -121,7 +121,7 @@ Non-normative notes behind SPEC §10. The rules are in `docs/spec/04-observabili
     only. The cadence is `ccp architect due`'s own reasons, computed with `record=False`, which now
     also skips reaping a dead pass, so a board build never writes `architect.json`. It shows tasks,
     notes and days since the last pass against `every_n_tasks`, `notes_due` and `max_days`, the
-    wall-time drift against `drift_ratio`, reports awaiting triage, shapes due, and feature tasks
+    active-time drift against `drift_ratio`, reports awaiting triage, shapes due, and feature tasks
     since the last refactor against `refactor_every`.
   - **House rules** (`null` without the block): the rules doc's lines against `rules_max_lines`,
     its rules by `check:` kind, and its shape errors (`rules.check_doc`). It names the

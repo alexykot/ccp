@@ -8,7 +8,7 @@ spec_refs: [S5, S15, S19, S20, S31]
 decisions:
   - "D1 built"
   - "D2 built"
-  - "D3 not_built"
+  - "D3 built — task 0022"
   - "D4 not_built"
   - "D5 live"
   - "D6 live"

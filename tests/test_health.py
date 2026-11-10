@@ -127,7 +127,7 @@ class Merges(unittest.TestCase):
 
 class Trend(unittest.TestCase):
     def rows(self, walls):
-        return [{"wall_s": w} for w in walls]
+        return [{"wall_s": w, "active_s": w} for w in walls]
 
     def test_drift_needs_fifteen_timed_tasks(self):
         t = health.trend(self.rows([3600] * 14), 1.5)
@@ -139,6 +139,110 @@ class Trend(unittest.TestCase):
         self.assertEqual((t["drift_ratio"], t["drift"]), (2.0, True))
         t = health.trend(self.rows([3600] * 10 + [5000] * 5 + [None]), 1.5)
         self.assertEqual((t["drift_ratio"], t["drift"]), (1.39, False))
+
+    def test_drift_reads_active_time_not_wall_time(self):
+        rows = [{"wall_s": 3600, "active_s": 3600}] * 10 + [{"wall_s": 4 * 3600, "active_s": 3600}] * 5
+        t = health.trend(rows, 1.5)
+        self.assertEqual((t["drift_ratio"], t["drift"], t["timed_tasks"]), (1.0, False, 15))
+        self.assertEqual((t["median_wall_s"], t["median_active_s"]), (3600, 3600))
+        rows = [{"wall_s": 3600, "active_s": 3600}] * 10 + [{"wall_s": 3600, "active_s": 7200}] * 5
+        self.assertEqual(health.trend(rows, 1.5)["drift"], True)
+
+
+def _iso(epoch):
+    return health._ts(epoch)
+
+
+class ActiveTime(unittest.TestCase):
+    """A task's active time: its wall time less its recorded waits (waiting_on, exclusive-lane waits)."""
+
+    HOUR = 3600
+
+    def setUp(self):
+        self.p = Product()
+        self._q = tempfile.TemporaryDirectory()
+        self.q = Path(self._q.name)
+        (self.q / "observability").mkdir()
+        (self.q / "runs").mkdir()
+        self.events, self.suites = [], []
+
+    def tearDown(self):
+        self.p.cleanup()
+        self._q.cleanup()
+
+    def merge(self, spans):
+        """Each (task number, start, wall): a lease at the start and a squash merge `wall` seconds later."""
+        for n, _, _ in spans:
+            self.p.task(f"{n:04d}-t{n}")
+        git(self.p.root, "init", "-q", "-b", "main")
+        git(self.p.root, "add", "-A")
+        commit(self.p.root, "init", T0)
+        for n, start, wall in spans:
+            self.wait(n, "lease", start, op="set")
+            self.p.write(f"app/{n}.txt", "x\n")
+            git(self.p.root, "add", "-A")
+            commit(self.p.root, f"Task {n:04d}: work (#{n})", start + wall)
+
+    def wait(self, n, typ, at, op="set", **payload):
+        self.events.append({"at": _iso(at), "task_id": f"{n:04d}-t{n}", "type": typ, "op": op, "payload": payload})
+
+    def rows(self):
+        (self.q / "observability" / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in self.events))
+        (self.q / "runs" / "_suites.jsonl").write_text("".join(json.dumps(r) + "\n" for r in self.suites))
+        return health.collect(self.p.cfg, self.q, files=False)["tasks"]
+
+    def test_long_sign_off_waits_do_not_trip_drift(self):
+        h = self.HOUR
+        spans = [(n, T0 + n * 100 * h, h) for n in range(1, 11)]          # ten tasks: one active hour each
+        spans += [(n, T0 + n * 100 * h, 4 * h) for n in range(11, 16)]    # five more: four hours, three of them waits
+        self.merge(spans)
+        for n, start, _ in spans[10:13]:  # a sign-off on the operator, set and cleared
+            self.wait(n, "waiting_on", start + 600, reason="operator_decision")
+            self.wait(n, "waiting_on", start + 600 + 3 * h, op="clear", reason="resolved")
+        n, start, _ = spans[13]  # an open gate on the lead, still set at the merge
+        self.wait(n, "waiting_on", start + h, reason="design_seat")
+        n, start, _ = spans[14]  # an hour on the operator, then two hours behind an exclusive lane
+        self.wait(n, "waiting_on", start + 600, reason="operator_step")
+        self.wait(n, "waiting_on", start + 600 + h, op="clear", reason="done")
+        self.suites += [{"op": "started", "suite_id": "st-a", "task_id": f"{n:04d}-t{n}", "lane": "full",
+                         "at": _iso(start + 3 * h), "wait_s": h},
+                        {"op": "busy", "suite_id": "st-b", "task_id": f"{n:04d}-t{n}", "lane": "full",
+                         "at": _iso(start + 4 * h), "waited_s": h}]
+        rows = self.rows()
+        self.assertEqual([r["wall_s"] for r in rows], [h] * 10 + [4 * h] * 5)
+        self.assertEqual([r["waits_s"] for r in rows], [0] * 10 + [3 * h] * 5)
+        self.assertEqual([r["active_s"] for r in rows], [h] * 15)
+        t = health.trend(rows, 1.5)
+        self.assertEqual((t["drift_ratio"], t["drift"]), (1.0, False))
+        self.assertTrue(health.trend([{"active_s": r["wall_s"]} for r in rows], 1.5)["drift"])  # on wall time it would
+
+    def test_waits_count_once_and_only_inside_the_wall_time(self):
+        h = self.HOUR
+        start = T0 + 100 * h
+        self.merge([(1, start, 10 * h)])
+        self.wait(1, "waiting_on", start - 2 * h, reason="quota")  # before the claim: outside the wall time
+        self.wait(1, "waiting_on", start + h, op="clear", reason="reset")
+        self.wait(1, "waiting_on", start + 3 * h, reason="operator_decision")
+        self.wait(1, "waiting_on", start + 4 * h, reason="spec_maintainer")  # a set over a set: the first ends here
+        self.wait(1, "waiting_on", start + 5 * h, op="clear", reason="resolved")
+        self.wait(1, "waiting_on", start + 9 * h, reason="design_seat")  # open: runs to the merge
+        self.suites += [
+            {"op": "started", "suite_id": "st-a", "task_id": "0001-t1", "at": _iso(start + 4.5 * h), "wait_s": h},
+            {"op": "started", "suite_id": "st-b", "task_id": "0001-t1", "at": _iso(start + 7 * h)},  # no wait
+            {"op": "busy", "suite_id": "st-c", "task_id": "0001-t1", "at": _iso(start + 7 * h)},     # did not wait
+            {"op": "busy", "suite_id": "st-d", "task_id": "", "at": _iso(start + 7 * h), "waited_s": h},
+            {"op": "started", "suite_id": "st-e", "task_id": "0001-t1", "at": _iso(start + 7 * h), "wait_s": True},
+            {"op": "ended", "suite_id": "st-a", "task_id": "0001-t1", "at": _iso(start + 8 * h), "wait_s": h},
+        ]
+        r = self.rows()[0]
+        # [0, 1h] quota, [3h, 5h] operator then spec maintainer, [3.5h, 4.5h] the lane inside it, [9h, 10h] the gate
+        self.assertEqual((r["wall_s"], r["waits_s"], r["active_s"]), (10 * h, 4 * h, 6 * h))
+
+    def test_no_recorded_start_no_active_time(self):
+        self.merge([(1, T0 + 3600, 3600)])
+        self.events.clear()
+        r = self.rows()[0]
+        self.assertEqual((r["wall_s"], r["waits_s"], r["active_s"]), (None, None, None))
 
 
 class NoteAndRecord(unittest.TestCase):
