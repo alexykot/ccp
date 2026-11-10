@@ -64,6 +64,16 @@ for a head that would turn the integration branch red at close.
 
 *Append-only, newest last.*
 
+- 2026-11-10 — `ccp verify record` runs §6.7's in-force check on the PR head before it writes an
+  approve (`verify.adr_errors` → `adr.in_force_at`). Under `adr.strict`, it reads the task file and
+  the ADR files from the git objects at `head_sha` in the verifier's checkout, and refuses an approve
+  when a decision the task's `adr_refs` cite is recorded `not_built` there. The refusal names the
+  decision and `ccp adr decide N Dn built`. The rule is shared with `analyse` (`adr.not_in_force`), so
+  what the check requires is unchanged. A reject, a `pr-<n>` record and a product without
+  `adr.strict` are not judged. A head the checkout does not hold is refused only when the task cites
+  a decision. §6.7 and §15.4 each gained a sentence saying where the check runs, and the verifier
+  brief says so; tests in `tests/test_verify_adr.py`.
+
 ## Verification notes
 
 *Append-only.*
