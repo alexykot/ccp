@@ -11,6 +11,7 @@
     "doc_name": "CLAUDE.md",
     "exempt_dirs": [
       ".git",
+      ".github",
       ".idea",
       ".claude",
       "docs",

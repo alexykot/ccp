@@ -61,6 +61,8 @@ When a plane release is installed, `ccp` checks each bound product's integration
   task carried no CURRENT -> PROPOSED text, so the wording is the implementer's; flagged in the report.
 - `.github/pull_request_template.md` (new) asks whether the change breaks conforming products. The release
   steps in `CLAUDE.md` and the `release.sh` header name the new check. Tests: `tests/test_sync_on_release.py`.
+- `.github` joins `package_docs.exempt_dirs` in `docs/delivery/plane.json`: it holds GitHub's config, not
+  source, so it carries no `CLAUDE.md` (the self-hosting docs check failed on it otherwise).
 
 ## Verification notes
 
