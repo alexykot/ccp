@@ -139,6 +139,8 @@ These are durable lead state in `work.json`, not messages, which can arrive afte
 
 **`ccp tasks claim <id> [--holder <slot>]`** runs the product's auth probes first
 (`auth_check.probes`, §30) and exits 8 when one fails: no task is taken, and the runner raises a `reauth` gate to the lead (probes: `[{id, cmd}]`, `auth_check.timeout_seconds`, default 60).
+Before the probes, a new claim of a task that declares a `brief` sign-off with none recorded exits 3,
+naming it; no task is taken (§3.5).
 Then it takes the lease, writes `work.json` (`task_id`, `phase`,
 `runtime_status`, `in_flight`) and `tasks/<id>.json` from the task file, makes the task's implement
 worktree (`ccp wt create --kind impl`, §12), samples the allowance (§25) and writes a heartbeat. A
@@ -149,7 +151,9 @@ status reads as `pending`. With several runners, §16.3 and §16.4 apply.
 
 1. `ccp verify merge-ok` and the merge pinned to the verified head (§15.5). It refuses before
    merging when the runner worktree has changes or a rebase in progress; with several runners it
-   refuses a head behind the tip (§16.5 rule 4).
+   refuses a head behind the tip (§16.5 rule 4). It refuses (exit 1) a task whose declared sign-off
+   (§3.5) is missing, or whose `build` sign-off covers another head than the one it merges, naming
+   it; nothing is merged, and on a re-run after a merge the reconcile waits for it too.
 2. **Reconcile:** the task file's status and Verification notes line (from the verifier's record),
    dated by the clock; `review_point` stamped when the task has none; `ccp tasks index` and
    `check`; the product's `reconcile.log` entry and `reconcile.hooks` (§8; a hook must be

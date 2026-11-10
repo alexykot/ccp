@@ -285,6 +285,18 @@ def events_path(q: Path) -> Path:
     return lib.events_path(q)
 
 
+def sign_offs(q: Path, task_id: str) -> dict[str, dict[str, Any]]:
+    """§3.5: the task's latest recorded sign-off per stage (`brief`, `build`), from the ledger's
+    `sign_off` `recorded` events: the payload (`stage`, `by`, `words`, `head`) with the event's `at`."""
+    out: dict[str, dict[str, Any]] = {}
+    for ev in lib.load_events(events_path(q)):
+        p = ev.get("payload") or {}
+        if ev.get("task_id") == task_id and ev.get("type") == "sign_off" and ev.get("op") == "recorded" \
+                and isinstance(p, dict) and p.get("stage"):
+            out[str(p["stage"])] = {**p, "at": ev.get("at")}
+    return out
+
+
 def read_json(path: Path, default: Any = None) -> Any:
     if not path.is_file():
         return default

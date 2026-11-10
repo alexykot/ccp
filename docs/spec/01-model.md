@@ -160,6 +160,7 @@ After launching a worker the runner may end its turn.
 6. Re-authenticating an expired credential.
 7. New production / MCP credentials.
 8. Escalations marked `waiting_operator`.
+9. Text a task declares for the operator's sign-off (§3.5).
 
 Not operator-gated: a merge to the integration branch after the verifier's approve; a review the
 runner launches; a quota pause.
@@ -176,6 +177,29 @@ files, decisions, standing approvals) are §17.
 
 Promotion to production is operator-gated and never automated. A product's branch names are its
 binding's (`integration_branch`, `production_branch`, §8.3).
+
+### 3.5 Operator sign-off
+
+A task that carries text the operator must sign (a SPEC CURRENT → PROPOSED, a contract) declares
+it in its frontmatter, `sign_off:`:
+
+- `brief`: the text is known when the task is written. It is signed before the claim, and the
+  sign-off covers the commit that last changed the task file.
+- `build`: the build finds the text. It is signed after verify, and the sign-off covers the head
+  that merges.
+- `[brief, build]`: both.
+
+The lead records each sign-off with `ccp tasks sign-off <id> --by <who> --words "…"
+[--stage brief|build] [--head <sha>]`: a `sign_off` `recorded` event in the ledger (§23.2) with
+`stage`, `by`, `words` and `head`; the event's `at` is when. A `build` sign-off's head defaults to the
+verified head (`verification/<id>.json`); without one the command refuses unless `--head` is given.
+A later record of a stage replaces the earlier. The command refuses (exit 2) a task that declares
+no `sign_off`, a stage it does not declare, and, when it declares both, a call without `--stage`.
+
+`ccp tasks claim` refuses a task whose `brief` sign-off is missing; `ccp tasks close` refuses one
+whose declared sign-off is missing, or whose `build` sign-off covers another head than the one it
+merges (stale: the operator signs the new head) (§10.5). How the operator is asked is not part of
+this rule.
 
 ## 4. Product footprint
 

@@ -1,8 +1,12 @@
-"""A task's runtime lifecycle (SPEC §10.5): claim, phase, wait and resume, release, close.
+"""A task's runtime lifecycle (SPEC §10.5): claim, phase, wait and resume, release, sign-off, close.
 
 Each command does the step and writes what it changed to the ledger, so a seat cannot do the one
 without the other. They replace the claim and reconcile the runner briefs used to describe in prose,
 and the scripts runners wrote for themselves (§10.6).
+
+`sign-off` records the operator's sign-off on a task that declares one (§3.5): `claim` refuses a task
+whose `brief` sign-off is missing, and `close` one whose declared sign-off is missing or, for `build`,
+signed at another head than the one it merges.
 
 `claim` samples the allowance first: past the weekly checkpoint a new claim refuses (exit 5), and at
 the 5-hour park % any claim parks the task and refuses (exit 6, §25.4).
@@ -28,7 +32,8 @@ from ccp.queue import lib
 from ccp.config import Config
 from ccp.queue import (OBS, QueueError, actor, durable_statuses, emit, file_lock, git, heartbeat, integration_branch, iso,
                        load_task_state, load_work, now, phase_move, preferred_ids, progress_event, root,
-                       runner_slots, save_task_state, save_work, script_drift, set_marker, task_meta, task_state_path)
+                       runner_slots, save_task_state, save_work, script_drift, set_marker, sign_offs, task_meta,
+                       task_state_path)
 
 VERIFY_PLACEHOLDER_RE = re.compile(r"^\*Append-only[^\r\n]*\*[ \t]*\r?$", re.M)
 
@@ -81,6 +86,8 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
             from ccp import parallel  # noqa: PLC0415
             raise QueueError(f"{holder} already holds {', '.join(map(str, mine))}: one task per runner (SPEC §16.4). "
                              "Carry on with it", parallel.EXIT_SLOTS)
+    if not resumed and (gaps := sign_off_gaps(q, meta, ["brief"])):  # §3.5: text known at the brief is signed first
+        raise QueueError("claim refused, nothing taken: " + "; ".join(gaps), 3)
     from ccp import parallel, usage  # noqa: PLC0415
     if not resumed and (cfg.auth_check or {}).get("probes"):  # §30: the auth probes, before each task
         from ccp import wt as wtmod  # noqa: PLC0415
@@ -568,6 +575,74 @@ def release(cfg: Config, task: str, reason: str) -> dict[str, Any]:
                          "resumes in them"] if (wt := st.get("worktree_path")) and Path(wt).is_dir() else []}
 
 
+# ------------------------------------------------------------------------------------- sign-off
+
+SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
+
+
+def sign_off(cfg: Config, task: str, stage: str | None, by: str, words: str, head: str | None) -> dict[str, Any]:
+    """§3.5 `ccp tasks sign-off`: the lead records the operator's sign-off on a task's text in the
+    ledger (a `sign_off` `recorded` event: stage, who, the words and the head it covers; the event's
+    `at` is when). A `brief` sign-off covers the commit that last changed the task file, a `build` one
+    the verified head (verification/<id>.json). A later record of a stage replaces the earlier."""
+    q = root()
+    meta = task_meta(cfg, task)
+    tid = str(meta["task_id"])
+    stages = tasklog.sign_off_stages(meta)
+    if not stages:
+        raise QueueError(f"{tid} declares no sign_off in its task file: nothing to sign (SPEC §3.5)", 2)
+    if stage is None:
+        if len(stages) > 1:
+            raise QueueError(f"{tid} declares sign_off {', '.join(stages)}: give --stage", 2)
+        stage = stages[0]
+    if stage not in stages:
+        raise QueueError(f"{tid} declares sign_off {', '.join(stages)}, not {stage} (SPEC §3.5)", 2)
+    if not by.strip() or not words.strip():
+        raise QueueError("give --by (who signed) and --words (what they said)", 2)
+    if head:
+        head = head.strip().lower()
+        if not SHA_RE.match(head):
+            raise QueueError(f"--head {head!r} is not a commit sha (7 to 40 hex digits)", 2)
+    elif stage == "build":
+        from ccp.queue import read_json  # noqa: PLC0415
+        rec = read_json(q / "verification" / f"{tid}.json", {}) or {}
+        head = str(rec.get("head_sha") or "").lower() if isinstance(rec, dict) else ""
+        if not SHA_RE.match(head):
+            raise QueueError(f"{tid} has no verified head to sign (verification/{tid}.json): a build sign-off "
+                             "follows verify, or give --head (SPEC §3.5)", 2)
+    else:
+        r = git(cfg.root, "log", "-1", "--format=%H", "--", cfg.rel(meta["_file"]))
+        head = r.stdout.strip() if r.returncode == 0 else ""
+        if not SHA_RE.match(head):
+            raise QueueError(f"{cfg.rel(meta['_file'])} has no commit to sign: commit it, or give --head (SPEC §3.5)", 2)
+    payload = {"stage": stage, "by": by.strip(), "words": words.strip(), "head": head}
+    ev = emit(q, cfg, tid, "sign_off", "recorded", payload, actor("design-seat"))
+    return {"ok": True, "task_id": tid, "sign_off": {**payload, "at": ev.get("at")}}
+
+
+def sign_off_gaps(q: Path, meta: dict[str, Any], stages: list[str], head: str | None = None) -> list[str]:
+    """§3.5: why the task's declared sign-offs among `stages` do not hold: one missing, or, given the head
+    about to merge, a `build` sign-off recorded for another head (stale). [] when they hold."""
+    tid = str(meta["task_id"])
+    have = sign_offs(q, tid)
+    out: list[str] = []
+    for stage in tasklog.sign_off_stages(meta):
+        if stage not in stages:
+            continue
+        got = have.get(stage)
+        if got is None:
+            out.append(f"{tid} has no {stage} sign-off on record: the lead records the operator's with "
+                       f"`ccp tasks sign-off {tid} --stage {stage}` (SPEC §3.5)")
+        elif stage == "build" and head is not None:
+            from ccp import verify  # noqa: PLC0415
+            signed = str(got.get("head") or "")
+            if not verify.heads_match(signed, head):
+                out.append(f"{tid}'s build sign-off is stale: signed at {signed[:12] or 'no head'}, the head to "
+                           f"merge is {head[:12]}; the operator signs the new head (`ccp tasks sign-off {tid} "
+                           "--stage build`, SPEC §3.5)")
+    return out
+
+
 # ---------------------------------------------------------------------------------------- close
 
 def _gh() -> str:
@@ -766,6 +841,10 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
         raise QueueError("merge refused, nothing merged (SPEC §15.5):\n  " + "\n  ".join(reasons), 1)
     if not already:
         head = body["match_head_commit"]
+    if gaps := sign_off_gaps(q, meta, list(tasklog.SIGN_OFF_STAGES), head):  # §3.5, before the merge
+        raise QueueError(("merge refused, nothing merged" if not already else "close refused") + " (SPEC §3.5):\n  "
+                         + "\n  ".join(gaps), 1)
+    if not already:
         # §16.5 rule 4: the verified head must contain the tip, the task log and declared paths aside
         from ccp import parallel  # noqa: PLC0415
         behind = _close_behind_tip(cfg, pr, tid, head, integ) if parallel.enabled(cfg) else []  # one runner: §16

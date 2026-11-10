@@ -40,10 +40,11 @@ ACTORS = SEAT_IDS + ("adapter", "operator", "system", "plane-session")  # plane-
 # moves a task phase or a timer: the `phase` events ccp writes beside them do that. §14.1 adds suite
 # (one `ccp suite run`, recorded when it ends). §10.4 adds prefer (the lead's next tasks for the runner,
 # work.json `next_tasks`: set by `ccp tasks prefer`, cleared by it; the claim that takes one removes it), and
-# hold (the lead's hold on a task, work.json `held`: `ccp tasks hold`, `next` passes over it).
+# hold (the lead's hold on a task, work.json `held`: `ccp tasks hold`, `next` passes over it). §3.5 adds
+# sign_off (the operator's sign-off on a task's text, recorded by `ccp tasks sign-off`; claim and close read it).
 REVIEW_EVENT_TYPES = ("architecture_review", "docs_audit", "architect")
 TEAM_EVENT_TYPES = ("gate", "runner")
-TOOLKIT_EVENT_TYPES = ("run", "review", "verify", "allowance", "plane", "suite", "prefer", "hold")
+TOOLKIT_EVENT_TYPES = ("run", "review", "verify", "allowance", "plane", "suite", "prefer", "hold", "sign_off")
 EVENT_TYPES = ("phase", "waiting_on", "lease", "claude", "auth", "seat", "durable", "note", "question", "spec_maintainer",
                *REVIEW_EVENT_TYPES, *TEAM_EVENT_TYPES, *TOOLKIT_EVENT_TYPES)
 EVENT_OPS = (
@@ -133,6 +134,7 @@ REQUIRED_PAYLOAD = {
     ("waiting_on", "clear"): ("reason", "was"),
     ("lease", "set"): ("holder",),
     ("lease", "clear"): ("holder",),
+    ("sign_off", "recorded"): ("stage", "by", "words", "head"),
     ("claude", "launch"): ("phase", "prompt_ref"),
     ("claude", "exit"): ("exit_code",),
     ("auth", "transition"): ("overall",),

@@ -67,9 +67,10 @@
         "suite",
         "prefer",
         "hold",
+        "sign_off",
         "hosting"
       ],
-      "description": "question / spec_maintainer added by SPEC §17.8; architecture_review by §19.10; docs_audit by §21; gate / runner by §23.7; architect by §19; run, review, verify, allowance and plane by §23.2; suite by §14.1; prefer by §10.4 (ccp tasks prefer); hold by §10.4 (ccp tasks hold); hosting is historical (Grok hosting, removed 2026-11-05): old ledger rows carry it, nothing writes it and readers skip it"
+      "description": "question / spec_maintainer added by SPEC §17.8; architecture_review by §19.10; docs_audit by §21; gate / runner by §23.7; architect by §19; run, review, verify, allowance and plane by §23.2; suite by §14.1; prefer by §10.4 (ccp tasks prefer); hold by §10.4 (ccp tasks hold); sign_off by §3.5 (ccp tasks sign-off: stage, by, words, head); hosting is historical (Grok hosting, removed 2026-11-05): old ledger rows carry it, nothing writes it and readers skip it"
     },
     "op": {
       "type": "string",
