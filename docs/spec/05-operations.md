@@ -99,6 +99,13 @@ push, and merges only with the operator's approval recorded in the pull request.
 the decision it implements (the operator's words and the date) and, for each changed rule, the
 text it replaces. ADR-0024 and ADR-0030 carry the reasons.
 
+Text that only describes what an accepted task delivers (its own feature, including a knob it adds
+with a neutral default) and edits to passages the task's change makes false need no approval of their
+own: the task's acceptance (an operator ruling, an accepted proposal or ADR, or an approved plan) is
+the approval. The PR body cites that acceptance and quotes the text each edit replaces. A rule beyond
+the task's intent, or a change to an existing rule that the task's acceptance does not name, still
+waits for the operator's approval.
+
 ### 31.2 ADRs
 
 Standing decisions are ADRs in the format of §6.

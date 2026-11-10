@@ -36,7 +36,8 @@ Rules:
   reviewer the code and the intent, not your conclusions. Auto mode blocks a merge it sees as
   unreviewed: then open the PR, report it, and let the operator merge.
 - **SPEC §31:** a change to a § rule needs the operator's approval. The PR body states each change
-  and the text it replaces. Non-normative notes need no approval.
+  and the text it replaces. Non-normative notes need no approval, and neither does text that only
+  describes an accepted task's own feature (§31.1).
 - **Tests are fenced** (`tests/__init__.py`): no live queue, no real plane repo, no GitHub.
   - Run the full suite: `python3 -m unittest discover -s tests -t .`.
   - Afterwards, `git branch --list 'state/*'` must print nothing.
