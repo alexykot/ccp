@@ -103,7 +103,7 @@ tasks:
     depends_on: []
     path: tasks/0020-cold-gate-and-mutation-lane.md
   - id: 0021-behind-tip-ignore-paths
-    status: pending
+    status: done
     title: Declared paths do not make a head behind the tip; verify refuses a stale head
     depends_on: []
     path: tasks/0021-behind-tip-ignore-paths.md

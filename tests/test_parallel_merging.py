@@ -1,6 +1,7 @@
 """SPEC §16.5 rules 4, 5 and 7 (step 7 of the parallel-runners build): a task merges only from a verified head that contains
-the integration tip, the task log's bookkeeping aside; a reconcile that collides with another runner's
-is rebuilt on the fresh tip; a freed slot names the idle runners."""
+the integration tip, the task log's bookkeeping and the product's declared paths aside, and a verifier
+is not launched on a head that lacks it; a reconcile that collides with another runner's is rebuilt on
+the fresh tip; a freed slot names the idle runners."""
 from __future__ import annotations
 
 import json
@@ -12,7 +13,10 @@ from tests.test_toolkit import ToolkitFixture, git
 
 
 class Merging(ToolkitFixture, unittest.TestCase):
-    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "parallel": {"max_in_flight": 2}}  # §16.5 rule 4 is several runners'
+    # §16.5 rule 4: close checks it with several runners, verify with any number; commits only under
+    # docs/notes/ do not make a head behind the tip
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "parallel": {"max_in_flight": 2},
+                  "merge": {"behind_tip_ignore": ["docs/notes"]}}
 
     def push_to_main(self, rel: str, text: str, msg: str) -> None:
         git(self.runner, "fetch", "-q", "origin")
@@ -26,6 +30,26 @@ class Merging(ToolkitFixture, unittest.TestCase):
 
     def close(self):
         return self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
+
+    def pushed_head(self) -> str:
+        """Claim 0002, commit its work on its branch and push it, unverified: the PR head."""
+        self.ccp("tasks", "claim", "0002")
+        wt = self.main / ".rt" / "impl-0002"
+        (wt / "feature.txt").write_text("built\n")
+        git(wt, "add", "feature.txt")
+        git(wt, "commit", "-q", "-m", "Task 0002: build it")
+        git(wt, "push", "-q", "-u", "origin", "task/0002-second")
+        return git(wt, "rev-parse", "HEAD")
+
+    def verify(self, head: str):
+        return self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", head)
+
+    def one_runner(self) -> None:
+        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
+        cfg.pop("parallel")
+        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        git(self.main, "commit", "-qam", "one runner")
+        git(self.main, "push", "-q", "origin", "HEAD:main")
 
     def test_another_tasks_code_since_the_verify_refuses_the_merge(self):
         self._to_approved_pr()
@@ -44,6 +68,109 @@ class Merging(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.close()
         self.assertEqual(code, 0, out + err)
         self.assertTrue(body["merged_now"])
+
+    def test_a_commit_only_under_a_declared_path_keeps_the_verified_head(self):
+        self._to_approved_pr()
+        self.push_to_main("docs/notes/today.md", "a lead's note\n", "the lead's doc commit")
+        code, body, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(body["merged_now"])
+
+    def test_a_commit_that_also_touches_an_undeclared_path_still_refuses(self):
+        self._to_approved_pr()
+        git(self.runner, "fetch", "-q", "origin")
+        git(self.runner, "checkout", "-q", "--detach", "origin/main")
+        for rel in ("docs/notes/today.md", "docs/notesmore.md"):  # a sibling sharing the prefix is not under it
+            (self.runner / rel).parent.mkdir(parents=True, exist_ok=True)
+            (self.runner / rel).write_text("x\n")
+        git(self.runner, "add", "docs")
+        git(self.runner, "commit", "-q", "-m", "a note and more")
+        git(self.runner, "push", "-q", "origin", "HEAD:main")
+        code, _, out, err = self.close()
+        self.assertEqual(code, 1, out + err)
+        self.assertIn("behind_tip", err)
+        self.assertFalse((self.ghstate / "merge-called").exists())
+
+    def test_a_tip_that_cannot_be_fetched_refuses_the_merge(self):
+        self._to_approved_pr()
+        git(self.runner, "remote", "set-url", "origin", str(self.main.parent / "gone.git"))
+        code, _, out, err = self.close()
+        self.assertEqual(code, 1, out + err)
+        self.assertIn("could not be fetched", err)
+        self.assertIn("nothing merged", err)
+        self.assertFalse((self.ghstate / "merge-called").exists())
+
+    def test_verify_refuses_a_head_behind_the_tip(self):
+        head = self.pushed_head()
+        self.push_to_main("other.py", "x = 1\n", "Task 0009: other code")
+        code, _, out, err = self.verify(head)
+        self.assertEqual(code, 4, out + err)
+        self.assertIn("behind_tip", err)
+        self.assertIn("Merge the tip in first", err)
+        self.assertFalse((self.q / "runs/0002-second/verify.json").exists())  # nothing opened
+
+    def test_verify_launches_on_a_head_behind_only_by_declared_paths_and_the_task_log(self):
+        head = self.pushed_head()
+        self.push_to_main("docs/notes/today.md", "a lead's note\n", "the lead's doc commit")
+        log = (self.main / "docs/LOG.md").read_text()
+        self.push_to_main("docs/LOG.md", log.replace("# Log\n\n", "# Log\n\n**2026-10-28 (runner):** `0009` done.\n\n"),
+                          "Reconcile 0009: done")
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["run_id"], "0002-second/verify")
+        self.assertNotIn("warnings", body)
+
+    def test_verify_warns_and_launches_when_the_head_cannot_be_fetched(self):
+        self.pushed_head()
+        code, body, out, err = self.verify("c" * 40)
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(any("behind_tip not checked" in w for w in body["warnings"]), body)
+
+    def test_verify_warns_and_launches_when_the_tip_cannot_be_fetched(self):
+        head = self.pushed_head()
+        git(self.runner, "remote", "set-url", "origin", str(self.main.parent / "gone.git"))
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(any("behind_tip not checked: origin/main" in w and "close checks it" in w
+                            for w in body["warnings"]), body)
+
+    def test_one_runner_close_still_merges_a_verified_head_behind_the_tip(self):
+        self.one_runner()
+        self._to_approved_pr()
+        self.push_to_main("other.py", "x = 1\n", "Task 0009: other code")
+        code, body, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(body["merged_now"])
+
+    def test_one_runner_verify_refuses_a_head_behind_the_tip(self):
+        self.one_runner()
+        head = self.pushed_head()
+        self.push_to_main("other.py", "x = 1\n", "Task 0009: other code")
+        code, _, out, err = self.verify(head)
+        self.assertEqual(code, 4, out + err)
+        self.assertIn("behind_tip", err)
+        self.assertIn("Merge the tip in first", err)
+        self.assertFalse((self.q / "runs/0002-second/verify.json").exists())  # nothing opened
+
+    def test_one_runner_verify_launches_on_a_head_behind_only_by_declared_paths(self):
+        self.one_runner()
+        head = self.pushed_head()
+        self.push_to_main("docs/notes/today.md", "a lead's note\n", "the lead's doc commit")
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertNotIn("warnings", body)
+
+    def test_one_runner_verify_warning_does_not_promise_a_close_check(self):
+        self.one_runner()
+        head = self.pushed_head()
+        git(self.runner, "fetch", "-q", "origin")
+        git(self.runner, "checkout", "-q", "--detach", "origin/main")  # the runner reads the one-runner config
+        git(self.runner, "remote", "set-url", "origin", str(self.main.parent / "gone.git"))
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        warns = [w for w in body["warnings"] if "behind_tip not checked: origin/main" in w]
+        self.assertTrue(warns, body)
+        self.assertFalse(any("close checks it" in w for w in warns), body)
 
     def test_a_reconcile_that_collides_is_rebuilt_on_the_fresh_tip(self):
         self._to_approved_pr()
@@ -83,11 +210,7 @@ class Merging(ToolkitFixture, unittest.TestCase):
         self.assertEqual(body["idle_runners"], ["r2"])  # not runner-1, the closer: it goes on itself
 
     def test_one_runner_merges_as_before(self):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg.pop("parallel")
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
-        git(self.main, "commit", "-qam", "one runner")
-        git(self.main, "push", "-q", "origin", "HEAD:main")
+        self.one_runner()
         self._to_approved_pr()
         self.push_to_main("docs/notes.md", "a lead's note\n", "the lead's doc commit")
         code, body, out, err = self.close()

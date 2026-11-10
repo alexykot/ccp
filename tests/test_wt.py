@@ -195,6 +195,22 @@ class Config(WtFixture, unittest.TestCase):
                 with self.assertRaises(config.ConfigError):
                     config.load(self.main)
 
+    def test_behind_tip_ignore_is_a_list_of_paths_relative_to_the_root(self):
+        self.assertEqual(config.load(self.main).merge["behind_tip_ignore"], [])  # empty by default
+        for bad in ("docs", [""], ["/docs"], ["../docs"], [":!docs"], [3]):
+            with self.subTest(bad=bad):
+                self.plane(merge={"behind_tip_ignore": bad})
+                with self.assertRaises(config.ConfigError) as cm:
+                    config.load(self.main)
+                self.assertIn("merge.behind_tip_ignore", str(cm.exception))
+        self.plane(parallel={"behind_tip_ignore": ["docs"]})  # the setting lives under merge
+        with self.assertRaises(config.ConfigError) as cm:
+            config.load(self.main)
+        self.assertIn("unknown key", str(cm.exception))
+        self.plane(merge={"behind_tip_ignore": ["docs/notes", "CHANGELOG.md"]})
+        cfg = config.load(self.main)
+        self.assertEqual((cfg.merge["behind_tip_ignore"], cfg.merge["command"]), (["docs/notes", "CHANGELOG.md"], None))
+
 
 class MergeAndAuth(WtFixture, unittest.TestCase):
     def test_merge_command_is_a_template(self):
