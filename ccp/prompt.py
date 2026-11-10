@@ -9,7 +9,9 @@ the agent type and a description that starts with the run's task and phase; the 
 file's text, verbatim. The runner never passes `model` (§2). First it samples the allowance: at the
 5-hour park % it parks the task and refuses, exit 6, writing nothing else (§25.4 the session park).
 A verify round with no fix round since the task's last verify round needs `--note` with the reason
-(§15.6 rule 4): without it the command refuses, exit 4, nothing opened.
+(§15.6 rule 4): without it the command refuses, exit 4, nothing opened. With several runners a verify of
+a head that lacks the integration tip, beyond the task log and `parallel.behind_tip_ignore`, refuses the
+same way: merge the tip in first (§16.5 rule 4).
 
 Templates use `{{name}}`, `{{#name}}…{{/name}}` (kept when the value is not empty) and
 `{{^name}}…{{/name}}` (kept when it is). A name the renderer does not know is an error, so a
@@ -280,6 +282,28 @@ def repeat_gate(q: Path, tid: str, phase: str, note: str | None) -> dict[str, st
     return {"after": after}
 
 
+def tip_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> list[str]:
+    """§16.5 rule 4: with several runners, a verify of a head behind the integration tip (the task log and
+    `parallel.behind_tip_ignore` aside) is refused (exit 4), nothing opened, since close would refuse it.
+    A tip or head that cannot be fetched to judge is a warning, returned to record on the run: close
+    still checks."""
+    from ccp import lifecycle, parallel  # noqa: PLC0415
+    if phase != "verify" or not parallel.enabled(cfg):
+        return []
+    integ = integration_branch(q)
+    try:
+        behind = lifecycle.behind_tip(cfg, a.pr, tid, a.head, integ)
+    except lifecycle.Unjudged as exc:
+        what = f"origin/{integ}" if exc.what == "tip" else f"the head {a.head[:7]}"
+        return [f"behind_tip not checked: {what} could not be fetched (SPEC §16.5 rule 4); close checks it"]
+    if behind:
+        raise QueueError(f"behind_tip: the head {a.head[:7]} lacks {len(behind)} commit(s) on origin/{integ} that change "
+                         f"more than the task log and parallel.behind_tip_ignore ({', '.join(behind[:5])}), so close "
+                         f"would refuse it. Merge the tip in first: have the implementer merge origin/{integ} into "
+                         f"task/{tid} (a plain push, never a rebase), then verify the new head (SPEC §16.5 rule 4)", 4)
+    return []
+
+
 def opener(q: Path, tid: str, st: dict[str, Any], holder: str | None) -> str | None:
     """§16.4: the runner slot opening a round of `tid`. Only the slot holding the lease may: `--holder`
     names the caller, and another slot is refused (exit 3). With several slots `--holder` is required;
@@ -321,6 +345,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     session_warn = usage.session_step(cfg, q, tid, lambda: usage.sample_allowance(cfg, q, gate=False), f"ccp prompt {phase}")
     override = review_gate(q, tid, phase, a)
     repeat = repeat_gate(q, tid, phase, note)
+    tip_warn = tip_gate(cfg, q, tid, phase, a)
     runs.check_pending(q, runs.AGENT_TYPE[phase], a.supersede, caller)
     runs.check_running_rounds(q, tid, phase, caller, a.supersede)
     n = runs.next_round(q, tid, phase)
@@ -375,7 +400,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     prompt_file.write_text(body)
     ref = audit(q, cfg, tid, phase, prompt_file, run_id, meta, worktree if phase in ("implement", "fix") else own, note)
     prune_audits(q, cfg)
-    warnings: list[str] = list(session_warn)
+    warnings: list[str] = list(session_warn) + tip_warn
     rec = runs.open_run(q, cfg, tid, phase, prompt_ref=ref, note=note, supersede=a.supersede, warnings=warnings, by=caller,
                         extra={"pr": a.pr or None, "head": a.head or None,
                                # §14.1: a suite run from inside this worktree binds to the run

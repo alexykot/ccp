@@ -221,11 +221,19 @@ class Claims(ParallelFixture, unittest.TestCase):
 
     def test_config_is_checked(self):
         for bad, msg in (({"max_in_flight": 5}, "1 to 4"), ({"exclusive": "db"}, "list of paths"),
-                         ({"session_ceiling_pct": 0}, "above 0"), ({"slots": 2}, "unknown key")):
+                         ({"session_ceiling_pct": 0}, "above 0"), ({"slots": 2}, "unknown key"),
+                         ({"behind_tip_ignore": "docs"}, "behind_tip_ignore"), ({"behind_tip_ignore": [""]}, "behind_tip_ignore"),
+                         ({"behind_tip_ignore": ["/docs"]}, "behind_tip_ignore"),
+                         ({"behind_tip_ignore": ["../docs"]}, "behind_tip_ignore"),
+                         ({"behind_tip_ignore": [":!docs"]}, "behind_tip_ignore")):
             self.plane(**bad)
             with self.assertRaises(config.ConfigError) as cm:
                 config.load(self.main)
             self.assertIn(msg, str(cm.exception))
+        self.plane(behind_tip_ignore=["docs/notes", "CHANGELOG.md"])
+        self.assertEqual(config.load(self.main).parallel["behind_tip_ignore"], ["docs/notes", "CHANGELOG.md"])
+        self.plane(max_in_flight=2)
+        self.assertEqual(config.load(self.main).parallel["behind_tip_ignore"], [])  # empty by default
 
 
 if __name__ == "__main__":

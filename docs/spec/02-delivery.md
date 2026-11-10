@@ -600,9 +600,10 @@ They hold for every PR the runner merges, a task's or not (ADR-0011).
    the merge, or one relayed in a message is not an approval; a push after the verdict needs a new
    verdict.
 2. **Merge only from the integration tip.** Under several runners `ccp tasks close` refuses a
-   verified head that lacks code merged since (`behind_tip`; task-log-only commits do not count,
-   §16.5 rule 4). The task branch takes the integration branch by a merge, never a rebase (a rebase
-   needs a force-push). With one runner `close` does not run this check.
+   verified head that lacks code merged since (`behind_tip`; commits that touch only the task log or
+   the product's `parallel.behind_tip_ignore` paths do not count, §16.5 rule 4), and `ccp prompt
+   verify` refuses such a head before a verifier starts. The task branch takes the integration branch
+   by a merge, never a rebase (a rebase needs a force-push). With one runner neither runs this check.
 3. **Re-verify after an integration merge.** When the head moved only by merging the integration
    branch and the PR's own change is unchanged (same patch id), no new review is needed (§15.2). The
    verdict must still be at the new head: the runner opens `ccp prompt verify --head <new> --note
@@ -764,12 +765,17 @@ task's holder.
 4. **Bring the head up to the tip before merging.** `ccp tasks close` fetches
    `origin/<integration>` and the verified head (`match_head_commit`) and refuses (exit 1, nothing
    merged, naming `behind_tip`) when the tip has a commit the head lacks that changes anything outside
-   the task log (`git log <head>..origin/<integration> -- . ':!<tasks dir>' ':!<INDEX.yaml>'
-   ':!<reconcile.log path>'` is not empty). Another task's reconcile alone does not hold a task back.
-   A re-run after a failed reconcile (the PR already merged) skips the check. The task's implementer
-   merges `origin/<integration>` into the task branch (a plain push; PRs squash-merge) and resolves
-   any conflict; the task is verified again on the new head (§15.6 rule 3). A merge the hosting
-   service refuses for a conflict is the same case.
+   the task log and the declared paths (`git log <head>..origin/<integration> -- . ':!<tasks dir>'
+   ':!<INDEX.yaml>' ':!<reconcile.log path>' ':!<each declared path>'` is not empty). The declared
+   paths are plane.json `parallel.behind_tip_ignore`, paths relative to the product root (a directory
+   covers everything under it), empty by default: a merge that only adds commits under them keeps the
+   verified head valid. Another task's reconcile alone does not hold a task back. A re-run after a
+   failed reconcile (the PR already merged) skips the check. `ccp prompt verify` runs the same check
+   on `--head` and refuses (exit 4, nothing opened) a head that lacks the tip beyond those paths:
+   merge the tip in first. A tip or head it cannot fetch is a warning there, and close still checks.
+   The task's implementer merges `origin/<integration>` into the task branch (a plain push; PRs
+   squash-merge) and resolves any conflict; the task is verified again on the new head (§15.6
+   rule 3). A merge the hosting service refuses for a conflict is the same case.
 5. **The reconcile retries on a moved tip.** When the push after a reconcile is rejected, or its
    rebase conflicts, `close` aborts the rebase, fetches, detaches at the fresh `origin/<integration>`
    and rebuilds: a task file already `done` there leaves nothing to do; otherwise it redoes the task

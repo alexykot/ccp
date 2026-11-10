@@ -766,12 +766,13 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
         raise QueueError("merge refused, nothing merged (SPEC §15.5):\n  " + "\n  ".join(reasons), 1)
     if not already:
         head = body["match_head_commit"]
-        # §16.5 rule 4: the verified head must contain the tip, task-log bookkeeping aside
+        # §16.5 rule 4: the verified head must contain the tip, the task log and declared paths aside
         from ccp import parallel  # noqa: PLC0415
-        behind = _behind_tip(cfg, pr, tid, head, integ) if parallel.enabled(cfg) else []  # one runner: as before §16
+        behind = _close_behind_tip(cfg, pr, tid, head, integ) if parallel.enabled(cfg) else []  # one runner: §16
         if behind:
             raise QueueError(f"merge refused, nothing merged: behind_tip: the verified head {head[:7]} lacks "
                              f"{len(behind)} commit(s) on origin/{integ} that change more than the task log "
+                             "and parallel.behind_tip_ignore "
                              f"({', '.join(behind[:5])}). Have the implementer merge origin/{integ} into task/{tid} "
                              "(a plain push, never a rebase) and resolve any conflict, then verify the new head, then "
                              "close (SPEC §16.5); a head whose own change is unchanged needs no new review (§15.2)", 1)
@@ -816,29 +817,51 @@ def _push(cfg: Config, integ: str) -> None:
         raise _Moved(f"git push: {(r.stderr or r.stdout).strip()[:200]}")
 
 
-def _behind_tip(cfg: Config, pr: str, tid: str, head: str, integ: str) -> list[str]:
+class Unjudged(Exception):
+    """behind_tip could not judge: `what` is "tip" (origin/<integ> could not be fetched) or "head" (the head
+    could not be found, locally or fetched)."""
+
+    def __init__(self, what: str, message: str) -> None:
+        super().__init__(message)
+        self.what = what
+
+
+def behind_tip(cfg: Config, pr: str | None, tid: str, head: str, integ: str) -> list[str]:
     """§16.5 rule 4: the commits on origin/<integ> that `head` lacks and that change anything outside the
-    task log (its task files, INDEX.yaml, the reconcile log). [] when there are none, or when the head
-    cannot be fetched to judge (the merge is still pinned to the verified head: a warning, not a refusal)."""
+    task log (its task files, INDEX.yaml, the reconcile log) and the product's `parallel.behind_tip_ignore`
+    paths; [] when there are none. Fetches the tip, and the head when it is not here (the PR's head ref,
+    then the task branch). Raises Unjudged when either cannot be read."""
     f = git(cfg.root, "fetch", "-q", "origin", integ)
     if f.returncode != 0:
-        raise QueueError(f"merge refused, nothing merged: origin/{integ} could not be fetched to check the verified "
-                         f"head against the tip ({(f.stderr or f.stdout).strip()[:200]}); run close again", 1)
+        raise Unjudged("tip", f"origin/{integ} could not be fetched ({(f.stderr or f.stdout).strip()[:200]})")
     if git(cfg.root, "cat-file", "-e", f"{head}^{{commit}}").returncode != 0:
-        for ref in (f"refs/pull/{pr}/head", f"task/{tid}"):
+        for ref in ([f"refs/pull/{pr}/head"] if pr else []) + [f"task/{tid}"]:
             if git(cfg.root, "fetch", "-q", "origin", ref).returncode == 0 \
                     and git(cfg.root, "cat-file", "-e", f"{head}^{{commit}}").returncode == 0:
                 break
         else:
-            print(f"ccp tasks close: warning: the verified head {head[:7]} could not be fetched to check it against "
-                  f"origin/{integ} (SPEC §16.5 rule 4); merging it as verified", file=sys.stderr)
-            return []
+            raise Unjudged("head", f"the head {head[:7]} could not be fetched")
     skip = [cfg.rel(cfg.tasks_dir), cfg.rel(cfg.index_path)]
     log = (cfg.reconcile or {}).get("log") or {}
     if isinstance(log, dict) and log.get("path"):
         skip.append(str(log["path"]))
+    skip += [str(x) for x in ((cfg.parallel or {}).get("behind_tip_ignore") or [])]
     r = git(cfg.root, "log", "--format=%h", f"{head}..origin/{integ}", "--", ".", *[f":!{x}" for x in skip])
     return r.stdout.split() if r.returncode == 0 else []
+
+
+def _close_behind_tip(cfg: Config, pr: str, tid: str, head: str, integ: str) -> list[str]:
+    """behind_tip at close: a tip that cannot be fetched refuses the merge; a head that cannot be fetched
+    to judge is a warning, not a refusal (the merge is still pinned to the verified head)."""
+    try:
+        return behind_tip(cfg, pr, tid, head, integ)
+    except Unjudged as exc:
+        if exc.what == "tip":
+            raise QueueError(f"merge refused, nothing merged: {exc}, so the verified head cannot be checked against "
+                             "the tip; run close again", 1) from None
+        print(f"ccp tasks close: warning: the verified head {head[:7]} could not be fetched to check it against "
+              f"origin/{integ} (SPEC §16.5 rule 4); merging it as verified", file=sys.stderr)
+        return []
 
 
 def _undeclared(cfg: Config, meta: dict[str, Any], merge: str) -> list[str] | None:
