@@ -46,6 +46,14 @@ class TaskLogTest(unittest.TestCase):
         errs = self.errs()
         self.assertTrue(any(needle in e for e in errs), f"{needle!r} not in {errs}")
 
+    def test_task_numbers_take_only_task_files_at_the_width(self):
+        self.p.task("0001-first")
+        self.p.task("0042-second")
+        for stray in ("README.md", "INDEX.md", "042-short.md", "00007-long.md", "0003-Upper-Slug.md",
+                      "0004-notes.txt"):
+            self.p.write(f"docs/delivery/tasks/{stray}", "x")
+        self.assertEqual(tasklog.task_numbers(self.p.cfg), frozenset({"0001", "0042"}))
+
     def test_bad_filename(self):
         self.p.write("docs/delivery/tasks/1-Bad.md", "x")
         self.assertFails("filename must be NNNN-kebab-slug.md")

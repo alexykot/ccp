@@ -12,6 +12,7 @@ are the conventions the plane has always used, so a product without the block se
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any
@@ -83,21 +84,28 @@ class Ids:
         a, b = str(a or ""), str(b or "")
         return a == b or (len(b) == self.task_width and b.isdigit() and self.task_number(a) == b)
 
-    @cached_property
-    def task_mention_patterns(self) -> tuple[str, ...]:
-        """A task named in prose or code, at the product's width: its id (number, `-`, slug), its
-        zero-padded number standing alone (a sentence's full stop may follow it, a decimal's digits
-        may not), or `task <n>` / `task #<n>`."""
+    def task_mention_patterns(self, numbers: Iterable[str]) -> tuple[str, ...]:
+        """A task named in prose or code, matched only when its number is one of `numbers` (the task
+        log's, at the product's width), so a year, a file mode or a migration's name is not a task:
+        its id (number, `-`, slug), not followed by a file extension; its zero-padded number standing
+        alone (a sentence's full stop may follow it, a decimal's digits may not); or `task <n>`,
+        `task #<n>` or `Task: <n>`, padded or not. No numbers, no patterns."""
         w = self.task_width
-        return (rf"(?<![\w-])\d{{{w}}}-[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?![\w-])",
-                rf"(?<![\w.-])0\d{{{w - 1}}}(?![\w-]|\.\w)",
-                rf"(?i:\btask\s+#?)\d{{1,{w}}}\b")
+        nums = sorted({n for n in numbers if re.fullmatch(rf"\d{{{w}}}", n)}, reverse=True)
+        if not nums:
+            return ()
+        padded = [n for n in nums if n.startswith("0")]
+        short = sorted({str(int(n)) for n in nums}, key=lambda n: (-len(n), n))
+        pats = [rf"(?<![\w-])(?:{'|'.join(nums)})-[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?![\w-]|\.\w)"]
+        if padded:
+            pats.append(rf"(?<![\w.-])(?:{'|'.join(padded)})(?![\w-]|\.\w)")
+        pats.append(rf"(?i:\btask:?\s+#?)(?=\d{{1,{w}}}\b)0*(?:{'|'.join(short)})\b")
+        return tuple(pats)
 
-    @cached_property
-    def delivery_id_patterns(self) -> tuple[str, ...]:
-        """The delivery ids the plane knows: a task (`task_mention_patterns`), an architect finding or
-        pass (`REVIEW_ID`) and a spec question's ruling (`QUESTION_ID`)."""
-        return (*self.task_mention_patterns, rf"(?<![\w-]){REVIEW_ID}(?![\w-])",
+    def delivery_id_patterns(self, numbers: Iterable[str]) -> tuple[str, ...]:
+        """The delivery ids the plane knows: a task in the log (`task_mention_patterns`), and always an
+        architect finding or pass (`REVIEW_ID`) and a spec question's ruling (`QUESTION_ID`)."""
+        return (*self.task_mention_patterns(numbers), rf"(?<![\w-]){REVIEW_ID}(?![\w-])",
                 rf"(?<![\w-]){QUESTION_ID}(?![\w-])")
 
     def family(self, tid: Any) -> str:
