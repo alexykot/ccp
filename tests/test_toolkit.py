@@ -196,7 +196,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         schema = json.loads((PLANE / "contracts/plane_config.schema.json").read_text())
         for block, defaults in (("prompts", config.PROMPTS_DEFAULTS), ("reconcile", config.RECONCILE_DEFAULTS),
                                 ("adapter", config.ADAPTER_DEFAULTS), ("telemetry", config.TELEMETRY_DEFAULTS),
-                                ("board", config.BOARD_DEFAULTS)):
+                                ("board", config.BOARD_DEFAULTS), ("docs", config.DOCS_DEFAULTS)):
             self.assertEqual(set(schema["properties"][block]["properties"]), set(defaults), block)
 
     def test_render_sections_and_unknown_names(self):

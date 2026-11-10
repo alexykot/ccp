@@ -266,3 +266,110 @@ class Runner(unittest.TestCase):
             self.assertLessEqual(len(text), rules.OUTPUT_CAP)
         finally:
             p.cleanup()
+
+
+class ParallelChecks(unittest.TestCase):
+    """`docs.workers` (§21.5): check commands run at once, results in declared order."""
+
+    def run_docs_check(self, p):
+        import time
+        out = io.StringIO()
+        start = time.monotonic()
+        with redirect_stdout(out):
+            code = cli.main(["--root", str(p.root), "docs", "check"])
+        return code, out.getvalue(), time.monotonic() - start
+
+    def set_workers(self, p, n):
+        import json
+        f = p.root / "docs/delivery/plane.json"
+        c = json.loads(f.read_text())
+        c.setdefault("docs", {})["workers"] = n
+        f.write_text(json.dumps(c))
+
+    def test_two_slow_docs_checks_with_two_workers_finish_together_in_order(self):
+        checks = [{"id": "first", "cmd": "sleep 1; echo one; exit 2"}, {"id": "second", "cmd": "sleep 1; echo two; exit 3"}]
+        p = Product({"docs": {"checks": checks, "workers": 2}})
+        try:
+            p.index()
+            code, out, took = self.run_docs_check(p)
+            self.assertEqual(code, 1)
+            self.assertLess(took, 2)
+            lines = [ln.strip() for ln in out.splitlines() if ln.strip().startswith("docs check ")]
+            self.assertEqual(lines, ["docs check first: `sleep 1; echo one; exit 2` exited 2: one",
+                                     "docs check second: `sleep 1; echo two; exit 3` exited 3: two"])
+            self.set_workers(p, 1)
+            serial_code, serial_out, serial_took = self.run_docs_check(p)
+            self.assertEqual((serial_code, serial_out), (code, out))   # the same report, one after another
+            self.assertGreaterEqual(serial_took, 2)
+        finally:
+            p.cleanup()
+
+    def test_two_slow_architect_checks_with_two_workers_keep_their_result_lines(self):
+        doc = "# Rules\n\n## Tests\n\n- **E1** One.\n  check: command\n- **E2** Two.\n  check: command\n"
+        p = Product({"docs": {"workers": 2},
+                     "architect": {"rules_doc": "docs/ENGINEERING.md",
+                                   "checks": [{"id": "E1", "cmd": "sleep 1; echo a; exit 4"},
+                                              {"id": "E2", "cmd": "sleep 1; echo b; exit 5"}]}})
+        try:
+            p.write("docs/ENGINEERING.md", doc)
+            p.index()
+            code, out, took = self.run_docs_check(p)
+            self.assertEqual(code, 1)
+            self.assertLess(took, 2)
+            lines = [ln.strip() for ln in out.splitlines() if ln.strip().startswith("check ")]
+            self.assertEqual(lines, ["check E1: `sleep 1; echo a; exit 4` exited 4: a",
+                                     "check E2: `sleep 1; echo b; exit 5` exited 5: b"])
+            self.set_workers(p, 1)
+            self.assertEqual(self.run_docs_check(p)[:2], (code, out))
+        finally:
+            p.cleanup()
+
+    def test_failures_come_back_in_declared_order_not_finishing_order(self):
+        from ccp import rules
+        p = Product({"docs": {"workers": 3}})
+        try:
+            errs = rules.run_checks(p.cfg, [{"id": "slow", "cmd": "sleep 0.6; exit 1"},
+                                            {"id": "ok", "cmd": "true"},
+                                            {"id": "fast", "cmd": "exit 2"}])
+            self.assertEqual([e.split(":")[0] for e in errs], ["slow", "fast"])
+        finally:
+            p.cleanup()
+
+    def test_the_default_runs_checks_one_after_another(self):
+        from ccp import rules
+        p = Product()
+        try:
+            self.assertEqual(p.cfg.docs["workers"], 1)
+            mark = p.root / "a-done"
+            checks = [{"id": "a", "cmd": f"sleep 0.5; touch {mark}"}, {"id": "b", "cmd": f"test -f {mark}"}]
+            self.assertEqual(rules.run_checks(p.cfg, checks), [])          # b ran after a finished
+            mark.unlink()
+            self.set_workers(p, 2)
+            self.assertEqual([e.split(":")[0] for e in rules.run_checks(config.load(p.root), checks)], ["b"])
+        finally:
+            p.cleanup()
+
+    def test_each_check_keeps_its_own_timeout_in_parallel(self):
+        import time
+        from ccp import rules
+        p = Product({"docs": {"workers": 2}})
+        try:
+            start = time.monotonic()
+            errs = rules.run_checks(p.cfg, [{"id": "hang", "cmd": "sleep 30", "timeout_seconds": 1},
+                                            {"id": "slow", "cmd": "sleep 2; exit 1", "timeout_seconds": 10}])
+            self.assertLess(time.monotonic() - start, 10)
+            self.assertEqual(errs, ["hang: `sleep 30` timed out after 1s", "slow: `sleep 2; exit 1` exited 1"])
+        finally:
+            p.cleanup()
+
+    def test_bad_workers_are_refused(self):
+        import json
+        for bad in (0, -1, True, "2", 1.5, None):
+            p = Product()
+            try:
+                (p.root / "docs/delivery/plane.json").write_text(
+                    json.dumps({"project_id": "demo", "docs": {"workers": bad}}))
+                with self.assertRaises(config.ConfigError, msg=bad):
+                    config.load(p.root)
+            finally:
+                p.cleanup()

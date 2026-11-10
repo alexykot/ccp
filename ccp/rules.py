@@ -21,6 +21,7 @@ import os
 import re
 import signal
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -270,10 +271,18 @@ def check_failures(cfg: Config) -> list[str]:
 
 def run_checks(cfg: Config, checks: list[dict[str, Any]]) -> list[str]:
     """Run product check commands (`{id, cmd, timeout_seconds?}`) in the root, as `architect.checks`
-    and `docs.checks` both are: exit 0 passes; a non-zero exit or a timeout is a failure."""
+    and `docs.checks` both are: exit 0 passes; a non-zero exit or a timeout is a failure. Up to
+    `docs.workers` of them run at once (§21.5), each under its own timeout; the failures come back
+    in the order the checks are declared, whichever finishes first."""
+    workers = min(int((cfg.docs or {}).get("workers", 1)), len(checks))
+    run = lambda c: run_command(cfg, c["cmd"], c.get("timeout_seconds", 600))  # noqa: E731
+    if workers > 1:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            results = list(pool.map(run, checks))
+    else:
+        results = [run(c) for c in checks]
     out: list[str] = []
-    for c in checks:
-        code, text = run_command(cfg, c["cmd"], c.get("timeout_seconds", 600))
+    for c, (code, text) in zip(checks, results):
         if code is None:
             out.append(f"{c['id']}: `{c['cmd']}` timed out after {c.get('timeout_seconds', 600)}s")
         elif code != 0:

@@ -76,8 +76,9 @@ PACKAGE_DOCS_DEFAULTS: dict[str, Any] = {
     # Opt-in generic rules (ccp/docrules.py), each off until configured.
     "rules": {},
 }
-# §21.5: product commands `ccp docs check` runs, not tied to a house rule (exit 0 = pass).
-DOCS_DEFAULTS: dict[str, Any] = {"checks": []}
+# §21.5: product commands `ccp docs check` runs, not tied to a house rule (exit 0 = pass). `workers`:
+# how many check commands (these and `architect.checks`) run at once; 1 runs them one after another.
+DOCS_DEFAULTS: dict[str, Any] = {"checks": [], "workers": 1}
 DOC_RULES = {"citations": {"globs", "targets", "ignore"}, "no_ids": {"globs", "patterns"}, "history_attr": None,
              "no_overlap": None, "no_call_bullets": None}
 
@@ -416,8 +417,12 @@ def _package_docs(given: Any) -> dict[str, Any] | None:
 
 
 def _docs(given: Any) -> dict[str, Any]:
-    """§21.5: `docs.checks`, product commands `ccp docs check` runs (exit 0 = pass)."""
+    """§21.5: `docs.checks`, product commands `ccp docs check` runs (exit 0 = pass), and `docs.workers`,
+    how many check commands run at once."""
     d = _merge(DOCS_DEFAULTS, given, "docs")
+    w = d["workers"]
+    if isinstance(w, bool) or not isinstance(w, int) or w < 1:
+        raise ConfigError(f"{CONFIG_REL}: docs.workers must be an integer >= 1")
     seen: set[str] = set()
     if not isinstance(d["checks"], list):
         raise ConfigError(f"{CONFIG_REL}: docs.checks must be a list of {{id, cmd}}")
