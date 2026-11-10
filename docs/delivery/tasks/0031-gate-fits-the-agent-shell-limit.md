@@ -1,14 +1,14 @@
 ---
 task_id: 0031-gate-fits-the-agent-shell-limit
 title: The gate's run fits the agent's foreground shell limit
-status: pending
+status: done
 kind: feature
 depends_on: [0030-gate-stages-in-plane-json]
 spec_refs: ["S14", "S20"]
 review_point: R3
 paths: ["ccp/", "docs/spec/", "tests/"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0031-gate-fits-the-agent-shell-limit
@@ -67,4 +67,4 @@ A cold gate run fits the agent harness's foreground command limit (600 s in Clau
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #23 head `7f290fc` (squash `cc87544`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0031-gate-fits-the-agent-shell-limit.json.

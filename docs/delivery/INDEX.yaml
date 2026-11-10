@@ -153,7 +153,7 @@ tasks:
     depends_on: []
     path: tasks/0030-gate-stages-in-plane-json.md
   - id: 0031-gate-fits-the-agent-shell-limit
-    status: pending
+    status: done
     title: The gate's run fits the agent's foreground shell limit
     depends_on: [0030-gate-stages-in-plane-json]
     path: tasks/0031-gate-fits-the-agent-shell-limit.md
