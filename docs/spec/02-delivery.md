@@ -599,11 +599,13 @@ They hold for every PR the runner merges, a task's or not (ADR-0011).
 1. **Merge only on an approval at the head** (§15.5). A verdict at another head, one written after
    the merge, or one relayed in a message is not an approval; a push after the verdict needs a new
    verdict.
-2. **Merge only from the integration tip.** Under several runners `ccp tasks close` refuses a
-   verified head that lacks code merged since (`behind_tip`; commits that touch only the task log or
-   the product's `parallel.behind_tip_ignore` paths do not count, §16.5 rule 4), and `ccp prompt
-   verify` refuses such a head before a verifier starts. The task branch takes the integration branch
-   by a merge, never a rebase (a rebase needs a force-push). With one runner neither runs this check.
+2. **Merge only from the integration tip.** `ccp prompt verify` refuses a head that lacks code merged
+   since (`behind_tip`; commits that touch only the task log or the product's
+   `merge.behind_tip_ignore` paths do not count, §16.5 rule 4) before a verifier starts, with one
+   runner or several, so the runner merges the tip into the head before asking for a verify. Under
+   several runners `ccp tasks close` also refuses such a verified head; with one runner `close` does
+   not run this check. The task branch takes the integration branch by a merge, never a rebase (a
+   rebase needs a force-push).
 3. **Re-verify after an integration merge.** When the head moved only by merging the integration
    branch and the PR's own change is unchanged (same patch id), no new review is needed (§15.2). The
    verdict must still be at the new head: the runner opens `ccp prompt verify --head <new> --note
@@ -664,7 +666,8 @@ Tasks in unrelated parts of a codebase need not wait for each other (ADR-0012). 
 `max_in_flight` runner teammates sharing one queue-wide scope, each holding **one** task with its own
 worktrees, workers and merge worktree; a teammate's Agent call blocks until its worker ends, so one
 runner runs one worker at a time. Correctness never rests on declared paths: a task merges only from
-a head that contains the current integration tip (task-log bookkeeping aside), verified there, and
+a head that contains the current integration tip (the task log and the paths in
+`merge.behind_tip_ignore` aside, §16.5 rule 4), verified there, and
 git resolves the rest with no merge lock. Two merges that conflict: the later fails, and its
 implementer resolves it. A merge landing between another task's catch-up and its merge is a small
 window, accepted. Declared paths only decide what to start together. Off (`max_in_flight: 1`) is the
@@ -674,13 +677,15 @@ single-runner behaviour, exactly.
 
 ```json
 "parallel": { "max_in_flight": 2, "exclusive": ["db/schema.sql"], "session_ceiling_pct": 60 },
-"suite": { "exclusive_lanes": ["gate", "full"] }
+"suite": { "exclusive_lanes": ["gate", "full"] },
+"merge": { "behind_tip_ignore": ["docs/notes"] }
 ```
 
 No `parallel` block, or `max_in_flight: 1`: one task at a time. `max_in_flight` is 1 to 4;
 `exclusive` lists paths and globs (`**` spans directories) whose concurrent edits git cannot merge
-safely (a schema or migration file); `session_ceiling_pct` defaults to 60. Config loading validates
-both blocks; unknown keys are refused. Lowering `parallel.max_in_flight` is completed by `stop --slot` for the
+safely (a schema or migration file); `session_ceiling_pct` defaults to 60. `merge.behind_tip_ignore`
+(empty by default) lists the paths whose commits on the tip do not make a head behind it (§16.5 rule
+4); it applies with one runner too. Config loading validates these blocks; unknown keys are refused. Lowering `parallel.max_in_flight` is completed by `stop --slot` for the
 extra slots.
 
 ### 16.3 Which tasks may start together
@@ -767,12 +772,13 @@ task's holder.
    merged, naming `behind_tip`) when the tip has a commit the head lacks that changes anything outside
    the task log and the declared paths (`git log <head>..origin/<integration> -- . ':!<tasks dir>'
    ':!<INDEX.yaml>' ':!<reconcile.log path>' ':!<each declared path>'` is not empty). The declared
-   paths are plane.json `parallel.behind_tip_ignore`, paths relative to the product root (a directory
+   paths are plane.json `merge.behind_tip_ignore`, paths relative to the product root (a directory
    covers everything under it), empty by default: a merge that only adds commits under them keeps the
    verified head valid. Another task's reconcile alone does not hold a task back. A re-run after a
    failed reconcile (the PR already merged) skips the check. `ccp prompt verify` runs the same check
-   on `--head` and refuses (exit 4, nothing opened) a head that lacks the tip beyond those paths:
-   merge the tip in first. A tip or head it cannot fetch is a warning there, and close still checks.
+   on `--head`, with one runner too, and refuses (exit 4, nothing opened) a head that lacks the tip
+   beyond those paths: merge the tip in first. A tip or head it cannot fetch is a warning there; with
+   several runners close still checks.
    The task's implementer merges `origin/<integration>` into the task branch (a plain push; PRs
    squash-merge) and resolves any conflict; the task is verified again on the new head (§15.6
    rule 3). A merge the hosting service refuses for a conflict is the same case.

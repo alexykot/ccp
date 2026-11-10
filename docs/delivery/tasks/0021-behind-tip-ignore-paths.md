@@ -21,6 +21,7 @@ A product setting (empty by default) lists paths whose commits on the integratio
 ## Context (not checked)
 
 - Today only the task log, INDEX and the reconcile log are skipped, so a history-only or doc-only commit forces a merge and a re-verify.
+- Ruling (operator, 2026-11-10, on PR #17): "(1) The verify refusal applies with one runner too: ADR-0035 D2 states no runner-count condition, and a single runner's PR also falls behind the tip, for example after the previous task's reconcile commit. The close-time check keeps its current condition; changing it is out of scope. (2) The setting is `merge.behind_tip_ignore` (a list of paths, empty by default), not `parallel.*`, because the verify refusal is no longer parallel-only and both D1 and D2 are about the head against the tip. If close reads it under `parallel`, read it from `merge` there too; there is no other user of the old name yet. (3) Yes: edit SPEC section 16.1, the section 16.2 example and `plugin/agents/delivery-runner.md` step 4 in this PR, so the runner merges the tip into the head before asking for verify. Section 31: these describe the task's own feature from ADR-0035 D1/D2, which the operator accepted, so the operator's 2026-11-10 ruling covers them. Quote it and the old text. No merge gate."
 
 ## Scope
 
@@ -56,6 +57,14 @@ A product setting (empty by default) lists paths whose commits on the integratio
   check only with several runners, as close does, refusing exit 4 with nothing opened; a tip or head it
   cannot fetch is a warning in its output, and close still checks. SPEC §15.6 rule 2 and §16.5 rule 4
   carry the rule, worded from ADR-0035 D1 and D2.
+- 2026-11-10 (implementer, round 2, on the ruling in Context): the setting is now plane.json
+  `merge.behind_tip_ignore` (in `MERGE_DEFAULTS` and the schema's `merge` block; `parallel.behind_tip_ignore`
+  is refused as an unknown key). `ccp prompt verify` runs the check with one runner too; close keeps its
+  several-runners condition, so the unfetchable-tip warning says "close checks it" only with several
+  runners. SPEC §15.6 rule 2, §16.1, §16.2 (example and text) and §16.5 rule 4 say so; the §8.1 block
+  table in `docs/spec/01-model.md` names the key. `plugin/agents/delivery-runner.md` step 4 has the runner
+  merge the tip in before asking for a verify, and step 8 says what the refusal means for a single runner,
+  who skips the Several runners section.
 
 ## Verification notes
 

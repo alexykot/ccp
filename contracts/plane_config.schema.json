@@ -657,7 +657,7 @@
     "merge": {
       "type": "object",
       "additionalProperties": false,
-      "description": "SPEC §10.5: the merge `ccp tasks close` runs.",
+      "description": "SPEC §10.5: the merge `ccp tasks close` runs; §16.5 rule 4: what does not make a head behind the tip.",
       "properties": {
         "command": {
           "type": [
@@ -665,6 +665,12 @@
             "null"
           ],
           "description": "A template naming {pr}, {head_sha} (required: the merge is pinned to the verified head) and {task_id}; null: gh pr merge {pr} --squash --match-head-commit {head_sha}."
+        },
+        "behind_tip_ignore": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1, "pattern": "^[^/:]"},
+          "default": [],
+          "description": "Paths relative to the product root (a directory covers everything under it) whose commits on the integration tip do not make a head behind it at close or at verify launch (§16.5 rule 4)."
         }
       }
     },
@@ -930,8 +936,7 @@
       "properties": {
         "max_in_flight": {"type": "integer", "minimum": 1, "maximum": 4, "default": 1, "description": "The most tasks the runner holds at once (§16.3 rule 1)."},
         "exclusive": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": [], "description": "Paths and globs (** spans directories) whose tasks run alone: files concurrent edits cannot be merged in safely (§16.3 rule 4)."},
-        "session_ceiling_pct": {"type": "number", "exclusiveMinimum": 0, "maximum": 100, "default": 60, "description": "A second task is claimed only while the account's 5-hour usage is below this (§16.3 rule 5)."},
-        "behind_tip_ignore": {"type": "array", "items": {"type": "string", "minLength": 1, "pattern": "^[^/:]"}, "default": [], "description": "Paths relative to the product root (a directory covers everything under it) whose commits on the integration tip do not make a head behind it at close or at verify launch (§16.5 rule 4)."}
+        "session_ceiling_pct": {"type": "number", "exclusiveMinimum": 0, "maximum": 100, "default": 60, "description": "A second task is claimed only while the account's 5-hour usage is below this (§16.3 rule 5)."}
       }
     },
     "ids": {

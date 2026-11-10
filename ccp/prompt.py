@@ -9,9 +9,9 @@ the agent type and a description that starts with the run's task and phase; the 
 file's text, verbatim. The runner never passes `model` (§2). First it samples the allowance: at the
 5-hour park % it parks the task and refuses, exit 6, writing nothing else (§25.4 the session park).
 A verify round with no fix round since the task's last verify round needs `--note` with the reason
-(§15.6 rule 4): without it the command refuses, exit 4, nothing opened. With several runners a verify of
-a head that lacks the integration tip, beyond the task log and `parallel.behind_tip_ignore`, refuses the
-same way: merge the tip in first (§16.5 rule 4).
+(§15.6 rule 4): without it the command refuses, exit 4, nothing opened. A verify of a head that lacks the
+integration tip, beyond the task log and `merge.behind_tip_ignore`, refuses the same way, with one runner
+or several: merge the tip in first (§16.5 rule 4).
 
 Templates use `{{name}}`, `{{#name}}…{{/name}}` (kept when the value is not empty) and
 `{{^name}}…{{/name}}` (kept when it is). A name the renderer does not know is an error, so a
@@ -283,24 +283,25 @@ def repeat_gate(q: Path, tid: str, phase: str, note: str | None) -> dict[str, st
 
 
 def tip_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> list[str]:
-    """§16.5 rule 4: with several runners, a verify of a head behind the integration tip (the task log and
-    `parallel.behind_tip_ignore` aside) is refused (exit 4), nothing opened, since close would refuse it.
-    A tip or head that cannot be fetched to judge is a warning, returned to record on the run: close
-    still checks."""
+    """§16.5 rule 4: a verify of a head behind the integration tip (the task log and
+    `merge.behind_tip_ignore` aside) is refused (exit 4), nothing opened, with one runner or several
+    (ADR-0035 D2). A tip or head that cannot be fetched to judge is a warning, returned to record on the
+    run; with several runners close still checks."""
     from ccp import lifecycle, parallel  # noqa: PLC0415
-    if phase != "verify" or not parallel.enabled(cfg):
+    if phase != "verify":
         return []
     integ = integration_branch(q)
     try:
         behind = lifecycle.behind_tip(cfg, a.pr, tid, a.head, integ)
     except lifecycle.Unjudged as exc:
         what = f"origin/{integ}" if exc.what == "tip" else f"the head {a.head[:7]}"
-        return [f"behind_tip not checked: {what} could not be fetched (SPEC §16.5 rule 4); close checks it"]
+        close = "; close checks it" if parallel.enabled(cfg) else ""  # close checks only with several runners
+        return [f"behind_tip not checked: {what} could not be fetched (SPEC §16.5 rule 4){close}"]
     if behind:
         raise QueueError(f"behind_tip: the head {a.head[:7]} lacks {len(behind)} commit(s) on origin/{integ} that change "
-                         f"more than the task log and parallel.behind_tip_ignore ({', '.join(behind[:5])}), so close "
-                         f"would refuse it. Merge the tip in first: have the implementer merge origin/{integ} into "
-                         f"task/{tid} (a plain push, never a rebase), then verify the new head (SPEC §16.5 rule 4)", 4)
+                         f"more than the task log and merge.behind_tip_ignore ({', '.join(behind[:5])}). Merge the "
+                         f"tip in first: have the implementer merge origin/{integ} into task/{tid} (a plain push, "
+                         "never a rebase), then verify the new head (SPEC §16.5 rule 4)", 4)
     return []
 
 

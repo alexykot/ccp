@@ -13,8 +13,10 @@ from tests.test_toolkit import ToolkitFixture, git
 
 
 class Merging(ToolkitFixture, unittest.TestCase):
-    # §16.5 rule 4 is several runners'; commits only under docs/notes/ do not make a head behind the tip
-    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "parallel": {"max_in_flight": 2, "behind_tip_ignore": ["docs/notes"]}}
+    # §16.5 rule 4: close checks it with several runners, verify with any number; commits only under
+    # docs/notes/ do not make a head behind the tip
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "parallel": {"max_in_flight": 2},
+                  "merge": {"behind_tip_ignore": ["docs/notes"]}}
 
     def push_to_main(self, rel: str, text: str, msg: str) -> None:
         git(self.runner, "fetch", "-q", "origin")
@@ -129,15 +131,46 @@ class Merging(ToolkitFixture, unittest.TestCase):
         git(self.runner, "remote", "set-url", "origin", str(self.main.parent / "gone.git"))
         code, body, out, err = self.verify(head)
         self.assertEqual(code, 0, out + err)
-        self.assertTrue(any("behind_tip not checked: origin/main" in w for w in body["warnings"]), body)
+        self.assertTrue(any("behind_tip not checked: origin/main" in w and "close checks it" in w
+                            for w in body["warnings"]), body)
 
-    def test_one_runner_verifies_a_head_behind_the_tip_as_before(self):
+    def test_one_runner_close_still_merges_a_verified_head_behind_the_tip(self):
+        self.one_runner()
+        self._to_approved_pr()
+        self.push_to_main("other.py", "x = 1\n", "Task 0009: other code")
+        code, body, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(body["merged_now"])
+
+    def test_one_runner_verify_refuses_a_head_behind_the_tip(self):
         self.one_runner()
         head = self.pushed_head()
         self.push_to_main("other.py", "x = 1\n", "Task 0009: other code")
+        code, _, out, err = self.verify(head)
+        self.assertEqual(code, 4, out + err)
+        self.assertIn("behind_tip", err)
+        self.assertIn("Merge the tip in first", err)
+        self.assertFalse((self.q / "runs/0002-second/verify.json").exists())  # nothing opened
+
+    def test_one_runner_verify_launches_on_a_head_behind_only_by_declared_paths(self):
+        self.one_runner()
+        head = self.pushed_head()
+        self.push_to_main("docs/notes/today.md", "a lead's note\n", "the lead's doc commit")
         code, body, out, err = self.verify(head)
         self.assertEqual(code, 0, out + err)
         self.assertNotIn("warnings", body)
+
+    def test_one_runner_verify_warning_does_not_promise_a_close_check(self):
+        self.one_runner()
+        head = self.pushed_head()
+        git(self.runner, "fetch", "-q", "origin")
+        git(self.runner, "checkout", "-q", "--detach", "origin/main")  # the runner reads the one-runner config
+        git(self.runner, "remote", "set-url", "origin", str(self.main.parent / "gone.git"))
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        warns = [w for w in body["warnings"] if "behind_tip not checked: origin/main" in w]
+        self.assertTrue(warns, body)
+        self.assertFalse(any("close checks it" in w for w in warns), body)
 
     def test_a_reconcile_that_collides_is_rebuilt_on_the_fresh_tip(self):
         self._to_approved_pr()

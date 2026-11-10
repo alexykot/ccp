@@ -112,6 +112,10 @@ before anything else.
 8. **Verify.** `ccp prompt verify <task_id> --pr <n> --head <sha>`: a fresh `delivery-verifier` subagent
    with the fixed packet. It writes its verdict with `ccp verify record` and reports APPROVE or REJECT with the
    head it judged. REJECT goes back to step 7 (`ccp prompt fix`).
+   It refuses (exit 4, `behind_tip`, nothing opened) a head that lacks a commit on `origin/<integration>`
+   changing more than the task log and the product's `merge.behind_tip_ignore` paths, with one runner too:
+   have the implementer merge `origin/<integration>` into the task branch (a plain push, never a rebase),
+   then verify the new head.
 9. **Merge and reconcile.** After APPROVE: `ccp tasks close <task_id> --pr <n> --summary "<one line>"`,
    from your clean runner worktree. It runs `ccp verify merge-ok` (SPEC §15) and merges pinned to the
    head it approves, then marks the task file done with the verification note, writes the product's
@@ -154,10 +158,13 @@ runners, each holding one task. Otherwise ignore this section.
 3. **Workers as before.** `ccp prompt`, then its Agent call; the call returns when the worker ends. A
    `ccp prompt` that exits 3 "about to be launched" met another runner's launch: wait a few seconds and
    run it again. Never `--supersede` another runner's run.
-4. **Merge only from the tip.** `ccp tasks close` refuses (exit 1, `behind_tip`, nothing merged) a verified
-   head that lacks code another task merged since. Have the implementer merge `origin/<integration>` into
-   the task branch (a plain push; never a rebase, which needs a force-push) and resolve any conflict, then
-   verify the new head (the merge is pinned to the verified head). A head whose own change is unchanged by
+4. **Merge only from the tip.** Before you ask for a verify, have the implementer merge `origin/<integration>`
+   into the task branch (a plain push; never a rebase, which needs a force-push) and resolve any conflict.
+   `ccp prompt verify` refuses (exit 4, `behind_tip`, nothing opened) a head that lacks a tip commit changing
+   more than the task log and the product's `merge.behind_tip_ignore` paths: the head is stale, so merge the
+   tip in and verify the new head. `ccp tasks close` refuses (exit 1, `behind_tip`, nothing merged) a verified
+   head that lacks code another task merged since: the same catch-up, then verify the new head (the merge is
+   pinned to the verified head). A head whose own change is unchanged by
    that merge needs no new review (§15.2); one whose change moved does. A merge GitHub refuses for a
    conflict is the same case. Another task's reconcile alone (LOG, INDEX, task file) never holds you back;
    a reconcile that collides with another runner's is rebuilt by `close` itself.

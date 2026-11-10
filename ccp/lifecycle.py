@@ -772,7 +772,7 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
         if behind:
             raise QueueError(f"merge refused, nothing merged: behind_tip: the verified head {head[:7]} lacks "
                              f"{len(behind)} commit(s) on origin/{integ} that change more than the task log "
-                             "and parallel.behind_tip_ignore "
+                             "and merge.behind_tip_ignore "
                              f"({', '.join(behind[:5])}). Have the implementer merge origin/{integ} into task/{tid} "
                              "(a plain push, never a rebase) and resolve any conflict, then verify the new head, then "
                              "close (SPEC §16.5); a head whose own change is unchanged needs no new review (§15.2)", 1)
@@ -828,7 +828,7 @@ class Unjudged(Exception):
 
 def behind_tip(cfg: Config, pr: str | None, tid: str, head: str, integ: str) -> list[str]:
     """§16.5 rule 4: the commits on origin/<integ> that `head` lacks and that change anything outside the
-    task log (its task files, INDEX.yaml, the reconcile log) and the product's `parallel.behind_tip_ignore`
+    task log (its task files, INDEX.yaml, the reconcile log) and the product's `merge.behind_tip_ignore`
     paths; [] when there are none. Fetches the tip, and the head when it is not here (the PR's head ref,
     then the task branch). Raises Unjudged when either cannot be read."""
     f = git(cfg.root, "fetch", "-q", "origin", integ)
@@ -845,7 +845,7 @@ def behind_tip(cfg: Config, pr: str | None, tid: str, head: str, integ: str) -> 
     log = (cfg.reconcile or {}).get("log") or {}
     if isinstance(log, dict) and log.get("path"):
         skip.append(str(log["path"]))
-    skip += [str(x) for x in ((cfg.parallel or {}).get("behind_tip_ignore") or [])]
+    skip += [str(x) for x in ((cfg.merge or {}).get("behind_tip_ignore") or [])]
     r = git(cfg.root, "log", "--format=%h", f"{head}..origin/{integ}", "--", ".", *[f":!{x}" for x in skip])
     return r.stdout.split() if r.returncode == 0 else []
 
