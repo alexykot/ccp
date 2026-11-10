@@ -24,6 +24,13 @@ fence clears an inherited `QUEUE_ROOT`, so no test reads a live queue (§14).
   `tests/__init__.py` does not clear it, so a test that runs `ccp tasks next` without its own queue
   reads the live one and gets exit 3. On `9d06bcd`, `tests.test_pkgdocs_config.ConfigTest.test_cli_exit_codes`
   fails this way, which turns every task's gate red.
+- Standing ruling from the lead for R1: when a task carries out an operator ruling recorded in
+  `docs/spec/RULINGS.md` that names the task, the implementer also removes or rewords, in the same
+  PR and without asking, every SPEC/docs passage the change makes false (transitional markers such
+  as "task NNNN", descriptions of what the task retires), each listed with its old text in the PR
+  body's "Operator approval (SPEC S31)" section citing the row. Ask only when an edit would remove
+  or change a rule the row does not cover, or when no row names the task (then list the passage as
+  an open question and do not edit).
 
 ## Scope
 
@@ -52,6 +59,16 @@ fence clears an inherited `QUEUE_ROOT`, so no test reads a live queue (§14).
 ## Implementation notes
 
 *Append-only, newest last.*
+
+- 2026-11-10 (implementer): `tests/__init__.py` pops `QUEUE_ROOT` and `PROJECT_YAML` beside the
+  other fenced variables. `PROJECT_YAML` is read on a test path: `ccp/verify.py` `_ci` falls back
+  to it when the queue has no `project.yaml`, and `scripts/observability/lib.py` reads it too.
+  `PLANE_PROJECT_YAML` and `DURABLE_DOCS` (read only by `scripts/observability/lib.py`) are left
+  as they are, since the Scope names only `PROJECT_YAML`; `CCP_BINDINGS_DIR` was already fenced.
+  New `tests/test_fence.py` imports `tests` in a child with both variables set and checks that
+  neither survives; on the merge base it fails, as does `test_cli_exit_codes` with a live queue
+  exported. `docs/design/plugin.md`'s fence note now names the cleared variables. No SPEC change,
+  and no change to how `ccp` resolves the queue outside tests.
 
 ## Verification notes
 
