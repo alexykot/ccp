@@ -95,6 +95,15 @@ class Channel(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 5, err)
         self.assertEqual([(r[0], r[2]) for r in sent(self.out)], [("allowance_checkpoint", "0002-second")])
 
+    def test_a_failing_command_at_the_checkpoint_adds_its_warning_to_the_refusal(self):
+        reading = Path(self._tmp.name) / "reading.json"
+        reading.write_text(json.dumps({"five_hour": {"utilization": 10}, "seven_day": {"utilization": 90}}))
+        self.set_plane(telemetry={"allowance_cmd": f"cat '{reading}'", "allowance_stop_weekly": 80},
+                       notify={"command": "exit 3"})
+        code, _, _, err = self.ccp("tasks", "claim", "0002", root=self.main)
+        self.assertEqual(code, 5, err)
+        self.assertIn("notify:", err)
+
     def test_a_claim_under_the_checkpoint_notifies_nothing(self):
         reading = Path(self._tmp.name) / "reading.json"
         reading.write_text(json.dumps({"five_hour": {"utilization": 10}, "seven_day": {"utilization": 20}}))
@@ -164,6 +173,11 @@ class Config(unittest.TestCase):
         self.addCleanup(p.cleanup)
         self.assertEqual(config.load(p.root).notify, {"command": None, "timeout_seconds": 30})
 
+    def test_an_unknown_trigger_is_a_programming_error(self):
+        from ccp import notify
+        with self.assertRaises(ValueError):
+            notify.send(self.load({"command": "true"}), "lunch")
+
     def test_a_bad_block_is_refused(self):
         for bad in ({"command": ""}, {"command": 3}, {"timeout_seconds": 0}, {"timeout_seconds": True},
                     {"channel": "mail"}, "mail"):
@@ -204,6 +218,23 @@ class Gates(unittest.TestCase):
         self.run_script("team.sh", "gate", "ask-operator", eid)
         self.assertEqual([(r[0], r[2], r[3]) for r in sent(self.out)], [("decision", "0001-a", eid)])
         self.assertNotIn("paid cycle", self.out.read_text())
+
+    def test_a_binding_with_no_product_root_sends_nothing(self):
+        (self.q / "project.yaml").write_text("project_id: demo\n")
+        eid = self.run_script("team.sh", "gate", "open", "--task-id", "0001-a", "--class", "spend",
+                              "--brief", "a paid cycle")["escalation_id"]
+        res = self.run_script("team.sh", "gate", "ask-operator", eid)
+        self.assertNotIn("warnings", res)
+        self.assertEqual(sent(self.out), [])
+
+    def test_an_unreadable_plane_json_warns_and_the_gate_still_goes_to_the_operator(self):
+        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "notify": {"command": 3}}))
+        eid = self.run_script("team.sh", "gate", "open", "--task-id", "0001-a", "--class", "spend",
+                              "--brief", "a paid cycle")["escalation_id"]
+        res = self.run_script("team.sh", "gate", "ask-operator", eid)
+        self.assertEqual(res["outcome"], "waiting_operator")
+        self.assertTrue(res["warnings"][0].startswith("notify:"), res)
+        self.assertEqual(sent(self.out), [])
 
     def test_a_needs_operator_answer_notifies_once(self):
         res = self.run_script("spec-maintainer-ask.sh", "raise", "--raised-by", "task-runner", "--task-id", "0001-a",
