@@ -48,6 +48,20 @@ When a plane release is installed, `ccp` checks each bound product's integration
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): the check lives in `scripts/run-checkout.sh update` (so `release.sh` runs it),
+  after the fast-forward and the receiver restart. It reads the bindings in `CCP_BINDINGS_DIR` (default
+  the run checkout's `projects/`) and runs the run checkout's new `bin/ccp` (`docs check`, `tasks check`,
+  and `adr check` only when the product's `plane.json` has an `adr` block, since without one it exits 2)
+  on each binding's `integration_branch` (default `main`): `origin/<branch>` as the product last fetched
+  it, else the local branch, checked out in a `git clone --shared` in a temp dir. The product is only
+  read (no fetch, no worktree, no index refresh). A product prints `clean` or `STALE` with the failing
+  checks and the first 20 lines of each one's output; a binding with no repository or no such branch
+  prints `not checked`. A stale product never fails the update. `sync-product-docs.sh` is unchanged.
+- SPEC §29.3 gains two bullets (the migrate-command rule as Scope states it, and the release check). The
+  task carried no CURRENT -> PROPOSED text, so the wording is the implementer's; flagged in the report.
+- `.github/pull_request_template.md` (new) asks whether the change breaks conforming products. The release
+  steps in `CLAUDE.md` and the `release.sh` header name the new check. Tests: `tests/test_sync_on_release.py`.
+
 ## Verification notes
 
 *Append-only.*

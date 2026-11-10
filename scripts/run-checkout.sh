@@ -2,12 +2,15 @@
 # run-checkout.sh — SPEC §29.2: the clean checkout of `main` that products and the Mac's seats run.
 #
 #   run-checkout.sh install   clone this repo's origin there (if missing) and point `ccp` on PATH at it
-#   run-checkout.sh update    fetch, then fast-forward to origin/main; refuses when it is dirty or off main
+#   run-checkout.sh update    fetch, then fast-forward to origin/main; refuses when it is dirty or off main.
+#                             Then checks each bound product's integration branch against the new rules
+#                             (SPEC §29.3) and prints what went stale; it writes nothing to a product.
 #   run-checkout.sh status    branch, local changes, commits behind origin/main, where `ccp` points
 #   run-checkout.sh label     the telemetry receiver's launchd label
 #
 # Env: CCP_RUN_CHECKOUT (default: control-plane-run beside this repo),
-#      CCP_BIN_LINK (default ~/.local/bin/ccp: the symlink on PATH that `install` points at the checkout).
+#      CCP_BIN_LINK (default ~/.local/bin/ccp: the symlink on PATH that `install` points at the checkout),
+#      CCP_BINDINGS_DIR (default: the run checkout's projects/: the bindings `update` checks).
 # Nobody develops in the run checkout: only `update` moves it, after a merge to main.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
@@ -36,6 +39,67 @@ clean_on_main() {
   [ -d "$RUN/.git" ] || die "no run checkout at $RUN: run-checkout.sh install" 2
   [ "$(g rev-parse --abbrev-ref HEAD)" = main ] || die "$RUN is on $(g rev-parse --abbrev-ref HEAD), not main: it only ever tracks main"
   [ -z "$(g status --porcelain --untracked-files=no)" ] || die "$RUN has local changes: nobody edits the run checkout (SPEC §29.2)"
+}
+
+# A top-level scalar of a binding (projects/<id>.yaml): comment and quotes dropped.
+scalar() {
+  sed -n -E "s/^$2:[[:space:]]*([^#]*).*/\1/p" "$1" | head -n 1 | sed -E "s/[[:space:]]+\$//; s/^['\"]//; s/['\"]\$//"
+}
+
+# SPEC §29.3: after a release, run the new `ccp docs check`, `ccp tasks check` and (with an `adr` block)
+# `ccp adr check` on each bound product's integration branch: origin/<branch> as the product last
+# fetched it, else its local <branch>. They run in a shared clone in a temp dir, so nothing is written
+# to the product. A stale product is reported, never fixed, and never fails the update.
+check_products() {
+  local bdir="${CCP_BINDINGS_DIR:-$RUN/projects}" ccp="$RUN/bin/ccp" b pid root branch sha ref tmp c out rc stale=0
+  [ -d "$bdir" ] || return 0
+  if [ ! -x "$ccp" ]; then echo "run-checkout: no $ccp; bound products not checked" >&2; return 0; fi
+  for b in "$bdir"/*.yaml; do
+    [ -f "$b" ] || continue
+    pid="$(scalar "$b" project_id)"; pid="${pid:-$(basename "$b" .yaml)}"
+    root="$(scalar "$b" product_root)"; root="${root/#\~/$HOME}"
+    branch="$(scalar "$b" integration_branch)"; branch="${branch:-main}"
+    if [ -z "$root" ] || ! git --no-optional-locks -C "$root" rev-parse --git-dir >/dev/null 2>&1; then
+      echo "run-checkout: product $pid: not checked: no git repository at product_root ${root:-(unset)}"; continue
+    fi
+    sha=""
+    for ref in "refs/remotes/origin/$branch" "refs/heads/$branch"; do
+      sha="$(git --no-optional-locks -C "$root" rev-parse -q --verify "$ref^{commit}" 2>/dev/null)" && break
+      sha=""
+    done
+    if [ -z "$sha" ]; then echo "run-checkout: product $pid: not checked: no branch $branch"; continue; fi
+    tmp="$(mktemp -d)"
+    if ! git clone -q --shared --no-checkout "$root" "$tmp/p" >/dev/null 2>&1 \
+        || ! git -C "$tmp/p" checkout -q --detach "$sha" >/dev/null 2>&1; then
+      rm -rf "$tmp"; echo "run-checkout: product $pid: not checked: cannot check out $branch ${sha:0:7}"; continue
+    fi
+    local checks=("docs check" "tasks check") failed="" report=""
+    if python3 -c 'import json,sys; sys.exit(0 if isinstance(json.load(open(sys.argv[1])).get("adr"), dict) else 1)' \
+        "$tmp/p/docs/delivery/plane.json" 2>/dev/null; then
+      checks+=("adr check")
+    fi
+    for c in "${checks[@]}"; do
+      rc=0
+      # shellcheck disable=SC2086  # $c is two words: the command group and `check`
+      out="$(cd "$tmp/p" && env -u QUEUE_ROOT -u CCP_ROOT -u PROJECT_YAML CCP_NO_BINDING_QUEUE=1 \
+        "$ccp" --root "$tmp/p" $c 2>&1)" || rc=$?
+      if [ "$rc" -ne 0 ]; then
+        failed="${failed:+$failed, }ccp $c"
+        report+="$(printf '%s\n' "$out" | head -n 20 | sed 's/^/    /')"$'\n'
+      fi
+    done
+    rm -rf "$tmp"
+    if [ -z "$failed" ]; then
+      echo "run-checkout: product $pid ($branch ${sha:0:7}): clean"
+    else
+      stale=$((stale + 1))
+      echo "run-checkout: product $pid ($branch ${sha:0:7}): STALE: $failed failed"
+      printf '%s' "$report"
+    fi
+  done
+  if [ "$stale" -gt 0 ]; then
+    echo "run-checkout: $stale product(s) went stale with this release: tell each one's lead; the plane change's pull request names its migrate or regenerate command (SPEC §29.3)"
+  fi
 }
 
 case "${1:-}" in
@@ -84,6 +148,7 @@ case "${1:-}" in
         echo "run-checkout: the telemetry receiver is loaded but not running; restart it from a normal terminal" >&2
       fi
     fi
+    check_products
     ;;
   status)
     [ -d "$RUN/.git" ] || { echo "run-checkout: none at $RUN"; exit 1; }
@@ -98,5 +163,5 @@ case "${1:-}" in
   label)   # the receiver's launchd label, as `update` uses it
     echo "$OTEL_LABEL"
     ;;
-  *) sed -n '2,10p' "$0"; exit 2 ;;
+  *) sed -n '2,13p' "$0"; exit 2 ;;
 esac

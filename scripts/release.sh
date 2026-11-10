@@ -2,7 +2,8 @@
 # release.sh [worktree] — the release after a merge to main (a merge to main is a release).
 #
 #   1. fast-forwards the dev checkout (the repo's main worktree);
-#   2. moves the run checkout to origin/main (run-checkout.sh update; it restarts the telemetry receiver);
+#   2. moves the run checkout to origin/main (run-checkout.sh update; it restarts the telemetry receiver
+#      and checks each bound product's integration branch against the new rules, SPEC §29.3);
 #   3. checks the telemetry receiver is up, and says how to restart it when it is not;
 #   4. removes the given merged worktree and its local branch.
 set -euo pipefail
