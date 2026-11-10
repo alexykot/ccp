@@ -733,9 +733,9 @@ ready. `ccp tasks check` warns when a task not yet done has neither a path nor `
   caller and nothing changes. `--holder` takes the slot or its teammate name (`bound_name`). With
   `--supersede`, a pending run of the same agent type for another task is also abandoned, once it is
   older than the 120-second grace.
-- `in_flight` is every runner's tasks; each task's phase lives in `tasks/<id>.json`. `task_id`,
-  `phase` and `lease` in `work.json` mean "the task a runner acted on last"; no decision rests on them
-  alone.
+- `in_flight` is every runner's tasks; each task's phase lives in `tasks/<id>.json`. `task_id` and
+  `phase` in `work.json` mean "the task a runner acted on last"; no decision rests on them alone. Each
+  runner slot keeps its own lease.
 - Every read-modify-write of `work.json` takes its lock (`file_lock`) and computes what it writes
   from the file as read under the lock (`save_work(edit=…)`): claim, release, close,
   `set-waiting-on.sh`'s writer and `team.py`'s. A wait, gate or question on one task never repoints
