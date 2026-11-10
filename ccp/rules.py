@@ -7,6 +7,8 @@ carries a `check:` line saying how it is enforced:
   check: pass      the architect judges it on its next pass
   check: budget    an `architect.budgets` entry with the same id (measured by `ccp architect due`)
   check: command   an `architect.checks` entry with the same id, run here (exit 0 = pass)
+  check: docs — K  a rule `ccp docs check` runs, named by its plane.json key K (`package_docs` or
+                   `package_docs.rules.<name>`; several separated by commas), which must be set
 
 A rule with no check, a check naming a missing entry, or an entry naming no rule is a failure:
 a rule nobody checks is one more page every implementer reads for nothing. The doc's shape and the
@@ -14,6 +16,12 @@ product's checks run inside `ccp docs check`, so the verifier gates on them (§2
 they are diagnostics, measured by `ccp architect due` (a failing budget makes a pass due, §19.6) and
 `ccp health`, so one file growing never fails an unrelated task's verifier. Budgets are measured over
 tracked files (`git ls-files`), so a checkout's untracked clutter never counts.
+
+The plane's starter rules (§20.5) are a rules doc of its own, templates/docs-project/starter-rules.md,
+and the one home of the set: each rule's `starter:` line names it and its `check:` line says how it
+is checked. A product adopts the set with `docs.starter_rules` in plane.json; `ccp docs check` then
+fails while an adopted rule's `docs` check is not configured, and skips the checks of a rule the
+product declined.
 """
 from __future__ import annotations
 
@@ -22,11 +30,12 @@ import re
 import signal
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 from ccp import refs
-from ccp.config import Config
+from ccp.config import DOC_RULES, Config
 
 def rule_re(ids: refs.Ids = refs.DEFAULT) -> re.Pattern[str]:
     """A house rule's opening line, `- **E7** …` (group 1 the id, by the product's ids.rule pattern)."""
@@ -34,8 +43,25 @@ def rule_re(ids: refs.Ids = refs.DEFAULT) -> re.Pattern[str]:
 
 
 RULE_RE = rule_re()
-CHECK_LINE_RE = re.compile(r"^\s*`?check\s*:\s*`?([a-z]+)", re.I)
-CHECK_KINDS = {"pass": "pass", "budget": "budget", "command": "command", "cmd": "command"}
+CHECK_LINE_RE = re.compile(r"^\s*`?check\s*:\s*`?([a-z]+)`?(?:\s*[—–-]+\s*(.*))?", re.I)
+CHECK_KINDS = {"pass": "pass", "budget": "budget", "command": "command", "cmd": "command", "docs": "docs"}
+STARTER_LINE_RE = re.compile(r"^\s*`?starter\s*:\s*`?([a-z0-9][a-z0-9-]*)`?\s*$")
+STARTER_DOC = Path(__file__).resolve().parents[1] / "templates" / "docs-project" / "starter-rules.md"
+
+
+def docs_keys() -> list[str]:
+    """The plane.json keys a `docs` check may name: the package-doc rules (§21.3, §21.4) and each
+    opt-in generic rule (§21.6)."""
+    return ["package_docs", *(f"package_docs.rules.{n}" for n in DOC_RULES)]
+
+
+def configured(cfg: Config, key: str) -> bool:
+    """Whether the `docs` check `key` is set in the product's plane.json."""
+    if cfg.package_docs is None:
+        return False
+    if key == "package_docs":
+        return True
+    return bool((cfg.package_docs.get("rules") or {}).get(key.rsplit(".", 1)[1]))
 
 
 def glob_re(glob: str) -> re.Pattern[str]:
@@ -64,12 +90,15 @@ def tracked_files(root: Path) -> list[str]:
     return [str(p.relative_to(root)) for p in sorted(root.rglob("*")) if p.is_file() and ".git" not in p.parts]
 
 
-def parse_rules(text: str, ids: refs.Ids = refs.DEFAULT) -> tuple[dict[str, str | None], list[str]]:
-    """{rule id: its check kind (None when it has no `check:`)}, and the parse failures."""
-    rules: dict[str, str | None] = {}
+def rule_blocks(text: str, ids: refs.Ids = refs.DEFAULT) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """{rule id: {kind, keys, starter}}, and the parse failures. `kind` is the check kind (None when
+    the rule has no `check:`), `keys` the plane.json keys a `docs` check names, `starter` the name on
+    a `starter:` line (None without one)."""
+    rules: dict[str, dict[str, Any]] = {}
     errs: list[str] = []
     cur = None
     rx = rule_re(ids)
+    known = docs_keys()
     for line in text.splitlines():
         if line.lstrip().startswith("#"):
             cur = None
@@ -79,15 +108,33 @@ def parse_rules(text: str, ids: refs.Ids = refs.DEFAULT) -> tuple[dict[str, str 
             cur = m.group(1)
             if cur in rules:
                 errs.append(f"rule {cur} is defined twice")
-            rules[cur] = None
-        if cur:
-            c = CHECK_LINE_RE.search(line)
-            if c and rules[cur] is None:
-                kind = CHECK_KINDS.get(c.group(1).lower())
-                if kind is None:
-                    errs.append(f"rule {cur}: check {c.group(1)!r} is not pass, budget or command")
-                rules[cur] = kind or "?"
+            rules[cur] = {"kind": None, "keys": [], "starter": None}
+        if not cur:
+            continue
+        st = STARTER_LINE_RE.match(line)
+        if st and rules[cur]["starter"] is None:
+            rules[cur]["starter"] = st.group(1)
+        c = CHECK_LINE_RE.search(line)
+        if c and rules[cur]["kind"] is None:
+            kind = CHECK_KINDS.get(c.group(1).lower())
+            if kind is None:
+                errs.append(f"rule {cur}: check {c.group(1)!r} is not pass, budget, command or docs")
+            elif kind == "docs":
+                keys = [k.strip().strip("`") for k in (c.group(2) or "").split(",") if k.strip().strip("`")]
+                if not keys:
+                    errs.append(f"rule {cur}: check docs names no plane.json key ({', '.join(known)})")
+                for k in keys:
+                    if k not in known:
+                        errs.append(f"rule {cur}: check docs names {k!r}, not one of {', '.join(known)}")
+                rules[cur]["keys"] = [k for k in keys if k in known]
+            rules[cur]["kind"] = kind or "?"
     return rules, errs
+
+
+def parse_rules(text: str, ids: refs.Ids = refs.DEFAULT) -> tuple[dict[str, str | None], list[str]]:
+    """{rule id: its check kind (None when it has no `check:`)}, and the parse failures."""
+    blocks, errs = rule_blocks(text, ids)
+    return {rid: b["kind"] for rid, b in blocks.items()}, errs
 
 
 def check_doc(cfg: Config) -> list[str]:
@@ -110,15 +157,71 @@ def check_doc(cfg: Config) -> list[str]:
     checks = {c["id"] for c in a["checks"]}
     for rid, kind in rules.items():
         if kind is None:
-            errs.append(f"{rel}: rule {rid} has no `check:` (pass, budget or command)")
+            errs.append(f"{rel}: rule {rid} has no `check:` (pass, budget, command or docs)")
         elif kind == "budget" and rid not in budgets:
             errs.append(f"{rel}: rule {rid} is checked by a budget, but architect.budgets has no {rid}")
         elif kind == "command" and rid not in checks:
             errs.append(f"{rel}: rule {rid} is checked by a command, but architect.checks has no {rid}")
+    for rid, b in rule_blocks(text, refs.ids(cfg))[0].items():
+        for k in b["keys"] if b["kind"] == "docs" else []:
+            if not configured(cfg, k):
+                errs.append(f"{rel}: rule {rid} is checked by ccp docs check's {k}, which plane.json does not set")
     for what, ids in (("budgets", budgets), ("checks", checks)):
         for rid in sorted(ids - set(rules)):
             errs.append(f"architect.{what}: {rid} names no rule in {rel}")
     return errs
+
+
+@lru_cache(maxsize=1)
+def starter_rules() -> dict[str, dict[str, Any]]:
+    """The starter set (§20.5), read from its one home, the template: {starter name: {id, kind, keys}}
+    in the template's order."""
+    blocks, errs = rule_blocks(STARTER_DOC.read_text())
+    if errs:
+        raise ValueError(f"{STARTER_DOC}: " + "; ".join(errs))
+    return {b["starter"]: {"id": rid, "kind": b["kind"], "keys": b["keys"]}
+            for rid, b in blocks.items() if b["starter"]}
+
+
+def starter_declined(cfg: Config) -> dict[str, str]:
+    """{starter name: the product's reason} for each starter rule the product declined."""
+    return dict(((cfg.docs or {}).get("starter_rules") or {}).get("declined") or {})
+
+
+def declined_keys(cfg: Config) -> set[str]:
+    """The `docs` checks `ccp docs check` does not run: those a declined starter rule names, unless an
+    adopted one names it too. Empty without `docs.starter_rules`."""
+    if (cfg.docs or {}).get("starter_rules") is None:
+        return set()
+    declined = starter_declined(cfg)
+    off, on = set(), set()
+    for name, r in starter_rules().items():
+        (off if name in declined else on).update(r["keys"])
+    return off - on
+
+
+def starter_check(cfg: Config) -> list[str]:
+    """§20.5: with `docs.starter_rules` set, each adopted (not declined) starter rule whose check is a
+    `docs` check needs that check set in plane.json, so it exists and runs."""
+    if (cfg.docs or {}).get("starter_rules") is None:
+        return []
+    declined = starter_declined(cfg)
+    return [f"starter rule {name} ({r['id']}): its check {k} is not set in plane.json; set it, or decline "
+            "the rule in docs.starter_rules.declined"
+            for name, r in starter_rules().items() if name not in declined
+            for k in r["keys"] if not configured(cfg, k)]
+
+
+def starter_notes(cfg: Config) -> list[str]:
+    """One line per declined starter rule: its reason, and the checks that therefore do not run."""
+    if (cfg.docs or {}).get("starter_rules") is None:
+        return []
+    off = declined_keys(cfg)
+    out = []
+    for name, reason in starter_declined(cfg).items():
+        keys = [k for k in starter_rules()[name]["keys"] if k in off]
+        out.append(f"starter rule {name} declined ({reason})" + (f"; not run: {', '.join(keys)}" if keys else ""))
+    return out
 
 
 def budget_failures(cfg: Config) -> list[str]:

@@ -210,5 +210,7 @@ def check(cfg: Config) -> list[str]:
     product has not opted in."""
     if cfg.package_docs is None:
         return []
-    from ccp import docrules  # noqa: PLC0415
-    return core_check(cfg) + pack_check(cfg) + ids_check(cfg) + docrules.check(cfg)
+    from ccp import docrules, rules  # noqa: PLC0415
+    # A declined starter rule naming `package_docs` turns the package-doc rules off (§20.5).
+    own = [] if "package_docs" in rules.declined_keys(cfg) else core_check(cfg) + pack_check(cfg) + ids_check(cfg)
+    return own + docrules.check(cfg)

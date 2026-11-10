@@ -82,7 +82,8 @@ PACKAGE_DOCS_DEFAULTS: dict[str, Any] = {
 }
 # §21.5: product commands `ccp docs check` runs, not tied to a house rule (exit 0 = pass). `workers`:
 # how many check commands (these and `architect.checks`) run at once; 1 runs them one after another.
-DOCS_DEFAULTS: dict[str, Any] = {"checks": [], "workers": 1}
+# §20.5 `starter_rules`: null (the starter house rules not adopted) or {declined?: {name: reason}}.
+DOCS_DEFAULTS: dict[str, Any] = {"checks": [], "workers": 1, "starter_rules": None}
 DOC_RULES = {"citations": {"globs", "targets", "ignore"}, "no_ids": {"globs", "patterns"}, "history_attr": None,
              "no_overlap": None, "no_call_bullets": None}
 
@@ -474,6 +475,19 @@ def _docs(given: Any) -> dict[str, Any]:
         t = c.get("timeout_seconds", 600)
         if isinstance(t, bool) or not isinstance(t, int) or t < 1:
             raise ConfigError(f"{CONFIG_REL}: docs.checks[{i}].timeout_seconds must be an integer >= 1")
+    sr = d["starter_rules"]
+    if sr is not None:
+        declined = sr.get("declined", {}) if isinstance(sr, dict) else None
+        if not isinstance(sr, dict) or set(sr) - {"declined"} or not (
+                isinstance(declined, dict)
+                and all(isinstance(v, str) and v.strip() for v in declined.values())):
+            raise ConfigError(f"{CONFIG_REL}: docs.starter_rules must be null or "
+                              '{"declined": {"<starter rule>": "<reason>"}}')
+        from ccp import rules  # noqa: PLC0415
+        unknown = sorted(set(declined) - set(rules.starter_rules()))
+        if unknown:
+            raise ConfigError(f"{CONFIG_REL}: docs.starter_rules.declined: {', '.join(unknown)} is not a starter "
+                              f"rule ({', '.join(rules.starter_rules())})")
     return d
 
 

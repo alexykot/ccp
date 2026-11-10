@@ -9,7 +9,7 @@ normative, and a module that disagrees with it is the bug.
 - **Entry and configuration:** `cli.py` (argument parsing, one function per command), `config.py`
   (the product root and its docs/delivery/plane.json), `refs.py` (every id and reference pattern).
 - **Durable formats:** `tasklog.py` (task files, §5.6), `adr.py` (ADRs, §6), `reviewpoints.py`,
-  `rules.py` (house rules and budgets), `pkgdocs.py`, `docrules.py` and `doclang/` (doc checks).
+  `rules.py` (house rules, the starter set and budgets), `pkgdocs.py`, `docrules.py` and `doclang/` (doc checks).
 - **The runtime queue:** `queue.py` (QUEUE_ROOT, the ledger, the runner's work.json), `lifecycle.py` (claim,
   phase, wait, release, close), `selection.py` and `parallel.py` (what the runner may take),
   `runs.py`, `report.py`, `verify.py`, `suite.py`, `wt.py`, `prompt.py`, `plane.py`.

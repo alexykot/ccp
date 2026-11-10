@@ -8,11 +8,14 @@
   - a rule is a list item that opens with its id: `- **E<n>** <the rule>`;
   - the rule carries a `check:` line: `pass` (the architect judges it), `budget` (an
     `architect.budgets` entry with the same id; a breach makes an architect pass due, it never fails
-    a verifier) or `command` (an `architect.checks` entry with the same id, run by `ccp docs check`;
-    exit 0 = pass), optionally followed by ` — <what it measures>`;
+    a verifier), `command` (an `architect.checks` entry with the same id, run by `ccp docs check`;
+    exit 0 = pass) or `docs — <plane.json key>` (a rule `ccp docs check` runs, which must be set),
+    optionally followed by ` — <what it measures>`;
   - at most `architect.rules_max_lines` lines (default 150), this comment included;
   - current only: no history, no dates, no "was X". Git holds the history.
   The architect proposes changes in its reports; the task-log owner applies or rejects them.
+  For a ready set of generic rules with their checks, see starter-rules.md beside this file
+  (`ccp init --starter-rules`, plane SPEC §20.5).
 -->
 # Engineering rules
 

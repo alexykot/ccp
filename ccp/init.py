@@ -1,7 +1,7 @@
 """`ccp init`: adopt a product with one command (SPEC §4.3, §4.5, §8.3).
 
 Run in a product's repository, it writes the product footprint (the PROJECT, SPEC and delivery
-templates, a minimal `plane.json`, `.plane-runtime/` in `.gitignore`, the plugin anchor merged into
+templates, with `--starter-rules` the plane's starter house rules (§20.5), a minimal `plane.json`, `.plane-runtime/` in `.gitignore`, the plugin anchor merged into
 `.claude/settings.json`, the one `CLAUDE.md` line) and, outside the repository, the binding in this
 plane's bindings directory and the queue directory it names. The binding is the one source of
 truth: every reader resolves it through `lib.binding_path`, and no copy goes into the queue (§8.3).
@@ -33,6 +33,17 @@ COPIES = {
     "docs/delivery/TEMPLATE-task.md": "docs-delivery/TEMPLATE-task.md",
     "docs/delivery/WRITING-tasks.md": "docs-delivery/WRITING-tasks.md",
     "docs/delivery/standing-dod.md": "docs-delivery/standing-dod.md",
+}
+# §20.5: `--starter-rules` writes the starter house rules here, and these settings into a new plane.json:
+# the set adopted, nothing declined, and the `package_docs` rules its `docs` checks name, with neutral
+# defaults (no language pack; the docs are the top-level ones init writes, the SPEC its own).
+STARTER_RULES_DOC = ("docs/ENGINEERING.md", "docs-project/starter-rules.md")
+STARTER_CONFIG: dict[str, Any] = {
+    "package_docs": {"language": "none", "rules": {
+        "history_attr": "history",
+        "no_ids": {"globs": ["docs/*.md"]},
+        "citations": {"globs": ["docs/*.md"], "targets": ["docs/SPEC.md"]}}},
+    "docs": {"starter_rules": {"declined": {}}},
 }
 WORKTREES_DIR = ".plane-runtime"
 # §4.3: the anchor and the CLAUDE.md line, the one source the SPEC and the README quote. The anchor
@@ -68,11 +79,14 @@ def binding_text(project_id: str, product_root: Path, queue_root: Path, branch: 
             f"  worktree: {product_root / WORKTREES_DIR / 'runner'}\n")
 
 
-def plane_json_text(project_id: str, gate: str | None) -> str:
-    """A minimal plane.json (§8.1): the id, the worktrees directory, and the gate lane when given."""
+def plane_json_text(project_id: str, gate: str | None, starter_rules: bool = False) -> str:
+    """A minimal plane.json (§8.1): the id, the worktrees directory, the gate lane when given, and the
+    starter rules' settings with `--starter-rules` (§20.5)."""
     cfg: dict[str, Any] = {"project_id": project_id, "worktrees": {"dir": WORKTREES_DIR}}
     if gate:
         cfg["suite"] = {"lanes": {"gate": shlex.split(gate)}}
+    if starter_rules:
+        cfg.update(json.loads(json.dumps(STARTER_CONFIG)))
     return json.dumps(cfg, indent=2) + "\n"
 
 
@@ -98,7 +112,7 @@ def _merged_settings(path: Path) -> tuple[dict[str, Any], bool]:
 
 
 def init(root: Path, project_id: str | None, queue_root: str | None, branch: str | None,
-         gate: str | None, force: bool) -> dict[str, Any]:
+         gate: str | None, force: bool, starter_rules: bool = False) -> dict[str, Any]:
     """Adopt the product at `root`; returns what was written, merged and kept. Raises QueueError
     (nothing written) on a refusal."""
     product_root = _main_worktree(root.resolve())
@@ -123,7 +137,7 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
         except config.ConfigError as e:
             raise QueueError(f"ccp init: {e}; fix it, or --force to rewrite it", 2) from e
     try:
-        plane_json_new = plane_json_text(pid, gate)
+        plane_json_new = plane_json_text(pid, gate, starter_rules)
     except ValueError as e:
         raise QueueError(f"ccp init: --gate {gate!r} is not a shell command line ({e})", 2) from e
 
@@ -161,10 +175,12 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
         path.write_text(text)
         out["written"].append(label)
 
-    for rel, tpl in COPIES.items():
+    copies = {**COPIES, **(dict([STARTER_RULES_DOC]) if starter_rules else {})}
+    for rel, tpl in copies.items():
         put(root / rel, (TEMPLATES / tpl).read_text(), rel)
+    unapplied = [flag for flag, given in (("--gate", gate), ("--starter-rules", starter_rules)) if given]
     put(plane_json, plane_json_new,
-        config.CONFIG_REL + (" (--gate not applied)" if gate and keep_plane_json else ""))
+        config.CONFIG_REL + (f" ({', '.join(unapplied)} not applied)" if unapplied and keep_plane_json else ""))
     (root / "docs" / "delivery" / "tasks").mkdir(parents=True, exist_ok=True)
 
     gi = root / ".gitignore"
@@ -202,7 +218,7 @@ def main(root_arg: str | None, a: Any) -> int:
         print(f"ccp init: {e}", file=sys.stderr)
         return 2
     try:
-        res = init(root, a.project_id, a.queue_root, a.integration_branch, a.gate, a.force)
+        res = init(root, a.project_id, a.queue_root, a.integration_branch, a.gate, a.force, a.starter_rules)
     except QueueError as e:
         print(str(e), file=sys.stderr)
         return e.code
