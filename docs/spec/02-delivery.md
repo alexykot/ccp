@@ -636,8 +636,7 @@ database service, `STORE_TEST_PATTERN` is empty and `EXPECT_STORE_TESTS` is `0`.
 tests adds its service, names the tests expected in `STORE_TEST_PATTERN` and sets
 `EXPECT_STORE_TESTS=1`; then a skipped test matching the pattern fails the job, and so does a run in
 which no matching test ran. A service password is an image default for an ephemeral database, never
-a product credential. (Today's template still carries a database default; task 0014 makes it
-neutral.)
+a product credential.
 
 ### 15.8 Queue rules beside the gate
 

@@ -18,7 +18,7 @@ decisions:
   - "D9 built"
   - "D10 built"
   - "D11 not_built"
-  - "D12 not_built"
+  - "D12 built"
   - "D13 built"
   - "D14 built"
   - "D15 built"
