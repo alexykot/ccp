@@ -351,7 +351,7 @@ class QueueFollowsTheLog(ToolkitFixture, unittest.TestCase):
         self.assertEqual(mine[0]["payload"], {"reason": "dropped_in_log", "was": "operator_step"})
         self.assertEqual(mine[1]["payload"]["new"], "dropped")
         w = json.loads((self.q / "work.json").read_text())  # the runner's own task is untouched
-        self.assertEqual((w["task_id"], w["lease"]), (before["task_id"], before["lease"]))
+        self.assertEqual((w["task_id"], w["in_flight"]), (before["task_id"], before["in_flight"]))
         self.ccp("board", "build", "--quiet")
         b = json.loads((self.q / "board/board.json").read_text())
         self.assertEqual(b["health"]["divergence"], ["gate 0003-dropped-1 open: 0003-dropped is dropped in its task file",
@@ -401,17 +401,17 @@ class QueueFollowsTheLog(ToolkitFixture, unittest.TestCase):
         self.assertIn(("lease", "clear"), self.ops())
 
     def test_sync_hands_work_json_to_the_live_task_wi_shape(self):
-        """work.json's task_id is the stale dropped task, its in_flight and lease another, live one."""
+        """work.json's task_id is the stale dropped task, its in_flight another, live one."""
         self.ccp("tasks", "claim", "0002")
         w = json.loads((self.q / "work.json").read_text())
-        lease = w["lease"]
         (self.q / "work.json").write_text(json.dumps({**w, "task_id": "0003-dropped", "waiting_on": "operator_step",
                                                       "phase": "pending"}))
         code, body, out, err = self.ccp("tasks", "sync")
         self.assertEqual(code, 0, out + err)
         w = json.loads((self.q / "work.json").read_text())
-        self.assertEqual((w["task_id"], w["lease"], w["in_flight"], w["phase"], w["waiting_on"]),
-                         ("0002-second", lease, ["0002-second"], "leased", None))
+        self.assertEqual((w["task_id"], w["in_flight"], w["phase"], w["waiting_on"]),
+                         ("0002-second", ["0002-second"], "leased", None))
+        self.assertEqual(json.loads((self.q / "tasks/0002-second.json").read_text())["lease_holder"], "runner")
         self.assertIsNotNone(w["phase_since"])
 
     def test_sync_leaves_a_work_level_quota_wait_alone(self):

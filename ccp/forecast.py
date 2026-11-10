@@ -939,8 +939,9 @@ def _flight_elapsed(q: Path | None, tid: str, drill: dict[str, Any] | None, work
             s = _ep(load_task_state(q, tid).get("claimed_at"))
         except Exception:  # noqa: BLE001
             s = None
-    if s is None and (work.get("lease") or {}).get("task_id") == tid:
-        s = _ep((work.get("lease") or {}).get("since"))
+    old = work.get("lease")  # an old work.json's top-level lease (§16.4: no writer keeps it now), read if present
+    if s is None and isinstance(old, dict) and old.get("task_id") == tid:
+        s = _ep(old.get("since"))
     return max(0.0, now - s) if s is not None else 0.0
 
 
