@@ -6,9 +6,9 @@ kind: feature
 depends_on: []
 spec_refs: ["S10", "S15"]
 review_point: R3
-paths: ["docs/spec/", "ccp/", "plugin/", "tests/"]
+paths: ["docs/spec/02-delivery.md", "ccp/health.py", "ccp/lifecycle.py", "plugin/", "tests/test_health*.py", "tests/test_orphans*.py"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0036-outside-changes-reach-main-through-a-task

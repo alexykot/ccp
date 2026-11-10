@@ -6,9 +6,9 @@ kind: feature
 depends_on: []
 spec_refs: ["S10", "S16"]
 review_point: R3
-paths: ["ccp/", "docs/spec/", "scripts/git-hooks/", "plugin/", "tests/"]
+paths: ["ccp/tasklog.py", "ccp/lifecycle.py", "docs/spec/02-delivery.md", "scripts/git-hooks/", "plugin/", "tests/test_lease*.py"]
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 ---
 
 # Task: 0043-leased-task-file-edited-only-in-its-pr
