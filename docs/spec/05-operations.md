@@ -133,7 +133,8 @@ This rule is in every seat brief and in the plugin's orientation (§9).
   and emits `plane/proposed`.
 - Until the tool exists, the seat does the step by hand and records each repeat with
   `ccp plane propose --again <id>`, so the cost shows.
-- A proposal untriaged for 7 days is flagged (not built yet: task 0015).
+- A proposal untriaged for 7 days is flagged: `ccp plane list` and the board mark it `stale`. Its age
+  counts from its last `--again` or its creation, whichever is later.
 
 ### 31.5 Triage
 

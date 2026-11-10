@@ -967,7 +967,7 @@ function render() {
       <li>Attribution: ${Object.entries(u.how || {}).map(([k, v]) => `${esc(k)} ${v}`).join(" · ") || "–"}</li>
       ${Object.keys(u.unattributed_sources || {}).length ? `<li>Unattributed by agent: ${Object.entries(u.unattributed_sources).map(([k, v]) => `<code>${esc(k)}</code> ×${v}`).join(", ")}</li>` : ""}
       <li>Queue scripts that are not the plane's: ${(h.scripts || []).length ? (h.scripts || []).map((s) => `<code>${esc(s.replace(/ differs from.*$/, "").replace(/^(unknown|drifted): scripts\//, (m, k) => k + " "))}</code>`).join(", ") : "none"}</li>
-      <li>Open ccp proposals: ${(h.proposals_open || []).length ? h.proposals_open.map((p) => `${esc(p.need)} <span class="muted">(×${p.again + 1})</span>`).join("; ") : "none"}</li>
+      <li>Open ccp proposals: ${(h.proposals_open || []).length ? h.proposals_open.map((p) => `${esc(p.need)} <span class="muted">(×${p.again + 1})</span>${p.stale ? ' <b style="color:var(--critical)">⚠ untriaged 7+ days</b>' : ""}`).join("; ") : "none"}</li>
       <li>Queue vs task log: ${(h.divergence || []).length ? h.divergence.map(esc).join("; ") : "in agreement"}</li>
       <li>Headless runs recorded: ${(B.headless || []).length}</li>
       <li>Last rebuild failure: ${h.last_rebuild_failure ? esc(typeof h.last_rebuild_failure === "string" ? h.last_rebuild_failure : JSON.stringify(h.last_rebuild_failure)) : "none"}</li>
@@ -983,7 +983,7 @@ function render() {
   const ready = count(() => ((P.ready || {}).items || []).filter((t) => !t.in_flight).length);
   const triage = count(() => ((Q.architect || {}).awaiting_triage || []).length);
   const seatWarn = count(() => (S.error ? 1 : 0) + (Array.isArray(S.rows) ? S.rows.filter((r) => (r.mismatch || []).length).length : 0));
-  const healthWarn = count(() => (h.stale_sources || []).length + (h.scripts || []).length + (h.divergence || []).length + (h.last_rebuild_failure ? 1 : 0));
+  const healthWarn = count(() => (h.stale_sources || []).length + (h.scripts || []).length + (h.divergence || []).length + (h.proposals_open || []).filter((p) => p.stale).length + (h.last_rebuild_failure ? 1 : 0));
   const BADGE = {performance: [seatWarn, true], quality: [triage, true], backlog: [0, false], queue: [ready, false], health: [healthWarn, true]};
   const TITLE = {performance: "seats off their pin", quality: "reports awaiting triage", queue: "tasks ready", health: "plane warnings"};
   const nav = `<nav class="tabs" role="tablist" aria-label="Board sections">${TABS.map(([k, label], i) => { const [c, warn] = BADGE[k];

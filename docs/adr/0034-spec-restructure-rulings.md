@@ -17,7 +17,7 @@ decisions:
   - "D8 built"
   - "D9 built"
   - "D10 built"
-  - "D11 not_built"
+  - "D11 built — task 0015"
   - "D12 built"
   - "D13 built"
   - "D14 built"

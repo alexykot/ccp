@@ -22,6 +22,12 @@ A plane proposal untriaged for seven days is flagged in `ccp plane list` and on 
 
 - §31.4 states the rule; ADR-0034 D11 records the ruling (ADR-0018 D8 was the original).
 - Age counts from the proposal's last `--again` or its creation, whichever is later; decide and state it.
+- The lead's standing ruling for R1: this task carries out the operator ruling in
+  `docs/spec/RULINGS.md` (the §28.10 → §31.4 row names it), so the PR also removes or rewords, without
+  asking, every SPEC or docs passage the change makes false, such as a transitional "task 0015"
+  marker. Each edit is listed with its old text in the PR body's "Operator approval (SPEC §31)"
+  section, citing that row. History records (ADRs, done tasks, RULINGS, the spec map's history
+  columns) stay as written.
 
 ## Scope
 
@@ -41,6 +47,17 @@ A plane proposal untriaged for seven days is flagged in `ccp plane list` and on 
 ## Implementation notes
 
 *Append-only, newest last.*
+
+- 2026-11-10, implementer: `ccp/plane.py`'s fold marks every proposal `stale` (a bool): open, and
+  `STALE_DAYS` (7) or more since the later of its creation and its last `--again`. A repeat restarts
+  the seven days, as the Context reads; a triaged proposal and one whose times do not parse are never
+  stale. `ccp plane list` carries the flag on each row and the stale ids in a top-level `stale` list
+  (with `--open` too). The board's `health.proposals_open` rows carry the same field from the fold;
+  the Plane health card marks a stale one "untriaged 7+ days", and each stale one counts in the tab's
+  warning badge. It is not a `board status` blocker. §31.4 now states the age rule in place of its
+  "not built yet: task 0015" marker; ADR-0034 D11 and ADR-0018 D8 (the original ruling) are recorded
+  built. Tests: `tests/test_plane_stale_proposals.py` (list and board.json) and a page test in
+  `tests/test_board_layout.py`.
 
 ## Verification notes
 

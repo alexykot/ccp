@@ -13,7 +13,7 @@ decisions:
   - "D5 live"
   - "D6 live"
   - "D7 live"
-  - "D8 not_built"
+  - "D8 built — task 0015, as ADR-0034 D11's seven days"
 notes: "2026-11-05: status proposed → accepted"
 ---
 # ADR-0018 — Every state change is a plane command that records itself; tool proposals and triage

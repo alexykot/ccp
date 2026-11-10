@@ -8,7 +8,9 @@
   ccp agent start|stop                               the SubagentStart / SubagentStop hooks (hook JSON on stdin)
 
 Proposals are `QUEUE_ROOT/plane/proposals.jsonl`, append-only: a `proposed` row, then `again` and
-`triaged` rows naming its id. The current state is the fold.
+`triaged` rows naming its id. The current state is the fold. An open proposal whose last `again` (or
+its creation, whichever is later) is STALE_DAYS old or more is flagged `stale` in the list and on the
+board.
 """
 from __future__ import annotations
 
@@ -20,10 +22,11 @@ from typing import Any
 
 from ccp import health, runs
 from ccp.config import Config
-from ccp.queue import QueueError, actor, emit, iso, root, script_drift
+from ccp.queue import QueueError, actor, emit, iso, now, root, script_drift
 
 FREQUENCIES = ("per-task", "per-run", "once")
 DECISIONS = ("accepted", "merged", "declined")
+STALE_DAYS = 7  # §31.4: an open proposal untouched this long is flagged
 
 
 def _path(q: Path) -> Path:
@@ -52,7 +55,19 @@ def proposals(q: Path) -> dict[str, dict[str, Any]]:
         elif pid in out and row.get("op") == "triaged":
             out[pid].update(status=row.get("decision"), triaged_at=row.get("at"), reason=row.get("reason"),
                             merged_into=row.get("merged_into"), triaged_by=row.get("by"))
+    t = now().timestamp()
+    for r in out.values():
+        r["stale"] = _stale(r, t)
     return out
+
+
+def _stale(r: dict[str, Any], t: float) -> bool:
+    """§31.4: open, and its later of creation and last `again` is STALE_DAYS old or more. An
+    unreadable time never flags."""
+    if r["status"] != "open":
+        return False
+    seen = [e for e in (health._epoch(r.get("at")), health._epoch(r.get("last_at"))) if e is not None]
+    return bool(seen) and t - max(seen) >= STALE_DAYS * 86400
 
 
 def _clean(text: str | None, what: str) -> str | None:
@@ -123,7 +138,7 @@ def listing(_cfg: Config, a: Any) -> dict[str, Any]:
     rows = sorted(proposals(root()).values(), key=lambda r: (-r["again"], r["at"]))
     if a.open:
         rows = [r for r in rows if r["status"] == "open"]
-    return {"ok": True, "proposals": rows}
+    return {"ok": True, "proposals": rows, "stale": [r["id"] for r in rows if r["stale"]]}
 
 
 def check(_cfg: Config, _a: Any) -> tuple[dict[str, Any], int]:
