@@ -22,6 +22,7 @@ updated: 2026-11-06
 
 - `_leave_work` returns early when the task is neither the current task nor in flight, so the top-level lease survived close.
 - One home per fact (ADR-0003): the slots hold the leases.
+- Ruling sm-20261110T084025Z-9716 (spec commit 18df9cc): "In PR #13, with this ruling in task 0017's Context: section 16.4 becomes '`task_id` and `phase` in `work.json` mean "the task a runner acted on last"; no decision rests on them alone. Each runner slot keeps its own lease.' Section 31: the operator ruled in the lead session on 2026-11-10 that their accepted triage (ADR-0035) is the approval for SPEC passages an R2 task's change makes false. Quote ADR-0035, this ruling and the old text in the PR body. No merge gate."
 
 ## Scope
 
@@ -48,6 +49,17 @@ updated: 2026-11-06
 ## Implementation notes
 
 *Append-only, newest last.*
+
+- 2026-11-10 (implementer): `ccp tasks claim` no longer writes work.json `lease`; the lease is the task's own
+  (`tasks/<id>.json` `lease_holder`). Claim (`save_work(drop=...)`), `_leave_work` (release, drop, sync) and
+  close remove an old file's top-level `lease`, whichever task it names; `_leave_work` now writes when only
+  that key is there, so the early return no longer leaves it behind. The forecast's `_flight_elapsed` still
+  reads an old file's `lease` (after `claimed_at`), commented as the tolerant reader (E9). `code-01` now
+  shows that single hit. Open: SPEC §16.4 still names `lease` among work.json's "acted on last" fields; the
+  task carries no SPEC edit, so it is left for the lead.
+- 2026-11-10 (implementer, round 2): per ruling sm-20261110T084025Z-9716 (in Context), SPEC §16.4 now reads
+  "`task_id` and `phase` in `work.json` mean ...; Each runner slot keeps its own lease." A grep of `docs/` and
+  `plugin/` found no other passage that puts a lease in `work.json`; the rest name the task's lease beside it.
 
 ## Verification notes
 

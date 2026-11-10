@@ -158,9 +158,11 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
         cur["status"] = cur.get("status") if cur.get("status") in STOPPED else "running"
         unprefer(cur)
 
+    # §16.4: the lease is the task's own (`tasks/<id>.json` `lease_holder`); work.json keeps none, and an
+    # old file's top-level `lease` is dropped here
     save_work(q, {"task_id": tid, "phase": load_task_state(q, tid).get("status"),
-                  "runtime_status": "running", "lease": {"holder": holder, "task_id": tid, "since": iso(t)},
-                  "waiting_on": None, "phase_since": iso(t)}, edit=take)
+                  "runtime_status": "running", "waiting_on": None, "phase_since": iso(t)},
+              drop=(OLD_WORK_LEASE,), edit=take)
     if parallel.enabled(cfg):  # §16.7: each task held records the most tasks held at once in its window
         held_now = [str(t.get("task_id")) for t in parallel.active_tasks(cfg, q, load_work(q))]  # still claimed
         for other in held_now:
@@ -428,29 +430,31 @@ def _apply(cfg: Config, q: Path, tid: str, st: dict[str, Any], want: str, source
 
 def _leave_work(q: Path, tid: str) -> None:
     """The task leaves work.json: out of `in_flight`, and, when it was the runner's current task, the
-    next one in flight (or none) takes its place, with that one's phase and wait."""
+    next one in flight (or none) takes its place, with that one's phase and wait. An old file's
+    top-level lease is removed whichever task it names (§16.4: the slots hold the leases)."""
     def leave(w: dict[str, Any]) -> None:  # §16.4: judged on the file as read under its lock
+        w.pop(OLD_WORK_LEASE, None)  # an old file's top-level lease goes with any task's leaving
         if not (tid in (w.get("in_flight") or []) or w.get("task_id") == tid):
             return
         flight = [x for x in w.get("in_flight") or [] if x != tid]
         upd: dict[str, Any] = {"in_flight": flight}
-        lease = w.get("lease") if isinstance(w.get("lease"), dict) and w["lease"].get("task_id") != tid else None
         if w.get("task_id") == tid:
             nxt = load_task_state(q, flight[0]) if flight else {}
             upd.update(task_id=flight[0] if flight else None, phase=nxt.get("status"),
                        runtime_status="running" if flight else "idle",
-                       phase_since=nxt.get("phase_since") or nxt.get("lease_since"), lease=lease,
+                       phase_since=nxt.get("phase_since") or nxt.get("lease_since"),
                        **{k: nxt.get(k) for k in WAIT_KEYS})
-        elif w.get("lease") and not lease:
-            upd["lease"] = None
         w.update(upd)
 
     w = load_work(q)
-    if tid in (w.get("in_flight") or []) or w.get("task_id") == tid:
+    if tid in (w.get("in_flight") or []) or w.get("task_id") == tid or OLD_WORK_LEASE in w:
         save_work(q, {}, edit=leave)
 
 
 RELEASABLE = ("leased", "blocked")
+# §16.4: work.json's top-level lease, written before each slot kept its own (`tasks/<id>.json`
+# `lease_holder`). Nothing writes it now; claim, release, drop, sync and close remove it from an old file.
+OLD_WORK_LEASE = "lease"
 # work.json's copy of its current task's wait (set-waiting-on.sh writes them together)
 WAIT_KEYS = ("waiting_on", "waiting_on_since", "planned_resume_at", "quota_class")
 
@@ -951,8 +955,8 @@ def _reconciled(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, h
                 # the next task's own wait, as _leave_work does: the closed task's must not stay on it
                 nxt = load_task_state(q, flight[0]) if flight else {}
                 upd.update(task_id=flight[0] if flight else None, phase=None, phase_since=None,
-                           lease=None if not flight else w.get("lease"), runtime_status="running" if flight else "idle",
-                           **{k: nxt.get(k) for k in WAIT_KEYS})
+                           runtime_status="running" if flight else "idle", **{k: nxt.get(k) for k in WAIT_KEYS})
+            w.pop(OLD_WORK_LEASE, None)  # §16.4: an old file's top-level lease does not outlive the close
             slots = runner_slots(w)  # §16.5: the holder's own rotation counter
             if (slot := str(st.get("lease_holder") or "")) in slots:
                 slots[slot]["tasks_done"] = int(slots[slot].get("tasks_done") or 0) + 1
