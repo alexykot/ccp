@@ -41,6 +41,17 @@ The architect's drift trigger compares active time (wall time minus time waiting
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): `ccp health` rows gain `waits_s` and `active_s` (wall time less waits), and
+  `health.trend` (the drift `ccp architect due` reads) now runs on `active_s`; it also reports
+  `median_active_s` beside `median_wall_s`. Waits are the task's `waiting_on` set → clear intervals
+  (reusing the board drill's `_waits`, so one rule says what a wait is; an open wait runs to the merge)
+  plus its suite runs' exclusive-lane waits from `runs/_suites.jsonl` (`started.wait_s`,
+  `busy.waited_s`), unioned and clipped to the task's wall time. Every `waiting_on` reason counts,
+  as in §23.3's `wait_hours` and ADR-0035 D3's "waits"; the intent's list (operator, lead, lane) is
+  read as examples. SPEC §19.6 item 4 reworded from ADR-0035 D3 (the task gave no CURRENT → PROPOSED
+  text). `docs/design/board.md`'s "wall-time drift" became "active-time drift" so the doc stays true
+  (outside the declared paths). Thresholds unchanged.
+
 ## Verification notes
 
 *Append-only.*
