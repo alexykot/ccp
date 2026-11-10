@@ -853,7 +853,10 @@ ready. `ccp tasks check` warns when a task not yet done has neither a path nor `
 **The lead:** `team.sh runner spawn --count N` (N at most `max_in_flight`; default 1) records N slots
 and prints one spawn per slot, each naming its slot; with slots recorded it adds slots up to N and
 respawns none that are live. Claim rule 1 is the real bound: a runner beyond `max_in_flight` finds no
-task and idles. `bind --as <slot>`, `rotate --slot`, `stop --slot [--drain]` act on one
+task and idles. With one runner, a spawn while the runner is still live (`work.json` `status`
+`running` or `draining`, not rotated since its spawn) stops it first: it emits `runner`/`stop`
+(reason `respawn`) and prints a `shutdown_teammate` action for its bound name ahead of the spawn, so
+one runner is left. `bind --as <slot>`, `rotate --slot`, `stop --slot [--drain]` act on one
 runner; `stop [--drain]` with no slot on all. Gate decisions, question answers, a lead's `release` and the session wake (`--fire`, per parked task) name the bound name of the
 task's holder.
 

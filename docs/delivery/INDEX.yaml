@@ -188,7 +188,7 @@ tasks:
     depends_on: []
     path: tasks/0037-worker-brief-rules.md
   - id: 0038-lead-and-runner-lessons-in-briefs-and-tools
-    status: pending
+    status: done
     title: Lead and runner lessons go into the plane's briefs and tools
     depends_on: []
     path: tasks/0038-lead-and-runner-lessons-in-briefs-and-tools.md

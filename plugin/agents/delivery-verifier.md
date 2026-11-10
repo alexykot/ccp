@@ -66,7 +66,11 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   the PR's merge base before judging a check against a cited line.
 - Don't edit the product, commit, push or merge.
 - A gap in the spec itself goes in your report as a spec question for the runner to raise.
-- Run commands in the foreground.
+- Run commands in the foreground, long ones too: an agent waiting on a background command stalls.
+- After a command that was interrupted (a timeout, a cancelled call, a lost shell), check git
+  (`git status`, `git log`), the store it writes (the queue's records, the product's data) and
+  the ledger (`$QUEUE_ROOT/observability/events.jsonl`) before you report that it did nothing: it
+  may have done part or all of its work.
 - Never write a script, helper or wrapper to automate a plane step. If you needed a tool you did not
   have, say so in your report's Friction section; the runner proposes it (SPEC §31.4).
 

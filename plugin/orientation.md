@@ -47,6 +47,12 @@ whose lead is the design seat (plane SPEC §2).
 - Tests run through `ccp suite run [--lane L] -- <command>`: the exit code passes through, the
   output goes to a log file and a summary is printed (the failing tests' sections on a failure;
   `--full` streams it all), and `ccp` records the time and the counts (SPEC §14.1).
+- Every seat and subagent runs long commands in the foreground: an agent waiting on a
+  background command stalls.
+- After a command that was interrupted (a timeout, a cancelled call, a lost shell), check git, the
+  store it writes (the queue's records, the product's data) and the ledger
+  (`observability/events.jsonl` in the queue) before reporting that it did nothing: it may have done
+  part or all of its work.
 - **No seat writes its own script, helper or wrapper for a plane step**: not in the queue, not in this
   repo, not anywhere (SPEC §31.4). A missing tool is either the plane's or this product's:
   - **the plane's** only if any product would need it, whatever its language, domain or conventions:
@@ -71,8 +77,8 @@ Role docs come from the ccp plugin: agents `ccp:delivery-*`, skills
   When asked to triage an architect report or a review, the review-triage protocol governs that
   triage. Writing or amending a task: writing-tasks.
   To direct the runner's next tasks, the lead runs `ccp tasks prefer <id> [<id>…] --reason "…"`, never a
-  "take X next" message: `ccp tasks next` returns the first ready one, and its claim removes only that
-  one (SPEC §10.4). A new list replaces the old; `--clear` empties it.
+  "take X next" message, which races the claim: `ccp tasks next` returns the first ready one, and its
+  claim removes only that one (SPEC §10.4). A new list replaces the old; `--clear` empties it.
   **Changes from outside the plane** (another agent, the operator, a tool) reach the integration
   branch through a task you write (SPEC §10.7). `ccp tasks orphans --since <ref>` lists the
   commits that merged without one: for each, write an after-the-fact task naming it in `covers:`,
