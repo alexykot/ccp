@@ -49,6 +49,22 @@ A cold gate run fits the agent harness's foreground command limit (600 s in Clau
 
 *Append-only, newest last.*
 
+- 2026-11-10 (implementer): The knobs are a new plane.json block, `gate` (`config.GATE_DEFAULTS`,
+  `config.gate_limits`): `shell_limit_seconds` (default 600) and `cut_line_seconds` (default null, read
+  as 90% of the limit); the config refuses a limit at or below 0, a line at or below 0 or above the
+  limit, and a non-number. Every suite `ended` row and its `suite/recorded` event carry `cold`
+  (`suite.run_cold`: true for `cached` 0, false for any unit cached, null with no `cached` count);
+  `suite.fold` now carries `cold`, `stages` and `failed_stage` onto the folded run. `ccp health`
+  (`health.gate_time`) judges only the latest cold run of the gate role's lane (cold as §27.2's
+  `classify` decides, with the cache's start), so a gate brought under the line clears the finding; over
+  the line it reports the run, its seconds, the line, the limit and its slowest stage, over the limit
+  with `over_limit` (a breach); it is in `--json` as `gate_time`, in the text output and in the
+  architect's health summary. The refactor task itself is filed by the lead or the architect from that
+  finding; nothing files it automatically. SPEC: a new §14.6 (written by the implementer, as the task
+  carried no CURRENT -> PROPOSED text), the `gate` row in §8.1's table, `cold` in §14.4's field list and
+  a pointer in §27.2. Outside the task's `paths`: `contracts/plane_config.schema.json`,
+  `contracts/suite_result.schema.json` and `docs/cli/04-observability.md`.
+
 ## Verification notes
 
 *Append-only.*

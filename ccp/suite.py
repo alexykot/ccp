@@ -43,7 +43,8 @@ Without `-- COMMAND`, it runs what `plane.json` `suite.lanes` names for that lan
 checkout's root: an argv, run as one stage named after the lane, or an ordered list of `{name, cmd}`
 stages (§14.2), each run by the shell, in order, timed, until one exits non-zero. The gate role's staged
 lane ends with the plane's doc checks as the stage `plane-docs`. Such a run records `stages` (name,
-seconds, exit code of each that ran) and `failed_stage` on its `ended` row and event.
+seconds, exit code of each that ran) and `failed_stage` on its `ended` row and event. Every `ended` row
+and event says whether the run was `cold` (§14.6: its own `cached` count was 0; null without one).
 
 The record is `QUEUE_ROOT/runs/_suites.jsonl`, append-only: a `started` row when the command
 starts and an `ended` row when it ends, sharing a `suite_id`. The `ended` row also goes into the
@@ -1137,6 +1138,14 @@ def _sig_name(sig: int | None) -> str | None:
         return f"signal {sig}"
 
 
+def run_cold(cached: Any) -> bool | None:
+    """Whether a run was cold, from its own count (§14.6): nothing cached is cold, any unit cached is
+    warm; with no `cached` count the run cannot tell (None), and §27.2's cache start decides."""
+    if isinstance(cached, bool) or not isinstance(cached, int):
+        return None
+    return cached == 0
+
+
 def _finish(cfg: Config | None, q: Path | None, started: dict[str, Any] | None, warn: _Warn, code: int,
             seconds: float, tests: int | None, sig: int | None, fields: dict[str, int | None] | None = None,
             log: Path | None = None, source: str = "output", problem: str | None = None,
@@ -1145,8 +1154,9 @@ def _finish(cfg: Config | None, q: Path | None, started: dict[str, Any] | None, 
         return
     name = _sig_name(sig)
     nums = {f: (fields or {}).get(f) for f in SUMMARY_FIELDS}
+    cold = run_cold(nums.get("cached"))
     row = {"op": "ended", "suite_id": started["suite_id"], "at": iso(), "exit_code": code,
-           "seconds": round(seconds, 3), "tests": tests, **nums, "counts_from": source,
+           "seconds": round(seconds, 3), "tests": tests, **nums, "cold": cold, "counts_from": source,
            **({"result_problem": problem[:80]} if problem else {}),
            "log": str(log) if log else None, "interrupted": name,
            **({"stages": stages, "failed_stage": failed_stage} if stages is not None else {})}
@@ -1156,7 +1166,7 @@ def _finish(cfg: Config | None, q: Path | None, started: dict[str, Any] | None, 
             emit(q, cfg, started.get("task_id") or "", "suite", "recorded",
                  {"suite_id": started["suite_id"], "run_id": started.get("run_id"), "phase": started.get("phase"),
                   "lane": started.get("lane"), "exit_code": code, "seconds": row["seconds"], "tests": tests, **nums,
-                  "counts_from": source, "interrupted": name,
+                  "cold": cold, "counts_from": source, "interrupted": name,
                   **({"stages": stages, "failed_stage": failed_stage} if stages is not None else {})},
                  _actor_for(started.get("seat")))
     except Exception as e:  # noqa: BLE001
@@ -1239,7 +1249,8 @@ def fold(q: Path, now: float | None = None) -> list[dict[str, Any]]:
             st = out[sid]
             st.update(ended_at=row.get("at"), exit_code=row.get("exit_code"), seconds=row.get("seconds"),
                       tests=row.get("tests"), interrupted=row.get("interrupted"),
-                      **{k: row.get(k) for k in (*SUMMARY_FIELDS, "log", "counts_from") if k in row})
+                      **{k: row.get(k) for k in (*SUMMARY_FIELDS, "log", "counts_from", "cold", "stages",
+                                                  "failed_stage") if k in row})
             for old, new in LEGACY_FIELDS.items():  # a row written before the gate-result contract
                 if old in row and new not in row:
                     st[new] = row[old]

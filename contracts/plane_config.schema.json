@@ -782,6 +782,15 @@
         }
       }
     },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC \u00a714.6: the gate's time against the agent harness's foreground command limit. `ccp health` judges the latest cold run of the gate role's lane.",
+      "properties": {
+        "shell_limit_seconds": {"type": "number", "exclusiveMinimum": 0, "default": 600, "description": "The harness's foreground command limit; a cold gate run above it is a health breach."},
+        "cut_line_seconds": {"type": ["number", "null"], "exclusiveMinimum": 0, "default": null, "description": "The line above which the gate gets a refactor task; at most shell_limit_seconds. Null: 90% of the limit."}
+      }
+    },
     "suite": {
       "type": "object",
       "additionalProperties": false,
