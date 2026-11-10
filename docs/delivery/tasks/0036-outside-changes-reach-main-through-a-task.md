@@ -48,6 +48,15 @@ Code or docs changed outside the plane's flow (another agent, the operator direc
 
 *Append-only, newest last.*
 
+- 2026-11-10 — implementer: SPEC §10.7 (new) describes the path, the after-the-fact task (frontmatter
+  `covers:`, a list of commit shas) and `ccp tasks orphans --since <ref> [--json]`; §15.6 rule 7 points
+  to it. The report lives in `ccp/health.py` (`uncovered`, `orphans_main`), reusing `merges` with a
+  `written` flag so a squash names its task only as `Task NNNN: …`; `ccp/lifecycle.py` now holds the
+  reconcile subject (`reconcile_subject`, `reconcile_re`) and the task-log paths (`task_log_paths`,
+  shared with `behind_tip`). Wiring needed `ccp/cli.py` and a row in `docs/cli/02-delivery.md`,
+  outside the declared paths. The lead's orientation and the writing-tasks skill name it.
+  Tests: `tests/test_orphans.py`.
+
 ## Verification notes
 
 *Append-only.*
