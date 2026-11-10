@@ -1,7 +1,7 @@
 ---
 task_id: 0021-behind-tip-ignore-paths
 title: Declared paths do not make a head behind the tip; verify refuses a stale head
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S15", "S16"]
@@ -9,7 +9,7 @@ adr_refs: ["0035 D1", "0035 D2"]
 review_point: R2
 paths: ["ccp/lifecycle.py", "ccp/prompt.py", "ccp/config.py", "contracts/plane_config.schema.json", "docs/spec/02-delivery.md", "tests/"]
 created: 2026-11-06
-updated: 2026-11-06
+updated: 2026-11-10
 ---
 
 # Task: 0021-behind-tip-ignore-paths
@@ -68,4 +68,4 @@ A product setting (empty by default) lists paths whose commits on the integratio
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-10 — verifier, PR #17 head `d20b184` (squash `0a0b6f7`): APPROVE. Passed: tip-01, tip-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0021-behind-tip-ignore-paths.json.
