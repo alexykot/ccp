@@ -107,6 +107,8 @@ Never write runtime state here (`waiting_on`, leases, session ids, ports): `ccp 
   operator holds.
 - **A ruling or sign-off is in git before anyone acts on it**: in the task's notes or a commit,
   verbatim where it sets SPEC text. A PR comment is not a record.
+- **The docs a task touches follow the package-doc convention** (plane SPEC §21.3), which
+  `ccp docs check` enforces; a brief does not restate it.
 - **A follow-up gets its own task.** Another task's leftover goes into a small task of its own, or
   into a pending brief only when it is inside that brief's Scope.
 

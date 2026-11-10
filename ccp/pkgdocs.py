@@ -6,8 +6,10 @@ The language-neutral core: every directory holding source carries a package doc,
 with a title, names no file that is gone, plans nothing, and stays shorter than a fraction of its
 source. The language pack (`package_docs.language`, ccp/doclang) adds its source suffixes and
 directory names, and its per-file checks over `docstring_globs` (Python: a module docstring that
-says what the module does). Opt-in generic rules are ccp/docrules.py. Staleness a rule cannot see
-is the architect's docs lens instead (`ccp architect`, §21.7).
+says what the module does). Package docs and code comments name no delivery id (a task, an
+architect finding, a spec question's ruling, or the product's own patterns): a package doc is a map
+of what exists, and the task log is the record. Opt-in generic rules are ccp/docrules.py.
+Staleness a rule cannot see is the architect's docs lens instead (`ccp architect`, §21.7).
 """
 from __future__ import annotations
 
@@ -15,7 +17,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from ccp import doclang
+from ccp import doclang, refs
 from ccp.config import Config
 
 # The core's own source suffixes and directory names; a language pack adds its own (ccp/doclang).
@@ -128,14 +130,10 @@ def core_check(cfg: Config) -> list[str]:
     return errs
 
 
-def pack_check(cfg: Config) -> list[str]:
-    """Rule 6: the language pack's per-file checks over `docstring_globs`."""
+def _pack_files(cfg: Config) -> list[Path]:
+    """The files under `docstring_globs` the language pack reads, once each, in glob order."""
     p = pack(cfg)
-    rules = cfg.package_docs.get("rules") or {}
-    checks = [*p.file_checks, *(fc for name, fc in p.optional_checks.items() if rules.get(name))]
-    if not checks:
-        return []
-    errs: list[str] = []
+    out: list[Path] = []
     seen: set[Path] = set()
     for g in cfg.package_docs["docstring_globs"]:
         for f in sorted(cfg.root.glob(g)):
@@ -144,12 +142,58 @@ def pack_check(cfg: Config) -> list[str]:
             if any(part in p.file_skip_dirs for part in f.parts):
                 continue
             seen.add(f)
-            rel = cfg.rel(f)
-            for fc in checks:
-                out = fc(f, rel)
-                errs.extend(out)
-                if out and "does not parse" in out[0]:
-                    break
+            out.append(f)
+    return out
+
+
+def pack_check(cfg: Config) -> list[str]:
+    """Rule 6: the language pack's per-file checks over `docstring_globs`."""
+    p = pack(cfg)
+    rules = cfg.package_docs.get("rules") or {}
+    checks = [*p.file_checks, *(fc for name, fc in p.optional_checks.items() if rules.get(name))]
+    if not checks:
+        return []
+    errs: list[str] = []
+    for f in _pack_files(cfg):
+        rel = cfg.rel(f)
+        for fc in checks:
+            out = fc(f, rel)
+            errs.extend(out)
+            if out and "does not parse" in out[0]:
+                break
+    return errs
+
+
+def delivery_id_re(cfg: Config) -> re.Pattern[str]:
+    """The plane's delivery ids at the product's widths (refs) and the product's own patterns."""
+    pats = (*refs.ids(cfg).delivery_id_patterns, *cfg.package_docs["delivery_id_patterns"])
+    return re.compile("|".join(f"(?:{x})" for x in pats))
+
+
+def ids_check(cfg: Config) -> list[str]:
+    """Rule 7: no task, finding or ruling id in a package doc (a map of what exists, not a record of
+    what a task did) or in a code comment of a file under `docstring_globs`, read by the language
+    pack. Off with `no_delivery_ids: false`; history paths (§21.6) are skipped."""
+    pd = cfg.package_docs
+    if not pd["no_delivery_ids"]:
+        return []
+    from ccp import docrules  # noqa: PLC0415
+    rx, skip = delivery_id_re(cfg), docrules.history_paths(cfg)
+    lines: list[tuple[str, int, str, str]] = []
+    for d in source_dirs(cfg):
+        doc = doc_for(cfg, d)
+        if doc.is_file() and cfg.rel(doc) not in skip:
+            lines += [(cfg.rel(doc), n, t, "package doc") for n, t in enumerate(doc.read_text(errors="replace").splitlines(), 1)]
+    read = pack(cfg).comments
+    for f in _pack_files(cfg) if read else []:
+        if cfg.rel(f) not in skip:
+            lines += [(cfg.rel(f), n, t, "comment") for n, t in read(f)]
+    errs = []
+    for rel, n, text, where in lines:
+        hits = list(dict.fromkeys(m.group(0) for m in rx.finditer(text)))
+        if hits:
+            errs.append(f"{rel}:{n}: {where} names delivery id(s) {', '.join(hits)}; "
+                        "ids belong in the task log, not the code or its map")
     return errs
 
 
@@ -167,4 +211,4 @@ def check(cfg: Config) -> list[str]:
     if cfg.package_docs is None:
         return []
     from ccp import docrules  # noqa: PLC0415
-    return core_check(cfg) + pack_check(cfg) + docrules.check(cfg)
+    return core_check(cfg) + pack_check(cfg) + ids_check(cfg) + docrules.check(cfg)

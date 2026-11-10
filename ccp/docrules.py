@@ -152,12 +152,7 @@ def citations(cfg: Config, rule: dict, skip: set[str]) -> list[str]:
 
 
 def no_ids(cfg: Config, rule: dict, skip: set[str]) -> list[str]:
-    w = refs.ids(cfg).task_width
-    pats = rule.get("patterns") or [
-        rf"(?<![\w-])\d{{{w}}}-[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?![\w-])",   # a task id: 0042-fix-the-thing
-        rf"(?<![\w.-])0\d{{{w - 1}}}(?![\w.-])",                            # a zero-padded task number: 0042
-        rf"(?i:\btask\s+#?)\d{{1,{w}}}\b",                                  # task 42, task #0042
-    ]
+    pats = rule.get("patterns") or refs.ids(cfg).task_mention_patterns
     rx = re.compile("|".join(f"(?:{x})" for x in pats))
     errs = []
     for f in _files(cfg, rule["globs"], skip):

@@ -2,7 +2,8 @@
 
 Every id the plane reads or writes in a product's docs goes through an `Ids`: task ids (`NNNN-slug`),
 ADR ids and refs (`ADR-NNNN`, `NNNN D2`), SPEC section refs (`S12`, `S3–S5`), house-rule ids (`E7`)
-and review-point ids (`R3`). The patterns come from plane.json's optional `ids` block; the defaults
+and review-point ids (`R3`), and the delivery ids the package-doc check keeps out of docs and comments
+(tasks, architect findings, spec-question rulings, §21.3). The patterns come from plane.json's optional `ids` block; the defaults
 are the conventions the plane has always used, so a product without the block sees no change.
 
 `ids(cfg)` gives the product's `Ids`; `DEFAULT` serves code that has no config (it is the defaults).
@@ -26,6 +27,12 @@ IDS_DEFAULTS: dict[str, Any] = {
 SLUG = r"[a-z0-9]+(?:-[a-z0-9]+)*"
 # A task id in a run id or a queue file, whatever the product's width: the task log enforces the width.
 ANY_TASK_ID = rf"[0-9]+-{SLUG}"
+# Ids the plane mints for its own records, a UTC stamp and four hex digits: an architect or shaping
+# pass (`ar-…`, `sh-…`), with `#F<n>` naming one of its findings, and a spec question (`sm-…`), whose
+# answer is a ruling.
+STAMP_ID = r"[0-9]{8}T[0-9]{6}Z-[0-9a-f]{4}"
+REVIEW_ID = rf"(?:ar|sh)-{STAMP_ID}(?:#F[0-9]+)?"
+QUESTION_ID = rf"sm-{STAMP_ID}"
 
 
 @dataclass(frozen=True)
@@ -75,6 +82,23 @@ class Ids:
         """Whether `b` names task `a`: the whole id, or its number."""
         a, b = str(a or ""), str(b or "")
         return a == b or (len(b) == self.task_width and b.isdigit() and self.task_number(a) == b)
+
+    @cached_property
+    def task_mention_patterns(self) -> tuple[str, ...]:
+        """A task named in prose or code, at the product's width: its id (number, `-`, slug), its
+        zero-padded number standing alone (a sentence's full stop may follow it, a decimal's digits
+        may not), or `task <n>` / `task #<n>`."""
+        w = self.task_width
+        return (rf"(?<![\w-])\d{{{w}}}-[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?![\w-])",
+                rf"(?<![\w.-])0\d{{{w - 1}}}(?![\w-]|\.\w)",
+                rf"(?i:\btask\s+#?)\d{{1,{w}}}\b")
+
+    @cached_property
+    def delivery_id_patterns(self) -> tuple[str, ...]:
+        """The delivery ids the plane knows: a task (`task_mention_patterns`), an architect finding or
+        pass (`REVIEW_ID`) and a spec question's ruling (`QUESTION_ID`)."""
+        return (*self.task_mention_patterns, rf"(?<![\w-]){REVIEW_ID}(?![\w-])",
+                rf"(?<![\w-]){QUESTION_ID}(?![\w-])")
 
     def family(self, tid: Any) -> str:
         """A task's family, the slug's first token (`0042-sf-store` → `sf`), or empty."""

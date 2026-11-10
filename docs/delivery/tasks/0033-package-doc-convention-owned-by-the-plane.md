@@ -56,6 +56,25 @@ The package-doc system becomes a plane feature with one definition: the tiers (t
 
 *Append-only, newest last.*
 
+- 2026-11-10 — `ccp docs check` gains the delivery-id rule (`ccp/pkgdocs.py` `ids_check`), on by
+  default wherever `package_docs` is set: every line of a package doc and every code comment of a
+  file under `docstring_globs` is searched for task ids (at `ids.task.width`), architect pass and
+  finding ids (`ar-`/`sh-<stamp>-<hex4>[#F<n>]`) and spec-question ruling ids (`sm-<stamp>-<hex4>`),
+  plus the product's `package_docs.delivery_id_patterns`; `package_docs.no_delivery_ids: false` turns
+  it off. Hits are reported as `file:line: … names delivery id(s) <ids>`. History paths are skipped.
+- The id patterns live in `ccp/refs.py` (`Ids.task_mention_patterns`, `Ids.delivery_id_patterns`);
+  `rules.no_ids` now takes its defaults from there. A zero-padded task number may now be followed by
+  a sentence's full stop (`added in 0042.` is a hit; `0042.5` is not), in both checks.
+- Comments are read by the language pack (`Pack.comments`; Python: `#` comments via `tokenize`, so
+  strings and docstrings are not comments). `language: none` checks package docs only. Tests' files
+  are outside `docstring_globs` here, so fixture task numbers in test comments are not flagged.
+- SPEC: §21.3 states the tiers, the map rule and the check; §21.4 says what Python's comments are;
+  §9.6 (new) states how the tiers load; §8.1 lists the two knobs. The task carried no
+  CURRENT → PROPOSED text: this text was drafted from the Intent and needs the operator's approval
+  (§31.1). The orientation and the `writing-tasks` skill point at §21.3.
+- The plane's own tree: one comment in `ccp/forecast.py` read as `task 16` and was reworded;
+  `contracts/plane_config.schema.json` documents the two knobs.
+
 ## Verification notes
 
 *Append-only.*
