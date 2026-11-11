@@ -127,7 +127,7 @@ Before every plane-owned `claude -p` / `--resume` / `/mk-pr` / `/review`:
 1. `write-prompt-audit.sh` → `prompts/<task_id>/<UTC>_<phase>.json` with `prompt_sha256` + `prompt_chars`; the full `prompt_body` only with `--keep-body` (plane.json `prompts.keep_body`, off by default).
 2. `emit-event.sh --type claude --op launch` with that relative `prompt_ref`.
 
-Never commit `prompts/` to product git or this repo. `ccp prompt` prunes audits older than plane.json `prompts.audit_keep_days` (default null: keep all); `prune-prompts.sh` prunes on demand (`PRUNE_PROMPTS=1` + `--apply`).
+Never commit `prompts/` to product git or this repo. `ccp prompt` prunes audits older than plane.json `prompts.audit_keep_days` (default null: keep all); `prune-prompts.sh` prunes on demand (`PRUNE_PROMPTS=1` + `--apply`). Health and the board's drill-down read an audit's name stamp as a launch time, so keep `audit_keep_days` above the longest life of a task (`docs/design/observability.md`).
 
 ## Secrets
 

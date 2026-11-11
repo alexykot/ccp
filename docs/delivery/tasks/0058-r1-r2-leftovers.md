@@ -1,14 +1,14 @@
 ---
 task_id: 0058-r1-r2-leftovers
 title: R1 and R2 leftovers
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S14", "S15", "S23"]
 review_point: R4
 paths: ["scripts/observability/lib.py", "scripts/observability/team.py", "scripts/observability/README.md", "ccp/verify.py", "ccp/config.py", "tests/test_doc_rules.py", "plugin/skills/"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0058-r1-r2-leftovers
@@ -55,6 +55,34 @@ The small defects reviewers left open in R1 and R2 are fixed, so the plane's own
 
 *Append-only, newest last.*
 
+- 2026-11-11 — implementer. Each R1/R2 item, fixed or stated:
+  - `scripts/observability/lib.py`: removed the helpers with no caller anywhere (`is_event_only` and
+    its two sets, `email_cfg` and `_yaml_nested_map`, `event_id`, the constant `i_key` sort key).
+    Kept what the ledger fold still reaches (`empty_seat`, `default_cron` and the cron constants, via
+    `apply_event`) and `load_durable_statuses`/`parse_index_statuses`, which a test and the design
+    notes keep as the task-file reader.
+  - `team.py`: the runner-spawn (one runner and slots) and runner-scope audits pass `--keep-body`
+    when the product's plane.json sets `prompts.keep_body`, as `ccp prompt` does.
+  - Pruned audits and launch stamps: stated in `docs/design/observability.md` and the observability
+    README (keep `audit_keep_days` above the longest life of a task); no guard.
+  - The board-build test over an old snapshot now compares the board with and without the snapshot
+    and checks the file is left as it was, so it fails if the board ever reads it.
+  - `scripts/observability/README.md` no longer said `status.sh` exits 1 on stale seats (task 0012
+    rewrote it); nothing to change.
+  - The architect and review-triage skills no longer name the retired `LOCAL.md` headings.
+  - `fill_reason`: a finding gives the note only as its whole text or after a `: ` at its end, so a
+    short note inside another finding is still added; the existing "already holds it" test keeps its
+    expectation.
+  - The two parallel-check timing bounds time the check runs alone (`rules.run_checks`,
+    `rules.check_failures`, under 1.8 s); the CLI runs still pin the lines and the serial equality.
+  - `merge.behind_tip_ignore` and `verify.skip_review.paths` share one check: an entry that matches
+    every path (normalises to `.`, or wildcards alone such as `*`, `**`, `./*`) is refused, named.
+  - `--allow-unreviewed-fix` is taken before the skip: recorded as before, no proof runs.
+  - `git merge-tree --write-tree` needs git 2.38: stated in `skip_review`'s docstring and the README
+    prerequisites; a failure other than a conflict is named as such.
+  - Skip-proof edge tests: an abandoned fix round, several fix rounds, a review not reported done,
+    a review with no head on record.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #51 head `143bb80` (squash `43833ae`): APPROVE. Passed: check-03. Not run by the verifier: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0058-r1-r2-leftovers.json.

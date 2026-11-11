@@ -42,8 +42,7 @@ For triage only, SPEC §19 extends the spec maintainer's authority (§17.4). You
   `docs/delivery/plane.json`), within its line cap, each rule with its id and its `check:`, and add
   any `architect.checks` or `architect.budgets` entry an applied rule needs;
 - add a known-intentional note to the *Known intentional* section of the house rules (or, without
-  one, the "Architecture review" or "Docs audit" section of `docs/delivery/LOCAL.md`), so later
-  passes stop raising it;
+  them, to `docs/delivery/LOCAL.md`), so later passes stop raising it;
 - record a deferral in the project's planning document (its plan or backlog file), naming the
   review and the finding.
 

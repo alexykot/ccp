@@ -203,6 +203,12 @@ class Config(WtFixture, unittest.TestCase):
                 with self.assertRaises(config.ConfigError) as cm:
                     config.load(self.main)
                 self.assertIn("merge.behind_tip_ignore", str(cm.exception))
+        for every in (".", "./", "./.", "*", "**", "./*"):  # an entry that matches every path, named
+            with self.subTest(every=every):
+                self.plane(merge={"behind_tip_ignore": ["docs/notes", every]})
+                with self.assertRaises(config.ConfigError) as cm:
+                    config.load(self.main)
+                self.assertIn(f"merge.behind_tip_ignore: {every!r} matches every path", str(cm.exception))
         self.plane(parallel={"behind_tip_ignore": ["docs"]})  # the setting lives under merge
         with self.assertRaises(config.ConfigError) as cm:
             config.load(self.main)

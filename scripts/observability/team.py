@@ -212,6 +212,21 @@ def product_log(root: Path, quiet: bool = False) -> tuple[Any, list[dict[str, An
     return None
 
 
+def keep_body(root: Path) -> list[str]:
+    """SPEC §23.8: `--keep-body` for `write-prompt-audit.sh` when the product's plane.json sets
+    `prompts.keep_body`, as `ccp prompt` passes it; nothing when it is off, absent or unreadable."""
+    prod = sm.product_root(root)
+    if not prod or not (Path(prod) / "docs" / "delivery" / "plane.json").is_file():
+        return []
+    sys.path.insert(0, str(HERE.parents[1]))
+    from ccp import config as ccp_config  # noqa: PLC0415
+    try:
+        on = (ccp_config.load(Path(prod)).prompts or {}).get("keep_body")
+    except Exception:  # noqa: BLE001  (an unreadable plane.json: the default, no body)
+        return []
+    return ["--keep-body"] if on else []
+
+
 def review_point_scope(root: Path, args: argparse.Namespace, scope: list[str], rp: str | None) -> tuple[list[str], list[str]]:
     """SPEC §22, at spawn: the scope and the review-point warnings. With the product's
     review-point register: `--review-point` must be R<n> in it (exit 2, before any write), and without
@@ -344,7 +359,7 @@ def _runner_scope(root: Path, rc: dict[str, str], w: dict[str, Any], add: list[s
          "--argv", json.dumps(["SendMessage", *[f"to={n}" for n in
                                                   ([str(r.get("bound_name") or k) for k, r in slots_of(w).items()]
                                                    or [live_name(rc, w)])]]),
-         "--notes", f"scope={','.join(scope)}"],
+         "--notes", f"scope={','.join(scope)}", *keep_body(root)],
         input=msg + "\n", capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(root)})
     if audit.returncode != 0:
         die(f"write-prompt-audit failed: {audit.stderr.strip()}")
@@ -447,7 +462,7 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
                 ["bash", str(HERE / "write-prompt-audit.sh"), "--task-id", RUNNER_AUDIT_TASK, "--phase", "runner-spawn",
                  "--prompt-file", "-", "--actor", LEAD, "--project-id", sm.project_id(root),
                  "--argv", json.dumps(["Agent", f"name={slot}", f"subagent_type={rc['agent_type']}"]),
-                 "--notes", f"slot={slot} scope={','.join(scope)}"],
+                 "--notes", f"slot={slot} scope={','.join(scope)}", *keep_body(root)],
                 input=prompt, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(root)})
             if audit.returncode != 0:
                 die(f"write-prompt-audit failed: {audit.stderr.strip()}")
@@ -567,7 +582,7 @@ def cmd_runner(args: argparse.Namespace) -> int:
             ["bash", str(HERE / "write-prompt-audit.sh"), "--task-id", RUNNER_AUDIT_TASK, "--phase", "runner-spawn",
              "--prompt-file", "-", "--actor", LEAD, "--project-id", sm.project_id(root),
              "--argv", json.dumps(["Agent", f"name={rc['name']}", f"subagent_type={rc['agent_type']}"]),
-             "--notes", f"scope={','.join(scope)}"],
+             "--notes", f"scope={','.join(scope)}", *keep_body(root)],
             input=prompt, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(root)})
         if audit.returncode != 0:
             die(f"write-prompt-audit failed: {audit.stderr.strip()}")

@@ -205,8 +205,6 @@ DEFAULT_CRON = "*/10 * * * *"
 # These are only the heartbeat's recorded `cron_expected` defaults: every seat is event-only
 # (§18.3).
 EVENT_ONLY = "event"
-EVENT_ONLY_VALUES = {"event", "event-only", "none", "null", ""}
-EVENT_ONLY_SEATS = {"task-verifier", "design-seat"}
 SEAT_DEFAULT_CRON = {
     "task-runner": DEFAULT_CRON,
     "task-verifier": EVENT_ONLY,
@@ -310,12 +308,8 @@ def load_events(path: Path) -> list[dict[str, Any]]:
         if not isinstance(ev, dict):
             die(f"events.jsonl line {i}: not an object")
         out.append(ev)
-    out.sort(key=lambda e: (str(e.get("at") or ""), i_key(e)))
+    out.sort(key=lambda e: str(e.get("at") or ""))
     return out
-
-
-def i_key(_ev: dict[str, Any]) -> int:
-    return 0
 
 
 def validate_event(ev: dict[str, Any], *, require_payload: bool = True) -> list[str]:
@@ -353,15 +347,6 @@ def validate_event(ev: dict[str, Any], *, require_payload: bool = True) -> list[
 def events_path(root: Path) -> Path:
     """The ledger this queue root writes and reads: observability/events.jsonl."""
     return root / "observability" / "events.jsonl"
-
-
-def event_id(ev: dict[str, Any]) -> str:
-    """An event's identity: the sha256 of its canonical JSON. Events carry no id field (the schema is
-    closed), and two writes of the same event are the same line, so a re-pulled event is a duplicate."""
-    import hashlib  # noqa: PLC0415
-
-    return hashlib.sha256(json.dumps(ev, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-                          .encode()).hexdigest()
 
 
 def append_event(root: Path, ev: dict[str, Any]) -> dict[str, Any]:
@@ -671,12 +656,6 @@ def default_cron(sid: str | None) -> str:
     return SEAT_DEFAULT_CRON.get(sid or "", DEFAULT_CRON)
 
 
-def is_event_only(sid: str | None, cron: str | None) -> bool:
-    if sid in EVENT_ONLY_SEATS:
-        return True
-    return str(cron or "").strip().lower() in EVENT_ONLY_VALUES
-
-
 def empty_seat(sid: str | None = None) -> dict[str, Any]:
     return {
         "last_wake_at": None,
@@ -842,43 +821,6 @@ def project_yaml_text(root: Path) -> str:
         return p.read_text()
     except OSError:
         return ""
-
-
-def _yaml_nested_map(text: str, block: str, key: str) -> dict[str, str]:
-    """Tiny YAML subset: the `k: v` scalars of the map `key:` nested under a top-level `block:`."""
-    out: dict[str, str] = {}
-    inside = nested = False
-    depth = 0
-    for line in text.splitlines():
-        if not line.strip() or line.strip().startswith("#"):
-            continue
-        if not line[:1].isspace():
-            inside = line.split("#", 1)[0].strip() == f"{block}:"
-            nested = False
-            continue
-        if not inside:
-            continue
-        indent = len(line) - len(line.lstrip())
-        k, _, v = line.strip().partition(":")
-        if nested and indent > depth:
-            v = v.split(" #", 1)[0].strip().strip(chr(34) + chr(39))
-            if k.strip() and v:
-                out[k.strip().strip(chr(34) + chr(39))] = v
-            continue
-        nested = k.strip() == key and not v.split(" #", 1)[0].strip()
-        depth = indent
-    return out
-
-
-def email_cfg(root: Path) -> dict[str, str]:
-    """The binding's `email` block. A `prefix_by_team` map left from Grok hosting is read for its
-    `claude-team` entry, which overrides `subject_prefix`."""
-    text = project_yaml_text(root)
-    by_team = _yaml_nested_map(text, "email", "prefix_by_team")
-    cfg = {k: v for k, v in _yaml_block_scalars(text, "email").items() if k not in by_team}
-    if "claude-team" in by_team:
-        cfg["subject_prefix"] = by_team["claude-team"]
-    return cfg
 
 
 def project_seat_agent(root: Path, role: str) -> str | None:

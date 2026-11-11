@@ -41,8 +41,7 @@ you are given are diagnostics.
   (for example `docs/BUILD.md`) and the task log `docs/delivery/`.
 - **The house rules** (the rules doc in your prompt, for example `docs/ENGINEERING.md`): the
   project's own engineering standards. Its *Known intentional* section lists deliberate oddities:
-  don't raise them. If the project has no rules doc yet, the "Architecture review" and "Docs audit"
-  sections of `docs/delivery/LOCAL.md` play that part.
+  don't raise them. If the project has no rules doc yet, `docs/delivery/LOCAL.md` plays that part.
 - **The standing definition of done** (`docs/delivery/standing-dod.md` or the plane's), and the
   implementer, reviewer and verifier briefs (`.claude/agents/`), for the process lens.
 - **Earlier reviews:** `docs/delivery/reviews/*.md`. Each finding there has a disposition. **Don't

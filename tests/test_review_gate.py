@@ -244,6 +244,28 @@ class RepeatVerify(ToolkitFixture, unittest.TestCase):
         rec = json.loads((self.q / "verification/0002-second.json").read_text())
         self.assertEqual(rec["findings"], ["rerun: flaky gate, rerun"])
 
+    def test_a_short_reason_inside_another_finding_is_still_added(self):
+        self.review()
+        first = self.verify_round()
+        self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A, "--note", "rerun")
+        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec.update(task_id="0002-second", head_sha=A, verdict="approve", findings=["flaky gate, rerun"])
+        rec.pop("checked_at", None)
+        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",
+                          "produced_by": "verifier"}]
+        f = Path(self._tmp.name) / "verdict.json"
+        f.write_text(json.dumps(rec))
+        code, _, out, err = self.ccp("verify", "record", str(f))
+        self.assertEqual(code, 0, out + err)
+        findings = json.loads((self.q / "verification/0002-second.json").read_text())["findings"]
+        self.assertEqual(findings[0], "flaky gate, rerun")
+        self.assertEqual(len(findings), 2, findings)
+        self.assertTrue(findings[1].endswith(": rerun") and first in findings[1], findings)
+        f.write_text(json.dumps({**rec, "findings": findings}))  # recorded again: the reason is not repeated
+        code, _, out, err = self.ccp("verify", "record", str(f))
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(json.loads((self.q / "verification/0002-second.json").read_text())["findings"], findings)
+
     def test_a_first_verify_leaves_the_findings_alone(self):
         self.review()
         self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A, "--note", "first look")
