@@ -43,9 +43,11 @@ ACTORS = SEAT_IDS + ("adapter", "operator", "system", "plane-session")  # plane-
 # work.json `next_tasks`: set by `ccp tasks prefer`, cleared by it; the claim that takes one removes it), and
 # hold (the lead's hold on a task, work.json `held`: `ccp tasks hold`, `next` passes over it). §3.5 adds
 # sign_off (the operator's sign-off on a task's text, recorded by `ccp tasks sign-off`; claim and close read it).
+# §3.6 adds notify (pending: a trigger fired; sent: a notice sent, by `ccp` over the command or by the lead).
 REVIEW_EVENT_TYPES = ("architecture_review", "docs_audit", "architect")
 TEAM_EVENT_TYPES = ("gate", "runner")
-TOOLKIT_EVENT_TYPES = ("run", "review", "verify", "allowance", "plane", "suite", "prefer", "hold", "sign_off")
+TOOLKIT_EVENT_TYPES = ("run", "review", "verify", "allowance", "plane", "suite", "prefer", "hold", "sign_off",
+                       "notify")
 EVENT_TYPES = ("phase", "waiting_on", "lease", "claude", "auth", "seat", "durable", "note", "question", "spec_maintainer",
                *REVIEW_EVENT_TYPES, *TEAM_EVENT_TYPES, *TOOLKIT_EVENT_TYPES)
 EVENT_OPS = (
@@ -79,6 +81,8 @@ EVENT_OPS = (
     "triaged",
     "armed",
     "fired",
+    "pending",
+    "sent",
 )
 WAIT_REASONS = ("quota", "reauth", "operator_decision", "runner", "steerer", "spec_maintainer", "design_seat", "null-class",
                 "operator_step")
@@ -136,6 +140,8 @@ REQUIRED_PAYLOAD = {
     ("lease", "set"): ("holder",),
     ("lease", "clear"): ("holder",),
     ("sign_off", "recorded"): ("stage", "by", "words", "head"),
+    ("notify", "pending"): ("trigger", "project", "task", "id", "reason"),
+    ("notify", "sent"): ("trigger", "project", "task", "id", "via", "by", "ok"),
     ("claude", "launch"): ("phase", "prompt_ref"),
     ("claude", "exit"): ("exit_code",),
     ("auth", "transition"): ("overall",),

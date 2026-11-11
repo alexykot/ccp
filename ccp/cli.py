@@ -37,6 +37,8 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--full | --summary] [--log PATH] [-- COMMAND …] | list [--task ID]
             (every test run: the exit code passes through, the output goes to a log and a summary is
             printed (--full streams it), the time and counts are recorded)
+  ccp notify render TRIGGER [--task ID] [--id ID] [--reason R] [--json] | pending
+            | sent TRIGGER [--task ID] [--id ID] --via command|lead [--note T]  (the operator's notices, SPEC §3.6)
   ccp plane propose --need T --generic T [--task ID] [--workaround T] [--frequency F] | propose --again ID
             | triage ID --accept|--merge-into ID|--decline --reason T | list [--open] | check
   ccp agent start|stop          (the SubagentStart / SubagentStop hooks; hook JSON on stdin)
@@ -1061,6 +1063,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="<file>:<old>=><new> (the old text once in the file, relative to the worktree), or a patch "
                         "file; repeat for more")
     p.set_defaults(fn=_toolkit(_mutate))
+
+    from ccp import notify  # noqa: PLC0415
+    notify.add_parser(sub, _toolkit)  # §3.6: render, sent, pending
 
     pl = sub.add_parser("plane", help="propose a ccp tool; the queue's script check (SPEC §31.4)") \
         .add_subparsers(dest="cmd", required=True)

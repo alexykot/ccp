@@ -1,7 +1,7 @@
 ---
 task_id: 0068-the-lead-dispatches-plane-rendered-notices
 title: The lead dispatches the operator's notices, rendered and recorded by the plane, over a configured channel
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3", "S8", "S17"]
@@ -124,6 +124,31 @@ the record; the lead dispatches; the channel is configuration.
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): `ccp/notify.py` gains `fire` (a trigger records a `notify` `pending`
+  event, runs `notify.command` if any and records its send, and prints the rendered notice on stderr
+  with the channel), `render`, `record_sent`, `pending` and the `ccp notify render|sent|pending`
+  parser (`ccp/cli.py` registers it). The trigger call sites (`ccp/lifecycle.py` wait, claim, close;
+  `scripts/observability/spec_maintainer.py` and `team.py` for `needs_operator` and `gate
+  ask-operator`) call `fire`. The `review_point_done` close now fires whether or not a command is
+  configured, so its notice is on record. `notify.lead` is validated in `ccp/config.py` and the
+  contract; the ledger type `notify` and ops `pending`, `sent` are in
+  `contracts/observability_event.schema.json` and `scripts/observability/lib.py`.
+- Narrow rules where the task left it open (flagged in the report): a pending notice is matched by a
+  later `sent` with the same trigger, task and id and `ok: true` (a failed command send leaves it
+  pending); `pending` lists each notice once with a `fired` count; `by` is `$ACTOR` when it names a
+  ledger actor, else `design-seat`; the subject with neither task nor id is `[<project>] <trigger>`;
+  `other` without a non-blank one-line `--note` is refused (exit 2); `--via lead` is not refused when
+  the product declares no `notify.lead`.
+- ADR-0039 amends ADR-0037 D2 (accepted at this PR's merge gate, as ADR-0037 and ADR-0038 were);
+  ADR-0037 D2's "no seat sends email itself" now points at it.
+- Outside the declared `paths:`, needed by the scope: `ccp/config.py`, `ccp/lifecycle.py`,
+  `ccp/CLAUDE.md`, `scripts/observability/{lib,spec_maintainer,team}.py`, `docs/spec/02-delivery.md`
+  (§17.10), `docs/adr/INDEX.md`.
+- 2026-11-11 (implementer, review fix): `ccp notify render` and `ccp notify sent` resolve `--task` as
+  `ccp tasks` does (a full id or its NNNN, `queue.task_meta`) and refuse one that matches no task
+  (exit 2, nothing recorded); the `sent` event records the full id, so a send named by its number
+  clears the pending notice. check-01 and check-02 now need the task (`0001-x`) in the scratch log.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #61 head `0b53e37` (squash `c666fcc`): APPROVE. Passed: check-04. Not run by the verifier: check-01, check-02, check-05, check-06, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0068-the-lead-dispatches-plane-rendered-notices.json.

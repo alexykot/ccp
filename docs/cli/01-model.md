@@ -15,6 +15,9 @@ Call syntax and flags for the commands of SPEC part `docs/spec/01-model.md`. The
 | `ccp docs adr index\|list` | the same as `ccp adr index\|list` | §6.6 |
 | `ccp tasks index [--stdout]` | regenerate `INDEX.yaml` | §5.7 |
 | `ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--starter-rules] [--force]` | adopt this repository: the templates, `plane.json`, `.gitignore`, the plugin anchor and the `CLAUDE.md` line, the binding and its queue; `--starter-rules` adds the starter house rules and their settings; keeps existing files unless `--force` | §4.3, §4.5, §8.3, §20.5 |
+| `ccp notify render <trigger> [--task ID] [--id ID] [--reason R] [--json]` | the notice for a trigger (or `other`): a subject and a body of ids, nothing else | §3.6 |
+| `ccp notify sent <trigger> [--task ID] [--id ID] --via command\|lead [--note T]` | the lead records a notice it sent; `other` needs `--note` (needs `QUEUE_ROOT`) | §3.6 |
+| `ccp notify pending` | every notice fired and not yet sent, with its subject, body and the `sent` call that records it (needs `QUEUE_ROOT`) | §3.6 |
 | `ccp where` | the project, binding, queue, plane checkout and `ccp` path for this directory | §8.3, §9.2 |
 
 Global: `--root DIR` (else `$CCP_ROOT`, else the git top level), §8.2.

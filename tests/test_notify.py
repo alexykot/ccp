@@ -25,8 +25,8 @@ def sent(out: Path) -> list[list[str]]:
     return [x.split("|") for x in out.read_text().splitlines()] if out.is_file() else []
 
 
-class Channel(ToolkitFixture, unittest.TestCase):
-    """A scratch product whose notify command appends a line to a file."""
+class ChannelFixture(ToolkitFixture):
+    """A scratch product whose notify command appends a line to a file; no tests of its own."""
 
     PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "notify": {"command": APPEND}}
 
@@ -41,6 +41,22 @@ class Channel(ToolkitFixture, unittest.TestCase):
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
         cfg.update(blocks)
         self.write("docs/delivery/plane.json", json.dumps(cfg))
+
+    def tag(self, *tids: str) -> None:
+        """Give each task `review_point: R1`, commit and push it, and bring the runner worktree along."""
+        for tid in tids:
+            p = next((self.main / "docs/delivery/tasks").glob(f"{tid}-*.md"))
+            p.write_text(p.read_text().replace("depends_on:", "review_point: R1\ndepends_on:", 1))
+        tasklog.write_index(config.load(self.main))
+        git(self.main, "add", "-A", "docs/delivery")
+        git(self.main, "commit", "-q", "-m", "tag R1")
+        git(self.main, "push", "-q", "origin", "main")
+        git(self.runner, "fetch", "-q", "origin")
+        git(self.runner, "checkout", "-q", "--detach", "origin/main")
+
+
+class Channel(ChannelFixture, unittest.TestCase):
+    """A scratch product whose notify command appends a line to a file."""
 
     # ------------------------------------------------------------------ blocker and decision
 
@@ -141,18 +157,6 @@ class Channel(ToolkitFixture, unittest.TestCase):
 
     # ------------------------------------------------------------------ review point done
 
-    def tag(self, *tids: str) -> None:
-        """Give each task `review_point: R1`, commit and push it, and bring the runner worktree along."""
-        for tid in tids:
-            p = next((self.main / "docs/delivery/tasks").glob(f"{tid}-*.md"))
-            p.write_text(p.read_text().replace("depends_on:", "review_point: R1\ndepends_on:", 1))
-        tasklog.write_index(config.load(self.main))
-        git(self.main, "add", "-A", "docs/delivery")
-        git(self.main, "commit", "-q", "-m", "tag R1")
-        git(self.main, "push", "-q", "origin", "main")
-        git(self.runner, "fetch", "-q", "origin")
-        git(self.runner, "checkout", "-q", "--detach", "origin/main")
-
     def test_the_close_that_finishes_a_review_point_notifies_once(self):
         self.tag("0001", "0002")
         self._to_approved_pr()
@@ -237,7 +241,7 @@ class Config(unittest.TestCase):
     def test_the_block_defaults_to_no_command(self):
         p = Product()
         self.addCleanup(p.cleanup)
-        self.assertEqual(config.load(p.root).notify, {"command": None, "timeout_seconds": 30})
+        self.assertEqual(config.load(p.root).notify, {"command": None, "timeout_seconds": 30, "lead": None})
 
     def test_an_unknown_trigger_is_a_programming_error(self):
         from ccp import notify

@@ -1134,7 +1134,7 @@
     "notify": {
       "type": "object",
       "additionalProperties": false,
-      "description": "SPEC §3.6: the operator's channel. Absent, or command null: the lead's session, and no command runs.",
+      "description": "SPEC §3.6: the operator's channel. `command` is the unattended channel ccp runs; `lead` is a tool the lead sends with. Neither: the lead's session, and no command runs.",
       "properties": {
         "command": {
           "type": ["string", "null"],
@@ -1147,6 +1147,17 @@
           "minimum": 1,
           "default": 30,
           "description": "How long one run of the command may take; at the limit it is killed and the step warns."
+        },
+        "lead": {
+          "type": ["object", "null"],
+          "default": null,
+          "additionalProperties": false,
+          "required": ["tool", "to"],
+          "description": "SPEC §3.6: the lead sends each notice with this tool from its own session (an MCP mail or chat server's tool), renders it with `ccp notify render` and records it with `ccp notify sent --via lead`. Null: no declared tool.",
+          "properties": {
+            "tool": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "The tool the lead sends with, as its session names it."},
+            "to": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Where the lead sends: the operator's address or channel on that tool."}
+          }
         }
       }
     }

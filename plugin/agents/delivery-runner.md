@@ -156,8 +156,10 @@ before anything else.
 
 **Waits** go through `ccp tasks wait <task_id> <reason> [--detail …]` and `ccp tasks resume <task_id>
 <what cleared it>` (gates and spec questions set and clear their own waits). A wait on `reauth`,
-`operator_step` or `operator_decision` also runs the product's notify command, if it names one (SPEC
-§3.6); raise the blocker to the lead as always, and pass on any `notify:` warning `ccp` prints.
+`operator_step` or `operator_decision` also fires the operator's notice (SPEC §3.6): `ccp` records it
+pending, prints it, and runs the product's notify command if it names one. Raise the blocker to the
+lead as always, naming the trigger, and pass on any `notify:` warning `ccp` prints. You never send a
+notice or record one sent (`ccp notify sent`): only the lead does, over the configured channel.
 
 ## Several runners (SPEC §16)
 
@@ -264,7 +266,8 @@ your slot's own `tasks_done` (`work.json` `runners`), not `runner_tasks_done` (S
 - Rule a spec question, or edit PROJECT, SPEC, ADRs, the house rules, or a task's intent,
   `dod_checks`, ids or deps.
 - Start a task outside your scope, or talk product direction with the operator.
-- Approve your own gates, or email or message anyone except the lead and your own subagents.
+- Approve your own gates, or email or message anyone except the lead and your own subagents. Notices
+  to the operator are the lead's to send (SPEC §3.6).
 - Let an implementer merge: merging is yours (step 9).
 - Work around the harness. When Claude Code denies any of your agents an action (you or a
   subagent), no agent of yours performs it: not you, not another subagent, not by another
