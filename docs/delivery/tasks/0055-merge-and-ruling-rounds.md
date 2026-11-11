@@ -62,6 +62,13 @@ The runner can launch a round that only merges the integration tip into a task b
   describe the kinds. Touched beyond the declared paths, as the change needs: `ccp/cli.py` (the phase
   choices), `ccp/report.py` (the report lines), `ccp/verify.py` (skip and repeat), the review template,
   README and `docs/cli/02-delivery.md`, and `tests/test_review_skip.py`, `tests/test_parallel_merging.py`.
+- 2026-11-11 (implementer, fix round 1): SPEC §15.2 and §15.6 rule 4 now name merge and ruling rounds
+  beside fix rounds (review MINOR 1). `reported_verdicts` breaks a same-second tie by when the run opened
+  before phase and round, since round numbers are per phase (NIT 1). The close-time `behind_tip` refusal and
+  the merge-conflict hint name `ccp prompt merge` (NIT 3). New tests: `ccp verify record` refused after a
+  ruling round, and a merge round judged by real patch ids (MINOR 3). Known gap, left for a follow-up task
+  (MINOR 2): `ccp/health.py`, `ccp/drill.py` and `ccp/estimate.py` count only implement, review, fix and
+  verify, so merge and ruling rounds fall under "other" and out of `fix_rounds` and `rev_end`.
 
 ## Verification notes
 

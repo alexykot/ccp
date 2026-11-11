@@ -82,14 +82,15 @@ def reported_verdicts(cfg: Config, q: Path, task_id: str) -> tuple[str, dict[str
     """§13.4: the declared verdicts as the task's latest done implement, fix, merge or ruling report
     states them, by declared name ("not stated" for one its report predates), and that run's id; ("", {})
     when the product declares none or no such report is in. Latest is by `reported_at`; reports in the
-    same second go by run: a later round after an implement, then the higher round."""
+    same second go by when their run opened, then (opened in the same second too) a later round after an
+    implement, then the higher round."""
     declared = (cfg.report or {}).get("required_fields") or []
     done = [r for r in runs.all_runs(q, task_id) if r.get("phase") in runs.CHANGE_PHASES
             and runs.state(r) == "reported" and r.get("outcome") == "done"]
     if not declared or not done:
         return "", {}
-    last = max(done, key=lambda r: (str(r.get("reported_at") or ""), r.get("phase") != "implement",
-                                    runs.parse_id(r["run_id"])[2]))
+    last = max(done, key=lambda r: (str(r.get("reported_at") or ""), str(r.get("opened_at") or ""),
+                                    r.get("phase") != "implement", runs.parse_id(r["run_id"])[2]))
     got = last.get("fields") or {}
     return last["run_id"], {f["name"]: got.get(f["name"], "not stated") for f in declared}
 

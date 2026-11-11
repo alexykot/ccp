@@ -89,6 +89,7 @@ class Merging(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.close()
         self.assertEqual(code, 1, out + err)
         self.assertIn("behind_tip", err)
+        self.assertIn("`ccp prompt merge 0002-second", err)  # the round that catches up (SPEC §13.2)
         self.assertFalse((self.ghstate / "merge-called").exists())
 
     def test_a_tip_that_cannot_be_fetched_refuses_the_merge(self):

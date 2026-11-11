@@ -688,9 +688,10 @@ result.
   while a review runs makes its head stale.
 - **A fix round is reviewed again before it is verified**, unless a proof covers it (the next rule).
   `ccp prompt verify` refuses (exit 4,
-  nothing opened) when the task's latest fix run that was not abandoned opened no later than its
-  latest review run that reported `done`, or when `--head` is not the head that review judged (its
-  run's `head`; a short sha matches). A head that differs from the reviewed one only by merging the
+  nothing opened) when the task's latest fix run, or a merge or ruling round (§13.2), that was not
+  abandoned opened no later than its latest review run that reported `done`, or when `--head` is not
+  the head that review judged (its run's `head`; a short sha matches). A head that differs from the
+  reviewed one only by merging the
   integration branch, its own diff against its merge base unchanged (the same patch id), needs no new
   review; integration changes inside the PR's own hunks or their context lines change the patch id,
   and a head with no change of its own, or one that cannot be fetched, is reviewed again. A task with
@@ -809,9 +810,10 @@ They hold for every PR the runner merges, a task's or not (ADR-0011).
    printing nothing). A merge with a conflict, or one whose own change moved, is reviewed and verified
    in full.
 4. **Minors before merge; reasons and the rest in the verifier's record.** A minor finding that
-   could cost a later cycle is fixed before the merge. A second verify round with no fix round
-   between says why in its `findings` (from the runner's `--note`); minor findings not fixed before
-   the merge are listed there too. `ccp tasks close` writes the Verification notes line from that
+   could cost a later cycle is fixed before the merge. A second verify round with no fix round,
+   or a merge or ruling round (§13.2), between says why in its `findings` (from the runner's
+   `--note`); minor findings not fixed before the merge are listed there too. `ccp tasks close`
+   writes the Verification notes line from that
    record; nobody edits a task's notes by hand.
 5. **One seat runs an approved spend step** (a live step that spends allowance or money): the one
    the approval (gate or standing approval, §17.9)

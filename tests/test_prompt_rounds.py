@@ -11,7 +11,7 @@ from unittest import mock
 from ccp import report, runs, verify
 from tests import test_review_gate
 from tests.test_report_fields import HEAD, MIGRATION, implement_report
-from tests.test_toolkit import ToolkitFixture
+from tests.test_toolkit import ToolkitFixture, git
 
 A, B = "a" * 40, "b" * 40
 RULING = "Lead ruling: the field is optional."
@@ -104,6 +104,16 @@ class Rounds(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.verify(B)
         self.assertEqual(code, 0, out + err)
 
+    def test_verify_record_refuses_an_approve_after_a_ruling_round(self):
+        self.review(A)
+        code, _, out, err = self.verify(A)
+        self.assertEqual(code, 0, out + err)
+        run_id = self.ruling(A, B)  # a ruling applied while the verifier ran
+        code, _, out, err = self.verdict(B)
+        self.assertEqual(code, 1, out + err)
+        self.assertIn(f"ruling round {run_id} is newer than the last review", err)
+        self.assertFalse((self.q / "verification/0002-second.json").exists())
+
     def test_a_merge_that_left_the_reviewed_change_alone_needs_no_new_review(self):
         self.review(A)
         self.merge(A, B)
@@ -157,6 +167,46 @@ class Rounds(ToolkitFixture, unittest.TestCase):
         self.round_since_the_last_verify("ruling")
 
 
+class MergeInRealGit(ToolkitFixture, unittest.TestCase):
+    """§15.2 through a merge round, judged by real patch ids: the tip merged in, the reviewed change
+    unchanged, needs no new review; a merge round that also changed the task's own code does."""
+    run_phase = test_review_gate.ReviewGate.run_phase
+    review = test_review_gate.ReviewGate.review
+    commit = test_review_gate.MergeIn.commit
+
+    def setUp(self):
+        super().setUp()
+        clock = iter(f"2026-10-22T{10 + i // 60:02d}:{i % 60:02d}:00Z" for i in range(600))
+        patch = mock.patch("ccp.runs.iso", side_effect=lambda: next(clock))
+        patch.start()
+        self.addCleanup(patch.stop)
+        self.ccp("tasks", "claim", "0002")
+        (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text() + f"product_root: {self.main}\n")
+
+    def test_a_merge_round_judged_by_patch_id(self):
+        wt = self.main / ".rt" / "impl-0002"
+        reviewed = self.commit(wt, "feature.txt", "built\n", "Task 0002: build it")
+        git(wt, "push", "-q", "-u", "origin", "task/0002-second")
+        self.review(reviewed)
+        other = self.main / ".rt" / "other"  # another task merges to main meanwhile
+        git(self.main, "worktree", "add", "-q", "--detach", str(other), "origin/main")
+        self.commit(other, "other.txt", "x\n", "Task 0009: other")
+        git(other, "push", "-q", "origin", "HEAD:main")
+        git(wt, "fetch", "-q", "origin")
+        git(wt, "merge", "-q", "--no-edit", "origin/main")
+        merged = git(wt, "rev-parse", "HEAD")
+        git(wt, "push", "-q", "origin", "task/0002-second")
+        self.run_phase("merge", reviewed, f"PR: #7\nHead: {merged}")
+        code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", merged)
+        self.assertEqual(code, 0, out + err)
+        changed = self.commit(wt, "feature.txt", "built, adapted to the tip\n", "Task 0002: adapt it")
+        git(wt, "push", "-q", "origin", "task/0002-second")
+        merge2 = self.run_phase("merge", merged, f"PR: #7\nHead: {changed}")
+        code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", changed, "--supersede")
+        self.assertEqual(code, 4, out + err)
+        self.assertIn(f"merge round {merge2} is newer than the last review", err)
+
+
 class RunIds(unittest.TestCase):
     def test_merge_and_ruling_run_ids_parse(self):
         self.assertEqual(runs.parse_id("0002-second/merge-2"), ("0002-second", "merge", 2))
@@ -197,6 +247,25 @@ class Verdicts(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", HEAD)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["report_fields"], {"run_id": "0002-second/merge", "fields": {"migration": "not required"}})
+
+    def test_a_same_second_tie_goes_to_the_run_opened_later_whatever_its_phase_and_round(self):
+        self.ccp("tasks", "claim", "0002")
+        for phase, run_id, verdict, extra in (("merge", "0002-second/merge", "required", ()),
+                                               ("merge", "0002-second/merge-2", "required", ()),
+                                               ("ruling", "0002-second/ruling", "not required", ("--note", "the ruling"))):
+            code, _, out, err = self.ccp("prompt", phase, "0002", "--pr", "7", "--head", HEAD, *extra)
+            self.assertEqual(code, 0, out + err)
+            code, _, out, err = self.report(run_id, implement_report(f"Migration: {verdict}"))
+            self.assertEqual(code, 0, out + err)
+        for i, run_id in enumerate(("0002-second/merge", "0002-second/merge-2", "0002-second/ruling")):
+            f = self.q / "runs" / (run_id + ".json")
+            rec = json.loads(f.read_text())
+            rec.update(opened_at=f"2026-01-01T00:00:0{i}Z", reported_at="2026-01-01T00:01:00Z" if i else
+                       "2026-01-01T00:00:30Z")  # merge-2 and ruling reported in the same second
+            f.write_text(json.dumps(rec))
+        code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", HEAD)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["report_fields"]["run_id"], "0002-second/ruling")  # merge-2's round is higher
 
 
 if __name__ == "__main__":
