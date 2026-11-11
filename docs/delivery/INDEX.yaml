@@ -303,7 +303,7 @@ tasks:
     depends_on: []
     path: tasks/0060-run-the-worktrees-own-ccp.md
   - id: 0061-mutate-record-and-signal-follow-ups
-    status: pending
+    status: done
     title: `ccp mutate` keeps code text out of its record and stops cleanly on a signal
     depends_on: []
     path: tasks/0061-mutate-record-and-signal-follow-ups.md

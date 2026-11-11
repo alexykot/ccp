@@ -1,7 +1,7 @@
 ---
 task_id: 0061-mutate-record-and-signal-follow-ups
 title: `ccp mutate` keeps code text out of its record and stops cleanly on a signal
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S20", "S23", "S24"]
@@ -76,4 +76,4 @@ A `ccp mutate` run record never carries code text, old or new; a signal between 
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #49 head `eda0cde` (squash `1329a5e`): APPROVE. Passed: check-01, check-02, check-03. Gate: `python3 -m unittest discover -s tests -t .` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0061-mutate-record-and-signal-follow-ups.json.
