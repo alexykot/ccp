@@ -1,7 +1,7 @@
 ---
 task_id: 0065-latest-verdict-test-deterministic
 title: The review prompt picks the latest implementer verdict deterministically
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S13"]
@@ -58,4 +58,4 @@ When two implementer reports carry the same timestamp, the review prompt shows t
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #60 head `514f284` (squash `705f3a7`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0065-latest-verdict-test-deterministic.json.
