@@ -1,14 +1,14 @@
 ---
 task_id: 0057-rules-line-descriptions-and-starter-follow-ups
 title: Rules lines take a description; starter-rules follow-ups
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S20"]
 review_point: R4
 paths: ["ccp/rules.py", "templates/docs-project/starter-rules.md", "plugin/agents/delivery-verifier.md", "docs/spec/03-quality.md", "tests/test_rules.py", "tests/test_starter_rules.py"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0057-rules-line-descriptions-and-starter-follow-ups
@@ -50,6 +50,20 @@ A rules-doc line `check: docs — <key> — <what it measures>` parses with its 
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): `rule_blocks` cuts a `docs` check's key list at the first ` — ` (em dash
+  with spaces), so a trailing description is prose, not a key; a key after it is never read. M2:
+  the refs-resolve rule (E7) no longer promises the path check; the package-maps rule (E6) now says
+  every path a package doc names exists, and its check line describes what `package_docs` covers.
+  §20.5 Decline says declining `package-maps` turns off the §21.3/§21.4 package-doc checks,
+  `no_delivery_ids` and the path check included, while `package_docs.rules` still run (already the
+  code's behaviour; a test now pins it). M3: §20.5 Adopt and the starter template say
+  `architect.rules_doc` must be set for the `pass` rules to be judged. NITs: E5's check line now
+  says it covers delivery ids outside history files and leaves dates and history to the architect's
+  docs lens; the house-rules template (`templates/docs-project/ENGINEERING.md`, not in `paths`, but
+  it holds the NIT's text) points at the plane's `templates/docs-project/starter-rules.md`. The
+  verifier brief gains a bullet: for the control plane itself, hand checks use the checkout's own
+  `bin/ccp`. §20.1 does not mention the optional description; the house-rules template does.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #47 head `6ebbd4c` (squash `940edc1`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `bin/ccp tasks check` exit 0, `bin/ccp docs check` exit 0. Record: verification/0057-rules-line-descriptions-and-starter-follow-ups.json.

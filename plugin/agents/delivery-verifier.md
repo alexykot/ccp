@@ -64,6 +64,8 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   you call it a finding.
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
   the PR's merge base before judging a check against a cited line.
+- When the product is the control plane itself, check a change to `ccp` by hand with your
+  checkout's own `bin/ccp`: `ccp` on PATH runs the released plane, not the PR head.
 - Don't edit the product, commit, push or merge.
 - A gap in the spec itself goes in your report as a spec question for the runner to raise.
 - Run commands in the foreground, long ones too: an agent waiting on a background command stalls.
