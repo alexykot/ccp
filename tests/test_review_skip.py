@@ -210,6 +210,12 @@ class SkipReviewSetting(ToolkitFixture, unittest.TestCase):
                 with self.assertRaises(config.ConfigError) as cm:
                     config.load(self.main)
                 self.assertIn("verify.skip_review.paths", str(cm.exception))
+        for every in (".", "./", "*", "**", "./*"):  # an entry that matches every path, named
+            with self.subTest(every=every):
+                self.plane({"paths": ["docs", every], "proof": "true"})
+                with self.assertRaises(config.ConfigError) as cm:
+                    config.load(self.main)
+                self.assertIn(f"verify.skip_review.paths: {every!r} matches every path", str(cm.exception))
         self.plane({"paths": ["tests", "./docs/notes", "*.md"], "proof": "scripts/prove.sh {from} {head}"})
         self.assertEqual(config.load(self.main).verify["skip_review"],
                          {"paths": ["tests", "./docs/notes", "*.md"], "proof": "scripts/prove.sh {from} {head}"})
