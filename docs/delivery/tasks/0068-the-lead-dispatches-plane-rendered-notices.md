@@ -144,6 +144,10 @@ the record; the lead dispatches; the channel is configuration.
 - Outside the declared `paths:`, needed by the scope: `ccp/config.py`, `ccp/lifecycle.py`,
   `ccp/CLAUDE.md`, `scripts/observability/{lib,spec_maintainer,team}.py`, `docs/spec/02-delivery.md`
   (§17.10), `docs/adr/INDEX.md`.
+- 2026-11-11 (implementer, review fix): `ccp notify render` and `ccp notify sent` resolve `--task` as
+  `ccp tasks` does (a full id or its NNNN, `queue.task_meta`) and refuse one that matches no task
+  (exit 2, nothing recorded); the `sent` event records the full id, so a send named by its number
+  clears the pending notice. check-01 and check-02 now need the task (`0001-x`) in the scratch log.
 
 ## Verification notes
 

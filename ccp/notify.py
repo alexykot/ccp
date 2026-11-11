@@ -246,6 +246,13 @@ def warnings(sent: dict[str, Any] | None) -> list[str]:
 
 # ------------------------------------------------------------------ `ccp notify`
 
+def _task(cfg: Config, task: str | None) -> str:
+    """A `--task` as the task log names it: a full id or its NNNN, resolved as `ccp tasks` does; one
+    that matches no task is refused (exit 2). Empty when none is given."""
+    from ccp import queue  # noqa: PLC0415
+    return str(queue.task_meta(cfg, task.strip())["task_id"]) if task and task.strip() else ""
+
+
 def toolkit(cfg: Config, a: argparse.Namespace) -> dict[str, Any]:
     """`ccp notify sent` and `ccp notify pending` (JSON out; QUEUE_ROOT)."""
     from ccp import queue  # noqa: PLC0415
@@ -254,7 +261,7 @@ def toolkit(cfg: Config, a: argparse.Namespace) -> dict[str, Any]:
         rows = pending(cfg, q)
         return {"ok": True, "channel": channel_text(cfg), "count": len(rows), "pending": rows}
     try:
-        ev = record_sent(q, cfg, a.trigger, a.task or "", a.id or "", via=a.via, ok=True, note=a.note or "")
+        ev = record_sent(q, cfg, a.trigger, _task(cfg, a.task), a.id or "", via=a.via, ok=True, note=a.note or "")
     except ValueError as exc:
         raise queue.QueueError(str(exc), 2) from exc
     return {"ok": True, "recorded": ev.get("payload", ev)}
@@ -262,9 +269,10 @@ def toolkit(cfg: Config, a: argparse.Namespace) -> dict[str, Any]:
 
 def cmd_render(cfg: Config, a: argparse.Namespace) -> int:
     """`ccp notify render`: the subject and the body, or both and their fields as JSON; nothing else."""
+    from ccp.queue import QueueError  # noqa: PLC0415
     try:
-        n = render(cfg.project_id, a.trigger, a.task or "", a.id or "", a.reason or "")
-    except ValueError as exc:
+        n = render(cfg.project_id, a.trigger, _task(cfg, a.task), a.id or "", a.reason or "")
+    except (ValueError, QueueError) as exc:
         print(f"ccp notify render: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(n, indent=2, ensure_ascii=False) if a.json else f"{n['subject']}\n\n{n['body']}")
@@ -277,7 +285,7 @@ def add_parser(sub: Any, toolkit_wrap: Any) -> None:
                                        "(SPEC §3.6)").add_subparsers(dest="cmd", required=True)
     p = nt.add_parser("render", help="the notice to send for a trigger: a subject and a body of ids, nothing else")
     p.add_argument("trigger", choices=RENDER_TRIGGERS)
-    p.add_argument("--task", help="the task id")
+    p.add_argument("--task", help="the task: its id or NNNN (a task the log does not have is refused)")
     p.add_argument("--id", help="the gate, question or review point")
     p.add_argument("--reason", help="one line: the wait's reason, or a short reason for `other`")
     p.add_argument("--json", action="store_true")
@@ -285,7 +293,7 @@ def add_parser(sub: Any, toolkit_wrap: Any) -> None:
     p = nt.add_parser("sent", help="record a notice sent: the trigger, its ids, the channel and the seat (needs "
                                    "QUEUE_ROOT)")
     p.add_argument("trigger", choices=RENDER_TRIGGERS)
-    p.add_argument("--task", help="the task id, as `ccp notify pending` lists it")
+    p.add_argument("--task", help="the task: its id or NNNN (a task the log does not have is refused)")
     p.add_argument("--id", help="the gate, question or review point, as `ccp notify pending` lists it")
     p.add_argument("--via", required=True, choices=VIAS)
     p.add_argument("--note", help="one line: ids and a short reason, no content (required for `other`)")

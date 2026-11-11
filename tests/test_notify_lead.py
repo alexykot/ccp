@@ -39,16 +39,17 @@ class LeadChannel(ToolkitFixture, unittest.TestCase):
     # ------------------------------------------------------------------ render
 
     def test_render_prints_the_subject_and_one_line_per_id_and_nothing_else(self):
-        code, _, out, err = self.notify("render", "decision", "--task", "0001-x", "--id", "0001-x-1")
+        code, _, out, err = self.notify("render", "decision", "--task", "0001-first", "--id", "0001-first-1")
         self.assertEqual(code, 0, err)
-        self.assertEqual(out, "[demo] decision: 0001-x\n\nproject: demo\ntrigger: decision\ntask: 0001-x\nid: 0001-x-1\n")
+        self.assertEqual(out, "[demo] decision: 0001-first\n\nproject: demo\ntrigger: decision\ntask: 0001-first\n"
+                              "id: 0001-first-1\n")
 
     def test_render_json_gives_the_same_keys(self):
-        code, body, out, err = self.notify("render", "decision", "--task", "0001-x", "--id", "0001-x-1", "--json")
+        code, body, out, err = self.notify("render", "decision", "--task", "0001", "--id", "0001-first-1", "--json")
         self.assertEqual(code, 0, err)
-        self.assertEqual(body, {"subject": "[demo] decision: 0001-x",
-                                "body": "project: demo\ntrigger: decision\ntask: 0001-x\nid: 0001-x-1",
-                                "project": "demo", "trigger": "decision", "task": "0001-x", "id": "0001-x-1"})
+        self.assertEqual(body, {"subject": "[demo] decision: 0001-first",
+                                "body": "project: demo\ntrigger: decision\ntask: 0001-first\nid: 0001-first-1",
+                                "project": "demo", "trigger": "decision", "task": "0001-first", "id": "0001-first-1"})
 
     def test_render_names_the_id_when_there_is_no_task_and_carries_a_reason(self):
         code, body, _, err = self.notify("render", "review_point_done", "--id", "R1", "--json")
@@ -66,13 +67,13 @@ class LeadChannel(ToolkitFixture, unittest.TestCase):
     # ------------------------------------------------------------------ sent
 
     def test_sent_records_the_trigger_ids_channel_and_the_seat(self):
-        code, _, _, err = self.notify("sent", "decision", "--task", "0001-x", "--id", "0001-x-1", "--via", "lead")
+        code, _, _, err = self.notify("sent", "decision", "--task", "0001-first", "--id", "0001-first-1", "--via", "lead")
         self.assertEqual(code, 0, err)
         code, _, _, err = self.notify("sent", "other", "--via", "lead", "--note", "unexpected outage")
         self.assertEqual(code, 0, err)
         got = [e["payload"] for e in self.notices("sent")]
         self.assertEqual(got, [
-            {"trigger": "decision", "project": "demo", "task": "0001-x", "id": "0001-x-1", "via": "lead",
+            {"trigger": "decision", "project": "demo", "task": "0001-first", "id": "0001-first-1", "via": "lead",
              "by": "design-seat", "ok": True},
             {"trigger": "other", "project": "demo", "task": "", "id": "", "via": "lead", "by": "design-seat",
              "ok": True, "note": "unexpected outage"}])
@@ -127,6 +128,23 @@ class LeadChannel(ToolkitFixture, unittest.TestCase):
         self.assertEqual(body["pending"][0]["subject"], "[demo] decision: 0002-second")
         self.assertEqual(self.notify("sent", "decision", "--task", "0002-second", "--via", "lead")[0], 0)
         self.assertEqual(self.notify("pending")[1]["pending"], [])
+
+    def test_a_send_named_by_the_task_s_number_clears_its_notice(self):
+        self.ccp("tasks", "wait", "0002", "operator_decision", root=self.main)
+        code, _, out, err = self.notify("sent", "decision", "--task", "0002", "--via", "lead")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.notices("sent")[0]["payload"]["task"], "0002-second")
+        self.assertEqual(self.notify("pending")[1]["pending"], [])
+
+    def test_a_task_the_log_does_not_have_is_refused_and_nothing_is_recorded(self):
+        for args in (["sent", "decision", "--task", "0009-nope", "--via", "lead"],
+                     ["sent", "decision", "--task", "0009", "--via", "lead"],
+                     ["render", "decision", "--task", "0009-nope"]):
+            with self.subTest(args=args):
+                code, _, out, err = self.notify(*args)
+                self.assertEqual((code, out), (2, ""), err)
+                self.assertIn("0009", err)
+        self.assertEqual([e for e in self.events() if e["type"] == "notify"], [])
 
     def test_a_notice_that_fires_again_is_listed_once_and_again_after_a_send(self):
         self.ccp("tasks", "wait", "0002", "operator_step", root=self.main)
