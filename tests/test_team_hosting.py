@@ -84,6 +84,28 @@ class TestRunner(TeamCase):
         self.assertIn("review point 'PM' does not match task_log.review_point_pattern", res["warnings"][0])
         self.assertIn("warning: review point 'PM'", err)
 
+    def test_the_lead_audits_follow_keep_body(self):
+        """§23.8: the runner-spawn and runner-scope audits keep the text only when the product opts in."""
+        def audits():
+            return [json.loads(f.read_text()) for f in sorted((self.q / "prompts" / "_runner").glob("*.json"))]
+        self.team("runner", "spawn", "--scope", "0001-a")
+        self.team("runner", "scope", "--add", "0002-b")
+        self.assertEqual([("prompt_body" in a) for a in audits()], [False, False])
+        self.team("runner", "stop")
+        self.prod.write("docs/delivery/plane.json", json.dumps(
+            {"project_id": "demo", "prompts": {"keep_body": True}, "parallel": {"max_in_flight": 2}}))
+        code, res, err = self.team("runner", "spawn", "--scope", "0001-a")
+        self.assertEqual(code, 0, err)
+        self.assertIn("Scope: 0001-a", json.loads((self.q / res["prompt_ref"]).read_text())["prompt_body"])
+        code, res, err = self.team("runner", "scope", "--add", "0002-b")
+        self.assertEqual(code, 0, err)
+        self.assertIn("now 0001-a, 0002-b", json.loads((self.q / res["prompt_ref"]).read_text())["prompt_body"])
+        self.team("runner", "stop")
+        code, res, err = self.team("runner", "spawn", "--scope", "0001-a", "--count", "2")
+        self.assertEqual(code, 0, err)
+        ref = [e for e in self.events() if e["type"] == "runner"][-1]["payload"]["prompt_ref"]
+        self.assertIn("Your runner slot is runner-", json.loads((self.q / ref).read_text())["prompt_body"])
+
     def test_scope_add_remove(self):
         self.team("runner", "spawn", "--scope", "0001-a")
         code, res, err = self.team("runner", "scope", "--add", "0002-b,0003-c")

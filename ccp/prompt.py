@@ -274,8 +274,9 @@ def review_gate(cfg: Config, q: Path, tid: str, phase: str,
                 a: Any) -> tuple[dict[str, str] | None, dict[str, Any] | None]:
     """§15.2: a verify of a head with a fix round after the last review is refused (exit 4), unless the
     product's `verify.skip_review` proves the fix, or the runner passes `--allow-unreviewed-fix --reason "<the
-    lead's or the operator's words>"`. Returns what to record on the run: the override (a friction note and a
-    ledger event) and the proven skip, each None when it does not apply."""
+    lead's or the operator's words>"`. The override, when given, is taken and recorded as is, and no proof
+    runs. Returns what to record on the run: the override (a friction note and a ledger event) and the
+    proven skip, each None when it does not apply."""
     allow = bool(getattr(a, "allow_unreviewed_fix", False))
     reason = (getattr(a, "reason", None) or "").strip()
     if phase != "verify":
@@ -287,10 +288,10 @@ def review_gate(cfg: Config, q: Path, tid: str, phase: str,
     why = runs.unreviewed_fix(q, tid, a.head)
     if why is None:
         return None, None
-    skipped, unproven = verify.skip_review(cfg, q, tid, a.head, a.pr)
-    if skipped:
-        return None, skipped
     if not allow:
+        skipped, unproven = verify.skip_review(cfg, q, tid, a.head, a.pr)
+        if skipped:
+            return None, skipped
         no_skip = f" (verify.skip_review does not apply: {unproven})" if unproven else ""
         raise QueueError(f"{why}{no_skip}. Override once, on the lead's or the operator's word: "
                          '--allow-unreviewed-fix --reason "<their words>"', 4)

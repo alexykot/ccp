@@ -70,11 +70,20 @@ class StaleBlockersRetired(ToolkitFixture, unittest.TestCase):
             self.assertNotIn(kind, out)
 
     def test_the_board_builds_over_an_old_snapshot_it_never_rebuilt(self):
+        # The board reads no snapshot (§23.4): the old one's retired blockers add nothing to it, and
+        # the file is left as it was.
+        snap = self.q / "observability" / "now.json"
+        old = snap.read_text()
         code, body, out, err = self.ccp("board", "build")
         self.assertEqual(code, 0, out + err)
-        board = Path(body["board"]).read_text()
+        over_old = json.loads(Path(body["board"]).read_text())
+        self.assertEqual(snap.read_text(), old)
+        snap.unlink()
+        code, body, out, err = self.ccp("board", "build")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(over_old["blockers"], json.loads(Path(body["board"]).read_text())["blockers"])
         for kind in RETIRED:
-            self.assertNotIn(kind, board)
+            self.assertNotIn(kind, json.dumps(over_old))
 
     def test_an_old_seat_stale_flag_alone_is_not_a_blocker(self):
         (self.q / "observability" / "now.json").write_text(json.dumps({**self.old_now, "blockers": []}))

@@ -607,10 +607,18 @@ def _stages_problem(lane: str, v: list[dict[str, Any]]) -> str | None:
 
 
 def _rel_path(v: Any) -> bool:
-    """A path relative to the product root that names less than the whole root: not empty, not absolute,
-    no `..`, no `:` pathspec magic, and not `.` or anything that normalises to it."""
-    return (isinstance(v, str) and bool(v.strip()) and not v.startswith(("/", ":")) and ".." not in Path(v).parts
-            and os.path.normpath(v) != ".")
+    """A path relative to the product root, as a git pathspec: not empty, not absolute, no `..`, no `:`
+    pathspec magic."""
+    return isinstance(v, str) and bool(v.strip()) and not v.startswith(("/", ":")) and ".." not in Path(v).parts
+
+
+def _every_path(where: str, paths: list[Any]) -> list[str]:
+    """The entries of a path list that match every path, so a check they narrow would never fire: the root
+    itself (`.`, `./`, anything that normalises to it) or wildcards alone (`*`, `**`, `./*`). Each is
+    named; `merge.behind_tip_ignore` and `verify.skip_review.paths` refuse them alike."""
+    norm = [(x, os.path.normpath(x)) for x in paths if isinstance(x, str) and x.strip()]
+    return [f"{where}: {x!r} matches every path; name the paths it covers" for x, n in norm
+            if n == "." or set(n) == {"*"}]
 
 
 def _opt_str(v: Any) -> bool:
@@ -897,6 +905,8 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
             if not isinstance(sr["paths"], list) or not sr["paths"] or not all(_rel_path(x) for x in sr["paths"]):
                 bad.append("verify.skip_review.paths must be a non-empty list of paths relative to the product root, "
                            "none of them the root itself")
+            else:
+                bad += _every_path("verify.skip_review.paths", sr["paths"])
             if not (isinstance(sr["proof"], str) and sr["proof"].strip()):
                 bad.append("verify.skip_review.proof must be a shell command (exit 0 = the fix is proven)")
     mu = out["mutate"]
@@ -949,9 +959,10 @@ def _worktree_blocks(raw: dict[str, Any], out: dict[str, Any]) -> list[str]:
     elif mc is not None and "{head_sha}" not in mc:
         bad.append("merge.command must name {head_sha}: the merge is pinned to the verified head (§15.5)")
     bti = out["merge"]["behind_tip_ignore"]
-    if not isinstance(bti, list) or not all(isinstance(x, str) and x.strip() and not x.startswith(("/", ":"))
-                                            and ".." not in Path(x).parts for x in bti):
+    if not isinstance(bti, list) or not all(_rel_path(x) for x in bti):
         bad.append("merge.behind_tip_ignore must be a list of paths relative to the product root")
+    else:
+        bad += _every_path("merge.behind_tip_ignore", bti)
     au = out["auth_check"]
     pr = au["probes"]
     if not isinstance(pr, list) or not all(isinstance(x, dict) and set(x) == {"id", "cmd"}

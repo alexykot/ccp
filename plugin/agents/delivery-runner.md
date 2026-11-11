@@ -119,7 +119,8 @@ before anything else.
    refuses (exit 4) while a fix round is newer than the last review, or the head is not the one that
    review judged, and `ccp verify record` refuses the approve, unless the product's `verify.skip_review`
    proves the fix (only declared paths touched, its proof command passing). Only on the lead's or the operator's word:
-   `ccp prompt verify … --allow-unreviewed-fix --reason "<their words>"`, recorded as a friction note.
+   `ccp prompt verify … --allow-unreviewed-fix --reason "<their words>"`, recorded as a friction note; with
+   it, no proof runs.
 8. **Verify.** `ccp prompt verify <task_id> --pr <n> --head <sha>`: a fresh `delivery-verifier` subagent
    with the fixed packet. It writes its verdict with `ccp verify record` and reports APPROVE or REJECT with the
    head it judged. REJECT goes back to step 7 (`ccp prompt fix`).

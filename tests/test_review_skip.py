@@ -172,6 +172,20 @@ class SkipReview(ToolkitFixture, unittest.TestCase):
         head = self.fix()
         self.refused(head, "the reviewed head does not merge cleanly onto the head's base on origin/main")
 
+    def test_a_git_that_cannot_write_the_merge_tree_is_named(self):
+        self.reviewed()
+        head = self.fix()
+        from ccp import queue
+        real = queue.git
+
+        def old_git(cwd, *args, **kw):  # a git before 2.38, which lacks `merge-tree --write-tree`
+            if args[:2] == ("merge-tree", "--write-tree"):
+                return subprocess.CompletedProcess(["git", *args], 129, "", "usage: git merge-tree")
+            return real(cwd, *args, **kw)
+        with mock.patch("ccp.queue.git", side_effect=old_git):
+            self.refused(head, "`git merge-tree --write-tree` failed (exit 129); it needs git 2.38 or later")
+        self.assertFalse(self.log.exists())
+
     def test_a_head_that_cannot_be_fetched_is_reviewed(self):
         self.reviewed()
         self.fix()
@@ -186,6 +200,59 @@ class SkipReview(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.verdict(later)
         self.assertEqual(code, 1, out + err)
         self.assertIn("or verify.skip_review proved this head's fix", err)
+
+
+    def test_an_override_is_taken_as_given_and_runs_no_proof(self):
+        self.reviewed()
+        head = self.fix()  # a fix the proof would pass
+        code, body, out, err = self.verify(head, "--allow-unreviewed-fix", "--reason", "lead: verify it now")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["allow_unreviewed_fix"]["reason"], "lead: verify it now")
+        self.assertNotIn("review_skip", body)
+        run = json.loads((self.q / "runs/0002-second/verify.json").read_text())
+        self.assertEqual((run["allow_unreviewed_fix"]["reason"], "review_skip" in run), ("lead: verify it now", False))
+        notes = [json.loads(x) for x in (self.q / "health/notes.jsonl").read_text().splitlines()]
+        self.assertEqual(notes[-1]["source"], "allow-unreviewed-fix")
+        self.assertFalse(self.log.exists())
+
+    def test_an_abandoned_fix_round_is_not_the_fix(self):
+        self.reviewed()
+        head = self.fix()
+        code, body, out, err = self.ccp("prompt", "fix", "0002", "--pr", "7", "--head", head)
+        self.assertEqual(code, 0, out + err)
+        f = self.q / "runs" / f"{body['run_id']}.json"
+        f.write_text(json.dumps({**json.loads(f.read_text()), "abandoned_at": "2026-10-22T11:00:00Z"}))
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["review_skip"]["fix"], "0002-second/fix")
+
+    def test_several_fix_rounds_since_the_review_are_judged_as_one_diff(self):
+        self.reviewed()
+        self.fix("feature.txt", "built better\n")
+        head = self.fix()  # the last round alone is within the paths
+        self.refused(head, "the fix touches 1 file(s) outside verify.skip_review.paths (feature.txt)")
+        self.assertFalse(self.log.exists())
+
+    def test_a_review_that_did_not_report_done_is_not_the_last_review(self):
+        reviewed = self.reviewed()
+        head = self.fix()
+        self.run_phase("review", head, "Severity: BLOCKER=0 MAJOR=0 MINOR=0 NIT=0")
+        f = self.q / "runs/0002-second/review-2.json"
+        f.write_text(json.dumps({**json.loads(f.read_text()), "outcome": "blocked"}))
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((body["review_skip"]["reviewed"], body["review_skip"]["head"]), (reviewed, head))
+
+    def test_a_review_with_no_head_on_record_gives_no_skip(self):
+        self.reviewed()
+        head = self.fix()
+        f = self.q / "runs/0002-second/review.json"
+        f.write_text(json.dumps({k: v for k, v in json.loads(f.read_text()).items() if k != "head"}))
+        code, _, out, err = self.verify(head)
+        self.assertEqual(code, 4, out + err)
+        self.assertIn("run `ccp prompt review` first", err)
+        self.assertNotIn("verify.skip_review", err)
+        self.assertFalse(self.log.exists())
 
 
 class SkipReviewSetting(ToolkitFixture, unittest.TestCase):
@@ -210,6 +277,12 @@ class SkipReviewSetting(ToolkitFixture, unittest.TestCase):
                 with self.assertRaises(config.ConfigError) as cm:
                     config.load(self.main)
                 self.assertIn("verify.skip_review.paths", str(cm.exception))
+        for every in (".", "./", "*", "**", "./*"):  # an entry that matches every path, named
+            with self.subTest(every=every):
+                self.plane({"paths": ["docs", every], "proof": "true"})
+                with self.assertRaises(config.ConfigError) as cm:
+                    config.load(self.main)
+                self.assertIn(f"verify.skip_review.paths: {every!r} matches every path", str(cm.exception))
         self.plane({"paths": ["tests", "./docs/notes", "*.md"], "proof": "scripts/prove.sh {from} {head}"})
         self.assertEqual(config.load(self.main).verify["skip_review"],
                          {"paths": ["tests", "./docs/notes", "*.md"], "proof": "scripts/prove.sh {from} {head}"})

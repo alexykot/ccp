@@ -6,7 +6,7 @@ import subprocess
 import unittest
 from contextlib import redirect_stdout
 
-from ccp import cli, config, docrules, doclang, pkgdocs
+from ccp import cli, config, docrules, doclang, pkgdocs, rules
 from tests.helpers import Product
 
 SRC = "\n".join(f"x{i} = {i}" for i in range(40)) + "\n"
@@ -283,6 +283,14 @@ class ParallelChecks(unittest.TestCase):
             code = cli.main(["--root", str(p.root), "docs", "check"])
         return code, out.getvalue(), time.monotonic() - start
 
+    def timed(self, run):
+        """Seconds the check commands alone take: the two 1 s checks at once stay under 2 s, which
+        only a serial run reaches, and the rest of `docs check` adds nothing to the margin."""
+        import time
+        start = time.monotonic()
+        run()
+        return time.monotonic() - start
+
     def set_workers(self, p, n):
         import json
         f = p.root / "docs/delivery/plane.json"
@@ -295,9 +303,9 @@ class ParallelChecks(unittest.TestCase):
         p = Product({"docs": {"checks": checks, "workers": 2}})
         try:
             p.index()
-            code, out, took = self.run_docs_check(p)
+            self.assertLess(self.timed(lambda: rules.run_checks(p.cfg, checks)), 1.8)
+            code, out, _ = self.run_docs_check(p)
             self.assertEqual(code, 1)
-            self.assertLess(took, 2)
             lines = [ln.strip() for ln in out.splitlines() if ln.strip().startswith("docs check ")]
             self.assertEqual(lines, ["docs check first: `sleep 1; echo one; exit 2` exited 2: one",
                                      "docs check second: `sleep 1; echo two; exit 3` exited 3: two"])
@@ -317,9 +325,9 @@ class ParallelChecks(unittest.TestCase):
         try:
             p.write("docs/ENGINEERING.md", doc)
             p.index()
-            code, out, took = self.run_docs_check(p)
+            self.assertLess(self.timed(lambda: rules.check_failures(p.cfg)), 1.8)
+            code, out, _ = self.run_docs_check(p)
             self.assertEqual(code, 1)
-            self.assertLess(took, 2)
             lines = [ln.strip() for ln in out.splitlines() if ln.strip().startswith("check ")]
             self.assertEqual(lines, ["check E1: `sleep 1; echo a; exit 4` exited 4: a",
                                      "check E2: `sleep 1; echo b; exit 5` exited 5: b"])

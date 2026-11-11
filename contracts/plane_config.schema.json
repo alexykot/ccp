@@ -695,7 +695,7 @@
           "type": "array",
           "items": {"type": "string", "minLength": 1, "pattern": "^[^/:]"},
           "default": [],
-          "description": "Paths relative to the product root (a directory covers everything under it) whose commits on the integration tip do not make a head behind it at close or at verify launch (§16.5 rule 4)."
+          "description": "Paths relative to the product root (a directory covers everything under it) whose commits on the integration tip do not make a head behind it at close or at verify launch (§16.5 rule 4). An entry that matches every path (the root itself, or wildcards alone such as `*`) is refused."
         }
       }
     },
@@ -1069,7 +1069,7 @@
               "type": "array",
               "minItems": 1,
               "items": {"type": "string", "minLength": 1, "pattern": "^[^/:]"},
-              "description": "Paths relative to the product root, as git pathspecs (a directory covers everything under it); not the root itself."
+              "description": "Paths relative to the product root, as git pathspecs (a directory covers everything under it); not the root itself, nor wildcards alone such as `*`, which match every path."
             },
             "proof": {
               "type": "string",
