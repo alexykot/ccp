@@ -333,7 +333,7 @@ tasks:
     depends_on: []
     path: tasks/0066-run-a-check-on-the-merge-base.md
   - id: 0067-removed-scope-paths
-    status: pending
+    status: dropped
     title: A task can name a path it removes without a scope warning
     depends_on: []
     path: tasks/0067-removed-scope-paths.md
@@ -342,3 +342,8 @@ tasks:
     title: The lead dispatches the operator's notices, rendered and recorded by the plane, over a configured channel
     depends_on: []
     path: tasks/0068-the-lead-dispatches-plane-rendered-notices.md
+  - id: 0069-removed-scope-paths-marking
+    status: pending
+    title: A task can name a path it removes without a scope warning
+    depends_on: []
+    path: tasks/0069-removed-scope-paths-marking.md
