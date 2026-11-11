@@ -1,7 +1,7 @@
 ---
 task_id: 0063-sign-off-follow-ups-and-plane-mutate-command
 title: The sign-off refusals are pinned, the brief-staleness rule is in the writing guide, and the plane sets a mutate command
-status: pending
+status: done
 kind: chore
 depends_on: []
 spec_refs: ["S3", "S20"]
@@ -68,4 +68,4 @@ Every fail-closed branch of the brief-staleness check has a test that fails when
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #53 head `58c48ef` (squash `9ed8a65`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0063-sign-off-follow-ups-and-plane-mutate-command.json.
