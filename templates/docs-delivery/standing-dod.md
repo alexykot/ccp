@@ -8,7 +8,7 @@ below.
 2. **New behaviour is in the SPEC, cited by its rule.** The SPEC text comes from the task (its
    CURRENT → PROPOSED edit) or a recorded ruling; an implementer writes none of its own.
 3. **The implementer appends implementation notes to the task file and changes nothing else in it**,
-   except a lead ruling or amendment on its claimed task: the runner passes it verbatim in the
+   except a lead ruling or clarification on its claimed task: the runner passes it verbatim in the
    implementer's prompt, and the implementer writes it into the `Context (not checked)` section
    (plane SPEC §10.5). Status and verification notes are written at close, from the verifier's
    record (`ccp tasks close`).

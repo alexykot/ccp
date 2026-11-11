@@ -72,7 +72,7 @@ a minor point, rule and record your reasoning.
 - Push to origin. If commit or push fails, return needs_operator and say why.
 - **Never edit a claimed task's file on the integration branch** (plane SPEC §10.5): one the runner
   holds, from its claim until its lease clears (close, release, drop or sync). Send the ruling or
-  amendment for that file to the runner in your reply: the implementer writes it into the file's
+  clarification for that file to the runner in your reply: the implementer writes it into the file's
   Context section on the task branch, so it lands in the task's PR. Its commit_sha is that
   task-branch commit, or, if you rule before that commit exists, the integration tip you ruled
   against (plane SPEC §17.4). SPEC and PROJECT wording still lands on the integration branch.

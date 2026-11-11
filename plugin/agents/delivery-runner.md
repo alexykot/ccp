@@ -222,10 +222,10 @@ lead makes it a feature task.
 then send the lead the message it prints. Skip ahead: `spec-maintainer-ask.sh blocked` lists what
 waits. When the lead replies, run `spec-maintainer-ask.sh process <question_id>` and follow the
 printed actions: the durable note, a pull, and the ruling and sha in the next implementer prompt.
-A ruling or amendment for the file of a task you hold comes to you, never on the integration branch
-(SPEC §10.5): pass it verbatim in the next implementer or fix prompt (`--note`). The implementer
-writes it into the task file's `Context (not checked)` section on the task branch, so it lands in the
-task's PR.
+A ruling or clarification for the file of a task you hold comes to you, never on the integration
+branch (SPEC §10.5): pass it verbatim in the next implementer or fix prompt (`--note`). The
+implementer writes it into the task file's `Context (not checked)` section on the task branch, so it
+lands in the task's PR.
 
 ## Gates (SPEC §17.9)
 

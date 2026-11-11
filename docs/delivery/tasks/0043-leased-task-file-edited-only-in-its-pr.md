@@ -23,7 +23,8 @@ Once a task is claimed, its file is not edited on the integration branch. A ruli
 - The implementer works from the brief on its branch and appends notes to the same file; an edit on the integration branch after the claim is unseen by the implementer and conflicts at merge.
 - The operator ruled on 9 Nov 2026 to adopt this, reversing an earlier decline.
 - **SPEC change (§31):** this task changes a § rule — the lease rules in §10. It needs the operator's approval at build: the PR carries the CURRENT → PROPOSED text and quotes the ruling.
-- 2026-11-11, lead's ruling on this task's spec question: (a) record the reversal as ADR-0038 ("A claimed task's file is edited only in its PR"), superseding ADR-0035 D5, accepted, deciders operator; the operator's approval at this task's merge gate is the approval. (b) A lead ruling or amendment on a claimed task reaches the runner, which passes it verbatim in the next implementer prompt; the implementer writes it into this section on the task branch, besides Implementation notes. Standing DoD item 3 (the plane's copy and its template) allows exactly that, and §10.5 says it. (c) §17.4: on a claimed task, a resolved ruling's `commit_sha` names the task-branch commit that carries it, or, if given before that commit exists, the integration tip it was ruled against. The paths outside `paths:` (`ccp/cli.py`, `docs/cli/02-delivery.md`, `scripts/CLAUDE.md`, the pre-commit template) are accepted.
+- 2026-11-11, lead's ruling on this task's spec question: (a) record the reversal as ADR-0038 ("A claimed task's file is edited only in its PR"), superseding ADR-0035 D5, accepted, deciders operator; the operator's approval at this task's merge gate is the approval. (b) A lead ruling or clarification on a claimed task reaches the runner, which passes it verbatim in the next implementer prompt; the implementer writes it into this section on the task branch, besides Implementation notes. Standing DoD item 3 (the plane's copy and its template) allows exactly that, and §10.5 says it. (c) §17.4: on a claimed task, a resolved ruling's `commit_sha` names the task-branch commit that carries it, or, if given before that commit exists, the integration tip it was ruled against. The paths outside `paths:` (`ccp/cli.py`, `docs/cli/02-delivery.md`, `scripts/CLAUDE.md`, the pre-commit template) are accepted.
+- 2026-11-11, lead's ruling on review MINOR-2: "MINOR-2: take option (a), in the same fix round. The rule covers a 'ruling or clarification' only. A change to a claimed task's intent, scope, dod_checks, id or dependencies doesn't land in its Context. It follows the existing task-log rule: never amended while in progress without superseding it. So the runner releases the task (or the lead supersedes it), and the lead edits it unleased on the integration branch. Cite that rule (§5 / the task-log owner's limits) rather than writing a second one."
 
 ## Scope
 
@@ -79,6 +80,14 @@ Once a task is claimed, its file is not edited on the integration branch. A ruli
   untested paths: a `--no-ff` merge of a `task/0002-…` branch is not an edit, and the `claimed_at`
   fallback and the no-stamp skip. ADR-0038 D2 cites §10.5; the spec-maintainer skill bullet is rewrapped
   and names drop and sync. MINOR-2 is left to the lead.
+- 2026-11-11 — implementer, fix round 2 (the lead's ruling on review MINOR-2, in Context): the rule
+  covers a ruling or clarification only. "Ruling or amendment" becomes "ruling or clarification" in
+  §10.5, standing DoD item 3 (both copies), ADR-0038 D2, the orientation, the runner and implementer
+  briefs, the spec-maintainer skill and ruling (b) above. §10.5 says once that a change to intent,
+  scope, `dod_checks`, id or dependencies is not a clarification: it follows the task-log owner's
+  limit in §17.4 (never once a task is claimed without superseding it), so the runner releases the
+  task or the lead supersedes it, and the lead edits the file unleased on the integration branch. No
+  new rule and no code change.
 
 ## Verification notes
 

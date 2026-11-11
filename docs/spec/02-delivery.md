@@ -150,18 +150,21 @@ status reads as `pending`. With several runners, §16.3 and §16.4 apply.
 
 **A claimed task's file is edited only in its PR.** From the claim until the lease clears (close,
 release, drop or sync), the task's file changes on the integration branch only by the task's own squash
-merge and reconcile, and by the lead marking it `dropped` (§10.4). A ruling or amendment on a claimed
-task goes to the runner holding it, which passes it verbatim in the next implementer prompt; the
-implementer writes it into the task file's `Context (not checked)` section on the task branch, besides
-its Implementation notes, so it lands in the task's PR (§17.4). **`ccp tasks check --lease
-[--staged]`** (needs `QUEUE_ROOT`) exits 1 naming each such edit, with the task and its lease holder,
-for every task with a live lease (`lease_holder` set, the queue status neither `done` nor `dropped`):
-the commits on the integration branch's first-parent history (the local branch and
-`origin/<branch>`, each that exists; nothing is fetched) committed after `lease_since` that change the
-task's file; with `--staged`, the staged change instead, only while HEAD is on the integration branch.
-The task's own squash merge and reconcile are known by their subject, in the §10.7 rule 1 and 2 forms
-(any commit in those forms passes); a lease with no `lease_since` is timed from `claimed_at`, and one
-with neither stamp is not judged.
+merge and reconcile, and by the lead marking it `dropped` (§10.4). A ruling or clarification on a
+claimed task goes to the runner holding it, which passes it verbatim in the next implementer prompt;
+the implementer writes it into the task file's `Context (not checked)` section on the task branch,
+besides its Implementation notes, so it lands in the task's PR (§17.4). A change to the task's
+intent, scope, `dod_checks`, id or dependencies is not a clarification: it follows the task-log
+owner's limit (§17.4: never once a task is claimed without superseding it), so the runner releases
+the task or the lead supersedes it, and the lead edits the file unleased on the integration branch.
+**`ccp tasks check --lease [--staged]`** (needs `QUEUE_ROOT`) exits 1 naming each such edit, with the
+task and its lease holder, for every task with a live lease (`lease_holder` set, the queue status
+neither `done` nor `dropped`): the commits on the integration branch's first-parent history (the
+local branch and `origin/<branch>`, each that exists; nothing is fetched) committed after
+`lease_since` that change the task's file; with `--staged`, the staged change instead, only while
+HEAD is on the integration branch. The task's own squash merge and reconcile are known by their
+subject, in the §10.7 rule 1 and 2 forms (any commit in those forms passes); a lease with no
+`lease_since` is timed from `claimed_at`, and one with neither stamp is not judged.
 It reads git and the queue and writes nothing; `ccp tasks check` without the flag does not run it. The
 plane's commit hook template (`scripts/git-hooks/pre-commit.template`) runs it with `--staged` when
 `QUEUE_ROOT` is set and `ccp` is on PATH, and refuses the commit only on exit 1.

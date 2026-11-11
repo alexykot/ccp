@@ -85,8 +85,8 @@ Role docs come from the ccp plugin: agents `ccp:delivery-*`, skills
   branch through a task you write (SPEC §10.7). `ccp tasks orphans --since <ref>` lists the
   commits that merged without one: for each, write an after-the-fact task naming it in `covers:`,
   so review and verify cover it.
-  **A claimed task's file is edited only in its PR** (SPEC §10.5): send a ruling or amendment on a
-  task the runner holds to the runner, never commit it to the integration branch. Marking it
+  **A claimed task's file is edited only in its PR** (SPEC §10.5): send a ruling or clarification on
+  a task the runner holds to the runner, never commit it to the integration branch. Marking it
   `dropped` is the one exception. `ccp tasks check --lease` names such an edit; the plane's commit
   hook template refuses one.
   **The 5-hour session wake** (SPEC §25.4): at the limit your own turn fails too, so arm the wake

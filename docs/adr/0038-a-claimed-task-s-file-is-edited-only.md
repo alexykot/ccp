@@ -28,10 +28,10 @@ task's own squash merge and reconcile, and by the lead marking it `dropped`. `cc
 --lease` names any other edit, with the task and its lease holder, and the plane's commit hook
 template refuses one (SPEC §10.5).
 
-### D2. A ruling or amendment on a claimed task lands in its PR
+### D2. A ruling or clarification on a claimed task lands in its PR
 
-A lead ruling or amendment on a claimed task reaches the runner holding it. The runner passes it,
-verbatim, in the next implementer prompt, and the implementer writes it into the task file's
+A lead ruling or clarification on a claimed task reaches the runner holding it. The runner passes
+it, verbatim, in the next implementer prompt, and the implementer writes it into the task file's
 `Context (not checked)` section on the task branch, besides its Implementation notes. The standing
 definition of done allows the implementer exactly that edit (SPEC §10.5).
 
