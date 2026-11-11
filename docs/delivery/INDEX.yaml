@@ -248,7 +248,7 @@ tasks:
     depends_on: []
     path: tasks/0049-no-usage-command-no-session-check.md
   - id: 0050-gate-interrupt-never-passes
-    status: pending
+    status: done
     title: A gate interrupted between stages never exits 0
     depends_on: []
     path: tasks/0050-gate-interrupt-never-passes.md

@@ -43,7 +43,8 @@ Without `-- COMMAND`, it runs what `plane.json` `suite.lanes` names for that lan
 checkout's root: an argv, run as one stage named after the lane, or an ordered list of `{name, cmd}`
 stages (§14.2), each run by the shell, in order, timed, until one exits non-zero. The gate role's staged
 lane ends with the plane's doc checks as the stage `plane-docs`. Such a run records `stages` (name,
-seconds, exit code of each that ran) and `failed_stage` on its `ended` row and event. Every `ended` row
+seconds, exit code of each that ran) and `failed_stage` on its `ended` row and event. A signal between
+stages stops the run before the next starts: it exits 128 + N and names that stage. Every `ended` row
 and event says whether the run was `cold` (§14.6: its own `cached` count was 0; null without one).
 
 The record is `QUEUE_ROOT/runs/_suites.jsonl`, append-only: a `started` row when the command
@@ -996,9 +997,11 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
     done: list[dict[str, Any]] = []  # §14.2: each stage that ran: name, seconds, exit code
     results: list[tuple[dict[str, Any] | None, str | None]] = []
     code, rc = 0, 0
+    cut: int | None = None  # §14.2: the stage a signal kept from starting
     try:
         for i, stage in enumerate(stages):
             if got:
+                cut = i
                 break  # interrupted: no later stage starts
             if staged:
                 _stage_mark(log_fd, f"ccp suite: stage {stage['name']}: started\n")
@@ -1028,6 +1031,11 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
     seconds = time.monotonic() - t0
     sig = got[0] if got else (-rc if rc < 0 else None)
     failed_stage = done[-1]["name"] if done and code != 0 else None
+    if cut is not None:
+        # A signal between stages (§14.2): the run never passes with a stage unrun. It exits as if
+        # the signal had ended a command, and names the first stage not run.
+        code = 128 + got[0]
+        failed_stage = stages[cut]["name"]
     not_run = [st["name"] for st in stages[len(done):]] if staged else []
     dig = None
     if log is not None:
