@@ -1,7 +1,7 @@
 ---
 task_id: 0066-run-a-check-on-the-merge-base
 title: A verifier can run a check against the merge base's code
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12", "S15"]
@@ -62,4 +62,4 @@ Every task's dod_checks carry a "dry run: on the merge base" line. A verifier ca
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #59 head `dd9ba37` (squash `04ac815`): APPROVE. Passed: check-02. Not run by the verifier: check-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0066-run-a-check-on-the-merge-base.json.
