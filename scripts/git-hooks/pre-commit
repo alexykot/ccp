@@ -6,3 +6,6 @@ if [ "$branch" = main ] && [ -z "${CCP_ALLOW_MAIN_COMMIT:-}" ]; then
   echo "pre-commit: refusing to commit on main. Develop on a branch in a worktree: scripts/dev-worktree.sh <branch>" >&2
   exit 1
 fi
+# Then the template every product gets (SPEC §10.5): no commit on the integration branch edits a leased
+# task's file. The override above does not lift it.
+exec "$(dirname "$0")/pre-commit.template"

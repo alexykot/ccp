@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# pre-commit.template — the plane's commit hook template for a product checkout (SPEC §10.5).
+# A claimed task's file is edited only in its PR: refuse a commit on the integration branch that
+# changes the file of a task with a live lease. Copy it to the product's hooks directory as
+# `pre-commit` (or call it from the product's own hook). It runs only with a queue bound (QUEUE_ROOT)
+# and ccp on PATH. Only the rule refuses (exit 1); any other failure of the check is a warning.
+[ -n "${QUEUE_ROOT:-}" ] && command -v ccp >/dev/null 2>&1 || exit 0
+ccp tasks check --lease --staged >&2
+code=$?
+if [ "$code" -eq 1 ]; then
+  echo "pre-commit: send a ruling or clarification to the runner holding the task; it lands in the task's PR" >&2
+  echo "pre-commit: any other change (intent, scope, dod_checks, id, dependencies) needs the task released or superseded first" >&2
+  exit 1
+fi
+[ "$code" -eq 0 ] || echo "pre-commit: warning: \`ccp tasks check --lease --staged\` exited $code; commit not checked" >&2
+exit 0

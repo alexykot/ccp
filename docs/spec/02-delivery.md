@@ -148,6 +148,27 @@ worktree (`ccp wt create --kind impl`, §12), samples the allowance (§25) and w
 `draining` or `stopped` `work.json` refuses a new task. A legacy `in_progress` or `blocked` file
 status reads as `pending`. With several runners, §16.3 and §16.4 apply.
 
+**A claimed task's file is edited only in its PR.** From the claim until the lease clears (close,
+release, drop or sync), the task's file changes on the integration branch only by the task's own squash
+merge and reconcile, and by the lead marking it `dropped` (§10.4). A ruling or clarification on a
+claimed task goes to the runner holding it, which passes it verbatim in the next implementer prompt;
+the implementer writes it into the task file's `Context (not checked)` section on the task branch,
+besides its Implementation notes, so it lands in the task's PR (§17.4). A change to the task's
+intent, scope, `dod_checks`, id or dependencies is not a clarification: it follows the task-log
+owner's limit (§17.4: never once a task is claimed without superseding it), so the runner releases
+the task or the lead supersedes it, and the lead edits the file unleased on the integration branch.
+**`ccp tasks check --lease [--staged]`** (needs `QUEUE_ROOT`) exits 1 naming each such edit, with the
+task and its lease holder, for every task with a live lease (`lease_holder` set, the queue status
+neither `done` nor `dropped`): the commits on the integration branch's first-parent history (the
+local branch and `origin/<branch>`, each that exists; nothing is fetched) committed after
+`lease_since` that change the task's file; with `--staged`, the staged change instead, only while
+HEAD is on the integration branch. The task's own squash merge and reconcile are known by their
+subject, in the §10.7 rule 1 and 2 forms (any commit in those forms passes); a lease with no
+`lease_since` is timed from `claimed_at`, and one with neither stamp is not judged.
+It reads git and the queue and writes nothing; `ccp tasks check` without the flag does not run it. The
+plane's commit hook template (`scripts/git-hooks/pre-commit.template`) runs it with `--staged` when
+`QUEUE_ROOT` is set and `ccp` is on PATH, and refuses the commit only on exit 1.
+
 **`ccp tasks close <id> --pr N [--summary "…"]`** is one resumable step:
 
 1. `ccp verify merge-ok` and the merge pinned to the verified head (§15.5). It refuses before
@@ -735,7 +756,8 @@ They hold for every PR the runner merges, a task's or not (ADR-0011).
    names; another seat that sees it pending asks that seat.
 6. **Who writes the task file** is the §5 table: Implementation notes by the runner from the
    implementer's output, Verification notes by the verifier's record through `ccp tasks close`,
-   `dropped` by the task-log owner (the lead).
+   `dropped` by the task-log owner (the lead); on a claimed task, the Context section by the implementer,
+   writing a ruling the runner passes (§10.5).
 7. **Code from outside the runner** reaches the integration branch through the task log: a task
    file, then implement, review, verify and gate; a change that merged first gets an after-the-fact
    task, and `ccp tasks orphans` lists the commits no task covers (§10.7). The lead's own commits to
@@ -995,10 +1017,13 @@ own session, and the triage command is run again to apply it.
 ### 17.4 Authority of the spec maintainer
 
 - **May edit and commit:** `docs/PROJECT.md`, `docs/SPEC.md` (or `spec/`), and the context section of
-  durable task files.
+  durable task files; on a claimed task, only through the runner (§10.5).
 - **Chooses the route itself:** rule and commit, or escalate with `needs_operator`; no second reviewer.
 - **Every `resolved` ruling lands in git**, `commit_sha` required. A ruling that needs no SPEC or
-  PROJECT wording is recorded in the context section of each blocked task file.
+  PROJECT wording is recorded in the context section of each blocked task file; for a claimed task
+  it goes to the runner and lands in the task's PR, never on the integration branch (§10.5), and
+  `commit_sha` names the task-branch commit that carries it or, if the ruling is given before that
+  commit exists, the integration tip it was ruled against.
 - **Commit rule:** only the files it changed, by explicit path (`git commit -- <paths>`), on the
   integration branch, pushed; message `spec(<question_id>): <one-line ruling>`. If it cannot commit
   or push, it returns `needs_operator` and says why.

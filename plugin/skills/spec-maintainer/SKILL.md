@@ -56,7 +56,8 @@ a minor point, rule and record your reasoning.
 
 - resolved: you ruled. Required: ruling, reasoning, commit_sha, files_changed.
   Every resolved ruling must be committed. If no SPEC or PROJECT wording needs to
-  change, record the ruling in the Context section of each blocked task file.
+  change, record the ruling in the Context section of each blocked task file. A claimed
+  task's file is the exception (below).
 - needs_operator: the operator must decide. Required: reasoning, question_for_operator (one exact,
   answerable question, with the options you see and your recommendation).
 - not_a_spec_question: this is an implementation choice the seat should make.
@@ -69,6 +70,14 @@ a minor point, rule and record your reasoning.
   (git commit -- <paths>). Never stash, reset or commit anyone else's changes.
 - Message: "spec(<question_id>): <one-line ruling>".
 - Push to origin. If commit or push fails, return needs_operator and say why.
+- **Never edit a claimed task's file on the integration branch** (plane SPEC §10.5): one the runner
+  holds, from its claim until its lease clears (close, release, drop or sync). Send the ruling or
+  clarification for that file to the runner in your reply: the implementer writes it into the file's
+  Context section on the task branch, so it lands in the task's PR. Its commit_sha is that
+  task-branch commit, or, if you rule before that commit exists, the integration tip you ruled
+  against (plane SPEC §17.4). SPEC and PROJECT wording still lands on the integration branch.
+  Marking a task `dropped` is the one exception. `ccp tasks check --lease` names such an edit before
+  you push.
 
 ## Answer file
 
@@ -119,7 +128,8 @@ in. Everything above applies, with these differences.
 
 - **You also hold the steerer's task-log authority** (plane SPEC §4): you create tasks and amend
   their intent, `dod_checks`, ids and dependencies, never once a task is `in_progress` without
-  superseding it. The limits in "Your authority" on those fields bind a maintainer that is not the
+  superseding it. Anything else you write in a claimed task's file goes to the runner, as the commit
+  rule above says. The limits in "Your authority" on those fields bind a maintainer that is not the
   task-log owner.
 - **Questions arrive by message** from the runner teammate, naming the question file. Rule as above,
   write the answer file with your own `session_id`, then **reply to the runner** with the verdict and

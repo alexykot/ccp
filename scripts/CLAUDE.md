@@ -2,7 +2,7 @@
 
 - **Plane development:** `dev-worktree.sh` (a worktree for a change), `release.sh` (after a merge to
   main), `run-checkout.sh` (the clone `ccp` on PATH runs from), `install-git-hooks.sh` and
-  `git-hooks/` (no commits on main), `gate.sh` and `gate_result.py` (the plane's own test gate, run through `ccp suite run`),
+  `git-hooks/` (no commits on main; the commit hook template, no edit to a leased task file), `gate.sh` and `gate_result.py` (the plane's own test gate, run through `ccp suite run`),
   `leak-check.sh` (no managed-product specifics in tracked files), `spec_map_check.py` (the SPEC
   restructure's map checks: coverage, a part's completeness, references).
 - **Seat helpers products call:** `team.sh` (the runner teammate and gates, §2), `spec-maintainer-ask.sh`
