@@ -253,9 +253,6 @@ class MergeAndAuth(WtFixture, unittest.TestCase):
         self.assertEqual((code, body["ok"]), (0, True))
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class ReviewFixes(WtFixture, unittest.TestCase):
     """PR review of §12.1: exit code, kept worktrees, heads, missing paths, background up, prune, names."""
@@ -342,3 +339,66 @@ class ReviewFixes(WtFixture, unittest.TestCase):
             st = wt.create(config.load(self.main), self.q, "0002-second", "ver", self.head())
         self.assertEqual(st["name"], "ver-0002-2")
         self.assertTrue(Path(st["path"]).is_dir())
+
+
+OWN_CCP = """\
+import json, os, signal, sys
+from pathlib import Path
+if sys.argv[1:2] == ["hello"]:
+    Path(__file__).with_name("ran.json").write_text(json.dumps({"argv": sys.argv[1:], "cwd": os.getcwd()}))
+    sys.exit(7)
+if sys.argv[1:2] == ["die"]:
+    os.kill(os.getpid(), signal.SIGTERM)
+sys.exit(2)
+"""
+
+
+class ExecOwnCcp(WtFixture, unittest.TestCase):
+    """`ccp wt exec`: a worktree's own bin/ccp, with a subcommand the installed ccp lacks."""
+
+    def made(self) -> tuple[str, Path]:
+        name = self.wt("create", "--kind", "rev", "--task", "0002", "--sha", self.head())[1]["name"]
+        path = self.main / ".rt" / name
+        (path / "bin").mkdir(exist_ok=True)
+        (path / "bin" / "ccp").write_text(OWN_CCP)
+        return name, path
+
+    def test_exec_runs_the_named_worktrees_ccp_with_its_arguments_verbatim(self):
+        name, path = self.made()
+        with self.assertRaises(SystemExit):  # the installed ccp has no such subcommand
+            self.ccp("hello")
+        code, _, _, err = self.wt("exec", name, "--", "hello", "--print", "--root", "x")
+        self.assertEqual(code, 7, err)
+        ran = json.loads((path / "bin" / "ran.json").read_text())
+        self.assertEqual(ran, {"argv": ["hello", "--print", "--root", "x"], "cwd": str(Path.cwd())})
+
+    def test_exec_without_a_name_runs_this_checkouts_ccp_even_when_its_plane_json_does_not_load(self):
+        _, path = self.made()
+        (path / "docs" / "delivery" / "plane.json").write_text("{not json")
+        code, _, _, err = self.ccp("wt", "exec", "--", "hello", root=path)
+        self.assertEqual(code, 7, err)
+        self.assertTrue((path / "bin" / "ran.json").is_file())
+
+    def test_print_prints_the_path_and_runs_nothing(self):
+        name, path = self.made()
+        code, _, body, err = self.wt("exec", name, "--print")
+        self.assertEqual((code, body.strip()), (0, str(path / "bin" / "ccp")), err)
+        self.assertEqual(self.wt("exec", name, "--print", "--", "hello")[0], 2)
+        self.assertFalse((path / "bin" / "ran.json").exists())
+
+    def test_a_signal_ending_it_is_128_plus_the_signal(self):
+        name, _ = self.made()
+        self.assertEqual(self.wt("exec", name, "--", "die")[0], 143)
+
+    def test_refusals(self):
+        name, path = self.made()
+        self.assertEqual(self.wt("exec", "hello")[0], 2)  # arguments not after `--`
+        self.assertEqual(self.wt("exec", "rev-0099", "--", "hello")[0], 3)  # not recorded
+        (path / "bin" / "ccp").unlink()
+        code, _, _, err = self.wt("exec", name, "--", "hello")
+        self.assertEqual(code, 3)
+        self.assertIn("bin/ccp", err)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -54,6 +54,7 @@ argument takes the full id or its number.
 | `ccp wt remove NAME` | workers, runner | §12.1 |
 | `ccp wt up NAME` / `ccp wt down NAME` / `ccp wt urls NAME` | workers | §12.3 |
 | `ccp wt gc` | lead, runner | §12.1 |
+| `ccp wt exec [NAME] [--print] [-- ARGS]` | reviewer, verifier | §12.1 |
 
 ## The team and gates (`scripts/team.sh`)
 

@@ -298,7 +298,7 @@ tasks:
     depends_on: []
     path: tasks/0059-newer-record-fields-verify-and-close.md
   - id: 0060-run-the-worktrees-own-ccp
-    status: pending
+    status: done
     title: Workers can run a worktree's own ccp; §5.2 lists covers
     depends_on: []
     path: tasks/0060-run-the-worktrees-own-ccp.md

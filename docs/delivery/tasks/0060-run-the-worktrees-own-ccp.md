@@ -1,14 +1,14 @@
 ---
 task_id: 0060-run-the-worktrees-own-ccp
 title: Workers can run a worktree's own ccp; §5.2 lists covers
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S12"]
 review_point: R4
 paths: ["ccp/wt.py", "docs/spec/01-model.md", "docs/cli/", "plugin/agents/delivery-reviewer.md", "plugin/agents/delivery-verifier.md", "tests/test_wt.py"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0060-run-the-worktrees-own-ccp
@@ -49,6 +49,18 @@ A reviewer or verifier can run the `ccp` of the worktree under review (`ccp wt e
 
 *Append-only, newest last.*
 
+- 2026-11-11 — implementer: `ccp wt exec [NAME] [--print] [-- ARGS]` (`ccp/wt.py` `own_ccp`,
+  `exec_ccp`; `ccp/cli.py` `cmd_wt_exec`). It runs `<worktree>/bin/ccp` with ARGS verbatim (split at
+  `--` in `main()`, as `suite run` does), through the running Python, in the caller's directory and
+  environment, and exits with its code (128 + N for signal N). NAME is a recorded worktree (needs
+  `QUEUE_ROOT`); without it, the checkout `ccp` resolved (`--root`, `$CCP_ROOT`, the cwd's git
+  toplevel). It runs before plane.json loads, so a change the installed ccp cannot load can still be
+  tried. `--print` prints the path. Refusals: a NAME that is not a worktree name (arguments not
+  after `--`) or `--print` with arguments exit 2; an unrecorded NAME or no `bin/ccp` exit 3. SPEC
+  §12.1 gains a bullet for it and §5.2 the `covers` row; `docs/cli/02-delivery.md` a row; the
+  reviewer and verifier briefs mention it. Outside the declared paths: `ccp/cli.py` (the wiring) and
+  `docs/spec/02-delivery.md` (§12.1). Tests: `tests/test_wt.py` `ExecOwnCcp`.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #50 head `20ebe6f` (squash `de143d0`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0060-run-the-worktrees-own-ccp.json.
