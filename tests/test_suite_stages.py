@@ -207,6 +207,75 @@ class StagesRunInOrder(StagedFixture, unittest.TestCase):
                 self.assertEqual([(s["name"], s["exit_code"]) for s in row["stages"]], [("first", 0)])
 
 
+WT_VARS = tuple(f"CCP_WT_{f.upper()}" for f in config.WT_FIELDS)
+SHOW_WT = 'echo "wt=$CCP_WT_NAME"'
+
+
+class StagesGetTheWorktreesFields(StagedFixture, unittest.TestCase):
+    """§14.2: in a worktree `ccp wt` made, a lane's stages get its CCP_WT_* fields, as its env hooks do."""
+
+    def worktree(self, lanes: dict) -> Path:
+        hook = self.main / "docs/delivery/plane.json"
+        body = json.loads(hook.read_text())
+        body["env"] = {"setup": "env | grep '^CCP_WT_' | sort > hook.env"}
+        hook.write_text(json.dumps(body))
+        head = subprocess.run(["git", "rev-parse", "origin/main"], cwd=self.main, capture_output=True,
+                              text=True, check=True).stdout.strip()
+        code, made, _, err = self.ccp("wt", "create", "--kind", "rev", "--task", "0002", "--sha", head, root=self.main)
+        self.assertEqual(code, 0, err)
+        path = Path(made["path"])
+        p = path / "docs/delivery/plane.json"
+        cfg = json.loads(p.read_text())
+        cfg["suite"] = {"lanes": lanes}
+        p.write_text(json.dumps(cfg))
+        return path
+
+    def run_in(self, cwd: Path, *args: str, env: dict | None = None) -> subprocess.CompletedProcess[bytes]:
+        return ccp_proc(cwd, "suite", "run", "--full", *args, env=env,
+                        unset=tuple(v for v in WT_VARS if v not in (env or {})))
+
+    def shown(self, r: subprocess.CompletedProcess[bytes]) -> list[str]:
+        return [ln[3:] for ln in r.stdout.decode().splitlines() if ln.startswith("wt=")]
+
+    def test_a_gate_stage_in_a_worktree_gets_the_fields_its_hooks_get(self):
+        path = self.worktree({"gate": [{"name": "lint", "cmd": "true"},
+                                       {"name": "show", "cmd": f"{SHOW_WT}; env | grep '^CCP_WT_' | sort > stage.env"}]})
+        r = self.run_in(path, "--lane", "gate", env={"CCP_WT_NAME": "a-stale-name"})
+        self.assertEqual(r.returncode, 0, r.stdout.decode() + r.stderr.decode())
+        self.assertEqual(self.shown(r), ["rev-0002"])
+        hook_env = (path / "hook.env").read_text()
+        self.assertEqual(len(hook_env.splitlines()), len(WT_VARS))
+        self.assertEqual((path / "stage.env").read_text(), hook_env)
+
+    def test_an_argv_lane_and_a_nested_staged_lane_get_them_too(self):
+        path = self.worktree({"full": ["/bin/sh", "-c", SHOW_WT],
+                              "fast": [{"name": "a", "cmd": "true"}, {"name": "b", "cmd": SHOW_WT}]})
+        r = self.run_in(path, "--lane", "full")
+        self.assertEqual((r.returncode, self.shown(r)), (0, ["rev-0002"]), r.stderr)
+        r = self.run_in(path, "--lane", "fast", env={"CCP_SUITE_ID": "st-outer"})
+        self.assertEqual((r.returncode, self.shown(r)), (0, ["rev-0002"]), r.stderr)
+
+    def test_a_command_after_dashes_gets_only_the_callers(self):
+        path = self.worktree({"fast": [{"name": "a", "cmd": SHOW_WT}]})
+        r = self.run_in(path, "--", "/bin/sh", "-c", SHOW_WT)
+        self.assertEqual((r.returncode, self.shown(r)), (0, [""]), r.stderr)
+        r = self.run_in(path, "--", "/bin/sh", "-c", SHOW_WT, env={"CCP_WT_NAME": "the-callers"})
+        self.assertEqual((r.returncode, self.shown(r)), (0, ["the-callers"]), r.stderr)
+
+    def test_a_checkout_ccp_did_not_make_gets_none(self):
+        self.lanes({"fast": [{"name": "a", "cmd": "true"},
+                             {"name": "b", "cmd": f"{SHOW_WT}; test -z \"$(env | grep '^CCP_WT_')\""}]})
+        r = self.run_in(self.runner, "--lane", "fast")
+        self.assertEqual((r.returncode, self.shown(r)), (0, [""]), r.stderr)
+
+    def test_a_lookup_that_fails_warns_and_adds_nothing(self):
+        cfg = config.load(self.runner)
+        said: list[str] = []
+        with mock.patch("ccp.wt.recorded_at", side_effect=OSError("unreadable")):
+            self.assertEqual(suite.worktree_env(cfg, None, said.append), {})
+        self.assertEqual(len(said), 1)
+
+
 class OldLaneForm(StagedFixture, unittest.TestCase):
     def test_an_argv_gate_lane_runs_as_one_stage_as_before(self):
         self.lanes({"gate": [PY, "-c", "print('Ran 4 tests in 0.1s')"]})

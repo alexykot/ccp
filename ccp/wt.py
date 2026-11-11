@@ -14,7 +14,8 @@ What a product needs beyond a git worktree (a database branch, a local stack) is
 `env`: `setup` and `teardown` run when a worktree is made and removed, `up` and `down` start and stop
 what it serves, and `urls` prints the URLs it serves as a JSON list of `{name, url}`, as many as the
 product has. Each hook is a shell command template run in the worktree with a timeout; its fields
-are also in the environment as `CCP_WT_<FIELD>`.
+are also in the environment as `CCP_WT_<FIELD>`, and `ccp suite run` gives a lane's stages run in the
+worktree the same variables (§14.2).
 
 `ccp wt exec [NAME] -- ARGS` runs a worktree's own `bin/ccp`, so a change that adds a subcommand can
 be tried before the installed `ccp` has it; `--print` prints that path instead.
@@ -101,6 +102,23 @@ def context(cfg: Config, st: dict[str, Any]) -> dict[str, str]:
             "tag": st["tag"], "worktree": st["path"], "main_checkout": str(main_checkout(cfg)), "name": st["name"]}
 
 
+def env_fields(cfg: Config, st: dict[str, Any]) -> dict[str, str]:
+    """The worktree's fields as the environment gives them, raw: `CCP_WT_<FIELD>` (§12.2)."""
+    return for_child({f"CCP_WT_{k.upper()}": v for k, v in context(cfg, st).items()})
+
+
+def recorded_at(q: Path, root: Path) -> dict[str, Any] | None:
+    """The record of the worktree `ccp wt` made at `root`, or None when it made none there."""
+    here = root.resolve()
+    for st in records(q):
+        try:
+            if st.get("path") and Path(str(st["path"])).resolve() == here:
+                return st
+        except (OSError, ValueError):
+            continue
+    return None
+
+
 def run_cmd(line: str, cwd: Path, timeout: int, extra_env: dict[str, str] | None = None,
             log: Path | None = None, no_stdin: bool = False) -> tuple[int, str]:
     """Run a shell command in its own process group; on timeout the whole group is killed. Returns the
@@ -162,7 +180,7 @@ def hook(cfg: Config, q: Path, name: str, st: dict[str, Any]) -> tuple[int, str]
     ctx = context(cfg, st)
     line = fill(cmd, {k: shlex.quote(v) if k in PATH_FIELDS else v for k, v in ctx.items()})
     return run_cmd(line, Path(st["path"]), int((cfg.env or {}).get("timeout_seconds") or 600),
-                   for_child({f"CCP_WT_{k.upper()}": v for k, v in ctx.items()}), state_dir(q) / f"{st['name']}.{name}.log")
+                   env_fields(cfg, st), state_dir(q) / f"{st['name']}.{name}.log")
 
 
 def parse_urls(out: str) -> list[dict[str, str]]:

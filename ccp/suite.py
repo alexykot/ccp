@@ -32,7 +32,9 @@ it does not, each line is matched against the product's `suite.count_re` (defaul
 numbers are summed, and nothing else of the output, or of the result file, is kept in the records:
 failure ids are shown in the summary, never recorded. The command's environment is the caller's,
 unchanged, plus CCP_SUITE_ID and CCP_SUITE_RESULT: `bin/ccp` sets no variable, and a QUEUE_ROOT
-`ccp` finds from the binding when the caller set none stays `ccp`'s own. A `ccp suite run` inside it records nothing and writes no log:
+`ccp` finds from the binding when the caller set none stays `ccp`'s own. A lane's stages run in a
+worktree `ccp wt` made also get that worktree's `CCP_WT_<FIELD>` variables, the ones its env hooks
+get (§12.2); a command after `--` gets none. A `ccp suite run` inside it records nothing and writes no log:
 it becomes its command, so the outer run captures the output.
 
 `--lane NAME` labels the run. A lane plane.json `suite.exclusive_lanes` names (a run with no lane counts as
@@ -824,6 +826,23 @@ def _run_stage(argv: list[str], env: dict[str, str], log_fd: int | None, merged:
     return rc, time.monotonic() - t0
 
 
+def worktree_env(cfg: Config | None, command: list[str] | None, warn: _Warn) -> dict[str, str]:
+    """The `CCP_WT_<FIELD>` variables a lane's stages get when the checkout is a worktree `ccp wt` made
+    (§14.2): the ones its env hooks get (§12.2). Nothing for a command after `--`, outside such a
+    worktree, or without a queue to look in; a lookup that fails is a warning, never the run's problem."""
+    q = os.environ.get("QUEUE_ROOT")
+    if cfg is None or command or not q or not Path(q).is_dir():
+        return {}
+    try:
+        from ccp import wt  # noqa: PLC0415
+
+        st = wt.recorded_at(Path(q), cfg.root)
+        return wt.env_fields(cfg, st) if st else {}
+    except Exception as e:  # noqa: BLE001
+        warn(f"the worktree's CCP_WT_* fields were not found ({type(e).__name__}): the stages run without them")
+        return {}
+
+
 def _passthrough_stages(stages: list[dict[str, Any]], env: dict[str, str] | None = None) -> int:
     """A nested `ccp suite run` of a staged lane: run the stages in order in the caller's environment,
     stop at the first that fails, and record nothing."""
@@ -861,10 +880,12 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
     if cfg is not None and not command and a.lane:
         os.chdir(cfg.root)  # a named lane runs from the checkout's root, as a product script expects
     _reopen_closed_std_fds()
+    wt_env = worktree_env(cfg, command, warn)
     if envvar("CCP_SUITE_ID"):
+        inner = {**(os.environ if caller_env is None else caller_env), **wt_env} if wt_env else caller_env
         if len(stages) > 1:
-            return _passthrough_stages(stages, caller_env)  # the outer `ccp suite run` records this time
-        return _passthrough(argv, caller_env)  # the outer `ccp suite run` records this time
+            return _passthrough_stages(stages, inner)  # the outer `ccp suite run` records this time
+        return _passthrough(argv, inner)  # the outer `ccp suite run` records this time
     if problem:
         warn(f"{problem}: running the command without recording it")
         record = False
@@ -1005,11 +1026,11 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                 break  # interrupted: no later stage starts
             if staged:
                 _stage_mark(log_fd, f"ccp suite: stage {stage['name']}: started\n")
-            # The caller's environment and CCP_SUITE_ID, nothing else (§14.1): a test cache that hashes the
-            # environment finds the same entries from a plain shell and from `ccp suite run`. Each stage
-            # writes its own result file.
+            # The caller's environment, the worktree's fields for a lane's stages, and CCP_SUITE_ID, nothing
+            # else (§14.2): a test cache that hashes the environment finds the same entries from a plain
+            # shell and from `ccp suite run`. Each stage writes its own result file.
             result_path = Path(tempfile.gettempdir()) / f"ccp-suite-result-{suite_id}{f'-{i}' if i else ''}.json"
-            env = {**(os.environ if caller_env is None else caller_env),
+            env = {**(os.environ if caller_env is None else caller_env), **wt_env,
                    **for_child({"CCP_SUITE_ID": suite_id, "CCP_SUITE_RESULT": str(result_path)})}
             rc, s_secs = _run_stage(stage["argv"], env, log_fd, merged, own_group, counters, current)
             code = 128 - rc if rc < 0 else rc
