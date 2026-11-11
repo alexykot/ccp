@@ -429,7 +429,10 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     at least one file and only files under `paths` (git pathspecs, as `merge.behind_tip_ignore`), and the
     product's `proof` command, run in the product root with `{task_id}`, `{reviewed}`, `{head}` and
     `{from}` (the tree the fix diff starts from) filled in, must exit 0. Returns what to record on the
-    verify run, or None and why not ("" when the setting is off or there is no fix to judge)."""
+    verify run, or None and why not ("" when the setting is off or there is no fix to judge).
+
+    `git merge-tree --write-tree` needs git 2.38 or later. It exits 1 on a conflict; any other failure,
+    such as an older git that lacks the option, is named as such, and the review stands either way."""
     from ccp import rules, runs  # noqa: PLC0415
     from ccp.config import fill  # noqa: PLC0415
     from ccp.queue import git, integration_branch  # noqa: PLC0415
@@ -463,6 +466,8 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     if base.returncode != 0:
         return None, f"the head has no merge base with origin/{integ}"
     tree = git(cfg.root, "merge-tree", "--write-tree", "--no-messages", reviewed, base.stdout.strip())
+    if tree.returncode not in (0, 1):
+        return None, (f"`git merge-tree --write-tree` failed (exit {tree.returncode}); it needs git 2.38 or later")
     if tree.returncode != 0 or not tree.stdout.split():
         return None, f"the reviewed head does not merge cleanly onto the head's base on origin/{integ}"
     start = tree.stdout.split()[0]
