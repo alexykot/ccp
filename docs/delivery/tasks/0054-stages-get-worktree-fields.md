@@ -1,14 +1,14 @@
 ---
 task_id: 0054-stages-get-worktree-fields
 title: Gate stages receive the worktree's fields
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12", "S14"]
 review_point: R4
 paths: ["ccp/suite.py", "ccp/wt.py", "docs/spec/02-delivery.md", "tests/test_suite_stages.py"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0054-stages-get-worktree-fields
@@ -66,4 +66,4 @@ A gate stage run in a task worktree gets that worktree's `CCP_WT_*` fields (its 
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #63 head `bf945f6` (squash `4fc3d74`): APPROVE. Passed: check-01, check-02. Gate: `ccp suite run --lane gate -- scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0054-stages-get-worktree-fields.json.
