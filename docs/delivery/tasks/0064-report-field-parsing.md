@@ -54,6 +54,14 @@ updated: 2026-11-11
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): `report.fields` now finds every line for a declared field. Two or more
+  are refused with the field and each line's number and value (even when they agree). A matched value
+  whose next character, after spaces and markup (`` ` ``, `*`, `_`), is `|` is refused as the pasted
+  `a|b` template, naming the field and its line; the "says" refusal now also names the line. A reason
+  after the value stays allowed (the existing tests pin it), so "exactly one value" is read as "one
+  value, not the template's alternatives"; a `|` later in the reason is not refused. SPEC §13.4 is
+  unchanged: the task gives no SPEC text for the "once" rule.
+
 ## Verification notes
 
 *Append-only.*
