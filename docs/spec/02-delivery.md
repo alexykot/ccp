@@ -325,9 +325,12 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
 
 **The lead and the runners.** The lead keeps the product's main checkout and pulls it when a merge is
 reported. Each runner merges and runs operator steps from its own **runner worktree**
-(binding `runner.worktree`; with several runners `<runner.worktree>-<slot>`, made by
+(binding `runner.worktree`, made by the single runner's `team.sh runner spawn` or `ccp tasks worktree`
+when missing; with several runners `<runner.worktree>-<slot>`, made by
 `ccp tasks worktree --runner <slot>` when missing), detached at `origin/<integration_branch>` (the
-main checkout holds the branch). It fetches and re-detaches before each task. With `worktrees.dir`
+main checkout holds the branch). An existing one is left alone; one the spawn cannot make is a
+warning, and the runner's `ccp tasks worktree` makes it once the cause is fixed. No runner makes it
+with `git worktree add`. It fetches and re-detaches before each task. With `worktrees.dir`
 set, `ccp tasks close` makes the reconcile in its `merge-<nnnn>` worktree and pushes it with
 `git push origin HEAD:<integration_branch>` (§10.5); run from any checkout, it does not move that
 checkout's branch or HEAD, except that a detached runner worktree is moved to the reconcile commit

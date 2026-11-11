@@ -504,35 +504,29 @@ def idle_runners(q: Path, but: str = "") -> list[str]:
     return [str(r.get("bound_name") or s) for s, r in sorted(runner_slots(w).items()) if s not in held and s != but]
 
 
-def runner_worktree(cfg: Config, slot: str) -> dict[str, Any]:
-    """§16.5 rule 1: a runner's own merge worktree, made when missing, detached at the integration tip:
-    work.json `runners.<slot>.worktree`, else the binding's `runner.worktree` plus `-<slot>`."""
+def runner_worktree(cfg: Config, slot: str | None) -> dict[str, Any]:
+    """§12.1, §16.5 rule 1: a runner's own merge worktree, made when missing, detached at the integration
+    tip. With a slot: work.json `runners.<slot>.worktree`, else the binding's `runner.worktree` plus
+    `-<slot>`. Without one (one runner, no slots recorded): the binding's `runner.worktree` itself."""
     import re as _re  # noqa: PLC0415
+    from ccp import wt as _wt  # noqa: PLC0415
     from ccp.prompt import main_checkout  # noqa: PLC0415
     from ccp.queue import binding_text  # noqa: PLC0415
     q = root()
     slots = runner_slots(load_work(q))
-    if slot not in slots:
+    if slot is None and slots:
+        raise QueueError(f"several runners ({', '.join(sorted(slots))}): name yours with --runner <slot>", 2)
+    if slot is not None and slot not in slots:
         raise QueueError(f"{slot!r} is no runner slot ({', '.join(sorted(slots)) or 'none: one runner'}); "
                          "the lead records slots with `team.sh runner spawn --count`", 2)
-    path = str(slots[slot].get("worktree") or "")
+    path = str(slots[slot].get("worktree") or "") if slot is not None else ""
     if not path:
         m = _re.search(r"^runner:\s*\n(?:[ \t]+.*\n)*?[ \t]+worktree:\s*([^#\n]+)", binding_text(q) + "\n", _re.M)
         if not m:
-            raise QueueError("the binding names no runner.worktree to put the runners' worktrees beside (SPEC §12.1)", 2)
-        path = m.group(1).strip().strip("'\"") + f"-{slot}"
-    main = main_checkout(cfg)
-    wt = Path(path) if Path(path).is_absolute() else main / path
-    integ = integration_branch(q)
-    made = False
-    live = (wt / ".git").exists() and git(wt, "rev-parse", "--is-inside-work-tree").stdout.strip() == "true"
-    if not live:
-        if wt.exists() and any(wt.iterdir()):
-            raise QueueError(f"{wt} exists and is not a working tree of the product: move it away first", 2)
-        git(main, "worktree", "prune")  # a worktree removed by hand still registered blocks the add
-        git(main, "fetch", "-q", "origin")
-        git(main, "worktree", "add", "-q", "--detach", str(wt), f"origin/{integ}", check=True)
-        made = True
+            what = "put the runners' worktrees beside" if slot is not None else "make the runner's worktree at"
+            raise QueueError(f"the binding names no runner.worktree to {what} (SPEC §12.1)", 2)
+        path = m.group(1).strip().strip("'\"") + (f"-{slot}" if slot is not None else "")
+    wt, made = _wt.runner_worktree(main_checkout(cfg), path, integration_branch(q))
     return {"ok": True, "slot": slot, "worktree": str(wt), "made": made,
             "next": f"cd {wt} && run every ccp command from there (SPEC §16.5)"}
 

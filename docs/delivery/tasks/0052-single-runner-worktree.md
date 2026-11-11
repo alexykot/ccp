@@ -1,14 +1,14 @@
 ---
 task_id: 0052-single-runner-worktree
 title: ccp creates a single runner's worktree
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12", "S16"]
 review_point: R4
 paths: ["ccp/wt.py", "scripts/observability/team.py", "tests/test_wt.py", "tests/test_team*.py", "docs/spec/02-delivery.md"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0052-single-runner-worktree
@@ -48,6 +48,23 @@ A product starting its first single runner gets the runner's worktree from the p
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): the creation moved into `ccp/wt.py` `runner_worktree(main, path, integ)`
+  (made detached at `origin/<integ>` when missing, left alone when it is a working tree, a non-empty
+  non-worktree directory refused with exit 2), with `main_of(checkout)` for a caller with no plane.json.
+  `ccp/lifecycle.py` `runner_worktree` uses it for both cases: with `--runner <slot>` as before, and
+  without it (now optional in `ccp/cli.py`) the binding's `runner.worktree` itself for one runner;
+  without a slot beside recorded slots, or with no `runner.worktree` in the binding, it refuses (exit 2).
+  `team.py` `single_runner_worktree` runs in the single-runner spawn after the scope checks and before
+  any write: no `runner.worktree` or no `product_root` makes nothing; its output carries
+  `runner_worktree: {path, made}`. A worktree it cannot make is a warning (`made: false` with `error`),
+  not a refusal: `ccp init` writes `runner.worktree` into every binding, and a product with no `origin`
+  yet must still spawn (`tests/test_init.py` `OneBinding` pins that); the runner's `ccp tasks worktree`
+  makes it once the cause is fixed. A relative
+  `runner.worktree` is the main checkout's. Slotted spawns are unchanged. SPEC §12.1 now says who makes
+  it; `docs/cli/02-delivery.md` shows `--runner` as optional. Tests: `tests/test_wt.py`
+  `SingleRunnerWorktree`. Paths beyond the declared ones: `ccp/lifecycle.py`, `ccp/cli.py`,
+  `docs/cli/02-delivery.md`.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #62 head `353c86a` (squash `b91d96e`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0052-single-runner-worktree.json.

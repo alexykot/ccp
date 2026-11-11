@@ -908,8 +908,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--holder", default="runner", help="the claiming runner's slot (SPEC §16.4; required with "
                                                        "several runners)")
     p.set_defaults(fn=life)
-    p = t.add_parser("worktree", help="a runner's own merge worktree, made when missing (SPEC §16.5)")
-    p.add_argument("--runner", required=True, metavar="SLOT")
+    p = t.add_parser("worktree", help="a runner's own merge worktree, made when missing (SPEC §12.1, §16.5)")
+    p.add_argument("--runner", metavar="SLOT", help="the runner's slot (required with several runners; without "
+                                                    "it, the one runner's binding runner.worktree)")
     p.set_defaults(fn=life)
     p = t.add_parser("release", help="undo a claim taken too early: a leased task with no run goes back to pending, "
                                      "its lease and wait cleared; its worktree is kept (SPEC §10.4)")
