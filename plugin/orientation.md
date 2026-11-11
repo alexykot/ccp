@@ -37,8 +37,10 @@ whose lead is the design seat (plane SPEC §2).
 - Spec questions (what the product should do; a task against the spec; the spec against the
   project) go to the spec maintainer.
 - Only the spec maintainer may escalate to the operator.
-- Claude never emails the operator or anyone else. To raise a question,
-  message the lead.
+- To raise a question, message the lead. The plane names when the operator is
+  notified (a blocker, a decision, a finished review point, the allowance
+  checkpoint) and the product names the channel: on those, `ccp` also runs the
+  product's notify command if it names one (plane SPEC §3.6).
 
 ## Tools
 

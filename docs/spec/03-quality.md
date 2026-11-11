@@ -206,7 +206,7 @@ sets the review to `triaged` and prints the seat's remaining actions:
 
 - `register_tasks`: pull the integration branch and register each created task in the queue;
 - `lead_asks_operator`: the owner's `question_for_operator`, which the lead asks the operator in
-  its own session (nothing emails).
+  its own session (§17.10; §3.6 names the triggers that also reach the product's notify channel).
 
 An invalid or missing triage file is `triage_failed`, and the next wake retries.
 

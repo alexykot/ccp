@@ -740,7 +740,8 @@ def cmd_gate(args: argparse.Namespace) -> int:
             write_json(p, g)
             emit(root, g["task_id"], LEAD, "gate", "escalated", {"escalation_id": eid})
             sm.set_wait(root, "set", g["task_id"], "operator_decision", LEAD, pid, eid)
-            return out({"escalation_id": eid, "outcome": "waiting_operator", "actions": [
+            warn = sm.notify_operator(root, "decision", str(g["task_id"]), eid)  # §3.6
+            return out({"escalation_id": eid, "outcome": "waiting_operator", **({"warnings": warn} if warn else {}), "actions": [
                 {"action": "ask_operator_in_session", "detail": "Ask the operator here; then team.sh gate decide "
                                                                 f"{eid} --by operator_via_design_seat ..."}]})
         if args.decision not in ("approved", "refused"):

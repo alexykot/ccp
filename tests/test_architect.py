@@ -337,7 +337,7 @@ class RuleCostReachesTheOperator(Harness):
                                   "dispositions": [{"finding": "F02", "disposition": "needs_operator", "reason": "a rule"}]}))
         code, res, _ = self.dpj("architect", "triage", rid)
         self.assertEqual((code, res["outcome"], res["dispositions"]), (0, "triaged", {"needs_operator": 1}))
-        self.assertEqual(res["actions"][0]["action"], "lead_asks_operator")  # team lead: nothing emails (§17.10)
+        self.assertEqual(res["actions"][0]["action"], "lead_asks_operator")  # team lead asks in its session (§17.10)
 
 
 class RuleChangesAndShape(Harness):

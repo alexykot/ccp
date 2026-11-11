@@ -8,6 +8,10 @@ and the scripts runners wrote for themselves (§10.6).
 whose `brief` sign-off is missing, and `close` one whose declared sign-off is missing or, for `build`,
 signed at another head than the one it merges.
 
+`wait` on an operator's wait, `claim` refused at the weekly checkpoint and the `close` that finishes a
+review point fire the operator's triggers: the product's notify command, if it names one (§3.6,
+`ccp.notify`).
+
 `claim` samples the allowance first: past the weekly checkpoint a new claim refuses (exit 5), and at
 the 5-hour park % any claim parks the task and refuses (exit 6, §25.4).
 
@@ -27,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp.envvars import envvar, for_child
-from ccp import refs, runs, tasklog
+from ccp import notify, refs, runs, tasklog
 from ccp.queue import lib
 from ccp.config import Config
 from ccp.queue import (OBS, QueueError, actor, durable_statuses, emit, file_lock, git, heartbeat, integration_branch, iso,
@@ -97,7 +101,13 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
             raise QueueError(f"auth probe(s) failed: {failed}. Set waiting_on reauth and raise it to the lead "
                              "(SPEC §30); `ccp auth check` shows each", EXIT_AUTH)
     # §25.1: refuses (exit 5) past the project's weekly stop; a resumed claim of its own lease is not refused.
-    sample = usage.sample_allowance(cfg, q, gate=not resumed)
+    try:
+        sample = usage.sample_allowance(cfg, q, gate=not resumed)
+    except QueueError as exc:
+        if exc.code == 5:  # §3.6: the weekly checkpoint is the operator's to pass
+            if warn := notify.warnings(notify.send(cfg, "allowance_checkpoint", task_id=tid)):
+                raise QueueError(f"{exc}. {warn[0]}", exc.code) from exc
+        raise
     status = str(load_work(q).get("status") or "")
     # The runner is started by `team.sh runner spawn` (status running); `stop` leaves idle.
     stopped = STOPPED + ("idle",)
@@ -314,7 +324,14 @@ def wait(cfg: Config, task: str, action: str, reason: str, until: str | None, de
     r = subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(q)})
     if r.returncode != 0:
         raise QueueError(f"set-waiting-on: {(r.stderr or r.stdout).strip()}", r.returncode if r.returncode in (1, 2) else 1)
-    return {"ok": True, "task_id": tid, "action": action, "reason": reason}
+    out: dict[str, Any] = {"ok": True, "task_id": tid, "action": action, "reason": reason}
+    # §3.6: a wait only the operator clears reaches the product's channel (the reason is a fixed word)
+    if action == "set" and (trigger := notify.trigger_for_wait(reason)):
+        if sent := notify.send(cfg, trigger, task_id=tid, reason=reason):
+            out["notified"] = sent
+            if warn := notify.warnings(sent):
+                out["warnings"] = warn
+    return out
 
 
 RESOLVED = ("done", "dropped")
@@ -1121,10 +1138,18 @@ def _reconciled(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, h
         warnings.append(f"could not abandon {tid}'s unreported runs ({exc}); `ccp runs gc` will")
     heartbeat(q, f"closed {tid}", task_id=tid)
     warnings += _estimate_actuals(cfg, q, tid)
+    # §3.6: the close that leaves its review point with no open task tells the operator, once: on the
+    # call that reconciled, or on the retry that records the task done after a close that crashed in
+    # between; not on a re-run that finds both done
+    rp = str(stamp or meta.get("review_point") or "")
+    first = not reconciled or st.get("status") != "done"
+    notified = notify.send(cfg, "review_point_done", task_id=tid, ident=rp) \
+        if first and notify.channel(cfg) and notify.review_point_done(cfg, rp) else None
+    warnings += notify.warnings(notified)
     return {"ok": True, "task_id": tid, "pr": pr, "head": head, "merge_sha": merge, "reconcile_sha": reconcile,
             "merged_now": not already, "reconciled_now": not reconciled, "committed": paths, "warnings": warnings,
             **({"idle_runners": idle} if (idle := idle_runners(q, but=str(st.get("lease_holder") or ""))) else {}),
-            "review_point_stamped": stamp, "abandoned_runs": abandoned}
+            "review_point_stamped": stamp, "abandoned_runs": abandoned, **({"notified": notified} if notified else {})}
 
 
 def _estimate_actuals(cfg: Config, q: Path, tid: str) -> list[str]:

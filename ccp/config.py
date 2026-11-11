@@ -251,6 +251,10 @@ MUTATE_DEFAULTS: dict[str, Any] = {"command": None, "timeout_seconds": 600}
 # §13.4: verdict lines every done implement or fix report must state, each `{name, values}`: the line
 # is `<name>: <one of values>`. `ccp report` refuses a report missing one; none by default.
 REPORT_DEFAULTS: dict[str, Any] = {"required_fields": []}
+# §3.6: the operator's channel. `command` is a shell command `ccp` runs on each trigger, given the trigger
+# and ids in its environment (null, the default: the lead's session, and no command runs);
+# `timeout_seconds` bounds one run of it.
+NOTIFY_DEFAULTS: dict[str, Any] = {"command": None, "timeout_seconds": 30}
 REPORT_FIELD_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9 _-]{0,39}$")
 # The lines `ccp report` already reads: a declared field may not take one of their names.
 REPORT_OWN_LINES = ("outcome", "pr", "head", "verdict", "severity", "suite")
@@ -298,6 +302,7 @@ class Config:
     parallel: dict[str, Any] | None = None
     mutate: dict[str, Any] | None = None
     report: dict[str, Any] | None = None
+    notify: dict[str, Any] | None = None
     # Whether plane.json names task_log.review_point_pattern itself (§22: ignored, with a warning,
     # once the product keeps a review-point register).
     review_point_pattern_set: bool = False
@@ -659,7 +664,8 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
            "estimate": _merge(ESTIMATE_DEFAULTS, raw.get("estimate"), "estimate"),
            "parallel": _merge(PARALLEL_DEFAULTS, raw.get("parallel"), "parallel"),
            "mutate": _merge(MUTATE_DEFAULTS, raw.get("mutate"), "mutate"),
-           "report": _merge(REPORT_DEFAULTS, raw.get("report"), "report")}
+           "report": _merge(REPORT_DEFAULTS, raw.get("report"), "report"),
+           "notify": _merge(NOTIFY_DEFAULTS, raw.get("notify"), "notify")}
     bad = []
     if not isinstance(raw.get("task_log", {}).get("index", True), bool):
         bad.append("task_log.index must be true or false")
@@ -901,6 +907,12 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     t = mu["timeout_seconds"]
     if isinstance(t, bool) or not isinstance(t, int) or t < 1:
         bad.append("mutate.timeout_seconds must be an integer >= 1")
+    nt = out["notify"]
+    if not _opt_str(nt["command"]):
+        bad.append("notify.command must be a shell command, or null for the lead's session")
+    t = nt["timeout_seconds"]
+    if isinstance(t, bool) or not isinstance(t, int) or t < 1:
+        bad.append("notify.timeout_seconds must be an integer >= 1")
     if bad:
         raise ConfigError(f"{CONFIG_REL}: " + "; ".join(bad))
     return out
@@ -996,7 +1008,7 @@ def load(root: Path) -> Config:
                                  "prompts", "reconcile", "adapter", "worktrees", "env", "merge",
                                  "auth_check", "telemetry", "board", "gate", "suite",
                                  "adr", "verify", "review_points", "estimate", "parallel", "ids", "docs",
-                                 "mutate", "report"})
+                                 "mutate", "report", "notify"})
     if unknown:
         raise ConfigError(f"{CONFIG_REL}: unknown top-level key(s): {', '.join(unknown)}")
     bad_ids = refs.validate(raw.get("ids"))

@@ -10,8 +10,10 @@ decisions:
   - "D2 live"
   - "D3 live"
   - "D4 built"
-  - "D5 built"
-notes: "2026-11-05: status proposed → accepted"
+  - "D5 retired by ADR-0037 D2"
+notes: |-
+  2026-11-05: status proposed → accepted
+  2026-11-10: D5 superseded by ADR-0037 D2
 ---
 # ADR-0004 — The Claude agent team is the only hosting
 
@@ -39,7 +41,8 @@ There is no hosting key and no switch; a leftover binding line is ignored.
 
 ### D5. No email
 
-Nothing sends email; whatever needs the operator is raised in the lead's session.
+Nothing sends email; whatever needs the operator is raised in the lead's session. ADR-0037 D2
+supersedes this: on a SPEC §3.6 trigger `ccp` also runs the product's notify command.
 
 ## Consequences
 

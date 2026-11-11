@@ -73,8 +73,9 @@ tasks.
   dispatching workers from the lead would put dispatch in the design seat's context. Only their
   reports enter the runner's context.
 - Liveness is the team's: idle and failure notices reach the lead, and the `TeammateIdle` hook
-  keeps a runner working while in-scope work is ready (§18). There is no watchdog seat and no email.
-- The route to the operator is the lead's session.
+  keeps a runner working while in-scope work is ready (§18). There is no watchdog seat.
+- The route to the operator is the lead's session, and on the triggers of §3.6 the product's notify
+  channel as well.
 
 ### 2.3 Separation of duties
 
@@ -144,7 +145,8 @@ After launching a worker the runner may end its turn.
 ### 3.1 The operator
 
 - The operator is an escalation gate, not the message bus. Only the design seat brings a decision to
-  the operator, in its own session (§17).
+  the operator, in its own session (§17). The plane names when the operator must hear, and the
+  product names the channel (§3.6).
 - There is no operator approval for a merge to the integration branch: the runner merges after the
   verifier's approve (§15).
 - The operator's own records (PROJECT with the design seat, the ADRs they accept, approvals of SPEC
@@ -205,6 +207,38 @@ after the signing, and the operator signs it again); a head that is that commit 
 holds. `ccp tasks close` refuses one whose declared sign-off is missing, or whose `build` sign-off
 covers another head than the one it merges (stale: the operator signs the new head) (§10.5). How the
 operator is asked is not part of this rule.
+
+### 3.6 Notifying the operator
+
+The plane names when the operator must hear; the product names the channel.
+
+| Trigger | Fired by | Ids it carries |
+|---|---|---|
+| `blocker` | `ccp tasks wait <id> reauth` or `operator_step`: a wait only the operator clears | the task; the wait's reason |
+| `decision` | a decision the operator must take: `team.sh gate ask-operator` (§17.9), a spec question answered `needs_operator` (§17.6), or `ccp tasks wait <id> operator_decision` | the task; the gate or question id |
+| `review_point_done` | `ccp tasks close`, when the reconcile leaves the task's review point with no open task (every task that carries it done or dropped) | the task; the review point |
+| `allowance_checkpoint` | `ccp tasks claim` refused at a weekly checkpoint (exit 5, §25.3) | the task |
+
+Every other wait (quota, the lead's own gates and questions) is not a trigger.
+
+The channel is plane.json `notify` (§8.1): `command`, a shell command (default null), and
+`timeout_seconds` (default 30).
+
+- With no command the channel is the lead's session: the runner raises the trigger to the lead, who
+  brings it to the operator (§17.10), and no command runs.
+- With one, `ccp` runs it on each trigger, besides the lead's session, with an empty stdin, in the
+  checkout the call came from, as reconcile hooks run (for a gate or a spec question, the binding's
+  product root). Its environment carries the trigger and ids only: `CCP_NOTIFY_TRIGGER`,
+  `CCP_PROJECT_ID`, `CCP_TASK_ID`, `CCP_NOTIFY_ID` (the gate, question or review point),
+  `CCP_NOTIFY_REASON` (the wait's reason), and all of them as one line, `CCP_NOTIFY_LINE`. Never a
+  brief, a question's text or file content. The command is the product's (an email, a chat message,
+  another tool); the plane ships no client.
+- Sending is best effort: a command that fails or overruns its timeout is a `notify:` warning on the
+  step, which has happened all the same; the lead's session still carries the trigger.
+- Each trigger sends once per call: a repeated wait, `gate ask-operator` or refused claim sends
+  again. A close sends on the call that reconciles, or on the retry that records the task done
+  after a close that crashed in between; a re-run that finds both done sends nothing, nor does
+  `process` on an answer it already applied.
 
 ## 4. Product footprint
 
@@ -595,6 +629,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `suite`, `verify` | test runs and lanes (an argv or ordered `{name, cmd}` stages), verification and cache acceptance (`verify.accept_cache`), the fix rounds that need no new review (`verify.skip_review`) | §14, §15 |
 | `parallel` | several runners | §16 |
 | `report` | the verdicts every implementer report must state (`report.required_fields`) | §13.4 |
+| `notify` | the operator's channel on each trigger (`command`, `timeout_seconds`) | §3.6 |
 | `telemetry`, `board`, `estimate` | usage, allowance windows, the board, estimation | §24–§28 |
 
 An example, with neutral values:
@@ -680,7 +715,7 @@ runner:
   usage counts as non-product use (§24).
 - A `spec_maintainer` block is accepted, deprecated: the lead is every project's spec maintainer
   (§17). `seats.runner`, `seats.verifier`, `seats.watchdog` and `email` are
-  ignored, as is a leftover `hosting:` line. `cadence.verify_stale_minutes` is retired with the
+  ignored, as is a leftover `hosting:` line; the operator's channel is plane.json `notify` (§3.6). `cadence.verify_stale_minutes` is retired with the
   `verify_stale` blocker (§18.3).
 
 ### 8.4 Configuration knobs
@@ -732,7 +767,8 @@ the binding file's path, the queue, the plane checkout and the `ccp` path.
     Claude session unless its role says so); rulings and durable facts live in git, never only in a
     session's memory;
   - how questions flow: implementation questions go to the runner, spec questions to the design
-    seat, and only the design seat may bring a question to the operator; Claude never emails anyone;
+    seat, and only the design seat may bring a question to the operator; on the triggers of §3.6
+    the operator is also notified (the plane names the triggers, the product the channel);
   - where each role's instructions are: an implementer's task prompt and the standing definition of
     done (`docs/delivery/standing-dod.md`); the design seat's `spec-maintainer` skill; an interactive session with the operator has no
     delivery role unless given one;

@@ -93,7 +93,8 @@ The template ships no database service and expects no store tests unless a produ
 ### D13. Operator contact goes through the lead
 
 Credit misuse or low API credit is raised to the lead as a gate; nothing emails. A product's probes
-cover both the Claude login and forbidden ambient keys.
+cover both the Claude login and forbidden ambient keys. ADR-0037 D2 amends "nothing emails": the
+plane still sends nothing itself, and on a SPEC §3.6 trigger `ccp` runs the product's notify command.
 
 ### D14. The worker rules that began as trials are standing rules
 

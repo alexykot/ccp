@@ -357,7 +357,7 @@ def apply_triage(root: Path, rid: str, actor: str, t: dict[str, Any], kind: Kind
                         "detail": "Pull the integration branch and register each new durable task in the runtime queue "
                                   "(tasks/<id>.json, status pending) exactly as for any new durable task."})
     if t.get("question_for_operator"):
-        # §17.10: nothing emails; the lead asks the operator in its own session.
+        # §17.10: the lead asks the operator in its own session (not a §3.6 notify trigger).
         actions.append({"action": "lead_asks_operator", "question": t["question_for_operator"],
                         "detail": "The lead (the task-log owner) asks the operator in its own session and records "
                                   "their answer."})
