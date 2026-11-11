@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import time
 import unittest
 from pathlib import Path
 
 from ccp import config, lifecycle, wt
-from tests.test_toolkit import ToolkitFixture, git
+from tests.test_toolkit import PLANE, ToolkitFixture, git
 
 
 class WtFixture(ToolkitFixture):
@@ -351,6 +353,84 @@ if sys.argv[1:2] == ["die"]:
     os.kill(os.getpid(), signal.SIGTERM)
 sys.exit(2)
 """
+
+
+class SingleRunnerWorktree(WtFixture, unittest.TestCase):
+    """§12.1: the one runner's worktree (binding `runner.worktree`) is made by its spawn or by
+    `ccp tasks worktree` without a slot, detached at the integration tip; an existing one is left alone."""
+
+    def setUp(self):
+        super().setUp()
+        (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text()
+                                             + f"product_root: {self.main}\nrunner:\n  name: runner\n  worktree: .rt/solo\n")
+        (self.q / "work.json").write_text(json.dumps({"project_id": "demo", "status": "idle"}))
+        self.solo = self.main / ".rt" / "solo"
+
+    def spawn(self):
+        r = subprocess.run(["bash", str(PLANE / "scripts" / "team.sh"), "runner", "spawn", "--scope", "0002-second"],
+                           capture_output=True, text=True, env=dict(os.environ))
+        return r.returncode, (json.loads(r.stdout) if r.stdout.strip().startswith("{") else None), r.stderr
+
+    def detached(self, path: Path) -> bool:
+        return subprocess.run(["git", "-C", str(path), "symbolic-ref", "-q", "HEAD"], capture_output=True).returncode == 1
+
+    def advance_tip(self) -> str:
+        self.write("later.txt", "later\n")
+        git(self.main, "add", "later.txt")
+        git(self.main, "commit", "-q", "-m", "later")
+        git(self.main, "push", "-q", "origin", "main")
+        return self.head()
+
+    def test_the_spawn_makes_it_at_the_tip_and_a_respawn_leaves_it_alone(self):
+        self.assertFalse(self.solo.exists())
+        tip = self.head()
+        code, res, err = self.spawn()
+        self.assertEqual(code, 0, err)
+        self.assertEqual(res["runner_worktree"], {"path": str(self.solo), "made": True})
+        self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
+        self.assertTrue(self.detached(self.solo))
+        self.assertNotEqual(self.advance_tip(), tip)
+        code, res, err = self.spawn()
+        self.assertEqual(code, 0, err)
+        self.assertEqual(res["runner_worktree"], {"path": str(self.solo), "made": False})
+        self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
+
+    def test_a_spawn_that_cannot_make_it_warns_and_goes_on(self):
+        self.solo.mkdir(parents=True)
+        (self.solo / "x").write_text("x")
+        code, res, err = self.spawn()
+        self.assertEqual(code, 0, err)
+        self.assertEqual((res["runner_worktree"]["made"], res["actions"][-1]["action"]), (False, "spawn_teammate"))
+        self.assertIn("not a working tree", res["runner_worktree"]["error"])
+        self.assertIn("runner worktree", err)
+        self.assertTrue(any("ccp tasks worktree" in w for w in res["warnings"]))
+        self.assertEqual(sorted(p.name for p in self.solo.iterdir()), ["x"])  # the directory is left as it was
+        self.assertEqual(json.loads((self.q / "work.json").read_text())["status"], "running")
+
+    def test_tasks_worktree_without_a_slot_makes_the_one_runners(self):
+        code, body, out, err = self.ccp("tasks", "worktree", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((body["worktree"], body["made"], body["slot"]), (str(self.solo), True, None))
+        self.assertEqual(git(self.solo, "rev-parse", "HEAD"), self.head())
+        self.assertTrue(self.detached(self.solo))
+        tip = self.head()
+        self.advance_tip()
+        code, body, _, _ = self.ccp("tasks", "worktree", root=self.main)
+        self.assertEqual((code, body["made"]), (0, False))
+        self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
+
+    def test_tasks_worktree_without_a_slot_refuses_beside_slots_or_with_no_runner_worktree(self):
+        w = json.loads((self.q / "work.json").read_text())
+        (self.q / "work.json").write_text(json.dumps({**w, "runners": {"runner-1": {"bound_name": "runner-1"}}}))
+        code, _, _, err = self.ccp("tasks", "worktree", root=self.main)
+        self.assertEqual(code, 2)
+        self.assertIn("--runner", err)
+        (self.q / "work.json").write_text(json.dumps(w))
+        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\nintegration_branch: main\n")
+        code, _, _, err = self.ccp("tasks", "worktree", root=self.main)
+        self.assertEqual(code, 2)
+        self.assertIn("runner.worktree", err)
+        self.assertFalse(self.solo.exists())
 
 
 class ExecOwnCcp(WtFixture, unittest.TestCase):

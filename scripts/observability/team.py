@@ -3,7 +3,8 @@
 
 Called through scripts/team.sh. Runtime files only: QUEUE_ROOT/work.json, escalations/, prompts/,
 observability/events.jsonl (through the §23 writers). Never spawns agents, sends messages or
-touches product git: it prints what the calling seat (the team lead or the runner) must do.
+touches product git, except that the single runner's spawn makes its worktree when missing (§12.1):
+it prints what the calling seat (the team lead or the runner) must do.
 
   runner prompt|spawn|bind|scope|rotate|stop|status   the lead's bookkeeping for the runner teammate (§10.2)
   gate open|decide|ask-operator|status|list    gates the runner raises and the design seat decides (§17.9)
@@ -210,6 +211,25 @@ def product_log(root: Path, quiet: bool = False) -> tuple[Any, list[dict[str, An
             return None
         die(f"runner spawn: cannot read the product's task log ({e}); fix it first (SPEC §22)", 2)
     return None
+
+
+def single_runner_worktree(root: Path, rc: dict[str, str]) -> dict[str, Any] | None:
+    """SPEC §12.1: the one runner's worktree (the binding's `runner.worktree`), made at its spawn when
+    missing, detached at `origin/<integration_branch>`; an existing one is left alone. None when the
+    binding names no `runner.worktree` or no product root. One it cannot make (no `origin`, a directory
+    there that is no working tree) is a warning, `made: false` with `error`: the spawn goes on, and the
+    runner's `ccp tasks worktree` makes it once the cause is fixed."""
+    prod = sm.product_root(root)
+    if not rc.get("worktree") or not prod:
+        return None
+    sys.path.insert(0, str(HERE.parents[1]))
+    from ccp import wt  # noqa: PLC0415
+    from ccp.queue import QueueError, integration_branch  # noqa: PLC0415
+    try:
+        path, made = wt.runner_worktree(wt.main_of(Path(prod)), rc["worktree"], integration_branch(root))
+    except QueueError as e:
+        return {"path": rc["worktree"], "made": False, "error": str(e)}
+    return {"path": str(path), "made": made}
 
 
 def keep_body(root: Path) -> list[str]:
@@ -577,6 +597,7 @@ def cmd_runner(args: argparse.Namespace) -> int:
         if not scope:
             die("--scope required (task ids, comma-separated)", 2)
         scope, added, rp_refactors = refactor_scope(root, args, w, scope)
+        made = single_runner_worktree(root, rc)
         prompt = spawn_prompt(root, scope, rp, added)
         audit = subprocess.run(
             ["bash", str(HERE / "write-prompt-audit.sh"), "--task-id", RUNNER_AUDIT_TASK, "--phase", "runner-spawn",
@@ -610,6 +631,9 @@ def cmd_runner(args: argparse.Namespace) -> int:
             detail += (f" The scope starts with the refactors waiting from earlier cycles ({', '.join(added)}, "
                        "SPEC §20), and `ccp tasks next` takes them first; `team.sh runner scope --remove` "
                        "takes one out.")
+        if made and made.get("error"):
+            rp_warnings.append(f"the runner worktree {made['path']} is not made ({made['error']}); fix that, then "
+                               "the runner's `ccp tasks worktree` makes it (SPEC §12.1)")
         for rpw in rp_warnings:
             print(f"warning: {rpw}", file=sys.stderr)
         stop = [{"action": "shutdown_teammate", "name": old,
@@ -618,6 +642,7 @@ def cmd_runner(args: argparse.Namespace) -> int:
                            "lead session), go on. Spawn only once it is gone: one runner at a time."}] if old else []
         return out({"outcome": "spawn_recorded", "prompt_ref": prompt_ref, "scope": scope, "refactors_added": added,
                     **({"warnings": rp_warnings} if rp_warnings else {}),
+                    **({"runner_worktree": made} if made else {}),
                     **({"stopped": old} if old else {}),
                     "actions": stop + [{"action": "spawn_teammate", "name": rc["name"],
                                         "subagent_type": rc["agent_type"], "prompt": prompt, "detail": detail}]})

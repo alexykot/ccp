@@ -6,7 +6,9 @@ a machine check (`mac`), and a throwaway at the merge base of a head and the int
 (`base`), made by `ccp wt create --kind base … -- COMMAND` only to run that command and removed again.
 Each is named `<kind>-<nnnn>[-<n>]` under `worktrees.dir` in the main
 checkout, gets `worktrees.links` linked in, and is recorded in `QUEUE_ROOT/worktrees/<name>.json`,
-so close, drop, release and gc remove exactly what was made.
+so close, drop, release and gc remove exactly what was made. A runner's own merge worktree
+(`runner_worktree`, binding `runner.worktree`) is made here too, detached at the integration tip,
+by `ccp tasks worktree` and the single runner's spawn; it is not a task's, so it is not recorded.
 
 What a product needs beyond a git worktree (a database branch, a local stack) is a hook in plane.json
 `env`: `setup` and `teardown` run when a worktree is made and removed, `up` and `down` start and stop
@@ -389,6 +391,30 @@ def run_on_base(cfg: Config, q: Path, task_id: str, head: str, command: list[str
     return {"ok": code == 0, "name": st["name"], "task_id": task_id, "head": head, "merge_base": sha,
             "integration": f"origin/{integration_branch(q)}", "exit": code,
             "seconds": round(time.monotonic() - started, 1), "removed": not path.exists(), "warnings": warnings}
+
+
+# ---------------------------------------------------------------- a runner's own worktree
+
+def main_of(checkout: Path) -> Path:
+    """The main checkout of the repository `checkout` belongs to (itself when git cannot say)."""
+    r = git(checkout, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    return Path(r.stdout.strip()).parent if r.returncode == 0 and r.stdout.strip() else checkout
+
+
+def runner_worktree(main: Path, path: str, integ: str) -> tuple[Path, bool]:
+    """§12.1: a runner's own merge worktree at `path` (relative to the main checkout `main`), made
+    detached at `origin/<integ>` when it is missing and left alone when it exists. Returns (path, made).
+    Not recorded under `worktrees/`: it belongs to a runner, not to a task. A non-empty directory there
+    that is no working tree refuses (exit 2); a failed `git worktree add` exits 1."""
+    wt = Path(path) if Path(path).is_absolute() else main / path
+    if (wt / ".git").exists() and git(wt, "rev-parse", "--is-inside-work-tree").stdout.strip() == "true":
+        return wt, False
+    if wt.exists() and any(wt.iterdir()):
+        raise QueueError(f"{wt} exists and is not a working tree of the product: move it away first", 2)
+    git(main, "worktree", "prune")  # a worktree removed by hand still registered blocks the add
+    git(main, "fetch", "-q", "origin")
+    git(main, "worktree", "add", "-q", "--detach", str(wt), f"origin/{integ}", check=True)
+    return wt, True
 
 
 # ---------------------------------------------------------------- up / down / urls
