@@ -1,7 +1,7 @@
 ---
 task_id: 0069-removed-scope-paths-marking
 title: A task can name a path it removes without a scope warning
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5"]
@@ -61,4 +61,4 @@ updated: 2026-11-11
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #58 head `ed74fdf` (squash `39f7944`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0069-removed-scope-paths-marking.json.
