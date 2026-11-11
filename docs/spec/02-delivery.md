@@ -472,7 +472,9 @@ has a `Suite:` line but no suite run is recorded for its run.
   a stage name is a lane-like label, unique in the lane; `cmd` is a shell command (`/bin/sh -c`), exit
   0 = pass. `ccp` runs the stages in order from the checkout's root, times each, and stops at the
   first that exits non-zero or that a signal ends: no later stage runs, and the run exits with that
-  stage's code. Each stage gets its own `CCP_SUITE_RESULT`. The gate role's staged lane ends with a
+  stage's code. A signal N that arrives between stages stops the run before the next starts: it exits
+  128 + N and names that stage as `failed_stage` (§14.3), so it never passes with a stage unrun. Each
+  stage gets its own `CCP_SUITE_RESULT`. The gate role's staged lane ends with a
   stage `ccp` adds itself, `plane-docs`, which runs `ccp docs check` (§21.2), so no product stage calls
   `ccp`; no product stage may take that name, and no other lane gets it. An argv lane runs as one stage
   named after the lane, with no `plane-docs` stage; a command after `--` is no stage. With stages, a
@@ -520,7 +522,8 @@ has a `Suite:` line but no suite run is recorded for its run.
   counts are not used, a counter it leaves out is absent (null), and `failed` defaults to the number
   of `failures`. It is read without following a symlink, at most 1 MB, and removed once read. For a
   lane plane.json names, `ccp` adds `stages` (`[{name, seconds, exit_code}]`, each stage that ran, in
-  order) and `failed_stage` (the stage whose non-zero exit stopped the run, or null) to the run's
+  order) and `failed_stage` (the stage whose non-zero exit stopped the run, the first stage a signal
+  kept from starting (§14.2), or null) to the run's
   result (§14.2); with several stages, the counters of every stage's valid result are summed. Only
   counters are recorded; failure ids are shown in the summary and never recorded; `seconds` (the
   record keeps `ccp`'s wall time), `message` and `extra` are ignored. An invalid result gets its own

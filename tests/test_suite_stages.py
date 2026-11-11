@@ -4,11 +4,13 @@ staged lane ends with the plane's doc checks as their own stage."""
 from __future__ import annotations
 
 import json
+import os
 import signal
 import subprocess
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from ccp import config, suite
 from tests.test_suite import CCP, PY, SuiteFixture, ccp_proc
@@ -158,6 +160,51 @@ class StagesRunInOrder(StagedFixture, unittest.TestCase):
         row = self.ended()
         self.assertEqual((row["interrupted"], [s["name"] for s in row["stages"]], row["failed_stage"]),
                          ("SIGTERM", ["wait"], "wait"))
+
+
+    def test_a_signal_between_stages_never_passes(self):
+        later = self.runner / "later-ran"
+        self.lanes({"fast": [{"name": "first", "cmd": "sleep 0.2"}, {"name": "second", "cmd": f"touch {later}"}]})
+        real = suite._run_stage
+
+        def then_signal(sig):
+            def run_stage(*args, **kw):
+                out = real(*args, **kw)
+                os.kill(os.getpid(), sig)  # the first stage has ended; the second has not started
+                return out
+            return run_stage
+        cwd = os.getcwd()
+        self.addCleanup(os.chdir, cwd)
+        cfg = config.load(self.runner)
+        a = type("A", (), {"lane": "fast", "phase": None, "run": None, "task": None, "root": None,
+                           "output": "summary", "log": None, "wait": None})()
+        for sig, code in ((signal.SIGTERM, 143), (signal.SIGINT, 130)):
+            with self.subTest(sig=sig.name):
+                said: list[str] = []
+                with mock.patch.object(suite, "_run_stage", then_signal(sig)), \
+                        mock.patch.object(suite, "_say", said.append):
+                    self.assertEqual(suite.run(cfg, a, None), code)
+                self.assertFalse(later.exists())
+                row = self.ended()
+                self.assertEqual((row["exit_code"], row["interrupted"], row["failed_stage"]),
+                                 (code, sig.name, "second"))
+                self.assertEqual([(s["name"], s["exit_code"]) for s in row["stages"]], [("first", 0)])
+                self.assertIn("second", "".join(said).split("not run:")[1])
+
+    def test_a_signal_a_stage_survives_stops_the_run_before_the_next(self):
+        later = self.runner / "later-ran"
+        for sig, code in ((signal.SIGTERM, 143), (signal.SIGINT, 130)):
+            with self.subTest(sig=sig.name):
+                # The first stage ignores the signal it sends to ccp, so it ends passing; the second never starts.
+                self.lanes({"fast": [{"name": "first", "cmd": f"trap '' {sig.name[3:]}; kill -{sig.name[3:]} $PPID; "
+                                                              "sleep 0.2"},
+                                     {"name": "second", "cmd": f"touch {later}"}]})
+                r = self.run_suite("--lane", "fast")
+                self.assertEqual(r.returncode, code, r.stdout.decode() + r.stderr.decode())
+                self.assertFalse(later.exists())
+                row = self.ended()
+                self.assertEqual((row["interrupted"], row["failed_stage"]), (sig.name, "second"))
+                self.assertEqual([(s["name"], s["exit_code"]) for s in row["stages"]], [("first", 0)])
 
 
 class OldLaneForm(StagedFixture, unittest.TestCase):
