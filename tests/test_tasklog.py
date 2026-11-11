@@ -273,6 +273,20 @@ class TaskLogTest(unittest.TestCase):
         f.write_text(f.read_text().replace("status: pending", "status: dropped"))
         self.assertEqual(tasklog.warnings(self.p.cfg), [])
 
+    def test_a_scope_path_marked_removed_is_not_warned_about_whether_or_not_it_exists(self):
+        self.p.write("src/still_here.py", "x = 1\n")
+        f = self.p.task("0001-a")
+        f.write_text(f.read_text().replace(
+            "- **In:** it", "- **In:** `src/retired.py` (removed), `src/still_here.py` (removed), `src/lost.py`"))
+        self.p.index()
+        code, out = self._cli("check")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Scope names `src/lost.py`, which does not exist", out)
+        self.assertNotIn("`src/retired.py`", out)
+        self.assertNotIn("`src/still_here.py`", out)
+        f.write_text(f.read_text().replace("`src/retired.py` (removed)", "`src/retired.py`"))
+        self.assertIn("Scope names `src/retired.py`, `src/lost.py`, which does not exist", self._cli("check")[1])
+
 
 if __name__ == "__main__":
     unittest.main()
