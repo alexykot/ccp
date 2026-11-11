@@ -1,14 +1,14 @@
 ---
 task_id: 0052-single-runner-worktree
 title: ccp creates a single runner's worktree
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12", "S16"]
 review_point: R4
 paths: ["ccp/wt.py", "scripts/observability/team.py", "tests/test_wt.py", "tests/test_team*.py", "docs/spec/02-delivery.md"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0052-single-runner-worktree
@@ -67,4 +67,4 @@ A product starting its first single runner gets the runner's worktree from the p
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #62 head `353c86a` (squash `b91d96e`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0052-single-runner-worktree.json.

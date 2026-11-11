@@ -258,7 +258,7 @@ tasks:
     depends_on: []
     path: tasks/0051-close-keeps-the-main-checkout-head.md
   - id: 0052-single-runner-worktree
-    status: pending
+    status: done
     title: ccp creates a single runner's worktree
     depends_on: []
     path: tasks/0052-single-runner-worktree.md
