@@ -292,7 +292,8 @@ this host, even inside the TTL, or, for a lock from another host (whose pid cann
 worktree under plane.json `worktrees.dir` (relative to the main checkout), named
 `<kind>-<nnnn>[-<n>]`. Kinds: `impl` (the implementer's, on `task/<id>` from
 `origin/<integration>`; `ccp tasks claim` makes it), `rev` and `ver` (detached at the head they
-judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--sha`.
+judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--sha`, and `base`
+(below).
 `worktrees.links` are linked in from the main checkout and named in the repository's
 `info/exclude`. Each worktree is recorded in `QUEUE_ROOT/worktrees/<name>.json`
 (`contracts/worktree.schema.json`): kind, task, seat, tag, path, branch, sha, state and URLs.
@@ -313,6 +314,14 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
   `ccp` runs in) with ARGS verbatim, in the caller's directory and environment, and exits with its
   code; `--print` prints that path instead. It loads no plane.json, so a reviewer or verifier can run
   the change under review's own `ccp`, new subcommands included; `ccp` on PATH stays the released one.
+- `ccp wt create --kind base --task ID --sha HEAD -- COMMAND` runs COMMAND (argv, no shell) on the
+  task's merge base: it fetches, makes a `base-<nnnn>[-<n>]` worktree detached at the merge base of
+  HEAD and `origin/<integration>`, recorded (with `head`) and set up like any other, runs COMMAND
+  there with its output passed through, then removes the worktree whatever COMMAND did. It prints
+  `{name, head, merge_base, exit, removed}` and exits with COMMAND's code (127 when it is not found,
+  128 + N when signal N ended it). A command is refused (exit 2) on any other kind and required on
+  this one; a HEAD with no merge base, or a `--name` already in use, is refused (exit 3). A dry run
+  on the merge base (§15.1) uses it, never `git stash` or a hand-made worktree.
 
 **The lead and the runners.** The lead keeps the product's main checkout and pulls it when a merge is
 reported. Each runner merges and runs operator steps from its own **runner worktree**
@@ -636,6 +645,11 @@ head, with `ccp tasks check` and `ccp docs check` where the product has `docs/de
 each through `ccp suite run` (§14). The verifier records each command, its exit code, tests run and
 skipped, and seconds in its record's `gate` (`contracts/verification.schema.json`). A result the
 verifier did not run is not a pass, with the one exception of §15.3. The gate needs no CI.
+
+A `dod_check`'s dry run on the merge base (that the check fails without the task's code) is run with
+`ccp wt create --kind base --task <id> --sha <PR head> -- <command>` (§12.1): the command brings in
+what it needs from the head (`git checkout <PR head> -- <test path>`), and its exit code is the
+result.
 
 ### 15.2 Review
 

@@ -331,11 +331,21 @@ def cmd_wt(cfg: config.Config, a: argparse.Namespace) -> int:
     from ccp import wt  # noqa: PLC0415
     try:
         q = wt._queue_root()
+        command = list(getattr(a, "command", None) or [])
+        if command and not (a.action == "create" and a.kind == "base"):
+            raise QueueError("only `ccp wt create --kind base` runs a command after `--`", 2)
         if a.action == "create":
             if not a.task:
-                raise QueueError("usage: ccp wt create --kind KIND --task ID [--sha SHA] [--name N] [--seat S] [--tag T]", 2)
+                raise QueueError("usage: ccp wt create --kind KIND --task ID [--sha SHA] [--name N] [--seat S] [--tag T] "
+                                 "[-- COMMAND (base only)]", 2)
             from ccp.queue import task_meta  # noqa: PLC0415
             tid = str(task_meta(cfg, a.task)["task_id"])
+            if a.kind == "base":  # §12.1: made, the command run there, removed again; exit with its code
+                res = wt.run_on_base(cfg, q, tid, a.sha or "", command, a.name, a.seat, a.tag)
+                for w in res["warnings"]:
+                    print(f"warning: {w}", file=sys.stderr)
+                print(json.dumps(res, indent=2, ensure_ascii=False))
+                return int(res["exit"])
             body: object = wt.create(cfg, q, tid, a.kind or "impl", a.sha, a.name, a.seat, a.tag)
         elif a.action == "list":
             body = wt.listing(cfg, q, a.task)
@@ -1150,14 +1160,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("action", choices=("create", "remove", "list", "up", "down", "urls", "gc", "exec"))
     p.add_argument("name_arg", nargs="?", metavar="NAME", help="remove, up, down, urls: the worktree (e.g. ver-0042); "
                                                               "exec: the worktree whose ccp runs (default this checkout)")
-    p.add_argument("--kind", choices=("impl", "rev", "ver", "mut", "mac"), help="create: the worktree's kind")
+    p.add_argument("--kind", choices=("impl", "rev", "ver", "mut", "mac", "base"),
+                   help="create: the worktree's kind (base: run the command after `--` at the merge base of --sha "
+                        "and the integration branch, then remove it)")
     p.add_argument("--task", help="create: the task; list: only its worktrees")
-    p.add_argument("--sha", help="create: the head a rev/ver/mut/mac worktree is detached at")
+    p.add_argument("--sha", help="create: the head a rev/ver/mut/mac worktree is detached at; base: the head whose "
+                                 "merge base it checks out")
     p.add_argument("--name", help="create: the name (default <kind>-<nnnn>, then -2, -3, …)")
     p.add_argument("--seat", help="create: the seat it serves (default from the kind)")
     p.add_argument("--tag", help="create: a tag for the hooks (default main; mut, mac for those kinds)")
     p.add_argument("--print", dest="print_path", action="store_true", help="exec: print the path of its bin/ccp, run nothing")
-    p.set_defaults(fn=cmd_wt)
+    p.set_defaults(fn=cmd_wt, command=[])
     p = sub.add_parser("auth", help="auth probes (SPEC §30)").add_subparsers(dest="cmd", required=True)
     p.add_parser("check", help="run plane.json auth_check.probes; exit 1 when one fails").set_defaults(fn=cmd_auth)
     p = sub.add_parser("adr", help="ADRs (SPEC §6.4): new | status | decide | supersede | check | index | list | migrate")
@@ -1421,8 +1434,9 @@ def main(argv: list[str] | None = None) -> int:
     command, passthru = None, []
     if "--" in raw and _words(raw[:raw.index("--")])[:2] == ["suite", "run"]:
         command, raw = raw[raw.index("--") + 1:], raw[:raw.index("--")]  # §14.1: the command, verbatim
-    elif "--" in raw and _words(raw[:raw.index("--")])[:2] == ["wt", "exec"]:
-        passthru, raw = raw[raw.index("--") + 1:], raw[:raw.index("--")]  # §12.1: its ccp's arguments, verbatim
+    elif "--" in raw and _words(raw[:raw.index("--")])[:2] in (["wt", "exec"], ["wt", "create"]):
+        passthru, raw = raw[raw.index("--") + 1:], raw[:raw.index("--")]  # §12.1: its ccp's arguments, or the
+        # command a base worktree runs, verbatim
     if command:
         try:
             a = build_parser().parse_args(raw)
@@ -1442,6 +1456,8 @@ def main(argv: list[str] | None = None) -> int:
         return suite.main_run(a, command)
     if a.group == "wt" and a.action == "exec":  # it runs even where this ccp cannot load the checkout's plane.json
         return cmd_wt_exec(a, passthru)
+    if a.group == "wt":
+        a.command = passthru
     try:
         cfg = config.load(config.find_root(a.root))
     except config.ConfigError as e:

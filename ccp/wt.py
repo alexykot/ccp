@@ -2,7 +2,9 @@
 
 The plane owns every worktree a task needs: the implementer's (`impl`, on `task/<id>`), the
 reviewer's and verifier's (`rev`, `ver`, detached at the head they judge), a mutation copy (`mut`) and
-a machine check (`mac`). Each is named `<kind>-<nnnn>[-<n>]` under `worktrees.dir` in the main
+a machine check (`mac`), and a throwaway at the merge base of a head and the integration branch
+(`base`), made by `ccp wt create --kind base … -- COMMAND` only to run that command and removed again.
+Each is named `<kind>-<nnnn>[-<n>]` under `worktrees.dir` in the main
 checkout, gets `worktrees.links` linked in, and is recorded in `QUEUE_ROOT/worktrees/<name>.json`,
 so close, drop, release and gc remove exactly what was made.
 
@@ -24,6 +26,7 @@ import shlex
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -34,9 +37,9 @@ from ccp.queue import QueueError, git, integration_branch, iso, load_task_state,
 
 KINDS: dict[str, tuple[str, str]] = {  # kind -> (default seat, default tag)
     "impl": ("impl", "main"), "rev": ("rev", "main"), "ver": ("ver", "main"),
-    "mut": ("ver", "mut"), "mac": ("ver", "mac"),
+    "mut": ("ver", "mut"), "mac": ("ver", "mac"), "base": ("ver", "base"),
 }
-NAME_RE = re.compile(r"^(impl|rev|ver|mut|mac)-[0-9]+(?:-[0-9]+)?$")
+NAME_RE = re.compile(r"^(impl|rev|ver|mut|mac|base)-[0-9]+(?:-[0-9]+)?$")
 URL_RE = re.compile(r"^[a-z][a-z0-9+.-]*://\S+$")
 OUT_CAP = 20000
 
@@ -235,6 +238,8 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
     main = main_checkout(cfg)
     path = base / name
     st = load(q, name)
+    if kind == "base" and (st or path.exists()):  # it is removed after its command: never one it did not make
+        raise QueueError(f"worktree {name} exists: a base worktree is always made fresh; give another --name", 3)
     if st and Path(st["path"]).is_dir():
         _same_head(path, name, sha)
         return {**st, "created": False}
@@ -332,6 +337,58 @@ def remove_task(cfg: Config, q: Path, task_id: str) -> list[str]:
                 if r.returncode != 0:
                     warnings.append(f"worktree {wt}: {r.stderr.strip()}")
     return warnings
+
+
+# ---------------------------------------------------------------- a command on the merge base
+
+def merge_base(cfg: Config, q: Path, head: str) -> str:
+    """The merge base of `head` and `origin/<integration>`, after a fetch. Exit 3 when there is none."""
+    main = main_checkout(cfg)
+    git(main, "fetch", "-q", "origin")
+    ref = f"origin/{integration_branch(q)}"
+    r = git(main, "merge-base", f"{head}^{{commit}}", ref)
+    if r.returncode != 0 or not r.stdout.strip():
+        raise QueueError(f"no merge base of {head[:12]} and {ref}: the head is not fetched, "
+                         "or it shares no history with the integration branch", 3)
+    return r.stdout.strip()
+
+
+def run_on_base(cfg: Config, q: Path, task_id: str, head: str, command: list[str], name: str | None = None,
+                seat: str | None = None, tag: str | None = None) -> dict[str, Any]:
+    """A `base` worktree (§12.1): made detached at the merge base of `head` and the integration branch,
+    `command` run there (argv, no shell) with its output passed through as it comes, then removed
+    again whatever the command did. Returns the result; its `exit` is the command's exit code (127
+    when it cannot be found, 126 when it cannot run, 128 + N when signal N ended it)."""
+    if not command:
+        raise QueueError("a base worktree runs a command: give it after `--`", 2)
+    if not head:
+        raise QueueError("--sha is required for a base worktree: the head whose merge base it checks out", 2)
+    sha = merge_base(cfg, q, head)
+    st = {k: v for k, v in create(cfg, q, task_id, "base", sha, name, seat, tag).items() if k != "created"}
+    st["head"] = head
+    save(q, st)
+    path = Path(st["path"])
+    started = time.monotonic()
+    warnings: list[str] = []
+    try:
+        try:
+            p = subprocess.Popen(command, cwd=str(path), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                 stdin=subprocess.DEVNULL, text=True, errors="replace")
+        except OSError as e:
+            print(f"ccp wt create: {command[0]}: {e}", file=sys.stderr)
+            code = 127 if isinstance(e, FileNotFoundError) else 126
+        else:
+            assert p.stdout is not None
+            for line in p.stdout:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+            p.wait()
+            code = p.returncode if p.returncode >= 0 else 128 - p.returncode
+    finally:
+        warnings += remove(cfg, q, st["name"])
+    return {"ok": code == 0, "name": st["name"], "task_id": task_id, "head": head, "merge_base": sha,
+            "integration": f"origin/{integration_branch(q)}", "exit": code,
+            "seconds": round(time.monotonic() - started, 1), "removed": not path.exists(), "warnings": warnings}
 
 
 # ---------------------------------------------------------------- up / down / urls
@@ -467,5 +524,5 @@ def auth_check(cfg: Config, q: Path | None) -> dict[str, Any]:
     return body
 
 
-__all__ = ["KINDS", "WT_FIELDS", "auth_check", "create", "down", "exec_ccp", "gc", "listing", "own_ccp", "remove",
-           "remove_task", "up", "urls"]
+__all__ = ["KINDS", "WT_FIELDS", "auth_check", "create", "down", "exec_ccp", "gc", "listing", "merge_base", "own_ccp",
+           "remove", "remove_task", "run_on_base", "up", "urls"]

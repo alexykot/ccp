@@ -47,6 +47,19 @@ Every task's dod_checks carry a "dry run: on the merge base" line. A verifier ca
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): a new kind, `ccp wt create --kind base --task ID --sha <PR head> -- COMMAND`
+  (`ccp/wt.py` `run_on_base`, `merge_base`; the CLI passes everything after `--` through, as for
+  `wt exec`). It fetches, makes `base-<nnnn>[-<n>]` detached at `git merge-base <head>
+  origin/<integration>`, recorded (with `head`) and set up like any worktree, runs COMMAND (argv, no
+  shell) with its output passed through, removes the worktree in a `finally`, prints `{name, head,
+  merge_base, integration, exit, seconds, removed, warnings}` and exits with COMMAND's code (127 not
+  found, 126 cannot run, 128 + N on signal N). Refusals: a command on any other kind, or none on
+  `base` (2); no `--sha` (2); a head with no merge base (3); a `--name` already in use (3: a base
+  worktree is never adopted, since it is removed afterwards). The command brings the head's test in
+  itself (`git checkout <head> -- <path>`); no flag copies paths from the head. The worktree contract
+  and the plane.json schema's kind list name `base`. SPEC §12.1 and §15.1, `docs/cli/02-delivery.md`
+  and the verifier brief describe it. Tests: `tests/test_merge_base.py`.
+
 ## Verification notes
 
 *Append-only.*
