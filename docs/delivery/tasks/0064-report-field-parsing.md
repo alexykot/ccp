@@ -61,6 +61,9 @@ updated: 2026-11-11
   after the value stays allowed (the existing tests pin it), so "exactly one value" is read as "one
   value, not the template's alternatives"; a `|` later in the reason is not refused. SPEC §13.4 is
   unchanged: the task gives no SPEC text for the "once" rule.
+- 2026-11-11 (implementer): per the lead's ruling relayed by the runner, SPEC §13.4 now says "A field
+  is stated once; a field on two lines, or a value that is the pasted template `a|b`, is refused.",
+  placed after the sentence on a missing or other value (§31.1, a description of this task's feature).
 
 ## Verification notes
 
