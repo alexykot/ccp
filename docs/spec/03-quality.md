@@ -402,11 +402,14 @@ where the check is mechanical it is a `docs` check. No starter rule is mandatory
   adopts every rule). `ccp init --starter-rules` writes the set to `docs/ENGINEERING.md` and, in a
   `plane.json` it writes, `docs.starter_rules` and the `package_docs` settings its `docs` checks name
   (§4.5). With the set adopted, `ccp docs check` fails while an adopted rule's `docs` check is not
-  set, naming the rule and the key.
+  set, naming the rule and the key. It does not set `architect.rules_doc`: until the product sets it
+  to the rules doc, no architect judges the `pass` rules.
 - **Decline.** The product names the rule with its reason in `docs.starter_rules.declined`
   (`{"<name>": "<reason>"}`) and deletes it from its rules doc. `ccp docs check` does not run what a
   declined rule's check names, set or not, unless an adopted rule names it too, and prints each
-  decline with its reason. A name outside the set is refused when the config loads.
+  decline with its reason. Declining `package-maps` turns off the package-doc checks of §21.3 and
+  §21.4, `no_delivery_ids` and the path check included; the `package_docs.rules` checks (§21.6)
+  still run. A name outside the set is refused when the config loads.
 - **Override.** The product tunes its check's settings in `plane.json` (globs, targets, patterns) or
   rewords the rule in its own rules doc; to replace the check, it declines the rule and writes its
   own in its place.
