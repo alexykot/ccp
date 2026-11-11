@@ -1,6 +1,7 @@
 """`ccp` — every command the plane runs inside a product checkout (SPEC §10, §19).
 
   ccp tasks list [--status S] | next [--scope IDS] [--allow-overdue REASON] [--explain] | check | index [--stdout]
+  ccp tasks check --lease [--staged]  (a leased task's file edited on the integration branch, SPEC §10.5)
   ccp tasks orphans --since REF [--json]  (the lead: integration-branch commits no task covers, SPEC §10.7)
   ccp docs check
   ccp budgets check --base REF  (house-rule budgets on the files this change grew, SPEC §20.2)
@@ -209,7 +210,30 @@ def _explain(cfg: config.Config, sel: dict) -> None:
         print(f"   -  held {tid}  (not ready now){': ' + h['reason'] if h.get('reason') else ''}", file=sys.stderr)
 
 
-def cmd_tasks_check(cfg: config.Config, _a: argparse.Namespace) -> int:
+def cmd_tasks_lease_check(cfg: config.Config, a: argparse.Namespace) -> int:
+    """`ccp tasks check --lease [--staged]` (§10.5): a claimed task's file is edited only in its PR. Exit 1
+    naming each edit on the integration branch to a task file with a live lease, 2 without QUEUE_ROOT."""
+    from ccp import lifecycle, queue  # noqa: PLC0415
+    try:
+        q = queue.root()
+    except QueueError as e:
+        print(f"ccp tasks check --lease: {e}", file=sys.stderr)
+        return 2
+    integ = queue.integration_branch(q)
+    errs = [f"{e['task_id']}: leased by {e['holder']}, and its task file {e['file']} "
+            + (f"is changed in the commit staged on {integ}" if e["sha"] is None
+               else f"changed on {integ} in {e['sha'][:7]} {e['subject']!r}")
+            + ". A claimed task's file changes only in its PR: send the amendment to the runner (SPEC §10.5)"
+            for e in lifecycle.lease_edits(cfg, q, staged=a.staged)]
+    return _print_errs("tasks --lease", errs, " (no leased task's file edited on " + integ + ")")
+
+
+def cmd_tasks_check(cfg: config.Config, a: argparse.Namespace) -> int:
+    if getattr(a, "staged", False) and not getattr(a, "lease", False):
+        print("ccp tasks check: --staged goes with --lease", file=sys.stderr)
+        return 2
+    if getattr(a, "lease", False):
+        return cmd_tasks_lease_check(cfg, a)
     errs = tasklog.check(cfg)
     code = _print_errs("tasks", errs, f" ({len(tasklog.load(cfg))} tasks)")
     from ccp import reviewpoints  # noqa: PLC0415
@@ -810,7 +834,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--explain", action="store_true",
                    help="also list the full ranked queue on stderr, held tasks marked (SPEC §10.4)")
     p.set_defaults(fn=cmd_tasks_next)
-    t.add_parser("check", help="validate the log and the index").set_defaults(fn=cmd_tasks_check)
+    p = t.add_parser("check", help="validate the log and the index")
+    p.add_argument("--lease", action="store_true",
+                   help="only this: fail on an edit on the integration branch to the file of a task with a live "
+                        "lease, since its claim (needs QUEUE_ROOT, SPEC §10.5)")
+    p.add_argument("--staged", action="store_true",
+                   help="with --lease: judge the staged change instead, when HEAD is on the integration branch "
+                        "(the commit hook)")
+    p.set_defaults(fn=cmd_tasks_check)
     p = t.add_parser("index", help="regenerate INDEX.yaml")
     p.add_argument("--stdout", action="store_true", help="print instead of writing")
     p.set_defaults(fn=cmd_tasks_index)

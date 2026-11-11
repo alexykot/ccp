@@ -964,6 +964,79 @@ def task_log_paths(cfg: Config) -> list[str]:
     return out
 
 
+def _says_dropped(cfg: Config, rev: str, rel: str) -> bool:
+    """The task file at `rev` (a commit, or "" for the index) says `status: dropped`: the lead's drop (§10.4)."""
+    r = git(cfg.root, "show", f"{rev}:./{rel}")
+    return r.returncode == 0 and tasklog.frontmatter(r.stdout).get("status") == "dropped"
+
+
+def _own_commit(cfg: Config, nnnn: str, subject: str, parents: str, body: str) -> bool:
+    """The task's own squash merge (`Task NNNN: … (#N)`, or a merge commit of `task/NNNN-…`) or its
+    reconcile, as `ccp tasks close` writes them while the lease is still held (§10.5)."""
+    from ccp import health  # noqa: PLC0415
+    w = refs.ids(cfg).task_width
+    if (m := reconcile_re(cfg).match(subject)) and m.group(1) == nnnn:
+        return True
+    merge = len(parents.split()) > 1 or bool(health.PR_SUFFIX_RE.search(subject))
+    m = health._written_task_re(w).match(subject) or health._branch_task_re(w).search(subject + "\n" + body)
+    return merge and bool(m) and m.group(1) == nnnn
+
+
+def lease_edits(cfg: Config, q: Path, staged: bool = False) -> list[dict[str, Any]]:
+    """§10.5 `ccp tasks check --lease`: the edits on the integration branch to the task file of a task with
+    a live lease (`lease_holder` set, the queue status neither done nor dropped). A claimed task's file
+    changes only in its PR.
+
+    Without `staged`: the commits on the first-parent history of the integration branch (the local branch
+    and `origin/<branch>`, each that exists; nothing is fetched) whose committer time is after the lease was
+    taken (`lease_since`, else `claimed_at`; a lease with neither is not judged). With `staged`: the index
+    against HEAD, when the checkout is on the integration branch (the commit hook's case). Not an edit: the
+    task's own squash merge and reconcile, and a change after which the file says `status: dropped` (the
+    lead's drop, §10.4)."""
+    from ccp import health  # noqa: PLC0415
+    integ = integration_branch(q)
+    leased = []
+    for t in tasklog.load(cfg):
+        tid = str(t.get("task_id") or "")
+        st = load_task_state(q, tid) if tid else {}
+        if st.get("lease_holder") and st.get("status") not in ("done", "dropped"):
+            leased.append((t, st))
+    if not leased:
+        return []
+    out: list[dict[str, Any]] = []
+    if staged:
+        head = git(cfg.root, "symbolic-ref", "-q", "--short", "HEAD").stdout.strip()
+        if head != integ:
+            return []
+        changed = set(git(cfg.root, "diff", "--cached", "--name-only", "--relative").stdout.splitlines())
+        for t, st in leased:
+            rel = cfg.rel(t["_file"])
+            if rel in changed and not _says_dropped(cfg, "", rel):
+                out.append({"task_id": str(t["task_id"]), "holder": st["lease_holder"], "file": rel,
+                            "sha": None, "subject": None})
+        return out
+    tips = [r for r in (integ, f"origin/{integ}")
+            if git(cfg.root, "rev-parse", "--verify", "-q", f"{r}^{{commit}}").returncode == 0]
+    if not tips:
+        return []
+    for t, st in leased:
+        since = health._epoch(str(st.get("lease_since") or st.get("claimed_at") or ""))
+        if since is None:
+            continue
+        tid, rel = str(t["task_id"]), cfg.rel(t["_file"])
+        nnnn = refs.ids(cfg).task_number(tid)
+        log = git(cfg.root, "log", "--first-parent", "--format=%x01%H%x1f%ct%x1f%P%x1f%s%x1f%b", *tips, "--", rel)
+        for rec in log.stdout.split("\x01")[1:]:
+            sha, ct, parents, subject, body = (rec.split("\x1f") + [""] * 5)[:5]
+            if not ct.strip().isdigit() or int(ct) <= since or _own_commit(cfg, nnnn, subject.strip(), parents, body):
+                continue
+            if _says_dropped(cfg, sha, rel):
+                continue
+            out.append({"task_id": tid, "holder": st["lease_holder"], "file": rel, "sha": sha,
+                        "subject": subject.strip()})
+    return out
+
+
 class Unjudged(Exception):
     """behind_tip could not judge: `what` is "tip" (origin/<integ> could not be fetched) or "head" (the head
     could not be found, locally or fetched)."""
