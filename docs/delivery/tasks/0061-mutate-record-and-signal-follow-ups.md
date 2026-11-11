@@ -60,6 +60,20 @@ A `ccp mutate` run record never carries code text, old or new; a signal between 
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): A SIGTERM no longer raises inside the call. `ccp mutate` installs a
+  handler for the whole call that notes the signal and kills the running test's process group, so
+  a restore or a record write is never cut short. The call checks between steps (before and after
+  the baseline, before each mutant, after its restore, before and after the event) and exits 143.
+  A mutant whose test the signal interrupted is not recorded; one already recorded stays, and no
+  `run`/`recorded` event is written. Only SIGTERM is handled (exit 143, as §20.6 says); SIGINT
+  and SIGHUP keep their default behaviour. The snapshot also notes the outermost directories a
+  patch's new file needs. Restore removes each of them, with whatever the test left inside, since
+  nothing in it existed before the mutant. A directory that stays counts as not restored (exit 1).
+  The record test now uses distinctive old and new strings for a text mutant and a patch mutant,
+  and searches the run record and the ledger for all of them. The signal tests run `ccp mutate`
+  as its own process, so a SIGTERM during the baseline cannot reach the test runner, and check the
+  exit code, the command's process group and the whole tree, directories included.
+
 ## Verification notes
 
 *Append-only.*

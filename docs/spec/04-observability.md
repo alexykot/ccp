@@ -45,6 +45,7 @@ runner, `task-verifier` for the verifier subagent), `operator` and `system`.
 | `note` | `set` | `message` (free text; the structured types are preferred) |
 | `question`, `spec_maintainer` | §17 | spec questions and their answers |
 | `run` | `opened`, `bound`, `stopped`, `reported` | `run_id`, `phase`, `round`, `agent_type`, `expected_model`, `expected_effort`, `agent_id?`, `outcome?` |
+| `run` | `recorded` | `run_id`, `mutants`, `killed`, `survived` (one `ccp mutate` call, §20.6) |
 | `review` | `recorded` | `run_id`, `verdict`, `severity` |
 | `verify` | `recorded` | `run_id`, `verdict`, `head_sha` |
 | `allowance` | `sample` | the sample's gating figures (§25.1) |
