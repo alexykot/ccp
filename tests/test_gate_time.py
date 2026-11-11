@@ -247,6 +247,49 @@ class HealthJudgesTheGate(unittest.TestCase):
         self.assertIn("st-b", line)
         self.assertNotIn("st-a", line)
 
+    def stopped(self, at):
+        p = self.q / "runs" / "0002-second" / "verify.json"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps({"run_id": RUN, "task_id": "0002-second", "phase": "verify", "stopped_at": at}))
+
+    def test_a_run_that_stopped_before_the_limit_is_not_reported_killed(self):
+        self.suites(started("st-a", at="2026-11-01T10:00:00Z"))
+        self.stopped("2026-11-01T10:09:59Z")
+        self.assertEqual(self.killed(), [])
+        self.assertEqual(self.killed_lines(), [])
+
+    def test_a_run_that_stopped_once_it_reached_the_limit_is_reported_killed(self):
+        self.suites(started("st-a", at="2026-11-01T10:00:00Z"))
+        self.stopped("2026-11-01T10:10:00Z")
+        self.assertEqual([k["suite_id"] for k in self.killed()], ["st-a"])
+
+    def clears_older_kills(self, code):
+        self.suites(started("st-a", at="2026-11-01T10:00:00Z"),
+                    started("st-b", at="2026-11-02T10:00:00Z"), ended("st-b", 300.0, code=code, cached=0))
+        self.assertEqual(self.killed(), [])
+        self.assertEqual(self.killed_lines(), [])
+        self.suites(started("st-c", at="2026-11-03T10:00:00Z"))
+        self.assertEqual([k["suite_id"] for k in self.killed()], ["st-c"])
+
+    def test_a_gate_run_that_passed_since_clears_older_kills(self):
+        self.clears_older_kills(0)
+
+    def test_a_gate_run_that_failed_since_clears_older_kills(self):
+        self.clears_older_kills(1)
+
+    def test_an_interrupted_gate_run_or_another_lanes_run_does_not_clear_kills(self):
+        interrupted = ended("st-b", 30.0, code=130) | {"interrupted": True}
+        self.suites(started("st-a", at="2026-11-01T10:00:00Z"),
+                    started("st-b", at="2026-11-02T10:00:00Z"), interrupted,
+                    started("st-c", lane="full", at="2026-11-02T11:00:00Z"), ended("st-c", 300.0, cached=0))
+        self.assertEqual([k["suite_id"] for k in self.killed()], ["st-a"])
+
+    def test_now_reaches_the_fold(self):
+        now = time.time()
+        with mock.patch.object(suite, "fold", wraps=suite.fold) as fold:
+            health.gate_time(self.p.cfg, self.q, now=now)
+        fold.assert_called_once_with(self.q, now=now)
+
     def test_the_architects_summary_carries_the_killed_run(self):
         self.suites(started("st-a", at=self.ago(700)))
         self.assertIn("st-a", health.summary_text(health.collect(self.p.cfg, self.q)))

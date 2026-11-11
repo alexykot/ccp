@@ -22,6 +22,12 @@ When `ccp health` finds the gate's latest cold run over `gate.cut_line_seconds`,
 - §14.6 says the gate 'gets a refactor task', but nothing files one: the finding only shows in the health and architect summaries.
 - A run killed by the harness at the limit records nothing, so the worst case is the one never reported.
 - §31: this task changes § text, so its merge waits on the operator's approval of the PROPOSED text.
+- Lead ruling, fix round 1 (2026-11-11): (1) a run is labelled "killed at the shell limit" only when
+  its elapsed time reached the limit; one that stopped early for another reason is reported as
+  stopped, or not at all; both cases are pinned by tests and stated in §14.6's Killed-at-the-limit
+  bullet. (2) The killed list is not permanent: it shows only kills newer than the last completed
+  gate run, or within the window the existing line already uses, and the bullet says which.
+  (3) `gate_time` passes `now` through to `fold`.
 
 ## Scope
 
@@ -61,6 +67,12 @@ When `ccp health` finds the gate's latest cold run over `gate.cut_line_seconds`,
 - §14.6 gained a "Killed at the limit" bullet describing this (the task gave no PROPOSED text for it).
   §27.2's gate-time pointer and the `cut_line_seconds` schema description were brought in line. Both
   are outside the task's `paths`. `ccp/suite.py` and `tests/test_health_suite.py` needed no change.
+- 2026-11-11 (fix round 1, lead ruling above): a no-end gate run is listed in `killed` only when its
+  elapsed time reached the limit (`>=`): to its run's stop, report or abandonment when fold knows it
+  (fold's estimated `seconds`), else to now. A run that stopped earlier is not listed (not reported
+  as stopped). The list holds only runs started after the latest run of the gate lane that passed or
+  failed; an interrupted run or another lane's run does not clear it. `gate_time` passes `now` to
+  `fold` through `_folded`. The §14.6 bullet and the health text line say both.
 
 ## Verification notes
 

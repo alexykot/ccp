@@ -634,9 +634,12 @@ Claude Code). A cold gate run must fit that limit with room to spare.
   as a health breach (`over_limit`). Under the line it reports nothing. `ccp health --json` carries
   it as `gate_time` (`finding` null when there is none), and the architect's health summary carries
   the same line.
-- **Killed at the limit.** A run of the gate role's lane with no `ended` row that started longer
-  than `shell_limit_seconds` ago is reported as killed at the shell limit (its suite id, task and
-  start), in `gate_time.killed` and in the health and architect summaries.
+- **Killed at the limit.** A run of the gate role's lane with no `ended` row whose elapsed time
+  reached `shell_limit_seconds` is reported as killed at the shell limit (its suite id, task and
+  start), in `gate_time.killed` and in the health and architect summaries. Its elapsed time runs to
+  its run's stop, report or abandonment when known (as §14.4's totals reckon it), else to now. A run
+  with no `ended` row that stopped before the limit is not reported. Only runs started after the
+  latest run of that lane that passed or failed are listed, so such a run clears the earlier ones.
 
 ## 15. Review, verification and merge
 
