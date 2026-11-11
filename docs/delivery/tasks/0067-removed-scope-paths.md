@@ -47,6 +47,16 @@ updated: 2026-11-11
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): the missing-path warning lives in `parallel.missing_paths` and
+  `parallel.scope_warnings` (`ccp/parallel.py`, outside the declared paths). It reads only the Scope
+  **In:** item's backticked tokens of a task not yet done, never `paths:`. The `new` marking was the
+  word `new` within 25 characters after the token, and no SPEC section described it. The build adds
+  `removed` to the same marking (`MARK_RE`), so a marked path is accepted whether or not it exists.
+  The warning now says "not marked new or removed". §5.5's Scope row and the writing-tasks skill
+  describe both markings. Premise conflict: on the merge base, a done task is not checked and
+  `paths:` is never checked, so check-01's dry run (the path is warned about) does not hold.
+  Flagged to the runner.
+
 ## Verification notes
 
 *Append-only.*

@@ -44,7 +44,7 @@ Never write runtime state here (`waiting_on`, leases, session ids, ports): `ccp 
 | --- | --- | --- |
 | `## Intent` | One paragraph: what is true for the product's user when this is done. An outcome, not a diff | context |
 | `## Context (not checked)` | Background, constraints, policy, why: anything that shapes the build but is not a pass/fail walkthrough | **no** |
-| `## Scope` | `- **In:** …` and `- **Out:** …` | context |
+| `## Scope` | `- **In:** …` and `- **Out:** …`. In **In:**, mark a path the task creates `(new)` and one it deletes `(removed)`, right after the path; `ccp tasks check` warns about any other path there that does not exist | context |
 | `## dod_checks` | Walkthroughs someone else can run: setup → steps → expect | **yes, only these**, plus the standing DoD |
 | `## Implementation notes` | Append-only; the runner, from the implementer's report | — |
 | `## Verification notes` | Append-only; the verifier, one `- ` line per check; `ccp tasks close` writes the merge record | — |
