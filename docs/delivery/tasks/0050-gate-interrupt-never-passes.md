@@ -56,6 +56,18 @@ A gate run that a signal stops between two stages exits non-zero (128 + the sign
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): `ccp/suite.py` `run()`: when the stage loop finds a signal before a stage
+  starts, it remembers that stage; after the loop the run exits 128 + the first signal's number and
+  `failed_stage` names that stage (reused, no new field; `stages` still lists only the stages that
+  ran). A signal that ends a stage keeps today's handling (that stage's code and name). A signal a
+  stage survives (it exits 0) stops the loop the same way, so it too exits 128 + N naming the next
+  stage. A signal after the last stage, with every stage run, is unchanged (recorded `interrupted`,
+  exit code the last stage's). SPEC §14.2 gets one sentence and §14.3's `failed_stage` parenthesis
+  names the new case; `contracts/suite_result.schema.json`'s `failed_stage` description matches it
+  (outside the task's paths, one string). Tests in `tests/test_suite_stages.py`: one runs the stage loop in
+  process and sends SIGTERM and SIGINT to itself right after the first stage returns; one runs
+  `ccp suite run` with a first stage that ignores the signal it sends to `ccp`.
+
 ## Verification notes
 
 *Append-only.*

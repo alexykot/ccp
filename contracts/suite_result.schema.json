@@ -27,7 +27,7 @@
         "properties": {"name": {"type": "string"}, "seconds": {"type": "number", "minimum": 0}, "exit_code": {"type": "integer"}}
       }
     },
-    "failed_stage": {"type": ["string", "null"], "description": "SPEC \u00a714.2: set by ccp: the stage whose non-zero exit stopped the run, or null."},
+    "failed_stage": {"type": ["string", "null"], "description": "SPEC \u00a714.2: set by ccp: the stage whose non-zero exit stopped the run, the first stage a signal kept from starting, or null."},
     "cold": {"type": ["boolean", "null"], "description": "SPEC \u00a714.6: set by ccp, not the command: true when the run counted nothing cached (cached 0), false when any unit was cached, null when it gave no cached count. A command's own value is ignored."}
   }
 }
