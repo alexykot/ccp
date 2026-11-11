@@ -221,20 +221,44 @@ The plane names when the operator must hear; the product names the channel.
 
 Every other wait (quota, the lead's own gates and questions) is not a trigger.
 
-The channel is plane.json `notify` (§8.1): `command`, a shell command (default null), and
-`timeout_seconds` (default 30).
+The plane owns the trigger, the content and the record; the lead dispatches; the channel is
+configuration.
 
-- With no command the channel is the lead's session: the runner raises the trigger to the lead, who
-  brings it to the operator (§17.10), and no command runs.
-- With one, `ccp` runs it on each trigger, besides the lead's session, with an empty stdin, in the
-  checkout the call came from (for a gate or a spec question, the binding's
-  product root). Its environment carries the trigger and ids only: `CCP_NOTIFY_TRIGGER`,
-  `CCP_PROJECT_ID`, `CCP_TASK_ID`, `CCP_NOTIFY_ID` (the gate, question or review point),
-  `CCP_NOTIFY_REASON` (the wait's reason), and all of them as one line, `CCP_NOTIFY_LINE`. Never a
-  brief, a question's text or file content. The command is the product's (an email, a chat message,
-  another tool); the plane ships no client.
+- **Firing.** When a trigger fires, `ccp` writes a `notify` `pending` event to the ledger (§23.2;
+  payload `trigger`, `project`, `task`, `id`, `reason`) and prints the rendered notice on stderr with
+  the channel to use. The runner's message to the lead names the trigger.
+- **Content.** `ccp notify render <trigger> [--task ID] [--id ID] [--reason R] [--json]`, the
+  trigger one of the four above or `other`, prints a subject, `[<project_id>] <trigger>: <task or
+  id>`, and a body of one line each for project, trigger, task, id and reason, those given, and
+  nothing else: never a brief, a question's text or file content. `--json` gives the subject, the
+  body and those fields.
+- **Record.** `ccp notify sent <trigger> [--task ID] [--id ID] --via command|lead [--note TEXT]`
+  writes a `notify` `sent` event (`trigger`, `project`, `task`, `id`, `via`, `by`: the seat it was
+  run as, `ok`, `note`). A notice the lead sends on its own judgment is trigger `other` with a
+  one-line `--note` (ids and a short reason, no content); `other` without one is refused (exit 2).
+  `ccp notify pending` lists every notice fired with no later `sent` event for the same trigger,
+  task and id with `ok` true, once however often it fired, so a trigger that fired while the lead
+  was idle is still found.
+- **Channels** (plane.json `notify`, §8.1):
+  - `command`, a shell command (default null), and `timeout_seconds` (default 30): the unattended
+    channel `ccp` runs on each trigger, with an empty stdin, in the checkout the call came from (for
+    a gate or a spec question, the binding's product root). Its environment carries the trigger and
+    ids only: `CCP_NOTIFY_TRIGGER`, `CCP_PROJECT_ID`, `CCP_TASK_ID`, `CCP_NOTIFY_ID` (the gate,
+    question or review point), `CCP_NOTIFY_REASON` (the wait's reason), and all of them as one line,
+    `CCP_NOTIFY_LINE`. Never a brief, a question's text or file content. The command is the
+    product's (an email, a chat message, another tool); the plane ships no client. `ccp` records its
+    send itself (`via: command`, `ok: false` when it failed or timed out).
+  - `lead`, `{"tool": …, "to": …}` (default null), both non-empty strings: the lead sends each notice
+    with that tool from its own session (a tool that exists only there, such as an MCP mail or chat
+    server). Any other key, or a missing one, is refused.
+  - With neither, the lead's session is the route: the lead brings the notice to the operator there
+    (§17.10).
+- **Seats.** Of the seats, only the lead sends (the command is `ccp`'s). With a `lead` channel it renders each pending notice, sends it with
+  the tool and records it (`--via lead`); it may also send on its own judgment (trigger `other`). The
+  runner and the workers never send; `by` records the seat a `sent` was run as (`$ACTOR` when it
+  names a ledger actor, else `design-seat`).
 - Sending is best effort: a command that fails or overruns its timeout is a `notify:` warning on the
-  step, which has happened all the same; the lead's session still carries the trigger.
+  step, which has happened all the same, and its notice stays pending for the lead.
 - Each trigger sends once per call: a repeated wait, `gate ask-operator` or refused claim sends
   again. A close sends on the call that reconciles, or on the retry that records the task done
   after a close that crashed in between; a re-run that finds both done sends nothing, nor does
@@ -630,7 +654,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `suite`, `verify` | test runs and lanes (an argv or ordered `{name, cmd}` stages), verification and cache acceptance (`verify.accept_cache`), the fix rounds that need no new review (`verify.skip_review`) | §14, §15 |
 | `parallel` | several runners | §16 |
 | `report` | the verdicts every implementer report must state (`report.required_fields`) | §13.4 |
-| `notify` | the operator's channel on each trigger (`command`, `timeout_seconds`) | §3.6 |
+| `notify` | the operator's channels on each trigger: the command `ccp` runs (`command`, `timeout_seconds`) and the lead's tool (`lead`: `tool`, `to`) | §3.6 |
 | `telemetry`, `board`, `estimate` | usage, allowance windows, the board, estimation | §24–§28 |
 
 An example, with neutral values:

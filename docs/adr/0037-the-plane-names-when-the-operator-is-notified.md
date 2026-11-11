@@ -9,6 +9,7 @@ amends: ["ADR-0034 D13"]
 notes: |-
   Proposed with task 0040; the operator's approval of that task's PR, its merge gate (SPEC §31), accepts it.
   2026-11-10: status proposed → accepted: the operator's approval of task 0040's PR at its merge gate (SPEC §31)
+  2026-11-11: D2 amended by ADR-0039 (only the lead sends, a plane-rendered notice, over a configured channel)
 supersedes: ["ADR-0004 D5"]
 decisions: ["D1 built", "D2 built"]
 ---
@@ -37,7 +38,8 @@ is not a trigger.
 A product's `notify.command` (plane.json, §8.1) is the channel. With none, the lead's session is the
 only route, as before. With one, `ccp` runs it on each trigger, besides the lead's session, with the
 trigger and ids only, never a brief, a question's text or file content. The plane ships no email or
-chat client, and no seat sends email itself.
+chat client. ADR-0039 amends who sends: only the lead sends, a plane-rendered notice, over a
+configured channel (the command, or a tool the lead sends with from its own session).
 
 ## Consequences
 

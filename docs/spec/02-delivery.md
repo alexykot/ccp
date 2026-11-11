@@ -1170,10 +1170,13 @@ the lead, who takes it to the operator.
 ### 17.10 Route to the operator
 
 Whatever needs the operator is raised in the lead's session: the runner's question or gate reaches
-the lead through the mailbox, and the lead asks the operator or decides it (§17.9). The plane sends
-nothing itself: on the triggers of §3.6 (`blocker`, `decision`, `review_point_done`,
-`allowance_checkpoint`) `ccp` also runs the product's notify command, which may email or message the
-operator; with none, the lead's session is the only route. The
+the lead through the mailbox, and the lead asks the operator or decides it (§17.9). On the triggers
+of §3.6 (`blocker`, `decision`, `review_point_done`, `allowance_checkpoint`) the plane renders and
+records the notice, and of the seats only the lead sends it, over a configured channel: `ccp` runs
+the product's notify command, if it names one; with a `notify.lead` tool the lead sends each pending
+notice from its own session and records it (`ccp notify sent`), and it may also send on its own
+judgment (trigger `other`). With neither, the lead's session is the route. The runner and the workers
+never send. The
 operator may open a runner directly; what they say there counts as coming from them but does not move
 authority: the runner still records gates through escalation files.
 
