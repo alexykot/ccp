@@ -172,7 +172,7 @@ plane's commit hook template (`scripts/git-hooks/pre-commit.template`) runs it w
 **`ccp tasks close <id> --pr N [--summary "…"]`** is one resumable step:
 
 1. `ccp verify merge-ok` and the merge pinned to the verified head (§15.5). It refuses before
-   merging when the runner worktree has changes or a rebase in progress; with several runners it
+   merging when the checkout it runs from has changes or a rebase in progress; with several runners it
    refuses a head behind the tip (§16.5 rule 4). It refuses (exit 1) a task whose declared sign-off
    (§3.5) is missing, or whose `build` sign-off covers another head than the one it merges, or whose
    `sign_off:` value is malformed, naming it; nothing is merged, and on a re-run after a merge the
@@ -181,7 +181,12 @@ plane's commit hook template (`scripts/git-hooks/pre-commit.template`) runs it w
    dated by the clock; `review_point` stamped when the task has none; `ccp tasks index` and
    `check`; the product's `reconcile.log` entry and `reconcile.hooks` (§8; a hook must be
    idempotent, a re-run runs it again); a commit by path and a push, retried once after a fresh
-   pull. There is no `--no-push`.
+   pull. There is no `--no-push`. The reconcile is made, its hooks run and it is pushed in close's
+   own **merge worktree**, `merge-<nnnn>` under `worktrees.dir`, detached at `origin/<integration>`
+   with the `worktrees.links` linked in; close removes it once the reconcile has landed, and a re-run
+   after a failed reconcile discards what the earlier close left in it. With it, the main checkout's
+   HEAD and branch never move. A product with no `worktrees.dir` still reconciles in the checkout
+   close runs from.
 3. The adapter's legacy `post_close` (§12.4), then every recorded worktree of the task and its
    branch removed (§12.1).
 4. `lease/clear`, `work.json`, the slot's `tasks_done`, and the task's runs abandoned (§11.1).
@@ -294,6 +299,8 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
 
 - `ccp wt list [--task ID]` shows the records and any unrecorded worktree; `ccp wt remove NAME`
   removes one.
+- `merge-<nnnn>` is `ccp tasks close`'s own worktree, not a `ccp wt` kind and not recorded: close
+  makes it for the reconcile and removes it once the reconcile has landed (§10.5).
 - `ccp tasks close` removes every worktree of the task, and its branch. `ccp tasks drop` and
   `release` keep them: an implementer may still be working there, and a later claim resumes in them.
 - `ccp wt gc` prunes git's worktree list, forgets records whose worktree is gone, and removes the
@@ -308,12 +315,14 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
   the change under review's own `ccp`, new subcommands included; `ccp` on PATH stays the released one.
 
 **The lead and the runners.** The lead keeps the product's main checkout and pulls it when a merge is
-reported. Each runner merges, reconciles and runs operator steps from its own **runner worktree**
+reported. Each runner merges and runs operator steps from its own **runner worktree**
 (binding `runner.worktree`; with several runners `<runner.worktree>-<slot>`, made by
 `ccp tasks worktree --runner <slot>` when missing), detached at `origin/<integration_branch>` (the
-main checkout holds the branch). It fetches and re-detaches before each task and pushes reconcile
-commits with `git push origin HEAD:<integration_branch>`. Each implementer works in its task's
-`impl` worktree.
+main checkout holds the branch). It fetches and re-detaches before each task. With `worktrees.dir`
+set, `ccp tasks close` makes the reconcile in its `merge-<nnnn>` worktree and pushes it with
+`git push origin HEAD:<integration_branch>` (§10.5); run from any checkout, it does not move that
+checkout's branch or HEAD, except that a detached runner worktree is moved to the reconcile commit
+once it has landed. Each implementer works in its task's `impl` worktree.
 
 ### 12.2 Environment hooks
 

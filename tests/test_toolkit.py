@@ -479,7 +479,8 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("PR 7 is merged", err)
         self.assertIn("run `ccp tasks close 0002-second --pr 7` again", err)
-        git(self.runner, "reset", "-q", "--hard")
+        git(self.runner, "fetch", "-q", "origin")  # close left the runner worktree where it was (§10.5)
+        git(self.runner, "checkout", "-q", "--detach", "origin/main")
         cfg["reconcile"]["hooks"] = []
         (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
         git(self.runner, "commit", "-qam", "the hook fixed")
