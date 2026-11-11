@@ -152,8 +152,8 @@ says so in `depends_on`. A refactor brief does not re-list the gate as a check.
 
 A filename that isn't `NNNN-kebab-slug.md`, a reused number, missing frontmatter keys or sections, a
 status other than `pending`, `done` or `dropped` (a legacy `in_progress` or `blocked` reads as
-pending, with a warning), a dependency that doesn't exist, a cycle of `depends_on` (named), a task citing nothing, zero
-or more than `max_checks` checks, duplicate check ids, soft language inside `## dod_checks` ("should",
+pending, with a warning), a dependency that doesn't exist, a cycle of `depends_on` (named), a task
+citing nothing, zero or more than `max_checks` checks, duplicate check ids, soft language inside `## dod_checks` ("should",
 "may", "gracefully", "robust"), a `done` task with no verification note, runtime state in frontmatter,
 a task file that is gone (restore it as `dropped`), a number held by another file without
 `renamed_from`, a kind's ref rules broken, and (with `shape_adrs`) a new task citing an unshaped ADR

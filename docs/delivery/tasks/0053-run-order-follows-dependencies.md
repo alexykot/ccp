@@ -67,6 +67,11 @@ A task's `depends_on` may name a later-numbered task: `ccp tasks next` and the b
   lives in the plugin's `writing-tasks` skill and in `warnings()`'s message (the WRITING-tasks.md
   templates hold none), both changed; `templates/docs-delivery/README.md`'s "NNNN in intended run
   order"; and the board graph's depth (`ccp/plan.py`), which walked file order and now walks the graph.
+- 2026-11-11 (implementer, fix round 1, from the review): `contracts/task_file.schema.json`'s
+  `depends_on` description no longer says "sort earlier"; `ccp tasks list` help and its CLI doc say
+  "number order", not "execution order"; the prose-prerequisite warning says "which has a higher
+  number", not "which runs later"; two lines this task wrote are rewrapped (§10.3's sentence, the
+  skill's refusal list), with no change to their words.
 
 ## Verification notes
 

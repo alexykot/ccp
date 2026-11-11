@@ -409,9 +409,9 @@ def warnings(cfg: Config) -> list[str]:
         body = t["_text"].split("\n---\n", 1)[-1]
         for m in prose_dep_re(ids.task_width).finditer(body):
             if m.group(1) in later and int(m.group(1)) > own:
-                out.append(f"{cfg.rel(t['_file'])}: {m.group(0)!r} names {later[m.group(1)]}, which runs later, "
-                           "as a prerequisite in prose, where nothing enforces it. List it in depends_on: a "
-                           "dependency may have a higher number than its dependant (SPEC §5)")
+                out.append(f"{cfg.rel(t['_file'])}: {m.group(0)!r} names {later[m.group(1)]}, which has a higher number, "
+                           "as a prerequisite in prose, where nothing enforces it. List it in depends_on, "
+                           "which may name a higher number (SPEC §5)")
     return out
 
 

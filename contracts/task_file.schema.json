@@ -42,7 +42,7 @@
       "items": {
         "type": "string"
       },
-      "description": "Task ids that sort earlier"
+      "description": "Task ids that must be done first; one may have a higher number (SPEC §5). A cycle or a missing id is refused."
     },
     "created": {
       "type": "string",

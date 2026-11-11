@@ -314,7 +314,7 @@ class TaskLogTest(unittest.TestCase):
         self.assertEqual(self.errs(), [])
         ws = tasklog.warnings(self.p.cfg)
         self.assertEqual(len(ws), 1, ws)
-        self.assertIn("'gated on 0003' names 0003-c, which runs later", ws[0])
+        self.assertIn("'gated on 0003' names 0003-c, which has a higher number", ws[0])
         self.assertIn("List it in depends_on", ws[0])
         code, out = self._cli("check")
         self.assertEqual(code, 0, out)
