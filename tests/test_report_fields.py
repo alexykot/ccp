@@ -44,6 +44,26 @@ class Declared(ToolkitFixture, unittest.TestCase):
             self.assertIn(f"says `{said}`", err)
             self.assertIn("`not required`", err)
 
+    def test_the_pasted_template_is_refused_naming_the_field_and_its_line(self):
+        self.implement()
+        for said in ("Migration: required|not required", "- **Migration:** `required | not required`",
+                     "migration: not required|required"):
+            code, _, _, err = self.report("0002-second/implement", implement_report(said))
+            self.assertEqual(code, 1, said)
+            self.assertIn("`migration:` on line 4", err)
+        self.assertFalse((self.q / "progress/0002-second/implement-report.md").exists())
+
+    def test_a_field_stated_twice_is_refused_naming_both_lines(self):
+        self.implement()
+        code, _, _, err = self.report("0002-second/implement",
+                                      implement_report("Migration: required", "Migration: not required"))
+        self.assertEqual(code, 1)
+        self.assertIn("`migration:`", err)
+        self.assertIn("line 4 (`required`)", err)
+        self.assertIn("line 5 (`not required`)", err)
+        self.assertFalse((self.q / "progress/0002-second/implement-report.md").exists())
+        self.assertIsNone(json.loads((self.q / "runs/0002-second/implement.json").read_text())["reported_at"])
+
     def test_the_verdict_is_recorded_on_the_run_and_in_the_output(self):
         self.implement()
         code, body, out, err = self.report("0002-second/implement",
@@ -119,6 +139,17 @@ class Parse(unittest.TestCase):
                          ({"Deploy step": "yes after the migration"}, []))
         self.assertEqual(report.fields("Deploy step: `yes`.\n", deploy), ({"Deploy step": "yes"}, []))
 
+
+    def test_a_pipe_in_the_reason_is_not_the_template(self):
+        self.assertEqual(report.fields("migration: not required (a|b unchanged)\n", [MIGRATION]),
+                         ({"migration": "not required"}, []))
+
+    def test_a_field_twice_yields_no_value_even_when_both_agree(self):
+        got, errs = report.fields("migration: required\n- Migration: required\n", [MIGRATION])
+        self.assertEqual(got, {})
+        self.assertEqual(len(errs), 1)
+        self.assertIn("line 1", errs[0])
+        self.assertIn("line 2", errs[0])
 
 class Undeclared(ToolkitFixture, unittest.TestCase):
     def test_without_a_declaration_nothing_is_asked_or_shown(self):
