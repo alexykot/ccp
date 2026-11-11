@@ -134,6 +134,22 @@ class Decline(unittest.TestCase):
         finally:
             p.cleanup()
 
+    def test_declining_package_maps_drops_a_package_docs_paths_and_ids_but_not_its_rules(self):
+        for declined, reported in (({}, True), ({"package-maps": "no package docs"}, False)):
+            with self.subTest(declined=declined):
+                p = starter_product(declined)
+                try:
+                    p.write("app/schema.sql", "select 1;\n")
+                    p.write("app/.claude.md", "# app\n\nSee `app/gone.sql`; added by 0012-add-the-thing.\n")
+                    p.write(*FAULTS["refs-resolve"][:2])
+                    code, out = docs_check(p)
+                    self.assertEqual(code, 1)
+                    self.assertIn(FAULTS["refs-resolve"][2], out)
+                    for token in ("`app/gone.sql`, which does not exist", "names delivery id(s) 0012-add-the-thing"):
+                        (self.assertIn if reported else self.assertNotIn)(token, out)
+                finally:
+                    p.cleanup()
+
     def test_a_declined_judged_rule_is_noted_with_no_check_skipped(self):
         p = starter_product({"one-home": "a single-file product"})
         try:
@@ -244,6 +260,14 @@ class DocsCheckKind(unittest.TestCase):
     def test_a_docs_check_names_known_keys(self):
         self.assertEqual(len(self.check_doc("package_docs.rules.nope", {})), 1)
         self.assertIn("no plane.json key", "\n".join(self.check_doc("", {})))
+
+    def test_a_description_after_the_keys_is_not_a_key(self):
+        cited = {"rules": {"citations": {"globs": ["docs/*.md"], "targets": ["docs/SPEC.md"]}}}
+        self.assertEqual(self.check_doc("package_docs — a map per source directory, its paths exist", {}), [])
+        self.assertEqual(self.check_doc("package_docs, `package_docs.rules.citations` — refs — and links", cited), [])
+        blocks, errs = rules.rule_blocks(self.RULES.format(keys="package_docs — what it measures"))
+        self.assertEqual((blocks["E1"]["kind"], blocks["E1"]["keys"], errs), ("docs", ["package_docs"], []))
+        self.assertEqual(len(self.check_doc("package_docs.rules.nope — what it measures", {})), 1)
 
     def test_other_kinds_parse_as_before(self):
         blocks, errs = rules.rule_blocks("- **E1** x\n  check: command — scripts/x.sh\n- **E2** y\n  check: maybe\n")

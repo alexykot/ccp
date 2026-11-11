@@ -8,7 +8,8 @@ carries a `check:` line saying how it is enforced:
   check: budget    an `architect.budgets` entry with the same id (measured by `ccp architect due`)
   check: command   an `architect.checks` entry with the same id, run here (exit 0 = pass)
   check: docs — K  a rule `ccp docs check` runs, named by its plane.json key K (`package_docs` or
-                   `package_docs.rules.<name>`; several separated by commas), which must be set
+                   `package_docs.rules.<name>`; several separated by commas), which must be set;
+                   a further ` — <what it measures>` after the keys is a description, not a key
 
 A rule with no check, a check naming a missing entry, or an entry naming no rule is a failure:
 a rule nobody checks is one more page every implementer reads for nothing. The doc's shape and the
@@ -120,7 +121,8 @@ def rule_blocks(text: str, ids: refs.Ids = refs.DEFAULT) -> tuple[dict[str, dict
             if kind is None:
                 errs.append(f"rule {cur}: check {c.group(1)!r} is not pass, budget, command or docs")
             elif kind == "docs":
-                keys = [k.strip().strip("`") for k in (c.group(2) or "").split(",") if k.strip().strip("`")]
+                named = (c.group(2) or "").split(" — ", 1)[0]   # a trailing ` — <what it measures>` is prose
+                keys = [k.strip().strip("`") for k in named.split(",") if k.strip().strip("`")]
                 if not keys:
                     errs.append(f"rule {cur}: check docs names no plane.json key ({', '.join(known)})")
                 for k in keys:

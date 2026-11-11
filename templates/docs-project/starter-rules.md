@@ -5,17 +5,20 @@
 
   - Adopt: `ccp init --starter-rules` writes this file to docs/ENGINEERING.md and, in the plane.json
     it writes, `docs.starter_rules` and the `package_docs` settings the `docs` checks need. By hand:
-    copy the rules you keep and set `docs.starter_rules` to {} in plane.json.
+    copy the rules you keep and set `docs.starter_rules` to {} in plane.json. Either way, set
+    `architect.rules_doc` to the rules doc's path: until it is set, nobody judges the `check: pass`
+    rules.
   - Decline: delete the rule here and name it, with the reason, in plane.json
     `docs.starter_rules.declined` ({"<starter name>": "<reason>"}); `ccp docs check` then does not
-    run its check.
+    run its check. Declining package-maps turns off every package-doc check (a doc per source
+    directory, its paths, no delivery ids, docstrings); the `package_docs.rules` checks still run.
   - Override: tune its check's settings in plane.json (globs, targets, patterns) or reword it here;
     to replace its check, decline it and write your own rule in its place.
 
   Keep each rule's `starter:` line: it names the rule in the starter set. Number your own rules after
   these, in the format of the house-rules template (ENGINEERING.md): `check: pass` (the architect
-  judges it), `docs` (a rule `ccp docs check` runs, named by its plane.json key), `budget` or
-  `command`. Delete this comment once the file is yours.
+  judges it), `docs` (a rule `ccp docs check` runs, named by its plane.json key, optionally followed
+  by ` — <what it measures>`), `budget` or `command`. Delete this comment once the file is yours.
 -->
 # Engineering rules
 
@@ -56,14 +59,15 @@ says why it exists and how it is checked.
   `ccp docs history-paths` lists them for the product's own absence checks.
   Purpose: a doc that mixes past and present makes every reader work out which parts still hold.
   starter: current-docs
-  check: docs — package_docs.rules.no_ids, package_docs.rules.history_attr
+  check: docs — package_docs.rules.no_ids, package_docs.rules.history_attr — delivery ids outside
+  history files; dates and history the architect's docs lens judges
 - **E6** Package docs are maps: each source directory's doc says what exists there and where to
-  look, never what a task did; modules carry their docstrings.
+  look, never what a task did, and every path it names exists; modules carry their docstrings.
   Purpose: a session finds its way by the map; a log of past changes only adds reading.
   starter: package-maps
-  check: docs — package_docs
-- **E7** Every reference resolves: a SPEC ref names a heading the SPEC has, a link to a doc heading
-  names one that exists, and a path a package doc names exists.
+  check: docs — package_docs — a doc per source directory, its paths, no delivery ids, docstrings
+- **E7** Every reference resolves: a SPEC ref names a heading the SPEC has, and a link to a doc
+  heading names one that exists.
   Purpose: a dangling reference sends the reader nowhere and hides that the target moved.
   starter: refs-resolve
   check: docs — package_docs.rules.citations

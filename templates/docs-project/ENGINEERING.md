@@ -14,8 +14,8 @@
   - at most `architect.rules_max_lines` lines (default 150), this comment included;
   - current only: no history, no dates, no "was X". Git holds the history.
   The architect proposes changes in its reports; the task-log owner applies or rejects them.
-  For a ready set of generic rules with their checks, see starter-rules.md beside this file
-  (`ccp init --starter-rules`, plane SPEC §20.5).
+  For a ready set of generic rules with their checks, see the plane's
+  templates/docs-project/starter-rules.md (`ccp init --starter-rules`, plane SPEC §20.5).
 -->
 # Engineering rules
 
