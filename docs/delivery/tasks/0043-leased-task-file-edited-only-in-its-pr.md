@@ -50,6 +50,21 @@ Once a task is claimed, its file is not edited on the integration branch. A ruli
 
 *Append-only, newest last.*
 
+- 2026-11-11 — implementer: `ccp tasks check --lease [--staged]` (`ccp/cli.py`, `ccp/lifecycle.py` `lease_edits`).
+  It needs QUEUE_ROOT (exit 2 without it) and runs only the lease check. A lease is live when `lease_holder` is
+  set and the queue status is neither done nor dropped. Without `--staged` it flags commits on the integration
+  branch's first-parent history (local and `origin/<branch>`, no fetch) committed after `lease_since` (else
+  `claimed_at`; with neither, the task is not judged) that change the task file. With `--staged` it judges the
+  index, only while HEAD is on the integration branch. Not edits: the task's own squash merge
+  (`Task NNNN: … (#N)`) and reconcile, and a change after which the file says `status: dropped` (the
+  lead's drop, §10.4). Each failure names the task, the lease holder and the commit.
+- The commit hook template is `scripts/git-hooks/pre-commit.template`, for any product. The plane's own
+  `pre-commit` runs it after the main rule. It refuses only on exit 1 and warns on any other failure (an
+  older `ccp`, no queue).
+- §10.5 and §17.4 carry draft text (the task gave no PROPOSED text); it needs the operator's approval in
+  the PR. The orientation, the spec-maintainer skill and the runner brief route an amendment on a claimed
+  task to the runner. Tests: `tests/test_lease_edits.py`.
+
 ## Verification notes
 
 *Append-only.*
