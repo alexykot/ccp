@@ -3,13 +3,21 @@ restored after each."""
 from __future__ import annotations
 
 import json
+import os
 import shlex
+import signal
+import subprocess
 import sys
+import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from ccp import config, runs
+from ccp import config, mutate, runs
 from tests.test_toolkit import PLANE, ToolkitFixture, git
+
+sys.path.insert(0, str(PLANE / "scripts" / "observability"))
+import lib  # noqa: E402
 
 CALC = "def add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a - b\n\n\ndef unused(a):\n    return a * 2\n"
 TESTS = """import unittest
@@ -55,6 +63,33 @@ class MutateFixture(ToolkitFixture):
 
     def rows(self) -> list[dict]:
         return runs.load(self.q, self.run_id).get("mutation", [])
+
+    def patch_file(self, edits: dict[str, str]) -> Path:
+        """A patch (outside the worktree) that writes `edits` ({path: text}) over the worktree's tree."""
+        for rel, text in edits.items():
+            (self.mut / rel).parent.mkdir(parents=True, exist_ok=True)
+            (self.mut / rel).write_text(text)
+        new = [rel for rel in edits if not git(self.mut, "ls-files", rel)]
+        if new:
+            git(self.mut, "add", "-N", *new)
+        patch = Path(self._tmp.name) / f"m{len(list(Path(self._tmp.name).glob('m*.patch')))}.patch"
+        patch.write_text(git(self.mut, "diff") + "\n")
+        if new:
+            git(self.mut, "reset", "-q", *new)
+        for rel in edits:
+            if rel in new:
+                (self.mut / rel).unlink()
+                d = (self.mut / rel).parent
+                while d != self.mut and not any(d.iterdir()):
+                    d.rmdir()
+                    d = d.parent
+            else:
+                git(self.mut, "checkout", "--", rel)
+        return patch
+
+    def tree(self) -> list[str]:
+        """Every path in the worktree, directories included (Git's own file aside)."""
+        return sorted(str(p.relative_to(self.mut)) for p in self.mut.rglob("*") if p.name != ".git")
 
     def set_mutate(self, **knobs) -> None:
         """The mutation worktree's own plane.json (ccp reads the checkout it runs in)."""
@@ -132,17 +167,131 @@ class Outcomes(MutateFixture, unittest.TestCase):
         self.assertEqual((self.rows()[0]["outcome"], self.rows()[0]["timed_out"]), ("killed", True))
         self.assertEqual((self.mut / "calc.py").read_text(), CALC)
 
+    def test_a_patch_that_adds_a_directory_leaves_none(self):
+        before = self.tree()
+        patch = self.patch_file({"pkg/sub/extra.py": "X = 1\n", "calc.py": CALC.replace("a + b", "a - b")})
+        code, _, _, err = self.mutate(str(patch))
+        self.assertEqual((code, self.rows()[0]["outcome"]), (0, "killed"), err)
+        self.assertEqual(self.tree(), before)
+
     def test_the_record_carries_no_mutant_text(self):
-        self.mutate("calc.py:a + b=>a - b")
-        raw = runs.path(self.q, self.run_id).read_text()
-        self.assertNotIn("a - b", raw)
-        self.assertEqual(len(self.rows()[0]["digest"]), 12)
+        old1, new1, old2, new2 = "OLDTXT-q7v3k", "NEWTXT-m2x8w", "OLDPATCH-h4j9z", "NEWPATCH-c6t1r"
+        marked = CALC.replace("a * 2", f"a * 2  # {old1}").replace("a - b", f"a - b  # {old2}")
+        (self.mut / "calc.py").write_text(marked)
+        git(self.mut, "commit", "-q", "-m", "markers", "calc.py")
+        patch = self.patch_file({"calc.py": marked.replace(old2, new2)})
+        code, _, _, err = self.mutate(f"calc.py:{old1}=>{new1}", str(patch), "calc.py:a + b=>a + b + 1")
+        self.assertEqual((code, len(self.rows())), (1, 3), err)
+        self.assertEqual((self.mut / "calc.py").read_text(), marked)
+        raw = runs.path(self.q, self.run_id).read_text() + (self.q / "observability/events.jsonl").read_text()
+        for text in (old1, new1, old2, new2, "a + b + 1"):
+            self.assertNotIn(text, raw)
+        self.assertEqual([len(r["digest"]) for r in self.rows()], [12, 12, 12])
 
     def test_a_sigterm_restores_the_files(self):
         self.set_mutate(command="grep -q KILLME calc.py && kill -TERM $PPID && sleep 5; " + COMMAND)
         code, _, _, err = self.mutate("calc.py:a + b=>a + b  # KILLME")
         self.assertEqual(code, 143, err)
         self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+        self.assertEqual(self.rows(), [])
+
+    def sigterm_inside(self, owner, name: str):
+        """Run two mutants with a SIGTERM sent from inside `owner.<name>`, during its first call. A
+        SIGTERM the call does not take raises here rather than ending the test process."""
+        real, calls = getattr(owner, name), []
+
+        def hit(*a, **kw):
+            calls.append(1)
+            if len(calls) == 1:
+                os.kill(os.getpid(), signal.SIGTERM)
+            return real(*a, **kw)
+
+        def untaken(_sig, _frame):
+            raise AssertionError("the SIGTERM reached past the call")
+        old = signal.signal(signal.SIGTERM, untaken)
+        try:
+            with mock.patch.object(owner, name, hit):
+                return self.mutate("calc.py:a + b=>a - b", "calc.py:a * 2=>a * 3")
+        finally:
+            signal.signal(signal.SIGTERM, old)
+
+    def test_a_sigterm_while_a_mutant_is_recorded_ends_the_call_after_it(self):
+        code, _, _, err = self.sigterm_inside(runs, "save")
+        self.assertEqual(code, 143, err)
+        self.assertEqual([(r["mutant"], r["outcome"]) for r in self.rows()], [(1, "killed")])
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+        self.assertNotIn(("run", "recorded"), [(e["type"], e["op"]) for e in self.events()])
+
+    def test_a_sigterm_during_a_restore_lets_it_finish(self):
+        code, _, _, err = self.sigterm_inside(mutate, "_restore")
+        self.assertEqual(code, 143, err)
+        self.assertEqual(self.rows(), [])
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+
+    def test_a_sigterm_before_the_unmutated_run_runs_nothing(self):
+        code, _, _, err = self.sigterm_inside(mutate, "parse")
+        self.assertEqual((code, self.rows()), (143, []), err)
+        self.assertFalse(mutate.log_path(self.q, self.run_id).exists())
+
+
+class Interrupted(MutateFixture, unittest.TestCase):
+    """`ccp mutate` in its own process, sent a SIGTERM while the test command runs."""
+
+    def interrupt(self, sleep_when: str, *mutants: str) -> tuple[int, int]:
+        """Send the call a SIGTERM once the command is asleep (it sleeps when `sleep_when`, a shell
+        test, holds); its exit code and the sleeping command's process group."""
+        pid = Path(self._tmp.name) / "child.pid"
+        self.set_mutate(command=f"if {sleep_when}; then echo $$ > {shlex.quote(str(pid))}; sleep 60; fi; " + COMMAND)
+        args = [sys.executable, str(PLANE / "bin/ccp"), "--root", str(self.mut), "mutate", "--run", self.run_id,
+                "--test", ADD]
+        for m in mutants:
+            args += ["--mutant", m]
+        p = subprocess.Popen(args, cwd=str(self.mut), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+        try:
+            deadline = time.monotonic() + 30
+            while not (pid.is_file() and pid.read_text().strip()):
+                self.assertIsNone(p.poll(), "the call ended before its command slept")
+                self.assertLess(time.monotonic(), deadline, "the command never slept")
+                time.sleep(0.05)
+            group = int(pid.read_text())
+            p.send_signal(signal.SIGTERM)
+            code = p.wait(timeout=30)
+        finally:
+            if p.poll() is None:
+                p.kill()
+                p.wait()
+        return code, group
+
+    def assert_gone(self, group: int) -> None:
+        deadline = time.monotonic() + 10
+        while True:
+            try:
+                os.killpg(group, 0)
+            except ProcessLookupError:
+                return
+            except PermissionError:
+                pass
+            if time.monotonic() > deadline:
+                os.killpg(group, signal.SIGKILL)
+                self.fail("the test command was left running")
+            time.sleep(0.05)
+
+    def test_during_a_mutant_test(self):
+        before = self.tree()
+        patch = self.patch_file({"pkg/extra.py": "X = 1\n"})
+        code, group = self.interrupt("test -f pkg/extra.py", str(patch))
+        self.assert_gone(group)
+        self.assertEqual(code, 143)
+        self.assertEqual(self.tree(), before)
+        self.assertEqual(self.rows(), [])
+
+    def test_during_the_unmutated_run(self):
+        before = self.tree()
+        code, group = self.interrupt("! grep -q MUTANT calc.py", "calc.py:a + b=>a - b  # MUTANT")
+        self.assert_gone(group)
+        self.assertEqual(code, 143)
+        self.assertEqual(self.tree(), before)
         self.assertEqual(self.rows(), [])
 
 
@@ -193,6 +342,16 @@ class Refusals(MutateFixture, unittest.TestCase):
     def test_a_test_that_fails_unmutated(self):
         (self.mut / "test_calc.py").write_text(TESTS.replace("add(1, 1), 2", "add(1, 1), 3"))
         self.refused(1, "calc.py:a + b=>a - b")
+
+
+class Ledger(unittest.TestCase):
+    def test_a_mutate_event_needs_its_counts(self):
+        ev = {"at": "2026-11-11T00:00:00Z", "project_id": "demo", "task_id": "0002-second", "actor": "task-runner",
+              "type": "run", "op": "recorded", "payload": {"run_id": "r", "mutants": 2, "killed": 1, "survived": 1}}
+        self.assertEqual(lib.validate_event(ev), [])
+        for key in ("run_id", "mutants", "killed", "survived"):
+            bad = {**ev, "payload": {k: v for k, v in ev["payload"].items() if k != key}}
+            self.assertEqual(lib.validate_event(bad), [f"payload missing {key}"])
 
 
 class PatchPaths(unittest.TestCase):

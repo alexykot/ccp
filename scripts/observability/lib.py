@@ -35,7 +35,8 @@ ACTORS = SEAT_IDS + ("adapter", "operator", "system", "plane-session")  # plane-
 # (gate opened/decided, runner spawn/scope/rotate/stop) and the design-seat actor;
 # §19 adds architect (a third review kind: passes and shapes). The first two are retired (§19.12):
 # their types stay so an older ledger still reads; nothing writes them any more.
-# §23.2 adds the toolkit's ledger: run (a worker launch: opened, bound, stopped, reported, abandoned),
+# §23.2 adds the toolkit's ledger: run (a worker launch: opened, bound, stopped, reported, abandoned;
+# recorded: the counts of one `ccp mutate` call, §20.6),
 # review and verify (recorded verdicts), allowance (samples) and plane (ccp proposals). None of them
 # moves a task phase or a timer: the `phase` events ccp writes beside them do that. §14.1 adds suite
 # (one `ccp suite run`, recorded when it ends). §10.4 adds prefer (the lead's next tasks for the runner,
@@ -164,6 +165,7 @@ REQUIRED_PAYLOAD = {
     ("run", "stopped"): ("run_id", "agent_id"),
     ("run", "reported"): ("run_id", "outcome"),
     ("run", "abandoned"): ("run_id", "reason"),
+    ("run", "recorded"): ("run_id", "mutants", "killed", "survived"),  # §20.6 `ccp mutate`
     ("review", "recorded"): ("run_id", "verdict", "severity"),
     ("verify", "recorded"): ("run_id", "verdict", "head_sha"),
     ("allowance", "sample"): ("five_hour", "seven_day", "resets_at"),
