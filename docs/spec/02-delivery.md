@@ -533,9 +533,11 @@ has a `Suite:` line but no suite run is recorded for its run.
 - When the command exits, `ccp` exits within a couple of seconds, even if a background child holds
   its output open. SIGINT and SIGTERM sent to `ccp` reach the command's whole process group; such a
   run is recorded as interrupted. No background or detached mode exists.
-- **Environment:** the caller's, unchanged, plus `CCP_SUITE_ID` and `CCP_SUITE_RESULT`. `bin/ccp`
-  sets no variable. A `QUEUE_ROOT` that `ccp` found from the binding stays `ccp`'s own. A `ccp suite
-  run` inside it becomes its command, records nothing and writes no log.
+- **Environment:** the caller's, unchanged, plus `CCP_SUITE_ID` and `CCP_SUITE_RESULT`. In a worktree
+  `ccp wt` made (§12.1), a lane's stages also get its `CCP_WT_<FIELD>` variables, the ones its env
+  hooks get (§12.2); a command after `--` and a run elsewhere get none. `bin/ccp` sets no variable.
+  A `QUEUE_ROOT` that `ccp` found from the binding stays `ccp`'s own. A `ccp suite run` inside it
+  becomes its command, records nothing and writes no log.
 - The run it belongs to is `--run`, else `--task` (and `--phase`)'s latest open run, else the one
   running worker run whose worktree holds the current directory; otherwise it is recorded unbound.
 
