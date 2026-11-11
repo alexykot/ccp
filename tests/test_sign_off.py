@@ -156,6 +156,35 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
 
+    def test_a_brief_sign_off_on_a_task_file_with_no_commit_refuses_the_claim(self):
+        rel = "docs/delivery/tasks/0003-third.md"
+        text = (self.main / TASK_FILE).read_text().replace("0002-second", "0003-third").replace("title: Second", "title: Third")
+        (self.runner / rel).write_text(text.replace("depends_on:", "sign_off: brief\ndepends_on:", 1))  # never committed
+        tip = git(self.runner, "rev-parse", "HEAD")
+        code, _, out, err = self.ccp("tasks", "sign-off", "0003", "--by", "op", "--words", "signed", "--head", tip)
+        self.assertEqual(code, 0, out + err)
+        code, _, _, err = self.ccp("tasks", "claim", "0003")
+        self.assertEqual(code, 3)
+        self.assertIn("has no commit", err)
+        self.assertFalse((self.q / "tasks/0003-third.json").exists())
+
+    def test_a_brief_sign_off_whose_head_is_not_a_sha_refuses_the_claim(self):
+        from ccp.queue import emit
+        self.declare("brief")
+        emit(self.q, config.load(self.runner), "0002-second", "sign_off", "recorded",
+             {"stage": "brief", "by": "op", "words": "signed", "head": "origin/main"})  # a ref, though it holds the text
+        code, _, _, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 3, err)
+        self.assertFalse((self.q / "tasks/0002-second.json").exists())
+
+    def test_a_brief_sign_off_on_a_head_not_in_the_checkout_refuses_the_claim(self):
+        self.declare("brief")
+        self.assertEqual(self.sign("--head", "b" * 40)[0], 0)
+        code, _, _, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 3, err)
+        self.assertFalse((self.q / "tasks/0002-second.json").exists())
+        self.assertFalse((self.main / ".rt" / "impl-0002").exists())
+
     def test_a_malformed_sign_off_value_refuses_the_claim(self):
         self.declare("brief, build")
         code, _, _, err = self.ccp("tasks", "claim", "0002")
