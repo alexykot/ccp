@@ -29,7 +29,7 @@ argument takes the full id or its number.
 
 | Command | Who | SPEC |
 |---|---|---|
-| `ccp prompt <phase> <id> [--round n] [--note "…"]` (or `--note-file PATH`; `--head SHA`, `--supersede`, `--allow-unreviewed-fix --reason "…"`; a verify round with no fix round since the last needs `--note`) | runner | §13.2, §15.2, §15.6 |
+| `ccp prompt <phase> <id> [--round n] [--note "…"]` (`<phase>`: `implement`, `fix`, `merge`, `ruling`, `review` or `verify`; `--note-file PATH` for the note; `--head SHA`, `--supersede`, `--allow-unreviewed-fix --reason "…"`; a verify round with no fix round since the last needs `--note`) | runner | §13.2, §15.2, §15.6 |
 | `ccp report <run_id> FILE` | each worker | §13.4 |
 | `ccp agent start\|stop` | the harness's hooks | §11.1 |
 | `ccp runs gc [--dry-run]` | lead, runner | §11.1 |

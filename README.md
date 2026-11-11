@@ -262,7 +262,7 @@ in that product (SPEC §31.4).
 | `ccp tasks claim <task>` · `close <task> --pr N` | Take a task's lease; close it after merge |
 | `ccp tasks prefer` · `hold` · `release` · `drop` | Steer the order; pause, free or drop a task |
 | `ccp tasks estimate` | Size a task for the forecast |
-| `ccp prompt implement\|review\|verify\|fix <task>` | Print the brief for a seat |
+| `ccp prompt implement\|fix\|merge\|ruling\|review\|verify <task>` | Print the brief for a seat |
 | `ccp report <run_id> <file>` | Record a seat's report |
 | `ccp verify record\|merge-ok\|check <target>` | Record a verdict bound to a commit; check it allows a merge |
 | `ccp suite run --lane gate -- <cmd>` | Run a test lane and record time, exit code and test count |

@@ -249,7 +249,7 @@ resolve. It reads git and the task log only and writes nothing; it blocks no pus
 A **run** is one launch of one worker for one phase of one task: the unit time and tokens are
 reported in.
 
-- **Id:** `<task_id>/<phase>[-<n>]`, phase `implement`, `pr`, `review`, `fix`, `verify` or `merge`,
+- **Id:** `<task_id>/<phase>[-<n>]`, phase `implement`, `pr`, `review`, `fix`, `verify`, `merge` or `ruling`,
   the same name as its report file `progress/<task_id>/<phase>[-<n>].md`. Runs outside a task:
   `_runner/spawn-<n>`, `_architect/<review_id>`, `_triage/<review_id>`.
 - **Record:** `QUEUE_ROOT/runs/<task_id>/<phase>[-<n>].json` (`contracts/run.schema.json`):
@@ -414,6 +414,22 @@ reviewer, fixer and verifier prompt from four parts, in order, writes the prompt
 template naming anything it does not set. `ccp prompt verify <id>` renders the same text on every
 run apart from paths.
 
+**Round kinds.** The implementer's rounds are `implement`, `fix` (on review or verify findings; it
+needs such a report), `merge` and `ruling`, each with its own template and run name:
+
+- `ccp prompt merge <id> --pr <n> --head <sha>` only merges the integration tip into the task branch
+  (§15.6 rule 2), resolving conflicts and adapting the task's code to the tip, nothing else;
+- `ccp prompt ruling <id> --pr <n> --head <sha> --note-file <the ruling>` only applies a lead's ruling
+  (written into the task's Context section, §10.5), before or after a review; without a note it is
+  refused (exit 2), nothing opened.
+
+Each opens a run of that kind, moves the task to `fixing` and reports as a fix round (§13.4). Review
+and verify treat a merge or ruling round's head as a fix round's: the review prompt lists its report,
+`ccp prompt verify` and `ccp verify record` count it as a fix round newer than the last review (§15.2),
+`verify.skip_review` may prove it, and it counts as a fix round between verify rounds (§15.6 rule 4).
+Rounds since the last review that are all merge rounds need no new review when the head carries the
+reviewed change unchanged (the same patch id, §15.2).
+
 ### 13.3 Worker environment
 
 When plane.json names `prompts.worker_env` (§8), `ccp prompt` also writes the run's environment
@@ -429,21 +445,21 @@ run's report path (`progress/<task_id>/<phase>[-<n>].md`), closes the run, and r
 metrics and every friction line. Report lines:
 
 - `Outcome: done|blocked|failed` always;
-- `PR:` and `Head:` for implement and fix;
+- `PR:` and `Head:` for implement, fix, merge and ruling;
 - `Severity: BLOCKER=… MAJOR=… MINOR=… NIT=…` for review (a review with a BLOCKER or MAJOR is
   recorded as `changes`, otherwise `clean`);
 - `Verdict:` and `Head:` for verify, matching the verdict `ccp verify record` noted;
 - `Suite:` when the full suite ran, or `Suite: from <suite_id>`, or none (filled from the run's
   record, §14.4);
 - `## Friction` as `- ` (or `* `) lines, or `none`;
-- for implement and fix, `## Tests for new behaviour` (§13.5);
-- for implement and fix with `Outcome: done`, each verdict the product declares in plane.json
+- for implement, fix, merge and ruling, `## Tests for new behaviour` (§13.5);
+- for implement, fix, merge and ruling with `Outcome: done`, each verdict the product declares in plane.json
   `report.required_fields` (a list of `{name, values}`, default none), as `<name>: <value>` with one
   of its declared values. A report missing one, or giving another value, is refused with the field
   and its allowed values. A field is stated once; a field on two lines, or a value that is the
-  pasted template `a|b`, is refused. The values are kept on the run (`fields`); the implement and
-  fix prompts list the declared fields, and the review prompt and `ccp prompt review`'s output show
-  them as the task's latest done implement or fix report states them. Whether a verdict is right is
+  pasted template `a|b`, is refused. The values are kept on the run (`fields`); the implement, fix,
+  merge and ruling prompts list the declared fields, and the review prompt and `ccp prompt review`'s
+  output show them as the task's latest done implement, fix, merge or ruling report states them. Whether a verdict is right is
   not judged.
 
 `ccp verify record` notes the verdict on the task's open verify run and emits `verify/recorded`; the
