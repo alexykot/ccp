@@ -1,14 +1,14 @@
 ---
 task_id: 0057-rules-line-descriptions-and-starter-follow-ups
 title: Rules lines take a description; starter-rules follow-ups
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S20"]
 review_point: R4
 paths: ["ccp/rules.py", "templates/docs-project/starter-rules.md", "plugin/agents/delivery-verifier.md", "docs/spec/03-quality.md", "tests/test_rules.py", "tests/test_starter_rules.py"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0057-rules-line-descriptions-and-starter-follow-ups
@@ -66,4 +66,4 @@ A rules-doc line `check: docs — <key> — <what it measures>` parses with its 
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #47 head `6ebbd4c` (squash `940edc1`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `bin/ccp tasks check` exit 0, `bin/ccp docs check` exit 0. Record: verification/0057-rules-line-descriptions-and-starter-follow-ups.json.
