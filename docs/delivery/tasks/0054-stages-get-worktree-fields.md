@@ -49,6 +49,21 @@ A gate stage run in a task worktree gets that worktree's `CCP_WT_*` fields (its 
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): `ccp suite run` looks up the `QUEUE_ROOT/worktrees` record whose path is
+  the checkout's root (`wt.recorded_at`) and gives every stage of a lane plane.json names the same
+  `CCP_WT_<FIELD>` variables the env hooks get (`wt.env_fields`, now shared with `wt.hook`). Scope
+  read narrowly from §14.2's own terms: a staged lane's stages (`plane-docs` included), an argv lane
+  (§14.2: "one stage named after the lane") and a nested run of a lane get them; a command after `--`
+  ("no stage") gets none and keeps the caller's environment unchanged. The worktree's values win over
+  a caller's own `CCP_WT_*`. No queue, no record, or a lookup that fails adds nothing (the last with
+  one warning). §14.2's Environment bullet gains the one sentence.
+- 2026-11-11 (implementer, fix round 1): `test_a_checkout_ccp_did_not_make_gets_none` now makes a
+  `ccp wt` worktree first, so the queue holds another checkout's record and the test pins
+  `wt.recorded_at`'s path match (it was vacuous with an empty queue). The argv-lane test gains a
+  nested run (`CCP_SUITE_ID` set), which pins the nested single-stage `_passthrough(argv, inner)`
+  branch. The stage-env comment in `ccp/suite.py` now limits its cache rationale to checkouts outside
+  a `ccp wt` worktree. No behaviour change.
+
 ## Verification notes
 
 *Append-only.*
