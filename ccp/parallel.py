@@ -28,6 +28,7 @@ EXT_RE = re.compile(r"\.([A-Za-z0-9]{1,12})$")
 ITEM_RE = re.compile(r"^\s*-\s+\*\*")
 LINE_RE = re.compile(r":\d+(?:-\d+)?$")  # `src/app/leak.py:146` names the file
 GLOB_CHARS = set("*?[")
+MARK_RE = re.compile(r"\b(?:new|removed)\b", re.I)  # §5.5: a Scope path the task creates or deletes
 
 
 def settings(cfg: Config) -> dict[str, Any]:
@@ -261,8 +262,9 @@ def runs_alone(cfg: Config, t: dict[str, Any]) -> bool:
 def missing_paths(cfg: Config, t: dict[str, Any], tasks: list[dict[str, Any]] | None = None) -> list[str]:
     """Scope In: paths (tokens with a `/`; a bare name is often given
     relative to a sibling path) that exist neither in the checkout, nor in a dependency's own Scope In:
-    (a file an unmerged dependency makes), nor as new: the word `new` within the 25 characters after
-    the token. Globs are left alone."""
+    (a file an unmerged dependency makes), nor as new or removed: the word `new` or `removed` within
+    the 25 characters after the token (a removed path is accepted whether or not it still exists).
+    Globs are left alone."""
     item = in_item(t.get("_text") or "")
     deps = set(tasklog._as_list(t.get("depends_on")))
     theirs = {p.rstrip("/") for d in tasks or [] if str(d.get("task_id")) in deps for p in paths(cfg, d)}
@@ -272,7 +274,7 @@ def missing_paths(cfg: Config, t: dict[str, Any], tasks: list[dict[str, Any]] | 
         if not tok or "/" not in tok or _is_glob(tok) or tok in out:
             continue
         after = item[m.end():m.end() + 25]
-        if (cfg.root / tok.rstrip("/")).exists() or tok.rstrip("/") in theirs or re.search(r"\bnew\b", after, re.I):
+        if (cfg.root / tok.rstrip("/")).exists() or tok.rstrip("/") in theirs or MARK_RE.search(after):
             continue
         out.append(tok)
     return out
@@ -283,7 +285,7 @@ def scope_warnings(cfg: Config, tasks: list[dict[str, Any]]) -> list[str]:
     true` only ever runs alone."""
     open_ = [t for t in tasks if t.get("status") not in ("done", "dropped")]
     out = [f"{cfg.rel(t['_file'])}: Scope names {', '.join(f'`{x}`' for x in miss)}, which does not exist and is not "
-           "marked new" for t in open_ if (miss := missing_paths(cfg, t, tasks))]
+           "marked new or removed" for t in open_ if (miss := missing_paths(cfg, t, tasks))]
     if not enabled(cfg):
         return out
     return out + [f"{cfg.rel(t['_file'])}: no path in its Scope In: item and no `parallel: true`: "
