@@ -289,7 +289,7 @@ A tension between SPEC and PROJECT goes to the design seat, which rules and comm
 | Field | Writer |
 | --- | --- |
 | task id, title, intent, refs, `dod_checks`, dependencies | the task-log owner (the design seat); locked once written, except by the owner's amendment |
-| the task file's `## Context (not checked)` section | the task-log owner; the design seat when ruling on a spec question (commit `spec(<question_id>): …`, §17) |
+| the task file's `## Context (not checked)` section | the task-log owner; the design seat when ruling on a spec question (commit `spec(<question_id>): …`, §17); on a claimed task, the implementer, writing a ruling the runner passes (§10.5) |
 | status (`done` at close; `dropped` by the task-log owner, §5.3) | `ccp tasks close`; the task-log owner |
 | implementation notes | the runner, from the implementer's output |
 | verification notes and evidence | the verifier; `ccp tasks close` |
@@ -428,7 +428,7 @@ In order, each a `## ` heading:
 | Section | Written by | Content |
 |---|---|---|
 | `Intent` | task writer | one paragraph: what is true for the user when this is done |
-| `Context (not checked)` | task writer; the design seat when ruling (§17) | background and constraints the verifier does not walk as checks. `Context (not verified)` is read as this heading |
+| `Context (not checked)` | task writer; the design seat when ruling (§17); on a claimed task, the implementer, writing a ruling the runner passes (§10.5) | background and constraints the verifier does not walk as checks. `Context (not verified)` is read as this heading |
 | `Scope` | task writer | `- **In:** …` and `- **Out:** …` |
 | `dod_checks` | task writer | 1..`max_checks` checks, each `` - id: `kind-NN` `` then `story`, `setup`, `steps`, `expect`; a check whose steps run a command carries `dry run (<commit>): …` or `dry run: n/a — <reason>` when `task_log.dry_run` is on (§10). No soft language |
 | `Implementation notes` | runner, from the implementer's output | append-only |

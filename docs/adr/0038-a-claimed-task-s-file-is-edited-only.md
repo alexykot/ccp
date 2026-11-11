@@ -33,7 +33,7 @@ template refuses one (SPEC §10.5).
 A lead ruling or amendment on a claimed task reaches the runner holding it. The runner passes it,
 verbatim, in the next implementer prompt, and the implementer writes it into the task file's
 `Context (not checked)` section on the task branch, besides its Implementation notes. The standing
-definition of done allows the implementer exactly that edit (SPEC §17.4).
+definition of done allows the implementer exactly that edit (SPEC §10.5).
 
 ### D3. Its commit is the task-branch commit, or the tip it was ruled against
 

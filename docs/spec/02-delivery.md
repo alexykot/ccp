@@ -159,6 +159,9 @@ for every task with a live lease (`lease_holder` set, the queue status neither `
 the commits on the integration branch's first-parent history (the local branch and
 `origin/<branch>`, each that exists; nothing is fetched) committed after `lease_since` that change the
 task's file; with `--staged`, the staged change instead, only while HEAD is on the integration branch.
+The task's own squash merge and reconcile are known by their subject, in the §10.7 rule 1 and 2 forms
+(any commit in those forms passes); a lease with no `lease_since` is timed from `claimed_at`, and one
+with neither stamp is not judged.
 It reads git and the queue and writes nothing; `ccp tasks check` without the flag does not run it. The
 plane's commit hook template (`scripts/git-hooks/pre-commit.template`) runs it with `--staged` when
 `QUEUE_ROOT` is set and `ccp` is on PATH, and refuses the commit only on exit 1.
@@ -750,7 +753,8 @@ They hold for every PR the runner merges, a task's or not (ADR-0011).
    names; another seat that sees it pending asks that seat.
 6. **Who writes the task file** is the §5 table: Implementation notes by the runner from the
    implementer's output, Verification notes by the verifier's record through `ccp tasks close`,
-   `dropped` by the task-log owner (the lead).
+   `dropped` by the task-log owner (the lead); on a claimed task, the Context section by the implementer,
+   writing a ruling the runner passes (§10.5).
 7. **Code from outside the runner** reaches the integration branch through the task log: a task
    file, then implement, review, verify and gate; a change that merged first gets an after-the-fact
    task, and `ccp tasks orphans` lists the commits no task covers (§10.7). The lead's own commits to
@@ -1010,7 +1014,7 @@ own session, and the triage command is run again to apply it.
 ### 17.4 Authority of the spec maintainer
 
 - **May edit and commit:** `docs/PROJECT.md`, `docs/SPEC.md` (or `spec/`), and the context section of
-  durable task files.
+  durable task files; on a claimed task, only through the runner (§10.5).
 - **Chooses the route itself:** rule and commit, or escalate with `needs_operator`; no second reviewer.
 - **Every `resolved` ruling lands in git**, `commit_sha` required. A ruling that needs no SPEC or
   PROJECT wording is recorded in the context section of each blocked task file; for a claimed task

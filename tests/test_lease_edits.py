@@ -79,6 +79,27 @@ class LeaseEdits(ToolkitFixture, unittest.TestCase):
         code, out = self.check()
         self.assertEqual(code, 0, out)
 
+    def test_a_merge_commit_of_the_task_branch_is_not_an_edit(self):
+        self.claim()
+        git(self.main, "checkout", "-q", "-b", "task/0002-second-by-hand")  # the claim holds task/0002-second
+        self.commit_on_main("the second thing")
+        git(self.main, "checkout", "-q", "main")
+        with mock.patch.dict(os.environ, {"GIT_COMMITTER_DATE": f"@{int(time.time()) + 6} +0000"}):
+            git(self.main, "merge", "-q", "--no-ff", "--no-edit", "task/0002-second-by-hand")
+        code, out = self.check()
+        self.assertEqual(code, 0, out)
+
+    def test_a_lease_without_lease_since_is_judged_from_claimed_at_and_one_with_neither_is_not(self):
+        self.claim()
+        self.commit_on_main("Amend 0002")
+        path = self.q / "tasks/0002-second.json"
+        st = json.loads(path.read_text())
+        self.assertTrue(st.get("claimed_at"))
+        path.write_text(json.dumps({**st, "lease_since": None}))
+        self.assertEqual(self.check()[0], 1)
+        path.write_text(json.dumps({**st, "lease_since": None, "claimed_at": None}))
+        self.assertEqual(self.check()[0], 0)
+
     def test_another_tasks_merge_editing_the_file_is_an_edit(self):
         self.claim()
         self.commit_on_main("Task 0001: something else (#8)")
@@ -129,7 +150,6 @@ class LeaseEdits(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.ccp("tasks", "check", "--staged", root=self.main)
         self.assertEqual(code, 2, out + err)
 
-
     def hook_commits(self, hooks: Path, extra_env: dict[str, str]):
         """A commit function through the hooks in `hooks`, with this plane's ccp first on PATH."""
         shim = Path(self._tmp.name) / "bin"
@@ -171,6 +191,7 @@ class LeaseEdits(ToolkitFixture, unittest.TestCase):
         commit = self.hook_commits(hooks, {"QUEUE_ROOT": str(Path(self._tmp.name) / "no-such-queue")})
         self.commit_on_main("Amend 0002", stage_only=True)
         self.assertEqual(commit("Amend 0002"), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

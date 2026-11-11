@@ -71,6 +71,14 @@ Once a task is claimed, its file is not edited on the integration branch. A ruli
   Context on the task branch; §17.4 says which commit `commit_sha` names. Standing DoD item 3 (the
   plane's copy and `templates/docs-delivery/standing-dod.md`), the implementer and runner briefs and
   the spec-maintainer skill say the same. A product's existing standing DoD copy is not rewritten.
+- 2026-11-11 — implementer, fix round 1 (review MINOR-1, -3, -4 and three NITs): the Context rows of the
+  §4.2 and §5.5 tables, §15.6 item 6 and the §17.4 first bullet now name the implementer, writing a ruling
+  the runner passes on a claimed task (§10.5), so the SPEC says one thing about who writes Context. §10.5
+  says the own squash merge and reconcile are known by their §10.7 rule 1 and 2 subjects, that a lease
+  with no `lease_since` is timed from `claimed_at`, and one with neither is not judged. Two tests pin the
+  untested paths: a `--no-ff` merge of a `task/0002-…` branch is not an edit, and the `claimed_at`
+  fallback and the no-stamp skip. ADR-0038 D2 cites §10.5; the spec-maintainer skill bullet is rewrapped
+  and names drop and sync. MINOR-2 is left to the lead.
 
 ## Verification notes
 
