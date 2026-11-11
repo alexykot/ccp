@@ -70,6 +70,12 @@ prompt sizes (§27.1) read `prompt_chars`, or the body's length in an audit from
 many days, by the stamp in the file name, each time it writes one; the rendered prompt and env
 files beside them are not audits and stay. `prune-prompts.sh` prunes on demand.
 
+Health (§27) and the board's per-task drill-down (§28.3) read each audit's name stamp as a worker's
+launch time: a task's prompt count and sizes, and the start of each phase's span. A pruned audit
+drops out of both, so a task whose audits are pruned loses its launch times, and its spans fall back
+to the previous phase's end. Set `audit_keep_days` above the longest life of a task, from its first
+launch to its close, so no audit of a task still measured is pruned.
+
 
 ## 20.4 Acceptance (plane-level)
 
