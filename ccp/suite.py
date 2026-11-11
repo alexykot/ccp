@@ -1027,8 +1027,8 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
             if staged:
                 _stage_mark(log_fd, f"ccp suite: stage {stage['name']}: started\n")
             # The caller's environment, the worktree's fields for a lane's stages, and CCP_SUITE_ID, nothing
-            # else (§14.2): a test cache that hashes the environment finds the same entries from a plain
-            # shell and from `ccp suite run`. Each stage writes its own result file.
+            # else (§14.2): outside a `ccp wt` worktree, a test cache that hashes the environment finds the
+            # same entries from a plain shell and from `ccp suite run`. Each stage writes its own result file.
             result_path = Path(tempfile.gettempdir()) / f"ccp-suite-result-{suite_id}{f'-{i}' if i else ''}.json"
             env = {**(os.environ if caller_env is None else caller_env), **wt_env,
                    **for_child({"CCP_SUITE_ID": suite_id, "CCP_SUITE_RESULT": str(result_path)})}

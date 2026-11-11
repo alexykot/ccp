@@ -254,6 +254,8 @@ class StagesGetTheWorktreesFields(StagedFixture, unittest.TestCase):
         self.assertEqual((r.returncode, self.shown(r)), (0, ["rev-0002"]), r.stderr)
         r = self.run_in(path, "--lane", "fast", env={"CCP_SUITE_ID": "st-outer"})
         self.assertEqual((r.returncode, self.shown(r)), (0, ["rev-0002"]), r.stderr)
+        r = self.run_in(path, "--lane", "full", env={"CCP_SUITE_ID": "st-outer"})
+        self.assertEqual((r.returncode, self.shown(r)), (0, ["rev-0002"]), r.stderr)
 
     def test_a_command_after_dashes_gets_only_the_callers(self):
         path = self.worktree({"fast": [{"name": "a", "cmd": SHOW_WT}]})
@@ -263,6 +265,7 @@ class StagesGetTheWorktreesFields(StagedFixture, unittest.TestCase):
         self.assertEqual((r.returncode, self.shown(r)), (0, ["the-callers"]), r.stderr)
 
     def test_a_checkout_ccp_did_not_make_gets_none(self):
+        self.worktree({})  # the queue holds another checkout's record: it is not this one's
         self.lanes({"fast": [{"name": "a", "cmd": "true"},
                              {"name": "b", "cmd": f"{SHOW_WT}; test -z \"$(env | grep '^CCP_WT_')\""}]})
         r = self.run_in(self.runner, "--lane", "fast")
