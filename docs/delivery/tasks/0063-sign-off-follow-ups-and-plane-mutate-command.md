@@ -55,6 +55,17 @@ Every fail-closed branch of the brief-staleness check has a test that fails when
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): three claim tests in `tests/test_sign_off.py`, one per fail-closed branch
+  of `_brief_stale`: a task file with no commit in the claiming checkout (pins the token "has no
+  commit", since without that branch the claim still refuses through the not-a-commit branch); a
+  recorded brief head that is a ref, not a sha (`origin/main`, which contains the task's commit, so
+  without the sha branch the claim goes through); a sha that is not a commit in the checkout. With
+  `mutate.command` set, `ccp mutate --test tests.test_sign_off` killed all three removals (`if not
+  last:` => `if False:`, `if not SHA_RE.match(signed.lower()):` => `if False:`, `if rc == 0:` =>
+  `if rc != 1:`), and each new test alone killed its own. `mutate.command` is
+  `python3 -B -m unittest -q {test}` (`-B`: no bytecode written into the mutation worktree). The
+  writing-tasks sentence sits under "Before the claim" in "Changing a task".
+
 ## Verification notes
 
 *Append-only.*
