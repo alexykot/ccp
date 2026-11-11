@@ -1,14 +1,14 @@
 ---
 task_id: 0060-run-the-worktrees-own-ccp
 title: Workers can run a worktree's own ccp; §5.2 lists covers
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S12"]
 review_point: R4
 paths: ["ccp/wt.py", "docs/spec/01-model.md", "docs/cli/", "plugin/agents/delivery-reviewer.md", "plugin/agents/delivery-verifier.md", "tests/test_wt.py"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0060-run-the-worktrees-own-ccp
@@ -63,4 +63,4 @@ A reviewer or verifier can run the `ccp` of the worktree under review (`ccp wt e
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #50 head `20ebe6f` (squash `de143d0`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0060-run-the-worktrees-own-ccp.json.
