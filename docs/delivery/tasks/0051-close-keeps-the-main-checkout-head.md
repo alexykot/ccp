@@ -69,6 +69,12 @@ updated: 2026-11-10
   foreign directory, a failed `worktree add`) now gets its own recovery message, which says nothing of
   the reconcile was made and does not call that directory close's own. Tests:
   `tests/test_tasks_close.py` (a hook reads a linked path), `tests/test_notify.py` (the channel's cwd).
+- 2026-11-11 (implementer, fix round 1, SPEC per the lead's §31.1 ruling): §10.5 step 1 refuses a
+  dirty caller checkout, not "the runner worktree"; step 2 says the reconcile is made, hooked and pushed
+  in the `merge-<nnnn>` worktree, which close removes, and that a product with no `worktrees.dir` still
+  reconciles in the caller; §12.1 lists `merge-<nnnn>` and says close, run from any checkout, moves only
+  a detached runner worktree (to the reconcile); 01-model's plane.json example says the hooks run in
+  close's merge worktree.
 
 ## Verification notes
 
