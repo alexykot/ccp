@@ -97,6 +97,15 @@ class SkipReview(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.verdict(head)
         self.assertEqual(code, 0, out + err)  # the approve stands on the proven skip
 
+    def test_a_proven_ruling_round_within_the_paths_goes_straight_to_verify(self):
+        reviewed = self.reviewed()
+        self.commit("tests/test_feature.txt", "check it, as the lead ruled\n")
+        head = self.push()
+        self.run_phase("ruling", reviewed, f"PR: #7\nHead: {head}", "--note", "the lead's ruling")
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["review_skip"], {"reviewed": reviewed, "head": head, "fix": "0002-second/ruling", "files": 1})
+
     def test_a_proof_that_fails_keeps_the_review(self):
         self.reviewed()
         head = self.fix()

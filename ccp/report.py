@@ -3,7 +3,7 @@
 The report is the worker's own words plus a few lines `ccp` reads:
 
 - `Outcome: done|blocked|failed`, always;
-- implement and fix, when done: `PR: #<n>` and `Head: <sha>`;
+- implement, fix, merge and ruling, when done: `PR: #<n>` and `Head: <sha>`;
 - review, when done: `Severity: BLOCKER=<n> MAJOR=<n> MINOR=<n> NIT=<n>`;
 - verify, when done: `Verdict: approve|reject` and `Head: <sha>`;
 - `Suite: <n> tests, <s> s`, when the worker ran the full suite; it may end `ran <r>, cached <c>`
@@ -15,7 +15,7 @@ The report is the worker's own words plus a few lines `ccp` reads:
   (after a failed one, a warning and nothing filled; a failed run's numbers never reach `ccp health`
   from the record) (§14.1);
 - a `## Friction` section: `- ` lines, or `none`;
-- implement and fix, when done: each verdict the product declares in plane.json
+- implement, fix, merge and ruling, when done: each verdict the product declares in plane.json
   `report.required_fields`, as `<name>: <value>` with one of its declared values, on one line (§13.4). They are
   kept on the run (`fields`) and shown in the review prompt; whether a verdict is right is not judged.
 
@@ -54,7 +54,7 @@ SUITE_FROM_RE = re.compile(r"^[^\w\n]*Suite:[\s*_]*from\s+(st-[A-Za-z0-9-]+)", r
 SUITE_ANY_RE = re.compile(r"^[^\w\n]*Suite:.*$", re.I | re.M)
 AUTO_ROLES = ("full", "gate")  # a report with no Suite: line takes its run's latest of these roles' lanes (§14.1)
 FRICTION_RE = re.compile(r"^##\s+Friction[ \t]*\r?$", re.M)
-FIELD_PHASES = ("implement", "fix")  # §13.4: the reports that state the product's declared verdicts
+FIELD_PHASES = runs.CHANGE_PHASES  # §13.4: the rounds that push a head (PR, Head) and state the declared verdicts
 
 
 def fields(text: str, declared: list[dict[str, Any]]) -> tuple[dict[str, str], list[str]]:
@@ -202,13 +202,13 @@ def parse(phase: str, text: str, accept_cache: bool = False,
     else:
         out["outcome"] = m.group(1).lower()
     done = out.get("outcome") == "done"
-    if phase in ("implement", "fix", "verify"):
+    if phase in (*FIELD_PHASES, "verify"):
         h = HEAD_RE.search(text)
         if h:
             out["head"] = h.group(1)
         elif done:
             errs.append("no `Head: <sha>` line")
-    if phase in ("implement", "fix"):
+    if phase in FIELD_PHASES:
         p = PR_RE.search(text)
         if p:
             out["pr"] = p.group(1)

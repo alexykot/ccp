@@ -422,8 +422,8 @@ PROOF_TIMEOUT = 600  # seconds the product's verify.skip_review.proof may take; 
 
 def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | None) -> tuple[dict[str, Any] | None, str]:
     """§15.2: may a verify of `head` skip the review of the task's latest fix round? Only with plane.json
-    `verify.skip_review` set, a fix run (not abandoned) opened since the last review that reported done,
-    and that review's head on record. The fix diff runs from the reviewed change carried onto the head's
+    `verify.skip_review` set, a fix run (not abandoned; a merge or ruling round counts as one, §13.2)
+    opened since the last review that reported done, and that review's head on record. The fix diff runs from the reviewed change carried onto the head's
     base on the integration branch (`git merge-tree` of the reviewed head and that base, which must merge
     cleanly) to the head, so an integration merge in between is not counted as the fix's. It must touch
     at least one file and only files under `paths` (git pathspecs, as `merge.behind_tip_ignore`), and the
@@ -441,7 +441,7 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     if not rule:
         return None, ""
     rs = [r for r in runs.all_runs(queue, task_id) if runs.state(r) != "abandoned"]
-    fixes = [r for r in rs if r.get("phase") == "fix"]
+    fixes = [r for r in rs if r.get("phase") in runs.REWORK_PHASES]
     reviews = [r for r in rs if r.get("phase") == "review" and runs.state(r) == "reported" and r.get("outcome") == "done"]
     if not fixes or not reviews or str(reviews[-1].get("opened_at") or "") > str(fixes[-1].get("opened_at") or ""):
         return None, ""
@@ -493,7 +493,7 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
 
 def repeat_round(queue: Path, task_id: str) -> str | None:
     """§15.6 rule 4: the task's latest verify run that reported, when no fix run (not abandoned) opened
-    since it; None otherwise. A verify run that never reported (abandoned, or still open) was no round.
+    since it, a merge or ruling round counting as one (§13.2); None otherwise. A verify run that never reported (abandoned, or still open) was no round.
     A tie (one second) counts the fix as newer: a fix opens only once a report exists to fix from."""
     from ccp import runs  # noqa: PLC0415
 
@@ -503,7 +503,7 @@ def repeat_round(queue: Path, task_id: str) -> str | None:
         return None
     last = done[-1]
     since = str(last.get("opened_at") or "")
-    if any(r.get("phase") == "fix" and str(r.get("opened_at") or "") >= since for r in rs):
+    if any(r.get("phase") in runs.REWORK_PHASES and str(r.get("opened_at") or "") >= since for r in rs):
         return None
     return str(last["run_id"])
 
