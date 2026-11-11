@@ -1,7 +1,7 @@
 ---
 task_id: 0055-merge-and-ruling-rounds
 title: Merge-only and ruling rounds are rounds of their own
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S15"]
@@ -72,4 +72,4 @@ The runner can launch a round that only merges the integration tip into a task b
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #66 head `993b9fb` (squash `4f7a0d9`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0055-merge-and-ruling-rounds.json.
