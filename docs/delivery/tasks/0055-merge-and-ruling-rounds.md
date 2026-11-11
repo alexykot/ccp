@@ -8,7 +8,7 @@ spec_refs: ["S13", "S15"]
 review_point: R4
 paths: ["ccp/prompt.py", "ccp/runs.py", "templates/prompts/", "plugin/agents/delivery-runner.md", "docs/spec/02-delivery.md", "tests/test_prompt*.py", "tests/test_runs*.py"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0055-merge-and-ruling-rounds
@@ -21,6 +21,7 @@ The runner can launch a round that only merges the integration tip into a task b
 
 - Today only `ccp prompt fix` counts as a fix round; tip merges and rulings ran as `implement-N` with `--note-file`, which mislabels the run and its prompt.
 - §31: this task's SPEC text describes its own feature. If the operator's standing ruling for such text (given for R3, 2026-11-10) is not extended to R4, the merge waits on their approval.
+- From later proposals: `ccp prompt fix` refuses when no review or verify report exists yet, so a lead ruling applied before review also runs as an implement round; and a pure merge-from-main catch-up still needs a review round before verify. Both belong to the round kinds this task adds.
 
 ## Scope
 
