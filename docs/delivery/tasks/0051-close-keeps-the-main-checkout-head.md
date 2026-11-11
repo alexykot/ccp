@@ -60,6 +60,15 @@ updated: 2026-11-10
   checkout close runs from, as before; the refusal of a dirty or mid-rebase caller checkout stays.
   Tests: `tests/test_tasks_close.py`; `tests/test_toolkit.py`'s failed-reconcile test now re-detaches the
   runner worktree at the fresh tip before committing its fix, since close no longer moves it on a failure.
+- 2026-11-11 (implementer, fix round 1): the merge worktree now gets the `worktrees.links` paths linked
+  in (`wt._link`, as `ccp wt create` does), so a reconcile hook that reads a linked path (a venv, an
+  `.env`) works there as it did in the runner worktree; env.setup still does not run in it. The
+  `review_point_done` notification now runs with the caller's checkout as its cwd (§3.6, "the checkout
+  the call came from"), not the merge worktree close removes next; the task-log read that decides it
+  stays on the reconciled tree. A failure before the merge worktree is ready (its path taken by a
+  foreign directory, a failed `worktree add`) now gets its own recovery message, which says nothing of
+  the reconcile was made and does not call that directory close's own. Tests:
+  `tests/test_tasks_close.py` (a hook reads a linked path), `tests/test_notify.py` (the channel's cwd).
 
 ## Verification notes
 

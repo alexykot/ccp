@@ -843,13 +843,19 @@ def _pr_state(cfg: Config, pr: str) -> dict[str, Any]:
 
 
 def _recovery(cfg: Config, q: Path, tid: str, pr: str, merge: str, what: str, pushed: bool,
-              merge_wt: Path | None = None) -> QueueError:
+              merge_wt: Path | None = None, made: bool = True) -> QueueError:
     integ = integration_branch(q)
     if pushed:
         return QueueError(
             f"PR {pr} is merged ({merge[:7]}) and its reconcile is pushed, but finishing the queue failed: {what}\n"
             f"  Fix the cause and run `ccp tasks close {tid} --pr {pr}` again: it sees the task done and only "
             "finishes the queue", 1)
+    if merge_wt is not None and not made:  # the merge worktree could not be had: nothing of the reconcile was made
+        return QueueError(
+            f"PR {pr} is merged ({merge[:7]}), and the reconcile did not start: {what}\n"
+            f"  Nothing of the reconcile was made or pushed; {cfg.root} is untouched. Fix the cause and run "
+            f"`ccp tasks close {tid} --pr {pr}` again: it makes the reconcile in {merge_wt}, sees the merge and only "
+            "reconciles", 1)
     if merge_wt is not None:  # the half-done reconcile is in close's own merge worktree, which a re-run discards
         return QueueError(
             f"PR {pr} is merged ({merge[:7]}), and the reconcile did not finish: {what}\n"
@@ -929,13 +935,15 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
     progress: dict[str, bool] = {"pushed": False}
     # §10.5: the reconcile is made in a worktree of close's own, so the checkout close runs from keeps its HEAD
     own = _merge_path(cfg, tid)
+    made = False
     try:
         rc = _merge_checkout(cfg, tid, integ)
+        made = True
         out = _reconcile(rc, q, {**meta, "_file": rc.root / cfg.rel(meta["_file"])}, tid, pr, head, merge, summary,
-                         integ, already, progress)
+                         integ, already, progress, caller=cfg.root)
     except Exception as exc:  # noqa: BLE001  (after a merge, every failure needs the recovery steps)
         what = str(exc) if isinstance(exc, QueueError) else f"{type(exc).__name__}: {exc}"
-        raise _recovery(cfg, q, tid, pr, merge, what, progress["pushed"], own) from None
+        raise _recovery(cfg, q, tid, pr, merge, what, progress["pushed"], own, made) from None
     if own:  # the reconcile has landed: the merge worktree has done its work
         main = _main_checkout(cfg)
         r = git(main, "worktree", "remove", "--force", str(own))
@@ -965,6 +973,7 @@ def _merge_checkout(cfg: Config, tid: str, integ: str) -> Config:
     """§10.5: where the reconcile is committed and pushed from: the task's merge worktree under
     `worktrees.dir` (`merge-<nnnn>`), made detached at origin/<integration> when missing, or reused with
     its half-done reconcile from an earlier failed close discarded (it holds nothing but close's own).
+    The `worktrees.links` paths are linked in, as `ccp wt create` does, for the reconcile hooks.
     The checkout close runs from keeps its HEAD, branch and index. A product with no `worktrees.dir`
     has no plane-made worktrees: there the reconcile is made in that checkout, as before."""
     path = _merge_path(cfg, tid)
@@ -985,6 +994,8 @@ def _merge_checkout(cfg: Config, tid: str, integ: str) -> Config:
         r = git(main, "worktree", "add", "-q", "--detach", str(path), f"origin/{integ}")
         if r.returncode != 0:
             raise QueueError(f"git worktree add {path}: {(r.stderr or r.stdout).strip()[:300]}", 1)
+    from ccp import wt  # noqa: PLC0415
+    wt._link(cfg, main, path)  # §12.1: the reconcile hooks see the worktrees.links paths, as in any plane worktree
     from dataclasses import replace  # noqa: PLC0415
     return replace(cfg, root=path)
 
@@ -1164,7 +1175,7 @@ def _undeclared(cfg: Config, meta: dict[str, Any], merge: str) -> list[str] | No
 
 
 def _reconcile(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, head: str, merge: str, summary: str,
-               integ: str, already: bool, progress: dict[str, bool]) -> dict[str, Any]:
+               integ: str, already: bool, progress: dict[str, bool], caller: Path | None = None) -> dict[str, Any]:
     for attempt in range(1, RECONCILE_TRIES + 1):
         try:
             got = _reconcile_once(cfg, q, meta, tid, pr, head, merge, summary, integ)
@@ -1174,7 +1185,8 @@ def _reconcile(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, he
                 raise QueueError(f"the reconcile could not land after {RECONCILE_TRIES} tries: {moved}", 1) from None
     reconciled, stamp_warnings, undeclared, paths, stamp = got
     progress["pushed"] = True
-    return _reconciled(cfg, q, meta, tid, pr, head, merge, already, reconciled, stamp_warnings, undeclared, paths, stamp)
+    return _reconciled(cfg, q, meta, tid, pr, head, merge, already, reconciled, stamp_warnings, undeclared, paths, stamp,
+                       caller)
 
 
 def _reconcile_once(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, head: str, merge: str,
@@ -1231,8 +1243,9 @@ def _reconcile_once(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: st
 
 def _reconciled(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, head: str, merge: str, already: bool,
                 reconciled: bool, stamp_warnings: list[str], undeclared: list[str] | None, paths: list[str],
-                stamp: str | None) -> dict[str, Any]:
-    """After the reconcile landed: cleanup, the queue's record, the actuals; once, whatever the tries."""
+                stamp: str | None, caller: Path | None = None) -> dict[str, Any]:
+    """After the reconcile landed: cleanup, the queue's record, the actuals; once, whatever the tries.
+    `caller` is the checkout close was called from, when the reconcile was made in its merge worktree."""
     reconcile = git(cfg.root, "rev-parse", "HEAD", check=True).stdout.strip()
     warnings = stamp_warnings + _cleanup(cfg, tid)
     st = load_task_state(q, tid)
@@ -1281,7 +1294,9 @@ def _reconciled(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, h
     # between; not on a re-run that finds both done
     rp = str(stamp or meta.get("review_point") or "")
     first = not reconciled or st.get("status") != "done"
-    notified = notify.send(cfg, "review_point_done", task_id=tid, ident=rp) \
+    from dataclasses import replace  # noqa: PLC0415
+    # §3.6: the channel runs in the checkout the call came from, not the merge worktree close removes next
+    notified = notify.send(replace(cfg, root=caller) if caller else cfg, "review_point_done", task_id=tid, ident=rp) \
         if first and notify.channel(cfg) and notify.review_point_done(cfg, rp) else None
     warnings += notify.warnings(notified)
     return {"ok": True, "task_id": tid, "pr": pr, "head": head, "merge_sha": merge, "reconcile_sha": reconcile,

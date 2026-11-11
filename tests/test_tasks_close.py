@@ -113,6 +113,20 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertEqual(cwd.read_text().strip(), str((self.main / ".rt" / "merge-0002").resolve()))
 
+    def test_the_reconcile_hooks_see_the_worktrees_links_paths(self):
+        seen = self.main.parent / "hook-seen"
+        self.write(".venv/marker", "linked in\n")  # a worktrees.links path: untracked, in the main checkout only
+        cfg = json.loads((self.runner / "docs/delivery/plane.json").read_text())
+        cfg["reconcile"]["hooks"] = [f"cat .venv/marker > {seen}"]
+        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        git(self.runner, "commit", "-qam", "a hook that reads a linked path")
+        git(self.runner, "push", "-q", "origin", "HEAD:main")
+        self._to_approved_pr()
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(seen.read_text(), "linked in\n")
+        self.assertNotIn(".venv", body["committed"])
+
 
 if __name__ == "__main__":
     unittest.main()
