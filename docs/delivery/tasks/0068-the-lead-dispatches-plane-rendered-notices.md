@@ -1,7 +1,7 @@
 ---
 task_id: 0068-the-lead-dispatches-plane-rendered-notices
 title: The lead dispatches the operator's notices, rendered and recorded by the plane, over a configured channel
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3", "S8", "S17"]
@@ -151,4 +151,4 @@ the record; the lead dispatches; the channel is configuration.
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #61 head `0b53e37` (squash `c666fcc`): APPROVE. Passed: check-04. Not run by the verifier: check-01, check-02, check-05, check-06, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0068-the-lead-dispatches-plane-rendered-notices.json.
