@@ -47,6 +47,15 @@ When two implementer reports carry the same timestamp, the review prompt shows t
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): `ccp/prompt.py` `reported_verdicts` now picks the latest done implement or
+  fix run by the key (`reported_at`, fix after implement, round from the run id). Reports in the same
+  second therefore go to the fix over the implement and to the higher round within a phase, whatever
+  order the run files load in. Phase ranks before round because an `implement-2` normally precedes
+  `fix` (round 1) in the runner's flow. A new test in `tests/test_report_fields.py` gives the runs one
+  `reported_at` (and the earlier run the earlier `opened_at`, the order that broke on the merge base)
+  and checks the review prompt shows the fix, then `fix-2`. No SPEC text changed: §13.4 already says
+  "latest"; the tie-break is in the function's docstring.
+
 ## Verification notes
 
 *Append-only.*
