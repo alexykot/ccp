@@ -21,8 +21,10 @@ Everything comes from data the plane already holds; nothing here is a target or 
   cannot be shown cold or warm `suite_seconds_unverified`. Only a run with no suite record falls back
   to its `Suite:` line.
 - **gate time** (§14.6): the latest cold run of the gate role's lane, from `runs/_suites.jsonl`, against
-  plane.json `gate`'s cut line and shell limit; over the line it is reported with its slowest stage,
-  over the limit as a breach. Warm and unverified runs are not judged.
+  plane.json `gate`'s cut line and shell limit; over the line it is reported with its slowest stage as
+  an advisory finding, over the limit as a breach. Warm and unverified runs are not judged. A gate run
+  with no end whose elapsed time reached the shell limit, started after the latest gate run that passed
+  or failed, is reported as killed at the limit.
 
 - **uncovered commits** (§10.7, `ccp tasks orphans`): the commits on the integration branch's
   first-parent history since a ref that no task covers: not a task's merge (the rule above, a squash
@@ -47,6 +49,7 @@ import re
 import statistics
 import subprocess
 import sys
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -427,10 +430,10 @@ def _entries(task_id: str, at: str, kind: str, tests: Any, seconds: Any, **extra
     return out
 
 
-def _folded(q: Path) -> list[dict[str, Any]]:
+def _folded(q: Path, now: float | None = None) -> list[dict[str, Any]]:
     from ccp import suite  # noqa: PLC0415
     try:
-        return suite.fold(q)
+        return suite.fold(q, now=now)
     except Exception:  # noqa: BLE001  (a damaged suites file: no records)
         return []
 
@@ -519,16 +522,21 @@ def suite_trend(entries: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
-def gate_time(cfg: Config | None, q: Path, rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def gate_time(cfg: Config | None, q: Path, rows: list[dict[str, Any]] | None = None,
+              now: float | None = None) -> dict[str, Any]:
     """The gate's time against the agent's shell limit (§14.6): the latest cold run of the gate role's
     lane (cold as §27.2 decides: passed, counted tests, nothing cached or no test cache yet), judged
     against plane.json `gate`'s cut line and limit. `finding` is that run when it took longer than the
-    line (`over_limit` when longer than the limit, a health breach), with its slowest stage; else None.
-    Warm and unverified runs are never judged."""
+    line (`over_limit` when longer than the limit, a health breach), with its slowest stage; else None:
+    an advisory finding, never a filed task. Warm and unverified runs are never judged. `killed` lists,
+    oldest first, the gate role's runs with no `ended` row whose elapsed time reached the limit (to
+    their run's stop or report when fold knows it, else to `now`), started after the latest gate run
+    that passed or failed: killed at the shell limit. A run that stopped earlier is not listed."""
     from ccp.config import gate_limits, lane_for  # noqa: PLC0415
     limit, line = gate_limits(cfg)
     lane = lane_for(cfg, "gate")
-    rows = _folded(q) if rows is None else rows
+    now = time.time() if now is None else now
+    rows = _folded(q, now) if rows is None else rows
     mine = [s for s in rows if s.get("lane") == lane and s.get("state") == "passed"]
     start = cache_start(cfg, q, rows) if mine else None
 
@@ -547,9 +555,20 @@ def gate_time(cfg: Config | None, q: Path, rows: list[dict[str, Any]] | None = N
                    "started_at": latest.get("started_at"), "seconds": _seconds(latest["seconds"]),
                    "over_limit": latest["seconds"] > limit,
                    "slowest_stage": {"name": slow.get("name"), "seconds": _seconds(slow["seconds"])} if slow else None}
+    ours = [s for s in rows if s.get("lane") == lane]
+    since = max((i + 1 for i, s in enumerate(ours) if s.get("state") in ("passed", "failed")), default=0)
+    killed = [{k: s.get(k) for k in ("suite_id", "task_id", "run_id", "started_at")} for s in ours[since:]
+              if s.get("state") in ("open", "killed") and (t0 := _epoch(str(s.get("started_at") or ""))) is not None
+              and _elapsed(s, t0, now) >= limit]
     return {"lane": lane, "limit_s": limit, "line_s": line, "cold_runs": len(cold),
             "latest": {"suite_id": latest.get("suite_id"), "seconds": _seconds(latest["seconds"])} if latest else None,
-            "finding": finding}
+            "finding": finding, "killed": killed}
+
+
+def _elapsed(s: dict[str, Any], t0: float, now: float) -> float:
+    """A no-end suite run's elapsed seconds: to its run's stop or report when fold knows it, else to now."""
+    secs = s.get("seconds")
+    return secs if isinstance(secs, (int, float)) and not isinstance(secs, bool) else now - t0
 
 
 def gate_text(g: dict[str, Any] | None) -> str | None:
@@ -563,7 +582,18 @@ def gate_text(g: dict[str, Any] | None) -> str | None:
             else f"Gate over the cut line: cold gate run {f['suite_id']}")
     return (f"{head} ({f.get('task_id') or 'no task'}, {f.get('started_at') or '-'}) took {f['seconds']:g} s;"
             f" cut line {g['line_s']:g} s, shell limit {g['limit_s']:g} s; {where}."
-            " It calls for a refactor task that brings the cold gate under the line (§14.6).")
+            " Advisory: the task-log owner decides whether to file a refactor task (§14.6).")
+
+
+def killed_text(g: dict[str, Any] | None) -> str | None:
+    """One line for the gate runs killed at the shell limit (§14.6), or None when there are none."""
+    k = (g or {}).get("killed") or []
+    if not k:
+        return None
+    last = k[-1]
+    return (f"Gate killed at the shell limit: {len(k)} gate run(s) with no end ran {g['limit_s']:g} s or longer"
+            f" since the latest gate run that passed or failed; latest {last.get('suite_id')}"
+            f" ({last.get('task_id') or 'no task'}, {last.get('started_at') or '-'}) (§14.6).")
 
 
 def _report_line(q: Path, run: dict[str, Any]) -> str | None:
@@ -810,6 +840,8 @@ def summary_text(report: dict[str, Any], n: int = 10) -> str:
             + f"; {(st.get('unverified') or {}).get('runs', 0)} unverified, in no series.")
     if gt := gate_text(report.get("gate_time")):
         lines.append(gt)
+    if kt := killed_text(report.get("gate_time")):
+        lines.append(kt)
     for r in report["tasks"][-n:] if n else []:
         lines.append(f"- {r['task_id']}: merged {r['merged_at']}, wall {_h(r.get('wall_s'))}, active {_h(r.get('active_s'))}"
                      f" (impl {_h(r.get('implementing_s'))},"
