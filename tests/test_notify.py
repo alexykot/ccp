@@ -163,6 +163,16 @@ class Channel(ToolkitFixture, unittest.TestCase):
         self.ccp("tasks", "close", "0002", "--pr", "7")  # a re-run finds the reconcile done: nothing more
         self.assertEqual(len(sent(self.out)), 1)
 
+    def test_the_review_point_channel_runs_in_the_checkout_close_was_called_from(self):
+        cwd = Path(self._tmp.name) / "notify-cwd"
+        self.set_plane(notify={"command": f"pwd -P > '{cwd}'"})
+        self.tag("0001", "0002")  # commits the channel with the tags
+        self._to_approved_pr()
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["notified"]["exit"], 0)
+        self.assertEqual(cwd.read_text().strip(), str(self.runner.resolve()))
+
     def test_the_retry_of_a_close_that_crashed_after_its_reconcile_notifies_once(self):
         self.tag("0001", "0002")
         self._to_approved_pr()
