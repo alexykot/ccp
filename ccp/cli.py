@@ -363,6 +363,26 @@ def cmd_wt(cfg: config.Config, a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_wt_exec(a: argparse.Namespace, args: list[str]) -> int:
+    """SPEC §12.1: run (or print) a worktree's own bin/ccp. It needs no plane.json, so a change the
+    installed ccp cannot load can still be tried."""
+    from ccp import wt  # noqa: PLC0415
+    try:
+        if a.print_path and args:
+            raise QueueError("--print runs nothing: give no arguments after `--`", 2)
+        exe = wt.own_ccp(None if a.name_arg is not None else config.find_root(a.root), a.name_arg)
+    except QueueError as e:
+        print(f"ccp wt exec: {e}", file=sys.stderr)
+        return e.code
+    except config.ConfigError as e:
+        print(f"ccp wt exec: {e}", file=sys.stderr)
+        return 2
+    if a.print_path:
+        print(exe)
+        return 0
+    return wt.exec_ccp(exe, args)
+
+
 def cmd_auth(cfg: config.Config, a: argparse.Namespace) -> int:
     """SPEC §30: run plane.json auth_check.probes; exit 1 when one fails."""
     from ccp import wt  # noqa: PLC0415
@@ -1125,15 +1145,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--stdout", action="store_true", help="index: print instead of writing")
     p.add_argument("--json", action="store_true", help="list: JSON")
     p.set_defaults(fn=cmd_adr, args=[], note=None, by=None, decisions=None, archive=False, markers=False, dry_run=False)
-    p = sub.add_parser("wt", help="worktrees and environments (SPEC §12.1): create | remove | list | up | down | urls | gc")
-    p.add_argument("action", choices=("create", "remove", "list", "up", "down", "urls", "gc"))
-    p.add_argument("name_arg", nargs="?", metavar="NAME", help="remove, up, down, urls: the worktree (e.g. ver-0042)")
+    p = sub.add_parser("wt", help="worktrees and environments (SPEC §12.1): create | remove | list | up | down | urls | gc | "
+                                  "exec")
+    p.add_argument("action", choices=("create", "remove", "list", "up", "down", "urls", "gc", "exec"))
+    p.add_argument("name_arg", nargs="?", metavar="NAME", help="remove, up, down, urls: the worktree (e.g. ver-0042); "
+                                                              "exec: the worktree whose ccp runs (default this checkout)")
     p.add_argument("--kind", choices=("impl", "rev", "ver", "mut", "mac"), help="create: the worktree's kind")
     p.add_argument("--task", help="create: the task; list: only its worktrees")
     p.add_argument("--sha", help="create: the head a rev/ver/mut/mac worktree is detached at")
     p.add_argument("--name", help="create: the name (default <kind>-<nnnn>, then -2, -3, …)")
     p.add_argument("--seat", help="create: the seat it serves (default from the kind)")
     p.add_argument("--tag", help="create: a tag for the hooks (default main; mut, mac for those kinds)")
+    p.add_argument("--print", dest="print_path", action="store_true", help="exec: print the path of its bin/ccp, run nothing")
     p.set_defaults(fn=cmd_wt)
     p = sub.add_parser("auth", help="auth probes (SPEC §30)").add_subparsers(dest="cmd", required=True)
     p.add_parser("check", help="run plane.json auth_check.probes; exit 1 when one fails").set_defaults(fn=cmd_auth)
@@ -1395,9 +1418,11 @@ def main(argv: list[str] | None = None) -> int:
     if words[:1] == ["usage"] and "--system" in words:  # §24: usage outside every project, no product needed
         from ccp import usage  # noqa: PLC0415
         return usage.system_main(words[1:])
-    command = None
+    command, passthru = None, []
     if "--" in raw and _words(raw[:raw.index("--")])[:2] == ["suite", "run"]:
         command, raw = raw[raw.index("--") + 1:], raw[:raw.index("--")]  # §14.1: the command, verbatim
+    elif "--" in raw and _words(raw[:raw.index("--")])[:2] == ["wt", "exec"]:
+        passthru, raw = raw[raw.index("--") + 1:], raw[:raw.index("--")]  # §12.1: its ccp's arguments, verbatim
     if command:
         try:
             a = build_parser().parse_args(raw)
@@ -1415,6 +1440,8 @@ def main(argv: list[str] | None = None) -> int:
     if a.group == "suite" and a.cmd == "run":  # it runs even where plane.json does not load
         from ccp import suite  # noqa: PLC0415
         return suite.main_run(a, command)
+    if a.group == "wt" and a.action == "exec":  # it runs even where this ccp cannot load the checkout's plane.json
+        return cmd_wt_exec(a, passthru)
     try:
         cfg = config.load(config.find_root(a.root))
     except config.ConfigError as e:
