@@ -73,6 +73,10 @@ When `ccp health` finds the gate's latest cold run over `gate.cut_line_seconds`,
   as stopped). The list holds only runs started after the latest run of the gate lane that passed or
   failed; an interrupted run or another lane's run does not clear it. `gate_time` passes `now` to
   `fold` through `_folded`. The §14.6 bullet and the health text line say both.
+- 2026-11-11 (fix round 2): §14.6 text only, no code change. The Killed-at-the-limit bullet now says
+  exactly what each output holds: `gate_time.killed` carries each run's suite id, task, run and start;
+  the health and architect summaries give one line with the count and the latest to start. The
+  "Judged on cold runs only" bullet says killed runs are not judged against the line.
 
 ## Verification notes
 

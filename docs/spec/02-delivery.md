@@ -626,7 +626,8 @@ Claude Code). A cold gate run must fit that limit with room to spare.
   `cached` count. A command's own `cold` in its result file is ignored.
 - **Judged on cold runs only.** `ccp health` judges the latest cold run of the gate role's lane,
   cold as §27.2 decides (passed, counted tests, and nothing cached or no test cache yet). Warm,
-  unverified, failed, interrupted and killed runs, and other lanes' runs, are not judged.
+  unverified, failed, interrupted and killed runs, and other lanes' runs, are not judged against
+  the line.
 - **Over the line** (longer than `cut_line_seconds`), `ccp health` reports the run as an advisory
   finding: the run (its suite id, task and start), its seconds, the line, the limit and its slowest
   stage (§14.2; none for a run with no stage timings). The task-log owner decides whether to file a
@@ -635,8 +636,9 @@ Claude Code). A cold gate run must fit that limit with room to spare.
   it as `gate_time` (`finding` null when there is none), and the architect's health summary carries
   the same line.
 - **Killed at the limit.** A run of the gate role's lane with no `ended` row whose elapsed time
-  reached `shell_limit_seconds` is reported as killed at the shell limit (its suite id, task and
-  start), in `gate_time.killed` and in the health and architect summaries. Its elapsed time runs to
+  reached `shell_limit_seconds` is reported as killed at the shell limit. `gate_time.killed` carries
+  each such run's suite id, task, run and start; the health and architect summaries give one line
+  with their count and the latest to start (its suite id, task and start). Its elapsed time runs to
   its run's stop, report or abandonment when known (as §14.4's totals reckon it), else to now. A run
   with no `ended` row that stopped before the limit is not reported. Only runs started after the
   latest run of that lane that passed or failed are listed, so such a run clears the earlier ones.
