@@ -223,7 +223,8 @@ def cmd_tasks_lease_check(cfg: config.Config, a: argparse.Namespace) -> int:
     errs = [f"{e['task_id']}: leased by {e['holder']}, and its task file {e['file']} "
             + (f"is changed in the commit staged on {integ}" if e["sha"] is None
                else f"changed on {integ} in {e['sha'][:7]} {e['subject']!r}")
-            + ". A claimed task's file changes only in its PR: send the amendment to the runner (SPEC §10.5)"
+            + ". A claimed task's file changes only in its PR: send a ruling or clarification to the runner holding the task;"
+            + " any other change (intent, scope, dod_checks, id, dependencies) needs the task released or superseded first (SPEC §10.5)"
             for e in lifecycle.lease_edits(cfg, q, staged=a.staged)]
     return _print_errs("tasks --lease", errs, " (no leased task's file edited on " + integ + ")")
 

@@ -288,7 +288,7 @@ A tension between SPEC and PROJECT goes to the design seat, which rules and comm
 
 | Field | Writer |
 | --- | --- |
-| task id, title, intent, refs, `dod_checks`, dependencies | the task-log owner (the design seat); locked once written, except by the owner's amendment |
+| task id, title, intent, refs, `dod_checks`, dependencies | the task-log owner (the design seat); a claimed task is changed only by superseding it (§5, §17.4) |
 | the task file's `## Context (not checked)` section | the task-log owner; the design seat when ruling on a spec question (commit `spec(<question_id>): …`, §17); on a claimed task, the implementer, writing a ruling the runner passes (§10.5) |
 | status (`done` at close; `dropped` by the task-log owner, §5.3) | `ccp tasks close`; the task-log owner |
 | implementation notes | the runner, from the implementer's output |

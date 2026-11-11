@@ -88,6 +88,15 @@ Once a task is claimed, its file is not edited on the integration branch. A ruli
   limit in §17.4 (never once a task is claimed without superseding it), so the runner releases the
   task or the lead supersedes it, and the lead edits the file unleased on the integration branch. No
   new rule and no code change.
+- 2026-11-11 — implementer, fix round 3 (the lead's word, and review-3 MINOR-1): the §4.2 row for
+  task id, title, intent, refs, `dod_checks` and dependencies no longer says "locked once written,
+  except by the owner's amendment"; it says a claimed task is changed only by superseding it (§5,
+  §17.4), citing the existing rule. The implement prompt template drops "notes only" and says what
+  standing DoD item 3 says: Implementation notes, plus a ruling or clarification the runner passes,
+  written into Context; no other prompt template or plugin brief carried the phrase. The `--lease`
+  error text and the pre-commit hook's refusal no longer say "send the amendment to the runner": a
+  ruling or clarification goes to the runner holding the task, and any other change needs the task
+  released or superseded first. No test pins either message, so no test changed.
 
 ## Verification notes
 

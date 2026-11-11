@@ -8,7 +8,8 @@
 ccp tasks check --lease --staged >&2
 code=$?
 if [ "$code" -eq 1 ]; then
-  echo "pre-commit: send the amendment to the runner holding the task; it lands in the task's PR" >&2
+  echo "pre-commit: send a ruling or clarification to the runner holding the task; it lands in the task's PR" >&2
+  echo "pre-commit: any other change (intent, scope, dod_checks, id, dependencies) needs the task released or superseded first" >&2
   exit 1
 fi
 [ "$code" -eq 0 ] || echo "pre-commit: warning: \`ccp tasks check --lease --staged\` exited $code; commit not checked" >&2
