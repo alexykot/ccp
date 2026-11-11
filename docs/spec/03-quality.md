@@ -424,7 +424,8 @@ mut`, §12.1) and changes nothing else.
   `{test}` (required) filled in shell-quoted; exit 0 means the test passed. It runs in the worktree's
   root, in its own process group, killed after `mutate.timeout_seconds` (default 600); a run killed
   at the limit counts as the test failing. With no command (`null`, the default) `ccp mutate` refuses
-  (exit 2).
+  (exit 2). Its test runs are not suite runs (§14.1): `ccp mutate` runs the command itself, and
+  records them in its own rows and log, not as `suite` events.
 - **A mutant** is `<file>:<old>=><new>`, the text `old` found exactly once in `file` (a path relative
   to the worktree's root, inside it) replaced by `new`, or the path of a patch `git apply` takes. A
   value with no `=>` is a patch. Every mutant is checked before any test runs; one that does not
@@ -434,15 +435,16 @@ mut`, §12.1) and changes nothing else.
   the mutant is `killed` when it exits non-zero and `survived` when it exits 0. Another test the
   mutant breaks does not count.
 - **The tree is restored** after each mutant: every file it touched is written back byte for byte
-  (a file it made is removed) and checked before the next. A file that cannot be restored stops the
-  call (exit 1). A SIGTERM restores the files and exits 143.
+  (a file it made is removed, with any directory it made) and checked before the next. A file that
+  cannot be restored stops the call (exit 1). A SIGTERM at any point of the call kills the running
+  test, restores the files and exits 143.
 - **Bound to the calling seat's run.** `--run` names the run, which must be open (not reported or
   abandoned), and the worktree must be a recorded `mut` worktree of the run's task; otherwise it
   refuses (exit 2). Each mutant adds a row to the run record's `mutation` list: the test id, the
   mutant's number, `kind` (`text` or `patch`), the files it touched, a 12-character digest, the
-  outcome, the exit code, the seconds, `timed_out` and the worktree's name; never the mutant's text
-  or the test's output, which goes to `<run record>-mutate.log` beside the run record. The call ends
-  with one `run`/`recorded` event (run id and the counts).
+  outcome, the exit code, the seconds, `timed_out` and the worktree's name; never the mutant's text,
+  old or new, or the test's output, which goes to `<run record>-mutate.log` beside the run record.
+  The call ends with one `run`/`recorded` event (run id and the counts).
 - **Exit codes:** 0 when every mutant was killed, 1 when one survived.
 
 Choosing mutants is the seat's; the plane ships no mutation operators.
