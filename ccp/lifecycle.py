@@ -18,8 +18,11 @@ the 5-hour park % any claim parks the task and refuses (exit 6, §25.4).
 `close` is the merge and the reconcile as one step: `ccp verify merge-ok` first (§15.5), then the
 merge pinned to the head it printed, then the task file, the product's records (`reconcile.log`,
 `reconcile.hooks`), the index, one commit pushed to the integration branch, the adapter's
-`post_close` commands and the queue. It refuses before merging when the runner worktree has
-changes, so everything it commits is its own. Run it from the runner worktree (§12.1).
+`post_close` commands and the queue. It refuses before merging when the checkout it runs from has
+changes. The reconcile is committed and pushed from the task's own merge worktree (`merge-<nnnn>` under
+`worktrees.dir`), so the checkout close runs from, the product's main checkout included, keeps its
+branch, HEAD and index; a runner worktree (detached) is then moved to the reconcile. Run it from the
+runner worktree (§12.1).
 """
 from __future__ import annotations
 
@@ -839,13 +842,20 @@ def _pr_state(cfg: Config, pr: str) -> dict[str, Any]:
     return facts if isinstance(facts, dict) else {}
 
 
-def _recovery(cfg: Config, q: Path, tid: str, pr: str, merge: str, what: str, pushed: bool) -> QueueError:
+def _recovery(cfg: Config, q: Path, tid: str, pr: str, merge: str, what: str, pushed: bool,
+              merge_wt: Path | None = None) -> QueueError:
     integ = integration_branch(q)
     if pushed:
         return QueueError(
             f"PR {pr} is merged ({merge[:7]}) and its reconcile is pushed, but finishing the queue failed: {what}\n"
             f"  Fix the cause and run `ccp tasks close {tid} --pr {pr}` again: it sees the task done and only "
             "finishes the queue", 1)
+    if merge_wt is not None:  # the half-done reconcile is in close's own merge worktree, which a re-run discards
+        return QueueError(
+            f"PR {pr} is merged ({merge[:7]}), and the reconcile did not finish: {what}\n"
+            f"  Nothing of the reconcile was pushed; {cfg.root} is untouched. Fix the cause and run "
+            f"`ccp tasks close {tid} --pr {pr}` again: it discards the half-done reconcile in {merge_wt}, sees the "
+            "merge and only reconciles", 1)
     return QueueError(
         f"PR {pr} is merged ({merge[:7]}), and the reconcile did not finish: {what}\n"
         f"  Nothing of the reconcile was pushed. To finish it: discard the half-done reconcile in {cfg.root} "
@@ -917,11 +927,66 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
     if not merge:
         raise QueueError(f"PR {pr} is merged but gh names no merge commit", 1)
     progress: dict[str, bool] = {"pushed": False}
+    # §10.5: the reconcile is made in a worktree of close's own, so the checkout close runs from keeps its HEAD
+    own = _merge_path(cfg, tid)
     try:
-        return _reconcile(cfg, q, meta, tid, pr, head, merge, summary, integ, already, progress)
+        rc = _merge_checkout(cfg, tid, integ)
+        out = _reconcile(rc, q, {**meta, "_file": rc.root / cfg.rel(meta["_file"])}, tid, pr, head, merge, summary,
+                         integ, already, progress)
     except Exception as exc:  # noqa: BLE001  (after a merge, every failure needs the recovery steps)
         what = str(exc) if isinstance(exc, QueueError) else f"{type(exc).__name__}: {exc}"
-        raise _recovery(cfg, q, tid, pr, merge, what, progress["pushed"]) from None
+        raise _recovery(cfg, q, tid, pr, merge, what, progress["pushed"], own) from None
+    if own:  # the reconcile has landed: the merge worktree has done its work
+        main = _main_checkout(cfg)
+        r = git(main, "worktree", "remove", "--force", str(own))
+        if r.returncode != 0:
+            out["warnings"].append(f"merge worktree {own}: {(r.stderr or r.stdout).strip()[:200]}")
+        # a runner worktree (detached, §12.1) ends at the reconcile, as when it made it itself; the main checkout,
+        # and any checkout on a branch, keeps its HEAD
+        detached = git(cfg.root, "symbolic-ref", "-q", "HEAD").returncode != 0
+        if detached and cfg.root.resolve() != main.resolve():
+            r = git(cfg.root, "checkout", "-q", "--detach", out["reconcile_sha"])
+            if r.returncode != 0:
+                out["warnings"].append(f"{cfg.root} stays where it was, not at the reconcile "
+                                       f"{out['reconcile_sha'][:7]}: {(r.stderr or r.stdout).strip()[:200]}")
+    return out
+
+
+MERGE_WT_PREFIX = "merge"  # §10.5: close's own worktree for the reconcile, `merge-<nnnn>` under worktrees.dir
+
+
+def _merge_path(cfg: Config, tid: str) -> Path | None:
+    """The task's merge worktree (§10.5): `merge-<nnnn>` under `worktrees.dir`; None when the product has none."""
+    d = (cfg.worktrees or {}).get("dir")
+    return _main_checkout(cfg) / d / f"{MERGE_WT_PREFIX}-{refs.ids(cfg).task_number(tid)}" if d else None
+
+
+def _merge_checkout(cfg: Config, tid: str, integ: str) -> Config:
+    """§10.5: where the reconcile is committed and pushed from: the task's merge worktree under
+    `worktrees.dir` (`merge-<nnnn>`), made detached at origin/<integration> when missing, or reused with
+    its half-done reconcile from an earlier failed close discarded (it holds nothing but close's own).
+    The checkout close runs from keeps its HEAD, branch and index. A product with no `worktrees.dir`
+    has no plane-made worktrees: there the reconcile is made in that checkout, as before."""
+    path = _merge_path(cfg, tid)
+    if path is None:
+        return cfg
+    main = _main_checkout(cfg)
+    top = git(path, "rev-parse", "--show-toplevel").stdout.strip() if (path / ".git").exists() else ""
+    if top and Path(top).resolve() == path.resolve():
+        if git(path, "rev-parse", "-q", "--verify", "REBASE_HEAD").returncode == 0:
+            git(path, "rebase", "--abort")
+        git(path, "reset", "-q", "--hard")
+        git(path, "clean", "-fdq")
+    else:
+        if path.exists() and any(path.iterdir()):
+            raise QueueError(f"{path} exists and is not a working tree of the product: move it away first", 1)
+        git(main, "worktree", "prune")  # a merge worktree removed by hand, still registered, blocks the add
+        git(main, "fetch", "-q", "origin", integ)
+        r = git(main, "worktree", "add", "-q", "--detach", str(path), f"origin/{integ}")
+        if r.returncode != 0:
+            raise QueueError(f"git worktree add {path}: {(r.stderr or r.stdout).strip()[:300]}", 1)
+    from dataclasses import replace  # noqa: PLC0415
+    return replace(cfg, root=path)
 
 
 class _Moved(Exception):

@@ -48,6 +48,19 @@ updated: 2026-11-10
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): `close` now commits and pushes the reconcile from the task's own merge
+  worktree, `merge-<nnnn>` under `worktrees.dir` (`ccp/lifecycle.py` `_merge_checkout`), made detached at
+  `origin/<integration>` after the merge, or reused with an earlier failed close's half-done reconcile
+  discarded (rebase abort, hard reset, clean); it is removed once the reconcile lands. The checkout close
+  runs from keeps its branch, HEAD and index; a detached checkout other than the main checkout (a runner
+  worktree) is then moved to the reconcile commit, as when it made the reconcile itself, so the board built
+  from it still shows the merge. The recovery message on a failed reconcile names the merge worktree and
+  says the re-run discards it. Choices (the task leaves them open): the merge worktree is lifecycle's own,
+  not a `ccp wt` kind (no record, no env.setup); a product with no `worktrees.dir` reconciles in the
+  checkout close runs from, as before; the refusal of a dirty or mid-rebase caller checkout stays.
+  Tests: `tests/test_tasks_close.py`; `tests/test_toolkit.py`'s failed-reconcile test now re-detaches the
+  runner worktree at the fresh tip before committing its fix, since close no longer moves it on a failure.
+
 ## Verification notes
 
 *Append-only.*
