@@ -1,14 +1,14 @@
 ---
 task_id: 0056-shell-limit-finding-files-a-task
 title: A gate over the shell-limit line gets its refactor task
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S20"]
 review_point: R4
 paths: ["ccp/health.py", "ccp/suite.py", "docs/spec/02-delivery.md", "tests/test_gate_time.py", "tests/test_health_suite.py"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0056-shell-limit-finding-files-a-task
@@ -80,4 +80,4 @@ When `ccp health` finds the gate's latest cold run over `gate.cut_line_seconds`,
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #64 head `6852718` (squash `c1e40fd`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0056-shell-limit-finding-files-a-task.json.
