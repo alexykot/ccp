@@ -1,14 +1,14 @@
 ---
 task_id: 0043-leased-task-file-edited-only-in-its-pr
 title: A claimed task's file is edited only in its PR
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S10", "S16"]
 review_point: R3
 paths: ["ccp/tasklog.py", "ccp/lifecycle.py", "docs/spec/02-delivery.md", "scripts/git-hooks/", "plugin/", "tests/test_lease*.py"]
 created: 2026-11-09
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0043-leased-task-file-edited-only-in-its-pr
@@ -100,4 +100,4 @@ Once a task is claimed, its file is not edited on the integration branch. A ruli
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #44 head `5ce6ee3` (squash `fa07d46`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0043-leased-task-file-edited-only-in-its-pr.json.
