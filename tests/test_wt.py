@@ -395,14 +395,17 @@ class SingleRunnerWorktree(WtFixture, unittest.TestCase):
         self.assertEqual(res["runner_worktree"], {"path": str(self.solo), "made": False})
         self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
 
-    def test_a_spawn_that_cannot_make_it_refuses_and_records_nothing(self):
+    def test_a_spawn_that_cannot_make_it_warns_and_goes_on(self):
         self.solo.mkdir(parents=True)
         (self.solo / "x").write_text("x")
-        code, _, err = self.spawn()
-        self.assertEqual(code, 2)
-        self.assertIn("not a working tree", err)
-        self.assertEqual(json.loads((self.q / "work.json").read_text())["status"], "idle")
-        self.assertEqual([e for e in self.events() if e["type"] == "runner"], [])
+        code, res, err = self.spawn()
+        self.assertEqual(code, 0, err)
+        self.assertEqual((res["runner_worktree"]["made"], res["actions"][-1]["action"]), (False, "spawn_teammate"))
+        self.assertIn("not a working tree", res["runner_worktree"]["error"])
+        self.assertIn("runner worktree", err)
+        self.assertTrue(any("ccp tasks worktree" in w for w in res["warnings"]))
+        self.assertEqual(sorted(p.name for p in self.solo.iterdir()), ["x"])  # the directory is left as it was
+        self.assertEqual(json.loads((self.q / "work.json").read_text())["status"], "running")
 
     def test_tasks_worktree_without_a_slot_makes_the_one_runners(self):
         code, body, out, err = self.ccp("tasks", "worktree", root=self.main)

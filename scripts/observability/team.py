@@ -216,8 +216,9 @@ def product_log(root: Path, quiet: bool = False) -> tuple[Any, list[dict[str, An
 def single_runner_worktree(root: Path, rc: dict[str, str]) -> dict[str, Any] | None:
     """SPEC §12.1: the one runner's worktree (the binding's `runner.worktree`), made at its spawn when
     missing, detached at `origin/<integration_branch>`; an existing one is left alone. None when the
-    binding names no `runner.worktree` or no product root. One it cannot make refuses the spawn (exit 2,
-    before any write)."""
+    binding names no `runner.worktree` or no product root. One it cannot make (no `origin`, a directory
+    there that is no working tree) is a warning, `made: false` with `error`: the spawn goes on, and the
+    runner's `ccp tasks worktree` makes it once the cause is fixed."""
     prod = sm.product_root(root)
     if not rc.get("worktree") or not prod:
         return None
@@ -227,8 +228,7 @@ def single_runner_worktree(root: Path, rc: dict[str, str]) -> dict[str, Any] | N
     try:
         path, made = wt.runner_worktree(wt.main_of(Path(prod)), rc["worktree"], integration_branch(root))
     except QueueError as e:
-        die(f"runner spawn: cannot make the runner worktree ({e}); fix it, then spawn again (SPEC §12.1)", 2)
-        raise  # unreachable: die exits
+        return {"path": rc["worktree"], "made": False, "error": str(e)}
     return {"path": str(path), "made": made}
 
 
@@ -631,6 +631,9 @@ def cmd_runner(args: argparse.Namespace) -> int:
             detail += (f" The scope starts with the refactors waiting from earlier cycles ({', '.join(added)}, "
                        "SPEC §20), and `ccp tasks next` takes them first; `team.sh runner scope --remove` "
                        "takes one out.")
+        if made and made.get("error"):
+            rp_warnings.append(f"the runner worktree {made['path']} is not made ({made['error']}); fix that, then "
+                               "the runner's `ccp tasks worktree` makes it (SPEC §12.1)")
         for rpw in rp_warnings:
             print(f"warning: {rpw}", file=sys.stderr)
         stop = [{"action": "shutdown_teammate", "name": old,
