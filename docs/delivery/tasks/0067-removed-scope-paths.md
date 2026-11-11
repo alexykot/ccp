@@ -1,7 +1,7 @@
 ---
 task_id: 0067-removed-scope-paths
 title: A task can name a path it removes without a scope warning
-status: pending
+status: dropped
 kind: feature
 depends_on: []
 spec_refs: ["S5"]
@@ -20,6 +20,7 @@ updated: 2026-11-11
 ## Context (not checked)
 
 - `ccp tasks check` warns when a Scope or `paths:` entry names a file that does not exist and is not marked new. A task that deletes a file names a path that stops existing once it merges.
+
 
 ## Scope
 
