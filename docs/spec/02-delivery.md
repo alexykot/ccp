@@ -627,12 +627,16 @@ Claude Code). A cold gate run must fit that limit with room to spare.
 - **Judged on cold runs only.** `ccp health` judges the latest cold run of the gate role's lane,
   cold as §27.2 decides (passed, counted tests, and nothing cached or no test cache yet). Warm,
   unverified, failed, interrupted and killed runs, and other lanes' runs, are not judged.
-- **Over the line** (longer than `cut_line_seconds`), `ccp health` reports the run (its suite id,
-  task and start), its seconds, the line, the limit and its slowest stage (§14.2; none for a run
-  with no stage timings), and the gate gets a refactor task (§20.3) that brings its cold run under
-  the line. **Over the limit** it is reported as a health breach (`over_limit`). Under the line it
-  reports nothing. `ccp health --json` carries it as `gate_time` (`finding` null when there is none),
-  and the architect's health summary carries the same line.
+- **Over the line** (longer than `cut_line_seconds`), `ccp health` reports the run as an advisory
+  finding: the run (its suite id, task and start), its seconds, the line, the limit and its slowest
+  stage (§14.2; none for a run with no stage timings). The task-log owner decides whether to file a
+  refactor task (§20.3) that brings its cold run under the line. **Over the limit** it is reported
+  as a health breach (`over_limit`). Under the line it reports nothing. `ccp health --json` carries
+  it as `gate_time` (`finding` null when there is none), and the architect's health summary carries
+  the same line.
+- **Killed at the limit.** A run of the gate role's lane with no `ended` row that started longer
+  than `shell_limit_seconds` ago is reported as killed at the shell limit (its suite id, task and
+  start), in `gate_time.killed` and in the health and architect summaries.
 
 ## 15. Review, verification and merge
 

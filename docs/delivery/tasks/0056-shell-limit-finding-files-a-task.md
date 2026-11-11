@@ -49,6 +49,19 @@ When `ccp health` finds the gate's latest cold run over `gate.cut_line_seconds`,
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): took scope option (b). §14.6 now says the over-the-line finding is
+  advisory and the task-log owner decides whether to file a refactor (the PROPOSED text, worked into
+  the existing bullet). Option (a) would have had `ccp health`, a reader, write task files. The
+  health and architect line now says so in place of "It calls for a refactor task".
+- Killed at the limit: `gate_time(..., now=)` lists in `killed` (suite id, task, run, start, oldest
+  first) every run of the gate role's lane with no `ended` row (fold state `open` or `killed`) that
+  started more than `gate.shell_limit_seconds` before now. It is read literally, so a run whose
+  worker run stopped earlier is listed too. `summary_text` adds one `Gate killed at the shell limit`
+  line (count, latest). It is not a breach and not judged as a cold run.
+- §14.6 gained a "Killed at the limit" bullet describing this (the task gave no PROPOSED text for it).
+  §27.2's gate-time pointer and the `cut_line_seconds` schema description were brought in line. Both
+  are outside the task's `paths`. `ccp/suite.py` and `tests/test_health_suite.py` needed no change.
+
 ## Verification notes
 
 *Append-only.*

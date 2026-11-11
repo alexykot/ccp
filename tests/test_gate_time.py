@@ -1,6 +1,6 @@
 """The gate's time against the agent's shell limit (SPEC §14.6): plane.json `gate` holds the limit and
-the cut line, every suite run records whether it was cold, and `ccp health` judges the latest cold
-gate run against both, naming its slowest stage."""
+the cut line, every suite run records whether it was cold, `ccp health` judges the latest cold
+gate run against both, naming its slowest stage, and reports gate runs killed at the limit."""
 from __future__ import annotations
 
 import io
@@ -8,6 +8,7 @@ import json
 import os
 import shlex
 import tempfile
+import time
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -197,11 +198,66 @@ class HealthJudgesTheGate(unittest.TestCase):
         self.assertIn("st-a", health.summary_text(health.collect(self.p.cfg, self.q)))
         self.assertIsNone(health.gate_text(None))
 
+    def ago(self, seconds):
+        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - seconds))
+
+    def killed(self):
+        return json.loads(self.health("--json"))["gate_time"]["killed"]
+
+    def killed_lines(self):
+        return [ln for ln in self.health().splitlines() if ln.startswith("Gate killed")]
+
+    def test_a_gate_run_with_no_end_past_the_shell_limit_is_reported_killed(self):
+        self.suites(started("st-a", at=self.ago(700)))
+        [k] = self.killed()
+        self.assertEqual((k["suite_id"], k["task_id"], k["run_id"]), ("st-a", "0002-second", RUN))
+        [line] = self.killed_lines()
+        for token in ("st-a", "0002-second", "600 s"):
+            self.assertIn(token, line)
+        self.assertIsNone(self.finding())
+
+    def test_a_long_dead_gate_run_is_still_reported(self):
+        self.suites(started("st-a", at="2026-11-01T10:00:00Z"))
+        self.assertEqual([k["suite_id"] for k in self.killed()], ["st-a"])
+
+    def test_a_gate_run_still_inside_the_limit_is_not_reported(self):
+        self.suites(started("st-a", at=self.ago(60)))
+        self.assertEqual(self.killed(), [])
+        self.assertEqual(self.killed_lines(), [])
+
+    def test_ended_runs_and_other_lanes_are_not_reported_killed(self):
+        self.suites(started("st-a", at=self.ago(3600)), ended("st-a", 300.0, cached=0),
+                    started("st-b", at=self.ago(3600)), ended("st-b", 900.0, code=1),
+                    started("st-c", lane="full", at=self.ago(3600)),
+                    started("st-d", lane="part", at=self.ago(3600)))
+        self.assertEqual(self.killed(), [])
+        self.assertEqual(self.killed_lines(), [])
+
+    def test_the_shell_limit_knob_and_a_renamed_gate_role_decide_killed(self):
+        self.product({"gate": {"shell_limit_seconds": 300},
+                      "suite": {"lanes": {"check": ["true"]}, "roles": {"gate": "check"}}})
+        self.suites(started("st-a", lane="check", at=self.ago(400)), started("st-b", at=self.ago(400)),
+                    started("st-c", lane="check", at=self.ago(200)))
+        self.assertEqual([k["suite_id"] for k in self.killed()], ["st-a"])
+
+    def test_every_killed_gate_run_is_listed_and_the_line_names_the_latest(self):
+        self.suites(started("st-a", at="2026-11-01T10:00:00Z"), started("st-b", at="2026-11-02T10:00:00Z"))
+        self.assertEqual([k["suite_id"] for k in self.killed()], ["st-a", "st-b"])
+        [line] = self.killed_lines()
+        self.assertIn("st-b", line)
+        self.assertNotIn("st-a", line)
+
+    def test_the_architects_summary_carries_the_killed_run(self):
+        self.suites(started("st-a", at=self.ago(700)))
+        self.assertIn("st-a", health.summary_text(health.collect(self.p.cfg, self.q)))
+        self.assertIsNone(health.killed_text(None))
+
     def test_a_damaged_suites_file_reports_nothing(self):
         p = self.q / "runs" / "_suites.jsonl"
         p.parent.mkdir(parents=True)
         p.write_text("not json\n{\"op\": \"ended\"}\n")
         self.assertIsNone(self.finding())
+        self.assertEqual(self.killed(), [])
 
 
 if __name__ == "__main__":
