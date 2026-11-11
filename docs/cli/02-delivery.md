@@ -22,6 +22,7 @@ argument takes the full id or its number.
 | `ccp tasks drop <id> --reason "…"` | lead, runner | §10.4 |
 | `ccp tasks sync` | lead, runner | §10.4 |
 | `ccp tasks orphans --since <ref> [--json]` | lead | §10.7 |
+| `ccp tasks check --lease [--staged]` | lead, the commit hook template (`scripts/git-hooks/pre-commit.template`) | §10.5 |
 | `ccp tasks worktree --runner <slot>` | runner | §12.1 |
 
 ## Runs, prompts, reports and verdicts

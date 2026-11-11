@@ -130,18 +130,21 @@ class LeaseEdits(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 2, out + err)
 
 
-    def test_the_commit_hook_refuses_a_commit_on_main_editing_a_leased_task_file(self):
-        """scripts/git-hooks/pre-commit, with the plane's own main override set so only the lease rule speaks."""
+    def hook_commits(self, hooks: Path, extra_env: dict[str, str]):
+        """A commit function through the hooks in `hooks`, with this plane's ccp first on PATH."""
         shim = Path(self._tmp.name) / "bin"
-        shim.mkdir()
-        (shim / "ccp").symlink_to(PLANE / "bin/ccp")
-        git(self.main, "config", "core.hooksPath", str(PLANE / "scripts/git-hooks"))
-        env = {**os.environ, **GIT_ENV, "PATH": f"{shim}:{os.environ['PATH']}", "CCP_ALLOW_MAIN_COMMIT": "1"}
+        shim.mkdir(exist_ok=True)
+        if not (shim / "ccp").exists():
+            (shim / "ccp").symlink_to(PLANE / "bin/ccp")
+        git(self.main, "config", "core.hooksPath", str(hooks))
+        env = {**os.environ, **GIT_ENV, "PATH": f"{shim}:{os.environ['PATH']}", **extra_env}
 
         def commit(msg: str) -> int:
             return subprocess.run(["git", "-C", str(self.main), "commit", "-qm", msg], env=env,
                                   capture_output=True, text=True).returncode
+        return commit
 
+    def hook_refuses_only_a_leased_edit_on_main(self, commit) -> None:
         self.commit_on_main("Amend 0002 before the claim", stage_only=True)
         self.assertEqual(commit("Amend 0002 before the claim"), 0)
         self.claim()
@@ -150,6 +153,24 @@ class LeaseEdits(ToolkitFixture, unittest.TestCase):
         git(self.main, "checkout", "-q", "-b", "lead-branch")
         self.assertEqual(commit("Amend 0002 on a branch"), 0)
 
+    def test_the_product_hook_template_refuses_a_commit_on_main_editing_a_leased_task_file(self):
+        hooks = Path(self._tmp.name) / "hooks"
+        hooks.mkdir()
+        (hooks / "pre-commit").symlink_to(PLANE / "scripts/git-hooks/pre-commit.template")
+        self.hook_refuses_only_a_leased_edit_on_main(self.hook_commits(hooks, {}))
+
+    def test_the_planes_own_hook_runs_the_template_after_its_main_rule(self):
+        commit = self.hook_commits(PLANE / "scripts/git-hooks", {"CCP_ALLOW_MAIN_COMMIT": "1"})
+        self.hook_refuses_only_a_leased_edit_on_main(commit)
+
+    def test_the_hook_template_lets_a_commit_through_when_the_check_cannot_run(self):
+        hooks = Path(self._tmp.name) / "hooks"
+        hooks.mkdir()
+        (hooks / "pre-commit").symlink_to(PLANE / "scripts/git-hooks/pre-commit.template")
+        self.claim()
+        commit = self.hook_commits(hooks, {"QUEUE_ROOT": str(Path(self._tmp.name) / "no-such-queue")})
+        self.commit_on_main("Amend 0002", stage_only=True)
+        self.assertEqual(commit("Amend 0002"), 0)
 
 if __name__ == "__main__":
     unittest.main()

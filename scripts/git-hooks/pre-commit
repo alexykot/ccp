@@ -6,13 +6,6 @@ if [ "$branch" = main ] && [ -z "${CCP_ALLOW_MAIN_COMMIT:-}" ]; then
   echo "pre-commit: refusing to commit on main. Develop on a branch in a worktree: scripts/dev-worktree.sh <branch>" >&2
   exit 1
 fi
-# A claimed task's file is edited only in its PR (SPEC §10.5): with a queue bound (QUEUE_ROOT) and ccp on
-# PATH, refuse a commit on the integration branch that changes a leased task's file. The override above
-# does not lift this one.
-if [ -n "${QUEUE_ROOT:-}" ] && command -v ccp >/dev/null 2>&1; then
-  ccp tasks check --lease --staged >&2 || {
-    echo "pre-commit: send the amendment to the runner holding the task; it lands in the task's PR" >&2
-    exit 1
-  }
-fi
-exit 0
+# Then the template every product gets (SPEC §10.5): no commit on the integration branch edits a leased
+# task's file. The override above does not lift it.
+exec "$(dirname "$0")/pre-commit.template"
