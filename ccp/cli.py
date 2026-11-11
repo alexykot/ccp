@@ -29,8 +29,9 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp tasks claim ID | phase ID PHASE [--note T] | wait ID REASON [--until T] [--detail T]
             | resume ID REASON [--detail T] | close ID --pr N [--summary T]
             | sync [--dry-run]  (the queue follows the task log: done or dropped tasks lose waits and leases)
-  ccp prompt implement|fix|review|verify ID [--pr N --head SHA] [--base SHA] [--worktree P] [--note T] [--supersede]
-             [--allow-unreviewed-fix --reason T]
+  ccp prompt implement|fix|merge|ruling|review|verify ID [--pr N --head SHA] [--base SHA] [--worktree P] [--note T]
+             [--supersede] [--allow-unreviewed-fix --reason T]  (merge: only merge the integration tip in; ruling:
+             only apply the lead's ruling, given as the note, SPEC §13.2)
   ccp report RUN_ID FILE
   ccp runs gc [--dry-run]  (abandon runs that will never report: superseded by a later round, or
             of a done or dropped task, SPEC §11.1)
@@ -1003,13 +1004,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_review_points)
 
     p = sub.add_parser("prompt", help="render a worker's prompt, audit it, open its run (SPEC §13.2; needs QUEUE_ROOT)")
-    p.add_argument("phase", choices=("implement", "fix", "review", "verify"))
+    p.add_argument("phase", choices=("implement", "fix", "merge", "ruling", "review", "verify"))  # runs.PHASES
     p.add_argument("task", help="task id or NNNN")
     p.add_argument("--pr")
-    p.add_argument("--head", help="the PR head this run works on (fix, review, verify)")
+    p.add_argument("--head", help="the PR head this run works on (every phase but implement)")
     p.add_argument("--base", help="implement: the integration sha the branch starts from (default origin's)")
     p.add_argument("--worktree", help="the task worktree (default: worktrees.dir/impl-NNNN)")
-    p.add_argument("--note", help="at most 4000 characters of runner text for this run")
+    p.add_argument("--note", help="at most 4000 characters of runner text for this run (ruling: the lead's ruling)")
     p.add_argument("--note-file", metavar="PATH", help="the note read from a file instead (same limit and checks)")
     p.add_argument("--supersede", action="store_true",
                    help="mark a pending run of the same agent type abandoned (its launch never started)")

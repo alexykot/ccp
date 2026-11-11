@@ -115,9 +115,13 @@ before anything else.
    Spec questions go to the lead (below). Unsure: spec.
 7. **Review.** `ccp prompt review <task_id> --pr <n> --head <sha>`: a fresh `delivery-reviewer` subagent with
    no implementer context. When it finds a BLOCKER or MAJOR, `ccp prompt fix <task_id> --pr <n> --head <sha>`
-   launches the implementer on the findings, then review again. `ccp` enforces it: `ccp prompt verify`
-   refuses (exit 4) while a fix round is newer than the last review, or the head is not the one that
-   review judged, and `ccp verify record` refuses the approve, unless the product's `verify.skip_review`
+   launches the implementer on the findings, then review again. Two rounds of the implementer have their
+   own kind, never an `implement-N` with a note: `ccp prompt merge <task_id> --pr <n> --head <sha>` only
+   merges the integration tip into the task branch, and `ccp prompt ruling <task_id> --pr <n> --head <sha>
+   --note-file <the lead's ruling>` only applies a lead's ruling (before review too). Review and verify treat
+   their heads as a fix round's (SPEC §13.2). `ccp` enforces it: `ccp prompt verify`
+   refuses (exit 4) while a fix, merge or ruling round is newer than the last review (a merge round that
+   left the reviewed change unchanged aside), or the head is not the one that review judged, and `ccp verify record` refuses the approve, unless the product's `verify.skip_review`
    proves the fix (only declared paths touched, its proof command passing). Only on the lead's or the operator's word:
    `ccp prompt verify … --allow-unreviewed-fix --reason "<their words>"`, recorded as a friction note; with
    it, no proof runs.
@@ -126,8 +130,8 @@ before anything else.
    head it judged. REJECT goes back to step 7 (`ccp prompt fix`).
    It refuses (exit 4, `behind_tip`, nothing opened) a head that lacks a commit on `origin/<integration>`
    changing more than the task log and the product's `merge.behind_tip_ignore` paths, with one runner too:
-   have the implementer merge `origin/<integration>` into the task branch (a plain push, never a rebase),
-   then verify the new head.
+   `ccp prompt merge` has the implementer merge `origin/<integration>` into the task branch (a plain push,
+   never a rebase), then verify the new head.
 9. **Merge and reconcile.** After APPROVE: `ccp tasks close <task_id> --pr <n> --summary "<one line>"`,
    from your clean runner worktree. It runs `ccp verify merge-ok` (SPEC §15) and merges pinned to the
    head it approves, then marks the task file done with the verification note, writes the product's
@@ -139,7 +143,8 @@ before anything else.
 
    **Merge rules** (SPEC §15.2; the tip rule is Several runners rule 4):
    - Review only once open spec questions are answered and their rulings are on the PR.
-   - Head moved only by an integration merge, own change unchanged: no new review; re-verify with
+   - Head moved only by an integration merge (a `ccp prompt merge` round), own change unchanged: no new
+     review; re-verify with
      `ccp prompt verify --head <new> --note "head moved by an integration merge; prior approve at <old>"`.
      A conflict or a changed own diff: review, then verify, in full.
    - Minors not fixed before the merge, and why a verify reran, go in the verifier's findings; never
@@ -179,7 +184,8 @@ runners, each holding one task. Otherwise ignore this section.
    `ccp prompt` that exits 3 "about to be launched" met another runner's launch: wait a few seconds and
    run it again. Never `--supersede` another runner's run.
 4. **Merge only from the tip.** Before you ask for a verify, have the implementer merge `origin/<integration>`
-   into the task branch (a plain push; never a rebase, which needs a force-push) and resolve any conflict.
+   into the task branch with a merge round (`ccp prompt merge`; a plain push, never a rebase, which needs a
+   force-push) and resolve any conflict.
    `ccp prompt verify` refuses (exit 4, `behind_tip`, nothing opened) a head that lacks a tip commit changing
    more than the task log and the product's `merge.behind_tip_ignore` paths: the head is stale, so merge the
    tip in and verify the new head. `ccp tasks close` refuses (exit 1, `behind_tip`, nothing merged) a verified

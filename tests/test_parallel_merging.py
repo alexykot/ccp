@@ -89,6 +89,7 @@ class Merging(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.close()
         self.assertEqual(code, 1, out + err)
         self.assertIn("behind_tip", err)
+        self.assertIn("`ccp prompt merge 0002-second", err)  # the round that catches up (SPEC §13.2)
         self.assertFalse((self.ghstate / "merge-called").exists())
 
     def test_a_tip_that_cannot_be_fetched_refuses_the_merge(self):
@@ -107,6 +108,7 @@ class Merging(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 4, out + err)
         self.assertIn("behind_tip", err)
         self.assertIn("Merge the tip in first", err)
+        self.assertIn("`ccp prompt merge 0002-second", err)  # the round that catches up (SPEC §13.2)
         self.assertFalse((self.q / "runs/0002-second/verify.json").exists())  # nothing opened
 
     def test_verify_launches_on_a_head_behind_only_by_declared_paths_and_the_task_log(self):

@@ -8,8 +8,10 @@ its §23.8 audit (the full text only under `prompts.keep_body`; audits older tha
 the agent type and a description that starts with the run's task and phase; the prompt is the
 file's text, verbatim. The runner never passes `model` (§2). First it samples the allowance: at the
 5-hour park % it parks the task and refuses, exit 6, writing nothing else (§25.4 the session park).
-A verify of a fix round that no review has seen is refused, exit 4, nothing opened, unless the product's
-`verify.skip_review` proves the fix or the lead's word overrides it (§15.2).
+Besides implement, fix, review and verify, a merge round only merges the integration tip into the task
+branch and a ruling round only applies a lead's ruling (its `--note`); review and verify treat their heads
+as a fix round's (§13.2). A verify of a fix round that no review has seen is refused, exit 4, nothing
+opened, unless the product's `verify.skip_review` proves the fix or the lead's word overrides it (§15.2).
 A verify round with no fix round since the task's last verify round needs `--note` with the reason
 (§15.6 rule 4): without it the command refuses, exit 4, nothing opened. A verify of a head that lacks the
 integration tip, beyond the task log and `merge.behind_tip_ignore`, refuses the same way, with one runner
@@ -40,7 +42,9 @@ SECTION_RE = re.compile(r"\{\{([#^])(\w+)\}\}(.*?)\{\{/\2\}\}", re.S)
 VAR_RE = re.compile(r"\{\{(\w+)\}\}")
 AUDIT_RE = re.compile(r"^(\d{8}T\d{6}Z)_.+\.json$")  # §23.8: prompts/<task_id>/<UTC>_<phase>.json
 NOTE_MAX = 4000  # §13.2; 500 until 2026-10-22
-PHASE_STATUS = {"implement": "implementing", "fix": "fixing", "review": "reviewing", "verify": "verifying"}
+# §13.2: a merge or ruling round reworks the open PR, as a fix round does
+PHASE_STATUS = {"implement": "implementing", "fix": "fixing", "merge": "fixing", "ruling": "fixing",
+                "review": "reviewing", "verify": "verifying"}
 REPORT_LINES = {
     "implement": "   - `Outcome: done`, `Outcome: blocked` or `Outcome: failed`.\n"
                  "   - When done: `PR: #<number>` and `Head: <full sha of the PR head>`.\n",
@@ -50,7 +54,7 @@ REPORT_LINES = {
               "   - When done: `Verdict: approve` or `Verdict: reject`, and `Head: <full sha you judged>`, the same as in "
               "the record you wrote with `ccp verify record`.\n",
 }
-REPORT_LINES["fix"] = REPORT_LINES["implement"]
+REPORT_LINES.update({p: REPORT_LINES["implement"] for p in runs.REWORK_PHASES})
 # §14.1: the lane each worker labels its test runs with, by role; the names come from plane.json
 # suite.roles (`{full}`, `{gate}`, `{part}` below).
 SUITE_LANES = {
@@ -59,14 +63,15 @@ SUITE_LANES = {
     "verify": "`--lane {gate}` for the formal gate (the product's gate script, which picks its own lanes), "
               "`--lane {part}` for a subset such as a mutation check",
 }
-SUITE_LANES["fix"] = SUITE_LANES["implement"]
+SUITE_LANES.update({p: SUITE_LANES["implement"] for p in runs.REWORK_PHASES})
 
 
 def report_lines(cfg: Config, phase: str) -> str:
-    """The report contract's phase lines; for implement and fix, a line naming each verdict the product
-    declares in plane.json `report.required_fields` with its allowed values (§13.4)."""
+    """The report contract's phase lines; for a round that pushes a head (implement, fix, merge, ruling),
+    a line naming each verdict the product declares in plane.json `report.required_fields` with its
+    allowed values (§13.4)."""
     declared = (cfg.report or {}).get("required_fields") or []
-    if phase not in ("implement", "fix") or not declared:
+    if phase not in runs.CHANGE_PHASES or not declared:
         return REPORT_LINES[phase]
     each = "; ".join(f"`{f['name']}: " + "|".join(f["values"]) + "`" for f in declared)
     return REPORT_LINES[phase] + ("   - When done, a line for each verdict this product requires (plane.json "
@@ -74,17 +79,18 @@ def report_lines(cfg: Config, phase: str) -> str:
 
 
 def reported_verdicts(cfg: Config, q: Path, task_id: str) -> tuple[str, dict[str, str]]:
-    """§13.4: the declared verdicts as the task's latest done implement or fix report states them, by
-    declared name ("not stated" for one its report predates), and that run's id; ("", {}) when the
-    product declares none or no such report is in. Latest is by `reported_at`; reports in the same
-    second go by run: a fix after an implement, then the higher round."""
+    """§13.4: the declared verdicts as the task's latest done implement, fix, merge or ruling report
+    states them, by declared name ("not stated" for one its report predates), and that run's id; ("", {})
+    when the product declares none or no such report is in. Latest is by `reported_at`; reports in the
+    same second go by when their run opened, then (opened in the same second too) a later round after an
+    implement, then the higher round."""
     declared = (cfg.report or {}).get("required_fields") or []
-    done = [r for r in runs.all_runs(q, task_id) if r.get("phase") in ("implement", "fix")
+    done = [r for r in runs.all_runs(q, task_id) if r.get("phase") in runs.CHANGE_PHASES
             and runs.state(r) == "reported" and r.get("outcome") == "done"]
     if not declared or not done:
         return "", {}
-    last = max(done, key=lambda r: (str(r.get("reported_at") or ""), r.get("phase") == "fix",
-                                    runs.parse_id(r["run_id"])[2]))
+    last = max(done, key=lambda r: (str(r.get("reported_at") or ""), str(r.get("opened_at") or ""),
+                                    r.get("phase") != "implement", runs.parse_id(r["run_id"])[2]))
     got = last.get("fields") or {}
     return last["run_id"], {f["name"]: got.get(f["name"], "not stated") for f in declared}
 
@@ -150,8 +156,9 @@ def fragment(cfg: Config) -> tuple[str, str]:
 
 
 def prior_reports(q: Path, task_id: str, phase: str) -> str:
-    want = {"fix": ("review", "verify"), "review": ("implement", "fix"), "verify": ("implement", "fix", "review")}[phase] \
-        if phase != "implement" else ()
+    # §13.2: a merge or ruling round works from the tip or the runner's note, not from findings
+    want = {"fix": ("review", "verify"), "review": runs.CHANGE_PHASES,
+            "verify": (*runs.CHANGE_PHASES, "review")}.get(phase, ())
     lines = []
     for rec in runs.all_runs(q, task_id):
         p = runs.report_path(q, rec["run_id"])
@@ -336,8 +343,9 @@ def tip_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> list[str]:
     if behind:
         raise QueueError(f"behind_tip: the head {a.head[:7]} lacks {len(behind)} commit(s) on origin/{integ} that change "
                          f"more than the task log and merge.behind_tip_ignore ({', '.join(behind[:5])}). Merge the "
-                         f"tip in first: have the implementer merge origin/{integ} into task/{tid} (a plain push, "
-                         "never a rebase), then verify the new head (SPEC §16.5 rule 4)", 4)
+                         f"tip in first: `ccp prompt merge {tid} --pr {a.pr} --head {a.head[:7]}` has the implementer "
+                         f"merge origin/{integ} into task/{tid} (a plain push, never a rebase), then verify the new head "
+                         "(SPEC §13.2, §16.5 rule 4)", 4)
     return []
 
 
@@ -372,6 +380,8 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     note = read_note(a)
     if phase != "implement" and not (a.pr and a.head):
         raise QueueError(f"{phase}: give --pr and --head (the PR and the head this run works on)", 2)
+    if phase == "ruling" and not note:  # §13.2: the ruling the round applies reaches the worker as the note
+        raise QueueError("ruling: give the lead's ruling with --note or --note-file (SPEC §13.2)", 2)
     st = load_task_state(q, tid)
     if not st.get("lease_holder") or st.get("status") == "done":
         raise QueueError(f"{tid} is not claimed (or is done): `ccp tasks claim {tid}` first", 3)
@@ -397,7 +407,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
             own += f"-{n}"
     prompt_file = q / "prompts" / tid / (f"{phase}-{n}-prompt.md" if n > 1 else f"{phase}-prompt.md")
     prompt_file.parent.mkdir(parents=True, exist_ok=True)
-    workdir = (worktree if phase in ("implement", "fix") else own) or ""
+    workdir = (worktree if phase in runs.CHANGE_PHASES else own) or ""
     env_file, env_list = worker_env(cfg, q, prompt_file, {
         "run_id": run_id, "task_id": tid, "nnnn": nnnn, "phase": phase, "worktree": workdir,
         "main_checkout": str(main_checkout(cfg)), "queue_root": str(q), "project_id": cfg.project_id})
@@ -438,13 +448,13 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         + render((TEMPLATES / "_common.md").read_text(), values).rstrip() + "\n"
     report.parent.mkdir(parents=True, exist_ok=True)
     prompt_file.write_text(body)
-    ref = audit(q, cfg, tid, phase, prompt_file, run_id, meta, worktree if phase in ("implement", "fix") else own, note)
+    ref = audit(q, cfg, tid, phase, prompt_file, run_id, meta, worktree if phase in runs.CHANGE_PHASES else own, note)
     prune_audits(q, cfg)
     warnings: list[str] = list(session_warn) + tip_warn
     rec = runs.open_run(q, cfg, tid, phase, prompt_ref=ref, note=note, supersede=a.supersede, warnings=warnings, by=caller,
                         extra={"pr": a.pr or None, "head": a.head or None,
                                # §14.1: a suite run from inside this worktree binds to the run
-                               "worktree": (worktree if phase in ("implement", "fix") else own) or None,
+                               "worktree": (worktree if phase in runs.CHANGE_PHASES else own) or None,
                                **({"allow_unreviewed_fix": override} if override else {}),
                                **({"review_skip": skipped} if skipped else {}),
                                **({"repeat_verify": repeat} if repeat else {})})

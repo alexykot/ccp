@@ -49,6 +49,27 @@ The runner can launch a round that only merges the integration tip into a task b
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): two run phases, `merge` and `ruling` (`ccp prompt merge|ruling <id> --pr --head`),
+  each with its own template (`templates/prompts/merge.md`, `ruling.md`), run id `<task>/merge[-n]` and
+  `<task>/ruling[-n]`, the implementer's agent type and seat, and the task moved to `fixing`. A ruling round
+  needs its ruling as `--note`/`--note-file` (exit 2 otherwise) and, unlike a fix, no prior review report.
+  Their reports carry `PR:`, `Head:` and the declared verdicts, as a fix's. Review and verify treat their heads
+  as a fix round's: the review and verify prompts list their reports; `runs.unreviewed_fix` counts them as
+  fix rounds newer than the last review, except that rounds since that review that are all merge rounds
+  pass when the head carries the reviewed change unchanged (same patch id, the existing integration-merge
+  rule); `verify.skip_review` may prove them; `verify.repeat_round` counts them between verify rounds. The
+  `behind_tip` refusal and the runner brief name `ccp prompt merge`. SPEC §11.1 (phase list) and §13.2/§13.4
+  describe the kinds. Touched beyond the declared paths, as the change needs: `ccp/cli.py` (the phase
+  choices), `ccp/report.py` (the report lines), `ccp/verify.py` (skip and repeat), the review template,
+  README and `docs/cli/02-delivery.md`, and `tests/test_review_skip.py`, `tests/test_parallel_merging.py`.
+- 2026-11-11 (implementer, fix round 1): SPEC §15.2 and §15.6 rule 4 now name merge and ruling rounds
+  beside fix rounds (review MINOR 1). `reported_verdicts` breaks a same-second tie by when the run opened
+  before phase and round, since round numbers are per phase (NIT 1). The close-time `behind_tip` refusal and
+  the merge-conflict hint name `ccp prompt merge` (NIT 3). New tests: `ccp verify record` refused after a
+  ruling round, and a merge round judged by real patch ids (MINOR 3). Known gap, left for a follow-up task
+  (MINOR 2): `ccp/health.py`, `ccp/drill.py` and `ccp/estimate.py` count only implement, review, fix and
+  verify, so merge and ruling rounds fall under "other" and out of `fix_rounds` and `rev_end`.
+
 ## Verification notes
 
 *Append-only.*

@@ -21,16 +21,21 @@ from ccp.refs import ANY_TASK_ID
 from ccp.config import Config
 from ccp.queue import QueueError, actor, emit, iso, read_json, write_json
 
-PHASES = ("implement", "fix", "review", "verify")
+PHASES = ("implement", "fix", "merge", "ruling", "review", "verify")
+# §13.2: the implementer's rounds that push a head of the PR (PR and Head in the report), and of those
+# the rounds after the first: review and verify treat a merge or ruling round's head as a fix round's.
+CHANGE_PHASES = ("implement", "fix", "merge", "ruling")
+REWORK_PHASES = ("fix", "merge", "ruling")
 # The agent type each phase launches (SPEC §2.5) and the seat it reports as.
-AGENT_TYPE = {"implement": "delivery-implementer", "fix": "delivery-implementer",
-              "review": "delivery-reviewer", "verify": "delivery-verifier"}
-SEAT = {"implement": "implementer", "fix": "implementer", "review": "reviewer", "verify": "verifier"}
+AGENT_TYPE = {"implement": "delivery-implementer", "fix": "delivery-implementer", "merge": "delivery-implementer",
+              "ruling": "delivery-implementer", "review": "delivery-reviewer", "verify": "delivery-verifier"}
+SEAT = {"implement": "implementer", "fix": "implementer", "merge": "implementer", "ruling": "implementer",
+        "review": "reviewer", "verify": "verifier"}
 PLUGIN = "ccp"
 OPEN = ("pending", "running", "stopped")  # not reported, not abandoned
 RESOLVED = ("done", "dropped")
 CLOSED_REASON = {"done": "task closed", "dropped": "task dropped"}
-RUN_ID_RE = re.compile(rf"^(?P<task>{ANY_TASK_ID})/(?P<phase>implement|fix|review|verify)(?:-(?P<n>[2-9]|[1-9][0-9]+))?$")
+RUN_ID_RE = re.compile(rf"^(?P<task>{ANY_TASK_ID})/(?P<phase>implement|fix|merge|ruling|review|verify)(?:-(?P<n>[2-9]|[1-9][0-9]+))?$")
 
 
 def parse_id(run_id: str) -> tuple[str, str, int]:
@@ -372,21 +377,26 @@ def _same_patch(g: Any, a: str, b: str, integ: str) -> bool:
 
 def unreviewed_fix(q: Path, task_id: str, head: str | None = None) -> str | None:
     """§15.2 (the runner brief's step 7: a fix round, then review again): why verifying `head` now
-    would skip a review, or None. Refused when the task's latest fix run (not abandoned) was opened
-    after its latest review run that reported done, or when `head` is not the head that review
-    judged (commits pushed since). A task with no runs (one before the toolkit, a PR that is not a
-    task's) has nothing to compare and passes."""
+    would skip a review, or None. Refused when the task's latest fix, merge or ruling run (not
+    abandoned, §13.2) was opened after its latest review run that reported done, or when `head` is not
+    the head that review judged (commits pushed since). Rounds since that review that are all merge
+    rounds pass when `head` carries the reviewed change unchanged (the integration-merge rule). A task
+    with no runs (one before the toolkit, a PR that is not a task's) has nothing to compare and passes."""
     from ccp.verify import heads_match  # noqa: PLC0415
 
     rs = [r for r in all_runs(q, task_id) if state(r) != "abandoned"]
-    fixes = [r for r in rs if r.get("phase") == "fix"]
     reviews = [r for r in rs if r.get("phase") == "review" and state(r) == "reported" and r.get("outcome") == "done"]
     last = reviews[-1] if reviews else None
-    # a tie (one second) counts the fix as newer: a fix opens only once a report exists to fix from
-    if fixes and (last is None or str(last.get("opened_at") or "") <= str(fixes[-1].get("opened_at") or "")):
-        return (f"fix round {fixes[-1]['run_id']} is newer than the last review {last['run_id'] if last else '(none)'}: "
-                "run `ccp prompt review` first (runner brief step 7)")
     judged = str((last or {}).get("head") or "").strip()
+    # a tie (one second) counts the round as newer: a fix opens only once a report exists to fix from
+    since = [r for r in rs if r.get("phase") in REWORK_PHASES
+             and (last is None or str(last.get("opened_at") or "") <= str(r.get("opened_at") or ""))]
+    merged_only = bool(since and head and judged) and all(r.get("phase") == "merge" for r in since) \
+        and (heads_match(judged, head.strip()) or same_change(q, judged, head.strip()))  # type: ignore[union-attr]
+    if since and not merged_only:
+        r = since[-1]
+        return (f"{r['phase']} round {r['run_id']} is newer than the last review {last['run_id'] if last else '(none)'}: "
+                "run `ccp prompt review` first (runner brief step 7)")
     if head and judged and not heads_match(judged, head.strip()) and not same_change(q, judged, head.strip()):
         return (f"head {head.strip()[:12]} is not {judged[:12]}, the head the last review {last['run_id']} judged: "  # type: ignore[index]
                 "run `ccp prompt review` first (runner brief step 7)")

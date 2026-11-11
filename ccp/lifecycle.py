@@ -910,14 +910,15 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
             raise QueueError(f"merge refused, nothing merged: behind_tip: the verified head {head[:7]} lacks "
                              f"{len(behind)} commit(s) on origin/{integ} that change more than the task log "
                              "and merge.behind_tip_ignore "
-                             f"({', '.join(behind[:5])}). Have the implementer merge origin/{integ} into task/{tid} "
-                             "(a plain push, never a rebase) and resolve any conflict, then verify the new head, then "
+                             f"({', '.join(behind[:5])}). `ccp prompt merge {tid} --pr {pr} --head {head[:7]}` has the "
+                             f"implementer merge origin/{integ} into task/{tid} (a plain push, never a rebase) and "
+                             "resolve any conflict (SPEC §13.2); then verify the new head, then "
                              "close (SPEC §16.5); a head whose own change is unchanged needs no new review (§15.2)", 1)
         save_task_state(q, tid, {"merged_by_close": str(pr), "merge_head": head, "phase_since": iso()})
         r = _merge(cfg, pr, head, tid)
         if r.returncode != 0:
-            hint = (" (SPEC §16.5 rule 4: a conflict with what merged since: have the implementer merge the tip in "
-                    "and resolve it, then verify again)") if "conflict" in (r.stderr + r.stdout).lower() \
+            hint = (" (SPEC §16.5 rule 4: a conflict with what merged since: `ccp prompt merge` has the implementer "
+                    "merge the tip in and resolve it, then verify again)") if "conflict" in (r.stderr + r.stdout).lower() \
                 or "not mergeable" in (r.stderr + r.stdout).lower() else ""
             raise QueueError(f"gh pr merge {pr}: {(r.stderr or r.stdout).strip()}{hint}", 1)
         facts = _pr_state(cfg, pr)
