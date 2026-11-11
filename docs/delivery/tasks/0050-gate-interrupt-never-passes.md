@@ -1,14 +1,14 @@
 ---
 task_id: 0050-gate-interrupt-never-passes
 title: A gate interrupted between stages never exits 0
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S14"]
 review_point: R4
 paths: ["ccp/suite.py", "tests/test_suite_stages.py", "docs/spec/02-delivery.md"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0050-gate-interrupt-never-passes
@@ -70,4 +70,4 @@ A gate run that a signal stops between two stages exits non-zero (128 + the sign
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #48 head `dc18d65` (squash `7c61515`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0050-gate-interrupt-never-passes.json.
