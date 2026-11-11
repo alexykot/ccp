@@ -86,5 +86,8 @@
   },
   "parallel": {
     "max_in_flight": 2
+  },
+  "mutate": {
+    "command": "python3 -B -m unittest -q {test}"
   }
 }

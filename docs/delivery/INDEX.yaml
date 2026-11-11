@@ -313,7 +313,7 @@ tasks:
     depends_on: []
     path: tasks/0062-producer-rule-follow-ups.md
   - id: 0063-sign-off-follow-ups-and-plane-mutate-command
-    status: pending
+    status: done
     title: The sign-off refusals are pinned, the brief-staleness rule is in the writing guide, and the plane sets a mutate command
     depends_on: []
     path: tasks/0063-sign-off-follow-ups-and-plane-mutate-command.md
@@ -337,3 +337,8 @@ tasks:
     title: A task can name a path it removes without a scope warning
     depends_on: []
     path: tasks/0067-removed-scope-paths.md
+  - id: 0068-the-lead-dispatches-plane-rendered-notices
+    status: pending
+    title: The lead dispatches the operator's notices, rendered and recorded by the plane, over a configured channel
+    depends_on: []
+    path: tasks/0068-the-lead-dispatches-plane-rendered-notices.md

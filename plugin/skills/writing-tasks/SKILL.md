@@ -118,6 +118,8 @@ Never write runtime state here (`waiting_on`, leases, session ids, ports): `ccp 
 
 - Only the task-log owner creates a task or changes its intent, `dod_checks`, id or `depends_on`.
 - **Before the claim**, edit in place (git keeps the trail). Implementation notes start at the claim.
+  An edit to a task file after its `brief` sign-off makes the sign-off stale: the claim refuses
+  until the operator signs the new text (SPEC §3.5).
 - **After the claim**, a change is a new task that supersedes it; the old one is `dropped`, with a
   note naming the new one. Whether a task is claimed is in the queue (`ccp tasks list`, the runner's
   leases), not in its file. A claimed task's file is not edited on the integration branch.
