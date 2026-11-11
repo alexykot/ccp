@@ -405,8 +405,7 @@ A copy of the template that was not filled in fails `ccp tasks check`:
 ### 5.1 File
 
 `docs/delivery/tasks/<task_id>.md` (`task_log.dir`). `task_id` is the file name: a number of
-`ids.task.width` digits and a kebab slug (§7). Never deleted, never renumbered; filesystem order is
-execution order.
+`ids.task.width` digits and a kebab slug (§7). Never deleted, never renumbered.
 
 ### 5.2 Frontmatter
 
@@ -414,7 +413,7 @@ One `key: value` per line, lists inline.
 
 | Key | Required | Meaning |
 |---|---|---|
-| `task_id`, `title`, `status`, `depends_on`, `created`, `updated` | always | `depends_on` lists earlier tasks only |
+| `task_id`, `title`, `status`, `depends_on`, `created`, `updated` | always | a `depends_on` naming a later task is allowed; a cycle or a missing id is refused |
 | `spec_refs`, `adr_refs`, `rule_refs`, `review_refs` | per `task_log.required`, `refs_any` and the kind | what the task answers to (§7 for ref shapes) |
 | `kind` | no (default `feature`) | a key of `task_log.kinds`; read with the architect block on (§20) |
 | `review_point` | no | the review point whose scope it belongs to (§22) |

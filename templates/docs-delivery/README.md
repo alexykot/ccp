@@ -53,8 +53,9 @@ text, and `dod_checks` the verifier can walk (setup, steps, expect).
 
 `docs/delivery/tasks/NNNN-<kebab-slug>.md`, where `task_id` is the stem.
 
-- `NNNN` is a zero-padded four-digit sequence in intended run order. Never reuse or renumber one;
-  append the next free number.
+- `NNNN` is a zero-padded four-digit sequence. The run order follows `depends_on`, ties broken by
+  number, so a dependency may have a higher number. Never reuse or renumber one; append the next free
+  number.
 - The slug is short and descriptive. A slice tag may sit in it (`0001-s1-…`) but never replaces
   `NNNN` as the sort key.
 - `ccp tasks check` fails when `INDEX.yaml` is stale; rebuild it with `ccp tasks index`.

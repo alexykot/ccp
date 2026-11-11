@@ -85,8 +85,8 @@ the scope from `work.json` before each `ccp tasks next`.
 
 ### 10.3 Choosing the next task
 
-`ccp tasks next [--scope IDS] [--explain]` returns the lowest-numbered `pending` task whose
-`depends_on` are all `done`. `--scope` (task ids or `NNNN`) restricts the candidates (their
+`ccp tasks next [--scope IDS] [--explain]` returns, of the `pending` tasks whose `depends_on` are
+all `done`, the lowest-numbered; a dependency may have a higher number than its dependant. `--scope` (task ids or `NNNN`) restricts the candidates (their
 dependencies may lie outside it); while `work.json` `status` is `running`, the scope defaults to
 `work.json`'s. The order:
 

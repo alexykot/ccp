@@ -1,6 +1,7 @@
 """ccp tasks: the durable task log rules (SPEC §21.1)."""
 from __future__ import annotations
 
+import json
 import unittest
 
 from ccp import tasklog
@@ -79,12 +80,60 @@ class TaskLogTest(unittest.TestCase):
         self.assertEqual(tasklog.next_task(self.p.cfg, ["0003-c", "0002"])["task_id"], "0002-b")
         self.assertIsNone(tasklog.next_task(self.p.cfg, ["0004-d"]))  # its dependency, out of scope, isn't done
 
-    def test_dependency_missing_or_later(self):
+    def test_dependency_missing_is_refused_and_a_later_one_is_not(self):
         self.p.task("0001-a", deps=["0009-nope"])
         self.p.task("0002-b", deps=["0003-c"])
         self.p.task("0003-c")
         self.assertFails("depends_on `0009-nope`, which does not exist")
-        self.assertFails("depends_on `0003-c`, which runs later")
+        self.assertEqual([e for e in self.errs() if "0002-b" in e], [])
+
+    def test_a_task_waits_for_a_later_numbered_dependency_and_runs_after_it(self):
+        self.p.task("0001-a", "done")
+        self.p.task("0003-c", deps=["0005-e"])
+        self.p.task("0004-d", deps=["0003-c"])
+        self.p.task("0005-e", deps=["0001-a"])
+        self.p.index()
+        code, out = self._cli("check")
+        self.assertEqual(code, 0, out)
+        code, out = self._cli("next", "--json")
+        self.assertEqual((code, json.loads(out)["task_id"]), (0, "0005-e"))
+        self.assertEqual([t["task_id"] for t, _ in tasklog.ranked(self.p.cfg)], ["0005-e"])
+        self.p.task("0005-e", "done", deps=["0001-a"])
+        self.assertEqual([t["task_id"] for t, _ in tasklog.ranked(self.p.cfg)], ["0003-c"])
+        self.p.task("0003-c", "done", deps=["0005-e"])
+        self.assertEqual(tasklog.next_task(self.p.cfg)["task_id"], "0004-d")
+
+    def test_ranked_orders_ready_tasks_by_number_whatever_order_it_is_given(self):
+        self.p.task("0001-a")
+        self.p.task("0002-b")
+        self.p.task("0003-c")
+        tasks = list(reversed(tasklog.load(self.p.cfg)))
+        self.assertEqual([t["task_id"] for t, _ in tasklog.ranked(self.p.cfg, tasks=tasks)],
+                         ["0001-a", "0002-b", "0003-c"])
+
+    def test_a_dependency_cycle_is_refused_and_named(self):
+        self.p.task("0003-c", deps=["0005-e"])
+        self.p.task("0005-e", deps=["0003-c"])
+        self.p.index()
+        errs = self.errs()
+        self.assertEqual([e for e in errs if "cycle" in e],
+                         ["docs/delivery/tasks/0003-c.md: depends_on forms a cycle: 0003-c → 0005-e → 0003-c "
+                          "— no task in it can ever be ready"])
+        code, out = self._cli("check")
+        self.assertEqual(code, 1, out)
+        self.assertIn("0003-c → 0005-e → 0003-c", out)
+
+    def test_cycles_are_named_from_their_lowest_task_once_each(self):
+        self.p.task("0001-a", deps=["0001-a"])
+        self.p.task("0002-b", deps=["0004-d"])
+        self.p.task("0003-c", deps=["0002-b"])
+        self.p.task("0004-d", deps=["0003-c", "0009-nope"])
+        self.p.task("0005-e", deps=["0004-d"])
+        self.assertEqual(tasklog.dependency_cycles(tasklog.load(self.p.cfg)),
+                         [["0001-a"], ["0002-b", "0004-d", "0003-c"]])
+        self.p.task("0001-a")
+        self.p.task("0002-b")
+        self.assertEqual(tasklog.dependency_cycles(tasklog.load(self.p.cfg)), [])
 
     def test_no_refs(self):
         f = self.p.task("0001-a")
@@ -253,7 +302,7 @@ class TaskLogTest(unittest.TestCase):
                       "what replaced it", self.errs())
 
     def test_a_later_task_named_as_a_prerequisite_in_prose_warns(self):
-        # PROC-08: 0186 said "gated on 0197" because depends_on cannot point forward.
+        # PROC-08: 0186 said "gated on 0197" in prose, where nothing holds it back; depends_on may point forward.
         f = self.p.task("0001-a")
         f.write_text(f.read_text().replace("- background", "- gated on 0003 being done; after 2026-10-18; "
                                                              "requires 0009, which does not exist"))
@@ -266,7 +315,7 @@ class TaskLogTest(unittest.TestCase):
         ws = tasklog.warnings(self.p.cfg)
         self.assertEqual(len(ws), 1, ws)
         self.assertIn("'gated on 0003' names 0003-c, which runs later", ws[0])
-        self.assertIn("Supersede this task", ws[0])
+        self.assertIn("List it in depends_on", ws[0])
         code, out = self._cli("check")
         self.assertEqual(code, 0, out)
         self.assertIn("  warning: docs/delivery/tasks/0001-a.md: 'gated on 0003'", out)

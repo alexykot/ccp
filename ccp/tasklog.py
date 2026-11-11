@@ -1,7 +1,8 @@
 """The durable task log: validation, ordering and the generated index (SPEC §4, §10, §20).
 
-One task per file, `docs/delivery/tasks/NNNN-kebab-slug.md`, never deleted, never renumbered;
-filesystem sort is execution order. What the plane used to leave to discipline, this module
+One task per file, `docs/delivery/tasks/NNNN-kebab-slug.md`, never deleted, never renumbered. The run
+order follows `depends_on`, ties broken by number (§10.3): a dependency may have a higher number than its
+dependant, and `check()` refuses only a missing id or a cycle. What the plane used to leave to discipline, this module
 enforces: metadata is YAML frontmatter (a parser can read it), `INDEX.yaml` is generated from the
 files rather than written beside them (it cannot drift), and `check()` is the gate the Verifier
 runs before any task's own `dod_checks`.
@@ -9,8 +10,8 @@ runs before any task's own `dod_checks`.
 A task file is never deleted and carries no runtime state: `check()` refuses runtime keys in
 frontmatter, a task file that git or the committed INDEX knew and that is gone, and a number
 reused by another task (a renamed task says `renamed_from: <old id>`), and
-`warnings()` names a later task cited as a prerequisite in prose, where `depends_on` cannot
-reach it (supersede instead).
+`warnings()` names a later task cited as a prerequisite in prose, where nothing enforces it (list it in
+`depends_on` instead).
 
 A task has a kind (§20): `feature` (the default) or `refactor`. A refactor changes no rule, so it
 cites house rules or review findings (`rule_refs`, `review_refs`) instead of the spec. With the
@@ -177,7 +178,7 @@ def _section(text: str, name: str) -> str | None:
 
 
 def load(cfg: Config) -> list[dict[str, Any]]:
-    """Every task, in filesystem order, which is execution order."""
+    """Every task, in filesystem (number) order; the run order is `ranked`'s."""
     out = []
     for f in sorted(cfg.tasks_dir.glob("*.md")):
         text = f.read_text()
@@ -392,8 +393,8 @@ def missing_task_files(cfg: Config) -> list[str]:
 
 def warnings(cfg: Config) -> list[str]:
     """What `check` reports without failing: a task not yet done that names a later task as a
-    prerequisite in prose. `depends_on` cannot point forward (filesystem sort is execution
-    order), so the waiting task is superseded by a new one that sorts after its prerequisite."""
+    prerequisite in prose, where nothing holds it back: the prerequisite belongs in `depends_on`,
+    which may name a later task (§5)."""
     tasks = load(cfg)
     ids = refs.ids(cfg)
     later = {m.group(1): t.get("task_id") for t in tasks if (m := ids.task_file_re.match(t["_file"].name))}
@@ -409,9 +410,40 @@ def warnings(cfg: Config) -> list[str]:
         for m in prose_dep_re(ids.task_width).finditer(body):
             if m.group(1) in later and int(m.group(1)) > own:
                 out.append(f"{cfg.rel(t['_file'])}: {m.group(0)!r} names {later[m.group(1)]}, which runs later, "
-                           "as a prerequisite in prose, where nothing enforces it. Supersede this task with a "
-                           "new one that sorts after it and lists it in depends_on (WRITING-tasks.md)")
+                           "as a prerequisite in prose, where nothing enforces it. List it in depends_on: a "
+                           "dependency may have a higher number than its dependant (SPEC §5)")
     return out
+
+
+def dependency_cycles(tasks: list[dict[str, Any]]) -> list[list[str]]:
+    """§5: the cycles `depends_on` forms among the tasks, at least one through every set of tasks that
+    wait on each other, each once, as the task ids along it from its lowest-numbered one (`[a, b]`: a
+    depends on b, b on a; `[a]`: a depends on itself). A dependency on a missing id is not followed."""
+    deps = {str(t.get("task_id")): [str(d) for d in _as_list(t.get("depends_on"))] for t in tasks}
+    state: dict[str, int] = {}  # 1: on the walk's path, 2: finished
+    found: dict[tuple[str, ...], list[str]] = {}
+    for root in sorted(deps):
+        if root in state:
+            continue
+        path, its = [root], [iter(deps[root])]
+        state[root] = 1
+        while path:
+            d = next(its[-1], None)
+            if d is None:
+                state[path.pop()] = 2
+                its.pop()
+            elif d not in deps or state.get(d) == 2:
+                continue
+            elif state.get(d) == 1:
+                cyc = path[path.index(d):]
+                k = cyc.index(min(cyc))
+                cyc = cyc[k:] + cyc[:k]
+                found.setdefault(tuple(cyc), cyc)
+            else:
+                state[d] = 1
+                path.append(d)
+                its.append(iter(deps[d]))
+    return [found[k] for k in sorted(found)]
 
 
 def check(cfg: Config) -> list[str]:
@@ -473,9 +505,6 @@ def check(cfg: Config) -> list[str]:
         for dep in _as_list(t.get("depends_on")):
             if dep not in ids:
                 errs.append(f"{rel}: depends_on `{dep}`, which does not exist")
-            elif dep >= str(t.get("task_id", "")):
-                errs.append(f"{rel}: depends_on `{dep}`, which runs later — "
-                            "dependencies must precede (filesystem sort is execution order)")
         if not own_refs and tl["refs_any"] and not any(_as_list(t.get(k)) for k in tl["refs_any"]):
             errs.append(f"{rel}: cites none of {', '.join(tl['refs_any'])}" + _spec_hint(tl["refs_any"]))
         if cfg.architect is not None:
@@ -508,6 +537,10 @@ def check(cfg: Config) -> list[str]:
             ver = _section(t["_text"], SEC_VERIFY) or ""
             if not re.search(r"^- ", ver, re.M):
                 errs.append(f"{rel}: status is done with no verification notes")
+    by_id = {str(t.get("task_id")): t for t in tasks}
+    for cyc in dependency_cycles(tasks):
+        errs.append(f"{cfg.rel(by_id[cyc[0]]['_file'])}: depends_on forms a cycle: {' → '.join(cyc + [cyc[0]])} "
+                    "— no task in it can ever be ready")
     errs += missing_task_files(cfg)
     if not cfg.task_log.get("index", True):
         return errs  # SPEC §5.7: the product keeps no index
@@ -673,14 +706,20 @@ def ranked(cfg: Config, scope: list[str] | None = None, first: list[str] | None 
     task depends on under "deps"). The order: `prefer` (the lead's preference list, each with its why:
     the ready ones, in the lead's order); then `first` (work.json's `review_point_refactors`), lowest NNNN first; then a
     ready refactor whenever `refactor_every` features have merged since the last refactor; then
-    lowest NNNN."""
+    lowest NNNN.
+
+    A task never comes before one of its dependencies, whatever their numbers (§5, §10.3): a task is
+    ranked only once every dependency is done, so no ready task waits on another, and the number only
+    breaks ties among tasks the graph leaves free. Replaying it, each pick merged in turn, gives the run
+    order (the forecast's)."""
     tasks = tasks if tasks is not None else load(cfg)
     done = {t.get("task_id") for t in tasks if t.get("status") == "done"}
     a = cfg.architect
     reach = refactor_reach(cfg, tasks, scope)
-    ready = [t for t in tasks
-             if (in_scope(str(t.get("task_id")), scope) or str(t.get("task_id")) in reach)
-             and t.get("status") == "pending" and all(d in done for d in _as_list(t.get("depends_on")))]
+    ready = sorted((t for t in tasks
+                    if (in_scope(str(t.get("task_id")), scope) or str(t.get("task_id")) in reach)
+                    and t.get("status") == "pending" and all(d in done for d in _as_list(t.get("depends_on")))),
+                   key=lambda t: str(t.get("task_id")))  # the number, whatever order the caller's list is in
     out: list[tuple[dict[str, Any], str]] = []
     for p in prefer or []:
         if p[0] in ready:
