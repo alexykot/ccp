@@ -39,8 +39,11 @@ whose lead is the design seat (plane SPEC §2).
 - Only the spec maintainer may escalate to the operator.
 - To raise a question, message the lead. The plane names when the operator is
   notified (a blocker, a decision, a finished review point, the allowance
-  checkpoint) and the product names the channel: on those, `ccp` also runs the
-  product's notify command if it names one (plane SPEC §3.6).
+  checkpoint), renders the notice and records it; the product names the channel.
+  Only the lead sends a notice, over that configured channel: `ccp` runs the
+  product's notify command if it names one, and with a `notify.lead` tool the
+  lead sends each one `ccp notify pending` lists and records it with
+  `ccp notify sent` (plane SPEC §3.6). The runner and workers never send.
 
 ## Tools
 

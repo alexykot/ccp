@@ -150,9 +150,17 @@ in. Everything above applies, with these differences.
 - **When the operator must hear** (SPEC §3.6): a `blocker` (a task waits on `reauth` or
   `operator_step`), a `decision` (a gate you take to them, a `needs_operator` answer), a
   `review_point_done` (a close leaves its review point with no open task) and an
-  `allowance_checkpoint`. Tell them here in your session. When the product's plane.json names a
-  `notify.command`, `ccp` has already run it with the trigger and ids; a `notify:` warning means it
-  failed, and your session is the only route.
+  `allowance_checkpoint`. The plane renders and records each notice (`ccp` prints it when it fires);
+  you alone send it, over the product's configured channel:
+  - when plane.json names a `notify.command`, `ccp` has already run it with the trigger and ids and
+    recorded the send; a `notify:` warning means it failed, and the notice stays pending for you;
+  - when plane.json names `notify.lead` (`tool`, `to`), run `ccp notify pending`, send each notice's
+    subject and body exactly as listed (or `ccp notify render <trigger> --task … --id …`) with that
+    tool to that address, and record it: `ccp notify sent <trigger> --task … [--id …] --via lead`;
+  - with neither, tell them here in your session, and record it the same way.
+  You may also notify them on your own judgment when something unexpected needs them: render it as
+  trigger `other`, send it, and record it with `--via lead --note "<ids and a short reason>"`. A
+  notice carries ids and a short reason only, never a brief, a question's text or file content.
 - **The 5-hour session limit is not the operator's call** (SPEC §25.4): the runner parks at
   `telemetry.session_park_pct` (exit 6) and you resume it with the session wake, as the orientation
   says (`ccp allowance session-wake`). Arm the wake before the limit: at the limit your own turn fails.
@@ -187,5 +195,6 @@ in. Everything above applies, with these differences.
 ## What you never do
 
 - Change runtime task state, waiting_on, or events, except through `team.sh` as team lead (above).
-- Email anyone yourself (the product's notify command is `ccp`'s, SPEC §3.6).
+- Send the operator anything but a plane-rendered notice over the configured channel, or send one
+  without recording it (`ccp notify sent`, SPEC §3.6); email or message anyone else.
 - Run the implementer or touch source code.

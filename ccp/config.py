@@ -253,8 +253,10 @@ MUTATE_DEFAULTS: dict[str, Any] = {"command": None, "timeout_seconds": 600}
 REPORT_DEFAULTS: dict[str, Any] = {"required_fields": []}
 # §3.6: the operator's channel. `command` is a shell command `ccp` runs on each trigger, given the trigger
 # and ids in its environment (null, the default: the lead's session, and no command runs);
-# `timeout_seconds` bounds one run of it.
-NOTIFY_DEFAULTS: dict[str, Any] = {"command": None, "timeout_seconds": 30}
+# `timeout_seconds` bounds one run of it. `lead`, `{tool, to}`, declares that the lead sends each notice
+# with that tool from its own session (null, the default: no declared tool).
+NOTIFY_DEFAULTS: dict[str, Any] = {"command": None, "timeout_seconds": 30, "lead": None}
+NOTIFY_LEAD_KEYS = ("tool", "to")
 REPORT_FIELD_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9 _-]{0,39}$")
 # The lines `ccp report` already reads: a declared field may not take one of their names.
 REPORT_OWN_LINES = ("outcome", "pr", "head", "verdict", "severity", "suite")
@@ -621,6 +623,22 @@ def _every_path(where: str, paths: list[Any]) -> list[str]:
             if n == "." or set(n) == {"*"}]
 
 
+def _notify_lead(lead: Any) -> str | None:
+    """§3.6 `notify.lead`: null, or exactly `{tool, to}`, each a non-empty one-line string. The reason
+    it is refused, else None."""
+    if lead is None:
+        return None
+    want = "notify.lead must be an object with exactly `tool` and `to`, each a non-empty string"
+    if not isinstance(lead, dict) or set(lead) != set(NOTIFY_LEAD_KEYS):
+        extra = sorted(set(lead) - set(NOTIFY_LEAD_KEYS)) if isinstance(lead, dict) else []
+        missing = [k for k in NOTIFY_LEAD_KEYS if isinstance(lead, dict) and k not in lead]
+        return want + "".join([f" (unknown: {', '.join(extra)})" if extra else "",
+                               f" (missing: {', '.join(missing)})" if missing else ""])
+    if not all(isinstance(lead[k], str) and lead[k].strip() and "\n" not in lead[k] for k in NOTIFY_LEAD_KEYS):
+        return want
+    return None
+
+
 def _opt_str(v: Any) -> bool:
     return v is None or (isinstance(v, str) and bool(v.strip()))
 
@@ -923,6 +941,8 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     t = nt["timeout_seconds"]
     if isinstance(t, bool) or not isinstance(t, int) or t < 1:
         bad.append("notify.timeout_seconds must be an integer >= 1")
+    if (why := _notify_lead(nt["lead"])):
+        bad.append(why)
     if bad:
         raise ConfigError(f"{CONFIG_REL}: " + "; ".join(bad))
     return out

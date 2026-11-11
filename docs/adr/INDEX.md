@@ -42,3 +42,4 @@
 | [ADR-0036](0036-project-name-ccp-and-its-repository.md) | Project name CCP and repository alexykot/ccp | accepted | 2026-11-06 |  |
 | [ADR-0037](0037-the-plane-names-when-the-operator-is-notified.md) | The plane names when the operator is notified; the product names the channel | accepted | 2026-11-10 |  |
 | [ADR-0038](0038-a-claimed-task-s-file-is-edited-only.md) | A claimed task's file is edited only in its PR | accepted | 2026-11-11 |  |
+| [ADR-0039](0039-only-the-lead-sends-a-plane-rendered-notice.md) | Only the lead sends a plane-rendered notice over a configured channel | accepted | 2026-11-11 |  |

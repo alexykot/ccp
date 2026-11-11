@@ -9,8 +9,8 @@ whose `brief` sign-off is missing, and `close` one whose declared sign-off is mi
 signed at another head than the one it merges.
 
 `wait` on an operator's wait, `claim` refused at the weekly checkpoint and the `close` that finishes a
-review point fire the operator's triggers: the product's notify command, if it names one (§3.6,
-`ccp.notify`).
+review point fire the operator's triggers: a pending notice on record, and the product's notify command,
+if it names one (§3.6, `ccp.notify`).
 
 `claim` samples the allowance first: past the weekly checkpoint a new claim refuses (exit 5), and at
 the 5-hour park % any claim parks the task and refuses (exit 6, §25.4).
@@ -108,7 +108,7 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
         sample = usage.sample_allowance(cfg, q, gate=not resumed)
     except QueueError as exc:
         if exc.code == 5:  # §3.6: the weekly checkpoint is the operator's to pass
-            if warn := notify.warnings(notify.send(cfg, "allowance_checkpoint", task_id=tid)):
+            if warn := notify.fire(cfg, q, "allowance_checkpoint", task_id=tid)[1]:
                 raise QueueError(f"{exc}. {warn[0]}", exc.code) from exc
         raise
     status = str(load_work(q).get("status") or "")
@@ -328,12 +328,13 @@ def wait(cfg: Config, task: str, action: str, reason: str, until: str | None, de
     if r.returncode != 0:
         raise QueueError(f"set-waiting-on: {(r.stderr or r.stdout).strip()}", r.returncode if r.returncode in (1, 2) else 1)
     out: dict[str, Any] = {"ok": True, "task_id": tid, "action": action, "reason": reason}
-    # §3.6: a wait only the operator clears reaches the product's channel (the reason is a fixed word)
+    # §3.6: a wait only the operator clears fires its notice (the reason is a fixed word)
     if action == "set" and (trigger := notify.trigger_for_wait(reason)):
-        if sent := notify.send(cfg, trigger, task_id=tid, reason=reason):
+        sent, warn = notify.fire(cfg, q, trigger, task_id=tid, reason=reason)
+        if sent:
             out["notified"] = sent
-            if warn := notify.warnings(sent):
-                out["warnings"] = warn
+        if warn:
+            out["warnings"] = warn
     return out
 
 
@@ -1296,9 +1297,11 @@ def _reconciled(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, h
     first = not reconciled or st.get("status") != "done"
     from dataclasses import replace  # noqa: PLC0415
     # §3.6: the channel runs in the checkout the call came from, not the merge worktree close removes next
-    notified = notify.send(replace(cfg, root=caller) if caller else cfg, "review_point_done", task_id=tid, ident=rp) \
-        if first and notify.channel(cfg) and notify.review_point_done(cfg, rp) else None
-    warnings += notify.warnings(notified)
+    notified = None
+    if first and notify.review_point_done(cfg, rp):
+        notified, warn = notify.fire(replace(cfg, root=caller) if caller else cfg, q, "review_point_done",
+                                     task_id=tid, ident=rp)
+        warnings += warn
     return {"ok": True, "task_id": tid, "pr": pr, "head": head, "merge_sha": merge, "reconcile_sha": reconcile,
             "merged_now": not already, "reconciled_now": not reconciled, "committed": paths, "warnings": warnings,
             **({"idle_runners": idle} if (idle := idle_runners(q, but=str(st.get("lease_holder") or ""))) else {}),
