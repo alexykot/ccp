@@ -302,3 +302,38 @@ tasks:
     title: Workers can run a worktree's own ccp; §5.2 lists covers
     depends_on: []
     path: tasks/0060-run-the-worktrees-own-ccp.md
+  - id: 0061-mutate-record-and-signal-follow-ups
+    status: pending
+    title: `ccp mutate` keeps code text out of its record and stops cleanly on a signal
+    depends_on: []
+    path: tasks/0061-mutate-record-and-signal-follow-ups.md
+  - id: 0062-producer-rule-follow-ups
+    status: pending
+    title: The producer rule pins its operator-step branch and names what a ruling is
+    depends_on: []
+    path: tasks/0062-producer-rule-follow-ups.md
+  - id: 0063-sign-off-follow-ups-and-plane-mutate-command
+    status: pending
+    title: The sign-off refusals are pinned, the brief-staleness rule is in the writing guide, and the plane sets a mutate command
+    depends_on: []
+    path: tasks/0063-sign-off-follow-ups-and-plane-mutate-command.md
+  - id: 0064-report-field-parsing
+    status: pending
+    title: A declared report field is parsed strictly
+    depends_on: []
+    path: tasks/0064-report-field-parsing.md
+  - id: 0065-latest-verdict-test-deterministic
+    status: pending
+    title: The review prompt picks the latest implementer verdict deterministically
+    depends_on: []
+    path: tasks/0065-latest-verdict-test-deterministic.md
+  - id: 0066-run-a-check-on-the-merge-base
+    status: pending
+    title: A verifier can run a check against the merge base's code
+    depends_on: []
+    path: tasks/0066-run-a-check-on-the-merge-base.md
+  - id: 0067-removed-scope-paths
+    status: pending
+    title: A task can name a path it removes without a scope warning
+    depends_on: []
+    path: tasks/0067-removed-scope-paths.md
