@@ -1,14 +1,14 @@
 ---
 task_id: 0053-run-order-follows-dependencies
 title: The run order follows depends_on, not the file number
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S10"]
 review_point: R4
 paths: ["ccp/tasklog.py", "ccp/selection.py", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "templates/docs-delivery/WRITING-tasks.md", "tests/test_tasklog*.py", "tests/test_selection*.py"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0053-run-order-follows-dependencies
@@ -75,4 +75,4 @@ A task's `depends_on` may name a later-numbered task: `ccp tasks next` and the b
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #65 head `95633f3` (squash `9290ea6`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0053-run-order-follows-dependencies.json.
