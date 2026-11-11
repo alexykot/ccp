@@ -1,7 +1,7 @@
 ---
 task_id: 0069-removed-scope-paths-marking
 title: A task can name a path it removes without a scope warning
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5"]
@@ -50,6 +50,15 @@ updated: 2026-11-11
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): carried over the 0067 build (PR #56, c89a784) without its task-file
+  notes. `ccp/parallel.py`: `MARK_RE` (`new` or `removed`, a whole word, any case) replaces the
+  `new`-only search in `missing_paths`, so a Scope **In:** path followed within 25 characters by
+  `removed` is accepted whether or not it exists; the warning now ends "is not marked new or
+  removed". §5.5's Scope row and the writing-tasks skill describe both markings (the implementer's
+  wording, §31.1). The test in `tests/test_tasklog.py` builds a pending task whose Scope **In:**
+  names `src/retired.py` (removed) and checks it gets no warning, then that the same file unmarked
+  does. `paths:` and done tasks stay unchecked, as before.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #58 head `ed74fdf` (squash `39f7944`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0069-removed-scope-paths-marking.json.
