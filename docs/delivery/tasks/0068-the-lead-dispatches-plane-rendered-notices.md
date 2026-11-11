@@ -124,6 +124,27 @@ the record; the lead dispatches; the channel is configuration.
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): `ccp/notify.py` gains `fire` (a trigger records a `notify` `pending`
+  event, runs `notify.command` if any and records its send, and prints the rendered notice on stderr
+  with the channel), `render`, `record_sent`, `pending` and the `ccp notify render|sent|pending`
+  parser (`ccp/cli.py` registers it). The trigger call sites (`ccp/lifecycle.py` wait, claim, close;
+  `scripts/observability/spec_maintainer.py` and `team.py` for `needs_operator` and `gate
+  ask-operator`) call `fire`. The `review_point_done` close now fires whether or not a command is
+  configured, so its notice is on record. `notify.lead` is validated in `ccp/config.py` and the
+  contract; the ledger type `notify` and ops `pending`, `sent` are in
+  `contracts/observability_event.schema.json` and `scripts/observability/lib.py`.
+- Narrow rules where the task left it open (flagged in the report): a pending notice is matched by a
+  later `sent` with the same trigger, task and id and `ok: true` (a failed command send leaves it
+  pending); `pending` lists each notice once with a `fired` count; `by` is `$ACTOR` when it names a
+  ledger actor, else `design-seat`; the subject with neither task nor id is `[<project>] <trigger>`;
+  `other` without a non-blank one-line `--note` is refused (exit 2); `--via lead` is not refused when
+  the product declares no `notify.lead`.
+- ADR-0039 amends ADR-0037 D2 (accepted at this PR's merge gate, as ADR-0037 and ADR-0038 were);
+  ADR-0037 D2's "no seat sends email itself" now points at it.
+- Outside the declared `paths:`, needed by the scope: `ccp/config.py`, `ccp/lifecycle.py`,
+  `ccp/CLAUDE.md`, `scripts/observability/{lib,spec_maintainer,team}.py`, `docs/spec/02-delivery.md`
+  (§17.10), `docs/adr/INDEX.md`.
+
 ## Verification notes
 
 *Append-only.*

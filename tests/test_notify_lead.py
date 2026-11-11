@@ -110,6 +110,7 @@ class LeadChannel(ToolkitFixture, unittest.TestCase):
 
     def test_a_notice_that_cannot_be_recorded_warns_and_the_wait_stands(self):
         from ccp.queue import QueueError
+        self.assertEqual(self.ccp("tasks", "claim", "0002", root=self.main)[0], 0)
         with mock.patch("ccp.notify.record_pending", side_effect=QueueError("ledger locked", 1)):
             code, body, out, err = self.ccp("tasks", "wait", "0002", "operator_step", root=self.main)
         self.assertEqual(code, 0, out + err)
