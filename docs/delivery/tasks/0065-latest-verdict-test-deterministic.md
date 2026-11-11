@@ -1,7 +1,7 @@
 ---
 task_id: 0065-latest-verdict-test-deterministic
 title: The review prompt picks the latest implementer verdict deterministically
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S13"]
@@ -47,6 +47,15 @@ When two implementer reports carry the same timestamp, the review prompt shows t
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): `ccp/prompt.py` `reported_verdicts` now picks the latest done implement or
+  fix run by the key (`reported_at`, fix after implement, round from the run id). Reports in the same
+  second therefore go to the fix over the implement and to the higher round within a phase, whatever
+  order the run files load in. Phase ranks before round because an `implement-2` normally precedes
+  `fix` (round 1) in the runner's flow. A new test in `tests/test_report_fields.py` gives the runs one
+  `reported_at` (and the earlier run the earlier `opened_at`, the order that broke on the merge base)
+  and checks the review prompt shows the fix, then `fix-2`. No SPEC text changed: §13.4 already says
+  "latest"; the tie-break is in the function's docstring.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #60 head `514f284` (squash `705f3a7`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0065-latest-verdict-test-deterministic.json.

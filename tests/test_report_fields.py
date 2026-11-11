@@ -114,6 +114,40 @@ class Declared(ToolkitFixture, unittest.TestCase):
         self.assertNotIn("`migration: required`", text)
         self.assertEqual(body["report_fields"]["run_id"], "0002-second/fix")
 
+    def same_second(self, *run_ids: str) -> None:
+        """Give the runs one reported_at, opened in the order given, so only a tie-break can tell them apart."""
+        for i, run_id in enumerate(run_ids):
+            f = self.q / "runs" / (run_id + ".json")
+            rec = json.loads(f.read_text())
+            rec.update(opened_at=f"2026-01-01T00:00:0{i}Z", reported_at="2026-01-01T00:01:00Z")
+            f.write_text(json.dumps(rec))
+
+    def review_shows(self, review_run: str) -> dict:
+        """Render the review prompt, then close that review asking for a fix; return the verdicts it showed."""
+        code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", HEAD)
+        self.assertEqual(code, 0, out + err)
+        self.report(review_run, "Outcome: done\nSeverity: BLOCKER=0 MAJOR=1 MINOR=0 NIT=0\n## Friction\nnone\n")
+        return body["report_fields"]
+
+    def fix(self, run_id: str, verdict: str) -> None:
+        code, _, out, err = self.ccp("prompt", "fix", "0002", "--pr", "7", "--head", HEAD)
+        self.assertEqual(code, 0, out + err)
+        code, _, out, err = self.report(run_id, implement_report(f"Migration: {verdict}"))
+        self.assertEqual(code, 0, out + err)
+
+    def test_reports_in_the_same_second_show_the_later_run_verdict(self):
+        self.implement()
+        self.report("0002-second/implement", implement_report("Migration: required"))
+        self.review_shows("0002-second/review")
+        self.fix("0002-second/fix", "not required")
+        self.same_second("0002-second/implement", "0002-second/fix")
+        self.assertEqual(self.review_shows("0002-second/review-2"),
+                         {"run_id": "0002-second/fix", "fields": {"migration": "not required"}})
+        self.fix("0002-second/fix-2", "required")
+        self.same_second("0002-second/implement", "0002-second/fix", "0002-second/fix-2")
+        self.assertEqual(self.review_shows("0002-second/review-3"),
+                         {"run_id": "0002-second/fix-2", "fields": {"migration": "required"}})
+
     def test_a_report_from_before_the_declaration_shows_the_verdict_as_not_stated(self):
         (self.runner / "docs/delivery/plane.json").write_text(json.dumps(ToolkitFixture.PLANE_JSON))
         self.implement()
