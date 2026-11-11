@@ -23,6 +23,7 @@ Once a task is claimed, its file is not edited on the integration branch. A ruli
 - The implementer works from the brief on its branch and appends notes to the same file; an edit on the integration branch after the claim is unseen by the implementer and conflicts at merge.
 - The operator ruled on 9 Nov 2026 to adopt this, reversing an earlier decline.
 - **SPEC change (§31):** this task changes a § rule — the lease rules in §10. It needs the operator's approval at build: the PR carries the CURRENT → PROPOSED text and quotes the ruling.
+- 2026-11-11, lead's ruling on this task's spec question: (a) record the reversal as ADR-0038 ("A claimed task's file is edited only in its PR"), superseding ADR-0035 D5, accepted, deciders operator; the operator's approval at this task's merge gate is the approval. (b) A lead ruling or amendment on a claimed task reaches the runner, which passes it verbatim in the next implementer prompt; the implementer writes it into this section on the task branch, besides Implementation notes. Standing DoD item 3 (the plane's copy and its template) allows exactly that, and §10.5 says it. (c) §17.4: on a claimed task, a resolved ruling's `commit_sha` names the task-branch commit that carries it, or, if given before that commit exists, the integration tip it was ruled against. The paths outside `paths:` (`ccp/cli.py`, `docs/cli/02-delivery.md`, `scripts/CLAUDE.md`, the pre-commit template) are accepted.
 
 ## Scope
 
@@ -64,6 +65,12 @@ Once a task is claimed, its file is not edited on the integration branch. A ruli
 - §10.5 and §17.4 carry draft text (the task gave no PROPOSED text); it needs the operator's approval in
   the PR. The orientation, the spec-maintainer skill and the runner brief route an amendment on a claimed
   task to the runner. Tests: `tests/test_lease_edits.py`.
+- 2026-11-11 — implementer, applying the lead's ruling (Context): ADR-0038 (accepted, deciders operator,
+  D1–D3 built) supersedes ADR-0035 D5 through `ccp adr supersede --decisions D5 --by D1`. §10.5 says the
+  runner passes a ruling or amendment on a claimed task verbatim and the implementer writes it into
+  Context on the task branch; §17.4 says which commit `commit_sha` names. Standing DoD item 3 (the
+  plane's copy and `templates/docs-delivery/standing-dod.md`), the implementer and runner briefs and
+  the spec-maintainer skill say the same. A product's existing standing DoD copy is not rewritten.
 
 ## Verification notes
 

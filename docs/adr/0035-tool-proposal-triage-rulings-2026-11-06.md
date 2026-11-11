@@ -10,11 +10,13 @@ decisions:
   - "D2 built"
   - "D3 built — task 0022"
   - "D4 built — task 0023"
-  - "D5 live"
+  - "D5 retired by ADR-0038 D1"
   - "D6 live"
   - "D7 live"
   - "D8 built"
-notes: "2026-11-06: status proposed → accepted"
+notes: |-
+  2026-11-06: status proposed → accepted
+  2026-11-11: D5 superseded by ADR-0038 D1
 ---
 # ADR-0035 — Tool-proposal triage rulings (2026-11-06)
 

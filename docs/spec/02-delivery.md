@@ -151,7 +151,9 @@ status reads as `pending`. With several runners, §16.3 and §16.4 apply.
 **A claimed task's file is edited only in its PR.** From the claim until the lease clears (close,
 release, drop or sync), the task's file changes on the integration branch only by the task's own squash
 merge and reconcile, and by the lead marking it `dropped` (§10.4). A ruling or amendment on a claimed
-task goes to the runner holding it, and lands in the task's PR. **`ccp tasks check --lease
+task goes to the runner holding it, which passes it verbatim in the next implementer prompt; the
+implementer writes it into the task file's `Context (not checked)` section on the task branch, besides
+its Implementation notes, so it lands in the task's PR (§17.4). **`ccp tasks check --lease
 [--staged]`** (needs `QUEUE_ROOT`) exits 1 naming each such edit, with the task and its lease holder,
 for every task with a live lease (`lease_holder` set, the queue status neither `done` nor `dropped`):
 the commits on the integration branch's first-parent history (the local branch and
@@ -1012,7 +1014,9 @@ own session, and the triage command is run again to apply it.
 - **Chooses the route itself:** rule and commit, or escalate with `needs_operator`; no second reviewer.
 - **Every `resolved` ruling lands in git**, `commit_sha` required. A ruling that needs no SPEC or
   PROJECT wording is recorded in the context section of each blocked task file; for a claimed task
-  that goes to the runner and lands in the task's PR, never on the integration branch (§10.5).
+  it goes to the runner and lands in the task's PR, never on the integration branch (§10.5), and
+  `commit_sha` names the task-branch commit that carries it or, if the ruling is given before that
+  commit exists, the integration tip it was ruled against.
 - **Commit rule:** only the files it changed, by explicit path (`git commit -- <paths>`), on the
   integration branch, pushed; message `spec(<question_id>): <one-line ruling>`. If it cannot commit
   or push, it returns `needs_operator` and says why.
