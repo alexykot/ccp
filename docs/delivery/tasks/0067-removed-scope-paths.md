@@ -21,7 +21,6 @@ updated: 2026-11-11
 
 - `ccp tasks check` warns when a Scope or `paths:` entry names a file that does not exist and is not marked new. A task that deletes a file names a path that stops existing once it merges.
 
-- Dropped 2026-11-11 by the task-log owner and superseded by task 0069: its check-01 could not fail on the merge base (the warning never reads `paths:` or done tasks), and its paths omitted `ccp/parallel.py`. Under §10.5 a claimed task's checks change only by superseding it; the in-flight task could not be released.
 
 ## Scope
 

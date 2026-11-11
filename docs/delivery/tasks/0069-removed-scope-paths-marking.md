@@ -31,8 +31,9 @@ updated: 2026-11-11
 
 - id: `check-01`
   story: As a task writer, a file my task removes is not a warning.
-  setup: a scratch product with a pending task whose Scope **In:** item names, in backticks, a file
-    that does not exist, marked `(removed)` in the same form as the `new` marking.
+  setup: a scratch product with a pending task whose Scope **In:** item (not `paths:`) names, in
+    backticks, a path holding a `/` that does not exist, marked `(removed)` right after it, in the same
+    form and within the same distance as the `new` marking.
   steps:
     1. Run `ccp tasks check`.
   expect: no missing-path warning for that file; the same file unmarked is still warned about.
