@@ -1,14 +1,14 @@
 ---
 task_id: 0051-close-keeps-the-main-checkout-head
 title: ccp tasks close never moves the main checkout's HEAD
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S10"]
 review_point: R4
 paths: ["ccp/lifecycle.py", "tests/test_tasks_close*.py", "docs/spec/02-delivery.md"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0051-close-keeps-the-main-checkout-head
@@ -78,4 +78,4 @@ updated: 2026-11-10
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #52 head `878ad88` (squash `6acd190`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0051-close-keeps-the-main-checkout-head.json.
