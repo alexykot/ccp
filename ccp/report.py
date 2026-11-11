@@ -16,7 +16,7 @@ The report is the worker's own words plus a few lines `ccp` reads:
   from the record) (§14.1);
 - a `## Friction` section: `- ` lines, or `none`;
 - implement and fix, when done: each verdict the product declares in plane.json
-  `report.required_fields`, as `<name>: <value>` with one of its declared values (§13.4). They are
+  `report.required_fields`, as `<name>: <value>` with one of its declared values, on one line (§13.4). They are
   kept on the run (`fields`) and shown in the review prompt; whether a verdict is right is not judged.
 
 A report that lacks one is refused with what is missing, and nothing is written. An accepted one
@@ -61,26 +61,41 @@ def fields(text: str, declared: list[dict[str, Any]]) -> tuple[dict[str, str], l
     """§13.4: each declared verdict's line, `<name>: <value>` (the name without regard to case, bold
     or a bullet allowed), its value one of the declared values (the longest that fits, then the
     line's end or a non-word character, so a reason may follow). The values found, by declared name
-    and spelling, and an error naming the field and its allowed values for each missing or other one."""
+    and spelling, and an error naming the field, its line and its allowed values for each missing or
+    other one. A value followed by `|` is the prompt's `a|b` template pasted, not a verdict, and is
+    refused; so is a field stated on more than one line, naming each line."""
     got: dict[str, str] = {}
     errs: list[str] = []
     for f in declared:
         name, values = f["name"], list(f["values"])
         allowed = ", ".join(f"`{v}`" for v in values)
-        m = re.search(rf"^[^\w\n]*{re.escape(name)}[ \t*_]*:[ \t*_`]*(.*?)[ \t]*\r?$", text, re.I | re.M)
-        if not m:
+        ms = list(re.finditer(rf"^[^\w\n]*{re.escape(name)}[ \t*_]*:[ \t*_`]*(.*?)[ \t]*\r?$", text, re.I | re.M))
+        if not ms:
             errs.append(f"no `{name}: <value>` line: this product requires it on every implementer report, "
                         f"one of {allowed} (plane.json report.required_fields)")
             continue
+        if len(ms) > 1:
+            where = ", ".join(f"line {_line_no(text, m)} (`{m.group(1)[:80]}`)" for m in ms)
+            errs.append(f"`{name}:` is stated on {len(ms)} lines, {where}; state it once "
+                        "(plane.json report.required_fields)")
+            continue
+        m = ms[0]
         said = m.group(1)
         hit = next((v for v in sorted(values, key=len, reverse=True)
                     if said.lower().startswith(v.lower()) and not re.match(r"\w", said[len(v):len(v) + 1])), None)
+        if hit is not None and said[len(hit):].lstrip(" \t*_`").startswith("|"):
+            hit = None  # the template's alternatives, `a|b`, pasted as they stand
         if hit is None:
-            errs.append(f"`{name}:` says `{said[:80]}`; the allowed values are {allowed} "
-                        "(plane.json report.required_fields)")
+            errs.append(f"`{name}:` on line {_line_no(text, m)} says `{said[:80]}`; the allowed values are "
+                        f"{allowed}, exactly one (plane.json report.required_fields)")
         else:
             got[name] = hit
     return got, errs
+
+
+def _line_no(text: str, m: re.Match[str]) -> int:
+    """The 1-based line of the report a field's match starts on."""
+    return text.count("\n", 0, m.start(1)) + 1
 
 
 def cache_counts(line: str) -> tuple[int, int] | None:

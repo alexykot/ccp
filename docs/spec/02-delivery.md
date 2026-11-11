@@ -428,9 +428,11 @@ metrics and every friction line. Report lines:
 - for implement and fix with `Outcome: done`, each verdict the product declares in plane.json
   `report.required_fields` (a list of `{name, values}`, default none), as `<name>: <value>` with one
   of its declared values. A report missing one, or giving another value, is refused with the field
-  and its allowed values. The values are kept on the run (`fields`); the implement and fix prompts
-  list the declared fields, and the review prompt and `ccp prompt review`'s output show them as the
-  task's latest done implement or fix report states them. Whether a verdict is right is not judged.
+  and its allowed values. A field is stated once; a field on two lines, or a value that is the
+  pasted template `a|b`, is refused. The values are kept on the run (`fields`); the implement and
+  fix prompts list the declared fields, and the review prompt and `ccp prompt review`'s output show
+  them as the task's latest done implement or fix report states them. Whether a verdict is right is
+  not judged.
 
 `ccp verify record` notes the verdict on the task's open verify run and emits `verify/recorded`; the
 verifier's `ccp report` closes the run.

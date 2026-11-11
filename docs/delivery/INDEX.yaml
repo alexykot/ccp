@@ -318,7 +318,7 @@ tasks:
     depends_on: []
     path: tasks/0063-sign-off-follow-ups-and-plane-mutate-command.md
   - id: 0064-report-field-parsing
-    status: pending
+    status: done
     title: A declared report field is parsed strictly
     depends_on: []
     path: tasks/0064-report-field-parsing.md
