@@ -64,6 +64,12 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   you call it a finding.
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
   the PR's merge base before judging a check against a cited line.
+- A check's dry run on the merge base (it fails without the task's code) runs with
+  `ccp wt create --kind base --task <task_id> --sha <PR head> -- <command>`, through `ccp suite run`
+  like any test command: a worktree of its own at the merge base, removed after the command, which
+  exits with the command's code. The command brings the PR's test in itself
+  (`sh -c 'git checkout <PR head> -- <test path> && <test command>'`). Never `git stash` or a
+  hand-made worktree for it.
 - When the product is the control plane itself, check a change to `ccp` by hand with your
   checkout's own `bin/ccp`: `ccp` on PATH runs the released plane, not the PR head. From your
   worktree, `ccp wt exec -- <args>` runs it (`ccp wt exec --print` prints its path), so a new

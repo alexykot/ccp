@@ -620,7 +620,7 @@
             "string",
             "null"
           ],
-          "description": "Relative to the main checkout; worktrees are named <kind>-<nnnn>[-<n>] (impl, rev, ver, mut, mac). Null: no plane-made worktrees."
+          "description": "Relative to the main checkout; worktrees are named <kind>-<nnnn>[-<n>] (impl, rev, ver, mut, mac, base). Null: no plane-made worktrees."
         },
         "links": {
           "type": "array",
