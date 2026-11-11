@@ -48,6 +48,20 @@ A product starting its first single runner gets the runner's worktree from the p
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): the creation moved into `ccp/wt.py` `runner_worktree(main, path, integ)`
+  (made detached at `origin/<integ>` when missing, left alone when it is a working tree, a non-empty
+  non-worktree directory refused with exit 2), with `main_of(checkout)` for a caller with no plane.json.
+  `ccp/lifecycle.py` `runner_worktree` uses it for both cases: with `--runner <slot>` as before, and
+  without it (now optional in `ccp/cli.py`) the binding's `runner.worktree` itself for one runner;
+  without a slot beside recorded slots, or with no `runner.worktree` in the binding, it refuses (exit 2).
+  `team.py` `single_runner_worktree` runs in the single-runner spawn after the scope checks and before
+  any write: no `runner.worktree` or no `product_root` makes nothing; a worktree it cannot make refuses
+  the spawn (exit 2, nothing recorded); its output carries `runner_worktree: {path, made}`. A relative
+  `runner.worktree` is the main checkout's. Slotted spawns are unchanged. SPEC §12.1 now says who makes
+  it; `docs/cli/02-delivery.md` shows `--runner` as optional. Tests: `tests/test_wt.py`
+  `SingleRunnerWorktree`. Paths beyond the declared ones: `ccp/lifecycle.py`, `ccp/cli.py`,
+  `docs/cli/02-delivery.md`.
+
 ## Verification notes
 
 *Append-only.*
