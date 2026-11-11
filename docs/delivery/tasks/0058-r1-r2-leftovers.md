@@ -1,14 +1,14 @@
 ---
 task_id: 0058-r1-r2-leftovers
 title: R1 and R2 leftovers
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S14", "S15", "S23"]
 review_point: R4
 paths: ["scripts/observability/lib.py", "scripts/observability/team.py", "scripts/observability/README.md", "ccp/verify.py", "ccp/config.py", "tests/test_doc_rules.py", "plugin/skills/"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0058-r1-r2-leftovers
@@ -85,4 +85,4 @@ The small defects reviewers left open in R1 and R2 are fixed, so the plane's own
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #51 head `143bb80` (squash `43833ae`): APPROVE. Passed: check-03. Not run by the verifier: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0058-r1-r2-leftovers.json.

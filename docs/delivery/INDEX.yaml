@@ -288,7 +288,7 @@ tasks:
     depends_on: []
     path: tasks/0057-rules-line-descriptions-and-starter-follow-ups.md
   - id: 0058-r1-r2-leftovers
-    status: pending
+    status: done
     title: R1 and R2 leftovers
     depends_on: []
     path: tasks/0058-r1-r2-leftovers.md
