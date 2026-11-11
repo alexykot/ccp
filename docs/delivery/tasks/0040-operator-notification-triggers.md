@@ -1,14 +1,14 @@
 ---
 task_id: 0040-operator-notification-triggers
 title: The plane defines when the operator is notified; a product setting names the channel
-status: pending
+status: done
 kind: feature
 depends_on: [0039-operator-sign-off-record]
 spec_refs: ["S3", "S17"]
 review_point: R3
 paths: ["docs/spec/01-model.md", "docs/spec/02-delivery.md", "ccp/notify.py", "ccp/lifecycle.py", "plugin/", "tests/test_notify*.py"]
 created: 2026-11-09
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 # Task: 0040-operator-notification-triggers
@@ -102,4 +102,4 @@ The plane defines when the lead must notify the operator (a blocker, a decision 
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-11 — verifier, PR #43 head `93ceb58` (squash `ab93d12`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0040-operator-notification-triggers.json.
