@@ -227,7 +227,7 @@ The channel is plane.json `notify` (§8.1): `command`, a shell command (default 
 - With no command the channel is the lead's session: the runner raises the trigger to the lead, who
   brings it to the operator (§17.10), and no command runs.
 - With one, `ccp` runs it on each trigger, besides the lead's session, with an empty stdin, in the
-  checkout the call came from, as reconcile hooks run (for a gate or a spec question, the binding's
+  checkout the call came from (for a gate or a spec question, the binding's
   product root). Its environment carries the trigger and ids only: `CCP_NOTIFY_TRIGGER`,
   `CCP_PROJECT_ID`, `CCP_TASK_ID`, `CCP_NOTIFY_ID` (the gate, question or review point),
   `CCP_NOTIFY_REASON` (the wait's reason), and all of them as one line, `CCP_NOTIFY_LINE`. Never a
