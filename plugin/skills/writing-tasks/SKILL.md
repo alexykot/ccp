@@ -11,8 +11,9 @@ are stricter, they win. Template: `templates/docs-delivery/TEMPLATE-task.md`.
 
 ## The file
 
-`docs/delivery/tasks/NNNN-<kebab-slug>.md`. `NNNN` is zero-padded (`ids.task.width`, default 4) and
-**is** the execution order (filesystem sort). Never delete a task file, never renumber, never reuse a
+`docs/delivery/tasks/NNNN-<kebab-slug>.md`. `NNNN` is zero-padded (`ids.task.width`, default 4). The run
+order follows `depends_on`, the number breaking ties (SPEC §10.3), so a new task can go before pending
+ones without renumbering them. Never delete a task file, never renumber, never reuse a
 number: a task no longer wanted is `status: dropped`, with a note naming what replaced it.
 
 ### Frontmatter
@@ -23,7 +24,7 @@ One `key: value` per line; lists inline (`["a", "b"]`), on one line.
 | --- | --- |
 | `task_id`, `title` | the file name without `.md`; one imperative line |
 | `status` | `pending`, `done` or `dropped`. Nothing else: claimed, implementing, in review and verifying are queue states, never written here. `ccp tasks close` writes `done` |
-| `depends_on` | task ids that must be `done` first; each sorts earlier |
+| `depends_on` | task ids that must be `done` first; one may have a higher number. A cycle is refused |
 | `created`, `updated` | `YYYY-MM-DD` |
 | `spec_refs`, `adr_refs` | the SPEC sections it must satisfy; the decisions it builds (`"0031 D2"`) |
 | `kind` | `feature` (default) or `refactor` (with the architect seat; see below) |
@@ -123,9 +124,8 @@ Never write runtime state here (`waiting_on`, leases, session ids, ports): `ccp 
 - **After the claim**, a change is a new task that supersedes it; the old one is `dropped`, with a
   note naming the new one. Whether a task is claimed is in the queue (`ccp tasks list`, the runner's
   leases), not in its file. A claimed task's file is not edited on the integration branch.
-- **A prerequisite that sorts later** is never written as prose ("gated on 0197"): supersede the
-  waiting task with one numbered after the prerequisite that lists it in `depends_on`.
-  `ccp tasks check` warns on such a sentence.
+- **A prerequisite** is never written as prose ("gated on 0197"): it goes in `depends_on`, whatever
+  its number. `ccp tasks check` warns on such a sentence naming a later task.
 - **Before a task is preferred**, reread its checks against these rules, refresh any check anchored
   at a commit older than what has merged since, and re-measure the counts its Context states.
 - Then run `ccp tasks index` and commit the index with the task file (when the product keeps one).
@@ -152,8 +152,8 @@ says so in `depends_on`. A refactor brief does not re-list the gate as a check.
 
 A filename that isn't `NNNN-kebab-slug.md`, a reused number, missing frontmatter keys or sections, a
 status other than `pending`, `done` or `dropped` (a legacy `in_progress` or `blocked` reads as
-pending, with a warning), a dependency that doesn't exist or runs later, a task citing nothing, zero
-or more than `max_checks` checks, duplicate check ids, soft language inside `## dod_checks` ("should",
+pending, with a warning), a dependency that doesn't exist, a cycle of `depends_on` (named), a task
+citing nothing, zero or more than `max_checks` checks, duplicate check ids, soft language inside `## dod_checks` ("should",
 "may", "gracefully", "robust"), a `done` task with no verification note, runtime state in frontmatter,
 a task file that is gone (restore it as `dropped`), a number held by another file without
 `renamed_from`, a kind's ref rules broken, and (with `shape_adrs`) a new task citing an unshaped ADR

@@ -173,17 +173,37 @@ def ready_queue(cfg: Config, q: Path, tasks: list[dict[str, Any]]) -> dict[str, 
             "slots_full": choice["slots_full"], "in_flight": flight, "preferred": sel["preferred"]}
 
 
+def _depths(deps: dict[str, list[str]]) -> dict[str, int]:
+    """Each task's longest chain of the given dependencies under it (0: none). A dependency may have a
+    higher number than its dependant (§5), so this walks the graph rather than the file order; a cycle
+    (which `ccp tasks check` refuses) is cut where the walk meets it again."""
+    depth: dict[str, int] = {}
+    for root in deps:
+        stack, on_path = [(root, iter(deps[root]))], {root}
+        while stack:
+            tid, it = stack[-1]
+            d = next(it, None)
+            if d is None:
+                stack.pop()
+                on_path.discard(tid)
+                depth[tid] = 1 + max((depth.get(x, 0) for x in deps[tid] if x in depth), default=-1)
+            elif d in deps and d not in depth and d not in on_path:
+                stack.append((d, iter(deps[d])))
+                on_path.add(d)
+    return depth
+
+
 def graph(rows: list[dict[str, Any]], ready_ids: set[str], flight: set[str] | None = None,
           scope: list[str] | None = None) -> dict[str, Any]:
     """Open tasks as nodes (with their depth: the longest chain of open dependencies under them) and
     the open dependencies as edges. Done dependencies are counted, not drawn."""
     status = {r["task_id"]: r["status"] for r in rows}
     open_rows = [r for r in rows if r["status"] in OPEN]
-    depth: dict[str, int] = {}
+    open_deps = {r["task_id"]: [d for d in r["depends_on"] if status.get(d) in OPEN] for r in open_rows}
+    depth = _depths(open_deps)
     nodes, edges = [], []
-    for r in open_rows:  # filesystem order: dependencies come first
-        deps = [d for d in r["depends_on"] if status.get(d) in OPEN]
-        depth[r["task_id"]] = 1 + max((depth.get(d, 0) for d in deps), default=-1)
+    for r in open_rows:
+        deps = open_deps[r["task_id"]]
         nodes.append({"id": r["task_id"], "title": r["title"], "status": r["status"], "kind": r["kind"],
                       "ready": r["task_id"] in ready_ids, "in_flight": r["task_id"] in (flight or set()),
                       "in_scope": tasklog.in_scope(r["task_id"], scope),

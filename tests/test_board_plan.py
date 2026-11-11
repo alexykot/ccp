@@ -261,6 +261,17 @@ class Plan(unittest.TestCase):
         self.assertEqual(b[-1], {"date": "2026-10-03", "total": 6, "done": 2})
         self.assertEqual(len(b), 6)
 
+    def test_graph_depth_follows_a_dependency_with_a_higher_number(self):
+        def row(tid, deps=(), status="pending"):
+            return {"task_id": tid, "title": tid, "status": status, "kind": "feature", "review_point": None,
+                    "depends_on": list(deps)}
+        rows = [row("0001-a", ["0002-b"]), row("0002-b", ["0003-c"]), row("0003-c", ["0009-done"]),
+                row("0004-d", ["0001-a", "0003-c"]), row("0009-done", status="done")]
+        g = plan.graph(rows, {"0003-c"})
+        self.assertEqual({n["id"]: n["depth"] for n in g["nodes"]},
+                         {"0001-a": 2, "0002-b": 1, "0003-c": 0, "0004-d": 3})
+        self.assertIn(["0002-b", "0001-a"], g["edges"])
+
     def test_a_failing_part_leaves_its_error_and_the_rest(self):
         from unittest import mock  # noqa: PLC0415
         with mock.patch.object(plan, "burnup", side_effect=RuntimeError("boom")):

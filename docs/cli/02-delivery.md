@@ -8,7 +8,7 @@ argument takes the full id or its number.
 
 | Command | Who | SPEC |
 |---|---|---|
-| `ccp tasks list [--status S] [--json]` | anyone | every task in execution order |
+| `ccp tasks list [--status S] [--json]` | anyone | every task, in number order |
 | `ccp tasks next [--scope IDS] [--json]` (also `--explain`) | runner | §10.3, §16.3 |
 | `ccp tasks index [--stdout]` | lead | regenerates `INDEX.yaml` (§5) |
 | `ccp tasks claim <id> [--holder <slot>]` | runner | §10.5, §16.3 |

@@ -56,6 +56,23 @@ A task's `depends_on` may name a later-numbered task: `ccp tasks next` and the b
 
 *Append-only, newest last.*
 
+- 2026-11-11 (implementer): `ccp tasks check` drops the 'runs later' refusal; `tasklog.dependency_cycles`
+  finds the cycles `depends_on` forms (a self-dependency included), and check fails once per cycle at
+  its lowest-numbered task, naming it (`0003-c → 0005-e → 0003-c`). `ranked` already ranked only ready
+  tasks (every dependency done), so no task can come before a dependency; it now sorts the ready tasks
+  by number itself instead of trusting the caller's list order. SPEC: §10.3 takes the PROPOSED text;
+  §5.2's `depends_on` cell takes the task's §5 sentence, and §5.1 drops "filesystem order is execution
+  order". Beyond `paths`, for the same rule: §21.1's refusal bullet ("does not sort earlier" → a
+  cycle) and its prose-prerequisite advice ("superseded" → `depends_on`); the 'sorts after it' advice
+  lives in the plugin's `writing-tasks` skill and in `warnings()`'s message (the WRITING-tasks.md
+  templates hold none), both changed; `templates/docs-delivery/README.md`'s "NNNN in intended run
+  order"; and the board graph's depth (`ccp/plan.py`), which walked file order and now walks the graph.
+- 2026-11-11 (implementer, fix round 1, from the review): `contracts/task_file.schema.json`'s
+  `depends_on` description no longer says "sort earlier"; `ccp tasks list` help and its CLI doc say
+  "number order", not "execution order"; the prose-prerequisite warning says "which has a higher
+  number", not "which runs later"; two lines this task wrote are rewrapped (§10.3's sentence, the
+  skill's refusal list), with no change to their words.
+
 ## Verification notes
 
 *Append-only.*

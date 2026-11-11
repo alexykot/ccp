@@ -4,7 +4,9 @@
 `inputs` reads work.json the way `next` always has: a running runner's scope is
 the default scope, and its `review_point_refactors` go first; the lead's preference list (`next_tasks`,
 `ccp tasks prefer`) comes before everything, each entry in its order once it is ready. `pick` hands them to
-`tasklog.ranked`, whose first row is `next`'s answer and whose rest is the order after it.
+`tasklog.ranked`, whose first row is `next`'s answer and whose rest is the order after it. Only ready tasks
+are ranked, so the order follows `depends_on` whatever the numbers (a dependency may have a higher number
+than its dependant, §5) and the number breaks the ties.
 """
 from __future__ import annotations
 

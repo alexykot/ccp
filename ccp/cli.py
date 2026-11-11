@@ -853,7 +853,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = ap.add_subparsers(dest="group", required=True)
 
     t = sub.add_parser("tasks", help="the durable task log").add_subparsers(dest="cmd", required=True)
-    p = t.add_parser("list", help="every task, in execution order")
+    p = t.add_parser("list", help="every task, in number order")
     p.add_argument("--status")
     p.add_argument("--json", action="store_true")
     p.set_defaults(fn=cmd_tasks_list)

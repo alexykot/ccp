@@ -459,7 +459,7 @@ Choosing mutants is the seat's; the plane ships no mutation operators.
 - missing required frontmatter, or a `task_id` that is not the filename;
 - a status other than `pending`, `done` or `dropped` (a legacy `in_progress` or `blocked` reads as
   `pending` and warns);
-- a dependency that does not exist or does not sort earlier;
+- a dependency that does not exist, or a cycle of `depends_on` (named);
 - no `refs_any` list non-empty (per kind, §20.3), or a missing required section;
 - other than 1..`max_checks` unique `` - id: `kind-NN` `` checks, or soft language inside
   `## dod_checks` (dry-run lines are left out of that scan, since they quote output);
@@ -477,7 +477,7 @@ Choosing mutants is the seat's; the plane ships no mutation operators.
   citation (§19.6).
 
 It warns, without failing, when a task not yet done names a later task as a prerequisite in prose:
-such a task is superseded instead. Inline `# comments` in frontmatter are ignored.
+the prerequisite goes in `depends_on` instead. Inline `# comments` in frontmatter are ignored.
 
 ### 21.2 `ccp docs check`
 
