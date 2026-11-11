@@ -302,6 +302,10 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
   close, or adopted by `create`. `create` reuses an existing worktree only at the `--sha` asked for;
   at another head it refuses (exit 3). A default name taken meanwhile moves to the next `-<n>`.
 - Workers make theirs with `ccp wt create`, never `git worktree add`.
+- `ccp wt exec [NAME] -- ARGS` runs the `bin/ccp` of worktree NAME (recorded; default the checkout
+  `ccp` runs in) with ARGS verbatim, in the caller's directory and environment, and exits with its
+  code; `--print` prints that path instead. It loads no plane.json, so a reviewer or verifier can run
+  the change under review's own `ccp`, new subcommands included; `ccp` on PATH stays the released one.
 
 **The lead and the runners.** The lead keeps the product's main checkout and pulls it when a merge is
 reported. Each runner merges, reconciles and runs operator steps from its own **runner worktree**

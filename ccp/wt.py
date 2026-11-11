@@ -1,4 +1,4 @@
-"""Worktrees and environments (SPEC §12.1): `ccp wt create|remove|list|up|down|urls|gc`.
+"""Worktrees and environments (SPEC §12.1): `ccp wt create|remove|list|up|down|urls|gc|exec`.
 
 The plane owns every worktree a task needs: the implementer's (`impl`, on `task/<id>`), the
 reviewer's and verifier's (`rev`, `ver`, detached at the head they judge), a mutation copy (`mut`) and
@@ -11,6 +11,9 @@ What a product needs beyond a git worktree (a database branch, a local stack) is
 what it serves, and `urls` prints the URLs it serves as a JSON list of `{name, url}`, as many as the
 product has. Each hook is a shell command template run in the worktree with a timeout; its fields
 are also in the environment as `CCP_WT_<FIELD>`.
+
+`ccp wt exec [NAME] -- ARGS` runs a worktree's own `bin/ccp`, so a change that adds a subcommand can
+be tried before the installed `ccp` has it; `--print` prints that path instead.
 """
 from __future__ import annotations
 
@@ -20,6 +23,7 @@ import re
 import shlex
 import signal
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -415,6 +419,34 @@ def gc(cfg: Config, q: Path) -> dict[str, Any]:
     return {"ok": True, "forgot": forgot, "removed": removed, "warnings": warnings}
 
 
+# ---------------------------------------------------------------- the worktree's own ccp
+
+def own_ccp(root: Path | None, name: str | None = None) -> Path:
+    """The `bin/ccp` of worktree NAME (recorded in QUEUE_ROOT), else of `root`, the checkout this `ccp`
+    resolved (--root, $CCP_ROOT, or the working directory's git toplevel). Exit 2 for a NAME that is
+    not a worktree name, 3 when the worktree is not recorded or carries no `bin/ccp`."""
+    if name is not None:
+        if not NAME_RE.match(name):
+            raise QueueError(f"{name!r} is not a worktree name: usage `ccp wt exec [NAME] -- ARGS` "
+                             "(the arguments go after `--`)", 2)
+        path = Path(_need(_queue_root(), name)["path"])
+    elif root is not None:
+        path = root
+    else:
+        raise QueueError("name a worktree or a checkout", 2)
+    exe = path / "bin" / "ccp"
+    if not exe.is_file():
+        raise QueueError(f"{path} has no bin/ccp: it is not a checkout of the plane", 3)
+    return exe
+
+
+def exec_ccp(exe: Path, args: list[str]) -> int:
+    """Run `exe` with `args`, in the caller's working directory and environment, its output the caller's.
+    Returns its exit code (128 + N when signal N ended it)."""
+    code = subprocess.call([sys.executable, str(exe), *args])
+    return code if code >= 0 else 128 - code
+
+
 # ---------------------------------------------------------------- auth probes (§30)
 
 def auth_check(cfg: Config, q: Path | None) -> dict[str, Any]:
@@ -435,4 +467,5 @@ def auth_check(cfg: Config, q: Path | None) -> dict[str, Any]:
     return body
 
 
-__all__ = ["KINDS", "WT_FIELDS", "auth_check", "create", "down", "gc", "listing", "remove", "remove_task", "up", "urls"]
+__all__ = ["KINDS", "WT_FIELDS", "auth_check", "create", "down", "exec_ccp", "gc", "listing", "own_ccp", "remove",
+           "remove_task", "up", "urls"]

@@ -399,6 +399,7 @@ One `key: value` per line, lists inline.
 | `gate` | no | `cold` only (§15) |
 | `shaping` | no | `waived — <reason>` (§19) |
 | `renamed_from` | no | the old id after an amended slug |
+| `covers` | no | an after-the-fact task's merged commits, as shas (§10.7) |
 
 A product may require more keys (`task_log.required`) and add its own. Runtime keys (lease, session,
 `waiting_on`, ports, …) are refused.
