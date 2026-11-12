@@ -538,6 +538,12 @@ def analyse(cfg: Config) -> tuple[list[dict[str, Any]], list[str], list[str]]:
             if d["by"]:
                 resolve(rel, f"decisions D{d['id']} by", d["by"])
             states[(me, d["id"])] = d
+    # review points with no register to check them against (§22.3): a warning, under strict too
+    tagged = [ids.adr_id(m["_number"]) for m in adrs if _as_list(m.get("review_points"))]
+    if tagged and reviewpoints.load(cfg)[0] is None:
+        warns.append(f"no review-point register: {cfg.rel(reviewpoints.path(cfg))}; the review points of "
+                     f"{', '.join(tagged)} are unchecked — create it (SPEC §22.3)")
+
     # links and their reverse: a whole-ADR link is answered only by a whole-ADR link
     def names_whole(other: dict[str, Any], key: str, n: int) -> bool:
         return any(_link(ids, x) == (n, None) for x in _as_list(other.get(key)))

@@ -2,13 +2,14 @@
 
 Coverage rot is invisible: nothing points at the doc that was never written. So where a product
 opts in (a `package_docs` block in `plane.json`), the rule is mechanical rather than a judgement.
-The language-neutral core: every directory holding source carries a package doc, the doc opens
-with a title, names no file that is gone, plans nothing, and stays shorter than a fraction of its
-source. The language pack (`package_docs.language`, ccp/doclang) adds its source suffixes and
-directory names, and its per-file checks over `docstring_globs` (Python: a module docstring that
-says what the module does). Package docs and code comments name no delivery id (a task in the task
-log, an architect finding, a spec question's ruling, or the product's own patterns): a package doc is
-a map of what exists, and the task log is the record. Opt-in generic rules are ccp/docrules.py.
+The language-neutral core: every directory holding source carries a package doc (one holding
+documents only, `.md`, needs none unless the product lists it), the doc opens with a title, names no
+file that is gone, plans nothing, and stays shorter than a fraction of its source. The language
+pack (`package_docs.language`, ccp/doclang) adds its source suffixes and directory names, and its
+per-file checks over `docstring_globs` (Python: a module docstring that says what the module
+does). Package docs and code comments name no delivery id (a task in the task log, an architect
+finding, a spec question's ruling, or the product's own patterns): a package doc is a map of what
+exists, and the task log is the record. Opt-in generic rules are ccp/docrules.py.
 Staleness a rule cannot see is the architect's docs lens instead (`ccp architect`, §21.7).
 """
 from __future__ import annotations
@@ -24,6 +25,9 @@ from ccp.config import Config
 # The core's own source suffixes and directory names; a language pack adds its own (ccp/doclang).
 CORE_SUFFIXES = (".sql", ".json", ".md")
 CORE_EXEMPT = (".git", ".idea", ".claude", "docs", "node_modules")
+# A directory whose source files all carry this suffix holds documents only: it needs no package doc
+# unless the product names it in claude_md_dirs (§21.3).
+DOC_SUFFIX = ".md"
 
 
 def pack(cfg: Config) -> doclang.Pack:
@@ -64,21 +68,33 @@ def _tracked_files(root: Path) -> list[Path] | None:
 
 def source_dirs(cfg: Config) -> list[Path]:
     """Directories below the product root that hold source the product owns. The root itself is
-    not judged: its CLAUDE.md is the project brief, which names things in other repos."""
+    not judged: its CLAUDE.md is the project brief, which names things in other repos. A directory of
+    documents only (`.md`) is left out unless `claude_md_dirs` names it."""
     pd = cfg.package_docs
     sfx, ex = suffixes(cfg), exempt_dirs(cfg)
+
+    def source(f: Path) -> bool:
+        return f.suffix in sfx and f.name != pd["doc_name"] and not f.name.startswith(".")
+
+    def judged(d: Path, found: set[str]) -> bool:
+        # documents only (every source file .md): no package doc unless the product lists the directory
+        return bool(found - {DOC_SUFFIX}) or str(d.relative_to(cfg.root)) in pd["claude_md_dirs"]
+
     tracked = _tracked_files(cfg.root)
     if tracked is not None:   # a git checkout: only what is versioned (no caches, builds or scratch)
-        dirs = {f.parent for f in tracked
-                if f.suffix in sfx and f.name != pd["doc_name"] and not f.name.startswith(".")}
-        return sorted(d for d in dirs if d != cfg.root and not _exempt(cfg, d.relative_to(cfg.root), ex))
+        found: dict[Path, set[str]] = {}
+        for f in tracked:
+            if source(f):
+                found.setdefault(f.parent, set()).add(f.suffix)
+        return sorted(d for d, sf in found.items() if d != cfg.root
+                      and not _exempt(cfg, d.relative_to(cfg.root), ex) and judged(d, sf))
     out = []
     for d in sorted(p for p in cfg.root.rglob("*") if p.is_dir()):
         rel = d.relative_to(cfg.root)
         if _exempt(cfg, rel, ex):
             continue
-        if any(f.is_file() and f.suffix in sfx and f.name != pd["doc_name"]
-               and not f.name.startswith(".") for f in d.iterdir()):
+        sf = {f.suffix for f in d.iterdir() if f.is_file() and source(f)}
+        if sf and judged(d, sf):
             out.append(d)
     return out
 

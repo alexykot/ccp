@@ -97,6 +97,35 @@ class Frontmatter(Base):
         self.assertEqual(errs, [])
         self.assertIn("undeclared frontmatter key(s): in_force, reasoning", "\n".join(warns))
 
+    def test_review_points_without_a_register_warn_naming_the_adrs(self):
+        self.write_adr("0001-a.md", id="ADR-0001", review_points=["R1"])
+        self.write_adr("0002-b.md", id="ADR-0002")
+        self.write_adr("0003-c.md", id="ADR-0003", review_points=["R1", "R2"])
+        self.index()
+        want = ("no review-point register: docs/delivery/review-points.yaml; the review points of ADR-0001, "
+                "ADR-0003 are unchecked")
+        self.p.index()
+        for strict in (False, True):
+            self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "adr": {
+                "dir": "docs/adr", "index": "docs/adr/INDEX.md", "strict": strict}}))
+            _, errs, warns = self.analyse()
+            self.assertEqual(errs, [], strict)
+            self.assertEqual([w for w in warns if "review-point register" in w], [want + " — create it (SPEC §22.3)"])
+            code, out, _ = self.ccp("adr", "check")
+            self.assertEqual((code, out.count(want)), (0, 1), out)
+            code, out, _ = self.ccp("docs", "check")
+            self.assertEqual((code, out.count(want)), (0, 1), out)
+        self.p.write("docs/delivery/review-points.yaml", "review_points:\n  - id: R1\n    name: first\n"
+                                                         "    goal: g\n    status: current\n"
+                                                         "  - id: R2\n    name: second\n    goal: g\n"
+                                                         "    status: planned\n")
+        self.assertNotIn("review-point register", "\n".join(self.analyse()[2]))
+
+    def test_no_review_points_and_no_register_say_nothing_of_a_register(self):
+        self.write_adr("0001-a.md", id="ADR-0001")
+        self.index()
+        self.assertNotIn("review-point register", "\n".join(self.analyse()[2]))
+
     def test_without_the_block_nothing_is_read(self):
         p = Product()
         self.addCleanup(p.cleanup)

@@ -516,7 +516,8 @@ is never a record of what a task did; that is the task log and Git.
 The rules are opt-in: they run only with a `package_docs` block. The core is language-neutral.
 Every directory below the root that holds source (not exempt) carries a package doc (`doc_name`, or
 `CLAUDE.md` for `claude_md_dirs`), and the language pack's files carry module docstrings (§21.4).
-Each doc:
+A directory whose source files are all `.md` holds documents only and needs no package doc unless
+`claude_md_dirs` lists it; a directory with any other source file still needs one. Each doc:
 
 - opens with a `# ` title;
 - has no heading naming a plan (`banned_headings`);
@@ -553,9 +554,15 @@ brief.
 
 `package_docs.language` selects a pack (default `python`; `none` runs the core alone; any other name
 is a configuration error that lists the packs). A pack adds its source suffixes and directory names
-to the core's (`.sql .json .md`; `.git .idea .claude docs node_modules`) unless `source_suffixes` or
-`exempt_dirs` give a list, which replaces both; and it runs its per-file checks over
-`docstring_globs`. `language: none` with `docstring_globs` set warns.
+to the core's, and it runs its per-file checks over `docstring_globs`. `language: none` with
+`docstring_globs` set warns.
+
+- **`source_suffixes`** defaults to the core's `.sql .json .md` plus the pack's.
+- **`exempt_dirs`** defaults to the core's `.git .idea .claude docs node_modules` plus the pack's.
+- A list given for either replaces both the core's and the pack's defaults: a product that sets one
+  names every entry it keeps.
+
+The packs:
 
 - **python:** source `.py`, exempt `__pycache__ .venv`. Each file under `docstring_globs` (skipping
   `__pycache__`) parses and carries a module docstring. Its comments are its `#` comments. Opt-in `rules.no_call_bullets: true`: the
@@ -658,7 +665,9 @@ review_points:
   `^R[0-9]+$`), with no strict error; while any task carries a review point, `ccp tasks check`,
   `ccp docs check`, the backfill, `ccp review-points` and the spawn each print one warning ("no
   review-point register: <path>; review points are unchecked — create it") and the board shows a
-  banner suggesting the register.
+  banner suggesting the register. While any ADR carries `review_points`, `ccp adr check`, and so
+  `ccp docs check`, print one warning naming those ADRs and the missing register; under
+  `adr.strict` it stays a warning.
 
 Every caller asks the same question (`reviewpoints.problem`): with a register, `R<n>` and one of
 its ids; without one, the pattern.
