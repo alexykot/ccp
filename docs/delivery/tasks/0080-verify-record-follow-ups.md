@@ -1,7 +1,7 @@
 ---
 task_id: 0080-verify-record-follow-ups
 title: The verifier's packet and the record's version and ruling checks are complete
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S15"]
@@ -90,4 +90,4 @@ A verifier writes a valid record on its first try, and the record's version and 
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #77 head `06ea71a` (squash `c1194ae`): APPROVE. Passed: check-03. Not run by the verifier: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0080-verify-record-follow-ups.json.
