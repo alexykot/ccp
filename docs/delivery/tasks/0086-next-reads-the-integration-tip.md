@@ -1,7 +1,7 @@
 ---
 task_id: 0086-next-reads-the-integration-tip
 title: ccp tasks next never offers a task already done on the integration branch
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S10"]
@@ -47,6 +47,16 @@ A runner whose worktree is behind the integration tip is never offered a task al
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implementer): `selection.current` is the task log `ccp tasks next` reads (`pick` uses it
+  when no task list is passed; the board and the forecast pass their own and are unchanged). When the
+  checkout's HEAD lacks a commit of `origin/<integration branch>` (the binding's, else `main`; nothing
+  is fetched; `tasklog.lags`), each task the checkout knows takes the status its file has on that tip
+  (`tasklog.statuses_at`, one `git cat-file --batch`, legacy statuses read canonically); a task the tip
+  lacks keeps its own. Then a task still pending whose queue state (`tasks/<id>.json`) is `done` or
+  `dropped` is passed over: its status reads "<status> in the queue", so it is neither offered nor
+  counted done for its dependants (they wait for the task log). A lead preference for such a task is
+  ignored with the usual stderr note. No ranking change. Tests: `tests/test_tasks_next_tip.py`.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #74 head `b9bef72` (squash `21fa219`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0086-next-reads-the-integration-tip.json.
