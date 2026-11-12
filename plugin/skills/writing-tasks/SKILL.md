@@ -26,7 +26,7 @@ One `key: value` per line; lists inline (`["a", "b"]`), on one line.
 | `status` | `pending`, `done` or `dropped`. Nothing else: claimed, implementing, in review and verifying are queue states, never written here. `ccp tasks close` writes `done` |
 | `depends_on` | task ids that must be `done` first; one may have a higher number. A cycle is refused |
 | `created`, `updated` | `YYYY-MM-DD` |
-| `spec_refs`, `adr_refs` | the SPEC sections it must satisfy; the decisions it builds (`"0031 D2"`) |
+| `spec_refs`, `adr_refs` | the SPEC sections it must satisfy; the decisions it builds (`"0031 D2"`). `spec_refs` is a required key by default (`task_log.required`), and by default a task must cite at least one SPEC section there (`task_log.refs_any`), even when it also cites `rule_refs` or `review_refs`. Only a kind with its own `refs_any`, read with the architect seat on (a refactor, below), leaves it out |
 | `kind` | `feature` (default) or `refactor` (with the architect seat; see below) |
 | `rule_refs`, `review_refs` | a refactor's house rules (`"E3"`) or review findings (`"<review_id>#F03"`) |
 | `review_point` | the review point whose scope it belongs to (`R<n>`) |
@@ -45,10 +45,24 @@ Never write runtime state here (`waiting_on`, leases, session ids, ports): `ccp 
 | --- | --- | --- |
 | `## Intent` | One paragraph: what is true for the product's user when this is done. An outcome, not a diff | context |
 | `## Context (not checked)` | Background, constraints, policy, why: anything that shapes the build but is not a pass/fail walkthrough | **no** |
-| `## Scope` | `- **In:** …` and `- **Out:** …`. In **In:**, mark a path the task creates `(new)` and one it deletes `(removed)`, right after the path; `ccp tasks check` warns about any other path there that does not exist | context |
+| `## Scope` | `- **In:** …` and `- **Out:** …`. In **In:**, mark a path the task creates `(new)` and one it deletes `(removed)` (see below) | context |
 | `## dod_checks` | Walkthroughs someone else can run: setup → steps → expect | **yes, only these**, plus the standing DoD |
 | `## Implementation notes` | Append-only; the runner, from the implementer's report | — |
 | `## Verification notes` | Append-only; the verifier, one `- ` line per check; `ccp tasks close` writes the merge record | — |
+
+### Path markings in Scope **In:**
+
+`ccp tasks check` warns, for a task not yet `done` or `dropped`, about each backticked path in the
+**In:** item that does not exist in the checkout. A token is read as a path when it holds a `/` and
+is not a glob; a trailing `:<line>` is ignored. A path does not warn when:
+
+- the word `new` (a path the task creates) or `removed` (one it deletes) appears, as a whole word in
+  any case, within the 25 characters after the path's closing backtick: `` `src/export.py` (new) ``,
+  `` `docs/old.md` (removed) ``. A `removed` path passes whether or not it still exists;
+- a task in `depends_on` names it (in its `paths`, else in its own **In:** item): the file it makes.
+
+The warning does not fail the check. Mark the path right after it, so the word does not drift out
+of reach when the sentence is edited.
 
 ## A good `dod_check`
 
@@ -119,8 +133,9 @@ Never write runtime state here (`waiting_on`, leases, session ids, ports): `ccp 
 
 - Only the task-log owner creates a task or changes its intent, `dod_checks`, id or `depends_on`.
 - **Before the claim**, edit in place (git keeps the trail). Implementation notes start at the claim.
-  An edit to a task file after its `brief` sign-off makes the sign-off stale: the claim refuses
-  until the operator signs the new text (SPEC §3.5).
+  For a task that declares `sign_off: brief` (or `[brief, build]`), an edit to its file after the
+  brief sign-off makes the sign-off stale: the claim refuses until the operator signs the new text
+  (SPEC §3.5). A task that declares no `brief` sign-off has none to go stale.
 - **After the claim**, a change is a new task that supersedes it; the old one is `dropped`, with a
   note naming the new one. Whether a task is claimed is in the queue (`ccp tasks list`, the runner's
   leases), not in its file. A claimed task's file is not edited on the integration branch.

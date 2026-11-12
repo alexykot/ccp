@@ -80,7 +80,7 @@ class Adopt(InitCase):
         self.assertTrue(self.queue.is_dir())
         self.assertFalse((self.queue / "project.yaml").exists())  # §8.3: no copy in the queue
         b = self.binding.read_text()
-        for line in ("project_id: demo", "integration_branch: main", f"product_root: {self.repo}",
+        for line in ("project_id: demo", "integration_branch: main", "production_branch: main", f"product_root: {self.repo}",
                      "durable_docs_path: docs/delivery/", f"queue_root: {self.queue}", "  name: runner"):
             self.assertIn(line, b.splitlines())
         self.assertEqual((res["binding"], res["queue_root"]), (str(self.binding), str(self.queue)))
@@ -99,6 +99,7 @@ class Adopt(InitCase):
         self.assertTrue(q.is_dir())
         self.assertIn(f"queue_root: {q}", self.binding.read_text().splitlines())
         self.assertIn("integration_branch: trunk", self.binding.read_text().splitlines())
+        self.assertIn("production_branch: trunk", self.binding.read_text().splitlines())
         cfg = json.loads((self.repo / "docs/delivery/plane.json").read_text())
         self.assertEqual(cfg["suite"]["lanes"]["gate"], ["python3", "-m", "unittest", "discover", "-s", "tests"])
 
@@ -194,13 +195,19 @@ class NoClobber(InitCase):
         self.assertEqual(settings["env"], {"MINE": "x", "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"})
         self.assertEqual(settings["enabledPlugins"], {"other@x": True, "ccp@ccp": True})
         lines = (self.repo / "CLAUDE.md").read_text().splitlines()
-        self.assertEqual(lines[:2], ["# My product", "No trailing newline"])
-        self.assertEqual(len(lines), 3)
+        self.assertEqual(lines, ["# My product", "No trailing newline", "", ccp_init.CLAUDE_LINE])
         self.assertEqual((self.repo / ".gitignore").read_text(), "node_modules/\n.plane-runtime\n")
         self.assertEqual((self.repo / "docs/SPEC.md").read_text(), "# My spec\n")
         self.assertIn("docs/SPEC.md", res["kept"])
         self.assertEqual(res["written"], [])
         self.assertEqual(res["merged"], [])
+
+    def test_the_claude_line_is_its_own_paragraph_after_any_ending(self):
+        for before, after in (("# P\nText\n", "# P\nText\n\n"), ("# P\nText\n\n", "# P\nText\n\n"),
+                              ("# P\nText\n  ", "# P\nText\n  \n"), ("\n", "\n")):
+            (self.repo / "CLAUDE.md").write_text(before)
+            self.assertEqual(self.init("--project-id", "demo")[0], 0)
+            self.assertEqual((self.repo / "CLAUDE.md").read_text(), after + ccp_init.CLAUDE_LINE + "\n", repr(before))
 
     def test_an_anchor_key_the_product_set_keeps_its_value(self):
         mine = {"ccp": {"source": {"source": "directory", "path": "/opt/my-ccp"}},
