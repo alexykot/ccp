@@ -28,6 +28,19 @@ long-lived runner does not carry an ever-growing context into every request (§2
   attribution is wrong or the teammate runs on the lead's model.
 - §31.1: making rotation enforced, and the context-size trigger, are new rules beyond the current
   "the runner asks" text, so the § text below waits for the operator's approval at a merge gate.
+- Lead ruling, 2026-11-12 (spec question sm-20261112T121440Z-85ad), as the runner passed it:
+  (1) SPEC §24.4 gains "except a headless session (claude -p), which is attributed as headless, not
+  to the runner". It is a §31.1 correction (a passage the change makes false): quote the old and the
+  new text in the PR body.
+  (2) §10.2 step 4 is the right place. Note in the task file's Context that the task's section
+  number ("§2 step 4") is wrong.
+  (3) Add §27 text for the rotation figures `ccp health` reports (§31.1: describes the task's own
+  feature; add nothing beyond what the code does).
+  (4) The runner-idle.sh context trigger is NOT in this task; do not touch it. The lead files it as a
+  follow-up.
+  The enforced-rotation rule at §10.2 step 4 stays gated (lead decides after verify); do not widen it.
+- Per ruling (2): the Scope's "§2 step 4" is wrong; the step is §10.2 step 4
+  (`docs/spec/02-delivery.md`), where the PROPOSED text goes.
 
 ## Scope
 
@@ -114,6 +127,14 @@ long-lived runner does not carry an ever-growing context into every request (§2
   `tests/test_rotation_model.py` (the fold's runner seat shows only the declared model; the spawn
   actions carry no `model`). docs/design/board.md says so. §24.4's "a runner's merge checkout is that
   runner's" now has this exception in code only: its SPEC wording is left for a ruling.
+- 2026-11-12 (implementer): **Ruling round 1.** The lead's ruling (Context) is applied: §24.4's
+  cwd rule gains the ruling's exception for a headless session from a runner's checkout, so the SPEC
+  now says what `usage._main_seat` already does (a §31.1 correction: the old text named every call
+  from that checkout the runner's); §27.1 gains a **Runner rotation** item describing what
+  `ccp health` reports (`health.rotation`: due slots with trigger and rotate command, the ledger's
+  rotations against distinct tasks done, `rotation` in `--json`), nothing beyond it. The rotation
+  step stays at §10.2 step 4 as written, unwidened; the runner-idle hook is untouched (a follow-up
+  for the lead). No code or test changed.
 
 ## Verification notes
 
