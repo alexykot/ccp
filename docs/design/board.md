@@ -52,7 +52,10 @@ Non-normative notes behind SPEC §10. The rules are in `docs/spec/04-observabili
     cwd to place it by, made with `query_source: sdk` (a `claude -p` launched before the §24
     tag), is the fold's `headless-untagged` seat, not `design-seat` (`usage._main_seat`; `how`
     counts it as `untagged`). So Tokens by seat, the design-seat advice and this table agree. A call
-    with a cwd is still placed by it, whatever its `query_source`. In the table it is no row and no
+    with a cwd is still placed by it, whatever its `query_source`, except an `sdk` call from a
+    runner's checkout: the runner teammate's own calls carry `<name>@session-…` and are never `sdk`,
+    so such a call is `headless-untagged` too, not the runner seat's (a headless session run from
+    that checkout once put a larger model on the runner seat; task 0093). In the table it is no row and no
     running pass adopts it: the design seat's row notes how many were set aside.
   - **Not rows:** `other-sessions`, which aggregates every session outside the seats (§24). A
     tagged seat the plane pins nothing for (a triage or spec-maintainer resume, which keeps its
