@@ -7,6 +7,11 @@ the default scope, and its `review_point_refactors` go first; the lead's prefere
 `tasklog.ranked`, whose first row is `next`'s answer and whose rest is the order after it. Only ready tasks
 are ranked, so the order follows `depends_on` whatever the numbers (a dependency may have a higher number
 than its dependant, §5) and the number breaks the ties.
+
+The command's own call reads the task log through `current`, never offering a task already done or
+dropped: a checkout behind the remote integration branch reads the statuses on its tip, and a task the
+queue holds `done` or `dropped` is passed over whatever the checkout's file says. The board passes its
+own task list.
 """
 from __future__ import annotations
 
@@ -64,6 +69,27 @@ def inputs(cfg: Config, q: Path | None, scope: list[str] | None = None,
             "prefer_notes": notes, "preferred": states or None, "in_flight": flight}
 
 
+def current(cfg: Config, q: Path | None) -> list[dict[str, Any]]:
+    """The task log as `ccp tasks next` reads it (§10.3), so it never offers a task already done or dropped.
+    When the checkout lags `origin/<integration branch>` (the binding's, else `main`; nothing is fetched),
+    each task's status is its file's on that tip. Then a task the queue (`tasks/<id>.json`) holds `done` or
+    `dropped` while its status here is still pending is passed over: its status reads "<status> in the
+    queue", which is not pending, nor done for its dependants (they wait for the task log)."""
+    tasks = tasklog.load(cfg)
+    from ccp.queue import integration_branch, load_task_state  # noqa: PLC0415
+    ref = f"origin/{integration_branch(q) if q is not None and q.is_dir() else 'main'}"
+    if tasklog.lags(cfg, ref):
+        tip = tasklog.statuses_at(cfg, ref, [t["_file"].stem for t in tasks])
+        tasks = [{**t, "status": tip[t["_file"].stem]} if t["_file"].stem in tip else t for t in tasks]
+    if q is None or not q.is_dir():
+        return tasks
+    out = []
+    for t in tasks:
+        qs = load_task_state(q, t["_file"].stem).get("status") if t.get("status") == "pending" else None
+        out.append({**t, "status": f"{qs} in the queue"} if qs in tasklog.TERMINAL else t)
+    return out
+
+
 def holds(q: Path | None) -> dict[str, dict[str, Any]]:
     """§10.4 `ccp tasks hold`: the lead's holds, work.json `held` ({task_id: {by, at, reason}})."""
     h = _work(q).get("held")
@@ -74,8 +100,9 @@ def pick(cfg: Config, q: Path | None, scope: list[str] | None = None,
          tasks: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """`inputs` plus `ranked`: row 0 is what `ccp tasks next` returns now. A held task (a refactor or
     the preference too) is passed over: `ranked` is the order without the holds, `ranked_all` the full
-    queue they sit in, and `passed_over` the held tasks that would otherwise be in it."""
-    tasks = tasks if tasks is not None else tasklog.load(cfg)
+    queue they sit in, and `passed_over` the held tasks that would otherwise be in it. Without `tasks`
+    (the command's own call) it reads `current`: the integration tip's statuses and the queue's."""
+    tasks = tasks if tasks is not None else current(cfg, q)
     i = inputs(cfg, q, scope, tasks)
     full = tasklog.ranked(cfg, i["scope"], i["first"], i["prefer"], tasks, i["review_point"])
     held = holds(q)

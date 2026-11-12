@@ -193,6 +193,43 @@ def load(cfg: Config) -> list[dict[str, Any]]:
     return out
 
 
+def lags(cfg: Config, ref: str) -> bool:
+    """The checkout's HEAD lacks a commit `ref` holds (it is behind it, or has diverged from it). False
+    when `ref` does not resolve here, or HEAD already contains it. Nothing is fetched."""
+    if _git(cfg, "rev-parse", "--verify", "-q", f"{ref}^{{commit}}") is None:
+        return False
+    r = subprocess.run(["git", "-C", str(cfg.root), "merge-base", "--is-ancestor", ref, "HEAD"],
+                       capture_output=True, text=True)
+    return r.returncode == 1
+
+
+def statuses_at(cfg: Config, ref: str, ids: list[str]) -> dict[str, str]:
+    """The canonical status each named task's file says at `ref` (one `git cat-file --batch`), by task id
+    (its file name). A task with no file there, or a `ref` that does not resolve, is left out."""
+    rel = cfg.rel(cfg.tasks_dir)
+    req = "".join(f"{ref}:{rel}/{tid}.md\n" for tid in ids).encode()
+    r = subprocess.run(["git", "-C", str(cfg.root), "cat-file", "--batch"], input=req, capture_output=True)
+    if r.returncode != 0:
+        return {}
+    out: dict[str, str] = {}
+    data, pos = r.stdout, 0
+    for tid in ids:
+        nl = data.find(b"\n", pos)
+        if nl == -1:
+            break
+        head = data[pos:nl].split()
+        pos = nl + 1
+        if len(head) != 3 or head[1] != b"blob":
+            continue
+        size = int(head[2])
+        text = data[pos:pos + size].decode("utf-8", "replace")
+        pos += size + 1
+        status = canonical_status(frontmatter(text).get("status"))
+        if isinstance(status, str) and status:
+            out[tid] = status
+    return out
+
+
 def _as_list(v: Any) -> list[str]:
     return v if isinstance(v, list) else ([] if v in (None, "") else [v])
 
