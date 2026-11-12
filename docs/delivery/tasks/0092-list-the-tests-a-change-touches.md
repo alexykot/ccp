@@ -1,7 +1,7 @@
 ---
 task_id: 0092-list-the-tests-a-change-touches
 title: A command lists the test modules that depend on changed paths
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14"]
@@ -63,4 +63,4 @@ After a merge or a fix, a worker picks the part lane from the tests that import 
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #82 head `820c690` (squash `89c4aeb`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `python3 -m unittest tests.test_suite_affected` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0092-list-the-tests-a-change-touches.json.
