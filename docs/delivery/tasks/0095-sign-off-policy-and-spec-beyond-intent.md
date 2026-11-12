@@ -25,8 +25,8 @@ changes still reach the operator (§3.5).
 - Accepted plane proposal. A managed product's approved PRs waited hours for SPEC sign-off after
   verify, holding runner slots, although the text only described the task's own feature. The plane's
   own repo already follows this policy (§31.1).
-- Operator approval, 2026-11-12, in the lead session: "I approve proposed changes for 15c4 and
-  9f18." This is the acceptance (§31.1): § text that states only what this task describes needs no
+- Operator approval, 2026-11-12, in the lead session, approving the proposed changes for this task and its companion
+  (0094, 0095). This is the acceptance (§31.1): § text that states only what this task describes needs no
   further gate.
 
 ## Scope

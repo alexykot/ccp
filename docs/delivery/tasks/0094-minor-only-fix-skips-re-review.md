@@ -4,7 +4,7 @@ title: A fix round that answers only minor findings of a clean review goes to ve
 status: pending
 kind: feature
 depends_on: []
-spec_refs: ["S15"]
+spec_refs: ["S8", "S15"]
 review_point: R5
 paths: ["ccp/prompt.py", "ccp/verify.py", "ccp/config.py", "templates/prompts/", "docs/spec/02-delivery.md", "contracts/plane_config.schema.json", "tests/test_review_skip*.py", "tests/test_prompt*.py"]
 created: 2026-11-12
@@ -23,8 +23,8 @@ cost a full review cycle (§15.2).
 
 - Accepted plane proposal. A managed product's delivery data showed most fix rounds followed a clean
   review with only MINOR findings, each costing a full re-review and re-verify.
-- Operator approval, 2026-11-12, in the lead session: "I approve proposed changes for 15c4 and
-  9f18." This is the acceptance (§31.1): § text that states only what this task describes needs no
+- Operator approval, 2026-11-12, in the lead session, approving the proposed changes for this task and its companion
+  (0094, 0095). This is the acceptance (§31.1): § text that states only what this task describes needs no
   further gate; a rule beyond it still waits for the operator.
 
 ## Scope
