@@ -299,19 +299,25 @@ def set_wait(root: Path, action: str, tid: str, reason: str, actor: str, pid: st
 
 def notify_operator(root: Path, trigger: str, task_id: str, ident: str, actor: str | None = None) -> list[str]:
     """SPEC §3.6: fire a trigger: its pending notice on record, the rendered notice on stderr, and the
-    product's notify command when its plane.json names one. Best effort: no product root or plane.json,
-    or one that cannot be read, fires nothing; returns the warnings to show (a command that failed, a
-    record not written, or a plane.json that could not be read)."""
-    prod = product_root(root)
-    if not prod or not (Path(prod) / "docs" / "delivery" / "plane.json").is_file():
-        return []
+    product's notify command when its plane.json names one. Best effort; returns the warnings to show
+    (a command that failed, a record not written, or a plane.json that could not be read). With no
+    product root or plane.json, or one that cannot be read, the notice is still recorded and printed,
+    under the binding's project id, for the lead's session: no channel is configured, so none runs."""
     sys.path.insert(0, str(HERE.parents[1]))
     from ccp import config as ccp_config, notify  # noqa: PLC0415
-    try:
-        cfg = ccp_config.load(Path(prod))
-    except Exception as e:  # noqa: BLE001  (the step happened; only the notice is lost)
-        return [f"notify: could not read the product's plane.json ({e}); raise the {trigger} in the lead's session"]
-    return notify.fire(cfg, root, trigger, task_id=task_id, ident=ident, who=actor)[1]
+    prod = product_root(root)
+    warns: list[str] = []
+    cfg = None
+    if prod and (Path(prod) / ccp_config.CONFIG_REL).is_file():
+        try:
+            cfg = ccp_config.load(Path(prod))
+        except Exception as e:  # noqa: BLE001  (the step happened; the notice goes to the lead's session)
+            warns.append(f"notify: could not read the product's plane.json ({e}); raise the {trigger} in the "
+                         "lead's session")
+    if cfg is None:  # no channel configured: record it and print it for the lead's session
+        cfg = ccp_config.Config(root=Path(prod) if prod else root, project_id=project_id(root), task_log={},
+                                package_docs=None)
+    return warns + notify.fire(cfg, root, trigger, task_id=task_id, ident=ident, who=actor)[1]
 
 
 def product_root(root: Path) -> str:
