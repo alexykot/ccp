@@ -835,7 +835,7 @@ def _suite_list(cfg: config.Config, a: argparse.Namespace):
 
 def _mutate(cfg: config.Config, a: argparse.Namespace):
     from ccp import mutate, wt  # noqa: PLC0415
-    return mutate.run(cfg, wt._queue_root(), a.run, a.test, a.mutant or [])
+    return mutate.run(cfg, wt._queue_root(), a.run, a.test, a.mutant or [], reverts=a.revert or [])
 
 
 def _plane(cfg: config.Config, a: argparse.Namespace):
@@ -1058,13 +1058,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--task", help="only this task's")
     p.set_defaults(fn=_toolkit(_suite_list))
 
-    p = sub.add_parser("mutate", help="does a test bite: apply each mutant in a mutation worktree, run the named test, "
-                                      "record killed or survived on the run (SPEC §20.6; needs QUEUE_ROOT)")
+    p = sub.add_parser("mutate", help="does a test bite: apply each mutant in the seat's mut, rev or ver worktree, "
+                                      "run the named test, record killed or survived on the run (SPEC §20.6; needs "
+                                      "QUEUE_ROOT)")
     p.add_argument("--run", required=True, help="the calling seat's run (<task_id>/<phase>[-n]); it must be open")
-    p.add_argument("--test", required=True, help="the test id plane.json mutate.command runs ({test})")
-    p.add_argument("--mutant", action="append", required=True,
+    p.add_argument("--test", required=True,
+                   help="one test id, passed whole to plane.json mutate.command ({test}); it may name a single method")
+    p.add_argument("--mutant", action="append",
                    help="<file>:<old>=><new> (the old text once in the file, relative to the worktree), or a patch "
                         "file; repeat for more")
+    p.add_argument("--revert", action="append", metavar="PATH[:N[-M]]",
+                   help="a mutant that puts back the merge base's version of the file, or of the changes lines N-M of "
+                        "the worktree's file touch; repeat for more")
     p.set_defaults(fn=_toolkit(_mutate))
 
     from ccp import notify  # noqa: PLC0415

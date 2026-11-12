@@ -1,29 +1,37 @@
 """`ccp mutate` (SPEC §20.6): does the named test check what it claims? It applies one mutant at a
-time in a mutation worktree, runs the product's one-test command, and records the mutant killed only
+time in the seat's worktree, runs the product's one-test command, and records the mutant killed only
 when that test fails.
 
-  ccp mutate --run RUN_ID --test ID --mutant M [--mutant M …]
+  ccp mutate --run RUN_ID --test ID [--mutant M …] [--revert PATH[:N[-M]] …]
 
-A mutant is `<file>:<old>=><new>` (the text `old`, found exactly once in the file, relative to the
-worktree's root, becomes `new`) or the path of a patch `git apply` takes. Every mutant is checked
-before anything runs. Then the named test runs once unmutated: a test that fails already proves
-nothing, so the command stops there. Each mutant is applied alone, the test runs (plane.json
-`mutate.command` with `{test}` filled in shell-quoted, in the worktree's root, in its own process group,
-killed after `mutate.timeout_seconds`, which counts as the test failing), and every file the mutant
-touched is written back byte for byte (a file or directory it made is removed), and checked, before
-the next. A SIGTERM at any point of the call kills the running test, restores the files and exits 143.
+`--test` is one test id, passed whole as `{test}`, so it may name a single test method. A mutant is
+`<file>:<old>=><new>` (the text `old`, found exactly once in the file, relative to the worktree's
+root, becomes `new`) or the path of a patch `git apply` takes. A `--revert` mutant puts back the
+merge base's version (HEAD's merge base with the integration branch) of a file, or of every change
+from it that a range of the worktree file's lines overlaps or borders. The `--mutant`s come first,
+then the `--revert`s, each in the order given.
 
-It runs only from a recorded `mut` worktree (`ccp wt create --kind mut`) of the run's task, and only
-for a run that is still open. Each mutant adds a row to the run record's `mutation` list: the test id,
-the mutant's number, kind, files and a digest, killed or survived, the exit code and seconds; never
-the mutant's text, old or new, or the test's output, which goes to a log next to the run's record. The call ends
-with one `run`/`recorded` event. Exit 0 when every mutant was killed, 1 when one survived or the
-unmutated test failed, 2 for a usage or configuration problem.
+Every mutant is checked before anything runs. Then the named test runs once unmutated: a test that
+fails already proves nothing, so the command stops there. Each mutant is applied alone, the test
+runs (plane.json `mutate.command` with `{test}` filled in shell-quoted, in the worktree's root, in
+its own process group, killed after `mutate.timeout_seconds`, which counts as the test failing), and
+every file the mutant touched is written back byte for byte (a file or directory it made is
+removed), and checked, before the next. A SIGTERM at any point of the call kills the running test,
+restores the files and exits 143.
+
+It runs only from a recorded `mut`, `rev` or `ver` worktree of the run's task, and only for a run
+that is still open. Each mutant adds a row to the run record's `mutation` list: the test id, the
+mutant's number, kind, files and a digest, killed or survived, the exit code and seconds; never the
+mutant's text, old or new, or the test's output, which goes to a log next to the run's record. The
+call ends with one `run`/`recorded` event. Exit 0 when every mutant was killed, 1 when one survived
+or the unmutated test failed, 2 for a usage or configuration problem.
 """
 from __future__ import annotations
 
+import difflib
 import hashlib
 import os
+import re
 import shlex
 import shutil
 import signal
@@ -39,6 +47,8 @@ from ccp.config import Config, fill
 from ccp.queue import QueueError, emit, git, iso
 
 SEP = "=>"
+WORKTREE_KINDS = ("mut", "rev", "ver")  # the seats' worktrees a call may run in (§20.6)
+RANGE_RE = re.compile(r"([1-9][0-9]*)(?:-([1-9][0-9]*))?")
 
 
 def _inside(root: Path, p: Path) -> bool:
@@ -80,6 +90,71 @@ def parse(root: Path, spec: str, cwd: Path) -> dict[str, Any]:
             raise QueueError(f"mutant {spec!r}: {rel} is outside the worktree", 2)
     return {"kind": "patch", "files": files, "patch": patch,
             "digest": hashlib.sha256(patch.read_bytes()).hexdigest()[:12]}
+
+
+def _relpath(root: Path, spec: str, rel: str) -> Path:
+    if not rel or Path(rel).is_absolute() or ".." in Path(rel).parts:
+        raise QueueError(f"revert {spec!r}: {rel!r} must be a path relative to the worktree's root", 2)
+    path = root / rel
+    if not _inside(root, path.resolve()):
+        raise QueueError(f"revert {spec!r}: {rel} is outside the worktree", 2)
+    return path
+
+
+def _base_blob(root: Path, base: str, rel: str, spec: str) -> bytes | None:
+    """The file's bytes at the merge base; None when it is not there."""
+    kind = git(root, "cat-file", "-t", f"{base}:{rel}")
+    if kind.returncode != 0:
+        return None
+    if kind.stdout.strip() != "blob":
+        raise QueueError(f"revert {spec!r}: {rel} is a {kind.stdout.strip()} at the merge base, not a file", 2)
+    r = subprocess.run(["git", "-C", str(root), "cat-file", "blob", f"{base}:{rel}"], capture_output=True)
+    if r.returncode != 0:
+        raise QueueError(f"revert {spec!r}: cannot read {rel} at the merge base", 2)
+    return r.stdout
+
+
+def _revert_lines(now: bytes, was: bytes, first: int, last: int) -> bytes:
+    """`now` with every change from `was` put back whose lines in `now` overlap lines first..last
+    (1-based, inclusive), a deletion inside the range or next to it included."""
+    a, b = was.splitlines(keepends=True), now.splitlines(keepends=True)
+    out: list[bytes] = []
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        hit = tag != "equal" and (first - 1 <= j1 <= last if j1 == j2 else j1 < last and j2 > first - 1)
+        out.extend(a[i1:i2] if hit else b[j1:j2])
+    return b"".join(out)
+
+
+def parse_revert(root: Path, spec: str, base: str) -> dict[str, Any]:
+    """One `--revert PATH[:N[-M]]`: the merge base's version of the file, or of the changes the line
+    range touches, as a mutant. Checked against the unmutated tree; nothing is written."""
+    rel, colon, rng = spec.rpartition(":")
+    m = RANGE_RE.fullmatch(rng) if colon else None
+    if m is None:
+        rel, rng = spec, ""
+    path = _relpath(root, spec, rel)
+    if path.is_dir():
+        raise QueueError(f"revert {spec!r}: {rel} is a directory; a revert names a file", 2)
+    now = path.read_bytes() if path.is_file() else None
+    was = _base_blob(root, base, rel, spec)
+    if m is None:
+        if now is None and was is None:
+            raise QueueError(f"revert {spec!r}: {rel} is neither in the worktree nor at the merge base", 2)
+        content = was
+    else:
+        first, last = int(m.group(1)), int(m.group(2) or m.group(1))
+        if now is None:
+            raise QueueError(f"revert {spec!r}: {rel} is not a file in the worktree; a line range needs one", 2)
+        n = len(now.splitlines())
+        if last < first or last > n:
+            raise QueueError(f"revert {spec!r}: lines {first}-{last} are not a range of {rel}'s {n} lines", 2)
+        content = _revert_lines(now, was or b"", first, last)
+    if content == now:
+        what = f"lines {rng} of {rel} touch no change" if rng else f"{rel} does not differ"
+        raise QueueError(f"revert {spec!r}: {what} from the merge base; the revert changes nothing", 2)
+    digest = hashlib.sha256(b"\0".join((b"revert", rel.encode(), rng.encode(),
+                                         b"-" if content is None else content))).hexdigest()[:12]
+    return {"kind": "revert", "files": [rel], "content": content, "digest": digest}
 
 
 def _numstat_paths(out: str) -> list[str]:
@@ -157,6 +232,14 @@ def _restore(root: Path, snapshot: Snapshot) -> list[str]:
 
 
 def _apply(root: Path, m: dict[str, Any]) -> None:
+    if m["kind"] == "revert":
+        p = root / m["files"][0]
+        if m["content"] is None:
+            p.unlink()
+        else:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(m["content"])
+        return
     if m["kind"] == "text":
         p = root / m["files"][0]
         p.write_bytes(p.read_bytes().replace(m["old"], m["new"], 1))
@@ -245,13 +328,13 @@ def _worktree(cfg: Config, q: Path, task_id: str) -> dict[str, Any]:
                 continue
         except (OSError, ValueError):
             continue
-        if st.get("kind") != "mut":
-            raise QueueError(f"{root} is the {st.get('kind')} worktree {st['name']}, not a mutation worktree: make "
-                             f"one with `ccp wt create --kind mut --task {task_id} --sha <head>` and run there", 2)
+        if st.get("kind") not in WORKTREE_KINDS:
+            raise QueueError(f"{root} is the {st.get('kind')} worktree {st['name']}, not a mut, rev or ver one: "
+                             f"make one with `ccp wt create --kind mut --task {task_id} --sha <head>` and run there", 2)
         if st.get("task_id") != task_id:
-            raise QueueError(f"mutation worktree {st['name']} is task {st.get('task_id')}'s, not {task_id}'s", 2)
+            raise QueueError(f"worktree {st['name']} is task {st.get('task_id')}'s, not {task_id}'s", 2)
         return st
-    raise QueueError(f"{root} is not a recorded mutation worktree: make one with "
+    raise QueueError(f"{root} is not a recorded mut, rev or ver worktree: make one with "
                      f"`ccp wt create --kind mut --task {task_id} --sha <head>` and run there", 2)
 
 
@@ -260,20 +343,23 @@ def log_path(q: Path, run_id: str) -> Path:
     return p.with_name(f"{p.stem}-mutate.log")
 
 
-def run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], cwd: Path | None = None) -> tuple[dict[str, Any], int]:
+def run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], cwd: Path | None = None,
+        reverts: list[str] | None = None) -> tuple[dict[str, Any], int]:
     with _on_sigterm() as stop:
-        return _run(cfg, q, run_id, test, mutants, cwd, stop)
+        return _run(cfg, q, run_id, test, mutants, reverts or [], cwd, stop)
 
 
-def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], cwd: Path | None,
-         stop: _Stop) -> tuple[dict[str, Any], int]:
+def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], reverts: list[str],
+         cwd: Path | None, stop: _Stop) -> tuple[dict[str, Any], int]:
     mu = cfg.mutate or {}
     if not mu.get("command"):
-        raise QueueError("plane.json names no mutate.command: the product has no command that runs one test (§20.6)", 2)
+        raise QueueError("plane.json names no mutate.command: the product has no command that runs one test "
+                         "(§20.6)", 2)
     if not test.strip():
         raise QueueError("--test names the test a mutant is judged by", 2)
-    if not mutants:
-        raise QueueError("give at least one --mutant <file>:<old>=><new> or a patch file", 2)
+    if not mutants and not reverts:
+        raise QueueError("give at least one --mutant <file>:<old>=><new> or patch file, "
+                         "or --revert <path>[:<lines>]", 2)
     runs.parse_id(run_id)
     rec = runs.load(q, run_id)
     if runs.state(rec) not in runs.OPEN:
@@ -282,16 +368,25 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], cwd: 
     st = _worktree(cfg, q, task_id)
     root = cfg.root.resolve()
     parsed = [parse(root, m, cwd or Path.cwd()) for m in mutants]
+    base = None
+    if reverts:
+        from ccp import wt  # noqa: PLC0415
+
+        head = git(root, "rev-parse", "HEAD").stdout.strip()
+        base = wt.merge_base(cfg, q, head)
+        parsed += [parse_revert(root, r, base) for r in reverts]
     line = fill(mu["command"], {"test": shlex.quote(test)})
     timeout = int(mu["timeout_seconds"])
     log = log_path(q, run_id)
     out: dict[str, Any] = {"ok": True, "run_id": run_id, "worktree": st["name"], "test": test, "log": str(log)}
+    if base:
+        out["merge_base"] = base
     stop.check("before the unmutated run; nothing was run, applied or recorded")
-    base = _test(line, root, timeout, log, f"{test} unmutated", stop)
-    out["baseline"] = base
+    unmutated = _test(line, root, timeout, log, f"{test} unmutated", stop)
+    out["baseline"] = unmutated
     stop.check("in the unmutated run; nothing was applied or recorded")
-    if base["exit_code"] != 0:
-        raise QueueError(f"the test {test} fails with no mutant (exit {base['exit_code']}), so it cannot tell a "
+    if unmutated["exit_code"] != 0:
+        raise QueueError(f"the test {test} fails with no mutant (exit {unmutated['exit_code']}), so it cannot tell a "
                          f"mutant; nothing was applied or recorded. Its output: {log}", 1)
     rows: list[dict[str, Any]] = []
     for n, m in enumerate(parsed, 1):
@@ -328,4 +423,4 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], cwd: 
     return out, 0 if killed == len(rows) else 1
 
 
-__all__ = ["log_path", "parse", "run"]
+__all__ = ["log_path", "parse", "parse_revert", "run"]

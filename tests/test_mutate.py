@@ -33,6 +33,16 @@ class CalcTest(unittest.TestCase):
         self.assertEqual(sub(3, 1), 2)
 """
 ADD = "test_calc.CalcTest.test_add"
+GUARDED = "from limits import FLOOR\n\n\n" + CALC.replace(
+    "def add(a, b):\n    return a + b\n",
+    "def add(a, b):\n    if a < FLOOR or b < FLOOR:\n        raise ValueError('add takes no negatives')\n"
+    "    return a + b\n")
+GUARD_TESTS = TESTS + """
+    def test_add_refuses_negatives(self):
+        with self.assertRaises(ValueError):
+            add(-1, 1)
+"""
+GUARD = "test_calc.CalcTest.test_add_refuses_negatives"
 COMMAND = f"{shlex.quote(sys.executable)} -B -m unittest -q {{test}}"
 
 
@@ -49,17 +59,31 @@ class MutateFixture(ToolkitFixture):
                                     note=None, supersede=False)["run_id"]
         self.mut = self.make_wt("mut")
 
-    def make_wt(self, kind: str, task: str = "0002") -> Path:
-        head = git(self.main, "rev-parse", "origin/main")
+    def make_wt(self, kind: str, task: str = "0002", sha: str | None = None) -> Path:
+        head = sha or git(self.main, "rev-parse", "origin/main")
         code, body, _, err = self.ccp("wt", "create", "--kind", kind, "--task", task, "--sha", head, root=self.main)
         self.assertEqual(code, 0, err)
         return Path(body["path"])
 
-    def mutate(self, *mutants: str, test: str = ADD, root: Path | None = None, run: str | None = None):
+    def mutate(self, *mutants: str, test: str = ADD, root: Path | None = None, run: str | None = None,
+               reverts: tuple[str, ...] = ()):
         args = ["mutate", "--run", run or self.run_id, "--test", test]
         for m in mutants:
             args += ["--mutant", m]
+        for r in reverts:
+            args += ["--revert", r]
         return self.ccp(*args, root=root or self.mut)
+
+    def task_commit(self, files: dict[str, str]) -> str:
+        """A commit of the task's change, on its branch off main (not merged): its sha."""
+        git(self.main, "checkout", "-q", "-b", "task/0002-second")
+        for rel, text in files.items():
+            self.write(rel, text)
+        git(self.main, "add", *files)
+        git(self.main, "commit", "-q", "-m", "the task's change")
+        sha = git(self.main, "rev-parse", "HEAD")
+        git(self.main, "checkout", "-q", "main")
+        return sha
 
     def rows(self) -> list[dict]:
         return runs.load(self.q, self.run_id).get("mutation", [])
@@ -113,6 +137,13 @@ class Outcomes(MutateFixture, unittest.TestCase):
         self.assertEqual([(e["payload"]["run_id"], e["payload"]["killed"], e["payload"]["survived"]) for e in ev],
                          [(self.run_id, 1, 0)])
         self.assertIn("FAIL: test_add", Path(body["log"]).read_text())
+
+    def test_a_method_id_runs_that_method_alone(self):
+        code, body, _, err = self.mutate("calc.py:a + b=>a - b", test=ADD)
+        self.assertEqual((code, self.rows()[0]["outcome"]), (0, "killed"), err)
+        log = Path(body["log"]).read_text()
+        self.assertEqual(log.count("Ran 1 test in"), 2)
+        self.assertNotIn("Ran 2 tests", log)
 
     def test_a_mutant_the_test_does_not_reach_survives(self):
         code, body, _, err = self.mutate("calc.py:a * 2=>a * 3")
@@ -195,9 +226,10 @@ class Outcomes(MutateFixture, unittest.TestCase):
         self.assertEqual((self.mut / "calc.py").read_text(), CALC)
         self.assertEqual(self.rows(), [])
 
-    def sigterm_inside(self, owner, name: str):
-        """Run two mutants with a SIGTERM sent from inside `owner.<name>`, during its first call. A
-        SIGTERM the call does not take raises here rather than ending the test process."""
+    def sigterm_inside(self, owner, name: str,
+                       mutants: tuple[str, ...] = ("calc.py:a + b=>a - b", "calc.py:a * 2=>a * 3")):
+        """Run `mutants` (two by default) with a SIGTERM sent from inside `owner.<name>`, during its first
+        call. A SIGTERM the call does not take raises here rather than ending the test process."""
         real, calls = getattr(owner, name), []
 
         def hit(*a, **kw):
@@ -211,12 +243,19 @@ class Outcomes(MutateFixture, unittest.TestCase):
         old = signal.signal(signal.SIGTERM, untaken)
         try:
             with mock.patch.object(owner, name, hit):
-                return self.mutate("calc.py:a + b=>a - b", "calc.py:a * 2=>a * 3")
+                return self.mutate(*mutants)
         finally:
             signal.signal(signal.SIGTERM, old)
 
     def test_a_sigterm_while_a_mutant_is_recorded_ends_the_call_after_it(self):
         code, _, _, err = self.sigterm_inside(runs, "save")
+        self.assertEqual(code, 143, err)
+        self.assertEqual([(r["mutant"], r["outcome"]) for r in self.rows()], [(1, "killed")])
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+        self.assertNotIn(("run", "recorded"), [(e["type"], e["op"]) for e in self.events()])
+
+    def test_a_sigterm_while_the_only_mutant_is_recorded_emits_no_event(self):
+        code, _, _, err = self.sigterm_inside(runs, "save", ("calc.py:a + b=>a - b",))
         self.assertEqual(code, 143, err)
         self.assertEqual([(r["mutant"], r["outcome"]) for r in self.rows()], [(1, "killed")])
         self.assertEqual((self.mut / "calc.py").read_text(), CALC)
@@ -303,12 +342,25 @@ class Refusals(MutateFixture, unittest.TestCase):
         self.assertEqual((self.mut / "calc.py").read_text(), CALC)
         return err
 
-    def test_outside_a_mutation_worktree(self):
-        self.refused(2, "calc.py:a + b=>a - b", root=self.make_wt("ver"))
+    def test_outside_a_mut_rev_or_ver_worktree(self):
+        self.refused(2, "calc.py:a + b=>a - b", root=self.make_wt("mac"))
         self.refused(2, "calc.py:a + b=>a - b", root=self.main)
 
-    def test_a_mutation_worktree_of_another_task(self):
+    def test_a_reviewer_or_verifier_worktree(self):
+        for kind in ("rev", "ver"):
+            root = self.make_wt(kind)
+            code, body, _, err = self.mutate("calc.py:a + b=>a - b", root=root)
+            self.assertEqual((code, body["worktree"]), (0, root.name), err)
+            self.assertEqual((root / "calc.py").read_text(), CALC)
+        self.assertEqual([(r["outcome"], r["worktree"]) for r in self.rows()],
+                         [("killed", "rev-0002"), ("killed", "ver-0002")])
+
+    def test_neither_a_mutant_nor_a_revert(self):
+        self.refused(2)
+
+    def test_a_worktree_of_another_task(self):
         self.refused(2, "calc.py:a + b=>a - b", root=self.make_wt("mut", task="0001"))
+        self.refused(2, "calc.py:a + b=>a - b", root=self.make_wt("rev", task="0001"))
 
     def test_old_text_absent_or_ambiguous(self):
         self.refused(2, "calc.py:a / b=>a - b")
@@ -342,6 +394,82 @@ class Refusals(MutateFixture, unittest.TestCase):
     def test_a_test_that_fails_unmutated(self):
         (self.mut / "test_calc.py").write_text(TESTS.replace("add(1, 1), 2", "add(1, 1), 3"))
         self.refused(1, "calc.py:a + b=>a - b")
+
+
+class Reverts(MutateFixture, unittest.TestCase):
+    """`--revert`: the merge base's version of a file, or of the changes a line range touches."""
+
+    def setUp(self):
+        super().setUp()
+        self.head = self.task_commit({"calc.py": GUARDED, "test_calc.py": GUARD_TESTS, "limits.py": "FLOOR = 0\n"})
+        self.rev = self.make_wt("rev", sha=self.head)
+
+    def test_a_reverted_guard_is_killed_and_the_tree_restored(self):
+        before = self.tree_of(self.rev)
+        code, body, _, err = self.mutate(test=GUARD, root=self.rev, reverts=("calc.py:5-6",))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(body["merge_base"], git(self.main, "rev-parse", "origin/main"))
+        row = self.rows()[0]
+        self.assertEqual((row["kind"], row["files"], row["outcome"], row["worktree"]),
+                         ("revert", ["calc.py"], "killed", "rev-0002"))
+        self.assertEqual(len(row["digest"]), 12)
+        self.assertIn("FAIL: test_add_refuses_negatives", Path(body["log"]).read_text())
+        self.assertEqual((self.rev / "calc.py").read_text(), GUARDED)
+        self.assertEqual(self.tree_of(self.rev), before)
+
+    def test_a_whole_file_from_a_verifier_worktree(self):
+        ver = self.make_wt("ver", sha=self.head)
+        code, _, _, err = self.mutate(test=GUARD, root=ver, reverts=("calc.py",))
+        self.assertEqual((code, self.rows()[0]["outcome"]), (0, "killed"), err)
+        self.assertEqual((ver / "calc.py").read_text(), GUARDED)
+
+    def test_a_file_the_change_added_is_removed_for_the_run(self):
+        before = self.tree_of(self.rev)
+        code, _, _, err = self.mutate(test=ADD, root=self.rev, reverts=("limits.py",))
+        self.assertEqual((code, self.rows()[0]["outcome"]), (0, "killed"), err)
+        self.assertEqual((self.rev / "limits.py").read_text(), "FLOOR = 0\n")
+        self.assertEqual(self.tree_of(self.rev), before)
+
+    def test_reverts_come_after_the_mutants(self):
+        code, _, _, err = self.mutate("calc.py:a * 2=>a * 3", test=GUARD, root=self.rev, reverts=("calc.py:5-6",))
+        self.assertEqual(code, 1, err)
+        self.assertEqual([(r["mutant"], r["kind"], r["outcome"]) for r in self.rows()],
+                         [(1, "text", "survived"), (2, "revert", "killed")])
+
+    def test_a_revert_that_changes_nothing_or_names_no_file_is_refused(self):
+        for spec in ("calc.py:15", "calc.py:5-99", "calc.py:6-5", "docs/delivery/plane.json", "nope.py",
+                     "nope.py:1", "../calc.py", "/etc/hosts", "docs"):
+            code, _, _, err = self.mutate(test=GUARD, root=self.rev, reverts=(spec,))
+            self.assertEqual(code, 2, (spec, err))
+            self.assertEqual(self.rows(), [], spec)
+            self.assertEqual((self.rev / "calc.py").read_text(), GUARDED, spec)
+        self.assertFalse(mutate.log_path(self.q, self.run_id).exists())
+
+    def tree_of(self, root: Path) -> list[str]:
+        return sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.name != ".git")
+
+
+class RevertLines(unittest.TestCase):
+    """Which changes a line range puts back (lines of the worktree's file, 1-based, inclusive)."""
+
+    BASE = b"a\nb\nc\nd\ne\nf\n"
+
+    def test_only_the_changes_the_range_overlaps(self):
+        now = b"a\nB\nc\nd\nE\nf\n"
+        self.assertEqual(mutate._revert_lines(now, self.BASE, 2, 2), b"a\nb\nc\nd\nE\nf\n")
+        self.assertEqual(mutate._revert_lines(now, self.BASE, 2, 5), self.BASE)
+        self.assertEqual(mutate._revert_lines(now, self.BASE, 3, 4), now)
+
+    def test_added_lines_are_dropped(self):
+        now = b"a\nb\nx\ny\nc\nd\ne\nf\n"
+        self.assertEqual(mutate._revert_lines(now, self.BASE, 4, 4), self.BASE)
+        self.assertEqual(mutate._revert_lines(b"x\ny\n", b"", 1, 1), b"")
+
+    def test_a_deletion_inside_or_next_to_the_range_is_put_back(self):
+        now = b"a\nb\nd\ne\nf\n"  # c deleted, between lines 2 and 3
+        for first, last in ((2, 2), (3, 3), (2, 3)):
+            self.assertEqual(mutate._revert_lines(now, self.BASE, first, last), self.BASE, (first, last))
+        self.assertEqual(mutate._revert_lines(now, self.BASE, 4, 5), now)
 
 
 class Ledger(unittest.TestCase):
