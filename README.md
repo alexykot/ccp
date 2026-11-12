@@ -155,6 +155,34 @@ commands. **The operator applies it**: merge it into the product's
 `.claude/settings.json` yourself, because Claude Code's auto mode refuses the lead's own edit to that
 file.
 
+#### The gate on the tip
+
+Run the gate once on the integration tip before the first task, so a red tip shows now and not in
+the first verifier's verdict (SPEC §12.1):
+
+```bash
+ccp wt create --kind ver --baseline        # .plane-runtime/ver-baseline, at origin/<integration>, set up
+cd .plane-runtime/ver-baseline && ccp suite run --lane gate; cd -
+ccp wt remove ver-baseline
+```
+
+The worktree needs no task. If the gate fails there, fix the tip first.
+
+#### An existing rules doc
+
+If the product already keeps engineering rules, bring them in rather than starting from the starter
+set (SPEC §4.5, §20.1):
+
+```bash
+ccp init --rules-doc docs/ENGINEERING.md           # lists each rule with no `check:` line
+ccp init --rules-doc docs/ENGINEERING.md --adopt   # gives each of them `check: pass`
+```
+
+`--adopt` refuses when the new lines would put the doc over `architect.rules_max_lines`. Then set
+`architect.rules_doc` to the doc's path in `plane.json`, so `ccp docs check` checks it and the
+architect judges the `pass` rules. The report also names the plane's starter rules
+(§20.5): where one of yours matches a starter rule, its `docs` check can replace `check: pass`.
+
 ### 3. Write a first task and check
 
 This first task passes the checks as written (the heredoc escapes its backticks). Edit its text to fit your product, or copy

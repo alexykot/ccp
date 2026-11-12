@@ -322,6 +322,14 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
   128 + N when signal N ended it). A command is refused (exit 2) on any other kind and required on
   this one; a HEAD with no merge base, or a `--name` already in use, is refused (exit 3). A dry run
   on the merge base (§15.1) uses it, never `git stash` or a hand-made worktree.
+- `ccp wt create --kind ver --baseline [--seat S] [--tag T]` makes the one worktree that needs no task:
+  `ver-baseline`, detached at `origin/<integration>` after a fetch, recorded with an empty task and
+  number (`{task_id}` and `{nnnn}` are empty in its hooks) and set up like any other. An adopting lead
+  runs the gate lane there once, to learn whether the tip is green before the first verifier does
+  (§4.5), then removes it with `ccp wt remove ver-baseline`; `gc` and close leave it alone. It
+  refuses (exit 2) `--task`, `--sha`, `--name` and any other kind; with no integration tip, or an
+  existing `ver-baseline` at another head, it refuses (exit 3). Without `--baseline`, `--kind ver`
+  still needs a task.
 
 **The lead and the runners.** The lead keeps the product's main checkout and pulls it when a merge is
 reported. Each runner merges and runs operator steps from its own **runner worktree**

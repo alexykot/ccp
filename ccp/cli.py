@@ -48,6 +48,8 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
             house rules, §20.5)
   ccp init --permissions  (print the runner's and workers' permission block for the operator to apply;
             writes nothing, SPEC §4.5, §18.5)
+  ccp init --rules-doc PATH [--adopt]  (list the house rules with no `check:` line; --adopt gives each
+            `check: pass`, within rules_max_lines, SPEC §4.5, §20.1)
 
 `tasks` and `docs check` are free and deterministic (`index` writes INDEX.yaml; `docs check` also
 holds the house rules' shape and runs the product's `architect.checks`; every budget is `architect due`'s
@@ -339,10 +341,18 @@ def cmd_wt(cfg: config.Config, a: argparse.Namespace) -> int:
         command = list(getattr(a, "command", None) or [])
         if command and not (a.action == "create" and a.kind == "base"):
             raise QueueError("only `ccp wt create --kind base` runs a command after `--`", 2)
-        if a.action == "create":
+        if getattr(a, "baseline", False):  # §12.1: the adopting lead's gate run on the tip, no task
+            if a.action != "create" or a.kind != "ver":
+                raise QueueError("--baseline is for `ccp wt create --kind ver --baseline`", 2)
+            given = [f for f, v in (("--task", a.task), ("--sha", a.sha), ("--name", a.name)) if v]
+            if given:
+                raise QueueError(f"--baseline makes {wt.BASELINE} at the integration tip with no task; "
+                                 f"drop {', '.join(given)}", 2)
+            body: object = wt.create_baseline(cfg, q, a.seat, a.tag)
+        elif a.action == "create":
             if not a.task:
                 raise QueueError("usage: ccp wt create --kind KIND --task ID [--sha SHA] [--name N] [--seat S] [--tag T] "
-                                 "[-- COMMAND (base only)]", 2)
+                                 "[-- COMMAND (base only)], or ccp wt create --kind ver --baseline", 2)
             from ccp.queue import task_meta  # noqa: PLC0415
             tid = str(task_meta(cfg, a.task)["task_id"])
             if a.kind == "base":  # §12.1: made, the command run there, removed again; exit with its code
@@ -351,7 +361,7 @@ def cmd_wt(cfg: config.Config, a: argparse.Namespace) -> int:
                     print(f"warning: {w}", file=sys.stderr)
                 print(json.dumps(res, indent=2, ensure_ascii=False))
                 return int(res["exit"])
-            body: object = wt.create(cfg, q, tid, a.kind or "impl", a.sha, a.name, a.seat, a.tag)
+            body = wt.create(cfg, q, tid, a.kind or "impl", a.sha, a.name, a.seat, a.tag)
         elif a.action == "list":
             body = wt.listing(cfg, q, a.task)
         elif a.action == "gc":
@@ -1146,6 +1156,12 @@ def build_parser() -> argparse.ArgumentParser:
                    help="print, writing nothing, the runner's and workers' allowlist and a deny list for "
                         "destructive commands as a JSON permissions block for the operator to apply to "
                         ".claude/settings.json (SPEC §4.5, §18.5); needs an adopted product")
+    p.add_argument("--rules-doc", metavar="PATH",
+                   help="bring an existing house-rules doc in (SPEC §4.5, §20.1): list each rule with no `check:` "
+                        "line and point at the starter rules; writes nothing else (PATH relative to the product root)")
+    p.add_argument("--adopt", action="store_true",
+                   help="with --rules-doc: give each such rule a `check: pass` line, refused when that would put "
+                        "the doc over rules_max_lines")
     p.set_defaults(fn=None)
 
     p = sub.add_parser("agent", help="the SubagentStart / SubagentStop hooks: bind and stop runs (SPEC §11.1)")
@@ -1187,6 +1203,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--name", help="create: the name (default <kind>-<nnnn>, then -2, -3, …)")
     p.add_argument("--seat", help="create: the seat it serves (default from the kind)")
     p.add_argument("--tag", help="create: a tag for the hooks (default main; mut, mac for those kinds)")
+    p.add_argument("--baseline", action="store_true",
+                   help="create --kind ver: the worktree ver-baseline at the integration tip, with no task, set up "
+                        "like any other; an adopting lead runs the gate there once")
     p.add_argument("--print", dest="print_path", action="store_true", help="exec: print the path of its bin/ccp, run nothing")
     p.set_defaults(fn=cmd_wt, command=[])
     p = sub.add_parser("auth", help="auth probes (SPEC §30)").add_subparsers(dest="cmd", required=True)

@@ -4,6 +4,8 @@ The plane owns every worktree a task needs: the implementer's (`impl`, on `task/
 reviewer's and verifier's (`rev`, `ver`, detached at the head they judge), a mutation copy (`mut`) and
 a machine check (`mac`), and a throwaway at the merge base of a head and the integration branch
 (`base`), made by `ccp wt create --kind base … -- COMMAND` only to run that command and removed again.
+An adopting lead's `ver-baseline` (`ccp wt create --kind ver --baseline`) belongs to no task: a verifier's
+worktree at the integration tip, where the gate runs once before the first task does.
 Each is named `<kind>-<nnnn>[-<n>]` under `worktrees.dir` in the main
 checkout, gets `worktrees.links` linked in, and is recorded in `QUEUE_ROOT/worktrees/<name>.json`,
 so close, drop, release and gc remove exactly what was made. A runner's own merge worktree
@@ -42,7 +44,8 @@ KINDS: dict[str, tuple[str, str]] = {  # kind -> (default seat, default tag)
     "impl": ("impl", "main"), "rev": ("rev", "main"), "ver": ("ver", "main"),
     "mut": ("ver", "mut"), "mac": ("ver", "mac"), "base": ("ver", "base"),
 }
-NAME_RE = re.compile(r"^(impl|rev|ver|mut|mac|base)-[0-9]+(?:-[0-9]+)?$")
+BASELINE = "ver-baseline"  # §12.1: the verifier-shaped worktree at the integration tip that needs no task
+NAME_RE = re.compile(rf"^(?:(impl|rev|ver|mut|mac|base)-[0-9]+(?:-[0-9]+)?|{BASELINE})$")
 URL_RE = re.compile(r"^[a-z][a-z0-9+.-]*://\S+$")
 OUT_CAP = 20000
 
@@ -237,15 +240,38 @@ def _free_name(cfg: Config, q: Path, kind: str, nnnn: str) -> str:
     return name
 
 
+def tip(cfg: Config, q: Path) -> str:
+    """The integration tip, `origin/<integration>`, as a full sha, after a fetch. Exit 3 when there is none."""
+    main = main_checkout(cfg)
+    git(main, "fetch", "-q", "origin")
+    ref = f"origin/{integration_branch(q)}"
+    r = git(main, "rev-parse", "--verify", "-q", f"{ref}^{{commit}}")
+    if r.returncode != 0 or not r.stdout.strip():
+        raise QueueError(f"no integration tip {ref}: push the integration branch to origin first", 3)
+    return r.stdout.strip()
+
+
+def create_baseline(cfg: Config, q: Path, seat: str | None = None, tag: str | None = None) -> dict[str, Any]:
+    """§12.1 `ccp wt create --kind ver --baseline`: the verifier-shaped worktree `ver-baseline`, detached
+    at the integration tip, recorded with no task and set up like any other, so an adopting lead runs the
+    gate there once. An existing one is reused at the same tip and refused (exit 3) at another."""
+    if base_dir(cfg) is None:
+        raise QueueError("plane.json names no worktrees.dir: this product has no plane-made worktrees (§12.1)", 2)
+    return create(cfg, q, "", "ver", tip(cfg, q), BASELINE, seat, tag)
+
+
 def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None, name: str | None = None,
            seat: str | None = None, tag: str | None = None) -> dict[str, Any]:
-    """Make (or adopt) the worktree; run env.setup when it is new. A failed setup removes it again."""
+    """Make (or adopt) the worktree; run env.setup when it is new. A failed setup removes it again.
+    The baseline worktree (`create_baseline`) is the one made with no task: `task_id` and `nnnn` are ""."""
     if kind not in KINDS:
         raise QueueError(f"--kind must be one of {', '.join(KINDS)}", 2)
     base = base_dir(cfg)
     if base is None:
         raise QueueError("plane.json names no worktrees.dir: this product has no plane-made worktrees (§12.1)", 2)
-    nnnn = refs.ids(cfg).task_number(task_id)
+    if (name == BASELINE) != (task_id == "") or (name == BASELINE and kind != "ver"):
+        raise QueueError(f"only `--kind ver --baseline` makes {BASELINE}, the one worktree with no task", 2)
+    nnnn = refs.ids(cfg).task_number(task_id) if task_id else ""
     explicit = name is not None or kind == "impl"  # a default name may move on a race; a given one never
     if kind == "impl":
         name = name or f"impl-{nnnn}"
@@ -317,17 +343,18 @@ def remove(cfg: Config, q: Path, name: str) -> list[str]:
     """Stop (env.down, when up), tear down (env.teardown), remove the worktree, forget it. Failures
     are warnings: a worktree is removed even when its hooks fail."""
     st = load(q, name)
+    recorded = st is not None  # only a recorded worktree has the fields its hooks are filled with
     warnings: list[str] = []
     base = base_dir(cfg)
     if st is None:
         if not base or not (base / name).is_dir():
             raise QueueError(f"no worktree {name} recorded in {state_dir(q)} or under worktrees.dir", 3)
         st = {"name": name, "path": str(base / name), "state": "created"}
-    if st.get("task_id") and not Path(st["path"]).is_dir():
+    if recorded and not Path(st["path"]).is_dir():
         if (cfg.env or {}).get("teardown") or (st.get("state") == "up" and (cfg.env or {}).get("down")):
             warnings.append(f"{st['path']} is gone: env.down and env.teardown for {name} were not run "
                             "(they run only in the worktree)")
-    elif st.get("task_id"):
+    elif recorded:
         if st.get("state") == "up" and (res := hook(cfg, q, "down", st)) and res[0] != 0:
             warnings.append(f"env.down for {name} exited {res[0]}: {res[1].strip()[-300:]}")
         if (res := hook(cfg, q, "teardown", st)) and res[0] != 0:
@@ -513,7 +540,7 @@ def gc(cfg: Config, q: Path) -> dict[str, Any]:
             state_path(q, st["name"]).unlink(missing_ok=True)
             forgot.append(st["name"])
             continue
-        tq = load_task_state(q, st.get("task_id") or "")
+        tq = load_task_state(q, st["task_id"]) if st.get("task_id") else {}  # the baseline has no task
         if str(tq.get("status") or "") in ("done", "dropped") and not tq.get("lease_holder"):
             warnings += remove(cfg, q, st["name"])
             removed.append(st["name"])
@@ -568,5 +595,5 @@ def auth_check(cfg: Config, q: Path | None) -> dict[str, Any]:
     return body
 
 
-__all__ = ["KINDS", "WT_FIELDS", "auth_check", "create", "down", "exec_ccp", "gc", "listing", "merge_base", "own_ccp",
+__all__ = ["BASELINE", "KINDS", "WT_FIELDS", "auth_check", "create", "create_baseline", "down", "exec_ccp", "gc", "listing", "merge_base", "own_ccp",
            "remove", "remove_task", "run_on_base", "up", "urls"]

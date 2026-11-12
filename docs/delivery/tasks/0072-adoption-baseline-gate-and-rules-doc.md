@@ -1,7 +1,7 @@
 ---
 task_id: 0072-adoption-baseline-gate-and-rules-doc
 title: A product adopting the plane runs its gate once on the tip and brings its existing rules doc in
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4", "S12", "S20"]
@@ -55,6 +55,21 @@ An adopting lead learns the integration tip is red before the first verifier doe
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implementer): `ccp wt create --kind ver --baseline` (`wt.create_baseline`) fetches, resolves
+  `origin/<integration>` and makes `ver-baseline` through `wt.create` with an empty task id and number, so
+  it is recorded and set up like any other worktree. `remove` now runs `down`/`teardown` for any recorded
+  worktree (it used to key on a task id), and `gc` reads no task state for it. `--baseline` refuses
+  `--task`, `--sha`, `--name`, another kind and another action (exit 2); no tip, or one at another head,
+  exit 3. `contracts/worktree.schema.json` names `ver-baseline`.
+- 2026-11-12 (implementer): `ccp init --rules-doc PATH [--adopt]` is its own mode, like `--permissions`:
+  it writes no footprint and refuses the other init flags. PATH is root-relative; the rule-id pattern and
+  `rules_max_lines` are the product's when `plane.json` loads, else the defaults. `--adopt` adds
+  `check: pass` at the end of each unchecked rule's item, indented as its text, and refuses (exit 1,
+  nothing written) over the cap. It does not set `architect.rules_doc`; the report says so while the doc
+  is not the configured one, and always names the starter set's template. The report exits 0.
+- 2026-11-12 (implementer): also touched outside `paths`: `contracts/worktree.schema.json` and the command
+  reference rows in `docs/cli/01-model.md` and `docs/cli/02-delivery.md`.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #76 head `849a3d4` (squash `0126e9b`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0072-adoption-baseline-gate-and-rules-doc.json.

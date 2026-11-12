@@ -77,6 +77,67 @@ class Create(WtFixture, unittest.TestCase):
         self.assertIn("worktrees.dir", err)
 
 
+class Baseline(WtFixture, unittest.TestCase):
+    """The adopting lead's verifier-shaped worktree at the integration tip, which needs no task."""
+
+    def test_it_is_made_at_the_tip_recorded_set_up_and_removed(self):
+        self.plane(env={"setup": "echo {kind} {seat} {name} \"[{task_id}]\" > setup.txt",
+                        "teardown": "echo $CCP_WT_NAME > {main_checkout}/torn.txt"})
+        code, body, _, err = self.wt("create", "--kind", "ver", "--baseline")
+        self.assertEqual(code, 0, err)
+        p = Path(body["path"])
+        self.assertEqual((p, body["created"]), (self.main / ".rt" / "ver-baseline", True))
+        self.assertEqual(git(p, "rev-parse", "HEAD"), self.head())
+        self.assertEqual(git(p, "rev-parse", "--abbrev-ref", "HEAD"), "HEAD")  # detached
+        self.assertEqual((p / "setup.txt").read_text().split(), ["ver", "ver", "ver-baseline", "[]"])
+        st = json.loads((self.q / "worktrees" / "ver-baseline.json").read_text())
+        self.assertEqual((st["kind"], st["task_id"], st["nnnn"], st["sha"]), ("ver", "", "", self.head()))
+        self.assertEqual([(r["name"], r["exists"]) for r in self.wt("list")[1]], [("ver-baseline", True)])
+        self.assertEqual(self.wt("gc")[1]["removed"], [])  # no task to be done: gc keeps it
+        code, again, _, err = self.wt("create", "--kind", "ver", "--baseline")
+        self.assertEqual((code, again["created"]), (0, False), err)
+        code, body, _, err = self.wt("remove", "ver-baseline")
+        self.assertEqual((code, body["warnings"]), (0, []), err)
+        self.assertFalse(p.exists())
+        self.assertFalse((self.q / "worktrees" / "ver-baseline.json").exists())
+        self.assertEqual((self.main / "torn.txt").read_text().strip(), "ver-baseline")
+
+    def test_a_moved_tip_refuses_the_old_one(self):
+        self.assertEqual(self.wt("create", "--kind", "ver", "--baseline")[0], 0)
+        self.write("NEW.md", "x\n")
+        git(self.main, "add", "NEW.md")
+        git(self.main, "commit", "-q", "-m", "tip moves")
+        git(self.main, "push", "-q", "origin", "main")
+        code, _, _, err = self.wt("create", "--kind", "ver", "--baseline")
+        self.assertEqual(code, 3)
+        self.assertIn("ccp wt remove ver-baseline", err)
+
+    def test_without_baseline_a_ver_worktree_still_needs_a_task(self):
+        self.assertEqual(self.wt("create", "--kind", "ver", "--sha", self.head())[0], 2)
+
+    def test_baseline_refuses_a_task_a_sha_a_name_another_kind_or_action(self):
+        for args in (("create", "--kind", "ver", "--baseline", "--task", "0002"),
+                     ("create", "--kind", "ver", "--baseline", "--sha", self.head()),
+                     ("create", "--kind", "ver", "--baseline", "--name", "ver-0002"),
+                     ("create", "--kind", "rev", "--baseline"),
+                     ("create", "--baseline"),
+                     ("list", "--baseline")):
+            with self.subTest(args=args):
+                self.assertEqual(self.wt(*args)[0], 2)
+        self.assertFalse((self.main / ".rt" / "ver-baseline").exists())
+
+    def test_its_name_is_not_a_task_worktree_name(self):
+        code, _, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head(), "--name", "ver-baseline")
+        self.assertEqual(code, 2, err)
+        self.assertFalse((self.main / ".rt" / "ver-baseline").exists())
+
+    def test_no_integration_tip_refuses(self):
+        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\nintegration_branch: trunk\n")
+        code, _, _, err = self.wt("create", "--kind", "ver", "--baseline")
+        self.assertEqual(code, 3)
+        self.assertIn("origin/trunk", err)
+
+
 class UpDownUrls(WtFixture, unittest.TestCase):
     URLS = """printf '[{"name": "api", "url": "http://localhost:31%s/"}, {"name": "app", "url": "http://localhost:32%s/"}]' {nnnn} {nnnn}"""
 
