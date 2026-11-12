@@ -21,6 +21,13 @@ Proving a test bites is quick and recorded for every seat: `ccp mutate` targets 
 
 - Accepted plane proposals: mutating against one new test ran its whole class; seats hand-edited copies to revert hunks; a reviewer had to make a second worktree to mutate; and the end-of-run signal checks are untested.
 - §31.1: SPEC text this task writes describes its own feature; no merge gate.
+- Ruling (spec question sm-20261112T085010Z-03f9, commit 93bdcf0): the pin is enough. The plane
+  passes `--test` through to the product's `mutate.command`, and a unittest method id already ran
+  only that method, so item 1 needs no code change: a test that pins single-method behaviour plus
+  the §20.6 and `--test` help wording satisfies check-01's expectation. Read check-01's `dry run`
+  line as "n/a: the behaviour already held on the merge base, now pinned" (a clarification of the
+  dry-run note; setup, steps and expectation unchanged). Do not refuse a repeated `--test` or check
+  test counts.
 
 ## Scope
 
@@ -66,6 +73,10 @@ Proving a test bites is quick and recorded for every seat: `ccp mutate` targets 
   required, but one of the two is. `ccp mutate` takes `mut`, `rev` and `ver` worktrees. Wrapped the
   long docstring and message lines in `ccp/mutate.py`. `ccp/cli.py` (outside `paths`) gained the
   flag; `ccp/wt.py` did not change.
+- 2026-11-12 (implementer, ruling round 1): wrote the lead's ruling on check-01 into Context. It
+  confirms the existing pin (`test_a_method_id_runs_that_method_alone`), the §20.6 sentence and the
+  `--test` help as item 1's whole delivery, and reads check-01's dry run as n/a; no code, test or doc
+  change followed. No refusal of a repeated `--test` and no test-count check were added.
 
 ## Verification notes
 
