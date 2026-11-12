@@ -70,6 +70,19 @@ cost a full review cycle (§15.2).
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implementer): `verify.skip_review_after_clean` (boolean, default false) in `ccp/config.py`
+  and the schema. `verify.skip_after_clean` decides the skip; `ccp prompt verify` tries it after
+  `verify.skip_review` (unchanged) and records `review_skip: {reason: "minor-only", review_run, findings}`.
+  `findings` is the review's recorded MINOR and NIT counts (`{"MINOR": n, "NIT": n}`), not finding text:
+  run records carry numbers and ids only (E5), and the plane parses no report prose (E6); the verify
+  prompt lists the counts and the review's report path, and asks the verifier to check the fix diff
+  (reviewed head to verified head) against each of those findings. Narrowest rules where the task was
+  open: the review must count at least one MINOR or NIT; the verified head must be the one the latest
+  fix (merge, ruling) round reported; a verify run since the review that recorded `reject` sends the
+  task back to review, so a reject is not followed by another skip. `ccp verify record` accepts the
+  approve at the skipped verify run's head. §15.2 gains the rule (and its lead bullet now names two
+  exceptions), §8.1 lists the knob, and the runner brief (step 7) names it.
+
 ## Verification notes
 
 *Append-only.*
