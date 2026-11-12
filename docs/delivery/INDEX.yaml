@@ -347,3 +347,8 @@ tasks:
     title: A task can name a path it removes without a scope warning
     depends_on: []
     path: tasks/0069-removed-scope-paths-marking.md
+  - id: 0070-architect-report-json-extraction
+    status: pending
+    title: The architect's report is found even when a finding quotes an unbalanced brace
+    depends_on: []
+    path: tasks/0070-architect-report-json-extraction.md
