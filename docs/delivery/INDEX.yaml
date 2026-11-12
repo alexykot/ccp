@@ -428,7 +428,7 @@ tasks:
     depends_on: []
     path: tasks/0085-release-a-claimed-task-with-no-open-run.md
   - id: 0086-next-reads-the-integration-tip
-    status: pending
+    status: done
     title: ccp tasks next never offers a task already done on the integration branch
     depends_on: []
     path: tasks/0086-next-reads-the-integration-tip.md

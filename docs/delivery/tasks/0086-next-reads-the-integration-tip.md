@@ -1,7 +1,7 @@
 ---
 task_id: 0086-next-reads-the-integration-tip
 title: ccp tasks next never offers a task already done on the integration branch
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S10"]
@@ -59,4 +59,4 @@ A runner whose worktree is behind the integration tip is never offered a task al
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #74 head `b9bef72` (squash `21fa219`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0086-next-reads-the-integration-tip.json.
