@@ -82,6 +82,16 @@ The §15.4 producer rule is pinned by tests on every branch, and a check closed 
   let a check with a producer rest on any text was replaced; no other existing test contradicted
   the ruling.
 
+- 2026-11-12 (implementer, fix round 2): the sentences that still said a check not run names "whose
+  claim it rests on" (§15.4's first paragraph, the verifier brief's not-run bullet and the schema's
+  `ran` and `rests_on` descriptions) now point at the three forms, so §15.4 no longer contradicts
+  itself. A date beside a ruling's id reads as a gate id (`<digits>-<slug>-<digits>`) that is not in
+  the queue, and is refused as an unknown id beside a known one: a test records that decision, and
+  another pins the token boundaries of both id patterns. Known asymmetry, left for the lead: a gate
+  cited as a ruling must be closed and approved, but a spec question only has to exist
+  (`questions/<id>.json`), so an unanswered question passes as a ruling. The code follows the
+  ruling's "exists"; requiring `status: answered` would be the lead's call.
+
 ## Verification notes
 
 *Append-only.*

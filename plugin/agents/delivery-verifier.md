@@ -38,8 +38,8 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   is not a task's, `task_id` is exactly `pr-<n>`. `checked_at` is the clock time you reached the
   verdict; leave it out and `record` stamps it.
 - A check someone else ran where you cannot (a Mac-only step whose output is in the task's notes)
-  is `ran: false`, `pass: null`, with `rests_on` naming whose claim it rests on. It is neither a
-  pass nor a fail; say in `findings` whether your verdict relies on it.
+  is `ran: false`, `pass: null`, with `rests_on` naming what it rests on, in one of the three forms
+  below. It is neither a pass nor a fail; say in `findings` whether your verdict relies on it.
 - Every check names the seat that produced its evidence: `produced_by` (`verifier` for what you ran,
   else `implementer`, `reviewer`, `architect`, `operator`, `runner` or `lead`). The seat that rules on
   the task never produces the evidence it rules on (SPEC §2.3, §15.4): `record` refuses evidence the

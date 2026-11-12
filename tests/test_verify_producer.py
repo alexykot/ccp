@@ -130,6 +130,30 @@ class Producer(unittest.TestCase):
             self.assertNotIn("names no produced_by", err)
             self.assertFalse(self.written().exists())
 
+    def test_a_date_beside_a_ruling_reads_as_an_unknown_gate_id_and_is_refused(self):
+        # Decided: refuse. A date is shaped like a gate id (`<digits>-<slug>-<digits>`), and the ruling
+        # form allows no unknown id beside a known one, so the verifier writes the date another way.
+        gate = self.gate(1)
+        for rests_on in (f"the lead's ruling, gate {gate}, 2026-11-12", f"gate {gate} (decided 2026-11-12)"):
+            code, _, err = self.record(check(None, rests_on=rests_on, ran=False, **{"pass": None}))
+            self.assertEqual(code, 1, rests_on)
+            self.assertIn("2026-11-12", err)
+            self.assertFalse(self.written().exists())
+        code, _, err = self.record(check(None, rests_on=f"the lead's ruling, gate {gate}, 12 November 2026",
+                                         ran=False, **{"pass": None}))
+        self.assertEqual(code, 0, err)
+
+    def test_a_ruling_id_inside_a_longer_token_is_not_one(self):
+        gate = self.gate(1)
+        question = "sm-20261111T120000Z-ab12"
+        (self.q / "questions").mkdir()
+        (self.q / "questions" / f"{question}.json").write_text("{}")
+        for rests_on in (f"x{gate}", f"gate-{gate}", f"{gate}x", f"{gate}-", f"x{question}", f"{question}9"):
+            code, _, err = self.record(check(None, rests_on=rests_on, ran=False, **{"pass": None}))
+            self.assertEqual(code, 1, rests_on)
+            self.assertIn("names no ruling id", err)
+            self.assertFalse(self.written().exists())
+
     def commit(self) -> str:
         """A commit in the product checkout, as a carried verdict's old head."""
         def git(*a: str) -> str:

@@ -749,13 +749,13 @@ later than the write, a check marked not run that has a `pass` or names no `rest
 `approve` that `merge-ok` would refuse (a failed check it ran, no `head_sha`, or no `gate` whose runs
 all exited 0). A valid example is `contracts/verification.example.json`. `checked_at` is the clock
 time the verdict was reached; `record` stamps it when absent. A check the verifier did not run itself
-is `ran: false`, `pass: null`, and `rests_on` names whose claim it rests on: neither a pass nor a
-fail. Under `adr.strict`, `ccp verify record` also refuses an approve of a head on which a decision
-the task's `adr_refs` cite is still recorded `not_built` (§6.7's in-force check, judged on the head's
-files as if the task were done, as close makes it), naming the decision and the `ccp adr decide`
-command that flips it; when the task cites a decision, a head the checkout does not hold is refused.
-A product with `ci: github-actions` in its binding may cite a green CI run at the same head
-(`gate.ci_run`) beside its own runs, never in place of them; `ccp verify record` refuses a
+is `ran: false`, `pass: null`, and `rests_on` names what it rests on, in one of the three forms below:
+neither a pass nor a fail. Under `adr.strict`, `ccp verify record` also refuses an approve of a head
+on which a decision the task's `adr_refs` cite is still recorded `not_built` (§6.7's in-force check,
+judged on the head's files as if the task were done, as close makes it), naming the decision and the
+`ccp adr decide` command that flips it; when the task cites a decision, a head the checkout does not
+hold is refused. A product with `ci: github-actions` in its binding may cite a green CI run at the
+same head (`gate.ci_run`) beside its own runs, never in place of them; `ccp verify record` refuses a
 `gate.ci_run` otherwise.
 
 A record carries the schema version of the `ccp` that wrote it (`schema_version`, an integer):
