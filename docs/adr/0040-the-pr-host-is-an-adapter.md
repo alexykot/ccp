@@ -16,7 +16,7 @@ decisions:
   - "D4 not_built"
   - "D5 not_built"
   - "D6 not_built"
-  - "D7 not_built"
+  - "D7 built"
 ---
 # ADR-0040 — The PR host is an adapter
 
