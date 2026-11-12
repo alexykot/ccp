@@ -16,6 +16,11 @@ queue path holding `#`, which every binding reader cuts off as a comment.
 With `--permissions` it writes nothing: in an adopted product it prints the runner's and workers'
 permission allowlist and a deny list for destructive commands, as a JSON `permissions` block for the
 operator to apply to `.claude/settings.json` (§4.5, §18.5).
+
+With `--rules-doc PATH` it brings a product's existing house rules in (§4.5, §20.1): it lists each rule
+with no `check:` line and, with `--adopt`, gives each a `check: pass` line (the architect judges it),
+refusing, writing nothing, when that would put the doc over `rules_max_lines`. It writes nothing
+else, and points at the plane's starter rules (§20.5) for the checks the plane already runs.
 """
 from __future__ import annotations
 
@@ -26,7 +31,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from ccp import config, tasklog
+from ccp import config, refs, rules, tasklog
 from ccp.queue import PLANE, QueueError, _main_worktree, lib
 
 TEMPLATES = PLANE / "templates"
@@ -271,12 +276,108 @@ def print_permissions(root: Path, a: Any) -> int:
     return 0
 
 
+RULE_ITEM_RE = re.compile(r"^(\s*)([-*]\s+)")
+
+
+def _rule_ends(text: str, ids: refs.Ids) -> dict[str, tuple[int, str]]:
+    """{rule id: (the index of its item's last non-blank line, the indent a line inside it takes)}. A rule's
+    item runs from its opening line until a line indented no deeper than its marker, or a heading."""
+    lines = text.splitlines()
+    rx = rules.rule_re(ids)
+    out: dict[str, tuple[int, str]] = {}
+    for i, line in enumerate(lines):
+        m = rx.match(line)
+        if not m or m.group(1) in out:
+            continue
+        marker = RULE_ITEM_RE.match(line)
+        assert marker is not None
+        indent = len(marker.group(1))
+        last = i
+        for j in range(i + 1, len(lines)):
+            nxt = lines[j]
+            if not nxt.strip():
+                continue
+            if nxt.lstrip().startswith("#") or len(nxt) - len(nxt.lstrip()) <= indent:
+                break
+            last = j
+        out[m.group(1)] = (last, " " * (indent + len(marker.group(2))))
+    return out
+
+
+def rules_doc(root: Path, path: str, adopt: bool) -> dict[str, Any]:
+    """§4.5, §20.1 `ccp init --rules-doc PATH [--adopt]`: each rule of the doc at PATH (relative to the
+    product root) with no `check:` line, and with `adopt` that doc rewritten with a `check: pass` line
+    closing each such rule. The rule ids and `rules_max_lines` are the product's when its plane.json
+    loads. Raises QueueError: exit 2 when the doc is missing, exit 1 (nothing written) when the added
+    lines would put it over `rules_max_lines`."""
+    doc = Path(path) if Path(path).is_absolute() else root / path
+    if not doc.is_file():
+        raise QueueError(f"ccp init: --rules-doc {path}: no such file under {root}", 2)
+    try:
+        cfg: config.Config | None = config.load(root)
+    except config.ConfigError:
+        cfg = None
+    ids = refs.ids(cfg)
+    cap = int(((cfg.architect if cfg else None) or config.ARCHITECT_DEFAULTS)["rules_max_lines"])
+    try:
+        rel = str(doc.resolve().relative_to(root.resolve()))
+    except ValueError:
+        rel = str(doc)
+    text = doc.read_text()
+    kinds, _ = rules.parse_rules(text, ids)
+    unchecked = [rid for rid, kind in kinds.items() if kind is None]
+    lines = len(text.splitlines())
+    out: dict[str, Any] = {"rules_doc": rel, "rules": len(kinds), "unchecked": unchecked, "lines": lines,
+                           "rules_max_lines": cap, "adopted": []}
+    if adopt and unchecked:
+        if lines + len(unchecked) > cap:
+            raise QueueError(f"ccp init: {rel} has {lines} lines; a `check: pass` line for each of its "
+                             f"{len(unchecked)} unchecked rules would make {lines + len(unchecked)}, over "
+                             f"rules_max_lines {cap}: shorten it first. Nothing written", 1)
+        ends = _rule_ends(text, ids)
+        after = {ends[rid][0]: ends[rid][1] + "check: pass" for rid in unchecked}
+        new: list[str] = []
+        for i, line in enumerate(text.splitlines()):
+            new.append(line)
+            if i in after:
+                new.append(after[i])
+        doc.write_text("\n".join(new) + ("\n" if text.endswith("\n") or not text else ""))
+        out.update(adopted=unchecked, lines=len(new))
+    out["starter_rules"] = (f"the plane's starter rules (SPEC §20.5), {rules.STARTER_DOC}: a rule the plane "
+                            "already checks can take its `docs` check there; adopt the set with "
+                            "docs.starter_rules in plane.json")
+    if not cfg or not cfg.architect or cfg.architect.get("rules_doc") != rel:
+        out["note"] = (f"set architect.rules_doc to {rel} in plane.json: until then ccp docs check does not "
+                       "check it and no architect judges its `check: pass` rules")
+    return out
+
+
+def print_rules_doc(root: Path, a: Any) -> int:
+    """`ccp init --rules-doc PATH [--adopt]`: print the report; refuse (exit 2) another init flag."""
+    given = [flag for flag, attr in (*WRITING_FLAGS, ("--permissions", "permissions")) if getattr(a, attr, None)]
+    if given:
+        print(f"ccp init: --rules-doc writes only the rules doc; drop {', '.join(given)}", file=sys.stderr)
+        return 2
+    try:
+        res = rules_doc(root, a.rules_doc, bool(getattr(a, "adopt", False)))
+    except QueueError as e:
+        print(str(e), file=sys.stderr)
+        return e.code
+    print(json.dumps(res, indent=2))
+    return 0
+
+
 def main(root_arg: str | None, a: Any) -> int:
     try:
         root = config.find_root(root_arg)
     except config.ConfigError as e:
         print(f"ccp init: {e}", file=sys.stderr)
         return 2
+    if getattr(a, "adopt", False) and not getattr(a, "rules_doc", None):
+        print("ccp init: --adopt goes with --rules-doc PATH", file=sys.stderr)
+        return 2
+    if getattr(a, "rules_doc", None):
+        return print_rules_doc(root, a)
     if getattr(a, "permissions", False):
         return print_permissions(root, a)
     try:

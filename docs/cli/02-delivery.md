@@ -51,6 +51,7 @@ argument takes the full id or its number.
 |---|---|---|
 | `ccp wt create --kind KIND --task ID [--sha SHA] [--name N] [--seat S] [--tag T]` | runner, workers | §12.1 |
 | `ccp wt create --kind base --task ID --sha HEAD [--name N] -- COMMAND` | verifier, reviewer | §12.1, §15.1 |
+| `ccp wt create --kind ver --baseline [--seat S] [--tag T]` | lead (adoption) | §4.5, §12.1 |
 | `ccp wt list [--task ID]` | anyone | §12.1 |
 | `ccp wt remove NAME` | workers, runner | §12.1 |
 | `ccp wt up NAME` / `ccp wt down NAME` / `ccp wt urls NAME` | workers | §12.3 |
