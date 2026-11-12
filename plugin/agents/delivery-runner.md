@@ -104,7 +104,8 @@ before anything else.
    you (a message races the claim: it can arrive after another task is claimed): ask the lead to run
    `ccp tasks prefer X` (several ids set an order), and take what `next` names.
 3. **Claim.** `ccp tasks claim <task_id>`: the lease, `work.json`, the task's queue file, its
-   worktree on `task/<task_id>`, a heartbeat. It prints the worktree.
+   worktree on `task/<task_id>`, a heartbeat. It prints the worktree. Exit 7 naming a rotation: your
+   rotation is due (below); ask the lead to rotate you.
 4. **Auth.** The claim runs the product's auth probes (`auth_check.probes`). Exit 8 means one failed:
    no task was taken. Raise it to the lead as a gate (class `reauth`) and wait for the operator's
    reauth; `ccp auth check` shows which probe, and passes once it is fixed.
@@ -177,7 +178,8 @@ runners, each holding one task. Otherwise ignore this section.
    Resume only the task your slot holds (`tasks/<id>.json` `lease_holder`).
    - `next` exit 7: nothing you may take now. Idle; another runner or the lead wakes you.
    - `claim` exit 3 "held by <slot>": another runner won the race for it. Run `next` again.
-   - `claim` exit 7 (it cannot join the tasks in flight, or you already hold one): idle.
+   - `claim` exit 7 (it cannot join the tasks in flight, or you already hold one): idle. Exit 7 naming a
+     rotation: your slot is due for rotation; ask the lead to rotate it (rule 6).
    - `next` exit 3 with other runners still holding tasks: idle without a report. The last runner to
      finish reports the stop to the lead.
 3. **Workers as before.** `ccp prompt`, then its Agent call; the call returns when the worker ends. A
@@ -196,8 +198,8 @@ runners, each holding one task. Otherwise ignore this section.
    a reconcile that collides with another runner's is rebuilt by `close` itself.
 5. **Wake the idle.** When `ccp tasks close` or `release` lists `idle_runners`, send each of them one message:
    "a slot is free: `ccp tasks next`". The hook cannot wake a runner that is already idle.
-6. **Rotation is yours alone.** When your slot's `tasks_done` reaches `rotate_after_tasks`, finish your task,
-   then ask the lead to rotate your slot. The fresh runner resumes your slot's task.
+6. **Rotation is yours alone.** When your slot's rotation is due (below), finish your task, then ask the lead
+   to rotate your slot. The fresh runner resumes your slot's task.
 7. **The session park parks every task in flight.** At exit 6, send the lead one message, then idle; its
    wake names each runner to resume.
 
@@ -263,9 +265,12 @@ when), next. At (a) on a review point, say so: it is the hard stop.
 When `ccp tasks claim` or `ccp prompt` warns "no session wake armed", forward that line to the lead
 at once, and carry on.
 
-When `runner_tasks_done` reaches the binding's `rotate_after_tasks`, or your context feels heavy,
-finish the current phase, write `work.json`, and ask the lead to rotate you. With a runner slot, count
-your slot's own `tasks_done` (`work.json` `runners`), not `runner_tasks_done` (Several runners, rule 6).
+Your rotation is due when `runner_tasks_done` reaches the binding's `rotate_after_tasks`, or your
+latest request's context reaches its `rotate_at_context_tokens` (when set): `ccp tasks claim` then
+refuses you a new task (exit 7, naming the rotation) until the lead rotates you. Finish the current
+phase, write `work.json`, and ask the lead to rotate you, as you may sooner when your context feels
+heavy. With a runner slot, count your slot's own `tasks_done` (`work.json` `runners`), not
+`runner_tasks_done` (Several runners, rule 6).
 
 ## You never
 

@@ -122,16 +122,20 @@ def _main_seat(row: dict[str, Any], root: str | None, runner_wts: set[str]) -> s
     ad hoc session) `other-sessions`. A row with no cwd, or a binding with no product_root, is the lead's,
     except a `claude -p` call (`query_source: sdk`) with no cwd: it reached here untagged and unmatched
     to a headless session (a pass launched before §24's tag), so it is `headless-untagged`, kept
-    out of the design seat and its advice."""
+    out of the design seat and its advice. A `claude -p` call from a runner's checkout is
+    `headless-untagged` too: the runner teammate's own calls carry `<name>@session-…` and are never
+    `sdk`, so a headless session run from that checkout is not the runner (§2.4: the runner seat's
+    model is its definition's)."""
     import os  # noqa: PLC0415
     cwd = row.get("cwd")
-    if not cwd and row.get("query_source") == "sdk":
+    sdk = row.get("query_source") == "sdk"
+    if not cwd and sdk:
         return UNTAGGED
     if not cwd or not root:
         return "design-seat"
     real = os.path.realpath(str(cwd))
     if real in runner_wts:
-        return "runner"
+        return UNTAGGED if sdk else "runner"
     return "design-seat" if real == root else "other-sessions"
 
 
@@ -289,6 +293,38 @@ def _window(all_runs: list[dict[str, Any]], req: dict[str, Any]) -> dict[str, An
             continue
         hits.append(r)
     return hits[0] if len(hits) == 1 else None
+
+
+CONTEXT_TOKENS = ("input_tokens", "cache_read_tokens", "cache_creation_tokens")  # what a request sends
+
+
+def runner_context(q: Path, names: set[str], since: Any = None) -> dict[str, Any] | None:
+    """§10.2 step 4: the latest request of a runner teammate named one of `names`, made at or after
+    `since` (its spawn), and its context: the tokens it sent (input, cache read, cache written). From
+    the trace spans (`board/usage-spans.jsonl`), whose `agent_id` `<name>@session-…` names the
+    teammate (§24.4). None when there is none."""
+    p = q / "board" / "usage-spans.jsonl"
+    keys = [f"{n}@session-" for n in names if n]
+    t0 = _t(since) if since else None
+    best: tuple[float, dict[str, Any]] | None = None
+    for line in p.read_text().splitlines() if keys and p.is_file() else []:
+        if not any(k in line for k in keys):  # the file is large: parse only the lines that may match
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        aid = str(row.get("agent_id") or "") if isinstance(row, dict) else ""
+        if "@session-" not in aid or aid.split("@", 1)[0] not in names:
+            continue
+        t = _t(row.get("at"))
+        if t is None or (t0 is not None and t < t0) or (best is not None and t < best[0]):
+            continue
+        best = (t, row)
+    if best is None:
+        return None
+    return {"at": best[1].get("at"), "tokens": sum(int(_n(best[1].get(k))) for k in CONTEXT_TOKENS),
+            "request_id": best[1].get("request_id")}
 
 
 # ------------------------------------------------------------------------------------- allowance
