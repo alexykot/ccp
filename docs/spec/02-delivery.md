@@ -58,9 +58,11 @@ only through its single writer (`ccp tasks wait|resume`, which call `set-waiting
    It reports to the lead in one message: what finished, what is waiting and why, and the next
    step. At a review point, (a) is the hard stop; the review pack is the lead's to prepare with the
    operator. With several runners the last runner to finish reports the stop.
-4. **Rotate.** When its context gets heavy, or its slot's `tasks_done` reaches
-   `runner.rotate_after_tasks` (default 4), the runner finishes the current phase, writes
-   `work.json` and asks the lead to rotate it. The lead records it (`team.sh runner rotate
+4. **Rotate.** When its slot's `tasks_done` reaches `runner.rotate_after_tasks` (default 4), or the
+   runner seat's request context reaches `runner.rotate_at_context_tokens` (default off), rotation is
+   due: `ccp tasks claim` refuses the slot a new task until the lead rotates it. The runner finishes
+   the current phase, writes `work.json` and asks the lead to rotate it, as it also may sooner when
+   its context gets heavy. The lead records it (`team.sh runner rotate
    [--slot]`), shuts it down, and only once it is gone spawns a fresh runner with the same prompt.
    The harness may give the fresh one a suffixed name; the lead binds the name the Agent result
    gives (`team.sh runner bind --name <it> [--as <slot>]`) and stops the old one if it is still

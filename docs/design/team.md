@@ -39,7 +39,10 @@ check it end to end.
 - **Rotation names.** While the old teammate still holds the name, the harness gives the fresh one a
   suffixed name (`runner-2`); a spawn records the binding's `runner.name` and the bind records the
   name the harness gave into `work.json` (single runner: `runner`, with `runner_tasks_done: 0` at
-  spawn). A rotation is due when `runner_tasks_done ≥ rotate_after_tasks`.
+  spawn). When a rotation is due (SPEC §10.2 step 4: `tasks_done ≥ rotate_after_tasks`, or the latest
+  request context at `rotate_at_context_tokens`), `ccp tasks claim` refuses the slot a new task
+  (`lifecycle.rotation_due`) until `team.sh runner rotate` records the rotation; `ccp health` lists
+  the due slot.
 - **The usage-limit wake.** When a session limit is hit, the runner's idle notice fails, the lead's
   own turn on that notice fails on the same limit, `TeammateIdle` does not fire on a failed idle, and
   `autoContinueAtUsageLimit` does not resume the lead. So the wake is armed before the limit, while

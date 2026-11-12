@@ -12,6 +12,10 @@ signed at another head than the one it merges.
 review point fire the operator's triggers: a pending notice on record, and the product's notify command,
 if it names one (§3.6, `ccp.notify`).
 
+`claim` refuses a new task (exit 7) to a runner slot due for rotation and not rotated since its spawn
+(§10.2 step 4, `rotation_due`): its `tasks_done` reached `runner.rotate_after_tasks`, or its latest
+request's context reached `runner.rotate_at_context_tokens`. A resume is never refused.
+
 `claim` samples the allowance first: past the weekly checkpoint a new claim refuses (exit 5), and at
 the 5-hour park % any claim parks the task and refuses (exit 6, §25.4).
 
@@ -68,6 +72,64 @@ def _worktree(cfg: Config, q: Path, tid: str) -> dict[str, Any] | None:
 
 STOPPED = ("draining", "stopped", "stopping")
 EXIT_AUTH = 8  # §30: an auth probe failed, so `ccp tasks claim` took no task (7 is §16.3's "carry on")
+ROTATE_AFTER_TASKS = 4  # §2.6, §8.3: `runner.rotate_after_tasks`'s default
+
+
+def _positive_int(v: Any) -> int | None:
+    try:
+        n = int(str(v).strip())
+    except (TypeError, ValueError):
+        return None
+    return n if n >= 1 else None
+
+
+def rotation_knobs(q: Path) -> tuple[int, int | None]:
+    """§8.3: the binding's `runner.rotate_after_tasks` (default 4) and `runner.rotate_at_context_tokens`
+    (default null: off)."""
+    from ccp.queue import binding_text  # noqa: PLC0415
+    rc = lib._yaml_block_scalars(binding_text(q), "runner")
+    return (_positive_int(rc.get("rotate_after_tasks")) or ROTATE_AFTER_TASKS,
+            _positive_int(rc.get("rotate_at_context_tokens")))
+
+
+def rotation_due(q: Path, slot: str, w: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    """§10.2 step 4: whether runner `slot` is due for rotation and not rotated since its spawn. Due when
+    its `tasks_done` reaches `runner.rotate_after_tasks`, or when its teammate's latest request since the
+    spawn sent `runner.rotate_at_context_tokens` or more (§24). With several runners the slot's record
+    in work.json `runners`; with one, the single-runner fields (`runner_tasks_done`, `runner_rotated_at`
+    against `runner_spawned_at`), whatever `slot` says. `team.sh runner rotate` records the rotation.
+    None when not due, or when `slot` is no recorded runner slot."""
+    from ccp.queue import runner_teammate  # noqa: PLC0415
+    w = load_work(q) if w is None else w
+    slots = runner_slots(w)
+    if slots:
+        if slot not in slots:
+            return None
+        rec = slots[slot]
+        done, spawned = int(rec.get("tasks_done") or 0), rec.get("spawned_at")
+        rotated = bool(rec.get("rotated_at"))
+        names = {str(rec.get("bound_name") or slot)}
+        cmd = f"team.sh runner rotate --slot {slot}"
+    else:
+        slot = str(w.get("runner") or "") or runner_teammate(q)
+        done, spawned = int(w.get("runner_tasks_done") or 0), w.get("runner_spawned_at")
+        rotated = bool(w.get("runner_rotated_at")) and str(w.get("runner_rotated_at")) >= str(spawned or "")
+        names = {runner_teammate(q)}
+        cmd = "team.sh runner rotate"
+    if rotated:
+        return None
+    after, at_context = rotation_knobs(q)
+    base = {"slot": slot, "tasks_done": done, "rotate_after_tasks": after, "rotate": cmd}
+    if done >= after:
+        return {**base, "trigger": "tasks", "why": f"its tasks_done {done} reached runner.rotate_after_tasks {after}"}
+    if at_context is not None:
+        from ccp import usage  # noqa: PLC0415
+        ctx = usage.runner_context(q, names, since=spawned)
+        if ctx and ctx["tokens"] >= at_context:
+            return {**base, "trigger": "context", "context_tokens": ctx["tokens"], "rotate_at_context_tokens": at_context,
+                    "why": f"its latest request's context, {ctx['tokens']} tokens, reached "
+                           f"runner.rotate_at_context_tokens {at_context}"}
+    return None
 
 
 def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
@@ -93,6 +155,11 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
             from ccp import parallel  # noqa: PLC0415
             raise QueueError(f"{holder} already holds {', '.join(map(str, mine))}: one task per runner (SPEC §16.4). "
                              "Carry on with it", parallel.EXIT_SLOTS)
+    if not resumed and (due := rotation_due(q, holder)):  # §10.2 step 4: rotation is enforced, not asked
+        from ccp import parallel  # noqa: PLC0415
+        raise QueueError(f"{due['slot']} is due for rotation: {due['why']}. It takes no new task until the lead "
+                         f"rotates it (`{due['rotate']}`): finish the current phase, write work.json and ask the "
+                         "lead to rotate you (SPEC §10.2)", parallel.EXIT_SLOTS)
     if not resumed and (gaps := sign_off_gaps(q, meta, ["brief"], text_in=cfg)):  # §3.5: brief text is signed first
         raise QueueError("claim refused, nothing taken: " + "; ".join(gaps), 3)
     from ccp import parallel, usage  # noqa: PLC0415

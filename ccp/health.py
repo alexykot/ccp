@@ -28,6 +28,9 @@ Everything comes from data the plane already holds; nothing here is a target or 
   with no end whose elapsed time reached the shell limit, started after the latest gate run that passed
   or failed, is reported as killed at the limit.
 
+- **runner rotation** (§10.2 step 4): the runner slots due for rotation and not rotated, and the ledger's
+  rotations against tasks done.
+
 - **uncovered commits** (§10.7, `ccp tasks orphans`): the commits on the integration branch's
   first-parent history since a ref that no task covers: not a task's merge (the rule above, a squash
   naming its task only as `Task NNNN: …`, the form the implementer is asked for), not a
@@ -652,6 +655,33 @@ def _queue_view(q: Path) -> dict[str, dict[str, Any]]:
     return view
 
 
+def rotation(q: Path) -> dict[str, Any]:
+    """§10.2 step 4: the runner slots due for rotation and not rotated (`lifecycle.rotation_due`), and the
+    ledger's count of rotations (`runner`/`rotate` events) against tasks done (distinct tasks moved to
+    `done`), so a runner kept past its threshold shows."""
+    from ccp.lifecycle import rotation_due  # noqa: PLC0415
+    from ccp.queue import load_work, runner_slots  # noqa: PLC0415
+    rotations, done = 0, set()
+    for ev in _jsonl(_events_path(q)):
+        if (ev.get("type"), ev.get("op")) == ("runner", "rotate"):
+            rotations += 1
+        elif ev.get("type") == "phase" and ev.get("task_id") and (ev.get("payload") or {}).get("to") == "done":
+            done.add(str(ev["task_id"]))
+    try:
+        w = load_work(q)
+    except QueueError:  # a damaged work.json never breaks health
+        w = {}
+    due = [d for s in (sorted(runner_slots(w)) or [""]) if (d := rotation_due(q, s, w))]
+    return {"rotations": rotations, "tasks_done": len(done), "due": due}
+
+
+def rotation_text(r: dict[str, Any] | None) -> list[str]:
+    if not r:
+        return []
+    return ([f"Runner rotations: {r['rotations']} against {r['tasks_done']} task(s) done"]
+            + [f"Rotation due, not rotated: {d['slot']} ({d['why']}); `{d['rotate']}`" for d in r["due"]])
+
+
 def lane_waits(q: Path) -> dict[str, list[tuple[float, float]]]:
     """Per task, its suite runs' waits on an exclusive lane (§16.6) as (start, end) epochs: a `started`
     row's `wait_s` ends at its `at` (the run's start), a `busy` row's `waited_s` at its own `at`."""
@@ -826,6 +856,7 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
             out["gate_time"] = gate_time(cfg, q) if q else None
         except Exception:  # noqa: BLE001
             out["gate_time"] = None
+        out["rotation"] = rotation(q) if q else None  # §10.2 step 4
     return out
 
 
@@ -922,5 +953,7 @@ def main(cfg: Config, a: Any) -> int:
     print(summary_text(report, 0))
     for b in report["budget_failures"]:
         print(f"Budget over: {b}")
+    for line in rotation_text(report.get("rotation")):
+        print(line)
     print(f"Friction notes on record: {report['notes']}")
     return 0

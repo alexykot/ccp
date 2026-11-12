@@ -214,8 +214,9 @@ not product work and counts with the system sink (§26.5).
 - a span `agent_id` → the run bound to it (§11); `<name>@session-…` → the teammate of that name
   (the runner, or any name a `runner` event recorded);
 - a call with no `agent_id` goes by its session's cwd: the product root is the lead's
-  (`design-seat`), a runner's merge checkout (`runner.worktree`) is that runner's, and any other cwd
-  is `other-sessions`, listed by cwd. Only `design-seat` rows feed the design-seat advice;
+  (`design-seat`), a runner's merge checkout (`runner.worktree`) is that runner's, except a headless
+  session (claude -p), which is attributed as headless, not to the runner, and any other cwd is
+  `other-sessions`, listed by cwd. Only `design-seat` rows feed the design-seat advice;
 - logs without spans fall back to a time window: a request belongs to a run when exactly one open
   run of its model and effort matches it.
 
@@ -503,6 +504,9 @@ gates nothing.
 - **From workers:** `ccp report` records the report's `Suite:` line and friction lines from the report
   itself; `ccp health record` and `note` stay for other numbers the product names in
   `architect.metrics`. Every append to `metrics.jsonl` holds `metrics.jsonl.lock`.
+- **Runner rotation** (§10.2 step 4): the runner slots whose rotation is due and not recorded, each
+  with its trigger and the rotate command, and the ledger's rotations (`runner`/`rotate` events)
+  against the tasks done (distinct tasks moved to `done`); `rotation` in `--json`.
 - **Diagnostic only.** Nothing here is a target for a worker or part of a DoD.
 
 ### 27.2 Suite series

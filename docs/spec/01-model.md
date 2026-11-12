@@ -746,6 +746,7 @@ runner:
   name: runner                                   # the teammate name asked for at a spawn; work.json `runner` binds the actual one (§16)
   worktree: /path/to/example-product/.plane-runtime/runner   # runner.worktree: with several runners, the prefix (§16)
   rotate_after_tasks: 4
+  rotate_at_context_tokens: null                 # rotation due at this request context (§10.2); null: off
   idle_block_limit: 3
 ```
 
