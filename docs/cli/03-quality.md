@@ -12,7 +12,7 @@ the working directory).
 | `ccp docs history-paths [--attr A]` | Tracked paths carrying the history attribute, one per line | Free | §21.6 |
 | `ccp architect due \| run [--mode pass\|shape] [--lens L,…] [--adr ID] [--force] [--detach] [--scope IDS] \| triage <id> [--backfill <id> <sha>] \| status` | The architect seat. Needs `QUEUE_ROOT` | `run` launches one Claude session | §19 |
 | `ccp budgets check --base REF` | House-rule budgets on the files this change grew | Free | §20.2 |
-| `ccp mutate --run RUN_ID --test ID --mutant M [--mutant M …]` | In a mutation worktree, apply each mutant (`<file>:<old>=><new>` or a patch file) alone, run plane.json `mutate.command` for the test, restore the tree and record killed or survived on the run. Needs `QUEUE_ROOT` | Runs the product's test once per mutant, plus once unmutated | §20.6 |
+| `ccp mutate --run RUN_ID --test ID [--mutant M …] [--revert PATH[:N[-M]] …]` | In the seat's `mut`, `rev` or `ver` worktree, apply each mutant (`<file>:<old>=><new>`, a patch file, or a revert to the merge base's version of a file or line range) alone, run plane.json `mutate.command` for the test (one id, which may name a single method), restore the tree and record killed or survived on the run. Needs `QUEUE_ROOT` | Runs the product's test once per mutant, plus once unmutated | §20.6 |
 | `ccp health note --text T [--task ID]` / `ccp health record --task ID --metric k=v …` | Record a worker's friction line or metric. Needs `QUEUE_ROOT` | Free | §19.6 |
 | `ccp review-points [list\|show R<n>] [--json]` | Read the register | Free, read-only | §22.8 |
 | `ccp review-points tag R<n> [ID …] [--from-work] [--dry-run]` | Attach tasks to a point (working tree only); in short, `ccp review-points tag R<n> …` | Free | §22.4 |
