@@ -26,6 +26,11 @@ The plane's dependence on GitHub for pull requests is stated up front now, and t
   not GitHub, since review, merge and close need a GitHub origin until ADR-0040's adapter exists.
   This is a section 31.1 text change describing the task's own feature, so no operator approval.
   Quote the new sentence in the PR body (and say it adds text, replacing none).
+- Ruling, gate 0077-adr-the-pr-host-is-an-adapter-1 (operator, in the lead session, 2026-11-12:
+  'approve ADR-0040 and 0077's section 4.5 change'): set ADR-0040 to accepted with
+  `ccp adr status 40 accepted`, deciders staying operator, its decisions left not_built (no
+  `ccp adr decide`); regenerate the ADR index; change nothing else. Update the PR body's line on the
+  ADR status from proposed to accepted.
 
 ## Scope
 
@@ -77,6 +82,12 @@ The plane's dependence on GitHub for pull requests is stated up front now, and t
   adapter exists. It adds text and replaces none (§31.1: it describes this task's own feature). The
   frontmatter `paths` is left as written (it does not list `docs/spec/`); code and tests are
   unchanged, as the ruling asks only for the SPEC text.
+- 2026-11-12 (implementer, ruling round 2): the operator approved ADR-0040 and the §4.5 sentence
+  at gate 0077-adr-the-pr-host-is-an-adapter-1, so ADR-0040 is set `accepted` with
+  `ccp adr status` (the note cites the gate), deciders operator. The command wrote its decisions
+  D1-D7 as `not_built` and updated the ADR index; none is decided, as nothing is built yet.
+  check-02's "the ADR is `proposed`" described the PR before the gate; the ruling supersedes it
+  (flagged in the report). Code, tests and SPEC are unchanged.
 
 ## Verification notes
 

@@ -1,13 +1,22 @@
 ---
 id: ADR-0040
 title: "The PR host is an adapter"
-status: proposed
+status: accepted
 date: "2026-11-12"
 deciders: operator
 spec_refs: [S10, S15, S29]
 notes: |-
   Proposed with task 0077, from an accepted plane proposal taken as a design item: the operator
   decides it; the tasks that build its adapters follow its acceptance.
+  2026-11-12: status proposed → accepted: Accepted by the operator at gate 0077-adr-the-pr-host-is-an-adapter-1 (2026-11-12, in the lead session: 'approve ADR-0040 and 0077's section 4.5 change'). Its decisions stay not_built until the adapter tasks build them.
+decisions:
+  - "D1 not_built"
+  - "D2 not_built"
+  - "D3 not_built"
+  - "D4 not_built"
+  - "D5 not_built"
+  - "D6 not_built"
+  - "D7 not_built"
 ---
 # ADR-0040 — The PR host is an adapter
 
