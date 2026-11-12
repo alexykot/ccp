@@ -15,7 +15,7 @@ from unittest import mock
 
 from ccp import cli, config
 from tests.helpers import Product
-from tests.test_notify import PLANE, ChannelFixture, sent
+from tests.test_notify import PLANE, ChannelFixture
 from tests.test_toolkit import ToolkitFixture
 
 LEAD = {"tool": "mail-send", "to": "operator@example.invalid"}
@@ -238,14 +238,15 @@ class LeadConfig(unittest.TestCase):
 
     def test_a_lead_channel_needs_exactly_a_tool_and_a_to(self):
         for bad in ({"tool": "x"}, {"to": "y"}, {"tool": "x", "to": "y", "cc": "z"}, {"tool": "", "to": "y"},
-                    {"tool": "x", "to": " "}, {"tool": 3, "to": "y"}, {"tool": "x", "to": "a\nb"}, "mail", []):
+                    {"tool": "x", "to": " "}, {"tool": 3, "to": "y"}, {"tool": "x", "to": "a\nb"}, {"tool": "x\r", "to": "y"},
+                    {"tool": "x", "to": "a\rb"}, "mail", []):
             with self.subTest(bad=bad), self.assertRaisesRegex(config.ConfigError, r"notify\.lead"):
                 self.load({"lead": bad})
         self.assertEqual(self.load({"lead": {"tool": "x", "to": "y"}}).notify["lead"], {"tool": "x", "to": "y"})
         self.assertIsNone(self.load({"command": "notify-me"}).notify["lead"])
 
     def test_tasks_check_refuses_a_malformed_lead_channel_by_name(self):
-        for bad in ({"tool": "x"}, {"tool": "x", "to": "y", "channel": "z"}):
+        for bad in ({"tool": "x"}, {"tool": "x", "to": "y", "channel": "z"}, {"tool": "x", "to": "a\rb"}):
             p = Product({"notify": {"lead": bad}})
             self.addCleanup(p.cleanup)
             out, err = io.StringIO(), io.StringIO()
@@ -282,8 +283,7 @@ class Gates(unittest.TestCase):
         (self.q / "project.yaml").write_text(f"project_id: demo\nproduct_root: {self.prod.root}\n")
         (self.q / "work.json").write_text(json.dumps({"project_id": "demo", "status": "idle"}))
         (self.q / "tasks/0001-a.json").write_text(json.dumps({"task_id": "0001-a", "waiting_on": None}))
-        self.out = Path(tmp.name) / "notified.txt"
-        self.env = {**os.environ, "QUEUE_ROOT": str(self.q), "NOTIFY_OUT": str(self.out)}
+        self.env = {**os.environ, "QUEUE_ROOT": str(self.q)}
         self.env.pop("PROJECT_YAML", None)
 
     def run_script(self, *argv: str) -> subprocess.CompletedProcess:
@@ -302,7 +302,9 @@ class Gates(unittest.TestCase):
                                                 "id": eid, "reason": ""})])
         self.assertIn("[demo] decision: 0001-a", r.stderr)
         self.assertNotIn("paid cycle", r.stderr)
-        self.assertEqual(sent(self.out), [])  # no command: nothing ran
+        # no command: the notice is left to the lead, with its tool and the call that records the send
+        self.assertIn("channel: the lead sends it with mail-send to operator@example.invalid", r.stderr)
+        self.assertIn(f"ccp notify sent decision --task 0001-a --id {eid} --via lead", r.stderr)
 
     def test_a_needs_operator_answer_records_one_pending_decision(self):
         r = subprocess.run(["bash", str(PLANE / "scripts/spec-maintainer-ask.sh"), "raise", "--raised-by", "task-runner",
