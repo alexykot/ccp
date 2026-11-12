@@ -241,7 +241,9 @@ SUITE_SUMMARY_ALIASES = {"modules_ran_re": "ran_re", "modules_cached_re": "cache
 # reviewer's touched and dependent modules (its order and mutation runs stay uncached).
 # `skip_review` (null = off, §15.2): a fix round whose diff touches only `paths` (relative to the product
 # root) and that the product's `proof` command passes (exit 0) goes to verify with no new review.
-VERIFY_DEFAULTS: dict[str, Any] = {"accept_cache": None, "skip_review": None}
+# `skip_review_after_clean` (false = off, §15.2): a fix round after a review with no BLOCKER or MAJOR
+# finding goes to verify with no new review; the verifier confirms it answers only those findings.
+VERIFY_DEFAULTS: dict[str, Any] = {"accept_cache": None, "skip_review": None, "skip_review_after_clean": False}
 ACCEPT_CACHE_DEFAULTS: dict[str, Any] = {"max_age_days": None, "cold_tasks": [], "review": False}
 SKIP_REVIEW_KEYS = {"paths", "proof"}
 SKIP_REVIEW_FIELDS = ("task_id", "reviewed", "head", "from")
@@ -930,6 +932,8 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 bad += _every_path("verify.skip_review.paths", sr["paths"])
             if not (isinstance(sr["proof"], str) and sr["proof"].strip()):
                 bad.append("verify.skip_review.proof must be a shell command (exit 0 = the fix is proven)")
+    if not isinstance(out["verify"]["skip_review_after_clean"], bool):
+        bad.append("verify.skip_review_after_clean must be true or false")
     mu = out["mutate"]
     if not _opt_str(mu["command"]):
         bad.append("mutate.command must be a shell command naming {test}, or null for none")

@@ -41,7 +41,10 @@ of them.
 of a head other than the one that review judged (§15.2, the runner brief's step 7), unless the open
 verify run carries the override `ccp prompt verify --allow-unreviewed-fix` recorded, or the skip
 `skip_review` proved for that head: a product with `verify.skip_review` lets a fix whose diff touches only
-the declared paths, and that the product's proof command passes, go to verify with no new review.
+the declared paths, and that the product's proof command passes, go to verify with no new review. A
+product with `verify.skip_review_after_clean` lets the fix round after a clean review (no BLOCKER or MAJOR
+finding) go to verify with no new review, the skip recorded as `minor-only` at the verify run's head; the
+verifier confirms the fix answers only that review's findings (`skip_after_clean`).
 
 Under `adr.strict`, `record` also refuses an approve of a head on which a decision the task's `adr_refs`
 cite is still recorded `not_built` (§6.7's in-force check, run before the verdict rather than only once
@@ -511,10 +514,14 @@ def review_errors(queue: Path, rec: dict[str, Any]) -> list[str]:
     if why is None or (run is not None and run.get("allow_unreviewed_fix")):
         return []
     skipped = (run or {}).get("review_skip") or {}
-    if skipped and heads_match(str(skipped.get("head") or ""), str(rec.get("head_sha") or "").strip()):
+    judged = str(rec.get("head_sha") or "").strip()
+    if skipped and heads_match(str(skipped.get("head") or ""), judged):
         return []  # §15.2: this verify run's head is a fix the product's proof passed, within verify.skip_review.paths
+    if skipped.get("reason") == "minor-only" and heads_match(str((run or {}).get("head") or ""), judged):
+        return []  # §15.2: this verify run's head is a fix of a clean review's minor findings (skip_review_after_clean)
     return [f"{why}; an approve stands only when `ccp prompt verify --allow-unreviewed-fix --reason` recorded "
-            "the override on this verify run, or verify.skip_review proved this head's fix"]
+            "the override on this verify run, or verify.skip_review proved this head's fix, "
+            "or verify.skip_review_after_clean took it as a fix of a clean review's minor findings"]
 
 
 def adr_errors(cfg: Config, rec: dict[str, Any]) -> list[str]:
@@ -606,6 +613,52 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
         return None, ("the proof (verify.skip_review.proof) "
                       + (f"timed out after {PROOF_TIMEOUT}s" if code is None else f"exited {code}"))
     return {"reviewed": reviewed, "head": head, "fix": str(fixes[-1]["run_id"]), "files": len(files)}, ""
+
+
+MINOR_SEVERITIES = ("MINOR", "NIT")  # §15.2: the findings below MAJOR, as the review's Severity line counts them
+
+
+def skip_after_clean(cfg: Config, queue: Path, task_id: str, head: str) -> tuple[dict[str, Any] | None, str]:
+    """§15.2: may a verify of `head` skip the review of a fix round that answers only the minor findings
+    of a clean review? Only with plane.json `verify.skip_review_after_clean` on, when the task's latest
+    review run that reported done recorded no BLOCKER or MAJOR finding and at least one below them, a fix
+    run (not abandoned; a merge or ruling round counts as one, §13.2) opened since and reported its head,
+    `head` is that head, and no verify run since the review rejected (a reject sends the task back to
+    review). Returns what to record on the verify run, `{reason: "minor-only", review_run, findings}`
+    (the counts below MAJOR), or None and why not ("" when the setting is off or there is no fix to judge)."""
+    from ccp import runs  # noqa: PLC0415
+
+    if not (cfg.verify or {}).get("skip_review_after_clean"):
+        return None, ""
+    rs = [r for r in runs.all_runs(queue, task_id) if runs.state(r) != "abandoned"]
+    reviews = [r for r in rs if r.get("phase") == "review" and runs.state(r) == "reported" and r.get("outcome") == "done"]
+    if not reviews:
+        return None, ""
+    last = reviews[-1]
+    since = str(last.get("opened_at") or "")
+    fixes = [r for r in rs if r.get("phase") in runs.REWORK_PHASES and str(r.get("opened_at") or "") >= since]
+    if not fixes:
+        return None, ""
+    sev = last.get("severity")
+    if not isinstance(sev, dict):
+        return None, f"the last review {last['run_id']} recorded no Severity counts"
+    above = {k: int(sev.get(k) or 0) for k in ("BLOCKER", "MAJOR")}
+    if any(above.values()):
+        return None, (f"the last review {last['run_id']} found " + ", ".join(f"{n} {k}" for k, n in above.items() if n))
+    findings = {k: int(sev.get(k) or 0) for k in MINOR_SEVERITIES}
+    if not any(findings.values()):
+        return None, f"the last review {last['run_id']} found nothing for a fix round to answer"
+    rejected = [r for r in rs if r.get("phase") == "verify" and r.get("verdict") == "reject"
+                and str(r.get("opened_at") or "") >= since]
+    if rejected:
+        return None, f"{rejected[-1]['run_id']} rejected since the last review: the task goes back to review"
+    fix = fixes[-1]
+    fixed = str(fix.get("head") or "").strip()
+    if runs.state(fix) != "reported" or not fixed:
+        return None, f"{fix['run_id']} has reported no head"
+    if not heads_match(fixed, head.strip()):
+        return None, f"head {head.strip()[:12]} is not {fixed[:12]}, the head {fix['run_id']} reported"
+    return {"reason": "minor-only", "review_run": str(last["run_id"]), "findings": findings}, ""
 
 
 def repeat_round(queue: Path, task_id: str) -> str | None:

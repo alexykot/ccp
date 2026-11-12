@@ -11,7 +11,9 @@ file's text, verbatim. The runner never passes `model` (§2). First it samples t
 Besides implement, fix, review and verify, a merge round only merges the integration tip into the task
 branch and a ruling round only applies a lead's ruling (its `--note`); review and verify treat their heads
 as a fix round's (§13.2). A verify of a fix round that no review has seen is refused, exit 4, nothing
-opened, unless the product's `verify.skip_review` proves the fix or the lead's word overrides it (§15.2).
+opened, unless the product's `verify.skip_review` proves the fix, its `verify.skip_review_after_clean` takes
+it as the fix of a clean review's minor findings (the verify prompt lists them), or the lead's word
+overrides it (§15.2).
 A verify round with no fix round since the task's last verify round needs `--note` with the reason
 (§15.6 rule 4): without it the command refuses, exit 4, nothing opened. A verify of a head that lacks the
 integration tip, beyond the task log and `merge.behind_tip_ignore`, refuses the same way, with one runner
@@ -282,7 +284,8 @@ def prune_audits(q: Path, cfg: Config, now: datetime | None = None) -> int:
 def review_gate(cfg: Config, q: Path, tid: str, phase: str,
                 a: Any) -> tuple[dict[str, str] | None, dict[str, Any] | None]:
     """§15.2: a verify of a head with a fix round after the last review is refused (exit 4), unless the
-    product's `verify.skip_review` proves the fix, or the runner passes `--allow-unreviewed-fix --reason "<the
+    product's `verify.skip_review` proves the fix, its `verify.skip_review_after_clean` takes it as a fix of
+    a clean review's minor findings, or the runner passes `--allow-unreviewed-fix --reason "<the
     lead's or the operator's words>"`. The override, when given, is taken and recorded as is, and no proof
     runs. Returns what to record on the run: the override (a friction note and a ledger event) and the
     proven skip, each None when it does not apply."""
@@ -301,13 +304,31 @@ def review_gate(cfg: Config, q: Path, tid: str, phase: str,
         skipped, unproven = verify.skip_review(cfg, q, tid, a.head, a.pr)
         if skipped:
             return None, skipped
+        skipped, unclean = verify.skip_after_clean(cfg, q, tid, a.head)
+        if skipped:
+            return None, skipped
         no_skip = f" (verify.skip_review does not apply: {unproven})" if unproven else ""
+        no_skip += f" (verify.skip_review_after_clean does not apply: {unclean})" if unclean else ""
         raise QueueError(f"{why}{no_skip}. Override once, on the lead's or the operator's word: "
                          '--allow-unreviewed-fix --reason "<their words>"', 4)
     from ccp import health  # noqa: PLC0415
     if health.looks_like_secret(reason):
         raise QueueError("--reason looks like it holds a secret; say it without the value", 2)
     return {"reason": reason, "was": why}, None
+
+
+def minor_only(q: Path, skipped: dict[str, Any] | None) -> dict[str, Any]:
+    """§15.2: the verify prompt's view of a `minor-only` review skip (`verify.skip_review_after_clean`): the
+    clean review it follows, the head that review judged, its report, and its findings below MAJOR. Empty
+    values when this verify follows no such skip."""
+    if not skipped or skipped.get("reason") != "minor-only":
+        return {"minor_only": False, "minor_review_run": "", "minor_reviewed": "", "minor_review_report": "",
+                "minor_findings": ""}
+    rid = str(skipped["review_run"])
+    rev = runs.load(q, rid)
+    return {"minor_only": True, "minor_review_run": rid, "minor_reviewed": str(rev.get("head") or ""),
+            "minor_review_report": str(runs.report_path(q, rid)),
+            "minor_findings": ", ".join(f"{k}={n}" for k, n in skipped["findings"].items())}
 
 
 def repeat_gate(q: Path, tid: str, phase: str, note: str | None) -> dict[str, str] | None:
@@ -443,6 +464,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         # §15.2: the fail-fast pre-gate names the product's house-rule checks
         "architect_checks": ", ".join(f"`{c['cmd']}`" for c in (cfg.architect or {}).get("checks") or []),
         "budgets": bool((cfg.architect or {}).get("budgets")),  # §20.2: `ccp budgets check` in the gates
+        **minor_only(q, skipped),  # §15.2: a fix of a clean review's minor findings, verified with no new review
     }
     body = render((TEMPLATES / f"{phase}.md").read_text(), values).rstrip() + "\n\n" \
         + render((TEMPLATES / "_common.md").read_text(), values).rstrip() + "\n"
