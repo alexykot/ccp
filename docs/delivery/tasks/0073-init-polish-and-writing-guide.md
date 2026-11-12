@@ -1,7 +1,7 @@
 ---
 task_id: 0073-init-polish-and-writing-guide
 title: ccp init writes a tidy adoption, and the writing guide states the rules tasks check enforces
-status: pending
+status: done
 kind: chore
 depends_on: []
 spec_refs: ["S4", "S5", "S8"]
@@ -89,4 +89,4 @@ Every product runs `ccp init` once and `ccp tasks check` constantly; small frict
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #78 head `159dcc4` (squash `ef22273`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0073-init-polish-and-writing-guide.json.
