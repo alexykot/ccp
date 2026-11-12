@@ -65,6 +65,9 @@ A product adopting with ADRs already tagged with review points is told it has no
   register warning for an ADR with `review_points: [R1]`, and `ccp docs check` reported
   `notes: no .claude.md` for a `.md`-only `notes/`; on the head the first warns naming ADR-0001 and
   the second reports only the code directory.
+- 2026-11-12 (implementer, second run): SPEC §6.7 lists the new warning under "Always warnings",
+  where `ccp adr check`'s findings are enumerated. Re-ran the two new tests against the merge-base
+  code: both fail there (no register warning; `notes` and `notes/deeper` reported), pass on the head.
 
 ## Verification notes
 
