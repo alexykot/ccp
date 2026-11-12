@@ -24,6 +24,8 @@ don't redesign around it.
   it: update it in the same PR.
 - A test that fails under load (other suites or runners sharing the machine) is rerun alone before
   you call it a finding, yours or one that predates your change.
+- After you merge the integration branch in, or change code, take the part lane's test modules from
+  `ccp suite affected` (`--since <ref>` for what a merge brought in), not from a guess at their names.
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
   the merge base and go by what it says, not by the number.
 - Work only in the worktree your prompt names, on its `task/<task_id>` branch.

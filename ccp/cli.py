@@ -38,6 +38,7 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--full | --summary] [--log PATH] [-- COMMAND …] | list [--task ID]
             (every test run: the exit code passes through, the output goes to a log and a summary is
             printed (--full streams it), the time and counts are recorded)
+  ccp suite affected [--since REF | --paths PATH …]  (the test modules a change touches, one per line, SPEC §14.7)
   ccp notify render TRIGGER [--task ID] [--id ID] [--reason R] [--json] | pending
             | sent TRIGGER [--task ID] [--id ID] --via command|lead [--note T]  (the operator's notices, SPEC §3.6)
   ccp plane propose --need T --generic T [--task ID] [--workaround T] [--frequency F] | propose --again ID
@@ -843,6 +844,11 @@ def _suite_list(cfg: config.Config, a: argparse.Namespace):
     return suite.listing(cfg, a)
 
 
+def cmd_suite_affected(cfg: config.Config, a: argparse.Namespace) -> int:
+    from ccp import suite  # noqa: PLC0415
+    return suite.main_affected(cfg, a)
+
+
 def _mutate(cfg: config.Config, a: argparse.Namespace):
     from ccp import mutate, wt  # noqa: PLC0415
     return mutate.run(cfg, wt._queue_root(), a.run, a.test, a.mutant or [], reverts=a.revert or [])
@@ -1067,6 +1073,13 @@ def build_parser() -> argparse.ArgumentParser:
     p = su.add_parser("list", help="the recorded suite runs and their totals per run and per task (JSON)")
     p.add_argument("--task", help="only this task's")
     p.set_defaults(fn=_toolkit(_suite_list))
+    p = su.add_parser("affected", help="the test modules a change touches, one per line, for the part lane; runs "
+                                       "nothing (SPEC §14.7)")
+    ch = p.add_mutually_exclusive_group()
+    ch.add_argument("--since", metavar="REF", help="the change: what git diff REF names against the working tree, "
+                                                   "plus untracked files (default: HEAD)")
+    ch.add_argument("--paths", nargs="+", metavar="PATH", help="the change: these paths, relative to the product root")
+    p.set_defaults(fn=cmd_suite_affected)
 
     p = sub.add_parser("mutate", help="does a test bite: apply each mutant in the seat's mut, rev or ver worktree, "
                                       "run the named test, record killed or survived on the run (SPEC §20.6; needs "
