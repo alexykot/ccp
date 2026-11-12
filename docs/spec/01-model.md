@@ -380,7 +380,10 @@ It keeps a file that already exists and lists it as kept, unless given `--force`
 changes nothing. It refuses, writing nothing, when keeping would leave the product inconsistent: a
 `plane.json` naming another project id, a binding for the id naming another product root or another
 `--queue-root`, or a `.claude/settings.json` that is not a JSON object. The product commits what it
-wrote, and adds its own worktree and environment hooks to `plane.json` (§12).
+wrote, and adds its own worktree and environment hooks to `plane.json` (§12). It warns, on stderr
+and in its result's `warnings`, when the product has no `origin` or its origin is not on GitHub, and
+adopts it all the same: review, merge and close need a GitHub origin until the PR host adapter of
+ADR-0040 exists.
 
 - **The adoption checklist.** The plane's README lists each `plane.json` key a product may need beyond
   the minimal file, with what it is for and when a product needs it.

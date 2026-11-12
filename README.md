@@ -68,7 +68,12 @@ pass that reviews the product's structure. The **operator** is you.
 - **Claude Code agent teams**: experimental and off by default; CCP needs them. They are turned on
   with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, which step 2 puts in the product's
   `.claude/settings.json`.
-- The GitHub CLI `gh`, logged in (`gh auth login`): the runner merges through pull requests.
+- **A GitHub origin** for the product and the GitHub CLI `gh`, logged in (`gh auth login`): every
+  task lands as a pull request on GitHub. `ccp verify merge-ok`, the default merge and merge
+  confirmation of `ccp tasks close`, and the workers' `gh pr` steps (the implementer's PR, review,
+  verify) need both; `ccp init` warns when the origin is missing or not on GitHub. Other git hosts
+  are the subject of [ADR-0040](docs/adr/0040-the-pr-host-is-an-adapter.md), the PR host as an
+  adapter.
 - macOS, only for the optional telemetry and board (local dashboard) services (they install launchd
   agents).
 
@@ -114,6 +119,8 @@ plugin and `ccp`." Outside the repository it writes the binding, `$PLANE/project
 and creates the queue, `~/.delivery-queue/my-product/` (`--queue-root` picks another).
 
 - Put your own test command in `--gate`; the example is Python's.
+- It warns on stderr, and lists in `warnings`, when the product's `origin` is missing or not on
+  GitHub (see the prerequisites); it adopts the product all the same.
 - It never overwrites a file without `--force`: it keeps the file and lists it as kept, so running it
   again is safe.
 - The binding is the one place for the product root, the queue and the runner: edit it there, and
