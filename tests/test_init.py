@@ -316,6 +316,72 @@ class Refusals(InitCase):
         self.assertFalse((self.home / "q #2").exists())
 
 
+class GithubOrigin(InitCase):
+    """ADR-0040 D7: pull requests need a GitHub origin; init warns, naming the commands, and adopts anyway."""
+
+    def adopt(self):
+        r = self.ccp("init", "--project-id", "demo")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((self.repo / "docs/delivery/plane.json").is_file())
+        return json.loads(r.stdout), r.stderr
+
+    def assert_warns(self, res, err):
+        self.assertEqual(len(res["warnings"]), 1)
+        for text in (res["warnings"][0], err):
+            self.assertIn("GitHub", text)
+            for command in ("ccp verify merge-ok", "ccp tasks close", "gh pr"):
+                self.assertIn(command, text)
+
+    def test_a_local_bare_origin_is_warned_about(self):
+        bare = self.repo.parent / "bare.git"
+        self.git("init", "-q", "--bare", str(bare))
+        self.git("remote", "add", "origin", str(bare))
+        self.assert_warns(*self.adopt())
+
+    def test_no_origin_is_warned_about(self):
+        res, err = self.adopt()
+        self.assert_warns(res, err)
+        self.assertIn("no origin", err)
+
+    def test_an_origin_on_another_host_is_named_without_its_credentials(self):
+        self.git("remote", "add", "origin", "https://someone:s3cret@git.example.org/team/repo.git")
+        res, err = self.adopt()
+        self.assert_warns(res, err)
+        self.assertIn("git.example.org", err)
+        self.assertNotIn("s3cret", err + json.dumps(res))
+
+    def test_a_github_origin_is_not_warned_about(self):
+        self.git("remote", "add", "origin", "https://example.invalid/placeholder.git")
+        for url in ("https://github.com/team/repo.git", "git@github.com:team/repo.git",
+                    "ssh://git@ssh.github.com:443/team/repo.git"):
+            with self.subTest(url=url):
+                self.git("remote", "set-url", "origin", url)
+                res, err = self.adopt()
+                self.assertNotIn("warnings", res)
+                self.assertNotIn("warning", err)
+
+
+class OriginHost(InitCase):
+    def host(self, url):
+        self.git("remote", "add", "origin", url)
+        try:
+            return ccp_init.origin_host(self.repo)
+        finally:
+            self.git("remote", "remove", "origin")
+
+    def test_the_host_of_each_url_form(self):
+        self.assertIsNone(ccp_init.origin_host(self.repo))
+        for url, host in (("https://GitHub.com/o/r", "github.com"), ("git@github.com:o/r.git", "github.com"),
+                          ("github.com:o/r", "github.com"), ("ssh://git@gitlab.example:2222/o/r", "gitlab.example"),
+                          ("/srv/git/r.git", ""), ("../r.git", ""), ("file:///srv/git/r.git", ""),
+                          ("notgithub.com:o/r", "notgithub.com")):
+            with self.subTest(url=url):
+                self.assertEqual(self.host(url), host)
+        self.assertTrue(ccp_init.is_github("ssh.github.com"))
+        for host in (None, "", "notgithub.com", "github.com.example"):
+            self.assertFalse(ccp_init.is_github(host), host)
+
+
 class OneBinding(InitCase):
     """§8.3: a binding edit reaches every reader; the queue holds no copy."""
 

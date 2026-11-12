@@ -13,6 +13,10 @@ not loading, a binding for the id that names another product root, or a settings
 JSON object. It also refuses, writing nothing, a `--gate` it cannot split and a product root or
 queue path holding `#`, which every binding reader cuts off as a comment.
 
+Pull requests need a GitHub origin until the PR host is an adapter (ADR-0040 D7): when the product
+has no `origin`, or its host is not GitHub, init warns on stderr and in the result's `warnings`,
+naming the commands that need one, and adopts the product all the same.
+
 With `--permissions` it writes nothing: in an adopted product it prints the runner's and workers'
 permission allowlist and a deny list for destructive commands, as a JSON `permissions` block for the
 operator to apply to `.claude/settings.json` (§4.5, §18.5).
@@ -27,7 +31,9 @@ from __future__ import annotations
 import json
 import re
 import shlex
+import subprocess
 import sys
+from urllib.parse import urlsplit
 from pathlib import Path
 from typing import Any
 
@@ -71,6 +77,9 @@ GIT_VERBS = ("add", "branch", "commit", "diff", "fetch", "log", "ls-files", "mer
              "rev-parse", "show", "status", "worktree")
 DENY = ("git push --force", "git push --force-with-lease", "git push -f", "git reset --hard", "git clean",
         "git branch -D", "git stash", "git checkout --", "git restore", "rm -rf", "gh repo delete")
+# ADR-0040 D7: what needs a GitHub origin and a logged-in `gh` until the PR host is an adapter.
+GITHUB_ONLY = ("ccp verify merge-ok", "ccp tasks close (its default merge and its merge confirmation)",
+               "the workers' `gh pr` steps (the implementer's PR, review and verify)")
 # The init flags that write: `--permissions` writes nothing, so it refuses them.
 WRITING_FLAGS = (("--project-id", "project_id"), ("--queue-root", "queue_root"),
                  ("--integration-branch", "integration_branch"), ("--gate", "gate"),
@@ -93,6 +102,33 @@ def _paragraph_break(text: str) -> str:
     if not text.strip() or not lines[-1].strip():
         return "" if not text or text.endswith("\n") else "\n"
     return "\n" if text.endswith("\n") else "\n\n"
+
+
+def origin_host(root: Path) -> str | None:
+    """The host of the product's `origin` URL (lowercased), "" for a local path or a URL with none,
+    None when there is no origin. Only the host is kept: a URL may carry credentials."""
+    r = subprocess.run(["git", "-C", str(root), "remote", "get-url", "origin"], capture_output=True, text=True)
+    url = r.stdout.strip()
+    if r.returncode != 0 or not url:
+        return None
+    if "://" in url:
+        return (urlsplit(url).hostname or "").lower()
+    scp = re.match(r"^(?:[^@/:]+@)?([^/:]+):", url)  # git's scp-like form: a colon before any slash
+    return scp.group(1).lower() if scp and len(scp.group(1)) > 1 else ""
+
+
+def is_github(host: str | None) -> bool:
+    return host is not None and (host == "github.com" or host.endswith(".github.com"))
+
+
+def github_warning(root: Path) -> str | None:
+    """ADR-0040 D7: the warning init gives when the product's origin is missing or not on GitHub."""
+    host = origin_host(root)
+    if is_github(host):
+        return None
+    where = "has no origin" if host is None else (f"has its origin on {host}" if host else "has a local origin")
+    return (f"pull requests need a GitHub origin and a logged-in `gh`, and this product {where}: "
+            f"{'; '.join(GITHUB_ONLY)} will fail until it has one (ADR-0040)")
 
 
 def binding_text(project_id: str, product_root: Path, queue_root: Path, branch: str) -> str:
@@ -234,6 +270,10 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
 
     put(binding, binding_text(pid, product_root, q, branch or "main"), "binding")
     q.mkdir(parents=True, exist_ok=True)
+
+    warning = github_warning(product_root)
+    if warning:
+        out["warnings"] = [warning]
 
     cfg = config.load(root)
     if cfg.task_log.get("index", True) and (force or not (root / cfg.task_log["dir"] / "INDEX.yaml").exists()):
@@ -396,5 +436,7 @@ def main(root_arg: str | None, a: Any) -> int:
     except QueueError as e:
         print(str(e), file=sys.stderr)
         return e.code
+    for w in res.get("warnings", []):
+        print(f"ccp init: warning: {w}", file=sys.stderr)
     print(json.dumps(res))
     return 0
