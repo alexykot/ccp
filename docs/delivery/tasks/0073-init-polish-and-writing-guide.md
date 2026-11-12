@@ -20,6 +20,15 @@ Every product runs `ccp init` once and `ccp tasks check` constantly; small frict
 ## Context (not checked)
 
 - Accepted plane proposals from an adoption trial and a delivered task's review.
+- Ruling sm-20261112T113121Z-f073 (lead, commit 11381a4): Build the Scope item. tasks check and
+  tasks index do not print the estimates note while estimate.auto is off. Correct SPEC 26.3
+  (docs/spec/04-observability.md) to say 'with estimate.auto on, they name the tasks that need an
+  estimate': a section 31.1 correction of text the change makes false, so no gate. Edit
+  ccp/estimator.py (notice returns nothing when estimate.auto is off) and update the pin in
+  tests/test_estimator.py (test_auto_is_off_by_default_and_only_notes) to the new behaviour, with a
+  test for both auto on and auto off. Both files are outside the task's declared paths: list
+  ccp/estimator.py, tests/test_estimator.py (and docs/spec/04-observability.md, and ccp/cli.py if
+  you touch it) in the PR body as outside the declared paths.
 
 ## Scope
 
@@ -67,6 +76,16 @@ Every product runs `ccp init` once and `ccp tasks check` constantly; small frict
   writes under the run checkout's gitignored `projects/` is local configuration, not an edit of the
   clone. The estimates-note item was not built: it contradicts SPEC §26.3 as written (see the report's
   open question).
+
+- 2026-11-12 (ruling sm-20261112T113121Z-f073): the estimates-note item is built.
+  `estimator.notice` returns nothing while `estimate.auto` is off (checked before the stale scan),
+  so `ccp tasks check` and `ccp tasks index` print no estimates note then; with it on, the note and
+  the detached launch are as before. SPEC §26.3 now says that with `estimate.auto` on they name the
+  tasks that need an estimate (a §31.1 correction of text the change made false). The pinned test
+  became `test_auto_is_off_by_default_and_says_nothing`, beside a new auto-on note test, and the
+  `tasks check` note test now turns `estimate.auto` on and checks there is no note with it off. The
+  same sentence in `docs/design/allowance.md` and `ccp/estimator.py`'s module docstring was
+  corrected likewise, since the change made it false.
 
 ## Verification notes
 

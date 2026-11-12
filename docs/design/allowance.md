@@ -168,9 +168,9 @@ baseline, no accuracy rule and nothing that gates.
   estimates them one at a time, at most N per batch (default 10; the rest are reported as
   deferred), under `QUEUE_ROOT/estimator.lock`; `--detach` runs that batch in its own session and
   returns; `--dry-run` renders the prompts and calls nothing; `--print-prompt ID` prints one
-  prompt; `--force` re-estimates. `ccp tasks check` and `ccp tasks index` (run after a task is
-  written) print one note naming the tasks that need an estimate. **`plane.json estimate.auto`**
-  (default `false`, until the operator enables it): with it on they also start `--all` detached, unless a
+  prompt; `--force` re-estimates. **`plane.json estimate.auto`** (default `false`, until the
+  operator enables it): with it on, `ccp tasks check` and `ccp tasks index` (run after a task is
+  written) print one note naming the tasks that need an estimate and also start `--all` detached, unless a
   batch is running or the checkout is a linked worktree (a verifier's: the
   main checkout's task files are the ones estimated). The note and the launch never block the
   command or change its exit code.

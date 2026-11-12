@@ -251,14 +251,21 @@ class Triggers(Base):
         self.assertEqual(self.run_(["0005"])["tasks"][0]["action"], "written")
         self.assertEqual(self.run_(["0005"])["tasks"][0]["action"], "unchanged")
 
-    def test_auto_is_off_by_default_and_only_notes(self):
+    def test_auto_is_off_by_default_and_says_nothing(self):
         self.assertIs(self.p.cfg.estimate["auto"], False)
+        self.assertEqual(len(estimator.stale(self.p.cfg, self.q)), 2)  # tasks need an estimate all the same
         with mock.patch.object(estimator, "spawn") as sp:
             lines = estimator.notice(self.p.cfg, self.q)
         sp.assert_not_called()
+        self.assertEqual(lines, [])
+
+    def test_auto_on_names_the_tasks_that_need_an_estimate(self):
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "estimate": {"auto": True}}))
+        with mock.patch.object(estimator, "_linked_worktree", return_value=False):
+            lines = estimator.notice(self.p.cfg, self.q)
         self.assertEqual(len(lines), 1)
-        self.assertIn("2 open task(s) without a current agent estimate", lines[0])
-        self.assertIn("estimate.auto is off", lines[0])
+        self.assertIn("estimates: 2 open task(s) without a current agent estimate (0004, 0005)", lines[0])
+        self.assertIn("not started (CCP_NO_ESTIMATOR_SPAWN)", lines[0])
 
     def test_auto_on_starts_one_detached_batch_and_never_two(self):
         self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "estimate": {"auto": True}}))
@@ -286,7 +293,11 @@ class Triggers(Base):
             o = io.StringIO()
             with mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)}), redirect_stdout(o), redirect_stderr(io.StringIO()):
                 return cli.main(["--root", str(self.p.root), "tasks", "check"]), o.getvalue()
+        off_code, out = check()
+        self.assertNotIn("estimates:", out)  # estimate.auto is off by default: no note
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "estimate": {"auto": True}}))
         code, out = check()
+        self.assertEqual(code, off_code)
         self.assertIn("note: estimates: 2 open task(s)", out)
         with mock.patch.object(estimator, "notice", return_value=[]):
             self.assertEqual(check()[0], code)  # the note never changes the exit code
