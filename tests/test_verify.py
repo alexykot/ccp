@@ -1,6 +1,7 @@
 """The verifier's record and the runner's merge gate (SPEC §15.3), and the re-verify packet."""
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import os
@@ -121,6 +122,50 @@ class MergeGate(unittest.TestCase):
         self.assertIn("head_sha", verifier)
         self.assertIn("contracts/reverify_packet.schema.json", verifier)
         self.assertIn("contracts/reverify_packet.example.json", verifier)
+
+
+# The record contract's keys at each schema version. A version's keys never change once released: a
+# key added at any depth goes in under a new version, with verify.RECORD_VERSION raised to it and the
+# new version's digest pinned, so an older reader knows the record is newer and passes over the key.
+KEYS_AT = {1: frozenset({
+    "access_mode", "checked_at", "checks", "checks.dod_check_id", "checks.evidence", "checks.notes",
+    "checks.operator_step", "checks.pass", "checks.produced_by", "checks.ran", "checks.rests_on",
+    "evidence_pack_path", "findings", "gate", "gate.ci_run", "gate.runs", "gate.runs.cached",
+    "gate.runs.cold", "gate.runs.command", "gate.runs.exit_code", "gate.runs.modules_cached",
+    "gate.runs.modules_ran", "gate.runs.ran", "gate.runs.seconds", "gate.runs.suite_id",
+    "gate.runs.tests_run", "gate.runs.tests_skipped", "head_sha", "merge_requested", "project_id",
+    "proof_urls", "proof_urls.local", "proof_urls.verifier", "schema_version", "task_id", "verdict",
+    "verifier_seat",
+})}
+PINNED = {1: "3e6bb65b819a72b59897e56e02c640e9d064894502b01f687fb2024e9216b483"}
+
+
+def record_keys(schema: dict, at: str = "") -> set:
+    """Every key the record's contract names, dotted, at any depth."""
+    out = set()
+    for k, v in schema.get("properties", {}).items():
+        out |= {at + k} | record_keys(v, f"{at}{k}.")
+    return out | (record_keys(schema["items"], at) if "items" in schema else set())
+
+
+def keys_digest(keys) -> str:
+    return hashlib.sha256("\n".join(sorted(keys)).encode()).hexdigest()
+
+
+def version_errors(keys: set, version: int, keys_at: dict, pinned: dict) -> list[str]:
+    """Why the contract's `keys` at record `version` break the version rule: the versions run 1 to
+    `version`, each version's keys match its pinned digest (a released version never changes), and
+    the contract's keys are exactly the current version's."""
+    errs = []
+    if sorted(keys_at) != list(range(1, version + 1)):
+        errs.append(f"versions {sorted(keys_at)} do not run 1 to {version}")
+    for v, ks in keys_at.items():
+        if pinned.get(v) != keys_digest(ks):
+            errs.append(f"version {v}'s keys are not the ones pinned for it: a new key raises the version")
+    if set(keys) != set(keys_at.get(version, ())):
+        errs.append(f"the contract's keys differ from version {version}'s: "
+                    f"{sorted(set(keys) ^ set(keys_at.get(version, ())))}")
+    return errs
 
 
 def approve(task: str = "0001-a", **fields: object) -> dict:
@@ -261,6 +306,7 @@ class Record(unittest.TestCase):
 
     def test_the_example_record_passes_and_the_verifier_brief_names_it(self):
         example = json.loads((ROOT / "contracts/verification.example.json").read_text())
+        self.assertEqual(example["schema_version"], verify.RECORD_VERSION)
         code, _, err = self.record({**example, "task_id": "0001-a", "project_id": "demo"})
         self.assertEqual(code, 0, err)
         self.assertIn("contracts/verification.example.json",
@@ -278,28 +324,22 @@ class Record(unittest.TestCase):
         self.assertFalse(self.written().exists())
 
     def test_a_key_added_to_the_record_raises_its_version(self):
-        # The contract's keys at RECORD_VERSION. A key added at any depth raises verify.RECORD_VERSION,
-        # so an older reader passes over it; then this list takes the new key.
-        keys_at = {1: {
-            "access_mode", "checked_at", "checks", "checks.dod_check_id", "checks.evidence", "checks.notes",
-            "checks.operator_step", "checks.pass", "checks.produced_by", "checks.ran", "checks.rests_on",
-            "evidence_pack_path", "findings", "gate", "gate.ci_run", "gate.runs", "gate.runs.cached",
-            "gate.runs.cold", "gate.runs.command", "gate.runs.exit_code", "gate.runs.modules_cached",
-            "gate.runs.modules_ran", "gate.runs.ran", "gate.runs.seconds", "gate.runs.suite_id",
-            "gate.runs.tests_run", "gate.runs.tests_skipped", "head_sha", "merge_requested", "project_id",
-            "proof_urls", "proof_urls.local", "proof_urls.verifier", "schema_version", "task_id", "verdict",
-            "verifier_seat",
-        }}
-
-        def keys(schema: dict, at: str = "") -> set:
-            out = set()
-            for k, v in schema.get("properties", {}).items():
-                out |= {at + k} | keys(v, f"{at}{k}.")
-            return out | (keys(schema["items"], at) if "items" in schema else set())
-
         schema = json.loads((ROOT / "contracts/verification.schema.json").read_text())
-        self.assertEqual(max(keys_at), verify.RECORD_VERSION)
-        self.assertEqual(keys(schema), keys_at[verify.RECORD_VERSION])
+        self.assertEqual(version_errors(record_keys(schema), verify.RECORD_VERSION, KEYS_AT, PINNED), [])
+
+    def test_the_version_rule_refuses_a_key_added_without_a_raise(self):
+        schema = json.loads((ROOT / "contracts/verification.schema.json").read_text())
+        schema["properties"]["checks"]["items"]["properties"]["reviewed_at"] = {"type": "string"}
+        added = record_keys(schema)
+        # Added to the schema alone, or to the current version's keys as well: either is refused.
+        self.assertTrue(version_errors(added, 1, KEYS_AT, PINNED))
+        self.assertTrue(version_errors(added, 1, {1: added}, PINNED))
+        # Raised: a new version holding the key, pinned, with RECORD_VERSION at it.
+        at2 = {**KEYS_AT, 2: added}
+        pinned2 = {**PINNED, 2: keys_digest(added)}
+        self.assertEqual(version_errors(added, 2, at2, pinned2), [])
+        self.assertTrue(version_errors(added, 1, at2, pinned2))
+        self.assertTrue(version_errors(added, 2, at2, PINNED))
 
     def test_an_approve_needs_head_sha_and_the_validator_fails_closed_on_an_unknown_keyword(self):
         body = approve()

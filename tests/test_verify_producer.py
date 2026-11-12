@@ -6,6 +6,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -154,6 +155,39 @@ class Producer(unittest.TestCase):
                     self.assertIn("checks[0] (data-01): rests_on", err)
                     self.assertIn(f"spec question {qid} has no answer at verdict resolved", err)
                     self.assertFalse(self.written().exists())
+
+    def test_an_answer_without_its_question_file_is_no_ruling(self):
+        qid = self.question("sm-20261111T120000Z-0005", "resolved")
+        (self.q / "questions" / f"{qid}.json").unlink()
+        for seat in (None, "implementer"):
+            code, _, err = self.record(check(seat, rests_on=f"the lead's answer to {qid}", ran=False, **{"pass": None}))
+            self.assertEqual(code, 1, seat)
+            self.assertIn("checks[0] (data-01): rests_on", err)
+            self.assertIn(f"no gate or spec question {qid} is in the queue", err)
+            self.assertFalse(self.written().exists())
+
+    def test_a_cited_gate_file_names_the_gate_it_is_filed_as_and_its_task(self):
+        unrun = {"ran": False, "pass": None}
+        for fields in ({"escalation_id": f"{TASK}-2"}, {"task_id": "0002-b"}, {"escalation_id": None}):
+            gate = self.gate(1, **fields)
+            for seat in (None, "implementer"):
+                code, _, err = self.record(check(seat, rests_on=f"the lead's ruling, gate {gate}", **unrun))
+                self.assertEqual(code, 1, (fields, seat))
+                self.assertIn("checks[0] (data-01): rests_on", err)
+                self.assertIn(f"gate {gate} (its file names task", err)
+                self.assertFalse(self.written().exists())
+        self.gate(1)
+        code, _, err = self.record(check(None, rests_on=f"the lead's ruling, gate {TASK}-1", **unrun))
+        self.assertEqual(code, 0, err)
+
+    def test_the_example_checks_the_verifier_is_shown_are_valid(self):
+        for doc in ("templates/prompts/verify.md", "plugin/agents/delivery-verifier.md"):
+            shown = [json.loads(m) for m in re.findall(r'`(\{"dod_check_id".*?\})`', (ROOT / doc).read_text())]
+            self.assertEqual([c.get("ran", True) for c in shown], [True, False], doc)
+            for c in shown:
+                code, _, err = self.record(c)
+                self.assertEqual(code, 0, (doc, c, err))
+                self.written().unlink()
 
     def test_a_date_beside_a_ruling_reads_as_an_unknown_gate_id_and_is_refused(self):
         # Decided: refuse. A date is shaped like a gate id (`<digits>-<slug>-<digits>`), and the ruling

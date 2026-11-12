@@ -9,7 +9,8 @@ from pathlib import Path
 from ccp import config, drill, report, tasklog
 from tests.test_toolkit import PLANE, ToolkitFixture, git
 
-ORIGINAL = "A check you did not run is not a pass: name it as not run, with whose claim it rests on. Be adversarial:"
+ORIGINAL = ("A check you did not run is not a pass: record it as not run, resting on one of the three forms below. "
+            "Be adversarial:")
 CACHE = {"max_age_days": 3, "cold_tasks": ["*-rollout"]}
 
 
