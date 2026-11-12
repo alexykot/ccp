@@ -23,20 +23,20 @@ missing findings".
 
 - `last_json_object` (scripts/observability/architecture_review.py) looks for a fenced JSON object,
   then scans bare text backwards counting `{` and `}` without reading strings. A finding whose
-  evidence quotes `'X = {'` throws the count off, and it returns the last parsable inner object (the
-  last finding), which fails validation. A managed product's architect passes failed this way three
+  evidence quotes `'X = {'` throws the count off, and it returns a parsable inner object (a finding),
+  which fails validation. A managed product's architect passes failed this way three
   times in a row; the saved `failed.txt` starts mid-JSON only because it keeps the last 20,000
   characters.
 - Accepted plane proposal (triaged 2026-11-12).
 
 ## Scope
 
-- **In:** find the report with a string-aware parse: for each `{` in the final message, from the
-  first, try `json.JSONDecoder().raw_decode` and keep the outermost (longest) dict, preferring the
-  last such top-level object; keep the fenced-block path first. Every caller of `last_json_object`
-  (architect pass, shape, triage, docs audit leftovers) gets the fix. Tests: an unfenced report whose
-  finding quotes an unbalanced `{`, one with an unbalanced `}`, prose before and after the object, a
-  fenced report, and two top-level objects (the last wins).
+- **In:** find the report with a string-aware parse: scan the final message left to right; at each
+  `{` try `json.JSONDecoder().raw_decode`, and after a successful decode skip past its end, so only
+  top-level objects are found; the last top-level dict wins. Keep the fenced-block path first. Both
+  callers of `last_json_object` (the architect pass and the estimator) get the fix. Tests: an unfenced report whose
+  finding quotes an unbalanced `{`, one with an unbalanced `}`, prose before and after the object
+  (including a prose `{x}` before it), a fenced report, and two top-level objects (the last wins).
 - **Out:** the 20,000-character cap on `failed.txt` (it only affects the saved copy).
 
 ## dod_checks
@@ -44,11 +44,11 @@ missing findings".
 - id: `check-01`
   story: As a lead, an architect report quoting an unbalanced brace is accepted.
   setup: a final message `Report:\n` followed by a pretty-printed report whose second finding's
-    evidence is `x.py:274 — 'EVENT_KINDS = {'`.
+    evidence is `a.py:10 — 'MAP = {'`.
   steps:
     1. Call `last_json_object` on it.
   expect: the returned dict has `summary` and `findings`, with both findings.
-  dry run: on the merge base it returns the second finding (`id`, `evidence` keys only).
+  dry run: on the merge base it returns an inner finding (`id` and `evidence` keys only), not the report.
 - id: `check-02`
   story: As a lead, the other report shapes still parse.
   setup: a fenced report; a report with an unbalanced `}` in a string; two top-level objects in one
