@@ -1,7 +1,7 @@
 ---
 task_id: 0073-init-polish-and-writing-guide
 title: ccp init writes a tidy adoption, and the writing guide states the rules tasks check enforces
-status: pending
+status: done
 kind: chore
 depends_on: []
 spec_refs: ["S4", "S5", "S8"]
@@ -20,6 +20,15 @@ Every product runs `ccp init` once and `ccp tasks check` constantly; small frict
 ## Context (not checked)
 
 - Accepted plane proposals from an adoption trial and a delivered task's review.
+- Ruling sm-20261112T113121Z-f073 (lead, commit 11381a4): Build the Scope item. tasks check and
+  tasks index do not print the estimates note while estimate.auto is off. Correct SPEC 26.3
+  (docs/spec/04-observability.md) to say 'with estimate.auto on, they name the tasks that need an
+  estimate': a section 31.1 correction of text the change makes false, so no gate. Edit
+  ccp/estimator.py (notice returns nothing when estimate.auto is off) and update the pin in
+  tests/test_estimator.py (test_auto_is_off_by_default_and_only_notes) to the new behaviour, with a
+  test for both auto on and auto off. Both files are outside the task's declared paths: list
+  ccp/estimator.py, tests/test_estimator.py (and docs/spec/04-observability.md, and ccp/cli.py if
+  you touch it) in the PR body as outside the declared paths.
 
 ## Scope
 
@@ -54,6 +63,30 @@ Every product runs `ccp init` once and `ccp tasks check` constantly; small frict
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implement): `ccp init` appends the `CLAUDE.md` line as its own paragraph
+  (`_paragraph_break` in `ccp/init.py`: no separator after an empty file or one already ending in a
+  blank line, else line breaks up to one blank line), and writes `production_branch` beside
+  `integration_branch` with the same value, as §8.3's example shows (init has no flag for a separate
+  production branch; the operator edits the binding to name another). The writing-tasks skill states
+  that `spec_refs` is a required key and, by default, a required citation even beside `rule_refs`
+  (only a kind with its own `refs_any`, with the architect seat on, leaves it out); how the `new` and
+  `removed` markings work (whole word, any case, within 25 characters after the closing backtick; a
+  dependency's path also passes; a warning, not a failure); and that a brief sign-off goes stale on an
+  edit only for a task declaring `sign_off: brief`. The plane's `CLAUDE.md` says the binding `ccp init`
+  writes under the run checkout's gitignored `projects/` is local configuration, not an edit of the
+  clone. The estimates-note item was not built: it contradicts SPEC §26.3 as written (see the report's
+  open question).
+
+- 2026-11-12 (ruling sm-20261112T113121Z-f073): the estimates-note item is built.
+  `estimator.notice` returns nothing while `estimate.auto` is off (checked before the stale scan),
+  so `ccp tasks check` and `ccp tasks index` print no estimates note then; with it on, the note and
+  the detached launch are as before. SPEC §26.3 now says that with `estimate.auto` on they name the
+  tasks that need an estimate (a §31.1 correction of text the change made false). The pinned test
+  became `test_auto_is_off_by_default_and_says_nothing`, beside a new auto-on note test, and the
+  `tasks check` note test now turns `estimate.auto` on and checks there is no note with it off. The
+  same sentence in `docs/design/allowance.md` and `ccp/estimator.py`'s module docstring was
+  corrected likewise, since the change made it false.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #78 head `159dcc4` (squash `ef22273`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0073-init-polish-and-writing-guide.json.

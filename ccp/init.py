@@ -86,10 +86,21 @@ def _scalar(text: str, key: str) -> str | None:
     return m.group(1).strip().strip("'\"") if m else None
 
 
+def _paragraph_break(text: str) -> str:
+    """What goes between `text` and an appended line so the line is its own paragraph: nothing after
+    an empty file or one already ending in a blank line, else the line break(s) up to one blank line."""
+    lines = text.splitlines()
+    if not text.strip() or not lines[-1].strip():
+        return "" if not text or text.endswith("\n") else "\n"
+    return "\n" if text.endswith("\n") else "\n\n"
+
+
 def binding_text(project_id: str, product_root: Path, queue_root: Path, branch: str) -> str:
-    """The binding init writes (§8.3): the required keys, the product root and the runner block."""
+    """The binding init writes (§8.3): the required keys, `production_branch` (the integration branch
+    until the operator names another), the product root and the runner block."""
     return (f"project_id: {project_id}\n"
             f"integration_branch: {branch}\n"
+            f"production_branch: {branch}\n"
             f"product_root: {product_root}\n"
             "durable_docs_path: docs/delivery/\n"
             f"queue_root: {queue_root}\n"
@@ -218,7 +229,7 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     cm = root / "CLAUDE.md"
     text = cm.read_text() if cm.is_file() else ""
     if CLAUDE_LINE not in (x.strip() for x in text.splitlines()):
-        cm.write_text(text + ("" if not text or text.endswith("\n") else "\n") + CLAUDE_LINE + "\n")
+        cm.write_text(text + _paragraph_break(text) + CLAUDE_LINE + "\n")
         out["merged"].append("CLAUDE.md")
 
     put(binding, binding_text(pid, product_root, q, branch or "main"), "binding")

@@ -22,9 +22,10 @@ baseline stands. A valid answer is an `agent` row in `estimates/<task>.jsonl` (t
 baseline row, plus `complexity`, `waits`, `reasoning` and `seat`).
 
 A task needs an agent estimate when it has none, its hash changed, or a dependency merged since the
-last one (`stale`). `ccp tasks check` and `ccp tasks index` (the task-writing flow) notice those;
-with `plane.json estimate.auto: true` (default false) they start `--all` detached, one batch at a
-time (`estimator.lock`), and return at once. Estimates are advisory: nothing gates on them.
+last one (`stale`). With `plane.json estimate.auto: true` (default false), `ccp tasks check` and
+`ccp tasks index` (the task-writing flow) name those and start `--all` detached, one batch at a
+time (`estimator.lock`), and return at once; with it off they say nothing. Estimates are advisory:
+nothing gates on them.
 """
 from __future__ import annotations
 
@@ -773,9 +774,12 @@ def spawn(cfg: Config, q: Path, max_n: int = MAX_DEFAULT, actor: str = "system")
 
 
 def notice(cfg: Config, q: Path | None = None) -> list[str]:
-    """`ccp tasks check` and `ccp tasks index`: lines about tasks that need an agent estimate and,
-    with `estimate.auto`, a detached batch started for them. Never raises, never blocks."""
+    """`ccp tasks check` and `ccp tasks index`: with `estimate.auto` on, lines about tasks that need
+    an agent estimate and a detached batch started for them; with it off, nothing. Never raises,
+    never blocks."""
     try:
+        if not (cfg.estimate or {}).get("auto"):
+            return []
         if q is None:
             raw = os.environ.get("QUEUE_ROOT")
             if not raw or not Path(raw).is_dir():
@@ -786,8 +790,6 @@ def notice(cfg: Config, q: Path | None = None) -> list[str]:
             return []
         ids = ", ".join(_ids(cfg).task_number(t.get("task_id")) for t, _ in todo[:12]) + (" ..." if len(todo) > 12 else "")
         head = f"estimates: {len(todo)} open task(s) without a current agent estimate ({ids})"
-        if not (cfg.estimate or {}).get("auto"):
-            return [head + "; `ccp tasks estimate --all` runs the estimator (estimate.auto is off, SPEC §26.3)"]
         if running(q):
             return [head + "; an estimator batch is already running"]
         if _linked_worktree(cfg.root):

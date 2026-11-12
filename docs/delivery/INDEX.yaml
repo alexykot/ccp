@@ -363,7 +363,7 @@ tasks:
     depends_on: []
     path: tasks/0072-adoption-baseline-gate-and-rules-doc.md
   - id: 0073-init-polish-and-writing-guide
-    status: pending
+    status: done
     title: ccp init writes a tidy adoption, and the writing guide states the rules tasks check enforces
     depends_on: []
     path: tasks/0073-init-polish-and-writing-guide.md
