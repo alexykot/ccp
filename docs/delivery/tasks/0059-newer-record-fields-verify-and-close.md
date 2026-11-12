@@ -1,14 +1,14 @@
 ---
 task_id: 0059-newer-record-fields-verify-and-close
 title: Tasks that add a record field can be verified and closed
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S15", "S29"]
 review_point: R4
 paths: ["ccp/verify.py", "contracts/", "docs/spec/02-delivery.md", "tests/test_verify*.py"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-12
 ---
 
 # Task: 0059-newer-record-fields-verify-and-close
@@ -61,4 +61,4 @@ A task whose change adds a field to a record the plane checks (such as the verif
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #67 head `999e259` (squash `dbebb53`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0059-newer-record-fields-verify-and-close.json.
