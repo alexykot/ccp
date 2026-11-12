@@ -13,6 +13,8 @@ notes}`; `source` is "baseline" (this module) or "agent" (ccp/estimator.py, phas
 `version` counts that source's rows for the task. An actual row (`source: "actual"`) is written by
 `ccp tasks close` and by the backfill: wall time, the phases, tokens, cost, rounds and findings,
 from the sources the drill-down reads (ccp/drill.py: `ccp health`'s rows, the usage fold, the runs).
+Its phases and rounds give merge and ruling rounds their own `merge` and `ruling` buckets, beside
+implement, review, fix and verify; an estimate bands only those four.
 Every value is a number, an id or a short label: no task text.
 
 **The baseline.** For a task, its features (`features`: kind, the task-id family, the cited path
@@ -52,7 +54,8 @@ from ccp.queue import append_jsonl, iso
 
 METHOD = "reference-class"
 METHOD_V = 1
-PHASES = ("implement", "review", "fix", "verify")
+PHASES = ("implement", "review", "fix", "verify")   # what an estimate bands (the baseline's and the estimator's)
+ACTUAL_PHASES = (*PHASES, "merge", "ruling")        # what an actual measures: merge and ruling rounds their own
 SOURCES = ("baseline", "agent")
 K_DEFAULT = 6
 K_MIN = 3
@@ -379,7 +382,7 @@ def actual_from(q: Path, tid: str, row: dict[str, Any], d: dict[str, Any] | None
     lo = _ep(d.get("start_at")) or (hi - wall if hi is not None and wall is not None else None)
     if runs_:  # each phase: the union of its runs' windows, inside the task's window (the drill clips them)
         phases: dict[str, Any] = {}
-        for ph in PHASES:
+        for ph in ACTUAL_PHASES:
             iv = [(a, b) for r in runs_ if r.get("phase") == ph
                   and (a := _ep(r.get("start_at"))) is not None and (b := _ep(r.get("end_at"))) is not None]
             if lo is not None and hi is not None:
@@ -387,7 +390,7 @@ def actual_from(q: Path, tid: str, row: dict[str, Any], d: dict[str, Any] | None
             phases[ph] = round(drill.length(drill.union(iv)))
         frm = "runs"
     else:  # before run records: `ccp health`'s spans laid end to end from the start, clipped to the window
-        phases = {"implement": None, "review": None, "fix": None, "verify": None}
+        phases = {ph: None for ph in ACTUAL_PHASES}
         at = lo
         for ph, key in (("implement", "implementing_s"), ("review", "reviewing_s"), ("verify", "verifying_s")):
             v = row.get(key)
@@ -401,7 +404,8 @@ def actual_from(q: Path, tid: str, row: dict[str, Any], d: dict[str, Any] | None
     return {"merged_at": row.get("merged_at"), "start_at": iso_ep(start), "merge_sha": row.get("merge_sha"),
             "wall_s": wall, "phases": phases, "phases_from": frm,
             "tokens": int(d["tokens"]) if tel else None, "cost_usd": round(float(d.get("cost_usd") or 0), 2) if tel else None,
-            "rounds": {"review": row.get("review_rounds"), "fix": row.get("fix_rounds"), "verify": row.get("verify_rounds")},
+            "rounds": {"review": row.get("review_rounds"), "fix": row.get("fix_rounds"), "verify": row.get("verify_rounds"),
+                       "merge": row.get("merge_rounds"), "ruling": row.get("ruling_rounds")},
             "findings": _findings(q, tid), "telemetry": d.get("telemetry") or "none"}
 
 
@@ -751,7 +755,7 @@ def _tok(n: Any) -> str:
 def row_text(r: dict[str, Any]) -> str:
     if r.get("source") == "actual":
         return (f"actual  v{r.get('version')}  {str(r.get('at'))[:16]}  wall {_d(r.get('wall_s'))}  "
-                + " ".join(f"{ph} {_d((r.get('phases') or {}).get(ph))}" for ph in PHASES)
+                + " ".join(f"{ph} {_d((r.get('phases') or {}).get(ph))}" for ph in ACTUAL_PHASES)
                 + f"  tokens {_tok(r.get('tokens'))}  cost {'-' if r.get('cost_usd') is None else '$%.2f' % r['cost_usd']}"
                 + f"  rounds {r.get('rounds')}")
     t, tk, c = r.get("total") or {}, r.get("tokens") or {}, r.get("cost_usd") or {}

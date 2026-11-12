@@ -2,7 +2,7 @@
 
   ccp board task <id>    the same breakdown in the terminal (reads, never writes)
 
-For each run of the task (implement, review, fix, verify), its window is split four ways:
+For each run of the task (implement, review, fix, merge, ruling, verify), its window is split four ways:
 
 - **model:** the union of its `claude_code.llm_request` intervals (span start to end; a request
   with no span: its `at` less `duration_ms`). Requests may overlap, so this is a union, not a sum.
@@ -26,8 +26,8 @@ stretch before telemetry first reached the queue is unknown, never idle. The tas
 `ccp health` gives its wall time (first recorded event to the merge; an open task: to now). Time
 in it outside every run is **runner** time: launching the next run, reading reports, merging,
 waiting. Waits (`waiting_on` set to clear, from the ledger), the queue wait (the last dependency's
-merge to the claim), suite runs, rounds, verdicts, tokens and cost per run, and the task's friction
-notes are listed beside it. A task from before run records (2026-10-21) shows its phases from the
+merge to the claim), suite runs, rounds (each kind its own count: review, verify, fix, merge,
+ruling), verdicts, tokens and cost per run, and the task's friction notes are listed beside it. A task from before run records (2026-10-21) shows its phases from the
 prompt stamps and report file times, and its reports' `Suite:` lines.
 
 Reads only what the plane records; writes nothing and runs no product command.
@@ -478,7 +478,9 @@ def record(q: Path, tid: str, row: dict[str, Any] | None, *, run_recs: list[dict
         "runs": rr, "phases": phases,
         "rounds": {"review": (row or {}).get("review_rounds", sum(1 for r in run_recs if r.get("phase") == "review")),
                    "verify": (row or {}).get("verify_rounds", sum(1 for r in run_recs if r.get("phase") == "verify")),
-                   "fix": (row or {}).get("fix_rounds", sum(1 for r in run_recs if r.get("phase") == "fix"))},
+                   "fix": (row or {}).get("fix_rounds", sum(1 for r in run_recs if r.get("phase") == "fix")),
+                   "merge": (row or {}).get("merge_rounds", sum(1 for r in run_recs if r.get("phase") == "merge")),
+                   "ruling": (row or {}).get("ruling_rounds", sum(1 for r in run_recs if r.get("phase") == "ruling"))},
         "phase_s": {k: (row or {}).get(k) for k in ("implementing_s", "reviewing_s", "verifying_s")},
         "times": (row or {}).get("times"),
         "waits": waits, "waits_s": round(sum(w["s"] for w in waits), 1),
@@ -568,7 +570,8 @@ def text(d: dict[str, Any]) -> str:
     if d.get("overlap_s"):
         lines.append(f"runs overlapped for {_d(d['overlap_s'])}: each instant counted once (model, suite, other, idle)")
     r = d["rounds"]
-    lines.append(f"rounds: review {r['review']}, verify {r['verify']}, fix {r['fix']}"
+    lines.append(f"rounds: review {r['review']}, verify {r['verify']}, fix {r['fix']},"
+                 f" merge {r.get('merge', '-')}, ruling {r.get('ruling', '-')}"
                  + (f"; queue wait {_d(d['queue_wait_s'])} (ready {d['ready_at']}, claimed {d['claimed_at']})"
                     if d.get("queue_wait_s") is not None else ""))
     if d["runs"]:
