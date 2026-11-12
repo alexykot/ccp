@@ -44,6 +44,7 @@ argument takes the full id or its number.
 |---|---|---|
 | `ccp suite run [--lane L] [--run <run_id> \| --task <id> [--phase P]] [--full \| --summary] [--log PATH] [-- <command>]` (also `--wait SECONDS`) | each worker | §14 |
 | `ccp suite list [--task ID]` | anyone | §14.4 |
+| `ccp suite affected [--since REF \| --paths PATH …]` | each worker | §14.7 |
 
 ## Worktrees
 
