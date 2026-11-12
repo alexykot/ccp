@@ -96,6 +96,16 @@ class MergeGate(unittest.TestCase):
         code, out, err = self.check("0001-a", HEAD_A[:7])
         self.assertEqual(code, 0, out + err)
 
+    def test_check_reads_a_newer_record_with_a_key_this_version_does_not_know(self):
+        self.binding()
+        self.verdict("0001-a", head_sha=HEAD_A, schema_version=verify.RECORD_VERSION + 1, reviewed_at=HEAD_B)
+        code, out, err = self.check("0001-a", HEAD_A)
+        self.assertEqual(code, 0, out + err)
+        self.verdict("0001-a", head_sha=HEAD_A, schema_version=verify.RECORD_VERSION + 1, verdict="maybe")
+        code, _, err = self.check("0001-a", HEAD_A)
+        self.assertEqual(code, 1)
+        self.assertIn("is not one of approve, reject", err)
+
     def test_reverify_example_matches_the_schema_and_the_briefs_name_it(self):
         schema = json.loads((ROOT / "contracts/reverify_packet.schema.json").read_text())
         example = json.loads((ROOT / "contracts/reverify_packet.example.json").read_text())
@@ -239,6 +249,41 @@ class Record(unittest.TestCase):
         self.assertIn("contracts/verification.example.json",
                       (ROOT / "plugin/agents/delivery-verifier.md").read_text())
 
+    def test_record_stamps_its_own_version_and_holds_the_record_to_its_own_contract(self):
+        code, _, err = self.record(approve(schema_version=verify.RECORD_VERSION + 5))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(self.written().read_text())["schema_version"], verify.RECORD_VERSION)
+        self.written().unlink()
+        # A record claiming a newer version is still written under this one: an unknown key is refused.
+        code, _, err = self.record(approve(schema_version=verify.RECORD_VERSION + 1, reviewed_at=HEAD_B))
+        self.assertEqual(code, 1)
+        self.assertIn("unexpected key reviewed_at", err)
+        self.assertFalse(self.written().exists())
+
+    def test_a_key_added_to_the_record_raises_its_version(self):
+        # The contract's keys at RECORD_VERSION. A key added at any depth raises verify.RECORD_VERSION,
+        # so an older reader passes over it; then this list takes the new key.
+        keys_at = {1: {
+            "access_mode", "checked_at", "checks", "checks.dod_check_id", "checks.evidence", "checks.notes",
+            "checks.operator_step", "checks.pass", "checks.produced_by", "checks.ran", "checks.rests_on",
+            "evidence_pack_path", "findings", "gate", "gate.ci_run", "gate.runs", "gate.runs.cached",
+            "gate.runs.cold", "gate.runs.command", "gate.runs.exit_code", "gate.runs.modules_cached",
+            "gate.runs.modules_ran", "gate.runs.ran", "gate.runs.seconds", "gate.runs.suite_id",
+            "gate.runs.tests_run", "gate.runs.tests_skipped", "head_sha", "merge_requested", "project_id",
+            "proof_urls", "proof_urls.local", "proof_urls.verifier", "schema_version", "task_id", "verdict",
+            "verifier_seat",
+        }}
+
+        def keys(schema: dict, at: str = "") -> set:
+            out = set()
+            for k, v in schema.get("properties", {}).items():
+                out |= {at + k} | keys(v, f"{at}{k}.")
+            return out | (keys(schema["items"], at) if "items" in schema else set())
+
+        schema = json.loads((ROOT / "contracts/verification.schema.json").read_text())
+        self.assertEqual(max(keys_at), verify.RECORD_VERSION)
+        self.assertEqual(keys(schema), keys_at[verify.RECORD_VERSION])
+
     def test_an_approve_needs_head_sha_and_the_validator_fails_closed_on_an_unknown_keyword(self):
         body = approve()
         del body["head_sha"]
@@ -356,6 +401,57 @@ class MergeOk(unittest.TestCase):
         code, _, err = self.ok("--task", "0001-a")
         self.assertEqual(code, 1)
         self.assertIn("is after the record was recorded", err)
+
+    def newer(self, **fields: object) -> dict:
+        """An approve written by a newer version, carrying a key at each depth this contract lacks."""
+        rec = approve(checked_at=now_iso(), schema_version=verify.RECORD_VERSION + 1, reviewed_at=HEAD_B, **fields)
+        rec["checks"][0]["seat_run"] = "r-1"
+        rec["gate"]["runs"][0]["lane"] = "gate"
+        rec["gate"]["shard"] = 1
+        return rec
+
+    def test_a_record_from_a_newer_version_with_keys_this_one_does_not_know_may_merge(self):
+        self.put(self.newer())
+        code, body, err = self.ok("--task", "0001-a")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(body["match_head_commit"], HEAD_A)
+        # The same keys from a version no newer than this one, or from a record with none, are refused.
+        for version in (verify.RECORD_VERSION, None):
+            rec = self.newer()
+            if version is None:
+                del rec["schema_version"]
+            else:
+                rec["schema_version"] = version
+            self.put(rec)
+            code, _, err = self.ok("--task", "0001-a")
+            self.assertEqual(code, 1, version)
+            for key in ("reviewed_at", "checks[0]: unexpected key seat_run", "gate.runs[0]: unexpected key lane",
+                        "record.gate: unexpected key shard"):
+                self.assertIn(key, err)
+
+    def test_a_newer_record_still_holds_every_key_this_version_knows(self):
+        cases = (
+            ({"verdict": "approved"}, "is not one of approve, reject"),
+            ({"head_sha": "not-a-sha"}, "does not match"),
+            ({"checks": [{"dod_check_id": "cmd-01", "pass": "yes", "evidence": "ran it", "produced_by": "verifier"}]},
+             "record.checks[0].pass"),
+            ({"checks": [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it", "produced_by": "verifier"}],
+              "gate": {"runs": [{"command": "scripts/unit.sh", "exit_code": "0"}]}}, "record.gate.runs[0].exit_code"),
+            ({"checks": [{"dod_check_id": "cmd-01", "pass": True, "produced_by": "verifier"}]}, "missing evidence"),
+        )
+        for fields, needle in cases:
+            self.put(self.newer(**fields))
+            code, _, err = self.ok("--task", "0001-a")
+            self.assertEqual(code, 1, (needle, err))
+            self.assertIn(needle, err)
+        # A version that is not an integer is a bad value, and the record is held to this contract.
+        rec = self.newer()
+        rec["schema_version"] = str(verify.RECORD_VERSION + 1)
+        self.put(rec)
+        code, _, err = self.ok("--task", "0001-a")
+        self.assertEqual(code, 1)
+        self.assertIn("record.schema_version", err)
+        self.assertIn("unexpected key reviewed_at", err)
 
     def test_no_gh_is_a_configuration_error(self):
         with mock.patch.dict(os.environ, {"CCP_GH_BIN": str(self.q / "no-such-gh")}):

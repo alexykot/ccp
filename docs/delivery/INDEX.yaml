@@ -293,7 +293,7 @@ tasks:
     depends_on: []
     path: tasks/0058-r1-r2-leftovers.md
   - id: 0059-newer-record-fields-verify-and-close
-    status: pending
+    status: done
     title: Tasks that add a record field can be verified and closed
     depends_on: []
     path: tasks/0059-newer-record-fields-verify-and-close.md

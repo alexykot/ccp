@@ -1,14 +1,14 @@
 ---
 task_id: 0059-newer-record-fields-verify-and-close
 title: Tasks that add a record field can be verified and closed
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S15", "S29"]
 review_point: R4
 paths: ["ccp/verify.py", "contracts/", "docs/spec/02-delivery.md", "tests/test_verify*.py"]
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-12
 ---
 
 # Task: 0059-newer-record-fields-verify-and-close
@@ -55,6 +55,10 @@ A task whose change adds a field to a record the plane checks (such as the verif
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implementer): I took scope option (b) and wrote it into §15.4. A verification record now carries `schema_version`, an integer and a new optional key in `contracts/verification.schema.json`. `ccp verify record` stamps its own `verify.RECORD_VERSION` (now 1) whatever the input says, so it always checks a record against its own contract. A reader whose `RECORD_VERSION` is lower than the record's ignores keys it doesn't know, at any depth (`schema_errors(newer=True)`), and still checks every key it knows. A record with no version, or one no newer than the reader, is checked strictly, as before. `merge-ok`, `check` and `tasks close` (which goes through `merge_ok`) all read the record through `record_errors`, so all three get this. Why not option (a): a managed product's PR head doesn't contain the plane's contracts, so "the head's contract" only exists for the plane itself.
+- A test in `tests/test_verify.py` pins the contract's key paths at the current `RECORD_VERSION`. Adding a key at any depth fails that test until the change raises the version and updates the list. This enforces the §15.4 rule that adding a key raises the version.
+- The fix takes effect only once this change is installed: a run checkout older than this task still refuses a newer record.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #67 head `999e259` (squash `dbebb53`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0059-newer-record-fields-verify-and-close.json.
