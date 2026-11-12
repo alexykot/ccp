@@ -38,8 +38,8 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   is not a task's, `task_id` is exactly `pr-<n>`. `checked_at` is the clock time you reached the
   verdict; leave it out and `record` stamps it.
 - A check someone else ran where you cannot (a Mac-only step whose output is in the task's notes)
-  is `ran: false`, `pass: null`, with `rests_on` naming whose claim it rests on. It is neither a
-  pass nor a fail; say in `findings` whether your verdict relies on it.
+  is `ran: false`, `pass: null`, with `rests_on` naming what it rests on, in one of the three forms
+  below. It is neither a pass nor a fail; say in `findings` whether your verdict relies on it.
 - Every check names the seat that produced its evidence: `produced_by` (`verifier` for what you ran,
   else `implementer`, `reviewer`, `architect`, `operator`, `runner` or `lead`). The seat that rules on
   the task never produces the evidence it rules on (SPEC §2.3, §15.4): `record` refuses evidence the
@@ -47,8 +47,13 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   `operator_step` naming that approved `operator` gate (`<task_id>-<n>`). Evidence the ruling seat
   produced with no approved step proves nothing: run the check yourself, or reject.
 - A ruling is not evidence. A check the owner's ruling closed is `ran: false`, `rests_on` naming
-  the ruling; its `produced_by` names the seat whose evidence the ruling weighed, never `lead`, and
-  is left out when no evidence underlies the waiver.
+  the ruling by its spec question id (`sm-…`) or gate id (`<task_id>-<n>`); its `produced_by` names
+  the seat whose evidence the ruling weighed, never `lead`, and is left out when no evidence
+  underlies the waiver.
+- `record` accepts the `rests_on` of a `ran: false` check in three forms only (SPEC §15.4): a
+  ruling, every id it names existing, every gate closed and approved and every spec question
+  answered `resolved`; `approve at <sha>`, the sha a commit; or any text when `produced_by` is
+  `operator`. Anything else is refused.
 - A re-verify after a fix-up, or after that head moved, uses `contracts/reverify_packet.schema.json`
   (example `contracts/reverify_packet.example.json`). Judge the packet's `head_sha` and write it
   on the new verdict.

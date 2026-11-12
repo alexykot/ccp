@@ -6,6 +6,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -68,6 +69,16 @@ class Producer(unittest.TestCase):
         (d / f"{n}.json").write_text(json.dumps(g))
         return f"{task}-{n}"
 
+    def question(self, qid: str, verdict: str | None) -> str:
+        """A spec question file (§17.4) and, with `verdict`, its answer file as the lead writes it (§17.5)."""
+        d = self.q / "questions"
+        d.mkdir(exist_ok=True)
+        (d / f"{qid}.json").write_text(json.dumps({"question_id": qid, "project_id": "demo", "status": "open"}))
+        if verdict is not None:
+            (d / f"{qid}.answer.json").write_text(json.dumps({"schema_version": 1, "question_id": qid,
+                                                             "project_id": "demo", "verdict": verdict}))
+        return qid
+
     def test_evidence_produced_by_a_ruling_seat_is_refused_naming_the_check_and_the_seat(self):
         for seat in ("lead", "runner"):
             for verdict in ("approve", "reject"):
@@ -90,6 +101,7 @@ class Producer(unittest.TestCase):
         self.assertIn("record.checks[0].produced_by", err)
 
     def test_only_a_check_a_ruling_closed_may_name_no_producer(self):
+        self.gate(1)
         waived = {"ran": False, "pass": None, "rests_on": "the lead's ruling, gate 0001-a-1"}
         code, _, err = self.record(check(None, **waived))
         self.assertEqual(code, 0, err)
@@ -104,6 +116,117 @@ class Producer(unittest.TestCase):
         code, _, err = self.record(check("lead", **waived))
         self.assertEqual(code, 1)
         self.assertIn("produced by the lead", err)
+
+    def test_a_check_a_ruling_closed_names_a_ruling_the_queue_holds(self):
+        question = self.question("sm-20261111T120000Z-ab12", "resolved")
+        ruled = {"ran": False, "pass": None}
+        for rests_on in (self.gate(1), f"the lead's answer to {question}", self.gate(3, task="0002-b")):
+            code, _, err = self.record(check(None, rests_on=rests_on, **ruled))
+            self.assertEqual(code, 0, (rests_on, err))
+            self.written().unlink()
+        for rests_on, needle in (("the lead said so in chat", "names no ruling id"),
+                                 (f"{TASK}-9", f"{TASK}-9"),
+                                 ("sm-20261111T120000Z-ffff", "sm-20261111T120000Z-ffff"),
+                                 (f"{TASK}-1 and {TASK}-9", f"{TASK}-9"),
+                                 (f"{question} and sm-20261111T120000Z-ffff", "sm-20261111T120000Z-ffff"),
+                                 (self.gate(4, status="open", decision=None), f"gate {TASK}-4 is not closed"),
+                                 (self.gate(5, decision="refused"), f"gate {TASK}-5 is not closed")):
+            code, _, err = self.record(check(None, rests_on=rests_on, **ruled))
+            self.assertEqual(code, 1, rests_on)
+            self.assertIn("checks[0] (data-01): rests_on", err)
+            self.assertIn(needle, err)
+            self.assertNotIn("names no produced_by", err)
+            self.assertFalse(self.written().exists())
+
+    def test_a_spec_question_is_a_ruling_only_once_answered_resolved(self):
+        unrun = {"ran": False, "pass": None}
+        resolved = self.question("sm-20261111T120000Z-0001", "resolved")
+        code, _, err = self.record(check(None, rests_on=f"the lead's answer to {resolved}", **unrun))
+        self.assertEqual(code, 0, err)
+        self.written().unlink()
+        for qid, verdict in (("sm-20261111T120000Z-0002", None), ("sm-20261111T120000Z-0003", "needs_operator"),
+                             ("sm-20261111T120000Z-0004", "not_a_spec_question")):
+            self.question(qid, verdict)
+            for seat in (None, "implementer"):
+                for rests_on in (qid, f"{resolved} and {qid}"):
+                    code, _, err = self.record(check(seat, rests_on=rests_on, **unrun))
+                    self.assertEqual(code, 1, (qid, seat, rests_on))
+                    self.assertIn("checks[0] (data-01): rests_on", err)
+                    self.assertIn(f"spec question {qid} has no answer at verdict resolved", err)
+                    self.assertFalse(self.written().exists())
+
+    def test_a_date_beside_a_ruling_reads_as_an_unknown_gate_id_and_is_refused(self):
+        # Decided: refuse. A date is shaped like a gate id (`<digits>-<slug>-<digits>`), and the ruling
+        # form allows no unknown id beside a known one, so the verifier writes the date another way.
+        gate = self.gate(1)
+        for rests_on in (f"the lead's ruling, gate {gate}, 2026-11-12", f"gate {gate} (decided 2026-11-12)"):
+            code, _, err = self.record(check(None, rests_on=rests_on, ran=False, **{"pass": None}))
+            self.assertEqual(code, 1, rests_on)
+            self.assertIn("2026-11-12", err)
+            self.assertFalse(self.written().exists())
+        code, _, err = self.record(check(None, rests_on=f"the lead's ruling, gate {gate}, 12 November 2026",
+                                         ran=False, **{"pass": None}))
+        self.assertEqual(code, 0, err)
+
+    def test_a_ruling_id_inside_a_longer_token_is_not_one(self):
+        gate = self.gate(1)
+        question = self.question("sm-20261111T120000Z-ab12", "resolved")
+        for rests_on in (f"x{gate}", f"gate-{gate}", f"{gate}x", f"{gate}-", f"x{question}", f"{question}9"):
+            code, _, err = self.record(check(None, rests_on=rests_on, ran=False, **{"pass": None}))
+            self.assertEqual(code, 1, rests_on)
+            self.assertIn("names no ruling id", err)
+            self.assertFalse(self.written().exists())
+
+    def commit(self) -> str:
+        """A commit in the product checkout, as a carried verdict's old head."""
+        def git(*a: str) -> str:
+            return subprocess.run(["git", "-C", str(self.p.root), "-c", "user.email=t@t", "-c", "user.name=t", *a],
+                                  check=True, capture_output=True, text=True).stdout.strip()
+        git("init", "-q")
+        git("add", "-A")
+        git("commit", "-qm", "init")
+        return git("rev-parse", "HEAD")
+
+    def test_a_check_not_run_rests_on_a_ruling_a_carried_verdict_or_the_operators_evidence(self):
+        sha = self.commit()
+        unrun = {"ran": False, "pass": None}
+        for seat, rests_on in (("implementer", self.gate(1)), ("verifier", f"approve at {sha}"),
+                               ("reviewer", f"approve at {sha[:12]}"), (None, f"approve at {sha}"),
+                               ("operator", "the operator's paste, 15:49"), ("operator", f"approve at {'c' * 40}")):
+            code, _, err = self.record(check(seat, rests_on=rests_on, **unrun))
+            self.assertEqual(code, 0, (seat, rests_on, err))
+            self.written().unlink()
+        code, _, err = self.record(check("verifier", rests_on="a check it ran rests on nothing"))
+        self.assertEqual(code, 0, err)
+
+    def test_a_check_not_run_on_anything_else_is_refused_naming_it(self):
+        sha = self.commit()
+        unrun = {"ran": False, "pass": None}
+        for seat, rests_on, needle in (
+                ("verifier", "the operator's paste, 15:49", "names no ruling id"),
+                ("implementer", "the lead said so", "names no ruling id"),
+                ("verifier", f"approve at {'c' * 40}", f"{'c' * 40} does not resolve to a commit"),
+                ("verifier", f"approve at {sha}, see the notes", "names no ruling id"),
+                ("verifier", f"approved at {sha}", "names no ruling id"),
+                ("implementer", f"{TASK}-9", f"{TASK}-9")):
+            code, _, err = self.record(check("verifier", dod_check_id="cmd-01"),
+                                       check(seat, rests_on=rests_on, **unrun))
+            self.assertEqual(code, 1, (seat, rests_on))
+            self.assertIn("checks[1] (data-01): rests_on", err)
+            self.assertNotIn("checks[0]", err)
+            self.assertIn(needle, err)
+            self.assertFalse(self.written().exists())
+
+    def test_check_and_merge_ok_read_a_record_whose_ruling_names_no_id(self):
+        rec = approve(TASK, checked_at=now_iso(),
+                      checks=[check(None, ran=False, rests_on="the lead said so", **{"pass": None})])
+        (self.q / "pr.json").write_text(json.dumps(self.pr))
+        self.written().parent.mkdir(exist_ok=True)
+        self.written().write_text(json.dumps(rec))
+        code, _, err = self.ccp("verify", "check", TASK, "--head", HEAD_A)
+        self.assertEqual(code, 0, err)
+        code, _, err = self.ccp("verify", "merge-ok", "7", "--task", TASK)
+        self.assertEqual(code, 0, err)
 
     def test_seats_that_do_not_rule_may_produce_evidence(self):
         schema = json.loads((ROOT / "contracts/verification.schema.json").read_text())

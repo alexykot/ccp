@@ -212,6 +212,23 @@ class Record(unittest.TestCase):
         code, _, err = self.record(approve(checks=[{**unrun, "ran": True}]))
         self.assertIn("pass is null", err)
 
+    def test_a_check_with_no_producer_still_has_its_operator_step_checked(self):
+        gates = self.q / "escalations" / "0001-a"
+        gates.mkdir(parents=True)
+        (gates / "1.json").write_text(json.dumps({"task_id": "0001-a", "escalation_id": "0001-a-1", "class": "other",
+                                                  "status": "closed", "decision": "approved"}))
+        ruled = {"dod_check_id": "data-01", "ran": False, "pass": None, "rests_on": "0001-a-1",
+                 "evidence": "closed by the lead's ruling"}
+        code, _, err = self.record(approve(checks=[ruled]))
+        self.assertEqual(code, 0, err)
+        self.written().unlink()
+        for step, needle in (("0001-a-9", "no gate file"), ("0001-a-1", "not an operator step")):
+            code, _, err = self.record(approve(checks=[{**ruled, "operator_step": step}]))
+            self.assertEqual(code, 1, step)
+            self.assertIn(f"checks[0] (data-01): operator_step {step!r}", err)
+            self.assertIn(needle, err)
+            self.assertFalse(self.written().exists())
+
     def test_an_approve_with_a_failed_check_is_refused(self):
         code, _, err = self.record(approve(checks=[{"dod_check_id": "cmd-01", "pass": False, "evidence": "exit 1",
                                                     "produced_by": "verifier"}]))

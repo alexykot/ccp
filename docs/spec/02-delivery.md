@@ -749,13 +749,13 @@ later than the write, a check marked not run that has a `pass` or names no `rest
 `approve` that `merge-ok` would refuse (a failed check it ran, no `head_sha`, or no `gate` whose runs
 all exited 0). A valid example is `contracts/verification.example.json`. `checked_at` is the clock
 time the verdict was reached; `record` stamps it when absent. A check the verifier did not run itself
-is `ran: false`, `pass: null`, and `rests_on` names whose claim it rests on: neither a pass nor a
-fail. Under `adr.strict`, `ccp verify record` also refuses an approve of a head on which a decision
-the task's `adr_refs` cite is still recorded `not_built` (§6.7's in-force check, judged on the head's
-files as if the task were done, as close makes it), naming the decision and the `ccp adr decide`
-command that flips it; when the task cites a decision, a head the checkout does not hold is refused.
-A product with `ci: github-actions` in its binding may cite a green CI run at the same head
-(`gate.ci_run`) beside its own runs, never in place of them; `ccp verify record` refuses a
+is `ran: false`, `pass: null`, and `rests_on` names what it rests on, in one of the three forms below:
+neither a pass nor a fail. Under `adr.strict`, `ccp verify record` also refuses an approve of a head
+on which a decision the task's `adr_refs` cite is still recorded `not_built` (§6.7's in-force check,
+judged on the head's files as if the task were done, as close makes it), naming the decision and the
+`ccp adr decide` command that flips it; when the task cites a decision, a head the checkout does not
+hold is refused. A product with `ci: github-actions` in its binding may cite a green CI run at the
+same head (`gate.ci_run`) beside its own runs, never in place of them; `ccp verify record` refuses a
 `gate.ci_run` otherwise.
 
 A record carries the schema version of the `ccp` that wrote it (`schema_version`, an integer):
@@ -771,8 +771,13 @@ Each check names the seat that produced its evidence (`produced_by`: `verifier`,
 `reviewer`, `architect`, `operator`, `runner` or `lead`), whether the verifier ran it or not. A ruling
 is not evidence: a check the owner's ruling closed is `ran: false` with `rests_on` naming the ruling
 (ADR-0035 D7), and its `produced_by` names the seat that produced the evidence the ruling weighed,
-never `lead`; with no evidence under the waiver it names none. `ccp verify record` refuses a check
-that names none unless it is `ran: false` with `rests_on`, and one whose evidence a seat that rules
+never `lead`; with no evidence under the waiver it names none. `ccp verify record` accepts the
+`rests_on` of a `ran: false` check in exactly three forms and refuses any other, naming the check: a
+ruling, naming spec question ids or gate ids that all exist, every gate closed and approved and
+every spec question answered with verdict `resolved` (its answer file, §17.5); a carried verdict,
+`approve at <sha>` (§15.6 rule 3), where `<sha>` resolves to a commit; or evidence the operator
+produced, `produced_by: operator` with free text. It refuses a check that names no
+`produced_by` unless it is `ran: false` with `rests_on`, and one whose evidence a seat that rules
 on the task produced (`lead`, `runner`, §2.3) unless its `operator_step` names an approved operator
 step: the task's gate `<task_id>-<n>` (§17.9) of class `operator`, closed and approved (a standing
 approval is such a gate). It names the check and the seat; an `operator_step` that is not such a gate

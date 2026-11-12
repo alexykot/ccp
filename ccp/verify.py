@@ -53,6 +53,13 @@ evidence produced by a seat that rules on the task (the lead, the runner) unless
 names an approved `operator` gate of the task (§17.9); `merge-ok` and `check` read a record written
 before the field, and still refuse a ruling seat's evidence.
 
+A check not run (`ran: false`) rests on one of three things, and `record` refuses anything else
+(`rests_on_errors`): a ruling, named by spec question (`sm-…`) or gate (`<task_id>-<n>`) ids that all
+exist, each gate closed and approved and each question answered `resolved`; a carried verdict,
+`approve at <sha>` (§15.6 rule 3), the sha a commit of the product checkout; or evidence the operator
+produced (`produced_by: operator`), with any text. `merge-ok` and `check` do not apply it, so a record
+written before the rule is still read.
+
 A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_round`) carries the
 runner's `--note` as its reason; `record` adds that reason to the record's `findings` when no finding
 gives it yet, as its whole text or after a `: ` at its end (`fill_reason`).
@@ -71,6 +78,7 @@ from typing import Any
 
 from ccp.envvars import envvar
 from ccp.config import Config
+from ccp.refs import ANY_TASK_ID, QUESTION_ID
 
 SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "verification.schema.json"
 # The record's schema version, stamped by `record`. A change that adds a key to the record's
@@ -220,12 +228,95 @@ def _operator_step_refusal(queue: Path, task_id: str, step: str) -> str | None:
     return None
 
 
+# What a check not run (`ran: false`) may rest on (§15.4): a ruling named by its ids (a gate
+# `<task_id>-<n>`, a spec question `sm-…`), a carried verdict `approve at <sha>` (§15.6 rule 3), or,
+# for evidence the operator produced, any text.
+_GATE_TOKEN = re.compile(rf"(?<![\w-])({ANY_TASK_ID})-([0-9]+)(?![\w-])")
+_QUESTION_TOKEN = re.compile(rf"(?<![\w-]){QUESTION_ID}(?![\w-])")
+_APPROVE_AT = re.compile(r"approve at ([0-9a-fA-F]{7,40})")
+_REST_FORMS = ("a ruling, named by its spec question id (sm-…) or gate id (<task_id>-<n>), each of which exists, "
+               "each gate closed and approved and each question answered resolved; a carried verdict, "
+               "`approve at <sha>` (§15.6 rule 3), the sha a commit; or evidence the operator produced "
+               "(produced_by: operator)")
+
+
+def _ruling_refusal(queue: Path, rests_on: str) -> str | None:
+    """Why `rests_on` is not a ruling the queue holds, or None when it is: it names at least one gate
+    id `<task_id>-<n>` or spec question id `sm-…`, and every one it names exists and was ruled (the
+    gate file `escalations/<task_id>/<n>.json`, §17.9, closed and approved; the question file
+    `questions/<id>.json` with its answer `questions/<id>.answer.json` at verdict `resolved`, §17.5).
+    The ids may sit inside prose; an unknown or unruled one beside a ruled one is refused."""
+    missing, open_, unanswered = [], [], []
+    gates = list(_GATE_TOKEN.finditer(rests_on))
+    questions = list(_QUESTION_TOKEN.finditer(rests_on))
+    if not gates and not questions:
+        return "it names no ruling id"
+    for m in gates:
+        try:
+            gate = json.loads((queue / "escalations" / m.group(1) / f"{m.group(2)}.json").read_text())
+        except (OSError, json.JSONDecodeError):
+            missing.append(m.group(0))
+            continue
+        if not isinstance(gate, dict) or gate.get("status") != "closed" or gate.get("decision") != "approved":
+            open_.append(m.group(0))
+    for m in questions:
+        if not (queue / "questions" / f"{m.group(0)}.json").is_file():
+            missing.append(m.group(0))
+            continue
+        try:
+            answer = json.loads((queue / "questions" / f"{m.group(0)}.answer.json").read_text())
+        except (OSError, json.JSONDecodeError):
+            answer = None
+        if not isinstance(answer, dict) or answer.get("verdict") != "resolved":
+            unanswered.append(m.group(0))
+    why = ([f"no gate or spec question {', '.join(missing)} is in the queue"] if missing else []) \
+        + ([f"gate {', '.join(open_)} is not closed and approved"] if open_ else []) \
+        + ([f"spec question {', '.join(unanswered)} has no answer at verdict resolved"] if unanswered else [])
+    return "; ".join(why) or None
+
+
+def _commit_refusal(root: Path, sha: str) -> str | None:
+    """Why `sha` does not resolve to a commit in the product checkout, or None when it does."""
+    if _git(root, "rev-parse", "--verify", "-q", f"{sha}^{{commit}}").returncode == 0:
+        return None
+    return f"{sha} does not resolve to a commit in the product checkout"
+
+
+def rests_on_errors(root: Path, queue: Path, rec: dict[str, Any]) -> list[str]:
+    """§15.4, as `record` writes it: a check not run (`ran: false`) rests on one of three things, and
+    anything else is refused, naming the check. A ruling: `rests_on` names spec question or gate ids
+    that all exist, each gate closed and approved and each question answered `resolved`
+    (`_ruling_refusal`). A carried verdict: `rests_on`
+    is exactly `approve at <sha>` (§15.6 rule 3), the sha a commit of the product checkout. Evidence
+    the operator produced: `produced_by: operator`, with any `rests_on`. An empty `rests_on` is the
+    contract's to refuse."""
+    errs: list[str] = []
+    for i, c in enumerate(rec.get("checks") or []):
+        if not isinstance(c, dict) or c.get("ran", True) is not False or not isinstance(c.get("rests_on"), str) \
+                or not c["rests_on"]:
+            continue
+        text, seat = c["rests_on"], c.get("produced_by")
+        ruling = _ruling_refusal(queue, text)
+        if ruling is None:
+            continue
+        name = f"checks[{i}] ({c.get('dod_check_id')}): rests_on {text[:60]!r}"
+        if seat == "operator":
+            continue
+        carried = _APPROVE_AT.fullmatch(text.strip())
+        if carried and (bad := _commit_refusal(root, carried.group(1))) is None:
+            continue
+        detail = bad if carried else ruling
+        errs.append(f"{name} is none of the forms a check not run rests on ({detail}): {_REST_FORMS} (§15.4)")
+    return errs
+
+
 def producer_errors(queue: Path, rec: dict[str, Any], require: bool = True) -> list[str]:
     """§2.3, §15.4: each check names the seat that produced its evidence (`produced_by`; with
     `require`, a check without one is refused, as `record` writes it, unless a ruling closed it:
-    `ran: false` and `rests_on` set; a record written before the field is read without it), and none
-    was produced by a seat that rules on the task unless its `operator_step` names an approved
-    operator gate of the task. A named `operator_step` must be one."""
+    `ran: false` and `rests_on` set, which `rests_on_errors` holds to its forms; a record written
+    before the field is read without it), and none was produced by a seat that rules on the task
+    unless its `operator_step` names an approved operator gate of the task. A named `operator_step`
+    must be one."""
     errs: list[str] = []
     task_id = str(rec.get("task_id") or "")
     for i, c in enumerate(rec.get("checks") or []):
@@ -593,7 +684,7 @@ def refusal(queue: Path, task_id: str, pr_head: str) -> str | None:
     return None
 
 
-def write_record(queue: Path, rec: Any, now: datetime) -> tuple[list[str], Path | None]:
+def write_record(root: Path, queue: Path, rec: Any, now: datetime) -> tuple[list[str], Path | None]:
     """Validate `rec` and write it to verification/<task_id>.json. Nothing is written on an error."""
     if isinstance(rec, dict) and "checked_at" not in rec:
         rec = {**rec, "checked_at": _iso(now)}
@@ -603,6 +694,7 @@ def write_record(queue: Path, rec: Any, now: datetime) -> tuple[list[str], Path 
     if isinstance(rec, dict):
         errs += approve_errors(rec)
         errs += producer_errors(queue, rec)
+        errs += rests_on_errors(root, queue, rec)
     if isinstance(rec, dict) and isinstance(rec.get("gate"), dict) and rec["gate"].get("ci_run") and not _ci(queue):
         errs.append("gate.ci_run: this product's binding has no `ci: github-actions`, so a CI run is not evidence "
                     "(SPEC §15.3: the gate is the verifier's own run, never CI). Remove it.")
@@ -758,7 +850,7 @@ def main(cfg: Config, a: Any) -> int:
         if not errs and isinstance(rec, dict):
             fill_reason(queue, rec)
         if not errs:
-            errs, path = write_record(queue, rec, _now())
+            errs, path = write_record(cfg.root, queue, rec, _now())
         if errs:
             print("ccp verify record: refused, nothing written", file=sys.stderr)
             for e in errs:
