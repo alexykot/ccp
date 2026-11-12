@@ -55,6 +55,20 @@ A verifier writes a valid record on its first try, and the record's version and 
 
 *Append-only, newest last.*
 
+- 2026-11-12, implementer: the verify prompt template replaces "whose claim it rests on" with a pointer
+  to a new closing paragraph stating `produced_by`, the three `rests_on` forms and two valid example
+  checks (one run, one not run, operator form, so it needs no queue state); the verifier brief shows
+  the same two checks; a test records each example check shown in either through `ccp verify record`.
+  `contracts/verification.example.json` carries `schema_version: 1`, and its test holds it to
+  `RECORD_VERSION`. The record-version test keeps a per-version key history, each version's keys
+  pinned by a sha256 digest, so a key added under the current version (rather than a raised one)
+  changes a pinned expectation; a second test shows the rule refusing that. `_ruling_refusal` refuses
+  a cited gate whose file does not name that gate as its `escalation_id` and that task. The
+  question-file existence check was already on main (task 0062); this task adds the test that pins
+  it, so check-02's dry run (accepted on the merge base) does not hold: flagged in the report. The
+  §15.4 text names both citation checks (§31.1), and `record`'s refusals for a missing `rests_on` no
+  longer say "whose claim it rests on".
+
 ## Verification notes
 
 *Append-only.*

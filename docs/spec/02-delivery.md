@@ -782,8 +782,10 @@ is not evidence: a check the owner's ruling closed is `ran: false` with `rests_o
 (ADR-0035 D7), and its `produced_by` names the seat that produced the evidence the ruling weighed,
 never `lead`; with no evidence under the waiver it names none. `ccp verify record` accepts the
 `rests_on` of a `ran: false` check in exactly three forms and refuses any other, naming the check: a
-ruling, naming spec question ids or gate ids that all exist, every gate closed and approved and
-every spec question answered with verdict `resolved` (its answer file, §17.5); a carried verdict,
+ruling, naming spec question ids or gate ids that all exist (a gate's file names that gate as its
+`escalation_id` and that task, §17.9; a spec question has its question file as well as its answer
+file, §17.5), every gate closed and approved and every spec question answered with verdict
+`resolved`; a carried verdict,
 `approve at <sha>` (§15.6 rule 3), where `<sha>` resolves to a commit; or evidence the operator
 produced, `produced_by: operator` with free text. It refuses a check that names no
 `produced_by` unless it is `ran: false` with `rests_on`, and one whose evidence a seat that rules
