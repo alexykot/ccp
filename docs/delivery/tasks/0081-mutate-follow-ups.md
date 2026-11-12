@@ -1,0 +1,60 @@
+---
+task_id: 0081-mutate-follow-ups
+title: ccp mutate takes one test method, reverts a hunk, stops cleanly and runs from the reviewer's worktree
+status: pending
+kind: feature
+depends_on: []
+spec_refs: ["S20"]
+review_point: R5
+paths: ["ccp/mutate.py", "ccp/wt.py", "docs/spec/03-quality.md", "docs/cli/", "tests/test_mutate*.py"]
+created: 2026-11-12
+updated: 2026-11-12
+---
+
+# Task: 0081-mutate-follow-ups
+
+## Intent
+
+Proving a test bites is quick and recorded for every seat: `ccp mutate` targets a single test method, can revert named hunks of the task's change as a mutant, runs from the reviewer's or verifier's own worktree, and its stop on a signal is pinned (§20.6).
+
+## Context (not checked)
+
+- Accepted plane proposals: mutating against one new test ran its whole class; seats hand-edited copies to revert hunks; a reviewer had to make a second worktree to mutate; and the end-of-run signal checks are untested.
+- §31.1: SPEC text this task writes describes its own feature; no merge gate.
+
+## Scope
+
+- **In:** `--test` accepts a single test method id; `--revert <path>[:<line-range>]` builds a mutant that restores the merge base's version of that file or range; `ccp mutate` runs in a `rev-` or `ver-` worktree as well as `mut-`; a test sends SIGTERM during the save of a one-mutant run and asserts exit 143 and no `run`/`recorded` event; one long docstring line is wrapped; §20.6 states the options.
+- **Out:** choosing mutants automatically.
+
+## dod_checks
+
+- id: `check-01`
+  story: As a verifier, I mutate against one test method.
+  setup: a scratch product with a test class of two methods, one of which checks the mutated line.
+  steps:
+    1. Run `ccp mutate --test <module>.<Class>.<method> --mutant …`.
+  expect: only that method runs; the mutant is recorded killed.
+  dry run: on the merge base a method id is refused or runs the whole class.
+- id: `check-02`
+  story: As a reviewer, I revert a hunk from my own worktree.
+  setup: a `rev-` worktree of a task whose change adds a guard in `src/a.py`.
+  steps:
+    1. Run `ccp mutate --revert src/a.py:10-12 --test <test>`.
+  expect: the guard is reverted for the run, the test fails, and the record says killed; the tree is restored.
+  dry run: on the merge base `--revert` does not exist and a `rev-` worktree is refused.
+- id: `check-03`
+  story: As a plane developer, nothing else changed.
+  setup: a checkout of the PR head.
+  steps:
+    1. Run the full suite, `ccp tasks check`, `ccp docs check`, then `git branch --list 'state/*'`.
+  expect: all pass and the branch list is empty.
+  dry run: n/a.
+
+## Implementation notes
+
+*Append-only, newest last.*
+
+## Verification notes
+
+*Append-only.*

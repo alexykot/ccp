@@ -352,3 +352,113 @@ tasks:
     title: The architect's report is found even when a finding quotes an unbalanced brace
     depends_on: []
     path: tasks/0070-architect-report-json-extraction.md
+  - id: 0071-adoption-checklist-and-permissions
+    status: pending
+    title: An adopting lead sees every plane.json feature it may need, and the operator gets a ready permission list
+    depends_on: []
+    path: tasks/0071-adoption-checklist-and-permissions.md
+  - id: 0072-adoption-baseline-gate-and-rules-doc
+    status: pending
+    title: A product adopting the plane runs its gate once on the tip and brings its existing rules doc in
+    depends_on: []
+    path: tasks/0072-adoption-baseline-gate-and-rules-doc.md
+  - id: 0073-init-polish-and-writing-guide
+    status: pending
+    title: ccp init writes a tidy adoption, and the writing guide states the rules tasks check enforces
+    depends_on: []
+    path: tasks/0073-init-polish-and-writing-guide.md
+  - id: 0074-adr-review-points-and-package-doc-defaults
+    status: pending
+    title: Docs checks warn on untracked ADR review points and state package-doc defaults
+    depends_on: []
+    path: tasks/0074-adr-review-points-and-package-doc-defaults.md
+  - id: 0075-spawn-dry-run-and-orientation-command
+    status: pending
+    title: A lead can check a runner spawn without starting it, and see the orientation mid-session
+    depends_on: []
+    path: tasks/0075-spawn-dry-run-and-orientation-command.md
+  - id: 0076-sign-off-before-adoption
+    status: pending
+    title: A sign-off the operator gave before it could be recorded can be recorded with its date
+    depends_on: []
+    path: tasks/0076-sign-off-before-adoption.md
+  - id: 0077-adr-the-pr-host-is-an-adapter
+    status: pending
+    title: ADR: the PR host is an adapter; until then a GitHub origin is stated as required
+    depends_on: []
+    path: tasks/0077-adr-the-pr-host-is-an-adapter.md
+  - id: 0078-refactor-tasks-do-not-rerun-the-gate
+    status: pending
+    title: ccp tasks check refuses a refactor task whose check re-runs the gate
+    depends_on: []
+    path: tasks/0078-refactor-tasks-do-not-rerun-the-gate.md
+  - id: 0079-lint-proven-skips
+    status: pending
+    title: A product's prover command can skip a step it makes redundant, recorded on the run
+    depends_on: []
+    path: tasks/0079-lint-proven-skips.md
+  - id: 0080-verify-record-follow-ups
+    status: pending
+    title: The verifier's packet and the record's version and ruling checks are complete
+    depends_on: []
+    path: tasks/0080-verify-record-follow-ups.md
+  - id: 0081-mutate-follow-ups
+    status: pending
+    title: ccp mutate takes one test method, reverts a hunk, stops cleanly and runs from the reviewer's worktree
+    depends_on: []
+    path: tasks/0081-mutate-follow-ups.md
+  - id: 0082-worker-test-runs-are-recorded
+    status: pending
+    title: Workers run tests and mutation checks through recorded commands
+    depends_on: []
+    path: tasks/0082-worker-test-runs-are-recorded.md
+  - id: 0083-worktree-exec-and-base-follow-ups
+    status: pending
+    title: wt exec, base runs and shallow checkouts are complete and clean up after themselves
+    depends_on: []
+    path: tasks/0083-worktree-exec-and-base-follow-ups.md
+  - id: 0084-close-and-runner-worktree-follow-ups
+    status: pending
+    title: Close and runner worktrees leave no stale messages, leftovers or wrong paths
+    depends_on: []
+    path: tasks/0084-close-and-runner-worktree-follow-ups.md
+  - id: 0085-release-a-claimed-task-with-no-open-run
+    status: pending
+    title: The lead can release a claimed task with no open worker run, keeping its branch
+    depends_on: []
+    path: tasks/0085-release-a-claimed-task-with-no-open-run.md
+  - id: 0086-next-reads-the-integration-tip
+    status: pending
+    title: ccp tasks next never offers a task already done on the integration branch
+    depends_on: []
+    path: tasks/0086-next-reads-the-integration-tip.md
+  - id: 0087-parsing-and-path-follow-ups
+    status: pending
+    title: Path patterns, markings, reasons and report values are parsed exactly
+    depends_on: []
+    path: tasks/0087-parsing-and-path-follow-ups.md
+  - id: 0088-notify-follow-ups
+    status: pending
+    title: Notification records and wording agree everywhere
+    depends_on: []
+    path: tasks/0088-notify-follow-ups.md
+  - id: 0089-health-and-round-accounting-follow-ups
+    status: pending
+    title: Health and estimates count merge and ruling rounds, and the killed-run rule is pinned
+    depends_on: []
+    path: tasks/0089-health-and-round-accounting-follow-ups.md
+  - id: 0090-budgets-cut-line-warning
+    status: pending
+    title: ccp budgets check warns at a declared cut line before the limit
+    depends_on: []
+    path: tasks/0090-budgets-cut-line-warning.md
+  - id: 0091-seat-and-task-in-worker-and-stage-env
+    status: pending
+    title: Workers and gate stages know their seat, kind and task
+    depends_on: []
+    path: tasks/0091-seat-and-task-in-worker-and-stage-env.md
+  - id: 0092-list-the-tests-a-change-touches
+    status: pending
+    title: A command lists the test modules that depend on changed paths
+    depends_on: []
+    path: tasks/0092-list-the-tests-a-change-touches.md

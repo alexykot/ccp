@@ -20,5 +20,11 @@ review_points:
   - id: R4
     name: follow-ups
     goal: Fixes and follow-ups found while delivering R1–R3, and generic needs raised since.
-    status: current
+    status: closed
     opened: "2026-11-11"
+    closed: "2026-11-12"
+  - id: R5
+    name: adoption and follow-ups
+    goal: Make adopting the plane on a new product smooth, add the tools products asked for, and close the follow-ups found while delivering R1–R4.
+    status: current
+    opened: "2026-11-12"
