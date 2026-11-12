@@ -180,7 +180,8 @@ ccp init --rules-doc docs/ENGINEERING.md --adopt   # gives each of them `check: 
 
 `--adopt` refuses when the new lines would put the doc over `architect.rules_max_lines`. Then set
 `architect.rules_doc` to the doc's path in `plane.json`, so `ccp docs check` checks it and the
-architect judges the `pass` rules. The report also names the plane's starter rules (§20.5): where one of yours matches a starter rule, its `docs` check can replace `check: pass`.
+architect judges the `pass` rules. The report also names the plane's starter rules
+(§20.5): where one of yours matches a starter rule, its `docs` check can replace `check: pass`.
 
 ### 3. Write a first task and check
 
