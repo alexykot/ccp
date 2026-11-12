@@ -55,6 +55,18 @@ The notification feature's edges agree with ADR-0039 and §3.6: no skill tells t
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implementer): The review-triage skill's never-do line now says the lead sends only a
+  plane-rendered notice over the configured channel, recorded with `ccp notify sent` (§3.6), and that
+  its `question_for_operator` is asked in its own session on `lead_asks_operator` (§19.8); the stale
+  "the Task Runner sends it through the delivery inbox" went with it. `notify.lead` values with a
+  carriage return are refused at load, like a newline (`_notify_lead`); the plane config schema's
+  `tool`/`to` pattern says one line too. `notify_operator` in the spec maintainer fires on a bare
+  config (the binding's project id, no channel) when the product root or its plane.json is missing
+  or cannot be read, so the pending notice is recorded and printed for the lead's session; the
+  unreadable case keeps its warning. The lead-channel gate test's `sent == []` became checks that
+  the notice is left to the lead: the channel line names the tool and address, and the
+  `ccp notify sent ... --via lead` call is printed. SPEC §3.6 is unchanged.
+
 ## Verification notes
 
 *Append-only.*

@@ -275,6 +275,7 @@ class Gates(unittest.TestCase):
         self.out = Path(tmp.name) / "notified.txt"
         self.env = {**os.environ, "QUEUE_ROOT": str(self.q), "NOTIFY_OUT": str(self.out)}
         self.env.pop("PROJECT_YAML", None)
+        self.env.pop("PROJECT_ID", None)  # the binding names the project
 
     def run_script(self, script: str, *argv: str) -> dict:
         r = subprocess.run(["bash", str(PLANE / "scripts" / script), *argv], capture_output=True, text=True, env=self.env)
@@ -289,22 +290,45 @@ class Gates(unittest.TestCase):
         self.assertEqual([(r[0], r[2], r[3]) for r in sent(self.out)], [("decision", "0001-a", eid)])
         self.assertNotIn("paid cycle", self.out.read_text())
 
-    def test_a_binding_with_no_product_root_sends_nothing(self):
-        (self.q / "project.yaml").write_text("project_id: demo\n")
+    def pending(self) -> list[tuple[str, str, str, str]]:
+        evs = [json.loads(x) for x in (self.q / "observability/events.jsonl").read_text().splitlines()]
+        return [(e["project_id"], e["payload"]["trigger"], e["payload"]["task"], e["payload"]["id"]) for e in evs
+                if e["type"] == "notify" and e["op"] == "pending"]
+
+    def ask_operator(self) -> tuple[str, subprocess.CompletedProcess]:
         eid = self.run_script("team.sh", "gate", "open", "--task-id", "0001-a", "--class", "spend",
                               "--brief", "a paid cycle")["escalation_id"]
-        res = self.run_script("team.sh", "gate", "ask-operator", eid)
-        self.assertNotIn("warnings", res)
+        r = subprocess.run(["bash", str(PLANE / "scripts/team.sh"), "gate", "ask-operator", eid], capture_output=True,
+                           text=True, env=self.env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return eid, r
+
+    def test_a_binding_with_no_product_root_sends_nothing_and_records_the_notice(self):
+        (self.q / "project.yaml").write_text("project_id: demo\n")
+        eid, r = self.ask_operator()
+        self.assertNotIn("warnings", json.loads(r.stdout))
         self.assertEqual(sent(self.out), [])
+        self.assertEqual(self.pending(), [("demo", "decision", "0001-a", eid)])
+        self.assertIn("channel: the lead's session", r.stderr)
+
+    def test_a_product_with_no_plane_json_sends_nothing_and_records_the_notice(self):
+        (self.prod.root / "docs/delivery/plane.json").unlink()
+        eid, r = self.ask_operator()
+        self.assertNotIn("warnings", json.loads(r.stdout))
+        self.assertEqual(sent(self.out), [])
+        self.assertEqual(self.pending(), [("demo", "decision", "0001-a", eid)])
+        self.assertIn("[demo] decision: 0001-a", r.stderr)
+        self.assertIn("channel: the lead's session", r.stderr)
+        self.assertNotIn("paid cycle", r.stderr)
 
     def test_an_unreadable_plane_json_warns_and_the_gate_still_goes_to_the_operator(self):
         self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "notify": {"command": 3}}))
-        eid = self.run_script("team.sh", "gate", "open", "--task-id", "0001-a", "--class", "spend",
-                              "--brief", "a paid cycle")["escalation_id"]
-        res = self.run_script("team.sh", "gate", "ask-operator", eid)
+        eid, r = self.ask_operator()
+        res = json.loads(r.stdout)
         self.assertEqual(res["outcome"], "waiting_operator")
         self.assertTrue(res["warnings"][0].startswith("notify:"), res)
         self.assertEqual(sent(self.out), [])
+        self.assertEqual(self.pending(), [("demo", "decision", "0001-a", eid)])
 
     def test_a_needs_operator_answer_notifies_once(self):
         res = self.run_script("spec-maintainer-ask.sh", "raise", "--raised-by", "task-runner", "--task-id", "0001-a",

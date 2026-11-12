@@ -1155,8 +1155,8 @@
           "required": ["tool", "to"],
           "description": "SPEC §3.6: the lead sends each notice with this tool from its own session (an MCP mail or chat server's tool), renders it with `ccp notify render` and records it with `ccp notify sent --via lead`. Null: no declared tool.",
           "properties": {
-            "tool": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "The tool the lead sends with, as its session names it."},
-            "to": {"type": "string", "minLength": 1, "pattern": "\\S", "description": "Where the lead sends: the operator's address or channel on that tool."}
+            "tool": {"type": "string", "minLength": 1, "pattern": "^[^\\r\\n]*\\S[^\\r\\n]*$", "description": "One line. The tool the lead sends with, as its session names it."},
+            "to": {"type": "string", "minLength": 1, "pattern": "^[^\\r\\n]*\\S[^\\r\\n]*$", "description": "One line. Where the lead sends: the operator's address or channel on that tool."}
           }
         }
       }

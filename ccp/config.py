@@ -629,13 +629,15 @@ def _notify_lead(lead: Any) -> str | None:
     it is refused, else None."""
     if lead is None:
         return None
-    want = "notify.lead must be an object with exactly `tool` and `to`, each a non-empty string"
+    want = "notify.lead must be an object with exactly `tool` and `to`, each a non-empty one-line string"
     if not isinstance(lead, dict) or set(lead) != set(NOTIFY_LEAD_KEYS):
         extra = sorted(set(lead) - set(NOTIFY_LEAD_KEYS)) if isinstance(lead, dict) else []
         missing = [k for k in NOTIFY_LEAD_KEYS if isinstance(lead, dict) and k not in lead]
         return want + "".join([f" (unknown: {', '.join(extra)})" if extra else "",
                                f" (missing: {', '.join(missing)})" if missing else ""])
-    if not all(isinstance(lead[k], str) and lead[k].strip() and "\n" not in lead[k] for k in NOTIFY_LEAD_KEYS):
+    # one line as render takes it: neither a newline nor a carriage return
+    if not all(isinstance(lead[k], str) and lead[k].strip() and not {"\n", "\r"} & set(lead[k])
+               for k in NOTIFY_LEAD_KEYS):
         return want
     return None
 

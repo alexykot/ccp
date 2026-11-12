@@ -156,6 +156,8 @@ instead.
 
 - Change runtime task state, `waiting_on` or events. The Task Runner registers your new tasks in
   the runtime queue, as it does for any new durable task.
-- Email anyone. The Task Runner sends your `question_for_operator` through the delivery inbox,
-  word for word.
+- Send the operator anything but a plane-rendered notice over the configured channel, or send one
+  without recording it (`ccp notify sent`, SPEC §3.6): of the seats, only the lead sends. Your
+  `question_for_operator` you ask the operator in your own session when `ccp architect triage`
+  prints `lead_asks_operator` (SPEC §19.8).
 - Implement any fix yourself.
