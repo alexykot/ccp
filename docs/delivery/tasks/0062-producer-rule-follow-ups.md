@@ -23,6 +23,7 @@ The §15.4 producer rule is pinned by tests on every branch, and a check closed 
 - Any `rests_on` text counts as a ruling today.
 - `produced_by` is self-declared, and a runner can open a standing operator gate itself, so the operator-step exception is only as strong as the gate ledger. That is a known limit, recorded here, not fixed by this task.
 - §31.1: §15.4 gains a requirement, so the merge waits on the operator's approval.
+- Lead ruling, fix round 1 (option b, bounded; the lead's words): "A rule that adding produced_by bypasses is not worth the operator's approval. One fix round: 1. Check rests_on on every ran:false check. Accept exactly three forms and refuse anything else, naming the check: (i) a ruling: every spec-question id or gate id it names exists, and a gate must be closed and approved (no unknown id beside a known one); (ii) a carried verdict, 'approve at <sha>' (15.6 rule 3), where <sha> resolves to a commit; (iii) evidence the operator produced: produced_by: operator with free text. 2. Reword the PROPOSED 15.4 text to state those three forms, replacing the task's verbatim sentence, and quote both versions (the task's and the reworded) in the PR body. It is a gated section change, so the operator approves the final text. 3. Fix plugin/agents/delivery-verifier.md:49 to match, and list it as outside the declared paths. 4. Test each form and each refusal."
 
 ## Scope
 
@@ -68,6 +69,18 @@ The §15.4 producer rule is pinned by tests on every branch, and a check closed 
   the gate's state). The operator-step branch on a check with no `produced_by` is pinned in
   `tests/test_verify.py`. §15.4 carries the task's PROPOSED text; the schema's `rests_on` and
   `produced_by` descriptions say the same.
+
+- 2026-11-12 (implementer, fix round 1, per the lead's ruling in Context): the `rests_on` check
+  moved out of `producer_errors` into `rests_on_errors`, which `ccp verify record` runs on every
+  `ran: false` check whatever its `produced_by`. It accepts a ruling (at least one gate or spec
+  question id, every one named existing, every gate closed and approved), a carried verdict (exactly
+  `approve at <sha>`, the sha resolving with `git rev-parse` in the product checkout), or any text
+  with `produced_by: operator`, and refuses anything else naming the check and `rests_on`. A check
+  with no `produced_by` may rest on a ruling or a carried verdict, as the ruling lists them. The §15.4 sentence
+  now states the three forms, replacing the task's PROPOSED wording; the schema descriptions and the
+  verifier brief (outside the declared `paths`, per the ruling) say the same. The round-1 test that
+  let a check with a producer rest on any text was replaced; no other existing test contradicted
+  the ruling.
 
 ## Verification notes
 

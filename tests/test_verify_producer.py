@@ -6,6 +6,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -117,7 +118,11 @@ class Producer(unittest.TestCase):
             self.written().unlink()
         for rests_on, needle in (("the lead said so in chat", "names no ruling id"),
                                  (f"{TASK}-9", f"{TASK}-9"),
-                                 ("sm-20261111T120000Z-ffff", "sm-20261111T120000Z-ffff")):
+                                 ("sm-20261111T120000Z-ffff", "sm-20261111T120000Z-ffff"),
+                                 (f"{TASK}-1 and {TASK}-9", f"{TASK}-9"),
+                                 (f"{question} and sm-20261111T120000Z-ffff", "sm-20261111T120000Z-ffff"),
+                                 (self.gate(4, status="open", decision=None), f"gate {TASK}-4 is not closed"),
+                                 (self.gate(5, decision="refused"), f"gate {TASK}-5 is not closed")):
             code, _, err = self.record(check(None, rests_on=rests_on, **ruled))
             self.assertEqual(code, 1, rests_on)
             self.assertIn("checks[0] (data-01): rests_on", err)
@@ -125,10 +130,45 @@ class Producer(unittest.TestCase):
             self.assertNotIn("names no produced_by", err)
             self.assertFalse(self.written().exists())
 
-    def test_a_check_with_a_producer_may_rest_on_any_claim(self):
-        for rests_on in ("the operator's paste, 15:49", "approve at " + "c" * 12):
-            code, _, err = self.record(check("operator", ran=False, rests_on=rests_on, **{"pass": None}))
-            self.assertEqual(code, 0, (rests_on, err))
+    def commit(self) -> str:
+        """A commit in the product checkout, as a carried verdict's old head."""
+        def git(*a: str) -> str:
+            return subprocess.run(["git", "-C", str(self.p.root), "-c", "user.email=t@t", "-c", "user.name=t", *a],
+                                  check=True, capture_output=True, text=True).stdout.strip()
+        git("init", "-q")
+        git("add", "-A")
+        git("commit", "-qm", "init")
+        return git("rev-parse", "HEAD")
+
+    def test_a_check_not_run_rests_on_a_ruling_a_carried_verdict_or_the_operators_evidence(self):
+        sha = self.commit()
+        unrun = {"ran": False, "pass": None}
+        for seat, rests_on in (("implementer", self.gate(1)), ("verifier", f"approve at {sha}"),
+                               ("reviewer", f"approve at {sha[:12]}"), (None, f"approve at {sha}"),
+                               ("operator", "the operator's paste, 15:49"), ("operator", f"approve at {'c' * 40}")):
+            code, _, err = self.record(check(seat, rests_on=rests_on, **unrun))
+            self.assertEqual(code, 0, (seat, rests_on, err))
+            self.written().unlink()
+        code, _, err = self.record(check("verifier", rests_on="a check it ran rests on nothing"))
+        self.assertEqual(code, 0, err)
+
+    def test_a_check_not_run_on_anything_else_is_refused_naming_it(self):
+        sha = self.commit()
+        unrun = {"ran": False, "pass": None}
+        for seat, rests_on, needle in (
+                ("verifier", "the operator's paste, 15:49", "names no ruling id"),
+                ("implementer", "the lead said so", "names no ruling id"),
+                ("verifier", f"approve at {'c' * 40}", f"{'c' * 40} does not resolve to a commit"),
+                ("verifier", f"approve at {sha}, see the notes", "names no ruling id"),
+                ("verifier", f"approved at {sha}", "names no ruling id"),
+                ("implementer", f"{TASK}-9", f"{TASK}-9")):
+            code, _, err = self.record(check("verifier", dod_check_id="cmd-01"),
+                                       check(seat, rests_on=rests_on, **unrun))
+            self.assertEqual(code, 1, (seat, rests_on))
+            self.assertIn("checks[1] (data-01): rests_on", err)
+            self.assertNotIn("checks[0]", err)
+            self.assertIn(needle, err)
+            self.assertFalse(self.written().exists())
 
     def test_check_and_merge_ok_read_a_record_whose_ruling_names_no_id(self):
         rec = approve(TASK, checked_at=now_iso(),

@@ -47,8 +47,12 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   `operator_step` naming that approved `operator` gate (`<task_id>-<n>`). Evidence the ruling seat
   produced with no approved step proves nothing: run the check yourself, or reject.
 - A ruling is not evidence. A check the owner's ruling closed is `ran: false`, `rests_on` naming
-  the ruling; its `produced_by` names the seat whose evidence the ruling weighed, never `lead`, and
-  is left out when no evidence underlies the waiver.
+  the ruling by its spec question id (`sm-…`) or gate id (`<task_id>-<n>`); its `produced_by` names
+  the seat whose evidence the ruling weighed, never `lead`, and is left out when no evidence
+  underlies the waiver.
+- `record` accepts the `rests_on` of a `ran: false` check in three forms only (SPEC §15.4): a
+  ruling, every id it names existing and every gate closed and approved; `approve at <sha>`, the sha
+  a commit; or any text when `produced_by` is `operator`. Anything else is refused.
 - A re-verify after a fix-up, or after that head moved, uses `contracts/reverify_packet.schema.json`
   (example `contracts/reverify_packet.example.json`). Judge the packet's `head_sha` and write it
   on the new verdict.
