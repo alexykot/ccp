@@ -1,7 +1,7 @@
 ---
 task_id: 0074-adr-review-points-and-package-doc-defaults
 title: Docs checks warn on untracked ADR review points and state package-doc defaults
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S6", "S21", "S22"]
@@ -71,4 +71,4 @@ A product adopting with ADRs already tagged with review points is told it has no
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #84 head `a8d1b3e` (squash `781e81d`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0074-adr-review-points-and-package-doc-defaults.json.
