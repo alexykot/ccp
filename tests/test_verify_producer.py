@@ -69,6 +69,16 @@ class Producer(unittest.TestCase):
         (d / f"{n}.json").write_text(json.dumps(g))
         return f"{task}-{n}"
 
+    def question(self, qid: str, verdict: str | None) -> str:
+        """A spec question file (§17.4) and, with `verdict`, its answer file as the lead writes it (§17.5)."""
+        d = self.q / "questions"
+        d.mkdir(exist_ok=True)
+        (d / f"{qid}.json").write_text(json.dumps({"question_id": qid, "project_id": "demo", "status": "open"}))
+        if verdict is not None:
+            (d / f"{qid}.answer.json").write_text(json.dumps({"schema_version": 1, "question_id": qid,
+                                                             "project_id": "demo", "verdict": verdict}))
+        return qid
+
     def test_evidence_produced_by_a_ruling_seat_is_refused_naming_the_check_and_the_seat(self):
         for seat in ("lead", "runner"):
             for verdict in ("approve", "reject"):
@@ -108,9 +118,7 @@ class Producer(unittest.TestCase):
         self.assertIn("produced by the lead", err)
 
     def test_a_check_a_ruling_closed_names_a_ruling_the_queue_holds(self):
-        question = "sm-20261111T120000Z-ab12"
-        (self.q / "questions").mkdir()
-        (self.q / "questions" / f"{question}.json").write_text("{}")
+        question = self.question("sm-20261111T120000Z-ab12", "resolved")
         ruled = {"ran": False, "pass": None}
         for rests_on in (self.gate(1), f"the lead's answer to {question}", self.gate(3, task="0002-b")):
             code, _, err = self.record(check(None, rests_on=rests_on, **ruled))
@@ -130,6 +138,23 @@ class Producer(unittest.TestCase):
             self.assertNotIn("names no produced_by", err)
             self.assertFalse(self.written().exists())
 
+    def test_a_spec_question_is_a_ruling_only_once_answered_resolved(self):
+        unrun = {"ran": False, "pass": None}
+        resolved = self.question("sm-20261111T120000Z-0001", "resolved")
+        code, _, err = self.record(check(None, rests_on=f"the lead's answer to {resolved}", **unrun))
+        self.assertEqual(code, 0, err)
+        self.written().unlink()
+        for qid, verdict in (("sm-20261111T120000Z-0002", None), ("sm-20261111T120000Z-0003", "needs_operator"),
+                             ("sm-20261111T120000Z-0004", "not_a_spec_question")):
+            self.question(qid, verdict)
+            for seat in (None, "implementer"):
+                for rests_on in (qid, f"{resolved} and {qid}"):
+                    code, _, err = self.record(check(seat, rests_on=rests_on, **unrun))
+                    self.assertEqual(code, 1, (qid, seat, rests_on))
+                    self.assertIn("checks[0] (data-01): rests_on", err)
+                    self.assertIn(f"spec question {qid} has no answer at verdict resolved", err)
+                    self.assertFalse(self.written().exists())
+
     def test_a_date_beside_a_ruling_reads_as_an_unknown_gate_id_and_is_refused(self):
         # Decided: refuse. A date is shaped like a gate id (`<digits>-<slug>-<digits>`), and the ruling
         # form allows no unknown id beside a known one, so the verifier writes the date another way.
@@ -145,9 +170,7 @@ class Producer(unittest.TestCase):
 
     def test_a_ruling_id_inside_a_longer_token_is_not_one(self):
         gate = self.gate(1)
-        question = "sm-20261111T120000Z-ab12"
-        (self.q / "questions").mkdir()
-        (self.q / "questions" / f"{question}.json").write_text("{}")
+        question = self.question("sm-20261111T120000Z-ab12", "resolved")
         for rests_on in (f"x{gate}", f"gate-{gate}", f"{gate}x", f"{gate}-", f"x{question}", f"{question}9"):
             code, _, err = self.record(check(None, rests_on=rests_on, ran=False, **{"pass": None}))
             self.assertEqual(code, 1, rests_on)

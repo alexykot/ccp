@@ -24,6 +24,7 @@ The §15.4 producer rule is pinned by tests on every branch, and a check closed 
 - `produced_by` is self-declared, and a runner can open a standing operator gate itself, so the operator-step exception is only as strong as the gate ledger. That is a known limit, recorded here, not fixed by this task.
 - §31.1: §15.4 gains a requirement, so the merge waits on the operator's approval.
 - Lead ruling, fix round 1 (option b, bounded; the lead's words): "A rule that adding produced_by bypasses is not worth the operator's approval. One fix round: 1. Check rests_on on every ran:false check. Accept exactly three forms and refuse anything else, naming the check: (i) a ruling: every spec-question id or gate id it names exists, and a gate must be closed and approved (no unknown id beside a known one); (ii) a carried verdict, 'approve at <sha>' (15.6 rule 3), where <sha> resolves to a commit; (iii) evidence the operator produced: produced_by: operator with free text. 2. Reword the PROPOSED 15.4 text to state those three forms, replacing the task's verbatim sentence, and quote both versions (the task's and the reworded) in the PR body. It is a gated section change, so the operator approves the final text. 3. Fix plugin/agents/delivery-verifier.md:49 to match, and list it as outside the declared paths. 4. Test each form and each refusal."
+- Lead ruling, fix round 2, on review 2's MINOR 3 (the lead's words): "an unanswered spec question isn't a ruling. Make it symmetric with gates: a named spec-question id counts only when its answer file exists with verdict `resolved`, and the §15.4 text says so."
 
 ## Scope
 
@@ -91,6 +92,13 @@ The §15.4 producer rule is pinned by tests on every branch, and a check closed 
   cited as a ruling must be closed and approved, but a spec question only has to exist
   (`questions/<id>.json`), so an unanswered question passes as a ruling. The code follows the
   ruling's "exists"; requiring `status: answered` would be the lead's call.
+
+- 2026-11-12 (implementer, fix round 2, per the lead's second ruling in Context): the asymmetry
+  above is closed. A spec question cited as a ruling now counts only when its answer file
+  `questions/<id>.answer.json` exists with verdict `resolved` (§17.5), as a gate counts only closed
+  and approved; an unanswered question, or one answered `needs_operator` or `not_a_spec_question`,
+  is refused, alone or beside a ruled id. §15.4, the schema's `rests_on` description and the verifier
+  brief say so.
 
 ## Verification notes
 
