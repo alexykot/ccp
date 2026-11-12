@@ -403,7 +403,7 @@ tasks:
     depends_on: []
     path: tasks/0080-verify-record-follow-ups.md
   - id: 0081-mutate-follow-ups
-    status: pending
+    status: done
     title: ccp mutate takes one test method, reverts a hunk, stops cleanly and runs from the reviewer's worktree
     depends_on: []
     path: tasks/0081-mutate-follow-ups.md

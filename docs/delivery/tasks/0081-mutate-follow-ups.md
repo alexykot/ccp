@@ -1,7 +1,7 @@
 ---
 task_id: 0081-mutate-follow-ups
 title: ccp mutate takes one test method, reverts a hunk, stops cleanly and runs from the reviewer's worktree
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S20"]
@@ -80,4 +80,4 @@ Proving a test bites is quick and recorded for every seat: `ccp mutate` targets 
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #73 head `2e3b192` (squash `4ff2940`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0081-mutate-follow-ups.json.
