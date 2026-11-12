@@ -443,7 +443,7 @@ tasks:
     depends_on: []
     path: tasks/0088-notify-follow-ups.md
   - id: 0089-health-and-round-accounting-follow-ups
-    status: pending
+    status: done
     title: Health and estimates count merge and ruling rounds, and the killed-run rule is pinned
     depends_on: []
     path: tasks/0089-health-and-round-accounting-follow-ups.md

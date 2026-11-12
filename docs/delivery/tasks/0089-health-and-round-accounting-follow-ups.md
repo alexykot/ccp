@@ -1,7 +1,7 @@
 ---
 task_id: 0089-health-and-round-accounting-follow-ups
 title: Health and estimates count merge and ruling rounds, and the killed-run rule is pinned
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S13", "S14", "S23"]
@@ -71,4 +71,4 @@ Merge and ruling rounds are counted as what they are in health, drill and estima
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #75 head `eeb9eda` (squash `5cff796`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0089-health-and-round-accounting-follow-ups.json.
