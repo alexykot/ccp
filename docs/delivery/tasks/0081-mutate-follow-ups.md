@@ -55,6 +55,18 @@ Proving a test bites is quick and recorded for every seat: `ccp mutate` targets 
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implementer): `--test` was already passed whole to `mutate.command`, so a method id
+  ran that method alone on the merge base too (check-01's dry-run premise does not hold for a
+  unittest command); a test now pins it and §20.6 says so. `--revert PATH[:N[-M]]` (repeatable) is
+  a mutant of kind `revert`: the merge base (HEAD's with `origin/<integration>`, `wt.merge_base`)
+  version of the file, a file the change added removed; with a range, every change whose lines in
+  the worktree's file overlap N..M, plus a deletion inside or next to it, is put back. A revert that
+  changes nothing, a range outside the file, a directory or a path outside the worktree is refused
+  (exit 2). The `--mutant`s are numbered first, then the `--revert`s; `--mutant` is no longer
+  required, but one of the two is. `ccp mutate` takes `mut`, `rev` and `ver` worktrees. Wrapped the
+  long docstring and message lines in `ccp/mutate.py`. `ccp/cli.py` (outside `paths`) gained the
+  flag; `ccp/wt.py` did not change.
+
 ## Verification notes
 
 *Append-only.*
