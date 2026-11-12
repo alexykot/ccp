@@ -119,6 +119,42 @@ and creates the queue, `~/.delivery-queue/my-product/` (`--queue-root` picks ano
 - The binding is the one place for the product root, the queue and the runner: edit it there, and
   `ccp`, the team scripts and the hooks all read the change. `ccp where` names it.
 
+#### Adoption checklist
+
+`ccp init` writes a minimal `plane.json`. A real product usually needs some of these keys as well
+(SPEC §8.1; the contract is `contracts/plane_config.schema.json`):
+
+| Key | What it is for | A product needs it when |
+|---|---|---|
+| `env` (`setup`, `teardown`, `up`, `down`, `urls`) | shell hooks run in each worktree: prepare it, clean it up, start and stop what it serves, say where it serves (§12.2) | a worktree needs more than a checkout to build and test: dependencies, a database, a server the verifier opens |
+| `telemetry.allowance_cmd`, `telemetry.allowance_stop_weekly` | a command that prints the account's usage windows, and the weekly checkpoint where new claims stop until the operator decides (§25) | the team runs unattended on a plan with usage limits; without the command no usage is read and nothing stops |
+| `auth_check.probes` | `[{id, cmd}]` credential checks run before each new task; a failing one stops the claim and raises a `reauth` gate (§30.1) | the work needs a login that can expire: `gh`, Claude, a cloud CLI |
+| `parallel.exclusive` | paths that no two tasks in flight may touch at once (§16.2) | `parallel.max_in_flight` is above 1 and some file is unsafe for git to merge: a schema, a migration, a lock file |
+| `merge.behind_tip_ignore` | paths whose commits on the tip do not make a verified head stale (§16.5) | other work commits to those paths often and should not force a new verify |
+| `reconcile.log` | an entry `ccp tasks close` adds to a product log at each close (§10.5) | the product keeps a delivery log or changelog |
+| `notify` | the operator's channel for blockers, decisions, finished review points and the checkpoint: a command `ccp` runs, or a tool the lead sends with (§3.6) | the operator is away from the lead's session |
+| `docs.starter_rules` | adopts the plane's starter house rules (`ccp init --starter-rules`, §20.5) | the product has no house rules of its own yet |
+| `architect.checks` | product commands for the house rules a command can check; `ccp docs check` runs them (§20.1, §21.2) | a house rule can be checked by a command: a linter, a leak scan |
+| `verify.accept_cache` | the verifier counts a hit in the product's content-keyed test cache as run and passed (§15.3) | the gate has such a cache and is slow to run cold |
+| `mutate.command` | runs one test, `{test}`, for `ccp mutate`, which tells a test that passes from a test that checks something (§20.6) | the team should show that a new test fails when the change it guards is broken |
+| `report.required_fields` | verdicts every implementer report must state, `[{name, values}]` (§13.4) | the product needs the same fixed answer from every implementer |
+
+#### Permissions
+
+Teammates' permission prompts appear in the lead's session and block while you are away (SPEC
+§18.5), so pre-approve the runner's and workers' commands before the first run:
+
+```bash
+ccp init --permissions
+```
+
+It prints a JSON `permissions` block and writes nothing. The block allows `ccp`, and the plane's
+`team.sh` and `spec-maintainer-ask.sh` by absolute path, each also behind the queue's `QUEUE_ROOT=`
+as the seats run them; git by verb; `gh pr`; and your gate lane's commands. It denies destructive
+commands. **The operator applies it**: merge it into the product's
+`.claude/settings.json` yourself, because Claude Code's auto mode refuses the lead's own edit to that
+file.
+
 ### 3. Write a first task and check
 
 This first task passes the checks as written (the heredoc escapes its backticks). Edit its text to fit your product, or copy
