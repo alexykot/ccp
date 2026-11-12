@@ -21,6 +21,11 @@ The plane's dependence on GitHub for pull requests is stated up front now, and t
 
 - Accepted plane proposal, as a design item: claim, worktrees and the reconcile push need only an origin, but `merge-ok`, the default merge, close's merge confirmation and the implementer's PR are GitHub-only, and nothing says so. The acceptance says an ADR the operator approves comes first, then tasks.
 - §31: this task adds or changes a § rule beyond describing its own feature, so its merge waits on the operator's approval of the final text at its merge gate (§31.1). The ADR is accepted only by the operator's approval at that gate.
+- Ruling sm-20261112T124326Z-da68 (lead): add a sentence to SPEC 4.5 (Adopting a product,
+  docs/spec/01-model.md) in this PR: ccp init warns when the product has no origin or its origin is
+  not GitHub, since review, merge and close need a GitHub origin until ADR-0040's adapter exists.
+  This is a section 31.1 text change describing the task's own feature, so no operator approval.
+  Quote the new sentence in the PR body (and say it adds text, replacing none).
 
 ## Scope
 
@@ -65,6 +70,13 @@ The plane's dependence on GitHub for pull requests is stated up front now, and t
   workers' `gh pr` steps; only the host is printed, never the URL. The README's prerequisites state
   the requirement. SPEC §4.5 is not changed: the task gives no SPEC text and its paths exclude
   `docs/spec/` (flagged in the report). A GitHub Enterprise host is warned about as not GitHub.
+- 2026-11-12 (implementer, ruling round 1): per the lead's ruling sm-20261112T124326Z-da68, SPEC
+  §4.5 gains one sentence after the paragraph on what init keeps and refuses: init warns, on stderr
+  and in its result's `warnings`, when the product has no `origin` or its origin is not on GitHub,
+  and adopts it all the same, because review, merge and close need a GitHub origin until ADR-0040's
+  adapter exists. It adds text and replaces none (§31.1: it describes this task's own feature). The
+  frontmatter `paths` is left as written (it does not list `docs/spec/`); code and tests are
+  unchanged, as the ruling asks only for the SPEC text.
 
 ## Verification notes
 
