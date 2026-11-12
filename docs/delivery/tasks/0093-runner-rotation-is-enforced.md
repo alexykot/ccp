@@ -135,6 +135,14 @@ long-lived runner does not carry an ever-growing context into every request (§2
   rotations against distinct tasks done, `rotation` in `--json`), nothing beyond it. The rotation
   step stays at §10.2 step 4 as written, unwidened; the runner-idle hook is untouched (a follow-up
   for the lead). No code or test changed.
+- 2026-11-12 (implementer): **Fix round 1.** The review found the context trigger's two filters
+  (only requests since the slot's spawn; only the slot's own teammate) unpinned: the old test's
+  fixture let "latest wins" hide both. It is replaced by tests that each fail without one filter: a
+  slot whose only request predates its spawn is not due; another runner's later, larger request does
+  not make the slot due; the latest request decides, not the largest; and a context-due slot is
+  taken through `team.sh runner rotate`, `spawn` and a successful claim (the old incarnation's
+  request predates the new spawn). `usage.runner_context` now streams the spans file instead of
+  reading it whole (no behaviour change).
 
 ## Verification notes
 

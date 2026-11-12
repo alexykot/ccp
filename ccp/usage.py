@@ -307,20 +307,23 @@ def runner_context(q: Path, names: set[str], since: Any = None) -> dict[str, Any
     keys = [f"{n}@session-" for n in names if n]
     t0 = _t(since) if since else None
     best: tuple[float, dict[str, Any]] | None = None
-    for line in p.read_text().splitlines() if keys and p.is_file() else []:
-        if not any(k in line for k in keys):  # the file is large: parse only the lines that may match
-            continue
-        try:
-            row = json.loads(line)
-        except ValueError:
-            continue
-        aid = str(row.get("agent_id") or "") if isinstance(row, dict) else ""
-        if "@session-" not in aid or aid.split("@", 1)[0] not in names:
-            continue
-        t = _t(row.get("at"))
-        if t is None or (t0 is not None and t < t0) or (best is not None and t < best[0]):
-            continue
-        best = (t, row)
+    if not keys or not p.is_file():
+        return None
+    with p.open() as fh:  # the file is large: stream it, and parse only the lines that may match
+        for line in fh:
+            if not any(k in line for k in keys):
+                continue
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            aid = str(row.get("agent_id") or "") if isinstance(row, dict) else ""
+            if "@session-" not in aid or aid.split("@", 1)[0] not in names:
+                continue
+            t = _t(row.get("at"))
+            if t is None or (t0 is not None and t < t0) or (best is not None and t < best[0]):
+                continue
+            best = (t, row)
     if best is None:
         return None
     return {"at": best[1].get("at"), "tokens": sum(int(_n(best[1].get(k))) for k in CONTEXT_TOKENS),

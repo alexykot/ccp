@@ -119,11 +119,38 @@ class Rotation(ToolkitFixture, unittest.TestCase):
         due = self.health()["due"]
         self.assertEqual([(d["slot"], d["trigger"], d["context_tokens"]) for d in due], [("runner-1", "context", 120000)])
 
-    def test_the_context_trigger_reads_the_slots_latest_request_since_its_spawn(self):
+    def test_a_context_due_slot_takes_a_task_once_rotated_and_respawned(self):
+        self.binding(rotate_at_context_tokens=100000)
+        self.slots(tasks_done=0)
+        self.span("runner-1", 120000, time.time() - 60)
+        self.assertEqual(self.claim()[0], 7)
+        code, out, err = self.team("runner", "rotate", "--slot", "runner-1")
+        self.assertEqual(code, 0, out + err)
+        code, out, err = self.team("runner", "spawn", "--slot", "runner-1")
+        self.assertEqual(code, 0, out + err)
+        # the fresh runner has made no request yet: the old incarnation's large one predates its spawn
+        self.assertEqual(self.health()["due"], [])
+        code, _, out, err = self.claim()
+        self.assertEqual(code, 0, out + err)
+
+    def test_a_request_before_the_spawn_does_not_count(self):
         self.binding(rotate_at_context_tokens=100000)
         self.slots(tasks_done=0, spawned_at=iso(time.time() - 600))
-        self.span("runner-1", 500000, time.time() - 3600)  # before this spawn: the runner rotated away
-        self.span("runner-2", 500000, time.time() - 60)  # another runner's
+        self.span("runner-1", 500000, time.time() - 3600)  # the slot's only request, made before this spawn
+        self.assertEqual(self.health()["due"], [])
+        self.assertEqual(self.claim()[0], 0)
+
+    def test_another_runners_request_does_not_count(self):
+        self.binding(rotate_at_context_tokens=100000)
+        self.slots(tasks_done=0, spawned_at=iso(time.time() - 600))
+        self.span("runner-1", 90000, time.time() - 120)  # the slot's latest: below
+        self.span("runner-2", 500000, time.time() - 30)  # later, and above, but another runner's
+        self.assertEqual(self.health()["due"], [])
+        self.assertEqual(self.claim()[0], 0)
+
+    def test_the_slots_latest_request_decides_not_its_largest(self):
+        self.binding(rotate_at_context_tokens=100000)
+        self.slots(tasks_done=0, spawned_at=iso(time.time() - 600))
         self.span("runner-1", 150000, time.time() - 120)
         self.span("runner-1", 90000, time.time() - 60)  # the latest: below
         self.assertEqual(self.health()["due"], [])
