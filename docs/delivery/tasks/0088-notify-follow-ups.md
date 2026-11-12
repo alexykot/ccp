@@ -1,7 +1,7 @@
 ---
 task_id: 0088-notify-follow-ups
 title: Notification records and wording agree everywhere
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S3"]
@@ -69,4 +69,4 @@ The notification feature's edges agree with ADR-0039 and §3.6: no skill tells t
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #85 head `4c5e3a1` (squash `ab43370`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `python3 -m ccp tasks check` exit 0, `python3 -m ccp docs check` exit 0. Record: verification/0088-notify-follow-ups.json.

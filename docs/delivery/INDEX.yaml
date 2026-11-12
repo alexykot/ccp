@@ -438,7 +438,7 @@ tasks:
     depends_on: []
     path: tasks/0087-parsing-and-path-follow-ups.md
   - id: 0088-notify-follow-ups
-    status: pending
+    status: done
     title: Notification records and wording agree everywhere
     depends_on: []
     path: tasks/0088-notify-follow-ups.md
