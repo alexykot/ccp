@@ -184,7 +184,12 @@ def git(cwd: str, *a: str) -> str:
 
 
 def last_json_object(text: str) -> dict[str, Any] | None:
-    """The last top-level JSON object in a model's final message (fenced or bare)."""
+    """The last top-level JSON object in a model's final message (fenced or bare).
+
+    A fenced ```json block wins. Otherwise the message is read left to right: at each `{` a JSON
+    decode is tried, and a decoded object is skipped whole, so braces quoted inside its strings
+    never count and only top-level objects are found; the last one wins.
+    """
     t = text or ""
     fences = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", t, re.S)
     for c in reversed(fences):
@@ -194,25 +199,19 @@ def last_json_object(text: str) -> dict[str, Any] | None:
                 return obj
         except json.JSONDecodeError:
             pass
-    end = t.rfind("}")
-    while end != -1:
-        depth, i = 0, end
-        while i >= 0:
-            if t[i] == "}":
-                depth += 1
-            elif t[i] == "{":
-                depth -= 1
-                if depth == 0:
-                    try:
-                        obj = json.loads(t[i:end + 1])
-                        if isinstance(obj, dict):
-                            return obj
-                    except json.JSONDecodeError:
-                        pass
-                    break
-            i -= 1
-        end = t.rfind("}", 0, end)
-    return None
+    dec = json.JSONDecoder()
+    last: dict[str, Any] | None = None
+    i = t.find("{")
+    while i != -1:
+        try:
+            obj, end = dec.raw_decode(t, i)
+        except json.JSONDecodeError:
+            i = t.find("{", i + 1)
+            continue
+        if isinstance(obj, dict):
+            last = obj
+        i = t.find("{", end)
+    return last
 
 
 def validate_report(r: Any, rid: str, pid: str, kind: Kind, max_findings: int = 25) -> list[str]:

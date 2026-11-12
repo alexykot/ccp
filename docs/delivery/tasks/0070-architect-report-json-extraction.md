@@ -69,6 +69,15 @@ missing findings".
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implementer): `last_json_object` keeps the fenced-block path first, then scans the
+  message left to right with `json.JSONDecoder().raw_decode` at each `{`; a decoded object is skipped
+  whole, so braces inside its strings never count, and the last top-level dict wins. A `{` that does
+  not decode (prose such as `{x}`) is passed over. Both callers (`ccp/architect.py`,
+  `ccp/estimator.py`) call this one function, so neither changed. Tests in `tests/test_architect.py`
+  (`TheReportIsFoundInTheFinalMessage`): unbalanced `{`, unbalanced `}`, prose before and after,
+  fenced, two top-level objects, and no object. Dry run on the merge base: the check-01 message
+  returned the inner finding `F1`.
+
 ## Verification notes
 
 *Append-only.*
