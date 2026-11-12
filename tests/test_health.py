@@ -93,6 +93,32 @@ class Merges(unittest.TestCase):
         self.assertEqual((r["prompts"], r["prompt_chars"], r["implement_prompt_chars"]), (1, 300, 300))
         self.assertEqual(r["times"], "recorded, some file mtimes")  # no review/verify launch was recorded
 
+    def test_merge_and_ruling_rounds_have_their_own_counts(self):
+        with tempfile.TemporaryDirectory() as qd:
+            q = Path(qd)
+            d = q / "progress" / "0003-t3"
+            d.mkdir(parents=True)
+            for name, at in (("implement-report.md", T0 + 9000), ("review-report.md", T0 + 9300),
+                             ("ruling-report.md", T0 + 9700), ("merge-report.md", T0 + 9900),
+                             ("verify-report.md", T0 + 10200)):
+                (d / name).write_text("r\n")
+                os.utime(d / name, (at, at))
+            pd = q / "prompts" / "0003-t3"
+            pd.mkdir(parents=True)
+            for stamp, phase in (("20251009T094000Z", "implement"), ("20251009T113000Z", "ruling"),
+                                 ("20251009T113140Z", "ruling-2"), ("20251009T113500Z", "merge")):
+                (pd / f"{stamp}_{phase}.json").write_text("{}")
+            (q / "observability").mkdir()
+            (q / "observability" / "events.jsonl").write_text(json.dumps(
+                {"at": "2025-10-09T09:30:00Z", "task_id": "0003-t3", "type": "lease", "op": "set"}) + "\n")
+            out = io.StringIO()
+            with redirect_stdout(out), redirect_stderr(io.StringIO()), mock.patch.dict(os.environ, {"QUEUE_ROOT": qd}):
+                self.assertEqual(cli.main(["--root", str(self.p.root), "health", "--json"]), 0)
+        r = {x["task_id"]: x for x in json.loads(out.getvalue())["tasks"]}["0003-t3"]
+        self.assertEqual((r["merge_rounds"], r["ruling_rounds"]), (1, 2))
+        self.assertEqual((r["fix_rounds"], r["review_rounds"], r["verify_rounds"]), (0, 1, 1))
+        self.assertEqual(r["reviewing_s"], 300)  # the review report ends it; the later rounds are not review time
+
     def test_recorded_times_win_over_file_mtimes(self):
         """A copied or restored queue rewrites file mtimes; the times the queue recorded do not move."""
         with tempfile.TemporaryDirectory() as qd:

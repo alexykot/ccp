@@ -336,7 +336,7 @@ class Actuals(unittest.TestCase):
         row = {"merged_at": "2026-10-20T12:00:00Z", "wall_s": 100, "implementing_s": 30, "reviewing_s": 50,
                "verifying_s": 1_157_107, "merge_sha": "abc1234"}
         a = estimate.actual_from(Path(tempfile.mkdtemp()), "0086-x", row, None)
-        self.assertEqual(a["phases"], {"implement": 30, "review": 50, "fix": None, "verify": 20})
+        self.assertEqual(a["phases"], {"implement": 30, "review": 50, "fix": None, "verify": 20, "merge": None, "ruling": None})
         self.assertEqual((a["wall_s"], a["start_at"], a["phases_from"]), (100, "2026-10-20T11:58:20Z", "spans"))
 
     def test_run_phases_are_the_union_of_their_runs_inside_the_drill_window(self):
@@ -345,8 +345,21 @@ class Actuals(unittest.TestCase):
             {"phase": "implement", "start_at": "2026-10-20T10:04:00Z", "end_at": "2026-10-20T10:06:00Z"},
             {"phase": "review", "start_at": "2026-10-20T10:10:00Z", "end_at": "2026-10-20T11:00:00Z"}]}
         a = estimate.actual_from(Path(tempfile.mkdtemp()), "0001-x", {"merged_at": "2026-10-20T10:16:40Z", "wall_s": 999}, d)
-        self.assertEqual(a["phases"], {"implement": 360, "review": 400, "fix": 0, "verify": 0})
+        self.assertEqual(a["phases"], {"implement": 360, "review": 400, "fix": 0, "verify": 0, "merge": 0, "ruling": 0})
         self.assertEqual((a["wall_s"], a["start_at"]), (1000, "2026-10-20T10:00:00Z"))
+
+    def test_merge_and_ruling_rounds_have_their_own_phases_and_rounds(self):
+        d = {"wall_s": 1000, "start_at": "2026-10-20T10:00:00Z", "end_at": "2026-10-20T10:16:40Z", "runs": [
+            {"phase": "implement", "start_at": "2026-10-20T10:00:00Z", "end_at": "2026-10-20T10:05:00Z"},
+            {"phase": "review", "start_at": "2026-10-20T10:05:00Z", "end_at": "2026-10-20T10:08:00Z"},
+            {"phase": "ruling", "start_at": "2026-10-20T10:08:00Z", "end_at": "2026-10-20T10:10:00Z"},
+            {"phase": "merge", "start_at": "2026-10-20T10:10:00Z", "end_at": "2026-10-20T10:11:00Z"},
+            {"phase": "verify", "start_at": "2026-10-20T10:11:00Z", "end_at": "2026-10-20T10:16:40Z"}]}
+        row = {"merged_at": "2026-10-20T10:16:40Z", "wall_s": 1000, "review_rounds": 1, "fix_rounds": 0,
+               "verify_rounds": 1, "merge_rounds": 1, "ruling_rounds": 1}
+        a = estimate.actual_from(Path(tempfile.mkdtemp()), "0001-x", row, d)
+        self.assertEqual(a["phases"], {"implement": 300, "review": 180, "fix": 0, "verify": 340, "merge": 60, "ruling": 120})
+        self.assertEqual(a["rounds"], {"review": 1, "fix": 0, "verify": 1, "merge": 1, "ruling": 1})
 
 
 class Accuracy(unittest.TestCase):
@@ -396,7 +409,7 @@ class Close(ToolkitFixture, unittest.TestCase):
         self.assertEqual([r["source"] for r in rs], ["actual"])
         a = rs[0]
         self.assertIsNotNone(a["wall_s"])
-        self.assertEqual(set(a["phases"]), set(estimate.PHASES))
+        self.assertEqual(set(a["phases"]), set(estimate.PHASES) | {"merge", "ruling"})
         self.assertEqual(a["phases_from"], "runs")
         self.assertIn("BLOCKER", a["findings"])
         code, *_ = self.ccp("tasks", "close", "0002", "--pr", "7")

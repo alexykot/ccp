@@ -284,6 +284,15 @@ class HealthJudgesTheGate(unittest.TestCase):
                     started("st-c", lane="full", at="2026-11-02T11:00:00Z"), ended("st-c", 300.0, cached=0))
         self.assertEqual([k["suite_id"] for k in self.killed()], ["st-a"])
 
+    def test_an_interrupted_gate_run_past_the_limit_is_not_reported_killed(self):
+        interrupted = ended("st-b", 900.0, code=130, at="2026-11-02T10:15:00Z") | {"interrupted": True}
+        self.suites(started("st-a", at="2026-11-01T10:00:00Z"),
+                    started("st-b", at="2026-11-02T10:00:00Z"), interrupted)
+        self.assertEqual([k["suite_id"] for k in self.killed()], ["st-a"])
+        [line] = self.killed_lines()
+        self.assertIn("st-a", line)
+        self.assertNotIn("st-b", line)
+
     def test_now_reaches_the_fold(self):
         now = time.time()
         with mock.patch.object(suite, "fold", wraps=suite.fold) as fold:
