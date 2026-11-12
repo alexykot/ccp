@@ -462,3 +462,28 @@ tasks:
     title: A command lists the test modules that depend on changed paths
     depends_on: []
     path: tasks/0092-list-the-tests-a-change-touches.md
+  - id: 0093-runner-rotation-is-enforced
+    status: pending
+    title: Runner rotation is enforced, by task count and by context size, and the runner's model is checked
+    depends_on: []
+    path: tasks/0093-runner-rotation-is-enforced.md
+  - id: 0094-minor-only-fix-skips-re-review
+    status: pending
+    title: A fix round that answers only minor findings of a clean review goes to verify without a new review
+    depends_on: []
+    path: tasks/0094-minor-only-fix-skips-re-review.md
+  - id: 0095-sign-off-policy-and-spec-beyond-intent
+    status: pending
+    title: Text that only describes an accepted feature needs no sign-off; text beyond the task's intent is caught and signed
+    depends_on: []
+    path: tasks/0095-sign-off-policy-and-spec-beyond-intent.md
+  - id: 0096-bundle-follow-ups-by-area
+    status: pending
+    title: Follow-ups, leftovers and findings are bundled by area into fewer, larger tasks
+    depends_on: []
+    path: tasks/0096-bundle-follow-ups-by-area.md
+  - id: 0097-measured-premises-carry-their-measurement
+    status: pending
+    title: A brief's measured premises name the command and commit they came from, and the implementer re-checks them
+    depends_on: []
+    path: tasks/0097-measured-premises-carry-their-measurement.md
