@@ -499,5 +499,52 @@ class NoHostingLine(Harness):
         self.assertIn("architect pass due", out)
 
 
+
+class TheReportIsFoundInTheFinalMessage(unittest.TestCase):
+    """The architect's JSON report is read from its final message, whatever its strings quote."""
+
+    @staticmethod
+    def report(evidence: str) -> dict:
+        return {"summary": "Two findings.", "findings": [
+            {"id": "F1", "evidence": "a.py:3 — plain"},
+            {"id": "F2", "evidence": evidence}]}
+
+    @staticmethod
+    def parse(text: str):
+        from ccp.architect import ar  # noqa: PLC0415
+        return ar.last_json_object(text)
+
+    def test_an_unfenced_report_quoting_an_unbalanced_open_brace_is_read_whole(self):
+        r = self.report("a.py:10 — 'MAP = {'")
+        got = self.parse("Report:\n" + json.dumps(r, indent=2, ensure_ascii=False))
+        self.assertEqual(got, r)
+        self.assertEqual(len(got["findings"]), 2)
+
+    def test_an_unfenced_report_quoting_an_unbalanced_close_brace_is_read_whole(self):
+        r = self.report("a.py:12 — 'end = }'")
+        self.assertEqual(self.parse("Report:\n" + json.dumps(r, indent=2, ensure_ascii=False)), r)
+
+    def test_prose_before_and_after_the_report_is_skipped(self):
+        r = self.report("a.py:10 — 'MAP = {'")
+        text = ("Looked at {x} and the rest.\n" + json.dumps(r, indent=2, ensure_ascii=False)
+                + "\nThat is all; no {more} to say.")
+        self.assertEqual(self.parse(text), r)
+
+    def test_a_fenced_report_is_read(self):
+        r = self.report("a.py:10 — 'MAP = {'")
+        text = "Before {x}.\n```json\n" + json.dumps(r, indent=2, ensure_ascii=False) + "\n```\nAfter."
+        self.assertEqual(self.parse(text), r)
+
+    def test_of_two_top_level_objects_the_last_wins(self):
+        first, second = self.report("a.py:1 — '{'"), self.report("b.py:2 — '}'")
+        text = (json.dumps(first, ensure_ascii=False) + "\nOn reflection:\n"
+                + json.dumps(second, indent=2, ensure_ascii=False))
+        self.assertEqual(self.parse(text), second)
+
+    def test_a_message_without_an_object_has_no_report(self):
+        self.assertIsNone(self.parse("No report {here}, sorry."))
+        self.assertIsNone(self.parse(""))
+
+
 if __name__ == "__main__":
     unittest.main()

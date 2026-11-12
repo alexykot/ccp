@@ -1,7 +1,7 @@
 ---
 task_id: 0070-architect-report-json-extraction
 title: The architect's report is found even when a finding quotes an unbalanced brace
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S19"]
@@ -69,6 +69,15 @@ missing findings".
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implementer): `last_json_object` keeps the fenced-block path first, then scans the
+  message left to right with `json.JSONDecoder().raw_decode` at each `{`; a decoded object is skipped
+  whole, so braces inside its strings never count, and the last top-level dict wins. A `{` that does
+  not decode (prose such as `{x}`) is passed over. Both callers (`ccp/architect.py`,
+  `ccp/estimator.py`) call this one function, so neither changed. Tests in `tests/test_architect.py`
+  (`TheReportIsFoundInTheFinalMessage`): unbalanced `{`, unbalanced `}`, prose before and after,
+  fenced, two top-level objects, and no object. Dry run on the merge base: the check-01 message
+  returned the inner finding `F1`.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #69 head `a6de877` (squash `69c2844`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0070-architect-report-json-extraction.json.
