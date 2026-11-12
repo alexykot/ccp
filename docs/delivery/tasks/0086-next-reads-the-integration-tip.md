@@ -47,6 +47,16 @@ A runner whose worktree is behind the integration tip is never offered a task al
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implementer): `selection.current` is the task log `ccp tasks next` reads (`pick` uses it
+  when no task list is passed; the board and the forecast pass their own and are unchanged). When the
+  checkout's HEAD lacks a commit of `origin/<integration branch>` (the binding's, else `main`; nothing
+  is fetched; `tasklog.lags`), each task the checkout knows takes the status its file has on that tip
+  (`tasklog.statuses_at`, one `git cat-file --batch`, legacy statuses read canonically); a task the tip
+  lacks keeps its own. Then a task still pending whose queue state (`tasks/<id>.json`) is `done` or
+  `dropped` is passed over: its status reads "<status> in the queue", so it is neither offered nor
+  counted done for its dependants (they wait for the task log). A lead preference for such a task is
+  ignored with the usual stderr note. No ranking change. Tests: `tests/test_tasks_next_tip.py`.
+
 ## Verification notes
 
 *Append-only.*
