@@ -54,6 +54,20 @@ Every product runs `ccp init` once and `ccp tasks check` constantly; small frict
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implement): `ccp init` appends the `CLAUDE.md` line as its own paragraph
+  (`_paragraph_break` in `ccp/init.py`: no separator after an empty file or one already ending in a
+  blank line, else line breaks up to one blank line), and writes `production_branch` beside
+  `integration_branch` with the same value, as §8.3's example shows (init has no flag for a separate
+  production branch; the operator edits the binding to name another). The writing-tasks skill states
+  that `spec_refs` is a required key and, by default, a required citation even beside `rule_refs`
+  (only a kind with its own `refs_any`, with the architect seat on, leaves it out); how the `new` and
+  `removed` markings work (whole word, any case, within 25 characters after the closing backtick; a
+  dependency's path also passes; a warning, not a failure); and that a brief sign-off goes stale on an
+  edit only for a task declaring `sign_off: brief`. The plane's `CLAUDE.md` says the binding `ccp init`
+  writes under the run checkout's gitignored `projects/` is local configuration, not an edit of the
+  clone. The estimates-note item was not built: it contradicts SPEC §26.3 as written (see the report's
+  open question).
+
 ## Verification notes
 
 *Append-only.*
