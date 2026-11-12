@@ -12,6 +12,10 @@ keeping a file would leave the product inconsistent: a `plane.json` naming anoth
 not loading, a binding for the id that names another product root, or a settings file that is not a
 JSON object. It also refuses, writing nothing, a `--gate` it cannot split and a product root or
 queue path holding `#`, which every binding reader cuts off as a comment.
+
+With `--permissions` it writes nothing: in an adopted product it prints the runner's and workers'
+permission allowlist and a deny list for destructive commands, as a JSON `permissions` block for the
+operator to apply to `.claude/settings.json` (§4.5, §18.5).
 """
 from __future__ import annotations
 
@@ -55,6 +59,17 @@ ANCHOR: dict[str, dict[str, Any]] = {
     "env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"},
 }
 CLAUDE_LINE = "This repo is delivered by CCP (Claude Control Plane): its plugin and `ccp`."
+# §4.5, §18.5: what `--permissions` allows besides `ccp`, the plane's seat scripts and the gate lane:
+# the git verbs the runner and its workers run, and the destructive commands it denies.
+SEAT_SCRIPTS = ("scripts/team.sh", "scripts/spec-maintainer-ask.sh")
+GIT_VERBS = ("add", "branch", "commit", "diff", "fetch", "log", "ls-files", "merge", "merge-base", "push",
+             "rev-parse", "show", "status", "worktree")
+DENY = ("git push --force", "git push --force-with-lease", "git push -f", "git reset --hard", "git clean",
+        "git branch -D", "git stash", "git checkout --", "git restore", "rm -rf", "gh repo delete")
+# The init flags that write: `--permissions` writes nothing, so it refuses them.
+WRITING_FLAGS = (("--project-id", "project_id"), ("--queue-root", "queue_root"),
+                 ("--integration-branch", "integration_branch"), ("--gate", "gate"),
+                 ("--starter-rules", "starter_rules"), ("--force", "force"))
 
 
 def _default_id(root: Path) -> str:
@@ -211,12 +226,59 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     return out
 
 
+def _rule(cmd: str) -> str:
+    return f"Bash({cmd}:*)"
+
+
+def permissions(cfg: config.Config, queue_root: str) -> dict[str, Any]:
+    """§4.5, §18.5: the runner's and workers' permission block. Allowed: `ccp` by name (§4.3) and
+    the plane's seat scripts by absolute path, each also behind the binding's `QUEUE_ROOT=` as the seats run them; git
+    by verb; `gh pr`; the gate lane's commands (its argv, or each stage's command). Denied: `DENY`."""
+    q = shlex.quote(queue_root)
+    allow: list[str] = []
+    for cmd in ("ccp", *(shlex.quote(str(PLANE / s)) for s in SEAT_SCRIPTS)):
+        allow += [_rule(cmd), _rule(f"QUEUE_ROOT={q} {cmd}")]
+    allow += [_rule(f"git {verb}") for verb in GIT_VERBS]
+    allow.append(_rule("gh pr"))
+    gate = ((cfg.suite or {}).get("lanes") or {}).get("gate")
+    stages = config.lane_stages(gate)
+    if stages is not None:
+        allow += [_rule(st["cmd"]) for st in stages]
+    elif gate:
+        allow.append(_rule(shlex.join(gate)))
+    return {"permissions": {"allow": allow, "deny": [_rule(cmd) for cmd in DENY]}}
+
+
+def print_permissions(root: Path, a: Any) -> int:
+    """`ccp init --permissions`: print the block for an adopted product; refuse (exit 2) a writing flag,
+    a product without a loading plane.json, or one without its binding and queue."""
+    given = [flag for flag, attr in WRITING_FLAGS if getattr(a, attr, None)]
+    if given:
+        print(f"ccp init: --permissions writes nothing; drop {', '.join(given)}", file=sys.stderr)
+        return 2
+    try:
+        cfg = config.load(root)
+    except config.ConfigError as e:
+        print(f"ccp init: {e}; adopt the product with `ccp init` first", file=sys.stderr)
+        return 2
+    from ccp.cli import binding_queue_root  # noqa: PLC0415  (cli imports this module lazily)
+    q = binding_queue_root(cfg)
+    if not q:
+        print(f"ccp init: no binding with a queue for {cfg.project_id!r} names this product; "
+              "adopt it with `ccp init` first", file=sys.stderr)
+        return 2
+    print(json.dumps(permissions(cfg, q), indent=2))
+    return 0
+
+
 def main(root_arg: str | None, a: Any) -> int:
     try:
         root = config.find_root(root_arg)
     except config.ConfigError as e:
         print(f"ccp init: {e}", file=sys.stderr)
         return 2
+    if getattr(a, "permissions", False):
+        return print_permissions(root, a)
     try:
         res = init(root, a.project_id, a.queue_root, a.integration_branch, a.gate, a.force, a.starter_rules)
     except QueueError as e:

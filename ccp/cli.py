@@ -46,6 +46,8 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--starter-rules] [--force]
             (adopt this repository: footprint, binding and queue, SPEC §4.3, §8.3; the starter
             house rules, §20.5)
+  ccp init --permissions  (print the runner's and workers' permission block for the operator to apply;
+            writes nothing, SPEC §4.5, §18.5)
 
 `tasks` and `docs check` are free and deterministic (`index` writes INDEX.yaml; `docs check` also
 holds the house rules' shape and runs the product's `architect.checks`; every budget is `architect due`'s
@@ -1140,6 +1142,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="adopt the plane's starter house rules (SPEC §20.5): docs/ENGINEERING.md and their "
                         "plane.json settings; the settings are not applied to a kept plane.json")
     p.add_argument("--force", action="store_true", help="overwrite the files init writes")
+    p.add_argument("--permissions", action="store_true",
+                   help="print, writing nothing, the runner's and workers' allowlist and a deny list for "
+                        "destructive commands as a JSON permissions block for the operator to apply to "
+                        ".claude/settings.json (SPEC §4.5, §18.5); needs an adopted product")
     p.set_defaults(fn=None)
 
     p = sub.add_parser("agent", help="the SubagentStart / SubagentStop hooks: bind and stop runs (SPEC §11.1)")
