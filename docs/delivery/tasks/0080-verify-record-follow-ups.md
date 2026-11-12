@@ -21,6 +21,16 @@ A verifier writes a valid record on its first try, and the record's version and 
 
 - Accepted plane proposals: a verifier discovered `produced_by` only from the refusal; and reviews of the record-version and producer-rule tasks left gaps.
 - §31.1: SPEC text this task writes describes its own feature; no merge gate.
+- Ruling, spec question sm-20261112T104634Z-0923 (round 1):
+  (1) check-02's dry run is n/a: the behaviour already held on the merge base (refusal of an answer
+  whose question file is missing, since 0062) and is now pinned. Clarification of the dry-run note
+  only; setup, steps and expectation unchanged.
+  (2) The new cited-gate-file refusal is §31.1 only as an integrity check: the cited gate file must be
+  the gate it is cited as, i.e. its escalation_id and task_id match the cited gate. If the code also
+  requires the gate to belong to the task being verified, drop that part (it would otherwise need a
+  gate). The §15.4 wording must match what the code does, and no more.
+  (3) No digest in the record-version test: pin each version's key set as an explicit sorted list in
+  the test (a visible, reviewable expectation), not a sha256.
 
 ## Scope
 
@@ -68,6 +78,15 @@ A verifier writes a valid record on its first try, and the record's version and 
   it, so check-02's dry run (accepted on the merge base) does not hold: flagged in the report. The
   §15.4 text names both citation checks (§31.1), and `record`'s refusals for a missing `rests_on` no
   longer say "whose claim it rests on".
+- 2026-11-12, implementer (ruling round 1): (1) check-02's dry run stands as n/a per the ruling;
+  its setup, steps and expectation are unchanged. (2) The cited-gate refusal already compared the
+  gate file's `task_id` and `escalation_id` with the cited gate id only, never with the task being
+  verified, so the code is unchanged; §15.4 and `verify.py`'s docstrings now say exactly that (the
+  file is the gate it is cited as), and the gate test also records a correctly filed gate of another
+  task as accepted. (3) The record-version test pins each version's keys as an explicit sorted list
+  (no sha256); `version_errors` checks that the versions run 1 to `RECORD_VERSION`, that each list is
+  sorted without repeats, and that the contract's keys are the current version's. A key slipped into
+  a released version's list is now caught by review of that visible expectation, not by the test.
 
 ## Verification notes
 

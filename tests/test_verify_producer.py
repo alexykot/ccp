@@ -179,6 +179,10 @@ class Producer(unittest.TestCase):
         self.gate(1)
         code, _, err = self.record(check(None, rests_on=f"the lead's ruling, gate {TASK}-1", **unrun))
         self.assertEqual(code, 0, err)
+        # Another task's gate, filed as itself, is a ruling too: the check is the file's integrity only.
+        other = self.gate(1, task="0002-b")
+        code, _, err = self.record(check(None, rests_on=f"the lead's ruling, gate {other}", **unrun))
+        self.assertEqual(code, 0, err)
 
     def test_the_example_checks_the_verifier_is_shown_are_valid(self):
         for doc in ("templates/prompts/verify.md", "plugin/agents/delivery-verifier.md"):

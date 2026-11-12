@@ -55,10 +55,10 @@ before the field, and still refuse a ruling seat's evidence.
 
 A check not run (`ran: false`) rests on one of three things, and `record` refuses anything else
 (`rests_on_errors`): a ruling, named by spec question (`sm-…`) or gate (`<task_id>-<n>`) ids that all
-exist (a gate's file names that task and that gate; a question has its question file as well as its
-answer), each gate closed and approved and each question answered `resolved`; a carried verdict,
-`approve at <sha>` (§15.6 rule 3), the sha a commit of the product checkout; or evidence the operator
-produced (`produced_by: operator`), with any text. `merge-ok` and `check` do not apply it, so a record
+exist (a gate's file is the gate it is cited as, its `escalation_id` and `task_id` those of the cited
+id; a question has its question file as well as its answer), each gate closed and approved and each
+question answered `resolved`; a carried verdict, `approve at <sha>` (§15.6 rule 3), the sha a commit
+of the product checkout; or evidence the operator produced (`produced_by: operator`), with any text. `merge-ok` and `check` do not apply it, so a record
 written before the rule is still read.
 
 A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_round`) carries the
@@ -245,10 +245,10 @@ _REST_FORMS = ("a ruling, named by its spec question id (sm-…) or gate id (<ta
 def _ruling_refusal(queue: Path, rests_on: str) -> str | None:
     """Why `rests_on` is not a ruling the queue holds, or None when it is: it names at least one gate
     id `<task_id>-<n>` or spec question id `sm-…`, and every one it names exists and was ruled (the
-    gate file `escalations/<task_id>/<n>.json`, §17.9, naming that task and that gate as its
-    `escalation_id`, closed and approved; the question file `questions/<id>.json` with its answer
-    `questions/<id>.answer.json` at verdict `resolved`, §17.5: an answer without its question is no
-    ruling). The ids may sit inside prose; an unknown or unruled one beside a ruled one is refused."""
+    gate file `escalations/<task_id>/<n>.json`, §17.9, is the gate it is cited as, its `escalation_id`
+    and `task_id` those of the cited id, of any task, closed and approved; the question file
+    `questions/<id>.json` with its answer `questions/<id>.answer.json` at verdict `resolved`, §17.5:
+    an answer without its question is no ruling). The ids may sit inside prose; an unknown or unruled one beside a ruled one is refused."""
     missing, misfiled, open_, unanswered = [], [], [], []
     gates = list(_GATE_TOKEN.finditer(rests_on))
     questions = list(_QUESTION_TOKEN.finditer(rests_on))
