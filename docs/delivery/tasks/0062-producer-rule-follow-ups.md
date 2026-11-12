@@ -1,14 +1,14 @@
 ---
 task_id: 0062-producer-rule-follow-ups
 title: The producer rule pins its operator-step branch and names what a ruling is
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S15"]
 review_point: R4
 paths: ["ccp/verify.py", "contracts/", "docs/spec/02-delivery.md", "tests/test_verify*.py"]
 created: 2026-11-11
-updated: 2026-11-11
+updated: 2026-11-12
 ---
 
 # Task: 0062-producer-rule-follow-ups
@@ -102,4 +102,4 @@ The §15.4 producer rule is pinned by tests on every branch, and a check closed 
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #70 head `253c5c1` (squash `c939d90`): APPROVE. Passed: check-01, check-02, check-03. Gate: `ccp suite run --lane gate -- scripts/gate.sh` exit 0, `ccp tasks check && ccp docs check` exit 0. Record: verification/0062-producer-rule-follow-ups.json.
