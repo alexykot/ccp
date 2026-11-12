@@ -53,7 +53,10 @@ and scenario checks pass, no test expectation changed unless the task names it, 
 - `record` accepts the `rests_on` of a `ran: false` check in three forms only (SPEC §15.4): a
   ruling, every id it names existing, every gate closed and approved and every spec question
   answered `resolved`; `approve at <sha>`, the sha a commit; or any text when `produced_by` is
-  `operator`. Anything else is refused.
+  `operator`. Anything else is refused. A valid check you ran:
+  `{"dod_check_id": "cmd-01", "pass": true, "evidence": "ran <command> at the head: exit 0", "produced_by": "verifier"}`;
+  one you did not:
+  `{"dod_check_id": "data-01", "ran": false, "pass": null, "rests_on": "the operator's live run, pasted into the task notes", "evidence": "needs the live store, which you cannot reach", "produced_by": "operator"}`.
 - A re-verify after a fix-up, or after that head moved, uses `contracts/reverify_packet.schema.json`
   (example `contracts/reverify_packet.example.json`). Judge the packet's `head_sha` and write it
   on the new verdict.

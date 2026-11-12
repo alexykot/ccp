@@ -55,9 +55,10 @@ before the field, and still refuse a ruling seat's evidence.
 
 A check not run (`ran: false`) rests on one of three things, and `record` refuses anything else
 (`rests_on_errors`): a ruling, named by spec question (`sm-…`) or gate (`<task_id>-<n>`) ids that all
-exist, each gate closed and approved and each question answered `resolved`; a carried verdict,
-`approve at <sha>` (§15.6 rule 3), the sha a commit of the product checkout; or evidence the operator
-produced (`produced_by: operator`), with any text. `merge-ok` and `check` do not apply it, so a record
+exist (a gate's file is the gate it is cited as, its `escalation_id` and `task_id` those of the cited
+id; a question has its question file as well as its answer), each gate closed and approved and each
+question answered `resolved`; a carried verdict, `approve at <sha>` (§15.6 rule 3), the sha a commit
+of the product checkout; or evidence the operator produced (`produced_by: operator`), with any text. `merge-ok` and `check` do not apply it, so a record
 written before the rule is still read.
 
 A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_round`) carries the
@@ -188,9 +189,10 @@ def record_errors(rec: Any, now: datetime | None = None) -> list[str]:
             if c.get("pass") is not None:
                 errs.append(f"{name}: a check the verifier did not run is neither a pass nor a fail: pass is null")
             if not c.get("rests_on"):
-                errs.append(f"{name}: a check the verifier did not run names whose claim it rests on (rests_on)")
+                errs.append(f"{name}: a check the verifier did not run names what it rests on (rests_on), in one of "
+                            "the three forms of §15.4")
         elif c.get("pass") is None:
-            errs.append(f"{name}: pass is null, so ran is false and rests_on says whose claim it rests on")
+            errs.append(f"{name}: pass is null, so ran is false and rests_on says what it rests on")
     checked = _parse_dt(rec.get("checked_at"))
     if now is not None and checked is not None and checked > now + SKEW:
         errs.append(f"checked_at {rec.get('checked_at')} is later than now ({_iso(now)}): "
@@ -243,10 +245,11 @@ _REST_FORMS = ("a ruling, named by its spec question id (sm-…) or gate id (<ta
 def _ruling_refusal(queue: Path, rests_on: str) -> str | None:
     """Why `rests_on` is not a ruling the queue holds, or None when it is: it names at least one gate
     id `<task_id>-<n>` or spec question id `sm-…`, and every one it names exists and was ruled (the
-    gate file `escalations/<task_id>/<n>.json`, §17.9, closed and approved; the question file
-    `questions/<id>.json` with its answer `questions/<id>.answer.json` at verdict `resolved`, §17.5).
-    The ids may sit inside prose; an unknown or unruled one beside a ruled one is refused."""
-    missing, open_, unanswered = [], [], []
+    gate file `escalations/<task_id>/<n>.json`, §17.9, is the gate it is cited as, its `escalation_id`
+    and `task_id` those of the cited id, of any task, closed and approved; the question file
+    `questions/<id>.json` with its answer `questions/<id>.answer.json` at verdict `resolved`, §17.5:
+    an answer without its question is no ruling). The ids may sit inside prose; an unknown or unruled one beside a ruled one is refused."""
+    missing, misfiled, open_, unanswered = [], [], [], []
     gates = list(_GATE_TOKEN.finditer(rests_on))
     questions = list(_QUESTION_TOKEN.finditer(rests_on))
     if not gates and not questions:
@@ -257,7 +260,10 @@ def _ruling_refusal(queue: Path, rests_on: str) -> str | None:
         except (OSError, json.JSONDecodeError):
             missing.append(m.group(0))
             continue
-        if not isinstance(gate, dict) or gate.get("status") != "closed" or gate.get("decision") != "approved":
+        if isinstance(gate, dict) and (gate.get("task_id") != m.group(1) or gate.get("escalation_id") != m.group(0)):
+            misfiled.append(f"{m.group(0)} (its file names task {gate.get('task_id')!r}, "
+                            f"gate {gate.get('escalation_id')!r})")
+        elif not isinstance(gate, dict) or gate.get("status") != "closed" or gate.get("decision") != "approved":
             open_.append(m.group(0))
     for m in questions:
         if not (queue / "questions" / f"{m.group(0)}.json").is_file():
@@ -270,6 +276,7 @@ def _ruling_refusal(queue: Path, rests_on: str) -> str | None:
         if not isinstance(answer, dict) or answer.get("verdict") != "resolved":
             unanswered.append(m.group(0))
     why = ([f"no gate or spec question {', '.join(missing)} is in the queue"] if missing else []) \
+        + ([f"gate {', '.join(misfiled)} is not filed as itself"] if misfiled else []) \
         + ([f"gate {', '.join(open_)} is not closed and approved"] if open_ else []) \
         + ([f"spec question {', '.join(unanswered)} has no answer at verdict resolved"] if unanswered else [])
     return "; ".join(why) or None
