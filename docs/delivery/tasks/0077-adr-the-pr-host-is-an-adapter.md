@@ -1,7 +1,7 @@
 ---
 task_id: 0077-adr-the-pr-host-is-an-adapter
 title: ADR: the PR host is an adapter; until then a GitHub origin is stated as required
-status: pending
+status: done
 kind: docs
 depends_on: []
 spec_refs: ["S10", "S29"]
@@ -91,4 +91,4 @@ The plane's dependence on GitHub for pull requests is stated up front now, and t
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #81 head `560bfc4` (squash `5a09f42`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0077-adr-the-pr-host-is-an-adapter.json.
