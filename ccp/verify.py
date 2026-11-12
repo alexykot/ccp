@@ -48,8 +48,9 @@ cite is still recorded `not_built` (§6.7's in-force check, run before the verdi
 close has marked the task done), naming the decision and the `ccp adr decide` that flips it.
 
 Each check names the seat that produced its evidence (`produced_by`, §2.3, §15.4). `record` refuses
-a check without one (a check a ruling closed, `ran: false` with `rests_on`, may leave it out), and
-evidence produced by a seat that rules on the task (the lead, the runner) unless its `operator_step`
+a check without one (a check a ruling closed, `ran: false` with `rests_on`, may leave it out, and its
+`rests_on` names the ruling by an id the queue holds: a spec question `sm-…` or a gate `<task_id>-<n>`),
+and evidence produced by a seat that rules on the task (the lead, the runner) unless its `operator_step`
 names an approved `operator` gate of the task (§17.9); `merge-ok` and `check` read a record written
 before the field, and still refuse a ruling seat's evidence.
 
@@ -71,6 +72,7 @@ from typing import Any
 
 from ccp.envvars import envvar
 from ccp.config import Config
+from ccp.refs import ANY_TASK_ID, QUESTION_ID
 
 SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "verification.schema.json"
 # The record's schema version, stamped by `record`. A change that adds a key to the record's
@@ -220,12 +222,38 @@ def _operator_step_refusal(queue: Path, task_id: str, step: str) -> str | None:
     return None
 
 
+# A ruling's id inside a check's `rests_on` (§15.4): a gate `<task_id>-<n>` or a spec question `sm-…`.
+_GATE_TOKEN = re.compile(rf"(?<![\w-])({ANY_TASK_ID})-([0-9]+)(?![\w-])")
+_QUESTION_TOKEN = re.compile(rf"(?<![\w-]){QUESTION_ID}(?![\w-])")
+
+
+def _ruling_refusal(queue: Path, rests_on: str) -> str | None:
+    """Why `rests_on` names no ruling the queue holds, or None when it names one: a gate id
+    `<task_id>-<n>` whose file `escalations/<task_id>/<n>.json` exists (§17.9), or a spec question id
+    `sm-…` whose file `questions/<id>.json` exists (§17). The id may sit inside prose; one that exists
+    is enough."""
+    tried = []
+    for m in _GATE_TOKEN.finditer(rests_on):
+        if (queue / "escalations" / m.group(1) / f"{m.group(2)}.json").is_file():
+            return None
+        tried.append(m.group(0))
+    for m in _QUESTION_TOKEN.finditer(rests_on):
+        if (queue / "questions" / f"{m.group(0)}.json").is_file():
+            return None
+        tried.append(m.group(0))
+    found = f"no gate or spec question {', '.join(tried)} is in the queue" if tried else "it names no ruling id"
+    return (f"rests_on {rests_on[:60]!r} names no ruling the plane can find ({found}): a check closed by a ruling "
+            "names it by its spec question id (sm-…) or gate id (<task_id>-<n>) (§15.4); a check with evidence "
+            "under it names the seat that produced it (produced_by)")
+
+
 def producer_errors(queue: Path, rec: dict[str, Any], require: bool = True) -> list[str]:
     """§2.3, §15.4: each check names the seat that produced its evidence (`produced_by`; with
     `require`, a check without one is refused, as `record` writes it, unless a ruling closed it:
-    `ran: false` and `rests_on` set; a record written before the field is read without it), and none
-    was produced by a seat that rules on the task unless its `operator_step` names an approved
-    operator gate of the task. A named `operator_step` must be one."""
+    `ran: false` and `rests_on` naming the ruling by a gate or spec question id the queue holds; a
+    record written before the field is read without it), and none was produced by a seat that rules
+    on the task unless its `operator_step` names an approved operator gate of the task. A named
+    `operator_step` must be one."""
     errs: list[str] = []
     task_id = str(rec.get("task_id") or "")
     for i, c in enumerate(rec.get("checks") or []):
@@ -241,6 +269,8 @@ def producer_errors(queue: Path, rec: dict[str, Any], require: bool = True) -> l
             if require and not ruled:
                 errs.append(f"{name}: names no produced_by, the seat that produced its evidence (§15.4); only "
                             "a check closed by a ruling (ran: false, rests_on naming it) may leave it out")
+            elif require and (bad := _ruling_refusal(queue, str(c["rests_on"]))):
+                errs.append(f"{name}: {bad}")
             if why:
                 errs.append(f"{name}: {why}")
             continue

@@ -90,6 +90,7 @@ class Producer(unittest.TestCase):
         self.assertIn("record.checks[0].produced_by", err)
 
     def test_only_a_check_a_ruling_closed_may_name_no_producer(self):
+        self.gate(1)
         waived = {"ran": False, "pass": None, "rests_on": "the lead's ruling, gate 0001-a-1"}
         code, _, err = self.record(check(None, **waived))
         self.assertEqual(code, 0, err)
@@ -104,6 +105,41 @@ class Producer(unittest.TestCase):
         code, _, err = self.record(check("lead", **waived))
         self.assertEqual(code, 1)
         self.assertIn("produced by the lead", err)
+
+    def test_a_check_a_ruling_closed_names_a_ruling_the_queue_holds(self):
+        question = "sm-20261111T120000Z-ab12"
+        (self.q / "questions").mkdir()
+        (self.q / "questions" / f"{question}.json").write_text("{}")
+        ruled = {"ran": False, "pass": None}
+        for rests_on in (self.gate(1), f"the lead's answer to {question}", self.gate(3, task="0002-b")):
+            code, _, err = self.record(check(None, rests_on=rests_on, **ruled))
+            self.assertEqual(code, 0, (rests_on, err))
+            self.written().unlink()
+        for rests_on, needle in (("the lead said so in chat", "names no ruling id"),
+                                 (f"{TASK}-9", f"{TASK}-9"),
+                                 ("sm-20261111T120000Z-ffff", "sm-20261111T120000Z-ffff")):
+            code, _, err = self.record(check(None, rests_on=rests_on, **ruled))
+            self.assertEqual(code, 1, rests_on)
+            self.assertIn("checks[0] (data-01): rests_on", err)
+            self.assertIn(needle, err)
+            self.assertNotIn("names no produced_by", err)
+            self.assertFalse(self.written().exists())
+
+    def test_a_check_with_a_producer_may_rest_on_any_claim(self):
+        for rests_on in ("the operator's paste, 15:49", "approve at " + "c" * 12):
+            code, _, err = self.record(check("operator", ran=False, rests_on=rests_on, **{"pass": None}))
+            self.assertEqual(code, 0, (rests_on, err))
+
+    def test_check_and_merge_ok_read_a_record_whose_ruling_names_no_id(self):
+        rec = approve(TASK, checked_at=now_iso(),
+                      checks=[check(None, ran=False, rests_on="the lead said so", **{"pass": None})])
+        (self.q / "pr.json").write_text(json.dumps(self.pr))
+        self.written().parent.mkdir(exist_ok=True)
+        self.written().write_text(json.dumps(rec))
+        code, _, err = self.ccp("verify", "check", TASK, "--head", HEAD_A)
+        self.assertEqual(code, 0, err)
+        code, _, err = self.ccp("verify", "merge-ok", "7", "--task", TASK)
+        self.assertEqual(code, 0, err)
 
     def test_seats_that_do_not_rule_may_produce_evidence(self):
         schema = json.loads((ROOT / "contracts/verification.schema.json").read_text())
