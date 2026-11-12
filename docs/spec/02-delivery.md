@@ -758,6 +758,15 @@ A product with `ci: github-actions` in its binding may cite a green CI run at th
 (`gate.ci_run`) beside its own runs, never in place of them; `ccp verify record` refuses a
 `gate.ci_run` otherwise.
 
+A record carries the schema version of the `ccp` that wrote it (`schema_version`, an integer):
+`ccp verify record` stamps its own, whatever the input said, and holds the record to its own
+contract. A change that adds a key to the record's contract, at any depth, raises that version. A
+reader older than the record (`ccp verify merge-ok`, `ccp verify check` and `ccp tasks close` from
+the run checkout before the release, §29.3) passes over keys its contract does not name and still
+refuses a key it names that holds a bad value. A record with no version, or one no newer than the
+reader, is refused for an extra key. So a task that adds a field to the record is verified with
+the PR head's `ccp` and merged and closed with the one on PATH.
+
 Each check names the seat that produced its evidence (`produced_by`: `verifier`, `implementer`,
 `reviewer`, `architect`, `operator`, `runner` or `lead`), whether the verifier ran it or not. A ruling
 is not evidence: a check the owner's ruling closed is `ran: false` with `rests_on` naming the ruling

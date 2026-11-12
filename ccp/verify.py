@@ -9,6 +9,13 @@ JSON Schema, so the plane takes no dependency) and against the rules the schema 
 a check the verifier did not run is neither a pass nor a fail, `checked_at` is the clock time
 the verdict was reached.
 
+A record carries the schema version of the `ccp` that wrote it (`schema_version`; `record` stamps
+`RECORD_VERSION`, whatever the input said). A reader older than the record, its own
+`RECORD_VERSION` lower, passes over keys its contract does not know, at any depth, and still holds
+every key it knows to its contract; a record with no version, or one no newer than the reader, is
+held to the contract with no extra key. So a task that adds a field to the record can be verified
+with the newer `ccp` on its PR head and merged and closed with the older one on PATH (§15.4, §29.3).
+
 An approve is one head, every check it ran passed, and the formal gate the verifier ran
 (`gate.runs`, every exit 0). `record` holds an approve to that, so a verdict it writes is one
 `merge-ok` accepts.
@@ -66,6 +73,9 @@ from ccp.envvars import envvar
 from ccp.config import Config
 
 SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "verification.schema.json"
+# The record's schema version, stamped by `record`. A change that adds a key to the record's
+# contract, at any depth, raises it, so an older reader knows the record is newer than itself.
+RECORD_VERSION = 1
 # Clocks on two machines differ a little; a minute is the slack, not a rounding allowance.
 SKEW = timedelta(seconds=60)
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -106,9 +116,11 @@ def _is(value: Any, typ: str) -> bool:
     return isinstance(value, _TYPES[typ])
 
 
-def schema_errors(value: Any, schema: dict[str, Any], at: str = "record") -> list[str]:
+def schema_errors(value: Any, schema: dict[str, Any], at: str = "record", newer: bool = False) -> list[str]:
     """Where `value` breaks `schema`. Only the keywords the plane's contracts use are known; an
-    unknown one is an error, so a contract change cannot silently weaken this check."""
+    unknown one is an error, so a contract change cannot silently weaken this check. With `newer`
+    (a record written by a newer version) a key the schema does not name is passed over; every key
+    it names is still checked."""
     unknown = set(schema) - _ANNOTATIONS - {"type", "enum", "required", "properties", "additionalProperties",
                                             "items", "minItems", "minLength", "minimum", "pattern", "format"}
     if unknown:
@@ -134,7 +146,7 @@ def schema_errors(value: Any, schema: dict[str, Any], at: str = "record") -> lis
         if len(value) < schema.get("minItems", 0):
             errs.append(f"{at}: fewer than {schema['minItems']} item(s)")
         for i, item in enumerate(value):
-            errs += schema_errors(item, schema.get("items", {}), f"{at}[{i}]")
+            errs += schema_errors(item, schema.get("items", {}), f"{at}[{i}]", newer)
     if isinstance(value, dict):
         props = schema.get("properties", {})
         for k in schema.get("required", []):
@@ -142,15 +154,22 @@ def schema_errors(value: Any, schema: dict[str, Any], at: str = "record") -> lis
                 errs.append(f"{at}: missing {k}")
         for k, v in value.items():
             if k in props:
-                errs += schema_errors(v, props[k], f"{at}.{k}")
-            elif schema.get("additionalProperties") is False:
+                errs += schema_errors(v, props[k], f"{at}.{k}", newer)
+            elif schema.get("additionalProperties") is False and not newer:
                 errs.append(f"{at}: unexpected key {k}")
     return errs
 
 
+def written_by_newer(rec: Any) -> bool:
+    """The record says a newer `ccp` wrote it: its `schema_version` is an integer above `RECORD_VERSION`."""
+    version = rec.get("schema_version") if isinstance(rec, dict) else None
+    return _is(version, "integer") and version > RECORD_VERSION
+
+
 def record_errors(rec: Any, now: datetime | None = None) -> list[str]:
-    """The schema, then what it cannot say. With `now`, a `checked_at` later than now fails."""
-    errs = schema_errors(rec, json.loads(SCHEMA.read_text()))
+    """The schema, then what it cannot say. With `now`, a `checked_at` later than now fails. A record
+    whose `schema_version` is newer than this reader's may carry keys its contract does not know."""
+    errs = schema_errors(rec, json.loads(SCHEMA.read_text()), newer=written_by_newer(rec))
     if not isinstance(rec, dict):
         return errs
     for i, c in enumerate(rec.get("checks") or []):
@@ -578,6 +597,8 @@ def write_record(queue: Path, rec: Any, now: datetime) -> tuple[list[str], Path 
     """Validate `rec` and write it to verification/<task_id>.json. Nothing is written on an error."""
     if isinstance(rec, dict) and "checked_at" not in rec:
         rec = {**rec, "checked_at": _iso(now)}
+    if isinstance(rec, dict):
+        rec = {**rec, "schema_version": RECORD_VERSION}  # the writer's version, so its own contract holds it
     errs = record_errors(rec, now)
     if isinstance(rec, dict):
         errs += approve_errors(rec)
