@@ -1,7 +1,7 @@
 ---
 task_id: 0072-adoption-baseline-gate-and-rules-doc
 title: A product adopting the plane runs its gate once on the tip and brings its existing rules doc in
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4", "S12", "S20"]
@@ -72,4 +72,4 @@ An adopting lead learns the integration tip is red before the first verifier doe
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #76 head `849a3d4` (squash `0126e9b`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0072-adoption-baseline-gate-and-rules-doc.json.
