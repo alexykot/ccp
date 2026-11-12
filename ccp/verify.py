@@ -624,8 +624,9 @@ def skip_after_clean(cfg: Config, queue: Path, task_id: str, head: str) -> tuple
     review run that reported done recorded no BLOCKER or MAJOR finding and at least one below them, a fix
     run (not abandoned; a merge or ruling round counts as one, §13.2) opened since and reported its head,
     `head` is that head, and no verify run since the review rejected (a reject sends the task back to
-    review). Returns what to record on the verify run, `{reason: "minor-only", review_run, findings}`
-    (the counts below MAJOR), or None and why not ("" when the setting is off or there is no fix to judge)."""
+    review). Returns what to record on the verify run, `{reason: "minor-only", review_run, reviewed, report,
+    findings}`: the review, the head it judged, its report's path and its counts below MAJOR (the plane
+    keeps no finding text), or None and why not ("" when the setting is off or there is no fix to judge)."""
     from ccp import runs  # noqa: PLC0415
 
     if not (cfg.verify or {}).get("skip_review_after_clean"):
@@ -658,7 +659,8 @@ def skip_after_clean(cfg: Config, queue: Path, task_id: str, head: str) -> tuple
         return None, f"{fix['run_id']} has reported no head"
     if not heads_match(fixed, head.strip()):
         return None, f"head {head.strip()[:12]} is not {fixed[:12]}, the head {fix['run_id']} reported"
-    return {"reason": "minor-only", "review_run": str(last["run_id"]), "findings": findings}, ""
+    return {"reason": "minor-only", "review_run": str(last["run_id"]), "reviewed": str(last.get("head") or ""),
+            "report": str(runs.report_path(queue, str(last["run_id"]))), "findings": findings}, ""
 
 
 def repeat_round(queue: Path, task_id: str) -> str | None:

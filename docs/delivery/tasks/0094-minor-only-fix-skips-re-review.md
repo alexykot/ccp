@@ -26,6 +26,15 @@ cost a full review cycle (§15.2).
 - Operator approval, 2026-11-12, in the lead session, approving the proposed changes for this task and its companion
   (0094, 0095). This is the acceptance (§31.1): § text that states only what this task describes needs no
   further gate; a rule beyond it still waits for the operator.
+- Lead's ruling, 2026-11-12 (spec question sm-20261112T232937Z-8195, spec commit fd1ecbb): yes,
+  `review_skip` records the findings as severity counts (`{MINOR, NIT}`) with the review run, its
+  reviewed head and the review report's path. The plane stores no finding text. The verify prompt tells
+  the verifier to read the report and check the fix diff against each MINOR and NIT finding there, and to
+  send the task back to review if the diff goes beyond them. Read check-01's "both findings" as "both
+  findings, by their counts and the report that holds them"; the expectation is unchanged. The
+  `plugin/agents/delivery-runner.md` step-7 edit and the §15.2 and §8.1 text are accepted under §31.1
+  (they describe the feature the operator approved). The PR body names the extra path
+  `plugin/agents/delivery-runner.md` and the schema.
 
 ## Scope
 
@@ -82,6 +91,11 @@ cost a full review cycle (§15.2).
   task back to review, so a reject is not followed by another skip. `ccp verify record` accepts the
   approve at the skipped verify run's head. §15.2 gains the rule (and its lead bullet now names two
   exceptions), §8.1 lists the knob, and the runner brief (step 7) names it.
+- 2026-11-12 (implementer, ruling round 1): per the lead's ruling, `review_skip` now also records
+  `reviewed` (the head the clean review judged) and `report` (its report's path), so the record holds
+  everything the verifier needs without the prompt rereading the review run; the verify prompt reads them
+  from the record and tells the verifier to read that report and check the fix diff against each MINOR and
+  NIT finding there. §15.2 names the two fields and that the plane stores no finding text.
 
 ## Verification notes
 

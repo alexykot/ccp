@@ -728,10 +728,11 @@ result.
   latest review that reported `done` go straight to verify when that review recorded no BLOCKER or MAJOR
   finding and at least one MINOR or NIT, the fix round (a merge or ruling round counts as one, §13.2)
   reported the head being verified, and no verify run opened since that review rejected. The verify run
-  records `review_skip` (`reason: "minor-only"`, `review_run`, `findings`: the review's MINOR and NIT
-  counts). The verify prompt lists those findings, with the review's report, and asks the verifier to
-  confirm the fix diff, from the reviewed head to the verified one, addresses them and changes nothing
-  beyond them; a change beyond them is a REJECT, and after a reject the task goes back to review.
+  records `review_skip` (`reason: "minor-only"`, `review_run`, `reviewed`: the head it judged, `report`:
+  its report's path, `findings`: its MINOR and NIT counts); the plane stores no finding text. The verify
+  prompt gives those counts and the report, and asks the verifier to read the report and confirm the fix
+  diff, from the reviewed head to the verified one, addresses each MINOR and NIT finding there and changes
+  nothing beyond them; a change beyond them is a REJECT, and after a reject the task goes back to review.
   Otherwise the refusal stands and says why the skip does not apply.
 
 ### 15.3 A product's test cache

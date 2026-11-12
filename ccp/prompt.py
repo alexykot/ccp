@@ -324,10 +324,8 @@ def minor_only(q: Path, skipped: dict[str, Any] | None) -> dict[str, Any]:
     if not skipped or skipped.get("reason") != "minor-only":
         return {"minor_only": False, "minor_review_run": "", "minor_reviewed": "", "minor_review_report": "",
                 "minor_findings": ""}
-    rid = str(skipped["review_run"])
-    rev = runs.load(q, rid)
-    return {"minor_only": True, "minor_review_run": rid, "minor_reviewed": str(rev.get("head") or ""),
-            "minor_review_report": str(runs.report_path(q, rid)),
+    return {"minor_only": True, "minor_review_run": str(skipped["review_run"]),
+            "minor_reviewed": str(skipped["reviewed"]), "minor_review_report": str(skipped["report"]),
             "minor_findings": ", ".join(f"{k}={n}" for k, n in skipped["findings"].items())}
 
 

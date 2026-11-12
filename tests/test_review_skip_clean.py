@@ -1,6 +1,6 @@
 """SPEC §15.2, plane.json `verify.skip_review_after_clean`: when the latest review found nothing above
 MINOR, the fix round that answers it goes to verify with no new review, the run records the skip
-(`minor-only`, the review run, its findings below MAJOR), and the verify prompt names those findings.
+(`minor-only`, the review run, the head it judged, its report's path, its counts below MAJOR), and the verify prompt names those findings.
 A BLOCKER or MAJOR, the setting off, a head other than the fix's, or a verify reject since the review
 keeps the review."""
 from __future__ import annotations
@@ -57,7 +57,9 @@ class SkipAfterClean(Rounds, unittest.TestCase):
         self.fix()
         code, body, out, err = self.verify()
         self.assertEqual(code, 0, out + err)
-        want = {"reason": "minor-only", "review_run": "0002-second/review", "findings": {"MINOR": 2, "NIT": 0}}
+        report = str(self.q / "progress/0002-second/review-report.md")
+        want = {"reason": "minor-only", "review_run": "0002-second/review", "reviewed": A, "report": report,
+                "findings": {"MINOR": 2, "NIT": 0}}
         self.assertEqual(body["review_skip"], want)
         self.assertNotIn("allow_unreviewed_fix", body)
         run = json.loads((self.q / "runs/0002-second/verify.json").read_text())
@@ -65,7 +67,8 @@ class SkipAfterClean(Rounds, unittest.TestCase):
         prompt = Path(body["prompt_path"]).read_text()
         self.assertIn("verify.skip_review_after_clean", prompt)
         self.assertIn("MINOR=2, NIT=0", prompt)
-        self.assertIn(str(self.q / "progress/0002-second/review-report.md"), prompt)
+        self.assertIn(report, prompt)
+        self.assertIn("Read that report", prompt)
         self.assertIn(f"from {A} to {B}", prompt)  # the fix diff runs from the head the review judged
         code, _, out, err = self.verdict(B)
         self.assertEqual(code, 0, out + err)  # the approve stands on the skip
