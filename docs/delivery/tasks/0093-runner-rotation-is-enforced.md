@@ -91,6 +91,30 @@ long-lived runner does not carry an ever-growing context into every request (§2
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implementer): **Rotation enforced.** `lifecycle.rotation_due(q, slot)` decides it: with
+  slots, the slot's `tasks_done`, `spawned_at` and `rotated_at`; with one runner, `runner_tasks_done`,
+  `runner_spawned_at` and `runner_rotated_at` (rotated when at or after the spawn). Due when
+  `tasks_done` reaches `runner.rotate_after_tasks` (default 4), or when `runner.rotate_at_context_tokens`
+  is set and the slot's teammate's latest request since its spawn sent at least that many tokens
+  (input + cache read + cache written), read from `board/usage-spans.jsonl` by the span's
+  `<bound name>@session-…` agent id (`usage.runner_context`). A recorded rotation clears it; the
+  respawn resets the counters. `ccp tasks claim` refuses a new claim of a due slot with exit 7, naming
+  the trigger and the rotate command; a resume is never refused. `ccp health` (`rotation` in `--json`,
+  lines in the text view) lists the due slots and the ledger's `runner`/`rotate` events against
+  distinct tasks moved to `done`. The binding contract has the new knob; §10.2 step 4 and §8.3 carry
+  the task's text.
+- 2026-11-12 (implementer): **The model finding (check-03).** The runner teammate runs on its
+  declared model: its spawn (`team.sh runner spawn`) prints an Agent call with `subagent_type` and no
+  `model`, and every request whose span names the runner teammate (`<name>@session-…`) was on the
+  definition's model. The larger-model requests on the runner seat came from attribution: a call with
+  no `agent_id` is placed by its session's cwd (§24.4), and a headless `claude -p` session
+  (`query_source: sdk`) run from a runner's checkout, not matched to a recorded headless session, was
+  counted as the runner seat. Fix: `usage._main_seat` puts an `sdk` call from a runner's checkout in
+  `headless-untagged`, as it already did for one with no cwd. Pinned by
+  `tests/test_rotation_model.py` (the fold's runner seat shows only the declared model; the spawn
+  actions carry no `model`). docs/design/board.md says so. §24.4's "a runner's merge checkout is that
+  runner's" now has this exception in code only: its SPEC wording is left for a ruling.
+
 ## Verification notes
 
 *Append-only.*
