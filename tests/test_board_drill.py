@@ -221,7 +221,7 @@ class OldTask(unittest.TestCase):
                          [("implement", 0, 3000, 508), ("review", 3600, 1200, 510), ("fix", 4800, 1200, None),
                           ("verify", 7200, 800, 513)])
         self.assertEqual(d["reported_suite_s"], 1531)
-        self.assertEqual(d["rounds"], {"review": 1, "verify": 1, "fix": 1})
+        self.assertEqual(d["rounds"], {"review": 1, "verify": 1, "fix": 1, "merge": 0, "ruling": 0})
         self.assertIn("no run telemetry", drill.text(d))
 
 
@@ -288,6 +288,24 @@ class Guards(unittest.TestCase):
             self.assertIn("split", out["0010-aaa"])
             self.assertIn("split", out["0012-ccc"])
             self.assertIn("failed to build", drill.text(out["0011-bbb"]))
+
+
+class RoundKinds(unittest.TestCase):
+    def test_merge_and_ruling_rounds_are_counted_as_their_own_kinds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            q = _queue(tmp)
+            _run(q, "0010-aaa", "implement", 0, 400, "ag-i")
+            _run(q, "0010-aaa", "ruling", 500, 600, "ag-r")
+            _run(q, "0010-aaa", "merge", 700, 800, "ag-m")
+            rep = {"runs": [], "timeline": {}}
+            d = drill.collect(q, [_row("0010-aaa", 1000, 1000)], rep, now=T0 + 9000)["0010-aaa"]
+            told = drill.collect(q, [_row("0010-aaa", 1000, 1000) | {"merge_rounds": 2, "ruling_rounds": 3}], rep,
+                                 now=T0 + 9000)["0010-aaa"]
+        self.assertEqual(d["rounds"], {"review": 1, "verify": 0, "fix": 0, "merge": 1, "ruling": 1})
+        self.assertEqual((told["rounds"]["merge"], told["rounds"]["ruling"]), (2, 3))
+        line = next(ln for ln in drill.text(d).splitlines() if ln.startswith("rounds:"))
+        for token in ("merge 1", "ruling 1"):
+            self.assertIn(token, line)
 
 
 class Overlaps(unittest.TestCase):

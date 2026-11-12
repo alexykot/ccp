@@ -655,9 +655,10 @@ Claude Code). A cold gate run must fit that limit with room to spare.
   reached `shell_limit_seconds` is reported as killed at the shell limit. `gate_time.killed` carries
   each such run's suite id, task, run and start; the health and architect summaries give one line
   with their count and the latest to start (its suite id, task and start). Its elapsed time runs to
-  its run's stop, report or abandonment when known (as §14.4's totals reckon it), else to now. A run
-  with no `ended` row that stopped before the limit is not reported. Only runs started after the
-  latest run of that lane that passed or failed are listed, so such a run clears the earlier ones.
+  the earliest of its run's stop, report or abandonment when known (as §14.4's totals reckon it),
+  else to now. A run with no `ended` row that stopped before the limit is not reported. Only runs
+  started after the latest run of that lane that passed or failed are listed, so such a run clears
+  the earlier ones.
 
 ## 15. Review, verification and merge
 

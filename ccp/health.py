@@ -11,7 +11,9 @@ Everything comes from data the plane already holds; nothing here is a target or 
   is launched (prompt-audit stamps) and verifying ends at the verifier's `checked_at`. Where a phase
   end is not recorded, its `progress/<task>/*-report.md` modification time stands in, and the row
   says so (`times`).
-  Report and audit counts give the fix, review and verify rounds; prompt audits give prompt sizes.
+  Report and audit counts give the fix, merge, ruling, review and verify rounds, each kind its own
+  count (a merge or ruling round is neither a fix round nor review time); prompt audits give prompt
+  sizes.
 - **what workers add:** friction notes (`health/notes.jsonl`, `ccp health note`) and numbers
   (`health/metrics.jsonl`, `ccp health record`), both written by the runner from worker reports.
 - **suite time** (§27.2, §14.1): `ccp report` files each passing `ccp suite run` of the run it closes
@@ -529,9 +531,10 @@ def gate_time(cfg: Config | None, q: Path, rows: list[dict[str, Any]] | None = N
     against plane.json `gate`'s cut line and limit. `finding` is that run when it took longer than the
     line (`over_limit` when longer than the limit, a health breach), with its slowest stage; else None:
     an advisory finding, never a filed task. Warm and unverified runs are never judged. `killed` lists,
-    oldest first, the gate role's runs with no `ended` row whose elapsed time reached the limit (to
-    their run's stop or report when fold knows it, else to `now`), started after the latest gate run
-    that passed or failed: killed at the shell limit. A run that stopped earlier is not listed."""
+    oldest first, the gate role's runs with no `ended` row whose elapsed time reached the limit (to the
+    earliest of their run's stop, report or abandonment when fold knows it, else to `now`), started
+    after the latest gate run that passed or failed: killed at the shell limit. A run that stopped
+    earlier, or one with an `ended` row (an interrupted run included), is not listed."""
     from ccp.config import gate_limits, lane_for  # noqa: PLC0415
     limit, line = gate_limits(cfg)
     lane = lane_for(cfg, "gate")
@@ -566,7 +569,8 @@ def gate_time(cfg: Config | None, q: Path, rows: list[dict[str, Any]] | None = N
 
 
 def _elapsed(s: dict[str, Any], t0: float, now: float) -> float:
-    """A no-end suite run's elapsed seconds: to its run's stop or report when fold knows it, else to now."""
+    """A no-end suite run's elapsed seconds: to the earliest of its run's stop, report or abandonment
+    when fold knows it, else to now."""
     secs = s.get("seconds")
     return secs if isinstance(secs, (int, float)) and not isinstance(secs, bool) else now - t0
 
@@ -671,8 +675,12 @@ def waits_s(waiting: list[dict[str, Any]], lanes: list[tuple[float, float]], lo:
     return round(drill.length(drill.clip(drill.union(iv), lo, hi)))
 
 
+ROUND_KINDS = ("implement", "review", "fix", "merge", "ruling", "verify")  # runs.PHASES, each its own bucket
+
+
 def _phase(name: str) -> str:
-    return next((k for k in ("implement", "review", "fix", "verify") if name.startswith(k)), "other")
+    """The round kind a report or prompt-audit name starts with (§13.2's kinds), else "other"."""
+    return next((k for k in ROUND_KINDS if name.startswith(k)), "other")
 
 
 def _task_queue(q: Path, tid: str, ev: dict[str, Any], bodies: bool = True) -> dict[str, Any]:
@@ -680,8 +688,8 @@ def _task_queue(q: Path, tid: str, ev: dict[str, Any], bodies: bool = True) -> d
     start), `progress/<task>.json` events, the event log, and the verifier's `checked_at`. A phase end
     with no recorded time falls back to its report file's modification time, and `times` says so; a
     task with no recorded start has no wall time."""
-    launches: dict[str, list[float]] = {"implement": [], "review": [], "fix": [], "verify": [], "other": []}
-    reports: dict[str, list[float]] = {"implement": [], "review": [], "fix": [], "verify": [], "other": []}
+    launches: dict[str, list[float]] = {k: [] for k in (*ROUND_KINDS, "other")}
+    reports: dict[str, list[float]] = {k: [] for k in (*ROUND_KINDS, "other")}
     d = q / "progress" / tid
     if d.is_dir():
         for f in d.glob("*-report.md"):
@@ -740,6 +748,8 @@ def _task_queue(q: Path, tid: str, ev: dict[str, Any], bodies: bool = True) -> d
     return {"start": start, "implementing_s": span(start, impl_end), "reviewing_s": span(impl_end, rev_end),
             "verifying_s": span(max([x for x in (impl_end, rev_end) if x is not None], default=None), ver_end),
             "fix_rounds": max(len(reports["fix"]), len(launches["fix"])),
+            "merge_rounds": max(len(reports["merge"]), len(launches["merge"])),
+            "ruling_rounds": max(len(reports["ruling"]), len(launches["ruling"])),
             "review_rounds": max(len(reports["review"]), len(launches["review"])),
             "verify_rounds": max(len(reports["verify"]), len(launches["verify"]), ev.get("verify_moves", 0)),
             "times": "recorded, some file mtimes" if used_mtime else "recorded",
