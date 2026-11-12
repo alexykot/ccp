@@ -18,6 +18,11 @@ Rules:
 - **Never `git checkout`, edit or commit in either clone.** Develop in a worktree:
   `scripts/dev-worktree.sh <branch>`. The pre-commit hook refuses commits on `main`; install it once
   per clone with `scripts/install-git-hooks.sh`.
+- **`ccp init` writing a binding into the run checkout is not an edit of the clone.** A binding,
+  `projects/<project_id>.yaml`, is local configuration of this installation, not part of the repo
+  (SPEC §8.3): `projects/` is gitignored, so writing it leaves the clone's branch and tracked files
+  as they were. Adopt a product with `ccp` from PATH, which writes it there; never hand-edit or
+  commit tracked files in the run checkout to do it.
 - **A merge to `main` is a release.** After merging, run `scripts/release.sh <worktree>` from the
   dev checkout or a worktree of it, never from the run checkout. Removing the worktree removes the
   session's cwd if the session was in it. It:
