@@ -1,7 +1,7 @@
 ---
 task_id: 0074-adr-review-points-and-package-doc-defaults
 title: Docs checks warn on untracked ADR review points and state package-doc defaults
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S6", "S21", "S22"]
@@ -55,6 +55,20 @@ A product adopting with ADRs already tagged with review points is told it has no
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implementer): `ccp adr check` (`adr.analyse`) adds one warning when any ADR carries
+  `review_points` and no register file exists, naming the ADR ids and the register path; it goes to
+  the warnings under `adr.strict` too, as the task warning does. `ccp docs check` prints it through
+  `adr.warnings`. `pkgdocs.source_dirs` leaves out a directory whose source files all end `.md`
+  unless `claude_md_dirs` lists it: "the product lists it" is read as `claude_md_dirs`, the existing
+  list of directories that carry a doc, so no new key. SPEC §21.3, §21.4 and §22.3 say so; the schema
+  and config comments name the defaults. Dry runs: on the merge base `ccp adr check` printed no
+  register warning for an ADR with `review_points: [R1]`, and `ccp docs check` reported
+  `notes: no .claude.md` for a `.md`-only `notes/`; on the head the first warns naming ADR-0001 and
+  the second reports only the code directory.
+- 2026-11-12 (implementer, second run): SPEC §6.7 lists the new warning under "Always warnings",
+  where `ccp adr check`'s findings are enumerated. Re-ran the two new tests against the merge-base
+  code: both fail there (no register warning; `notes` and `notes/deeper` reported), pass on the head.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #84 head `a8d1b3e` (squash `781e81d`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0074-adr-review-points-and-package-doc-defaults.json.

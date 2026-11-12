@@ -600,7 +600,8 @@ They regenerate `adr.index` when it is set. Call syntax: `docs/cli/01-model.md`.
 - **Warnings, failures under `adr.strict`:** a non-canonical decision marker; two `### Dn.` headings
   for one id; a missing reverse link; a link key holding prose; and **in force**: a `done` task
   citing a decision recorded `not_built`.
-- **Always warnings:** undeclared keys; decisions out of number order.
+- **Always warnings:** undeclared keys; decisions out of number order; ADRs carrying `review_points`
+  with no review-point register, one warning naming them (§22.3).
 
 The in-force check also runs before a task's verdict, on its PR head: under `adr.strict`, `ccp verify
 record` refuses an approve of a head on which a decision the task cites is recorded `not_built`

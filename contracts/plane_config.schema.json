@@ -146,7 +146,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Directories documented by an auto-loaded CLAUDE.md instead of doc_name",
+          "description": "Directories documented by an auto-loaded CLAUDE.md instead of doc_name. A directory of documents only (.md) needs a package doc only when it is listed here",
           "default": []
         },
         "language": {
@@ -159,13 +159,13 @@
           "type": ["array", "null"],
           "items": {"type": "string"},
           "default": null,
-          "description": "null: the core's (.sql, .json, .md) plus the language pack's. A list replaces both"
+          "description": "null: the core's (.sql, .json, .md) plus the language pack's (python: .py). A list replaces both"
         },
         "exempt_dirs": {
           "type": ["array", "null"],
           "items": {"type": "string"},
           "default": null,
-          "description": "Directory names (any depth) or root-relative paths never judged. null: the core's plus the language pack's. A list replaces both"
+          "description": "Directory names (any depth) or root-relative paths never judged. null: the core's (.git, .idea, .claude, docs, node_modules) plus the language pack's (python: __pycache__, .venv). A list replaces both"
         },
         "path_ref_suffixes": {
           "type": "array",
