@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import subprocess
 import unittest
 from contextlib import redirect_stdout, redirect_stderr
 
@@ -49,6 +50,25 @@ class PkgDocsTest(unittest.TestCase):
         self.p.write("docs/notes.md", "x\n")
         self.p.write("app/__pycache__/x.py", "x\n")
         self.assertEqual(self.errs(), [])
+
+    def test_a_directory_of_documents_only_needs_no_package_doc_unless_listed(self):
+        for git in (False, True):
+            with self.subTest(git=git):
+                q = Product({"package_docs": {"claude_md_dirs": ["listed"]}})
+                self.addCleanup(q.cleanup)
+                q.write("notes/a.md", "# a\n")
+                q.write("notes/deeper/b.md", "# b\n")
+                q.write("mixed/x.md", "# x\n")
+                q.write("mixed/y.json", "{}\n")
+                q.write("lib/y.py", '"""Y."""\n')
+                q.write("listed/z.md", "# z\n")
+                if git:  # a checkout: the tracked files decide
+                    subprocess.run(["git", "init", "-q"], cwd=q.root, check=True)
+                    subprocess.run(["git", "add", "--", "notes", "mixed", "lib", "listed"], cwd=q.root, check=True)
+                errs = pkgdocs.check(q.cfg)
+                self.assertFalse([e for e in errs if e.startswith("notes")], errs)
+                for need in ("mixed: no .claude.md", "lib: no .claude.md", "listed: no CLAUDE.md"):
+                    self.assertIn(need, "\n".join(errs))
 
 
 class ConfigTest(unittest.TestCase):

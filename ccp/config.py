@@ -59,12 +59,13 @@ REVIEW_POINTS_DEFAULTS: dict[str, Any] = {"file": "docs/delivery/review-points.y
 
 PACKAGE_DOCS_DEFAULTS: dict[str, Any] = {
     "doc_name": ".claude.md",
-    # Directories (relative to the root) documented by an auto-loaded CLAUDE.md instead of doc_name.
+    # Directories (relative to the root) documented by an auto-loaded CLAUDE.md instead of doc_name. A
+    # directory of documents only (.md) needs a package doc only when it is listed here.
     "claude_md_dirs": [],
     # The language pack (ccp/doclang): it adds its suffixes and directory names to the core's and runs
     # its per-file checks on docstring_globs. "none" runs the language-neutral core alone.
     "language": "python",
-    # null: the core's own plus the pack's. A list replaces both.
+    # null: the core's own plus the pack's (§21.4 names them). A list replaces both.
     "source_suffixes": None,
     "exempt_dirs": None,
     "size_ratio": 0.5,
