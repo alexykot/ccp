@@ -1,9 +1,10 @@
-"""`ccp suite run|list` (SPEC §10, §14.1): workers run their tests through `ccp`, which records
-how long each run took.
+"""`ccp suite run|list|affected` (SPEC §10, §14.1, §14.7): workers run their tests through `ccp`, which
+records how long each run took, and ask it which test modules a change touches.
 
   ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--full | --summary] [--log PATH]
                 [-- COMMAND …]
   ccp suite list [--task ID]
+  ccp suite affected [--since REF | --paths PATH …]
 
 `run` wraps the command. It runs in the foreground, from the current directory, with stdin
 inherited, and `ccp` exits with the command's exit code (128 + N when a signal N ended it).
@@ -57,12 +58,19 @@ output. The run it belongs to is `--run`, else the latest open run of `--task` (
 else the one running worker run whose worktree holds the current directory. A `started` row with
 no end is `killed` once its run has stopped or reported, or after KILLED_AFTER_S.
 
+`affected` prints the test modules a change touches, for the `part` lane, and runs nothing (§14.7). The
+change is `--paths`, else what `git diff REF` (default HEAD) names against the working tree plus the
+untracked files. The product's language pack reads them: for Python, a `test*.py` module that changed,
+imports a changed module directly or through one package's `__init__.py`, or names a changed file.
+
 Recording never stands between a worker and its tests. With a command after `--`, it runs and its
 exit code is returned whatever else fails: no QUEUE_ROOT, no checkout, an unreadable plane.json, a bad option, a failed write. `ccp` prints one
 `ccp suite:` warning on stderr and records nothing, or nothing more.
 """
 from __future__ import annotations
 
+import ast
+import fnmatch
 import json
 import os
 import re
@@ -1385,3 +1393,141 @@ def table(report: dict[str, Any]) -> str:
     elif tt is not None:
         lines.append(f"task {report.get('task_id')}: no suite runs recorded (ccp suite run)")
     return "\n".join(lines)
+
+
+# §14.7: the test modules a change touches, for choosing the `part` lane. Nothing is run or recorded.
+TEST_FILE_GLOB = "test*.py"  # the Python pack's test modules: unittest's default discovery pattern
+
+
+def _git_lines(root: Path, *args: str) -> list[str]:
+    """`git -C root <args>`'s output lines; a QueueError (exit 2) naming git's complaint when it fails."""
+    r = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise QueueError(f"git {args[0]} failed: {(r.stderr.strip().splitlines() or ['no output'])[-1]}", 2)
+    return [ln for ln in r.stdout.splitlines() if ln.strip()]
+
+
+def changed_paths(root: Path, since: str | None, given: list[str] | None) -> list[str]:
+    """`--paths` as given (relative to the root), else what `git diff <since>` names against the working
+    tree (renames as both paths) plus the untracked files git does not ignore; `since` defaults to HEAD."""
+    if given:
+        out = []
+        for p in given:
+            path = Path(p)
+            if path.is_absolute():
+                try:
+                    path = path.resolve().relative_to(root.resolve())
+                except ValueError:
+                    raise QueueError(f"--paths {p}: not under the product root {root}", 2) from None
+            out.append(path.as_posix().removeprefix("./"))
+        return sorted(set(out))
+    diff = _git_lines(root, "diff", "--name-only", "--no-renames", "--relative", since or "HEAD", "--")
+    return sorted(set(diff) | set(_git_lines(root, "ls-files", "--others", "--exclude-standard")))
+
+
+def _py_module(rel: str) -> str | None:
+    """The dotted module a root-relative `.py` path is (`pkg/__init__.py` is `pkg`), or None."""
+    if not rel.endswith(".py"):
+        return None
+    parts = rel[:-3].split("/")
+    if parts[-1] == "__init__":
+        parts = parts[:-1]
+    return ".".join(parts) if parts and all(p.isidentifier() for p in parts) else None
+
+
+def _py_imports(text: str, module: str, is_pkg: bool) -> set[str]:
+    """Every module a file's import statements name, wherever they sit (a function's too): `import a.b`
+    gives a.b, `from a import b` gives a and a.b (b may be a submodule), a relative import is resolved
+    against the file's own package. Each one's parent packages are added: importing a.b runs a."""
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return set()
+    own = module.split(".") if is_pkg else module.split(".")[:-1]
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.update(a.name for a in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                if node.level - 1 > len(own):
+                    continue
+                parts = own[:len(own) - (node.level - 1)] + (node.module.split(".") if node.module else [])
+            else:
+                parts = node.module.split(".") if node.module else []
+            base = ".".join(parts)
+            if base:
+                names.add(base)
+            names.update(f"{base}.{a.name}" if base else a.name for a in node.names if a.name != "*")
+    return {".".join(n.split(".")[:i]) for n in names for i in range(1, n.count(".") + 2)}
+
+
+def _read(p: Path) -> str | None:
+    try:
+        return p.read_text(errors="replace") if p.is_file() and not p.is_symlink() else None
+    except OSError:
+        return None
+
+
+def _python_affected(root: Path, changed: list[str]) -> list[str]:
+    """The Python pack: each `test*.py` file git tracks or would track that changed itself, imports a
+    changed module directly or through one package level (a package it imports whose `__init__.py`
+    imports it), or names a changed file's name in its text."""
+    files = _git_lines(root, "ls-files", "--cached", "--others", "--exclude-standard")
+    changed_mods = {m for m in map(_py_module, changed) if m}
+    packages = {m: rel for rel in files if rel.endswith("/__init__.py") and (m := _py_module(rel))}
+    init_imports: dict[str, set[str]] = {}
+
+    def through(pkg: str) -> set[str]:
+        if pkg not in init_imports:
+            init_imports[pkg] = _py_imports(_read(root / packages[pkg]) or "", pkg, True)
+        return init_imports[pkg]
+
+    names = {Path(c).name for c in changed}
+    name_re = re.compile("|".join(rf"(?<![\w.-]){re.escape(n)}(?![\w-])" for n in sorted(names))) if names else None
+    out, touched = set(), set(changed)
+    for rel in files:
+        mod = _py_module(rel)
+        if not mod or not fnmatch.fnmatchcase(rel.rsplit("/", 1)[-1], TEST_FILE_GLOB):
+            continue
+        text = _read(root / rel)
+        if text is None:  # deleted in the working tree, or not a regular file
+            continue
+        if rel in touched:
+            out.add(mod)
+            continue
+        direct = _py_imports(text, mod, False)
+        reached = direct.union(*(through(p) for p in direct if p in packages))
+        if reached & changed_mods or (name_re is not None and name_re.search(text)):
+            out.add(mod)
+    return sorted(out)
+
+
+AFFECTED_READERS = {"python": _python_affected}
+
+
+def affected(cfg: Config, since: str | None, paths: list[str] | None) -> tuple[list[str], list[str]]:
+    """(the changed paths, the test modules they touch), read by the product's language pack
+    (`package_docs.language`; its default when the block is absent)."""
+    from ccp.config import PACKAGE_DOCS_DEFAULTS  # noqa: PLC0415
+    lang = (cfg.package_docs or PACKAGE_DOCS_DEFAULTS)["language"]
+    reader = AFFECTED_READERS.get(lang)
+    if reader is None:
+        raise QueueError(f"package_docs.language {lang!r} has no test reader; one of: "
+                         f"{', '.join(sorted(AFFECTED_READERS))}", 2)
+    changed = changed_paths(cfg.root, since, paths)
+    return changed, (reader(cfg.root, changed) if changed else [])
+
+
+def main_affected(cfg: Config, a: Any) -> int:
+    """`ccp suite affected`: the test modules, one per line; a note on stderr when there are none."""
+    try:
+        changed, mods = affected(cfg, a.since, a.paths)
+    except QueueError as e:
+        print(f"ccp suite affected: {e}", file=sys.stderr)
+        return e.code
+    for m in mods:
+        print(m)
+    if not mods:
+        print(f"ccp suite affected: no test module depends on the {len(changed)} changed path(s)", file=sys.stderr)
+    return 0
