@@ -55,6 +55,17 @@ The plane's dependence on GitHub for pull requests is stated up front now, and t
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implementer): ADR-0040 "The PR host is an adapter" is written `proposed`, deciders
+  operator: D1 the interface (open, view, diff, merge pinned to a head, confirm, through `ccp pr`),
+  D2 GitHub (today's), D3 local (the plane keeps the PR record in the queue and merges with git),
+  D4 GitLab and Gitea later, D5 selection by `plane.json` `pr_host.adapter` (default `github`), D6
+  what stays forge-independent, D7 the GitHub requirement stated until then. `ccp init` warns on
+  stderr and in its result's `warnings` when `origin` is missing, local or on a host that is not
+  `github.com` or a subdomain of it, naming `ccp verify merge-ok`, `ccp tasks close` and the
+  workers' `gh pr` steps; only the host is printed, never the URL. The README's prerequisites state
+  the requirement. SPEC §4.5 is not changed: the task gives no SPEC text and its paths exclude
+  `docs/spec/` (flagged in the report). A GitHub Enterprise host is warned about as not GitHub.
+
 ## Verification notes
 
 *Append-only.*
