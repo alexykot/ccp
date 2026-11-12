@@ -1,7 +1,7 @@
 ---
 task_id: 0071-adoption-checklist-and-permissions
 title: An adopting lead sees every plane.json feature it may need, and the operator gets a ready permission list
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4", "S8", "S18"]
@@ -59,4 +59,4 @@ A lead adopting the plane on a product learns, in one place, every `plane.json` 
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #72 head `ae35645` (squash `ab02e7b`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0071-adoption-checklist-and-permissions.json.
