@@ -6,9 +6,9 @@
   "type": "object",
   "required": ["name", "kind", "task_id", "nnnn", "seat", "tag", "path", "state", "created_at"],
   "properties": {
-    "name": {"type": "string", "pattern": "^(impl|rev|ver|mut|mac|base)-[0-9]+(-[0-9]+)?$"},
+    "name": {"type": "string", "pattern": "^((impl|rev|ver|mut|mac|base)-[0-9]+(-[0-9]+)?|ver-baseline)$"},
     "kind": {"enum": ["impl", "rev", "ver", "mut", "mac", "base"]},
-    "task_id": {"type": "string"},
+    "task_id": {"type": "string", "description": "Empty for ver-baseline, the one worktree with no task"},
     "nnnn": {"type": "string"},
     "seat": {"type": "string", "description": "The seat it serves: impl, rev or ver by default"},
     "tag": {"type": "string", "description": "A tag for the hooks: main, or mut / mac / base for those kinds"},

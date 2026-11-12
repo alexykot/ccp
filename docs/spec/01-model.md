@@ -393,6 +393,15 @@ wrote, and adds its own worktree and environment hooks to `plane.json` (§12).
   It refuses (exit 2) another init flag, and a product without a `plane.json` that loads or without
   its binding and queue. The operator applies the block to the product's `.claude/settings.json`
   (§4.3).
+- **The gate on the tip.** Before the first task, the lead runs the gate lane once in the baseline
+  worktree, `ccp wt create --kind ver --baseline` (§12.1), which needs no task, so a red tip is known
+  before the first verifier finds it.
+- **An existing rules doc.** `ccp init --rules-doc PATH` (relative to the product root) lists each
+  rule of the product's own house-rules doc that has no `check:` line (§20.1) and points at the
+  starter rules (§20.5); it writes nothing. With `--adopt` it gives each such rule a `check: pass`
+  line at the end of its item, and refuses (exit 1), writing nothing, when that would put the doc over
+  `rules_max_lines`. The rule ids and the cap are the product's when its `plane.json` loads. It does
+  not set `architect.rules_doc`, and refuses (exit 2) another init flag and a missing doc.
 
 ## 5. Task files
 
