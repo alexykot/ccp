@@ -463,7 +463,7 @@ tasks:
     depends_on: []
     path: tasks/0092-list-the-tests-a-change-touches.md
   - id: 0093-runner-rotation-is-enforced
-    status: pending
+    status: done
     title: Runner rotation is enforced, by task count and by context size, and the runner's model is checked
     depends_on: []
     path: tasks/0093-runner-rotation-is-enforced.md

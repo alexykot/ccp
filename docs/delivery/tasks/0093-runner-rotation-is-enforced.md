@@ -1,7 +1,7 @@
 ---
 task_id: 0093-runner-rotation-is-enforced
 title: Runner rotation is enforced, by task count and by context size, and the runner's model is checked
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S2", "S16", "S24"]
@@ -146,4 +146,4 @@ long-lived runner does not carry an ever-growing context into every request (§2
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #80 head `db419e2` (squash `504de49`): APPROVE. Passed: check-01, check-02, check-03, check-04. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0093-runner-rotation-is-enforced.json.
