@@ -382,6 +382,18 @@ changes nothing. It refuses, writing nothing, when keeping would leave the produ
 `--queue-root`, or a `.claude/settings.json` that is not a JSON object. The product commits what it
 wrote, and adds its own worktree and environment hooks to `plane.json` (§12).
 
+- **The adoption checklist.** The plane's README lists each `plane.json` key a product may need beyond
+  the minimal file, with what it is for and when a product needs it.
+- **The permission list.** `ccp init --permissions` writes nothing. In an adopted product it prints the
+  runner's and workers' permissions (§18.5) as a JSON `permissions` block:
+  - an allowlist: `ccp`, the plane's `team.sh` and `spec-maintainer-ask.sh` by absolute path (each
+    also behind the binding's `QUEUE_ROOT=`), git by verb, `gh pr` and the gate lane's commands;
+  - a deny list of destructive commands.
+
+  It refuses (exit 2) another init flag, and a product without a `plane.json` that loads or without
+  its binding and queue. The operator applies the block to the product's `.claude/settings.json`
+  (§4.3).
+
 ## 5. Task files
 
 The task file is the plane's format, the same for every product. It holds knowledge and outcomes:

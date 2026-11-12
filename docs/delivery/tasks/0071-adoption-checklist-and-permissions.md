@@ -55,6 +55,8 @@ A lead adopting the plane on a product learns, in one place, every `plane.json` 
 
 *Append-only, newest last.*
 
+- 2026-11-12: The README has an adoption checklist under step 2, a table of the twelve Scope keys with what each is for and when a product needs it, and a Permissions part that says the operator applies the block. `ccp init --permissions` (`ccp/init.py` `permissions`, `print_permissions`) prints `{"permissions": {"allow": [...], "deny": [...]}}` and writes nothing. Allowed: `ccp` by name (§4.3: "the allowlist names `ccp`, not a path") and the plane's `team.sh` and `spec-maintainer-ask.sh` by absolute path, each also behind `QUEUE_ROOT=<the binding's queue>` because the seats run them that way; git by verb (`GIT_VERBS`); `gh pr`; the gate lane's argv, or each stage's `cmd`. Denied: `DENY` (force pushes, `reset --hard`, `clean`, `branch -D`, `stash`, `checkout --`, `restore`, `rm -rf`, `gh repo delete`). It refuses (exit 2) another init flag, a product whose `plane.json` is missing or does not load, and a product with no binding and queue. §4.5 names both. The `ccp init` usage line, the flag's help and the `docs/cli/01-model.md` reference row (outside `paths`) name the flag. Tests: `tests/test_init_permissions.py`.
+
 ## Verification notes
 
 *Append-only.*
