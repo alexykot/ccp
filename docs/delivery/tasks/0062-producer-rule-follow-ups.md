@@ -57,6 +57,18 @@ The §15.4 producer rule is pinned by tests on every branch, and a check closed 
 
 *Append-only, newest last.*
 
+- 2026-11-12 (implementer): `producer_errors` (record only, `require`) now refuses a check that names
+  no `produced_by` and is `ran: false` with a `rests_on` that names no ruling the queue holds: a gate
+  id `<task_id>-<n>` whose `escalations/<task_id>/<n>.json` exists, or a spec question id `sm-…`
+  whose `questions/<id>.json` exists. The id may sit inside prose; one that exists is enough. The
+  refusal names the check and `rests_on`. A check that names a `produced_by` keeps a free `rests_on`
+  (whose claim it rests on, §15.4; `approve at <old>`, §15.6 rule 3), so the rule applies only to the
+  check the plane can tell a ruling closed. `merge-ok` and `check` do not apply it, so a record
+  written earlier is still read. Any task's gate counts, and existence is all that is checked (not
+  the gate's state). The operator-step branch on a check with no `produced_by` is pinned in
+  `tests/test_verify.py`. §15.4 carries the task's PROPOSED text; the schema's `rests_on` and
+  `produced_by` descriptions say the same.
+
 ## Verification notes
 
 *Append-only.*
