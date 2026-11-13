@@ -260,18 +260,29 @@ class LeftoverMergeWorktree(WtFixture, unittest.TestCase):
         self.assertEqual(self.wt("list", "--task", "0002")[1], [want])
 
     def test_gc_removes_it_once_its_task_is_done_or_dropped_and_unleased(self):
+        for status in ("done", "dropped"):
+            with self.subTest(status=status):
+                path = self.leftover()
+                self.task_state(status=status)
+                body = self.wt("gc")[1]
+                self.assertEqual((body["removed"], body["warnings"]), (["merge-0002"], []))
+                self.assertFalse(path.exists())
+                self.assertNotIn("merge-0002", git(self.main, "worktree", "list"))
+                self.assertNotIn("merge-0002", [w["name"] for w in self.wt("list")[1]])
+
+    def test_gc_keeps_it_while_its_task_is_leased_and_list_shows_it(self):
         path = self.leftover()
-        self.assertEqual(self.wt("gc")[1]["removed"], [])  # the queue holds no state for the task
-        self.task_state(status="verifying", lease_holder="runner")
-        self.assertEqual(self.wt("gc")[1]["removed"], [])  # a re-run of its close reuses it
-        self.task_state(status="done", lease_holder="runner")
+        for status in ("verifying", "done", "dropped"):  # a re-run of its close reuses it
+            with self.subTest(status=status):
+                self.task_state(status=status, lease_holder="runner")
+                self.assertEqual(self.wt("gc")[1]["removed"], [])
+                self.assertTrue(path.is_dir())
+                self.assertIn("merge-0002", [w["name"] for w in self.wt("list")[1]])
+
+    def test_gc_keeps_it_when_the_queue_holds_no_task_for_it(self):
+        path = self.leftover()
         self.assertEqual(self.wt("gc")[1]["removed"], [])
         self.assertTrue(path.is_dir())
-        self.task_state(status="dropped")
-        body = self.wt("gc")[1]
-        self.assertEqual((body["removed"], body["warnings"]), (["merge-0002"], []))
-        self.assertFalse(path.exists())
-        self.assertNotIn("merge-0002", git(self.main, "worktree", "list"))
 
     def test_remove_task_removes_it_but_never_the_checkout_it_runs_in(self):
         path = self.leftover()
