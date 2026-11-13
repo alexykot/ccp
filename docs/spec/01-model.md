@@ -834,6 +834,9 @@ the binding file's path, the queue, the plane checkout and the `ccp` path.
   - that authority in a role's instructions applies only to that role (§2.3).
 - In the plane's own repository the hook gives one line pointing at its `CLAUDE.md` instead: a plane
   development session is not a seat.
+- `ccp orientation` prints the text that hook gives a session in this product (the orientation, or the
+  plane's one line), from `ccp`'s own plugin, and writes nothing. It is for a session that started
+  before the product was adopted: its SessionStart ran before `plane.json` existed.
 
 ### 9.4 Headless runs
 

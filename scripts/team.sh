@@ -5,6 +5,9 @@
 #   team.sh runner spawn [--scope ID,ID] [--review-point R<n>]   record + print the fixed spawn (Agent tool);
 #       --review-point without --scope: the point's open tagged tasks (SPEC §22); a runner still live
 #       (not rotated) is stopped first: its shutdown comes before the spawn (SPEC §16.5)
+#   team.sh runner spawn --dry-run [...]                     the same refusals; print the actions and the readiness
+#                                                            checks, writing nothing; exit 1 when a check
+#                                                            fails (SPEC §16.5)
 #   team.sh runner prompt --scope ID,ID                      print the fixed spawn prompt only
 #   team.sh runner bind --name NAME                          the name the Agent result gave the runner
 #                                                            (`runner-2` after a rotation): hook and prompts follow it
