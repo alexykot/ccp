@@ -560,9 +560,10 @@ has a `Suite:` line but no suite run is recorded for its run.
   `origin/<integration branch>`) and `{head}` (the checkout's HEAD) filled in; the first that exits 0
   skips the stage. A non-zero exit or a timeout skips nothing, and a checkout with uncommitted changes,
   or a head with no merge base, runs no prover. A skipped stage is neither in `stages` nor among the
-  stages not run: the `ended` row records `proven_skips` (`[{stage, prover, command, exit_code}]`, the
-  prover's declared command), its event the same without `command`, and the summary's stage line names
-  each skipped stage and its prover. The prover is product tooling, not the plane's.
+  stages not run: the `ended` row and its event record `proven_skips` (`[{stage, prover, exit_code}]`,
+  `prover` its name in `verify.provers`), and the summary's stage line names each skipped stage and its
+  prover. No record holds a prover's command text (§14.4): the name looks it up in plane.json. The
+  prover is product tooling, not the plane's.
 - **Summary mode** is the default when stdin is not a terminal (`--summary` forces it). The
   command's stdout and stderr both go to one log file, in the order written: `--log PATH`, else next
   to the run's record (`QUEUE_ROOT/runs/<task>/<phase>[-n]-suite-<suite_id>.log`), else
@@ -633,7 +634,8 @@ has a `Suite:` line but no suite run is recorded for its run.
 the output mode (`output`), the command's basename and argument count; the `ended` row adds `tests`,
 `failed`, `skipped`, `ran`, `cached`, `cached_tests` (null when not found), `counts_from`, summary
 mode's `log` path, `cold` (§14.6) and, for a lane plane.json names, `stages` and `failed_stage` (§14.3), and
-`proven_skips` when a prover skipped a stage (§14.2). A staged
+`proven_skips` when a prover skipped a stage (§14.2: the prover's name and exit code, never its
+command). A staged
 lane's `started` row has `cmd` `stages` and its stage count as `argc`. Never the command's arguments,
 never its output; the event carries the numbers, `cold` and the stages, not the path. A row naming `modules_ran` and `modules_cached` reads as `ran` and `cached`.
 
@@ -779,7 +781,7 @@ result.
   diff `verify.skip_review` judges (at least one file; no paths rule of its own), its `command` run as
   `proof` is, with the same fields filled in. `verify.skip_review`, when set, is tried first, then each
   such prover in order; the first to prove the fix sends it straight to verify. The verify run's
-  `review_skip` then adds `prover` (its name), `command` and `exit_code`.
+  `review_skip` then adds `prover` (its name) and `exit_code`, never the command text (§14.4).
 - **A fix of a clean review's minor findings needs no new review.** plane.json
   `verify.skip_review_after_clean` (boolean; false, the default, is off) lets the fix round after the
   latest review that reported `done` go straight to verify when that review recorded no BLOCKER or MAJOR

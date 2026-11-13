@@ -53,8 +53,8 @@ and event says whether the run was `cold` (§14.6: its own `cached` count was 0;
 On the gate role's staged lane, a run that is recorded and names its task runs a stage's declared provers
 (plane.json `verify.provers`) before it starts: the first whose command exits 0 on the task's diff, from
 the head's merge base with the integration branch to HEAD in a clean checkout, skips the stage, and the
-`ended` row records it in `proven_skips` (stage, prover, its command, exit code; the event leaves the
-command out).
+`ended` row and its event record it in `proven_skips` (stage, prover name, exit code: no command text,
+§14.4; the command is looked up in plane.json by the name).
 
 The record is `QUEUE_ROOT/runs/_suites.jsonl`, append-only: a `started` row when the command
 starts and an `ended` row when it ends, sharing a `suite_id`. The `ended` row also goes into the
@@ -1109,7 +1109,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
     code, rc = 0, 0
     cut: int | None = None  # §14.2: the stage a signal kept from starting
     provers = stage_provers(cfg, a.lane, command, stages, started)
-    proven: list[dict[str, Any]] = []  # §14.2: each stage a prover skipped: stage, prover, command, exit code
+    proven: list[dict[str, Any]] = []  # §14.2: each stage a prover skipped: stage, prover name, exit code
     diff: tuple[dict[str, str] | None, str] | None = None
     reached = 0  # the stages run or skipped so far
     try:
@@ -1130,8 +1130,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                     _stage_mark(log_fd, f"ccp suite: stage {stage['name']}: prover {pr['name']} "
                                         + ("timed out\n" if pcode is None else f"exit {pcode}\n"))
                     if got or pcode == 0:
-                        skip = None if got else {"stage": stage["name"], "prover": str(pr["name"]),
-                                                 "command": str(pr["command"]), "exit_code": 0}
+                        skip = None if got else {"stage": stage["name"], "prover": str(pr["name"]), "exit_code": 0}
                         break
                 if got:
                     cut = i
@@ -1317,9 +1316,7 @@ def _finish(cfg: Config | None, q: Path | None, started: dict[str, Any] | None, 
                   "lane": started.get("lane"), "exit_code": code, "seconds": row["seconds"], "tests": tests, **nums,
                   "cold": cold, "counts_from": source, "interrupted": name,
                   **({"stages": stages, "failed_stage": failed_stage} if stages is not None else {}),
-                  # the ledger carries ids and numbers only (§14.4): the prover's name, not its command
-                  **({"proven_skips": [{k: v for k, v in x.items() if k != "command"} for x in proven]}
-                     if proven else {})},
+                  **({"proven_skips": proven} if proven else {})},
                  _actor_for(started.get("seat")))
     except Exception as e:  # noqa: BLE001
         warn(f"the run's end was not recorded ({str(e).splitlines()[0][:200] if str(e) else type(e).__name__})")

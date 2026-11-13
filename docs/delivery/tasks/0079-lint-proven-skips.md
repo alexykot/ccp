@@ -22,6 +22,14 @@ A change that a cheap, declared check proves harmless (a comment-only diff, a do
 - Accepted plane proposal. Its triage records the operator's ruling of 11 Nov 2026, "if some gates can be skipped on that, they should be", as the acceptance.
 - Generalises `verify.skip_review` (one proof for one skip) into declared provers.
 - §31: this task adds or changes a § rule beyond describing its own feature, so its merge waits on the operator's approval of the final text at its merge gate (§31.1).
+- Ruling sm-20261113T190943Z-1b85 (lead, 2026-11-13, spec commit `3030421`; the first ruling round), verbatim:
+  "Drop the command text. Records carry the prover's name (its id in plane.json), its exit code and
+  the run id; the command is looked up in plane.json by name, so the record never holds command text
+  (E5, §14.4). That applies to the suite ended row, the verify run's review_skip and any event. Read
+  the task's 'name, command and exit' as 'name and exit, with the command identified by name'. The
+  edits outside the declared paths (the 01-model table row, the README git floor, the runner brief,
+  the prompt label) are accepted; list them in the PR body. Record this ruling in 0079's Context with
+  a ruling round, then review. The task stays gated at merge."
 
 ## Scope
 
@@ -70,6 +78,16 @@ A change that a cheap, declared check proves harmless (a comment-only diff, a do
   a prover's skip adds `prover`, `command` and `exit_code` to `review_skip`. The refusal names the
   settings in force (`review_proof_label`). SPEC §14.2, §14.4 and §15.2 carry the PROPOSED rule and
   describe the feature. §01 table, README git floor and runner brief name the new key.
+- 2026-11-13 (implementer, ruling round 1): applied ruling sm-20261113T190943Z-1b85, recorded in
+  Context. No record holds a prover's command text: the suite `ended` row's `proven_skips` entries are
+  `{stage, prover, exit_code}`, the same as the `suite/recorded` event's (the event no longer filters a
+  `command` out, since there is none), and the verify run's `review_skip` adds `prover` and `exit_code`
+  only. The run id was already on both records (the suite run's `started` row and event carry
+  `run_id`; `review_skip` sits on the verify run's own record), so no field was added. The
+  `suite_result` schema drops `command` from `proven_skips` items; SPEC §14.2, §14.4 and §15.2 say the
+  records carry the name and exit, the name looking the command up in plane.json. The tests assert the
+  records' exact fields and that the command text appears in neither the suite record nor the ledger
+  (nor the verify run's record, for the review prover).
 
 ## Verification notes
 

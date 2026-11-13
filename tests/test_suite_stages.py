@@ -252,11 +252,13 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertFalse(self.marker.exists())
         row = self.ended()
         self.assertEqual([s["name"] for s in row["stages"]], ["lint", config.PLANE_DOCS_STAGE])
-        self.assertEqual(row["proven_skips"], [{"stage": "suite", "prover": "docs-only", "command": DOCS_ONLY,
-                                                "exit_code": 0}])
+        self.assertEqual(row["proven_skips"], [{"stage": "suite", "prover": "docs-only", "exit_code": 0}])
         self.assertEqual((row["failed_stage"], row["tests"]), (None, None))
         ev = [e for e in self.events() if e["type"] == "suite"][-1]["payload"]
         self.assertEqual(ev["proven_skips"], [{"stage": "suite", "prover": "docs-only", "exit_code": 0}])
+        # the records name the prover, never its command: plane.json looks the command up by the name
+        self.assertNotIn("git diff --name-only", (self.q / "runs" / "_suites.jsonl").read_text())
+        self.assertNotIn("git diff --name-only", (self.q / "observability" / "events.jsonl").read_text())
         line = next(ln for ln in r.stdout.decode().splitlines() if ": stages: " in ln)
         self.assertIn("skipped: suite (prover docs-only)", line)
         self.assertNotIn("not run:", line)
@@ -378,7 +380,7 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertEqual((set(item["properties"]), set(item["required"])), (config.PROVER_KEYS, config.PROVER_KEYS))
         result = json.loads((root / "contracts/suite_result.schema.json").read_text())
         self.assertEqual(set(result["properties"]["proven_skips"]["items"]["properties"]),
-                         {"stage", "prover", "command", "exit_code"})
+                         {"stage", "prover", "exit_code"})
 
 
 WT_VARS = tuple(f"CCP_WT_{f.upper()}" for f in config.WT_FIELDS)

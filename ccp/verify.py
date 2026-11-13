@@ -43,7 +43,7 @@ verify run carries the override `ccp prompt verify --allow-unreviewed-fix` recor
 `skip_review` proved for that head: a product with `verify.skip_review` lets a fix whose diff touches only
 the declared paths, and that the product's proof command passes, go to verify with no new review, and a
 declared prover of the review (`verify.provers`, `skips: review`) whose command exits 0 on the fix diff
-does the same, its name, command and exit recorded on the verify run. A
+does the same, its name and exit recorded on the verify run (no command text). A
 product with `verify.skip_review_after_clean` lets the fix round after a clean review (no BLOCKER or MAJOR
 finding) go to verify with no new review, the skip recorded as `minor-only` at the verify run's head; the
 verifier confirms the fix answers only that review's findings (`skip_after_clean`).
@@ -578,8 +578,8 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     pathspecs, as `merge.behind_tip_ignore`) and the product's `proof` command exits 0; failing that, each
     review prover in turn proves it when its `command` exits 0. Either command runs in the product root
     with `{task_id}`, `{reviewed}`, `{head}` and `{from}` (the tree the fix diff starts from) filled in.
-    Returns what to record on the verify run (a prover's skip adds its `prover` name, `command` and
-    `exit_code`), or None and why not ("" when neither is set or there is no fix to judge).
+    Returns what to record on the verify run (a prover's skip adds its `prover` name and `exit_code`, never
+    its command text, §14.4), or None and why not ("" when neither is set or there is no fix to judge).
 
     `git merge-tree --write-tree` needs git 2.38 or later. It exits 1 on a conflict; any other failure,
     such as an older git that lacks the option, is named as such, and the review stands either way."""
@@ -649,7 +649,7 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     for p in provers:
         code, _ = rules.run_command(cfg, fill(str(p["command"]), values), PROOF_TIMEOUT)
         if code == 0:
-            return {**skipped, "prover": str(p["name"]), "command": str(p["command"]), "exit_code": 0}, ""
+            return {**skipped, "prover": str(p["name"]), "exit_code": 0}, ""
         why.append(f"the prover {p['name']} (verify.provers) "
                    + (f"timed out after {PROOF_TIMEOUT}s" if code is None else f"exited {code}"))
     return None, "; ".join(why)

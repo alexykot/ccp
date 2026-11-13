@@ -1,5 +1,5 @@
 """SPEC §15.2, plane.json `verify.provers` with `skips: review`: a declared prover that exits 0 on the fix
-round's diff sends the fix straight to verify, its name, command and exit recorded on the verify run.
+round's diff sends the fix straight to verify, its name and exit recorded on the verify run (no command text).
 `verify.skip_review`, when set, is tried first; a prover that fails or times out keeps the refusal."""
 from __future__ import annotations
 
@@ -57,10 +57,13 @@ class ReviewProvers(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.verify(head)
         self.assertEqual(code, 0, out + err)
         want = {"reviewed": reviewed, "head": head, "fix": "0002-second/fix", "files": 1,
-                "prover": "comments", "command": PROVE, "exit_code": 0}
+                "prover": "comments", "exit_code": 0}
         self.assertEqual(body["review_skip"], want)
         run = json.loads((self.q / "runs/0002-second/verify.json").read_text())
         self.assertEqual(run["review_skip"], want)
+        # the records name the prover, never its command: plane.json looks the command up by the name
+        self.assertNotIn("PROOF_BIN", (self.q / "runs/0002-second/verify.json").read_text())
+        self.assertNotIn("PROOF_BIN", (self.q / "observability" / "events.jsonl").read_text())
         task, got_reviewed, got_head, _start = self.log.read_text().split()
         self.assertEqual((task, got_reviewed, got_head), ("0002-second", reviewed, head))
         code, _, out, err = self.verdict(head)
