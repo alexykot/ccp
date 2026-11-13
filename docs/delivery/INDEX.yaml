@@ -468,7 +468,7 @@ tasks:
     depends_on: []
     path: tasks/0093-runner-rotation-is-enforced.md
   - id: 0094-minor-only-fix-skips-re-review
-    status: pending
+    status: done
     title: A fix round that answers only minor findings of a clean review goes to verify without a new review
     depends_on: []
     path: tasks/0094-minor-only-fix-skips-re-review.md

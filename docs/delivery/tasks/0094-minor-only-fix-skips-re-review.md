@@ -1,14 +1,14 @@
 ---
 task_id: 0094-minor-only-fix-skips-re-review
 title: A fix round that answers only minor findings of a clean review goes to verify without a new review
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S8", "S15"]
 review_point: R5
 paths: ["ccp/prompt.py", "ccp/verify.py", "ccp/config.py", "templates/prompts/", "docs/spec/02-delivery.md", "contracts/plane_config.schema.json", "tests/test_review_skip*.py", "tests/test_prompt*.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0094-minor-only-fix-skips-re-review
@@ -99,4 +99,4 @@ cost a full review cycle (§15.2).
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #86 head `e3a226b` (squash `1927f49`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0094-minor-only-fix-skips-re-review.json.
