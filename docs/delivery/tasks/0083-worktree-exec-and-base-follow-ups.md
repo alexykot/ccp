@@ -55,6 +55,26 @@ A seat checking work in a worktree knows which `ccp` runs, a merge-base run neve
 
 *Append-only, newest last.*
 
+- 2026-11-13 (implementer): `run_on_base` (`ccp/wt.py`) now wraps everything after the merge base in
+  one try/finally: the record save, the command, a SIGTERM (a handler raising in the main thread, the
+  caller's handler restored after) and any OSError all end in `remove`; `create` removes a half-made
+  `base` worktree and its record itself when its link, setup or save step raises. The command runs in
+  its own process group; `--timeout S` (default `env.timeout_seconds`) kills the group, exit 124,
+  `timed_out: true`. A SIGTERM to ccp exits 143 with `signal: 15` in the result. A failed fetch in
+  `merge_base` is a warning (`warnings` argument; `ccp mutate` passes none and is unchanged).
+- Distinct refusal codes: a base run's own refusals and failures exit 125 (`BASE_REFUSED`, as
+  timeout(1)'s "the wrapper failed"), print why on stderr and no result JSON; a command or `--timeout`
+  on another kind stays exit 2. The existing `test_refusals` expectations for base runs moved from
+  2/3 to 125, as Scope asks.
+- `--shallow` (rev, ver, mut, mac) is a depth-1 clone (`git init` + `git fetch --depth 1
+  file://<main> <full sha>` + detached checkout): a git worktree shares the whole history, so it
+  cannot be shallow. Recorded with `shallow: true` (added to `contracts/worktree.schema.json`);
+  removal deletes a clone (`.git` a directory) instead of `git worktree remove`; reuse needs the same
+  depth (exit 3). check-02's command needs `--kind` and `--task` like any other create.
+- The reviewer and verifier briefs say `ccp wt exec --print` shows which `ccp` runs (`$CCP_ROOT`
+  wins); the verifier brief also names `--shallow` and the 125/124 codes. SPEC §12.1 describes the
+  new behaviour (§31.1, this task's own feature).
+
 ## Verification notes
 
 *Append-only.*

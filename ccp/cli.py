@@ -336,13 +336,22 @@ def cmd_budgets_check(cfg: config.Config, a: argparse.Namespace) -> int:
 
 
 def cmd_wt(cfg: config.Config, a: argparse.Namespace) -> int:
-    """SPEC §12.1: worktrees and environments."""
+    """SPEC §12.1: worktrees and environments. A base run's own refusals exit wt.BASE_REFUSED (125), not
+    the usage and not-ready codes (2, 3) a command it runs may well exit with."""
     from ccp import wt  # noqa: PLC0415
+    base_run = a.action == "create" and a.kind == "base"
     try:
         q = wt._queue_root()
         command = list(getattr(a, "command", None) or [])
-        if command and not (a.action == "create" and a.kind == "base"):
+        if command and not base_run:
             raise QueueError("only `ccp wt create --kind base` runs a command after `--`", 2)
+        timeout = getattr(a, "timeout", None)
+        if timeout is not None and not base_run:
+            raise QueueError("--timeout bounds the command of `ccp wt create --kind base`", 2)
+        if timeout is not None and not (timeout.isdigit() and int(timeout) >= 1):
+            raise QueueError(f"--timeout {timeout!r}: give a whole number of seconds, at least 1", 2)
+        if getattr(a, "shallow", False) and (a.action != "create" or base_run or getattr(a, "baseline", False)):
+            raise QueueError("--shallow is for `ccp wt create --kind rev|ver|mut|mac --task ID --sha SHA`", 2)
         if getattr(a, "baseline", False):  # §12.1: the adopting lead's gate run on the tip, no task
             if a.action != "create" or a.kind != "ver":
                 raise QueueError("--baseline is for `ccp wt create --kind ver --baseline`", 2)
@@ -354,16 +363,17 @@ def cmd_wt(cfg: config.Config, a: argparse.Namespace) -> int:
         elif a.action == "create":
             if not a.task:
                 raise QueueError("usage: ccp wt create --kind KIND --task ID [--sha SHA] [--name N] [--seat S] [--tag T] "
-                                 "[-- COMMAND (base only)], or ccp wt create --kind ver --baseline", 2)
+                                 "[--shallow] [--timeout S -- COMMAND (base only)], or ccp wt create --kind ver --baseline", 2)
             from ccp.queue import task_meta  # noqa: PLC0415
             tid = str(task_meta(cfg, a.task)["task_id"])
             if a.kind == "base":  # §12.1: made, the command run there, removed again; exit with its code
-                res = wt.run_on_base(cfg, q, tid, a.sha or "", command, a.name, a.seat, a.tag)
+                res = wt.run_on_base(cfg, q, tid, a.sha or "", command, a.name, a.seat, a.tag,
+                                     int(timeout) if timeout is not None else None)
                 for w in res["warnings"]:
                     print(f"warning: {w}", file=sys.stderr)
                 print(json.dumps(res, indent=2, ensure_ascii=False))
                 return int(res["exit"])
-            body = wt.create(cfg, q, tid, a.kind or "impl", a.sha, a.name, a.seat, a.tag)
+            body = wt.create(cfg, q, tid, a.kind or "impl", a.sha, a.name, a.seat, a.tag, bool(getattr(a, "shallow", False)))
         elif a.action == "list":
             body = wt.listing(cfg, q, a.task)
         elif a.action == "gc":
@@ -381,6 +391,10 @@ def cmd_wt(cfg: config.Config, a: argparse.Namespace) -> int:
             else:
                 body = wt.urls(cfg, q, name)
     except QueueError as e:
+        if base_run and e.code < 128:  # §12.1: its own refusal; 128 + N is a signal to this ccp, as for a command
+            print(f"ccp wt create: {e} (exit {wt.BASE_REFUSED}: ccp's own refusal, not its command's exit code)",
+                  file=sys.stderr)
+            return wt.BASE_REFUSED
         print(f"ccp wt {a.action}: {e}", file=sys.stderr)
         return e.code
     if isinstance(body, dict):
@@ -1222,6 +1236,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--baseline", action="store_true",
                    help="create --kind ver: the worktree ver-baseline at the integration tip, with no task, set up "
                         "like any other; an adopting lead runs the gate there once")
+    p.add_argument("--shallow", action="store_true",
+                   help="create --kind rev|ver|mut|mac: a depth-1 clone of --sha, with no git history, not a git worktree")
+    p.add_argument("--timeout", metavar="SECONDS",
+                   help="create --kind base: kill the command with its process group after this many seconds "
+                        "(exit 124; default plane.json env.timeout_seconds)")
     p.add_argument("--print", dest="print_path", action="store_true", help="exec: print the path of its bin/ccp, run nothing")
     p.set_defaults(fn=cmd_wt, command=[])
     p = sub.add_parser("auth", help="auth probes (SPEC §30)").add_subparsers(dest="cmd", required=True)

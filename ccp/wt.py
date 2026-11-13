@@ -3,7 +3,9 @@
 The plane owns every worktree a task needs: the implementer's (`impl`, on `task/<id>`), the
 reviewer's and verifier's (`rev`, `ver`, detached at the head they judge), a mutation copy (`mut`) and
 a machine check (`mac`), and a throwaway at the merge base of a head and the integration branch
-(`base`), made by `ccp wt create --kind base … -- COMMAND` only to run that command and removed again.
+(`base`), made by `ccp wt create --kind base … -- COMMAND` only to run that command and removed again
+(on a timeout, a SIGTERM or any failure after it is made too). A detached kind made `--shallow` is a
+depth-1 clone of its sha instead of a git worktree, for a check that must pass without git history.
 An adopting lead's `ver-baseline` (`ccp wt create --kind ver --baseline`) belongs to no task: a verifier's
 worktree at the integration tip, where the gate runs once before the first task does.
 Each is named `<kind>-<nnnn>[-<n>]` under `worktrees.dir` in the main
@@ -31,9 +33,11 @@ import json
 import os
 import re
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -53,6 +57,9 @@ MERGE_PREFIX = "merge"  # §10.5: close's own worktree for the reconcile, `merge
 MERGE_RE = re.compile(rf"^{MERGE_PREFIX}-([0-9]+)$")
 URL_RE = re.compile(r"^[a-z][a-z0-9+.-]*://\S+$")
 OUT_CAP = 20000
+SHALLOW_KINDS = ("rev", "ver", "mut", "mac")  # §12.1: `--shallow` makes one of these a depth-1 clone of its sha
+BASE_REFUSED = 125  # §12.1: a base run's own refusal or failure, never one of its command's codes (as timeout(1))
+BASE_TIMED_OUT = 124  # §12.1: the base run's command outlived --timeout and was killed with its process group
 
 
 # ---------------------------------------------------------------- paths and state
@@ -192,8 +199,12 @@ def hook(cfg: Config, q: Path, name: str, st: dict[str, Any]) -> tuple[int, str]
         return None
     ctx = context(cfg, st)
     line = fill(cmd, {k: shlex.quote(v) if k in PATH_FIELDS else v for k, v in ctx.items()})
-    return run_cmd(line, Path(st["path"]), int((cfg.env or {}).get("timeout_seconds") or 600),
-                   env_fields(cfg, st), state_dir(q) / f"{st['name']}.{name}.log")
+    return run_cmd(line, Path(st["path"]), hook_timeout(cfg), env_fields(cfg, st), state_dir(q) / f"{st['name']}.{name}.log")
+
+
+def hook_timeout(cfg: Config) -> int:
+    """plane.json `env.timeout_seconds` (default 600): a hook's limit, and a base run's by default (§12.2)."""
+    return int((cfg.env or {}).get("timeout_seconds") or 600)
 
 
 def parse_urls(out: str) -> list[dict[str, str]]:
@@ -233,8 +244,10 @@ def _exclude(main: Path, links: list[str]) -> None:
 
 
 def _link(cfg: Config, main: Path, path: Path) -> None:
+    """Link `worktrees.links` from the main checkout into `path`, named in the info/exclude of the
+    repository `path` belongs to: the main one's, or a shallow clone's own."""
     links = list((cfg.worktrees or {}).get("links") or [])
-    _exclude(main, links)
+    _exclude(path if _is_clone(path) else main, links)
     for link in links:
         src, dst = main / link, path / link
         if src.exists() and not dst.exists():
@@ -271,11 +284,15 @@ def create_baseline(cfg: Config, q: Path, seat: str | None = None, tag: str | No
 
 
 def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None, name: str | None = None,
-           seat: str | None = None, tag: str | None = None) -> dict[str, Any]:
-    """Make (or adopt) the worktree; run env.setup when it is new. A failed setup removes it again.
-    The baseline worktree (`create_baseline`) is the one made with no task: `task_id` and `nnnn` are ""."""
+           seat: str | None = None, tag: str | None = None, shallow: bool = False) -> dict[str, Any]:
+    """Make (or adopt) the worktree; run env.setup when it is new. A failed setup removes it again, and
+    so does any failure after a base worktree is made. With `shallow`, a detached kind is a depth-1 clone
+    of `sha` (`_clone_shallow`), not a git worktree. The baseline worktree (`create_baseline`) is the one
+    made with no task: `task_id` and `nnnn` are ""."""
     if kind not in KINDS:
         raise QueueError(f"--kind must be one of {', '.join(KINDS)}", 2)
+    if shallow and kind not in SHALLOW_KINDS:
+        raise QueueError(f"--shallow is for a worktree detached at --sha: --kind {', '.join(SHALLOW_KINDS)}", 2)
     base = base_dir(cfg)
     if base is None:
         raise QueueError("plane.json names no worktrees.dir: this product has no plane-made worktrees (§12.1)", 2)
@@ -298,13 +315,17 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
         raise QueueError(f"worktree {name} exists: a base worktree is always made fresh; give another --name", 3)
     if st and Path(st["path"]).is_dir():
         _same_head(path, name, sha)
+        _same_depth(path, name, shallow)
         return {**st, "created": False}
     d_seat, d_tag = KINDS[kind]
     st = {"name": name, "kind": kind, "task_id": task_id, "nnnn": nnnn, "seat": seat or d_seat, "tag": tag or d_tag,
           "path": str(path), "sha": sha, "branch": f"task/{task_id}" if kind == "impl" else None,
           "created_at": iso(), "state": "created", "urls": []}
+    if shallow:
+        st["shallow"] = True
     if path.is_dir():  # made before §12.1 recorded worktrees: adopt it, setup already happened
         _same_head(path, name, sha)
+        _same_depth(path, name, shallow)
         st["adopted"] = True
         save(q, st)
         return {**st, "created": False}
@@ -318,24 +339,79 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
             ["worktree", "add", "-q", "-b", branch, str(path), st["base"]]
     else:
         args = ["worktree", "add", "-q", "--detach", str(path), sha]
-    r = git(main, *args)
+
+    def add(at: Path) -> tuple[int, str]:
+        if shallow:
+            return _clone_shallow(main, at, str(sha))
+        r = git(main, *args[:-2], str(at), args[-1])
+        return r.returncode, r.stderr
+
+    rc, err = add(path)
     tries = 0
-    while r.returncode != 0 and not explicit and tries < 5 and "already exists" in r.stderr:
+    while rc != 0 and not explicit and tries < 5 and "already exists" in err:
         tries += 1  # another worker took the name meanwhile: the next free one
         name = _free_name(cfg, q, kind, nnnn)
         path = base / name
         st.update(name=name, path=str(path))
-        args[-2] = str(path)
-        r = git(main, *args)
-    if r.returncode != 0:
-        raise QueueError(f"git worktree add {name}: {r.stderr.strip()}", 1)
-    _link(cfg, main, path)
-    res = hook(cfg, q, "setup", st)
-    if res and res[0] != 0:
-        git(main, "worktree", "remove", "--force", str(path))
-        raise QueueError(f"env.setup for {name} exited {res[0]}; the worktree is removed again:\n{res[1].strip()}", 1)
-    save(q, st)
+        rc, err = add(path)
+    if rc != 0:
+        raise QueueError(f"{'a shallow clone' if shallow else 'git worktree add'} {name}: {err.strip()}", 1)
+    try:
+        _link(cfg, main, path)
+        res = hook(cfg, q, "setup", st)
+        if res and res[0] != 0:
+            _rm_tree(main, path)
+            raise QueueError(f"env.setup for {name} exited {res[0]}; the worktree is removed again:\n{res[1].strip()}", 1)
+        save(q, st)
+    except BaseException:
+        if kind == "base":  # §12.1: a base worktree is never left behind, whatever stopped its making
+            _rm_tree(main, path)
+            state_path(q, name).unlink(missing_ok=True)
+        raise
     return {**st, "created": True}
+
+
+def _clone_shallow(main: Path, path: Path, sha: str) -> tuple[int, str]:
+    """§12.1 `--shallow`: a depth-1 clone of `sha` at `path`, detached, fetched from the main checkout's
+    object store (which `create` has just fetched into). A git worktree shares the repository's whole
+    history; this has none. Returns (exit code, error); a path already taken says "already exists"."""
+    full = git(main, "rev-parse", "--verify", "-q", f"{sha}^{{commit}}").stdout.strip()
+    if not full:
+        return 1, f"{sha} is not a commit in {main}: fetch it first"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.mkdir()
+    except FileExistsError:
+        return 1, f"{path} already exists"
+    for args in (("init", "-q"), ("fetch", "-q", "--depth", "1", main.resolve().as_uri(), full),
+                 ("checkout", "-q", "--detach", "FETCH_HEAD")):
+        r = git(path, *args)
+        if r.returncode != 0:
+            shutil.rmtree(path, ignore_errors=True)
+            return r.returncode, f"git {args[0]}: {r.stderr.strip()}"
+    return 0, ""
+
+
+def _is_clone(path: Path) -> bool:
+    """A shallow worktree is a clone of its own (`.git` a directory), not a linked worktree (`.git` a file)."""
+    return (path / ".git").is_dir()
+
+
+def _rm_tree(main: Path, path: Path) -> tuple[int, str]:
+    """Remove a worktree: a shallow clone by deleting it, a git worktree with `git worktree remove`."""
+    if _is_clone(path) and path.resolve() != main.resolve():
+        shutil.rmtree(path, ignore_errors=True)
+        return (1, f"{path} could not be deleted") if path.exists() else (0, "")
+    r = git(main, "worktree", "remove", "--force", str(path))
+    return r.returncode, (r.stderr or r.stdout)
+
+
+def _same_depth(path: Path, name: str, shallow: bool) -> None:
+    """An existing worktree is reused only as shallow as asked: a full one never stands in for a shallow one."""
+    have = _is_clone(path) and git(path, "rev-parse", "--is-shallow-repository").stdout.strip() == "true"
+    if have != shallow:
+        raise QueueError(f"worktree {name} exists {'shallow' if have else 'with full history'}: remove it "
+                         f"(`ccp wt remove {name}`) or give another --name", 3)
 
 
 def _same_head(path: Path, name: str, sha: str | None) -> None:
@@ -370,9 +446,9 @@ def remove(cfg: Config, q: Path, name: str) -> list[str]:
         if (res := hook(cfg, q, "teardown", st)) and res[0] != 0:
             warnings.append(f"env.teardown for {name} exited {res[0]}: {res[1].strip()[-300:]}")
     if Path(st["path"]).is_dir():
-        r = git(main_checkout(cfg), "worktree", "remove", "--force", st["path"])
-        if r.returncode != 0:
-            warnings.append(f"worktree {st['path']}: {r.stderr.strip()}")
+        rc, err = _rm_tree(main_checkout(cfg), Path(st["path"]))
+        if rc != 0:
+            warnings.append(f"worktree {st['path']}: {err.strip()}")
     state_path(q, name).unlink(missing_ok=True)
     return warnings
 
@@ -392,9 +468,9 @@ def remove_task(cfg: Config, q: Path, task_id: str) -> list[str]:
         old = sorted(base.glob(f"impl-{nnnn}")) + sorted(base.glob(f"rev-{nnnn}*")) + sorted(base.glob(f"ver-{nnnn}*"))
         for wt in old:
             if wt.is_dir():
-                r = git(main_checkout(cfg), "worktree", "remove", "--force", str(wt))
-                if r.returncode != 0:
-                    warnings.append(f"worktree {wt}: {r.stderr.strip()}")
+                rc, err = _rm_tree(main_checkout(cfg), wt)
+                if rc != 0:
+                    warnings.append(f"worktree {wt}: {err.strip()}")
         own = merge_path(cfg, task_id)
         if own and own.is_dir() and own.resolve() != cfg.root.resolve():
             warnings += _remove_merge(cfg, own)
@@ -409,11 +485,17 @@ def _remove_merge(cfg: Config, path: Path) -> list[str]:
 
 # ---------------------------------------------------------------- a command on the merge base
 
-def merge_base(cfg: Config, q: Path, head: str) -> str:
-    """The merge base of `head` and `origin/<integration>`, after a fetch. Exit 3 when there is none."""
+def merge_base(cfg: Config, q: Path, head: str, warnings: list[str] | None = None) -> str:
+    """The merge base of `head` and `origin/<integration>`, after a fetch. Exit 3 when there is none.
+    A failed fetch is a warning appended to `warnings` (when given): the base then comes from
+    `origin/<integration>` as last fetched, which may be stale."""
     main = main_checkout(cfg)
-    git(main, "fetch", "-q", "origin")
     ref = f"origin/{integration_branch(q)}"
+    f = git(main, "fetch", "-q", "origin")
+    if f.returncode != 0 and warnings is not None:
+        why = ((f.stderr or f.stdout).strip().splitlines() or ["no output"])[-1]
+        warnings.append(f"git fetch origin failed ({why}): the merge base is taken from {ref} as last fetched, "
+                        "which may be stale")
     r = git(main, "merge-base", f"{head}^{{commit}}", ref)
     if r.returncode != 0 or not r.stdout.strip():
         raise QueueError(f"no merge base of {head[:12]} and {ref}: the head is not fetched, "
@@ -421,42 +503,97 @@ def merge_base(cfg: Config, q: Path, head: str) -> str:
     return r.stdout.strip()
 
 
+class _Terminated(BaseException):
+    """A SIGTERM to a base run: raised in the main thread so its worktree is removed on the way out."""
+
+    def __init__(self, signum: int):
+        super().__init__(signum)
+        self.signum = signum
+
+
+def _on_sigterm(signum: int, _frame: Any) -> None:
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)  # the cleanup it starts is not cut short by another one
+    raise _Terminated(signum)
+
+
 def run_on_base(cfg: Config, q: Path, task_id: str, head: str, command: list[str], name: str | None = None,
-                seat: str | None = None, tag: str | None = None) -> dict[str, Any]:
+                seat: str | None = None, tag: str | None = None, timeout: int | None = None) -> dict[str, Any]:
     """A `base` worktree (§12.1): made detached at the merge base of `head` and the integration branch,
-    `command` run there (argv, no shell) with its output passed through as it comes, then removed
-    again whatever the command did. Returns the result; its `exit` is the command's exit code (127
-    when it cannot be found, 126 when it cannot run, 128 + N when signal N ended it)."""
+    `command` run there (argv, no shell, in its own process group) with its output passed through as it
+    comes, then removed again whatever the command did, whatever failed after it was made, and on a
+    SIGTERM to this process. Returns the result; its `exit` is the command's exit code (127 when it
+    cannot be found, 126 when it cannot run, 128 + N when signal N ended it), 124 when it outlived
+    `timeout` seconds (default plane.json `env.timeout_seconds`) and was killed, or 128 + 15 when this
+    process was sent SIGTERM. A refusal or a failure of its own raises QueueError with BASE_REFUSED."""
     if not command:
-        raise QueueError("a base worktree runs a command: give it after `--`", 2)
+        raise QueueError("a base worktree runs a command: give it after `--`", BASE_REFUSED)
     if not head:
-        raise QueueError("--sha is required for a base worktree: the head whose merge base it checks out", 2)
-    sha = merge_base(cfg, q, head)
-    st = {k: v for k, v in create(cfg, q, task_id, "base", sha, name, seat, tag).items() if k != "created"}
-    st["head"] = head
-    save(q, st)
-    path = Path(st["path"])
-    started = time.monotonic()
+        raise QueueError("--sha is required for a base worktree: the head whose merge base it checks out", BASE_REFUSED)
+    limit = hook_timeout(cfg) if timeout is None else timeout
+    if limit < 1:
+        raise QueueError("--timeout must be a whole number of seconds, at least 1", BASE_REFUSED)
+    on_main = threading.current_thread() is threading.main_thread()
+    previous = signal.signal(signal.SIGTERM, _on_sigterm) if on_main else None
     warnings: list[str] = []
+    st: dict[str, Any] | None = None
+    p: subprocess.Popen[str] | None = None
+    timed_out, signum, code = threading.Event(), 0, BASE_REFUSED
+    started = time.monotonic()
     try:
         try:
-            p = subprocess.Popen(command, cwd=str(path), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                 stdin=subprocess.DEVNULL, text=True, errors="replace")
-        except OSError as e:
-            print(f"ccp wt create: {command[0]}: {e}", file=sys.stderr)
-            code = 127 if isinstance(e, FileNotFoundError) else 126
-        else:
-            assert p.stdout is not None
-            for line in p.stdout:
-                sys.stdout.write(line)
-                sys.stdout.flush()
-            p.wait()
-            code = p.returncode if p.returncode >= 0 else 128 - p.returncode
+            sha = merge_base(cfg, q, head, warnings)
+            st = {k: v for k, v in create(cfg, q, task_id, "base", sha, name, seat, tag).items() if k != "created"}
+            st["head"] = head
+            save(q, st)
+            try:
+                p = subprocess.Popen(command, cwd=st["path"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                     stdin=subprocess.DEVNULL, text=True, errors="replace", start_new_session=True)
+            except OSError as e:
+                print(f"ccp wt create: {command[0]}: {e}", file=sys.stderr)
+                code = 127 if isinstance(e, FileNotFoundError) else 126
+            else:
+                timer = threading.Timer(limit, lambda: (timed_out.set(), _killpg(p.pid)))
+                timer.daemon = True
+                timer.start()
+                try:
+                    assert p.stdout is not None
+                    for line in p.stdout:
+                        sys.stdout.write(line)
+                        sys.stdout.flush()
+                    p.wait()
+                finally:
+                    timer.cancel()
+                code = BASE_TIMED_OUT if timed_out.is_set() else p.returncode if p.returncode >= 0 else 128 - p.returncode
+        except _Terminated as t:
+            signum, code = t.signum, 128 + t.signum
+        except OSError as e:  # the record could not be saved, a git call could not start: ours, not the command's
+            raise QueueError(f"the base run failed before its command could finish: {e}", BASE_REFUSED) from None
+        except QueueError as e:
+            raise QueueError(str(e), BASE_REFUSED) from None
+        finally:
+            if p is not None:
+                if p.poll() is None:
+                    _killpg(p.pid)
+                    p.wait()
+                if p.stdout is not None:
+                    p.stdout.close()
+            if st is not None:
+                warnings += remove(cfg, q, st["name"])
     finally:
-        warnings += remove(cfg, q, st["name"])
-    return {"ok": code == 0, "name": st["name"], "task_id": task_id, "head": head, "merge_base": sha,
-            "integration": f"origin/{integration_branch(q)}", "exit": code,
-            "seconds": round(time.monotonic() - started, 1), "removed": not path.exists(), "warnings": warnings}
+        if on_main:
+            signal.signal(signal.SIGTERM, previous if previous is not None else signal.SIG_DFL)
+    if st is None:  # a SIGTERM before the worktree was made; create removed any half-made one
+        raise QueueError(f"stopped by signal {signum} before its worktree was made; nothing is left", 128 + signum)
+    if timed_out.is_set():
+        warnings.append(f"the command outlived --timeout {limit} s: it was killed with its process group")
+    out = {"ok": code == 0, "name": st["name"], "task_id": task_id, "head": head, "merge_base": st["sha"],
+           "integration": f"origin/{integration_branch(q)}", "exit": code,
+           "seconds": round(time.monotonic() - started, 1), "removed": not Path(st["path"]).exists(),
+           "timed_out": timed_out.is_set(), "warnings": warnings}
+    if signum:
+        out["signal"] = signum
+        out["warnings"].append(f"this ccp was sent signal {signum}: the command was stopped and its worktree removed")
+    return out
 
 
 # ---------------------------------------------------------------- a runner's own worktree
