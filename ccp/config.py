@@ -129,7 +129,8 @@ ARCHITECT_DEFAULTS: dict[str, Any] = {
 # only); `audit_keep_days` prunes audits older than that many days when `ccp prompt` writes one
 # (null keeps them all).
 PROMPTS_DEFAULTS: dict[str, Any] = {"fragment": None, "worker_env": {}, "keep_body": False, "audit_keep_days": None}
-WORKER_ENV_FIELDS = ("run_id", "task_id", "nnnn", "phase", "worktree", "main_checkout", "queue_root", "project_id")
+WORKER_ENV_FIELDS = ("run_id", "task_id", "nnnn", "phase", "kind", "seat", "worktree", "main_checkout", "queue_root",
+                     "project_id")
 # §10.5 `ccp tasks close`: the product's records beside the task file. `log` prepends one entry to a
 # product log (an `entry` template, placed before the first line matching `before`); `hooks` are
 # product commands run in the runner worktree with TASK_ID, PR, HEAD_SHA, MERGE_SHA and SUMMARY set.

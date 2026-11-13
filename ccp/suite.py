@@ -35,8 +35,9 @@ failure ids are shown in the summary, never recorded. The command's environment 
 unchanged, plus CCP_SUITE_ID and CCP_SUITE_RESULT: `bin/ccp` sets no variable, and a QUEUE_ROOT
 `ccp` finds from the binding when the caller set none stays `ccp`'s own. A lane's stages run in a
 worktree `ccp wt` made also get that worktree's `CCP_WT_<FIELD>` variables, the ones its env hooks
-get (§12.2); a command after `--` gets none. A `ccp suite run` inside it records nothing and writes no log:
-it becomes its command, so the outer run captures the output.
+get (§12.2), and its task as `CCP_TASK_ID` and `CCP_NNNN`; a command after `--` gets none. A
+`ccp suite run` inside it records nothing and writes no log: it becomes its command, so the outer run
+captures the output.
 
 `--lane NAME` labels the run. A lane plane.json `suite.exclusive_lanes` names (a run with no lane counts as
 the `full` role's lane, `suite.roles`) runs one at a time in the queue (SPEC §16.6): a run that finds it held exits 75 at once,
@@ -836,8 +837,9 @@ def _run_stage(argv: list[str], env: dict[str, str], log_fd: int | None, merged:
 
 def worktree_env(cfg: Config | None, command: list[str] | None, warn: _Warn) -> dict[str, str]:
     """The `CCP_WT_<FIELD>` variables a lane's stages get when the checkout is a worktree `ccp wt` made
-    (§14.2): the ones its env hooks get (§12.2). Nothing for a command after `--`, outside such a
-    worktree, or without a queue to look in; a lookup that fails is a warning, never the run's problem."""
+    (§14.2): the ones its env hooks get (§12.2), and its task as `CCP_TASK_ID` and `CCP_NNNN`. Nothing
+    for a command after `--`, outside such a worktree, or without a queue to look in; a lookup that
+    fails is a warning, never the run's problem."""
     q = os.environ.get("QUEUE_ROOT")
     if cfg is None or command or not q or not Path(q).is_dir():
         return {}
@@ -845,7 +847,9 @@ def worktree_env(cfg: Config | None, command: list[str] | None, warn: _Warn) -> 
         from ccp import wt  # noqa: PLC0415
 
         st = wt.recorded_at(Path(q), cfg.root)
-        return wt.env_fields(cfg, st) if st else {}
+        if not st:
+            return {}
+        return {**wt.env_fields(cfg, st), **for_child({"CCP_TASK_ID": st["task_id"], "CCP_NNNN": st["nnnn"]})}
     except Exception as e:  # noqa: BLE001
         warn(f"the worktree's CCP_WT_* fields were not found ({type(e).__name__}): the stages run without them")
         return {}
