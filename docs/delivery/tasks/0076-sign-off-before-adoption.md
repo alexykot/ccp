@@ -49,6 +49,15 @@ A product that adopts mid-life can declare `sign_off` on a task whose text the o
 
 *Append-only, newest last.*
 
+- 2026-11-13 (implementer): `ccp tasks sign-off` takes `--at <date>` (`YYYY-MM-DD`, or an RFC 3339
+  time with its offset, kept in UTC), stored as the payload's `signed_at`; the event's own `at` stays
+  the time it was recorded, so the ledger stays in order. `--at` refuses (exit 2) a value it cannot
+  read, a time without an offset, and one later than now. `--from` is another name for the existing
+  `--head`: same sha check, same defaults (brief: the task file's last commit; build: the verified
+  head). Claim and close read the record as any other: `signed_at` is not consulted. §3.5 says so;
+  the CLI table (`docs/cli/02-delivery.md`) and the event contract's `sign_off` description name the
+  new flag and key. Tests: `tests/test_sign_off.py`, the "given before it was recorded" group.
+
 ## Verification notes
 
 *Append-only.*
