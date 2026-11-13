@@ -27,6 +27,12 @@ round (§5, §13).
   tasks had the same: three this week rested on a false premise.
 - §31.1: skill and brief guidance plus an optional warning describing its own feature; no merge
   gate.
+- Ruling (spec question sm-20261113T081609Z-5cf3, commit 839ce6e), verbatim: "Yes: add one
+  sentence to the §5.5 table's Context row, beside the Scope path warning, describing the new
+  warning (a count, size, site list or 'never'/'already' claim in Context with no command and commit
+  beside it is warned about by ccp tasks check, not refused). It's §31.1, the task's own feature.
+  Editing docs/spec/01-model.md outside the declared paths is accepted; list it in the PR body.
+  Record this ruling in 0097's Context with a ruling round, then review."
 
 ## Scope
 
@@ -79,6 +85,14 @@ round (§5, §13).
   implement prompt template; `tests/test_plugin.py` pins each by its tokens.
 - No SPEC text: the task gives none, so the warning is not yet described in SPEC §5.5's Context
   row (flagged to the runner).
+- 2026-11-13 (implementer, ruling round 1): per the lead's ruling sm-20261113T081609Z-5cf3, SPEC
+  §5.5's Context row now carries one sentence: a count, size, site list or "already"/"never" claim
+  names, on its line, its command and commit, and `ccp tasks check` warns, without refusing, about a
+  Context line of a task not yet done that states a number with no backticked command. The warning's
+  half is worded as built (a number with no command on its line), not as the ruling's shorthand
+  (which reads as if the check also saw the commit and the "already"/"never" claims): the check
+  detects neither, and the Scope asked for neither. `docs/spec/01-model.md` is outside the declared
+  paths, accepted by the ruling. No code or test changed. Merged `origin/main` (839ce6e) first.
 
 ## Verification notes
 
