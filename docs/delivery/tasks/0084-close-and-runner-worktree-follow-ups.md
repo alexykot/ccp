@@ -1,14 +1,14 @@
 ---
 task_id: 0084-close-and-runner-worktree-follow-ups
 title: Close and runner worktrees leave no stale messages, leftovers or wrong paths
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S10", "S12", "S16"]
 review_point: R5
 paths: ["ccp/lifecycle.py", "ccp/wt.py", "ccp/board.py", "contracts/project.schema.json", "plugin/agents/delivery-runner.md", "scripts/observability/team.py", "tests/test_tasks_close*.py", "tests/test_wt.py", "tests/test_team*.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0084-close-and-runner-worktree-follow-ups
@@ -92,4 +92,4 @@ Closing a task and making a runner's worktree leave nothing stale behind: refusa
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #88 head `a6425d1` (squash `f251b99`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0084-close-and-runner-worktree-follow-ups.json.
