@@ -919,10 +919,10 @@ def task_diff(cfg: Config, q: Path) -> tuple[dict[str, str] | None, str, list[st
     if dirty.returncode != 0 or dirty.stdout.strip():
         return None, "the checkout has uncommitted changes", []
     frm, to = base.stdout.strip(), head.stdout.strip()
-    touched = git(cfg.root, "diff", "--name-only", "--no-renames", frm, to)
+    touched = git(cfg.root, "diff", "--name-only", "-z", "--no-renames", frm, to)  # -z: a path as is, never quoted
     if touched.returncode != 0:
         return None, "the task's diff could not be read", []
-    return {"from": frm, "head": to}, "", [f for f in touched.stdout.split("\n") if f]
+    return {"from": frm, "head": to}, "", [f for f in touched.stdout.split("\0") if f]
 
 
 def _prove(cmd: str, cwd: Path, env: dict[str, str], current: dict[str, Any]) -> int | None:

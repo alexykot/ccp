@@ -207,6 +207,35 @@ class ReviewProvers(ToolkitFixture, unittest.TestCase):
         self.assertIn("(nothing is skipped: plane.json on origin/main does not load", err)
         self.assertFalse(self.log.exists())
 
+    def test_a_fix_that_edits_a_provers_script_with_a_non_ascii_name_gets_no_skip(self):
+        script = "scripts/v\u00e9rifie.sh"
+        self.plane({**self.PLANE_JSON, "verify": {"provers": [
+            {"name": "scripted", "command": f'"$PROOF_BIN" {script} {{task_id}} {{reviewed}} {{head}} {{from}}',
+             "skips": "review"}]}}, **{script.replace("/", "__"): "exit 0\n"})
+        self.reviewed()
+        head = self.fix(script, "exit 0  # the task's own copy\n")
+        self.refused(head, "verify.provers", "the prover scripted (verify.provers) is refused, "
+                     f"{config.PROVER_TOUCHED}: the task's diff touches {script}")
+        self.assertFalse(self.log.exists())
+
+    def test_verify_fetches_the_integration_branch_before_reading_the_provers(self):
+        self.plane({**ToolkitFixture.PLANE_JSON, "verify": {}})  # no prover, as the runner last fetched it
+        reviewed = self.reviewed()
+        # another clone adds the prover to the integration branch and pushes a fix that merges it in; the
+        # runner's checkout has fetched neither
+        other = Path(self._tmp.name) / "other-clone"
+        git(Path(self._tmp.name), "clone", "-q", git(self.main, "remote", "get-url", "origin"), str(other))
+        self.commit("docs/delivery/plane.json", json.dumps(self.PLANE_JSON), other)
+        git(other, "push", "-q", "origin", "HEAD:main")
+        git(other, "checkout", "-q", "-b", "fix", "origin/task/0002-second")
+        git(other, "merge", "-q", "--no-edit", "main")
+        head = self.commit("tests/test_feature.txt", "check it  # comment fixed\n", other)
+        git(other, "push", "-q", "origin", "HEAD:task/0002-second")
+        self.run_phase("fix", reviewed, f"PR: #7\nHead: {head}")
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((body["review_skip"]["reviewed"], body["review_skip"]["prover"]), (reviewed, "comments"))
+
     def test_a_failed_fetch_skips_nothing_and_says_so(self):
         self.reviewed()
         head = self.fix()

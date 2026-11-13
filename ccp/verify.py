@@ -647,10 +647,10 @@ def _judge_fix(cfg: Config, queue: Path, task_id: str, reviewed: str, head: str,
     if tree.returncode != 0 or not tree.stdout.split():
         return None, f"the reviewed head does not merge cleanly onto the head's base on origin/{integ}"
     start = tree.stdout.split()[0]
-    task = git(cfg.root, "diff", "--name-only", "--no-renames", base.stdout.strip(), head)
+    task = git(cfg.root, "diff", "--name-only", "-z", "--no-renames", base.stdout.strip(), head)  # a path as is
     if task.returncode != 0:
         return None, "the task's diff could not be read"
-    task_files = [f for f in task.stdout.split("\n") if f]
+    task_files = [f for f in task.stdout.split("\0") if f]
     touched = git(cfg.root, "diff", "--name-only", "--no-renames", start, head)  # a rename names both of its paths
     if touched.returncode != 0:
         return None, "the fix diff could not be read"

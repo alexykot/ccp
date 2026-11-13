@@ -1139,12 +1139,23 @@ def skip_rules_at(root: Path, rev: str) -> tuple[dict[str, Any], str]:
 PROVER_TOUCHED = "prover_touched"  # §14.2, §15.2: the reason a prover is refused when the task's diff touches its files
 
 
+# The shell's metacharacters, `=` and braces: a path inside a word ends at one (`"$(x.sh {from})"`, `--opt=path`).
+_SHELL_PIECES = re.compile(r"[\s$(){}`;&|<>=\"'\\]+")
+# A path written after a variable or a substitution (`$PWD/x.sh`, `${ROOT}/x.sh`, `$(git rev-parse
+# --show-toplevel)/x.sh`, a backquoted one): taken relative to the root, the expansion a repo root.
+_AFTER_EXPANSION = re.compile(r"(?:\$\{[^}]*\}|\$\([^()]*\)|\$\w+|`[^`]*`)/([^\s\"'`;&|<>(){}$]+)")
+
+
 def prover_touched(command: str, touched: list[str], root: Path) -> list[str]:
     """The files of the task's diff (`touched`, repo-relative paths) that a prover's `command`, as the
     integration branch has it, names (§14.2, §15.2): each token of the command that is a path in the repo,
-    plus plane.json itself. Tokens are the command's shell words (a quoted word's own words too); a token
-    names a file when, made relative to `root` and normalised, it is that file's path. Non-empty: the
-    prover is refused (`prover_touched`), since the task could otherwise grant itself the skip."""
+    plus plane.json itself. Tokens are the command's shell words, a quoted word's own words, the pieces of
+    each between the shell's metacharacters, `=` and braces (so `"$(<script> {from})"`, a backquoted
+    script and `--config=<file>` count), and a path written after a variable or a substitution, taken from
+    the root (`$PWD/<script>`). A token names a file when, made relative to `root` and normalised, it is
+    that file's path. Only a file the command names literally counts: one it reaches through `cd`, `-C`,
+    a module name, a make target, a glob or a file it sources does not. Non-empty: the prover is refused
+    (`prover_touched`), since the task could otherwise grant itself the skip."""
     lex = shlex.shlex(command, posix=True, punctuation_chars=True)
     lex.whitespace_split = True
     try:
@@ -1152,7 +1163,10 @@ def prover_touched(command: str, touched: list[str], root: Path) -> list[str]:
     except ValueError:  # an unbalanced quote: the plain words
         words = command.split()
     named = {CONFIG_REL}
-    for w in words + [p for w in words for p in w.split()]:
+    pieces = words + [p for w in words for p in _SHELL_PIECES.split(w)] + _AFTER_EXPANSION.findall(command)
+    for w in pieces:
+        if not w:
+            continue
         if os.path.isabs(w):
             w = os.path.relpath(w, root)
         w = posixpath.normpath(w)

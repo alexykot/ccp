@@ -309,12 +309,12 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertEqual(ev["refused_provers"], want)
         self.assertIn(config.CONFIG_REL, Path(row["log"]).read_text())
 
-    def script(self) -> None:
+    def script(self, rel: str = "scripts/prove.sh") -> None:
         """A prover's script, on the integration branch: it exits 0 whatever the diff."""
         from tests.test_toolkit import git
-        (self.runner / "scripts").mkdir(exist_ok=True)
-        (self.runner / "scripts/prove.sh").write_text("exit 0\n")
-        git(self.runner, "add", "scripts/prove.sh")
+        (self.runner / rel).parent.mkdir(exist_ok=True)
+        (self.runner / rel).write_text("exit 0\n")
+        git(self.runner, "add", rel)
         git(self.runner, "commit", "-q", "-m", "the prover's script")
         git(self.runner, "push", "-q", "origin", "HEAD:main")
 
@@ -342,6 +342,32 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertEqual([x["prover"] for x in row["proven_skips"]], ["scripted"])
         self.assertNotIn("refused_provers", row)
 
+    def test_a_provers_script_with_a_non_ascii_name_is_still_refused(self):
+        from tests.test_toolkit import git
+        self.script("scripts/v\u00e9rifie.sh")
+        self.product([{"name": "scripted", "command": "sh ./scripts/v\u00e9rifie.sh {from} {head}", "skips": "suite"}])
+        (self.runner / "scripts/v\u00e9rifie.sh").write_text("exit 0  # the task's own copy\n")
+        git(self.runner, "commit", "-q", "-am", "the task edits the prover's script")
+        self.gate("--task", "0002")
+        self.assertTrue(self.marker.exists())
+        self.assertEqual([x["prover"] for x in self.ended()["refused_provers"]], ["scripted"])
+
+    def test_the_gate_fetches_the_integration_branch_before_reading_the_provers(self):
+        from tests.test_toolkit import git
+        self.product([])  # the integration branch declares no prover, as the runner last fetched it
+        self.change("src/app.py")
+        # another clone adds a prover to the integration branch; the runner's checkout has not fetched it
+        other = Path(self._tmp.name) / "other-clone"
+        git(Path(self._tmp.name), "clone", "-q", git(self.runner, "remote", "get-url", "origin"), str(other))
+        p = other / "docs/delivery/plane.json"
+        p.write_text(json.dumps({**json.loads(p.read_text()),
+                                 "verify": {"provers": [{"name": "always", "command": "true", "skips": "suite"}]}}))
+        git(other, "commit", "-q", "-am", "a prover")
+        git(other, "push", "-q", "origin", "HEAD:main")
+        self.gate("--task", "0002")
+        self.assertFalse(self.marker.exists())
+        self.assertEqual([x["prover"] for x in self.ended()["proven_skips"]], ["always"])
+
     def test_a_failed_fetch_of_the_integration_branch_skips_nothing(self):
         from tests.test_toolkit import git
         self.product([{"name": "always", "command": "true", "skips": "suite"}])
@@ -355,11 +381,17 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
 
     def test_a_prover_names_the_files_its_command_does(self):
         root = Path("/repo")
-        touched = ["scripts/prove.sh", "tools/check.py", "docs/guide.md", config.CONFIG_REL, "lib/x.py"]
+        touched = ["scripts/prove.sh", "tools/check.py", "docs/guide.md", config.CONFIG_REL, "lib/x.py", ".lintrc"]
         for cmd, want in (("sh scripts/prove.sh {from}", ["scripts/prove.sh"]),
                           ("./scripts/prove.sh|grep -q ok", ["scripts/prove.sh"]),
                           ("python3 /repo/tools/check.py <docs/guide.md", ["tools/check.py", "docs/guide.md"]),
                           ("sh -c 'tools/check.py {head}'", ["tools/check.py"]),
+                          ("test -z \"$(scripts/prove.sh {from} {head})\"", ["scripts/prove.sh"]),
+                          ("test -z `scripts/prove.sh {from}`", ["scripts/prove.sh"]),
+                          ("lint --config=.lintrc .", [".lintrc"]),
+                          ("\"$PWD/scripts/prove.sh\" {from}", ["scripts/prove.sh"]),
+                          ("${ROOT}/scripts/prove.sh", ["scripts/prove.sh"]),
+                          ("$(git rev-parse --show-toplevel)/tools/check.py", ["tools/check.py"]),
                           ("test -z \"$(git diff --name-only {from} {head} -- . ':!docs')\"", []),
                           ("python3 -m lib.x", []), ("sh ../lib/x.py", [])):
             with self.subTest(cmd=cmd):

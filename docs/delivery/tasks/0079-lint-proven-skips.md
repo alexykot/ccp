@@ -147,6 +147,18 @@ A change that a cheap, declared check proves harmless (a comment-only diff, a do
   integration branch's prover, so the round-2 test that the integration's rule applied whatever the head
   declared became the test that such a head is refused. SPEC §14.2, §14.4 (the record list) and §15.2,
   both schemas and the suite and verify docstrings say so.
+- 2026-11-13 (implementer, fix round 1, after review 3 at `9315343`): `config.prover_touched` now also
+  reads the pieces of each shell word between the shell's metacharacters, `=` and braces, so a script in a
+  quoted command substitution (`test -z "$(<script> {from} {head})"`), a backquoted one and
+  `--config=<file>` count, and a path written after a variable or a substitution (`$PWD/<script>`,
+  `${ROOT}/…`, `$(git rev-parse --show-toplevel)/…`) is read from the root (review 3 MAJOR 1). A path
+  outside the root (`../x`) still names nothing. The task's diff that feeds it is read with `git diff -z`
+  in `suite.task_diff` and `verify._judge_fix`, so a path with a non-ASCII character is not quoted and
+  still matches (MINOR 1). SPEC §14.2 and §15.2 and the plane_config schema say what a token is and that
+  only a file the command names literally is covered, not one reached through `cd`/`-C`, a module, a make
+  or npm target, a glob, a symlink or a sourced file (MINOR 2). New tests pin that the gate and verify
+  fetch `origin/<integration>` before reading the rules: a prover another clone pushes after the runner's
+  last fetch applies (MINOR 3). The §14.2 Provers bullet is reflowed (NIT 1).
 
 ## Verification notes
 

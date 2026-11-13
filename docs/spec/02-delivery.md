@@ -560,17 +560,23 @@ has a `Suite:` line but no suite run is recorded for its run.
   declares none, so nothing is skipped. A prover is refused, and does not run, when the task's diff (the
   head's merge base with `origin/<integration branch>` to the head) touches a file its command names:
   each token of the integration branch's command that is a path in the repo, plus plane.json itself. A
-  task could otherwise grant itself the skip. On a run of that lane that is recorded and names its task, before such a stage
-  starts, `ccp` runs the stage's provers in order from the checkout's root (`/bin/sh -c`, output
+  task could otherwise grant itself the skip. A token is a shell word, or a piece of one between the
+  shell's metacharacters, `=` and braces (`"$(<script> {from})"`, a backquoted script,
+  `--config=<file>`), or a path after a variable or a substitution, read from the root
+  (`$PWD/<script>`). Only a file the command names literally is covered: one it reaches through `cd` or
+  `-C`, a module name, a make or npm target, a glob, a symlink or a file it sources is not, so such a
+  command does not guard it. On a run of that lane that is recorded and names its task, before such a
+  stage starts, `ccp` runs the stage's provers in order from the checkout's root (`/bin/sh -c`, output
   discarded, at most 600 s), with `{task_id}`, `{from}` (the head's merge base with
   `origin/<integration branch>`) and `{head}` (the checkout's HEAD) filled in; the first that exits 0
-  skips the stage. A non-zero exit, a timeout or a refusal skips nothing, and a checkout with uncommitted
-  changes, or a head with no merge base, runs no prover. A skipped stage is neither in `stages` nor among
-  the stages not run: the `ended` row and its event record `proven_skips` (`[{stage, prover, exit_code,
-  run_id}]`, `prover` its name in `verify.provers`, `run_id` the suite run's run or null), and the
-  summary's stage line names each skipped stage and its prover. They record each refused prover in
-  `refused_provers` (`[{stage, prover, reason, run_id}]`, `reason` `prover_touched`). No record holds a prover's command
-  text (§14.4): the name looks it up in plane.json. The prover is product tooling, not the plane's.
+  skips the stage. A non-zero exit, a timeout or a refusal skips nothing, and a checkout with
+  uncommitted changes, or a head with no merge base, runs no prover. A skipped stage is neither in
+  `stages` nor among the stages not run: the `ended` row and its event record `proven_skips` (`[{stage,
+  prover, exit_code, run_id}]`, `prover` its name in `verify.provers`, `run_id` the suite run's run or
+  null), and the summary's stage line names each skipped stage and its prover. They record each refused
+  prover in `refused_provers` (`[{stage, prover, reason, run_id}]`, `reason` `prover_touched`). No
+  record holds a prover's command text (§14.4): the name looks it up in plane.json. The prover is
+  product tooling, not the plane's.
 - **Summary mode** is the default when stdin is not a terminal (`--summary` forces it). The
   command's stdout and stderr both go to one log file, in the order written: `--log PATH`, else next
   to the run's record (`QUEUE_ROOT/runs/<task>/<phase>[-n]-suite-<suite_id>.log`), else
@@ -787,7 +793,8 @@ result.
   task adds or changes in its own diff does not apply to that task. A failed fetch, or an integration
   plane.json that does not load, sets none: nothing is skipped, and the refusal says so. The `proof` is
   refused, and does not run, when the task's diff touches a file its command names, or plane.json, as a
-  gate stage's prover is (§14.2). The prover is product tooling, not the plane's.
+  gate stage's prover is (§14.2), and only a file it names literally is covered. The prover is product
+  tooling, not the plane's.
 - **A declared prover of the review.** A declared prover that exits 0 on the diff skips the step it
   names, recorded on the run: a `verify.provers` entry (§14.2) whose `skips` is `review` judges the fix
   diff `verify.skip_review` judges (at least one file; no paths rule of its own), its `command` run as
