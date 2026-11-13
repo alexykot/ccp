@@ -61,7 +61,8 @@ pass that reviews the product's structure. The **operator** is you.
 ### Prerequisites
 
 - `git`, with `user.name` and `user.email` set; the product is a git repository. A product that
-  sets `verify.skip_review` needs git 2.38 or newer (`git merge-tree --write-tree`).
+  sets `verify.skip_review`, or a `verify.provers` entry that skips `review`, needs git 2.38 or newer
+  (`git merge-tree --write-tree`).
 - Python 3.9 or newer (`ccp` uses only the standard library; on macOS the launchd services run it
   with the system `python3`).
 - [Claude Code](https://docs.claude.com/en/docs/claude-code).
