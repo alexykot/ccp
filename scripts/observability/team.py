@@ -241,7 +241,8 @@ def keep_body(root: Path) -> list[str]:
     prod = sm.product_root(root)
     if not prod or not (Path(prod) / "docs" / "delivery" / "plane.json").is_file():
         return []
-    sys.path.insert(0, str(HERE.parents[1]))
+    if str(HERE.parents[1]) not in sys.path:  # once: it runs on every audit write
+        sys.path.insert(0, str(HERE.parents[1]))
     from ccp import config as ccp_config  # noqa: PLC0415
     try:
         on = (ccp_config.load(Path(prod)).prompts or {}).get("keep_body")

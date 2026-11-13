@@ -263,7 +263,8 @@ def missing_paths(cfg: Config, t: dict[str, Any], tasks: list[dict[str, Any]] | 
     """Scope In: paths (tokens with a `/`; a bare name is often given
     relative to a sibling path) that exist neither in the checkout, nor in a dependency's own Scope In:
     (a file an unmerged dependency makes), nor as new or removed: the word `new` or `removed` within
-    the 25 characters after the token (a removed path is accepted whether or not it still exists).
+    the 25 characters after the token and before the next backtick, so a marking applies to the token
+    it follows and not to one before it (a removed path is accepted whether or not it still exists).
     Globs are left alone."""
     item = in_item(t.get("_text") or "")
     deps = set(tasklog._as_list(t.get("depends_on")))
@@ -273,7 +274,7 @@ def missing_paths(cfg: Config, t: dict[str, Any], tasks: list[dict[str, Any]] | 
         tok = LINE_RE.sub("", m.group(1).strip().removeprefix("./").rstrip(",;"))
         if not tok or "/" not in tok or _is_glob(tok) or tok in out:
             continue
-        after = item[m.end():m.end() + 25]
+        after = item[m.end():m.end() + 25].split("`", 1)[0]  # the window stops at the next backticked token
         if (cfg.root / tok.rstrip("/")).exists() or tok.rstrip("/") in theirs or MARK_RE.search(after):
             continue
         out.append(tok)

@@ -63,7 +63,9 @@ def fields(text: str, declared: list[dict[str, Any]]) -> tuple[dict[str, str], l
     line's end or a non-word character, so a reason may follow). The values found, by declared name
     and spelling, and an error naming the field, its line and its allowed values for each missing or
     other one. A value followed by `|` is the prompt's `a|b` template pasted, not a verdict, and is
-    refused; so is a field stated on more than one line, naming each line."""
+    refused, as is a value followed by `/`, `,` or the word `or` and then another of the field's declared
+    values (the template in another spelling: `a or b`, `a / b`, `a, b`); a reason after a comma or a
+    slash is not one. So is a field stated on more than one line, naming each line."""
     got: dict[str, str] = {}
     errs: list[str] = []
     for f in declared:
@@ -83,14 +85,30 @@ def fields(text: str, declared: list[dict[str, Any]]) -> tuple[dict[str, str], l
         said = m.group(1)
         hit = next((v for v in sorted(values, key=len, reverse=True)
                     if said.lower().startswith(v.lower()) and not re.match(r"\w", said[len(v):len(v) + 1])), None)
-        if hit is not None and said[len(hit):].lstrip(" \t*_`").startswith("|"):
-            hit = None  # the template's alternatives, `a|b`, pasted as they stand
+        if hit is not None and _template(said[len(hit):], [v for v in values if v.lower() != hit.lower()]):
+            hit = None  # the template's alternatives, `a|b` or another spelling, pasted as they stand
         if hit is None:
             errs.append(f"`{name}:` on line {_line_no(text, m)} says `{said[:80]}`; the allowed values are "
                         f"{allowed}, exactly one (plane.json report.required_fields)")
         else:
             got[name] = hit
     return got, errs
+
+
+ALT_RE = re.compile(r"[ \t*_`]*(?:/|,|or\b)[ \t*_`]*", re.I)  # `a / b`, `a, b`, `a or b`: the template respelled
+
+
+def _template(rest: str, others: list[str]) -> bool:
+    """§13.4: is `rest`, what follows a declared value on its field's line, the rest of the template
+    pasted rather than a reason: a `|`, or a `/`, `,` or `or` followed by another declared value (`others`)
+    that ends there or at a non-word character?"""
+    if rest.lstrip(" \t*_`").startswith("|"):
+        return True
+    m = ALT_RE.match(rest)
+    if not m:
+        return False
+    tail = rest[m.end():]
+    return any(tail.lower().startswith(v.lower()) and not re.match(r"\w", tail[len(v):len(v) + 1]) for v in others)
 
 
 def _line_no(text: str, m: re.Match[str]) -> int:
