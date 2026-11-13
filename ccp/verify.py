@@ -41,7 +41,10 @@ of them.
 of a head other than the one that review judged (§15.2, the runner brief's step 7), unless the open
 verify run carries the override `ccp prompt verify --allow-unreviewed-fix` recorded, or the skip
 `skip_review` proved for that head: a product with `verify.skip_review` lets a fix whose diff touches only
-the declared paths, and that the product's proof command passes, go to verify with no new review. A
+the declared paths, and that the product's proof command passes, go to verify with no new review, and a
+declared prover of the review (`verify.provers`, `skips: review`) whose command exits 0 on the fix diff
+does the same, its name and exit recorded on the verify run (no command text); both commands run in a
+clean checkout of the integration branch's tip, so nothing the task's diff changes alters their verdict. A
 product with `verify.skip_review_after_clean` lets the fix round after a clean review (no BLOCKER or MAJOR
 finding) go to verify with no new review, the skip recorded as `minor-only` at the verify run's head; the
 verifier confirms the fix answers only that review's findings (`skip_after_clean`).
@@ -76,6 +79,7 @@ that head, `catch_up.to`, in place of `head_sha` only when `catch_up.from` is `h
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -522,11 +526,11 @@ def review_errors(queue: Path, rec: dict[str, Any]) -> list[str]:
     skipped = (run or {}).get("review_skip") or {}
     judged = str(rec.get("head_sha") or "").strip()
     if skipped and heads_match(str(skipped.get("head") or ""), judged):
-        return []  # §15.2: this verify run's head is a fix the product's proof passed, within verify.skip_review.paths
+        return []  # §15.2: this verify run's head is a fix the product's proof (verify.skip_review) or a prover proved
     if skipped.get("reason") == "minor-only" and heads_match(str((run or {}).get("head") or ""), judged):
         return []  # §15.2: this verify run's head is a fix of a clean review's minor findings (skip_review_after_clean)
     return [f"{why}; an approve stands only when `ccp prompt verify --allow-unreviewed-fix --reason` recorded "
-            "the override on this verify run, or verify.skip_review proved this head's fix, "
+            "the override on this verify run, or verify.skip_review proved this head's fix, or a verify.provers prover did, "
             "or verify.skip_review_after_clean took it as a fix of a clean review's minor findings"]
 
 
@@ -547,29 +551,63 @@ def adr_errors(cfg: Config, rec: dict[str, Any]) -> list[str]:
     return adr.in_force_at(cfg, meta, str(rec.get("head_sha") or ""))
 
 
-PROOF_TIMEOUT = 600  # seconds the product's verify.skip_review.proof may take; a timeout proves nothing
+PROOF_TIMEOUT = 600  # seconds a proof (verify.skip_review.proof, a verify.provers command) may take; a timeout proves nothing
+
+
+def review_provers(found: dict[str, Any]) -> list[dict[str, Any]]:
+    """The declared provers of the review in a `verify` block (§15.2, `verify.provers` whose `skips` is
+    `review`), in their order."""
+    from ccp.config import PROVER_REVIEW  # noqa: PLC0415
+
+    return [p for p in found.get("provers") or [] if p.get("skips") == PROVER_REVIEW]
+
+
+def review_proof_label(found: dict[str, Any]) -> str:
+    """What proves a fix round, for `ccp prompt verify`'s refusal: the settings a `verify` block has on."""
+    names = (["verify.skip_review"] if found.get("skip_review") else []) \
+        + (["verify.provers"] if review_provers(found) else [])
+    return " and ".join(names) or "verify.skip_review"
 
 
 def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | None) -> tuple[dict[str, Any] | None, str]:
     """§15.2: may a verify of `head` skip the review of the task's latest fix round? Only with plane.json
-    `verify.skip_review` set, a fix run (not abandoned; a merge or ruling round counts as one, §13.2)
-    opened since the last review that reported done, and that review's head on record. The fix diff runs from the reviewed change carried onto the head's
+    `verify.skip_review` set, or a `verify.provers` entry that skips `review`, both read from plane.json on
+    `origin/<integration branch>` once `origin` is fetched (never from the checkout or the head under test,
+    so a rule the task adds or changes in its own diff does not apply to it; a failed fetch, or a plane.json
+    there that does not load, reads none, and the refusal says so), a fix run (not abandoned; a
+    merge or ruling round counts as one, §13.2) opened since the last review that reported done, and that
+    review's head on record. The fix diff runs from the reviewed change carried onto the head's
     base on the integration branch (`git merge-tree` of the reviewed head and that base, which must merge
     cleanly) to the head, so an integration merge in between is not counted as the fix's. It must touch
-    at least one file and only files under `paths` (git pathspecs, as `merge.behind_tip_ignore`), and the
-    product's `proof` command, run in the product root with `{task_id}`, `{reviewed}`, `{head}` and
-    `{from}` (the tree the fix diff starts from) filled in, must exit 0. Returns what to record on the
-    verify run, or None and why not ("" when the setting is off or there is no fix to judge).
+    at least one file. `verify.skip_review` proves it when the diff touches only files under `paths` (git
+    pathspecs, as `merge.behind_tip_ignore`) and the product's `proof` command exits 0; failing that, each
+    review prover in turn proves it when its `command` exits 0. Either command runs in a clean checkout of
+    the integration branch's tip, the commit the rules were read at (`suite.clean_checkout`, removed when
+    the judgement ends), so nothing the task's diff changes alters its verdict, with `{task_id}`,
+    `{reviewed}`, `{head}` and `{from}` (the tree the fix diff starts from) filled in. Returns what to
+    record on the verify run (a prover's skip adds its `prover` name and `exit_code`, never its command
+    text, §14.4), or None and why not, as "<the settings> does not apply: <why>" or "nothing is skipped:
+    <why>" ("" when neither is set or there is no fix to judge).
 
     `git merge-tree --write-tree` needs git 2.38 or later. It exits 1 on a conflict; any other failure,
     such as an older git that lacks the option, is named as such, and the review stands either way."""
-    from ccp import rules, runs  # noqa: PLC0415
-    from ccp.config import fill  # noqa: PLC0415
+    from ccp import runs  # noqa: PLC0415
+    from ccp.config import skip_rules_at  # noqa: PLC0415
     from ccp.queue import git, integration_branch  # noqa: PLC0415
 
-    rule = (cfg.verify or {}).get("skip_review")
-    if not rule:
+    integ = integration_branch(queue)
+    if git(cfg.root, "fetch", "-q", "origin").returncode != 0:
+        return None, f"nothing is skipped: the fetch of origin/{integ} failed, so no skip rule was read"
+    at = git(cfg.root, "rev-parse", "--verify", "-q", f"origin/{integ}^{{commit}}")
+    tip = at.stdout.strip() if at.returncode == 0 else ""
+    found, unread = skip_rules_at(cfg.root, tip, f"origin/{integ}") if tip else ({}, "")
+    if unread:  # a plane.json that does not load there sets none
+        return None, f"nothing is skipped: {unread}, so it sets no skip rule"
+    rule = found.get("skip_review")
+    provers = review_provers(found)
+    if not rule and not provers:
         return None, ""
+    label = review_proof_label(found)
     rs = [r for r in runs.all_runs(queue, task_id) if runs.state(r) != "abandoned"]
     fixes = [r for r in rs if r.get("phase") in runs.REWORK_PHASES]
     reviews = [r for r in rs if r.get("phase") == "review" and runs.state(r) == "reported" and r.get("outcome") == "done"]
@@ -578,9 +616,20 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     reviewed = str(reviews[-1].get("head") or "").strip()
     if not reviewed:
         return None, ""
-    integ = integration_branch(queue)
-    git(cfg.root, "fetch", "-q", "origin")
-    shas = []
+    rec, why = _judge_fix(cfg, queue, task_id, reviewed, head, pr, str(fixes[-1]["run_id"]), rule, provers, integ,
+                          tip)
+    return rec, (f"{label} does not apply: {why}" if why else "")
+
+
+def _judge_fix(cfg: Config, queue: Path, task_id: str, reviewed: str, head: str, pr: str | None, fix: str,
+               rule: dict[str, Any] | None, provers: list[dict[str, Any]],
+               integ: str, tip: str) -> tuple[dict[str, Any] | None, str]:
+    """`skip_review`'s judgement of the fix diff by the rules read from the integration branch at `tip`,
+    their commands run in a clean checkout of `tip`: what to record on the verify run, or None and why
+    not."""
+    from ccp.queue import git  # noqa: PLC0415
+
+    shas = []  # `skip_review` fetched origin
     for sha in (reviewed, head.strip()):
         if git(cfg.root, "cat-file", "-e", f"{sha}^{{commit}}").returncode != 0:
             for ref in ([f"refs/pull/{pr}/head"] if pr else []) + [f"task/{task_id}"]:
@@ -601,24 +650,66 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     if tree.returncode != 0 or not tree.stdout.split():
         return None, f"the reviewed head does not merge cleanly onto the head's base on origin/{integ}"
     start = tree.stdout.split()[0]
-    paths = [str(x) for x in rule["paths"]]
     touched = git(cfg.root, "diff", "--name-only", "--no-renames", start, head)  # a rename names both of its paths
-    outside = git(cfg.root, "diff", "--name-only", "--no-renames", start, head, "--", ".", *[f":!{x}" for x in paths])
-    if touched.returncode != 0 or outside.returncode != 0:
+    if touched.returncode != 0:
         return None, "the fix diff could not be read"
-    files, beyond = touched.stdout.split("\n"), outside.stdout.split("\n")
-    files, beyond = [f for f in files if f], [f for f in beyond if f]
+    files = [f for f in touched.stdout.split("\n") if f]
     if not files:
         return None, "the fix changes no file of its own"
-    if beyond:
-        return None, (f"the fix touches {len(beyond)} file(s) outside verify.skip_review.paths "
-                      f"({', '.join(beyond[:5])})")
-    code, _ = rules.run_command(cfg, fill(str(rule["proof"]), {"task_id": task_id, "reviewed": reviewed, "head": head,
-                                                               "from": start}), PROOF_TIMEOUT)
-    if code != 0:
-        return None, ("the proof (verify.skip_review.proof) "
-                      + (f"timed out after {PROOF_TIMEOUT}s" if code is None else f"exited {code}"))
-    return {"reviewed": reviewed, "head": head, "fix": str(fixes[-1]["run_id"]), "files": len(files)}, ""
+    values = {"task_id": task_id, "reviewed": reviewed, "head": head, "from": start}
+    skipped = {"reviewed": reviewed, "head": head, "fix": fix, "files": len(files)}
+    with contextlib.ExitStack() as checkouts:  # the provers' checkout goes, on an error or a signal too
+        return _prove_fix(cfg, rule, provers, values, skipped, start, head, tip, checkouts)
+
+
+def _prove_fix(cfg: Config, rule: dict[str, Any] | None, provers: list[dict[str, Any]], values: dict[str, str],
+               skipped: dict[str, Any], start: str, head: str, tip: str,
+               checkouts: contextlib.ExitStack) -> tuple[dict[str, Any] | None, str]:
+    """Run `verify.skip_review`'s proof (within its paths), then each review prover, in a clean checkout of
+    the integration tip `tip`, made on first use and held by `checkouts`: what to record when one exits 0,
+    or None and why none did."""
+    from ccp import rules  # noqa: PLC0415
+    from ccp.config import fill  # noqa: PLC0415
+    from ccp.queue import git  # noqa: PLC0415
+    from ccp.suite import clean_checkout  # noqa: PLC0415
+
+    why: list[str] = []
+    tree: list[Path | None] = []
+
+    def prove(cmd: str) -> tuple[bool, int | None]:
+        """(made, exit code) of `cmd` in the checkout; (False, None) when none could be made."""
+        if not tree:
+            tree.append(checkouts.enter_context(clean_checkout(cfg.root, tip)))
+        if tree[0] is None:
+            return False, None
+        return True, rules.run_command(cfg, fill(cmd, values), PROOF_TIMEOUT, cwd=tree[0])[0]
+    no_tree = f"no clean checkout of the integration tip {tip[:12]} could be made, so no proof ran"
+    if rule:
+        paths = [str(x) for x in rule["paths"]]
+        outside = git(cfg.root, "diff", "--name-only", "--no-renames", start, head, "--", ".", *[f":!{x}" for x in paths])
+        beyond = [f for f in outside.stdout.split("\n") if f] if outside.returncode == 0 else None
+        if beyond is None:
+            why.append("the fix diff could not be read")
+        elif beyond:
+            why.append(f"the fix touches {len(beyond)} file(s) outside verify.skip_review.paths "
+                       f"({', '.join(beyond[:5])})")
+        else:
+            made, code = prove(str(rule["proof"]))
+            if not made:
+                return None, no_tree
+            if code == 0:
+                return skipped, ""
+            why.append("the proof (verify.skip_review.proof) "
+                       + (f"timed out after {PROOF_TIMEOUT}s" if code is None else f"exited {code}"))
+    for p in provers:
+        made, code = prove(str(p["command"]))
+        if not made:
+            return None, "; ".join(why + [no_tree])
+        if code == 0:
+            return {**skipped, "prover": str(p["name"]), "exit_code": 0}, ""
+        why.append(f"the prover {p['name']} (verify.provers) "
+                   + (f"timed out after {PROOF_TIMEOUT}s" if code is None else f"exited {code}"))
+    return None, "; ".join(why)
 
 
 MINOR_SEVERITIES = ("MINOR", "NIT")  # §15.2: the findings below MAJOR, as the review's Severity line counts them

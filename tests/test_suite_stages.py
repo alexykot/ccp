@@ -207,6 +207,352 @@ class StagesRunInOrder(StagedFixture, unittest.TestCase):
                 self.assertEqual([(s["name"], s["exit_code"]) for s in row["stages"]], [("first", 0)])
 
 
+DOCS_ONLY = "test -z \"$(git diff --name-only {from} {head} -- . ':!docs')\""  # exit 0: the diff is docs only
+
+
+class ProversSkipStages(StagedFixture, unittest.TestCase):
+    """§14.2: a declared prover that exits 0 on the task's diff skips the gate stage it names, recorded on
+    the run; a prover that fails, or cannot judge the diff, skips nothing. The provers are read from the
+    integration branch's plane.json, never from the head under test, and run in a clean checkout of its tip."""
+
+    def setUp(self):
+        super().setUp()
+        self.marker = Path(self._tmp.name) / "suite-ran"
+        self.seen = Path(self._tmp.name) / "prover-saw"
+
+    def product(self, provers: list, lanes: dict | None = None, integration: bool = True) -> None:
+        """Commit the runner checkout's plane.json with these gate stages and provers and, with
+        `integration`, push it to origin/main, the integration branch; without, it is only the head's."""
+        from tests.test_toolkit import git
+        p = self.runner / "docs/delivery/plane.json"
+        cfg = json.loads(p.read_text())
+        cfg["suite"] = {"lanes": lanes or {"gate": [
+            {"name": "lint", "cmd": "true"},
+            {"name": "suite", "cmd": f"touch {self.marker} && " + _shell_py("print('Ran 3 tests in 0.1s')")}]}}
+        cfg["verify"] = {"provers": provers}
+        p.write_text(json.dumps(cfg))
+        git(self.runner, "add", "docs/delivery/plane.json")
+        git(self.runner, "commit", "-q", "-m", "provers")
+        if integration:
+            git(self.runner, "push", "-q", "origin", "HEAD:main")
+
+    def change(self, rel: str) -> str:
+        from tests.test_toolkit import git
+        (self.runner / rel).parent.mkdir(parents=True, exist_ok=True)
+        (self.runner / rel).write_text("changed\n")
+        git(self.runner, "add", rel)
+        git(self.runner, "commit", "-q", "-m", f"change {rel}")
+        return git(self.runner, "rev-parse", "HEAD")
+
+    def gate(self, *extra: str) -> subprocess.CompletedProcess[bytes]:
+        r = self.run_suite("--lane", "gate", *extra)
+        self.assertEqual(r.returncode, 0, r.stdout.decode() + r.stderr.decode())
+        return r
+
+    def test_a_docs_only_diff_skips_the_suite_stage_on_the_record(self):
+        self.product([{"name": "docs-only", "command": DOCS_ONLY, "skips": "suite"}])
+        self.change("docs/guide.md")
+        self.implementing()
+        r = self.gate("--run", "0002-second/implement")
+        self.assertFalse(self.marker.exists())
+        row = self.ended()
+        self.assertEqual([s["name"] for s in row["stages"]], ["lint", config.PLANE_DOCS_STAGE])
+        want = [{"stage": "suite", "prover": "docs-only", "exit_code": 0, "run_id": "0002-second/implement"}]
+        self.assertEqual(row["proven_skips"], want)
+        self.assertEqual((row["failed_stage"], row["tests"]), (None, None))
+        ev = [e for e in self.events() if e["type"] == "suite"][-1]["payload"]
+        self.assertEqual(ev["proven_skips"], want)
+        # the records name the prover, never its command: plane.json looks the command up by the name
+        self.assertNotIn("git diff --name-only", (self.q / "runs" / "_suites.jsonl").read_text())
+        self.assertNotIn("git diff --name-only", (self.q / "observability" / "events.jsonl").read_text())
+        line = next(ln for ln in r.stdout.decode().splitlines() if ": stages: " in ln)
+        self.assertIn("skipped: suite (prover docs-only)", line)
+        self.assertNotIn("not run:", line)
+
+    def test_a_failing_prover_skips_nothing(self):
+        self.product([{"name": "docs-only", "command": DOCS_ONLY, "skips": "suite"}])
+        self.change("src/app.py")
+        self.gate("--task", "0002")
+        self.assertTrue(self.marker.exists())
+        row = self.ended()
+        self.assertEqual([s["name"] for s in row["stages"]], ["lint", "suite", config.PLANE_DOCS_STAGE])
+        self.assertNotIn("proven_skips", row)
+        self.assertEqual(row["tests"], 3)
+
+    def test_a_prover_the_task_declares_or_changes_in_its_own_diff_skips_nothing(self):
+        # the head adds a prover the integration branch does not have
+        self.product([{"name": "always", "command": "true", "skips": "suite"}], integration=False)
+        self.change("docs/guide.md")
+        self.gate("--task", "0002")
+        self.assertTrue(self.marker.exists())
+        self.assertNotIn("proven_skips", self.ended())
+        self.marker.unlink()
+        self.product([{"name": "always", "command": "exit 1", "skips": "suite"}])  # integration's fails
+        self.product([{"name": "always", "command": "true", "skips": "suite"}], integration=False)  # the head's passes
+        self.gate("--task", "0002")
+        self.assertTrue(self.marker.exists())
+        self.assertNotIn("proven_skips", self.ended())
+
+    def test_a_head_that_edits_plane_json_still_gets_the_integration_branchs_verdict(self):
+        self.product([{"name": "always", "command": "true", "skips": "suite"}])
+        self.product([], integration=False)  # the head drops it: the integration branch's rule still applies
+        self.change("src/app.py")
+        self.implementing()
+        self.gate("--run", "0002-second/implement")
+        self.assertFalse(self.marker.exists())
+        self.assertEqual(self.ended()["proven_skips"],
+                         [{"stage": "suite", "prover": "always", "exit_code": 0, "run_id": "0002-second/implement"}])
+
+    def script(self, text: str, rel: str = "scripts/prove.sh") -> None:
+        """A prover's script, on the integration branch: `text` decides its exit, whatever the diff."""
+        from tests.test_toolkit import git
+        (self.runner / rel).parent.mkdir(exist_ok=True)
+        (self.runner / rel).write_text(text)
+        git(self.runner, "add", rel)
+        git(self.runner, "commit", "-q", "-m", "the prover's script")
+        git(self.runner, "push", "-q", "origin", "HEAD:main")
+
+    def edit_script(self, text: str, rel: str = "scripts/prove.sh") -> None:
+        from tests.test_toolkit import git
+        (self.runner / rel).write_text(text)
+        git(self.runner, "commit", "-q", "-am", "the task edits the prover's script")
+
+    SCRIPTED = {"name": "scripted", "command": "sh ./scripts/prove.sh {from} {head}", "skips": "suite"}
+
+    def test_a_diff_that_edits_the_provers_script_gets_the_integration_branchs_verdict(self):
+        self.script("exit 1\n")  # the integration branch's script proves nothing
+        self.product([self.SCRIPTED])
+        self.edit_script("exit 0\n")  # the task's copy would prove anything
+        self.gate("--task", "0002")
+        self.assertTrue(self.marker.exists())
+        row = self.ended()
+        self.assertNotIn("proven_skips", row)
+        self.assertIn("prover scripted exit 1\n", Path(row["log"]).read_text())  # it ran: not 127
+
+    def test_a_diff_that_breaks_the_provers_script_still_skips(self):
+        self.script("exit 0\n")
+        self.product([self.SCRIPTED])
+        self.edit_script("exit 1\n")
+        self.gate("--task", "0002")
+        self.assertFalse(self.marker.exists())
+        self.assertEqual([x["prover"] for x in self.ended()["proven_skips"]], ["scripted"])
+
+    def worktrees(self) -> str:
+        from tests.test_toolkit import git
+        return git(self.runner, "worktree", "list", "--porcelain")
+
+    def test_the_prover_runs_in_a_clean_checkout_of_the_integration_tip_removed_after_the_run(self):
+        from tests.test_toolkit import git
+        self.product([{"name": "where", "command": f"pwd -P > {self.seen}; git rev-parse HEAD >> {self.seen}; "
+                                                   f"git status --porcelain >> {self.seen}; exit 1", "skips": "suite"}])
+        tip = git(self.runner, "rev-parse", "origin/main")
+        self.change("src/app.py")  # the head is not the tip
+        before = self.worktrees()
+        self.gate("--task", "0002")
+        where, rev, *dirty = self.seen.read_text().splitlines()
+        self.assertNotEqual(Path(where), self.runner.resolve())
+        self.assertEqual((rev, dirty), (tip, []))
+        self.assertFalse(Path(where).exists())
+        self.assertEqual(self.worktrees(), before)
+
+    def test_the_provers_checkout_is_removed_after_an_error(self):
+        self.product([{"name": "always", "command": "true", "skips": "suite"}])
+        self.change("src/app.py")
+        seen: list[Path] = []
+
+        def boom(_cmd, cwd, *_a):
+            seen.append(Path(cwd))
+            raise RuntimeError("the prover broke")
+        cwd = os.getcwd()
+        self.addCleanup(os.chdir, cwd)
+        before = self.worktrees()
+        a = type("A", (), {"lane": "gate", "phase": None, "run": None, "task": "0002", "root": None,
+                           "output": "summary", "log": None, "wait": None})()
+        with mock.patch.object(suite, "_prove", boom), mock.patch.object(suite, "_say", lambda _t: None), \
+                self.assertRaises(RuntimeError):
+            suite.run(config.load(self.runner), a, None)
+        self.assertTrue(seen)
+        self.assertFalse(seen[0].exists())
+        self.assertEqual(self.worktrees(), before)
+
+    def test_no_temp_dir_for_the_checkout_runs_no_prover_and_the_stage(self):
+        self.product([{"name": "spy", "command": f"touch {self.seen}", "skips": "suite"}])
+        self.change("docs/guide.md")
+        real = suite.tempfile.mkdtemp
+
+        def full(*a, **kw):
+            if kw.get("prefix") == "ccp-prover-":
+                raise OSError(28, "No space left on device")
+            return real(*a, **kw)
+        cwd = os.getcwd()
+        self.addCleanup(os.chdir, cwd)
+        a = type("A", (), {"lane": "gate", "phase": None, "run": None, "task": "0002", "root": None,
+                           "output": "summary", "log": None, "wait": None})()
+        with mock.patch.object(suite.tempfile, "mkdtemp", full), mock.patch.object(suite, "_say", lambda _t: None):
+            code = suite.run(config.load(self.runner), a, None)
+        self.assertEqual(code, 0)
+        self.assertFalse(self.seen.exists())
+        self.assertTrue(self.marker.exists())  # nothing proven: the stage ran
+        self.assertIn("no clean checkout of the integration tip", Path(self.ended()["log"]).read_text())
+
+    def test_the_gate_fetches_the_integration_branch_before_reading_the_provers(self):
+        from tests.test_toolkit import git
+        self.product([])  # the integration branch declares no prover, as the runner last fetched it
+        self.change("src/app.py")
+        # another clone adds a prover to the integration branch; the runner's checkout has not fetched it
+        other = Path(self._tmp.name) / "other-clone"
+        git(Path(self._tmp.name), "clone", "-q", git(self.runner, "remote", "get-url", "origin"), str(other))
+        p = other / "docs/delivery/plane.json"
+        p.write_text(json.dumps({**json.loads(p.read_text()),
+                                 "verify": {"provers": [{"name": "always", "command": "true", "skips": "suite"}]}}))
+        git(other, "commit", "-q", "-am", "a prover")
+        git(other, "push", "-q", "origin", "HEAD:main")
+        self.gate("--task", "0002")
+        self.assertFalse(self.marker.exists())
+        self.assertEqual([x["prover"] for x in self.ended()["proven_skips"]], ["always"])
+
+    def test_a_failed_fetch_of_the_integration_branch_skips_nothing(self):
+        from tests.test_toolkit import git
+        self.product([{"name": "always", "command": "true", "skips": "suite"}])
+        self.change("src/app.py")
+        git(self.runner, "remote", "set-url", "origin", str(Path(self._tmp.name) / "no-such-remote"))
+        self.gate("--task", "0002")
+        self.assertTrue(self.marker.exists())
+        row = self.ended()
+        self.assertNotIn("proven_skips", row)
+        self.assertIn("the fetch of origin/main failed", Path(row["log"]).read_text())
+
+    def test_an_integration_plane_json_that_does_not_load_declares_no_prover(self):
+        from tests.test_toolkit import git
+        self.product([{"name": "always", "command": "true", "skips": "suite"}])
+        p = self.runner / "docs/delivery/plane.json"
+        cfg = json.loads(p.read_text())
+        p.write_text(json.dumps({**cfg, "verify": {"provers": [{"name": "always", "command": "true", "skips": "nowhere"}]}}))
+        git(self.runner, "commit", "-q", "-am", "a prover of no stage")
+        git(self.runner, "push", "-q", "origin", "HEAD:main")
+        p.write_text(json.dumps(cfg))  # the head's own plane.json loads, and declares the prover
+        git(self.runner, "commit", "-q", "-am", "the head's plane.json")
+        self.gate("--task", "0002")
+        self.assertTrue(self.marker.exists())
+        row = self.ended()
+        self.assertNotIn("proven_skips", row)
+        self.assertIn("does not load", Path(row["log"]).read_text())
+
+    def test_the_first_prover_to_pass_skips_the_stage(self):
+        self.product([{"name": "never", "command": "exit 1", "skips": "suite"},
+                      {"name": "always", "command": "true", "skips": "suite"}])
+        self.change("src/app.py")
+        self.gate("--task", "0002")
+        self.assertFalse(self.marker.exists())
+        self.assertEqual([x["prover"] for x in self.ended()["proven_skips"]], ["always"])
+
+    def test_the_prover_gets_the_task_and_the_diff(self):
+        from tests.test_toolkit import git
+        self.product([{"name": "show", "command": f"echo {{task_id}} {{from}} {{head}} > {self.seen}; exit 1",
+                       "skips": "suite"}])
+        head = self.change("src/app.py")
+        self.gate("--task", "0002")
+        self.assertEqual(self.seen.read_text().split(),
+                         ["0002-second", git(self.runner, "merge-base", "HEAD", "origin/main"), head])
+
+    def test_no_prover_runs_without_a_task_a_clean_checkout_or_the_gate_lane(self):
+        spy = {"name": "spy", "command": f"touch {self.seen}", "skips": "suite"}
+        self.product([spy])
+        self.change("docs/guide.md")
+        self.gate()  # no task: the skip could not be put on a task's record
+        self.gate("--task", "0002", "--", "true")  # a command after `--` is no lane's stages
+        self.assertFalse(self.seen.exists())
+        lanes = {"gate": [{"name": "suite", "cmd": "true"}], "fast": [{"name": "suite", "cmd": f"touch {self.marker}"}]}
+        self.product([spy], lanes)
+        self.assertEqual(self.run_suite("--lane", "fast", "--task", "0002").returncode, 0)
+        self.assertTrue(self.marker.exists())  # only the gate role's lane skips
+        self.assertFalse(self.seen.exists())
+        self.marker.unlink()
+        self.product([spy])
+        (self.runner / "untracked.txt").write_text("not committed\n")
+        self.gate("--task", "0002")
+        self.assertTrue(self.marker.exists())  # uncommitted changes: the diff is not what the stages test
+        self.assertFalse(self.seen.exists())
+        self.marker.unlink()
+        (self.runner / "untracked.txt").unlink()
+        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\nintegration_branch: nowhere\n")
+        self.gate("--task", "0002")
+        self.assertTrue(self.marker.exists())  # no integration branch to fetch: no prover is read
+        self.assertFalse(self.seen.exists())
+
+    def test_a_prover_that_times_out_proves_nothing(self):
+        with mock.patch.object(suite, "PROVER_TIMEOUT", 1):
+            t0 = time.monotonic()
+            self.assertIsNone(suite._prove("sleep 30", self.runner, dict(os.environ), {}))
+            self.assertLess(time.monotonic() - t0, 10)
+        self.assertEqual(suite._prove("exit 3", self.runner, dict(os.environ), {}), 3)
+
+    def test_a_signal_while_proving_stops_the_run_before_the_stage(self):
+        self.product([{"name": "docs-only", "command": DOCS_ONLY, "skips": "suite"}])
+        self.change("docs/guide.md")
+        real = suite._prove
+        seen: list[Path] = []
+        before = self.worktrees()
+
+        def then_signal(*args, **kw):
+            seen.append(Path(args[1]))
+            out = real(*args, **kw)
+            os.kill(os.getpid(), signal.SIGTERM)
+            return out
+        cwd = os.getcwd()
+        self.addCleanup(os.chdir, cwd)
+        cfg = config.load(self.runner)
+        a = type("A", (), {"lane": "gate", "phase": None, "run": None, "task": "0002", "root": None,
+                           "output": "summary", "log": None, "wait": None})()
+        with mock.patch.object(suite, "_prove", then_signal), mock.patch.object(suite, "_say", lambda _t: None):
+            self.assertEqual(suite.run(cfg, a, None), 143)
+        self.assertFalse(self.marker.exists())
+        row = self.ended()
+        self.assertEqual((row["interrupted"], row["failed_stage"]), ("SIGTERM", "suite"))
+        self.assertNotIn("proven_skips", row)
+        self.assertFalse(seen[0].exists())  # the provers' checkout is gone after the signal too
+        self.assertEqual(self.worktrees(), before)
+
+    def test_config_takes_and_refuses_provers(self):
+        from tests.helpers import Product
+        lanes = {"gate": [{"name": "lint", "cmd": "true"}, {"name": "suite", "cmd": "true"}],
+                 "fast": [{"name": "unit", "cmd": "true"}]}
+
+        def load(provers, lanes=lanes, **suite_extra):
+            prod = Product({"suite": {"lanes": lanes, **suite_extra}, "verify": {"provers": provers}})
+            self.addCleanup(prod.cleanup)
+            return prod.cfg
+        good = [{"name": "docs-only", "command": "x", "skips": "suite"}, {"name": "fix", "command": "y", "skips": "review"}]
+        self.assertEqual(load(good).verify["provers"], good)
+        for bad in ({"name": "docs-only", "command": "x"}, {"name": "Docs", "command": "x", "skips": "suite"},
+                    {"name": "a", "command": "", "skips": "suite"}, {"name": "a", "command": "x", "skips": "unit"},
+                    {"name": "a", "command": "x", "skips": config.PLANE_DOCS_STAGE},
+                    {"name": "a", "command": "x", "skips": "suite", "paths": ["docs"]}, "a"):
+            with self.subTest(bad=bad), self.assertRaises(config.ConfigError) as cm:
+                load([bad])
+            self.assertIn("verify.provers", str(cm.exception))
+        with self.assertRaises(config.ConfigError):
+            load([good[0], {**good[0], "command": "z"}])  # a name given twice
+        with self.assertRaises(config.ConfigError):
+            load({"name": "a"})
+        with self.assertRaises(config.ConfigError):
+            load([good[0]], {"gate": ["make", "test"]})  # an argv gate lane has no stage to skip
+        unit = [{"name": "a", "command": "x", "skips": "unit"}]
+        self.assertEqual(load(unit, roles={"gate": "fast"}).verify["provers"], unit)  # the gate role's own lane
+        with self.assertRaises(config.ConfigError):
+            load([good[0]], roles={"gate": "fast"})
+        self.assertEqual(load([], lanes).verify["provers"], [])
+
+    def test_the_contracts_name_the_provers_and_the_skips(self):
+        root = Path(__file__).resolve().parents[1]
+        schema = json.loads((root / "contracts/plane_config.schema.json").read_text())
+        item = schema["properties"]["verify"]["properties"]["provers"]["items"]
+        self.assertEqual((set(item["properties"]), set(item["required"])), (config.PROVER_KEYS, config.PROVER_KEYS))
+        result = json.loads((root / "contracts/suite_result.schema.json").read_text())
+        self.assertEqual(set(result["properties"]["proven_skips"]["items"]["properties"]),
+                         {"stage", "prover", "exit_code", "run_id"})
+
+
 WT_VARS = tuple(f"CCP_WT_{f.upper()}" for f in config.WT_FIELDS)
 TASK_VARS = ("CCP_TASK_ID", "CCP_NNNN")
 SHOW_WT = 'echo "wt=$CCP_WT_NAME"'

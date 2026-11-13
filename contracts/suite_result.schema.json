@@ -27,6 +27,15 @@
         "properties": {"name": {"type": "string"}, "seconds": {"type": "number", "minimum": 0}, "exit_code": {"type": "integer"}}
       }
     },
+    "proven_skips": {
+      "type": "array",
+      "description": "SPEC \u00a714.2: set by ccp, not the command, on the gate role's staged lane: each stage a declared prover (plane.json verify.provers) skipped, with the prover's name (its name in verify.provers, which looks up its command; no record holds the command text, \u00a714.4), its exit code and the suite run's run id (null without one). The provers are read from plane.json on origin/<integration branch>, never from the checkout under test, and run in a clean checkout of that branch's tip. Absent when none was skipped. A command's own value is ignored.",
+      "items": {
+        "type": "object",
+        "required": ["stage", "prover", "exit_code", "run_id"],
+        "properties": {"stage": {"type": "string"}, "prover": {"type": "string"}, "exit_code": {"type": "integer"}, "run_id": {"type": ["string", "null"]}}
+      }
+    },
     "failed_stage": {"type": ["string", "null"], "description": "SPEC \u00a714.2: set by ccp: the stage whose non-zero exit stopped the run, the first stage a signal kept from starting, or null."},
     "cold": {"type": ["boolean", "null"], "description": "SPEC \u00a714.6: set by ccp, not the command: true when the run counted nothing cached (cached 0), false when any unit was cached, null when it gave no cached count. A command's own value is ignored."}
   }

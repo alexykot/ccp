@@ -406,10 +406,11 @@ def run_checks(cfg: Config, checks: list[dict[str, Any]]) -> list[str]:
 OUTPUT_CAP = 20_000  # characters of a check's output kept (its tail)
 
 
-def run_command(cfg: Config, cmd: str, timeout: int) -> tuple[int | None, str]:
-    """(exit code, the tail of stdout+stderr) of `cmd` in the root; (None, …) after a timeout, when
-    the command's whole process group is killed, so no grandchild keeps running."""
-    p = subprocess.Popen(cmd, shell=True, cwd=cfg.root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+def run_command(cfg: Config, cmd: str, timeout: int, cwd: Path | None = None) -> tuple[int | None, str]:
+    """(exit code, the tail of stdout+stderr) of `cmd` in the root, or in `cwd` when given; (None, …) after
+    a timeout, when the command's whole process group is killed, so no grandchild keeps running. An
+    exception while it runs (a signal raised in Python) kills the group too."""
+    p = subprocess.Popen(cmd, shell=True, cwd=cwd or cfg.root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          env=product_env(), start_new_session=True)
     try:
         raw, _ = p.communicate(timeout=timeout)
@@ -421,6 +422,13 @@ def run_command(cfg: Config, cmd: str, timeout: int) -> tuple[int | None, str]:
             pass
         raw, _ = p.communicate()
         code = None
+    except BaseException:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        p.wait()
+        raise
     return code, (raw or b"").decode(errors="replace")[-OUTPUT_CAP:]
 
 

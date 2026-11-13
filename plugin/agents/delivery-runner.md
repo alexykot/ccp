@@ -131,7 +131,8 @@ before anything else.
    their heads as a fix round's (SPEC §13.2). `ccp` enforces it: `ccp prompt verify`
    refuses (exit 4) while a fix, merge or ruling round is newer than the last review (a merge round that
    left the reviewed change unchanged aside), or the head is not the one that review judged, and `ccp verify record` refuses the approve, unless the product's `verify.skip_review`
-   proves the fix (only declared paths touched, its proof command passing), or its `verify.skip_review_after_clean`
+   proves the fix (only declared paths touched, its proof command passing), or a prover it declares of the review
+   (`verify.provers`, `skips: review`) exits 0 on the fix diff, or its `verify.skip_review_after_clean`
    takes it as the fix of a clean review's MINOR and NIT findings (a verify reject since sends it back to review). Only on the lead's or the operator's word:
    `ccp prompt verify … --allow-unreviewed-fix --reason "<their words>"`, recorded as a friction note; with
    it, no proof runs.

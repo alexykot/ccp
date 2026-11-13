@@ -551,6 +551,30 @@ has a `Suite:` line but no suite run is recorded for its run.
   line marks each stage's start and end in the log (on stderr with `--full`), and the summary gets one
   line before its last: each stage that ran, passed or FAILED with its exit code, and its seconds, then
   the stages not run. A nested run (below) of a staged lane runs its stages in order, unrecorded.
+- **Provers.** A declared prover that exits 0 on the diff skips the step it names, recorded on the run.
+  plane.json `verify.provers` (`[{name, command, skips}]`; empty, the default, is none) declares them:
+  `name` a label unique among them, `skips` `review` (§15.2) or a stage the gate role's lane declares
+  (never `plane-docs`). `ccp` fetches `origin/<integration branch>` and reads them from plane.json
+  there, never from the checkout or the head under test: a prover a task adds or changes in its own diff
+  does not apply to that task, and a failed fetch, or an integration plane.json that does not load,
+  declares none, so nothing is skipped. Provers run from the integration tip's checkout: a clean,
+  detached worktree of the `origin/<integration branch>` commit the rules were read at, made in the
+  product's repository (so `{from}` and `{head}` resolve in it) and removed when the run ends, on an
+  error, SIGINT, SIGTERM or SIGHUP too. Nothing a task's diff changes, a script the command runs
+  included, can alter their verdict. There `HEAD`, the index and the tree are the tip's, so a command
+  names the diff it judges only through `{from}` and `{head}`; the checkout's untracked and ignored
+  files (installed dependencies, generated files) are absent, so a prover that needs them fails and
+  skips nothing. One checkout serves a run's provers, in order: what one writes there, the next sees.
+  On a run of that lane that is recorded and names its task, before such a stage starts, `ccp` runs the
+  stage's provers in order there (`/bin/sh -c`, output discarded, at most 600 s), with `{task_id}`,
+  `{from}` (the head's merge base with `origin/<integration branch>`) and `{head}` (the checkout's
+  HEAD) filled in; the first that exits 0 skips the stage. A non-zero exit or a timeout skips nothing,
+  and a checkout with uncommitted changes, a head with no merge base, or a tip git cannot check out
+  runs no prover. A skipped stage is neither in `stages` nor among the stages not
+  run: the `ended` row and its event record `proven_skips` (`[{stage, prover, exit_code, run_id}]`,
+  `prover` its name in `verify.provers`, `run_id` the suite run's run or null), and the summary's stage
+  line names each skipped stage and its prover. No record holds a prover's command text (§14.4): the
+  name looks it up in plane.json. The prover is product tooling, not the plane's.
 - **Summary mode** is the default when stdin is not a terminal (`--summary` forces it). The
   command's stdout and stderr both go to one log file, in the order written: `--log PATH`, else next
   to the run's record (`QUEUE_ROOT/runs/<task>/<phase>[-n]-suite-<suite_id>.log`), else
@@ -620,7 +644,9 @@ has a `Suite:` line but no suite run is recorded for its run.
 `suite_id`, and a `suite/recorded` event at the end. Numbers, ids and short labels only: the lane,
 the output mode (`output`), the command's basename and argument count; the `ended` row adds `tests`,
 `failed`, `skipped`, `ran`, `cached`, `cached_tests` (null when not found), `counts_from`, summary
-mode's `log` path, `cold` (§14.6) and, for a lane plane.json names, `stages` and `failed_stage` (§14.3). A staged
+mode's `log` path, `cold` (§14.6) and, for a lane plane.json names, `stages` and `failed_stage` (§14.3), and
+`proven_skips` when a prover skipped a stage (§14.2: the prover's name, exit code and the run id, never
+its command). A staged
 lane's `started` row has `cmd` `stages` and its stage count as `argc`. Never the command's arguments,
 never its output; the event carries the numbers, `cold` and the stages, not the path. A row naming `modules_ran` and `modules_cached` reads as `ran` and `cached`.
 
@@ -736,7 +762,7 @@ result.
   once the task's open spec questions are answered and their rulings are on the PR. A commit landing
   while a review runs makes its head stale.
 - **A fix round is reviewed again before it is verified**, unless a proof or a clean review covers it
-  (the next two rules).
+  (the next three rules).
   `ccp prompt verify` refuses (exit 4,
   nothing opened) when the task's latest fix run, or a merge or ruling round (§13.2), that was not
   abandoned opened no later than its latest review run that reported `done`, or when `--head` is not
@@ -757,10 +783,25 @@ result.
   diff, from the reviewed head's change carried onto the head's base on the integration branch (it
   must merge cleanly) to the head, touches at least one file and only files under `paths` (git
   pathspecs relative to the product root, never the root itself); and the product's `proof` command,
-  run in the product root on that diff with `{task_id}`, `{reviewed}` (the head the review judged),
-  `{head}` and `{from}` (the tree the fix diff starts from) filled in, exits 0. Otherwise the refusal
-  stands and says why the skip does not apply. The verify run records `review_skip` (`reviewed`,
-  `head`, `fix`, `files`, a count). The prover is product tooling, not the plane's.
+  run on that diff (from the integration tip's checkout, below) with `{task_id}`, `{reviewed}` (the
+  head the review judged), `{head}` and `{from}` (the tree the fix diff starts from) filled in, exits 0.
+  Otherwise the refusal stands and says why the skip does not apply. The verify run records
+  `review_skip` (`reviewed`, `head`, `fix`, `files`, a count). `ccp` fetches `origin` and reads
+  `verify.skip_review` from plane.json on `origin/<integration branch>`, never from the runner's
+  checkout or the head under test: a setting a task adds or changes in its own diff does not apply to
+  that task. A failed fetch, or an integration plane.json that does not load, sets none: nothing is
+  skipped, and the refusal says so. The `proof` runs from the integration tip's checkout, as a gate
+  stage's prover does (§14.2), so nothing the task's diff changes can alter its verdict: its `HEAD`,
+  index and tree are the tip's, so it names the fix diff only through `{from}` and `{head}`, and the
+  checkout's untracked and ignored files are absent. The prover is product tooling, not the plane's.
+- **A declared prover of the review.** A declared prover that exits 0 on the diff skips the step it
+  names, recorded on the run: a `verify.provers` entry (§14.2) whose `skips` is `review` judges the fix
+  diff `verify.skip_review` judges (at least one file; no paths rule of its own), its `command` run as
+  `proof` is, with the same fields filled in, and it is read from the integration branch's plane.json
+  as `verify.skip_review` is. `verify.skip_review`, when set, is tried first, then each such prover in
+  order, all from one integration tip's checkout (§14.2); the first to prove the fix sends it straight
+  to verify. The verify run's `review_skip` then adds `prover` (its name) and `exit_code`,
+  never the command text (§14.4).
 - **A fix of a clean review's minor findings needs no new review.** plane.json
   `verify.skip_review_after_clean` (boolean; false, the default, is off) lets the fix round after the
   latest review that reported `done` go straight to verify when that review recorded no BLOCKER or MAJOR

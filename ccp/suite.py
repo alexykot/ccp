@@ -50,6 +50,14 @@ lane ends with the plane's doc checks as the stage `plane-docs`. Such a run reco
 seconds, exit code of each that ran) and `failed_stage` on its `ended` row and event. A signal between
 stages stops the run before the next starts: it exits 128 + N and names that stage. Every `ended` row
 and event says whether the run was `cold` (§14.6: its own `cached` count was 0; null without one).
+On the gate role's staged lane, a run that is recorded and names its task runs a stage's declared provers
+(plane.json `verify.provers`, read from `origin/<integration branch>` once fetched, never from the checkout
+under test; a failed fetch reads none) before it starts: the first whose command exits 0 on the task's diff,
+from the head's merge base with the integration branch to HEAD in a clean checkout, skips the stage, and the
+`ended` row and its event record it in `proven_skips` (stage, prover name, exit code, run id: no command
+text, §14.4; the command is looked up in plane.json by the name). The provers run in a clean worktree of
+that branch's tip, made for the run and removed at its end, so nothing the task's diff changes alters their
+verdict.
 
 The record is `QUEUE_ROOT/runs/_suites.jsonl`, append-only: a `started` row when the command
 starts and an `ended` row when it ends, sharing a `suite_id`. The `ended` row also goes into the
@@ -71,11 +79,13 @@ exit code is returned whatever else fails: no QUEUE_ROOT, no checkout, an unread
 from __future__ import annotations
 
 import ast
+import contextlib
 import fnmatch
 import json
 import os
 import re
 import secrets
+import shutil
 import signal
 import subprocess
 import sys
@@ -83,11 +93,11 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from ccp.envvars import envvar, for_child
 from ccp import runs
-from ccp.config import PLANE_DOCS_STAGE, SUITE_LANE_RE, Config, lane_for, lane_stages
+from ccp.config import PLANE_DOCS_STAGE, SUITE_LANE_RE, Config, fill, lane_for, lane_stages, skip_rules_at
 from ccp.queue import QueueError, emit, iso, root
 
 DEFAULT_COUNT_RE = r"^Ran (\d+) tests? in "
@@ -466,11 +476,15 @@ def summary_line(suite_id: str, code: int, lane: str | None, seconds: float, tes
     return out
 
 
-def stages_line(suite_id: str, done: list[dict[str, Any]], not_run: list[str]) -> str:
-    """A staged lane's line (§14.2): each stage that ran, its result and seconds, then those not run."""
+def stages_line(suite_id: str, done: list[dict[str, Any]], not_run: list[str],
+                proven: list[dict[str, Any]] | None = None) -> str:
+    """A staged lane's line (§14.2): each stage that ran, its result and seconds, the stages a prover
+    skipped and which prover, then those not run."""
     parts = [f"{d['name']} {'passed' if d['exit_code'] == 0 else 'FAILED (exit ' + str(d['exit_code']) + ')'} "
              f"{d['seconds']:.1f} s" for d in done]
+    skipped = [f"{x['stage']} (prover {x['prover']})" for x in proven or []]
     return (f"ccp suite: {suite_id}: stages: {', '.join(parts) or 'none ran'}"
+            + (f"; skipped: {', '.join(skipped)}" if skipped else "")
             + (f"; not run: {', '.join(not_run)}" if not_run else ""))
 
 
@@ -859,6 +873,120 @@ def worktree_env(cfg: Config | None, command: list[str] | None, warn: _Warn) -> 
         return {}
 
 
+PROVER_TIMEOUT = 600  # seconds a gate stage's prover (verify.provers) may take; a timeout proves nothing
+
+
+def stage_provers(cfg: Config | None, q: Path | None, lane: str | None, command: list[str] | None,
+                  stages: list[dict[str, Any]],
+                  started: dict[str, Any] | None) -> tuple[dict[str, list[dict[str, Any]]], str, str | None]:
+    """The declared provers of each stage this run may skip (§14.2, plane.json `verify.provers`), the reason
+    none is read, and the integration tip they are read at, the commit they run in (`clean_checkout`): only
+    for the gate role's staged lane, on a run that is recorded and names its task, so a skip is always on
+    the record. They are read from plane.json on `origin/<integration branch>`, fetched first, never from
+    the checkout under test: a prover the task adds or changes in its own diff does not apply to it.
+    ({}, "", None) otherwise; ({}, why, …) when the fetch fails or that plane.json does not load: nothing
+    is skipped."""
+    from ccp.config import PROVER_REVIEW  # noqa: PLC0415
+    from ccp.queue import git, integration_branch  # noqa: PLC0415
+
+    if cfg is None or q is None or command or not lane or lane != lane_for(cfg, "gate") \
+            or not stages[0].get("staged") or started is None or not started.get("task_id"):
+        return {}, "", None
+    integ = integration_branch(q)
+    if git(cfg.root, "fetch", "-q", "origin", integ).returncode != 0:
+        return {}, f"the fetch of origin/{integ} failed, so no skip rule was read", None
+    tip = git(cfg.root, "rev-parse", "--verify", "-q", f"origin/{integ}^{{commit}}")
+    if tip.returncode != 0:
+        return {}, "", None
+    sha = tip.stdout.strip()
+    rules, why = skip_rules_at(cfg.root, sha, f"origin/{integ}")
+    names = {st["name"] for st in stages if st["name"] != PLANE_DOCS_STAGE}
+    out: dict[str, list[dict[str, Any]]] = {}
+    for pr in rules.get("provers") or []:
+        if pr.get("skips") != PROVER_REVIEW and pr.get("skips") in names:
+            out.setdefault(str(pr["skips"]), []).append(pr)
+    return out, why, sha
+
+
+def _raise_on(sig: int, _frame: Any) -> None:
+    raise SystemExit(128 + sig)
+
+
+@contextlib.contextmanager
+def clean_checkout(root: Path, rev: str) -> Iterator[Path | None]:
+    """A clean, detached worktree of `rev` (the integration branch's tip) for the provers to run in (§14.2,
+    §15.2), so nothing a task's diff changes can alter their verdict. It shares `root`'s repository, so the
+    commits of the diff they judge resolve in it. None when git cannot make it, or no temp dir can be
+    made for it. It is removed on the way out, on an error or a signal too: in its scope a SIGTERM or
+    SIGHUP that would end the process at once (the default handler; main thread only) exits through
+    Python instead, so the removal runs."""
+    from ccp.queue import git  # noqa: PLC0415
+
+    try:
+        tmp = Path(tempfile.mkdtemp(prefix="ccp-prover-"))
+    except OSError:  # a full or unwritable temp dir: no checkout, as when git cannot make one
+        yield None
+        return
+    path = tmp / "tree"
+    restore: dict[int, Any] = {}
+    if threading.current_thread() is threading.main_thread():
+        for s in (signal.SIGTERM, signal.SIGHUP):
+            if signal.getsignal(s) == signal.SIG_DFL:
+                restore[s] = signal.signal(s, _raise_on)
+    try:
+        made = git(root, "worktree", "add", "-q", "--detach", str(path), rev).returncode == 0
+        yield path if made else None
+    finally:
+        git(root, "worktree", "remove", "--force", "--force", str(path))
+        shutil.rmtree(tmp, ignore_errors=True)
+        git(root, "worktree", "prune")
+        for s, h in restore.items():
+            signal.signal(s, h)
+
+
+def task_diff(cfg: Config, q: Path) -> tuple[dict[str, str] | None, str]:
+    """The task's diff a gate stage's prover judges (§14.2): `{from, head}`, from the head's merge base
+    with the integration branch (`origin/<branch>`) to the checkout's HEAD, or None and why it cannot be
+    judged: no HEAD, no merge base, or uncommitted changes (the stages would test what the diff leaves
+    out)."""
+    from ccp.queue import git, integration_branch  # noqa: PLC0415
+
+    integ = integration_branch(q)
+    head = git(cfg.root, "rev-parse", "--verify", "-q", "HEAD^{commit}")
+    if head.returncode != 0:
+        return None, "the checkout has no HEAD"
+    base = git(cfg.root, "merge-base", "HEAD", f"origin/{integ}")
+    if base.returncode != 0:
+        return None, f"the head has no merge base with origin/{integ}"
+    dirty = git(cfg.root, "status", "--porcelain")
+    if dirty.returncode != 0 or dirty.stdout.strip():
+        return None, "the checkout has uncommitted changes"
+    return {"from": base.stdout.strip(), "head": head.stdout.strip()}, ""
+
+
+def _prove(cmd: str, cwd: Path, env: dict[str, str], current: dict[str, Any]) -> int | None:
+    """Run one prover's command (`/bin/sh -c`, its output discarded) to its end: its exit code, or None
+    after PROVER_TIMEOUT, when its process group is killed. A signal sent to `ccp` reaches it."""
+    try:
+        proc = subprocess.Popen(["/bin/sh", "-c", cmd], cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    except OSError:
+        return 126
+    current.update(proc=proc, group=True)
+    try:
+        rc = proc.wait(timeout=PROVER_TIMEOUT)
+        return 128 - rc if rc < 0 else rc
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except OSError:
+            pass
+        proc.wait()
+        return None
+    finally:
+        current.clear()
+
+
 def _passthrough_stages(stages: list[dict[str, Any]], env: dict[str, str] | None = None) -> int:
     """A nested `ccp suite run` of a staged lane: run the stages in order in the caller's environment,
     stop at the first that fails, and record nothing."""
@@ -1035,11 +1163,47 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
     results: list[tuple[dict[str, Any] | None, str | None]] = []
     code, rc = 0, 0
     cut: int | None = None  # §14.2: the stage a signal kept from starting
+    provers, unread, tip = stage_provers(cfg, q, a.lane, command, stages, started)
+    if unread:
+        _stage_mark(log_fd, f"ccp suite: no prover runs: {unread}\n")
+    proven: list[dict[str, Any]] = []  # §14.2: each stage a prover skipped: stage, prover name, exit code, run id
+    diff: tuple[dict[str, str] | None, str] | None = None
+    reached = 0  # the stages run or skipped so far
+    checkouts = contextlib.ExitStack()  # §14.2: the integration tip's clean checkout the provers run in
+    tree: Path | None = None
     try:
         for i, stage in enumerate(stages):
             if got:
                 cut = i
                 break  # interrupted: no later stage starts
+            if stage["name"] in provers and cfg is not None and q is not None:
+                if diff is None:
+                    diff = task_diff(cfg, q)
+                    if diff[0] is not None:  # provers are read only with the tip they run at
+                        tree = checkouts.enter_context(clean_checkout(cfg.root, str(tip)))
+                        if tree is None:
+                            diff = None, f"no clean checkout of the integration tip {str(tip)[:12]} could be made"
+                    if diff[0] is None:
+                        _stage_mark(log_fd, f"ccp suite: no prover runs: {diff[1]}\n")
+                skip = None
+                for pr in provers[stage["name"]] if diff[0] is not None else []:
+                    cmd = fill(str(pr["command"]), {"task_id": str(started["task_id"]), **diff[0]})
+                    pcode = _prove(cmd, tree, {**(os.environ if caller_env is None else caller_env), **wt_env},
+                                   current)
+                    _stage_mark(log_fd, f"ccp suite: stage {stage['name']}: prover {pr['name']} "
+                                        + ("timed out\n" if pcode is None else f"exit {pcode}\n"))
+                    if got or pcode == 0:
+                        skip = None if got else {"stage": stage["name"], "prover": str(pr["name"]), "exit_code": 0,
+                                                 "run_id": started.get("run_id")}
+                        break
+                if got:
+                    cut = i
+                    break  # interrupted while proving: the stage does not start
+                if skip:
+                    proven.append(skip)
+                    reached = i + 1
+                    _stage_mark(log_fd, f"ccp suite: stage {stage['name']}: skipped, prover {skip['prover']} exit 0\n")
+                    continue
             if staged:
                 _stage_mark(log_fd, f"ccp suite: stage {stage['name']}: started\n")
             # The caller's environment, the worktree's fields for a lane's stages, and CCP_SUITE_ID, nothing
@@ -1055,9 +1219,11 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                 done.append({"name": stage["name"], "seconds": round(s_secs, 3), "exit_code": code})
             if staged:
                 _stage_mark(log_fd, f"ccp suite: stage {stage['name']}: exit {code}, {s_secs:.1f} s\n")
+            reached = i + 1
             if code != 0:
                 break
     finally:
+        checkouts.close()  # the provers' checkout goes, on an error or a signal too
         for s, h in old.items():
             try:
                 signal.signal(s, h)
@@ -1073,7 +1239,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         # the signal had ended a command, and names the first stage not run.
         code = 128 + got[0]
         failed_stage = stages[cut]["name"]
-    not_run = [st["name"] for st in stages[len(done):]] if staged else []
+    not_run = [st["name"] for st in stages[reached:]] if staged else []
     dig = None
     if log is not None:
         try:  # the counts and the failure's text, from the log; reading it never costs the exit code
@@ -1108,7 +1274,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                     if isinstance(x, dict) and x.get("id")]
     if tests is None and fields.get("ran") == 0 and fields.get("cached"):
         tests = 0  # every unit was a cache hit: no test ran, and that is a count (§14.5)
-    stage_text = stages_line(suite_id, done, not_run) if staged else None
+    stage_text = stages_line(suite_id, done, not_run, proven) if staged else None
     if log is not None:
         _say(render_summary(suite_id, log, code, a.lane, seconds, tests, fields, _sig_name(sig), dig,
                             scfg["max_chars"], stage_text))
@@ -1122,7 +1288,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         _say(f"ccp suite: {suite_id}: failing (from the gate's result): {', '.join(_cut(x) for x in shown)}"
              + (f" and {len(failures) - len(shown)} more" if len(failures) > len(shown) else "") + "\n")
     _finish(cfg, q, started, warn, code, seconds, tests, sig, fields, log, source, problem,
-            done if stages[0]["name"] is not None else None, failed_stage)
+            done if stages[0]["name"] is not None else None, failed_stage, proven)
     if lane_fd is not None and lane_fd >= 0 and q is not None:
         release_lane(q, suite_id)  # a normal end: the next holder is not told this one died
     return code
@@ -1194,7 +1360,8 @@ def run_cold(cached: Any) -> bool | None:
 def _finish(cfg: Config | None, q: Path | None, started: dict[str, Any] | None, warn: _Warn, code: int,
             seconds: float, tests: int | None, sig: int | None, fields: dict[str, int | None] | None = None,
             log: Path | None = None, source: str = "output", problem: str | None = None,
-            stages: list[dict[str, Any]] | None = None, failed_stage: str | None = None) -> None:
+            stages: list[dict[str, Any]] | None = None, failed_stage: str | None = None,
+            proven: list[dict[str, Any]] | None = None) -> None:
     if q is None or started is None:
         return
     name = _sig_name(sig)
@@ -1204,7 +1371,8 @@ def _finish(cfg: Config | None, q: Path | None, started: dict[str, Any] | None, 
            "seconds": round(seconds, 3), "tests": tests, **nums, "cold": cold, "counts_from": source,
            **({"result_problem": problem[:80]} if problem else {}),
            "log": str(log) if log else None, "interrupted": name,
-           **({"stages": stages, "failed_stage": failed_stage} if stages is not None else {})}
+           **({"stages": stages, "failed_stage": failed_stage} if stages is not None else {}),
+           **({"proven_skips": proven} if proven else {})}
     try:
         _append(q, row)
         if cfg is not None:
@@ -1212,7 +1380,8 @@ def _finish(cfg: Config | None, q: Path | None, started: dict[str, Any] | None, 
                  {"suite_id": started["suite_id"], "run_id": started.get("run_id"), "phase": started.get("phase"),
                   "lane": started.get("lane"), "exit_code": code, "seconds": row["seconds"], "tests": tests, **nums,
                   "cold": cold, "counts_from": source, "interrupted": name,
-                  **({"stages": stages, "failed_stage": failed_stage} if stages is not None else {})},
+                  **({"stages": stages, "failed_stage": failed_stage} if stages is not None else {}),
+                  **({"proven_skips": proven} if proven else {})},
                  _actor_for(started.get("seat")))
     except Exception as e:  # noqa: BLE001
         warn(f"the run's end was not recorded ({str(e).splitlines()[0][:200] if str(e) else type(e).__name__})")
