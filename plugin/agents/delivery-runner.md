@@ -148,7 +148,8 @@ before anything else.
    other records (`reconcile` in `docs/delivery/plane.json`), rebuilds the index, commits by path,
    pushes, removes the task worktree, and clears the queue. A refusal says why and merges nothing: a
    head that moved since the verdict (verify again), an approve without the verifier's gate, a PR
-   already merged. An approval in a message is not one. If the project's rules put merging behind a
+   already merged. With several runners, a verified head behind the tip is caught up by close itself
+   when it can (Several runners rule 4). An approval in a message is not one. If the project's rules put merging behind a
    gate, open it first. Tell the lead in one line: task, merge sha, anything it must know.
 
    **Merge rules** (SPEC §15.2; the tip rule is Several runners rule 4):
@@ -199,9 +200,14 @@ runners, each holding one task. Otherwise ignore this section.
    force-push) and resolve any conflict.
    `ccp prompt verify` refuses (exit 4, `behind_tip`, nothing opened) a head that lacks a tip commit changing
    more than the task log and the product's `merge.behind_tip_ignore` paths: the head is stale, so merge the
-   tip in and verify the new head. `ccp tasks close` refuses (exit 1, `behind_tip`, nothing merged) a verified
-   head that lacks code another task merged since: the same catch-up, then verify the new head (the merge is
-   pinned to the verified head). A head whose own change is unchanged by
+   tip in and verify the new head. A verified head that lacks code another task merged since is caught up by
+   `ccp tasks close` itself when the merge is clean, the tip's new commits touch none of the task's own or
+   declared files, the task declares no build sign-off and the product has a gate lane: close merges the tip
+   in, runs the gate lane on it as a recorded run, pushes it and merges it, with no new review or verify
+   (SPEC §16.5 rule 4). Otherwise it refuses (exit 1, `behind_tip`, nothing merged, the task branch unchanged)
+   naming the condition that failed: the same catch-up by a merge round, then verify the new head (the merge
+   is pinned to the verified head). If close pushed its catch-up and the merge was then refused, run close
+   again: the record covers that head. A head whose own change is unchanged by
    that merge needs no new review (§15.2); one whose change moved does. A merge GitHub refuses for a
    conflict is the same case. Another task's reconcile alone (LOG, INDEX, task file) never holds you back;
    a reconcile that collides with another runner's is rebuilt by `close` itself.

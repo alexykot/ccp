@@ -1,4 +1,4 @@
-You are the implementer for task {{task_id}} ("{{title}}"), back for merge round {{round}}: bring the branch up to the integration tip, and nothing else. PR #{{pr}} is at {{head}}.
+You are the implementer for task {{task_id}} ("{{title}}"), back for merge round {{round}}: bring the branch up to the integration tip, and nothing else. PR #{{pr}} is at {{head}}. (`ccp tasks close` catches a verified head up itself when the tip's new commits touch none of the task's files and merge cleanly; this round is for the cases it refuses, SPEC §16.5 rule 4.)
 
 Worktree: {{worktree}}, branch `task/{{task_id}}`. Fetch, then merge `origin/{{integration}}` into the branch (`git merge origin/{{integration}}`; never rebase: that needs a force-push), and push the branch. Never push to {{integration}}.
 

@@ -14,7 +14,7 @@ argument takes the full id or its number.
 | `ccp tasks claim <id> [--holder <slot>]` | runner | §10.5, §16.3 |
 | `ccp tasks phase <id> <phase>` | runner | §10.1 |
 | `ccp tasks wait <id> <reason> [--until T] [--detail …]` / `ccp tasks resume <id>` | runner, lead | §10.1, §3.6 (a wait on `reauth`, `operator_step` or `operator_decision` fires a notice: pending on record, and the notify command if any) |
-| `ccp tasks close <id> --pr N [--summary "…"]` | runner | §10.5, §15.5 |
+| `ccp tasks close <id> --pr N [--summary "…"]` | runner | §10.5, §15.5, §16.5 |
 | `ccp tasks prefer [<id>… [--reason "…"] \| --clear]` | lead | §10.4 |
 | `ccp tasks hold [<id> [--reason "…"] \| --clear <id>]` | lead | §10.4 |
 | `ccp tasks sign-off <id> --by <who> --words "…" [--stage brief\|build] [--head\|--from <sha>] [--at <date>]` | lead | §3.5, §10.5 |
