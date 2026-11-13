@@ -1,14 +1,14 @@
 ---
 task_id: 0075-spawn-dry-run-and-orientation-command
 title: A lead can check a runner spawn without starting it, and see the orientation mid-session
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S9", "S16"]
 review_point: R5
 paths: ["scripts/observability/team.py", "scripts/team.sh", "ccp/cli.py", "plugin/orientation.md", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "tests/test_team*.py", "tests/test_orientation*.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0075-spawn-dry-run-and-orientation-command
@@ -88,4 +88,4 @@ A lead can see the Agent call a spawn would make, and its readiness checks, with
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #98 head `8a02dfb` (squash `a8db574`): APPROVE. Passed: check-01, check-02, check-03. Gate: `bash scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0075-spawn-dry-run-and-orientation-command.json.
