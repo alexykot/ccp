@@ -178,6 +178,9 @@ BOARD_DEFAULTS: dict[str, Any] = {"refresh_minutes": 5}
 # gate is cut down. `ccp health` judges the latest cold gate run against both.
 GATE_DEFAULTS: dict[str, Any] = {"shell_limit_seconds": 600, "cut_line_seconds": None}
 GATE_CUT_SHARE = 0.9  # the cut line's default, as a share of the limit
+# §27.1 `ccp health`: a merged task whose diff (lines added + deleted) is under `small_task_lines` counts
+# as small, and health reports the share of small tasks among those merged in its window.
+HEALTH_DEFAULTS: dict[str, Any] = {"small_task_lines": 100}
 # §26.3 estimation: `reference_since` (YYYY-MM-DD, or null) leaves tasks merged before a process change
 # out of every reference class; `k` is the reference class's size (5 to 8).
 ESTIMATE_DEFAULTS: dict[str, Any] = {"reference_since": None, "k": 6, "auto": False,  # auto: §26.3 phase B triggers
@@ -297,6 +300,7 @@ class Config:
     telemetry: dict[str, Any] | None = None
     board: dict[str, Any] | None = None
     gate: dict[str, Any] | None = None
+    health: dict[str, Any] | None = None
     suite: dict[str, Any] | None = None
     adr: dict[str, Any] | None = None
     verify: dict[str, Any] | None = None
@@ -687,6 +691,7 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
            "telemetry": _merge(TELEMETRY_DEFAULTS, raw.get("telemetry"), "telemetry"),
            "board": _merge(BOARD_DEFAULTS, raw.get("board"), "board"),
            "gate": _merge(GATE_DEFAULTS, raw.get("gate"), "gate"),
+           "health": _merge(HEALTH_DEFAULTS, raw.get("health"), "health"),
            "suite": _suite(raw.get("suite")),
            "verify": _merge(VERIFY_DEFAULTS, raw.get("verify"), "verify"),
            "review_points": _merge(REVIEW_POINTS_DEFAULTS, raw.get("review_points"), "review_points"),
@@ -855,6 +860,9 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     elif cut is not None and not (_num(cut) and 0 < cut <= lim):
         bad.append("gate.cut_line_seconds must be a number of seconds above 0, at most gate.shell_limit_seconds, "
                    "or null for 90% of it")
+    stl = out["health"]["small_task_lines"]
+    if isinstance(stl, bool) or not isinstance(stl, int) or stl < 1:
+        bad.append("health.small_task_lines must be an integer >= 1")
     lanes = out["suite"]["lanes"]
     if not isinstance(lanes, dict) or not all(
             isinstance(k, str) and SUITE_LANE_RE.match(k) and (_str_list(v) and v or lane_stages(v) is not None)
@@ -1040,7 +1048,7 @@ def load(root: Path) -> Config:
         raise ConfigError(f"{CONFIG_REL}: project_id {raw['project_id']!r} is not lowercase letters, digits and hyphens")
     unknown = sorted(set(raw) - {"$schema", "_note", "project_id", "task_log", "package_docs", "architect",
                                  "prompts", "reconcile", "adapter", "worktrees", "env", "merge",
-                                 "auth_check", "telemetry", "board", "gate", "suite",
+                                 "auth_check", "telemetry", "board", "gate", "health", "suite",
                                  "adr", "verify", "review_points", "estimate", "parallel", "ids", "docs",
                                  "mutate", "report", "notify"})
     if unknown:

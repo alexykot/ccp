@@ -816,6 +816,14 @@
         "cut_line_seconds": {"type": ["number", "null"], "exclusiveMinimum": 0, "default": null, "description": "The line above which ccp health reports the cold gate run as an advisory finding; at most shell_limit_seconds. Null: 90% of the limit."}
       }
     },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §27.1: `ccp health`'s own knobs.",
+      "properties": {
+        "small_task_lines": {"type": "integer", "minimum": 1, "default": 100, "description": "A merged task whose diff (lines added plus deleted) is under this many lines is small; ccp health reports the share of small tasks among those merged in its window (`small_tasks` in --json)."}
+      }
+    },
     "suite": {
       "type": "object",
       "additionalProperties": false,

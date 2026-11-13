@@ -271,6 +271,75 @@ class ActiveTime(unittest.TestCase):
         self.assertEqual((r["wall_s"], r["waits_s"], r["active_s"]), (None, None, None))
 
 
+class SmallTasks(unittest.TestCase):
+    """Three tasks squash-merged with 20, 50 and 400 changed lines, a day apart."""
+
+    def build(self, plane=None):
+        self.p = Product(plane)
+        self.addCleanup(self.p.cleanup)
+        for i in (1, 2, 3):
+            self.p.task(f"000{i}-t{i}")
+        git(self.p.root, "init", "-q", "-b", "main")
+        git(self.p.root, "add", "-A")
+        commit(self.p.root, "init", T0)
+        for i, n in ((1, 20), (2, 50), (3, 400)):
+            self.p.write(f"app/{i}.py", "x\n" * n)
+            git(self.p.root, "add", "-A")
+            commit(self.p.root, f"Task 000{i}: change {i} (#{i})", T0 + i * 86400)
+
+    def health(self, *args):
+        out = io.StringIO()
+        with redirect_stdout(out), redirect_stderr(io.StringIO()), mock.patch.dict(os.environ, {"QUEUE_ROOT": ""}):
+            self.assertEqual(cli.main(["--root", str(self.p.root), "health", *args]), 0)
+        return out.getvalue()
+
+    def test_json_reports_the_tasks_under_the_line(self):
+        self.build()
+        s = json.loads(self.health("--json"))["small_tasks"]
+        self.assertEqual((s["line"], s["small"], s["tasks"], s["share"]), (100, 2, 3, 0.67))
+
+    def test_the_text_view_shows_the_count(self):
+        self.build()
+        self.assertIn("2 of 3", self.health())
+
+    def test_the_line_is_a_knob(self):
+        self.build({"health": {"small_task_lines": 30}})
+        s = json.loads(self.health("--json"))["small_tasks"]
+        self.assertEqual((s["line"], s["small"], s["tasks"]), (30, 1, 3))
+
+    def test_a_task_at_the_line_is_not_small(self):
+        self.build({"health": {"small_task_lines": 50}})
+        self.assertEqual(json.loads(self.health("--json"))["small_tasks"]["small"], 1)
+
+    def test_only_the_window_counts(self):
+        self.build()
+        s = json.loads(self.health("--since", "2025-10-11", "--json"))["small_tasks"]
+        self.assertEqual((s["small"], s["tasks"]), (1, 2))
+
+    def test_no_merges_no_share(self):
+        self.build()
+        s = json.loads(self.health("--since", "2999-01-01", "--json"))["small_tasks"]
+        self.assertEqual((s["small"], s["tasks"], s["share"]), (0, 0, None))
+        self.assertIsNone(health.small_text(s))
+
+    def test_a_bad_line_is_refused(self):
+        from ccp import config
+        for bad in (0, -5, True, "100", 1.5, None):
+            self.p = Product({"health": {"small_task_lines": bad}})
+            self.addCleanup(self.p.cleanup)
+            with self.assertRaises(config.ConfigError, msg=repr(bad)):
+                config.load(self.p.root)
+        self.p = Product({"health": {"small_lines": 100}})
+        self.addCleanup(self.p.cleanup)
+        with self.assertRaises(config.ConfigError):
+            config.load(self.p.root)
+
+    def test_the_schema_names_the_knob(self):
+        from ccp import config
+        schema = json.loads((Path(__file__).resolve().parents[1] / "contracts" / "plane_config.schema.json").read_text())
+        self.assertEqual(set(schema["properties"]["health"]["properties"]), set(config.HEALTH_DEFAULTS))
+
+
 class NoteAndRecord(unittest.TestCase):
     def setUp(self):
         self.p = Product({"architect": {"metrics": ["eval_seconds"]}})
