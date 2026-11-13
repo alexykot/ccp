@@ -55,6 +55,22 @@ Every test run a worker relies on, including mutation checks, goes through `ccp 
 
 *Append-only, newest last.*
 
+- 2026-11-13 (implement): `ccp suite run … -- COMMAND` whose options argparse refuses now runs
+  nothing: `ccp/cli.py` re-raises argparse's exit (2 for a parse error, after one `ccp suite:` line
+  saying the command did not run; 0 for `--help`) instead of falling back to `suite.unparsed`, which
+  is removed. "Cannot parse" is read narrowly as an argparse failure (unknown flag, an option missing
+  its value or given one of the wrong type, `--full` with `--summary`, an abbreviated `--root`). A
+  `--lane` label or `--phase` value that parses but is invalid still runs the command unrecorded with
+  a warning, as SPEC §14.5 already listed it. SPEC §14.2 and §14.5 say so.
+- The recorded route for evidence is stated twice, at two levels: a generic bullet in each of the
+  three worker definitions (`plugin/agents/delivery-{implementer,reviewer,verifier}.md`, pinned in
+  `tests/test_plugin.py`'s `WORKER_RULES`; SPEC §13.1 now counts four generic rules), and the
+  rendered command, with the run id and queue root, in `templates/prompts/_common.md`, which the
+  implement, fix, review and verify prompts share (SPEC §13.2 item 1). The definitions now name
+  `ccp suite run` once, in that bullet: §13.5's "one statement" rule and the two tests that pinned
+  "no `ccp suite run` in a definition" (`tests/test_suite.py`, `tests/test_worker_efficiency.py`) now
+  allow exactly that bullet and still keep the full §14.1 rule out of the definitions.
+
 ## Verification notes
 
 *Append-only.*
