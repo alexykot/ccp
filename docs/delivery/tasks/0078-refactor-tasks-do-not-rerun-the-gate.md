@@ -48,6 +48,17 @@ A `kind: refactor` task proves itself by its own checks, not by re-running the w
 
 *Append-only, newest last.*
 
+- 2026-11-13: `ccp tasks check` (with the architect block on, where `kind:` is read, §20.3) refuses a
+  refactor whose dod_check `steps:` run the lane `suite.roles` gives the gate or full role, as
+  `suite.lanes` declares it. A step matches when a backticked command runs the lane's argv as a whole
+  command (it starts at a command position: the start, after a shell control word or `--`, past
+  `NAME=value` words; and ends the command, so `pytest tests/x.py` is not a run of a `pytest` lane),
+  or holds `ccp suite run … --lane <lane>` with no `-- <command>`. A staged lane matches only that
+  `ccp suite run` form: one stage's command alone is not the gate. The failure names the task file,
+  the check id and each lane. Done and dropped tasks are not judged, as with the dry-run and
+  placeholder rules. §21.1 carries the PROPOSED bullet verbatim; the writing-tasks skill says it.
+  Tests: `tests/test_tasklog_refactor_gate.py`.
+
 ## Verification notes
 
 *Append-only.*
