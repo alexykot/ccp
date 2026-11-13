@@ -218,7 +218,10 @@ def single_runner_worktree(root: Path, rc: dict[str, str]) -> dict[str, Any] | N
     missing, detached at `origin/<integration_branch>`; an existing one is left alone. None when the
     binding names no `runner.worktree` or no product root. One it cannot make (no `origin`, a directory
     there that is no working tree) is a warning, `made: false` with `error`: the spawn goes on, and the
-    runner's `ccp tasks worktree` makes it once the cause is fixed."""
+    runner's `ccp tasks worktree` makes it once the cause is fixed. The spawn makes it after its
+    refusals and before its runtime writes (the prompt audit, the ledger, work.json): a spawn that
+    then fails, on a prompt audit that cannot be written, leaves the worktree made, and the next spawn
+    leaves it alone."""
     prod = sm.product_root(root)
     if not rc.get("worktree") or not prod:
         return None
@@ -597,7 +600,7 @@ def cmd_runner(args: argparse.Namespace) -> int:
         if not scope:
             die("--scope required (task ids, comma-separated)", 2)
         scope, added, rp_refactors = refactor_scope(root, args, w, scope)
-        made = single_runner_worktree(root, rc)
+        made = single_runner_worktree(root, rc)  # after the refusals, before the runtime writes
         prompt = spawn_prompt(root, scope, rp, added)
         audit = subprocess.run(
             ["bash", str(HERE / "write-prompt-audit.sh"), "--task-id", RUNNER_AUDIT_TASK, "--phase", "runner-spawn",

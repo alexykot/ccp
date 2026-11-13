@@ -128,5 +128,24 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self.assertNotIn(".venv", body["committed"])
 
 
+    def test_a_failed_close_leaves_a_merge_worktree_that_wt_list_shows_and_gc_keeps_while_leased(self):
+        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
+        cfg["reconcile"]["hooks"] = ["exit 3"]
+        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        git(self.runner, "commit", "-qam", "a failing hook")
+        git(self.runner, "push", "-q", "origin", "HEAD:main")
+        self._to_approved_pr()
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 1, out + err)
+        merge_wt = self.main / ".rt" / "merge-0002"
+        code, _, out, err = self.ccp("wt", "list", "--task", "0002")
+        self.assertEqual(code, 0, err)
+        listed = {r["name"]: r for r in json.loads(out)}
+        self.assertEqual((listed["merge-0002"]["kind"], listed["merge-0002"]["path"]), ("merge", str(merge_wt)))
+        code, body, out, err = self.ccp("wt", "gc")
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("merge-0002", body["removed"])  # the task is still leased: a re-run of close reuses it
+        self.assertTrue(merge_wt.is_dir())
+
 if __name__ == "__main__":
     unittest.main()

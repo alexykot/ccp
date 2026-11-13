@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -236,6 +237,83 @@ class Cleanup(WtFixture, unittest.TestCase):
         (self.q / "tasks" / "0002-second.json").write_text(json.dumps({"task_id": "0002-second", "status": "dropped"}))
         body = self.wt("gc")[1]
         self.assertEqual(body["removed"], ["ver-0002"])
+
+
+class LeftoverMergeWorktree(WtFixture, unittest.TestCase):
+    """§10.5, §12.1: a `merge-<nnnn>` a failed close left behind is listed, removed with its task's
+    worktrees, and removed by gc once its task is done or dropped and leased by no one."""
+
+    def leftover(self, nnnn: str = "0002") -> Path:
+        path = self.main / ".rt" / f"merge-{nnnn}"
+        git(self.main, "worktree", "add", "-q", "--detach", str(path), self.head())
+        return path
+
+    def task_state(self, **st) -> None:
+        (self.q / "tasks").mkdir(exist_ok=True)
+        (self.q / "tasks" / "0002-second.json").write_text(json.dumps({"task_id": "0002-second", **st}))
+
+    def test_list_shows_it_as_a_merge_worktree_for_its_task_too(self):
+        path = self.leftover()
+        self.leftover("0001")
+        want = {"name": "merge-0002", "kind": "merge", "path": str(path), "exists": True, "recorded": False}
+        self.assertIn(want, self.wt("list")[1])
+        self.assertEqual(self.wt("list", "--task", "0002")[1], [want])
+
+    def test_gc_removes_it_once_its_task_is_done_or_dropped_and_unleased(self):
+        path = self.leftover()
+        self.assertEqual(self.wt("gc")[1]["removed"], [])  # the queue holds no state for the task
+        self.task_state(status="verifying", lease_holder="runner")
+        self.assertEqual(self.wt("gc")[1]["removed"], [])  # a re-run of its close reuses it
+        self.task_state(status="done", lease_holder="runner")
+        self.assertEqual(self.wt("gc")[1]["removed"], [])
+        self.assertTrue(path.is_dir())
+        self.task_state(status="dropped")
+        body = self.wt("gc")[1]
+        self.assertEqual((body["removed"], body["warnings"]), (["merge-0002"], []))
+        self.assertFalse(path.exists())
+        self.assertNotIn("merge-0002", git(self.main, "worktree", "list"))
+
+    def test_remove_task_removes_it_but_never_the_checkout_it_runs_in(self):
+        path = self.leftover()
+        cfg = config.load(self.main)
+        from dataclasses import replace
+        self.assertEqual(wt.remove_task(replace(cfg, root=path), self.q, "0002-second"), [])
+        self.assertTrue(path.is_dir())  # close runs its cleanup in its merge worktree and removes it itself
+        self.assertEqual(wt.remove_task(cfg, self.q, "0002-second"), [])
+        self.assertFalse(path.exists())
+
+
+class MainCheckout(unittest.TestCase):
+    """§12.1: the main checkout is found from `git rev-parse --git-common-dir`, a separate git dir too."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.t = Path(self._tmp.name).resolve()
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def repo(self, *init: str) -> Path:
+        main = self.t / "main"
+        git(self.t, "init", "-q", *init, str(main))
+        git(main, "commit", "-q", "--allow-empty", "-m", "x")
+        return main
+
+    def test_a_main_checkout_with_a_separate_git_dir_is_its_own_main(self):
+        main = self.repo("--separate-git-dir", str(self.t / "gitdir"))
+        self.assertEqual(wt.main_of(main), main)
+        sub = main / "sub"
+        sub.mkdir()
+        self.assertEqual(wt.main_of(sub), main)
+
+    def test_a_linked_worktree_finds_the_main_checkout(self):
+        main = self.repo()
+        git(main, "worktree", "add", "-q", "--detach", str(self.t / "linked"))
+        self.assertEqual(wt.main_of(self.t / "linked"), main)
+        self.assertEqual(wt.main_of(main), main)
+
+    def test_without_a_repository_it_is_the_checkout_itself(self):
+        self.assertEqual(wt.main_of(self.t), self.t)
 
 
 class Config(WtFixture, unittest.TestCase):
