@@ -1,14 +1,14 @@
 ---
 task_id: 0087-parsing-and-path-follow-ups
 title: Path patterns, markings, reasons and report values are parsed exactly
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S5", "S13", "S15", "S16"]
 review_point: R5
 paths: ["ccp/config.py", "ccp/verify.py", "ccp/parallel.py", "ccp/report.py", "scripts/observability/team.py", "tests/test_config*.py", "tests/test_verify*.py", "tests/test_parallel*.py", "tests/test_report_fields.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0087-parsing-and-path-follow-ups
@@ -72,4 +72,4 @@ Small parsing gaps found in reviews stop silently accepting the wrong thing: mat
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #93 head `1aefa45` (squash `dd0e29a`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0087-parsing-and-path-follow-ups.json.
