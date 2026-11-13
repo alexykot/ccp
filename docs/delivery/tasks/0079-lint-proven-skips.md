@@ -56,6 +56,21 @@ A change that a cheap, declared check proves harmless (a comment-only diff, a do
 
 *Append-only, newest last.*
 
+- 2026-11-13 (implementer): plane.json `verify.provers` (`[{name, command, skips}]`, default `[]`) in
+  `ccp/config.py` and `contracts/plane_config.schema.json`. `skips` is `review` or a stage that the gate
+  role's lane declares. That excludes `plane-docs` and argv lanes. Names are unique labels. Gate
+  stages (`ccp/suite.py`): before a stage starts, on a run of the gate role's staged lane that is
+  recorded and names its task, its provers run in order with `{task_id}`, `{from}` (merge base with
+  `origin/<integration>`) and `{head}` filled in. The first that exits 0 skips the stage. The
+  `ended` row records `proven_skips` (`stage, prover, command, exit_code`). The event records the same
+  without `command`, since the ledger holds ids and numbers only. A checkout with uncommitted
+  changes, or a head with no merge base, runs no prover. A signal while proving stops the run before
+  the stage. Review (`ccp/verify.py`): `skip_review` computes the fix diff once and tries
+  `verify.skip_review` first, unchanged with its record as before. It then tries each review prover;
+  a prover's skip adds `prover`, `command` and `exit_code` to `review_skip`. The refusal names the
+  settings in force (`review_proof_label`). SPEC §14.2, §14.4 and §15.2 carry the PROPOSED rule and
+  describe the feature. §01 table, README git floor and runner brief name the new key.
+
 ## Verification notes
 
 *Append-only.*

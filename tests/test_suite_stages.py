@@ -306,6 +306,12 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.gate("--task", "0002")
         self.assertTrue(self.marker.exists())  # uncommitted changes: the diff is not what the stages test
         self.assertFalse(self.seen.exists())
+        self.marker.unlink()
+        (self.runner / "untracked.txt").unlink()
+        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\nintegration_branch: nowhere\n")
+        self.gate("--task", "0002")
+        self.assertTrue(self.marker.exists())  # no merge base with the integration branch: no diff to judge
+        self.assertFalse(self.seen.exists())
 
     def test_a_prover_that_times_out_proves_nothing(self):
         with mock.patch.object(suite, "PROVER_TIMEOUT", 1):
