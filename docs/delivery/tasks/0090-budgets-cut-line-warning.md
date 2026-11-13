@@ -1,14 +1,14 @@
 ---
 task_id: 0090-budgets-cut-line-warning
 title: ccp budgets check warns at a declared cut line before the limit
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S20"]
 review_point: R5
 paths: ["ccp/rules.py", "ccp/cli.py", "ccp/config.py", "docs/spec/03-quality.md", "contracts/plane_config.schema.json", "tests/test_budgets*.py", "tests/test_rules.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0090-budgets-cut-line-warning
@@ -48,6 +48,15 @@ A product with size budgets is told when a file crosses a declared cut line belo
 
 *Append-only, newest last.*
 
+- 2026-11-13 (implementer): `cut_line` is a key of an `architect.budgets` entry (config, schema).
+  It is allowed only on a budget with exactly one limit (`max_lines` or `max_bytes`), so the limit it
+  sits under is unambiguous, and must be an integer >= 1 below that limit; plane.json load refuses
+  anything else. `rules.budget_check` adds a warning row (`cut_line` field) for a touched file with
+  cut_line <= size <= limit: a file exactly at the limit is within budget, so it warns rather than
+  fails. Like the rest of `ccp budgets check`, only touched files are judged, and the warning comes
+  whether or not the change grew the file. Over the limit, judging is unchanged. §20.2 has a
+  "cut line" bullet. On the merge base, plane.json load refuses `cut_line` (unknown key).
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #94 head `109ce72` (squash `99ba5b8`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0090-budgets-cut-line-warning.json.

@@ -551,7 +551,7 @@ def _architect(given: Any, ids: refs.Ids = refs.DEFAULT) -> dict[str, Any] | Non
     if bad:
         raise ConfigError(f"{CONFIG_REL}: architect: " + "; ".join(bad))
     _entries(a, "checks", {"id", "cmd", "timeout_seconds"}, {"id", "cmd"}, ids)
-    _entries(a, "budgets", {"id", "glob", "path", "max_lines", "max_bytes"}, {"id"}, ids)
+    _entries(a, "budgets", {"id", "glob", "path", "max_lines", "max_bytes", "cut_line"}, {"id"}, ids)
     for i, b in enumerate(a["budgets"]):
         if ("glob" in b) == ("path" in b) or not ({"max_lines", "max_bytes"} & set(b)):
             raise ConfigError(f"{CONFIG_REL}: architect.budgets[{i}] needs one of glob or path, "
@@ -562,6 +562,15 @@ def _architect(given: Any, ids: refs.Ids = refs.DEFAULT) -> dict[str, Any] | Non
         for k in ("max_lines", "max_bytes"):
             if k in b and (isinstance(b[k], bool) or not isinstance(b[k], int) or b[k] < 1):
                 raise ConfigError(f"{CONFIG_REL}: architect.budgets[{i}].{k} must be an integer >= 1")
+        if "cut_line" in b:  # a warning line below the one limit it sits under (§20.2)
+            limits = [b[k] for k in ("max_lines", "max_bytes") if k in b]
+            c = b["cut_line"]
+            if len(limits) != 1:
+                raise ConfigError(f"{CONFIG_REL}: architect.budgets[{i}].cut_line needs exactly one of max_lines "
+                                  "or max_bytes, the limit it sits under")
+            if isinstance(c, bool) or not isinstance(c, int) or not 1 <= c < limits[0]:
+                raise ConfigError(f"{CONFIG_REL}: architect.budgets[{i}].cut_line must be an integer >= 1 "
+                                  f"and below the limit ({limits[0]})")
     for i, c in enumerate(a["checks"]):
         if not isinstance(c["cmd"], str) or not c["cmd"].strip():
             raise ConfigError(f"{CONFIG_REL}: architect.checks[{i}].cmd must be a command")

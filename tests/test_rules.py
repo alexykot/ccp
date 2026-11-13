@@ -165,6 +165,36 @@ class RulesDoc(unittest.TestCase):
         self.assertIn("app/new.py is 6 lines, over its budget of 5 (a new file)", out)
         self.assertTrue(out.rstrip().endswith("budgets: FAIL (3 file(s) touched since " + r["merge_base"][:12] + ")"), out)
 
+    def test_a_file_at_or_above_its_cut_line_warns_and_one_over_the_limit_still_fails(self):
+        """§20.2: a cut line below the limit warns, naming the file, its size, the cut line and the limit."""
+        p = self.p.root / "docs/delivery/plane.json"
+        c = json.loads(p.read_text())
+        c["architect"]["budgets"] = [{"id": "E7", "glob": "app/**/*.py", "max_lines": 100, "cut_line": 90},
+                                     {"id": "E7", "path": "docs/ENGINEERING.md", "max_bytes": 2000, "cut_line": 10}]
+        p.write_text(json.dumps(c))
+        self._repo()
+        self.p.write("app/near.py", "x = 1\n" * 95)
+        self.p.write("app/edge.py", "x = 1\n" * 90)
+        self.p.write("app/full.py", "x = 1\n" * 100)
+        self.p.write("app/below.py", "x = 1\n" * 89)
+        self.p.write("docs/ENGINEERING.md", RULES + "\n")
+        code, out, _ = self.budgets()
+        self.assertEqual(code, 0, out)
+        self.assertIn("warning: E7: app/near.py is 95 lines, at or above its cut line of 90 (limit 100)", out)
+        self.assertIn("app/edge.py is 90 lines, at or above its cut line of 90 (limit 100)", out)
+        self.assertIn("app/full.py is 100 lines, at or above its cut line of 90 (limit 100)", out)
+        self.assertIn(f"docs/ENGINEERING.md is {len(RULES) + 1} bytes, at or above its cut line of 10 (limit 2000)", out)
+        self.assertNotIn("app/below.py", out)
+        r = rules.budget_check(self.p.cfg, "main")
+        self.assertEqual(sorted((w["path"], w["size"], w["cut_line"], w["limit"]) for w in r["warnings"]),
+                         [("app/edge.py", 90, 90, 100), ("app/full.py", 100, 90, 100), ("app/near.py", 95, 90, 100),
+                          ("docs/ENGINEERING.md", len(RULES) + 1, 10, 2000)])
+        self.p.write("app/near.py", "x = 1\n" * 101)  # over the limit: judged as without a cut line
+        code, out, _ = self.budgets()
+        self.assertEqual(code, 1, out)
+        self.assertIn("budgets: E7: app/near.py is 101 lines, over its budget of 100 (a new file): split it or cut it", out)
+        self.assertNotIn("app/near.py is 101 lines, at or above its cut line", out)
+
     def test_the_integration_branch_moving_on_is_not_the_change(self):
         run = self._repo()
         run("checkout", "-q", "main")
@@ -264,11 +294,22 @@ class ArchitectConfig(unittest.TestCase):
                 ({"budgets": [{"id": "E7", "glob": "*.py"}]}, "needs one of glob or path, and max_lines or max_bytes"),
                 ({"budgets": [{"id": "7", "glob": "*.py", "max_lines": 1}]}, "is not a house-rule id"),
                 ({"budgets": [{"id": "E7", "glob": ["*.py"], "max_lines": 1}]}, "must be a path or glob"),
+                ({"budgets": [{"id": "E7", "glob": "*.py", "max_lines": 9, "max_bytes": 900, "cut_line": 8}]},
+                 "cut_line needs exactly one of max_lines or max_bytes"),
+                ({"budgets": [{"id": "E7", "glob": "*.py", "max_lines": 9, "cut_line": 9}]},
+                 "cut_line must be an integer >= 1 and below the limit (9)"),
+                ({"budgets": [{"id": "E7", "glob": "*.py", "max_bytes": 9, "cut_line": 0}]}, "cut_line must be an integer"),
+                ({"budgets": [{"id": "E7", "glob": "*.py", "max_lines": 9, "cut_line": "8"}]}, "cut_line must be an integer"),
+                ({"budgets": [{"id": "E7", "glob": "*.py", "max_lines": 9, "cut_line": True}]}, "cut_line must be an integer"),
                 ({"checks": [{"id": "E1", "cmd": "x", "shell": True}]}, "unknown key(s) shell"),
                 ({"areas": {"code": "src/**"}}, "areas must map an area name to a list of globs")):
             with self.subTest(block=block):
                 with self.assertRaisesRegex(config.ConfigError, needle.replace("(", r"\(").replace(")", r"\)")):
                     self.load(block)
+
+    def test_a_cut_line_below_its_limit_loads(self):
+        b = {"id": "E7", "glob": "*.py", "max_lines": 9, "cut_line": 8}
+        self.assertEqual(self.load({"budgets": [b]}).architect["budgets"], [b])
 
     def test_checks_that_select_the_same_tests_are_refused(self):
         for cmds, shared in (
