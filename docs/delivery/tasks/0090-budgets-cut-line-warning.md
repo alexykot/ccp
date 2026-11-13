@@ -1,14 +1,14 @@
 ---
 task_id: 0090-budgets-cut-line-warning
 title: ccp budgets check warns at a declared cut line before the limit
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S20"]
 review_point: R5
 paths: ["ccp/rules.py", "ccp/cli.py", "ccp/config.py", "docs/spec/03-quality.md", "contracts/plane_config.schema.json", "tests/test_budgets*.py", "tests/test_rules.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0090-budgets-cut-line-warning
@@ -59,4 +59,4 @@ A product with size budgets is told when a file crosses a declared cut line belo
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #94 head `109ce72` (squash `99ba5b8`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0090-budgets-cut-line-warning.json.
