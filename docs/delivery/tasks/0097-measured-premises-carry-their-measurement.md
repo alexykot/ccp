@@ -1,14 +1,14 @@
 ---
 task_id: 0097-measured-premises-carry-their-measurement
 title: A brief's measured premises name the command and commit they came from, and the implementer re-checks them
-status: pending
+status: done
 kind: chore
 depends_on: []
 spec_refs: ["S5", "S13"]
 review_point: R5
 paths: ["plugin/skills/writing-tasks/", "plugin/agents/delivery-implementer.md", "templates/prompts/", "ccp/tasklog.py", "tests/test_tasklog*.py", "tests/test_plugin.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0097-measured-premises-carry-their-measurement
@@ -102,4 +102,4 @@ round (§5, §13).
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #96 head `f3976f2` (squash `056eda7`): APPROVE. Passed: check-01, check-02, check-03. Gate: `python3 -m unittest discover -s tests -t .` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0097-measured-premises-carry-their-measurement.json.
