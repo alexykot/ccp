@@ -6,6 +6,7 @@ lane on the merge as a recorded run, re-checks the tip, pushes the merge and mer
 from __future__ import annotations
 
 import json
+import os
 import shlex
 import sys
 import tempfile
@@ -195,6 +196,8 @@ if done < {moves}:
         self.assertFalse((self.main / ".rt" / "merge-0002").exists())
         caught = [e for e in self.events() if (e["type"], e["op"]) == ("verify", "set")]
         self.assertEqual([e["payload"]["to"] for e in caught], [merged])
+        note = git(self.main, "show", "origin/main:docs/delivery/tasks/0002-second.md")
+        self.assertIn(cu["gate_run"], note)  # the Verification notes line names the catch-up's gate run
 
     def test_a_tip_that_moves_during_the_gate_is_caught_up_again(self):
         self.approved()
@@ -285,6 +288,25 @@ if done < {moves}:
         git(self.runner, "checkout", "-q", "--detach", "origin/main")
         code, _, out, err = self.close()
         self.refused(code, out, err, head, "no merge worktree")
+
+    def test_a_gate_lane_held_by_another_run_refuses(self):
+        self.plane_json(lambda c: c["suite"].update(exclusive_lanes=["gate"]))
+        head = self.approved()
+        self.tip(self.put("other/b.txt", "b\n"))
+        fd, _ = suite.take_lane(self.q, {"suite_id": "st-held", "pid": os.getpid(), "lane": "gate"})
+        self.addCleanup(os.close, fd)
+        with mock.patch.object(lifecycle, "CATCH_UP_LANE_WAIT", 0):
+            code, _, out, err = self.close()
+        self.refused(code, out, err, head, "gate lane busy")
+
+    def test_a_queue_that_keeps_its_records_in_git_refuses(self):
+        head = self.approved()
+        self.tip(self.put("other/b.txt", "b\n"))
+        git(self.q, "init", "-q")
+        git(self.q, "add", "verification")
+        git(self.q, "commit", "-q", "-m", "records")
+        code, _, out, err = self.close()
+        self.refused(code, out, err, head, "in git")
 
     def test_a_refused_push_refuses_with_the_branch_unchanged(self):
         head = self.approved()

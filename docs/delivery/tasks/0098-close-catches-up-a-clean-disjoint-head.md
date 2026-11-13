@@ -132,6 +132,31 @@ through a merge round and a full re-verify (§16.5 rule 4).
 
 *Append-only, newest last.*
 
+- 2026-11-13 — implementer: `ccp tasks close` at `behind_tip` (several runners) calls `lifecycle._catch_up`.
+  Conditions, in the order checked: no `build` sign-off; non-empty frontmatter `paths` (the declared ones,
+  not the Scope-derived fallback of §16.3); a `suite.lanes` entry for the gate role's lane (`suite.roles`;
+  the role always has a name, so "configures" is read as "the lane exists to run"); a merge worktree
+  (`worktrees.dir`); a queue that keeps its records outside git. Then per round: `git merge-tree
+  --write-tree` of the head and the tip (a), the merge made with `commit-tree` (parents: head, tip); the
+  overlap (b): tip files are `git log -m --no-renames --name-only <head>..<tip>` with the behind_tip
+  pathspec, task files `git diff --name-status --no-renames <merge-base>..<head>`, a tip file meets a task
+  file exactly or a declared path by `parallel.meets`. The merge is checked out in `merge-<nnnn>` and the
+  gate lane runs there as `ccp suite run --task <id> --phase verify --lane <gate> --summary --wait 1800` (a
+  child of this `ccp`, `suite.self_argv`); the new suite row for the task and lane is the gate run. A green
+  gate re-checks `behind_tip` on the merge; at most `CATCH_UPS = 3` rounds. Then a plain push to the PR's
+  head branch (`headRefName`, else `task/<id>`), `verify.record_catch_up` (the record's `schema_version`
+  raised to 2), a `verify`/`set` event (`field: catch_up`), and `merge-ok` read until the PR shows the
+  push (15 reads, 2 s apart). Any refusal before the push removes the merge worktree and refuses
+  `behind_tip` naming the condition; the branch is unchanged.
+- `merge-ok` (`verify.catch_up_refusal`) accepts a PR head other than `head_sha` only when `catch_up.from`
+  is `head_sha`, `catch_up.to` is the PR head and `gate_run` is a recorded, passed suite run of the gate
+  lane bound to the task. `ccp verify record` refuses a verdict carrying `catch_up` (only close writes it).
+  `ccp verify check` is unchanged: it still wants `head_sha`. A re-run of close after a merge at the
+  caught-up head accepts it as approved. The Verification notes line names the catch-up and its gate run.
+- A merge refused after the push leaves the branch at the catch-up, which the record covers: the error
+  says so, and a re-run of close merges it (tested). The record contract's key list for version 2 is
+  pinned in `tests/test_verify.py`; the example record says version 2.
+
 ## Verification notes
 
 *Append-only.*
