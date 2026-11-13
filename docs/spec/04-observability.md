@@ -507,6 +507,10 @@ gates nothing.
 - **Runner rotation** (§10.2 step 4): the runner slots whose rotation is due and not recorded, each
   with its trigger and the rotate command, and the ledger's rotations (`runner`/`rotate` events)
   against the tasks done (distinct tasks moved to `done`); `rotation` in `--json`.
+- **Small tasks:** the share of the tasks merged in the window whose diff (lines added plus deleted,
+  summed over all of a task's merges in the window) is strictly fewer than `health.small_task_lines`
+  lines, with the count and the line, so the task-log owner sees follow-ups drifting into one task
+  each (bundle them by area, the writing-tasks skill); `small_tasks` in `--json`.
 - **Diagnostic only.** Nothing here is a target for a worker or part of a DoD.
 
 ### 27.2 Suite series
