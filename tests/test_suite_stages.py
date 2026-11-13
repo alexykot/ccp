@@ -212,15 +212,17 @@ DOCS_ONLY = "test -z \"$(git diff --name-only {from} {head} -- . ':!docs')\""  #
 
 class ProversSkipStages(StagedFixture, unittest.TestCase):
     """§14.2: a declared prover that exits 0 on the task's diff skips the gate stage it names, recorded on
-    the run; a prover that fails, or cannot judge the diff, skips nothing."""
+    the run; a prover that fails, or cannot judge the diff, skips nothing. The provers are read from the
+    integration branch's plane.json, never from the head under test."""
 
     def setUp(self):
         super().setUp()
         self.marker = Path(self._tmp.name) / "suite-ran"
         self.seen = Path(self._tmp.name) / "prover-saw"
 
-    def product(self, provers: list, lanes: dict | None = None) -> None:
-        """Commit the runner checkout's plane.json with these gate stages and provers."""
+    def product(self, provers: list, lanes: dict | None = None, integration: bool = True) -> None:
+        """Commit the runner checkout's plane.json with these gate stages and provers and, with
+        `integration`, push it to origin/main, the integration branch; without, it is only the head's."""
         from tests.test_toolkit import git
         p = self.runner / "docs/delivery/plane.json"
         cfg = json.loads(p.read_text())
@@ -231,6 +233,8 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         p.write_text(json.dumps(cfg))
         git(self.runner, "add", "docs/delivery/plane.json")
         git(self.runner, "commit", "-q", "-m", "provers")
+        if integration:
+            git(self.runner, "push", "-q", "origin", "HEAD:main")
 
     def change(self, rel: str) -> str:
         from tests.test_toolkit import git
@@ -248,14 +252,16 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
     def test_a_docs_only_diff_skips_the_suite_stage_on_the_record(self):
         self.product([{"name": "docs-only", "command": DOCS_ONLY, "skips": "suite"}])
         self.change("docs/guide.md")
-        r = self.gate("--task", "0002")
+        self.implementing()
+        r = self.gate("--run", "0002-second/implement")
         self.assertFalse(self.marker.exists())
         row = self.ended()
         self.assertEqual([s["name"] for s in row["stages"]], ["lint", config.PLANE_DOCS_STAGE])
-        self.assertEqual(row["proven_skips"], [{"stage": "suite", "prover": "docs-only", "exit_code": 0}])
+        want = [{"stage": "suite", "prover": "docs-only", "exit_code": 0, "run_id": "0002-second/implement"}]
+        self.assertEqual(row["proven_skips"], want)
         self.assertEqual((row["failed_stage"], row["tests"]), (None, None))
         ev = [e for e in self.events() if e["type"] == "suite"][-1]["payload"]
-        self.assertEqual(ev["proven_skips"], [{"stage": "suite", "prover": "docs-only", "exit_code": 0}])
+        self.assertEqual(ev["proven_skips"], want)
         # the records name the prover, never its command: plane.json looks the command up by the name
         self.assertNotIn("git diff --name-only", (self.q / "runs" / "_suites.jsonl").read_text())
         self.assertNotIn("git diff --name-only", (self.q / "observability" / "events.jsonl").read_text())
@@ -272,6 +278,44 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertEqual([s["name"] for s in row["stages"]], ["lint", "suite", config.PLANE_DOCS_STAGE])
         self.assertNotIn("proven_skips", row)
         self.assertEqual(row["tests"], 3)
+
+    def test_a_prover_the_task_declares_or_changes_in_its_own_diff_skips_nothing(self):
+        # the head adds a prover the integration branch does not have
+        self.product([{"name": "always", "command": "true", "skips": "suite"}], integration=False)
+        self.change("docs/guide.md")
+        self.gate("--task", "0002")
+        self.assertTrue(self.marker.exists())
+        self.assertNotIn("proven_skips", self.ended())
+        self.marker.unlink()
+        self.product([{"name": "always", "command": "exit 1", "skips": "suite"}])  # integration's fails
+        self.product([{"name": "always", "command": "true", "skips": "suite"}], integration=False)  # the head's passes
+        self.gate("--task", "0002")
+        self.assertTrue(self.marker.exists())
+        self.assertNotIn("proven_skips", self.ended())
+
+    def test_the_integration_branchs_prover_applies_whatever_the_head_declares(self):
+        self.product([{"name": "always", "command": "true", "skips": "suite"}])
+        self.product([], integration=False)  # the head drops it: still the integration branch's rule
+        self.change("src/app.py")
+        self.gate("--task", "0002")
+        self.assertFalse(self.marker.exists())
+        self.assertEqual([x["prover"] for x in self.ended()["proven_skips"]], ["always"])
+
+    def test_an_integration_plane_json_that_does_not_load_declares_no_prover(self):
+        from tests.test_toolkit import git
+        self.product([{"name": "always", "command": "true", "skips": "suite"}])
+        p = self.runner / "docs/delivery/plane.json"
+        cfg = json.loads(p.read_text())
+        p.write_text(json.dumps({**cfg, "verify": {"provers": [{"name": "always", "command": "true", "skips": "nowhere"}]}}))
+        git(self.runner, "commit", "-q", "-am", "a prover of no stage")
+        git(self.runner, "push", "-q", "origin", "HEAD:main")
+        p.write_text(json.dumps(cfg))  # the head's own plane.json loads, and declares the prover
+        git(self.runner, "commit", "-q", "-am", "the head's plane.json")
+        self.gate("--task", "0002")
+        self.assertTrue(self.marker.exists())
+        row = self.ended()
+        self.assertNotIn("proven_skips", row)
+        self.assertIn("does not load", Path(row["log"]).read_text())
 
     def test_the_first_prover_to_pass_skips_the_stage(self):
         self.product([{"name": "never", "command": "exit 1", "skips": "suite"},
@@ -380,7 +424,7 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertEqual((set(item["properties"]), set(item["required"])), (config.PROVER_KEYS, config.PROVER_KEYS))
         result = json.loads((root / "contracts/suite_result.schema.json").read_text())
         self.assertEqual(set(result["properties"]["proven_skips"]["items"]["properties"]),
-                         {"stage", "prover", "exit_code"})
+                         {"stage", "prover", "exit_code", "run_id"})
 
 
 WT_VARS = tuple(f"CCP_WT_{f.upper()}" for f in config.WT_FIELDS)

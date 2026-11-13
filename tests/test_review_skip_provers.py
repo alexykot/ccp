@@ -1,16 +1,18 @@
 """SPEC §15.2, plane.json `verify.provers` with `skips: review`: a declared prover that exits 0 on the fix
 round's diff sends the fix straight to verify, its name and exit recorded on the verify run (no command text).
-`verify.skip_review`, when set, is tried first; a prover that fails or times out keeps the refusal."""
+`verify.skip_review`, when set, is tried first; a prover that fails or times out keeps the refusal. Both are
+read from the integration branch's plane.json, never from the head under test or the runner's checkout."""
 from __future__ import annotations
 
 import json
 import os
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 from tests import test_review_gate, test_review_skip
-from tests.test_toolkit import ToolkitFixture
+from tests.test_toolkit import ToolkitFixture, git
 
 PROVE = '"$PROOF_BIN" {task_id} {reviewed} {head} {from}'
 
@@ -42,8 +44,14 @@ class ReviewProvers(ToolkitFixture, unittest.TestCase):
         self.wt = self.main / ".rt" / "impl-0002"  # the claim made it, on task/0002-second
 
     def plane(self, body: dict) -> None:
-        """The plane.json `ccp` reads here, the runner checkout's."""
-        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(body))
+        """plane.json on the integration branch, where `ccp` reads the skip rules: pushed to origin/main and
+        merged into the task branch, so the head is not behind the tip."""
+        other = Path(tempfile.mkdtemp(dir=self._tmp.name))
+        git(self.main, "worktree", "add", "-q", "--detach", str(other), "origin/main")
+        self.commit("docs/delivery/plane.json", json.dumps(body), other)
+        git(other, "push", "-q", "origin", "HEAD:main")
+        git(self.wt, "fetch", "-q", "origin")
+        git(self.wt, "merge", "-q", "--no-edit", "origin/main")
 
     def refused(self, head: str, label: str, why: str) -> None:
         code, _, out, err = self.verify(head)
@@ -123,6 +131,18 @@ class ReviewProvers(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.verify(head)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["review_skip"]["prover"], "comments")
+
+    def test_a_prover_only_the_head_or_the_checkout_declares_does_not_apply(self):
+        self.plane({**ToolkitFixture.PLANE_JSON, "verify": {}})  # the integration branch declares no prover
+        self.reviewed()
+        # the fix adds a prover in its own diff; the runner's checkout still has the class's prover too
+        head = self.fix("docs/delivery/plane.json", json.dumps(
+            {**ToolkitFixture.PLANE_JSON, "verify": {"provers": [{"name": "always", "command": "true", "skips": "review"}]}}))
+        code, _, out, err = self.verify(head)
+        self.assertEqual(code, 4, out + err)
+        self.assertNotIn("does not apply", err)
+        self.assertFalse(self.log.exists())
+        self.assertFalse((self.q / "runs/0002-second/verify.json").exists())
 
     def test_a_gate_stage_prover_does_not_judge_the_review(self):
         self.plane(({**self.PLANE_JSON, "suite": {

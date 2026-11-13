@@ -552,24 +552,26 @@ def adr_errors(cfg: Config, rec: dict[str, Any]) -> list[str]:
 PROOF_TIMEOUT = 600  # seconds a proof (verify.skip_review.proof, a verify.provers command) may take; a timeout proves nothing
 
 
-def review_provers(cfg: Config) -> list[dict[str, Any]]:
-    """The product's declared provers of the review (§15.2, plane.json `verify.provers` whose `skips` is
+def review_provers(found: dict[str, Any]) -> list[dict[str, Any]]:
+    """The declared provers of the review in a `verify` block (§15.2, `verify.provers` whose `skips` is
     `review`), in their order."""
     from ccp.config import PROVER_REVIEW  # noqa: PLC0415
 
-    return [p for p in (cfg.verify or {}).get("provers") or [] if p.get("skips") == PROVER_REVIEW]
+    return [p for p in found.get("provers") or [] if p.get("skips") == PROVER_REVIEW]
 
 
-def review_proof_label(cfg: Config) -> str:
-    """What proves a fix round for `ccp prompt verify`'s refusal: the settings the product has on."""
-    names = (["verify.skip_review"] if (cfg.verify or {}).get("skip_review") else []) \
-        + (["verify.provers"] if review_provers(cfg) else [])
+def review_proof_label(found: dict[str, Any]) -> str:
+    """What proves a fix round, for `ccp prompt verify`'s refusal: the settings a `verify` block has on."""
+    names = (["verify.skip_review"] if found.get("skip_review") else []) \
+        + (["verify.provers"] if review_provers(found) else [])
     return " and ".join(names) or "verify.skip_review"
 
 
 def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | None) -> tuple[dict[str, Any] | None, str]:
     """§15.2: may a verify of `head` skip the review of the task's latest fix round? Only with plane.json
-    `verify.skip_review` set, or a `verify.provers` entry that skips `review`, a fix run (not abandoned; a
+    `verify.skip_review` set, or a `verify.provers` entry that skips `review`, both read from plane.json on
+    `origin/<integration branch>` as the checkout last fetched it (never from the checkout or the head under
+    test, so a rule the task adds or changes in its own diff does not apply to it), a fix run (not abandoned; a
     merge or ruling round counts as one, §13.2) opened since the last review that reported done, and that
     review's head on record. The fix diff runs from the reviewed change carried onto the head's
     base on the integration branch (`git merge-tree` of the reviewed head and that base, which must merge
@@ -579,18 +581,22 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     review prover in turn proves it when its `command` exits 0. Either command runs in the product root
     with `{task_id}`, `{reviewed}`, `{head}` and `{from}` (the tree the fix diff starts from) filled in.
     Returns what to record on the verify run (a prover's skip adds its `prover` name and `exit_code`, never
-    its command text, §14.4), or None and why not ("" when neither is set or there is no fix to judge).
+    its command text, §14.4), or None and why not, as "<the settings> does not apply: <why>" ("" when
+    neither is set or there is no fix to judge).
 
     `git merge-tree --write-tree` needs git 2.38 or later. It exits 1 on a conflict; any other failure,
     such as an older git that lacks the option, is named as such, and the review stands either way."""
-    from ccp import rules, runs  # noqa: PLC0415
-    from ccp.config import fill  # noqa: PLC0415
-    from ccp.queue import git, integration_branch  # noqa: PLC0415
+    from ccp import runs  # noqa: PLC0415
+    from ccp.config import skip_rules_at  # noqa: PLC0415
+    from ccp.queue import integration_branch  # noqa: PLC0415
 
-    rule = (cfg.verify or {}).get("skip_review")
-    provers = review_provers(cfg)
+    integ = integration_branch(queue)
+    found, _ = skip_rules_at(cfg.root, f"origin/{integ}")  # a plane.json that does not load there sets none
+    rule = found.get("skip_review")
+    provers = review_provers(found)
     if not rule and not provers:
         return None, ""
+    label = review_proof_label(found)
     rs = [r for r in runs.all_runs(queue, task_id) if runs.state(r) != "abandoned"]
     fixes = [r for r in rs if r.get("phase") in runs.REWORK_PHASES]
     reviews = [r for r in rs if r.get("phase") == "review" and runs.state(r) == "reported" and r.get("outcome") == "done"]
@@ -599,7 +605,19 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     reviewed = str(reviews[-1].get("head") or "").strip()
     if not reviewed:
         return None, ""
-    integ = integration_branch(queue)
+    rec, why = _judge_fix(cfg, queue, task_id, reviewed, head, pr, str(fixes[-1]["run_id"]), rule, provers, integ)
+    return rec, (f"{label} does not apply: {why}" if why else "")
+
+
+def _judge_fix(cfg: Config, queue: Path, task_id: str, reviewed: str, head: str, pr: str | None, fix: str,
+               rule: dict[str, Any] | None, provers: list[dict[str, Any]],
+               integ: str) -> tuple[dict[str, Any] | None, str]:
+    """`skip_review`'s judgement of the fix diff by the rules read from the integration branch: what to
+    record on the verify run, or None and why not."""
+    from ccp import rules  # noqa: PLC0415
+    from ccp.config import fill  # noqa: PLC0415
+    from ccp.queue import git  # noqa: PLC0415
+
     git(cfg.root, "fetch", "-q", "origin")
     shas = []
     for sha in (reviewed, head.strip()):
@@ -629,7 +647,7 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     if not files:
         return None, "the fix changes no file of its own"
     values = {"task_id": task_id, "reviewed": reviewed, "head": head, "from": start}
-    skipped = {"reviewed": reviewed, "head": head, "fix": str(fixes[-1]["run_id"]), "files": len(files)}
+    skipped = {"reviewed": reviewed, "head": head, "fix": fix, "files": len(files)}
     why: list[str] = []
     if rule:
         paths = [str(x) for x in rule["paths"]]

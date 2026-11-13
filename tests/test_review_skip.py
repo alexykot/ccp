@@ -143,6 +143,18 @@ class SkipReview(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["review_skip"]["files"], 2)
 
+    def test_a_setting_only_the_head_or_the_checkout_declares_does_not_apply(self):
+        self.on_main("docs/delivery/plane.json", json.dumps(ToolkitFixture.PLANE_JSON))  # the integration branch drops it
+        git(self.wt, "fetch", "-q", "origin")
+        git(self.wt, "merge", "-q", "--no-edit", "origin/main")
+        self.reviewed()
+        # the fix puts the setting back in its own diff; the runner's checkout still has it too
+        head = self.fix("docs/delivery/plane.json", json.dumps(self.PLANE_JSON))
+        code, _, out, err = self.verify(head)
+        self.assertEqual(code, 4, out + err)
+        self.assertNotIn("does not apply", err)
+        self.assertFalse(self.log.exists())
+
     def test_a_fix_that_changes_no_file_is_reviewed(self):
         reviewed = self.reviewed()
         self.run_phase("fix", reviewed, f"PR: #7\nHead: {reviewed}")

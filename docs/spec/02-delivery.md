@@ -554,16 +554,19 @@ has a `Suite:` line but no suite run is recorded for its run.
 - **Provers.** A declared prover that exits 0 on the diff skips the step it names, recorded on the run.
   plane.json `verify.provers` (`[{name, command, skips}]`; empty, the default, is none) declares them:
   `name` a label unique among them, `skips` `review` (§15.2) or a stage the gate role's lane declares
-  (never `plane-docs`). On a run of that lane that is recorded and names its task, before such a stage
+  (never `plane-docs`). `ccp` reads them from plane.json on `origin/<integration branch>`, as the
+  checkout last fetched it, never from the checkout or the head under test: a prover a task adds or
+  changes in its own diff does not apply to that task, and an integration plane.json that does not load
+  declares none. On a run of that lane that is recorded and names its task, before such a stage
   starts, `ccp` runs the stage's provers in order from the checkout's root (`/bin/sh -c`, output
   discarded, at most 600 s), with `{task_id}`, `{from}` (the head's merge base with
   `origin/<integration branch>`) and `{head}` (the checkout's HEAD) filled in; the first that exits 0
   skips the stage. A non-zero exit or a timeout skips nothing, and a checkout with uncommitted changes,
   or a head with no merge base, runs no prover. A skipped stage is neither in `stages` nor among the
-  stages not run: the `ended` row and its event record `proven_skips` (`[{stage, prover, exit_code}]`,
-  `prover` its name in `verify.provers`), and the summary's stage line names each skipped stage and its
-  prover. No record holds a prover's command text (§14.4): the name looks it up in plane.json. The
-  prover is product tooling, not the plane's.
+  stages not run: the `ended` row and its event record `proven_skips` (`[{stage, prover, exit_code,
+  run_id}]`, `prover` its name in `verify.provers`, `run_id` the suite run's run or null), and the
+  summary's stage line names each skipped stage and its prover. No record holds a prover's command
+  text (§14.4): the name looks it up in plane.json. The prover is product tooling, not the plane's.
 - **Summary mode** is the default when stdin is not a terminal (`--summary` forces it). The
   command's stdout and stderr both go to one log file, in the order written: `--log PATH`, else next
   to the run's record (`QUEUE_ROOT/runs/<task>/<phase>[-n]-suite-<suite_id>.log`), else
@@ -634,8 +637,8 @@ has a `Suite:` line but no suite run is recorded for its run.
 the output mode (`output`), the command's basename and argument count; the `ended` row adds `tests`,
 `failed`, `skipped`, `ran`, `cached`, `cached_tests` (null when not found), `counts_from`, summary
 mode's `log` path, `cold` (§14.6) and, for a lane plane.json names, `stages` and `failed_stage` (§14.3), and
-`proven_skips` when a prover skipped a stage (§14.2: the prover's name and exit code, never its
-command). A staged
+`proven_skips` when a prover skipped a stage (§14.2: the prover's name, exit code and the run id, never
+its command). A staged
 lane's `started` row has `cmd` `stages` and its stage count as `argc`. Never the command's arguments,
 never its output; the event carries the numbers, `cold` and the stages, not the path. A row naming `modules_ran` and `modules_cached` reads as `ran` and `cached`.
 
@@ -775,11 +778,15 @@ result.
   run in the product root on that diff with `{task_id}`, `{reviewed}` (the head the review judged),
   `{head}` and `{from}` (the tree the fix diff starts from) filled in, exits 0. Otherwise the refusal
   stands and says why the skip does not apply. The verify run records `review_skip` (`reviewed`,
-  `head`, `fix`, `files`, a count). The prover is product tooling, not the plane's.
+  `head`, `fix`, `files`, a count). `ccp` reads `verify.skip_review` from plane.json on
+  `origin/<integration branch>`, as the runner's checkout last fetched it, never from that checkout or
+  the head under test: a setting a task adds or changes in its own diff does not apply to that task, and
+  an integration plane.json that does not load sets none. The prover is product tooling, not the plane's.
 - **A declared prover of the review.** A declared prover that exits 0 on the diff skips the step it
   names, recorded on the run: a `verify.provers` entry (§14.2) whose `skips` is `review` judges the fix
   diff `verify.skip_review` judges (at least one file; no paths rule of its own), its `command` run as
-  `proof` is, with the same fields filled in. `verify.skip_review`, when set, is tried first, then each
+  `proof` is, with the same fields filled in, and it is read from the integration branch's plane.json
+  as `verify.skip_review` is. `verify.skip_review`, when set, is tried first, then each
   such prover in order; the first to prove the fix sends it straight to verify. The verify run's
   `review_skip` then adds `prover` (its name) and `exit_code`, never the command text (§14.4).
 - **A fix of a clean review's minor findings needs no new review.** plane.json

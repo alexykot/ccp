@@ -307,7 +307,7 @@ def review_gate(cfg: Config, q: Path, tid: str, phase: str,
         skipped, unclean = verify.skip_after_clean(cfg, q, tid, a.head)
         if skipped:
             return None, skipped
-        no_skip = f" ({verify.review_proof_label(cfg)} does not apply: {unproven})" if unproven else ""
+        no_skip = f" ({unproven})" if unproven else ""  # §15.2: names the settings, read from the integration branch
         no_skip += f" (verify.skip_review_after_clean does not apply: {unclean})" if unclean else ""
         raise QueueError(f"{why}{no_skip}. Override once, on the lead's or the operator's word: "
                          '--allow-unreviewed-fix --reason "<their words>"', 4)

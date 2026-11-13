@@ -250,7 +250,8 @@ SUITE_SUMMARY_ALIASES = {"modules_ran_re": "ran_re", "modules_cached_re": "cache
 # finding goes to verify with no new review; the verifier confirms it answers only those findings.
 # `provers` ([] = none, §14.2, §15.2): each `{name, command, skips}`; a prover whose command exits 0 on the
 # task's diff (a gate stage) or the fix round's diff (`review`) skips the step `skips` names, recorded on
-# the run. `verify.skip_review` is one such prover, of the review, with its own paths rule.
+# the run. `verify.skip_review` is one such prover, of the review, with its own paths rule. Both are read
+# from plane.json on the integration branch (`skip_rules_at`), never from the checkout or the head under test.
 VERIFY_DEFAULTS: dict[str, Any] = {"accept_cache": None, "skip_review": None, "skip_review_after_clean": False,
                                    "provers": []}
 PROVER_KEYS = {"name", "command", "skips"}
@@ -1114,8 +1115,28 @@ def load(root: Path) -> Config:
     if not p.is_file():
         raise ConfigError(f"no {CONFIG_REL} in {root}: this product has not adopted ccp "
                           "(control-plane SPEC §8.1)")
+    return _parse(root, p.read_text())
+
+
+def skip_rules_at(root: Path, rev: str) -> tuple[dict[str, Any], str]:
+    """The `verify` block of plane.json as committed at `rev`, loaded and checked as `load` does (§14.2,
+    §15.2): the skip rules (`verify.skip_review`, `verify.provers`) are read from the integration branch
+    this way, so a rule a task adds or changes in its own diff does not apply to that task. The defaults
+    (nothing skipped) when `rev` or its plane.json does not exist, with "" as the reason; the defaults and
+    why when that plane.json does not load."""
+    r = subprocess.run(["git", "-C", str(root), "show", f"{rev}:{CONFIG_REL}"], capture_output=True, text=True)
+    if r.returncode != 0:
+        return copy.deepcopy(VERIFY_DEFAULTS), ""
     try:
-        raw = json.loads(p.read_text())
+        return _parse(root, r.stdout).verify, ""
+    except ConfigError as e:
+        return copy.deepcopy(VERIFY_DEFAULTS), f"plane.json on {rev} does not load ({str(e)[:200]})"
+
+
+def _parse(root: Path, text: str) -> Config:
+    """plane.json's text, parsed and checked, as the Config of the product at `root`."""
+    try:
+        raw = json.loads(text)
     except json.JSONDecodeError as e:
         raise ConfigError(f"{CONFIG_REL}: not valid JSON ({e})") from e
     if not isinstance(raw, dict) or not str(raw.get("project_id") or "").strip():

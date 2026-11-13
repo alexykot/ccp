@@ -30,6 +30,19 @@ A change that a cheap, declared check proves harmless (a comment-only diff, a do
   edits outside the declared paths (the 01-model table row, the README git floor, the runner brief,
   the prompt label) are accepted; list them in the PR body. Record this ruling in 0079's Context with
   a ruling round, then review. The task stays gated at merge."
+- Lead ruling (2026-11-13, after review and verify at `33643b8`, before the gate is decided; the second
+  ruling round), verbatim:
+  "Reviewer NIT 3 is a real hole, not a nit. A skip rule a task can grant itself by editing plane.json in
+  its own diff defeats the point of the gate, so fix it in one round:
+  - Provers and `verify.skip_review` are read from the integration branch's plane.json
+    (origin/<integration> at the merge base or tip), never from the head under test. A prover the task
+    adds or changes in its own diff doesn't apply to that task.
+  - Test it: a task that declares a prover in its own diff gets no skip.
+  - Say it in SPEC §14.2 (and §15.2 for skip_review).
+  - Fix review NIT 2 too: put the run id inside `proven_skips`.
+  Write this ruling into the task file's `Context (not checked)` section (second ruling round) and an
+  Implementation note. Update the PR body (SPEC text changes and the text they replace). Merge
+  origin/main first. Keep the earlier ruling (no command text on records) intact."
 
 ## Scope
 
@@ -88,6 +101,22 @@ A change that a cheap, declared check proves harmless (a comment-only diff, a do
   records carry the name and exit, the name looking the command up in plane.json. The tests assert the
   records' exact fields and that the command text appears in neither the suite record nor the ledger
   (nor the verify run's record, for the review prover).
+- 2026-11-13 (implementer, ruling round 2): applied the lead's second ruling, recorded in Context. The
+  skip rules are read from plane.json on `origin/<integration branch>`, its tip as the checkout last
+  fetched it (the ruling allows the merge base or the tip; the tip needs no merge base to find the rules,
+  so `ccp` reads them before anything else and a product without them sees no new message or fetch, and
+  a rule the integration branch drops stops applying at once). `config.skip_rules_at(root, rev)` loads
+  and checks plane.json at a revision (`git show`) and returns its `verify` block; `load` and it share
+  `_parse`. Gate stages (`suite.stage_provers`) take their provers from it, never from the checkout's
+  plane.json; an integration plane.json that does not load declares none, and the stage log says so.
+  Review (`verify.skip_review`) reads `verify.skip_review` and the review provers the same way, before
+  its fetch; its refusal reason now carries the settings label (`review_proof_label` takes the `verify`
+  block), so `ccp prompt verify` prints it as is. The suite `ended` row's and event's `proven_skips`
+  entries gain `run_id` (the suite run's run, null without one; review NIT 2). The command text stays
+  off every record (ruling round 1). SPEC §14.2, §14.4 and §15.2 and both schemas say so. Tests: a
+  prover, or `verify.skip_review`, that only the head (or the runner's checkout) declares gets no skip;
+  the integration branch's prover applies whatever the head declares; an integration plane.json that
+  does not load declares none. The prover tests now push their plane.json to origin/main.
 
 ## Verification notes
 

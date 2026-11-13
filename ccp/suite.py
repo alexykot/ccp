@@ -51,10 +51,11 @@ seconds, exit code of each that ran) and `failed_stage` on its `ended` row and e
 stages stops the run before the next starts: it exits 128 + N and names that stage. Every `ended` row
 and event says whether the run was `cold` (§14.6: its own `cached` count was 0; null without one).
 On the gate role's staged lane, a run that is recorded and names its task runs a stage's declared provers
-(plane.json `verify.provers`) before it starts: the first whose command exits 0 on the task's diff, from
-the head's merge base with the integration branch to HEAD in a clean checkout, skips the stage, and the
-`ended` row and its event record it in `proven_skips` (stage, prover name, exit code: no command text,
-§14.4; the command is looked up in plane.json by the name).
+(plane.json `verify.provers`, read from `origin/<integration branch>`, never from the checkout under test)
+before it starts: the first whose command exits 0 on the task's diff, from the head's merge base with the
+integration branch to HEAD in a clean checkout, skips the stage, and the `ended` row and its event record
+it in `proven_skips` (stage, prover name, exit code, run id: no command text, §14.4; the command is looked
+up in plane.json by the name).
 
 The record is `QUEUE_ROOT/runs/_suites.jsonl`, append-only: a `started` row when the command
 starts and an `ended` row when it ends, sharing a `suite_id`. The `ended` row also goes into the
@@ -92,7 +93,7 @@ from typing import Any
 
 from ccp.envvars import envvar, for_child
 from ccp import runs
-from ccp.config import PLANE_DOCS_STAGE, SUITE_LANE_RE, Config, fill, lane_for, lane_stages
+from ccp.config import PLANE_DOCS_STAGE, SUITE_LANE_RE, Config, fill, lane_for, lane_stages, skip_rules_at
 from ccp.queue import QueueError, emit, iso, root
 
 DEFAULT_COUNT_RE = r"^Ran (\d+) tests? in "
@@ -871,22 +872,27 @@ def worktree_env(cfg: Config | None, command: list[str] | None, warn: _Warn) -> 
 PROVER_TIMEOUT = 600  # seconds a gate stage's prover (verify.provers) may take; a timeout proves nothing
 
 
-def stage_provers(cfg: Config | None, lane: str | None, command: list[str] | None,
-                  stages: list[dict[str, Any]], started: dict[str, Any] | None) -> dict[str, list[dict[str, Any]]]:
+def stage_provers(cfg: Config | None, q: Path | None, lane: str | None, command: list[str] | None,
+                  stages: list[dict[str, Any]],
+                  started: dict[str, Any] | None) -> tuple[dict[str, list[dict[str, Any]]], str]:
     """The declared provers of each stage this run may skip (§14.2, plane.json `verify.provers`): only for
     the gate role's staged lane, on a run that is recorded and names its task, so a skip is always on the
-    record. {} otherwise."""
+    record. They are read from plane.json on `origin/<integration branch>` as this checkout last fetched
+    it, never from the checkout under test: a prover the task adds or changes in its own diff does not
+    apply to it. ({}, "") otherwise; ({}, why) when that plane.json does not load."""
     from ccp.config import PROVER_REVIEW  # noqa: PLC0415
+    from ccp.queue import integration_branch  # noqa: PLC0415
 
-    if cfg is None or command or not lane or lane != lane_for(cfg, "gate") or not stages[0].get("staged") \
-            or started is None or not started.get("task_id"):
-        return {}
+    if cfg is None or q is None or command or not lane or lane != lane_for(cfg, "gate") \
+            or not stages[0].get("staged") or started is None or not started.get("task_id"):
+        return {}, ""
+    rules, why = skip_rules_at(cfg.root, f"origin/{integration_branch(q)}")
     names = {st["name"] for st in stages if st["name"] != PLANE_DOCS_STAGE}
     out: dict[str, list[dict[str, Any]]] = {}
-    for pr in (cfg.verify or {}).get("provers") or []:
+    for pr in rules.get("provers") or []:
         if pr.get("skips") != PROVER_REVIEW and pr.get("skips") in names:
             out.setdefault(str(pr["skips"]), []).append(pr)
-    return out
+    return out, why
 
 
 def task_diff(cfg: Config, q: Path) -> tuple[dict[str, str] | None, str]:
@@ -1108,8 +1114,10 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
     results: list[tuple[dict[str, Any] | None, str | None]] = []
     code, rc = 0, 0
     cut: int | None = None  # §14.2: the stage a signal kept from starting
-    provers = stage_provers(cfg, a.lane, command, stages, started)
-    proven: list[dict[str, Any]] = []  # §14.2: each stage a prover skipped: stage, prover name, exit code
+    provers, unread = stage_provers(cfg, q, a.lane, command, stages, started)
+    if unread:
+        _stage_mark(log_fd, f"ccp suite: no prover runs: {unread}\n")
+    proven: list[dict[str, Any]] = []  # §14.2: each stage a prover skipped: stage, prover name, exit code, run id
     diff: tuple[dict[str, str] | None, str] | None = None
     reached = 0  # the stages run or skipped so far
     try:
@@ -1130,7 +1138,8 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                     _stage_mark(log_fd, f"ccp suite: stage {stage['name']}: prover {pr['name']} "
                                         + ("timed out\n" if pcode is None else f"exit {pcode}\n"))
                     if got or pcode == 0:
-                        skip = None if got else {"stage": stage["name"], "prover": str(pr["name"]), "exit_code": 0}
+                        skip = None if got else {"stage": stage["name"], "prover": str(pr["name"]), "exit_code": 0,
+                                                 "run_id": started.get("run_id")}
                         break
                 if got:
                     cut = i
