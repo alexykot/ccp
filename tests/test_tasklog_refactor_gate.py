@@ -99,16 +99,33 @@ class RefactorRerunsTheGate(unittest.TestCase):
                  "    1. Run `git status; scripts/gate.sh`.",
                  "    1. Run `ccp suite run --run r/implement --lane part -- scripts/gate.sh`.",
                  "    1. Change the seed, then run\n       `scripts/gate.sh`.",
-                 "    1. Read the notes.\n    2. Run `scripts/gate.sh`.")
+                 "    1. Read the notes.\n    2. Run `scripts/gate.sh`.",
+                 "    1. Run `env -u QUEUE_ROOT scripts/gate.sh`.",
+                 "    1. Run `env CI=1 -u QUEUE_ROOT bash scripts/gate.sh`.",
+                 "    1. Run `sh scripts/gate.sh`.",
+                 "    1. Run `time scripts/gate.sh`.",
+                 "    1. Run `timeout 900 scripts/gate.sh`.",
+                 "    1. Run `scripts/gate.sh 2>&1 | tail -3`.",
+                 "    1. Run `scripts/gate.sh > out.log`.",
+                 "    1. Run `scripts/gate.sh &>out.log`.")
         for form in forms:
             self.task(form)
             self.assertEqual(len(self.gate_errs()), 1, form)
+
+    def test_a_lane_declared_with_its_wrapper_matches_its_own_spelling(self):
+        p = self.product({"lanes": {"gate": ["bash", "scripts/gate.sh"]}})
+        self.task("    1. Run `bash scripts/gate.sh`.", p=p)
+        self.assertEqual(len(self.gate_errs(p)), 1)
 
     def test_the_lane_argv_inside_another_command_is_not_a_run_of_the_lane(self):
         p = self.product({"lanes": {"full": ["pytest"]}})
         self.task("    1. Run `pytest tests/test_registry.py`.", p=p)
         self.assertEqual(self.gate_errs(p), [])
-        for form in ("    1. Run `cat scripts/gate.sh`.", "    1. Run `scripts/gate.sh.bak`."):
+        self.task("    1. Run `pytest tests/test_registry.py > out.log`.", p=p)
+        self.assertEqual(self.gate_errs(p), [])
+        for form in ("    1. Run `cat scripts/gate.sh`.", "    1. Run `scripts/gate.sh.bak`.",
+                     "    1. Run `timeout scripts/gate.sh`.", "    1. Run `env -u scripts/gate.sh`.",
+                     "    1. Run `scripts/gate.sh 2`."):
             self.task(form)
             self.assertEqual(self.gate_errs(), [], form)
 

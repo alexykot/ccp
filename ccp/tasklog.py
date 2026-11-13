@@ -34,7 +34,7 @@ import re
 import shlex
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 import functools
 
@@ -89,6 +89,9 @@ STEPS_RE = re.compile(r"^[ \t]*steps:(.*?)(?=^[ \t]*(?:expect:|dry run\b)|\Z)", 
 WHOLE_SUITE_ROLES = ("gate", "full")
 SHELL_CONTROL = frozenset({";", "&", "&&", "|", "||", "(", ")"})
 ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+REDIRECT_RE = re.compile(r"^[<>&]*[<>][<>&]*$")
+# Words that run the command after them: `env [-u NAME|NAME=value]…`, `bash`/`sh`, `time`, `timeout N`.
+SHELLS = frozenset({"bash", "sh"})
 # §5: the plane template's placeholders. One left in a task file not yet done or dropped is a copy
 # not filled in. A placeholder inside a code span or a fenced block is quoted, not left, so it is not read.
 PLACEHOLDERS = ("NNNN-kebab-slug", "YYYY-MM-DD", "As a <role>", "<preconditions",
@@ -352,18 +355,43 @@ def _tokens(cmd: str) -> list[str]:
         return [w[2:] if w.startswith("./") else w for w in cmd.split()]
 
 
+def _ends_command(words: list[str], k: int) -> bool:
+    """A command ends at word `k`: the end, a shell control word, or a redirection (`>`, `2>&1`…)."""
+    if k == len(words) or words[k] in SHELL_CONTROL or REDIRECT_RE.match(words[k]):
+        return True
+    return words[k].isdigit() and k + 1 < len(words) and bool(REDIRECT_RE.match(words[k + 1]))
+
+
+def _command_starts(words: list[str], k: int) -> Iterator[int]:
+    """From a command position `k`, each index a command may start at: `k` itself, then past each
+    `NAME=value` word and each wrapper `env [-u NAME|NAME=value]…`, `bash`/`sh`, `time` and `timeout N`.
+    Every step is yielded, so a lane declared with its wrapper (`bash scripts/gate.sh`) still matches."""
+    while k < len(words):
+        yield k
+        w = words[k].rsplit("/", 1)[-1]
+        if ASSIGNMENT_RE.match(words[k]) or w in SHELLS or w == "time":
+            k += 1
+        elif w == "env":
+            k += 1
+            while k < len(words) and (words[k] in ("-i", "-") or ASSIGNMENT_RE.match(words[k])
+                                      or (words[k] == "-u" and k + 1 < len(words))):
+                k += 2 if words[k] == "-u" else 1
+        elif w == "timeout" and k + 1 < len(words) and re.match(r"^\d+(\.\d+)?[smhd]?$", words[k + 1]):
+            k += 2
+        else:
+            return
+
+
 def _runs_argv(words: list[str], argv: list[str]) -> bool:
     """`words` run `argv` as a whole command: it starts where a command starts (the start, after a
-    shell control word or after `--`, past any `NAME=value`) and ends where one ends."""
+    shell control word or after `--`, past any `NAME=value` and the wrappers `_command_starts` names)
+    and ends where one ends (`_ends_command`)."""
     argv = [a[2:] if a.startswith("./") else a for a in argv]
     n = len(argv)
-    for i in range(len(words) - n + 1):
-        if words[i:i + n] != argv or not (i + n == len(words) or words[i + n] in SHELL_CONTROL):
+    for k in range(len(words)):
+        if k and words[k - 1] not in SHELL_CONTROL and words[k - 1] != "--":
             continue
-        j = i
-        while j > 0 and ASSIGNMENT_RE.match(words[j - 1]):
-            j -= 1
-        if j == 0 or words[j - 1] in SHELL_CONTROL or words[j - 1] == "--":
+        if any(words[i:i + n] == argv and _ends_command(words, i + n) for i in _command_starts(words, k)):
             return True
     return False
 

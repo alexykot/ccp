@@ -58,6 +58,14 @@ A `kind: refactor` task proves itself by its own checks, not by re-running the w
   the check id and each lane. Done and dropped tasks are not judged, as with the dry-run and
   placeholder rules. §21.1 carries the PROPOSED bullet verbatim; the writing-tasks skill says it.
   Tests: `tests/test_tasklog_refactor_gate.py`.
+- 2026-11-13 (fix round 1): the match now sees the gate in the spellings this repo writes it in. A
+  command position is walked past `NAME=value` words and the wrappers `env [-u NAME|NAME=value]…`,
+  `bash`/`sh`, `time` and `timeout N`, each step tried, so a lane declared with its wrapper
+  (`bash scripts/gate.sh`) still matches; a redirection (`>`, `>>`, `<`, `>&`, `&>`, a digit before
+  one) ends the command like a shell control word. So `env -u QUEUE_ROOT scripts/gate.sh` and
+  `scripts/gate.sh 2>&1 | tail -3` are refused, while `pytest tests/x.py`, `cat scripts/gate.sh` and
+  `scripts/gate.sh.bak` still pass. Left out: `bash -c '…'`, `! cmd` and extra arguments after the
+  lane argv (`scripts/gate.sh --verbose`); the skill says which forms are read.
 
 ## Verification notes
 

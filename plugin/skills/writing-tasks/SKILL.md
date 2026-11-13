@@ -162,7 +162,8 @@ scope when a task in the scope depends on it (`refactor_in_scope: "deps"`), so a
 says so in `depends_on`. A refactor brief does not re-list the gate as a check: its checks prove
 the change by its own commands, since the verifier runs the gate anyway. `ccp tasks check` refuses a
 refactor not yet done whose check step runs the gate or full lane (the lanes `suite.roles` names, as
-`suite.lanes` declares them), as a whole command or as `ccp suite run --lane <lane>`.
+`suite.lanes` declares them) in a one-line backticked command: as a whole command, also behind `env`,
+`bash`/`sh`, `time` or `timeout N` or before a redirection, or as `ccp suite run --lane <lane>`.
 
 ## Review points and shaping
 
