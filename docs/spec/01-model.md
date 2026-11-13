@@ -482,7 +482,7 @@ In order, each a `## ` heading:
 | Section | Written by | Content |
 |---|---|---|
 | `Intent` | task writer | one paragraph: what is true for the user when this is done |
-| `Context (not checked)` | task writer; the design seat when ruling (§17); on a claimed task, the implementer, writing a ruling the runner passes (§10.5) | background and constraints the verifier does not walk as checks. `Context (not verified)` is read as this heading |
+| `Context (not checked)` | task writer; the design seat when ruling (§17); on a claimed task, the implementer, writing a ruling the runner passes (§10.5) | background and constraints the verifier does not walk as checks. `Context (not verified)` is read as this heading. A count, size, site list or "already"/"never" claim in it names, on its line, the command that measured it and the commit it ran at; `ccp tasks check` warns, without refusing, about a line of it, in a task not yet done, that states a number with no backticked command on it |
 | `Scope` | task writer | `- **In:** …` and `- **Out:** …`. In **In:**, a path the task creates is marked `new` and one it deletes `removed`, the word within 25 characters after the path; `ccp tasks check` warns, for a task not yet done, about a path there (holding a `/`, not a glob) that does not exist, is not marked and is not in a dependency's **In:** (§16.3) |
 | `dod_checks` | task writer | 1..`max_checks` checks, each `` - id: `kind-NN` `` then `story`, `setup`, `steps`, `expect`; a check whose steps run a command carries `dry run (<commit>): …` or `dry run: n/a — <reason>` when `task_log.dry_run` is on (§10). No soft language |
 | `Implementation notes` | runner, from the implementer's output | append-only |

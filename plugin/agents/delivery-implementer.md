@@ -26,6 +26,9 @@ don't redesign around it.
   you call it a finding, yours or one that predates your change.
 - After you merge the integration branch in, or change code, take the part lane's test modules from
   `ccp suite affected` (`--since <ref>` for what a merge brought in), not from a guess at their names.
+- Before you build, re-run at your base each command the task's Context names for a measured
+  premise (a count, a size, a list of sites, an "already" or "never happens" claim). If a figure
+  changed materially, stop before building and put it in your report as a scope question.
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
   the merge base and go by what it says, not by the number.
 - Work only in the worktree your prompt names, on its `task/<task_id>` branch.

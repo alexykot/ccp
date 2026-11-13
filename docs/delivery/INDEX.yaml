@@ -483,7 +483,7 @@ tasks:
     depends_on: []
     path: tasks/0096-bundle-follow-ups-by-area.md
   - id: 0097-measured-premises-carry-their-measurement
-    status: pending
+    status: done
     title: A brief's measured premises name the command and commit they came from, and the implementer re-checks them
     depends_on: []
     path: tasks/0097-measured-premises-carry-their-measurement.md
