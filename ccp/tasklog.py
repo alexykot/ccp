@@ -382,14 +382,24 @@ def _command_starts(words: list[str], k: int) -> Iterator[int]:
             return
 
 
+def _suite_run_dashes(words: list[str], k: int) -> bool:
+    """Word `k` is the `--` that ends a `ccp suite run`'s options, so a command starts after it; the
+    `--` of any other command (`git diff -- <path>`) is not a command position."""
+    start = max((i + 1 for i in range(k) if words[i] in SHELL_CONTROL), default=0)
+    for i in range(start, k):
+        if words[i].rsplit("/", 1)[-1] == "ccp" and words[i + 1:i + 3] == ["suite", "run"]:
+            return words.index("--", i + 3) == k
+    return False
+
+
 def _runs_argv(words: list[str], argv: list[str]) -> bool:
     """`words` run `argv` as a whole command: it starts where a command starts (the start, after a
-    shell control word or after `--`, past any `NAME=value` and the wrappers `_command_starts` names)
-    and ends where one ends (`_ends_command`)."""
+    shell control word or after a `ccp suite run`'s `--`, past any `NAME=value` and the wrappers
+    `_command_starts` names) and ends where one ends (`_ends_command`)."""
     argv = [a[2:] if a.startswith("./") else a for a in argv]
     n = len(argv)
     for k in range(len(words)):
-        if k and words[k - 1] not in SHELL_CONTROL and words[k - 1] != "--":
+        if k and words[k - 1] not in SHELL_CONTROL and not (words[k - 1] == "--" and _suite_run_dashes(words, k - 1)):
             continue
         if any(words[i:i + n] == argv and _ends_command(words, i + n) for i in _command_starts(words, k)):
             return True

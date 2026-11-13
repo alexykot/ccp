@@ -66,6 +66,10 @@ A `kind: refactor` task proves itself by its own checks, not by re-running the w
   `scripts/gate.sh 2>&1 | tail -3` are refused, while `pytest tests/x.py`, `cat scripts/gate.sh` and
   `scripts/gate.sh.bak` still pass. Left out: `bash -c '…'`, `! cmd` and extra arguments after the
   lane argv (`scripts/gate.sh --verbose`); the skill says which forms are read.
+- 2026-11-13 (fix round 2): `--` is a command position only when it is the first `--` after a
+  `ccp suite run` in the same command, the separator before its own command. Another command's
+  `--` (`git diff --exit-code main -- scripts/gate.sh`, `git log -- …`, `git checkout main -- …`)
+  is a path separator, so a refactor that proves the gate script untouched is no longer refused.
 
 ## Verification notes
 

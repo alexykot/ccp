@@ -125,7 +125,11 @@ class RefactorRerunsTheGate(unittest.TestCase):
         self.assertEqual(self.gate_errs(p), [])
         for form in ("    1. Run `cat scripts/gate.sh`.", "    1. Run `scripts/gate.sh.bak`.",
                      "    1. Run `timeout scripts/gate.sh`.", "    1. Run `env -u scripts/gate.sh`.",
-                     "    1. Run `scripts/gate.sh 2`."):
+                     "    1. Run `scripts/gate.sh 2`.",
+                     "    1. Run `git diff --exit-code main -- scripts/gate.sh`.",
+                     "    1. Run `git log --oneline -- scripts/gate.sh`.",
+                     "    1. Run `git checkout main -- scripts/gate.sh`.",
+                     "    1. Run `ccp suite run --lane part -- git diff -- scripts/gate.sh`."):
             self.task(form)
             self.assertEqual(self.gate_errs(), [], form)
 
