@@ -67,6 +67,12 @@ written before the rule is still read.
 A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_round`) carries the
 runner's `--note` as its reason; `record` adds that reason to the record's `findings` when no finding
 gives it yet, as its whole text or as the line it adds (`fill_reason`).
+
+A record may carry `catch_up` (§16.5 rule 4), which only `ccp tasks close` writes (`record_catch_up`;
+`record` refuses a verdict that carries one): close merged the integration tip into the approved head
+itself, ran the gate lane on the result and pushed it as the task branch's new head. `merge-ok` accepts
+that head, `catch_up.to`, in place of `head_sha` only when `catch_up.from` is `head_sha` and its
+`gate_run` is a passed `ccp suite run` of the product's gate lane bound to the task (`catch_up_refusal`).
 """
 from __future__ import annotations
 
@@ -87,7 +93,7 @@ from ccp.refs import ANY_TASK_ID, QUESTION_ID
 SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "verification.schema.json"
 # The record's schema version, stamped by `record`. A change that adds a key to the record's
 # contract, at any depth, raises it, so an older reader knows the record is newer than itself.
-RECORD_VERSION = 1
+RECORD_VERSION = 2  # 2: `catch_up` (§16.5 rule 4)
 # Clocks on two machines differ a little; a minute is the slack, not a rounding allowance.
 SKEW = timedelta(seconds=60)
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -763,6 +769,9 @@ def write_record(root: Path, queue: Path, rec: Any, now: datetime) -> tuple[list
         errs += approve_errors(rec)
         errs += producer_errors(queue, rec)
         errs += rests_on_errors(root, queue, rec)
+    if isinstance(rec, dict) and "catch_up" in rec:
+        errs.append("catch_up: only `ccp tasks close` records a catch-up (SPEC §16.5 rule 4); a verdict carries none. "
+                    "Remove it.")
     if isinstance(rec, dict) and isinstance(rec.get("gate"), dict) and rec["gate"].get("ci_run") and not _ci(queue):
         errs.append("gate.ci_run: this product's binding has no `ci: github-actions`, so a CI run is not evidence "
                     "(SPEC §15.3: the gate is the verifier's own run, never CI). Remove it.")
@@ -843,8 +852,13 @@ def merge_ok(cfg: Config, queue: Path, pr: str, task_id: str | None) -> tuple[li
     reasons += producer_errors(queue, rec, require=False)
     recorded_head = str(rec.get("head_sha") or "")
     if recorded_head and not heads_match(recorded_head, head):
-        reasons.append(f"the PR head {head[:12]} is not the approved head {recorded_head[:12]}: "
-                       "a push after the verdict needs a new verdict (re-verify packet)")
+        why = catch_up_refusal(cfg, queue, rec, rid, head) if "catch_up" in rec else None
+        if "catch_up" in rec and why is None:
+            body["catch_up"] = rec["catch_up"]  # §16.5 rule 4: close's own catch-up of the approved head
+        else:
+            reasons.append(f"the PR head {head[:12]} is not the approved head {recorded_head[:12]}: "
+                           "a push after the verdict needs a new verdict (re-verify packet)"
+                           + (f"; the record's catch-up does not cover it: {why}" if why else ""))
     body["gate_runs"] = _gate_runs(rec)
     when, how = recorded_at(queue, path)
     body["recorded"] = how
@@ -870,6 +884,57 @@ def merge_ok(cfg: Config, queue: Path, pr: str, task_id: str | None) -> tuple[li
     if not reasons:
         body["match_head_commit"] = head  # the PR's full head, which the approval names
     return reasons, body
+
+
+def catch_up_refusal(cfg: Config, queue: Path, rec: dict[str, Any], task_id: str, head: str) -> str | None:
+    """§16.5 rule 4: why the record's `catch_up` does not cover `head`, or None when it does: it starts
+    from the approved head (`head_sha`), ends at `head`, and its `gate_run` is a recorded `ccp suite run`
+    of the product's gate lane (`suite.roles`), bound to this task, that passed."""
+    from ccp import suite  # noqa: PLC0415
+    from ccp.config import lane_for  # noqa: PLC0415
+    cu = rec.get("catch_up")
+    if not isinstance(cu, dict):
+        return "the record carries no catch-up"
+    if not heads_match(str(cu.get("from") or ""), str(rec.get("head_sha") or "")):
+        return f"it starts from {str(cu.get('from'))[:12]}, not the approved head"
+    if not heads_match(str(cu.get("to") or ""), head):
+        return f"it ends at {str(cu.get('to'))[:12]}, not {head[:12]}"
+    sid = str(cu.get("gate_run") or "")
+    try:
+        row = next((r for r in suite.fold(queue) if r.get("suite_id") == sid), None)
+    except Exception:  # noqa: BLE001
+        row = None
+    lane = lane_for(cfg, "gate")
+    if row is None:
+        return f"its gate run {sid or '(none)'} is not recorded (ccp suite list)"
+    if row.get("task_id") != task_id:
+        return f"its gate run {sid} is bound to {row.get('task_id') or 'no task'}, not {task_id}"
+    if row.get("lane") != lane:
+        return f"its gate run {sid} ran lane {row.get('lane')!r}, not the gate lane {lane!r}"
+    if row.get("state") != "passed" or row.get("exit_code") != 0:
+        return f"its gate run {sid} did not pass ({row.get('state')}, exit {row.get('exit_code')})"
+    return None
+
+
+def record_catch_up(queue: Path, task_id: str, catch_up: dict[str, Any]) -> Path:
+    """§16.5 rule 4: `ccp tasks close` adds its catch-up to the task's approve record, stamped with this
+    reader's version (the key is version 2's). Raises ValueError, writing nothing, when the record is not
+    an approve or the result breaks the contract."""
+    path = queue / "verification" / f"{task_id}.json"
+    rec = _load(path)
+    if isinstance(rec, str):
+        raise ValueError(rec)
+    if rec.get("verdict") != "approve":
+        raise ValueError(f"the verdict is {rec.get('verdict')!r}, not approve")
+    was = rec.get("schema_version")
+    rec = {**rec, "catch_up": catch_up, "schema_version": max(RECORD_VERSION, was if _is(was, "integer") else 0)}
+    errs = record_errors(rec)
+    if errs:
+        raise ValueError("; ".join(errs))
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(rec, indent=2, ensure_ascii=False) + "\n")
+    tmp.replace(path)
+    return path
 
 
 def _note_run(cfg: Config, queue: Path, rec: dict[str, Any]) -> str | None:

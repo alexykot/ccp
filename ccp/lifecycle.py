@@ -27,6 +27,14 @@ changes. The reconcile is committed and pushed from the task's own merge worktre
 `worktrees.dir`), so the checkout close runs from, the product's main checkout included, keeps its
 branch, HEAD and index; a runner worktree (detached) is then moved to the reconcile. Run it from the
 runner worktree (§12.1).
+
+With several runners, a verified head behind the integration tip is caught up by `close` itself
+(§16.5 rule 4, `_catch_up`) when the merge is clean, the tip's new commits change no file the task's own
+diff or declared `paths` change, the task declares no build sign-off and the product has a gate lane:
+it merges the tip in (in its merge worktree), runs the gate lane there as a recorded `ccp suite run`,
+re-checks the tip (at most CATCH_UPS times), pushes the merge as the task branch's head, records the
+catch-up on the verification record (`verify.record_catch_up`) and merges that head. Otherwise it
+refuses `behind_tip`, naming the condition that failed, with the task branch unchanged.
 """
 from __future__ import annotations
 
@@ -34,6 +42,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -821,6 +830,10 @@ def _verification_note(q: Path, tid: str, pr: str, head: str, merge: str, today:
                      if isinstance(r, dict))
     s = (f"- {today} — verifier, PR #{pr} head `{head[:7]}` (squash `{merge[:7]}`): APPROVE. "
          f"Passed: {', '.join(passed) or 'none'}.")
+    cu = rec.get("catch_up")
+    if isinstance(cu, dict) and str(cu.get("to") or "")[:7] == head[:7]:  # §16.5 rule 4: close's own catch-up
+        s = s.replace(f"head `{head[:7]}`", f"head `{head[:7]}` (close's catch-up of the approved "
+                                            f"`{str(cu.get('from') or '')[:7]}`, gate run {cu.get('gate_run')})", 1)
     if unrun:
         s += f" Not run by the verifier: {', '.join(unrun)}."
     if gate:
@@ -924,7 +937,7 @@ def _changed(cwd: Path) -> list[str]:
 def _pr_state(cfg: Config, pr: str) -> dict[str, Any]:
     import json  # noqa: PLC0415
 
-    r = _run([_gh(), "pr", "view", pr, "--json", "state,headRefOid,mergeCommit"], cfg.root)
+    r = _run([_gh(), "pr", "view", pr, "--json", "state,headRefOid,headRefName,mergeCommit"], cfg.root)
     if r.returncode != 0:
         raise QueueError(f"gh pr view {pr}: {(r.stderr or r.stdout).strip()}", 1)
     try:
@@ -990,10 +1003,13 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
         ours = str(load_task_state(q, tid).get("merged_by_close") or "") == str(pr)
         reasons = [r for r in reasons if not r.startswith(f"PR {pr} is merged") or ("recorded after it" in r and not ours)]
         head = str(facts.get("headRefOid") or "")
-        if not reasons and not verify.heads_match(str(body.get("head_sha") or ""), head):
+        approved = [str(body.get("head_sha") or "")] + ([str(body["catch_up"].get("to") or "")]
+                                                          if isinstance(body.get("catch_up"), dict) else [])
+        if not reasons and not any(verify.heads_match(a, head) for a in approved):
             reasons.append(f"PR {pr} merged at {head[:12]}, which is not the approved head")
     if reasons:
         raise QueueError("merge refused, nothing merged (SPEC §15.5):\n  " + "\n  ".join(reasons), 1)
+    caught: dict[str, Any] | None = None  # §16.5 rule 4: close's own catch-up, when it made one
     if not already:
         head = body["match_head_commit"]
     if gaps := sign_off_gaps(q, meta, list(tasklog.SIGN_OFF_STAGES), head):  # §3.5, before the merge
@@ -1004,19 +1020,28 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
         from ccp import parallel  # noqa: PLC0415
         behind = _close_behind_tip(cfg, pr, tid, head, integ) if parallel.enabled(cfg) else []  # one runner: §16
         if behind:
-            raise QueueError(f"merge refused, nothing merged: behind_tip: the verified head {head[:7]} lacks "
-                             f"{len(behind)} commit(s) on origin/{integ} that change more than the task log "
-                             "and merge.behind_tip_ignore "
-                             f"({', '.join(behind[:5])}). `ccp prompt merge {tid} --pr {pr} --head {head[:7]}` has the "
-                             f"implementer merge origin/{integ} into task/{tid} (a plain push, never a rebase) and "
-                             "resolve any conflict (SPEC §13.2); then verify the new head, then "
-                             "close (SPEC §16.5); a head whose own change is unchanged needs no new review (§15.2)", 1)
+            try:
+                head, caught = _catch_up(cfg, q, meta, tid, pr, head, body, integ, facts)
+            except _NoCatchUp as why:
+                raise QueueError(f"merge refused, nothing merged: behind_tip: the verified head {head[:7]} lacks "
+                                 f"{len(behind)} commit(s) on origin/{integ} that change more than the task log "
+                                 "and merge.behind_tip_ignore "
+                                 f"({', '.join(behind[:5])}), and close did not catch it up itself: {why} "
+                                 "(SPEC §16.5 rule 4). "
+                                 f"`ccp prompt merge {tid} --pr {pr} --head {head[:7]}` has the "
+                                 f"implementer merge origin/{integ} into task/{tid} (a plain push, never a rebase) and "
+                                 "resolve any conflict (SPEC §13.2); then verify the new head, then "
+                                 "close (SPEC §16.5); a head whose own change is unchanged needs no new review (§15.2)",
+                                 1) from None
         save_task_state(q, tid, {"merged_by_close": str(pr), "merge_head": head, "phase_since": iso()})
         r = _merge(cfg, pr, head, tid)
         if r.returncode != 0:
             hint = (" (SPEC §16.5 rule 4: a conflict with what merged since: `ccp prompt merge` has the implementer "
                     "merge the tip in and resolve it, then verify again)") if "conflict" in (r.stderr + r.stdout).lower() \
                 or "not mergeable" in (r.stderr + r.stdout).lower() else ""
+            if caught:
+                hint += (f"; close's catch-up {head[:7]} is the task branch's head now, and the verification record "
+                         f"covers it: run `ccp tasks close {tid} --pr {pr}` again (SPEC §16.5 rule 4)")
             raise QueueError(f"gh pr merge {pr}: {(r.stderr or r.stdout).strip()}{hint}", 1)
         facts = _pr_state(cfg, pr)
         if facts.get("state") != "MERGED":
@@ -1034,6 +1059,8 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
         made = True
         out = _reconcile(rc, q, {**meta, "_file": rc.root / cfg.rel(meta["_file"])}, tid, pr, head, merge, summary,
                          integ, already, progress, caller=cfg.root)
+        if caught:
+            out["caught_up"] = caught
     except Exception as exc:  # noqa: BLE001  (after a merge, every failure needs the recovery steps)
         what = str(exc) if isinstance(exc, QueueError) else f"{type(exc).__name__}: {exc}"
         raise _recovery(cfg, q, tid, pr, merge, what, progress["pushed"], own, made) from None
@@ -1229,9 +1256,14 @@ def behind_tip(cfg: Config, pr: str | None, tid: str, head: str, integ: str) -> 
                 break
         else:
             raise Unjudged("head", f"the head {head[:7]} could not be fetched")
-    skip = task_log_paths(cfg) + [str(x) for x in ((cfg.merge or {}).get("behind_tip_ignore") or [])]
-    r = git(cfg.root, "log", "--format=%h", f"{head}..origin/{integ}", "--", ".", *[f":!{x}" for x in skip])
+    r = git(cfg.root, "log", "--format=%h", f"{head}..origin/{integ}", "--", ".", *_tip_pathspec(cfg))
     return r.stdout.split() if r.returncode == 0 else []
+
+
+def _tip_pathspec(cfg: Config) -> list[str]:
+    """§16.5 rule 4: what of the tip counts: everything but the task log and `merge.behind_tip_ignore`."""
+    skip = task_log_paths(cfg) + [str(x) for x in ((cfg.merge or {}).get("behind_tip_ignore") or [])]
+    return [f":!{x}" for x in skip]
 
 
 def _close_behind_tip(cfg: Config, pr: str, tid: str, head: str, integ: str) -> list[str]:
@@ -1246,6 +1278,171 @@ def _close_behind_tip(cfg: Config, pr: str, tid: str, head: str, integ: str) -> 
         print(f"ccp tasks close: warning: the verified head {head[:7]} could not be fetched to check it against "
               f"origin/{integ} (SPEC §16.5 rule 4); merging it as verified", file=sys.stderr)
         return []
+
+
+CATCH_UPS = 3  # §16.5 rule 4: the catch-ups one close makes, at most, before it refuses behind_tip
+CATCH_UP_LANE_WAIT = 1800  # seconds a catch-up's gate run waits for an exclusive gate lane another run holds (§16.6)
+PR_HEAD_POLLS = 15  # after the push, how many times close reads the PR until its head is the catch-up
+PR_HEAD_POLL_S = 2.0
+CATCH_UP_FILES_MAX = 200  # files kept in the record's tip_files and task_files, each
+
+
+class _NoCatchUp(Exception):
+    """§16.5 rule 4: close does not catch the verified head up itself; the message names the condition that
+    failed. Raised before anything is pushed: the task branch is unchanged."""
+
+
+def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, start: str, body: dict[str, Any],
+              integ: str, facts: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """§16.5 rule 4: close merges origin/<integ> into the PR head `start` itself, when the merge is clean, the
+    tip's new commits change no file the task's own diff or declared paths change, the task declares no build
+    sign-off, and the product has a gate lane; it runs the gate lane on the merge in its merge worktree as a
+    recorded run, re-checks the tip (at most CATCH_UPS catch-ups), pushes the merge as the task branch's new
+    head, records the catch-up on the verification record, and returns the head to merge and the catch-up.
+    Raises _NoCatchUp, with nothing pushed, naming the condition that failed."""
+    from ccp import parallel, suite, verify  # noqa: PLC0415
+    from ccp.config import lane_for  # noqa: PLC0415
+    verified = str(body.get("head_sha") or start)
+    if "build" in tasklog.sign_off_stages(meta):
+        raise _NoCatchUp("build sign-off: the task declares a build sign-off, which covers the verified head only")
+    declared = [p.strip().removeprefix("./") for p in tasklog._as_list(meta.get("paths")) if p.strip()]
+    if not declared:
+        raise _NoCatchUp("no declared paths: the task declares no `paths`, so the tip's files cannot be checked "
+                         "against them")
+    lane = lane_for(cfg, "gate")
+    if lane not in ((cfg.suite or {}).get("lanes") or {}):
+        raise _NoCatchUp(f"no gate lane: plane.json suite.lanes names no lane {lane!r} for the gate role "
+                         "(suite.roles), so there is no gate to run on the merge")
+    path = _merge_path(cfg, tid)
+    if path is None:
+        raise _NoCatchUp("no merge worktree: the product has no worktrees.dir to run the gate in")
+    if verify.recorded_at(q, q / "verification" / f"{tid}.json")[1] != "written":
+        raise _NoCatchUp("the queue keeps its verification records in git, where close records no catch-up")
+    branch = str(facts.get("headRefName") or f"task/{tid}")
+    prior = body.get("catch_up") if isinstance(body.get("catch_up"), dict) else {}
+    tips: set[str] = set(prior.get("tip_files") or []) if verify.heads_match(str(prior.get("to") or ""), start) else set()
+    head, tip, gate_run, task_files, made = start, "", "", [], False
+    try:
+        for n in range(1, CATCH_UPS + 1):
+            tip = git(cfg.root, "rev-parse", f"origin/{integ}^{{commit}}", check=True).stdout.strip()
+            merged = _catch_up_commit(cfg, head, tip, branch, integ)  # (a) a clean merge-tree
+            task_files = _task_files(cfg, head, tip)
+            tip_files = _tip_files(cfg, head, tip)
+            own = set(task_files)
+            overlap = [f for f in tip_files if f in own or any(parallel.meets(f, p) for p in declared)]
+            if overlap:  # (b)
+                raise _NoCatchUp(f"overlap: the tip's new commits change {', '.join(overlap[:5])}, which the task's "
+                                 "own diff or declared paths change")
+            wt = _merge_checkout(cfg, tid, integ).root
+            made = True
+            co = git(wt, "checkout", "-q", "--detach", merged)
+            if co.returncode != 0:
+                raise _NoCatchUp(f"the merge {merged[:7]} could not be checked out in {wt}: "
+                                 f"{(co.stderr or co.stdout).strip()[:200]}")
+            gate_run, code = _catch_up_gate(q, wt, tid, lane)
+            if code == suite.BUSY_EXIT:
+                raise _NoCatchUp(f"gate lane busy: the gate lane {lane!r} stayed held by another run for "
+                                 f"{CATCH_UP_LANE_WAIT} s")
+            if not gate_run:
+                raise _NoCatchUp(f"the gate run on {merged[:7]} was not recorded (exit {code}), so it cannot stand for "
+                                 "the merge")
+            if code != 0:
+                raise _NoCatchUp(f"red gate: the gate lane {lane!r} exited {code} on {merged[:7]}, the merge of "
+                                 f"origin/{integ} into {head[:7]} (gate run {gate_run})")
+            tips.update(tip_files)
+            head = merged
+            if not _close_behind_tip(cfg, pr, tid, head, integ):
+                break
+        else:
+            raise _NoCatchUp(f"tip moved too often: origin/{integ} moved again after each of {CATCH_UPS} catch-ups")
+        pushed = git(cfg.root, "push", "-q", "origin", f"{head}:refs/heads/{branch}")
+        if pushed.returncode != 0:
+            raise _NoCatchUp(f"push refused: git push of {head[:7]} to {branch}: "
+                             f"{(pushed.stderr or pushed.stdout).strip()[:200]}")
+    except BaseException:
+        if made:  # nothing of the catch-up stands: its worktree goes, as after a close
+            git(_main_checkout(cfg), "worktree", "remove", "--force", str(path))
+        raise
+    caught = {"from": verified, "to": head, "tip": tip, "gate_run": gate_run, "merge_tree": "clean",
+              "tip_files": sorted(tips)[:CATCH_UP_FILES_MAX], "task_files": task_files[:CATCH_UP_FILES_MAX]}
+    pushed_note = (f"close caught {start[:7]} up to {head[:7]} (gate run {gate_run}) and pushed it to {branch}, "
+                   "so the PR's head is that merge now")
+    try:
+        verify.record_catch_up(q, tid, caught)
+    except (OSError, ValueError) as exc:
+        raise QueueError(f"merge refused, nothing merged: {pushed_note}, but the verification record could not take "
+                         f"the catch-up ({exc}): verify the new head, then close (SPEC §16.5 rule 4)", 1) from None
+    emit(q, cfg, tid, "verify", "set", {"field": "catch_up", "pr": pr, "from": verified, "to": head, "tip": tip,
+                                        "gate_run": gate_run, "catch_ups": n})
+    reasons: list[str] = []
+    for i in range(PR_HEAD_POLLS):  # the hosting service moves the PR's head to the push; it may take a moment
+        reasons, now_ok = verify.merge_ok(cfg, q, pr, tid)
+        if not reasons and verify.heads_match(str(now_ok.get("match_head_commit") or ""), head):
+            return str(now_ok["match_head_commit"]), caught
+        if i + 1 < PR_HEAD_POLLS:
+            time.sleep(PR_HEAD_POLL_S)
+    raise QueueError(f"merge refused, nothing merged: {pushed_note}, and the verification record covers it, but "
+                     f"merge-ok refuses: {'; '.join(reasons) or 'the PR head is not the catch-up'}. Run "
+                     f"`ccp tasks close {tid} --pr {pr}` again once the PR shows {head[:7]} (SPEC §16.5 rule 4)", 1)
+
+
+def _catch_up_commit(cfg: Config, head: str, tip: str, branch: str, integ: str) -> str:
+    """§16.5 rule 4 (a): the merge of `tip` into `head` as a commit, from a clean `git merge-tree`; touches no
+    working tree. Raises _NoCatchUp naming the conflicting files."""
+    r = git(cfg.root, "merge-tree", "--write-tree", "--name-only", "--no-messages", head, tip)
+    if r.returncode == 1:
+        files = [x for x in r.stdout.splitlines()[1:] if x.strip()]
+        raise _NoCatchUp(f"conflict: git merge-tree of {head[:7]} and origin/{integ} conflicts"
+                         + (f" in {', '.join(files[:5])}" if files else ""))
+    if r.returncode != 0 or not r.stdout.strip():
+        raise _NoCatchUp(f"conflict: git merge-tree could not merge {head[:7]} and origin/{integ}: "
+                         f"{(r.stderr or r.stdout).strip()[:200]}")
+    msg = f"Merge origin/{integ} into {branch} (ccp tasks close catch-up, SPEC §16.5 rule 4)"
+    if envvar("CCP_COMMIT_TRAILER"):
+        msg += "\n\n" + envvar("CCP_COMMIT_TRAILER")
+    c = git(cfg.root, "commit-tree", r.stdout.splitlines()[0].strip(), "-p", head, "-p", tip, "-m", msg)
+    if c.returncode != 0:
+        raise _NoCatchUp(f"the merge commit could not be made: {(c.stderr or c.stdout).strip()[:200]}")
+    return c.stdout.strip()
+
+
+def _task_files(cfg: Config, head: str, tip: str) -> list[str]:
+    """§16.5 rule 4 (b): the files the task's own diff changes, `<merge-base>..<head>`, both sides of a rename."""
+    mb = git(cfg.root, "merge-base", head, tip)
+    if mb.returncode != 0:
+        raise _NoCatchUp(f"{head[:7]} and the tip share no merge base")
+    r = git(cfg.root, "diff", "-z", "--name-status", "--no-renames", mb.stdout.strip(), head)
+    if r.returncode != 0:
+        raise _NoCatchUp(f"the task's own diff could not be read: {(r.stderr or r.stdout).strip()[:200]}")
+    return sorted({p for p in r.stdout.split("\0")[1::2] if p})
+
+
+def _tip_files(cfg: Config, head: str, tip: str) -> list[str]:
+    """§16.5 rule 4 (b): the files the tip's new commits (`<head>..<tip>`, as behind_tip reads them) change,
+    the task log and `merge.behind_tip_ignore` aside; a merge commit's against each parent, both sides of a
+    rename."""
+    r = git(cfg.root, "log", "-z", "--format=", "--name-only", "--no-renames", "-m", f"{head}..{tip}", "--", ".",
+            *_tip_pathspec(cfg))
+    if r.returncode != 0:
+        raise _NoCatchUp(f"the tip's files could not be read: {(r.stderr or r.stdout).strip()[:200]}")
+    return sorted({p for p in (x.strip("\n") for x in r.stdout.split("\0")) if p})
+
+
+def _catch_up_gate(q: Path, wt: Path, tid: str, lane: str) -> tuple[str, int]:
+    """§16.5 rule 4: the product's gate lane on the catch-up, in close's merge worktree, through `ccp suite run`
+    as a recorded run bound to the task (§14.1); its summary goes to close's stderr. The recorded run's id
+    ("" when none was recorded) and its exit code."""
+    from ccp import suite  # noqa: PLC0415
+    before = {r.get("suite_id") for r in suite.fold(q)}
+    env = {k: v for k, v in os.environ.items() if k != "CCP_SUITE_ID"}  # close is no suite run: this one records
+    env["QUEUE_ROOT"] = str(q)
+    r = subprocess.run([*suite.self_argv(), "--root", str(wt), "suite", "run", "--task", tid, "--phase", "verify",
+                        "--lane", lane, "--summary", "--wait", str(CATCH_UP_LANE_WAIT)],
+                       cwd=wt, capture_output=True, text=True, env=env, stdin=subprocess.DEVNULL)
+    print(f"ccp tasks close: the catch-up's gate (SPEC §16.5 rule 4):\n{r.stdout}{r.stderr}".rstrip(), file=sys.stderr)
+    rows = [x for x in suite.fold(q)
+            if x.get("suite_id") not in before and x.get("task_id") == tid and x.get("lane") == lane]
+    return (str(rows[-1]["suite_id"]) if rows else ""), r.returncode
 
 
 def _undeclared(cfg: Config, meta: dict[str, Any], merge: str) -> list[str] | None:

@@ -32,6 +32,14 @@ through a merge round and a full re-verify (§16.5 rule 4).
   verified task's merge with the tip is clean and the tip's new commits don't touch the task's own
   files, close merges after re-running only the gate. §31: this changes when close may merge, so the
   merge waits on the operator's approval of the final text at its gate.
+- Lead ruling, fix round 1 (verbatim): "(1) edit SPEC §15.6 rule 2 and §16.1 so each points to the
+  catch-up exception in §16.5 rule 4, so the SPEC does not contradict itself. In the PR body's §31
+  section quote each with its exact CURRENT text (and PROPOSED), alongside the other four sites. (2)
+  Also fix the review's MINOR 1 (runner brief step 9 / Several runners rule 4: say close may run the
+  gate lane before merging, up to 3 times, so give it the longest timeout and re-run it if
+  interrupted) and MINOR 3 (add a test that a task with sign_off: brief and its sign-off recorded
+  still catches up and merges). NITs optional; skip them unless trivial. Then merge origin/main if
+  behind, and report the new head."
 
 ## Scope
 
@@ -131,6 +139,38 @@ through a merge round and a full re-verify (§16.5 rule 4).
 ## Implementation notes
 
 *Append-only, newest last.*
+
+- 2026-11-13 — implementer: `ccp tasks close` at `behind_tip` (several runners) calls `lifecycle._catch_up`.
+  Conditions, in the order checked: no `build` sign-off; non-empty frontmatter `paths` (the declared ones,
+  not the Scope-derived fallback of §16.3); a `suite.lanes` entry for the gate role's lane (`suite.roles`;
+  the role always has a name, so "configures" is read as "the lane exists to run"); a merge worktree
+  (`worktrees.dir`); a queue that keeps its records outside git. Then per round: `git merge-tree
+  --write-tree` of the head and the tip (a), the merge made with `commit-tree` (parents: head, tip); the
+  overlap (b): tip files are `git log -m --no-renames --name-only <head>..<tip>` with the behind_tip
+  pathspec, task files `git diff --name-status --no-renames <merge-base>..<head>`, a tip file meets a task
+  file exactly or a declared path by `parallel.meets`. The merge is checked out in `merge-<nnnn>` and the
+  gate lane runs there as `ccp suite run --task <id> --phase verify --lane <gate> --summary --wait 1800` (a
+  child of this `ccp`, `suite.self_argv`); the new suite row for the task and lane is the gate run. A green
+  gate re-checks `behind_tip` on the merge; at most `CATCH_UPS = 3` rounds. Then a plain push to the PR's
+  head branch (`headRefName`, else `task/<id>`), `verify.record_catch_up` (the record's `schema_version`
+  raised to 2), a `verify`/`set` event (`field: catch_up`), and `merge-ok` read until the PR shows the
+  push (15 reads, 2 s apart). Any refusal before the push removes the merge worktree and refuses
+  `behind_tip` naming the condition; the branch is unchanged.
+- `merge-ok` (`verify.catch_up_refusal`) accepts a PR head other than `head_sha` only when `catch_up.from`
+  is `head_sha`, `catch_up.to` is the PR head and `gate_run` is a recorded, passed suite run of the gate
+  lane bound to the task. `ccp verify record` refuses a verdict carrying `catch_up` (only close writes it).
+  `ccp verify check` is unchanged: it still wants `head_sha`. A re-run of close after a merge at the
+  caught-up head accepts it as approved. The Verification notes line names the catch-up and its gate run.
+- A merge refused after the push leaves the branch at the catch-up, which the record covers: the error
+  says so, and a re-run of close merges it (tested). The record contract's key list for version 2 is
+  pinned in `tests/test_verify.py`; the example record says version 2.
+- 2026-11-13 — implementer, fix round 1 (the lead's ruling in Context): SPEC §15.6 rule 2 ("close also
+  refuses such a verified head unless it catches it up (§16.5 rule 4)") and §16.1 ("verified there or
+  caught up by close (§16.5 rule 4)") now point to the catch-up, so the SPEC no longer contradicts it.
+  The runner brief's step 9 and Several runners rule 4 say close may run the gate lane before merging,
+  up to 3 times: give it the longest timeout and run it again if interrupted. New test
+  `test_a_brief_sign_off_is_carried_across_a_catch_up` (a `brief` sign-off recorded before the claim;
+  the tip disjoint; close catches up and merges). NITs left: none was trivial inside this scope.
 
 ## Verification notes
 

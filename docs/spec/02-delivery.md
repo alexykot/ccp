@@ -175,8 +175,8 @@ plane's commit hook template (`scripts/git-hooks/pre-commit.template`) runs it w
 
 1. `ccp verify merge-ok` and the merge pinned to the verified head (§15.5). It refuses before
    merging when the checkout it runs from has changes or a rebase in progress; with several runners it
-   refuses a head behind the tip (§16.5 rule 4). It refuses (exit 1) a task whose declared sign-off
-   (§3.5) is missing, or whose `build` sign-off covers another head than the one it merges, or whose
+   refuses a head behind the tip unless it catches it up (§16.5 rule 4). It refuses (exit 1) a task
+   whose declared sign-off (§3.5) is missing, or whose `build` sign-off covers another head than the one it merges, or whose
    `sign_off:` value is malformed, naming it; nothing is merged, and on a re-run after a merge the
    reconcile waits for it too.
 2. **Reconcile:** the task file's status and Verification notes line (from the verifier's record),
@@ -855,9 +855,10 @@ to that head: plane.json `merge.command`, a template naming `{pr}`, `{head_sha}`
 head `merge-ok` prints (`match_head_commit`). Close confirms the PR merged through `gh` (the merge
 commit is the one `gh pr view` names; a merge `gh` accepts without merging, such as a merge queue,
 stops it). `merge-ok` reads the PR with `gh` and refuses unless the PR is open, its head is the
-record's `head_sha`, the record passes `ccp verify`'s rules and is `approve` with no failed check, it
-carries the verifier's `gate` with every run at exit 0, its `task_id` names the record it is in, and
-it was written no earlier than its `checked_at`. A refusal for a PR already merged says whether the
+record's `head_sha` or a head recorded as its catch-up (§16.5 rule 4), the record passes `ccp
+verify`'s rules and is `approve` with no failed check, it carries the verifier's `gate` with every
+run at exit 0, its `task_id` names the record it is in, and it was written no earlier than its
+`checked_at`. A refusal for a PR already merged says whether the
 approval was recorded before or after the merge. `merge-ok` lists `unrun_checks`, `gate_runs` and
 `match_head_commit`. A PR that is not a task's (a reconcile, a SPEC or ADR PR, a docs-only PR) is
 approved in `verification/pr-<n>.json`, whose verdict's `task_id` is exactly `pr-<n>`. `ccp verify
@@ -874,9 +875,9 @@ They hold for every PR the runner merges, a task's or not (ADR-0011).
    since (`behind_tip`; commits that touch only the task log or the product's
    `merge.behind_tip_ignore` paths do not count, §16.5 rule 4) before a verifier starts, with one
    runner or several, so the runner merges the tip into the head before asking for a verify. Under
-   several runners `ccp tasks close` also refuses such a verified head; with one runner `close` does
-   not run this check. The task branch takes the integration branch by a merge, never a rebase (a
-   rebase needs a force-push).
+   several runners `ccp tasks close` also refuses such a verified head unless it catches it up (§16.5
+   rule 4); with one runner `close` does not run this check. The task branch takes the integration
+   branch by a merge, never a rebase (a rebase needs a force-push).
 3. **Re-verify after an integration merge.** When the head moved only by merging the integration
    branch and the PR's own change is unchanged (same patch id), no new review is needed (§15.2). The
    verdict must still be at the new head: the runner opens `ccp prompt verify --head <new> --note
@@ -885,7 +886,7 @@ They hold for every PR the runner merges, a task's or not (ADR-0011).
    as `ran: false`, `pass: null`, `rests_on: "approve at <old>"`, and puts in `findings` the command
    showing the PR's own files are unchanged (for example `git diff <old> <new> -- <the PR's files>`
    printing nothing). A merge with a conflict, or one whose own change moved, is reviewed and verified
-   in full.
+   in full. A new head needs a new verdict, except a catch-up close made itself (§16.5 rule 4).
 4. **Minors before merge; reasons and the rest in the verifier's record.** A minor finding that
    could cost a later cycle is fixed before the merge. A second verify round with no fix round,
    or a merge or ruling round (§13.2), between says why in its `findings` (from the runner's
@@ -942,10 +943,11 @@ Tasks in unrelated parts of a codebase need not wait for each other (ADR-0012). 
 worktrees, workers and merge worktree; a teammate's Agent call blocks until its worker ends, so one
 runner runs one worker at a time. Correctness never rests on declared paths: a task merges only from
 a head that contains the current integration tip (the task log and the paths in
-`merge.behind_tip_ignore` aside, §16.5 rule 4), verified there, and git resolves the rest with no
-merge lock. Two merges that conflict: the later fails, and its implementer resolves it. A merge
-landing between another task's catch-up and its merge is a small window, accepted. Declared paths
-only decide what to start together. Off (`max_in_flight: 1`) is the single-runner behaviour, exactly.
+`merge.behind_tip_ignore` aside, §16.5 rule 4), verified there or caught up by close (§16.5 rule 4),
+and git resolves the rest with no merge lock. Two merges that conflict: the later fails, and its
+implementer resolves it. A merge landing between another task's catch-up and its merge is a small
+window, accepted. Declared paths only decide what to start together. Off (`max_in_flight: 1`) is the
+single-runner behaviour, exactly.
 
 ### 16.2 The knob
 
@@ -1056,6 +1058,13 @@ task's holder.
    on `--head`, with one runner too, and refuses (exit 4, nothing opened) a head that lacks the tip
    beyond those paths: merge the tip in first. A tip or head it cannot fetch is a warning there; with
    several runners close still checks.
+   When the merge with the tip is clean, the tip's new commits change no file the task's own diff or
+   declared paths change, and the task declares no build sign-off, close merges the tip into the
+   verified head itself, runs the gate lane on the result as a recorded run, re-checks the tip (at
+   most 3 catch-ups), and on a green gate merges that commit, recording the catch-up in the
+   verification record. Review and verify are not repeated: the task's own diff is unchanged. A break
+   outside the gate lane's coverage is not caught here; the gate lane is what the integration branch
+   is held to. Otherwise it refuses as above, naming the condition that failed.
    The task's implementer merges `origin/<integration>` into the task branch (a plain push; PRs
    squash-merge) and resolves any conflict; the task is verified again on the new head (§15.6
    rule 3). A merge the hosting service refuses for a conflict is the same case.

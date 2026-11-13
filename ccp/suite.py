@@ -273,11 +273,15 @@ def resolve_argv(cfg: Config | None, lane: str | None, command: list[str] | None
     return stages[0]["argv"]
 
 
+def self_argv() -> list[str]:
+    """This `ccp` itself, as a command: its `bin/ccp` under this interpreter, else `python -m ccp`."""
+    exe = Path(__file__).resolve().parent.parent / "bin" / "ccp"
+    return [sys.executable, str(exe)] if exe.is_file() else [sys.executable, "-m", "ccp"]
+
+
 def plane_docs_argv(cfg: Config) -> list[str]:
     """The built-in stage's command (§14.2): this `ccp`'s own `docs check`, in the product root."""
-    exe = Path(__file__).resolve().parent.parent / "bin" / "ccp"
-    head = [sys.executable, str(exe)] if exe.is_file() else [sys.executable, "-m", "ccp"]
-    return [*head, "--root", str(cfg.root), "docs", "check"]
+    return [*self_argv(), "--root", str(cfg.root), "docs", "check"]
 
 
 def resolve_stages(cfg: Config | None, lane: str | None, command: list[str] | None) -> list[dict[str, Any]]:
