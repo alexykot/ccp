@@ -93,6 +93,12 @@ round (§5, §13).
   (which reads as if the check also saw the commit and the "already"/"never" claims): the check
   detects neither, and the Scope asked for neither. `docs/spec/01-model.md` is outside the declared
   paths, accepted by the ruling. No code or test changed. Merged `origin/main` (839ce6e) first.
+- 2026-11-13 (implementer, fix round 1): review MAJOR 1: two single-word code spans on one line
+  matched the old command regex as one span (it ran across the backticks), so a line citing two
+  paths next to a count was not warned about. A line is now cleared only when one of its code spans
+  (`CODE_SPAN_RE`, each span on its own) holds two words or more; the cross-backtick
+  `COMMAND_SPAN_RE` is gone. Review NIT 1: the warning no longer skips a task whose id does not
+  parse as a number; `unmeasured_numbers` runs before that skip and keeps its own done/dropped skip.
 
 ## Verification notes
 

@@ -111,7 +111,6 @@ LIST_MARKER_RE = re.compile(r"^([ \t]*)\d+[.)](?=[ \t])")
 _MONTH = (r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|"
           r"Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?")
 WORD_DATE_RE = re.compile(rf"\b(?:\d{{1,2}}[ \t]+{_MONTH}(?:[ \t]+\d{{4}})?|{_MONTH}[ \t]+\d{{1,2}}(?:,?[ \t]+\d{{4}})?)\b")
-COMMAND_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)[ \t]*\S+[ \t]+\S[^\n]*?(?<!`)\1(?!`)")
 # §5.2: what an empty ref list that includes spec_refs is told to do.
 SPEC_REFS_HINT = " — list the SPEC sections this task answers to in `spec_refs` and cite them in its text (§5.2)"
 
@@ -498,7 +497,7 @@ def unmeasured_numbers(t: dict[str, Any], rel: str) -> list[str]:
     unfenced = FENCE_RE.sub(_blank, body)
     out = []
     for n, line in enumerate(unfenced.split("\n")):
-        if COMMAND_SPAN_RE.search(line):
+        if any(len(span.group(0).strip("`").split()) > 1 for span in CODE_SPAN_RE.finditer(line)):
             continue
         prose = WORD_DATE_RE.sub(_blank, LIST_MARKER_RE.sub(r"\1", CODE_SPAN_RE.sub(_blank, line)))
         m = CONTEXT_NUMBER_RE.search(prose)
@@ -599,10 +598,10 @@ def warnings(cfg: Config) -> list[str]:
            f"not the task file (§5): it reads as {t['status']!r}; write that"
            for t in tasks if t.get("_legacy_status")]
     for t in tasks:
+        out += unmeasured_numbers(t, cfg.rel(t["_file"]))
         own = _number(t.get("task_id"), cfg)
         if own is None or t.get("status") in TERMINAL:
             continue
-        out += unmeasured_numbers(t, cfg.rel(t["_file"]))
         body = t["_text"].split("\n---\n", 1)[-1]
         for m in prose_dep_re(ids.task_width).finditer(body):
             if m.group(1) in later and int(m.group(1)) > own:
