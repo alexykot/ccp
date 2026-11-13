@@ -248,7 +248,13 @@ SUITE_SUMMARY_ALIASES = {"modules_ran_re": "ran_re", "modules_cached_re": "cache
 # root) and that the product's `proof` command passes (exit 0) goes to verify with no new review.
 # `skip_review_after_clean` (false = off, §15.2): a fix round after a review with no BLOCKER or MAJOR
 # finding goes to verify with no new review; the verifier confirms it answers only those findings.
-VERIFY_DEFAULTS: dict[str, Any] = {"accept_cache": None, "skip_review": None, "skip_review_after_clean": False}
+# `provers` ([] = none, §14.2, §15.2): each `{name, command, skips}`; a prover whose command exits 0 on the
+# task's diff (a gate stage) or the fix round's diff (`review`) skips the step `skips` names, recorded on
+# the run. `verify.skip_review` is one such prover, of the review, with its own paths rule.
+VERIFY_DEFAULTS: dict[str, Any] = {"accept_cache": None, "skip_review": None, "skip_review_after_clean": False,
+                                   "provers": []}
+PROVER_KEYS = {"name", "command", "skips"}
+PROVER_REVIEW = "review"  # the step a prover's `skips` names for the review of a fix round (§15.2)
 ACCEPT_CACHE_DEFAULTS: dict[str, Any] = {"max_age_days": None, "cold_tasks": [], "review": False}
 SKIP_REVIEW_KEYS = {"paths", "proof"}
 SKIP_REVIEW_FIELDS = ("task_id", "reviewed", "head", "from")
@@ -626,6 +632,43 @@ def _stages_problem(lane: str, v: list[dict[str, Any]]) -> str | None:
     return None
 
 
+def gate_stage_names(suite_block: dict[str, Any]) -> list[str]:
+    """The stages the gate role's lane declares (§14.2), the ones a prover may skip; [] for an argv lane or
+    none. The plane's own `plane-docs` stage is never among them."""
+    roles = suite_block.get("roles") if isinstance(suite_block.get("roles"), dict) else {}
+    lanes = suite_block.get("lanes") if isinstance(suite_block.get("lanes"), dict) else {}
+    st = lane_stages(lanes.get(str(roles.get("gate") or SUITE_DEFAULTS["roles"]["gate"])))
+    return [str(x.get("name")) for x in st or []]
+
+
+def _provers_problems(v: Any, suite_block: dict[str, Any]) -> list[str]:
+    """`verify.provers` (§14.2, §15.2): a list of `{name, command, skips}`, each name a unique label and
+    `skips` the review or a stage of the gate role's lane."""
+    if not isinstance(v, list):
+        return ["verify.provers must be a list of {name, command, skips}"]
+    bad: list[str] = []
+    seen: set[str] = set()
+    stages = gate_stage_names(suite_block)
+    for i, p in enumerate(v):
+        where = f"verify.provers[{i}]"
+        if not isinstance(p, dict) or set(p) != PROVER_KEYS:
+            bad.append(f"{where} must be {{name, command, skips}}")
+            continue
+        name, cmd, skips = p["name"], p["command"], p["skips"]
+        if not isinstance(name, str) or not SUITE_LANE_RE.match(name):
+            bad.append(f"{where}.name must be a label (lowercase, at most 32 characters)")
+        elif name in seen:
+            bad.append(f"verify.provers: the name {name!r} is given twice")
+        else:
+            seen.add(name)
+        if not (isinstance(cmd, str) and cmd.strip()):
+            bad.append(f"{where}.command must be a shell command (exit 0 = the step it skips is redundant)")
+        if skips != PROVER_REVIEW and (not isinstance(skips, str) or skips not in stages):
+            bad.append(f"{where}.skips must be {PROVER_REVIEW!r} or a stage the gate lane declares "
+                       f"(stages: {', '.join(stages) or 'none'})")
+    return bad
+
+
 def _rel_path(v: Any) -> bool:
     """A path relative to the product root, as a git pathspec: not empty, not absolute, no `..`, no `:`
     pathspec magic."""
@@ -970,6 +1013,7 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 bad.append("verify.skip_review.proof must be a shell command (exit 0 = the fix is proven)")
     if not isinstance(out["verify"]["skip_review_after_clean"], bool):
         bad.append("verify.skip_review_after_clean must be true or false")
+    bad += _provers_problems(out["verify"]["provers"], out["suite"])
     mu = out["mutate"]
     if not _opt_str(mu["command"]):
         bad.append("mutate.command must be a shell command naming {test}, or null for none")

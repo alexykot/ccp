@@ -551,6 +551,18 @@ has a `Suite:` line but no suite run is recorded for its run.
   line marks each stage's start and end in the log (on stderr with `--full`), and the summary gets one
   line before its last: each stage that ran, passed or FAILED with its exit code, and its seconds, then
   the stages not run. A nested run (below) of a staged lane runs its stages in order, unrecorded.
+- **Provers.** A declared prover that exits 0 on the diff skips the step it names, recorded on the run.
+  plane.json `verify.provers` (`[{name, command, skips}]`; empty, the default, is none) declares them:
+  `name` a label unique among them, `skips` `review` (§15.2) or a stage the gate role's lane declares
+  (never `plane-docs`). On a run of that lane that is recorded and names its task, before such a stage
+  starts, `ccp` runs the stage's provers in order from the checkout's root (`/bin/sh -c`, output
+  discarded, at most 600 s), with `{task_id}`, `{from}` (the head's merge base with
+  `origin/<integration branch>`) and `{head}` (the checkout's HEAD) filled in; the first that exits 0
+  skips the stage. A non-zero exit or a timeout skips nothing, and a checkout with uncommitted changes,
+  or a head with no merge base, runs no prover. A skipped stage is neither in `stages` nor among the
+  stages not run: the `ended` row records `proven_skips` (`[{stage, prover, command, exit_code}]`, the
+  prover's declared command), its event the same without `command`, and the summary's stage line names
+  each skipped stage and its prover. The prover is product tooling, not the plane's.
 - **Summary mode** is the default when stdin is not a terminal (`--summary` forces it). The
   command's stdout and stderr both go to one log file, in the order written: `--log PATH`, else next
   to the run's record (`QUEUE_ROOT/runs/<task>/<phase>[-n]-suite-<suite_id>.log`), else
@@ -620,7 +632,8 @@ has a `Suite:` line but no suite run is recorded for its run.
 `suite_id`, and a `suite/recorded` event at the end. Numbers, ids and short labels only: the lane,
 the output mode (`output`), the command's basename and argument count; the `ended` row adds `tests`,
 `failed`, `skipped`, `ran`, `cached`, `cached_tests` (null when not found), `counts_from`, summary
-mode's `log` path, `cold` (§14.6) and, for a lane plane.json names, `stages` and `failed_stage` (§14.3). A staged
+mode's `log` path, `cold` (§14.6) and, for a lane plane.json names, `stages` and `failed_stage` (§14.3), and
+`proven_skips` when a prover skipped a stage (§14.2). A staged
 lane's `started` row has `cmd` `stages` and its stage count as `argc`. Never the command's arguments,
 never its output; the event carries the numbers, `cold` and the stages, not the path. A row naming `modules_ran` and `modules_cached` reads as `ran` and `cached`.
 
@@ -736,7 +749,7 @@ result.
   once the task's open spec questions are answered and their rulings are on the PR. A commit landing
   while a review runs makes its head stale.
 - **A fix round is reviewed again before it is verified**, unless a proof or a clean review covers it
-  (the next two rules).
+  (the next three rules).
   `ccp prompt verify` refuses (exit 4,
   nothing opened) when the task's latest fix run, or a merge or ruling round (§13.2), that was not
   abandoned opened no later than its latest review run that reported `done`, or when `--head` is not
@@ -761,6 +774,12 @@ result.
   `{head}` and `{from}` (the tree the fix diff starts from) filled in, exits 0. Otherwise the refusal
   stands and says why the skip does not apply. The verify run records `review_skip` (`reviewed`,
   `head`, `fix`, `files`, a count). The prover is product tooling, not the plane's.
+- **A declared prover of the review.** A declared prover that exits 0 on the diff skips the step it
+  names, recorded on the run: a `verify.provers` entry (§14.2) whose `skips` is `review` judges the fix
+  diff `verify.skip_review` judges (at least one file; no paths rule of its own), its `command` run as
+  `proof` is, with the same fields filled in. `verify.skip_review`, when set, is tried first, then each
+  such prover in order; the first to prove the fix sends it straight to verify. The verify run's
+  `review_skip` then adds `prover` (its name), `command` and `exit_code`.
 - **A fix of a clean review's minor findings needs no new review.** plane.json
   `verify.skip_review_after_clean` (boolean; false, the default, is off) lets the fix round after the
   latest review that reported `done` go straight to verify when that review recorded no BLOCKER or MAJOR

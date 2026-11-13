@@ -11,7 +11,8 @@ file's text, verbatim. The runner never passes `model` (§2). First it samples t
 Besides implement, fix, review and verify, a merge round only merges the integration tip into the task
 branch and a ruling round only applies a lead's ruling (its `--note`); review and verify treat their heads
 as a fix round's (§13.2). A verify of a fix round that no review has seen is refused, exit 4, nothing
-opened, unless the product's `verify.skip_review` proves the fix, its `verify.skip_review_after_clean` takes
+opened, unless the product's `verify.skip_review` or a review prover (`verify.provers`) proves the fix, its
+`verify.skip_review_after_clean` takes
 it as the fix of a clean review's minor findings (the verify prompt lists them), or the lead's word
 overrides it (§15.2).
 A verify round with no fix round since the task's last verify round needs `--note` with the reason
@@ -283,7 +284,7 @@ def prune_audits(q: Path, cfg: Config, now: datetime | None = None) -> int:
 def review_gate(cfg: Config, q: Path, tid: str, phase: str,
                 a: Any) -> tuple[dict[str, str] | None, dict[str, Any] | None]:
     """§15.2: a verify of a head with a fix round after the last review is refused (exit 4), unless the
-    product's `verify.skip_review` proves the fix, its `verify.skip_review_after_clean` takes it as a fix of
+    product's `verify.skip_review` or a review prover proves the fix, its `verify.skip_review_after_clean` takes it as a fix of
     a clean review's minor findings, or the runner passes `--allow-unreviewed-fix --reason "<the
     lead's or the operator's words>"`. The override, when given, is taken and recorded as is, and no proof
     runs. Returns what to record on the run: the override (a friction note and a ledger event) and the
@@ -306,7 +307,7 @@ def review_gate(cfg: Config, q: Path, tid: str, phase: str,
         skipped, unclean = verify.skip_after_clean(cfg, q, tid, a.head)
         if skipped:
             return None, skipped
-        no_skip = f" (verify.skip_review does not apply: {unproven})" if unproven else ""
+        no_skip = f" ({verify.review_proof_label(cfg)} does not apply: {unproven})" if unproven else ""
         no_skip += f" (verify.skip_review_after_clean does not apply: {unclean})" if unclean else ""
         raise QueueError(f"{why}{no_skip}. Override once, on the lead's or the operator's word: "
                          '--allow-unreviewed-fix --reason "<their words>"', 4)

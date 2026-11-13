@@ -1095,6 +1095,21 @@
           "type": "boolean",
           "default": false,
           "description": "SPEC §15.2: when the latest review is clean (no BLOCKER or MAJOR finding), the fix round that answers its findings goes to verify with no new review, and the verifier confirms the fix diff addresses those findings and changes nothing beyond them. False: every fix round is reviewed again."
+        },
+        "provers": {
+          "type": "array",
+          "default": [],
+          "description": "SPEC §14.2, §15.2: declared provers. A prover whose command exits 0 on the diff skips the step it names, recorded on the run: a stage of the gate role's lane, judged on the task's diff, or `review`, judged on the fix round's diff. Empty: nothing is skipped this way.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "command", "skips"],
+            "properties": {
+              "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$", "description": "A label, unique among the provers; recorded on the run."},
+              "command": {"type": "string", "minLength": 1, "description": "A shell command run in the checkout's root, with {task_id}, {from} (where the diff starts) and {head} filled in, and {reviewed} (the head the last review judged) for `review`; exit 0 = the step is redundant."},
+              "skips": {"type": "string", "minLength": 1, "description": "The step it skips: `review`, or the name of a stage the gate role's lane declares."}
+            }
+          }
         }
       }
     },
