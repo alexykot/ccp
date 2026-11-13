@@ -607,11 +607,14 @@ def runner_worktree(cfg: Config, slot: str | None) -> dict[str, Any]:
             "next": f"cd {wt} && run every ccp command from there (SPEC §16.5)"}
 
 
-def release(cfg: Config, task: str, reason: str) -> dict[str, Any]:
-    """§10.4 `ccp tasks release`: a claim taken too early is undone, and the task goes back to pending.
-    Only a claim with no work behind it: leased (or blocked) with no run at all, so no PR, report or
-    merge. Its wait and lease are cleared (each an event, the lease's marked `released`), its phase
-    moves to pending, and it leaves work.json. The worktree and branch are kept for a later claim."""
+def release(cfg: Config, task: str, reason: str, keep_branch: bool = False) -> dict[str, Any]:
+    """§10.4 `ccp tasks release`: a claim is undone, and the task goes back to pending. Without
+    `keep_branch`, only a claim with no work behind it: leased (or blocked) with no run at all, so no PR,
+    report or merge. With it (§10.5), a claimed task whose runs are all closed, whatever its phase but
+    `merging` and not merged by close: its branch and PR are kept, so the lead amends its file unleased
+    and a later claim resumes on them. Its wait and lease are cleared (each an event, the lease's marked
+    `released`), its phase moves to pending, and it leaves work.json. The worktree and branch are kept
+    for a later claim."""
     q = root()
     if not reason:
         raise QueueError("give --reason: one line on why the claim is undone", 2)
@@ -620,16 +623,10 @@ def release(cfg: Config, task: str, reason: str) -> dict[str, Any]:
     if not st.get("lease_holder"):
         raise QueueError(f"{tid} is {st.get('status') or 'not claimed'} in the queue with no lease: only a claimed "
                          "task is released", 3)
-    # pending with a lease: a release that stopped after its phase move, finished by running it again
-    if st.get("status") not in (*RELEASABLE, "pending") or st.get("merged_by_close") or st.get("pr"):
-        raise QueueError(f"{tid} is {st.get('status')} in the queue: only a claim with no work behind it "
-                         f"({' or '.join(RELEASABLE)}, no run) is released; a task in flight is finished, or dropped", 3)
-    had = [r["run_id"] for r in runs.all_runs(q, tid)]
-    pd = q / "prompts" / tid  # a claim from before run records: its prompt audits are its work
-    had += [f"prompts/{tid}/"] if pd.is_dir() and any(pd.rglob("*.json")) else []
-    if had:
-        raise QueueError(f"{tid} has runs ({', '.join(had)}): a claim that has done work is finished or dropped, "
-                         "not released", 3)
+    if keep_branch:
+        _releasable_keeping_branch(q, tid, st)
+    else:
+        _releasable_unworked(q, tid, st)
     who = actor("design-seat")
     from ccp.health import RELEASE_NOTE  # noqa: PLC0415
     note = f"{RELEASE_NOTE} {reason}"
@@ -658,12 +655,49 @@ def release(cfg: Config, task: str, reason: str) -> dict[str, Any]:
     done.append(f"cleared the lease of {st['lease_holder']}")
     set_marker(q, tid, "pending")
     _leave_work(q, tid)
+    branch = st.get("branch") or f"task/{tid}"
     return {"ok": True, "task_id": tid, "released_from": frm, "changed": done, "holder": st.get("lease_holder"),
             "holder_teammate": holder_teammate_for(q, st.get("lease_holder")),
             # every slot holding nothing now, the released task's own holder too (a lead's release frees it)
             **({"idle_runners": idle} if (idle := idle_runners(q)) else {}),
-            "warnings": [f"the worktree {wt} and branch {st.get('branch') or f'task/{tid}'} are kept: a later claim "
-                         "resumes in them"] if (wt := st.get("worktree_path")) and Path(wt).is_dir() else []}
+            **({"kept_branch": branch} if keep_branch else {}),
+            "warnings": [f"the worktree {wt} and branch {branch} are kept: a later claim resumes in them"]
+            if (wt := st.get("worktree_path")) and Path(wt).is_dir() else []}
+
+
+# §10.5: a phase `release --keep-branch` refuses even with every run closed: a merge may be under way
+KEEP_BRANCH_REFUSED = ("merging",)
+
+
+def _releasable_unworked(q: Path, tid: str, st: dict[str, Any]) -> None:
+    """§10.4: a plain release takes only a claim with no work behind it (no run, no PR, no merge); exit 3
+    otherwise."""
+    hint = "; with every run closed, `--keep-branch` releases it keeping its branch and PR (SPEC §10.5)"
+    # pending with a lease: a release that stopped after its phase move, finished by running it again
+    if st.get("status") not in (*RELEASABLE, "pending") or st.get("merged_by_close") or st.get("pr"):
+        raise QueueError(f"{tid} is {st.get('status')} in the queue: only a claim with no work behind it "
+                         f"({' or '.join(RELEASABLE)}, no run) is released; a task in flight is finished, or dropped"
+                         + ("" if st.get("merged_by_close") else hint), 3)
+    had = [r["run_id"] for r in runs.all_runs(q, tid)]
+    pd = q / "prompts" / tid  # a claim from before run records: its prompt audits are its work
+    had += [f"prompts/{tid}/"] if pd.is_dir() and any(pd.rglob("*.json")) else []
+    if had:
+        raise QueueError(f"{tid} has runs ({', '.join(had)}): a claim that has done work is finished or dropped, "
+                         "not released" + hint, 3)
+
+
+def _releasable_keeping_branch(q: Path, tid: str, st: dict[str, Any]) -> None:
+    """§10.5 `release --keep-branch`: a claimed task (leased to verifying, or blocked; pending is a release
+    that stopped after its phase move) with no open run (§11.1) and not merged; exit 3 otherwise."""
+    from ccp.queue import MID_FLIGHT  # noqa: PLC0415
+    status = st.get("status")
+    if st.get("merged_by_close") or status not in {*MID_FLIGHT, *RELEASABLE, "pending"} - set(KEEP_BRANCH_REFUSED):
+        raise QueueError(f"{tid} is {status} in the queue{' and merged' if st.get('merged_by_close') else ''}: "
+                         "`--keep-branch` releases a claimed task before its merge (neither merging nor merged); "
+                         "`ccp tasks close` finishes this one, or it is dropped", 3)
+    if open_ := sorted(str(r["run_id"]) for r in runs.all_runs(q, tid) if runs.state(r) in runs.OPEN):
+        raise QueueError(f"{tid} has an open run ({', '.join(open_)}): it is released only once every run is "
+                         "closed (reported, or abandoned)", 3)
 
 
 # ------------------------------------------------------------------------------------- sign-off
