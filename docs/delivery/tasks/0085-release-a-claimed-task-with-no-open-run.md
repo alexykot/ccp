@@ -49,6 +49,21 @@ When a claimed task's checks or scope turn out wrong, the lead can release it wh
 
 *Append-only, newest last.*
 
+- 2026-11-13 (implementer): `ccp tasks release <id> --keep-branch --reason R` (`ccp/lifecycle.py`
+  `release`, `_releasable_keeping_branch`; flag in `ccp/cli.py`) releases a claimed task whose runs
+  are all closed (no run `pending`, `running` or `stopped`, §11.1): every claimed phase from `leased`
+  to `verifying`, `blocked`, or `pending` (a release that stopped after its phase move), with or
+  without a PR. It refuses (exit 3) an open run, naming it; a task `merging`; and one merged by close.
+  The release itself is the existing one (wait, phase, lease cleared and recorded, out of
+  `work.json`), and its result adds `kept_branch`. The branch, its PR and the worktree are untouched;
+  the later claim is a fresh claim (status `leased`, the task file's checks re-read) in the kept
+  worktree on the kept branch. Without the flag nothing changes but the refusal for a task with work
+  behind it, which now names `--keep-branch`. Choices the task left open: `merging` is refused (a
+  merge may be under way); prompt audits from before run records do not count under the flag (they
+  are not runs); the task's time restarts at the re-claim, as §10.4 already says for every release.
+  SPEC: §10.4's Release bullet and §10.5's paragraph on changing a claimed task state it, with the
+  PROPOSED text; the CLI table in `docs/cli/02-delivery.md` names the flag.
+
 ## Verification notes
 
 *Append-only.*
