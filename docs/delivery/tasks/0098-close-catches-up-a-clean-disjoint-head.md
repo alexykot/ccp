@@ -1,7 +1,7 @@
 ---
 task_id: 0098-close-catches-up-a-clean-disjoint-head
 title: Close merges a verified head behind the tip when the tip's new commits do not touch the task's files
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S10", "S15", "S16"]
@@ -174,4 +174,4 @@ through a merge round and a full re-verify (§16.5 rule 4).
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #97 head `7c00b4d` (squash `761e7d2`): APPROVE. Passed: check-01, check-02, check-03, check-04, check-05, check-06. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0098-close-catches-up-a-clean-disjoint-head.json.
