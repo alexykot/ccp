@@ -2,10 +2,14 @@
 from __future__ import annotations
 
 import json
+import signal
 import sys
+import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from ccp import wt
 from tests.test_toolkit import git
 from tests.test_wt import WtFixture
 
@@ -100,23 +104,109 @@ class OnTheMergeBase(WtFixture, unittest.TestCase):
         self.assert_nothing_left()
 
     def test_refusals(self):
-        self.assertEqual(self.base_run()[0], 2)  # no command
+        code, _, _, err = self.base_run()
+        self.assertEqual(code, 125, err)  # no command
+        self.assertIn("not its command's exit code", err)
         code, _, _, err = self.wt("create", "--kind", "base", "--task", "0002", "--", "true")
-        self.assertEqual(code, 2, err)  # no --sha
+        self.assertEqual(code, 125, err)  # no --sha
         code, _, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.pr_head, "--", "true")
         self.assertEqual(code, 2, err)  # only a base worktree runs a command
         self.assertFalse((self.main / ".rt" / "ver-0002").exists())
         code, _, _, err = self.base_run("true", sha="f" * 40)
-        self.assertEqual(code, 3, err)
+        self.assertEqual(code, 125, err)
         self.assertIn("no merge base", err)
         other = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.pr_head)[1]["path"]
         code, _, _, err = self.base_run("true", extra=("--name", "base-0002"))
         self.assertEqual(code, 0, err)
         (self.main / ".rt" / "base-0002").mkdir()
-        code, _, _, err = self.base_run("true", extra=("--name", "base-0002"))
-        self.assertEqual(code, 3, err)  # never one it did not make
+        code, res, _, err = self.base_run("true", extra=("--name", "base-0002"))
+        self.assertEqual(code, 125, err)  # never one it did not make
+        self.assertIsNone(res)  # a refusal prints no result: nothing ran
         self.assertTrue((self.main / ".rt" / "base-0002").is_dir())
         self.assertTrue(Path(other).is_dir())
+
+    def test_its_own_refusal_differs_from_a_command_exiting_2_or_3(self):
+        self.assertEqual(self.base_run("sh", "-c", "exit 2")[0], 2)
+        self.assertEqual(self.base_run("sh", "-c", "exit 3")[0], 3)
+        self.assertEqual(self.base_run("true", sha="f" * 40)[0], 125)
+        self.assertEqual(self.wt("create", "--kind", "base", "--task", "0099", "--sha", self.pr_head, "--", "true")[0],
+                         125)  # no such task
+        self.assert_nothing_left()
+
+    def test_a_failure_saving_its_record_leaves_nothing(self):
+        real = wt.save
+
+        def save(q, st):
+            if "head" in st:
+                raise OSError("disk full")
+            real(q, st)
+
+        with mock.patch.object(wt, "save", save):
+            code, res, _, err = self.base_run("true")
+        self.assertEqual(code, 125, err)
+        self.assertIn("disk full", err)
+        self.assertIsNone(res)
+        self.assert_nothing_left()
+
+    def test_a_failure_after_the_worktree_is_added_leaves_nothing(self):
+        with mock.patch.object(wt, "save", side_effect=OSError("disk full")):
+            code, _, _, err = self.base_run("true")
+        self.assertEqual(code, 125, err)
+        self.assert_nothing_left()
+
+    def test_a_command_that_outlives_the_timeout_is_killed_with_its_children(self):
+        started = time.monotonic()
+        code, res, _, err = self.base_run("sh", "-c", "sleep 30 & sleep 30", extra=("--timeout", "1"))
+        self.assertLess(time.monotonic() - started, 20)
+        self.assertEqual((code, res["exit"], res["timed_out"], res["ok"]), (124, 124, True, False), err)
+        self.assertIn("--timeout 1 s", err)
+        self.assert_nothing_left()
+        code, res, _, err = self.base_run("true", extra=("--timeout", "60"))
+        self.assertEqual((code, res["timed_out"]), (0, False), err)
+
+    def test_the_timeout_defaults_to_the_env_hook_timeout(self):
+        self.plane(env={"timeout_seconds": 1})
+        started = time.monotonic()
+        code, res, _, err = self.base_run("sleep", "30")
+        self.assertLess(time.monotonic() - started, 20)
+        self.assertEqual((code, res["timed_out"]), (124, True), err)
+        self.assert_nothing_left()
+
+    def test_timeout_refusals(self):
+        for bad in ("0", "-1", "soon"):
+            code, _, _, err = self.base_run("true", extra=("--timeout", bad))
+            self.assertEqual(code, 125, err)
+        code, _, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.pr_head, "--timeout", "5")
+        self.assertEqual(code, 2, err)
+        self.assertFalse((self.main / ".rt" / "ver-0002").exists())
+        self.assert_nothing_left()
+
+    def test_a_sigterm_to_ccp_stops_the_command_and_leaves_nothing(self):
+        got: list[int] = []
+        previous = signal.signal(signal.SIGTERM, lambda n, _f: got.append(n))  # never the test process's death
+        self.addCleanup(signal.signal, signal.SIGTERM, previous)
+        mine = signal.getsignal(signal.SIGTERM)
+        started = time.monotonic()
+        code, res, _, err = self.base_run("sh", "-c", "kill -TERM $PPID; sleep 30")
+        self.assertLess(time.monotonic() - started, 20)
+        self.assertEqual((code, res["exit"], res["signal"], res["removed"]), (143, 143, 15, True), err)
+        self.assertEqual(got, [])  # ccp's own handler took it
+        self.assertIs(signal.getsignal(signal.SIGTERM), mine)  # and gave the caller's back
+        self.assert_nothing_left()
+
+    def test_a_failed_fetch_warns_that_the_base_may_be_stale(self):
+        git(self.main, "remote", "set-url", "origin", str(Path(self._tmp.name) / "gone.git"))
+        code, res, body, err = self.base_run("git", "rev-parse", "HEAD")
+        self.assertEqual(code, 0, err)
+        self.assertIn("git fetch origin failed", err)
+        self.assertIn("may be stale", err)
+        self.assertTrue(any("may be stale" in w for w in res["warnings"]))
+        self.assertIn(self.base, body)
+        self.assert_nothing_left()
+
+    def test_a_fetch_that_works_warns_of_nothing(self):
+        code, res, _, err = self.base_run("true")
+        self.assertEqual((code, res["warnings"]), (0, []), err)
 
 
 if __name__ == "__main__":

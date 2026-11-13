@@ -1,15 +1,18 @@
 """Worktrees and environments (SPEC §12.1): `ccp wt`, env hooks, URLs, merge.command, auth probes."""
 from __future__ import annotations
 
+import io
 import json
 import os
 import subprocess
 import tempfile
 import time
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
 
-from ccp import config, lifecycle, wt
+from ccp import cli, config, lifecycle, wt
 from tests.test_toolkit import PLANE, ToolkitFixture, git
 
 
@@ -628,6 +631,105 @@ class ExecOwnCcp(WtFixture, unittest.TestCase):
         code, _, _, err = self.wt("exec", name, "--", "hello")
         self.assertEqual(code, 3)
         self.assertIn("bin/ccp", err)
+
+    def test_a_name_with_no_queue_root_refuses(self):
+        name, path = self.made()
+        with mock.patch.dict(os.environ):
+            os.environ.pop("QUEUE_ROOT")
+            code, _, _, err = self.wt("exec", name, "--", "hello")
+        self.assertEqual(code, 2, err)
+        self.assertIn("QUEUE_ROOT", err)
+        self.assertFalse((path / "bin" / "ran.json").exists())
+
+    def test_no_name_outside_a_git_checkout_refuses(self):
+        outside = Path(tempfile.mkdtemp(dir=self._tmp.name))
+        here = os.getcwd()
+        os.chdir(outside)
+        self.addCleanup(os.chdir, here)
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.dict(os.environ, {"GIT_CEILING_DIRECTORIES": str(outside.parent)}), \
+                redirect_stdout(out), redirect_stderr(err):
+            os.environ.pop("CCP_ROOT", None)
+            code = cli.main(["wt", "exec", "--", "hello"])
+        self.assertEqual(code, 2, err.getvalue())
+        self.assertIn("not inside a git checkout", err.getvalue())
+        self.assertEqual(out.getvalue(), "")
+
+
+class Shallow(WtFixture, unittest.TestCase):
+    """`ccp wt create --shallow`: a depth-1 clone at --sha, for a check that must pass without git history."""
+
+    def setUp(self):
+        super().setUp()
+        for n in (2, 3):
+            self.write(f"c{n}.txt", f"{n}\n")
+            git(self.main, "add", f"c{n}.txt")
+            git(self.main, "commit", "-q", "-m", f"commit {n}")
+        git(self.main, "push", "-q", "origin", "main")
+
+    def shallow(self, sha: str, *extra: str):
+        return self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--shallow", *extra)
+
+    def test_it_is_at_the_sha_with_a_history_of_depth_one(self):
+        head = self.head()
+        self.assertEqual(git(self.main, "rev-list", "--count", head), "3")
+        code, body, _, err = self.shallow(head)
+        self.assertEqual(code, 0, err)
+        p = Path(body["path"])
+        self.assertEqual(git(p, "rev-parse", "HEAD"), head)
+        self.assertEqual(git(p, "rev-list", "--count", "HEAD"), "1")
+        self.assertEqual(git(p, "rev-parse", "--is-shallow-repository"), "true")
+        self.assertEqual(git(p, "rev-parse", "--abbrev-ref", "HEAD"), "HEAD")  # detached
+        self.assertEqual(git(p, "status", "--porcelain"), "")  # the linked .venv is excluded in its own repo
+        self.assertTrue((p / ".venv").is_symlink())
+        self.assertNotIn(str(p), git(self.main, "worktree", "list"))
+        st = json.loads((self.q / "worktrees" / f"{body['name']}.json").read_text())
+        self.assertEqual((st["shallow"], st["sha"], st["kind"]), (True, head, "ver"))
+
+    def test_an_older_sha_by_a_short_name_and_setup_runs_there(self):
+        self.plane(env={"setup": "git rev-list --count HEAD > depth.txt"})
+        older = git(self.main, "rev-parse", "origin/main~1")
+        code, body, _, err = self.shallow(older[:10])
+        self.assertEqual(code, 0, err)
+        p = Path(body["path"])
+        self.assertEqual(git(p, "rev-parse", "HEAD"), older)
+        self.assertEqual((p / "depth.txt").read_text().strip(), "1")
+
+    def test_remove_and_close_delete_it(self):
+        name = self.shallow(self.head())[1]["name"]
+        code, body, _, err = self.wt("remove", name)
+        self.assertEqual((code, body["warnings"]), (0, []), err)
+        self.assertFalse((self.main / ".rt" / name).exists())
+        self.assertFalse((self.q / "worktrees" / f"{name}.json").exists())
+        name = self.shallow(self.head())[1]["name"]
+        self.assertEqual(wt.remove_task(config.load(self.main), self.q, "0002-second"), [])
+        self.assertFalse((self.main / ".rt" / name).exists())
+
+    def test_reuse_needs_the_same_depth(self):
+        head = self.head()
+        name = self.shallow(head)[1]["name"]
+        code, again, _, err = self.shallow(head, "--name", name)
+        self.assertEqual((code, again["created"]), (0, False), err)
+        code, _, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", head, "--name", name)
+        self.assertEqual(code, 3, err)  # a shallow one never stands in for a full one
+        full = self.wt("create", "--kind", "rev", "--task", "0002", "--sha", head)[1]["name"]
+        code, _, _, err = self.wt("create", "--kind", "rev", "--task", "0002", "--sha", head, "--name", full, "--shallow")
+        self.assertEqual(code, 3, err)  # nor a full one for a shallow one
+        self.assertIn("full history", err)
+
+    def test_refusals(self):
+        head = self.head()
+        code, _, _, err = self.wt("create", "--kind", "impl", "--task", "0002", "--shallow")
+        self.assertEqual(code, 2, err)
+        self.assertFalse((self.main / ".rt" / "impl-0002").exists())
+        code, _, _, err = self.wt("create", "--kind", "base", "--task", "0002", "--sha", head, "--shallow", "--", "true")
+        self.assertEqual(code, 125, err)
+        self.assertEqual(self.wt("list", "--shallow")[0], 2)
+        self.assertEqual(self.wt("create", "--kind", "ver", "--baseline", "--shallow")[0], 2)
+        code, _, _, err = self.shallow("f" * 40)
+        self.assertEqual(code, 1, err)
+        self.assertFalse((self.main / ".rt" / "ver-0002").exists())
+        self.assertEqual(list((self.q / "worktrees").glob("*.json")) if (self.q / "worktrees").is_dir() else [], [])
 
 
 if __name__ == "__main__":
