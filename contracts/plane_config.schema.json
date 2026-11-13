@@ -458,6 +458,11 @@
               "max_bytes": {
                 "type": "integer",
                 "minimum": 1
+              },
+              "cut_line": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "A warning line below the budget's one limit (max_lines or max_bytes): `ccp budgets check` warns for a touched file at or above it and within the limit"
               }
             }
           }

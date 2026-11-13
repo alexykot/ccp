@@ -318,7 +318,8 @@ def cmd_docs_check(cfg: config.Config, _a: argparse.Namespace) -> int:
 
 def cmd_budgets_check(cfg: config.Config, a: argparse.Namespace) -> int:
     """SPEC §20.2: the house-rule budgets on the files this change touches (the implementer's pre-gate
-    and the verifier's gate). Exit 1 when the change grew a file over its budget."""
+    and the verifier's gate). Exit 1 when the change grew a file over its budget; a file at or above its
+    budget's cut line, within the limit, only warns."""
     try:
         r = rules.budget_check(cfg, a.base)
     except (ValueError, OSError) as exc:  # exit 1 is a budget failure only; anything else is 2
@@ -1201,7 +1202,7 @@ def build_parser() -> argparse.ArgumentParser:
     bg = sub.add_parser("budgets", help="house-rule budgets on this change's files (SPEC §20.2)").add_subparsers(
         dest="cmd", required=True)
     p = bg.add_parser("check", help="fail when the change grew a touched file over its architect.budgets entry; "
-                                    "an over-budget file it did not grow only warns")
+                                    "an over-budget file it did not grow, or one at or above its cut_line, only warns")
     p.add_argument("--base", required=True, help="the integration branch, e.g. origin/main: judged from its merge "
                                                  "base with HEAD")
     p.add_argument("--json", action="store_true")

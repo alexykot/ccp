@@ -260,7 +260,8 @@ def budget_check(cfg: Config, base: str) -> dict[str, Any]:
     change is the working tree (commits, edits, new files) against the merge base of HEAD and `base`, so
     a branch rebased onto a newer integration tip is judged on its own diff. A touched file over its
     budget fails when the change grew it (it crossed the budget, or grew while over); one over its
-    budget that the change did not grow only warns. Files the change does not touch are not judged."""
+    budget that the change did not grow only warns, and so does one at or above the budget's `cut_line`
+    and within its limit. Files the change does not touch are not judged."""
     a = cfg.architect
     out: dict[str, Any] = {"base": base, "merge_base": None, "touched": 0, "failures": [], "warnings": []}
     if not a or not a["budgets"]:
@@ -303,10 +304,16 @@ def budget_check(cfg: Config, base: str) -> dict[str, Any]:
                 if measure not in b:
                     continue
                 now, limit = _measure(now_data, measure), b[measure]
+                unit = "lines" if measure == "max_lines" else "bytes"
                 if now <= limit:
+                    cut = b.get("cut_line")
+                    if cut is not None and now >= cut:
+                        out["warnings"].append({
+                            "id": b["id"], "path": p, "measure": measure, "size": now, "limit": limit,
+                            "cut_line": cut, "text": f"{b['id']}: {p} is {now} {unit}, at or above its cut line of "
+                                                     f"{cut} (limit {limit}): task a cut before it reaches the limit"})
                     continue
                 was = _measure(was_data, measure) if was_data is not None else None
-                unit = "lines" if measure == "max_lines" else "bytes"
                 row = {"id": b["id"], "path": p, "measure": measure, "size": now, "limit": limit, "was": was}
                 if was is None or now > was:
                     row["text"] = (f"{b['id']}: {p} is {now} {unit}, over its budget of {limit} "
