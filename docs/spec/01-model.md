@@ -721,9 +721,11 @@ An example, with neutral values:
 - `reconcile.hooks` commands get `TASK_ID`, `PR`, `HEAD_SHA`, `MERGE_SHA` and `SUMMARY` in their
   environment (§10).
 - `prompts.worker_env` maps a shell variable name to a one-line template. The fields are `run_id`,
-  `task_id`, `nnnn`, `phase`, `worktree` (the worker's own: the task worktree for implement and fix,
-  the reviewer's or verifier's for theirs), `main_checkout`, `queue_root` and `project_id`;
-  `ccp docs check` and every command refuse another name. §13 says how the values reach the worker.
+  `task_id`, `nnnn`, `phase`, `kind` and `seat` (the worker's worktree's, as `ccp wt create` records
+  them by default, §12.1: `impl` for implement, fix, merge and ruling, `rev` for review, `ver` for
+  verify), `worktree` (the worker's own: the task worktree for implement and fix, the reviewer's or
+  verifier's for theirs), `main_checkout`, `queue_root` and `project_id`; `ccp docs check` and every
+  command refuse another name. §13 says how the values reach the worker.
 
 ### 8.2 `ccp`
 

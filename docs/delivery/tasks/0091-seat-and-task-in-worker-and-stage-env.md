@@ -48,6 +48,16 @@ A product names per-seat resources (a scratch database per implementer, reviewer
 
 *Append-only, newest last.*
 
+- 2026-11-13: `prompts.worker_env` takes `{{kind}}` and `{{seat}}` (`config.WORKER_ENV_FIELDS`, the
+  plane.json schema). `ccp prompt` fills them from the phase: `impl` for implement, fix, merge and
+  ruling, `rev` for review, `ver` for verify; the seat is that kind's default seat (`wt.KINDS`), which
+  is what `ccp wt create` records, since no plane step passes `--seat`. A lane's stages in a recorded
+  worktree also get `CCP_TASK_ID` and `CCP_NNNN` from its record (`suite.worktree_env`); the record
+  holds the full id, because `ccp wt create` resolves `--task` through the task log, and both are
+  empty in `ver-baseline`. `CCP_WT_KIND` was already given to stages (task 0054), so it needed no
+  change. SPEC: §12.1 gains a bullet listing the fields, §14.2's environment item names the two new
+  variables, and §8.1's `worker_env` field list (01-model.md) names `kind` and `seat`.
+
 ## Verification notes
 
 *Append-only.*
