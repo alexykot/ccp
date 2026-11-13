@@ -31,6 +31,7 @@ class TestSpawnDryRun(TeamCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(snapshot(self.q), before)
         self.assertEqual((res["dry_run"], res["ready"]), (True, True))
+        self.assertNotIn("failed", res)
         act = res["actions"][-1]
         self.assertEqual((act["action"], act["name"], act["subagent_type"]), ("spawn_teammate", "runner", "ccp:delivery-runner"))
         self.assertNotIn("prompt_ref", res)
@@ -41,8 +42,10 @@ class TestSpawnDryRun(TeamCase):
 
     def test_a_scope_task_missing_from_the_log_is_not_ready(self):
         code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a,0009-z")
-        self.assertEqual(code, 0, err)
+        self.assertEqual(code, 1, err)
         self.assertFalse(res["ready"])
+        self.assertEqual(res["failed"], ["scope_tasks_exist"])
+        self.assertIn("scope_tasks_exist", err)
         self.assertFalse(self.check(res, "scope_tasks_exist")["ok"])
         self.assertIn("0009-z", self.check(res, "scope_tasks_exist")["detail"])
         self.assertTrue(self.check(res, "tasks_check")["ok"])
@@ -55,14 +58,17 @@ class TestSpawnDryRun(TeamCase):
     def test_a_failing_tasks_check_is_not_ready(self):
         self.prod.task("0003-c", deps=["0099-nowhere"])
         code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
-        self.assertEqual(code, 0, err)
+        self.assertEqual(code, 1, err)
         self.assertEqual((res["ready"], self.check(res, "tasks_check")["ok"]), (False, False))
+        self.assertEqual(res["failed"], ["tasks_check"])
+        self.assertIn("tasks_check", err)
 
     def test_no_task_log_is_not_ready(self):
         (self.prod.root / "docs/delivery/plane.json").unlink()
         code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
-        self.assertEqual(code, 0, err)
+        self.assertEqual(code, 1, err)
         self.assertEqual((res["ready"], self.check(res, "task_log")["ok"]), (False, False))
+        self.assertEqual(res["failed"], ["task_log"])
 
     def test_a_live_runner_shows_the_stop_it_would_need_and_is_left_alone(self):
         self.assertEqual(self.team("runner", "spawn", "--scope", "0001-a")[0], 0)
@@ -102,8 +108,9 @@ class TestSpawnDryRun(TeamCase):
         self.assertFalse((self.prod.root / "rwt").exists())
         self.prod.write("rwt/stray.txt", "x")
         code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
-        self.assertEqual(code, 0, err)
+        self.assertEqual(code, 1, err)
         self.assertEqual((res["ready"], self.check(res, "runner_worktree")["ok"]), (False, False))
+        self.assertEqual(res["failed"], ["runner_worktree"])
 
     def test_several_slots_print_a_spawn_each_and_record_none(self):
         self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "parallel": {"max_in_flight": 2}}))

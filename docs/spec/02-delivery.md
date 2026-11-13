@@ -1040,10 +1040,10 @@ task's holder.
 `team.sh runner spawn --dry-run` (with any of the spawn's other flags) runs the spawn's refusals and
 prints what the spawn would print, its `actions` included, with `dry_run: true`, and the readiness
 checks of §10.2 that a machine can answer: every scope entry names a task in the task log, `ccp tasks
-check` is clean, and the one runner's `runner.worktree` is a working tree or can be made. `ready` is
-true when all of them pass; the exit is 0 either way, and a refusal exits as the spawn would. It
-writes nothing: no `work.json`, prompt audit, event or worktree. `--dry-run` with another `runner` op
-is refused (exit 2).
+check` is clean, and the one runner's `runner.worktree` is a working tree or can be made. It exits 0
+with `ready: true` when every check passes, and 1 with `ready: false` when any fails, naming the
+failing checks in `failed` and on stderr; a refusal exits as the spawn would. It writes nothing: no
+`work.json`, prompt audit, event or worktree. `--dry-run` with another `runner` op is refused (exit 2).
 
 **Each runner** (when `max_in_flight` is above 1):
 

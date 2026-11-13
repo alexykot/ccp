@@ -277,9 +277,13 @@ def readiness(root: Path, rc: dict[str, str], scope: list[str], single: bool) ->
 
 
 def dry_run_out(checks: list[dict[str, Any]], body: dict[str, Any]) -> int:
-    """SPEC §16.5: the dry run's answer: what the spawn would print, marked as not done, and the checks."""
-    return out({"outcome": "dry_run", "dry_run": True, "ready": all(c["ok"] for c in checks), "checks": checks,
-                **body})
+    """SPEC §16.5: the dry run's answer: what the spawn would print, marked as not done, and the checks.
+    Exit 0 when every check passes; 1 when any fails, the failing checks named in `failed` and on stderr."""
+    failed = [c["check"] for c in checks if not c["ok"]]
+    if failed:
+        print(f"not ready: {', '.join(failed)} failed", file=sys.stderr)
+    return out({"outcome": "dry_run", "dry_run": True, "ready": not failed, "checks": checks,
+                **({"failed": failed} if failed else {}), **body}, 1 if failed else 0)
 
 
 def keep_body(root: Path) -> list[str]:
@@ -902,7 +906,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--slot", help="spawn, rotate, stop: one runner slot (SPEC §16.5)")
     r.add_argument("--as", dest="as_slot", metavar="SLOT", help="runner bind: the slot the name belongs to")
     r.add_argument("--dry-run", action="store_true",
-                   help="runner spawn: print the spawn's actions and its readiness checks; write nothing (SPEC §16.5)")
+                   help="runner spawn: print the spawn's actions and its readiness checks; write nothing; exit 1 when a "
+                        "check fails (SPEC §16.5)")
     r.set_defaults(fn=cmd_runner)
     g = sub.add_parser("gate")
     g.add_argument("op", choices=("open", "decide", "ask-operator", "status", "list"))
