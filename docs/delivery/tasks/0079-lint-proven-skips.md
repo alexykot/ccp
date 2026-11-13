@@ -198,6 +198,18 @@ A change that a cheap, declared check proves harmless (a comment-only diff, a do
   diff edits the prover's script (a gate stage prover, a review prover, the `proof`) gets the integration
   branch's verdict, both ways; the prover's working directory is a clean checkout of the tip that is gone
   after the run, after an error and after a signal.
+- Fix round 2 (review 5). Tests now pin the default-handler path: a child process with SIGTERM and
+  SIGHUP left at their defaults runs a prover (a backgrounded `sleep` under `wait`) through
+  `rules.run_command` in `suite.clean_checkout` and signals itself; it exits 128+signal, the checkout and
+  its temp dir are gone, `git worktree list` is back as it was, and the sleeper is dead (the process
+  group kill). It runs in a child so a missing conversion kills the child, not the suite. A temp dir that
+  cannot be made (`OSError` from `mkdtemp`) now yields no checkout, as git failing does, so the gate goes
+  on with "no clean checkout of the integration tip … could be made" and the stage runs instead of the
+  error escaping `ccp suite run`. SPEC §14.2 and §15.2 and the `command` and `proof` schema descriptions
+  say what the tip's checkout holds: its `HEAD`, index and tree are the tip's, so a command names the
+  diff only through `{from}` and `{head}`, and the checkout's untracked and ignored files are absent; one
+  checkout serves a run's provers, in order (behaviour unchanged). The `proof` description no longer says
+  it runs in the product root. Two §15.2 lines reflowed to the file's wrap.
 
 ## Verification notes
 
