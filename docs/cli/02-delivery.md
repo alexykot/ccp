@@ -17,7 +17,7 @@ argument takes the full id or its number.
 | `ccp tasks close <id> --pr N [--summary "…"]` | runner | §10.5, §15.5 |
 | `ccp tasks prefer [<id>… [--reason "…"] \| --clear]` | lead | §10.4 |
 | `ccp tasks hold [<id> [--reason "…"] \| --clear <id>]` | lead | §10.4 |
-| `ccp tasks sign-off <id> --by <who> --words "…" [--stage brief\|build] [--head <sha>]` | lead | §3.5, §10.5 |
+| `ccp tasks sign-off <id> --by <who> --words "…" [--stage brief\|build] [--head\|--from <sha>] [--at <date>]` | lead | §3.5, §10.5 |
 | `ccp tasks release <id> --reason "…"` | lead, runner | §10.4 |
 | `ccp tasks drop <id> --reason "…"` | lead, runner | §10.4 |
 | `ccp tasks sync` | lead, runner | §10.4 |

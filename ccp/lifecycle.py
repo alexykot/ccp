@@ -662,11 +662,39 @@ def release(cfg: Config, task: str, reason: str) -> dict[str, Any]:
 SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
 
 
-def sign_off(cfg: Config, task: str, stage: str | None, by: str, words: str, head: str | None) -> dict[str, Any]:
+def signed_at(at: str) -> str:
+    """§3.5 `--at`: the date a sign-off was given before it could be recorded, as a date (`YYYY-MM-DD`)
+    or an RFC 3339 time with its offset (kept in UTC). Refused (exit 2) when it is neither, or later than
+    now."""
+    from datetime import date, datetime, timezone  # noqa: PLC0415
+    s = at.strip()
+    bad = f"--at {at!r} is not a date (YYYY-MM-DD) or an RFC 3339 time with its offset"
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s):
+        try:
+            d = date.fromisoformat(s)
+        except ValueError:
+            raise QueueError(bad, 2) from None
+        if d > date.today():
+            raise QueueError(f"--at {s} is in the future: a sign-off is recorded once given (SPEC §3.5)", 2)
+        return d.isoformat()
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00").replace("z", "+00:00"))
+    except ValueError:
+        raise QueueError(bad, 2) from None
+    if dt.tzinfo is None:
+        raise QueueError(bad, 2)
+    if dt > now():
+        raise QueueError(f"--at {s} is in the future: a sign-off is recorded once given (SPEC §3.5)", 2)
+    return iso(dt.astimezone(timezone.utc))
+
+
+def sign_off(cfg: Config, task: str, stage: str | None, by: str, words: str, head: str | None,
+             at: str | None = None) -> dict[str, Any]:
     """§3.5 `ccp tasks sign-off`: the lead records the operator's sign-off on a task's text in the
     ledger (a `sign_off` `recorded` event: stage, who, the words and the head it covers; the event's
     `at` is when). A `brief` sign-off covers the commit that last changed the task file, a `build` one
-    the verified head (verification/<id>.json). A later record of a stage replaces the earlier."""
+    the verified head (verification/<id>.json). One given before it could be recorded carries its date,
+    `at`, as `signed_at`. A later record of a stage replaces the earlier."""
     q = root()
     meta = task_meta(cfg, task)
     tid = str(meta["task_id"])
@@ -681,10 +709,11 @@ def sign_off(cfg: Config, task: str, stage: str | None, by: str, words: str, hea
         raise QueueError(f"{tid} declares sign_off {', '.join(stages)}, not {stage} (SPEC §3.5)", 2)
     if not by.strip() or not words.strip():
         raise QueueError("give --by (who signed) and --words (what they said)", 2)
+    when = signed_at(at) if at is not None else None
     if head:
         head = head.strip().lower()
         if not SHA_RE.match(head):
-            raise QueueError(f"--head {head!r} is not a commit sha (7 to 40 hex digits)", 2)
+            raise QueueError(f"--head/--from {head!r} is not a commit sha (7 to 40 hex digits)", 2)
     elif stage == "build":
         from ccp.queue import read_json  # noqa: PLC0415
         rec = read_json(q / "verification" / f"{tid}.json", {}) or {}
@@ -697,7 +726,8 @@ def sign_off(cfg: Config, task: str, stage: str | None, by: str, words: str, hea
         head = r.stdout.strip() if r.returncode == 0 else ""
         if not SHA_RE.match(head):
             raise QueueError(f"{cfg.rel(meta['_file'])} has no commit to sign: commit it, or give --head (SPEC §3.5)", 2)
-    payload = {"stage": stage, "by": by.strip(), "words": words.strip(), "head": head}
+    payload = {"stage": stage, "by": by.strip(), "words": words.strip(), "head": head,
+               **({"signed_at": when} if when else {})}
     ev = emit(q, cfg, tid, "sign_off", "recorded", payload, actor("design-seat"))
     return {"ok": True, "task_id": tid, "sign_off": {**payload, "at": ev.get("at")}}
 
