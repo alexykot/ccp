@@ -55,6 +55,19 @@ A lead can see the Agent call a spawn would make, and its readiness checks, with
 
 *Append-only, newest last.*
 
+- 2026-11-13 — `team.sh runner spawn --dry-run` (`scripts/observability/team.py`, one runner and
+  slots) runs every refusal the spawn runs, then returns before the worktree, the prompt audit, the
+  ledger and `work.json`. It prints `outcome: dry_run`, `dry_run: true`, the actions the spawn would
+  print (a live runner's `shutdown_teammate` first, `would_stop`; the spawn prompt is the real
+  one), and `checks`: the §10.2 readiness a machine can answer (`scope_tasks_exist`, `tasks_check`,
+  the one runner's `runner_worktree`, or `task_log` when the log does not read) with `ready`. Exit 0
+  either way. Standing approvals are not checked: they live in plan prose (E6). `--dry-run` with
+  another runner op is refused (exit 2). `ccp orientation` (`ccp/cli.py`) runs the plugin's
+  SessionStart hook from `ccp`'s own checkout for this product root and prints its text, so the
+  text and where it applies (the plane's own repo gets the one line) stay in one place. SPEC §9.3
+  and §16.5 name both; `docs/cli` lists them; the orientation's header comment names the command,
+  and its content is unchanged.
+
 ## Verification notes
 
 *Append-only.*
