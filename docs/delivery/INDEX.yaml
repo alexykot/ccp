@@ -408,7 +408,7 @@ tasks:
     depends_on: []
     path: tasks/0081-mutate-follow-ups.md
   - id: 0082-worker-test-runs-are-recorded
-    status: pending
+    status: done
     title: Workers run tests and mutation checks through recorded commands
     depends_on: []
     path: tasks/0082-worker-test-runs-are-recorded.md

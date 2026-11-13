@@ -1,14 +1,14 @@
 ---
 task_id: 0082-worker-test-runs-are-recorded
 title: Workers run tests and mutation checks through recorded commands
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S14"]
 review_point: R5
 paths: ["plugin/agents/", "templates/prompts/", "ccp/suite.py", "docs/spec/02-delivery.md", "tests/test_plugin.py", "tests/test_suite*.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0082-worker-test-runs-are-recorded
@@ -89,4 +89,4 @@ Every test run a worker relies on, including mutation checks, goes through `ccp 
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #100 head `f5d4798` (squash `de8b3f3`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0082-worker-test-runs-are-recorded.json.
