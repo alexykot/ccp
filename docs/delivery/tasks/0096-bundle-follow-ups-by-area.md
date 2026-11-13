@@ -1,14 +1,14 @@
 ---
 task_id: 0096-bundle-follow-ups-by-area
 title: Follow-ups, leftovers and findings are bundled by area into fewer, larger tasks
-status: pending
+status: done
 kind: chore
 depends_on: []
 spec_refs: ["S5", "S19"]
 review_point: R5
 paths: ["plugin/skills/writing-tasks/", "plugin/skills/review-triage/", "ccp/health.py", "tests/test_health*.py", "tests/test_plugin.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0096-bundle-follow-ups-by-area
@@ -101,4 +101,4 @@ reconcile) is paid once per area rather than once per finding (§5, §19.8).
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #87 head `2e9367a` (squash `bce62bb`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `python3 -m unittest tests.test_health tests.test_plugin tests.test_toolkit tests.test_review_skip_clean` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0096-bundle-follow-ups-by-area.json.

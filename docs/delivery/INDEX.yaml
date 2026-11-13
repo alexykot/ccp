@@ -478,7 +478,7 @@ tasks:
     depends_on: []
     path: tasks/0095-sign-off-policy-and-spec-beyond-intent.md
   - id: 0096-bundle-follow-ups-by-area
-    status: pending
+    status: done
     title: Follow-ups, leftovers and findings are bundled by area into fewer, larger tasks
     depends_on: []
     path: tasks/0096-bundle-follow-ups-by-area.md
