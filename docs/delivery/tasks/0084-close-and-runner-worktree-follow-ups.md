@@ -55,6 +55,31 @@ Closing a task and making a runner's worktree leave nothing stale behind: refusa
 
 *Append-only, newest last.*
 
+- 2026-11-13 (implementer): `ccp/wt.py` owns close's merge worktree path now (`MERGE_PREFIX`,
+  `merge_path`; `lifecycle._merge_path` delegates). `ccp wt list` shows an unrecorded `merge-<nnnn>`
+  as `kind: merge`, with `--task` too. `remove_task` removes the task's merge worktree, but never the
+  checkout the command runs in (`cfg.root`): close runs its cleanup inside its merge worktree and
+  removes that one itself once the reconcile has landed. `ccp wt gc` removes a merge worktree by the
+  rule it already applies to every worktree (§12.1): its task is done or dropped in the queue and
+  leased by no one. One whose task is still open stays, because close holds no lock and a re-run of
+  close reuses it. The same rule covers a merge worktree the queue holds no task for.
+- `wt.main_of` (and `prompt.main_checkout`, which now delegates to it) takes the parent of a common
+  dir named `.git`. When the common dir has another name (a separate git dir, a submodule) and the
+  checkout's own git dir is the common one, it takes the checkout's top level. Otherwise it returns the
+  checkout itself. Git records no main worktree path for a separate git dir, so a linked worktree of
+  such a repository cannot find its main checkout.
+- The board (`board build`, `board task`) reads task merges from `origin/<integration>`, falling back
+  to the local branch and then to HEAD (`board.merge_rev`; nothing is fetched). `health.collect` and
+  `numstat` take a `rev` for this, with HEAD as the default, so `ccp health`, the forecast, the
+  estimator and the architect read as before.
+- The dirty-caller refusal now names the checkout close runs from (§10.5). The schema's
+  `runner.worktree` description no longer says "reconciles". `team.py` states that the single runner's
+  spawn makes the worktree after its refusals and before its runtime writes, and that a failed prompt
+  audit leaves the worktree made. The runner brief has a single-runner section that names
+  `ccp tasks worktree` (no `--runner`).
+- Paths outside the declared ones: `ccp/prompt.py` (main-checkout delegation), `ccp/health.py`
+  (`rev` parameter), `tests/test_board.py`.
+
 ## Verification notes
 
 *Append-only.*
