@@ -36,53 +36,86 @@ through a merge round and a full re-verify (§16.5 rule 4).
 ## Scope
 
 - **In:**
-  - `ccp tasks close` at `behind_tip`: when (a) `git merge-tree` of the verified head and
-    `origin/<integration>` is clean, and (b) the files the tip's new commits change (the same
-    `git log <head>..origin/<integration>` set as today, after the task-log and
-    `merge.behind_tip_ignore` exclusions) do not meet the files the task's own diff changes
-    (`git diff <merge-base>..<verified head>`), close makes the merge commit in its merge worktree,
-    runs the gate lane on it through `ccp suite run` (a recorded run, bound to the task), and on a
-    green gate pushes that commit as the task branch's new head and merges it pinned to that head.
-    The verification record gains `catch_up: {from: <verified head>, to: <new head>, tip, gate run}`.
-    A red gate, a conflicting merge-tree or overlapping files refuse as today (`behind_tip`), naming
-    which condition failed, so the runner falls back to a merge round and re-verify.
-  - `ccp verify merge-ok` accepts the new head only through that recorded catch-up.
-  - The runner brief's close step says close catches up on its own in that case.
-  - §16.5 rule 4 states the rule; CURRENT → PROPOSED below. §10.5 close step 1 points to it.
-  - Tests: a disjoint clean catch-up merges with a recorded gate run; overlapping files refuse; a
-    conflicting merge-tree refuses; a red gate refuses and leaves the branch unchanged.
+  - `ccp tasks close` at `behind_tip` catches up only when all hold:
+    (a) `git merge-tree` of the verified head and `origin/<integration>` is clean;
+    (b) the files the tip's new commits change (the same `git log <head>..origin/<integration>` set as
+    today, after the task-log and `merge.behind_tip_ignore` exclusions) meet neither the files the
+    task's own diff changes (`git diff --name-status --no-renames <merge-base>..<head>`, both sides of
+    any rename) nor the task's declared `paths`;
+    (c) the task declares no `build` sign-off (a catch-up changes the head a build sign-off covers, so
+    such a task falls back to the merge round and re-verify).
+  - Then close makes the merge commit in its merge worktree, runs the product's gate lane (the lane
+    `suite.roles` gives the `gate` role) on it through `ccp suite run` as a recorded run bound to the
+    task, and on a green gate re-checks `behind_tip` against the new head. If the tip moved again it
+    repeats the catch-up, at most 3 times in all, then refuses `behind_tip`. Otherwise it pushes the
+    commit as the task branch's new head and merges pinned to it.
+  - The verification record gains `catch_up: {from, to, tip, gate_run, merge_tree: clean,
+    tip_files, task_files}`. `ccp verify merge-ok` accepts the new head only through such a record
+    with a green gate run bound to this task.
+  - Every other case refuses as today (`behind_tip`), naming the condition that failed (conflict,
+    overlap, build sign-off, red gate, tip moved too often, push or merge refused), with the task
+    branch unchanged.
+  - The `behind_tip` refusal hint, the `ccp prompt merge` text and the runner brief's close step name
+    the new path.
+  - SPEC, each CURRENT → PROPOSED in the PR body:
+    - §16.5 rule 4, added before "The task's implementer merges": "When the merge with the tip is
+      clean, the tip's new commits change no file the task's own diff or declared paths change, and
+      the task declares no build sign-off, close merges the tip into the verified head itself, runs
+      the gate lane on the result as a recorded run, re-checks the tip (at most 3 catch-ups), and on
+      a green gate merges that commit, recording the catch-up in the verification record. Review and
+      verify are not repeated: the task's own diff is unchanged. A break outside the gate lane's
+      coverage is not caught here; the gate lane is what the integration branch is held to.
+      Otherwise it refuses as above, naming the condition that failed."
+    - §10.5 close step 1: "refuses a head behind the tip" becomes "refuses a head behind the tip
+      unless it catches it up (§16.5 rule 4)".
+    - §15.5: the merge is pinned to the verified head, or to a head recorded as its catch-up.
+    - §15.6 rule 3: a new head needs a new verdict, except a catch-up close made itself (§16.5 rule 4).
 - **Out:** changing what review or verify judge; serialising closes.
-
-§16.5 rule 4, CURRENT (last sentences): "… with several runners close still checks. The task's
-implementer merges `origin/<integration>` into the task branch … and resolves any conflict; the task
-is verified again on the new head".
-PROPOSED (added before "The task's implementer merges"): "When the tip's new commits change no file
-the task's own diff changes and the merge is clean, close merges the tip into the verified head
-itself, runs the gate lane on the result as a recorded run, and on a green gate merges that commit,
-recording the catch-up in the verification record; review and verify are not repeated, since the
-task's own diff is unchanged. Otherwise it refuses as above, naming the condition that failed."
 
 ## dod_checks
 
 - id: `check-01`
   story: As a runner, my verified task closes when the other runner's merge touched other files.
   setup: a scratch product with two runners; task A verified at head H; task B merges first,
-    changing only files A's diff does not touch.
+    changing only files outside A's diff and declared paths.
   steps:
     1. Run `ccp tasks close A --pr <A's PR>`.
-  expect: close merges the tip into H, runs the gate as a recorded run, merges the new head, and the
-    verification record carries `catch_up` with both heads and the gate run.
+  expect: close merges the tip into H, runs the gate lane as a recorded run, and merges that commit;
+    the merged commit is the record's `catch_up.to`, which carries both heads, the tip and the run.
   dry run: on the merge base close refuses with `behind_tip`.
 - id: `check-02`
-  story: As a runner, an overlapping or conflicting tip still sends me back.
-  setup: as check-01, but B changes a file A also changes; then a case where merge-tree conflicts;
-    then a case where the gate goes red on the merge.
+  story: As a runner, an overlapping tip still sends me back.
+  setup: as check-01, but B changes a file A's diff changes; a second case where B renames a file A
+    changes; a third where B changes a file under A's declared paths that A's diff does not touch.
   steps:
     1. Run `ccp tasks close A` in each case.
-  expect: each refuses `behind_tip`, naming overlap, conflict or red gate; nothing is merged and A's
-    branch is unchanged.
+  expect: each refuses `behind_tip` naming overlap; nothing is merged; A's branch is unchanged.
   dry run: n/a.
 - id: `check-03`
+  story: As a runner, a conflicting merge or a red gate sends me back.
+  setup: as check-01, but B's change makes `git merge-tree` conflict; separately, B's change is
+    disjoint but makes the gate lane fail on the merged tree (B removes a helper A's new test imports
+    from an untouched module).
+  steps:
+    1. Run `ccp tasks close A` in each case.
+  expect: refuses `behind_tip` naming conflict, then red gate (with the gate run id); nothing merged.
+  dry run: n/a.
+- id: `check-04`
+  story: As a runner, a tip that moves during the catch-up gate does not merge a stale head.
+  setup: as check-01, with a third task C merging (disjoint) while A's catch-up gate runs.
+  steps:
+    1. Run `ccp tasks close A`.
+  expect: close re-checks after the gate and catches up again (a second recorded gate run) or, past 3
+    catch-ups, refuses `behind_tip`; it never merges a head behind the tip.
+  dry run: n/a.
+- id: `check-05`
+  story: As a lead, a build sign-off is never carried across a catch-up.
+  setup: as check-01, with A declaring `sign_off: build` and its sign-off recorded at H.
+  steps:
+    1. Run `ccp tasks close A`.
+  expect: refuses `behind_tip` naming the build sign-off; nothing merged.
+  dry run: n/a.
+- id: `check-06`
   story: As a plane developer, nothing else changed.
   setup: a checkout of the PR head.
   steps:
