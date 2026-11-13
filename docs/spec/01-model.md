@@ -675,7 +675,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `prompts` | the worker prompt fragment and `worker_env`; the prompt audit's `keep_body` (default `false`) and `audit_keep_days` (default `null`, keep all) | §13, §23.8 |
 | `reconcile` | commands run at close | §10 |
 | `gate` | the agent's shell limit and the gate's cut line (`shell_limit_seconds`, `cut_line_seconds`) | §14.6 |
-| `suite`, `verify` | test runs and lanes (an argv or ordered `{name, cmd}` stages), verification and cache acceptance (`verify.accept_cache`), the fix rounds that need no new review (`verify.skip_review`) | §14, §15 |
+| `suite`, `verify` | test runs and lanes (an argv or ordered `{name, cmd}` stages), verification and cache acceptance (`verify.accept_cache`), the fix rounds that need no new review (`verify.skip_review`, `verify.skip_review_after_clean`) | §14, §15 |
 | `parallel` | several runners | §16 |
 | `report` | the verdicts every implementer report must state (`report.required_fields`) | §13.4 |
 | `notify` | the operator's channels on each trigger: the command `ccp` runs (`command`, `timeout_seconds`) and the lead's tool (`lead`: `tool`, `to`) | §3.6 |
