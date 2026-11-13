@@ -121,6 +121,13 @@ of reach when the sentence is edited.
 - **A claim about the code cites its proof** (a probe or dry run), re-measured at the brief's commit,
   never copied from a report. A task that renames something lists in Scope every file a search for
   the old name finds.
+- **A measured premise names its measurement.** Any count, size, list of sites or "X already
+  happens" / "X never happens" claim in a brief names, in Context and on the same line, the command
+  that measured it, in backticks, and the commit it ran at: `` `git grep -c foo -- src/` at `abc1234`:
+  2 call sites ``. The implementer re-runs it at its base before building and, if the figure changed
+  materially, stops with a scope question. `ccp tasks check` warns, without failing, about a task not
+  yet `done` or `dropped` whose Context states a number with no backticked command (a code span of
+  two words or more) on its line.
 - **Copy into Context what workers cannot reach**: data only the live system, a session or the
   operator holds.
 - **A ruling or sign-off is in git before anyone acts on it**: in the task's notes or a commit,

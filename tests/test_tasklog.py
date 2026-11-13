@@ -322,6 +322,39 @@ class TaskLogTest(unittest.TestCase):
         f.write_text(f.read_text().replace("status: pending", "status: dropped"))
         self.assertEqual(tasklog.warnings(self.p.cfg), [])
 
+    def test_a_number_in_context_without_a_command_on_its_line_warns_and_does_not_fail(self):
+        f = self.p.task("0001-a")
+        f.write_text(f.read_text().replace("- background", "- only 2 call sites exist"))
+        g = self.p.task("0002-b")
+        g.write_text(g.read_text().replace("- background", "- `git grep -c foo` at abc1234: 2 call sites"))
+        self.p.index()
+        code, out = self._cli("check")
+        self.assertEqual(code, 0, out)
+        line = f.read_text().split("\n").index("- only 2 call sites exist") + 1
+        self.assertIn(f"  warning: docs/delivery/tasks/0001-a.md:{line}: Context states a number (2)", out)
+        self.assertNotIn("0002-b.md", out)
+        for status in ("done", "dropped"):
+            f.write_text(f.read_text().replace("status: pending", f"status: {status}"))
+            self.assertEqual(tasklog.warnings(self.p.cfg), [], status)
+            f.write_text(f.read_text().replace(f"status: {status}", "status: pending"))
+        f.write_text(f.read_text().replace("## Context (not verified)\n\n- only 2 call sites exist",
+                                           "## Context (not verified)\n\n- background\n\n## Scope\n\n- only 2"))
+        self.assertEqual(tasklog.warnings(self.p.cfg), [], "a number outside Context is not read")
+
+    def test_what_counts_as_a_number_and_as_a_command_in_context(self):
+        f = self.p.task("0001-a")
+        quiet = ["1. per §31.1, R5, ADR-0033, PR #89 and task 0197, on 2026-11-12 at 07:57, sha abc1234",
+                 "- the operator's ruling of 11 Nov 2026, and of November 11, 2026",
+                 "- `ls src | wc -l` at abc1234 gives 12", "- `the 4 files`",
+                 "```", "40 lines in a fence", "```"]
+        loud = ["- `src/a.py` has 3 call sites", "- it takes 40% of the run", "- 3.5 s per test", "- 0 callers"]
+        f.write_text(f.read_text().replace("- background", "\n".join(quiet + loud)))
+        lines = f.read_text().split("\n")
+        ws = tasklog.warnings(self.p.cfg)
+        self.assertEqual([w.split(": Context")[0] for w in ws],
+                         [f"docs/delivery/tasks/0001-a.md:{lines.index(l) + 1}" for l in loud], ws)
+        self.assertEqual([w.split("number (")[1].split(")")[0] for w in ws], ["3", "40", "3.5", "0"])
+
     def test_a_scope_path_marked_removed_is_not_warned_about_whether_or_not_it_exists(self):
         self.p.write("src/still_here.py", "x = 1\n")
         f = self.p.task("0001-a")
