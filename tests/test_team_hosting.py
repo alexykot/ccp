@@ -556,6 +556,11 @@ class TestAgentModels(unittest.TestCase):
             self.assertIn(f"`{worker}` subagent", brief)
         self.assertIn("Never pass `model` in the\nAgent call", brief)
 
+    def test_a_single_runner_is_told_to_make_its_missing_worktree_with_ccp(self):
+        brief = (PLANE / "plugin" / "agents" / "delivery-runner.md").read_text()
+        single = brief.split("## Several runners", 1)[0]  # §12.1: the part a runner with no slot follows
+        self.assertIn("`ccp tasks worktree`", single)
+
 
 class TestArchitectInTemplates(unittest.TestCase):
     """SPEC docs/design/architect.md #7 and §19.9: the runner handles `next`'s exit 4, records friction and

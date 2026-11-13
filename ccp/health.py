@@ -2,7 +2,8 @@
 
 Everything comes from data the plane already holds; nothing here is a target or part of a DoD.
 
-- **git:** the task merges on the first-parent history of HEAD. A merge is a merge commit, or a
+- **git:** the task merges on the first-parent history of HEAD (the board reads the integration
+  branch's remote ref instead, so a checkout that has not pulled still shows a merge). A merge is a merge commit, or a
   commit whose subject ends in a pull-request number `(#N)` (a squash merge); it names a task when
   its subject starts with the task's NNNN (`Task 0136: …`, `0133: …`) or it merged a `task/NNNN-…`
   branch. Its files and lines are split by the `architect.areas` globs.
@@ -234,11 +235,11 @@ def orphans_main(cfg: Config, a: Any) -> int:
     return 1 if r["uncovered"] else 0
 
 
-def numstat(cfg: Config, shas: set[str]) -> dict[str, list[tuple[str, int]]]:
-    """{merge sha: [(path, lines added + deleted)]}, each against its first parent."""
+def numstat(cfg: Config, shas: set[str], rev: str = "HEAD") -> dict[str, list[tuple[str, int]]]:
+    """{merge sha: [(path, lines added + deleted)]}, each against its first parent, on `rev`'s history."""
     out: dict[str, list[tuple[str, int]]] = {}
     cur = None
-    for line in _git(cfg.root, "log", "--first-parent", "-m", "--numstat", "--format=%x01%H", "HEAD").splitlines():
+    for line in _git(cfg.root, "log", "--first-parent", "-m", "--numstat", "--format=%x01%H", rev).splitlines():
         if line.startswith("\x01"):
             cur = line[1:] if line[1:] in shas else None
             if cur:
@@ -821,18 +822,19 @@ def small_text(s: dict[str, Any] | None) -> str | None:
             f" ({round(100 * s['share'])}%).")
 
 
-def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool = True) -> dict[str, Any]:
-    """Per-task rows (one per merged task, oldest merge first) and the trend over them. Without
-    `files`, only what the trend needs: no per-file lines and no prompt sizes."""
+def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool = True,
+            rev: str = "HEAD") -> dict[str, Any]:
+    """Per-task rows (one per merged task on `rev`'s first-parent history, oldest merge first) and the
+    trend over them. Without `files`, only what the trend needs: no per-file lines and no prompt sizes."""
     a = cfg.architect or ARCHITECT_DEFAULTS
     tasks = tasklog.load(cfg)
-    ms = merges(cfg, tasks)
+    ms = merges(cfg, tasks, rev)
     if since:
         s = _epoch(since + ("T00:00:00Z" if len(since) == 10 else ""))
         if s is None:
             raise ValueError(f"--since {since!r}: give a date (YYYY-MM-DD) or YYYY-MM-DDTHH:MM:SSZ")
         ms = [m for m in ms if m["at"] >= s]
-    stats = numstat(cfg, {m["sha"] for m in ms}) if files else {}
+    stats = numstat(cfg, {m["sha"] for m in ms}, rev) if files else {}
     areas = [(n, [glob_re(g) for g in gs]) for n, gs in a["areas"].items()]
     ev = _queue_view(q) if q else {}
     lanes = lane_waits(q) if q else {}

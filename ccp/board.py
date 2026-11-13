@@ -169,9 +169,19 @@ def _open_questions(q: Path) -> list[Path]:
     return out
 
 
+def merge_rev(cfg: Config, q: Path) -> str:
+    """Where the board reads task merges: the integration branch's remote ref, `origin/<integration>`, so
+    a merge shows before the checkout the board is built from pulls it; the local branch without that
+    ref; HEAD when neither is here. Nothing is fetched."""
+    tip = health.integration_tip(cfg, q)
+    r = subprocess.run(["git", "--no-optional-locks", "-C", str(cfg.root), "rev-parse", "--verify", "-q",
+                        f"{tip}^{{commit}}"], capture_output=True, text=True)
+    return tip if r.returncode == 0 and r.stdout.strip() else "HEAD"
+
+
 def _tasks(cfg: Config, q: Path, report: dict[str, Any], limit: int = 60) -> tuple[list[dict[str, Any]], dict[str, int]]:
     try:
-        h = health.collect(cfg, q, files=True)
+        h = health.collect(cfg, q, files=True, rev=merge_rev(cfg, q))
     except Exception:  # noqa: BLE001  (git or the queue unreadable: the board still builds)
         h = {"tasks": []}
     week = datetime.now(timezone.utc).timestamp() - 7 * 86400
@@ -406,7 +416,7 @@ def task_text(cfg: Config, q: Path, task: str) -> str:
             raise
         tid = hits[0]
     try:
-        rows = health.collect(cfg, q, files=False)["tasks"]
+        rows = health.collect(cfg, q, files=False, rev=merge_rev(cfg, q))["tasks"]
     except Exception:  # noqa: BLE001  (git unreadable: an open task's view still prints)
         rows = []
     report = usage.fold(q, None, (cfg.telemetry or {}).get("design_seat"))

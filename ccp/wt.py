@@ -11,6 +11,9 @@ checkout, gets `worktrees.links` linked in, and is recorded in `QUEUE_ROOT/workt
 so close, drop, release and gc remove exactly what was made. A runner's own merge worktree
 (`runner_worktree`, binding `runner.worktree`) is made here too, detached at the integration tip,
 by `ccp tasks worktree` and the single runner's spawn; it is not a task's, so it is not recorded.
+`ccp tasks close`'s own `merge-<nnnn>` (`merge_path`, §10.5) is not recorded either: one a failed
+close left behind is listed, removed with the rest of its task's worktrees, and removed by gc once
+its task is done or dropped and leased by no one.
 
 What a product needs beyond a git worktree (a database branch, a local stack) is a hook in plane.json
 `env`: `setup` and `teardown` run when a worktree is made and removed, `up` and `down` start and stop
@@ -46,6 +49,8 @@ KINDS: dict[str, tuple[str, str]] = {  # kind -> (default seat, default tag)
 }
 BASELINE = "ver-baseline"  # §12.1: the verifier-shaped worktree at the integration tip that needs no task
 NAME_RE = re.compile(rf"^(?:(impl|rev|ver|mut|mac|base)-[0-9]+(?:-[0-9]+)?|{BASELINE})$")
+MERGE_PREFIX = "merge"  # §10.5: close's own worktree for the reconcile, `merge-<nnnn>`; not a `ccp wt` kind
+MERGE_RE = re.compile(rf"^{MERGE_PREFIX}-([0-9]+)$")
 URL_RE = re.compile(r"^[a-z][a-z0-9+.-]*://\S+$")
 OUT_CAP = 20000
 
@@ -53,14 +58,19 @@ OUT_CAP = 20000
 # ---------------------------------------------------------------- paths and state
 
 def main_checkout(cfg: Config) -> Path:
-    from ccp.prompt import main_checkout as mc  # noqa: PLC0415
-
-    return mc(cfg)
+    """The main checkout of the product repo `cfg.root` belongs to (`main_of`)."""
+    return main_of(cfg.root)
 
 
 def base_dir(cfg: Config) -> Path | None:
     d = (cfg.worktrees or {}).get("dir")
     return main_checkout(cfg) / d if d else None
+
+
+def merge_path(cfg: Config, task_id: str) -> Path | None:
+    """The task's merge worktree (§10.5): `merge-<nnnn>` under `worktrees.dir`; None when the product has none."""
+    base = base_dir(cfg)
+    return base / f"{MERGE_PREFIX}-{refs.ids(cfg).task_number(task_id)}" if base else None
 
 
 def state_dir(q: Path) -> Path:
@@ -369,7 +379,9 @@ def remove(cfg: Config, q: Path, name: str) -> list[str]:
 
 def remove_task(cfg: Config, q: Path, task_id: str) -> list[str]:
     """Every worktree recorded for the task, then any made before worktrees were recorded
-    (`impl-`, `rev-`, `ver-` with its number) as a fallback."""
+    (`impl-`, `rev-`, `ver-` with its number) as a fallback, then its merge worktree (`merge-<nnnn>`,
+    §10.5), never the checkout this command runs in (`cfg.root`): close runs its cleanup there, in its
+    merge worktree, and removes that one itself once the reconcile has landed."""
     warnings: list[str] = []
     for st in records(q):
         if st.get("task_id") == task_id:
@@ -383,7 +395,16 @@ def remove_task(cfg: Config, q: Path, task_id: str) -> list[str]:
                 r = git(main_checkout(cfg), "worktree", "remove", "--force", str(wt))
                 if r.returncode != 0:
                     warnings.append(f"worktree {wt}: {r.stderr.strip()}")
+        own = merge_path(cfg, task_id)
+        if own and own.is_dir() and own.resolve() != cfg.root.resolve():
+            warnings += _remove_merge(cfg, own)
     return warnings
+
+
+def _remove_merge(cfg: Config, path: Path) -> list[str]:
+    """Remove a merge worktree (§10.5) a failed close left behind; a failure is a warning."""
+    r = git(main_checkout(cfg), "worktree", "remove", "--force", str(path))
+    return [f"worktree {path}: {(r.stderr or r.stdout).strip()}"] if r.returncode != 0 else []
 
 
 # ---------------------------------------------------------------- a command on the merge base
@@ -441,9 +462,22 @@ def run_on_base(cfg: Config, q: Path, task_id: str, head: str, command: list[str
 # ---------------------------------------------------------------- a runner's own worktree
 
 def main_of(checkout: Path) -> Path:
-    """The main checkout of the repository `checkout` belongs to (itself when git cannot say)."""
-    r = git(checkout, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    return Path(r.stdout.strip()).parent if r.returncode == 0 and r.stdout.strip() else checkout
+    """The main checkout of the repository `checkout` belongs to, found from `git rev-parse
+    --git-common-dir`: the parent of a common dir named `.git`; else (a separate git dir, a submodule)
+    the checkout's own top level when its git dir is the common one, so it is the main checkout itself.
+    Itself when git cannot say, as for a linked worktree of a repository whose git dir is elsewhere."""
+    r = git(checkout, "rev-parse", "--path-format=absolute", "--git-common-dir", "--git-dir")
+    lines = r.stdout.split("\n") if r.returncode == 0 else []
+    if len(lines) < 2 or not lines[0].strip() or not lines[1].strip():
+        return checkout
+    common, own = Path(lines[0].strip()), Path(lines[1].strip())
+    if common.name == ".git":
+        return common.parent
+    if own.resolve() == common.resolve():
+        top = git(checkout, "rev-parse", "--show-toplevel")
+        if top.returncode == 0 and top.stdout.strip():
+            return Path(top.stdout.strip())
+    return checkout
 
 
 def runner_worktree(main: Path, path: str, integ: str) -> tuple[Path, bool]:
@@ -519,20 +553,35 @@ def down(cfg: Config, q: Path, name: str) -> dict[str, Any]:
 # ---------------------------------------------------------------- list / gc
 
 def listing(cfg: Config, q: Path, task_id: str | None = None) -> list[dict[str, Any]]:
+    """The records (of one task with `task_id`), then the worktrees under `worktrees.dir` that have
+    none: one made before records (without `task_id` only) and a merge worktree a close left (§10.5),
+    `kind: merge`, for its task too."""
     recs = [s for s in records(q) if not task_id or s.get("task_id") == task_id]
     out = [{**s, "exists": Path(s["path"]).is_dir()} for s in recs]
     base = base_dir(cfg)
     known = {s["name"] for s in recs}
-    if base and base.is_dir() and not task_id:
+    own = merge_path(cfg, task_id) if task_id else None
+    if base and base.is_dir():
         for p in sorted(base.iterdir()):
-            if p.is_dir() and NAME_RE.match(p.name) and p.name not in known:
+            if not p.is_dir() or p.name in known:
+                continue
+            if MERGE_RE.match(p.name) and (not task_id or (own and p.name == own.name)):
+                out.append({"name": p.name, "kind": MERGE_PREFIX, "path": str(p), "exists": True, "recorded": False})
+            elif NAME_RE.match(p.name) and not task_id:
                 out.append({"name": p.name, "path": str(p), "exists": True, "recorded": False})
     return out
 
 
+def _gone(tq: dict[str, Any]) -> bool:
+    """A task done or dropped in the queue and leased by no one: gc removes its worktrees (§12.1)."""
+    return str(tq.get("status") or "") in ("done", "dropped") and not tq.get("lease_holder")
+
+
 def gc(cfg: Config, q: Path) -> dict[str, Any]:
     """Prune git's worktree list; forget records whose worktree is gone; remove the worktrees of tasks
-    that are done or dropped in the queue and leased by no one (drop and release keep them, §12.1)."""
+    that are done or dropped in the queue and leased by no one (drop and release keep them, §12.1),
+    a merge worktree a close left behind (§10.5) included. A merge worktree of a task the queue does
+    not hold done or dropped stays: a re-run of its close reuses it."""
     forgot, removed, warnings = [], [], []
     git(main_checkout(cfg), "worktree", "prune")
     for st in records(q):
@@ -541,9 +590,21 @@ def gc(cfg: Config, q: Path) -> dict[str, Any]:
             forgot.append(st["name"])
             continue
         tq = load_task_state(q, st["task_id"]) if st.get("task_id") else {}  # the baseline has no task
-        if str(tq.get("status") or "") in ("done", "dropped") and not tq.get("lease_holder"):
+        if _gone(tq):
             warnings += remove(cfg, q, st["name"])
             removed.append(st["name"])
+    base = base_dir(cfg)
+    if base and base.is_dir():
+        ids = refs.ids(cfg)
+        tasks = sorted(f.stem for f in (q / "tasks").glob("*.json")) if (q / "tasks").is_dir() else []
+        for p in sorted(base.iterdir()):
+            m = MERGE_RE.match(p.name)
+            if not m or not p.is_dir() or p.resolve() == cfg.root.resolve():
+                continue
+            mine = [load_task_state(q, t) for t in tasks if ids.task_number(t) == m.group(1)]
+            if mine and all(_gone(tq) for tq in mine):
+                warnings += _remove_merge(cfg, p)
+                removed.append(p.name)
     return {"ok": True, "forgot": forgot, "removed": removed, "warnings": warnings}
 
 
