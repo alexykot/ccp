@@ -1,14 +1,14 @@
 ---
 task_id: 0083-worktree-exec-and-base-follow-ups
 title: wt exec, base runs and shallow checkouts are complete and clean up after themselves
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12", "S15"]
 review_point: R5
 paths: ["ccp/wt.py", "plugin/agents/delivery-reviewer.md", "plugin/agents/delivery-verifier.md", "docs/cli/", "docs/spec/02-delivery.md", "tests/test_wt.py", "tests/test_merge_base*.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0083-worktree-exec-and-base-follow-ups
@@ -77,4 +77,4 @@ A seat checking work in a worktree knows which `ccp` runs, a merge-base run neve
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #91 head `beff06e` (squash `b3ad843`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0083-worktree-exec-and-base-follow-ups.json.

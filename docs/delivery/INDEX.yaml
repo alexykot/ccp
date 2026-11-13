@@ -413,7 +413,7 @@ tasks:
     depends_on: []
     path: tasks/0082-worker-test-runs-are-recorded.md
   - id: 0083-worktree-exec-and-base-follow-ups
-    status: pending
+    status: done
     title: wt exec, base runs and shallow checkouts are complete and clean up after themselves
     depends_on: []
     path: tasks/0083-worktree-exec-and-base-follow-ups.md
