@@ -18,8 +18,8 @@ log, and when the command ends, a summary: on a failure the failing tests' secti
 FAIL:/ERROR: blocks) and the log's last lines, capped with the tail cut from its front so the end
 always shows; always every `show_re` line; then one line with the exit code, lane, seconds, tests,
 failures, skips and modules ran and cached, and the log's path. A log that cannot be opened
-streams the run as --full does, with a warning. Options that do not parse run the command
-unrecorded, in the mode a terminal decides.
+streams the run as --full does, with a warning. Options that do not parse run nothing: `ccp`
+exits 2, naming the problem (§14.5).
 
 `--full`, the default with a terminal on stdin: the output is
 copied to `ccp`'s own, byte for byte, as it arrives (one pipe when stdout and stderr are the same
@@ -73,8 +73,9 @@ untracked files. The product's language pack reads them: for Python, a `test*.py
 imports a changed module directly or through one package's `__init__.py`, or names a changed file.
 
 Recording never stands between a worker and its tests. With a command after `--`, it runs and its
-exit code is returned whatever else fails: no QUEUE_ROOT, no checkout, an unreadable plane.json, a bad option, a failed write. `ccp` prints one
-`ccp suite:` warning on stderr and records nothing, or nothing more.
+exit code is returned whatever else fails: no QUEUE_ROOT, no checkout, an unreadable plane.json, a bad
+--lane label or --phase, a failed write. `ccp` prints one `ccp suite:` warning on stderr and records
+nothing, or nothing more. The one exception is options that do not parse: the call runs nothing.
 """
 from __future__ import annotations
 
@@ -1416,16 +1417,6 @@ def main_run(a: Any, command: list[str] | None) -> int:
             pass
     return run(cfg, a, command, warn, record=cfg is not None,  # no config, no project id: nothing to record
                caller_env=caller_env)
-
-
-def unparsed(command: list[str]) -> int:
-    """`ccp suite run … -- COMMAND` whose options did not parse (argparse said why): the command
-    still runs, unrecorded, in the mode a terminal decides (summary mode logs to a temp file)."""
-    print("ccp suite: the options above did not parse: running the command without recording it",
-          file=sys.stderr, flush=True)
-    a = type("A", (), {"lane": None, "phase": None, "run": None, "task": None, "root": None, "output": None,
-                       "log": None})()
-    return run(None, a, command, _Warn(), record=False)
 
 
 # ---------------------------------------------------------------------------------------- read

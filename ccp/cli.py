@@ -1503,7 +1503,7 @@ def refresh_board(cfg: config.Config, a: argparse.Namespace, code: int) -> None:
 
 def _words(raw: list[str]) -> list[str]:
     """The command words, past the global `--root P` / `--root=P`. A prefix of it (`--ro P`) is
-    skipped too: the parser refuses it (no abbreviations), and the command after `--` still runs."""
+    skipped too: the parser refuses it (no abbreviations), and the command after `--` does not run (§14.5)."""
     out, skip = [], False
     for w in raw:
         name = w.split("=", 1)[0]
@@ -1531,14 +1531,12 @@ def main(argv: list[str] | None = None) -> int:
     elif "--" in raw and _words(raw[:raw.index("--")])[:2] in (["wt", "exec"], ["wt", "create"]):
         passthru, raw = raw[raw.index("--") + 1:], raw[:raw.index("--")]  # §12.1: its ccp's arguments, or the
         # command a base worktree runs, verbatim
-    if command:
-        try:
-            a = build_parser().parse_args(raw)
-        except SystemExit:  # argparse said what is wrong; the tests still run (§14.1)
-            from ccp import suite  # noqa: PLC0415
-            return suite.unparsed(command)
-    else:
+    try:
         a = build_parser().parse_args(raw)
+    except SystemExit as e:  # argparse said what is wrong (or printed --help)
+        if command and e.code:  # §14.5: a suite call that does not parse runs nothing, so no run goes unrecorded
+            print("ccp suite: the options above did not parse: the command did not run", file=sys.stderr)
+        raise
     warn = checkout_warning()
     if warn:
         print(f"warning: {warn}", file=sys.stderr)

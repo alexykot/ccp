@@ -21,6 +21,16 @@ Every test run a worker relies on, including mutation checks, goes through `ccp 
 
 - Reviews across several review points: implementers, reviewers and verifiers ran mutation checks with plain `unittest` and disclosed it; and a bare `ccp suite run --wait` printed a parse error and still ran the command unrecorded (an accepted plane proposal).
 - §31.1: SPEC text this task writes describes its own feature; no merge gate.
+- Ruling round 1 (lead, on spec question sm-20261113T224712Z-986c, spec commit 568900d), verbatim:
+  "(1) The narrowing is accepted. The task's acceptance asked for the recorded route to be the
+  obvious one in the worker briefs, so a generic evidence bullet naming ccp suite run and ccp mutate
+  in the three definitions, with the rendered command in _common.md, is that feature. Narrowing
+  §13.5 and the two tests that pinned the old rule is a correction the change requires (§31.1).
+  (2) Leave an invalid --lane or --phase value as §14.5 has it: run unrecorded with a warning. That
+  rule is the existing design (a test run never blocks), and changing it is beyond this task; only
+  the unparseable argument list is refused, as built. (3) The §13.1, §13.2, §13.5, §14.2 and §14.5
+  edits are §31.1 as listed in the PR body, and ccp/cli.py outside the declared paths is accepted.
+  Record this ruling in 0082's Context with a ruling round, then review."
 
 ## Scope
 
@@ -54,6 +64,28 @@ Every test run a worker relies on, including mutation checks, goes through `ccp 
 ## Implementation notes
 
 *Append-only, newest last.*
+
+- 2026-11-13 (implement): `ccp suite run … -- COMMAND` whose options argparse refuses now runs
+  nothing: `ccp/cli.py` re-raises argparse's exit (2 for a parse error, after one `ccp suite:` line
+  saying the command did not run; 0 for `--help`) instead of falling back to `suite.unparsed`, which
+  is removed. "Cannot parse" is read narrowly as an argparse failure (unknown flag, an option missing
+  its value or given one of the wrong type, `--full` with `--summary`, an abbreviated `--root`). A
+  `--lane` label or `--phase` value that parses but is invalid still runs the command unrecorded with
+  a warning, as SPEC §14.5 already listed it. SPEC §14.2 and §14.5 say so.
+- The recorded route for evidence is stated twice, at two levels: a generic bullet in each of the
+  three worker definitions (`plugin/agents/delivery-{implementer,reviewer,verifier}.md`, pinned in
+  `tests/test_plugin.py`'s `WORKER_RULES`; SPEC §13.1 now counts four generic rules), and the
+  rendered command, with the run id and queue root, in `templates/prompts/_common.md`, which the
+  implement, fix, review and verify prompts share (SPEC §13.2 item 1). The definitions now name
+  `ccp suite run` once, in that bullet: §13.5's "one statement" rule and the two tests that pinned
+  "no `ccp suite run` in a definition" (`tests/test_suite.py`, `tests/test_worker_efficiency.py`) now
+  allow exactly that bullet and still keep the full §14.1 rule out of the definitions.
+- 2026-11-13 (implementer, ruling round 1): wrote the lead's ruling sm-20261113T224712Z-986c into
+  Context. It accepts the build as it stands: the generic evidence bullet in the three definitions
+  with the rendered command in `_common.md`, the narrowed §13.5 and its two tests, an invalid
+  `--lane` or `--phase` still running unrecorded with a warning (§14.5), the §13.1, §13.2, §13.5,
+  §14.2 and §14.5 edits as §31.1, and `ccp/cli.py` outside the declared paths. No code, test or SPEC
+  change followed; `origin/main` had not moved.
 
 ## Verification notes
 
