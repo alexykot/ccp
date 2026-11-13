@@ -487,3 +487,8 @@ tasks:
     title: A brief's measured premises name the command and commit they came from, and the implementer re-checks them
     depends_on: []
     path: tasks/0097-measured-premises-carry-their-measurement.md
+  - id: 0098-close-catches-up-a-clean-disjoint-head
+    status: pending
+    title: Close merges a verified head behind the tip when the tip's new commits do not touch the task's files
+    depends_on: []
+    path: tasks/0098-close-catches-up-a-clean-disjoint-head.md
