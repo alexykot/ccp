@@ -393,7 +393,7 @@ tasks:
     depends_on: []
     path: tasks/0078-refactor-tasks-do-not-rerun-the-gate.md
   - id: 0079-lint-proven-skips
-    status: pending
+    status: done
     title: A product's prover command can skip a step it makes redundant, recorded on the run
     depends_on: []
     path: tasks/0079-lint-proven-skips.md

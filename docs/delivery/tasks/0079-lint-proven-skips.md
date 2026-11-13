@@ -1,14 +1,14 @@
 ---
 task_id: 0079-lint-proven-skips
 title: A product's prover command can skip a step it makes redundant, recorded on the run
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S15"]
 review_point: R5
 paths: ["ccp/verify.py", "ccp/suite.py", "ccp/config.py", "contracts/", "docs/spec/02-delivery.md", "tests/test_review_skip*.py", "tests/test_suite_stages.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0079-lint-proven-skips
@@ -213,4 +213,4 @@ A change that a cheap, declared check proves harmless (a comment-only diff, a do
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #99 head `1a7cd14` (squash `ac7d978`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0079-lint-proven-skips.json.
