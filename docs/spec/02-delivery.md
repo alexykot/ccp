@@ -875,9 +875,9 @@ They hold for every PR the runner merges, a task's or not (ADR-0011).
    since (`behind_tip`; commits that touch only the task log or the product's
    `merge.behind_tip_ignore` paths do not count, §16.5 rule 4) before a verifier starts, with one
    runner or several, so the runner merges the tip into the head before asking for a verify. Under
-   several runners `ccp tasks close` also refuses such a verified head; with one runner `close` does
-   not run this check. The task branch takes the integration branch by a merge, never a rebase (a
-   rebase needs a force-push).
+   several runners `ccp tasks close` also refuses such a verified head unless it catches it up (§16.5
+   rule 4); with one runner `close` does not run this check. The task branch takes the integration
+   branch by a merge, never a rebase (a rebase needs a force-push).
 3. **Re-verify after an integration merge.** When the head moved only by merging the integration
    branch and the PR's own change is unchanged (same patch id), no new review is needed (§15.2). The
    verdict must still be at the new head: the runner opens `ccp prompt verify --head <new> --note
@@ -943,10 +943,11 @@ Tasks in unrelated parts of a codebase need not wait for each other (ADR-0012). 
 worktrees, workers and merge worktree; a teammate's Agent call blocks until its worker ends, so one
 runner runs one worker at a time. Correctness never rests on declared paths: a task merges only from
 a head that contains the current integration tip (the task log and the paths in
-`merge.behind_tip_ignore` aside, §16.5 rule 4), verified there, and git resolves the rest with no
-merge lock. Two merges that conflict: the later fails, and its implementer resolves it. A merge
-landing between another task's catch-up and its merge is a small window, accepted. Declared paths
-only decide what to start together. Off (`max_in_flight: 1`) is the single-runner behaviour, exactly.
+`merge.behind_tip_ignore` aside, §16.5 rule 4), verified there or caught up by close (§16.5 rule 4),
+and git resolves the rest with no merge lock. Two merges that conflict: the later fails, and its
+implementer resolves it. A merge landing between another task's catch-up and its merge is a small
+window, accepted. Declared paths only decide what to start together. Off (`max_in_flight: 1`) is the
+single-runner behaviour, exactly.
 
 ### 16.2 The knob
 

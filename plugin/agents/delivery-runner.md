@@ -149,8 +149,10 @@ before anything else.
    pushes, removes the task worktree, and clears the queue. A refusal says why and merges nothing: a
    head that moved since the verdict (verify again), an approve without the verifier's gate, a PR
    already merged. With several runners, a verified head behind the tip is caught up by close itself
-   when it can (Several runners rule 4). An approval in a message is not one. If the project's rules put merging behind a
-   gate, open it first. Tell the lead in one line: task, merge sha, anything it must know.
+   when it can (Several runners rule 4); it then runs the gate lane before it merges, up to 3 times, so
+   give close the longest timeout and run it again if it is interrupted. An approval in a message is
+   not one. If the project's rules put merging behind a gate, open it first. Tell the lead in one line:
+   task, merge sha, anything it must know.
 
    **Merge rules** (SPEC §15.2; the tip rule is Several runners rule 4):
    - Review only once open spec questions are answered and their rulings are on the PR.
@@ -204,7 +206,9 @@ runners, each holding one task. Otherwise ignore this section.
    `ccp tasks close` itself when the merge is clean, the tip's new commits touch none of the task's own or
    declared files, the task declares no build sign-off and the product has a gate lane: close merges the tip
    in, runs the gate lane on it as a recorded run, pushes it and merges it, with no new review or verify
-   (SPEC §16.5 rule 4). Otherwise it refuses (exit 1, `behind_tip`, nothing merged, the task branch unchanged)
+   (SPEC §16.5 rule 4). That gate run may take minutes and repeat up to 3 times: give close the longest
+   timeout, and if it is interrupted run it again (nothing is pushed before the gate is green). Otherwise
+   it refuses (exit 1, `behind_tip`, nothing merged, the task branch unchanged)
    naming the condition that failed: the same catch-up by a merge round, then verify the new head (the merge
    is pinned to the verified head). If close pushed its catch-up and the merge was then refused, run close
    again: the record covers that head. A head whose own change is unchanged by

@@ -72,12 +72,15 @@ class CatchUp(ToolkitFixture, unittest.TestCase):
         git(self.main, "commit", "-qam", "plane.json")
         git(self.main, "push", "-q", "origin", "main")
 
-    def approved(self, paths: bool = True, sign_off: str | None = None) -> str:
+    def approved(self, paths: bool = True, sign_off: str | None = None, brief_signed: bool = False) -> str:
         """0002 claimed, built (feature.txt, a test importing lib.helper, line 1 of shared.txt), pushed and
-        approved: its head."""
+        approved: its head. `brief_signed` records the brief sign-off before the claim."""
         self.frontmatter(*([PATHS] if paths else []), *([f"sign_off: {sign_off}"] if sign_off else []))
         git(self.runner, "fetch", "-q", "origin")
         git(self.runner, "checkout", "-q", "--detach", "origin/main")
+        if brief_signed:
+            code, _, out, err = self.ccp("tasks", "sign-off", "0002", "--stage", "brief", "--by", "op", "--words", "go")
+            self.assertEqual(code, 0, out + err)
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
         wt = self.main / ".rt" / "impl-0002"
@@ -272,6 +275,14 @@ if done < {moves}:
         self.tip(self.put("other/b.txt", "b\n"))
         code, _, out, err = self.close()
         self.refused(code, out, err, head, "build sign-off")
+
+    def test_a_brief_sign_off_is_carried_across_a_catch_up(self):
+        head = self.approved(sign_off="brief", brief_signed=True)
+        self.tip(self.put("other/b.txt", "b\n"))
+        code, body, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(body["merged_now"])
+        self.assertEqual(self.record()["catch_up"]["from"], head)
 
     def test_a_product_with_no_gate_lane_refuses_and_never_skips_the_run(self):
         self.plane_json(lambda c: c.pop("suite"))
