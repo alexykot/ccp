@@ -24,8 +24,9 @@
 The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own events):
   ccp tasks prefer [ID... [--reason T] | --clear]  (the lead: the runner's next tasks, in order, ahead of `next`'s own pick)
   ccp tasks hold [ID [--reason T] | --clear ID]  (the lead: `next` passes over a held task; no args: list)
-  ccp tasks sign-off ID --by WHO --words T [--stage brief|build] [--head SHA]  (the lead records the operator's
-            sign-off: claim needs a brief one, close every declared one, a build one at the head it merges, SPEC §3.5)
+  ccp tasks sign-off ID --by WHO --words T [--stage brief|build] [--head|--from SHA] [--at DATE]  (the lead records
+            the operator's sign-off, one given earlier with its date: claim needs a brief one, close every declared
+            one, a build one at the head it merges, SPEC §3.5)
   ccp tasks claim ID | phase ID PHASE [--note T] | wait ID REASON [--until T] [--detail T]
             | resume ID REASON [--detail T] | close ID --pr N [--summary T]
             | sync [--dry-run]  (the queue follows the task log: done or dropped tasks lose waits and leases)
@@ -543,7 +544,7 @@ def _lifecycle(cfg: config.Config, a: argparse.Namespace):
     if a.cmd == "release":
         return lifecycle.release(cfg, a.task, (a.reason or "").strip())
     if a.cmd == "sign-off":
-        return lifecycle.sign_off(cfg, a.task, a.stage, a.by or "", a.words or "", a.head)
+        return lifecycle.sign_off(cfg, a.task, a.stage, a.by or "", a.words or "", a.head, a.at)
     if a.cmd == "drop":
         return lifecycle.drop(cfg, a.task, (a.reason or "").strip())
     if a.cmd == "phase":
@@ -919,8 +920,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--stage", choices=("brief", "build"), help="which sign-off (default: the one the task declares)")
     p.add_argument("--by", required=True, help="who signed: the operator's id")
     p.add_argument("--words", required=True, help="what they signed with, one line")
-    p.add_argument("--head", help="the commit it covers (default: brief, the task file's last commit; build, the "
-                                  "verified head)")
+    p.add_argument("--head", "--from", dest="head", help="the commit it covers (default: brief, the task file's last "
+                                                       "commit; build, the verified head)")
+    p.add_argument("--at", help="when the operator gave a sign-off that could not be recorded then (YYYY-MM-DD, or "
+                                "an RFC 3339 time with its offset): kept as signed_at")
     p.set_defaults(fn=life)
     p = t.add_parser("claim", help="lease a task, make its worktree, record it (SPEC §10.5; needs QUEUE_ROOT)")
     p.add_argument("task", help="task id or NNNN")

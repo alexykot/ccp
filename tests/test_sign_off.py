@@ -233,6 +233,71 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         self.sign("--head", "b" * 40)
         self.assertEqual(sign_offs(self.q, "0002-second")["build"]["head"], "b" * 40)
 
+    # ------------------------------------------------------------------ a sign-off given before it was recorded
+
+    def test_a_past_sign_off_carries_its_date_and_the_task_files_commit_and_holds_the_claim(self):
+        self.declare("brief")
+        code, body, out, err = self.ccp("tasks", "sign-off", "0002", "--by", "operator", "--words", "approved",
+                                        "--at", "2026-01-01")
+        self.assertEqual(code, 0, out + err)
+        task_commit = git(self.main, "log", "-1", "--format=%H", "--", TASK_FILE)
+        (ev,) = self.recorded()
+        self.assertEqual(ev["payload"], {"stage": "brief", "by": "operator", "words": "approved",
+                                         "head": task_commit, "signed_at": "2026-01-01"})
+        self.assertEqual(body["sign_off"]["signed_at"], "2026-01-01")
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
+
+    def test_a_past_sign_off_from_a_named_commit_covers_the_text_it_contains(self):
+        self.declare("brief")
+        self.write("other.txt", "not the task file\n")
+        git(self.main, "add", "other.txt")
+        git(self.main, "commit", "-q", "-m", "an unrelated change")
+        later = git(self.main, "rev-parse", "HEAD")
+        code, body, out, err = self.sign("--at", "2026-01-01", "--from", later)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["sign_off"]["head"], later)
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
+
+    def test_a_past_sign_off_from_a_commit_before_the_text_changed_is_stale(self):
+        before = git(self.main, "rev-parse", "HEAD")
+        self.declare("brief")
+        self.assertEqual(self.sign("--at", "2026-01-01", "--from", before)[0], 0)
+        code, _, _, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 3)
+        self.assertIn("stale", err)
+        self.assertFalse((self.q / "tasks/0002-second.json").exists())
+
+    def test_a_past_build_sign_off_is_judged_at_the_head_it_merges(self):
+        self.declare("build")
+        self.assertEqual(self.sign("--at", "2026-01-01", "--from", "a" * 40)[0], 0)
+        self._to_approved_pr()
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 1)
+        self.assertIn("stale", err)
+        self.assertFalse((self.ghstate / "merge-called").exists())
+
+    def test_a_time_with_its_offset_is_kept_in_utc(self):
+        self.declare("brief")
+        code, body, out, err = self.sign("--at", "2026-01-01T09:30:00+02:00")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["sign_off"]["signed_at"], "2026-01-01T07:30:00Z")
+        self.assertEqual(self.recorded()[0]["payload"]["signed_at"], "2026-01-01T07:30:00Z")
+
+    def test_sign_off_refuses_a_date_it_cannot_read_or_one_still_to_come(self):
+        from datetime import date, datetime, timedelta, timezone
+        self.declare("brief")
+        soon = datetime.now(timezone.utc) + timedelta(hours=2)
+        for at, why in (("yesterday", "not a date"), ("2026-13-01", "not a date"),
+                        ("2026-01-01T09:30:00", "not a date"), ("", "not a date"),
+                        ((date.today() + timedelta(days=2)).isoformat(), "in the future"),
+                        (soon.strftime("%Y-%m-%dT%H:%M:%SZ"), "in the future")):
+            code, _, _, err = self.sign("--at", at)
+            self.assertEqual(code, 2, at)
+            self.assertIn(why, err, at)
+        self.assertEqual(self.recorded(), [])
+
     # ------------------------------------------------------------------ the task field
 
     def test_tasks_check_reads_the_field(self):

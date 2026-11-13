@@ -195,9 +195,15 @@ Any other value (no stage, or one that is not `brief` or `build`) fails `ccp tas
 and close refuse the task until it is fixed.
 
 The lead records each sign-off with `ccp tasks sign-off <id> --by <who> --words "…"
-[--stage brief|build] [--head <sha>]`: a `sign_off` `recorded` event in the ledger (§23.2) with
-`stage`, `by`, `words` and `head`; the event's `at` is when. A `build` sign-off's head defaults to the
+[--stage brief|build] [--head <sha>] [--at <date>]`: a `sign_off` `recorded` event in the ledger (§23.2)
+with `stage`, `by`, `words` and `head`; the event's `at` is when. A `build` sign-off's head defaults to the
 verified head (`verification/<id>.json`); without one the command refuses unless `--head` is given.
+A sign-off the operator gave before it could be recorded (in git, before the product adopted the
+plane) is recorded with `--at`, the date it was given (`YYYY-MM-DD`, or an RFC 3339 time with its
+offset), which the payload keeps as `signed_at`, and `--from <commit>`, the commit it covers: another
+name for `--head`, with the same defaults (for `brief`, the commit that last changed the task file).
+`--at` refuses (exit 2) a value that is not such a date or is later than now. Claim and close judge
+it as any other sign-off.
 A later record of a stage replaces the earlier. The command refuses (exit 2) a task that declares
 no `sign_off`, a stage it does not declare, and, when it declares both, a call without `--stage`.
 

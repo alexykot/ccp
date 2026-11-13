@@ -1,14 +1,14 @@
 ---
 task_id: 0076-sign-off-before-adoption
 title: A sign-off the operator gave before it could be recorded can be recorded with its date
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3"]
 review_point: R5
 paths: ["ccp/lifecycle.py", "ccp/cli.py", "docs/spec/01-model.md", "tests/test_sign_off.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0076-sign-off-before-adoption
@@ -49,6 +49,15 @@ A product that adopts mid-life can declare `sign_off` on a task whose text the o
 
 *Append-only, newest last.*
 
+- 2026-11-13 (implementer): `ccp tasks sign-off` takes `--at <date>` (`YYYY-MM-DD`, or an RFC 3339
+  time with its offset, kept in UTC), stored as the payload's `signed_at`; the event's own `at` stays
+  the time it was recorded, so the ledger stays in order. `--at` refuses (exit 2) a value it cannot
+  read, a time without an offset, and one later than now. `--from` is another name for the existing
+  `--head`: same sha check, same defaults (brief: the task file's last commit; build: the verified
+  head). Claim and close read the record as any other: `signed_at` is not consulted. §3.5 says so;
+  the CLI table (`docs/cli/02-delivery.md`) and the event contract's `sign_off` description name the
+  new flag and key. Tests: `tests/test_sign_off.py`, the "given before it was recorded" group.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #90 head `328a0f6` (squash `73e46fc`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0076-sign-off-before-adoption.json.

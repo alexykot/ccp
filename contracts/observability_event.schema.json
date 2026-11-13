@@ -71,7 +71,7 @@
         "notify",
         "hosting"
       ],
-      "description": "question / spec_maintainer added by SPEC §17.8; architecture_review by §19.10; docs_audit by §21; gate / runner by §23.7; architect by §19; run, review, verify, allowance and plane by §23.2; suite by §14.1; prefer by §10.4 (ccp tasks prefer); hold by §10.4 (ccp tasks hold); sign_off by §3.5 (ccp tasks sign-off: stage, by, words, head); notify by §3.6 (pending: a trigger fired, with trigger, project, task, id, reason; sent: a notice sent, with trigger, project, task, id, via, by, ok, note?); hosting is historical (Grok hosting, removed 2026-11-05): old ledger rows carry it, nothing writes it and readers skip it"
+      "description": "question / spec_maintainer added by SPEC §17.8; architecture_review by §19.10; docs_audit by §21; gate / runner by §23.7; architect by §19; run, review, verify, allowance and plane by §23.2; suite by §14.1; prefer by §10.4 (ccp tasks prefer); hold by §10.4 (ccp tasks hold); sign_off by §3.5 (ccp tasks sign-off: stage, by, words, head, signed_at? when it was given before it could be recorded); notify by §3.6 (pending: a trigger fired, with trigger, project, task, id, reason; sent: a notice sent, with trigger, project, task, id, via, by, ok, note?); hosting is historical (Grok hosting, removed 2026-11-05): old ledger rows carry it, nothing writes it and readers skip it"
     },
     "op": {
       "type": "string",
