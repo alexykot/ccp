@@ -1,7 +1,8 @@
 <!--
   Control-plane orientation (SPEC §9). Role-neutral. The control-plane plugin's SessionStart
   hook gives it to every session in a managed product; a product still on managed copies imports
-  its copy (docs/delivery/CONTROL-PLANE.md) from CLAUDE.md. Keep it to about one screen, and well
+  its copy (docs/delivery/CONTROL-PLANE.md) from CLAUDE.md. `ccp orientation` prints it for a session
+  that started before the product was adopted. Keep it to about one screen, and well
   under the hook's 10,000-character cap. No role-specific permissions here: those live in role docs.
 -->
 # CCP — Claude Control Plane

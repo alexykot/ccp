@@ -235,6 +235,53 @@ def single_runner_worktree(root: Path, rc: dict[str, str]) -> dict[str, Any] | N
     return {"path": str(path), "made": made}
 
 
+def readiness(root: Path, rc: dict[str, str], scope: list[str], single: bool) -> list[dict[str, Any]]:
+    """SPEC §16.5, `runner spawn --dry-run`: the §10.2 readiness checks a lead runs before a spawn, those
+    a machine can answer, as {check, ok, detail}: every scope entry names a task in the product's task
+    log, `ccp tasks check` is clean, and (one runner with a `runner.worktree`) the runner worktree is a
+    working tree or can be made. Reads only: it makes no worktree and fetches nothing."""
+    if str(HERE.parents[1]) not in sys.path:
+        sys.path.insert(0, str(HERE.parents[1]))
+    checks: list[dict[str, Any]] = []
+    log = product_log(root, quiet=True)
+    if not log:
+        checks.append({"check": "task_log", "ok": False,
+                       "detail": "the product's task log does not read (no plane.json at the product root, or a "
+                                 "bad task file): `ccp tasks check` names it"})
+    else:
+        cfg, tasks, _ = log
+        from ccp import tasklog  # noqa: PLC0415
+        ids = [str(t.get("task_id")) for t in tasks]
+        missing = [s for s in scope if not any(tasklog.in_scope(t, [s]) for t in ids)]
+        checks.append({"check": "scope_tasks_exist", "ok": not missing,
+                       "detail": f"not in the task log: {', '.join(missing)}" if missing
+                       else f"{len(scope)} scope task(s) in the task log"})
+        errs = tasklog.check(cfg)
+        checks.append({"check": "tasks_check", "ok": not errs,
+                       "detail": f"`ccp tasks check`: {len(errs)} failure(s): " + "; ".join(errs[:5]) if errs
+                       else "`ccp tasks check` is clean"})
+    prod = sm.product_root(root)
+    if single and rc.get("worktree") and prod:
+        from ccp import wt  # noqa: PLC0415
+        main = wt.main_of(Path(prod))
+        path = Path(rc["worktree"]) if Path(rc["worktree"]).is_absolute() else main / rc["worktree"]
+        if (path / ".git").exists() and wt.git(path, "rev-parse", "--is-inside-work-tree").stdout.strip() == "true":
+            checks.append({"check": "runner_worktree", "ok": True, "detail": f"{path} exists"})
+        elif path.exists() and any(path.iterdir()):
+            checks.append({"check": "runner_worktree", "ok": False,
+                           "detail": f"{path} exists and is not a working tree of the product: the spawn could "
+                                     "not make it (SPEC §12.1)"})
+        else:
+            checks.append({"check": "runner_worktree", "ok": True, "detail": f"{path} would be made by the spawn"})
+    return checks
+
+
+def dry_run_out(checks: list[dict[str, Any]], body: dict[str, Any]) -> int:
+    """SPEC §16.5: the dry run's answer: what the spawn would print, marked as not done, and the checks."""
+    return out({"outcome": "dry_run", "dry_run": True, "ready": all(c["ok"] for c in checks), "checks": checks,
+                **body})
+
+
 def keep_body(root: Path) -> list[str]:
     """SPEC §23.8: `--keep-body` for `write-prompt-audit.sh` when the product's plane.json sets
     `prompts.keep_body`, as `ccp prompt` passes it; nothing when it is off, absent or unreadable."""
@@ -476,12 +523,21 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
                 die(f"{', '.join(orphans)}: held by no runner slot. Drain or stop the single runner first "
                     "(`team.sh runner stop --drain`), or `ccp tasks release` it (SPEC §16.5)", 2)
         base = rc.get("worktree") or ""
+        prompts = {slot: spawn_prompt(root, scope, rp, added) + (
+            f"Your runner slot is {slot}: claim with `ccp tasks claim <task> --holder {slot}`, hold one task at a "
+            f"time, and work from your own worktree: `ccp tasks worktree --runner {slot}` makes it and prints it "
+            "(SPEC §16.5). Resume only the task your slot holds.\n") for slot in new}
+        if args.dry_run:  # §16.5: the refusals above ran; nothing below is written
+            for rpw in rp_warnings:
+                print(f"warning: {rpw}", file=sys.stderr)
+            return dry_run_out(readiness(root, rc, scope, single=False), {
+                "slots": new, "scope": scope, "refactors_added": added,
+                **({"warnings": rp_warnings} if rp_warnings else {}),
+                "actions": [{"action": "spawn_teammate", "name": slot, "subagent_type": rc["agent_type"],
+                             "prompt": prompts[slot]} for slot in new]})
         actions = []
         for slot in new:
-            prompt = spawn_prompt(root, scope, rp, added) + (
-                f"Your runner slot is {slot}: claim with `ccp tasks claim <task> --holder {slot}`, hold one task at a "
-                f"time, and work from your own worktree: `ccp tasks worktree --runner {slot}` makes it and prints it "
-                "(SPEC §16.5). Resume only the task your slot holds.\n")
+            prompt = prompts[slot]
             audit = subprocess.run(
                 ["bash", str(HERE / "write-prompt-audit.sh"), "--task-id", RUNNER_AUDIT_TASK, "--phase", "runner-spawn",
                  "--prompt-file", "-", "--actor", LEAD, "--project-id", sm.project_id(root),
@@ -601,6 +657,21 @@ def cmd_runner(args: argparse.Namespace) -> int:
         if not scope:
             die("--scope required (task ids, comma-separated)", 2)
         scope, added, rp_refactors = refactor_scope(root, args, w, scope)
+        # §10.2: after a rotation the old teammate may still hold the name, so the harness may name the
+        # fresh one otherwise; until the lead binds it, the hook nudges no one.
+        pending = bool(w.get("runner_rotated_at")) and str(w.get("runner_rotated_at")) >= str(w.get("runner_spawned_at") or "")
+        # §16.5: one runner at a time. A runner still recorded live (running or draining, not rotated
+        # since its spawn: a rotation shut it down already) is stopped before the new one starts.
+        old = live_name(rc, w) if w.get("status") in ("running", "draining") and not pending else None
+        if args.dry_run:  # §16.5: the refusals above ran; nothing below is written
+            for rpw in rp_warnings:
+                print(f"warning: {rpw}", file=sys.stderr)
+            return dry_run_out(readiness(root, rc, scope, single=True), {
+                "scope": scope, "refactors_added": added, **({"warnings": rp_warnings} if rp_warnings else {}),
+                **({"would_stop": old} if old else {}),
+                "actions": ([{"action": "shutdown_teammate", "name": old}] if old else []) + [
+                    {"action": "spawn_teammate", "name": rc["name"], "subagent_type": rc["agent_type"],
+                     "prompt": spawn_prompt(root, scope, rp, added)}]})
         made = single_runner_worktree(root, rc)  # after the refusals, before the runtime writes
         prompt = spawn_prompt(root, scope, rp, added)
         audit = subprocess.run(
@@ -612,12 +683,6 @@ def cmd_runner(args: argparse.Namespace) -> int:
         if audit.returncode != 0:
             die(f"write-prompt-audit failed: {audit.stderr.strip()}")
         prompt_ref = audit.stdout.strip().splitlines()[-1]
-        # §10.2: after a rotation the old teammate may still hold the name, so the harness may name the
-        # fresh one otherwise; until the lead binds it, the hook nudges no one.
-        pending = bool(w.get("runner_rotated_at")) and str(w.get("runner_rotated_at")) >= str(w.get("runner_spawned_at") or "")
-        # §16.5: one runner at a time. A runner still recorded live (running or draining, not rotated
-        # since its spawn: a rotation shut it down already) is stopped before the new one starts.
-        old = live_name(rc, w) if w.get("status") in ("running", "draining") and not pending else None
         if old:
             emit(root, "", LEAD, "runner", "stop", {"name": old, "reason": "respawn"})
         emit(root, "", LEAD, "runner", "spawn", {"name": rc["name"], "scope": scope, "prompt_ref": prompt_ref,
@@ -836,6 +901,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--count", type=int, help="runner spawn: this many runner slots (SPEC §16.5; at most max_in_flight)")
     r.add_argument("--slot", help="spawn, rotate, stop: one runner slot (SPEC §16.5)")
     r.add_argument("--as", dest="as_slot", metavar="SLOT", help="runner bind: the slot the name belongs to")
+    r.add_argument("--dry-run", action="store_true",
+                   help="runner spawn: print the spawn's actions and its readiness checks; write nothing (SPEC §16.5)")
     r.set_defaults(fn=cmd_runner)
     g = sub.add_parser("gate")
     g.add_argument("op", choices=("open", "decide", "ask-operator", "status", "list"))
@@ -853,6 +920,8 @@ def main(argv: list[str] | None = None) -> int:
     g.set_defaults(fn=cmd_gate)
     argv = list(sys.argv[1:] if argv is None else argv)
     args = ap.parse_args(argv)
+    if args.cmd == "runner" and args.dry_run and args.op != "spawn":
+        ap.error(f"--dry-run goes with runner spawn, not runner {args.op}")
     if args.cmd == "gate":
         if args.op == "open" and not (args.task_id and args.cls and args.brief):
             ap.error("gate open needs --task-id, --class and --brief")

@@ -64,6 +64,7 @@ argument takes the full id or its number.
 | Command | Who | SPEC |
 |---|---|---|
 | `team.sh runner spawn --scope … [--review-point …] [--count N]` | lead | §10.2, §16.5 |
+| `team.sh runner spawn --dry-run …` (the spawn's flags) | lead | §16.5 |
 | `team.sh runner bind --name <actual> --as <slot>` (one runner: no `--as`) | lead | §10.2 |
 | `team.sh runner rotate [--slot S]` / `team.sh runner stop [--drain]` (also `--slot S`) | lead | §10.2 |
 | `team.sh runner scope --add <id>` (also `--remove <ids>`) | lead | §10.2 |

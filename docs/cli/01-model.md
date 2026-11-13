@@ -21,5 +21,6 @@ Call syntax and flags for the commands of SPEC part `docs/spec/01-model.md`. The
 | `ccp notify sent <trigger> [--task ID] [--id ID] --via command\|lead [--note T]` | the lead records a notice it sent; `other` needs `--note` (needs `QUEUE_ROOT`) | §3.6 |
 | `ccp notify pending` | every notice fired and not yet sent, with its subject, body and the `sent` call that records it (needs `QUEUE_ROOT`) | §3.6 |
 | `ccp where` | the project, binding, queue, plane checkout and `ccp` path for this directory | §8.3, §9.2 |
+| `ccp orientation` | print the orientation the SessionStart hook gives a session in this product; writes nothing | §9.3 |
 
 Global: `--root DIR` (else `$CCP_ROOT`, else the git top level), §8.2.

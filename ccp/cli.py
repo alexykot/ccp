@@ -45,6 +45,7 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp plane propose --need T --generic T [--task ID] [--workaround T] [--frequency F] | propose --again ID
             | triage ID --accept|--merge-into ID|--decline --reason T | list [--open] | check
   ccp agent start|stop          (the SubagentStart / SubagentStop hooks; hook JSON on stdin)
+  ccp orientation               (the SessionStart orientation, for a session that adopted mid-run, SPEC §9.3)
   ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--starter-rules] [--force]
             (adopt this repository: footprint, binding and queue, SPEC §4.3, §8.3; the starter
             house rules, §20.5)
@@ -1171,6 +1172,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("where", help="this product's project id, binding, queue root and plane checkout (SPEC §9.2)") \
         .set_defaults(fn=cmd_where)
+    sub.add_parser("orientation", help="print the orientation the plugin's SessionStart hook gives a session in this "
+                                       "product, for a session that started before the product was adopted (SPEC §9.3)") \
+        .set_defaults(fn=cmd_orientation)
 
     p = sub.add_parser("init", help="adopt this repository: the product footprint, the binding and the queue "
                                     "(SPEC §4.3, §8.3); keeps existing files unless --force")
@@ -1452,6 +1456,23 @@ def cmd_where(cfg: config.Config, _a: argparse.Namespace) -> int:
     print(json.dumps({"project_id": cfg.project_id, "product_root": str(cfg.root),
                       "binding": str(b) if b else None, "queue_root": q,
                       "plane": str(PLANE), "ccp": str(CCP_BIN)}))
+    return 0
+
+
+def cmd_orientation(cfg: config.Config, _a: argparse.Namespace) -> int:
+    """SPEC §9.3: the text the plugin's SessionStart hook (`plugin/hooks/orientation.sh`) injects for this
+    product, from this `ccp`'s plugin: the hook is run, so the text and where it applies stay its own."""
+    import subprocess  # noqa: PLC0415
+    from ccp.queue import PLANE  # noqa: PLC0415
+    plugin = PLANE / "plugin"
+    r = subprocess.run(["bash", str(plugin / "hooks" / "orientation.sh")], capture_output=True, text=True,
+                       env={**os.environ, "CLAUDE_PROJECT_DIR": str(cfg.root), "CLAUDE_PLUGIN_ROOT": str(plugin)})
+    try:
+        text = json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"]
+    except (ValueError, KeyError, TypeError):
+        print(f"ccp orientation: the plugin at {plugin} gave no orientation for {cfg.root}", file=sys.stderr)
+        return 1
+    print(text.rstrip("\n"))
     return 0
 
 

@@ -1037,6 +1037,14 @@ one runner is left. `bind --as <slot>`, `rotate --slot`, `stop --slot [--drain]`
 runner; `stop [--drain]` with no slot on all. Gate decisions, question answers, a lead's `release` and the session wake (`--fire`, per parked task) name the bound name of the
 task's holder.
 
+`team.sh runner spawn --dry-run` (with any of the spawn's other flags) runs the spawn's refusals and
+prints what the spawn would print, its `actions` included, with `dry_run: true`, and the readiness
+checks of §10.2 that a machine can answer: every scope entry names a task in the task log, `ccp tasks
+check` is clean, and the one runner's `runner.worktree` is a working tree or can be made. `ready` is
+true when all of them pass; the exit is 0 either way, and a refusal exits as the spawn would. It
+writes nothing: no `work.json`, prompt audit, event or worktree. `--dry-run` with another `runner` op
+is refused (exit 2).
+
 **Each runner** (when `max_in_flight` is above 1):
 
 1. **Its own worktree** (§12.1); `ccp tasks close` runs from there, so two closes never share a
