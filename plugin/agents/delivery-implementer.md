@@ -24,6 +24,10 @@ don't redesign around it.
   it: update it in the same PR.
 - A test that fails under load (other suites or runners sharing the machine) is rerun alone before
   you call it a finding, yours or one that predates your change.
+- A test run you cite as evidence, a mutation check included, is a recorded one, never a bare test
+  runner: `ccp suite run --run <run_id> --lane <lane> -- <command>` with the lane your prompt names,
+  or `ccp mutate --run <run_id> --test <id> …` from a mutation copy (`ccp wt create --kind mut`)
+  where the product declares `mutate.command` (SPEC §14.1, §20.6).
 - After you merge the integration branch in, or change code, take the part lane's test modules from
   `ccp suite affected` (`--since <ref>` for what a merge brought in), not from a guess at their names.
 - Before you build, re-run at your base each command the task's Context names for a measured

@@ -70,6 +70,10 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   name it: changing it is not a finding against the task.
 - A test that fails under load (other suites or runners sharing the machine) is rerun alone before
   you call it a finding.
+- A test run you cite as evidence, a mutation check included, is a recorded one, never a bare test
+  runner: `ccp suite run --run <run_id> --lane <lane> -- <command>` with the lane your prompt names,
+  or `ccp mutate --run <run_id> --test <id> …` from your own checkout or a mutation copy where the
+  product declares `mutate.command` (SPEC §14.1, §20.6).
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
   the PR's merge base before judging a check against a cited line.
 - A check's dry run without the task's code (it fails there) runs with

@@ -307,9 +307,11 @@ class NeverBlocks(SuiteFixture, unittest.TestCase):
         self.assertEqual(code, 5)
 
     def test_root_is_not_abbreviated(self):
-        r = ccp_proc(self.runner, "--ro", str(self.runner), "suite", "run", "--", PY, "-c", "raise SystemExit(3)")
-        self.assertEqual(r.returncode, 3, r.stderr)  # `--ro` is refused, and the command still runs, unrecorded
-        self.assertIn(b"without recording", r.stderr)
+        mark = Path(self._tmp.name) / "ran"
+        r = ccp_proc(self.runner, "--ro", str(self.runner), "suite", "run", "--", PY, "-c", f"open({str(mark)!r}, 'w')")
+        self.assertEqual(r.returncode, 2, r.stderr)  # `--ro` is refused, and the command does not run
+        self.assertIn(b"did not run", r.stderr)
+        self.assertFalse(mark.exists())
         self.assertEqual(self.rows(), [])
         r = ccp_proc(self.runner, "--root", str(self.runner), "suite", "run", "--", PY, "-c", "pass")
         self.assertEqual((r.returncode, [x["op"] for x in self.rows()]), (0, ["started", "ended"]))
@@ -397,17 +399,34 @@ class Lanes(SuiteFixture, unittest.TestCase):
             self.assertIn(why, r.stderr)
         self.assertEqual(self.rows(), [])
 
-    def test_a_usage_error_beside_a_command_still_runs_it_unrecorded(self):
-        for args in (("--lane", "Bad Label"), ("--phase", "nope"), ("--bogus-flag",), ("--lane",)):
+    def test_a_bad_lane_label_or_phase_beside_a_command_still_runs_it_unrecorded(self):
+        for args in (("--lane", "Bad Label"), ("--phase", "nope")):
             r = self.run_suite("--full", *args, "--", PY, "-c", "import sys; print('ran'); sys.exit(4)")
             self.assertEqual(r.returncode, 4, (args, r.stderr))
-            if args[0].startswith("--bogus") or args == ("--lane",):  # unparsed: no terminal, so summary mode
-                self.assertEqual(_start_log(r.stdout).read_text(), "ran\n")
-                self.assertIn(b"did not parse", r.stderr)
-            else:
-                self.assertEqual(r.stdout, b"ran\n", args)
+            self.assertEqual(r.stdout, b"ran\n", args)
             self.assertIn(b"without recording", r.stderr)
         self.assertEqual(self.rows(), [])
+
+    def test_options_that_do_not_parse_run_nothing(self):
+        mark = Path(self._tmp.name) / "ran"
+        for args, why in ((("--wait",), b"error: argument --wait"), (("--wait", "soon"), b"error: argument --wait"),
+                          (("--lane",), b"error: argument --lane"), (("--bogus-flag",), b"--bogus-flag"),
+                          (("--full", "--summary"), b"error: argument --summary")):
+            r = self.run_suite(*args, "--", PY, "-c", f"open({str(mark)!r}, 'w')")
+            self.assertEqual(r.returncode, 2, (args, r.stderr))
+            self.assertIn(why, r.stderr)
+            self.assertIn(b"did not run", r.stderr)
+            self.assertEqual(r.stdout, b"", args)
+            self.assertFalse(mark.exists(), args)
+        self.assertEqual(self.rows(), [])
+
+    def test_help_beside_a_command_runs_nothing(self):
+        mark = Path(self._tmp.name) / "ran"
+        r = self.run_suite("--help", "--", PY, "-c", f"open({str(mark)!r}, 'w')")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(b"usage: ccp suite run", r.stdout)
+        self.assertNotIn(b"did not run", r.stderr)
+        self.assertFalse(mark.exists())
 
     def test_the_command_after_dashes_wins_over_the_lane(self):
         r = self.run_suite("--full", "--lane", "full", "--", PY, "-c", "print('other')")
@@ -583,9 +602,25 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
         self.assertIn("`--lane {part}`", prompt_mod.SUITE_LANES["review"])
         rec = json.loads((self.q / "runs/0002-second/implement.json").read_text())
         self.assertEqual(rec["worktree"], str(self.main / ".rt" / "impl-0002"))
-        # §14.1 (amended 2026-10-22): the rule is stated once, in the prompt, not again in the definitions
+        # §14.1 (amended 2026-10-22): the rule is stated once, in the prompt; a definition names the
+        # command only in its evidence bullet (§13.1)
         for a in ("implementer", "reviewer", "verifier"):
-            self.assertNotIn("ccp suite run", (PLANE / f"plugin/agents/delivery-{a}.md").read_text(), a)
+            defn = (PLANE / f"plugin/agents/delivery-{a}.md").read_text()
+            self.assertEqual(defn.count("ccp suite run"), 1, a)
+            self.assertNotIn("inside a script", defn, a)
+
+    def test_every_worker_prompt_names_the_recorded_route_for_evidence(self):
+        self.implementing()
+        texts = {"implement": (self.q / "prompts/0002-second/implement-prompt.md").read_text()}
+        for phase in ("review", "verify"):
+            code, _, out, err = self.ccp("prompt", phase, "0002", "--pr", "7", "--head", "a" * 40)
+            self.assertEqual(code, 0, out + err)
+            texts[phase] = (self.q / f"prompts/0002-second/{phase}-prompt.md").read_text()
+        for phase, text in texts.items():
+            rule = next((ln for ln in text.splitlines() if "cite as evidence" in ln), "")
+            self.assertIn(f"QUEUE_ROOT={self.q} ", rule, phase)
+            self.assertIn(f"mutate --run 0002-second/{phase} --test <test id>", rule, phase)
+            self.assertIn("a bare test runner", rule, phase)
 
 
 FAILING_MODULE = """\

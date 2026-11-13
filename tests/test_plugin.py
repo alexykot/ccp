@@ -69,6 +69,7 @@ WORKER_RULES = {
     "a test module the change necessarily breaks is in scope": ("necessarily breaks", "is in scope"),
     "a test failing under load is rerun alone first": ("fails under load", "rerun alone"),
     "a task file's line numbers may be stale": ("may be stale", "merge base"),
+    "a test run cited as evidence is recorded": ("cite as evidence", "ccp suite run --run", "ccp mutate --run"),
 }
 
 

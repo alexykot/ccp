@@ -406,10 +406,12 @@ implementer's session. Every worker runs the PATH `claude`, never `--bare`. Work
 never edit a task's checks and never create a task: a follow-up a worker finds goes to the lead.
 Each worker reports through `ccp report` and a `SendMessage` to its runner (§13.4).
 
-The implementer, reviewer and verifier definitions each state three generic rules, worded for the
+The implementer, reviewer and verifier definitions each state four generic rules, worded for the
 worker: a test module the task's change necessarily breaks is in scope even if the task's Scope does
 not name it; a test failing under load is rerun alone before it is called a finding; line numbers a
-task file cites may be stale, so the code is read at the merge base.
+task file cites may be stale, so the code is read at the merge base; a test run cited as evidence, a
+mutation check included, goes through `ccp suite run --run <run_id> --lane <lane> -- <command>` or
+`ccp mutate --run <run_id> …` (§20.6), never a bare test runner, so it is recorded.
 
 ### 13.2 Prompt assembly
 
@@ -423,7 +425,8 @@ reviewer, fixer and verifier prompt from four parts, in order, writes the prompt
    merging, the review and verify standards (adversarial; reject only on BLOCKER or MAJOR; prove an
    absence pattern on a known positive; mutation-test a test that could pass vacuously, in a
    mutation copy made with `ccp wt create --kind mut`), the report contract, every test command
-   through `ccp suite run` with the phase's lane (§14), the refactor DoD for a `kind: refactor` task
+   through `ccp suite run` with the phase's lane (§14), a run cited as evidence, a mutation check
+   included, through it or `ccp mutate` with the run's id filled in, never a bare test runner, the refactor DoD for a `kind: refactor` task
    (§20), and for the reviewer and verifier `ccp report` before removing their own checkout.
 2. **The product fragment**: the file plane.json `prompts.fragment` names, holding the product's
    own rules (for example scratch resources, suite limits, paths that must not be written). It is
@@ -514,7 +517,8 @@ shows.
   missing tests, and report the list under `## Tests for new behaviour`; the reviewer checks those
   lists against the diff (a later round, the fix reports' lists against the fix commits) and rates a
   gap as it would a missing test.
-- **One statement of each rule.** The worker definitions do not repeat the `ccp suite run` rule, and
+- **One statement of each rule.** The worker definitions do not repeat the `ccp suite run` rule
+  (they name the command only in §13.1's evidence rule), and
   the verifier's definition defers to its prompt's test-cache rule. The review and verify briefs run
   `ccp report` from their own checkout before removing it (or from anywhere with `--root`).
 
@@ -596,7 +600,9 @@ has a `Suite:` line but no suite run is recorded for its run.
   A log that cannot be opened is a warning, and the run streams as `--full` does.
 - **`--full`** is the default with a terminal on stdin: the output is copied through unchanged as it
   arrives; when stdout and stderr are the same file the command gets one pipe for both.
-- When the options do not parse, the command still runs, unrecorded, with a warning.
+- When the options do not parse (an unknown flag, an option missing its value or given a bad one,
+  `--full` with `--summary`), nothing runs: `ccp` exits 2, naming the problem, even with a command
+  after `--`.
 - When the command exits, `ccp` exits within a couple of seconds, even if a background child holds
   its output open. SIGINT and SIGTERM sent to `ccp` reach the command's whole process group; such a
   run is recorded as interrupted. No background or detached mode exists.
@@ -679,9 +685,10 @@ never its output; the event carries the numbers, `cold` and the stages, not the 
 ### 14.5 Recording never blocks the tests
 
 When a command is given after `--`, it runs and its exit code is returned even when `QUEUE_ROOT` is
-not set, there is no git checkout, `plane.json` is unreadable, an option is wrong (a bad `--lane`
-label or `--phase`, an unknown flag) or a write fails. `ccp` prints one `ccp suite:` warning and
-records nothing more. Only with no command to run does it exit 2.
+not set, there is no git checkout, `plane.json` is unreadable, an option's value is wrong (a bad
+`--lane` label or `--phase`) or a write fails. `ccp` prints one `ccp suite:` warning and
+records nothing more. It exits 2 only with no command to run, or with options that do not parse
+(§14.2): then it runs nothing, so no run goes unrecorded.
 
 ### 14.6 The gate fits the agent's shell limit
 

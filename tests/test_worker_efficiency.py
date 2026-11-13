@@ -54,8 +54,11 @@ class Definitions(unittest.TestCase):
         self.assertEqual(runs.agent_frontmatter("no frontmatter"), {})
 
     def test_the_suite_rule_is_stated_once_in_the_prompt(self):
-        for a in WORKER_TOOLS:
-            self.assertNotIn("ccp suite run", (AGENTS / f"delivery-{a}.md").read_text(), a)
+        for a in WORKER_TOOLS:  # a definition names the command only in its evidence bullet (§13.1)
+            text = (AGENTS / f"delivery-{a}.md").read_text()
+            bullet = next(b for b in re.split(r"(?m)^(?=- )", text) if "cite as evidence" in b)
+            self.assertEqual(text.count("ccp suite run"), bullet.count("ccp suite run"), a)
+            self.assertNotIn("Run every test command", text, a)
         self.assertEqual((TEMPLATES / "_common.md").read_text().count("Run every test command through `ccp`"), 1)
 
     def test_the_verifier_defers_to_its_prompt_on_the_cache(self):
