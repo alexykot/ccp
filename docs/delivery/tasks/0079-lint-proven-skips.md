@@ -43,6 +43,16 @@ A change that a cheap, declared check proves harmless (a comment-only diff, a do
   Write this ruling into the task file's `Context (not checked)` section (second ruling round) and an
   Implementation note. Update the PR body (SPEC text changes and the text they replace). Merge
   origin/main first. Keep the earlier ruling (no command text on records) intact."
+- Lead ruling (2026-11-13, after review 2 at `5fb7789`; the third ruling round), verbatim:
+  "0079: option (b), in this PR. A skip that the task can grant itself by another route is the same hole.
+  - Refuse a skip, at both the gate stage and the review skip, when the task's diff touches any file the
+    prover's command names: each token of the integration branch's command that is a path in the repo,
+    plus `plane.json` itself. Record the refusal reason (`prover_touched`) with the prover's name.
+  - Fix both NITs too: fetch `origin/<integration>` before reading the rules (fall back to no skip if the
+    fetch fails), and have verify say plainly when the integration plane.json doesn't load and nothing is
+    skipped.
+  - Tests: a diff that edits the prover's script gets no skip; one that doesn't still skips.
+  - State it in SPEC §14.2 and §15.2."
 
 ## Scope
 
@@ -117,6 +127,26 @@ A change that a cheap, declared check proves harmless (a comment-only diff, a do
   prover, or `verify.skip_review`, that only the head (or the runner's checkout) declares gets no skip;
   the integration branch's prover applies whatever the head declares; an integration plane.json that
   does not load declares none. The prover tests now push their plane.json to origin/main.
+- 2026-11-13 (implementer, ruling round 3): applied the lead's third ruling, recorded in Context.
+  `config.prover_touched(command, touched, root)` gives the files of the task's diff a prover's command
+  names: each shell word of the integration branch's command (split with `shlex`, operators apart, and a
+  quoted word's own words too, so `sh -c '<script> …'` counts), made relative to the root and normalised,
+  that is a touched path, plus plane.json itself. A file token only: a directory such as `.` names no file,
+  or every docs-only prover written with a pathspec would be refused. Gate stages: `task_diff` also
+  returns the task's touched files (merge base to HEAD, renames as both paths); a prover that touches one
+  is refused before it runs, the next prover still tried, and the `ended` row and its event record
+  `refused_provers` (`{stage, prover, reason: "prover_touched", run_id}`, the shape of `proven_skips`).
+  Review: `_judge_fix` reads the task's diff (the head's merge base with the integration branch to the
+  head, not only the fix diff, as the ruling says "the task's diff") and refuses a review prover, and the
+  `verify.skip_review` proof (named `verify.skip_review`; the Scope makes it "one such prover"), the same
+  way; the refusal names each with `prover_touched`, and a skip a later prover proves records
+  `refused_provers` (`{prover, reason}`) on `review_skip`. NITs: `stage_provers` fetches
+  `origin <integration>` and `skip_review` fetches `origin` before reading the rules, and a failed fetch
+  reads none (the stage log, or the verify refusal, says so); verify says "nothing is skipped" when the
+  integration plane.json does not load. A head that edits plane.json now gets no skip from the
+  integration branch's prover, so the round-2 test that the integration's rule applied whatever the head
+  declared became the test that such a head is refused. SPEC §14.2, §14.4 (the record list) and §15.2,
+  both schemas and the suite and verify docstrings say so.
 
 ## Verification notes
 

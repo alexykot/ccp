@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from ccp import config
 from tests import test_review_gate, test_review_skip
 from tests.test_toolkit import ToolkitFixture, git
 
@@ -43,11 +44,14 @@ class ReviewProvers(ToolkitFixture, unittest.TestCase):
         self.ccp("tasks", "claim", "0002")
         self.wt = self.main / ".rt" / "impl-0002"  # the claim made it, on task/0002-second
 
-    def plane(self, body: dict) -> None:
-        """plane.json on the integration branch, where `ccp` reads the skip rules: pushed to origin/main and
-        merged into the task branch, so the head is not behind the tip."""
+    def plane(self, body: dict, **files: str) -> None:
+        """plane.json on the integration branch, where `ccp` reads the skip rules, with `files` (a path with
+        `__` for `/`) beside it: pushed to origin/main and merged into the task branch, so the head is not
+        behind the tip."""
         other = Path(tempfile.mkdtemp(dir=self._tmp.name))
         git(self.main, "worktree", "add", "-q", "--detach", str(other), "origin/main")
+        for rel, text in files.items():
+            self.commit(rel.replace("__", "/"), text, other)
         self.commit("docs/delivery/plane.json", json.dumps(body), other)
         git(other, "push", "-q", "origin", "HEAD:main")
         git(self.wt, "fetch", "-q", "origin")
@@ -143,6 +147,74 @@ class ReviewProvers(ToolkitFixture, unittest.TestCase):
         self.assertNotIn("does not apply", err)
         self.assertFalse(self.log.exists())
         self.assertFalse((self.q / "runs/0002-second/verify.json").exists())
+
+    def scripted(self, *more: dict) -> None:
+        """A review prover whose command names a file of the repo (here the proof reads it), on the integration
+        branch with it."""
+        self.plane({**self.PLANE_JSON, "verify": {"provers": [
+            {"name": "scripted", "command": '"$PROOF_BIN" scripts/prove.sh {task_id} {reviewed} {head} {from}',
+             "skips": "review"}, *more]}}, scripts__prove__sh="exit 0\n")
+
+    def test_a_fix_that_edits_the_provers_script_gets_no_skip(self):
+        self.scripted()
+        self.reviewed()
+        head = self.fix("scripts/prove.sh", "exit 0\n")
+        self.refused(head, "verify.provers", "the prover scripted (verify.provers) is refused, "
+                     f"{config.PROVER_TOUCHED}: the task's diff touches scripts/prove.sh")
+        self.assertFalse(self.log.exists())  # a refused prover does not run
+
+    def test_a_fix_that_leaves_the_provers_script_alone_still_skips(self):
+        self.scripted()
+        reviewed = self.reviewed()
+        head = self.fix()
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["review_skip"], {"reviewed": reviewed, "head": head, "fix": "0002-second/fix",
+                                               "files": 1, "prover": "scripted", "exit_code": 0})
+
+    def test_an_earlier_round_that_edited_the_provers_script_gets_no_skip(self):
+        self.scripted()
+        self.commit("scripts/prove.sh", "exit 0  # reviewed, but still the task's\n")
+        self.reviewed()
+        head = self.fix()  # the fix diff leaves it alone; the task's diff does not
+        self.refused(head, "verify.provers", "the prover scripted (verify.provers) is refused, "
+                     f"{config.PROVER_TOUCHED}: the task's diff touches scripts/prove.sh")
+
+    def test_a_fix_that_edits_plane_json_gets_no_skip(self):
+        self.reviewed()
+        head = self.fix("docs/delivery/plane.json", json.dumps(self.PLANE_JSON) + "\n")
+        self.refused(head, "verify.provers", "the prover comments (verify.provers) is refused, "
+                     f"{config.PROVER_TOUCHED}: the task's diff touches docs/delivery/plane.json")
+        self.assertFalse(self.log.exists())
+
+    def test_a_refused_prover_is_on_the_record_when_another_proves_the_fix(self):
+        self.scripted({"name": "comments", "command": PROVE, "skips": "review"})
+        self.reviewed()
+        head = self.fix("scripts/prove.sh", "exit 0\n")
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((body["review_skip"]["prover"], body["review_skip"]["refused_provers"]),
+                         ("comments", [{"prover": "scripted", "reason": config.PROVER_TOUCHED}]))
+        run = json.loads((self.q / "runs/0002-second/verify.json").read_text())
+        self.assertEqual(run["review_skip"], body["review_skip"])
+
+    def test_an_integration_plane_json_that_does_not_load_skips_nothing_and_says_so(self):
+        self.plane({**self.PLANE_JSON, "verify": {"provers": [{"name": "x", "command": "true", "skips": "nowhere"}]}})
+        self.reviewed()
+        head = self.fix()
+        code, _, out, err = self.verify(head)
+        self.assertEqual(code, 4, out + err)
+        self.assertIn("(nothing is skipped: plane.json on origin/main does not load", err)
+        self.assertFalse(self.log.exists())
+
+    def test_a_failed_fetch_skips_nothing_and_says_so(self):
+        self.reviewed()
+        head = self.fix()
+        git(self.main, "remote", "set-url", "origin", str(Path(self._tmp.name) / "no-such-remote"))
+        code, _, out, err = self.verify(head)
+        self.assertEqual(code, 4, out + err)
+        self.assertIn("(nothing is skipped: the fetch of origin/main failed", err)
+        self.assertFalse(self.log.exists())
 
     def test_a_gate_stage_prover_does_not_judge_the_review(self):
         self.plane(({**self.PLANE_JSON, "suite": {

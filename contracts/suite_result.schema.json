@@ -36,6 +36,15 @@
         "properties": {"stage": {"type": "string"}, "prover": {"type": "string"}, "exit_code": {"type": "integer"}, "run_id": {"type": ["string", "null"]}}
       }
     },
+    "refused_provers": {
+      "type": "array",
+      "description": "SPEC \u00a714.2: set by ccp, not the command, on the gate role's staged lane: each declared prover refused, and not run, because the task's diff touches a file its command names (a token of the integration branch's command that is a path in the repo) or plane.json, with the stage, the prover's name, the reason (prover_touched) and the suite run's run id (null without one). Absent when none was refused. A command's own value is ignored.",
+      "items": {
+        "type": "object",
+        "required": ["stage", "prover", "reason", "run_id"],
+        "properties": {"stage": {"type": "string"}, "prover": {"type": "string"}, "reason": {"type": "string", "enum": ["prover_touched"]}, "run_id": {"type": ["string", "null"]}}
+      }
+    },
     "failed_stage": {"type": ["string", "null"], "description": "SPEC \u00a714.2: set by ccp: the stage whose non-zero exit stopped the run, the first stage a signal kept from starting, or null."},
     "cold": {"type": ["boolean", "null"], "description": "SPEC \u00a714.6: set by ccp, not the command: true when the run counted nothing cached (cached 0), false when any unit was cached, null when it gave no cached count. A command's own value is ignored."}
   }
