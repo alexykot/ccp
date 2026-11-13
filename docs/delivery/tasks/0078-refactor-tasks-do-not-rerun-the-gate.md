@@ -48,6 +48,29 @@ A `kind: refactor` task proves itself by its own checks, not by re-running the w
 
 *Append-only, newest last.*
 
+- 2026-11-13: `ccp tasks check` (with the architect block on, where `kind:` is read, §20.3) refuses a
+  refactor whose dod_check `steps:` run the lane `suite.roles` gives the gate or full role, as
+  `suite.lanes` declares it. A step matches when a backticked command runs the lane's argv as a whole
+  command (it starts at a command position: the start, after a shell control word or `--`, past
+  `NAME=value` words; and ends the command, so `pytest tests/x.py` is not a run of a `pytest` lane),
+  or holds `ccp suite run … --lane <lane>` with no `-- <command>`. A staged lane matches only that
+  `ccp suite run` form: one stage's command alone is not the gate. The failure names the task file,
+  the check id and each lane. Done and dropped tasks are not judged, as with the dry-run and
+  placeholder rules. §21.1 carries the PROPOSED bullet verbatim; the writing-tasks skill says it.
+  Tests: `tests/test_tasklog_refactor_gate.py`.
+- 2026-11-13 (fix round 1): the match now sees the gate in the spellings this repo writes it in. A
+  command position is walked past `NAME=value` words and the wrappers `env [-u NAME|NAME=value]…`,
+  `bash`/`sh`, `time` and `timeout N`, each step tried, so a lane declared with its wrapper
+  (`bash scripts/gate.sh`) still matches; a redirection (`>`, `>>`, `<`, `>&`, `&>`, a digit before
+  one) ends the command like a shell control word. So `env -u QUEUE_ROOT scripts/gate.sh` and
+  `scripts/gate.sh 2>&1 | tail -3` are refused, while `pytest tests/x.py`, `cat scripts/gate.sh` and
+  `scripts/gate.sh.bak` still pass. Left out: `bash -c '…'`, `! cmd` and extra arguments after the
+  lane argv (`scripts/gate.sh --verbose`); the skill says which forms are read.
+- 2026-11-13 (fix round 2): `--` is a command position only when it is the first `--` after a
+  `ccp suite run` in the same command, the separator before its own command. Another command's
+  `--` (`git diff --exit-code main -- scripts/gate.sh`, `git log -- …`, `git checkout main -- …`)
+  is a path separator, so a refactor that proves the gate script untouched is no longer refused.
+
 ## Verification notes
 
 *Append-only.*

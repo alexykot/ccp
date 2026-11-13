@@ -471,6 +471,7 @@ Choosing mutants is the seat's; the plane ships no mutation operators.
   `pending` and warns);
 - a dependency that does not exist, or a cycle of `depends_on` (named);
 - no `refs_any` list non-empty (per kind, §20.3), or a missing required section;
+- a `kind: refactor` task whose dod_check runs the gate or full lane (named);
 - other than 1..`max_checks` unique `` - id: `kind-NN` `` checks, or soft language inside
   `## dod_checks` (dry-run lines are left out of that scan, since they quote output);
 - a `done` task with no verification note (no `- ` line under `## Verification notes`);

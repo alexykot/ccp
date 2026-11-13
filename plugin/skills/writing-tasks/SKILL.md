@@ -159,7 +159,11 @@ cites `rule_refs` or `review_refs`, never `spec_refs` or `adr_refs`. Its standin
 unchanged, the suite passes, no test expectation changes except where the task names it, the SPEC
 does not change. A change to behaviour or stored data is a feature. A refactor joins a runner's
 scope when a task in the scope depends on it (`refactor_in_scope: "deps"`), so a task that needs one
-says so in `depends_on`. A refactor brief does not re-list the gate as a check.
+says so in `depends_on`. A refactor brief does not re-list the gate as a check: its checks prove
+the change by its own commands, since the verifier runs the gate anyway. `ccp tasks check` refuses a
+refactor not yet done whose check step runs the gate or full lane (the lanes `suite.roles` names, as
+`suite.lanes` declares them) in a one-line backticked command: as a whole command, also behind `env`,
+`bash`/`sh`, `time` or `timeout N` or before a redirection, or as `ccp suite run --lane <lane>`.
 
 ## Review points and shaping
 
