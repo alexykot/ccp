@@ -11,6 +11,7 @@ The `architect` block is checked value by value as well as key by key: it drives
 from __future__ import annotations
 
 import copy
+import fnmatch
 import json
 import os
 import re
@@ -129,7 +130,8 @@ ARCHITECT_DEFAULTS: dict[str, Any] = {
 # only); `audit_keep_days` prunes audits older than that many days when `ccp prompt` writes one
 # (null keeps them all).
 PROMPTS_DEFAULTS: dict[str, Any] = {"fragment": None, "worker_env": {}, "keep_body": False, "audit_keep_days": None}
-WORKER_ENV_FIELDS = ("run_id", "task_id", "nnnn", "phase", "worktree", "main_checkout", "queue_root", "project_id")
+WORKER_ENV_FIELDS = ("run_id", "task_id", "nnnn", "phase", "kind", "seat", "worktree", "main_checkout", "queue_root",
+                     "project_id")
 # §10.5 `ccp tasks close`: the product's records beside the task file. `log` prepends one entry to a
 # product log (an `entry` template, placed before the first line matching `before`); `hooks` are
 # product commands run in the runner worktree with TASK_ID, PR, HEAD_SHA, MERGE_SHA and SUMMARY set.
@@ -621,13 +623,30 @@ def _rel_path(v: Any) -> bool:
     return isinstance(v, str) and bool(v.strip()) and not v.startswith(("/", ":")) and ".." not in Path(v).parts
 
 
+# Paths a match-everything entry would cover (`_every_path`): each below a directory, as nearly every file
+# in a product is, in unlike directories and names, so only a pattern that leaves at most the top-level
+# files to its check matches them all.
+EVERY_PATH_PROBES = ("a/b", "src/pkg/mod.py", ".github/workflows/ci.yml", "Docs/Read Me", "0/1/2/3/x.tar.gz",
+                     "_/.env", "Z/q")
+
+
+def _pathspec_hits(spec: str, path: str) -> bool:
+    """Does the git pathspec `spec` (no magic, already normalised) cover `path`, as git's default matching
+    does: the path itself or a directory above it, or the whole path as a wildcard pattern in which `*`
+    and `?` also match `/` and `[!…]` or `[^…]` negates a set."""
+    if path == spec or path.startswith(spec.rstrip("/") + "/"):
+        return True
+    return bool(set("*?[") & set(spec)) and fnmatch.fnmatchcase(path, spec.replace("[^", "[!"))
+
+
 def _every_path(where: str, paths: list[Any]) -> list[str]:
     """The entries of a path list that match every path, so a check they narrow would never fire: the root
-    itself (`.`, `./`, anything that normalises to it) or wildcards alone (`*`, `**`, `./*`). Each is
-    named; `merge.behind_tip_ignore` and `verify.skip_review.paths` refuse them alike."""
+    itself (`.`, `./`, anything that normalises to it), or a pattern that covers every path in
+    `EVERY_PATH_PROBES` (`*`, `**`, `./*`, `*/**`, `**/*`, `?*` alike). Each is named;
+    `merge.behind_tip_ignore` and `verify.skip_review.paths` refuse them alike."""
     norm = [(x, os.path.normpath(x)) for x in paths if isinstance(x, str) and x.strip()]
     return [f"{where}: {x!r} matches every path; name the paths it covers" for x, n in norm
-            if n == "." or set(n) == {"*"}]
+            if n == "." or all(_pathspec_hits(n, p) for p in EVERY_PATH_PROBES)]
 
 
 def _notify_lead(lead: Any) -> str | None:

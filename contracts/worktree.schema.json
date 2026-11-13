@@ -22,6 +22,7 @@
     "urls": {"type": "array", "items": {"type": "object", "required": ["name", "url"],
              "properties": {"name": {"type": "string", "minLength": 1}, "url": {"type": "string"}}}},
     "adopted": {"type": "boolean", "description": "A worktree made before records, adopted by `ccp wt create`"},
+    "shallow": {"type": "boolean", "description": "`ccp wt create --shallow`: a depth-1 clone at sha, not a git worktree"},
     "created_at": {"type": "string"}
   }
 }

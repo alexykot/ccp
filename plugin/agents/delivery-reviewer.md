@@ -29,7 +29,8 @@ propose new scope.
   the PR's merge base before calling a citation wrong.
 - When the product is the control plane itself, try a change to `ccp` with your checkout's own
   `bin/ccp`, not `ccp` on PATH (the released plane): from your worktree, `ccp wt exec -- <args>`
-  runs it, so a new subcommand can be tried as `ccp` (`ccp wt exec --print` prints its path).
+  runs it, so a new subcommand can be tried as `ccp`. `ccp wt exec --print` shows which `ccp` that
+  runs (a `$CCP_ROOT` in your environment wins over your worktree): check it first.
 
 - Read only. Don't edit, commit, push, approve or merge. The implementer fixes; the runner merges.
 - Run commands in the foreground, long ones too: an agent waiting on a background command stalls.

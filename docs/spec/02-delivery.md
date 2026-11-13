@@ -290,7 +290,7 @@ this host, even inside the TTL, or, for a lock from another host (whose pid cann
 
 ### 12.1 Worktrees
 
-`ccp wt create --kind KIND --task ID [--sha SHA] [--name N] [--seat S] [--tag T]` makes a git
+`ccp wt create --kind KIND --task ID [--sha SHA] [--name N] [--seat S] [--tag T] [--shallow]` makes a git
 worktree under plane.json `worktrees.dir` (relative to the main checkout), named
 `<kind>-<nnnn>[-<n>]`. Kinds: `impl` (the implementer's, on `task/<id>` from
 `origin/<integration>`; `ccp tasks claim` makes it), `rev` and `ver` (detached at the head they
@@ -312,18 +312,35 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
   close, or adopted by `create`. `create` reuses an existing worktree only at the `--sha` asked for;
   at another head it refuses (exit 3). A default name taken meanwhile moves to the next `-<n>`.
 - Workers make theirs with `ccp wt create`, never `git worktree add`.
+- A worktree's kind and seat reach what runs for it, besides its name: a worker's `prompts.worker_env`
+  templates get `{{kind}}` and `{{seat}}` (§8.1, §13.3), and a lane's stages run in it get
+  `CCP_WT_KIND` and `CCP_WT_SEAT` with its task as `CCP_TASK_ID` and `CCP_NNNN` (§14.2).
+- `--shallow` (kinds `rev`, `ver`, `mut` and `mac`) makes it a clone of depth 1 at `--sha` (a short sha
+  is resolved first), not a git worktree, so a check can prove a test passes without git history. It
+  is recorded with `shallow: true`, set up and removed like any other (removing deletes the clone),
+  and its links are named in its own `info/exclude`. An existing worktree is reused only as shallow
+  as asked (exit 3 otherwise); `--shallow` is refused (exit 2) on any other kind or action.
 - `ccp wt exec [NAME] -- ARGS` runs the `bin/ccp` of worktree NAME (recorded; default the checkout
-  `ccp` runs in) with ARGS verbatim, in the caller's directory and environment, and exits with its
-  code; `--print` prints that path instead. It loads no plane.json, so a reviewer or verifier can run
+  `ccp` runs in: `--root`, else `$CCP_ROOT`, else the working directory's git toplevel) with ARGS
+  verbatim, in the caller's directory and environment, and exits with its code; `--print` prints that
+  path instead, which shows which `ccp` runs. NAME with no `QUEUE_ROOT`, or no NAME outside a git
+  checkout, is refused (exit 2). It loads no plane.json, so a reviewer or verifier can run
   the change under review's own `ccp`, new subcommands included; `ccp` on PATH stays the released one.
-- `ccp wt create --kind base --task ID --sha HEAD -- COMMAND` runs COMMAND (argv, no shell) on the
-  task's merge base: it fetches, makes a `base-<nnnn>[-<n>]` worktree detached at the merge base of
-  HEAD and `origin/<integration>`, recorded (with `head`) and set up like any other, runs COMMAND
-  there with its output passed through, then removes the worktree whatever COMMAND did. It prints
-  `{name, head, merge_base, exit, removed}` and exits with COMMAND's code (127 when it is not found,
-  128 + N when signal N ended it). A command is refused (exit 2) on any other kind and required on
-  this one; a HEAD with no merge base, or a `--name` already in use, is refused (exit 3). A dry run
-  on the merge base (§15.1) uses it, never `git stash` or a hand-made worktree.
+- `ccp wt create --kind base --task ID --sha HEAD [--timeout S] -- COMMAND` runs COMMAND (argv, no
+  shell) on the task's merge base: it fetches (a failed fetch is a warning that the base, taken from
+  `origin/<integration>` as last fetched, may be stale), makes a `base-<nnnn>[-<n>]` worktree detached
+  at the merge base of HEAD and `origin/<integration>`, recorded (with `head`) and set up like any
+  other, runs COMMAND there in its own process group with its output passed through, then removes the
+  worktree and its record whatever COMMAND did, and whatever failed once the worktree was made. It
+  prints `{name, head, merge_base, exit, removed, timed_out}` and exits with COMMAND's code (127 when
+  it is not found, 128 + N when signal N ended it). COMMAND still running after `--timeout` seconds
+  (default plane.json `env.timeout_seconds`) is killed with its process group: exit 124. A SIGTERM to
+  `ccp` kills COMMAND's process group, removes the worktree and its record, and exits 143 with
+  `signal: 15` in the result. Its own refusals and failures exit 125, so they never read as a
+  COMMAND's 2 or 3, print why on stderr and no result: no command or no `--sha`, a bad `--timeout`, a
+  HEAD with no merge base, a `--name` already in use, a worktree that could not be made or recorded. A
+  command, or `--timeout`, is refused (exit 2) on any other kind. A dry run on the merge base (§15.1)
+  uses it, never `git stash` or a hand-made worktree.
 - `ccp wt create --kind ver --baseline [--seat S] [--tag T]` makes the one worktree that needs no task:
   `ver-baseline`, detached at `origin/<integration>` after a fetch, recorded with an empty task and
   number (`{task_id}` and `{nnnn}` are empty in its hooks) and set up like any other. An adopting lead
@@ -561,7 +578,8 @@ has a `Suite:` line but no suite run is recorded for its run.
   run is recorded as interrupted. No background or detached mode exists.
 - **Environment:** the caller's, unchanged, plus `CCP_SUITE_ID` and `CCP_SUITE_RESULT`. In a worktree
   `ccp wt` made (§12.1), a lane's stages also get its `CCP_WT_<FIELD>` variables, the ones its env
-  hooks get (§12.2); a command after `--` and a run elsewhere get none. `bin/ccp` sets no variable.
+  hooks get (§12.2), and its task as `CCP_TASK_ID` (the full id) and `CCP_NNNN`, both empty in
+  `ver-baseline`; a command after `--` and a run elsewhere get none. `bin/ccp` sets no variable.
   A `QUEUE_ROOT` that `ccp` found from the binding stays `ccp`'s own. A `ccp suite run` inside it
   becomes its command, records nothing and writes no log.
 - The run it belongs to is `--run`, else `--task` (and `--phase`)'s latest open run, else the one

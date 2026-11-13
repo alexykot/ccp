@@ -208,20 +208,22 @@ class StagesRunInOrder(StagedFixture, unittest.TestCase):
 
 
 WT_VARS = tuple(f"CCP_WT_{f.upper()}" for f in config.WT_FIELDS)
+TASK_VARS = ("CCP_TASK_ID", "CCP_NNNN")
 SHOW_WT = 'echo "wt=$CCP_WT_NAME"'
+SHOW_TASK = 'echo "wt=$CCP_TASK_ID|$CCP_NNNN|$CCP_WT_KIND"'
 
 
 class StagesGetTheWorktreesFields(StagedFixture, unittest.TestCase):
     """§14.2: in a worktree `ccp wt` made, a lane's stages get its CCP_WT_* fields, as its env hooks do."""
 
-    def worktree(self, lanes: dict) -> Path:
+    def worktree(self, lanes: dict, kind: str = "rev", task: str = "0002") -> Path:
         hook = self.main / "docs/delivery/plane.json"
         body = json.loads(hook.read_text())
         body["env"] = {"setup": "env | grep '^CCP_WT_' | sort > hook.env"}
         hook.write_text(json.dumps(body))
         head = subprocess.run(["git", "rev-parse", "origin/main"], cwd=self.main, capture_output=True,
                               text=True, check=True).stdout.strip()
-        code, made, _, err = self.ccp("wt", "create", "--kind", "rev", "--task", "0002", "--sha", head, root=self.main)
+        code, made, _, err = self.ccp("wt", "create", "--kind", kind, "--task", task, "--sha", head, root=self.main)
         self.assertEqual(code, 0, err)
         path = Path(made["path"])
         p = path / "docs/delivery/plane.json"
@@ -232,7 +234,7 @@ class StagesGetTheWorktreesFields(StagedFixture, unittest.TestCase):
 
     def run_in(self, cwd: Path, *args: str, env: dict | None = None) -> subprocess.CompletedProcess[bytes]:
         return ccp_proc(cwd, "suite", "run", "--full", *args, env=env,
-                        unset=tuple(v for v in WT_VARS if v not in (env or {})))
+                        unset=tuple(v for v in (*WT_VARS, *TASK_VARS) if v not in (env or {})))
 
     def shown(self, r: subprocess.CompletedProcess[bytes]) -> list[str]:
         return [ln[3:] for ln in r.stdout.decode().splitlines() if ln.startswith("wt=")]
@@ -246,6 +248,28 @@ class StagesGetTheWorktreesFields(StagedFixture, unittest.TestCase):
         hook_env = (path / "hook.env").read_text()
         self.assertEqual(len(hook_env.splitlines()), len(WT_VARS))
         self.assertEqual((path / "stage.env").read_text(), hook_env)
+
+    def test_a_gate_stage_knows_its_task_number_and_kind(self):
+        path = self.worktree({"gate": [{"name": "show", "cmd": SHOW_TASK}]}, kind="ver", task="0001")
+        r = self.run_in(path, "--lane", "gate", env={"CCP_TASK_ID": "a-stale-id", "CCP_NNNN": "9999"})
+        self.assertEqual(r.returncode, 0, r.stdout.decode() + r.stderr.decode())
+        self.assertEqual(self.shown(r), ["0001-first|0001|ver"])
+
+    def test_a_worktree_made_with_the_full_id_gives_it_too(self):
+        path = self.worktree({"fast": [{"name": "show", "cmd": SHOW_TASK}]}, task="0002-second")
+        r = self.run_in(path, "--lane", "fast")
+        self.assertEqual((r.returncode, self.shown(r)), (0, ["0002-second|0002|rev"]), r.stderr)
+
+    def test_the_baseline_worktree_gives_an_empty_task(self):
+        self.worktree({})  # the setup hook
+        code, made, _, err = self.ccp("wt", "create", "--kind", "ver", "--baseline", root=self.main)
+        self.assertEqual(code, 0, err)
+        path = Path(made["path"])
+        p = path / "docs/delivery/plane.json"
+        lanes = {"fast": [{"name": "s", "cmd": SHOW_TASK}]}
+        p.write_text(json.dumps({**json.loads(p.read_text()), "suite": {"lanes": lanes}}))
+        r = self.run_in(path, "--lane", "fast", env={"CCP_TASK_ID": "a-stale-id", "CCP_NNNN": "9999"})
+        self.assertEqual((r.returncode, self.shown(r)), (0, ["||ver"]), r.stderr)
 
     def test_an_argv_lane_and_a_nested_staged_lane_get_them_too(self):
         path = self.worktree({"full": ["/bin/sh", "-c", SHOW_WT],
@@ -261,13 +285,15 @@ class StagesGetTheWorktreesFields(StagedFixture, unittest.TestCase):
         path = self.worktree({"fast": [{"name": "a", "cmd": SHOW_WT}]})
         r = self.run_in(path, "--", "/bin/sh", "-c", SHOW_WT)
         self.assertEqual((r.returncode, self.shown(r)), (0, [""]), r.stderr)
+        r = self.run_in(path, "--", "/bin/sh", "-c", SHOW_TASK)
+        self.assertEqual((r.returncode, self.shown(r)), (0, ["||"]), r.stderr)
         r = self.run_in(path, "--", "/bin/sh", "-c", SHOW_WT, env={"CCP_WT_NAME": "the-callers"})
         self.assertEqual((r.returncode, self.shown(r)), (0, ["the-callers"]), r.stderr)
 
     def test_a_checkout_ccp_did_not_make_gets_none(self):
         self.worktree({})  # the queue holds another checkout's record: it is not this one's
         self.lanes({"fast": [{"name": "a", "cmd": "true"},
-                             {"name": "b", "cmd": f"{SHOW_WT}; test -z \"$(env | grep '^CCP_WT_')\""}]})
+                             {"name": "b", "cmd": f"{SHOW_WT}; test -z \"$(env | grep -E '^(CCP_WT_|CCP_TASK_ID=|CCP_NNNN=)')\""}]})
         r = self.run_in(self.runner, "--lane", "fast")
         self.assertEqual((r.returncode, self.shown(r)), (0, [""]), r.stderr)
 

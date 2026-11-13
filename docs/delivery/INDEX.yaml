@@ -413,7 +413,7 @@ tasks:
     depends_on: []
     path: tasks/0082-worker-test-runs-are-recorded.md
   - id: 0083-worktree-exec-and-base-follow-ups
-    status: pending
+    status: done
     title: wt exec, base runs and shallow checkouts are complete and clean up after themselves
     depends_on: []
     path: tasks/0083-worktree-exec-and-base-follow-ups.md
@@ -433,7 +433,7 @@ tasks:
     depends_on: []
     path: tasks/0086-next-reads-the-integration-tip.md
   - id: 0087-parsing-and-path-follow-ups
-    status: pending
+    status: done
     title: Path patterns, markings, reasons and report values are parsed exactly
     depends_on: []
     path: tasks/0087-parsing-and-path-follow-ups.md
@@ -453,7 +453,7 @@ tasks:
     depends_on: []
     path: tasks/0090-budgets-cut-line-warning.md
   - id: 0091-seat-and-task-in-worker-and-stage-env
-    status: pending
+    status: done
     title: Workers and gate stages know their seat, kind and task
     depends_on: []
     path: tasks/0091-seat-and-task-in-worker-and-stage-env.md

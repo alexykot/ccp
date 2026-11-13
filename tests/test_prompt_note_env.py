@@ -99,6 +99,16 @@ class NoteAndEnv(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertIn(f"export WT={self.main}/.rt/rev-0002", Path(body["env_file"]).read_text())
 
+    def test_worker_env_names_the_workers_kind_and_seat(self):
+        self._with_env({"SEAT": "{{kind}}-{{seat}}-{{nnnn}}"})
+        self.claim()
+        for phase, args, want in (("implement", ("--base", "abc1234"), "impl-impl-0002"),
+                                  ("review", ("--pr", "7", "--head", "a" * 40), "rev-rev-0002"),
+                                  ("verify", ("--pr", "7", "--head", "a" * 40), "ver-ver-0002")):
+            code, body, out, err = self.ccp("prompt", phase, "0002", *args, "--supersede")
+            self.assertEqual(code, 0, out + err)
+            self.assertIn(f"export SEAT={want}\n", Path(body["env_file"]).read_text())
+
     def test_worker_env_config_is_checked(self):
         for env, want in (({"1BAD": "x"}, "not a shell variable name"), ({"A": "{{nope}}"}, "names nope"),
                           ({"A": "a\nb"}, "one-line string"), ([], "must be an object")):

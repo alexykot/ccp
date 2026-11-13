@@ -66,7 +66,7 @@ written before the rule is still read.
 
 A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_round`) carries the
 runner's `--note` as its reason; `record` adds that reason to the record's `findings` when no finding
-gives it yet, as its whole text or after a `: ` at its end (`fill_reason`).
+gives it yet, as its whole text or as the line it adds (`fill_reason`).
 """
 from __future__ import annotations
 
@@ -680,12 +680,16 @@ def repeat_round(queue: Path, task_id: str) -> str | None:
     return str(last["run_id"])
 
 
+REPEAT_PREFIX = "repeat verify round, no fix round since "  # §15.6 rule 4: how fill_reason's line starts
+
+
 def fill_reason(queue: Path, rec: dict[str, Any]) -> None:
     """§15.6 rule 4: a verify round opened with no fix round since the last (`repeat_verify` on the
     task's open verify run) says why in the record's `findings`, from the runner's `--note`. The note
-    is added unless a finding already gives it: the note itself, or a line ending `: <note>`, as the
-    added line does. A finding that only contains it is not one ("rerun" inside "flaky gate, rerun").
-    A record with no such run is left as it is."""
+    is added unless a finding already gives it: the note itself, or a line the note was added as
+    (`REPEAT_PREFIX`, then `: <note>` at its end). A finding that only contains it is not one ("rerun"
+    inside "flaky gate, rerun"), nor is another statement that ends `: <note>`. A record with no such
+    run is left as it is."""
     from ccp import runs  # noqa: PLC0415
     from ccp.queue import QueueError  # noqa: PLC0415
 
@@ -703,8 +707,10 @@ def fill_reason(queue: Path, rec: dict[str, Any]) -> None:
     findings = rec.setdefault("findings", [])
     if not isinstance(findings, list):
         return  # the contract check names it
-    if not any(isinstance(f, str) and (f.strip() == note or f.rstrip().endswith(f": {note}")) for f in findings):
-        findings.append(f"repeat verify round, no fix round since {repeat.get('after')}: {note}")
+    if not any(isinstance(f, str) and (f.strip() == note or (f.lstrip().startswith(REPEAT_PREFIX)
+                                                             and f.rstrip().endswith(f": {note}")))
+               for f in findings):
+        findings.append(f"{REPEAT_PREFIX}{repeat.get('after')}: {note}")
 
 
 def _load(path: Path) -> dict[str, Any] | str:

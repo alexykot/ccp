@@ -517,7 +517,7 @@
         },
         "worker_env": {
           "type": "object",
-          "description": "SPEC §13: NAME: template. `ccp prompt` renders each ({{run_id}}, {{task_id}}, {{nnnn}}, {{phase}}, {{worktree}}, {{main_checkout}}, {{queue_root}}, {{project_id}}) into the run's env file, which the prompt tells the worker to source in each command.",
+          "description": "SPEC §13: NAME: template. `ccp prompt` renders each ({{run_id}}, {{task_id}}, {{nnnn}}, {{phase}}, {{kind}}, {{seat}}, {{worktree}}, {{main_checkout}}, {{queue_root}}, {{project_id}}) into the run's env file, which the prompt tells the worker to source in each command.",
           "propertyNames": {
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
           },

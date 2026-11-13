@@ -233,7 +233,7 @@ class RepeatVerify(ToolkitFixture, unittest.TestCase):
         self.verify_round()
         self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A, "--note", "flaky gate, rerun")
         rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
-        rec.update(task_id="0002-second", head_sha=A, verdict="approve", findings=["rerun: flaky gate, rerun"])
+        rec.update(task_id="0002-second", head_sha=A, verdict="approve", findings=["flaky gate, rerun"])
         rec.pop("checked_at", None)
         rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",
                           "produced_by": "verifier"}]
@@ -242,7 +242,25 @@ class RepeatVerify(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.ccp("verify", "record", str(f))
         self.assertEqual(code, 0, out + err)
         rec = json.loads((self.q / "verification/0002-second.json").read_text())
-        self.assertEqual(rec["findings"], ["rerun: flaky gate, rerun"])
+        self.assertEqual(rec["findings"], ["flaky gate, rerun"])
+
+    def test_another_statement_ending_with_the_reason_does_not_swallow_it(self):
+        self.review()
+        first = self.verify_round()
+        self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", A, "--note", "flaky gate, rerun")
+        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec.update(task_id="0002-second", head_sha=A, verdict="approve", findings=["lint warned: flaky gate, rerun"])
+        rec.pop("checked_at", None)
+        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",
+                          "produced_by": "verifier"}]
+        f = Path(self._tmp.name) / "verdict.json"
+        f.write_text(json.dumps(rec))
+        code, _, out, err = self.ccp("verify", "record", str(f))
+        self.assertEqual(code, 0, out + err)
+        findings = json.loads((self.q / "verification/0002-second.json").read_text())["findings"]
+        self.assertEqual(len(findings), 2, findings)
+        self.assertEqual(findings[0], "lint warned: flaky gate, rerun")
+        self.assertTrue(findings[1].endswith(": flaky gate, rerun") and first in findings[1], findings)
 
     def test_a_short_reason_inside_another_finding_is_still_added(self):
         self.review()

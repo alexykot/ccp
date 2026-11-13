@@ -426,8 +426,12 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     prompt_file = q / "prompts" / tid / (f"{phase}-{n}-prompt.md" if n > 1 else f"{phase}-prompt.md")
     prompt_file.parent.mkdir(parents=True, exist_ok=True)
     workdir = (worktree if phase in runs.CHANGE_PHASES else own) or ""
+    from ccp import wt  # noqa: PLC0415
+    kind = "impl" if phase in runs.CHANGE_PHASES else "rev" if phase == "review" else "ver"
     env_file, env_list = worker_env(cfg, q, prompt_file, {
         "run_id": run_id, "task_id": tid, "nnnn": nnnn, "phase": phase, "worktree": workdir,
+        # §13.3: the worker's worktree kind and seat, as `ccp wt create` records them by default (§12.1)
+        "kind": kind, "seat": wt.KINDS[kind][0],
         "main_checkout": str(main_checkout(cfg)), "queue_root": str(q), "project_id": cfg.project_id})
     verdicts_run, verdicts = reported_verdicts(cfg, q, tid) if phase == "review" else ("", {})
     cited = tasklog._as_list(meta.get("spec_refs")) + tasklog._as_list(meta.get("adr_refs")) \
