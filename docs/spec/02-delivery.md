@@ -670,6 +670,26 @@ Claude Code). A cold gate run must fit that limit with room to spare.
   started after the latest run of that lane that passed or failed are listed, so such a run clears
   the earlier ones.
 
+### 14.7 The tests a change touches
+
+`ccp suite affected [--since <ref> | --paths <path>…]` prints the test modules a change touches, one
+per line, sorted, so a worker picks the `part` lane from them after a merge or a fix instead of
+guessing. It runs nothing and records nothing.
+
+- **The change** is `--paths` (relative to the product root), else the files `git diff <ref>` names
+  against the working tree (a rename as both its paths) plus the untracked files git does not
+  ignore; `--since` defaults to `HEAD`, the uncommitted change.
+- **The product's language pack reads the tests** (`package_docs.language`; its default, `python`,
+  when the block is absent). A pack with no test reader (`none`) exits 2.
+- **Python.** A test module is a `test*.py` file git tracks or does not ignore, named by its dotted
+  path from the root (`tests/test_a.py` is `tests.test_a`). It is touched when it changed itself;
+  when it imports a changed module directly (any `import` or `from … import`, a relative one or one
+  inside a function too; importing `p.m` imports `p`, and `from p import m` imports `p.m`) or
+  through one package level (it imports a package whose `__init__.py` imports the changed module);
+  or when its text names a changed file's name.
+- With nothing changed, or no test touched, it prints nothing, says so on stderr and exits 0. A ref
+  git cannot read, or a path outside the root, exits 2.
+
 ## 15. Review, verification and merge
 
 ### 15.1 Standing DoD and the formal gate

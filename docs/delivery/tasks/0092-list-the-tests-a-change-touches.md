@@ -1,7 +1,7 @@
 ---
 task_id: 0092-list-the-tests-a-change-touches
 title: A command lists the test modules that depend on changed paths
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14"]
@@ -48,6 +48,19 @@ After a merge or a fix, a worker picks the part lane from the tests that import 
 
 *Append-only, newest last.*
 
+- 2026-11-12 — `ccp suite affected [--since REF | --paths PATH …]` (ccp/suite.py, wired in ccp/cli.py),
+  described in SPEC §14.7 under §31.1 and listed in docs/cli/02-delivery.md; the implementer brief names
+  it for the part lane after a merge. Choices where the task left room, each the narrowest reading:
+  the change without `--paths` is `git diff REF` against the working tree (default `HEAD`) plus
+  untracked, not-ignored files, renames as both paths; `--since` and `--paths` do not mix; the reader
+  is keyed by `package_docs.language` (the knob's default `python` when the block is absent; `none`
+  exits 2) and lives in ccp/suite.py, inside the task's declared paths, rather than in ccp/doclang;
+  Python test modules are `test*.py` files (unittest's default pattern) git tracks or does not
+  ignore; "one package level" is a package the test imports whose `__init__.py` imports the changed
+  module, and importing `p.m` counts as importing `p`; "names a changed file" is the file's name
+  appearing in the test's text; a changed test module lists itself. Output is plain lines, so it
+  can feed `python3 -m unittest` directly.
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-12 — verifier, PR #82 head `820c690` (squash `89c4aeb`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `python3 -m unittest tests.test_suite_affected` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0092-list-the-tests-a-change-touches.json.

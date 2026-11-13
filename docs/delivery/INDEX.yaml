@@ -458,7 +458,7 @@ tasks:
     depends_on: []
     path: tasks/0091-seat-and-task-in-worker-and-stage-env.md
   - id: 0092-list-the-tests-a-change-touches
-    status: pending
+    status: done
     title: A command lists the test modules that depend on changed paths
     depends_on: []
     path: tasks/0092-list-the-tests-a-change-touches.md
