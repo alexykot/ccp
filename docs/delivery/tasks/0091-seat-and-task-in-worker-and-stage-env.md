@@ -1,14 +1,14 @@
 ---
 task_id: 0091-seat-and-task-in-worker-and-stage-env
 title: Workers and gate stages know their seat, kind and task
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12", "S13", "S14"]
 review_point: R5
 paths: ["ccp/suite.py", "ccp/prompt.py", "ccp/wt.py", "docs/spec/02-delivery.md", "tests/test_suite_stages.py", "tests/test_prompt*.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0091-seat-and-task-in-worker-and-stage-env
@@ -60,4 +60,4 @@ A product names per-seat resources (a scratch database per implementer, reviewer
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #92 head `3efb46a` (squash `ac7f9dc`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0091-seat-and-task-in-worker-and-stage-env.json.

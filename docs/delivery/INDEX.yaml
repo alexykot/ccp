@@ -453,7 +453,7 @@ tasks:
     depends_on: []
     path: tasks/0090-budgets-cut-line-warning.md
   - id: 0091-seat-and-task-in-worker-and-stage-env
-    status: pending
+    status: done
     title: Workers and gate stages know their seat, kind and task
     depends_on: []
     path: tasks/0091-seat-and-task-in-worker-and-stage-env.md
