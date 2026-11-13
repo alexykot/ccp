@@ -11,7 +11,8 @@ A task file is never deleted and carries no runtime state: `check()` refuses run
 frontmatter, a task file that git or the committed INDEX knew and that is gone, and a number
 reused by another task (a renamed task says `renamed_from: <old id>`), and
 `warnings()` names a later task cited as a prerequisite in prose, where nothing enforces it (list it in
-`depends_on` instead).
+`depends_on` instead), and a number a task's Context states with no backticked command on its line (a
+measured premise names the command and the commit it ran at).
 
 A task has a kind (§20): `feature` (the default) or `refactor`. A refactor changes no rule, so it
 cites house rules or review findings (`rule_refs`, `review_refs`) instead of the spec, and proves
@@ -100,6 +101,16 @@ PLACEHOLDERS = ("NNNN-kebab-slug", "YYYY-MM-DD", "As a <role>", "<preconditions"
 # stays on one line, so one stray backtick cannot quote the lines after it.
 FENCE_RE = re.compile(r"^[ \t]*(?P<f>(?P<c>[`~])(?P=c){2,})[^\n]*\n.*?^[ \t]*(?P=f)(?P=c)*[ \t]*$", re.M | re.S)
 CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)[^\n]+?(?<!`)\1(?!`)")
+# §5: a measured premise in Context names the command that measured it. A number here is a figure
+# stated in prose: a run of digits that is not part of an id or a ref (`R5`, `§31.1`, `ADR-0033`,
+# `PR #89`, a date, a time, a sha), not a zero-padded id (`0197`), not a list marker and not in a
+# date written with its month's name (`11 Nov 2026`, `November 11, 2026`). A command is a
+# code span of at least two words (`git grep -c foo`); a lone path or id in backticks is not one.
+CONTEXT_NUMBER_RE = re.compile(r"(?<![\w§.\-/:#])(?!0\d)\d+(?:[.,]\d+)*(?![\w\-/:]|[.,]\d)")
+LIST_MARKER_RE = re.compile(r"^([ \t]*)\d+[.)](?=[ \t])")
+_MONTH = (r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|"
+          r"Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?")
+WORD_DATE_RE = re.compile(rf"\b(?:\d{{1,2}}[ \t]+{_MONTH}(?:[ \t]+\d{{4}})?|{_MONTH}[ \t]+\d{{1,2}}(?:,?[ \t]+\d{{4}})?)\b")
 # §5.2: what an empty ref list that includes spec_refs is told to do.
 SPEC_REFS_HINT = " — list the SPEC sections this task answers to in `spec_refs` and cite them in its text (§5.2)"
 
@@ -172,9 +183,9 @@ def canonical_status(status: Any) -> Any:
     return LEGACY_STATUSES.get(str(status), status) if isinstance(status, str) else status
 
 
-def _section(text: str, name: str) -> str | None:
+def _section_at(text: str, name: str) -> tuple[int, str] | None:
     """The body under `## <name>` (or an older name for that section), up to the next `## `
-    heading; None when the heading is absent."""
+    heading, with its offset in `text`; None when the heading is absent."""
     names = [name, *SECTION_ALIASES.get(name, ())]
     names += [k for k, olds in SECTION_ALIASES.items() if name in olds]
     m = None
@@ -185,7 +196,14 @@ def _section(text: str, name: str) -> str | None:
     if not m:
         return None
     nxt = re.search(r"^## ", text[m.end():], re.M)
-    return text[m.end(): m.end() + nxt.start()] if nxt else text[m.end():]
+    return m.end(), (text[m.end(): m.end() + nxt.start()] if nxt else text[m.end():])
+
+
+def _section(text: str, name: str) -> str | None:
+    """The body under `## <name>` (or an older name for that section), up to the next `## `
+    heading; None when the heading is absent."""
+    at = _section_at(text, name)
+    return at[1] if at else None
 
 
 def load(cfg: Config) -> list[dict[str, Any]]:
@@ -466,6 +484,29 @@ def _check_placeholders(t: dict[str, Any], rel: str) -> list[str]:
             for n, line in enumerate(text.split("\n"), 1) for ph in PLACEHOLDERS if ph in line]
 
 
+def unmeasured_numbers(t: dict[str, Any], rel: str) -> list[str]:
+    """§5: a task not yet done or dropped whose Context states a number on a line with no backticked
+    command, named with its line. Fenced blocks and code spans are quoted text, not read for numbers."""
+    if t.get("status") in TERMINAL:
+        return []
+    at = _section_at(t["_text"], SEC_CONTEXT)
+    if at is None:
+        return []
+    start, body = at
+    first = t["_text"].count("\n", 0, start) + 1
+    unfenced = FENCE_RE.sub(_blank, body)
+    out = []
+    for n, line in enumerate(unfenced.split("\n")):
+        if any(len(span.group(0).strip("`").split()) > 1 for span in CODE_SPAN_RE.finditer(line)):
+            continue
+        prose = WORD_DATE_RE.sub(_blank, LIST_MARKER_RE.sub(r"\1", CODE_SPAN_RE.sub(_blank, line)))
+        m = CONTEXT_NUMBER_RE.search(prose)
+        if m:
+            out.append(f"{rel}:{first + n}: Context states a number ({m.group(0)}) with no backticked command on "
+                       "its line: name the command that measured it and the commit it ran at (§5)")
+    return out
+
+
 def _spec_hint(lists: list[str]) -> str:
     """The hint for a task that cites none of `lists`, when spec_refs is one of them."""
     return SPEC_REFS_HINT if "spec_refs" in lists else ""
@@ -547,7 +588,8 @@ def missing_task_files(cfg: Config) -> list[str]:
 def warnings(cfg: Config) -> list[str]:
     """What `check` reports without failing: a task not yet done that names a later task as a
     prerequisite in prose, where nothing holds it back: the prerequisite belongs in `depends_on`,
-    which may name a later task (§5)."""
+    which may name a later task (§5); and one whose Context states a number with no backticked
+    command on its line (§5)."""
     tasks = load(cfg)
     ids = refs.ids(cfg)
     later = {m.group(1): t.get("task_id") for t in tasks if (m := ids.task_file_re.match(t["_file"].name))}
@@ -556,6 +598,7 @@ def warnings(cfg: Config) -> list[str]:
            f"not the task file (§5): it reads as {t['status']!r}; write that"
            for t in tasks if t.get("_legacy_status")]
     for t in tasks:
+        out += unmeasured_numbers(t, cfg.rel(t["_file"]))
         own = _number(t.get("task_id"), cfg)
         if own is None or t.get("status") in TERMINAL:
             continue

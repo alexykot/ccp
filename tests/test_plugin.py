@@ -120,6 +120,27 @@ class TeamLessons(unittest.TestCase):
                 self.assertEqual(text.count(tokens[-1]), 1, (brief, rule))
 
 
+# SPEC §5, §13: a brief's measured premise names its command and commit; the implementer re-runs it
+# at its base and stops with a scope question when a figure changed materially.
+PREMISE_DOCS = {
+    PLUGIN / "skills" / "writing-tasks" / "SKILL.md": ("the command\n  that measured it", "the commit it ran at",
+                                                       "re-runs it at its base", "changed\n  materially",
+                                                       "scope question", "ccp tasks check` warns"),
+    PLUGIN / "agents" / "delivery-implementer.md": ("Before you build, re-run at your base", "measured\n  premise",
+                                                    "changed materially", "scope question"),
+    PLANE / "templates" / "prompts" / "implement.md": ("Before you build, re-run at {{base}}", "measured premise",
+                                                      "changed materially", "scope question"),
+}
+
+
+class MeasuredPremises(unittest.TestCase):
+    def test_the_skill_the_brief_and_the_prompt_each_state_the_rule_once(self):
+        for doc, tokens in PREMISE_DOCS.items():
+            text = doc.read_text()
+            self.assertEqual([t for t in tokens if t not in text], [], doc.name)
+            self.assertEqual(text.count(tokens[0]), 1, doc.name)
+
+
 class Hooks(unittest.TestCase):
     def setUp(self):
         self.p = Product()
