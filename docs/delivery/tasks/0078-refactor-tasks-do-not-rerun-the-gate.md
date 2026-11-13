@@ -1,14 +1,14 @@
 ---
 task_id: 0078-refactor-tasks-do-not-rerun-the-gate
 title: ccp tasks check refuses a refactor task whose check re-runs the gate
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S21"]
 review_point: R5
 paths: ["ccp/tasklog.py", "docs/spec/03-quality.md", "plugin/skills/writing-tasks/", "tests/test_tasklog*.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0078-refactor-tasks-do-not-rerun-the-gate
@@ -73,4 +73,4 @@ A `kind: refactor` task proves itself by its own checks, not by re-running the w
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #89 head `81416e1` (squash `db12683`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0078-refactor-tasks-do-not-rerun-the-gate.json.
