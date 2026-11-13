@@ -68,6 +68,10 @@ class ReleaseKeepingBranch(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.ccp("tasks", "release", "0002", "--reason", "fix-check")
         self.assertEqual(code, 3, out + err)
         self.assertIn("--keep-branch", err)
+        self.set_state(status="blocked")  # a releasable phase, but runs behind it
+        code, _, out, err = self.ccp("tasks", "release", "0002", "--reason", "fix-check")
+        self.assertEqual(code, 3, out + err)
+        self.assertIn("--keep-branch", err)
         self.assertEqual(self.state()["lease_holder"], "runner")
 
     def test_a_task_with_an_open_run_is_refused(self):
