@@ -53,6 +53,22 @@ A change that a cheap, declared check proves harmless (a comment-only diff, a do
     skipped.
   - Tests: a diff that edits the prover's script gets no skip; one that doesn't still skips.
   - State it in SPEC §14.2 and §15.2."
+- Lead ruling (2026-11-13, after review 4 at `b157eae`; the fourth ruling round), verbatim:
+  "0079: option (1). Your diagnosis is right, and token-reading can't be made complete.
+  - Run every prover, for both the gate-stage skips and `verify.skip_review`'s proof, with its working
+    directory set to a clean worktree of origin/<integration>'s tip (fetched first). {from} and {head}
+    resolve in the same repo.
+  - Remove the token-reading code and its tests, keeping the rules read from the tip's plane.json.
+  - Remove the worktree after each run.
+  - SPEC §14.2 and §15.2 say provers run from the integration tip's checkout, so nothing a task's diff
+    changes can alter their verdict.
+  - Test that a task editing the prover's script still gets the integration branch's verdict."
+  The runner's note with it: this supersedes ruling round 3's `prover_touched` refusal (the file-token
+  reading, the `refused_provers` record field and its schema and SPEC text): remove them, and update the
+  SPEC text, schemas and the PR body (each SPEC change and the text it replaces). Keep: the fetch before
+  reading rules, the plain message when the integration plane.json does not load or the fetch fails, the
+  `-z` diff if still needed, run_id in proven_skips, no command text on records. Use `ccp wt` or git
+  worktree for the clean checkout; remove it after each run, also on error or signal.
 
 ## Scope
 
@@ -159,6 +175,29 @@ A change that a cheap, declared check proves harmless (a comment-only diff, a do
   or npm target, a glob, a symlink or a sourced file (MINOR 2). New tests pin that the gate and verify
   fetch `origin/<integration>` before reading the rules: a prover another clone pushes after the runner's
   last fetch applies (MINOR 3). The §14.2 Provers bullet is reflowed (NIT 1).
+- 2026-11-13 (implementer, ruling round 4): applied the lead's fourth ruling, recorded in Context; it
+  supersedes round 3's refusal. Every prover, a gate stage's, a review prover and `verify.skip_review`'s
+  `proof`, now runs with its working directory in a clean, detached git worktree of the
+  `origin/<integration branch>` commit the rules were read at (fetched first, then resolved to a sha, so
+  the rules and the checkout are the same commit). `suite.clean_checkout(root, sha)` makes it in a temp
+  dir with `git worktree add --detach` in the product's repository (so `{from}`, `{head}`, `{reviewed}`
+  and the merge-tree `{from}` resolve in it) and removes it on the way out (`git worktree remove
+  --force`, the temp dir, `git worktree prune`); in its scope a SIGTERM or SIGHUP left at its default
+  handler exits through Python, so the removal runs (SIGINT already does, and the suite's own handler
+  takes SIGINT and SIGTERM). It is made once per run, on first use, and removed when the run ends: at the
+  end of `ccp suite run` (its `finally`), and when `verify.skip_review` finishes judging. A prover in one
+  run therefore shares the checkout with the provers after it (the narrowest reading of "after each
+  run"). Git cannot make it: no prover runs, and the stage log or the verify refusal says so.
+  `rules.run_command` takes a `cwd` and now kills the command's process group when an exception (a
+  signal raised in Python) interrupts it. Removed: `config.prover_touched`, `PROVER_TOUCHED`, the
+  `refused_provers` field on the suite `ended` row, its event and `review_skip`, its schema entry, and the
+  task's touched-file list (and with it the `-z` diffs, which only fed the token reading). The rules stay
+  read from the tip's plane.json; the fetch, the plain messages, `run_id` in `proven_skips` and no command
+  text are unchanged. A head that edits plane.json gets the integration branch's verdict again. SPEC
+  §14.2, §14.4 and §15.2, both schemas and the suite and verify docstrings say so. Tests: a task whose
+  diff edits the prover's script (a gate stage prover, a review prover, the `proof`) gets the integration
+  branch's verdict, both ways; the prover's working directory is a clean checkout of the tip that is gone
+  after the run, after an error and after a signal.
 
 ## Verification notes
 

@@ -155,20 +155,18 @@ class SkipReview(ToolkitFixture, unittest.TestCase):
         self.assertNotIn("does not apply", err)
         self.assertFalse(self.log.exists())
 
-    def test_a_fix_that_edits_a_file_the_proof_names_is_reviewed(self):
-        proof = '"$PROOF_BIN" tests/check.sh {task_id} {reviewed} {head} {from}'
-        self.on_main("docs/delivery/plane.json", json.dumps(
-            {**self.PLANE_JSON, "verify": {"skip_review": {"paths": ["tests"], "proof": proof}}}))
+    def test_a_fix_that_edits_the_proofs_script_gets_the_integration_branchs_verdict(self):
+        proof = '"$PROOF_BIN" {task_id} {reviewed} {head} {from} && sh tests/check.sh'
+        self.on_main("tests/check.sh", "exit 1\n")  # the integration branch's script proves nothing
+        other = self.main / ".rt" / "other"
+        self.commit("docs/delivery/plane.json", json.dumps(
+            {**self.PLANE_JSON, "verify": {"skip_review": {"paths": ["tests"], "proof": proof}}}), other)
+        git(other, "push", "-q", "origin", "HEAD:main")
         git(self.wt, "fetch", "-q", "origin")
         git(self.wt, "merge", "-q", "--no-edit", "origin/main")
         self.reviewed()
-        head = self.fix("tests/check.sh", "exit 0\n")  # within the paths, but the proof reads it
-        self.refused(head, "the proof (verify.skip_review.proof) is refused, "
-                     f"{config.PROVER_TOUCHED}: the task's diff touches tests/check.sh")
-        self.assertFalse(self.log.exists())
-        head = self.fix()  # a later fix: the task's diff still touches it
-        self.refused(head, "the proof (verify.skip_review.proof) is refused, "
-                     f"{config.PROVER_TOUCHED}: the task's diff touches tests/check.sh")
+        head = self.fix("tests/check.sh", "exit 0\n")  # within the paths; the task's copy would prove anything
+        self.refused(head, "the proof (verify.skip_review.proof) exited 1)")  # the integration branch's script ran
 
     def test_a_fix_that_changes_no_file_is_reviewed(self):
         reviewed = self.reviewed()

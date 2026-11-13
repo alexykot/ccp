@@ -213,7 +213,7 @@ DOCS_ONLY = "test -z \"$(git diff --name-only {from} {head} -- . ':!docs')\""  #
 class ProversSkipStages(StagedFixture, unittest.TestCase):
     """§14.2: a declared prover that exits 0 on the task's diff skips the gate stage it names, recorded on
     the run; a prover that fails, or cannot judge the diff, skips nothing. The provers are read from the
-    integration branch's plane.json, never from the head under test."""
+    integration branch's plane.json, never from the head under test, and run in a clean checkout of its tip."""
 
     def setUp(self):
         super().setUp()
@@ -293,64 +293,87 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertTrue(self.marker.exists())
         self.assertNotIn("proven_skips", self.ended())
 
-    def test_a_head_that_edits_plane_json_gets_no_skip_on_the_record(self):
+    def test_a_head_that_edits_plane_json_still_gets_the_integration_branchs_verdict(self):
         self.product([{"name": "always", "command": "true", "skips": "suite"}])
-        self.product([], integration=False)  # the head drops it: the integration branch's rule is refused
+        self.product([], integration=False)  # the head drops it: the integration branch's rule still applies
         self.change("src/app.py")
         self.implementing()
         self.gate("--run", "0002-second/implement")
-        self.assertTrue(self.marker.exists())
-        row = self.ended()
-        self.assertNotIn("proven_skips", row)
-        want = [{"stage": "suite", "prover": "always", "reason": config.PROVER_TOUCHED,
-                 "run_id": "0002-second/implement"}]
-        self.assertEqual(row["refused_provers"], want)
-        ev = [e for e in self.events() if e["type"] == "suite"][-1]["payload"]
-        self.assertEqual(ev["refused_provers"], want)
-        self.assertIn(config.CONFIG_REL, Path(row["log"]).read_text())
+        self.assertFalse(self.marker.exists())
+        self.assertEqual(self.ended()["proven_skips"],
+                         [{"stage": "suite", "prover": "always", "exit_code": 0, "run_id": "0002-second/implement"}])
 
-    def script(self, rel: str = "scripts/prove.sh") -> None:
-        """A prover's script, on the integration branch: it exits 0 whatever the diff."""
+    def script(self, text: str, rel: str = "scripts/prove.sh") -> None:
+        """A prover's script, on the integration branch: `text` decides its exit, whatever the diff."""
         from tests.test_toolkit import git
         (self.runner / rel).parent.mkdir(exist_ok=True)
-        (self.runner / rel).write_text("exit 0\n")
+        (self.runner / rel).write_text(text)
         git(self.runner, "add", rel)
         git(self.runner, "commit", "-q", "-m", "the prover's script")
         git(self.runner, "push", "-q", "origin", "HEAD:main")
 
-    def test_a_diff_that_edits_the_provers_script_gets_no_skip(self):
-        self.script()
-        self.product([{"name": "scripted", "command": "sh ./scripts/prove.sh {from} {head}", "skips": "suite"},
-                      {"name": "spy", "command": f"touch {self.seen}; exit 1", "skips": "suite"}])
-        self.change("scripts/prove.sh")
+    def edit_script(self, text: str, rel: str = "scripts/prove.sh") -> None:
+        from tests.test_toolkit import git
+        (self.runner / rel).write_text(text)
+        git(self.runner, "commit", "-q", "-am", "the task edits the prover's script")
+
+    SCRIPTED = {"name": "scripted", "command": "sh ./scripts/prove.sh {from} {head}", "skips": "suite"}
+
+    def test_a_diff_that_edits_the_provers_script_gets_the_integration_branchs_verdict(self):
+        self.script("exit 1\n")  # the integration branch's script proves nothing
+        self.product([self.SCRIPTED])
+        self.edit_script("exit 0\n")  # the task's copy would prove anything
         self.gate("--task", "0002")
         self.assertTrue(self.marker.exists())
         row = self.ended()
         self.assertNotIn("proven_skips", row)
-        self.assertEqual([(x["prover"], x["reason"]) for x in row["refused_provers"]],
-                         [("scripted", config.PROVER_TOUCHED)])
-        self.assertTrue(self.seen.exists())  # the next prover still runs
-        self.assertIn("prover scripted refused", Path(row["log"]).read_text())
+        self.assertIn("prover scripted exit 1\n", Path(row["log"]).read_text())  # it ran: not 127
 
-    def test_a_diff_that_leaves_the_provers_script_alone_still_skips(self):
-        self.script()
-        self.product([{"name": "scripted", "command": "sh ./scripts/prove.sh {from} {head}", "skips": "suite"}])
-        self.change("src/app.py")
+    def test_a_diff_that_breaks_the_provers_script_still_skips(self):
+        self.script("exit 0\n")
+        self.product([self.SCRIPTED])
+        self.edit_script("exit 1\n")
         self.gate("--task", "0002")
         self.assertFalse(self.marker.exists())
-        row = self.ended()
-        self.assertEqual([x["prover"] for x in row["proven_skips"]], ["scripted"])
-        self.assertNotIn("refused_provers", row)
+        self.assertEqual([x["prover"] for x in self.ended()["proven_skips"]], ["scripted"])
 
-    def test_a_provers_script_with_a_non_ascii_name_is_still_refused(self):
+    def worktrees(self) -> str:
         from tests.test_toolkit import git
-        self.script("scripts/v\u00e9rifie.sh")
-        self.product([{"name": "scripted", "command": "sh ./scripts/v\u00e9rifie.sh {from} {head}", "skips": "suite"}])
-        (self.runner / "scripts/v\u00e9rifie.sh").write_text("exit 0  # the task's own copy\n")
-        git(self.runner, "commit", "-q", "-am", "the task edits the prover's script")
+        return git(self.runner, "worktree", "list", "--porcelain")
+
+    def test_the_prover_runs_in_a_clean_checkout_of_the_integration_tip_removed_after_the_run(self):
+        from tests.test_toolkit import git
+        self.product([{"name": "where", "command": f"pwd -P > {self.seen}; git rev-parse HEAD >> {self.seen}; "
+                                                   f"git status --porcelain >> {self.seen}; exit 1", "skips": "suite"}])
+        tip = git(self.runner, "rev-parse", "origin/main")
+        self.change("src/app.py")  # the head is not the tip
+        before = self.worktrees()
         self.gate("--task", "0002")
-        self.assertTrue(self.marker.exists())
-        self.assertEqual([x["prover"] for x in self.ended()["refused_provers"]], ["scripted"])
+        where, rev, *dirty = self.seen.read_text().splitlines()
+        self.assertNotEqual(Path(where), self.runner.resolve())
+        self.assertEqual((rev, dirty), (tip, []))
+        self.assertFalse(Path(where).exists())
+        self.assertEqual(self.worktrees(), before)
+
+    def test_the_provers_checkout_is_removed_after_an_error(self):
+        self.product([{"name": "always", "command": "true", "skips": "suite"}])
+        self.change("src/app.py")
+        seen: list[Path] = []
+
+        def boom(_cmd, cwd, *_a):
+            seen.append(Path(cwd))
+            raise RuntimeError("the prover broke")
+        cwd = os.getcwd()
+        self.addCleanup(os.chdir, cwd)
+        before = self.worktrees()
+        a = type("A", (), {"lane": "gate", "phase": None, "run": None, "task": "0002", "root": None,
+                           "output": "summary", "log": None, "wait": None})()
+        with mock.patch.object(suite, "_prove", boom), mock.patch.object(suite, "_say", lambda _t: None), \
+                self.assertRaises(RuntimeError):
+            suite.run(config.load(self.runner), a, None)
+        self.assertTrue(seen)
+        self.assertFalse(seen[0].exists())
+        self.assertEqual(self.worktrees(), before)
 
     def test_the_gate_fetches_the_integration_branch_before_reading_the_provers(self):
         from tests.test_toolkit import git
@@ -378,26 +401,6 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         row = self.ended()
         self.assertNotIn("proven_skips", row)
         self.assertIn("the fetch of origin/main failed", Path(row["log"]).read_text())
-
-    def test_a_prover_names_the_files_its_command_does(self):
-        root = Path("/repo")
-        touched = ["scripts/prove.sh", "tools/check.py", "docs/guide.md", config.CONFIG_REL, "lib/x.py", ".lintrc"]
-        for cmd, want in (("sh scripts/prove.sh {from}", ["scripts/prove.sh"]),
-                          ("./scripts/prove.sh|grep -q ok", ["scripts/prove.sh"]),
-                          ("python3 /repo/tools/check.py <docs/guide.md", ["tools/check.py", "docs/guide.md"]),
-                          ("sh -c 'tools/check.py {head}'", ["tools/check.py"]),
-                          ("test -z \"$(scripts/prove.sh {from} {head})\"", ["scripts/prove.sh"]),
-                          ("test -z `scripts/prove.sh {from}`", ["scripts/prove.sh"]),
-                          ("lint --config=.lintrc .", [".lintrc"]),
-                          ("\"$PWD/scripts/prove.sh\" {from}", ["scripts/prove.sh"]),
-                          ("${ROOT}/scripts/prove.sh", ["scripts/prove.sh"]),
-                          ("$(git rev-parse --show-toplevel)/tools/check.py", ["tools/check.py"]),
-                          ("test -z \"$(git diff --name-only {from} {head} -- . ':!docs')\"", []),
-                          ("python3 -m lib.x", []), ("sh ../lib/x.py", [])):
-            with self.subTest(cmd=cmd):
-                self.assertEqual(config.prover_touched(cmd, touched, root),
-                                 [f for f in touched if f in want or f == config.CONFIG_REL])
-        self.assertEqual(config.prover_touched("true", ["src/app.py"], root), [])
 
     def test_an_integration_plane_json_that_does_not_load_declares_no_prover(self):
         from tests.test_toolkit import git
@@ -468,8 +471,11 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.product([{"name": "docs-only", "command": DOCS_ONLY, "skips": "suite"}])
         self.change("docs/guide.md")
         real = suite._prove
+        seen: list[Path] = []
+        before = self.worktrees()
 
         def then_signal(*args, **kw):
+            seen.append(Path(args[1]))
             out = real(*args, **kw)
             os.kill(os.getpid(), signal.SIGTERM)
             return out
@@ -484,6 +490,8 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         row = self.ended()
         self.assertEqual((row["interrupted"], row["failed_stage"]), ("SIGTERM", "suite"))
         self.assertNotIn("proven_skips", row)
+        self.assertFalse(seen[0].exists())  # the provers' checkout is gone after the signal too
+        self.assertEqual(self.worktrees(), before)
 
     def test_config_takes_and_refuses_provers(self):
         from tests.helpers import Product
@@ -523,9 +531,6 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         result = json.loads((root / "contracts/suite_result.schema.json").read_text())
         self.assertEqual(set(result["properties"]["proven_skips"]["items"]["properties"]),
                          {"stage", "prover", "exit_code", "run_id"})
-        refused = result["properties"]["refused_provers"]["items"]
-        self.assertEqual(set(refused["properties"]), {"stage", "prover", "reason", "run_id"})
-        self.assertEqual(refused["properties"]["reason"]["enum"], [config.PROVER_TOUCHED])
 
 
 WT_VARS = tuple(f"CCP_WT_{f.upper()}" for f in config.WT_FIELDS)

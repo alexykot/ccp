@@ -14,9 +14,7 @@ import copy
 import fnmatch
 import json
 import os
-import posixpath
 import re
-import shlex
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -254,7 +252,8 @@ SUITE_SUMMARY_ALIASES = {"modules_ran_re": "ran_re", "modules_cached_re": "cache
 # task's diff (a gate stage) or the fix round's diff (`review`) skips the step `skips` names, recorded on
 # the run. `verify.skip_review` is one such prover, of the review, with its own paths rule. Both are read
 # from plane.json on the integration branch (`skip_rules_at`), never from the checkout or the head under test,
-# and a prover whose files the task's diff touches is refused (`prover_touched`).
+# and their commands run in a clean checkout of that branch's tip, so nothing the task's diff changes alters
+# their verdict.
 VERIFY_DEFAULTS: dict[str, Any] = {"accept_cache": None, "skip_review": None, "skip_review_after_clean": False,
                                    "provers": []}
 PROVER_KEYS = {"name", "command", "skips"}
@@ -1121,58 +1120,19 @@ def load(root: Path) -> Config:
     return _parse(root, p.read_text())
 
 
-def skip_rules_at(root: Path, rev: str) -> tuple[dict[str, Any], str]:
+def skip_rules_at(root: Path, rev: str, label: str | None = None) -> tuple[dict[str, Any], str]:
     """The `verify` block of plane.json as committed at `rev`, loaded and checked as `load` does (§14.2,
     §15.2): the skip rules (`verify.skip_review`, `verify.provers`) are read from the integration branch
     this way, so a rule a task adds or changes in its own diff does not apply to that task. The defaults
     (nothing skipped) when `rev` or its plane.json does not exist, with "" as the reason; the defaults and
-    why when that plane.json does not load."""
+    why, naming `rev` as `label` (`rev` itself by default), when that plane.json does not load."""
     r = subprocess.run(["git", "-C", str(root), "show", f"{rev}:{CONFIG_REL}"], capture_output=True, text=True)
     if r.returncode != 0:
         return copy.deepcopy(VERIFY_DEFAULTS), ""
     try:
         return _parse(root, r.stdout).verify, ""
     except ConfigError as e:
-        return copy.deepcopy(VERIFY_DEFAULTS), f"plane.json on {rev} does not load ({str(e)[:200]})"
-
-
-PROVER_TOUCHED = "prover_touched"  # §14.2, §15.2: the reason a prover is refused when the task's diff touches its files
-
-
-# The shell's metacharacters, `=` and braces: a path inside a word ends at one (`"$(x.sh {from})"`, `--opt=path`).
-_SHELL_PIECES = re.compile(r"[\s$(){}`;&|<>=\"'\\]+")
-# A path written after a variable or a substitution (`$PWD/x.sh`, `${ROOT}/x.sh`, `$(git rev-parse
-# --show-toplevel)/x.sh`, a backquoted one): taken relative to the root, the expansion a repo root.
-_AFTER_EXPANSION = re.compile(r"(?:\$\{[^}]*\}|\$\([^()]*\)|\$\w+|`[^`]*`)/([^\s\"'`;&|<>(){}$]+)")
-
-
-def prover_touched(command: str, touched: list[str], root: Path) -> list[str]:
-    """The files of the task's diff (`touched`, repo-relative paths) that a prover's `command`, as the
-    integration branch has it, names (§14.2, §15.2): each token of the command that is a path in the repo,
-    plus plane.json itself. Tokens are the command's shell words, a quoted word's own words, the pieces of
-    each between the shell's metacharacters, `=` and braces (so `"$(<script> {from})"`, a backquoted
-    script and `--config=<file>` count), and a path written after a variable or a substitution, taken from
-    the root (`$PWD/<script>`). A token names a file when, made relative to `root` and normalised, it is
-    that file's path. Only a file the command names literally counts: one it reaches through `cd`, `-C`,
-    a module name, a make target, a glob or a file it sources does not. Non-empty: the prover is refused
-    (`prover_touched`), since the task could otherwise grant itself the skip."""
-    lex = shlex.shlex(command, posix=True, punctuation_chars=True)
-    lex.whitespace_split = True
-    try:
-        words = list(lex)
-    except ValueError:  # an unbalanced quote: the plain words
-        words = command.split()
-    named = {CONFIG_REL}
-    pieces = words + [p for w in words for p in _SHELL_PIECES.split(w)] + _AFTER_EXPANSION.findall(command)
-    for w in pieces:
-        if not w:
-            continue
-        if os.path.isabs(w):
-            w = os.path.relpath(w, root)
-        w = posixpath.normpath(w)
-        if w not in (".", "..") and not w.startswith("../"):
-            named.add(w)
-    return [f for f in touched if f in named]
+        return copy.deepcopy(VERIFY_DEFAULTS), f"plane.json on {label or rev} does not load ({str(e)[:200]})"
 
 
 def _parse(root: Path, text: str) -> Config:

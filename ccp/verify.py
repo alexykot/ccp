@@ -43,7 +43,8 @@ verify run carries the override `ccp prompt verify --allow-unreviewed-fix` recor
 `skip_review` proved for that head: a product with `verify.skip_review` lets a fix whose diff touches only
 the declared paths, and that the product's proof command passes, go to verify with no new review, and a
 declared prover of the review (`verify.provers`, `skips: review`) whose command exits 0 on the fix diff
-does the same, its name and exit recorded on the verify run (no command text). A
+does the same, its name and exit recorded on the verify run (no command text); both commands run in a
+clean checkout of the integration branch's tip, so nothing the task's diff changes alters their verdict. A
 product with `verify.skip_review_after_clean` lets the fix round after a clean review (no BLOCKER or MAJOR
 finding) go to verify with no new review, the skip recorded as `minor-only` at the verify run's head; the
 verifier confirms the fix answers only that review's findings (`skip_after_clean`).
@@ -78,6 +79,7 @@ that head, `catch_up.to`, in place of `head_sha` only when `catch_up.from` is `h
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -579,14 +581,13 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     cleanly) to the head, so an integration merge in between is not counted as the fix's. It must touch
     at least one file. `verify.skip_review` proves it when the diff touches only files under `paths` (git
     pathspecs, as `merge.behind_tip_ignore`) and the product's `proof` command exits 0; failing that, each
-    review prover in turn proves it when its `command` exits 0. Either command runs in the product root
-    with `{task_id}`, `{reviewed}`, `{head}` and `{from}` (the tree the fix diff starts from) filled in.
-    Neither runs when the task's diff (the head's merge base with the integration branch to the head)
-    touches a file its command names, or plane.json (`config.prover_touched`): it is refused,
-    `prover_touched`. Returns what to record on the verify run (a prover's skip adds its `prover` name and
-    `exit_code`, never its command text, §14.4; `refused_provers` names each refused one), or None and why
-    not, as "<the settings> does not apply: <why>" or "nothing is skipped: <why>" ("" when neither is set or
-    there is no fix to judge).
+    review prover in turn proves it when its `command` exits 0. Either command runs in a clean checkout of
+    the integration branch's tip, the commit the rules were read at (`suite.clean_checkout`, removed when
+    the judgement ends), so nothing the task's diff changes alters its verdict, with `{task_id}`,
+    `{reviewed}`, `{head}` and `{from}` (the tree the fix diff starts from) filled in. Returns what to
+    record on the verify run (a prover's skip adds its `prover` name and `exit_code`, never its command
+    text, §14.4), or None and why not, as "<the settings> does not apply: <why>" or "nothing is skipped:
+    <why>" ("" when neither is set or there is no fix to judge).
 
     `git merge-tree --write-tree` needs git 2.38 or later. It exits 1 on a conflict; any other failure,
     such as an older git that lacks the option, is named as such, and the review stands either way."""
@@ -597,7 +598,9 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     integ = integration_branch(queue)
     if git(cfg.root, "fetch", "-q", "origin").returncode != 0:
         return None, f"nothing is skipped: the fetch of origin/{integ} failed, so no skip rule was read"
-    found, unread = skip_rules_at(cfg.root, f"origin/{integ}")
+    at = git(cfg.root, "rev-parse", "--verify", "-q", f"origin/{integ}^{{commit}}")
+    tip = at.stdout.strip() if at.returncode == 0 else ""
+    found, unread = skip_rules_at(cfg.root, tip, f"origin/{integ}") if tip else ({}, "")
     if unread:  # a plane.json that does not load there sets none
         return None, f"nothing is skipped: {unread}, so it sets no skip rule"
     rule = found.get("skip_review")
@@ -613,17 +616,17 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     reviewed = str(reviews[-1].get("head") or "").strip()
     if not reviewed:
         return None, ""
-    rec, why = _judge_fix(cfg, queue, task_id, reviewed, head, pr, str(fixes[-1]["run_id"]), rule, provers, integ)
+    rec, why = _judge_fix(cfg, queue, task_id, reviewed, head, pr, str(fixes[-1]["run_id"]), rule, provers, integ,
+                          tip)
     return rec, (f"{label} does not apply: {why}" if why else "")
 
 
 def _judge_fix(cfg: Config, queue: Path, task_id: str, reviewed: str, head: str, pr: str | None, fix: str,
                rule: dict[str, Any] | None, provers: list[dict[str, Any]],
-               integ: str) -> tuple[dict[str, Any] | None, str]:
-    """`skip_review`'s judgement of the fix diff by the rules read from the integration branch: what to
-    record on the verify run, or None and why not."""
-    from ccp import rules  # noqa: PLC0415
-    from ccp.config import PROVER_TOUCHED, fill, prover_touched  # noqa: PLC0415
+               integ: str, tip: str) -> tuple[dict[str, Any] | None, str]:
+    """`skip_review`'s judgement of the fix diff by the rules read from the integration branch at `tip`,
+    their commands run in a clean checkout of `tip`: what to record on the verify run, or None and why
+    not."""
     from ccp.queue import git  # noqa: PLC0415
 
     shas = []  # `skip_review` fetched origin
@@ -647,10 +650,6 @@ def _judge_fix(cfg: Config, queue: Path, task_id: str, reviewed: str, head: str,
     if tree.returncode != 0 or not tree.stdout.split():
         return None, f"the reviewed head does not merge cleanly onto the head's base on origin/{integ}"
     start = tree.stdout.split()[0]
-    task = git(cfg.root, "diff", "--name-only", "-z", "--no-renames", base.stdout.strip(), head)  # a path as is
-    if task.returncode != 0:
-        return None, "the task's diff could not be read"
-    task_files = [f for f in task.stdout.split("\0") if f]
     touched = git(cfg.root, "diff", "--name-only", "--no-renames", start, head)  # a rename names both of its paths
     if touched.returncode != 0:
         return None, "the fix diff could not be read"
@@ -659,16 +658,32 @@ def _judge_fix(cfg: Config, queue: Path, task_id: str, reviewed: str, head: str,
         return None, "the fix changes no file of its own"
     values = {"task_id": task_id, "reviewed": reviewed, "head": head, "from": start}
     skipped = {"reviewed": reviewed, "head": head, "fix": fix, "files": len(files)}
-    why: list[str] = []
-    refused: list[dict[str, str]] = []
+    with contextlib.ExitStack() as checkouts:  # the provers' checkout goes, on an error or a signal too
+        return _prove_fix(cfg, rule, provers, values, skipped, start, head, tip, checkouts)
 
-    def touches(name: str, cmd: str, what: str) -> bool:
-        """Refuse a prover whose files the task's diff touches: the task could grant itself the skip."""
-        hit = prover_touched(cmd, task_files, cfg.root)
-        if hit:
-            refused.append({"prover": name, "reason": PROVER_TOUCHED})
-            why.append(f"{what} is refused, {PROVER_TOUCHED}: the task's diff touches {', '.join(hit[:5])}")
-        return bool(hit)
+
+def _prove_fix(cfg: Config, rule: dict[str, Any] | None, provers: list[dict[str, Any]], values: dict[str, str],
+               skipped: dict[str, Any], start: str, head: str, tip: str,
+               checkouts: contextlib.ExitStack) -> tuple[dict[str, Any] | None, str]:
+    """Run `verify.skip_review`'s proof (within its paths), then each review prover, in a clean checkout of
+    the integration tip `tip`, made on first use and held by `checkouts`: what to record when one exits 0,
+    or None and why none did."""
+    from ccp import rules  # noqa: PLC0415
+    from ccp.config import fill  # noqa: PLC0415
+    from ccp.queue import git  # noqa: PLC0415
+    from ccp.suite import clean_checkout  # noqa: PLC0415
+
+    why: list[str] = []
+    tree: list[Path | None] = []
+
+    def prove(cmd: str) -> tuple[bool, int | None]:
+        """(made, exit code) of `cmd` in the checkout; (False, None) when none could be made."""
+        if not tree:
+            tree.append(checkouts.enter_context(clean_checkout(cfg.root, tip)))
+        if tree[0] is None:
+            return False, None
+        return True, rules.run_command(cfg, fill(cmd, values), PROOF_TIMEOUT, cwd=tree[0])[0]
+    no_tree = f"no clean checkout of the integration tip {tip[:12]} could be made, so no proof ran"
     if rule:
         paths = [str(x) for x in rule["paths"]]
         outside = git(cfg.root, "diff", "--name-only", "--no-renames", start, head, "--", ".", *[f":!{x}" for x in paths])
@@ -678,19 +693,20 @@ def _judge_fix(cfg: Config, queue: Path, task_id: str, reviewed: str, head: str,
         elif beyond:
             why.append(f"the fix touches {len(beyond)} file(s) outside verify.skip_review.paths "
                        f"({', '.join(beyond[:5])})")
-        elif not touches("verify.skip_review", str(rule["proof"]), "the proof (verify.skip_review.proof)"):
-            code, _ = rules.run_command(cfg, fill(str(rule["proof"]), values), PROOF_TIMEOUT)
+        else:
+            made, code = prove(str(rule["proof"]))
+            if not made:
+                return None, no_tree
             if code == 0:
-                return skipped, ""  # tried first: nothing refused before it
+                return skipped, ""
             why.append("the proof (verify.skip_review.proof) "
                        + (f"timed out after {PROOF_TIMEOUT}s" if code is None else f"exited {code}"))
     for p in provers:
-        if touches(str(p["name"]), str(p["command"]), f"the prover {p['name']} (verify.provers)"):
-            continue
-        code, _ = rules.run_command(cfg, fill(str(p["command"]), values), PROOF_TIMEOUT)
+        made, code = prove(str(p["command"]))
+        if not made:
+            return None, "; ".join(why + [no_tree])
         if code == 0:
-            return {**skipped, "prover": str(p["name"]), "exit_code": 0,
-                    **({"refused_provers": refused} if refused else {})}, ""
+            return {**skipped, "prover": str(p["name"]), "exit_code": 0}, ""
         why.append(f"the prover {p['name']} (verify.provers) "
                    + (f"timed out after {PROOF_TIMEOUT}s" if code is None else f"exited {code}"))
     return None, "; ".join(why)
