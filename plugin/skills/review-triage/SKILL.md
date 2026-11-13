@@ -20,9 +20,9 @@ its kind:
 - an **architect shape** (`sh-…`, SPEC §19.5): advice on an accepted ADR before it is tasked
   (see *After a shape*, below).
 
-Doc findings are doc edits: group them into one or two doc-fix tasks rather than one task per
-finding. Re-read this file every time you triage; it is the whole of your standing instructions
-for triage, and you may be a brand-new session.
+Bundle findings by area: code, test and doc findings alike go into one task per area, never one
+task per finding (see *Bundling by area*, below). Re-read this file every time you triage; it is
+the whole of your standing instructions for triage, and you may be a brand-new session.
 
 The reviewer found and proved problems. You decide what happens to each one. Nothing the
 reviewer says is a decision.
@@ -69,7 +69,7 @@ You must not:
 
 | Disposition | When | What you do |
 | --- | --- | --- |
-| `task` | Real, and fixable within the current spec and design | Put it in a new task. **Group related findings into one task**, for example one clean-up task with no schema change and one schema clean-up. Separate anything that changes stored data or a contract into its own task, with a migration or rehearsal step in its `dod_checks`. A clean-up that changes no behaviour is a **refactor task** (`kind: refactor`, citing `review_refs: ["<review_id>#F01"]` or `rule_refs`, never `spec_refs`/`adr_refs`; SPEC §20) |
+| `task` | Real, and fixable within the current spec and design | Put it in the new task for its area (*Bundling by area*, below). Separate anything that changes stored data or a contract into its own task, with a migration or rehearsal step in its `dod_checks`. A clean-up that changes no behaviour is a **refactor task** (`kind: refactor`, citing `review_refs: ["<review_id>#F01"]` or `rule_refs`, never `spec_refs`/`adr_refs`; SPEC §20) |
 | `spec` | The fix is a spec ruling or wording change | Rule and commit it, as for a spec question |
 | `defer` | Real, but it belongs to planned future work | Record it in the planning document with a pointer to this review, and give the path |
 | `needs_operator` | The fix is a product or design decision the owner reserves, or it contradicts something the owner decided. **Always** for a `rule-cost` finding: a rule applied past its purpose is the owner's call, never rejected as intentional without their word | Write one exact question with the options and your recommendation. Group all such findings into one question if you can |
@@ -137,6 +137,19 @@ before that commit is on the integration branch. When the commit lands, record i
 `ccp architect triage --backfill <review_id> <sha>`. `ccp architect status` lists any backfill
 still unfinished.
 No secrets, keys or `.env` contents anywhere.
+
+## Bundling by area
+
+Every task pays a fixed cost (claim, worker start-up, review, verify, merge, reconcile), so pay it
+once per area, not once per finding:
+
+- Put the findings you make `task`, and any follow-ups or leftovers of earlier tasks in the same
+  area, into **one task per area** (a package, a command, a doc set), aiming at a few hundred
+  changed lines. `ccp health` shows the share of merged tasks under `health.small_task_lines`.
+- The task declares the **union of the findings' paths** in `paths` and carries **one `dod_check`
+  per finding**. An area with more findings than `max_checks` (default 6) fills a second task.
+- **Every finding is still fixed**: bundling changes how many tasks there are, never what is done.
+- A finding that changes stored data or a contract keeps its own task, as the `task` row says.
 
 ## After a shape (`sh-…`)
 

@@ -26,6 +26,16 @@ reconcile) is paid once per area rather than once per finding (§5, §19.8).
   small follow-ups. The writing-tasks skill tells writers to give a follow-up its own small task.
 - §31.1: this changes skill guidance and adds a health figure describing its own feature; no § rule
   changes, so no merge gate.
+- Lead ruling, 2026-11-13 (spec question sm-20261113T001353Z-19af, ruling round 1), as the runner
+  passed it: "Yes, add both as §31.1 text describing the task's own feature. §8.1's block table gets
+  a row: '| health | the line below which a merged task counts as small (small_task_lines, default
+  100) | §27.1 |'. §27.1 gets a bullet: '**Small tasks:** the share of merged tasks whose diff is
+  under health.small_task_lines lines, with the count and the line, so the task-log owner sees
+  follow-ups drifting into one task each (bundle them by area, the writing-tasks skill); small_tasks
+  in --json.' Adjust the wording to what the code measures (for example, if lines means added plus
+  removed), keeping it to describing the figure." The runner adds: a task counts as small when its
+  changed lines (added plus deleted, summed over all its merges in the window) are strictly fewer
+  than the line; a task at exactly the line is not small. Write that into the wording.
 
 ## Scope
 
@@ -66,6 +76,28 @@ reconcile) is paid once per area rather than once per finding (§5, §19.8).
 ## Implementation notes
 
 *Append-only, newest last.*
+
+- 2026-11-13 (implementer): The writing-tasks skill's "A follow-up gets its own task" bullet is now
+  "Follow-ups are bundled by area": one task per area, aiming at a few hundred changed lines, the
+  union of the paths in `paths`, one `dod_check` per finding, every finding still fixed. The
+  review-triage skill gains a *Bundling by area* section, and its intro and `task` row point there
+  (the old "one or two doc-fix tasks" line is folded in: docs are one area like any other). Narrowest
+  rules added where the task was open: an area with more findings than `max_checks` fills a second
+  task; a finding that changes stored data or a contract keeps its own task (the existing `task`
+  row rule).
+- `health.small_task_lines` is a new top-level plane.json block, `health` (`ccp/config.py`
+  `HEALTH_DEFAULTS`, validated as an integer >= 1; `contracts/plane_config.schema.json`). `ccp health`
+  reports `small_tasks` in `--json` (`line`, `tasks`, `small`, `share`), counted over the rows of the
+  tasks merged in its window (`--since`), a task's lines summed over all its merges, "under" meaning
+  strictly fewer; the text view and the architect's summary print one line. `ccp/config.py` and the
+  schema are outside the declared `paths`, needed by the knob.
+- No SPEC edit: the task gives no SPEC text, so §8.1's block table and §27.1 do not name the block
+  or the figure yet (flagged in the report). The CLI reference and `docs/design/architect.md` do.
+- 2026-11-13 (implementer): **Ruling round 1.** Per the lead's ruling (Context), §8.1's block
+  table gains a `health` row (`small_task_lines`, default 100, §27.1) and §27.1 gains a **Small
+  tasks** item describing the figure `ccp health` reports, worded to what the code measures: lines
+  added plus deleted, summed over a task's merges in the window, strictly fewer than the line. Both
+  are §31.1 text describing this task's own feature; no code or test changes.
 
 ## Verification notes
 
