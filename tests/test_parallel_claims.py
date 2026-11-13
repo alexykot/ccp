@@ -249,6 +249,15 @@ class Claims(ParallelFixture, unittest.TestCase):
         self.assertNotIn("`markets.py`", out)  # a bare name: often relative to a sibling path
         self.assertNotIn("`src/made_by_dep.py`, which", out)  # a dependency makes it
 
+    def test_a_marking_applies_only_to_the_path_it_follows(self):
+        self.write("docs/delivery/tasks/0008-eighth.md", task("0008-eighth", "`a/x.py`, `b/y.py` (removed)"))
+        self.write("docs/delivery/tasks/0009-ninth.md", task("0009-ninth", "`c/z.py` `d/w.py`, new"))
+        _, _, out, _ = self.ccp("tasks", "check", root=self.main)
+        self.assertIn("0008-eighth.md: Scope names `a/x.py`, which does not exist", out)
+        self.assertNotIn("`b/y.py`", out)
+        self.assertIn("0009-ninth.md: Scope names `c/z.py`, which does not exist", out)
+        self.assertNotIn("`d/w.py`", out)
+
     def test_config_is_checked(self):
         for bad, msg in (({"max_in_flight": 5}, "1 to 4"), ({"exclusive": "db"}, "list of paths"),
                          ({"session_ceiling_pct": 0}, "above 0"), ({"slots": 2}, "unknown key")):

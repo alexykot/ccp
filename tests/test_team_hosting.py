@@ -535,6 +535,31 @@ AGENT_MODELS = {  # SPEC §2.4 *Models and effort*: (model, effort); every seat 
 }
 
 
+class TestKeepBodyImport(unittest.TestCase):
+    """§23.8: `keep_body` reads the product's plane.json through ccp's config, which it puts on the import
+    path once, not on every audit write."""
+
+    def test_repeated_calls_leave_the_import_path_as_the_first_left_it(self):
+        import importlib.util
+        import sys
+        from unittest import mock
+        prod = Product({"prompts": {"keep_body": True}})
+        self.addCleanup(prod.cleanup)
+        q = tempfile.TemporaryDirectory()
+        self.addCleanup(q.cleanup)
+        (Path(q.name) / "project.yaml").write_text(f"project_id: demo\nproduct_root: {prod.root}\n")
+        with mock.patch.object(sys, "path", list(sys.path)):
+            spec = importlib.util.spec_from_file_location("team_keep_body", PLANE / "scripts/observability/team.py")
+            team = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(team)
+            self.assertEqual(team.keep_body(Path(q.name)), ["--keep-body"])
+            after_one = list(sys.path)
+            for _ in range(3):
+                self.assertEqual(team.keep_body(Path(q.name)), ["--keep-body"])
+            self.assertEqual(sys.path, after_one)
+            self.assertIn(str(PLANE), sys.path)
+
+
 class TestAgentModels(unittest.TestCase):
     """Every Claude team agent pins a full model id (an alias would take the lead's [1m] suffix) and
     its effort, so nothing depends on the lead session's settings."""

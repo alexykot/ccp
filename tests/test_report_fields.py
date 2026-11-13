@@ -47,7 +47,8 @@ class Declared(ToolkitFixture, unittest.TestCase):
     def test_the_pasted_template_is_refused_naming_the_field_and_its_line(self):
         self.implement()
         for said in ("Migration: required|not required", "- **Migration:** `required | not required`",
-                     "migration: not required|required"):
+                     "migration: not required|required", "Migration: required or not required",
+                     "- Migration: `required` / `not required`", "migration: not required, required"):
             code, _, _, err = self.report("0002-second/implement", implement_report(said))
             self.assertEqual(code, 1, said)
             self.assertIn("`migration:` on line 4", err)
@@ -173,6 +174,23 @@ class Parse(unittest.TestCase):
                          ({"Deploy step": "yes after the migration"}, []))
         self.assertEqual(report.fields("Deploy step: `yes`.\n", deploy), ({"Deploy step": "yes"}, []))
 
+
+    def test_the_template_in_another_spelling_is_refused(self):
+        for said in ("required or not required", "`not required` or `required`", "required / not required",
+                     "not required/required", "required, not required", "**Required** OR **not required**"):
+            with self.subTest(said=said):
+                got, errs = report.fields(f"migration: {said}\n", [MIGRATION])
+                self.assertEqual(got, {})
+                self.assertEqual(len(errs), 1)
+                self.assertIn("migration:` on line 1", errs[0])
+
+    def test_a_reason_after_a_comma_slash_or_or_is_not_the_template(self):
+        for said in ("required, the column is new", "not required / no schema change", "required or the job fails",
+                     "required, required by the new index", "not required, ornaments only"):
+            with self.subTest(said=said):
+                got, errs = report.fields(f"migration: {said}\n", [MIGRATION])
+                self.assertEqual(errs, [])
+                self.assertEqual(got["migration"], said.split(",")[0].split(" /")[0].split(" or")[0])
 
     def test_a_pipe_in_the_reason_is_not_the_template(self):
         self.assertEqual(report.fields("migration: not required (a|b unchanged)\n", [MIGRATION]),

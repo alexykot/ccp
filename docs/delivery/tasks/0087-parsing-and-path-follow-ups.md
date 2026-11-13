@@ -55,6 +55,21 @@ Small parsing gaps found in reviews stop silently accepting the wrong thing: mat
 
 *Append-only, newest last.*
 
+- 2026-11-13 (implementer): `ccp/config.py` `_every_path` refuses an entry of `merge.behind_tip_ignore`
+  or `verify.skip_review.paths` that normalises to the root or that covers every path in
+  `EVERY_PATH_PROBES`, as git's default pathspec matching does (`_pathspec_hits`: the path or a directory
+  above it, or `fnmatch` where `*` and `?` match `/`; `[^…]` read as `[!…]`). Git's default pathspec
+  has no zero-directory `**/`, so `**/*` and `*/**` leave top-level files out (checked against git
+  2.56): the probes all sit below a directory, so those two are refused as the task asks, and `*/*` with
+  them. `ccp/parallel.py` `missing_paths`: the 25-character marking window stops at the next backtick.
+  `ccp/verify.py` `fill_reason`: a finding counts as giving the note only when it is the note or starts
+  with the generated `REPEAT_PREFIX` and ends `: <note>`; `tests/test_review_gate.py`, which pinned the
+  old swallowing, is updated and gains the inverse case. `ccp/report.py`: a declared value followed by
+  `/`, `,` or `or` and then another of the field's declared values is the template respelled and
+  refused; a reason after them is not (`|` stays refused whatever follows). `scripts/observability/
+  team.py` `keep_body` puts the plane root on `sys.path` only when it is not there (the other helpers in
+  that file are unchanged). No SPEC edit: the task gives no SPEC text.
+
 ## Verification notes
 
 *Append-only.*
