@@ -14,7 +14,8 @@ reused by another task (a renamed task says `renamed_from: <old id>`), and
 `depends_on` instead).
 
 A task has a kind (§20): `feature` (the default) or `refactor`. A refactor changes no rule, so it
-cites house rules or review findings (`rule_refs`, `review_refs`) instead of the spec. With the
+cites house rules or review findings (`rule_refs`, `review_refs`) instead of the spec, and proves
+itself by its own checks, never by re-running the gate or full lane (§21.1). With the
 `architect` block on, refactors get reserved capacity in `next_task`; by default a refactor joins a
 scope only when a task in it depends on the refactor (`refactor_in_scope: "deps"`), and the rest wait
 for the top of the next review point's scope. New tasks citing an ADR need its shaping record (`reviews/sh-*.md`) or a waiver.
@@ -30,6 +31,7 @@ The product-specific values live in `plane.json`.
 from __future__ import annotations
 
 import re
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -37,7 +39,7 @@ from typing import Any
 import functools
 
 from ccp import refs, reviewpoints
-from ccp.config import Config
+from ccp.config import Config, lane_for, lane_stages
 
 NAME_RE = refs.DEFAULT.task_file_re  # the default; checks use refs.ids(cfg).task_file_re
 
@@ -81,6 +83,12 @@ DRY_RUN_RE = re.compile(r"^[ \t]*dry run \(`?[0-9a-f]{7,40}`?\):[ \t]*(?:\n[ \t]
 DRY_RUN_NA_RE = re.compile(r"^[ \t]*dry run:[ \t]*n/a[ \t]*[—–-]+[ \t]*(?:\n[ \t]*)?(?!<[^>\n]*>[ \t]*$)\S", re.I | re.M)
 DRY_RUN_LINE_RE = re.compile(r"^[ \t]*dry run\b.*$", re.I | re.M)
 INDEX_ID_RE = re.compile(r"^  - id: (\S+)$", re.M)
+# §21.1: a check's `steps:`, up to its `expect:` or a dry-run record, read for the commands it runs.
+STEPS_RE = re.compile(r"^[ \t]*steps:(.*?)(?=^[ \t]*(?:expect:|dry run\b)|\Z)", re.I | re.M | re.S)
+# The lane roles a refactor's own checks never re-run (§20.3): the verifier's gate already runs them.
+WHOLE_SUITE_ROLES = ("gate", "full")
+SHELL_CONTROL = frozenset({";", "&", "&&", "|", "||", "(", ")"})
+ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 # §5: the plane template's placeholders. One left in a task file not yet done or dropped is a copy
 # not filled in. A placeholder inside a code span or a fenced block is quoted, not left, so it is not read.
 PLACEHOLDERS = ("NNNN-kebab-slug", "YYYY-MM-DD", "As a <role>", "<preconditions",
@@ -334,6 +342,76 @@ def _check_dry_runs(t: dict[str, Any], rel: str) -> list[str]:
     return errs
 
 
+def _tokens(cmd: str) -> list[str]:
+    """A backticked command's shell words, with `;`, `&&`, `|` and the like as words of their own."""
+    lex = shlex.shlex(cmd, posix=True, punctuation_chars=True)
+    lex.whitespace_split = True
+    try:
+        return [w[2:] if w.startswith("./") else w for w in lex]
+    except ValueError:  # an unclosed quote: read it by whitespace
+        return [w[2:] if w.startswith("./") else w for w in cmd.split()]
+
+
+def _runs_argv(words: list[str], argv: list[str]) -> bool:
+    """`words` run `argv` as a whole command: it starts where a command starts (the start, after a
+    shell control word or after `--`, past any `NAME=value`) and ends where one ends."""
+    argv = [a[2:] if a.startswith("./") else a for a in argv]
+    n = len(argv)
+    for i in range(len(words) - n + 1):
+        if words[i:i + n] != argv or not (i + n == len(words) or words[i + n] in SHELL_CONTROL):
+            continue
+        j = i
+        while j > 0 and ASSIGNMENT_RE.match(words[j - 1]):
+            j -= 1
+        if j == 0 or words[j - 1] in SHELL_CONTROL or words[j - 1] == "--":
+            return True
+    return False
+
+
+def _runs_lane(words: list[str], lane: str) -> bool:
+    """`words` hold `ccp suite run … --lane <lane>` with no `-- <command>`: the run of the lane's
+    declared command (§14.1)."""
+    for i, w in enumerate(words):
+        if w.rsplit("/", 1)[-1] != "ccp" or words[i + 1:i + 3] != ["suite", "run"]:
+            continue
+        rest = words[i + 3:]
+        end = next((k for k, x in enumerate(rest) if x in SHELL_CONTROL), len(rest))
+        opts = rest[:end]
+        if "--" in opts:
+            continue
+        if any(x == f"--lane={lane}" or (x == "--lane" and k + 1 < len(opts) and opts[k + 1] == lane)
+               for k, x in enumerate(opts)):
+            return True
+    return False
+
+
+def _check_refactor_gate(cfg: Config, t: dict[str, Any], rel: str) -> list[str]:
+    """§20.3, §21.1: a refactor proves itself by its own checks; the verifier's gate already runs the
+    whole suite. A refactor not yet done (or dropped) whose dod_check step runs the gate or full lane,
+    as `suite.lanes` declares it (the lane's argv as a whole command, or `ccp suite run --lane <lane>`
+    without a command), is refused, naming the check and the lane."""
+    if kind_of(t) != "refactor" or t.get("status") in TERMINAL:
+        return []
+    lanes = (cfg.suite or {}).get("lanes") or {}
+    judged = [(role, lane_for(cfg, role)) for role in WHOLE_SUITE_ROLES]
+    judged = [(role, lane, lanes[lane]) for role, lane in judged if lane in lanes]
+    if not judged:
+        return []
+    body = _section(t["_text"], SEC_CHECKS) or ""
+    heads = list(CHECK_RE.finditer(body))
+    errs = []
+    for i, m in enumerate(heads):
+        block = body[m.end(): heads[i + 1].start() if i + 1 < len(heads) else len(body)]
+        steps = "".join(s.group(1) for s in STEPS_RE.finditer(block))
+        runs = [_tokens(span.group(0).strip("`")) for span in CODE_SPAN_RE.finditer(steps)]
+        hit = [f"{role} lane `{lane}`" for role, lane, decl in judged
+               if any(_runs_lane(w, lane) or (lane_stages(decl) is None and _runs_argv(w, decl)) for w in runs)]
+        if hit:
+            errs.append(f"{rel}: dod_check `{m.group(1)}` of a refactor runs the {' and the '.join(hit)} — a refactor "
+                        "proves itself by its own checks; the verifier's gate already runs the whole suite (§20.3, §21.1)")
+    return errs
+
+
 def _blank(m: re.Match[str]) -> str:
     """The matched text as spaces, its line breaks kept, so line numbers still count."""
     return re.sub(r"[^\n]", " ", m.group(0))
@@ -546,6 +624,7 @@ def check(cfg: Config) -> list[str]:
             errs.append(f"{rel}: cites none of {', '.join(tl['refs_any'])}" + _spec_hint(tl["refs_any"]))
         if cfg.architect is not None:
             errs += _check_kind(cfg, t, rel)
+            errs += _check_refactor_gate(cfg, t, rel)
         if why := sign_off_malformed(t):  # §3.5: brief, build or both
             errs.append(f"{rel}: {why}")
         if "gate" in t and str(t.get("gate") or "").strip().lower() != "cold":
