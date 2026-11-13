@@ -340,6 +340,11 @@ the operator recorded, goes to the operator (`needs_operator`).
   `architect.budgets` set, the implement brief runs it in the pre-gate and again before the PR, the
   fix brief before the push, and the verify brief as part of the gate, each with
   `--base origin/<integration>`.
+- **A cut line.** A budget with one limit (`max_lines` or `max_bytes`) may declare `cut_line`, an
+  integer below that limit. `ccp budgets check` warns for a touched file at or above the cut line and
+  within the limit, naming the file, its size, the cut line and the limit, so a cut is tasked before
+  the limit fails the gate; the warning never changes the exit code. A file over the limit is judged
+  as above.
 
 ### 20.3 Refactor tasks
 
