@@ -7,7 +7,11 @@ from __future__ import annotations
 
 import json
 import os
+import signal
+import subprocess
+import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -259,6 +263,72 @@ class ReviewProvers(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 4, out + err)
         self.assertNotIn("does not apply", err)
         self.assertFalse(self.log.exists())
+
+
+# A process with the default SIGTERM/SIGHUP handlers (as `ccp prompt verify` has) runs a prover in the clean
+# checkout, a sleeper in the background, and signals itself once the sleeper is up.
+SIGNALLED = """
+import os, signal, sys, threading, time
+from pathlib import Path
+from ccp import rules, suite
+root, sig, out = Path(sys.argv[1]), int(sys.argv[2]), Path(sys.argv[3])
+for s in (signal.SIGTERM, signal.SIGHUP):
+    signal.signal(s, signal.SIG_DFL)
+pid = out.with_name("sleeper")
+def hit():
+    while not pid.exists() or not pid.read_text().strip():
+        time.sleep(0.05)
+    os.kill(os.getpid(), sig)
+with suite.clean_checkout(root, "HEAD") as tree:
+    out.write_text(str(tree))
+    threading.Thread(target=hit, daemon=True).start()
+    rules.run_command(type("C", (), {"root": root})(), f"sleep 30 & echo $! > {pid}; wait", 60, cwd=tree)
+"""
+
+
+class CheckoutOnASignal(unittest.TestCase):
+    """§14.2: the provers' checkout is removed on a SIGTERM or SIGHUP under the default handler, and the
+    prover's whole process group is killed, so no grandchild outlives the run."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name) / "repo"
+        self.root.mkdir()
+        git(self.root, "init", "-q")
+        (self.root / "a.txt").write_text("a\n")
+        git(self.root, "add", "a.txt")
+        git(self.root, "commit", "-q", "-m", "a")
+
+    def signalled(self, sig: int) -> None:
+        from tests.test_suite import PLANE
+        out = Path(self._tmp.name) / "tree"
+        before = git(self.root, "worktree", "list", "--porcelain")
+        env = {**os.environ, "PYTHONPATH": str(PLANE)}
+        r = subprocess.run([sys.executable, "-c", SIGNALLED, str(self.root), str(sig), str(out)], env=env,
+                           capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 128 + sig, r.stderr)
+        tree = Path(out.read_text())
+        self.assertNotEqual(tree, Path("None"))
+        self.assertFalse(tree.exists())
+        self.assertFalse(tree.parent.exists())
+        self.assertEqual(git(self.root, "worktree", "list", "--porcelain"), before)
+        sleeper = int((out.with_name("sleeper")).read_text())
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            try:
+                os.kill(sleeper, 0)
+            except ProcessLookupError:
+                return
+            time.sleep(0.05)
+        os.kill(sleeper, signal.SIGKILL)
+        self.fail(f"the prover's background sleeper {sleeper} outlived the signal")
+
+    def test_a_sigterm_removes_the_checkout_and_kills_the_provers_group(self):
+        self.signalled(signal.SIGTERM)
+
+    def test_a_sighup_removes_the_checkout_and_kills_the_provers_group(self):
+        self.signalled(signal.SIGHUP)
 
 
 if __name__ == "__main__":

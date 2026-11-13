@@ -1087,7 +1087,7 @@
             "proof": {
               "type": "string",
               "minLength": 1,
-              "description": "A shell command run in the product root on the fix diff, with {task_id}, {reviewed} (the head the last review judged), {head} and {from} (the tree the fix diff starts from: the reviewed change on the head's integration base) filled in; exit 0 = the fix is proven."
+              "description": "A shell command run on the fix diff in a clean checkout of the integration branch's tip (SPEC §14.2), with {task_id}, {reviewed} (the head the last review judged), {head} and {from} (the tree the fix diff starts from: the reviewed change on the head's integration base) filled in; exit 0 = the fix is proven. Its HEAD, index and tree are the tip's, so it names the fix diff only through {from} and {head}; the checkout's untracked and ignored files are absent."
             }
           }
         },
@@ -1106,7 +1106,7 @@
             "required": ["name", "command", "skips"],
             "properties": {
               "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$", "description": "A label, unique among the provers; recorded on the run."},
-              "command": {"type": "string", "minLength": 1, "description": "A shell command run in a clean checkout of the integration branch's tip, with {task_id}, {from} (where the diff starts) and {head} filled in, and {reviewed} (the head the last review judged) for `review`; exit 0 = the step is redundant."},
+              "command": {"type": "string", "minLength": 1, "description": "A shell command run in a clean checkout of the integration branch's tip, with {task_id}, {from} (where the diff starts) and {head} filled in, and {reviewed} (the head the last review judged) for `review`; exit 0 = the step is redundant. Its HEAD, index and tree are the tip's, so it names the diff only through {from} and {head}; the checkout's untracked and ignored files are absent. One checkout serves a run's provers, in order."},
               "skips": {"type": "string", "minLength": 1, "description": "The step it skips: `review`, or the name of a stage the gate role's lane declares."}
             }
           }

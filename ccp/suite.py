@@ -916,12 +916,17 @@ def _raise_on(sig: int, _frame: Any) -> None:
 def clean_checkout(root: Path, rev: str) -> Iterator[Path | None]:
     """A clean, detached worktree of `rev` (the integration branch's tip) for the provers to run in (§14.2,
     §15.2), so nothing a task's diff changes can alter their verdict. It shares `root`'s repository, so the
-    commits of the diff they judge resolve in it. None when git cannot make it. It is removed on the way
-    out, on an error or a signal too: in its scope a SIGTERM or SIGHUP that would end the process at once
-    (the default handler; main thread only) exits through Python instead, so the removal runs."""
+    commits of the diff they judge resolve in it. None when git cannot make it, or no temp dir can be
+    made for it. It is removed on the way out, on an error or a signal too: in its scope a SIGTERM or
+    SIGHUP that would end the process at once (the default handler; main thread only) exits through
+    Python instead, so the removal runs."""
     from ccp.queue import git  # noqa: PLC0415
 
-    tmp = Path(tempfile.mkdtemp(prefix="ccp-prover-"))
+    try:
+        tmp = Path(tempfile.mkdtemp(prefix="ccp-prover-"))
+    except OSError:  # a full or unwritable temp dir: no checkout, as when git cannot make one
+        yield None
+        return
     path = tmp / "tree"
     restore: dict[int, Any] = {}
     if threading.current_thread() is threading.main_thread():

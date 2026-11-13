@@ -375,6 +375,26 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertFalse(seen[0].exists())
         self.assertEqual(self.worktrees(), before)
 
+    def test_no_temp_dir_for_the_checkout_runs_no_prover_and_the_stage(self):
+        self.product([{"name": "spy", "command": f"touch {self.seen}", "skips": "suite"}])
+        self.change("docs/guide.md")
+        real = suite.tempfile.mkdtemp
+
+        def full(*a, **kw):
+            if kw.get("prefix") == "ccp-prover-":
+                raise OSError(28, "No space left on device")
+            return real(*a, **kw)
+        cwd = os.getcwd()
+        self.addCleanup(os.chdir, cwd)
+        a = type("A", (), {"lane": "gate", "phase": None, "run": None, "task": "0002", "root": None,
+                           "output": "summary", "log": None, "wait": None})()
+        with mock.patch.object(suite.tempfile, "mkdtemp", full), mock.patch.object(suite, "_say", lambda _t: None):
+            code = suite.run(config.load(self.runner), a, None)
+        self.assertEqual(code, 0)
+        self.assertFalse(self.seen.exists())
+        self.assertTrue(self.marker.exists())  # nothing proven: the stage ran
+        self.assertIn("no clean checkout of the integration tip", Path(self.ended()["log"]).read_text())
+
     def test_the_gate_fetches_the_integration_branch_before_reading_the_provers(self):
         from tests.test_toolkit import git
         self.product([])  # the integration branch declares no prover, as the runner last fetched it
