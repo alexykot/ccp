@@ -135,11 +135,10 @@ def ccp_command(cfg: Config) -> str:
 
 
 def main_checkout(cfg: Config) -> Path:
-    """The main checkout of the product repo: the runner works from a worktree of it (§12.1)."""
-    r = git(cfg.root, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    if r.returncode == 0 and r.stdout.strip():
-        return Path(r.stdout.strip()).parent
-    return cfg.root
+    """The main checkout of the product repo: the runner works from a worktree of it (§12.1, `wt.main_of`)."""
+    from ccp import wt  # noqa: PLC0415
+
+    return wt.main_checkout(cfg)
 
 
 def worktree_for(cfg: Config, prefix: str, nnnn: str) -> str | None:

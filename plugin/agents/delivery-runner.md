@@ -44,6 +44,14 @@ tool over its data or domain, a prover for its language) is product work: give i
 product task, never as a plane proposal. `ccp tasks claim` warns when `$QUEUE_ROOT/scripts/` holds a file the
 plane does not ship: tell the lead.
 
+## Your worktree, with one runner (SPEC §12.1)
+
+Without a runner slot, your spawn prompt names your runner worktree (`Runner worktree:`), which
+`team.sh runner spawn` made. If it is missing, the spawn could not make it: run `ccp tasks worktree` (no
+`--runner`) from the product checkout. It makes the worktree detached at the integration tip and prints
+it. If it refuses, send the lead its error: the cause needs fixing first. Never make it with
+`git worktree add`. With a runner slot, Several runners (below) says how to make yours.
+
 ## Your subagents report by `ccp report` and message, never by handback
 
 The implementer, reviewer and verifier are your subagents (Agent tool), each launched with its own

@@ -945,8 +945,8 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
     if git(cfg.root, "rev-parse", "-q", "--verify", "REBASE_HEAD").returncode == 0:
         raise QueueError(f"{cfg.root} is in the middle of a rebase: `git -C {cfg.root} rebase --abort` first", 2)
     if _changed(cfg.root):
-        raise QueueError(f"{cfg.root} has changes: close commits only its own, so run it from a clean runner "
-                         "worktree (SPEC §12.1)", 2)
+        raise QueueError(f"{cfg.root} has changes: the checkout `ccp tasks close` runs from must be clean "
+                         "(SPEC §10.5)", 2)
     try:
         reasons, body = verify.merge_ok(cfg, q, pr, tid)
     except verify.NoGh as exc:
@@ -1023,13 +1023,12 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
     return out
 
 
-MERGE_WT_PREFIX = "merge"  # §10.5: close's own worktree for the reconcile, `merge-<nnnn>` under worktrees.dir
-
-
 def _merge_path(cfg: Config, tid: str) -> Path | None:
-    """The task's merge worktree (§10.5): `merge-<nnnn>` under `worktrees.dir`; None when the product has none."""
-    d = (cfg.worktrees or {}).get("dir")
-    return _main_checkout(cfg) / d / f"{MERGE_WT_PREFIX}-{refs.ids(cfg).task_number(tid)}" if d else None
+    """The task's merge worktree (§10.5, `wt.merge_path`): `merge-<nnnn>` under `worktrees.dir`; None
+    when the product has none."""
+    from ccp import wt  # noqa: PLC0415
+
+    return wt.merge_path(cfg, tid)
 
 
 def _merge_checkout(cfg: Config, tid: str, integ: str) -> Config:

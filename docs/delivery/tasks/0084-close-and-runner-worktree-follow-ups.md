@@ -1,14 +1,14 @@
 ---
 task_id: 0084-close-and-runner-worktree-follow-ups
 title: Close and runner worktrees leave no stale messages, leftovers or wrong paths
-status: pending
+status: done
 kind: bug
 depends_on: []
 spec_refs: ["S10", "S12", "S16"]
 review_point: R5
 paths: ["ccp/lifecycle.py", "ccp/wt.py", "ccp/board.py", "contracts/project.schema.json", "plugin/agents/delivery-runner.md", "scripts/observability/team.py", "tests/test_tasks_close*.py", "tests/test_wt.py", "tests/test_team*.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # Task: 0084-close-and-runner-worktree-follow-ups
@@ -21,6 +21,11 @@ Closing a task and making a runner's worktree leave nothing stale behind: refusa
 
 - Accepted plane proposals from the reviews of the close-in-its-own-worktree and single-runner-worktree tasks.
 - §31.1: SPEC text this task writes describes its own feature; no merge gate.
+- Ruling (lead, spec question sm-20261113T010808Z-8bad, spec commit e064bc1): `merge-<nnnn>` follows
+  the existing §12.1 rule for every task worktree. `ccp wt gc` removes it only once its task is done or
+  dropped and leased by no one. A leftover from a failed close stays while the task is leased, so a
+  re-run of close reuses it, and `ccp wt list` shows it. No §12.1 change. check-01's setup reads as the
+  task being done or dropped (the leftover outliving its task); the leased case is tested as kept.
 
 ## Scope
 
@@ -55,6 +60,36 @@ Closing a task and making a runner's worktree leave nothing stale behind: refusa
 
 *Append-only, newest last.*
 
+- 2026-11-13 (implementer): `ccp/wt.py` owns close's merge worktree path now (`MERGE_PREFIX`,
+  `merge_path`; `lifecycle._merge_path` delegates). `ccp wt list` shows an unrecorded `merge-<nnnn>`
+  as `kind: merge`, with `--task` too. `remove_task` removes the task's merge worktree, but never the
+  checkout the command runs in (`cfg.root`): close runs its cleanup inside its merge worktree and
+  removes that one itself once the reconcile has landed. `ccp wt gc` removes a merge worktree by the
+  rule it already applies to every worktree (§12.1): its task is done or dropped in the queue and
+  leased by no one. One whose task is still open stays, because close holds no lock and a re-run of
+  close reuses it. The same rule covers a merge worktree the queue holds no task for.
+- `wt.main_of` (and `prompt.main_checkout`, which now delegates to it) takes the parent of a common
+  dir named `.git`. When the common dir has another name (a separate git dir, a submodule) and the
+  checkout's own git dir is the common one, it takes the checkout's top level. Otherwise it returns the
+  checkout itself. Git records no main worktree path for a separate git dir, so a linked worktree of
+  such a repository cannot find its main checkout.
+- The board (`board build`, `board task`) reads task merges from `origin/<integration>`, falling back
+  to the local branch and then to HEAD (`board.merge_rev`; nothing is fetched). `health.collect` and
+  `numstat` take a `rev` for this, with HEAD as the default, so `ccp health`, the forecast, the
+  estimator and the architect read as before.
+- The dirty-caller refusal now names the checkout close runs from (§10.5). The schema's
+  `runner.worktree` description no longer says "reconciles". `team.py` states that the single runner's
+  spawn makes the worktree after its refusals and before its runtime writes, and that a failed prompt
+  audit leaves the worktree made. The runner brief has a single-runner section that names
+  `ccp tasks worktree` (no `--runner`).
+- Paths outside the declared ones: `ccp/prompt.py` (main-checkout delegation), `ccp/health.py`
+  (`rev` parameter), `tests/test_board.py`.
+- 2026-11-13 (implementer, ruling round 1): the lead's ruling confirms gc's rule for a leftover
+  `merge-<nnnn>` as built, so the code is unchanged. The gc test is split so both cases are pinned on
+  their own: removed once the task is done or dropped and unleased (each status, and then no longer
+  listed), and kept and listed while the task is leased (open, done or dropped). The case of a queue
+  that holds no task for it stays its own test (kept).
+
 ## Verification notes
 
-*Append-only.*
+- 2026-11-13 — verifier, PR #88 head `a6425d1` (squash `f251b99`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0084-close-and-runner-worktree-follow-ups.json.

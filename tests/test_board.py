@@ -15,7 +15,7 @@ from unittest import mock
 
 from ccp import board, cli
 from tests.helpers import TASK
-from tests.test_toolkit import ToolkitFixture
+from tests.test_toolkit import ToolkitFixture, git
 import unittest
 
 
@@ -58,6 +58,27 @@ class Board(ToolkitFixture, unittest.TestCase):
         b = json.loads((self.q / "board/board.json").read_text())
         self.assertIn("0002-second", [t["task_id"] for t in b["tasks"]])  # the merge, from git
         self.assertFalse((self.q / "board" / board.DIRTY).exists())
+
+    def test_a_checkout_that_has_not_pulled_sees_the_merge_on_the_remote_integration_branch(self):
+        self._to_approved_pr()
+        head = git(self.main, "rev-parse", "HEAD")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(git(self.main, "rev-parse", "HEAD"), head)  # the main checkout has not pulled
+        code, body, out, err = self.ccp("board", "build", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        b = json.loads(Path(body["board"]).read_text())
+        self.assertIn("0002-second", [t["task_id"] for t in b["tasks"]])
+        self.assertIn("0002-second  merged", self.ccp("board", "task", "0002", root=self.main)[2])
+
+    def test_merges_are_read_from_origin_then_the_local_branch_then_head(self):
+        from ccp import config
+        cfg = config.load(self.main)
+        self.assertEqual(board.merge_rev(cfg, self.q), "origin/main")
+        git(self.main, "update-ref", "-d", "refs/remotes/origin/main")
+        self.assertEqual(board.merge_rev(cfg, self.q), "main")
+        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\nintegration_branch: trunk\n")
+        self.assertEqual(board.merge_rev(cfg, self.q), "HEAD")
 
     def test_close_writes_the_merge_record_when_the_queue_already_says_done(self):
         self._to_approved_pr()
