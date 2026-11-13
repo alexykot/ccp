@@ -68,6 +68,18 @@ round (§5, §13).
 
 *Append-only, newest last.*
 
+- 2026-11-13 (implement): `ccp tasks check` warns, never fails, about a task not yet done or dropped
+  whose Context has a line stating a number with no backticked command on it, named `path:line`
+  (`tasklog.unmeasured_numbers`, called from `tasklog.warnings`). Narrowest rule taken where the
+  brief left it open: a number is a run of digits that is not part of an id or a ref (after a
+  letter, `§`, `-`, `.`, `/`, `:` or `#`), not zero-padded, not a list marker and not in a date
+  written with its month's name; fenced blocks and code spans are not read for numbers; a command is
+  a code span of two words or more, so a lone backticked path does not clear the line.
+- The rule is stated in the writing-tasks skill (Writing the brief), the implementer brief and the
+  implement prompt template; `tests/test_plugin.py` pins each by its tokens.
+- No SPEC text: the task gives none, so the warning is not yet described in SPEC §5.5's Context
+  row (flagged to the runner).
+
 ## Verification notes
 
 *Append-only.*
