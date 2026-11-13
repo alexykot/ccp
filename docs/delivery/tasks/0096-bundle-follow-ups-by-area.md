@@ -67,6 +67,23 @@ reconcile) is paid once per area rather than once per finding (§5, §19.8).
 
 *Append-only, newest last.*
 
+- 2026-11-13 (implementer): The writing-tasks skill's "A follow-up gets its own task" bullet is now
+  "Follow-ups are bundled by area": one task per area, aiming at a few hundred changed lines, the
+  union of the paths in `paths`, one `dod_check` per finding, every finding still fixed. The
+  review-triage skill gains a *Bundling by area* section, and its intro and `task` row point there
+  (the old "one or two doc-fix tasks" line is folded in: docs are one area like any other). Narrowest
+  rules added where the task was open: an area with more findings than `max_checks` fills a second
+  task; a finding that changes stored data or a contract keeps its own task (the existing `task`
+  row rule).
+- `health.small_task_lines` is a new top-level plane.json block, `health` (`ccp/config.py`
+  `HEALTH_DEFAULTS`, validated as an integer >= 1; `contracts/plane_config.schema.json`). `ccp health`
+  reports `small_tasks` in `--json` (`line`, `tasks`, `small`, `share`), counted over the rows of the
+  tasks merged in its window (`--since`), a task's lines summed over all its merges, "under" meaning
+  strictly fewer; the text view and the architect's summary print one line. `ccp/config.py` and the
+  schema are outside the declared `paths`, needed by the knob.
+- No SPEC edit: the task gives no SPEC text, so §8.1's block table and §27.1 do not name the block
+  or the figure yet (flagged in the report). The CLI reference and `docs/design/architect.md` do.
+
 ## Verification notes
 
 *Append-only.*
