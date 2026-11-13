@@ -80,7 +80,8 @@ of reach when the sentence is edited.
 - **story**: what it demonstrates, in one line. **setup**: exact preconditions. **steps**: numbered,
   concrete enough for someone who did not write the task. **expect**: one observable result, pass or
   fail, no judgement call.
-- At most six checks. More, or a scope with "and then also", is two tasks.
+- At most six checks. More, or a scope with "and then also", is two tasks. Findings bundled in one
+  area are not "and then also": they are one task, a check per finding (see *Writing the brief*).
 - Never re-list the standing DoD (`docs/delivery/standing-dod.md`): it always applies.
 - Each check names the seat that can run it. A step only the operator's machine can run is marked
   as such in its `setup`. An operator prerequisite (a new key, role or grant) is done before the
@@ -126,8 +127,14 @@ of reach when the sentence is edited.
   verbatim where it sets SPEC text. A PR comment is not a record.
 - **The docs a task touches follow the package-doc convention** (plane SPEC §21.3), which
   `ccp docs check` enforces; a brief does not restate it.
-- **A follow-up gets its own task.** Another task's leftover goes into a small task of its own, or
-  into a pending brief only when it is inside that brief's Scope.
+- **Follow-ups are bundled by area.** Every task pays a fixed cost (claim, worker start-up, review,
+  verify, merge, reconcile), so follow-ups, review leftovers and architect findings (code, tests and
+  docs alike) go into one task per area, aiming at a few hundred changed lines (`ccp health` shows
+  the share of tasks under `health.small_task_lines`). The task declares the union of their paths in
+  `paths` and carries one `dod_check` per finding; every finding is still fixed. An area with more
+  findings than `max_checks` (default 6) fills a second task for that area. A finding goes
+  into a pending brief instead only when it is inside that brief's Scope. A finding that changes
+  stored data or a contract keeps its own task (see the `review-triage` skill).
 
 ## Changing a task
 

@@ -29,6 +29,9 @@ Everything comes from data the plane already holds; nothing here is a target or 
   with no end whose elapsed time reached the shell limit, started after the latest gate run that passed
   or failed, is reported as killed at the limit.
 
+- **small tasks** (§27.1): the share of the tasks merged in the window whose diff, lines added plus deleted
+  over all their merges, is under plane.json `health.small_task_lines` (default 100).
+
 - **runner rotation** (§10.2 step 4): the runner slots due for rotation and not rotated, and the ledger's
   rotations against tasks done.
 
@@ -63,7 +66,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp import refs, tasklog
-from ccp.config import ARCHITECT_DEFAULTS, Config
+from ccp.config import ARCHITECT_DEFAULTS, HEALTH_DEFAULTS, Config
 from ccp.queue import QueueError
 from ccp.rules import budget_failures, glob_re
 
@@ -804,6 +807,21 @@ def trend(rows: list[dict[str, Any]], ratio: float) -> dict[str, Any]:
             "drift": r is not None and r > ratio}
 
 
+def small_tasks(cfg: Config, rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """How many of the merged tasks' rows changed fewer lines than `health.small_task_lines`, and their share."""
+    line = (getattr(cfg, "health", None) or HEALTH_DEFAULTS)["small_task_lines"]
+    small = sum(1 for r in rows if r["lines"] < line)
+    return {"line": line, "tasks": len(rows), "small": small,
+            "share": round(small / len(rows), 2) if rows else None}
+
+
+def small_text(s: dict[str, Any] | None) -> str | None:
+    if not s or not s["tasks"]:
+        return None
+    return (f"Small tasks (under {s['line']} changed lines): {s['small']} of {s['tasks']}"
+            f" ({round(100 * s['share'])}%).")
+
+
 def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool = True,
             rev: str = "HEAD") -> dict[str, Any]:
     """Per-task rows (one per merged task on `rev`'s first-parent history, oldest merge first) and the
@@ -853,6 +871,7 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
     out: dict[str, Any] = {"tasks": out_rows, "trend": trend(out_rows, a["drift_ratio"]), "suite": suite_trend(entries),
                            "queue": str(q) if q else None}
     if files:
+        out["small_tasks"] = small_tasks(cfg, out_rows)  # needs the lines, which only `files` counts
         out["budget_failures"] = budget_failures(cfg)  # diagnostics; `ccp architect due` makes them a trigger
         try:  # §14.6: a damaged suites file or report never breaks health
             out["gate_time"] = gate_time(cfg, q) if q else None
@@ -881,6 +900,8 @@ def summary_text(report: dict[str, Any], n: int = 10) -> str:
         lines.append("Suite time (ccp suite records): " + "; ".join(
             [one("cold", "cold (the suite's time)"), one("warm", "warm (units cached)"), one("part", "part lane")])
             + f"; {(st.get('unverified') or {}).get('runs', 0)} unverified, in no series.")
+    if sm := small_text(report.get("small_tasks")):
+        lines.append(sm)
     if gt := gate_text(report.get("gate_time")):
         lines.append(gt)
     if kt := killed_text(report.get("gate_time")):

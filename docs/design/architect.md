@@ -65,6 +65,11 @@ a product's leftover managed copies of the two older skills, and `--check` repor
   ends when the next is launched, and verifying at the verifier's `checked_at`. Only a phase end with
   no recorded time falls back to its report file's modification time, and the row says so
   (`times`), since a copied or restored queue moves those.
+- **Small tasks.** Every task pays a fixed cost (claim, worker start-up, review, verify, merge,
+  reconcile), so the writing-tasks and review-triage skills bundle follow-ups, leftovers and findings
+  by area into one task, a check per finding. `ccp health` shows whether that holds: `small_tasks`
+  counts the tasks merged in its window whose lines, added plus deleted over all their merges, are
+  under plane.json `health.small_task_lines` (default 100). A diagnostic, like the rest of health.
 - **Report and triage contracts.** A finding's category must belong to the run's lenses, and
   `rule-cost` also needs fix `decide`. The triage file gains `rule_changes` (`applied`, `rejected`
   or `needs_operator`, with a reason).
