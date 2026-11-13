@@ -571,9 +571,12 @@ def run_on_base(cfg: Config, q: Path, task_id: str, head: str, command: list[str
         except QueueError as e:
             raise QueueError(str(e), BASE_REFUSED) from None
         finally:
-            if p is not None and p.poll() is None:
-                _killpg(p.pid)
-                p.wait()
+            if p is not None:
+                if p.poll() is None:
+                    _killpg(p.pid)
+                    p.wait()
+                if p.stdout is not None:
+                    p.stdout.close()
             if st is not None:
                 warnings += remove(cfg, q, st["name"])
     finally:

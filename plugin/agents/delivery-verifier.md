@@ -75,13 +75,16 @@ and scenario checks pass, no test expectation changed unless the task names it, 
 - A check's dry run without the task's code (it fails there) runs with
   `ccp wt create --kind base --task <task_id> --sha <PR head> -- <command>`: a worktree of its own
   where the PR's branch meets the integration branch, removed after the command, exiting with the
-  command's code. The command brings the PR's test in itself
+  command's code (125 is its own refusal, 124 the command outliving `--timeout`). The command brings the PR's test in itself
   (`sh -c 'git checkout <PR head> -- <test path> && <test command>'`). Never `git stash` or a
   hand-made worktree for it.
+- A check that must pass without git history runs in a depth-1 clone of the head:
+  `ccp wt create --kind ver --task <task_id> --sha <PR head> --shallow`, never a clone made by hand.
 - When the product is the control plane itself, check a change to `ccp` by hand with your
   checkout's own `bin/ccp`: `ccp` on PATH runs the released plane, not the PR head. From your
-  worktree, `ccp wt exec -- <args>` runs it (`ccp wt exec --print` prints its path), so a new
-  subcommand can be tried as `ccp`.
+  worktree, `ccp wt exec -- <args>` runs it, so a new subcommand can be tried as `ccp`.
+  `ccp wt exec --print` shows which `ccp` that runs (a `$CCP_ROOT` in your environment wins over your
+  worktree): check it first.
 - Don't edit the product, commit, push or merge.
 - A gap in the spec itself goes in your report as a spec question for the runner to raise.
 - Run commands in the foreground, long ones too: an agent waiting on a background command stalls.
