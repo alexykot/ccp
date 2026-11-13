@@ -1028,7 +1028,7 @@
     "verify": {
       "type": "object",
       "additionalProperties": false,
-      "description": "SPEC §15.3: the verifier's gate. Absent, or accept_cache null: the verifier's brief is unchanged. SPEC §15.2: skip_review, the fix rounds that need no new review.",
+      "description": "SPEC §15.3: the verifier's gate. Absent, or accept_cache null: the verifier's brief is unchanged. SPEC §15.2: skip_review and skip_review_after_clean, the fix rounds that need no new review.",
       "properties": {
         "accept_cache": {
           "type": [
@@ -1085,6 +1085,11 @@
               "description": "A shell command run in the product root on the fix diff, with {task_id}, {reviewed} (the head the last review judged), {head} and {from} (the tree the fix diff starts from: the reviewed change on the head's integration base) filled in; exit 0 = the fix is proven."
             }
           }
+        },
+        "skip_review_after_clean": {
+          "type": "boolean",
+          "default": false,
+          "description": "SPEC §15.2: when the latest review is clean (no BLOCKER or MAJOR finding), the fix round that answers its findings goes to verify with no new review, and the verifier confirms the fix diff addresses those findings and changes nothing beyond them. False: every fix round is reviewed again."
         }
       }
     },

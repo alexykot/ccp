@@ -7,7 +7,9 @@ Prove each dod_check yourself at the PR head, from evidence you checked, not fro
 - an absence check ("nothing names X") is proved on a known positive first;
 - look for changed assertions, scope creep, and fixtures that write what the real path does not.
 REJECT only on a BLOCKER or MAJOR finding. Check `gh pr view {{pr}} --json headRefOid` at the start and the end: the verdict names the exact head you judged.
-{{#refactor}}
+{{#minor_only}}
+No new review saw this head (plane.json `verify.skip_review_after_clean`, SPEC §15.2): the last review, {{minor_review_run}} at {{minor_reviewed}}, was clean, and the fix rounds since answer its findings below MAJOR, {{minor_findings}}, whose text is in its report {{minor_review_report}}. Read that report, and check the fix diff, from {{minor_reviewed}} to {{head}} (merges of the integration branch aside), against each MINOR and NIT finding there: it addresses each of them and changes nothing beyond them. A change beyond them is a MAJOR finding: REJECT, naming it, and the task goes back to review.
+{{/minor_only}}{{#refactor}}
 This is a `kind: refactor` task: also prove the refactor DoD (SPEC §20.4): behaviour unchanged, the suite and scenario checks pass, no test expectation changed unless the task names it, SPEC unchanged.
 {{/refactor}}{{#prior_reports}}
 Earlier reports on this task (judge their open notes and the reviewer's MINORs yourself):

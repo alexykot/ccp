@@ -717,7 +717,8 @@ result.
 - **Review starts on a settled head.** The runner opens a review (`ccp prompt review --head`) only
   once the task's open spec questions are answered and their rulings are on the PR. A commit landing
   while a review runs makes its head stale.
-- **A fix round is reviewed again before it is verified**, unless a proof covers it (the next rule).
+- **A fix round is reviewed again before it is verified**, unless a proof or a clean review covers it
+  (the next two rules).
   `ccp prompt verify` refuses (exit 4,
   nothing opened) when the task's latest fix run, or a merge or ruling round (§13.2), that was not
   abandoned opened no later than its latest review run that reported `done`, or when `--head` is not
@@ -742,6 +743,17 @@ result.
   `{head}` and `{from}` (the tree the fix diff starts from) filled in, exits 0. Otherwise the refusal
   stands and says why the skip does not apply. The verify run records `review_skip` (`reviewed`,
   `head`, `fix`, `files`, a count). The prover is product tooling, not the plane's.
+- **A fix of a clean review's minor findings needs no new review.** plane.json
+  `verify.skip_review_after_clean` (boolean; false, the default, is off) lets the fix round after the
+  latest review that reported `done` go straight to verify when that review recorded no BLOCKER or MAJOR
+  finding and at least one MINOR or NIT, the fix round (a merge or ruling round counts as one, §13.2)
+  reported the head being verified, and no verify run opened since that review rejected. The verify run
+  records `review_skip` (`reason: "minor-only"`, `review_run`, `reviewed`: the head it judged, `report`:
+  its report's path, `findings`: its MINOR and NIT counts); the plane stores no finding text. The verify
+  prompt gives those counts and the report, and asks the verifier to read the report and confirm the fix
+  diff, from the reviewed head to the verified one, addresses each MINOR and NIT finding there and changes
+  nothing beyond them; a change beyond them is a REJECT, and after a reject the task goes back to review.
+  Otherwise the refusal stands and says why the skip does not apply.
 
 ### 15.3 A product's test cache
 
