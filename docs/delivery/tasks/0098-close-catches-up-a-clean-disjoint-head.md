@@ -43,7 +43,11 @@ through a merge round and a full re-verify (§16.5 rule 4).
     task's own diff changes (`git diff --name-status --no-renames <merge-base>..<head>`, both sides of
     any rename) nor the task's declared `paths`;
     (c) the task declares no `build` sign-off (a catch-up changes the head a build sign-off covers, so
-    such a task falls back to the merge round and re-verify).
+    such a task falls back to the merge round and re-verify; a `brief` sign-off is unaffected, being
+    tied to the task file, not the head);
+    (d) the task declares non-empty `paths` (with none, the overlap test has nothing to go on);
+    (e) the product configures a gate lane (`suite.roles` gate); with none, close refuses and falls
+    back, never skipping the run.
   - Then close makes the merge commit in its merge worktree, runs the product's gate lane (the lane
     `suite.roles` gives the `gate` role) on it through `ccp suite run` as a recorded run bound to the
     task, and on a green gate re-checks `behind_tip` against the new head. If the tip moved again it
@@ -57,7 +61,7 @@ through a merge round and a full re-verify (§16.5 rule 4).
     branch unchanged.
   - The `behind_tip` refusal hint, the `ccp prompt merge` text and the runner brief's close step name
     the new path.
-  - SPEC, each CURRENT → PROPOSED in the PR body:
+  - SPEC, each with its exact CURRENT text and PROPOSED text quoted in the PR body:
     - §16.5 rule 4, added before "The task's implementer merges": "When the merge with the tip is
       clean, the tip's new commits change no file the task's own diff or declared paths change, and
       the task declares no build sign-off, close merges the tip into the verified head itself, runs
@@ -89,7 +93,8 @@ through a merge round and a full re-verify (§16.5 rule 4).
     changes; a third where B changes a file under A's declared paths that A's diff does not touch.
   steps:
     1. Run `ccp tasks close A` in each case.
-  expect: each refuses `behind_tip` naming overlap; nothing is merged; A's branch is unchanged.
+  expect: each refuses `behind_tip` naming overlap; nothing is merged; A's branch is unchanged. A
+    fourth case, A with empty `paths`, refuses naming the missing declaration.
   dry run: n/a.
 - id: `check-03`
   story: As a runner, a conflicting merge or a red gate sends me back.
