@@ -1,14 +1,14 @@
 ---
 task_id: 0085-release-a-claimed-task-with-no-open-run
 title: The lead can release a claimed task with no open worker run, keeping its branch
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S10"]
 review_point: R5
 paths: ["ccp/lifecycle.py", "ccp/cli.py", "docs/spec/02-delivery.md", "tests/test_tasks_release*.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-16
 ---
 
 # Task: 0085-release-a-claimed-task-with-no-open-run
@@ -66,4 +66,4 @@ When a claimed task's checks or scope turn out wrong, the lead can release it wh
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-16 — verifier, PR #101 head `722b30a` (squash `2682086`): APPROVE. Passed: check-01, check-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0085-release-a-claimed-task-with-no-open-run.json.
