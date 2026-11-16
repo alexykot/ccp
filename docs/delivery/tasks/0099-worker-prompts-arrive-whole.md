@@ -100,4 +100,15 @@ verifies a change to the verification record's own contract is told to record wi
 
 *Append-only, newest last.*
 
+- 2026-11-16 (implementer): the token is the first 12 hex characters of a SHA-256 of the run id and the
+  rendered text above the marker (`prompt.prompt_token`), so it differs per run and appears only on the
+  last line. `ccp prompt` keeps it on the run (`prompt_token`) and prints it; `ccp report` checks it before
+  any other line (exit 2, nothing written), for every outcome, and skips a run with no token recorded.
+  The report contract line lives in `_common.md`, the report section every phase shares. The Agent call's
+  `prompt` field `ccp prompt` prints is now the pointer sentence, matching the runner brief. `ccp verify
+  record` adds the head's-own-`ccp` line to any refusal holding an `unexpected key` error. The `ccp wt exec`
+  form is `ccp wt exec <name> -- verify record <file>` (no `python3 -m ccp`). The toolkit test fixture's
+  `report()` helper adds the run's token to a report that has none, so tests about other report lines need
+  no change; the new refusal tests pass `token=False`.
+
 ## Verification notes
