@@ -3,7 +3,7 @@ task_id: 0101-spec-text-catches-up-with-the-code
 title: SPEC passages that say less than the code does, or the wrong thing, are corrected
 status: pending
 kind: docs
-depends_on: []
+depends_on: [0104-command-edge-fixes]
 spec_refs: ["S2", "S3", "S4", "S5", "S10", "S12", "S13", "S14", "S15", "S16", "S27", "S28"]
 review_point: R6
 paths: ["docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/spec/04-observability.md", "README.md"]
