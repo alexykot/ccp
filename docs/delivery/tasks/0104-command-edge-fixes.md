@@ -1,7 +1,7 @@
 ---
 task_id: 0104-command-edge-fixes
 title: suite affected, sign-off --at, wt exec and main_of handle their edge cases
-status: pending
+status: done
 kind: fix
 depends_on: []
 spec_refs: ["S3", "S12", "S14"]
@@ -153,3 +153,5 @@ without it.
     consequence; no change.
 
 ## Verification notes
+- 2026-11-16 — verifier, PR #111 head `c980d22` (squash `2bb62e3`): APPROVE. Passed: check-01, check-02, check-03, check-04. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0104-command-edge-fixes.json.
+
