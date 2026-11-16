@@ -14,7 +14,8 @@ A record carries the schema version of the `ccp` that wrote it (`schema_version`
 `RECORD_VERSION` lower, passes over keys its contract does not know, at any depth, and still holds
 every key it knows to its contract; a record with no version, or one no newer than the reader, is
 held to the contract with no extra key. So a task that adds a field to the record can be verified
-with the newer `ccp` on its PR head and merged and closed with the older one on PATH (§15.4, §29.3).
+with the newer `ccp` on its PR head and merged and closed with the older one on PATH (§15.4, §29.3):
+`record`'s refusal of a key its contract does not know says so, naming `ccp wt exec`.
 
 An approve is one head, every check it ran passed, and the formal gate the verifier ran
 (`gate.runs`, every exit 0). `record` holds an approve to that, so a verdict it writes is one
@@ -855,8 +856,15 @@ def refusal(queue: Path, task_id: str, pr_head: str) -> str | None:
     return None
 
 
+# §15.4: a key this contract does not know may be one the task's own head adds to it
+NEWER_CONTRACT = ("if the task's head carries a newer record contract (contracts/verification.schema.json), record "
+                  "with the head's own ccp: `ccp wt exec <your worktree> -- verify record <file>` (SPEC §15.4)")
+
+
 def write_record(root: Path, queue: Path, rec: Any, now: datetime) -> tuple[list[str], Path | None]:
-    """Validate `rec` and write it to verification/<task_id>.json. Nothing is written on an error."""
+    """Validate `rec` and write it to verification/<task_id>.json. Nothing is written on an error. A
+    refusal for a key the contract does not know adds a line: a head with a newer contract records with its
+    own `ccp` (§15.4)."""
     if isinstance(rec, dict) and "checked_at" not in rec:
         rec = {**rec, "checked_at": _iso(now)}
     if isinstance(rec, dict):
@@ -874,6 +882,8 @@ def write_record(root: Path, queue: Path, rec: Any, now: datetime) -> tuple[list
     if isinstance(rec, dict) and isinstance(rec.get("gate"), dict) and rec["gate"].get("ci_run") and not _ci(queue):
         errs.append("gate.ci_run: this product's binding has no `ci: github-actions`, so a CI run is not evidence "
                     "(SPEC §15.3: the gate is the verifier's own run, never CI). Remove it.")
+    if any(": unexpected key " in e for e in errs):
+        errs.append(NEWER_CONTRACT)
     if errs:
         return errs, None
     if not SAFE_ID_RE.match(str(rec["task_id"])):

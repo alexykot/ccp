@@ -96,6 +96,10 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   worktree, `ccp wt exec -- <args>` runs it, so a new subcommand can be tried as `ccp`.
   `ccp wt exec --print` shows which `ccp` that runs (a `$CCP_ROOT` in your environment wins over your
   worktree): check it first.
+- When the task changes the verification record's contract (`contracts/verification.schema.json`, or
+  the record's version, `RECORD_VERSION` in `ccp/verify.py`, in the task's own diff), the `ccp` on PATH
+  does not know the new contract: record your verdict with the head's own `ccp`, from your checkout of
+  the head: `QUEUE_ROOT=<queue root> ccp wt exec <your worktree> -- verify record <file>` (SPEC §15.4).
 - Don't edit the product, commit, push or merge.
 - A gap in the spec itself goes in your report as a spec question for the runner to raise.
 - Run commands in the foreground, long ones too: an agent waiting on a background command stalls.

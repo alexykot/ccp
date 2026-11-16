@@ -64,7 +64,10 @@ Agent call**: it would override the definition.
 `ccp prompt <phase> <task_id>` renders the worker's prompt from the plane's templates and the
 product's fragment, writes its audit, opens the **run** (`<task_id>/<phase>[-n]`) and prints the Agent
 call to make: the agent type, a `description` (use it as printed: it starts with the task and the
-phase), and the prompt file. Pass that file's text as the prompt, **verbatim**. `--note "<text>"` adds
+phase), and the prompt: a pointer to the rendered file ("Your full instructions are in <path>. Read that
+file in full first and follow it exactly."). Pass that pointer as printed, **never the file's text retyped**:
+a retyped prompt loses its tail. The file's last line is `Prompt end: <token>`, and the worker's report
+repeats it as `Prompt: <token>` (SPEC §13.2, §13.4). `--note "<text>"` adds
 up to 4000 characters of your own for this run (`--note-file PATH` reads a longer, multi-line note from a file); a note you keep repeating is a plane proposal.
 `ccp prompt` refuses while a run of the same agent type is still pending (opened, its agent not
 started); `--supersede` abandons it when that launch never happened (and, after a 120-second grace,
@@ -84,7 +87,10 @@ neither the handback nor the Agent call's return value:
   the time each run spent in tests. When the product declares verdicts every implementer report must
   state (plane.json `report.required_fields`, SPEC §13.4), it refuses an implement or fix report
   missing one, keeps them on the run (`fields`), and `ccp prompt review` prints them
-  (`report_fields`) and shows them to the reviewer;
+  (`report_fields`) and shows them to the reviewer. It refuses (exit 2, nothing written, the run still
+  open) a report with no `Prompt:` line, or a token that is not the run's: the prompt the worker read was probably
+  cut. Launch the worker again with the pointer: a new `ccp prompt` of that phase (`--supersede` when the
+  run never started);
 - a short `SendMessage` to you, by your teammate name, naming the report. `ccp prompt` writes the
   name the lead bound for the runner that holds the task (one runner: `work.json` `runner`; several:
   the holder slot's `bound_name`); after a rotation the harness may have named you `runner-2` or the
