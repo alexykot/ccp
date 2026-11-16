@@ -115,6 +115,7 @@ A runner that is due for rotation is due for the same reason everywhere:
     `tests/test_orientation_hook.py`; `test_orientation_command.hook_text` now unsets it so the
     comparison reads this checkout's plugin. `TeamCase.origin()` gives a test product a bare origin;
     the existing runner-worktree dry-run test and `test_parallel_slots.LeadSlots` use it, since their
-    spawns now need `origin/main` (expectations unchanged).
+    spawns now need `origin/main` (expectations unchanged); so does
+    `test_init.OneBinding.test_team_sh_spawns_the_name_in_the_binding`, whose repo gets a bare origin.
 
 ## Verification notes
