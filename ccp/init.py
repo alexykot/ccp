@@ -37,7 +37,7 @@ from urllib.parse import urlsplit
 from pathlib import Path
 from typing import Any
 
-from ccp import config, refs, rules, tasklog
+from ccp import config, docrules, refs, rules, tasklog
 from ccp.queue import PLANE, QueueError, _main_worktree, lib
 
 TEMPLATES = PLANE / "templates"
@@ -75,8 +75,13 @@ CLAUDE_LINE = "This repo is delivered by CCP (Claude Control Plane): its plugin 
 SEAT_SCRIPTS = ("scripts/team.sh", "scripts/spec-maintainer-ask.sh")
 GIT_VERBS = ("add", "branch", "commit", "diff", "fetch", "log", "ls-files", "merge", "merge-base", "push",
              "rev-parse", "show", "status", "worktree")
-DENY = ("git push --force", "git push --force-with-lease", "git push -f", "git reset --hard", "git clean",
-        "git branch -D", "git stash", "git checkout --", "git restore", "rm -rf", "gh repo delete")
+# An entry is a prefix (`Bash(cmd:*)`), or, holding a `*`, a wildcard rule matched whole (`Bash(cmd)`): a
+# forced push is denied with its flag right after `push`, after the remote or branch, and at the end.
+FORCE_FLAGS = ("--force", "--force-with-lease", "-f")
+DENY = (*(f"git push {flag}" for flag in FORCE_FLAGS),
+        *(f"git push * {flag}{tail}" for flag in FORCE_FLAGS for tail in (" *", "")),
+        "git reset --hard", "git clean", "git branch -D", "git stash", "git checkout --", "git restore", "rm -rf",
+        "gh repo delete")
 # ADR-0040 D7: what needs a GitHub origin and a logged-in `gh` until the PR host is an adapter.
 GITHUB_ONLY = ("ccp verify merge-ok", "ccp tasks close (its default merge and its merge confirmation)",
                "the workers' `gh pr` steps (the implementer's PR, review and verify)")
@@ -104,17 +109,31 @@ def _paragraph_break(text: str) -> str:
     return "\n" if text.endswith("\n") else "\n\n"
 
 
-def origin_host(root: Path) -> str | None:
-    """The host of the product's `origin` URL (lowercased), "" for a local path or a URL with none,
-    None when there is no origin. Only the host is kept: a URL may carry credentials."""
+def origin_url(root: Path) -> str | None:
+    """The product's `origin` URL, None when it has none."""
     r = subprocess.run(["git", "-C", str(root), "remote", "get-url", "origin"], capture_output=True, text=True)
     url = r.stdout.strip()
-    if r.returncode != 0 or not url:
-        return None
+    return url if r.returncode == 0 and url else None
+
+
+def url_host(url: str) -> str | None:
+    """The host of a remote URL (lowercased), "" for a local path or a URL with none, None when the URL
+    does not parse."""
     if "://" in url:
-        return (urlsplit(url).hostname or "").lower()
+        try:
+            return (urlsplit(url).hostname or "").lower()
+        except ValueError:  # a malformed URL, such as an unclosed `[` around an IPv6 host
+            return None
     scp = re.match(r"^(?:[^@/:]+@)?([^/:]+):", url)  # git's scp-like form: a colon before any slash
     return scp.group(1).lower() if scp and len(scp.group(1)) > 1 else ""
+
+
+def origin_host(root: Path) -> str | None:
+    """The host of the product's `origin` URL (lowercased), "" for a local path or a URL with none,
+    None when there is no origin or its URL does not parse. Only the host is kept: a URL may carry
+    credentials."""
+    url = origin_url(root)
+    return url_host(url) if url else None
 
 
 def is_github(host: str | None) -> bool:
@@ -122,11 +141,17 @@ def is_github(host: str | None) -> bool:
 
 
 def github_warning(root: Path) -> str | None:
-    """ADR-0040 D7: the warning init gives when the product's origin is missing or not on GitHub."""
-    host = origin_host(root)
+    """ADR-0040 D7: the warning init gives when the product's origin is missing, does not parse, or is
+    not on GitHub."""
+    url = origin_url(root)
+    host = url_host(url) if url else None
     if is_github(host):
         return None
-    where = "has no origin" if host is None else (f"has its origin on {host}" if host else "has a local origin")
+    if url and host is None:
+        bare = re.sub(r"^([^:/]+://).*@", r"\1", url)  # named without anything that may be credentials
+        where = f"has an origin URL that does not parse ({bare})"
+    else:
+        where = "has no origin" if host is None else (f"has its origin on {host}" if host else "has a local origin")
     return (f"pull requests need a GitHub origin and a logged-in `gh`, and this product {where}: "
             f"{'; '.join(GITHUB_ONLY)} will fail until it has one (ADR-0040)")
 
@@ -286,6 +311,11 @@ def _rule(cmd: str) -> str:
     return f"Bash({cmd}:*)"
 
 
+def _deny_rule(cmd: str) -> str:
+    """A `DENY` entry as a rule: a wildcard one as it stands, a prefix as `_rule` writes it."""
+    return f"Bash({cmd})" if "*" in cmd else _rule(cmd)
+
+
 def permissions(cfg: config.Config, queue_root: str) -> dict[str, Any]:
     """§4.5, §18.5: the runner's and workers' permission block. Allowed: `ccp` by name (§4.3) and
     the plane's seat scripts by absolute path, each also behind the binding's `QUEUE_ROOT=` as the seats run them; git
@@ -302,7 +332,7 @@ def permissions(cfg: config.Config, queue_root: str) -> dict[str, Any]:
         allow += [_rule(st["cmd"]) for st in stages]
     elif gate:
         allow.append(_rule(shlex.join(gate)))
-    return {"permissions": {"allow": allow, "deny": [_rule(cmd) for cmd in DENY]}}
+    return {"permissions": {"allow": allow, "deny": [_deny_rule(cmd) for cmd in DENY]}}
 
 
 def print_permissions(root: Path, a: Any) -> int:
@@ -332,35 +362,63 @@ RULE_ITEM_RE = re.compile(r"^(\s*)([-*]\s+)")
 
 def _rule_ends(text: str, ids: refs.Ids) -> dict[str, tuple[int, str]]:
     """{rule id: (the index of its item's last non-blank line, the indent a line inside it takes)}. A rule's
-    item runs from its opening line until a line indented no deeper than its marker, or a heading."""
+    item runs from its opening line until a line indented no deeper than its marker, a heading, or the
+    next rule's opening line at any indent. A fenced block opened inside the item belongs to it whole, and
+    a line in a fenced block opens no rule (as `rules.rule_blocks` reads the doc)."""
     lines = text.splitlines()
     rx = rules.rule_re(ids)
+    openers = {n - 1 for n, line in docrules.unfenced(text) if rx.match(line)}
     out: dict[str, tuple[int, str]] = {}
-    for i, line in enumerate(lines):
-        m = rx.match(line)
-        if not m or m.group(1) in out:
+    for i in sorted(openers):
+        m = rx.match(lines[i])
+        assert m is not None
+        if m.group(1) in out:
             continue
-        marker = RULE_ITEM_RE.match(line)
+        marker = RULE_ITEM_RE.match(lines[i])
         assert marker is not None
         indent = len(marker.group(1))
-        last = i
+        last, fence = i, None
         for j in range(i + 1, len(lines)):
             nxt = lines[j]
+            f = docrules.FENCE_RE.match(nxt)
+            if fence is not None:  # inside a fence the item opened: its content, whatever it holds
+                last = j
+                if f and f.group(1) == fence:
+                    fence = None
+                continue
             if not nxt.strip():
                 continue
-            if nxt.lstrip().startswith("#") or len(nxt) - len(nxt.lstrip()) <= indent:
+            if nxt.lstrip().startswith("#") or len(nxt) - len(nxt.lstrip()) <= indent or rx.match(nxt):
                 break
             last = j
+            if f:
+                fence = f.group(1)
         out[m.group(1)] = (last, " " * (indent + len(marker.group(2))))
     return out
+
+
+def _with_checks(text: str, after: dict[int, str]) -> str:
+    """`text` with each `after[i]` as a line of its own after line i, ending as the line it follows does
+    (or as the doc's first line does, after a last line with no ending), so a CRLF doc stays CRLF."""
+    lines = text.splitlines(keepends=True)
+    nl = (lines[0][len(lines[0].splitlines()[0]):] if lines else "") or "\n"
+    out: list[str] = []
+    for i, line in enumerate(lines):
+        if i not in after:
+            out.append(line)
+            continue
+        end = line[len(line.splitlines()[0]):]
+        out.append(line + after[i] + end if end else line + nl + after[i])
+    return "".join(out)
 
 
 def rules_doc(root: Path, path: str, adopt: bool) -> dict[str, Any]:
     """§4.5, §20.1 `ccp init --rules-doc PATH [--adopt]`: each rule of the doc at PATH (relative to the
     product root) with no `check:` line, and with `adopt` that doc rewritten with a `check: pass` line
-    closing each such rule. The rule ids and `rules_max_lines` are the product's when its plane.json
-    loads. Raises QueueError: exit 2 when the doc is missing, exit 1 (nothing written) when the added
-    lines would put it over `rules_max_lines`."""
+    closing each such rule's own item, its line endings kept. The rule ids and `rules_max_lines` are the
+    product's when its plane.json loads. Raises QueueError: exit 2 when the doc is missing, exit 1
+    (nothing written) when the added lines would put it over `rules_max_lines`, or when the doc, read
+    again with them, would not have each adopted rule checked and every other rule as it was."""
     doc = Path(path) if Path(path).is_absolute() else root / path
     if not doc.is_file():
         raise QueueError(f"ccp init: --rules-doc {path}: no such file under {root}", 2)
@@ -374,7 +432,8 @@ def rules_doc(root: Path, path: str, adopt: bool) -> dict[str, Any]:
         rel = str(doc.resolve().relative_to(root.resolve()))
     except ValueError:
         rel = str(doc)
-    text = doc.read_text()
+    with open(doc, newline="") as fh:  # as written: a CRLF doc keeps its line endings
+        text = fh.read()
     kinds, _ = rules.parse_rules(text, ids)
     unchecked = [rid for rid, kind in kinds.items() if kind is None]
     lines = len(text.splitlines())
@@ -386,14 +445,18 @@ def rules_doc(root: Path, path: str, adopt: bool) -> dict[str, Any]:
                              f"{len(unchecked)} unchecked rules would make {lines + len(unchecked)}, over "
                              f"rules_max_lines {cap}: shorten it first. Nothing written", 1)
         ends = _rule_ends(text, ids)
-        after = {ends[rid][0]: ends[rid][1] + "check: pass" for rid in unchecked}
-        new: list[str] = []
-        for i, line in enumerate(text.splitlines()):
-            new.append(line)
-            if i in after:
-                new.append(after[i])
-        doc.write_text("\n".join(new) + ("\n" if text.endswith("\n") or not text else ""))
-        out.update(adopted=unchecked, lines=len(new))
+        new = _with_checks(text, {ends[rid][0]: ends[rid][1] + "check: pass" for rid in unchecked})
+        # Re-read as docs check reads it: each adopted rule now checked and no other changed, so a rerun
+        # finds nothing to add.
+        now, _ = rules.parse_rules(new, ids)
+        wrong = [rid for rid in kinds if now.get(rid) != ("pass" if rid in unchecked else kinds[rid])]
+        if wrong:
+            raise QueueError(f"ccp init: {rel}: with a `check: pass` line closing each unchecked rule's item, "
+                             f"{', '.join(wrong)} would not read as intended (is a fenced block left open?): "
+                             "add the lines by hand. Nothing written", 1)
+        with open(doc, "w", newline="") as fh:
+            fh.write(new)
+        out.update(adopted=unchecked, lines=len(new.splitlines()))
     out["starter_rules"] = (f"the plane's starter rules (SPEC §20.5), {rules.STARTER_DOC}: a rule the plane "
                             "already checks can take its `docs` check there; adopt the set with "
                             "docs.starter_rules in plane.json")
