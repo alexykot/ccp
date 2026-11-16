@@ -226,6 +226,41 @@ class OnTheMergeBase(WtFixture, unittest.TestCase):
         self.assertFalse(list((self.main / ".rt").glob("base-0002/ran.txt")))  # the command never ran
         self.assert_nothing_left()
 
+    def test_a_sigterm_as_git_worktree_add_returns_leaves_nothing(self):
+        got: list[int] = []
+        previous = signal.signal(signal.SIGTERM, lambda n, _f: got.append(n))
+        self.addCleanup(signal.signal, signal.SIGTERM, previous)
+        real = wt.git
+
+        def then_sigterm(cwd, *a, **k):
+            out = real(cwd, *a, **k)
+            if a[:2] == ("worktree", "add"):
+                os.kill(os.getpid(), signal.SIGTERM)
+            return out
+
+        with mock.patch.object(wt, "git", then_sigterm):
+            code, res, _, err = self.base_run("sh", "-c", "echo ran > ran.txt")
+        self.assertEqual(got, [])
+        self.assertEqual(code, 143, err)
+        self.assertEqual((res["exit"], res["signal"], res["name"], res["removed"]), (143, 15, "base-0002", True))
+        self.assert_nothing_left()
+
+    def test_a_sigterm_while_git_worktree_add_runs_leaves_nothing(self):
+        got: list[int] = []
+        previous = signal.signal(signal.SIGTERM, lambda n, _f: got.append(n))
+        self.addCleanup(signal.signal, signal.SIGTERM, previous)
+        hooks = Path(self._tmp.name) / "hooks"
+        hooks.mkdir()
+        (hooks / "post-checkout").write_text(f"#!/bin/sh\nkill -TERM {os.getpid()}\nsleep 1\n")
+        (hooks / "post-checkout").chmod(0o755)
+        git(self.main, "config", "core.hooksPath", str(hooks))  # git worktree add runs it before it exits
+        code, res, _, err = self.base_run("sh", "-c", "echo ran > ran.txt")
+        self.assertEqual(got, [])
+        self.assertEqual(code, 143, err)
+        self.assertEqual((res["exit"], res["signal"], res["name"], res["removed"]), (143, 15, "base-0002", True))
+        self.assertFalse(list((self.main / ".rt").glob("base-0002/ran.txt")))  # the command never ran
+        self.assert_nothing_left()
+
     def test_a_failed_fetch_warns_that_the_base_may_be_stale(self):
         git(self.main, "remote", "set-url", "origin", str(Path(self._tmp.name) / "gone.git"))
         code, res, body, err = self.base_run("git", "rev-parse", "HEAD")

@@ -138,5 +138,18 @@ without it.
     collapsed, an absolute path made relative); the Python bullet says only a path that has an
     extension and is not a directory matches tests by name. The refusal of a path outside the root
     (exit 2) was already in §14.7's last bullet, so it is not repeated. No code or test change.
+- 2026-11-16 (implementer, fix round 1):
+  - Review MAJOR 1: a SIGTERM while `git worktree add` ran, or just after it returned, reached
+    `run_on_base` before `create` had bound the record, so the worktree leaked and the result said
+    nothing was left. `create`'s `add` now runs inside `_sigterm_held`: while a base run's handler
+    (`_on_sigterm`) is installed, a SIGTERM is held until the make has finished and, when it
+    succeeded, the record is bound; the held signal is raised then, and `run_on_base`'s cleanup removes
+    the worktree. Holding it, not cleaning up after it, means `git worktree add` is never killed
+    half-way (which would leave a locked, half-made entry). A failed `add` binds nothing, so a path
+    another worker took is never removed as ours. Elsewhere (another kind, another thread)
+    `_sigterm_held` changes nothing.
+  - Review NIT 2: the §14.7 sentence says a dotfile such as `.gitignore` has no extension, so it
+    matches no test by name. NIT 1 (a range as `--since` is refused) is accepted as the task's
+    consequence; no change.
 
 ## Verification notes

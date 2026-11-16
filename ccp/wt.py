@@ -29,6 +29,7 @@ be tried before the installed `ccp` has it; `--print` prints that path instead.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -40,7 +41,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from ccp import refs
 from ccp.envvars import for_child
@@ -291,7 +292,8 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
     of `sha` (`_clone_shallow`), not a git worktree. The baseline worktree (`create_baseline`) is the one
     made with no task: `task_id` and `nnnn` are "". `bind`, when given, gets the new worktree's record the
     moment it exists, before anything else runs, so a caller interrupted before `create` returns still
-    knows what to remove (`run_on_base`)."""
+    knows what to remove (`run_on_base`). A SIGTERM that a base run takes (`_on_sigterm`) waits while
+    the worktree is made and bound (`_sigterm_held`): `git worktree add` is never cut short."""
     if kind not in KINDS:
         raise QueueError(f"--kind must be one of {', '.join(KINDS)}", 2)
     if shallow and kind not in SHALLOW_KINDS:
@@ -344,10 +346,15 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
         args = ["worktree", "add", "-q", "--detach", str(path), sha]
 
     def add(at: Path) -> tuple[int, str]:
-        if shallow:
-            return _clone_shallow(main, at, str(sha))
-        r = git(main, *args[:-2], str(at), args[-1])
-        return r.returncode, r.stderr
+        with _sigterm_held():  # a base run's SIGTERM waits until the worktree made here is bound
+            if shallow:
+                rc, err = _clone_shallow(main, at, str(sha))
+            else:
+                r = git(main, *args[:-2], str(at), args[-1])
+                rc, err = r.returncode, r.stderr
+            if rc == 0 and bind is not None:
+                bind.update(st)
+        return rc, err
 
     rc, err = add(path)
     tries = 0
@@ -360,8 +367,6 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
     if rc != 0:
         raise QueueError(f"{'a shallow clone' if shallow else 'git worktree add'} {name}: {err.strip()}", 1)
     try:
-        if bind is not None:
-            bind.update(st)
         _link(cfg, main, path)
         res = hook(cfg, q, "setup", st)
         if res and res[0] != 0:
@@ -525,6 +530,25 @@ class _Terminated(BaseException):
 def _on_sigterm(signum: int, _frame: Any) -> None:
     signal.signal(signal.SIGTERM, signal.SIG_IGN)  # the cleanup it starts is not cut short by another one
     raise _Terminated(signum)
+
+
+@contextlib.contextmanager
+def _sigterm_held() -> Iterator[None]:
+    """While a base run (`_on_sigterm` handles SIGTERM) makes its worktree, a SIGTERM waits: the make
+    is never killed half-way, which would leave a worktree nothing knows of, and the signal is raised
+    once the block ends, with the worktree bound to the caller's record (`create`'s `bind`). Anywhere
+    else (another kind, another thread) it changes nothing."""
+    if threading.current_thread() is not threading.main_thread() or signal.getsignal(signal.SIGTERM) is not _on_sigterm:
+        yield
+        return
+    got: list[int] = []
+    signal.signal(signal.SIGTERM, lambda n, _f: got.append(n))
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGTERM, _on_sigterm)
+        if got:
+            _on_sigterm(got[0], None)
 
 
 def run_on_base(cfg: Config, q: Path, task_id: str, head: str, command: list[str], name: str | None = None,

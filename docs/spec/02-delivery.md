@@ -756,8 +756,8 @@ guessing. It runs nothing and records nothing.
   when it imports a changed module directly (any `import` or `from … import`, a relative one or one
   inside a function too; importing `p.m` imports `p`, and `from p import m` imports `p.m`) or
   through one package level (it imports a package whose `__init__.py` imports the changed module);
-  or when its text names a changed file's name: only a path that has an extension and is not a
-  directory matches tests by name.
+  or when its text names a changed file's name: only a path that has an extension (a dotfile such as
+  `.gitignore` has none) and is not a directory matches tests by name.
 - With nothing changed, or no test touched, it prints nothing, says so on stderr and exits 0. A ref
   git cannot read, or a path outside the root, exits 2.
 
