@@ -46,8 +46,8 @@ the declared paths, and that the product's proof command passes, go to verify wi
 declared prover of the review (`verify.provers`, `skips: review`) whose command exits 0 on the fix diff
 does the same, its name and exit recorded on the verify run (no command text); both commands run in a
 clean checkout of the integration branch's tip, so nothing the task's diff changes alters their verdict. A
-product with `verify.skip_review_after_clean` lets the fix round after a clean review (no BLOCKER or MAJOR
-finding) go to verify with no new review, the skip recorded as `minor-only` at the verify run's head; the
+product with `verify.skip_review_after_clean` lets the latest fix round after a clean review (no BLOCKER or
+MAJOR finding), when it reported done, go to verify with no new review, the skip recorded as `minor-only` at the verify run's head; the
 verifier confirms the fix answers only that review's findings (`skip_after_clean`).
 
 Under `adr.strict`, `record` also refuses an approve of a head on which a decision the task's `adr_refs`
@@ -725,10 +725,11 @@ MINOR_SEVERITIES = ("MINOR", "NIT")  # §15.2: the findings below MAJOR, as the 
 def skip_after_clean(cfg: Config, queue: Path, task_id: str, head: str) -> tuple[dict[str, Any] | None, str]:
     """§15.2: may a verify of `head` skip the review of a fix round that answers only the minor findings
     of a clean review? Only with plane.json `verify.skip_review_after_clean` on, when the task's latest
-    review run that reported done recorded no BLOCKER or MAJOR finding and at least one below them, a fix
-    run (not abandoned; a merge or ruling round counts as one, §13.2) opened since and reported its head,
-    `head` is that head, and no verify run since the review rejected (a reject sends the task back to
-    review). Returns what to record on the verify run, `{reason: "minor-only", review_run, reviewed, report,
+    review run that reported done recorded no BLOCKER or MAJOR finding and at least one below them, the
+    latest fix run (not abandoned; a merge or ruling round counts as one, §13.2) opened since reported
+    `done` with its head, `head` is that head, and no verify run since the review rejected (a reject sends
+    the task back to review). A second fix round since the review is judged the same way: only the latest
+    counts. Returns what to record on the verify run, `{reason: "minor-only", review_run, reviewed, report,
     findings}`: the review, the head it judged, its report's path and its counts below MAJOR (the plane
     keeps no finding text), or None and why not ("" when the setting is off or there is no fix to judge)."""
     from ccp import runs  # noqa: PLC0415
@@ -761,6 +762,8 @@ def skip_after_clean(cfg: Config, queue: Path, task_id: str, head: str) -> tuple
     fixed = str(fix.get("head") or "").strip()
     if runs.state(fix) != "reported" or not fixed:
         return None, f"{fix['run_id']} has reported no head"
+    if fix.get("outcome") != "done":
+        return None, f"{fix['run_id']} reported `{fix.get('outcome')}`, not done"
     if not heads_match(fixed, head.strip()):
         return None, f"head {head.strip()[:12]} is not {fixed[:12]}, the head {fix['run_id']} reported"
     return {"reason": "minor-only", "review_run": str(last["run_id"]), "reviewed": str(last.get("head") or ""),

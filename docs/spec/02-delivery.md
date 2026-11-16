@@ -850,7 +850,10 @@ result.
   `verify.skip_review_after_clean` (boolean; false, the default, is off) lets the fix round after the
   latest review that reported `done` go straight to verify when that review recorded no BLOCKER or MAJOR
   finding and at least one MINOR or NIT, the fix round (a merge or ruling round counts as one, §13.2)
-  reported the head being verified, and no verify run opened since that review rejected. The verify run
+  reported `Outcome: done` with the head being verified, and no verify run opened since that review
+  rejected. A fix round that reported `failed` or `blocked` never skips. With more than one fix round
+  since that review, the latest is the one judged, so a second fix round may skip as well when it meets
+  these conditions. The verify run
   records `review_skip` (`reason: "minor-only"`, `review_run`, `reviewed`: the head it judged, `report`:
   its report's path, `findings`: its MINOR and NIT counts); the plane stores no finding text. The verify
   prompt gives those counts and the report, and asks the verifier to read the report and confirm the fix
