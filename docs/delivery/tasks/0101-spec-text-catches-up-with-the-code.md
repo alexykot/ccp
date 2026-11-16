@@ -6,7 +6,7 @@ kind: docs
 depends_on: [0104-command-edge-fixes]
 spec_refs: ["S2", "S3", "S4", "S5", "S10", "S12", "S13", "S14", "S15", "S16", "S27", "S28"]
 review_point: R6
-paths: ["docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/spec/04-observability.md", "README.md"]
+paths: ["docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/spec/04-observability.md", "README.md", "docs/design/toolkit.md", "docs/design/team.md"]
 created: 2026-11-16
 updated: 2026-11-16
 ---
@@ -52,6 +52,10 @@ merged change made false. It adds no rule and changes no code.
   - §27.1 and §28.3: the round lists name merge and ruling rounds.
   - README: the deny rules are prefix matches. They catch the spellings listed, not every spelling
     (task 0102 adds more forms; the README says what holds after it).
+  - Since task 0099, a rendered prompt carries a per-run end token, and the Agent call `ccp prompt`
+    prints passes a pointer to the prompt file rather than its text verbatim. §13.2 and
+    docs/design/toolkit.md still say a prompt renders the same text every run apart from paths, and
+    docs/design/team.md says the prompt is passed verbatim: say what holds now.
 - **Out:**
   - Any change to code, or to what a rule requires.
 
