@@ -7,7 +7,9 @@ check it end to end.
 
 - Teammates cannot spawn teammates; only the lead's Agent tool can, so `team.sh runner spawn` only
   records and prints the call, and the lead makes it verbatim (the prompt audit then matches what was
-  sent).
+  sent). A worker's call is not passed that way: the Agent call `ccp prompt` prints passes a pointer
+  to the rendered prompt file, never its text, and the worker's report repeats the token on the
+  file's last line (SPEC §13.2, §13.4).
 - In-process teammates are not restored by `/resume`, and `-p` sessions cannot spawn teammates: a
   resumed lead respawns its runners (SPEC §10.2 step 5).
 - Teammate permission prompts surface in the lead's session (SPEC §18.5).

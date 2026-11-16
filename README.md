@@ -156,12 +156,16 @@ Teammates' permission prompts appear in the lead's session and block while you a
 ccp init --permissions
 ```
 
-It prints a JSON `permissions` block and writes nothing. The block allows `ccp`, and the plane's
-`team.sh` and `spec-maintainer-ask.sh` by absolute path, each also behind the queue's `QUEUE_ROOT=`
-as the seats run them; git by verb; `gh pr`; and your gate lane's commands. It denies destructive
-commands. **The operator applies it**: merge it into the product's
-`.claude/settings.json` yourself, because Claude Code's auto mode refuses the lead's own edit to that
-file.
+It prints a JSON `permissions` block and writes nothing. The block allows `ccp` by name, and the
+plane's `team.sh` and `spec-maintainer-ask.sh` by absolute path, each also behind the queue's
+`QUEUE_ROOT=` as the seats run them; git by verb; `gh pr`; and your gate lane's commands. It denies
+destructive commands: `git reset --hard`, `git clean`, `git branch -D`, `git stash`,
+`git checkout --`, `git restore`, `rm -rf`, `gh repo delete`, and a forced push (`--force`,
+`--force-with-lease` or `-f` right after `push`, after the remote or branch, or at the end). The deny
+rules are prefix matches: they catch the spellings listed, not every spelling of the same act
+(`rm -fr`, `git -C <dir> reset --hard` or a push of a `+<branch>` refspec gets through).
+**The operator applies it**: merge it into the product's `.claude/settings.json` yourself, because
+Claude Code's auto mode refuses the lead's own edit to that file.
 
 #### The gate on the tip
 

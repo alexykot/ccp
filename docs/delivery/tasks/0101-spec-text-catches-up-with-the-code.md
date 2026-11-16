@@ -93,4 +93,36 @@ merged change made false. It adds no rule and changes no code.
 
 *Append-only, newest last.*
 
+- 2026-11-16 (implementer): one correction per Scope passage, each read against the code at 982787c
+  (0102, 0103 and 0104 merged; 0105 not yet).
+  - §2.6: both rotation knobs (`lifecycle.rotation_knobs`); with one runner `rotation_due` reads the
+    single-runner fields whatever `--holder` says.
+  - §3.6: `notify.lead`'s `tool` and `to` are non-empty, single-line strings (`config` `_notify_lead`
+    and the schema's pattern); a blank value or a line break is refused.
+  - §4.5: `ccp` is allowed by name, the two seat scripts by path, each of the three also behind
+    `QUEUE_ROOT=` (`init.permissions`). Only `github.com` and its subdomains count as GitHub
+    (`init.is_github`), so a GitHub Enterprise host on its own domain gets the warning, stated as
+    deliberate. `--adopt` also refuses (exit 1, nothing written) when the re-parse shows an adopted rule
+    not reading `pass` or another rule's check changed, and the rules parser skips fenced blocks
+    (`rules.rule_blocks`, `docrules.unfenced`).
+  - §5.5: the `new`/`removed` window stops at the next backtick (`parallel.missing_paths`).
+  - §10.3: `next` reads statuses at `origin/<integration>` when the checkout lags it, and skips a task
+    the queue holds `done` or `dropped` (`selection.current`).
+  - §12.1: since 0104, a SIGTERM before the base worktree exists exits 143 with a result (`name`
+    null). A descendant that left the process group and holds the output keeps the run open past the
+    timeout (the read loop waits on the pipe). `--shallow` fetches a sha by id: protocol v2.
+  - §13.2: the verify render differs between runs only in filled-in fields and the end token; a merge
+    or ruling round may be skipped by a review prover or the minor-only skip too.
+  - §13.4: the template test as `report._template` judges it now (a `|`, or `/`, `,`, `or` followed
+    by another declared value). Task 0105 changes this rule and edits the same sentence.
+  - §14.2: `{head}` is the HEAD of the checkout the run started in (`suite.task_diff`), not the tip's.
+  - §15.2: the lead bullet's last sentence names the minor-only skip `verify.review_errors` accepts.
+  - §16.5: "can be made" is the path being absent or an empty directory (`team.py` `readiness`); a
+    missing `origin/<integration_branch>` refuses the dry run first (0103's
+    `refuse_without_integration_ref`).
+  - §27.1, §28.3: merge and ruling rounds (health's `merge_rounds`, `ruling_rounds`; the drill view).
+  - README: the deny list and that its rules are prefix matches, with spellings they miss.
+  - docs/design/toolkit.md: as §13.2. docs/design/team.md: the runner spawn is still made verbatim (true:
+    its prompt is short text); a worker's call passes a pointer to the prompt file.
+
 ## Verification notes

@@ -134,7 +134,10 @@ After launching a worker the runner may end its turn.
 
 ### 2.6 Seat knobs
 
-- `runner.rotate_after_tasks` (default 4).
+- `runner.rotate_after_tasks` (default 4) and `runner.rotate_at_context_tokens` (default null: off):
+  a runner's rotation is due when either is reached (§10.2 step 4). With one runner, rotation reads
+  the single-runner fields of `work.json` whatever holder the claim names; only with several runners
+  does the holder pick the slot.
 - The lead may run several runners at once (`--count`), up to `parallel.max_in_flight`, sharing one
   review-point scope, each holding one task (§16).
 - The verifier is the runner's subagent with a fixed packet (the alternative, a teammate spawned by
@@ -267,9 +270,10 @@ configuration.
     `CCP_NOTIFY_LINE`. Never a brief, a question's text or file content. The command is the
     product's (an email, a chat message, another tool); the plane ships no client. `ccp` records its
     send itself (`via: command`, `ok: false` when it failed or timed out).
-  - `lead`, `{"tool": …, "to": …}` (default null), both non-empty strings: the lead sends each notice
-    with that tool from its own session (a tool that exists only there, such as an MCP mail or chat
-    server). Any other key, or a missing one, is refused.
+  - `lead`, `{"tool": …, "to": …}` (default null), both non-empty, single-line strings: the lead
+    sends each notice with that tool from its own session (a tool that exists only there, such as an
+    MCP mail or chat server). Any other key, a missing one, or a value that is blank or holds a line
+    break, is refused.
   - With neither, the lead's session is the route: the lead brings the notice to the operator there
     (§17.10).
 - **Seats.** Of the seats, only the lead sends (the command is `ccp`'s). With a `lead` channel it renders each pending notice, sends it with
@@ -402,14 +406,17 @@ changes nothing. It refuses, writing nothing, when keeping would leave the produ
 wrote, and adds its own worktree and environment hooks to `plane.json` (§12). It warns, on stderr
 and in its result's `warnings`, when the product has no `origin` or its origin is not on GitHub, and
 adopts it all the same: review, merge and close need a GitHub origin until the PR host adapter of
-ADR-0040 exists.
+ADR-0040 exists. Only `github.com` and its subdomains count as GitHub, so an origin on a GitHub
+Enterprise host on its own domain is warned about as not on GitHub. This is deliberate: the plane
+knows GitHub by that host name only, and the warning does not stop the adoption.
 
 - **The adoption checklist.** The plane's README lists each `plane.json` key a product may need beyond
   the minimal file, with what it is for and when a product needs it.
 - **The permission list.** `ccp init --permissions` writes nothing. In an adopted product it prints the
   runner's and workers' permissions (§18.5) as a JSON `permissions` block:
-  - an allowlist: `ccp`, the plane's `team.sh` and `spec-maintainer-ask.sh` by absolute path (each
-    also behind the binding's `QUEUE_ROOT=`), git by verb, `gh pr` and the gate lane's commands;
+  - an allowlist: `ccp` by name (§4.3), and the plane's `team.sh` and `spec-maintainer-ask.sh` by
+    absolute path, each of the three also behind the binding's `QUEUE_ROOT=`; git by verb; `gh pr`;
+    and the gate lane's commands;
   - a deny list of destructive commands.
 
   It refuses (exit 2) another init flag, and a product without a `plane.json` that loads or without
@@ -422,8 +429,11 @@ ADR-0040 exists.
   rule of the product's own house-rules doc that has no `check:` line (§20.1) and points at the
   starter rules (§20.5); it writes nothing. With `--adopt` it gives each such rule a `check: pass`
   line at the end of its item, and refuses (exit 1), writing nothing, when that would put the doc over
-  `rules_max_lines`. The rule ids and the cap are the product's when its `plane.json` loads. It does
-  not set `architect.rules_doc`, and refuses (exit 2) another init flag and a missing doc.
+  `rules_max_lines`, or when the doc, parsed again with those lines, would have an adopted rule not
+  reading `pass` or another rule's check changed (a fenced block left open, for one). The rules parser
+  skips fenced code blocks: a line inside one opens no rule and is no rule's `check:`. The rule ids
+  and the cap are the product's when its `plane.json` loads. It does not set `architect.rules_doc`,
+  and refuses (exit 2) another init flag and a missing doc.
 
 ## 5. Task files
 
@@ -496,7 +506,7 @@ In order, each a `## ` heading:
 |---|---|---|
 | `Intent` | task writer | one paragraph: what is true for the user when this is done |
 | `Context (not checked)` | task writer; the design seat when ruling (§17); on a claimed task, the implementer, writing a ruling the runner passes (§10.5) | background and constraints the verifier does not walk as checks. `Context (not verified)` is read as this heading. A count, size, site list or "already"/"never" claim in it names, on its line, the command that measured it and the commit it ran at; `ccp tasks check` warns, without refusing, about a line of it, in a task not yet done, that states a number with no backticked command on it |
-| `Scope` | task writer | `- **In:** …` and `- **Out:** …`. In **In:**, a path the task creates is marked `new` and one it deletes `removed`, the word within 25 characters after the path; `ccp tasks check` warns, for a task not yet done, about a path there (holding a `/`, not a glob) that does not exist, is not marked and is not in a dependency's **In:** (§16.3) |
+| `Scope` | task writer | `- **In:** …` and `- **Out:** …`. In **In:**, a path the task creates is marked `new` and one it deletes `removed`, the word within the 25 characters after the path and before the next backtick; `ccp tasks check` warns, for a task not yet done, about a path there (holding a `/`, not a glob) that does not exist, is not marked and is not in a dependency's **In:** (§16.3) |
 | `dod_checks` | task writer | 1..`max_checks` checks, each `` - id: `kind-NN` `` then `story`, `setup`, `steps`, `expect`; a check whose steps run a command carries `dry run (<commit>): …` or `dry run: n/a — <reason>` when `task_log.dry_run` is on (§10). No soft language |
 | `Implementation notes` | runner, from the implementer's output | append-only |
 | `Verification notes` | verifier; `ccp tasks close` | append-only, one `- ` line per check; a `done` task has at least one |

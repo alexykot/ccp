@@ -497,10 +497,11 @@ gates nothing.
 `ccp health` measures delivery from what is already recorded:
 
 - **Sources:** git (the merges that name a task, with files and lines split by the `architect.areas`
-  globs); the queue (report times under `progress/<task>/*-report.md`, phase events, fix and verify
-  rounds); prompt audits (prompt sizes).
-- **Per task:** wall time; the spans of implementing, reviewing and verifying; fix rounds; files and
-  lines by area. **Trend:** rolling medians and the drift ratio (§19).
+  globs); the queue (report times under `progress/<task>/*-report.md`, phase events, review, verify,
+  fix, merge and ruling rounds); prompt audits (prompt sizes).
+- **Per task:** wall time; the spans of implementing, reviewing and verifying; review, verify, fix,
+  merge and ruling rounds; files and lines by area. **Trend:** rolling medians and the drift ratio
+  (§19).
 - **From workers:** `ccp report` records the report's `Suite:` line and friction lines from the report
   itself; `ccp health record` and `note` stay for other numbers the product names in
   `architect.metrics`. Every append to `metrics.jsonl` holds `metrics.jsonl.lock`.
@@ -566,10 +567,11 @@ status files. `ccp board status` is its terminal summary (§23.4).
 In priority order:
 
 1. **Time and tokens.** Per task: wall time, queue wait (ready → claimed), active time, waits by
-   reason, each run's duration, tokens and model and effort check, review, verify and fix rounds,
-   rounds to merge, first-pass approval, severity counts, suite size and time, lines by area (§27). Rolled up per seat,
-   per review point, per day and per week; tokens per merged task; the cache-read share; the
-   allowance against its checkpoint; trends as rolling medians. Estimates and forecast (§26).
+   reason, each run's duration, tokens and model and effort check, review, verify, fix, merge and
+   ruling rounds, rounds to merge, first-pass approval, severity counts, suite size and time, lines
+   by area (§27). Rolled up per seat, per review point, per day and per week; tokens per merged
+   task; the cache-read share; the allowance against its checkpoint; trends as rolling medians.
+   Estimates and forecast (§26).
 2. **Now.** The live team; each runner, its scope and review point; the tasks in flight with their
    phase and how long they have been there; open runs; waits, gates and questions; architect state;
    the allowance.

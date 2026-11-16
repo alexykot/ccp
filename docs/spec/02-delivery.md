@@ -90,7 +90,11 @@ the scope from `work.json` before each `ccp tasks next`.
 `ccp tasks next [--scope IDS] [--explain]` returns, of the `pending` tasks whose `depends_on` are
 all `done`, the lowest-numbered; a dependency may have a higher number than its dependant.
 `--scope` (task ids or `NNNN`) restricts the candidates (their dependencies may lie outside it);
-while `work.json` `status` is `running`, the scope defaults to `work.json`'s. The order:
+while `work.json` `status` is `running`, the scope defaults to `work.json`'s. It reads each task's
+status at the integration tip: when the checkout lacks commits of `origin/<integration branch>`
+(nothing is fetched), each task's status is its file's there. A task still pending there that the
+queue holds `done` or `dropped` is skipped, and counts as done for no dependant until the task log
+says so. The order:
 
 1. **The lead's preference list** (`work.json` `next_tasks`, §10.4): its first entry that is
    ready and in the scope (or one the scope reaches, §20), its `why:` line giving its place ("2 of
@@ -321,8 +325,9 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
   `CCP_WT_KIND` and `CCP_WT_SEAT` with its task as `CCP_TASK_ID` and `CCP_NNNN` (§14.2).
 - `--shallow` (kinds `rev`, `ver`, `mut` and `mac`) makes it a clone of depth 1 at `--sha` (a short sha
   is resolved first), not a git worktree, so a check can prove a test passes without git history. It
-  is recorded with `shallow: true`, set up and removed like any other (removing deletes the clone),
-  and its links are named in its own `info/exclude`. An existing worktree is reused only as shallow
+  fetches that commit by its sha from the main checkout, which needs git protocol v2 (git's default
+  since 2.26). It is recorded with `shallow: true`, set up and removed like any other (removing
+  deletes the clone), and its links are named in its own `info/exclude`. An existing worktree is reused only as shallow
   as asked (exit 3 otherwise); `--shallow` is refused (exit 2) on any other kind or action.
 - `ccp wt exec [NAME] -- ARGS` runs the `bin/ccp` of worktree NAME (recorded; default the checkout
   `ccp` runs in: `--root`, else `$CCP_ROOT`, else the working directory's git toplevel) with ARGS
@@ -338,13 +343,16 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
   worktree and its record whatever COMMAND did, and whatever failed once the worktree was made. It
   prints `{name, head, merge_base, exit, removed, timed_out}` and exits with COMMAND's code (127 when
   it is not found, 128 + N when signal N ended it). COMMAND still running after `--timeout` seconds
-  (default plane.json `env.timeout_seconds`) is killed with its process group: exit 124. A SIGTERM to
-  `ccp` kills COMMAND's process group, removes the worktree and its record, and exits 143 with
-  `signal: 15` in the result. Its own refusals and failures exit 125, so they never read as a
-  COMMAND's 2 or 3, print why on stderr and no result: no command or no `--sha`, a bad `--timeout`, a
-  HEAD with no merge base, a `--name` already in use, a worktree that could not be made or recorded. A
-  command, or `--timeout`, is refused (exit 2) on any other kind. A dry run on the merge base (§15.1)
-  uses it, never `git stash` or a hand-made worktree.
+  (default plane.json `env.timeout_seconds`) is killed with its process group: exit 124. A descendant
+  that left that process group and keeps COMMAND's output open is not killed, and holds the run open
+  past the timeout until it exits or closes the output. A SIGTERM to `ccp` kills COMMAND's process
+  group, removes the worktree and its record, and exits 143 with `signal: 15` in the result; one that
+  comes before the worktree exists exits 143 as well, its result naming no worktree (`name` null) and
+  nothing run. Its own refusals and failures exit 125, so they never read as a COMMAND's 2 or 3,
+  print why on stderr and no result: no command or no `--sha`, a bad `--timeout`, a HEAD with no
+  merge base, a `--name` already in use, a worktree that could not be made or recorded. A command,
+  or `--timeout`, is refused (exit 2) on any other kind. A dry run on the merge base (§15.1) uses it,
+  never `git stash` or a hand-made worktree.
 - `ccp wt create --kind ver --baseline [--seat S] [--tag T]` makes the one worktree that needs no task:
   `ver-baseline`, detached at `origin/<integration>` after a fetch, recorded with an empty task and
   number (`{task_id}` and `{nnnn}` are empty in its hooks) and set up like any other. An adopting lead
@@ -447,7 +455,8 @@ reviewer, fixer and verifier prompt from four parts, in order, writes the prompt
 
 `ccp prompt` needs a claimed task, checks for a pending run before writing anything, and refuses a
 template naming anything it does not set. `ccp prompt verify <id>` renders the same text on every
-run apart from paths.
+run apart from the fields it fills in (paths, the run id and round, the head, the runner's note) and
+the end token, which differs on every run (below).
 
 **The prompt's end.** The rendered prompt's last line is `Prompt end: <token>`, the token a short hash
 of the run id and the text above it, kept on the run (`prompt_token`); the report contract tells the
@@ -467,7 +476,9 @@ needs such a report), `merge` and `ruling`, each with its own template and run n
 Each opens a run of that kind, moves the task to `fixing` and reports as a fix round (§13.4). Review
 and verify treat a merge or ruling round's head as a fix round's: the review prompt lists its report,
 `ccp prompt verify` and `ccp verify record` count it as a fix round newer than the last review (§15.2),
-`verify.skip_review` may prove it, and it counts as a fix round between verify rounds (§15.6 rule 4).
+`verify.skip_review` or a review prover may prove it, `verify.skip_review_after_clean` may take it as
+the fix of a clean review's minor findings (§15.2), and it counts as a fix round between verify rounds
+(§15.6 rule 4).
 Rounds since the last review that are all merge rounds need no new review when the head carries the
 reviewed change unchanged (the same patch id, §15.2).
 
@@ -504,9 +515,11 @@ metrics and every friction line. Report lines:
 - for implement, fix, merge and ruling with `Outcome: done`, each verdict the product declares in plane.json
   `report.required_fields` (a list of `{name, values}`, default none), as `<name>: <value>` with one
   of its declared values. A report missing one, or giving another value, is refused with the field
-  and its allowed values. A field is stated once; a field on two lines, or a value that is the
-  pasted template `a|b`, is refused. The values are kept on the run (`fields`); the implement, fix,
-  merge and ruling prompts list the declared fields, and the review prompt and `ccp prompt review`'s
+  and its allowed values. A field is stated once; a field on two lines is refused. A declared value
+  followed by `|` (the pasted template `a|b`), or by `/`, `,` or the word `or` and then another of
+  the field's declared values (the template respelled: `a / b`, `a, b`, `a or b`), is read as the
+  template and refused; any other text after the value is a reason and is accepted. The values are
+  kept on the run (`fields`); the implement, fix, merge and ruling prompts list the declared fields, and the review prompt and `ccp prompt review`'s
   output show them as the task's latest done implement, fix, merge or ruling report states them. Whether a verdict is right is
   not judged.
 
@@ -589,9 +602,10 @@ has a `Suite:` line but no suite run is recorded for its run.
   skips nothing. One checkout serves a run's provers, in order: what one writes there, the next sees.
   On a run of that lane that is recorded and names its task, before such a stage starts, `ccp` runs the
   stage's provers in order there (`/bin/sh -c`, output discarded, at most 600 s), with `{task_id}`,
-  `{from}` (the head's merge base with `origin/<integration branch>`) and `{head}` (the checkout's
-  HEAD) filled in; the first that exits 0 skips the stage. A non-zero exit or a timeout skips nothing,
-  and a checkout with uncommitted changes, a head with no merge base, or a tip git cannot check out
+  `{from}` (the head's merge base with `origin/<integration branch>`) and `{head}` (the task head
+  under test: the HEAD of the product checkout the run started in, not of the tip's checkout the
+  provers run in) filled in; the first that exits 0 skips the stage. A non-zero exit or a timeout
+  skips nothing, and a checkout with uncommitted changes, a head with no merge base, or a tip git cannot check out
   runs no prover. A skipped stage is neither in `stages` nor among the stages not
   run: the `ended` row and its event record `proven_skips` (`[{stage, prover, exit_code, run_id}]`,
   `prover` its name in `verify.provers`, `run_id` the suite run's run or null), and the summary's stage
@@ -802,8 +816,9 @@ result.
   `--allow-unreviewed-fix --reason "<their words>"` opens it anyway: the run records `allow_unreviewed_fix` (`reason`, `was`), a friction note
   with source `allow-unreviewed-fix` goes to `health/notes.jsonl`, and a `note`/`set` event to the
   ledger. `ccp verify record` refuses an approve under the same condition (judged at the record's
-  `head_sha`) unless the task's open verify run carries that override, or a `review_skip` at that
-  head; a reject is never held back.
+  `head_sha`) unless the task's open verify run carries that override, a `review_skip` that
+  `verify.skip_review` or a review prover proved at that head, or a minor-only `review_skip`
+  (`verify.skip_review_after_clean`, below) on a verify run of that head; a reject is never held back.
 - **A proven fix within declared paths needs no new review** (ADR-0035 D4). plane.json
   `verify.skip_review` (`{"paths": [<paths>], "proof": "<command>"}`; null, the default, is off) lets
   a fix round opened since the last review that reported `done` go straight to verify when: the fix
@@ -1112,7 +1127,10 @@ task's holder.
 `team.sh runner spawn --dry-run` (with any of the spawn's other flags) runs the spawn's refusals and
 prints what the spawn would print, its `actions` included, with `dry_run: true`, and the readiness
 checks of §10.2 that a machine can answer: every scope entry names a task in the task log, `ccp tasks
-check` is clean, and the one runner's `runner.worktree` is a working tree or can be made. It exits 0
+check` is clean, and the one runner's `runner.worktree` is a working tree or can be made: its path
+is absent or an empty directory. A runner worktree that is not a working tree yet needs
+`origin/<integration_branch>`: when that ref does not resolve, the dry run is refused before the
+checks, as the spawn is (exit 3, §12.1). It exits 0
 with `ready: true` when every check passes, and 1 with `ready: false` when any fails, naming the
 failing checks in `failed` and on stderr; a refusal exits as the spawn would. It writes nothing: no
 `work.json`, prompt audit, event or worktree. `--dry-run` with another `runner` op is refused (exit 2).
