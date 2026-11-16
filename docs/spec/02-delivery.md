@@ -119,16 +119,18 @@ These are durable lead state in `work.json`, not messages, which can arrive afte
 - **Hold.** `ccp tasks hold <id> [--reason "…"]` writes `held[<id>] = {by, at, reason}` and a
   `hold` `set` event; it refuses (exit 2) a task the log lacks and one not pending. `--clear <id>`
   lifts it (`hold` `clear`); no arguments lists the holds.
-- **Release** (lead or runner). `ccp tasks release <id> --reason "…"` undoes a claim taken too early: a task leased
-  (or blocked) in the queue with no run at all (nor, from before run records, a prompt audit) goes
+- **Release** (lead or runner). `ccp tasks release <id> [--keep-branch] --reason "…"` undoes a claim: a task leased
+  (or blocked) in the queue with no run at all (nor, from before run records, a prompt audit) or,
+  with `--keep-branch`, a claimed task whose runs are all closed, keeping its branch and PR, goes
   back to `pending`. Its wait is cleared through `set-waiting-on.sh`, its phase moves to `pending`
   (the `queue/pending/` marker), then a `lease` `clear` event with `released: true` and the reason;
   `lease_since`, `claimed_at` and `implementation_started_at` are cleared, and it leaves `work.json`
   as `ccp tasks sync` does (out of `in_flight`, the next task in flight becomes current, none left
   makes `runtime_status` `idle`). The worktree and branch are kept, and a later claim resumes in
-  them. It refuses (exit 3) a task with no lease, in another status, or with a run; no `--reason`
-  is exit 2. A hold stays; a preference entry the claim removed is not restored. A task's time
-  starts at its first claim after its last release.
+  them. It refuses (exit 3) a task with no lease, in another status, or with a run; with
+  `--keep-branch`, one with an open run, one `merging` or one merged by close. No `--reason` is
+  exit 2. A hold stays; a preference entry the claim removed is not restored. A task's time starts
+  at its first claim after its last release.
 - **Drop** (lead or runner). `ccp tasks drop <id> --reason "…"`, for a task its file on the integration tip marks
   `dropped` whose PR did not merge, whatever its phase: it abandons its open runs (`task dropped`),
   clears its wait and lease, sets the queue status `dropped`, takes it out of `work.json` and prints
@@ -158,7 +160,9 @@ the implementer writes it into the task file's `Context (not checked)` section o
 besides its Implementation notes, so it lands in the task's PR (§17.4). A change to the task's
 intent, scope, `dod_checks`, id or dependencies is not a clarification: it follows the task-log
 owner's limit (§17.4: never once a task is claimed without superseding it), so the runner releases
-the task or the lead supersedes it, and the lead edits the file unleased on the integration branch.
+the task (with `--keep-branch` once its runs are all closed, keeping its branch and PR, §10.4) or the
+lead supersedes it, and the lead edits the file unleased on the integration branch; a released task
+is claimed again under the same id and resumes on its branch.
 **`ccp tasks check --lease [--staged]`** (needs `QUEUE_ROOT`) exits 1 naming each such edit, with the
 task and its lease holder, for every task with a live lease (`lease_holder` set, the queue status
 neither `done` nor `dropped`): the commits on the integration branch's first-parent history (the

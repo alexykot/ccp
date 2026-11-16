@@ -558,7 +558,7 @@ def _lifecycle(cfg: config.Config, a: argparse.Namespace):
         a.board_dirty = a.task is not None or a.clear is not None  # §28: the Now panel shows holds
         return lifecycle.hold(cfg, a.task, (a.reason or "").strip(), a.clear)
     if a.cmd == "release":
-        return lifecycle.release(cfg, a.task, (a.reason or "").strip())
+        return lifecycle.release(cfg, a.task, (a.reason or "").strip(), a.keep_branch)
     if a.cmd == "sign-off":
         return lifecycle.sign_off(cfg, a.task, a.stage, a.by or "", a.words or "", a.head, a.at)
     if a.cmd == "drop":
@@ -954,6 +954,9 @@ def build_parser() -> argparse.ArgumentParser:
                                      "its lease and wait cleared; its worktree is kept (SPEC §10.4)")
     p.add_argument("task", help="task id or NNNN")
     p.add_argument("--reason", required=True, help="one line: why the claim is undone")
+    p.add_argument("--keep-branch", action="store_true",
+                   help="release a claimed task whose runs are all closed, keeping its branch and PR for a later "
+                        "claim to resume on (SPEC §10.5)")
     p.set_defaults(fn=life)
     p = t.add_parser("drop", help="settle a task its file marks dropped while it was in flight (its PR not merged): "
                                   "runs abandoned, lease and wait cleared, out of work.json (SPEC §10.4)")
