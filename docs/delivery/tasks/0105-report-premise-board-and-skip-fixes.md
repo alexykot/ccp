@@ -30,6 +30,17 @@ that fails without it.
   back to run-record counts, while `ccp board task` uses health's count. The estimate bands still
   have four phases.
 - The minor-only re-review skip does not check the fix round's own outcome before skipping.
+- Lead's ruling, ruling round 1 (2026-11-16), as the runner passed it: "Lead's ruling (operator
+  policy: rule text found mid-build goes to a follow-up unless the code needs it): drop the respelling
+  rule. After your change, docs/spec/02-delivery.md section 13.4 and ccp/report.py must refuse a
+  report-field value as the unanswered template only when it is exactly the field's template, or is two
+  declared values joined by `|` (the Scope as written). A value like `yes/no`, `yes, no`, `yes or no`
+  or `a, b or c` is then NOT refused as the template. The case where a reason starts with another
+  declared value (`yes, no downtime needed`) stays accepted. Remove the respelling logic
+  (_template/_next_value-style code and any end-of-value condition such as END_RE) and its tests. Keep
+  the tests for the exact template, the `|` pair and the accepted reasons, and make the section 13.4
+  text say only what the code now does. Everything else in the PR stays as is. Write this ruling into
+  the task file's Context (not checked) section."
 
 ## Scope
 
@@ -108,5 +119,13 @@ that fails without it.
 - Minor-only skip (`ccp/verify.py` `skip_after_clean`, SPEC §15.2): the latest fix round since the
   clean review must have reported `done`; a `failed` or `blocked` one is refused as an unreviewed fix.
   The latest round is the one judged, so a second fix round may skip as well; §15.2 now says so.
+- 2026-11-16 (implementer, ruling round 1): per the lead's ruling, the respelling rule is dropped.
+  `ccp/report.py` refuses a field's value as the template only when a declared value is followed by
+  `|` and another declared value (which covers the exact template `a|b|c`); `ALT_RE`, `END_RE`,
+  `_template` and `_next_value` are gone, and the longest-value match is one helper (`_value_at`) used
+  for the value and the value after the `|`. Values joined by `/`, `,` or `or` (`yes/no`, `a, b or c`)
+  are read as their first value, as any reason is. The §13.4 sentence says only that. The tests that
+  pinned the respelled refusals (on `main` before this task and added by it) lose those cases; one
+  test now asserts they are accepted.
 
 ## Verification notes

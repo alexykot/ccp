@@ -48,8 +48,7 @@ class Declared(ToolkitFixture, unittest.TestCase):
     def test_the_pasted_template_is_refused_naming_the_field_and_its_line(self):
         self.implement()
         for said in ("Migration: required|not required", "- **Migration:** `required | not required`",
-                     "migration: not required|required", "Migration: required or not required",
-                     "- Migration: `required` / `not required`", "migration: not required, required"):
+                     "migration: not required|required"):
             code, _, _, err = self.report("0002-second/implement", implement_report(said))
             self.assertEqual(code, 1, said)
             self.assertIn("`migration:` on line 4", err)
@@ -192,14 +191,17 @@ class Parse(unittest.TestCase):
         self.assertEqual(report.fields("Deploy step: `yes`.\n", deploy), ({"Deploy step": "yes"}, []))
 
 
-    def test_the_template_in_another_spelling_is_refused(self):
-        for said in ("required or not required", "`not required` or `required`", "required / not required",
-                     "not required/required", "required, not required", "**Required** OR **not required**"):
+    def test_the_values_joined_without_a_pipe_are_read_as_the_first(self):
+        for said, want in (("required or not required", "required"), ("`not required` or `required`", "not required"),
+                           ("required / not required", "required"), ("not required/required", "not required"),
+                           ("required, not required", "required")):
             with self.subTest(said=said):
-                got, errs = report.fields(f"migration: {said}\n", [MIGRATION])
-                self.assertEqual(got, {})
-                self.assertEqual(len(errs), 1)
-                self.assertIn("migration:` on line 1", errs[0])
+                self.assertEqual(report.fields(f"migration: {said}\n", [MIGRATION]), ({"migration": want}, []))
+        for said in ("yes/no", "yes, no", "yes or no"):
+            with self.subTest(said=said):
+                self.assertEqual(report.fields(f"downtime: {said}\n", [DOWNTIME]), ({"downtime": "yes"}, []))
+        level = [{"name": "level", "values": ["low", "medium", "high"]}]
+        self.assertEqual(report.fields("level: low, medium or high\n", level), ({"level": "low"}, []))
 
     def test_a_reason_after_a_comma_slash_or_or_is_not_the_template(self):
         for said in ("required, the column is new", "not required / no schema change", "required or the job fails",
@@ -214,8 +216,7 @@ class Parse(unittest.TestCase):
                            ("yes or no restart either", "yes"), ("`no`, yes it was asked", "no")):
             with self.subTest(said=said):
                 self.assertEqual(report.fields(f"downtime: {said}\n", [DOWNTIME]), ({"downtime": want}, []))
-        for said in ("yes|no", "yes | no", "`no` | `yes`", "yes|no downtime needed", "yes, no", "no or yes.",
-                     "**yes** / **no**"):
+        for said in ("yes|no", "yes | no", "`no` | `yes`", "yes|no downtime needed"):
             with self.subTest(said=said):
                 got, errs = report.fields(f"downtime: {said}\n", [DOWNTIME])
                 self.assertEqual(got, {})
@@ -228,7 +229,7 @@ class Parse(unittest.TestCase):
 
     def test_every_value_of_a_longer_template_joined_is_refused(self):
         level = [{"name": "level", "values": ["low", "medium", "high"]}]
-        for said in ("low|medium|high", "low|medium", "low, medium or high", "high / low / medium"):
+        for said in ("low|medium|high", "low|medium", "high | low"):
             with self.subTest(said=said):
                 self.assertEqual(report.fields(f"level: {said}\n", level)[0], {})
         self.assertEqual(report.fields("level: low, medium at worst\n", level), ({"level": "low"}, []))

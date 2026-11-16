@@ -89,11 +89,9 @@ def fields(text: str, declared: list[dict[str, Any]]) -> tuple[dict[str, str], l
     line's end or a non-word character, so a reason may follow). The values found, by declared name
     and spelling, and an error naming the field, its line and its allowed values for each missing or
     other one. A value followed by `|` and another of the field's declared values is the prompt's `a|b`
-    template pasted, not a verdict, and is refused, as is a value followed by `/`, `,` or the word `or` and
-    another declared value with nothing after it (the template in another spelling: `a or b`, `a / b`,
-    `a, b`); a reason after a single declared value is accepted, even one that starts with another
-    declared value (`yes, no downtime needed`). So is a field stated on more than one line, naming each
-    line."""
+    template pasted, not a verdict, and is refused; any other text after a declared value is a reason and
+    is accepted, even one that starts with another declared value (`yes, no downtime needed`). So is a
+    field stated on more than one line, naming each line."""
     got: dict[str, str] = {}
     errs: list[str] = []
     for f in declared:
@@ -111,10 +109,10 @@ def fields(text: str, declared: list[dict[str, Any]]) -> tuple[dict[str, str], l
             continue
         m = ms[0]
         said = m.group(1)
-        hit = next((v for v in sorted(values, key=len, reverse=True)
-                    if said.lower().startswith(v.lower()) and not re.match(r"\w", said[len(v):len(v) + 1])), None)
-        if hit is not None and _template(said[len(hit):], [v for v in values if v.lower() != hit.lower()]):
-            hit = None  # the template's alternatives, `a|b` or another spelling, pasted as they stand
+        hit = _value_at(said, values)
+        if (hit is not None and (pair := PIPE_RE.match(said, len(hit)))
+                and _value_at(said[pair.end():], [v for v in values if v.lower() != hit.lower()]) is not None):
+            hit = None  # the prompt's `a|b` template pasted as it stands
         if hit is None:
             errs.append(f"`{name}:` on line {_line_no(text, m)} says `{said[:80]}`; the allowed values are "
                         f"{allowed}, exactly one (plane.json report.required_fields)")
@@ -123,30 +121,13 @@ def fields(text: str, declared: list[dict[str, Any]]) -> tuple[dict[str, str], l
     return got, errs
 
 
-ALT_RE = re.compile(r"[ \t*_`]*(?:/|,|or\b)[ \t*_`]*", re.I)  # `a / b`, `a, b`, `a or b`: the template respelled
-
-
 PIPE_RE = re.compile(r"[ \t*_`]*\|[ \t*_`]*")  # `a|b`, `a | b`: the template as the prompt shows it
-END_RE = re.compile(r"[ \t*_`.]*$")  # nothing after the second value but emphasis, backticks or a full stop
 
 
-def _template(rest: str, others: list[str]) -> bool:
-    """§13.4: is `rest`, what follows a declared value on its field's line, the rest of the template
-    pasted rather than a reason: a `|` then another declared value (`others`) that ends there or at a
-    non-word character, or the other values joined by `/`, `,`, `or` or `|` and nothing after them
-    (`a, b or c`)?"""
-    if m := PIPE_RE.match(rest):
-        return _next_value(rest[m.end():], others) is not None
-    joined = False
-    while (m := ALT_RE.match(rest) or PIPE_RE.match(rest)) and (v := _next_value(rest[m.end():], others)):
-        rest, joined = rest[m.end() + len(v):], True
-    return joined and END_RE.match(rest) is not None
-
-
-def _next_value(tail: str, values: list[str]) -> str | None:
-    """The longest of `values` that `tail` starts with, ending there or at a non-word character."""
+def _value_at(said: str, values: list[str]) -> str | None:
+    """The longest of `values` that `said` starts with, ending there or at a non-word character."""
     return next((v for v in sorted(values, key=len, reverse=True)
-                 if tail.lower().startswith(v.lower()) and not re.match(r"\w", tail[len(v):len(v) + 1])), None)
+                 if said.lower().startswith(v.lower()) and not re.match(r"\w", said[len(v):len(v) + 1])), None)
 
 
 def _line_no(text: str, m: re.Match[str]) -> int:
