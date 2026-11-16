@@ -508,7 +508,7 @@ tasks:
     depends_on: [0104-command-edge-fixes]
     path: tasks/0101-spec-text-catches-up-with-the-code.md
   - id: 0102-init-and-docs-check-fixes
-    status: pending
+    status: done
     title: init's deny rules, --adopt on nested rules, origin parsing, and the package-doc check are fixed
     depends_on: []
     path: tasks/0102-init-and-docs-check-fixes.md

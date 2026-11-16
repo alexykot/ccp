@@ -1,7 +1,7 @@
 ---
 task_id: 0102-init-and-docs-check-fixes
 title: init's deny rules, --adopt on nested rules, origin parsing, and the package-doc check are fixed
-status: pending
+status: done
 kind: fix
 depends_on: []
 spec_refs: ["S4", "S12"]
@@ -117,3 +117,5 @@ Adopting a product and checking its docs do what they say:
   instead of `--name`.
 
 ## Verification notes
+- 2026-11-16 — verifier, PR #105 head `92746ad` (close's catch-up of the approved `087da9e`, gate run st-20261116T185403Z-b6c5ce) (squash `e4064b1`): APPROVE. Passed: check-01, check-02, check-03, check-04, check-05. Gate: `ccp suite run --lane gate (scripts/gate.sh)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0102-init-and-docs-check-fixes.json.
+
