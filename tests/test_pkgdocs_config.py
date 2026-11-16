@@ -70,6 +70,29 @@ class PkgDocsTest(unittest.TestCase):
                 for need in ("mixed: no .claude.md", "lib: no .claude.md", "listed: no CLAUDE.md"):
                     self.assertIn(need, "\n".join(errs))
 
+    def test_a_package_doc_in_a_directory_of_documents_only_is_checked(self):
+        for git in (False, True):
+            with self.subTest(git=git):
+                q = Product({"package_docs": {}})
+                self.addCleanup(q.cleanup)
+                q.write("notes/a.md", "# a\n" + "line\n" * 20)
+                q.write("notes/.claude.md", "no title\n\nSee `gone.md`.\n")
+                q.write("plain/b.md", "# b\n")
+                q.write("bare/.claude.md", "# bare\n\nSee `gone.md`.\n")  # the doc alone, no other file
+                if git:  # a checkout: the tracked files decide
+                    subprocess.run(["git", "init", "-q"], cwd=q.root, check=True)
+                    subprocess.run(["git", "add", "--", "notes", "plain", "bare"], cwd=q.root, check=True)
+                errs = "\n".join(pkgdocs.check(q.cfg))
+                self.assertIn("notes/.claude.md: must open with a `# ` title", errs)
+                self.assertIn("notes/.claude.md: names `gone.md`", errs)
+                self.assertIn("bare/.claude.md: names `gone.md`", errs)
+                self.assertNotIn("plain", errs)  # no doc, and none needed
+                with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                    self.assertEqual(cli.main(["--root", str(q.root), "docs", "check"]), 1)
+                q.write("notes/.claude.md", "# notes\n")
+                q.write("bare/.claude.md", "# bare\n")
+                self.assertEqual(pkgdocs.check(q.cfg), [])
+
 
 class ConfigTest(unittest.TestCase):
     def test_absent_plane_json_is_not_adopted(self):

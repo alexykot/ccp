@@ -115,6 +115,8 @@ class Baseline(WtFixture, unittest.TestCase):
         code, _, _, err = self.wt("create", "--kind", "ver", "--baseline")
         self.assertEqual(code, 3)
         self.assertIn("ccp wt remove ver-baseline", err)
+        self.assertIn("--baseline", err)  # the way back is what --baseline accepts,
+        self.assertNotIn("--name", err)   # not the flag it refuses
 
     def test_without_baseline_a_ver_worktree_still_needs_a_task(self):
         self.assertEqual(self.wt("create", "--kind", "ver", "--sha", self.head())[0], 2)

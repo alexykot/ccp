@@ -411,7 +411,7 @@ def _same_depth(path: Path, name: str, shallow: bool) -> None:
     have = _is_clone(path) and git(path, "rev-parse", "--is-shallow-repository").stdout.strip() == "true"
     if have != shallow:
         raise QueueError(f"worktree {name} exists {'shallow' if have else 'with full history'}: remove it "
-                         f"(`ccp wt remove {name}`) or give another --name", 3)
+                         f"(`ccp wt remove {name}`) {_or_else(name)}", 3)
 
 
 def _same_head(path: Path, name: str, sha: str | None) -> None:
@@ -422,7 +422,13 @@ def _same_head(path: Path, name: str, sha: str | None) -> None:
     want = git(path, "rev-parse", "--verify", "-q", f"{sha}^{{commit}}").stdout.strip() or sha
     if head and head != want:
         raise QueueError(f"worktree {name} exists at {head[:12]}, not {sha[:12]}: remove it (`ccp wt remove {name}`) "
-                         "or give another --name", 3)
+                         f"{_or_else(name)}", 3)
+
+
+def _or_else(name: str) -> str:
+    """The second way out of a refused reuse: another name, except for the baseline, which `--baseline`
+    names itself (it refuses `--name`)."""
+    return "and make it again (`ccp wt create --kind ver --baseline`)" if name == BASELINE else "or give another --name"
 
 
 def remove(cfg: Config, q: Path, name: str) -> list[str]:

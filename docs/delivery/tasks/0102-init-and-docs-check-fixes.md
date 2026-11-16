@@ -98,4 +98,22 @@ Adopting a product and checking its docs do what they say:
 
 *Append-only, newest last.*
 
+- 2026-11-16 (implementer): `DENY` (`ccp/init.py`) gains the wildcard rules `git push * <flag>` and
+  `git push * <flag> *` for `--force`, `--force-with-lease` and `-f`; an entry holding `*` is written
+  as `Bash(<entry>)` (`_deny_rule`), a prefix as before, so the allow list is untouched.
+- `--adopt`: `_rule_ends` ends an item at the next rule line at any indent, keeps a fenced block the
+  item opened whole, and opens no rule inside a fence; the doc is read and written with `newline=""`
+  and `_with_checks` ends each added line as the line it follows, so CRLF stays CRLF. The new text is
+  re-parsed before writing: if an adopted rule would not read `pass`, or another rule's check would
+  change (a fence left open), it refuses (exit 1) and writes nothing. For the parse to agree,
+  `rules.rule_blocks` now skips fenced code (`docrules.unfenced`): a heading, rule or `check:` line
+  in a fence no longer counts.
+- `origin_host` splits into `origin_url` and `url_host`; a URL `urlsplit` refuses gives no host
+  (None), and init's warning names the URL with everything between `://` and its last `@` removed.
+- `pkgdocs.source_dirs` judges a directory that has its package doc even when it holds documents
+  only (or nothing but the doc); coverage is still required only where it was. SPEC §21.3 already
+  reads this way ("Each doc: …"), so no SPEC text changed.
+- `_same_head` and `_same_depth` (`ccp/wt.py`) point the baseline back at `--kind ver --baseline`
+  instead of `--name`.
+
 ## Verification notes

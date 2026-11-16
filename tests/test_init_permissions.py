@@ -23,6 +23,15 @@ def tree(*roots: Path) -> dict[str, bytes]:
     return out
 
 
+def denied(rule: str, cmd: str) -> bool:
+    """Claude Code's Bash rule: `Bash(prefix:*)` matches the prefix as a whole word or more; any other
+    rule matches the whole command, a `*` standing for any run of characters."""
+    body = rule[len("Bash("):-1]
+    if body.endswith(":*"):
+        return cmd == body[:-2] or cmd.startswith(body[:-2] + " ")
+    return re.fullmatch(".*".join(map(re.escape, body.split("*"))), cmd) is not None
+
+
 class Permissions(InitCase):
     def adopt(self, *args):
         code, res = self.init("--project-id", "demo", *args)
@@ -59,6 +68,19 @@ class Permissions(InitCase):
         for cmd in ("git push --force", "git reset --hard", "git clean"):
             self.assertIn(f"Bash({cmd}:*)", block["deny"])
         self.assertFalse(set(allow) & set(block["deny"]))
+
+    def test_a_forced_push_is_denied_wherever_its_flag_is(self):
+        self.adopt()
+        deny = self.block()["deny"]
+        for cmd in ("git push origin main --force", "git push --force origin main", "git push origin -f main",
+                    "git push origin main --force-with-lease", "git push -f origin main", "git push origin main -f",
+                    "git push origin --force-with-lease main", "git push --force-with-lease"):
+            with self.subTest(cmd=cmd):
+                self.assertTrue([r for r in deny if denied(r, cmd)], cmd)
+        for cmd in ("git push origin main", "git push -u origin task/0001-a", "git push origin main --follow-tags",
+                    "git push origin HEAD:main"):
+            with self.subTest(cmd=cmd):
+                self.assertEqual([r for r in deny if denied(r, cmd)], [], cmd)
 
     def test_a_staged_gate_lane_allows_each_stage_command(self):
         self.adopt()

@@ -3,7 +3,7 @@
 Coverage rot is invisible: nothing points at the doc that was never written. So where a product
 opts in (a `package_docs` block in `plane.json`), the rule is mechanical rather than a judgement.
 The language-neutral core: every directory holding source carries a package doc (one holding
-documents only, `.md`, needs none unless the product lists it), the doc opens with a title, names no
+documents only, `.md`, needs none unless the product lists it, but one it has is checked), the doc opens with a title, names no
 file that is gone, plans nothing, and stays shorter than a fraction of its source. The language
 pack (`package_docs.language`, ccp/doclang) adds its source suffixes and directory names, and its
 per-file checks over `docstring_globs` (Python: a module docstring that says what the module
@@ -67,9 +67,10 @@ def _tracked_files(root: Path) -> list[Path] | None:
 
 
 def source_dirs(cfg: Config) -> list[Path]:
-    """Directories below the product root that hold source the product owns. The root itself is
-    not judged: its CLAUDE.md is the project brief, which names things in other repos. A directory of
-    documents only (`.md`) is left out unless `claude_md_dirs` names it."""
+    """Directories below the product root that hold source the product owns, or a package doc. The
+    root itself is not judged: its CLAUDE.md is the project brief, which names things in other repos.
+    A directory of documents only (`.md`) needs no package doc unless `claude_md_dirs` names it, but
+    one it has is checked all the same."""
     pd = cfg.package_docs
     sfx, ex = suffixes(cfg), exempt_dirs(cfg)
 
@@ -77,8 +78,10 @@ def source_dirs(cfg: Config) -> list[Path]:
         return f.suffix in sfx and f.name != pd["doc_name"] and not f.name.startswith(".")
 
     def judged(d: Path, found: set[str]) -> bool:
-        # documents only (every source file .md): no package doc unless the product lists the directory
-        return bool(found - {DOC_SUFFIX}) or str(d.relative_to(cfg.root)) in pd["claude_md_dirs"]
+        # documents only (every source file .md): no package doc needed unless the product lists the
+        # directory; a doc that exists is checked wherever it is
+        return (bool(found - {DOC_SUFFIX}) or str(d.relative_to(cfg.root)) in pd["claude_md_dirs"]
+                or doc_for(cfg, d).is_file())
 
     tracked = _tracked_files(cfg.root)
     if tracked is not None:   # a git checkout: only what is versioned (no caches, builds or scratch)
@@ -86,6 +89,8 @@ def source_dirs(cfg: Config) -> list[Path]:
         for f in tracked:
             if source(f):
                 found.setdefault(f.parent, set()).add(f.suffix)
+            elif f.name in (pd["doc_name"], "CLAUDE.md"):
+                found.setdefault(f.parent, set())
         return sorted(d for d, sf in found.items() if d != cfg.root
                       and not _exempt(cfg, d.relative_to(cfg.root), ex) and judged(d, sf))
     out = []
@@ -94,7 +99,7 @@ def source_dirs(cfg: Config) -> list[Path]:
         if _exempt(cfg, rel, ex):
             continue
         sf = {f.suffix for f in d.iterdir() if f.is_file() and source(f)}
-        if sf and judged(d, sf):
+        if (sf or doc_for(cfg, d).is_file()) and judged(d, sf):
             out.append(d)
     return out
 

@@ -76,6 +76,31 @@ class RulesDoc(InitCase):
         self.assertEqual((code, res["unchecked"], res["adopted"]), (0, [], []))
         self.assertEqual(self.doc.read_text(), before)
 
+    def test_adopt_marks_each_rule_s_own_item_keeps_crlf_and_a_rerun_changes_nothing(self):
+        lines = ["# Rules", "", "- **E1** Parent rule.", "  - **E2** Nested rule.", "    check: pass",
+                 "- **E3** Run the suite:", "  ```sh", "  # every module", "  make test", "  ```",
+                 "- **E4** A fence follows, unindented:", "```sh", "# not a heading", "- **E5** quoted, not a rule",
+                 "```", ""]
+        self.doc.write_bytes("\r\n".join(lines).encode())
+        code, res = self.rules_doc("--adopt")
+        self.assertEqual(code, 0, res)
+        self.assertEqual((res["rules"], res["adopted"]), (4, ["E1", "E3", "E4"]))
+        want = [*lines[:3], "  check: pass", *lines[3:10], "  check: pass", lines[10], "  check: pass", *lines[11:]]
+        self.assertEqual(self.doc.read_bytes(), "\r\n".join(want).encode())
+        self.assertEqual(rules.parse_rules(self.doc.read_text())[0], dict.fromkeys(("E1", "E2", "E3", "E4"), "pass"))
+        before = self.doc.read_bytes()
+        code, res = self.rules_doc("--adopt")
+        self.assertEqual((code, res["unchecked"], res["adopted"]), (0, [], []))
+        self.assertEqual(self.doc.read_bytes(), before)
+
+    def test_adopt_refuses_a_check_line_that_would_not_read_as_the_rule_s(self):
+        text = "- **E1** A fence left open:\n  ```\n  code\n"
+        self.doc.write_text(text)
+        code, err = self.rules_doc("--adopt")
+        self.assertEqual(code, 1, err)
+        self.assertIn("E1", err)
+        self.assertEqual(self.doc.read_text(), text)
+
     def test_adopt_over_the_line_cap_writes_nothing(self):
         n = len(RULES.splitlines())
         self.plane(architect={"rules_doc": "docs/RULES.md", "rules_max_lines": n + 2})
