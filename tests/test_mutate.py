@@ -342,7 +342,7 @@ class Refusals(MutateFixture, unittest.TestCase):
         self.assertEqual((self.mut / "calc.py").read_text(), CALC)
         return err
 
-    def test_outside_a_mut_rev_or_ver_worktree(self):
+    def test_outside_an_impl_mut_rev_or_ver_worktree(self):
         self.refused(2, "calc.py:a + b=>a - b", root=self.make_wt("mac"))
         self.refused(2, "calc.py:a + b=>a - b", root=self.main)
 
@@ -449,10 +449,111 @@ class Reverts(MutateFixture, unittest.TestCase):
         return sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.name != ".git")
 
 
+def capture(root: Path, files: tuple[str, ...]) -> Path:
+    """Point the worktree's `mutate.command` at one that first appends what each of `files` holds (or
+    `<absent>`) to a capture file, then runs the test: what each run saw."""
+    cap = root.parent / f"{root.name}-seen.txt"
+    dump = "; ".join(f"{{ cat {f} 2>/dev/null || printf '<absent>'; }} >> {shlex.quote(str(cap))}; "
+                     f"printf '<<F>>' >> {shlex.quote(str(cap))}" for f in files)
+    p = root / "docs/delivery/plane.json"
+    body = json.loads(p.read_text())
+    body["mutate"] = {"command": f"{dump}; printf '<<RUN>>' >> {shlex.quote(str(cap))}; {COMMAND}"}
+    p.write_text(json.dumps(body))
+    return cap
+
+
+def seen(cap: Path) -> list[list[str]]:
+    """Per run (the unmutated one first), what each captured file held."""
+    return [run.split("<<F>>")[:-1] for run in cap.read_text().split("<<RUN>>")[:-1]]
+
+
+class FromTheImplementersWorktree(MutateFixture, unittest.TestCase):
+    """The implementer runs `ccp mutate` from its own `impl` worktree, on its task branch."""
+
+    def test_a_revert_runs_there_and_puts_back_the_base_of_that_hunk(self):
+        self.task_commit({"calc.py": GUARDED, "test_calc.py": GUARD_TESTS, "limits.py": "FLOOR = 0\n"})
+        code, body, _, err = self.ccp("wt", "create", "--kind", "impl", "--task", "0002", root=self.main)
+        self.assertEqual(code, 0, err)
+        impl = Path(body["path"])
+        cap = capture(impl, ("calc.py",))
+        code, body, _, err = self.mutate(test=GUARD, root=impl, reverts=("calc.py:5",))
+        self.assertEqual((code, body["worktree"]), (0, "impl-0002"), err)
+        self.assertEqual(seen(cap), [[GUARDED], ["from limits import FLOOR\n\n\n" + CALC]])
+        self.assertEqual([(r["kind"], r["outcome"], r["worktree"]) for r in self.rows()],
+                         [("revert", "killed", "impl-0002")])
+        self.assertEqual((impl / "calc.py").read_text(), GUARDED)
+
+
+# A change git and difflib place differently: git puts the inserted blank line after NEW, difflib
+# before it, so line 4 is in git's hunk and line 2 in difflib's alone.
+REP_BASE = "a\n\nb\n\nc\nd\ne\n"
+REP_NOW = "a\n\nNEW\n\nb\n\nC\nd\n"
+
+
+class RevertsAsGitShows(MutateFixture, unittest.TestCase):
+    """A revert puts back exactly the hunk `git diff -U0` shows, and a file the change deleted whole."""
+
+    def setUp(self):
+        super().setUp()
+        self.write("rep.txt", REP_BASE)
+        self.write("gone.py", "GONE = 1\n")
+        git(self.main, "add", "rep.txt", "gone.py")
+        git(self.main, "commit", "-q", "-m", "files the task changes")
+        git(self.main, "push", "-q", "origin", "main")
+        git(self.main, "checkout", "-q", "-b", "task/0002-second")
+        self.write("rep.txt", REP_NOW)
+        git(self.main, "rm", "-q", "gone.py")
+        git(self.main, "add", "rep.txt")
+        git(self.main, "commit", "-q", "-m", "the task's change")
+        self.head = git(self.main, "rev-parse", "HEAD")
+        git(self.main, "checkout", "-q", "main")
+        self.rev = self.make_wt("rev", sha=self.head)
+
+    def git_hunks(self) -> list[tuple[int, int, int, int]]:
+        """The hunks git shows for rep.txt from the merge base, as 0-based (i1, i2, j1, j2) spans."""
+        out = git(self.rev, "diff", "-U0", "origin/main", "--", "rep.txt")
+        spans = []
+        for m in mutate.HUNK_RE.finditer(out.encode()):
+            s1, n1, s2, n2 = int(m[1]), int(m[2] or 1), int(m[3]), int(m[4] or 1)
+            spans.append((s1 - 1 if n1 else s1, (s1 - 1 if n1 else s1) + n1, s2 - 1 if n2 else s2,
+                          (s2 - 1 if n2 else s2) + n2))
+        return spans
+
+    def test_each_hunk_alone_and_the_deleted_file_whole(self):
+        hunks = self.git_hunks()
+        self.assertEqual(hunks, [(2, 2, 2, 4), (4, 5, 6, 7), (6, 7, 8, 8)])  # the insertion, C, e deleted
+        was, now = REP_BASE.splitlines(keepends=True), REP_NOW.splitlines(keepends=True)
+        reverts, want = [], []
+        for i1, i2, j1, j2 in hunks:  # every line of the hunk, and for a deletion the line it follows
+            for line in range(j1 + 1, j2 + 1) if j2 > j1 else (j1,):
+                reverts.append(f"rep.txt:{line}")
+                want.append("".join(now[:j1] + was[i1:i2] + now[j2:]))
+        cap = capture(self.rev, ("rep.txt", "gone.py"))
+        code, _, _, err = self.mutate(test=ADD, root=self.rev, reverts=(*reverts, "gone.py"))
+        self.assertEqual(code, 1, err)  # the test reads neither file: every mutant survives
+        runs_seen = seen(cap)
+        self.assertEqual(runs_seen[0], [REP_NOW, "<absent>"])
+        self.assertEqual([r[0] for r in runs_seen[1:-1]], want)
+        self.assertEqual(runs_seen[-1], [REP_NOW, "GONE = 1\n"])
+        self.assertEqual((self.rev / "rep.txt").read_text(), REP_NOW)
+        self.assertFalse((self.rev / "gone.py").exists())
+
+    def test_a_line_outside_every_git_hunk_is_no_change(self):
+        code, _, _, err = self.mutate(test=ADD, root=self.rev, reverts=("rep.txt:2",))
+        self.assertEqual(code, 2, err)
+        self.assertIn("touch no change", err)
+        self.assertEqual(self.rows(), [])
+
+
 class RevertLines(unittest.TestCase):
     """Which changes a line range puts back (lines of the worktree's file, 1-based, inclusive)."""
 
     BASE = b"a\nb\nc\nd\ne\nf\n"
+
+    def setUp(self):
+        env = mock.patch.dict(os.environ, {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"})
+        env.start()
+        self.addCleanup(env.stop)
 
     def test_only_the_changes_the_range_overlaps(self):
         now = b"a\nB\nc\nd\nE\nf\n"
@@ -470,6 +571,16 @@ class RevertLines(unittest.TestCase):
         for first, last in ((2, 2), (3, 3), (2, 3)):
             self.assertEqual(mutate._revert_lines(now, self.BASE, first, last), self.BASE, (first, last))
         self.assertEqual(mutate._revert_lines(now, self.BASE, 4, 5), now)
+
+    def test_repeated_lines_follow_gits_hunks(self):
+        was, now = b"}\n}\n", b"}\nfoo\n}\n}\n"  # git: foo and a } added after line 1; difflib: before it
+        self.assertEqual(mutate._hunks(was, now), [(1, 1, 1, 3)])
+        self.assertEqual(mutate._revert_lines(now, was, 3, 3), was)
+        self.assertEqual(mutate._revert_lines(now, was, 1, 1), now)
+
+    def test_a_last_line_without_its_newline(self):
+        self.assertEqual(mutate._revert_lines(b"a\nB", b"a\nb\n", 2, 2), b"a\nb\n")
+        self.assertEqual(mutate._revert_lines(b"a\nb", b"a\nb\n", 2, 2), b"a\nb\n")
 
 
 class Ledger(unittest.TestCase):

@@ -102,12 +102,45 @@ class NoteAndEnv(ToolkitFixture, unittest.TestCase):
     def test_worker_env_names_the_workers_kind_and_seat(self):
         self._with_env({"SEAT": "{{kind}}-{{seat}}-{{nnnn}}"})
         self.claim()
-        for phase, args, want in (("implement", ("--base", "abc1234"), "impl-impl-0002"),
-                                  ("review", ("--pr", "7", "--head", "a" * 40), "rev-rev-0002"),
-                                  ("verify", ("--pr", "7", "--head", "a" * 40), "ver-ver-0002")):
+        for phase, args, want in self.ROWS:
             code, body, out, err = self.ccp("prompt", phase, "0002", *args, "--supersede")
-            self.assertEqual(code, 0, out + err)
-            self.assertIn(f"export SEAT={want}\n", Path(body["env_file"]).read_text())
+            self.assertEqual(code, 0, f"{phase}: {out}{err}")
+            self.assertIn(f"export SEAT={want}\n", Path(body["env_file"]).read_text(), phase)
+
+    A = "a" * 40
+    ROWS = (("implement", ("--base", "abc1234"), "impl-impl-0002"),
+            ("review", ("--pr", "7", "--head", A), "rev-rev-0002"),
+            ("verify", ("--pr", "7", "--head", A), "ver-ver-0002"),  # before the rounds that need a new review
+            ("fix", ("--pr", "7", "--head", A), "impl-impl-0002"),
+            ("merge", ("--pr", "7", "--head", A), "impl-impl-0002"),
+            ("ruling", ("--pr", "7", "--head", A, "--note", "the field is optional"), "impl-impl-0002"))
+
+    def setUp(self):
+        super().setUp()
+        # a fix round needs findings to fix from: a review report on file
+        (self.q / "progress/0002-second").mkdir(parents=True)
+        (self.q / "progress/0002-second/review-report.md").write_text("Outcome: done\n")
+
+    def test_worker_env_takes_kind_and_seat_from_the_bound_worktree(self):
+        self._with_env({"SEAT": "{{kind}}-{{seat}}-{{nnnn}}"})
+        self.claim()
+        sha = git(self.main, "rev-parse", "origin/main")
+        code, body, out, err = self.ccp("wt", "create", "--kind", "mut", "--task", "0002", "--sha", sha,
+                                        "--seat", "probe", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        mut = body["path"]
+        code, body, out, err = self.ccp("wt", "create", "--kind", "ver", "--task", "0002", "--sha", sha,
+                                        "--seat", "probe", root=self.main)
+        self.assertEqual((code, Path(body["path"]).name), (0, "ver-0002"), out + err)
+        code, body, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", self.A)
+        self.assertEqual(code, 0, out + err)
+        self.assertIn("export SEAT=ver-probe-0002\n", Path(body["env_file"]).read_text())
+        for phase, args, _ in self.ROWS:
+            if phase in ("review", "verify"):
+                continue  # their worktree is their own, not one the runner names
+            code, body, out, err = self.ccp("prompt", phase, "0002", *args, "--worktree", mut, "--supersede")
+            self.assertEqual(code, 0, f"{phase}: {out}{err}")
+            self.assertIn("export SEAT=mut-probe-0002\n", Path(body["env_file"]).read_text(), phase)
 
     def test_worker_env_config_is_checked(self):
         for env, want in (({"1BAD": "x"}, "not a shell variable name"), ({"A": "{{nope}}"}, "names nope"),

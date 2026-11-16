@@ -422,9 +422,9 @@ where the check is mechanical it is a `docs` check. No starter rule is mandatory
 ### 20.6 Mutation checks (`ccp mutate`)
 
 `ccp mutate --run <run_id> --test <id> [--mutant <m> …] [--revert <path>[:<lines>] …]` tells "the
-test passes" from "the test checks something", in any language. It runs in the calling seat's
-worktree, a mutation worktree (`ccp wt create --kind mut`, §12.1) or the reviewer's or verifier's
-own (`rev`, `ver`), and changes nothing else.
+test passes" from "the test checks something", in any language. It runs in the calling seat's own
+worktree (the implementer's `impl`, the reviewer's `rev` or the verifier's `ver`) or a mutation
+worktree (`ccp wt create --kind mut`, §12.1), and changes nothing else.
 
 - **The product's command.** plane.json `mutate.command` is a shell template that runs one test,
   `{test}` (required) filled in shell-quoted; exit 0 means the test passed. `--test` is one test id,
@@ -441,7 +441,8 @@ own (`rev`, `ver`), and changes nothing else.
   of the file (the merge base of HEAD and `origin/<integration>`, §12.1; a file the change added is
   removed). With a line range (1-based, inclusive, lines of the worktree's file) it puts back only
   the changes from the merge base those lines overlap, and a deletion inside the range or next to
-  it. A revert that changes nothing, or a range outside the file, refuses the call (exit 2). The
+  it; the changes are the hunks `git diff -U0` shows between the merge base's version and the
+  worktree's. A revert that changes nothing, or a range outside the file, refuses the call (exit 2). The
   call takes at least one mutant; the `--mutant`s are numbered first, then the `--revert`s, each in
   the order given.
 - **Killed only when the named test fails.** The test first runs unmutated; when it fails, the call
@@ -453,7 +454,7 @@ own (`rev`, `ver`), and changes nothing else.
   cannot be restored stops the call (exit 1). A SIGTERM at any point of the call kills the running
   test, restores the files and exits 143.
 - **Bound to the calling seat's run.** `--run` names the run, which must be open (not reported or
-  abandoned), and the worktree must be a recorded `mut`, `rev` or `ver` worktree of the run's task;
+  abandoned), and the worktree must be a recorded `impl`, `mut`, `rev` or `ver` worktree of the run's task;
   otherwise it refuses (exit 2). Each mutant adds a row to the run record's `mutation` list: the
   test id, the mutant's number, `kind` (`text`, `patch` or `revert`), the files it touched, a
   12-character digest, the outcome, the exit code, the seconds, `timed_out` and the worktree's name;
