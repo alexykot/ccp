@@ -1,7 +1,7 @@
 ---
 task_id: 0100-prompt-templates-name-the-tools
 title: Worker prompts name ccp mutate --revert and ccp suite affected, and worker_env takes kind and seat from the worktree
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S14", "S15"]
@@ -127,3 +127,5 @@ The worker prompts describe the tools as they now are:
   are corrected as §31.1 text. `docs/cli/03-quality.md` and `ccp mutate --help` name the `impl` kind.
 
 ## Verification notes
+- 2026-11-16 — verifier, PR #107 head `ec099da` (squash `1d6526e`): APPROVE. Passed: check-01, check-02, check-03, check-04, check-05. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0100-prompt-templates-name-the-tools.json.
+
