@@ -56,6 +56,9 @@ merged change made false. It adds no rule and changes no code.
     prints passes a pointer to the prompt file rather than its text verbatim. §13.2 and
     docs/design/toolkit.md still say a prompt renders the same text every run apart from paths, and
     docs/design/team.md says the prompt is passed verbatim: say what holds now.
+  - §4.5 names only the `rules_max_lines` refusal of `ccp init --adopt`. Since task 0102 it also
+    refuses when the re-parse after writing fails, and the rules parser skips fenced code blocks:
+    say both.
 - **Out:**
   - Any change to code, or to what a rule requires.
 
