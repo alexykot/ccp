@@ -1,7 +1,7 @@
 ---
 task_id: 0100-prompt-templates-name-the-tools
 title: Worker prompts name ccp mutate --revert and ccp suite affected, and worker_env takes kind and seat from the worktree
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S14", "S15"]
@@ -108,4 +108,24 @@ The worker prompts describe the tools as they now are:
 
 *Append-only, newest last.*
 
+- 2026-11-16 (implementer): `ccp mutate` accepts a recorded `impl` worktree of the run's task
+  (`WORKTREE_KINDS`); its refusal now points at the seat's own worktree first. `_revert_lines` takes
+  its hunks from `git diff --no-index -U0` of the two versions (`_hunks`, run in the worktree so its
+  diff settings apply, `--no-ext-diff --no-textconv --text`) and counts lines as git does (newline
+  only, `_lines`). `worker_env`'s `{{kind}}` and `{{seat}}` come from `wt.recorded_at` of the path
+  the run is bound to (`--worktree` for the change rounds, the seat's own `rev`/`ver` path for review
+  and verify), else the phase's kind and its default seat as before.
+- Templates: the implement, fix, merge and ruling pre-gates name `ccp suite affected` (`--since
+  origin/<integration>` for implement, `--since <head>` for the rounds); the verify bullet runs
+  `ccp mutate --revert` from the verifier's own worktree, with the hand-made break through the part
+  lane kept for a product with no `mutate.command`; `_common.md` names the worker's own worktree and
+  no longer a mutation copy; the implement template says the implementer may run `ccp mutate` from
+  its own worktree.
+- SPEC: the verifier's mutation step is in §13.2 item 1 (not §15, which has no such sentence); it,
+  §13.5's fail-fast line, §20.6 (the `impl` kind; reverts follow `git diff -U0`'s hunks) and
+  01-model §8.1's `kind`/`seat` field note (outside the task's `paths`, but false after the change)
+  are corrected as §31.1 text. `docs/cli/03-quality.md` and `ccp mutate --help` name the `impl` kind.
+
 ## Verification notes
+- 2026-11-16 — verifier, PR #107 head `ec099da` (squash `1d6526e`): APPROVE. Passed: check-01, check-02, check-03, check-04, check-05. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0100-prompt-templates-name-the-tools.json.
+

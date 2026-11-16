@@ -1109,7 +1109,7 @@ def build_parser() -> argparse.ArgumentParser:
     ch.add_argument("--paths", nargs="+", metavar="PATH", help="the change: these paths, relative to the product root")
     p.set_defaults(fn=cmd_suite_affected)
 
-    p = sub.add_parser("mutate", help="does a test bite: apply each mutant in the seat's mut, rev or ver worktree, "
+    p = sub.add_parser("mutate", help="does a test bite: apply each mutant in the seat's impl, mut, rev or ver worktree, "
                                       "run the named test, record killed or survived on the run (SPEC §20.6; needs "
                                       "QUEUE_ROOT)")
     p.add_argument("--run", required=True, help="the calling seat's run (<task_id>/<phase>[-n]); it must be open")

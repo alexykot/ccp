@@ -498,7 +498,7 @@ tasks:
     depends_on: []
     path: tasks/0099-worker-prompts-arrive-whole.md
   - id: 0100-prompt-templates-name-the-tools
-    status: pending
+    status: done
     title: Worker prompts name ccp mutate --revert and ccp suite affected, and worker_env takes kind and seat from the worktree
     depends_on: []
     path: tasks/0100-prompt-templates-name-the-tools.md

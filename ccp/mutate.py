@@ -8,8 +8,9 @@ when that test fails.
 `<file>:<old>=><new>` (the text `old`, found exactly once in the file, relative to the worktree's
 root, becomes `new`) or the path of a patch `git apply` takes. A `--revert` mutant puts back the
 merge base's version (HEAD's merge base with the integration branch) of a file, or of every change
-from it that a range of the worktree file's lines overlaps or borders. The `--mutant`s come first,
-then the `--revert`s, each in the order given.
+from it that a range of the worktree file's lines overlaps or borders, the changes being the hunks
+`git diff -U0` shows between the two. The `--mutant`s come first, then the `--revert`s, each in the
+order given.
 
 Every mutant is checked before anything runs. Then the named test runs once unmutated: a test that
 fails already proves nothing, so the command stops there. Each mutant is applied alone, the test
@@ -19,8 +20,8 @@ every file the mutant touched is written back byte for byte (a file or directory
 removed), and checked, before the next. A SIGTERM at any point of the call kills the running test,
 restores the files and exits 143.
 
-It runs only from a recorded `mut`, `rev` or `ver` worktree of the run's task, and only for a run
-that is still open. Each mutant adds a row to the run record's `mutation` list: the test id, the
+It runs only from a recorded `impl`, `mut`, `rev` or `ver` worktree of the run's task, and only for a
+run that is still open. Each mutant adds a row to the run record's `mutation` list: the test id, the
 mutant's number, kind, files and a digest, killed or survived, the exit code and seconds; never the
 mutant's text, old or new, or the test's output, which goes to a log next to the run's record. The
 call ends with one `run`/`recorded` event. Exit 0 when every mutant was killed, 1 when one survived
@@ -28,7 +29,6 @@ or the unmutated test failed, 2 for a usage or configuration problem.
 """
 from __future__ import annotations
 
-import difflib
 import hashlib
 import os
 import re
@@ -36,6 +36,7 @@ import shlex
 import shutil
 import signal
 import subprocess
+import tempfile
 import threading
 import time
 from contextlib import contextmanager
@@ -47,8 +48,9 @@ from ccp.config import Config, fill
 from ccp.queue import QueueError, emit, git, iso
 
 SEP = "=>"
-WORKTREE_KINDS = ("mut", "rev", "ver")  # the seats' worktrees a call may run in (§20.6)
+WORKTREE_KINDS = ("impl", "mut", "rev", "ver")  # the seats' worktrees a call may run in (§20.6)
 RANGE_RE = re.compile(r"([1-9][0-9]*)(?:-([1-9][0-9]*))?")
+HUNK_RE = re.compile(rb"^@@ -([0-9]+)(?:,([0-9]+))? \+([0-9]+)(?:,([0-9]+))? @@", re.M)  # a `git diff` hunk header
 
 
 def _inside(root: Path, p: Path) -> bool:
@@ -114,14 +116,48 @@ def _base_blob(root: Path, base: str, rel: str, spec: str) -> bytes | None:
     return r.stdout
 
 
-def _revert_lines(now: bytes, was: bytes, first: int, last: int) -> bytes:
+def _lines(text: bytes) -> list[bytes]:
+    """The lines git counts: split after each newline only, each keeping its own."""
+    parts = text.split(b"\n")
+    out = [p + b"\n" for p in parts[:-1]]
+    return out + [parts[-1]] if parts[-1] else out
+
+
+def _hunks(was: bytes, now: bytes, cwd: Path | None = None) -> list[tuple[int, int, int, int]]:
+    """The hunks `git diff -U0` shows from `was` to `now`, as 0-based half-open line spans
+    `(i1, i2, j1, j2)`: `was[i1:i2]` became `now[j1:j2]`. An empty span sits after that many lines
+    of its side, as git's `-s,0` header says. Run in `cwd` (the worktree), so the product's own diff
+    settings place them as its `git diff` does."""
+    with tempfile.TemporaryDirectory(prefix="ccp-mutate-") as d:
+        a, b = Path(d) / "base", Path(d) / "worktree"
+        a.write_bytes(was)
+        b.write_bytes(now)
+        r = subprocess.run(["git", "diff", "--no-index", "--no-ext-diff", "--no-textconv", "--no-color", "--text",
+                            "-U0", str(a), str(b)], cwd=str(cwd) if cwd else d, capture_output=True)
+    if r.returncode not in (0, 1):
+        raise QueueError("git diff could not compare the file with the merge base: "
+                         + r.stderr.decode(errors="replace").strip(), 2)
+    out = []
+    for m in HUNK_RE.finditer(r.stdout):
+        s1, n1, s2, n2 = int(m[1]), int(m[2] or b"1"), int(m[3]), int(m[4] or b"1")
+        i1, j1 = (s1 - 1 if n1 else s1), (s2 - 1 if n2 else s2)
+        out.append((i1, i1 + n1, j1, j1 + n2))
+    return out
+
+
+def _revert_lines(now: bytes, was: bytes, first: int, last: int, cwd: Path | None = None) -> bytes:
     """`now` with every change from `was` put back whose lines in `now` overlap lines first..last
-    (1-based, inclusive), a deletion inside the range or next to it included."""
-    a, b = was.splitlines(keepends=True), now.splitlines(keepends=True)
+    (1-based, inclusive), a deletion inside the range or next to it included. The changes are the
+    hunks `git diff -U0` shows (`_hunks`)."""
+    a, b = _lines(was), _lines(now)
     out: list[bytes] = []
-    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
-        hit = tag != "equal" and (first - 1 <= j1 <= last if j1 == j2 else j1 < last and j2 > first - 1)
+    at = 0
+    for i1, i2, j1, j2 in _hunks(was, now, cwd):
+        hit = first - 1 <= j1 <= last if j1 == j2 else j1 < last and j2 > first - 1
+        out.extend(b[at:j1])
         out.extend(a[i1:i2] if hit else b[j1:j2])
+        at = j2
+    out.extend(b[at:])
     return b"".join(out)
 
 
@@ -145,10 +181,10 @@ def parse_revert(root: Path, spec: str, base: str) -> dict[str, Any]:
         first, last = int(m.group(1)), int(m.group(2) or m.group(1))
         if now is None:
             raise QueueError(f"revert {spec!r}: {rel} is not a file in the worktree; a line range needs one", 2)
-        n = len(now.splitlines())
+        n = len(_lines(now))
         if last < first or last > n:
             raise QueueError(f"revert {spec!r}: lines {first}-{last} are not a range of {rel}'s {n} lines", 2)
-        content = _revert_lines(now, was or b"", first, last)
+        content = _revert_lines(now, was or b"", first, last, root)
     if content == now:
         what = f"lines {rng} of {rel} touch no change" if rng else f"{rel} does not differ"
         raise QueueError(f"revert {spec!r}: {what} from the merge base; the revert changes nothing", 2)
@@ -329,13 +365,15 @@ def _worktree(cfg: Config, q: Path, task_id: str) -> dict[str, Any]:
         except (OSError, ValueError):
             continue
         if st.get("kind") not in WORKTREE_KINDS:
-            raise QueueError(f"{root} is the {st.get('kind')} worktree {st['name']}, not a mut, rev or ver one: "
-                             f"make one with `ccp wt create --kind mut --task {task_id} --sha <head>` and run there", 2)
+            raise QueueError(f"{root} is the {st.get('kind')} worktree {st['name']}, not an impl, mut, rev or ver "
+                             f"one: run from your own worktree, or make a mutation copy with "
+                             f"`ccp wt create --kind mut --task {task_id} --sha <head>` and run there", 2)
         if st.get("task_id") != task_id:
             raise QueueError(f"worktree {st['name']} is task {st.get('task_id')}'s, not {task_id}'s", 2)
         return st
-    raise QueueError(f"{root} is not a recorded mut, rev or ver worktree: make one with "
-                     f"`ccp wt create --kind mut --task {task_id} --sha <head>` and run there", 2)
+    raise QueueError(f"{root} is not a recorded impl, mut, rev or ver worktree: run from your own worktree, or "
+                     f"make a mutation copy with `ccp wt create --kind mut --task {task_id} --sha <head>` and run "
+                     f"there", 2)
 
 
 def log_path(q: Path, run_id: str) -> Path:

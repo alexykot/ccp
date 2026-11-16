@@ -428,8 +428,8 @@ reviewer, fixer and verifier prompt from four parts, in order, writes the prompt
 1. **The plane template** `templates/prompts/<phase>.md` (with `templates/prompts/_common.md`): the rules that hold
    in every product, among them working only in one's own worktree, foreground commands only, never
    merging, the review and verify standards (adversarial; reject only on BLOCKER or MAJOR; prove an
-   absence pattern on a known positive; mutation-test a test that could pass vacuously, in a
-   mutation copy made with `ccp wt create --kind mut`), the report contract, every test command
+   absence pattern on a known positive; mutation-test a test that could pass vacuously, the verifier
+   with `ccp mutate --revert` from its own worktree, §20.6), the report contract, every test command
    through `ccp suite run` with the phase's lane (§14), a run cited as evidence, a mutation check
    included, through it or `ccp mutate` with the run's id filled in, never a bare test runner, the refactor DoD for a `kind: refactor` task
    (§20), and for the reviewer and verifier `ccp report` before removing their own checkout.
@@ -524,8 +524,8 @@ shows.
   the 1-hour cache writes (`W-1H`) per run and seat.
 - **Fail fast.** Before the full suite, the implementer and fixer run a pre-gate: the product's
   `architect.checks` commands (rendered from plane.json) and the test modules depending on the
-  changed paths, through `ccp suite run --lane part`, by the product's own discovery command when its
-  rules name one. It never stands in for the full suite, which runs on the final code and must be
+  changed paths as `ccp suite affected` lists them (§14.7), through `ccp suite run --lane part`. It
+  never stands in for the full suite, which runs on the final code and must be
   green.
 - **Exploration hygiene.** What the task cites is read in full; a listing, search or log likely past
   about 200 lines goes to a scratch file and is read in slices; independent reads go as parallel tool

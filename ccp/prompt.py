@@ -453,10 +453,13 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     workdir = (worktree if phase in runs.CHANGE_PHASES else own) or ""
     from ccp import wt  # noqa: PLC0415
     kind = "impl" if phase in runs.CHANGE_PHASES else "rev" if phase == "review" else "ver"
+    # §13.3: the worker's worktree kind and seat, from the record of the worktree the run is bound to
+    # (§12.1); with none recorded there, the phase's kind and its default seat
+    bound = wt.recorded_at(q, Path(workdir)) if workdir else None
     env_file, env_list = worker_env(cfg, q, prompt_file, {
         "run_id": run_id, "task_id": tid, "nnnn": nnnn, "phase": phase, "worktree": workdir,
-        # §13.3: the worker's worktree kind and seat, as `ccp wt create` records them by default (§12.1)
-        "kind": kind, "seat": wt.KINDS[kind][0],
+        "kind": str(bound["kind"]) if bound and bound.get("kind") else kind,
+        "seat": str(bound["seat"]) if bound and bound.get("seat") else wt.KINDS[kind][0],
         "main_checkout": str(main_checkout(cfg)), "queue_root": str(q), "project_id": cfg.project_id})
     verdicts_run, verdicts = reported_verdicts(cfg, q, tid) if phase == "review" else ("", {})
     cited = tasklog._as_list(meta.get("spec_refs")) + tasklog._as_list(meta.get("adr_refs")) \
