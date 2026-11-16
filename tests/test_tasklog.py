@@ -360,6 +360,19 @@ class TaskLogTest(unittest.TestCase):
                          [f"docs/delivery/tasks/0001-a.md:{lines.index(l) + 1}" for l in loud], ws)
         self.assertEqual([w.split("number (")[1].split(")")[0] for w in ws], ["3", "7", "9", "40", "3.5", "0"])
 
+    def test_a_number_joined_to_its_unit_or_a_dash_range_counts_as_a_number(self):
+        f = self.p.task("0001-a")
+        quiet = ["- released in 2026-11, at abc1234 and 368ae42, on x86_64 and utf8, per R5-R6 and 0105-report"]
+        loud = ["- the cache holds 40MB", "- each call takes 300ms", "- 5-10 sites call it",
+                "- 1.5GiB, 2-3s and 12h in all"]
+        f.write_text(f.read_text().replace("- background", "\n".join(quiet + loud)))
+        lines = f.read_text().split("\n")
+        ws = tasklog.warnings(self.p.cfg)
+        self.assertEqual([w.split(": Context")[0] for w in ws],
+                         [f"docs/delivery/tasks/0001-a.md:{lines.index(l) + 1}" for l in loud], ws)
+        self.assertEqual([w.split("number (")[1].split(")")[0] for w in ws],
+                         ["40MB", "300ms", "5-10", "1.5GiB, 2-3s, 12h"])
+
     def test_a_scope_path_marked_removed_is_not_warned_about_whether_or_not_it_exists(self):
         self.p.write("src/still_here.py", "x = 1\n")
         f = self.p.task("0001-a")
