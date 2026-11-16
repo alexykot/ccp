@@ -88,6 +88,17 @@ class CloseHolds(ToolkitFixture, unittest.TestCase):
         self.assertIn(PASSAGE, err)
         self.assertFalse((self.ghstate / "merge-called").exists())
 
+    def test_a_review_keeps_only_the_count_of_its_passages_on_its_run(self):
+        self.ccp("tasks", "claim", "0002")
+        code, _, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", "a" * 40)
+        self.assertEqual(code, 0, out + err)
+        code, body, out, err = self.report("0002-second/review", "Outcome: done\nSeverity: BLOCKER=0 MAJOR=0 MINOR=0 "
+                                           f"NIT=0\n## Spec beyond intent\n- {PASSAGE}\n## Friction\nnone\n")
+        self.assertEqual((code, body.get("spec_beyond_intent")), (0, 1), out + err)
+        run = json.loads((self.q / "runs/0002-second/review.json").read_text())
+        self.assertEqual(run["spec_beyond_intent"], 1)
+        self.assertNotIn(PASSAGE, json.dumps(run))
+
     def test_close_does_not_catch_up_a_head_whose_verdict_lists_text_beyond_intent(self):
         head = self._to_approved_pr()
         self.verdict(head, [PASSAGE])
