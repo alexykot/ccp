@@ -8,6 +8,8 @@
 #   team.sh runner spawn --dry-run [...]                     the same refusals; print the actions and the readiness
 #                                                            checks, writing nothing; exit 1 when a check
 #                                                            fails (SPEC §16.5)
+#   (spawn, dry run or real, with a runner worktree to make: refused, exit 3, when origin/<integration>
+#    does not resolve in the product's main checkout, SPEC §12.1)
 #   team.sh runner prompt --scope ID,ID                      print the fixed spawn prompt only
 #   team.sh runner bind --name NAME                          the name the Agent result gave the runner
 #                                                            (`runner-2` after a rotation): hook and prompts follow it

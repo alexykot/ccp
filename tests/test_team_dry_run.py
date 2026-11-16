@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from tests.test_review_points import REGISTER, _tagged
 from tests.test_team_hosting import TeamCase
 
 
@@ -100,6 +101,7 @@ class TestSpawnDryRun(TeamCase):
         self.assertEqual(snapshot(self.q), before)
 
     def test_the_runner_worktree_is_checked_and_not_made(self):
+        self.origin()
         yaml = (self.q / "project.yaml").read_text()
         (self.q / "project.yaml").write_text(yaml.replace("  name: runner\n", "  name: runner\n  worktree: rwt\n"))
         code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
@@ -130,3 +132,122 @@ class TestSpawnDryRun(TeamCase):
         code, real, err = self.team("runner", "spawn", "--count", "2", "--scope", "0001-a,0002-b")
         self.assertEqual(code, 0, err)
         self.assertEqual([a["prompt"] for a in res["actions"]], [a["prompt"] for a in real["actions"]])
+
+
+class TestSpawnNeedsTheIntegrationRef(TeamCase):
+    """SPEC §12.1: a spawn that would make a runner worktree, or tell a slot's runner to make one, refuses
+    when origin/<integration> does not resolve: dry run or real, before anything is made or written."""
+
+    def setUp(self):
+        super().setUp()
+        for tid in ("0001-a", "0002-b"):
+            self.prod.task(tid)
+        self.prod.index()
+
+    def worktree(self, path="rwt"):
+        yaml = (self.q / "project.yaml").read_text()
+        (self.q / "project.yaml").write_text(yaml.replace("  name: runner\n", f"  name: runner\n  worktree: {path}\n"))
+
+    def slots(self):
+        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "parallel": {"max_in_flight": 2}}))
+        (self.q / "work.json").write_text(json.dumps({
+            "project_id": "demo", "status": "running", "scope": ["0001-a", "0002-b"],
+            "runners": {"runner-1": {"bound_name": "runner-1", "tasks_done": 0, "rotated_at": "2026-11-16T00:00:00Z"},
+                        "runner-2": {"bound_name": "runner-2", "tasks_done": 0}}}))
+
+    def made(self):
+        return [p.name for p in self.prod.root.iterdir() if p.name.startswith("rwt")]
+
+    def test_one_runner_refuses_dry_run_and_real(self):
+        self.origin(push=False)
+        self.worktree()
+        before = snapshot(self.q)
+        for dry in (["--dry-run"], []):
+            code, _res, err = self.team("runner", "spawn", *dry, "--scope", "0001-a")
+            self.assertEqual(code, 3, err)
+            self.assertIn("origin/main", err)
+            self.assertEqual(snapshot(self.q), before)
+            self.assertEqual(self.made(), [])
+
+    def test_the_binding_names_the_integration_branch(self):
+        self.origin()
+        self.worktree()
+        (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text() + "integration_branch: develop\n")
+        code, _res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
+        self.assertEqual(code, 3, err)
+        self.assertIn("origin/develop", err)
+
+    def test_an_existing_runner_worktree_needs_no_ref(self):
+        self.origin(push=False)
+        self.worktree()
+        from tests.test_toolkit import git  # noqa: PLC0415
+        git(self.prod.root, "worktree", "add", "-q", "--detach", str(self.prod.root / "rwt"), "HEAD")
+        code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
+        self.assertEqual(code, 0, err)
+        self.assertTrue(self.check(res, "runner_worktree")["ok"])
+
+    def test_no_runner_worktree_named_checks_no_ref(self):
+        self.origin(push=False)
+        code, _res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
+        self.assertEqual(code, 0, err)
+
+    def check(self, res, name):
+        return next(c for c in res["checks"] if c["check"] == name)
+
+    def test_a_slot_respawn_refuses_without_the_ref_and_writes_nothing(self):
+        self.origin(push=False)
+        self.worktree()
+        self.slots()
+        before = snapshot(self.q)
+        for dry in (["--dry-run"], []):
+            code, _res, err = self.team("runner", "spawn", "--slot", "runner-1", "--review-point", "R1", *dry)
+            self.assertEqual(code, 3, err)
+            self.assertIn("origin/main", err)
+            self.assertEqual(snapshot(self.q), before)
+            self.assertEqual(self.made(), [])
+
+    def test_a_slot_respawn_dry_run_prints_that_slots_spawn_only(self):
+        self.origin()
+        self.worktree()
+        self.slots()
+        before = snapshot(self.q)
+        code, res, err = self.team("runner", "spawn", "--slot", "runner-1", "--review-point", "R1", "--dry-run")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(snapshot(self.q), before)
+        self.assertEqual((res["dry_run"], res["slots"], res["scope"]), (True, ["runner-1"], ["0001-a", "0002-b"]))
+        self.assertEqual([(a["action"], a["name"]) for a in res["actions"]], [("spawn_teammate", "runner-1")])
+        self.assertEqual(self.made(), [])
+        code, real, err = self.team("runner", "spawn", "--slot", "runner-1", "--review-point", "R1")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(res["actions"][0]["prompt"], real["actions"][0]["prompt"])
+        self.assertEqual(self.made(), [])  # the slot's runner makes its own worktree (`ccp tasks worktree`)
+
+
+class TestReviewPointDryRun(TeamCase):
+    """SPEC §16.5, §22: `--review-point` in a dry run: the point's open tagged tasks are the scope, its
+    refusals still refuse, and nothing is written."""
+
+    def setUp(self):
+        super().setUp()
+        self.prod.write("docs/delivery/review-points.yaml", REGISTER)
+        _tagged(self.prod, "0001-a", "done", "R8")
+        _tagged(self.prod, "0002-b", "pending", "R8")
+        _tagged(self.prod, "0003-c", "pending")
+        self.prod.index()
+
+    def test_the_points_open_tasks_are_the_scope_and_nothing_is_written(self):
+        before = snapshot(self.q)
+        code, res, err = self.team("runner", "spawn", "--dry-run", "--review-point", "R8")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(snapshot(self.q), before)
+        self.assertEqual((res["dry_run"], res["ready"], res["scope"]), (True, True, ["0002-b"]))
+        code, real, err = self.team("runner", "spawn", "--review-point", "R8")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(res["actions"][-1]["prompt"], real["actions"][-1]["prompt"])
+
+    def test_a_point_outside_the_register_refuses_and_writes_nothing(self):
+        before = snapshot(self.q)
+        code, _res, err = self.team("runner", "spawn", "--dry-run", "--review-point", "R9")
+        self.assertEqual(code, 2)
+        self.assertIn("R9", err)
+        self.assertEqual(snapshot(self.q), before)

@@ -7,7 +7,7 @@
 # the lead or the operator. Exit 2 = keep working (stderr is the feedback); exit 0 = let it go idle.
 # Any other teammate (among them an earlier runner a rotation replaced: the runner is the name
 # work.json `runner` binds, SPEC §10.2), the runner's own subagents, a draining/idle runner, a
-# rotation due, or a missing queue: exit 0. A subagent is told apart by the hook input: Claude Code adds `agent_id` and
+# rotation due (either trigger, as `ccp tasks rotation-due` judges it), or a missing queue: exit 0. A subagent is told apart by the hook input: Claude Code adds `agent_id` and
 # `agent_type` when a hook fires inside a subagent, and the runner's subagents share its
 # teammate_name. So it acts only when there is no agent_id, or agent_type is the runner's own type.
 # For a teammate, Claude Code reports agent_type as the teammate's name (SPEC docs/design/plugin.md), so that counts
@@ -153,14 +153,21 @@ def _read(f):
 parks = [work] + [_read(f) for f in sorted((root / "tasks").glob("*.json"))]
 if any(session_park(st) == "live" for st in parks):
     sys.exit(0)
-done = (SLOTS[SLOT] or {}).get("tasks_done") if SLOT else work.get("runner_tasks_done")  # §16.5: per slot
-if int(done or 0) >= int(rc.get("rotate_after_tasks", 4)):
-    sys.exit(0)  # rotation due: let it idle and report; the lead rotates it (§10.2)
 scope = list(work.get("scope") or [])
 if not scope:
     sys.exit(0)
 
 cwd = hook.get("cwd") or "."
+# §10.2 step 4: a slot due for rotation (either trigger) is let idle and report; the lead rotates it. The
+# rule is claim's, asked of `ccp tasks rotation-due` rather than restated here; an answer that does not
+# read is no rotation (claim still refuses a due slot).
+try:
+    rot = subprocess.run([ccp, "--root", cwd, "tasks", "rotation-due", "--holder", SLOT or RUNNER], cwd=cwd,
+                         capture_output=True, text=True, timeout=10, env={**os.environ, "QUEUE_ROOT": str(root)})
+    if rot.returncode == 0 and json.loads(rot.stdout).get("due") is True:
+        sys.exit(0)
+except (OSError, ValueError, AttributeError, subprocess.SubprocessError):
+    pass
 r = subprocess.run([ccp, "--root", cwd, "tasks", "list", "--json"], cwd=cwd, capture_output=True, text=True)
 try:
     tasks = {t["task_id"]: t for t in json.loads(r.stdout)}

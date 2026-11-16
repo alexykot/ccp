@@ -18,6 +18,9 @@ if it names one (§3.6, `ccp.notify`).
 (§10.2 step 4, `rotation_due`): its `tasks_done` reached `runner.rotate_after_tasks`, or its latest
 request's context reached `runner.rotate_at_context_tokens`. A resume is never refused.
 
+`rotation-due` answers the same rule for one slot without claiming: the `TeammateIdle` hook asks it
+(§18.2).
+
 `claim` samples the allowance first: past the weekly checkpoint a new claim refuses (exit 5), and at
 the 5-hour park % any claim parks the task and refuses (exit 6, §25.4).
 
@@ -103,13 +106,56 @@ def rotation_knobs(q: Path) -> tuple[int, int | None]:
             _positive_int(rc.get("rotate_at_context_tokens")))
 
 
+def _tasks_done(v: Any, field: str) -> int:
+    """§10.2 step 4: a slot's `tasks_done` as a count. Missing reads as 0; a value that is no whole number
+    (`"x"`, `true`, `2.5`) reads as 0 too, with a warning on stderr."""
+    if v is None or v == "":
+        return 0
+    if isinstance(v, int) and not isinstance(v, bool):
+        return v
+    if isinstance(v, float) and v.is_integer():
+        return int(v)
+    if isinstance(v, str) and re.fullmatch(r"\s*\d+\s*", v):
+        return int(v)
+    print(f"warning: work.json {field} is {v!r}, not a whole number: read as 0 (SPEC §10.2)", file=sys.stderr)
+    return 0
+
+
+def _last_spawn(q: Path, slot: str | None) -> str | None:
+    """The `at` of the latest `runner`/`spawn` event in the ledger for `slot` (None: the single runner's,
+    the events with no `slot`), or None when there is none."""
+    import json  # noqa: PLC0415
+    from ccp.queue import events_path  # noqa: PLC0415
+    p, last = events_path(q), None
+    if not p.is_file():
+        return None
+    with p.open() as fh:
+        for line in fh:
+            if '"spawn"' not in line:
+                continue
+            try:
+                ev = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(ev, dict) or (ev.get("type"), ev.get("op")) != ("runner", "spawn") or not ev.get("at"):
+                continue
+            pl = ev.get("payload") if isinstance(ev.get("payload"), dict) else {}
+            if (str(pl["slot"]) if pl.get("slot") else None) == slot:
+                last = str(ev["at"])
+    return last
+
+
 def rotation_due(q: Path, slot: str, w: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """§10.2 step 4: whether runner `slot` is due for rotation and not rotated since its spawn. Due when
     its `tasks_done` reaches `runner.rotate_after_tasks`, or when its teammate's latest request since the
     spawn sent `runner.rotate_at_context_tokens` or more (§24). With several runners the slot's record
     in work.json `runners`; with one, the single-runner fields (`runner_tasks_done`, `runner_rotated_at`
     against `runner_spawned_at`), whatever `slot` says. `team.sh runner rotate` records the rotation.
-    None when not due, or when `slot` is no recorded runner slot."""
+    None when not due, or when `slot` is no recorded runner slot.
+
+    A `tasks_done` that is not a whole number reads as 0, with a warning on stderr. A record with no spawn
+    time counts the requests since the slot's latest `runner`/`spawn` event in the ledger (one runner: the
+    latest with no `slot`), and none when the ledger has none, so its context trigger cannot fire."""
     from ccp.queue import runner_teammate  # noqa: PLC0415
     w = load_work(q) if w is None else w
     slots = runner_slots(w)
@@ -117,13 +163,13 @@ def rotation_due(q: Path, slot: str, w: dict[str, Any] | None = None) -> dict[st
         if slot not in slots:
             return None
         rec = slots[slot]
-        done, spawned = int(rec.get("tasks_done") or 0), rec.get("spawned_at")
+        done, spawned = _tasks_done(rec.get("tasks_done"), f"runners.{slot}.tasks_done"), rec.get("spawned_at")
         rotated = bool(rec.get("rotated_at"))
         names = {str(rec.get("bound_name") or slot)}
         cmd = f"team.sh runner rotate --slot {slot}"
     else:
         slot = str(w.get("runner") or "") or runner_teammate(q)
-        done, spawned = int(w.get("runner_tasks_done") or 0), w.get("runner_spawned_at")
+        done, spawned = _tasks_done(w.get("runner_tasks_done"), "runner_tasks_done"), w.get("runner_spawned_at")
         rotated = bool(w.get("runner_rotated_at")) and str(w.get("runner_rotated_at")) >= str(spawned or "")
         names = {runner_teammate(q)}
         cmd = "team.sh runner rotate"
@@ -135,12 +181,28 @@ def rotation_due(q: Path, slot: str, w: dict[str, Any] | None = None) -> dict[st
         return {**base, "trigger": "tasks", "why": f"its tasks_done {done} reached runner.rotate_after_tasks {after}"}
     if at_context is not None:
         from ccp import usage  # noqa: PLC0415
-        ctx = usage.runner_context(q, names, since=spawned)
+        if not spawned:
+            spawned = _last_spawn(q, slot if slots else None)
+        ctx = usage.runner_context(q, names, since=spawned) if spawned else None
         if ctx and ctx["tokens"] >= at_context:
             return {**base, "trigger": "context", "context_tokens": ctx["tokens"], "rotate_at_context_tokens": at_context,
                     "why": f"its latest request's context, {ctx['tokens']} tokens, reached "
                            f"runner.rotate_at_context_tokens {at_context}"}
     return None
+
+
+def rotation_check(holder: str = "runner") -> dict[str, Any]:
+    """§10.2 step 4, §18.2 `ccp tasks rotation-due`: whether `holder`'s rotation is due, by the rule claim
+    enforces (`rotation_due`), so the idle hook lets a due runner idle rather than restating the rule.
+    `{"due": false, "slot": ...}`, or `{"due": true, ...}` with the trigger and the rotation to run. With
+    several runners, a holder that is no runner slot refuses (exit 2), as claim does."""
+    q = root()
+    w = load_work(q)
+    slots = runner_slots(w)
+    if slots and holder not in slots:
+        raise QueueError(f"--holder {holder!r} is no runner slot ({', '.join(sorted(slots))}) (SPEC §16.4)", 2)
+    due = rotation_due(q, holder, w)
+    return {"due": True, **due} if due else {"due": False, "slot": holder}
 
 
 def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:

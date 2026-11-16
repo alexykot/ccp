@@ -216,8 +216,9 @@ def product_log(root: Path, quiet: bool = False) -> tuple[Any, list[dict[str, An
 def single_runner_worktree(root: Path, rc: dict[str, str]) -> dict[str, Any] | None:
     """SPEC §12.1: the one runner's worktree (the binding's `runner.worktree`), made at its spawn when
     missing, detached at `origin/<integration_branch>`; an existing one is left alone. None when the
-    binding names no `runner.worktree` or no product root. One it cannot make (no `origin`, a directory
-    there that is no working tree) is a warning, `made: false` with `error`: the spawn goes on, and the
+    binding names no `runner.worktree` or no product root. A missing `origin/<integration_branch>` has
+    refused the spawn before this (`refuse_without_integration_ref`). One it cannot make otherwise (a
+    directory there that is no working tree) is a warning, `made: false` with `error`: the spawn goes on, and the
     runner's `ccp tasks worktree` makes it once the cause is fixed. The spawn makes it after its
     refusals and before its runtime writes (the prompt audit, the ledger, work.json): a spawn that
     then fails, on a prompt audit that cannot be written, leaves the worktree made, and the next spawn
@@ -235,11 +236,40 @@ def single_runner_worktree(root: Path, rc: dict[str, str]) -> dict[str, Any] | N
     return {"path": str(path), "made": made}
 
 
+def refuse_without_integration_ref(root: Path, paths: list[str | None]) -> None:
+    """SPEC §12.1: a runner worktree is made detached at `origin/<integration_branch>`, so a spawn (dry run
+    or real) that would make one, or tell a slot's runner to make it, refuses (exit 3, naming the ref) when
+    that ref does not resolve in the product's main checkout, before anything is made or written. Only the
+    paths that are not a working tree already count; with none of them, or no product root, it checks
+    nothing. Reads only: it fetches nothing."""
+    prod = sm.product_root(root)
+    if not prod or not any(paths):
+        return
+    if str(HERE.parents[1]) not in sys.path:
+        sys.path.insert(0, str(HERE.parents[1]))
+    from ccp import wt  # noqa: PLC0415
+    from ccp.queue import integration_branch  # noqa: PLC0415
+    main = wt.main_of(Path(prod))
+
+    def is_worktree(raw: str) -> bool:
+        path = Path(raw) if Path(raw).is_absolute() else main / raw
+        return (path / ".git").exists() and wt.git(path, "rev-parse", "--is-inside-work-tree").stdout.strip() == "true"
+
+    missing = [x for x in paths if x and not is_worktree(x)]
+    if not missing:
+        return
+    integ = integration_branch(root)
+    if wt.git(main, "rev-parse", "--verify", "--quiet", f"refs/remotes/origin/{integ}^{{commit}}").returncode != 0:
+        die(f"runner spawn: origin/{integ} does not resolve in {main}, so the runner worktree {missing[0]} cannot be "
+            f"made from it: push the integration branch to origin, or fetch it, then spawn again (SPEC §12.1)", 3)
+
+
 def readiness(root: Path, rc: dict[str, str], scope: list[str], single: bool) -> list[dict[str, Any]]:
     """SPEC §16.5, `runner spawn --dry-run`: the §10.2 readiness checks a lead runs before a spawn, those
     a machine can answer, as {check, ok, detail}: every scope entry names a task in the product's task
     log, `ccp tasks check` is clean, and (one runner with a `runner.worktree`) the runner worktree is a
-    working tree or can be made. Reads only: it makes no worktree and fetches nothing."""
+    working tree or can be made (a missing `origin/<integration_branch>` has refused the spawn before
+    this). Reads only: it makes no worktree and fetches nothing."""
     if str(HERE.parents[1]) not in sys.path:
         sys.path.insert(0, str(HERE.parents[1]))
     checks: list[dict[str, Any]] = []
@@ -527,6 +557,8 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
                 die(f"{', '.join(orphans)}: held by no runner slot. Drain or stop the single runner first "
                     "(`team.sh runner stop --drain`), or `ccp tasks release` it (SPEC §16.5)", 2)
         base = rc.get("worktree") or ""
+        refuse_without_integration_ref(root, [slots.get(slot, {}).get("worktree") or (f"{base}-{slot}" if base else None)
+                                              for slot in new])
         prompts = {slot: spawn_prompt(root, scope, rp, added) + (
             f"Your runner slot is {slot}: claim with `ccp tasks claim <task> --holder {slot}`, hold one task at a "
             f"time, and work from your own worktree: `ccp tasks worktree --runner {slot}` makes it and prints it "
@@ -667,6 +699,7 @@ def cmd_runner(args: argparse.Namespace) -> int:
         # §16.5: one runner at a time. A runner still recorded live (running or draining, not rotated
         # since its spawn: a rotation shut it down already) is stopped before the new one starts.
         old = live_name(rc, w) if w.get("status") in ("running", "draining") and not pending else None
+        refuse_without_integration_ref(root, [rc.get("worktree")])
         if args.dry_run:  # §16.5: the refusals above ran; nothing below is written
             for rpw in rp_warnings:
                 print(f"warning: {rpw}", file=sys.stderr)
