@@ -73,6 +73,14 @@ class RulesDoc(unittest.TestCase):
             "  E1, above, keeps the imports apart.\n"))
         self.assertEqual(rules.check_doc(self.p.cfg), [])
 
+    def test_fenced_code_in_a_rule_is_quoted_text(self):
+        # a comment line in a fence is no heading: the check after the fence is still the rule's
+        text = "- **E2** Run the suite:\n  ```sh\n  # all of it\n  make test\n  ```\n  check: pass\n"
+        self.assertEqual(rules.parse_rules(text)[0], {"E2": "pass"})
+        # a check line or a rule line in a fence counts for nothing
+        text = "- **E2** Write checks as:\n  ```\n  check: pass\n  - **E3** an example\n  ```\n"
+        self.assertEqual(rules.parse_rules(text)[0], {"E2": None})
+
     def test_checks_and_budgets_must_match_rules(self):
         self.p.write("docs/ENGINEERING.md", RULES.replace("check: command", "check: budget").replace("check: pass", "check: maybe"))
         e = "\n".join(rules.check_doc(self.p.cfg))

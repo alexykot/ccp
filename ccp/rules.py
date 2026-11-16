@@ -35,7 +35,7 @@ from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from ccp import refs
+from ccp import docrules, refs
 from ccp.config import DOC_RULES, Config
 
 def rule_re(ids: refs.Ids = refs.DEFAULT) -> re.Pattern[str]:
@@ -94,13 +94,13 @@ def tracked_files(root: Path) -> list[str]:
 def rule_blocks(text: str, ids: refs.Ids = refs.DEFAULT) -> tuple[dict[str, dict[str, Any]], list[str]]:
     """{rule id: {kind, keys, starter}}, and the parse failures. `kind` is the check kind (None when
     the rule has no `check:`), `keys` the plane.json keys a `docs` check names, `starter` the name on
-    a `starter:` line (None without one)."""
+    a `starter:` line (None without one). Fenced code is quoted text: no heading, rule or line in it counts."""
     rules: dict[str, dict[str, Any]] = {}
     errs: list[str] = []
     cur = None
     rx = rule_re(ids)
     known = docs_keys()
-    for line in text.splitlines():
+    for _, line in docrules.unfenced(text):
         if line.lstrip().startswith("#"):
             cur = None
             continue

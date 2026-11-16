@@ -350,6 +350,15 @@ class GithubOrigin(InitCase):
         self.assertIn("git.example.org", err)
         self.assertNotIn("s3cret", err + json.dumps(res))
 
+    def test_an_origin_that_does_not_parse_is_named_and_adopted_as_one_with_no_github_origin(self):
+        self.git("remote", "add", "origin", "https://someone:s3cret@[::1")
+        res, err = self.adopt()
+        self.assert_warns(res, err)
+        self.assertNotIn("Traceback", err)
+        self.assertIn("https://[::1", res["warnings"][0])
+        self.assertNotIn("s3cret", err + json.dumps(res))
+        self.assertTrue(self.queue.is_dir())
+
     def test_a_github_origin_is_not_warned_about(self):
         self.git("remote", "add", "origin", "https://example.invalid/placeholder.git")
         for url in ("https://github.com/team/repo.git", "git@github.com:team/repo.git",
@@ -377,6 +386,7 @@ class OriginHost(InitCase):
                           ("notgithub.com:o/r", "notgithub.com")):
             with self.subTest(url=url):
                 self.assertEqual(self.host(url), host)
+        self.assertIsNone(self.host("https://[::1"))  # does not parse: no host
         self.assertTrue(ccp_init.is_github("ssh.github.com"))
         for host in (None, "", "notgithub.com", "github.com.example"):
             self.assertFalse(ccp_init.is_github(host), host)
