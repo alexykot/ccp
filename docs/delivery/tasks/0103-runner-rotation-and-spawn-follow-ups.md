@@ -31,6 +31,12 @@ A runner that is due for rotation is due for the same reason everywhere:
   `origin/<integration>` resolves. A real spawn does not check it either.
 - Untested: the `--slot` respawn and `--review-point` dry-run paths, and the orientation hook with
   `CLAUDE_PLUGIN_ROOT` set.
+- Lead ruling, spec question sm-20261116T195033Z-8294 (a section 31.1 correction; no operator
+  approval needed): Task 0103's own dod check calls for the refusal, so the SPEC section 12.1
+  sentence is a passage its change makes false. Edit docs/spec/02-delivery.md section 12.1 in this
+  PR: after "one the spawn cannot make is a warning", add ", except a missing
+  origin/<integration_branch>, which refuses the spawn (exit 3), dry run or real, naming the ref".
+  Make no other SPEC change. Quote the replaced sentence (the text before your edit) in the PR body.
 
 ## Scope
 
@@ -117,5 +123,9 @@ A runner that is due for rotation is due for the same reason everywhere:
     the existing runner-worktree dry-run test and `test_parallel_slots.LeadSlots` use it, since their
     spawns now need `origin/main` (expectations unchanged); so does
     `test_init.OneBinding.test_team_sh_spawns_the_name_in_the_binding`, whose repo gets a bare origin.
+- 2026-11-16 (implementer, ruling round 1): per the lead's ruling (spec question
+  sm-20261116T195033Z-8294), SPEC §12.1 now says a missing `origin/<integration_branch>` refuses
+  the spawn (exit 3), dry run or real, naming the ref, rather than counting among the warnings: the
+  refusal check-03 calls for made the old sentence false. No code or test change.
 
 ## Verification notes
