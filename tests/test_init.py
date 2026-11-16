@@ -401,6 +401,13 @@ class OneBinding(InitCase):
         self.binding.write_text(self.binding.read_text().replace("name: runner", "name: steward") + "ci: github-actions\n")
 
     def test_team_sh_spawns_the_name_in_the_binding(self):
+        # the spawn makes the runner worktree from origin/main (SPEC §12.1): the repo needs that ref
+        bare = Path(self._d.name) / "origin.git"
+        self.git("init", "-q", "--bare", "-b", "main", str(bare))
+        self.git("remote", "add", "origin", str(bare))
+        self.git("add", ".")
+        self.git("commit", "-q", "--allow-empty", "-m", "base")
+        self.git("push", "-q", "origin", "HEAD:main")
         r = subprocess.run(["bash", str(TEAM), "runner", "spawn", "--scope", "0001-a"], capture_output=True,
                            text=True, env={**self.env, "QUEUE_ROOT": str(self.queue)})
         self.assertEqual(r.returncode, 0, r.stderr)

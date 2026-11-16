@@ -20,8 +20,8 @@ HOOK = PLANE / "plugin" / "hooks" / "orientation.sh"
 
 
 def hook_text(root: Path) -> str:
-    r = subprocess.run(["bash", str(HOOK)], capture_output=True, text=True,
-                       env={**os.environ, "CLAUDE_PROJECT_DIR": str(root)})
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_ROOT"}  # this checkout's plugin
+    r = subprocess.run(["bash", str(HOOK)], capture_output=True, text=True, env={**env, "CLAUDE_PROJECT_DIR": str(root)})
     return json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"]
 
 

@@ -22,6 +22,7 @@ class LeadSlots(TeamCase):
         self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "parallel": {"max_in_flight": 2}}))
         (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text().replace(
             "runner:\n  name: runner\n", "runner:\n  name: runner\n  worktree: /tmp/demo-runner\n"))
+        self.origin()  # a slot's spawn promises a worktree made from origin/main (SPEC §12.1)
 
     def work(self):
         return json.loads((self.q / "work.json").read_text())

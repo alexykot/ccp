@@ -360,8 +360,9 @@ reported. Each runner merges and runs operator steps from its own **runner workt
 when missing; with several runners `<runner.worktree>-<slot>`, made by
 `ccp tasks worktree --runner <slot>` when missing), detached at `origin/<integration_branch>` (the
 main checkout holds the branch). An existing one is left alone; one the spawn cannot make is a
-warning, and the runner's `ccp tasks worktree` makes it once the cause is fixed. No runner makes it
-with `git worktree add`. It fetches and re-detaches before each task. With `worktrees.dir`
+warning, except a missing `origin/<integration_branch>`, which refuses the spawn (exit 3), dry run
+or real, naming the ref, and the runner's `ccp tasks worktree` makes it once the cause is fixed. No
+runner makes it with `git worktree add`. It fetches and re-detaches before each task. With `worktrees.dir`
 set, `ccp tasks close` makes the reconcile in its `merge-<nnnn>` worktree and pushes it with
 `git push origin HEAD:<integration_branch>` (§10.5); run from any checkout, it does not move that
 checkout's branch or HEAD, except that a detached runner worktree is moved to the reconcile commit

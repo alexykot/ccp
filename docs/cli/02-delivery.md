@@ -12,6 +12,7 @@ argument takes the full id or its number.
 | `ccp tasks next [--scope IDS] [--json]` (also `--explain`) | runner | §10.3, §16.3 |
 | `ccp tasks index [--stdout]` | lead | regenerates `INDEX.yaml` (§5) |
 | `ccp tasks claim <id> [--holder <slot>]` | runner | §10.5, §16.3 |
+| `ccp tasks rotation-due [--holder <slot>]` | the `TeammateIdle` hook, runner, lead | §10.2 step 4, §18.2 |
 | `ccp tasks phase <id> <phase>` | runner | §10.1 |
 | `ccp tasks wait <id> <reason> [--until T] [--detail …]` / `ccp tasks resume <id>` | runner, lead | §10.1, §3.6 (a wait on `reauth`, `operator_step` or `operator_decision` fires a notice: pending on record, and the notify command if any) |
 | `ccp tasks close <id> --pr N [--summary "…"]` | runner | §10.5, §15.5, §16.5 |

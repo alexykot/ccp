@@ -551,6 +551,8 @@ def _lifecycle(cfg: config.Config, a: argparse.Namespace):
         return lifecycle.claim(cfg, a.task, a.holder)
     if a.cmd == "worktree":
         return lifecycle.runner_worktree(cfg, a.runner)
+    if a.cmd == "rotation-due":
+        return lifecycle.rotation_check(a.holder)
     if a.cmd == "prefer":
         a.board_dirty = bool(a.tasks) or a.clear  # §28: a set or a clear changes the Now panel
         return lifecycle.prefer(cfg, a.tasks, (a.reason or "").strip(), a.clear)
@@ -945,6 +947,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("task", help="task id or NNNN")
     p.add_argument("--holder", default="runner", help="the claiming runner's slot (SPEC §16.4; required with "
                                                        "several runners)")
+    p.set_defaults(fn=life)
+    p = t.add_parser("rotation-due", help="whether a runner slot's rotation is due, by the rule claim enforces: "
+                                          "JSON with `due` (SPEC §10.2 step 4, §18.2; needs QUEUE_ROOT)")
+    p.add_argument("--holder", default="runner", help="the runner's slot (SPEC §16.4; required with several runners)")
     p.set_defaults(fn=life)
     p = t.add_parser("worktree", help="a runner's own merge worktree, made when missing (SPEC §12.1, §16.5)")
     p.add_argument("--runner", metavar="SLOT", help="the runner's slot (required with several runners; without "

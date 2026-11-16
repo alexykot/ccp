@@ -56,6 +56,22 @@ class TeamCase(unittest.TestCase):
         p = self.q / "observability" / "events.jsonl"
         return [json.loads(l) for l in p.read_text().splitlines()] if p.is_file() else []
 
+    def origin(self, push: bool = True) -> Path:
+        """Make the product a git checkout with a bare origin; push its `main` there unless `push` is False
+        (an origin with no integration branch). Returns the origin."""
+        from tests.test_toolkit import git  # noqa: PLC0415
+        o = tempfile.TemporaryDirectory()
+        self.addCleanup(o.cleanup)
+        bare = Path(o.name) / "origin.git"
+        git(Path(o.name), "init", "-q", "--bare", "-b", "main", str(bare))
+        git(self.prod.root, "init", "-q", "-b", "main")
+        git(self.prod.root, "remote", "add", "origin", str(bare))
+        git(self.prod.root, "add", ".")
+        git(self.prod.root, "commit", "-q", "--allow-empty", "-m", "base")
+        if push:
+            git(self.prod.root, "push", "-q", "-u", "origin", "main")
+        return bare
+
     def task_wait(self, tid):
         p = self.q / "tasks" / f"{tid}.json"
         return json.loads(p.read_text()).get("waiting_on") if p.is_file() else None

@@ -18,7 +18,7 @@ def iso(t: float) -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
 
 
-class Rotation(ToolkitFixture, unittest.TestCase):
+class RotationFixture(ToolkitFixture):
     def setUp(self):
         super().setUp()
         self.binding()
@@ -56,6 +56,8 @@ class Rotation(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         return body["rotation"]
 
+
+class Rotation(RotationFixture, unittest.TestCase):
     def test_a_slot_at_its_threshold_takes_no_task_until_rotated(self):
         self.binding(rotate_after_tasks=2)
         self.slots(tasks_done=2)
@@ -173,6 +175,112 @@ class Rotation(ToolkitFixture, unittest.TestCase):
         (self.q / "observability" / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in evs))
         r = self.health()
         self.assertEqual((r["rotations"], r["tasks_done"], r["due"]), (1, 2, []))
+
+
+class RotationReadsItsRecordSafely(RotationFixture, unittest.TestCase):
+    """A `tasks_done` that is no whole number reads as 0, warned; a record with no spawn time counts the
+    requests since the slot's latest spawn event in the ledger, and none when there is none."""
+
+    def spawn_event(self, at, slot=None):
+        (self.q / "observability").mkdir(exist_ok=True)
+        payload = {"name": slot or "runner", **({"slot": slot} if slot else {})}
+        with (self.q / "observability" / "events.jsonl").open("a") as fh:
+            fh.write(json.dumps({"at": iso(at), "type": "runner", "op": "spawn", "payload": payload}) + "\n")
+
+    def test_a_tasks_done_that_is_no_number_reads_as_zero_with_a_warning(self):
+        self.binding(rotate_after_tasks=1)
+        self.slots(tasks_done="x")
+        code, _, out, err = self.claim()
+        self.assertEqual(code, 0, out + err)
+        self.assertNotIn("Traceback", err)
+        self.assertIn("warning:", err)
+        self.assertIn("runners.runner-1.tasks_done", err)
+
+    def test_one_runners_tasks_done_that_is_no_number_reads_as_zero_too(self):
+        self.binding(rotate_after_tasks=1)
+        (self.q / "work.json").write_text(json.dumps({"status": "running", "scope": ["0002-second"], "runner": "runner",
+                                                      "runner_spawned_at": iso(time.time() - 60),
+                                                      "runner_tasks_done": [3]}))
+        code, _, out, err = self.ccp("tasks", "claim", "0002", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        self.assertIn("runner_tasks_done", err)
+
+    def test_a_whole_number_written_as_text_still_counts(self):
+        self.binding(rotate_after_tasks=2)
+        self.slots(tasks_done="2")
+        code, _, out, err = self.claim()
+        self.assertEqual(code, 7, out + err)
+        self.assertNotIn("warning:", err)
+
+    def test_no_spawn_time_counts_from_the_slots_latest_spawn_event(self):
+        self.binding(rotate_at_context_tokens=100000)
+        self.slots(tasks_done=0, spawned_at=None)
+        self.spawn_event(time.time() - 7200, "runner-1")
+        self.spawn_event(time.time() - 600, "runner-1")  # the latest of this slot's spawns
+        self.spawn_event(time.time() - 30, "runner-2")  # another slot's, later: not this slot's
+        self.span("runner-1", 500000, time.time() - 3600)  # before its latest spawn: does not count
+        self.assertEqual(self.health()["due"], [])
+        self.span("runner-1", 120000, time.time() - 60)  # since its latest spawn, before runner-2's
+        self.assertEqual([(d["slot"], d["trigger"]) for d in self.health()["due"]], [("runner-1", "context")])
+        self.assertEqual(self.claim()[0], 7)
+
+    def test_no_spawn_time_and_no_spawn_event_counts_no_request(self):
+        self.binding(rotate_at_context_tokens=100000)
+        self.slots(tasks_done=0, spawned_at=None)
+        self.span("runner-1", 500000, time.time() - 60)
+        self.assertEqual(self.health()["due"], [])
+        self.assertEqual(self.claim()[0], 0)
+
+    def test_one_runner_with_no_spawn_time_counts_from_its_own_spawn_event(self):
+        self.binding(rotate_at_context_tokens=100000)
+        (self.q / "work.json").write_text(json.dumps({"status": "running", "scope": ["0002-second"], "runner": "runner",
+                                                      "runner_tasks_done": 0}))
+        self.spawn_event(time.time() - 600)
+        self.spawn_event(time.time() - 30, "runner-1")  # a slot's spawn is not the one runner's
+        self.span("runner", 500000, time.time() - 3600)
+        self.assertEqual(self.health()["due"], [])
+        self.span("runner", 120000, time.time() - 60)
+        self.assertEqual([d["trigger"] for d in self.health()["due"]], ["context"])
+
+
+class RotationDueCommand(RotationFixture, unittest.TestCase):
+    """`ccp tasks rotation-due`: the rule claim enforces, asked without claiming."""
+
+    def due(self, *holder):
+        code, body, out, err = self.ccp("tasks", "rotation-due", *holder, root=self.main)
+        return code, body, out + err
+
+    def test_it_answers_both_triggers_and_not_due(self):
+        self.binding(rotate_after_tasks=2, rotate_at_context_tokens=100000)
+        self.slots(tasks_done=1)
+        code, body, out = self.due("--holder", "runner-1")
+        self.assertEqual((code, body["due"], body["slot"]), (0, False, "runner-1"), out)
+        self.span("runner-1", 120000, time.time() - 60)
+        code, body, out = self.due("--holder", "runner-1")
+        self.assertEqual((code, body["due"], body["trigger"]), (0, True, "context"), out)
+        self.assertEqual(body["rotate"], "team.sh runner rotate --slot runner-1")
+        self.slots(tasks_done=2)
+        code, body, out = self.due("--holder", "runner-1")
+        self.assertEqual((code, body["due"], body["trigger"]), (0, True, "tasks"), out)
+
+    def test_a_rotated_slot_is_not_due(self):
+        self.binding(rotate_after_tasks=2)
+        self.slots(tasks_done=2, rotated_at=iso(time.time()))
+        code, body, out = self.due("--holder", "runner-1")
+        self.assertEqual((code, body["due"]), (0, False), out)
+
+    def test_one_runner_needs_no_holder(self):
+        self.binding(rotate_after_tasks=2)
+        (self.q / "work.json").write_text(json.dumps({"status": "running", "scope": ["0002-second"], "runner": "runner",
+                                                      "runner_spawned_at": iso(time.time() - 60), "runner_tasks_done": 2}))
+        code, body, out = self.due()
+        self.assertEqual((code, body["due"], body["trigger"]), (0, True, "tasks"), out)
+
+    def test_a_holder_that_is_no_slot_is_refused(self):
+        self.slots(tasks_done=0)
+        code, body, out = self.due("--holder", "runner-9")
+        self.assertEqual((code, body), (2, None), out)
+        self.assertIn("runner-1", out)
 
 
 if __name__ == "__main__":

@@ -31,6 +31,12 @@ A runner that is due for rotation is due for the same reason everywhere:
   `origin/<integration>` resolves. A real spawn does not check it either.
 - Untested: the `--slot` respawn and `--review-point` dry-run paths, and the orientation hook with
   `CLAUDE_PLUGIN_ROOT` set.
+- Lead ruling, spec question sm-20261116T195033Z-8294 (a section 31.1 correction; no operator
+  approval needed): Task 0103's own dod check calls for the refusal, so the SPEC section 12.1
+  sentence is a passage its change makes false. Edit docs/spec/02-delivery.md section 12.1 in this
+  PR: after "one the spawn cannot make is a warning", add ", except a missing
+  origin/<integration_branch>, which refuses the spawn (exit 3), dry run or real, naming the ref".
+  Make no other SPEC change. Quote the replaced sentence (the text before your edit) in the PR body.
 
 ## Scope
 
@@ -85,5 +91,41 @@ A runner that is due for rotation is due for the same reason everywhere:
 ## Implementation notes
 
 *Append-only, newest last.*
+
+- 2026-11-16 (implementer):
+  - **The hook asks claim's rule.** New `ccp tasks rotation-due [--holder <slot>]`
+    (`lifecycle.rotation_check`, backed by `rotation_due`) prints `{"due": false, "slot": …}` or
+    `{"due": true, …}` with the trigger and the rotation to run, exit 0; a holder that is no runner
+    slot refuses (exit 2), as claim does. `runner-idle.sh` calls it (with `--holder` the slot, or the
+    bound runner) and lets a due runner idle; an answer that does not read (old `ccp`, non-zero exit,
+    bad JSON) reads as not due, so the hook drives as before and claim still refuses. The hook no
+    longer reads `rotate_after_tasks` itself. This touches `ccp/cli.py` and `docs/cli/02-delivery.md`,
+    beyond the declared paths.
+  - **`rotation_due` reads its counts safely.** `tasks_done` (slot) or `runner_tasks_done`: a whole
+    number, or one written as digits, counts; anything else (`"x"`, a list, `true`, `2.5`) reads as 0
+    with `warning: work.json <field> is …` on stderr. A record with no spawn time (`spawned_at`, or
+    `runner_spawned_at` for one runner) counts only the requests since that slot's latest
+    `runner`/`spawn` ledger event (one runner: the latest spawn event with no `slot`); with no such
+    event it counts none, so the context trigger cannot fire. The rotated-since-spawn test is unchanged.
+  - **The spawn checks the integration ref.** `team.sh runner spawn`, dry run and real, single runner
+    and slots, refuses (exit 3, naming `origin/<integration_branch>`) before any write when the ref
+    does not resolve in the product's main checkout and the spawn would make or promise a runner
+    worktree: the binding's `runner.worktree` (one runner) or the slot's recorded or
+    `<runner.worktree>-<slot>` worktree, and only when that path is not a working tree already. It
+    reads the local remote-tracking ref and fetches nothing. With no runner worktree named, or one
+    that exists, nothing is checked. check-03's setup therefore names a `runner.worktree` in the
+    binding (`TestSpawnNeedsTheIntegrationRef`).
+  - **Tests.** Idle hook: `tests/test_runner_idle_rotation.py`. Counts and the command:
+    `tests/test_rotation.py` (helpers moved into `RotationFixture`). Spawn, `--slot` respawn and
+    `--review-point` dry runs: `tests/test_team_dry_run.py`. Orientation with `CLAUDE_PLUGIN_ROOT`:
+    `tests/test_orientation_hook.py`; `test_orientation_command.hook_text` now unsets it so the
+    comparison reads this checkout's plugin. `TeamCase.origin()` gives a test product a bare origin;
+    the existing runner-worktree dry-run test and `test_parallel_slots.LeadSlots` use it, since their
+    spawns now need `origin/main` (expectations unchanged); so does
+    `test_init.OneBinding.test_team_sh_spawns_the_name_in_the_binding`, whose repo gets a bare origin.
+- 2026-11-16 (implementer, ruling round 1): per the lead's ruling (spec question
+  sm-20261116T195033Z-8294), SPEC §12.1 now says a missing `origin/<integration_branch>` refuses
+  the spawn (exit 3), dry run or real, naming the ref, rather than counting among the warnings: the
+  refusal check-03 calls for made the old sentence false. No code or test change.
 
 ## Verification notes
