@@ -6,7 +6,9 @@ and the scripts runners wrote for themselves (§10.6).
 
 `sign-off` records the operator's sign-off on a task that declares one (§3.5): `claim` refuses a task
 whose `brief` sign-off is missing, and `close` one whose declared sign-off is missing or, for `build`,
-signed at another head than the one it merges.
+signed at another head than the one it merges. A task whose latest verdict lists `spec_beyond_intent`
+(text beyond its intent, `verify.beyond_intent`) has a `build` sign-off due, declared or not
+(`due_stages`): `sign-off` records it, and `close` refuses without it, naming the passages.
 
 `wait` on an operator's wait, `claim` refused at the weekly checkpoint and the `close` that finishes a
 review point fire the operator's triggers: a pending notice on record, and the product's notify command,
@@ -30,7 +32,7 @@ runner worktree (§12.1).
 
 With several runners, a verified head behind the integration tip is caught up by `close` itself
 (§16.5 rule 4, `_catch_up`) when the merge is clean, the tip's new commits change no file the task's own
-diff or declared `paths` change, the task declares no build sign-off and the product has a gate lane:
+diff or declared `paths` change, no build sign-off is due on the task and the product has a gate lane:
 it merges the tip in (in its merge worktree), runs the gate lane there as a recorded `ccp suite run`,
 re-checks the tip (at most CATCH_UPS times), pushes the merge as the task branch's head, records the
 catch-up on the verification record (`verify.record_catch_up`) and merges that head. Otherwise it
@@ -741,15 +743,18 @@ def sign_off(cfg: Config, task: str, stage: str | None, by: str, words: str, hea
     q = root()
     meta = task_meta(cfg, task)
     tid = str(meta["task_id"])
-    stages = tasklog.sign_off_stages(meta)
+    stages, _ = due_stages(q, meta)
     if not stages:
-        raise QueueError(f"{tid} declares no sign_off in its task file: nothing to sign (SPEC §3.5)", 2)
+        raise QueueError(f"{tid} declares no sign_off in its task file, and its verdict lists no "
+                         "spec_beyond_intent: nothing to sign (SPEC §3.5)", 2)
     if stage is None:
         if len(stages) > 1:
-            raise QueueError(f"{tid} declares sign_off {', '.join(stages)}: give --stage", 2)
+            raise QueueError(f"{tid} has sign-offs due at {', '.join(stages)}: give --stage", 2)
         stage = stages[0]
     if stage not in stages:
-        raise QueueError(f"{tid} declares sign_off {', '.join(stages)}, not {stage} (SPEC §3.5)", 2)
+        raise QueueError(f"{tid} has no {stage} sign-off due, only {', '.join(stages)}: it declares sign_off "
+                         f"{', '.join(tasklog.sign_off_stages(meta)) or 'none'}, and a build sign-off is due only "
+                         "when its verdict lists spec_beyond_intent (SPEC §3.5)", 2)
     if not by.strip() or not words.strip():
         raise QueueError("give --by (who signed) and --words (what they said)", 2)
     when = signed_at(at) if at is not None else None
@@ -775,32 +780,48 @@ def sign_off(cfg: Config, task: str, stage: str | None, by: str, words: str, hea
     return {"ok": True, "task_id": tid, "sign_off": {**payload, "at": ev.get("at")}}
 
 
+def due_stages(q: Path, meta: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """§3.5: the sign-off stages due on the task, in order: those it declares, and `build` when its latest
+    verdict lists text beyond the task's intent (`spec_beyond_intent`), declared or not; and those
+    passages ([] when none)."""
+    from ccp import verify  # noqa: PLC0415
+    stages = tasklog.sign_off_stages(meta)
+    beyond = verify.beyond_intent(q, str(meta["task_id"]))
+    if beyond and "build" not in stages:
+        stages = [*stages, "build"]
+    return stages, beyond
+
+
 def sign_off_gaps(q: Path, meta: dict[str, Any], stages: list[str], head: str | None = None,
                   text_in: Config | None = None) -> list[str]:
-    """§3.5: why the task's declared sign-offs among `stages` do not hold: a `sign_off:` value the plane
-    cannot read (fails closed), one missing, or, given the head about to merge, a `build` sign-off recorded
-    for another head (stale), or, given the checkout the task file is read from (`text_in`, at the claim),
-    a `brief` sign-off whose head does not contain the commit that last changed the task file (stale).
-    [] when they hold."""
+    """§3.5: why the task's due sign-offs among `stages` (`due_stages`: those it declares, and `build` when
+    its verdict lists spec_beyond_intent) do not hold: a `sign_off:` value the plane cannot read (fails
+    closed), one missing, or, given the head about to merge, a `build` sign-off recorded for another head
+    (stale), or, given the checkout the task file is read from (`text_in`, at the claim), a `brief`
+    sign-off whose head does not contain the commit that last changed the task file (stale). A `build` gap
+    names the verdict's passages beyond the task's intent, when it lists any. [] when they hold."""
     tid = str(meta["task_id"])
     if why := tasklog.sign_off_malformed(meta):
         return [f"{tid}: {why}; fix the task file (`ccp tasks check` names it)"]
     have = sign_offs(q, tid)
+    due, beyond = due_stages(q, meta)
+    passages = ("; the verdict lists text beyond the task's intent (spec_beyond_intent), for the operator to "
+                "sign: " + " | ".join(beyond)) if beyond else ""
     out: list[str] = []
-    for stage in tasklog.sign_off_stages(meta):
+    for stage in due:
         if stage not in stages:
             continue
         got = have.get(stage)
         if got is None:
             out.append(f"{tid} has no {stage} sign-off on record: the lead records the operator's with "
-                       f"`ccp tasks sign-off {tid} --stage {stage}` (SPEC §3.5)")
+                       f"`ccp tasks sign-off {tid} --stage {stage}` (SPEC §3.5)" + (passages if stage == "build" else ""))
         elif stage == "build" and head is not None:
             from ccp import verify  # noqa: PLC0415
             signed = str(got.get("head") or "")
             if not verify.heads_match(signed, head):
                 out.append(f"{tid}'s build sign-off is stale: signed at {signed[:12] or 'no head'}, the head to "
                            f"merge is {head[:12]}; the operator signs the new head (`ccp tasks sign-off {tid} "
-                           "--stage build`, SPEC §3.5)")
+                           "--stage build`, SPEC §3.5)" + passages)
         elif stage == "brief" and text_in is not None:
             out += _brief_stale(text_in, meta, str(got.get("head") or ""))
     return out
@@ -1329,8 +1350,8 @@ class _NoCatchUp(Exception):
 def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, start: str, body: dict[str, Any],
               integ: str, facts: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     """§16.5 rule 4: close merges origin/<integ> into the PR head `start` itself, when the merge is clean, the
-    tip's new commits change no file the task's own diff or declared paths change, the task declares no build
-    sign-off, and the product has a gate lane; it runs the gate lane on the merge in its merge worktree as a
+    tip's new commits change no file the task's own diff or declared paths change, no build sign-off is due on
+    the task (declared, or from its verdict's spec_beyond_intent, §3.5), and the product has a gate lane; it runs the gate lane on the merge in its merge worktree as a
     recorded run, re-checks the tip (at most CATCH_UPS catch-ups), pushes the merge as the task branch's new
     head, records the catch-up on the verification record, and returns the head to merge and the catch-up.
     Raises _NoCatchUp, with nothing pushed, naming the condition that failed."""
@@ -1339,6 +1360,9 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
     verified = str(body.get("head_sha") or start)
     if "build" in tasklog.sign_off_stages(meta):
         raise _NoCatchUp("build sign-off: the task declares a build sign-off, which covers the verified head only")
+    if verify.beyond_intent(q, tid):
+        raise _NoCatchUp("build sign-off: the verdict lists spec_beyond_intent, so a build sign-off is due, and it "
+                         "covers the verified head only (SPEC §3.5)")
     declared = [p.strip().removeprefix("./") for p in tasklog._as_list(meta.get("paths")) if p.strip()]
     if not declared:
         raise _NoCatchUp("no declared paths: the task declares no `paths`, so the tip's files cannot be checked "

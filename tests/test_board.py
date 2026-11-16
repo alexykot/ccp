@@ -143,7 +143,7 @@ class Refresh(ToolkitFixture, unittest.TestCase):
             step("prompt", "review", "0002", "--pr", "7", "--head", "a" * 40)
             n = r.call_count
             code, _, out, err = self.report("0002-second/review", "Outcome: done\nSeverity: BLOCKER=0 MAJOR=0 MINOR=0 NIT=0\n"
-                                                                   "## Friction\nnone\n")
+                                                                   "## Spec beyond intent\nnone\n## Friction\nnone\n")
             self.assertEqual((code, r.call_count - n), (0, 1), out + err)
             pid = step("plane", "propose", "--need", "a command that frees per-task resources", "--generic", "every product with per-task resources needs them freed")["id"]
             step("plane", "triage", pid, "--accept", "--reason", "plane task")

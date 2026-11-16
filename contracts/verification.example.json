@@ -1,7 +1,7 @@
 {
   "task_id": "0042-example-task",
   "project_id": "demo",
-  "schema_version": 2,
+  "schema_version": 3,
   "verdict": "approve",
   "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "access_mode": "local-cli",
@@ -47,6 +47,7 @@
   "findings": [
     "data-01 was not run by the verifier; this approve relies on it"
   ],
+  "spec_beyond_intent": [],
   "merge_requested": true,
   "checked_at": "2026-10-16T09:12:47Z"
 }

@@ -37,6 +37,13 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   A valid example is `contracts/verification.example.json`. On a PR that
   is not a task's, `task_id` is exactly `pr-<n>`. `checked_at` is the clock time you reached the
   verdict; leave it out and `record` stamps it.
+- Every verdict on a task carries `spec_beyond_intent` (SPEC §3.5), and `record` refuses one
+  without it: one string per passage of normative text (SPEC sections, contracts) the PR adds or
+  changes that the task's Intent and Scope and the ADRs it cites do not call for, naming its file and
+  section and what it adds, or `[]`. Text that only describes what they call for, or corrects a passage
+  the change makes false, is within intent; a rule they do not describe, or a change to a rule they do
+  not name, is beyond it. Judge it from the diff yourself. It is not a reason to reject: a passage
+  listed holds the merge until the operator signs it (a build sign-off the lead records).
 - A check someone else ran where you cannot (a Mac-only step whose output is in the task's notes)
   is `ran: false`, `pass: null`, with `rests_on` naming what it rests on, in one of the three forms
   below. It is neither a pass nor a fail; say in `findings` whether your verdict relies on it.
