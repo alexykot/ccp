@@ -448,6 +448,12 @@ reviewer, fixer and verifier prompt from four parts, in order, writes the prompt
 template naming anything it does not set. `ccp prompt verify <id>` renders the same text on every
 run apart from paths.
 
+**The prompt's end.** The rendered prompt's last line is `Prompt end: <token>`, the token a short hash
+of the run id and the text above it, kept on the run (`prompt_token`); the report contract tells the
+worker to repeat it (§13.4). The Agent call's prompt is a pointer to the rendered file ("Your full
+instructions are in <path>. Read that file in full first and follow it exactly."), never its text
+retyped.
+
 **Round kinds.** The implementer's rounds are `implement`, `fix` (on review or verify findings; it
 needs such a report), `merge` and `ruling`, each with its own template and run name:
 
@@ -488,6 +494,11 @@ metrics and every friction line. Report lines:
 - `Suite:` when the full suite ran, or `Suite: from <suite_id>`, or none (filled from the run's
   record, §14.4);
 - `## Friction` as `- ` (or `* `) lines, or `none`;
+- `Prompt: <token>` always, the token on the last line of the run's prompt (§13.2). A report with none,
+  or with a token that is not the run's, is refused (exit 2, nothing written, the run left open), naming
+  the run's token and saying the prompt the worker read was probably cut; the runner launches the
+  worker again with the pointer (`--supersede` when the run never started). A run with no token
+  recorded (opened before it) is not held to it;
 - for implement, fix, merge and ruling, `## Tests for new behaviour` (§13.5);
 - for implement, fix, merge and ruling with `Outcome: done`, each verdict the product declares in plane.json
   `report.required_fields` (a list of `{name, values}`, default none), as `<name>: <value>` with one
@@ -880,7 +891,11 @@ reader older than the record (`ccp verify merge-ok`, `ccp verify check` and `ccp
 the run checkout before the release, §29.3) passes over keys its contract does not name and still
 refuses a key it names that holds a bad value. A record with no version, or one no newer than the
 reader, is refused for an extra key. So a task that adds a field to the record is verified with
-the PR head's `ccp` and merged and closed with the one on PATH.
+the PR head's `ccp` and merged and closed with the one on PATH. The verify prompt and the verifier's
+definition say so: when the task's own diff changes the record's contract
+(`contracts/verification.schema.json`, or the record's version), the verifier records with the head's
+own `ccp`, `ccp wt exec <its worktree> -- verify record <file>` (§12.1). `ccp verify record`'s refusal of
+a key its contract does not know adds a line saying the same.
 
 Each check names the seat that produced its evidence (`produced_by`: `verifier`, `implementer`,
 `reviewer`, `architect`, `operator`, `runner` or `lead`), whether the verifier ran it or not. A ruling

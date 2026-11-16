@@ -4,9 +4,12 @@ Four parts, in order: the plane template `templates/prompts/<phase>.md`, then `_
 every worker and the report contract) with the product's fragment (`plane.json` `prompts.fragment`)
 and the runner's `--note`. The command writes the prompt beside the run (`prompts/<task>/<phase>[-n]-prompt.md`),
 its §23.8 audit (the full text only under `prompts.keep_body`; audits older than
-`prompts.audit_keep_days` are pruned), opens the run (§11.1) and moves the task's phase. It prints the Agent call to make:
-the agent type and a description that starts with the run's task and phase; the prompt is the
-file's text, verbatim. The runner never passes `model` (§2). First it samples the allowance: at the
+`prompts.audit_keep_days` are pruned), opens the run (§11.1) and moves the task's phase. The prompt's
+last line is `Prompt end: <token>`, the token a short hash of the run id and the text above it, kept on
+the run (`prompt_token`): the worker's report repeats it as `Prompt: <token>`, so `ccp report` can tell
+a prompt that reached the worker cut (§13.4). It prints the Agent call to make:
+the agent type, a description that starts with the run's task and phase, and the prompt: a pointer to
+the file, never its text retyped. The runner never passes `model` (§2). First it samples the allowance: at the
 5-hour park % it parks the task and refuses, exit 6, writing nothing else (§25.4 the session park).
 Besides implement, fix, review and verify, a merge round only merges the integration tip into the task
 branch and a ruling round only applies a lead's ruling (its `--note`); review and verify treat their heads
@@ -26,6 +29,7 @@ template change cannot ship a hole.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -45,6 +49,7 @@ SECTION_RE = re.compile(r"\{\{([#^])(\w+)\}\}(.*?)\{\{/\2\}\}", re.S)
 VAR_RE = re.compile(r"\{\{(\w+)\}\}")
 AUDIT_RE = re.compile(r"^(\d{8}T\d{6}Z)_.+\.json$")  # §23.8: prompts/<task_id>/<UTC>_<phase>.json
 NOTE_MAX = 4000  # §13.2; 500 until 2026-10-22
+PROMPT_END = "Prompt end: "  # §13.2: the rendered prompt's last line, before its token
 # §13.2: a merge or ruling round reworks the open PR, as a fix round does
 PHASE_STATUS = {"implement": "implementing", "fix": "fixing", "merge": "fixing", "ruling": "fixing",
                 "review": "reviewing", "verify": "verifying"}
@@ -98,6 +103,23 @@ def reported_verdicts(cfg: Config, q: Path, task_id: str) -> tuple[str, dict[str
                                     r.get("phase") != "implement", runs.parse_id(r["run_id"])[2]))
     got = last.get("fields") or {}
     return last["run_id"], {f["name"]: got.get(f["name"], "not stated") for f in declared}
+
+
+def prompt_token(run_id: str, body: str) -> str:
+    """§13.2: the token on a rendered prompt's last line, `Prompt end: <token>`: a short hash of the run
+    id and the prompt text above it, so it differs between runs and between renderings."""
+    return hashlib.sha256(f"{run_id}\n{body}".encode()).hexdigest()[:12]
+
+
+def prompt_path(q: Path, run_id: str) -> Path:
+    """Where `ccp prompt` writes a run's rendered prompt: `prompts/<task_id>/<phase>[-n]-prompt.md`."""
+    task, phase, n = runs.parse_id(run_id)
+    return q / "prompts" / task / (f"{phase}-{n}-prompt.md" if n > 1 else f"{phase}-prompt.md")
+
+
+def pointer(prompt_file: Path) -> str:
+    """§13.2: the Agent call's prompt, a pointer to the rendered file, never its text retyped."""
+    return f"Your full instructions are in {prompt_file}. Read that file in full first and follow it exactly."
 
 
 def suite_lanes(cfg: Config, phase: str) -> str:
@@ -426,7 +448,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         own = worktree_for(cfg, "rev" if phase == "review" else "ver", nnnn)
         if own and n > 1:
             own += f"-{n}"
-    prompt_file = q / "prompts" / tid / (f"{phase}-{n}-prompt.md" if n > 1 else f"{phase}-prompt.md")
+    prompt_file = prompt_path(q, run_id)
     prompt_file.parent.mkdir(parents=True, exist_ok=True)
     workdir = (worktree if phase in runs.CHANGE_PHASES else own) or ""
     from ccp import wt  # noqa: PLC0415
@@ -472,13 +494,15 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     }
     body = render((TEMPLATES / f"{phase}.md").read_text(), values).rstrip() + "\n\n" \
         + render((TEMPLATES / "_common.md").read_text(), values).rstrip() + "\n"
+    token = prompt_token(run_id, body)  # §13.2: the last line proves the worker got the whole prompt
+    body += f"\n{PROMPT_END}{token}\n"
     report.parent.mkdir(parents=True, exist_ok=True)
     prompt_file.write_text(body)
     ref = audit(q, cfg, tid, phase, prompt_file, run_id, meta, worktree if phase in runs.CHANGE_PHASES else own, note)
     prune_audits(q, cfg)
     warnings: list[str] = list(session_warn) + tip_warn
     rec = runs.open_run(q, cfg, tid, phase, prompt_ref=ref, note=note, supersede=a.supersede, warnings=warnings, by=caller,
-                        extra={"pr": a.pr or None, "head": a.head or None,
+                        extra={"pr": a.pr or None, "head": a.head or None, "prompt_token": token,
                                # §14.1: a suite run from inside this worktree binds to the run
                                "worktree": (worktree if phase in runs.CHANGE_PHASES else own) or None,
                                **({"allow_unreviewed_fix": override} if override else {}),
@@ -495,12 +519,12 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     phase_move(q, cfg, tid, PHASE_STATUS[phase], f"{run_id} opened")
     desc = f"{nnnn} {phase}" + (f" r{n}" if n > 1 else "")
     return {"ok": True, "run_id": run_id, "phase": phase, "round": n, "prompt_path": str(prompt_file),
-            "report_path": str(report), "prompt_ref": ref, "env_file": env_file or None, "expected_model": rec["expected_model"],
+            "report_path": str(report), "prompt_ref": ref, "prompt_token": token, "env_file": env_file or None, "expected_model": rec["expected_model"],
             "expected_effort": rec["expected_effort"], **({"allow_unreviewed_fix": override} if override else {}),
             **({"review_skip": skipped} if skipped else {}),
             **({"repeat_verify": repeat} if repeat else {}),
             **({"report_fields": {"run_id": verdicts_run, "fields": verdicts}} if verdicts else {}),
             **({"warnings": warnings} if warnings else {}),
             "agent_call": {"subagent_type": runs.definition(cfg, runs.AGENT_TYPE[phase])[0], "description": desc,
-                           "prompt": f"the text of {prompt_file}, verbatim", "model": "never pass it (SPEC §2)"}}
+                           "prompt": pointer(prompt_file), "model": "never pass it (SPEC §2)"}}
 
