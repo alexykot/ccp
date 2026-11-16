@@ -1,7 +1,7 @@
 ---
 task_id: 0103-runner-rotation-and-spawn-follow-ups
 title: The idle hook knows both rotation triggers, rotation reads its counts safely, and a spawn dry run checks the integration ref
-status: pending
+status: done
 kind: fix
 depends_on: []
 spec_refs: ["S2", "S10", "S16"]
@@ -129,3 +129,5 @@ A runner that is due for rotation is due for the same reason everywhere:
   refusal check-03 calls for made the old sentence false. No code or test change.
 
 ## Verification notes
+- 2026-11-16 — verifier, PR #108 head `596ccaf` (squash `8cf3fd4`): APPROVE. Passed: check-01, check-02, check-03, check-04. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0103-runner-rotation-and-spawn-follow-ups.json.
+
