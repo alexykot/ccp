@@ -34,6 +34,16 @@ without it.
     where a worktree can leak.
 - `main_of`, from a linked worktree of a repository with a separate git dir, returns the checkout
   itself.
+- Lead ruling, spec question sm-20261116T211348Z-6642 (2026-11-16, verbatim):
+  (1) Keep as built: a malformed `wt exec --timeout` exits 2; a base run's bad --timeout stays 125 per
+  SPEC 12.1. No 12.1 edit.
+  (2) Add to SPEC 14.7 in this PR, as description (section 31.1): "A path matches tests by name only
+  when it has an extension and is not a directory; --paths are normalised relative to the root (./
+  stripped, .. collapsed), and one outside the root is refused (exit 2)." Adjust the wording to what
+  the code does. Make no other SPEC change beyond what the task already gave. Quote the replaced 14.7
+  text (the text before your edit) in the PR body.
+  (3) The SPEC 3.5 sentence you wrote is within intent (the task's Scope calls for it); no operator
+  sign-off.
 
 ## Scope
 
@@ -120,5 +130,13 @@ without it.
     such a repository, it looks for the directory whose `.git` file names the common dir. The search
     covers the ancestors and siblings of the checkout and of each linked worktree registered under
     `<common>/worktrees/*/gitdir`. When none is found it returns the checkout, as before.
+- 2026-11-16 (implementer, ruling round 1):
+  - Ruling (1) and (3) change nothing: the `wt exec --timeout` refusal (exit 2) and the §3.5 sentence
+    stay as built.
+  - Ruling (2): SPEC §14.7 now describes what `suite affected` does with `--paths` and the name match.
+    The change bullet says `--paths` are normalised relative to the product root (`./` stripped, `..`
+    collapsed, an absolute path made relative); the Python bullet says only a path that has an
+    extension and is not a directory matches tests by name. The refusal of a path outside the root
+    (exit 2) was already in §14.7's last bullet, so it is not repeated. No code or test change.
 
 ## Verification notes

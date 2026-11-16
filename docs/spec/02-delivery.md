@@ -745,9 +745,10 @@ Claude Code). A cold gate run must fit that limit with room to spare.
 per line, sorted, so a worker picks the `part` lane from them after a merge or a fix instead of
 guessing. It runs nothing and records nothing.
 
-- **The change** is `--paths` (relative to the product root), else the files `git diff <ref>` names
-  against the working tree (a rename as both its paths) plus the untracked files git does not
-  ignore; `--since` defaults to `HEAD`, the uncommitted change.
+- **The change** is `--paths`, normalised relative to the product root (`./` stripped, `..`
+  collapsed, an absolute path made relative), else the files `git diff <ref>` names against the
+  working tree (a rename as both its paths) plus the untracked files git does not ignore; `--since`
+  defaults to `HEAD`, the uncommitted change.
 - **The product's language pack reads the tests** (`package_docs.language`; its default, `python`,
   when the block is absent). A pack with no test reader (`none`) exits 2.
 - **Python.** A test module is a `test*.py` file git tracks or does not ignore, named by its dotted
@@ -755,7 +756,8 @@ guessing. It runs nothing and records nothing.
   when it imports a changed module directly (any `import` or `from … import`, a relative one or one
   inside a function too; importing `p.m` imports `p`, and `from p import m` imports `p.m`) or
   through one package level (it imports a package whose `__init__.py` imports the changed module);
-  or when its text names a changed file's name.
+  or when its text names a changed file's name: only a path that has an extension and is not a
+  directory matches tests by name.
 - With nothing changed, or no test touched, it prints nothing, says so on stderr and exits 0. A ref
   git cannot read, or a path outside the root, exits 2.
 
