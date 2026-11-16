@@ -1,7 +1,7 @@
 ---
 task_id: 0099-worker-prompts-arrive-whole
 title: A worker proves it received its whole rendered prompt, and a verifier knows when to record with the head's own ccp
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S15"]
@@ -112,3 +112,5 @@ verifies a change to the verification record's own contract is told to record wi
   no change; the new refusal tests pass `token=False`.
 
 ## Verification notes
+- 2026-11-16 — verifier, PR #104 head `1c6a274` (squash `1a58ce5`): APPROVE. Passed: check-01, check-02, check-03, check-04. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0099-worker-prompts-arrive-whole.json.
+
