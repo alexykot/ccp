@@ -473,7 +473,7 @@ tasks:
     depends_on: []
     path: tasks/0094-minor-only-fix-skips-re-review.md
   - id: 0095-sign-off-policy-and-spec-beyond-intent
-    status: pending
+    status: done
     title: Text that only describes an accepted feature needs no sign-off; text beyond the task's intent is caught and signed
     depends_on: []
     path: tasks/0095-sign-off-policy-and-spec-beyond-intent.md

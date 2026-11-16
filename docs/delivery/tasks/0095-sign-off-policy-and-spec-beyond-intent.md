@@ -1,14 +1,14 @@
 ---
 task_id: 0095-sign-off-policy-and-spec-beyond-intent
 title: Text that only describes an accepted feature needs no sign-off; text beyond the task's intent is caught and signed
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3", "S15"]
 review_point: R5
 paths: ["ccp/lifecycle.py", "ccp/verify.py", "ccp/report.py", "templates/prompts/", "plugin/agents/delivery-reviewer.md", "plugin/agents/delivery-verifier.md", "plugin/agents/delivery-runner.md", "plugin/skills/writing-tasks/", "docs/spec/01-model.md", "contracts/", "tests/test_sign_off*.py"]
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-16
 ---
 
 # Task: 0095-sign-off-policy-and-spec-beyond-intent
@@ -93,4 +93,4 @@ changes still reach the operator (§3.5).
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-16 — verifier, PR #102 head `f0bb73c` (squash `002ed6f`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0095-sign-off-policy-and-spec-beyond-intent.json.
