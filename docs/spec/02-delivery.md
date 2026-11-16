@@ -482,6 +482,8 @@ metrics and every friction line. Report lines:
 - `PR:` and `Head:` for implement, fix, merge and ruling;
 - `Severity: BLOCKER=… MAJOR=… MINOR=… NIT=…` for review (a review with a BLOCKER or MAJOR is
   recorded as `changes`, otherwise `clean`);
+- `## Spec beyond intent` for review with `Outcome: done`: a `- ` line for each passage of normative
+  text beyond the task's intent, or the single line `none` (§3.5; the run keeps only their count);
 - `Verdict:` and `Head:` for verify, matching the verdict `ccp verify record` noted;
 - `Suite:` when the full suite ran, or `Suite: from <suite_id>`, or none (filled from the run's
   record, §14.4);

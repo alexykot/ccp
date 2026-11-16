@@ -84,6 +84,12 @@ changes still reach the operator (§3.5).
   only the count. §3.2 item 9 and §3.5 state the default and the rule; two passages of §10.5 and §16.5
   that named only a declared sign-off are corrected to a due one (§31.1). The review and verify prompts,
   the reviewer, verifier and runner briefs and the writing-tasks skill say how to judge and relay it.
+- 2026-11-16 (implementer, fix round 1): the review's two MINORs. `REPORT_LINES["review"]` (the report
+  lines a reviewer is told to follow) and §13.4's list of what `ccp report` checks now name the
+  `## Spec beyond intent` section, so the list matches the refusal (§31.1: describes this task's own
+  feature). Tests added on `lifecycle.due_stages` and close: a re-verify listing none after one listing
+  a passage clears the due build sign-off (the latest verdict wins); passages append `build` to a
+  declared `brief` and never list `build` twice.
 
 ## Verification notes
 

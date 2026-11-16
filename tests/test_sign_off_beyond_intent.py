@@ -12,7 +12,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli, lifecycle, report, verify
+from ccp import cli, lifecycle, prompt, report, verify
 from tests.helpers import Product
 from tests.test_toolkit import PLANE, ToolkitFixture
 from tests.test_verify import approve
@@ -60,6 +60,18 @@ class CloseHolds(ToolkitFixture, unittest.TestCase):
     def test_an_empty_list_needs_no_sign_off(self):
         head = self._to_approved_pr()
         self.verdict(head, [])
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["head"], head)
+        self.assertEqual(self.signed(), [])
+
+    def test_the_latest_verdict_wins_a_reverify_with_none_clears_the_due_sign_off(self):
+        head = self._to_approved_pr()
+        self.verdict(head, [PASSAGE])
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 1)
+        self.assertIn(PASSAGE, err)
+        self.verdict(head, [])  # the fix round took the passage out; the re-verify lists none
         code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["head"], head)
@@ -160,6 +172,15 @@ class Verdict(unittest.TestCase):
         code, out, err = self.record(body)
         self.assertEqual(code, 0, out + err)
 
+    def test_passages_add_build_to_the_declared_stages_once(self):
+        self.record(approve(spec_beyond_intent=[PASSAGE]))
+        for declared, want in ((None, ["build"]), ("brief", ["brief", "build"]), ("build", ["build"]),
+                               (["brief", "build"], ["brief", "build"])):
+            meta = {"task_id": "0001-a", **({"sign_off": declared} if declared else {})}
+            self.assertEqual(lifecycle.due_stages(self.q, meta), (want, [PASSAGE]), declared)
+        self.record(approve(spec_beyond_intent=[]))  # the latest verdict wins
+        self.assertEqual(lifecycle.due_stages(self.q, {"task_id": "0001-a", "sign_off": "brief"}), (["brief"], []))
+
     def test_a_record_without_the_field_or_with_none_lists_nothing(self):
         d = self.q / "verification"
         d.mkdir()
@@ -198,6 +219,10 @@ class Briefs(unittest.TestCase):
                              ("templates/prompts/verify.md", "spec_beyond_intent"),
                              ("plugin/agents/delivery-verifier.md", "spec_beyond_intent")):
             self.assertIn(needle, (PLANE / path).read_text(), path)
+
+    def test_the_review_report_lines_name_the_section(self):
+        self.assertIn("## Spec beyond intent", prompt.REPORT_LINES["review"])
+        self.assertNotIn("Spec beyond intent", prompt.REPORT_LINES["verify"] + prompt.REPORT_LINES["implement"])
 
 
 if __name__ == "__main__":
