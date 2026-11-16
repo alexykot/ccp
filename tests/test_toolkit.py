@@ -139,9 +139,21 @@ class ToolkitFixture:
     def ops(self) -> list[tuple[str, str]]:
         return [(e["type"], e["op"]) for e in self.events()]
 
-    def report(self, run_id: str, text: str):
+    def report(self, run_id: str, text: str, token: bool = True):
+        """Submit `text` as the run's report. With `token`, a report with no `Prompt:` line gets the run's
+        prompt token (§13.4), before its first `## ` section, so a test about something else need not."""
+        from ccp import report as report_mod, runs  # noqa: PLC0415
+        body = textwrap.dedent(text)
+        rec = runs.path(self.q, run_id)
+        tok = json.loads(rec.read_text()).get("prompt_token") if token and rec.is_file() else None
+        if tok and not report_mod.PROMPT_RE.search(body):
+            lines = body.splitlines(keepends=True)
+            at = next((i for i, ln in enumerate(lines) if ln.startswith("## ")), len(lines))
+            if at == len(lines) and lines and not lines[-1].endswith("\n"):
+                lines[-1] += "\n"
+            body = "".join(lines[:at] + [f"Prompt: {tok}\n"] + lines[at:])
         f = Path(self._tmp.name) / f"report-{run_id.replace('/', '_')}.md"
-        f.write_text(textwrap.dedent(text))
+        f.write_text(body)
         return self.ccp("report", run_id, str(f))
 
     # ------------------------------------------------------------------ config

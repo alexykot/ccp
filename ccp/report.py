@@ -18,6 +18,9 @@ The report is the worker's own words plus a few lines `ccp` reads:
   (after a failed one, a warning and nothing filled; a failed run's numbers never reach `ccp health`
   from the record) (§14.1);
 - a `## Friction` section: `- ` lines, or `none`;
+- `Prompt: <token>`, always, the token on the last line of the run's prompt (`Prompt end: <token>`, §13.2).
+  A report with none, or with another token, is refused (exit 2) naming the run's: the prompt the worker
+  read was probably cut. A run opened before the token (none recorded on it) is not held to it;
 - implement, fix, merge and ruling, when done: each verdict the product declares in plane.json
   `report.required_fields`, as `<name>: <value>` with one of its declared values, on one line (§13.4). They are
   kept on the run (`fields`) and shown in the review prompt; whether a verdict is right is not judged.
@@ -59,6 +62,25 @@ AUTO_ROLES = ("full", "gate")  # a report with no Suite: line takes its run's la
 FRICTION_RE = re.compile(r"^##\s+Friction[ \t]*\r?$", re.M)
 BEYOND_RE = re.compile(r"^##\s+(?:Spec beyond intent|spec_beyond_intent)[ \t]*\r?$", re.I | re.M)  # §3.5
 FIELD_PHASES = runs.CHANGE_PHASES  # §13.4: the rounds that push a head (PR, Head) and state the declared verdicts
+PROMPT_RE = re.compile(r"^[^\w\n]*Prompt[*_]*:[\s*_`]*([0-9A-Za-z]+)", re.M)  # §13.4: the prompt's token, repeated
+
+
+def prompt_error(q: Path, rec: dict[str, Any], text: str) -> str | None:
+    """§13.4: why a report does not repeat its run's prompt token (`Prompt: <token>`), naming the token
+    and where the prompt's last line carries it; None when it does, or when the run records no token
+    (opened before the token was)."""
+    want = str(rec.get("prompt_token") or "")
+    if not want:
+        return None
+    m = PROMPT_RE.search(text)
+    if m and m.group(1).lower() == want.lower():
+        return None
+    from ccp.prompt import prompt_path  # noqa: PLC0415
+    prompt = prompt_path(q, rec["run_id"])
+    said = f"says `Prompt: {m.group(1)}`" if m else "has no `Prompt: <token>` line"
+    return (f"report refused, nothing written: it {said}; this run's prompt ends `Prompt end: {want}` ({prompt}), "
+            f"so the report says `Prompt: {want}`. The prompt you read was probably cut before its end: tell the "
+            "runner, which launches you again with the prompt file (SPEC §13.4)")
 
 
 def fields(text: str, declared: list[dict[str, Any]]) -> tuple[dict[str, str], list[str]]:
@@ -293,6 +315,9 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
     if not src.is_file():
         raise QueueError(f"{file}: no such report file", 2)
     text = src.read_text()
+    cut = prompt_error(q, rec, text)
+    if cut:
+        raise QueueError(cut, 2)
     from ccp.verify import cache_rule  # noqa: PLC0415
     parsed, errs = parse(rec["phase"], text, accept_cache=bool(cache_rule(cfg)),
                          declared=(cfg.report or {}).get("required_fields") or [])
