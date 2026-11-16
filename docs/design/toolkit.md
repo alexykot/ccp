@@ -92,7 +92,9 @@ ccp suite: full log: …/implement-suite-st-20261022T113654Z-30a292.log (read it
    `phase`, `lease`, `run`, `review`, `verify` and `durable` events; a closed lease; and the reconcile
    commit dated from the clock.
 2. `ccp tasks close` refuses without a recorded approve at the PR head, and merges nothing.
-3. `ccp prompt verify <id>` renders the same text on every run, apart from paths.
+3. `ccp prompt verify <id>` renders the same text on every run, apart from the fields it fills in
+   (paths, the run id and round, the head, the runner's note) and the `Prompt end:` token, which
+   differs on every run (SPEC §13.2).
 4. A file dropped into `QUEUE_ROOT/scripts/` appears on the board's Plane health page and in the next
    `ccp tasks claim`'s stderr.
 5. `ccp board build` with the telemetry receiver down still builds, showing usage as stale, not zero;
