@@ -503,7 +503,7 @@ tasks:
     depends_on: []
     path: tasks/0100-prompt-templates-name-the-tools.md
   - id: 0101-spec-text-catches-up-with-the-code
-    status: pending
+    status: done
     title: SPEC passages that say less than the code does, or the wrong thing, are corrected
     depends_on: [0104-command-edge-fixes]
     path: tasks/0101-spec-text-catches-up-with-the-code.md

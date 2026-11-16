@@ -1,7 +1,7 @@
 ---
 task_id: 0101-spec-text-catches-up-with-the-code
 title: SPEC passages that say less than the code does, or the wrong thing, are corrected
-status: pending
+status: done
 kind: docs
 depends_on: [0104-command-edge-fixes]
 spec_refs: ["S2", "S3", "S4", "S5", "S10", "S12", "S13", "S14", "S15", "S16", "S27", "S28"]
@@ -126,3 +126,5 @@ merged change made false. It adds no rule and changes no code.
     its prompt is short text); a worker's call passes a pointer to the prompt file.
 
 ## Verification notes
+- 2026-11-16 — verifier, PR #112 head `5054265` (squash `b4510f4`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0101-spec-text-catches-up-with-the-code.json.
+
