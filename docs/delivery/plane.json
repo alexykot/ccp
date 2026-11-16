@@ -89,5 +89,8 @@
   },
   "mutate": {
     "command": "python3 -B -m unittest -q {test}"
+  },
+  "verify": {
+    "skip_review_after_clean": true
   }
 }
