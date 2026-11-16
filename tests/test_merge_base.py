@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import signal
 import sys
 import time
@@ -173,7 +174,7 @@ class OnTheMergeBase(WtFixture, unittest.TestCase):
         self.assert_nothing_left()
 
     def test_timeout_refusals(self):
-        for bad in ("0", "-1", "soon"):
+        for bad in ("0", "-1", "soon", "\u00b2", "1.5"):  # a digit that is not ASCII, too: a refusal, no traceback
             code, _, _, err = self.base_run("true", extra=("--timeout", bad))
             self.assertEqual(code, 125, err)
         code, _, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.pr_head, "--timeout", "5")
@@ -192,6 +193,72 @@ class OnTheMergeBase(WtFixture, unittest.TestCase):
         self.assertEqual((code, res["exit"], res["signal"], res["removed"]), (143, 143, 15, True), err)
         self.assertEqual(got, [])  # ccp's own handler took it
         self.assertIs(signal.getsignal(signal.SIGTERM), mine)  # and gave the caller's back
+        self.assert_nothing_left()
+
+    def sigterm_inside(self, attr: str) -> tuple[int, dict | None, str]:
+        """Run a base run whose `wt.<attr>` sends this process SIGTERM as it returns."""
+        got: list[int] = []
+        previous = signal.signal(signal.SIGTERM, lambda n, _f: got.append(n))  # never the test process's death
+        self.addCleanup(signal.signal, signal.SIGTERM, previous)
+        real = getattr(wt, attr)
+
+        def then_sigterm(*a, **k):
+            out = real(*a, **k)
+            os.kill(os.getpid(), signal.SIGTERM)
+            return out
+
+        with mock.patch.object(wt, attr, then_sigterm):
+            code, res, _, err = self.base_run("sh", "-c", "echo ran > ran.txt")
+        self.assertEqual(got, [])  # ccp's own handler took it
+        return code, res, err
+
+    def test_a_sigterm_before_the_worktree_is_made_still_gives_a_result(self):
+        code, res, err = self.sigterm_inside("merge_base")
+        self.assertEqual(code, 143, err)
+        self.assertIsNotNone(res, err)
+        self.assertEqual((res["exit"], res["signal"], res["name"], res["ok"]), (143, 15, None, False))
+        self.assert_nothing_left()
+
+    def test_a_sigterm_as_the_worktree_is_made_leaves_nothing(self):
+        code, res, err = self.sigterm_inside("create")
+        self.assertEqual(code, 143, err)
+        self.assertEqual((res["exit"], res["signal"], res["name"], res["removed"]), (143, 15, "base-0002", True))
+        self.assertFalse(list((self.main / ".rt").glob("base-0002/ran.txt")))  # the command never ran
+        self.assert_nothing_left()
+
+    def test_a_sigterm_as_git_worktree_add_returns_leaves_nothing(self):
+        got: list[int] = []
+        previous = signal.signal(signal.SIGTERM, lambda n, _f: got.append(n))
+        self.addCleanup(signal.signal, signal.SIGTERM, previous)
+        real = wt.git
+
+        def then_sigterm(cwd, *a, **k):
+            out = real(cwd, *a, **k)
+            if a[:2] == ("worktree", "add"):
+                os.kill(os.getpid(), signal.SIGTERM)
+            return out
+
+        with mock.patch.object(wt, "git", then_sigterm):
+            code, res, _, err = self.base_run("sh", "-c", "echo ran > ran.txt")
+        self.assertEqual(got, [])
+        self.assertEqual(code, 143, err)
+        self.assertEqual((res["exit"], res["signal"], res["name"], res["removed"]), (143, 15, "base-0002", True))
+        self.assert_nothing_left()
+
+    def test_a_sigterm_while_git_worktree_add_runs_leaves_nothing(self):
+        got: list[int] = []
+        previous = signal.signal(signal.SIGTERM, lambda n, _f: got.append(n))
+        self.addCleanup(signal.signal, signal.SIGTERM, previous)
+        hooks = Path(self._tmp.name) / "hooks"
+        hooks.mkdir()
+        (hooks / "post-checkout").write_text(f"#!/bin/sh\nkill -TERM {os.getpid()}\nsleep 1\n")
+        (hooks / "post-checkout").chmod(0o755)
+        git(self.main, "config", "core.hooksPath", str(hooks))  # git worktree add runs it before it exits
+        code, res, _, err = self.base_run("sh", "-c", "echo ran > ran.txt")
+        self.assertEqual(got, [])
+        self.assertEqual(code, 143, err)
+        self.assertEqual((res["exit"], res["signal"], res["name"], res["removed"]), (143, 15, "base-0002", True))
+        self.assertFalse(list((self.main / ".rt").glob("base-0002/ran.txt")))  # the command never ran
         self.assert_nothing_left()
 
     def test_a_failed_fetch_warns_that_the_base_may_be_stale(self):

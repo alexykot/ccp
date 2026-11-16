@@ -96,6 +96,33 @@ class Affected(unittest.TestCase):
         code, lines, _ = self.run_cli("--since", "no-such-ref")
         self.assertEqual((code, lines), (2, []))
 
+    def test_a_ref_starting_with_a_dash_is_an_unknown_ref_not_an_option(self):
+        for args in (("--since", "-x"), ("--since=-x",), ("--since", "--output=x")):
+            code, lines, err = self.run_cli(*args)
+            self.assertEqual((code, lines), (2, []), args)
+            self.assertIn(repr(args[-1].removeprefix("--since=")), err)
+        self.assertFalse((self.p.root / "x").exists())  # git never read it as its --output option
+
+    def test_a_name_without_an_extension_or_a_directory_is_no_name_match(self):
+        self.p.write("Makefile", "all:\n")
+        self.p.write("assets.v2/logo.txt", "x\n")
+        self.p.write("tests/test_build.py", "RULES = 'Makefile'\nPKG = 'pkg'\nART = 'assets.v2'\n")
+        self.commit("build test")
+        for path in ("Makefile", "pkg/", "pkg", "assets.v2", "."):
+            self.assertEqual(self.affected("--paths", path), [], path)
+        self.p.write("tests/test_doc.py", "DOC = 'guide.md'\n")
+        self.commit("doc test")
+        self.assertEqual(self.affected("--paths", "docs/guide.md"), ["tests.test_doc"])  # a file's name still counts
+
+    def test_paths_are_normalised_against_the_root(self):
+        want = self.affected("--paths", "pkg/a.py")
+        self.assertEqual(want, ["tests.test_a"])
+        for path in ("./pkg/../pkg/a.py", "pkg/./a.py", "pkg//a.py", "tests/../pkg/a.py"):
+            self.assertEqual(self.affected("--paths", path), want, path)
+        for path in ("../pkg/a.py", "pkg/../../a.py"):
+            code, lines, _ = self.run_cli("--paths", path)
+            self.assertEqual((code, lines), (2, []), path)
+
     def test_since_and_paths_do_not_mix(self):
         with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as e:
             cli.main(["--root", str(self.p.root), "suite", "affected", "--since", "HEAD", "--paths", "pkg/a.py"])

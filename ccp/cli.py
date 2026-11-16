@@ -69,6 +69,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -350,7 +351,7 @@ def cmd_wt(cfg: config.Config, a: argparse.Namespace) -> int:
         timeout = getattr(a, "timeout", None)
         if timeout is not None and not base_run:
             raise QueueError("--timeout bounds the command of `ccp wt create --kind base`", 2)
-        if timeout is not None and not (timeout.isdigit() and int(timeout) >= 1):
+        if timeout is not None and not (re.fullmatch(r"[0-9]+", timeout) and int(timeout) >= 1):  # ASCII digits only
             raise QueueError(f"--timeout {timeout!r}: give a whole number of seconds, at least 1", 2)
         if getattr(a, "shallow", False) and (a.action != "create" or base_run or getattr(a, "baseline", False)):
             raise QueueError("--shallow is for `ccp wt create --kind rev|ver|mut|mac --task ID --sha SHA`", 2)
@@ -411,6 +412,9 @@ def cmd_wt_exec(a: argparse.Namespace, args: list[str]) -> int:
     installed ccp cannot load can still be tried."""
     from ccp import wt  # noqa: PLC0415
     try:
+        if getattr(a, "timeout", None) is not None:  # §12.1: only a base run's command has a time limit
+            raise QueueError(f"--timeout {a.timeout!r}: wt exec takes none; it bounds the command of "
+                             "`ccp wt create --kind base`", 2)
         if a.print_path and args:
             raise QueueError("--print runs nothing: give no arguments after `--`", 2)
         exe = wt.own_ccp(None if a.name_arg is not None else config.find_root(a.root), a.name_arg)
@@ -940,8 +944,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--words", required=True, help="what they signed with, one line")
     p.add_argument("--head", "--from", dest="head", help="the commit it covers (default: brief, the task file's last "
                                                        "commit; build, the verified head)")
-    p.add_argument("--at", help="when the operator gave a sign-off that could not be recorded then (YYYY-MM-DD, or "
-                                "an RFC 3339 time with its offset): kept as signed_at")
+    p.add_argument("--at", help="when the operator gave a sign-off that could not be recorded then (YYYY-MM-DD, a "
+                                "UTC date, or an RFC 3339 time with its offset): kept as signed_at")
     p.set_defaults(fn=life)
     p = t.add_parser("claim", help="lease a task, make its worktree, record it (SPEC §10.5; needs QUEUE_ROOT)")
     p.add_argument("task", help="task id or NNNN")
@@ -1540,6 +1544,9 @@ def main(argv: list[str] | None = None) -> int:
     elif "--" in raw and _words(raw[:raw.index("--")])[:2] in (["wt", "exec"], ["wt", "create"]):
         passthru, raw = raw[raw.index("--") + 1:], raw[:raw.index("--")]  # §12.1: its ccp's arguments, or the
         # command a base worktree runs, verbatim
+    if _words(raw)[:2] == ["suite", "affected"] and "--since" in raw[:-1]:  # §14.7: the word after --since is
+        i = raw.index("--since")  # its ref, one starting with a dash too (git then calls it unknown)
+        raw = [*raw[:i], f"--since={raw[i + 1]}", *raw[i + 2:]]
     try:
         a = build_parser().parse_args(raw)
     except SystemExit as e:  # argparse said what is wrong (or printed --help)

@@ -68,9 +68,12 @@ else the one running worker run whose worktree holds the current directory. A `s
 no end is `killed` once its run has stopped or reported, or after KILLED_AFTER_S.
 
 `affected` prints the test modules a change touches, for the `part` lane, and runs nothing (§14.7). The
-change is `--paths`, else what `git diff REF` (default HEAD) names against the working tree plus the
-untracked files. The product's language pack reads them: for Python, a `test*.py` module that changed,
-imports a changed module directly or through one package's `__init__.py`, or names a changed file.
+change is `--paths` (normalised, relative to the root), else what `git diff REF` (default HEAD) names
+against the working tree plus the untracked files; REF is resolved with `git rev-parse --verify` first, so
+one that starts with a dash is an unknown ref, never an option. The product's language pack reads them:
+for Python, a `test*.py` module that changed, imports a changed module directly or through one package's
+`__init__.py`, or names a changed file (a file with an extension: a directory or an extension-less name
+would match nearly every test).
 
 Recording never stands between a worker and its tests. With a command after `--`, it runs and its
 exit code is returned whatever else fails: no QUEUE_ROOT, no checkout, an unreadable plane.json, a bad
@@ -84,6 +87,7 @@ import contextlib
 import fnmatch
 import json
 import os
+import posixpath
 import re
 import secrets
 import shutil
@@ -1576,20 +1580,31 @@ def _git_lines(root: Path, *args: str) -> list[str]:
 
 
 def changed_paths(root: Path, since: str | None, given: list[str] | None) -> list[str]:
-    """`--paths` as given (relative to the root), else what `git diff <since>` names against the working
-    tree (renames as both paths) plus the untracked files git does not ignore; `since` defaults to HEAD."""
+    """`--paths` normalised (relative to the root: `./` stripped, `..` collapsed, an absolute path made
+    relative), else what `git diff <since>` names against the working tree (renames as both paths) plus the
+    untracked files git does not ignore; `since` defaults to HEAD. A path outside the root, or a `since`
+    git cannot resolve (one starting with a dash included: it is never read as an option), exits 2."""
     if given:
         out = []
         for p in given:
             path = Path(p)
             if path.is_absolute():
                 try:
-                    path = path.resolve().relative_to(root.resolve())
+                    rel = path.resolve().relative_to(root.resolve()).as_posix()
                 except ValueError:
                     raise QueueError(f"--paths {p}: not under the product root {root}", 2) from None
-            out.append(path.as_posix().removeprefix("./"))
+            else:
+                rel = posixpath.normpath(path.as_posix())
+            if rel == ".." or rel.startswith("../"):
+                raise QueueError(f"--paths {p}: not under the product root {root}", 2)
+            out.append(rel)
         return sorted(set(out))
-    diff = _git_lines(root, "diff", "--name-only", "--no-renames", "--relative", since or "HEAD", "--")
+    ref = since or "HEAD"
+    r = subprocess.run(["git", "-C", str(root), "rev-parse", "--verify", "--quiet", "--end-of-options",
+                        f"{ref}^{{tree}}"], capture_output=True, text=True)
+    if r.returncode != 0 or not r.stdout.strip():
+        raise QueueError(f"--since {ref!r}: git knows no such ref", 2)
+    diff = _git_lines(root, "diff", "--name-only", "--no-renames", "--relative", r.stdout.strip(), "--")
     return sorted(set(diff) | set(_git_lines(root, "ls-files", "--others", "--exclude-standard")))
 
 
@@ -1640,7 +1655,8 @@ def _read(p: Path) -> str | None:
 def _python_affected(root: Path, changed: list[str]) -> list[str]:
     """The Python pack: each `test*.py` file git tracks or would track that changed itself, imports a
     changed module directly or through one package level (a package it imports whose `__init__.py`
-    imports it), or names a changed file's name in its text."""
+    imports it), or names a changed file's name in its text: a name with an extension, never a directory's
+    (an extension-less name such as `Makefile`, or `pkg`, would match nearly every test)."""
     files = _git_lines(root, "ls-files", "--cached", "--others", "--exclude-standard")
     changed_mods = {m for m in map(_py_module, changed) if m}
     packages = {m: rel for rel in files if rel.endswith("/__init__.py") and (m := _py_module(rel))}
@@ -1651,7 +1667,7 @@ def _python_affected(root: Path, changed: list[str]) -> list[str]:
             init_imports[pkg] = _py_imports(_read(root / packages[pkg]) or "", pkg, True)
         return init_imports[pkg]
 
-    names = {Path(c).name for c in changed}
+    names = {Path(c).name for c in changed if Path(c).suffix and not (root / c).is_dir()}  # a file's name only
     name_re = re.compile("|".join(rf"(?<![\w.-]){re.escape(n)}(?![\w-])" for n in sorted(names))) if names else None
     out, touched = set(), set(changed)
     for rel in files:
