@@ -284,11 +284,14 @@ def create_baseline(cfg: Config, q: Path, seat: str | None = None, tag: str | No
 
 
 def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None, name: str | None = None,
-           seat: str | None = None, tag: str | None = None, shallow: bool = False) -> dict[str, Any]:
+           seat: str | None = None, tag: str | None = None, shallow: bool = False,
+           bind: dict[str, Any] | None = None) -> dict[str, Any]:
     """Make (or adopt) the worktree; run env.setup when it is new. A failed setup removes it again, and
     so does any failure after a base worktree is made. With `shallow`, a detached kind is a depth-1 clone
     of `sha` (`_clone_shallow`), not a git worktree. The baseline worktree (`create_baseline`) is the one
-    made with no task: `task_id` and `nnnn` are ""."""
+    made with no task: `task_id` and `nnnn` are "". `bind`, when given, gets the new worktree's record the
+    moment it exists, before anything else runs, so a caller interrupted before `create` returns still
+    knows what to remove (`run_on_base`)."""
     if kind not in KINDS:
         raise QueueError(f"--kind must be one of {', '.join(KINDS)}", 2)
     if shallow and kind not in SHALLOW_KINDS:
@@ -357,6 +360,8 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
     if rc != 0:
         raise QueueError(f"{'a shallow clone' if shallow else 'git worktree add'} {name}: {err.strip()}", 1)
     try:
+        if bind is not None:
+            bind.update(st)
         _link(cfg, main, path)
         res = hook(cfg, q, "setup", st)
         if res and res[0] != 0:
@@ -541,14 +546,16 @@ def run_on_base(cfg: Config, q: Path, task_id: str, head: str, command: list[str
     on_main = threading.current_thread() is threading.main_thread()
     previous = signal.signal(signal.SIGTERM, _on_sigterm) if on_main else None
     warnings: list[str] = []
-    st: dict[str, Any] | None = None
+    st: dict[str, Any] = {}  # create binds the worktree's record here the moment it exists, before it returns
     p: subprocess.Popen[str] | None = None
     timed_out, signum, code = threading.Event(), 0, BASE_REFUSED
     started = time.monotonic()
+    sha: str | None = None
     try:
         try:
             sha = merge_base(cfg, q, head, warnings)
-            st = {k: v for k, v in create(cfg, q, task_id, "base", sha, name, seat, tag).items() if k != "created"}
+            st.update(create(cfg, q, task_id, "base", sha, name, seat, tag, bind=st))  # as setup left it
+            st.pop("created", None)
             st["head"] = head
             save(q, st)
             try:
@@ -583,13 +590,17 @@ def run_on_base(cfg: Config, q: Path, task_id: str, head: str, command: list[str
                     p.wait()
                 if p.stdout is not None:
                     p.stdout.close()
-            if st is not None:
+            if st and (load(q, st["name"]) is not None or Path(st["path"]).exists()):  # one create did not remove
                 warnings += remove(cfg, q, st["name"])
     finally:
         if on_main:
             signal.signal(signal.SIGTERM, previous if previous is not None else signal.SIG_DFL)
-    if st is None:  # a SIGTERM before the worktree was made; create removed any half-made one
-        raise QueueError(f"stopped by signal {signum} before its worktree was made; nothing is left", 128 + signum)
+    if not st:  # a SIGTERM before the worktree was made (every other way here has one): a result all the same
+        warnings.append(f"this ccp was sent signal {signum} before its worktree was made: nothing ran, nothing is left")
+        return {"ok": False, "name": None, "task_id": task_id, "head": head, "merge_base": sha,
+                "integration": f"origin/{integration_branch(q)}", "exit": code,
+                "seconds": round(time.monotonic() - started, 1), "removed": True, "timed_out": False,
+                "warnings": warnings, "signal": signum}
     if timed_out.is_set():
         warnings.append(f"the command outlived --timeout {limit} s: it was killed with its process group")
     out = {"ok": code == 0, "name": st["name"], "task_id": task_id, "head": head, "merge_base": st["sha"],
@@ -608,7 +619,9 @@ def main_of(checkout: Path) -> Path:
     """The main checkout of the repository `checkout` belongs to, found from `git rev-parse
     --git-common-dir`: the parent of a common dir named `.git`; else (a separate git dir, a submodule)
     the checkout's own top level when its git dir is the common one, so it is the main checkout itself.
-    Itself when git cannot say, as for a linked worktree of a repository whose git dir is elsewhere."""
+    A linked worktree of a repository whose git dir is elsewhere: git keeps no path to the main checkout,
+    so it is the directory whose `.git` file points at the common dir, looked for beside and above the
+    repository's worktrees (`_main_beside`). Itself when git cannot say, or no such directory is found."""
     r = git(checkout, "rev-parse", "--path-format=absolute", "--git-common-dir", "--git-dir")
     lines = r.stdout.split("\n") if r.returncode == 0 else []
     if len(lines) < 2 or not lines[0].strip() or not lines[1].strip():
@@ -616,11 +629,52 @@ def main_of(checkout: Path) -> Path:
     common, own = Path(lines[0].strip()), Path(lines[1].strip())
     if common.name == ".git":
         return common.parent
+    top = git(checkout, "rev-parse", "--show-toplevel")
+    here = Path(top.stdout.strip()) if top.returncode == 0 and top.stdout.strip() else None
     if own.resolve() == common.resolve():
-        top = git(checkout, "rev-parse", "--show-toplevel")
-        if top.returncode == 0 and top.stdout.strip():
-            return Path(top.stdout.strip())
-    return checkout
+        return here or checkout
+    return _main_beside(common, here or checkout) or checkout
+
+
+def _git_file_target(d: Path) -> Path | None:
+    """The git dir a directory's `.git` file names (`gitdir: <path>`, relative to the directory or
+    absolute), resolved; None when `.git` is no such file."""
+    try:
+        f = d / ".git"
+        text = f.read_text(errors="replace").strip() if f.is_file() else ""
+    except OSError:
+        return None
+    if not text.startswith("gitdir:"):
+        return None
+    target = Path(text[len("gitdir:"):].strip())
+    return (target if target.is_absolute() else d / target).resolve()
+
+
+def _main_beside(common: Path, checkout: Path) -> Path | None:
+    """The main checkout of a separate-git-dir repository: the directory whose `.git` file names the
+    common dir itself (a linked worktree's names `<common>/worktrees/<n>`). Looked for among the
+    ancestors and the siblings of `checkout` and of every linked worktree the repository registers
+    (`<common>/worktrees/*/gitdir`); None when there is none."""
+    want = common.resolve()
+    linked = [checkout]
+    for g in sorted((common / "worktrees").glob("*/gitdir")):
+        try:
+            linked.append(Path(g.read_text(errors="replace").strip()).parent)
+        except OSError:
+            continue
+    seen: set[Path] = set()
+    for wt in linked:
+        near = list(wt.parents)
+        try:
+            near += sorted(c for c in wt.parent.iterdir() if c.is_dir())
+        except OSError:
+            pass
+        for d in near:
+            if d not in seen:
+                seen.add(d)
+                if _git_file_target(d) == want:
+                    return d
+    return None
 
 
 def runner_worktree(main: Path, path: str, integ: str) -> tuple[Path, bool]:

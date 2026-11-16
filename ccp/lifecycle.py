@@ -770,9 +770,9 @@ SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 def signed_at(at: str) -> str:
-    """§3.5 `--at`: the date a sign-off was given before it could be recorded, as a date (`YYYY-MM-DD`)
+    """§3.5 `--at`: the date a sign-off was given before it could be recorded, as a UTC date (`YYYY-MM-DD`)
     or an RFC 3339 time with its offset (kept in UTC). Refused (exit 2) when it is neither, or later than
-    now."""
+    now: a date later than today's UTC date, whatever the local zone, so one rule judges both forms."""
     from datetime import date, datetime, timezone  # noqa: PLC0415
     s = at.strip()
     bad = f"--at {at!r} is not a date (YYYY-MM-DD) or an RFC 3339 time with its offset"
@@ -781,7 +781,7 @@ def signed_at(at: str) -> str:
             d = date.fromisoformat(s)
         except ValueError:
             raise QueueError(bad, 2) from None
-        if d > date.today():
+        if d > now().date():  # today's UTC date, not the local one
             raise QueueError(f"--at {s} is in the future: a sign-off is recorded once given (SPEC §3.5)", 2)
         return d.isoformat()
     try:

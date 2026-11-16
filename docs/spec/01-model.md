@@ -210,11 +210,11 @@ The lead records each sign-off with `ccp tasks sign-off <id> --by <who> --words 
 with `stage`, `by`, `words` and `head`; the event's `at` is when. A `build` sign-off's head defaults to the
 verified head (`verification/<id>.json`); without one the command refuses unless `--head` is given.
 A sign-off the operator gave before it could be recorded (in git, before the product adopted the
-plane) is recorded with `--at`, the date it was given (`YYYY-MM-DD`, or an RFC 3339 time with its
-offset), which the payload keeps as `signed_at`, and `--from <commit>`, the commit it covers: another
-name for `--head`, with the same defaults (for `brief`, the commit that last changed the task file).
-`--at` refuses (exit 2) a value that is not such a date or is later than now. Claim and close judge
-it as any other sign-off.
+plane) is recorded with `--at`, the date it was given (`YYYY-MM-DD`, a UTC date, or an RFC 3339 time
+with its offset), which the payload keeps as `signed_at`, and `--from <commit>`, the commit it covers:
+another name for `--head`, with the same defaults (for `brief`, the commit that last changed the task
+file). `--at` refuses (exit 2) a value that is not such a date or is later than now: a date, when it is
+later than today's UTC date, whatever the local zone. Claim and close judge it as any other sign-off.
 A later record of a stage replaces the earlier. The command refuses (exit 2) a task with no sign-off
 due (it declares no `sign_off`, and its verdict lists no `spec_beyond_intent`), a stage not due, and,
 when both are due, a call without `--stage`.
