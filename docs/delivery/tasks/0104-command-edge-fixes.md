@@ -94,4 +94,31 @@ without it.
 
 *Append-only, newest last.*
 
+- 2026-11-16 (implementer):
+  - `suite affected`: `cli.main` passes the word after `--since` as `--since=<word>`, so argparse takes a
+    ref that starts with a dash. `changed_paths` resolves the ref with
+    `git rev-parse --verify --quiet --end-of-options <ref>^{tree}` and diffs against the resolved sha,
+    so git never reads the ref as an option. A ref it cannot resolve exits 2 and the message names the
+    ref. `--paths` are normalised with `posixpath.normpath`, relative to the root; one that leaves the
+    root exits 2. The name match keeps only names with an extension that are not a directory on disk.
+    A directory passed as a path therefore matches by neither module nor name; it is not expanded into
+    its files (Scope names no expansion).
+  - `sign-off --at`: a date-only value is compared with `now().date()`, today's UTC date. The SPEC §3.5
+    sentence and the `--at` help say it is a UTC date.
+  - `wt exec`: `--timeout` is refused with exit 2, as on any kind other than base (§12.1). On a base
+    run, a malformed `--timeout` still exits 125, its own refusal under §12.1. The check now accepts
+    ASCII digits only, so a value such as `²` (which `isdigit()` accepts but `int()` rejects) no longer
+    gives a traceback.
+  - `run_on_base`: `create` takes a `bind` dict and puts the new worktree's record in it as the first
+    thing in its guarded block. `run_on_base` passes its own record as that dict. A SIGTERM after the
+    worktree exists, even one that arrives before `create` returns, therefore finds the record bound,
+    and the cleanup removes the worktree. The cleanup removes only what is still there, so a worktree
+    `create` already removed is not removed twice. A SIGTERM before the worktree exists now returns
+    the result with `name: null`, `merge_base` (null if not yet known), `exit: 143`, `signal: 15` and
+    `removed: true`, and `ccp` prints it as JSON.
+  - `main_of`: git keeps no path from a separate git dir to its main checkout. For a linked worktree of
+    such a repository, it looks for the directory whose `.git` file names the common dir. The search
+    covers the ancestors and siblings of the checkout and of each linked worktree registered under
+    `<common>/worktrees/*/gitdir`. When none is found it returns the checkout, as before.
+
 ## Verification notes

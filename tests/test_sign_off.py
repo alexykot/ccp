@@ -8,6 +8,7 @@ import subprocess
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from ccp import config, tasklog
 from tests.test_toolkit import PLANE, ToolkitFixture, git
@@ -297,6 +298,25 @@ class SignOff(ToolkitFixture, unittest.TestCase):
             self.assertEqual(code, 2, at)
             self.assertIn(why, err, at)
         self.assertEqual(self.recorded(), [])
+
+    def test_a_date_is_judged_against_todays_utc_date_whatever_the_local_zone(self):
+        from datetime import datetime, timedelta, timezone
+        self.declare("brief")
+        utc = datetime.now(timezone.utc)
+        if (utc.hour, utc.minute) >= (23, 58):
+            self.skipTest("the UTC date may turn while it runs")
+        # a zone whose local date is behind the UTC date (UTC-12, before noon UTC), else ahead of it (UTC+14)
+        self.addCleanup(time.tzset)  # back to the real zone once TZ is restored
+        with mock.patch.dict(os.environ, {"TZ": "XXX12" if utc.hour < 12 else "XXX-14"}):
+            time.tzset()
+            self.assertNotEqual(datetime.now().date(), utc.date())  # the local date is another day
+            today, tomorrow = utc.date().isoformat(), (utc.date() + timedelta(days=1)).isoformat()
+            code, _, out, err = self.sign("--at", tomorrow)
+            self.assertEqual(code, 2, out + err)
+            self.assertIn("in the future", err)
+            code, body, out, err = self.sign("--at", today)
+            self.assertEqual(code, 0, out + err)
+            self.assertEqual(body["sign_off"]["signed_at"], today)
 
     # ------------------------------------------------------------------ the task field
 

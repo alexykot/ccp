@@ -331,6 +331,22 @@ class MainCheckout(unittest.TestCase):
     def test_without_a_repository_it_is_the_checkout_itself(self):
         self.assertEqual(wt.main_of(self.t), self.t)
 
+    def test_a_linked_worktree_of_a_separate_git_dir_finds_the_main_checkout(self):
+        main = self.repo("--separate-git-dir", str(self.t / "gitdir"))
+        git(main, "worktree", "add", "-q", "--detach", str(main / ".rt" / "inside"))
+        git(main, "worktree", "add", "-q", "--detach", str(self.t / "beside"))
+        self.assertEqual(wt.main_of(main / ".rt" / "inside"), main)  # under the main checkout
+        self.assertEqual(wt.main_of(self.t / "beside"), main)  # next to it
+        (self.t / "beside" / "sub").mkdir()
+        self.assertEqual(wt.main_of(self.t / "beside" / "sub"), main)
+
+    def test_a_linked_worktree_whose_main_checkout_is_nowhere_near_is_itself(self):
+        main = self.repo("--separate-git-dir", str(self.t / "gitdir"))
+        far = self.t / "a" / "b" / "far"
+        git(main, "worktree", "add", "-q", "--detach", str(far))
+        (main / ".git").unlink()  # the main checkout's pointer to its git dir is gone
+        self.assertEqual(wt.main_of(far), far)
+
 
 class Config(WtFixture, unittest.TestCase):
     def test_legacy_adapter_keys_fold_into_worktrees(self):
@@ -619,6 +635,16 @@ class ExecOwnCcp(WtFixture, unittest.TestCase):
         code, _, body, err = self.wt("exec", name, "--print")
         self.assertEqual((code, body.strip()), (0, str(path / "bin" / "ccp")), err)
         self.assertEqual(self.wt("exec", name, "--print", "--", "hello")[0], 2)
+        self.assertFalse((path / "bin" / "ran.json").exists())
+
+    def test_a_timeout_is_refused_and_nothing_runs(self):
+        name, path = self.made()
+        for value in ("abc", "5"):
+            code, _, body, err = self.wt("exec", name, "--timeout", value, "--", "hello")
+            self.assertEqual((code, body), (2, ""), err)
+            self.assertIn("--timeout", err)
+            self.assertNotIn("Traceback", err)
+        self.assertEqual(self.wt("exec", name, "--timeout", "abc", "--print")[:3:2], (2, ""))
         self.assertFalse((path / "bin" / "ran.json").exists())
 
     def test_a_signal_ending_it_is_128_plus_the_signal(self):
