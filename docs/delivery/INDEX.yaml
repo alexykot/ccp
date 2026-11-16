@@ -492,3 +492,48 @@ tasks:
     title: Close merges a verified head behind the tip when the tip's new commits do not touch the task's files
     depends_on: []
     path: tasks/0098-close-catches-up-a-clean-disjoint-head.md
+  - id: 0099-worker-prompts-arrive-whole
+    status: pending
+    title: A worker proves it received its whole rendered prompt, and a verifier knows when to record with the head's own ccp
+    depends_on: []
+    path: tasks/0099-worker-prompts-arrive-whole.md
+  - id: 0100-prompt-templates-name-the-tools
+    status: pending
+    title: Worker prompts name ccp mutate --revert and ccp suite affected, and worker_env takes kind and seat from the worktree
+    depends_on: []
+    path: tasks/0100-prompt-templates-name-the-tools.md
+  - id: 0101-spec-text-catches-up-with-the-code
+    status: pending
+    title: SPEC passages that say less than the code does, or the wrong thing, are corrected
+    depends_on: [0104-command-edge-fixes]
+    path: tasks/0101-spec-text-catches-up-with-the-code.md
+  - id: 0102-init-and-docs-check-fixes
+    status: pending
+    title: init's deny rules, --adopt on nested rules, origin parsing, and the package-doc check are fixed
+    depends_on: []
+    path: tasks/0102-init-and-docs-check-fixes.md
+  - id: 0103-runner-rotation-and-spawn-follow-ups
+    status: pending
+    title: The idle hook knows both rotation triggers, rotation reads its counts safely, and a spawn dry run checks the integration ref
+    depends_on: []
+    path: tasks/0103-runner-rotation-and-spawn-follow-ups.md
+  - id: 0104-command-edge-fixes
+    status: pending
+    title: suite affected, sign-off --at, wt exec and main_of handle their edge cases
+    depends_on: []
+    path: tasks/0104-command-edge-fixes.md
+  - id: 0105-report-premise-board-and-skip-fixes
+    status: pending
+    title: Report fields, the premise check, the board and the minor-only skip handle their edge cases
+    depends_on: []
+    path: tasks/0105-report-premise-board-and-skip-fixes.md
+  - id: 0106-test-gaps-from-earlier-tasks
+    status: pending
+    title: Behaviour earlier tasks shipped untested gets the tests that pin it
+    depends_on: []
+    path: tasks/0106-test-gaps-from-earlier-tasks.md
+  - id: 0107-check-not-as-written
+    status: pending
+    title: The verification record gives a check that cannot hold as written its own state, and close shows it
+    depends_on: []
+    path: tasks/0107-check-not-as-written.md

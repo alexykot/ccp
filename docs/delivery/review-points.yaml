@@ -26,5 +26,11 @@ review_points:
   - id: R5
     name: adoption and follow-ups
     goal: Make adopting the plane on a new product smooth, add the tools products asked for, and close the follow-ups found while delivering R1–R4.
-    status: current
+    status: closed
     opened: "2026-11-12"
+    closed: "2026-11-16"
+  - id: R6
+    name: follow-ups II
+    goal: Close the follow-ups found while delivering R5, make worker prompts arrive whole, and record a check that cannot hold as written.
+    status: current
+    opened: "2026-11-16"
