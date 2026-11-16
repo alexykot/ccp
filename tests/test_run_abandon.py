@@ -77,7 +77,7 @@ class Abandon(ToolkitFixture, unittest.TestCase):
         self.assertIn("0002-second/review was still running", err)
         self.assertEqual(len(body["warnings"]), 1)
         code, _, _, err = self.report("0002-second/review", "Outcome: done\nSeverity: BLOCKER=0 MAJOR=0 MINOR=0 NIT=0\n"
-                                                            "## Friction\nnone\n")
+                                                            "## Spec beyond intent\nnone\n## Friction\nnone\n")
         self.assertEqual(code, 1)
         self.assertIn("already abandoned", err)
 
@@ -87,7 +87,7 @@ class Abandon(ToolkitFixture, unittest.TestCase):
         self.start("i1", "delivery-implementer")
         self.stop("i1", "delivery-implementer")
         self.review()
-        self.report("0002-second/review", "Outcome: done\nSeverity: BLOCKER=0 MAJOR=0 MINOR=0 NIT=0\n## Friction\nnone\n")
+        self.report("0002-second/review", "Outcome: done\nSeverity: BLOCKER=0 MAJOR=0 MINOR=0 NIT=0\n## Spec beyond intent\nnone\n## Friction\nnone\n")
         self.review()
         self.assertEqual(runs.state(self.run_rec("0002-second/implement")), "stopped")
         rev = self.run_rec("0002-second/review")

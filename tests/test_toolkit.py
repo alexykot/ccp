@@ -217,7 +217,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
             ## Friction
             none
             """)
-        lines = {"review": "Severity: BLOCKER=0 MAJOR=1 MINOR=0 NIT=0", "fix": f"PR: #7\nHead: {'a' * 40}",
+        lines = {"review": "Severity: BLOCKER=0 MAJOR=1 MINOR=0 NIT=0\n## Spec beyond intent\nnone", "fix": f"PR: #7\nHead: {'a' * 40}",
                  "verify": f"Verdict: reject\nHead: {'a' * 40}"}
         for phase in ("review", "fix", "verify"):
             # §15.2: a verify straight after a fix is refused without the lead's override
@@ -380,6 +380,8 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.report("0002-second/review", """\
             Outcome: done
             Severity: BLOCKER=0 MAJOR=1 MINOR=2 NIT=0
+            ## Spec beyond intent
+            none
             ## Friction
             none
             """)

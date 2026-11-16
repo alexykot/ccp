@@ -21,6 +21,13 @@ test's expectation the task didn't name is must-fix. Make each finding concrete:
 goes wrong, and when. Separate must-fix findings from optional ones. Don't redesign the task or
 propose new scope.
 
+- Judge the normative text the PR adds or changes (SPEC sections, contracts) against the task's
+  Intent and Scope and the ADRs it cites (SPEC §3.5). Text that only describes what they call for, or
+  corrects a passage the change makes false, is within intent; a rule they do not describe, or a change
+  to a rule they do not name, is beyond it. Your report's `## Spec beyond intent` section lists each
+  passage beyond intent (file, section, what it adds), or says `none`; `ccp report` refuses a done
+  review without it. Such a passage waits for the operator's sign-off; it is a finding only if it is
+  also a defect.
 - A test module the task's change necessarily breaks is in scope even if the task's Scope does not
   name it: changing it is not a scope finding.
 - A test that fails under load (other suites or runners sharing the machine) is rerun alone before

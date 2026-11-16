@@ -162,7 +162,7 @@ After launching a worker the runner may end its turn.
 6. Re-authenticating an expired credential.
 7. New production / MCP credentials.
 8. Escalations marked `waiting_operator`.
-9. Text a task declares for the operator's sign-off (§3.5).
+9. Text a task declares for the operator's sign-off, or that its verdict finds beyond its intent (§3.5).
 
 Not operator-gated: a merge to the integration branch after the verifier's approve; a review the
 runner launches; a quota pause.
@@ -194,6 +194,17 @@ it in its frontmatter, `sign_off:`:
 Any other value (no stage, or one that is not `brief` or `build`) fails `ccp tasks check`, and claim
 and close refuse the task until it is fixed.
 
+Text that only describes what the task's accepted brief and ADR call for (§31.1) needs no sign-off: a
+task whose SPEC or contract text follows from them declares no `sign_off`. Text beyond that intent is
+caught at review and verify. The reviewer's report carries a `## Spec beyond intent` section and the
+verifier's verdict a `spec_beyond_intent` list (§15.4): each passage of normative text (SPEC, contract)
+the PR adds or changes that the brief and its ADR do not call for, named by file and section; `none`, or
+an empty list, when there is none. `ccp report` refuses a done review report without the section, and
+`ccp verify record` a task's verdict without the list (a `pr-<n>` verdict may leave it out; a record
+written before the field reads as listing none). A non-empty `spec_beyond_intent` in the task's latest
+verdict makes a `build` sign-off due even when the task declares none: the runner tells the lead which
+text needs it, and the lead records it as any other `build` sign-off.
+
 The lead records each sign-off with `ccp tasks sign-off <id> --by <who> --words "…"
 [--stage brief|build] [--head <sha>] [--at <date>]`: a `sign_off` `recorded` event in the ledger (§23.2)
 with `stage`, `by`, `words` and `head`; the event's `at` is when. A `build` sign-off's head defaults to the
@@ -204,14 +215,16 @@ offset), which the payload keeps as `signed_at`, and `--from <commit>`, the comm
 name for `--head`, with the same defaults (for `brief`, the commit that last changed the task file).
 `--at` refuses (exit 2) a value that is not such a date or is later than now. Claim and close judge
 it as any other sign-off.
-A later record of a stage replaces the earlier. The command refuses (exit 2) a task that declares
-no `sign_off`, a stage it does not declare, and, when it declares both, a call without `--stage`.
+A later record of a stage replaces the earlier. The command refuses (exit 2) a task with no sign-off
+due (it declares no `sign_off`, and its verdict lists no `spec_beyond_intent`), a stage not due, and,
+when both are due, a call without `--stage`.
 
 `ccp tasks claim` refuses a task whose `brief` sign-off is missing, or whose head does not contain
 the commit that last changed the task file in the checkout it claims from (stale: the text changed
 after the signing, and the operator signs it again); a head that is that commit or a descendant of it
-holds. `ccp tasks close` refuses one whose declared sign-off is missing, or whose `build` sign-off
-covers another head than the one it merges (stale: the operator signs the new head) (§10.5). How the
+holds. `ccp tasks close` refuses one whose due sign-off (declared, or `build` from its verdict) is
+missing, naming the verdict's passages beyond intent, or whose `build` sign-off covers another head
+than the one it merges (stale: the operator signs the new head) (§10.5). How the
 operator is asked is not part of this rule.
 
 ### 3.6 Notifying the operator

@@ -214,6 +214,54 @@ KEYS_AT = {
         "verdict",
         "verifier_seat",
     ],
+    3: [
+        "access_mode",
+        "catch_up",
+        "catch_up.from",
+        "catch_up.gate_run",
+        "catch_up.merge_tree",
+        "catch_up.task_files",
+        "catch_up.tip",
+        "catch_up.tip_files",
+        "catch_up.to",
+        "checked_at",
+        "checks",
+        "checks.dod_check_id",
+        "checks.evidence",
+        "checks.notes",
+        "checks.operator_step",
+        "checks.pass",
+        "checks.produced_by",
+        "checks.ran",
+        "checks.rests_on",
+        "evidence_pack_path",
+        "findings",
+        "gate",
+        "gate.ci_run",
+        "gate.runs",
+        "gate.runs.cached",
+        "gate.runs.cold",
+        "gate.runs.command",
+        "gate.runs.exit_code",
+        "gate.runs.modules_cached",
+        "gate.runs.modules_ran",
+        "gate.runs.ran",
+        "gate.runs.seconds",
+        "gate.runs.suite_id",
+        "gate.runs.tests_run",
+        "gate.runs.tests_skipped",
+        "head_sha",
+        "merge_requested",
+        "project_id",
+        "proof_urls",
+        "proof_urls.local",
+        "proof_urls.verifier",
+        "schema_version",
+        "spec_beyond_intent",
+        "task_id",
+        "verdict",
+        "verifier_seat",
+    ],
 }
 
 
@@ -246,6 +294,7 @@ def approve(task: str = "0001-a", **fields: object) -> dict:
     return {
         "task_id": task, "project_id": "demo", "verdict": "approve", "head_sha": HEAD_A,
         "checks": [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it", "produced_by": "verifier"}],
+        "spec_beyond_intent": [],
         "gate": {"runs": [{"command": "scripts/unit.sh", "exit_code": 0, "tests_run": 412,
                            "tests_skipped": 0, "seconds": 88.5},
                           {"command": "scripts/lint.sh", "exit_code": 0}]},
@@ -404,13 +453,14 @@ class Record(unittest.TestCase):
         schema = json.loads((ROOT / "contracts/verification.schema.json").read_text())
         schema["properties"]["checks"]["items"]["properties"]["reviewed_at"] = {"type": "string"}
         added = record_keys(schema)
+        n = verify.RECORD_VERSION
         # Added to the schema alone: refused.
-        self.assertTrue(version_errors(added, 1, KEYS_AT))
+        self.assertTrue(version_errors(added, n, KEYS_AT))
         # Raised: a new version's sorted list holding the key, with RECORD_VERSION at it.
-        at2 = {**KEYS_AT, 2: sorted(added)}
-        self.assertEqual(version_errors(added, 2, at2), [])
-        self.assertTrue(version_errors(added, 1, at2))
-        self.assertTrue(version_errors(added, 2, {**KEYS_AT, 2: list(reversed(sorted(added)))}))
+        raised = {**KEYS_AT, n + 1: sorted(added)}
+        self.assertEqual(version_errors(added, n + 1, raised), [])
+        self.assertTrue(version_errors(added, n, raised))
+        self.assertTrue(version_errors(added, n + 1, {**KEYS_AT, n + 1: list(reversed(sorted(added)))}))
 
     def test_an_approve_needs_head_sha_and_the_validator_fails_closed_on_an_unknown_keyword(self):
         body = approve()

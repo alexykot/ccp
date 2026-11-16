@@ -52,7 +52,9 @@ REPORT_LINES = {
     "implement": "   - `Outcome: done`, `Outcome: blocked` or `Outcome: failed`.\n"
                  "   - When done: `PR: #<number>` and `Head: <full sha of the PR head>`.\n",
     "review": "   - `Outcome: done`, `Outcome: blocked` or `Outcome: failed`.\n"
-              "   - When done: `Severity: BLOCKER=<n> MAJOR=<n> MINOR=<n> NIT=<n>`, the counts of your findings.\n",
+              "   - When done: `Severity: BLOCKER=<n> MAJOR=<n> MINOR=<n> NIT=<n>`, the counts of your findings.\n"
+              "   - When done: a `## Spec beyond intent` section, a `- ` line for each passage of normative text "
+              "beyond the task's intent, or the single line `none` (SPEC §3.5).\n",
     "verify": "   - `Outcome: done`, `Outcome: blocked` or `Outcome: failed`.\n"
               "   - When done: `Verdict: approve` or `Verdict: reject`, and `Head: <full sha you judged>`, the same as in "
               "the record you wrote with `ccp verify record`.\n",

@@ -71,6 +71,12 @@ A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_r
 runner's `--note` as its reason; `record` adds that reason to the record's `findings` when no finding
 gives it yet, as its whole text or as the line it adds (`fill_reason`).
 
+A task's verdict carries `spec_beyond_intent` (§3.5): the normative text the PR adds or changes that
+the brief and its ADRs do not call for, an empty list when none; `record` refuses a task's verdict
+without it (`beyond_intent_errors`), and a `pr-<n>` verdict may leave it out. A non-empty list in the
+latest verdict (`beyond_intent`) makes a build sign-off due on the task, declared or not, which
+`ccp tasks close` holds to; a record written before the field is read as listing none.
+
 A record may carry `catch_up` (§16.5 rule 4), which only `ccp tasks close` writes (`record_catch_up`;
 `record` refuses a verdict that carries one): close merged the integration tip into the approved head
 itself, ran the gate lane on the result and pushed it as the task branch's new head. `merge-ok` accepts
@@ -97,7 +103,7 @@ from ccp.refs import ANY_TASK_ID, QUESTION_ID
 SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "verification.schema.json"
 # The record's schema version, stamped by `record`. A change that adds a key to the record's
 # contract, at any depth, raises it, so an older reader knows the record is newer than itself.
-RECORD_VERSION = 2  # 2: `catch_up` (§16.5 rule 4)
+RECORD_VERSION = 3  # 2: `catch_up` (§16.5 rule 4); 3: `spec_beyond_intent` (§3.5)
 # Clocks on two machines differ a little; a minute is the slack, not a rounding allowance.
 SKEW = timedelta(seconds=60)
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -860,6 +866,8 @@ def write_record(root: Path, queue: Path, rec: Any, now: datetime) -> tuple[list
         errs += approve_errors(rec)
         errs += producer_errors(queue, rec)
         errs += rests_on_errors(root, queue, rec)
+    if isinstance(rec, dict):
+        errs += beyond_intent_errors(rec)
     if isinstance(rec, dict) and "catch_up" in rec:
         errs.append("catch_up: only `ccp tasks close` records a catch-up (SPEC §16.5 rule 4); a verdict carries none. "
                     "Remove it.")
@@ -876,6 +884,26 @@ def write_record(root: Path, queue: Path, rec: Any, now: datetime) -> tuple[list
     tmp.write_text(json.dumps(rec, indent=2, ensure_ascii=False) + "\n")
     tmp.replace(path)
     return [], path
+
+
+def beyond_intent_errors(rec: dict[str, Any]) -> list[str]:
+    """§3.5: a task's verdict says what normative text the PR adds beyond the task's intent:
+    `spec_beyond_intent`, a list, empty when none. A verdict on a PR that is not a task's (`pr-<n>`) has no
+    brief to judge it against and may leave it out."""
+    if str(rec.get("task_id") or "").startswith("pr-") or "spec_beyond_intent" in rec:
+        return []
+    return ["spec_beyond_intent: missing. List each passage of normative text (SPEC, contract) the PR adds or "
+            "changes that the task's brief and the ADRs it cites do not call for, naming its file and section, "
+            "or give [] when there is none (SPEC §3.5)"]
+
+
+def beyond_intent(queue: Path, task_id: str) -> list[str]:
+    """§3.5: the passages the task's latest verdict (`verification/<task_id>.json`) lists in
+    `spec_beyond_intent`: text beyond the task's intent, which makes a build sign-off due. [] for a record
+    without the field (written before it), or with none, or no record at all."""
+    rec = _load(queue / "verification" / f"{task_id}.json") if SAFE_ID_RE.match(task_id) else None
+    got = rec.get("spec_beyond_intent") if isinstance(rec, dict) else None
+    return [str(s).strip() for s in got if isinstance(s, str) and s.strip()] if isinstance(got, list) else []
 
 
 def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:

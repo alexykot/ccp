@@ -27,7 +27,8 @@ class ReviewGate(ToolkitFixture, unittest.TestCase):
     def run_phase(self, phase: str, head: str, lines: str, *extra: str):
         code, body, out, err = self.ccp("prompt", phase, "0002", "--pr", "7", "--head", head, *extra)
         self.assertEqual(code, 0, f"{phase}: {out}{err}")
-        code, _, out, err = self.report(body["run_id"], f"Outcome: done\n{lines}\n## Friction\nnone\n")
+        beyond = "## Spec beyond intent\nnone\n" if phase == "review" else ""  # §3.5: a review says what it found
+        code, _, out, err = self.report(body["run_id"], f"Outcome: done\n{lines}\n{beyond}## Friction\nnone\n")
         self.assertEqual(code, 0, f"{phase} report: {out}{err}")
         return body["run_id"]
 

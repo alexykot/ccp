@@ -154,6 +154,10 @@ before anything else.
    give close the longest timeout and run it again if it is interrupted. An approval in a message is
    not one. If the project's rules put merging behind a gate, open it first. Tell the lead in one line:
    task, merge sha, anything it must know.
+   A close refused for a missing build sign-off (SPEC §3.5) names the text that needs it: a task that
+   declares one, or a verdict that lists `spec_beyond_intent`, text beyond the task's intent. Tell the
+   lead which text the operator must sign (the passages close names, and the verified head), and close
+   again once the lead has recorded it with `ccp tasks sign-off <task_id> --stage build`.
 
    **Merge rules** (SPEC §15.2; the tip rule is Several runners rule 4):
    - Review only once open spec questions are answered and their rulings are on the PR.
@@ -205,7 +209,8 @@ runners, each holding one task. Otherwise ignore this section.
    more than the task log and the product's `merge.behind_tip_ignore` paths: the head is stale, so merge the
    tip in and verify the new head. A verified head that lacks code another task merged since is caught up by
    `ccp tasks close` itself when the merge is clean, the tip's new commits touch none of the task's own or
-   declared files, the task declares no build sign-off and the product has a gate lane: close merges the tip
+   declared files, no build sign-off is due on the task (declared, or from its verdict's `spec_beyond_intent`)
+   and the product has a gate lane: close merges the tip
    in, runs the gate lane on it as a recorded run, pushes it and merges it, with no new review or verify
    (SPEC §16.5 rule 4). That gate run may take minutes and repeat up to 3 times: give close the longest
    timeout, and if it is interrupted run it again (nothing is pushed before the gate is green). Otherwise

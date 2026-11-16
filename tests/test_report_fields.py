@@ -83,7 +83,7 @@ class Declared(ToolkitFixture, unittest.TestCase):
         self.ccp("tasks", "claim", "0002")
         self.ccp("prompt", "review", "0002", "--pr", "7", "--head", HEAD)
         code, _, out, err = self.report("0002-second/review",
-                                        "Outcome: done\nSeverity: BLOCKER=0 MAJOR=0 MINOR=0 NIT=0\n## Friction\nnone\n")
+                                        "Outcome: done\nSeverity: BLOCKER=0 MAJOR=0 MINOR=0 NIT=0\n## Spec beyond intent\nnone\n## Friction\nnone\n")
         self.assertEqual(code, 0, out + err)
 
     def test_the_implement_prompt_lists_the_field_and_its_values(self):
@@ -99,7 +99,7 @@ class Declared(ToolkitFixture, unittest.TestCase):
         self.assertIn("`migration: required`", text)
         self.assertIn("0002-second/implement", text)
         self.assertEqual(body["report_fields"], {"run_id": "0002-second/implement", "fields": {"migration": "required"}})
-        self.report("0002-second/review", "Outcome: done\nSeverity: BLOCKER=0 MAJOR=1 MINOR=0 NIT=0\n## Friction\nnone\n")
+        self.report("0002-second/review", "Outcome: done\nSeverity: BLOCKER=0 MAJOR=1 MINOR=0 NIT=0\n## Spec beyond intent\nnone\n## Friction\nnone\n")
         code, body, out, err = self.ccp("prompt", "fix", "0002", "--pr", "7", "--head", HEAD)
         self.assertEqual(code, 0, out + err)
         self.assertIn("`migration: required|not required`", Path(body["prompt_path"]).read_text())
@@ -127,7 +127,7 @@ class Declared(ToolkitFixture, unittest.TestCase):
         """Render the review prompt, then close that review asking for a fix; return the verdicts it showed."""
         code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", HEAD)
         self.assertEqual(code, 0, out + err)
-        self.report(review_run, "Outcome: done\nSeverity: BLOCKER=0 MAJOR=1 MINOR=0 NIT=0\n## Friction\nnone\n")
+        self.report(review_run, "Outcome: done\nSeverity: BLOCKER=0 MAJOR=1 MINOR=0 NIT=0\n## Spec beyond intent\nnone\n## Friction\nnone\n")
         return body["report_fields"]
 
     def fix(self, run_id: str, verdict: str) -> None:

@@ -4,7 +4,10 @@ The report is the worker's own words plus a few lines `ccp` reads:
 
 - `Outcome: done|blocked|failed`, always;
 - implement, fix, merge and ruling, when done: `PR: #<n>` and `Head: <sha>`;
-- review, when done: `Severity: BLOCKER=<n> MAJOR=<n> MINOR=<n> NIT=<n>`;
+- review, when done: `Severity: BLOCKER=<n> MAJOR=<n> MINOR=<n> NIT=<n>`, and a `## Spec beyond intent`
+  section (§3.5): a `- ` line for each passage of normative text the PR adds or changes that the task's
+  brief and its ADRs do not call for, or the single line `none`; the run keeps only their count
+  (`spec_beyond_intent`);
 - verify, when done: `Verdict: approve|reject` and `Head: <sha>`;
 - `Suite: <n> tests, <s> s`, when the worker ran the full suite; it may end `ran <r>, cached <c>`
   (or `<r> modules ran, <c> cached`),
@@ -54,6 +57,7 @@ SUITE_FROM_RE = re.compile(r"^[^\w\n]*Suite:[\s*_]*from\s+(st-[A-Za-z0-9-]+)", r
 SUITE_ANY_RE = re.compile(r"^[^\w\n]*Suite:.*$", re.I | re.M)
 AUTO_ROLES = ("full", "gate")  # a report with no Suite: line takes its run's latest of these roles' lanes (§14.1)
 FRICTION_RE = re.compile(r"^##\s+Friction[ \t]*\r?$", re.M)
+BEYOND_RE = re.compile(r"^##\s+(?:Spec beyond intent|spec_beyond_intent)[ \t]*\r?$", re.I | re.M)  # §3.5
 FIELD_PHASES = runs.CHANGE_PHASES  # §13.4: the rounds that push a head (PR, Head) and state the declared verdicts
 
 
@@ -125,9 +129,10 @@ def cache_counts(line: str) -> tuple[int, int] | None:
     return int(ran), int(cached)
 
 
-def friction(text: str) -> list[str] | None:
-    """The Friction section's lines; None when the section is missing or says nothing usable."""
-    m = FRICTION_RE.search(text)
+def friction(text: str, heading: re.Pattern[str] = FRICTION_RE) -> list[str] | None:
+    """The Friction section's lines (or another section of the same shape, `heading`: `- ` lines, or the
+    single line `none`); None when the section is missing or says nothing usable."""
+    m = heading.search(text)
     if not m:
         return None
     nxt = re.search(r"^#{1,2}\s", text[m.end():], re.M)
@@ -245,6 +250,13 @@ def parse(phase: str, text: str, accept_cache: bool = False,
             out["severity"] = parts
         elif done:
             errs.append("no `Severity: BLOCKER=<n> MAJOR=<n> MINOR=<n> NIT=<n>` line with all four counts")
+        beyond = friction(text, BEYOND_RE)
+        if beyond is not None:
+            out["spec_beyond_intent"] = len(beyond)
+        elif done:
+            errs.append("no `## Spec beyond intent` section: a `- ` line for each passage of normative text (SPEC, "
+                        "contract) the PR adds or changes that the task's brief and its ADRs do not call for, or the "
+                        "single line `none` (SPEC §3.5)")
     s = SUITE_RE.search(text)
     if s:
         out["suite_tests"] = int(s.group(1))
@@ -321,8 +333,9 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
         pass
     rec.update(reported_at=iso(), outcome=parsed["outcome"], report=str(dest),
                friction_count=len(parsed.get("friction") or []),
-               **{k: parsed[k] for k in ("pr", "head", "verdict", "severity", "suite_tests", "suite_seconds", "suite_ran",
-                                         "suite_cached", "suite_from", "suite_filled", "fields") if k in parsed})
+               **{k: parsed[k] for k in ("pr", "head", "verdict", "severity", "spec_beyond_intent", "suite_tests",
+                                         "suite_seconds", "suite_ran", "suite_cached", "suite_from", "suite_filled",
+                                         "fields") if k in parsed})
     runs.save(q, rec)
     emit(q, cfg, tid, "run", "reported", {"run_id": run_id, "outcome": rec["outcome"]},
          _actor_for(rec["seat"]))
@@ -331,7 +344,8 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
         emit(q, cfg, tid, "review", "recorded", {"run_id": run_id, "verdict": verdict, "severity": parsed["severity"]},
              _actor_for(rec["seat"]))
     return {"ok": True, "run_id": run_id, "report": str(dest), **{k: v for k, v in rec.items() if k in (
-        "outcome", "pr", "head", "verdict", "severity", "suite_tests", "suite_seconds", "suite_ran", "suite_cached",
+        "outcome", "pr", "head", "verdict", "severity", "spec_beyond_intent", "suite_tests", "suite_seconds",
+        "suite_ran", "suite_cached",
         "suite_from", "suite_filled", "friction_count", "fields",
         "suite_runs_recorded", "suite_s_recorded")}, **({"warnings": warnings} if warnings else {})}
 

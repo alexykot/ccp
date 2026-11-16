@@ -180,7 +180,7 @@ plane's commit hook template (`scripts/git-hooks/pre-commit.template`) runs it w
 1. `ccp verify merge-ok` and the merge pinned to the verified head (§15.5). It refuses before
    merging when the checkout it runs from has changes or a rebase in progress; with several runners it
    refuses a head behind the tip unless it catches it up (§16.5 rule 4). It refuses (exit 1) a task
-   whose declared sign-off (§3.5) is missing, or whose `build` sign-off covers another head than the one it merges, or whose
+   whose due sign-off (§3.5: declared, or `build` from its verdict's `spec_beyond_intent`) is missing, or whose `build` sign-off covers another head than the one it merges, or whose
    `sign_off:` value is malformed, naming it; nothing is merged, and on a re-run after a merge the
    reconcile waits for it too.
 2. **Reconcile:** the task file's status and Verification notes line (from the verifier's record),
@@ -482,6 +482,8 @@ metrics and every friction line. Report lines:
 - `PR:` and `Head:` for implement, fix, merge and ruling;
 - `Severity: BLOCKER=… MAJOR=… MINOR=… NIT=…` for review (a review with a BLOCKER or MAJOR is
   recorded as `changes`, otherwise `clean`);
+- `## Spec beyond intent` for review with `Outcome: done`: a `- ` line for each passage of normative
+  text beyond the task's intent, or the single line `none` (§3.5; the run keeps only their count);
 - `Verdict:` and `Head:` for verify, matching the verdict `ccp verify record` noted;
 - `Suite:` when the full suite ran, or `Suite: from <suite_id>`, or none (filled from the run's
   record, §14.4);
@@ -1119,7 +1121,7 @@ failing checks in `failed` and on stderr; a refusal exits as the spawn would. It
    beyond those paths: merge the tip in first. A tip or head it cannot fetch is a warning there; with
    several runners close still checks.
    When the merge with the tip is clean, the tip's new commits change no file the task's own diff or
-   declared paths change, and the task declares no build sign-off, close merges the tip into the
+   declared paths change, and no build sign-off is due on the task (§3.5), close merges the tip into the
    verified head itself, runs the gate lane on the result as a recorded run, re-checks the tip (at
    most 3 catch-ups), and on a green gate merges that commit, recording the catch-up in the
    verification record. Review and verify are not repeated: the task's own diff is unchanged. A break

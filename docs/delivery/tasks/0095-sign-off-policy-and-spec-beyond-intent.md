@@ -73,6 +73,24 @@ changes still reach the operator (§3.5).
 
 *Append-only, newest last.*
 
+- 2026-11-16 (implementer): the verdict record gains `spec_beyond_intent` (a list of strings, one per
+  passage, file and section named); `ccp verify record` refuses a task's verdict without it (a `pr-<n>`
+  verdict may leave it out) and the record version is raised to 3 (§15.4). A reader takes a record
+  without the field as listing none (`verify.beyond_intent`). `lifecycle.due_stages` adds `build` to the
+  declared stages when the latest verdict lists a passage: `ccp tasks sign-off` records it (the default
+  stage when it is the only one due), `ccp tasks close` refuses without it, naming the passages and
+  the command, and close's own catch-up (§16.5 rule 4) is refused as for a declared build sign-off. A
+  done review report must carry a `## Spec beyond intent` section (`- ` lines or `none`); the run keeps
+  only the count. §3.2 item 9 and §3.5 state the default and the rule; two passages of §10.5 and §16.5
+  that named only a declared sign-off are corrected to a due one (§31.1). The review and verify prompts,
+  the reviewer, verifier and runner briefs and the writing-tasks skill say how to judge and relay it.
+- 2026-11-16 (implementer, fix round 1): the review's two MINORs. `REPORT_LINES["review"]` (the report
+  lines a reviewer is told to follow) and §13.4's list of what `ccp report` checks now name the
+  `## Spec beyond intent` section, so the list matches the refusal (§31.1: describes this task's own
+  feature). Tests added on `lifecycle.due_stages` and close: a re-verify listing none after one listing
+  a passage clears the due build sign-off (the latest verdict wins); passages append `build` to a
+  declared `brief` and never list `build` twice.
+
 ## Verification notes
 
 *Append-only.*
