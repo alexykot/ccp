@@ -88,4 +88,25 @@ that fails without it.
 
 *Append-only, newest last.*
 
+- 2026-11-16 (implementer): Report fields (`ccp/report.py`, SPEC §13.4): a declared value followed by
+  `|` and another declared value is the template, whatever follows; a value followed by the other
+  declared values joined by `/`, `,`, `or` or `|` is the template only with nothing after them (bar
+  emphasis, backticks or a full stop), which also covers a longer template respelled (`a, b or c`).
+  A `|` with no declared value after it, and a reason that starts with another declared value
+  (`yes, no downtime needed`), are now accepted. The §13.4 sentence on the template is reworded to
+  say so.
+- Premise warning (`ccp/tasklog.py`): a number may carry a size or time unit (`B`, `KB`…`PB` and
+  their `iB` forms, `k`, `m`, `ns`, `us`, `ms`, `s`, `sec`, `min`, `h`, `hr`, `d`, `x`, any case)
+  and may be a dash range (`5-10`, `2-3s`). A year and month (`2026-11`), which the old regex never
+  read, stays quiet. The warning names every number on its line, not only the first.
+- Board (`ccp/board.py`): the task rows carry `merge_rounds` and `ruling_rounds`, so the drill view
+  reads health's counts as `ccp board task` does.
+- Estimate bands (`ccp/estimate.py`): merge and ruling rounds count inside the fix band (`banded`,
+  `FIX_BAND`): a reference task's fix time is its fix, merge and ruling time together, and `fix_risk`
+  the share with any of those rounds. The estimator's reference rows (`ccp/estimator.py`) show the
+  same fix time. An estimate still bands four phases; actuals keep merge and ruling as their own.
+- Minor-only skip (`ccp/verify.py` `skip_after_clean`, SPEC §15.2): the latest fix round since the
+  clean review must have reported `done`; a `failed` or `blocked` one is refused as an unreviewed fix.
+  The latest round is the one judged, so a second fix round may skip as well; §15.2 now says so.
+
 ## Verification notes
