@@ -1,7 +1,7 @@
 ---
 task_id: 0116-prompt-and-verify-fixes
 title: Unbuilt ADR decisions are caught before the gate, staged lanes take no command, the verify prompt names every record field, and carried checks are named
-status: pending
+status: done
 kind: feature
 depends_on: ["0115-wait-on-a-suite-run"]
 spec_refs: ["S5", "S14", "S15"]
@@ -113,3 +113,5 @@ checks a later verify round carried from an earlier approval.
   `task/0001-a`. This supersedes the earlier note's "on the integration branch every pending task".
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #127 head `204cea4` (squash `0e305a6`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, check-01, suite-01. Gate: `ccp suite run --lane gate -- scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0116-prompt-and-verify-fixes.json.
+

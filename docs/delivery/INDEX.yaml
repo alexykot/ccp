@@ -578,7 +578,7 @@ tasks:
     depends_on: []
     path: tasks/0115-wait-on-a-suite-run.md
   - id: 0116-prompt-and-verify-fixes
-    status: pending
+    status: done
     title: Unbuilt ADR decisions are caught before the gate, staged lanes take no command, the verify prompt names every record field, and carried checks are named
     depends_on: [0115-wait-on-a-suite-run]
     path: tasks/0116-prompt-and-verify-fixes.md
