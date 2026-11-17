@@ -5,7 +5,8 @@ repository with one commit (`product/`), runs `ccp init` there with the options 
 binding written to `bindings/` and the queue to `queue/` inside DIR (never the installation's
 bindings directory, §8.3), commits what init wrote, writes the marker file `.ccp-sandbox`, and prints
 JSON: `root`, `binding`, `queue_root` and `env`, the `PROJECT_YAML` and `QUEUE_ROOT` lines that point
-`ccp` at it. `remove DIR` removes a directory holding the marker and refuses (exit 2) any other.
+`ccp` at it. `remove DIR` removes a directory holding the marker and refuses (exit 2) any other, and
+one that holds the working directory.
 
 DIR must not exist, or be an empty directory. `--queue-root` and init's flags that adopt nothing
 (`--permissions`, `--rules-doc`, `--adopt`) are refused: the sandbox places the queue itself. On a
@@ -121,8 +122,11 @@ def _build(d: Path, init_opts: list[str]) -> dict[str, Any]:
         sys.stderr.write(r.stderr)
     if r.returncode != 0:
         raise SandboxError("ccp sandbox: ccp init failed (above); nothing kept", r.returncode)
-    res = json.loads(r.stdout)
-    binding = Path(res["binding"])
+    try:  # init exits 0 without a binding for an option such as `-h`
+        binding = Path(json.loads(r.stdout)["binding"])
+    except (ValueError, KeyError, TypeError):
+        sys.stderr.write(r.stdout)
+        raise SandboxError("ccp sandbox: ccp init printed no binding (above); nothing kept") from None
     _commit(root, "Adopt with ccp init")
     out = {"root": str(root), "binding": str(binding), "queue_root": str(queue),
            "env": [f"PROJECT_YAML={shlex.quote(str(binding))}", f"QUEUE_ROOT={shlex.quote(str(queue))}"]}
@@ -131,8 +135,8 @@ def _build(d: Path, init_opts: list[str]) -> dict[str, Any]:
 
 
 def remove(dir_arg: str) -> Path:
-    """Remove a sandbox: a directory (not a link) holding the marker file. Raises SandboxError (exit 2),
-    removing nothing, for any other path."""
+    """Remove a sandbox: a directory (not a link) holding the marker file, and not holding the working
+    directory. Raises SandboxError (exit 2), removing nothing, for any other path."""
     d = Path(dir_arg).expanduser()
     if d.is_symlink() or not d.is_dir():
         raise SandboxError(f"ccp sandbox: {d} is not a directory; nothing removed")
@@ -140,7 +144,10 @@ def remove(dir_arg: str) -> Path:
     if marker.is_symlink() or not marker.is_file():
         raise SandboxError(f"ccp sandbox: {d} holds no {MARKER} marker, so it is not a sandbox; nothing removed")
     gone = d.resolve()
-    shutil.rmtree(d)
+    if _under(Path.cwd().resolve(), gone):
+        raise SandboxError(f"ccp sandbox: {gone} holds the working directory; run remove from outside it. "
+                           "Nothing removed")
+    shutil.rmtree(gone)
     return gone
 
 

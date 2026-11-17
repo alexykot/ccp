@@ -1408,20 +1408,23 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def binding_file(cfg: config.Config) -> Path | None:
-    """SPEC §8.3, §9.2: this product's binding, `<bindings>/<project_id>.yaml`, and only when its
-    product_root is this checkout or its main checkout. A scratch clone or a fork that names a live
-    project's id gets nothing."""
+    """SPEC §8.3, §9.2: this product's binding: the file `PROJECT_YAML` names, when it is set, ahead of
+    `<bindings>/<project_id>.yaml` (a sandbox's binding sits outside the bindings directory, §29.3);
+    either only when its product_root is this checkout or its main checkout. A scratch clone or a fork
+    that names a live project's id gets nothing."""
     from ccp.prompt import main_checkout  # noqa: PLC0415
     from ccp.queue import lib  # noqa: PLC0415
     if not config.PROJECT_ID_RE.match(cfg.project_id):
         return None
-    b = lib.bindings_dir() / f"{cfg.project_id}.yaml"
-    if not b.is_file():
-        return None
-    root = _scalar(b.read_text(), "product_root")
-    if not root or Path(root).expanduser().resolve() not in (cfg.root.resolve(), main_checkout(cfg).resolve()):
-        return None
-    return b
+    mine = (cfg.root.resolve(), main_checkout(cfg).resolve())
+    explicit = envvar("PROJECT_YAML")
+    for b in ([Path(explicit).expanduser()] if explicit else []) + [lib.bindings_dir() / f"{cfg.project_id}.yaml"]:
+        if not b.is_file():
+            continue
+        root = _scalar(b.read_text(), "product_root")
+        if root and Path(root).expanduser().resolve() in mine:
+            return b
+    return None
 
 
 def _scalar(text: str, key: str) -> str | None:

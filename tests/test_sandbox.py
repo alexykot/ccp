@@ -14,6 +14,7 @@ from pathlib import Path
 PLANE = Path(__file__).resolve().parents[1]
 CCP = PLANE / "bin" / "ccp"
 MARKER = ".ccp-sandbox"
+PRODUCT = "product"
 
 
 class SandboxCase(unittest.TestCase):
@@ -69,6 +70,20 @@ class Create(SandboxCase):
         where = json.loads(self.ccp("where", cwd=res["root"], **env).stdout)
         self.assertEqual(where["binding"], res["binding"])
 
+    def test_project_yaml_alone_names_the_binding_and_its_queue(self):
+        res = self.create(str(self.base / "S"))
+        where = json.loads(self.ccp("where", cwd=res["root"], PROJECT_YAML=res["binding"]).stdout)
+        self.assertEqual(where["binding"], res["binding"])
+        where = json.loads(self.ccp("where", cwd=res["root"], PROJECT_YAML=res["binding"],
+                                    CCP_NO_BINDING_QUEUE="").stdout)
+        self.assertEqual((where["binding"], where["queue_root"]), (res["binding"], res["queue_root"]))
+
+    def test_project_yaml_naming_another_products_binding_is_not_taken(self):
+        a, b = self.create(str(self.base / "A")), self.create(str(self.base / "B"))
+        where = json.loads(self.ccp("where", cwd=b["root"], PROJECT_YAML=a["binding"],
+                                    CCP_NO_BINDING_QUEUE="").stdout)
+        self.assertEqual((where["binding"], where["queue_root"]), (None, None))
+
     def test_what_init_wrote_is_committed_after_one_first_commit(self):
         res = self.create(str(self.base / "S"))
         self.assertEqual(len(self.git(res["root"], "log", "--format=%H").split()), 2)
@@ -116,6 +131,15 @@ class Refusals(SandboxCase):
                 self.assertEqual(r.returncode, 2, r.stderr)
                 self.assertFalse(d.exists())
 
+    def test_init_output_without_a_binding_is_refused_and_leaves_nothing(self):
+        for opt in ("-h", "--help"):
+            with self.subTest(opt):
+                d = self.base / "H"
+                r = self.ccp("sandbox", "create", str(d), "--", opt)
+                self.assertEqual(r.returncode, 2, r.stderr)
+                self.assertNotIn("Traceback", r.stderr)
+                self.assertFalse(d.exists())
+
     def test_a_failed_init_leaves_nothing(self):
         for made in (False, True):
             with self.subTest(existing_empty_dir=made):
@@ -157,6 +181,24 @@ class Remove(SandboxCase):
                 self.assertEqual(r.returncode, 2, r.stderr)
                 self.assertTrue(d.exists())
         self.assertTrue((s / MARKER).is_file())
+
+    def test_a_sandbox_holding_the_working_directory_is_refused(self):
+        s = self.base / "S"
+        self.create(str(s))
+        for cwd, arg in ((s, "."), (s / PRODUCT, ".."), (s / PRODUCT, str(s))):
+            with self.subTest(cwd=cwd.name, arg=arg):
+                r = self.ccp("sandbox", "remove", arg, cwd=cwd)
+                self.assertEqual(r.returncode, 2, r.stderr)
+                self.assertNotIn("Traceback", r.stderr)
+                self.assertTrue((s / MARKER).is_file())
+                self.assertTrue((s / PRODUCT / "README.md").is_file())
+
+    def test_a_sandbox_named_through_a_dot_dot_path_is_removed(self):
+        s = self.base / "S"
+        self.create(str(s))
+        r = self.ccp("sandbox", "remove", "S/product/..")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertFalse(s.exists())
 
     def test_remove_needs_a_directory_and_no_init_options(self):
         s = self.base / "S"
