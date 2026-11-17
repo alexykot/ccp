@@ -58,7 +58,9 @@ TASK_LOG_DEFAULTS: dict[str, Any] = {
     "spec_paths": ["docs/spec/", "SPEC.md"],
 }
 # SPEC §16.2: several tasks in flight under one runner. 1 (the default) is one task at a time.
-PARALLEL_DEFAULTS: dict[str, Any] = {"max_in_flight": 1, "exclusive": [], "session_ceiling_pct": 60}
+# `shared` lists the paths tasks only append lines to: they keep no two tasks apart (§16.3 rule 3), and
+# close's catch-up merges their appended lines (§16.5 rule 4).
+PARALLEL_DEFAULTS: dict[str, Any] = {"max_in_flight": 1, "exclusive": [], "shared": [], "session_ceiling_pct": 60}
 # §22: the review-point register, a product file (ccp/reviewpoints.py).
 REVIEW_POINTS_DEFAULTS: dict[str, Any] = {"file": "docs/delivery/review-points.yaml"}
 
@@ -892,6 +894,13 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
         bad.append("parallel.max_in_flight must be an integer from 1 to 4")
     if not isinstance(par["exclusive"], list) or not all(isinstance(x, str) and x.strip() for x in par["exclusive"]):
         bad.append("parallel.exclusive must be a list of paths or globs")
+    if not isinstance(par["shared"], list) or not all(isinstance(x, str) and x.strip() for x in par["shared"]):
+        bad.append("parallel.shared must be a list of paths or globs")
+    elif isinstance(par["exclusive"], list):  # §16.2: an entry listed in both, as written (`./`, a trailing `/` aside)
+        both = sorted({x.strip().removeprefix("./").rstrip("/") for x in par["shared"]}
+                      & {x.strip().removeprefix("./").rstrip("/") for x in par["exclusive"] if isinstance(x, str)})
+        if both:
+            bad.append(f"parallel.shared and parallel.exclusive both list {', '.join(both)}: a path may not be both")
     scp = par["session_ceiling_pct"]
     if isinstance(scp, bool) or not isinstance(scp, (int, float)) or not 0 < scp <= 100:
         bad.append("parallel.session_ceiling_pct must be a number above 0, at most 100")

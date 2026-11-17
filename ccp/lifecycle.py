@@ -34,8 +34,10 @@ branch, HEAD and index; a runner worktree (detached) is then moved to the reconc
 runner worktree (§12.1).
 
 With several runners, a verified head behind the integration tip is caught up by `close` itself
-(§16.5 rule 4, `_catch_up`) when the merge is clean, the tip's new commits change no file the task's own
-diff or declared `paths` change, no build sign-off is due on the task and the product has a gate lane:
+(§16.5 rule 4, `_catch_up`) when the merge is clean (or its only conflicts are in `parallel.shared` paths where
+both sides only added lines, which it resolves as the tip's lines, then the task's: `_union`), the tip's new
+commits change no file the task's own diff or declared `paths` change other than a `parallel.shared` path, no
+build sign-off is due on the task and the product has a gate lane:
 it merges the tip in (in its merge worktree), runs the gate lane there as a recorded `ccp suite run`
 with the task's `impl` worktree's environment (its `CCP_WT_*` variables, `_task_worktree_env`),
 re-checks the tip (at most CATCH_UPS times), pushes the merge as the task branch's head, records the
@@ -1441,9 +1443,10 @@ class _NoCatchUp(Exception):
 
 def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, start: str, body: dict[str, Any],
               integ: str, facts: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    """§16.5 rule 4: close merges origin/<integ> into the PR head `start` itself, when the merge is clean, the
-    tip's new commits change no file the task's own diff or declared paths change, no build sign-off is due on
-    the task (declared, or from its verdict's spec_beyond_intent, §3.5), and the product has a gate lane; it runs the gate lane on the merge in its merge worktree as a
+    """§16.5 rule 4: close merges origin/<integ> into the PR head `start` itself, when the merge is clean or its
+    only conflicts are in `parallel.shared` paths where both sides only added lines (`_union`), the tip's new
+    commits change no file the task's own diff or declared paths change other than a `parallel.shared` path, no
+    build sign-off is due on the task (declared, or from its verdict's spec_beyond_intent, §3.5), and the product has a gate lane; it runs the gate lane on the merge in its merge worktree as a
     recorded run, re-checks the tip (at most CATCH_UPS catch-ups), pushes the merge as the task branch's new
     head, records the catch-up on the verification record, and returns the head to merge and the catch-up.
     Raises _NoCatchUp, with nothing pushed, naming the condition that failed."""
@@ -1471,15 +1474,17 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
     branch = str(facts.get("headRefName") or f"task/{tid}")
     prior = body.get("catch_up") if isinstance(body.get("catch_up"), dict) else {}
     tips: set[str] = set(prior.get("tip_files") or []) if verify.heads_match(str(prior.get("to") or ""), start) else set()
-    head, tip, gate_run, task_files, made = start, "", "", [], False
+    shared = list(parallel.settings(cfg).get("shared") or [])
+    head, tip, gate_run, task_files, made, unioned = start, "", "", [], False, False
     try:
         for n in range(1, CATCH_UPS + 1):
             tip = git(cfg.root, "rev-parse", f"origin/{integ}^{{commit}}", check=True).stdout.strip()
-            merged = _catch_up_commit(cfg, head, tip, branch, integ)  # (a) a clean merge-tree
+            merged, union_files = _catch_up_commit(cfg, head, tip, branch, integ, shared)  # (a) clean, or a union
             task_files = _task_files(cfg, head, tip)
             tip_files = _tip_files(cfg, head, tip)
             own = set(task_files)
-            overlap = [f for f in tip_files if f in own or any(parallel.meets(f, p) for p in declared)]
+            overlap = [f for f in tip_files if (f in own or any(parallel.meets(f, p) for p in declared))
+                       and not parallel.covered(f, shared)]
             if overlap:  # (b)
                 raise _NoCatchUp(f"overlap: the tip's new commits change {', '.join(overlap[:5])}, which the task's "
                                  "own diff or declared paths change")
@@ -1500,6 +1505,7 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
                 raise _NoCatchUp(f"red gate: the gate lane {lane!r} exited {code} on {merged[:7]}, the merge of "
                                  f"origin/{integ} into {head[:7]} (gate run {gate_run})")
             tips.update(tip_files)
+            unioned = unioned or bool(union_files)
             head = merged
             if not _close_behind_tip(cfg, pr, tid, head, integ):
                 break
@@ -1513,7 +1519,8 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
         if made:  # nothing of the catch-up stands: its worktree goes, as after a close
             git(_main_checkout(cfg), "worktree", "remove", "--force", str(path))
         raise
-    caught = {"from": verified, "to": head, "tip": tip, "gate_run": gate_run, "merge_tree": "clean",
+    caught = {"from": verified, "to": head, "tip": tip, "gate_run": gate_run,
+              "merge_tree": "union" if unioned else "clean",
               "tip_files": sorted(tips)[:CATCH_UP_FILES_MAX], "task_files": task_files[:CATCH_UP_FILES_MAX]}
     pushed_note = (f"close caught {start[:7]} up to {head[:7]} (gate run {gate_run}) and pushed it to {branch}, "
                    "so the PR's head is that merge now")
@@ -1536,24 +1543,126 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
                      f"`ccp tasks close {tid} --pr {pr}` again once the PR shows {head[:7]} (SPEC §16.5 rule 4)", 1)
 
 
-def _catch_up_commit(cfg: Config, head: str, tip: str, branch: str, integ: str) -> str:
-    """§16.5 rule 4 (a): the merge of `tip` into `head` as a commit, from a clean `git merge-tree`; touches no
-    working tree. Raises _NoCatchUp naming the conflicting files."""
-    r = git(cfg.root, "merge-tree", "--write-tree", "--name-only", "--no-messages", head, tip)
-    if r.returncode == 1:
-        files = [x for x in r.stdout.splitlines()[1:] if x.strip()]
-        raise _NoCatchUp(f"conflict: git merge-tree of {head[:7]} and origin/{integ} conflicts"
-                         + (f" in {', '.join(files[:5])}" if files else ""))
-    if r.returncode != 0 or not r.stdout.strip():
+STAGE_RE = re.compile(r"^(\d{6}) ([0-9a-f]{40,64}) ([123])\t(.+)$", re.S)  # merge-tree -z: a conflicted file's stage
+
+
+def _catch_up_commit(cfg: Config, head: str, tip: str, branch: str, integ: str,
+                     shared: list[str] | None = None) -> tuple[str, list[str]]:
+    """§16.5 rule 4 (a): the merge of `tip` into `head` as a commit, from `git merge-tree`; touches no working
+    tree. A merge whose only conflicts are in `shared` (plane.json `parallel.shared`) paths where both sides only
+    added lines is resolved as the tip's lines, then the task's (`_union`). The commit and the files resolved
+    so. Raises _NoCatchUp naming the conflicting files."""
+    from ccp import parallel  # noqa: PLC0415
+    r = git(cfg.root, "merge-tree", "--write-tree", "-z", "--no-messages", head, tip)
+    if r.returncode not in (0, 1) or not r.stdout.split("\0", 1)[0].strip():
         raise _NoCatchUp(f"conflict: git merge-tree could not merge {head[:7]} and origin/{integ}: "
                          f"{(r.stderr or r.stdout).strip()[:200]}")
+    tree, *rest = r.stdout.split("\0")
+    tree = tree.strip()
+    unioned: list[str] = []
+    if r.returncode == 1:
+        stages: dict[str, dict[int, tuple[str, str]]] = {}
+        for x in rest:
+            if m := STAGE_RE.match(x):
+                stages.setdefault(m.group(4), {})[int(m.group(3))] = (m.group(1), m.group(2))
+        files = sorted(stages)
+        why = ""
+        resolved: dict[str, tuple[str, str]] = {}
+        if files and all(parallel.covered(f, shared or []) for f in files):
+            for f in files:
+                got = _union(cfg, stages[f])
+                if got is None:
+                    why = " (a parallel.shared path where a side changes or removes a line, not only adds)"
+                    break
+                resolved[f] = got
+        if not files or len(resolved) != len(files):
+            raise _NoCatchUp(f"conflict: git merge-tree of {head[:7]} and origin/{integ} conflicts"
+                             + (f" in {', '.join(files[:5])}" if files else "") + why)
+        tree = _tree_with(cfg, tree, resolved)
+        unioned = files
     msg = f"Merge origin/{integ} into {branch} (ccp tasks close catch-up, SPEC §16.5 rule 4)"
+    if unioned:
+        msg += f"\n\nAppended lines in {', '.join(unioned[:5])} kept as the tip's, then the task's (parallel.shared)."
     if envvar("CCP_COMMIT_TRAILER"):
         msg += "\n\n" + envvar("CCP_COMMIT_TRAILER")
-    c = git(cfg.root, "commit-tree", r.stdout.splitlines()[0].strip(), "-p", head, "-p", tip, "-m", msg)
+    c = git(cfg.root, "commit-tree", tree, "-p", head, "-p", tip, "-m", msg)
     if c.returncode != 0:
         raise _NoCatchUp(f"the merge commit could not be made: {(c.stderr or c.stdout).strip()[:200]}")
-    return c.stdout.strip()
+    return c.stdout.strip(), unioned
+
+
+def _lines(data: bytes) -> list[bytes]:
+    """A file's lines, each with its newline; the last without one when the file does not end in one."""
+    parts = data.split(b"\n")
+    return [x + b"\n" for x in parts[:-1]] + ([parts[-1]] if parts[-1] else [])
+
+
+def _added(base: list[bytes], side: list[bytes]) -> dict[int, list[bytes]] | None:
+    """The lines `side` adds to `base`, keyed by the base line they come before (len(base): at the end), when it
+    only adds lines (every base line kept, in order); None when it changes or removes one."""
+    out: dict[int, list[bytes]] = {}
+    i, run = 0, []
+    for line in side:
+        if i < len(base) and line == base[i]:
+            if run:
+                out[i], run = run, []
+            i += 1
+        else:
+            run.append(line)
+    if i < len(base):
+        return None
+    if run:
+        out[len(base)] = run
+    return out
+
+
+def _union(cfg: Config, st: dict[int, tuple[str, str]]) -> tuple[str, str] | None:
+    """§16.5 rule 4: one `parallel.shared` file's conflict, its merge-tree stages (1 base, absent when both sides
+    added the file; 2 the task's head; 3 the tip), resolved as a line union: every base line, and at each place
+    the tip's added lines, then the task's. The (mode, blob) written, or None when a side does more than add
+    lines, the file is not a regular file on both sides, or the result would join two lines."""
+    if 2 not in st or 3 not in st or st[2][0] != st[3][0] or st[2][0] not in ("100644", "100755") \
+            or (1 in st and st[1][0] not in ("100644", "100755")):
+        return None
+
+    blobs = {}
+    for k, (_, oid) in st.items():
+        b = subprocess.run(["git", "-C", str(cfg.root), "cat-file", "blob", oid], capture_output=True)
+        if b.returncode != 0:
+            return None
+        blobs[k] = _lines(b.stdout)
+    base = blobs.get(1, [])
+    ours, theirs = _added(base, blobs[2]), _added(base, blobs[3])
+    if ours is None or theirs is None:
+        return None
+    out: list[bytes] = []
+    for i in range(len(base) + 1):
+        out += theirs.get(i, []) + ours.get(i, [])
+        if i < len(base):
+            out.append(base[i])
+    if any(not x.endswith(b"\n") for x in out[:-1]):
+        return None
+    w = subprocess.run(["git", "-C", str(cfg.root), "hash-object", "-w", "--stdin"], input=b"".join(out),
+                       capture_output=True)
+    if w.returncode != 0:
+        return None
+    return st[2][0], w.stdout.decode().strip()
+
+
+def _tree_with(cfg: Config, tree: str, files: dict[str, tuple[str, str]]) -> str:
+    """`tree` with each path in `files` set to its (mode, blob), through a scratch index: no working tree or
+    index of the product's is touched."""
+    import tempfile  # noqa: PLC0415
+    with tempfile.TemporaryDirectory() as d:
+        env = {**os.environ, "GIT_INDEX_FILE": str(Path(d) / "index")}
+        steps = [["read-tree", tree]] + [["update-index", "--add", "--cacheinfo", f"{m},{b},{f}"]
+                                         for f, (m, b) in files.items()] + [["write-tree"]]
+        for a in steps:
+            r = subprocess.run(["git", "-C", str(cfg.root), *a], capture_output=True, text=True, env=env)
+            if r.returncode != 0:
+                raise _NoCatchUp(f"the union of {', '.join(sorted(files)[:5])} could not be written: "
+                                 f"{(r.stderr or r.stdout).strip()[:200]}")
+    return r.stdout.strip()
 
 
 def _task_files(cfg: Config, head: str, tip: str) -> list[str]:

@@ -1091,14 +1091,17 @@ single-runner behaviour, exactly.
 ### 16.2 The knob
 
 ```json
-"parallel": { "max_in_flight": 2, "exclusive": ["db/schema.sql"], "session_ceiling_pct": 60 },
+"parallel": { "max_in_flight": 2, "exclusive": ["db/schema.sql"], "shared": [], "session_ceiling_pct": 60 },
 "suite": { "exclusive_lanes": ["gate", "full"] },
 "merge": { "behind_tip_ignore": ["docs/notes"] }
 ```
 
 No `parallel` block, or `max_in_flight: 1`: one task at a time. `max_in_flight` is 1 to 4;
 `exclusive` lists paths and globs (`**` spans directories) whose concurrent edits git cannot merge
-safely (a schema or migration file); `session_ceiling_pct` defaults to 60. `merge.behind_tip_ignore`
+safely (a schema or migration file); `session_ceiling_pct` defaults to 60. `shared` (empty by
+default) lists paths and globs that tasks only append lines to, such as a package doc's file map; two
+tasks may hold one at once (rule 3), and close merges them as §16.5 rule 4 says. A path may not be
+both `shared` and `exclusive`. `merge.behind_tip_ignore`
 (empty by default) lists the paths whose commits on the tip do not make a head behind it (§16.5 rule
 4); it applies with one runner too. Config loading validates these blocks; unknown keys are handled as §8 says.
 Lowering `parallel.max_in_flight` is completed by `stop --slot` for the extra slots.
@@ -1120,7 +1123,7 @@ allowed only when all hold; otherwise it refuses with exit 7, naming the rule an
 1. A has fewer than `max_in_flight` tasks.
 2. No task in A or C says `parallel: false`; each has at least one path or says `parallel: true`.
 3. No path of C meets a path of a task in A (equal, one a directory holding the other, or a glob or
-   bare name of one matching the other).
+   bare name of one matching the other), unless both are covered by a `parallel.shared` entry.
 4. No path of C or of a task in A meets an `exclusive` entry.
 5. The account's session-window usage, sampled at this claim, is below `session_ceiling_pct` (the
    gating session window, §25). A sample whose weekly figure is known but has no session figure
@@ -1208,10 +1211,12 @@ exits as the spawn would. It writes nothing: no `work.json`, prompt audit, event
    on `--head`, with one runner too, and refuses (exit 4, nothing opened) a head that lacks the tip
    beyond those paths: merge the tip in first. A tip or head it cannot fetch is a warning there; with
    several runners close still checks.
-   When the merge with the tip is clean, the tip's new commits change no file the task's own diff or
-   declared paths change, and no build sign-off is due on the task (§3.5), close merges the tip into the
-   verified head itself, runs the gate lane on the result as a recorded run, re-checks the tip (at
-   most 3 catch-ups), and on a green gate merges that commit, recording the catch-up in the
+   When the merge with the tip is clean, or its only conflicts are in `parallel.shared` paths where both
+   sides only added lines (resolved as the tip's lines, then the task's), the tip's new commits change no
+   file the task's own diff or declared paths change other than a `parallel.shared` path, and no build
+   sign-off is due on the task (§3.5), close merges the tip into the verified head itself, runs the
+   gate lane on the result as a recorded run, re-checks the tip (at most 3 catch-ups), and on a green
+   gate merges that commit, recording the catch-up in the
    verification record. Review and verify are not repeated: the task's own diff is unchanged. A break
    outside the gate lane's coverage is not caught here; the gate lane is what the integration branch
    is held to. Otherwise it refuses as above, naming the condition that failed.

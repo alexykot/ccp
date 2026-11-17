@@ -35,6 +35,17 @@ class Meets(unittest.TestCase):
         for a, b in no:
             self.assertFalse(parallel.meets(a, b) or parallel.meets(b, a), (a, b))
 
+    def test_what_a_shared_entry_covers(self):
+        shared = ["docs/*/README.md", "CLAUDE.md", "notes/"]
+        yes = ["docs/a/README.md", "ccp/CLAUDE.md", "CLAUDE.md", "notes/x.md", "notes/", "./docs/a/README.md",
+               "docs/*/README.md"]
+        no = ["docs/a/b/README.md", "docs/", "docs/a/", "docs/a/x.md", "src/a.py", "docs/**", "ccp/CLAUDE.md.bak"]
+        for p in yes:
+            self.assertTrue(parallel.covered(p, shared), p)
+        for p in no:
+            self.assertFalse(parallel.covered(p, shared), p)
+        self.assertFalse(parallel.covered("docs/a/README.md", []))
+
 
 class ParallelFixture(ToolkitFixture):
     """Six tasks with Scope paths, parallel on at 2, a 5-hour reading the test sets."""
@@ -258,8 +269,49 @@ class Claims(ParallelFixture, unittest.TestCase):
         self.assertIn("0009-ninth.md: Scope names `c/z.py`, which does not exist", out)
         self.assertNotIn("`d/w.py`", out)
 
+    def test_paths_that_only_meet_in_shared_files_run_together(self):
+        self.write("docs/delivery/tasks/0003-third.md", task("0003-third", "`src/a.py`, `docs/a/README.md`"))
+        self.write("docs/delivery/tasks/0004-fourth.md", task("0004-fourth", "`src/b.py`, `docs/a/README.md`"))
+        self.plane(max_in_flight=2)
+        self.assertEqual(self.claim("0003")[0], 0)
+        code, _, out, err = self.claim("0004")
+        self.assertEqual(code, 7, out + err)
+        self.assertIn("rule 3", err)
+        self.ccp("tasks", "release", "0003", "--reason", "t", root=self.main)
+        self.plane(max_in_flight=2, shared=["docs/*/README.md"])
+        self.assertEqual(self.claim("0003")[0], 0)
+        code, _, out, err = self.claim("0004")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.work()["in_flight"], ["0003-third", "0004-fourth"])
+
+    def test_a_meeting_beyond_the_shared_files_still_refuses(self):
+        self.write("docs/delivery/tasks/0003-third.md", task("0003-third", "`src/a.py`, `docs/a/README.md`"))
+        self.write("docs/delivery/tasks/0004-fourth.md", task("0004-fourth", "`src/a.py`, `docs/a/README.md`"))
+        self.write("docs/delivery/tasks/0005-fifth.md", task("0005-fifth", "`src/c.py`, `docs/`"))
+        self.plane(max_in_flight=2, shared=["docs/*/README.md"])
+        self.assertEqual(self.claim("0003")[0], 0)
+        code, _, out, err = self.claim("0004")
+        self.assertEqual(code, 7, out + err)
+        self.assertIn("`src/a.py` meets in-flight 0003-third", err)
+        code, _, out, err = self.claim("0005")  # a directory holds more than the shared file
+        self.assertEqual(code, 7, out + err)
+        self.assertIn("`docs/` meets in-flight 0003-third", err)
+
+    def test_a_path_both_shared_and_exclusive_is_refused(self):
+        self.plane(max_in_flight=2, shared=["docs/x.md"], exclusive=["db/schema.sql", "./docs/x.md"])
+        with self.assertRaises(config.ConfigError) as cm:
+            config.load(self.main)
+        self.assertIn("docs/x.md", str(cm.exception))
+        self.assertNotIn("db/schema.sql", str(cm.exception))
+        code, _, out, err = self.next()
+        self.assertEqual(code, 2, out + err)
+        self.assertIn("docs/x.md", err)
+        self.plane(max_in_flight=2, shared=["docs/x.md"], exclusive=["db/schema.sql"])
+        self.assertEqual(config.load(self.main).parallel["shared"], ["docs/x.md"])
+
     def test_config_is_checked(self):
         for bad, msg in (({"max_in_flight": 5}, "1 to 4"), ({"exclusive": "db"}, "list of paths"),
+                         ({"shared": ["docs/a.md", " "]}, "parallel.shared must be a list"),
                          ({"session_ceiling_pct": 0}, "above 0")):
             self.plane(**bad)
             with self.assertRaises(config.ConfigError) as cm:
