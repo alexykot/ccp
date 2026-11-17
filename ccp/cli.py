@@ -19,7 +19,7 @@
   ccp architect due | run [--mode pass|shape] [--lens L,…] [--adr ID] [--force] [--detach] [--scope IDS]
                | triage <id> | status
   ccp health [--since DATE] [--json] | note --text T [--task ID] | record --task ID --metric k=v …
-  ccp verify record FILE|- | merge-ok PR [--task ID] | check TASK_ID --head SHA
+  ccp verify record FILE|- | merge-ok PR [--task ID] | check TASK_ID --head SHA | spec-text TASK_ID [--base REF]
 
 The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own events):
   ccp tasks prefer [ID... [--reason T] | --clear]  (the lead: the runner's next tasks, in order, ahead of `next`'s own pick)
@@ -162,6 +162,9 @@ def cmd_tasks_next(cfg: config.Config, a: argparse.Namespace) -> int:
         h = sel["held"].get(tid) or {}
         print(f"ccp tasks next: passed over {tid}: held ({', '.join(x for x in (h.get('by') or '?', h.get('reason')) if x)}; "
               f"`ccp tasks hold --clear {tid}`)", file=sys.stderr)
+    for tid in sel["unsigned"]:  # §10.3, §3.5: claim would refuse it
+        print(f"ccp tasks next: passed over {tid}: no brief sign-off on record (the lead records the operator's "
+              f"with `ccp tasks sign-off {tid} --stage brief`, SPEC §3.5)", file=sys.stderr)
     if getattr(a, "explain", False):
         _explain(cfg, sel)
     from ccp import parallel  # noqa: PLC0415  (§16.3: the board's ready queue reads the same choice)
@@ -211,16 +214,19 @@ def _slots_full(a: argparse.Namespace, held: dict) -> int:
 
 
 def _explain(cfg: config.Config, sel: dict) -> None:
-    """`ccp tasks next --explain`: the full ranked queue on stderr, held tasks marked, the pick first."""
-    held = sel["held"]
+    """`ccp tasks next --explain`: the full ranked queue on stderr, held tasks and those awaiting their
+    brief sign-off marked, the pick first."""
+    held, waits = sel["held"], set(sel["unsigned"])
     rows = sel["ranked_all"]
     pick = sel["ranked"][0][0].get("task_id") if sel["ranked"] else None
-    print(f"ccp tasks next --explain: {len(rows)} ready, {len(sel['passed_over'])} held", file=sys.stderr)
+    print(f"ccp tasks next --explain: {len(rows)} ready, {len(sel['passed_over'])} held, {len(waits)} unsigned",
+          file=sys.stderr)
     for n, (t, why) in enumerate(rows, 1):
         tid = str(t.get("task_id"))
-        mark = "held" if tid in held else ("next" if tid == pick else "")
+        mark = "held" if tid in held else ("sign" if tid in waits else ("next" if tid == pick else ""))
         h = held.get(tid) or {}
         extra = f" held by {h.get('by') or '?'}" + (f": {h['reason']}" if h.get("reason") else "") if tid in held else ""
+        extra += " awaits its brief sign-off" if mark == "sign" else ""
         print(f"  {n:>2}. {mark:<4} {tid}  {t.get('title') or ''}{'  — ' + why if why else ''}{extra}", file=sys.stderr)
     for tid in sorted(set(held) - {str(t.get('task_id')) for t, _ in rows}):
         h = held[tid]
@@ -1368,12 +1374,15 @@ def build_parser() -> argparse.ArgumentParser:
                    help="triage: validate and finalise a triage file already committed by hand, then rebuild INDEX.yaml")
     p.set_defaults(fn=cmd_architect)
 
-    p = sub.add_parser("verify", help="the verifier's record and the runner's merge gate (SPEC §15.3; needs QUEUE_ROOT)")
-    p.add_argument("action", choices=("record", "merge-ok", "check"))
+    p = sub.add_parser("verify", help="the verifier's record and the runner's merge gate (SPEC §15.3; needs QUEUE_ROOT), "
+                                      "and the check of a PR's SPEC lines against the signed text (spec-text, §15.2)")
+    p.add_argument("action", choices=("record", "merge-ok", "check", "spec-text"))
     p.add_argument("target", help="record: the verdict JSON file (- for stdin); merge-ok: the PR number; "
-                                  "check: the task id")
+                                  "check, spec-text: the task id")
     p.add_argument("--task", help="merge-ok: the task whose record approves this PR (default: pr-<PR>)")
     p.add_argument("--head", help="check: the PR head the runner would merge")
+    p.add_argument("--base", help="spec-text: the ref the branch's diff is taken from (default: origin/<integration "
+                                  "branch>)")
     p.set_defaults(fn=cmd_verify)
 
     p = sub.add_parser("health", help="delivery measurements; note and record add to them (SPEC §27.1)")

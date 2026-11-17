@@ -103,6 +103,8 @@ says so. The order:
 2. **The review point's refactors** (`review_point_refactors`, §20).
 3. **The plane's own order** (`ccp/selection.py` `ranked`, shared with the board).
 
+A task whose `brief` sign-off is due and not recorded (§3.5) is passed over the same way, and stderr
+names the missing sign-off, so the runner takes the next task it can claim.
 A held task (§10.4) is passed over, a held refactor and a held preference alike, and stderr says so;
 `--explain` prints the whole ranked queue with the pick and the holds marked. The runner always
 takes `next`'s pick and turns a lead's "take X next" back to the lead as `ccp tasks prefer X`. With
@@ -891,6 +893,13 @@ result.
   diff, from the reviewed head to the verified one, addresses each MINOR and NIT finding there and changes
   nothing beyond them; a change beyond them is a REJECT, and after a reject the task goes back to review.
   Otherwise the refusal stands and says why the skip does not apply.
+- **The signed SPEC text, checked.** `ccp verify spec-text <task_id> [--base REF]` reads each passage
+  the task's Scope carries for the operator's sign-off (§3.5: a `PROPOSED:` marker followed by `> `
+  blockquote lines) and looks for it, whitespace-normalised, in the lines the branch adds to files under
+  `task_log.spec_paths` (`git diff <base>...HEAD`; the base defaults to `origin/<integration branch>`,
+  and nothing is fetched). It exits 0 when every passage is found, 1 naming each that is not, and 2 when
+  the task carries no `PROPOSED:` block. For a task with `sign_off: brief`, the reviewer and the
+  verifier run it and report its result.
 
 ### 15.3 A product's test cache
 
