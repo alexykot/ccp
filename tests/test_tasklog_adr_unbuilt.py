@@ -1,8 +1,10 @@
 """`ccp tasks check` warns, before the gate, about an ADR decision a task not yet done cites that the
-checkout still records `not_built` (SPEC §6.7, §15.4): a warning, never a refusal."""
+checkout still records `not_built` (SPEC §6.7, §15.4): a warning, never a refusal, and only for the task
+whose branch, `task/<id>`, is checked out."""
 from __future__ import annotations
 
 import io
+import subprocess
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
@@ -12,12 +14,18 @@ from tests.helpers import TASK, Product
 ADR_BODY = "# ADR-0001 — T\n\n## Decision\n\n### D1. First\n\nOne.\n\n### D2. Second\n\nTwo.\n"
 
 
+def on_branch(p: Product, branch: str) -> None:
+    """Make the scratch product a git checkout whose HEAD is `branch`."""
+    subprocess.run(["git", "init", "-q", "-b", branch, str(p.root)], check=True, capture_output=True)
+
+
 class UnbuiltDecisionWarning(unittest.TestCase):
     strict = True
 
     def setUp(self):
         self.p = Product({"adr": {"dir": "docs/adr", "strict": self.strict}})
         self.addCleanup(self.p.cleanup)
+        on_branch(self.p, "task/0001-a")
 
     def adr(self, d1: str) -> None:
         self.p.write("docs/adr/0001-a.md", adr.emit({"id": "ADR-0001", "title": "T", "status": "accepted",
@@ -69,9 +77,28 @@ class UnbuiltDecisionWarning(unittest.TestCase):
         self.task("0001-a", ["0001 D1"], status="dropped")
         self.assertEqual(adr.unbuilt_cited(self.p.cfg, tasklog.load(self.p.cfg)), [])
 
+    def test_a_pending_task_is_not_warned_on_the_integration_branch(self):
+        subprocess.run(["git", "-C", str(self.p.root), "symbolic-ref", "HEAD", "refs/heads/main"], check=True)
+        self.adr("not_built")
+        self.task("0001-a", ["0001 D1"])
+        code, lines = self.check()
+        self.assertEqual(code, 0, lines)
+        self.assertEqual(lines, [])
+
+    def test_on_a_task_branch_another_pending_task_is_not_warned(self):
+        self.adr("not_built")
+        self.task("0001-a", ["0001 D1"])
+        self.task("0002-b", ["0001 D1"])
+        code, lines = self.check()
+        self.assertEqual(code, 0, lines)
+        self.assertEqual(len(lines), 1, lines)
+        self.assertIn("0001-a", lines[0])
+        self.assertNotIn("0002-b", lines[0])
+
     def test_without_the_adr_block_nothing_is_read(self):
         p = Product()
         self.addCleanup(p.cleanup)
+        on_branch(p, "task/0001-a")
         p.write("docs/adr/0001-a.md", adr.emit({"id": "ADR-0001", "title": "T", "status": "accepted",
                                                 "date": "2026-01-01", "decisions": ["D1 not_built"]}) + ADR_BODY)
         text = TASK.format(tid="0001-a", title="A task", status="pending", deps="", ver="*Append-only.*")

@@ -672,7 +672,8 @@ def warnings(cfg: Config) -> list[str]:
     which may name a later task (§5); one whose Context states a number with no backticked
     command on its line (§5); one whose paths name the SPEC with no `brief` sign-off (§3.5); one
     whose paths name the plane.json schema or a settings template with no `adopt:` (§5.2); and one
-    that cites an ADR decision still recorded `not_built` (§15.4, `adr.unbuilt_cited`)."""
+    whose branch is checked out and that cites an ADR decision still recorded `not_built` (§15.4,
+    `adr.unbuilt_cited`)."""
     from ccp import adr  # noqa: PLC0415  (adr reads the task log)
 
     tasks = load(cfg)
