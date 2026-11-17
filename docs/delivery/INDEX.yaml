@@ -653,7 +653,7 @@ tasks:
     depends_on: [0126-append-only-shared-paths]
     path: tasks/0130-catch-up-gate-env-and-mutate-cleanup.md
   - id: 0131-usage-advice-and-gate-cache-fixes
-    status: pending
+    status: done
     title: Usage advice waits for a worker run and counts only the lead's own calls, and the gate cache records a pass only after the branch check
     depends_on: []
     path: tasks/0131-usage-advice-and-gate-cache-fixes.md

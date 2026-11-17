@@ -1,7 +1,7 @@
 ---
 task_id: 0131-usage-advice-and-gate-cache-fixes
 title: Usage advice waits for a worker run and counts only the lead's own calls, and the gate cache records a pass only after the branch check
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S24", "S27"]
@@ -115,3 +115,5 @@ gate cache never serves a pass for a module whose run failed the gate's `state/*
   stderr, as before; no new code for it, one test pins it.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #138 head `beae7f7` (squash `96d36f7`): APPROVE. Passed: usage-01, usage-02, health-01, cache-01, cache-02, suite-01. Gate: `ccp suite run --lane gate (scripts/gate.sh)` exit 0. Record: verification/0131-usage-advice-and-gate-cache-fixes.json.
+
