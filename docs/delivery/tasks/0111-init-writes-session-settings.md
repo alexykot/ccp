@@ -1,7 +1,7 @@
 ---
 task_id: 0111-init-writes-session-settings
 title: ccp init writes the prompt-cache and compaction settings, and the SPEC says which setting reaches which seat
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S2", "S4", "S13"]
@@ -95,3 +95,5 @@ saying an agent definition's cache lifetime reaches the runner.
   task builds both; review MAJOR 1.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #126 head `212d88a` (squash `0728a5d`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, check-01, suite-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0111-init-writes-session-settings.json.
+

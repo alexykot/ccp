@@ -553,7 +553,7 @@ tasks:
     depends_on: [0109-upgrade-notes-and-status]
     path: tasks/0110-release-leaves-an-upgrade-notice.md
   - id: 0111-init-writes-session-settings
-    status: pending
+    status: done
     title: ccp init writes the prompt-cache and compaction settings, and the SPEC says which setting reaches which seat
     depends_on: []
     path: tasks/0111-init-writes-session-settings.md
