@@ -68,4 +68,13 @@ window.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `ccp/models.py` `matches(observed, expected)`: equal ids match; an
+  expected value in `config.WORKER_MODEL_ALIASES` also matches an observed id containing `-<alias>-`;
+  anything else (an unknown alias included) is compared by equality only, so it matches no full id.
+  Used at every site in `ccp/usage.py` and `ccp/seats.py` that compares an expected model with an
+  observed one: the run pin check (a run is flagged when any observed model does not match), the
+  window join, the design seat's advice (kept its `startswith` prefix test, alias match added) and
+  `seats.mismatch` (the design seat's `[...]`-stripped compare included). `ccp/board.py` needed no
+  change: its seats view is `seats.collect`. `ccp/CLAUDE.md` lists the new module.
+
 ## Verification notes
