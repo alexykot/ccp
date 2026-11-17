@@ -1,7 +1,7 @@
 ---
 task_id: 0134-tasks-migrate
 title: ccp tasks migrate converts an earlier plane generation's task files in place, and the task-log checks point at it
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S21"]
@@ -184,4 +184,4 @@ file that is gone, a slug renamed in git, `ccp tasks list`) names the fix instea
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-17 — verifier, PR #148 head `ea8bcc5` (squash `f0ff53e`): APPROVE. Passed: mig-01, mig-02, msg-01, msg-02, msg-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0134-tasks-migrate.json.

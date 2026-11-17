@@ -668,7 +668,7 @@ tasks:
     depends_on: []
     path: tasks/0133-sandbox-sealed.md
   - id: 0134-tasks-migrate
-    status: pending
+    status: done
     title: ccp tasks migrate converts an earlier plane generation's task files in place, and the task-log checks point at it
     depends_on: []
     path: tasks/0134-tasks-migrate.md
