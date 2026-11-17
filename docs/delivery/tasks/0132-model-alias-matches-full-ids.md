@@ -1,7 +1,7 @@
 ---
 task_id: 0132-model-alias-matches-full-ids
 title: A run pinned to a model alias reads as on-pin when telemetry reports a full id of that family
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S2", "S24"]
@@ -78,3 +78,5 @@ window.
   change: its seats view is `seats.collect`. `ccp/CLAUDE.md` lists the new module.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #140 head `9f6e534` (close's catch-up of the approved `8f24b2a`, gate run st-20261117T192557Z-3717ad) (squash `d2dbd16`): APPROVE. Passed: alias-01, alias-02, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0132-model-alias-matches-full-ids.json.
+
