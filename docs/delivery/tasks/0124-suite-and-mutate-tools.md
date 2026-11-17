@@ -1,7 +1,7 @@
 ---
 task_id: 0124-suite-and-mutate-tools
 title: suite wait exits 0 or 1 for a finished run, suite run takes --cold, worker_env renders dry, and mutate takes a mutant file
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S14"]
@@ -128,3 +128,5 @@ bites with a mutant that spans lines.
     cold.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #132 head `26033d0` (squash `e7532fc`): APPROVE. Passed: suite-01. Carried from a742caff956f5a08c62b077bdbf8af633b7ea156: cmd-01, cmd-02, cmd-03, cmd-04, check-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0124-suite-and-mutate-tools.json.
+

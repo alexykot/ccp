@@ -618,7 +618,7 @@ tasks:
     depends_on: []
     path: tasks/0123-unknown-config-keys-warn.md
   - id: 0124-suite-and-mutate-tools
-    status: pending
+    status: done
     title: suite wait exits 0 or 1 for a finished run, suite run takes --cold, worker_env renders dry, and mutate takes a mutant file
     depends_on: []
     path: tasks/0124-suite-and-mutate-tools.md
