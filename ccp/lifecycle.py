@@ -943,15 +943,27 @@ def _run(cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> subpro
 def _verification_note(q: Path, tid: str, pr: str, head: str, merge: str, today: str) -> str:
     import json  # noqa: PLC0415
 
+    from ccp.verify import carried_from  # noqa: PLC0415
+
     rec = json.loads((q / "verification" / f"{tid}.json").read_text())
     checks = [c for c in rec.get("checks") or [] if isinstance(c, dict)]
     ran = [c for c in checks if c.get("ran", True) is not False]
     passed = [str(c.get("dod_check_id")) for c in ran if c.get("pass") is True]
-    unrun = [str(c.get("dod_check_id")) for c in checks if c.get("ran", True) is False]
+    # §15.6 rule 3: a check resting on an earlier approval is named with that approval's sha, not as unrun
+    carried: dict[str, list[str]] = {}
+    unrun: list[str] = []
+    for c in checks:
+        if c.get("ran", True) is not False:
+            continue
+        sha = carried_from(c.get("rests_on"))
+        (carried.setdefault(sha, []) if sha else unrun).append(str(c.get("dod_check_id")))
     gate = ", ".join(f"`{r.get('command')}` exit {r.get('exit_code')}" for r in (rec.get("gate") or {}).get("runs") or []
                      if isinstance(r, dict))
-    s = (f"- {today} — verifier, PR #{pr} head `{head[:7]}` (squash `{merge[:7]}`): APPROVE. "
-         f"Passed: {', '.join(passed) or 'none'}.")
+    s = f"- {today} — verifier, PR #{pr} head `{head[:7]}` (squash `{merge[:7]}`): APPROVE."
+    if passed or not carried:
+        s += f" Passed: {', '.join(passed) or 'none'}."
+    for sha, ids in carried.items():
+        s += f" Carried from {sha}: {', '.join(ids)}."
     cu = rec.get("catch_up")
     if isinstance(cu, dict) and str(cu.get("to") or "")[:7] == head[:7]:  # §16.5 rule 4: close's own catch-up
         s = s.replace(f"head `{head[:7]}`", f"head `{head[:7]}` (close's catch-up of the approved "

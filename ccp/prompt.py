@@ -479,6 +479,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "fragment": frag, "fragment_path": frag_path, "note": note or "",
         "prior_reports": prior_reports(q, tid, phase),
         "queue_root": str(q), "ccp": ccp_command(cfg), "report_path": str(report),
+        "verification_example": str(PLANE / "contracts" / "verification.example.json"),  # §15.4, from any checkout
         "runner": holder_teammate(q, tid),  # §10.2, §16.4: the runner that holds this task, as bound
         "report_lines": report_lines(cfg, phase), "suite_lanes": suite_lanes(cfg, phase),
         # §13.4: the product's declared verdicts, as the latest implementer report states them

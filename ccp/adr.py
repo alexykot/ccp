@@ -622,6 +622,42 @@ def warnings(cfg: Config) -> list[str]:
     return analyse(cfg)[2]
 
 
+def unbuilt_cited(cfg: Config, tasks: list[dict[str, Any]]) -> list[str]:
+    """`ccp tasks check`'s warning, before the gate (§15.4): on a task's branch (HEAD is
+    `task/<id>`), each decision that task, not yet done, cites in `adr_refs` that this checkout's ADRs
+    record as `not_built`, naming the task, the ref and the `ccp adr decide` that flips it in the task's
+    PR. Nothing on any other checkout: on the integration branch a planned task's decision is not built
+    yet, and nobody there can act on it. A warning only, under `adr.strict` too; nothing without the
+    `adr` block. A ref that names no ADR or decision is `ccp adr check`'s to report."""
+    from ccp import tasklog  # noqa: PLC0415  (as in analyse)
+
+    if cfg.adr is None or not adr_dir(cfg).is_dir():
+        return []
+    head = subprocess.run(["git", "-C", str(cfg.root), "symbolic-ref", "-q", "--short", "HEAD"],
+                          capture_output=True, text=True).stdout.strip()
+    if not head.startswith("task/"):
+        return []
+    ids = refs.ids(cfg)
+    by_num = {m["_number"]: m for m in load(cfg)[0]}
+    out: list[str] = []
+    for t in tasks:
+        if str(t.get("task_id") or t["_file"].stem) != head[len("task/"):]:
+            continue
+        if tasklog.canonical_status(t.get("status")) in tasklog.TERMINAL:
+            continue
+        for ref in tasklog._as_list(t.get("adr_refs")):
+            r = ids.parse_adr_ref(ref)
+            m = by_num.get(r.number) if r is not None and r.decision is not None else None
+            if m is None:
+                continue
+            st = {d["id"]: d for d in decision_states(m)}.get(r.decision)
+            if not_in_force(st):
+                out.append(f"{cfg.rel(t['_file'])}: cites {ref!r} ({ids.adr_id(r.number)} D{r.decision}), which "
+                           f"{m['_path']} records as not_built: once the task builds it, run "
+                           f"`ccp adr decide {r.number} D{r.decision} built` in its PR (SPEC §6.7, §15.4)")
+    return out
+
+
 def not_in_force(state: dict[str, Any] | None) -> bool:
     """§6.7 in force: a decision a done task cites must not be recorded `not_built`. One rule for the
     check (`analyse`) and for the verdict (`in_force_at`)."""

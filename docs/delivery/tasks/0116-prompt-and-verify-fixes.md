@@ -93,4 +93,23 @@ checks a later verify round carried from an earlier approval.
 
 *Append-only, newest last.*
 
+- 2026-11-17 — implementer. `ccp tasks check` warns (`adr.unbuilt_cited`, called from `tasklog.warnings`) about each
+  `adr_refs` decision a task not done or dropped cites that the checkout's ADRs record `not_built`, naming the task
+  file, the ref as written, the ADR decision and the `ccp adr decide <n> D<n> built` that flips it; a warning under
+  `adr.strict` too, nothing without the `adr` block. It reads the checkout it runs in, so on a task branch it names
+  that task, and on the integration branch every pending task that cites an unbuilt decision. `ccp suite run`
+  refuses a command after `--` on a lane plane.json gives stages (exit 2, naming the lane, before anything is
+  recorded; `resolve_stages`); an argv lane still takes one, and an unreadable plane.json still runs it (§14.5).
+  The verify prompt names `project_id: "<id>"`, `findings` as a list of strings, and the example as an absolute
+  path in the plane checkout (`verification_example`, from `queue.PLANE`). The close line names checks whose
+  `rests_on` is exactly `approve at <sha>` as `Carried from <sha>: <ids>` (the sha as written, one clause per sha,
+  `verify.carried_from`), drops `Passed: none` when only carried checks remain, and keeps other unrun checks under
+  `Not run by the verifier`. Beyond the declared paths: `ccp/adr.py`, `ccp/verify.py`, `ccp/prompt.py`.
+- 2026-11-17 — implementer, fix round 1 (review MINOR 1, narrowed as the Scope says). The unbuilt-decision
+  warning fires only for the task whose branch is checked out: `adr.unbuilt_cited` reads HEAD
+  (`git symbolic-ref`) and warns only when it is `task/<id>`, for that task alone. A planned task citing a
+  not-yet-built decision no longer warns on the integration branch, nor on another task's branch; a checkout
+  that is not a git repo, or a detached HEAD, warns about nothing. cmd-01's scratch product now runs on
+  `task/0001-a`. This supersedes the earlier note's "on the integration branch every pending task".
+
 ## Verification notes

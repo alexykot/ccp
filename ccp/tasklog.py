@@ -670,8 +670,12 @@ def warnings(cfg: Config) -> list[str]:
     """What `check` reports without failing: a task not yet done that names a later task as a
     prerequisite in prose, where nothing holds it back: the prerequisite belongs in `depends_on`,
     which may name a later task (§5); one whose Context states a number with no backticked
-    command on its line (§5); one whose paths name the SPEC with no `brief` sign-off (§3.5); and one
-    whose paths name the plane.json schema or a settings template with no `adopt:` (§5.2)."""
+    command on its line (§5); one whose paths name the SPEC with no `brief` sign-off (§3.5); one
+    whose paths name the plane.json schema or a settings template with no `adopt:` (§5.2); and one
+    whose branch is checked out and that cites an ADR decision still recorded `not_built` (§15.4,
+    `adr.unbuilt_cited`)."""
+    from ccp import adr  # noqa: PLC0415  (adr reads the task log)
+
     tasks = load(cfg)
     ids = refs.ids(cfg)
     later = {m.group(1): t.get("task_id") for t in tasks if (m := ids.task_file_re.match(t["_file"].name))}
@@ -692,7 +696,7 @@ def warnings(cfg: Config) -> list[str]:
                 out.append(f"{cfg.rel(t['_file'])}: {m.group(0)!r} names {later[m.group(1)]}, which has a higher number, "
                            "as a prerequisite in prose, where nothing enforces it. List it in depends_on, "
                            "which may name a higher number (SPEC §5)")
-    return out
+    return out + adr.unbuilt_cited(cfg, tasks)
 
 
 def dependency_cycles(tasks: list[dict[str, Any]]) -> list[list[str]]:

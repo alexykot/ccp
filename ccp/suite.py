@@ -290,7 +290,8 @@ def _pump(src: Any, fd: int, counter: _Counter) -> None:
 
 
 def resolve_argv(cfg: Config | None, lane: str | None, command: list[str] | None) -> list[str]:
-    """The argv to run, for a single-command run. A command after `--` always runs, whatever else is wrong."""
+    """The argv to run, for a single-command run. A command after `--` runs whatever else is wrong, but on
+    a lane plane.json gives stages, which takes none (§14.2)."""
     stages = resolve_stages(cfg, lane, command)
     return stages[0]["argv"]
 
@@ -307,15 +308,19 @@ def plane_docs_argv(cfg: Config) -> list[str]:
 
 
 def resolve_stages(cfg: Config | None, lane: str | None, command: list[str] | None) -> list[dict[str, Any]]:
-    """The stages to run, in order (§14.2): `[{name, argv}]`. A command after `--` is one unnamed stage;
+    """The stages to run, in order (§14.2): `[{name, argv}]`. A command after `--` is one unnamed stage,
+    refused (exit 2) on a lane plane.json gives stages, so a staged gate is never replaced by a command;
     a lane's argv is one stage named after the lane; a staged lane is its `{name, cmd}` stages, each run
     by the shell, and the gate role's ends with the plane's doc checks (`plane-docs`)."""
+    lanes = (cfg.suite or {}).get("lanes") if cfg else None
     if command:
+        if lane is not None and isinstance(lanes, dict) and lane_stages(lanes.get(lane)) is not None:
+            raise QueueError(f"--lane {lane} has stages in plane.json suite.lanes, so it takes no command after "
+                             f"`--`: run `ccp suite run --lane {lane}` (SPEC §14.2)", 2)
         return [{"name": None, "argv": list(command)}]
     if lane is None:
         raise QueueError("give the command after `--` (ccp suite run --lane full -- scripts/gate.sh), "
                          "or a --lane that plane.json suite.lanes names", 2)
-    lanes = (cfg.suite or {}).get("lanes") if cfg else None
     if not lanes or lane not in lanes:
         known = ", ".join(sorted(lanes or {})) or "none"
         raise QueueError(f"plane.json suite.lanes names no lane {lane!r} (lanes: {known}): give the command after `--`", 2)
