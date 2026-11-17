@@ -1,7 +1,7 @@
 ---
 task_id: 0130-catch-up-gate-env-and-mutate-cleanup
 title: Close's catch-up gate runs with its own worktree's values and the product's worker_env, and mutate clears stale bytecode first
-status: pending
+status: done
 kind: feature
 depends_on: ["0126-append-only-shared-paths"]
 spec_refs: ["S14", "S16"]
@@ -110,3 +110,5 @@ bytecode.
   unchanged words on an untouched line, so it exited 1. Wording unchanged; it now exits 0.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #146 head `b0b4595` (squash `f32ade1`): APPROVE. Passed: close-01, close-02, mut-01, code-01, check-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0130-catch-up-gate-env-and-mutate-cleanup.json.
+

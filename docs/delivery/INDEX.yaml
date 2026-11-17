@@ -648,7 +648,7 @@ tasks:
     depends_on: []
     path: tasks/0129-health-and-config-leftovers.md
   - id: 0130-catch-up-gate-env-and-mutate-cleanup
-    status: pending
+    status: done
     title: Close's catch-up gate runs with its own worktree's values and the product's worker_env, and mutate clears stale bytecode first
     depends_on: [0126-append-only-shared-paths]
     path: tasks/0130-catch-up-gate-env-and-mutate-cleanup.md
