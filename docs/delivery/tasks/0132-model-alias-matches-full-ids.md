@@ -24,7 +24,7 @@ window.
 - Task 0121 let `workers.implementer_model` take the aliases the Agent tool accepts (`sonnet`, `opus`,
   `haiku`, `fable`), so a run's `expected_model` can be an alias.
 - Its review found (MAJOR, accepted by the lead's ruling, not fixed before merge) that `ccp usage`
-  (the pin check and the window fallback), `ccp/seats.py` (the mismatch flag) and the board's run flags
+  (the pin check and the window fallback) and `ccp/seats.py` (the mismatch flag, which the board shows)
   compare `expected_model` with the observed full id by equality, so every run pinned to an alias
   reads as a mismatch and the window fallback skips it.
 - This describes task 0121's own feature (§31.1): no rule changes.
@@ -35,8 +35,8 @@ window.
   - One helper, in `ccp/models.py` (new), that says whether an observed model id matches an expected one: equal
     ids match, and an alias matches any full id of its family (`sonnet` matches an id containing
     `-sonnet-`).
-  - `ccp/usage.py`, `ccp/seats.py` and `ccp/board.py` use it wherever they compare an expected model
-    with an observed one.
+  - `ccp/usage.py` and `ccp/seats.py` use it wherever they compare an expected model with an observed
+    one.
 - **Out:**
   - Which model a task kind gets, and the trial itself.
 
