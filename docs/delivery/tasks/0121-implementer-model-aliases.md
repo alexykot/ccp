@@ -1,7 +1,7 @@
 ---
 task_id: 0121-implementer-model-aliases
 title: The implementer-model knob takes the aliases the Agent call accepts, and warns when a task has no estimate
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S2"]
@@ -109,3 +109,5 @@ runner learns when the `small` arm cannot apply because the task has no estimate
   until release, so the worktree's own `bin/ccp` ran this task's suite, mutations and checks.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #135 head `b671934` (squash `e33feaf`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, check-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0121-implementer-model-aliases.json.
+

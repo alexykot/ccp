@@ -603,7 +603,7 @@ tasks:
     depends_on: []
     path: tasks/0120-adopt-steps-and-upgrade-taken.md
   - id: 0121-implementer-model-aliases
-    status: pending
+    status: done
     title: The implementer-model knob takes the aliases the Agent call accepts, and warns when a task has no estimate
     depends_on: []
     path: tasks/0121-implementer-model-aliases.md
