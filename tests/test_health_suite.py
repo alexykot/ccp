@@ -180,3 +180,107 @@ class FileSuites(Fixture, unittest.TestCase):
     def test_record_accepts_the_new_names(self):
         recs = health.add_metrics(self.p.cfg, self.q, TID, ["suite_seconds_warm=3", "suite_seconds_part=12"])
         self.assertEqual([r["metric"] for r in recs], ["suite_seconds_warm", "suite_seconds_part"])
+
+
+def mods(*pairs):
+    return [{"name": f"tests.test_{n}", "seconds": s, "tests": t} for n, s, t in pairs]
+
+
+SEVEN = (("a", 4.0, 10), ("b", 80.5, 100), ("c", 12.0, 20), ("d", 45.0, 40), ("e", 1.5, 5), ("f", 30.0, 30),
+         ("g", 9.0, 15))
+
+
+class SlowestModules(Fixture, unittest.TestCase):
+    def setUp(self):
+        super().setUp()
+        env = mock.patch.dict("os.environ", {"QUEUE_ROOT": str(self.q)})
+        env.start()
+        self.addCleanup(env.stop)
+
+    def gate(self, sid, seconds, tests, modules=None, lane="gate", code=0, cached=0, day=1):
+        row = ended(sid, code=code, seconds=seconds, tests=tests, cached=cached, legacy=False,
+                    at=f"2026-11-{day:02d}T10:05:00Z")
+        if modules is not None:
+            row["modules"] = modules
+        self.suites(started(sid, lane, at=f"2026-11-{day:02d}T10:00:00Z"), row)
+
+    def health(self, product=None, *args):
+        from ccp import cli  # noqa: PLC0415
+        out = io.StringIO()
+        with redirect_stdout(out):
+            self.assertEqual(cli.main(["--root", str((product or self.p).root), "health", *args]), 0)
+        return out.getvalue()
+
+    def three_runs(self):
+        self.gate("st-1", 300.0, 1000, mods(*SEVEN), day=1)
+        self.gate("st-2", 150.0, 1000, mods(*SEVEN), day=2)
+        self.gate("st-3", 130.0, 1300, mods(*SEVEN), day=3)
+
+    def test_the_slowest_modules_of_the_latest_run_and_the_time_per_test(self):
+        self.three_runs()
+        m = json.loads(self.health(None, "--json"))["suite_modules"]
+        self.assertEqual((m["runs"], m["latest"]["suite_id"], m["latest"]["seconds"], m["latest"]["tests"]),
+                         (3, "st-3", 130, 1300))
+        self.assertEqual([(x["name"], x["seconds"], x["tests"]) for x in m["slowest"]],
+                         [("tests.test_b", 80, 100), ("tests.test_d", 45, 40), ("tests.test_f", 30, 30),
+                          ("tests.test_c", 12, 20), ("tests.test_g", 9, 15)])
+        pt = m["per_test"]
+        self.assertEqual((pt["runs"], pt["median_s"]), (3, 0.15))
+        self.assertEqual((pt["first"]["suite_id"], pt["first"]["seconds_per_test"]), ("st-1", 0.3))
+        self.assertEqual((pt["latest"]["suite_id"], pt["latest"]["seconds_per_test"]), ("st-3", 0.1))
+        text = self.health()
+        slow = [ln for ln in text.splitlines() if ln.startswith("Slowest test modules")]
+        self.assertEqual(len(slow), 1)
+        for token in ("st-3", "tests.test_b 80 s", "tests.test_g 9 s"):
+            self.assertIn(token, slow[0])
+        self.assertNotIn("tests.test_a", slow[0])
+        trend = [ln for ln in text.splitlines() if ln.startswith("Seconds per test")]
+        self.assertEqual(len(trend), 1)
+        for token in ("0.15", "0.3 (st-1)", "0.1 (st-3)"):
+            self.assertIn(token, trend[0])
+
+    def test_only_cold_gate_runs_that_carry_modules_count(self):
+        self.gate("st-1", 300.0, 1000, None, day=1)                       # the serial gate: no modules
+        self.gate("st-2", 100.0, 1000, mods(("a", 5.0, 1000)), day=2)
+        self.gate("st-3", 50.0, 1000, mods(("x", 50.0, 1000)), cached=4, day=3)          # warm
+        self.gate("st-4", 50.0, 1000, mods(("y", 50.0, 1000)), code=1, day=4)            # failed
+        self.gate("st-5", 50.0, 1000, mods(("z", 50.0, 1000)), lane="part", day=5)       # another lane
+        m = json.loads(self.health(None, "--json"))["suite_modules"]
+        self.assertEqual((m["runs"], m["latest"]["suite_id"], [x["name"] for x in m["slowest"]]),
+                         (1, "st-2", ["tests.test_a"]))
+        self.assertEqual((m["per_test"]["first"]["suite_id"], m["per_test"]["median_s"]), ("st-2", 0.1))
+
+    def test_the_knobs_and_a_renamed_gate_role_are_read(self):
+        p = Product({"health": {"slowest_modules": 2, "suite_trend_runs": 2},
+                     "suite": {"lanes": {"check": ["true"]}, "roles": {"gate": "check"}}})
+        self.addCleanup(p.cleanup)
+        self.gate("st-1", 300.0, 1000, mods(*SEVEN), lane="check", day=1)
+        self.gate("st-2", 200.0, 1000, mods(*SEVEN), lane="check", day=2)
+        self.gate("st-3", 100.0, 1000, mods(*SEVEN), lane="check", day=3)
+        m = json.loads(self.health(p, "--json"))["suite_modules"]
+        self.assertEqual([x["name"] for x in m["slowest"]], ["tests.test_b", "tests.test_d"])
+        self.assertEqual((m["runs"], m["per_test"]["runs"], m["per_test"]["first"]["suite_id"],
+                          m["per_test"]["median_s"]), (3, 2, "st-2", 0.15))
+
+    def test_with_no_module_timings_health_says_nothing_of_them(self):
+        self.gate("st-1", 300.0, 1000, None)
+        m = json.loads(self.health(None, "--json"))["suite_modules"]
+        self.assertEqual((m["runs"], m["latest"], m["slowest"], m["per_test"]), (0, None, [], None))
+        text = self.health()
+        self.assertNotIn("Slowest test modules", text)
+        self.assertNotIn("Seconds per test", text)
+
+    def test_the_architects_summary_carries_them(self):
+        self.three_runs()
+        self.assertIn("tests.test_b", health.summary_text(health.collect(self.p.cfg, self.q)))
+
+    def test_bad_knobs_are_refused(self):
+        from ccp import config  # noqa: PLC0415
+        for k in ("slowest_modules", "suite_trend_runs"):
+            for bad in (0, -1, True, "5", 2.5):
+                p = Product({"health": {k: bad}})
+                self.addCleanup(p.cleanup)
+                with self.subTest(k=k, bad=bad), self.assertRaises(config.ConfigError):
+                    config.load(p.root)
+        self.assertEqual({k: self.p.cfg.health[k] for k in ("slowest_modules", "suite_trend_runs")},
+                         {"slowest_modules": 5, "suite_trend_runs": 10})

@@ -181,8 +181,10 @@ BOARD_DEFAULTS: dict[str, Any] = {"refresh_minutes": 5}
 GATE_DEFAULTS: dict[str, Any] = {"shell_limit_seconds": 600, "cut_line_seconds": None}
 GATE_CUT_SHARE = 0.9  # the cut line's default, as a share of the limit
 # §27.1 `ccp health`: a merged task whose diff (lines added + deleted) is under `small_task_lines` counts
-# as small, and health reports the share of small tasks among those merged in its window.
-HEALTH_DEFAULTS: dict[str, Any] = {"small_task_lines": 100}
+# as small, and health reports the share of small tasks among those merged in its window. §27.2: from the
+# cold gate runs that carry `modules`, the `slowest_modules` slowest modules of the latest, and the median
+# seconds per test over the last `suite_trend_runs`.
+HEALTH_DEFAULTS: dict[str, Any] = {"small_task_lines": 100, "slowest_modules": 5, "suite_trend_runs": 10}
 # §26.3 estimation: `reference_since` (YYYY-MM-DD, or null) leaves tasks merged before a process change
 # out of every reference class; `k` is the reference class's size (5 to 8).
 ESTIMATE_DEFAULTS: dict[str, Any] = {"reference_since": None, "k": 6, "auto": False,  # auto: §26.3 phase B triggers
@@ -939,6 +941,10 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     stl = out["health"]["small_task_lines"]
     if isinstance(stl, bool) or not isinstance(stl, int) or stl < 1:
         bad.append("health.small_task_lines must be an integer >= 1")
+    for k in ("slowest_modules", "suite_trend_runs"):
+        v = out["health"][k]
+        if isinstance(v, bool) or not isinstance(v, int) or v < 1:
+            bad.append(f"health.{k} must be an integer >= 1")
     lanes = out["suite"]["lanes"]
     if not isinstance(lanes, dict) or not all(
             isinstance(k, str) and SUITE_LANE_RE.match(k) and (_str_list(v) and v or lane_stages(v) is not None)
