@@ -1,7 +1,7 @@
 ---
 task_id: 0128-spec-text-leftovers
 title: SPEC text left behind by R7: notices in the orientation, the upgrade trigger, spec_paths, the lead's compaction knob and suite exit 2
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S2", "S3", "S4", "S5", "S8", "S9", "S14"]
@@ -99,3 +99,5 @@ channel, the `task_log.spec_paths` knob, the binding's `lead.auto_compact_window
   the report, not changed here.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #145 head `d29471e` (squash `7ff1abd`): APPROVE. Passed: check-01, check-02, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0128-spec-text-leftovers.json.
+
