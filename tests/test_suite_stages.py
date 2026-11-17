@@ -553,7 +553,7 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
                          {"stage", "prover", "exit_code", "run_id"})
 
 
-WT_VARS = tuple(f"CCP_WT_{f.upper()}" for f in config.WT_FIELDS)
+WT_VARS = (*(f"CCP_WT_{f.upper()}" for f in config.WT_FIELDS), "CCP_WT_ROUND")
 TASK_VARS = ("CCP_TASK_ID", "CCP_NNNN")
 SHOW_WT = 'echo "wt=$CCP_WT_NAME"'
 SHOW_TASK = 'echo "wt=$CCP_TASK_ID|$CCP_NNNN|$CCP_WT_KIND"'
@@ -600,6 +600,13 @@ class StagesGetTheWorktreesFields(StagedFixture, unittest.TestCase):
         r = self.run_in(path, "--lane", "gate", env={"CCP_TASK_ID": "a-stale-id", "CCP_NNNN": "9999"})
         self.assertEqual(r.returncode, 0, r.stdout.decode() + r.stderr.decode())
         self.assertEqual(self.shown(r), ["0001-first|0001|ver"])
+
+    def test_a_gate_stage_knows_its_worktrees_round(self):
+        lanes = {"gate": [{"name": "show", "cmd": 'echo "wt=$CCP_WT_NAME|$CCP_WT_ROUND"'}]}
+        first, second = self.worktree(lanes), self.worktree(lanes)
+        for path, want in ((first, "rev-0002|1"), (second, "rev-0002-2|2")):
+            r = self.run_in(path, "--lane", "gate", env={"CCP_WT_ROUND": "9"})
+            self.assertEqual((r.returncode, self.shown(r)), (0, [want]), r.stdout.decode() + r.stderr.decode())
 
     def test_a_worktree_made_with_the_full_id_gives_it_too(self):
         path = self.worktree({"fast": [{"name": "show", "cmd": SHOW_TASK}]}, task="0002-second")

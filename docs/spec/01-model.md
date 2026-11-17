@@ -756,7 +756,7 @@ An example, with neutral values:
   "private_dirs": [".env"]
 },
 "prompts": { "fragment": "docs/delivery/WORKERS.md",
-             "worker_env": { "<NAME>": "<template: {{main_checkout}}, {{worktree}}, {{queue_root}}, …>" },
+             "worker_env": { "<NAME>": "<template: {{main_checkout}}, {{worktree}}, {{queue_root}}, {{round}}, …>" },
              "keep_body": false, "audit_keep_days": null },
 "reconcile": { "hooks": ["<product command, run in close's merge worktree (§10.5)>"] },
 "telemetry": { "otel_port": 4318, "allowance_cmd": "<command printing the allowance JSON>" },

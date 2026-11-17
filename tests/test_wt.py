@@ -61,6 +61,34 @@ class Create(WtFixture, unittest.TestCase):
         st = json.loads((self.q / "worktrees" / "mut-0002.json").read_text())
         self.assertEqual((st["seat"], st["tag"]), ("ver", "mut"))
 
+    def test_a_worktrees_round_is_the_number_its_name_ends_in(self):
+        self.assertEqual(self.ccp("tasks", "claim", "0002")[0], 0)
+        made = [self.wt("create", "--kind", "rev", "--task", "0002", "--sha", self.head())[1] for _ in range(2)]
+        made.append(self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head(), "--name", "ver-0002-5")[1])
+        self.assertEqual([(m["name"], m["round"]) for m in made], [("rev-0002", 1), ("rev-0002-2", 2), ("ver-0002-5", 5)])
+        code, listed, _, err = self.wt("list")
+        self.assertEqual(code, 0, err)
+        self.assertEqual({s["name"]: s["round"] for s in listed},
+                         {"impl-0002": 1, "rev-0002": 1, "rev-0002-2": 2, "ver-0002-5": 5})
+        st = json.loads((self.q / "worktrees" / "rev-0002-2.json").read_text())
+        self.assertEqual(st["round"], 2)  # recorded, not only listed
+
+    def test_a_record_without_a_round_reads_as_round_one(self):
+        self.wt("create", "--kind", "rev", "--task", "0002", "--sha", self.head())
+        name = self.wt("create", "--kind", "rev", "--task", "0002", "--sha", self.head())[1]["name"]
+        f = self.q / "worktrees" / f"{name}.json"
+        st = json.loads(f.read_text())
+        del st["round"]
+        f.write_text(json.dumps(st))
+        code, listed, _, err = self.wt("list")
+        self.assertEqual(code, 0, err)
+        self.assertEqual({s["name"]: s["round"] for s in listed}, {"rev-0002": 1, name: 1})
+        self.assertEqual(wt.load(self.q, name)["round"], 1)
+
+    def test_the_round_is_read_from_the_names_last_number(self):
+        self.assertEqual([wt.round_of(n) for n in ("impl-0002", "rev-0002", "rev-0002-2", "mut-0042-11",
+                                                   wt.BASELINE, "")], [1, 1, 2, 11, 1, 1])
+
     def test_a_symbolic_sha_is_the_callers_own_commit_and_one_naming_none_makes_nothing(self):
         main_head = git(self.main, "rev-parse", "HEAD")
         (self.runner / "B.txt").write_text("b\n")
@@ -541,7 +569,7 @@ class ReviewFixes(WtFixture, unittest.TestCase):
 
         with mock.patch.object(wt, "git", racing):
             st = wt.create(config.load(self.main), self.q, "0002-second", "ver", self.head())
-        self.assertEqual(st["name"], "ver-0002-2")
+        self.assertEqual((st["name"], st["round"]), ("ver-0002-2", 2))
         self.assertTrue(Path(st["path"]).is_dir())
 
 
