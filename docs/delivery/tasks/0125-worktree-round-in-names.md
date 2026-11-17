@@ -63,7 +63,7 @@ round's setup neither replaces the first round's resource nor refuses because it
   story: As an existing worktree, my record still loads.
   setup: a recorded worktree whose record file has no `round` key.
   steps:
-    1. Run `ccp wt list --json`.
+    1. Run `ccp wt list`.
   expect: exit 0; the worktree lists with `round` 1.
   dry run: n/a.
 - id: `suite-01`
@@ -90,4 +90,5 @@ round's setup neither replaces the first round's resource nor refuses because it
 
 ## Verification notes
 - 2026-11-17 — verifier, PR #141 head `e3d0458` (squash `1d3ba8a`): APPROVE. Passed: wt-01, wt-02, wt-03, suite-01. Gate: `ccp suite run --lane gate -- scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0125-worktree-round-in-names.json.
-
+- 2026-11-17, lead: wt-03's step named `ccp wt list --json`, a flag the command does not take (it
+  prints JSON already); corrected to `ccp wt list` after merge. The lead's error, not the build's.
