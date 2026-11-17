@@ -1,7 +1,7 @@
 ---
 task_id: 0126-append-only-shared-paths
 title: Paths that tasks only append lines to do not keep two runners apart, and close merges them as a line union
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S16"]
@@ -116,3 +116,5 @@ conflict in such a file still stops close.
   live in `tests/test_behind_tip_catch_up.py`, beside its fixture.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #143 head `21c58d8` (squash `0a6ac3a`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, check-01, suite-01. Gate: `ccp suite run --lane gate (scripts/gate.sh)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0126-append-only-shared-paths.json.
+

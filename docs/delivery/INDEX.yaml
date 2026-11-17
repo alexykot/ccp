@@ -628,7 +628,7 @@ tasks:
     depends_on: [0124-suite-and-mutate-tools]
     path: tasks/0125-worktree-round-in-names.md
   - id: 0126-append-only-shared-paths
-    status: pending
+    status: done
     title: Paths that tasks only append lines to do not keep two runners apart, and close merges them as a line union
     depends_on: []
     path: tasks/0126-append-only-shared-paths.md
