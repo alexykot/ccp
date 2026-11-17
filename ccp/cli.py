@@ -39,6 +39,8 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--full | --summary] [--log PATH] [-- COMMAND …] | list [--task ID]
             (every test run: the exit code passes through, the output goes to a log and a summary is
             printed (--full streams it), the time and counts are recorded)
+  ccp suite wait SUITE_ID [--timeout SECONDS]  (a run's summary and exit code once it ends; still running at the
+            timeout, default 540: its elapsed time and exit 3, SPEC §14.2)
   ccp suite affected [--since REF | --paths PATH …]  (the test modules a change touches, one per line, SPEC §14.7)
   ccp notify render TRIGGER [--task ID] [--id ID] [--reason R] [--json] | pending
             | sent TRIGGER [--task ID] [--id ID] --via command|lead [--note T]  (the operator's notices, SPEC §3.6)
@@ -868,6 +870,11 @@ def _suite_list(cfg: config.Config, a: argparse.Namespace):
     return suite.listing(cfg, a)
 
 
+def cmd_suite_wait(cfg: config.Config, a: argparse.Namespace) -> int:
+    from ccp import suite  # noqa: PLC0415
+    return suite.main_wait(cfg, a)
+
+
 def cmd_suite_affected(cfg: config.Config, a: argparse.Namespace) -> int:
     from ccp import suite  # noqa: PLC0415
     return suite.main_affected(cfg, a)
@@ -1103,6 +1110,12 @@ def build_parser() -> argparse.ArgumentParser:
                           "failing tests' sections (the default without a terminal on stdin)")
     p.add_argument("--log", help="summary mode's log file (default: next to the run's record in the queue)")
     p.set_defaults(fn=None)
+    p = su.add_parser("wait", help="wait for a recorded run to end: its summary and exit code; still running at "
+                                   "the timeout, its elapsed time and exit 3 (SPEC §14.2)")
+    p.add_argument("suite_id", help="the suite run's id, from its start line (st-…)")
+    p.add_argument("--timeout", type=int, metavar="SECONDS",
+                   help="return after this long if the run is still going (default 540, under the 600 s shell limit)")
+    p.set_defaults(fn=cmd_suite_wait)
     p = su.add_parser("list", help="the recorded suite runs and their totals per run and per task (JSON)")
     p.add_argument("--task", help="only this task's")
     p.set_defaults(fn=_toolkit(_suite_list))

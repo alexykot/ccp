@@ -1,7 +1,7 @@
 ---
 task_id: 0115-wait-on-a-suite-run
 title: A worker waits on a suite run's summary within its command limit, and long plane commands are given the full shell timeout
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S16"]
@@ -24,6 +24,8 @@ the prompts tell workers to give the gate and `ccp mutate` the full shell timeou
 - From two accepted proposals: one from the plane's own runs (a full-suite run outlasting the shell limit while the exclusive lane was held), one from a product (long plane commands hitting the harness's default command timeout and being moved to the background).
 - §16.6 already bounds a wait for a held lane (`--wait SECONDS`). This task adds a wait on a run that has started, by its suite id.
 - No rule changes: a new command and prompt guidance describing it (§31.1). The rule that every command runs in the foreground stays; `ccp suite wait` is itself a foreground command.
+- Lead's ruling on spec question sm-20261117T093633Z-4e05 (spec commit 083207b), verbatim: "Keep the behaviour and the sentence. Word it as a description under §10.6: a run that §14.4 counts as killed is a failed run, so `ccp suite wait` exits 1 at once (§10.6). In the same fix round, attach the `suite wait` sentence to `ccp suite run` only (MINOR 2). The verifier judges the killed-run sentence as within intent."
+- Runner's note with the ruling: reword the SPEC §14.2 sentence to cite §10.6 as above, and in `templates/prompts/_common.md` attach the `ccp suite wait` sentence to `ccp suite run` only (`ccp mutate` records no suite id and cannot be waited on). Review MINOR 1 (exit 3 collides with a run whose own command exits 3): add one clause to the §14.2 bullet or the prompt, such as "a printed summary means the run ended, whatever the code", only if it needs no rule change.
 
 ## Scope
 
@@ -77,4 +79,28 @@ the prompts tell workers to give the gate and `ccp mutate` the full shell timeou
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `ccp suite wait <suite_id> [--timeout SECONDS]` is in `ccp/suite.py` (`wait`,
+  `ended_summary`, `main_wait`) and `ccp/cli.py`. It reads `runs/_suites.jsonl` every 0.5 s for the
+  id's rows. Once the `ended` row is there, it rebuilds the summary `ccp suite run` printed from the row
+  and the log, using the same `render_summary`, and exits with the run's exit code. What the records
+  don't keep is not shown: a gate result's failure ids and a staged lane's stages not run. With no log
+  (a `--full` run, or a pruned log) it prints the stage line and the result line, and says the log is
+  missing. Choices beyond the task, narrowest reading:
+  - a run §14.4 counts as `killed` (no `ended` row, and its run stopped or reported, or it started over
+    30 min ago) exits 1 at once, so a worker calling "until it exits other than 3" never loops forever
+    (asked of the runner);
+  - `--timeout` below 0 is refused (exit 2); `--timeout 0` checks once.
+  It writes nothing. The prompt guidance is one line in `templates/prompts/_common.md`, so every
+  worker prompt carries it. The SPEC text is a §14.2 bullet and one sentence in §16.6 (§31.1: the
+  task's own feature), and `docs/cli/02-delivery.md` gains the command's row.
+- 2026-11-17 (implementer, ruling round 1): per the lead's ruling, the §14.2 sentence on a killed run now
+  reads as a description under §10.6: a run §14.4 counts as `killed` is a failed run, so `ccp suite wait`
+  exits 1 at once. The prompt line in `templates/prompts/_common.md` sends only a `ccp suite run` to
+  `ccp suite wait` (`ccp mutate` records no suite id); the §14.2 bullet's closing sentence says the
+  same. Review MINOR 1: the prompt and the §14.2 bullet now say a printed summary means the run ended,
+  whatever the code, so a run whose own command exits 3 is not waited on again; the worker calls again
+  only while the command says the run is still running. Wording only: no code or rule change.
+
 ## Verification notes
+- 2026-11-17 — verifier, PR #121 head `16e507c` (squash `0feb94c`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, suite-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0115-wait-on-a-suite-run.json.
+
