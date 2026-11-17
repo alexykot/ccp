@@ -317,8 +317,8 @@ def cmd_docs_check(cfg: config.Config, _a: argparse.Namespace) -> int:
     # The task log and the house rules are part of the documentation contract: one command, one gate.
     from ccp import adr  # noqa: PLC0415
     docs_checks = [f"docs check {e}" for e in rules.run_checks(cfg, cfg.docs["checks"])]  # §21.5 docs.checks
-    code = _print_errs("docs", pkgdocs.check(cfg) + tasklog.check(cfg) + rules.check(cfg) + rules.starter_check(cfg)
-                       + adr.check(cfg) + docs_checks, "")
+    code = _print_errs("docs", config.unknown_key_errors(cfg) + pkgdocs.check(cfg) + tasklog.check(cfg)
+                       + rules.check(cfg) + rules.starter_check(cfg) + adr.check(cfg) + docs_checks, "")
     for n in rules.starter_notes(cfg):  # §20.5: what the product declined, and the checks that skips
         print(f"  {n}")
     from ccp import reviewpoints  # noqa: PLC0415
