@@ -1,5 +1,6 @@
 """`ccp suite wait` (SPEC §14.2, §16.6): a worker waits on a started run's summary by its suite id,
-within its command limit, instead of reading the log in a loop."""
+within its command limit, instead of reading the log in a loop. A finished run exits 0 or 1, so only
+a run still going exits 3."""
 from __future__ import annotations
 
 import json
@@ -79,7 +80,7 @@ class Wait(SuiteFixture, unittest.TestCase):
         self.assertGreaterEqual(took, 2)
         self.assertRegex(w.stdout.decode(), r"st-going: .*\b7\d s\b")  # its elapsed time
 
-    def test_a_run_that_ends_while_waiting_returns_at_once_with_its_exit_code(self):
+    def test_a_run_that_ends_while_waiting_returns_at_once_failed_with_its_code_in_the_summary(self):
         self.started("st-late")
         timer = threading.Timer(2.0, self.ended, ("st-late", 4))
         timer.start()
@@ -87,9 +88,38 @@ class Wait(SuiteFixture, unittest.TestCase):
             w, took = self.wait("st-late", "--timeout", "30")
         finally:
             timer.cancel()
-        self.assertEqual(w.returncode, 4, w.stderr)
+        self.assertEqual(w.returncode, 1, w.stderr)
         self.assertLess(took, 10)
         self.assertIn("st-late: FAILED, exit 4, lane full, 8.5 s; 9 tests, 1 failed", w.stdout.decode())
+
+    def test_a_finished_run_whose_command_exited_3_ends_the_wait_with_exit_1(self):
+        p = self.runner / "docs/delivery/plane.json"
+        cfg = json.loads(p.read_text())
+        cfg["suite"] = {"lanes": {"three": ["sh", "-c", "exit 3"]}}
+        p.write_text(json.dumps(cfg))
+        r = self.run_suite("--lane", "three")
+        self.assertEqual(r.returncode, 3, r.stderr)
+        sid = self.rows()[-1]["suite_id"]
+        w, took = self.wait(sid, "--timeout", "30")
+        self.assertEqual(w.returncode, 1, w.stderr)
+        self.assertLess(took, 10)
+        self.assertIn(f"ccp suite: {sid}: FAILED, exit 3, lane three,", w.stdout.decode())
+        self.assertNotIn("still running", w.stdout.decode())
+
+    def test_a_finished_run_exits_0_or_1_whatever_its_own_code(self):
+        for code, want in ((0, 0), (1, 1), (3, 1), (75, 1), (130, 1), (2, 1)):
+            sid = f"st-code-{code}"
+            self.started(sid)
+            self.ended(sid, code, **({"interrupted": "SIGINT"} if code == 130 else {}))
+            w, _ = self.wait(sid)
+            self.assertEqual(w.returncode, want, (code, w.stderr))
+            self.assertIn(f"exit {code}", w.stdout.decode())
+
+    def test_the_worker_prompts_say_only_exit_3_means_still_going(self):
+        from ccp.prompt import TEMPLATES
+        text = (TEMPLATES / "_common.md").read_text()
+        self.assertIn("exit 3 means only that the run is still going", text)
+        self.assertNotIn("whatever the exit code", text)
 
     def test_an_unknown_id_is_refused_naming_it(self):
         w, _ = self.wait("st-nope")

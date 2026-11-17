@@ -26,6 +26,7 @@ def ccp_proc(cwd: Path, *args: str, env: dict | None = None, stdin: bytes | None
              unset: tuple[str, ...] = ()) -> subprocess.CompletedProcess[bytes]:
     e = {**os.environ, **(env or {})}
     e.pop("CCP_SUITE_ID", None) if "CCP_SUITE_ID" not in (env or {}) else None
+    e.pop("CCP_SUITE_COLD", None) if "CCP_SUITE_COLD" not in (env or {}) else None  # a cold outer run's
     for k in unset:
         e.pop(k, None)
     return subprocess.run([CCP, *args], cwd=cwd, env=e, input=stdin, capture_output=True, timeout=60)
