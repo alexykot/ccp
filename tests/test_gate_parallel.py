@@ -4,6 +4,7 @@ them, and writes each module's seconds and tests to the result file, which `ccp 
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import os
 import shlex
@@ -197,6 +198,20 @@ class TheWorkerCount(unittest.TestCase):
         names = self.load().modules()
         self.assertEqual(sorted(names), sorted(f"tests.{p.stem}" for p in (ROOT / "tests").glob("test_*.py")))
 
+
+    def test_a_modules_count_sums_its_ran_lines_and_is_its_share_of_the_total(self):
+        gp = self.load()
+        output = "Ran 3 tests in 0.1s\n\nOK\nRan 4 tests in 0.2s\n\nOK\n"
+        done = subprocess.CompletedProcess([], 0, stdout=output)
+        printed = io.StringIO()
+        with mock.patch.object(gp.subprocess, "run", return_value=done), mock.patch.object(gp.sys, "stdout", printed):
+            self.assertEqual(gp.run_one("tests.test_x")[3], 7)
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "log"
+            log.write_text(printed.getvalue())
+            out = json.loads(subprocess.run([sys.executable, str(ROOT / "scripts/gate_result.py"), str(log), "1"],
+                                            capture_output=True, text=True, check=True).stdout)
+        self.assertEqual((out["tests"], [m["tests"] for m in out["modules"]]), (7, [7]))
 
 class TheResultFromALog(unittest.TestCase):
     def parse(self, text: str) -> dict:
