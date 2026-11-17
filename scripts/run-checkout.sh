@@ -4,7 +4,9 @@
 #   run-checkout.sh install   clone this repo's origin there (if missing) and point `ccp` on PATH at it
 #   run-checkout.sh update    fetch, then fast-forward to origin/main; refuses when it is dirty or off main.
 #                             Then checks each bound product's integration branch against the new rules
-#                             (SPEC §29.3) and prints what went stale; it writes nothing to a product.
+#                             (SPEC §29.3) and prints what went stale, and records in each checked
+#                             product's queue an `upgrade` notice of the steps it has to adopt (§3.6);
+#                             it writes nothing to a product's repository.
 #   run-checkout.sh status    branch, local changes, commits behind origin/main, where `ccp` points
 #   run-checkout.sh label     the telemetry receiver's launchd label
 #
@@ -50,9 +52,10 @@ scalar() {
 # `ccp adr check` on each bound product's integration branch: origin/<branch> as the product last
 # fetched it, else its local <branch>. They run in a shared clone in a temp dir, so nothing is written
 # to the product. A branch without docs/delivery/plane.json (not adopted) is not checked. A stale
-# product is reported, never fixed, and never fails the update.
+# product is reported, never fixed, and never fails the update. Each checked product then gets its
+# `upgrade` notice (upgrade_notice). $1: the run checkout's commit before the update.
 check_products() {
-  local bdir="${CCP_BINDINGS_DIR:-$RUN/projects}" ccp="$RUN/bin/ccp" b pid root branch sha ref tmp c out rc stale=0
+  local before="${1:-}" bdir="${CCP_BINDINGS_DIR:-$RUN/projects}" ccp="$RUN/bin/ccp" b pid root branch sha ref tmp c out rc stale=0
   [ -d "$bdir" ] || return 0
   if [ ! -x "$ccp" ]; then echo "run-checkout: no $ccp; bound products not checked" >&2; return 0; fi
   for b in "$bdir"/*.yaml; do
@@ -101,10 +104,41 @@ check_products() {
       echo "run-checkout: product $pid ($branch ${sha:0:7}): STALE: $failed failed"
       printf '%s' "$report"
     fi
+    upgrade_notice "$b" "$pid" "$root" "$bdir" "$ccp" "$before"
   done
   if [ "$stale" -gt 0 ]; then
     echo "run-checkout: $stale product(s) went stale with this release: tell each one's lead; the plane change's pull request names its migrate or regenerate command (SPEC §29.3)"
   fi
+}
+
+# SPEC §29.3, §3.6: record in the product's queue (its binding's queue_root) the `upgrade` notice of this
+# release: `ccp notify upgrade` lists the `adopt` steps of the plane tasks merged since the commit before
+# the update that the product has not taken, and records none when there are none. It reads the
+# product's checkout and writes only the queue; a failure is a line here, never a failed update.
+upgrade_notice() {
+  local b="$1" pid="$2" root="$3" bdir="$4" ccp="$5" before="$6" q out err rc=0
+  [ -n "$before" ] && [ "$before" != "$(g rev-parse HEAD)" ] || return 0   # the update brought nothing
+  q="$(scalar "$b" queue_root)"; q="${q/#\~/$HOME}"
+  if [ -z "$q" ] || [ ! -d "$q" ]; then
+    echo "run-checkout: upgrade notice for $pid not recorded: no queue at its binding's queue_root ${q:-(unset)}"
+    return 0
+  fi
+  err="$(mktemp)"
+  out="$(env -u CCP_ROOT -u CCP_NO_BINDING_QUEUE QUEUE_ROOT="$q" PROJECT_YAML="$b" CCP_BINDINGS_DIR="$bdir" \
+    "$ccp" --root "$root" notify upgrade --since "$before" 2>"$err" </dev/null)" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "run-checkout: upgrade notice for $pid not recorded: ccp notify upgrade exited $rc"
+    sed -n '1,5s/^/    /p' "$err"
+  else
+    printf '%s' "$out" | python3 -c '
+import json, sys
+r = json.load(sys.stdin)
+n = len(r.get("steps") or [])
+if r.get("recorded"):
+    print(f"run-checkout: upgrade notice for {sys.argv[1]} recorded in its queue: {n} step(s) to adopt; its lead gets it at its next session start")
+' "$pid" 2>/dev/null || echo "run-checkout: upgrade notice for $pid: ccp notify upgrade gave no readable answer"
+  fi
+  rm -f "$err"
 }
 
 case "${1:-}" in
@@ -124,6 +158,7 @@ case "${1:-}" in
   update)
     clean_on_main
     g fetch -q origin
+    before="$(g rev-parse HEAD)"
     keep="$(mktemp -d)"
     trap 'rm -rf "$keep"' EXIT
     for d in "${LOCAL_DIRS[@]}"; do
@@ -153,7 +188,7 @@ case "${1:-}" in
         echo "run-checkout: the telemetry receiver is loaded but not running; restart it from a normal terminal" >&2
       fi
     fi
-    check_products
+    check_products "$before"
     ;;
   status)
     [ -d "$RUN/.git" ] || { echo "run-checkout: none at $RUN"; exit 1; }
@@ -168,5 +203,5 @@ case "${1:-}" in
   label)   # the receiver's launchd label, as `update` uses it
     echo "$OTEL_LABEL"
     ;;
-  *) sed -n '2,13p' "$0"; exit 2 ;;
+  *) sed -n '2,15p' "$0"; exit 2 ;;
 esac

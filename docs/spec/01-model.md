@@ -250,6 +250,7 @@ The plane names when the operator must hear; the product names the channel.
 | `decision` | a decision the operator must take: `team.sh gate ask-operator` (§17.9), a spec question answered `needs_operator` (§17.6), or `ccp tasks wait <id> operator_decision` | the task; the gate or question id |
 | `review_point_done` | `ccp tasks close`, when the reconcile leaves the task's review point with no open task (every task that carries it done or dropped) | the task; the review point |
 | `allowance_checkpoint` | `ccp tasks claim` refused at a weekly checkpoint (exit 5, §25.3) | the task |
+| `upgrade` | `scripts/run-checkout.sh update`, for each bound product with an `adopt` step it has not taken among the tasks the release brought (§29.3) | the release's commit; the steps |
 
 Every other wait (quota, the lead's own gates and questions) is not a trigger.
 

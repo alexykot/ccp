@@ -20,7 +20,8 @@ Call syntax and flags for the commands of SPEC part `docs/spec/01-model.md`. The
 | `ccp notify render <trigger> [--task ID] [--id ID] [--reason R] [--json]` | the notice for a trigger (or `other`): a subject and a body of ids, nothing else | §3.6 |
 | `ccp notify sent <trigger> [--task ID] [--id ID] --via command\|lead [--note T]` | the lead records a notice it sent; `other` needs `--note` (needs `QUEUE_ROOT`) | §3.6 |
 | `ccp notify pending` | every notice fired and not yet sent, with its subject, body and the `sent` call that records it (needs `QUEUE_ROOT`) | §3.6 |
+| `ccp notify upgrade [--since COMMIT]` | record this product's `upgrade` notice for a release: the `adopt` steps of the plane tasks merged since COMMIT (default: the plane checkout's previous release) that it has not taken, as `ccp upgrade status` lists them, with the plane checkout's HEAD as its id; records nothing when there are none; `scripts/run-checkout.sh update` runs it (needs `QUEUE_ROOT`) | §3.6, §29.3 |
 | `ccp where` | the project, binding, queue, plane checkout and `ccp` path for this directory | §8.3, §9.2 |
-| `ccp orientation` | print the orientation the SessionStart hook gives a session in this product; writes nothing | §9.3 |
+| `ccp orientation` | print the orientation the SessionStart hook gives a session in this product, followed by its pending notices; writes nothing | §9.3 |
 
 Global: `--root DIR` (else `$CCP_ROOT`, else the git top level), §8.2.

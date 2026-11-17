@@ -1,11 +1,12 @@
 """Notifying the operator (SPEC §3.6, §17.10): the plane owns the trigger, the content and the record;
 the lead dispatches; the channel is the product's `notify` block.
 
-The plane names four triggers on which the operator must hear: a `blocker` (a wait only the operator
+The plane names five triggers on which the operator must hear: a `blocker` (a wait only the operator
 clears: `reauth`, `operator_step`), a `decision` (a wait on `operator_decision`: a gate taken to the
 operator, a spec question answered `needs_operator`), `review_point_done` (a close that leaves its
-review point with no open task) and `allowance_checkpoint` (a claim refused at the weekly checkpoint).
-A notice the lead sends on its own judgment is trigger `other`.
+review point with no open task), `allowance_checkpoint` (a claim refused at the weekly checkpoint) and
+`upgrade` (a release brought `adopt` steps the product has not taken, §29.3). A notice the lead sends
+on its own judgment is trigger `other`.
 
 When a trigger fires (`fire`), `ccp` writes a `notify` `pending` event to the ledger and prints the
 rendered notice on stderr with the channel to use. plane.json `notify.command` is the unattended
@@ -18,6 +19,10 @@ a failure is a warning on the step, never a refusal, and the step itself has alr
 `notify.lead` (`{tool, to}`) declares that the lead sends with that tool from its own session: it
 renders the notice (`render`), sends it and records it (`record_sent`, `via: lead`). With neither,
 the lead's session is the route. `pending` lists every fired notice no successful `sent` matches.
+
+`upgrade` is recorded, never sent: `record_upgrade`, which `scripts/run-checkout.sh update` runs in each
+bound product after its checks, writes the `pending` event (the release's commit as its id, the steps
+as its reason) and runs no command; the lead dispatches it like any other pending notice.
 """
 from __future__ import annotations
 
@@ -30,7 +35,9 @@ from typing import Any
 from ccp.config import Config
 from ccp.envvars import for_child
 
-TRIGGERS = ("blocker", "decision", "review_point_done", "allowance_checkpoint")
+TRIGGERS = ("blocker", "decision", "review_point_done", "allowance_checkpoint", "upgrade")
+# §29.3: recorded by a release for the lead to dispatch; `ccp` never runs the command channel for it
+RECORD_ONLY = ("upgrade",)
 # `other`: a notice the lead sends on its own judgment; never fired by the plane
 RENDER_TRIGGERS = TRIGGERS + ("other",)
 VIAS = ("command", "lead")
@@ -107,8 +114,8 @@ def send(cfg: Config, trigger: str, task_id: str = "", ident: str = "", reason: 
     """Run the channel command for one trigger. None when the product names no command (nothing runs);
     else `{trigger, exit}`, with `warning` when the command failed or timed out. Never raises on the
     command's account: the step that fired the trigger has happened either way."""
-    if trigger not in TRIGGERS:
-        raise ValueError(f"unknown notify trigger {trigger!r}")
+    if trigger not in TRIGGERS or trigger in RECORD_ONLY:
+        raise ValueError(f"notify trigger {trigger!r} is not sent by a command")
     cmd = channel(cfg)
     if not cmd:
         return None
@@ -168,8 +175,8 @@ def fire(cfg: Config, q: Path, trigger: str, task_id: str = "", ident: str = "",
     record its send), and print the rendered notice on stderr with the channel to use. Returns the
     command's result (None when none ran) and the step's warnings. Never raises on the notice's
     account: the step that fired it has happened either way."""
-    if trigger not in TRIGGERS:
-        raise ValueError(f"unknown notify trigger {trigger!r}")
+    if trigger not in TRIGGERS or trigger in RECORD_ONLY:
+        raise ValueError(f"notify trigger {trigger!r} is not fired by a step")
     from ccp import queue  # noqa: PLC0415
     who = who or queue.actor()  # the seat whose step fired it ran the command too
     warns: list[str] = []
@@ -228,6 +235,42 @@ def pending(cfg: Config, q: Path) -> list[dict[str, Any]]:
     return out
 
 
+def upgrade_reason(steps: list[dict[str, Any]]) -> str:
+    """The `upgrade` notice's reason: `<task>: <adopt step>` for each step, `; ` between them, one line
+    within NOTE_MAX; the steps that do not fit are counted and left to `ccp upgrade status`."""
+    parts = [" ".join(f"{s['task']}: {s['adopt']}".split()) for s in steps]
+    kept: list[str] = []
+    for i, part in enumerate(parts):
+        rest = len(parts) - i - 1
+        tail = len(f"; +{rest} more: ccp upgrade status") if rest else 0
+        if len("; ".join([*kept, part])) + tail > NOTE_MAX:
+            break
+        kept.append(part)
+    dropped = len(parts) - len(kept)
+    more = [f"+{dropped} more: ccp upgrade status"] if dropped else []
+    return "; ".join([*kept, *more])
+
+
+def record_upgrade(cfg: Config, q: Path, since: str | None) -> dict[str, Any]:
+    """§29.3: the `upgrade` notice of a release: the `adopt` steps of the plane tasks merged since
+    `since` (`ccp upgrade notes`) that this product has not taken (`ccp upgrade status`), recorded
+    `pending` with the release's commit as its id and the steps as its reason. None to adopt records
+    nothing. No command runs: the lead dispatches it."""
+    from ccp import queue, upgrade  # noqa: PLC0415
+    notes = upgrade.notes(cfg, argparse.Namespace(since=since))
+    brought = {str(t["task"]) for t in notes["tasks"]}
+    steps = [{"task": s["task"], "adopt": s["adopt"], "check": s["check"]}
+             for s in upgrade.status(cfg, None)["steps"] if s["task"] in brought]
+    release = str(notes.get("head") or "")
+    out: dict[str, Any] = {"ok": True, "release": release, "since": notes["since"], "steps": steps,
+                           "recorded": False}
+    if steps:
+        reason = upgrade_reason(steps)
+        record_pending(q, cfg, "upgrade", "", release, reason, queue.actor("plane-session"))
+        out.update(recorded=True, notice=render(cfg.project_id, "upgrade", "", release, reason))
+    return out
+
+
 def review_point_done(cfg: Config, rp: str) -> bool:
     """Whether the task log's tasks that carry review point `rp` are all closed (done or dropped), one
     of them at least done: the close that makes this so fires `review_point_done`."""
@@ -260,6 +303,8 @@ def toolkit(cfg: Config, a: argparse.Namespace) -> dict[str, Any]:
     if a.cmd == "pending":
         rows = pending(cfg, q)
         return {"ok": True, "channel": channel_text(cfg), "count": len(rows), "pending": rows}
+    if a.cmd == "upgrade":
+        return record_upgrade(cfg, q, a.since)
     try:
         ev = record_sent(q, cfg, a.trigger, _task(cfg, a.task), a.id or "", via=a.via, ok=True, note=a.note or "")
     except ValueError as exc:
@@ -299,4 +344,10 @@ def add_parser(sub: Any, toolkit_wrap: Any) -> None:
     p.add_argument("--note", help="one line: ids and a short reason, no content (required for `other`)")
     p.set_defaults(fn=toolkit_wrap(toolkit))
     p = nt.add_parser("pending", help="every notice fired and not yet sent (needs QUEUE_ROOT)")
+    p.set_defaults(fn=toolkit_wrap(toolkit))
+    p = nt.add_parser("upgrade", help="record this product's upgrade notice for a release: the adopt steps of "
+                                      "the plane tasks merged since a commit it has not taken, or nothing when "
+                                      "none (SPEC §29.3; needs QUEUE_ROOT)")
+    p.add_argument("--since", metavar="COMMIT", help="the plane checkout before the release (default: its "
+                                                    "previous release)")
     p.set_defaults(fn=toolkit_wrap(toolkit))
