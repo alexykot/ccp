@@ -276,6 +276,30 @@ class OnTheMergeBase(WtFixture, unittest.TestCase):
         self.assertFalse(list((self.main / ".rt").glob("base-0002/ran.txt")))  # the command never ran
         self.assert_nothing_left()
 
+    def test_a_sigterm_while_git_worktree_add_hangs_is_acted_on_after_the_hold_and_leaves_nothing(self):
+        self.assertEqual(wt.SIGTERM_HOLD_SECONDS, 30)
+        got: list[int] = []
+        previous = signal.signal(signal.SIGTERM, lambda n, _f: got.append(n))
+        self.addCleanup(signal.signal, signal.SIGTERM, previous)
+        hooks = Path(self._tmp.name) / "hooks"
+        hooks.mkdir()
+        pid_file = Path(self._tmp.name) / "hook.pid"
+        (hooks / "post-checkout").write_text(f"#!/bin/sh\necho $$ > {pid_file}\nkill -TERM {os.getpid()}\n"
+                                             "exec sleep 120\n")
+        (hooks / "post-checkout").chmod(0o755)
+        self.addCleanup(lambda: pid_file.is_file() and _kill_quietly(int(pid_file.read_text())))
+        git(self.main, "config", "core.hooksPath", str(hooks))  # git worktree add waits on it: a hung add
+        started = time.monotonic()
+        with mock.patch.object(wt, "SIGTERM_HOLD_SECONDS", 2):
+            code, res, _, err = self.base_run("sh", "-c", "echo ran > ran.txt")
+        took = time.monotonic() - started
+        self.assertEqual(got, [])
+        self.assertEqual(code, 143, err)
+        self.assertGreaterEqual(took, 2)  # held for the bound first
+        self.assertLess(took, 40)
+        self.assertEqual((res["exit"], res["signal"], res["removed"]), (143, 15, True))
+        self.assert_nothing_left()
+
     def test_a_failed_fetch_warns_that_the_base_may_be_stale(self):
         git(self.main, "remote", "set-url", "origin", str(Path(self._tmp.name) / "gone.git"))
         code, res, body, err = self.base_run("git", "rev-parse", "HEAD")
@@ -289,6 +313,13 @@ class OnTheMergeBase(WtFixture, unittest.TestCase):
     def test_a_fetch_that_works_warns_of_nothing(self):
         code, res, _, err = self.base_run("true")
         self.assertEqual((code, res["warnings"]), (0, []), err)
+
+
+def _kill_quietly(pid: int) -> None:
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except OSError:
+        pass
 
 
 if __name__ == "__main__":
