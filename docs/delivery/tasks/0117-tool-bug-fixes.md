@@ -91,4 +91,29 @@ with an unclosed code fence says so instead of silently dropping the rules after
 
 *Append-only, newest last.*
 
+- 2026-11-17 — implementer: `wt.resolve_sha` keeps a full sha (40 or 64 hex) as given and resolves
+  anything else in the caller's checkout (`cfg.root`) when the worktree is made; one naming no commit
+  is refused (exit 2) before anything is fetched, made or recorded. The base run resolves its `--sha`
+  the same way (its refusal exits 125, as its other own refusals do), so `--kind base --sha HEAD` from
+  a task worktree is that worktree's head, not the main checkout's.
+- The catch-up gate (`lifecycle._task_worktree_env`) gets the `CCP_WT_*` fields of the task's
+  recorded `impl` worktree and `CCP_TASK_ID`/`CCP_NNNN`, over the caller's environment, as
+  `suite.worktree_env` gives a lane run in that worktree. Env hooks export nothing else today, so
+  nothing else is passed; `prompts.worker_env` is not rendered (it needs a run and a phase). With no
+  recorded `impl` worktree the gate runs as before, with a warning on stderr. A product whose gate
+  reads a per-worktree variable can derive it from the `CCP_WT_*` fields.
+- Close's two `tasks_done` increments read through `_tasks_done`, as claim and rotation do.
+- The spawn's integration-ref refusal (dry run and real) fetches `+refs/heads/<integ>` into
+  `refs/remotes/origin/<integ>` first; a failed fetch leaves the ref as it was.
+- `ccp mutate` removes `__pycache__/<stem>.*.pyc` after restoring a `.py` file and runs each test
+  with `PYTHONDONTWRITEBYTECODE=1`. `_restore` writes the file at the current time, not its
+  original mtime; the stale case is a restore in the same second as the mutant's compile.
+- `docrules.unclosed_fence` gives the line of a fence never closed; `rules.doc_warnings` makes it a
+  `ccp docs check` warning for `architect.rules_doc`, and `ccp init --rules-doc` (listing and
+  `--adopt`) puts it in the result's `warnings`, on stderr, and in either refusal.
+- Tests outside the declared paths: tests/test_behind_tip_catch_up.py (the catch-up fixture),
+  tests/test_merge_base.py (the base run), tests/test_init_rules_doc.py (`ccp init --rules-doc`);
+  ccp/cli.py and ccp/init.py carry the warning wiring. tests/test_fence.py is the test-fence test,
+  not code fences, so it is unchanged.
+
 ## Verification notes
