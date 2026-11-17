@@ -105,5 +105,8 @@ bytecode.
   checkout's root on `sys.path` (importing `tests` first, for the fence): without it `python3
   tests/test_tasks_close.py` cannot import `ccp`. The catch-up's env tests live in
   `tests/test_behind_tip_catch_up.py` (not in `paths`), where one test pinned `impl-0002`/`impl` and had to change.
+- 2026-11-17 (implementer, fix round 1): §16.5 rule 4 rewrapped so the line holding "runs the" is part of the
+  diff: `ccp verify spec-text` reads only the SPEC lines the branch adds, and the signed passage began after
+  unchanged words on an untouched line, so it exited 1. Wording unchanged; it now exits 0.
 
 ## Verification notes
