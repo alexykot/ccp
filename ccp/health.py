@@ -39,6 +39,9 @@ Everything comes from data the plane already holds; nothing here is a target or 
 - **runner rotation** (§10.2 step 4): the runner slots due for rotation and not rotated, and the ledger's
   rotations against tasks done.
 
+- **usage advice** (§24.6): `ccp usage`'s cost advice over the queue's usage, at plane.json
+  `usage.advice`'s thresholds (`usage_advice` in --json).
+
 - **uncovered commits** (§10.7, `ccp tasks orphans`): the commits on the integration branch's
   first-parent history since a ref that no task covers: not a task's merge (the rule above, a squash
   naming its task only as `Task NNNN: …`, the form the implementer is asked for), not a
@@ -70,7 +73,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp import refs, tasklog
-from ccp.config import ARCHITECT_DEFAULTS, HEALTH_DEFAULTS, Config
+from ccp.config import ARCHITECT_DEFAULTS, HEALTH_DEFAULTS, USAGE_DEFAULTS, Config
 from ccp.queue import QueueError
 from ccp.rules import budget_failures, glob_re
 
@@ -931,7 +934,17 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
         except Exception:  # noqa: BLE001
             out["suite_modules"] = None
         out["rotation"] = rotation(q) if q else None  # §10.2 step 4
+        try:  # §24.6: nor does a damaged usage sink
+            out["usage_advice"] = usage_advice(cfg, q) if q else None
+        except Exception:  # noqa: BLE001
+            out["usage_advice"] = None
     return out
+
+
+def usage_advice(cfg: Config, q: Path) -> list[str]:
+    """§24.6: `ccp usage`'s cost advice for the queue's usage, at plane.json `usage.advice`'s thresholds."""
+    from ccp import usage  # noqa: PLC0415
+    return usage.fold(q, None, None, (getattr(cfg, "usage", None) or USAGE_DEFAULTS)["advice"])["advice"]
 
 
 def _h(s: float | None) -> str:
@@ -1032,5 +1045,7 @@ def main(cfg: Config, a: Any) -> int:
         print(f"Budget over: {b}")
     for line in rotation_text(report.get("rotation")):
         print(line)
+    for line in report.get("usage_advice") or []:
+        print(f"Usage advice: {line}")
     print(f"Friction notes on record: {report['notes']}")
     return 0

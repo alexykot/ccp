@@ -1,7 +1,7 @@
 ---
 task_id: 0114-usage-advice-for-costly-seats
 title: ccp usage advises on short-lived cache writes, oversized context and the coordination share, naming the setting that fixes each
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S24"]
@@ -79,4 +79,19 @@ workers, and names the setting that fixes each.
 
 *Append-only, newest last.*
 
+- 2026-11-17, implementer: `usage.cost_advice` (ccp/usage.py) builds the three lines from the fold's
+  per-seat figures and each seat's request contexts (input, cache read and cache written, as
+  `CONTEXT_TOKENS`); `fold` adds them to `advice` only when given the knobs, which `ccp usage` and
+  `ccp health` pass, so the board, the estimator and the forecast keep their advice as it was. Narrowest
+  readings taken: the 5-minute share is `cache_creation_5m_tokens` over `cache_creation_tokens`, for every
+  seat in the fold; the context line is only for `design-seat` and `runner`, the two seats the task names
+  a setting for; "all seats' cost" is the sum over the fold's seats (unattributed requests excluded); the
+  coordination line names no setting, as the task names none; each threshold is strict (more than).
+  `ccp health` had no usage summary: it gains `usage_advice` (in --json) and a `Usage advice:` line each,
+  from the queue's usage, skipped without QUEUE_ROOT. Knobs: plane.json `usage.advice` (config
+  `USAGE_DEFAULTS`, merged key by key), in the schema; SPEC §24.6, a `usage` row in §8.1's block table and
+  the CLI reference.
+
 ## Verification notes
+- 2026-11-17 — verifier, PR #119 head `00e96cc` (squash `e152543`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, suite-01. Gate: `scripts/gate.sh (ccp suite run --lane gate)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0114-usage-advice-for-costly-seats.json.
+

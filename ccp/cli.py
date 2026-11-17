@@ -1447,7 +1447,8 @@ def cmd_usage(cfg: config.Config, a: argparse.Namespace) -> int:
     except QueueError as e:
         print(f"ccp usage: {e}", file=sys.stderr)
         return e.code
-    report = usage.fold(q, tid, (cfg.telemetry or {}).get("design_seat"))
+    report = usage.fold(q, tid, (cfg.telemetry or {}).get("design_seat"),
+                        (cfg.usage or config.USAGE_DEFAULTS)["advice"])  # §24.6
     report.pop("recent", None)  # the board's live-seat rows, not a usage figure
     report.pop("timeline", None)  # the board's drill-down intervals, likewise
     from ccp import suite  # noqa: PLC0415
