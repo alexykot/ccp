@@ -41,7 +41,8 @@ Everything comes from data the plane already holds; nothing here is a target or 
 
 - **sign-off wait** (§27.1): per review point (the task file's `review_point`), the merged tasks that
   waited after their latest approving verdict on a `build` sign-off or a merge gate's decision, with
-  the median and the longest wait (`sign_off_wait` in --json).
+  the median and the longest wait, in whole minutes; a wait under one minute is left out
+  (`sign_off_wait` in --json).
 
 - **usage advice** (§24.6): `ccp usage`'s cost advice over the queue's usage, at plane.json
   `usage.advice`'s thresholds (`usage_advice` in --json).
@@ -904,7 +905,8 @@ def sign_off_wait(q: Path, rows: list[dict[str, Any]], tasks: list[dict[str, Any
     sign-off or a merge gate. A task's wait runs from its latest approving verdict to the first `build`
     sign-off (`sign_off`/`recorded`, stage `build`) or merge-gate decision (`gate`/`decided` on a gate
     opened with class `merge`; a standing approval waits on no one) at or after it. A task with neither,
-    or whose task file names no `review_point`, is in no point."""
+    whose task file names no `review_point`, or whose wait is under one minute, is in no point. Each wait
+    is in seconds (`wait_s`) and in whole minutes, half up (`wait_min`); so are the median and the longest."""
     evs = _jsonl(_events_path(q))
     approved = _verdict_times(q, evs)
     merge_gates = {str(p.get("escalation_id")) for e in evs if (e.get("type"), e.get("op")) == ("gate", "opened")
@@ -928,14 +930,21 @@ def sign_off_wait(q: Path, rows: list[dict[str, Any]], tasks: list[dict[str, Any
             continue
         a = max(approved[tid])
         after = sorted(x for x in ends.get(tid, []) if x[0] >= a)
-        if not after:
+        if not after or after[0][0] - a < 60:
             continue
         rp = out.setdefault(point[tid], {"tasks": []})
-        rp["tasks"].append({"task_id": tid, "wait_s": round(after[0][0] - a), "on": after[0][1]})
+        wait = round(after[0][0] - a)
+        rp["tasks"].append({"task_id": tid, "wait_s": wait, "wait_min": _minutes(wait), "on": after[0][1]})
     for rp in out.values():
         waits = [x["wait_s"] for x in rp["tasks"]]
-        rp.update(median_s=_median(waits), longest_s=max(waits))
+        median, longest = _median(waits), max(waits)
+        rp.update(median_s=median, longest_s=longest, median_min=_minutes(median), longest_min=_minutes(longest))
     return dict(sorted(out.items(), key=lambda kv: (_point_number(kv[0]), kv[0])))
+
+
+def _minutes(seconds: float) -> int:
+    """Seconds as whole minutes, rounded to the nearest, half up."""
+    return int(seconds / 60 + 0.5)
 
 
 def _point_number(rp: str) -> int:
@@ -946,7 +955,7 @@ def _point_number(rp: str) -> int:
 def sign_off_text(w: dict[str, Any] | None) -> list[str]:
     """One line per review point: how many tasks waited after their approve, the median and the longest."""
     return [f"Sign-off wait {rp}: {len(v['tasks'])} task(s) waited after their approve, median "
-            f"{v['median_s'] / 60:g} min, longest {v['longest_s'] / 60:g} min" for rp, v in (w or {}).items()]
+            f"{v['median_min']} min, longest {v['longest_min']} min" for rp, v in (w or {}).items()]
 
 
 def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool = True,

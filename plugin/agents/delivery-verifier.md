@@ -34,8 +34,8 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   whose head differs from it. Under `adr.strict` it also refuses an approve of a head on which a
   decision the task cites is still recorded `not_built` (SPEC §6.7, §15.4): closing the task would
   fail the in-force ADR check. That is a reject naming the decision and its `ccp adr decide` fix.
-  A valid example is `contracts/verification.example.json`. On a PR that
-  is not a task's, `task_id` is exactly `pr-<n>`. `checked_at` is the clock time you reached the
+  A valid example is the plane's `verification.example.json`, at the path the verify prompt gives. On
+  a PR that is not a task's, `task_id` is exactly `pr-<n>`. `checked_at` is the clock time you reached the
   verdict; leave it out and `record` stamps it.
 - Every verdict on a task carries `spec_beyond_intent` (SPEC §3.5), and `record` refuses one
   without it: one string per passage of normative text (SPEC sections, contracts) the PR adds or

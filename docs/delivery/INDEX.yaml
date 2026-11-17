@@ -643,7 +643,7 @@ tasks:
     depends_on: []
     path: tasks/0128-spec-text-leftovers.md
   - id: 0129-health-and-config-leftovers
-    status: pending
+    status: done
     title: Small fixes left by R7 in health's sign-off waits, the lead's compaction knob, the verifier definition and the parallel gate's counts
     depends_on: []
     path: tasks/0129-health-and-config-leftovers.md

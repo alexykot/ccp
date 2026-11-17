@@ -486,8 +486,9 @@ class Record(unittest.TestCase):
                                                   "class": "other", "status": "closed", "decision": "approved"}))
         code, _, err = self.record({**example, "task_id": "0001-a", "project_id": "demo"})
         self.assertEqual(code, 0, err)
-        self.assertIn("contracts/verification.example.json",
-                      (ROOT / "plugin/agents/delivery-verifier.md").read_text())
+        brief = (ROOT / "plugin/agents/delivery-verifier.md").read_text()
+        self.assertIn("`verification.example.json`, at the path the verify prompt gives", brief)
+        self.assertNotIn("contracts/verification.example.json", brief)  # a relative path, wrong outside the plane
 
     def test_record_stamps_its_own_version_and_holds_the_record_to_its_own_contract(self):
         code, _, err = self.record(approve(schema_version=verify.RECORD_VERSION + 5))

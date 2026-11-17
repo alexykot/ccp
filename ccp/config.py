@@ -16,6 +16,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -318,9 +319,16 @@ LEAD_DEFAULTS: dict[str, Any] = {"auto_compact_window": 350000}
 
 def lead_auto_compact_window(lead: dict[str, str]) -> int:
     """The binding's `lead.auto_compact_window` (§4.5) from its `lead` block's scalars: a positive whole
-    number, else the default (absent, or not one)."""
+    number, else the default (absent, or not one). One that is set but is not a positive whole number warns
+    on stderr, naming the key and the value."""
     v = str(lead.get("auto_compact_window", "")).strip()
-    return int(v) if re.fullmatch(r"[0-9]+", v) and int(v) >= 1 else LEAD_DEFAULTS["auto_compact_window"]
+    if re.fullmatch(r"[0-9]+", v) and int(v) >= 1:
+        return int(v)
+    default = LEAD_DEFAULTS["auto_compact_window"]
+    if v:
+        print(f"warning: the binding's lead.auto_compact_window is {v!r}, not a positive whole number; "
+              f"reading it as the default, {default}", file=sys.stderr)
+    return default
 
 
 class ConfigError(Exception):
