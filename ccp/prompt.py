@@ -18,6 +18,8 @@ opened, unless the product's `verify.skip_review` or a review prover (`verify.pr
 `verify.skip_review_after_clean` takes
 it as the fix of a clean review's minor findings (the verify prompt lists them), or the lead's word
 overrides it (§15.2).
+A review of a PR whose body does not contain the task id is refused, exit 2, nothing opened: the runner
+repairs the body first (§15.2); a body `gh` cannot read is a warning on the run, not a refusal.
 A verify round with no fix round since the task's last verify round needs `--note` with the reason
 (§15.6 rule 4): without it the command refuses, exit 4, nothing opened. A verify of a head that lacks the
 integration tip, beyond the task log and `merge.behind_tip_ignore`, refuses the same way, with one runner
@@ -40,6 +42,7 @@ from typing import Any
 
 from ccp import refs, runs, tasklog, verify
 from ccp.config import Config, lane_for
+from ccp.envvars import envvar
 from ccp.queue import (CCP_BIN, OBS, PLANE, QueueError, git, integration_branch, load_task_state, load_work, phase_move,
                        runner_slots,
                        holder_teammate, root, task_meta)
@@ -392,6 +395,39 @@ def tip_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> list[str]:
     return []
 
 
+GH_TIMEOUT_S = 60  # how long `ccp prompt review` waits on `gh pr view` for the PR's body
+
+
+def body_gate(cfg: Config, tid: str, phase: str, pr: str) -> list[str]:
+    """§15.2: a review of a PR whose body does not contain the task id is refused (exit 2), naming the
+    task and the PR, before anything is opened: the runner repairs the body first. The body is read with
+    `gh pr view <pr> --json body` (`CCP_GH_BIN`, else `gh`); one that cannot be read is a warning,
+    returned to record on the run, and the review opens."""
+    if phase != "review":
+        return []
+    gh = envvar("CCP_GH_BIN") or "gh"
+    unread = f"the PR body was not checked for {tid} (SPEC §15.2): "
+    try:
+        r = subprocess.run([gh, "pr", "view", str(pr), "--json", "body"], cwd=cfg.root, capture_output=True,
+                           text=True, timeout=GH_TIMEOUT_S)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return [unread + f"{gh} could not read PR #{pr} ({type(exc).__name__})"]
+    if r.returncode != 0:
+        why = ((r.stderr or r.stdout).strip().splitlines() or ["no output"])[-1]
+        return [unread + f"{gh} pr view {pr} exited {r.returncode}: {why}"]
+    try:
+        body = json.loads(r.stdout).get("body")
+    except (ValueError, AttributeError):
+        body = None
+    if not isinstance(body, str):
+        return [unread + f"{gh} pr view {pr} gave no body"]
+    if tid not in body:
+        raise QueueError(f"PR #{pr}'s body does not contain the task id {tid}: it may hold another task's body. "
+                         f"Repair it (`gh pr edit {pr} --body-file <file>`, naming {tid}), then run "
+                         f"`ccp prompt review {tid}` again (SPEC §15.2)", 2)
+    return []
+
+
 def opener(q: Path, tid: str, st: dict[str, Any], holder: str | None) -> str | None:
     """§16.4: the runner slot opening a round of `tid`. Only the slot holding the lease may: `--holder`
     names the caller, and another slot is refused (exit 3). With several slots `--holder` is required;
@@ -436,6 +472,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     override, skipped = review_gate(cfg, q, tid, phase, a)
     repeat = repeat_gate(q, tid, phase, note)
     tip_warn = tip_gate(cfg, q, tid, phase, a)
+    body_warn = body_gate(cfg, tid, phase, a.pr)
     runs.check_pending(q, runs.AGENT_TYPE[phase], a.supersede, caller)
     runs.check_running_rounds(q, tid, phase, caller, a.supersede)
     n = runs.next_round(q, tid, phase)
@@ -504,7 +541,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     prompt_file.write_text(body)
     ref = audit(q, cfg, tid, phase, prompt_file, run_id, meta, worktree if phase in runs.CHANGE_PHASES else own, note)
     prune_audits(q, cfg)
-    warnings: list[str] = list(session_warn) + tip_warn
+    warnings: list[str] = list(session_warn) + tip_warn + body_warn
     rec = runs.open_run(q, cfg, tid, phase, prompt_ref=ref, note=note, supersede=a.supersede, warnings=warnings, by=caller,
                         extra={"pr": a.pr or None, "head": a.head or None, "prompt_token": token,
                                # §14.1: a suite run from inside this worktree binds to the run

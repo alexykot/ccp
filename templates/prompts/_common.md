@@ -11,6 +11,7 @@ Rules for every worker:
 {{#worker_env}}- This run's environment is in `{{worker_env_file}}`: {{worker_env}}. Your shell does not have it, and a variable you set does not outlast one Bash call, so start every command with `. {{worker_env_file}} && ` (before `ccp suite run` too: its command inherits it).
 {{/worker_env}}- Stage by path; never `git add -A`, never `git stash`, never reset or discard changes you did not make. Never commit secrets, `.env` files or anything the product's rules exclude.
 - Never merge a PR. The runner merges after the verifier approves.
+- `gh pr edit` and `gh pr view` always take the PR number (`gh pr edit <n> …`), never the current branch's PR.
 - If Claude Code denies you an action, do not reach the same effect another way: stop that line of work and say so in your report.
 - No email, and no messages to anyone except the runner teammate, `{{runner}}`.
 - Never print a URL with credentials, a token or a password.
