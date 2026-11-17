@@ -1,7 +1,7 @@
 ---
 task_id: 0109-upgrade-notes-and-status
 title: Tasks name their adoption step; ccp upgrade notes and status show what a release asks of a product; a built proposal names its step
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S29"]
@@ -120,3 +120,5 @@ has not adopted, and a proposal closed as built tells its proposer the step.
   never starts with it.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #124 head `9aefd6b` (squash `2f4181d`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, check-01, check-02, suite-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0109-upgrade-notes-and-status.json.
+

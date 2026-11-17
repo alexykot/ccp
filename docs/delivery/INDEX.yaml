@@ -543,7 +543,7 @@ tasks:
     depends_on: []
     path: tasks/0108-sign-rule-text-at-tasking.md
   - id: 0109-upgrade-notes-and-status
-    status: pending
+    status: done
     title: Tasks name their adoption step; ccp upgrade notes and status show what a release asks of a product; a built proposal names its step
     depends_on: []
     path: tasks/0109-upgrade-notes-and-status.md
