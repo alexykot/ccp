@@ -41,7 +41,7 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
             printed (--full streams it), the time and counts are recorded)
   ccp suite wait SUITE_ID [--timeout SECONDS]  (a run's summary and exit code once it ends; still running at the
             timeout, default 540: its elapsed time and exit 3, SPEC §14.2)
-  ccp suite affected [--since REF | --paths PATH …]  (the test modules a change touches, one per line, SPEC §14.7)
+  ccp suite affected [--since REF | --since A..B | --paths PATH …]  (the test modules a change touches, one per line, SPEC §14.7)
   ccp notify render TRIGGER [--task ID] [--id ID] [--reason R] [--json] | pending
             | sent TRIGGER [--task ID] [--id ID] --via command|lead [--note T]  (the operator's notices, SPEC §3.6)
             | upgrade [--since COMMIT]  (record a release's upgrade notice for this product, SPEC §29.3)
@@ -1131,7 +1131,8 @@ def build_parser() -> argparse.ArgumentParser:
                                        "nothing (SPEC §14.7)")
     ch = p.add_mutually_exclusive_group()
     ch.add_argument("--since", metavar="REF", help="the change: what git diff REF names against the working tree, "
-                                                   "plus untracked files (default: HEAD)")
+                                                   "plus untracked files (default: HEAD); a range A..B is what "
+                                                   "git diff A..B names, without the working tree")
     ch.add_argument("--paths", nargs="+", metavar="PATH", help="the change: these paths, relative to the product root")
     p.set_defaults(fn=cmd_suite_affected)
 
