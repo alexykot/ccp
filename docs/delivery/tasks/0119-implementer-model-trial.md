@@ -1,7 +1,7 @@
 ---
 task_id: 0119-implementer-model-trial
 title: A plane.json knob picks the implementer's model per task size or kind, and the plane trials a cheaper model on its own small and refactor tasks
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S2", "S24", "S26"]
@@ -101,3 +101,5 @@ changes only on evidence.
   `ccp usage` output leaves out.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #129 head `5909792` (squash `64e09ea`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, check-01, suite-01. Gate: `scripts/gate.sh (ccp suite run --lane gate)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0119-implementer-model-trial.json.
+

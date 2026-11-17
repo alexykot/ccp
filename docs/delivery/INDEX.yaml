@@ -593,7 +593,7 @@ tasks:
     depends_on: [0116-prompt-and-verify-fixes]
     path: tasks/0118-leftovers-and-pr-body-guard.md
   - id: 0119-implementer-model-trial
-    status: pending
+    status: done
     title: A plane.json knob picks the implementer's model per task size or kind, and the plane trials a cheaper model on its own small and refactor tasks
     depends_on: []
     path: tasks/0119-implementer-model-trial.md
