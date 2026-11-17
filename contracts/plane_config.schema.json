@@ -831,6 +831,23 @@
         "suite_trend_runs": {"type": "integer", "minimum": 1, "default": 10, "description": "SPEC §27.2: ccp health's median seconds per test is taken over this many of the latest cold gate runs whose result carried `modules`, shown with the first and latest of them."}
       }
     },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §24.6: `ccp usage`'s knobs.",
+      "properties": {
+        "advice": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The thresholds of the cost advice `ccp usage` and `ccp health` print, a line per measure past its threshold. Advice only: no setting is changed.",
+          "properties": {
+            "cache_5m_share": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.5, "description": "A seat whose 5-minute cache writes are more than this share of its cache-write tokens is advised to set subagentPromptCacheTtl to 1h."},
+            "context_tokens": {"type": "integer", "minimum": 1, "default": 300000, "description": "The lead or a runner whose median context per request (input, cache read and cache written tokens) exceeds this is advised to lower it: the lead with autoCompactWindow, a runner with the binding's runner.rotate_at_context_tokens."},
+            "coordination_share": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.4, "description": "Advice when the lead's and the runner's cost together are more than this share of all seats' cost."}
+          }
+        }
+      }
+    },
     "suite": {
       "type": "object",
       "additionalProperties": false,

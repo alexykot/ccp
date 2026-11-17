@@ -13,7 +13,7 @@ command follows are in the SPEC, not here.
 | `ccp otel serve [--port N]` | The telemetry receiver (§24.2) |
 | `ccp otel env [--project ID]` | Print the user-settings block, and with `--project` the product's block (§24.1) |
 | `ccp otel install\|uninstall\|status` | The receiver's service; `status` reports rows written, routed, pending and refused, and checks the user settings |
-| `ccp usage [--task ID] [--json]` | Per-run and per-seat tokens, cost, models and coverage (§24.4) |
+| `ccp usage [--task ID] [--json]` | Per-run and per-seat tokens, cost, models and coverage (§24.4), and the cost advice past plane.json `usage.advice` (§24.6) |
 | `ccp usage --system [--since DATE] [--json]` | The system sink by cwd and day |
 | `ccp allowance status [--sample]` | Latest sample, checkpoint in force, resets and decisions (§25.3) |
 | `ccp allowance continue --to <percent> --reason "<the operator's words>"` | Record the operator's decision past the checkpoint |
@@ -25,7 +25,7 @@ command follows are in the SPEC, not here.
 | `ccp estimate accuracy [--json]` | The accuracy panel |
 | `ccp estimate calibration [--json]` | The calibration factors and rolling check (§26.6) |
 | `ccp forecast [--point R<n> \| --backlog] [--json]` | The completion forecast and allowance projection (§26.4) |
-| `ccp health [--json]` | Measurements, suite series (§27), the share of merged tasks under `health.small_task_lines` (`small_tasks`), the gate's time against the shell limit (§14.6), and the slowest test modules and the seconds per test (§27.2, `suite_modules`) |
+| `ccp health [--json]` | Measurements, suite series (§27), the share of merged tasks under `health.small_task_lines` (`small_tasks`), the gate's time against the shell limit (§14.6), the slowest test modules and the seconds per test (§27.2, `suite_modules`), and the usage cost advice (§24.6, `usage_advice`) |
 | `ccp health record --task <id> --metric <name>=<n>` | Record a product metric |
 | `ccp health note --text TEXT` | Record a friction note |
 

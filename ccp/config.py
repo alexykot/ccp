@@ -185,6 +185,11 @@ GATE_CUT_SHARE = 0.9  # the cut line's default, as a share of the limit
 # cold gate runs that carry `modules`, the `slowest_modules` slowest modules of the latest, and the median
 # seconds per test over the last `suite_trend_runs`.
 HEALTH_DEFAULTS: dict[str, Any] = {"small_task_lines": 100, "slowest_modules": 5, "suite_trend_runs": 10}
+# §24.6 `ccp usage` advice, a line each past its threshold: a seat whose 5-minute cache writes are more than
+# `cache_5m_share` of its cache-write tokens; the lead or a runner whose median context per request exceeds
+# `context_tokens`; a coordination share (lead plus runner cost over all seats') above `coordination_share`.
+USAGE_DEFAULTS: dict[str, Any] = {"advice": {"cache_5m_share": 0.5, "context_tokens": 300000,
+                                             "coordination_share": 0.4}}
 # §26.3 estimation: `reference_since` (YYYY-MM-DD, or null) leaves tasks merged before a process change
 # out of every reference class; `k` is the reference class's size (5 to 8).
 ESTIMATE_DEFAULTS: dict[str, Any] = {"reference_since": None, "k": 6, "auto": False,  # auto: §26.3 phase B triggers
@@ -316,6 +321,7 @@ class Config:
     board: dict[str, Any] | None = None
     gate: dict[str, Any] | None = None
     health: dict[str, Any] | None = None
+    usage: dict[str, Any] | None = None
     suite: dict[str, Any] | None = None
     adr: dict[str, Any] | None = None
     verify: dict[str, Any] | None = None
@@ -756,6 +762,14 @@ def _report_fields(fields: Any) -> list[str]:
     return bad
 
 
+def _usage(given: Any) -> dict[str, Any]:
+    """§24.6 the `usage` block: `advice` merged key by key over its defaults, so one knob given keeps the others."""
+    out = _merge(USAGE_DEFAULTS, given, "usage")
+    out["advice"] = _merge(USAGE_DEFAULTS["advice"], given.get("advice") if isinstance(given, dict) else None,
+                           "usage.advice")
+    return out
+
+
 def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """The §10 blocks, merged with their defaults and checked value by value: they drive merges,
     commits and commands, so a wrong type fails loudly."""
@@ -770,6 +784,7 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
            "board": _merge(BOARD_DEFAULTS, raw.get("board"), "board"),
            "gate": _merge(GATE_DEFAULTS, raw.get("gate"), "gate"),
            "health": _merge(HEALTH_DEFAULTS, raw.get("health"), "health"),
+           "usage": _usage(raw.get("usage")),
            "suite": _suite(raw.get("suite")),
            "verify": _merge(VERIFY_DEFAULTS, raw.get("verify"), "verify"),
            "review_points": _merge(REVIEW_POINTS_DEFAULTS, raw.get("review_points"), "review_points"),
@@ -945,6 +960,13 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
         v = out["health"][k]
         if isinstance(v, bool) or not isinstance(v, int) or v < 1:
             bad.append(f"health.{k} must be an integer >= 1")
+    adv = out["usage"]["advice"]
+    for k in ("cache_5m_share", "coordination_share"):
+        if not (_num(adv[k]) and 0 <= adv[k] <= 1):
+            bad.append(f"usage.advice.{k} must be a number from 0 to 1")
+    ct = adv["context_tokens"]
+    if isinstance(ct, bool) or not isinstance(ct, int) or ct < 1:
+        bad.append("usage.advice.context_tokens must be an integer >= 1")
     lanes = out["suite"]["lanes"]
     if not isinstance(lanes, dict) or not all(
             isinstance(k, str) and SUITE_LANE_RE.match(k) and (_str_list(v) and v or lane_stages(v) is not None)
@@ -1153,7 +1175,7 @@ def _parse(root: Path, text: str) -> Config:
         raise ConfigError(f"{CONFIG_REL}: project_id {raw['project_id']!r} is not lowercase letters, digits and hyphens")
     unknown = sorted(set(raw) - {"$schema", "_note", "project_id", "task_log", "package_docs", "architect",
                                  "prompts", "reconcile", "adapter", "worktrees", "env", "merge",
-                                 "auth_check", "telemetry", "board", "gate", "health", "suite",
+                                 "auth_check", "telemetry", "board", "gate", "health", "usage", "suite",
                                  "adr", "verify", "review_points", "estimate", "parallel", "ids", "docs",
                                  "mutate", "report", "notify"})
     if unknown:
