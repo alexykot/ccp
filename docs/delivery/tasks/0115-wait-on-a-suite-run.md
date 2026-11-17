@@ -77,4 +77,19 @@ the prompts tell workers to give the gate and `ccp mutate` the full shell timeou
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `ccp suite wait <suite_id> [--timeout SECONDS]` is in `ccp/suite.py` (`wait`,
+  `ended_summary`, `main_wait`) and `ccp/cli.py`. It reads `runs/_suites.jsonl` every 0.5 s for the
+  id's rows. Once the `ended` row is there, it rebuilds the summary `ccp suite run` printed from the row
+  and the log, using the same `render_summary`, and exits with the run's exit code. What the records
+  don't keep is not shown: a gate result's failure ids and a staged lane's stages not run. With no log
+  (a `--full` run, or a pruned log) it prints the stage line and the result line, and says the log is
+  missing. Choices beyond the task, narrowest reading:
+  - a run §14.4 counts as `killed` (no `ended` row, and its run stopped or reported, or it started over
+    30 min ago) exits 1 at once, so a worker calling "until it exits other than 3" never loops forever
+    (asked of the runner);
+  - `--timeout` below 0 is refused (exit 2); `--timeout 0` checks once.
+  It writes nothing. The prompt guidance is one line in `templates/prompts/_common.md`, so every
+  worker prompt carries it. The SPEC text is a §14.2 bullet and one sentence in §16.6 (§31.1: the
+  task's own feature), and `docs/cli/02-delivery.md` gains the command's row.
+
 ## Verification notes
