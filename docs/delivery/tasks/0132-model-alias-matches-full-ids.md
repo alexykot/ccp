@@ -32,7 +32,7 @@ window.
 ## Scope
 
 - **In:**
-  - One helper, in a new `ccp/models.py`, that says whether an observed model id matches an expected one: equal
+  - One helper, in `ccp/models.py` (new), that says whether an observed model id matches an expected one: equal
     ids match, and an alias matches any full id of its family (`sonnet` matches an id containing
     `-sonnet-`).
   - `ccp/usage.py`, `ccp/seats.py` and `ccp/board.py` use it wherever they compare an expected model
