@@ -1,7 +1,7 @@
 ---
 id: ADR-0041
 title: "A release tells each product what to adopt"
-status: proposed
+status: accepted
 date: "2026-11-17"
 deciders: operator
 spec_refs: [S2, S3, S5, S13, S29]
@@ -10,6 +10,7 @@ notes: |-
   path to the products that use the plane, and two asking that `ccp init` set the prompt-cache
   lifetime and the compaction window every product should have. The operator decides it; tasks
   0109–0111 build it.
+  2026-11-17: status proposed → accepted: Accepted by the operator with R7's task briefs (2026-11-17, in the lead session: 'sign R7's briefs'). Its decisions stay not_built until tasks 0109–0111 build them.
 decisions:
   - "D1 not_built"
   - "D2 not_built"
