@@ -12,10 +12,10 @@ notes: |-
   0109–0111 build it.
   2026-11-17: status proposed → accepted: Accepted by the operator with R7's task briefs (2026-11-17, in the lead session: 'sign R7's briefs'). Its decisions stay not_built until tasks 0109–0111 build them.
 decisions:
-  - "D1 not_built"
-  - "D2 not_built"
+  - "D1 built"
+  - "D2 built"
   - "D3 not_built"
-  - "D4 not_built"
+  - "D4 built"
   - "D5 not_built"
   - "D6 not_built"
 ---

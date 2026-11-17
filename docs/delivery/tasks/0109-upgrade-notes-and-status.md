@@ -113,5 +113,10 @@ has not adopted, and a proposal closed as built tells its proposer the step.
   keys, so `upgrade` is accepted and checked there), `scripts/observability/lib.py` and
   `contracts/observability_event.schema.json` (the `plane/built` event), `docs/cli/05-operations.md` and
   `ccp/CLAUDE.md` (the new commands and module).
+- Fix round 1: ADR-0041 records D1, D2 and D4 as built (`ccp adr decide`), since this task builds them; D3,
+  D5 and D6 stay not_built for 0110 and 0111. The skill's `adopt` row now writes its settings example as
+  `subagentPromptCacheTtl 1h`, without inner quotes, because the frontmatter parser read `"1h"` back with
+  its trailing quote, and says that a step starting with the word `none` is read as `none`, so a real step
+  never starts with it.
 
 ## Verification notes
