@@ -84,4 +84,17 @@ per-module counts agree with its total.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `sign_off_wait` keeps `wait_s`, `median_s` and `longest_s` in seconds and adds
+  `wait_min`, `median_min` and `longest_min`, whole minutes rounded half up (`health._minutes`); the text
+  line prints the minutes. A wait under 60 s (raw) is left out of a point's tasks, its median and its
+  longest, and a point left with none is not listed.
+- `config.lead_auto_compact_window` warns on stderr (`warning: the binding's lead.auto_compact_window is
+  '<v>', …`) only when the key is set and is not a positive whole number; absent (or empty, which the
+  binding reader drops) stays silent. It is read whenever `ccp init` keeps a binding, so the warning shows
+  even when the product's own settings keep their `autoCompactWindow`.
+- `gate_parallel.module_tests` sums a module's `Ran N tests` lines; `run_one` uses it, so a module's count is
+  its share of `gate_result.py`'s total.
+- The verifier's definition names the example as the plane's `verification.example.json` at the path the
+  verify prompt gives (`{{verification_example}}`, absolute).
+
 ## Verification notes
