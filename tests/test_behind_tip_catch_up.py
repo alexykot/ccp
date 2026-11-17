@@ -34,6 +34,7 @@ GATE = (f'if [ -n "$CATCH_UP_GATE_HOOK" ]; then {PY} "$CATCH_UP_GATE_HOOK" || ex
         f'exec {PY} -m unittest discover -q -s ptests -t .')
 SHARED = "".join(f"line {i}\n" for i in range(1, 11))
 PATHS = 'paths: ["feature.txt", "ptests/test_feature.py", "shared.txt", "area/"]'
+README = "# Package a\n\nIntro.\n\n## Files\n- `one.py`: one\n- `two.py`: two\n"
 
 
 class CatchUp(ToolkitFixture, unittest.TestCase):
@@ -72,9 +73,11 @@ class CatchUp(ToolkitFixture, unittest.TestCase):
         git(self.main, "commit", "-qam", "plane.json")
         git(self.main, "push", "-q", "origin", "main")
 
-    def approved(self, paths: bool = True, sign_off: str | None = None, brief_signed: bool = False) -> str:
-        """0002 claimed, built (feature.txt, a test importing lib.helper, line 1 of shared.txt), pushed and
-        approved: its head. `brief_signed` records the brief sign-off before the claim."""
+    def approved(self, paths: bool = True, sign_off: str | None = None, brief_signed: bool = False,
+                 extra: dict[str, str] | None = None) -> str:
+        """0002 claimed, built (feature.txt, a test importing lib.helper, line 1 of shared.txt, and each
+        `extra` file with its text), pushed and approved: its head. `brief_signed` records the brief sign-off
+        before the claim."""
         self.frontmatter(*([PATHS] if paths else []), *([f"sign_off: {sign_off}"] if sign_off else []))
         git(self.runner, "fetch", "-q", "origin")
         git(self.runner, "checkout", "-q", "--detach", "origin/main")
@@ -89,7 +92,9 @@ class CatchUp(ToolkitFixture, unittest.TestCase):
             "import unittest\n\nfrom lib.helper import helper\n\n\nclass F(unittest.TestCase):\n"
             "    def test_feature(self):\n        self.assertEqual(helper(), 1)\n")
         (wt / "shared.txt").write_text(SHARED.replace("line 1\n", "line one, built\n", 1))
-        git(wt, "add", "feature.txt", "ptests/test_feature.py", "shared.txt")
+        for rel, text in (extra or {}).items():
+            (wt / rel).write_text(text)
+        git(wt, "add", "feature.txt", "ptests/test_feature.py", "shared.txt", *(extra or {}))
         git(wt, "commit", "-q", "-m", "Task 0002: build it")
         git(wt, "push", "-q", "-u", "origin", "task/0002-second")
         head = git(wt, "rev-parse", "HEAD")
@@ -281,6 +286,91 @@ if done < {moves}:
         code, _, out, err = self.close()
         self.refused(code, out, err, head, "conflict", "shared.txt")
         self.assertEqual(self.gate_runs(), [])
+
+    # ------------------------------------------------------------------ parallel.shared files
+
+    def shared_readme(self, text: str = README) -> None:
+        """docs/a/README.md on main, covered by plane.json parallel.shared."""
+        self.write("docs/a/README.md", text)
+        git(self.main, "add", "docs")
+        git(self.main, "commit", "-q", "-m", "a package doc")
+        git(self.main, "push", "-q", "origin", "main")
+        self.plane_json(lambda c: c["parallel"].update(shared=["docs/*/README.md"]))
+
+    def test_lines_both_sides_append_to_a_shared_file_merge_tip_first(self):
+        self.shared_readme()
+        head = self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
+        tip = self.tip(self.put("docs/a/README.md", README + "- `tip.py`: the tip's\n"))
+        code, body, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(body["merged_now"])
+        cu = self.record()["catch_up"]
+        self.assertEqual((cu["from"], cu["tip"], cu["merge_tree"]), (head, tip, "union"))
+        self.assertEqual(cu["tip_files"], ["docs/a/README.md"])
+        self.assertEqual(git(self.main, "rev-list", "--parents", "-n1", cu["to"]).split()[1:], [head, tip])
+        self.assertEqual([r["state"] for r in self.gate_runs()], ["passed"])
+        git(self.main, "fetch", "-q", "origin")
+        self.assertEqual(git(self.main, "show", f"{body['merge_sha']}:docs/a/README.md") + "\n",
+                         README + "- `tip.py`: the tip's\n- `task.py`: the task's\n")
+
+    def test_lines_appended_at_several_places_keep_their_places(self):
+        self.shared_readme()
+        task_text = README.replace("## Files\n", "## Files\n- `a.py`: the task's\n") + "the task's end\n"
+        tip_text = README.replace("## Files\n", "## Files\n- `b.py`: the tip's\n") + "the tip's end\n"
+        self.approved(extra={"docs/a/README.md": task_text})
+        self.tip(self.put("docs/a/README.md", tip_text))
+        code, body, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        git(self.main, "fetch", "-q", "origin")
+        self.assertEqual(git(self.main, "show", f"{body['merge_sha']}:docs/a/README.md") + "\n",
+                         README.replace("## Files\n", "## Files\n- `b.py`: the tip's\n- `a.py`: the task's\n")
+                         + "the tip's end\nthe task's end\n")
+
+    def test_a_tip_changing_a_shared_file_elsewhere_is_no_overlap(self):
+        self.shared_readme()
+        self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
+        self.tip(self.put("docs/a/README.md", README.replace("# Package a\n", "# Package a, renamed\n")))
+        code, body, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.record()["catch_up"]["merge_tree"], "clean")
+
+    def test_a_changed_line_in_a_shared_file_still_refuses_naming_it(self):
+        self.shared_readme()
+        head = self.approved(extra={"docs/a/README.md": README.replace("- `one.py`: one\n", "- `one.py`: uno\n")})
+        self.tip(self.put("docs/a/README.md", README.replace("- `one.py`: one\n", "- `one.py`: first\n")))
+        code, _, out, err = self.close()
+        self.refused(code, out, err, head, "conflicts in", "docs/a/README.md")
+        self.assertEqual(self.gate_runs(), [])
+
+    def test_a_side_that_removes_a_line_of_a_shared_file_refuses(self):
+        self.shared_readme()
+        head = self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
+        self.tip(self.put("docs/a/README.md", README.replace("- `one.py`: one\n", "") + "- `tip.py`: the tip's\n"))
+        code, _, out, err = self.close()
+        self.refused(code, out, err, head, "conflicts in", "docs/a/README.md")
+
+    def test_appended_lines_in_a_file_not_shared_beside_a_shared_one_still_refuse(self):
+        self.write("docs/notes.md", "notes\n")
+        self.shared_readme()
+        head = self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n",
+                                    "docs/notes.md": "notes\nthe task's\n"})
+
+        def change(c: Path) -> None:
+            (c / "docs/a/README.md").write_text(README + "- `tip.py`: the tip's\n")
+            (c / "docs/notes.md").write_text("notes\nthe tip's\n")
+        self.tip(change)
+        code, _, out, err = self.close()
+        self.refused(code, out, err, head, "conflicts in", "docs/notes.md")
+
+    def test_appended_lines_conflict_when_the_file_is_not_shared(self):
+        self.write("docs/a/README.md", README)
+        git(self.main, "add", "docs/a/README.md")
+        git(self.main, "commit", "-q", "-m", "a package doc")
+        git(self.main, "push", "-q", "origin", "main")
+        head = self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
+        self.tip(self.put("docs/a/README.md", README + "- `tip.py`: the tip's\n"))
+        code, _, out, err = self.close()
+        self.refused(code, out, err, head, "conflicts in", "docs/a/README.md")
 
     def test_a_red_gate_on_the_merge_refuses_naming_the_gate_run(self):
         head = self.approved()

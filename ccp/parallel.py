@@ -1,7 +1,8 @@
 """SPEC §16.3: which tasks the runner may hold at once.
 
 A task's paths are the backticked paths in its Scope section's **In:** item. Two tasks run together
-only when their paths do not meet, neither touches a product's `parallel.exclusive` entry, and the
+only when their paths do not meet (unless both are covered by a `parallel.shared` entry, a file tasks only
+append lines to), neither touches a product's `parallel.exclusive` entry, and the
 account's 5-hour usage is below `parallel.session_ceiling_pct` (a product without
 `telemetry.allowance_cmd` reads no usage, so that rule passes). Correctness never rests on these
 rules (§16.1): verify and merge run one at a time on the current head. They only decide what to
@@ -32,7 +33,7 @@ MARK_RE = re.compile(r"\b(?:new|removed)\b", re.I)  # §5.5: a Scope path the ta
 
 
 def settings(cfg: Config) -> dict[str, Any]:
-    return cfg.parallel or {"max_in_flight": 1, "exclusive": [], "session_ceiling_pct": 60}
+    return cfg.parallel or {"max_in_flight": 1, "exclusive": [], "shared": [], "session_ceiling_pct": 60}
 
 
 def enabled(cfg: Config) -> bool:
@@ -142,6 +143,26 @@ def meets(a: str, b: str) -> bool:
     return False
 
 
+def covered(p: str, entries: list[str]) -> bool:
+    """§16.2, §16.3 rule 3: `p` lies wholly within a `parallel.shared` entry: equal to it, under an entry
+    that is a directory, matched by an entry that is a glob, or ending in an entry that is a bare file name.
+    A glob `p` is covered only by an equal entry or a directory holding it; a directory `p` never by a file
+    or file glob (it holds other files)."""
+    p = p.strip().removeprefix("./")
+    for x in (e.strip().removeprefix("./") for e in entries):
+        if p.rstrip("/") == x.rstrip("/"):
+            return True
+        if not _is_glob(x) and _is_dir(x) and _holds(x, p):
+            return True
+        if _is_glob(p) or _is_dir(p):
+            continue
+        if _is_glob(x) and _glob_re(x).match(p):
+            return True
+        if not _is_glob(x) and "/" not in x and p.rsplit("/", 1)[-1] == x:
+            return True
+    return False
+
+
 def no_five_hour_limit(sample: dict[str, Any] | None) -> bool:
     """A sample that reads the weekly figure but has no 5-hour one: the account has no 5-hour limit
     (Anthropic dropped it on 2026-10-31; SPEC §16.3 rule 5, §25.1), not a failed read."""
@@ -175,12 +196,13 @@ def join_refusal(cfg: Config, cand: dict[str, Any], active: list[dict[str, Any]]
         if flag(t) is not True and not paths(cfg, t):
             return f"{tid} names no path in its Scope In: item and does not say parallel: true: it runs alone (rule 2)"
     cpaths = [] if flag(cand) is True else paths(cfg, cand)
+    shared = s.get("shared") or []
     for t in active:
         if flag(t) is True:
             continue
         for p in cpaths:
             for o in paths(cfg, t):
-                if meets(p, o):
+                if meets(p, o) and not (covered(p, shared) and covered(o, shared)):
                     return f"{cid}'s `{p}` meets in-flight {t.get('task_id')}'s `{o}` (rule 3)"
     for t in group:
         if flag(t) is True:

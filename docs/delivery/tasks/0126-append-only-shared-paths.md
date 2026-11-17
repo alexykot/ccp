@@ -99,4 +99,20 @@ conflict in such a file still stops close.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `parallel.shared` is in `PARALLEL_DEFAULTS` and the plane_config schema; config
+  loading refuses a non-list and an entry listed in both `shared` and `exclusive` (compared as written, a
+  leading `./` and a trailing `/` aside), naming it. `parallel.covered(p, entries)` says a path lies wholly
+  within a shared entry: equal, under a directory entry, matched by a glob entry, or ending in a bare-name
+  entry; a glob or directory path is covered only by an equal entry or a directory holding it. Rule 3
+  skips a meeting when both paths are covered.
+- Close's catch-up: `_catch_up_commit` reads `git merge-tree -z` stages; when every conflicted path is
+  covered and each side only adds lines to the base (every base line kept, in order), `_union` writes the
+  file as the base lines with, at each place, the tip's added lines then the task's, and `_tree_with`
+  swaps it into the merge tree through a scratch index. Any other conflict refuses as before, naming the
+  files. The overlap check leaves out shared paths. The record's `catch_up.merge_tree` is `union` when a
+  union was made (the verification contract's enum gains the value; no new key, no record version bump).
+- The §16.2 edits sit in §16.2 (the knob), where the `exclusive` sentence and the plane.json example are;
+  the task called that place §16.3. README's knob table gains a `parallel.shared` row. The catch-up tests
+  live in `tests/test_behind_tip_catch_up.py`, beside its fixture.
+
 ## Verification notes
