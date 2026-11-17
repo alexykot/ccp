@@ -17,19 +17,24 @@ up: the SHA-256 of the module file's content, its name, the interpreter's versio
 module shares. The shared inputs are `git ls-files -s` of every tracked path, with uncommitted edits
 (tracked files changed in the working tree, and untracked files git does not ignore) folded in by
 their content, except the test modules no other test module imports: those are no input of another
-module. A test module some test module imports (a shared helper) is an input of every module. A key
-whose recorded result passed, no older than plane.json `verify.accept_cache.max_age_days` (no limit
-when unset), is a hit: the module is reported `cached`, with the seconds and tests of the run that
-recorded it, and is not run. A miss runs and, on a pass, records `{key, passed, tests, seconds, at}`.
-Computing the key writes nothing to the repository: not its index, objects or stash list.
+module. An untracked directory git lists whole (a nested repository) is folded in file by file, its
+own `.git` left out. A test module some test module imports (a shared helper) is an input of every
+module. A key whose recorded result passed, no older than plane.json
+`verify.accept_cache.max_age_days` (no limit when unset), is a hit: the module is reported `cached`,
+with the seconds and tests of the run that recorded it, and is not run. A miss runs; once every
+module has ended and no `state/*` branch is left (the check gate.sh fails on), each that passed
+records `{key, passed, tests, seconds, at}`: a module that leaked a branch, or ran beside one that
+did, is never served from the cache. Computing the key writes nothing to the repository: not its
+index, objects or stash list.
 
 The cache directory is GATE_CACHE_DIR, default `~/.cache/ccp-gate/<repo id>` (the repo id from its
 root commit, so every worktree and clone of the repo shares it); it must be outside the repository.
 The cold option, GATE_COLD=1 (any value but empty or 0), reads and writes no cache: every module
-runs and the run counts nothing cached. A checkout git cannot read runs with no cache, saying so.
+runs and the run counts nothing cached. A checkout git cannot read, or an untracked file that cannot
+be read, runs with no cache, saying so (the file named).
 
 Exits 1 when any module failed or errored (a non-zero exit), 2 on a bad GATE_WORKERS or a cache
-directory inside the repository; the `state/*` check is gate.sh's, after it.
+directory inside the repository; failing on a leftover `state/*` branch is gate.sh's, after it.
 """
 from __future__ import annotations
 
@@ -117,7 +122,8 @@ def shared_tests(names: list[str]) -> set[str]:
 
 def _blob(path: Path) -> tuple[str, str] | None:
     """A working-tree file as git would stage it, unfiltered: its mode and blob id; None when it is gone.
-    An unchanged file gives its index entry's own values, so the key does not hang on stat data."""
+    An unchanged file gives its index entry's own values, so the key does not hang on stat data. A file
+    that cannot be read raises OSError, which names it."""
     try:
         if path.is_symlink():
             mode, data = "120000", os.readlink(path).encode(errors="surrogateescape")
@@ -126,6 +132,17 @@ def _blob(path: Path) -> tuple[str, str] | None:
     except FileNotFoundError:
         return None
     return mode, hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def _files_under(rel: str) -> list[str]:
+    """An untracked directory git lists whole (a nested repository, `rel` ending in `/`): every file
+    under it, relative to the repository, its `.git` left out; a symbolic link is a file, never followed."""
+    out = []
+    for d, dirs, files in os.walk(ROOT / rel):
+        links = [x for x in dirs if os.path.islink(os.path.join(d, x))]
+        dirs[:] = [x for x in dirs if x != ".git" and x not in links]
+        out += [os.path.relpath(os.path.join(d, f), ROOT) for f in files + links if f != ".git"]
+    return out
 
 
 def shared_inputs(leaves: set[str]) -> str:
@@ -140,9 +157,10 @@ def shared_inputs(leaves: set[str]) -> str:
             entries.setdefault(rel, []).append(meta)
     def fold(flag: str, *extra: str) -> None:
         for raw in set(_git("ls-files", flag, *extra, "-z").split(b"\0")) - {b""}:
-            rel = raw.decode(errors="surrogateescape")
-            blob = _blob(ROOT / rel)
-            entries[rel] = [f"{blob[0]} {blob[1]} {'u' if flag == '-o' else 0}"] if blob else ["deleted"]
+            listed = raw.decode(errors="surrogateescape")
+            for rel in _files_under(listed) if flag == "-o" and listed.endswith("/") else [listed]:
+                blob = _blob(ROOT / rel)
+                entries[rel] = [f"{blob[0]} {blob[1]} {'u' if flag == '-o' else 0}"] if blob else ["deleted"]
     fold("-m")
     fold("-o", "--exclude-standard")
     h = hashlib.sha256()
@@ -206,15 +224,22 @@ def module_tests(output: str) -> int:
     return sum(int(n) for n in RAN_RE.findall(output))
 
 
-def run_one(name: str, cache: Cache | None = None, key: str | None = None) -> tuple[str, int, float, int]:
+def branches_left() -> bool:
+    """Whether a `state/*` branch is left (gate.sh's check, E2), or git cannot say: either way no pass
+    is recorded."""
+    try:
+        return bool(_git("branch", "--list", "state/*").strip())
+    except OSError:
+        return True
+
+
+def run_one(name: str) -> tuple[str, int, float, int]:
     t0 = time.monotonic()
     p = subprocess.run([sys.executable, "-m", "unittest", name], cwd=ROOT, stdin=subprocess.DEVNULL,
                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
     secs = time.monotonic() - t0
     tests = module_tests(p.stdout)
     state = "ok" if p.returncode == 0 else f"FAILED (exit {p.returncode})"
-    if p.returncode == 0 and cache is not None and key is not None:
-        cache.record(key, tests, secs)
     with _print:
         sys.stdout.write(p.stdout if p.stdout.endswith("\n") or not p.stdout else p.stdout + "\n")
         sys.stdout.write(f"gate module {name}: {state}, {secs:.2f} s, {tests} tests\n")
@@ -258,9 +283,16 @@ def main() -> int:
     alone = [m for m in todo if m in SERIAL]
     together = [m for m in todo if m not in alone]
     with ThreadPoolExecutor(max_workers=n) as pool:
-        results = list(pool.map(lambda m: run_one(m, cache, keys.get(m)), together))
-    results += [run_one(m, cache, keys.get(m)) for m in alone]
+        results = list(pool.map(run_one, together))
+    results += [run_one(m) for m in alone]
     failed = [name for name, rc, _s, _t in results if rc != 0]
+    if cache is not None and any(rc == 0 for _n, rc, _s, _t in results):
+        if branches_left():  # a module that leaked a branch passed its run but not the gate: record nothing
+            print("gate: a state/* branch is left, so no module's pass is recorded in the test cache", file=sys.stderr)
+        else:
+            for name, rc, secs, t in results:
+                if rc == 0:
+                    cache.record(keys[name], t, secs)
     tests = sum(t for *_x, t in results)
     print(f"gate: {len(names)} modules, ran {len(results)}, cached {len(hits)}, {tests} tests, {n} workers, "
           f"{time.monotonic() - t0:.1f} s" + (f"; FAILED: {', '.join(sorted(failed))}" if failed else "; all passed"))

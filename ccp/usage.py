@@ -12,12 +12,15 @@ The fold reads `board/usage-requests.jsonl` and `board/usage-spans.jsonl` (writt
 `ccp otel serve`) and the run records. It writes nothing but returns per-run, per-seat and
 coverage figures, and flags a run whose observed model or effort differs from what its
 definition pins. With plane.json `usage.advice` it also advises on cost (§24.6): short-lived cache writes,
-an oversized context, a high coordination share. It also keeps each run's and seat's latest requests (`recent`: time, model,
-effort, query source, session, tokens), from which the board's live seats read the model and effort now in use,
-and each run's request intervals (`timeline`: when a request was in flight), from which the board's
-drill-down takes model time (ccp/drill.py). `by_model` compares one seat's tasks by the model they ran on
-(`ccp usage --by-model`, §2.4: the trial of plane.json `workers.implementer_model`). Headless runs (architect passes, triage) are recorded from `claude -p`'s own
-`modelUsage` in `board/headless-usage.jsonl`.
+an oversized context, a high coordination share (`cost_advice`).
+
+It also keeps each run's and seat's latest requests (`recent`: time, model, effort, query source,
+session, tokens), from which the board's live seats read the model and effort now in use, and each
+run's request intervals (`timeline`: when a request was in flight), from which the board's drill-down
+takes model time (ccp/drill.py). `by_model` compares one seat's tasks by the model they ran on
+(`ccp usage --by-model`, §2.4: the trial of plane.json `workers.implementer_model`). Headless runs
+(architect passes, triage) are recorded from `claude -p`'s own `modelUsage` in
+`board/headless-usage.jsonl`.
 """
 from __future__ import annotations
 
@@ -169,7 +172,8 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
     total = _blank()
     recent: dict[str, dict[str, list[dict[str, Any]]]] = {"runs": {}, "seats": {}}  # the board's live seats (§28.3)
     timeline: dict[str, list[tuple[float, float]]] = {}  # run → its requests' (start, end), for the drill-down
-    contexts: dict[str, list[int]] = {}  # seat → each request's context (§24.6)
+    contexts: dict[str, list[int]] = {}  # seat → each request's context (§24.6); the lead's are in lead_calls
+    lead_calls: list[tuple[str, Any, int, int]] = []  # the lead's (session, model, tokens, context), for its median
     run_models: dict[str, dict[str, float]] = {}  # run → model → its cost (§2.4, `by_model`)
     for req in reqs:
         _add(total, req)
@@ -212,8 +216,12 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
                  "query_source": req.get("query_source"), "session_id": req.get("session_id"),
                  "tokens": sum(int(_n(req.get(k))) for k in TOKENS)})
         if run is not None or seat is not None:
-            contexts.setdefault((run.get("seat") or "worker") if run is not None else str(seat), []).append(
-                sum(int(_n(req.get(k))) for k in CONTEXT_TOKENS))
+            ctx = sum(int(_n(req.get(k))) for k in CONTEXT_TOKENS)
+            if run is None and seat == "design-seat":
+                lead_calls.append((str(req.get("session_id") or ""), req.get("model"),
+                                   sum(int(_n(req.get(k))) for k in TOKENS), ctx))
+            else:
+                contexts.setdefault((run.get("seat") or "worker") if run is not None else str(seat), []).append(ctx)
         if run is not None:
             iv = _interval(req, span)
             if iv is not None:
@@ -270,7 +278,9 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
         if design_seat.get("effort") and design_seat["effort"] not in lead["efforts"]:
             advice.append(f"the design seat ran at effort {', '.join(sorted(lead['efforts']))}; the operator expects {design_seat['effort']}")
     if knobs is not None:
-        advice += cost_advice({k: _out(v) for k, v in seats.items()}, contexts, knobs)
+        if lead_calls:
+            contexts["design-seat"] = main_model_contexts(lead_calls)
+        advice += cost_advice({k: _out(v) for k, v in seats.items()}, contexts, knobs, worker_runs=len(per_run))
     return {"recent": {k: {key: sorted(v, key=lambda x: str(x.get("at") or ""))[-RECENT:] for key, v in d.items()}
                        for k, d in recent.items()},
             "timeline": timeline, "run_models": run_models, "runs": rows, "task_id": task_id, "task_total": task_total, "advice": advice, "daily": daily,
@@ -286,10 +296,25 @@ CONTEXT_SETTING = {"design-seat": "autoCompactWindow (.claude/settings.json)",
                    "runner": "runner.rotate_at_context_tokens (the binding)"}
 
 
-def cost_advice(seats: dict[str, dict[str, Any]], contexts: dict[str, list[int]], knobs: dict[str, Any]) -> list[str]:
+def main_model_contexts(calls: list[tuple[str, Any, int, int]]) -> list[int]:
+    """The contexts of the lead's calls on its session's main model, the model of most of that session's
+    tokens: its helper calls (titles and the like, on another model) are left out of its median (§24.6).
+    `calls` are (session, model, tokens, context)."""
+    per: dict[str, dict[str, int]] = {}
+    for sid, model, tokens, _ctx in calls:
+        m = per.setdefault(sid, {})
+        m[str(model)] = m.get(str(model), 0) + tokens
+    main = {sid: max(m.items(), key=lambda kv: (kv[1], kv[0]))[0] for sid, m in per.items()}
+    return [ctx for sid, model, _tokens, ctx in calls if str(model) == main[sid]]
+
+
+def cost_advice(seats: dict[str, dict[str, Any]], contexts: dict[str, list[int]], knobs: dict[str, Any],
+                worker_runs: int = 0) -> list[str]:
     """§24.6: one advice line per measure past its plane.json `usage.advice` threshold, naming the seat, the
     measure and the setting that fixes it. `seats` are the fold's per-seat figures, `contexts` each seat's
-    request contexts (input, cache read and cache written). Advice only: nothing is changed."""
+    request contexts (input, cache read and cache written), `worker_runs` the runs with requests: the
+    coordination share is advised only once a worker has run, since before that it is the whole cost.
+    Advice only: nothing is changed."""
     import statistics  # noqa: PLC0415
     pct = lambda x: f"{x * 100:.0f}%"  # noqa: E731
     out = []
@@ -305,7 +330,7 @@ def cost_advice(seats: dict[str, dict[str, Any]], contexts: dict[str, list[int]]
                        f"lower it with {CONTEXT_SETTING[name]}")
     total = sum(u.get("cost_usd") or 0 for u in seats.values())
     coord = sum((seats.get(n) or {}).get("cost_usd") or 0 for n in COORDINATION)
-    if total > 0 and coord / total > knobs["coordination_share"]:
+    if worker_runs > 0 and total > 0 and coord / total > knobs["coordination_share"]:
         out.append(f"coordination (design-seat plus runner) is {pct(coord / total)} of all seats' cost (above "
                    f"{pct(knobs['coordination_share'])})")
     return out
