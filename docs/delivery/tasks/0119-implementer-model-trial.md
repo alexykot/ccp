@@ -83,4 +83,21 @@ changes only on evidence.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `ccp prompt implement` picks the model in `prompt.implementer_model`: `refactor`
+  for a task of that kind (it wins when both arms apply), else `small` when the task's estimate (its latest
+  agent row, else its latest baseline, stored `total.p50_s`, uncalibrated) is at most
+  `workers.small_estimate_minutes` × 60; a task with no estimate is not small. Only the implement round
+  picks: fix, merge and ruling rounds keep the definition's model. The picked model is the run's
+  `expected_model`, so the board does not flag the trial's runs as off-pin. The Agent call carries no
+  `model` key otherwise, for every phase (the old `"model": "never pass it"` hint is gone; the runner
+  brief says to pass `model` only when printed).
+- `workers` is a new plane.json block (config, schema): `implementer_model` null or `{small, refactor}`
+  of full model ids (aliases refused, per §2.4), `small_estimate_minutes` an integer >= 1.
+- `ccp usage --by-model [--seat S]` (default implementer; wiring in `ccp/cli.py`): a task counts under the
+  model that carried most of the cost of its first run of the seat (none observed: that run's
+  `expected_model`); cost and rounds count every run of the seat on the task except one abandoned before
+  it started; MAJOR findings come from the review runs' severities, else the review reports' lines (the
+  estimate actuals' source). The fold now keeps each run's cost by model (`run_models`), which the plain
+  `ccp usage` output leaves out.
+
 ## Verification notes

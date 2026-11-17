@@ -15,7 +15,8 @@ definition pins. With plane.json `usage.advice` it also advises on cost (§24.6)
 an oversized context, a high coordination share. It also keeps each run's and seat's latest requests (`recent`: time, model,
 effort, query source, session, tokens), from which the board's live seats read the model and effort now in use,
 and each run's request intervals (`timeline`: when a request was in flight), from which the board's
-drill-down takes model time (ccp/drill.py). Headless runs (architect passes, triage) are recorded from `claude -p`'s own
+drill-down takes model time (ccp/drill.py). `by_model` compares one seat's tasks by the model they ran on
+(`ccp usage --by-model`, §2.4: the trial of plane.json `workers.implementer_model`). Headless runs (architect passes, triage) are recorded from `claude -p`'s own
 `modelUsage` in `board/headless-usage.jsonl`.
 """
 from __future__ import annotations
@@ -169,6 +170,7 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
     recent: dict[str, dict[str, list[dict[str, Any]]]] = {"runs": {}, "seats": {}}  # the board's live seats (§28.3)
     timeline: dict[str, list[tuple[float, float]]] = {}  # run → its requests' (start, end), for the drill-down
     contexts: dict[str, list[int]] = {}  # seat → each request's context (§24.6)
+    run_models: dict[str, dict[str, float]] = {}  # run → model → its cost (§2.4, `by_model`)
     for req in reqs:
         _add(total, req)
         span = spans.get(req.get("request_id")) or {}
@@ -218,6 +220,9 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
                 timeline.setdefault(run["run_id"], []).append(iv)
             acc = per_run.setdefault(run["run_id"], _blank())
             _add(acc, req)
+            if req.get("model"):
+                mc = run_models.setdefault(run["run_id"], {})
+                mc[str(req["model"])] = mc.get(str(req["model"]), 0.0) + _n(req.get("cost_usd"))
             _add(seats.setdefault(run.get("seat") or "worker", _blank()), req)
         elif seat is not None:
             _add(seats.setdefault(seat, _blank()), req)
@@ -268,7 +273,7 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
         advice += cost_advice({k: _out(v) for k, v in seats.items()}, contexts, knobs)
     return {"recent": {k: {key: sorted(v, key=lambda x: str(x.get("at") or ""))[-RECENT:] for key, v in d.items()}
                        for k, d in recent.items()},
-            "timeline": timeline, "runs": rows, "task_id": task_id, "task_total": task_total, "advice": advice, "daily": daily,
+            "timeline": timeline, "run_models": run_models, "runs": rows, "task_id": task_id, "task_total": task_total, "advice": advice, "daily": daily,
             "seats": {k: _out(v) for k, v in sorted(seats.items())},
             "unattributed": _out(unattributed), "unattributed_sources": stray, "total": tot, "how": how,
             "other_sessions": dict(sorted(others.items(), key=lambda kv: -kv[1])),
@@ -1085,6 +1090,56 @@ def table(report: dict[str, Any]) -> str:
                  else "no usage recorded yet")
     if not report["traces"]:
         lines.append("no trace spans: attribution is by time window only (CLAUDE_CODE_ENHANCED_TELEMETRY_BETA, docs/design/telemetry.md)")
+    return "\n".join(lines)
+
+
+# ------------------------------------------------------------------------------------- usage by model
+
+def by_model(q: Path, report: dict[str, Any], seat: str = "implementer") -> dict[str, Any]:
+    """§2.4: one seat's work compared by model, for a trial of `workers.implementer_model`. A task's model is
+    the one that carried most of the cost of its first run of the seat (none observed: that run's expected
+    model). Per model: the tasks, the seat's cost per task, its rounds per task (the task's runs of the seat,
+    leaving out one abandoned before it started) and MAJOR review findings per task (the review runs'
+    severities, else their reports' `Severity:` lines, as the estimate's actuals read them)."""
+    from ccp import estimate  # noqa: PLC0415
+    from ccp.queue import load_task_state  # noqa: PLC0415
+    cost = {r["run_id"]: r["usage"]["cost_usd"] for r in report.get("runs") or []}
+    rm = report.get("run_models") or {}
+    tasks: dict[str, list[dict[str, Any]]] = {}
+    for r in runs.all_runs(q):
+        if r.get("seat") != seat or (r.get("abandoned_at") and not (r.get("agent_id") or r.get("started_at"))):
+            continue
+        tasks.setdefault(str(r.get("task_id")), []).append(r)
+    acc: dict[str, dict[str, Any]] = {}
+    for tid, rs in sorted(tasks.items()):
+        rs.sort(key=lambda r: (str(r.get("opened_at") or ""), r.get("round") or 0))
+        first = rm.get(rs[0]["run_id"]) or {}
+        model = max(first, key=lambda m: (first[m], m)) if first else str(rs[0].get("expected_model") or "unknown")
+        a = acc.setdefault(model, {"tasks": [], "done": 0, "cost_usd": 0.0, "rounds": 0, "major": 0})
+        a["tasks"].append(tid)
+        a["done"] += load_task_state(q, tid).get("status") == "done"
+        a["cost_usd"] += sum(cost.get(r["run_id"], 0.0) for r in rs)
+        a["rounds"] += len(rs)
+        a["major"] += estimate._findings(q, tid).get("MAJOR", 0)
+    rows = []
+    for model, a in sorted(acc.items()):
+        n = len(a["tasks"])
+        rows.append({"model": model, "tasks": n, "done": a["done"], "cost_usd": round(a["cost_usd"], 4),
+                     "cost_per_task": round(a["cost_usd"] / n, 4), "rounds_per_task": round(a["rounds"] / n, 2),
+                     "major_per_task": round(a["major"] / n, 2), "task_ids": a["tasks"]})
+    return {"seat": seat, "models": rows}
+
+
+def by_model_table(r: dict[str, Any]) -> str:
+    if not r["models"]:
+        return f"no {r['seat']} runs recorded yet"
+    width = max(len("MODEL"), *(len(m["model"]) for m in r["models"]))
+    lines = [f"{'MODEL':<{width}} {'TASKS':>5} {'DONE':>4} {'COST$/TASK':>10} {'ROUNDS/TASK':>11} {'MAJOR/TASK':>10}"]
+    for m in r["models"]:
+        lines.append(f"{m['model']:<{width}} {m['tasks']:>5} {m['done']:>4} {m['cost_per_task']:>10.2f} "
+                     f"{m['rounds_per_task']:>11.2f} {m['major_per_task']:>10.2f}")
+    lines.append(f"seat {r['seat']}; a task counts under the model of its first {r['seat']} run; "
+                 "cost is Claude Code's client-side estimate (§24.5)")
     return "\n".join(lines)
 
 

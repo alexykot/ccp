@@ -9,7 +9,9 @@ last line is `Prompt end: <token>`, the token a short hash of the run id and the
 the run (`prompt_token`): the worker's report repeats it as `Prompt: <token>`, so `ccp report` can tell
 a prompt that reached the worker cut (§13.4). It prints the Agent call to make:
 the agent type, a description that starts with the run's task and phase, and the prompt: a pointer to
-the file, never its text retyped. The runner never passes `model` (§2). First it samples the allowance: at the
+the file, never its text retyped, and, for an implement round, the model plane.json `workers.implementer_model`
+picks for the task (`model`, §2.4; the run expects it); with none picked the call carries no `model` and the
+runner passes none. First it samples the allowance: at the
 5-hour park % it parks the task and refuses, exit 6, writing nothing else (§25.4 the session park).
 Besides implement, fix, review and verify, a merge round only merges the integration tip into the task
 branch and a ruling round only applies a lead's ruling (its `--note`); review and verify treat their heads
@@ -77,6 +79,33 @@ SUITE_LANES = {
               "`--lane {part}` for a subset such as a mutation check",
 }
 SUITE_LANES.update({p: SUITE_LANES["implement"] for p in runs.REWORK_PHASES})
+
+
+def task_estimate_s(q: Path, tid: str) -> float | None:
+    """§26: the task's estimated wall time, its latest agent estimate's total P50, else its latest baseline's
+    (the stored bands, uncalibrated); None with neither."""
+    from ccp import estimate  # noqa: PLC0415
+    rs = estimate.rows(q, tid)
+    for src in ("agent", "baseline"):
+        p50 = ((estimate.latest(rs, src) or {}).get("total") or {}).get("p50_s")
+        if isinstance(p50, (int, float)) and not isinstance(p50, bool) and p50 >= 0:
+            return float(p50)
+    return None
+
+
+def implementer_model(cfg: Config, q: Path, meta: dict[str, Any]) -> str | None:
+    """§2.4: the model plane.json `workers.implementer_model` picks for the task's implementer, else None
+    (the definition's): `refactor` for a task of that kind, else `small` for one whose estimate is at most
+    `workers.small_estimate_minutes`."""
+    w = cfg.workers or {}
+    arms = w.get("implementer_model") or {}
+    if arms.get("refactor") and tasklog.kind_of(meta) == "refactor":
+        return str(arms["refactor"])
+    if arms.get("small"):
+        est = task_estimate_s(q, str(meta["task_id"]))
+        if est is not None and est <= float(w.get("small_estimate_minutes") or 30) * 60:
+            return str(arms["small"])
+    return None
 
 
 def report_lines(cfg: Config, phase: str) -> str:
@@ -542,8 +571,10 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     ref = audit(q, cfg, tid, phase, prompt_file, run_id, meta, worktree if phase in runs.CHANGE_PHASES else own, note)
     prune_audits(q, cfg)
     warnings: list[str] = list(session_warn) + tip_warn + body_warn
+    model = implementer_model(cfg, q, meta) if phase == "implement" else None  # §2.4
     rec = runs.open_run(q, cfg, tid, phase, prompt_ref=ref, note=note, supersede=a.supersede, warnings=warnings, by=caller,
                         extra={"pr": a.pr or None, "head": a.head or None, "prompt_token": token,
+                               **({"expected_model": model} if model else {}),
                                # §14.1: a suite run from inside this worktree binds to the run
                                "worktree": (worktree if phase in runs.CHANGE_PHASES else own) or None,
                                **({"allow_unreviewed_fix": override} if override else {}),
@@ -567,5 +598,5 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
             **({"report_fields": {"run_id": verdicts_run, "fields": verdicts}} if verdicts else {}),
             **({"warnings": warnings} if warnings else {}),
             "agent_call": {"subagent_type": runs.definition(cfg, runs.AGENT_TYPE[phase])[0], "description": desc,
-                           "prompt": pointer(prompt_file), "model": "never pass it (SPEC §2)"}}
+                           "prompt": pointer(prompt_file), **({"model": model} if model else {})}}
 

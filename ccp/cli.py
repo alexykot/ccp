@@ -1199,6 +1199,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--task", help="only this task's runs")
     p.add_argument("--system", action="store_true", help="the receiver's system sink (no product needed)")
     p.add_argument("--since", help="with --system: YYYY-MM-DD")
+    p.add_argument("--by-model", action="store_true",
+                   help="one seat's tasks compared by model: tasks, cost, rounds and MAJOR findings per task (§2.4)")
+    p.add_argument("--seat", default="implementer", help="with --by-model: the seat (default implementer)")
     p.add_argument("--json", action="store_true")
     p.set_defaults(fn=cmd_usage)
 
@@ -1483,10 +1486,15 @@ def cmd_usage(cfg: config.Config, a: argparse.Namespace) -> int:
     except QueueError as e:
         print(f"ccp usage: {e}", file=sys.stderr)
         return e.code
+    if a.by_model:  # §2.4: a seat's tasks by model, over every task, for the implementer model trial
+        bm = usage.by_model(q, usage.fold(q), a.seat)
+        print(json.dumps(bm, indent=2) if a.json else usage.by_model_table(bm))
+        return 0
     report = usage.fold(q, tid, (cfg.telemetry or {}).get("design_seat"),
                         (cfg.usage or config.USAGE_DEFAULTS)["advice"])  # §24.6
     report.pop("recent", None)  # the board's live-seat rows, not a usage figure
     report.pop("timeline", None)  # the board's drill-down intervals, likewise
+    report.pop("run_models", None)  # each run's cost by model, for --by-model
     from ccp import suite  # noqa: PLC0415
     suite.attach(q, report, tid)
     if a.json:

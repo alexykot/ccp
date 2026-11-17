@@ -15,6 +15,7 @@ command follows are in the SPEC, not here.
 | `ccp otel install\|uninstall\|status` | The receiver's service; `status` reports rows written, routed, pending and refused, and checks the user settings |
 | `ccp usage [--task ID] [--json]` | Per-run and per-seat tokens, cost, models and coverage (§24.4), and the cost advice past plane.json `usage.advice` (§24.6) |
 | `ccp usage --system [--since DATE] [--json]` | The system sink by cwd and day |
+| `ccp usage --by-model [--seat SEAT] [--json]` | One seat's tasks (default `implementer`) compared by model, for a trial of plane.json `workers.implementer_model` (§2.4): per model, the tasks (and how many are done), cost per task, the seat's rounds per task and MAJOR review findings per task. A task counts under the model that carried most of the cost of its first run of the seat |
 | `ccp allowance status [--sample]` | Latest sample, checkpoint in force, resets and decisions (§25.3) |
 | `ccp allowance continue --to <percent> --reason "<the operator's words>"` | Record the operator's decision past the checkpoint |
 | `ccp allowance session-wake [--sample] [--armed] [--fire]` | The session wake (§25.4) |
