@@ -32,7 +32,9 @@
 #   team.sh gate list [--open]
 #
 # Prints one JSON object; `actions` lists what the seat must still do itself (spawn, message).
-# Env: QUEUE_ROOT (required), PROJECT_YAML (default: the binding naming QUEUE_ROOT, SPEC §8.3). No secrets.
+# Env: QUEUE_ROOT (default: the queue `ccp where` prints for the product at CLAUDE_PROJECT_DIR, else the
+# working directory, SPEC §9.2; with neither, it stops and says to run `ccp init` or set QUEUE_ROOT),
+# PROJECT_YAML (default: the binding naming QUEUE_ROOT, SPEC §8.3). No secrets.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 exec python3 "$HERE/observability/team.py" "$@"

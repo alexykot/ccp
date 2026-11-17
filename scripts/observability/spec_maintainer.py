@@ -87,10 +87,27 @@ def now_utc() -> datetime:
 
 
 def root_dir() -> Path:
-    raw = os.environ.get("QUEUE_ROOT")
+    """The live queue: QUEUE_ROOT when set; else, as `ccp` finds it (SPEC §9.2), the queue the plane's own
+    `bin/ccp --root <dir> where` prints for this product (the dir: CLAUDE_PROJECT_DIR, else the working
+    directory). With neither, it dies naming `ccp init` and QUEUE_ROOT."""
+    raw = os.environ.get("QUEUE_ROOT") or binding_queue_root()
     if not raw:
-        die("set QUEUE_ROOT to the live queue dir outside product git", 2)
+        die("set QUEUE_ROOT to the live queue dir outside product git; no binding names this product: "
+            "run `ccp init`, or set QUEUE_ROOT", 2)
     return Path(raw).expanduser().resolve()
+
+
+def binding_queue_root() -> str | None:
+    """SPEC §9.2: the queue `ccp where` prints for the product at CLAUDE_PROJECT_DIR (else the working
+    directory), from the plane's own `bin/ccp`; None when it names none or does not answer."""
+    where = [sys.executable, str(HERE.parents[1] / "bin" / "ccp"),
+             "--root", os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd(), "where"]
+    try:
+        r = subprocess.run(where, capture_output=True, text=True, timeout=30)
+        q = json.loads(r.stdout).get("queue_root") if r.returncode == 0 else None
+    except (OSError, ValueError, AttributeError, subprocess.SubprocessError):
+        return None
+    return q if isinstance(q, str) and q else None
 
 
 def project_id(root: Path, q: dict[str, Any] | None = None) -> str:

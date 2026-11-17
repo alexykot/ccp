@@ -5,6 +5,8 @@
 #
 # Keeps the runner teammate working while its scope still has a ready task and nothing waits on
 # the lead or the operator. Exit 2 = keep working (stderr is the feedback); exit 0 = let it go idle.
+# A runner holding a task (work.json `in_flight`) is kept working only on what it holds, never sent to
+# another task its claim would refuse.
 # Any other teammate (among them an earlier runner a rotation replaced: the runner is the name
 # work.json `runner` binds, SPEC §10.2), the runner's own subagents, a draining/idle runner, a
 # rotation due (either trigger, as `ccp tasks rotation-due` judges it), or a missing queue: exit 0. A subagent is told apart by the hook input: Claude Code adds `agent_id` and
@@ -243,6 +245,16 @@ def worker_open(tid):
         if isinstance(r, dict) and r.get("run_id") and not any(r.get(k) for k in ("abandoned_at", "reported_at", "stopped_at")):
             return True
     return False
+
+if SLOT is None and not parallel_on:
+    # SPEC §18.2: one runner holding a task (work.json `in_flight`, §16.3) not done or dropped is ready only
+    # for that task: its claim of another refuses (§16.3). When every task it holds waits, or is held by a
+    # question or a gate, nothing is ready and it is let idle, as with an empty ready set.
+    def task_open(tid):
+        return all(s not in ("done", "dropped") for s in (queue_status(tid), tasks.get(tid, {}).get("status")))
+    holding = [t for t in (str(x) for x in work.get("in_flight") or []) if task_open(t)]
+    if holding:
+        ready = [t for t in ready if t in holding]
 
 n = None
 if ready and (parallel_on or has_architect):  # one `ccp tasks next` for both uses (it samples no allowance)

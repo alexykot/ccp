@@ -94,3 +94,60 @@ class IdleHookRotation(TeamCase):
                          stdin=json.dumps({"hook_event_name": "TeammateIdle", "teammate_name": "runner",
                                            "cwd": str(self.prod.root)}))
         self.assertEqual(r.returncode, 2, r.stderr)
+
+
+class IdleHookHeldTask(TeamCase):
+    """SPEC §18.2, §16.3: one runner holding a task (work.json `in_flight`) is kept working only on what it
+    holds; while that waits (on a gate, its wait, a question) it is let idle, never sent to another task."""
+
+    def setUp(self):
+        super().setUp()
+        self.prod.task("0001-a")
+        self.prod.task("0002-b")
+        self.prod.index()
+        self.work(["0001-a"])
+
+    def work(self, in_flight):
+        (self.q / "work.json").write_text(json.dumps({"status": "running", "scope": ["0001-a", "0002-b"],
+                                                      "runner": "runner", "runner_tasks_done": 1,
+                                                      "in_flight": in_flight}))
+
+    def hook(self):
+        r = self.run_cmd("bash", HOOK, "--queue-root", self.q, "--ccp", PLANE / "bin" / "ccp",
+                         stdin=json.dumps({"hook_event_name": "TeammateIdle", "teammate_name": "runner",
+                                           "cwd": str(self.prod.root)}))
+        return r.returncode, r.stderr
+
+    def counter(self):
+        return json.loads((self.q / "observability" / "runner-idle.json").read_text())
+
+    def test_a_held_task_on_a_gate_lets_the_runner_idle_until_the_gate_closes(self):
+        code, res, err = self.team("gate", "open", "--task-id", "0001-a", "--class", "operator", "--brief", "x")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.task_wait("0001-a"), "design_seat")
+        code, err = self.hook()
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("0002-b", err)
+        self.assertEqual(self.counter(), {"key": "", "count": 0})
+        code, _, err = self.team("gate", "decide", res["escalation_id"], "--decision", "approved",
+                                 "--resolution", "done", "--authority", "SPEC §17.9")
+        self.assertEqual(code, 0, err)
+        self.assertIsNone(self.task_wait("0001-a"))
+        code, err = self.hook()
+        self.assertEqual(code, 2, err)
+        self.assertIn("0001-a", err)
+        self.assertNotIn("0002-b", err)
+
+    def test_a_held_task_listed_last_in_scope_is_the_one_named(self):
+        self.work(["0002-b"])
+        code, err = self.hook()
+        self.assertEqual(code, 2, err)
+        self.assertIn("0002-b", err)
+        self.assertNotIn("0001-a", err)
+
+    def test_a_held_task_already_done_or_dropped_holds_nothing_back(self):
+        for status in ("done", "dropped"):
+            (self.q / "tasks" / "0001-a.json").write_text(json.dumps({"task_id": "0001-a", "status": status}))
+            code, err = self.hook()
+            self.assertEqual(code, 2, (status, err))
+            self.assertIn("0002-b", err, status)

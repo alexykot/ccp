@@ -485,6 +485,73 @@ class SpawnNoRegister(TeamCase):
         self.assertEqual((code, res["scope"]), (0, ["0001-a"]), err)  # work.json's scope, as before
 
 
+class SpawnWithoutAReviewPoint(TeamCase):
+    """§22.1: review points are optional; the spawn says whether its scope has one, and that none is required."""
+
+    def idle(self):  # a fresh queue-wide state: no runner, no slots
+        (self.q / "work.json").write_text(json.dumps({"project_id": "demo", "status": "idle"}))
+
+    def spawn_actions(self, res):
+        return [a for a in res["actions"] if a["action"] == "spawn_teammate"]
+
+    def test_the_spawn_names_its_point_or_null(self):
+        _tagged(self.prod, "0001-a", "pending")
+        _tagged(self.prod, "0002-b", "pending")
+        for argv in (("--dry-run",), (), ("--count", "2", "--dry-run"), ("--count", "2")):
+            self.idle()
+            if "--count" in argv:
+                self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "parallel": {"max_in_flight": 2}}))
+            code, res, err = self.team("runner", "spawn", *argv, "--scope", "0001-a")
+            self.assertIsInstance(res, dict, (argv, err))
+            self.assertIn("review_point", res, argv)
+            self.assertIsNone(res["review_point"], argv)
+            for act in self.spawn_actions(res):
+                self.assertIn("none is required (SPEC §22.1)", act.get("detail", ""), argv)
+            self.idle()
+            code, res, err = self.team("runner", "spawn", *argv, "--scope", "0001-a", "--review-point", "R2")
+            self.assertEqual(res["review_point"], "R2", (argv, err))
+            for act in self.spawn_actions(res):
+                self.assertNotIn("none is required", act.get("detail", ""), argv)
+
+
+class EmptyRegister(unittest.TestCase):
+    """§22.1, §22.8: a product with no review point in a register or on a task says so."""
+
+    def setUp(self):
+        self.p = Product()
+        self.addCleanup(self.p.cleanup)
+        _tagged(self.p, "0001-a", "pending")
+        self.p.index()
+
+    def rp(self, *args):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err), mock.patch.dict(os.environ):
+            os.environ.pop("QUEUE_ROOT", None)
+            code = cli.main(["--root", str(self.p.root), "review-points", *args])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_no_register_and_no_tagged_task_says_no_review_points(self):
+        code, out, err = self.rp("list")
+        self.assertEqual(code, 0, err)
+        self.assertIn("no review points", out)
+        self.assertIn("docs/delivery/review-points.yaml: absent", out)
+        self.assertEqual(json.loads(self.rp("list", "--json")[1])["review_points"], [])
+
+    def test_a_register_with_no_points_says_so_without_absent(self):
+        self.p.write("docs/delivery/review-points.yaml", "# none yet\nreview_points:\n")
+        code, out, err = self.rp("list")
+        self.assertIn("no review points", out, err)
+        self.assertNotIn("absent", out)
+
+    def test_a_tagged_task_is_listed_and_the_line_is_not(self):
+        _tagged(self.p, "0002-b", "pending", "R3")
+        self.p.index()
+        code, out, err = self.rp("list")
+        self.assertEqual(code, 0, err)
+        self.assertIn("R3", out)
+        self.assertNotIn("no review points", out)
+
+
 class BackfillRenamed(unittest.TestCase):
     def test_a_renamed_point_reads_as_its_new_name_in_the_ledger_and_the_log(self):
         p = Product({"reconcile": {"log": {"path": "docs/LOG.md", "entry": "**{date} (runner, {review_point}):** `{nnnn}` done."}}})

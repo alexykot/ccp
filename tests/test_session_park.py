@@ -280,6 +280,19 @@ class Wake(SessionFixture, unittest.TestCase):
         self.assertEqual(self.wake("--armed", "--fire")[0], 2)
         self.assertEqual(self.wake("--fire", "--sample")[0], 2)
 
+    def test_no_allowance_cmd_names_the_missing_command_and_never_arms(self):
+        self.reading(70, reset_in=3600)
+        self.assertTrue(self.wake("--sample")[1]["arm"])  # a sample from before the command was removed
+        cfg = json.loads((self.runner / "docs/delivery/plane.json").read_text())
+        cfg["telemetry"] = {}
+        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        for flags in (("--sample",), ()):
+            code, body, out, err = self.wake(*flags)
+            self.assertEqual(code, 0, out + err)
+            self.assertFalse(body["arm"], flags)
+            self.assertIn("telemetry.allowance_cmd", body["reason"], flags)
+            self.assertNotIn("run with --sample", body["reason"], flags)
+
     def test_park_off_never_arms(self):
         self.reading(99, reset_in=600, tel={"session_park_pct": None})
         _, body, _, _ = self.wake("--sample")

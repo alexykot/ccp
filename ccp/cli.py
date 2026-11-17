@@ -865,6 +865,8 @@ def cmd_review_points(cfg: config.Config, a: argparse.Namespace) -> int:
         print(f"warning: {w}", file=sys.stderr)
     for g in groups:
         print(_rp_line(g))
+    if not groups:  # §22.1: review points are optional; a fresh product has none, and says so
+        print(f"no review points (register {cfg.rel(rp.path(cfg))}" + (")" if entries is not None else ": absent)"))
     for e in errs:
         print(f"  problem: {e}")
     return 1 if errs else 0

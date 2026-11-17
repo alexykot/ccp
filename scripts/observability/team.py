@@ -319,6 +319,15 @@ def dry_run_out(checks: list[dict[str, Any]], body: dict[str, Any]) -> int:
                 **({"failed": failed} if failed else {}), **body}, 1 if failed else 0)
 
 
+NO_REVIEW_POINT = "This scope has no review point; none is required (SPEC §22.1)."
+
+
+def no_rp_detail(rp: str | None, detail: str = "") -> dict[str, str]:
+    """SPEC §22.1: a spawn action's `detail`, with the note that a scope without a review point needs none."""
+    detail = detail if rp else (f"{detail} {NO_REVIEW_POINT}" if detail else NO_REVIEW_POINT)
+    return {"detail": detail} if detail else {}
+
+
 def keep_body(root: Path) -> list[str]:
     """SPEC §23.8: `--keep-body` for `write-prompt-audit.sh` when the product's plane.json sets
     `prompts.keep_body`, as `ccp prompt` passes it; nothing when it is off, absent or unreadable."""
@@ -570,10 +579,10 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
             for rpw in rp_warnings:
                 print(f"warning: {rpw}", file=sys.stderr)
             return dry_run_out(readiness(root, rc, scope, single=False), {
-                "slots": new, "scope": scope, "refactors_added": added,
+                "slots": new, "scope": scope, "review_point": rp, "refactors_added": added,
                 **({"warnings": rp_warnings} if rp_warnings else {}),
                 "actions": [{"action": "spawn_teammate", "name": slot, "subagent_type": rc["agent_type"],
-                             "prompt": prompts[slot]} for slot in new]})
+                             "prompt": prompts[slot], **no_rp_detail(rp)} for slot in new]})
         actions = []
         for slot in new:
             prompt = prompts[slot]
@@ -593,14 +602,15 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
                            "bind_pending": bool(was.get("rotated_at")), "rotated_at": None,
                            "worktree": was.get("worktree") or (f"{base}-{slot}" if base else None)}
             actions.append({"action": "spawn_teammate", "name": slot, "subagent_type": rc["agent_type"], "prompt": prompt,
-                            "detail": "Spawn it now with the Agent tool: exactly this name, agent type and prompt. "
-                                      f"Then `team.sh runner bind --name <the name the Agent result gave> --as {slot}`, "
-                                      "whatever the name."})
+                            **no_rp_detail(rp, "Spawn it now with the Agent tool: exactly this name, agent type and "
+                                               "prompt. Then `team.sh runner bind --name <the name the Agent result "
+                                               f"gave> --as {slot}`, whatever the name.")})
         save_work(root, {"status": "running", "scope": scope, "review_point": rp,
                          "review_point_refactors": rp_refactors, "runners": slots})
         for rpw in rp_warnings:
             print(f"warning: {rpw}", file=sys.stderr)
-        return out({"outcome": "spawn_recorded", "slots": new, "scope": scope, "refactors_added": added, "actions": actions,
+        return out({"outcome": "spawn_recorded", "slots": new, "scope": scope, "review_point": rp,
+                    "refactors_added": added, "actions": actions,
                     **({"warnings": rp_warnings} if rp_warnings else {})})
     if args.op == "bind":
         name, slot = (args.name or "").strip(), (args.as_slot or args.slot or "").strip()
@@ -707,11 +717,12 @@ def cmd_runner(args: argparse.Namespace) -> int:
             for rpw in rp_warnings:
                 print(f"warning: {rpw}", file=sys.stderr)
             return dry_run_out(readiness(root, rc, scope, single=True), {
-                "scope": scope, "refactors_added": added, **({"warnings": rp_warnings} if rp_warnings else {}),
+                "scope": scope, "review_point": rp, "refactors_added": added,
+                **({"warnings": rp_warnings} if rp_warnings else {}),
                 **({"would_stop": old} if old else {}),
                 "actions": ([{"action": "shutdown_teammate", "name": old}] if old else []) + [
                     {"action": "spawn_teammate", "name": rc["name"], "subagent_type": rc["agent_type"],
-                     "prompt": spawn_prompt(root, scope, rp, added)}]})
+                     "prompt": spawn_prompt(root, scope, rp, added), **no_rp_detail(rp)}]})
         made = single_runner_worktree(root, rc)  # after the refusals, before the runtime writes
         prompt = spawn_prompt(root, scope, rp, added)
         audit = subprocess.run(
@@ -740,6 +751,8 @@ def cmd_runner(args: argparse.Namespace) -> int:
             detail += (f" The scope starts with the refactors waiting from earlier cycles ({', '.join(added)}, "
                        "SPEC §20), and `ccp tasks next` takes them first; `team.sh runner scope --remove` "
                        "takes one out.")
+        if not rp:
+            detail += " " + NO_REVIEW_POINT
         if made and made.get("error"):
             rp_warnings.append(f"the runner worktree {made['path']} is not made ({made['error']}); fix that, then "
                                "the runner's `ccp tasks worktree` makes it (SPEC §12.1)")
@@ -749,7 +762,8 @@ def cmd_runner(args: argparse.Namespace) -> int:
                  "detail": f"First, before the spawn: send {old} the shutdown_request and wait for its "
                            "acknowledgement; without one, stop it (TaskStop). If it is gone already (a restarted "
                            "lead session), go on. Spawn only once it is gone: one runner at a time."}] if old else []
-        return out({"outcome": "spawn_recorded", "prompt_ref": prompt_ref, "scope": scope, "refactors_added": added,
+        return out({"outcome": "spawn_recorded", "prompt_ref": prompt_ref, "scope": scope, "review_point": rp,
+                    "refactors_added": added,
                     **({"warnings": rp_warnings} if rp_warnings else {}),
                     **({"runner_worktree": made} if made else {}),
                     **({"stopped": old} if old else {}),
