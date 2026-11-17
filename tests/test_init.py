@@ -295,9 +295,9 @@ class Refusals(InitCase):
 
     def test_a_kept_plane_json_that_does_not_load(self):
         (self.repo / "docs/delivery").mkdir(parents=True)
-        (self.repo / "docs/delivery/plane.json").write_text(json.dumps({"project_id": "demo", "bogus": 1}))
+        (self.repo / "docs/delivery/plane.json").write_text(json.dumps({"project_id": "demo", "board": {"refresh_minutes": 0}}))
         err = self.assert_refused_untouched("--project-id", "demo")
-        self.assertIn("bogus", err)
+        self.assertIn("board.refresh_minutes", err)
         self.assertFalse(self.binding.exists())
         self.assertFalse(self.queue.exists())
 

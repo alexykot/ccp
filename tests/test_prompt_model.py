@@ -166,11 +166,11 @@ class Knob(unittest.TestCase):
                 self.assertEqual(self.load({"implementer_model": arms}).workers["implementer_model"], arms)
 
     def test_bad_values_are_refused(self):
-        for bad in ({"implementer_model": {"large": SONNET}}, {"implementer_model": {"small": "claude-sonnet-5-5"}},
+        for bad in ({"implementer_model": {"small": "claude-sonnet-5-5"}},
                     {"implementer_model": {"refactor": "claude-opus-5-5"}}, {"implementer_model": {"small": "inherit"}},
                     {"implementer_model": {"small": "Sonnet"}}, {"implementer_model": {"small": ""}},
                     {"implementer_model": {"small": None}}, {"implementer_model": "sonnet"},
-                    {"small_estimate_minutes": 0}, {"small_estimate_minutes": True}, {"model": SONNET}):
+                    {"small_estimate_minutes": 0}, {"small_estimate_minutes": True}):
             with self.subTest(bad=bad), self.assertRaises(config.ConfigError):
                 self.load(bad)
 

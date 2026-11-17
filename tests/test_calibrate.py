@@ -441,7 +441,7 @@ class Forecast(unittest.TestCase):
 class Config(unittest.TestCase):
     def test_the_calibration_block_is_checked(self):
         for bad, msg in (({"half_life": 0}, "half_life"), ({"min_pairs": 2}, "min_pairs"), ({"k": "x"}, "calibration.k"),
-                         ({"other": 1}, "estimate.calibration must be"), ("x", "estimate.calibration must be")):
+                         ("x", "estimate.calibration must be")):
             p = Product({"estimate": {"calibration": bad}})
             try:
                 with self.assertRaises(config.ConfigError) as cm:

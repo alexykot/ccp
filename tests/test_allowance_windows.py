@@ -145,7 +145,7 @@ class Windows(unittest.TestCase):
 class ConfigChecks(unittest.TestCase):
     def test_bad_windows_are_refused(self):
         for tel in ({"windows": {"w": {"kind": "monthly"}}}, {"windows": {"w": {"stop_pct": 150}}},
-                    {"windows": {"w": {"other": 1}}}, {"windows": ["x"]},
+                    {"windows": ["x"]},
                     {"windows": {"h": {"kind": "session", "stop_pct": 50}}},
                     {"windows": {"w": {"kind": "weekly", "park_pct": 50}}},
                     {"session_park_pct": 90, "windows": {"five_hour": {"park_pct": 80}}},

@@ -119,7 +119,7 @@ class Kinds(unittest.TestCase):
 
     def test_a_bad_kinds_block_is_refused(self):
         from ccp import config
-        p = Product({"task_log": {"kinds": {"refactor": {"needs": ["x"]}}}})
+        p = Product({"task_log": {"kinds": {"refactor": {"refs_any": "x"}}}})
         try:
             with self.assertRaises(config.ConfigError):
                 _ = p.cfg

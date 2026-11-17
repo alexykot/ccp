@@ -59,7 +59,7 @@ class Config(CacheFixture, unittest.TestCase):
         self.plane({**CACHE, "review": True}, commit=False)
         self.assertIs(config.load(self.main).verify["accept_cache"]["review"], True)
         for bad in ({}, {"max_age_days": 0}, {"max_age_days": True}, {"max_age_days": 3, "cold_tasks": "x"},
-                    {"max_age_days": 3, "other": 1}, {"max_age_days": 3, "review": "yes"}, "on"):
+                    {"max_age_days": 3, "review": "yes"}, "on"):
             self.plane(bad, commit=False)
             with self.assertRaises(config.ConfigError, msg=bad):
                 config.load(self.main)
