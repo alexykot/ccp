@@ -5,7 +5,7 @@ which records how long each run took, wait on a run's summary, and ask it which 
                 [-- COMMAND …]
   ccp suite wait SUITE_ID [--timeout SECONDS]
   ccp suite list [--task ID]
-  ccp suite affected [--since REF | --paths PATH …]
+  ccp suite affected [--since REF | --since A..B | --paths PATH …]
 
 `run` wraps the command. It runs in the foreground, from the current directory, with stdin
 inherited, and `ccp` exits with the command's exit code (128 + N when a signal N ended it).
@@ -1729,11 +1729,23 @@ def _git_lines(root: Path, *args: str) -> list[str]:
     return [ln for ln in r.stdout.splitlines() if ln.strip()]
 
 
+def _commit_tree(root: Path, ref: str, shown: str) -> str:
+    """The tree `ref` names (a commit's, or a tree's), never reading `ref` as an option; exit 2 when git
+    cannot resolve it, naming the `--since` as given (`shown`)."""
+    r = subprocess.run(["git", "-C", str(root), "rev-parse", "--verify", "--quiet", "--end-of-options",
+                        f"{ref}^{{tree}}"], capture_output=True, text=True)
+    if r.returncode != 0 or not r.stdout.strip():
+        raise QueueError(f"--since {shown!r}: git knows no such ref", 2)
+    return r.stdout.strip()
+
+
 def changed_paths(root: Path, since: str | None, given: list[str] | None) -> list[str]:
     """`--paths` normalised (relative to the root: `./` stripped, `..` collapsed, an absolute path made
     relative), else what `git diff <since>` names against the working tree (renames as both paths) plus the
-    untracked files git does not ignore; `since` defaults to HEAD. A path outside the root, or a `since`
-    git cannot resolve (one starting with a dash included: it is never read as an option), exits 2."""
+    untracked files git does not ignore; `since` defaults to HEAD. A range `<a>..<b>` (both ends given;
+    `...` is no range) is what `git diff <a>..<b>` names, without the working tree. A path outside the
+    root, or a `since` git cannot resolve (one starting with a dash included: it is never read as an
+    option), exits 2."""
     if given:
         out = []
         for p in given:
@@ -1750,11 +1762,12 @@ def changed_paths(root: Path, since: str | None, given: list[str] | None) -> lis
             out.append(rel)
         return sorted(set(out))
     ref = since or "HEAD"
-    r = subprocess.run(["git", "-C", str(root), "rev-parse", "--verify", "--quiet", "--end-of-options",
-                        f"{ref}^{{tree}}"], capture_output=True, text=True)
-    if r.returncode != 0 or not r.stdout.strip():
-        raise QueueError(f"--since {ref!r}: git knows no such ref", 2)
-    diff = _git_lines(root, "diff", "--name-only", "--no-renames", "--relative", r.stdout.strip(), "--")
+    a, dots, b = ref.partition("..")
+    if dots and a and b and not b.startswith("."):  # §14.7: a range, the files changed in it
+        frm, to = _commit_tree(root, a, ref), _commit_tree(root, b, ref)
+        return sorted(set(_git_lines(root, "diff", "--name-only", "--no-renames", "--relative", frm, to, "--")))
+    tree = _commit_tree(root, ref, ref)
+    diff = _git_lines(root, "diff", "--name-only", "--no-renames", "--relative", tree, "--")
     return sorted(set(diff) | set(_git_lines(root, "ls-files", "--others", "--exclude-standard")))
 
 

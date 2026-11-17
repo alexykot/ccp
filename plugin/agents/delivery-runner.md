@@ -129,7 +129,8 @@ before anything else.
 6. **Questions from the implementer.** Implementation choices are yours: answer by `SendMessage`.
    Spec questions go to the lead (below). Unsure: spec.
 7. **Review.** `ccp prompt review <task_id> --pr <n> --head <sha>`: a fresh `delivery-reviewer` subagent with
-   no implementer context. When it finds a BLOCKER or MAJOR, `ccp prompt fix <task_id> --pr <n> --head <sha>`
+   no implementer context. It refuses (exit 2) a PR whose body does not contain the task id: repair the
+   body first (`gh pr edit <n> --body-file <file>`, the PR number always given), then ask again. When it finds a BLOCKER or MAJOR, `ccp prompt fix <task_id> --pr <n> --head <sha>`
    launches the implementer on the findings, then review again. Two rounds of the implementer have their
    own kind, never an `implement-N` with a note: `ccp prompt merge <task_id> --pr <n> --head <sha>` only
    merges the integration tip into the task branch, and `ccp prompt ruling <task_id> --pr <n> --head <sha>

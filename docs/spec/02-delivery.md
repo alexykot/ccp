@@ -327,8 +327,9 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
   is resolved first), not a git worktree, so a check can prove a test passes without git history. It
   fetches that commit by its sha from the main checkout, which needs git protocol v2 (git's default
   since 2.26). It is recorded with `shallow: true`, set up and removed like any other (removing
-  deletes the clone), and its links are named in its own `info/exclude`. An existing worktree is reused only as shallow
-  as asked (exit 3 otherwise); `--shallow` is refused (exit 2) on any other kind or action.
+  deletes the clone), and its links are named in its own `info/exclude`. An existing worktree is
+  reused only as shallow as asked (exit 3 otherwise); `--shallow` is refused (exit 2) on any other
+  kind or action.
 - `ccp wt exec [NAME] -- ARGS` runs the `bin/ccp` of worktree NAME (recorded; default the checkout
   `ccp` runs in: `--root`, else `$CCP_ROOT`, else the working directory's git toplevel) with ARGS
   verbatim, in the caller's directory and environment, and exits with its code; `--print` prints that
@@ -455,8 +456,8 @@ reviewer, fixer and verifier prompt from four parts, in order, writes the prompt
 
 `ccp prompt` needs a claimed task, checks for a pending run before writing anything, and refuses a
 template naming anything it does not set. `ccp prompt verify <id>` renders the same text on every
-run apart from the fields it fills in (paths, the run id and round, the head, the runner's note) and
-the end token, which differs on every run (below).
+run apart from the fields it fills in (such as paths, the run id and round, the head, the runner's
+note) and the end token, which differs on every run (below).
 
 **The prompt's end.** The rendered prompt's last line is `Prompt end: <token>`, the token a short hash
 of the run id and the text above it, kept on the run (`prompt_token`); the report contract tells the
@@ -520,10 +521,10 @@ metrics and every friction line. Report lines:
   the field's declared values (the template respelled: `a / b`, `a, b`, `a or b`, and the longer forms
   such as `a, b or c`) with no words after the last of them or a `|` between them, is read as the
   template and refused; any other text after the value is a reason and is accepted, even one that
-  starts with another declared value (`yes, no downtime needed`). The values are
-  kept on the run (`fields`); the implement, fix, merge and ruling prompts list the declared fields, and the review prompt and `ccp prompt review`'s
-  output show them as the task's latest done implement, fix, merge or ruling report states them. Whether a verdict is right is
-  not judged.
+  starts with another declared value (`yes, no downtime needed`). The values are kept on the run
+  (`fields`); the implement, fix, merge and ruling prompts list the declared fields, and the review
+  prompt and `ccp prompt review`'s output show them as the task's latest done implement, fix, merge
+  or ruling report states them. Whether a verdict is right is not judged.
 
 `ccp verify record` notes the verdict on the task's open verify run and emits `verify/recorded`; the
 verifier's `ccp report` closes the run.
@@ -608,8 +609,8 @@ has a `Suite:` line but no suite run is recorded for its run.
   `{from}` (the head's merge base with `origin/<integration branch>`) and `{head}` (the task head
   under test: the HEAD of the product checkout the run started in, not of the tip's checkout the
   provers run in) filled in; the first that exits 0 skips the stage. A non-zero exit or a timeout
-  skips nothing, and a checkout with uncommitted changes, a head with no merge base, or a tip git cannot check out
-  runs no prover. A skipped stage is neither in `stages` nor among the stages not
+  skips nothing, and a checkout with uncommitted changes, a head with no merge base, or a tip git
+  cannot check out runs no prover. A skipped stage is neither in `stages` nor among the stages not
   run: the `ended` row and its event record `proven_skips` (`[{stage, prover, exit_code, run_id}]`,
   `prover` its name in `verify.provers`, `run_id` the suite run's run or null), and the summary's stage
   line names each skipped stage and its prover. No record holds a prover's command text (§14.4): the
@@ -780,7 +781,8 @@ guessing. It runs nothing and records nothing.
 - **The change** is `--paths`, normalised relative to the product root (`./` stripped, `..`
   collapsed, an absolute path made relative), else the files `git diff <ref>` names against the
   working tree (a rename as both its paths) plus the untracked files git does not ignore; `--since`
-  defaults to `HEAD`, the uncommitted change.
+  defaults to `HEAD`, the uncommitted change. A range `<a>..<b>` given to `--since` is the files
+  `git diff <a>..<b>` names, without the working tree.
 - **The product's language pack reads the tests** (`package_docs.language`; its default, `python`,
   when the block is absent). A pack with no test reader (`none`) exits 2.
 - **Python.** A test module is a `test*.py` file git tracks or does not ignore, named by its dotted
@@ -818,8 +820,10 @@ result.
 ### 15.2 Review
 
 - **Review starts on a settled head.** The runner opens a review (`ccp prompt review --head`) only
-  once the task's open spec questions are answered and their rulings are on the PR. A commit landing
-  while a review runs makes its head stale.
+  once the task's open spec questions are answered and their rulings are on the PR.
+  `ccp prompt review` refuses (exit 2), naming the task and the PR, a PR whose body does not contain
+  the task id; the runner repairs the body first. A commit landing while a review runs makes its head
+  stale.
 - **A fix round is reviewed again before it is verified**, unless a proof or a clean review covers it
   (the next three rules).
   `ccp prompt verify` refuses (exit 4,
@@ -1157,10 +1161,10 @@ checks of §10.2 that a machine can answer: every scope entry names a task in th
 check` is clean, and the one runner's `runner.worktree` is a working tree or can be made: its path
 is absent or an empty directory. A runner worktree that is not a working tree yet needs
 `origin/<integration_branch>`: when that ref does not resolve, the dry run is refused before the
-checks, as the spawn is (exit 3, §12.1). It exits 0
-with `ready: true` when every check passes, and 1 with `ready: false` when any fails, naming the
-failing checks in `failed` and on stderr; a refusal exits as the spawn would. It writes nothing: no
-`work.json`, prompt audit, event or worktree. `--dry-run` with another `runner` op is refused (exit 2).
+checks, as the spawn is (exit 3, §12.1). It exits 0 with `ready: true` when every check passes, and 1
+with `ready: false` when any fails, naming the failing checks in `failed` and on stderr; a refusal
+exits as the spawn would. It writes nothing: no `work.json`, prompt audit, event or worktree.
+`--dry-run` with another `runner` op is refused (exit 2).
 
 **Each runner** (when `max_in_flight` is above 1):
 

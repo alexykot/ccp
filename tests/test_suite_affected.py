@@ -71,6 +71,38 @@ class Affected(unittest.TestCase):
         self.p.write("pkg/b.py", "Y = 3\n")
         self.assertEqual(self.affected("--since", base), ["tests.test_a", "tests.test_b"])
 
+    def test_since_takes_a_range_as_the_files_changed_in_it_only(self):
+        a = git(self.p.root, "rev-parse", "HEAD")
+        self.p.write("pkg/a.py", "X = 3\n")
+        b = self.commit("change a")
+        self.p.write("pkg/b.py", "Y = 3\n")
+        c = self.commit("change b")
+        self.p.write("pkg/a.py", "X = 4\n")  # uncommitted: no part of a range
+        self.p.write("tests/test_new.py", "import unittest\n")  # untracked: no part of a range either
+        code, lines, err = self.run_cli("--since", f"{b}..{c}")
+        self.assertEqual((code, lines), (0, ["tests.test_b"]), err)
+        self.assertEqual(self.affected("--since", f"{a}..{b}"), ["tests.test_a"])
+        self.assertEqual(self.affected("--since", "HEAD~2..HEAD~1"), ["tests.test_a"])
+        self.assertEqual(self.affected("--since", f"{a}..{c}"), ["tests.test_a", "tests.test_b"])
+        self.assertEqual(self.affected("--since", b), ["tests.test_a", "tests.test_b", "tests.test_new"])
+
+    def test_a_range_with_an_end_git_cannot_read_is_refused(self):
+        b = git(self.p.root, "rev-parse", "HEAD")
+        for since in (f"{b}..no-such-ref", f"no-such-ref..{b}", f"{b}..-x", f"-x..{b}", f"{b}...{b}"):
+            code, lines, err = self.run_cli("--since", since)
+            self.assertEqual((code, lines), (2, []), since)
+            self.assertIn(repr(since), err)
+        self.assertFalse((self.p.root / "x").exists())
+
+    def test_a_dotfile_has_no_extension_so_no_test_matches_it_by_name(self):
+        self.p.write(".gitignore", "build/\n")
+        self.p.write("tests/test_ignore.py", "IGNORE = ROOT / '.gitignore'\n")
+        self.commit("ignore test")
+        self.assertEqual(self.affected("--paths", ".gitignore"), [])
+        self.p.write("tests/test_cfg.py", "CFG = ROOT / 'setup.cfg'\n")
+        self.commit("cfg test")
+        self.assertEqual(self.affected("--paths", "setup.cfg"), ["tests.test_cfg"])  # a name with an extension does
+
     def test_an_untracked_module_counts_and_an_ignored_one_does_not(self):
         self.p.write("tests/test_c.py", "import pkg.c\n")
         self.p.write("pkg/c.py", "Z = 1\n")

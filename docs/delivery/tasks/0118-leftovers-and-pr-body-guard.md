@@ -89,4 +89,26 @@ with another task's is caught before a reviewer reads it.
 
 *Append-only, newest last.*
 
+- 2026-11-17 — implementer: `ccp/wt.py` bounds the SIGTERM hold across a base run's worktree make at
+  `SIGTERM_HOLD_SECONDS` (30): the first SIGTERM starts a SIGALRM timer, and a make still going then is
+  cut short by the signal there (the git child killed by `subprocess.run`) and what it made removed
+  (`_discard`: `git worktree remove --force --force`, as git keeps a worktree being added locked, then
+  the directory, then `git worktree prune`). The run then exits 143 with no worktree named. The bound
+  is not in the SPEC (no signed text for it); the module docstrings carry it.
+- `ccp suite affected --since <a>..<b>` takes the files `git diff` names between the two ends' trees,
+  without the working tree or untracked files; both ends must be given and resolve (`a...b`, `a..`
+  and a dash-led end are refused, exit 2, as an unknown ref). The CLI help and `docs/cli/02-delivery.md`
+  name the form.
+- `ccp prompt review` reads the PR body with `gh pr view <pr> --json body` (`CCP_GH_BIN`, else `gh`),
+  before anything is opened, and refuses (exit 2) a body that does not contain the full task id,
+  naming the task and the PR. A body `gh` cannot read (not installed, non-zero exit, no body, a 60 s
+  timeout) is a warning recorded on the run, and the review opens. `tests/__init__.py` points
+  `CCP_GH_BIN` at a nonexistent guard so no test calls the real `gh`; `tests/test_toolkit.py`'s fake
+  `gh` answers the body request with the fixture's open task.
+- SPEC: §14.7 and §15.2 carry the signed text (§15.2's new sentence wrapped so `ccp prompt review`
+  stays on one line); the four passages the 0101 review and verify reports named as badly wrapped
+  (§12.1 `--shallow`, §13.4 `report.required_fields`, §14.2 `{head}`, §16.5 dry run) are re-wrapped
+  with their words unchanged (`git diff --word-diff`); §13.2 and `docs/design/toolkit.md` say
+  "such as" before the filled-in fields.
+
 ## Verification notes

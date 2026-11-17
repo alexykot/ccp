@@ -63,6 +63,7 @@ OUT_CAP = 20000
 SHALLOW_KINDS = ("rev", "ver", "mut", "mac")  # §12.1: `--shallow` makes one of these a depth-1 clone of its sha
 BASE_REFUSED = 125  # §12.1: a base run's own refusal or failure, never one of its command's codes (as timeout(1))
 BASE_TIMED_OUT = 124  # §12.1: the base run's command outlived --timeout and was killed with its process group
+SIGTERM_HOLD_SECONDS = 30  # how long a base run's SIGTERM waits on a worktree being made before it is acted on
 
 
 # ---------------------------------------------------------------- paths and state
@@ -313,7 +314,8 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
     made with no task: `task_id` and `nnnn` are "". `bind`, when given, gets the new worktree's record the
     moment it exists, before anything else runs, so a caller interrupted before `create` returns still
     knows what to remove (`run_on_base`). A SIGTERM that a base run takes (`_on_sigterm`) waits while
-    the worktree is made and bound (`_sigterm_held`): `git worktree add` is never cut short."""
+    the worktree is made and bound (`_sigterm_held`), at most `SIGTERM_HOLD_SECONDS`: a make that is
+    still going then is cut short and what it made so far removed (`_discard`)."""
     if kind not in KINDS:
         raise QueueError(f"--kind must be one of {', '.join(KINDS)}", 2)
     if sha:
@@ -369,11 +371,15 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
 
     def add(at: Path) -> tuple[int, str]:
         with _sigterm_held():  # a base run's SIGTERM waits until the worktree made here is bound
-            if shallow:
-                rc, err = _clone_shallow(main, at, str(sha))
-            else:
-                r = git(main, *args[:-2], str(at), args[-1])
-                rc, err = r.returncode, r.stderr
+            try:
+                if shallow:
+                    rc, err = _clone_shallow(main, at, str(sha))
+                else:
+                    r = git(main, *args[:-2], str(at), args[-1])
+                    rc, err = r.returncode, r.stderr
+            except BaseException:  # cut short (a held SIGTERM past its bound): nothing half-made is left
+                _discard(main, at)
+                raise
             if rc == 0 and bind is not None:
                 bind.update(st)
         return rc, err
@@ -422,6 +428,18 @@ def _clone_shallow(main: Path, path: Path, sha: str) -> tuple[int, str]:
             shutil.rmtree(path, ignore_errors=True)
             return r.returncode, f"git {args[0]}: {r.stderr.strip()}"
     return 0, ""
+
+
+def _discard(main: Path, path: Path) -> None:
+    """Remove a worktree whose making was cut short: a shallow clone by deleting it; a git worktree
+    with `git worktree remove` forced twice (git keeps a worktree being added locked), then whatever is
+    left of its directory, then `git worktree prune`, so none stays registered. Failures are ignored."""
+    if _is_clone(path):
+        shutil.rmtree(path, ignore_errors=True)
+        return
+    git(main, "worktree", "remove", "--force", "--force", str(path))
+    shutil.rmtree(path, ignore_errors=True)
+    git(main, "worktree", "prune")
 
 
 def _is_clone(path: Path) -> bool:
@@ -557,20 +575,38 @@ def _on_sigterm(signum: int, _frame: Any) -> None:
 @contextlib.contextmanager
 def _sigterm_held() -> Iterator[None]:
     """While a base run (`_on_sigterm` handles SIGTERM) makes its worktree, a SIGTERM waits: the make
-    is never killed half-way, which would leave a worktree nothing knows of, and the signal is raised
-    once the block ends, with the worktree bound to the caller's record (`create`'s `bind`). Anywhere
-    else (another kind, another thread) it changes nothing."""
+    is not killed half-way, which would leave a worktree nothing knows of, and the signal is raised
+    once the block ends, with the worktree bound to the caller's record (`create`'s `bind`). The wait is
+    bounded: a make still going `SIGTERM_HOLD_SECONDS` after the signal (a hung git or hook) is cut
+    short by it there and then (a SIGALRM timer raises it in the block), and the caller removes what was
+    made. Anywhere else (another kind, another thread) it changes nothing."""
     if threading.current_thread() is not threading.main_thread() or signal.getsignal(signal.SIGTERM) is not _on_sigterm:
         yield
         return
     got: list[int] = []
-    signal.signal(signal.SIGTERM, lambda n, _f: got.append(n))
+    acted: list[bool] = []
+
+    def held(signum: int, _frame: Any) -> None:
+        if not got:
+            got.append(signum)
+            signal.setitimer(signal.ITIMER_REAL, SIGTERM_HOLD_SECONDS)
+
+    def overdue(_signum: int, _frame: Any) -> None:
+        acted.append(True)
+        _on_sigterm(got[0], None)
+
+    alarm = signal.getsignal(signal.SIGALRM)
+    signal.signal(signal.SIGALRM, overdue)
+    signal.signal(signal.SIGTERM, held)
     try:
         yield
     finally:
-        signal.signal(signal.SIGTERM, _on_sigterm)
-        if got:
-            _on_sigterm(got[0], None)
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, alarm if alarm is not None else signal.SIG_DFL)
+        if not acted:  # acted on already, SIGTERM stays ignored for the cleanup (`_on_sigterm`)
+            signal.signal(signal.SIGTERM, _on_sigterm)
+            if got:
+                _on_sigterm(got[0], None)
 
 
 def run_on_base(cfg: Config, q: Path, task_id: str, head: str, command: list[str], name: str | None = None,
