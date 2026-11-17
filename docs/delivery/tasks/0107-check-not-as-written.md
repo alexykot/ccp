@@ -1,7 +1,7 @@
 ---
 task_id: 0107-check-not-as-written
 title: The verification record gives a check that cannot hold as written its own state, and close shows it
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S15"]
@@ -9,7 +9,7 @@ review_point: R6
 sign_off: build
 paths: ["contracts/verification.schema.json", "contracts/verification.example.json", "ccp/verify.py", "ccp/lifecycle.py", "templates/prompts/verify.md", "plugin/agents/delivery-verifier.md", "plugin/agents/delivery-runner.md", "docs/spec/02-delivery.md", "tests/test_verify*.py", "tests/test_tasks_close*.py"]
 created: 2026-11-16
-updated: 2026-11-16
+updated: 2026-11-17
 ---
 
 # Task: 0107-check-not-as-written
@@ -128,3 +128,5 @@ from the tooling, not from a relayed finding.
   judges it so. The check text is left as written (SPEC §10.5, a claimed task). No SPEC, code or test change.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #115 head `faa9aae` (squash `501f6f5`): APPROVE. Passed: check-01, check-02, check-03, check-04, check-05. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0107-check-not-as-written.json.
+
