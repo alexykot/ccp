@@ -217,7 +217,7 @@ class Decline(unittest.TestCase):
 class Config(unittest.TestCase):
     def test_bad_starter_rules_are_refused(self):
         for bad in ([], {"declined": []}, {"declined": {"refs-resolve": ""}}, {"declined": {"refs-resolve": 3}},
-                    {"adopt": True}, {"declined": {"no-such-rule": "why"}}):
+                    {"declined": {"no-such-rule": "why"}}):
             p = Product({"docs": {"starter_rules": bad}})
             try:
                 with self.assertRaises(config.ConfigError, msg=bad):

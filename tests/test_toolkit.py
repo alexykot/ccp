@@ -202,7 +202,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.assertEqual(cfg.adapter["worktree_links"], [".venv"])
         self.assertEqual(cfg.telemetry["otel_port"], 4318)
         for bad in ({"adapter": {"worktree_dir": 3}}, {"reconcile": {"hooks": "make"}},
-                    {"reconcile": {"log": {"path": "x"}}}, {"prompts": {"other": 1}}, {"telemetry": {"otel_port": 0}},
+                    {"reconcile": {"log": {"path": "x"}}}, {"telemetry": {"otel_port": 0}},
                     {"reconcile": {"log": {"path": "x", "entry": "y", "before": "("}}}):
             self.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", **bad}))
             with self.assertRaises(config.ConfigError, msg=bad):

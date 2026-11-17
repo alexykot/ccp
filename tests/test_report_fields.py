@@ -266,9 +266,8 @@ class ConfigBlock(ToolkitFixture, unittest.TestCase):
         self.assertEqual(config.load(self.main).report, {"required_fields": []})
 
     def test_a_malformed_declaration_is_refused(self):
-        for bad in ({"required_fields": "migration"}, {"other": []},
+        for bad in ({"required_fields": "migration"},
                     {"required_fields": [{"name": "migration"}]},
-                    {"required_fields": [{**MIGRATION, "extra": 1}]},
                     {"required_fields": [{"name": "1st", "values": ["a"]}]},
                     {"required_fields": [{"name": "migration ", "values": ["a"]}]},
                     {"required_fields": [{"name": "Outcome", "values": ["a"]}]},

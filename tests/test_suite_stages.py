@@ -527,8 +527,7 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertEqual(load(good).verify["provers"], good)
         for bad in ({"name": "docs-only", "command": "x"}, {"name": "Docs", "command": "x", "skips": "suite"},
                     {"name": "a", "command": "", "skips": "suite"}, {"name": "a", "command": "x", "skips": "unit"},
-                    {"name": "a", "command": "x", "skips": config.PLANE_DOCS_STAGE},
-                    {"name": "a", "command": "x", "skips": "suite", "paths": ["docs"]}, "a"):
+                    {"name": "a", "command": "x", "skips": config.PLANE_DOCS_STAGE}, "a"):
             with self.subTest(bad=bad), self.assertRaises(config.ConfigError) as cm:
                 load([bad])
             self.assertIn("verify.provers", str(cm.exception))
@@ -706,7 +705,7 @@ class StageConfig(unittest.TestCase):
 
     def test_config_refuses_bad_stages(self):
         for bad in ([{"name": "unit"}], [{"name": "unit", "cmd": ""}], [{"name": "Unit", "cmd": "x"}],
-                    [{"name": "unit", "cmd": "x", "timeout": 3}], [{"name": "unit", "cmd": ["x"]}],
+                    [{"name": "unit", "cmd": ["x"]}],
                     [{"name": "unit", "cmd": "x"}, {"name": "unit", "cmd": "y"}],
                     [{"name": config.PLANE_DOCS_STAGE, "cmd": "x"}], [{"name": "unit", "cmd": "x"}, "y"],
                     [{"name": "unit", "cmd": f"run {config.LANE_PLACEHOLDER}"}]):

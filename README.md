@@ -315,8 +315,8 @@ in that product (SPEC §31.4).
 - `docs/PROJECT.md` (purpose, users, constraints) and `docs/SPEC.md` (what to build).
 - Tasks in `docs/delivery/tasks/NNNN-slug.md`, in the canonical format: frontmatter plus intent,
   scope and `dod_checks`. Statuses are `pending`, `done` and `dropped`.
-- `docs/delivery/plane.json`. Only `project_id` is required; unknown keys are refused. Optional
-  blocks:
+- `docs/delivery/plane.json`. Only `project_id` is required; unknown keys warn and fail `ccp docs
+  check`. Optional blocks:
   - `suite.lanes`, the test commands; a gate may write `$CCP_SUITE_RESULT`;
   - `worktrees`, with `env.setup`, `teardown`, `up`, `down` and `urls` hooks;
   - `docs.checks`, `architect.checks`, `auth_check.probes`;

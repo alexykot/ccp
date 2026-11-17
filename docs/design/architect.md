@@ -33,7 +33,7 @@ but an older queue may still hold them, and the board and `ccp health` read it a
 `architecture-review.json` and `docs-audit.json` (a `running` docs-audit record still shows as a
 headless seat), `reviews/ar-*` and `reviews/da-*`, and the `architecture_review` and `docs_audit`
 event types in the ledger. A binding's `architecture_review` block is read by
-nothing; a `docs_audit` block in `plane.json` is refused as an unknown key. A sync still removes
+nothing; a `docs_audit` block in `plane.json` is an unknown key (SPEC §8.1). A sync still removes
 a product's leftover managed copies of the two older skills, and `--check` reports them as
 `retired`.
 

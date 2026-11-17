@@ -329,10 +329,6 @@ class SmallTasks(unittest.TestCase):
             self.addCleanup(self.p.cleanup)
             with self.assertRaises(config.ConfigError, msg=repr(bad)):
                 config.load(self.p.root)
-        self.p = Product({"health": {"small_lines": 100}})
-        self.addCleanup(self.p.cleanup)
-        with self.assertRaises(config.ConfigError):
-            config.load(self.p.root)
 
     def test_the_schema_names_the_knob(self):
         from ccp import config

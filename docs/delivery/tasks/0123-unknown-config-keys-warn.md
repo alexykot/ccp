@@ -84,4 +84,20 @@ product's plane.json between the merge and the release; a typo still fails the p
 
 *Append-only, newest last.*
 
+- 2026-11-17: `ccp/config.py` holds the keys plane.json may carry at every level it reads by key
+  (`PLANE_KEYS`, built from the blocks' defaults and the key constants the validators use). `_parse`
+  drops the keys outside it before any validator runs, and records them on `Config.unknown_keys` as
+  dotted paths (`verify.future_knob`, `architect.checks[0].shell`, `suite.lanes.gate[0].x`); `load`
+  warns on stderr once per file and key in a process. `skip_rules_at` parses the same way, without
+  the warning, so a committed plane.json with a newer key still gives its skip rules. Free-named maps
+  (`architect.areas`, `prompts.worker_env`, `upgrade.declined`, a lane's name) are not key-checked,
+  as before. The per-block refusals of unknown keys stay in the validators, now unreachable through
+  `load`.
+- `ccp docs check` is in `ccp/cli.py` (`cmd_docs_check`; there is no `ccp/docs.py`): it adds one
+  failure per unknown key (`config.unknown_key_errors`).
+- The §16.3 edit's CURRENT text sits in §16.2 ("The knob"); it was edited where it stands. README,
+  the plane.json contract's description and `docs/design/architect.md` said "refused" and now
+  describe the new behaviour. Tests that expected a refusal for an unknown key were moved to the new
+  behaviour (`test_estimate`, `test_parallel_claims`, `test_pkgdocs_config`, `test_rules`, `test_wt`).
+
 ## Verification notes

@@ -104,8 +104,7 @@ class DocsChecks(unittest.TestCase):
             p.cleanup()
 
     def test_bad_docs_checks_are_refused(self):
-        for bad in ([{"id": "a"}], [{"id": "a", "cmd": "x"}, {"id": "a", "cmd": "y"}], [{"cmd": "x"}],
-                    [{"id": "a", "cmd": "x", "extra": 1}]):
+        for bad in ([{"id": "a"}], [{"id": "a", "cmd": "x"}, {"id": "a", "cmd": "y"}], [{"cmd": "x"}]):
             p = Product()
             try:
                 (p.root / "docs/delivery/plane.json").write_text(
@@ -234,7 +233,7 @@ class Rules(unittest.TestCase):
         finally:
             p.cleanup()
         for bad in ({"citations": {"globs": ["x"]}}, {"no_ids": {"patterns": []}}, {"history_attr": ""},
-                    {"no_overlap": "yes"}, {"spelling": True}, {"no_ids": {"globs": ["x"], "patterns": ["("]}},
+                    {"no_overlap": "yes"}, {"no_ids": {"globs": ["x"], "patterns": ["("]}},
                     {"citations": {"globs": ["x"], "targets": ["y"], "ignore": ["["]}}, {"no_call_bullets": 1}):
             p = Product()
             try:

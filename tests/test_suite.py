@@ -435,7 +435,7 @@ class Lanes(SuiteFixture, unittest.TestCase):
 
     def test_config_refuses_bad_lanes_and_patterns(self):
         for bad in ({"lanes": {"full": []}}, {"lanes": {"Full Lane": ["x"]}}, {"lanes": ["x"]},
-                    {"count_re": "("}, {"count_re": "no group"}, {"other": 1}):
+                    {"count_re": "("}, {"count_re": "no group"}):
             self.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "suite": bad}))
             with self.assertRaises(config.ConfigError, msg=bad):
                 config.load(self.main)
@@ -1016,7 +1016,7 @@ class Summary(SuiteFixture, unittest.TestCase):
 
     def test_config_refuses_bad_summary_patterns(self):
         for bad in ({"summary": {"failed_re": "no group"}}, {"summary": {"skipped_re": "("}},
-                    {"summary": {"tail_lines": -1}}, {"summary": {"max_chars": 10}}, {"summary": {"other": 1}},
+                    {"summary": {"tail_lines": -1}}, {"summary": {"max_chars": 10}},
                     {"summary": "x"}, {"summary": {"failed_re": []}}):
             self.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "suite": bad}))
             with self.assertRaises(config.ConfigError, msg=bad):

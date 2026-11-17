@@ -237,7 +237,7 @@ class LeadConfig(unittest.TestCase):
         return config.load(p.root)
 
     def test_a_lead_channel_needs_exactly_a_tool_and_a_to(self):
-        for bad in ({"tool": "x"}, {"to": "y"}, {"tool": "x", "to": "y", "cc": "z"}, {"tool": "", "to": "y"},
+        for bad in ({"tool": "x"}, {"to": "y"}, {"tool": "", "to": "y"},
                     {"tool": "x", "to": " "}, {"tool": 3, "to": "y"}, {"tool": "x", "to": "a\nb"}, {"tool": "x\r", "to": "y"},
                     {"tool": "x", "to": "a\rb"}, "mail", []):
             with self.subTest(bad=bad), self.assertRaisesRegex(config.ConfigError, r"notify\.lead"):
@@ -246,7 +246,7 @@ class LeadConfig(unittest.TestCase):
         self.assertIsNone(self.load({"command": "notify-me"}).notify["lead"])
 
     def test_tasks_check_refuses_a_malformed_lead_channel_by_name(self):
-        for bad in ({"tool": "x"}, {"tool": "x", "to": "y", "channel": "z"}, {"tool": "x", "to": "a\rb"}):
+        for bad in ({"tool": "x"}, {"tool": "x", "to": "a\rb"}):
             p = Product({"notify": {"lead": bad}})
             self.addCleanup(p.cleanup)
             out, err = io.StringIO(), io.StringIO()

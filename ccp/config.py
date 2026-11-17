@@ -298,6 +298,14 @@ UPGRADE_DEFAULTS: dict[str, Any] = {"declined": {}, "taken": {}}
 BLOCKS = ("task_log", "package_docs", "architect", "prompts", "reconcile", "adapter", "worktrees", "env", "merge",
           "auth_check", "telemetry", "board", "gate", "health", "usage", "workers", "suite", "adr", "verify",
           "review_points", "estimate", "parallel", "ids", "docs", "mutate", "report", "notify", "upgrade")
+# The keys of the objects inside blocks that the validators below read key by key.
+CHECK_KEYS = ("id", "cmd", "timeout_seconds")  # an entry of docs.checks or architect.checks
+BUDGET_KEYS = ("id", "glob", "path", "max_lines", "max_bytes", "cut_line")  # architect.budgets
+PROBE_KEYS = ("id", "cmd")  # auth_check.probes
+KIND_KEYS = ("refs_any", "forbid")  # each kind under task_log.kinds
+WINDOW_KEYS = ("kind", "stop_pct", "park_pct")  # each window under telemetry.windows
+DESIGN_SEAT_KEYS = ("model", "effort")  # telemetry.design_seat
+REPORT_FIELD_KEYS = ("name", "values")  # an entry of report.required_fields
 REPORT_FIELD_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9 _-]{0,39}$")
 # The lines `ccp report` already reads: a declared field may not take one of their names.
 REPORT_OWN_LINES = ("outcome", "pr", "head", "verdict", "severity", "suite")
@@ -375,6 +383,10 @@ class Config:
     # The product's id and reference patterns (plane.json `ids`, SPEC §7); the defaults otherwise.
     ids: refs.Ids = refs.DEFAULT
 
+    # §8.1: the keys plane.json holds that this ccp does not know, dotted (`verify.future_knob`): ignored when
+    # it loads, with a warning, and refused by `ccp docs check`.
+    unknown_keys: tuple[str, ...] = ()
+
     @property
     def delivery_dir(self) -> Path:
         return self.root / self.task_log["dir"]
@@ -429,6 +441,12 @@ def _aliases_ignored(suite: Any) -> tuple[str, ...]:
     if not isinstance(sm, dict):
         return ()
     return tuple(old for old, new in SUITE_SUMMARY_ALIASES.items() if old in sm and new in sm)
+
+
+def unknown_key_errors(cfg: Any) -> list[str]:
+    """§8.1: one failure per plane.json key this ccp does not know, for `ccp docs check`."""
+    return [f"{CONFIG_REL}: unknown key {k}: a typo, or a key this ccp predates (update ccp)"
+            for k in getattr(cfg, "unknown_keys", ())]
 
 
 def config_warnings(cfg: Any) -> list[str]:
@@ -546,7 +564,7 @@ def _docs(given: Any) -> dict[str, Any]:
     if not isinstance(d["checks"], list):
         raise ConfigError(f"{CONFIG_REL}: docs.checks must be a list of {{id, cmd}}")
     for i, c in enumerate(d["checks"]):
-        if not isinstance(c, dict) or set(c) - {"id", "cmd", "timeout_seconds"}:
+        if not isinstance(c, dict) or set(c) - set(CHECK_KEYS):
             raise ConfigError(f"{CONFIG_REL}: docs.checks[{i}] takes id, cmd and timeout_seconds")
         if not (isinstance(c.get("id"), str) and c["id"].strip()) or c["id"] in seen:
             raise ConfigError(f"{CONFIG_REL}: docs.checks[{i}].id must be a unique non-empty string")
@@ -603,8 +621,8 @@ def _architect(given: Any, ids: refs.Ids = refs.DEFAULT) -> dict[str, Any] | Non
         bad.append("areas must map an area name to a list of globs")
     if bad:
         raise ConfigError(f"{CONFIG_REL}: architect: " + "; ".join(bad))
-    _entries(a, "checks", {"id", "cmd", "timeout_seconds"}, {"id", "cmd"}, ids)
-    _entries(a, "budgets", {"id", "glob", "path", "max_lines", "max_bytes", "cut_line"}, {"id"}, ids)
+    _entries(a, "checks", set(CHECK_KEYS), {"id", "cmd"}, ids)
+    _entries(a, "budgets", set(BUDGET_KEYS), {"id"}, ids)
     for i, b in enumerate(a["budgets"]):
         if ("glob" in b) == ("path" in b) or not ({"max_lines", "max_bytes"} & set(b)):
             raise ConfigError(f"{CONFIG_REL}: architect.budgets[{i}] needs one of glob or path, "
@@ -779,7 +797,7 @@ def _report_fields(fields: Any) -> list[str]:
     bad: list[str] = []
     seen: set[str] = set()
     for i, f in enumerate(fields):
-        if not isinstance(f, dict) or set(f) != {"name", "values"}:
+        if not isinstance(f, dict) or set(f) != set(REPORT_FIELD_KEYS):
             bad.append(f"{where}[{i}] must be {{name, values}}")
             continue
         name, values = f["name"], f["values"]
@@ -855,7 +873,7 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
         bad.append("task_log.index must be true or false")
     kinds = raw.get("task_log", {}).get("kinds", TASK_LOG_DEFAULTS["kinds"])
     if not isinstance(kinds, dict) or not kinds or not all(
-            isinstance(k, str) and isinstance(v, dict) and set(v) <= {"refs_any", "forbid"}
+            isinstance(k, str) and isinstance(v, dict) and set(v) <= set(KIND_KEYS)
             and all(isinstance(v.get(x, []), list) and all(isinstance(i, str) for i in v.get(x, []))
                     for x in ("refs_any", "forbid")) for k, v in kinds.items()):
         bad.append("task_log.kinds must map each kind to {refs_any: [lists], forbid: [lists]}")
@@ -956,7 +974,7 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     if wins is not None:
         ok = isinstance(wins, dict) and all(
             isinstance(n, str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,31}", n) and isinstance(w, dict)
-            and not set(w) - {"kind", "stop_pct", "park_pct"} and w.get("kind", "weekly") in ("weekly", "session")
+            and not set(w) - set(WINDOW_KEYS) and w.get("kind", "weekly") in ("weekly", "session")
             and all(w.get(k) is None or (not isinstance(w[k], bool) and isinstance(w[k], (int, float)) and 0 < w[k] <= 100)
                     for k in ("stop_pct", "park_pct"))
             for n, w in wins.items())
@@ -977,7 +995,7 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
             if "session_park_pct" in given and "park_pct" in (wins.get("five_hour") or {}):
                 bad.append("telemetry: set the five_hour park once, as session_park_pct or windows.five_hour.park_pct")
     ds = tel["design_seat"]
-    if ds is not None and (not isinstance(ds, dict) or set(ds) - {"model", "effort"}
+    if ds is not None and (not isinstance(ds, dict) or set(ds) - set(DESIGN_SEAT_KEYS)
                            or not all(isinstance(v, str) and v.strip() for v in ds.values())):
         bad.append("telemetry.design_seat must be {model, effort}, each a string")
     est = out["estimate"]
@@ -995,7 +1013,7 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
         bad.append("estimate.auto must be true or false")
     cal = est["calibration"]
     _num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)  # noqa: E731
-    if not isinstance(cal, dict) or set(cal) - {"half_life", "min_pairs", "k"}:
+    if not isinstance(cal, dict) or set(cal) - set(ESTIMATE_DEFAULTS["calibration"]):
         bad.append("estimate.calibration must be {half_life, min_pairs, k}")
     else:
         if "half_life" in cal and not (_num(cal["half_life"]) and cal["half_life"] > 0):
@@ -1165,7 +1183,7 @@ def _worktree_blocks(raw: dict[str, Any], out: dict[str, Any]) -> list[str]:
         bad += _every_path("merge.behind_tip_ignore", bti)
     au = out["auth_check"]
     pr = au["probes"]
-    if not isinstance(pr, list) or not all(isinstance(x, dict) and set(x) == {"id", "cmd"}
+    if not isinstance(pr, list) or not all(isinstance(x, dict) and set(x) == set(PROBE_KEYS)
                                            and all(isinstance(x[k], str) and x[k].strip() for k in ("id", "cmd"))
                                            for x in pr):
         bad.append("auth_check.probes must be a list of {id, cmd}")
@@ -1215,12 +1233,92 @@ def _upgrade(given: Any) -> dict[str, Any]:
     return u
 
 
+@dataclass(frozen=True)
+class _Each:
+    """In `PLANE_KEYS`: a list, or an object whose names are the product's own, whose every item has `shape`."""
+    shape: Any
+
+
+def _known(keys: Any, **nested: Any) -> dict[str, Any]:
+    """An object's known keys (a defaults dict's, or a sequence), each with no shape of its own but `nested`'s."""
+    return {**dict.fromkeys(keys), **nested}
+
+
+# §8.1: the keys plane.json may hold, at every level `ccp` reads by key. A dict maps each known key to the
+# shape of its value (None: not read by key here); `_Each` is a list or a map of named items, each of that
+# shape. A key outside it is unknown: `load` ignores it with a warning and `ccp docs check` refuses it.
+_BLOCK_KEYS: dict[str, Any] = {
+    "task_log": _known(TASK_LOG_DEFAULTS, kinds=_Each(_known(KIND_KEYS))),
+    "package_docs": _known(PACKAGE_DOCS_DEFAULTS, rules={n: None if k is None else _known(sorted(k))
+                                                         for n, k in DOC_RULES.items()}),
+    "architect": _known(ARCHITECT_DEFAULTS, checks=_Each(_known(CHECK_KEYS)), budgets=_Each(_known(BUDGET_KEYS))),
+    "prompts": _known(PROMPTS_DEFAULTS),
+    "reconcile": _known(RECONCILE_DEFAULTS, log=_known(sorted(RECONCILE_LOG_KEYS))),
+    "adapter": _known(ADAPTER_DEFAULTS),
+    "worktrees": _known(WORKTREES_DEFAULTS),
+    "env": _known(ENV_DEFAULTS),
+    "merge": _known(MERGE_DEFAULTS),
+    "auth_check": _known(AUTH_CHECK_DEFAULTS, probes=_Each(_known(PROBE_KEYS))),
+    "telemetry": _known(TELEMETRY_DEFAULTS, design_seat=_known(DESIGN_SEAT_KEYS), windows=_Each(_known(WINDOW_KEYS))),
+    "board": _known(BOARD_DEFAULTS),
+    "gate": _known(GATE_DEFAULTS),
+    "health": _known(HEALTH_DEFAULTS),
+    "usage": _known(USAGE_DEFAULTS, advice=_known(USAGE_DEFAULTS["advice"])),
+    "workers": _known(WORKERS_DEFAULTS, implementer_model=_known(WORKER_MODEL_ARMS)),
+    "suite": _known(SUITE_DEFAULTS, lanes=_Each(_Each(_known(sorted(SUITE_STAGE_KEYS)))),
+                    summary=_known([*SUITE_SUMMARY_DEFAULTS, *SUITE_SUMMARY_ALIASES]), roles=_known(SUITE_ROLES)),
+    "adr": _known(ADR_DEFAULTS),
+    "verify": _known(VERIFY_DEFAULTS, accept_cache=_known(ACCEPT_CACHE_DEFAULTS),
+                     skip_review=_known(sorted(SKIP_REVIEW_KEYS)), provers=_Each(_known(sorted(PROVER_KEYS)))),
+    "review_points": _known(REVIEW_POINTS_DEFAULTS),
+    "estimate": _known(ESTIMATE_DEFAULTS, calibration=_known(ESTIMATE_DEFAULTS["calibration"])),
+    "parallel": _known(PARALLEL_DEFAULTS),
+    "ids": {k: _known(v) for k, v in refs.IDS_DEFAULTS.items()},
+    "docs": _known(DOCS_DEFAULTS, checks=_Each(_known(CHECK_KEYS)), starter_rules=_known(["declined"])),
+    "mutate": _known(MUTATE_DEFAULTS),
+    "report": _known(REPORT_DEFAULTS, required_fields=_Each(_known(REPORT_FIELD_KEYS))),
+    "notify": _known(NOTIFY_DEFAULTS, lead=_known(NOTIFY_LEAD_KEYS)),
+    "upgrade": _known(UPGRADE_DEFAULTS),
+}
+PLANE_KEYS: dict[str, Any] = {"$schema": None, "_note": None, "project_id": None, **{b: _BLOCK_KEYS[b] for b in BLOCKS}}
+
+
+def _drop_unknown(v: Any, shape: Any, where: str, out: list[str]) -> Any:
+    """`v` without the keys `shape` does not know, each appended to `out` as its dotted path; a value of
+    another type than the shape expects is kept as it is, for its block's validator to judge."""
+    if isinstance(shape, _Each):
+        if isinstance(v, list):
+            return [_drop_unknown(x, shape.shape, f"{where}[{i}]", out) for i, x in enumerate(v)]
+        if isinstance(v, dict):
+            return {k: _drop_unknown(x, shape.shape, f"{where}.{k}", out) for k, x in v.items()}
+        return v
+    if not isinstance(shape, dict) or not isinstance(v, dict):
+        return v
+    kept = {}
+    for k, x in v.items():
+        path = f"{where}.{k}" if where else k
+        if k in shape:
+            kept[k] = _drop_unknown(x, shape[k], path, out)
+        else:
+            out.append(path)
+    return kept
+
+
+_WARNED: set[tuple[str, str]] = set()  # (file, key) already warned about in this process
+
+
 def load(root: Path) -> Config:
     p = root / CONFIG_REL
     if not p.is_file():
         raise ConfigError(f"no {CONFIG_REL} in {root}: this product has not adopted ccp "
                           "(control-plane SPEC §8.1)")
-    return _parse(root, p.read_text())
+    cfg = _parse(root, p.read_text())
+    new = [k for k in cfg.unknown_keys if (str(p), k) not in _WARNED]
+    if new:
+        _WARNED.update((str(p), k) for k in new)
+        print(f"ccp: warning: {p}: unknown key(s) {', '.join(new)} ignored: this ccp may predate them "
+              "(update it); if they are typos, fix them (`ccp docs check` fails on them, §8.1)", file=sys.stderr)
+    return cfg
 
 
 def skip_rules_at(root: Path, rev: str, label: str | None = None) -> tuple[dict[str, Any], str]:
@@ -1248,9 +1346,8 @@ def _parse(root: Path, text: str) -> Config:
         raise ConfigError(f"{CONFIG_REL}: `project_id` is required")
     if not PROJECT_ID_RE.match(str(raw["project_id"]).strip()):
         raise ConfigError(f"{CONFIG_REL}: project_id {raw['project_id']!r} is not lowercase letters, digits and hyphens")
-    unknown = sorted(set(raw) - {"$schema", "_note", "project_id", *BLOCKS})
-    if unknown:
-        raise ConfigError(f"{CONFIG_REL}: unknown top-level key(s): {', '.join(unknown)}")
+    unknown: list[str] = []
+    raw = _drop_unknown(raw, PLANE_KEYS, "", unknown)
     bad_ids = refs.validate(raw.get("ids"))
     if bad_ids:
         raise ConfigError(f"{CONFIG_REL}: " + "; ".join(bad_ids))
@@ -1269,5 +1366,6 @@ def _parse(root: Path, text: str) -> Config:
         ids=ids,
         adr=_adr(raw.get("adr")),
         upgrade=_upgrade(raw.get("upgrade")),
+        unknown_keys=tuple(unknown),
         **_toolkit(raw),
     )

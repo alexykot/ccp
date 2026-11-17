@@ -190,7 +190,7 @@ class Knobs(unittest.TestCase):
     def test_bad_values_are_refused(self):
         for given in ({"advice": {"coordination_share": 1.5}}, {"advice": {"cache_5m_share": "half"}},
                       {"advice": {"context_tokens": 0}}, {"advice": {"context_tokens": True}},
-                      {"advice": {"other": 1}}, {"advice": "x"}, {"other": {}}, "x"):
+                      {"advice": "x"}, "x"):
             with self.subTest(given=given), self.assertRaises(config.ConfigError):
                 self.load(given)
 

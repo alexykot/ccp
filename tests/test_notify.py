@@ -249,8 +249,7 @@ class Config(unittest.TestCase):
             notify.send(self.load({"command": "true"}), "lunch")
 
     def test_a_bad_block_is_refused(self):
-        for bad in ({"command": ""}, {"command": 3}, {"timeout_seconds": 0}, {"timeout_seconds": True},
-                    {"channel": "mail"}, "mail"):
+        for bad in ({"command": ""}, {"command": 3}, {"timeout_seconds": 0}, {"timeout_seconds": True}, "mail"):
             with self.subTest(bad=bad), self.assertRaises(config.ConfigError):
                 self.load(bad)
         self.assertEqual(self.load({"command": "notify-me", "timeout_seconds": 5}).notify["timeout_seconds"], 5)
