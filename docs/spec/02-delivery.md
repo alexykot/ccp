@@ -516,8 +516,10 @@ metrics and every friction line. Report lines:
   `report.required_fields` (a list of `{name, values}`, default none), as `<name>: <value>` with one
   of its declared values. A report missing one, or giving another value, is refused with the field
   and its allowed values. A field is stated once; a field on two lines is refused. A declared value
-  followed by `|` and another of the field's declared values (the pasted template `a|b`) is read as
-  the template and refused; any other text after the value is a reason and is accepted, even one that
+  followed by `|` (the pasted template `a|b`), or by `/`, `,` or the word `or` and then another of
+  the field's declared values (the template respelled: `a / b`, `a, b`, `a or b`, and the longer forms
+  such as `a, b or c`) with no words after the last of them or a `|` between them, is read as the
+  template and refused; any other text after the value is a reason and is accepted, even one that
   starts with another declared value (`yes, no downtime needed`). The values are
   kept on the run (`fields`); the implement, fix, merge and ruling prompts list the declared fields, and the review prompt and `ccp prompt review`'s
   output show them as the task's latest done implement, fix, merge or ruling report states them. Whether a verdict is right is
