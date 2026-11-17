@@ -401,6 +401,161 @@ class EarlierTaskFiles(InitCase):
         self.assertNotIn("warnings", json.loads(r.stdout))
 
 
+class KeptBinding(InitCase):
+    """§8.3: a kept binding is checked against the current shape; each missing or obsolete key is a warning
+    naming the binding file and the fix, and init still adopts the product."""
+
+    def setUp(self):
+        super().setUp()
+        self.git("remote", "add", "origin", "https://github.com/team/repo.git")  # no origin warning
+        self.bindings.mkdir()
+
+    def keep(self, text: str) -> tuple[dict, str]:
+        self.binding.write_text(text)
+        r = self.ccp("init", "--project-id", "demo")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        res = json.loads(r.stdout)
+        self.assertIn("binding", res["kept"])
+        self.assertEqual(self.binding.read_text(), text)
+        return res, r.stderr
+
+    def named(self, warnings: list[str], key: str) -> str:
+        hits = [w for w in warnings if key in w]
+        self.assertEqual(len(hits), 1, (key, warnings))
+        for part in (str(self.binding), "ccp init --force"):
+            self.assertIn(part, hits[0])
+        return hits[0]
+
+    def test_an_earlier_generations_binding_is_named_with_what_it_lacks_and_carries(self):
+        _, err = self.keep(f"project_id: demo\nintegration_branch: main\nproduct_root: {self.repo}\n"
+                           f"durable_docs_path: docs/delivery/\nqueue_root: {self.queue}\n"
+                           "seats:\n  runner: x\n  steerer: y\nemail:\n  alert_to: a@example.com\nhosting: claude\n")
+        res = json.loads(self.ccp("init", "--project-id", "demo").stdout)
+        self.assertIn("lacks", self.named(res["warnings"], "the `runner` block"))
+        for key in ("`seats.runner`", "`email`", "`hosting`"):
+            self.assertIn("carries", self.named(res["warnings"], key))
+        self.assertEqual(len(res["warnings"]), 4, res["warnings"])  # `seats.steerer` is current
+        self.assertIn("seats.runner", err)
+
+    def test_retired_unlisted_and_partial_keys_are_named_and_still_read_ones_are_not(self):
+        res, _ = self.keep(f"project_id: demo\nintegration_branch: main\nproduct_root: {self.repo}\n"
+                           f"queue_root: {self.queue}  # here\nrunner:\n  agent_type: ccp:delivery-runner\n"
+                           "cadence:\n  verify_stale_minutes: 5\n  runner: '*/5 * * * *'\ngrok:\n  model: x\n"
+                           "architecture_review:\n  enabled: false\nmystery: 1\n"
+                           "auth_check:\n  script: auth.sh\nspec_maintainer:\n  kind: team-lead\n")
+        w = res["warnings"]
+        for key in ("`durable_docs_path`", "`runner.name`"):
+            self.assertIn("lacks", self.named(w, key))
+        for key in ("`cadence.verify_stale_minutes`", "`grok`", "`architecture_review`", "`mystery`"):
+            self.assertIn("carries", self.named(w, key))
+        self.assertEqual(len(w), 6, w)
+        self.assertFalse([x for x in w if "auth_check" in x or "spec_maintainer" in x or "`queue_root`" in x])
+
+    def test_a_binding_init_wrote_is_not_warned_about(self):
+        self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        code, res = self.init("--project-id", "demo")
+        self.assertEqual(code, 0, res)
+        self.assertIn("binding", res["kept"])
+        self.assertNotIn("warnings", res)
+
+    def test_force_rewrites_the_binding_without_a_warning(self):
+        self.binding.write_text(f"project_id: demo\nproduct_root: {self.repo}\nqueue_root: {self.queue}\nemail:\n  from: x\n")
+        code, res = self.init("--project-id", "demo", "--force")
+        self.assertEqual(code, 0, res)
+        self.assertNotIn("warnings", res)
+        self.assertIn("  name: runner", self.binding.read_text().splitlines())
+
+
+class PathsAgree(InitCase):
+    """§9.2: `ccp where` prints the paths `ccp init` prints, from a linked worktree too, each a real path."""
+
+    def test_init_and_where_from_a_worktree_print_the_same_real_paths(self):
+        self.git("remote", "add", "origin", "https://github.com/team/repo.git")
+        self.git("commit", "-q", "--allow-empty", "-m", "first")
+        wt = self.repo.parent / "wt"
+        self.git("worktree", "add", "-q", "--detach", str(wt))
+        real_q = self.home / "real" / "q"
+        real_q.mkdir(parents=True)
+        (self.home / "link").symlink_to(self.home / "real")
+        self.bindings.mkdir()
+        (self.home / "blink").symlink_to(self.bindings)
+        binding = self.bindings / "repo.yaml"
+        binding.write_text(f"project_id: repo\nintegration_branch: main\nproduct_root: {self.repo}\n"
+                           f"durable_docs_path: docs/delivery/\nqueue_root: {self.home / 'link' / 'q'}\n"
+                           "runner:\n  agent_type: ccp:delivery-runner\n  name: runner\n")
+        env = {"CCP_BINDINGS_DIR": str(self.home / "blink")}
+        r = self.ccp("--root", str(wt), "init", **env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        res = json.loads(r.stdout)
+        self.assertNotIn("warnings", res)
+        r = self.ccp("--root", str(wt), "where", CCP_NO_BINDING_QUEUE="0", **env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        where = json.loads(r.stdout)
+        want = (str(self.repo), str(binding), str(real_q))
+        for out in (res, where):
+            self.assertEqual((out["product_root"], out["binding"], out["queue_root"]), want, out)
+
+
+class KeptIndex(InitCase):
+    """§4.5: an existing INDEX.yaml is kept, listed as kept, and the README says so."""
+
+    def test_an_existing_index_is_kept_byte_for_byte_and_listed(self):
+        index = self.repo / "docs/delivery/INDEX.yaml"
+        index.parent.mkdir(parents=True)
+        index.write_text("# an earlier generation's index\ntasks: []\n")
+        self.git("add", "docs/delivery/INDEX.yaml")
+        self.git("commit", "-q", "-m", "index")
+        code, res = self.init("--project-id", "demo")
+        self.assertEqual(code, 0, res)
+        self.assertIn("docs/delivery/INDEX.yaml", res["kept"])
+        self.assertNotIn("docs/delivery/INDEX.yaml", res["written"])
+        self.assertEqual(index.read_text(), "# an earlier generation's index\ntasks: []\n")
+
+    def test_the_readme_says_an_existing_index_is_kept(self):
+        readme = (PLANE / "README.md").read_text()
+        start = readme.index("### 2. Adopt a product")
+        text = " ".join(readme[start:readme.index("\n#", start + 1)].split())
+        self.assertIn("`INDEX.yaml` when there is none (an existing one is kept and listed as kept; "
+                      "`ccp tasks index` regenerates it)", text)
+
+
+class GateInStandingDod(InitCase):
+    """§4.5, §21.2: init names `--gate` in the standing DoD it writes; docs check warns on the placeholder."""
+
+    DOD = "docs/delivery/standing-dod.md"
+
+    def docs_check(self) -> str:
+        r = self.ccp("docs", "check")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        return r.stdout
+
+    def test_the_gate_given_replaces_the_placeholder_item(self):
+        self.assertEqual(self.init("--project-id", "demo", "--gate", "python3 -m unittest")[0], 0)
+        lines = (self.repo / self.DOD).read_text().splitlines()
+        self.assertNotIn("7. …", lines)
+        self.assertIn("7. **The gate is `python3 -m unittest`**, run by the verifier at the PR head (item 5).", lines)
+        self.assertNotIn("placeholder", self.docs_check())
+
+    def test_without_a_gate_the_placeholder_stays_and_docs_check_warns(self):
+        self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        self.assertIn("7. …", (self.repo / self.DOD).read_text().splitlines())
+        warned = [x for x in self.docs_check().splitlines() if "warning:" in x and "placeholder" in x]
+        self.assertEqual(len(warned), 1, warned)
+        self.assertIn(self.DOD, warned[0])
+
+    def test_a_kept_standing_dod_is_untouched_and_force_writes_the_gate(self):
+        self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        before = (self.repo / self.DOD).read_text()
+        code, res = self.init("--project-id", "demo", "--gate", "make test")
+        self.assertEqual(code, 0, res)
+        self.assertIn(self.DOD, res["kept"])
+        self.assertEqual((self.repo / self.DOD).read_text(), before)
+        code, res = self.init("--project-id", "demo", "--gate", "make test", "--force")
+        self.assertEqual(code, 0, res)
+        self.assertIn("7. **The gate is `make test`**, run by the verifier at the PR head (item 5).",
+                      (self.repo / self.DOD).read_text().splitlines())
+
+
 class OriginHost(InitCase):
     def host(self, url):
         self.git("remote", "add", "origin", url)
