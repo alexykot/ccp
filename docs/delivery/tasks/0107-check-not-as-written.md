@@ -106,4 +106,16 @@ from the tooling, not from a relayed finding.
 
 *Append-only, newest last.*
 
+- 2026-11-17 — implementer: a check may carry `as_written: false` with `held_instead` and `ruling`
+  (contract and example, record version 3 → 4). `ccp verify record` refuses one on a check not run,
+  without `held_instead`, without `ruling`, or with a ruling not in the form `rests_on` accepts
+  (`verify.as_written_errors`, the write path only, as `rests_on_errors` is), naming the check; the pass
+  rules are unchanged, so it is still a pass or a fail. `ccp tasks close` prints the list on stderr just
+  before `_merge` (`verify.not_as_written`, `lifecycle._print_not_as_written`) and never refuses on it; a
+  re-run of close after the merge prints nothing, as it merges nothing. §15.4 gains the paragraph from
+  Scope; the verify template, the verifier and the runner brief say when to use it and to pass the list on.
+- Open: check-01 expects the refused copies to exit 2; `ccp verify record` refuses every record with exit 1
+  (§10.6: 1 is check failures), and these refusals keep that. Flagged to the runner.
+- Not built (beyond Scope): a refusal of `held_instead` or `ruling` on a check that is not `as_written: false`.
+
 ## Verification notes
