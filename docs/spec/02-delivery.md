@@ -752,7 +752,7 @@ never its output; the event carries the numbers, `cold` and the stages, not the 
 When a command is given after `--`, it runs and its exit code is returned even when `QUEUE_ROOT` is
 not set, there is no git checkout, `plane.json` is unreadable, an option's value is wrong (a bad
 `--lane` label or `--phase`) or a write fails. `ccp` prints one `ccp suite:` warning and
-records nothing more. It exits 2 only with no command to run, or with options that do not parse
+records nothing more. It exits 2 only with no command to run, with a command after `--` on a staged lane, or with options that do not parse
 (§14.2): then it runs nothing, so no run goes unrecorded.
 
 ### 14.6 The gate fits the agent's shell limit
