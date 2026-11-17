@@ -292,7 +292,7 @@ if done < {moves}:
     def shared_readme(self, text: str = README) -> None:
         """docs/a/README.md on main, covered by plane.json parallel.shared."""
         self.write("docs/a/README.md", text)
-        git(self.main, "add", "docs/a/README.md")
+        git(self.main, "add", "docs")
         git(self.main, "commit", "-q", "-m", "a package doc")
         git(self.main, "push", "-q", "origin", "main")
         self.plane_json(lambda c: c["parallel"].update(shared=["docs/*/README.md"]))
@@ -339,7 +339,7 @@ if done < {moves}:
         head = self.approved(extra={"docs/a/README.md": README.replace("- `one.py`: one\n", "- `one.py`: uno\n")})
         self.tip(self.put("docs/a/README.md", README.replace("- `one.py`: one\n", "- `one.py`: first\n")))
         code, _, out, err = self.close()
-        self.refused(code, out, err, head, "conflict", "docs/a/README.md")
+        self.refused(code, out, err, head, "conflicts in", "docs/a/README.md")
         self.assertEqual(self.gate_runs(), [])
 
     def test_a_side_that_removes_a_line_of_a_shared_file_refuses(self):
@@ -347,18 +347,20 @@ if done < {moves}:
         head = self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
         self.tip(self.put("docs/a/README.md", README.replace("- `one.py`: one\n", "") + "- `tip.py`: the tip's\n"))
         code, _, out, err = self.close()
-        self.refused(code, out, err, head, "conflict", "docs/a/README.md")
+        self.refused(code, out, err, head, "conflicts in", "docs/a/README.md")
 
-    def test_a_conflict_beyond_the_shared_files_still_refuses(self):
+    def test_appended_lines_in_a_file_not_shared_beside_a_shared_one_still_refuse(self):
+        self.write("docs/notes.md", "notes\n")
         self.shared_readme()
-        head = self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
+        head = self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n",
+                                    "docs/notes.md": "notes\nthe task's\n"})
 
         def change(c: Path) -> None:
             (c / "docs/a/README.md").write_text(README + "- `tip.py`: the tip's\n")
-            (c / "shared.txt").write_text(SHARED.replace("line 1\n", "line one, other\n", 1))
+            (c / "docs/notes.md").write_text("notes\nthe tip's\n")
         self.tip(change)
         code, _, out, err = self.close()
-        self.refused(code, out, err, head, "conflict", "shared.txt")
+        self.refused(code, out, err, head, "conflicts in", "docs/notes.md")
 
     def test_appended_lines_conflict_when_the_file_is_not_shared(self):
         self.write("docs/a/README.md", README)
@@ -368,7 +370,7 @@ if done < {moves}:
         head = self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
         self.tip(self.put("docs/a/README.md", README + "- `tip.py`: the tip's\n"))
         code, _, out, err = self.close()
-        self.refused(code, out, err, head, "conflict", "docs/a/README.md")
+        self.refused(code, out, err, head, "conflicts in", "docs/a/README.md")
 
     def test_a_red_gate_on_the_merge_refuses_naming_the_gate_run(self):
         head = self.approved()

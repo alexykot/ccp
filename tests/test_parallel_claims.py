@@ -45,6 +45,10 @@ class Meets(unittest.TestCase):
         for p in no:
             self.assertFalse(parallel.covered(p, shared), p)
         self.assertFalse(parallel.covered("docs/a/README.md", []))
+        # a glob or a directory is covered only by an equal entry or a directory holding it
+        self.assertFalse(parallel.covered("docs/*/x.md", ["docs/?/x.md"]))
+        self.assertFalse(parallel.covered("pkg/build", ["build"]))
+        self.assertTrue(parallel.covered("pkg/build/", ["pkg/"]))
 
 
 class ParallelFixture(ToolkitFixture):
