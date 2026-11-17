@@ -148,6 +148,13 @@
         "type": "string"
       },
       "description": "The old id (or ids) when the task-log owner amended this task's id (same number)"
+    },
+    "adopt": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "default": "none",
+      "description": "What a product must do to use what the task delivers: `none`, or one concrete step naming the file and key (§5.2, ADR-0041 D1). A missing key reads as none"
     }
   },
   "not": {

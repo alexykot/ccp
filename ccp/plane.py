@@ -3,12 +3,14 @@
   ccp plane propose --need TEXT --generic TEXT [--task ID] [--workaround TEXT] [--frequency per-task|per-run|once]
   ccp plane propose --again ID                       the need came up again, done by hand
   ccp plane triage ID --accept|--merge-into ID|--decline --reason TEXT    the plane session's call
+  ccp plane built ID --task TASK                     an accepted proposal built by a merged plane task (§29.3)
   ccp plane list [--open]
   ccp plane check                                    files in QUEUE_ROOT/scripts/ that are not the plane's
   ccp agent start|stop                               the SubagentStart / SubagentStop hooks (hook JSON on stdin)
 
 Proposals are `QUEUE_ROOT/plane/proposals.jsonl`, append-only: a `proposed` row, then `again` and
-`triaged` rows naming its id. The current state is the fold. An open proposal whose last `again` (or
+`triaged` rows naming its id, and a `built` row for an accepted one a merged plane task built, carrying
+that task's `adopt` step (ADR-0041 D4). The current state is the fold. An open proposal whose last `again` (or
 its creation, whichever is later) is STALE_DAYS old or more is flagged `stale` in the list and on the
 board.
 """
@@ -55,6 +57,9 @@ def proposals(q: Path) -> dict[str, dict[str, Any]]:
         elif pid in out and row.get("op") == "triaged":
             out[pid].update(status=row.get("decision"), triaged_at=row.get("at"), reason=row.get("reason"),
                             merged_into=row.get("merged_into"), triaged_by=row.get("by"))
+        elif pid in out and row.get("op") == "built":
+            out[pid].update(status="built", built_task=row.get("built_task"), adopt=row.get("adopt"),
+                            built_at=row.get("at"), built_by=row.get("by"))
     t = now().timestamp()
     for r in out.values():
         r["stale"] = _stale(r, t)
@@ -132,6 +137,28 @@ def triage(cfg: Config, a: Any) -> dict[str, Any]:
     emit(q, cfg, cur.get("task_id") or "", "plane", "triaged",
          {"proposal_id": a.id, "decision": picked[0], "reason": reason[:200]}, actor("plane-session"))
     return {"ok": True, "id": a.id, "status": picked[0]}
+
+
+def built(cfg: Config, a: Any) -> dict[str, Any]:
+    """§29.3, ADR-0041 D4: close an accepted proposal as built by a merged plane task (one `done` in the
+    plane's own task log), copying that task's `adopt` step into the proposal's record."""
+    from ccp import tasklog, upgrade  # noqa: PLC0415
+    q = root()
+    cur = proposals(q).get(a.id)
+    if not cur:
+        raise QueueError(f"no proposal {a.id}", 2)
+    if cur["status"] != "accepted":
+        raise QueueError(f"{a.id} is {cur['status']}: only an accepted proposal is closed as built", 3)
+    task = upgrade.merged_task(a.task)
+    if task is None:
+        raise QueueError(f"--task {a.task}: no merged plane task by that id (a `done` task in the plane's "
+                         "task log)", 2)
+    step = tasklog.adopt_step(task)
+    _append(q, {"op": "built", "id": a.id, "at": iso(), "by": actor("plane-session"), "built_task": a.task,
+                "adopt": step})
+    emit(q, cfg, cur.get("task_id") or "", "plane", "built", {"proposal_id": a.id, "built_task": a.task},
+         actor("plane-session"))
+    return {"ok": True, "id": a.id, "status": "built", "built_task": a.task, "adopt": step}
 
 
 def listing(_cfg: Config, a: Any) -> dict[str, Any]:

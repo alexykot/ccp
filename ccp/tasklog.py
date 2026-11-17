@@ -12,8 +12,9 @@ frontmatter, a task file that git or the committed INDEX knew and that is gone, 
 reused by another task (a renamed task says `renamed_from: <old id>`), and
 `warnings()` names a later task cited as a prerequisite in prose, where nothing enforces it (list it in
 `depends_on` instead), a number a task's Context states with no backticked command on its line (a
-measured premise names the command and the commit it ran at), and a task whose `paths` name the SPEC
-(`task_log.spec_paths`) with neither a `brief` sign-off nor `§31.1` in its Scope (§3.5).
+measured premise names the command and the commit it ran at), a task whose `paths` name the SPEC
+(`task_log.spec_paths`) with neither a `brief` sign-off nor `§31.1` in its Scope (§3.5), and a task whose
+`paths` name the plane.json schema or a settings template with no `adopt:` step (§5.2, ADR-0041 D1).
 
 A task has a kind (§20): `feature` (the default) or `refactor`. A refactor changes no rule, so it
 cites house rules or review findings (`rule_refs`, `review_refs`) instead of the spec, and proves
@@ -32,6 +33,7 @@ The product-specific values live in `plane.json`.
 """
 from __future__ import annotations
 
+import fnmatch
 import re
 import shlex
 import subprocess
@@ -79,6 +81,11 @@ RUNTIME_KEYS = ("waiting_on", "waiting_on_since", "lease", "lease_holder", "leas
                 "implementation_started_at")
 # §10 task_log.dry_run: a step that runs a backticked command, and the writer's record of running it.
 # A numbered step (`1.` or `1)`) with "run `…`" anywhere in it, the command wrapped onto the next line too.
+# §5.2, ADR-0041 D1: `adopt:` names what a product must do to use a task's delivery; missing, it is this.
+ADOPT_NONE = "none"
+# ADR-0041 D1: a task whose `paths` name one of these adds a knob or a setting a product must take, so
+# `ccp tasks check` warns when it carries no `adopt:` (a settings template: a templates/ file named *settings*).
+ADOPT_SCHEMA = "contracts/plane_config.schema.json"
 RUN_STEP_RE = re.compile(r"^[ \t]*\d+[.)][ \t]+(?:[^\n]*?\b)?run[ \t]*\n?[ \t]*`", re.I | re.M)
 # Each record says something: what the run printed, or why it cannot run yet (not the template's `<why>`).
 DRY_RUN_RE = re.compile(r"^[ \t]*dry run \(`?[0-9a-f]{7,40}`?\):[ \t]*(?:\n[ \t]*)?\S", re.I | re.M)
@@ -285,6 +292,51 @@ def sign_off_malformed(t: dict[str, Any]) -> str | None:
         return None
     return (f"sign_off {t['sign_off']!r} names no stage, or one that is not "
             f"{' or '.join(SIGN_OFF_STAGES)} (SPEC §3.5)")
+
+
+def adopt_step(t: dict[str, Any]) -> str:
+    """§5.2: the task's adoption step, `none` when it carries no `adopt:` key (ADR-0041 D1)."""
+    v = t.get("adopt")
+    return v.strip() if isinstance(v, str) and v.strip() else ADOPT_NONE
+
+
+def asks_nothing(step: str) -> bool:
+    """§5.2: whether an `adopt` step is `none`: its first word is `none`, an explanation after it allowed
+    (`none: it applies by itself`)."""
+    words = step.split(None, 1)
+    return bool(words) and words[0].rstrip(":;,.").lower() == ADOPT_NONE
+
+
+def adopt_malformed(t: dict[str, Any]) -> str | None:
+    """§5.2: why the task's `adopt:` value is not one line of text, or None when it is absent or one."""
+    if "adopt" not in t:
+        return None
+    v = t["adopt"]
+    if isinstance(v, str) and v.strip():
+        return None
+    return (f"adopt {v!r} is not one step: write `none`, or one line naming the file and key a product "
+            "sets to use what the task delivers (SPEC §5.2)")
+
+
+def _names_knob(path: str) -> bool:
+    """ADR-0041 D1: a `paths` entry that names the plane.json schema (itself or a glob over it) or a
+    settings template (a file under templates/ whose name holds `settings`)."""
+    p = path.strip().removeprefix("./")
+    if p == ADOPT_SCHEMA or (any(c in p for c in "*?[") and fnmatch.fnmatch(ADOPT_SCHEMA, p)):
+        return True
+    return p.startswith("templates/") and "settings" in p.rsplit("/", 1)[-1]
+
+
+def missing_adopt(t: dict[str, Any], rel: str) -> list[str]:
+    """ADR-0041 D1: a task not yet done or dropped whose `paths` name the plane.json schema or a settings
+    template and that carries no `adopt:` key. A warning: a product learns its step from that key."""
+    if t.get("status") in TERMINAL or "adopt" in t:
+        return []
+    named = [str(p) for p in _as_list(t.get("paths")) if _names_knob(str(p))]
+    if not named:
+        return []
+    return [f"{rel}: its paths name a knob a product sets ({', '.join(named)}) but it carries no `adopt:` key: "
+            "name the step a product takes to use it (the file and key), or `adopt: none` (SPEC §5.2)"]
 
 
 def kind_of(t: dict[str, Any]) -> str:
@@ -618,7 +670,8 @@ def warnings(cfg: Config) -> list[str]:
     """What `check` reports without failing: a task not yet done that names a later task as a
     prerequisite in prose, where nothing holds it back: the prerequisite belongs in `depends_on`,
     which may name a later task (§5); one whose Context states a number with no backticked
-    command on its line (§5); and one whose paths name the SPEC with no `brief` sign-off (§3.5)."""
+    command on its line (§5); one whose paths name the SPEC with no `brief` sign-off (§3.5); and one
+    whose paths name the plane.json schema or a settings template with no `adopt:` (§5.2)."""
     tasks = load(cfg)
     ids = refs.ids(cfg)
     later = {m.group(1): t.get("task_id") for t in tasks if (m := ids.task_file_re.match(t["_file"].name))}
@@ -629,6 +682,7 @@ def warnings(cfg: Config) -> list[str]:
     for t in tasks:
         out += unmeasured_numbers(t, cfg.rel(t["_file"]))
         out += unsigned_spec_edit(cfg, t, cfg.rel(t["_file"]))
+        out += missing_adopt(t, cfg.rel(t["_file"]))
         own = _number(t.get("task_id"), cfg)
         if own is None or t.get("status") in TERMINAL:
             continue
@@ -737,6 +791,8 @@ def check(cfg: Config) -> list[str]:
             errs += _check_kind(cfg, t, rel)
             errs += _check_refactor_gate(cfg, t, rel)
         if why := sign_off_malformed(t):  # §3.5: brief, build or both
+            errs.append(f"{rel}: {why}")
+        if why := adopt_malformed(t):  # §5.2: one step, or none
             errs.append(f"{rel}: {why}")
         if "gate" in t and str(t.get("gate") or "").strip().lower() != "cold":
             errs.append(f"{rel}: gate {t.get('gate')!r} is not `cold`, the one value it takes (§15.3)")

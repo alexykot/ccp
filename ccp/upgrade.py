@@ -1,0 +1,187 @@
+"""What a plane release asks of a product (SPEC §29.3, ADR-0041 D2).
+
+  ccp upgrade notes [--since COMMIT]   the plane's tasks merged since COMMIT, each with its `adopt` step
+  ccp upgrade status                   the `adopt` steps this product has not taken
+
+Both read the plane's own task log, in the plane checkout `ccp` runs from (normally the run checkout):
+a task is merged when its file says `done`, and merged since COMMIT when its file there did not. The
+default COMMIT is the plane checkout's previous release: the newest commit in its HEAD reflog that is
+not HEAD.
+
+A step is read by its form only: `<file> <key.path> [value]`, where the file is `plane.json`
+(`docs/delivery/plane.json`), `binding` (the product's binding) or `.claude/settings.json`. Such a step
+is taken when the product's file holds the key, whatever its value. A step whose first word is `none`
+asks nothing. Any other step, and one whose file cannot be read, is listed as "check by hand". plane.json `upgrade.declined` leaves a task's step out.
+The proposals a task answers are those the plane session closed as built by it (`ccp plane built`).
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+from pathlib import Path
+from typing import Any
+
+from ccp import config, tasklog
+from ccp.config import Config
+from ccp.queue import QueueError
+
+TAKEN, NOT_TAKEN, BY_HAND = "taken", "not taken", "check by hand"
+KEY_RE = re.compile(r"^[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*)*$")
+# The files a step may name, as the step writes them, and the kind of file each is.
+STEP_FILES = {"plane.json": "plane.json", config.CONFIG_REL: "plane.json", "binding": "binding",
+              ".claude/settings.json": "settings"}
+SHOWN = {"plane.json": config.CONFIG_REL, "binding": "the binding", "settings": ".claude/settings.json"}
+
+
+def _plane_root() -> Path:
+    from ccp import queue  # noqa: PLC0415  (read at call time: the tests point it at a scratch plane)
+    return queue.PLANE
+
+
+def _plane_cfg() -> Config:
+    root = _plane_root()
+    try:
+        return config.load(root)
+    except config.ConfigError as e:
+        raise QueueError(f"the plane checkout {root} has no readable task log: {e}", 2) from e
+
+
+def merged_tasks(cfg: Config | None = None) -> list[dict[str, Any]]:
+    """The plane's tasks whose file says `done`, in task-log order."""
+    return [t for t in tasklog.load(cfg or _plane_cfg()) if t.get("status") == "done"]
+
+
+def merged_task(task_id: str) -> dict[str, Any] | None:
+    """The plane's merged task `task_id`, or None when there is none."""
+    return next((t for t in merged_tasks() if t.get("task_id") == task_id), None)
+
+
+def _git(root: Path, *args: str) -> str | None:
+    r = subprocess.run(["git", "--no-optional-locks", "-C", str(root), *args], capture_output=True, text=True)
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+def previous_release(root: Path) -> str | None:
+    """The plane checkout's previous release: the newest commit in its HEAD reflog other than HEAD."""
+    head = _git(root, "rev-parse", "HEAD")
+    for sha in (_git(root, "reflog", "--format=%H", "HEAD") or "").split():
+        if sha != head:
+            return sha
+    return None
+
+
+def _proposals_by_task() -> dict[str, list[str]]:
+    """Built task id -> the proposals in this queue closed as built by it; {} without a queue."""
+    q = os.environ.get("QUEUE_ROOT")
+    if not q or not Path(q).is_dir():
+        return {}
+    from ccp import plane  # noqa: PLC0415
+    out: dict[str, list[str]] = {}
+    for p in plane.proposals(Path(q)).values():
+        if p.get("status") == "built" and p.get("built_task"):
+            out.setdefault(str(p["built_task"]), []).append(str(p["id"]))
+    return out
+
+
+def notes(_cfg: Config, a: Any) -> dict[str, Any]:
+    """§29.3: the plane's tasks merged since `--since`, each with its title, `adopt` step and the proposals
+    it answers."""
+    pcfg = _plane_cfg()
+    since = a.since or previous_release(pcfg.root)
+    if not since:
+        raise QueueError(f"the plane checkout {pcfg.root} has no previous release in its reflog: give --since COMMIT", 2)
+    sha = _git(pcfg.root, "rev-parse", "--verify", "-q", f"{since}^{{commit}}")
+    if not sha:
+        raise QueueError(f"--since {since}: not a commit in the plane checkout {pcfg.root}", 2)
+    done = merged_tasks(pcfg)
+    before = tasklog.statuses_at(pcfg, sha, [str(t["task_id"]) for t in done])
+    answers = _proposals_by_task()
+    tasks = [{"task": t["task_id"], "title": t.get("title"), "adopt": tasklog.adopt_step(t),
+              "proposals": answers.get(str(t["task_id"]), [])}
+             for t in done if before.get(str(t["task_id"])) != "done"]
+    return {"ok": True, "since": sha, "head": _git(pcfg.root, "rev-parse", "HEAD"), "tasks": tasks}
+
+
+def parse_step(step: str) -> tuple[str, str, str] | None:
+    """A step this command can check, as (file kind, key path, the value it names or ""); None otherwise."""
+    words = step.split(None, 2)
+    if len(words) < 2 or words[0] not in STEP_FILES or not KEY_RE.match(words[1]):
+        return None
+    return STEP_FILES[words[0]], words[1], words[2].strip() if len(words) > 2 else ""
+
+
+def _has(data: Any, key: str) -> bool:
+    for part in key.split("."):
+        if not isinstance(data, dict) or part not in data:
+            return False
+        data = data[part]
+    return True
+
+
+def _json_file(p: Path) -> dict[str, Any] | None:
+    """A JSON object file; {} when it is absent (it holds no key), None when it does not read."""
+    if not p.is_file():
+        return {}
+    try:
+        data = json.loads(p.read_text())
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def binding_keys(text: str) -> dict[str, Any]:
+    """The binding's `key: value` lines as nested objects by indentation (list items are not read)."""
+    out: dict[str, Any] = {}
+    stack: list[tuple[int, dict[str, Any]]] = [(-1, out)]
+    for line in text.splitlines():
+        m = re.match(r"^([ \t]*)([^\s#:-][^:#]*?):(?:[ \t]+(.*))?$", line.split(" #", 1)[0].rstrip())
+        if not m:
+            continue
+        depth = len(m.group(1).expandtabs(2))
+        while stack[-1][0] >= depth:
+            stack.pop()
+        node: dict[str, Any] = {}
+        stack[-1][1][m.group(2).strip()] = (m.group(3) or "").strip() or node
+        stack.append((depth, node))
+    return out
+
+
+def _sources(cfg: Config) -> dict[str, dict[str, Any] | None]:
+    """The product's three files as the steps read them; None for one that cannot be read."""
+    from ccp.cli import binding_file  # noqa: PLC0415
+    b = binding_file(cfg)
+    try:
+        binding = binding_keys(b.read_text()) if b else None
+    except OSError:
+        binding = None
+    return {"plane.json": _json_file(cfg.root / config.CONFIG_REL), "binding": binding,
+            "settings": _json_file(cfg.root / ".claude" / "settings.json")}
+
+
+def _change(kind: str, key: str, value: str) -> str:
+    return f"set `{key}` in {SHOWN[kind]}" + (f" to {value}" if value else "")
+
+
+def status(cfg: Config, _a: Any) -> dict[str, Any]:
+    """§29.3: each `adopt` step of a merged plane task that this product has not taken, with the task, the
+    product's own proposal for it and the change to make. A declined task's step is left out."""
+    declined = (cfg.upgrade or {}).get("declined") or {}
+    sources = _sources(cfg)
+    mine = _proposals_by_task()
+    steps = []
+    for t in merged_tasks():
+        tid, step = str(t["task_id"]), tasklog.adopt_step(t)
+        if tasklog.asks_nothing(step) or tid in declined:
+            continue
+        parsed = parse_step(step)
+        if parsed and sources[parsed[0]] is not None:
+            if _has(sources[parsed[0]], parsed[1]):
+                continue
+            check, change = NOT_TAKEN, _change(*parsed)
+        else:
+            check, change = BY_HAND, step
+        steps.append({"task": tid, "title": t.get("title"), "adopt": step, "check": check, "change": change,
+                      "proposals": mine.get(tid, [])})
+    return {"ok": True, "steps": steps}
