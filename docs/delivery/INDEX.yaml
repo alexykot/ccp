@@ -558,7 +558,7 @@ tasks:
     depends_on: []
     path: tasks/0111-init-writes-session-settings.md
   - id: 0112-parallel-gate-and-slow-modules
-    status: pending
+    status: done
     title: The plane's gate runs test modules in parallel, and health reports the slowest modules and the time per test
     depends_on: []
     path: tasks/0112-parallel-gate-and-slow-modules.md

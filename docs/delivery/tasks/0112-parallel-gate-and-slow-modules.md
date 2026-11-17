@@ -1,7 +1,7 @@
 ---
 task_id: 0112-parallel-gate-and-slow-modules
 title: The plane's gate runs test modules in parallel, and health reports the slowest modules and the time per test
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S27"]
@@ -104,3 +104,5 @@ modules are slowest and how the time per test is trending, so growth is seen bef
   123 s, both 1893 tests passing (10 workers); the slowest module was 80 s.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #118 head `81ab3f7` (close's catch-up of the approved `ee9dbd4`, gate run st-20261117T084616Z-d66594) (squash `2e25e80`): APPROVE. Passed: speed-01, gate-01, gate-02, cmd-01, suite-01. Gate: `scripts/gate.sh` exit 0, `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0112-parallel-gate-and-slow-modules.json.
+
