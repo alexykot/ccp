@@ -1,7 +1,7 @@
 ---
 task_id: 0114-usage-advice-for-costly-seats
 title: ccp usage advises on short-lived cache writes, oversized context and the coordination share, naming the setting that fixes each
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S24"]
@@ -93,3 +93,5 @@ workers, and names the setting that fixes each.
   the CLI reference.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #119 head `00e96cc` (squash `e152543`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, suite-01. Gate: `scripts/gate.sh (ccp suite run --lane gate)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0114-usage-advice-for-costly-seats.json.
+
