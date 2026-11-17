@@ -646,10 +646,11 @@ has a `Suite:` line but no suite run is recorded for its run.
   `ccp suite run` prints, rebuilt from the row and the log (the failure ids of a gate's result file and
   the stages not run are not recorded, so not shown), and exits with the run's exit code. Still running
   at the timeout, it prints the run's elapsed time and exits 3 (§10.6: not done yet); the caller
-  calls it again. A run with no `ended` row that §14.4 counts as `killed` will never end: it says so
-  and exits 1. An id with no record in the queue is refused (exit 2). It writes nothing. The worker
+  calls it again. A run that §14.4 counts as `killed` is a failed run, so `ccp suite wait` exits 1 at
+  once (§10.6). An id with no record in the queue is refused (exit 2). It writes nothing. The worker
   prompts give `ccp suite run` and `ccp mutate` the Bash tool's full `timeout: 600000` and send a
-  worker whose run went on past its call to `ccp suite wait`, never to a loop reading the log.
+  worker whose `ccp suite run` went on past its call to `ccp suite wait`, never to a loop reading the
+  log; a printed summary means the run ended, whatever the code.
 - **Environment:** the caller's, unchanged, plus `CCP_SUITE_ID` and `CCP_SUITE_RESULT`. In a worktree
   `ccp wt` made (§12.1), a lane's stages also get its `CCP_WT_<FIELD>` variables, the ones its env
   hooks get (§12.2), and its task as `CCP_TASK_ID` (the full id) and `CCP_NNNN`, both empty in
