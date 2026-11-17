@@ -662,3 +662,83 @@ tasks:
     title: A run pinned to a model alias reads as on-pin when telemetry reports a full id of that family
     depends_on: []
     path: tasks/0132-model-alias-matches-full-ids.md
+  - id: 0133-sandbox-sealed
+    status: pending
+    title: A ccp sandbox is sealed: init and every command inside it resolve to its own binding and queue, and it can fire a test notice
+    depends_on: []
+    path: tasks/0133-sandbox-sealed.md
+  - id: 0134-tasks-migrate
+    status: pending
+    title: ccp tasks migrate converts an earlier plane generation's task files in place, and the task-log checks point at it
+    depends_on: []
+    path: tasks/0134-tasks-migrate.md
+  - id: 0135-queue-legacy-archive
+    status: pending
+    title: ccp plane check names every queue entry the plane does not write, and --archive moves them to QUEUE_ROOT/_legacy/<date>/
+    depends_on: []
+    path: tasks/0135-queue-legacy-archive.md
+  - id: 0136-init-adoption-leftovers
+    status: pending
+    title: ccp init checks a kept binding's shape, agrees with ccp where on paths, lists a kept INDEX.yaml and writes the gate into the standing DoD
+    depends_on: []
+    path: tasks/0136-init-adoption-leftovers.md
+  - id: 0137-gate-lane-and-test-counts
+    status: pending
+    title: ccp init --gate keeps a shell line whole as one stage, and suite.count_re reads any runner's summary lines
+    depends_on: []
+    path: tasks/0137-gate-lane-and-test-counts.md
+  - id: 0138-lead-tooling-fresh-product
+    status: pending
+    title: A freshly adopted product's lead tools find the queue, say when a register is empty or a reading cannot be taken, and the idle hook lets a runner wait on its held task
+    depends_on: []
+    path: tasks/0138-lead-tooling-fresh-product.md
+  - id: 0139-adoption-readings
+    status: pending
+    title: ccp health reads from the product's adoption onwards, and tasks check's unmeasured-number warning skips stated limits and protocol codes
+    depends_on: []
+    path: tasks/0139-adoption-readings.md
+  - id: 0140-worktrees-outside-repo
+    status: pending
+    title: worktrees.dir may be an absolute path or lead outside the main checkout, such as a sibling directory
+    depends_on: []
+    path: tasks/0140-worktrees-outside-repo.md
+  - id: 0141-suite-mutate-leftovers
+    status: pending
+    title: A product whose tests are whole scripts gets a recorded mutation check, and a hand-made mutant never needs a restore in a seat's own worktree
+    depends_on: []
+    path: tasks/0141-suite-mutate-leftovers.md
+  - id: 0142-signed-text-checks
+    status: pending
+    title: The signed-text check reads each hunk on its own and no content line as a header, next's stdout names unsigned tasks, and a spec path without a slash is exact
+    depends_on: []
+    path: tasks/0142-signed-text-checks.md
+  - id: 0143-sign-off-carry-and-records
+    status: pending
+    title: Close's catch-up carries a build sign-off when nothing it covers changed, and a lead's ruling gets an id a verdict can cite
+    depends_on: []
+    path: tasks/0143-sign-off-carry-and-records.md
+  - id: 0144-spec-paths-default-includes-docs-spec-md
+    status: pending
+    title: task_log.spec_paths defaults to the same SPEC files as estimate.spec_paths, docs/SPEC.md included
+    depends_on: []
+    path: tasks/0144-spec-paths-default-includes-docs-spec-md.md
+  - id: 0145-adoption-rule-fixes
+    status: pending
+    title: The permission block the plane prints no longer trips its own docs check, and ccp upgrade status marks each step required or optional
+    depends_on: []
+    path: tasks/0145-adoption-rule-fixes.md
+  - id: 0146-cold-from-the-count
+    status: pending
+    title: A suite run is recorded cold from its own count alone, so a gate that ignores the cold signal never records cold, and verify record reads the same value
+    depends_on: []
+    path: tasks/0146-cold-from-the-count.md
+  - id: 0147-signed-text-in-context-and-stale-sign-offs-wait
+    status: pending
+    title: The signed-text check finds a passage that starts on an unchanged line, and next passes over a stale or malformed brief sign-off
+    depends_on: [0142-signed-text-checks]
+    path: tasks/0147-signed-text-in-context-and-stale-sign-offs-wait.md
+  - id: 0148-report-correction
+    status: pending
+    title: A worker corrects a recorded report before the task's next run opens, the earlier one kept as superseded
+    depends_on: []
+    path: tasks/0148-report-correction.md
