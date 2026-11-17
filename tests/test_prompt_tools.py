@@ -41,6 +41,13 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
             self.assertIn(f"suite affected --since {since}`", text, phase)
             self.assertNotIn("dependent-modules", text, phase)
 
+    def test_every_worker_prompt_gives_long_commands_the_full_timeout_and_names_suite_wait(self):
+        for phase, args, _since in (("verify", ("--pr", "7", "--head", A), A), ("review", ("--pr", "7", "--head", A), A),
+                                    *CHANGE_ROUNDS):
+            _run_id, text = self.render(phase, *args)
+            self.assertIn("timeout: 600000", text, phase)
+            self.assertIn("suite wait <suite_id>", text, phase)
+
     def test_no_template_sends_a_worker_to_a_mutation_worktree_or_a_discovery_command(self):
         for phase in ("implement", "fix", "ruling", "merge", "verify"):
             text = (PLANE / "templates/prompts" / f"{phase}.md").read_text()

@@ -1,8 +1,9 @@
-"""`ccp suite run|list|affected` (SPEC §10, §14.1, §14.7): workers run their tests through `ccp`, which
-records how long each run took, and ask it which test modules a change touches.
+"""`ccp suite run|wait|list|affected` (SPEC §10, §14.1, §14.2, §14.7): workers run their tests through `ccp`,
+which records how long each run took, wait on a run's summary, and ask it which test modules a change touches.
 
   ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--full | --summary] [--log PATH]
                 [-- COMMAND …]
+  ccp suite wait SUITE_ID [--timeout SECONDS]
   ccp suite list [--task ID]
   ccp suite affected [--since REF | --paths PATH …]
 
@@ -67,6 +68,11 @@ lane, the output mode, the command's basename and its argument count, never its 
 output. The run it belongs to is `--run`, else the latest open run of `--task` (and `--phase`),
 else the one running worker run whose worktree holds the current directory. A `started` row with
 no end is `killed` once its run has stopped or reported, or after KILLED_AFTER_S.
+
+`wait` returns when a recorded run's `ended` row is written: it prints the summary `run` printed, rebuilt
+from the row and the log, and exits with the run's exit code. A run still going at `--timeout` (default
+WAIT_TIMEOUT_S) prints its elapsed time and exits 3; an id with no record exits 2; a run §14.4 counts as
+killed exits 1 at once, since it will never end. It writes nothing.
 
 `affected` prints the test modules a change touches, for the `part` lane, and runs nothing (§14.7). The
 change is `--paths` (normalised, relative to the root), else what `git diff REF` (default HEAD) names
@@ -1588,6 +1594,122 @@ def table(report: dict[str, Any]) -> str:
     elif tt is not None:
         lines.append(f"task {report.get('task_id')}: no suite runs recorded (ccp suite run)")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------------------- wait
+# §14.2, §16.6: a worker whose run outlasts its command limit, or whose harness moved the run to the
+# background, waits for that run's summary by its suite id, in a bounded foreground call.
+
+WAIT_TIMEOUT_S = 540  # `ccp suite wait`'s default bound: under the 600 s shell limit, with room for the call
+WAIT_POLL_S = 0.5  # how often the suites file is read while waiting
+NOT_DONE = 3  # §10.6: not done yet; call again
+
+
+def _rows(q: Path, suite_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """The `started` and `ended` rows recorded for one suite id (the last of each), or None."""
+    started = ended = None
+    p = path(q)
+    for line in p.read_text(errors="replace").splitlines() if p.is_file() else []:
+        if suite_id not in line:
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(row, dict) or row.get("suite_id") != suite_id:
+            continue
+        if row.get("op") == "started":
+            started = row
+        elif row.get("op") == "ended":
+            ended = row
+    return started, ended
+
+
+def _killed(q: Path, suite_id: str) -> bool:
+    """Whether §14.4's totals count this open run as killed: it will never get an `ended` row."""
+    try:
+        return any(s.get("suite_id") == suite_id and s.get("state") == "killed" for s in fold(q))
+    except Exception:  # noqa: BLE001  (a damaged suites file: keep waiting on the row itself)
+        return False
+
+
+def ended_summary(cfg: Config | None, started: dict[str, Any] | None, ended: dict[str, Any]) -> str:
+    """The summary `ccp suite run` printed for a run that has ended, rebuilt from its records and its
+    log: the failing tests' sections and the log's tail from the log when it is still there, the
+    stage line from the row, and the closing result line. What the records do not keep (a gate's
+    failure ids, the stages not run) is not shown."""
+    sid = str(ended.get("suite_id"))
+    code = ended.get("exit_code")
+    code = code if isinstance(code, int) and not isinstance(code, bool) else 1
+    lane = (started or {}).get("lane")
+    try:
+        seconds = float(ended.get("seconds") or 0)
+    except (TypeError, ValueError):
+        seconds = 0.0
+    fields: dict[str, int | None] = {f: ended.get(f) for f in SUMMARY_FIELDS}
+    for old, new in LEGACY_FIELDS.items():  # a row written before the gate-result contract
+        if old in ended and new not in ended:
+            fields[new] = ended[old]
+    sig_name = ended.get("interrupted") if isinstance(ended.get("interrupted"), str) else None
+    stages = ended.get("stages")
+    stage_text = stages_line(sid, stages, [], ended.get("proven_skips")) if isinstance(stages, list) else None
+    scfg = _summary_cfg(cfg)
+    log = Path(ended["log"]) if isinstance(ended.get("log"), str) else None
+    if log is not None and log.is_file():
+        try:
+            dig = digest(log, scfg, _count_re(cfg))
+        except Exception:  # noqa: BLE001  (the summary line still stands)
+            dig = None
+        out = render_summary(sid, log, code, lane, seconds, ended.get("tests"), fields, sig_name, dig,
+                             scfg["max_chars"], stage_text)
+    else:
+        out = (stage_text + "\n" if stage_text else "") \
+            + summary_line(sid, code, lane, seconds, ended.get("tests"), fields, sig_name) + "\n" \
+            + (f"ccp suite: the log {log} is gone\n" if log is not None else "ccp suite: no log was kept (--full)\n")
+    if ended.get("result_problem"):
+        out += f"ccp suite: {sid}: the gate's result file was not used ({ended['result_problem']})\n"
+    return out
+
+
+def wait(cfg: Config | None, q: Path, suite_id: str, timeout: float) -> int:
+    """`ccp suite wait`: the run's summary and exit code once its `ended` row is written; still going at
+    `timeout`, its elapsed time and exit 3. An id with no record exits 2, and a run §14.4 counts as
+    killed (it will never end) exits 1 at once."""
+    deadline = time.monotonic() + timeout
+    while True:
+        started, ended = _rows(q, suite_id)
+        if ended is not None:
+            _say(ended_summary(cfg, started, ended))
+            code = ended.get("exit_code")
+            return code if isinstance(code, int) and not isinstance(code, bool) else 1
+        if started is None:
+            print(f"ccp suite: no suite run {suite_id} is recorded in this queue", file=sys.stderr)
+            return 2
+        t0 = _epoch(started.get("at"))
+        elapsed = f"{time.time() - t0:.0f} s" if t0 is not None else "an unknown time"
+        if _killed(q, suite_id):
+            _say(f"ccp suite: {suite_id}: killed: it has no end recorded and never will (its run stopped or "
+                 f"reported, or it started over {KILLED_AFTER_S // 60} min ago); started {elapsed} ago\n")
+            return 1
+        left = deadline - time.monotonic()
+        if left <= 0:
+            _say(f"ccp suite: {suite_id}: still running, {elapsed} since it started (lane "
+                 f"{started.get('lane') or 'none'}); waited {timeout:g} s. Call `ccp suite wait {suite_id}` again\n")
+            return NOT_DONE
+        time.sleep(min(WAIT_POLL_S, left))
+
+
+def main_wait(cfg: Config, a: Any) -> int:
+    timeout = WAIT_TIMEOUT_S if a.timeout is None else a.timeout
+    if timeout < 0:
+        print("ccp suite: --timeout must be 0 or more seconds", file=sys.stderr)
+        return 2
+    try:
+        q = root()
+    except QueueError as e:
+        print(f"ccp suite: {e}", file=sys.stderr)
+        return e.code
+    return wait(cfg, q, a.suite_id, timeout)
 
 
 # §14.7: the test modules a change touches, for choosing the `part` lane. Nothing is run or recorded.
