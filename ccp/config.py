@@ -302,6 +302,16 @@ _INTS = {"rules_max_lines": 1, "every_n_tasks": 1, "max_days": 1, "notes_due": 1
 _STR_LISTS = ("probes", "metrics", "shape_only_dirs", "private_dirs")
 RULE_ID_RE = refs.DEFAULT.rule_id_re  # the default house-rule id; a product may set ids.rule (refs.py)
 PROJECT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+# §4.5, §8.3: the binding's `lead` block. `auto_compact_window` is the `autoCompactWindow` `ccp init` writes
+# into a product's `.claude/settings.json` when it has none.
+LEAD_DEFAULTS: dict[str, Any] = {"auto_compact_window": 350000}
+
+
+def lead_auto_compact_window(lead: dict[str, str]) -> int:
+    """The binding's `lead.auto_compact_window` (§4.5) from its `lead` block's scalars: a positive whole
+    number, else the default (absent, or not one)."""
+    v = str(lead.get("auto_compact_window", "")).strip()
+    return int(v) if re.fullmatch(r"[0-9]+", v) and int(v) >= 1 else LEAD_DEFAULTS["auto_compact_window"]
 
 
 class ConfigError(Exception):

@@ -1,17 +1,21 @@
 """`ccp init`: adopt a product with one command (SPEC §4.3, §4.5, §8.3).
 
 Run in a product's repository, it writes the product footprint (the PROJECT, SPEC and delivery
-templates, with `--starter-rules` the plane's starter house rules (§20.5), a minimal `plane.json`, `.plane-runtime/` in `.gitignore`, the plugin anchor merged into
-`.claude/settings.json`, the one `CLAUDE.md` line) and, outside the repository, the binding in this
-plane's bindings directory and the queue directory it names. The binding is the one source of
-truth: every reader resolves it through `lib.binding_path`, and no copy goes into the queue (§8.3).
+templates, with `--starter-rules` the plane's starter house rules (§20.5), a minimal `plane.json`,
+`.plane-runtime/` in `.gitignore`, the plugin anchor merged into `.claude/settings.json` with the
+session settings `subagentPromptCacheTtl` and `autoCompactWindow`, the one `CLAUDE.md` line) and,
+outside the repository, the binding in this plane's bindings directory and the queue directory it
+names. The binding is the one source of truth: every reader resolves it through `lib.binding_path`,
+and no copy goes into the queue (§8.3).
 
 It never overwrites a file without `--force`: an existing file is kept and listed as kept, so a
-second run, or a run after the binding was edited, changes nothing. It refuses, writing nothing, when
-keeping a file would leave the product inconsistent: a `plane.json` naming another project id or
-not loading, a binding for the id that names another product root, or a settings file that is not a
-JSON object. It also refuses, writing nothing, a `--gate` it cannot split and a product root or
-queue path holding `#`, which every binding reader cuts off as a comment.
+second run, or a run after the binding was edited, changes nothing. A session setting the product
+already has is never overwritten, `--force` or not; the result's `settings` names each as added or
+kept. It refuses, writing nothing, when keeping a file would leave the product inconsistent: a
+`plane.json` naming another project id or not loading, a binding for the id that names another
+product root, or a settings file that is not a JSON object. It also refuses, writing nothing, a
+`--gate` it cannot split and a product root or queue path holding `#`, which every binding reader
+cuts off as a comment.
 
 Pull requests need a GitHub origin until the PR host is an adapter (ADR-0040 D7): when the product
 has no `origin`, or its host is not GitHub, init warns on stderr and in the result's `warnings`,
@@ -70,6 +74,10 @@ ANCHOR: dict[str, dict[str, Any]] = {
     "env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"},
 }
 CLAUDE_LINE = "This repo is delivered by CCP (Claude Control Plane): its plugin and `ccp`."
+# §2.4, §4.5: the session settings init adds when absent and never overwrites: the runner teammate's
+# prompt-cache lifetime, and the lead's compaction window (the binding's `lead.auto_compact_window`).
+CACHE_TTL_SETTING = ("subagentPromptCacheTtl", "1h")
+COMPACT_SETTING = "autoCompactWindow"
 # §4.5, §18.5: what `--permissions` allows besides `ccp`, the plane's seat scripts and the gate lane:
 # the git verbs the runner and its workers run, and the destructive commands it denies.
 SEAT_SCRIPTS = ("scripts/team.sh", "scripts/spec-maintainer-ask.sh")
@@ -182,9 +190,10 @@ def plane_json_text(project_id: str, gate: str | None, starter_rules: bool = Fal
     return json.dumps(cfg, indent=2) + "\n"
 
 
-def _merged_settings(path: Path) -> tuple[dict[str, Any], bool]:
-    """The settings with the anchor merged in; True when that changed them. Other keys, and any value
-    the product already set for these, stay as they are."""
+def _merged_settings(path: Path, compact_window: int) -> tuple[dict[str, Any], bool, dict[str, str]]:
+    """The settings with the anchor merged in and the session settings (§4.5) added when absent; True
+    when that changed them; each session setting as `added` or `kept`. Other keys, and any value the
+    product already set for these, stay as they are."""
     data: Any = {}
     if path.is_file():
         try:
@@ -200,7 +209,11 @@ def _merged_settings(path: Path) -> tuple[dict[str, Any], bool]:
             raise QueueError(f"ccp init: {path}: `{key}` is not an object; fix it, then run init again", 2)
         for k, v in add.items():
             block.setdefault(k, v)
-    return data, json.dumps(data, sort_keys=True) != before
+    session: dict[str, str] = {}
+    for key, value in (CACHE_TTL_SETTING, (COMPACT_SETTING, compact_window)):
+        session[key] = "kept" if key in data else "added"
+        data.setdefault(key, value)
+    return data, json.dumps(data, sort_keys=True) != before, session
 
 
 def init(root: Path, project_id: str | None, queue_root: str | None, branch: str | None,
@@ -254,10 +267,14 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
             raise QueueError(f"ccp init: the {what} {path} holds `#`, which the binding readers cut off "
                              "as a comment; use a path without it", 2)
     settings = root / ".claude" / "settings.json"
-    merged_settings, settings_changed = _merged_settings(settings)  # refuses before anything is written
+    # §4.5: the window is the binding's as it stands after init: the kept one's, else the default.
+    lead = lib._yaml_block_scalars(old, "lead") if keep_binding and old else {}
+    window = config.lead_auto_compact_window(lead)
+    # refuses before anything is written
+    merged_settings, settings_changed, session = _merged_settings(settings, window)
 
     out: dict[str, Any] = {"project_id": pid, "product_root": str(product_root), "binding": str(binding),
-                           "queue_root": str(q), "written": [], "merged": [], "kept": []}
+                           "queue_root": str(q), "written": [], "merged": [], "kept": [], "settings": session}
 
     def put(path: Path, text: str, label: str) -> None:
         if path.exists() and not force:

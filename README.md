@@ -115,6 +115,11 @@ alone:
 "env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}
 ```
 
+It also adds two session settings there when absent, and never overwrites one the product set:
+`"subagentPromptCacheTtl": "1h"`, the runner teammate's prompt-cache lifetime, and
+`"autoCompactWindow": 350000`, the lead's compaction window (the binding's `lead.auto_compact_window`
+sets another). Its result's `settings` names each as added or kept.
+
 It appends one line to `CLAUDE.md`, once: "This repo is delivered by CCP (Claude Control Plane): its
 plugin and `ccp`." Outside the repository it writes the binding, `$PLANE/projects/my-product.yaml`,
 and creates the queue, `~/.delivery-queue/my-product/` (`--queue-root` picks another).

@@ -535,8 +535,9 @@ shows.
 
 - **Tool allowlist.** Every delivery agent definition names its tools (`tools`, `disallowedTools`),
   with no `Skill`; `SendMessage` stays reachable through `ToolSearch`.
-- **Cache lifetime.** `experimental.cacheTtl: 1h` in every delivery definition; `ccp usage` shows
-  the 1-hour cache writes (`W-1H`) per run and seat.
+- **Cache lifetime.** `experimental.cacheTtl: 1h` in every delivery definition covers worker
+  subagents; the runner teammate's comes from `subagentPromptCacheTtl` in settings (§2.4). `ccp usage`
+  shows the 1-hour cache writes (`W-1H`) per run and seat.
 - **Fail fast.** Before the full suite, the implementer and fixer run a pre-gate: the product's
   `architect.checks` commands (rendered from plane.json) and the test modules depending on the
   changed paths as `ccp suite affected` lists them (§14.7), through `ccp suite run --lane part`. It

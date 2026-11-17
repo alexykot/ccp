@@ -83,4 +83,15 @@ saying an agent definition's cache lifetime reaches the runner.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `ccp init` adds `subagentPromptCacheTtl: "1h"` and `autoCompactWindow` to
+  `.claude/settings.json` when absent (`ccp/init.py` `_merged_settings`), never overwriting either,
+  `--force` included, and its result gains `settings`: each setting named `added` or `kept`. The
+  window is the binding's as it stands after init: a kept binding's `lead.auto_compact_window`, else
+  `config.LEAD_DEFAULTS` (350000); a value that is no positive whole number reads as the default, as
+  the runner's rotation knobs do. `contracts/project.schema.json` gains the `lead` block. §2.4 keeps
+  its sentence on the environment overrides after the PROPOSED text, which replaced only the
+  sentence the CURRENT quoted. README's adoption section names the two settings.
+- 2026-11-17 (implementer, fix 1): ADR-0041 D5 and D6 recorded `built` (`ccp adr decide`), as this
+  task builds both; review MAJOR 1.
+
 ## Verification notes

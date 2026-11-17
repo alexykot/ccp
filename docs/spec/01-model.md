@@ -112,11 +112,12 @@ the lead session's settings:
   the reviewer the same without `Edit`. The verifier keeps `Edit` for its mutation runs in a scratch
   worktree; the reviewer keeps `Write` for its report; `ToolSearch` stays because `SendMessage` is a
   deferred tool. The runner's allowlist is `Agent, Bash, Read, Edit, Write`.
-- Every delivery definition, the runner's included, sets `experimental: {cacheTtl: 1h}`: a one-hour
-  prompt-cache lifetime, so a long suite run or a wait on a worker does not expire the cache. A
-  `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL` environment variable, a `subagentPromptCacheTtl` setting or
-  `FORCE_PROMPT_CACHING_5M` overrides it, and Claude Code ignores `1h` while a subscription is in
-  overage.
+- Every delivery definition sets `experimental: {cacheTtl: 1h}`: a one-hour prompt-cache lifetime
+  for worker subagents, so a long suite run does not expire the cache. The runner is an agent-team
+  teammate, whose cache lifetime comes from the `subagentPromptCacheTtl` setting, not its definition;
+  `ccp init` sets it to `1h` (§4.5). A `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL` environment variable, a
+  `subagentPromptCacheTtl` setting or `FORCE_PROMPT_CACHING_5M` overrides it, and Claude Code ignores
+  `1h` while a subscription is in overage.
 
 ### 2.5 How workers report
 
@@ -406,8 +407,10 @@ A product is adopted by running `ccp init` in its repository. It writes:
   `--gate` the gate lane, and with `--starter-rules` `docs.starter_rules` and the `package_docs`
   settings the starter rules' checks name; and `INDEX.yaml` when the product keeps one (§5.7);
 - `.plane-runtime/` in `.gitignore`;
-- the anchor merged into `.claude/settings.json`, leaving its other keys and values alone, and the
-  one `CLAUDE.md` line, once (§4.3);
+- the anchor merged into `.claude/settings.json`, leaving its other keys and values alone, with
+  `subagentPromptCacheTtl: "1h"` and `autoCompactWindow` (the binding's `lead.auto_compact_window`,
+  default `350000`) added when absent and never overwritten, and the one `CLAUDE.md` line, once
+  (§4.3);
 - outside the repository, the local binding and its queue directory (§8.3).
 
 It keeps a file that already exists and lists it as kept, unless given `--force`, so running it again
