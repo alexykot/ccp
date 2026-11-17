@@ -1,7 +1,7 @@
 ---
 task_id: 0123-unknown-config-keys-warn
 title: An older ccp warns on a plane.json key it does not know, and docs check refuses it
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S8", "S16", "S19"]
@@ -101,3 +101,5 @@ product's plane.json between the merge and the release; a typo still fails the p
   behaviour (`test_estimate`, `test_parallel_claims`, `test_pkgdocs_config`, `test_rules`, `test_wt`).
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #139 head `26acfdb` (squash `ef82a33`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, check-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0123-unknown-config-keys-warn.json.
+
