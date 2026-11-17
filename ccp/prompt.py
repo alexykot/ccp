@@ -607,6 +607,8 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         # §15.3: the product's content-keyed test cache, when its plane.json accepts the hits
         "accept_cache": bool(verify.cache_rule(cfg)), "cache_max_age_days": (verify.cache_rule(cfg) or {}).get("max_age_days") or "",
         "cold_gate": verify.cold_gate(cfg, meta),
+        # §15.2: the reviewer and the verifier check the PR's SPEC lines against the signed text
+        "brief_sign_off": "brief" in tasklog.sign_off_stages(meta),
         # §15.3: the reviewer's touched modules through the same cache, when the product says so
         "review_cache": bool((verify.cache_rule(cfg) or {}).get("review")),
         # §15.2: the fail-fast pre-gate names the product's house-rule checks

@@ -3,6 +3,7 @@
   ccp verify record FILE|-              validate a verdict, then write verification/<task_id>.json
   ccp verify merge-ok PR [--task ID]    may the runner merge this PR now? (exit 0 only if so)
   ccp verify check TASK_ID --head SHA   the record covers this head (the adapter path, no `gh`)
+  ccp verify spec-text TASK_ID [--base REF]  the PR's SPEC lines carry the text the operator signed
 
 A record is validated against `contracts/verification.schema.json` itself (a stdlib subset of
 JSON Schema, so the plane takes no dependency) and against the rules the schema cannot hold:
@@ -89,6 +90,14 @@ A record may carry `catch_up` (§16.5 rule 4), which only `ccp tasks close` writ
 itself, ran the gate lane on the result and pushed it as the task branch's new head. `merge-ok` accepts
 that head, `catch_up.to`, in place of `head_sha` only when `catch_up.from` is `head_sha` and its
 `gate_run` is a passed `ccp suite run` of the product's gate lane bound to the task (`catch_up_refusal`).
+
+`spec-text` (§15.2) checks a PR's SPEC edits against the words the operator signed (§3.5): each
+`PROPOSED:` marker in the task's Scope followed by `> ` blockquote lines is a signed passage
+(`signed_passages`), and each must appear, whitespace-normalised, in the lines `git diff <base>...HEAD`
+adds to files under `task_log.spec_paths` (`spec_text`), each file's added lines read as one text. The
+base defaults to `origin/<integration branch>` (the binding's with QUEUE_ROOT, else `main`); nothing is
+fetched. Exit 0 when every passage is found, 1 naming each that is not, 2 when the task has none. It
+needs no QUEUE_ROOT and writes nothing.
 """
 from __future__ import annotations
 
@@ -1140,6 +1149,95 @@ def _note_run(cfg: Config, queue: Path, rec: dict[str, Any]) -> str | None:
         return None
 
 
+_PROPOSED_RE = re.compile(r"PROPOSED:")
+_QUOTE_RE = re.compile(r"^\s*>[ \t]?(.*)$")
+
+
+def _norm(text: str) -> str:
+    return " ".join(text.split())
+
+
+def signed_passages(text: str) -> list[tuple[int, str]]:
+    """§3.5, §15.2: the passages a task file's Scope carries for the operator to sign, as (line number in
+    the file, the passage with its whitespace normalised): each line holding `PROPOSED:` followed at once
+    by `> ` blockquote lines, the quote marks taken off. A `PROPOSED:` with no blockquote under it (one
+    quoted inline, or the word in prose) carries none."""
+    from ccp import tasklog  # noqa: PLC0415
+    at = tasklog._section_at(text, tasklog.SEC_SCOPE)
+    if at is None:
+        return []
+    start, body = at
+    first = text.count("\n", 0, start) + 1  # the file line `body`'s first line sits on
+    lines = body.split("\n")
+    out: list[tuple[int, str]] = []
+    for n, line in enumerate(lines):
+        if not _PROPOSED_RE.search(line):
+            continue
+        quoted = []
+        for nxt in lines[n + 1:]:
+            m = _QUOTE_RE.match(nxt)
+            if not m:
+                break
+            quoted.append(m.group(1))
+        if (passage := _norm(" ".join(quoted))):
+            out.append((first + n + 1, passage))
+    return out
+
+
+def added_spec_lines(cfg: Config, base: str) -> dict[str, str] | None:
+    """§15.2: per SPEC file (`task_log.spec_paths`), the lines `git diff <base>...HEAD` adds to it, joined
+    in order and whitespace-normalised; None when the diff cannot be read (`base` resolves to nothing)."""
+    from ccp import tasklog  # noqa: PLC0415
+    r = subprocess.run(["git", "-C", str(cfg.root), "-c", "core.quotePath=false", "diff", "--no-color",
+                        "--no-ext-diff", "--unified=0", f"{base}...HEAD"], capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    spec_paths = cfg.task_log.get("spec_paths") or []
+    added: dict[str, list[str]] = {}
+    cur: str | None = None
+    for line in r.stdout.splitlines():
+        if line.startswith("+++ "):
+            path = line[4:]
+            cur = path[2:] if path.startswith("b/") else None  # `/dev/null`: a deleted file
+            if cur is not None and not tasklog._names_spec(cur, spec_paths):
+                cur = None
+        elif line.startswith("diff --git "):
+            cur = None
+        elif cur is not None and line.startswith("+"):
+            added.setdefault(cur, []).append(line[1:])
+    return {f: _norm(" ".join(ls)) for f, ls in added.items()}
+
+
+def spec_text(cfg: Config, task: str, base: str | None = None) -> tuple[int, dict[str, Any]]:
+    """§15.2 `ccp verify spec-text`: whether each passage the task carries for the operator's sign-off
+    (`signed_passages`) is in the SPEC lines the branch adds (`added_spec_lines`). The exit code (0 all
+    found, 1 one or more not, 2 no passage, an unknown task or a base that does not resolve) and the body."""
+    from ccp.queue import QueueError, integration_branch, task_meta  # noqa: PLC0415
+    try:
+        meta = task_meta(cfg, task)
+    except QueueError as e:
+        return 2, {"ok": False, "task_id": task, "error": str(e)}
+    tid = str(meta["task_id"])
+    if base is None:
+        q = os.environ.get("QUEUE_ROOT")
+        base = f"origin/{integration_branch(Path(q)) if q and Path(q).is_dir() else 'main'}"
+    passages = signed_passages(meta["_text"])
+    if not passages:
+        return 2, {"ok": False, "task_id": tid, "base": base,
+                   "error": f"{cfg.rel(meta['_file'])} carries no PROPOSED: block (a `PROPOSED:` marker followed by "
+                            "`> ` blockquote lines) in its Scope"}
+    added = added_spec_lines(cfg, base)
+    if added is None:
+        return 2, {"ok": False, "task_id": tid, "base": base,
+                   "error": f"git diff {base}...HEAD failed: is {base} a ref in {cfg.root}?"}
+    rel = cfg.rel(meta["_file"])
+    rows = [{"line": f"{rel}:{n}", "passage": text, "found_in": [f for f, a in sorted(added.items()) if text in a]}
+            for n, text in passages]
+    missing = [r for r in rows if not r["found_in"]]
+    return (1 if missing else 0), {"ok": not missing, "task_id": tid, "base": base, "passages": rows,
+                                   "missing": [r["line"] for r in missing]}
+
+
 def _queue() -> Path | None:
     q = os.environ.get("QUEUE_ROOT")
     if not q or not Path(q).is_dir():
@@ -1149,6 +1247,16 @@ def _queue() -> Path | None:
 
 
 def main(cfg: Config, a: Any) -> int:
+    if a.action == "spec-text":  # reads the task log and git only: no queue
+        code, body = spec_text(cfg, a.target, getattr(a, "base", None))
+        if body.get("error"):
+            print(f"ccp verify spec-text: {body['error']}", file=sys.stderr)
+        for r in body.get("passages") or []:
+            if not r["found_in"]:
+                print(f"ccp verify spec-text: not found in the SPEC lines the branch adds since {body['base']}: the "
+                      f"passage at {r['line']}: {r['passage']}", file=sys.stderr)
+        print(json.dumps(body, indent=2))
+        return code
     queue = _queue()
     if queue is None:
         return 2
