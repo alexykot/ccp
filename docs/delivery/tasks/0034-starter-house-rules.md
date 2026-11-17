@@ -7,6 +7,7 @@ depends_on: [0033-package-doc-convention-owned-by-the-plane]
 spec_refs: ["S20"]
 review_point: R3
 paths: ["docs/", "templates/", "ccp/", "tests/"]
+adopt: "plane.json docs.starter_rules {} to adopt the starter house rules"
 created: 2026-11-09
 updated: 2026-11-10
 ---

@@ -494,7 +494,7 @@ One `key: value` per line, lists inline.
 | `shaping` | no | `waived — <reason>` (§19) |
 | `renamed_from` | no | the old id after an amended slug |
 | `covers` | no | an after-the-fact task's merged commits, as shas (§10.7) |
-| `adopt` | no (default `none`) | what a product must do to use what the task delivers: `none`, or one concrete step naming the file and key (ADR-0041 D1) |
+| `adopt` | no (default `none`) | what a product must do to use what the task delivers: `none`, or one concrete step naming the file and key (ADR-0041 D1). A task that ships an off-by-default knob carries its step, never `none`; `ccp tasks check` warns on a `none` value that names a plane.json, binding or settings key |
 
 A product may require more keys (`task_log.required`) and add its own. Runtime keys (lease, session,
 `waiting_on`, ports, …) are refused.

@@ -9,9 +9,11 @@ default COMMIT is the plane checkout's previous release: the newest commit in it
 not HEAD.
 
 A step is read by its form only: `<file> <key.path> [value]`, where the file is `plane.json`
-(`docs/delivery/plane.json`), `binding` (the product's binding) or `.claude/settings.json`. Such a step
-is taken when the product's file holds the key, whatever its value. A step whose first word is `none`
-asks nothing. Any other step, and one whose file cannot be read, is listed as "check by hand". plane.json `upgrade.declined` leaves a task's step out.
+(`docs/delivery/plane.json`), `binding` (the product's binding) or `settings` (`.claude/settings.json`).
+Such a step is taken when the product's file holds the key, whatever its value. A step whose first word
+is `none` asks nothing. Any other step, and one whose file cannot be read, is listed as "check by hand".
+plane.json `upgrade.declined` leaves a task's step out; `upgrade.taken` leaves out a step the product took
+in a way the command cannot see, and lists it under `taken` with its reason.
 The proposals a task answers are those the plane session closed as built by it (`ccp plane built`).
 """
 from __future__ import annotations
@@ -31,7 +33,7 @@ TAKEN, NOT_TAKEN, BY_HAND = "taken", "not taken", "check by hand"
 KEY_RE = re.compile(r"^[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*)*$")
 # The files a step may name, as the step writes them, and the kind of file each is.
 STEP_FILES = {"plane.json": "plane.json", config.CONFIG_REL: "plane.json", "binding": "binding",
-              ".claude/settings.json": "settings"}
+              "settings": "settings", ".claude/settings.json": "settings"}
 SHOWN = {"plane.json": config.CONFIG_REL, "binding": "the binding", "settings": ".claude/settings.json"}
 
 
@@ -166,14 +168,19 @@ def _change(kind: str, key: str, value: str) -> str:
 
 def status(cfg: Config, _a: Any) -> dict[str, Any]:
     """§29.3: each `adopt` step of a merged plane task that this product has not taken, with the task, the
-    product's own proposal for it and the change to make. A declined task's step is left out."""
+    product's own proposal for it and the change to make. A declined task's step is left out; a step the
+    product recorded as taken (`upgrade.taken`) is too, and is listed under `taken` with its reason."""
     declined = (cfg.upgrade or {}).get("declined") or {}
+    recorded = (cfg.upgrade or {}).get("taken") or {}
     sources = _sources(cfg)
     mine = _proposals_by_task()
-    steps = []
+    steps, taken = [], []
     for t in merged_tasks():
         tid, step = str(t["task_id"]), tasklog.adopt_step(t)
         if tasklog.asks_nothing(step) or tid in declined:
+            continue
+        if tid in recorded:
+            taken.append({"task": tid, "title": t.get("title"), "adopt": step, "reason": recorded[tid]})
             continue
         parsed = parse_step(step)
         if parsed and sources[parsed[0]] is not None:
@@ -184,4 +191,4 @@ def status(cfg: Config, _a: Any) -> dict[str, Any]:
             check, change = BY_HAND, step
         steps.append({"task": tid, "title": t.get("title"), "adopt": step, "check": check, "change": change,
                       "proposals": mine.get(tid, [])})
-    return {"ok": True, "steps": steps}
+    return {"ok": True, "steps": steps, "taken": taken}

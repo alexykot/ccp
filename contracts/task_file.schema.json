@@ -154,7 +154,7 @@
       "minLength": 1,
       "pattern": "\\S",
       "default": "none",
-      "description": "What a product must do to use what the task delivers: `none`, or one concrete step naming the file and key (§5.2, ADR-0041 D1). A missing key reads as none"
+      "description": "What a product must do to use what the task delivers: `none`, or one concrete step naming the file and key (§5.2, ADR-0041 D1). A missing key reads as none. A task that ships an off-by-default knob carries its step, never none"
     }
   },
   "not": {

@@ -7,7 +7,7 @@ depends_on: ["0112-parallel-gate-and-slow-modules"]
 spec_refs: ["S14", "S15"]
 review_point: R7
 paths: ["scripts/gate.sh", "scripts/gate_parallel.py", "scripts/gate_result.py", "docs/delivery/plane.json", "tests/test_gate*.py"]
-adopt: "none for products; the plane sets verify.accept_cache for itself"
+adopt: "plane.json verify.accept_cache true, once the product's gate keeps a content-keyed test cache"
 created: 2026-11-17
 updated: 2026-11-17
 ---

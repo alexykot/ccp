@@ -8,7 +8,7 @@ spec_refs: ["S2", "S24", "S26"]
 review_point: R7
 sign_off: brief
 paths: ["ccp/prompt.py", "ccp/usage.py", "ccp/config.py", "contracts/plane_config.schema.json", "plugin/agents/delivery-runner.md", "docs/spec/01-model.md", "docs/delivery/plane.json", "tests/test_prompt*.py", "tests/test_usage*.py"]
-adopt: "none: off by default; plane.json workers.implementer_model turns it on"
+adopt: "plane.json workers.implementer_model small and refactor set to an alias, once the plane's trial reports"
 created: 2026-11-17
 updated: 2026-11-17
 ---

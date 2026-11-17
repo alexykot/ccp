@@ -207,6 +207,26 @@ class Status(UpgradeFixture, unittest.TestCase):
         self.assertNotIn("0005-window", checks)
         self.assertEqual(checks["0006-other"], "not taken")
 
+    def test_a_step_naming_settings_is_read_from_the_products_settings(self):
+        self.plane_task("0005-ttl", "done", "TTL", "settings subagentPromptCacheTtl 1h, with autoCompactWindow beside it")
+        self.assertEqual({s["task"]: s["check"] for s in self.status()}["0005-ttl"], "not taken")
+        self.product.write(".claude/settings.json", json.dumps({"subagentPromptCacheTtl": "1h"}))
+        self.assertNotIn("0005-ttl", [s["task"] for s in self.status()])
+
+    def test_a_task_recorded_as_taken_is_listed_under_taken_with_its_reason_and_not_as_a_step(self):
+        self.product_json(verify={"skip_review_after_clean": True},
+                          upgrade={"taken": {"0003-hand": "gate already parallel"},
+                                   "declined": {"0001-cache": "our suite has no cache"}})
+        code, body, err = self.ccp("upgrade", "status")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(body["steps"], [])
+        self.assertEqual([(t["task"], t["reason"]) for t in body["taken"]], [("0003-hand", "gate already parallel")])
+
+    def test_nothing_is_listed_under_taken_by_default(self):
+        code, body, err = self.ccp("upgrade", "status")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(body["taken"], [])
+
     def test_the_products_own_proposal_is_named(self):
         self.proposal("pp-mine", "accepted", built_task="0001-cache")
         steps = {s["task"]: s["proposals"] for s in self.status()}
@@ -230,6 +250,19 @@ class Declined(unittest.TestCase):
     def test_the_schema_carries_upgrade_declined(self):
         schema = json.loads((Path(__file__).resolve().parents[1] / "contracts/plane_config.schema.json").read_text())
         self.assertIn("declined", schema["properties"]["upgrade"]["properties"])
+        self.assertIn("taken", schema["properties"]["upgrade"]["properties"])
+
+    def test_upgrade_taken_maps_a_task_id_to_a_reason(self):
+        p = Product({"upgrade": {"taken": {"0001-a": "done by hand"}}})
+        try:
+            self.assertEqual(p.cfg.upgrade["taken"], {"0001-a": "done by hand"})
+            self.assertEqual(Product().cfg.upgrade["taken"], {})
+            for bad in ({"taken": ["0001-a"]}, {"taken": {"0001-a": " "}}, {"taken": {"0001-a": None}}):
+                p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "upgrade": bad}))
+                with self.assertRaises(config.ConfigError, msg=bad):
+                    config.load(p.root)
+        finally:
+            p.cleanup()
 
 
 if __name__ == "__main__":

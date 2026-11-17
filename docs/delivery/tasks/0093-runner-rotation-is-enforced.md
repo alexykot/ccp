@@ -7,6 +7,7 @@ depends_on: []
 spec_refs: ["S2", "S16", "S24"]
 review_point: R5
 paths: ["ccp/lifecycle.py", "ccp/health.py", "ccp/usage.py", "ccp/config.py", "scripts/observability/team.py", "plugin/agents/delivery-runner.md", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "contracts/project.schema.json", "tests/test_rotation*.py", "tests/test_health*.py"]
+adopt: "binding runner.rotate_at_context_tokens 200000"
 created: 2026-11-12
 updated: 2026-11-12
 ---

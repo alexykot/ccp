@@ -14,7 +14,8 @@ reused by another task (a renamed task says `renamed_from: <old id>`), and
 `depends_on` instead), a number a task's Context states with no backticked command on its line (a
 measured premise names the command and the commit it ran at), a task whose `paths` name the SPEC
 (`task_log.spec_paths`) with neither a `brief` sign-off nor `§31.1` in its Scope (§3.5), and a task whose
-`paths` name the plane.json schema or a settings template with no `adopt:` step (§5.2, ADR-0041 D1).
+`paths` name the plane.json schema or a settings template with no `adopt:` step (§5.2, ADR-0041 D1), and
+one whose `adopt:` is `none` yet names a plane.json, binding or settings key (a step hidden behind `none`).
 
 A task has a kind (§20): `feature` (the default) or `refactor`. A refactor changes no rule, so it
 cites house rules or review findings (`rule_refs`, `review_refs`) instead of the spec, and proves
@@ -86,6 +87,11 @@ ADOPT_NONE = "none"
 # ADR-0041 D1: a task whose `paths` name one of these adds a knob or a setting a product must take, so
 # `ccp tasks check` warns when it carries no `adopt:` (a settings template: a templates/ file named *settings*).
 ADOPT_SCHEMA = "contracts/plane_config.schema.json"
+# §5.2: the binding's blocks a product sets keys in (§8.3); a `none` step that names a key under one of
+# them, or under a plane.json block, or a settings key `ccp init` writes, hides a step (`hidden_step`).
+BINDING_BLOCKS = ("runner", "lead")
+# A key named in prose: dotted words not inside a path (`ccp/upgrade.py` is no key).
+ADOPT_KEY_RE = re.compile(r"(?<![\w$./-])[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*)*")
 RUN_STEP_RE = re.compile(r"^[ \t]*\d+[.)][ \t]+(?:[^\n]*?\b)?run[ \t]*\n?[ \t]*`", re.I | re.M)
 # Each record says something: what the run printed, or why it cannot run yet (not the template's `<why>`).
 DRY_RUN_RE = re.compile(r"^[ \t]*dry run \(`?[0-9a-f]{7,40}`?\):[ \t]*(?:\n[ \t]*)?\S", re.I | re.M)
@@ -337,6 +343,28 @@ def missing_adopt(t: dict[str, Any], rel: str) -> list[str]:
         return []
     return [f"{rel}: its paths name a knob a product sets ({', '.join(named)}) but it carries no `adopt:` key: "
             "name the step a product takes to use it (the file and key), or `adopt: none` (SPEC §5.2)"]
+
+
+def hidden_step(t: dict[str, Any], rel: str) -> list[str]:
+    """§5.2: a task not dropped whose `adopt` value's first word is `none` and that names a dotted key under a
+    plane.json block or a binding block (`runner`, `lead`), or a settings key `ccp init` writes: a step
+    behind `none`, which `ccp upgrade status` never shows. A warning."""
+    v = t.get("adopt")
+    if t.get("status") == "dropped" or not isinstance(v, str) or not asks_nothing(v.strip()):
+        return []
+    from ccp import config, init  # noqa: PLC0415  (init reads the task log)
+    settings = {*init.ANCHOR, init.CACHE_TTL_SETTING[0], init.COMPACT_SETTING}
+    keys: list[str] = []
+    for m in ADOPT_KEY_RE.finditer(v):
+        parts = m.group(0).split(".")
+        named = (len(parts) > 1 and parts[0] in (*config.BLOCKS, *BINDING_BLOCKS)) or parts[0] in settings
+        if named and m.group(0) not in keys:
+            keys.append(m.group(0))
+    if not keys:
+        return []
+    return [f"{rel}: its `adopt` value starts with `none` but names {', '.join(f'`{k}`' for k in keys)}, a key "
+            "a product sets: write the step a product takes (`<file> <key> [value]`), not `none`, so "
+            "`ccp upgrade status` shows it (SPEC §5.2)"]
 
 
 def kind_of(t: dict[str, Any]) -> str:
@@ -671,7 +699,8 @@ def warnings(cfg: Config) -> list[str]:
     prerequisite in prose, where nothing holds it back: the prerequisite belongs in `depends_on`,
     which may name a later task (§5); one whose Context states a number with no backticked
     command on its line (§5); one whose paths name the SPEC with no `brief` sign-off (§3.5); one
-    whose paths name the plane.json schema or a settings template with no `adopt:` (§5.2); and one
+    whose paths name the plane.json schema or a settings template with no `adopt:` (§5.2); one whose
+    `adopt` is `none` yet names a key a product sets (§5.2); and one
     whose branch is checked out and that cites an ADR decision still recorded `not_built` (§15.4,
     `adr.unbuilt_cited`)."""
     from ccp import adr  # noqa: PLC0415  (adr reads the task log)
@@ -687,6 +716,7 @@ def warnings(cfg: Config) -> list[str]:
         out += unmeasured_numbers(t, cfg.rel(t["_file"]))
         out += unsigned_spec_edit(cfg, t, cfg.rel(t["_file"]))
         out += missing_adopt(t, cfg.rel(t["_file"]))
+        out += hidden_step(t, cfg.rel(t["_file"]))
         own = _number(t.get("task_id"), cfg)
         if own is None or t.get("status") in TERMINAL:
             continue

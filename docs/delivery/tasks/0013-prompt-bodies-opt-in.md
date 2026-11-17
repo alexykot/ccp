@@ -8,6 +8,7 @@ spec_refs: ["S23"]
 adr_refs: ["0034 D8"]
 review_point: R1
 paths: ["scripts/observability/write-prompt-audit.sh", "scripts/observability/prune-prompts.sh", "ccp/prompt.py", "ccp/config.py", "contracts/prompt_audit.schema.json", "contracts/plane_config.schema.json", "tests/"]
+adopt: "none"
 created: 2026-11-06
 updated: 2026-11-10
 ---

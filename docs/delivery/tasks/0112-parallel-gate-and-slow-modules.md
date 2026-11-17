@@ -7,7 +7,7 @@ depends_on: []
 spec_refs: ["S14", "S27"]
 review_point: R7
 paths: ["scripts/gate.sh", "scripts/gate_result.py", "scripts/gate_parallel.py", "contracts/suite_result.schema.json", "ccp/health.py", "ccp/config.py", "contracts/plane_config.schema.json", "docs/spec/02-delivery.md", "docs/spec/04-observability.md", "tests/test_gate*.py", "tests/test_health_suite.py"]
-adopt: "none for the plane itself; a product reads the new health lines with no change, and may copy the parallel gate"
+adopt: "run the gate's test modules in parallel processes, as the plane's scripts/gate_parallel.py does"
 created: 2026-11-17
 updated: 2026-11-17
 ---

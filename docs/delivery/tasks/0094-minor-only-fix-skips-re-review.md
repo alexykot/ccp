@@ -7,6 +7,7 @@ depends_on: []
 spec_refs: ["S8", "S15"]
 review_point: R5
 paths: ["ccp/prompt.py", "ccp/verify.py", "ccp/config.py", "templates/prompts/", "docs/spec/02-delivery.md", "contracts/plane_config.schema.json", "tests/test_review_skip*.py", "tests/test_prompt*.py"]
+adopt: "plane.json verify.skip_review_after_clean true"
 created: 2026-11-12
 updated: 2026-11-13
 ---
