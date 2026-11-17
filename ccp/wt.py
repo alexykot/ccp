@@ -6,6 +6,8 @@ a machine check (`mac`), and a throwaway at the merge base of a head and the int
 (`base`), made by `ccp wt create --kind base … -- COMMAND` only to run that command and removed again
 (on a timeout, a SIGTERM or any failure after it is made too). A detached kind made `--shallow` is a
 depth-1 clone of its sha instead of a git worktree, for a check that must pass without git history.
+A `--sha` that is not a full sha (`HEAD`, a short sha, a branch) is resolved in the caller's checkout
+when the worktree is made, so `HEAD` is the caller's own head; one that names no commit is refused.
 An adopting lead's `ver-baseline` (`ccp wt create --kind ver --baseline`) belongs to no task: a verifier's
 worktree at the integration tip, where the gate runs once before the first task does.
 Each is named `<kind>-<nnnn>[-<n>]` under `worktrees.dir` in the main
@@ -284,6 +286,25 @@ def create_baseline(cfg: Config, q: Path, seat: str | None = None, tag: str | No
     return create(cfg, q, "", "ver", tip(cfg, q), BASELINE, seat, tag)
 
 
+FULL_SHA_RE = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")  # a commit's full name, SHA-1 or SHA-256
+
+
+def resolve_sha(cfg: Config, sha: str, code: int = 2) -> str:
+    """§12.1: `--sha` names a commit. A full sha is kept as given (it may be fetched later); anything else
+    (`HEAD`, a short sha, a branch) is resolved to its full sha in the caller's checkout, `cfg.root`, now,
+    so it never resolves later somewhere else (the main checkout, where `HEAD` is another commit). One that
+    names no commit there is refused with `code` (2; a base run's own refusal is BASE_REFUSED)."""
+    if FULL_SHA_RE.fullmatch(sha):
+        return sha
+    r = git(cfg.root, "rev-parse", "--verify", "-q", f"{sha}^{{commit}}") if sha.strip() and not sha.startswith("-") \
+        else None
+    full = r.stdout.strip() if r is not None and r.returncode == 0 else ""
+    if not full:
+        raise QueueError(f"--sha {sha!r} names no commit in {cfg.root}: give a commit's sha, or a ref that "
+                         "resolves there (§12.1)", code)
+    return full
+
+
 def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None, name: str | None = None,
            seat: str | None = None, tag: str | None = None, shallow: bool = False,
            bind: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -296,6 +317,8 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
     the worktree is made and bound (`_sigterm_held`): `git worktree add` is never cut short."""
     if kind not in KINDS:
         raise QueueError(f"--kind must be one of {', '.join(KINDS)}", 2)
+    if sha:
+        sha = resolve_sha(cfg, sha)  # before anything is made: a sha that names no commit makes nothing
     if shallow and kind not in SHALLOW_KINDS:
         raise QueueError(f"--shallow is for a worktree detached at --sha: --kind {', '.join(SHALLOW_KINDS)}", 2)
     base = base_dir(cfg)
@@ -567,6 +590,7 @@ def run_on_base(cfg: Config, q: Path, task_id: str, head: str, command: list[str
     limit = hook_timeout(cfg) if timeout is None else timeout
     if limit < 1:
         raise QueueError("--timeout must be a whole number of seconds, at least 1", BASE_REFUSED)
+    head = resolve_sha(cfg, head, BASE_REFUSED)  # the caller's HEAD, not the main checkout's
     on_main = threading.current_thread() is threading.main_thread()
     previous = signal.signal(signal.SIGTERM, _on_sigterm) if on_main else None
     warnings: list[str] = []
