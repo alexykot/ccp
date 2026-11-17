@@ -96,4 +96,35 @@ bites with a mutant that spans lines.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): built as scoped.
+  - `ccp suite wait` exits 0 for a passed run and 1 for any other finished run (an interrupted one
+    too); the summary keeps the run's own code. Only a run still going exits 3. The two §14.2 edits
+    are the PROPOSED text word for word; `_common.md` says the same.
+  - `ccp suite run --cold` adds `CCP_SUITE_COLD=1` to what the run starts: a lane's stages, a command
+    after `--`, and a nested run's command. The `ended` row and its event record `cold: true` unless
+    the run's own count shows units cached (then `false`: the count wins over the ask). `scripts/gate.sh`
+    turns a `CCP_SUITE_COLD` other than empty or 0 into `GATE_COLD=1`. The verify template names
+    `ccp suite run --lane <gate role's lane> --cold` (new template value `gate_lane`).
+  - `ccp prompt env <worktree>` takes the worktree's path or its recorded name and prints the
+    `export` lines `ccp prompt` would write, from the worktree record (task, nnnn, kind, seat, path).
+    `run_id` and `phase` come from the open run bound to that worktree, else stay `<run_id>` and
+    `<phase>`. It writes nothing, opens no run, writes no audit and starts no board rebuild. A
+    worktree with no record, or a value that looks like a secret, exits 2; a product with no
+    `worker_env` prints nothing (exit 0, a note on stderr).
+  - `ccp mutate --mutant-file PATH`: first line the target path, then `=== old`, the old text,
+    `=== new`, the new text. Each text is the exact bytes between its marker line and the next (or
+    EOF). A missing path, marker or old text exits 2. Mutant files are numbered after `--mutant` and
+    before `--revert`. The dod_check `cmd-04` writes the step as `ccp mutate --mutant-file <file> --
+    <test command>`; `ccp mutate` takes its test as `--test <id>` run through plane.json
+    `mutate.command` and has no `--` form, so the option was built on the existing call.
+  - SPEC: the two signed §14.2 edits. Descriptions of the new options (§31.1) in §13.3
+    (`prompt env`), §14.2 and §14.6 (`--cold`), and §20.6 in `docs/spec/03-quality.md`
+    (`--mutant-file`). That file is outside the task's `paths`, but §20.6 is where `ccp mutate` is
+    specified. The CLI reference (`docs/cli/02-delivery.md`, `docs/cli/03-quality.md`) lists the
+    new options.
+  - Tests the change necessarily touches: `tests/test_gate_parallel.py`'s fixture drops an
+    inherited `CCP_SUITE_COLD`, as it drops `GATE_COLD`, and `tests/test_suite.py`'s `ccp_proc`
+    does the same. Otherwise the plane's own gate, run with `--cold`, would run its cache tests
+    cold.
+
 ## Verification notes

@@ -491,6 +491,12 @@ templates, values shell-quoted), and the prompt tells the worker to start each c
 `. <that file> && `: a worker's shell calls share no environment. A value that looks like a secret is
 refused.
 
+`ccp prompt env <worktree>` (its path, or its name as `ccp wt` recorded it) prints the lines a
+worker of that worktree would get, rendered from its record (its task, kind and seat), with
+`run_id` and `phase` from the open run bound to it, else left as `<run_id>` and `<phase>`. It opens no
+run, writes no prompt audit or file, and refuses a worktree with no record (exit 2) or a value that
+looks like a secret, as `ccp prompt` does.
+
 ### 13.4 Reports
 
 A worker submits its report with `ccp report <run_id> FILE`, which checks its shape, stores it at the
@@ -646,19 +652,24 @@ has a `Suite:` line but no suite run is recorded for its run.
   foreground, on a run already started: one that outlasts the caller's command limit, or that its
   harness moved to the background. When the run's `ended` row is written it prints the summary
   `ccp suite run` prints, rebuilt from the row and the log (the failure ids of a gate's result file and
-  the stages not run are not recorded, so not shown), and exits with the run's exit code. Still running
-  at the timeout, it prints the run's elapsed time and exits 3 (§10.6: not done yet); the caller
-  calls it again. A run that §14.4 counts as `killed` is a failed run, so `ccp suite wait` exits 1 at
+  the stages not run are not recorded, so not shown), and exits 0 when the run passed and 1 when it
+  failed (§10.6), the summary showing the run's own exit code. Still running at the timeout, it prints
+  the run's elapsed time and exits 3 (§10.6: not done yet); the caller calls it again. A run that §14.4 counts as `killed` is a failed run, so `ccp suite wait` exits 1 at
   once (§10.6). An id with no record in the queue is refused (exit 2). It writes nothing. The worker
   prompts give `ccp suite run` and `ccp mutate` the Bash tool's full `timeout: 600000` and send a
   worker whose `ccp suite run` went on past its call to `ccp suite wait`, never to a loop reading the
-  log; a printed summary means the run ended, whatever the code.
-- **Environment:** the caller's, unchanged, plus `CCP_SUITE_ID` and `CCP_SUITE_RESULT`. In a worktree
+  log; exit 3 means only that the run is still going.
+- **Environment:** the caller's, unchanged, plus `CCP_SUITE_ID` and `CCP_SUITE_RESULT` (and
+  `CCP_SUITE_COLD` with `--cold`, below). In a worktree
   `ccp wt` made (§12.1), a lane's stages also get its `CCP_WT_<FIELD>` variables, the ones its env
   hooks get (§12.2), and its task as `CCP_TASK_ID` (the full id) and `CCP_NNNN`, both empty in
   `ver-baseline`; a command after `--` and a run elsewhere get none. `bin/ccp` sets no variable.
   A `QUEUE_ROOT` that `ccp` found from the binding stays `ccp`'s own. A `ccp suite run` inside it
   becomes its command, records nothing and writes no log.
+- **A cold run.** `ccp suite run --cold` asks for a cold run the same way in every product: what the
+  run starts (a lane's stages, or a command after `--`) also gets `CCP_SUITE_COLD=1`, which a
+  product's gate reads as its own cold option (§15.3), and the `ended` row and its event record
+  `cold: true` unless the run's own count shows units cached (§14.6).
 - The run it belongs to is `--run`, else `--task` (and `--phase`)'s latest open run, else the one
   running worker run whose worktree holds the current directory; otherwise it is recorded unbound.
 
@@ -751,7 +762,7 @@ Claude Code). A cold gate run must fit that limit with room to spare.
   the limit.
 - **Every run records whether it was cold:** the `ended` row and its event carry `cold`: `true` when
   the run counted nothing cached (`cached` 0), `false` when any unit was cached, null when it gave no
-  `cached` count. A command's own `cold` in its result file is ignored.
+  `cached` count (`true` for a `--cold` run, §14.2). A command's own `cold` in its result file is ignored.
 - **Judged on cold runs only.** `ccp health` judges the latest cold run of the gate role's lane,
   cold as §27.2 decides (passed, counted tests, and nothing cached or no test cache yet). Warm,
   unverified, failed, interrupted and killed runs, and other lanes' runs, are not judged against

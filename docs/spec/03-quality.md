@@ -421,10 +421,11 @@ where the check is mechanical it is a `docs` check. No starter rule is mandatory
 
 ### 20.6 Mutation checks (`ccp mutate`)
 
-`ccp mutate --run <run_id> --test <id> [--mutant <m> …] [--revert <path>[:<lines>] …]` tells "the
-test passes" from "the test checks something", in any language. It runs in the calling seat's own
-worktree (the implementer's `impl`, the reviewer's `rev` or the verifier's `ver`) or a mutation
-worktree (`ccp wt create --kind mut`, §12.1), and changes nothing else.
+`ccp mutate --run <run_id> --test <id> [--mutant <m> …] [--mutant-file <path> …]
+[--revert <path>[:<lines>] …]` tells "the test passes" from "the test checks something", in any
+language. It runs in the calling seat's own worktree (the implementer's `impl`, the reviewer's `rev`
+or the verifier's `ver`) or a mutation worktree (`ccp wt create --kind mut`, §12.1), and changes
+nothing else.
 
 - **The product's command.** plane.json `mutate.command` is a shell template that runs one test,
   `{test}` (required) filled in shell-quoted; exit 0 means the test passed. `--test` is one test id,
@@ -435,7 +436,11 @@ worktree (`ccp wt create --kind mut`, §12.1), and changes nothing else.
   records them in its own rows and log, not as `suite` events.
 - **A mutant** is `<file>:<old>=><new>`, the text `old` found exactly once in `file` (a path relative
   to the worktree's root, inside it) replaced by `new`, or the path of a patch `git apply` takes. A
-  value with no `=>` is a patch. Every mutant is checked before any test runs; one that does not
+  value with no `=>` is a patch. `--mutant-file <path>` is the same substitution without shell
+  quoting, for a mutant that spans lines: the file holds `file` on its first line, then the old text
+  and the new text, separated by lines `=== old` and `=== new`, each text exactly what lies between
+  its marker line and the next (or the file's end); a file without the path, either marker or the
+  old text refuses the call (exit 2). Every mutant is checked before any test runs; one that does not
   apply refuses the call (exit 2), nothing run.
 - **A revert** (`--revert <path>[:<n>[-<m>]]`) is a mutant that puts back the merge base's version
   of the file (the merge base of HEAD and `origin/<integration>`, §12.1; a file the change added is
@@ -443,8 +448,8 @@ worktree (`ccp wt create --kind mut`, §12.1), and changes nothing else.
   the changes from the merge base those lines overlap, and a deletion inside the range or next to
   it; the changes are the hunks `git diff -U0` shows between the merge base's version and the
   worktree's. A revert that changes nothing, or a range outside the file, refuses the call (exit 2). The
-  call takes at least one mutant; the `--mutant`s are numbered first, then the `--revert`s, each in
-  the order given.
+  call takes at least one mutant; the `--mutant`s are numbered first, then the `--mutant-file`s, then
+  the `--revert`s, each in the order given.
 - **Killed only when the named test fails.** The test first runs unmutated; when it fails, the call
   stops (exit 1), nothing applied or recorded. Then each mutant is applied alone, the test runs, and
   the mutant is `killed` when it exits non-zero and `survived` when it exits 0. Another test the

@@ -66,10 +66,12 @@ class MutateFixture(ToolkitFixture):
         return Path(body["path"])
 
     def mutate(self, *mutants: str, test: str = ADD, root: Path | None = None, run: str | None = None,
-               reverts: tuple[str, ...] = ()):
+               reverts: tuple[str, ...] = (), files: tuple[Path, ...] = ()):
         args = ["mutate", "--run", run or self.run_id, "--test", test]
         for m in mutants:
             args += ["--mutant", m]
+        for f in files:
+            args += ["--mutant-file", str(f)]
         for r in reverts:
             args += ["--revert", r]
         return self.ccp(*args, root=root or self.mut)
@@ -429,6 +431,81 @@ class Refusals(MutateFixture, unittest.TestCase):
     def test_a_test_that_fails_unmutated(self):
         (self.mut / "test_calc.py").write_text(TESTS.replace("add(1, 1), 2", "add(1, 1), 3"))
         self.refused(1, "calc.py:a + b=>a - b")
+
+
+TWO_LINES_OLD = "def add(a, b):\n    return a + b\n"
+TWO_LINES_NEW = "def add(a, b):\n    return b - a\n"
+
+
+class MutantFiles(MutateFixture, unittest.TestCase):
+    """`--mutant-file`: the target's path, then `=== old`, the old text, `=== new` and the new text."""
+
+    def mfile(self, text: str) -> Path:
+        f = Path(self._tmp.name) / f"mutant{len(list(Path(self._tmp.name).glob('mutant*')))}.txt"
+        f.write_text(text)
+        return f
+
+    def test_a_mutant_spanning_two_lines_is_killed_and_the_file_restored(self):
+        f = self.mfile(f"calc.py\n=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}")
+        code, body, _, err = self.mutate(files=(f,))
+        self.assertEqual(code, 0, err)
+        self.assertEqual((body["killed"], body["survived"]), (1, 0))
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+        row = self.rows()[0]
+        self.assertEqual((row["outcome"], row["kind"], row["files"]), ("killed", "text", ["calc.py"]))
+        self.assertNotIn("return b - a", json.dumps(self.rows()))  # the record carries no mutant text
+
+    def test_each_text_is_exactly_the_bytes_between_its_markers(self):
+        f = self.mfile(f"calc.py\n=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}")
+        m = mutate.parse_file(self.mut, str(f), self.mut)
+        self.assertEqual((m["old"], m["new"], m["files"]), (TWO_LINES_OLD.encode(), TWO_LINES_NEW.encode(), ["calc.py"]))
+        same = mutate.parse(self.mut, f"calc.py:{TWO_LINES_OLD}=>{TWO_LINES_NEW}", self.mut)
+        self.assertEqual(m["digest"], same["digest"])  # the same substitution as the inline form
+        gone = mutate.parse_file(self.mut, str(self.mfile("calc.py\n=== old\n" + TWO_LINES_OLD + "=== new\n")), self.mut)
+        self.assertEqual(gone["new"], b"")  # an empty new text deletes the old
+
+    def test_a_relative_path_is_read_from_the_current_directory(self):
+        f = self.mfile(f"calc.py\n=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}")
+        self.assertEqual(mutate.parse_file(self.mut, f.name, f.parent)["old"], TWO_LINES_OLD.encode())
+
+    def test_mutant_files_come_after_the_mutants_and_before_the_reverts(self):
+        f = self.mfile(f"calc.py\n=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}")
+        code, _, _, err = self.mutate("calc.py:a * 2=>a * 3", files=(f,))
+        self.assertEqual(code, 1, err)
+        self.assertEqual([(r["mutant"], r["outcome"]) for r in self.rows()], [(1, "survived"), (2, "killed")])
+        head = self.task_commit({"calc.py": GUARDED, "test_calc.py": GUARD_TESTS, "limits.py": "FLOOR = 0\n"})
+        rev = self.make_wt("rev", sha=head)
+        guard = self.mfile("calc.py\n=== old\n    if a < FLOOR or b < FLOOR:\n"
+                           "        raise ValueError('add takes no negatives')\n=== new\n")
+        code, _, _, err = self.mutate("calc.py:a * 2=>a * 3", test=GUARD, root=rev, reverts=("calc.py:5-6",),
+                                      files=(guard,))
+        self.assertEqual(code, 1, err)
+        self.assertEqual([(r["mutant"], r["kind"], r["outcome"]) for r in self.rows()[2:]],
+                         [(1, "text", "survived"), (2, "text", "killed"), (3, "revert", "killed")])
+        self.assertEqual((rev / "calc.py").read_text(), GUARDED)
+
+    def test_a_part_missing_is_refused_and_nothing_runs(self):
+        for text in (f"calc.py\n=== old\n{TWO_LINES_OLD}",  # no `=== new`
+                     f"calc.py\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}",  # no `=== old`
+                     f"\n=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}",  # no file
+                     f"=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}",  # no file, the marker first
+                     f"calc.py\n=== old\n=== new\n{TWO_LINES_NEW}",  # no old text
+                     f"calc.py\n=== new\n{TWO_LINES_NEW}=== old\n{TWO_LINES_OLD}",  # the markers swapped
+                     ""):
+            code, _, _, err = self.mutate(files=(self.mfile(text),))
+            self.assertEqual(code, 2, (text, err))
+            self.assertEqual(self.rows(), [])
+            self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+            self.assertNotIn("Ran ", err)
+
+    def test_old_text_absent_a_missing_target_or_no_such_file_is_refused(self):
+        for f in (self.mfile("calc.py\n=== old\nreturn a / b\n=== new\nx\n"),
+                  self.mfile(f"missing.py\n=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}"),
+                  self.mfile(f"../calc.py\n=== old\n{TWO_LINES_OLD}=== new\n{TWO_LINES_NEW}"),
+                  Path(self._tmp.name) / "no-such-mutant.txt"):
+            code, _, _, err = self.mutate(files=(f,))
+            self.assertEqual(code, 2, (f, err))
+            self.assertEqual(self.rows(), [])
 
 
 class Reverts(MutateFixture, unittest.TestCase):
