@@ -333,8 +333,9 @@ def cmd_docs_check(cfg: config.Config, _a: argparse.Namespace) -> int:
     for n in rules.starter_notes(cfg):  # §20.5: what the product declined, and the checks that skips
         print(f"  {n}")
     from ccp import reviewpoints  # noqa: PLC0415
+    from ccp.init import placeholder_warnings  # noqa: PLC0415
     warns = (plane_path_warnings(cfg) + reviewpoints.notes(cfg) + adr.warnings(cfg) + pkgdocs.notes(cfg)
-             + rules.doc_warnings(cfg))
+             + rules.doc_warnings(cfg) + placeholder_warnings(cfg.root))
     for w in warns:
         print(f"  warning: {w}")
     if warns:
@@ -1591,13 +1592,15 @@ def cmd_usage(cfg: config.Config, a: argparse.Namespace) -> int:
 
 
 def cmd_where(cfg: config.Config, _a: argparse.Namespace) -> int:
-    """SPEC §9.2: the project, its binding (§8.3, through the one resolver), the queue, the plane
-    checkout and the `ccp` path."""
-    from ccp.queue import CCP_BIN, PLANE, lib  # noqa: PLC0415
+    """SPEC §9.2: the project, the product root (its main checkout, from any worktree), its binding (§8.3,
+    through the one resolver), the queue, the plane checkout and the `ccp` path, each path as its real
+    path, as `ccp init` prints them."""
+    from ccp.queue import CCP_BIN, PLANE, _main_worktree, lib  # noqa: PLC0415
     q = os.environ.get("QUEUE_ROOT")
     b = lib.binding_path(Path(q)) if q else binding_file(cfg)
-    print(json.dumps({"project_id": cfg.project_id, "product_root": str(cfg.root),
-                      "binding": str(b) if b else None, "queue_root": q,
+    print(json.dumps({"project_id": cfg.project_id, "product_root": str(_main_worktree(cfg.root.resolve())),
+                      "binding": str(b.resolve()) if b else None,
+                      "queue_root": str(Path(q).expanduser().resolve()) if q else None,
                       "plane": str(PLANE), "ccp": str(CCP_BIN)}))
     return 0
 

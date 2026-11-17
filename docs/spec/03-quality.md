@@ -510,6 +510,8 @@ the prerequisite goes in `depends_on` instead. Inline `# comments` in frontmatte
 generic rules (§21.6), less those a declined starter rule names, the house rules' shape and line cap
 and the `architect.checks` commands (§20.1), the adopted starter rules' settings (§20.5), the
 product's `docs.checks` commands (§21.5), the ADR check (§6), and `ccp tasks check`.
+It warns, without failing, while `docs/delivery/standing-dod.md` holds a numbered item that is only
+`…`, the template's placeholder.
 It is free and deterministic. It is part of the verifier's gate (§15), run by the verifier itself at
 the PR head, and `ccp docs check` clean is part of the standing DoD where the product declares it.
 A gate lane declared as stages also runs it as its last stage, `plane-docs` (§14.2).

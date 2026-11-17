@@ -199,14 +199,15 @@ class Lookup(unittest.TestCase):
         return json.loads(out.getvalue())
 
     def test_the_queue_comes_from_the_binding(self):
-        self.assertEqual(self.where({"CCP_NO_BINDING_QUEUE": "0"})["queue_root"], str(self.q))
+        self.assertEqual(self.where({"CCP_NO_BINDING_QUEUE": "0"})["queue_root"], str(self.q.resolve()))
 
     def test_tests_never_read_a_binding(self):
         self.assertIsNone(self.where({})["queue_root"])
 
     def test_where_names_the_binding_it_resolved(self):
-        self.assertEqual(self.where({"CCP_NO_BINDING_QUEUE": "0"})["binding"], str(self.plane / "projects/demo.yaml"))
-        self.assertEqual(self.where({})["binding"], str(self.plane / "projects/demo.yaml"))  # no queue: still named
+        real = str((self.plane / "projects/demo.yaml").resolve())
+        self.assertEqual(self.where({"CCP_NO_BINDING_QUEUE": "0"})["binding"], real)
+        self.assertEqual(self.where({})["binding"], real)  # no queue: still named
         (self.plane / "projects/demo.yaml").write_text(f"project_id: demo\nproduct_root: /elsewhere\nqueue_root: {self.q}\n")
         self.assertIsNone(self.where({})["binding"])
 

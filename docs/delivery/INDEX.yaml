@@ -678,7 +678,7 @@ tasks:
     depends_on: []
     path: tasks/0135-queue-legacy-archive.md
   - id: 0136-init-adoption-leftovers
-    status: pending
+    status: done
     title: ccp init checks a kept binding's shape, agrees with ccp where on paths, lists a kept INDEX.yaml and writes the gate into the standing DoD
     depends_on: []
     path: tasks/0136-init-adoption-leftovers.md
