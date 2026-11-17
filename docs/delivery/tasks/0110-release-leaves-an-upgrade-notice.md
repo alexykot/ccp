@@ -1,7 +1,7 @@
 ---
 task_id: 0110-release-leaves-an-upgrade-notice
 title: A release leaves each bound product an upgrade notice its lead gets at its next session start
-status: pending
+status: done
 kind: feature
 depends_on: ["0109-upgrade-notes-and-status"]
 spec_refs: ["S3", "S29"]
@@ -108,3 +108,5 @@ to adopt, through the plane's notify path, without anyone relaying it by hand.
   built (`ccp adr decide 41 D3 built`); D5 and D6 stay not_built.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #125 head `23ab788` (squash `b872b4f`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, check-01, suite-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0110-release-leaves-an-upgrade-notice.json.
+

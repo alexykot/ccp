@@ -548,7 +548,7 @@ tasks:
     depends_on: []
     path: tasks/0109-upgrade-notes-and-status.md
   - id: 0110-release-leaves-an-upgrade-notice
-    status: pending
+    status: done
     title: A release leaves each bound product an upgrade notice its lead gets at its next session start
     depends_on: [0109-upgrade-notes-and-status]
     path: tasks/0110-release-leaves-an-upgrade-notice.md
