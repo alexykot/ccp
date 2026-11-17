@@ -260,7 +260,7 @@ class Claims(ParallelFixture, unittest.TestCase):
 
     def test_config_is_checked(self):
         for bad, msg in (({"max_in_flight": 5}, "1 to 4"), ({"exclusive": "db"}, "list of paths"),
-                         ({"session_ceiling_pct": 0}, "above 0"), ({"slots": 2}, "unknown key")):
+                         ({"session_ceiling_pct": 0}, "above 0")):
             self.plane(**bad)
             with self.assertRaises(config.ConfigError) as cm:
                 config.load(self.main)

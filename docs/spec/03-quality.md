@@ -256,7 +256,7 @@ operator only through `needs_operator`.
 
 ### 19.11 Binding and knobs
 
-The seat is on when `plane.json` has an `architect` block (§8; unknown keys are refused):
+The seat is on when `plane.json` has an `architect` block (§8):
 
 | Key | Default | Meaning |
 | --- | --- | --- |

@@ -110,16 +110,17 @@ class ConfigTest(unittest.TestCase):
         self.assertIsNone(c.package_docs)
         p.cleanup()
 
-    def test_unknown_keys_refused(self):
+    def test_an_unknown_key_is_not_read(self):
         p = Product({"task_log": {"maxchecks": 3}})
-        with self.assertRaisesRegex(config.ConfigError, "unknown key"):
-            config.load(p.root)
+        with redirect_stderr(io.StringIO()):
+            c = config.load(p.root)
+        self.assertEqual((c.task_log["max_checks"], c.unknown_keys), (6, ("task_log.maxchecks",)))
         p.cleanup()
 
-    def test_the_retired_docs_audit_block_is_refused(self):
+    def test_the_retired_docs_audit_block_is_unknown(self):
         p = Product({"docs_audit": {"every_days": 7}})
-        with self.assertRaisesRegex(config.ConfigError, "unknown top-level key.*docs_audit"):
-            config.load(p.root)
+        with redirect_stderr(io.StringIO()):
+            self.assertEqual(config.load(p.root).unknown_keys, ("docs_audit",))
         p.cleanup()
 
     def test_cli_exit_codes(self):

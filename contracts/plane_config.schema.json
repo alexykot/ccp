@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:control-plane:contracts:plane_config.schema.json",
   "title": "ControlPlaneProductConfig",
-  "description": "SPEC §8.1. The product-owned docs/delivery/plane.json read by `ccp`. Its presence is the product's opt-in to ccp. Every key but project_id has a plane default (ccp/config.py); unknown keys are refused. No secrets.",
+  "description": "SPEC §8.1. The product-owned docs/delivery/plane.json read by `ccp`. Its presence is the product's opt-in to ccp. Every key but project_id has a plane default (ccp/config.py); unknown keys warn when it loads and are ignored, and `ccp docs check` refuses them (SPEC §8.1). No secrets.",
   "type": "object",
   "additionalProperties": false,
   "required": [
