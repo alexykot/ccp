@@ -1,7 +1,7 @@
 ---
 task_id: 0148-report-correction
 title: A worker corrects a recorded report before the task's next run opens, the earlier one kept as superseded
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S11"]
@@ -112,3 +112,5 @@ superseded.
   no later run is a correction now.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #149 head `967c434` (close's catch-up of the approved `42205df`, gate run st-20261117T233703Z-1a0fb8) (squash `05e7edb`): APPROVE. Passed: rep-01, rep-02, rep-03, rep-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0148-report-correction.json.
+
