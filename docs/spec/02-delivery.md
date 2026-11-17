@@ -640,6 +640,16 @@ has a `Suite:` line but no suite run is recorded for its run.
 - When the command exits, `ccp` exits within a couple of seconds, even if a background child holds
   its output open. SIGINT and SIGTERM sent to `ccp` reach the command's whole process group; such a
   run is recorded as interrupted. No background or detached mode exists.
+- **Waiting on a run.** `ccp suite wait <suite_id> [--timeout SECONDS]` (default 540) waits, in the
+  foreground, on a run already started: one that outlasts the caller's command limit, or that its
+  harness moved to the background. When the run's `ended` row is written it prints the summary
+  `ccp suite run` prints, rebuilt from the row and the log (the failure ids of a gate's result file and
+  the stages not run are not recorded, so not shown), and exits with the run's exit code. Still running
+  at the timeout, it prints the run's elapsed time and exits 3 (§10.6: not done yet); the caller
+  calls it again. A run with no `ended` row that §14.4 counts as `killed` will never end: it says so
+  and exits 1. An id with no record in the queue is refused (exit 2). It writes nothing. The worker
+  prompts give `ccp suite run` and `ccp mutate` the Bash tool's full `timeout: 600000` and send a
+  worker whose run went on past its call to `ccp suite wait`, never to a loop reading the log.
 - **Environment:** the caller's, unchanged, plus `CCP_SUITE_ID` and `CCP_SUITE_RESULT`. In a worktree
   `ccp wt` made (§12.1), a lane's stages also get its `CCP_WT_<FIELD>` variables, the ones its env
   hooks get (§12.2), and its task as `CCP_TASK_ID` (the full id) and `CCP_NNNN`, both empty in
@@ -1200,7 +1210,8 @@ plane.json `suite.exclusive_lanes` names the `ccp suite run` lanes that run one 
 holds it, since when, and the holder's usual duration; the worker does other work and retries.
 `--wait SECONDS` waits up to that bound instead (the wait plus the run stay under the worker shell's
 600 s limit), recorded as `wait_s` apart from the run's time. A lock whose holder process is gone is
-taken over with a warning. Busy exits are recorded on the run (`lane_busy`).
+taken over with a warning. Busy exits are recorded on the run (`lane_busy`). A run that has started
+and outlasts its caller's command limit is waited on by its suite id with `ccp suite wait` (§14.2).
 
 ### 16.7 Records, forecast, usage and the board
 
