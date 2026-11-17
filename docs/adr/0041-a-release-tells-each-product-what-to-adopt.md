@@ -16,8 +16,8 @@ decisions:
   - "D2 built"
   - "D3 built"
   - "D4 built"
-  - "D5 not_built"
-  - "D6 not_built"
+  - "D5 built"
+  - "D6 built"
 ---
 # ADR-0041 — A release tells each product what to adopt
 

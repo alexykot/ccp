@@ -91,5 +91,7 @@ saying an agent definition's cache lifetime reaches the runner.
   the runner's rotation knobs do. `contracts/project.schema.json` gains the `lead` block. §2.4 keeps
   its sentence on the environment overrides after the PROPOSED text, which replaced only the
   sentence the CURRENT quoted. README's adoption section names the two settings.
+- 2026-11-17 (implementer, fix 1): ADR-0041 D5 and D6 recorded `built` (`ccp adr decide`), as this
+  task builds both; review MAJOR 1.
 
 ## Verification notes
