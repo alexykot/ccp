@@ -94,4 +94,20 @@ one command instead of a hand comparison.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `selection.pick` passes over, beside the holds, each ready task that declares
+  `sign_off: brief` with no `brief` sign-off in the ledger (`selection.unsigned`), unless the queue holds a
+  lease on it (its claim resumes it with no sign-off check); `ccp tasks next` names each on stderr, the
+  preference note and `--explain` mark it, and the board's ready queue (the same `pick`) agrees. A stale
+  brief sign-off or a malformed `sign_off:` is not passed over: the signed sentence names only one "not
+  recorded", and claim still refuses those.
+- `ccp verify spec-text` (`verify.signed_passages`, `added_spec_lines`, `spec_text`): a passage is the
+  `> ` lines straight after a Scope line holding `PROPOSED:`; each SPEC file's added lines (`git diff
+  --unified=0 <base>...HEAD`, files under `task_log.spec_paths` as `tasklog._names_spec` reads them) are
+  joined into one whitespace-normalised text and the passage is a substring of it. It needs no
+  QUEUE_ROOT; the default base is `origin/<integration branch>` (the binding's with QUEUE_ROOT, else
+  `main`), nothing fetched. Output is JSON on stdout (each passage with its task-file line and the files
+  it was found in, `missing`), the passages not found named on stderr.
+- The review and verify prompts render the step only for a `brief` task: a new prompt value,
+  `brief_sign_off` (`ccp/prompt.py`, outside the declared paths), and a row in `docs/cli/02-delivery.md`.
+
 ## Verification notes

@@ -318,6 +318,69 @@ class SignOff(ToolkitFixture, unittest.TestCase):
             self.assertEqual(code, 0, out + err)
             self.assertEqual(body["sign_off"]["signed_at"], today)
 
+    # ------------------------------------------------------------------ next
+
+    def two_ready(self) -> None:
+        """0001 pending with an unsigned `brief` sign-off and 0002 with none, both ready, on the runner's tip."""
+        first = self.main / "docs/delivery/tasks/0001-first.md"
+        first.write_text(first.read_text().replace("status: done", "status: pending", 1)
+                         .replace("depends_on:", "sign_off: brief\ndepends_on:", 1))
+        second = self.main / TASK_FILE
+        second.write_text(second.read_text().replace('depends_on: ["0001-first"]', "depends_on: []", 1))
+        tasklog.write_index(config.load(self.main))
+        git(self.main, "add", "docs/delivery/tasks/0001-first.md", TASK_FILE, "docs/delivery/INDEX.yaml")
+        git(self.main, "commit", "-q", "-m", "two ready tasks")
+        git(self.main, "push", "-q", "origin", "main")
+        git(self.runner, "fetch", "-q", "origin")
+        git(self.runner, "checkout", "-q", "--detach", "origin/main")
+
+    def next_id(self, *extra: str) -> tuple[int, str, str]:
+        code, _, out, err = self.ccp("tasks", "next", *extra)
+        return code, out.split()[0] if out.strip() else "", err
+
+    def test_next_passes_over_a_task_awaiting_its_brief_sign_off(self):
+        self.two_ready()
+        code, tid, err = self.next_id()
+        self.assertEqual((code, tid), (0, "0002-second"), err)
+        self.assertIn("passed over 0001-first: no brief sign-off on record", err)
+        code, _, out, err = self.ccp("tasks", "sign-off", "0001", "--by", "op", "--words", "signed")
+        self.assertEqual(code, 0, out + err)
+        code, tid, err = self.next_id()
+        self.assertEqual((code, tid), (0, "0001-first"), err)
+        self.assertNotIn("passed over", err)
+
+    def test_with_only_an_unsigned_task_ready_nothing_is_ready(self):
+        self.two_ready()
+        self.assertEqual(self.ccp("tasks", "hold", "0002", "--reason", "later")[0], 0)
+        code, tid, err = self.next_id()
+        self.assertEqual(code, 3, err)
+        self.assertIn("passed over 0001-first: no brief sign-off", err)
+
+    def test_a_preferred_unsigned_task_is_passed_over_and_explained(self):
+        self.two_ready()
+        self.assertEqual(self.ccp("tasks", "prefer", "0001")[0], 0)
+        code, tid, err = self.next_id("--explain")
+        self.assertEqual((code, tid), (0, "0002-second"), err)
+        self.assertIn("preferred 0001-first awaits its brief sign-off: passed over", err)
+        self.assertIn("1 unsigned", err)
+        self.assertRegex(err, r"sign +0001-first")
+
+    def test_the_board_s_ready_queue_agrees(self):
+        from ccp import plan, selection  # noqa: PLC0415
+        self.two_ready()
+        cfg = config.load(self.runner)
+        sel = selection.pick(cfg, self.q)
+        self.assertEqual(sel["unsigned"], ["0001-first"])
+        self.assertEqual([str(t["task_id"]) for t, _ in sel["ranked"]], ["0002-second"])
+        self.assertEqual(plan.ready_queue(cfg, self.q, selection.current(cfg, self.q))["next"], "0002-second")
+
+    def test_a_leased_task_is_not_passed_over_for_its_sign_off(self):
+        self.assertEqual(self.ccp("tasks", "claim", "0002")[0], 0)  # claimed before it declared a sign-off
+        self.declare("brief")
+        code, tid, err = self.next_id()
+        self.assertEqual((code, tid), (0, "0002-second"), err)  # its claim resumes it
+        self.assertNotIn("passed over", err)
+
     # ------------------------------------------------------------------ the task field
 
     def test_tasks_check_reads_the_field(self):
