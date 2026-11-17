@@ -1,7 +1,7 @@
 ---
 task_id: 0108-sign-rule-text-at-tasking
 title: Rule text is signed when the task is written; new rule text found in the build goes to a follow-up; health shows the sign-off wait
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3", "S5", "S27"]
@@ -91,3 +91,5 @@ build finds beyond that goes to a follow-up proposal, so the PR merges on the si
 - 2026-11-17 (implementer): outside `paths`: `docs/cli/04-observability.md` (the `ccp health` row names `sign_off_wait`). §8.1's `task_log` row does not list `spec_paths`: the task gives no text for it (check-04).
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #123 head `83479de` (squash `2affb21`): APPROVE. Passed: check-01, check-02, check-03, check-04, suite-01. Gate: `scripts/gate.sh` exit 0, `python3 -m unittest tests.test_health_signoff tests.test_tasklog_spec_signoff tests.test_prompt_tools` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0108-sign-rule-text-at-tasking.json.
+

@@ -538,7 +538,7 @@ tasks:
     depends_on: []
     path: tasks/0107-check-not-as-written.md
   - id: 0108-sign-rule-text-at-tasking
-    status: pending
+    status: done
     title: Rule text is signed when the task is written; new rule text found in the build goes to a follow-up; health shows the sign-off wait
     depends_on: []
     path: tasks/0108-sign-rule-text-at-tasking.md
