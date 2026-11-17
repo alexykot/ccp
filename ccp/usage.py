@@ -945,7 +945,9 @@ def session_wake(cfg: Config, q: Path, sample: bool = False, rearm: bool = False
         out.update(wake_at=_utc(wt), wake_local=_local(wt), cron=cron_for(wt),
                    armed=armed_wake(q, reset if rt is not None and rt > now else None, now, wt))
     arm = False
-    if park is None:
+    if not (cfg.telemetry or {}).get("allowance_cmd"):  # §25.1: nothing to sample, with --sample or without
+        why = "no telemetry.allowance_cmd in the binding: no allowance sample can be taken (SPEC §25.1)"
+    elif park is None:
         why = "telemetry.session_park_pct is null: the session park and wake are off"
     elif not last.get("at"):
         why = "no allowance sample yet (run with --sample)"

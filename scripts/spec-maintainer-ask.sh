@@ -29,7 +29,9 @@ Output: one JSON object on stdout. `actions` lists what the seat must still do i
 (message the lead, durable log note, skip ahead). Exit 0 ok; 2 usage.
 
 Env:
-  QUEUE_ROOT     required (live queue, outside product git)
+  QUEUE_ROOT     the live queue, outside product git (default: the queue `ccp where` prints for the
+                 product at CLAUDE_PROJECT_DIR, else the working directory, SPEC §9.2; with neither,
+                 it stops and says to run `ccp init` or set QUEUE_ROOT)
   PROJECT_YAML   project binding (default: the binding naming QUEUE_ROOT, SPEC §8.3)
   PROJECT_ID     optional (default: the binding's project_id)
   ACTOR          raising seat id (task-runner | task-verifier) when --raised-by/--actor omitted

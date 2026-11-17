@@ -551,6 +551,55 @@ AGENT_MODELS = {  # SPEC §2.4 *Models and effort*: (model, effort); every seat 
 }
 
 
+class TestQueueFromTheBinding(unittest.TestCase):
+    """SPEC §9.2: with QUEUE_ROOT unset, the seat scripts take the queue `ccp where` prints for the product
+    (CLAUDE_PROJECT_DIR, else the working directory); with no binding naming it they stop and say what to do."""
+
+    def setUp(self):
+        from tests.test_sandbox import SandboxCase  # noqa: PLC0415  (its fence and its sandbox maker)
+        case = SandboxCase()
+        case.setUp()
+        self.addCleanup(case.tearDown)
+        self.sandbox = json.loads(case.ccp("sandbox", "create", str(case.base / "S")).stdout)
+        self.env = {**case.env, "PROJECT_YAML": self.sandbox["binding"], "CCP_NO_BINDING_QUEUE": ""}
+        self.env.pop("CLAUDE_PROJECT_DIR", None)
+        scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(scratch.cleanup)
+        self.scratch = Path(scratch.name).resolve()
+        subprocess.run(["git", "init", "-q", str(self.scratch)], check=True, capture_output=True)
+
+    def run_in(self, cwd, script, *argv, **env):
+        return subprocess.run(["bash", str(script), *argv], cwd=cwd, capture_output=True, text=True,
+                              env={**self.env, **env})
+
+    def test_team_sh_finds_the_queue_of_the_product_it_runs_in(self):
+        r = self.run_in(self.sandbox["root"], TEAM, "runner", "status")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("work", json.loads(r.stdout))
+        self.assertNotIn("set QUEUE_ROOT", r.stderr)
+
+    def test_claude_project_dir_names_the_product_ahead_of_the_working_directory(self):
+        r = self.run_in(self.scratch, TEAM, "runner", "status", CLAUDE_PROJECT_DIR=self.sandbox["root"])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("work", json.loads(r.stdout))
+
+    def test_where_no_binding_names_the_product_it_says_to_init_or_set_queue_root(self):
+        for script, argv in ((TEAM, ("runner", "status")), (ASK, ("blocked",))):
+            r = self.run_in(self.scratch, script, *argv)
+            self.assertNotEqual(r.returncode, 0, script)
+            self.assertIn("ccp init", r.stderr, script)
+            self.assertIn("QUEUE_ROOT", r.stderr, script)
+            self.assertEqual(r.stdout, "", script)
+
+    def test_queue_root_when_set_wins_over_the_binding(self):
+        other = tempfile.TemporaryDirectory()
+        self.addCleanup(other.cleanup)
+        (Path(other.name) / "work.json").write_text(json.dumps({"status": "idle", "scope": ["0042-elsewhere"]}))
+        r = self.run_in(self.sandbox["root"], TEAM, "runner", "status", QUEUE_ROOT=other.name)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(r.stdout)["work"]["scope"], ["0042-elsewhere"])
+
+
 class TestKeepBodyImport(unittest.TestCase):
     """§23.8: `keep_body` reads the product's plane.json through ccp's config, which it puts on the import
     path once, not on every audit write."""
