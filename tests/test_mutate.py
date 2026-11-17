@@ -715,7 +715,7 @@ class PatchPaths(unittest.TestCase):
 class MutateConfig(unittest.TestCase):
     def test_the_block_is_checked(self):
         from tests.helpers import Product
-        for bad in ({"command": "run-one-test"}, {"command": ""}, {"timeout_seconds": 0}, {"other": 1}):
+        for bad in ({"command": "run-one-test"}, {"command": ""}, {"timeout_seconds": 0}):
             p = Product({"mutate": bad})
             try:
                 with self.assertRaises(config.ConfigError, msg=bad):

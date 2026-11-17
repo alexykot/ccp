@@ -56,8 +56,7 @@ class GateKnobs(unittest.TestCase):
     def test_bad_knobs_are_refused(self):
         for bad in ({"shell_limit_seconds": 0}, {"shell_limit_seconds": -5}, {"shell_limit_seconds": True},
                     {"shell_limit_seconds": "600"}, {"cut_line_seconds": 700}, {"cut_line_seconds": 0},
-                    {"cut_line_seconds": "500"}, {"shell_limit_seconds": 300, "cut_line_seconds": 301},
-                    {"limit": 600}):
+                    {"cut_line_seconds": "500"}, {"shell_limit_seconds": 300, "cut_line_seconds": 301}):
             with self.subTest(bad=bad), self.assertRaises(config.ConfigError):
                 self.load(bad)
 

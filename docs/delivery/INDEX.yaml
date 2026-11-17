@@ -613,7 +613,7 @@ tasks:
     depends_on: []
     path: tasks/0122-unsigned-tasks-wait-and-signed-text-check.md
   - id: 0123-unknown-config-keys-warn
-    status: pending
+    status: done
     title: An older ccp warns on a plane.json key it does not know, and docs check refuses it
     depends_on: []
     path: tasks/0123-unknown-config-keys-warn.md

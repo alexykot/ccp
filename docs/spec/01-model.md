@@ -712,8 +712,10 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
   change with its code, and work in a worktree or a verifier checkout that never sees the queue.
 - Its presence is the opt-in: `ccp` refuses to guess for a product without one. Only `project_id` is
   required: lowercase letters, digits and hyphens.
-- Unknown keys are refused, so a typo cannot silently turn a rule off. The schema only gains
-  optional keys.
+- Unknown keys warn when the configuration loads (stderr, naming each and saying the running `ccp`
+  may predate it) and are otherwise ignored, so a `ccp` older than a key keeps working until it is
+  updated; `ccp docs check`, which every gate runs, refuses them, so a typo cannot silently turn a
+  rule off. The schema only gains optional keys.
 - Each block is off, or at its defaults, when absent:
 
 | Block | Sets | § |

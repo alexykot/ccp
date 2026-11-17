@@ -1099,7 +1099,7 @@ No `parallel` block, or `max_in_flight: 1`: one task at a time. `max_in_flight` 
 `exclusive` lists paths and globs (`**` spans directories) whose concurrent edits git cannot merge
 safely (a schema or migration file); `session_ceiling_pct` defaults to 60. `merge.behind_tip_ignore`
 (empty by default) lists the paths whose commits on the tip do not make a head behind it (§16.5 rule
-4); it applies with one runner too. Config loading validates these blocks; unknown keys are refused.
+4); it applies with one runner too. Config loading validates these blocks; unknown keys are handled as §8 says.
 Lowering `parallel.max_in_flight` is completed by `stop --slot` for the extra slots.
 
 ### 16.3 Which tasks may start together

@@ -239,8 +239,7 @@ class Declined(unittest.TestCase):
         try:
             self.assertEqual(p.cfg.upgrade["declined"], {"0001-a": "not for us"})
             self.assertEqual(Product().cfg.upgrade["declined"], {})
-            for bad in ({"declined": ["0001-a"]}, {"declined": {"0001-a": ""}}, {"declined": {"0001-a": 3}},
-                        {"other": {}}, []):
+            for bad in ({"declined": ["0001-a"]}, {"declined": {"0001-a": ""}}, {"declined": {"0001-a": 3}}, []):
                 p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "upgrade": bad}))
                 with self.assertRaises(config.ConfigError, msg=bad):
                     config.load(p.root)

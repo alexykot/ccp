@@ -497,8 +497,7 @@ class Page(Fixture, unittest.TestCase):
 
 class Config(unittest.TestCase):
     def test_the_estimate_block_is_checked(self):
-        for bad, msg in (({"k": 3}, "estimate.k"), ({"reference_since": "last week"}, "estimate.reference_since"),
-                         ({"other": 1}, "unknown key")):
+        for bad, msg in (({"k": 3}, "estimate.k"), ({"reference_since": "last week"}, "estimate.reference_since")):
             p = Product({"estimate": bad})
             try:
                 with self.assertRaises(config.ConfigError) as cm:

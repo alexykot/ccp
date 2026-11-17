@@ -414,10 +414,9 @@ class Config(WtFixture, unittest.TestCase):
                 with self.assertRaises(config.ConfigError) as cm:
                     config.load(self.main)
                 self.assertIn(f"merge.behind_tip_ignore: {every!r} matches every path", str(cm.exception))
-        self.plane(parallel={"behind_tip_ignore": ["docs"]})  # the setting lives under merge
-        with self.assertRaises(config.ConfigError) as cm:
-            config.load(self.main)
-        self.assertIn("unknown key", str(cm.exception))
+        self.plane(parallel={"behind_tip_ignore": ["docs"]})  # the setting lives under merge: not read there
+        with redirect_stderr(io.StringIO()):
+            self.assertEqual(config.load(self.main).merge["behind_tip_ignore"], [])
         self.plane(merge={"behind_tip_ignore": ["docs/notes", "CHANGELOG.md"]})
         cfg = config.load(self.main)
         self.assertEqual((cfg.merge["behind_tip_ignore"], cfg.merge["command"]), (["docs/notes", "CHANGELOG.md"], None))

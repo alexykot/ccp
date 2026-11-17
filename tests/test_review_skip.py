@@ -297,7 +297,7 @@ class SkipReviewSetting(ToolkitFixture, unittest.TestCase):
 
     def test_the_setting_is_validated(self):
         self.assertIsNone(config.load(self.main).verify["skip_review"])
-        for bad in ("tests", [], {"paths": ["tests"]}, {"proof": "true"}, {"paths": ["tests"], "proof": "true", "x": 1},
+        for bad in ("tests", [], {"paths": ["tests"]}, {"proof": "true"},
                     {"paths": [], "proof": "true"}, {"paths": "tests", "proof": "true"},
                     {"paths": ["tests"], "proof": ""}, {"paths": ["tests"], "proof": 3}):
             with self.subTest(bad=bad):

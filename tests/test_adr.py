@@ -134,7 +134,7 @@ class Frontmatter(Base):
         self.assertEqual(adr.warnings(p.cfg), [])
 
     def test_config_refuses_a_bad_block(self):
-        for bad in ({"adr": {"dir": ""}}, {"adr": {"index": 3}}, {"adr": {"statuses": []}}, {"adr": {"other": 1}},
+        for bad in ({"adr": {"dir": ""}}, {"adr": {"index": 3}}, {"adr": {"statuses": []}},
                     {"adr": "docs/adr"}, {"adr": {"strict": "yes"}}, {"adr": {"transitions": {"accepted": ["gone"]}}},
                     {"adr": {"transitions": ["accepted"]}}, {"adr": {"template": 3}}):
             self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", **bad}))

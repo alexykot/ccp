@@ -313,7 +313,6 @@ class ArchitectConfig(unittest.TestCase):
 
     def test_refused(self):
         for block, needle in (
-                ({"every_n_task": 4}, "unknown key(s) in `architect`: every_n_task"),
                 ({"every_n_tasks": "4"}, "every_n_tasks must be an integer >= 1"),
                 ({"shape_adrs": True}, "shape_adrs needs shape_from_task"),
                 ({"shape_from_task": "next"}, "shape_from_task must be a task number"),
@@ -327,7 +326,6 @@ class ArchitectConfig(unittest.TestCase):
                 ({"budgets": [{"id": "E7", "glob": "*.py", "max_bytes": 9, "cut_line": 0}]}, "cut_line must be an integer"),
                 ({"budgets": [{"id": "E7", "glob": "*.py", "max_lines": 9, "cut_line": "8"}]}, "cut_line must be an integer"),
                 ({"budgets": [{"id": "E7", "glob": "*.py", "max_lines": 9, "cut_line": True}]}, "cut_line must be an integer"),
-                ({"checks": [{"id": "E1", "cmd": "x", "shell": True}]}, "unknown key(s) shell"),
                 ({"areas": {"code": "src/**"}}, "areas must map an area name to a list of globs")):
             with self.subTest(block=block):
                 with self.assertRaisesRegex(config.ConfigError, needle.replace("(", r"\(").replace(")", r"\)")):
