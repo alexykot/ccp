@@ -284,6 +284,9 @@ REPORT_DEFAULTS: dict[str, Any] = {"required_fields": []}
 # with that tool from its own session (null, the default: no declared tool).
 NOTIFY_DEFAULTS: dict[str, Any] = {"command": None, "timeout_seconds": 30, "lead": None}
 NOTIFY_LEAD_KEYS = ("tool", "to")
+# §29.3: the plane tasks' `adopt` steps this product declined, task id -> reason; `ccp upgrade status`
+# leaves them out (nothing declined by default).
+UPGRADE_DEFAULTS: dict[str, Any] = {"declined": {}}
 REPORT_FIELD_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9 _-]{0,39}$")
 # The lines `ccp report` already reads: a declared field may not take one of their names.
 REPORT_OWN_LINES = ("outcome", "pr", "head", "verdict", "severity", "suite")
@@ -334,6 +337,7 @@ class Config:
     mutate: dict[str, Any] | None = None
     report: dict[str, Any] | None = None
     notify: dict[str, Any] | None = None
+    upgrade: dict[str, Any] | None = None
     # Whether plane.json names task_log.review_point_pattern itself (§22: ignored, with a warning,
     # once the product keeps a review-point register).
     review_point_pattern_set: bool = False
@@ -1147,6 +1151,17 @@ def _adr(given: Any) -> dict[str, Any] | None:
     return a
 
 
+def _upgrade(given: Any) -> dict[str, Any]:
+    """§29.3: `upgrade.declined`, task id -> the reason the product declined that task's `adopt` step."""
+    u = _merge(UPGRADE_DEFAULTS, given, "upgrade")
+    d = u["declined"]
+    if not isinstance(d, dict) or not all(isinstance(k, str) and k.strip() and isinstance(v, str) and v.strip()
+                                          for k, v in d.items()):
+        raise ConfigError(f"{CONFIG_REL}: upgrade.declined must map a plane task id to the reason the product "
+                          "declined its adopt step (SPEC §29.3)")
+    return u
+
+
 def load(root: Path) -> Config:
     p = root / CONFIG_REL
     if not p.is_file():
@@ -1184,7 +1199,7 @@ def _parse(root: Path, text: str) -> Config:
                                  "prompts", "reconcile", "adapter", "worktrees", "env", "merge",
                                  "auth_check", "telemetry", "board", "gate", "health", "usage", "suite",
                                  "adr", "verify", "review_points", "estimate", "parallel", "ids", "docs",
-                                 "mutate", "report", "notify"})
+                                 "mutate", "report", "notify", "upgrade"})
     if unknown:
         raise ConfigError(f"{CONFIG_REL}: unknown top-level key(s): {', '.join(unknown)}")
     bad_ids = refs.validate(raw.get("ids"))
@@ -1204,5 +1219,6 @@ def _parse(root: Path, text: str) -> Config:
         architect=_architect(raw.get("architect"), ids),
         ids=ids,
         adr=_adr(raw.get("adr")),
+        upgrade=_upgrade(raw.get("upgrade")),
         **_toolkit(raw),
     )

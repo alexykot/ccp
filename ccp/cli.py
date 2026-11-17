@@ -45,7 +45,8 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp notify render TRIGGER [--task ID] [--id ID] [--reason R] [--json] | pending
             | sent TRIGGER [--task ID] [--id ID] --via command|lead [--note T]  (the operator's notices, SPEC §3.6)
   ccp plane propose --need T --generic T [--task ID] [--workaround T] [--frequency F] | propose --again ID
-            | triage ID --accept|--merge-into ID|--decline --reason T | list [--open] | check
+            | triage ID --accept|--merge-into ID|--decline --reason T | built ID --task ID | list [--open] | check
+  ccp upgrade notes [--since COMMIT] | status  (what a plane release asks of a product, SPEC §29.3)
   ccp agent start|stop          (the SubagentStart / SubagentStop hooks; hook JSON on stdin)
   ccp orientation               (the SessionStart orientation, for a session that adopted mid-run, SPEC §9.3)
   ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--starter-rules] [--force]
@@ -887,7 +888,13 @@ def _mutate(cfg: config.Config, a: argparse.Namespace):
 
 def _plane(cfg: config.Config, a: argparse.Namespace):
     from ccp import plane
-    return {"propose": plane.propose, "triage": plane.triage, "list": plane.listing, "check": plane.check}[a.cmd](cfg, a)
+    return {"propose": plane.propose, "triage": plane.triage, "built": plane.built, "list": plane.listing,
+            "check": plane.check}[a.cmd](cfg, a)
+
+
+def _upgrade(cfg: config.Config, a: argparse.Namespace):
+    from ccp import upgrade
+    return {"notes": upgrade.notes, "status": upgrade.status}[a.cmd](cfg, a)
 
 
 def cmd_agent(cfg: config.Config, a: argparse.Namespace) -> int:
@@ -1163,11 +1170,25 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--decline", action="store_true")
     p.add_argument("--reason")
     p.set_defaults(fn=plane_fn)
+    p = pl.add_parser("built", help="close an accepted proposal as built by a merged plane task, with its adopt step "
+                                    "(SPEC §29.3)")
+    p.add_argument("id")
+    p.add_argument("--task", required=True, help="the merged plane task that built it")
+    p.set_defaults(fn=plane_fn)
     p = pl.add_parser("list", help="proposals, most repeated first")
     p.add_argument("--open", action="store_true")
     p.set_defaults(fn=plane_fn)
     pl.add_parser("check", help="files in QUEUE_ROOT/scripts/ that are not the plane's (exit 1 if any)") \
         .set_defaults(fn=plane_fn)
+
+    up = sub.add_parser("upgrade", help="what a plane release asks of this product (SPEC §29.3)") \
+        .add_subparsers(dest="cmd", required=True)
+    upgrade_fn = _toolkit(_upgrade)
+    p = up.add_parser("notes", help="the plane's tasks merged since a commit, each with its adopt step")
+    p.add_argument("--since", metavar="COMMIT", help="default: the plane checkout's previous release")
+    p.set_defaults(fn=upgrade_fn)
+    up.add_parser("status", help="the adopt steps of merged plane tasks this product has not taken") \
+        .set_defaults(fn=upgrade_fn)
 
     sub.add_parser("otel", help="the telemetry receiver: serve | env | install | uninstall | status "
                                 "(SPEC §24.5, §24; runs without a product)")
@@ -1510,7 +1531,7 @@ def cmd_orientation(cfg: config.Config, _a: argparse.Namespace) -> int:
 # allowance session-wake with --sample, --armed or --fire,
 # tasks sync when it changed something and was not --dry-run, runs gc likewise).
 REFRESHES = {("tasks", "claim"), ("tasks", "release"), ("tasks", "drop"), ("tasks", "phase"), ("tasks", "wait"), ("tasks", "resume"), ("tasks", "close"),
-             ("prompt",), ("report",), ("verify", "record"), ("plane", "propose"), ("plane", "triage"),
+             ("prompt",), ("report",), ("verify", "record"), ("plane", "propose"), ("plane", "triage"), ("plane", "built"),
              ("allowance", "continue"), ("architect", "run"), ("architect", "triage"),
              ("agent", "start"), ("agent", "stop"),
              ("health", "note"), ("health", "record")}

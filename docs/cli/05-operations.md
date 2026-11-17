@@ -16,11 +16,14 @@ ccp plane propose --need "…" --generic "<why any product needs it>" [--task <i
 ccp plane propose --again <id>
 ccp plane list
 ccp plane triage <id> --accept | --merge-into <id> | --decline --reason "…"
+ccp plane built <id> --task <plane task id>
 ```
 
 ## Releases (§29)
 
 ```
+ccp upgrade notes [--since <commit>]
+ccp upgrade status
 scripts/run-checkout.sh install | update | status
 scripts/release.sh [worktree]
 ```
