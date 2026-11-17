@@ -1,7 +1,7 @@
 ---
 task_id: 0117-tool-bug-fixes
 title: wt create resolves a symbolic sha, the catch-up gate gets the task worktree's environment, mutate leaves no stale bytecode, close reads counts safely, and an unclosed fence is reported
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4", "S12", "S16", "S20"]
@@ -117,3 +117,5 @@ with an unclosed code fence says so instead of silently dropping the rules after
   not code fences, so it is unchanged.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #117 head `8b4adeb` (squash `18cfd1f`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, cmd-05, suite-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0117-tool-bug-fixes.json.
+
