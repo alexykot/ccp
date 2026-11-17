@@ -55,6 +55,8 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--starter-rules] [--force]
             (adopt this repository: footprint, binding and queue, SPEC §4.3, §8.3; the starter
             house rules, §20.5)
+  ccp sandbox create [DIR] [-- INIT_OPTIONS …] | remove DIR  (a throwaway adopted product, its binding and queue
+            inside DIR, for end-to-end checks; remove deletes only a sandbox, SPEC §29.3)
   ccp init --permissions  (print the runner's and workers' permission block for the operator to apply;
             writes nothing, SPEC §4.5, §18.5)
   ccp init --rules-doc PATH [--adopt]  (list the house rules with no `check:` line; --adopt gives each
@@ -1290,6 +1292,13 @@ def build_parser() -> argparse.ArgumentParser:
                         "the doc over rules_max_lines")
     p.set_defaults(fn=None)
 
+    p = sub.add_parser("sandbox", help="a throwaway adopted product for end-to-end checks, its binding and queue "
+                                       "inside it, never the installation's (SPEC §29.3); runs without a product")
+    p.add_argument("action", choices=("create", "remove"))
+    p.add_argument("dir", nargs="?", metavar="DIR",
+                   help="create: a new or empty directory (default: a new temporary one); remove: the sandbox")
+    p.set_defaults(fn=None)
+
     p = sub.add_parser("agent", help="the SubagentStart / SubagentStop hooks: bind and stop runs (SPEC §11.1)")
     p.add_argument("action", choices=("start", "stop"))
     p.set_defaults(fn=cmd_agent)
@@ -1399,20 +1408,23 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def binding_file(cfg: config.Config) -> Path | None:
-    """SPEC §8.3, §9.2: this product's binding, `<bindings>/<project_id>.yaml`, and only when its
-    product_root is this checkout or its main checkout. A scratch clone or a fork that names a live
-    project's id gets nothing."""
+    """SPEC §8.3, §9.2: this product's binding: the file `PROJECT_YAML` names, when it is set, ahead of
+    `<bindings>/<project_id>.yaml` (a sandbox's binding sits outside the bindings directory, §29.3);
+    either only when its product_root is this checkout or its main checkout. A scratch clone or a fork
+    that names a live project's id gets nothing."""
     from ccp.prompt import main_checkout  # noqa: PLC0415
     from ccp.queue import lib  # noqa: PLC0415
     if not config.PROJECT_ID_RE.match(cfg.project_id):
         return None
-    b = lib.bindings_dir() / f"{cfg.project_id}.yaml"
-    if not b.is_file():
-        return None
-    root = _scalar(b.read_text(), "product_root")
-    if not root or Path(root).expanduser().resolve() not in (cfg.root.resolve(), main_checkout(cfg).resolve()):
-        return None
-    return b
+    mine = (cfg.root.resolve(), main_checkout(cfg).resolve())
+    explicit = envvar("PROJECT_YAML")
+    for b in ([Path(explicit).expanduser()] if explicit else []) + [lib.bindings_dir() / f"{cfg.project_id}.yaml"]:
+        if not b.is_file():
+            continue
+        root = _scalar(b.read_text(), "product_root")
+        if root and Path(root).expanduser().resolve() in mine:
+            return b
+    return None
 
 
 def _scalar(text: str, key: str) -> str | None:
@@ -1630,6 +1642,8 @@ def main(argv: list[str] | None = None) -> int:
     command, passthru = None, []
     if "--" in raw and _words(raw[:raw.index("--")])[:2] == ["suite", "run"]:
         command, raw = raw[raw.index("--") + 1:], raw[:raw.index("--")]  # §14.1: the command, verbatim
+    elif "--" in raw and _words(raw[:raw.index("--")])[:1] == ["sandbox"]:
+        passthru, raw = raw[raw.index("--") + 1:], raw[:raw.index("--")]  # §29.3: the options for its ccp init
     elif "--" in raw and _words(raw[:raw.index("--")])[:2] in (["wt", "exec"], ["wt", "create"]):
         passthru, raw = raw[raw.index("--") + 1:], raw[:raw.index("--")]  # §12.1: its ccp's arguments, or the
         # command a base worktree runs, verbatim
@@ -1648,6 +1662,9 @@ def main(argv: list[str] | None = None) -> int:
     if a.group == "init":  # it writes plane.json, so it runs before one loads (§8.3)
         from ccp import init  # noqa: PLC0415
         return init.main(a.root, a)
+    if a.group == "sandbox":  # it makes its own product, so it runs without one (§29.3)
+        from ccp import sandbox  # noqa: PLC0415
+        return sandbox.main(a, passthru)
     if a.group == "suite" and a.cmd == "run":  # it runs even where plane.json does not load
         from ccp import suite  # noqa: PLC0415
         return suite.main_run(a, command)

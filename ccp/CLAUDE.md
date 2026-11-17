@@ -14,6 +14,7 @@ normative, and a module that disagrees with it is the bug.
   phase, wait, release, close), `selection.py` and `parallel.py` (what the runner may take),
   `runs.py`, `report.py`, `verify.py`, `suite.py`, `wt.py`, `mutate.py`, `prompt.py`, `plane.py`,
   `upgrade.py` (what a plane release asks of a product, §29.3),
+  `sandbox.py` (a throwaway adopted product for end-to-end checks, §29.3),
   `notify.py` (the operator's notices: fired, rendered, recorded and listed pending, §3.6).
 - **Seats that run headless:** `architect.py`, `estimator.py`.
 - **Measurement and the board:** `health.py`, `estimate.py`, `calibrate.py`, `forecast.py`,

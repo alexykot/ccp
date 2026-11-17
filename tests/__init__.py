@@ -30,6 +30,9 @@ import tempfile  # noqa: E402
 
 os.environ["CCP_SUITE_LOG_DIR"] = tempfile.mkdtemp(prefix="ccp-test-suite-logs-")
 atexit.register(shutil.rmtree, os.environ["CCP_SUITE_LOG_DIR"], True)
+# §29.3: `ccp sandbox create` makes its sandboxes only below this root, removed at exit.
+os.environ["CCP_SANDBOX_ROOT"] = tempfile.mkdtemp(prefix="ccp-test-sandboxes-")
+atexit.register(shutil.rmtree, os.environ["CCP_SANDBOX_ROOT"], True)
 # §26.3 phase B: no test starts a detached estimator batch (or a real `claude -p`); the trigger
 # tests mock the spawn and lift this.
 os.environ["CCP_NO_ESTIMATOR_SPAWN"] = "1"
