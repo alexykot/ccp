@@ -1,7 +1,7 @@
 ---
 task_id: 0125-worktree-round-in-names
 title: A worktree's round reaches worker_env and lane stages, so a second review round gets its own scratch resources
-status: pending
+status: done
 kind: feature
 depends_on: ["0124-suite-and-mutate-tools"]
 spec_refs: ["S8", "S12", "S14"]
@@ -89,3 +89,5 @@ round's setup neither replaces the first round's resource nor refuses because it
   (it always prints JSON); no flag was added.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #141 head `e3d0458` (squash `1d3ba8a`): APPROVE. Passed: wt-01, wt-02, wt-03, suite-01. Gate: `ccp suite run --lane gate -- scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0125-worktree-round-in-names.json.
+

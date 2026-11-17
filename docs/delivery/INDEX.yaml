@@ -623,7 +623,7 @@ tasks:
     depends_on: []
     path: tasks/0124-suite-and-mutate-tools.md
   - id: 0125-worktree-round-in-names
-    status: pending
+    status: done
     title: A worktree's round reaches worker_env and lane stages, so a second review round gets its own scratch resources
     depends_on: [0124-suite-and-mutate-tools]
     path: tasks/0125-worktree-round-in-names.md
