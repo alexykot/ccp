@@ -1,14 +1,14 @@
 ---
 task_id: 0106-test-gaps-from-earlier-tasks
 title: Behaviour earlier tasks shipped untested gets the tests that pin it
-status: pending
+status: done
 kind: chore
 depends_on: []
 spec_refs: ["S12", "S13", "S14", "S15", "S19"]
 review_point: R6
 paths: ["tests/", "ccp/estimator.py", "ccp/cli.py"]
 created: 2026-11-16
-updated: 2026-11-16
+updated: 2026-11-17
 ---
 
 # Task: 0106-test-gaps-from-earlier-tasks
@@ -95,3 +95,5 @@ in the Implementation notes.
     those tests (`tests/test_merge_base.py`), and Out excludes them.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #114 head `de39bd3` (squash `113cf8f`): APPROVE. Passed: check-01, check-02, check-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0106-test-gaps-from-earlier-tasks.json.
+
