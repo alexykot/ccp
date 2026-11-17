@@ -268,6 +268,13 @@ _REST_FORMS = ("a ruling, named by its spec question id (sm-…) or gate id (<ta
                "(produced_by: operator)")
 
 
+def carried_from(rests_on: Any) -> str | None:
+    """The sha a check not run carries its verdict from (`rests_on` exactly `approve at <sha>`, §15.6
+    rule 3), as written; None for any other `rests_on`."""
+    m = _APPROVE_AT.fullmatch(rests_on.strip()) if isinstance(rests_on, str) else None
+    return m.group(1) if m else None
+
+
 def _ruling_refusal(queue: Path, rests_on: str) -> str | None:
     """Why `rests_on` is not a ruling the queue holds, or None when it is: it names at least one gate
     id `<task_id>-<n>` or spec question id `sm-…`, and every one it names exists and was ruled (the

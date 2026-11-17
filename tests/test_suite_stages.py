@@ -460,7 +460,8 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.product([spy])
         self.change("docs/guide.md")
         self.gate()  # no task: the skip could not be put on a task's record
-        self.gate("--task", "0002", "--", "true")  # a command after `--` is no lane's stages
+        r = self.run_suite("--lane", "gate", "--task", "0002", "--", "true")  # a staged lane takes no command
+        self.assertEqual(r.returncode, 2, r.stdout.decode() + r.stderr.decode())
         self.assertFalse(self.seen.exists())
         lanes = {"gate": [{"name": "suite", "cmd": "true"}], "fast": [{"name": "suite", "cmd": f"touch {self.marker}"}]}
         self.product([spy], lanes)
@@ -673,12 +674,27 @@ class OldLaneForm(StagedFixture, unittest.TestCase):
         self.assertEqual(self.run_suite("--lane", "gate").returncode, 127)
         self.assertEqual((self.ended()["failed_stage"], self.ended()["stages"][0]["exit_code"]), ("gate", 127))
 
-    def test_a_command_after_dashes_records_no_stages(self):
-        self.lanes({"gate": [{"name": "unit", "cmd": "exit 9"}]})
+    def test_a_command_after_dashes_on_an_argv_lane_runs_and_records_no_stages(self):
+        self.lanes({"gate": [PY, "-c", "raise SystemExit(9)"]})
         r = self.run_suite("--lane", "gate", "--", PY, "-c", "pass")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertNotIn("stages", self.ended())
         self.assertNotIn("failed_stage", self.ended())
+
+    def test_a_command_after_dashes_on_a_staged_lane_is_refused_naming_the_lane_and_records_nothing(self):
+        ran = Path(self._tmp.name) / "command-ran"
+        self.lanes({"gate": [{"name": "lint", "cmd": "true"}, {"name": "unit", "cmd": "true"}],
+                    "fast": [{"name": "unit", "cmd": "true"}]})
+        for lane in ("gate", "fast"):
+            with self.subTest(lane=lane):
+                r = self.run_suite("--lane", lane, "--", "touch", str(ran))
+                self.assertEqual(r.returncode, 2, r.stdout.decode() + r.stderr.decode())
+                self.assertIn(f"--lane {lane} ", r.stderr.decode())
+                self.assertFalse(ran.exists())
+                self.assertEqual(self.rows(), [])
+        r = self.run_suite("--lane", "gate")
+        self.assertEqual(r.returncode, 0, r.stdout.decode() + r.stderr.decode())
+        self.assertEqual([s["name"] for s in self.ended()["stages"]], ["lint", "unit", config.PLANE_DOCS_STAGE])
 
 
 class StageConfig(unittest.TestCase):

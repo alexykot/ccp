@@ -585,7 +585,7 @@ has a `Suite:` line but no suite run is recorded for its run.
   stage gets its own `CCP_SUITE_RESULT`. The gate role's staged lane ends with a
   stage `ccp` adds itself, `plane-docs`, which runs `ccp docs check` (§21.2), so no product stage calls
   `ccp`; no product stage may take that name, and no other lane gets it. An argv lane runs as one stage
-  named after the lane, with no `plane-docs` stage; a command after `--` is no stage. With stages, a
+  named after the lane, with no `plane-docs` stage; a command after `--` is no stage, and `ccp suite run` refuses one (exit 2, nothing recorded) on a lane plane.json gives stages, naming the lane, so a staged gate cannot be replaced by a command. With stages, a
   line marks each stage's start and end in the log (on stderr with `--full`), and the summary gets one
   line before its last: each stage that ran, passed or FAILED with its exit code, and its seconds, then
   the stages not run. A nested run (below) of a staged lane runs its stages in order, unrecorded.

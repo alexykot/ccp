@@ -53,6 +53,21 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         self.assertIn("plane propose`), not the PR", text)
         self.assertIn("only text without which the code cannot be correct goes to the lead, as a spec question", text)
 
+    def test_the_verify_prompt_names_the_record_s_project_id_its_findings_list_and_an_example_that_exists(self):
+        _run_id, text = self.render("verify", "--pr", "7", "--head", A)
+        self.assertIn('`project_id: "demo"`', text)
+        self.assertIn("`findings`, a list of strings", text)
+        example = PLANE / "contracts" / "verification.example.json"
+        self.assertTrue(example.is_absolute() and example.is_file())
+        self.assertIn(f"a valid example is {example})", text)
+
+    def test_the_implementer_flips_the_decisions_it_builds_and_every_worker_hears_a_staged_lane_takes_no_command(self):
+        _run_id, text = self.render("implement", "--base", "abc1234")
+        self.assertIn("adr decide <n> <Dn> built", text)
+        for phase, args in (("verify", ("--pr", "7", "--head", A)), ("implement", ("--base", "abc1234"))):
+            _run_id, text = self.render(phase, *args)
+            self.assertIn("gives stages takes no command", text, phase)
+
     def test_no_template_sends_a_worker_to_a_mutation_worktree_or_a_discovery_command(self):
         for phase in ("implement", "fix", "ruling", "merge", "verify"):
             text = (PLANE / "templates/prompts" / f"{phase}.md").read_text()
