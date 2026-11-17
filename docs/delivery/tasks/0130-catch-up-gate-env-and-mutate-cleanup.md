@@ -93,4 +93,17 @@ bytecode.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `_task_worktree_env` now takes the merge worktree's path and builds the gate's
+  environment itself, without `wt.context` (which indexes every field): `CCP_WT_WORKTREE` the `merge-<nnnn>`
+  path, `CCP_WT_NAME` its name, `CCP_WT_KIND` `merge`, `CCP_WT_TASK_ID`/`CCP_WT_NNNN`/`CCP_WT_MAIN_CHECKOUT`
+  from the task, `CCP_WT_SEAT`, `CCP_WT_TAG` and `CCP_WT_ROUND` from the task's `impl` record (empty when
+  missing, the round 1), `CCP_TASK_ID`/`CCP_NNNN`, and `prompts.worker_env` rendered with `kind` `merge`, the
+  merge path, `run_id` empty (close has no run) and `phase` `verify` (the phase the gate run is recorded
+  under). With no `impl` record the gate still gets the merge worktree's fields, seat and tag empty, and the
+  warning stays. `ccp mutate` drops each mutated file's `__pycache__` entries after applying the mutant, before
+  its test runs. `tests/test_tasks_close.py` has its `__main__` guard back and, run as a script, puts the
+  checkout's root on `sys.path` (importing `tests` first, for the fence): without it `python3
+  tests/test_tasks_close.py` cannot import `ccp`. The catch-up's env tests live in
+  `tests/test_behind_tip_catch_up.py` (not in `paths`), where one test pinned `impl-0002`/`impl` and had to change.
+
 ## Verification notes
