@@ -1,7 +1,7 @@
 ---
 task_id: 0121-implementer-model-aliases
 title: The implementer-model knob takes the aliases the Agent call accepts, and warns when a task has no estimate
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S2"]
@@ -97,4 +97,17 @@ runner learns when the `small` arm cannot apply because the task has no estimate
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `workers.implementer_model` arms must be exactly `sonnet`, `opus`, `haiku` or
+  `fable` (`config.WORKER_MODEL_ALIASES`; case-sensitive, so `Sonnet` and `inherit` are refused like a full id),
+  and the schema's arms carry the same `enum`. `implementer_model()` returns the alias and a warning; the
+  warning is raised only when the `small` arm is consulted (no `refactor` arm applied first) and the task has no
+  usable estimate, and only on an implement round. It joins the prompt's `warnings`, which the toolkit prints on
+  stderr as `warning: ...`. The run's `expected_model` now records the alias as printed (as before, the printed
+  value): `ccp usage` compares it with observed full ids, so a trial run is flagged "model <full id>, pinned
+  sonnet" and the time-window fallback attribution skips it; usage.py is outside this task's paths (reported as
+  a follow-up). The installed `ccp` validates plane.json with the old rule and refuses this branch's plane.json
+  until release, so the worktree's own `bin/ccp` ran this task's suite, mutations and checks.
+
 ## Verification notes
+- 2026-11-17 — verifier, PR #135 head `b671934` (squash `e33feaf`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, check-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0121-implementer-model-aliases.json.
+

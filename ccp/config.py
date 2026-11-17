@@ -195,10 +195,11 @@ HEALTH_DEFAULTS: dict[str, Any] = {"small_task_lines": 100, "slowest_modules": 5
 USAGE_DEFAULTS: dict[str, Any] = {"advice": {"cache_5m_share": 0.5, "context_tokens": 300000,
                                              "coordination_share": 0.4}}
 # §2.4 the implementer's model per task: `implementer_model` (null: the definition's) maps `small` (a task whose
-# estimate is at most `small_estimate_minutes`) and `refactor` (a task of that kind) to a full model id.
+# estimate is at most `small_estimate_minutes`) and `refactor` (a task of that kind) to an alias the Agent call's
+# `model` accepts, `WORKER_MODEL_ALIASES`: it takes nothing else, a full id included.
 WORKERS_DEFAULTS: dict[str, Any] = {"implementer_model": None, "small_estimate_minutes": 30}
 WORKER_MODEL_ARMS = ("small", "refactor")
-MODEL_ALIASES = ("opus", "sonnet", "haiku", "inherit", "opusplan", "default")  # §2.4: full ids, never aliases
+WORKER_MODEL_ALIASES = ("sonnet", "opus", "haiku", "fable")
 # §26.3 estimation: `reference_since` (YYYY-MM-DD, or null) leaves tasks merged before a process change
 # out of every reference class; `k` is the reference class's size (5 to 8).
 ESTIMATE_DEFAULTS: dict[str, Any] = {"reference_since": None, "k": 6, "auto": False,  # auto: §26.3 phase B triggers
@@ -806,19 +807,19 @@ def _usage(given: Any) -> dict[str, Any]:
 
 
 def _workers_problems(w: dict[str, Any]) -> list[str]:
-    """§2.4 the `workers` block: `implementer_model` null or an object of `small` and `refactor` full model ids,
-    `small_estimate_minutes` an integer >= 1."""
+    """§2.4 the `workers` block: `implementer_model` null or an object of `small` and `refactor`, each an alias
+    the Agent call's `model` accepts (`WORKER_MODEL_ALIASES`), `small_estimate_minutes` an integer >= 1."""
     bad = []
     im = w["implementer_model"]
     if im is not None:
         if not isinstance(im, dict) or not set(im) <= set(WORKER_MODEL_ARMS):
             bad.append("workers.implementer_model must be null or an object of " + " and ".join(WORKER_MODEL_ARMS)
-                       + ", each a model id")
+                       + ", each one of " + ", ".join(WORKER_MODEL_ALIASES))
         else:
             for k, v in im.items():
-                if not (isinstance(v, str) and v.strip() and not any(c.isspace() for c in v)) \
-                        or v.strip().lower() in MODEL_ALIASES:
-                    bad.append(f"workers.implementer_model.{k} must be a full model id, never an alias (SPEC §2.4)")
+                if v not in WORKER_MODEL_ALIASES:
+                    bad.append(f"workers.implementer_model.{k} must be one of " + ", ".join(WORKER_MODEL_ALIASES)
+                               + f", the aliases the Agent call's model accepts, not {v!r} (SPEC §2.4)")
     m = w["small_estimate_minutes"]
     if isinstance(m, bool) or not isinstance(m, int) or m < 1:
         bad.append("workers.small_estimate_minutes must be an integer >= 1")
