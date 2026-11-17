@@ -113,6 +113,11 @@ class RulesDoc(InitCase):
             for text in (res["warnings"][0], r.stderr):
                 self.assertIn("docs/RULES.md", text)
                 self.assertIn("line 2", text)
+        self.doc.write_text("- **E1** Rule one.\n```\n- **E2** Hidden, unchecked.\n")
+        self.plane(architect={"rules_doc": "docs/RULES.md", "rules_max_lines": 3})
+        code, err = self.rules_doc("--adopt")
+        self.assertEqual(code, 1, err)  # over the cap: the refusal names the fence too
+        self.assertIn("line 2", err)
         self.doc.write_text(RULES)
         self.assertEqual(self.rules_doc()[1]["warnings"], [])
 

@@ -296,9 +296,8 @@ def resolve_sha(cfg: Config, sha: str, code: int = 2) -> str:
     names no commit there is refused with `code` (2; a base run's own refusal is BASE_REFUSED)."""
     if FULL_SHA_RE.fullmatch(sha):
         return sha
-    r = git(cfg.root, "rev-parse", "--verify", "-q", f"{sha}^{{commit}}") if sha.strip() and not sha.startswith("-") \
-        else None
-    full = r.stdout.strip() if r is not None and r.returncode == 0 else ""
+    r = git(cfg.root, "rev-parse", "--verify", "-q", "--end-of-options", f"{sha}^{{commit}}")
+    full = r.stdout.strip() if r.returncode == 0 else ""
     if not full:
         raise QueueError(f"--sha {sha!r} names no commit in {cfg.root}: give a commit's sha, or a ref that "
                          "resolves there (§12.1)", code)
