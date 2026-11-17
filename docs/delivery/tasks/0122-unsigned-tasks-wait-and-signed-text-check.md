@@ -1,7 +1,7 @@
 ---
 task_id: 0122-unsigned-tasks-wait-and-signed-text-check
 title: tasks next passes over a task awaiting its brief sign-off, and a command checks the PR's SPEC text against the signed words
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3", "S10", "S15"]
@@ -111,3 +111,5 @@ one command instead of a hand comparison.
   `brief_sign_off` (`ccp/prompt.py`, outside the declared paths), and a row in `docs/cli/02-delivery.md`.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #137 head `8bc686d` (squash `6c73324`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, check-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0122-unsigned-tasks-wait-and-signed-text-check.json.
+
