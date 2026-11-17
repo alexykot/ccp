@@ -2,8 +2,10 @@
 # gate.sh — the plane's own test gate (docs/ENGINEERING.md E1, E2), run through `ccp suite run`.
 #
 # Runs every test module in its own process, GATE_WORKERS at a time (scripts/gate_parallel.py), then
-# checks that no test left a `state/*` branch behind. When `ccp suite run` sets CCP_SUITE_RESULT,
-# writes the gate-result JSON there, with each module's seconds and tests
+# checks that no test left a `state/*` branch behind. A module whose inputs are unchanged since it last
+# passed is served from the test cache (GATE_CACHE_DIR) instead of run; GATE_COLD=1 is the cold option,
+# no cache read or written (SPEC §15.3). When `ccp suite run` sets CCP_SUITE_RESULT, writes the
+# gate-result JSON there, with each module's seconds and tests and the modules ran and cached
 # (contracts/suite_result.schema.json).
 set -uo pipefail
 cd "$(dirname "$0")/.."

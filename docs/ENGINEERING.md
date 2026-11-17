@@ -49,4 +49,6 @@ run through `docs.checks` and the gate (`scripts/gate.sh`) rather than `architec
 
 ## Known intentional
 
-- The suite has no per-module cache: it is fast enough to run whole.
+- The gate's test cache keys every module on all the inputs it shares (every tracked and untracked
+  file but the test modules no other imports), not on what it imports: one source edit reruns every
+  module (scripts/gate_parallel.py).

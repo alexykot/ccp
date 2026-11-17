@@ -8,19 +8,42 @@ Each module's output is printed whole when it ends, then one line:
 
   gate module tests.test_x: ok, 12.34 s, 45 tests
   gate module tests.test_x: FAILED (exit 1), 12.34 s, 45 tests
+  gate module tests.test_x: cached, 12.34 s, 45 tests
 
-which scripts/gate_result.py reads for the result file's `modules`. Exits 1 when any module failed
-or errored (a non-zero exit), 2 on a bad GATE_WORKERS; the `state/*` check is gate.sh's, after it.
+which scripts/gate_result.py reads for the result file's `modules`, `ran` and `cached`.
+
+The test cache (SPEC §15.3, plane.json `verify.accept_cache`). Before a module runs, its key is looked
+up: the SHA-256 of the module file's content, its name, the interpreter's version and the inputs every
+module shares. The shared inputs are `git ls-files -s` of every tracked path, with uncommitted edits
+(tracked files changed in the working tree, and untracked files git does not ignore) folded in by
+their content, except the test modules no other test module imports: those are no input of another
+module. A test module some test module imports (a shared helper) is an input of every module. A key
+whose recorded result passed, no older than plane.json `verify.accept_cache.max_age_days` (no limit
+when unset), is a hit: the module is reported `cached`, with the seconds and tests of the run that
+recorded it, and is not run. A miss runs and, on a pass, records `{key, passed, tests, seconds, at}`.
+Computing the key writes nothing to the repository: not its index, objects or stash list.
+
+The cache directory is GATE_CACHE_DIR, default `~/.cache/ccp-gate/<repo id>` (the repo id from its
+root commit, so every worktree and clone of the repo shares it); it must be outside the repository.
+The cold option, GATE_COLD=1 (any value but empty or 0), reads and writes no cache: every module
+runs and the run counts nothing cached. A checkout git cannot read runs with no cache, saying so.
+
+Exits 1 when any module failed or errored (a non-zero exit), 2 on a bad GATE_WORKERS or a cache
+directory inside the repository; the `state/*` check is gate.sh's, after it.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -28,6 +51,12 @@ ROOT = Path(__file__).resolve().parent.parent
 # and must run alone.
 SERIAL: list[str] = []
 RAN_RE = re.compile(r"^Ran (\d+) tests? in ", re.M)
+KEY_VERSION = "ccp-gate-cache 1"
+# What names another test module in a test module's text: `tests.test_x` anywhere (an import, a dotted
+# name in a string), and the names after `from tests import` or `from . import`, and `from .test_x`.
+DOTTED_RE = re.compile(r"\btests\.(test_\w+)")
+FROM_PKG_RE = re.compile(r"^\s*from\s+(?:tests|\.)\s+import\s+(\([^)]*\)|[^\n#]+)", re.M)
+FROM_REL_RE = re.compile(r"^\s*from\s+\.(test_\w+)", re.M)
 _print = threading.Lock()
 
 
@@ -45,7 +74,133 @@ def modules() -> list[str]:
     return [f"tests.{p.stem}" for p in files]
 
 
-def run_one(name: str) -> tuple[str, int, float, int]:
+def cold() -> bool:
+    return os.environ.get("GATE_COLD", "").strip() not in ("", "0")
+
+
+def _git(*args: str) -> bytes:
+    p = subprocess.run(["git", "-C", str(ROOT), *args], stdin=subprocess.DEVNULL, capture_output=True)
+    if p.returncode != 0:
+        raise OSError(f"git {args[0]} exited {p.returncode}")
+    return p.stdout
+
+
+def cache_dir() -> Path:
+    """GATE_CACHE_DIR, else ~/.cache/ccp-gate/<repo id>; ValueError when it lies inside the repository."""
+    raw = os.environ.get("GATE_CACHE_DIR", "").strip()
+    if raw:
+        d = Path(raw).expanduser().resolve()
+    else:
+        roots = sorted(_git("rev-list", "--max-parents=0", "HEAD").decode().split())
+        rid = hashlib.sha256(" ".join(roots).encode()).hexdigest()[:16] if roots else "no-commit"
+        d = (Path.home() / ".cache" / "ccp-gate" / rid).resolve()
+    if d == ROOT or ROOT in d.parents:
+        raise ValueError(f"GATE_CACHE_DIR must be outside the repository, not {d}")
+    return d
+
+
+def shared_tests(names: list[str]) -> set[str]:
+    """The test modules (dotted) that some test module names, so that their content is everyone's input."""
+    stems = {n.split(".", 1)[1] for n in names}
+    named: set[str] = set()
+    for n in names:
+        try:
+            text = (ROOT / "tests" / f"{n.split('.', 1)[1]}.py").read_text(errors="replace")
+        except OSError:
+            continue
+        found = set(DOTTED_RE.findall(text)) | set(FROM_REL_RE.findall(text))
+        for group in FROM_PKG_RE.findall(text):
+            found |= set(re.findall(r"\b(test_\w+)", group))
+        named |= {s for s in found if s in stems and s != n.split(".", 1)[1]}
+    return {f"tests.{s}" for s in named}
+
+
+def _blob(path: Path) -> tuple[str, str] | None:
+    """A working-tree file as git would stage it, unfiltered: its mode and blob id; None when it is gone.
+    An unchanged file gives its index entry's own values, so the key does not hang on stat data."""
+    try:
+        if path.is_symlink():
+            mode, data = "120000", os.readlink(path).encode(errors="surrogateescape")
+        else:
+            mode, data = ("100755" if path.stat().st_mode & 0o111 else "100644"), path.read_bytes()
+    except FileNotFoundError:
+        return None
+    return mode, hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def shared_inputs(leaves: set[str]) -> str:
+    """The digest of what every module may read: the index's entry for every tracked path, with the
+    working tree's edits to tracked paths and its untracked, unignored files folded in by content.
+    Paths in `leaves` (a test module no other imports) are left out. Read-only: nothing is written to
+    git, its index or its objects."""
+    entries: dict[str, list[str]] = {}
+    for raw in _git("ls-files", "-s", "-z").split(b"\0"):
+        if raw:
+            meta, rel = raw.decode(errors="surrogateescape").split("\t", 1)
+            entries.setdefault(rel, []).append(meta)
+    def fold(flag: str, *extra: str) -> None:
+        for raw in set(_git("ls-files", flag, *extra, "-z").split(b"\0")) - {b""}:
+            rel = raw.decode(errors="surrogateescape")
+            blob = _blob(ROOT / rel)
+            entries[rel] = [f"{blob[0]} {blob[1]} {'u' if flag == '-o' else 0}"] if blob else ["deleted"]
+    fold("-m")
+    fold("-o", "--exclude-standard")
+    h = hashlib.sha256()
+    for rel in sorted(entries):
+        if rel not in leaves:
+            for meta in entries[rel]:
+                h.update(f"{meta}\t{rel}\0".encode(errors="surrogateescape"))
+    return h.hexdigest()
+
+
+def module_key(name: str, shared: str) -> str:
+    own = hashlib.sha256((ROOT / "tests" / f"{name.split('.', 1)[1]}.py").read_bytes()).hexdigest()
+    return hashlib.sha256(f"{KEY_VERSION}\n{sys.version}\n{name}\n{own}\n{shared}".encode()).hexdigest()
+
+
+def max_age_days() -> int | None:
+    """plane.json `verify.accept_cache.max_age_days`: an entry older than it is no hit (None: no limit)."""
+    try:
+        cfg = json.loads((ROOT / "docs" / "delivery" / "plane.json").read_text())
+        age = ((cfg.get("verify") or {}).get("accept_cache") or {}).get("max_age_days")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return age if isinstance(age, int) and not isinstance(age, bool) and age >= 1 else None
+
+
+class Cache:
+    def __init__(self, directory: Path, max_age: int | None):
+        self.dir, self.max_age = directory, max_age
+
+    def lookup(self, key: str) -> dict | None:
+        try:
+            e = json.loads((self.dir / f"{key}.json").read_text())
+            at = datetime.strptime(e["at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+        if not (isinstance(e, dict) and e.get("key") == key and e.get("passed") is True
+                and isinstance(e.get("tests"), int) and isinstance(e.get("seconds"), (int, float))):
+            return None
+        if self.max_age is not None and datetime.now(timezone.utc) - at > timedelta(days=self.max_age):
+            return None
+        return e
+
+    def record(self, key: str, tests: int, seconds: float) -> None:
+        entry = {"key": key, "passed": True, "tests": tests, "seconds": round(seconds, 2),
+                 "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+        try:
+            self.dir.mkdir(parents=True, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(dir=self.dir, prefix=".entry-")
+            with os.fdopen(fd, "w") as f:
+                json.dump(entry, f)
+            os.replace(tmp, self.dir / f"{key}.json")
+        except OSError as e:
+            with _print:
+                print(f"gate: could not record a cache entry ({e.__class__.__name__}); the module still passed",
+                      file=sys.stderr)
+
+
+def run_one(name: str, cache: Cache | None = None, key: str | None = None) -> tuple[str, int, float, int]:
     t0 = time.monotonic()
     p = subprocess.run([sys.executable, "-m", "unittest", name], cwd=ROOT, stdin=subprocess.DEVNULL,
                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
@@ -53,6 +208,8 @@ def run_one(name: str) -> tuple[str, int, float, int]:
     ran = RAN_RE.search(p.stdout)
     tests = int(ran.group(1)) if ran else 0
     state = "ok" if p.returncode == 0 else f"FAILED (exit {p.returncode})"
+    if p.returncode == 0 and cache is not None and key is not None:
+        cache.record(key, tests, secs)
     with _print:
         sys.stdout.write(p.stdout if p.stdout.endswith("\n") or not p.stdout else p.stdout + "\n")
         sys.stdout.write(f"gate module {name}: {state}, {secs:.2f} s, {tests} tests\n")
@@ -68,15 +225,40 @@ def main() -> int:
         return 2
     t0 = time.monotonic()
     names = modules()
-    alone = [m for m in names if m in SERIAL]
-    together = [m for m in names if m not in alone]
+    cache: Cache | None = None
+    keys: dict[str, str] = {}
+    if cold():
+        print("gate: cold (GATE_COLD): no test cache read or written")
+    else:
+        try:
+            cache = Cache(cache_dir(), max_age_days())
+            shared = shared_tests(names)
+            leaves = {f"tests/{m.split('.', 1)[1]}.py" for m in names if m not in shared}
+            common = shared_inputs(leaves)
+            keys = {m: module_key(m, common) for m in names}
+        except ValueError as e:
+            print(f"gate: {e}", file=sys.stderr)
+            return 2
+        except OSError as e:
+            print(f"gate: no test cache this run: {e}", file=sys.stderr)
+            cache, keys = None, {}
+    hits: list[str] = []
+    for m in names:
+        e = cache.lookup(keys[m]) if cache is not None else None
+        if e is not None:
+            hits.append(m)
+            print(f"gate module {m}: cached, {float(e['seconds']):.2f} s, {e['tests']} tests")
+    sys.stdout.flush()
+    todo = [m for m in names if m not in hits]
+    alone = [m for m in todo if m in SERIAL]
+    together = [m for m in todo if m not in alone]
     with ThreadPoolExecutor(max_workers=n) as pool:
-        results = list(pool.map(run_one, together))
-    results += [run_one(m) for m in alone]
+        results = list(pool.map(lambda m: run_one(m, cache, keys.get(m)), together))
+    results += [run_one(m, cache, keys.get(m)) for m in alone]
     failed = [name for name, rc, _s, _t in results if rc != 0]
     tests = sum(t for *_x, t in results)
-    print(f"gate: {len(results)} modules, {tests} tests, {n} workers, {time.monotonic() - t0:.1f} s"
-          + (f"; FAILED: {', '.join(sorted(failed))}" if failed else "; all passed"))
+    print(f"gate: {len(names)} modules, ran {len(results)}, cached {len(hits)}, {tests} tests, {n} workers, "
+          f"{time.monotonic() - t0:.1f} s" + (f"; FAILED: {', '.join(sorted(failed))}" if failed else "; all passed"))
     return 1 if failed else 0
 
 
