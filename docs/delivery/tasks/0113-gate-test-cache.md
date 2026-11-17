@@ -43,7 +43,7 @@ affect. The plane turns on `verify.accept_cache` for itself.
   setup: a checkout of the PR head with an empty cache directory.
   steps:
     1. Run `scripts/gate.sh` through `ccp suite run --lane gate` twice.
-  expect: the first reports `cached 0`; the second reports every module cached, `ran 0`, and passes.
+  expect: the first reports `cached 0`; the second reports every module cached, `ran 0`, and passes; `git status --porcelain` and `git stash list` print the same before and after both runs (computing the key leaves the index and stash list unchanged).
   dry run: n/a.
 - id: `cache-02`
   story: As an implementer, editing one test module re-runs only it.

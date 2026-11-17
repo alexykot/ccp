@@ -3,9 +3,10 @@ task_id: 0116-prompt-and-verify-fixes
 title: Unbuilt ADR decisions are caught before the gate, staged lanes take no command, the verify prompt names every record field, and carried checks are named
 status: pending
 kind: feature
-depends_on: []
+depends_on: ["0115-wait-on-a-suite-run"]
 spec_refs: ["S5", "S14", "S15"]
 review_point: R7
+sign_off: brief
 paths: ["ccp/suite.py", "ccp/tasklog.py", "ccp/lifecycle.py", "templates/prompts/implement.md", "templates/prompts/verify.md", "templates/prompts/_common.md", "docs/spec/02-delivery.md", "tests/test_suite_stages.py", "tests/test_tasklog*.py", "tests/test_prompt*.py", "tests/test_tasks_close*.py"]
 adopt: "none"
 created: 2026-11-17
@@ -27,17 +28,20 @@ checks a later verify round carried from an earlier approval.
 - `ccp suite run --lane gate -- <cmd>` on a lane with stages replaces the stages with `<cmd>`, so `-- true` records a passed gate that ran nothing (stage resolution in `ccp/suite.py`, `"def resolve_stages"`).
 - The verify prompt omits `project_id` and the list form of `findings`, and gives the verification example by a relative path workers cannot reach.
 - The reconcile's verification line (`ccp/lifecycle.py`, the sentence beginning "Not run by the verifier") reads "Passed: none" when the checks were carried from an earlier approval.
-- All four describe the accepted proposals' own behaviour (§31.1); no rule changes.
+- The staged-lane refusal changes a § rule (§14.2), so it is quoted below and signed before the claim (§3.5). The other three describe the accepted proposals' own behaviour (§31.1).
 
 ## Scope
 
 - **In:**
   - `templates/prompts/implement.md` "Before the PR": run `ccp adr decide <n> <Dn> built` in the PR for each `adr_refs` decision the task builds. `ccp tasks check` warns, on the task's branch, about an `adr_refs` decision the task cites that is still `not_built` there (warning, so products stay conforming).
-  - `ccp suite run`: a command after `--` on a lane that has stages is refused (exit 2), naming the lane; `templates/prompts/_common.md` says a staged lane takes no command.
+  - `ccp suite run`: a command after `--` on a lane that has stages is refused (exit 2), naming the lane; `templates/prompts/_common.md` says a staged lane takes no command (worker guidance, not a § rule).
+  - `docs/spec/02-delivery.md` §14.2. CURRENT (at `7094dfe`): "An argv lane runs as one stage named after the lane, with no `plane-docs` stage; a command after `--` is no stage." PROPOSED:
+    > An argv lane runs as one stage named after the lane, with no `plane-docs` stage; a command after `--` is no stage, and `ccp suite run` refuses one (exit 2, nothing recorded) on a lane plane.json gives stages, naming the lane, so a staged gate cannot be replaced by a command.
   - `templates/prompts/verify.md`: `project_id: "{{project_id}}"`, `findings` as a list of strings, and the verification example's absolute path in the plane checkout.
   - The reconcile line: checks carried from an earlier approval are named as `Carried from <sha>: <ids>`.
 - **Out:**
   - Refusing at `tasks check`.
+  - Any § rule change other than the §14.2 sentence above.
 
 ## dod_checks
 
@@ -69,6 +73,13 @@ checks a later verify round carried from an earlier approval.
   steps:
     1. Close it and read the verification line written to the task file.
   expect: the line names `Carried from A: c-01, c-02`, and does not say "Passed: none".
+  dry run: n/a.
+- id: `check-01`
+  story: As the operator, the SPEC says what I signed.
+  setup: the PR diff.
+  steps:
+    1. Compare the §14.2 edit with the PROPOSED text above.
+  expect: it matches word for word, and no other § rule changes.
   dry run: n/a.
 - id: `suite-01`
   story: As a plane developer, nothing else broke.

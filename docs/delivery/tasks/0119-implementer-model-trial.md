@@ -23,7 +23,7 @@ changes only on evidence.
 
 ## Context (not checked)
 
-- From an accepted plane proposal (operator, 2026-11-16: accept the trial). A telemetry analysis of 9–16 Nov reported the implementer as the largest worker cost and first implement rounds as about half of all worker cost (`ccp usage --system --since 2026-11-09`).
+- From an accepted plane proposal (operator, 2026-11-16: accept the trial). A telemetry analysis of 9–16 Nov reported the implementer as the largest worker cost, with first implement rounds a large share of all worker cost; `ccp usage --system --since 2026-11-09` gives the per-seat figures.
 - §2.4 fixes each seat's model in its agent definition, and the runner brief forbids passing `model` in the Agent call. The knob changes that rule for the implementer only, hence the brief sign-off.
 - The trial itself runs after this task merges: the plane turns the knob on for itself; the lead compares after enough tasks (at least five per arm) and brings the result to the operator.
 

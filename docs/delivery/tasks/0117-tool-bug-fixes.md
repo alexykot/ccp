@@ -33,7 +33,7 @@ with an unclosed code fence says so instead of silently dropping the rules after
 ## Scope
 
 - **In:**
-  - `ccp/wt.py`: a `--sha` that is not a full sha is resolved to one in the caller's checkout at create time; one that does not resolve is refused (exit 2).
+  - `ccp/wt.py`: a `--sha` that is not a full sha is resolved to one in the caller's checkout at create time; one that does not resolve is refused (exit 2). This is a bug fix, not a new rule: `--sha` already names a commit (§12.1), and a value that names none could never have been honoured.
   - `ccp/lifecycle.py` catch-up gate: runs with the environment the task worktree's env hooks produced (the `CCP_WT_*` values and the hook's exports), as the task's own gate runs do; `tasks_done` read with the same safe reader claim uses.
   - `scripts/observability/team.py`: the spawn fetches the integration branch before checking the integration branch's remote ref.
   - `ccp/mutate.py`: after restoring a Python file, remove its `__pycache__` entries; runs set `PYTHONDONTWRITEBYTECODE=1`.

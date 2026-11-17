@@ -580,7 +580,7 @@ tasks:
   - id: 0116-prompt-and-verify-fixes
     status: pending
     title: Unbuilt ADR decisions are caught before the gate, staged lanes take no command, the verify prompt names every record field, and carried checks are named
-    depends_on: []
+    depends_on: [0115-wait-on-a-suite-run]
     path: tasks/0116-prompt-and-verify-fixes.md
   - id: 0117-tool-bug-fixes
     status: pending
@@ -590,7 +590,7 @@ tasks:
   - id: 0118-leftovers-and-pr-body-guard
     status: pending
     title: SPEC and test leftovers from R6 are closed, and a PR whose body names another task is caught before review
-    depends_on: []
+    depends_on: [0116-prompt-and-verify-fixes]
     path: tasks/0118-leftovers-and-pr-body-guard.md
   - id: 0119-implementer-model-trial
     status: pending

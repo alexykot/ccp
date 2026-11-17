@@ -3,9 +3,10 @@ task_id: 0118-leftovers-and-pr-body-guard
 title: SPEC and test leftovers from R6 are closed, and a PR whose body names another task is caught before review
 status: pending
 kind: feature
-depends_on: []
-spec_refs: ["S12", "S13", "S14"]
+depends_on: ["0116-prompt-and-verify-fixes"]
+spec_refs: ["S12", "S13", "S14", "S15"]
 review_point: R7
+sign_off: brief
 paths: ["ccp/prompt.py", "ccp/wt.py", "ccp/suite.py", "plugin/agents/delivery-runner.md", "templates/prompts/_common.md", "docs/spec/02-delivery.md", "docs/design/toolkit.md", "tests/test_prompt*.py", "tests/test_suite_affected.py", "tests/test_merge_base.py"]
 adopt: "none"
 created: 2026-11-17
@@ -22,16 +23,20 @@ with another task's is caught before a reviewer reads it.
 
 - From an accepted plane proposal listing R6 leftovers.
 - During a parallel run a PR's body was once overwritten with another task's PR body; the cause is unknown. Two guards close it: workers always pass the PR number to `gh pr edit`, and the review prompt refuses a PR whose body does not name its task.
-- All describe the accepted follow-ups (§31.1); no rule changes.
+- Two changes are § rules and are quoted below for sign-off before the claim (§3.5): `--since` taking a range (§14.7), and the review prompt refusing a PR body that does not name its task (§15.2). The rest describe the accepted follow-ups (§31.1). The runner brief's line about repairing the body is guidance, not a § rule.
 
 ## Scope
 
 - **In:**
   - §13.2 and `docs/design/toolkit.md`: the parenthesis on prompt rendering lists only examples, and says so; the three SPEC passages task 0101 re-wrapped badly are re-wrapped (text unchanged).
   - `ccp/wt.py`: the SIGTERM hold across `git worktree add` is bounded (30 s), after which the signal is acted on and the partial worktree removed.
-  - `ccp suite affected --since`: a range (`A..B`) is accepted and means the files changed in it; §14.7 says so. A test pins the §14.7 dotfile rule.
+  - `ccp suite affected --since`: a range (`A..B`) is accepted and means the files changed in it. A test pins the §14.7 dotfile rule.
+  - `docs/spec/02-delivery.md` §14.7. CURRENT (at `7094dfe`): "else the files `git diff <ref>` names against the working tree (a rename as both its paths) plus the untracked files git does not ignore; `--since` defaults to `HEAD`, the uncommitted change." PROPOSED:
+    > else the files `git diff <ref>` names against the working tree (a rename as both its paths) plus the untracked files git does not ignore; `--since` defaults to `HEAD`, the uncommitted change. A range `<a>..<b>` given to `--since` is the files `git diff <a>..<b>` names, without the working tree.
   - `templates/prompts/_common.md`: `gh pr edit` and `gh pr view` always take the PR number.
   - `ccp prompt review` (`ccp/prompt.py`): refuses (exit 2) when the PR's body does not contain the task id, naming both; the runner brief says to repair the body before review.
+  - `docs/spec/02-delivery.md` §15.2. CURRENT (at `7094dfe`): "**Review starts on a settled head.** The runner opens a review (`ccp prompt review --head`) only once the task's open spec questions are answered and their rulings are on the PR." PROPOSED:
+    > **Review starts on a settled head.** The runner opens a review (`ccp prompt review --head`) only once the task's open spec questions are answered and their rulings are on the PR. `ccp prompt review` refuses (exit 2), naming the task and the PR, a PR whose body does not contain the task id; the runner repairs the body first.
 - **Out:**
   - Finding the cause of the overwrite.
 
@@ -58,12 +63,19 @@ with another task's is caught before a reviewer reads it.
     1. Run the test through `ccp suite run`.
   expect: the process exits 143 within 40 s and no worktree is left registered.
   dry run: n/a.
+- id: `check-02`
+  story: As the operator, the SPEC says what I signed.
+  setup: the PR diff.
+  steps:
+    1. Compare the §14.7 and §15.2 edits with the PROPOSED text above.
+  expect: they match word for word.
+  dry run: n/a.
 - id: `check-01`
-  story: As a reader, the leftovers are fixed without new rules.
+  story: As a reader, the other leftovers are fixed without new rules.
   setup: the PR diff.
   steps:
     1. Read every changed SPEC line.
-  expect: each one describes behaviour this task builds or re-wraps text unchanged; the verdict's `spec_beyond_intent` is empty.
+  expect: apart from the two signed passages, each one describes behaviour this task builds or re-wraps text unchanged; the verdict's `spec_beyond_intent` is empty.
   dry run: n/a.
 - id: `suite-01`
   story: As a plane developer, nothing else broke.
