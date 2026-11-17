@@ -237,6 +237,22 @@ their run record (`ccp architect`).
 - **`cost_usd` is the client's own estimate.** On a subscription the unit that matters is the
   allowance percentage (§25); the board shows cost only as a relative measure.
 
+### 24.6 Cost advice
+
+`ccp usage` prints an advice line for each measure past its threshold, naming the seat, the measure and
+the setting that fixes it; `ccp health` prints the same lines (`usage_advice` in `--json`). The
+thresholds are plane.json `usage.advice` knobs. Advice only: no setting is changed.
+
+- **Short-lived cache writes:** a seat whose 5-minute cache writes (`cache_creation_5m_tokens`, §24.2)
+  are more than `cache_5m_share` (default `0.5`) of its cache-write tokens: set
+  `subagentPromptCacheTtl` to `1h`.
+- **Oversized context:** the lead (`design-seat`) or the runner seat whose median context per request
+  (input, cache read and cache written tokens) exceeds `context_tokens` (default `300000`): the lead
+  lowers it with `autoCompactWindow`, a runner with the binding's `runner.rotate_at_context_tokens`
+  (§10.2).
+- **Coordination share:** the lead's and the runner's cost together over all seats' cost, above
+  `coordination_share` (default `0.4`).
+
 ## 25. Allowance and usage windows
 
 ### 25.1 Samples

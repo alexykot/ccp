@@ -79,4 +79,17 @@ workers, and names the setting that fixes each.
 
 *Append-only, newest last.*
 
+- 2026-11-17, implementer: `usage.cost_advice` (ccp/usage.py) builds the three lines from the fold's
+  per-seat figures and each seat's request contexts (input, cache read and cache written, as
+  `CONTEXT_TOKENS`); `fold` adds them to `advice` only when given the knobs, which `ccp usage` and
+  `ccp health` pass, so the board, the estimator and the forecast keep their advice as it was. Narrowest
+  readings taken: the 5-minute share is `cache_creation_5m_tokens` over `cache_creation_tokens`, for every
+  seat in the fold; the context line is only for `design-seat` and `runner`, the two seats the task names
+  a setting for; "all seats' cost" is the sum over the fold's seats (unattributed requests excluded); the
+  coordination line names no setting, as the task names none; each threshold is strict (more than).
+  `ccp health` had no usage summary: it gains `usage_advice` (in --json) and a `Usage advice:` line each,
+  from the queue's usage, skipped without QUEUE_ROOT. Knobs: plane.json `usage.advice` (config
+  `USAGE_DEFAULTS`, merged key by key), in the schema; SPEC §24.6, a `usage` row in §8.1's block table and
+  the CLI reference.
+
 ## Verification notes

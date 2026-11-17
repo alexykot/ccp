@@ -710,6 +710,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `notify` | the operator's channels on each trigger: the command `ccp` runs (`command`, `timeout_seconds`) and the lead's tool (`lead`: `tool`, `to`) | §3.6 |
 | `telemetry`, `board`, `estimate` | usage, allowance windows, the board, estimation | §24–§28 |
 | `health` | the line below which a merged task counts as small (`small_task_lines`, default 100) | §27.1 |
+| `usage` | the cost advice's thresholds (`advice`: `cache_5m_share` 0.5, `context_tokens` 300000, `coordination_share` 0.4) | §24.6 |
 
 An example, with neutral values:
 
