@@ -11,7 +11,8 @@ The join, from the spike (docs/design/telemetry.md):
 The fold reads `board/usage-requests.jsonl` and `board/usage-spans.jsonl` (written by
 `ccp otel serve`) and the run records. It writes nothing but returns per-run, per-seat and
 coverage figures, and flags a run whose observed model or effort differs from what its
-definition pins. With plane.json `usage.advice` it also advises on cost (§24.6): short-lived cache writes,
+definition pins (an alias pin, §2.4, matches any full id of its family: `models.matches`; so does the
+window join). With plane.json `usage.advice` it also advises on cost (§24.6): short-lived cache writes,
 an oversized context, a high coordination share (`cost_advice`).
 
 It also keeps each run's and seat's latest requests (`recent`: time, model, effort, query source,
@@ -33,7 +34,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ccp import runs
+from ccp import models, runs
 from ccp.config import Config
 from ccp.queue import QueueError, emit, iso, runner_names
 
@@ -248,7 +249,8 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
         u = _out(per_run.get(r["run_id"], _blank()))
         flags = []
         if u["requests"]:
-            if r.get("expected_model") and u["observed_models"] and u["observed_models"] != [r["expected_model"]]:
+            if r.get("expected_model") and u["observed_models"] \
+                    and not all(models.matches(m, r["expected_model"]) for m in u["observed_models"]):
                 flags.append(f"model {', '.join(u['observed_models'])}, pinned {r['expected_model']}")
             if r.get("expected_effort") and u["observed_efforts"] and u["observed_efforts"] != [r["expected_effort"]]:
                 flags.append(f"effort {', '.join(u['observed_efforts'])}, pinned {r['expected_effort']}")
@@ -273,7 +275,8 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
     if design_seat and lead and lead["requests"]:
         # §24.5: advice only. The lead also makes small helper calls (titles) on other models: compare the
         # model of most of its tokens, and every effort it used.
-        if design_seat.get("model") and not any(str(m).startswith(design_seat["model"]) for m in lead["models"]):
+        if design_seat.get("model") and not any(str(m).startswith(design_seat["model"])
+                                                or models.matches(m, design_seat["model"]) for m in lead["models"]):
             advice.append(f"the design seat ran on {', '.join(sorted(lead['models']))}; the operator expects {design_seat['model']}")
         if design_seat.get("effort") and design_seat["effort"] not in lead["efforts"]:
             advice.append(f"the design seat ran at effort {', '.join(sorted(lead['efforts']))}; the operator expects {design_seat['effort']}")
@@ -358,7 +361,7 @@ def _window(all_runs: list[dict[str, Any]], req: dict[str, Any]) -> dict[str, An
         end = _t(r.get("stopped_at") or r.get("reported_at") or r.get("abandoned_at")) or float("inf")
         if start is None or not start <= t <= end:
             continue
-        if r.get("expected_model") and req.get("model") and r["expected_model"] != req["model"]:
+        if r.get("expected_model") and req.get("model") and not models.matches(req["model"], r["expected_model"]):
             continue
         if r.get("expected_effort") and req.get("effort") and r["expected_effort"] != req["effort"]:
             continue
