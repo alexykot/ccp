@@ -78,4 +78,14 @@ round's setup neither replaces the first round's resource nor refuses because it
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `ccp wt create` records `round` (`wt.round_of`: `<n>` for a name ending
+  `-<n>`, else 1), also when a taken default name moves on; `wt.load` and `wt.records` read a record
+  without a valid `round` as 1, so `ccp wt list`, `ccp prompt env` and every reader see 1.
+  `prompts.worker_env` gets `{{round}}` (`config.WORKER_ENV_FIELDS`): from the bound worktree's record,
+  else from the worker's worktree's name. `CCP_WT_ROUND` is added in `wt.env_fields`, so a lane's stages
+  and close's catch-up gate get it with the other `CCP_WT_<FIELD>` variables; an env hook's environment
+  gets it too, but `{round}` is not a hook template field (§12.2 unchanged). `contracts/worktree.schema.json`
+  gains the optional `round`. wt-03's step names `ccp wt list --json`, a flag `ccp wt list` does not take
+  (it always prints JSON); no flag was added.
+
 ## Verification notes
