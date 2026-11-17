@@ -125,6 +125,22 @@ a placeholder item is left.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `ccp/init.py` `binding_shape_warnings` reads a kept binding's top-level keys and the
+  keys indented under each (the binding readers' YAML subset) and warns, one warning per key, each naming the
+  binding's real path and the fix (edit it, or `ccp init --force`): a missing required key or `product_root`;
+  a missing `runner` block, or one lacking `agent_type` or `name`; `email`, `seats.runner|verifier|watchdog`,
+  `cadence.verify_stale_minutes`; a top-level key whose contract description holds the word `ignored` or
+  `retired` (today `adapter`, `adapter_config_path`, `architecture_review`, `hosting`, `grok`; `auth_check` and
+  `spec_maintainer` do not match); a top-level key the contract does not list. A key is missing only when
+  absent: an empty value is not checked. With `--force` the binding is rewritten and nothing is warned.
+- The gate item replaces every numbered line that is only `…` in the standing DoD init writes (the template has
+  one, `7. …`), whether or not `plane.json` is kept; `ccp docs check` warns on the same pattern
+  (`init.placeholder_warnings`, called from `cmd_docs_check`), at `docs/delivery/standing-dod.md` in the
+  product root, whatever `task_log.dir` says, as §21.2 names it.
+- `ccp where` prints `product_root` as `_main_worktree(cfg.root.resolve())`, the function init uses, so the two
+  agree; `binding` and `queue_root` resolved. `INDEX.yaml` is listed in `kept` only when the product keeps an
+  index (`task_log.index`, default true).
+
 ## Verification notes
 
 *Append-only.*

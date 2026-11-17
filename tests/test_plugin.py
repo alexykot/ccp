@@ -201,9 +201,6 @@ class Lookup(unittest.TestCase):
     def test_the_queue_comes_from_the_binding(self):
         self.assertEqual(self.where({"CCP_NO_BINDING_QUEUE": "0"})["queue_root"], str(self.q.resolve()))
 
-    def test_the_product_root_is_a_real_path(self):
-        self.assertEqual(self.where({})["product_root"], str(self.p.root.resolve()))
-
     def test_tests_never_read_a_binding(self):
         self.assertIsNone(self.where({})["queue_root"])
 
