@@ -126,6 +126,21 @@ class OnTheMergeBase(WtFixture, unittest.TestCase):
         self.assertTrue((self.main / ".rt" / "base-0002").is_dir())
         self.assertTrue(Path(other).is_dir())
 
+    def test_head_is_the_callers_own_head_and_a_sha_naming_no_commit_is_its_own_refusal(self):
+        work = Path(self._tmp.name) / "work"  # the task branch's checkout; the main checkout is at the tip
+        self.assertNotEqual(git(self.main, "rev-parse", "HEAD"), self.pr_head)
+        code, _, body, err = self.ccp("wt", "create", "--kind", "base", "--task", "0002", "--sha", "HEAD", "--",
+                                      "git", "rev-parse", "HEAD", root=work)
+        self.assertEqual(code, 0, err)
+        res = json.loads(body[body.rfind("\n{") + 1:])
+        self.assertEqual((res["head"], res["merge_base"]), (self.pr_head, self.base))
+        self.assert_nothing_left()
+        code, _, body, err = self.ccp("wt", "create", "--kind", "base", "--task", "0002", "--sha", "nope", "--", "true",
+                                      root=work)
+        self.assertEqual(code, 125, err)
+        self.assertIn("nope", err)
+        self.assert_nothing_left()
+
     def test_its_own_refusal_differs_from_a_command_exiting_2_or_3(self):
         self.assertEqual(self.base_run("sh", "-c", "exit 2")[0], 2)
         self.assertEqual(self.base_run("sh", "-c", "exit 3")[0], 3)

@@ -200,5 +200,27 @@ class CloseListsChecksNotAsWritten(ToolkitFixture, unittest.TestCase):
         self.assertNotIn("not as written", err)
 
 
-if __name__ == "__main__":
-    unittest.main()
+
+class CloseReadsAMalformedRunnerCount(ToolkitFixture, unittest.TestCase):
+    """§10.2 step 4: a runner's `tasks_done` that is no whole number reads as 0 at close, as claim reads it."""
+
+    def work(self, **fields) -> None:
+        p = self.q / "work.json"
+        p.write_text(json.dumps({**json.loads(p.read_text()), **fields}))
+
+    def test_one_runner_s_count(self):
+        self._to_approved_pr()
+        self.work(runner_tasks_done="x")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 0, out + err)
+        self.assertNotIn("Traceback", err)
+        self.assertIn("runner_tasks_done", err)  # the warning claim gives too
+        self.assertEqual(json.loads((self.q / "work.json").read_text())["runner_tasks_done"], 1)
+
+    def test_a_slot_s_count(self):
+        self._to_approved_pr()
+        slot = json.loads((self.q / "tasks" / "0002-second.json").read_text())["lease_holder"]
+        self.work(runners={slot: {"bound_name": slot, "tasks_done": "x"}})
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(json.loads((self.q / "work.json").read_text())["runners"][slot]["tasks_done"], 1)

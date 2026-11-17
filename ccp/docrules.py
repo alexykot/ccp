@@ -84,6 +84,20 @@ def unfenced(text: str) -> list[tuple[int, str]]:
     return out
 
 
+def unclosed_fence(text: str) -> int | None:
+    """The line number of the fence that opens a code block the text never closes (every line after it
+    reads as fenced, `unfenced` drops it), or None when each block it opens is closed."""
+    fence, opened = None, None
+    for n, line in enumerate(text.splitlines(), 1):
+        m = FENCE_RE.match(line)
+        if m:
+            if fence == m.group(1):
+                fence, opened = None, None
+            elif fence is None:
+                fence, opened = m.group(1), n
+    return opened
+
+
 def headings(text: str) -> list[str]:
     return [m.group(1) for _, line in unfenced(text) if (m := HEADING_RE.match(line))]
 

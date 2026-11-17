@@ -17,8 +17,10 @@ fails already proves nothing, so the command stops there. Each mutant is applied
 runs (plane.json `mutate.command` with `{test}` filled in shell-quoted, in the worktree's root, in
 its own process group, killed after `mutate.timeout_seconds`, which counts as the test failing), and
 every file the mutant touched is written back byte for byte (a file or directory it made is
-removed), and checked, before the next. A SIGTERM at any point of the call kills the running test,
-restores the files and exits 143.
+removed), and checked, before the next. A restored Python file loses its compiled `__pycache__`
+entries, and every test run has `PYTHONDONTWRITEBYTECODE=1`: a same-size mutant restored within the
+second leaves no bytecode that a later run would take for the source. A SIGTERM at any point of the
+call kills the running test, restores the files and exits 143.
 
 It runs only from a recorded `impl`, `mut`, `rev` or `ver` worktree of the run's task, and only for a
 run that is still open. Each mutant adds a row to the run record's `mutation` list: the test id, the
@@ -40,6 +42,7 @@ import tempfile
 import threading
 import time
 from contextlib import contextmanager
+from glob import escape as glob_escape
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -233,6 +236,23 @@ def _snapshot(root: Path, files: list[str]) -> Snapshot:
     return snap, made
 
 
+def _drop_bytecode(root: Path, rel: str) -> None:
+    """A Python file's compiled entries in its `__pycache__` (`<stem>.<tag>[.opt-N].pyc`). Python trusts one
+    whose recorded source mtime (in whole seconds) and size still match, so a same-size mutant restored
+    within the second would otherwise leave the mutant's bytecode for the next run to import."""
+    if not rel.endswith(".py"):
+        return
+    p = root / rel
+    cache = p.parent / "__pycache__"
+    if not cache.is_dir():
+        return
+    for f in cache.glob(f"{glob_escape(p.stem)}.*.pyc"):
+        try:
+            f.unlink()
+        except OSError:
+            pass
+
+
 def _restore(root: Path, snapshot: Snapshot) -> list[str]:
     """Write every touched file back as it was (remove one the mutant made, and every directory it
     made, whatever the test left in it); the paths not restored."""
@@ -250,6 +270,7 @@ def _restore(root: Path, snapshot: Snapshot) -> list[str]:
                 os.chmod(p, was[1] & 0o7777)
         except OSError:
             pass
+        _drop_bytecode(root, rel)
         now = (p.read_bytes() if p.is_file() else None) if not p.is_dir() else b""
         if now != (was[0] if was else None):
             left.append(rel)
@@ -335,7 +356,8 @@ def _test(line: str, cwd: Path, timeout: int, log: Path, label: str, stop: _Stop
         f.write(f"\n--- {iso()} {label}\n".encode())
         f.flush()
         p = subprocess.Popen(["/bin/sh", "-c", line], cwd=str(cwd), stdin=subprocess.DEVNULL, stdout=f,
-                             stderr=subprocess.STDOUT, start_new_session=True)
+                             stderr=subprocess.STDOUT, start_new_session=True,
+                             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})  # no bytecode outlives a mutant
         stop.child = p
         if stop.hit:
             _kill(p)

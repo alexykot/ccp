@@ -241,7 +241,9 @@ def refuse_without_integration_ref(root: Path, paths: list[str | None]) -> None:
     or real) that would make one, or tell a slot's runner to make it, refuses (exit 3, naming the ref) when
     that ref does not resolve in the product's main checkout, before anything is made or written. Only the
     paths that are not a working tree already count; with none of them, or no product root, it checks
-    nothing. Reads only: it fetches nothing."""
+    nothing. It fetches the integration branch from origin first, so the check reads origin as it is, not a
+    tracking ref last fetched before the branch was pushed; a failed fetch leaves the ref as it was, and the
+    check reads that. It writes nothing else."""
     prod = sm.product_root(root)
     if not prod or not any(paths):
         return
@@ -259,6 +261,7 @@ def refuse_without_integration_ref(root: Path, paths: list[str | None]) -> None:
     if not missing:
         return
     integ = integration_branch(root)
+    wt.git(main, "fetch", "-q", "origin", f"+refs/heads/{integ}:refs/remotes/origin/{integ}")
     if wt.git(main, "rev-parse", "--verify", "--quiet", f"refs/remotes/origin/{integ}^{{commit}}").returncode != 0:
         die(f"runner spawn: origin/{integ} does not resolve in {main}, so the runner worktree {missing[0]} cannot be "
             f"made from it: push the integration branch to origin, or fetch it, then spawn again (SPEC §12.1)", 3)

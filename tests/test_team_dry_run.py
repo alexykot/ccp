@@ -186,6 +186,22 @@ class TestSpawnNeedsTheIntegrationRef(TeamCase):
         self.assertEqual(code, 0, err)
         self.assertTrue(self.check(res, "runner_worktree")["ok"])
 
+    def test_a_ref_pushed_but_not_yet_fetched_is_fetched_before_the_check(self):
+        from tests.test_toolkit import git  # noqa: PLC0415
+        self.origin()
+        git(self.prod.root, "update-ref", "-d", "refs/remotes/origin/main")  # pushed from elsewhere, never fetched
+        self.worktree()
+        before = snapshot(self.q)
+        code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(snapshot(self.q), before)
+        self.assertTrue(self.check(res, "runner_worktree")["ok"])
+        git(self.prod.root, "update-ref", "-d", "refs/remotes/origin/main")
+        code, _res, err = self.team("runner", "spawn", "--scope", "0001-a")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.made(), ["rwt"])
+        self.assertEqual(git(self.prod.root / "rwt", "rev-parse", "HEAD"), git(self.prod.root, "rev-parse", "main"))
+
     def test_no_runner_worktree_named_checks_no_ref(self):
         self.origin(push=False)
         code, _res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")

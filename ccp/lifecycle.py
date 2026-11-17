@@ -36,7 +36,8 @@ runner worktree (§12.1).
 With several runners, a verified head behind the integration tip is caught up by `close` itself
 (§16.5 rule 4, `_catch_up`) when the merge is clean, the tip's new commits change no file the task's own
 diff or declared `paths` change, no build sign-off is due on the task and the product has a gate lane:
-it merges the tip in (in its merge worktree), runs the gate lane there as a recorded `ccp suite run`,
+it merges the tip in (in its merge worktree), runs the gate lane there as a recorded `ccp suite run`
+with the task's `impl` worktree's environment (its `CCP_WT_*` variables, `_task_worktree_env`),
 re-checks the tip (at most CATCH_UPS times), pushes the merge as the task branch's head, records the
 catch-up on the verification record (`verify.record_catch_up`) and merges that head. Otherwise it
 refuses `behind_tip`, naming the condition that failed, with the task branch unchanged.
@@ -1476,7 +1477,7 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
             if co.returncode != 0:
                 raise _NoCatchUp(f"the merge {merged[:7]} could not be checked out in {wt}: "
                                  f"{(co.stderr or co.stdout).strip()[:200]}")
-            gate_run, code = _catch_up_gate(q, wt, tid, lane)
+            gate_run, code = _catch_up_gate(q, wt, tid, lane, _task_worktree_env(cfg, q, tid))
             if code == suite.BUSY_EXIT:
                 raise _NoCatchUp(f"gate lane busy: the gate lane {lane!r} stayed held by another run for "
                                  f"{CATCH_UP_LANE_WAIT} s")
@@ -1565,13 +1566,33 @@ def _tip_files(cfg: Config, head: str, tip: str) -> list[str]:
     return sorted({p for p in (x.strip("\n") for x in r.stdout.split("\0")) if p})
 
 
-def _catch_up_gate(q: Path, wt: Path, tid: str, lane: str) -> tuple[str, int]:
+def _task_worktree_env(cfg: Config, q: Path, tid: str) -> dict[str, str]:
+    """§16.5 rule 4, §12.2: the environment the task's own runs get in its worktree, for the catch-up's gate in
+    close's merge worktree (which `ccp wt` did not make, so `ccp suite run` finds no record there): the
+    `CCP_WT_<FIELD>` variables of the task's recorded `impl` worktree, the ones its env hooks got, and its task
+    as `CCP_TASK_ID` and `CCP_NNNN`, as a lane run in that worktree gets them (`suite.worktree_env`). {} with a
+    warning on stderr when the task has no recorded `impl` worktree: the gate then runs with the caller's
+    environment alone."""
+    from ccp import wt  # noqa: PLC0415
+    own = [st for st in wt.records(q) if st.get("task_id") == tid and st.get("kind") == "impl"
+           and st.get("path") and Path(str(st["path"])).is_dir()]
+    if not own:
+        print(f"ccp tasks close: warning: {tid} has no recorded impl worktree, so the catch-up's gate runs without "
+              "its CCP_WT_* variables, with the caller's environment alone (SPEC §16.5 rule 4)", file=sys.stderr)
+        return {}
+    st = min(own, key=lambda x: (x.get("name") != f"impl-{x.get('nnnn')}", str(x.get("name"))))
+    return {**wt.env_fields(cfg, st), **for_child({"CCP_TASK_ID": st["task_id"], "CCP_NNNN": st["nnnn"]})}
+
+
+def _catch_up_gate(q: Path, wt: Path, tid: str, lane: str, wt_env: dict[str, str]) -> tuple[str, int]:
     """§16.5 rule 4: the product's gate lane on the catch-up, in close's merge worktree, through `ccp suite run`
-    as a recorded run bound to the task (§14.1); its summary goes to close's stderr. The recorded run's id
-    ("" when none was recorded) and its exit code."""
+    as a recorded run bound to the task (§14.1), with the task worktree's environment `wt_env` over the
+    caller's (`_task_worktree_env`); its summary goes to close's stderr. The recorded run's id ("" when none
+    was recorded) and its exit code."""
     from ccp import suite  # noqa: PLC0415
     before = {r.get("suite_id") for r in suite.fold(q)}
     env = {k: v for k, v in os.environ.items() if k != "CCP_SUITE_ID"}  # close is no suite run: this one records
+    env.update(wt_env)
     env["QUEUE_ROOT"] = str(q)
     r = subprocess.run([*suite.self_argv(), "--root", str(wt), "suite", "run", "--task", tid, "--phase", "verify",
                         "--lane", lane, "--summary", "--wait", str(CATCH_UP_LANE_WAIT)],
@@ -1693,7 +1714,9 @@ def _reconciled(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, h
         set_marker(q, tid, "done")
         def closed(w: dict[str, Any]) -> None:  # §16.4: judged on the file as read under its lock
             flight = [x for x in w.get("in_flight") or [] if x != tid]
-            upd: dict[str, Any] = {"in_flight": flight, "runner_tasks_done": int(w.get("runner_tasks_done") or 0) + 1}
+            # §10.2 step 4: a count that is no whole number reads as 0, as claim reads it
+            upd: dict[str, Any] = {"in_flight": flight,
+                                   "runner_tasks_done": _tasks_done(w.get("runner_tasks_done"), "runner_tasks_done") + 1}
             if w.get("task_id") == tid:
                 # the next task's own wait, as _leave_work does: the closed task's must not stay on it
                 nxt = load_task_state(q, flight[0]) if flight else {}
@@ -1702,7 +1725,7 @@ def _reconciled(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, h
             w.pop(OLD_WORK_LEASE, None)  # §16.4: an old file's top-level lease does not outlive the close
             slots = runner_slots(w)  # §16.5: the holder's own rotation counter
             if (slot := str(st.get("lease_holder") or "")) in slots:
-                slots[slot]["tasks_done"] = int(slots[slot].get("tasks_done") or 0) + 1
+                slots[slot]["tasks_done"] = _tasks_done(slots[slot].get("tasks_done"), f"runners.{slot}.tasks_done") + 1
                 upd["runners"] = slots
             w.update(upd)
 

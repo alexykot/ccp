@@ -583,7 +583,7 @@ tasks:
     depends_on: [0115-wait-on-a-suite-run]
     path: tasks/0116-prompt-and-verify-fixes.md
   - id: 0117-tool-bug-fixes
-    status: pending
+    status: done
     title: wt create resolves a symbolic sha, the catch-up gate gets the task worktree's environment, mutate leaves no stale bytecode, close reads counts safely, and an unclosed fence is reported
     depends_on: []
     path: tasks/0117-tool-bug-fixes.md
