@@ -5,6 +5,7 @@ reports the modules ran and cached in its result file, which `ccp suite run` rec
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -26,6 +27,22 @@ import unittest
 from tests.test_helper import VALUE
 class U(unittest.TestCase):
     def test_u(self): self.assertEqual(VALUE, 1)
+"""
+
+# A test module that passes but leaves a `state/x` branch behind in the repository it runs in.
+LEAK = """
+import subprocess, unittest
+class L(unittest.TestCase):
+    def test_leak(self):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "branch", "state/x"], check=True,
+                       capture_output=True)
+"""
+# Importers of the helper by the package's own forms, which name it with no `tests.` prefix.
+FROM_PKG = """
+import unittest
+from {pkg} import test_helper
+class U(unittest.TestCase):
+    def test_u(self): self.assertEqual(test_helper.VALUE, 1)
 """
 
 
@@ -159,6 +176,80 @@ class AChangeRerunsWhatItCanAffect(CacheFixture):
         r, res = self.cgate()
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertEqual((self.mods(r, "cached"), self.mods(r, "FAILED")), ({"tests.test_ok"}, {"tests.test_more"}))
+
+    def helper_by_package(self, pkg: str) -> None:
+        self.module("test_helper", HELPER.format(value=1))
+        self.module("test_user", FROM_PKG.format(pkg=pkg))
+        self.warm()
+        self.module("test_helper", HELPER.format(value=22))  # another size, so no stale bytecode stands in
+        r, res = self.cgate()
+        self.assertEqual(r.returncode, 1, r.stdout)  # the importer reran and saw the change
+        self.assertIn("FAIL: test_u (tests.test_user.U.test_u)", r.stdout)
+        self.assertEqual(res["cached"], 0)
+
+    def test_a_helper_named_by_from_tests_import_is_everyones_input(self):
+        self.helper_by_package("tests")
+
+    def test_a_helper_named_by_from_dot_import_is_everyones_input(self):
+        self.helper_by_package(".")
+
+    def test_a_module_that_leaves_a_state_branch_is_never_served_from_the_cache(self):
+        self.module("test_leak", LEAK)
+        self.commit()
+        for run in (1, 2):
+            with self.subTest(run=run):
+                r, _res = self.cgate()
+                self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+                self.assertIn("state/x", r.stderr)
+                self.assertIn("tests.test_leak", self.mods(r, "ok"))  # run, never served from the cache
+                self.assertEqual(self.mods(r, "cached"), set())
+                git(self.repo, "branch", "-D", "state/x")
+        r, _res = self.cgate()  # nothing recorded while the branch was left: every module runs again
+        self.assertEqual(self.mods(r, "cached"), set(), r.stdout)
+
+    def test_an_untracked_nested_repository_is_hashed_into_the_key(self):
+        self.warm()
+        nested = self.repo / "tests" / "tmpdir"
+        nested.mkdir()
+        (nested / "x.txt").write_text("one\n")
+        subprocess.run(["git", "init", "-q", str(nested)], check=True)  # git lists it whole: tests/tmpdir/
+        for content, cached in (("one\n", 0), ("one\n", 2), ("two\n", 0), ("two\n", 2)):
+            with self.subTest(content=content, cached=cached):
+                (nested / "x.txt").write_text(content)
+                r, res = self.cgate()
+                self.assertEqual((r.returncode, res["cached"], res["ran"]), (0, cached, 2 - cached), r.stdout)
+                self.assertNotIn("no test cache", r.stdout)  # gate.sh tees both streams
+
+    def test_a_nested_repositorys_own_git_is_no_input_and_a_link_in_it_is_one(self):
+        self.warm()
+        nested = self.repo / "tests" / "tmpdir"
+        (nested / "a").mkdir(parents=True)
+        (nested / "b").mkdir()
+        (nested / "link").symlink_to("a", target_is_directory=True)
+        subprocess.run(["git", "init", "-q", str(nested)], check=True)
+        self.cgate()
+        for step, cached in (("its .git changes", 2), ("the link points elsewhere", 0)):
+            with self.subTest(step=step):
+                if cached:
+                    git(nested, "config", "gate.test", "1")  # writes the nested .git/config
+                else:
+                    (nested / "link").unlink()
+                    (nested / "link").symlink_to("b", target_is_directory=True)
+                r, res = self.cgate()
+                self.assertEqual((r.returncode, res["cached"]), (0, cached), r.stdout)
+
+    @unittest.skipIf(hasattr(os, "geteuid") and os.geteuid() == 0, "root reads any file")
+    def test_an_unreadable_untracked_file_turns_the_cache_off_and_is_named(self):
+        self.warm()
+        f = self.repo / "secret.txt"
+        f.write_text("x\n")
+        f.chmod(0)
+        self.addCleanup(f.chmod, 0o644)
+        r, res = self.cgate()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("no test cache this run", r.stdout)  # gate.sh tees both streams
+        self.assertIn("secret.txt", r.stdout)  # the file is named
+        self.assertEqual((res["cached"], res["ran"]), (0, 2))
 
     def test_an_entry_not_marked_passed_or_with_another_key_is_no_hit(self):
         self.warm()

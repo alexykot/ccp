@@ -382,5 +382,30 @@ class NoteAndRecord(unittest.TestCase):
                 self.ccp("note", "--text", "x")
 
 
+class UsageAdviceGuards(unittest.TestCase):
+    """§24.6, §27: health's usage advice never breaks health, and needs a queue."""
+
+    def setUp(self):
+        self.p = Product()
+        self.addCleanup(self.p.cleanup)
+        git(self.p.root, "init", "-q", "-b", "main")
+        commit(self.p.root, "init", T0, "--allow-empty")
+
+    def test_a_damaged_usage_sink_gives_no_advice_and_health_still_reports(self):
+        with tempfile.TemporaryDirectory() as qd:
+            q = Path(qd)
+            (q / "board").mkdir()
+            (q / "board" / "usage-requests.jsonl").write_bytes(b"\xff\xfe not text\n")
+            out = health.collect(self.p.cfg, q)
+        self.assertIsNone(out["usage_advice"])
+        self.assertIn("trend", out)
+
+    def test_without_a_queue_usage_is_not_read(self):
+        with mock.patch.object(health, "usage_advice", return_value=["advice"]) as advice:
+            out = health.collect(self.p.cfg, None)
+        self.assertIsNone(out["usage_advice"])
+        advice.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
