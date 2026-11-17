@@ -219,6 +219,7 @@ class TaskLogTest(unittest.TestCase):
         code, out = self._cli("index")
         self.assertEqual(code, 1, out)
         self.assertIn("0002-b: its task file is gone (listed in INDEX.yaml)", out)
+        self.assertIn("restore it with `git checkout HEAD -- docs/delivery/tasks/0002-b.md`", out)
         self.assertEqual((self.p.root / "docs/delivery/INDEX.yaml").read_text(), index)
         # Committed anyway, with the index written by hand: git history still knows.
         (self.p.root / "docs/delivery/INDEX.yaml").write_text(tasklog.render_index(self.p.cfg))
@@ -292,6 +293,7 @@ class TaskLogTest(unittest.TestCase):
         self._git("commit", "-qm", "reuse 0002")
         self.assertFails("0002-b: its task file is gone (deleted in ")
         self.assertFails("its number now belongs to 0002-something-else. A number is never reused")
+        self.assertFails("A number is never reused: restore it with `git checkout ")
 
     def test_outside_git_the_index_on_disk_names_a_missing_file(self):
         self.p.task("0001-a")
