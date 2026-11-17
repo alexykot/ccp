@@ -1,14 +1,14 @@
 ---
 task_id: 0105-report-premise-board-and-skip-fixes
 title: Report fields, the premise check, the board and the minor-only skip handle their edge cases
-status: pending
+status: done
 kind: fix
 depends_on: []
 spec_refs: ["S5", "S13", "S15", "S28"]
 review_point: R6
 paths: ["ccp/report.py", "ccp/tasklog.py", "ccp/board.py", "ccp/estimate.py", "ccp/prompt.py", "ccp/lifecycle.py", "docs/spec/02-delivery.md", "tests/test_report_fields.py", "tests/test_board*.py", "tests/test_estimate.py", "tests/test_prompt_rounds.py", "tests/test_tasklog*.py", "tests/test_minor*.py"]
 created: 2026-11-16
-updated: 2026-11-16
+updated: 2026-11-17
 ---
 
 # Task: 0105-report-premise-board-and-skip-fixes
@@ -142,3 +142,5 @@ that fails without it.
   main's, with the longer forms, the no-words condition and the accepted reason added.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #113 head `8eb2a1b` (squash `5087e4f`): APPROVE. Passed: check-01, check-02, check-03, check-04, check-05. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0105-report-premise-board-and-skip-fixes.json.
+
