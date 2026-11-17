@@ -8,6 +8,7 @@ spec_refs: ["S20", "S21"]
 adr_refs: []
 review_point: R2
 paths: ["ccp/rules.py", "ccp/config.py", "contracts/plane_config.schema.json", "tests/"]
+adopt: "plane.json docs.workers 4"
 created: 2026-11-06
 updated: 2026-11-10
 ---

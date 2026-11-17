@@ -1253,6 +1253,12 @@
           "default": {},
           "additionalProperties": {"type": "string", "minLength": 1, "pattern": "\\S"},
           "description": "Plane task ids whose `adopt` step this product declined, each with its reason; `ccp upgrade status` leaves them out."
+        },
+        "taken": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "description": "Plane task ids whose `adopt` step this product took in a way `ccp upgrade status` cannot see, each with its reason; the command leaves them out of its steps and lists them under `taken`."
         }
       }
     }

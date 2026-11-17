@@ -9,7 +9,7 @@ adr_refs: ["0041 D5", "0041 D6"]
 review_point: R7
 sign_off: brief
 paths: ["ccp/init.py", "ccp/config.py", "contracts/project.schema.json", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "tests/test_init*.py"]
-adopt: "set subagentPromptCacheTtl to 1h and autoCompactWindow in .claude/settings.json by hand; ccp init does it for new products"
+adopt: "settings subagentPromptCacheTtl 1h, with autoCompactWindow beside it"
 created: 2026-11-17
 updated: 2026-11-17
 ---

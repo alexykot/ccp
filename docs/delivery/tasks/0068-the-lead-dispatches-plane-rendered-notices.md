@@ -7,6 +7,7 @@ depends_on: []
 spec_refs: ["S3", "S8", "S17"]
 review_point: R4
 paths: ["ccp/notify.py", "ccp/cli.py", "docs/spec/01-model.md", "docs/adr/", "plugin/orientation.md", "plugin/skills/spec-maintainer/", "plugin/agents/delivery-runner.md", "contracts/", "docs/cli/", "tests/test_notify*.py"]
+adopt: "plane.json notify.lead with tool and to naming the lead's message channel"
 created: 2026-11-11
 updated: 2026-11-11
 ---

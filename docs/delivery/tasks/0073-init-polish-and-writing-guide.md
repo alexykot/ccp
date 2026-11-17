@@ -7,6 +7,7 @@ depends_on: []
 spec_refs: ["S4", "S5", "S8"]
 review_point: R5
 paths: ["ccp/init.py", "ccp/tasklog.py", "plugin/skills/writing-tasks/", "CLAUDE.md", "tests/test_init*.py", "tests/test_tasklog*.py"]
+adopt: "plane.json estimate.auto true"
 created: 2026-11-12
 updated: 2026-11-12
 ---

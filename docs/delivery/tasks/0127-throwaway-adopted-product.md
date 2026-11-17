@@ -48,7 +48,7 @@ or binding.
   setup: a scratch directory `S` that does not exist.
   steps:
     1. Run `ccp sandbox create S`.
-    2. With the printed `env` lines exported, run `ccp tasks check` and `ccp upgrade status --json` in the printed `root`.
+    2. With the printed `env` lines exported, run `ccp tasks check` and `ccp upgrade status` in the printed `root`.
   expect: step 1 exits 0 and prints the four keys, each path under `S`; step 2's commands exit 0.
   dry run: n/a.
 - id: `cmd-02`
