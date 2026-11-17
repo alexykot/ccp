@@ -1,7 +1,7 @@
 ---
 task_id: 0138-lead-tooling-fresh-product
 title: A freshly adopted product's lead tools find the queue, say when a register is empty or a reading cannot be taken, and the idle hook lets a runner wait on its held task
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S9", "S18", "S22", "S25"]
@@ -142,3 +142,5 @@ Each finding was probed in a sandbox (`ccp sandbox create`, its `PROJECT_YAML` l
   architect-pass nudge, as for any empty ready set.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #152 head `d24b156` (squash `db03e0d`): APPROVE. Passed: team-01, rp-01, rp-02, wake-01, idle-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0138-lead-tooling-fresh-product.json.
+
