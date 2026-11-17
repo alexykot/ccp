@@ -1,7 +1,7 @@
 ---
 task_id: 0118-leftovers-and-pr-body-guard
 title: SPEC and test leftovers from R6 are closed, and a PR whose body names another task is caught before review
-status: pending
+status: done
 kind: feature
 depends_on: ["0116-prompt-and-verify-fixes"]
 spec_refs: ["S12", "S13", "S14", "S15"]
@@ -112,3 +112,5 @@ with another task's is caught before a reviewer reads it.
   "such as" before the filled-in fields.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #128 head `76902ac` (squash `e14c46b`): APPROVE. Passed: cmd-01, cmd-02, code-01, check-02, check-01, suite-01. Gate: `scripts/gate.sh (ccp suite run --lane gate)` exit 0, `python3 -m unittest tests.test_prompt_pr_body tests.test_suite_affected tests.test_merge_base (lane part)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0118-leftovers-and-pr-body-guard.json.
+

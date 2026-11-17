@@ -588,7 +588,7 @@ tasks:
     depends_on: []
     path: tasks/0117-tool-bug-fixes.md
   - id: 0118-leftovers-and-pr-body-guard
-    status: pending
+    status: done
     title: SPEC and test leftovers from R6 are closed, and a PR whose body names another task is caught before review
     depends_on: [0116-prompt-and-verify-fixes]
     path: tasks/0118-leftovers-and-pr-body-guard.md
