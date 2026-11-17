@@ -311,6 +311,19 @@ class FrictionTriggersAPass(Harness):
         code, info, _ = self.dpj("architect", "due")
         self.assertEqual(code, 3)  # the notes were seen by that pass
 
+    def test_the_small_tasks_line_reaches_the_prompt(self):
+        for n, lines in ((1, 20), (2, 400)):
+            self.p.write(f"app/{n}.py", "x\n" * lines)
+            git(self.p.root, "add", "-A")
+            git(self.p.root, "commit", "-qm", f"Task {n:04d}: change {n} (#{n})")
+        self.stub_report([])
+        self.assertEqual(self.dpj("architect", "run", "--force")[0], 0)
+        argv = json.loads(Path(str(self.report) + ".argv").read_text())
+        body = argv[argv.index("-p") + 1]  # the prompt the headless call got
+        small = [ln for ln in body.splitlines() if ln.startswith("Small tasks")]
+        self.assertEqual(len(small), 1, body)
+        self.assertIn("1 of 2", small[0])
+
     def test_note_with_a_secret_is_refused(self):
         code, _, err = self.ccp("health", "note", "--text", "key sk-ant-api03-" + "x" * 40)
         self.assertEqual(code, 2, err)

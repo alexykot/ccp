@@ -118,6 +118,18 @@ class Baseline(WtFixture, unittest.TestCase):
         self.assertIn("--baseline", err)  # the way back is what --baseline accepts,
         self.assertNotIn("--name", err)   # not the flag it refuses
 
+    def test_gc_and_a_tasks_cleanup_remove_the_tasks_worktrees_and_keep_it(self):
+        self.assertEqual(self.wt("create", "--kind", "ver", "--baseline")[0], 0)
+        for n in ("0001", "0002"):
+            self.assertEqual(self.wt("create", "--kind", "ver", "--task", n, "--sha", self.head())[0], 0)
+        (self.q / "tasks").mkdir(exist_ok=True)
+        (self.q / "tasks" / "0002-second.json").write_text(json.dumps({"task_id": "0002-second", "status": "done"}))
+        self.assertEqual(self.wt("gc")[1]["removed"], ["ver-0002"])
+        self.assertEqual(wt.remove_task(config.load(self.main), self.q, "0001-first"), [])  # close's cleanup
+        self.assertFalse((self.main / ".rt" / "ver-0001").exists())
+        self.assertTrue((self.main / ".rt" / "ver-baseline").is_dir())
+        self.assertEqual([r["name"] for r in self.wt("list")[1]], ["ver-baseline"])
+
     def test_without_baseline_a_ver_worktree_still_needs_a_task(self):
         self.assertEqual(self.wt("create", "--kind", "ver", "--sha", self.head())[0], 2)
 
@@ -682,6 +694,13 @@ class ExecOwnCcp(WtFixture, unittest.TestCase):
         self.assertEqual(code, 2, err.getvalue())
         self.assertIn("not inside a git checkout", err.getvalue())
         self.assertEqual(out.getvalue(), "")
+
+    def test_neither_a_name_nor_a_checkout_refuses(self):
+        from ccp.queue import QueueError
+        with self.assertRaises(QueueError) as cm:
+            wt.own_ccp(None)
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn("name a worktree or a checkout", str(cm.exception))
 
     def test_the_reviewer_and_verifier_briefs_say_print_shows_which_ccp_runs(self):
         for seat in ("reviewer", "verifier"):

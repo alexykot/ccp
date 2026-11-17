@@ -437,6 +437,20 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         for op in (("durable", "reconcile"), ("lease", "clear")):
             self.assertIn(op, self.ops())
 
+    def test_close_and_gc_leave_the_baseline_worktree_alone(self):
+        self._to_approved_pr()
+        code, body, out, err = self.ccp("wt", "create", "--kind", "ver", "--baseline")
+        self.assertEqual(code, 0, out + err)
+        baseline = Path(body["path"])
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
+        self.assertEqual(code, 0, out + err)
+        self.assertFalse((self.main / ".rt" / "impl-0002").exists())  # the task's own worktree went
+        code, gc, out, err = self.ccp("wt", "gc")
+        self.assertEqual(code, 0, out + err)
+        self.assertNotIn("ver-baseline", gc["removed"] + gc["forgot"])
+        self.assertTrue(baseline.is_dir())
+        self.assertTrue((self.q / "worktrees" / "ver-baseline.json").is_file())
+
     def test_close_refuses_without_an_approval_and_merges_nothing(self):
         self.ccp("tasks", "claim", "0002")
         (self.ghstate / "pr.json").write_text(json.dumps({"state": "OPEN", "head": "b" * 40, "origin": str(self.origin),
@@ -478,7 +492,8 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         (self.runner / "stray.txt").write_text("x")
         code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
         self.assertEqual(code, 2)
-        self.assertIn("has changes", err)
+        self.assertIn(f"{self.runner.resolve()} has changes: the checkout `ccp tasks close` runs from must be clean", err)
+        self.assertNotIn("runner worktree", err)  # close may run from any checkout (§10.5)
         self.assertFalse((self.ghstate / "merge-called").exists())
 
     def test_close_after_a_failed_reconcile_finishes_without_merging_again(self):

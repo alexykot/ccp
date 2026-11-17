@@ -286,6 +286,47 @@ with suite.clean_checkout(root, "HEAD") as tree:
 """
 
 
+# Starts its sleeper in a session of its own, which no process-group kill reaches, and exits 0, not 128 + the
+# signal: a signal test running it fails at its first check with the sleeper still alive (its output is not
+# the test's, so the test does not wait for it).
+ESCAPED = """
+import os, subprocess, sys
+from pathlib import Path
+out = Path(sys.argv[3])
+p = subprocess.Popen(["sleep", "30"], start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL)
+for f in (out.with_name("sleeper"), Path(os.environ["SLEEPER_COPY"])):
+    f.write_text(str(p.pid))
+"""
+
+
+def reap(pidfile: Path) -> None:
+    """Kill the sleeper whose pid `pidfile` holds, if it is still a live `sleep`: a signal test that failed
+    before its own check would leave it running."""
+    try:
+        pid = int(pidfile.read_text().strip())
+    except (OSError, ValueError):
+        return
+    ps = subprocess.run(["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True)
+    if "sleep" in ps.stdout:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+def alive(pid: int, within: float) -> bool:
+    """Whether `pid` is still running after up to `within` seconds."""
+    deadline = time.monotonic() + within
+    while time.monotonic() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        time.sleep(0.05)
+    return True
+
+
 class CheckoutOnASignal(unittest.TestCase):
     """§14.2: the provers' checkout is removed on a SIGTERM or SIGHUP under the default handler, and the
     prover's whole process group is killed, so no grandchild outlives the run."""
@@ -305,6 +346,7 @@ class CheckoutOnASignal(unittest.TestCase):
         out = Path(self._tmp.name) / "tree"
         before = git(self.root, "worktree", "list", "--porcelain")
         env = {**os.environ, "PYTHONPATH": str(PLANE)}
+        self.addCleanup(reap, out.with_name("sleeper"))  # whichever check fails, the sleeper goes
         r = subprocess.run([sys.executable, "-c", SIGNALLED, str(self.root), str(sig), str(out)], env=env,
                            capture_output=True, text=True, timeout=60)
         self.assertEqual(r.returncode, 128 + sig, r.stderr)
@@ -314,21 +356,24 @@ class CheckoutOnASignal(unittest.TestCase):
         self.assertFalse(tree.parent.exists())
         self.assertEqual(git(self.root, "worktree", "list", "--porcelain"), before)
         sleeper = int((out.with_name("sleeper")).read_text())
-        deadline = time.monotonic() + 10
-        while time.monotonic() < deadline:
-            try:
-                os.kill(sleeper, 0)
-            except ProcessLookupError:
-                return
-            time.sleep(0.05)
-        os.kill(sleeper, signal.SIGKILL)
-        self.fail(f"the prover's background sleeper {sleeper} outlived the signal")
+        if alive(sleeper, 10):
+            self.fail(f"the prover's background sleeper {sleeper} outlived the signal")
 
     def test_a_sigterm_removes_the_checkout_and_kills_the_provers_group(self):
         self.signalled(signal.SIGTERM)
 
     def test_a_sighup_removes_the_checkout_and_kills_the_provers_group(self):
         self.signalled(signal.SIGHUP)
+
+    def test_a_failing_signal_test_leaves_no_sleeper_behind(self):
+        copy = Path(self._tmp.name) / "sleeper-copy"
+        self.addCleanup(reap, copy)
+        inner = CheckoutOnASignal("test_a_sigterm_removes_the_checkout_and_kills_the_provers_group")
+        result = unittest.TestResult()
+        with mock.patch(f"{__name__}.SIGNALLED", ESCAPED), mock.patch.dict(os.environ, {"SLEEPER_COPY": str(copy)}):
+            inner.run(result)
+        self.assertEqual((len(result.failures), len(result.errors)), (1, 0), result.failures + result.errors)
+        self.assertFalse(alive(int(copy.read_text()), 5))
 
 
 if __name__ == "__main__":
