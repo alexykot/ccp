@@ -125,7 +125,7 @@ it warns that the `small` arm cannot apply:
   for worker subagents, so a long suite run does not expire the cache. The runner is an agent-team
   teammate, whose cache lifetime comes from the `subagentPromptCacheTtl` setting, not its definition;
   `ccp init` sets it to `1h` (§4.5). A `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL` environment variable, a
-  `subagentPromptCacheTtl` setting or `FORCE_PROMPT_CACHING_5M` overrides it, and Claude Code ignores
+  `subagentPromptCacheTtl` setting or `FORCE_PROMPT_CACHING_5M` overrides a worker definition's `cacheTtl`, and Claude Code ignores
   `1h` while a subscription is in overage.
 
 ### 2.5 How workers report
@@ -148,6 +148,7 @@ After launching a worker the runner may end its turn.
   a runner's rotation is due when either is reached (§10.2 step 4). With one runner, rotation reads
   the single-runner fields of `work.json` whatever holder the claim names; only with several runners
   does the holder pick the slot.
+- `lead.auto_compact_window` (default 350000): the `autoCompactWindow` `ccp init` writes into the product's settings (§4.5).
 - The lead may run several runners at once (`--count`), up to `parallel.max_in_flight`, sharing one
   review-point scope, each holding one task (§16).
 - The verifier is the runner's subagent with a fixed packet (the alternative, a teammate spawned by
@@ -210,7 +211,7 @@ and close refuse the task until it is fixed.
 A task whose change adds or changes a § rule carries, in its Scope, the exact CURRENT → PROPOSED text
 of each passage and declares `sign_off: brief`, so the operator signs the words before the claim.
 `ccp tasks check` warns on a task not yet `done` or `dropped` whose `paths` name a SPEC file
-(plane.json `task_log.spec_paths`, default `["docs/spec/", "SPEC.md"]`) and that neither declares a
+(plane.json `task_log.spec_paths`, default `["docs/spec/", "SPEC.md"]`; a path meets an entry it equals or, for an entry ending in `/`, lies under, so `docs/spec` without its `/` meets none) and that neither declares a
 `brief` sign-off nor says in its Scope that its SPEC text only describes its own feature (the word
 `§31.1` on a Scope line). Rule text the build finds that the brief does not carry goes to a follow-up
 proposal (`ccp plane propose`), and the PR merges on the signed text. Only text without which the
@@ -271,7 +272,7 @@ configuration.
   payload `trigger`, `project`, `task`, `id`, `reason`) and prints the rendered notice on stderr with
   the channel to use. The runner's message to the lead names the trigger.
 - **Content.** `ccp notify render <trigger> [--task ID] [--id ID] [--reason R] [--json]`, the
-  trigger one of the four above or `other`, prints a subject, `[<project_id>] <trigger>: <task or
+  trigger one of the five above or `other`, prints a subject, `[<project_id>] <trigger>: <task or
   id>`, and a body of one line each for project, trigger, task, id and reason, those given, and
   nothing else: never a brief, a question's text or file content. `--json` gives the subject, the
   body and those fields.
@@ -284,7 +285,7 @@ configuration.
   was idle is still found.
 - **Channels** (plane.json `notify`, §8.1):
   - `command`, a shell command (default null), and `timeout_seconds` (default 30): the unattended
-    channel `ccp` runs on each trigger, with an empty stdin, in the checkout the call came from (for
+    channel `ccp` runs on each trigger but `upgrade`, which is only recorded for the lead to dispatch, so a release runs no product command, with an empty stdin, in the checkout the call came from (for
     a gate or a spec question, the binding's product root). Its environment carries the trigger and
     ids only: `CCP_NOTIFY_TRIGGER`, `CCP_PROJECT_ID`, `CCP_TASK_ID`, `CCP_NOTIFY_ID` (the gate,
     question or review point), `CCP_NOTIFY_REASON` (the wait's reason), and all of them as one line,
@@ -423,7 +424,7 @@ A product is adopted by running `ccp init` in its repository. It writes:
 - outside the repository, the local binding and its queue directory (§8.3).
 
 It keeps a file that already exists and lists it as kept, unless given `--force`, so running it again
-changes nothing. It refuses, writing nothing, when keeping would leave the product inconsistent: a
+changes nothing. Even with `--force` it merges into `.claude/settings.json` and keeps every value already there, `subagentPromptCacheTtl` and `autoCompactWindow` included. It refuses, writing nothing, when keeping would leave the product inconsistent: a
 `plane.json` naming another project id, a binding for the id naming another product root or another
 `--queue-root`, or a `.claude/settings.json` that is not a JSON object. The product commits what it
 wrote, and adds its own worktree and environment hooks to `plane.json` (§12). It warns, on stderr
@@ -539,7 +540,7 @@ In order, each a `## ` heading:
 
 The section names, the check grammar and the statuses are fixed: they are what `ccp` reads and
 writes. A product configures which keys and sections are required (it may add, not rename),
-`refs_any`, the kinds, `max_checks`, the soft words, `dry_run`, the records directory
+`refs_any`, the kinds, `max_checks`, the soft words, `dry_run`, the SPEC paths (`spec_paths`, §3.5), the records directory
 (`task_log.reviews_dir`, default `reviews`) and the ids (§7).
 
 ### 5.7 `INDEX.yaml`
@@ -721,7 +722,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | Block | Sets | § |
 |---|---|---|
 | `ids` | id and reference patterns | §7 |
-| `task_log` | task directory, required keys and sections, `refs_any`, `kinds`, `max_checks`, soft words, `dry_run`, `reviews_dir`, `index`; the statuses are fixed | §5, §10 |
+| `task_log` | task directory, required keys and sections, `refs_any`, `kinds`, `max_checks`, soft words, `dry_run`, `spec_paths`, `reviews_dir`, `index`; the statuses are fixed | §5, §10 |
 | `adr` | `dir`, `index` (or `null`), `statuses`, `transitions`, `strict`, `template` (or `null` for the plane's) | §6 |
 | `package_docs`, `docs` | doc checks (`claude_md_dirs`, `language`, `path_ref_suffixes`, `docstring_globs`, `no_delivery_ids`, `delivery_id_patterns`, `rules`), product check commands (`docs.checks`, `docs.workers`), the starter house rules (`docs.starter_rules`, §20.5) | §21 |
 | `architect` | the architect seat, house rules, budgets, refactors | §19, §20 |
@@ -735,7 +736,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `report` | the verdicts every implementer report must state (`report.required_fields`) | §13.4 |
 | `notify` | the operator's channels on each trigger: the command `ccp` runs (`command`, `timeout_seconds`) and the lead's tool (`lead`: `tool`, `to`) | §3.6 |
 | `telemetry`, `board`, `estimate` | usage, allowance windows, the board, estimation | §24–§28 |
-| `health` | the line below which a merged task counts as small (`small_task_lines`, default 100) | §27.1 |
+| `health` | the line below which a merged task counts as small (`small_task_lines`, default 100), the slowest test modules listed (`slowest_modules`, default 5) and the gate runs the suite trend spans (`suite_trend_runs`, default 10) | §27.1 |
 | `usage` | the cost advice's thresholds (`advice`: `cache_5m_share` 0.5, `context_tokens` 300000, `coordination_share` 0.4) | §24.6 |
 
 An example, with neutral values:
@@ -810,6 +811,8 @@ runner:
   rotate_after_tasks: 4
   rotate_at_context_tokens: null                 # rotation due at this request context (§10.2); null: off
   idle_block_limit: 3
+lead:
+  auto_compact_window: 350000            # autoCompactWindow ccp init writes (§4.5)
 ```
 
 - `ccp` maps a directory to its binding (`product_root`, or its main checkout for a worktree) and the
@@ -867,6 +870,7 @@ the binding file's path, the queue, the plane checkout and the `ccp` path.
   interactive session in a managed product, kept under the hook's 10,000-character cap.
   SessionStart context does not reach subagents or teammates; workers are oriented by their
   definitions and prompts.
+- After the orientation, the hook and `ccp orientation` list the product's pending notices (`ccp notify pending`, §3.6): each one's subject, reason and the call that records it sent, within the hook's cap.
 - The orientation is short (aim for one screen), in plain language, with no role-specific
   permissions. It covers:
   - what the plane is: a delivery loop run by a Claude Code agent team, a lead that steers and a
