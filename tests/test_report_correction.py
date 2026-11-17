@@ -136,11 +136,11 @@ class Correction(ToolkitFixture, unittest.TestCase):
         metrics = self.metrics()
         self.assertTrue(metrics)
         code, _, out, err = self.report(IMPLEMENT, "\n".join([
-            "Outcome: done", "PR: #8", f"Head: {HEAD}", "Suite: 412 tests, 88.5 s", "## Friction", "none", ""]))
+            "Outcome: done", "PR: #8", f"Head: {HEAD}", "Suite: 415 tests, 90 s", "## Friction", "none", ""]))
         self.assertEqual(code, 0, out + err)
         self.assertEqual(self.metrics(), metrics)
         rec = self.run_rec(IMPLEMENT)
-        self.assertEqual((rec["pr"], rec["friction_count"]), ("8", 0))
+        self.assertEqual((rec["pr"], rec["suite_tests"], rec["friction_count"]), ("8", 415, 0))
 
     def test_a_correction_is_checked_like_a_first_report(self):
         self.reported_implement()
