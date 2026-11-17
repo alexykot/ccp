@@ -6,12 +6,13 @@ keeps the review."""
 from __future__ import annotations
 
 import json
+import os
 import unittest
 from pathlib import Path
 from unittest import mock
 
 from ccp import config
-from tests import test_review_gate
+from tests import test_review_gate, test_review_skip
 from tests.test_toolkit import PLANE, ToolkitFixture
 
 A, B, C = "a" * 40, "b" * 40, "c" * 40
@@ -126,6 +127,32 @@ class SkipAfterClean(Rounds, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertEqual((body["review_skip"]["review_run"], body["review_skip"]["reviewed"]), ("0002-second/review", A))
 
+    def skips_after(self, phase: str, *extra: str) -> None:
+        self.review()
+        self.run_phase(phase, A, f"PR: #7\nHead: {B}", *extra)
+        code, body, out, err = self.verify()
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((body["review_skip"]["reason"], body["review_skip"]["review_run"], body["review_skip"]["reviewed"]),
+                         ("minor-only", "0002-second/review", A))
+
+    def test_a_merge_round_counts_as_the_fix_round(self):
+        self.skips_after("merge")
+
+    def test_a_ruling_round_counts_as_the_fix_round(self):
+        self.skips_after("ruling", "--note", "the lead rules: keep the old name")
+
+    def test_an_abandoned_fix_round_since_is_ignored(self):
+        from ccp import runs
+        self.review()
+        self.fix()
+        code, body, out, err = self.ccp("prompt", "fix", "0002", "--pr", "7", "--head", B)
+        self.assertEqual(code, 0, out + err)
+        f = self.q / "runs/0002-second/fix-2.json"
+        runs.abandon(self.q, config.load(self.main), json.loads(f.read_text()), "never launched")
+        code, body, out, err = self.verify()
+        self.assertEqual(code, 0, out + err)  # the latest fix round that is not abandoned is the one judged
+        self.assertEqual((body["review_skip"]["reason"], body["review_skip"]["reviewed"]), ("minor-only", A))
+
     def test_a_verify_reject_since_the_review_sends_the_task_back_to_review(self):
         self.review()
         self.fix()
@@ -162,6 +189,64 @@ class SkipAfterClean(Rounds, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertNotIn("review_skip", body)
         self.assertNotIn("verify.skip_review_after_clean", Path(body["prompt_path"]).read_text())
+
+
+class BothSkipKnobs(ToolkitFixture, unittest.TestCase):
+    """`verify.skip_review` and `verify.skip_review_after_clean` both on, against real commits: the proof is
+    tried first; when it does not apply, a fix of a clean review's minor findings still skips."""
+
+    PLANE_JSON = {**test_review_skip.SkipReview.PLANE_JSON,
+                  "verify": {**test_review_skip.SkipReview.PLANE_JSON["verify"], "skip_review_after_clean": True}}
+    run_phase = test_review_gate.ReviewGate.run_phase
+    commit = test_review_skip.SkipReview.commit
+    push = test_review_skip.SkipReview.push
+    fix = test_review_skip.SkipReview.fix
+    verify = test_review_skip.SkipReview.verify
+
+    def setUp(self):
+        super().setUp()
+        clock = iter(f"2026-10-22T{10 + i // 60:02d}:{i % 60:02d}:00Z" for i in range(600))
+        patch = mock.patch("ccp.runs.iso", side_effect=lambda: next(clock))
+        patch.start()
+        self.addCleanup(patch.stop)
+        t = Path(self._tmp.name)
+        (t / "proof").write_text(test_review_skip.PROOF)
+        (t / "proof").chmod(0o755)
+        self.log = t / "proof.log"
+        os.environ.update(PROOF_BIN=str(t / "proof"), PROOF_LOG=str(self.log))  # the fixture's env patch restores it
+        self.ccp("tasks", "claim", "0002")
+        self.wt = self.main / ".rt" / "impl-0002"
+
+    def reviewed(self) -> str:
+        self.commit("feature.txt", "built\n")
+        self.commit("tests/test_feature.txt", "check it\n")
+        head = self.push()
+        self.run_phase("review", head, CLEAN)
+        return head
+
+    def test_a_fix_the_proof_cannot_judge_skips_as_minor_only(self):
+        reviewed = self.reviewed()
+        head = self.fix("feature.txt", "built better\n")  # outside verify.skip_review.paths
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((body["review_skip"]["reason"], body["review_skip"]["reviewed"]), ("minor-only", reviewed))
+        self.assertFalse(self.log.exists())  # no proof ran
+
+    def test_a_failing_proof_still_leaves_the_minor_only_skip(self):
+        reviewed = self.reviewed()
+        head = self.fix()
+        os.environ["PROOF_EXIT"] = "1"
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((body["review_skip"]["reason"], body["review_skip"]["reviewed"]), ("minor-only", reviewed))
+        self.assertTrue(self.log.exists())  # the proof ran first
+
+    def test_a_proven_fix_records_the_proof_not_the_minor_only_skip(self):
+        reviewed = self.reviewed()
+        head = self.fix()
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["review_skip"], {"reviewed": reviewed, "head": head, "fix": "0002-second/fix", "files": 1})
 
 
 class SkipAfterCleanOff(Rounds, unittest.TestCase):

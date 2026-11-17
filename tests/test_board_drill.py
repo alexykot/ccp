@@ -240,6 +240,27 @@ class OldTask(unittest.TestCase):
         self.assertEqual(d["rounds"], {"review": 1, "verify": 1, "fix": 1, "merge": 0, "ruling": 0})
         self.assertIn("no run telemetry", drill.text(d))
 
+    def test_merge_and_ruling_reports_start_at_their_own_prompt_stamps(self):
+        """Each window holds an earlier stamp of another kind, and one of no round kind, that must not start it."""
+        with tempfile.TemporaryDirectory() as tmp:
+            q = Path(tmp)
+            tid = "0217-rounds"
+            (q / "prompts" / tid).mkdir(parents=True)
+            (q / "progress" / tid).mkdir(parents=True)
+            for off, ph in ((0, "implement"), (3200, "estimate"), (3300, "ruling"), (3600, "merge"),
+                            (4200, "estimate"), (4300, "merge"), (4500, "ruling"), (5400, "verify")):
+                stamp = datetime.fromtimestamp(T0 + off, timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                (q / "prompts" / tid / f"{stamp}_{ph}.json").write_text("{}")
+            for ph, end in (("implement", 3000), ("merge", 4000), ("ruling", 5000), ("verify", 6000)):
+                f = q / "progress" / tid / f"{ph}-report.md"
+                f.write_text("Outcome: done\n")
+                os.utime(f, (T0 + end, T0 + end))
+            row = {"task_id": tid, "merged_at": at_s(6600), "wall_s": 6600, "review_rounds": 0, "verify_rounds": 1, "fix_rounds": 0,
+                   "times": "recorded"}
+            d = drill.collect(q, [row], {"runs": [], "timeline": {}}, now=T0 + 9000)[tid]
+        self.assertEqual([(p["phase"], p["off"], p["s"]) for p in d["phases"]],
+                         [("implement", 0, 3000), ("merge", 3600, 400), ("ruling", 4500, 500), ("verify", 5400, 600)])
+
 
 def _queue(tmp: str) -> Path:
     q = Path(tmp)

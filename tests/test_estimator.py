@@ -306,6 +306,40 @@ class Triggers(Base):
         self.assertEqual(code2, code)
         self.assertIn("the estimator trigger failed (RuntimeError: boom)", out)
 
+    def tasks(self, *args):
+        from ccp import cli
+        o = io.StringIO()
+        with mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)}), redirect_stdout(o), redirect_stderr(io.StringIO()):
+            return cli.main(["--root", str(self.p.root), "tasks", *args]), o.getvalue()
+
+    def test_tasks_index_prints_the_note_with_auto_on(self):
+        code, out = self.tasks("index")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("estimates:", out)  # estimate.auto is off by default: no note
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "estimate": {"auto": True}}))
+        with mock.patch.object(estimator, "_linked_worktree", return_value=False):
+            code, out = self.tasks("index")
+        self.assertEqual(code, 0, out)
+        self.assertIn("note: estimates: 2 open task(s)", out)
+        self.assertIn("not started (CCP_NO_ESTIMATOR_SPAWN)", out)
+
+    def test_with_auto_off_neither_command_notes_or_starts_an_estimator(self):
+        self.p.index()
+        env = {k: v for k, v in os.environ.items() if k != "CCP_NO_ESTIMATOR_SPAWN"}
+        with mock.patch.object(estimator, "notice", return_value=[]):
+            check_code = self.tasks("check")[0]  # the task log's own verdict, the notice aside
+        for args, want in ((("check",), check_code), (("index",), 0)):
+            with self.subTest(args=args), mock.patch.dict(os.environ, env, clear=True), \
+                    mock.patch.object(estimator, "_linked_worktree", return_value=False), \
+                    mock.patch.object(estimator, "spawn", return_value={"run_id": "es-x", "log": "/l"}) as sp, \
+                    mock.patch.object(estimator, "notice", wraps=estimator.notice) as seen:
+                code, out = self.tasks(*args)
+                self.assertEqual(code, want, out)
+                seen.assert_called_once()  # the command asks; the setting says no
+                sp.assert_not_called()
+                self.assertNotIn("estimates:", out)
+                self.assertNotIn("note:", out)
+
     def test_the_budget_cap_defers_the_rest(self):
         self.p.write("docs/delivery/tasks/0006-sf-more.md", body("0006-sf-more"))
         self.answers = [result(answer()), result(answer())]
