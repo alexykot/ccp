@@ -94,4 +94,24 @@ gate cache never serves a pass for a module whose run failed the gate's `state/*
 
 *Append-only, newest last.*
 
+- 2026-11-17, implementer: `ccp/usage.py`: `cost_advice` takes `worker_runs` (the runs with requests in the
+  fold) and gives the coordination line only when it is at least one. The lead's (`design-seat`) contexts
+  are kept apart in the fold and filtered by `main_model_contexts`: per `session_id`, the main model is the
+  one carrying most of that session's tokens (ties broken by model name); only calls on it enter the
+  lead's median. The runner's and workers' contexts are unchanged. The module docstring's cost-advice
+  sentence now ends its paragraph and the "It also keeps" text is its own paragraph.
+- `tests/test_health.py` `UsageAdviceGuards`: a sink of bytes that are not text makes `usage.fold` raise,
+  so the `try` guard is what keeps `usage_advice` at `None`; the no-queue guard is pinned by asserting
+  `usage_advice` is never called with no queue (without the `if q` the `try` would hide the `TypeError`).
+- `scripts/gate_parallel.py`: `run_one` no longer records; after every module has ended `main` records the
+  passes only when `git branch --list 'state/*'` prints nothing (`branches_left`; a git failure counts as
+  a branch left). gate.sh's check stays the gate's failure.
+- Premise found narrower than stated: a plain untracked directory (`tests/tmpdir/x.txt`) already kept the
+  cache on at e130905, since `git ls-files -o` lists its files one by one. The cache went off only for a
+  directory git lists whole, a nested repository (`tests/tmpdir/`), whose `read_bytes` raised
+  `IsADirectoryError`. Such a directory is now walked (`_files_under`): every file folded in by content,
+  its `.git` left out, a symbolic link hashed as a link and never followed. An unreadable file still
+  raises `OSError`, whose message names the path, so the cache is off for the run with the file named on
+  stderr, as before; no new code for it, one test pins it.
+
 ## Verification notes

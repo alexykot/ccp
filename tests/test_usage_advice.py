@@ -18,11 +18,11 @@ from tests.helpers import Product
 SPANS = {"lead": {}, "runner": {"agent_id": "runner@session-abc"}, "worker": {"agent_id": "a1"}}
 
 
-def row(rid, who, ctx=None, cost=0.01, written=0, five=0):
-    """One request of `who` (lead, runner or worker) sending `ctx` context tokens (default: the writes and a
-    thousand more), `written` of them cache writes, `five` of those at 5 minutes."""
+def row(rid, who, ctx=None, cost=0.01, written=0, five=0, model="claude-opus-5-5", session="s1"):
+    """One request of `who` (lead, runner or worker) on `model` in `session`, sending `ctx` context tokens
+    (default: the writes and a thousand more), `written` of them cache writes, `five` of those at 5 minutes."""
     ctx = written + 1000 if ctx is None else ctx
-    return ({"request_id": rid, "at": "2027-01-15T08:00:00Z", "session_id": "s1", "model": "claude-opus-5-5",
+    return ({"request_id": rid, "at": "2027-01-15T08:00:00Z", "session_id": session, "model": model,
              "effort": "high", "query_source": "repl_main_thread" if who == "lead" else "agent:custom",
              "input_tokens": 1, "output_tokens": 10, "cache_read_tokens": ctx - 1 - written,
              "cache_creation_tokens": written, "cache_creation_5m_tokens": five,
@@ -99,6 +99,39 @@ class Advice(unittest.TestCase):
         self.assertEqual(len(lines), 1, lines)
         self.assertIn("coordination", lines[0])
         self.assertIn("50%", lines[0])
+
+    def test_no_coordination_advice_before_a_worker_ran(self):
+        self.sink(row("l1", "lead", cost=0.3), row("r1", "runner", cost=0.2))
+        self.assertEqual(self.advice(), [])
+        self.sink(row("l1", "lead", cost=0.3), row("r1", "runner", cost=0.2), row("w1", "worker", cost=0.1))
+        lines = json.loads(self.ccp("usage", "--json"))["advice"]
+        self.assertEqual(len(lines), 1, lines)
+        self.assertIn("coordination", lines[0])
+        self.assertIn("83%", lines[0])
+
+    def lead_context_knob(self, tokens):
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo",
+                                                             "usage": {"advice": {"context_tokens": tokens}}}))
+
+    def test_the_leads_median_counts_only_its_sessions_main_model(self):
+        self.lead_context_knob(150000)
+        self.sink(*(row(f"l{i}", "lead", ctx=c) for i, c in enumerate((100000, 200000, 300000))),
+                  *(row(f"h{i}", "lead", ctx=1000, model="claude-haiku-4-5") for i in range(2)),
+                  row("w1", "worker", cost=1.0))
+        lines = [x for x in json.loads(self.ccp("usage", "--json"))["advice"] if "design-seat" in x]
+        self.assertEqual(len(lines), 1, lines)
+        self.assertIn("median context 200000 ", lines[0])
+
+    def test_the_main_model_is_each_sessions_own(self):
+        self.lead_context_knob(150000)
+        # s1 runs on one model with a helper on another; s2 runs on that other model with none
+        self.sink(*(row(f"a{i}", "lead", ctx=c) for i, c in enumerate((100000, 400000))),
+                  row("a9", "lead", ctx=1000, model="claude-haiku-4-5"),
+                  row("b1", "lead", ctx=160000, model="claude-haiku-4-5", session="s2"),
+                  row("w1", "worker", cost=1.0))
+        lines = [x for x in json.loads(self.ccp("usage", "--json"))["advice"] if "design-seat" in x]
+        self.assertEqual(len(lines), 1, lines)
+        self.assertIn("median context 160000 ", lines[0])
 
     def test_under_every_threshold_there_is_no_advice(self):
         self.sink(row("l1", "lead", cost=0.1, written=1000, five=400), row("r1", "runner", cost=0.1, ctx=290000),
