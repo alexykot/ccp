@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import unittest
 
 from ccp import tasklog
@@ -218,6 +219,7 @@ class TaskLogTest(unittest.TestCase):
         code, out = self._cli("index")
         self.assertEqual(code, 1, out)
         self.assertIn("0002-b: its task file is gone (listed in INDEX.yaml)", out)
+        self.assertIn("restore it with `git checkout HEAD -- docs/delivery/tasks/0002-b.md`", out)
         self.assertEqual((self.p.root / "docs/delivery/INDEX.yaml").read_text(), index)
         # Committed anyway, with the index written by hand: git history still knows.
         (self.p.root / "docs/delivery/INDEX.yaml").write_text(tasklog.render_index(self.p.cfg))
@@ -291,15 +293,100 @@ class TaskLogTest(unittest.TestCase):
         self._git("commit", "-qm", "reuse 0002")
         self.assertFails("0002-b: its task file is gone (deleted in ")
         self.assertFails("its number now belongs to 0002-something-else. A number is never reused")
+        self.assertFails("A number is never reused: restore it with `git checkout ")
 
     def test_outside_git_the_index_on_disk_names_a_missing_file(self):
         self.p.task("0001-a")
         gone = self.p.task("0002-b")
         self.p.index()
         gone.unlink()
-        self.assertIn("0002-b: its task file is gone (listed in INDEX.yaml). "
-                      "A task file is never deleted: restore it with `status: dropped` and a note naming "
-                      "what replaced it", self.errs())
+        errs = [e for e in self.errs() if e.startswith("0002-b: ")]
+        self.assertEqual(len(errs), 1, errs)
+        self.assertTrue(errs[0].startswith("0002-b: its task file is gone (listed in INDEX.yaml). "
+                                           "A task file is never deleted: restore it."), errs)
+        self.assertNotIn("git checkout", errs[0])  # outside git there is no command to name
+
+    OLD_TASK = ("# Task 0002: Export\n\n## Meta\n\n| Field | Value |\n|---|---|\n| Status | done |\n"
+                "| Created | 2025-03-02 |\n\n## Refs\n\n| Kind | Ref |\n|---|---|\n| SPEC | §4 |\n")
+
+    def test_a_file_with_no_frontmatter_is_one_failure_and_no_list_row(self):
+        import io
+        from contextlib import redirect_stderr
+        self.p.task("0001-a", title="First")
+        self.p.write("docs/delivery/tasks/0002-export-ledger.md", self.OLD_TASK)
+        self.p.write("docs/delivery/tasks/0003-c.md", "---\ntitle: x\nstatus: done\n---\n")
+        self.p.index()
+        mine = [e for e in self.errs() if "0002-export-ledger" in e]
+        self.assertEqual(len(mine), 1, mine)
+        self.assertIn("`ccp tasks migrate`", mine[0])
+        for args in (("list",), ("list", "--json")):
+            err = io.StringIO()
+            with redirect_stderr(err):
+                code, out = self._cli(*args)
+            self.assertEqual(code, 0, out)
+            self.assertNotIn("?", out)
+            self.assertNotIn("0003-c", out)
+            for token in ("docs/delivery/tasks/0002-export-ledger.md: no frontmatter, not listed",
+                          "docs/delivery/tasks/0003-c.md: no task_id in its frontmatter, not listed",
+                          "`ccp tasks check`", "`ccp tasks migrate`"):
+                self.assertIn(token, err.getvalue())
+        self.assertEqual([r["task_id"] for r in json.loads(out)], ["0001-a"])
+
+    def test_an_empty_opening_block_is_no_frontmatter_as_frontmatter_reads_it(self):
+        self.assertFalse(tasklog.has_frontmatter("---\n---\nbody\n"))
+        self.assertEqual(tasklog.frontmatter("---\n---\nbody\n"), {})
+        self.assertTrue(tasklog.has_frontmatter("---\ntask_id: 0001-a\n---\nbody\n"))
+
+    def test_a_gone_file_names_its_restore_and_the_fix_its_kind_needs(self):
+        self.p.task("0001-a", status="done")
+        self.p.write("docs/delivery/tasks/0002-b.md", self.OLD_TASK)
+        self._git("init", "-q")
+        self._git("add", "-A")
+        self._git("commit", "-qm", "log")
+        self._git("rm", "-q", "docs/delivery/tasks/0001-a.md")
+        self._git("mv", "docs/delivery/tasks/0002-b.md", "docs/0002-b.md")
+        self._git("commit", "-qm", "delete one, move the other out")
+        self.p.index()
+        sha = subprocess.run(["git", "-C", str(self.p.root), "rev-parse", "--short", "HEAD"], capture_output=True,
+                             text=True, check=True).stdout.strip()
+        code, out = self._cli("check")
+        self.assertEqual(code, 1, out)
+        one = [ln for ln in out.splitlines() if "0001-a:" in ln]
+        two = [ln for ln in out.splitlines() if "0002-b:" in ln]
+        self.assertEqual((len(one), len(two)), (1, 1), out)
+        self.assertIn(f"`git checkout {sha}^ -- docs/delivery/tasks/0001-a.md`", one[0])
+        self.assertIn("a done task stays `done`", one[0].lower())
+        self.assertNotIn("restore it with `status: dropped`", one[0])
+        self.assertNotIn("ccp tasks migrate", one[0])
+        self.assertIn(f"`git checkout {sha}^ -- docs/delivery/tasks/0002-b.md`", two[0])
+        self.assertIn("`ccp tasks migrate`", two[0])
+        self._git("checkout", f"{sha}^", "--", "docs/delivery/tasks/0001-a.md")
+        self.assertFalse([e for e in self.errs() if e.startswith("0001-a: ")])
+
+    def test_a_slug_renamed_in_git_is_told_to_add_renamed_from(self):
+        self.p.task("0001-old-slug", status="done")
+        self.p.index()
+        self._git("init", "-q")
+        self._git("add", "-A")
+        self._git("commit", "-qm", "log")
+        self._git("mv", "docs/delivery/tasks/0001-old-slug.md", "docs/delivery/tasks/0001-new-slug.md")
+        new = self.p.root / "docs/delivery/tasks/0001-new-slug.md"
+        new.write_text(new.read_text().replace("task_id: 0001-old-slug", "task_id: 0001-new-slug"))
+        self.p.index()
+        self._git("add", "-A")
+        self._git("commit", "-qm", "rename the slug")
+        sha = subprocess.run(["git", "-C", str(self.p.root), "rev-parse", "--short", "HEAD"], capture_output=True,
+                             text=True, check=True).stdout.strip()
+        code, out = self._cli("check")
+        self.assertEqual(code, 1, out)
+        mine = [ln for ln in out.splitlines() if "0001-" in ln]
+        self.assertEqual(len(mine), 1, out)
+        self.assertIn(f"renamed to docs/delivery/tasks/0001-new-slug.md in {sha}", mine[0])
+        self.assertIn("`renamed_from: 0001-old-slug`", mine[0])
+        self.assertNotIn("never reused", mine[0])
+        new.write_text(new.read_text().replace("created:", "renamed_from: 0001-old-slug\ncreated:"))
+        code, out = self._cli("check")
+        self.assertEqual(code, 0, out)
 
     def test_a_later_task_named_as_a_prerequisite_in_prose_warns(self):
         # PROC-08: 0186 said "gated on 0197" in prose, where nothing holds it back; depends_on may point forward.

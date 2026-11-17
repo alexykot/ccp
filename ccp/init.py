@@ -21,6 +21,9 @@ Pull requests need a GitHub origin until the PR host is an adapter (ADR-0040 D7)
 has no `origin`, or its host is not GitHub, init warns on stderr and in the result's `warnings`,
 naming the commands that need one, and adopts the product all the same.
 
+When the task directory already holds task files with no frontmatter (an earlier plane generation's),
+the result's `warnings` names their count and `ccp tasks migrate` (§5.3).
+
 With `--permissions` it writes nothing: in an adopted product it prints the runner's and workers'
 permission allowlist and a deny list for destructive commands, as a JSON `permissions` block for the
 operator to apply to `.claude/settings.json` (§4.5, §18.5).
@@ -318,6 +321,11 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
         out["warnings"] = [warning]
 
     cfg = config.load(root)
+    old_files = [f for f in sorted(cfg.tasks_dir.glob("*.md")) if not tasklog.has_frontmatter(f.read_text())]
+    if old_files:  # §5.3: an earlier plane generation's task log
+        out.setdefault("warnings", []).append(
+            f"{len(old_files)} task file(s) in {cfg.rel(cfg.tasks_dir)} have no frontmatter (an earlier plane "
+            "generation's?): convert them with `ccp tasks migrate`")
     if cfg.task_log.get("index", True) and (force or not (root / cfg.task_log["dir"] / "INDEX.yaml").exists()):
         tasklog.write_index(cfg)
         out["written"].append(f"{cfg.task_log['dir']}/INDEX.yaml")

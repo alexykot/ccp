@@ -194,8 +194,8 @@ status other than `pending`, `done` or `dropped` (a legacy `in_progress` or `blo
 pending, with a warning), a dependency that doesn't exist, a cycle of `depends_on` (named), a task
 citing nothing, zero or more than `max_checks` checks, duplicate check ids, soft language inside `## dod_checks` ("should",
 "may", "gracefully", "robust"), a `done` task with no verification note, runtime state in frontmatter,
-a task file that is gone (restore it as `dropped`), a number held by another file without
-`renamed_from`, a kind's ref rules broken, and (with `shape_adrs`) a new task citing an unshaped ADR
+a task file that is gone (restore it; convert an earlier generation's file with
+`ccp tasks migrate`), a number held by another file without `renamed_from`, a kind's ref rules broken, and (with `shape_adrs`) a new task citing an unshaped ADR
 without a waiver. A `review_point` not in the register (or, without one, not matching
 `task_log.review_point_pattern`). A task not yet `done` or `dropped` that still holds a template
 placeholder (`NNNN-kebab-slug`, `YYYY-MM-DD`, `As a <role>`, `<preconditions`,

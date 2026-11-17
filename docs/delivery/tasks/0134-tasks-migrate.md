@@ -158,6 +158,30 @@ file that is gone, a slug renamed in git, `ccp tasks list`) names the fix instea
 
 *Append-only, newest last.*
 
+- 2026-11-17 — implementer: `ccp tasks migrate` in `ccp/taskmigrate.py`, wired in `ccp/cli.py`; it
+  regenerates the index only when it converted a file and is not a dry run. A file already in the
+  current format gets no line of its own; a closing line counts converted, already current and cannot
+  convert. The old text is kept byte for byte in a tilde fence (one tilde longer than any tilde fence
+  in it) under `## Context (not checked)`. Accepted beyond the fixture: a bare task number in
+  `Depends on` names the one file holding it; the product's own spec prefix as well as `S`; Meta and
+  Refs headings in any case; a title from the slug when neither the committed index nor a `# ` heading
+  gives one. `ccp/tasklog.py`: `has_frontmatter`; `check` gives one failure for a file with none;
+  `missing_task_files` names `git checkout <sha>^ -- <path>` (or `git checkout HEAD -- <path>` for a
+  file deleted since HEAD; no command outside git), then `ccp tasks migrate` when the last committed text
+  has no frontmatter, else that a done task stays `done`; a rename `git log -M --diff-filter=R` shows to
+  the file holding the number gets only the `renamed_from` line. `ccp tasks list` skips such files with
+  a stderr line; `ccp init` counts them in `warnings`.
+- 2026-11-17 — implementer, fix round 1: the kept old text sits first in the converted file, and the
+  section reader takes the first heading of a name, so an old `## dod_checks` or `## Verification notes`
+  shadowed the converted file's own and `ccp tasks check` failed a file migrate called converted. Now
+  `migrate` renders every file first, runs `tasklog.check` with the rendered texts standing in for the
+  files (`load` and `check` take an optional `texts`), and a rendered file with failures of its own is
+  "cannot convert: converted, it would fail `ccp tasks check`: <its failures>", not written; it repeats
+  until none fails, so a file depending on one left unconverted is left too. `--dry-run` runs the same
+  check, so its lines stay the run's. The section reader is unchanged. `has_frontmatter` searches from
+  the same offset as `frontmatter`. mig-02's "the same lines" is read as the per-file lines: the closing
+  count line says `(dry run, nothing written)` and the real run adds the index line.
+
 ## Verification notes
 
 *Append-only.*

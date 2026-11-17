@@ -1,6 +1,7 @@
 """`ccp` — every command the plane runs inside a product checkout (SPEC §10, §19).
 
   ccp tasks list [--status S] | next [--scope IDS] [--allow-overdue REASON] [--explain] | check | index [--stdout]
+  ccp tasks migrate [--dry-run] [--drop-open]  (an earlier plane generation's task files, converted in place, SPEC §5.3)
   ccp tasks check --lease [--staged]  (a leased task's file edited on the integration branch, SPEC §10.5)
   ccp tasks orphans --since REF [--json]  (the lead: integration-branch commits no task covers, SPEC §10.7)
   ccp docs check
@@ -97,9 +98,17 @@ def _print_errs(label: str, errs: list[str], clean: str) -> int:
 
 
 def cmd_tasks_list(cfg: config.Config, a: argparse.Namespace) -> int:
-    rows = [(t.get("task_id") or "?", t.get("status") or "?", t.get("title") or "",
+    tasks = tasklog.load(cfg)
+    for t in tasks:  # not a task row: named on stderr, with where to look and the fix (§21.1)
+        why = "no frontmatter" if not tasklog.has_frontmatter(t["_text"]) else \
+            "no task_id in its frontmatter" if not t.get("task_id") else None
+        if why:
+            print(f"ccp tasks list: {cfg.rel(t['_file'])}: {why}, not listed: `ccp tasks check` names what is "
+                  "wrong; `ccp tasks migrate` converts an earlier plane generation's task file", file=sys.stderr)
+    rows = [(t.get("task_id"), t.get("status") or "?", t.get("title") or "",
              ",".join(tasklog._as_list(t.get("depends_on"))) or "-", tasklog.kind_of(t))
-            for t in tasklog.load(cfg) if not a.status or t.get("status") == a.status]
+            for t in tasks if tasklog.has_frontmatter(t["_text"]) and t.get("task_id")
+            and (not a.status or t.get("status") == a.status)]
     if a.json:
         print(json.dumps([dict(zip(("task_id", "status", "title", "depends_on", "kind"), r)) for r in rows], indent=2))
         return 0
@@ -934,6 +943,23 @@ def cmd_agent(cfg: config.Config, a: argparse.Namespace) -> int:
     return 0  # a hook never fails the agent it watches
 
 
+def cmd_tasks_migrate(cfg: config.Config, a: argparse.Namespace) -> int:
+    """§5.3: convert an earlier plane generation's task files in place; then regenerate the index."""
+    from ccp import taskmigrate  # noqa: PLC0415
+    res = taskmigrate.migrate(cfg, a.dry_run, a.drop_open)
+    for r in res["files"]:
+        print(f"{r['path']}: " + (f"converted ({r['status']})" if r["result"] == "converted"
+                                   else f"cannot convert: {r['reason']}"))
+    converted = sum(1 for r in res["files"] if r["result"] == "converted")
+    failed = len(res["files"]) - converted
+    print(f"tasks migrate{' (dry run, nothing written)' if a.dry_run else ''}: {converted} converted, "
+          f"{res['current']} already current, {failed} cannot convert")
+    code = 1 if failed else 0
+    if converted and not a.dry_run and cfg.task_log.get("index", True):
+        code = max(code, cmd_tasks_index(cfg, argparse.Namespace(stdout=False)))
+    return code
+
+
 def build_parser() -> argparse.ArgumentParser:
     # No abbreviations of --root: `ccp suite run`'s `--` split reads the words past it (§14.1).
     ap = argparse.ArgumentParser(prog="ccp", description="Control-plane product tool (SPEC §8)", allow_abbrev=False)
@@ -966,6 +992,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = t.add_parser("index", help="regenerate INDEX.yaml")
     p.add_argument("--stdout", action="store_true", help="print instead of writing")
     p.set_defaults(fn=cmd_tasks_index)
+    p = t.add_parser("migrate", help="convert an earlier plane generation's task files (no frontmatter) in place; "
+                                     "exit 1 when one cannot be converted (SPEC §5.3)")
+    p.add_argument("--dry-run", action="store_true", help="write nothing; print the same lines")
+    p.add_argument("--drop-open", action="store_true", help="convert an open task too, as dropped")
+    p.set_defaults(fn=cmd_tasks_migrate)
     life = _toolkit(_lifecycle)
     p = t.add_parser("prefer", help="the lead names the runner's next tasks, in order: `tasks next` returns the first "
                                     "ready one; its claim removes only that one, and a new list replaces the old. "
