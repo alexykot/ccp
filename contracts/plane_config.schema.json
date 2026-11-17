@@ -869,10 +869,10 @@
           "type": ["object", "null"],
           "additionalProperties": false,
           "default": null,
-          "description": "The model `ccp prompt implement` prints in its Agent call, and the runner passes as given: `small` for a task whose estimate (its latest agent estimate, else its baseline, total P50) is at most small_estimate_minutes, `refactor` for a task of that kind (it wins when both apply). Full model ids, never aliases. Null (the default) leaves the definition's model.",
+          "description": "The alias `ccp prompt implement` prints in its Agent call, and the runner passes as given: `small` for a task whose estimate (its latest agent estimate, else its baseline, total P50) is at most small_estimate_minutes, `refactor` for a task of that kind (it wins when both apply). Each an alias the Agent call's model accepts (sonnet, opus, haiku, fable), nothing else, a full id included. Null (the default) leaves the definition's model. With the knob set and no estimate for the task, ccp prompt implement warns that the small arm cannot apply.",
           "properties": {
-            "small": {"type": "string", "minLength": 1},
-            "refactor": {"type": "string", "minLength": 1}
+            "small": {"type": "string", "enum": ["sonnet", "opus", "haiku", "fable"]},
+            "refactor": {"type": "string", "enum": ["sonnet", "opus", "haiku", "fable"]}
           }
         },
         "small_estimate_minutes": {"type": "integer", "minimum": 1, "default": 30, "description": "A task whose estimate is at most this many minutes is `small` for implementer_model."}

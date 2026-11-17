@@ -90,10 +90,12 @@ tasks.
 
 Each seat's model and effort is fixed in its agent definition (or launch flags) and never depends on
 the lead session's settings, except the implementer's model, which plane.json
-`workers.implementer_model` may set per task: `{"small": <model>, "refactor": <model>}`, where
-`small` is a task whose estimate is at most `workers.small_estimate_minutes` (default 30) and
-`refactor` a task of that kind; unset (the default) leaves the definition's model.
-`ccp prompt implement` prints the model in its Agent call, and the runner passes it as given:
+`workers.implementer_model` may set per task: `{"small": <alias>, "refactor": <alias>}`, an alias
+being one the Agent call's `model` accepts (`sonnet`, `opus`, `haiku`, `fable`), where `small` is a
+task whose estimate is at most `workers.small_estimate_minutes` (default 30) and `refactor` a task of
+that kind; unset (the default) leaves the definition's model. `ccp prompt implement` prints the alias
+in its Agent call, and the runner passes it as given; with the knob set and no estimate for the task,
+it warns that the `small` arm cannot apply:
 
 | Seat | Model | Effort |
 |---|---|---|
@@ -104,11 +106,14 @@ the lead session's settings, except the implementer's model, which plane.json
 | Verifier | `claude-sonnet-5-5` | `high` |
 | Architect | `claude-opus-5-5` | `high` (`--model`, `--effort`) |
 
-- Models are **full ids**, never aliases: with an alias (`opus`, `sonnet`) or `inherit`, a subagent
-  of the lead's model family runs on the lead's exact model, including its `[1m]` suffix. Moving to
-  a newer model is a deliberate change of the definitions.
-- The runner launches each worker by its agent type and **never passes `model`** in the Agent call:
-  a call's `model` overrides the definition.
+- Models in agent definitions are **full ids**, never aliases: with an alias (`opus`, `sonnet`) or
+  `inherit`, a subagent of the lead's model family runs on the lead's exact model, including its
+  `[1m]` suffix. Moving to a newer model is a deliberate change of the definitions.
+  `workers.implementer_model` alone takes aliases, because the Agent call's `model` accepts nothing
+  else.
+- The runner launches each worker by its agent type and **never passes `model`** in the Agent call,
+  except the alias `ccp prompt implement` prints from `workers.implementer_model`: a call's `model`
+  overrides the definition.
 - Every seat's effort is fixed in its own definition, the runner's included; none is inherited from
   the design seat.
 - Each worker definition names its tools (`tools:`, an allowlist that replaces the default set):
