@@ -6,6 +6,7 @@ import json
 import subprocess
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tests.test_toolkit import ToolkitFixture, git
 
@@ -45,6 +46,12 @@ class PromptEnv(ToolkitFixture, unittest.TestCase):
         self.assertTrue(all(ln.startswith("export ") for ln in out.splitlines()), out)
         self.assertEqual(self.values(out), ["0002-probe-rev", str(self.rev), "<run_id>|<phase>|0002-second",
                                             str(self.q), f"{self.main}/x y", self.PLANE_JSON["project_id"]])
+
+    def test_it_starts_no_board_rebuild(self):
+        with mock.patch("ccp.board.refresh") as refresh:
+            code, _, _, err = self.ccp("prompt", "env", str(self.rev))
+        self.assertEqual(code, 0, err)
+        refresh.assert_not_called()
 
     def test_the_worktree_may_be_named_by_its_record(self):
         by_path = self.ccp("prompt", "env", str(self.rev))
