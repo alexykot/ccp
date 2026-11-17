@@ -1214,9 +1214,9 @@ exits as the spawn would. It writes nothing: no `work.json`, prompt audit, event
    When the merge with the tip is clean, or its only conflicts are in `parallel.shared` paths where both
    sides only added lines (resolved as the tip's lines, then the task's), the tip's new commits change no
    file the task's own diff or declared paths change other than a `parallel.shared` path, and no build
-   sign-off is due on the task (§3.5), close merges the tip into the verified head itself, runs the
-   gate lane on the result as a recorded run in its `merge-<nnnn>` worktree, whose stages get that
-   worktree's `CCP_WT_<FIELD>` variables (kind `merge`) and `prompts.worker_env` rendered for it,
+   sign-off is due on the task (§3.5), close merges the tip into the verified head itself,
+   runs the gate lane on the result as a recorded run in its `merge-<nnnn>` worktree, whose stages
+   get that worktree's `CCP_WT_<FIELD>` variables (kind `merge`) and `prompts.worker_env` rendered for it,
    re-checks the tip (at most 3 catch-ups), and on a green gate merges that commit, recording the
    catch-up in the verification record. Review and verify are not repeated: the task's own diff is
    unchanged. A break outside the gate lane's coverage is not caught here; the gate lane is what the
