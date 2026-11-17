@@ -122,6 +122,14 @@ class Wait(SuiteFixture, unittest.TestCase):
         self.assertIn("st-gone: FAILED, exit 1, lane full, 8.5 s; 9 tests, 1 failed", out)
         self.assertIn("(not JSON)", out)
 
+    def test_a_row_from_before_the_result_contract_shows_its_units(self):
+        self.started("st-older")
+        self.append({"op": "ended", "suite_id": "st-older", "at": iso(), "exit_code": 0, "seconds": 8.5, "tests": 9,
+                     "modules_ran": 2, "modules_cached": 5, "log": None, "interrupted": None})
+        w, _ = self.wait("st-older")
+        self.assertEqual(w.returncode, 0, w.stderr)
+        self.assertIn("; ran 2, cached 5", w.stdout.decode())
+
     def test_it_writes_nothing(self):
         self.started("st-done")
         self.ended("st-done", 0)
