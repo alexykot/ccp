@@ -1,7 +1,7 @@
 ---
 task_id: 0113-gate-test-cache
 title: The plane's gate keeps a content-keyed test cache, and the plane accepts it at verify
-status: pending
+status: done
 kind: feature
 depends_on: ["0112-parallel-gate-and-slow-modules"]
 spec_refs: ["S14", "S15"]
@@ -109,3 +109,5 @@ affect. The plane turns on `verify.accept_cache` for itself.
   describe the cache as built, and none was needed.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #120 head `a0cbbbc` (close's catch-up of the approved `7ac21d2`, gate run st-20261117T100951Z-4b21b5) (squash `5ed024a`): APPROVE. Passed: cache-01, cache-02, cache-03, cache-04, suite-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0113-gate-test-cache.json.
+
