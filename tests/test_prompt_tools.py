@@ -48,6 +48,11 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
             self.assertIn("timeout: 600000", text, phase)
             self.assertIn("suite wait <suite_id>", text, phase)
 
+    def test_the_implementer_sends_rule_text_the_task_does_not_carry_to_a_proposal(self):
+        _run_id, text = self.render("implement", "--base", "abc1234")
+        self.assertIn("plane propose`), not the PR", text)
+        self.assertIn("only text without which the code cannot be correct goes to the lead, as a spec question", text)
+
     def test_no_template_sends_a_worker_to_a_mutation_worktree_or_a_discovery_command(self):
         for phase in ("implement", "fix", "ruling", "merge", "verify"):
             text = (PLANE / "templates/prompts" / f"{phase}.md").read_text()

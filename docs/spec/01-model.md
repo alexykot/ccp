@@ -197,6 +197,16 @@ it in its frontmatter, `sign_off:`:
 Any other value (no stage, or one that is not `brief` or `build`) fails `ccp tasks check`, and claim
 and close refuse the task until it is fixed.
 
+A task whose change adds or changes a § rule carries, in its Scope, the exact CURRENT → PROPOSED text
+of each passage and declares `sign_off: brief`, so the operator signs the words before the claim.
+`ccp tasks check` warns on a task not yet `done` or `dropped` whose `paths` name a SPEC file
+(plane.json `task_log.spec_paths`, default `["docs/spec/", "SPEC.md"]`) and that neither declares a
+`brief` sign-off nor says in its Scope that its SPEC text only describes its own feature (the word
+`§31.1` on a Scope line). Rule text the build finds that the brief does not carry goes to a follow-up
+proposal (`ccp plane propose`), and the PR merges on the signed text. Only text without which the
+code cannot be correct goes to the lead as a spec question, and then a `build` sign-off is due
+(below).
+
 Text that only describes what the task's accepted brief and ADR call for (§31.1) needs no sign-off: a
 task whose SPEC or contract text follows from them declares no `sign_off`. Text beyond that intent is
 caught at review and verify. The reviewer's report carries a `## Spec beyond intent` section and the

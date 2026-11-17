@@ -528,6 +528,10 @@ gates nothing.
   summed over all of a task's merges in the window) is strictly fewer than `health.small_task_lines`
   lines, with the count and the line, so the task-log owner sees follow-ups drifting into one task
   each (bundle them by area, the writing-tasks skill); `small_tasks` in `--json`.
+- **Sign-off wait:** per review point, the tasks that waited after their verified approve on an
+  operator sign-off or a merge gate, with the median and the longest wait (from the latest approving
+  verdict to the `build` sign-off or the gate's decision, whichever came first); `sign_off_wait` in
+  `--json`.
 - **Diagnostic only.** Nothing here is a target for a worker or part of a DoD.
 
 ### 27.2 Suite series
