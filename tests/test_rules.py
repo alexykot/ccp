@@ -81,6 +81,24 @@ class RulesDoc(unittest.TestCase):
         text = "- **E2** Write checks as:\n  ```\n  check: pass\n  - **E3** an example\n  ```\n"
         self.assertEqual(rules.parse_rules(text)[0], {"E2": None})
 
+    def test_an_unclosed_fence_is_a_warning_naming_the_doc_and_its_line(self):
+        fence = len(RULES.splitlines()) + 3
+        # E8 and E9 have no `check:`: read, they would fail the doc; after the open fence they are not read
+        self.p.write("docs/ENGINEERING.md", RULES + "- **E3** A rule before the fence.\n  check: pass\n"
+                     "```sh\n- **E8** Hidden.\n- **E9** Hidden too.\n")
+        code, out = self.docs_check()
+        self.assertEqual(code, 0, out)
+        warning = [ln for ln in out.splitlines() if "warning:" in ln and "fence" in ln]
+        self.assertEqual(len(warning), 1, out)
+        self.assertIn("docs/ENGINEERING.md", warning[0])
+        self.assertIn(f"line {fence}", warning[0])
+
+    def test_unclosed_fence_finds_the_block_left_open(self):
+        from ccp import docrules  # noqa: PLC0415
+        self.assertIsNone(docrules.unclosed_fence("a\n```\nb\n```\nc\n"))
+        self.assertEqual(docrules.unclosed_fence("a\n```\nb\n```\n  ~~~\nc\n"), 5)
+        self.assertEqual(docrules.unclosed_fence("```\n~~~\nstill fenced\n"), 1)  # another marker closes nothing
+
     def test_checks_and_budgets_must_match_rules(self):
         self.p.write("docs/ENGINEERING.md", RULES.replace("check: command", "check: budget").replace("check: pass", "check: maybe"))
         e = "\n".join(rules.check_doc(self.p.cfg))

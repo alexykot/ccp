@@ -310,7 +310,8 @@ def cmd_docs_check(cfg: config.Config, _a: argparse.Namespace) -> int:
     for n in rules.starter_notes(cfg):  # §20.5: what the product declined, and the checks that skips
         print(f"  {n}")
     from ccp import reviewpoints  # noqa: PLC0415
-    warns = plane_path_warnings(cfg) + reviewpoints.notes(cfg) + adr.warnings(cfg) + pkgdocs.notes(cfg)
+    warns = (plane_path_warnings(cfg) + reviewpoints.notes(cfg) + adr.warnings(cfg) + pkgdocs.notes(cfg)
+             + rules.doc_warnings(cfg))
     for w in warns:
         print(f"  warning: {w}")
     if warns:

@@ -174,6 +174,27 @@ def check_doc(cfg: Config) -> list[str]:
     return errs
 
 
+def fence_warning(rel: str, text: str) -> str | None:
+    """§20.1: the rules parser skips fenced code, so a fence the doc never closes hides every rule after it.
+    A warning naming the doc and the fence's line, not a failure (§29.3); None when every fence closes."""
+    line = docrules.unclosed_fence(text)
+    if line is None:
+        return None
+    return (f"{rel}: the code fence opened on line {line} is never closed, so no rule after it is read: "
+            "close it")
+
+
+def doc_warnings(cfg: Config) -> list[str]:
+    """Warnings on the rules doc (`architect.rules_doc`) for `ccp docs check`: an unclosed fence
+    (`fence_warning`). [] without the doc."""
+    rel = (cfg.architect or {}).get("rules_doc")
+    doc = cfg.root / rel if rel else None
+    if not doc or not doc.is_file():
+        return []
+    w = fence_warning(rel, doc.read_text())
+    return [w] if w else []
+
+
 @lru_cache(maxsize=1)
 def starter_rules() -> dict[str, dict[str, Any]]:
     """The starter set (§20.5), read from its one home, the template: {starter name: {id, kind, keys}}

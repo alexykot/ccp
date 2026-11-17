@@ -273,6 +273,41 @@ class Outcomes(MutateFixture, unittest.TestCase):
         self.assertFalse(mutate.log_path(self.q, self.run_id).exists())
 
 
+class NoStaleBytecode(MutateFixture, unittest.TestCase):
+    """A same-size mutant restored within the second must leave no bytecode a later run takes for the source:
+    Python trusts a `__pycache__` entry whose recorded source mtime (whole seconds) and size still match."""
+
+    PY = shlex.quote(sys.executable)
+
+    def command(self, line: str) -> None:
+        p = self.mut / "docs/delivery/plane.json"
+        p.write_text(json.dumps({**json.loads(p.read_text()), "mutate": {"command": line}}))
+
+    def cached(self) -> list[str]:
+        d = self.mut / "__pycache__"
+        return sorted(f.name for f in d.glob("calc.*.pyc")) if d.is_dir() else []
+
+    def test_a_restored_file_keeps_no_compiled_entry_and_the_next_run_reads_the_source(self):
+        # the command compiles calc.py itself, as a product's runner may, whatever the environment says
+        self.command(f"{self.PY} -m py_compile calc.py && {self.PY} -m unittest -q {{test}}")
+        code, body, _, err = self.mutate("calc.py:a + b=>a - b")  # the same size as the source
+        self.assertEqual((code, body and body["killed"]), (0, 1), err)
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+        self.assertEqual(self.cached(), [])
+        r = subprocess.run([sys.executable, "-m", "unittest", "-q", ADD], cwd=self.mut, capture_output=True,
+                           text=True, timeout=120, env={k: v for k, v in os.environ.items()
+                                                       if k != "PYTHONDONTWRITEBYTECODE"})
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_every_run_writes_no_bytecode(self):
+        self.command(f'[ "$PYTHONDONTWRITEBYTECODE" = 1 ] && {self.PY} -m unittest -q {{test}}')
+        with mock.patch.dict(os.environ):
+            os.environ.pop("PYTHONDONTWRITEBYTECODE", None)
+            code, body, _, err = self.mutate("calc.py:a + b=>a - b")
+        self.assertEqual((code, body and body["killed"]), (0, 1), err)  # the unmutated run passed too
+        self.assertEqual(self.cached(), [])
+
+
 class Interrupted(MutateFixture, unittest.TestCase):
     """`ccp mutate` in its own process, sent a SIGTERM while the test command runs."""
 

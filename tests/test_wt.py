@@ -61,6 +61,26 @@ class Create(WtFixture, unittest.TestCase):
         st = json.loads((self.q / "worktrees" / "mut-0002.json").read_text())
         self.assertEqual((st["seat"], st["tag"]), ("ver", "mut"))
 
+    def test_a_symbolic_sha_is_the_callers_own_commit_and_one_naming_none_makes_nothing(self):
+        main_head = git(self.main, "rev-parse", "HEAD")
+        (self.runner / "B.txt").write_text("b\n")
+        git(self.runner, "add", "B.txt")
+        git(self.runner, "commit", "-q", "-m", "B, in the caller's checkout only")
+        mine = git(self.runner, "rev-parse", "HEAD")
+        self.assertNotEqual(mine, main_head)
+        for given, name in (("HEAD", "mut-0002"), (mine[:9], "mut-0002-2")):
+            code, body, _, err = self.ccp("wt", "create", "--kind", "mut", "--task", "0002", "--sha", given)
+            self.assertEqual((code, body and body["name"]), (0, name), err)
+            st = json.loads((self.q / "worktrees" / f"{name}.json").read_text())
+            self.assertEqual(st["sha"], mine)
+            self.assertEqual(git(Path(st["path"]), "rev-parse", "HEAD"), mine)
+        before = (sorted(p.name for p in (self.q / "worktrees").iterdir()), sorted(p.name for p in (self.main / ".rt").iterdir()))
+        code, _, _, err = self.ccp("wt", "create", "--kind", "mut", "--task", "0002", "--sha", "nope")
+        self.assertEqual(code, 2, err)
+        self.assertIn("nope", err)
+        self.assertEqual((sorted(p.name for p in (self.q / "worktrees").iterdir()),
+                          sorted(p.name for p in (self.main / ".rt").iterdir())), before)
+
     def test_a_failed_setup_removes_the_half_made_worktree(self):
         self.plane(env={"setup": "echo no database; exit 3"})
         code, _, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head())

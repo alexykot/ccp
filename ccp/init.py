@@ -418,7 +418,8 @@ def rules_doc(root: Path, path: str, adopt: bool) -> dict[str, Any]:
     closing each such rule's own item, its line endings kept. The rule ids and `rules_max_lines` are the
     product's when its plane.json loads. Raises QueueError: exit 2 when the doc is missing, exit 1
     (nothing written) when the added lines would put it over `rules_max_lines`, or when the doc, read
-    again with them, would not have each adopted rule checked and every other rule as it was."""
+    again with them, would not have each adopted rule checked and every other rule as it was. A code fence the
+    doc never closes hides the rules after it: the result's `warnings` names it, and so does a refusal."""
     doc = Path(path) if Path(path).is_absolute() else root / path
     if not doc.is_file():
         raise QueueError(f"ccp init: --rules-doc {path}: no such file under {root}", 2)
@@ -437,13 +438,15 @@ def rules_doc(root: Path, path: str, adopt: bool) -> dict[str, Any]:
     kinds, _ = rules.parse_rules(text, ids)
     unchecked = [rid for rid, kind in kinds.items() if kind is None]
     lines = len(text.splitlines())
+    fence = rules.fence_warning(rel, text)  # §20.1: rules after a fence left open are not read at all
     out: dict[str, Any] = {"rules_doc": rel, "rules": len(kinds), "unchecked": unchecked, "lines": lines,
-                           "rules_max_lines": cap, "adopted": []}
+                           "rules_max_lines": cap, "adopted": [], "warnings": [fence] if fence else []}
+    also = f" ({fence})" if fence else ""
     if adopt and unchecked:
         if lines + len(unchecked) > cap:
             raise QueueError(f"ccp init: {rel} has {lines} lines; a `check: pass` line for each of its "
                              f"{len(unchecked)} unchecked rules would make {lines + len(unchecked)}, over "
-                             f"rules_max_lines {cap}: shorten it first. Nothing written", 1)
+                             f"rules_max_lines {cap}: shorten it first. Nothing written{also}", 1)
         ends = _rule_ends(text, ids)
         new = _with_checks(text, {ends[rid][0]: ends[rid][1] + "check: pass" for rid in unchecked})
         # Re-read as docs check reads it: each adopted rule now checked and no other changed, so a rerun
@@ -453,7 +456,7 @@ def rules_doc(root: Path, path: str, adopt: bool) -> dict[str, Any]:
         if wrong:
             raise QueueError(f"ccp init: {rel}: with a `check: pass` line closing each unchecked rule's item, "
                              f"{', '.join(wrong)} would not read as intended (is a fenced block left open?): "
-                             "add the lines by hand. Nothing written", 1)
+                             f"add the lines by hand. Nothing written{also}", 1)
         with open(doc, "w", newline="") as fh:
             fh.write(new)
         out.update(adopted=unchecked, lines=len(new.splitlines()))
@@ -477,6 +480,8 @@ def print_rules_doc(root: Path, a: Any) -> int:
     except QueueError as e:
         print(str(e), file=sys.stderr)
         return e.code
+    for w in res["warnings"]:
+        print(f"warning: {w}", file=sys.stderr)
     print(json.dumps(res, indent=2))
     return 0
 
