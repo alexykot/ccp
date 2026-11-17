@@ -80,4 +80,31 @@ to adopt, through the plane's notify path, without anyone relaying it by hand.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `ccp notify upgrade [--since COMMIT]` (ccp/notify.py `record_upgrade`)
+  records the notice: the steps `ccp upgrade status` lists (not taken, or check by hand) whose task
+  `ccp upgrade notes --since` lists, as one `notify` `pending` event with `id` = the plane checkout's
+  HEAD (the release commit, full sha) and `reason` = `<task>: <adopt step>; …` (capped at the one-line
+  limit, the rest counted with a pointer to `ccp upgrade status`). No steps: nothing recorded. It never
+  runs `notify.command` (`RECORD_ONLY`; `send` and `fire` refuse it): the lead dispatches it. Actor:
+  `$ACTOR` when it names one, else `plane-session`.
+- `scripts/run-checkout.sh update` notes HEAD before the merge and, after each checked product's
+  checks, runs the new `ccp notify upgrade --since <that commit>` with `--root <product_root>`,
+  QUEUE_ROOT from the binding's `queue_root`, PROJECT_YAML and CCP_BINDINGS_DIR set to the binding.
+  It skips the call when the update brought no commit; a missing queue or a failed call is one
+  `run-checkout: upgrade notice for <id> not recorded: …` line, never a failed update. Products not
+  checked (no repository, no branch, not adopted) get no notice. The steps are read in the product's
+  checkout (as `ccp upgrade status` run there reads them), not the integration branch's temp clone.
+- Orientation had no list of pending notices at the base. `plugin/hooks/orientation.sh` (outside the
+  task's `paths`) now appends the product's `ccp notify pending` rows (subject, reason, the `sent`
+  call), within the hook's cap, using the `ccp` beside the plugin, else `ccp` on PATH. `ccp
+  orientation` prints the hook's text, so it shows them too. §9.3 carries no rule for it yet.
+- 2026-11-17 (implementer, fix round 1): the hook's `ccp notify pending` call now runs inside its
+  Python block with a 3 s timeout (the SessionStart hook has 10 s): a slow or hung queue drops the
+  notices, never the orientation. New tests run the hook with a stand-in `ccp` beside the plugin:
+  one pins the 2400-character notice cap, the `- … N more` line, the 500-character reason cut and
+  the 9500 total (the orientation is cut, not the notices); one pins the timeout with a `ccp` that
+  hangs. The `upgrade_notice` comment in `scripts/run-checkout.sh` now states that the steps are read
+  in the product's working checkout, not the integration branch's temp clone. ADR-0041 D3 recorded
+  built (`ccp adr decide 41 D3 built`); D5 and D6 stay not_built.
+
 ## Verification notes

@@ -44,6 +44,7 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp suite affected [--since REF | --paths PATH …]  (the test modules a change touches, one per line, SPEC §14.7)
   ccp notify render TRIGGER [--task ID] [--id ID] [--reason R] [--json] | pending
             | sent TRIGGER [--task ID] [--id ID] --via command|lead [--note T]  (the operator's notices, SPEC §3.6)
+            | upgrade [--since COMMIT]  (record a release's upgrade notice for this product, SPEC §29.3)
   ccp plane propose --need T --generic T [--task ID] [--workaround T] [--frequency F] | propose --again ID
             | triage ID --accept|--merge-into ID|--decline --reason T | built ID --task ID | list [--open] | check
   ccp upgrade notes [--since COMMIT] | status  (what a plane release asks of a product, SPEC §29.3)
