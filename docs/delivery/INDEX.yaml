@@ -598,7 +598,7 @@ tasks:
     depends_on: []
     path: tasks/0119-implementer-model-trial.md
   - id: 0120-adopt-steps-and-upgrade-taken
-    status: pending
+    status: done
     title: Every opt-in feature carries a real adopt step, and a product can record a step as taken
     depends_on: []
     path: tasks/0120-adopt-steps-and-upgrade-taken.md

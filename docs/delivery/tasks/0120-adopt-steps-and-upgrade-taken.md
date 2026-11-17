@@ -1,7 +1,7 @@
 ---
 task_id: 0120-adopt-steps-and-upgrade-taken
 title: Every opt-in feature carries a real adopt step, and a product can record a step as taken
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S29"]
@@ -132,3 +132,5 @@ step hides behind an `adopt` value that starts with `none`.
   otherwise.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #131 head `eafc014` (squash `2821df0`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, check-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0120-adopt-steps-and-upgrade-taken.json.
+
