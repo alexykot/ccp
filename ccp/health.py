@@ -29,6 +29,10 @@ Everything comes from data the plane already holds; nothing here is a target or 
   with no end whose elapsed time reached the shell limit, started after the latest gate run that passed
   or failed, is reported as killed at the limit.
 
+- **module time** (§27.2): from the cold gate runs whose result carried `modules` (§14.3), the latest's
+  slowest modules (`health.slowest_modules`, default 5) and the median seconds per test over the last
+  `health.suite_trend_runs` (default 10), with the first and the latest.
+
 - **small tasks** (§27.1): the share of the tasks merged in the window whose diff, lines added plus deleted
   over all their merges, is under plane.json `health.small_task_lines` (default 100).
 
@@ -531,6 +535,59 @@ def suite_trend(entries: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
+def cold_gate_runs(cfg: Config | None, q: Path, rows: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
+    """The gate role's lane and its cold runs among the folded suite `rows`, oldest first (§14.6, §27.2):
+    passed, counted tests, nothing cached or no test cache yet, and timed."""
+    from ccp.config import lane_for  # noqa: PLC0415
+    lane = lane_for(cfg, "gate")
+    mine = [s for s in rows if s.get("lane") == lane and s.get("state") == "passed"]
+    start = cache_start(cfg, q, rows) if mine else None
+
+    def cache_then(s: dict[str, Any]) -> bool:
+        return start is not None and (_epoch(str(s.get("started_at") or "")) or 0) >= start
+
+    return lane, [s for s in mine if classify(s, cache_then(s), lanes=(lane,)) == "cold"
+                  and isinstance(s.get("seconds"), (int, float)) and not isinstance(s.get("seconds"), bool)]
+
+
+def suite_modules(cfg: Config | None, q: Path, rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """The test modules' time (§27.2), from the cold runs of the gate role's lane whose result carried
+    `modules` (§14.3): the latest's `health.slowest_modules` slowest modules with their seconds and
+    tests, and the seconds per test (the run's seconds over its tests) of the last
+    `health.suite_trend_runs` of them: their median, the first and the latest."""
+    h = getattr(cfg, "health", None) or HEALTH_DEFAULTS
+    rows = _folded(q) if rows is None else rows
+    lane, cold = cold_gate_runs(cfg, q, rows)
+    timed = [(s, mods) for s in cold if (mods := [m for m in s.get("modules") or [] if isinstance(m, dict)
+                                                   and isinstance(m.get("name"), str) and _num(m.get("seconds"))])]
+    latest, mods = timed[-1] if timed else (None, [])
+    slowest = sorted(mods, key=lambda m: -m["seconds"])[:h["slowest_modules"]]
+    per = [{"suite_id": s.get("suite_id"), "started_at": s.get("started_at"),
+            "seconds_per_test": round(s["seconds"] / s["tests"], 4)} for s, _m in timed[-h["suite_trend_runs"]:]]
+    return {"lane": lane, "runs": len(timed),
+            "latest": {k: latest.get(k) for k in ("suite_id", "task_id", "started_at", "tests")}
+            | {"seconds": _seconds(latest["seconds"])} if latest else None,
+            "slowest": [{"name": m["name"], "seconds": _seconds(m["seconds"]), "tests": m.get("tests")} for m in slowest],
+            "per_test": {"runs": len(per), "median_s": round(_median([p["seconds_per_test"] for p in per]) or 0, 4),
+                         "first": per[0], "latest": per[-1]} if per else None}
+
+
+def _num(v: Any) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def modules_text(m: dict[str, Any] | None) -> list[str]:
+    """The slowest modules and the seconds per test (§27.2), or nothing without a run that timed its modules."""
+    if not m or not m.get("latest"):
+        return []
+    last, pt = m["latest"], m["per_test"]
+    return [f"Slowest test modules (cold gate run {last['suite_id']}, {last['seconds']:g} s, {last['tests']} tests): "
+            + ", ".join(f"{x['name']} {x['seconds']:g} s ({x['tests']} tests)" for x in m["slowest"]) + ".",
+            f"Seconds per test over the last {pt['runs']} cold gate run(s) with module timings: median"
+            f" {pt['median_s']:g}; first {pt['first']['seconds_per_test']:g} ({pt['first']['suite_id']}),"
+            f" latest {pt['latest']['seconds_per_test']:g} ({pt['latest']['suite_id']})."]
+
+
 def gate_time(cfg: Config | None, q: Path, rows: list[dict[str, Any]] | None = None,
               now: float | None = None) -> dict[str, Any]:
     """The gate's time against the agent's shell limit (§14.6): the latest cold run of the gate role's
@@ -542,19 +599,11 @@ def gate_time(cfg: Config | None, q: Path, rows: list[dict[str, Any]] | None = N
     earliest of their run's stop, report or abandonment when fold knows it, else to `now`), started
     after the latest gate run that passed or failed: killed at the shell limit. A run that stopped
     earlier, or one with an `ended` row (an interrupted run included), is not listed."""
-    from ccp.config import gate_limits, lane_for  # noqa: PLC0415
+    from ccp.config import gate_limits  # noqa: PLC0415
     limit, line = gate_limits(cfg)
-    lane = lane_for(cfg, "gate")
     now = time.time() if now is None else now
     rows = _folded(q, now) if rows is None else rows
-    mine = [s for s in rows if s.get("lane") == lane and s.get("state") == "passed"]
-    start = cache_start(cfg, q, rows) if mine else None
-
-    def cache_then(s: dict[str, Any]) -> bool:
-        return start is not None and (_epoch(str(s.get("started_at") or "")) or 0) >= start
-
-    cold = [s for s in mine if classify(s, cache_then(s), lanes=(lane,)) == "cold"
-            and isinstance(s.get("seconds"), (int, float)) and not isinstance(s.get("seconds"), bool)]
+    lane, cold = cold_gate_runs(cfg, q, rows)
     latest = cold[-1] if cold else None
     finding = None
     if latest is not None and latest["seconds"] > line:
@@ -877,6 +926,10 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
             out["gate_time"] = gate_time(cfg, q) if q else None
         except Exception:  # noqa: BLE001
             out["gate_time"] = None
+        try:  # §27.2: nor does a damaged module list
+            out["suite_modules"] = suite_modules(cfg, q) if q else None
+        except Exception:  # noqa: BLE001
+            out["suite_modules"] = None
         out["rotation"] = rotation(q) if q else None  # §10.2 step 4
     return out
 
@@ -906,6 +959,7 @@ def summary_text(report: dict[str, Any], n: int = 10) -> str:
         lines.append(gt)
     if kt := killed_text(report.get("gate_time")):
         lines.append(kt)
+    lines += modules_text(report.get("suite_modules"))
     for r in report["tasks"][-n:] if n else []:
         lines.append(f"- {r['task_id']}: merged {r['merged_at']}, wall {_h(r.get('wall_s'))}, active {_h(r.get('active_s'))}"
                      f" (impl {_h(r.get('implementing_s'))},"

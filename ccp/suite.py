@@ -27,7 +27,8 @@ file, so their order is kept), at most DRAIN_SECONDS after the command exits.
 
 The gate-result contract (§14.3): the command's environment carries CCP_SUITE_RESULT, a path the
 command may write a JSON result to (contracts/suite_result.schema.json: tests, ran, cached,
-cached_tests, skipped, failed, failures, seconds). When it does, its numbers are the record's. When
+cached_tests, skipped, failed, failures, seconds, modules). When it does, its numbers are the
+record's, and its `modules` (each test module's name, seconds and tests) go on the `ended` row. When
 it does not, each line is matched against the product's `suite.count_re` (default: unittest's
 `Ran N tests in`) and `suite.summary`'s patterns (defaults: unittest's failures and skips only). The
 numbers are summed, and nothing else of the output, or of the result file, is kept in the records:
@@ -1265,6 +1266,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
     valid = [r for r, _p in results if r is not None]
     problem = next((p for _r, p in results if p), None)
     failures: list[str] = []
+    mods: list[dict[str, Any]] | None = None
     if valid:  # §14.3: the gate's own result is authoritative: every counter is its (summed over the stages)
         source = "result"
         tests = _sum([r.get("tests") for r in valid])
@@ -1277,6 +1279,8 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         fields = {f: _sum([x[f] for x in per]) for f in SUMMARY_FIELDS}
         failures = [str(x.get("id")) for r in valid for x in r.get("failures") or []
                     if isinstance(x, dict) and x.get("id")]
+        if any("modules" in r for r in valid):  # §14.3: every stage's modules, in order
+            mods = [m for r in valid for m in r.get("modules") or []][:MODULES_MAX]
     if tests is None and fields.get("ran") == 0 and fields.get("cached"):
         tests = 0  # every unit was a cache hit: no test ran, and that is a count (§14.5)
     stage_text = stages_line(suite_id, done, not_run, proven) if staged else None
@@ -1293,7 +1297,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         _say(f"ccp suite: {suite_id}: failing (from the gate's result): {', '.join(_cut(x) for x in shown)}"
              + (f" and {len(failures) - len(shown)} more" if len(failures) > len(shown) else "") + "\n")
     _finish(cfg, q, started, warn, code, seconds, tests, sig, fields, log, source, problem,
-            done if stages[0]["name"] is not None else None, failed_stage, proven)
+            done if stages[0]["name"] is not None else None, failed_stage, proven, mods)
     if lane_fd is not None and lane_fd >= 0 and q is not None:
         release_lane(q, suite_id)  # a normal end: the next holder is not told this one died
     return code
@@ -1301,12 +1305,26 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
 
 RESULT_INTS = ("tests", "ran", "cached", "cached_tests", "skipped", "failed")
 RESULT_MAX = 1_000_000  # bytes read from a result file, at most
+MODULES_MAX = 1000  # §14.3: a result's `modules` kept on the record, at most
+
+
+def _module(x: Any) -> dict[str, Any] | None:
+    """One `modules` entry of a result file as recorded ({name, seconds, tests}), or None when it is
+    not one: a name (cut to 200 characters), seconds a non-negative number, tests a non-negative integer."""
+    if not isinstance(x, dict):
+        return None
+    name, secs, tests = x.get("name"), x.get("seconds"), x.get("tests")
+    if not isinstance(name, str) or not name or isinstance(secs, bool) or not isinstance(secs, (int, float)) \
+            or secs < 0 or isinstance(tests, bool) or not isinstance(tests, int) or tests < 0:
+        return None
+    return {"name": name[:200], "seconds": round(float(secs), 3), "tests": tests}
 
 
 def read_result(p: Path) -> tuple[dict[str, Any] | None, str | None]:
     """The gate's result file (CCP_SUITE_RESULT, contracts/suite_result.schema.json), removed once
     read: (its numbers, None), (None, None) when the gate wrote none, or (None, why) when it is not a
-    result. Only the counters and the failure ids are taken; anything else in it is ignored."""
+    result. Only the counters, the failure ids and the modules (each a name, seconds and tests; any
+    other entry dropped) are taken; anything else in it is ignored."""
     if not os.path.lexists(p):
         return None, None
     try:
@@ -1342,6 +1360,10 @@ def read_result(p: Path) -> tuple[dict[str, Any] | None, str | None]:
         if not isinstance(obj["failures"], list):
             return None, "`failures` is not a list"
         out["failures"] = [x for x in obj["failures"] if isinstance(x, dict)][:1000]
+    if "modules" in obj:
+        if not isinstance(obj["modules"], list):
+            return None, "`modules` is not a list"
+        out["modules"] = [m for x in obj["modules"] if (m := _module(x)) is not None][:MODULES_MAX]
     if "tests" not in out and "ran" not in out and "cached" not in out:
         return None, "it gives none of tests, ran or cached"
     return out, None
@@ -1366,7 +1388,7 @@ def _finish(cfg: Config | None, q: Path | None, started: dict[str, Any] | None, 
             seconds: float, tests: int | None, sig: int | None, fields: dict[str, int | None] | None = None,
             log: Path | None = None, source: str = "output", problem: str | None = None,
             stages: list[dict[str, Any]] | None = None, failed_stage: str | None = None,
-            proven: list[dict[str, Any]] | None = None) -> None:
+            proven: list[dict[str, Any]] | None = None, modules: list[dict[str, Any]] | None = None) -> None:
     if q is None or started is None:
         return
     name = _sig_name(sig)
@@ -1377,7 +1399,8 @@ def _finish(cfg: Config | None, q: Path | None, started: dict[str, Any] | None, 
            **({"result_problem": problem[:80]} if problem else {}),
            "log": str(log) if log else None, "interrupted": name,
            **({"stages": stages, "failed_stage": failed_stage} if stages is not None else {}),
-           **({"proven_skips": proven} if proven else {})}
+           **({"proven_skips": proven} if proven else {}),
+           **({"modules": modules} if modules is not None else {})}  # the row only, never the event
     try:
         _append(q, row)
         if cfg is not None:
@@ -1459,7 +1482,7 @@ def fold(q: Path, now: float | None = None) -> list[dict[str, Any]]:
             st.update(ended_at=row.get("at"), exit_code=row.get("exit_code"), seconds=row.get("seconds"),
                       tests=row.get("tests"), interrupted=row.get("interrupted"),
                       **{k: row.get(k) for k in (*SUMMARY_FIELDS, "log", "counts_from", "cold", "stages",
-                                                  "failed_stage") if k in row})
+                                                  "failed_stage", "modules") if k in row})
             for old, new in LEGACY_FIELDS.items():  # a row written before the gate-result contract
                 if old in row and new not in row:
                     st[new] = row[old]

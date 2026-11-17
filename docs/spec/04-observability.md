@@ -539,6 +539,11 @@ and `cached`.
   never enter the cold series. `ccp health` shows each series apart (`suite` in `--json`).
 - **Gate time:** `ccp health` judges the latest cold gate run against the shell limit and the
   cut line, and reports gate runs killed at the limit (§14.6; `gate_time` in `--json`).
+- **Module time:** from the cold runs of the gate role's lane whose record carries `modules`
+  (§14.3), `ccp health` shows the latest's `health.slowest_modules` (default 5) slowest modules with
+  their seconds and tests, and the seconds per test (a run's seconds over its tests) of the last
+  `health.suite_trend_runs` (default 10) of those runs: their median, the first's and the latest's.
+  Without such a run it shows neither. `suite_modules` in `--json`.
 
 ## 28. The board
 
