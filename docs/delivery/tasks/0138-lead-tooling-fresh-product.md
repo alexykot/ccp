@@ -126,4 +126,19 @@ Each finding was probed in a sandbox (`ccp sandbox create`, its `PROJECT_YAML` l
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `spec_maintainer.root_dir` takes QUEUE_ROOT when set; else it runs the plane's
+  own `bin/ccp --root <CLAUDE_PROJECT_DIR or cwd> where` (under the same Python) and takes its
+  `queue_root`; with none, the old message plus "no binding names this product: run `ccp init`, or set
+  QUEUE_ROOT". `team.sh` and `spec-maintainer-ask.sh` headers, and the README's step 4 (no QUEUE_ROOT
+  prefix), say so. `ccp review-points list` with no point prints `no review points (register <path>)`,
+  `: absent` added when the file is missing; a register with errors still exits 1. The spawn carries
+  `review_point` (the point or null) in the single-runner and the slot paths, real and dry run; with no
+  point every spawn action's `detail` gets the §22.1 sentence (the dry runs had no `detail`, so there it
+  is the sentence alone). `session_wake` checks for a missing `telemetry.allowance_cmd` first, ahead of a
+  null park, so that reason wins whenever the command is absent and `arm` stays false, even over an old
+  sample or a parked task. The idle hook's single-runner path (no slots, `parallel` off) narrows the
+  ready set to the `in_flight` tasks not done or dropped (queue file or task file) before `ccp tasks
+  next` is asked, so a held task that waits leaves an empty ready set: exit 0, counter reset, and no
+  architect-pass nudge, as for any empty ready set.
+
 ## Verification notes

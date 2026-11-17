@@ -269,10 +269,11 @@ Open Claude Code in the product repo. The plugin orients the session as the lead
 runner with:
 
 ```bash
-QUEUE_ROOT=~/.delivery-queue/my-product ~/ccp/scripts/team.sh runner spawn --scope 0001-smoke-test
+~/ccp/scripts/team.sh runner spawn --scope 0001-smoke-test
 ```
 
-It prints the Agent tool call to make. The runner claims the task, has subagents implement, review
+It finds the queue as `ccp` does, from the product's binding (`QUEUE_ROOT`, when set, wins), and
+prints the Agent tool call to make. The runner claims the task, has subagents implement, review
 and verify it, merges it through a pull request, and closes it.
 
 Optional, macOS only (each writes a launchd agent to `~/Library/LaunchAgents`):
