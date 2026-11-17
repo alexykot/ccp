@@ -26,11 +26,11 @@ FAKE_GH = r'''#!/usr/bin/env python3
 """A stand-in for gh: `pr view` reads the PR from FAKE_GH_DIR, `pr merge` squash-merges its branch."""
 import json, os, subprocess, sys, tempfile
 d = os.environ["FAKE_GH_DIR"]
+pr = json.load(open(os.path.join(d, "pr.json"))) if os.path.exists(os.path.join(d, "pr.json")) else {}
 args = sys.argv[1:]
 if args[:2] == ["pr", "view"] and "body" in args:  # the review prompt's check (SPEC 15.2): the fixture's open task
     print(json.dumps({"body": "Task 0002-second: the fixture's change."}))
     sys.exit(0)
-pr = json.load(open(os.path.join(d, "pr.json")))
 if args[:2] == ["pr", "view"]:
     print(json.dumps({"number": int(args[2]), "state": pr["state"], "headRefOid": pr["head"], "mergedAt": pr.get("merged_at"),
                       "mergeCommit": {"oid": pr["merge"]} if pr.get("merge") else None}))
