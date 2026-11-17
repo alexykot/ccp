@@ -95,4 +95,23 @@ has not adopted, and a proposal closed as built tells its proposer the step.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `ccp/upgrade.py` (new) gives `upgrade notes` and `upgrade status`; `ccp/plane.py` gives
+  `plane built` (a `built` row in `plane/proposals.jsonl`, a `plane/built` event); `ccp/tasklog.py` reads `adopt`
+  (`adopt_step`, `none` when missing), refuses a list or an empty value, and warns on a task not yet done or
+  dropped whose `paths` name `contracts/plane_config.schema.json` (or a glob over it) or a settings template (a
+  file under `templates/` whose name holds `settings`) and that carries no `adopt`. SPEC §5.2 and §29.3 carry the
+  signed text, word for word.
+- Choices the task left open: the plane is the checkout `ccp` runs from; a task is merged when its file says
+  `done`, and merged since X when its file at X did not; the default `--since` is the newest commit in that
+  checkout's HEAD reflog other than HEAD. A step is checked when it reads `<file> <key.path> [value]` with the
+  file `plane.json` (or `docs/delivery/plane.json`), `binding` or `.claude/settings.json`; it is taken when the
+  key is present, whatever its value; a binding step with no binding found is "check by hand". A step whose
+  first word is `none` (`none: it applies by itself`) asks nothing, because the plane's own log already writes
+  them so. `upgrade.declined` is an object, task id to reason. The proposals a task answers are the ones closed
+  as built by it.
+- Outside the task's `paths`, needed for it to work: `ccp/config.py` (plane.json refuses unknown top-level
+  keys, so `upgrade` is accepted and checked there), `scripts/observability/lib.py` and
+  `contracts/observability_event.schema.json` (the `plane/built` event), `docs/cli/05-operations.md` and
+  `ccp/CLAUDE.md` (the new commands and module).
+
 ## Verification notes
