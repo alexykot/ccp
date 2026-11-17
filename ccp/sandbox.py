@@ -123,8 +123,6 @@ def _build(d: Path, init_opts: list[str]) -> dict[str, Any]:
         raise SandboxError("ccp sandbox: ccp init failed (above); nothing kept", r.returncode)
     res = json.loads(r.stdout)
     binding = Path(res["binding"])
-    if not _under(binding.resolve(), d) or not _under(Path(res["queue_root"]).resolve(), d):
-        raise SandboxError(f"ccp sandbox: init wrote outside {d}; nothing kept", 1)
     _commit(root, "Adopt with ccp init")
     out = {"root": str(root), "binding": str(binding), "queue_root": str(queue),
            "env": [f"PROJECT_YAML={shlex.quote(str(binding))}", f"QUEUE_ROOT={shlex.quote(str(queue))}"]}

@@ -24,6 +24,8 @@ ccp plane built <id> --task <plane task id>
 ```
 ccp upgrade notes [--since <commit>]
 ccp upgrade status
+ccp sandbox create [DIR] [-- <ccp init options>]
+ccp sandbox remove DIR
 scripts/run-checkout.sh install | update | status
 scripts/release.sh [worktree]
 ```

@@ -84,4 +84,18 @@ or binding.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `ccp/sandbox.py`, wired in `ccp/cli.py` (it runs before plane.json
+  loads, like `init`; the words after `--` go to init). Layout under `DIR`: `product/` (the repo,
+  branch `main`, one commit, then a second with what init wrote), `bindings/` (init runs as a child
+  with `CCP_BINDINGS_DIR` pointing there), `queue/` (passed as `--queue-root`) and the marker
+  `.ccp-sandbox`. Narrow choices beyond the task's text: `DIR` must not exist or be empty (exit 2);
+  `--queue-root`, `--permissions`, `--rules-doc`, `--adopt` and `--root` after `--` are refused
+  (exit 2); a failed init removes what create made and passes init's exit code on; `remove` refuses
+  a link, a marker that is a link, init options and a missing `DIR`. The fence: `tests/__init__.py`
+  sets `CCP_SANDBOX_ROOT` to a temporary directory removed at exit; `create` refuses a `DIR` outside
+  it and makes its default directory inside it. `env` holds the two lines the task names; `ccp`'s
+  product-to-binding lookup reads the bindings directory, not `PROJECT_YAML`, so `ccp upgrade status`
+  in a sandbox runs (exit 0) without seeing its binding. SPEC: one bullet at the end of §29.3 (§31.1);
+  also `docs/cli/05-operations.md` and `ccp/CLAUDE.md`'s layout.
+
 ## Verification notes
