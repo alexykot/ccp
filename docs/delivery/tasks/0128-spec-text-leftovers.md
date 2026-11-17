@@ -85,4 +85,17 @@ channel, the `task_log.spec_paths` knob, the binding's `lead.auto_compact_window
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): the twelve CURRENT → PROPOSED edits are applied word for word in
+  `docs/spec/01-model.md` (§2.4, §2.6, §3.5, §3.6 twice, §4.5, §5.6, §8.1 twice, §8.3, §9.3) and
+  `docs/spec/02-delivery.md` (§14.5). Changed lines were not reflowed, so each edit reads as one
+  line in the diff. No code changes.
+- check-02 names `ccp notify fire other`, a command that does not exist: a pending notice is fired
+  only by a step, and `other` is never fired (`ccp/notify.py` `fire`). The check was run with a
+  `blocker` notice fired by `ccp tasks wait <task> operator_step` in a `ccp sandbox`: the
+  orientation ended with the notice's subject, and `autoCompactWindow` set to 123 stayed 123 after
+  `ccp init --force`.
+- §3.5's new clause says a path lies under an entry only when the entry ends in `/`; the code
+  (`ccp/tasklog.py` `_names_spec`) also treats an entry without the `/` as a directory. Raised in
+  the report, not changed here.
+
 ## Verification notes
