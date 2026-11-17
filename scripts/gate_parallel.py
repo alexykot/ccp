@@ -200,13 +200,18 @@ class Cache:
                       file=sys.stderr)
 
 
+def module_tests(output: str) -> int:
+    """A module's tests: the sum of every `Ran N tests` line in its output, as gate_result.py sums the
+    whole log's, so the modules' counts add up to the total."""
+    return sum(int(n) for n in RAN_RE.findall(output))
+
+
 def run_one(name: str, cache: Cache | None = None, key: str | None = None) -> tuple[str, int, float, int]:
     t0 = time.monotonic()
     p = subprocess.run([sys.executable, "-m", "unittest", name], cwd=ROOT, stdin=subprocess.DEVNULL,
                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
     secs = time.monotonic() - t0
-    ran = RAN_RE.search(p.stdout)
-    tests = int(ran.group(1)) if ran else 0
+    tests = module_tests(p.stdout)
     state = "ok" if p.returncode == 0 else f"FAILED (exit {p.returncode})"
     if p.returncode == 0 and cache is not None and key is not None:
         cache.record(key, tests, secs)

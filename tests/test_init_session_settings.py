@@ -4,8 +4,10 @@ runner teammate's prompt-cache lifetime and the lead's compaction window (the bi
 and queues."""
 from __future__ import annotations
 
+import io
 import json
 import unittest
+from contextlib import redirect_stderr
 
 from ccp import config
 from tests.test_init import PLANE, InitCase
@@ -81,6 +83,14 @@ class SessionSettings(InitCase):
             self.assertEqual(self.settings()["autoCompactWindow"], 350000, bad)
 
 
+    def test_a_mistyped_window_is_named_on_stderr_and_reads_as_the_default(self):
+        self.write_binding("35O000")
+        r = self.ccp("init", "--project-id", "demo")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("lead.auto_compact_window", r.stderr)
+        self.assertIn("35O000", r.stderr)
+        self.assertEqual(self.settings()["autoCompactWindow"], 350000)
+
 class LeadKnob(unittest.TestCase):
     def test_the_binding_contract_carries_the_window_and_its_default(self):
         schema = json.loads((PLANE / "contracts/project.schema.json").read_text())
@@ -93,6 +103,14 @@ class LeadKnob(unittest.TestCase):
         self.assertEqual(config.lead_auto_compact_window({"auto_compact_window": " 7 "}), 7)
         for lead in ({}, {"auto_compact_window": "0"}, {"auto_compact_window": "x"}, {"other": "1"}):
             self.assertEqual(config.lead_auto_compact_window(lead), 350000, lead)
+
+    def test_only_a_window_that_is_set_and_wrong_warns(self):
+        for lead, warned in (({}, False), ({"other": "1"}, False), ({"auto_compact_window": "500000"}, False),
+                             ({"auto_compact_window": "0"}, True), ({"auto_compact_window": "x"}, True)):
+            err = io.StringIO()
+            with redirect_stderr(err):
+                config.lead_auto_compact_window(lead)
+            self.assertEqual("lead.auto_compact_window" in err.getvalue(), warned, lead)
 
 
 if __name__ == "__main__":

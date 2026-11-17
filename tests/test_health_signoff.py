@@ -92,6 +92,43 @@ class SignOffWait(unittest.TestCase):
         self.assertIn("Sign-off wait R1: 2 task(s) waited after their approve, median 120 min, longest 180 min",
                       self.run_cli())
 
+    def test_waits_read_in_whole_minutes_and_one_under_a_minute_is_left_out(self):
+        self.ledger(
+            ev(1000, "0001-signed", "verify", "recorded", verdict="approve"),
+            ev(1000, "0001-signed", "sign_off", "recorded", stage="build"),  # 0 s
+            ev(2000, "0002-gated", "verify", "recorded", verdict="approve"),
+            ev(2000, "0002-gated", "gate", "opened", escalation_id="0002-gated-1", **{"class": "merge"}),
+            ev(2030, "0002-gated", "gate", "decided", escalation_id="0002-gated-1", decided_by="design_seat"),  # 30 s
+            ev(3000, "0003-nowait", "verify", "recorded", verdict="approve"),
+            ev(3754, "0003-nowait", "sign_off", "recorded", stage="build"),  # 754 s
+        )
+        w = json.loads(self.run_cli("--json"))["sign_off_wait"]
+        self.assertEqual(w["R1"]["tasks"], [{"task_id": "0003-nowait", "wait_s": 754, "wait_min": 13, "on": "sign_off"}])
+        self.assertEqual((w["R1"]["median_min"], w["R1"]["longest_min"]), (13, 13))
+        self.assertIn("Sign-off wait R1: 1 task(s) waited after their approve, median 13 min, longest 13 min",
+                      self.run_cli())
+
+    def test_a_wait_of_a_minute_counts_and_a_half_minute_rounds_up(self):
+        two, three = [
+            ev(1000, "0001-signed", "verify", "recorded", verdict="approve"),
+            ev(1000 + 2 * MIN, "0001-signed", "sign_off", "recorded", stage="build"),
+        ], [
+            ev(2000, "0002-gated", "verify", "recorded", verdict="approve"),
+            ev(2000 + 3 * MIN, "0002-gated", "sign_off", "recorded", stage="build"),
+        ]
+        self.ledger(*two, *three,
+                    ev(3000, "0003-nowait", "verify", "recorded", verdict="approve"),
+                    ev(3000 + MIN, "0003-nowait", "sign_off", "recorded", stage="build"),
+                    ev(4000, "0005-later", "verify", "recorded", verdict="approve"),
+                    ev(4000 + MIN - 1, "0005-later", "sign_off", "recorded", stage="build"))  # 59 s: left out
+        w = health.collect(self.p.cfg, self.q)["sign_off_wait"]
+        self.assertEqual(list(w), ["R1"])
+        self.assertEqual([(t["task_id"], t["wait_min"]) for t in w["R1"]["tasks"]],
+                         [("0001-signed", 2), ("0002-gated", 3), ("0003-nowait", 1)])
+        self.ledger(*two, *three)  # a median of 150 s is 2.5 minutes: half up, 3
+        w = health.collect(self.p.cfg, self.q)["sign_off_wait"]
+        self.assertEqual((w["R1"]["median_s"], w["R1"]["median_min"], w["R1"]["longest_min"]), (150, 3, 3))
+
     def test_the_wait_runs_from_the_latest_approve_to_the_first_end_after_it(self):
         self.ledger(
             ev(0, "0001-signed", "verify", "recorded", verdict="approve"),
