@@ -12,6 +12,7 @@
     "nnnn": {"type": "string"},
     "seat": {"type": "string", "description": "The seat it serves: impl, rev or ver by default"},
     "tag": {"type": "string", "description": "A tag for the hooks: main, or mut / mac / base for those kinds"},
+    "round": {"type": "integer", "minimum": 1, "description": "<n> for a name ending -<n>, else 1; a record without it reads as 1"},
     "path": {"type": "string"},
     "branch": {"type": ["string", "null"], "description": "task/<id> for impl; null for the detached kinds"},
     "base": {"type": "string", "description": "impl: the ref it branched from"},

@@ -322,9 +322,10 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
   close, or adopted by `create`. `create` reuses an existing worktree only at the `--sha` asked for;
   at another head it refuses (exit 3). A default name taken meanwhile moves to the next `-<n>`.
 - Workers make theirs with `ccp wt create`, never `git worktree add`.
-- A worktree's kind and seat reach what runs for it, besides its name: a worker's `prompts.worker_env`
-  templates get `{{kind}}` and `{{seat}}` (§8.1, §13.3), and a lane's stages run in it get
-  `CCP_WT_KIND` and `CCP_WT_SEAT` with its task as `CCP_TASK_ID` and `CCP_NNNN` (§14.2).
+- A worktree's kind, seat and round reach what runs for it, besides its name: a worker's
+  `prompts.worker_env` templates get `{{kind}}`, `{{seat}}` and `{{round}}` (§8.1, §13.3), and a lane's
+  stages run in it get `CCP_WT_KIND`, `CCP_WT_SEAT` and `CCP_WT_ROUND` with its task as `CCP_TASK_ID`
+  and `CCP_NNNN` (§14.2).
 - `--shallow` (kinds `rev`, `ver`, `mut` and `mac`) makes it a clone of depth 1 at `--sha` (a short sha
   is resolved first), not a git worktree, so a check can prove a test passes without git history. It
   fetches that commit by its sha from the main checkout, which needs git protocol v2 (git's default

@@ -56,6 +56,7 @@ KINDS: dict[str, tuple[str, str]] = {  # kind -> (default seat, default tag)
 }
 BASELINE = "ver-baseline"  # §12.1: the verifier-shaped worktree at the integration tip that needs no task
 NAME_RE = re.compile(rf"^(?:(impl|rev|ver|mut|mac|base)-[0-9]+(?:-[0-9]+)?|{BASELINE})$")
+ROUND_RE = re.compile(r"^[a-z]+-[0-9]+-([0-9]+)$")  # §12.1: a name ending `-<n>` is the worktree's round n
 MERGE_PREFIX = "merge"  # §10.5: close's own worktree for the reconcile, `merge-<nnnn>`; not a `ccp wt` kind
 MERGE_RE = re.compile(rf"^{MERGE_PREFIX}-([0-9]+)$")
 URL_RE = re.compile(r"^[a-z][a-z0-9+.-]*://\S+$")
@@ -92,9 +93,23 @@ def state_path(q: Path, name: str) -> Path:
     return state_dir(q) / f"{name}.json"
 
 
+def round_of(name: str) -> int:
+    """§12.1: the round a worktree's name gives it: `<n>` for a name ending `-<n>`, 1 for the default name."""
+    m = ROUND_RE.match(name or "")
+    return max(1, int(m.group(1))) if m else 1
+
+
+def _round(st: dict[str, Any]) -> dict[str, Any]:
+    """A record as it reads: one with no `round` (written before records carried it) reads as round 1."""
+    r = st.get("round")
+    if isinstance(r, bool) or not isinstance(r, int) or r < 1:
+        st["round"] = 1
+    return st
+
+
 def load(q: Path, name: str) -> dict[str, Any] | None:
     s = read_json(state_path(q, name), None)
-    return s if isinstance(s, dict) else None
+    return _round(s) if isinstance(s, dict) else None
 
 
 def save(q: Path, st: dict[str, Any]) -> None:
@@ -108,7 +123,7 @@ def records(q: Path) -> list[dict[str, Any]]:
     for f in sorted(d.glob("*.json")) if d.is_dir() else []:
         s = read_json(f, None)
         if isinstance(s, dict) and s.get("name"):
-            out.append(s)
+            out.append(_round(s))
     return out
 
 
@@ -127,8 +142,10 @@ def context(cfg: Config, st: dict[str, Any]) -> dict[str, str]:
 
 
 def env_fields(cfg: Config, st: dict[str, Any]) -> dict[str, str]:
-    """The worktree's fields as the environment gives them, raw: `CCP_WT_<FIELD>` (§12.2)."""
-    return for_child({f"CCP_WT_{k.upper()}": v for k, v in context(cfg, st).items()})
+    """The worktree's fields as the environment gives them, raw: `CCP_WT_<FIELD>` (§12.2), and its round
+    as `CCP_WT_ROUND` (§12.1; not a hook template field)."""
+    return for_child({**{f"CCP_WT_{k.upper()}": v for k, v in context(cfg, st).items()},
+                      "CCP_WT_ROUND": str(_round(dict(st))["round"])})
 
 
 def recorded_at(q: Path, root: Path) -> dict[str, Any] | None:
@@ -349,7 +366,7 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
     d_seat, d_tag = KINDS[kind]
     st = {"name": name, "kind": kind, "task_id": task_id, "nnnn": nnnn, "seat": seat or d_seat, "tag": tag or d_tag,
           "path": str(path), "sha": sha, "branch": f"task/{task_id}" if kind == "impl" else None,
-          "created_at": iso(), "state": "created", "urls": []}
+          "round": round_of(name), "created_at": iso(), "state": "created", "urls": []}
     if shallow:
         st["shallow"] = True
     if path.is_dir():  # made before §12.1 recorded worktrees: adopt it, setup already happened
@@ -390,7 +407,7 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
         tries += 1  # another worker took the name meanwhile: the next free one
         name = _free_name(cfg, q, kind, nnnn)
         path = base / name
-        st.update(name=name, path=str(path))
+        st.update(name=name, path=str(path), round=round_of(name))
         rc, err = add(path)
     if rc != 0:
         raise QueueError(f"{'a shallow clone' if shallow else 'git worktree add'} {name}: {err.strip()}", 1)
@@ -937,4 +954,4 @@ def auth_check(cfg: Config, q: Path | None) -> dict[str, Any]:
 
 
 __all__ = ["BASELINE", "KINDS", "WT_FIELDS", "auth_check", "create", "create_baseline", "down", "exec_ccp", "gc", "listing", "merge_base", "own_ccp",
-           "remove", "remove_task", "run_on_base", "up", "urls"]
+           "remove", "remove_task", "round_of", "run_on_base", "up", "urls"]

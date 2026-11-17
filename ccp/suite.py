@@ -877,9 +877,9 @@ def _run_stage(argv: list[str], env: dict[str, str], log_fd: int | None, merged:
 
 def worktree_env(cfg: Config | None, command: list[str] | None, warn: _Warn) -> dict[str, str]:
     """The `CCP_WT_<FIELD>` variables a lane's stages get when the checkout is a worktree `ccp wt` made
-    (§14.2): the ones its env hooks get (§12.2), and its task as `CCP_TASK_ID` and `CCP_NNNN`. Nothing
-    for a command after `--`, outside such a worktree, or without a queue to look in; a lookup that
-    fails is a warning, never the run's problem."""
+    (§14.2): the ones its env hooks get (§12.2) with its round as `CCP_WT_ROUND` (§12.1), and its task as
+    `CCP_TASK_ID` and `CCP_NNNN`. Nothing for a command after `--`, outside such a worktree, or without a
+    queue to look in; a lookup that fails is a warning, never the run's problem."""
     q = os.environ.get("QUEUE_ROOT")
     if cfg is None or command or not q or not Path(q).is_dir():
         return {}
