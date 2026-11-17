@@ -657,3 +657,8 @@ tasks:
     title: Usage advice waits for a worker run and counts only the lead's own calls, and the gate cache records a pass only after the branch check
     depends_on: []
     path: tasks/0131-usage-advice-and-gate-cache-fixes.md
+  - id: 0132-model-alias-matches-full-ids
+    status: pending
+    title: A run pinned to a model alias reads as on-pin when telemetry reports a full id of that family
+    depends_on: []
+    path: tasks/0132-model-alias-matches-full-ids.md
