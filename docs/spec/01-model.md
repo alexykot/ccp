@@ -89,7 +89,11 @@ tasks.
 ### 2.4 Models, effort and tools
 
 Each seat's model and effort is fixed in its agent definition (or launch flags) and never depends on
-the lead session's settings:
+the lead session's settings, except the implementer's model, which plane.json
+`workers.implementer_model` may set per task: `{"small": <model>, "refactor": <model>}`, where
+`small` is a task whose estimate is at most `workers.small_estimate_minutes` (default 30) and
+`refactor` a task of that kind; unset (the default) leaves the definition's model.
+`ccp prompt implement` prints the model in its Agent call, and the runner passes it as given:
 
 | Seat | Model | Effort |
 |---|---|---|

@@ -87,6 +87,12 @@
   "parallel": {
     "max_in_flight": 2
   },
+  "workers": {
+    "implementer_model": {
+      "small": "claude-sonnet-5-5",
+      "refactor": "claude-sonnet-5-5"
+    }
+  },
   "mutate": {
     "command": "python3 -B -m unittest -q {test}"
   },

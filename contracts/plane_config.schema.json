@@ -860,6 +860,24 @@
         }
       }
     },
+    "workers": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §2.4: the implementer's model per task. Off by default: the agent definition's model.",
+      "properties": {
+        "implementer_model": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "default": null,
+          "description": "The model `ccp prompt implement` prints in its Agent call, and the runner passes as given: `small` for a task whose estimate (its latest agent estimate, else its baseline, total P50) is at most small_estimate_minutes, `refactor` for a task of that kind (it wins when both apply). Full model ids, never aliases. Null (the default) leaves the definition's model.",
+          "properties": {
+            "small": {"type": "string", "minLength": 1},
+            "refactor": {"type": "string", "minLength": 1}
+          }
+        },
+        "small_estimate_minutes": {"type": "integer", "minimum": 1, "default": 30, "description": "A task whose estimate is at most this many minutes is `small` for implementer_model."}
+      }
+    },
     "suite": {
       "type": "object",
       "additionalProperties": false,

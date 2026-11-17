@@ -193,6 +193,11 @@ HEALTH_DEFAULTS: dict[str, Any] = {"small_task_lines": 100, "slowest_modules": 5
 # `context_tokens`; a coordination share (lead plus runner cost over all seats') above `coordination_share`.
 USAGE_DEFAULTS: dict[str, Any] = {"advice": {"cache_5m_share": 0.5, "context_tokens": 300000,
                                              "coordination_share": 0.4}}
+# §2.4 the implementer's model per task: `implementer_model` (null: the definition's) maps `small` (a task whose
+# estimate is at most `small_estimate_minutes`) and `refactor` (a task of that kind) to a full model id.
+WORKERS_DEFAULTS: dict[str, Any] = {"implementer_model": None, "small_estimate_minutes": 30}
+WORKER_MODEL_ARMS = ("small", "refactor")
+MODEL_ALIASES = ("opus", "sonnet", "haiku", "inherit", "opusplan", "default")  # §2.4: full ids, never aliases
 # §26.3 estimation: `reference_since` (YYYY-MM-DD, or null) leaves tasks merged before a process change
 # out of every reference class; `k` is the reference class's size (5 to 8).
 ESTIMATE_DEFAULTS: dict[str, Any] = {"reference_since": None, "k": 6, "auto": False,  # auto: §26.3 phase B triggers
@@ -338,6 +343,7 @@ class Config:
     gate: dict[str, Any] | None = None
     health: dict[str, Any] | None = None
     usage: dict[str, Any] | None = None
+    workers: dict[str, Any] | None = None
     suite: dict[str, Any] | None = None
     adr: dict[str, Any] | None = None
     verify: dict[str, Any] | None = None
@@ -787,6 +793,26 @@ def _usage(given: Any) -> dict[str, Any]:
     return out
 
 
+def _workers_problems(w: dict[str, Any]) -> list[str]:
+    """§2.4 the `workers` block: `implementer_model` null or an object of `small` and `refactor` full model ids,
+    `small_estimate_minutes` an integer >= 1."""
+    bad = []
+    im = w["implementer_model"]
+    if im is not None:
+        if not isinstance(im, dict) or not set(im) <= set(WORKER_MODEL_ARMS):
+            bad.append("workers.implementer_model must be null or an object of " + " and ".join(WORKER_MODEL_ARMS)
+                       + ", each a model id")
+        else:
+            for k, v in im.items():
+                if not (isinstance(v, str) and v.strip() and not any(c.isspace() for c in v)) \
+                        or v.strip().lower() in MODEL_ALIASES:
+                    bad.append(f"workers.implementer_model.{k} must be a full model id, never an alias (SPEC §2.4)")
+    m = w["small_estimate_minutes"]
+    if isinstance(m, bool) or not isinstance(m, int) or m < 1:
+        bad.append("workers.small_estimate_minutes must be an integer >= 1")
+    return bad
+
+
 def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """The §10 blocks, merged with their defaults and checked value by value: they drive merges,
     commits and commands, so a wrong type fails loudly."""
@@ -802,6 +828,7 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
            "gate": _merge(GATE_DEFAULTS, raw.get("gate"), "gate"),
            "health": _merge(HEALTH_DEFAULTS, raw.get("health"), "health"),
            "usage": _usage(raw.get("usage")),
+           "workers": _merge(WORKERS_DEFAULTS, raw.get("workers"), "workers"),
            "suite": _suite(raw.get("suite")),
            "verify": _merge(VERIFY_DEFAULTS, raw.get("verify"), "verify"),
            "review_points": _merge(REVIEW_POINTS_DEFAULTS, raw.get("review_points"), "review_points"),
@@ -1074,6 +1101,7 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     t = mu["timeout_seconds"]
     if isinstance(t, bool) or not isinstance(t, int) or t < 1:
         bad.append("mutate.timeout_seconds must be an integer >= 1")
+    bad += _workers_problems(out["workers"])
     nt = out["notify"]
     if not _opt_str(nt["command"]):
         bad.append("notify.command must be a shell command, or null for the lead's session")
@@ -1207,7 +1235,7 @@ def _parse(root: Path, text: str) -> Config:
         raise ConfigError(f"{CONFIG_REL}: project_id {raw['project_id']!r} is not lowercase letters, digits and hyphens")
     unknown = sorted(set(raw) - {"$schema", "_note", "project_id", "task_log", "package_docs", "architect",
                                  "prompts", "reconcile", "adapter", "worktrees", "env", "merge",
-                                 "auth_check", "telemetry", "board", "gate", "health", "usage", "suite",
+                                 "auth_check", "telemetry", "board", "gate", "health", "usage", "workers", "suite",
                                  "adr", "verify", "review_points", "estimate", "parallel", "ids", "docs",
                                  "mutate", "report", "notify", "upgrade"})
     if unknown:
