@@ -1,7 +1,7 @@
 ---
 task_id: 0148-report-correction
 title: A worker corrects a recorded report before the task's next run opens, the earlier one kept as superseded
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S11"]
@@ -95,4 +95,22 @@ superseded.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `runs.opened_after` gives the test: a run of the same task, any phase or
+  state, opened after the reported one. Record times are to the second, so a run opened in the same
+  second counts as after it (the conservative side: never correct under a runner that may have acted).
+- The earlier report is kept by copying the stored one to `<stem>.superseded-<k>.md`, `k` the first free
+  from 1. A worker that edits the stored file in place and submits it again has already overwritten the
+  earlier text: the correction still goes through, the `corrections` entry has `superseded: null` and
+  a warning says so. The `_common.md` sentence therefore tells the worker to write the corrected report
+  to a new file, not over the recorded one.
+- A correction keeps the run's `reported_at` (the time it closed); its fields from the report (`PR`,
+  `Head`, verdict, severity, spec_beyond_intent, suite numbers, declared fields) are removed and set from
+  the corrected report, so none stays from the earlier one, except a verify run's `verdict` and `head`,
+  which are `ccp verify record`'s. `friction_count` is the corrected report's; the health notes and the
+  suite filing are the first submission's.
+- `tests/test_toolkit.py`'s double-report check now opens a later run first: a second report on a run with
+  no later run is a correction now.
+
 ## Verification notes
+- 2026-11-17 — verifier, PR #149 head `967c434` (close's catch-up of the approved `42205df`, gate run st-20261117T233703Z-1a0fb8) (squash `05e7edb`): APPROVE. Passed: rep-01, rep-02, rep-03, rep-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0148-report-correction.json.
+
