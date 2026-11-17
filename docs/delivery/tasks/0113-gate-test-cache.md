@@ -25,6 +25,7 @@ affect. The plane turns on `verify.accept_cache` for itself.
 - `verify.accept_cache` (§15) counts a test unit the verifier's gate run reports as a cache hit as run and passed. The plane's gate has no cache, so the knob is off for the plane.
 - The cache key is the task's choice and must be sound: a module's result is reused only when nothing it can read has changed. The key below is deliberately coarse: everything tracked except other test modules.
 - Cold runs: `ccp suite run --cold` (§15) asks the product's cold option; the gate reads it and uses no cache.
+- Lead ruling sm-20261117T092207Z-a36b (commit 083207b), verbatim: (1) cache-04 holds in the form `GATE_COLD=1 ccp suite run --lane gate`. The verifier records it as_written: false, held_instead naming that form, ruling naming this question. (2) Accepted: a test module imported by another test module is shared input and joins every module's key; untracked files and sys.version in the key are acceptable. The implementer appends an Implementation note to the task file citing this ruling. No SPEC change beyond describing the cache as built. Also append the note to the task file's Context (not checked) section. Make no other change.
 
 ## Scope
 
@@ -99,5 +100,12 @@ affect. The plane turns on `verify.accept_cache` for itself.
   `tests` nor `modules` (health's module times stay those of modules that ran).
 - Outside the paths, docs only: `scripts/CLAUDE.md` names the cache and its knobs; `docs/ENGINEERING.md`'s
   known-intentional line "no per-module cache" became false and now describes the coarse key.
+- 2026-11-17 (implementer, ruling round 1): ruling sm-20261117T092207Z-a36b (commit 083207b)
+  settles both open questions with no code change. (1) `cache-04` holds in the form
+  `GATE_COLD=1 ccp suite run --lane gate`, the gate's own cold option as built; the verifier records
+  it `as_written: false` with `held_instead` naming that form. (2) The key as built is accepted: a
+  test module another test module imports is shared input and joins every module's key, and
+  untracked files and `sys.version` stay in the key. No SPEC change: the ruling allows one only to
+  describe the cache as built, and none was needed.
 
 ## Verification notes
