@@ -80,4 +80,27 @@ modules are slowest and how the time per test is trending, so growth is seen bef
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `scripts/gate_parallel.py` runs each `tests/test_*.py` module as
+  `python3 -m unittest tests.<module>` in its own process, `GATE_WORKERS` at a time (default the CPU
+  count; a value that is not an integer >= 1 exits 2 and runs nothing), the largest files first so the
+  slowest modules do not start last; `SERIAL` modules run afterwards, one at a time. Each module's
+  output is printed whole when it ends, then a `gate module <name>: ok|FAILED (exit N), <s> s, <n> tests`
+  line, which `scripts/gate_result.py` reads into `modules`. No module was found to share state (the
+  tests' fixed paths are read-only reads of the repo, the HTTP servers bind port 0, `HOME` is never
+  the real one), and a parallel run passed with the same 1893 tests, so `SERIAL` is empty.
+- `gate_result.py` now sums the counts over every module's unittest run; a module that failed to
+  import (unittest names it `unittest.loader._FailedTest.<x>`) or died without naming a test counts as
+  one failure under its own module name.
+- Recording `modules` needed `ccp/suite.py` (not in the paths): `read_result` keeps the entries that
+  are a name, seconds and tests (others dropped, at most 1,000, a non-list refused), and the `ended`
+  row (never the event) carries them, every stage's in order; `suite.fold` surfaces them. SPEC §14.3
+  and §14.4 say so.
+- `ccp health`'s `suite_modules` reads the cold runs of the gate role's lane (cold as for gate time,
+  §14.6) whose record carries `modules`: the slowest of the latest, and the seconds per test (the
+  run's seconds over its tests) of the last `health.suite_trend_runs` such runs, their median, first
+  and latest. Runs without `modules` (the serial gate) stay out of the trend, so the switch to the
+  parallel gate does not read as a drop in time per test.
+- Measured on this machine at the branch head: the serial command took 601 s and the parallel gate
+  123 s, both 1893 tests passing (10 workers); the slowest module was 80 s.
+
 ## Verification notes
