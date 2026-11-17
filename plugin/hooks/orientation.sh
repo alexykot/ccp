@@ -6,6 +6,7 @@
 # After the orientation it lists the product's pending notices (SPEC §3.6, `ccp notify pending`), so the
 # lead finds what fired while it was away, an `upgrade` notice a release left (§29.3) among them. It asks
 # the `ccp` beside the plugin (the plane checkout it is in), else `ccp` on PATH; no queue, no notices.
+# That call gets 3 s: a slow queue drops the notices, never the orientation (the hook's own limit is 10 s).
 # It always exits 0.
 set -u
 root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
@@ -20,16 +21,18 @@ doc="$plugin/orientation.md"
 [ -f "$doc" ] || exit 0
 ccp="$plugin/../bin/ccp"
 [ -x "$ccp" ] || ccp="$(command -v ccp 2>/dev/null || true)"
-pending=""
-[ -n "$ccp" ] && pending="$("$ccp" --root "$root" notify pending 2>/dev/null </dev/null)" || pending=""
-python3 - "$doc" "$pending" <<'PY' || true
-import json, re, sys
+python3 - "$doc" "$ccp" "$root" <<'PY' || true
+import json, re, subprocess, sys
 text = open(sys.argv[1]).read()
 text = re.sub(r"^<!--.*?-->\s*", "", text, flags=re.S)
-try:
-    rows = json.loads(sys.argv[2]).get("pending") or []
-except (ValueError, AttributeError):
-    rows = []
+rows = []
+if sys.argv[2]:
+    try:
+        res = subprocess.run([sys.argv[2], "--root", sys.argv[3], "notify", "pending"], capture_output=True,
+                           text=True, stdin=subprocess.DEVNULL, timeout=3)
+        rows = json.loads(res.stdout).get("pending") or []
+    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
+        rows = []
 notes = ""
 if rows:
     head = ("\n\n## Pending notices\n\nFired and not yet sent (plane SPEC §3.6). The lead sends each over the "

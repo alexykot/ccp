@@ -98,5 +98,13 @@ to adopt, through the plane's notify path, without anyone relaying it by hand.
   task's `paths`) now appends the product's `ccp notify pending` rows (subject, reason, the `sent`
   call), within the hook's cap, using the `ccp` beside the plugin, else `ccp` on PATH. `ccp
   orientation` prints the hook's text, so it shows them too. §9.3 carries no rule for it yet.
+- 2026-11-17 (implementer, fix round 1): the hook's `ccp notify pending` call now runs inside its
+  Python block with a 3 s timeout (the SessionStart hook has 10 s): a slow or hung queue drops the
+  notices, never the orientation. New tests run the hook with a stand-in `ccp` beside the plugin:
+  one pins the 2400-character notice cap, the `- … N more` line, the 500-character reason cut and
+  the 9500 total (the orientation is cut, not the notices); one pins the timeout with a `ccp` that
+  hangs. The `upgrade_notice` comment in `scripts/run-checkout.sh` now states that the steps are read
+  in the product's working checkout, not the integration branch's temp clone. ADR-0041 D3 recorded
+  built (`ccp adr decide 41 D3 built`); D5 and D6 stay not_built.
 
 ## Verification notes

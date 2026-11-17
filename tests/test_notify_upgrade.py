@@ -5,6 +5,10 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import subprocess
+import tempfile
+import time
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -12,9 +16,11 @@ from unittest import mock
 
 from ccp import cli, notify
 from ccp.queue import lib
+from tests.helpers import Product
 from tests.test_upgrade import UpgradeFixture
 
 PLANE = Path(__file__).resolve().parents[1]  # this checkout: its plugin gives the orientation
+HOOK = PLANE / "plugin" / "hooks" / "orientation.sh"
 
 
 def orientation(root: Path) -> tuple[int, str, str]:
@@ -131,6 +137,62 @@ class UpgradeNoticeOrientation(UpgradeFixture, unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("# CCP — Claude Control Plane", text)
         self.assertNotIn("[demo] ", text)  # no notice's subject
+
+
+class OrientationHookNotices(unittest.TestCase):
+    """The hook asks the `ccp` beside its plugin (`<plugin>/../bin/ccp`) for the pending notices: here a
+    stand-in that prints a fixed answer, or one that hangs."""
+
+    def setUp(self):
+        self.p = Product()
+        self._tmp = tempfile.TemporaryDirectory()
+        tmp = Path(self._tmp.name)
+        self.plugin = tmp / "plugin"
+        self.plugin.mkdir()
+        (tmp / "bin").mkdir()
+        self.fake = tmp / "bin" / "ccp"
+        self.answer = tmp / "pending.json"
+
+    def tearDown(self):
+        self.p.cleanup()
+        self._tmp.cleanup()
+
+    def fake_ccp(self, body: str) -> None:
+        self.fake.write_text("#!/bin/sh\n" + body + "\n")
+        self.fake.chmod(0o755)
+
+    def run_hook(self) -> tuple[subprocess.CompletedProcess, str]:
+        env = {k: v for k, v in os.environ.items() if k not in ("CLAUDE_PLUGIN_ROOT", "CLAUDE_PROJECT_DIR")}
+        env.update(CLAUDE_PROJECT_DIR=str(self.p.root), CLAUDE_PLUGIN_ROOT=str(self.plugin))
+        r = subprocess.run(["bash", str(HOOK)], capture_output=True, text=True, env=env, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r, json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"]
+
+    def test_notices_past_the_cap_are_counted_and_long_reasons_cut(self):
+        (self.plugin / "orientation.md").write_text("# Orientation\n" + "o" * 9000 + "\nlast-orientation-line\n")
+        rows = [{"trigger": "blocker", "subject": f"[demo] blocker: n{i}",
+                 "reason": "r" * 500 + "TAIL" + "r" * 3496,
+                 "record": f"ccp notify sent blocker --id n{i} --via lead"} for i in range(10)]
+        self.answer.write_text(json.dumps({"pending": rows}))
+        self.fake_ccp(f'cat "{self.answer}"')
+        _r, text = self.run_hook()
+        self.assertLessEqual(len(text), 9500)
+        self.assertTrue(text.startswith("# Orientation"))
+        self.assertNotIn("last-orientation-line", text)  # the orientation is cut, not the notices
+        notices = text[text.index("## Pending notices"):]
+        self.assertEqual([f"n{i}" in notices for i in range(10)], [True] * 4 + [False] * 6)
+        self.assertTrue(notices.rstrip("\n").endswith("- … 6 more: `ccp notify pending`"), notices[-80:])
+        self.assertNotIn("TAIL", notices)
+        self.assertEqual(notices.count("r" * 500 + "…. Record: `ccp notify sent blocker --id n"), 4)
+
+    def test_a_hanging_ccp_drops_the_notices_not_the_orientation(self):
+        (self.plugin / "orientation.md").write_text("# Orientation\nmarker-5c1e\n")
+        self.fake_ccp("exec sleep 30")
+        t0 = time.monotonic()
+        _r, text = self.run_hook()
+        self.assertLess(time.monotonic() - t0, 8)  # within the harness's 10 s SessionStart limit
+        self.assertIn("marker-5c1e", text)
+        self.assertNotIn("## Pending notices", text)
 
 
 class UpgradeReason(unittest.TestCase):

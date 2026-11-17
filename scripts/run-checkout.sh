@@ -115,6 +115,10 @@ check_products() {
 # release: `ccp notify upgrade` lists the `adopt` steps of the plane tasks merged since the commit before
 # the update that the product has not taken, and records none when there are none. It reads the
 # product's checkout and writes only the queue; a failure is a line here, never a failed update.
+# The steps taken are read in the product's working checkout at product_root (its plane.json and
+# settings as checked out and edited there, as `ccp upgrade status` run there reads them), not in the
+# temp clone of the integration branch the checks above use: a product on another branch or mid-edit
+# can get a notice for a step it has taken there, or none for one it has not.
 upgrade_notice() {
   local b="$1" pid="$2" root="$3" bdir="$4" ccp="$5" before="$6" q out err rc=0
   [ -n "$before" ] && [ "$before" != "$(g rev-parse HEAD)" ] || return 0   # the update brought nothing
