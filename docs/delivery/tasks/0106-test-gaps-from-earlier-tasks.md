@@ -73,4 +73,25 @@ in the Implementation notes.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): tests only; no test found a bug, so no code outside `tests/` changed.
+  - `ccp tasks index` and `ccp tasks check` at the command level (`tests/test_estimator.py`): index prints
+    the estimator note with `estimate.auto` on and none with it off; with it off, neither command prints a
+    note or starts a batch, though each still asks `estimator.notice`.
+  - The minor-only skip (`tests/test_review_skip_clean.py`): a merge round and a ruling round each count as
+    the fix round; an abandoned fix round opened since is ignored; with `verify.skip_review` and
+    `verify.skip_review_after_clean` both on (real commits), the proof is tried first and wins when it
+    proves the fix, and a fix it cannot judge, or one whose proof fails, still skips as minor-only.
+  - `tests/test_architect.py`: the `Small tasks` line reaches the architect's headless prompt.
+  - `tests/test_toolkit.py`: close's dirty-caller refusal names the checkout close runs from and says it
+    must be clean (assertions added to the existing dirty-close test); close and then gc leave
+    `ver-baseline` alone. `tests/test_wt.py`: gc and a task's worktree cleanup remove the task's
+    worktrees and keep `ver-baseline`; `wt.own_ccp` with neither a name nor a checkout refuses (exit 2).
+  - `tests/test_board_drill.py`: a pre-run-record task's merge and ruling reports start at their own prompt
+    stamps, not at an earlier stamp of another kind or of no round kind.
+  - `tests/test_review_skip_provers.py`: the signal test registers a cleanup that kills its `sleep 30`
+    whichever check fails; a new test runs it with a sleeper outside the prover's process group and an
+    early failure, and checks the sleeper is gone.
+  - Not added: a SIGTERM during `merge_base` and during `create` of a base run. Task 0104 already added
+    those tests (`tests/test_merge_base.py`), and Out excludes them.
+
 ## Verification notes
