@@ -41,7 +41,7 @@ the way with one command that never deletes anything, after which `ccp plane che
   while it does: `project.yaml` (the retired queue copy of the binding, §8.3) and `durable`
   (`"def load_durable_statuses"`). Beside them, the lock files `work.json.lock` and `architect.lock`
   (`git grep -n 'work.json.lock\|architect.lock' -- ccp scripts/observability`). The implementer
-  re-runs the searches at its base and adds any name missing here; a name it cannot place is a scope
+  re-runs the searches at its base, over all of `scripts/` and `plugin/` as well (they add at least `review/`, from `scripts/formal-submit.template.sh`, and `product-docs-check.json`, from `scripts/sync-product-docs.sh`), and adds any name missing here; a name it cannot place is a scope
   question.
 - **No plane code runs a copy in `QUEUE_ROOT/scripts/`:** the seats run the plane's own scripts by
   absolute path (`ccp init --permissions`, §4.5). `git grep -n '/ "scripts"' -- ccp scripts/observability plugin`

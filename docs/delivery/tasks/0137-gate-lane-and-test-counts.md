@@ -6,7 +6,7 @@ kind: feature
 depends_on: []
 spec_refs: ["S4", "S14"]
 review_point: R9
-paths: ["ccp/init.py", "ccp/suite.py", "ccp/config.py", "contracts/plane_config.schema.json", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "README.md", "tests/test_init.py", "tests/test_suite.py"]
+paths: ["ccp/init.py", "ccp/suite.py", "ccp/config.py", "contracts/plane_config.schema.json", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "README.md", "tests/test_init.py", "tests/test_suite.py", "tests/test_sandbox.py"]
 adopt: "plane.json suite.count_re, a pattern or a list of patterns matching the product's test runners' summary lines, when they are not Python unittest's"
 created: 2026-11-17
 updated: 2026-11-17

@@ -6,6 +6,7 @@ kind: feature
 depends_on: []
 spec_refs: ["S3", "S8", "S9", "S29"]
 review_point: R9
+sign_off: brief
 paths: ["ccp/sandbox.py", "ccp/cli.py", "ccp/init.py", "ccp/notify.py", "docs/spec/05-operations.md", "docs/spec/01-model.md", "docs/cli/05-operations.md", "docs/cli/01-model.md", "tests/test_sandbox.py", "tests/test_notify.py"]
 adopt: "none"
 created: 2026-11-17
@@ -66,15 +67,16 @@ operator notice fires one with a real command instead of inventing one.
   - `ccp notify fire TRIGGER [--task ID] [--id ID] [--reason R]` (new), in `ccp/notify.py`: fires
     the notice as a step does (`notify.fire`: the `pending` record, the product's notify command
     when it names one, the rendered notice on stderr), TRIGGER any of `blocker`, `decision`,
-    `review_point_done`, `allowance_checkpoint` or `other`; refused (exit 2) outside a sandbox and
+    `review_point_done` or `allowance_checkpoint` (the triggers `notify.fire` accepts); refused (exit 2) outside a sandbox and
     for `upgrade` (recorded by `ccp notify upgrade`).
-  - §31.1: `docs/spec/05-operations.md` §29.3, the sandbox bullet, appending after "…works only below
+  - Rule change, signed at tasking (it makes an exception to §8.3's `PROJECT_YAML` resolution and init's
+    default queue): `docs/spec/05-operations.md` §29.3, the sandbox bullet. CURRENT: none (new text). PROPOSED, appended after "…works only below
     the fence's temporary root.":
     > Inside a sandbox (a directory whose main checkout sits beside the marker), `ccp init`, `--force` or not, and every other command use the sandbox's binding and queue: `CCP_BINDINGS_DIR`, `PROJECT_YAML` and `QUEUE_ROOT` are set to the sandbox's own, an exported value or a `--queue-root` naming a path outside it is refused (exit 2), and nothing is written to the installation's bindings directory or the default queue directory (§8.3). `ccp notify fire <trigger> [--task ID] [--id ID] [--reason R]` fires a test notice there as a step would (§3.6), and is refused outside a sandbox.
-  - §31.1: `docs/spec/01-model.md` §3.6, a new bullet after **Record.**:
+  - Signed with the above: `docs/spec/01-model.md` §3.6. CURRENT: none (new text). PROPOSED, a new bullet after **Record.**:
     > - **Test notice.** In a sandbox only (§29.3), `ccp notify fire <trigger>` fires a notice as a step would: the `pending` record, the command channel, the rendered notice.
   - `docs/cli/05-operations.md` and `docs/cli/01-model.md`: the `ccp notify fire` line.
-  - `tests/test_sandbox.py`, `tests/test_notify.py`: the checks below.
+  - `tests/test_sandbox.py`, `tests/test_notify.py`: the checks below; `test_project_yaml_naming_another_products_binding_is_not_taken` changes, since inside a sandbox the sandbox's binding is taken.
 - **Out:**
   - Sealing the plugin's hook scripts when run outside `ccp` (they call `ccp where`, which this seals).
   - A notify command for real products.

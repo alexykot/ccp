@@ -47,7 +47,7 @@ a placeholder item is left.
   - Missing keys: the schema's `required` keys, `product_root`, and a `runner` block with
     `agent_type` and `name`. Obsolete keys: those §8.3 says are ignored (`seats.runner`,
     `seats.verifier`, `seats.watchdog`, `email`, `cadence.verify_stale_minutes`), every top-level
-    key whose schema `description` says deprecated or retired, and every top-level key the schema
+    key whose schema `description` says ignored or retired (not `auth_check` or `spec_maintainer`, which the code still reads), and every top-level key the schema
     does not list. Each is a warning (init still succeeds) in the result's `warnings`, naming the binding
     file and the fix: edit it, or `ccp init --force` to rewrite it (its other edits are lost).
   - `ccp where` prints `product_root` as the main checkout (as init does) and `binding` and
@@ -70,7 +70,7 @@ a placeholder item is left.
     `INDEX.yaml`." becomes "…a minimal `plane.json` in `docs/delivery/`, and `INDEX.yaml` when there
     is none (an existing one is kept and listed as kept; `ccp tasks index` regenerates it)."
   - §31.1: `docs/spec/01-model.md` §8.3, appending to "It keeps an existing binding unless given `--force`, and refuses one that names another product root.":
-    > A kept binding is checked against the current shape: init warns, naming each missing key (the schema's required keys, `product_root`, a `runner` block with `agent_type` and `name`) and each obsolete one (the ignored keys below, a key the schema marks deprecated or retired, a key it does not list).
+    > A kept binding is checked against the current shape: init warns, naming each missing key (the schema's required keys, `product_root`, a `runner` block with `agent_type` and `name`) and each obsolete one (the ignored keys below, a key the schema marks ignored or retired, a key it does not list).
   - §31.1: `docs/spec/01-model.md` §9.2. CURRENT (at `921507e`): "`ccp where` prints the project, the binding file's path, the queue, the plane checkout and the `ccp` path." PROPOSED:
     > `ccp where` prints the project, the product root (the main checkout, from any worktree), the binding file's path, the queue, the plane checkout and the `ccp` path, each path as its real path, as `ccp init` prints them.
   - §31.1: `docs/spec/01-model.md` §4.5. CURRENT (at `921507e`): "and `INDEX.yaml` when the product keeps one (§5.7);" PROPOSED:
