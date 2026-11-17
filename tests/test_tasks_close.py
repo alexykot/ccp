@@ -3,9 +3,13 @@ product's main checkout included, keeps its branch, HEAD and index."""
 from __future__ import annotations
 
 import json
+import sys
 import unittest
+from pathlib import Path
+from unittest import mock
 
-from tests.test_toolkit import ToolkitFixture, git
+from ccp import lifecycle
+from tests.test_toolkit import PLANE, ToolkitFixture, git
 
 
 class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
@@ -146,6 +150,55 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertNotIn("merge-0002", body["removed"])  # the task is still leased: a re-run of close reuses it
         self.assertTrue(merge_wt.is_dir())
+
+class CloseListsChecksNotAsWritten(ToolkitFixture, unittest.TestCase):
+    """SPEC §15.4: close prints each check verified not as written before it merges, and merges."""
+
+    def _merge_seeing_stderr(self):
+        seen, real = [], lifecycle._merge
+
+        def merge(*a):
+            seen.append(sys.stderr.getvalue())  # what close had printed when it merged
+            return real(*a)
+        return seen, mock.patch.object(lifecycle, "_merge", side_effect=merge)
+
+    def test_close_lists_each_check_not_as_written_before_the_merge_and_merges(self):
+        head = self._to_approved_pr()
+        gates = self.q / "escalations" / "0002-second"
+        gates.mkdir(parents=True)
+        (gates / "1.json").write_text(json.dumps({"task_id": "0002-second", "escalation_id": "0002-second-1",
+                                                  "class": "other", "status": "closed", "decision": "approved"}))
+        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
+        rec.update(task_id="0002-second", head_sha=head)
+        rec.pop("checked_at", None)
+        rec["checks"] = [{"dod_check_id": "check-01", "pass": True, "as_written": False,
+                          "held_instead": "ran the listing in place of the removed flag", "ruling": "0002-second-1",
+                          "evidence": "the flag the expectation names is gone", "produced_by": "verifier"},
+                         {"dod_check_id": "check-02", "pass": True, "evidence": "ran it", "produced_by": "verifier"}]
+        f = Path(self._tmp.name) / "verdict-not-as-written.json"
+        f.write_text(json.dumps(rec))
+        code, _, out, err = self.ccp("verify", "record", str(f))
+        self.assertEqual(code, 0, out + err)
+        seen, patch = self._merge_seeing_stderr()
+        with patch:
+            code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 0, out + err)
+        line = "check-01: held instead: ran the listing in place of the removed flag; ruling: 0002-second-1"
+        self.assertEqual(len(seen), 1)
+        self.assertIn(line, seen[0])
+        self.assertNotIn("check-02:", seen[0])
+        self.assertTrue(body["merged_now"])
+        self.assertEqual(json.loads((self.ghstate / "pr.json").read_text())["state"], "MERGED")
+
+    def test_close_prints_no_list_when_every_check_held_as_written(self):
+        self._to_approved_pr()
+        seen, patch = self._merge_seeing_stderr()
+        with patch:
+            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(len(seen), 1)
+        self.assertNotIn("not as written", err)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,7 +1,7 @@
 {
   "task_id": "0042-example-task",
   "project_id": "demo",
-  "schema_version": 3,
+  "schema_version": 4,
   "verdict": "approve",
   "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "access_mode": "local-cli",
@@ -10,6 +10,15 @@
       "dod_check_id": "cmd-01",
       "pass": true,
       "evidence": "ran `app example --dry-run` at the head: exit 0, 3 rows",
+      "produced_by": "verifier"
+    },
+    {
+      "dod_check_id": "cmd-02",
+      "pass": true,
+      "as_written": false,
+      "held_instead": "ran `app example --list` at the head: exit 0, the 3 rows the expectation names",
+      "ruling": "0042-example-task-1",
+      "evidence": "the expectation names `app example --rows`, a flag the product no longer has; the approved gate let the check hold through --list",
       "produced_by": "verifier"
     },
     {

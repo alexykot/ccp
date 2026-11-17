@@ -32,6 +32,11 @@ from the tooling, not from a relayed finding.
   with its CURRENT and PROPOSED text.
 - §15.4 already lets an older reader pass over a newer record's unknown keys. Task 0099 tells the
   verifier to record such a change with the head's own `ccp`.
+- Ruling (spec question sm-20261117T013234Z-3736, lead's answer, commit 4d46bf63bdf4429d2def60cd73c49dde5289e01b):
+  Keep exit 1 as built. Read 0107's check-01 as expecting exit 1 for each refused record copy; the
+  verifier judges it so. Append an Implementation note to docs/delivery/tasks/0107-check-not-as-written.md
+  citing this ruling (the check text itself is left as written, per SPEC §10.5 for a claimed task). No
+  SPEC change, no code change.
 
 ## Scope
 
@@ -105,5 +110,21 @@ from the tooling, not from a relayed finding.
 ## Implementation notes
 
 *Append-only, newest last.*
+
+- 2026-11-17 — implementer: a check may carry `as_written: false` with `held_instead` and `ruling`
+  (contract and example, record version 3 → 4). `ccp verify record` refuses one on a check not run,
+  without `held_instead`, without `ruling`, or with a ruling not in the form `rests_on` accepts
+  (`verify.as_written_errors`, the write path only, as `rests_on_errors` is), naming the check; the pass
+  rules are unchanged, so it is still a pass or a fail. `ccp tasks close` prints the list on stderr just
+  before `_merge` (`verify.not_as_written`, `lifecycle._print_not_as_written`) and never refuses on it; a
+  re-run of close after the merge prints nothing, as it merges nothing. §15.4 gains the paragraph from
+  Scope; the verify template, the verifier and the runner brief say when to use it and to pass the list on.
+- Open: check-01 expects the refused copies to exit 2; `ccp verify record` refuses every record with exit 1
+  (§10.6: 1 is check failures), and these refusals keep that. Flagged to the runner.
+- Not built (beyond Scope): a refusal of `held_instead` or `ruling` on a check that is not `as_written: false`.
+- 2026-11-17 — implementer, ruling round 1: the open point above is settled by spec question
+  sm-20261117T013234Z-3736 (lead's answer, commit 4d46bf63bdf4429d2def60cd73c49dde5289e01b): exit 1 stays
+  as built, and check-01's "refused (exit 2)" is read as exit 1 for each refused record copy; the verifier
+  judges it so. The check text is left as written (SPEC §10.5, a claimed task). No SPEC, code or test change.
 
 ## Verification notes

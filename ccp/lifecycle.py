@@ -40,6 +40,10 @@ it merges the tip in (in its merge worktree), runs the gate lane there as a reco
 re-checks the tip (at most CATCH_UPS times), pushes the merge as the task branch's head, records the
 catch-up on the verification record (`verify.record_catch_up`) and merges that head. Otherwise it
 refuses `behind_tip`, naming the condition that failed, with the task branch unchanged.
+
+Before it merges, `close` prints each check the verdict records as not as written (`as_written: false`,
+§15.4), with what the verifier held instead and the ruling that let it, for the runner to pass to the lead
+(`_print_not_as_written`). It never refuses on one: the ruling is already the owner's decision.
 """
 from __future__ import annotations
 
@@ -958,6 +962,18 @@ def _verification_note(q: Path, tid: str, pr: str, head: str, merge: str, today:
     return s + f" Record: verification/{tid}.json."
 
 
+def _print_not_as_written(q: Path, tid: str) -> None:
+    """§15.4: print, on stderr, each check the task's verdict records as not as written: its id, what the
+    verifier held instead and the ruling that let it. Nothing when there is none."""
+    from ccp import verify  # noqa: PLC0415
+
+    found = verify.not_as_written(verify._load(q / "verification" / f"{tid}.json"))
+    if found:
+        print("ccp tasks close: checks verified not as written (SPEC §15.4); pass these to the lead with the close "
+              "result:\n" + "\n".join(f"  {c['dod_check_id']}: held instead: {c['held_instead']}; ruling: {c['ruling']}"
+                                       for c in found), file=sys.stderr)
+
+
 def review_point_problem(cfg: Config, rp: str) -> str | None:
     """§22.1, §22: why `close` would not stamp this review point, or None when it would: it must be
     R<n>, and one of the register's ids when the product keeps a register (`ccp.reviewpoints`).
@@ -1150,6 +1166,7 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
                                  "resolve any conflict (SPEC §13.2); then verify the new head, then "
                                  "close (SPEC §16.5); a head whose own change is unchanged needs no new review (§15.2)",
                                  1) from None
+        _print_not_as_written(q, tid)  # §15.4: before the merge
         save_task_state(q, tid, {"merged_by_close": str(pr), "merge_head": head, "phase_since": iso()})
         r = _merge(cfg, pr, head, tid)
         if r.returncode != 0:

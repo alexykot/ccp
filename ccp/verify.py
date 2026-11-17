@@ -68,6 +68,12 @@ question answered `resolved`; a carried verdict, `approve at <sha>` (§15.6 rule
 of the product checkout; or evidence the operator produced (`produced_by: operator`), with any text. `merge-ok` and `check` do not apply it, so a record
 written before the rule is still read.
 
+A check the verifier ran whose expectation cannot hold as written is `as_written: false` (§15.4), still a
+pass or a fail, with `held_instead`, what the verifier checked in its place, and `ruling`, the spec question
+or gate ids that let it, in the ruling form a check not run may rest on; `record` refuses one without both,
+with another ruling, or on a check not run (`as_written_errors`). `not_as_written` lists them, for
+`ccp tasks close` to print before it merges.
+
 A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_round`) carries the
 runner's `--note` as its reason; `record` adds that reason to the record's `findings` when no finding
 gives it yet, as its whole text or as the line it adds (`fill_reason`).
@@ -104,7 +110,7 @@ from ccp.refs import ANY_TASK_ID, QUESTION_ID
 SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "verification.schema.json"
 # The record's schema version, stamped by `record`. A change that adds a key to the record's
 # contract, at any depth, raises it, so an older reader knows the record is newer than itself.
-RECORD_VERSION = 3  # 2: `catch_up` (§16.5 rule 4); 3: `spec_beyond_intent` (§3.5)
+RECORD_VERSION = 4  # 2: `catch_up` (§16.5 rule 4); 3: `spec_beyond_intent` (§3.5); 4: a check's `as_written` (§15.4)
 # Clocks on two machines differ a little; a minute is the slack, not a rounding allowance.
 SKEW = timedelta(seconds=60)
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -335,6 +341,42 @@ def rests_on_errors(root: Path, queue: Path, rec: dict[str, Any]) -> list[str]:
         detail = bad if carried else ruling
         errs.append(f"{name} is none of the forms a check not run rests on ({detail}): {_REST_FORMS} (§15.4)")
     return errs
+
+
+def as_written_errors(queue: Path, rec: dict[str, Any]) -> list[str]:
+    """§15.4, as `record` writes it: a check marked `as_written: false` is one the verifier ran (never
+    `ran: false`), with `held_instead`, what it checked in place of the expectation as written, and
+    `ruling`, which names spec question or gate ids that all exist and were ruled (`_ruling_refusal`).
+    Each refusal names the check and what is missing."""
+    errs: list[str] = []
+    for i, c in enumerate(rec.get("checks") or []):
+        if not isinstance(c, dict) or c.get("as_written", True) is not False:
+            continue
+        name = f"checks[{i}] ({c.get('dod_check_id')}): as_written is false"
+        if c.get("ran", True) is False:
+            errs.append(f"{name} on a check not run (ran: false): not as written is for a check the verifier ran; "
+                        "a check not run rests on rests_on (§15.4)")
+        if not (isinstance(c.get("held_instead"), str) and c["held_instead"].strip()):
+            errs.append(f"{name} with no held_instead: say what the verifier checked in its place (§15.4)")
+        ruling = c.get("ruling")
+        if not (isinstance(ruling, str) and ruling.strip()):
+            errs.append(f"{name} with no ruling: name the spec question (sm-…) or gate (<task_id>-<n>) ids that "
+                        "let it (§15.4)")
+        elif (why := _ruling_refusal(queue, ruling)) is not None:
+            errs.append(f"{name} and its ruling {ruling[:60]!r} is not a ruling the queue holds ({why}): it names "
+                        "spec question or gate ids that all exist, each gate closed and approved and each question "
+                        "answered resolved (§15.4)")
+    return errs
+
+
+def not_as_written(rec: Any) -> list[dict[str, str]]:
+    """§15.4: the checks a record marks `as_written: false`, each as its `dod_check_id`, `held_instead` and
+    `ruling`, in the record's order: what `ccp tasks close` prints before it merges. [] for a record
+    without any, or written before the field."""
+    checks = rec.get("checks") if isinstance(rec, dict) else None
+    return [{"dod_check_id": str(c.get("dod_check_id")), "held_instead": str(c.get("held_instead") or ""),
+             "ruling": str(c.get("ruling") or "")}
+            for c in checks or [] if isinstance(c, dict) and c.get("as_written", True) is False]
 
 
 def producer_errors(queue: Path, rec: dict[str, Any], require: bool = True) -> list[str]:
@@ -877,6 +919,7 @@ def write_record(root: Path, queue: Path, rec: Any, now: datetime) -> tuple[list
         errs += approve_errors(rec)
         errs += producer_errors(queue, rec)
         errs += rests_on_errors(root, queue, rec)
+        errs += as_written_errors(queue, rec)
     if isinstance(rec, dict):
         errs += beyond_intent_errors(rec)
     if isinstance(rec, dict) and "catch_up" in rec:
