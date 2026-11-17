@@ -654,15 +654,18 @@ has a `Suite:` line but no suite run is recorded for its run.
 - **The gate-result contract** (ADR-0014). A command may write a JSON result to `CCP_SUITE_RESULT`
   (`contracts/suite_result.schema.json`): `tests` (tests that ran), `ran` and `cached` (units run
   and served from the product's cache, in the product's unit), `cached_tests` (the tests behind the
-  cached units), `skipped`, `failed`, `failures` (`[{id, message?}]`), `seconds` and `extra`; at
-  least one of `tests`, `ran`, `cached`. When written and valid it is the run's record: the output's
+  cached units), `skipped`, `failed`, `failures` (`[{id, message?}]`), `seconds`, `modules`
+  (`[{name, seconds, tests}]`, each test module the gate ran) and `extra`; at least one of `tests`,
+  `ran`, `cached`. When written and valid it is the run's record: the output's
   counts are not used, a counter it leaves out is absent (null), and `failed` defaults to the number
   of `failures`. It is read without following a symlink, at most 1 MB, and removed once read. For a
   lane plane.json names, `ccp` adds `stages` (`[{name, seconds, exit_code}]`, each stage that ran, in
   order) and `failed_stage` (the stage whose non-zero exit stopped the run, the first stage a signal
   kept from starting (§14.2), or null) to the run's
   result (§14.2); with several stages, the counters of every stage's valid result are summed. Only
-  counters are recorded; failure ids are shown in the summary and never recorded; `seconds` (the
+  counters and `modules` are recorded: `modules` on the `ended` row, every stage's in order, at most
+  1,000, an entry that is not a name, seconds and tests dropped (§27.2 reads it). Failure ids are
+  shown in the summary and never recorded; `seconds` (the
   record keeps `ccp`'s wall time), `message` and `extra` are ignored. An invalid result gets its own
   summary line and a `result_problem` label, and the output's counts stand. `counts_from` says which
   (`result` or `output`).
@@ -684,7 +687,8 @@ has a `Suite:` line but no suite run is recorded for its run.
 `suite_id`, and a `suite/recorded` event at the end. Numbers, ids and short labels only: the lane,
 the output mode (`output`), the command's basename and argument count; the `ended` row adds `tests`,
 `failed`, `skipped`, `ran`, `cached`, `cached_tests` (null when not found), `counts_from`, summary
-mode's `log` path, `cold` (§14.6) and, for a lane plane.json names, `stages` and `failed_stage` (§14.3), and
+mode's `log` path, `cold` (§14.6) and, for a lane plane.json names, `stages` and `failed_stage` (§14.3), `modules` when the result gave
+them (§14.3; on the row only, never the event), and
 `proven_skips` when a prover skipped a stage (§14.2: the prover's name, exit code and the run id, never
 its command). A staged
 lane's `started` row has `cmd` `stages` and its stage count as `argc`. Never the command's arguments,
