@@ -537,3 +537,63 @@ tasks:
     title: The verification record gives a check that cannot hold as written its own state, and close shows it
     depends_on: []
     path: tasks/0107-check-not-as-written.md
+  - id: 0108-sign-rule-text-at-tasking
+    status: pending
+    title: Rule text is signed when the task is written; new rule text found in the build goes to a follow-up; health shows the sign-off wait
+    depends_on: []
+    path: tasks/0108-sign-rule-text-at-tasking.md
+  - id: 0109-upgrade-notes-and-status
+    status: pending
+    title: Tasks name their adoption step; ccp upgrade notes and status show what a release asks of a product; a built proposal names its step
+    depends_on: []
+    path: tasks/0109-upgrade-notes-and-status.md
+  - id: 0110-release-leaves-an-upgrade-notice
+    status: pending
+    title: A release leaves each bound product an upgrade notice its lead gets at its next session start
+    depends_on: [0109-upgrade-notes-and-status]
+    path: tasks/0110-release-leaves-an-upgrade-notice.md
+  - id: 0111-init-writes-session-settings
+    status: pending
+    title: ccp init writes the prompt-cache and compaction settings, and the SPEC says which setting reaches which seat
+    depends_on: []
+    path: tasks/0111-init-writes-session-settings.md
+  - id: 0112-parallel-gate-and-slow-modules
+    status: pending
+    title: The plane's gate runs test modules in parallel, and health reports the slowest modules and the time per test
+    depends_on: []
+    path: tasks/0112-parallel-gate-and-slow-modules.md
+  - id: 0113-gate-test-cache
+    status: pending
+    title: The plane's gate keeps a content-keyed test cache, and the plane accepts it at verify
+    depends_on: [0112-parallel-gate-and-slow-modules]
+    path: tasks/0113-gate-test-cache.md
+  - id: 0114-usage-advice-for-costly-seats
+    status: pending
+    title: ccp usage advises on short-lived cache writes, oversized context and the coordination share, naming the setting that fixes each
+    depends_on: []
+    path: tasks/0114-usage-advice-for-costly-seats.md
+  - id: 0115-wait-on-a-suite-run
+    status: pending
+    title: A worker waits on a suite run's summary within its command limit, and long plane commands are given the full shell timeout
+    depends_on: []
+    path: tasks/0115-wait-on-a-suite-run.md
+  - id: 0116-prompt-and-verify-fixes
+    status: pending
+    title: Unbuilt ADR decisions are caught before the gate, staged lanes take no command, the verify prompt names every record field, and carried checks are named
+    depends_on: []
+    path: tasks/0116-prompt-and-verify-fixes.md
+  - id: 0117-tool-bug-fixes
+    status: pending
+    title: wt create resolves a symbolic sha, the catch-up gate gets the task worktree's environment, mutate leaves no stale bytecode, close reads counts safely, and an unclosed fence is reported
+    depends_on: []
+    path: tasks/0117-tool-bug-fixes.md
+  - id: 0118-leftovers-and-pr-body-guard
+    status: pending
+    title: SPEC and test leftovers from R6 are closed, and a PR whose body names another task is caught before review
+    depends_on: []
+    path: tasks/0118-leftovers-and-pr-body-guard.md
+  - id: 0119-implementer-model-trial
+    status: pending
+    title: A plane.json knob picks the implementer's model per task size or kind, and the plane trials a cheaper model on its own small and refactor tasks
+    depends_on: []
+    path: tasks/0119-implementer-model-trial.md
