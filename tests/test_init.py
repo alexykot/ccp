@@ -371,6 +371,36 @@ class GithubOrigin(InitCase):
                 self.assertNotIn("warning", err)
 
 
+class EarlierTaskFiles(InitCase):
+    """§5.3: adopting a product whose task files have no frontmatter names them and `ccp tasks migrate`."""
+
+    def setUp(self):
+        super().setUp()
+        self.git("remote", "add", "origin", "https://github.com/team/repo.git")  # no origin warning
+
+    def test_task_files_with_no_frontmatter_are_counted_in_the_warnings(self):
+        tasks = self.repo / "docs/delivery/tasks"
+        tasks.mkdir(parents=True)
+        for n in ("0001-a", "0002-b"):
+            (tasks / f"{n}.md").write_text(f"# Task {n[:4]}: old\n\n## Meta\n\n| Field | Value |\n|---|---|\n")
+        (tasks / "0003-c.md").write_text("---\ntask_id: 0003-c\n---\n")
+        r = self.ccp("init", "--project-id", "demo")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        res = json.loads(r.stdout)
+        self.assertEqual(len(res["warnings"]), 1, res)
+        for text in (res["warnings"][0], r.stderr):
+            self.assertIn("2 task file", text)
+            self.assertIn("`ccp tasks migrate`", text)
+
+    def test_a_current_task_log_is_not_warned_about(self):
+        tasks = self.repo / "docs/delivery/tasks"
+        tasks.mkdir(parents=True)
+        (tasks / "0001-a.md").write_text("---\ntask_id: 0001-a\n---\n")
+        r = self.ccp("init", "--project-id", "demo")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn("warnings", json.loads(r.stdout))
+
+
 class OriginHost(InitCase):
     def host(self, url):
         self.git("remote", "add", "origin", url)

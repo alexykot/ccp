@@ -9,7 +9,8 @@ runs before any task's own `dod_checks`.
 
 A task file is never deleted and carries no runtime state: `check()` refuses runtime keys in
 frontmatter, a task file that git or the committed INDEX knew and that is gone, and a number
-reused by another task (a renamed task says `renamed_from: <old id>`), and
+reused by another task (a renamed task says `renamed_from: <old id>`), each naming its fix; a task
+file with no frontmatter is one failure that names `ccp tasks migrate` (`ccp/taskmigrate.py`).
 `warnings()` names a later task cited as a prerequisite in prose, where nothing enforces it (list it in
 `depends_on` instead), a number a task's Context states with no backticked command on its line (a
 measured premise names the command and the commit it ran at), a task whose `paths` name the SPEC
@@ -130,6 +131,9 @@ LIST_MARKER_RE = re.compile(r"^([ \t]*)\d+[.)](?=[ \t])")
 _MONTH = (r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|"
           r"Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?")
 WORD_DATE_RE = re.compile(rf"\b(?:\d{{1,2}}[ \t]+{_MONTH}(?:[ \t]+\d{{4}})?|{_MONTH}[ \t]+\d{{1,2}}(?:,?[ \t]+\d{{4}})?)\b")
+# §21.1: a task file with no frontmatter, as `check` and `ccp tasks list` name it.
+NO_FRONTMATTER = ("no frontmatter: an earlier plane generation's task file? convert it with "
+                  "`ccp tasks migrate`")
 # §5.2: what an empty ref list that includes spec_refs is told to do.
 SPEC_REFS_HINT = " — list the SPEC sections this task answers to in `spec_refs` and cite them in its text (§5.2)"
 
@@ -194,6 +198,12 @@ def frontmatter(text: str) -> dict[str, Any]:
         else:
             out[k.strip()] = v.strip('"').strip("'")
     return out
+
+
+def has_frontmatter(text: str) -> bool:
+    """The file opens with a `---` block that closes: the current format's frontmatter (§5.2). A task
+    file without one is an earlier plane generation's, which `ccp tasks migrate` converts (§5.3)."""
+    return text.startswith("---\n") and text.find("\n---\n", 3) != -1
 
 
 def canonical_status(status: Any) -> Any:
@@ -650,6 +660,22 @@ def _git(cfg: Config, *args: str) -> str | None:
     return r.stdout if r.returncode == 0 else None
 
 
+def _renames(cfg: Config) -> dict[str, tuple[str, str]]:
+    """Task files git shows renamed within the task directory (`git log -M --diff-filter=R`): each old
+    file stem to the new path and the commit, the newest rename of it first."""
+    log = _git(cfg, "log", "-M", "--diff-filter=R", "--name-status", "--format=%x01%h",
+               "--", cfg.rel(cfg.tasks_dir)) or ""
+    out: dict[str, tuple[str, str]] = {}
+    sha = ""
+    for line in log.splitlines():
+        if line.startswith("\x01"):
+            sha = line[1:]
+        elif line.startswith("R") and line.count("\t") == 2:
+            _, old, new = line.split("\t")
+            out.setdefault(Path(old).stem, (new, sha))
+    return out
+
+
 def missing_task_files(cfg: Config) -> list[str]:
     """Task files that are gone, and numbers reused. A task file is never deleted and its NNNN is
     never reused (SPEC §4); a task that is no longer wanted is `dropped`.
@@ -658,7 +684,12 @@ def missing_task_files(cfg: Config) -> list[str]:
     task file git history deleted, has no file now. Its NNNN then either has no file, or another
     file holds it. That file is the same task under an amended id (a new slug, §17.4) only when its
     frontmatter says so: `renamed_from: <old id>`. Any other file holding the number is a reused
-    number. A deleted path that is not a task file name (`NNNN-kebab-slug.md`) is not a task."""
+    number. A deleted path that is not a task file name (`NNNN-kebab-slug.md`) is not a task.
+
+    The message names the fix (§21.1): the restore command (`git checkout <sha>^ -- <path>` for a file a
+    commit deleted, `git checkout HEAD -- <path>` for one deleted since HEAD), then `ccp tasks migrate`
+    when the file's last committed text has no frontmatter (an earlier plane generation's). A file git
+    shows renamed to the file now holding its number is told only to add `renamed_from`."""
     ids = refs.ids(cfg)
     holders: dict[str, tuple[str, list[str]]] = {}
     for f in cfg.tasks_dir.glob("*.md"):
@@ -666,6 +697,7 @@ def missing_task_files(cfg: Config) -> list[str]:
             holders[m.group(1)] = (f.stem, _as_list(frontmatter(f.read_text()).get("renamed_from")))
     present = {tid for tid, _ in holders.values()}
     gone: dict[str, str] = {}
+    deleted: dict[str, tuple[str, str]] = {}  # stem → (commit, path), the newest deletion
     committed = _git(cfg, "show", f"HEAD:./{cfg.rel(cfg.index_path)}")
     if committed is None and cfg.index_path.is_file():
         committed = cfg.index_path.read_text()
@@ -680,18 +712,42 @@ def missing_task_files(cfg: Config) -> list[str]:
             sha = line[1:]
         elif ids.task_file_re.match(Path(line).name) and Path(line).stem not in present:
             gone.setdefault(Path(line).stem, f"deleted in {sha}")
+            deleted.setdefault(Path(line).stem, (sha, line))
+    renames = _renames(cfg) if gone else {}
     out = []
     for tid, why in sorted(gone.items()):
         holder = holders.get(ids.task_number(tid))
+        if holder is not None and tid in holder[1]:
+            continue
+        moved = renames.get(tid)
+        if holder is not None and moved and Path(moved[0]).stem == holder[0]:
+            out.append(f"{tid}: renamed to {moved[0]} in {moved[1]}: add `renamed_from: {tid}` to its frontmatter")
+            continue
+        fix = _restore(cfg, tid, deleted.get(tid))
         if holder is None:
-            out.append(f"{tid}: its task file is gone ({why}). A task file is never deleted: restore it "
-                       "with `status: dropped` and a note naming what replaced it")
-        elif tid not in holder[1]:
+            out.append(f"{tid}: its task file is gone ({why}). A task file is never deleted: {fix}")
+        else:
             out.append(f"{tid}: its task file is gone ({why}) and its number now belongs to {holder[0]}. "
-                       f"A number is never reused: restore {tid} with `status: dropped` and give {holder[0]} "
-                       f"the next free number. If {holder[0]} is {tid} under an amended id, its frontmatter "
-                       f"says `renamed_from: {tid}`")
+                       f"A number is never reused: {fix} Then give {holder[0]} the next free number; if "
+                       f"{holder[0]} is {tid} under an amended id, its frontmatter says `renamed_from: {tid}`")
     return out
+
+
+def _restore(cfg: Config, tid: str, deletion: tuple[str, str] | None) -> str:
+    """What a gone task file's message tells the reader to do: the restore command, then what the
+    restored file needs (§21.1)."""
+    path = f"{cfg.rel(cfg.tasks_dir)}/{tid}.md"
+    at_head = _git(cfg, "show", f"HEAD:./{path}")
+    if at_head is not None:
+        cmd, last = f"git checkout HEAD -- {path}", at_head
+    elif deletion is not None:
+        cmd, last = f"git checkout {deletion[0]}^ -- {deletion[1]}", _git(cfg, "show", f"{deletion[0]}^:{deletion[1]}")
+    else:
+        cmd, last = None, None
+    head = f"restore it with `{cmd}`." if cmd else "restore it."
+    if last is not None and not has_frontmatter(last):
+        return f"{head} It is an earlier plane generation's task file: convert it with `ccp tasks migrate`."
+    return f"{head} A done task stays `done`; only a task no longer wanted is `status: dropped`, with a note naming what replaced it."
 
 
 def warnings(cfg: Config) -> list[str]:
@@ -785,6 +841,9 @@ def check(cfg: Config) -> list[str]:
         if nnnn in seen:
             errs.append(f"{rel}: NNNN {nnnn} already used by {seen[nnnn]} — never reuse")
         seen[nnnn] = f.name
+        if not has_frontmatter(t["_text"]):  # §21.1: one failure, not one per key
+            errs.append(f"{rel}: {NO_FRONTMATTER}")
+            continue
         # Kinds exist only with the architect block; without it `kind:` is not read (§19).
         own_refs = cfg.architect is not None and bool(((tl.get("kinds") or {}).get(kind_of(t)) or {}).get("refs_any"))
         for k in tl["required"]:
