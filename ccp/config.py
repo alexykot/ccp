@@ -52,6 +52,9 @@ TASK_LOG_DEFAULTS: dict[str, Any] = {
     # SPEC §10: a not-done task's check that runs a command records its
     # writer's dry run, or says why there is none. Off unless the product turns it on.
     "dry_run": False,
+    # SPEC §3.5: the paths that hold the SPEC. A task not yet done whose `paths` name one, with no
+    # `brief` sign-off and no `§31.1` in its Scope, is warned about. A path ending in `/` is a directory.
+    "spec_paths": ["docs/spec/", "SPEC.md"],
 }
 # SPEC §16.2: several tasks in flight under one runner. 1 (the default) is one task at a time.
 PARALLEL_DEFAULTS: dict[str, Any] = {"max_in_flight": 1, "exclusive": [], "session_ceiling_pct": 60}
@@ -807,6 +810,10 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
         bad.append("task_log.reviews_dir must be a path relative to task_log.dir")
     if not isinstance(raw.get("task_log", {}).get("dry_run", False), bool):
         bad.append("task_log.dry_run must be true or false")
+    sp = raw.get("task_log", {}).get("spec_paths", TASK_LOG_DEFAULTS["spec_paths"])
+    if not isinstance(sp, list) or not all(isinstance(x, str) and x.strip() and not x.startswith("/")
+                                           and ".." not in Path(x).parts for x in sp):
+        bad.append("task_log.spec_paths must be a list of paths relative to the product root")
     par = out["parallel"]
     mif = par["max_in_flight"]
     if isinstance(mif, bool) or not isinstance(mif, int) or not 1 <= mif <= 4:

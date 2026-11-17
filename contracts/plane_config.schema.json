@@ -129,6 +129,18 @@
           "type": "boolean",
           "default": false,
           "description": "SPEC §21.1: ccp tasks check refuses a task not done or dropped whose dod_check has a step that runs a backticked command (`N. Run `...``) but neither a `dry run (`<sha>`):` line nor `dry run: n/a — <reason>`"
+        },
+        "spec_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [
+            "docs/spec/",
+            "SPEC.md"
+          ],
+          "description": "SPEC §3.5: the paths that hold the SPEC, relative to the product root (one ending in `/` is a directory). ccp tasks check warns on a task not yet done or dropped whose `paths` name one and that neither declares a `brief` sign-off nor has `§31.1` on a Scope line"
         }
       }
     },

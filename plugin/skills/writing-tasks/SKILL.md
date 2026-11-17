@@ -114,6 +114,11 @@ of reach when the sentence is edited.
 - **New behaviour carries its SPEC text.** A task that changes the SPEC quotes each sentence it
   changes or removes (CURRENT, at a named commit) and gives the new text (PROPOSED), naming every
   sentence the change retires. An implementer writes no SPEC text of its own.
+- **Rule text is signed when the task is written.** A task that adds or changes a § rule carries the
+  exact CURRENT → PROPOSED text of each passage in its Scope and declares `sign_off: brief`, so the
+  operator signs the words before the claim. A task whose SPEC text only describes its own feature
+  (§31.1) says `§31.1` on a Scope line instead. `ccp tasks check` warns on a task whose `paths` name
+  the SPEC (`task_log.spec_paths`) with neither (plane SPEC §3.5).
 - **"No SPEC change" is measured:** cite a SPEC search, at a named commit, for each concept the task
   adds, renames or changes.
 - **Locate code by symbol with a short quote** (`"def export_rows"`), never by a bare `path:line`:

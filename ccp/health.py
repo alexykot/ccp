@@ -39,6 +39,10 @@ Everything comes from data the plane already holds; nothing here is a target or 
 - **runner rotation** (§10.2 step 4): the runner slots due for rotation and not rotated, and the ledger's
   rotations against tasks done.
 
+- **sign-off wait** (§27.1): per review point (the task file's `review_point`), the merged tasks that
+  waited after their latest approving verdict on a `build` sign-off or a merge gate's decision, with
+  the median and the longest wait (`sign_off_wait` in --json).
+
 - **usage advice** (§24.6): `ccp usage`'s cost advice over the queue's usage, at plane.json
   `usage.advice`'s thresholds (`usage_advice` in --json).
 
@@ -874,6 +878,77 @@ def small_text(s: dict[str, Any] | None) -> str | None:
             f" ({round(100 * s['share'])}%).")
 
 
+def _verdict_times(q: Path, evs: list[dict[str, Any]]) -> dict[str, list[float]]:
+    """Per task, the times of its approving verdicts: each `verify`/`recorded` event with `approve`, and
+    the verification record's `checked_at` when it approves (a verdict noted on no run has no event)."""
+    out: dict[str, list[float]] = {}
+    for ev in evs:
+        p = ev.get("payload") or {}
+        if (ev.get("type"), ev.get("op")) == ("verify", "recorded") and ev.get("task_id") \
+                and p.get("verdict") == "approve" and (at := _epoch(str(ev.get("at") or ""))) is not None:
+            out.setdefault(str(ev["task_id"]), []).append(at)
+    d = q / "verification"
+    for f in d.glob("*.json") if d.is_dir() else []:
+        try:
+            rec = json.loads(f.read_text())
+        except (OSError, ValueError):
+            continue
+        if isinstance(rec, dict) and rec.get("verdict") == "approve" \
+                and (at := _epoch(str(rec.get("checked_at") or ""))) is not None:
+            out.setdefault(str(rec.get("task_id") or f.stem), []).append(at)
+    return out
+
+
+def sign_off_wait(q: Path, rows: list[dict[str, Any]], tasks: list[dict[str, Any]]) -> dict[str, Any]:
+    """§27.1: per review point, the merged tasks that waited after their verified approve on an operator
+    sign-off or a merge gate. A task's wait runs from its latest approving verdict to the first `build`
+    sign-off (`sign_off`/`recorded`, stage `build`) or merge-gate decision (`gate`/`decided` on a gate
+    opened with class `merge`; a standing approval waits on no one) at or after it. A task with neither,
+    or whose task file names no `review_point`, is in no point."""
+    evs = _jsonl(_events_path(q))
+    approved = _verdict_times(q, evs)
+    merge_gates = {str(p.get("escalation_id")) for e in evs if (e.get("type"), e.get("op")) == ("gate", "opened")
+                   and (p := e.get("payload") or {}).get("class") == "merge"}
+    ends: dict[str, list[tuple[float, str]]] = {}
+    for e in evs:
+        p, at = e.get("payload") or {}, _epoch(str(e.get("at") or ""))
+        if not e.get("task_id") or at is None:
+            continue
+        kind = e.get("type"), e.get("op")
+        if kind == ("sign_off", "recorded") and p.get("stage") == "build":
+            ends.setdefault(str(e["task_id"]), []).append((at, "sign_off"))
+        elif kind == ("gate", "decided") and str(p.get("escalation_id")) in merge_gates \
+                and p.get("decided_by") != "standing":
+            ends.setdefault(str(e["task_id"]), []).append((at, "merge_gate"))
+    point = {str(t.get("task_id")): str(t["review_point"]) for t in tasks if t.get("review_point")}
+    out: dict[str, Any] = {}
+    for r in rows:
+        tid = r["task_id"]
+        if tid not in point or not approved.get(tid):
+            continue
+        a = max(approved[tid])
+        after = sorted(x for x in ends.get(tid, []) if x[0] >= a)
+        if not after:
+            continue
+        rp = out.setdefault(point[tid], {"tasks": []})
+        rp["tasks"].append({"task_id": tid, "wait_s": round(after[0][0] - a), "on": after[0][1]})
+    for rp in out.values():
+        waits = [x["wait_s"] for x in rp["tasks"]]
+        rp.update(median_s=_median(waits), longest_s=max(waits))
+    return dict(sorted(out.items(), key=lambda kv: (_point_number(kv[0]), kv[0])))
+
+
+def _point_number(rp: str) -> int:
+    m = re.match(r"^R(\d+)$", rp)
+    return int(m.group(1)) if m else 1 << 30
+
+
+def sign_off_text(w: dict[str, Any] | None) -> list[str]:
+    """One line per review point: how many tasks waited after their approve, the median and the longest."""
+    return [f"Sign-off wait {rp}: {len(v['tasks'])} task(s) waited after their approve, median "
+            f"{v['median_s'] / 60:g} min, longest {v['longest_s'] / 60:g} min" for rp, v in (w or {}).items()]
+
+
 def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool = True,
             rev: str = "HEAD") -> dict[str, Any]:
     """Per-task rows (one per merged task on `rev`'s first-parent history, oldest merge first) and the
@@ -934,6 +1009,10 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
         except Exception:  # noqa: BLE001
             out["suite_modules"] = None
         out["rotation"] = rotation(q) if q else None  # §10.2 step 4
+        try:  # §27.1: nor does a damaged ledger or verification record
+            out["sign_off_wait"] = sign_off_wait(q, out_rows, tasks) if q else None
+        except Exception:  # noqa: BLE001
+            out["sign_off_wait"] = None
         try:  # §24.6: nor does a damaged usage sink
             out["usage_advice"] = usage_advice(cfg, q) if q else None
         except Exception:  # noqa: BLE001
@@ -973,6 +1052,7 @@ def summary_text(report: dict[str, Any], n: int = 10) -> str:
     if kt := killed_text(report.get("gate_time")):
         lines.append(kt)
     lines += modules_text(report.get("suite_modules"))
+    lines += sign_off_text(report.get("sign_off_wait"))
     for r in report["tasks"][-n:] if n else []:
         lines.append(f"- {r['task_id']}: merged {r['merged_at']}, wall {_h(r.get('wall_s'))}, active {_h(r.get('active_s'))}"
                      f" (impl {_h(r.get('implementing_s'))},"

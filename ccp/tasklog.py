@@ -11,8 +11,9 @@ A task file is never deleted and carries no runtime state: `check()` refuses run
 frontmatter, a task file that git or the committed INDEX knew and that is gone, and a number
 reused by another task (a renamed task says `renamed_from: <old id>`), and
 `warnings()` names a later task cited as a prerequisite in prose, where nothing enforces it (list it in
-`depends_on` instead), and a number a task's Context states with no backticked command on its line (a
-measured premise names the command and the commit it ran at).
+`depends_on` instead), a number a task's Context states with no backticked command on its line (a
+measured premise names the command and the commit it ran at), and a task whose `paths` name the SPEC
+(`task_log.spec_paths`) with neither a `brief` sign-off nor `§31.1` in its Scope (§3.5).
 
 A task has a kind (§20): `feature` (the default) or `refactor`. A refactor changes no rule, so it
 cites house rules or review findings (`rule_refs`, `review_refs`) instead of the spec, and proves
@@ -512,6 +513,29 @@ def unmeasured_numbers(t: dict[str, Any], rel: str) -> list[str]:
     return out
 
 
+def _names_spec(path: str, spec_paths: list[str]) -> bool:
+    """§3.5: whether a task's `paths` entry names a SPEC file: it is one of `task_log.spec_paths`, or lies
+    under one (an entry ending in `/`, or any entry as a directory)."""
+    p = path.strip().removeprefix("./")
+    return any(p == e or p.startswith(e if e.endswith("/") else e + "/")
+               for e in (str(x).strip().removeprefix("./") for x in spec_paths) if e)
+
+
+def unsigned_spec_edit(cfg: Config, t: dict[str, Any], rel: str) -> list[str]:
+    """§3.5: a task not yet done or dropped whose `paths` name a SPEC file (`task_log.spec_paths`) and that
+    neither declares a `brief` sign-off nor says `§31.1` on a Scope line (its SPEC text only describes its
+    own feature). A warning: the rule text is signed when the task is written, not after verify."""
+    if t.get("status") in TERMINAL or "brief" in sign_off_stages(t):
+        return []
+    named = [str(p) for p in _as_list(t.get("paths")) if _names_spec(str(p), cfg.task_log.get("spec_paths") or [])]
+    if not named or "§31.1" in (_section(t["_text"], SEC_SCOPE) or ""):
+        return []
+    return [f"{rel}: its paths name the SPEC ({', '.join(named)}) but it declares no `sign_off: brief`: a task "
+            "that changes a § rule carries the exact CURRENT → PROPOSED text in its Scope and declares "
+            "`sign_off: brief`, so the operator signs the words before the claim; one whose SPEC text only "
+            "describes its own feature says `§31.1` in its Scope (SPEC §3.5)"]
+
+
 def _spec_hint(lists: list[str]) -> str:
     """The hint for a task that cites none of `lists`, when spec_refs is one of them."""
     return SPEC_REFS_HINT if "spec_refs" in lists else ""
@@ -593,8 +617,8 @@ def missing_task_files(cfg: Config) -> list[str]:
 def warnings(cfg: Config) -> list[str]:
     """What `check` reports without failing: a task not yet done that names a later task as a
     prerequisite in prose, where nothing holds it back: the prerequisite belongs in `depends_on`,
-    which may name a later task (§5); and one whose Context states a number with no backticked
-    command on its line (§5)."""
+    which may name a later task (§5); one whose Context states a number with no backticked
+    command on its line (§5); and one whose paths name the SPEC with no `brief` sign-off (§3.5)."""
     tasks = load(cfg)
     ids = refs.ids(cfg)
     later = {m.group(1): t.get("task_id") for t in tasks if (m := ids.task_file_re.match(t["_file"].name))}
@@ -604,6 +628,7 @@ def warnings(cfg: Config) -> list[str]:
            for t in tasks if t.get("_legacy_status")]
     for t in tasks:
         out += unmeasured_numbers(t, cfg.rel(t["_file"]))
+        out += unsigned_spec_edit(cfg, t, cfg.rel(t["_file"]))
         own = _number(t.get("task_id"), cfg)
         if own is None or t.get("status") in TERMINAL:
             continue
