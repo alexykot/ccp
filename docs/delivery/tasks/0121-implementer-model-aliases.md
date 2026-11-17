@@ -97,4 +97,15 @@ runner learns when the `small` arm cannot apply because the task has no estimate
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `workers.implementer_model` arms must be exactly `sonnet`, `opus`, `haiku` or
+  `fable` (`config.WORKER_MODEL_ALIASES`; case-sensitive, so `Sonnet` and `inherit` are refused like a full id),
+  and the schema's arms carry the same `enum`. `implementer_model()` returns the alias and a warning; the
+  warning is raised only when the `small` arm is consulted (no `refactor` arm applied first) and the task has no
+  usable estimate, and only on an implement round. It joins the prompt's `warnings`, which the toolkit prints on
+  stderr as `warning: ...`. The run's `expected_model` now records the alias as printed (as before, the printed
+  value): `ccp usage` compares it with observed full ids, so a trial run is flagged "model <full id>, pinned
+  sonnet" and the time-window fallback attribution skips it; usage.py is outside this task's paths (reported as
+  a follow-up). The installed `ccp` validates plane.json with the old rule and refuses this branch's plane.json
+  until release, so the worktree's own `bin/ccp` ran this task's suite, mutations and checks.
+
 ## Verification notes

@@ -89,8 +89,8 @@
   },
   "workers": {
     "implementer_model": {
-      "small": "claude-sonnet-5-5",
-      "refactor": "claude-sonnet-5-5"
+      "small": "sonnet",
+      "refactor": "sonnet"
     }
   },
   "mutate": {
