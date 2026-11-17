@@ -202,6 +202,29 @@ if done < {moves}:
         note = git(self.main, "show", "origin/main:docs/delivery/tasks/0002-second.md")
         self.assertIn(cu["gate_run"], note)  # the Verification notes line names the catch-up's gate run
 
+    def test_the_gate_runs_with_the_task_worktree_s_environment(self):
+        # a gate that needs what the task's own worktree gives its runs (§12.2), none of it in close's environment
+        need = '[ "$CCP_WT_NAME" = impl-0002 ] && [ "$CCP_WT_KIND" = impl ] && [ "$CCP_TASK_ID" = 0002-second ] || exit 127; '
+        self.plane_json(lambda c: c["suite"]["lanes"].update(gate=["/bin/sh", "-c", need + GATE]))
+        self.approved()
+        self.tip(self.put("other/b.txt", "b\n"))
+        with mock.patch.dict(os.environ):
+            for k in [k for k in os.environ if k.startswith("CCP_WT_") or k in ("CCP_TASK_ID", "CCP_NNNN")]:
+                del os.environ[k]
+            code, body, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(body["merged_now"])
+        self.assertEqual([r["state"] for r in self.gate_runs()], ["passed"])
+
+    def test_with_no_recorded_impl_worktree_the_gate_runs_with_the_callers_environment_and_says_so(self):
+        self.approved()
+        (self.q / "worktrees" / "impl-0002.json").unlink()
+        self.tip(self.put("other/b.txt", "b\n"))
+        code, body, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(body["merged_now"])
+        self.assertIn("no recorded impl worktree", err)
+
     def test_a_tip_that_moves_during_the_gate_is_caught_up_again(self):
         self.approved()
         self.tip(self.put("other/b.txt", "b\n"))

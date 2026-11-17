@@ -99,7 +99,22 @@ class RulesDoc(InitCase):
         code, err = self.rules_doc("--adopt")
         self.assertEqual(code, 1, err)
         self.assertIn("E1", err)
+        self.assertIn("line 2", err)  # the refusal names the fence left open
         self.assertEqual(self.doc.read_text(), text)
+
+    def test_an_unclosed_fence_is_a_warning_naming_the_doc_and_its_line(self):
+        self.doc.write_text("- **E1** Rule one.\n```\n- **E2** Hidden, unchecked.\n- **E3** Hidden too.\n")
+        for args in ((), ("--adopt",)):
+            r = self.ccp("init", "--rules-doc", "docs/RULES.md", *args)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            res = json.loads(r.stdout)
+            self.assertEqual(res["unchecked"], ["E1"])
+            self.assertEqual(len(res["warnings"]), 1, res)
+            for text in (res["warnings"][0], r.stderr):
+                self.assertIn("docs/RULES.md", text)
+                self.assertIn("line 2", text)
+        self.doc.write_text(RULES)
+        self.assertEqual(self.rules_doc()[1]["warnings"], [])
 
     def test_adopt_over_the_line_cap_writes_nothing(self):
         n = len(RULES.splitlines())
