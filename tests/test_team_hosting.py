@@ -591,11 +591,11 @@ class TestAgentModels(unittest.TestCase):
             f = self.front(name)
             self.assertEqual((f["name"], f["model"], f.get("effort")), (name, model, effort), name)
 
-    def test_runner_launches_workers_by_type_without_model(self):
+    def test_runner_launches_workers_by_type_with_a_model_only_as_printed(self):
         brief = (PLANE / "plugin" / "agents" / "delivery-runner.md").read_text()
         for worker in ("delivery-implementer", "delivery-reviewer", "delivery-verifier"):
             self.assertIn(f"`{worker}` subagent", brief)
-        self.assertIn("Never pass `model` in the\nAgent call", brief)
+        self.assertIn("Pass `model` in the Agent call\nonly when `ccp prompt` prints it", brief)  # §2.4
 
     def test_a_single_runner_is_told_to_make_its_missing_worktree_with_ccp(self):
         brief = (PLANE / "plugin" / "agents" / "delivery-runner.md").read_text()
