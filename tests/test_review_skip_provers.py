@@ -287,12 +287,14 @@ with suite.clean_checkout(root, "HEAD") as tree:
 
 
 # Starts its sleeper in a session of its own, which no process-group kill reaches, and exits 0, not 128 + the
-# signal: a signal test running it fails at its first check with the sleeper still alive.
+# signal: a signal test running it fails at its first check with the sleeper still alive (its output is not
+# the test's, so the test does not wait for it).
 ESCAPED = """
 import os, subprocess, sys
 from pathlib import Path
 out = Path(sys.argv[3])
-p = subprocess.Popen(["sleep", "30"], start_new_session=True)
+p = subprocess.Popen(["sleep", "30"], start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL)
 for f in (out.with_name("sleeper"), Path(os.environ["SLEEPER_COPY"])):
     f.write_text(str(p.pid))
 """
