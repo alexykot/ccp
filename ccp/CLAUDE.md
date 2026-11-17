@@ -17,7 +17,8 @@ normative, and a module that disagrees with it is the bug.
   `notify.py` (the operator's notices: fired, rendered, recorded and listed pending, §3.6).
 - **Seats that run headless:** `architect.py`, `estimator.py`.
 - **Measurement and the board:** `health.py`, `estimate.py`, `calibrate.py`, `forecast.py`,
-  `usage.py`, `otel.py`, `seats.py`, `board.py`, `drill.py`, `plan.py`, `quality.py`, `backfill.py`.
+  `usage.py`, `otel.py`, `seats.py`, `models.py` (does an observed model id match a pin, §24.5),
+  `board.py`, `drill.py`, `plan.py`, `quality.py`, `backfill.py`.
 
 ## Conventions
 

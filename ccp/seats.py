@@ -16,7 +16,8 @@ Observed values come from `ccp usage`'s fold (`recent`): the requests attributed
 seat, less those of sessions the plane launched headless (tagged, or in headless-usage.jsonl) on
 the lead's and the runner's rows. Of its requests in the WINDOW_MINUTES up to its latest one, the model with the most tokens
 (so a helper call on a small model does not hide the main loop), and the effort of the latest
-request on it. Without any request the row says "no telemetry yet", never a guess.
+request on it. Without any request the row says "no telemetry yet", never a guess. A pin that is an
+alias (§2.4 `workers.implementer_model`) matches any full id of its family (`models.matches`).
 
 Read-only: it reads the queue, the binding, the definitions and git refs, and writes nothing.
 """
@@ -29,7 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ccp import runs
+from ccp import models, runs
 from ccp.config import Config
 from ccp.queue import read_json
 from ccp.usage import UNTAGGED  # the fold's seat for `claude -p` rows with no tag and no placement
@@ -130,7 +131,7 @@ def mismatch(exp: dict[str, Any], obs: dict[str, Any] | None, prefix: bool = Fal
         return []
     out = []
     m, em = obs.get("model"), exp.get("model")
-    if m and em and not (_bare(m) == _bare(em) if prefix else m == em):
+    if m and em and not (models.matches(_bare(m), _bare(em)) if prefix else models.matches(m, em)):
         out.append(f"model {m}, pinned {em}")
     if obs.get("effort") and exp.get("effort") and obs["effort"] != exp["effort"]:
         out.append(f"effort {obs['effort']}, pinned {exp['effort']}")
