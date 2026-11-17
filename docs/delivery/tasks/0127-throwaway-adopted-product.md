@@ -1,7 +1,7 @@
 ---
 task_id: 0127-throwaway-adopted-product
 title: ccp sandbox makes a throwaway adopted product, fenced from real queues, for end-to-end checks
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4", "S8"]
@@ -121,3 +121,5 @@ or binding.
   (exit 2, init's output shown, nothing kept). The §29.3 bullet's text is unchanged.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #144 head `67be514` (squash `10ff63c`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0127-throwaway-adopted-product.json.
+
