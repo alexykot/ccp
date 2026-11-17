@@ -1,7 +1,7 @@
 ---
 task_id: 0115-wait-on-a-suite-run
 title: A worker waits on a suite run's summary within its command limit, and long plane commands are given the full shell timeout
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S16"]
@@ -102,3 +102,5 @@ the prompts tell workers to give the gate and `ccp mutate` the full shell timeou
   only while the command says the run is still running. Wording only: no code or rule change.
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #121 head `16e507c` (squash `0feb94c`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, suite-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0115-wait-on-a-suite-run.json.
+
