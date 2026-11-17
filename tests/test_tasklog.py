@@ -314,6 +314,7 @@ class TaskLogTest(unittest.TestCase):
         from contextlib import redirect_stderr
         self.p.task("0001-a", title="First")
         self.p.write("docs/delivery/tasks/0002-export-ledger.md", self.OLD_TASK)
+        self.p.write("docs/delivery/tasks/0003-c.md", "---\ntitle: x\nstatus: done\n---\n")
         self.p.index()
         mine = [e for e in self.errs() if "0002-export-ledger" in e]
         self.assertEqual(len(mine), 1, mine)
@@ -324,9 +325,17 @@ class TaskLogTest(unittest.TestCase):
                 code, out = self._cli(*args)
             self.assertEqual(code, 0, out)
             self.assertNotIn("?", out)
-            for token in ("docs/delivery/tasks/0002-export-ledger.md", "`ccp tasks check`", "`ccp tasks migrate`"):
+            self.assertNotIn("0003-c", out)
+            for token in ("docs/delivery/tasks/0002-export-ledger.md: no frontmatter, not listed",
+                          "docs/delivery/tasks/0003-c.md: no task_id in its frontmatter, not listed",
+                          "`ccp tasks check`", "`ccp tasks migrate`"):
                 self.assertIn(token, err.getvalue())
         self.assertEqual([r["task_id"] for r in json.loads(out)], ["0001-a"])
+
+    def test_an_empty_opening_block_is_no_frontmatter_as_frontmatter_reads_it(self):
+        self.assertFalse(tasklog.has_frontmatter("---\n---\nbody\n"))
+        self.assertEqual(tasklog.frontmatter("---\n---\nbody\n"), {})
+        self.assertTrue(tasklog.has_frontmatter("---\ntask_id: 0001-a\n---\nbody\n"))
 
     def test_a_gone_file_names_its_restore_and_the_fix_its_kind_needs(self):
         self.p.task("0001-a", status="done")

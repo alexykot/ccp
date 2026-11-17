@@ -201,9 +201,10 @@ def frontmatter(text: str) -> dict[str, Any]:
 
 
 def has_frontmatter(text: str) -> bool:
-    """The file opens with a `---` block that closes: the current format's frontmatter (§5.2). A task
-    file without one is an earlier plane generation's, which `ccp tasks migrate` converts (§5.3)."""
-    return text.startswith("---\n") and text.find("\n---\n", 3) != -1
+    """The file opens with a `---` block that closes, as `frontmatter` reads it: the current format's
+    frontmatter (§5.2). A task file without one is an earlier plane generation's, which `ccp tasks
+    migrate` converts (§5.3)."""
+    return text.startswith("---\n") and text.find("\n---\n", 4) != -1
 
 
 def canonical_status(status: Any) -> Any:
@@ -235,11 +236,12 @@ def _section(text: str, name: str) -> str | None:
     return at[1] if at else None
 
 
-def load(cfg: Config) -> list[dict[str, Any]]:
-    """Every task, in filesystem (number) order; the run order is `ranked`'s."""
+def load(cfg: Config, texts: dict[Path, str] | None = None) -> list[dict[str, Any]]:
+    """Every task, in filesystem (number) order; the run order is `ranked`'s. `texts` stands in for the
+    text of the files it names (`ccp tasks migrate` checks a file before writing it)."""
     out = []
     for f in sorted(cfg.tasks_dir.glob("*.md")):
-        text = f.read_text()
+        text = texts[f] if texts and f in texts else f.read_text()
         meta = frontmatter(text)
         if meta.get("status") in LEGACY_STATUSES:   # §5: read as its canonical state everywhere
             meta["_legacy_status"] = meta["status"]
@@ -816,15 +818,15 @@ def dependency_cycles(tasks: list[dict[str, Any]]) -> list[list[str]]:
     return [found[k] for k in sorted(found)]
 
 
-def check(cfg: Config) -> list[str]:
-    """Everything the structure promises, enforced. Returns the failures."""
+def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
+    """Everything the structure promises, enforced. Returns the failures. `texts`: as `load`'s."""
     tl = cfg.task_log
     soft_re = re.compile(r"\b(" + "|".join(re.escape(w) for w in tl["soft_words"]) + r")\b", re.I) \
         if tl["soft_words"] else None
     errs: list[str] = []
     if not cfg.tasks_dir.is_dir():
         return [f"{cfg.rel(cfg.tasks_dir)}: missing — the task log lives here"]
-    tasks = load(cfg)
+    tasks = load(cfg, texts)
     shaped = shaped_adrs(cfg) if cfg.architect and cfg.architect["shape_adrs"] else set()
     register, reg_errs = reviewpoints.load(cfg)  # §22: the review-point register, when the product keeps one
     errs += reg_errs

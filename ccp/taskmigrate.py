@@ -16,8 +16,8 @@ sections say the record was converted and not re-verified (one dod_check, `legac
 verification note). Table keys are matched case-insensitively.
 
 An open task (any other old status) is converted only with `drop_open`, as `dropped` with a note. A
-file it cannot convert is named with the reason and left byte for byte; a file that already has
-frontmatter is left alone without a line of its own.
+file it cannot convert, or whose converted text `ccp tasks check` would fail, is named with the reason
+and left byte for byte; a file that already has frontmatter is left alone without a line of its own.
 """
 from __future__ import annotations
 
@@ -192,12 +192,27 @@ def convert(cfg: Config, f: Path, titles: dict[str, str], drop_open: bool) -> tu
             "depends_on": deps, "spec_refs": specs, "created": created}, None
 
 
+def check_failures(cfg: Config, rendered: dict[Path, str]) -> dict[Path, list[str]]:
+    """`ccp tasks check`'s failures for each rendered file, with the log read as if they were written."""
+    errs = tasklog.check(cfg, rendered)
+    out = {}
+    for f in rendered:
+        prefix = f"{cfg.rel(f)}: "
+        if mine := [e[len(prefix):] for e in errs if e.startswith(prefix)]:
+            out[f] = mine
+    return out
+
+
 def migrate(cfg: Config, dry_run: bool = False, drop_open: bool = False) -> dict[str, Any]:
     """Convert each task file with no frontmatter (none written with `dry_run`). Returns `files`, one row per
-    such file (`path`, `result`: converted or cannot, `reason`), and `current`, how many already had one."""
+    such file (`path`, `result`: converted or cannot, `reason`), and `current`, how many already had one.
+    A converted file `ccp tasks check` would fail is not written (the old text it keeps can hold a heading
+    the checks read before the converted file's own); one that depends on it is checked again without it."""
     titles = index_titles(cfg)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    rows, current = [], 0
+    rows: dict[Path, dict[str, Any]] = {}
+    rendered: dict[Path, str] = {}
+    current = 0
     for f in sorted(cfg.tasks_dir.glob("*.md")):
         old = f.read_text()
         if tasklog.has_frontmatter(old):
@@ -205,9 +220,16 @@ def migrate(cfg: Config, dry_run: bool = False, drop_open: bool = False) -> dict
             continue
         meta, why = convert(cfg, f, titles, drop_open)
         if meta is None:
-            rows.append({"path": cfg.rel(f), "result": "cannot convert", "reason": why})
+            rows[f] = {"path": cfg.rel(f), "result": "cannot convert", "reason": why}
             continue
-        if not dry_run:
-            f.write_text(render(cfg, f.stem, meta, old, today))
-        rows.append({"path": cfg.rel(f), "result": "converted", "status": meta["status"]})
-    return {"files": rows, "current": current}
+        rendered[f] = render(cfg, f.stem, meta, old, today)
+        rows[f] = {"path": cfg.rel(f), "result": "converted", "status": meta["status"]}
+    while rendered and (failed := check_failures(cfg, rendered)):
+        for f, errs in failed.items():
+            del rendered[f]
+            rows[f] = {"path": cfg.rel(f), "result": "cannot convert",
+                       "reason": "converted, it would fail `ccp tasks check`: " + "; ".join(errs)}
+    if not dry_run:
+        for f, text in rendered.items():
+            f.write_text(text)
+    return {"files": list(rows.values()), "current": current}

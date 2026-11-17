@@ -114,6 +114,34 @@ class Migrate(InitCase):
         self.assertIn(taskmigrate.DROP_NOTE, tasklog._section(text, tasklog.SEC_VERIFY))
         self.assertEqual(self.read("0004-notes.md"), notes)
 
+    def test_a_converted_file_the_checks_would_fail_is_not_written(self):
+        # The kept old text comes first in the file, so its own `## dod_checks` and `## Verification notes`
+        # are the sections the checks read: here no check, two soft words and an empty notes section.
+        own = ("## dod_checks\n\n- The export should handle errors gracefully.\n\n"
+               "## Verification notes\n\n")
+        clash = old_task("0003", "Own checks", {"Status": "done", "Created": "2025-03-03"}, extra=own)
+        after = old_task("0004", "After", {"Status": "done", "Depends on": "0003-own-checks",
+                                           "Created": "2025-03-04"})
+        self.adopt({**FIXTURE, "0003-own-checks.md": clash, "0004-after.md": after})
+        run = self.ccp("tasks", "migrate")
+        self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
+        lines = {ln.split(":", 1)[0]: ln for ln in run.stdout.splitlines() if ln.startswith(TASKS)}
+        self.assertIn("cannot convert: converted, it would fail `ccp tasks check`: no dod_checks",
+                      lines[f"{TASKS}/0003-own-checks.md"])
+        self.assertIn("soft language 'should'", lines[f"{TASKS}/0003-own-checks.md"])
+        self.assertIn("status is done with no verification notes", lines[f"{TASKS}/0003-own-checks.md"])
+        self.assertIn("cannot convert: converted, it would fail `ccp tasks check`: depends_on `0003-own-checks`",
+                      lines[f"{TASKS}/0004-after.md"])
+        self.assertEqual(self.read("0003-own-checks.md"), clash)
+        self.assertEqual(self.read("0004-after.md"), after)
+        for n in ("0001-ledger-store.md", "0002-export-ledger.md"):
+            self.assertIn("converted (done)", lines[f"{TASKS}/{n}"])
+        check = self.ccp("tasks", "check")
+        self.assertEqual(check.returncode, 1, check.stdout + check.stderr)
+        failing = sorted({ln.strip().split(":", 1)[0] for ln in check.stdout.splitlines() if TASKS in ln})
+        self.assertEqual(failing, [f"{TASKS}/0003-own-checks.md", f"{TASKS}/0004-after.md"], check.stdout)
+        self.assertNotIn("dod_checks", check.stdout)
+
 
 class Convert(unittest.TestCase):
     """The rulings one by one, on a temp product (no init needed)."""

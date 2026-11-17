@@ -171,6 +171,16 @@ file that is gone, a slug renamed in git, `ccp tasks list`) names the fix instea
   has no frontmatter, else that a done task stays `done`; a rename `git log -M --diff-filter=R` shows to
   the file holding the number gets only the `renamed_from` line. `ccp tasks list` skips such files with
   a stderr line; `ccp init` counts them in `warnings`.
+- 2026-11-17 — implementer, fix round 1: the kept old text sits first in the converted file, and the
+  section reader takes the first heading of a name, so an old `## dod_checks` or `## Verification notes`
+  shadowed the converted file's own and `ccp tasks check` failed a file migrate called converted. Now
+  `migrate` renders every file first, runs `tasklog.check` with the rendered texts standing in for the
+  files (`load` and `check` take an optional `texts`), and a rendered file with failures of its own is
+  "cannot convert: converted, it would fail `ccp tasks check`: <its failures>", not written; it repeats
+  until none fails, so a file depending on one left unconverted is left too. `--dry-run` runs the same
+  check, so its lines stay the run's. The section reader is unchanged. `has_frontmatter` searches from
+  the same offset as `frontmatter`. mig-02's "the same lines" is read as the per-file lines: the closing
+  count line says `(dry run, nothing written)` and the real run adds the index line.
 
 ## Verification notes
 
