@@ -93,4 +93,17 @@ checks a later verify round carried from an earlier approval.
 
 *Append-only, newest last.*
 
+- 2026-11-17 — implementer. `ccp tasks check` warns (`adr.unbuilt_cited`, called from `tasklog.warnings`) about each
+  `adr_refs` decision a task not done or dropped cites that the checkout's ADRs record `not_built`, naming the task
+  file, the ref as written, the ADR decision and the `ccp adr decide <n> D<n> built` that flips it; a warning under
+  `adr.strict` too, nothing without the `adr` block. It reads the checkout it runs in, so on a task branch it names
+  that task, and on the integration branch every pending task that cites an unbuilt decision. `ccp suite run`
+  refuses a command after `--` on a lane plane.json gives stages (exit 2, naming the lane, before anything is
+  recorded; `resolve_stages`); an argv lane still takes one, and an unreadable plane.json still runs it (§14.5).
+  The verify prompt names `project_id: "<id>"`, `findings` as a list of strings, and the example as an absolute
+  path in the plane checkout (`verification_example`, from `queue.PLANE`). The close line names checks whose
+  `rests_on` is exactly `approve at <sha>` as `Carried from <sha>: <ids>` (the sha as written, one clause per sha,
+  `verify.carried_from`), drops `Passed: none` when only carried checks remain, and keeps other unrun checks under
+  `Not run by the verifier`. Beyond the declared paths: `ccp/adr.py`, `ccp/verify.py`, `ccp/prompt.py`.
+
 ## Verification notes

@@ -190,6 +190,21 @@ class CloseListsChecksNotAsWritten(ToolkitFixture, unittest.TestCase):
         self.assertTrue(body["merged_now"])
         self.assertEqual(json.loads((self.ghstate / "pr.json").read_text())["state"], "MERGED")
 
+    def test_close_prints_no_list_when_every_check_held_as_written(self):
+        self._to_approved_pr()
+        seen, patch = self._merge_seeing_stderr()
+        with patch:
+            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(len(seen), 1)
+        self.assertNotIn("not as written", err)
+
+
+
+class CloseNamesCarriedChecks(ToolkitFixture, unittest.TestCase):
+    """§15.6 rule 3: the Verification notes line close writes names the checks a verify round carried from
+    an earlier approval, with that approval's sha."""
+
     def test_the_verification_line_names_the_checks_carried_from_an_earlier_approval(self):
         head = self._to_approved_pr()
         earlier = git(self.main / ".rt" / "impl-0002", "rev-parse", "HEAD~1")
@@ -212,15 +227,18 @@ class CloseListsChecksNotAsWritten(ToolkitFixture, unittest.TestCase):
         self.assertNotIn("Passed: none", line)
         self.assertNotIn("Not run by the verifier", line)
 
-    def test_close_prints_no_list_when_every_check_held_as_written(self):
-        self._to_approved_pr()
-        seen, patch = self._merge_seeing_stderr()
-        with patch:
-            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
-        self.assertEqual(code, 0, out + err)
-        self.assertEqual(len(seen), 1)
-        self.assertNotIn("not as written", err)
-
+    def test_passed_carried_and_otherwise_unrun_checks_each_keep_their_own_part_of_the_line(self):
+        a, b = "a" * 40, "b" * 7
+        (self.q / "verification").mkdir(exist_ok=True)
+        (self.q / "verification" / "0002-second.json").write_text(json.dumps({"checks": [
+            {"dod_check_id": "c-01", "pass": True},
+            {"dod_check_id": "c-02", "ran": False, "pass": None, "rests_on": f"approve at {a}"},
+            {"dod_check_id": "c-03", "ran": False, "pass": None, "rests_on": f"approve at {b}"},
+            {"dod_check_id": "c-04", "ran": False, "pass": None, "rests_on": "the operator's live run"},
+            {"dod_check_id": "c-05", "ran": False, "pass": None, "rests_on": f"approve at {a}"}]}))
+        line = lifecycle._verification_note(self.q, "0002-second", "7", "c" * 40, "d" * 40, "2026-11-17")
+        self.assertIn(f"Passed: c-01. Carried from {a}: c-02, c-05. Carried from {b}: c-03. "
+                      "Not run by the verifier: c-04.", line)
 
 
 class CloseReadsAMalformedRunnerCount(ToolkitFixture, unittest.TestCase):
