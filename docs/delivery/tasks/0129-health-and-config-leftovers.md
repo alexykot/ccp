@@ -1,7 +1,7 @@
 ---
 task_id: 0129-health-and-config-leftovers
 title: Small fixes left by R7 in health's sign-off waits, the lead's compaction knob, the verifier definition and the parallel gate's counts
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4", "S27"]
@@ -98,3 +98,5 @@ per-module counts agree with its total.
   verify prompt gives (`{{verification_example}}`, absolute).
 
 ## Verification notes
+- 2026-11-17 — verifier, PR #134 head `b6c85f9` (squash `bd86b9b`): APPROVE. Passed: health-01, cfg-01, agent-01, gate-01, suite-01. Gate: `scripts/gate.sh (ccp suite run --lane gate)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0129-health-and-config-leftovers.json.
+
