@@ -44,5 +44,11 @@ review_points:
   - id: R8
     name: adoption and follow-ups III
     goal: Every opt-in feature reaches a product as an upgrade step it can take or decline, the implementer-model trial can run, and R7's follow-ups close.
+    status: closed
+    opened: "2026-11-17"
+    closed: "2026-11-17"
+  - id: R9
+    name: re-adoption
+    goal: A product adopted under an earlier plane generation re-adopts cleanly (its old tasks, queue files and binding are migrated or archived by ccp), a sandbox is sealed, the lead's tools work on a fresh product, and the signed-text checks are exact.
     status: current
     opened: "2026-11-17"
