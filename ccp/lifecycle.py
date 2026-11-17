@@ -39,7 +39,8 @@ both sides only added lines, which it resolves as the tip's lines, then the task
 commits change no file the task's own diff or declared `paths` change other than a `parallel.shared` path, no
 build sign-off is due on the task and the product has a gate lane:
 it merges the tip in (in its merge worktree), runs the gate lane there as a recorded `ccp suite run`
-with the task's `impl` worktree's environment (its `CCP_WT_*` variables, `_task_worktree_env`),
+with that worktree's environment (`_task_worktree_env`: its `CCP_WT_*` variables, kind `merge`, the task's
+seat, tag and round from its `impl` worktree's record, and `prompts.worker_env` rendered for it),
 re-checks the tip (at most CATCH_UPS times), pushes the merge as the task branch's head, records the
 catch-up on the verification record (`verify.record_catch_up`) and merges that head. Otherwise it
 refuses `behind_tip`, naming the condition that failed, with the task branch unchanged.
@@ -1494,7 +1495,7 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
             if co.returncode != 0:
                 raise _NoCatchUp(f"the merge {merged[:7]} could not be checked out in {wt}: "
                                  f"{(co.stderr or co.stdout).strip()[:200]}")
-            gate_run, code = _catch_up_gate(q, wt, tid, lane, _task_worktree_env(cfg, q, tid))
+            gate_run, code = _catch_up_gate(q, wt, tid, lane, _task_worktree_env(cfg, q, tid, wt))
             if code == suite.BUSY_EXIT:
                 raise _NoCatchUp(f"gate lane busy: the gate lane {lane!r} stayed held by another run for "
                                  f"{CATCH_UP_LANE_WAIT} s")
@@ -1687,27 +1688,38 @@ def _tip_files(cfg: Config, head: str, tip: str) -> list[str]:
     return sorted({p for p in (x.strip("\n") for x in r.stdout.split("\0")) if p})
 
 
-def _task_worktree_env(cfg: Config, q: Path, tid: str) -> dict[str, str]:
-    """§16.5 rule 4, §12.2: the environment the task's own runs get in its worktree, for the catch-up's gate in
-    close's merge worktree (which `ccp wt` did not make, so `ccp suite run` finds no record there): the
-    `CCP_WT_<FIELD>` variables of the task's recorded `impl` worktree, the ones its env hooks got, and its task
-    as `CCP_TASK_ID` and `CCP_NNNN`, as a lane run in that worktree gets them (`suite.worktree_env`). {} with a
-    warning on stderr when the task has no recorded `impl` worktree: the gate then runs with the caller's
-    environment alone."""
-    from ccp import wt  # noqa: PLC0415
+def _task_worktree_env(cfg: Config, q: Path, tid: str, path: Path) -> dict[str, str]:
+    """§16.5 rule 4, §12.2, §13.3: the environment the catch-up's gate gets in close's merge worktree `path`
+    (`merge-<nnnn>`, which `ccp wt` did not make, so `ccp suite run` finds no record there): that worktree's
+    `CCP_WT_<FIELD>` variables, `CCP_WT_WORKTREE` its path, `CCP_WT_NAME` its name and `CCP_WT_KIND` `merge`,
+    with the task's other fields (seat, tag, round) from its recorded `impl` worktree; its task as `CCP_TASK_ID`
+    and `CCP_NNNN`, as a lane run in a worktree gets them (`suite.worktree_env`); and the product's
+    `prompts.worker_env` rendered for that worktree (no run: `run_id` empty, `phase` `verify`, the phase the gate
+    run is recorded under). A field the record lacks gives its variable empty (the round 1). With no recorded
+    `impl` worktree, seat and tag are empty, with a warning on stderr."""
+    from ccp import prompt, wt  # noqa: PLC0415
     own = [st for st in wt.records(q) if st.get("task_id") == tid and st.get("kind") == "impl"
            and st.get("path") and Path(str(st["path"])).is_dir()]
     if not own:
-        print(f"ccp tasks close: warning: {tid} has no recorded impl worktree, so the catch-up's gate runs without "
-              "its CCP_WT_* variables, with the caller's environment alone (SPEC §16.5 rule 4)", file=sys.stderr)
-        return {}
-    st = min(own, key=lambda x: (x.get("name") != f"impl-{x.get('nnnn')}", str(x.get("name"))))
-    return {**wt.env_fields(cfg, st), **for_child({"CCP_TASK_ID": st["task_id"], "CCP_NNNN": st["nnnn"]})}
+        print(f"ccp tasks close: warning: {tid} has no recorded impl worktree, so the catch-up's gate gets its "
+              "CCP_WT_SEAT and CCP_WT_TAG empty (SPEC §16.5 rule 4)", file=sys.stderr)
+    st = min(own, key=lambda x: (x.get("name") != f"impl-{x.get('nnnn')}", str(x.get("name")))) if own else {}
+    nnnn = str(st.get("nnnn") or refs.ids(cfg).task_number(tid))
+    seat, tag, rnd = str(st.get("seat") or ""), str(st.get("tag") or ""), str(st.get("round") or 1)
+    main = str(_main_checkout(cfg))
+    fields = {"task_id": tid, "nnnn": nnnn, "kind": wt.MERGE_PREFIX, "seat": seat, "tag": tag,
+              "worktree": str(path), "main_checkout": main, "name": path.name}
+    worker = prompt.env_values(cfg, {
+        "run_id": "", "task_id": tid, "nnnn": nnnn, "phase": "verify", "kind": wt.MERGE_PREFIX, "seat": seat,
+        "round": rnd, "worktree": str(path), "main_checkout": main, "queue_root": str(q),
+        "project_id": cfg.project_id})
+    return {**worker, **for_child({**{f"CCP_WT_{k.upper()}": v for k, v in fields.items()}, "CCP_WT_ROUND": rnd,
+                                   "CCP_TASK_ID": tid, "CCP_NNNN": nnnn})}
 
 
 def _catch_up_gate(q: Path, wt: Path, tid: str, lane: str, wt_env: dict[str, str]) -> tuple[str, int]:
     """§16.5 rule 4: the product's gate lane on the catch-up, in close's merge worktree, through `ccp suite run`
-    as a recorded run bound to the task (§14.1), with the task worktree's environment `wt_env` over the
+    as a recorded run bound to the task (§14.1), with the merge worktree's environment `wt_env` over the
     caller's (`_task_worktree_env`); its summary goes to close's stderr. The recorded run's id ("" when none
     was recorded) and its exit code."""
     from ccp import suite  # noqa: PLC0415

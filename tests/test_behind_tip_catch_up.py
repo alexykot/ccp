@@ -207,28 +207,71 @@ if done < {moves}:
         note = git(self.main, "show", "origin/main:docs/delivery/tasks/0002-second.md")
         self.assertIn(cu["gate_run"], note)  # the Verification notes line names the catch-up's gate run
 
-    def test_the_gate_runs_with_the_task_worktree_s_environment(self):
-        # a gate that needs what the task's own worktree gives its runs (§12.2), none of it in close's environment
-        need = '[ "$CCP_WT_NAME" = impl-0002 ] && [ "$CCP_WT_KIND" = impl ] && [ "$CCP_TASK_ID" = 0002-second ] || exit 127; '
-        self.plane_json(lambda c: c["suite"]["lanes"].update(gate=["/bin/sh", "-c", need + GATE]))
+    def gate_env(self) -> Path:
+        """The gate lane appends what its stages see (the merge worktree's CCP_WT_* fields, the task, and the
+        product's `worker_env` variable SCRATCH) to a file, one line a run; that file. None of it is in close's
+        environment."""
+        seen = Path(self._tmp.name) / "gate-env.txt"
+        show = ('printf "%s|%s|%s|%s|%s|%s|%s\\n" "$CCP_WT_WORKTREE" "$CCP_WT_KIND" "$CCP_WT_NAME" "$CCP_TASK_ID" '
+                f'"$CCP_NNNN" "$CCP_WT_SEAT" "$SCRATCH" >> {shlex.quote(str(seen))}; ')
+
+        def edit(c):
+            c["suite"]["lanes"]["gate"] = ["/bin/sh", "-c", show + GATE]
+            c.setdefault("prompts", {})["worker_env"] = {"SCRATCH": "{{kind}}_{{nnnn}}"}
+        self.plane_json(edit)
+        return seen
+
+    def close_bare(self):
+        """close, with no CCP_WT_*, task or SCRATCH variable of the caller's reaching the gate."""
+        with mock.patch.dict(os.environ):
+            for k in [k for k in os.environ if k.startswith("CCP_WT_") or k in ("CCP_TASK_ID", "CCP_NNNN", "SCRATCH")]:
+                del os.environ[k]
+            return self.close()
+
+    def seen(self, f: Path) -> tuple[list[str], str]:
+        """The one line the gate wrote, its worktree resolved; the merge worktree it names, resolved."""
+        lines = f.read_text().splitlines()
+        self.assertEqual(len(lines), 1, lines)
+        got = lines[0].split("|")
+        return [str(Path(got[0]).resolve()), *got[1:]], str((self.main / ".rt" / "merge-0002").resolve())
+
+    def test_the_gate_runs_with_the_merge_worktree_s_environment_and_worker_env(self):
+        seen = self.gate_env()
         self.approved()
         self.tip(self.put("other/b.txt", "b\n"))
-        with mock.patch.dict(os.environ):
-            for k in [k for k in os.environ if k.startswith("CCP_WT_") or k in ("CCP_TASK_ID", "CCP_NNNN")]:
-                del os.environ[k]
-            code, body, out, err = self.close()
+        code, body, out, err = self.close_bare()
         self.assertEqual(code, 0, out + err)
         self.assertTrue(body["merged_now"])
         self.assertEqual([r["state"] for r in self.gate_runs()], ["passed"])
+        got, merge_wt = self.seen(seen)
+        self.assertEqual(got, [merge_wt, "merge", "merge-0002", "0002-second", "0002", "impl", "merge_0002"])
 
-    def test_with_no_recorded_impl_worktree_the_gate_runs_with_the_callers_environment_and_says_so(self):
+    def test_an_impl_record_missing_a_field_gives_that_variable_empty(self):
+        seen = self.gate_env()
+        self.approved()
+        rec = self.q / "worktrees" / "impl-0002.json"
+        st = json.loads(rec.read_text())
+        del st["seat"]
+        rec.write_text(json.dumps(st))
+        self.tip(self.put("other/b.txt", "b\n"))
+        code, body, out, err = self.close_bare()
+        self.assertEqual(code, 0, out + err)
+        self.assertNotIn("KeyError", out + err)
+        self.assertTrue(body["merged_now"])
+        got, merge_wt = self.seen(seen)
+        self.assertEqual(got, [merge_wt, "merge", "merge-0002", "0002-second", "0002", "", "merge_0002"])
+
+    def test_with_no_recorded_impl_worktree_the_gate_gets_the_merge_worktree_s_fields_and_says_so(self):
+        seen = self.gate_env()
         self.approved()
         (self.q / "worktrees" / "impl-0002.json").unlink()
         self.tip(self.put("other/b.txt", "b\n"))
-        code, body, out, err = self.close()
+        code, body, out, err = self.close_bare()
         self.assertEqual(code, 0, out + err)
         self.assertTrue(body["merged_now"])
         self.assertIn("no recorded impl worktree", err)
+        got, merge_wt = self.seen(seen)
+        self.assertEqual(got, [merge_wt, "merge", "merge-0002", "0002-second", "0002", "", "merge_0002"])
 
     def test_a_tip_that_moves_during_the_gate_is_caught_up_again(self):
         self.approved()

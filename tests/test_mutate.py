@@ -301,6 +301,20 @@ class NoStaleBytecode(MutateFixture, unittest.TestCase):
                                                        if k != "PYTHONDONTWRITEBYTECODE"})
         self.assertEqual(r.returncode, 0, r.stderr)
 
+    def test_a_compiled_entry_from_another_source_never_runs_in_place_of_the_mutant(self):
+        # an unchecked hash-based entry, compiled from the source as it was: Python imports it whatever the source
+        import importlib.util  # noqa: PLC0415
+        import py_compile  # noqa: PLC0415
+        src = self.mut / "calc.py"
+        py_compile.compile(str(src), cfile=importlib.util.cache_from_source(str(src)), doraise=True,
+                           invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)
+        self.assertEqual(len(self.cached()), 1)
+        code, body, _, err = self.mutate("calc.py:a + b=>a - b")
+        self.assertEqual((code, body and body["killed"]), (0, 1), err)
+        self.assertEqual(self.rows()[0]["outcome"], "killed")
+        self.assertEqual(src.read_text(), CALC)
+        self.assertEqual(self.cached(), [])
+
     def test_every_run_writes_no_bytecode(self):
         self.command(f'[ "$PYTHONDONTWRITEBYTECODE" = 1 ] && {self.PY} -m unittest -q {{test}}')
         with mock.patch.dict(os.environ):
