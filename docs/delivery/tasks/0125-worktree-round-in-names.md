@@ -1,7 +1,7 @@
 ---
 task_id: 0125-worktree-round-in-names
 title: A worktree's round reaches worker_env and lane stages, so a second review round gets its own scratch resources
-status: pending
+status: done
 kind: feature
 depends_on: ["0124-suite-and-mutate-tools"]
 spec_refs: ["S8", "S12", "S14"]
@@ -63,7 +63,7 @@ round's setup neither replaces the first round's resource nor refuses because it
   story: As an existing worktree, my record still loads.
   setup: a recorded worktree whose record file has no `round` key.
   steps:
-    1. Run `ccp wt list --json`.
+    1. Run `ccp wt list`.
   expect: exit 0; the worktree lists with `round` 1.
   dry run: n/a.
 - id: `suite-01`
@@ -78,4 +78,17 @@ round's setup neither replaces the first round's resource nor refuses because it
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `ccp wt create` records `round` (`wt.round_of`: `<n>` for a name ending
+  `-<n>`, else 1), also when a taken default name moves on; `wt.load` and `wt.records` read a record
+  without a valid `round` as 1, so `ccp wt list`, `ccp prompt env` and every reader see 1.
+  `prompts.worker_env` gets `{{round}}` (`config.WORKER_ENV_FIELDS`): from the bound worktree's record,
+  else from the worker's worktree's name. `CCP_WT_ROUND` is added in `wt.env_fields`, so a lane's stages
+  and close's catch-up gate get it with the other `CCP_WT_<FIELD>` variables; an env hook's environment
+  gets it too, but `{round}` is not a hook template field (§12.2 unchanged). `contracts/worktree.schema.json`
+  gains the optional `round`. wt-03's step names `ccp wt list --json`, a flag `ccp wt list` does not take
+  (it always prints JSON); no flag was added.
+
 ## Verification notes
+- 2026-11-17 — verifier, PR #141 head `e3d0458` (squash `1d3ba8a`): APPROVE. Passed: wt-01, wt-02, wt-03, suite-01. Gate: `ccp suite run --lane gate -- scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0125-worktree-round-in-names.json.
+- 2026-11-17, lead: wt-03's step named `ccp wt list --json`, a flag the command does not take (it
+  prints JSON already); corrected to `ccp wt list` after merge. The lead's error, not the build's.

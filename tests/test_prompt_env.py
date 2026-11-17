@@ -80,6 +80,38 @@ class PromptEnv(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("<run_id>|<phase>|0002-second", self.values(out)[2])
 
+    def test_a_second_rounds_worktree_renders_its_own_round(self):
+        self.with_env({"DB_NAME": "t{{nnnn}}_{{kind}}_{{round}}"})
+        code, body, out, err = self.ccp("wt", "create", "--kind", "rev", "--task", "0002", "--sha",
+                                        git(self.main, "rev-parse", "origin/main"), root=self.main)
+        self.assertEqual((code, Path(body["path"]).name), (0, "rev-0002-2"), out + err)
+        first, second = self.ccp("prompt", "env", str(self.rev)), self.ccp("prompt", "env", body["path"])
+        self.assertEqual((first[0], first[2]), (0, "export DB_NAME=t0002_rev_1\n"), first[3])
+        self.assertEqual((second[0], second[2]), (0, "export DB_NAME=t0002_rev_2\n"), second[3])
+
+    def test_a_record_without_a_round_renders_round_one(self):
+        self.with_env({"R": "{{round}}"})
+        f = self.q / "worktrees" / f"{self.rev.name}.json"
+        st = json.loads(f.read_text())
+        del st["round"]
+        f.write_text(json.dumps(st))
+        code, _, out, err = self.ccp("prompt", "env", str(self.rev))
+        self.assertEqual((code, out), (0, "export R=1\n"), err)
+
+    def test_a_review_runs_env_file_takes_the_round_of_its_worktree(self):
+        self.with_env({"R": "{{round}}"})
+        self.ccp("tasks", "claim", "0002")
+        rec = self.q / "worktrees" / f"{self.rev.name}.json"
+        rec.write_text(json.dumps({**json.loads(rec.read_text()), "round": 7}))  # the record's round, not the name's
+        code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", A)
+        self.assertEqual(code, 0, out + err)
+        self.assertIn("export R=7\n", Path(body["env_file"]).read_text())
+        # the second review's own worktree, rev-0002-2, is not made yet: its name gives the round
+        code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", A, "--supersede")
+        self.assertEqual(code, 0, out + err)
+        self.assertFalse((self.q / "worktrees" / "rev-0002-2.json").exists())
+        self.assertIn("export R=2\n", Path(body["env_file"]).read_text())
+
     def test_a_worktree_with_no_record_is_refused(self):
         for where in (str(self.main), str(Path(self._tmp.name) / "nowhere"), "rev-0009", "../rev-0002"):
             before = self.queue_files()

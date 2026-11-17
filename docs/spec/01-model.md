@@ -756,7 +756,7 @@ An example, with neutral values:
   "private_dirs": [".env"]
 },
 "prompts": { "fragment": "docs/delivery/WORKERS.md",
-             "worker_env": { "<NAME>": "<template: {{main_checkout}}, {{worktree}}, {{queue_root}}, …>" },
+             "worker_env": { "<NAME>": "<template: {{main_checkout}}, {{worktree}}, {{queue_root}}, {{round}}, …>" },
              "keep_body": false, "audit_keep_days": null },
 "reconcile": { "hooks": ["<product command, run in close's merge worktree (§10.5)>"] },
 "telemetry": { "otel_port": 4318, "allowance_cmd": "<command printing the allowance JSON>" },
@@ -774,7 +774,8 @@ An example, with neutral values:
   `task_id`, `nnnn`, `phase`, `kind` and `seat` (the worker's worktree's: the record of the
   worktree its run is bound to, §12.1, when `ccp wt` made one there; otherwise as `ccp wt create`
   records them by default: `impl` for implement, fix, merge and ruling, `rev` for review, `ver` for
-  verify), `worktree` (the worker's own: the task worktree for implement and fix, the reviewer's or
+  verify), `round` (the worker's worktree's round: n when its name ends `-n`, otherwise 1),
+  `worktree` (the worker's own: the task worktree for implement and fix, the reviewer's or
   verifier's for theirs), `main_checkout`, `queue_root` and `project_id`; `ccp docs check` and every
   command refuse another name. §13 says how the values reach the worker.
 
