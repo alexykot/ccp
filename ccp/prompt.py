@@ -27,6 +27,9 @@ A verify round with no fix round since the task's last verify round needs `--not
 integration tip, beyond the task log and `merge.behind_tip_ignore`, refuses the same way, with one runner
 or several: merge the tip in first (§16.5 rule 4).
 
+`ccp prompt env <worktree>` renders the product's `prompts.worker_env` for a worktree `ccp wt` recorded and
+prints the `export` lines its workers would get, opening no run and writing nothing (§13.3).
+
 Templates use `{{name}}`, `{{#name}}…{{/name}}` (kept when the value is not empty) and
 `{{^name}}…{{/name}}` (kept when it is). A name the renderer does not know is an error, so a
 template change cannot ship a hole.
@@ -258,25 +261,73 @@ def read_note(a: Any) -> str | None:
     return note
 
 
+def env_values(cfg: Config, fields: dict[str, str]) -> dict[str, str]:
+    """§13.3: `prompts.worker_env` rendered with these fields, {} when the product names none. A value that
+    looks like a secret is refused: the env file is the queue's, and the prompt prints the values."""
+    from ccp import health  # noqa: PLC0415
+
+    spec = (cfg.prompts or {}).get("worker_env") or {}
+    out = {k: VAR_RE.sub(lambda m: fields[m.group(1)], v) for k, v in spec.items()}
+    for k, v in out.items():
+        if health.looks_like_secret(v):
+            raise QueueError(f"prompts.worker_env.{k} renders to what looks like a secret: name a file that holds "
+                             "it instead (SPEC §13)", 2)
+    return out
+
+
+def export_lines(values: dict[str, str]) -> str:
+    """The env file's lines: `export NAME='value'`, the value shell-quoted (§13.3)."""
+    import shlex  # noqa: PLC0415
+    return "".join(f"export {k}={shlex.quote(v)}\n" for k, v in values.items())
+
+
+def env_lines(cfg: Config, worktree: str) -> str:
+    """`ccp prompt env <worktree>` (§13.3): the `worker_env` lines the workers of that worktree would get,
+    rendered from its record (its path, or its name, as `ccp wt` recorded it), opening no run and writing
+    nothing. `run_id` and `phase` are the open run bound to it when there is one, else stay `<run_id>`
+    and `<phase>`. An empty string when the product names no `worker_env`; a worktree with no record
+    is refused (exit 2)."""
+    from ccp import wt  # noqa: PLC0415
+
+    q = root()
+    st = wt.recorded_at(q, Path(worktree)) if Path(worktree).exists() else None
+    if st is None and worktree and "/" not in worktree and not worktree.startswith("."):
+        st = wt.load(q, worktree)
+    if not st or not st.get("path"):
+        raise QueueError(f"{worktree}: no worktree `ccp wt` made is recorded there in this queue (SPEC §12.1)", 2)
+    if not (cfg.prompts or {}).get("worker_env"):
+        return ""
+    here = Path(str(st["path"])).resolve()
+    bound = None
+    for rec in reversed(runs.all_runs(q, st.get("task_id") or None) if st.get("task_id") else []):
+        try:
+            same = bool(rec.get("worktree")) and Path(str(rec["worktree"])).resolve() == here
+        except (OSError, ValueError):
+            same = False
+        if same and runs.state(rec) in runs.OPEN:
+            bound = rec
+            break
+    kind = str(st.get("kind") or "")
+    return export_lines(env_values(cfg, {
+        "run_id": str(bound["run_id"]) if bound else "<run_id>",
+        "phase": str(bound.get("phase") or "<phase>") if bound else "<phase>",
+        "task_id": str(st.get("task_id") or ""), "nnnn": str(st.get("nnnn") or ""), "worktree": str(st["path"]),
+        "kind": kind, "seat": str(st.get("seat") or (wt.KINDS[kind][0] if kind in wt.KINDS else "")),
+        "main_checkout": str(main_checkout(cfg)), "queue_root": str(q), "project_id": cfg.project_id}))
+
+
 def worker_env(cfg: Config, q: Path, prompt_file: Path, fields: dict[str, str]) -> tuple[str, str]:
     """§13: `prompts.worker_env` rendered for this run into `<prompt>-env.sh` beside the prompt, as
     `export NAME='value'` lines. Returns the file's path and a one-line list of what it sets, or two
     empty strings when the product names none. A value that looks like a secret is refused: the
     file is the queue's, and the prompt prints the values."""
     import shlex  # noqa: PLC0415
-    from ccp import health  # noqa: PLC0415
 
-    spec = (cfg.prompts or {}).get("worker_env") or {}
-    if not spec:
+    out = env_values(cfg, fields)
+    if not out:
         return "", ""
-    out = {k: VAR_RE.sub(lambda m: fields[m.group(1)], v) for k, v in spec.items()}
-    for k, v in out.items():
-        if health.looks_like_secret(v):
-            raise QueueError(f"prompts.worker_env.{k} renders to what looks like a secret: name a file that holds "
-                             "it instead (SPEC §13)", 2)
     f = prompt_file.with_name(prompt_file.name.replace("-prompt.md", "-env.sh"))
-    body = ("# ccp prompt: this run's environment (plane.json prompts.worker_env, SPEC §13)\n"
-            + "".join(f"export {k}={shlex.quote(v)}\n" for k, v in out.items()))
+    body = ("# ccp prompt: this run's environment (plane.json prompts.worker_env, SPEC §13)\n" + export_lines(out))
     fd = os.open(f, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)  # owner-only: a product may name real values
     with os.fdopen(fd, "w") as fh:
         fh.write(body)
@@ -551,6 +602,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         # §13.4: the product's declared verdicts, as the latest implementer report states them
         "report_verdicts": "; ".join(f"`{k}: {v}`" for k, v in verdicts.items()), "report_verdicts_run": verdicts_run,
         "part_lane": lane_for(cfg, "part"),  # §14.1: the lane a subset or a mutation run goes through
+        "gate_lane": lane_for(cfg, "gate"),  # §14.2: the verifier asks for a cold gate with `--cold` on it
         "worker_env": env_list, "worker_env_file": env_file,
         # §15.3: the product's content-keyed test cache, when its plane.json accepts the hits
         "accept_cache": bool(verify.cache_rule(cfg)), "cache_max_age_days": (verify.cache_rule(cfg) or {}).get("max_age_days") or "",

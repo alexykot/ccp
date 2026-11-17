@@ -33,14 +33,16 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp prompt implement|fix|merge|ruling|review|verify ID [--pr N --head SHA] [--base SHA] [--worktree P] [--note T]
              [--supersede] [--allow-unreviewed-fix --reason T]  (merge: only merge the integration tip in; ruling:
              only apply the lead's ruling, given as the note, SPEC §13.2)
+  ccp prompt env WORKTREE  (the worker_env lines that worktree's workers would get; opens no run, SPEC §13.3)
   ccp report RUN_ID FILE
   ccp runs gc [--dry-run]  (abandon runs that will never report: superseded by a later round, or
             of a done or dropped task, SPEC §11.1)
-  ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--full | --summary] [--log PATH] [-- COMMAND …] | list [--task ID]
+  ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--cold] [--full | --summary] [--log PATH]
+            [-- COMMAND …] | list [--task ID]
             (every test run: the exit code passes through, the output goes to a log and a summary is
-            printed (--full streams it), the time and counts are recorded)
-  ccp suite wait SUITE_ID [--timeout SECONDS]  (a run's summary and exit code once it ends; still running at the
-            timeout, default 540: its elapsed time and exit 3, SPEC §14.2)
+            printed (--full streams it), the time and counts are recorded; --cold sets CCP_SUITE_COLD=1)
+  ccp suite wait SUITE_ID [--timeout SECONDS]  (a run's summary once it ends, then exit 0 if it passed, 1 if it
+            failed; still running at the timeout, default 540: its elapsed time and exit 3, SPEC §14.2)
   ccp suite affected [--since REF | --since A..B | --paths PATH …]  (the test modules a change touches, one per line, SPEC §14.7)
   ccp notify render TRIGGER [--task ID] [--id ID] [--reason R] [--json] | pending
             | sent TRIGGER [--task ID] [--id ID] --via command|lead [--note T]  (the operator's notices, SPEC §3.6)
@@ -855,6 +857,25 @@ def _prompt(cfg: config.Config, a: argparse.Namespace):
     return prompt.build(cfg, a)
 
 
+def cmd_prompt(cfg: config.Config, a: argparse.Namespace) -> int:
+    """`ccp prompt <phase> <task>`, or `ccp prompt env <worktree>`: the dry render of `prompts.worker_env`
+    (SPEC §13.3), plain lines on stdout, nothing written and no board refresh."""
+    if a.phase != "env":
+        return _toolkit(_prompt)(cfg, a)
+    from ccp import prompt  # noqa: PLC0415
+    a.read_only = True
+    try:
+        text = prompt.env_lines(cfg, a.task)
+    except QueueError as e:
+        print(f"ccp prompt: {e}", file=sys.stderr)
+        return e.code
+    if not text:
+        print("ccp prompt: plane.json names no prompts.worker_env: its workers get no environment file (SPEC §13.3)",
+              file=sys.stderr)
+    sys.stdout.write(text)
+    return 0
+
+
 def _report(cfg: config.Config, a: argparse.Namespace):
     from ccp import report
     return report.submit(cfg, a.run_id, a.file)
@@ -884,7 +905,8 @@ def cmd_suite_affected(cfg: config.Config, a: argparse.Namespace) -> int:
 
 def _mutate(cfg: config.Config, a: argparse.Namespace):
     from ccp import mutate, wt  # noqa: PLC0415
-    return mutate.run(cfg, wt._queue_root(), a.run, a.test, a.mutant or [], reverts=a.revert or [])
+    return mutate.run(cfg, wt._queue_root(), a.run, a.test, a.mutant or [], reverts=a.revert or [],
+                      mutant_files=a.mutant_file or [])
 
 
 def _plane(cfg: config.Config, a: argparse.Namespace):
@@ -1069,9 +1091,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true")
     p.set_defaults(fn=cmd_review_points)
 
-    p = sub.add_parser("prompt", help="render a worker's prompt, audit it, open its run (SPEC §13.2; needs QUEUE_ROOT)")
-    p.add_argument("phase", choices=("implement", "fix", "merge", "ruling", "review", "verify"))  # runs.PHASES
-    p.add_argument("task", help="task id or NNNN")
+    p = sub.add_parser("prompt", help="render a worker's prompt, audit it, open its run (SPEC §13.2; needs QUEUE_ROOT); "
+                                      "`ccp prompt env <worktree>` prints the worker_env lines a worktree's workers "
+                                      "would get, opening nothing (SPEC §13.3)")
+    p.add_argument("phase", choices=("implement", "fix", "merge", "ruling", "review", "verify", "env"))  # runs.PHASES
+    p.add_argument("task", help="task id or NNNN; for env, the worktree (its path or its recorded name)")
     p.add_argument("--pr")
     p.add_argument("--head", help="the PR head this run works on (every phase but implement)")
     p.add_argument("--base", help="implement: the integration sha the branch starts from (default origin's)")
@@ -1085,7 +1109,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--allow-unreviewed-fix", action="store_true",
                    help="verify: open it although a fix round is newer than the last review (§15.2); needs --reason")
     p.add_argument("--reason", help="with --allow-unreviewed-fix: the lead's or the operator's words, recorded as a friction note")
-    p.set_defaults(fn=_toolkit(_prompt))
+    p.set_defaults(fn=cmd_prompt)
 
     p = sub.add_parser("report", help="a worker submits its report and closes its run (SPEC §10.4)")
     p.add_argument("run_id", help="<task_id>/<phase>[-n], as ccp prompt printed it")
@@ -1101,7 +1125,7 @@ def build_parser() -> argparse.ArgumentParser:
     su = sub.add_parser("suite", help="run tests through ccp, which records their time (SPEC §14.1)") \
         .add_subparsers(dest="cmd", required=True)
     p = su.add_parser("run", help="run a test command transparently and record its time, exit code and test count",
-                      usage="ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--wait S] [--full | --summary] "
+                      usage="ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--wait S] [--cold] [--full | --summary] "
                             "[--log PATH] [-- COMMAND ...]")
     p.add_argument("--lane", help="a short label; alone, the argv plane.json suite.lanes names for it")
     p.add_argument("--run", help="the run it belongs to (<task_id>/<phase>[-n], as the prompt names it)")
@@ -1110,6 +1134,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--wait", type=int, metavar="SECONDS",
                    help="an exclusive lane held by another run: wait up to this long for it instead of exiting 75 "
                         "at once; keep the wait plus the run under your shell's limit (SPEC §16.6)")
+    p.add_argument("--cold", action="store_true",
+                   help="a cold run: what it starts gets CCP_SUITE_COLD=1, the product's gate's cold option, and the "
+                        "run is recorded cold unless it counts units cached (SPEC §14.2)")
     out = p.add_mutually_exclusive_group()
     out.add_argument("--full", dest="output", action="store_const", const="full",
                      help="stream the command's output through unchanged (the default with a terminal on stdin)")
@@ -1118,8 +1145,9 @@ def build_parser() -> argparse.ArgumentParser:
                           "failing tests' sections (the default without a terminal on stdin)")
     p.add_argument("--log", help="summary mode's log file (default: next to the run's record in the queue)")
     p.set_defaults(fn=None)
-    p = su.add_parser("wait", help="wait for a recorded run to end: its summary and exit code; still running at "
-                                   "the timeout, its elapsed time and exit 3 (SPEC §14.2)")
+    p = su.add_parser("wait", help="wait for a recorded run to end: its summary, then exit 0 when it passed and 1 "
+                                   "when it failed; still running at the timeout, its elapsed time and exit 3 "
+                                   "(SPEC §14.2)")
     p.add_argument("suite_id", help="the suite run's id, from its start line (st-…)")
     p.add_argument("--timeout", type=int, metavar="SECONDS",
                    help="return after this long if the run is still going (default 540, under the 600 s shell limit)")
@@ -1145,6 +1173,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--mutant", action="append",
                    help="<file>:<old>=><new> (the old text once in the file, relative to the worktree), or a patch "
                         "file; repeat for more")
+    p.add_argument("--mutant-file", action="append", metavar="PATH",
+                   help="a mutant in a file: the target file's path on the first line, then a line `=== old`, the "
+                        "old text, a line `=== new` and the new text, so a multi-line mutant needs no shell quoting; "
+                        "repeat for more")
     p.add_argument("--revert", action="append", metavar="PATH[:N[-M]]",
                    help="a mutant that puts back the merge base's version of the file, or of the changes lines N-M of "
                         "the worktree's file touch; repeat for more")
@@ -1550,6 +1582,8 @@ REFRESHES = {("tasks", "claim"), ("tasks", "release"), ("tasks", "drop"), ("task
 def refresh_board(cfg: config.Config, a: argparse.Namespace, code: int) -> None:
     """After a state change succeeds, the board rebuilds in the background (board.refresh)."""
     try:
+        if getattr(a, "read_only", False):  # a dry render (`ccp prompt env`) changed nothing
+            return
         words = tuple(w for w in (a.group, *(getattr(a, k, None) for k in ("cmd", "action", "direction"))) if w)
         listed = any(words[:i] in REFRESHES for i in range(1, len(words) + 1))
         # §25.4: a session park (exit 6) wrote the task's wait, so the board follows it too

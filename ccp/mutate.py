@@ -2,15 +2,18 @@
 time in the seat's worktree, runs the product's one-test command, and records the mutant killed only
 when that test fails.
 
-  ccp mutate --run RUN_ID --test ID [--mutant M …] [--revert PATH[:N[-M]] …]
+  ccp mutate --run RUN_ID --test ID [--mutant M …] [--mutant-file PATH …] [--revert PATH[:N[-M]] …]
 
 `--test` is one test id, passed whole as `{test}`, so it may name a single test method. A mutant is
 `<file>:<old>=><new>` (the text `old`, found exactly once in the file, relative to the worktree's
-root, becomes `new`) or the path of a patch `git apply` takes. A `--revert` mutant puts back the
+root, becomes `new`) or the path of a patch `git apply` takes. A `--mutant-file` holds the same
+substitution without shell quoting, for a mutant that spans lines: the file's path on its first line,
+then a line `=== old`, the old text, a line `=== new` and the new text, each text exactly what lies
+between its marker line and the next (or the file's end); a part missing refuses the call. A `--revert` mutant puts back the
 merge base's version (HEAD's merge base with the integration branch) of a file, or of every change
 from it that a range of the worktree file's lines overlaps or borders, the changes being the hunks
-`git diff -U0` shows between the two. The `--mutant`s come first, then the `--revert`s, each in the
-order given.
+`git diff -U0` shows between the two. The `--mutant`s come first, then the `--mutant-file`s, then the
+`--revert`s, each in the order given.
 
 Every mutant is checked before anything runs. Then the named test runs once unmutated: a test that
 fails already proves nothing, so the command stops there. Each mutant is applied alone, the test
@@ -51,6 +54,7 @@ from ccp.config import Config, fill
 from ccp.queue import QueueError, emit, git, iso
 
 SEP = "=>"
+OLD_MARK, NEW_MARK = b"=== old", b"=== new"  # a --mutant-file's part separators, each a line of its own
 WORKTREE_KINDS = ("impl", "mut", "rev", "ver")  # the seats' worktrees a call may run in (§20.6)
 RANGE_RE = re.compile(r"([1-9][0-9]*)(?:-([1-9][0-9]*))?")
 HUNK_RE = re.compile(rb"^@@ -([0-9]+)(?:,([0-9]+))? \+([0-9]+)(?:,([0-9]+))? @@", re.M)  # a `git diff` hunk header
@@ -68,17 +72,7 @@ def parse(root: Path, spec: str, cwd: Path) -> dict[str, Any]:
         rel, colon, old = target.partition(":")
         if not colon or not rel or not old:
             raise QueueError(f"mutant {spec!r}: a substitution is <file>:<old>=><new>, with a file and the old text", 2)
-        if Path(rel).is_absolute() or ".." in Path(rel).parts:
-            raise QueueError(f"mutant {spec!r}: {rel} must be a path relative to the worktree's root", 2)
-        path = root / rel
-        if not path.is_file() or not _inside(root, path.resolve()):
-            raise QueueError(f"mutant {spec!r}: {rel} is not a file in the worktree", 2)
-        text = path.read_bytes()
-        n = text.count(old.encode())
-        if n != 1:
-            raise QueueError(f"mutant {spec!r}: the old text is in {rel} {n} times; a mutant names one place", 2)
-        digest = hashlib.sha256(b"\0".join((rel.encode(), old.encode(), new.encode()))).hexdigest()[:12]
-        return {"kind": "text", "files": [rel], "old": old.encode(), "new": new.encode(), "digest": digest}
+        return _substitution(root, f"mutant {spec!r}", rel, old.encode(), new.encode())
     patch = Path(spec) if Path(spec).is_absolute() else cwd / spec
     if not patch.is_file():
         raise QueueError(f"mutant {spec!r} is neither <file>:<old>=><new> nor a patch file", 2)
@@ -95,6 +89,51 @@ def parse(root: Path, spec: str, cwd: Path) -> dict[str, Any]:
             raise QueueError(f"mutant {spec!r}: {rel} is outside the worktree", 2)
     return {"kind": "patch", "files": files, "patch": patch,
             "digest": hashlib.sha256(patch.read_bytes()).hexdigest()[:12]}
+
+
+def _substitution(root: Path, label: str, rel: str, old: bytes, new: bytes) -> dict[str, Any]:
+    """A text mutant: `old`, found exactly once in the worktree file `rel`, becomes `new`. Checked against
+    the unmutated tree; nothing is written."""
+    if Path(rel).is_absolute() or ".." in Path(rel).parts:
+        raise QueueError(f"{label}: {rel} must be a path relative to the worktree's root", 2)
+    path = root / rel
+    if not path.is_file() or not _inside(root, path.resolve()):
+        raise QueueError(f"{label}: {rel} is not a file in the worktree", 2)
+    n = path.read_bytes().count(old)
+    if n != 1:
+        raise QueueError(f"{label}: the old text is in {rel} {n} times; a mutant names one place", 2)
+    digest = hashlib.sha256(b"\0".join((rel.encode(), old, new))).hexdigest()[:12]
+    return {"kind": "text", "files": [rel], "old": old, "new": new, "digest": digest}
+
+
+def parse_file(root: Path, spec: str, cwd: Path) -> dict[str, Any]:
+    """One `--mutant-file`: the target file's path on the first line, then a line `=== old`, the old text,
+    a line `=== new` and the new text (§20.6). Each text is exactly the bytes between its marker line and
+    the next marker line or the file's end, so a mutant spanning lines needs no shell quoting. A part
+    missing (the path, either marker, or the old text) refuses the call (exit 2). Checked against the
+    unmutated tree; nothing is written."""
+    label = f"mutant file {spec!r}"
+    f = Path(spec) if Path(spec).is_absolute() else cwd / spec
+    if not f.is_file():
+        raise QueueError(f"{label} is not a file", 2)
+    lines = f.read_bytes().splitlines(keepends=True)
+    rel = lines[0].rstrip(b"\r\n").decode(errors="replace").strip() if lines else ""
+    if not rel or rel.encode() in (OLD_MARK, NEW_MARK):
+        raise QueueError(f"{label}: its first line names no file; it holds the file's path, then `=== old`, the old "
+                         "text, `=== new` and the new text", 2)
+    marks = [ln.rstrip(b"\r\n") for ln in lines]
+    if OLD_MARK not in marks[1:]:
+        raise QueueError(f"{label}: no line `=== old` before the old text", 2)
+    i = marks.index(OLD_MARK, 1)
+    if NEW_MARK not in marks[i + 1:]:
+        raise QueueError(f"{label}: no line `=== new` after the old text", 2)
+    j = marks.index(NEW_MARK, i + 1)
+    if NEW_MARK in marks[1:i]:
+        raise QueueError(f"{label}: `=== new` comes before `=== old`", 2)
+    old, new = b"".join(lines[i + 1:j]), b"".join(lines[j + 1:])
+    if not old:
+        raise QueueError(f"{label}: the old text between `=== old` and `=== new` is empty", 2)
+    return _substitution(root, label, rel, old, new)
 
 
 def _relpath(root: Path, spec: str, rel: str) -> Path:
@@ -404,21 +443,22 @@ def log_path(q: Path, run_id: str) -> Path:
 
 
 def run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], cwd: Path | None = None,
-        reverts: list[str] | None = None) -> tuple[dict[str, Any], int]:
+        reverts: list[str] | None = None, mutant_files: list[str] | None = None) -> tuple[dict[str, Any], int]:
     with _on_sigterm() as stop:
-        return _run(cfg, q, run_id, test, mutants, reverts or [], cwd, stop)
+        return _run(cfg, q, run_id, test, mutants, reverts or [], cwd, stop, mutant_files or [])
 
 
 def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], reverts: list[str],
-         cwd: Path | None, stop: _Stop) -> tuple[dict[str, Any], int]:
+         cwd: Path | None, stop: _Stop, mutant_files: list[str] | None = None) -> tuple[dict[str, Any], int]:
+    mutant_files = mutant_files or []
     mu = cfg.mutate or {}
     if not mu.get("command"):
         raise QueueError("plane.json names no mutate.command: the product has no command that runs one test "
                          "(§20.6)", 2)
     if not test.strip():
         raise QueueError("--test names the test a mutant is judged by", 2)
-    if not mutants and not reverts:
-        raise QueueError("give at least one --mutant <file>:<old>=><new> or patch file, "
+    if not mutants and not reverts and not mutant_files:
+        raise QueueError("give at least one --mutant <file>:<old>=><new> or patch file, --mutant-file <path>, "
                          "or --revert <path>[:<lines>]", 2)
     runs.parse_id(run_id)
     rec = runs.load(q, run_id)
@@ -428,6 +468,7 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
     st = _worktree(cfg, q, task_id)
     root = cfg.root.resolve()
     parsed = [parse(root, m, cwd or Path.cwd()) for m in mutants]
+    parsed += [parse_file(root, m, cwd or Path.cwd()) for m in mutant_files]
     base = None
     if reverts:
         from ccp import wt  # noqa: PLC0415
@@ -483,4 +524,4 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
     return out, 0 if killed == len(rows) else 1
 
 
-__all__ = ["log_path", "parse", "parse_revert", "run"]
+__all__ = ["log_path", "parse", "parse_file", "parse_revert", "run"]

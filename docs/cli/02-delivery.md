@@ -31,6 +31,7 @@ argument takes the full id or its number.
 | Command | Who | SPEC |
 |---|---|---|
 | `ccp prompt <phase> <id> [--round n] [--note "…"]` (`<phase>`: `implement`, `fix`, `merge`, `ruling`, `review` or `verify`; `--note-file PATH` for the note; `--head SHA`, `--supersede`, `--allow-unreviewed-fix --reason "…"`; a verify round with no fix round since the last needs `--note`) | runner | §13.2, §15.2, §15.6 |
+| `ccp prompt env <worktree>` (its path or recorded name: the `worker_env` lines its workers would get; opens no run) | runner, lead | §13.3 |
 | `ccp report <run_id> FILE` | each worker | §13.4 |
 | `ccp agent start\|stop` | the harness's hooks | §11.1 |
 | `ccp runs gc [--dry-run]` | lead, runner | §11.1 |
@@ -43,7 +44,7 @@ argument takes the full id or its number.
 
 | Command | Who | SPEC |
 |---|---|---|
-| `ccp suite run [--lane L] [--run <run_id> \| --task <id> [--phase P]] [--full \| --summary] [--log PATH] [-- <command>]` (also `--wait SECONDS`) | each worker | §14 |
+| `ccp suite run [--lane L] [--run <run_id> \| --task <id> [--phase P]] [--full \| --summary] [--log PATH] [-- <command>]` (also `--wait SECONDS`, `--cold`) | each worker | §14 |
 | `ccp suite wait <suite_id> [--timeout SECONDS]` | each worker | §14.2 |
 | `ccp suite list [--task ID]` | anyone | §14.4 |
 | `ccp suite affected [--since REF \| --since A..B \| --paths PATH …]` | each worker | §14.7 |

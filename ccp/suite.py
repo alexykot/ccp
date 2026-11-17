@@ -1,8 +1,8 @@
 """`ccp suite run|wait|list|affected` (SPEC §10, §14.1, §14.2, §14.7): workers run their tests through `ccp`,
 which records how long each run took, wait on a run's summary, and ask it which test modules a change touches.
 
-  ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--full | --summary] [--log PATH]
-                [-- COMMAND …]
+  ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--cold] [--full | --summary]
+                [--log PATH] [-- COMMAND …]
   ccp suite wait SUITE_ID [--timeout SECONDS]
   ccp suite list [--task ID]
   ccp suite affected [--since REF | --since A..B | --paths PATH …]
@@ -35,7 +35,10 @@ it does not, each line is matched against the product's `suite.count_re` (defaul
 numbers are summed, and nothing else of the output, or of the result file, is kept in the records:
 failure ids are shown in the summary, never recorded. The command's environment is the caller's,
 unchanged, plus CCP_SUITE_ID and CCP_SUITE_RESULT: `bin/ccp` sets no variable, and a QUEUE_ROOT
-`ccp` finds from the binding when the caller set none stays `ccp`'s own. A lane's stages run in a
+`ccp` finds from the binding when the caller set none stays `ccp`'s own. `--cold` asks for a cold run
+the same way in every product: what the run starts also gets CCP_SUITE_COLD=1, which a product's gate
+reads as its own cold option, and the `ended` row records `cold: true` unless the run's own count shows
+units cached. A lane's stages run in a
 worktree `ccp wt` made also get that worktree's `CCP_WT_<FIELD>` variables, the ones its env hooks
 get (§12.2), and its task as `CCP_TASK_ID` and `CCP_NNNN`; a command after `--` gets none. A
 `ccp suite run` inside it records nothing and writes no log: it becomes its command, so the outer run
@@ -70,9 +73,10 @@ else the one running worker run whose worktree holds the current directory. A `s
 no end is `killed` once its run has stopped or reported, or after KILLED_AFTER_S.
 
 `wait` returns when a recorded run's `ended` row is written: it prints the summary `run` printed, rebuilt
-from the row and the log, and exits with the run's exit code. A run still going at `--timeout` (default
-WAIT_TIMEOUT_S) prints its elapsed time and exits 3; an id with no record exits 2; a run §14.4 counts as
-killed exits 1 at once, since it will never end. It writes nothing.
+from the row and the log (the run's own exit code in it), and exits 0 when the run passed and 1 when it
+failed, so a run whose command exited 3 never reads as still going. A run still going at `--timeout`
+(default WAIT_TIMEOUT_S) prints its elapsed time and exits 3; an id with no record exits 2; a run §14.4
+counts as killed exits 1 at once, since it will never end. It writes nothing.
 
 `affected` prints the test modules a change touches, for the `part` lane, and runs nothing (§14.7). The
 change is `--paths` (normalised, relative to the root), else what `git diff REF` (default HEAD) names
@@ -113,6 +117,7 @@ from ccp.config import PLANE_DOCS_STAGE, SUITE_LANE_RE, Config, fill, lane_for, 
 from ccp.queue import QueueError, emit, iso, root
 
 DEFAULT_COUNT_RE = r"^Ran (\d+) tests? in "
+COLD_VAR = "CCP_SUITE_COLD"  # §14.2: `ccp suite run --cold` sets it to 1 for what the run starts
 LINE_MAX = 8192  # a partial line longer than this is dropped from the count scan, never from the output
 
 
@@ -1042,8 +1047,10 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         os.chdir(cfg.root)  # a named lane runs from the checkout's root, as a product script expects
     _reopen_closed_std_fds()
     wt_env = worktree_env(cfg, command, warn)
+    cold_env = for_child({COLD_VAR: "1"}) if getattr(a, "cold", False) else {}  # §14.2: the cold run, in every product
     if envvar("CCP_SUITE_ID"):
-        inner = {**(os.environ if caller_env is None else caller_env), **wt_env} if wt_env else caller_env
+        inner = {**(os.environ if caller_env is None else caller_env), **wt_env, **cold_env} \
+            if wt_env or cold_env else caller_env
         if len(stages) > 1:
             return _passthrough_stages(stages, inner)  # the outer `ccp suite run` records this time
         return _passthrough(argv, inner)  # the outer `ccp suite run` records this time
@@ -1227,7 +1234,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
             # else (§14.2): outside a `ccp wt` worktree, a test cache that hashes the environment finds the
             # same entries from a plain shell and from `ccp suite run`. Each stage writes its own result file.
             result_path = Path(tempfile.gettempdir()) / f"ccp-suite-result-{suite_id}{f'-{i}' if i else ''}.json"
-            env = {**(os.environ if caller_env is None else caller_env), **wt_env,
+            env = {**(os.environ if caller_env is None else caller_env), **wt_env, **cold_env,
                    **for_child({"CCP_SUITE_ID": suite_id, "CCP_SUITE_RESULT": str(result_path)})}
             rc, s_secs = _run_stage(stage["argv"], env, log_fd, merged, own_group, counters, current)
             code = 128 - rc if rc < 0 else rc
@@ -1308,7 +1315,8 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         _say(f"ccp suite: {suite_id}: failing (from the gate's result): {', '.join(_cut(x) for x in shown)}"
              + (f" and {len(failures) - len(shown)} more" if len(failures) > len(shown) else "") + "\n")
     _finish(cfg, q, started, warn, code, seconds, tests, sig, fields, log, source, problem,
-            done if stages[0]["name"] is not None else None, failed_stage, proven, mods)
+            done if stages[0]["name"] is not None else None, failed_stage, proven, mods,
+            asked_cold=bool(cold_env))
     if lane_fd is not None and lane_fd >= 0 and q is not None:
         release_lane(q, suite_id)  # a normal end: the next holder is not told this one died
     return code
@@ -1399,12 +1407,15 @@ def _finish(cfg: Config | None, q: Path | None, started: dict[str, Any] | None, 
             seconds: float, tests: int | None, sig: int | None, fields: dict[str, int | None] | None = None,
             log: Path | None = None, source: str = "output", problem: str | None = None,
             stages: list[dict[str, Any]] | None = None, failed_stage: str | None = None,
-            proven: list[dict[str, Any]] | None = None, modules: list[dict[str, Any]] | None = None) -> None:
+            proven: list[dict[str, Any]] | None = None, modules: list[dict[str, Any]] | None = None,
+            asked_cold: bool = False) -> None:
     if q is None or started is None:
         return
     name = _sig_name(sig)
     nums = {f: (fields or {}).get(f) for f in SUMMARY_FIELDS}
     cold = run_cold(nums.get("cached"))
+    if asked_cold and cold is None:  # §14.2 `--cold`: asked for and not contradicted by the run's own count
+        cold = True
     row = {"op": "ended", "suite_id": started["suite_id"], "at": iso(), "exit_code": code,
            "seconds": round(seconds, 3), "tests": tests, **nums, "cold": cold, "counts_from": source,
            **({"result_problem": problem[:80]} if problem else {}),
@@ -1677,16 +1688,17 @@ def ended_summary(cfg: Config | None, started: dict[str, Any] | None, ended: dic
 
 
 def wait(cfg: Config | None, q: Path, suite_id: str, timeout: float) -> int:
-    """`ccp suite wait`: the run's summary and exit code once its `ended` row is written; still going at
-    `timeout`, its elapsed time and exit 3. An id with no record exits 2, and a run §14.4 counts as
-    killed (it will never end) exits 1 at once."""
+    """`ccp suite wait`: once its `ended` row is written, the run's summary (its own exit code in it), then
+    exit 0 when it passed and 1 when it failed (§10.6), so a command's own exit 3 never reads as still
+    going; still going at `timeout`, its elapsed time and exit 3. An id with no record exits 2, and a run
+    §14.4 counts as killed (it will never end) exits 1 at once."""
     deadline = time.monotonic() + timeout
     while True:
         started, ended = _rows(q, suite_id)
         if ended is not None:
             _say(ended_summary(cfg, started, ended))
             code = ended.get("exit_code")
-            return code if isinstance(code, int) and not isinstance(code, bool) else 1
+            return 0 if code == 0 and not isinstance(code, bool) else 1
         if started is None:
             print(f"ccp suite: no suite run {suite_id} is recorded in this queue", file=sys.stderr)
             return 2
