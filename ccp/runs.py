@@ -324,6 +324,18 @@ def stop(q: Path, cfg: Config, agent_id: str) -> dict[str, Any] | None:
     return None
 
 
+def opened_after(q: Path, rec: dict[str, Any]) -> dict[str, Any] | None:
+    """§13.4: the first run of `rec`'s task, of any phase and in any state, opened after `rec`, or None.
+    The runner reads a report and then opens the task's next run, so while there is none, nothing has
+    acted on the report and it may be corrected. Record times are to the second: a run opened in the
+    same second as `rec` counts as after it, so a report is never corrected under a runner that may
+    already have acted on it."""
+    mine = str(rec.get("opened_at") or "")
+    later = [r for r in all_runs(q, str(rec.get("task_id") or ""))
+             if r.get("run_id") != rec.get("run_id") and str(r.get("opened_at") or "") >= mine]
+    return later[0] if later else None
+
+
 def latest_open(q: Path, task_id: str, phase: str) -> dict[str, Any] | None:
     """The newest run of this phase that has not reported or been abandoned."""
     for rec in reversed(all_runs(q, task_id)):

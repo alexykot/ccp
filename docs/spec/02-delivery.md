@@ -504,7 +504,11 @@ looks like a secret, as `ccp prompt` does.
 
 A worker submits its report with `ccp report <run_id> FILE`, which checks its shape, stores it at the
 run's report path (`progress/<task_id>/<phase>[-<n>].md`), closes the run, and records the suite
-metrics and every friction line. Report lines:
+metrics and every friction line. A run already reported takes a corrected report, checked like a first
+one, until a later run of its task opens (the runner has then acted on it, and the correction is refused
+naming that run): the run's report fields become the corrected report's, the earlier stored report is
+kept beside it as `<stem>.superseded-<k>.md` and listed in the run's `corrections`, and the friction lines
+and suite filing stay the first submission's. Report lines:
 
 - `Outcome: done|blocked|failed` always;
 - `PR:` and `Head:` for implement, fix, merge and ruling;

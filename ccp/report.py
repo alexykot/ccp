@@ -32,6 +32,13 @@ the run: they are the worker's statement. What `ccp health` gets, for a report w
 (a verify: approve), is the run's recorded `ccp suite` runs, each filed under its kind (cold, warm, part, unverified; `health.file_suites`); only a run with
 no suite record falls back to the line. A `Suite:` line with no `ccp suite run` recorded against the
 run is a warning, never a refusal (§14.1).
+
+A run already reported takes a corrected report while no later run of its task has opened (§13.4,
+`runs.opened_after`): nothing has acted on it yet. The correction is checked like a first report; the
+stored one is kept beside it as `<stem>.superseded-<k>.md`, the run's `corrections` gets `{at, superseded}`,
+its report fields are the corrected report's, and the `run reported` event (`corrected: true`) and a
+review's `review recorded` event are written again. Its friction lines and suite filing are not recorded
+again: those are the first submission's.
 """
 from __future__ import annotations
 
@@ -318,12 +325,35 @@ def parse(phase: str, text: str, accept_cache: bool = False,
     return out, errs
 
 
+# The run record's fields a report's lines give (§13.4); a correction replaces them all.
+PARSED_KEYS = ("pr", "head", "verdict", "severity", "spec_beyond_intent", "suite_tests", "suite_seconds", "suite_ran",
+               "suite_cached", "suite_from", "suite_filled", "fields")
+
+
+def _supersede(src: Path, dest: Path) -> Path | None:
+    """§13.4: keep the stored report `dest` beside it as `<stem>.superseded-<k>.md`, `k` the first free
+    from 1, before a correction replaces it. None when there is nothing earlier to keep: the corrected
+    file is the stored one, edited in place, or no report is stored."""
+    if not dest.is_file() or src.resolve() == dest.resolve():
+        return None
+    k = 1
+    while (kept := dest.with_name(f"{dest.stem}.superseded-{k}{dest.suffix}")).exists():
+        k += 1
+    shutil.copyfile(dest, kept)
+    return kept
+
+
 def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
     q = root()
     rec = runs.load(q, run_id)
     state = runs.state(rec)
-    if state in ("reported", "abandoned"):
+    if state == "abandoned":
         raise QueueError(f"{run_id} is already {state}: a new launch needs a new run (ccp prompt)", 1)
+    correcting = state == "reported"  # §13.4: a correction, while nothing has acted on the report
+    if correcting and (later := runs.opened_after(q, rec)):
+        raise QueueError(f"{run_id} is already reported, and a later run of its task, {later['run_id']}, has opened "
+                         "since: the runner may have acted on the report, so it is not corrected (SPEC §13.4). "
+                         "Tell the runner what changed", 1)
     src = Path(file)
     if not src.is_file():
         raise QueueError(f"{file}: no such report file", 2)
@@ -349,17 +379,28 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
                              f"{str(rec.get('head'))[:12]} (ccp verify record)", 1)
     dest = runs.report_path(q, run_id)
     dest.parent.mkdir(parents=True, exist_ok=True)
+    warnings = list(fill_warnings)
+    if correcting:
+        superseded = _supersede(src, dest)
+        if superseded is None:
+            warnings.append(f"the corrected report is the stored one ({dest}), edited in place: the earlier report "
+                            "was overwritten before this correction, so none is kept as superseded")
+        rec["corrections"] = [*(rec.get("corrections") or []),
+                              {"at": iso(), "superseded": str(superseded) if superseded else None}]
+        for k in PARSED_KEYS:  # the run's figures are the corrected report's, none left from the earlier one
+            if not (rec["phase"] == "verify" and k in ("verdict", "head")):  # those are `ccp verify record`'s
+                rec.pop(k, None)
     if src.resolve() != dest.resolve():
         shutil.copyfile(src, dest)
     tid = rec["task_id"]
     # §27.2: the run's recorded suite runs, each under its kind; the line only when none is recorded.
-    # Only a finished piece of work counts: outcome done, and for a verify, approve.
-    if parsed.get("outcome") == "done" and parsed.get("verdict") != "reject":
+    # Only a finished piece of work counts: outcome done, and for a verify, approve. A correction files
+    # nothing again: the suite filing and the friction lines are the first submission's (§13.4).
+    if not correcting and parsed.get("outcome") == "done" and parsed.get("verdict") != "reject":
         line = SUITE_ANY_RE.search(text)
         health.file_suites(cfg, q, run_id, tid, parsed, line.group(0) if line else None)
-    for line in parsed.get("friction") or []:
+    for line in [] if correcting else parsed.get("friction") or []:
         health.add_note(q, line, tid, rec["seat"], "worker")
-    warnings = list(fill_warnings)
     try:
         from ccp import suite  # noqa: PLC0415
         got = suite.recorded_for(q, run_id)
@@ -369,14 +410,13 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
                             f"suite through `ccp suite run --run {run_id} --lane <name> -- <command>` (SPEC §14.1)")
     except Exception:  # noqa: BLE001  (a cross-check never refuses a report)
         pass
-    rec.update(reported_at=iso(), outcome=parsed["outcome"], report=str(dest),
-               friction_count=len(parsed.get("friction") or []),
-               **{k: parsed[k] for k in ("pr", "head", "verdict", "severity", "spec_beyond_intent", "suite_tests",
-                                         "suite_seconds", "suite_ran", "suite_cached", "suite_from", "suite_filled",
-                                         "fields") if k in parsed})
+    if not correcting:  # a correction keeps the time the run closed: its figures change, not its timing
+        rec["reported_at"] = iso()
+    rec.update(outcome=parsed["outcome"], report=str(dest), friction_count=len(parsed.get("friction") or []),
+               **{k: parsed[k] for k in PARSED_KEYS if k in parsed})
     runs.save(q, rec)
-    emit(q, cfg, tid, "run", "reported", {"run_id": run_id, "outcome": rec["outcome"]},
-         _actor_for(rec["seat"]))
+    emit(q, cfg, tid, "run", "reported",
+         {"run_id": run_id, "outcome": rec["outcome"], **({"corrected": True} if correcting else {})}, _actor_for(rec["seat"]))
     if rec["phase"] == "review" and "severity" in parsed:
         verdict = "changes" if parsed["severity"]["BLOCKER"] or parsed["severity"]["MAJOR"] else "clean"
         emit(q, cfg, tid, "review", "recorded", {"run_id": run_id, "verdict": verdict, "severity": parsed["severity"]},
@@ -385,7 +425,7 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
         "outcome", "pr", "head", "verdict", "severity", "spec_beyond_intent", "suite_tests", "suite_seconds",
         "suite_ran", "suite_cached",
         "suite_from", "suite_filled", "friction_count", "fields",
-        "suite_runs_recorded", "suite_s_recorded")}, **({"warnings": warnings} if warnings else {})}
+        "suite_runs_recorded", "suite_s_recorded", "corrections")}, **({"warnings": warnings} if warnings else {})}
 
 
 def _actor_for(seat: str) -> str:

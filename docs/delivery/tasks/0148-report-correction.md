@@ -95,4 +95,20 @@ superseded.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `runs.opened_after` gives the test: a run of the same task, any phase or
+  state, opened after the reported one. Record times are to the second, so a run opened in the same
+  second counts as after it (the conservative side: never correct under a runner that may have acted).
+- The earlier report is kept by copying the stored one to `<stem>.superseded-<k>.md`, `k` the first free
+  from 1. A worker that edits the stored file in place and submits it again has already overwritten the
+  earlier text: the correction still goes through, the `corrections` entry has `superseded: null` and
+  a warning says so. The `_common.md` sentence therefore tells the worker to write the corrected report
+  to a new file, not over the recorded one.
+- A correction keeps the run's `reported_at` (the time it closed); its fields from the report (`PR`,
+  `Head`, verdict, severity, spec_beyond_intent, suite numbers, declared fields) are removed and set from
+  the corrected report, so none stays from the earlier one, except a verify run's `verdict` and `head`,
+  which are `ccp verify record`'s. `friction_count` is the corrected report's; the health notes and the
+  suite filing are the first submission's.
+- `tests/test_toolkit.py`'s double-report check now opens a later run first: a second report on a run with
+  no later run is a correction now.
+
 ## Verification notes

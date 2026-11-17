@@ -385,9 +385,11 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.assertEqual([n["by"] for n in notes], ["implementer", "implementer"])
         metrics = {json.loads(x)["metric"] for x in (self.q / "health/metrics.jsonl").read_text().splitlines()}
         self.assertEqual(metrics, {"suite_tests", "suite_seconds"})
+        self.ccp("prompt", "review", "0002", "--pr", "7", "--head", "a" * 40)  # the next run: the report was acted on
         code, _, _, err = self.report("0002-second/implement", "Outcome: done\n## Friction\nnone\n")
         self.assertEqual(code, 1)
         self.assertIn("already reported", err)
+        self.assertIn("0002-second/review", err)
 
     def test_review_report_records_severity(self):
         self.ccp("tasks", "claim", "0002")
