@@ -262,6 +262,57 @@ KEYS_AT = {
         "verdict",
         "verifier_seat",
     ],
+    4: [
+        "access_mode",
+        "catch_up",
+        "catch_up.from",
+        "catch_up.gate_run",
+        "catch_up.merge_tree",
+        "catch_up.task_files",
+        "catch_up.tip",
+        "catch_up.tip_files",
+        "catch_up.to",
+        "checked_at",
+        "checks",
+        "checks.as_written",
+        "checks.dod_check_id",
+        "checks.evidence",
+        "checks.held_instead",
+        "checks.notes",
+        "checks.operator_step",
+        "checks.pass",
+        "checks.produced_by",
+        "checks.ran",
+        "checks.rests_on",
+        "checks.ruling",
+        "evidence_pack_path",
+        "findings",
+        "gate",
+        "gate.ci_run",
+        "gate.runs",
+        "gate.runs.cached",
+        "gate.runs.cold",
+        "gate.runs.command",
+        "gate.runs.exit_code",
+        "gate.runs.modules_cached",
+        "gate.runs.modules_ran",
+        "gate.runs.ran",
+        "gate.runs.seconds",
+        "gate.runs.suite_id",
+        "gate.runs.tests_run",
+        "gate.runs.tests_skipped",
+        "head_sha",
+        "merge_requested",
+        "project_id",
+        "proof_urls",
+        "proof_urls.local",
+        "proof_urls.verifier",
+        "schema_version",
+        "spec_beyond_intent",
+        "task_id",
+        "verdict",
+        "verifier_seat",
+    ],
 }
 
 
@@ -429,6 +480,10 @@ class Record(unittest.TestCase):
     def test_the_example_record_passes_and_the_verifier_brief_names_it(self):
         example = json.loads((ROOT / "contracts/verification.example.json").read_text())
         self.assertEqual(example["schema_version"], verify.RECORD_VERSION)
+        gates = self.q / "escalations" / "0042-example-task"  # the gate its not-as-written check cites
+        gates.mkdir(parents=True)
+        (gates / "1.json").write_text(json.dumps({"task_id": "0042-example-task", "escalation_id": "0042-example-task-1",
+                                                  "class": "other", "status": "closed", "decision": "approved"}))
         code, _, err = self.record({**example, "task_id": "0001-a", "project_id": "demo"})
         self.assertEqual(code, 0, err)
         self.assertIn("contracts/verification.example.json",

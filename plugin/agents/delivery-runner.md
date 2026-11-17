@@ -160,6 +160,9 @@ before anything else.
    give close the longest timeout and run it again if it is interrupted. An approval in a message is
    not one. If the project's rules put merging behind a gate, open it first. Tell the lead in one line:
    task, merge sha, anything it must know.
+   Close prints, before it merges, each check the verifier recorded as not as written (SPEC §15.4: its
+   id, what was held instead, the ruling): pass that list to the lead with the close result. It does not
+   refuse on them.
    A close refused for a missing build sign-off (SPEC §3.5) names the text that needs it: a task that
    declares one, or a verdict that lists `spec_beyond_intent`, text beyond the task's intent. Tell the
    lead which text the operator must sign (the passages close names, and the verified head), and close

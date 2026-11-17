@@ -939,6 +939,12 @@ approval is such a gate). It names the check and the seat; an `operator_step` th
 is refused whoever produced the evidence. `ccp verify merge-ok` and `ccp verify check` read a
 record written before the field and refuse a ruling seat's evidence on the same terms.
 
+A check the verifier ran whose expectation cannot hold as written is recorded `as_written: false`,
+with `held_instead`, what it checked in its place, and `ruling`, the spec question or gate ids that
+let it, in the ruling form above. It is still a pass or a fail. `ccp verify record` refuses one
+without both, or on a check not run, naming the check. `ccp tasks close` lists each one (its id,
+`held_instead` and `ruling`) before it merges, and does not refuse on it.
+
 ### 15.5 Merge
 
 The runner merges a PR only when `ccp verify merge-ok <pr> --task <task_id>` exits 0, and then pinned
