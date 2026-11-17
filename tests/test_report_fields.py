@@ -11,6 +11,7 @@ from ccp import config, report
 from tests.test_toolkit import PLANE, ToolkitFixture
 
 MIGRATION = {"name": "migration", "values": ["required", "not required"]}
+DOWNTIME = {"name": "downtime", "values": ["yes", "no"]}
 HEAD = "a" * 40
 
 
@@ -167,6 +168,22 @@ class Declared(ToolkitFixture, unittest.TestCase):
         self.assertNotIn("report_fields", body)
 
 
+class DeclaredYesNo(ToolkitFixture, unittest.TestCase):
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "report": {"required_fields": [DOWNTIME]}}
+
+    def test_a_reason_starting_with_the_other_value_is_accepted_and_the_template_refused(self):
+        self.ccp("tasks", "claim", "0002")
+        code, _, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
+        self.assertEqual(code, 0, out + err)
+        code, _, out, err = self.report("0002-second/implement", implement_report("Downtime: yes|no"))
+        self.assertEqual(code, 1, out + err)
+        self.assertIn("`downtime:` on line 4 says `yes|no`", err)
+        code, body, out, err = self.report("0002-second/implement",
+                                           implement_report("Downtime: yes, no downtime needed"))
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["fields"], {"downtime": "yes"})
+
+
 class Parse(unittest.TestCase):
     def test_the_longest_declared_value_that_fits_wins(self):
         deploy = [{"name": "Deploy step", "values": ["yes", "yes after the migration"]}]
@@ -191,6 +208,28 @@ class Parse(unittest.TestCase):
                 got, errs = report.fields(f"migration: {said}\n", [MIGRATION])
                 self.assertEqual(errs, [])
                 self.assertEqual(got["migration"], said.split(",")[0].split(" /")[0].split(" or")[0])
+
+    def test_a_reason_that_starts_with_another_declared_value_is_not_the_template(self):
+        for said, want in (("yes, no downtime needed", "yes"), ("no / yes was the old answer", "no"),
+                           ("yes or no restart either", "yes"), ("`no`, yes it was asked", "no")):
+            with self.subTest(said=said):
+                self.assertEqual(report.fields(f"downtime: {said}\n", [DOWNTIME]), ({"downtime": want}, []))
+        for said in ("yes|no", "yes | no", "`no` | `yes`", "yes|no downtime needed", "yes | see the runbook",
+                     "yes, no", "yes or no.", "`no` / `yes`"):
+            with self.subTest(said=said):
+                got, errs = report.fields(f"downtime: {said}\n", [DOWNTIME])
+                self.assertEqual(got, {})
+                self.assertEqual(len(errs), 1)
+
+    def test_a_longer_template_is_refused_and_a_reason_after_it_is_not(self):
+        level = [{"name": "level", "values": ["low", "medium", "high"]}]
+        for said in ("low|medium|high", "low|medium", "high | low", "low, medium or high", "low / medium / high.",
+                     "low, medium | high and more"):
+            with self.subTest(said=said):
+                self.assertEqual(report.fields(f"level: {said}\n", level)[0], {})
+        for said in ("low, medium at worst", "low, medium or high if the cache is cold"):
+            with self.subTest(said=said):
+                self.assertEqual(report.fields(f"level: {said}\n", level), ({"level": "low"}, []))
 
     def test_a_pipe_in_the_reason_is_not_the_template(self):
         self.assertEqual(report.fields("migration: not required (a|b unchanged)\n", [MIGRATION]),

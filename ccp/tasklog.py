@@ -104,9 +104,14 @@ CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)[^\n]+?(?<!`)\1(?!`)")
 # §5: a measured premise in Context names the command that measured it. A number here is a figure
 # stated in prose: a run of digits that is not part of an id or a ref (`R5`, `§31.1`, `ADR-0033`,
 # `PR #89`, a date, a time, a sha), not a zero-padded id (`0197`), not a list marker and not in a
-# date written with its month's name (`11 Nov 2026`, `November 11, 2026`). A command is a
-# code span of at least two words (`git grep -c foo`); a lone path or id in backticks is not one.
-CONTEXT_NUMBER_RE = re.compile(r"(?<![\w§.\-/:#])(?!0\d)\d+(?:[.,]\d+)*(?![\w\-/:]|[.,]\d)")
+# date written with its month's name (`11 Nov 2026`, `November 11, 2026`). A size or a time joined
+# to its unit (`40MB`, `300ms`) and a dash range (`5-10`, `2-3s`) are numbers too; a year and month
+# (`2026-11`) is not. A command is a code span of at least two words (`git grep -c foo`); a lone path
+# or id in backticks is not one.
+_NUM = r"\d+(?:[.,]\d+)*"
+_UNIT = r"(?i:[kmgtp]i?b|b|k|m|ns|us|µs|ms|s|secs?|mins?|h|hrs?|d|x)"
+CONTEXT_NUMBER_RE = re.compile(rf"(?<![\w§.\-/:#])(?!0\d)(?!(?:19|20)\d\d-(?:0[1-9]|1[0-2])(?!\d))"
+                               rf"{_NUM}(?:-{_NUM})?{_UNIT}?(?![\w\-/:]|[.,]\d)")
 LIST_MARKER_RE = re.compile(r"^([ \t]*)\d+[.)](?=[ \t])")
 _MONTH = (r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|"
           r"Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?")
@@ -500,9 +505,9 @@ def unmeasured_numbers(t: dict[str, Any], rel: str) -> list[str]:
         if any(len(span.group(0).strip("`").split()) > 1 for span in CODE_SPAN_RE.finditer(line)):
             continue
         prose = WORD_DATE_RE.sub(_blank, LIST_MARKER_RE.sub(r"\1", CODE_SPAN_RE.sub(_blank, line)))
-        m = CONTEXT_NUMBER_RE.search(prose)
-        if m:
-            out.append(f"{rel}:{first + n}: Context states a number ({m.group(0)}) with no backticked command on "
+        nums = [m.group(0) for m in CONTEXT_NUMBER_RE.finditer(prose)]
+        if nums:
+            out.append(f"{rel}:{first + n}: Context states a number ({', '.join(nums)}) with no backticked command on "
                        "its line: name the command that measured it and the commit it ran at (§5)")
     return out
 

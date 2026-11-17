@@ -203,7 +203,7 @@ def _tasks(cfg: Config, q: Path, report: dict[str, Any], limit: int = 60) -> tup
         extra = per_task.get(row["task_id"], {"tokens": {}, "cost_usd": 0.0, "flags": []})
         rows.append({k: row.get(k) for k in ("task_id", "merged_at", "merge_sha", "wall_s", "implementing_s",
                                               "reviewing_s", "verifying_s", "fix_rounds", "review_rounds",
-                                              "verify_rounds", "files", "lines", "areas", "metrics", "times",
+                                              "verify_rounds", "merge_rounds", "ruling_rounds", "files", "lines", "areas", "metrics", "times",
                                               "prompts", "implement_prompt_chars")}
                     | {"tokens": extra["tokens"], "cost_usd": round(extra["cost_usd"], 4), "flags": extra["flags"]}
                     | _suite_fields(suites.get(row["task_id"])))

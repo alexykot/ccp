@@ -10,6 +10,7 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
 from ccp import board, drill
 from tests.test_board_quality import HOSTILE, STUB, Base, _hostile
@@ -180,6 +181,21 @@ class Built(Fixture, unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertIn("no task 9999", err)
         self.assertEqual(self.ccp("board", "task", root=self.main)[0], 2)
+
+    def test_the_board_and_ccp_board_task_show_healths_merge_and_ruling_rounds(self):
+        self.seed()
+        _run(self.q, "0002-second", "merge", 2100, 2200, "agent-m")
+        _run(self.q, "0002-second", "ruling", 2300, 2400, "agent-r")
+        row = _row("0002-second", 3000, 3000) | {"merge_rounds": 2, "ruling_rounds": 3}
+        with mock.patch("ccp.health.collect", return_value={"tasks": [row]}):
+            b, _ = self.build()
+            code, _, out, err = self.ccp("board", "task", "0002", root=self.main)
+        self.assertEqual(code, 0, err)
+        rounds = b["drill"]["0002-second"]["rounds"]
+        self.assertEqual((rounds["merge"], rounds["ruling"]), (2, 3))
+        line = next(ln for ln in out.splitlines() if ln.startswith("rounds:"))
+        for token in ("merge 2", "ruling 3"):
+            self.assertIn(token, line)
 
     def test_a_failing_drill_leaves_the_rest_of_the_board(self):
         self.seed()

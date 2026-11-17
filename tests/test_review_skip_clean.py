@@ -113,6 +113,19 @@ class SkipAfterClean(Rounds, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertIn("0002-second/fix has reported no head", self.refused())
 
+    def test_a_fix_round_that_failed_keeps_the_review_and_a_later_done_round_may_skip(self):
+        self.review()
+        code, body, out, err = self.ccp("prompt", "fix", "0002", "--pr", "7", "--head", A)
+        self.assertEqual(code, 0, out + err)
+        code, _, out, err = self.report(body["run_id"], f"Outcome: failed\nPR: #7\nHead: {B}\n## Friction\nnone\n")
+        self.assertEqual(code, 0, out + err)
+        err = self.refused()
+        self.assertIn("(verify.skip_review_after_clean does not apply: 0002-second/fix reported `failed`, not done)", err)
+        self.fix(B, C)  # a second fix round since the same review, reported done: the latest is the one judged
+        code, body, out, err = self.verify(C)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((body["review_skip"]["review_run"], body["review_skip"]["reviewed"]), ("0002-second/review", A))
+
     def test_a_verify_reject_since_the_review_sends_the_task_back_to_review(self):
         self.review()
         self.fix()

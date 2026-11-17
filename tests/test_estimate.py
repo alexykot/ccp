@@ -175,6 +175,25 @@ class Baseline(unittest.TestCase):
         self.assertEqual(b["rounds"]["fix_risk"], 0.6)
         self.assertEqual(b["novelty"]["family"], 10)
 
+    def test_merge_and_ruling_rounds_count_inside_the_fix_band(self):
+        from ccp import estimator  # noqa: PLC0415
+        target = {"kind": "feature", "family": "sf", "areas": [], "adrs": [], "cited_lines": 100, "dod_checks": 3,
+                  "text_chars": 2000, "deps": 0}
+        pool = []
+        for i in range(4):
+            e = entry(f"{i:04d}-sf-x", 1000 + i, 1000)
+            e["actual"]["phases"] = {"implement": 500, "review": 100, "fix": 60, "verify": 100,
+                                     "merge": 120 if i < 2 else 0, "ruling": 180 if i == 0 else 0}
+            e["actual"]["rounds"] = {"review": 1, "fix": 0, "verify": 1, "merge": 1 if i < 2 else 0,
+                                     "ruling": 1 if i == 0 else 0}
+            pool.append(e)
+        b = estimate.baseline(target, pool, 4)
+        self.assertEqual(sorted(b["phases"]), ["fix", "implement", "review", "verify"])
+        self.assertEqual(b["phases"]["fix"], {"p50_s": 120, "p90_s": 306})  # fix 60 plus 360, 180, 0, 0
+        self.assertEqual(b["rounds"]["fix_risk"], 0.5)
+        refs = {r["task_id"]: r["phases_min"]["fix"] for r in estimator.reference_class(pool, b, target)}
+        self.assertEqual(refs, {"0000-sf-x": 6, "0001-sf-x": 3, "0002-sf-x": 1, "0003-sf-x": 1})
+
 
 class Records(unittest.TestCase):
     """Rows, versions and the re-estimate triggers, with `history` stubbed: no git needed."""

@@ -90,8 +90,9 @@ def fields(text: str, declared: list[dict[str, Any]]) -> tuple[dict[str, str], l
     and spelling, and an error naming the field, its line and its allowed values for each missing or
     other one. A value followed by `|` is the prompt's `a|b` template pasted, not a verdict, and is
     refused, as is a value followed by `/`, `,` or the word `or` and then another of the field's declared
-    values (the template in another spelling: `a or b`, `a / b`, `a, b`); a reason after a comma or a
-    slash is not one. So is a field stated on more than one line, naming each line."""
+    values (the template in another spelling: `a or b`, `a / b`, `a, b`, and the longer forms such as
+    `a, b or c`); a reason after a comma or a slash is not one, even one that starts with another declared
+    value (`yes, no downtime needed`). So is a field stated on more than one line, naming each line."""
     got: dict[str, str] = {}
     errs: list[str] = []
     for f in declared:
@@ -127,14 +128,26 @@ ALT_RE = re.compile(r"[ \t*_`]*(?:/|,|or\b)[ \t*_`]*", re.I)  # `a / b`, `a, b`,
 def _template(rest: str, others: list[str]) -> bool:
     """§13.4: is `rest`, what follows a declared value on its field's line, the rest of the template
     pasted rather than a reason: a `|`, or a `/`, `,` or `or` followed by another declared value (`others`)
-    that ends there or at a non-word character?"""
+    that ends there or at a non-word character, and so on for a longer template (`a, b or c`), with no
+    words after the last value? Words there make it a reason that starts with another declared value
+    (`yes, no downtime needed`); a `|` between the values makes it the template whatever follows."""
     if rest.lstrip(" \t*_`").startswith("|"):
         return True
-    m = ALT_RE.match(rest)
-    if not m:
-        return False
-    tail = rest[m.end():]
-    return any(tail.lower().startswith(v.lower()) and not re.match(r"\w", tail[len(v):len(v) + 1]) for v in others)
+    joined = False
+    while (m := ALT_RE.match(rest) or PIPE_RE.match(rest)) and (v := _value_at(rest[m.end():], others)):
+        if "|" in m.group(0):
+            return True
+        rest, joined = rest[m.end() + len(v):], True
+    return joined and not re.search(r"\w", rest)
+
+
+PIPE_RE = re.compile(r"[ \t*_`]*\|[ \t*_`]*")  # `a | b`: the template's own joint, between later values too
+
+
+def _value_at(tail: str, values: list[str]) -> str | None:
+    """The longest of `values` that `tail` starts with, ending there or at a non-word character."""
+    return next((v for v in sorted(values, key=len, reverse=True)
+                 if tail.lower().startswith(v.lower()) and not re.match(r"\w", tail[len(v):len(v) + 1])), None)
 
 
 def _line_no(text: str, m: re.Match[str]) -> int:

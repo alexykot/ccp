@@ -222,7 +222,7 @@ def reference_class(pool: list[dict[str, Any]], b: dict[str, Any], target: dict[
                     "kind": h["features"].get("kind"), "areas": (h["features"].get("areas") or [])[:6],
                     "cited_lines": h["features"].get("cited_lines"), "dod_checks": h["features"].get("dod_checks"),
                     "wall_min": round(float(a["wall_s"]) / 60), "phases_min": {
-                        ph: (None if (v := (a.get("phases") or {}).get(ph)) is None else round(float(v) / 60))
+                        ph: (None if (v := est.banded(a, ph)) is None else round(float(v) / 60))
                         for ph in est.PHASES},
                     "tokens": a.get("tokens"), "cost_usd": a.get("cost_usd"), "rounds": a.get("rounds"),
                     "findings": a.get("findings"), "merged_at": a.get("merged_at")})

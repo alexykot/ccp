@@ -14,7 +14,9 @@ notes}`; `source` is "baseline" (this module) or "agent" (ccp/estimator.py, phas
 `ccp tasks close` and by the backfill: wall time, the phases, tokens, cost, rounds and findings,
 from the sources the drill-down reads (ccp/drill.py: `ccp health`'s rows, the usage fold, the runs).
 Its phases and rounds give merge and ruling rounds their own `merge` and `ruling` buckets, beside
-implement, review, fix and verify; an estimate bands only those four.
+implement, review, fix and verify. An estimate bands only those four: a merge or ruling round counts
+inside the fix band (`banded`), as it counts as a fix round (§13.2), so the fix band of a reference
+class is its fix, merge and ruling time together, and `fix_risk` the share with any of those rounds.
 Every value is a number, an id or a short label: no task text.
 
 **The baseline.** For a task, its features (`features`: kind, the task-id family, the cited path
@@ -56,6 +58,7 @@ METHOD = "reference-class"
 METHOD_V = 1
 PHASES = ("implement", "review", "fix", "verify")   # what an estimate bands (the baseline's and the estimator's)
 ACTUAL_PHASES = (*PHASES, "merge", "ruling")        # what an actual measures: merge and ruling rounds their own
+FIX_BAND = ("fix", "merge", "ruling")               # an actual's phases (and rounds) the fix band counts
 SOURCES = ("baseline", "agent")
 K_DEFAULT = 6
 K_MIN = 3
@@ -296,6 +299,20 @@ def _band(xs: list[Any], digits: int = 0) -> dict[str, Any] | None:
     return {"p50": round(p50, digits) if digits else int(round(p50)), "p90": round(p90, digits) if digits else int(round(p90))}
 
 
+def _num(x: Any) -> bool:
+    return isinstance(x, (int, float)) and not isinstance(x, bool)
+
+
+def banded(actual: dict[str, Any], ph: str) -> float | int | None:
+    """An actual's seconds in the estimate phase `ph`: the fix phase carries the merge and ruling rounds'
+    time too (FIX_BAND); None when the actual measured none of them."""
+    phases = actual.get("phases") or {}
+    if ph != "fix":
+        return phases.get(ph)
+    vals = [phases.get(p) for p in FIX_BAND if _num(phases.get(p))]
+    return sum(vals) if vals else None
+
+
 def _pick(target: dict[str, Any], pool: list[dict[str, Any]], k: int) -> tuple[list[dict[str, Any]], str]:
     """The reference class: (the k best by score, the tier it came from). `pool` is oldest first."""
     n = len(pool)
@@ -320,14 +337,14 @@ def baseline(target: dict[str, Any], pool: list[dict[str, Any]], k: int = K_DEFA
     tok_ref, tok_tier = _pick(target, tok_pool, k) if tok_pool else ([], "none")
     phases = {}
     for ph in PHASES:
-        b = _band([(c["actual"].get("phases") or {}).get(ph) for c in ref])
+        b = _band([banded(c["actual"], ph) for c in ref])
         phases[ph] = {"p50_s": b["p50"], "p90_s": b["p90"]} if b else None
     total = _band([c["actual"]["wall_s"] for c in ref])
     tokens = _band([c["actual"].get("tokens") for c in tok_ref])
     cost = _band([c["actual"].get("cost_usd") for c in tok_ref], 2)
     rr = [((c["actual"].get("rounds") or {}).get("review")) for c in ref]
-    fx = [((c["actual"].get("rounds") or {}).get("fix")) for c in ref]
-    fx = [x for x in fx if isinstance(x, int)]
+    rounds = [c["actual"].get("rounds") or {} for c in ref]
+    fx = [sum(x for p in FIX_BAND if isinstance(x := r.get(p), int)) for r in rounds if isinstance(r.get("fix"), int)]
     novelty = {"family": sum(1 for c in pool if target.get("family") and c["features"].get("family") == target.get("family")),
                "areas": sum(1 for c in pool if set(c["features"].get("areas") or []) & set(target.get("areas") or [])),
                "adrs": sum(1 for c in pool if set(c["features"].get("adrs") or []) & set(target.get("adrs") or []))}

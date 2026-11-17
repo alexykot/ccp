@@ -30,6 +30,21 @@ that fails without it.
   back to run-record counts, while `ccp board task` uses health's count. The estimate bands still
   have four phases.
 - The minor-only re-review skip does not check the fix round's own outcome before skipping.
+- Lead's ruling, ruling round 2 (2026-11-16), as the runner passed it, replacing the ruling of round
+  1: "Lead's ruling, replacing the earlier one in this section (it rested on a wrong premise: the
+  respelling refusal is already on main, in section 13.4 and in ccp/report.py, with tests on main).
+  Option (b): Restore main's respelling behaviour and tests exactly: ccp/report.py and
+  docs/spec/02-delivery.md section 13.4 must refuse a respelled template (`a / b`, `a, b`, `a or b`
+  and the longer forms) as main does, and every respelling test that main has must be back as on main
+  (diff the file against origin/main to be exact; do not rewrite them). Keep only the PR's own change:
+  a report-field value that starts with another declared value but is followed by a reason (`yes, no
+  downtime needed`) is accepted, plus the existing refusal of `yes|no` and `yes | no`. Write the
+  section 13.4 text as main has it with only the minimal change that describes this. Where the new
+  acceptance rule and main's respelling refusal meet, keep main's behaviour for every input main
+  refused unless it is a reason that starts with another declared value (the `yes, no downtime needed`
+  kind). Leave the rest of the PR as is. Replace the earlier ruling text in the task file's Context
+  (not checked) section with this one, and update the PR body's report-fields bullet and section 13.4
+  text to match."
 
 ## Scope
 
@@ -87,5 +102,43 @@ that fails without it.
 ## Implementation notes
 
 *Append-only, newest last.*
+
+- 2026-11-16 (implementer): Report fields (`ccp/report.py`, SPEC §13.4): a declared value followed by
+  `|` and another declared value is the template, whatever follows; a value followed by the other
+  declared values joined by `/`, `,`, `or` or `|` is the template only with nothing after them (bar
+  emphasis, backticks or a full stop), which also covers a longer template respelled (`a, b or c`).
+  A `|` with no declared value after it, and a reason that starts with another declared value
+  (`yes, no downtime needed`), are now accepted. The §13.4 sentence on the template is reworded to
+  say so.
+- Premise warning (`ccp/tasklog.py`): a number may carry a size or time unit (`B`, `KB`…`PB` and
+  their `iB` forms, `k`, `m`, `ns`, `us`, `ms`, `s`, `sec`, `min`, `h`, `hr`, `d`, `x`, any case)
+  and may be a dash range (`5-10`, `2-3s`). A year and month (`2026-11`), which the old regex never
+  read, stays quiet. The warning names every number on its line, not only the first.
+- Board (`ccp/board.py`): the task rows carry `merge_rounds` and `ruling_rounds`, so the drill view
+  reads health's counts as `ccp board task` does.
+- Estimate bands (`ccp/estimate.py`): merge and ruling rounds count inside the fix band (`banded`,
+  `FIX_BAND`): a reference task's fix time is its fix, merge and ruling time together, and `fix_risk`
+  the share with any of those rounds. The estimator's reference rows (`ccp/estimator.py`) show the
+  same fix time. An estimate still bands four phases; actuals keep merge and ruling as their own.
+- Minor-only skip (`ccp/verify.py` `skip_after_clean`, SPEC §15.2): the latest fix round since the
+  clean review must have reported `done`; a `failed` or `blocked` one is refused as an unreviewed fix.
+  The latest round is the one judged, so a second fix round may skip as well; §15.2 now says so.
+- 2026-11-16 (implementer, ruling round 1): per the lead's ruling, the respelling rule is dropped.
+  `ccp/report.py` refuses a field's value as the template only when a declared value is followed by
+  `|` and another declared value (which covers the exact template `a|b|c`); `ALT_RE`, `END_RE`,
+  `_template` and `_next_value` are gone, and the longest-value match is one helper (`_value_at`) used
+  for the value and the value after the `|`. Values joined by `/`, `,` or `or` (`yes/no`, `a, b or c`)
+  are read as their first value, as any reason is. The §13.4 sentence says only that. The tests that
+  pinned the respelled refusals (on `main` before this task and added by it) lose those cases; one
+  test now asserts they are accepted.
+- 2026-11-16 (implementer, ruling round 2): per the lead's second ruling, which replaces the first,
+  main's respelling refusal is back. `ccp/report.py` and `tests/test_report_fields.py` are main's again,
+  with only this task's change on top: a value followed by `/`, `,` or `or` and another declared value
+  (and so on, for a longer template such as `a, b or c`) is the template unless words follow the last
+  of those values, which make it a reason that starts with another declared value (`yes, no downtime
+  needed`, accepted). A `|` right after the value is the template whatever follows, as on main, and so
+  is a `|` between later values. The round-1 acceptances that main refused (`yes/no`, `a, b or c`,
+  `yes | see the runbook`, `no|`) are refused again and their tests are gone. The §13.4 sentence is
+  main's, with the longer forms, the no-words condition and the accepted reason added.
 
 ## Verification notes
