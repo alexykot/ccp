@@ -32,5 +32,11 @@ review_points:
   - id: R6
     name: follow-ups II
     goal: Close the follow-ups found while delivering R5, make worker prompts arrive whole, and record a check that cannot hold as written.
-    status: current
+    status: closed
     opened: "2026-11-16"
+    closed: "2026-11-17"
+  - id: R7
+    name: upgrades and speed
+    goal: Products learn what each release asks of them, operator sign-off moves to tasking, and the gate gets faster.
+    status: current
+    opened: "2026-11-17"
