@@ -25,6 +25,7 @@ affect. The plane turns on `verify.accept_cache` for itself.
 - `verify.accept_cache` (§15) counts a test unit the verifier's gate run reports as a cache hit as run and passed. The plane's gate has no cache, so the knob is off for the plane.
 - The cache key is the task's choice and must be sound: a module's result is reused only when nothing it can read has changed. The key below is deliberately coarse: everything tracked except other test modules.
 - Cold runs: `ccp suite run --cold` (§15) asks the product's cold option; the gate reads it and uses no cache.
+- Lead ruling sm-20261117T092207Z-a36b (commit 083207b), verbatim: (1) cache-04 holds in the form `GATE_COLD=1 ccp suite run --lane gate`. The verifier records it as_written: false, held_instead naming that form, ruling naming this question. (2) Accepted: a test module imported by another test module is shared input and joins every module's key; untracked files and sys.version in the key are acceptable. The implementer appends an Implementation note to the task file citing this ruling. No SPEC change beyond describing the cache as built. Also append the note to the task file's Context (not checked) section. Make no other change.
 
 ## Scope
 
@@ -77,5 +78,34 @@ affect. The plane turns on `verify.accept_cache` for itself.
 ## Implementation notes
 
 *Append-only, newest last.*
+
+- 2026-11-17 (implementer): `scripts/gate_parallel.py` keys each module on the SHA-256 of its own
+  content, its name, the interpreter's version and one digest of the shared inputs: `git ls-files -s`
+  of every tracked path with the working tree's edits (`git ls-files -m`) and untracked, unignored
+  files (`git ls-files -o --exclude-standard`) folded in as the blob git would stage, read-only (no
+  index, object or stash write; an unchanged file folds to its own index entry, so stat data never
+  moves the key). Left out of the shared digest: the test modules no other test module names. A test
+  module another imports (by `tests.test_x`, `from tests import`, `from .`) is a shared input: 69
+  modules import one, so the literal "except tests/test_*.py" would serve stale passes after an
+  edit to a helper such as `tests/test_toolkit.py` (flagged to the runner). Untracked files are in
+  the key too, for the same soundness. An entry is `{key, passed, tests, seconds, at}` in
+  `GATE_CACHE_DIR` (default `~/.cache/ccp-gate/<sha256 of the root commits, 16 hex>`, shared by
+  every worktree and clone; one inside the repo exits 2); one older than plane.json
+  `verify.accept_cache.max_age_days` is no hit. A git failure runs with no cache.
+- The cold option is the gate's own `GATE_COLD=1` (`GATE_COLD=1 ccp suite run --lane gate`): `ccp
+  suite run` has no `--cold` flag at 73457e8, and adding one is outside this task's paths (open
+  question in the report). A cold run reads and writes nothing and counts `cached 0`, which `ccp`
+  records `cold: true`.
+- `scripts/gate_result.py` gives `ran`, `cached` and `cached_tests`; a cached module is in neither
+  `tests` nor `modules` (health's module times stay those of modules that ran).
+- Outside the paths, docs only: `scripts/CLAUDE.md` names the cache and its knobs; `docs/ENGINEERING.md`'s
+  known-intentional line "no per-module cache" became false and now describes the coarse key.
+- 2026-11-17 (implementer, ruling round 1): ruling sm-20261117T092207Z-a36b (commit 083207b)
+  settles both open questions with no code change. (1) `cache-04` holds in the form
+  `GATE_COLD=1 ccp suite run --lane gate`, the gate's own cold option as built; the verifier records
+  it `as_written: false` with `held_instead` naming that form. (2) The key as built is accepted: a
+  test module another test module imports is shared input and joins every module's key, and
+  untracked files and `sys.version` stay in the key. No SPEC change: the ruling allows one only to
+  describe the cache as built, and none was needed.
 
 ## Verification notes

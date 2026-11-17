@@ -82,11 +82,17 @@ class GateFixture(unittest.TestCase):
     def module(self, name: str, body: str) -> None:
         (self.repo / "tests" / f"{name}.py").write_text(textwrap.dedent(body))
 
-    def gate(self, workers: str | None = "2") -> subprocess.CompletedProcess[str]:
-        env = {k: v for k, v in os.environ.items() if k not in ("GATE_WORKERS", "CCP_SUITE_RESULT")}
-        env.update(MEET_DIR=str(self.meet), CCP_SUITE_RESULT=str(self.result))
+    def gate(self, workers: str | None = "2", **extra: str | None) -> subprocess.CompletedProcess[str]:
+        """Run the fixture's gate; `extra` sets a variable, or unsets it with None. Its test cache is the
+        fixture's own (GATE_CACHE_DIR), never the caller's, and it runs warm unless GATE_COLD is given."""
+        env = {k: v for k, v in os.environ.items()
+               if k not in ("GATE_WORKERS", "CCP_SUITE_RESULT", "GATE_CACHE_DIR", "GATE_COLD")}
+        env.update(MEET_DIR=str(self.meet), CCP_SUITE_RESULT=str(self.result),
+                   GATE_CACHE_DIR=str(Path(self._tmp.name) / "gate-cache"))
         if workers is not None:
             env["GATE_WORKERS"] = workers
+        for k, v in extra.items():
+            env.pop(k, None) if v is None else env.__setitem__(k, v)
         return subprocess.run(["bash", str(self.repo / "scripts" / "gate.sh")], capture_output=True, text=True,
                               env=env, timeout=120)
 
