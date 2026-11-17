@@ -38,5 +38,11 @@ review_points:
   - id: R7
     name: upgrades and speed
     goal: Products learn what each release asks of them, operator sign-off moves to tasking, and the gate gets faster.
+    status: closed
+    opened: "2026-11-17"
+    closed: "2026-11-17"
+  - id: R8
+    name: adoption and follow-ups III
+    goal: Every opt-in feature reaches a product as an upgrade step it can take or decline, the implementer-model trial can run, and R7's follow-ups close.
     status: current
     opened: "2026-11-17"

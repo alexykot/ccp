@@ -597,3 +597,63 @@ tasks:
     title: A plane.json knob picks the implementer's model per task size or kind, and the plane trials a cheaper model on its own small and refactor tasks
     depends_on: []
     path: tasks/0119-implementer-model-trial.md
+  - id: 0120-adopt-steps-and-upgrade-taken
+    status: pending
+    title: Every opt-in feature carries a real adopt step, and a product can record a step as taken
+    depends_on: []
+    path: tasks/0120-adopt-steps-and-upgrade-taken.md
+  - id: 0121-implementer-model-aliases
+    status: pending
+    title: The implementer-model knob takes the aliases the Agent call accepts, and warns when a task has no estimate
+    depends_on: []
+    path: tasks/0121-implementer-model-aliases.md
+  - id: 0122-unsigned-tasks-wait-and-signed-text-check
+    status: pending
+    title: tasks next passes over a task awaiting its brief sign-off, and a command checks the PR's SPEC text against the signed words
+    depends_on: []
+    path: tasks/0122-unsigned-tasks-wait-and-signed-text-check.md
+  - id: 0123-unknown-config-keys-warn
+    status: pending
+    title: An older ccp warns on a plane.json key it does not know, and docs check refuses it
+    depends_on: []
+    path: tasks/0123-unknown-config-keys-warn.md
+  - id: 0124-suite-and-mutate-tools
+    status: pending
+    title: suite wait exits 0 or 1 for a finished run, suite run takes --cold, worker_env renders dry, and mutate takes a mutant file
+    depends_on: []
+    path: tasks/0124-suite-and-mutate-tools.md
+  - id: 0125-worktree-round-in-names
+    status: pending
+    title: A worktree's round reaches worker_env and lane stages, so a second review round gets its own scratch resources
+    depends_on: [0124-suite-and-mutate-tools]
+    path: tasks/0125-worktree-round-in-names.md
+  - id: 0126-append-only-shared-paths
+    status: pending
+    title: Paths that tasks only append lines to do not keep two runners apart, and close merges them as a line union
+    depends_on: []
+    path: tasks/0126-append-only-shared-paths.md
+  - id: 0127-throwaway-adopted-product
+    status: pending
+    title: ccp sandbox makes a throwaway adopted product, fenced from real queues, for end-to-end checks
+    depends_on: []
+    path: tasks/0127-throwaway-adopted-product.md
+  - id: 0128-spec-text-leftovers
+    status: pending
+    title: SPEC text left behind by R7: notices in the orientation, the upgrade trigger, spec_paths, the lead's compaction knob and suite exit 2
+    depends_on: []
+    path: tasks/0128-spec-text-leftovers.md
+  - id: 0129-health-and-config-leftovers
+    status: pending
+    title: Small fixes left by R7 in health's sign-off waits, the lead's compaction knob, the verifier definition and the parallel gate's counts
+    depends_on: []
+    path: tasks/0129-health-and-config-leftovers.md
+  - id: 0130-catch-up-gate-env-and-mutate-cleanup
+    status: pending
+    title: Close's catch-up gate runs with its own worktree's values and the product's worker_env, and mutate clears stale bytecode first
+    depends_on: [0126-append-only-shared-paths]
+    path: tasks/0130-catch-up-gate-env-and-mutate-cleanup.md
+  - id: 0131-usage-advice-and-gate-cache-fixes
+    status: pending
+    title: Usage advice waits for a worker run and counts only the lead's own calls, and the gate cache records a pass only after the branch check
+    depends_on: []
+    path: tasks/0131-usage-advice-and-gate-cache-fixes.md
