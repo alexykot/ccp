@@ -8,8 +8,12 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ccp import lifecycle
-from tests.test_toolkit import PLANE, ToolkitFixture, git
+if __name__ == "__main__":  # run as a script: the checkout's root is the import root, and the tests' fence comes first
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    import tests  # noqa: F401
+
+from ccp import lifecycle  # noqa: E402
+from tests.test_toolkit import PLANE, ToolkitFixture, git  # noqa: E402
 
 
 class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
@@ -264,3 +268,7 @@ class CloseReadsAMalformedRunnerCount(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
         self.assertEqual(code, 0, out + err)
         self.assertEqual(json.loads((self.q / "work.json").read_text())["runners"][slot]["tasks_done"], 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

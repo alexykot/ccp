@@ -20,8 +20,10 @@ fails already proves nothing, so the command stops there. Each mutant is applied
 runs (plane.json `mutate.command` with `{test}` filled in shell-quoted, in the worktree's root, in
 its own process group, killed after `mutate.timeout_seconds`, which counts as the test failing), and
 every file the mutant touched is written back byte for byte (a file or directory it made is
-removed), and checked, before the next. A restored Python file loses its compiled `__pycache__`
-entries, and every test run has `PYTHONDONTWRITEBYTECODE=1`: a same-size mutant restored within the
+removed), and checked, before the next. A mutated Python file loses its compiled `__pycache__` entries
+before its test runs, so bytecode compiled from another source (an unchecked hash-based `.pyc`, or one
+whose recorded mtime and size happen to match) never runs in its place; a restored one loses them
+again, and every test run has `PYTHONDONTWRITEBYTECODE=1`: a same-size mutant restored within the
 second leaves no bytecode that a later run would take for the source. A SIGTERM at any point of the
 call kills the running test, restores the files and exits 143.
 
@@ -276,9 +278,10 @@ def _snapshot(root: Path, files: list[str]) -> Snapshot:
 
 
 def _drop_bytecode(root: Path, rel: str) -> None:
-    """A Python file's compiled entries in its `__pycache__` (`<stem>.<tag>[.opt-N].pyc`). Python trusts one
-    whose recorded source mtime (in whole seconds) and size still match, so a same-size mutant restored
-    within the second would otherwise leave the mutant's bytecode for the next run to import."""
+    """A Python file's compiled entries in its `__pycache__` (`<stem>.<tag>[.opt-N].pyc`), dropped after a
+    mutant is applied and again after it is restored. Python trusts one whose recorded source mtime (in whole
+    seconds) and size still match, and an unchecked hash-based one whatever the source, so either would
+    otherwise run in place of the source: the original's before the mutant, the mutant's after it."""
     if not rel.endswith(".py"):
         return
     p = root / rel
@@ -496,6 +499,8 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
         res: dict[str, Any] | None = None
         try:
             _apply(root, m)
+            for rel in m["files"]:  # a stale compiled entry would run in place of the mutated source
+                _drop_bytecode(root, rel)
             if not stop.hit:
                 res = _test(line, root, timeout, log, f"{test} mutant {n} ({m['digest']})", stop)
         except QueueError:
