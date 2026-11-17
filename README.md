@@ -103,7 +103,8 @@ ccp init --project-id my-product --gate "python3 -m unittest discover -s tests"
 ```
 
 In the repository it writes `docs/PROJECT.md` and `docs/SPEC.md` from the templates, the delivery
-templates and a minimal `plane.json` in `docs/delivery/`, and `INDEX.yaml`. It adds `.plane-runtime/`
+templates and a minimal `plane.json` in `docs/delivery/`, and `INDEX.yaml` when there is none (an
+existing one is kept and listed as kept; `ccp tasks index` regenerates it). It adds `.plane-runtime/`
 to `.gitignore`. It merges the plugin anchor into `.claude/settings.json`, leaving its other keys
 alone:
 
