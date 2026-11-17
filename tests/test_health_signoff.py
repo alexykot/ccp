@@ -57,9 +57,9 @@ class SignOffWait(unittest.TestCase):
 
     def three_in_r1(self) -> list[dict]:
         return [
-            # 0001: approved, then a build sign-off 60 minutes later; a brief sign-off before is no end
-            ev(0, "0001-signed", "sign_off", "recorded", stage="brief"),
+            # 0001: approved, then a build sign-off 60 minutes later; a brief sign-off is no end
             ev(1000, "0001-signed", "verify", "recorded", verdict="approve"),
+            ev(1000 + 5 * MIN, "0001-signed", "sign_off", "recorded", stage="brief"),
             ev(1000 + 60 * MIN, "0001-signed", "sign_off", "recorded", stage="build"),
             # 0002: approved, then a merge gate decided 180 minutes later; another class of gate is no end
             ev(2000, "0002-gated", "verify", "recorded", verdict="approve"),
@@ -98,6 +98,7 @@ class SignOffWait(unittest.TestCase):
             ev(600, "0001-signed", "sign_off", "recorded", stage="build"),  # before the latest approve
             ev(1000, "0001-signed", "verify", "recorded", verdict="reject"),
             ev(2000, "0001-signed", "verify", "recorded", verdict="approve"),
+            ev(2000 + 5 * MIN, "0001-signed", "verify", "recorded", verdict="reject"),  # not an approve
             ev(2000 + 20 * MIN, "0001-signed", "sign_off", "recorded", stage="build"),
             ev(2000 + 50 * MIN, "0001-signed", "sign_off", "recorded", stage="build"),
             # 0005: its approve is only on the verification record; it lands in R2
