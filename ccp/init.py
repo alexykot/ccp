@@ -24,6 +24,13 @@ naming the commands that need one, and adopts the product all the same.
 When the task directory already holds task files with no frontmatter (an earlier plane generation's),
 the result's `warnings` names their count and `ccp tasks migrate` (§5.3).
 
+A kept binding is checked against the current shape (§8.3): the result's `warnings` names, with the binding
+file and the fix, each key it lacks (the contract's required keys, `product_root`, a `runner` block with
+`agent_type` and `name`) and each obsolete key it carries (the keys §8.3 says are ignored, a key the
+contract marks ignored or retired, a key it does not list). An existing `INDEX.yaml` is kept and listed
+as kept. With `--gate`, a `standing-dod.md` init writes names the gate in its placeholder product item
+(§4.5).
+
 With `--permissions` it writes nothing: in an adopted product it prints the runner's and workers'
 permission allowlist and a deny list for destructive commands, as a JSON `permissions` block for the
 operator to apply to `.claude/settings.json` (§4.5, §18.5).
@@ -48,6 +55,17 @@ from ccp import config, docrules, refs, rules, tasklog
 from ccp.queue import PLANE, QueueError, _main_worktree, lib
 
 TEMPLATES = PLANE / "templates"
+SCHEMA = PLANE / "contracts" / "project.schema.json"
+# §8.3: the binding's nested keys the plane ignores; a top-level key whose contract description says
+# ignored or retired is obsolete too, and so is one the contract does not list.
+IGNORED_NESTED = ("seats.runner", "seats.verifier", "seats.watchdog", "cadence.verify_stale_minutes")
+IGNORED_TOP = ("email",)
+RETIRED_RE = re.compile(r"\b(ignored|retired)\b", re.I)
+RUNNER_KEYS = ("agent_type", "name")
+# §4.5, §21.2: the template's placeholder product item, and the gate item init writes in its place.
+STANDING_DOD = "docs/delivery/standing-dod.md"
+PLACEHOLDER_RE = re.compile(r"^\s*\d+\.\s*…\s*$")
+GATE_ITEM = "7. **The gate is `{gate}`**, run by the verifier at the PR head (item 5)."
 # What init copies: product path -> template.
 COPIES = {
     "docs/PROJECT.md": "docs-project/PROJECT.md",
@@ -167,6 +185,68 @@ def github_warning(root: Path) -> str | None:
             f"{'; '.join(GITHUB_ONLY)} will fail until it has one (ADR-0040)")
 
 
+def _binding_keys(text: str) -> dict[str, list[str]]:
+    """The binding's top-level keys, each with the keys indented under it (a tiny YAML subset, as the
+    binding readers take it); a top-level key with a value of its own has none under it."""
+    out: dict[str, list[str]] = {}
+    top: str | None = None
+    for line in text.splitlines():
+        bare = line.split(" #", 1)[0].rstrip()
+        if not bare.strip() or bare.strip().startswith("#"):
+            continue
+        key = bare.strip().partition(":")[0].strip().strip("'\"")
+        if not line[:1].isspace():
+            top = key if ":" in bare else None
+            if top:
+                out.setdefault(top, [])
+        elif top is not None and ":" in bare and key and not bare.strip().startswith("-"):
+            out[top].append(key)
+    return out
+
+
+def binding_shape_warnings(binding: Path, text: str) -> list[str]:
+    """§8.3: what a kept binding lacks and what obsolete keys it carries, each a warning naming the
+    binding file and the fix."""
+    schema = json.loads(SCHEMA.read_text())
+    props: dict[str, Any] = schema.get("properties", {})
+    keys = _binding_keys(text)
+    fix = f"edit {binding}, or run `ccp init --force` to rewrite it (its other edits are lost)"
+    out: list[str] = []
+    out += [f"the kept binding {binding} lacks `{k}`: {fix}"
+            for k in (*schema.get("required", []), "product_root") if k not in keys]
+    if "runner" not in keys or not keys["runner"]:
+        out.append(f"the kept binding {binding} lacks the `runner` block (with `agent_type` and `name`): {fix}")
+    else:
+        out += [f"the kept binding {binding} lacks `runner.{k}`: {fix}" for k in RUNNER_KEYS if k not in keys["runner"]]
+    for k in keys:
+        if k not in props:
+            out.append(f"the kept binding {binding} carries `{k}`, which {SCHEMA.name} does not list: {fix}")
+        elif k in IGNORED_TOP or RETIRED_RE.search(str(props[k].get("description", ""))):
+            out.append(f"the kept binding {binding} carries `{k}`, which the plane ignores (SPEC §8.3): {fix}")
+    out += [f"the kept binding {binding} carries `{k}`, which the plane ignores (SPEC §8.3): {fix}"
+            for k in IGNORED_NESTED if k.partition(".")[2] in keys.get(k.partition(".")[0], [])]
+    return out
+
+
+def standing_dod_text(gate: str | None) -> str:
+    """The standing DoD init writes: the template, with `gate` named in its placeholder product item."""
+    text = (TEMPLATES / COPIES[STANDING_DOD]).read_text()
+    if not gate:
+        return text
+    return "".join(GATE_ITEM.format(gate=gate) + "\n" if PLACEHOLDER_RE.match(line) else line
+                   for line in text.splitlines(keepends=True))
+
+
+def placeholder_warnings(root: Path) -> list[str]:
+    """§21.2: each numbered item of the product's standing DoD that is only `…`, the template's placeholder."""
+    p = root / STANDING_DOD
+    if not p.is_file():
+        return []
+    return [f"{STANDING_DOD}:{n}: item `{line.strip()}` is the template's placeholder: name the gate (item 5) and "
+            "the product's own standing items there"
+            for n, line in enumerate(p.read_text().splitlines(), 1) if PLACEHOLDER_RE.match(line)]
+
+
 def binding_text(project_id: str, product_root: Path, queue_root: Path, branch: str) -> str:
     """The binding init writes (§8.3): the required keys, `production_branch` (the integration branch
     until the operator names another), the product root and the runner block."""
@@ -276,7 +356,7 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     # refuses before anything is written
     merged_settings, settings_changed, session = _merged_settings(settings, window)
 
-    out: dict[str, Any] = {"project_id": pid, "product_root": str(product_root), "binding": str(binding),
+    out: dict[str, Any] = {"project_id": pid, "product_root": str(product_root), "binding": str(binding.resolve()),
                            "queue_root": str(q), "written": [], "merged": [], "kept": [], "settings": session}
 
     def put(path: Path, text: str, label: str) -> None:
@@ -289,7 +369,7 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
 
     copies = {**COPIES, **(dict([STARTER_RULES_DOC]) if starter_rules else {})}
     for rel, tpl in copies.items():
-        put(root / rel, (TEMPLATES / tpl).read_text(), rel)
+        put(root / rel, standing_dod_text(gate) if rel == STANDING_DOD else (TEMPLATES / tpl).read_text(), rel)
     unapplied = [flag for flag, given in (("--gate", gate), ("--starter-rules", starter_rules)) if given]
     put(plane_json, plane_json_new,
         config.CONFIG_REL + (f" ({', '.join(unapplied)} not applied)" if unapplied and keep_plane_json else ""))
@@ -319,6 +399,10 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     warning = github_warning(product_root)
     if warning:
         out["warnings"] = [warning]
+    if keep_binding and old is not None:
+        out.setdefault("warnings", []).extend(binding_shape_warnings(binding.resolve(), old))
+    if not out.get("warnings"):
+        out.pop("warnings", None)
 
     cfg = config.load(root)
     old_files = [f for f in sorted(cfg.tasks_dir.glob("*.md")) if not tasklog.has_frontmatter(f.read_text())]
@@ -326,9 +410,12 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
         out.setdefault("warnings", []).append(
             f"{len(old_files)} task file(s) in {cfg.rel(cfg.tasks_dir)} have no frontmatter (an earlier plane "
             "generation's?): convert them with `ccp tasks migrate`")
-    if cfg.task_log.get("index", True) and (force or not (root / cfg.task_log["dir"] / "INDEX.yaml").exists()):
+    index = f"{cfg.task_log['dir']}/INDEX.yaml"
+    if cfg.task_log.get("index", True) and (force or not (root / index).exists()):
         tasklog.write_index(cfg)
-        out["written"].append(f"{cfg.task_log['dir']}/INDEX.yaml")
+        out["written"].append(index)
+    elif cfg.task_log.get("index", True):  # kept: a rewrite could drop what an earlier generation's files need
+        out["kept"].append(index)
     return out
 
 

@@ -415,7 +415,9 @@ A product is adopted by running `ccp init` in its repository. It writes:
   and, with `--starter-rules`, the starter house rules as `docs/ENGINEERING.md` (§20.5);
 - a minimal `docs/delivery/plane.json` (§8.1): the project id, the worktrees directory, with
   `--gate` the gate lane, and with `--starter-rules` `docs.starter_rules` and the `package_docs`
-  settings the starter rules' checks name; and `INDEX.yaml` when the product keeps one (§5.7);
+  settings the starter rules' checks name; and `INDEX.yaml` when the product keeps one (§5.7) and has
+  none yet (an existing one is kept and listed as kept); with `--gate`, the gate command written into
+  `standing-dod.md`'s placeholder product item;
 - `.plane-runtime/` in `.gitignore`;
 - the anchor merged into `.claude/settings.json`, leaving its other keys and values alone, with
   `subagentPromptCacheTtl: "1h"` and `autoCompactWindow` (the binding's `lead.auto_compact_window`,
@@ -831,7 +833,10 @@ lead:
   queue. `ccp where` names the binding it resolved.
 - `ccp init` writes the binding and creates its queue (default `~/.delivery-queue/<project_id>/`),
   with the product footprint (§4.3). It keeps an existing binding unless given `--force`, and refuses
-  one that names another product root.
+  one that names another product root. A kept binding is checked against the current shape: init warns,
+  naming each missing key (the schema's required keys, `product_root`, a `runner` block with
+  `agent_type` and `name`) and each obsolete one (the ignored keys below, a key the schema marks ignored
+  or retired, a key it does not list).
 - A binding whose `product_root` is the plane's own repository is the plane managing itself; its
   usage counts as non-product use (§24).
 - A `spec_maintainer` block is accepted, deprecated: the lead is every project's spec maintainer
@@ -869,7 +874,8 @@ A hook receives `CLAUDE_PROJECT_DIR`. `ccp` maps it to a binding (§8.3, `projec
 no hook entry names a path. A directory that maps to no binding makes every hook a no-op. When
 `QUEUE_ROOT` is unset, `ccp` sets it from the binding for the `project_id` in the product's
 `plane.json`, the same from the main checkout and from any worktree; `ccp where` prints the project,
-the binding file's path, the queue, the plane checkout and the `ccp` path.
+the product root (the main checkout, from any worktree), the binding file's path, the queue, the plane
+checkout and the `ccp` path, each path as its real path, as `ccp init` prints them.
 
 ### 9.3 Orientation
 
