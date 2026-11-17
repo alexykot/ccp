@@ -7,6 +7,7 @@ depends_on: []
 spec_refs: ["S16", "S25"]
 review_point: R3
 paths: ["ccp/parallel.py", "ccp/usage.py", "docs/spec/02-delivery.md", "tests/test_parallel*.py"]
+adopt: "plane.json parallel.max_in_flight 2, to run two runners"
 created: 2026-11-10
 updated: 2026-11-10
 ---

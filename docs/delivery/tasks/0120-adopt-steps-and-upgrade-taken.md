@@ -118,4 +118,17 @@ step hides behind an `adopt` value that starts with `none`.
 
 *Append-only, newest last.*
 
+- 2026-11-17 (implementer): `upgrade.taken` sits beside `upgrade.declined` (config, schema), validated the
+  same way. `ccp upgrade status` returns `taken` (task, title, adopt, reason) beside `steps`; a task in
+  `declined` is in neither, `declined` winning when a product lists a task in both; a recorded id whose
+  step is `none` is not listed. The step file `settings` now parses as `.claude/settings.json` (the
+  Context named it parseable; at 459bb77 only `.claude/settings.json` did), so 0111's step reads as taken
+  in an init'ed product. plane.json's top-level block names moved to `config.BLOCKS`, which the unknown-key
+  check and the new warning share. `tasklog.hidden_step` warns on any task but a dropped one: it reads the
+  `adopt` value's words, outside paths, for a dotted key under a plane.json block or `runner`/`lead`, or a
+  settings key `ccp init` writes (the anchor's keys and the two session settings, bare or dotted). After
+  the edits no task in the log draws the warning, so no further done task needed a new `adopt:` line.
+  `ccp upgrade status` takes no `--json` (it always prints JSON); cmd-01 and cmd-02 run it as written
+  otherwise.
+
 ## Verification notes

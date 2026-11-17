@@ -7,6 +7,7 @@ depends_on: []
 spec_refs: ["S6", "S15"]
 review_point: R3
 paths: ["ccp/", "plugin/agents/", "docs/spec/", "tests/"]
+adopt: "plane.json adr.strict true, for a product that keeps ADRs"
 created: 2026-11-10
 updated: 2026-11-10
 ---

@@ -73,6 +73,36 @@ class Adopt(unittest.TestCase):
         self.assertIn("0001-a.md", warned)
         self.assertIn("0002-b.md", warned)
 
+    def test_tasks_check_warns_once_on_a_none_value_that_names_a_plane_json_key_and_exits_0(self):
+        self.task("0001-hidden", extra='adopt: "none: off by default; plane.json verify.accept_cache turns it on"')
+        self.task("0002-quiet", extra='adopt: "none: the advice appears by itself"')
+        self.p.index()
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.main(["--root", str(self.p.root), "tasks", "check"])
+        self.assertEqual(code, 0, out.getvalue() + err.getvalue())
+        lines = [x for x in (out.getvalue() + err.getvalue()).splitlines() if "adopt" in x]
+        self.assertEqual(len(lines), 1, lines)
+        self.assertIn("0001-hidden", lines[0])
+        self.assertIn("verify.accept_cache", lines[0])
+
+    def test_a_none_value_naming_a_binding_or_settings_key_warns_on_a_done_task_too(self):
+        self.task("0001-a", "done", extra='adopt: "none: binding runner.rotate_at_context_tokens turns it on"')
+        self.task("0002-b", extra='adopt: "none; set subagentPromptCacheTtl by hand"')
+        self.task("0003-c", extra='adopt: "none: binding lead.auto_compact_window"')
+        warned = self.warns()
+        self.assertEqual(len(warned), 3, warned)
+        self.assertIn("runner.rotate_at_context_tokens", warned[0])
+        self.assertIn("subagentPromptCacheTtl", warned[1])
+        self.assertIn("lead.auto_compact_window", warned[2])
+
+    def test_no_hidden_step_warning_for_a_step_a_path_a_dropped_task_or_an_undotted_block_name(self):
+        self.task("0001-a", extra='adopt: "plane.json verify.accept_cache true"')
+        self.task("0002-b", extra='adopt: "none: see ccp/upgrade.py and docs/delivery/plane.json"')
+        self.task("0003-c", "dropped", extra='adopt: "none: plane.json verify.accept_cache"')
+        self.task("0004-d", extra='adopt: "none: the verify step and the runner change by themselves"')
+        self.assertEqual(self.warns(), [])
+
     def test_asks_nothing_reads_the_first_word(self):
         for step, nothing in (("none", True), ("None: it applies by itself", True), ("none; later", True),
                               ("plane.json none", False), ("nonetheless set x", False), ("", False)):

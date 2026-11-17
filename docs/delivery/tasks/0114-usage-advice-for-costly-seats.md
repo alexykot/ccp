@@ -7,7 +7,7 @@ depends_on: []
 spec_refs: ["S24"]
 review_point: R7
 paths: ["ccp/usage.py", "ccp/health.py", "ccp/config.py", "contracts/plane_config.schema.json", "docs/spec/04-observability.md", "tests/test_usage*.py"]
-adopt: "none: advice appears by itself; thresholds are plane.json usage.advice knobs"
+adopt: "none: the advice appears by itself"
 created: 2026-11-17
 updated: 2026-11-17
 ---

@@ -289,9 +289,13 @@ REPORT_DEFAULTS: dict[str, Any] = {"required_fields": []}
 # with that tool from its own session (null, the default: no declared tool).
 NOTIFY_DEFAULTS: dict[str, Any] = {"command": None, "timeout_seconds": 30, "lead": None}
 NOTIFY_LEAD_KEYS = ("tool", "to")
-# §29.3: the plane tasks' `adopt` steps this product declined, task id -> reason; `ccp upgrade status`
-# leaves them out (nothing declined by default).
-UPGRADE_DEFAULTS: dict[str, Any] = {"declined": {}}
+# §29.3: the plane tasks' `adopt` steps this product declined, and those it took in a way `ccp upgrade
+# status` cannot see, each task id -> reason; the command leaves both out of its steps (none by default).
+UPGRADE_DEFAULTS: dict[str, Any] = {"declined": {}, "taken": {}}
+# §8.1: plane.json's top-level blocks (besides `project_id`, `$schema` and `_note`).
+BLOCKS = ("task_log", "package_docs", "architect", "prompts", "reconcile", "adapter", "worktrees", "env", "merge",
+          "auth_check", "telemetry", "board", "gate", "health", "usage", "workers", "suite", "adr", "verify",
+          "review_points", "estimate", "parallel", "ids", "docs", "mutate", "report", "notify", "upgrade")
 REPORT_FIELD_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9 _-]{0,39}$")
 # The lines `ccp report` already reads: a declared field may not take one of their names.
 REPORT_OWN_LINES = ("outcome", "pr", "head", "verdict", "severity", "suite")
@@ -1190,13 +1194,15 @@ def _adr(given: Any) -> dict[str, Any] | None:
 
 
 def _upgrade(given: Any) -> dict[str, Any]:
-    """§29.3: `upgrade.declined`, task id -> the reason the product declined that task's `adopt` step."""
+    """§29.3: `upgrade.declined` and `upgrade.taken`, each task id -> the reason the product declined that
+    task's `adopt` step, or took it in a way `ccp upgrade status` cannot see."""
     u = _merge(UPGRADE_DEFAULTS, given, "upgrade")
-    d = u["declined"]
-    if not isinstance(d, dict) or not all(isinstance(k, str) and k.strip() and isinstance(v, str) and v.strip()
-                                          for k, v in d.items()):
-        raise ConfigError(f"{CONFIG_REL}: upgrade.declined must map a plane task id to the reason the product "
-                          "declined its adopt step (SPEC §29.3)")
+    for key, what in (("declined", "declined its adopt step"), ("taken", "took its adopt step")):
+        d = u[key]
+        if not isinstance(d, dict) or not all(isinstance(k, str) and k.strip() and isinstance(v, str) and v.strip()
+                                              for k, v in d.items()):
+            raise ConfigError(f"{CONFIG_REL}: upgrade.{key} must map a plane task id to the reason the product "
+                              f"{what} (SPEC §29.3)")
     return u
 
 
@@ -1233,11 +1239,7 @@ def _parse(root: Path, text: str) -> Config:
         raise ConfigError(f"{CONFIG_REL}: `project_id` is required")
     if not PROJECT_ID_RE.match(str(raw["project_id"]).strip()):
         raise ConfigError(f"{CONFIG_REL}: project_id {raw['project_id']!r} is not lowercase letters, digits and hyphens")
-    unknown = sorted(set(raw) - {"$schema", "_note", "project_id", "task_log", "package_docs", "architect",
-                                 "prompts", "reconcile", "adapter", "worktrees", "env", "merge",
-                                 "auth_check", "telemetry", "board", "gate", "health", "usage", "workers", "suite",
-                                 "adr", "verify", "review_points", "estimate", "parallel", "ids", "docs",
-                                 "mutate", "report", "notify", "upgrade"})
+    unknown = sorted(set(raw) - {"$schema", "_note", "project_id", *BLOCKS})
     if unknown:
         raise ConfigError(f"{CONFIG_REL}: unknown top-level key(s): {', '.join(unknown)}")
     bad_ids = refs.validate(raw.get("ids"))
