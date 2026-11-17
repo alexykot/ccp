@@ -1,7 +1,7 @@
 ---
 task_id: 0136-init-adoption-leftovers
 title: ccp init checks a kept binding's shape, agrees with ccp where on paths, lists a kept INDEX.yaml and writes the gate into the standing DoD
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4", "S8", "S9", "S21"]
@@ -143,4 +143,4 @@ a placeholder item is left.
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-17 — verifier, PR #150 head `536904a` (squash `b71ece6`): APPROVE. Passed: bind-01, where-01, idx-01, dod-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0136-init-adoption-leftovers.json.
