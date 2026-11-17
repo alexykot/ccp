@@ -220,6 +220,24 @@ class AChangeRerunsWhatItCanAffect(CacheFixture):
                 self.assertEqual((r.returncode, res["cached"], res["ran"]), (0, cached, 2 - cached), r.stdout)
                 self.assertNotIn("no test cache", r.stdout)  # gate.sh tees both streams
 
+    def test_a_nested_repositorys_own_git_is_no_input_and_a_link_in_it_is_one(self):
+        self.warm()
+        nested = self.repo / "tests" / "tmpdir"
+        (nested / "a").mkdir(parents=True)
+        (nested / "b").mkdir()
+        (nested / "link").symlink_to("a", target_is_directory=True)
+        subprocess.run(["git", "init", "-q", str(nested)], check=True)
+        self.cgate()
+        for step, cached in (("its .git changes", 2), ("the link points elsewhere", 0)):
+            with self.subTest(step=step):
+                if cached:
+                    git(nested, "config", "gate.test", "1")  # writes the nested .git/config
+                else:
+                    (nested / "link").unlink()
+                    (nested / "link").symlink_to("b", target_is_directory=True)
+                r, res = self.cgate()
+                self.assertEqual((r.returncode, res["cached"]), (0, cached), r.stdout)
+
     @unittest.skipIf(hasattr(os, "geteuid") and os.geteuid() == 0, "root reads any file")
     def test_an_unreadable_untracked_file_turns_the_cache_off_and_is_named(self):
         self.warm()
