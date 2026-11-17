@@ -1167,7 +1167,7 @@ def signed_passages(text: str) -> list[tuple[int, str]]:
     if at is None:
         return []
     start, body = at
-    first = text.count("\n", 0, start) + 1  # the file line `body`'s first line sits on
+    first = text.count("\n", 0, start) + 1  # `body` starts on the heading's line, after the heading
     lines = body.split("\n")
     out: list[tuple[int, str]] = []
     for n, line in enumerate(lines):
@@ -1180,7 +1180,7 @@ def signed_passages(text: str) -> list[tuple[int, str]]:
                 break
             quoted.append(m.group(1))
         if (passage := _norm(" ".join(quoted))):
-            out.append((first + n + 1, passage))
+            out.append((first + n, passage))
     return out
 
 
@@ -1255,7 +1255,7 @@ def main(cfg: Config, a: Any) -> int:
             if not r["found_in"]:
                 print(f"ccp verify spec-text: not found in the SPEC lines the branch adds since {body['base']}: the "
                       f"passage at {r['line']}: {r['passage']}", file=sys.stderr)
-        print(json.dumps(body, indent=2))
+        print(json.dumps(body, indent=2, ensure_ascii=False))
         return code
     queue = _queue()
     if queue is None:
