@@ -28,7 +28,7 @@ That rule serialises far more than it needs to:
   `parallel.shared` lifts this for files tasks only append to, but each such file must be listed by
   hand.
 - **Measured cost.** In this plane's own review point R10, from task 0158 on, every remaining task
-  ran alone. Each met the next on the SPEC file and the CLI docs; some also shared real code.
+  ran alone. Most met the next on the SPEC or the CLI docs; some shared real code.
 - **Conflicts are rare and found late.** Few tasks need a merge round. When one does, the conflict is
   found at verify or close, after a full review, and costs another full review and verify (§15.6
   rule 3).
@@ -90,7 +90,9 @@ When the tip moves after review, the catch-up is a merge of the tip into the tas
 - **A clean merge whose own patch is unchanged** (same patch id) is re-verified as §15.6 rule 3 says
   today: the gate lane runs at the new head and the dod_checks rest on the earlier approve. Under
   `clashes`, close may make this catch-up itself, even when the tip changed a file the task changes.
-  Today close refuses that case (§16.5 rule 4). Close still resolves an append-only conflict in a
+  Today close refuses that case (§16.5 rule 4), and it carries a build sign-off only when the tip
+  changed no file the task changes; under `clashes` that carry follows the same patch-id test, or
+  every signed task would fall back. Close still resolves an append-only conflict in a
   `parallel.shared` path itself.
 - **A merge with a conflict** is resolved by the implementer. It then gets a resolution review, a new
   review mode, instead of a full round:
@@ -143,8 +145,9 @@ width at each depth. It warns when the chain is long relative to the width.
   - §13.2: the implement prompt's catch-up and the resolution review mode.
   - §15.2: review's refusal of a head behind the tip, and a resolution review as a head's review.
   - §15.6 rule 3: the conflicted merge.
+  - §16.1: the intent line that declared paths decide what starts together.
   - §16.2: the `parallel.schedule` knob.
-  - §16.5 rule 4: close's catch-up over overlapping files.
+  - §16.5 rule 4: close's catch-up over overlapping files, and its build sign-off carry.
   - §16.7: the forecast models clashes.
   - §27: health reports conflict catch-ups.
   - The `ccp tasks check` chain and width warning.
