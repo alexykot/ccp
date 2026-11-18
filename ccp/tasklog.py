@@ -85,6 +85,8 @@ RUNTIME_KEYS = ("waiting_on", "waiting_on_since", "lease", "lease_holder", "leas
 # A numbered step (`1.` or `1)`) with "run `…`" anywhere in it, the command wrapped onto the next line too.
 # §5.2, ADR-0041 D1: `adopt:` names what a product must do to use a task's delivery; missing, it is this.
 ADOPT_NONE = "none"
+# §5.2: a step a product must take for the plane to keep working with it starts with this; any other is optional.
+ADOPT_REQUIRED = "required:"
 # ADR-0041 D1: a task whose `paths` name one of these adds a knob or a setting a product must take, so
 # `ccp tasks check` warns when it carries no `adopt:` (a settings template: a templates/ file named *settings*).
 ADOPT_SCHEMA = "contracts/plane_config.schema.json"
@@ -321,10 +323,18 @@ def adopt_step(t: dict[str, Any]) -> str:
     return v.strip() if isinstance(v, str) and v.strip() else ADOPT_NONE
 
 
+def adopt_required(step: str) -> tuple[bool, str]:
+    """§5.2: whether an `adopt` step is required (it starts with `required:`, in any case), and the step
+    without that prefix; any other step is optional and comes back as it is."""
+    if step[:len(ADOPT_REQUIRED)].lower() == ADOPT_REQUIRED:
+        return True, step[len(ADOPT_REQUIRED):].strip()
+    return False, step
+
+
 def asks_nothing(step: str) -> bool:
-    """§5.2: whether an `adopt` step is `none`: its first word is `none`, an explanation after it allowed
-    (`none: it applies by itself`)."""
-    words = step.split(None, 1)
+    """§5.2: whether an `adopt` step is `none`: its first word, after any `required:` prefix, is `none`, an
+    explanation after it allowed (`none: it applies by itself`)."""
+    words = adopt_required(step.strip())[1].split(None, 1)
     return bool(words) and words[0].rstrip(":;,.").lower() == ADOPT_NONE
 
 
@@ -370,7 +380,7 @@ def hidden_step(t: dict[str, Any], rel: str) -> list[str]:
     from ccp import config, init  # noqa: PLC0415  (init reads the task log)
     settings = {*init.ANCHOR, init.CACHE_TTL_SETTING[0], init.COMPACT_SETTING}
     keys: list[str] = []
-    for m in ADOPT_KEY_RE.finditer(v):
+    for m in ADOPT_KEY_RE.finditer(adopt_required(v.strip())[1]):
         parts = m.group(0).split(".")
         named = (len(parts) > 1 and parts[0] in (*config.BLOCKS, *BINDING_BLOCKS)) or parts[0] in settings
         if named and m.group(0) not in keys:

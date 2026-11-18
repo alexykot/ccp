@@ -379,7 +379,8 @@ A tension between SPEC and PROJECT goes to the design seat, which rules and comm
 - its rules for workers (`docs/delivery/WORKERS.md`, §13; `LOCAL.md`; `standing-dod.md`; its own
   `WRITING-tasks.md` and `TEMPLATE-task.md` if it keeps them);
 - its permission allowlist in `.claude/settings.json`, because plugins cannot ship permissions. The
-  allowlist names `ccp`, not a path.
+  allowlist names `ccp`, and the plane's seat scripts by the absolute paths `ccp init --permissions`
+  prints (§4.5), and no other plane path.
 
 **The anchor, written once by `ccp init` (§4.5)**: two settings entries naming the plane, not a
 version, so a release needs no product commit, and the agent-team flag the hosting needs (§2.2):
@@ -406,7 +407,9 @@ nothing, and `scripts/sync-product-docs.sh` notes that it can be removed.
 - A product's docs name the plane in one line (§4.3) and do not restate its mechanics, commands or
   paths.
 - `ccp docs check` warns, and does not fail, on any plane checkout path in a tracked product file
-  outside the task log and reviews: a product decides its own docs.
+  outside the task log and reviews: a product decides its own docs. A `permissions` entry of
+  `.claude/settings.json` naming one of the seat scripts `ccp init --permissions` prints (§4.5) is not
+  warned about.
 
 ### 4.5 Adopting a product
 
@@ -507,7 +510,7 @@ One `key: value` per line, lists inline.
 | `shaping` | no | `waived — <reason>` (§19) |
 | `renamed_from` | no | the old id after an amended slug |
 | `covers` | no | an after-the-fact task's merged commits, as shas (§10.7) |
-| `adopt` | no (default `none`) | what a product must do to use what the task delivers: `none`, or one concrete step naming the file and key (ADR-0041 D1). A task that ships an off-by-default knob carries its step, never `none`; `ccp tasks check` warns on a `none` value that names a plane.json, binding or settings key |
+| `adopt` | no (default `none`) | what a product must do to use what the task delivers: `none`, or one concrete step naming the file and key (ADR-0041 D1). A task that ships an off-by-default knob carries its step, never `none`; `ccp tasks check` warns on a `none` value that names a plane.json, binding or settings key. A step a product must take for the plane to keep working with it starts with `required:`; any other step is optional |
 
 A product may require more keys (`task_log.required`) and add its own. Runtime keys (lease, session,
 `waiting_on`, ports, …) are refused.

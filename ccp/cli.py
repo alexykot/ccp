@@ -314,17 +314,45 @@ def cmd_tasks_index(cfg: config.Config, a: argparse.Namespace) -> int:
 
 
 PLANE_PATH_SKIP = ("docs/delivery/tasks/", "docs/delivery/reviews/", ".control-plane/")
+# §4.4: a plane checkout path, as `ccp docs check` finds it in a tracked product file.
+PLANE_DIR_RE = r"/control-plane(-run)?/"
+PLANE_PATH_RE = PLANE_DIR_RE + r"(bin/ccp|scripts/|templates/|plugin/|projects/|SPEC\.md)"
+SETTINGS_REL = ".claude/settings.json"
+
+
+def _settings_names_plane(cfg: config.Config) -> bool:
+    """§4.3, §4.4: whether the product's `.claude/settings.json` names a plane checkout path once the
+    `permissions.allow` and `permissions.deny` entries that name one only through a seat script `ccp init
+    --permissions` prints (§4.5) are set aside. A file that does not read as JSON does, as before."""
+    from ccp.init import SEAT_SCRIPTS  # noqa: PLC0415  (at call time, as cmd_docs_check does)
+    seat = re.compile(PLANE_DIR_RE + "(" + "|".join(map(re.escape, SEAT_SCRIPTS)) + r")(?![\w.-])")
+    plane = re.compile(PLANE_PATH_RE)
+    try:
+        data = json.loads((cfg.root / SETTINGS_REL).read_text())
+    except (OSError, ValueError):
+        return True
+
+    def seat_only(entry: object) -> bool:
+        return isinstance(entry, str) and bool(seat.search(entry)) and not plane.search(seat.sub("", entry))
+
+    perms = data.get("permissions") if isinstance(data, dict) else None
+    if isinstance(perms, dict):
+        perms = {k: [e for e in v if not seat_only(e)] if k in ("allow", "deny") and isinstance(v, list) else v
+                 for k, v in perms.items()}
+        data = {**data, "permissions": perms}
+    return plane.search(json.dumps(data, ensure_ascii=False)) is not None
 
 
 def plane_path_warnings(cfg: config.Config) -> list[str]:
     """SPEC §4.4: product docs name the plane in one line and restate none of it. A plane checkout
-    path in a tracked product file is a warning (the task log and reviews are history, and exempt)."""
+    path in a tracked product file is a warning (the task log and reviews are history, and exempt); the
+    seat-script entries of `.claude/settings.json` the permission block names are not (§4.3)."""
     import subprocess  # noqa: PLC0415
-    r = subprocess.run(["git", "-C", str(cfg.root), "grep", "-l", "-I", "-E",
-                        r"/control-plane(-run)?/(bin/ccp|scripts/|templates/|plugin/|projects/|SPEC\.md)"],
+    r = subprocess.run(["git", "-C", str(cfg.root), "grep", "-l", "-I", "-E", PLANE_PATH_RE],
                        capture_output=True, text=True)
     return [f"{f}: names a control-plane checkout path; say `ccp`, or point at the plane in one line (SPEC §4.4)"
-            for f in r.stdout.split() if not f.startswith(PLANE_PATH_SKIP)]
+            for f in r.stdout.split()
+            if not f.startswith(PLANE_PATH_SKIP) and (f != SETTINGS_REL or _settings_names_plane(cfg))]
 
 
 def cmd_docs_history_paths(cfg: config.Config, a: argparse.Namespace) -> int:
