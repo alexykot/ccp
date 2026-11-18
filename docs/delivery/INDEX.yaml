@@ -798,7 +798,7 @@ tasks:
     depends_on: []
     path: tasks/0159-test-readers-and-mutate.md
   - id: 0160-queue-legacy-follow-ups
-    status: pending
+    status: done
     title: The queue docs name only what the plane writes, an unused reader goes, a queue archive is in the ledger, and a Finder .DS_Store is no leftover
     depends_on: []
     path: tasks/0160-queue-legacy-follow-ups.md

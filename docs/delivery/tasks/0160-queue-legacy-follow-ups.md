@@ -1,7 +1,7 @@
 ---
 task_id: 0160-queue-legacy-follow-ups
 title: The queue docs name only what the plane writes, an unused reader goes, a queue archive is in the ledger, and a Finder .DS_Store is no leftover
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S31", "S24"]
@@ -126,3 +126,5 @@ After task 0135's queue check, the plane's own docs and code agree with what tha
   §24); the `plane`/`archived` row went there, beside `plane`/`adopted`.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #169 head `1b73f99` (squash `1acc320`): APPROVE. Passed: doc-01, code-01, arch-01, arch-02, ds-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0160-queue-legacy-follow-ups.json.
+
