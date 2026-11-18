@@ -1,7 +1,7 @@
 ---
 task_id: 0155-recent-window-for-usage-and-health
 title: Cost advice can read a recent window and says which requests it read; init refuses a blank gate; verifiers check ccp by hand with the head's own; suite affected prints a ready command
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S24", "S27", "S4", "S14", "S15"]
@@ -161,3 +161,5 @@ one config then refuses. A verifier checking a `ccp` change by hand runs the hea
   edit for it, so it is left for a follow-up (true under the default `window_hours` 0).
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #170 head `818467a` (squash `14a18fe`): APPROVE. Passed: adv-01, adv-02, init-01, prompt-01, aff-01, suite-01. Gate: `scripts/gate.sh (ccp suite run --lane gate)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0155-recent-window-for-usage-and-health.json.
+
