@@ -1,7 +1,7 @@
 ---
 task_id: 0146-cold-from-the-count
 title: A suite run is recorded cold from its own count alone, so a gate that ignores the cold signal never records cold, and verify record reads the same value
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S15"]
@@ -10,7 +10,7 @@ sign_off: brief
 paths: ["ccp/suite.py", "ccp/verify.py", "ccp/cli.py", "docs/spec/02-delivery.md", "docs/cli/02-delivery.md", "tests/test_suite_cold.py", "tests/test_verify_cache.py"]
 adopt: "none"
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Task: 0146-cold-from-the-count
@@ -109,3 +109,5 @@ and the verdict never disagree.
   cold", which stays true.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #163 head `6c77529` (squash `63c4de7`): APPROVE. Passed: cold-01, cold-02, ver-01, check-01, suite-01. Gate: `ccp suite run --lane gate -- gate.sh (0 args)` exit 0, `ccp tasks check && ccp docs check && ccp adr check` exit 0. Record: verification/0146-cold-from-the-count.json.
+
