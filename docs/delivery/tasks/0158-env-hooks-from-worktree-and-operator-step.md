@@ -103,4 +103,18 @@ step finds the gate class named in its doc.
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `ccp wt create --own-hooks` records `own_hooks: true`; `wt.hook_env` gives
+  such a worktree's hooks and `env.timeout_seconds` from its own `docs/delivery/plane.json`
+  (`config.load` on the worktree path), and every hook (`setup`, `teardown`, `up`, `down`, `urls`) goes
+  through it. The hook's template fields (`{main_checkout}` included) are still the caller's: only the
+  `env` block moves. A base run passes the flag through, so its hooks are the merge base's own; a base
+  run's default command timeout stays the caller's `env.timeout_seconds` (it is not a hook's).
+- Choices the task leaves open, made narrowly: `--own-hooks` on any action but `create` is refused
+  (exit 2), as `--shallow` is; reusing a recorded worktree whose `own_hooks` differs from the call's is
+  refused (exit 3), as a depth mismatch is, so a worktree set up by the other hooks never stands in;
+  on `up` and `urls` an own plane.json that does not load fails the command (exit 1, the file named),
+  as a failed hook does there; a recorded `own_hooks` worktree whose path is gone always warns that
+  its `down` and `teardown` were not run (its hooks cannot be read any more).
+- The runner doc names `--class operator` in step 10 and in the Gates section; `team.sh` is unchanged.
+
 ## Verification notes
