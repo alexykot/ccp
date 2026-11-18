@@ -63,10 +63,12 @@ from typing import Any
 
 from ccp import config, docrules, refs, rules, tasklog
 from ccp.queue import PLANE, QueueError, _main_worktree, emit, lib, queue_leftovers, script_drift
+from ccp.upgrade import binding_keys
 
 TEMPLATES = PLANE / "templates"
 SCHEMA = PLANE / "contracts" / "project.schema.json"
-# §8.3: the binding's nested keys the plane ignores; a top-level key whose contract description says
+# §8.3: the binding's nested keys the plane ignores, each `<top>.<child>` a first-level child of its top-level
+# key (the binding read nested by indentation, `upgrade.binding_keys`); a top-level key whose contract description says
 # ignored or retired is obsolete too, and so is one the contract does not list.
 IGNORED_NESTED = ("seats.runner", "seats.verifier", "seats.watchdog", "cadence.verify_stale_minutes")
 IGNORED_TOP = ("email",)
@@ -195,31 +197,13 @@ def github_warning(root: Path) -> str | None:
             f"{'; '.join(GITHUB_ONLY)} will fail until it has one (ADR-0040)")
 
 
-def _binding_keys(text: str) -> dict[str, list[str]]:
-    """The binding's top-level keys, each with the keys indented under it (a tiny YAML subset, as the
-    binding readers take it); a top-level key with a value of its own has none under it."""
-    out: dict[str, list[str]] = {}
-    top: str | None = None
-    for line in text.splitlines():
-        bare = line.split(" #", 1)[0].rstrip()
-        if not bare.strip() or bare.strip().startswith("#"):
-            continue
-        key = bare.strip().partition(":")[0].strip().strip("'\"")
-        if not line[:1].isspace():
-            top = key if ":" in bare else None
-            if top:
-                out.setdefault(top, [])
-        elif top is not None and ":" in bare and key and not bare.strip().startswith("-"):
-            out[top].append(key)
-    return out
-
-
 def binding_shape_warnings(binding: Path, text: str) -> list[str]:
     """§8.3: what a kept binding lacks and what obsolete keys it carries, each a warning naming the
     binding file and the fix."""
     schema = json.loads(SCHEMA.read_text())
     props: dict[str, Any] = schema.get("properties", {})
-    keys = _binding_keys(text)
+    # each top-level key with its first-level keys only (one with a value of its own has none)
+    keys = {k: list(v) if isinstance(v, dict) else [] for k, v in binding_keys(text).items()}
     fix = f"edit {binding}, or run `ccp init --force` to rewrite it (its other edits are lost)"
     out: list[str] = []
     out += [f"the kept binding {binding} lacks `{k}`: {fix}"
