@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, tasklog
+from tests import test_sandbox
 from tests.helpers import Product
 from tests.test_toolkit import ToolkitFixture, git
 
@@ -359,6 +360,52 @@ class Gates(unittest.TestCase):
         qf.write_text(json.dumps({**json.loads(qf.read_text()), "status": "open"}))
         self.assertEqual(self.run_script("spec-maintainer-ask.sh", "process", qid)["outcome"], "answered")
         self.assertEqual([(r[0], r[3]) for r in sent(self.out)], [("decision", qid)])
+
+
+class TestNotice(test_sandbox.SandboxCase):
+    """`ccp notify fire`: a test notice, fired as a step fires one, in a sandbox only (SPEC §3.6, §29.3)."""
+
+    def sandbox(self, notify=None):
+        sb = self.create(str(self.base / "S"))
+        if notify is not None:
+            pj = Path(sb["root"]) / "docs/delivery/plane.json"
+            pj.write_text(json.dumps({**json.loads(pj.read_text()), "notify": notify}))
+        return sb["root"], json.loads((Path(sb["root"]) / "docs/delivery/plane.json").read_text())["project_id"]
+
+    def pending(self, root, **env):
+        r = self.ccp("--root", str(root), "notify", "pending", **env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return [(n["trigger"], n["id"]) for n in json.loads(r.stdout)["pending"]]
+
+    def test_a_test_notice_fires_and_is_pending(self):
+        root, pid = self.sandbox()
+        r = self.ccp("--root", root, "notify", "fire", "blocker", "--id", "G1", "--reason", "test")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(f"[{pid}] blocker: G1", r.stderr)
+        self.assertEqual(self.pending(root), [("blocker", "G1")])
+
+    def test_the_product_s_notify_command_runs_and_records_its_send(self):
+        out = Path(self._out.name) / "notified.txt"
+        root, pid = self.sandbox({"command": APPEND})
+        r = self.ccp("--root", root, "notify", "fire", "decision", "--id", "Q1", NOTIFY_OUT=str(out))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual([x[:4] for x in sent(out)], [["decision", pid, "", "Q1"]])
+        self.assertEqual(self.pending(root), [])
+
+    def test_upgrade_an_unknown_task_and_a_reason_of_two_lines_are_refused(self):
+        root, _ = self.sandbox()
+        for args in (("upgrade",), ("blocker", "--task", "9999"), ("blocker", "--reason", "two\nlines")):
+            with self.subTest(args=args):
+                r = self.ccp("--root", root, "notify", "fire", *args)
+                self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertEqual(self.pending(root), [])
+
+    def test_outside_a_sandbox_nothing_fires(self):
+        root, q = self.plain()
+        r = self.ccp("--root", str(root), "notify", "fire", "blocker", QUEUE_ROOT=str(q))
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn("sandbox", r.stderr)
+        self.assertEqual(self.pending(root, QUEUE_ROOT=str(q)), [])
 
 
 if __name__ == "__main__":

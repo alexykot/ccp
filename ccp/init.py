@@ -5,7 +5,9 @@ templates, with `--starter-rules` the plane's starter house rules (§20.5), a mi
 `.plane-runtime/` in `.gitignore`, the plugin anchor merged into `.claude/settings.json` with the
 session settings `subagentPromptCacheTtl` and `autoCompactWindow`, the one `CLAUDE.md` line) and,
 outside the repository, the binding in this plane's bindings directory and the queue directory it
-names. The binding is the one source of truth: every reader resolves it through `lib.binding_path`,
+names. Inside a sandbox (`ccp sandbox`, §29.3) the binding is `<project_id>.yaml` in the sandbox's
+bindings directory and the queue is the sandbox's, `--force` or not; a `--queue-root` naming any other
+path is refused, writing nothing. The binding is the one source of truth: every reader resolves it through `lib.binding_path`,
 and no copy goes into the queue (§8.3).
 
 It never overwrites a file without `--force`: an existing file is kept and listed as kept, so a
@@ -340,7 +342,16 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     except ValueError as e:
         raise QueueError(f"ccp init: --gate {gate!r} is not a shell command line ({e})", 2) from e
 
-    binding = lib.bindings_dir() / f"{pid}.yaml"
+    from ccp import sandbox as sandboxes  # noqa: PLC0415  (sandbox runs init as a child)
+    sandbox = sandboxes.sandbox_of(root)
+    if sandbox is not None and queue_root:  # §29.3: the sandbox's queue, never one elsewhere
+        given, own = Path(queue_root).expanduser().resolve(), (sandbox / sandboxes.QUEUE).resolve()
+        if given != own:
+            what = ("is not the queue of the sandbox" if sandbox in given.parents
+                    else "names a path outside the sandbox")
+            raise QueueError(f"ccp init: --queue-root {given} {what} {sandbox}: its queue is {own}; leave "
+                             "--queue-root out (SPEC §29.3)", 2)
+    binding = (sandbox / sandboxes.BINDINGS if sandbox is not None else lib.bindings_dir()) / f"{pid}.yaml"
     old = binding.read_text() if binding.is_file() else None
     if old is not None and not force:
         bound = _scalar(old, "product_root")
@@ -349,6 +360,8 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
                              "pick another --project-id, or --force to rewrite it", 2)
     keep_binding = old is not None and not force
     q = Path(queue_root).expanduser() if queue_root else None
+    if sandbox is not None:
+        q = sandbox / sandboxes.QUEUE
     if keep_binding:
         bound_q = _scalar(old, "queue_root")
         if q and (not bound_q or Path(bound_q).expanduser().resolve() != q.resolve()):

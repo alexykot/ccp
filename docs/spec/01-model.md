@@ -283,6 +283,7 @@ configuration.
   `ccp notify pending` lists every notice fired with no later `sent` event for the same trigger,
   task and id with `ok` true, once however often it fired, so a trigger that fired while the lead
   was idle is still found.
+- **Test notice.** In a sandbox only (§29.3), `ccp notify fire <trigger>` fires a notice as a step would: the `pending` record, the command channel, the rendered notice.
 - **Channels** (plane.json `notify`, §8.1):
   - `command`, a shell command (default null), and `timeout_seconds` (default 30): the unattended
     channel `ccp` runs on each trigger but `upgrade`, which is only recorded for the lead to dispatch, so a release runs no product command, with an empty stdin, in the checkout the call came from (for

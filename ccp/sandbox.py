@@ -12,6 +12,11 @@ DIR must not exist, or be an empty directory. `--queue-root` and init's flags th
 (`--permissions`, `--rules-doc`, `--adopt`) are refused: the sandbox places the queue itself. On a
 failure, what create made is removed again. Under the test fence (`tests/__init__.py`), which sets
 `CCP_SANDBOX_ROOT`, create works only below that directory.
+
+A directory is in a sandbox when its main checkout's parent holds the marker file (`sandbox_of`).
+There every `ccp` command but `sandbox` itself is sealed (`seal`): `CCP_BINDINGS_DIR`, `PROJECT_YAML`
+(when the binding exists) and `QUEUE_ROOT` are set to the sandbox's own, so child processes inherit
+them, and an exported `PROJECT_YAML` or `QUEUE_ROOT` naming a path outside it is refused (exit 2).
 """
 from __future__ import annotations
 
@@ -26,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp.envvars import envvar
-from ccp.queue import CCP_BIN
+from ccp.queue import CCP_BIN, _main_worktree
 
 MARKER = ".ccp-sandbox"
 PRODUCT, BINDINGS, QUEUE = "product", "bindings", "queue"
@@ -49,6 +54,48 @@ def fence_root() -> Path | None:
 
 def _under(path: Path, root: Path) -> bool:
     return path == root or root in path.parents
+
+
+def sandbox_of(directory: Path) -> Path | None:
+    """The sandbox `directory` is in: its main checkout's parent, when that holds the marker file (a
+    regular file, not a link); None when it is in none."""
+    d = _main_worktree(Path(directory).resolve()).parent
+    marker = d / MARKER
+    return d if marker.is_file() and not marker.is_symlink() else None
+
+
+def _binding(root: Path, sandbox: Path) -> Path | None:
+    """The sandbox's binding for the product at `root`: `<project_id>.yaml` in its bindings directory,
+    the id from the checkout's plane.json; None when either is missing."""
+    from ccp import config  # noqa: PLC0415
+    try:
+        pid = json.loads((root / config.CONFIG_REL).read_text()).get("project_id")
+    except (OSError, ValueError, AttributeError):
+        return None
+    if not isinstance(pid, str) or not config.PROJECT_ID_RE.match(pid):
+        return None
+    b = sandbox / BINDINGS / f"{pid}.yaml"
+    return b if b.is_file() else None
+
+
+def seal(root: Path) -> Path | None:
+    """Inside a sandbox, point this process and its children at the sandbox's own binding and queue:
+    `CCP_BINDINGS_DIR` and `QUEUE_ROOT` set to its directories, `PROJECT_YAML` to its binding when one
+    exists. Returns the sandbox, None (nothing changed) outside one. Raises SandboxError (exit 2),
+    changing nothing, when an exported `PROJECT_YAML` or `QUEUE_ROOT` names a path outside it."""
+    sandbox = sandbox_of(root)
+    if sandbox is None:
+        return None
+    for name in ("PROJECT_YAML", "QUEUE_ROOT"):
+        v = os.environ.get(name)
+        if v and not _under(Path(v).expanduser().resolve(), sandbox):
+            raise SandboxError(f"ccp: {name}={v} names a path outside the sandbox {sandbox}; unset it: inside "
+                               "a sandbox ccp uses the sandbox's own binding and queue (SPEC §29.3)")
+    os.environ["CCP_BINDINGS_DIR"] = str(sandbox / BINDINGS)
+    os.environ["QUEUE_ROOT"] = str(sandbox / QUEUE)
+    if (b := _binding(root, sandbox)) is not None:
+        os.environ["PROJECT_YAML"] = str(b)
+    return sandbox
 
 
 def _refused(opts: list[str]) -> list[str]:

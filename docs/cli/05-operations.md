@@ -33,6 +33,7 @@ ccp upgrade notes [--since <commit>]
 ccp upgrade status
 ccp sandbox create [DIR] [-- <ccp init options>]
 ccp sandbox remove DIR
+ccp notify fire <trigger> [--task ID] [--id ID] [--reason R]    a test notice, in a sandbox only (§3.6)
 scripts/run-checkout.sh install | update | status
 scripts/release.sh [worktree]
 ```
