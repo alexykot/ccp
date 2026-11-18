@@ -24,6 +24,9 @@ class WaitDetail(ToolkitFixture, unittest.TestCase):
         self.assertEqual((self.work()["waiting_on"], self.work()["waiting_on_detail"]), ("spec_maintainer", "Q1"))
         self.run_ok("tasks", "resume", "0002", "spec_maintainer")
         self.assertEqual((self.work()["waiting_on"], self.work()["waiting_on_detail"]), (None, None))
+        self.run_ok("tasks", "wait", "0002", "spec_maintainer", "--detail", "Q1")
+        self.run_ok("tasks", "resume", "0002", "spec_maintainer", "--detail", "answered")  # on the event only
+        self.assertEqual((self.work()["waiting_on"], self.work()["waiting_on_detail"]), (None, None))
 
     def test_a_set_without_a_detail_leaves_none_from_the_wait_before(self):
         self.run_ok("tasks", "claim", "0002")
