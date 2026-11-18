@@ -111,4 +111,17 @@ directory knows which of its directories the plane may touch.
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `create` checks `_ours(path, _git_named(cfg, base))` at the top of its
+  adoption branch, before `_same_head` and `_same_depth`, so a refusal writes no record; `remove`
+  checks it in the no-record fallback, before any hook or `_rm_tree`. Both use exit 3 and the
+  task's wording. The `create` check applies only when the name has no record, as the Scope says:
+  a recorded name whose recorded path is gone still adopts its directory, as before (tested).
+- wt-04 as written does not hold at the base, inside the main checkout or out: `remove` of a plain
+  unrecorded directory runs `git worktree remove --force` on it, which git refuses, so `wt remove`
+  exits 0 with a warning and the directory stays. The inside path is unchanged by this task, so
+  wt-04's test makes `.rt/rev-0002` a detached git worktree (removed, exit 0) and keeps
+  `.rt/impl-0002` a plain directory for the adoption half. Raised with the runner.
+- Beyond the checks: a `Shared` test that `wt remove` refuses another repository's clone (which
+  `_rm_tree` would have deleted outright) and its worktree under a shared absolute `worktrees.dir`.
+
 ## Verification notes

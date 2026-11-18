@@ -153,6 +153,61 @@ class Sibling(SiblingFixture, unittest.TestCase):
         self.assertFalse(ver.exists())
 
 
+class Unrecorded(SiblingFixture, unittest.TestCase):
+    """A directory with no record under the sibling directory: adopted or removed only when git names it."""
+
+    def plain(self, name: str) -> Path:
+        d = self.outside / name
+        d.mkdir(parents=True)
+        (d / "theirs.txt").write_text("another checkout's\n")
+        return d
+
+    def assertUntouched(self, d: Path):
+        self.assertEqual([p.name for p in d.iterdir()], ["theirs.txt"])
+        self.assertEqual((d / "theirs.txt").read_text(), "another checkout's\n")
+
+    def test_create_refuses_a_plain_directory_git_does_not_name_and_writes_nothing(self):
+        with mock.patch.dict("os.environ", {"CCP_NO_WORKTREE": "1"}):
+            code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
+        d = self.plain("impl-0002")
+        code, _, out, err = self.wt("create", "--kind", "impl", "--task", "0002")
+        self.assertEqual(code, 3, out + err)
+        self.assertIn(str(d), err)
+        self.assertIn("git worktree list", err)
+        self.assertFalse((self.q / "worktrees" / "impl-0002.json").exists())
+        self.assertUntouched(d)
+
+    def test_remove_refuses_a_plain_directory_git_does_not_name_and_leaves_it(self):
+        d = self.plain("rev-0002")
+        code, _, out, err = self.wt("remove", "rev-0002")
+        self.assertEqual(code, 3, out + err)
+        self.assertIn(str(d), err)
+        self.assertUntouched(d)
+
+    def test_a_recorded_name_whose_worktree_moved_is_adopted_as_before(self):
+        (self.q / "worktrees").mkdir(exist_ok=True)
+        (self.q / "worktrees" / "impl-0002.json").write_text(json.dumps(
+            {"name": "impl-0002", "kind": "impl", "task_id": "0002-second", "path": str(self.main.parent / "gone")}))
+        d = self.plain("impl-0002")
+        code, body, out, err = self.wt("create", "--kind", "impl", "--task", "0002")
+        self.assertEqual(code, 0, out + err)
+        self.assertIs(body["adopted"], True)
+        self.assertEqual(body["path"], str(d))
+
+    def test_worktrees_git_names_are_still_adopted_and_removed_without_a_record(self):
+        impl, rev = self.outside / "impl-0002", self.outside / "rev-0002"
+        git(self.main, "worktree", "add", "-q", "-b", "task/0002-second", str(impl), "origin/main")
+        git(self.main, "worktree", "add", "-q", "--detach", str(rev), "origin/main")
+        code, body, out, err = self.wt("create", "--kind", "impl", "--task", "0002")
+        self.assertEqual(code, 0, out + err)
+        self.assertIs(body["adopted"], True)
+        self.assertEqual(json.loads((self.q / "worktrees" / "impl-0002.json").read_text())["path"], str(impl))
+        code, _, out, err = self.wt("remove", "rev-0002")
+        self.assertEqual(code, 0, out + err)
+        self.assertFalse(rev.exists())
+
+
 class Shared(ToolkitFixture, unittest.TestCase):
     """An absolute `worktrees.dir` shared with another repository's checkouts: theirs are left alone."""
 
@@ -192,6 +247,13 @@ class Shared(ToolkitFixture, unittest.TestCase):
         self.assertTrue((self.d / "impl-0001" / "a.txt").is_file())
         self.assertTrue((self.d / "merge-0001" / "a.txt").is_file())
 
+    def test_remove_refuses_another_repositorys_clone_or_worktree_and_keeps_it(self):
+        for n in ("impl-0001", "merge-0001"):
+            with self.subTest(n=n):
+                code, _, out, err = self.wt("remove", n)
+                self.assertEqual(code, 3, out + err)
+                self.assertTrue((self.d / n / "a.txt").is_file())
+
 
 class Inside(ToolkitFixture, unittest.TestCase):
     """Inside the main checkout an unrecorded directory is still taken for the product's, as before."""
@@ -202,6 +264,18 @@ class Inside(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, body + err)
         names = {s["name"] for s in json.loads(body)}
         self.assertIn("rev-0002", names)
+
+    def test_an_unrecorded_directory_inside_is_still_adopted_and_removed(self):
+        self.write("docs/delivery/plane.json",
+                   json.dumps({**self.PLANE_JSON, "adapter": LEGACY_OFF, "worktrees": {"dir": ".rt"}}))
+        (self.main / ".rt" / "impl-0002").mkdir(parents=True)
+        code, body, out, err = self.ccp("wt", "create", "--kind", "impl", "--task", "0002", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        self.assertIs(body["adopted"], True)
+        git(self.main, "worktree", "add", "-q", "--detach", str(self.main / ".rt" / "rev-0002"), "origin/main")
+        code, _, out, err = self.ccp("wt", "remove", "rev-0002", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        self.assertFalse((self.main / ".rt" / "rev-0002").exists())
 
 
 if __name__ == "__main__":

@@ -324,7 +324,7 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
   worktrees of tasks done or dropped in the queue and leased by no one.
 - A worktree made before records (`impl-`, `rev-`, `ver-` with the task's number) is removed by
   close, or adopted by `create`. `create` reuses an existing worktree only at the `--sha` asked for;
-  at another head it refuses (exit 3). A default name taken meanwhile moves to the next `-<n>`.
+  at another head it refuses (exit 3). A default name taken meanwhile moves to the next `-<n>`. Under a `worktrees.dir` that resolves outside the main checkout, which another checkout may share, a directory with no worktree record is listed by `ccp wt list`, removed by `ccp wt remove NAME` or by close's fallback, swept by `ccp wt gc`, or adopted by `create` only when `git worktree list --porcelain` run in the main checkout names it; `ccp wt remove NAME` and `create` refuse any other (exit 3), and the rest leave it alone. Inside the main checkout these act on any matching directory, as above.
 - Workers make theirs with `ccp wt create`, never `git worktree add`.
 - A worktree's kind, seat and round reach what runs for it, besides its name: a worker's
   `prompts.worker_env` templates get `{{kind}}`, `{{seat}}` and `{{round}}` (§8.1, §13.3), and a lane's
