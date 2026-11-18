@@ -421,8 +421,7 @@ class Config(WtFixture, unittest.TestCase):
                     {"env": {"up": 3}}, {"env": {"timeout_seconds": 0}},
                     {"merge": {"command": "gh pr merge {pr} --squash"}},  # not pinned to the head
                     {"auth_check": {"probes": [{"id": "gh"}]}},
-                    {"auth_check": {"probes": [{"id": "a", "cmd": "true"}, {"id": "a", "cmd": "true"}]}},
-                    {"worktrees": {"dir": "/abs"}, "adapter": {"worktree_dir": None, "worktree_links": [], "post_close": []}}):
+                    {"auth_check": {"probes": [{"id": "a", "cmd": "true"}, {"id": "a", "cmd": "true"}]}}):
             with self.subTest(bad=bad):
                 self.plane(**bad)
                 with self.assertRaises(config.ConfigError):

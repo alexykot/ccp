@@ -207,8 +207,10 @@ def main_checkout(cfg: Config) -> Path:
 
 
 def worktree_for(cfg: Config, prefix: str, nnnn: str) -> str | None:
+    """The task's `<prefix>-<nnnn>` worktree under `worktrees.dir`, resolved against the main checkout
+    (§12.1, as `wt.base_dir`); None when the product names no `worktrees.dir`."""
     d = (cfg.worktrees or {}).get("dir")
-    return str(main_checkout(cfg) / d / f"{prefix}-{nnnn}") if d else None
+    return str((main_checkout(cfg) / d).resolve() / f"{prefix}-{nnnn}") if d else None
 
 
 def fragment(cfg: Config) -> tuple[str, str]:
