@@ -74,3 +74,9 @@ text is the first Scope item below, where `ccp verify spec-text` reads it.
 ## Verification notes
 
 *Append-only.*
+
+- Built as scoped: `TASK_LOG_DEFAULTS["spec_paths"]` (with its comment) and §3.5's default text changed to
+  `["docs/SPEC.md", "SPEC.md", "docs/spec/", "spec/"]`; one new test in `tests/test_tasklog_spec_signoff.py`
+  runs the `spec-01` setup. Premises re-checked at `9a7103d`: the old default and the estimator's default
+  are as the Context states. The estimator is untouched. The full suite (2329 tests) passed unchanged
+  otherwise.
