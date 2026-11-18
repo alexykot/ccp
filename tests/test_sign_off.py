@@ -404,6 +404,73 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         self.assertEqual((code, tid), (0, "0002-second"), err)  # its claim resumes it
         self.assertNotIn("passed over", err)
 
+    def three_pending(self) -> None:
+        """Three ready tasks declaring a brief sign-off: 0001 signed before its file changed again (stale), 0002
+        whose value is misspelt (malformed), 0003 signed at its text (current); the runner on the tip."""
+        first = self.main / "docs/delivery/tasks/0001-first.md"
+        first.write_text(first.read_text().replace("status: done", "status: pending", 1)
+                         .replace("depends_on:", "sign_off: brief\ndepends_on:", 1))
+        second = self.main / TASK_FILE
+        second.write_text(second.read_text().replace('depends_on: ["0001-first"]', "sign_off: breif\ndepends_on: []", 1))
+        self.write("docs/delivery/tasks/0003-third.md", second.read_text().replace("0002-second", "0003-third")
+                   .replace("title: Second", "title: Third").replace("sign_off: breif", "sign_off: brief"))
+        tasklog.write_index(config.load(self.main))
+        git(self.main, "add", "docs/delivery/tasks/0001-first.md", TASK_FILE, "docs/delivery/tasks/0003-third.md",
+            "docs/delivery/INDEX.yaml")
+        git(self.main, "commit", "-q", "-m", "three tasks")
+        for tid in ("0001", "0003"):
+            code, _, out, err = self.ccp("tasks", "sign-off", tid, "--by", "op", "--words", "signed", root=self.main)
+            self.assertEqual(code, 0, out + err)
+        first.write_text(first.read_text().replace("title: First", "title: First, reworded", 1))
+        tasklog.write_index(config.load(self.main))
+        git(self.main, "commit", "-q", "-am", "0001 reworded after its signing")
+        git(self.main, "push", "-q", "origin", "main")
+        git(self.runner, "fetch", "-q", "origin")
+        git(self.runner, "checkout", "-q", "--detach", "origin/main")
+
+    def test_next_passes_over_a_stale_or_malformed_sign_off_naming_which(self):
+        self.three_pending()
+        code, tid, err = self.next_id()
+        self.assertEqual((code, tid), (0, "0003-third"), err)
+        self.assertIn("passed over 0001-first: stale brief sign-off: 0001-first's brief sign-off is stale", err)
+        self.assertIn("ccp tasks sign-off 0001-first --stage brief", err)
+        self.assertIn("passed over 0002-second: malformed sign_off: sign_off 'breif'", err)
+        self.assertIn("ccp tasks check", err)
+        for tid in ("0001", "0002"):  # what next passed over, claim refuses
+            self.assertEqual(self.ccp("tasks", "claim", tid)[0], 3)
+
+    def test_next_explains_each_kind_and_a_preferred_one(self):
+        self.three_pending()
+        self.assertEqual(self.ccp("tasks", "prefer", "0002", "0001")[0], 0)
+        code, tid, err = self.next_id("--explain")
+        self.assertEqual((code, tid), (0, "0003-third"), err)
+        self.assertIn("preferred 0002-second has a malformed sign_off value: passed over (malformed sign_off", err)
+        self.assertIn("preferred 0001-first awaits its brief sign-off again: passed over (stale brief sign-off", err)
+        self.assertIn("2 unsigned", err)
+        self.assertRegex(err, r"sign +0001-first .* awaits its sign-off: stale")
+        self.assertRegex(err, r"sign +0002-second .* awaits its sign-off: malformed")
+
+    def test_with_the_current_one_done_nothing_is_offered(self):
+        self.three_pending()
+        third = self.main / "docs/delivery/tasks/0003-third.md"
+        third.write_text(third.read_text().replace("status: pending", "status: done", 1))
+        tasklog.write_index(config.load(self.main))
+        git(self.main, "commit", "-q", "-am", "0003 done")
+        git(self.main, "push", "-q", "origin", "main")
+        git(self.runner, "checkout", "-q", "--detach", "origin/main")
+        code, _, out, err = self.ccp("tasks", "next")
+        self.assertEqual(code, 3, out + err)
+        self.assertTrue(out.startswith("nothing ready"), out)
+        self.assertIn("passed over 0001-first: stale", err)
+        self.assertIn("passed over 0002-second: malformed", err)
+
+    def test_a_signed_task_whose_sign_off_holds_is_not_passed_over(self):
+        self.three_pending()
+        self.assertEqual(self.ccp("tasks", "sign-off", "0001", "--by", "op", "--words", "again")[0], 0)
+        code, tid, err = self.next_id()
+        self.assertEqual((code, tid), (0, "0001-first"), err)
+        self.assertNotIn("passed over 0001", err)
+
     # ------------------------------------------------------------------ the task field
 
     def test_tasks_check_reads_the_field(self):

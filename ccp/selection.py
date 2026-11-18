@@ -14,8 +14,9 @@ queue holds `done` or `dropped` is passed over whatever the checkout's file says
 own task list.
 
 `pick` passes over what `ccp tasks claim` would refuse for want of a signature or the lead's word: a held
-task (§10.4), and a task whose `brief` sign-off is due and not recorded in the ledger (§3.5, `unsigned`),
-unless it is already leased (its claim resumes it). The command names each on stderr.
+task (§10.4), and a task whose `brief` sign-off is due and not recorded in the ledger, is stale, or whose
+`sign_off:` value is malformed (§3.5, `unsigned`), unless it is already leased (its claim resumes it). The
+command names each on stderr, and which of the three.
 """
 from __future__ import annotations
 
@@ -100,35 +101,53 @@ def holds(q: Path | None) -> dict[str, dict[str, Any]]:
     return {str(k): (v if isinstance(v, dict) else {}) for k, v in h.items()} if isinstance(h, dict) else {}
 
 
-def unsigned(q: Path | None, tasks: list[dict[str, Any]]) -> list[str]:
-    """§3.5, §10.3: of `tasks`, the ids of those that declare a `brief` sign-off with none recorded in the
-    ledger and no lease in the queue: `ccp tasks claim` refuses them, so `next` passes them over. A task
-    already leased is resumed by its claim, which then judges no sign-off. [] without a queue."""
+_WAITS = {"missing": "awaits its brief sign-off", "stale": "awaits its brief sign-off again",
+          "malformed": "has a malformed sign_off value"}
+
+
+def unsigned(cfg: Config, q: Path | None, tasks: list[dict[str, Any]]) -> dict[str, dict[str, str]]:
+    """§3.5, §10.3: of `tasks` with no lease in the queue, those `ccp tasks claim` refuses for their sign-off,
+    in order, each id with `kind` and `why` (what stderr says, with what fixes it): `malformed`, a
+    `sign_off:` value the plane cannot read; `missing`, a declared `brief` sign-off with none recorded in the
+    ledger; `stale`, one whose head lacks the task file's last change in this checkout, or that covers no
+    commit it holds (`lifecycle.brief_stale`, the claim's own test). `next` passes them over. A task already leased is
+    resumed by its claim, which then judges no sign-off. {} without a queue."""
     if q is None or not q.is_dir():
-        return []
-    out = []
+        return {}
+    from ccp import lifecycle  # noqa: PLC0415
+    out: dict[str, dict[str, str]] = {}
     for t in tasks:
         tid = str(t.get("task_id"))
-        if "brief" in tasklog.sign_off_stages(t) and "brief" not in sign_offs(q, tid) \
-                and not load_task_state(q, tid).get("lease_holder"):
-            out.append(tid)
+        if load_task_state(q, tid).get("lease_holder"):
+            continue
+        if why := tasklog.sign_off_malformed(t):
+            out[tid] = {"kind": "malformed", "why": f"malformed sign_off: {why}; fix the task file "
+                                                    "(`ccp tasks check` names it)"}
+        elif "brief" not in tasklog.sign_off_stages(t):
+            continue
+        elif (got := sign_offs(q, tid).get("brief")) is None:
+            out[tid] = {"kind": "missing", "why": "no brief sign-off on record (the lead records the operator's "
+                                                  f"with `ccp tasks sign-off {tid} --stage brief`, SPEC §3.5)"}
+        elif stale := lifecycle.brief_stale(cfg, t, str(got.get("head") or "")):
+            out[tid] = {"kind": "stale", "why": "stale brief sign-off: " + "; ".join(stale)}
     return out
 
 
 def pick(cfg: Config, q: Path | None, scope: list[str] | None = None,
          tasks: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """`inputs` plus `ranked`: row 0 is what `ccp tasks next` returns now. A held task (a refactor or
-    the preference too) is passed over, and so is one whose `brief` sign-off is due and unrecorded
-    (`unsigned`): `ranked` is the order without them, `ranked_all` the full queue they sit in,
-    `passed_over` the held tasks that would otherwise be in it and `unsigned` the tasks awaiting their
-    brief sign-off. Without `tasks` (the command's own call) it reads `current`: the integration tip's
-    statuses and the queue's."""
+    the preference too) is passed over, and so is one the claim refuses for its sign-off, missing, stale or
+    malformed (`unsigned`): `ranked` is the order without them, `ranked_all` the full queue they sit in,
+    `passed_over` the held tasks that would otherwise be in it, `unsigned` the ids of those awaiting their
+    sign-off and `unsigned_why` each one's kind and why. Without `tasks` (the command's own call) it reads
+    `current`: the integration tip's statuses and the queue's."""
     tasks = tasks if tasks is not None else current(cfg, q)
     i = inputs(cfg, q, scope, tasks)
     full = tasklog.ranked(cfg, i["scope"], i["first"], i["prefer"], tasks, i["review_point"])
     held = holds(q)
-    waits = unsigned(q, [t for t, _ in full if str(t.get("task_id")) not in held])
-    i["held"], i["ranked_all"], i["passed_over"], i["unsigned"] = held, full, [], waits
+    why = unsigned(cfg, q, [t for t, _ in full if str(t.get("task_id")) not in held])
+    waits = list(why)
+    i["held"], i["ranked_all"], i["passed_over"], i["unsigned"], i["unsigned_why"] = held, full, [], waits, why
     if not held and not waits:
         i["ranked"] = full
         return i
@@ -141,8 +160,8 @@ def pick(cfg: Config, q: Path | None, scope: list[str] | None = None,
         if (tid := str(p[0].get("task_id"))) in skip:
             i["prefer_notes"] = [n for n in i["prefer_notes"] if not n.startswith(f"preferred {tid} ")]
             i["prefer_notes"].append(f"preferred {tid} is held: passed over (`ccp tasks hold --clear {tid}`)"
-                                     if tid in held else f"preferred {tid} awaits its brief sign-off: passed over "
-                                     f"(`ccp tasks sign-off {tid} --stage brief`)")
+                                     if tid in held else f"preferred {tid} {_WAITS[why[tid]['kind']]}: passed over "
+                                     f"({why[tid]['why']})")
     for st in i["preferred"] or []:
         if st["task_id"] in skip and (st["state"] == "ready" or st["state"].startswith("waiting on")):
             st["state"] = "held" if st["task_id"] in held else "awaiting brief sign-off"
