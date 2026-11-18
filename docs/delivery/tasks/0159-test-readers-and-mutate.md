@@ -146,4 +146,23 @@ find the merge base.
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `suite.affected_map` and `mutate.unbuilt_re` are new keys of `SUITE_DEFAULTS` and
+  `MUTATE_DEFAULTS` (`ccp/config.py`), checked at load with a message naming the key; a map value must be a
+  non-empty list of non-blank ids. `affected` (`ccp/suite.py`) unions the reader's modules with `_mapped`, sorted.
+- `ccp mutate` reads only the mutant run's own output for `unbuilt_re`: `_test` notes the log offset after its
+  header line, and `_says_unbuilt` reads from there. `unbuilt` joins the result, the `run`/`recorded` event and
+  `REQUIRED_PAYLOAD`; the exit code is unchanged in form (1 unless every mutant was killed).
+- The `mut-01` premise does not hold for a syntax error: `python3 -m unittest <dotted id>` prints `Failed to
+  import test module` only for an ImportError (its loader catches nothing else; a SyntaxError ends in a
+  traceback, `SyntaxError: ...`). The test for it uses a mutant that breaks the import (renames the function
+  the test imports); a second test shows a list of patterns (`^SyntaxError: ` added) marking a syntax error
+  `unbuilt`. Flagged to the runner.
+- `--shallow`: the checkout runs with `GIT_LFS_SKIP_SMUDGE=1`; with git-lfs on PATH and LFS files listed, the
+  clone's `lfs.storage` is the directory that holds `git lfs env`'s LocalMediaDir in the main checkout (the
+  store, whose `objects/` LocalMediaDir is; LocalMediaDir itself would put the objects one level too deep),
+  else `<git common dir>/lfs`, then `git lfs checkout`. A file still a pointer (`git lfs ls-files` marks it
+  `-`) is counted in the warning. `create` takes the merge base with `wt.merge_base` (which fetches origin
+  again), fetches it into the clone at depth 1 and records `merge_base`; no merge base, or a fetch that fails,
+  is a warning in the result's `warnings` (printed on stderr by `ccp wt`), and nothing is recorded.
+
 ## Verification notes

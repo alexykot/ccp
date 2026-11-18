@@ -924,6 +924,26 @@ class ShallowLfs(WtFixture, unittest.TestCase):
         self.assertIn("git lfs fetch", err)
 
 
+class LfsStore(unittest.TestCase):
+    def test_the_store_is_where_lfs_env_puts_the_objects_else_the_git_dirs_lfs(self):
+        with tempfile.TemporaryDirectory() as d:
+            main = Path(d).resolve()
+            subprocess.run(["git", "init", "-q", str(main)], check=True, capture_output=True)
+            real = subprocess.run
+
+            def lfs_env(out: str):
+                def run(args, *a, **kw):
+                    if args[-2:] == ["lfs", "env"]:
+                        return subprocess.CompletedProcess(args, 0, out, "")
+                    return real(args, *a, **kw)
+                return run
+
+            with mock.patch("subprocess.run", side_effect=lfs_env("LocalMediaDir=/s/lfs/objects\n")):
+                self.assertEqual(wt._lfs_store(main), Path("/s/lfs"))
+            with mock.patch("subprocess.run", side_effect=lfs_env("")):
+                self.assertEqual(wt._lfs_store(main), main / ".git" / "lfs")
+
+
 class OwnHooks(WtFixture, unittest.TestCase):
     """`ccp wt create --own-hooks` (§12.2): the worktree's hooks and their timeout come from its own plane.json."""
 
