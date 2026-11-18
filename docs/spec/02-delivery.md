@@ -60,13 +60,17 @@ only through its single writer (`ccp tasks wait|resume`, which call `set-waiting
    operator. With several runners the last runner to finish reports the stop.
 4. **Rotate.** When its slot's `tasks_done` reaches `runner.rotate_after_tasks` (default 4), or the
    runner seat's request context reaches `runner.rotate_at_context_tokens` (default off), rotation is
-   due: `ccp tasks claim` refuses the slot a new task until the lead rotates it. The runner finishes
+   due:
+   `ccp tasks claim` refuses the slot a new task until the lead rotates it, and from the rotation until the lead binds the fresh runner (`team.sh runner bind`), so the runner being rotated out takes no new task.
+   The runner finishes
    the current phase, writes `work.json` and asks the lead to rotate it, as it also may sooner when
    its context gets heavy. The lead records it (`team.sh runner rotate
    [--slot]`), shuts it down, and only once it is gone spawns a fresh runner with the same prompt.
    The harness may give the fresh one a suffixed name; the lead binds the name the Agent result
    gives (`team.sh runner bind --name <it> [--as <slot>]`) and stops the old one if it is still
-   there. Until that bind no teammate is kept working (§18.2). Workers' prompts, the hook and the
+   there.
+   From the rotation until that bind no teammate of the slot is kept working (§18.2).
+   Workers' prompts, the hook and the
    lead's own actions address the bound name. Shutdown is a `shutdown_request` message first; a
    runner that does not acknowledge it is stopped with `TaskStop(<the bound name>)`. A rotation is
    refused only while that slot's own task has a worker run open.
@@ -1248,7 +1252,9 @@ exits as the spawn would. It writes nothing: no `work.json`, prompt audit, event
    resumes every runner.
 7. **A freed slot wakes the idle.** After `ccp tasks close` or `release`, which name the runners
    holding no task (`idle_runners`), the runner sends each one message: "a slot is free: `ccp tasks
-   next`".
+   next`". Close, release and drop also name `vacant_slots`, the slots rotated and not respawned, which
+   `idle_runners` leaves out, and the runner tells the lead each slot and its `team.sh runner spawn
+   --slot <slot>`.
 
 ### 16.6 Exclusive test lanes
 

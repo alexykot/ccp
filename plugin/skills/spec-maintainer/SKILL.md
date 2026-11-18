@@ -185,7 +185,9 @@ in. Everything above applies, with these differences.
   (respawn every slot then). `rotate` refuses while that slot's worker runs: `--force --reason` only for
   a worker that is gone. `team.sh runner status` lists each slot with its bound name and task. Gate
   decisions, answers and wakes go to the task's holder, which the printed actions name. After your own
-  `ccp tasks release`, message each of its `idle_runners`: "a slot is free: `ccp tasks next`".
+  `ccp tasks release`, message each of its `idle_runners`: "a slot is free: `ccp tasks next`"; its
+  `vacant_slots` (rotated, not respawned) hold no runner until you run `team.sh runner spawn --slot <slot>`
+  for each (or `stop --slot` it to run fewer). A runner's message naming them asks the same.
 - **Standing approvals.** When you define a review point with the operator, write its pre-approved gates into
   the product plan (for example operator steps with backup and rehearsal, or a spend envelope), so the
   runner can cite them with `--standing`.

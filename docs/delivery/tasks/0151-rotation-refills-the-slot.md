@@ -130,4 +130,17 @@ output says the slot stays empty until the spawn runs.
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `claim` refuses a new claim mid-rotation through `rotation_step_left`
+  (`ccp/lifecycle.py`), beside `rotation_due`, which is unchanged (the `rotation-due` command still answers
+  "not due" for a rotated slot). The step named is the spawn while `rotated_at` is set (one runner:
+  `runner_rotated_at` at or after `runner_spawned_at`), then the bind while `bind_pending` is true. With one
+  runner a respawn in the rotation's own second leaves the two stamps equal; there the pending bind decides
+  (bind, not spawn). A rotate, spawn and bind all within one second would still read as rotated and refuse:
+  the stamps are whole seconds, and the lead waits for the shutdown in between.
+- `vacant_slots` is for runner slots only; one runner (no `runners` map) has none, as `idle_runners` has none.
+  `idle_runners` leaves a slot with `rotated_at` out; `team.sh runner status` gives every slot a `vacant`
+  boolean.
+- The hook lets a slot with `rotated_at` (one runner: rotated since its spawn) go idle before it asks
+  `rotation-due`, as it does for `bind_pending`.
+
 ## Verification notes

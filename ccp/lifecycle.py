@@ -16,7 +16,9 @@ if it names one (§3.6, `ccp.notify`).
 
 `claim` refuses a new task (exit 7) to a runner slot due for rotation and not rotated since its spawn
 (§10.2 step 4, `rotation_due`): its `tasks_done` reached `runner.rotate_after_tasks`, or its latest
-request's context reached `runner.rotate_at_context_tokens`. A resume is never refused.
+request's context reached `runner.rotate_at_context_tokens`. It refuses one too from the rotation until
+the lead binds the fresh runner (`rotation_step_left`), so the runner being rotated out takes no new task.
+A resume is never refused.
 
 `rotation-due` answers the same rule for one slot without claiming: the `TeammateIdle` hook asks it
 (§18.2).
@@ -199,6 +201,32 @@ def rotation_due(q: Path, slot: str, w: dict[str, Any] | None = None) -> dict[st
     return None
 
 
+def rotation_step_left(w: dict[str, Any], slot: str) -> dict[str, Any] | None:
+    """§10.2 step 4: the lead's step left of a rotation it recorded, while the slot's fresh runner is not yet
+    bound: `spawn` while the rotation is recorded and not respawned (the slot's `rotated_at`; one runner:
+    `runner_rotated_at` at or after `runner_spawned_at`), then `bind` while the respawned runner is not bound
+    (`bind_pending`; one runner: `runner_bind_pending`). `{"slot", "step", "cmd"}`, or None when the slot is
+    in no rotation, or is no recorded runner slot. With one runner, whatever `slot` says."""
+    slots = runner_slots(w)
+    if slots:
+        rec = slots.get(slot)
+        if rec is None:
+            return None
+        if rec.get("rotated_at"):
+            return {"slot": slot, "step": "spawn", "cmd": f"team.sh runner spawn --slot {slot}"}
+        if rec.get("bind_pending"):
+            return {"slot": slot, "step": "bind", "cmd": f"team.sh runner bind --name <name> --as {slot}"}
+        return None
+    rot, spawned = str(w.get("runner_rotated_at") or ""), str(w.get("runner_spawned_at") or "")
+    one = str(w.get("runner") or "") or slot
+    # a spawn in the rotation's own second leaves the two stamps equal: the pending bind says it respawned
+    if rot and (rot > spawned or (rot == spawned and not w.get("runner_bind_pending"))):
+        return {"slot": one, "step": "spawn", "cmd": "team.sh runner spawn"}
+    if w.get("runner_bind_pending"):
+        return {"slot": one, "step": "bind", "cmd": "team.sh runner bind --name <name>"}
+    return None
+
+
 def rotation_check(holder: str = "runner") -> dict[str, Any]:
     """§10.2 step 4, §18.2 `ccp tasks rotation-due`: whether `holder`'s rotation is due, by the rule claim
     enforces (`rotation_due`), so the idle hook lets a due runner idle rather than restating the rule.
@@ -241,6 +269,11 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
         raise QueueError(f"{due['slot']} is due for rotation: {due['why']}. It takes no new task until the lead "
                          f"rotates it (`{due['rotate']}`): finish the current phase, write work.json and ask the "
                          "lead to rotate you (SPEC §10.2)", parallel.EXIT_SLOTS)
+    if not resumed and (left := rotation_step_left(load_work(q), holder)):  # §10.2 step 4: the slot is mid-rotation
+        from ccp import parallel  # noqa: PLC0415
+        raise QueueError(f"{left['slot']} is being rotated: it takes no new task until the lead binds its fresh "
+                         f"runner. The step left is the lead's {left['step']} (`{left['cmd']}`); nothing is taken "
+                         "(SPEC §10.2)", parallel.EXIT_SLOTS)
     if not resumed and (gaps := sign_off_gaps(q, meta, ["brief"], text_in=cfg)):  # §3.5: brief text is signed first
         raise QueueError("claim refused, nothing taken: " + "; ".join(gaps), 3)
     from ccp import parallel, usage  # noqa: PLC0415
@@ -547,6 +580,7 @@ def drop(cfg: Config, task: str, reason: str) -> dict[str, Any]:
     emit(q, cfg, tid, "note", "set", {"message": f"dropped in flight: {reason}", "source": "ccp tasks drop"}, who)
     return {"ok": True, "task_id": tid, "changed": what, "holder": st.get("lease_holder"),
             **({"idle_runners": idle} if (idle := idle_runners(q, but=str(st.get("lease_holder") or ""))) else {}),
+            **({"vacant_slots": vac} if (vac := vacant_slots(q)) else {}),
             "warnings": [f"its worktree {st['worktree_path']} and branch task/{tid} are kept"]
             if st.get("worktree_path") and Path(st["worktree_path"]).is_dir() else []}
 
@@ -649,10 +683,19 @@ def holder_teammate_for(q: Path, slot: Any) -> str | None:
 def idle_runners(q: Path, but: str = "") -> list[str]:
     """§16.5 rule 7: the bound names of the runner slots that hold no task, to message after a slot frees
     (the hook cannot wake a teammate that is already idle); `but`, the slot that freed it, is not among
-    them (it goes on itself). [] for one runner."""
+    them (it goes on itself), nor a slot rotated and not respawned (`vacant_slots`: its teammate is gone).
+    [] for one runner."""
     w = load_work(q)
     held = {str(load_task_state(q, str(t)).get("lease_holder") or "") for t in w.get("in_flight") or []}
-    return [str(r.get("bound_name") or s) for s, r in sorted(runner_slots(w).items()) if s not in held and s != but]
+    return [str(r.get("bound_name") or s) for s, r in sorted(runner_slots(w).items())
+            if s not in held and s != but and not r.get("rotated_at")]
+
+
+def vacant_slots(q: Path) -> list[str]:
+    """§16.5 rule 7: the runner slots whose rotation is recorded and not respawned (`rotated_at` set), which
+    hold no runner until the lead's `team.sh runner spawn --slot <slot>`; close, release and drop name them,
+    and the runner tells the lead. [] for one runner."""
+    return [s for s, r in sorted(runner_slots(load_work(q)).items()) if r.get("rotated_at")]
 
 
 def runner_worktree(cfg: Config, slot: str | None) -> dict[str, Any]:
@@ -735,6 +778,7 @@ def release(cfg: Config, task: str, reason: str, keep_branch: bool = False) -> d
             "holder_teammate": holder_teammate_for(q, st.get("lease_holder")),
             # every slot holding nothing now, the released task's own holder too (a lead's release frees it)
             **({"idle_runners": idle} if (idle := idle_runners(q)) else {}),
+            **({"vacant_slots": vac} if (vac := vacant_slots(q)) else {}),
             **({"kept_branch": branch} if keep_branch else {}),
             "warnings": [f"the worktree {wt} and branch {branch} are kept: a later claim resumes in them"]
             if (wt := st.get("worktree_path")) and Path(wt).is_dir() else []}
@@ -1915,6 +1959,7 @@ def _reconciled(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, h
     return {"ok": True, "task_id": tid, "pr": pr, "head": head, "merge_sha": merge, "reconcile_sha": reconcile,
             "merged_now": not already, "reconciled_now": not reconciled, "committed": paths, "warnings": warnings,
             **({"idle_runners": idle} if (idle := idle_runners(q, but=str(st.get("lease_holder") or ""))) else {}),
+            **({"vacant_slots": vac} if (vac := vacant_slots(q)) else {}),
             "review_point_stamped": stamp, "abandoned_runs": abandoned, **({"notified": notified} if notified else {})}
 
 
