@@ -526,10 +526,12 @@ if done < {moves}:
         a, b, c = "a" * 40, "b" * 40, "c" * 40
         (self.q / "verification").mkdir(exist_ok=True)
 
-        def put(**cu):
+        def put(verdict="approve", **cu):
             (self.q / "verification/0002-second.json").write_text(json.dumps({
-                "verdict": "approve", "head_sha": a,
+                "verdict": verdict, "head_sha": a,
                 "catch_up": {"from": a, "to": b, "sign_off_carried": a, **cu}}))
+        put(verdict="reject")  # a catch-up on a record that is not an approve carries nothing
+        self.assertFalse(verify.sign_off_carried(self.q, "0002-second", a, b))
         put()
         self.assertTrue(verify.sign_off_carried(self.q, "0002-second", a, b))
         self.assertTrue(verify.sign_off_carried(self.q, "0002-second", a[:12], b[:12]))
