@@ -49,7 +49,8 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
             | sent TRIGGER [--task ID] [--id ID] --via command|lead [--note T]  (the operator's notices, SPEC §3.6)
             | upgrade [--since COMMIT]  (record a release's upgrade notice for this product, SPEC §29.3)
   ccp plane propose --need T --generic T [--task ID] [--workaround T] [--frequency F] | propose --again ID
-            | triage ID --accept|--merge-into ID|--decline --reason T | built ID --task ID | list [--open] | check
+            | triage ID --accept|--merge-into ID|--decline --reason T | built ID --task ID | list [--open]
+            | check [--archive]  (queue entries the plane does not write; --archive moves them to _legacy/, SPEC §31.3)
   ccp upgrade notes [--since COMMIT] | status  (what a plane release asks of a product, SPEC §29.3)
   ccp agent start|stop          (the SubagentStart / SubagentStop hooks; hook JSON on stdin)
   ccp orientation               (the SessionStart orientation, for a session that adopted mid-run, SPEC §9.3)
@@ -1237,7 +1238,7 @@ def build_parser() -> argparse.ArgumentParser:
     from ccp import notify  # noqa: PLC0415
     notify.add_parser(sub, _toolkit)  # §3.6: render, sent, pending
 
-    pl = sub.add_parser("plane", help="propose a ccp tool; the queue's script check (SPEC §31.4)") \
+    pl = sub.add_parser("plane", help="propose a ccp tool; the queue's leftover check (SPEC §31.3, §31.4)") \
         .add_subparsers(dest="cmd", required=True)
     plane_fn = _toolkit(_plane)
     p = pl.add_parser("propose", help="a step ccp does not cover: propose a tool instead of writing one")
@@ -1264,8 +1265,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = pl.add_parser("list", help="proposals, most repeated first")
     p.add_argument("--open", action="store_true")
     p.set_defaults(fn=plane_fn)
-    pl.add_parser("check", help="files in QUEUE_ROOT/scripts/ that are not the plane's (exit 1 if any)") \
-        .set_defaults(fn=plane_fn)
+    p = pl.add_parser("check", help="queue entries the plane does not write: files in QUEUE_ROOT/scripts/ that are "
+                                    "not the plane's, top-level entries it does not keep (exit 1 if any; SPEC §31.3)")
+    p.add_argument("--archive", action="store_true",
+                   help="move every listed entry to QUEUE_ROOT/_legacy/<UTC date>/ first; never deletes or overwrites")
+    p.set_defaults(fn=plane_fn)
 
     up = sub.add_parser("upgrade", help="what a plane release asks of this product (SPEC §29.3)") \
         .add_subparsers(dest="cmd", required=True)

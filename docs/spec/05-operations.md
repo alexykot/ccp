@@ -139,6 +139,15 @@ This rule is in every seat brief and in the plugin's orientation (§9).
 - **Checks:**
   - The board warns of an unknown or drifted file in `QUEUE_ROOT/scripts/`.
   - `ccp tasks claim` prints the same warning on stderr, so the runner sees it on its next task.
+  - `ccp plane check` lists the files in `QUEUE_ROOT/scripts/` that are not the plane's copy
+    (`scripts`) and each top-level entry of the queue the plane does not keep (`root`, a directory once,
+    with a trailing `/`), and exits 1 when either list is non-empty; a byte-identical copy of a plane
+    script and the binding's `auth_check.script` (§30) are not listed. `ccp plane check --archive`
+    moves every entry it lists to `QUEUE_ROOT/_legacy/<YYYY-MM-DD>/<its path relative to QUEUE_ROOT>`,
+    the date in UTC, and never deletes or overwrites: an entry whose target already exists stays where
+    it is, listed under `not_moved` with the reason. It then checks again and exits as the check does.
+    `ccp init` on a queue holding such entries warns with their count and `ccp plane check --archive`,
+    and moves nothing.
 
 ### 31.4 Proposing a tool
 

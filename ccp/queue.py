@@ -439,19 +439,59 @@ RETIRED_SCRIPTS = {
     "spec-maintainer-lock.sh": "the headless spec maintainer and its lock were removed, SPEC §17, 2026-11-05",
 }
 
+# §31.3: the top-level names the plane keeps at QUEUE_ROOT. Every other entry there is a leftover
+# (`queue_leftovers`), which `ccp plane check --archive` moves to `_legacy/`.
+QUEUE_OWNED = frozenset({
+    "_legacy",                  # §31.3: the archive `ccp plane check --archive` moves leftovers into
+    "architect.json",           # §19.3: the architect's state
+    "architect.json.lock",      # §19.3: the architect state file's own read-modify-write lock
+    "architect.lock",           # §11.2, §19.3: the architect-run lock
+    "auth",                     # §30.1: auth/status.json
+    "board",                    # §28: the board, its history and the usage and allowance series (§24, §25)
+    "docs-audit.json",          # §19.12: the retired docs-audit seat's state, still read as an old record
+    "docs-audit.lock",          # §19.12: its lock, read beside it
+    "durable",                  # §5.7: an older layout's INDEX.yaml copy, still read as a fallback
+    "escalations",              # §17.9: gates
+    "estimates",                # §26.2: estimate records
+    "estimator",                # §26.3: the estimator seat's calls and logs
+    "estimator.lock",           # §11.2, §26.3: the estimator lock
+    "health",                   # §27.2: friction notes and metrics
+    "locks",                    # §16.6: the exclusive test lanes' lock
+    "observability",            # §23.2: the ledger and the seats' heartbeats (§18.3)
+    "plane",                    # §31.4: plane proposals
+    "product-docs-check.json",  # §9.5: the daily stamp of scripts/sync-product-docs.sh --check
+    "progress",                 # §23.7: progress files and worker reports (§13.4)
+    "project.yaml",             # §8.3: the retired queue copy of the binding, still read as a fallback
+    "prompts",                  # §23.8: the prompt audit
+    "queue",                    # §10.4: the per-task state markers (`set_marker`)
+    "questions",                # §17.3: spec questions and answers
+    "review",                   # §23.7: the reviewer's files
+    "reviews",                  # §19.3: architect reports and triage
+    "runs",                     # §11.1: run records and suite logs (§14.4)
+    "scripts",                  # §31.3: checked file by file by `script_drift`
+    "tasks",                    # §23.7: the tasks' queue files
+    "verification",             # §15.4: verdict records
+    "work.json",                # §16.4: the runner's state
+    "work.json.lock",           # §16.4: the lock every work.json writer holds
+    "worktrees",                # §12.1: worktree records and hook logs
+})
+LEGACY_DIR = "_legacy"
 
-def script_drift(q: Path) -> list[str]:
-    """§31.3: files in QUEUE_ROOT/scripts/ that are not the plane's own copy. A file the plane does
-    not ship is `unknown`; one it ships with other content is `drifted`; one it used to ship is
-    `retired` (the message says to delete it)."""
+
+def _sanctioned_scripts(q: Path) -> set[Path]:
+    """The binding's own auth-check script lives in the queue by design (§30, `auth_check.script`)."""
+    m = re.search(r"^auth_check:\s*\n(?:[ \t]+.*\n)*?[ \t]+script:\s*(\S+)", binding_text(q) + "\n", re.M)
+    return {(q / m.group(1).strip("'\"")).resolve()} if m else set()
+
+
+def script_findings(q: Path) -> list[tuple[str, str, str]]:
+    """§31.3: each file in QUEUE_ROOT/scripts/ that is not the plane's own copy, as (kind, its path
+    relative to QUEUE_ROOT, message). `kind` is `unknown` (the plane does not ship it), `drifted`
+    (the plane ships it with other content) or `retired` (the plane used to ship it)."""
     d = q / "scripts"
     if not d.is_dir():
         return []
-    # The binding's own auth-check script lives in the queue by design (§30, `auth_check.script`).
-    sanctioned = set()
-    m = re.search(r"^auth_check:\s*\n(?:[ \t]+.*\n)*?[ \t]+script:\s*(\S+)", binding_text(q) + "\n", re.M)
-    if m:
-        sanctioned.add((q / m.group(1).strip("'\"")).resolve())
+    sanctioned = _sanctioned_scripts(q)
     out = []
     for f in sorted(d.rglob("*")):
         if not f.is_file() or "__pycache__" in f.parts or f.suffix in (".pyc", ".tmp"):
@@ -460,13 +500,40 @@ def script_drift(q: Path) -> list[str]:
             continue
         rel = f.relative_to(d)
         mine = PLANE / "scripts" / rel
+        path = f"scripts/{rel}"
         if str(rel) in RETIRED_SCRIPTS:
-            out.append(f"retired: scripts/{rel} is no longer shipped by the plane ({RETIRED_SCRIPTS[str(rel)]}); delete it")
+            out.append(("retired", path, f"retired: {path} is no longer shipped by the plane "
+                                         f"({RETIRED_SCRIPTS[str(rel)]}); delete it"))
         elif not mine.is_file():
-            out.append(f"unknown: scripts/{rel}")
+            out.append(("unknown", path, f"unknown: {path}"))
         elif mine.read_bytes() != f.read_bytes():
-            out.append(f"drifted: scripts/{rel} differs from the plane's scripts/{rel}")
+            out.append(("drifted", path, f"drifted: {path} differs from the plane's scripts/{rel}"))
     return out
+
+
+def script_drift(q: Path) -> list[str]:
+    """§31.3: files in QUEUE_ROOT/scripts/ that are not the plane's own copy. A file the plane does
+    not ship is `unknown`; one it ships with other content is `drifted`; one it used to ship is
+    `retired` (the message says to delete it)."""
+    return [msg for _, _, msg in script_findings(q)]
+
+
+def leftover_entries(q: Path) -> list[str]:
+    """§31.3: each top-level entry of QUEUE_ROOT not in QUEUE_OWNED, by name. An atomic write's
+    temporary file (`*.tmp`) is not one: it is replaced in place a moment later; nor is the binding's
+    auth-check script (§30), wherever in the queue it names."""
+    if not q.is_dir():
+        return []
+    sanctioned = _sanctioned_scripts(q)
+    return [e.name for e in sorted(q.iterdir())
+            if e.name not in QUEUE_OWNED and not e.name.endswith(".tmp") and e.resolve() not in sanctioned]
+
+
+def queue_leftovers(q: Path) -> list[str]:
+    """§31.3: each top-level entry of QUEUE_ROOT the plane does not keep, as `unknown: <name>`, a
+    directory with a trailing `/`. `ccp plane check` lists these after `script_drift`'s findings."""
+    return [f"unknown: {n}/" if (q / n).is_dir() and not (q / n).is_symlink() else f"unknown: {n}"
+            for n in leftover_entries(q)]
 
 
 def git(cwd: Path, *args: str, check: bool = False) -> subprocess.CompletedProcess[str]:

@@ -19,6 +19,12 @@ ccp plane triage <id> --accept | --merge-into <id> | --decline --reason "…"
 ccp plane built <id> --task <plane task id>
 ```
 
+## The queue's leftovers (§31.3)
+
+```
+ccp plane check [--archive]    the queue entries the plane does not write (scripts, root); --archive moves them to QUEUE_ROOT/_legacy/<UTC date>/
+```
+
 ## Releases (§29)
 
 ```

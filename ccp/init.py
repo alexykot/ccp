@@ -23,6 +23,9 @@ naming the commands that need one, and adopts the product all the same.
 
 When the task directory already holds task files with no frontmatter (an earlier plane generation's),
 the result's `warnings` names their count and `ccp tasks migrate` (§5.3).
+When the queue it keeps already holds entries `ccp plane check` would list (an earlier plane
+generation's), the result's `warnings` names their count and `ccp plane check --archive` (§31.3); init
+moves nothing.
 
 A kept binding is checked against the current shape (§8.3): the result's `warnings` names, with the binding
 file and the fix, each key it lacks (the contract's required keys, `product_root`, a `runner` block with
@@ -52,7 +55,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp import config, docrules, refs, rules, tasklog
-from ccp.queue import PLANE, QueueError, _main_worktree, lib
+from ccp.queue import PLANE, QueueError, _main_worktree, lib, queue_leftovers, script_drift
 
 TEMPLATES = PLANE / "templates"
 SCHEMA = PLANE / "contracts" / "project.schema.json"
@@ -403,6 +406,13 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
         out.setdefault("warnings", []).extend(binding_shape_warnings(binding.resolve(), old))
     if not out.get("warnings"):
         out.pop("warnings", None)
+
+    leftovers = len(script_drift(q)) + len(queue_leftovers(q))
+    if leftovers:  # §31.3: a queue an earlier plane generation used; init moves nothing
+        out.setdefault("warnings", []).append(
+            f"{leftovers} entr{'y' if leftovers == 1 else 'ies'} in the queue {q} the plane does not write "
+            "(an earlier plane generation's?): see them with `ccp plane check`, move them to its `_legacy/` "
+            "with `ccp plane check --archive`")
 
     cfg = config.load(root)
     old_files = [f for f in sorted(cfg.tasks_dir.glob("*.md")) if not tasklog.has_frontmatter(f.read_text())]
