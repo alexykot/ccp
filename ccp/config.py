@@ -1079,11 +1079,14 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
         bad.append("suite.roles must give each role its own lane name")
     cre = out["suite"]["count_re"]
     if cre is not None:
-        try:
-            if not isinstance(cre, str) or re.compile(cre).groups < 1:
-                raise re.error("it needs a group that captures the count")
-        except re.error as e:
-            bad.append(f"suite.count_re is not a regular expression with a count group ({e})")
+        if not (_str_list([cre]) or _str_list(cre) and cre):  # a blank pattern would count every line
+            bad.append("suite.count_re must be a regular expression or a non-empty list of them")
+        else:
+            try:
+                for pat in [cre] if isinstance(cre, str) else cre:
+                    re.compile(pat)
+            except re.error as e:
+                bad.append(f"suite.count_re is not a regular expression ({e})")
     kd = out["suite"]["log_keep_days"]
     if isinstance(kd, bool) or not isinstance(kd, int) or kd < 1:
         bad.append("suite.log_keep_days must be an integer >= 1 (days a summary-mode log is kept)")

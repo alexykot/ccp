@@ -370,11 +370,32 @@ class NeverBlocks(SuiteFixture, unittest.TestCase):
 
 class Counting(unittest.TestCase):
     def test_an_over_long_line_is_not_matched_by_its_tail(self):
-        c = suite._Counter(re.compile(rb"^Ran (\d+) tests? in "))
+        c = suite._Counter([re.compile(rb"^Ran (\d+) tests? in ")])
         c.feed(b"x" * (suite.LINE_MAX + 10))
         c.feed(b"Ran 5 tests in 1s\nRan 2 tests in 0s\n")
         c.close()
         self.assertEqual(c.total, 2)
+
+    def count(self, patterns: list[bytes], text: bytes) -> int | None:
+        c = suite._Counter([re.compile(p) for p in patterns])
+        c.feed(text)
+        c.close()
+        return c.total
+
+    def test_a_pattern_without_a_group_counts_each_matching_line_as_one(self):
+        self.assertEqual(self.count([rb"^--- PASS: "], b"--- PASS: TestA\n--- FAIL: TestB\n--- PASS: TestC\n"), 2)
+        self.assertIsNone(self.count([rb"^--- PASS: "], b"ok  example/pkg  0.01s\n"))
+
+    def test_the_first_pattern_a_line_matches_counts_it_and_no_other(self):
+        self.assertEqual(self.count([rb"^Ran (\d+) tests? in ", rb"^Ran "], b"Ran 4 tests in 1s\n"), 4)
+        self.assertEqual(self.count([rb"^Ran ", rb"^Ran (\d+) tests? in "], b"Ran 4 tests in 1s\n"), 1)
+
+    def test_each_pattern_counts_its_own_lines_and_the_counts_are_summed(self):
+        text = b"Ran 3 tests in 0.1s\n--- PASS: TestA\n--- PASS: TestB\nok  example/pkg  0.01s\n"
+        self.assertEqual(self.count([rb"^Ran (\d+) tests? in ", rb"^--- PASS: "], text), 5)
+
+    def test_a_group_that_matched_nothing_counts_nothing(self):
+        self.assertIsNone(self.count([rb"^passed(?: (\d+))?$"], b"passed\n"))
 
 
 class Lanes(SuiteFixture, unittest.TestCase):
@@ -435,12 +456,50 @@ class Lanes(SuiteFixture, unittest.TestCase):
 
     def test_config_refuses_bad_lanes_and_patterns(self):
         for bad in ({"lanes": {"full": []}}, {"lanes": {"Full Lane": ["x"]}}, {"lanes": ["x"]},
-                    {"count_re": "("}, {"count_re": "no group"}):
+                    {"count_re": "("}, {"count_re": []}, {"count_re": ["^ok ", "("]}, {"count_re": [3]},
+                    {"count_re": 3}, {"count_re": ""}, {"count_re": [" "]}):
             self.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "suite": bad}))
             with self.assertRaises(config.ConfigError, msg=bad):
                 config.load(self.main)
         self.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "suite": {"lanes": {"unit": ["s"]}}}))
         self.assertEqual(config.load(self.main).suite["lanes"], {"unit": ["s"]})
+        for good in ("no group", ["^Ran (\\d+) tests? in ", "^--- PASS: "]):
+            self.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "suite": {"count_re": good}}))
+            self.assertEqual(config.load(self.main).suite["count_re"], good)
+
+
+class OutputCounts(SuiteFixture, unittest.TestCase):
+    """§14.3: without a result file, `suite.count_re` (a pattern or a list) reads the count from the
+    gate's output, the first pattern a line matches counting it."""
+
+    def gate(self, lines: list[str], count_re=None) -> tuple[subprocess.CompletedProcess[bytes], dict]:
+        p = self.runner / "docs/delivery/plane.json"
+        cfg = json.loads(p.read_text())
+        code = "; ".join(f"print({ln!r})" for ln in lines)
+        cfg["suite"] = {"lanes": {"gate": [{"name": "gate", "cmd": f"{PY} -c {json.dumps(code)}"}]}}
+        if count_re is not None:
+            cfg["suite"]["count_re"] = count_re
+        p.write_text(json.dumps(cfg))
+        r = self.run_suite("--lane", "gate")
+        return r, [x for x in self.rows() if x["op"] == "ended"][-1]
+
+    def test_two_runners_counts_are_both_recorded(self):
+        r, row = self.gate(["Ran 3 tests in 0.1s", "--- PASS: TestA", "--- PASS: TestB", "ok  example/pkg  0.01s"],
+                           [r"^Ran (\d+) tests? in ", "^--- PASS: "])
+        self.assertEqual(r.returncode, 0, r.stdout.decode() + r.stderr.decode())
+        self.assertIn("5 tests", r.stdout.decode().splitlines()[-2])
+        self.assertEqual(row["tests"], 5)
+
+    def test_a_line_two_patterns_match_is_counted_once(self):
+        r, row = self.gate(["Ran 4 tests in 1s"], [r"^Ran (\d+) tests? in ", "^Ran "])
+        self.assertEqual(r.returncode, 0, r.stdout.decode() + r.stderr.decode())
+        self.assertEqual(row["tests"], 4)
+
+    def test_the_default_pattern_still_sums_unittest_lines(self):
+        r, row = self.gate(["Ran 2 tests in 0s", "Ran 2 tests in 0s"])
+        self.assertEqual(r.returncode, 0, r.stdout.decode() + r.stderr.decode())
+        self.assertNotIn("count_re", json.loads((self.runner / "docs/delivery/plane.json").read_text())["suite"])
+        self.assertEqual(row["tests"], 4)
 
 
 class ReportCrossCheck(SuiteFixture, unittest.TestCase):
@@ -1161,7 +1220,7 @@ class Digest(unittest.TestCase):
         scfg = suite._summary_cfg(None)
         scfg.update(over)
         self.assertEqual(set(scfg), set(SUITE_SUMMARY_DEFAULTS))
-        return suite.digest(Path(f.name), scfg, re.compile(rb"^Ran (\d+) tests? in "))
+        return suite.digest(Path(f.name), scfg, [re.compile(rb"^Ran (\d+) tests? in ")])
 
     def test_a_section_ends_at_the_rule_before_the_count(self):
         eq, dash = b"=" * 70, b"-" * 70

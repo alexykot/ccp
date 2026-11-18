@@ -153,6 +153,17 @@ and creates the queue, `~/.delivery-queue/my-product/` (`--queue-root` picks ano
 | `verify.accept_cache` | the verifier counts a hit in the product's content-keyed test cache as run and passed (§15.3) | the gate has such a cache and is slow to run cold |
 | `mutate.command` | runs one test, `{test}`, for `ccp mutate`, which tells a test that passes from a test that checks something (§20.6) | the team should show that a new test fails when the change it guards is broken |
 | `report.required_fields` | verdicts every implementer report must state, `[{name, values}]` (§13.4) | the product needs the same fixed answer from every implementer |
+| `suite.count_re` | a pattern, or a list of patterns, that reads the test count from a `suite.lanes` lane's output when it writes no `$CCP_SUITE_RESULT`; the first pattern a line matches counts it, its first group as the count, or the line as one test when it has no group (§14.3) | the tests run under a runner other than Python's unittest, or under more than one |
+
+Patterns for `suite.count_re`, one per runner; a gate that mixes runners lists them all, such as
+`"count_re": ["^Ran (\\d+) tests? in ", "^--- PASS: "]`:
+
+- pytest: `^=+ (\d+) passed`, its closing `== N passed in …` line.
+- `go test -v`: `^--- PASS: `, one line per test that passed. Run it with `-v` (or `-json`): without
+  it, `go test` prints one `ok <package>` line per package and no test count, so counting those lines
+  would count packages, not tests.
+- A shell test script: print a line the pattern matches, or write the counts to `$CCP_SUITE_RESULT`
+  (§14.3), the route for a runner whose output carries no count.
 
 #### Permissions
 

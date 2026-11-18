@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -94,7 +95,18 @@ class Create(SandboxCase):
     def test_init_options_pass_through(self):
         res = self.create(str(self.base / "U"), "--", "--gate", "python3 -m unittest")
         cfg = json.loads((Path(res["root"]) / "docs/delivery/plane.json").read_text())
-        self.assertEqual(cfg["suite"]["lanes"]["gate"], ["python3", "-m", "unittest"])
+        self.assertEqual(cfg["suite"]["lanes"]["gate"], [{"name": "gate", "cmd": "python3 -m unittest"}])
+
+    def test_a_chained_gate_runs_as_written(self):
+        mark = self.base / "M"
+        line = f"cd . && touch {shlex.quote(str(mark))} && python3 -c pass"
+        res = self.create(str(self.base / "S"), "--", "--gate", line)
+        cfg = json.loads((Path(res["root"]) / "docs/delivery/plane.json").read_text())
+        self.assertEqual(cfg["suite"]["lanes"]["gate"], [{"name": "gate", "cmd": line}])
+        env = dict(kv.split("=", 1) for kv in res["env"])
+        r = self.ccp("suite", "run", "--lane", "gate", cwd=res["root"], **env)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue(mark.is_file())
 
     def test_without_a_directory_it_makes_a_new_one_below_the_fence(self):
         res = self.create()

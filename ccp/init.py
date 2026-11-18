@@ -31,8 +31,8 @@ A kept binding is checked against the current shape (§8.3): the result's `warni
 file and the fix, each key it lacks (the contract's required keys, `product_root`, a `runner` block with
 `agent_type` and `name`) and each obsolete key it carries (the keys §8.3 says are ignored, a key the
 contract marks ignored or retired, a key it does not list). An existing `INDEX.yaml` is kept and listed
-as kept. With `--gate`, a `standing-dod.md` init writes names the gate in its placeholder product item
-(§4.5).
+as kept. With `--gate`, the gate lane is one stage, `gate`, whose `cmd` is the line as given, and a
+`standing-dod.md` init writes names the gate in its placeholder product item (§4.5).
 
 With `--permissions` it writes nothing: in an adopted product it prints the runner's and workers'
 permission allowlist and a deny list for destructive commands, as a JSON `permissions` block for the
@@ -267,10 +267,13 @@ def binding_text(project_id: str, product_root: Path, queue_root: Path, branch: 
 
 def plane_json_text(project_id: str, gate: str | None, starter_rules: bool = False) -> str:
     """A minimal plane.json (§8.1): the id, the worktrees directory, the gate lane when given, and the
-    starter rules' settings with `--starter-rules` (§20.5)."""
+    starter rules' settings with `--starter-rules` (§20.5). The gate lane is one stage, `gate`, running
+    the line as given (§4.5), so a chained or `cd`-ing line keeps its meaning; a line `shlex` cannot
+    split raises ValueError."""
     cfg: dict[str, Any] = {"project_id": project_id, "worktrees": {"dir": WORKTREES_DIR}}
     if gate:
-        cfg["suite"] = {"lanes": {"gate": shlex.split(gate)}}
+        shlex.split(gate)  # an unclosed quote is refused, though the line is stored whole
+        cfg["suite"] = {"lanes": {"gate": [{"name": "gate", "cmd": gate}]}}
     if starter_rules:
         cfg.update(json.loads(json.dumps(STARTER_CONFIG)))
     return json.dumps(cfg, indent=2) + "\n"
