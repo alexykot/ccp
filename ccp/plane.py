@@ -5,7 +5,10 @@
   ccp plane triage ID --accept|--merge-into ID|--decline --reason TEXT    the plane session's call
   ccp plane built ID --task TASK                     an accepted proposal built by a merged plane task (§29.3)
   ccp plane list [--open]
-  ccp plane check                                    files in QUEUE_ROOT/scripts/ that are not the plane's
+  ccp plane check [--archive]                        queue entries the plane does not write (§31.3): files in
+                                                     QUEUE_ROOT/scripts/ that are not the plane's, and top-level
+                                                     entries it does not keep; --archive moves them to
+                                                     QUEUE_ROOT/_legacy/<UTC date>/, deleting nothing
   ccp agent start|stop                               the SubagentStart / SubagentStop hooks (hook JSON on stdin)
 
 Proposals are `QUEUE_ROOT/plane/proposals.jsonl`, append-only: a `proposed` row, then `again` and
@@ -17,6 +20,7 @@ board.
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import sys
 from pathlib import Path
@@ -24,7 +28,8 @@ from typing import Any
 
 from ccp import health, runs
 from ccp.config import Config
-from ccp.queue import QueueError, actor, emit, iso, now, root, script_drift
+from ccp.queue import (LEGACY_DIR, QueueError, actor, emit, iso, leftover_entries, now, queue_leftovers, root,
+                       script_drift, script_findings)
 
 FREQUENCIES = ("per-task", "per-run", "once")
 DECISIONS = ("accepted", "merged", "declined")
@@ -168,9 +173,44 @@ def listing(_cfg: Config, a: Any) -> dict[str, Any]:
     return {"ok": True, "proposals": rows, "stale": [r["id"] for r in rows if r["stale"]]}
 
 
-def check(_cfg: Config, _a: Any) -> tuple[dict[str, Any], int]:
-    found = script_drift(root())
-    return {"ok": not found, "scripts": found}, (1 if found else 0)
+def check(_cfg: Config, a: Any) -> tuple[dict[str, Any], int]:
+    """§31.3: `scripts`, the files in QUEUE_ROOT/scripts/ that are not the plane's copy, and `root`,
+    the top-level entries the plane does not keep; exit 1 when either is non-empty. With `--archive`
+    it first moves every entry it would list (`archive`), then checks again."""
+    q = root()
+    moved = archive(q) if getattr(a, "archive", False) else None
+    scripts, left = script_drift(q), queue_leftovers(q)
+    body: dict[str, Any] = {"ok": not (scripts or left), "scripts": scripts, "root": left}
+    if moved is not None:
+        body.update(moved)
+    return body, (0 if body["ok"] else 1)
+
+
+def archive(q: Path) -> dict[str, list[dict[str, str]]]:
+    """§31.3: move each entry `check` lists (the scripts that are unknown, drifted or retired, then the
+    top-level entries) to QUEUE_ROOT/_legacy/<YYYY-MM-DD, UTC>/<its path relative to QUEUE_ROOT>. It
+    never deletes: an entry whose target already exists, or that cannot be moved, stays where it is and
+    is listed under `not_moved` with the reason. Paths are relative to QUEUE_ROOT; a directory's ends
+    in `/`."""
+    day = now().strftime("%Y-%m-%d")
+    archived: list[dict[str, str]] = []
+    not_moved: list[dict[str, str]] = []
+    for rel in [path for _, path, _ in script_findings(q)] + leftover_entries(q):
+        src, dst = q / rel, q / LEGACY_DIR / day / rel
+        slash = "/" if src.is_dir() and not src.is_symlink() else ""
+        row = {"path": rel + slash, "target": f"{LEGACY_DIR}/{day}/{rel}{slash}"}
+        if os.path.lexists(dst):
+            not_moved.append({**row, "reason": f"the target {row['target']} already exists (an earlier "
+                                               "archive the same day); nothing was overwritten"})
+            continue
+        try:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            os.rename(src, dst)
+        except OSError as e:
+            not_moved.append({**row, "reason": f"could not move it: {e.strerror or e}"})
+            continue
+        archived.append(row)
+    return {"archived": archived, "not_moved": not_moved}
 
 
 def agent_hook(cfg: Config, action: str, raw: str) -> dict[str, Any]:
