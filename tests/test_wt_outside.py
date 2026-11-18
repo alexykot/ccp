@@ -185,6 +185,16 @@ class Unrecorded(SiblingFixture, unittest.TestCase):
         self.assertIn(str(d), err)
         self.assertUntouched(d)
 
+    def test_a_recorded_name_whose_worktree_moved_is_adopted_as_before(self):
+        (self.q / "worktrees").mkdir(exist_ok=True)
+        (self.q / "worktrees" / "impl-0002.json").write_text(json.dumps(
+            {"name": "impl-0002", "kind": "impl", "task_id": "0002-second", "path": str(self.main.parent / "gone")}))
+        d = self.plain("impl-0002")
+        code, body, out, err = self.wt("create", "--kind", "impl", "--task", "0002")
+        self.assertEqual(code, 0, out + err)
+        self.assertIs(body["adopted"], True)
+        self.assertEqual(body["path"], str(d))
+
     def test_worktrees_git_names_are_still_adopted_and_removed_without_a_record(self):
         impl, rev = self.outside / "impl-0002", self.outside / "rev-0002"
         git(self.main, "worktree", "add", "-q", "-b", "task/0002-second", str(impl), "origin/main")
