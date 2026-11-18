@@ -133,6 +133,24 @@ operator notice fires one with a real command instead of inventing one.
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `ccp/sandbox.py` gains `sandbox_of` (the marker rule: the main checkout's
+  parent holds `.ccp-sandbox`, a regular file, not a link) and `seal`. `ccp/cli.py` `main` resolves the
+  root once and seals it before every group but `sandbox`. Sealing sets `CCP_BINDINGS_DIR` and
+  `QUEUE_ROOT` to the sandbox's directories and `PROJECT_YAML` to `<project_id>.yaml` there when that file
+  exists (the id from the checkout's plane.json), in `os.environ`, so children inherit them.
+- An exported `PROJECT_YAML` or `QUEUE_ROOT` naming a path outside the sandbox is refused (exit 2). An
+  outside `CCP_BINDINGS_DIR` is overridden, not refused: seal-01's setup exports one (the stand-in
+  installation's bindings directory) and expects init to succeed, and the test fence exports one for
+  every test. This was raised with the runner as a conflict with the ruling's list of three names.
+- `ccp/init.py` decides the binding and queue from the sandbox itself, independent of the environment,
+  so a direct call is sealed too. A `--queue-root` other than the sandbox's queue is refused (exit 2,
+  nothing written). That covers outside the sandbox (the task's rule) and, the narrowest reading of
+  "the queue is the sandbox's queue directory", any other path inside it.
+- `ccp notify fire` checks the sandbox before anything else, then refuses `upgrade` and an id or reason
+  that is not one line. `test_project_yaml_naming_another_products_binding_is_not_taken` now uses a
+  product outside every sandbox (the resolver's product_root check). A new test covers a sandbox refusing
+  another sandbox's `PROJECT_YAML`.
+
 ## Verification notes
 
 *Append-only.*
