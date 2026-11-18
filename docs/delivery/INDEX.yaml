@@ -723,7 +723,7 @@ tasks:
     depends_on: []
     path: tasks/0144-spec-paths-default-includes-docs-spec-md.md
   - id: 0145-adoption-rule-fixes
-    status: pending
+    status: done
     title: The permission block the plane prints no longer trips its own docs check, and ccp upgrade status marks each step required or optional
     depends_on: []
     path: tasks/0145-adoption-rule-fixes.md

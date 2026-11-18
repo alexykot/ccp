@@ -1,7 +1,7 @@
 ---
 task_id: 0145-adoption-rule-fixes
 title: The permission block the plane prints no longer trips its own docs check, and ccp upgrade status marks each step required or optional
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4", "S5", "S29"]
@@ -10,7 +10,7 @@ sign_off: brief
 paths: ["ccp/cli.py", "ccp/upgrade.py", "ccp/tasklog.py", "contracts/task_file.schema.json", "docs/spec/01-model.md", "docs/spec/05-operations.md", "plugin/skills/writing-tasks/SKILL.md", "tests/test_init_permissions.py", "tests/test_upgrade.py", "tests/test_tasklog_adopt.py"]
 adopt: "none"
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Task: 0145-adoption-rule-fixes
@@ -145,3 +145,5 @@ it must take from the ones it may take, and which plane commit the reading came 
     not an empty one.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #162 head `c2332d6` (squash `da38de1`): APPROVE. Passed: perm-01, perm-02, up-01, up-02, check-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0145-adoption-rule-fixes.json.
+
