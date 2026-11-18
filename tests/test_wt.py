@@ -1,9 +1,11 @@
 """Worktrees and environments (SPEC §12.1): `ccp wt`, env hooks, URLs, merge.command, auth probes."""
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import time
@@ -13,7 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, lifecycle, wt
-from tests.test_toolkit import PLANE, ToolkitFixture, git
+from tests.test_toolkit import GIT_ENV, PLANE, ToolkitFixture, git
 
 
 class WtFixture(ToolkitFixture):
@@ -829,6 +831,97 @@ class Shallow(WtFixture, unittest.TestCase):
         self.assertEqual(code, 1, err)
         self.assertFalse((self.main / ".rt" / "ver-0002").exists())
         self.assertEqual(list((self.q / "worktrees").glob("*.json")) if (self.q / "worktrees").is_dir() else [], [])
+
+
+class ShallowMergeBase(WtFixture, unittest.TestCase):
+    """A shallow worktree holds the merge base of its sha and the integration branch, recorded for `ccp mutate --revert`."""
+
+    def shallow(self, sha: str):
+        return self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--shallow")
+
+    def test_the_merge_base_is_fetched_into_the_clone_and_recorded(self):
+        start = self.head()
+        git(self.main, "checkout", "-q", "-b", "task/0002-second")
+        self.write("c4.txt", "4\n")
+        git(self.main, "add", "c4.txt")
+        git(self.main, "commit", "-q", "-m", "the task's change")
+        head = git(self.main, "rev-parse", "HEAD")
+        git(self.main, "checkout", "-q", "main")
+        self.write("c5.txt", "5\n")
+        git(self.main, "add", "c5.txt")
+        git(self.main, "commit", "-q", "-m", "the integration branch moves on")
+        git(self.main, "push", "-q", "origin", "main")
+        code, body, _, err = self.shallow(head)
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("warning", err)
+        p = Path(body["path"])
+        st = json.loads((self.q / "worktrees" / f"{body['name']}.json").read_text())
+        self.assertEqual((st["merge_base"], body["merge_base"]), (start, start))
+        self.assertEqual(git(p, "cat-file", "-t", start), "commit")
+        self.assertEqual(git(p, "rev-parse", "HEAD"), head)  # still detached at --sha
+        self.assertEqual(git(p, "status", "--porcelain"), "")
+
+    def test_no_merge_base_is_a_warning_and_none_is_recorded(self):
+        git(self.main, "checkout", "-q", "--orphan", "lone")
+        git(self.main, "commit", "-q", "-m", "no shared history")
+        lone = git(self.main, "rev-parse", "HEAD")
+        git(self.main, "checkout", "-q", "-f", "main")
+        code, body, _, err = self.shallow(lone)
+        self.assertEqual(code, 0, err)
+        self.assertIn("warning: no merge base", err)
+        st = json.loads((self.q / "worktrees" / f"{body['name']}.json").read_text())
+        self.assertNotIn("merge_base", st)
+        self.assertEqual(git(Path(body["path"]), "rev-parse", "HEAD"), lone)
+
+
+@unittest.skipUnless(shutil.which("git-lfs"), "git-lfs is not on PATH")
+class ShallowLfs(WtFixture, unittest.TestCase):
+    """A shallow worktree of a git-LFS repository checks its LFS files out from the main checkout's store."""
+
+    BLOB = "the committed content of an LFS file\n"
+
+    def setUp(self):
+        super().setUp()
+        gc = Path(self._tmp.name) / "lfs-gitconfig"  # the filter, in the test's own global config only
+        gc.write_text("")
+        os.environ["GIT_CONFIG_GLOBAL"] = str(gc)  # what ccp's git sees; restored with the fixture's environment
+        self.lfs_git(".", "lfs", "install", "--skip-repo")
+        self.lfs_git(self.main, "lfs", "track", "data/*.bin")
+        self.write("data/blob.bin", self.BLOB)
+        self.write("data/other.bin", "another LFS file\n")
+        self.lfs_git(self.main, "add", ".gitattributes", "data/blob.bin", "data/other.bin")
+        self.lfs_git(self.main, "commit", "-q", "-m", "LFS files")
+        self.assertIn("version https://git-lfs.github.com/spec/v1", git(self.main, "show", "HEAD:data/blob.bin"))
+
+    def lfs_git(self, cwd, *args: str) -> str:
+        """git with the test's global config, which holds the LFS filter (the fixture's `git` reads none)."""
+        return subprocess.run(["git", "-C", str(cwd), *args], check=True, capture_output=True, text=True,
+                              env={**os.environ, **GIT_ENV, "GIT_CONFIG_GLOBAL": os.environ["GIT_CONFIG_GLOBAL"]}).stdout
+
+    def shallow(self):
+        return self.wt("create", "--kind", "ver", "--task", "0002", "--sha", git(self.main, "rev-parse", "HEAD"),
+                       "--shallow")
+
+    def test_its_lfs_files_hold_their_content_not_pointers(self):
+        code, body, _, err = self.shallow()
+        self.assertEqual(code, 0, err)
+        p = Path(body["path"])
+        self.assertEqual((p / "data/blob.bin").read_text(), self.BLOB)
+        self.assertNotIn("version https://git-lfs.github.com/spec/v1", (p / "data/other.bin").read_text())
+        self.assertNotIn("still pointers", err)
+        self.assertEqual(self.lfs_git(p, "status", "--porcelain"), "")
+
+    def test_a_file_whose_object_the_store_lacks_stays_a_pointer_with_a_warning(self):
+        oid = hashlib.sha256(b"another LFS file\n").hexdigest()
+        store = Path(git(self.main, "rev-parse", "--path-format=absolute", "--git-common-dir")) / "lfs" / "objects"
+        (store / oid[:2] / oid[2:4] / oid).unlink()
+        code, body, _, err = self.shallow()
+        self.assertEqual(code, 0, err)
+        p = Path(body["path"])
+        self.assertEqual((p / "data/blob.bin").read_text(), self.BLOB)
+        self.assertIn("version https://git-lfs.github.com/spec/v1", (p / "data/other.bin").read_text())
+        self.assertIn("1 git-LFS file(s)", err)
+        self.assertIn("git lfs fetch", err)
 
 
 class OwnHooks(WtFixture, unittest.TestCase):

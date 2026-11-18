@@ -331,9 +331,13 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
   stages run in it get `CCP_WT_KIND`, `CCP_WT_SEAT` and `CCP_WT_ROUND` with its task as `CCP_TASK_ID`
   and `CCP_NNNN` (§14.2).
 - `--shallow` (kinds `rev`, `ver`, `mut` and `mac`) makes it a clone of depth 1 at `--sha` (a short sha
-  is resolved first), not a git worktree, so a check can prove a test passes without git history. It
-  fetches that commit by its sha from the main checkout, which needs git protocol v2 (git's default
-  since 2.26). It is recorded with `shallow: true`, set up and removed like any other (removing
+  is resolved first), not a git worktree, so a check can prove a test passes without git history. Its
+  git-LFS files are checked out with the smudge filter skipped, then filled from the main checkout's LFS
+  store (a file whose object the store lacks stays a pointer, with a warning that `git lfs fetch` in the
+  main checkout fills it). The merge base of `--sha` and `origin/<integration>`, taken in the main
+  checkout, is fetched into it at depth 1 and recorded as `merge_base`, which `ccp mutate --revert` uses
+  there (no merge base is a warning, and none is recorded). It fetches that commit by its sha from the
+  main checkout, which needs git protocol v2 (git's default since 2.26). It is recorded with `shallow: true`, set up and removed like any other (removing
   deletes the clone), and its links are named in its own `info/exclude`. An existing worktree is
   reused only as shallow as asked (exit 3 otherwise); `--shallow` is refused (exit 2) on any other
   kind or action.
@@ -814,7 +818,7 @@ language whose command it names (Python: `python3 -m unittest`); stdout keeps th
   defaults to `HEAD`, the uncommitted change. A range `<a>..<b>` given to `--since` is the files
   `git diff <a>..<b>` names, without the working tree.
 - **The product's language pack reads the tests** (`package_docs.language`; its default, `python`,
-  when the block is absent). A pack with no test reader (`none`) exits 2.
+  when the block is absent). A pack with no test reader (`none`) exits 2 unless plane.json `suite.affected_map` is set, which then reads the tests alone.
 - **Python.** A test module is a `test*.py` file git tracks or does not ignore, named by its dotted
   path from the root (`tests/test_a.py` is `tests.test_a`). It is touched when it changed itself;
   when it imports a changed module directly (any `import` or `from … import`, a relative one or one
@@ -822,6 +826,9 @@ language whose command it names (Python: `python3 -m unittest`); stdout keeps th
   through one package level (it imports a package whose `__init__.py` imports the changed module);
   or when its text names a changed file's name: only a path that has an extension (a dotfile such as
   `.gitignore` has none) and is not a directory matches tests by name.
+- **A product's map.** plane.json `suite.affected_map` maps globs to test ids: each changed path is
+  matched against every glob (`fnmatch.fnmatchcase` on the root-relative path, so `*` crosses `/`),
+  and the ids of each match are added to what the pack reads; the list stays sorted, each id once.
 - With nothing changed, or no test touched, it prints nothing, says so on stderr and exits 0. A ref
   git cannot read, or a path outside the root, exits 2.
 

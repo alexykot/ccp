@@ -948,6 +948,12 @@
             "part": {"type": "string", "description": "A subset of the tests."}
           }
         },
+        "affected_map": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "description": "SPEC §14.7: a glob of root-relative paths (matched with fnmatch, so `*` crosses `/`) to the test ids the part lane runs for a path it matches; `ccp suite affected` adds them to what the language pack reads, and a pack with no test reader uses them alone. Default: none."
+        },
         "log_keep_days": {
           "type": "integer",
           "minimum": 1,
@@ -1186,6 +1192,14 @@
           "minimum": 1,
           "default": 600,
           "description": "How long one run of the command may take; at the limit its process group is killed and the run counts as the test failing."
+        },
+        "unbuilt_re": {
+          "type": ["string", "array", "null"],
+          "items": {"type": "string", "minLength": 1},
+          "minItems": 1,
+          "minLength": 1,
+          "default": null,
+          "description": "A regular expression, or a list of them, matched against each line of a mutant's run: a run that exits non-zero with a line it matches records the mutant `unbuilt` (the code did not build or import), not `killed`. E.g. `Failed to import test module` for Python unittest. Default null: matches nothing."
         }
       }
     },

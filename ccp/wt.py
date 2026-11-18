@@ -5,7 +5,9 @@ reviewer's and verifier's (`rev`, `ver`, detached at the head they judge), a mut
 a machine check (`mac`), and a throwaway at the merge base of a head and the integration branch
 (`base`), made by `ccp wt create --kind base … -- COMMAND` only to run that command and removed again
 (on a timeout, a SIGTERM or any failure after it is made too). A detached kind made `--shallow` is a
-depth-1 clone of its sha instead of a git worktree, for a check that must pass without git history.
+depth-1 clone of its sha instead of a git worktree, for a check that must pass without git history:
+its git-LFS files are checked out from the main checkout's LFS store, and the merge base of its sha and
+the integration branch is fetched into it and recorded, for `ccp mutate --revert` there.
 A `--sha` that is not a full sha (`HEAD`, a short sha, a branch) is resolved in the caller's checkout
 when the worktree is made, so `HEAD` is the caller's own head; one that names no commit is refused.
 An adopting lead's `ver-baseline` (`ccp wt create --kind ver --baseline`) belongs to no task: a verifier's
@@ -430,6 +432,8 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
         return {**st, "created": False}
     git(main, "fetch", "-q", "origin")
     git(main, "worktree", "prune")
+    warnings: list[str] = []
+    base_sha = _shallow_base(cfg, q, str(sha), warnings) if shallow else None
     if kind == "impl":
         branch = st["branch"]
         st["base"] = f"origin/{integration_branch(q)}"
@@ -443,7 +447,9 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
         with _sigterm_held():  # a base run's SIGTERM waits until the worktree made here is bound
             try:
                 if shallow:
-                    rc, err = _clone_shallow(main, at, str(sha))
+                    rc, err = _clone_shallow(main, at, str(sha), warnings)
+                    if rc == 0 and base_sha:
+                        _fetch_base(main, at, base_sha, st, warnings)
                 else:
                     r = git(main, *args[:-2], str(at), args[-1])
                     rc, err = r.returncode, r.stderr
@@ -480,13 +486,75 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
             _rm_tree(main, path)
             state_path(q, name).unlink(missing_ok=True)
         raise
-    return {**st, "created": True}
+    return {**st, "created": True, **({"warnings": warnings} if warnings else {})}
 
 
-def _clone_shallow(main: Path, path: Path, sha: str) -> tuple[int, str]:
+def _shallow_base(cfg: Config, q: Path, sha: str, warnings: list[str]) -> str | None:
+    """§12.1: the merge base of a shallow worktree's `sha` and the integration branch on origin, taken in the
+    main checkout as `merge_base` takes it; none is a warning (`ccp mutate --revert` is then refused there)."""
+    try:
+        return merge_base(cfg, q, sha, warnings)
+    except QueueError as e:
+        warnings.append(f"{e}: no merge base is recorded, so `ccp mutate --revert` is refused in this shallow worktree")
+        return None
+
+
+def _fetch_base(main: Path, path: Path, base: str, st: dict[str, Any], warnings: list[str]) -> None:
+    """Fetch the merge base `base` into the shallow clone at `path` at depth 1 and record it as the worktree's
+    `merge_base`; a fetch that fails is a warning, and none is recorded."""
+    r = git(path, "fetch", "-q", "--depth", "1", main.resolve().as_uri(), base)
+    if r.returncode != 0:
+        warnings.append(f"the merge base {base[:12]} could not be fetched into the shallow clone ({r.stderr.strip()}): "
+                        "none is recorded, so `ccp mutate --revert` is refused there")
+        return
+    st["merge_base"] = base
+
+
+def _lfs_store(main: Path) -> Path | None:
+    """The main checkout's git-LFS store, the directory its objects sit in (`objects/`): the parent of
+    `git lfs env`'s LocalMediaDir there, else `<git dir>/lfs`."""
+    r = subprocess.run(["git", "-C", str(main), "lfs", "env"], capture_output=True, text=True)
+    for ln in (r.stdout + "\n" + r.stderr).splitlines():
+        if ln.startswith("LocalMediaDir=") and ln.split("=", 1)[1].strip():
+            return Path(ln.split("=", 1)[1].strip()).parent
+    common = git(main, "rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()
+    return Path(common) / "lfs" if common else None
+
+
+def _lfs_pointers(path: Path) -> int | None:
+    """How many of the clone's git-LFS files are still pointers (`git lfs ls-files` marks them `-`); None when
+    it lists none or cannot tell."""
+    r = subprocess.run(["git", "-C", str(path), "lfs", "ls-files"], capture_output=True, text=True)
+    rows = [ln.split(maxsplit=2) for ln in r.stdout.splitlines() if ln.strip()]
+    if r.returncode != 0 or not rows:
+        return None
+    return sum(len(x) > 1 and x[1] == "-" for x in rows)
+
+
+def _lfs_checkout(main: Path, path: Path, warnings: list[str]) -> None:
+    """§12.1: a shallow clone's git-LFS files (checked out as pointers, the smudge filter skipped: it has no
+    remote to fetch from) filled from the main checkout's LFS store, which the clone's `lfs.storage` names.
+    A file whose object the store lacks stays a pointer, and that is a warning. Nothing to do without git-lfs
+    on PATH or LFS files in the tree."""
+    if shutil.which("git-lfs") is None or not _lfs_pointers(path):
+        return
+    store = _lfs_store(main)
+    if store is None:
+        return
+    git(path, "config", "lfs.storage", str(store))
+    subprocess.run(["git", "-C", str(path), "lfs", "checkout"], capture_output=True, text=True)
+    left = _lfs_pointers(path)
+    if left:
+        warnings.append(f"{left} git-LFS file(s) in the shallow clone are still pointers: their objects are not in "
+                        f"the main checkout's LFS store {store}; `git lfs fetch` in the main checkout fills it")
+
+
+def _clone_shallow(main: Path, path: Path, sha: str, warnings: list[str] | None = None) -> tuple[int, str]:
     """§12.1 `--shallow`: a depth-1 clone of `sha` at `path`, detached, fetched from the main checkout's
     object store (which `create` has just fetched into). A git worktree shares the repository's whole
-    history; this has none. Returns (exit code, error); a path already taken says "already exists"."""
+    history; this has none. The checkout skips git-LFS's smudge filter (it has no remote to fetch from),
+    then fills the LFS files from the main checkout's store (`_lfs_checkout`; a file left a pointer is a
+    warning in `warnings`). Returns (exit code, error); a path already taken says "already exists"."""
     full = git(main, "rev-parse", "--verify", "-q", f"{sha}^{{commit}}").stdout.strip()
     if not full:
         return 1, f"{sha} is not a commit in {main}: fetch it first"
@@ -497,10 +565,12 @@ def _clone_shallow(main: Path, path: Path, sha: str) -> tuple[int, str]:
         return 1, f"{path} already exists"
     for args in (("init", "-q"), ("fetch", "-q", "--depth", "1", main.resolve().as_uri(), full),
                  ("checkout", "-q", "--detach", "FETCH_HEAD")):
-        r = git(path, *args)
+        r = subprocess.run(["git", "-C", str(path), *args], capture_output=True, text=True,
+                           env={**os.environ, "GIT_LFS_SKIP_SMUDGE": "1"})
         if r.returncode != 0:
             shutil.rmtree(path, ignore_errors=True)
             return r.returncode, f"git {args[0]}: {r.stderr.strip()}"
+    _lfs_checkout(main, path, [] if warnings is None else warnings)
     return 0, ""
 
 

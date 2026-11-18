@@ -175,7 +175,7 @@ REQUIRED_PAYLOAD = {
     ("run", "stopped"): ("run_id", "agent_id"),
     ("run", "reported"): ("run_id", "outcome"),
     ("run", "abandoned"): ("run_id", "reason"),
-    ("run", "recorded"): ("run_id", "mutants", "killed", "survived"),  # §20.6 `ccp mutate`
+    ("run", "recorded"): ("run_id", "mutants", "killed", "unbuilt", "survived"),  # §20.6 `ccp mutate`
     ("review", "recorded"): ("run_id", "verdict", "severity"),
     ("verify", "recorded"): ("run_id", "verdict", "head_sha"),
     ("allowance", "sample"): ("five_hour", "seven_day", "resets_at"),

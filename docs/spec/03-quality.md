@@ -454,7 +454,7 @@ nothing else.
   the `--revert`s, each in the order given.
 - **Killed only when the named test fails.** The test first runs unmutated; when it fails, the call
   stops (exit 1), nothing applied or recorded. Then each mutant is applied alone, the test runs, and
-  the mutant is `killed` when it exits non-zero and `survived` when it exits 0. Another test the
+  the mutant is `killed` when it exits non-zero and `survived` when it exits 0, except that one whose run exits non-zero with an output line matching plane.json `mutate.unbuilt_re` (a regular expression or a list of them; null, the default, matches nothing) is `unbuilt`: the code did not build or import, which proves nothing about the test. Another test the
   mutant breaks does not count.
 - **The tree is restored** after each mutant: every file it touched is written back byte for byte
   (a file it made is removed, with any directory it made) and checked before the next. A file that
@@ -468,7 +468,7 @@ nothing else.
   never the mutant's text, old or new, or the test's output, which goes to `<run record>-mutate.log`
   beside the run record.
   The call ends with one `run`/`recorded` event (run id and the counts).
-- **Exit codes:** 0 when every mutant was killed, 1 when one survived.
+- **Exit codes:** 0 when every mutant was killed, 1 when one survived or was `unbuilt`.
 
 Choosing mutants is the seat's; the plane ships no mutation operators.
 
