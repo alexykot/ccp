@@ -348,9 +348,11 @@ class Record(UpgradeFixture, unittest.TestCase):
         for args in (("decline", "0001-alpha", "--reason", " "), ("decline", "0001-alpha"),
                      ("decline", "9999-no-such", "--reason", "x"), ("take", "0003-later", "--reason", "x"),
                      ("take", "0002-quiet", "--reason", "x")):
-            code, body, _ = self.ccp("upgrade", *args)
+            code, body, err = self.ccp("upgrade", *args)
             self.assertEqual((code, body), (2, None), args)
             self.assertEqual(path.read_bytes(), before, args)
+            if args[:2] == ("decline", "0001-alpha"):  # a blank or missing reason is refused as that
+                self.assertIn("--reason", err, args)
 
     def test_a_plane_json_that_would_not_load_after_the_change_is_left_as_it_was(self):
         path = self.product.root / "docs/delivery/plane.json"
