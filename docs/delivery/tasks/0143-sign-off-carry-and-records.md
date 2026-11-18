@@ -1,7 +1,7 @@
 ---
 task_id: 0143-sign-off-carry-and-records
 title: Close's catch-up carries a build sign-off when nothing it covers changed, and a lead's ruling gets an id a verdict can cite
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3", "S10", "S15", "S16", "S17", "S23"]
@@ -10,7 +10,7 @@ sign_off: brief
 paths: ["ccp/lifecycle.py", "ccp/verify.py", "ccp/cli.py", "contracts/verification.schema.json", "contracts/observability_event.schema.json", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/spec/04-observability.md", "docs/cli/02-delivery.md", "templates/prompts/verify.md", "plugin/agents/delivery-verifier.md", "plugin/agents/delivery-runner.md", "tests/test_behind_tip_catch_up.py", "tests/test_verify_as_written.py", "tests/test_lead_ruling.py"]
 adopt: "none"
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Task: 0143-sign-off-carry-and-records
@@ -172,3 +172,5 @@ can record a check `as_written: false` against it instead of folding the hold in
   carries no sign-off: the `verdict == "approve"` clause had no test that failed without it.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #160 head `f1a7a4c` (squash `d2c6fdb`): APPROVE. Passed: carry-01, carry-02, carry-03, rule-01, check-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0143-sign-off-carry-and-records.json.
+

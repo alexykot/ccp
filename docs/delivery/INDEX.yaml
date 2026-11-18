@@ -713,7 +713,7 @@ tasks:
     depends_on: []
     path: tasks/0142-signed-text-checks.md
   - id: 0143-sign-off-carry-and-records
-    status: pending
+    status: done
     title: Close's catch-up carries a build sign-off when nothing it covers changed, and a lead's ruling gets an id a verdict can cite
     depends_on: []
     path: tasks/0143-sign-off-carry-and-records.md
