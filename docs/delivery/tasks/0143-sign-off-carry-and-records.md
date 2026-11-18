@@ -166,5 +166,9 @@ can record a check `as_written: false` against it instead of folding the hold in
   form is one form for both. A ruling id of another task is as good as a gate id of another task.
 - SPEC: each PROPOSED passage is on a line of its own, the sentence around it re-broken at the passage's edges;
   `ccp verify spec-text` exits 0.
+- Fix round 1 (review MINOR 1, NIT 1): the `rests_on`, `as_written` and `ruling` descriptions in
+  `contracts/verification.schema.json` now name lead ruling ids (`<task_id>-r<n>`) beside spec question and
+  gate ids, as `record` accepts them. `sign_off_carried`'s test gains a `verdict: reject` record, which
+  carries no sign-off: the `verdict == "approve"` clause had no test that failed without it.
 
 ## Verification notes
