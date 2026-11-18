@@ -362,9 +362,6 @@ class Gates(unittest.TestCase):
         self.assertEqual([(r[0], r[3]) for r in sent(self.out)], [("decision", qid)])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 class TestNotice(test_sandbox.SandboxCase):
     """`ccp notify fire`: a test notice, fired as a step fires one, in a sandbox only (SPEC §3.6, §29.3)."""
 
@@ -395,9 +392,9 @@ class TestNotice(test_sandbox.SandboxCase):
         self.assertEqual([x[:4] for x in sent(out)], [["decision", pid, "", "Q1"]])
         self.assertEqual(self.pending(root), [])
 
-    def test_upgrade_and_a_reason_of_two_lines_are_refused(self):
+    def test_upgrade_an_unknown_task_and_a_reason_of_two_lines_are_refused(self):
         root, _ = self.sandbox()
-        for args in (("upgrade",), ("blocker", "--reason", "two\nlines")):
+        for args in (("upgrade",), ("blocker", "--task", "9999"), ("blocker", "--reason", "two\nlines")):
             with self.subTest(args=args):
                 r = self.ccp("--root", root, "notify", "fire", *args)
                 self.assertEqual(r.returncode, 2, r.stderr)
@@ -409,3 +406,7 @@ class TestNotice(test_sandbox.SandboxCase):
         self.assertEqual(r.returncode, 2, r.stderr)
         self.assertIn("sandbox", r.stderr)
         self.assertEqual(self.pending(root, QUEUE_ROOT=str(q)), [])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -70,7 +70,8 @@ operator notice fires one with a real command instead of inventing one.
     excluded), when the `--root` directory (or the working directory) is in a sandbox, set
     `CCP_BINDINGS_DIR` to the sandbox's bindings directory, `PROJECT_YAML` to the binding there when one
     exists, and `QUEUE_ROOT` to the sandbox's queue directory, in `os.environ`, so child processes (hooks, seat scripts,
-    gate runs) inherit them; refuse (exit 2) an exported value naming a path outside the sandbox.
+    gate runs) inherit them; an exported `CCP_BINDINGS_DIR` is replaced, and an exported `PROJECT_YAML`
+    or `QUEUE_ROOT` naming a path outside the sandbox is refused (exit 2).
   - `ccp/init.py`: inside a sandbox, the binding is `<project_id>.yaml` in the sandbox's bindings
     directory and the queue is the sandbox's queue directory, `--force` or not; re-running init re-uses both (a kept binding stays
     kept, a forced one is rewritten in the same place); `--queue-root` naming a path outside the
@@ -81,10 +82,10 @@ operator notice fires one with a real command instead of inventing one.
     `review_point_done` or `allowance_checkpoint` (the triggers `notify.fire` accepts); refused (exit 2) outside a sandbox and
     for `upgrade` (recorded by `ccp notify upgrade`).
   - Rule change, signed at tasking (it makes an exception to §8.3's `PROJECT_YAML` resolution and init's
-    default queue): `docs/spec/05-operations.md` §29.3, the sandbox bullet. CURRENT: none (new text). PROPOSED, appended after "…works only below
-    the fence's temporary root.":
+    default queue): `docs/spec/05-operations.md` §29.3, the sandbox bullet. CURRENT: none (new text). Appended after "…works only below
+    the fence's temporary root.". PROPOSED:
     > Inside a sandbox (a directory whose main checkout sits beside the marker), `ccp init`, `--force` or not, and every other command use the sandbox's binding and queue: `CCP_BINDINGS_DIR` is replaced by the sandbox's own, an exported `PROJECT_YAML` or a `QUEUE_ROOT` or `--queue-root` naming a path outside it is refused (exit 2), and nothing is written to the installation's bindings directory or the default queue directory (§8.3). `ccp notify fire <trigger> [--task ID] [--id ID] [--reason R]` fires a test notice there as a step would (§3.6), and is refused outside a sandbox.
-  - Signed with the above: `docs/spec/01-model.md` §3.6. CURRENT: none (new text). PROPOSED, a new bullet after **Record.**:
+  - Signed with the above: `docs/spec/01-model.md` §3.6. CURRENT: none (new text). A new bullet after **Record.**. PROPOSED:
     > - **Test notice.** In a sandbox only (§29.3), `ccp notify fire <trigger>` fires a notice as a step would: the `pending` record, the command channel, the rendered notice.
   - `docs/cli/05-operations.md` and `docs/cli/01-model.md`: the `ccp notify fire` line.
   - `tests/test_sandbox.py`, `tests/test_notify.py`: the checks below; `test_project_yaml_naming_another_products_binding_is_not_taken` changes, since inside a sandbox the sandbox's binding is taken.
@@ -169,6 +170,12 @@ operator notice fires one with a real command instead of inventing one.
   it is refused (exit 2)", in place of the clause that listed all three names as set and refused. No
   code or test changed. §3.6 (`docs/spec/01-model.md`) and `docs/cli` do not restate the sealing
   clause and still agree.
+- 2026-11-18 (implementer, fix round 1): the two signed-text markers in Scope now end "PROPOSED:" on the
+  line right above their blockquotes ("Appended after … PROPOSED:" and "A new bullet after **Record.**.
+  PROPOSED:"), so `ccp verify spec-text` finds both passages; the quoted text is unchanged. The Scope
+  bullet for `ccp/cli.py` `main` now matches the ruling (an exported `CCP_BINDINGS_DIR` is replaced; an
+  outside `PROJECT_YAML` or `QUEUE_ROOT` is refused). `tests/test_notify.py`: `TestNotice`'s refusal test
+  adds `--task 9999` (exit 2, nothing pending), and the class sits above the `__main__` block.
 
 ## Verification notes
 
