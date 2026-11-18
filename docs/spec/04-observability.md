@@ -51,6 +51,7 @@ runner, `task-verifier` for the verifier subagent), `operator` and `system`.
 | `allowance` | `sample` | the sample's gating figures (§25.1) |
 | `plane` | `proposed`, `again`, `triaged` | §31 |
 | `plane` | `adopted` | `plane` (the plane checkout's HEAD), `binding` (`written`, `kept`); `ccp init` (§4.5) |
+| `plane` | `archived` | `day` (the UTC date), `archived`, `not_moved` (counts, no paths); `ccp plane check --archive` (§31.3) |
 | `suite` | `recorded` | `suite_id`, `run_id`, `phase`, `lane`, `exit_code`, `seconds`, `tests`, `failed`, `skipped`, `ran`, `cached`, `cached_tests`, `counts_from`, `interrupted` (§14) |
 | `prefer` | `set`, `clear` | `set`: `by`, `reason`; `clear`: `was`, `reason` (`claimed` when the claim took it); `task_id` is the preferred task |
 | `ruling` | `recorded` | `id`, `n`, `check?`, `words` (§17.5) |

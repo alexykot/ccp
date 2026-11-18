@@ -85,6 +85,7 @@ EVENT_OPS = (
     "pending",
     "sent",
     "adopted",
+    "archived",
 )
 WAIT_REASONS = ("quota", "reauth", "operator_decision", "runner", "steerer", "spec_maintainer", "design_seat", "null-class",
                 "operator_step")
@@ -188,6 +189,8 @@ REQUIRED_PAYLOAD = {
     ("plane", "built"): ("proposal_id", "built_task"),
     # §4.5: `ccp init` adopted the product (the plane checkout's HEAD; the binding `written` or `kept`)
     ("plane", "adopted"): ("plane", "binding"),
+    # §31.3: `ccp plane check --archive` moved or failed to move queue entries (counts only, no paths)
+    ("plane", "archived"): ("day", "archived", "not_moved"),
     ("suite", "recorded"): ("suite_id", "exit_code", "seconds"),
     ("prefer", "set"): ("by", "reason"),
     ("prefer", "clear"): ("was", "reason"),
@@ -677,23 +680,6 @@ def empty_seat(sid: str | None = None) -> dict[str, Any]:
     }
 
 
-def parse_index_statuses(text: str) -> dict[str, str]:
-    """Best-effort INDEX.yaml reader (no PyYAML dependency)."""
-    out: dict[str, str] = {}
-    current: str | None = None
-    for raw in text.splitlines():
-        line = raw.rstrip()
-        m = re.match(r"^\s*-\s+id:\s*(\S+)\s*$", line)
-        if m:
-            current = m.group(1).strip().strip("'\"")
-            continue
-        m = re.match(r"^\s+status:\s*(\S+)\s*$", line)
-        if m and current:
-            out[current] = m.group(1).strip().strip("'\"")
-            current = None
-    return out
-
-
 def _parse_simple_yaml_scalar_map(text: str) -> dict[str, str]:
     """Tiny YAML subset: top-level `key: value` scalars (no nested structures)."""
     out: dict[str, str] = {}
@@ -738,36 +724,6 @@ def resolve_durable_docs_dir(root: Path) -> Path | None:
     if product_root:
         return (Path(product_root).expanduser() / rel).resolve()
     return None
-
-
-def load_durable_statuses(root: Path) -> dict[str, str]:
-    candidates: list[Path] = []
-    docs_dir = resolve_durable_docs_dir(root)
-    if docs_dir is not None:
-        candidates.extend([docs_dir / "INDEX.yaml", docs_dir / "INDEX.yml"])
-    candidates.extend(
-        [
-            root / "durable" / "INDEX.yaml",
-            root / "docs" / "delivery" / "INDEX.yaml",
-        ]
-    )
-    for index in candidates:
-        if index.is_file():
-            try:
-                return parse_index_statuses(index.read_text())
-            except OSError:
-                return {}
-    # SPEC §5.7: a product may keep no index; the task files are the record.
-    out: dict[str, str] = {}
-    tdir = (docs_dir or root / "docs" / "delivery") / "tasks"
-    for f in sorted(tdir.glob("*.md")) if tdir.is_dir() else []:
-        try:
-            m = re.search(r"^status:\s*([^\s#]+)", f.read_text(), re.M)
-        except OSError:
-            continue
-        if m:
-            out[f.stem] = m.group(1).strip("'\"")
-    return out
 
 
 def _yaml_block_scalars(text: str, block: str) -> dict[str, str]:

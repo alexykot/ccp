@@ -11,7 +11,7 @@ left room, and walk-throughs. The SPEC states the rules; nothing here overrides 
   is its one kind.
 - **Shared helpers.** The driver reuses the headless-call helpers (lock, quota detection, Claude
   JSON parsing, binding readers) from `scripts/observability/spec_maintainer.py`. The durable `done`
-  count is `load_durable_statuses` over the product's task log.
+  count is the task log's: `ccp/architect.py` reads it with `tasklog.load`.
 - **The skill loads by slash command.** The reviewer prompt starts with `/architect` so Claude Code
   loads the skill, and tells the model to read the skill file
   if it did not load.
