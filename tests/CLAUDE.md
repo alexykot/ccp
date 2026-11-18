@@ -1,7 +1,8 @@
 # tests — the plane's suite
 
-Run it with `python3 -m unittest discover -s tests -t .`. Afterwards `git branch --list 'state/*'`
-must print nothing.
+Run it with `scripts/gate.sh` (a plane worker runs it as `ccp suite run --lane full`): the same modules
+as `python3 -m unittest discover -s tests -t .`, in parallel, with the test cache. Afterwards
+`git branch --list 'state/*'` must print nothing.
 
 **The suite is fenced** (`__init__.py`): no live queue, no real plane or product repo, no GitHub, no
 launchd. Every test builds its product in a temp directory (`helpers.py`'s `Product`), points
