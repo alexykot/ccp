@@ -77,11 +77,16 @@ class SpecEditsAreSignedAtTasking(unittest.TestCase):
                          ["docs/delivery/tasks/0001-a.md", "docs/delivery/tasks/0002-b.md",
                           "docs/delivery/tasks/0004-d.md"])
 
-    def test_an_entry_without_a_slash_names_a_directory_too(self):
+    def test_an_entry_without_a_slash_meets_only_the_path_it_equals(self):
         self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "task_log": {"spec_paths": ["rules"]}}))
-        self.task("0001-a", paths='["rules/one.md"]')
-        self.task("0002-b", paths='["rulesets/one.md"]')
-        self.assertEqual([w.split(":")[0] for w in tasklog.warnings(self.p.cfg)], ["docs/delivery/tasks/0001-a.md"])
+        self.task("0001-a", paths='["rules"]')
+        self.task("0002-b", paths='["rules/one.md"]')
+        self.task("0003-c", paths='["rulesets/one.md"]')
+        self.p.index()
+        code, ws = self.check()
+        self.assertEqual(code, 0)
+        self.assertEqual(len(ws), 1, ws)
+        self.assertIn("docs/delivery/tasks/0001-a.md: its paths name the SPEC (rules)", ws[0])
 
     def test_spec_paths_must_be_relative_paths(self):
         for bad in ("docs/spec/", ["/abs/spec"], ["../spec"], [""], [3]):

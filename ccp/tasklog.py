@@ -606,10 +606,10 @@ def unmeasured_numbers(t: dict[str, Any], rel: str) -> list[str]:
 
 
 def _names_spec(path: str, spec_paths: list[str]) -> bool:
-    """§3.5: whether a task's `paths` entry names a SPEC file: it is one of `task_log.spec_paths`, or lies
-    under one (an entry ending in `/`, or any entry as a directory)."""
+    """§3.5: whether a path names a SPEC file: it equals an entry of `task_log.spec_paths` or, for an entry
+    ending in `/`, lies under it; an entry without its `/` is exact (`docs/spec` meets no file under it)."""
     p = path.strip().removeprefix("./")
-    return any(p == e or p.startswith(e if e.endswith("/") else e + "/")
+    return any(p == e or (e.endswith("/") and p.startswith(e))
                for e in (str(x).strip().removeprefix("./") for x in spec_paths) if e)
 
 
