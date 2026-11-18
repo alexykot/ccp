@@ -1,5 +1,6 @@
 """SPEC §24.6: `ccp usage` and `ccp health` advise on short-lived cache writes, an oversized context and the
-coordination share, at plane.json `usage.advice`'s thresholds."""
+coordination share, at plane.json `usage.advice`'s thresholds, from the requests since the advice's start
+(`--since`, else `window_hours` back, else every request), which each line names."""
 from __future__ import annotations
 
 import io
@@ -9,6 +10,7 @@ import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -18,11 +20,13 @@ from tests.helpers import Product
 SPANS = {"lead": {}, "runner": {"agent_id": "runner@session-abc"}, "worker": {"agent_id": "a1"}}
 
 
-def row(rid, who, ctx=None, cost=0.01, written=0, five=0, model="claude-opus-5-5", session="s1"):
-    """One request of `who` (lead, runner or worker) on `model` in `session`, sending `ctx` context tokens
-    (default: the writes and a thousand more), `written` of them cache writes, `five` of those at 5 minutes."""
+def row(rid, who, ctx=None, cost=0.01, written=0, five=0, model="claude-opus-5-5", session="s1",
+        at="2027-01-15T08:00:00Z"):
+    """One request of `who` (lead, runner or worker) on `model` in `session` at `at`, sending `ctx` context
+    tokens (default: the writes and a thousand more), `written` of them cache writes, `five` of those at 5
+    minutes."""
     ctx = written + 1000 if ctx is None else ctx
-    return ({"request_id": rid, "at": "2027-01-15T08:00:00Z", "session_id": session, "model": model,
+    return ({"request_id": rid, "at": at, "session_id": session, "model": model,
              "effort": "high", "query_source": "repl_main_thread" if who == "lead" else "agent:custom",
              "input_tokens": 1, "output_tokens": 10, "cache_read_tokens": ctx - 1 - written,
              "cache_creation_tokens": written, "cache_creation_5m_tokens": five,
@@ -30,7 +34,11 @@ def row(rid, who, ctx=None, cost=0.01, written=0, five=0, model="claude-opus-5-5
             {"request_id": rid, **SPANS[who]})
 
 
-class Advice(unittest.TestCase):
+def ago(hours: float) -> str:
+    return (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+class AdviceCase(unittest.TestCase):
     def setUp(self):
         self.p = Product()
         self._q = tempfile.TemporaryDirectory()
@@ -50,12 +58,17 @@ class Advice(unittest.TestCase):
         (self.q / "board" / "usage-requests.jsonl").write_text("".join(json.dumps(r) + "\n" for r, _ in rows))
         (self.q / "board" / "usage-spans.jsonl").write_text("".join(json.dumps(s) + "\n" for _, s in rows))
 
-    def ccp(self, *args):
-        out = io.StringIO()
-        with redirect_stdout(out), redirect_stderr(io.StringIO()), \
+    def ccp(self, *args, code=0):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err), \
                 mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)}):
-            self.assertEqual(cli.main(["--root", str(self.p.root), *args]), 0)
-        return out.getvalue()
+            self.assertEqual(cli.main(["--root", str(self.p.root), *args]), code, err.getvalue())
+        return out.getvalue() if code == 0 else err.getvalue()
+
+    def git_product(self):
+        subprocess.run(["git", "-C", str(self.p.root), "init", "-q", "-b", "main"], check=True)
+        subprocess.run(["git", "-C", str(self.p.root), "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q",
+                        "--allow-empty", "-m", "init"], check=True)
 
     def advice(self):
         return [ln for ln in self.ccp("usage").splitlines() if ln.startswith("advice: ")]
@@ -64,6 +77,8 @@ class Advice(unittest.TestCase):
         """The lead and the runner at half of all seats' cost, every other measure under its threshold."""
         self.sink(row("l1", "lead", cost=0.3), row("r1", "runner", cost=0.2), row("w1", "worker", cost=0.5))
 
+
+class Advice(AdviceCase):
     def test_a_runner_on_5_minute_cache_writes_is_advised(self):
         self.sink(row("r1", "runner", written=6000, five=4000), row("r2", "runner", written=4000, five=3000),
                   row("l1", "lead", written=10000, five=5000),  # exactly at the threshold: not more than it
@@ -160,14 +175,98 @@ class Advice(unittest.TestCase):
         self.assertEqual(usage.fold(self.q)["advice"], [])
 
     def test_health_carries_the_same_lines(self):
-        subprocess.run(["git", "-C", str(self.p.root), "init", "-q", "-b", "main"], check=True)
-        subprocess.run(["git", "-C", str(self.p.root), "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q",
-                        "--allow-empty", "-m", "init"], check=True)
+        self.git_product()
         self.coordination_sink()
         want = [ln[len("advice: "):] for ln in self.advice()]
         self.assertEqual(len(want), 1)
         self.assertEqual(json.loads(self.ccp("health", "--json"))["usage_advice"], want)
         self.assertIn(f"Usage advice: {want[0]}", self.ccp("health").splitlines())
+
+
+class Window(AdviceCase):
+    """The runner wrote 5-minute cache writes three days ago and only 1-hour ones in the last hour; plane.json
+    sets a 24-hour window."""
+
+    def setUp(self):
+        super().setUp()
+        self.window(24)
+        self.sink(row("r1", "runner", written=8000, five=8000, at=ago(72)),
+                  row("r2", "runner", written=2000, five=0, at=ago(0.5)),
+                  row("w1", "worker", cost=1.0, at=ago(0.5)))
+        self.day = (datetime.now(timezone.utc) - timedelta(days=4)).strftime("%Y-%m-%d")
+
+    def window(self, hours):
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo",
+                                                             "usage": {"advice": {"window_hours": hours}}}))
+
+    def usage(self, *args):
+        return json.loads(self.ccp("usage", "--json", *args))
+
+    @staticmethod
+    def five(lines):
+        return [x for x in lines if "5-minute" in x]
+
+    def test_the_window_leaves_out_what_the_requests_before_it_showed(self):
+        r = self.usage()
+        self.assertEqual(self.five(r["advice"]), [])
+        start = datetime.strptime(r["advice_since"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        self.assertLess(abs((datetime.now(timezone.utc) - timedelta(hours=24) - start).total_seconds()), 60)
+
+    def test_since_gives_the_start_and_each_line_names_it(self):
+        r = self.usage("--since", self.day)
+        self.assertEqual(r["advice_since"], f"{self.day}T00:00:00Z")
+        lines = self.five(r["advice"])
+        self.assertEqual(len(lines), 1, r["advice"])
+        self.assertTrue(lines[0].startswith("runner: 80% "), lines)
+        self.assertTrue(lines[0].endswith(f" (requests since {self.day}T00:00:00Z)"), lines)
+        at = ago(1)
+        r = self.usage("--since", at)
+        self.assertEqual((r["advice_since"], self.five(r["advice"])), (at, []))
+
+    def test_with_no_window_the_advice_reads_every_request(self):
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo"}))
+        r = self.usage()
+        self.assertIsNone(r["advice_since"])
+        lines = self.five(r["advice"])
+        self.assertEqual(len(lines), 1, r["advice"])
+        self.assertTrue(lines[0].endswith(" (every request)"), lines)
+        self.window(0)
+        self.assertEqual(self.usage()["advice"], r["advice"])
+
+    def test_a_since_in_another_form_is_refused(self):
+        for bad in ("yesterday", "2026-11-01T10:00:00", "2026-11-01 10:00:00Z", "2026-13-01", "2026-11-01T10:00Z"):
+            with self.subTest(since=bad):
+                self.assertIn("--since", self.ccp("usage", "--since", bad, code=2))
+
+    def test_the_window_bounds_the_contexts_and_the_worker_runs_and_no_other_figure(self):
+        self.sink(*(row(f"l{i}", "lead", ctx=900000, cost=0.3, at=ago(72)) for i in range(3)),
+                  row("w1", "worker", cost=0.5, at=ago(72)),
+                  row("l9", "lead", ctx=1000, cost=0.3, at=ago(0.5)), row("r1", "runner", cost=0.2, at=ago(0.5)))
+        every = self.usage("--since", "2000-01-01")
+        self.assertEqual(sum("design-seat: median context" in x for x in every["advice"]), 1, every["advice"])
+        self.assertEqual(sum("coordination" in x for x in every["advice"]), 1, every["advice"])
+        r = self.usage()
+        self.assertEqual(r["advice"], [])
+        for k in ("seats", "total", "runs", "coverage"):
+            self.assertEqual(r[k], every[k], k)
+
+    def test_a_request_with_no_time_is_outside_a_window(self):
+        self.sink(row("r1", "runner", written=8000, five=8000, at=None), row("w1", "worker", cost=1.0, at=ago(0.5)))
+        self.assertEqual(self.five(self.usage()["advice"]), [])
+        self.window(0)
+        self.assertEqual(len(self.five(self.usage()["advice"])), 1)
+
+    def test_health_reads_the_same_window(self):
+        self.git_product()
+        r = json.loads(self.ccp("health", "--json"))
+        self.assertEqual(self.five(r["usage_advice"]), [])
+        self.assertIsNotNone(r["usage_advice_since"])
+        r = json.loads(self.ccp("health", "--json", "--since", self.day))
+        self.assertEqual(r["usage_advice_since"], f"{self.day}T00:00:00Z")
+        lines = self.five(r["usage_advice"])
+        self.assertEqual(len(lines), 1, r["usage_advice"])
+        self.assertTrue(lines[0].endswith(f" (requests since {self.day}T00:00:00Z)"), lines)
+        self.assertIn(f"Usage advice: {lines[0]}", self.ccp("health", "--since", self.day).splitlines())
 
 
 class Knobs(unittest.TestCase):
@@ -180,7 +279,8 @@ class Knobs(unittest.TestCase):
 
     def test_defaults_and_one_knob_given(self):
         self.assertEqual(self.load({"advice": {"coordination_share": 0.6}}).usage["advice"],
-                         {"cache_5m_share": 0.5, "context_tokens": 300000, "coordination_share": 0.6})
+                         {"cache_5m_share": 0.5, "context_tokens": 300000, "coordination_share": 0.6,
+                          "window_hours": 0})
         p = Product()
         try:
             self.assertEqual(config.load(p.root).usage, config.USAGE_DEFAULTS)
@@ -190,6 +290,8 @@ class Knobs(unittest.TestCase):
     def test_bad_values_are_refused(self):
         for given in ({"advice": {"coordination_share": 1.5}}, {"advice": {"cache_5m_share": "half"}},
                       {"advice": {"context_tokens": 0}}, {"advice": {"context_tokens": True}},
+                      {"advice": {"window_hours": -1}}, {"advice": {"window_hours": True}},
+                      {"advice": {"window_hours": 1.5}}, {"advice": {"window_hours": "24"}},
                       {"advice": "x"}, "x"):
             with self.subTest(given=given), self.assertRaises(config.ConfigError):
                 self.load(given)
