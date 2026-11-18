@@ -425,6 +425,10 @@ A product is adopted by running `ccp init` in its repository. It writes:
   (§4.3);
 - outside the repository, the local binding and its queue directory (§8.3).
 
+It records the adoption as a `plane`/`adopted` ledger event (§23.2) when it writes the binding, and when
+the queue's ledger holds no such event yet (a queue from before the event, re-adopted); a rerun on an
+adopted product records nothing.
+
 It keeps a file that already exists and lists it as kept, unless given `--force`, so running it again
 changes nothing. Even with `--force` it merges into `.claude/settings.json` and keeps every value already there, `subagentPromptCacheTtl` and `autoCompactWindow` included. It refuses, writing nothing, when keeping would leave the product inconsistent: a
 `plane.json` naming another project id, a binding for the id naming another product root or another
