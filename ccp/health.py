@@ -55,7 +55,8 @@ Everything comes from data the plane already holds; nothing here is a target or 
 - **adoption window** (§27.1, §4.5): with no `--since`, `ccp health` starts its window at the queue's latest
   `plane`/`adopted` event (`ccp init`): the task merges, the suite series, gate and module time, the
   rotation counts and the friction notes before it are left out, and `before_adoption` counts the task
-  merges left out. A queue with no such event, and a `--since`, read as before.
+  merges left out. The usage advice (`ccp usage`'s) and the rotation slots due now are not windowed.
+  A queue with no such event, and a `--since`, read as before.
 
 A task's **active time** is its wall time less the time it waited (`waits_s`): every `waiting_on`
 interval, set to clear, whatever it waited on (§23.3's waits; an open one runs to the merge), and its
@@ -568,10 +569,10 @@ def cold_gate_runs(cfg: Config | None, q: Path, rows: list[dict[str, Any]],
     from ccp.config import lane_for  # noqa: PLC0415
     lane = lane_for(cfg, "gate")
     mine = [s for s in rows if s.get("lane") == lane and s.get("state") == "passed" and _from(s.get("started_at"), start)]
-    start = cache_start(cfg, q, rows) if mine else None
+    cache_from = cache_start(cfg, q, rows) if mine else None
 
     def cache_then(s: dict[str, Any]) -> bool:
-        return start is not None and (_epoch(str(s.get("started_at") or "")) or 0) >= start
+        return cache_from is not None and (_epoch(str(s.get("started_at") or "")) or 0) >= cache_from
 
     return lane, [s for s in mine if classify(s, cache_then(s), lanes=(lane,)) == "cold"
                   and isinstance(s.get("seconds"), (int, float)) and not isinstance(s.get("seconds"), bool)]
@@ -988,8 +989,10 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
     """Per-task rows (one per merged task on `rev`'s first-parent history, oldest merge first) and the
     trend over them. Without `files`, only what the trend needs: no per-file lines and no prompt sizes.
     With `from_adoption` and no `since` (`ccp health`, §27.1), the window starts at the queue's latest
-    `plane`/`adopted` event: the task merges and the queue's figures before it are left out, and
-    `before_adoption` counts the merges left out (`adopted_at` is that event's time either way)."""
+    `plane`/`adopted` event: the task merges, the suite series, gate and module time, the rotation
+    counts and the friction notes before it are left out (not the usage advice, `ccp usage`'s, nor the
+    rotation slots due now), and `before_adoption` counts the merges left out (`adopted_at` is that
+    event's time either way)."""
     a = cfg.architect or ARCHITECT_DEFAULTS
     tasks = tasklog.load(cfg)
     ms = merges(cfg, tasks, rev)

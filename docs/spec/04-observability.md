@@ -517,9 +517,10 @@ gates nothing.
   globs); the queue (report times under `progress/<task>/*-report.md`, phase events, review, verify,
   fix, merge and ruling rounds); prompt audits (prompt sizes).
 - **Window:** with no `--since`, from the queue's latest `plane`/`adopted` event (§4.5): the task
-  merges and the queue's figures before it are left out, and the report gives `adopted_at` and
-  `before_adoption`, the count of task merges left out; a given `--since` wins, and a queue with no
-  such event is read whole.
+  merges, the suite series, gate and module time, the rotation counts and the friction notes before it
+  are left out (the usage advice, `ccp usage`'s, and the rotation slots due now still read the whole
+  queue), and the report gives `adopted_at` and `before_adoption`, the count of task merges left out;
+  a given `--since` wins, and a queue with no such event is read whole.
 - **Per task:** wall time; the spans of implementing, reviewing and verifying; review, verify, fix,
   merge and ruling rounds; files and lines by area. **Trend:** rolling medians and the drift ratio
   (§19).

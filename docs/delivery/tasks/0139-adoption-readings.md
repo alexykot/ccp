@@ -125,5 +125,11 @@ brief to measure a rule's own limit or a protocol code.
   when `--since` is given, and the text line prints only when the adoption window applies. With
   `--since`, health reads as before (only the merges windowed). The unmeasured-number warning blanks
   the number right after the listed words, separated by spaces or tabs only, before reading the line.
+- 2026-11-18 (implementer, fix round 1): review MAJOR 1: the usage advice stays unwindowed (Scope Out
+  names `ccp usage`), so the SPEC §27.1 Window sentence and the `ccp/health.py` module and `collect`
+  docstrings now name what is windowed (task merges, suite series, gate and module time, rotation counts,
+  friction notes) and what is not (the usage advice, the rotation slots due now) instead of "the queue's
+  figures". MINOR 1: `cold_gate_runs`'s cache start is now the local `cache_from`, no longer rebinding
+  the `start` parameter. No behaviour changes.
 
 ## Verification notes
