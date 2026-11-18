@@ -10,9 +10,11 @@ A `--sha` that is not a full sha (`HEAD`, a short sha, a branch) is resolved in 
 when the worktree is made, so `HEAD` is the caller's own head; one that names no commit is refused.
 An adopting lead's `ver-baseline` (`ccp wt create --kind ver --baseline`) belongs to no task: a verifier's
 worktree at the integration tip, where the gate runs once before the first task does.
-Each is named `<kind>-<nnnn>[-<n>]` under `worktrees.dir` in the main
-checkout, gets `worktrees.links` linked in, and is recorded in `QUEUE_ROOT/worktrees/<name>.json`,
-so close, drop, release and gc remove exactly what was made. A runner's own merge worktree
+Each is named `<kind>-<nnnn>[-<n>]` under `worktrees.dir` (relative to the main
+checkout, inside it or outside it with `..`, or absolute), gets `worktrees.links` linked in, and is
+recorded in `QUEUE_ROOT/worktrees/<name>.json`, so close, drop, release and gc remove exactly what was
+made. Under a `worktrees.dir` outside the main checkout, which another checkout may share, a directory
+with no record is taken for this product's only when the main checkout's `git worktree list` names it. A runner's own merge worktree
 (`runner_worktree`, binding `runner.worktree`) is made here too, detached at the integration tip,
 by `ccp tasks worktree` and the single runner's spawn; it is not a task's, so it is not recorded.
 `ccp tasks close`'s own `merge-<nnnn>` (`merge_path`, §10.5) is not recorded either: one a failed
@@ -75,8 +77,26 @@ def main_checkout(cfg: Config) -> Path:
 
 
 def base_dir(cfg: Config) -> Path | None:
+    """`worktrees.dir` resolved against the main checkout (§12.1): one absolute path, inside the main
+    checkout or outside it (`..`, an absolute value); None when the product names none."""
     d = (cfg.worktrees or {}).get("dir")
-    return main_checkout(cfg) / d if d else None
+    return (main_checkout(cfg) / d).resolve() if d else None
+
+
+def _git_named(cfg: Config, base: Path) -> set[Path] | None:
+    """The worktrees an unrecorded directory under `base` may be taken for this product's from (§12.1):
+    None (any) when `base` is inside the main checkout; outside it, which another checkout may share,
+    only those `git worktree list --porcelain` in the main checkout names, resolved."""
+    main = main_checkout(cfg).resolve()
+    if base == main or main in base.parents:
+        return None
+    r = git(main, "worktree", "list", "--porcelain")
+    return {Path(ln[len("worktree "):]).resolve() for ln in r.stdout.splitlines() if ln.startswith("worktree ")}
+
+
+def _ours(p: Path, named: set[Path] | None) -> bool:
+    """Whether an unrecorded directory `p` is taken for one of this product's worktrees (`_git_named`)."""
+    return named is None or p.resolve() in named
 
 
 def merge_path(cfg: Config, task_id: str) -> Path | None:
@@ -530,7 +550,8 @@ def remove_task(cfg: Config, q: Path, task_id: str) -> list[str]:
     """Every worktree recorded for the task, then any made before worktrees were recorded
     (`impl-`, `rev-`, `ver-` with its number) as a fallback, then its merge worktree (`merge-<nnnn>`,
     §10.5), never the checkout this command runs in (`cfg.root`): close runs its cleanup there, in its
-    merge worktree, and removes that one itself once the reconcile has landed."""
+    merge worktree, and removes that one itself once the reconcile has landed. Under a `worktrees.dir`
+    outside the main checkout, a fallback is removed only when git names it a worktree (`_git_named`)."""
     warnings: list[str] = []
     for st in records(q):
         if st.get("task_id") == task_id:
@@ -538,14 +559,15 @@ def remove_task(cfg: Config, q: Path, task_id: str) -> list[str]:
     base = base_dir(cfg)
     if base and base.is_dir():
         nnnn = refs.ids(cfg).task_number(task_id)
+        named = _git_named(cfg, base)
         old = sorted(base.glob(f"impl-{nnnn}")) + sorted(base.glob(f"rev-{nnnn}*")) + sorted(base.glob(f"ver-{nnnn}*"))
         for wt in old:
-            if wt.is_dir():
+            if wt.is_dir() and _ours(wt, named):
                 rc, err = _rm_tree(main_checkout(cfg), wt)
                 if rc != 0:
                     warnings.append(f"worktree {wt}: {err.strip()}")
         own = merge_path(cfg, task_id)
-        if own and own.is_dir() and own.resolve() != cfg.root.resolve():
+        if own and own.is_dir() and own.resolve() != cfg.root.resolve() and _ours(own, named):
             warnings += _remove_merge(cfg, own)
     return warnings
 
@@ -852,15 +874,16 @@ def down(cfg: Config, q: Path, name: str) -> dict[str, Any]:
 def listing(cfg: Config, q: Path, task_id: str | None = None) -> list[dict[str, Any]]:
     """The records (of one task with `task_id`), then the worktrees under `worktrees.dir` that have
     none: one made before records (without `task_id` only) and a merge worktree a close left (§10.5),
-    `kind: merge`, for its task too."""
+    `kind: merge`, for its task too; outside the main checkout, only those git names (`_git_named`)."""
     recs = [s for s in records(q) if not task_id or s.get("task_id") == task_id]
     out = [{**s, "exists": Path(s["path"]).is_dir()} for s in recs]
     base = base_dir(cfg)
     known = {s["name"] for s in recs}
     own = merge_path(cfg, task_id) if task_id else None
     if base and base.is_dir():
+        named = _git_named(cfg, base)
         for p in sorted(base.iterdir()):
-            if not p.is_dir() or p.name in known:
+            if not p.is_dir() or p.name in known or not _ours(p, named):
                 continue
             if MERGE_RE.match(p.name) and (not task_id or (own and p.name == own.name)):
                 out.append({"name": p.name, "kind": MERGE_PREFIX, "path": str(p), "exists": True, "recorded": False})
@@ -878,7 +901,8 @@ def gc(cfg: Config, q: Path) -> dict[str, Any]:
     """Prune git's worktree list; forget records whose worktree is gone; remove the worktrees of tasks
     that are done or dropped in the queue and leased by no one (drop and release keep them, §12.1),
     a merge worktree a close left behind (§10.5) included. A merge worktree of a task the queue does
-    not hold done or dropped stays: a re-run of its close reuses it."""
+    not hold done or dropped stays: a re-run of its close reuses it, and so does one under a
+    `worktrees.dir` outside the main checkout that git does not name (`_git_named`)."""
     forgot, removed, warnings = [], [], []
     git(main_checkout(cfg), "worktree", "prune")
     for st in records(q):
@@ -894,9 +918,10 @@ def gc(cfg: Config, q: Path) -> dict[str, Any]:
     if base and base.is_dir():
         ids = refs.ids(cfg)
         tasks = sorted(f.stem for f in (q / "tasks").glob("*.json")) if (q / "tasks").is_dir() else []
+        named = _git_named(cfg, base)
         for p in sorted(base.iterdir()):
             m = MERGE_RE.match(p.name)
-            if not m or not p.is_dir() or p.resolve() == cfg.root.resolve():
+            if not m or not p.is_dir() or p.resolve() == cfg.root.resolve() or not _ours(p, named):
                 continue
             mine = [load_task_state(q, t) for t in tasks if ids.task_number(t) == m.group(1)]
             if mine and all(_gone(tq) for tq in mine):

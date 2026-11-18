@@ -301,7 +301,7 @@ this host, even inside the TTL, or, for a lock from another host (whose pid cann
 ### 12.1 Worktrees
 
 `ccp wt create --kind KIND --task ID [--sha SHA] [--name N] [--seat S] [--tag T] [--shallow]` makes a git
-worktree under plane.json `worktrees.dir` (relative to the main checkout), named
+worktree under plane.json `worktrees.dir` (a path relative to the main checkout, which may lead outside it with `..`, such as a sibling directory, or an absolute path; not the main checkout itself), named
 `<kind>-<nnnn>[-<n>]`. Kinds: `impl` (the implementer's, on `task/<id>` from
 `origin/<integration>`; `ccp tasks claim` makes it), `rev` and `ver` (detached at the head they
 judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--sha`, and `base`
