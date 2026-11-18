@@ -424,6 +424,9 @@ def cmd_wt(cfg: config.Config, a: argparse.Namespace) -> int:
             raise QueueError(f"--timeout {timeout!r}: give a whole number of seconds, at least 1", 2)
         if getattr(a, "shallow", False) and (a.action != "create" or base_run or getattr(a, "baseline", False)):
             raise QueueError("--shallow is for `ccp wt create --kind rev|ver|mut|mac --task ID --sha SHA`", 2)
+        own_hooks = bool(getattr(a, "own_hooks", False))
+        if own_hooks and (a.action != "create" or getattr(a, "baseline", False)):  # §12.2
+            raise QueueError("--own-hooks is for `ccp wt create --kind KIND --task ID`, not --baseline", 2)
         if getattr(a, "baseline", False):  # §12.1: the adopting lead's gate run on the tip, no task
             if a.action != "create" or a.kind != "ver":
                 raise QueueError("--baseline is for `ccp wt create --kind ver --baseline`", 2)
@@ -435,17 +438,18 @@ def cmd_wt(cfg: config.Config, a: argparse.Namespace) -> int:
         elif a.action == "create":
             if not a.task:
                 raise QueueError("usage: ccp wt create --kind KIND --task ID [--sha SHA] [--name N] [--seat S] [--tag T] "
-                                 "[--shallow] [--timeout S -- COMMAND (base only)], or ccp wt create --kind ver --baseline", 2)
+                                 "[--shallow] [--own-hooks] [--timeout S -- COMMAND (base only)], or ccp wt create --kind ver --baseline", 2)
             from ccp.queue import task_meta  # noqa: PLC0415
             tid = str(task_meta(cfg, a.task)["task_id"])
             if a.kind == "base":  # §12.1: made, the command run there, removed again; exit with its code
                 res = wt.run_on_base(cfg, q, tid, a.sha or "", command, a.name, a.seat, a.tag,
-                                     int(timeout) if timeout is not None else None)
+                                     int(timeout) if timeout is not None else None, own_hooks)
                 for w in res["warnings"]:
                     print(f"warning: {w}", file=sys.stderr)
                 print(json.dumps(res, indent=2, ensure_ascii=False))
                 return int(res["exit"])
-            body = wt.create(cfg, q, tid, a.kind or "impl", a.sha, a.name, a.seat, a.tag, bool(getattr(a, "shallow", False)))
+            body = wt.create(cfg, q, tid, a.kind or "impl", a.sha, a.name, a.seat, a.tag, bool(getattr(a, "shallow", False)),
+                             own_hooks=own_hooks)
         elif a.action == "list":
             body = wt.listing(cfg, q, a.task)
         elif a.action == "gc":
@@ -1442,6 +1446,9 @@ def build_parser() -> argparse.ArgumentParser:
                         "like any other; an adopting lead runs the gate there once")
     p.add_argument("--shallow", action="store_true",
                    help="create --kind rev|ver|mut|mac: a depth-1 clone of --sha, with no git history, not a git worktree")
+    p.add_argument("--own-hooks", action="store_true",
+                   help="create (any kind, not --baseline): take the env hooks and their timeout from the plane.json in "
+                        "the worktree itself, not the caller's, so a head that changes them runs its own")
     p.add_argument("--timeout", metavar="SECONDS",
                    help="create --kind base: kill the command with its process group after this many seconds "
                         "(exit 124; default plane.json env.timeout_seconds)")

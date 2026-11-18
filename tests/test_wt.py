@@ -831,5 +831,125 @@ class Shallow(WtFixture, unittest.TestCase):
         self.assertEqual(list((self.q / "worktrees").glob("*.json")) if (self.q / "worktrees").is_dir() else [], [])
 
 
+class OwnHooks(WtFixture, unittest.TestCase):
+    """`ccp wt create --own-hooks` (§12.2): the worktree's hooks and their timeout come from its own plane.json."""
+
+    MAIN_ENV = {"setup": "echo main > hook.txt"}
+
+    def setUp(self):
+        super().setUp()
+        self.plane(env=self.MAIN_ENV)  # the caller's (main checkout's) plane.json, uncommitted
+
+    def commit(self, plane: str) -> str:
+        """A commit off the integration tip whose plane.json reads `plane` (a PR's head)."""
+        (self.runner / "docs/delivery/plane.json").write_text(plane)
+        git(self.runner, "commit", "-q", "-am", "the PR's own hooks")
+        return git(self.runner, "rev-parse", "HEAD")
+
+    def own(self, **env) -> str:
+        return self.commit(json.dumps({**self.PLANE_JSON, "env": env}))
+
+    def record(self, name: str) -> dict:
+        return json.loads((self.q / "worktrees" / f"{name}.json").read_text())
+
+    def test_the_own_hooks_worktree_runs_the_heads_setup_and_another_the_callers(self):
+        sha = self.own(setup="echo head > hook.txt")
+        code, ver, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--own-hooks")
+        self.assertEqual(code, 0, err)
+        code, rev, _, err = self.wt("create", "--kind", "rev", "--task", "0002", "--sha", sha)
+        self.assertEqual(code, 0, err)
+        self.assertEqual((Path(ver["path"]) / "hook.txt").read_text().strip(), "head")
+        self.assertEqual((Path(rev["path"]) / "hook.txt").read_text().strip(), "main")
+        self.assertIs(self.record(ver["name"]).get("own_hooks"), True)
+        self.assertNotIn("own_hooks", self.record(rev["name"]))
+
+    def test_a_head_whose_plane_json_does_not_load_fails_the_create_and_leaves_nothing(self):
+        sha = self.commit("{ not json")
+        code, _, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--own-hooks")
+        self.assertEqual(code, 1, err)
+        self.assertIn(str(self.main / ".rt" / "ver-0002" / "docs/delivery/plane.json"), err)
+        self.assertFalse((self.main / ".rt" / "ver-0002").exists())
+        self.assertFalse((self.q / "worktrees" / "ver-0002.json").exists())
+
+    def test_the_hook_timeout_is_the_worktrees_own(self):
+        sha = self.own(setup="sleep 20", timeout_seconds=1)
+        t = time.time()
+        code, _, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--own-hooks")
+        self.assertLess(time.time() - t, 15)
+        self.assertEqual(code, 1, err)
+        self.assertIn("exited 124", err)
+
+    def test_up_down_and_teardown_are_the_worktrees_own(self):
+        marker = self.main / "torn-down"
+        self.plane(env={**self.MAIN_ENV, "up": "exit 9", "down": "exit 9", "teardown": "exit 9"})
+        sha = self.own(up="echo head > up.txt", down="echo head > down.txt", teardown=f"echo head > {marker}")
+        name = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--own-hooks")[1]["name"]
+        p = self.main / ".rt" / name
+        code, _, _, err = self.wt("up", name)
+        self.assertEqual(code, 0, err)
+        self.assertEqual((p / "up.txt").read_text().strip(), "head")
+        code, body, _, err = self.wt("down", name)
+        self.assertEqual((code, body["warnings"]), (0, []), err)
+        self.assertEqual((p / "down.txt").read_text().strip(), "head")
+        code, body, _, err = self.wt("remove", name)
+        self.assertEqual((code, body["warnings"]), (0, []), err)
+        self.assertEqual(marker.read_text().strip(), "head")
+
+    def test_on_down_and_remove_an_own_plane_json_that_does_not_load_is_a_warning_and_the_hook_skipped(self):
+        marker = self.main / "torn-down"
+        self.plane(env={**self.MAIN_ENV, "down": f"touch {marker}", "teardown": f"touch {marker}"})
+        sha = self.own(setup="true")
+        name = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--own-hooks")[1]["name"]
+        p = self.main / ".rt" / name
+        (p / "docs/delivery/plane.json").write_text("{ not json")
+        code, body, _, err = self.wt("down", name)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.record(name)["state"], "down")
+        self.assertTrue(any("plane.json" in w for w in body["warnings"]), body)
+        code, body, _, err = self.wt("remove", name)
+        self.assertEqual(code, 0, err)
+        self.assertTrue(any("plane.json" in w for w in body["warnings"]), body)
+        self.assertFalse(p.exists())
+        self.assertFalse((self.q / "worktrees" / f"{name}.json").exists())
+        self.assertFalse(marker.exists())  # never the caller's hooks in their place
+
+    def test_an_own_hooks_worktree_gone_from_disk_warns_its_hooks_were_not_run(self):
+        self.plane(env={})  # the caller declares no hooks; the worktree's own are unknown once it is gone
+        sha = self.own(teardown="true")
+        name = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--own-hooks")[1]["name"]
+        git(self.main, "worktree", "remove", "--force", str(self.main / ".rt" / name))
+        code, _, _, err = self.wt("remove", name)
+        self.assertEqual(code, 0, err)
+        self.assertIn("were not run", err)
+
+    def test_a_base_run_takes_its_hooks_from_the_merge_base(self):
+        head = self.head()  # its merge base is the tip, whose committed plane.json declares no setup
+        code, _, out, err = self.ccp("wt", "create", "--kind", "base", "--task", "0002", "--sha", head, "--own-hooks",
+                                     "--", "sh", "-c", "test ! -e hook.txt", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        code, _, out, err = self.ccp("wt", "create", "--kind", "base", "--task", "0002", "--sha", head,
+                                     "--", "sh", "-c", "test ! -e hook.txt", root=self.main)
+        self.assertEqual(code, 1, out + err)  # without it, the caller's setup wrote hook.txt
+
+    def test_reuse_needs_the_same_hooks_and_the_flag_is_only_for_create(self):
+        sha = self.own(setup="true")
+        self.assertEqual(self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--own-hooks")[0], 0)
+        code, _, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--name", "ver-0002")
+        self.assertEqual(code, 3, err)
+        self.assertIn("own hooks", err)
+        code, body, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--name", "ver-0002",
+                                     "--own-hooks")
+        self.assertEqual((code, body["created"]), (0, False), err)
+        self.assertEqual(self.wt("create", "--kind", "rev", "--task", "0002", "--sha", sha, "--name", "rev-0002")[0], 0)
+        code, _, _, err = self.wt("create", "--kind", "rev", "--task", "0002", "--sha", sha, "--name", "rev-0002",
+                                  "--own-hooks")
+        self.assertEqual(code, 3, err)
+        self.assertEqual(self.wt("create", "--kind", "ver", "--baseline", "--own-hooks")[0], 2)
+        self.assertFalse((self.main / ".rt" / "ver-baseline").exists())
+        self.assertEqual(self.wt("list", "--own-hooks")[0], 2)
+        self.assertEqual(self.wt("remove", "ver-0002", "--own-hooks")[0], 2)
+        self.assertTrue((self.main / ".rt" / "ver-0002").is_dir())
+
+
 if __name__ == "__main__":
     unittest.main()

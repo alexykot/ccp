@@ -44,6 +44,11 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         self.assertIn(str(self.main / ".rt" / "ver-0002"), text)
         self.assertNotIn("wt create --kind mut", outside_the_fallback(text))
 
+    def test_the_verifier_is_told_the_flag_that_runs_the_prs_own_hooks(self):
+        _run_id, text = self.render("verify", "--pr", "7", "--head", A)
+        self.assertIn("`--own-hooks`", text)
+        self.assertIn("--own-hooks", (PLANE / "plugin/agents/delivery-verifier.md").read_text())
+
     def test_with_no_mutate_command_a_seat_breaks_code_in_a_mutation_worktree_it_removes(self):
         run_id, text = self.render("verify", "--pr", "7", "--head", A)
         fallbacks = FALLBACK.findall(text)
