@@ -130,4 +130,20 @@ the way with one command that never deletes anything, after which `ccp plane che
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `ccp/queue.py` gains `QUEUE_OWNED` (each name with its SPEC section),
+  `leftover_entries`/`queue_leftovers` and `script_findings` (the structured form `script_drift` now
+  formats; its messages are unchanged). `ccp plane check` adds `root`; `--archive` (`plane.archive`)
+  moves the scripts it lists, then the root entries, to `_legacy/<UTC date>/<relative path>` with
+  `os.rename`; `archived` and `not_moved` rows are `{path, target[, reason]}`, relative to QUEUE_ROOT,
+  a directory's ending in `/`. `ccp init` warns with the count. Tests: `tests/test_plane_check.py`.
+- Names added to the Context's list after re-running its searches over `scripts/`, `plugin/` and the
+  constants the code joins: `review`, `product-docs-check.json` (as the Context says), `estimator` and
+  `estimator.lock` (`ccp/estimator.py` `DIR`, `LOCK`), `architect.json.lock` (the architect state
+  file's own lock, `architecture_review.state_lock`), and `docs-audit.json`, `docs-audit.lock` (still
+  read as old records by `seats._headless`, §19.12).
+- Choices beyond the text: a root entry named `*.tmp` is not listed (an atomic write's temporary file,
+  as `script_drift` already skips); the binding's `auth_check.script` is not listed at the root either;
+  `--archive` writes no ledger event (no event type exists for it); an entry that cannot be moved
+  (an `OSError`) is listed under `not_moved` with the error, like an existing target.
+
 ## Verification notes
