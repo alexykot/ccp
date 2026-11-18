@@ -144,4 +144,27 @@ can record a check `as_written: false` against it instead of folding the hold in
 
 *Append-only, newest last.*
 
+- `ccp/lifecycle.py` `_catch_up`: `signed_due` is `"build" in due_stages(q, meta)[0]` (declared, or from the verdict's
+  `spec_beyond_intent`); the two early refusals are gone. With one due, the overlap check gains a second test
+  after the existing one: any tip file in the task's own diff (a `parallel.shared` path included) raises
+  `_NoCatchUp("build sign-off: ...")`, so close refuses `behind_tip` naming `build sign-off`. The catch-up and the
+  `verify` `set` event carry `sign_off_carried` = the verified head.
+- `sign_off_gaps` takes a build sign-off for another head as holding when `verify.sign_off_carried(q, tid, signed,
+  head)`: the approve record's `catch_up` has `from` = the signed head, `to` = the head to merge and
+  `sign_off_carried` = the signed head. It requires `from` as well as `sign_off_carried`, the narrowest reading of
+  "the head the build sign-off covers": a record naming a different `from` carries nothing.
+- `RECORD_VERSION` 5; `catch_up.sign_off_carried` (a sha, optional) in the schema; the example record's
+  `schema_version` is 5; `tests/test_verify.py` `KEYS_AT` gets the version-5 list (a module the version bump breaks,
+  so in scope).
+- `ccp tasks ruling`: `lifecycle.ruling`, `queue.rulings` (the ledger's `ruling` `recorded` events of a task).
+  `--check` is stored as given, not checked against the task's `dod_checks` (the task gives no such rule). The
+  JSON body carries `id` at its top level as well as inside `ruling`. Actor `design-seat`.
+- `scripts/observability/lib.py` (not in the task's `paths`): `ruling` joins `TOOLKIT_EVENT_TYPES` and
+  `REQUIRED_PAYLOAD` (`id`, `n`, `words`); without it `emit` refuses the event as an invalid type.
+- `verify._ruling_refusal`: `<task_id>-r<n>` tokens, judged against the ledger; the same function serves `rests_on`
+  and `as_written`'s `ruling`, so a lead ruling id is also a ruling form for a check not run, as §15.4's ruling
+  form is one form for both. A ruling id of another task is as good as a gate id of another task.
+- SPEC: each PROPOSED passage is on a line of its own, the sentence around it re-broken at the passage's edges;
+  `ccp verify spec-text` exits 0.
+
 ## Verification notes

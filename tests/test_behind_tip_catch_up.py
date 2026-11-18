@@ -1,8 +1,9 @@
 """SPEC §16.5 rule 4: with several runners, `ccp tasks close` catches a verified head behind the integration tip
 up itself when the merge is clean, the tip's new commits change no file the task's own diff or declared paths
-change (and, with a build sign-off due, none the task's own diff changes) and the product has a gate lane: it merges the tip in, runs the gate
-lane on the merge as a recorded run, re-checks the tip, pushes the merge and merges it. Otherwise it refuses
-`behind_tip`, naming the condition, with the task branch unchanged."""
+change (with a build sign-off due, none the task's own diff changes, a parallel.shared path included, and the
+catch-up carries the sign-off) and the product has a gate lane: it merges the tip in, runs the gate lane on the
+merge as a recorded run, re-checks the tip, pushes the merge and merges it. Otherwise it refuses `behind_tip`,
+naming the condition, with the task branch unchanged."""
 from __future__ import annotations
 
 import json
