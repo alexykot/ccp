@@ -314,6 +314,21 @@ class CheckoutWarning(unittest.TestCase):
             with mock.patch("ccp.queue.PLANE", repo):
                 self.assertIsNone(cli.checkout_warning())  # CCP_DEV=1 in tests
 
+    def test_the_callers_repository_variables_do_not_reach_the_plane_checkout(self):
+        with tempfile.TemporaryDirectory() as d:
+            plane, mine = Path(d) / "plane", Path(d) / "mine"
+            for repo, branch in ((plane, "main"), (mine, "task/x")):
+                repo.mkdir()
+                run(["git", "init", "-q", "-b", branch], cwd=repo)
+                (repo / "f").write_text("x")
+                run(["git", "add", "f"], cwd=repo)
+                run(["git", "commit", "-qm", "init"], cwd=repo)
+            run(["git", "update-ref", "refs/remotes/origin/main", "HEAD"], cwd=plane)
+            (mine / "f").write_text("y")
+            caller = {"CCP_DEV": "0", "GIT_DIR": str(mine / ".git"), "GIT_WORK_TREE": str(mine)}
+            with mock.patch("ccp.queue.PLANE", plane), mock.patch.dict(os.environ, caller):
+                self.assertIsNone(cli.checkout_warning())
+
 
 class RunCheckout(unittest.TestCase):
     def test_install_update_and_refusals(self):

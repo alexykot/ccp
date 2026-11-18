@@ -105,4 +105,12 @@ Three plane follow-ups that make its warnings and readings true:
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implement): `cli.checkout_warning` runs its git calls with `CALLER_GIT_VARS` (the six
+  repository variables the Scope names) removed from a copy of the environment. `init.binding_shape_warnings`
+  reads the binding with `upgrade.binding_keys` and keeps, per top-level key, its first-level keys; a
+  top-level key with a scalar value has none, so `runner: <value>` still lacks the `runner` block, as
+  before. `_binding_keys` is gone. `queue.emit` takes `at`; `claim` passes `iso(t)` to its `lease`/`set`
+  and `phase`/`transition` events. `progress_event` (progress/<id>.json) still stamps its own time: the
+  Scope names only the two ledger events.
+
 ## Verification notes

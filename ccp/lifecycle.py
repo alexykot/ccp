@@ -297,8 +297,10 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
                  "lease_since": iso(t), "claimed_at": st.get("claimed_at") or iso(t), "pr": None, "merge_sha": None,
                  "waiting_on": None, "branch": f"task/{tid}", "worktree_path": wt["path"] if wt else None}
         save_task_state(q, tid, state)
-        emit(q, cfg, tid, "lease", "set", {"holder": holder})
-        emit(q, cfg, tid, "phase", "transition", {"from": "pending", "to": "leased", "note": "ccp tasks claim"})
+        # §10.4: the claim's events carry the instant its state records, so a reading never splits a second
+        emit(q, cfg, tid, "lease", "set", {"holder": holder}, at=iso(t))
+        emit(q, cfg, tid, "phase", "transition", {"from": "pending", "to": "leased", "note": "ccp tasks claim"},
+             at=iso(t))
         progress_event(q, tid, "pending", "leased", "claimed")
         set_marker(q, tid, "leased")
     w = load_work(q)
