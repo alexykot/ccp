@@ -663,7 +663,7 @@ tasks:
     depends_on: []
     path: tasks/0132-model-alias-matches-full-ids.md
   - id: 0133-sandbox-sealed
-    status: pending
+    status: done
     title: A ccp sandbox is sealed: init and every command inside it resolve to its own binding and queue, and it can fire a test notice
     depends_on: []
     path: tasks/0133-sandbox-sealed.md

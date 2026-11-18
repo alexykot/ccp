@@ -1,7 +1,7 @@
 ---
 task_id: 0133-sandbox-sealed
 title: A ccp sandbox is sealed: init and every command inside it resolve to its own binding and queue, and it can fire a test notice
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3", "S8", "S9", "S29"]
@@ -10,7 +10,7 @@ sign_off: brief
 paths: ["ccp/sandbox.py", "ccp/cli.py", "ccp/init.py", "ccp/notify.py", "docs/spec/05-operations.md", "docs/spec/01-model.md", "docs/cli/05-operations.md", "docs/cli/01-model.md", "tests/test_sandbox.py", "tests/test_notify.py"]
 adopt: "none"
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Task: 0133-sandbox-sealed
@@ -179,4 +179,4 @@ operator notice fires one with a real command instead of inventing one.
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-18 — verifier, PR #159 head `d319653` (squash `4645139`): APPROVE. Passed: seal-01, seal-02, seal-03, notice-01, notice-02, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0, `ccp verify spec-text 0133-sandbox-sealed --base origin/main` exit 0. Record: verification/0133-sandbox-sealed.json.
