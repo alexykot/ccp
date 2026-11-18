@@ -380,7 +380,7 @@ def hidden_step(t: dict[str, Any], rel: str) -> list[str]:
     from ccp import config, init  # noqa: PLC0415  (init reads the task log)
     settings = {*init.ANCHOR, init.CACHE_TTL_SETTING[0], init.COMPACT_SETTING}
     keys: list[str] = []
-    for m in ADOPT_KEY_RE.finditer(adopt_required(v.strip())[1]):
+    for m in ADOPT_KEY_RE.finditer(v):
         parts = m.group(0).split(".")
         named = (len(parts) > 1 and parts[0] in (*config.BLOCKS, *BINDING_BLOCKS)) or parts[0] in settings
         if named and m.group(0) not in keys:
