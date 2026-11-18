@@ -141,6 +141,17 @@ class Archive(SandboxCase):
         self.assertEqual((code, body["archived"], body["not_moved"]), (0, [], []), err)
         self.assertEqual(self.events(), before)
 
+    def test_the_archived_event_and_its_keys_are_in_the_contract(self):
+        lib = queue.lib
+        schema = json.loads((PLANE / "contracts" / "observability_event.schema.json").read_text())
+        self.assertIn("archived", schema["properties"]["op"]["enum"])
+        ev = {"at": "2026-01-01T00:00:00Z", "project_id": "demo", "task_id": "", "actor": "operator", "type": "plane",
+              "op": "archived", "payload": {"day": "2026-01-01", "archived": 1, "not_moved": 0}}
+        self.assertEqual(lib.validate_event(ev), [])
+        for key in ("day", "archived", "not_moved"):
+            payload = {k: v for k, v in ev["payload"].items() if k != key}
+            self.assertIn(f"payload missing {key}", lib.validate_event({**ev, "payload": payload}))
+
     def test_one_command_archives_every_leftover_and_loses_nothing(self):
         files = self.leftovers()
         code, body, err = self.ccp("plane", "check", "--archive")
