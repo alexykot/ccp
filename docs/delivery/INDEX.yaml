@@ -788,7 +788,7 @@ tasks:
     depends_on: []
     path: tasks/0157-spec-text-sections-and-head.md
   - id: 0158-env-hooks-from-worktree-and-operator-step
-    status: pending
+    status: done
     title: A worktree can run its own env hooks, and the runner doc names the operator gate class
     depends_on: []
     path: tasks/0158-env-hooks-from-worktree-and-operator-step.md

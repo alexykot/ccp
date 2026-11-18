@@ -1,7 +1,7 @@
 ---
 task_id: 0158-env-hooks-from-worktree-and-operator-step
 title: A worktree can run its own env hooks, and the runner doc names the operator gate class
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12", "S15", "S17"]
@@ -118,3 +118,5 @@ step finds the gate class named in its doc.
 - The runner doc names `--class operator` in step 10 and in the Gates section; `team.sh` is unchanged.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #171 head `4a13afb` (squash `55f7c51`): APPROVE. Passed: hook-01, hook-02, gate-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0158-env-hooks-from-worktree-and-operator-step.json.
+
