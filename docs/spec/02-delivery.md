@@ -676,8 +676,8 @@ has a `Suite:` line but no suite run is recorded for its run.
   becomes its command, records nothing and writes no log.
 - **A cold run.** `ccp suite run --cold` asks for a cold run the same way in every product: what the
   run starts (a lane's stages, or a command after `--`) also gets `CCP_SUITE_COLD=1`, which a
-  product's gate reads as its own cold option (§15.3), and the `ended` row and its event record
-  `cold: true` unless the run's own count shows units cached (§14.6).
+  product's gate reads as its own cold option (§15.3),
+  and the `ended` row and its event record `cold` from the run's own count alone (§14.6): asking for a cold run does not make it one.
 - The run it belongs to is `--run`, else `--task` (and `--phase`)'s latest open run, else the one
   running worker run whose worktree holds the current directory; otherwise it is recorded unbound.
 
@@ -771,8 +771,9 @@ Claude Code). A cold gate run must fit that limit with room to spare.
   `gate.cut_line_seconds` (default null: 90% of the limit), the line below it; the line is at most
   the limit.
 - **Every run records whether it was cold:** the `ended` row and its event carry `cold`: `true` when
-  the run counted nothing cached (`cached` 0), `false` when any unit was cached, null when it gave no
-  `cached` count (`true` for a `--cold` run, §14.2). A command's own `cold` in its result file is ignored.
+  the run counted nothing cached (`cached` 0), `false` when any unit was cached,
+  null when it gave no `cached` count, a `--cold` run included (§14.2).
+  A command's own `cold` in its result file is ignored.
 - **Judged on cold runs only.** `ccp health` judges the latest cold run of the gate role's lane,
   cold as §27.2 decides (passed, counted tests, and nothing cached or no test cache yet). Warm,
   unverified, failed, interrupted and killed runs, and other lanes' runs, are not judged against

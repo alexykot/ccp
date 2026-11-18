@@ -6,7 +6,8 @@ import json
 import unittest
 from pathlib import Path
 
-from ccp import config, drill, report, tasklog
+from ccp import config, drill, report, suite, tasklog
+from tests.test_suite import PY, SuiteFixture
 from tests.test_toolkit import PLANE, ToolkitFixture, git
 
 ORIGINAL = ("A check you did not run is not a pass: record it as not run, resting on one of the three forms below. "
@@ -159,6 +160,48 @@ class Record(CacheFixture, unittest.TestCase):
         p.write_text((self.main / "docs/delivery/plane.json").read_text())
         code, _, out, err = self.record([{"command": "scripts/unit.sh", "exit_code": 0}])
         self.assertEqual(code, 0, out + err)
+
+
+class ColdFromTheSuiteRecord(SuiteFixture, CacheFixture, unittest.TestCase):
+    """A gate run citing a suite run takes that record's own `cold` (§14.6), so the two never disagree."""
+
+    def setUp(self):
+        super().setUp()
+        self.verify_prompt()
+
+    def gate(self, script: str, *extra: str) -> str:
+        r = self.run_suite("--run", "0002-second/verify", "--lane", "gate", *extra, "--", PY, "-c", script)
+        self.assertEqual(r.returncode, 0, r.stdout.decode() + r.stderr.decode())
+        return self.rows()[-1]["suite_id"]
+
+    def recorded(self, gate_runs: list[dict]) -> list[dict]:
+        code, _, out, err = self.record(gate_runs)
+        self.assertEqual(code, 0, out + err)
+        return json.loads((self.q / "verification/0002-second.json").read_text())["gate"]["runs"]
+
+    def test_a_run_with_nothing_cached_is_cold_and_an_uncounted_cold_ask_is_not(self):
+        self.tally()
+        counted = self.gate("print('Ran 5 tests in 0.1s'); print('gate: 5 modules ran, 0 cached; 5 tests ran in 0 s')")
+        asked = self.gate("print('Ran 5 tests in 0.1s')", "--cold")
+        self.assertEqual([(r["cached"], r["cold"]) for r in self.rows() if r["op"] == "ended"], [(0, True), (None, None)])
+        runs_ = self.recorded([{"suite_id": counted}, {"suite_id": asked}])
+        self.assertIs(runs_[0]["cold"], True)
+        self.assertNotIn("cold", runs_[1])
+
+    def test_the_records_cold_decides_not_its_cached_count(self):
+        """Rows written by hand: one cold with nothing cached, one that counted nothing cached and is not
+        recorded cold, and one recorded cold with no count at all (a `--cold` ask before §14.6 changed)."""
+        for sid, end in (("st-said", {"cached": 0, "cold": True}), ("st-unsaid", {"cached": 0, "cold": None}),
+                         ("st-asked", {"cold": True})):
+            suite._append(self.q, {"op": "started", "suite_id": sid, "at": "2026-10-22T00:00:00Z", "lane": "gate",
+                                   "run_id": "0002-second/verify", "task_id": "0002-second", "phase": "verify"})
+            suite._append(self.q, {"op": "ended", "suite_id": sid, "at": "2026-10-22T00:01:00Z", "exit_code": 0,
+                                   "seconds": 60, "tests": 5, "interrupted": None, **end})
+        runs_ = self.recorded([{"suite_id": s} for s in ("st-said", "st-unsaid", "st-asked")]
+                              + [{"suite_id": "st-said", "cold": False}])
+        self.assertIs(runs_[0]["cold"], True)
+        self.assertEqual([("cold" in r) for r in runs_[1:3]], [False, False])  # no count of nothing cached
+        self.assertIs(runs_[3]["cold"], False)  # the verifier's own value wins
 
 
 class Report(CacheFixture, unittest.TestCase):

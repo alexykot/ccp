@@ -1,6 +1,6 @@
 """`ccp suite run --cold` (SPEC §14.2, §14.6): a worker asks any product's gate for a cold run the same
-way. What the run starts gets CCP_SUITE_COLD=1, the run is recorded cold unless its own count shows units
-cached, and the plane's own gate (scripts/gate.sh) reads the variable as its cold option."""
+way. What the run starts gets CCP_SUITE_COLD=1, the run is recorded cold only when its own count shows
+nothing cached, and the plane's own gate (scripts/gate.sh) reads the variable as its cold option."""
 from __future__ import annotations
 
 import json
@@ -23,15 +23,16 @@ class TheColdOption(StagedFixture, unittest.TestCase):
     def suite_event(self) -> dict:
         return [e for e in self.events() if e["type"] == "suite"][-1]["payload"]
 
-    def test_a_gate_lanes_stage_gets_it_and_the_run_is_recorded_cold(self):
-        self.lanes({"gate": [{"name": "show", "cmd": SHOW}]})
+    def test_a_gate_that_ignores_it_and_counts_nothing_cached_is_not_recorded_cold(self):
+        self.lanes({"gate": [{"name": "show", "cmd": f"{SHOW}; echo 'Ran 3 tests in 0.1s'"}]})
         r = self.run_suite("--lane", "gate", "--cold")
         self.assertEqual(r.returncode, 0, r.stdout.decode() + r.stderr.decode())
         self.assertIn("cold=[1]", self.log(r))
         row = self.ended()
-        self.assertIs(row["cold"], True)
-        self.assertIsNone(row["cached"])
-        self.assertIs(self.suite_event()["cold"], True)
+        self.assertEqual((row["tests"], row["cached"]), (3, None))
+        self.assertIsNone(row["cold"])
+        self.assertIn("cold", self.suite_event())
+        self.assertIsNone(self.suite_event()["cold"])
 
     def test_without_it_the_stage_gets_nothing_and_cold_stays_unknown(self):
         self.lanes({"gate": [{"name": "show", "cmd": SHOW}]})
@@ -50,7 +51,7 @@ class TheColdOption(StagedFixture, unittest.TestCase):
         r = self.run_suite("--lane", "part", "--cold", "--", "sh", "-c", SHOW)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("cold=[1]", self.log(r))
-        self.assertIs(self.ended()["cold"], True)
+        self.assertIsNone(self.ended()["cold"])  # it counted nothing cached, so it is not shown cold
 
     def test_the_runs_own_count_of_cached_units_wins(self):
         warm = _shell_py("import json, os; json.dump({'tests': 3, 'ran': 1, 'cached': 2}, "
@@ -63,6 +64,17 @@ class TheColdOption(StagedFixture, unittest.TestCase):
         r = self.run_suite("--lane", "slow", "--cold")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual((self.ended()["cached"], self.ended()["cold"]), (0, True))
+
+    def test_the_printed_count_decides_whether_or_not_it_was_asked(self):
+        self.lanes({"slow": [{"name": "unit", "cmd": "echo 'ran 3, cached 0'"}],
+                    "fast": [{"name": "unit", "cmd": "echo 'ran 1, cached 2'"}]},
+                   summary={"ran_re": r"^ran (\d+), cached \d+", "cached_re": r"^ran \d+, cached (\d+)"})
+        got = []
+        for args in (("--lane", "slow", "--cold"), ("--lane", "fast", "--cold"), ("--lane", "slow")):
+            r = self.run_suite(*args)
+            self.assertEqual(r.returncode, 0, r.stdout.decode() + r.stderr.decode())
+            got.append((self.ended()["ran"], self.ended()["cached"], self.ended()["cold"]))
+        self.assertEqual(got, [(3, 0, True), (1, 2, False), (3, 0, True)])
 
     def test_a_nested_run_passes_it_to_its_command(self):
         r = self.run_suite("--cold", "--", "sh", "-c", SHOW, env={"CCP_SUITE_ID": "st-outer"})

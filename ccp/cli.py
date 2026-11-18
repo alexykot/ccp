@@ -1229,8 +1229,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="an exclusive lane held by another run: wait up to this long for it instead of exiting 75 "
                         "at once; keep the wait plus the run under your shell's limit (SPEC §16.6)")
     p.add_argument("--cold", action="store_true",
-                   help="a cold run: what it starts gets CCP_SUITE_COLD=1, the product's gate's cold option, and the "
-                        "run is recorded cold unless it counts units cached (SPEC §14.2)")
+                   help="a cold run: what it starts gets CCP_SUITE_COLD=1, the product's gate's cold option; the run is "
+                        "recorded cold only when its own count shows nothing cached (SPEC §14.2)")
     out = p.add_mutually_exclusive_group()
     out.add_argument("--full", dest="output", action="store_const", const="full",
                      help="stream the command's output through unchanged (the default with a terminal on stdin)")
