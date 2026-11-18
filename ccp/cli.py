@@ -1537,16 +1537,25 @@ def binding_queue_root(cfg: config.Config) -> str | None:
     return str(Path(q).expanduser()) if q and Path(q).expanduser().is_dir() else None
 
 
+# The caller's repository, as git's environment names it: each overrides `git -C <dir>`.
+CALLER_GIT_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY",
+                   "GIT_ALTERNATE_OBJECT_DIRECTORIES")
+
+
 def checkout_warning() -> str | None:
     """SPEC §29.2: products run `main` as published. Warn when the checkout `ccp` runs from has local
-    changes, is off `main`, or is behind `origin/main`. `CCP_DEV=1` (development, tests) silences it."""
+    changes, is off `main`, or is behind `origin/main`. `CCP_DEV=1` (development, tests) silences it.
+    Git runs without the caller's repository variables (`GIT_DIR` and the like override `-C`), so the
+    warning is about the plane checkout, never the caller's."""
     if envvar("CCP_DEV") == "1":
         return None
     import subprocess  # noqa: PLC0415
     from ccp.queue import PLANE  # noqa: PLC0415
+    env = {k: v for k, v in os.environ.items() if k not in CALLER_GIT_VARS}
 
     def g(*args: str) -> str:
-        r = subprocess.run(["git", "--no-optional-locks", "-C", str(PLANE), *args], capture_output=True, text=True)
+        r = subprocess.run(["git", "--no-optional-locks", "-C", str(PLANE), *args], capture_output=True, text=True,
+                           env=env)
         return r.stdout.strip() if r.returncode == 0 else ""
     if not (PLANE / ".git").exists():
         return None  # an installed copy: not a checkout

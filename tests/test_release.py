@@ -6,8 +6,10 @@ from __future__ import annotations
 import json
 import time
 import unittest
+from datetime import datetime, timezone
+from unittest import mock
 
-from ccp import backfill, cli, drill, health
+from ccp import backfill, cli, drill, health, lifecycle, queue
 from tests.test_toolkit import ToolkitFixture
 
 
@@ -161,6 +163,16 @@ class Release(ToolkitFixture, unittest.TestCase):
         second = [e for e in self.events() if (e["type"], e["op"]) == ("lease", "set")][-1]["at"]
         rec = drill.collect(self.q, [], {}, only="0002-second", now=time.time())["0002-second"]
         self.assertEqual(rec["start_at"], second)
+
+    def test_a_claim_across_a_second_records_one_start(self):
+        at = datetime(2026, 10, 23, 12, 0, 0, 900000, tzinfo=timezone.utc)
+        real = queue.iso
+        with mock.patch.object(lifecycle, "now", return_value=at), \
+                mock.patch.object(queue, "iso", side_effect=lambda dt=None: "2026-10-23T12:00:01Z" if dt is None else real(dt)):
+            code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
+        lease = [e for e in self.events() if (e["type"], e["op"]) == ("lease", "set")][-1]["at"]
+        self.assertEqual(self.state()["claimed_at"], lease)
 
     def test_a_release_rebuilds_the_board(self):
         self.assertIn(("tasks", "release"), cli.REFRESHES)

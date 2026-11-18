@@ -506,6 +506,22 @@ class KeptBinding(InitCase):
         self.assertEqual(len(w), 6, w)
         self.assertFalse([x for x in w if "auth_check" in x or "spec_maintainer" in x or "`queue_root`" in x])
 
+    def test_the_shape_is_read_by_depth(self):
+        text = (f"project_id: demo\nintegration_branch: main\nproduct_root: {self.repo}\n"
+                f"durable_docs_path: docs/delivery/\nqueue_root: {self.queue}\n"
+                "runner:\n  agent_type: ccp:delivery-runner\n  slots:\n    a:\n      name: r1\n"
+                "seats:\n  lead:\n    runner: x\n")
+        w = ccp_init.binding_shape_warnings(self.binding, text)
+        self.assertIn("lacks", self.named(w, "`runner.name`"))
+        self.assertFalse([x for x in w if "seats.runner" in x], w)
+
+    def test_a_runner_with_a_value_of_its_own_lacks_the_block(self):
+        text = (f"project_id: demo\nintegration_branch: main\nproduct_root: {self.repo}\n"
+                f"durable_docs_path: docs/delivery/\nqueue_root: {self.queue}\nrunner: agent_type name\n")
+        w = ccp_init.binding_shape_warnings(self.binding, text)
+        self.assertIn("lacks", self.named(w, "the `runner` block"))
+        self.assertEqual(len(w), 1, w)
+
     def test_a_binding_init_wrote_is_not_warned_about(self):
         self.assertEqual(self.init("--project-id", "demo")[0], 0)
         code, res = self.init("--project-id", "demo")

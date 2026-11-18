@@ -247,8 +247,9 @@ def integration_branch(q: Path) -> str:
 
 
 def emit(q: Path, cfg: Config, task_id: str, typ: str, op: str, payload: dict[str, Any],
-         who: str | None = None) -> dict[str, Any]:
-    ev = {"at": iso(), "project_id": cfg.project_id, "task_id": task_id or "", "actor": who or actor(),
+         who: str | None = None, at: str | None = None) -> dict[str, Any]:
+    """One event appended to the ledger, at `at` (an ISO time) when given, else now."""
+    ev = {"at": at or iso(), "project_id": cfg.project_id, "task_id": task_id or "", "actor": who or actor(),
           "type": typ, "op": op, "payload": payload}
     errs = lib.validate_event(ev)
     if errs:
