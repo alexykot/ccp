@@ -147,4 +147,18 @@ listing the lead's own commits that change only the task log and the SPEC.
 
 *Append-only, newest last.*
 
+- 2026-11-18 — Built at `c5f6079`; the measured premise (`git grep -n "notify.fire(" -- ccp`: 3 sites, each
+  with `task_id=`) holds there.
+  - Migrate: `heading` finds `## <name>` with or without a note after a space; `table(..., raw=True)` keeps
+    the Refs values only trimmed, so `spec_refs` can split a value into its backticked items (else on commas).
+    A `<path>#<anchor>` item is kept when `tasklog._names_spec` names its path; anything else is read for
+    `§N`/`SN` as before. `depends_on` is read when `Depends on` is absent, and a `[...]` value is unwrapped
+    first. A file with no SPEC section gets `(<heading line>: <key> = <raw value>; …)` or
+    `(no Refs heading)` after the old reason, so the reason still starts as before.
+  - Adoption: `record_adoption` takes the binding path; a backfilled (kept) event carries `since`, the
+    binding file's mtime in UTC. `adopted_at` returns the latest event's `since` when it parses, else its
+    `at`; the latest event is still chosen by `at`.
+  - Test notice: the refusal sits after the sandbox and `upgrade` checks, before the queue is resolved.
+  - Orphans: `in_log` also passes a path `tasklog._names_spec` names under `task_log.spec_paths`.
+
 ## Verification notes
