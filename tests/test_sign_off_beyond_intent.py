@@ -12,7 +12,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli, lifecycle, prompt, report, verify
+from ccp import cli, config, lifecycle, prompt, report, verify
 from tests.helpers import Product
 from tests.test_toolkit import PLANE, ToolkitFixture
 from tests.test_verify import approve
@@ -111,14 +111,17 @@ class CloseHolds(ToolkitFixture, unittest.TestCase):
         self.assertEqual(run["spec_beyond_intent"], 1)
         self.assertNotIn(PASSAGE, json.dumps(run))
 
-    def test_close_does_not_catch_up_a_head_whose_verdict_lists_text_beyond_intent(self):
+    def test_a_verdict_listing_text_beyond_intent_no_longer_refuses_the_catch_up_by_itself(self):
         head = self._to_approved_pr()
         self.verdict(head, [PASSAGE])
         meta = {"task_id": "0002-second", "paths": ["feature.txt"]}
         with mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)}):
             with self.assertRaises(lifecycle._NoCatchUp) as cm:
-                lifecycle._catch_up(None, self.q, meta, "0002-second", "7", head, {"head_sha": head}, "main", {})
-        self.assertIn("spec_beyond_intent", str(cm.exception))
+                lifecycle._catch_up(config.load(self.main), self.q, meta, "0002-second", "7", head,
+                                    {"head_sha": head}, "main", {})
+        # The refusal is the next condition (the product has no gate lane), not the sign-off the verdict made due.
+        self.assertIn("no gate lane", str(cm.exception))
+        self.assertNotIn("sign-off", str(cm.exception))
 
 
 class Verdict(unittest.TestCase):

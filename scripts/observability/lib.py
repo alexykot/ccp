@@ -47,7 +47,7 @@ ACTORS = SEAT_IDS + ("adapter", "operator", "system", "plane-session")  # plane-
 REVIEW_EVENT_TYPES = ("architecture_review", "docs_audit", "architect")
 TEAM_EVENT_TYPES = ("gate", "runner")
 TOOLKIT_EVENT_TYPES = ("run", "review", "verify", "allowance", "plane", "suite", "prefer", "hold", "sign_off",
-                       "notify")
+                       "ruling", "notify")
 EVENT_TYPES = ("phase", "waiting_on", "lease", "claude", "auth", "seat", "durable", "note", "question", "spec_maintainer",
                *REVIEW_EVENT_TYPES, *TEAM_EVENT_TYPES, *TOOLKIT_EVENT_TYPES)
 EVENT_OPS = (
@@ -142,6 +142,7 @@ REQUIRED_PAYLOAD = {
     ("lease", "set"): ("holder",),
     ("lease", "clear"): ("holder",),
     ("sign_off", "recorded"): ("stage", "by", "words", "head"),
+    ("ruling", "recorded"): ("id", "n", "words"),
     ("notify", "pending"): ("trigger", "project", "task", "id", "reason"),
     ("notify", "sent"): ("trigger", "project", "task", "id", "via", "by", "ok"),
     ("claude", "launch"): ("phase", "prompt_ref"),

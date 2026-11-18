@@ -186,7 +186,8 @@ plane's commit hook template (`scripts/git-hooks/pre-commit.template`) runs it w
 1. `ccp verify merge-ok` and the merge pinned to the verified head (§15.5). It refuses before
    merging when the checkout it runs from has changes or a rebase in progress; with several runners it
    refuses a head behind the tip unless it catches it up (§16.5 rule 4). It refuses (exit 1) a task
-   whose due sign-off (§3.5: declared, or `build` from its verdict's `spec_beyond_intent`) is missing, or whose `build` sign-off covers another head than the one it merges, or whose
+   whose due sign-off (§3.5: declared, or `build` from its verdict's `spec_beyond_intent`) is missing,
+   or whose `build` sign-off covers another head than the one it merges and close's own catch-up did not carry it there (§16.5 rule 4), or whose
    `sign_off:` value is malformed, naming it; nothing is merged, and on a re-run after a merge the
    reconcile waits for it too.
 2. **Reconcile:** the task file's status and Verification notes line (from the verifier's record),
@@ -973,7 +974,8 @@ is not evidence: a check the owner's ruling closed is `ran: false` with `rests_o
 (ADR-0035 D7), and its `produced_by` names the seat that produced the evidence the ruling weighed,
 never `lead`; with no evidence under the waiver it names none. `ccp verify record` accepts the
 `rests_on` of a `ran: false` check in exactly three forms and refuses any other, naming the check: a
-ruling, naming spec question ids or gate ids that all exist (a gate's file is the gate it is cited
+ruling, naming spec question ids, gate ids or lead ruling ids (`<task_id>-r<n>`, §17.5) that all exist
+(a gate's file is the gate it is cited
 as: its `escalation_id` and `task_id` are those of the cited gate id, §17.9; a spec question has its
 question file as well as its answer file, §17.5), every gate closed and approved and every spec
 question answered with verdict `resolved`; a carried verdict, `approve at <sha>` (§15.6 rule 3),
@@ -987,8 +989,9 @@ is refused whoever produced the evidence. `ccp verify merge-ok` and `ccp verify 
 record written before the field and refuse a ruling seat's evidence on the same terms.
 
 A check the verifier ran whose expectation cannot hold as written is recorded `as_written: false`,
-with `held_instead`, what it checked in its place, and `ruling`, the spec question or gate ids that
-let it, in the ruling form above. It is still a pass or a fail. `ccp verify record` refuses one
+with `held_instead`, what it checked in its place,
+and `ruling`, the spec question, gate or lead ruling ids that let it, in the ruling form above.
+It is still a pass or a fail. `ccp verify record` refuses one
 without both, or on a check not run, naming the check. `ccp tasks close` lists each one (its id,
 `held_instead` and `ruling`) before it merges, and does not refuse on it.
 
@@ -1219,12 +1222,13 @@ exits as the spawn would. It writes nothing: no `work.json`, prompt audit, event
    several runners close still checks.
    When the merge with the tip is clean, or its only conflicts are in `parallel.shared` paths where both
    sides only added lines (resolved as the tip's lines, then the task's), the tip's new commits change no
-   file the task's own diff or declared paths change other than a `parallel.shared` path, and no build
-   sign-off is due on the task (§3.5), close merges the tip into the verified head itself,
+   file the task's own diff or declared paths change other than a `parallel.shared` path,
+   and any build sign-off due on the task (§3.5) is recorded for the verified head, with the tip's new commits changing no file the task's own diff changes, a `parallel.shared` path included, close merges the tip into the verified head itself,
    runs the gate lane on the result as a recorded run in its `merge-<nnnn>` worktree, whose stages
    get that worktree's `CCP_WT_<FIELD>` variables (kind `merge`) and `prompts.worker_env` rendered for it,
-   re-checks the tip (at most 3 catch-ups), and on a green gate merges that commit, recording the
-   catch-up in the verification record. Review and verify are not repeated: the task's own diff is
+   re-checks the tip (at most 3 catch-ups), and on a green gate merges that commit,
+   recording the catch-up in the verification record, with `sign_off_carried`, the head the build sign-off covers, when it carried one.
+   Review and verify are not repeated: the task's own diff is
    unchanged. A break outside the gate lane's coverage is not caught here; the gate lane is what the
    integration branch is held to. Otherwise it refuses as above, naming the condition that failed.
    The task's implementer merges `origin/<integration>` into the task branch (a plain push; PRs
@@ -1375,6 +1379,8 @@ The lead writes `QUEUE_ROOT/questions/<question_id>.answer.json`
 
 `answered_by` is `spec_maintainer`, or `operator_via_maintainer` after the operator rules. A
 rewritten answer keeps the previous verdict object under `supersedes`.
+
+A ruling the lead gives a runner by message, outside a spec question, is recorded with `ccp tasks ruling <task_id> --words "…" [--check <dod_check_id>]`: a `ruling` `recorded` event in the ledger (§23.2) with the check and the words, its id `<task_id>-r<n>`, `n` counting from 1 per task. A verdict may cite that id wherever it cites a ruling (§15.4); the runner passes it on with the ruling.
 
 ### 17.6 needs_operator
 

@@ -1,8 +1,9 @@
 """SPEC §16.5 rule 4: with several runners, `ccp tasks close` catches a verified head behind the integration tip
 up itself when the merge is clean, the tip's new commits change no file the task's own diff or declared paths
-change, the task declares no build sign-off and the product has a gate lane: it merges the tip in, runs the gate
-lane on the merge as a recorded run, re-checks the tip, pushes the merge and merges it. Otherwise it refuses
-`behind_tip`, naming the condition, with the task branch unchanged."""
+change (with a build sign-off due, none the task's own diff changes, a parallel.shared path included, and the
+catch-up carries the sign-off) and the product has a gate lane: it merges the tip in, runs the gate lane on the
+merge as a recorded run, re-checks the tip, pushes the merge and merges it. Otherwise it refuses `behind_tip`,
+naming the condition, with the task branch unchanged."""
 from __future__ import annotations
 
 import json
@@ -424,13 +425,126 @@ if done < {moves}:
         self.refused(code, out, err, head, "red gate", runs[0]["suite_id"])
         self.assertFalse((self.main / ".rt" / "merge-0002").exists())
 
-    def test_a_build_sign_off_is_never_carried_across_a_catch_up(self):
-        head = self.approved(sign_off="build")
+    def sign_build(self) -> None:
         code, _, out, err = self.ccp("tasks", "sign-off", "0002", "--stage", "build", "--by", "op", "--words", "ship it")
+        self.assertEqual(code, 0, out + err)
+
+    def sign_offs_recorded(self) -> list[dict]:
+        return [e for e in self.events() if (e["type"], e["op"]) == ("sign_off", "recorded")]
+
+    def test_a_build_sign_off_is_carried_across_a_catch_up_that_changes_nothing_it_covers(self):
+        head = self.approved(sign_off="build")
+        self.sign_build()
+        tip = self.tip(self.put("other/b.txt", "b\n"))
+        code, body, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(body["merged_now"])
+        cu = self.record()["catch_up"]
+        self.assertEqual((cu["from"], cu["tip"], cu["sign_off_carried"]), (head, tip, head))
+        self.assertEqual(body["caught_up"], cu)
+        self.assertIn(f"--match-head-commit {cu['to']}", (self.ghstate / "merge-called").read_text())
+        self.assertEqual(len(self.sign_offs_recorded()), 1)  # no new sign-off was recorded
+        self.assertEqual(self.record()["schema_version"], verify.RECORD_VERSION)
+        caught = [e for e in self.events() if (e["type"], e["op"]) == ("verify", "set")]
+        self.assertEqual([e["payload"]["sign_off_carried"] for e in caught], [head])
+
+    def test_a_build_sign_off_due_from_the_verdict_s_spec_beyond_intent_is_carried_too(self):
+        head = self.approved()
+        rec = self.record()
+        rec.pop("checked_at")
+        rec["spec_beyond_intent"] = ["docs/spec/01-model.md §3: a new rule"]
+        f = Path(self._tmp.name) / "beyond.json"
+        f.write_text(json.dumps(rec))
+        code, _, out, err = self.ccp("verify", "record", str(f))
+        self.assertEqual(code, 0, out + err)
+        self.sign_build()
+        self.tip(self.put("other/b.txt", "b\n"))
+        code, _, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.record()["catch_up"]["sign_off_carried"], head)
+
+    def test_a_catch_up_with_no_build_sign_off_due_carries_none(self):
+        self.approved()
+        self.tip(self.put("other/b.txt", "b\n"))
+        code, _, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        self.assertNotIn("sign_off_carried", self.record()["catch_up"])
+        caught = [e for e in self.events() if (e["type"], e["op"]) == ("verify", "set")]
+        self.assertNotIn("sign_off_carried", caught[0]["payload"])
+
+    def test_a_build_sign_off_is_not_carried_over_a_change_to_a_shared_file_the_task_changes(self):
+        self.shared_readme()
+        head = self.approved(sign_off="build", extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
+        self.sign_build()
+        self.tip(self.put("docs/a/README.md", README + "- `tip.py`: the tip's\n"))  # a union merge without a sign-off
+        code, _, out, err = self.close()
+        self.refused(code, out, err, head, "build sign-off", "docs/a/README.md")
+        self.assertEqual(self.gate_runs(), [])
+
+    def test_a_build_sign_off_is_not_carried_over_a_declared_path_the_diff_leaves(self):
+        head = self.approved(sign_off="build")
+        self.sign_build()
+        self.tip(self.put("area/x.txt", "changed\n"))
+        code, _, out, err = self.close()
+        self.refused(code, out, err, head, "overlap", "area/x.txt")
+
+    def test_a_build_sign_off_for_another_head_is_stale_and_a_catch_up_does_not_carry_it(self):
+        head = self.approved(sign_off="build")
+        code, _, out, err = self.ccp("tasks", "sign-off", "0002", "--stage", "build", "--by", "op", "--words", "ship it",
+                                     "--head", "1" * 40)
         self.assertEqual(code, 0, out + err)
         self.tip(self.put("other/b.txt", "b\n"))
         code, _, out, err = self.close()
-        self.refused(code, out, err, head, "build sign-off")
+        self.assertEqual(code, 1, out + err)
+        self.assertIn("build sign-off is stale", err)
+        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assertEqual(self.branch(), head)
+        self.assertNotIn("catch_up", self.record())
+
+    def test_a_rerun_after_the_carried_merge_holds_the_sign_off(self):
+        self.plane_json(lambda c: c["reconcile"].update(hooks=["exit 3"]))
+        self.approved(sign_off="build")
+        self.sign_build()
+        self.tip(self.put("other/b.txt", "b\n"))
+        code, _, out, err = self.close(root=self.main)
+        self.assertEqual(code, 1, out + err)
+        self.assertEqual(json.loads((self.ghstate / "pr.json").read_text())["state"], "MERGED")
+        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
+        cfg["reconcile"]["hooks"] = []
+        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        git(self.main, "commit", "-qam", "the hook fixed")
+        git(self.main, "pull", "-q", "--rebase", "origin", "main")
+        git(self.main, "push", "-q", "origin", "main")
+        code, body, out, err = self.close(root=self.main)
+        self.assertEqual(code, 0, out + err)
+        self.assertNotIn("is stale", err)
+        self.assertFalse(body["merged_now"])
+        self.assertTrue(body["reconciled_now"])
+        self.assertEqual(len(self.sign_offs_recorded()), 1)
+
+    def test_sign_off_carried_is_read_only_from_a_catch_up_that_starts_at_the_signed_head_and_ends_at_the_head(self):
+        a, b, c = "a" * 40, "b" * 40, "c" * 40
+        (self.q / "verification").mkdir(exist_ok=True)
+
+        def put(verdict="approve", **cu):
+            (self.q / "verification/0002-second.json").write_text(json.dumps({
+                "verdict": verdict, "head_sha": a,
+                "catch_up": {"from": a, "to": b, "sign_off_carried": a, **cu}}))
+        put(verdict="reject")  # a catch-up on a record that is not an approve carries nothing
+        self.assertFalse(verify.sign_off_carried(self.q, "0002-second", a, b))
+        put()
+        self.assertTrue(verify.sign_off_carried(self.q, "0002-second", a, b))
+        self.assertTrue(verify.sign_off_carried(self.q, "0002-second", a[:12], b[:12]))
+        self.assertFalse(verify.sign_off_carried(self.q, "0002-second", a, c))  # another head than the catch-up's
+        self.assertFalse(verify.sign_off_carried(self.q, "0002-second", c, b))  # another head signed
+        put(sign_off_carried=c)
+        self.assertFalse(verify.sign_off_carried(self.q, "0002-second", a, b))
+        put(**{"from": c})  # the catch-up starts elsewhere than the signed head
+        self.assertFalse(verify.sign_off_carried(self.q, "0002-second", a, b))
+        (self.q / "verification/0002-second.json").write_text(json.dumps({
+            "verdict": "approve", "head_sha": a, "catch_up": {"from": a, "to": b}}))  # no sign_off_carried
+        self.assertFalse(verify.sign_off_carried(self.q, "0002-second", a, b))
+        self.assertFalse(verify.sign_off_carried(self.q, "0009-none", a, b))
 
     def test_a_brief_sign_off_is_carried_across_a_catch_up(self):
         head = self.approved(sign_off="brief", brief_signed=True)

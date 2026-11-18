@@ -70,9 +70,9 @@ of the product checkout; or evidence the operator produced (`produced_by: operat
 written before the rule is still read.
 
 A check the verifier ran whose expectation cannot hold as written is `as_written: false` (§15.4), still a
-pass or a fail, with `held_instead`, what the verifier checked in its place, and `ruling`, the spec question
-or gate ids that let it, in the ruling form a check not run may rest on; `record` refuses one without both,
-with another ruling, or on a check not run (`as_written_errors`). `not_as_written` lists them, for
+pass or a fail, with `held_instead`, what the verifier checked in its place, and `ruling`, the spec question,
+gate or lead ruling ids that let it, in the ruling form a check not run may rest on; `record` refuses one
+without both, with another ruling, or on a check not run (`as_written_errors`). `not_as_written` lists them, for
 `ccp tasks close` to print before it merges.
 
 A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_round`) carries the
@@ -119,7 +119,8 @@ from ccp.refs import ANY_TASK_ID, QUESTION_ID
 SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "verification.schema.json"
 # The record's schema version, stamped by `record`. A change that adds a key to the record's
 # contract, at any depth, raises it, so an older reader knows the record is newer than itself.
-RECORD_VERSION = 4  # 2: `catch_up` (§16.5 rule 4); 3: `spec_beyond_intent` (§3.5); 4: a check's `as_written` (§15.4)
+RECORD_VERSION = 5  # 2: `catch_up` (§16.5 rule 4); 3: `spec_beyond_intent` (§3.5); 4: a check's `as_written` (§15.4);
+#                     5: `catch_up.sign_off_carried` (§16.5 rule 4)
 # Clocks on two machines differ a little; a minute is the slack, not a rounding allowance.
 SKEW = timedelta(seconds=60)
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -270,9 +271,11 @@ def _operator_step_refusal(queue: Path, task_id: str, step: str) -> str | None:
 # for evidence the operator produced, any text.
 _GATE_TOKEN = re.compile(rf"(?<![\w-])({ANY_TASK_ID})-([0-9]+)(?![\w-])")
 _QUESTION_TOKEN = re.compile(rf"(?<![\w-]){QUESTION_ID}(?![\w-])")
+_RULING_TOKEN = re.compile(rf"(?<![\w-])({ANY_TASK_ID})-r([0-9]+)(?![\w-])")  # a lead ruling id (§17.5)
 _APPROVE_AT = re.compile(r"approve at ([0-9a-fA-F]{7,40})")
-_REST_FORMS = ("a ruling, named by its spec question id (sm-…) or gate id (<task_id>-<n>), each of which exists, "
-               "each gate closed and approved and each question answered resolved; a carried verdict, "
+_REST_FORMS = ("a ruling, named by its spec question id (sm-…), gate id (<task_id>-<n>) or lead ruling id "
+               "(<task_id>-r<n>), each of which exists, each gate closed and approved and each question answered "
+               "resolved; a carried verdict, "
                "`approve at <sha>` (§15.6 rule 3), the sha a commit; or evidence the operator produced "
                "(produced_by: operator)")
 
@@ -284,9 +287,19 @@ def carried_from(rests_on: Any) -> str | None:
     return m.group(1) if m else None
 
 
+def _lead_rulings(queue: Path, task_id: str) -> list[dict[str, Any]]:
+    """§17.5: the lead rulings the ledger holds on the task (`queue.rulings`); none when the ledger cannot be read."""
+    from ccp.queue import rulings  # noqa: PLC0415
+    try:
+        return rulings(queue, task_id)
+    except (OSError, ValueError):
+        return []
+
+
 def _ruling_refusal(queue: Path, rests_on: str) -> str | None:
     """Why `rests_on` is not a ruling the queue holds, or None when it is: it names at least one gate
-    id `<task_id>-<n>` or spec question id `sm-…`, and every one it names exists and was ruled (the
+    id `<task_id>-<n>`, spec question id `sm-…` or lead ruling id `<task_id>-r<n>`, and every one it names
+    exists and was ruled (a lead ruling id: the ledger holds its `ruling` `recorded` event, §17.5; the
     gate file `escalations/<task_id>/<n>.json`, §17.9, is the gate it is cited as, its `escalation_id`
     and `task_id` those of the cited id, of any task, closed and approved; the question file
     `questions/<id>.json` with its answer `questions/<id>.answer.json` at verdict `resolved`, §17.5:
@@ -294,8 +307,10 @@ def _ruling_refusal(queue: Path, rests_on: str) -> str | None:
     missing, misfiled, open_, unanswered = [], [], [], []
     gates = list(_GATE_TOKEN.finditer(rests_on))
     questions = list(_QUESTION_TOKEN.finditer(rests_on))
-    if not gates and not questions:
+    lead = list(_RULING_TOKEN.finditer(rests_on))
+    if not gates and not questions and not lead:
         return "it names no ruling id"
+    recorded = {str(r.get("id")) for t in {m.group(1) for m in lead} for r in _lead_rulings(queue, t)}
     for m in gates:
         try:
             gate = json.loads((queue / "escalations" / m.group(1) / f"{m.group(2)}.json").read_text())
@@ -307,6 +322,7 @@ def _ruling_refusal(queue: Path, rests_on: str) -> str | None:
                             f"gate {gate.get('escalation_id')!r})")
         elif not isinstance(gate, dict) or gate.get("status") != "closed" or gate.get("decision") != "approved":
             open_.append(m.group(0))
+    unknown = [m.group(0) for m in lead if m.group(0) not in recorded]
     for m in questions:
         if not (queue / "questions" / f"{m.group(0)}.json").is_file():
             missing.append(m.group(0))
@@ -318,6 +334,7 @@ def _ruling_refusal(queue: Path, rests_on: str) -> str | None:
         if not isinstance(answer, dict) or answer.get("verdict") != "resolved":
             unanswered.append(m.group(0))
     why = ([f"no gate or spec question {', '.join(missing)} is in the queue"] if missing else []) \
+        + ([f"no lead ruling {', '.join(unknown)} is recorded in the ledger (ccp tasks ruling)"] if unknown else []) \
         + ([f"gate {', '.join(misfiled)} is not filed as itself"] if misfiled else []) \
         + ([f"gate {', '.join(open_)} is not closed and approved"] if open_ else []) \
         + ([f"spec question {', '.join(unanswered)} has no answer at verdict resolved"] if unanswered else [])
@@ -333,7 +350,7 @@ def _commit_refusal(root: Path, sha: str) -> str | None:
 
 def rests_on_errors(root: Path, queue: Path, rec: dict[str, Any]) -> list[str]:
     """§15.4, as `record` writes it: a check not run (`ran: false`) rests on one of three things, and
-    anything else is refused, naming the check. A ruling: `rests_on` names spec question or gate ids
+    anything else is refused, naming the check. A ruling: `rests_on` names spec question, gate or lead ruling ids
     that all exist, each gate closed and approved and each question answered `resolved`
     (`_ruling_refusal`). A carried verdict: `rests_on`
     is exactly `approve at <sha>` (§15.6 rule 3), the sha a commit of the product checkout. Evidence
@@ -362,7 +379,7 @@ def rests_on_errors(root: Path, queue: Path, rec: dict[str, Any]) -> list[str]:
 def as_written_errors(queue: Path, rec: dict[str, Any]) -> list[str]:
     """§15.4, as `record` writes it: a check marked `as_written: false` is one the verifier ran (never
     `ran: false`), with `held_instead`, what it checked in place of the expectation as written, and
-    `ruling`, which names spec question or gate ids that all exist and were ruled (`_ruling_refusal`).
+    `ruling`, which names spec question, gate or lead ruling ids that all exist and were ruled (`_ruling_refusal`).
     Each refusal names the check and what is missing."""
     errs: list[str] = []
     for i, c in enumerate(rec.get("checks") or []):
@@ -376,12 +393,12 @@ def as_written_errors(queue: Path, rec: dict[str, Any]) -> list[str]:
             errs.append(f"{name} with no held_instead: say what the verifier checked in its place (§15.4)")
         ruling = c.get("ruling")
         if not (isinstance(ruling, str) and ruling.strip()):
-            errs.append(f"{name} with no ruling: name the spec question (sm-…) or gate (<task_id>-<n>) ids that "
-                        "let it (§15.4)")
+            errs.append(f"{name} with no ruling: name the spec question (sm-…), gate (<task_id>-<n>) or lead "
+                        "ruling (<task_id>-r<n>) ids that let it (§15.4)")
         elif (why := _ruling_refusal(queue, ruling)) is not None:
             errs.append(f"{name} and its ruling {ruling[:60]!r} is not a ruling the queue holds ({why}): it names "
-                        "spec question or gate ids that all exist, each gate closed and approved and each question "
-                        "answered resolved (§15.4)")
+                        "spec question, gate or lead ruling ids that all exist, each gate closed and approved and "
+                        "each question answered resolved (§15.4)")
     return errs
 
 
@@ -1075,6 +1092,17 @@ def merge_ok(cfg: Config, queue: Path, pr: str, task_id: str | None) -> tuple[li
     if not reasons:
         body["match_head_commit"] = head  # the PR's full head, which the approval names
     return reasons, body
+
+
+def sign_off_carried(queue: Path, task_id: str, signed: str, head: str) -> bool:
+    """§3.5, §16.5 rule 4: True when close's own catch-up carried the build sign-off recorded for `signed` to
+    `head`: the task's approve record has a `catch_up` that starts at `signed`, ends at `head` and names
+    `signed` as `sign_off_carried`. (`merge-ok` has judged the catch-up itself, `catch_up_refusal`.)"""
+    rec = _load(queue / "verification" / f"{task_id}.json")
+    cu = rec.get("catch_up") if isinstance(rec, dict) else None
+    return isinstance(cu, dict) and rec.get("verdict") == "approve" \
+        and heads_match(str(cu.get("sign_off_carried") or ""), signed) \
+        and heads_match(str(cu.get("from") or ""), signed) and heads_match(str(cu.get("to") or ""), head)
 
 
 def catch_up_refusal(cfg: Config, queue: Path, rec: dict[str, Any], task_id: str, head: str) -> str | None:

@@ -201,8 +201,8 @@ it in its frontmatter, `sign_off:`:
 
 - `brief`: the text is known when the task is written. It is signed before the claim, and the
   sign-off covers the commit that last changed the task file.
-- `build`: the build finds the text. It is signed after verify, and the sign-off covers the head
-  that merges.
+- `build`: the build finds the text.
+  It is signed after verify, and the sign-off covers the head that merges, or the verified head when close's own catch-up carried it to the head that merges (§16.5 rule 4).
 - `[brief, build]`: both.
 
 Any other value (no stage, or one that is not `brief` or `build`) fails `ccp tasks check`, and claim
@@ -247,9 +247,9 @@ when both are due, a call without `--stage`.
 the commit that last changed the task file in the checkout it claims from (stale: the text changed
 after the signing, and the operator signs it again); a head that is that commit or a descendant of it
 holds. `ccp tasks close` refuses one whose due sign-off (declared, or `build` from its verdict) is
-missing, naming the verdict's passages beyond intent, or whose `build` sign-off covers another head
-than the one it merges (stale: the operator signs the new head) (§10.5). How the
-operator is asked is not part of this rule.
+missing, naming the verdict's passages beyond intent,
+or whose `build` sign-off covers another head than the one it merges and close's own catch-up did not carry it there (stale: the operator signs the new head) (§10.5).
+How the operator is asked is not part of this rule.
 
 ### 3.6 Notifying the operator
 
