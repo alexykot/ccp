@@ -698,7 +698,7 @@ tasks:
     depends_on: []
     path: tasks/0139-adoption-readings.md
   - id: 0140-worktrees-outside-repo
-    status: pending
+    status: done
     title: worktrees.dir may be an absolute path or lead outside the main checkout, such as a sibling directory
     depends_on: []
     path: tasks/0140-worktrees-outside-repo.md
