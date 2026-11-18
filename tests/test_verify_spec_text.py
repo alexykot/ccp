@@ -316,6 +316,7 @@ class SpecText(unittest.TestCase):
         code, body, err = self.run_cmd("0001-signed", "--base", f"{a}^", "--head", "no-such-ref")
         self.assertEqual(code, 2)
         self.assertIn("no-such-ref", err)
+        self.assertNotIn(f"{a}^", err)  # the head is refused, not the base
 
 
 class Prompts(ToolkitFixture, unittest.TestCase):
