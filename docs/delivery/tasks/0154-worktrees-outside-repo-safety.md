@@ -1,7 +1,7 @@
 ---
 task_id: 0154-worktrees-outside-repo-safety
 title: Under a worktrees.dir outside the main checkout, wt create adopts and wt remove deletes an unrecorded directory only when git names it, and §12.1 says which unrecorded directories the plane touches there
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12"]
@@ -125,3 +125,5 @@ directory knows which of its directories the plane may touch.
   `_rm_tree` would have deleted outright) and its worktree under a shared absolute `worktrees.dir`.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #175 head `84d831f` (squash `ceb09d7`): APPROVE. Passed: wt-01, wt-02, wt-03, wt-04, check-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0154-worktrees-outside-repo-safety.json.
+

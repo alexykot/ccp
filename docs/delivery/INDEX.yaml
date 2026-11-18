@@ -768,7 +768,7 @@ tasks:
     depends_on: []
     path: tasks/0153-upgrade-status-decline-and-taken.md
   - id: 0154-worktrees-outside-repo-safety
-    status: pending
+    status: done
     title: Under a worktrees.dir outside the main checkout, wt create adopts and wt remove deletes an unrecorded directory only when git names it, and §12.1 says which unrecorded directories the plane touches there
     depends_on: []
     path: tasks/0154-worktrees-outside-repo-safety.md
