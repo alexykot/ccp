@@ -1,6 +1,6 @@
 """`ccp mutate` (SPEC §20.6): does the named test check what it claims? It applies one mutant at a
 time in the seat's worktree, runs the product's one-test command, and records the mutant killed only
-when that test fails.
+when that test fails, and `unbuilt` when the run says the code did not build or import.
 
   ccp mutate --run RUN_ID --test ID [--mutant M …] [--mutant-file PATH …] [--revert PATH[:N[-M]] …]
 
@@ -12,8 +12,9 @@ then a line `=== old`, the old text, a line `=== new` and the new text, each tex
 between its marker line and the next (or the file's end); a part missing refuses the call. A `--revert` mutant puts back the
 merge base's version (HEAD's merge base with the integration branch) of a file, or of every change
 from it that a range of the worktree file's lines overlaps or borders, the changes being the hunks
-`git diff -U0` shows between the two. The `--mutant`s come first, then the `--mutant-file`s, then the
-`--revert`s, each in the order given.
+`git diff -U0` shows between the two; in a shallow worktree (§12.1) the merge base is the one its
+record holds, and with none the call is refused. The `--mutant`s come first, then the `--mutant-file`s,
+then the `--revert`s, each in the order given.
 
 Every mutant is checked before anything runs. Then the named test runs once unmutated: a test that
 fails already proves nothing, so the command stops there. Each mutant is applied alone, the test
@@ -24,15 +25,17 @@ removed), and checked, before the next. A mutated Python file loses its compiled
 before its test runs, so bytecode compiled from another source (an unchecked hash-based `.pyc`, or one
 whose recorded mtime and size happen to match) never runs in its place; a restored one loses them
 again, and every test run has `PYTHONDONTWRITEBYTECODE=1`: a same-size mutant restored within the
-second leaves no bytecode that a later run would take for the source. A SIGTERM at any point of the
-call kills the running test, restores the files and exits 143.
+second leaves no bytecode that a later run would take for the source. A mutant whose run exits 0
+survived; one whose run exits non-zero with an output line plane.json `mutate.unbuilt_re` matches is
+`unbuilt` (the code did not build or import, which proves nothing about the test); any other is killed.
+A SIGTERM at any point of the call kills the running test, restores the files and exits 143.
 
 It runs only from a recorded `impl`, `mut`, `rev` or `ver` worktree of the run's task, and only for a
 run that is still open. Each mutant adds a row to the run record's `mutation` list: the test id, the
-mutant's number, kind, files and a digest, killed or survived, the exit code and seconds; never the
+mutant's number, kind, files and a digest, the outcome, the exit code and seconds; never the
 mutant's text, old or new, or the test's output, which goes to a log next to the run's record. The
 call ends with one `run`/`recorded` event. Exit 0 when every mutant was killed, 1 when one survived
-or the unmutated test failed, 2 for a usage or configuration problem.
+or was unbuilt or the unmutated test failed, 2 for a usage or configuration problem.
 """
 from __future__ import annotations
 
@@ -56,6 +59,7 @@ from ccp.config import Config, fill
 from ccp.queue import QueueError, emit, git, iso
 
 SEP = "=>"
+OUTPUT_AT = "_output_at"  # `_test`'s offset in the log where the run's own output starts; never recorded
 OLD_MARK, NEW_MARK = b"=== old", b"=== new"  # a --mutant-file's part separators, each a line of its own
 WORKTREE_KINDS = ("impl", "mut", "rev", "ver")  # the seats' worktrees a call may run in (§20.6)
 RANGE_RE = re.compile(r"([1-9][0-9]*)(?:-([1-9][0-9]*))?")
@@ -397,6 +401,7 @@ def _test(line: str, cwd: Path, timeout: int, log: Path, label: str, stop: _Stop
     with log.open("ab") as f:
         f.write(f"\n--- {iso()} {label}\n".encode())
         f.flush()
+        start = f.tell()
         p = subprocess.Popen(["/bin/sh", "-c", line], cwd=str(cwd), stdin=subprocess.DEVNULL, stdout=f,
                              stderr=subprocess.STDOUT, start_new_session=True,
                              env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})  # no bytecode outlives a mutant
@@ -415,7 +420,23 @@ def _test(line: str, cwd: Path, timeout: int, log: Path, label: str, stop: _Stop
             raise
         finally:
             stop.child = None
-    return {"exit_code": code, "seconds": round(time.monotonic() - t0, 2), "timed_out": timed_out}
+    return {"exit_code": code, "seconds": round(time.monotonic() - t0, 2), "timed_out": timed_out, OUTPUT_AT: start}
+
+
+def _unbuilt_patterns(mu: dict[str, Any]) -> list[re.Pattern[str]]:
+    """plane.json `mutate.unbuilt_re`, compiled: a pattern, a list of them, or none (null)."""
+    pats = mu.get("unbuilt_re")
+    return [re.compile(x) for x in ([pats] if isinstance(pats, str) else pats or [])]
+
+
+def _says_unbuilt(log: Path, start: int, pats: list[re.Pattern[str]]) -> bool:
+    """Whether a line of one run's output (the log from `start`) matches an `unbuilt_re` pattern."""
+    if not pats:
+        return False
+    with log.open("rb") as f:
+        f.seek(start)
+        text = f.read().decode(errors="replace")
+    return any(p.search(ln) for ln in text.splitlines() for p in pats)
 
 
 def _worktree(cfg: Config, q: Path, task_id: str) -> dict[str, Any]:
@@ -478,17 +499,25 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
     if reverts:
         from ccp import wt  # noqa: PLC0415
 
-        head = git(root, "rev-parse", "HEAD").stdout.strip()
-        base = wt.merge_base(cfg, q, head)
+        if st.get("shallow"):  # §12.1: a depth-1 clone has no history; `wt create` recorded its merge base
+            base = st.get("merge_base")
+            if not base:
+                raise QueueError(f"the shallow worktree {st['name']} has no merge base recorded, so --revert has "
+                                 "nothing to put back: run it in a full worktree (`ccp wt create` without --shallow)", 2)
+        else:
+            head = git(root, "rev-parse", "HEAD").stdout.strip()
+            base = wt.merge_base(cfg, q, head)
         parsed += [parse_revert(root, r, base) for r in reverts]
     line = fill(mu["command"], {"test": shlex.quote(test)})
     timeout = int(mu["timeout_seconds"])
+    unbuilt = _unbuilt_patterns(mu)
     log = log_path(q, run_id)
     out: dict[str, Any] = {"ok": True, "run_id": run_id, "worktree": st["name"], "test": test, "log": str(log)}
     if base:
         out["merge_base"] = base
     stop.check("before the unmutated run; nothing was run, applied or recorded")
     unmutated = _test(line, root, timeout, log, f"{test} unmutated", stop)
+    unmutated.pop(OUTPUT_AT)
     out["baseline"] = unmutated
     stop.check("in the unmutated run; nothing was applied or recorded")
     if unmutated["exit_code"] != 0:
@@ -516,17 +545,19 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
         if left:
             raise QueueError(f"mutant {n}: {', '.join(left)} could not be restored in {root}", 1)
         assert res is not None
+        at = res.pop(OUTPUT_AT)
+        outcome = "survived" if res["exit_code"] == 0 else "unbuilt" if _says_unbuilt(log, at, unbuilt) else "killed"
         row = {"at": iso(), "test": test, "mutant": n, "kind": m["kind"], "files": m["files"],
-               "digest": m["digest"], "outcome": "survived" if res["exit_code"] == 0 else "killed", **res}
+               "digest": m["digest"], "outcome": outcome, **res}
         rec = runs.load(q, run_id)
         rec.setdefault("mutation", []).append({**row, "worktree": st["name"]})
         runs.save(q, rec)
         rows.append(row)
     stop.check(f"after the last mutant; {len(rows)} mutant(s) recorded")
-    killed = sum(r["outcome"] == "killed" for r in rows)
-    out.update(mutants=rows, killed=killed, survived=len(rows) - killed)
-    emit(q, cfg, task_id, "run", "recorded", {"run_id": run_id, "mutants": len(rows), "killed": killed,
-                                              "survived": len(rows) - killed})
+    counts = {k: sum(r["outcome"] == k for r in rows) for k in ("killed", "unbuilt", "survived")}
+    killed = counts["killed"]
+    out.update(mutants=rows, **counts)
+    emit(q, cfg, task_id, "run", "recorded", {"run_id": run_id, "mutants": len(rows), **counts})
     stop.check(f"after the last mutant; {len(rows)} mutant(s) and the run/recorded event recorded")
     return out, 0 if killed == len(rows) else 1
 

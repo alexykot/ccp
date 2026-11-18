@@ -24,6 +24,7 @@
              "properties": {"name": {"type": "string", "minLength": 1}, "url": {"type": "string"}}}},
     "adopted": {"type": "boolean", "description": "A worktree made before records, adopted by `ccp wt create`"},
     "shallow": {"type": "boolean", "description": "`ccp wt create --shallow`: a depth-1 clone at sha, not a git worktree"},
+    "merge_base": {"type": "string", "description": "A shallow worktree: the merge base of sha and the integration branch on origin, fetched into the clone at depth 1; `ccp mutate --revert` there reverts to it. Absent when there is none"},
     "own_hooks": {"type": "boolean", "description": "`ccp wt create --own-hooks`: its env hooks and their timeout come from the plane.json in the worktree itself, not the caller's (SPEC §12.2)"},
     "created_at": {"type": "string"}
   }

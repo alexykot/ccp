@@ -232,6 +232,9 @@ ADR_DEFAULTS: dict[str, Any] = {"dir": "docs/adr", "index": None,
 # an ordered list of `{name, cmd}` stages, §14.2) and the regular expression whose first group is a test count in the suite's output (summed over every
 # line that matches; the default reads unittest's "Ran N tests in Xs").
 SUITE_DEFAULTS: dict[str, Any] = {"lanes": {}, "count_re": None, "summary": None, "log_keep_days": 14,
+                                  # §14.7 `ccp suite affected`: a glob of root-relative paths to the test ids
+                                  # its part lane runs, added to what the language pack reads ({} = none)
+                                  "affected_map": {},
                                   # SPEC §16.6: lanes that run one at a time in a queue (a run with no lane
                                   # is the `full` role's lane)
                                   "exclusive_lanes": [],
@@ -286,8 +289,10 @@ SKIP_REVIEW_KEYS = {"paths", "proof"}
 SKIP_REVIEW_FIELDS = ("task_id", "reviewed", "head", "from")
 # §20.6 `ccp mutate`: `command` runs one named test (a shell template naming `{test}`, filled in
 # shell-quoted; null, the default, means the product has none and `ccp mutate` refuses);
-# `timeout_seconds` bounds one run of it (a mutant that hangs the test is killed).
-MUTATE_DEFAULTS: dict[str, Any] = {"command": None, "timeout_seconds": 600}
+# `timeout_seconds` bounds one run of it (a mutant that hangs the test is killed); `unbuilt_re`, a
+# regular expression or a list of them (null, the default, matches nothing), is a line the command
+# prints when the code does not build or import: a failing run that prints one records the mutant `unbuilt`.
+MUTATE_DEFAULTS: dict[str, Any] = {"command": None, "timeout_seconds": 600, "unbuilt_re": None}
 # §13.4: verdict lines every done implement or fix report must state, each `{name, values}`: the line
 # is `<name>: <one of values>`. `ccp report` refuses a report missing one; none by default.
 REPORT_DEFAULTS: dict[str, Any] = {"required_fields": []}
@@ -1094,6 +1099,9 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
                     re.compile(pat)
             except re.error as e:
                 bad.append(f"suite.count_re is not a regular expression ({e})")
+    am = out["suite"]["affected_map"]
+    if not isinstance(am, dict) or not all(k.strip() and _str_list(v) and v for k, v in am.items()):
+        bad.append("suite.affected_map must map a path glob to a list of test ids (§14.7)")
     kd = out["suite"]["log_keep_days"]
     if isinstance(kd, bool) or not isinstance(kd, int) or kd < 1:
         bad.append("suite.log_keep_days must be an integer >= 1 (days a summary-mode log is kept)")
@@ -1151,6 +1159,15 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
     t = mu["timeout_seconds"]
     if isinstance(t, bool) or not isinstance(t, int) or t < 1:
         bad.append("mutate.timeout_seconds must be an integer >= 1")
+    ub = mu["unbuilt_re"]
+    if ub is not None:
+        try:
+            if not (_str_list([ub]) or _str_list(ub) and ub):
+                raise re.error("a blank pattern would match every line")
+            for pat in [ub] if isinstance(ub, str) else ub:
+                re.compile(pat)
+        except re.error as e:
+            bad.append(f"mutate.unbuilt_re must be a regular expression or a non-empty list of them, or null ({e})")
     bad += _workers_problems(out["workers"])
     nt = out["notify"]
     if not _opt_str(nt["command"]):

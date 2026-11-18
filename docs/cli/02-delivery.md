@@ -50,7 +50,7 @@ argument takes the full id or its number.
 | `ccp suite run [--lane L] [--run <run_id> \| --task <id> [--phase P]] [--full \| --summary] [--log PATH] [-- <command>]` (also `--wait SECONDS`, `--cold`); a command after `--` that replaces the argv plane.json gives the full or gate role's lane runs after a warning | each worker | §14 |
 | `ccp suite wait <suite_id> [--timeout SECONDS]` | each worker | §14.2 |
 | `ccp suite list [--task ID]` | anyone | §14.4 |
-| `ccp suite affected [--since REF \| --since A..B \| --paths PATH …]` | each worker | §14.7 |
+| `ccp suite affected [--since REF \| --since A..B \| --paths PATH …]`; plane.json `suite.affected_map` adds the test ids of each glob a changed path matches | each worker | §14.7 |
 
 ## Worktrees
 

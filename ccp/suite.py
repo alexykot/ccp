@@ -89,7 +89,8 @@ against the working tree plus the untracked files; REF is resolved with `git rev
 one that starts with a dash is an unknown ref, never an option. The product's language pack reads them:
 for Python, a `test*.py` module that changed, imports a changed module directly or through one package's
 `__init__.py`, or names a changed file (a file with an extension: a directory or an extension-less name
-would match nearly every test).
+would match nearly every test). plane.json `suite.affected_map` adds the test ids of each glob a changed
+path matches; a pack with no reader (`none`) uses the map alone, and without one it is refused.
 
 Recording never stands between a worker and its tests. With a command after `--`, it runs and its
 exit code is returned whatever else fails: no QUEUE_ROOT, no checkout, an unreadable plane.json, a bad
@@ -1893,16 +1894,29 @@ def _language(cfg: Config) -> str:
     return str((cfg.package_docs or PACKAGE_DOCS_DEFAULTS)["language"])
 
 
+def _mapped(amap: dict[str, list[str]], changed: list[str]) -> set[str]:
+    """§14.7: the test ids plane.json `suite.affected_map` gives the changed paths: every glob a path
+    matches (`fnmatch.fnmatchcase` on the root-relative path, so `*` crosses `/`) adds its ids."""
+    return {t for rel in changed for glob, ids in amap.items() if fnmatch.fnmatchcase(rel, glob) for t in ids}
+
+
 def affected(cfg: Config, since: str | None, paths: list[str] | None) -> tuple[list[str], list[str]]:
-    """(the changed paths, the test modules they touch), read by the product's language pack
-    (`package_docs.language`; its default when the block is absent)."""
+    """(the changed paths, the tests they touch): what the product's language pack reads
+    (`package_docs.language`; its default when the block is absent) and what plane.json
+    `suite.affected_map` maps them to, sorted, each once. A pack with no reader uses the map alone, and
+    with no map either it is refused."""
     lang = _language(cfg)
     reader = AFFECTED_READERS.get(lang)
-    if reader is None:
-        raise QueueError(f"package_docs.language {lang!r} has no test reader; one of: "
-                         f"{', '.join(sorted(AFFECTED_READERS))}", 2)
+    amap = (getattr(cfg, "suite", None) or {}).get("affected_map") or {}
+    if reader is None and not amap:
+        raise QueueError(f"package_docs.language {lang!r} has no test reader (one of: "
+                         f"{', '.join(sorted(AFFECTED_READERS))}) and plane.json sets no suite.affected_map, "
+                         "the path globs that map a change to its tests", 2)
     changed = changed_paths(cfg.root, since, paths)
-    return changed, (reader(cfg.root, changed) if changed else [])
+    if not changed:
+        return changed, []
+    found = set(reader(cfg.root, changed)) if reader is not None else set()
+    return changed, sorted(found | _mapped(amap, changed))
 
 
 def main_affected(cfg: Config, a: Any) -> int:

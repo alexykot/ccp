@@ -7,9 +7,10 @@ import json
 import subprocess
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
 from unittest import mock
 
-from ccp import cli, suite
+from ccp import cli, config, suite
 from tests.helpers import Product
 
 
@@ -18,7 +19,7 @@ def git(root, *a):
                           capture_output=True, text=True).stdout.strip()
 
 
-class Affected(unittest.TestCase):
+class Scratch:
     """A scratch Python product: tests/test_a.py imports pkg/a.py, tests/test_b.py imports pkg/b.py."""
 
     def setUp(self, cfg: dict | None = None):
@@ -52,6 +53,8 @@ class Affected(unittest.TestCase):
         self.assertEqual(code, 0, err)
         return lines
 
+
+class Affected(Scratch, unittest.TestCase):
     def test_a_changed_module_lists_only_the_tests_that_import_it(self):
         self.p.write("pkg/a.py", "X = 3\n")
         self.assertEqual(self.affected(), ["tests.test_a"])
@@ -238,12 +241,78 @@ class Language(unittest.TestCase):
         self.addCleanup(self.p.cleanup)
         git(self.p.root, "init", "-q", "-b", "main")
 
+    def run_cli(self, *args: str) -> tuple[int, list[str], str]:
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.main(["--root", str(self.p.root), "suite", "affected", *args])
+        return code, out.getvalue().splitlines(), err.getvalue()
+
     def test_a_pack_with_no_test_reader_is_refused(self):
-        err = io.StringIO()
-        with redirect_stdout(io.StringIO()), redirect_stderr(err):
-            code = cli.main(["--root", str(self.p.root), "suite", "affected", "--paths", "pkg/a.py"])
+        code, _, err = self.run_cli("--paths", "pkg/a.py")
         self.assertEqual(code, 2)
-        self.assertIn("'none'", err.getvalue())
+        self.assertIn("'none'", err)
+        self.assertIn("suite.affected_map", err)
+
+    def test_a_pack_with_no_reader_reads_the_tests_from_the_products_map_alone(self):
+        amap = {"internal/store/*": ["./internal/store/..."], "ops/*.sh": ["ops/test_ops.sh"]}
+        self.p.write("docs/delivery/plane.json", json.dumps(
+            {"project_id": "demo", "package_docs": {"language": "none"}, "suite": {"affected_map": amap}}))
+        code, lines, err = self.run_cli("--paths", "internal/store/db.go", "ops/deploy.sh", "docs/readme.md")
+        self.assertEqual((code, lines), (0, ["./internal/store/...", "ops/test_ops.sh"]), err)
+        self.assertNotIn("ccp suite run", err)  # no command is named for a language with no reader
+        code, lines, err = self.run_cli("--paths", "docs/readme.md")
+        self.assertEqual((code, lines), (0, []), err)
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "package_docs": {"language": "none"}}))
+        code, lines, err = self.run_cli("--paths", "internal/store/db.go", "ops/deploy.sh", "docs/readme.md")
+        self.assertEqual((code, lines), (2, []))
+        self.assertIn("suite.affected_map", err)
+
+    def test_a_glob_star_crosses_directories_and_matches_case_exactly(self):
+        self.p.write("docs/delivery/plane.json", json.dumps(
+            {"project_id": "demo", "package_docs": {"language": "none"},
+             "suite": {"affected_map": {"internal/*": ["./internal/..."], "*.SH": ["upper"]}}}))
+        code, lines, err = self.run_cli("--paths", "internal/store/deep/db.go", "ops/x.sh")
+        self.assertEqual((code, lines), (0, ["./internal/..."]), err)
+
+
+class AffectedMap(Scratch, unittest.TestCase):
+    """The Python product, with a map from shell scripts to a test module the reader cannot see."""
+
+    def setUp(self):
+        super().setUp({"suite": {"affected_map": {"scripts/*.sh": ["tests.test_scripts"],
+                                                  "pkg/*.py": ["tests.test_a"]}}})
+
+    def test_the_map_adds_to_what_the_reader_finds_sorted_each_once(self):
+        code, lines, err = self.run_cli("--paths", "pkg/a.py", "scripts/x.sh")
+        self.assertEqual((code, lines), (0, ["tests.test_a", "tests.test_scripts"]), err)
+        self.assertIn("-- python3 -m unittest tests.test_a tests.test_scripts\n", err)
+        self.assertEqual(self.affected("--paths", "pkg/b.py"), ["tests.test_a", "tests.test_b"])
+        self.assertEqual(self.affected("--paths", "scripts/x.sh"), ["tests.test_scripts"])
+
+    def test_a_changed_script_under_git_reaches_the_map(self):
+        self.p.write("scripts/x.sh", "echo hi\n")
+        self.assertEqual(self.affected(), ["tests.test_scripts"])
+
+
+class AffectedMapConfig(unittest.TestCase):
+    def test_a_map_of_another_shape_fails_the_load_naming_the_key(self):
+        for bad in (["scripts/*.sh"], {"scripts/*.sh": "tests.test_scripts"}, {"scripts/*.sh": []},
+                    {"scripts/*.sh": [""]}, {"": ["t"]}, {"x": [1]}):
+            p = Product({"suite": {"affected_map": bad}})
+            try:
+                with self.assertRaisesRegex(config.ConfigError, r"suite\.affected_map", msg=bad):
+                    p.cfg
+            finally:
+                p.cleanup()
+        p, plain = Product({"suite": {"affected_map": {"a/*": ["t"]}}}), Product()
+        self.addCleanup(p.cleanup)
+        self.addCleanup(plain.cleanup)
+        self.assertEqual(p.cfg.suite["affected_map"], {"a/*": ["t"]})
+        self.assertEqual(plain.cfg.suite["affected_map"], {})
+
+    def test_the_schema_lists_the_key(self):
+        schema = json.loads((Path(__file__).resolve().parent.parent / "contracts/plane_config.schema.json").read_text())
+        self.assertEqual(schema["properties"]["suite"]["properties"]["affected_map"]["default"], {})
 
 
 if __name__ == "__main__":

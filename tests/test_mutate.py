@@ -612,6 +612,96 @@ class FromTheImplementersWorktree(MutateFixture, unittest.TestCase):
         self.assertEqual((impl / "calc.py").read_text(), GUARDED)
 
 
+class Unbuilt(MutateFixture, unittest.TestCase):
+    """plane.json `mutate.unbuilt_re`: a mutant whose failing run says the code did not build or import is
+    `unbuilt`, never a kill."""
+
+    IMPORT_BREAK = "calc.py:def add(a, b):=>def plus(a, b):"  # `from calc import add` fails: an ImportError
+
+    def setUp(self):
+        super().setUp()
+        self.write("docs/delivery/plane.json", json.dumps(
+            {**self.PLANE_JSON, "mutate": {"command": COMMAND, "unbuilt_re": "Failed to import test module"}}))
+        git(self.main, "commit", "-q", "-am", "unbuilt_re")
+        git(self.main, "push", "-q", "origin", "main")
+        self.impl_run = runs.open_run(self.q, config.load(self.main), "0002-second", "implement", prompt_ref=None,
+                                      note=None, supersede=False)["run_id"]
+        code, body, _, err = self.ccp("wt", "create", "--kind", "impl", "--task", "0002", root=self.main)
+        self.assertEqual(code, 0, err)
+        self.impl = Path(body["path"])
+
+    def test_a_mutant_that_stops_the_import_is_unbuilt_and_one_the_test_catches_is_killed(self):
+        code, body, _, err = self.mutate(self.IMPORT_BREAK, "calc.py:a + b=>a - b", root=self.impl, run=self.impl_run)
+        self.assertEqual(code, 1, err)
+        rows = runs.load(self.q, self.impl_run)["mutation"]
+        self.assertEqual([(r["mutant"], r["outcome"]) for r in rows], [(1, "unbuilt"), (2, "killed")])
+        self.assertTrue(all(r["exit_code"] != 0 for r in rows))
+        self.assertEqual((body["killed"], body["unbuilt"], body["survived"]), (1, 1, 0))
+        self.assertEqual((self.impl / "calc.py").read_bytes(), CALC.encode())
+        ev = [e["payload"] for e in self.events() if (e["type"], e["op"]) == ("run", "recorded")]
+        self.assertEqual([(e["mutants"], e["killed"], e["unbuilt"], e["survived"]) for e in ev], [(2, 1, 1, 0)])
+
+    def test_with_no_pattern_the_same_mutant_is_a_kill(self):
+        self.set_mutate(unbuilt_re=None)
+        code, body, _, err = self.mutate(self.IMPORT_BREAK)
+        self.assertEqual((code, body["killed"], body["unbuilt"], body["survived"]), (0, 1, 0, 0), err)
+        self.assertEqual(self.rows()[0]["outcome"], "killed")
+
+    def test_a_list_of_patterns_any_of_which_marks_a_syntax_error_unbuilt(self):
+        self.set_mutate(unbuilt_re=["Failed to import test module", "^SyntaxError: "])
+        code, body, _, err = self.mutate("calc.py:def add(a, b):=>def add(a, b)")
+        self.assertEqual((code, body["unbuilt"], body["killed"]), (1, 1, 0), err)
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+
+    def test_a_run_that_passes_survives_whatever_it_prints(self):
+        self.set_mutate(unbuilt_re=r"^Ran \d+ test")  # unittest prints it on a pass too
+        code, body, _, err = self.mutate("calc.py:a * 2=>a * 3")
+        self.assertEqual((code, body["survived"], body["unbuilt"], body["killed"]), (1, 1, 0, 0), err)
+        self.assertEqual(self.rows()[0]["outcome"], "survived")
+
+
+class RevertInAShallowWorktree(MutateFixture, unittest.TestCase):
+    """A verifier whose worktree is a depth-1 clone reverts against the merge base `ccp wt create` recorded."""
+
+    def shallow(self, sha: str) -> tuple[Path, dict]:
+        code, body, _, err = self.ccp("wt", "create", "--kind", "ver", "--task", "0002", "--sha", sha, "--shallow",
+                                      root=self.main)
+        self.assertEqual(code, 0, err)
+        return Path(body["path"]), json.loads((self.q / "worktrees" / f"{body['name']}.json").read_text())
+
+    def test_the_recorded_merge_base_is_what_the_revert_puts_back(self):
+        start = git(self.main, "rev-parse", "origin/main")
+        head = self.task_commit({"calc.py": CALC.replace("a * 2", "a * 3"),
+                                 "test_calc.py": TESTS + "\n    def test_unused(self):\n"
+                                                         "        from calc import unused\n"
+                                                         "        self.assertEqual(unused(1), 3)\n"})
+        git(self.main, "push", "-q", "origin", "task/0002-second")
+        self.write("later.txt", "the integration branch moves on\n")
+        git(self.main, "add", "later.txt")
+        git(self.main, "commit", "-q", "-m", "later")
+        git(self.main, "push", "-q", "origin", "main")
+        ver, st = self.shallow(head)
+        self.assertEqual(git(ver, "rev-parse", "--is-shallow-repository"), "true")
+        self.assertEqual(st["merge_base"], start)
+        code, body, _, err = self.mutate(test="test_calc.CalcTest.test_unused", root=ver, reverts=("calc.py",))
+        self.assertEqual(code, 0, err)
+        self.assertEqual((body["merge_base"], self.rows()[0]["outcome"], self.rows()[0]["kind"]),
+                         (start, "killed", "revert"))
+        self.assertEqual((ver / "calc.py").read_text(), CALC.replace("a * 2", "a * 3"))
+
+    def test_with_no_merge_base_recorded_a_revert_is_refused(self):
+        git(self.main, "checkout", "-q", "--orphan", "lone")
+        git(self.main, "commit", "-q", "-m", "no shared history")
+        lone = git(self.main, "rev-parse", "HEAD")
+        git(self.main, "checkout", "-q", "-f", "main")
+        ver, st = self.shallow(lone)
+        self.assertNotIn("merge_base", st)
+        code, _, _, err = self.mutate(test=ADD, root=ver, reverts=("calc.py",))
+        self.assertEqual(code, 2, err)
+        self.assertIn("no merge base", err)
+        self.assertEqual(self.rows(), [])
+
+
 LIB_SH = 'greet() {\n    echo "hello $1"\n}\n'
 SCRIPT_TEST = '. ./lib.sh\n[ "$(greet world)" = "hello world" ] || exit 1\n'
 
@@ -753,9 +843,10 @@ class RevertLines(unittest.TestCase):
 class Ledger(unittest.TestCase):
     def test_a_mutate_event_needs_its_counts(self):
         ev = {"at": "2026-11-11T00:00:00Z", "project_id": "demo", "task_id": "0002-second", "actor": "task-runner",
-              "type": "run", "op": "recorded", "payload": {"run_id": "r", "mutants": 2, "killed": 1, "survived": 1}}
+              "type": "run", "op": "recorded",
+              "payload": {"run_id": "r", "mutants": 3, "killed": 1, "unbuilt": 1, "survived": 1}}
         self.assertEqual(lib.validate_event(ev), [])
-        for key in ("run_id", "mutants", "killed", "survived"):
+        for key in ("run_id", "mutants", "killed", "unbuilt", "survived"):
             bad = {**ev, "payload": {k: v for k, v in ev["payload"].items() if k != key}}
             self.assertEqual(lib.validate_event(bad), [f"payload missing {key}"])
 
@@ -770,16 +861,17 @@ class PatchPaths(unittest.TestCase):
 class MutateConfig(unittest.TestCase):
     def test_the_block_is_checked(self):
         from tests.helpers import Product
-        for bad in ({"command": "run-one-test"}, {"command": ""}, {"timeout_seconds": 0}):
+        for bad in ({"command": "run-one-test"}, {"command": ""}, {"timeout_seconds": 0}, {"unbuilt_re": ""},
+                    {"unbuilt_re": []}, {"unbuilt_re": "("}, {"unbuilt_re": ["ok", 1]}, {"unbuilt_re": 3}):
             p = Product({"mutate": bad})
             try:
-                with self.assertRaises(config.ConfigError, msg=bad):
+                with self.assertRaisesRegex(config.ConfigError, rf"mutate\.{next(iter(bad))}\b", msg=bad):
                     p.cfg
             finally:
                 p.cleanup()
         p = Product({"mutate": {"command": "t {test}"}})
         try:
-            self.assertEqual(p.cfg.mutate, {"command": "t {test}", "timeout_seconds": 600})
+            self.assertEqual(p.cfg.mutate, {"command": "t {test}", "timeout_seconds": 600, "unbuilt_re": None})
         finally:
             p.cleanup()
 
