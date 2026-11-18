@@ -1,5 +1,5 @@
 """SPEC §16.3 (step 2 of the parallel-runners build): which tasks the runner may hold at once. Scope paths, the meet rule,
-the claim's refusals (exit 7), `next`'s head of line and slots-full exit, and nothing changed while
+the claim's refusals (exit 7), `next`'s head of line, the tasks it passes over and slots-full exit, and nothing changed while
 `parallel.max_in_flight` is 1."""
 from __future__ import annotations
 
@@ -109,7 +109,7 @@ class Claims(ParallelFixture, unittest.TestCase):
         self.assertIn("slots full", out)
         self.assertIn("rule 1", out)
 
-    def test_meeting_paths_are_refused_and_the_head_of_line_waits(self):
+    def test_meeting_paths_are_refused_and_a_task_that_runs_alone_holds_the_line(self):
         self.write("docs/delivery/tasks/0003-third.md", task("0003-third", "`src/app/pool.py`"))
         self.assertEqual(self.claim("0002")[0], 0)
         code, _, out, err = self.claim("0003")
@@ -117,10 +117,13 @@ class Claims(ParallelFixture, unittest.TestCase):
         self.assertIn("`src/app/pool.py` meets in-flight 0002-second", err)
         self.assertNotIn("0003-third", self.work()["in_flight"])
         self.assertFalse((self.q / "tasks/0003-third.json").exists())  # refused before anything was written
-        # next does not skip 0003 for a later task that could join: it waits at the head of the line
-        code, body, out, _ = self.ccp("tasks", "next", "--json", root=self.main)
+        # next passes over 0003 and 0004 (only 0002's path keeps them out); 0005, exclusive, runs alone and
+        # holds the line, so nothing is offered
+        code, body, out, err = self.ccp("tasks", "next", "--json", root=self.main)
         self.assertEqual(code, 7, out)
         self.assertEqual((body["slots_full"], body["head"], body["in_flight"]), (True, "0003-third", ["0002-second"]))
+        self.assertEqual([p["task_id"] for p in body["passed_over"]], ["0003-third", "0004-fourth"])
+        self.assertIn("passed over 0003-third", err)
 
     def test_exclusive_no_path_and_parallel_false_run_alone(self):
         self.assertEqual(self.claim("0005")[0], 0)  # alone: allowed

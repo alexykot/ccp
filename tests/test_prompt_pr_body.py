@@ -1,6 +1,7 @@
 """A review opens only on a PR whose body names its task (SPEC §15.2): `ccp prompt review` reads the
 body with `gh pr view <pr> --json body` and refuses (exit 2), nothing opened, a body that does not
-contain the task id; a body `gh` cannot read is a warning on the run."""
+contain the task id; a body `gh` cannot read is a warning on the run. The implementer's prompt gives the
+body's first line, with the full id."""
 from __future__ import annotations
 
 import json
@@ -76,6 +77,11 @@ class PrBody(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
         self.assertEqual(code, 0, out + err)
         self.assertFalse(Path(str(self.body) + ".argv").exists())
+
+    def test_the_implement_prompt_gives_the_body_its_first_line_with_the_full_id(self):
+        code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
+        self.assertEqual(code, 0, out + err)
+        self.assertIn("`Task: 0002-second`", Path(body["prompt_path"]).read_text())
 
 
 if __name__ == "__main__":

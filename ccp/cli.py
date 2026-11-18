@@ -185,6 +185,8 @@ def cmd_tasks_next(cfg: config.Config, a: argparse.Namespace) -> int:
         _explain(cfg, sel)
     from ccp import parallel  # noqa: PLC0415  (§16.3: the board's ready queue reads the same choice)
     choice = parallel.next_choice(cfg, Path(q) if q else None, sel)
+    for over in choice["passed_over"]:  # §16.3: it waits only for the in-flight tasks its paths meet
+        print(f"ccp tasks next: passed over {over['task_id']}: {over['why']}", file=sys.stderr)
     t, why = choice["pick"] or (None, None)
     why = why or None
     if cfg.architect is not None:
@@ -200,7 +202,8 @@ def cmd_tasks_next(cfg: config.Config, a: argparse.Namespace) -> int:
             "spec_refs": tasklog._as_list(t.get("spec_refs")),
             "adr_refs": tasklog._as_list(t.get("adr_refs")),
             "rule_refs": tasklog._as_list(t.get("rule_refs")),
-            "review_refs": tasklog._as_list(t.get("review_refs")), "checks": t["_checks"]}, indent=2))
+            "review_refs": tasklog._as_list(t.get("review_refs")), "checks": t["_checks"],
+            "passed_over": choice["passed_over"]}, indent=2))
         return 0 if t else 3
     if not t:
         print("nothing ready" + (" in scope" if scope else "") + ": " + _nothing_ready_why(sel))

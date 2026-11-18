@@ -176,12 +176,26 @@ def reads_usage(cfg: Config) -> bool:
     return bool((cfg.telemetry or {}).get("allowance_cmd"))
 
 
+def clash(cfg: Config, a: dict[str, Any], b: dict[str, Any]) -> tuple[str, str] | None:
+    """§16.3 rule 3 between two tasks: the first path of `a` that meets a path of `b`, with that path,
+    unless both are covered by a `parallel.shared` entry; a task saying `parallel: true` meets nothing."""
+    if flag(a) is True or flag(b) is True:
+        return None
+    shared = settings(cfg).get("shared") or []
+    for p in paths(cfg, a):
+        for o in paths(cfg, b):
+            if meets(p, o) and not (covered(p, shared) and covered(o, shared)):
+                return p, o
+    return None
+
+
 def join_refusal(cfg: Config, cand: dict[str, Any], active: list[dict[str, Any]],
-                 sample: dict[str, Any] | None, five_known: bool = True) -> str | None:
+                 sample: dict[str, Any] | None, five_known: bool = True, rule3: bool = True) -> str | None:
     """Why `cand` may not be claimed beside `active` (§16.3 rules 1-5), or None when it may.
     An empty `active` is never refused here: a lone claim is judged as before §16. `sample` is the
     allowance reading (`five_hour`, `seven_day`); `five_known` False skips rule 5 (no fresh sample to
-    judge it by; the claim samples), and so does a product with no `telemetry.allowance_cmd`."""
+    judge it by; the claim samples), and so does a product with no `telemetry.allowance_cmd`.
+    `rule3` False skips the path rule (`next` asks whether rule 3 alone keeps a task out)."""
     if not active:
         return None
     s = settings(cfg)
@@ -195,15 +209,9 @@ def join_refusal(cfg: Config, cand: dict[str, Any], active: list[dict[str, Any]]
             return f"{tid} says parallel: false: it runs alone (rule 2)"
         if flag(t) is not True and not paths(cfg, t):
             return f"{tid} names no path in its Scope In: item and does not say parallel: true: it runs alone (rule 2)"
-    cpaths = [] if flag(cand) is True else paths(cfg, cand)
-    shared = s.get("shared") or []
-    for t in active:
-        if flag(t) is True:
-            continue
-        for p in cpaths:
-            for o in paths(cfg, t):
-                if meets(p, o) and not (covered(p, shared) and covered(o, shared)):
-                    return f"{cid}'s `{p}` meets in-flight {t.get('task_id')}'s `{o}` (rule 3)"
+    for t in active if rule3 else []:
+        if (met := clash(cfg, cand, t)) is not None:
+            return f"{cid}'s `{met[0]}` meets in-flight {t.get('task_id')}'s `{met[1]}` (rule 3)"
     for t in group:
         if flag(t) is True:
             continue
@@ -241,14 +249,18 @@ def active_tasks(cfg: Config, q: Path, w: dict[str, Any], tasks: list[dict[str, 
 
 def next_choice(cfg: Config, q: Path | None, sel: dict[str, Any]) -> dict[str, Any]:
     """What `ccp tasks next` returns, for the command and the board alike: `pick`, a (task, why) or
-    None, and `slots_full`, None or what to tell the runner (§16.3, exit 7). Without parallel, row 0 of
-    the selection, as before §16 (an in-flight task included: the runner resumes it). With it, the
-    head of the line is the first ready task not in flight; it is taken only when it may join what
-    the runner holds, and nothing behind it is taken instead. Rule 5 is judged on the latest
-    allowance sample while it is fresh (15 minutes); the claim samples anew either way."""
+    None, `slots_full`, None or what to tell the runner (§16.3, exit 7), and `passed_over`, the
+    `{task_id, why}` of each task passed over. Without parallel, row 0 of the selection, as before §16
+    (an in-flight task included: the runner resumes it). With tasks in flight, the ready tasks not in
+    flight are walked in rank order: the first that may join what the runner holds and meets no path of
+    a task passed over is taken. A task that rule 3 alone keeps out (a path meets an in-flight task's),
+    or that meets a passed-over task's path, is passed over: it waits only for the tasks its paths meet.
+    A task any other rule keeps out ends the walk with none (head of line); `slots_full` names the first
+    ready task as `head`, with its refusal. Rule 5 is judged on the latest allowance sample while it is
+    fresh (15 minutes); the claim samples anew either way."""
     ranked = sel["ranked"]
     if q is None or not enabled(cfg):
-        return {"pick": ranked[0] if ranked else None, "slots_full": None}
+        return {"pick": ranked[0] if ranked else None, "slots_full": None, "passed_over": []}
     import time  # noqa: PLC0415
     from datetime import datetime  # noqa: PLC0415
     from ccp import usage  # noqa: PLC0415
@@ -256,19 +268,36 @@ def next_choice(cfg: Config, q: Path | None, sel: dict[str, Any]) -> dict[str, A
     rows = [r for r in ranked if str(r[0].get("task_id")) not in sel["in_flight"]]
     active = active_tasks(cfg, q, load_work(q))
     if not active:
-        return {"pick": rows[0] if rows else None, "slots_full": None}
+        return {"pick": rows[0] if rows else None, "slots_full": None, "passed_over": []}
     ids = [str(x.get("task_id")) for x in active]
     if not rows:
-        return {"pick": None, "slots_full": {"in_flight": ids, "reason": "nothing else is ready"}}
+        return {"pick": None, "slots_full": {"in_flight": ids, "reason": "nothing else is ready", "passed_over": []},
+                "passed_over": []}
     last = usage._latest(q)
     try:
         fresh = time.time() - datetime.fromisoformat(str(last.get("at")).replace("Z", "+00:00")).timestamp() < 15 * 60
     except ValueError:
         fresh = False
-    why = join_refusal(cfg, rows[0][0], active, last, five_known=fresh)
-    if why is None:
-        return {"pick": rows[0], "slots_full": None}
-    return {"pick": None, "slots_full": {"in_flight": ids, "head": str(rows[0][0].get("task_id")), "reason": why}}
+    passed: list[dict[str, Any]] = []
+    held: list[dict[str, Any]] = []  # the passed-over tasks themselves
+    head_why = None
+    for n, row in enumerate(rows):
+        t, tid = row[0], str(row[0].get("task_id"))
+        why = join_refusal(cfg, t, active, last, five_known=fresh)
+        if n == 0:
+            head_why = why
+        if why is not None and join_refusal(cfg, t, active, last, five_known=fresh, rule3=False) is not None:
+            break  # rules 1, 2, 4 or 5: the line waits here
+        behind = next(((o, met) for o in held if (met := clash(cfg, t, o)) is not None), None)
+        if why is None and behind is None:
+            return {"pick": row, "slots_full": None, "passed_over": passed}
+        if why is None and behind is not None:
+            why = f"{tid}'s `{behind[1][0]}` meets passed-over {behind[0].get('task_id')}'s `{behind[1][1]}`"
+        passed.append({"task_id": tid, "why": why})
+        held.append(t)
+    return {"pick": None, "passed_over": passed,
+            "slots_full": {"in_flight": ids, "head": str(rows[0][0].get("task_id")), "reason": head_why,
+                           "passed_over": passed}}
 
 
 def runs_alone(cfg: Config, t: dict[str, Any]) -> bool:

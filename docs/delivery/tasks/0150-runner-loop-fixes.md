@@ -148,4 +148,13 @@ prompt review` does not refuse it. A cleared wait leaves no stale detail in `wor
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `parallel.clash` is rule 3 between two tasks (a path meeting, shared files
+  aside); `join_refusal` uses it, and takes `rule3=False` so `next_choice` can ask whether rule 3 alone
+  keeps a task out. The walk judges a later task's meeting with a passed-over task by the same test, so
+  two tasks that meet only in a `parallel.shared` file do not hold each other back. `slots_full` keeps
+  `head` and `reason` as before (the first ready task and its refusal) and adds `passed_over`; `--json`
+  carries `passed_over` on the task it returns (empty when none). Not changed: `ccp tasks claim` still
+  writes `waiting_on: null` without touching `waiting_on_detail` (outside Scope); the board page's
+  comment on the head of line.
+
 ## Verification notes

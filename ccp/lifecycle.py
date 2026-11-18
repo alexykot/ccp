@@ -633,8 +633,9 @@ RELEASABLE = ("leased", "blocked")
 # §16.4: work.json's top-level lease, written before each slot kept its own (`tasks/<id>.json`
 # `lease_holder`). Nothing writes it now; claim, release, drop, sync and close remove it from an old file.
 OLD_WORK_LEASE = "lease"
-# work.json's copy of its current task's wait (set-waiting-on.sh writes them together)
-WAIT_KEYS = ("waiting_on", "waiting_on_since", "planned_resume_at", "quota_class")
+# work.json's copy of its current task's wait (set-waiting-on.sh writes them together); a task's own
+# state holds no detail, so a close or release leaves none from the task that left
+WAIT_KEYS = ("waiting_on", "waiting_on_since", "planned_resume_at", "quota_class", "waiting_on_detail")
 
 
 def holder_teammate_for(q: Path, slot: Any) -> str | None:

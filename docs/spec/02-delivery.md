@@ -1148,9 +1148,8 @@ allowed only when all hold; otherwise it refuses with exit 7, naming the rule an
 A claim into an empty active set is judged as single-runner; a resume is never refused by these
 rules. A claim by a runner that already holds a task not closed or released refuses (exit 7).
 
-**`ccp tasks next`** ranks as before (§10.3), then: if the first ready task not in A could not be
-claimed beside A, it returns none (head of line: no task waits forever behind smaller ones);
-otherwise it returns that task. Returning none because of A (full, head of line, the ceiling), it
+**`ccp tasks next`** ranks as before (§10.3), then walks the ready tasks not in A in that order and returns the first that could be claimed beside A and none of whose paths meets a path of a task it passed over; it passes over, naming each, a task that rule 3 alone keeps from joining A and a task whose path meets one it passed over; a task that any other rule keeps from joining A ends the walk with none (head of line: no task waits forever behind smaller ones, and a task passed over waits only for the in-flight tasks its paths meet).
+Returning none because of A (full, head of line, the ceiling), it
 exits 7 with `slots_full: true` and the in-flight tasks to resume; exit 3 still means nothing is
 ready. `ccp tasks check` warns when a task not yet done has neither a path nor `parallel: true` while
 `max_in_flight` is above 1: it will only ever run alone.
