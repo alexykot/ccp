@@ -147,4 +147,17 @@ one config then refuses. A verifier checking a `ccp` change by hand runs the hea
 
 *Append-only, newest last.*
 
+- 2026-11-18, implementer: `usage.fold` takes `advice_since` (epoch seconds) and keeps the cost advice's own
+  figures (seats, contexts, lead calls, worker runs) from the requests at or after it; a request with no
+  readable `at` is outside a window. Every other figure, and the design-seat advice, read every request.
+  The suffix (` (requests since …)` / ` (every request)`) is added in `fold` when knobs are given, so only
+  `ccp usage` and `ccp health` (the callers that pass knobs) carry it; the board passes none and is
+  unchanged. `usage.advice_start` resolves the start (`--since`, else `window_hours` back to the second,
+  else None) and `usage.since_epoch` parses `ccp usage --since` (`YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SSZ`,
+  anything else exit 2). `ccp health` reuses the epoch its own `--since` parsing gives.
+- `ccp init` refuses an empty `--gate ''` as blank too (before, it was taken as no gate).
+- `ccp suite affected`: the command per language is `suite.AFFECTED_COMMANDS` (python only).
+- §27.1's Window bullet still says the usage advice "still read[s] the whole queue"; the task carries no
+  edit for it, so it is left for a follow-up (true under the default `window_hours` 0).
+
 ## Verification notes
