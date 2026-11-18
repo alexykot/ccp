@@ -1,7 +1,7 @@
 ---
 task_id: 0144-spec-paths-default-includes-docs-spec-md
 title: task_log.spec_paths defaults to the same SPEC files as estimate.spec_paths, docs/SPEC.md included
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3"]
@@ -10,7 +10,7 @@ sign_off: brief
 paths: ["ccp/config.py", "docs/spec/01-model.md", "tests/test_tasklog_spec_signoff.py"]
 adopt: "none"
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Task: 0144-spec-paths-default-includes-docs-spec-md
@@ -78,7 +78,7 @@ text is the first Scope item below, where `ccp verify spec-text` reads it.
 
 ## Verification notes
 
-*Append-only.*
+- 2026-11-18 — verifier, PR #161 head `c9b36f4` (squash `4451e40`): APPROVE. Passed: spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0144-spec-paths-default-includes-docs-spec-md.json.
 
 - Built as scoped: `TASK_LOG_DEFAULTS["spec_paths"]` (with its comment) and §3.5's default text changed to
   `["docs/SPEC.md", "SPEC.md", "docs/spec/", "spec/"]`; one new test in `tests/test_tasklog_spec_signoff.py`

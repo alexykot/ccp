@@ -718,7 +718,7 @@ tasks:
     depends_on: []
     path: tasks/0143-sign-off-carry-and-records.md
   - id: 0144-spec-paths-default-includes-docs-spec-md
-    status: pending
+    status: done
     title: task_log.spec_paths defaults to the same SPEC files as estimate.spec_paths, docs/SPEC.md included
     depends_on: []
     path: tasks/0144-spec-paths-default-includes-docs-spec-md.md
