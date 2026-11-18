@@ -81,7 +81,9 @@ failed, so a run whose command exited 3 never reads as still going. A run still 
 (default WAIT_TIMEOUT_S) prints its elapsed time and exits 3; an id with no record exits 2; a run §14.4
 counts as killed exits 1 at once, since it will never end. It writes nothing.
 
-`affected` prints the test modules a change touches, for the `part` lane, and runs nothing (§14.7). The
+`affected` prints the test modules a change touches, for the `part` lane, and runs nothing (§14.7); after
+them, on stderr, the `ccp suite run` line that runs them on the part lane, for a language with a named
+command (Python: `python3 -m unittest`). The
 change is `--paths` (normalised, relative to the root), else what `git diff REF` (default HEAD) names
 against the working tree plus the untracked files; REF is resolved with `git rev-parse --verify` first, so
 one that starts with a dash is an unknown ref, never an option. The product's language pack reads them:
@@ -1882,13 +1884,19 @@ def _python_affected(root: Path, changed: list[str]) -> list[str]:
 
 
 AFFECTED_READERS = {"python": _python_affected}
+# §14.7: the command that runs a language's test modules by name, for the line `affected` hands the worker
+AFFECTED_COMMANDS = {"python": "python3 -m unittest"}
+
+
+def _language(cfg: Config) -> str:
+    from ccp.config import PACKAGE_DOCS_DEFAULTS  # noqa: PLC0415
+    return str((cfg.package_docs or PACKAGE_DOCS_DEFAULTS)["language"])
 
 
 def affected(cfg: Config, since: str | None, paths: list[str] | None) -> tuple[list[str], list[str]]:
     """(the changed paths, the test modules they touch), read by the product's language pack
     (`package_docs.language`; its default when the block is absent)."""
-    from ccp.config import PACKAGE_DOCS_DEFAULTS  # noqa: PLC0415
-    lang = (cfg.package_docs or PACKAGE_DOCS_DEFAULTS)["language"]
+    lang = _language(cfg)
     reader = AFFECTED_READERS.get(lang)
     if reader is None:
         raise QueueError(f"package_docs.language {lang!r} has no test reader; one of: "
@@ -1898,7 +1906,9 @@ def affected(cfg: Config, since: str | None, paths: list[str] | None) -> tuple[l
 
 
 def main_affected(cfg: Config, a: Any) -> int:
-    """`ccp suite affected`: the test modules, one per line; a note on stderr when there are none."""
+    """`ccp suite affected`: the test modules, one per line; after them, on stderr, the `ccp suite run` line
+    that runs them on the part lane, when the language has a command (`AFFECTED_COMMANDS`); a note on
+    stderr when there are none."""
     try:
         changed, mods = affected(cfg, a.since, a.paths)
     except QueueError as e:
@@ -1906,6 +1916,10 @@ def main_affected(cfg: Config, a: Any) -> int:
         return e.code
     for m in mods:
         print(m)
+    if mods and (cmd := AFFECTED_COMMANDS.get(_language(cfg))):
+        sys.stdout.flush()
+        print(f"ccp suite affected: run them with: ccp suite run --lane {lane_for(cfg, 'part')} -- {cmd} "
+              + " ".join(mods), file=sys.stderr)
     if not mods:
         print(f"ccp suite affected: no test module depends on the {len(changed)} changed path(s)", file=sys.stderr)
     return 0

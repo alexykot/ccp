@@ -1,7 +1,7 @@
 """A worker's prompt arrives whole (SPEC §13.2, §13.4): `ccp prompt` ends the rendered prompt with
 `Prompt end: <token>`, keeps the token on the run, and hands the runner a pointer to the file;
 `ccp report` refuses a report that does not repeat the run's token as `Prompt: <token>`. And the
-verifier is told when to record with the head's own `ccp` (§15.4)."""
+verifier is told when to record with the head's own `ccp` (§15.4), and to check `ccp` by hand with it."""
 from __future__ import annotations
 
 import json
@@ -99,6 +99,16 @@ class HeadsOwnCcp(ToolkitFixture, unittest.TestCase):
         self.assertIn("contracts/verification.schema.json", text)
         agent = (PLANE / "plugin/agents/delivery-verifier.md").read_text()
         self.assertIn("ccp wt exec <your worktree> -- verify record <file>", agent)
+
+    def test_the_verify_prompt_sends_a_by_hand_check_of_ccp_to_the_heads_own(self):
+        self.ccp("tasks", "claim", "0002")
+        code, body, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", HEAD)
+        self.assertEqual(code, 0, out + err)
+        text = Path(body["prompt_path"]).read_text()
+        self.assertEqual(text.count("wt exec"), 2, text)
+        self.assertIn("wt exec ver-0002 -- <args>", text)
+        self.assertIn("`bin/ccp`", text)
+        self.assertIn("never runs `ccp` on PATH", text)
 
 
 if __name__ == "__main__":

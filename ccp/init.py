@@ -39,7 +39,8 @@ file and the fix, each key it lacks (the contract's required keys, `product_root
 `agent_type` and `name`) and each obsolete key it carries (the keys §8.3 says are ignored, a key the
 contract marks ignored or retired, a key it does not list). An existing `INDEX.yaml` is kept and listed
 as kept. With `--gate`, the gate lane is one stage, `gate`, whose `cmd` is the line as given, and a
-`standing-dod.md` init writes names the gate in its placeholder product item (§4.5).
+`standing-dod.md` init writes names the gate in its placeholder product item (§4.5). A blank `--gate` (empty
+or only whitespace) is refused (exit 2) before anything is written.
 
 With `--permissions` it writes nothing: in an adopted product it prints the runner's and workers'
 permission allowlist and a deny list for destructive commands, as a JSON `permissions` block for the
@@ -300,6 +301,8 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
          gate: str | None, force: bool, starter_rules: bool = False) -> dict[str, Any]:
     """Adopt the product at `root`; returns what was written, merged and kept. Raises QueueError
     (nothing written) on a refusal."""
+    if gate is not None and not gate.strip():  # §4.5: refused before anything is written
+        raise QueueError("ccp init: --gate is blank: give the gate lane's command, or leave --gate out", 2)
     product_root = _main_worktree(root.resolve())
     plane_json = root / config.CONFIG_REL
     existing_id = None

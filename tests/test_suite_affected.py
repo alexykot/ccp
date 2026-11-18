@@ -1,12 +1,15 @@
-"""ccp suite affected (SPEC §14.7): the test modules a change touches, read by the product's language pack."""
+"""ccp suite affected (SPEC §14.7): the test modules a change touches, read by the product's language pack, and
+on stderr the command that runs them on the part lane."""
 from __future__ import annotations
 
 import io
+import json
 import subprocess
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from unittest import mock
 
-from ccp import cli
+from ccp import cli, suite
 from tests.helpers import Product
 
 
@@ -53,14 +56,35 @@ class Affected(unittest.TestCase):
         self.p.write("pkg/a.py", "X = 3\n")
         self.assertEqual(self.affected(), ["tests.test_a"])
 
+    def test_after_the_list_stderr_hands_the_command_that_runs_it_on_the_part_lane(self):
+        code, lines, err = self.run_cli("--paths", "pkg/a.py")
+        self.assertEqual((code, lines), (0, ["tests.test_a"]))
+        self.assertIn("ccp suite run --lane part -- python3 -m unittest tests.test_a\n", err)
+        code, lines, err = self.run_cli("--paths", "pkg/a.py", "pkg/b.py")
+        self.assertEqual(lines, ["tests.test_a", "tests.test_b"])
+        self.assertIn("ccp suite run --lane part -- python3 -m unittest tests.test_a tests.test_b\n", err)
+
+    def test_the_command_names_the_lane_the_product_gives_the_part_role(self):
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "suite": {"roles": {"part": "quick"}}}))
+        _, lines, err = self.run_cli("--paths", "pkg/a.py")
+        self.assertEqual(lines, ["tests.test_a"])
+        self.assertIn("ccp suite run --lane quick -- python3 -m unittest tests.test_a", err)
+
+    def test_a_language_with_no_command_named_gets_no_command_line(self):
+        with mock.patch.dict(suite.AFFECTED_COMMANDS, clear=True):
+            code, lines, err = self.run_cli("--paths", "pkg/a.py")
+        self.assertEqual((code, lines), (0, ["tests.test_a"]))
+        self.assertNotIn("ccp suite run", err)
+
     def test_no_change_prints_nothing_and_exits_0(self):
         code, lines, _ = self.run_cli()
         self.assertEqual((code, lines), (0, []))
 
     def test_a_change_no_test_depends_on_prints_nothing(self):
         self.p.write("pkg/c.py", "Z = 1\n")
-        code, lines, _ = self.run_cli()
+        code, lines, err = self.run_cli()
         self.assertEqual((code, lines), (0, []))
+        self.assertNotIn("ccp suite run", err)
 
     def test_since_takes_the_commits_after_the_ref_and_the_uncommitted_change(self):
         base = git(self.p.root, "rev-parse", "HEAD")

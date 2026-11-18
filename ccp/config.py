@@ -197,8 +197,9 @@ HEALTH_DEFAULTS: dict[str, Any] = {"small_task_lines": 100, "slowest_modules": 5
 # §24.6 `ccp usage` advice, a line each past its threshold: a seat whose 5-minute cache writes are more than
 # `cache_5m_share` of its cache-write tokens; the lead or a runner whose median context per request exceeds
 # `context_tokens`; a coordination share (lead plus runner cost over all seats') above `coordination_share`.
+# The advice reads the requests of the last `window_hours` (0: every request).
 USAGE_DEFAULTS: dict[str, Any] = {"advice": {"cache_5m_share": 0.5, "context_tokens": 300000,
-                                             "coordination_share": 0.4}}
+                                             "coordination_share": 0.4, "window_hours": 0}}
 # §2.4 the implementer's model per task: `implementer_model` (null: the definition's) maps `small` (a task whose
 # estimate is at most `small_estimate_minutes`) and `refactor` (a task of that kind) to an alias the Agent call's
 # `model` accepts, `WORKER_MODEL_ALIASES`: it takes nothing else, a full id included.
@@ -1058,6 +1059,9 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
     ct = adv["context_tokens"]
     if isinstance(ct, bool) or not isinstance(ct, int) or ct < 1:
         bad.append("usage.advice.context_tokens must be an integer >= 1")
+    wh = adv["window_hours"]
+    if isinstance(wh, bool) or not isinstance(wh, int) or wh < 0:
+        bad.append("usage.advice.window_hours must be an integer >= 0 (0: every request)")
     lanes = out["suite"]["lanes"]
     if not isinstance(lanes, dict) or not all(
             isinstance(k, str) and SUITE_LANE_RE.match(k) and (_str_list(v) and v or lane_stages(v) is not None)

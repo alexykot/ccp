@@ -857,7 +857,8 @@
           "properties": {
             "cache_5m_share": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.5, "description": "A seat whose 5-minute cache writes are more than this share of its cache-write tokens is advised to set subagentPromptCacheTtl to 1h."},
             "context_tokens": {"type": "integer", "minimum": 1, "default": 300000, "description": "The lead or a runner whose median context per request (input, cache read and cache written tokens) exceeds this is advised to lower it: the lead with autoCompactWindow, a runner with the binding's runner.rotate_at_context_tokens."},
-            "coordination_share": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.4, "description": "Advice when the lead's and the runner's cost together are more than this share of all seats' cost."}
+            "coordination_share": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.4, "description": "Advice when the lead's and the runner's cost together are more than this share of all seats' cost."},
+            "window_hours": {"type": "integer", "minimum": 0, "default": 0, "description": "The advice reads the requests of the last this many hours (ccp usage --since, or ccp health --since, gives another start); 0, the default, reads every request. Each advice line names its start."}
           }
         }
       }

@@ -348,6 +348,17 @@ class Refusals(InitCase):
         self.assertFalse((self.repo / "docs/delivery/plane.json").exists())
         self.assertFalse(self.binding.exists())
 
+    def test_a_blank_gate_is_refused_before_anything_is_written(self):
+        q = self.home / "q"
+        for gate in (" ", "", "\t "):
+            with self.subTest(gate=gate):
+                err = self.assert_refused_untouched("--project-id", "demo", "--queue-root", str(q), "--gate", gate)
+                self.assertIn("--gate is blank", err)
+                self.assertNotIn("Traceback", err)
+                self.assertFalse((self.repo / "docs/delivery/plane.json").exists())
+                self.assertFalse(self.binding.exists())
+                self.assertFalse(q.exists())
+
     def test_a_kept_plane_json_that_does_not_load(self):
         (self.repo / "docs/delivery").mkdir(parents=True)
         (self.repo / "docs/delivery/plane.json").write_text(json.dumps({"project_id": "demo", "board": {"refresh_minutes": 0}}))
