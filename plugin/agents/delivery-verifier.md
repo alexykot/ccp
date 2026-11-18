@@ -104,6 +104,9 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   hand-made worktree for it.
 - A check that must pass without git history runs in a depth-1 clone of the head:
   `ccp wt create --kind ver --task <task_id> --sha <PR head> --shallow`, never a clone made by hand.
+- When the PR changes plane.json `env` or a script its hooks call, add `--own-hooks` to your
+  `ccp wt create`, so the worktree runs the PR's own hooks and you check the change before it
+  merges (SPEC §12.2).
 - When the product is the control plane itself, check a change to `ccp` by hand with your
   checkout's own `bin/ccp`: `ccp` on PATH runs the released plane, not the PR head. From your
   worktree, `ccp wt exec -- <args>` runs it, so a new subcommand can be tried as `ccp`.

@@ -179,7 +179,8 @@ before anything else.
    - Minors not fixed before the merge, and why a verify reran, go in the verifier's findings; never
      hand-edit the task file's notes (`ccp tasks close` writes them).
    - A docs-only PR still needs its `verification/pr-<n>.json` before you merge it.
-10. **Operator step.** If the task has one: open a gate unless a standing approval covers it,
+10. **Operator step.** If the task has one: open a gate
+    (`team.sh gate open --class operator`) unless a standing approval covers it,
     `ccp tasks phase <task_id> operator`, and run it from your runner worktree only once
     `team.sh gate status <id>` exits 0.
     You rule on the task, so you never produce the evidence its verdict rests on (SPEC §2.3, §15.4):
@@ -281,8 +282,9 @@ the ruling, to the implementer and to the verifier, which cites it on a check it
 
 Anything that needs approval: an operator step, spend beyond the project's rules, a merge the project
 gates, a credential, anything destructive.
-`scripts/team.sh gate open --task-id … --class … --brief … --ask …` (add `--standing <ref>` when the
-review point's standing approvals cover it), then send the lead the printed message. Do the step
+`scripts/team.sh gate open --task-id … --class … --brief … --ask …` (`--class operator` for an operator
+step, beside `spend`, `merge`, `credential`, `security`, `reauth` and `other`; add `--standing <ref>` when
+the review point's standing approvals cover it), then send the lead the printed message. Do the step
 only once `team.sh gate status <id>` exits 0. **You never approve your own gates, and you never ask
 the operator yourself.** If the operator opens your transcript and tells you something, tell the lead, and still
 record the gate through the lead.

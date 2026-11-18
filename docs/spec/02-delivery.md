@@ -395,6 +395,9 @@ when it is removed, `up` and `down` to start and stop what it serves, `urls` to 
   or `down` is a warning (the worktree is removed regardless). A failed `up` leaves the worktree
   `down` and `ccp wt up` exits non-zero. When a worktree's path is gone, `teardown` and `down` are
   skipped with a warning.
+- A worktree made with `ccp wt create … --own-hooks` (recorded `own_hooks: true`) takes its hooks and
+  their timeout from its own plane.json, not the caller's, so a hook naming its scripts relative to the
+  worktree runs the head's own.
 
 ### 12.3 Up, down and URLs
 
