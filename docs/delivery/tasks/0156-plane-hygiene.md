@@ -1,7 +1,7 @@
 ---
 task_id: 0156-plane-hygiene
 title: The plane's self-check reads its own checkout, a kept binding's shape is read by nesting, and a claim's start has one time
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S29", "S8", "S10"]
@@ -114,3 +114,5 @@ Three plane follow-ups that make its warnings and readings true:
   Scope names only the two ledger events.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #168 head `7724ed6` (squash `d1ce3f6`): APPROVE. Passed: chk-01, bind-01, time-01, suite-01. Gate: `ccp suite run --run 0156-plane-hygiene/verify --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0156-plane-hygiene.json.
+
