@@ -117,4 +117,16 @@ configured SPEC path without a trailing `/` matches only itself, as the signed �
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implement): `verify.added_spec_lines` now returns, per SPEC file, one whitespace-normalised
+  text per hunk (empty hunks, a deletion's, dropped); `spec_text` finds a passage when one hunk's text holds
+  it. The parse reads `+++ ` only while in a file's header (after `diff --git`, before its first `@@`); with
+  `--unified=0` no content line begins `@@`, so every `+` line inside a hunk is content. `tasklog._names_spec`
+  is exact for an entry without `/` (§3.5 as signed). `tasks next`'s empty stdout line counts the tasks
+  passed over (`selection.pick`'s `unsigned` and `passed_over`): "nothing ready: 1 waits on a brief sign-off
+  (stderr names it)", "…: 2 wait on a brief sign-off, 1 held (stderr names them)"; with neither, the old
+  line. `--json` is unchanged (`null`, exit 3).
+- Premise re-run at `78e8940` (`git diff --unified=0 7ff1abd^ 7ff1abd -- docs/spec` against
+  `signed_passages` of 0128's task file at `7ff1abd^`): 4 not found, as stated, of 10 passages, not 12; the
+  same 4 per hunk, so per-hunk matching changes no outcome there.
+
 ## Verification notes

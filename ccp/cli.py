@@ -198,8 +198,7 @@ def cmd_tasks_next(cfg: config.Config, a: argparse.Namespace) -> int:
             "review_refs": tasklog._as_list(t.get("review_refs")), "checks": t["_checks"]}, indent=2))
         return 0 if t else 3
     if not t:
-        print("nothing ready" + (" in scope" if scope else "")
-              + ": every pending task is blocked on a dependency, or all are done")
+        print("nothing ready" + (" in scope" if scope else "") + ": " + _nothing_ready_why(sel))
         return 3
     print(f"{t['task_id']}  {t.get('title')}")
     print(f"  file:      {cfg.rel(t['_file'])}")
@@ -211,6 +210,17 @@ def cmd_tasks_next(cfg: config.Config, a: argparse.Namespace) -> int:
     if why:
         print(f"  why:       {why}")
     return 0
+
+
+def _nothing_ready_why(sel: dict) -> str:
+    """Why `tasks next` found nothing: the counts of the ready tasks it passed over for a missing brief
+    sign-off (§3.5) or a hold (§10.4), which stderr names, else blocked or done."""
+    unsigned, held = len(sel["unsigned"]), len(sel["passed_over"])
+    if not unsigned and not held:
+        return "every pending task is blocked on a dependency, or all are done"
+    parts = ([f"{unsigned} {'waits' if unsigned == 1 else 'wait'} on a brief sign-off"] if unsigned else []) \
+        + ([f"{held} held"] if held else [])
+    return f"{', '.join(parts)} (stderr names {'it' if unsigned + held == 1 else 'them'})"
 
 
 def _slots_full(a: argparse.Namespace, held: dict) -> int:

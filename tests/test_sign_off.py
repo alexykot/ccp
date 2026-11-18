@@ -356,6 +356,29 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 3, err)
         self.assertIn("passed over 0001-first: no brief sign-off", err)
 
+    def test_an_empty_next_says_on_stdout_that_a_task_waits_on_its_sign_off(self):
+        self.declare("brief")  # 0002, the only pending task
+        code, _, out, err = self.ccp("tasks", "next")
+        self.assertEqual(code, 3, out + err)
+        self.assertEqual(out.strip(), "nothing ready: 1 waits on a brief sign-off (stderr names it)")
+        self.assertIn("passed over 0002-second: no brief sign-off", err)
+
+    def test_an_empty_next_counts_the_unsigned_and_the_held(self):
+        self.two_ready()
+        self.assertEqual(self.ccp("tasks", "hold", "0002", "--reason", "later")[0], 0)
+        code, _, out, err = self.ccp("tasks", "next")
+        self.assertEqual(code, 3, out + err)
+        self.assertEqual(out.strip(), "nothing ready: 1 waits on a brief sign-off, 1 held (stderr names them)")
+
+    def test_an_empty_next_with_nothing_passed_over_says_blocked_or_done(self):
+        self.declare("brief")
+        self.assertEqual(self.ccp("tasks", "sign-off", "0002", "--by", "op", "--words", "signed")[0], 0)
+        self.assertEqual(self.ccp("tasks", "claim", "0002")[0], 0)
+        code, _, out, err = self.ccp("tasks", "next", "--scope", "0001")
+        self.assertEqual(code, 3, out + err)
+        self.assertEqual(out.strip(), "nothing ready in scope: every pending task is blocked on a dependency, "
+                                      "or all are done")
+
     def test_a_preferred_unsigned_task_is_passed_over_and_explained(self):
         self.two_ready()
         self.assertEqual(self.ccp("tasks", "prefer", "0001")[0], 0)

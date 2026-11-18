@@ -106,6 +106,28 @@ class SpecText(unittest.TestCase):
         self.assertEqual(body["missing"], [])
         self.assertEqual([r["found_in"] for r in body["passages"]], [["docs/spec/x.md"]])
 
+    def test_a_passage_split_across_two_hunks_is_not_found(self):
+        scope = SCOPE.replace(SCOPE[SCOPE.index("    > A task"):SCOPE.index("  - the code")], "    > Alpha one. Beta two.\n")
+        self.p.task("0001-signed", body=TASK.format(scope=scope))
+        git(self.p.root, "commit", "-q", "-am", "the passage")
+        git(self.p.root, "checkout", "-q", "main")
+        self.change("docs/spec/x.md", "\nGamma.\n")  # on the base: unchanged on the branch
+        git(self.p.root, "checkout", "-q", "task/0001-signed")
+        git(self.p.root, "merge", "-q", "--no-edit", "main")
+        x = self.p.root / "docs/spec/x.md"
+        x.write_text(x.read_text().replace("Gamma.\n", "Alpha one.\nGamma.\nBeta two.\n"))
+        git(self.p.root, "commit", "-q", "-am", "two halves")
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 1, err)
+        self.assertEqual(len(body["missing"]), 1)
+        self.assertIn("Alpha one. Beta two.", err)
+
+    def test_an_added_line_beginning_plus_plus_is_content(self):
+        self.change("docs/spec/x.md", "\n++ counter\n" + PASSAGE + "\n")
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 0, err)
+        self.assertEqual([r["found_in"] for r in body["passages"]], [["docs/spec/x.md"]])
+
     def test_a_changed_word_fails_naming_the_passage(self):
         self.change("docs/spec/x.md", "\n" + PASSAGE.replace("next task", "first task") + "\n")
         code, body, err = self.run_cmd("0001", "--base", "main")
