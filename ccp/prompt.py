@@ -75,12 +75,13 @@ REPORT_LINES = {
 }
 REPORT_LINES.update({p: REPORT_LINES["implement"] for p in runs.REWORK_PHASES})
 # §14.1: the lane each worker labels its test runs with, by role; the names come from plane.json
-# suite.roles (`{full}`, `{gate}`, `{part}` below).
+# suite.roles (`{full}`, `{gate}`, `{part}` below). A role whose lane plane.json `suite.lanes` declares is
+# written as that lane with nothing after `--` (`{<role>_for}` and `{<role>_as}` fill in the form).
 SUITE_LANES = {
-    "implement": "`--lane {full}` for the product's full suite, `--lane {part}` for a subset of the tests",
-    "review": "`--lane {part}` for the tests you run (`--lane {full}` if you run the whole suite)",
-    "verify": "`--lane {gate}` for the formal gate (the product's gate script, which picks its own lanes), "
-              "`--lane {part}` for a subset such as a mutation check",
+    "implement": "{full}{full_for}the product's full suite{full_as}, {part}{part_for}a subset of the tests{part_as}",
+    "review": "{part}{part_for}the tests you run{part_as} ({full} if you run the whole suite)",
+    "verify": "{gate}{gate_for}the formal gate (the product's gate script, which picks its own lanes){gate_as}, "
+              "{part}{part_for}a subset such as a mutation check{part_as}",
 }
 SUITE_LANES.update({p: SUITE_LANES["implement"] for p in runs.REWORK_PHASES})
 
@@ -163,8 +164,18 @@ def pointer(prompt_file: Path) -> str:
 
 
 def suite_lanes(cfg: Config, phase: str) -> str:
+    """§14.1: the phase's lanes, by role. A lane plane.json `suite.lanes` declares (an argv or stages) runs
+    as `--lane <lane>` with nothing after `--`, so the worker runs what the product declares; a lane it does
+    not declare takes the command after `--`."""
     from ccp.config import SUITE_ROLES, lane_for  # noqa: PLC0415
-    return SUITE_LANES[phase].format(**{r: lane_for(cfg, r) for r in SUITE_ROLES})
+    declared = (cfg.suite or {}).get("lanes") or {}
+    v: dict[str, str] = {}
+    for r in SUITE_ROLES:
+        lane = lane_for(cfg, r)
+        own = isinstance(declared, dict) and lane in declared
+        v[r] = f"`--lane {lane}`" + (" with nothing after `--`" if own else "")
+        v[f"{r}_for"], v[f"{r}_as"] = (": ", ", as plane.json gives it") if own else (" for ", "")
+    return SUITE_LANES[phase].format(**v)
 
 
 def render(template: str, values: dict[str, Any]) -> str:
@@ -610,6 +621,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "report_lines": report_lines(cfg, phase), "suite_lanes": suite_lanes(cfg, phase),
         # §13.4: the product's declared verdicts, as the latest implementer report states them
         "report_verdicts": "; ".join(f"`{k}: {v}`" for k, v in verdicts.items()), "report_verdicts_run": verdicts_run,
+        "full_lane": lane_for(cfg, "full"),  # §14.1: the lane the product's full suite runs as
         "part_lane": lane_for(cfg, "part"),  # §14.1: the lane a subset or a mutation run goes through
         "gate_lane": lane_for(cfg, "gate"),  # §14.2: the verifier asks for a cold gate with `--cold` on it
         "worker_env": env_list, "worker_env_file": env_file,
