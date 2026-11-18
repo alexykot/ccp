@@ -65,7 +65,7 @@ from ccp.queue import lib
 from ccp.config import Config
 from ccp.queue import (OBS, QueueError, actor, durable_statuses, emit, file_lock, git, heartbeat, integration_branch, iso,
                        load_task_state, load_work, now, phase_move, preferred_ids, progress_event, root,
-                       runner_slots, save_task_state, save_work, script_drift, set_marker, sign_offs, task_meta,
+                       rulings, runner_slots, save_task_state, save_work, script_drift, set_marker, sign_offs, task_meta,
                        task_state_path)
 
 VERIFY_PLACEHOLDER_RE = re.compile(r"^\*Append-only[^\r\n]*\*[ \t]*\r?$", re.M)
@@ -850,6 +850,23 @@ def sign_off(cfg: Config, task: str, stage: str | None, by: str, words: str, hea
     return {"ok": True, "task_id": tid, "sign_off": {**payload, "at": ev.get("at")}}
 
 
+def ruling(cfg: Config, task: str, words: str, check: str | None = None) -> dict[str, Any]:
+    """§17.5 `ccp tasks ruling`: the lead records a ruling it gave a runner by message as a `ruling` `recorded`
+    event in the ledger (the check it concerns, when given, and the words), id `<task_id>-r<n>`, `n` counting
+    from 1 per task. A verdict cites the id wherever it cites a ruling (§15.4). Exit 2 for an unknown task or
+    empty words."""
+    q = root()
+    tid = str(task_meta(cfg, task)["task_id"])
+    if not words.strip():
+        raise QueueError("give --words (the ruling, as the lead gave it, one line)", 2)
+    if check is not None and not check.strip():
+        raise QueueError("--check names a dod_check id: give one, or leave it out", 2)
+    n = len(rulings(q, tid)) + 1
+    payload = {"id": f"{tid}-r{n}", "n": n, **({"check": check.strip()} if check else {}), "words": words.strip()}
+    ev = emit(q, cfg, tid, "ruling", "recorded", payload, actor("design-seat"))
+    return {"ok": True, "task_id": tid, "id": payload["id"], "ruling": {**payload, "at": ev.get("at")}}
+
+
 def due_stages(q: Path, meta: dict[str, Any]) -> tuple[list[str], list[str]]:
     """§3.5: the sign-off stages due on the task, in order: those it declares, and `build` when its latest
     verdict lists text beyond the task's intent (`spec_beyond_intent`), declared or not; and those
@@ -867,8 +884,9 @@ def sign_off_gaps(q: Path, meta: dict[str, Any], stages: list[str], head: str | 
     """§3.5: why the task's due sign-offs among `stages` (`due_stages`: those it declares, and `build` when
     its verdict lists spec_beyond_intent) do not hold: a `sign_off:` value the plane cannot read (fails
     closed), one missing, or, given the head about to merge, a `build` sign-off recorded for another head
-    (stale), or, given the checkout the task file is read from (`text_in`, at the claim), a `brief`
-    sign-off whose head does not contain the commit that last changed the task file (stale). A `build` gap
+    (stale) unless close's own catch-up carried it to that head (`verify.sign_off_carried`), or, given the
+    checkout the task file is read from (`text_in`, at the claim), a `brief` sign-off whose head does not
+    contain the commit that last changed the task file (stale). A `build` gap
     names the verdict's passages beyond the task's intent, when it lists any. [] when they hold."""
     tid = str(meta["task_id"])
     if why := tasklog.sign_off_malformed(meta):
@@ -888,7 +906,7 @@ def sign_off_gaps(q: Path, meta: dict[str, Any], stages: list[str], head: str | 
         elif stage == "build" and head is not None:
             from ccp import verify  # noqa: PLC0415
             signed = str(got.get("head") or "")
-            if not verify.heads_match(signed, head):
+            if not verify.heads_match(signed, head) and not verify.sign_off_carried(q, tid, signed, head):
                 out.append(f"{tid}'s build sign-off is stale: signed at {signed[:12] or 'no head'}, the head to "
                            f"merge is {head[:12]}; the operator signs the new head (`ccp tasks sign-off {tid} "
                            "--stage build`, SPEC §3.5)" + passages)
@@ -1446,19 +1464,18 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
               integ: str, facts: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     """§16.5 rule 4: close merges origin/<integ> into the PR head `start` itself, when the merge is clean or its
     only conflicts are in `parallel.shared` paths where both sides only added lines (`_union`), the tip's new
-    commits change no file the task's own diff or declared paths change other than a `parallel.shared` path, no
-    build sign-off is due on the task (declared, or from its verdict's spec_beyond_intent, §3.5), and the product has a gate lane; it runs the gate lane on the merge in its merge worktree as a
+    commits change no file the task's own diff or declared paths change other than a `parallel.shared` path, and
+    the product has a gate lane; where a build sign-off is due on the task (declared, or from its verdict's
+    spec_beyond_intent, §3.5; `close` has checked it is recorded for the verified head), the tip's new commits
+    also change no file the task's own diff changes, a `parallel.shared` path included, and the catch-up
+    carries the sign-off (`sign_off_carried`); it runs the gate lane on the merge in its merge worktree as a
     recorded run, re-checks the tip (at most CATCH_UPS catch-ups), pushes the merge as the task branch's new
     head, records the catch-up on the verification record, and returns the head to merge and the catch-up.
     Raises _NoCatchUp, with nothing pushed, naming the condition that failed."""
     from ccp import parallel, suite, verify  # noqa: PLC0415
     from ccp.config import lane_for  # noqa: PLC0415
     verified = str(body.get("head_sha") or start)
-    if "build" in tasklog.sign_off_stages(meta):
-        raise _NoCatchUp("build sign-off: the task declares a build sign-off, which covers the verified head only")
-    if verify.beyond_intent(q, tid):
-        raise _NoCatchUp("build sign-off: the verdict lists spec_beyond_intent, so a build sign-off is due, and it "
-                         "covers the verified head only (SPEC §3.5)")
+    signed_due = "build" in due_stages(q, meta)[0]  # §3.5: declared, or from the verdict's spec_beyond_intent
     declared = [p.strip().removeprefix("./") for p in tasklog._as_list(meta.get("paths")) if p.strip()]
     if not declared:
         raise _NoCatchUp("no declared paths: the task declares no `paths`, so the tip's files cannot be checked "
@@ -1489,6 +1506,11 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
             if overlap:  # (b)
                 raise _NoCatchUp(f"overlap: the tip's new commits change {', '.join(overlap[:5])}, which the task's "
                                  "own diff or declared paths change")
+            if signed_due and (signed_over := [f for f in tip_files if f in own]):  # (b'): the signed text may change
+                raise _NoCatchUp(f"build sign-off: the tip's new commits change {', '.join(signed_over[:5])}, which "
+                                 "the task's own diff changes (a parallel.shared path included), so the build "
+                                 "sign-off, which covers the verified head, is not carried over them (SPEC §16.5 "
+                                 "rule 4)")
             wt = _merge_checkout(cfg, tid, integ).root
             made = True
             co = git(wt, "checkout", "-q", "--detach", merged)
@@ -1523,6 +1545,8 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
     caught = {"from": verified, "to": head, "tip": tip, "gate_run": gate_run,
               "merge_tree": "union" if unioned else "clean",
               "tip_files": sorted(tips)[:CATCH_UP_FILES_MAX], "task_files": task_files[:CATCH_UP_FILES_MAX]}
+    if signed_due:
+        caught["sign_off_carried"] = verified  # the head the build sign-off covers (§3.5)
     pushed_note = (f"close caught {start[:7]} up to {head[:7]} (gate run {gate_run}) and pushed it to {branch}, "
                    "so the PR's head is that merge now")
     try:
@@ -1531,7 +1555,8 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
         raise QueueError(f"merge refused, nothing merged: {pushed_note}, but the verification record could not take "
                          f"the catch-up ({exc}): verify the new head, then close (SPEC §16.5 rule 4)", 1) from None
     emit(q, cfg, tid, "verify", "set", {"field": "catch_up", "pr": pr, "from": verified, "to": head, "tip": tip,
-                                        "gate_run": gate_run, "catch_ups": n})
+                                        "gate_run": gate_run, "catch_ups": n,
+                                        **({"sign_off_carried": verified} if signed_due else {})})
     reasons: list[str] = []
     for i in range(PR_HEAD_POLLS):  # the hosting service moves the PR's head to the push; it may take a moment
         reasons, now_ok = verify.merge_ok(cfg, q, pr, tid)

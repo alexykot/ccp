@@ -297,6 +297,14 @@ def sign_offs(q: Path, task_id: str) -> dict[str, dict[str, Any]]:
     return out
 
 
+def rulings(q: Path, task_id: str) -> list[dict[str, Any]]:
+    """§17.5: the lead rulings recorded on the task, in order, from the ledger's `ruling` `recorded` events:
+    the payload (`id`, `n`, `check?`, `words`) with the event's `at`."""
+    return [{**ev["payload"], "at": ev.get("at")} for ev in lib.load_events(events_path(q))
+            if ev.get("task_id") == task_id and ev.get("type") == "ruling" and ev.get("op") == "recorded"
+            and isinstance(ev.get("payload"), dict) and ev["payload"].get("id")]
+
+
 def read_json(path: Path, default: Any = None) -> Any:
     if not path.is_file():
         return default
