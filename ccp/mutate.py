@@ -457,7 +457,9 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
     mu = cfg.mutate or {}
     if not mu.get("command"):
         raise QueueError("plane.json names no mutate.command: the product has no command that runs one test "
-                         "(§20.6)", 2)
+                         "(§20.6). Set mutate.command to a shell template that runs the test named by {test}: a "
+                         "per-test runner (`python3 -m unittest {test}`), or, where each test is a whole script, "
+                         "`sh {test}` with --test the script's path", 2)
     if not test.strip():
         raise QueueError("--test names the test a mutant is judged by", 2)
     if not mutants and not reverts and not mutant_files:

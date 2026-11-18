@@ -440,7 +440,9 @@ class Refusals(MutateFixture, unittest.TestCase):
         body = json.loads(p.read_text())
         del body["mutate"]
         p.write_text(json.dumps(body))
-        self.refused(2, "calc.py:a + b=>a - b")
+        err = self.refused(2, "calc.py:a + b=>a - b")
+        for named in ("mutate.command", "{test}", "sh {test}"):  # what to set, a whole-script test's form too
+            self.assertIn(named, err)
 
     def test_a_test_that_fails_unmutated(self):
         (self.mut / "test_calc.py").write_text(TESTS.replace("add(1, 1), 2", "add(1, 1), 3"))
@@ -608,6 +610,45 @@ class FromTheImplementersWorktree(MutateFixture, unittest.TestCase):
         self.assertEqual([(r["kind"], r["outcome"], r["worktree"]) for r in self.rows()],
                          [("revert", "killed", "impl-0002")])
         self.assertEqual((impl / "calc.py").read_text(), GUARDED)
+
+
+LIB_SH = 'greet() {\n    echo "hello $1"\n}\n'
+SCRIPT_TEST = '. ./lib.sh\n[ "$(greet world)" = "hello world" ] || exit 1\n'
+
+
+class WholeScriptTests(ToolkitFixture, unittest.TestCase):
+    """A product whose tests are whole scripts runs one script per test: `sh {test}`, the script as --test."""
+
+    def setUp(self):
+        super().setUp()
+        self.write("docs/delivery/plane.json", json.dumps({**self.PLANE_JSON, "mutate": {"command": "sh {test}"}}))
+        self.write("lib.sh", LIB_SH)
+        self.write("tests/t.sh", SCRIPT_TEST)
+        git(self.main, "add", "docs/delivery/plane.json", "lib.sh", "tests/t.sh")
+        git(self.main, "commit", "-q", "-m", "a script-tested product")
+        git(self.main, "push", "-q", "origin", "main")
+        self.run_id = runs.open_run(self.q, config.load(self.main), "0002-second", "implement", prompt_ref=None,
+                                    note=None, supersede=False)["run_id"]
+        code, body, _, err = self.ccp("wt", "create", "--kind", "impl", "--task", "0002", root=self.main)
+        self.assertEqual(code, 0, err)
+        self.impl = Path(body["path"])
+
+    def test_a_script_test_kills_a_mutant_and_the_source_is_restored(self):
+        code, body, _, err = self.ccp("mutate", "--run", self.run_id, "--test", "tests/t.sh",
+                                      "--mutant", "lib.sh:hello $1=>bye $1", root=self.impl)
+        self.assertEqual(code, 0, err)
+        rows = runs.load(self.q, self.run_id).get("mutation", [])
+        self.assertEqual([(r["test"], r["outcome"], r["worktree"]) for r in rows],
+                         [("tests/t.sh", "killed", "impl-0002")])
+        self.assertEqual((self.impl / "lib.sh").read_bytes(), LIB_SH.encode())
+
+    def test_a_mutant_the_script_does_not_read_survives(self):
+        code, _, _, err = self.ccp("mutate", "--run", self.run_id, "--test", "tests/t.sh",
+                                   "--mutant", "tests/t.sh:|| exit 1=>|| exit 0", "--mutant", "lib.sh:greet()=>greet ()",
+                                   root=self.impl)
+        self.assertEqual(code, 1, err)
+        self.assertEqual([r["outcome"] for r in runs.load(self.q, self.run_id).get("mutation", [])],
+                         ["survived", "survived"])
 
 
 # A change git and difflib place differently: git puts the inserted blank line after NEW, difflib

@@ -2,6 +2,7 @@
 from the worker's own worktree and `ccp suite affected` for the pre-gate's test modules."""
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -13,6 +14,15 @@ CHANGE_ROUNDS = (("implement", ("--base", "abc1234"), "origin/main"),
                  ("fix", ("--pr", "7", "--head", A), A),
                  ("merge", ("--pr", "7", "--head", A), A),
                  ("ruling", ("--pr", "7", "--head", A, "--note", "the field is optional"), A))
+
+
+# The one place a prompt names a mutation worktree: where the product declares no `mutate.command`,
+# up to the clause's end (`;` or a sentence's `.`).
+FALLBACK = re.compile(r"Where the product declares no `mutate\.command`.*?(?:;|\.(?=\s|$))")
+
+
+def outside_the_fallback(text: str) -> str:
+    return FALLBACK.sub("", text)
 
 
 class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
@@ -32,7 +42,29 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         run_id, text = self.render("verify", "--pr", "7", "--head", A)
         self.assertIn(f"mutate --run {run_id} --test <test id> --revert <path>[:<lines>]", text)
         self.assertIn(str(self.main / ".rt" / "ver-0002"), text)
-        self.assertNotIn("wt create --kind mut", text)
+        self.assertNotIn("wt create --kind mut", outside_the_fallback(text))
+
+    def test_with_no_mutate_command_a_seat_breaks_code_in_a_mutation_worktree_it_removes(self):
+        run_id, text = self.render("verify", "--pr", "7", "--head", A)
+        fallbacks = FALLBACK.findall(text)
+        self.assertTrue(fallbacks)
+        for f in fallbacks:
+            self.assertIn("wt create --kind mut --task 0002-second --sha ", f)
+            self.assertIn("wt remove <name>", f)
+        self.assertIn(f"wt create --kind mut --task 0002-second --sha {A}`", text)
+        self.assertIn(f"suite run --run {run_id}` with `--lane part`", text)
+        _impl_run, text_impl = self.render("implement", "--base", "abc1234")  # every seat, through the common rules
+        fallbacks = FALLBACK.findall(text_impl)
+        self.assertTrue(fallbacks)
+        for f in fallbacks:
+            for named in ("wt create --kind mut --task 0002-second --sha <head>`", "wt remove <name>`", "`--lane part`"):
+                self.assertIn(named, f)
+        self.assertNotIn("put the file back", text)
+        self.assertNotIn("put the file back", (PLANE / "templates/prompts/verify.md").read_text())
+        for a in ("implementer", "reviewer", "verifier"):
+            brief = (PLANE / f"plugin/agents/delivery-{a}.md").read_text()
+            for named in ("ccp wt create --kind mut", "ccp wt remove <name>"):
+                self.assertIn(named, brief, (a, named))
 
     def test_the_change_rounds_name_mutate_and_suite_affected(self):
         for phase, args, since in CHANGE_ROUNDS:
@@ -69,8 +101,8 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
             self.assertIn("gives stages takes no command", text, phase)
 
     def test_no_template_sends_a_worker_to_a_mutation_worktree_or_a_discovery_command(self):
-        for phase in ("implement", "fix", "ruling", "merge", "verify"):
-            text = (PLANE / "templates/prompts" / f"{phase}.md").read_text()
+        for phase in ("implement", "fix", "ruling", "merge", "verify", "_common"):
+            text = outside_the_fallback((PLANE / "templates/prompts" / f"{phase}.md").read_text())
             for gone in ("dependent-modules command", "mut worktree", "--kind mut"):
                 self.assertNotIn(gone, text, (phase, gone))
         self.assertEqual(prompt_mod.TEMPLATES, PLANE / "templates/prompts")

@@ -35,7 +35,11 @@ propose new scope.
 - A test run you cite as evidence, a mutation check included, is a recorded one, never a bare test
   runner: `ccp suite run --run <run_id> --lane <lane> -- <command>` with the lane your prompt names,
   or `ccp mutate --run <run_id> --test <id> …` from your own checkout or a mutation copy where the
-  product declares `mutate.command` (SPEC §14.1, §20.6).
+  product declares `mutate.command` (SPEC §14.1, §20.6). Where it declares none, break code by hand
+  only in a mutation worktree at the head you judge
+  (`ccp wt create --kind mut --task <id> --sha <head>`), run the test there on the part lane as
+  above, and remove it with `ccp wt remove <name>`; never a hand edit and restore in your own
+  checkout.
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
   the PR's merge base before calling a citation wrong.
 - When the product is the control plane itself, try a change to `ccp` with your checkout's own

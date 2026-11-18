@@ -433,7 +433,9 @@ nothing else.
   command); what runs is the command's. It runs in the worktree's root, in its own process group,
   killed after `mutate.timeout_seconds` (default 600); a run killed at the limit counts as the test
   failing. With no command (`null`, the default) `ccp mutate` refuses (exit 2). Its test runs are not suite runs (§14.1): `ccp mutate` runs the command itself, and
-  records them in its own rows and log, not as `suite` events.
+  records them in its own rows and log, not as `suite` events. A product whose tests are whole
+  scripts sets `mutate.command` to `sh {test}` (or the interpreter its scripts need) and names the
+  script as `--test`.
 - **A mutant** is `<file>:<old>=><new>`, the text `old` found exactly once in `file` (a path relative
   to the worktree's root, inside it) replaced by `new`, or the path of a patch `git apply` takes. A
   value with no `=>` is a patch. `--mutant-file <path>` is the same substitution without shell
