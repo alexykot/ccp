@@ -45,3 +45,4 @@
 | [ADR-0039](0039-only-the-lead-sends-a-plane-rendered-notice.md) | Only the lead sends a plane-rendered notice over a configured channel | accepted | 2026-11-11 |  |
 | [ADR-0040](0040-the-pr-host-is-an-adapter.md) | The PR host is an adapter | accepted | 2026-11-12 |  |
 | [ADR-0041](0041-a-release-tells-each-product-what-to-adopt.md) | A release tells each product what to adopt | accepted | 2026-11-17 |  |
+| [ADR-0042](0042-tasks-run-together-unless-they-clash.md) | Tasks run together unless they clash | proposed | 2026-11-18 |  |
