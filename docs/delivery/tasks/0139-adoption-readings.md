@@ -1,7 +1,7 @@
 ---
 task_id: 0139-adoption-readings
 title: ccp health reads from the product's adoption onwards, and tasks check's unmeasured-number warning skips stated limits and protocol codes
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4", "S5", "S23", "S27"]
@@ -9,7 +9,7 @@ review_point: R9
 paths: ["ccp/init.py", "ccp/health.py", "ccp/tasklog.py", "scripts/observability/lib.py", "contracts/observability_event.schema.json", "docs/spec/01-model.md", "docs/spec/04-observability.md", "plugin/skills/writing-tasks/SKILL.md", "tests/test_health.py", "tests/test_init.py", "tests/test_tasklog.py"]
 adopt: "none"
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Task: 0139-adoption-readings
@@ -133,3 +133,5 @@ brief to measure a rule's own limit or a protocol code.
   the `start` parameter. No behaviour changes.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #156 head `ec83290` (squash `b5badc1`): APPROVE. Passed: health-01, init-01, init-02, check-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0139-adoption-readings.json.
+
