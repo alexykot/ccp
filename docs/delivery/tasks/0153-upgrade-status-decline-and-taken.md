@@ -1,7 +1,7 @@
 ---
 task_id: 0153-upgrade-status-decline-and-taken
 title: A product records an adopt step as declined or taken with one command, upgrade status names the steps it saw taken, and each change line reads as written
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S29"]
@@ -123,4 +123,16 @@ reads as a sentence, whatever the step's wording.
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `ccp upgrade decline|take <task> --reason R` (`ccp/upgrade.py` `_record`)
+  resolve the task against the plane's merged tasks by id or number (`refs.ids(...).same_task`), refuse a
+  blank or missing reason, an unmerged task and a step that asks nothing, load plane.json, set the entry,
+  remove the id from the other object, check the result with `config._parse` (the parse `config.load`
+  runs) and write it through `queue.write_json` (`json.dumps(data, indent=2)` plus a newline, atomic
+  replace). An `upgrade.<other>` object left empty stays as `{}`. `--reason` is optional in argparse so a
+  missing one is refused by the command, exit 2. `status` gains `detected`; `_change` renders the three
+  forms. The premises re-run at `7fc5197` held (help offered only notes and status; no plane.json
+  writer outside `ccp/init.py`; the dry run showed the 0034, 0068 and 0126 lines as the task quotes).
+
 ## Verification notes
+- 2026-11-18 — verifier, PR #166 head `93ee240` (squash `bb0f483`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, cmd-05, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0153-upgrade-status-decline-and-taken.json.
+

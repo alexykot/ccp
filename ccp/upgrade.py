@@ -2,6 +2,7 @@
 
   ccp upgrade notes [--since COMMIT]   the plane's tasks merged since COMMIT, each with its `adopt` step
   ccp upgrade status                   the `adopt` steps this product has not taken
+  ccp upgrade decline|take TASK --reason R   record a task's step as declined or taken in plane.json
 
 Both read the plane's own task log, in the plane checkout `ccp` runs from (normally the run checkout):
 a task is merged when its file says `done`, and merged since COMMIT when its file there did not. The
@@ -15,7 +16,9 @@ is `none` asks nothing. Any other step, and one whose file cannot be read, is li
 A step that starts with `required:` is one the product must take, and is read without that prefix; any
 other is optional. `status` names the plane checkout's HEAD commit it read, so two readings compare.
 plane.json `upgrade.declined` leaves a task's step out; `upgrade.taken` leaves out a step the product took
-in a way the command cannot see, and lists it under `taken` with its reason.
+in a way the command cannot see, and lists it under `taken` with its reason. A step the command checked and
+found taken is listed under `detected`. `decline` and `take` write those two objects, each removing the task
+from the other; they rewrite plane.json and commit nothing.
 The proposals a task answers are those the plane session closed as built by it (`ccp plane built`).
 """
 from __future__ import annotations
@@ -27,7 +30,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from ccp import config, tasklog
+from ccp import config, refs, tasklog
 from ccp.config import Config
 from ccp.queue import QueueError
 
@@ -166,19 +169,27 @@ def _sources(cfg: Config) -> dict[str, dict[str, Any] | None]:
 
 
 def _change(kind: str, key: str, value: str) -> str:
-    return f"set `{key}` in {SHOWN[kind]}" + (f" to {value}" if value else "")
+    """The change a checkable step asks for: the key alone, `to <value>` for a one-word value, and the rest
+    of the step as written after a colon when it is more than one word."""
+    where = f"set `{key}` in {SHOWN[kind]}"
+    if not value:
+        return where
+    return f"{where} to {value}" if len(value.split()) == 1 else f"{where}: {value}"
 
 
 def status(cfg: Config, _a: Any) -> dict[str, Any]:
     """§29.3: each `adopt` step of a merged plane task that this product has not taken, with the task, whether
     it is required, the product's own proposal for it and the change to make, and the plane checkout's HEAD
     commit it read (`plane`). A declined task's step is left out; a step the product recorded as taken
-    (`upgrade.taken`) is too, and is listed under `taken` with its reason."""
+    (`upgrade.taken`) is too, and is listed under `taken` with its reason; a step the command checked and
+    found taken is listed under `detected`."""
     declined = (cfg.upgrade or {}).get("declined") or {}
     recorded = (cfg.upgrade or {}).get("taken") or {}
     sources = _sources(cfg)
     mine = _proposals_by_task()
-    steps, taken = [], []
+    steps: list[dict[str, Any]] = []
+    taken: list[dict[str, Any]] = []
+    detected: list[dict[str, Any]] = []
     for t in merged_tasks():
         tid, step = str(t["task_id"]), tasklog.adopt_step(t)
         if tasklog.asks_nothing(step) or tid in declined:
@@ -190,10 +201,58 @@ def status(cfg: Config, _a: Any) -> dict[str, Any]:
         parsed = parse_step(step)
         if parsed and sources[parsed[0]] is not None:
             if _has(sources[parsed[0]], parsed[1]):
+                detected.append({"task": tid, "title": t.get("title"), "adopt": step})
                 continue
             check, change = NOT_TAKEN, _change(*parsed)
         else:
             check, change = BY_HAND, bare or step  # a step of only the prefix is shown as written
         steps.append({"task": tid, "title": t.get("title"), "adopt": step, "required": required, "check": check,
                       "change": change, "proposals": mine.get(tid, [])})
-    return {"ok": True, "plane": _git(_plane_root(), "rev-parse", "HEAD"), "steps": steps, "taken": taken}
+    return {"ok": True, "plane": _git(_plane_root(), "rev-parse", "HEAD"), "steps": steps, "taken": taken,
+            "detected": detected}
+
+
+def _record(cfg: Config, a: Any, key: str, other: str) -> dict[str, Any]:
+    """Set plane.json `upgrade.<key>.<task id>` to the reason and remove the id from `upgrade.<other>`.
+    Refused (exit 2, nothing written): a blank reason, a task that is not a merged plane task or whose step
+    asks nothing, and a plane.json that does not load before or would not load after the change."""
+    reason = a.reason or ""
+    if not reason.strip():
+        raise QueueError(f"{a.cmd}: give the reason with --reason", 2)
+    pcfg = _plane_cfg()
+    ids = refs.ids(pcfg)
+    hits = [t for t in merged_tasks(pcfg) if ids.same_task(t["task_id"], a.task)]
+    if len(hits) != 1:
+        raise QueueError(f"{a.cmd}: {a.task} is not a merged plane task in the plane checkout {pcfg.root}", 2)
+    tid = str(hits[0]["task_id"])
+    if tasklog.asks_nothing(tasklog.adopt_step(hits[0])):
+        raise QueueError(f"{a.cmd}: {tid}'s adopt step asks nothing: there is nothing to record", 2)
+    path = cfg.root / config.CONFIG_REL
+    try:
+        config.load(cfg.root)
+        data = json.loads(path.read_text())
+    except (config.ConfigError, OSError, ValueError) as e:
+        raise QueueError(f"{a.cmd}: {config.CONFIG_REL} does not load: {e}", 2) from e
+    upgrade = data.setdefault("upgrade", {})
+    if not isinstance(upgrade, dict) or not isinstance(upgrade.setdefault(key, {}), dict):
+        raise QueueError(f"{a.cmd}: {config.CONFIG_REL} `upgrade.{key}` is not an object", 2)
+    upgrade[key][tid] = reason
+    if isinstance(upgrade.get(other), dict):
+        upgrade[other].pop(tid, None)
+    try:
+        config._parse(cfg.root, json.dumps(data))  # noqa: SLF001  (the file as it would be, checked as `load` does)
+    except config.ConfigError as e:
+        raise QueueError(f"{a.cmd}: {config.CONFIG_REL} would not load after the change: {e}", 2) from e
+    from ccp import queue  # noqa: PLC0415
+    queue.write_json(path, data)
+    return {"ok": True, "task": tid, "recorded": key, "reason": reason}
+
+
+def decline(cfg: Config, a: Any) -> dict[str, Any]:
+    """§29.3: record task `a.task`'s step as declined (`upgrade.declined`), with `a.reason`."""
+    return _record(cfg, a, "declined", "taken")
+
+
+def take(cfg: Config, a: Any) -> dict[str, Any]:
+    """§29.3: record task `a.task`'s step as taken (`upgrade.taken`), with `a.reason`."""
+    return _record(cfg, a, "taken", "declined")

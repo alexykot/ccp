@@ -2,6 +2,7 @@
 `adopt` steps; `ccp upgrade status` lists the steps a product has not taken."""
 from __future__ import annotations
 
+import argparse
 import io
 import json
 import os
@@ -12,7 +13,8 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli, config
+from ccp import cli, config, upgrade
+from ccp.queue import QueueError
 from tests.helpers import TASK, Product
 
 GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
@@ -276,6 +278,134 @@ class Required(UpgradeFixture, unittest.TestCase):
         before = self.reading()
         self.product_json(gamma={"on": True})
         self.assertEqual(self.reading(), before)
+
+
+class Record(UpgradeFixture, unittest.TestCase):
+    """§29.3: `ccp upgrade decline` and `take` write plane.json `upgrade.declined` and `upgrade.taken`, each
+    removing the task from the other; `status` lists the steps it found taken under `detected`."""
+
+    def setUp(self):
+        super().setUp()
+        self.plane_task("0001-alpha", "done", "Alpha", "plane.json alpha.on")
+        self.plane_task("0002-quiet", "done", "Quiet", "none")
+        self.plane_task("0003-later", "pending", "Later", "plane.json gamma.on")
+        self.commit("plane")
+        self.product_json()
+
+    def plane_json(self) -> dict:
+        return json.loads((self.product.root / "docs/delivery/plane.json").read_text())
+
+    def reading(self) -> dict:
+        code, body, err = self.ccp("upgrade", "status")
+        self.assertEqual(code, 0, err)
+        return body
+
+    def listed(self, body: dict) -> dict[str, list[str]]:
+        return {k: [s["task"] for s in body[k]] for k in ("steps", "taken", "detected")}
+
+    def test_a_declined_step_is_recorded_and_status_lists_it_nowhere(self):
+        code, body, err = self.ccp("upgrade", "decline", "0001-alpha", "--reason", "not for us")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(body, {"ok": True, "task": "0001-alpha", "recorded": "declined", "reason": "not for us"})
+        self.assertEqual(self.plane_json()["upgrade"]["declined"], {"0001-alpha": "not for us"})
+        config.load(self.product.root)
+        self.assertEqual(self.listed(self.reading()), {"steps": [], "taken": [], "detected": []})
+
+    def test_taking_a_declined_step_moves_the_record(self):
+        self.assertEqual(self.ccp("upgrade", "decline", "0001-alpha", "--reason", "not for us")[0], 0)
+        code, body, err = self.ccp("upgrade", "take", "0001-alpha", "--reason", "done by hand")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(body["recorded"], "taken")
+        upgrade = self.plane_json()["upgrade"]
+        self.assertEqual(upgrade["taken"], {"0001-alpha": "done by hand"})
+        self.assertNotIn("0001-alpha", upgrade["declined"])
+        self.assertEqual([(t["task"], t["reason"]) for t in self.reading()["taken"]], [("0001-alpha", "done by hand")])
+
+    def test_declining_a_taken_step_moves_the_record_back(self):
+        self.assertEqual(self.ccp("upgrade", "take", "0001-alpha", "--reason", "done by hand")[0], 0)
+        self.assertEqual(self.ccp("upgrade", "decline", "0001-alpha", "--reason", "not for us")[0], 0)
+        upgrade = self.plane_json()["upgrade"]
+        self.assertEqual((upgrade["declined"], upgrade["taken"]), ({"0001-alpha": "not for us"}, {}))
+
+    def test_the_task_may_be_named_by_its_number(self):
+        code, body, err = self.ccp("upgrade", "decline", "0001", "--reason", "not for us")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(body["task"], "0001-alpha")
+        self.assertEqual(self.plane_json()["upgrade"]["declined"], {"0001-alpha": "not for us"})
+
+    def test_the_file_is_rewritten_with_two_space_indent_and_its_keys_in_order(self):
+        self.product.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "zeta": {"a": 1},
+                                                                   "alpha": {"off": True}}))
+        self.assertEqual(self.ccp("upgrade", "decline", "0001-alpha", "--reason", "not for us")[0], 0)
+        data = {"project_id": "demo", "zeta": {"a": 1}, "alpha": {"off": True},
+                "upgrade": {"declined": {"0001-alpha": "not for us"}}}
+        self.assertEqual((self.product.root / "docs/delivery/plane.json").read_text(),
+                         json.dumps(data, indent=2) + "\n")
+
+    def test_a_bad_record_is_refused_and_nothing_is_written(self):
+        path = self.product.root / "docs/delivery/plane.json"
+        before = path.read_bytes()
+        for args in (("decline", "0001-alpha", "--reason", " "), ("decline", "0001-alpha"),
+                     ("decline", "9999-no-such", "--reason", "x"), ("take", "0003-later", "--reason", "x"),
+                     ("take", "0002-quiet", "--reason", "x")):
+            code, body, err = self.ccp("upgrade", *args)
+            self.assertEqual((code, body), (2, None), args)
+            self.assertEqual(path.read_bytes(), before, args)
+            if args[:2] == ("decline", "0001-alpha"):  # a blank or missing reason is refused as that
+                self.assertIn("--reason", err, args)
+
+    def test_a_plane_json_that_would_not_load_after_the_change_is_left_as_it_was(self):
+        path = self.product.root / "docs/delivery/plane.json"
+        before = path.read_bytes()
+        real = config._parse  # noqa: SLF001
+
+        def parse(root, text):  # the file as it is loads; the file with the record does not
+            if "not for us" in text:
+                raise config.ConfigError("no")
+            return real(root, text)
+        with mock.patch("ccp.config._parse", side_effect=parse):
+            code, body, err = self.ccp("upgrade", "decline", "0001-alpha", "--reason", "not for us")
+        self.assertEqual((code, body), (2, None))
+        self.assertIn("would not load", err)
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_a_plane_json_that_does_not_load_is_refused(self):
+        path = self.product.root / "docs/delivery/plane.json"
+        path.write_text("{not json")
+        code, body, _ = self.ccp("upgrade", "decline", "0001-alpha", "--reason", "x")
+        self.assertEqual((code, body), (2, None))
+        self.assertEqual(path.read_text(), "{not json")
+
+    def test_a_plane_json_broken_after_the_command_started_is_refused(self):
+        cfg = config.load(self.product.root)
+        path = self.product.root / "docs/delivery/plane.json"
+        path.write_text("{not json")
+        with self.assertRaises(QueueError) as ctx:
+            upgrade.decline(cfg, argparse.Namespace(task="0001-alpha", reason="x", cmd="decline"))
+        self.assertEqual(ctx.exception.code, 2)
+        self.assertEqual(path.read_text(), "{not json")
+
+    def test_a_step_found_taken_is_listed_under_detected_and_not_under_taken(self):
+        self.product_json(alpha={"on": True})
+        body = self.reading()
+        self.assertEqual(self.listed(body), {"steps": [], "taken": [], "detected": ["0001-alpha"]})
+        self.assertEqual(body["detected"], [{"task": "0001-alpha", "title": "Alpha", "adopt": "plane.json alpha.on"}])
+
+
+class Change(UpgradeFixture, unittest.TestCase):
+    """§29.3: a checkable step's change names the key alone, `to` a one-word value, or the rest as written."""
+
+    def test_each_change_reads_as_written(self):
+        self.plane_task("0001-a", "done", "A", "plane.json a.b")
+        self.plane_task("0002-c", "done", "C", "plane.json c.d 1h")
+        self.plane_task("0003-e", "done", "E", "plane.json e.f with tool and to naming the channel")
+        self.commit("plane")
+        self.product_json()
+        code, body, err = self.ccp("upgrade", "status")
+        self.assertEqual(code, 0, err)
+        self.assertEqual([s["change"] for s in body["steps"]],
+                         ["set `a.b` in docs/delivery/plane.json", "set `c.d` in docs/delivery/plane.json to 1h",
+                          "set `e.f` in docs/delivery/plane.json: with tool and to naming the channel"])
 
 
 class Declined(unittest.TestCase):
