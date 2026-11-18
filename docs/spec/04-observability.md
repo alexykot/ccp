@@ -53,6 +53,7 @@ runner, `task-verifier` for the verifier subagent), `operator` and `system`.
 | `plane` | `adopted` | `plane` (the plane checkout's HEAD), `binding` (`written`, `kept`); `ccp init` (§4.5) |
 | `suite` | `recorded` | `suite_id`, `run_id`, `phase`, `lane`, `exit_code`, `seconds`, `tests`, `failed`, `skipped`, `ran`, `cached`, `cached_tests`, `counts_from`, `interrupted` (§14) |
 | `prefer` | `set`, `clear` | `set`: `by`, `reason`; `clear`: `was`, `reason` (`claimed` when the claim took it); `task_id` is the preferred task |
+| `ruling` | `recorded` | `id`, `n`, `check?`, `words` (§17.5) |
 
 - **The commands emit.** `phase`, `lease`, `waiting_on`, `durable` and the run, review, verify and
   suite events are written by the `ccp` commands that make the change (§10), not by hand. Seats call

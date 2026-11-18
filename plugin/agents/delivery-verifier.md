@@ -54,7 +54,8 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   `operator_step` naming that approved `operator` gate (`<task_id>-<n>`). Evidence the ruling seat
   produced with no approved step proves nothing: run the check yourself, or reject.
 - A ruling is not evidence. A check the owner's ruling closed is `ran: false`, `rests_on` naming
-  the ruling by its spec question id (`sm-…`) or gate id (`<task_id>-<n>`); its `produced_by` names
+  the ruling by its spec question id (`sm-…`), gate id (`<task_id>-<n>`) or lead ruling id
+  (`<task_id>-r<n>`, which the lead records with `ccp tasks ruling`); its `produced_by` names
   the seat whose evidence the ruling weighed, never `lead`, and is left out when no evidence
   underlies the waiver.
 - `record` accepts the `rests_on` of a `ran: false` check in three forms only (SPEC §15.4): a
@@ -67,7 +68,8 @@ and scenario checks pass, no test expectation changed unless the task names it, 
 - A check you ran whose expectation cannot hold as written (it names something the product cannot
   do, or a step that no longer exists), where a ruling lets it hold in another form, is
   `as_written: false` (SPEC §15.4): still a pass or a fail, with `held_instead`, what you checked in
-  its place, and `ruling`, the spec question or gate ids that let it, in the ruling form above.
+  its place, and `ruling`, the spec question, gate or lead ruling ids that let it, in the ruling form above.
+  A ruling the lead gave the runner by message has an id when the runner passes it to you: cite it here.
   `record` refuses one without both, or on a check not run. Record it so, not only as a caveat in
   `findings`: `ccp tasks close` lists it for the lead. Without such a ruling, it is a check you
   can't prove.

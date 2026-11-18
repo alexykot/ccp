@@ -20,6 +20,7 @@ argument takes the full id or its number.
 | `ccp tasks prefer [<id>… [--reason "…"] \| --clear]` | lead | §10.4 |
 | `ccp tasks hold [<id> [--reason "…"] \| --clear <id>]` | lead | §10.4 |
 | `ccp tasks sign-off <id> --by <who> --words "…" [--stage brief\|build] [--head\|--from <sha>] [--at <date>]` | lead | §3.5, §10.5 |
+| `ccp tasks ruling <id> --words "…" [--check <dod_check_id>]` | lead | §17.5, §15.4 |
 | `ccp tasks release <id> [--keep-branch] --reason "…"` | lead, runner | §10.4, §10.5 |
 | `ccp tasks drop <id> --reason "…"` | lead, runner | §10.4 |
 | `ccp tasks sync` | lead, runner | §10.4 |

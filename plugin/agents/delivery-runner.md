@@ -273,6 +273,9 @@ A ruling or clarification for the file of a task you hold comes to you, never on
 branch (SPEC §10.5): pass it verbatim in the next implementer or fix prompt (`--note`). The
 implementer writes it into the task file's `Context (not checked)` section on the task branch, so it
 lands in the task's PR.
+A ruling the lead gives you by message, outside a spec question, the lead records with
+`ccp tasks ruling <task_id> --words "…"` (SPEC §17.5): it has the id `<task_id>-r<n>`. Pass that id on with
+the ruling, to the implementer and to the verifier, which cites it on a check it holds `as_written: false`.
 
 ## Gates (SPEC §17.9)
 
