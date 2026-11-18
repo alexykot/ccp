@@ -71,6 +71,11 @@ text is the first Scope item below, where `ccp verify spec-text` reads it.
 
 *Append-only, newest last.*
 
+- Fix round 1 (review MINOR): `contracts/plane_config.schema.json` still gave `task_log.spec_paths` the
+  old default `["docs/spec/", "SPEC.md"]`; it now gives `["docs/SPEC.md", "SPEC.md", "docs/spec/",
+  "spec/"]`, the default the code applies. A new test in `tests/test_tasklog_spec_signoff.py` compares
+  the schema's default with `TASK_LOG_DEFAULTS["spec_paths"]`, so the two cannot drift apart silently.
+
 ## Verification notes
 
 *Append-only.*

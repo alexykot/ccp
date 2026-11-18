@@ -137,8 +137,10 @@
             "minLength": 1
           },
           "default": [
+            "docs/SPEC.md",
+            "SPEC.md",
             "docs/spec/",
-            "SPEC.md"
+            "spec/"
           ],
           "description": "SPEC §3.5: the paths that hold the SPEC, relative to the product root (one ending in `/` is a directory). ccp tasks check warns on a task not yet done or dropped whose `paths` name one and that neither declares a `brief` sign-off nor has `§31.1` on a Scope line"
         }
