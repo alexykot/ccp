@@ -369,8 +369,9 @@ def resolve_sha(cfg: Config, sha: str, code: int = 2) -> str:
 def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None, name: str | None = None,
            seat: str | None = None, tag: str | None = None, shallow: bool = False,
            bind: dict[str, Any] | None = None, own_hooks: bool = False) -> dict[str, Any]:
-    """Make (or adopt) the worktree; run env.setup when it is new. A failed setup removes it again, and
-    so does any failure after a base worktree is made. With `own_hooks`, it is recorded `own_hooks: true`
+    """Make (or adopt) the worktree; run env.setup when it is new. An unrecorded directory is adopted
+    under a `worktrees.dir` outside the main checkout only when git names it (`_git_named`), else refused.
+    A failed setup removes it again, and so does any failure after a base worktree is made. With `own_hooks`, it is recorded `own_hooks: true`
     and its hooks come from its own plane.json (`hook_env`): one that does not load fails the setup.
     With `shallow`, a detached kind is a depth-1 clone of `sha` (`_clone_shallow`), not a git worktree.
     The baseline worktree (`create_baseline`) is the one made with no task: `task_id` and `nnnn` are "".
@@ -402,6 +403,7 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
     main = main_checkout(cfg)
     path = base / name
     st = load(q, name)
+    recorded = st is not None
     if kind == "base" and (st or path.exists()):  # it is removed after its command: never one it did not make
         raise QueueError(f"worktree {name} exists: a base worktree is always made fresh; give another --name", 3)
     if st and Path(st["path"]).is_dir():
@@ -418,6 +420,9 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
     if own_hooks:
         st["own_hooks"] = True
     if path.is_dir():  # made before §12.1 recorded worktrees: adopt it, setup already happened
+        if not recorded and not _ours(path, _git_named(cfg, base)):  # outside the main checkout: never another's
+            raise QueueError(f"{path} exists, has no worktree record and is not a worktree of this repository "
+                             "(`git worktree list`): another checkout's? Remove it or give another --name", 3)
         _same_head(path, name, sha)
         _same_depth(path, name, shallow)
         st["adopted"] = True
@@ -561,7 +566,8 @@ def _or_else(name: str) -> str:
 
 def remove(cfg: Config, q: Path, name: str) -> list[str]:
     """Stop (env.down, when up), tear down (env.teardown), remove the worktree, forget it. Failures
-    are warnings: a worktree is removed even when its hooks fail."""
+    are warnings: a worktree is removed even when its hooks fail. One with no record is removed from
+    under `worktrees.dir`; outside the main checkout only when git names it (`_git_named`), else refused."""
     st = load(q, name)
     recorded = st is not None  # only a recorded worktree has the fields its hooks are filled with
     warnings: list[str] = []
@@ -569,6 +575,9 @@ def remove(cfg: Config, q: Path, name: str) -> list[str]:
     if st is None:
         if not base or not (base / name).is_dir():
             raise QueueError(f"no worktree {name} recorded in {state_dir(q)} or under worktrees.dir", 3)
+        if not _ours(base / name, _git_named(cfg, base)):  # outside the main checkout: never another's
+            raise QueueError(f"{base / name} has no worktree record and is not a worktree of this repository "
+                             "(`git worktree list`): left alone", 3)
         st = {"name": name, "path": str(base / name), "state": "created"}
     if recorded and not Path(st["path"]).is_dir():
         own = bool(st.get("own_hooks"))  # its hooks were in the worktree: whether it had any is not known
