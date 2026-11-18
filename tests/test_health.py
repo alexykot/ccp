@@ -441,6 +441,9 @@ class AdoptionWindow(unittest.TestCase):
         self.adopt(health._ts(T0 + 60))
         self.adopt()
         self.assertEqual(self.report()["before_adoption"], 1)
+        self.adopt(health._ts(T0 + 2 * 3600))  # at 0002's merge: a merge at the adoption's second is in the window
+        r = self.report()
+        self.assertEqual(([t["task_id"] for t in r["tasks"]], r["before_adoption"]), (["0002-t2"], 1))
 
     def test_a_queue_with_no_event_reads_whole(self):
         self.rows("observability/events.jsonl", {"at": self.AFTER, "task_id": "", "type": "plane", "op": "proposed"})
@@ -461,7 +464,8 @@ class AdoptionWindow(unittest.TestCase):
         self.rows("health/metrics.jsonl",
                   *({"at": at, "task_id": "0001-t1", "metric": "suite_seconds", "value": v, "kind": "cold"}
                     for at, v in ((self.BEFORE, 100), (self.AFTER, 200))))
-        self.rows("health/notes.jsonl", {"at": self.BEFORE, "text": "a"}, {"at": self.AFTER, "text": "b"})
+        self.rows("health/notes.jsonl", {"at": self.BEFORE, "text": "a"}, {"at": self.AFTER, "text": "b"},
+                  {"at": self.ADOPTED, "text": "c"})  # at the adoption's second: in the window
         self.rows("observability/events.jsonl",
                   *({"at": at, "task_id": "", "type": "runner", "op": "rotate", "payload": {"name": "r"}}
                     for at in (self.BEFORE, self.AFTER)),
@@ -474,17 +478,17 @@ class AdoptionWindow(unittest.TestCase):
         whole = self.report()
         self.assertEqual((whole["suite"]["cold"]["runs"], whole["notes"], whole["gate_time"]["cold_runs"],
                           whole["suite_modules"]["runs"], [k["suite_id"] for k in whole["gate_time"]["killed"]],
-                          whole["rotation"]["rotations"], whole["rotation"]["tasks_done"]), (2, 2, 2, 2, ["st-k"], 2, 2))
+                          whole["rotation"]["rotations"], whole["rotation"]["tasks_done"]), (2, 3, 2, 2, ["st-k"], 2, 2))
         self.adopt()
         r = self.report()
-        self.assertEqual((r["suite"]["cold"]["runs"], r["suite"]["cold"]["latest_s"], r["notes"]), (1, 200, 1))
+        self.assertEqual((r["suite"]["cold"]["runs"], r["suite"]["cold"]["latest_s"], r["notes"]), (1, 200, 2))
         self.assertEqual((r["gate_time"]["cold_runs"], r["gate_time"]["latest"]["suite_id"], r["gate_time"]["killed"]),
                          (1, "st-b", []))
         self.assertEqual((r["suite_modules"]["runs"], r["suite_modules"]["latest"]["suite_id"]), (1, "st-b"))
         self.assertEqual((r["rotation"]["rotations"], r["rotation"]["tasks_done"]), (1, 1))
         since = self.report("--since", "2025-10-09")
         self.assertEqual((since["suite"]["cold"]["runs"], since["notes"], since["gate_time"]["cold_runs"],
-                          since["rotation"]["rotations"]), (2, 2, 2, 2))
+                          since["rotation"]["rotations"]), (2, 3, 2, 2))
 
 
 class UsageAdviceGuards(unittest.TestCase):
