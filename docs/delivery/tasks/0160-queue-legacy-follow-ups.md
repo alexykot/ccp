@@ -114,4 +114,15 @@ After task 0135's queue check, the plane's own docs and code agree with what tha
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): premises re-run at `ad81769`: 4 README lines, the reader's 6 sites,
+  `archive` with no `emit`, and `leftover_entries` without a `.DS_Store` exception, as stated.
+- `archive(q, cfg)` now takes the config from `check`, its one caller. The `plane`/`archived` event's
+  actor is `actor("operator")` (`ACTOR` overrides it): `--archive` is an operator's clean-up, not a
+  runner's step.
+- `.DS_Store` is matched by name (`queue.FINDER_METADATA`): at the queue root, and anywhere under
+  `scripts/` (the scripts walk is recursive, and Finder drops one in every folder it opens), so the
+  board's and `ccp tasks claim`'s scripts warning skip it too.
+- The ledger's event table is §23.2 (in `docs/spec/04-observability.md`, Part IV, which holds §23 and
+  §24); the `plane`/`archived` row went there, beside `plane`/`adopted`.
+
 ## Verification notes
