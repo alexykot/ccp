@@ -1,7 +1,7 @@
 ---
 task_id: 0141-suite-mutate-leftovers
 title: A product whose tests are whole scripts gets a recorded mutation check, and a hand-made mutant never needs a restore in a seat's own worktree
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S20", "S14"]
@@ -9,7 +9,7 @@ review_point: R9
 paths: ["ccp/mutate.py", "templates/prompts/_common.md", "templates/prompts/verify.md", "plugin/agents/delivery-implementer.md", "plugin/agents/delivery-reviewer.md", "plugin/agents/delivery-verifier.md", "contracts/plane_config.schema.json", "docs/spec/03-quality.md", "docs/cli/03-quality.md", "scripts/CLAUDE.md", "tests/test_mutate.py", "tests/test_prompt*.py"]
 adopt: "plane.json mutate.command: a product with no per-test runner, whose tests are whole scripts, sets it to run one script, `sh {test}`"
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Task: 0141-suite-mutate-leftovers
@@ -123,3 +123,5 @@ has to restore a committed file in its own worktree, which the permission system
   outside that fallback clause; the new whole-script tests are in `tests/test_mutate.py`.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #157 head `edb6d63` (squash `68cc5d7`): APPROVE. Passed: mut-01, mut-02, prompt-01, doc-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0141-suite-mutate-leftovers.json.
+

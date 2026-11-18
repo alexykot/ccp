@@ -703,7 +703,7 @@ tasks:
     depends_on: []
     path: tasks/0140-worktrees-outside-repo.md
   - id: 0141-suite-mutate-leftovers
-    status: pending
+    status: done
     title: A product whose tests are whole scripts gets a recorded mutation check, and a hand-made mutant never needs a restore in a seat's own worktree
     depends_on: []
     path: tasks/0141-suite-mutate-leftovers.md
