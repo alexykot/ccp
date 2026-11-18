@@ -98,7 +98,7 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         self.assertIn("adr decide <n> <Dn> built", text)
         for phase, args in (("verify", ("--pr", "7", "--head", A)), ("implement", ("--base", "abc1234"))):
             _run_id, text = self.render(phase, *args)
-            self.assertIn("gives stages takes no command", text, phase)
+            self.assertIn("`ccp suite run` refuses one on a lane with stages", text, phase)
 
     def test_no_template_sends_a_worker_to_a_mutation_worktree_or_a_discovery_command(self):
         for phase in ("implement", "fix", "ruling", "merge", "verify", "_common"):

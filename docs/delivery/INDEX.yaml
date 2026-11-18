@@ -743,7 +743,7 @@ tasks:
     depends_on: []
     path: tasks/0148-report-correction.md
   - id: 0149-gate-cache-in-fix-and-merge-rounds
-    status: pending
+    status: done
     title: Fix and merge rounds run the product's full suite as its declared lane, so they get the gate's parallel run and test cache
     depends_on: []
     path: tasks/0149-gate-cache-in-fix-and-merge-rounds.md

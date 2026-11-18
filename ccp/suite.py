@@ -56,6 +56,8 @@ lane ends with the plane's doc checks as the stage `plane-docs`. Such a run reco
 seconds, exit code of each that ran) and `failed_stage` on its `ended` row and event. A signal between
 stages stops the run before the next starts: it exits 128 + N and names that stage. Every `ended` row
 and event says whether the run was `cold` (§14.6: its own `cached` count was 0; null without one).
+A command after `--` on the `full` or `gate` role's lane, where plane.json gives that lane a different
+argv, still runs, after one warning on stderr naming the lane's own command, which it replaces (§14.2).
 On the gate role's staged lane, a run that is recorded and names its task runs a stage's declared provers
 (plane.json `verify.provers`, read from `origin/<integration branch>` once fetched, never from the checkout
 under test; a failed fetch reads none) before it starts: the first whose command exits 0 on the task's diff,
@@ -340,6 +342,19 @@ def resolve_stages(cfg: Config | None, lane: str | None, command: list[str] | No
     if cfg is not None and lane == lane_for(cfg, "gate"):
         out.append({"name": PLANE_DOCS_STAGE, "argv": plane_docs_argv(cfg), "staged": True})
     return out
+
+
+def replaced_lane_argv(cfg: Config | None, lane: str | None, command: list[str] | None) -> list[str] | None:
+    """§14.2: the argv plane.json `suite.lanes` gives the `full` or `gate` role's lane when a command after
+    `--` differs from it, so the run replaces the product's own; None otherwise (no command, another lane, a
+    lane plane.json does not declare or gives stages, or the same command)."""
+    if cfg is None or not command or lane is None or lane not in (lane_for(cfg, "full"), lane_for(cfg, "gate")):
+        return None
+    lanes = (cfg.suite or {}).get("lanes")
+    given = lanes.get(lane) if isinstance(lanes, dict) else None
+    if not isinstance(given, list) or lane_stages(given) is not None or list(given) == list(command):
+        return None
+    return [str(x) for x in given]
 
 
 def _usage_problem(a: Any) -> str | None:
@@ -1043,6 +1058,9 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
     except QueueError as e:
         print(f"ccp suite: {e}", file=sys.stderr)
         return e.code
+    if replaced := replaced_lane_argv(cfg, a.lane, command):
+        print(f"ccp suite: --lane {a.lane} has its own command in plane.json ({' '.join(replaced)}), which this run "
+              f"replaces; run --lane {a.lane} with nothing after `--` to use it (SPEC §14.2)", file=sys.stderr, flush=True)
     argv = stages[0]["argv"]
     mode = _mode(a)
     log_arg = getattr(a, "log", None)

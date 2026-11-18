@@ -1,7 +1,7 @@
 ---
 task_id: 0149-gate-cache-in-fix-and-merge-rounds
 title: Fix and merge rounds run the product's full suite as its declared lane, so they get the gate's parallel run and test cache
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S13"]
@@ -148,4 +148,19 @@ passes its own command on a lane plane.json gives a command is told which comman
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): The Context's measurement re-run at `7fc5197` gives the same figures (fix 13
+  runs of `python3` with 7 arguments, median 768 s; merge 3, 750 s; ruling 1, 946 s; implement 40 cold
+  `gate.sh`, median 145 s, 1 cached, 4 `python3`, 837 s; verify 22 cached, 20 cold, median 153 s).
+  `ccp/prompt.py`: `suite_lanes` writes each role whose lane plane.json `suite.lanes` declares (an argv or
+  stages) as "`--lane <lane>` with nothing after `--`: <use>, as plane.json gives it"; an undeclared lane
+  renders today's text unchanged. This applies to every role, the part role's included, as Scope words it:
+  a staged part lane refuses a command already. `full_lane` is a new template value. The fix, merge, ruling
+  and implement templates name `ccp suite run --lane {{full_lane}}` for the full test suite, "as the Lanes
+  line below gives it"; `_common.md`'s lane line folds the stages sentence into the declared-lane rule and
+  keeps the `--lane <lane> -- <command>` form line as it was. `ccp/suite.py`: `replaced_lane_argv` and one
+  stderr line, printed directly (not through the one-warning `_Warn`, so a later recording warning still
+  shows), after the lanes resolve and before anything runs; the argv is shown space-joined.
+
 ## Verification notes
+- 2026-11-18 — verifier, PR #167 head `f1a89e3` (close's catch-up of the approved `91ce96c`, gate run st-20261118T134554Z-6d5d22) (squash `f7bddd9`): APPROVE. Passed: prm-01, prm-02, cmd-01, doc-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0149-gate-cache-in-fix-and-merge-rounds.json.
+

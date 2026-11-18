@@ -468,6 +468,54 @@ class Lanes(SuiteFixture, unittest.TestCase):
             self.assertEqual(config.load(self.main).suite["count_re"], good)
 
 
+class ReplacedLane(SuiteFixture, unittest.TestCase):
+    """§14.2: a command after `--` that replaces the argv plane.json gives the full or gate role's lane still
+    runs, after one warning naming the lane's own command."""
+
+    def lanes(self, lanes: dict, roles: dict | None = None) -> None:
+        cfg = json.loads((self.runner / "docs/delivery/plane.json").read_text())
+        cfg["suite"] = {"lanes": lanes, **({"roles": roles} if roles else {})}
+        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+
+    @staticmethod
+    def told(r: subprocess.CompletedProcess[bytes]) -> list[str]:
+        return [ln for ln in r.stderr.decode().splitlines() if "replaces" in ln]
+
+    def test_a_command_replacing_the_full_lanes_argv_is_named_once_and_still_runs(self):
+        self.lanes({"full": ["sh", "-c", "exit 0"]})
+        r = self.run_suite("--lane", "full", "--", PY, "-c", "print(1)")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        told = self.told(r)
+        self.assertEqual(len(told), 1, r.stderr)
+        self.assertIn("--lane full", told[0])
+        self.assertIn("sh -c exit 0", told[0])
+        for args in (("--lane", "part", "--", PY, "-c", "print(1)"), ("--lane", "full"),
+                     ("--lane", "full", "--", "sh", "-c", "exit 0")):  # the part lane, the lane's own, the same argv
+            r = self.run_suite(*args)
+            self.assertEqual(r.returncode, 0, (args, r.stderr))
+            self.assertEqual(self.told(r), [], args)
+        self.assertEqual([x["exit_code"] for x in self.rows() if x["op"] == "ended"], [0, 0, 0, 0])
+
+    def test_the_gate_roles_lane_warns_by_its_own_name_and_an_undeclared_or_part_lane_does_not(self):
+        self.lanes({"formal": ["sh", "-c", "exit 0"], "subset": ["sh", "-c", "exit 0"]},
+                   roles={"gate": "formal", "part": "subset"})
+        r = self.run_suite("--lane", "formal", "--", PY, "-c", "print(1)")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(len(self.told(r)), 1, r.stderr)
+        self.assertIn("--lane formal", self.told(r)[0])
+        for lane in ("subset", "full"):  # the part role's lane; the full role's, which plane.json does not declare
+            r = self.run_suite("--lane", lane, "--", PY, "-c", "print(1)")
+            self.assertEqual(r.returncode, 0, (lane, r.stderr))
+            self.assertEqual(self.told(r), [], lane)
+
+    def test_a_staged_lane_still_refuses_a_command(self):
+        self.lanes({"full": [{"name": "unit", "cmd": "exit 0"}]})
+        r = self.run_suite("--lane", "full", "--", PY, "-c", "print(1)")
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertEqual(self.told(r), [])
+        self.assertEqual(self.rows(), [])
+
+
 class OutputCounts(SuiteFixture, unittest.TestCase):
     """§14.3: without a result file, `suite.count_re` (a pattern or a list) reads the count from the
     gate's output, the first pattern a line matches counting it."""
@@ -658,8 +706,9 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
         self.assertIn("put its `suite_id` (from the summary)", vtext)
         from ccp import prompt as prompt_mod
         self.assertIn("`--lane gate`", vtext)
-        self.assertIn("`--lane {gate}`", prompt_mod.SUITE_LANES["verify"])
-        self.assertIn("`--lane {part}`", prompt_mod.SUITE_LANES["review"])
+        c = config.load(self.runner)
+        self.assertIn("`--lane gate` for the formal gate", prompt_mod.suite_lanes(c, "verify"))
+        self.assertIn("`--lane part` for the tests you run", prompt_mod.suite_lanes(c, "review"))
         rec = json.loads((self.q / "runs/0002-second/implement.json").read_text())
         self.assertEqual(rec["worktree"], str(self.main / ".rt" / "impl-0002"))
         # §14.1 (amended 2026-10-22): the rule is stated once, in the prompt; a definition names the

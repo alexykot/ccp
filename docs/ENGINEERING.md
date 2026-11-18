@@ -6,7 +6,9 @@ run through `docs.checks` and the gate (`scripts/gate.sh`) rather than `architec
 
 ## Tests
 
-- **E1** The full suite passes on every change: `python3 -m unittest discover -s tests -t .`.
+- **E1** The full suite passes on every change: `scripts/gate.sh` (a plane worker runs it as
+  `ccp suite run --lane full`), the same modules as `python3 -m unittest discover -s tests -t .`, run in
+  parallel, with the test cache.
   check: command — `ccp suite run --lane gate` (scripts/gate.sh)
 - **E2** Tests are fenced: no live queue, no real plane or product repo, no GitHub, no launchd; no test
   leaves a `state/*` branch behind.
