@@ -119,4 +119,16 @@ that layout.
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `_worktree_blocks` now takes the product root. A value with no `..` that is
+  not absolute is refused as the main checkout when it normalises to `.`; an absolute or `..` value is
+  resolved against the main checkout (`wt.main_of`, which asks git, so only for those values) and
+  refused when it is that checkout. The main-checkout refusal appends ", not the main checkout itself"
+  to the Scope's message. The legacy `adapter.worktree_dir` type refusal uses the same message.
+  `wt.base_dir` and `prompt.worktree_for` resolve. The outside rule is `wt._git_named`/`_ours`: `None`
+  (any directory) when the resolved dir is the main checkout's descendant, else the resolved paths
+  `git worktree list --porcelain` names; applied in `listing`, `remove_task`'s fallback (pre-record
+  names and the merge worktree) and `gc`'s merge sweep. `ccp wt remove NAME` of an unrecorded
+  directory and `create`'s adoption of an existing one are unchanged (not in Scope). SPEC text for the
+  outside rule was not carried by the task: proposed as `pp-20261118T073953Z-eec0`.
+
 ## Verification notes

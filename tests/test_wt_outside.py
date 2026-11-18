@@ -92,7 +92,7 @@ class Sibling(SiblingFixture, unittest.TestCase):
         self.assertTrue(want.is_dir())
         st = json.loads((self.q / "worktrees" / "impl-0002.json").read_text())
         self.assertEqual(st["path"], str(want))
-        code, listed, out, err = self.wt("list", "--task", "0002")
+        code, listed, out, err = self.wt("list", "--task", "0002-second")
         self.assertEqual(code, 0, out + err)
         self.assertEqual([(s["name"], s["path"]) for s in listed], [("impl-0002", str(want))])
         self.assertIn(str(want), git(self.main, "worktree", "list"))
