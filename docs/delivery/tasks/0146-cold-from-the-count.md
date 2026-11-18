@@ -99,4 +99,13 @@ and the verdict never disagree.
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `_finish` takes `cold` from `run_cold(cached)` alone; the `asked_cold`
+  parameter is gone. `fill_gate` fills `cold: true` when the cited row's `cold` is `true` and the entry's
+  `cached` (its own, or the one filled from the row) is 0, the guard the code already had. So a row recorded
+  `cold: true` with no count at all (a `--cold` run recorded before this change) is not filled, and neither
+  is a row with `cached` 0 whose `cold` is null. For rows written from now on the two conditions coincide.
+  `docs/cli/02-delivery.md` names `--cold` only in its usage line and states no rule, so it is unchanged.
+  The verifier brief (`templates/prompts/verify.md`) says verify record "marks a run with nothing cached as
+  cold", which stays true.
+
 ## Verification notes
