@@ -1,7 +1,7 @@
 ---
 task_id: 0152-adoption-test-leftovers
 title: Migrate reads a backticked Refs table, a backfilled adoption keeps its real date, a test notice names what it is about, and orphans pass over the lead's own task-log and SPEC commits
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S4", "S3", "S10", "S27"]
@@ -162,3 +162,5 @@ listing the lead's own commits that change only the task log and the SPEC.
   - Orphans: `in_log` also passes a path `tasklog._names_spec` names under `task_log.spec_paths`.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #174 head `9785eca` (squash `b34a233`): APPROVE. Passed: mig-01, mig-02, ini-01, ntf-01, orp-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0, `ccp verify spec-text 0152-adoption-test-leftovers --base origin/main` exit 0. Record: verification/0152-adoption-test-leftovers.json.
+
