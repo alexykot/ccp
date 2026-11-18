@@ -40,7 +40,7 @@ argument takes the full id or its number.
 | `ccp verify record FILE` | verifier | §15.4, §15.6, §6.7 |
 | `ccp verify merge-ok <pr> [--task <task_id>]` | runner | §15.5 |
 | `ccp verify check <task_id> --head <sha>` | a merge step without `gh` | §15.5 |
-| `ccp verify spec-text <task_id> [--base <ref>]` | reviewer, verifier | §15.2, §3.5 |
+| `ccp verify spec-text <task_id> [--base <ref>] [--head <ref>]` | reviewer, verifier | §15.2, §3.5 |
 | `ccp auth check` | runner, lead | §10.5 |
 
 ## Test runs

@@ -1,7 +1,7 @@
 """`ccp verify spec-text` (SPEC §15.2, §3.5): the passages a task carries for the operator's sign-off, each a
-`PROPOSED:` marker followed by `> ` blockquote lines in its Scope, are looked for, whitespace-normalised, in
-each hunk the branch makes to the product's SPEC files, read with its paragraph, where they cover a line the
-hunk adds; and the review and verify prompts of a task that declares a `brief` sign-off ask for it."""
+`PROPOSED:` marker followed by `> ` blockquote lines in its Scope or in a section whose heading begins `Rule
+changes`, are looked for, whitespace-normalised, in each hunk the branch (or `--head`) makes to the product's SPEC
+files, read with its paragraph, where they cover a line the hunk adds; and the review and verify prompts of a task that declares a `brief` sign-off ask for it."""
 from __future__ import annotations
 
 import io
@@ -251,6 +251,80 @@ class SpecText(unittest.TestCase):
     def test_the_passages_are_read_from_the_scope_only(self):
         text = (self.p.root / "docs/delivery/tasks/0001-signed.md").read_text()
         self.assertEqual([p for _, p in verify.signed_passages(text)], [PASSAGE])
+
+    def rule_changes(self, scope: str, section: str) -> None:
+        """The task carries `scope` as its Scope and `section` after it, committed on the branch."""
+        self.p.task("0001-signed", body=TASK.format(scope=scope + "\n" + section))
+        git(self.p.root, "commit", "-q", "-am", "the task")
+
+    def line_of(self, needle: str, nth: int = 0) -> str:
+        lines = (self.p.root / "docs/delivery/tasks/0001-signed.md").read_text().splitlines()
+        at = [k for k, line in enumerate(lines) if needle in line][nth]
+        return f"docs/delivery/tasks/0001-signed.md:{at + 1}"
+
+    def test_a_passage_under_a_rule_changes_heading_is_checked(self):
+        bare = "## Scope\n\n- **In:** the code.\n"
+        self.rule_changes(bare, "## Rule changes (signed at tasking)\n\n- §1, the new rule. PROPOSED:\n"
+                                f"  > {PASSAGE}\n")
+        self.change("docs/spec/x.md", "\n" + PASSAGE + "\n")
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 0, err)
+        self.assertEqual([(r["line"], r["found_in"]) for r in body["passages"]],
+                         [(self.line_of("the new rule. PROPOSED:"), ["docs/spec/x.md"])])
+
+    def test_a_passage_in_both_places_is_judged_once(self):
+        other = "An older rule, now with a knob."
+        self.rule_changes(SCOPE, "## Rule changes\n\n- §1. PROPOSED:\n"
+                                 f"  > {PASSAGE}\n- §1, the second. PROPOSED:\n  > {other}\n")
+        self.change("docs/spec/x.md", "\n" + PASSAGE + "\n")
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 1, err)
+        self.assertEqual([r["line"] for r in body["passages"]],
+                         [self.line_of(SCOPE.splitlines()[3]), self.line_of("the second. PROPOSED:")])
+        self.assertEqual(body["missing"], [self.line_of("the second. PROPOSED:")])
+        self.assertIn(other, err)
+
+    def test_a_passage_in_both_places_is_listed_at_its_first_line_in_the_file(self):
+        text = (self.p.root / "docs/delivery/tasks/0001-signed.md").read_text()
+        text = text.replace("## Scope\n", f"## Rule changes, signed\n\nPROPOSED:\n> {PASSAGE}\n\n## Scope\n", 1)
+        at = text.splitlines().index("## Rule changes, signed") + 3
+        self.assertEqual(verify.signed_passages(text), [(at, PASSAGE)])
+
+    def test_only_a_heading_that_begins_rule_changes_is_read_besides_the_scope(self):
+        text = (self.p.root / "docs/delivery/tasks/0001-signed.md").read_text()
+        text = text.replace("## dod_checks\n", "## Proposed rule changes\n\nPROPOSED:\n> Not signed here.\n\n"
+                                               "## Rule changesets\n\nPROPOSED:\n> Nor here.\n\n## dod_checks\n", 1)
+        self.assertEqual([p for _, p in verify.signed_passages(text)], [PASSAGE])
+
+    def test_a_task_with_a_rule_changes_section_and_no_block_names_both_places(self):
+        self.rule_changes("## Scope\n\n- **In:** the code.\n", "## Rule changes\n\n- none.\n")
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 2)
+        self.assertIn("Scope", err)
+        self.assertIn("Rule changes", err)
+
+    def test_head_checks_a_past_commit_s_spec_change(self):
+        self.change("docs/spec/x.md", "\n" + PASSAGE + "\n")
+        a = git(self.p.root, "rev-parse", "HEAD").strip()
+        self.edit(PASSAGE, PASSAGE.replace("next task", "first task"))
+        code, body, err = self.run_cmd("0001-signed", "--base", f"{a}^", "--head", a)
+        self.assertEqual((code, body["head"]), (0, a), err)
+        self.assertEqual([r["found_in"] for r in body["passages"]], [["docs/spec/x.md"]])
+        code, body, err = self.run_cmd("0001-signed", "--base", f"{a}^")
+        self.assertEqual((code, body["head"]), (1, "HEAD"), err)
+        self.assertIn(PASSAGE, err)
+        code, body, err = self.run_cmd("0001-signed", "--base", f"{a}^", "--head", "no-such-ref")
+        self.assertEqual(code, 2)
+        self.assertIn("no-such-ref", err)
+        self.assertNotIn(f"{a}^", err)  # the head is refused, not the base
+
+    def test_head_s_diff_is_the_one_read_not_the_checkout_s(self):
+        self.change("docs/spec/x.md", "\n" + PASSAGE + "\n")
+        a = git(self.p.root, "rev-parse", "HEAD").strip()
+        self.edit("\n" + PASSAGE + "\n", "")  # HEAD takes the passage out again: its diff adds nothing
+        self.assertEqual(self.run_cmd("0001-signed", "--base", f"{a}^")[0], 1)
+        code, body, err = self.run_cmd("0001-signed", "--base", f"{a}^", "--head", a)
+        self.assertEqual(code, 0, err)
 
 
 class Prompts(ToolkitFixture, unittest.TestCase):

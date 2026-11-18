@@ -20,7 +20,8 @@
   ccp architect due | run [--mode pass|shape] [--lens L,…] [--adr ID] [--force] [--detach] [--scope IDS]
                | triage <id> | status
   ccp health [--since DATE] [--json] | note --text T [--task ID] | record --task ID --metric k=v …
-  ccp verify record FILE|- | merge-ok PR [--task ID] | check TASK_ID --head SHA | spec-text TASK_ID [--base REF]
+  ccp verify record FILE|- | merge-ok PR [--task ID] | check TASK_ID --head SHA
+             | spec-text TASK_ID [--base REF] [--head REF]
 
 The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own events):
   ccp tasks prefer [ID... [--reason T] | --clear]  (the lead: the runner's next tasks, in order, ahead of `next`'s own pick)
@@ -1498,7 +1499,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("target", help="record: the verdict JSON file (- for stdin); merge-ok: the PR number; "
                                   "check, spec-text: the task id")
     p.add_argument("--task", help="merge-ok: the task whose record approves this PR (default: pr-<PR>)")
-    p.add_argument("--head", help="check: the PR head the runner would merge")
+    p.add_argument("--head", help="check: the PR head the runner would merge; spec-text: the commit whose SPEC "
+                                  "change is checked (default: HEAD)")
     p.add_argument("--base", help="spec-text: the ref the branch's diff is taken from (default: origin/<integration "
                                   "branch>)")
     p.set_defaults(fn=cmd_verify)

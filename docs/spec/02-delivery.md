@@ -910,11 +910,11 @@ result.
   diff, from the reviewed head to the verified one, addresses each MINOR and NIT finding there and changes
   nothing beyond them; a change beyond them is a REJECT, and after a reject the task goes back to review.
   Otherwise the refusal stands and says why the skip does not apply.
-- **The signed SPEC text, checked.** `ccp verify spec-text <task_id> [--base REF]` reads each passage
-  the task's Scope carries for the operator's sign-off (§3.5: a `PROPOSED:` marker followed by `> `
+- **The signed SPEC text, checked.** `ccp verify spec-text <task_id> [--base REF] [--head REF]` reads each passage
+  the task's Scope, or a section of the task whose heading begins `Rule changes`, carries for the operator's sign-off (§3.5: a `PROPOSED:` marker followed by `> `
   blockquote lines)
   and looks for it, whitespace-normalised, in each hunk the branch's diff makes to files under `task_log.spec_paths`, read with the unchanged lines around it up to the nearest blank line on each side, where it covers at least one line the hunk adds
-  (`git diff <base>...HEAD`; the base defaults to `origin/<integration branch>`,
+  (`git diff <base>...<head>`, each SPEC file read as it is at `<head>`, which defaults to `HEAD`; the base defaults to `origin/<integration branch>`,
   and nothing is fetched). It exits 0 when every passage is found, 1 naming each that is not, and 2 when
   the task carries no `PROPOSED:` block. For a task with `sign_off: brief`, the reviewer and the
   verifier run it and report its result.

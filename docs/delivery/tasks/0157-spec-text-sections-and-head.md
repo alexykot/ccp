@@ -109,4 +109,15 @@ checking that commit out.
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `signed_passages` reads the Scope (`tasklog._section_at`, aliases included) and
+  every section whose heading matches `^## Rule changes\b` (so `Rule changes (signed at tasking)` and
+  `Rule changes, signed` are read, `Rule changesets` and `Proposed rule changes` are not), sorted by offset;
+  a passage is deduplicated on its normalised text, which also folds a passage repeated within one section.
+  `--head` stays one argparse option shared with `check` (default None there); `spec_text` treats a missing
+  one as `HEAD`, checks it with `git rev-parse --verify --quiet <head>^{commit}` before the diff (exit 2,
+  the error names the head and not the base), and every body that names the base also names the head. The
+  not-found stderr line now reads "not found in the SPEC text <head> changes since <base>". The SPEC's
+  exit-2 sentence in §15.2 still names only "no `PROPOSED:` block"; the bad-head exit 2, like the existing
+  bad-base one, is in the code and module docstring only, as the task carried no passage for it.
+
 ## Verification notes
