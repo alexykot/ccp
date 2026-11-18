@@ -23,6 +23,9 @@ the lead's session is the route. `pending` lists every fired notice no successfu
 `upgrade` is recorded, never sent: `record_upgrade`, which `scripts/run-checkout.sh update` runs in each
 bound product after its checks, writes the `pending` event (the release's commit as its id, the steps
 as its reason) and runs no command; the lead dispatches it like any other pending notice.
+
+`ccp notify fire` fires a test notice as a step would (`fire`), in a sandbox only (§29.3): firing a
+made-up notice in a real product would reach the operator.
 """
 from __future__ import annotations
 
@@ -324,9 +327,35 @@ def cmd_render(cfg: Config, a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_fire(cfg: Config, a: argparse.Namespace) -> int:
+    """`ccp notify fire`: a test notice, fired as a step fires one (`fire`), in a sandbox only (§3.6, §29.3).
+    Refused (exit 2) outside a sandbox, for `upgrade` (`ccp notify upgrade` records it), and for an id or
+    reason that is not one line."""
+    from ccp import queue, sandbox  # noqa: PLC0415
+    if sandbox.sandbox_of(cfg.root) is None:
+        print(f"ccp notify fire: {cfg.root} is not in a sandbox: a test notice fires only in one (SPEC §29.3), "
+              "since in a real product it would reach the operator", file=sys.stderr)
+        return 2
+    if a.trigger in RECORD_ONLY:
+        print(f"ccp notify fire: {a.trigger} is recorded by `ccp notify {a.trigger}`, not fired", file=sys.stderr)
+        return 2
+    try:
+        q = queue.root()
+        task = _task(cfg, a.task)
+        ident, reason = (_one_line(k, (v or "").strip()) for k, v in (("--id", a.id), ("--reason", a.reason)))
+    except (ValueError, queue.QueueError) as exc:
+        print(f"ccp notify fire: {exc}", file=sys.stderr)
+        return 2
+    sent, warns = fire(cfg, q, a.trigger, task, ident, reason)
+    for w in warns:
+        print(f"warning: {w}", file=sys.stderr)
+    print(json.dumps({"ok": True, "trigger": a.trigger, "task": task, "id": ident, "sent": sent}, indent=2))
+    return 0
+
+
 def add_parser(sub: Any, toolkit_wrap: Any) -> None:
     """The `ccp notify` subcommands (SPEC §3.6)."""
-    nt = sub.add_parser("notify", help="the operator's notices: render one, record a send, list the pending "
+    nt = sub.add_parser("notify", help="the operator's notices: render one, record a send, list the pending, fire a test one "
                                        "(SPEC §3.6)").add_subparsers(dest="cmd", required=True)
     p = nt.add_parser("render", help="the notice to send for a trigger: a subject and a body of ids, nothing else")
     p.add_argument("trigger", choices=RENDER_TRIGGERS)
@@ -343,6 +372,13 @@ def add_parser(sub: Any, toolkit_wrap: Any) -> None:
     p.add_argument("--via", required=True, choices=VIAS)
     p.add_argument("--note", help="one line: ids and a short reason, no content (required for `other`)")
     p.set_defaults(fn=toolkit_wrap(toolkit))
+    p = nt.add_parser("fire", help="fire a test notice as a step would: the pending record, the notify command, "
+                                   "the rendered notice; in a sandbox only (SPEC §29.3)")
+    p.add_argument("trigger", choices=TRIGGERS)
+    p.add_argument("--task", help="the task: its id or NNNN (a task the log does not have is refused)")
+    p.add_argument("--id", help="the gate, question or review point")
+    p.add_argument("--reason", help="one line: the wait's reason")
+    p.set_defaults(fn=cmd_fire)
     p = nt.add_parser("pending", help="every notice fired and not yet sent (needs QUEUE_ROOT)")
     p.set_defaults(fn=toolkit_wrap(toolkit))
     p = nt.add_parser("upgrade", help="record this product's upgrade notice for a release: the adopt steps of "

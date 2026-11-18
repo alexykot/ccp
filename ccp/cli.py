@@ -48,6 +48,7 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp notify render TRIGGER [--task ID] [--id ID] [--reason R] [--json] | pending
             | sent TRIGGER [--task ID] [--id ID] --via command|lead [--note T]  (the operator's notices, SPEC §3.6)
             | upgrade [--since COMMIT]  (record a release's upgrade notice for this product, SPEC §29.3)
+            | fire TRIGGER [--task ID] [--id ID] [--reason R]  (a test notice, in a sandbox only, SPEC §29.3)
   ccp plane propose --need T --generic T [--task ID] [--workaround T] [--frequency F] | propose --again ID
             | triage ID --accept|--merge-into ID|--decline --reason T | built ID --task ID | list [--open]
             | check [--archive]  (queue entries the plane does not write; --archive moves them to _legacy/, SPEC §31.3)
@@ -58,7 +59,8 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
             (adopt this repository: footprint, binding and queue, SPEC §4.3, §8.3; the starter
             house rules, §20.5)
   ccp sandbox create [DIR] [-- INIT_OPTIONS …] | remove DIR  (a throwaway adopted product, its binding and queue
-            inside DIR, for end-to-end checks; remove deletes only a sandbox, SPEC §29.3)
+            inside DIR, for end-to-end checks; remove deletes only a sandbox, SPEC §29.3; inside one,
+            every command, init included, uses its binding and queue)
   ccp init --permissions  (print the runner's and workers' permission block for the operator to apply;
             writes nothing, SPEC §4.5, §18.5)
   ccp init --rules-doc PATH [--adopt]  (list the house rules with no `check:` line; --adopt gives each
@@ -1236,7 +1238,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=_toolkit(_mutate))
 
     from ccp import notify  # noqa: PLC0415
-    notify.add_parser(sub, _toolkit)  # §3.6: render, sent, pending
+    notify.add_parser(sub, _toolkit)  # §3.6: render, sent, pending, upgrade, fire
 
     pl = sub.add_parser("plane", help="propose a ccp tool; the queue's leftover check (SPEC §31.3, §31.4)") \
         .add_subparsers(dest="cmd", required=True)
@@ -1709,6 +1711,18 @@ def main(argv: list[str] | None = None) -> int:
     warn = checkout_warning()
     if warn:
         print(f"warning: {warn}", file=sys.stderr)
+    if a.group != "sandbox":  # §29.3: inside a sandbox every command uses its binding and queue
+        from ccp import sandbox  # noqa: PLC0415
+        try:
+            a.root = str(config.find_root(a.root))  # resolved once: the same root every later lookup finds
+        except config.ConfigError:
+            pass  # no checkout, so no sandbox; the command says what is wrong itself
+        else:
+            try:
+                sandbox.seal(Path(a.root))
+            except sandbox.SandboxError as e:
+                print(str(e), file=sys.stderr)
+                return e.code
     if a.group == "init":  # it writes plane.json, so it runs before one loads (§8.3)
         from ccp import init  # noqa: PLC0415
         return init.main(a.root, a)
