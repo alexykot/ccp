@@ -44,6 +44,14 @@ class DeclaredFullLane(ToolkitFixture, unittest.TestCase):
             self.assertIn("suite run --lane full`", text, phase)  # the round's full test suite names the lane
             self.assertNotIn("--lane full -- ", text, phase)
 
+    def test_a_ruling_round_runs_the_declared_full_lane_too(self):
+        code, body, out, err = self.ccp("prompt", "ruling", "0002", "--pr", "7", "--head", A, "--note", "the field is optional")
+        self.assertEqual(code, 0, out + err)
+        text = Path(body["prompt_path"]).read_text()
+        self.assertIn(DECLARED, text)
+        self.assertIn("suite run --lane full`", text)
+        self.assertNotIn("--lane full -- ", text)
+
     def test_every_change_round_and_the_reviewer_hear_the_declared_lane(self):
         c = config.load(self.runner)
         for phase in ("implement", "ruling", "review"):
