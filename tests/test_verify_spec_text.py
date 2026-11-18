@@ -318,6 +318,14 @@ class SpecText(unittest.TestCase):
         self.assertIn("no-such-ref", err)
         self.assertNotIn(f"{a}^", err)  # the head is refused, not the base
 
+    def test_head_s_diff_is_the_one_read_not_the_checkout_s(self):
+        self.change("docs/spec/x.md", "\n" + PASSAGE + "\n")
+        a = git(self.p.root, "rev-parse", "HEAD").strip()
+        self.edit("\n" + PASSAGE + "\n", "")  # HEAD takes the passage out again: its diff adds nothing
+        self.assertEqual(self.run_cmd("0001-signed", "--base", f"{a}^")[0], 1)
+        code, body, err = self.run_cmd("0001-signed", "--base", f"{a}^", "--head", a)
+        self.assertEqual(code, 0, err)
+
 
 class Prompts(ToolkitFixture, unittest.TestCase):
     """The review and verify prompts ask for the check only on a task that declares a `brief` sign-off."""
