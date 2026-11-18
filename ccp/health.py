@@ -994,7 +994,7 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
     tasks = tasklog.load(cfg)
     ms = merges(cfg, tasks, rev)
     adopted = adopted_at(q) if from_adoption else None
-    start = None  # the adoption window's start: None reads the whole queue
+    window = None  # the adoption window's start: None reads the whole queue
     before = 0
     if since:
         s = _epoch(since + ("T00:00:00Z" if len(since) == 10 else ""))
@@ -1002,15 +1002,15 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
             raise ValueError(f"--since {since!r}: give a date (YYYY-MM-DD) or YYYY-MM-DDTHH:MM:SSZ")
         ms = [m for m in ms if m["at"] >= s]
     elif adopted is not None:
-        start = _epoch(adopted)
-        kept = [m for m in ms if m["at"] >= (start or 0)]
+        window = _epoch(adopted)
+        kept = [m for m in ms if m["at"] >= (window or 0)]
         before, ms = len(ms) - len(kept), kept
     stats = numstat(cfg, {m["sha"] for m in ms}, rev) if files else {}
     areas = [(n, [glob_re(g) for g in gs]) for n, gs in a["areas"].items()]
     ev = _queue_view(q) if q else {}
     lanes = lane_waits(q) if q else {}
     metrics: dict[str, dict[str, Any]] = {}
-    entries = [m for m in suite_view(_jsonl(_metrics_path(q))) if _from(m.get("at"), start)] if q else []
+    entries = [m for m in suite_view(_jsonl(_metrics_path(q))) if _from(m.get("at"), window)] if q else []
     for m in entries:  # a task's latest of each; the suite's are filed per kind (file_suites)
         metrics.setdefault(str(m.get("task_id")), {})[str(m.get("metric"))] = m.get("value")
     rows: dict[str, dict[str, Any]] = {}
@@ -1047,14 +1047,14 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
         out["small_tasks"] = small_tasks(cfg, out_rows)  # needs the lines, which only `files` counts
         out["budget_failures"] = budget_failures(cfg)  # diagnostics; `ccp architect due` makes them a trigger
         try:  # §14.6: a damaged suites file or report never breaks health
-            out["gate_time"] = gate_time(cfg, q, start=start) if q else None
+            out["gate_time"] = gate_time(cfg, q, start=window) if q else None
         except Exception:  # noqa: BLE001
             out["gate_time"] = None
         try:  # §27.2: nor does a damaged module list
-            out["suite_modules"] = suite_modules(cfg, q, start=start) if q else None
+            out["suite_modules"] = suite_modules(cfg, q, start=window) if q else None
         except Exception:  # noqa: BLE001
             out["suite_modules"] = None
-        out["rotation"] = rotation(q, start) if q else None  # §10.2 step 4
+        out["rotation"] = rotation(q, window) if q else None  # §10.2 step 4
         try:  # §27.1: nor does a damaged ledger or verification record
             out["sign_off_wait"] = sign_off_wait(q, out_rows, tasks) if q else None
         except Exception:  # noqa: BLE001

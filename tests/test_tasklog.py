@@ -460,6 +460,22 @@ class TaskLogTest(unittest.TestCase):
         self.assertEqual([w.split("number (")[1].split(")")[0] for w in ws],
                          ["40MB", "300ms", "5-10", "1.5GiB, 2-3s, 12h"])
 
+    def test_a_stated_limit_or_a_protocol_code_is_not_a_measurement(self):
+        f = self.p.task("0001-a")
+        quiet = ["- a timeout of at most 2 s", "- the hook returns HTTP status 400 and exits 2",
+                 "- At least 3, up to 40MB, no more than 5, no less than 1, within 5-10s, under 2,000",
+                 "- status code 404, HTTP 500, exit 1, exit code 3, EXITS 4"]
+        loud = ["- there are 14 call sites", "- at most 2 s, over 7 sites", "- exits 2 after 9 retries"]
+        f.write_text(f.read_text().replace("- background", "\n".join(quiet + loud)))
+        self.p.index()
+        code, out = self._cli("check")
+        self.assertEqual(code, 0, out)
+        lines = f.read_text().split("\n")
+        ws = [w for w in tasklog.warnings(self.p.cfg) if "Context states a number" in w]
+        self.assertEqual([w.split(": Context")[0] for w in ws],
+                         [f"docs/delivery/tasks/0001-a.md:{lines.index(l) + 1}" for l in loud], ws)
+        self.assertEqual([w.split("number (")[1].split(")")[0] for w in ws], ["14", "7", "9"])
+
     def test_a_scope_path_marked_removed_is_not_warned_about_whether_or_not_it_exists(self):
         self.p.write("src/still_here.py", "x = 1\n")
         f = self.p.task("0001-a")

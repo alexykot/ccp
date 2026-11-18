@@ -261,6 +261,53 @@ class NoClobber(InitCase):
         self.assertIn("  name: steward", self.binding.read_text().splitlines())
 
 
+class Adoption(InitCase):
+    """§4.5: init records the adoption as a `plane`/`adopted` ledger event, once per adoption."""
+
+    def adopted(self):
+        rows = [json.loads(ln) for ln in lib.events_path(self.queue).read_text().splitlines()] \
+            if lib.events_path(self.queue).is_file() else []
+        return [r for r in rows if (r.get("type"), r.get("op")) == ("plane", "adopted")]
+
+    def test_writing_the_binding_records_one_event_and_a_rerun_none(self):
+        self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        [ev] = self.adopted()
+        head = subprocess.run(["git", "-C", str(PLANE), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        self.assertEqual((ev["project_id"], ev["task_id"], ev["actor"]), ("demo", "", "operator"))
+        self.assertEqual(ev["payload"], {"plane": head, "binding": "written"})
+        self.assertEqual(lib.validate_event(ev), [])
+        code, res = self.init("--project-id", "demo")
+        self.assertEqual(code, 0, res)
+        self.assertIn("binding", res["kept"])
+        self.assertEqual(len(self.adopted()), 1)
+
+    def test_a_kept_binding_on_a_queue_with_no_event_records_one_as_kept(self):
+        self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        ledger = lib.events_path(self.queue)
+        older = {"at": "2026-01-01T00:00:00Z", "project_id": "demo", "task_id": "0001-a", "actor": "task-runner",
+                 "type": "lease", "op": "set", "payload": {"holder": "r"}}
+        ledger.write_text(json.dumps(older) + "\n")  # the queue as it was before the event existed
+        self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        [ev] = self.adopted()
+        self.assertEqual(ev["payload"]["binding"], "kept")
+        self.assertEqual(json.loads(ledger.read_text().splitlines()[0]), older)
+        self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        self.assertEqual(len(self.adopted()), 1)
+
+    def test_force_rewriting_the_binding_records_another(self):
+        self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        self.assertEqual(self.init("--project-id", "demo", "--force")[0], 0)
+        self.assertEqual([e["payload"]["binding"] for e in self.adopted()], ["written", "written"])
+
+    def test_the_op_and_its_keys_are_in_the_contract(self):
+        schema = json.loads((PLANE / "contracts" / "observability_event.schema.json").read_text())
+        self.assertIn("adopted", schema["properties"]["op"]["enum"])
+        self.assertEqual(lib.REQUIRED_PAYLOAD[("plane", "adopted")], ("plane", "binding"))
+        ev = {"at": "2026-01-01T00:00:00Z", "project_id": "demo", "task_id": "", "actor": "operator", "type": "plane",
+              "op": "adopted", "payload": {"plane": "abc"}}
+        self.assertIn("payload missing binding", lib.validate_event(ev))
+
+
 class Refusals(InitCase):
     def assert_refused_untouched(self, *args):
         before = sorted(p.relative_to(self.repo) for p in self.repo.rglob("*") if ".git" not in p.parts)
