@@ -84,6 +84,7 @@ EVENT_OPS = (
     "fired",
     "pending",
     "sent",
+    "adopted",
 )
 WAIT_REASONS = ("quota", "reauth", "operator_decision", "runner", "steerer", "spec_maintainer", "design_seat", "null-class",
                 "operator_step")
@@ -184,6 +185,8 @@ REQUIRED_PAYLOAD = {
     ("plane", "again"): ("proposal_id",),
     ("plane", "triaged"): ("proposal_id", "decision"),
     ("plane", "built"): ("proposal_id", "built_task"),
+    # §4.5: `ccp init` adopted the product (the plane checkout's HEAD; the binding `written` or `kept`)
+    ("plane", "adopted"): ("plane", "binding"),
     ("suite", "recorded"): ("suite_id", "exit_code", "seconds"),
     ("prefer", "set"): ("by", "reason"),
     ("prefer", "clear"): ("was", "reason"),

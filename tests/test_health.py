@@ -378,6 +378,119 @@ class NoteAndRecord(unittest.TestCase):
                 self.ccp("note", "--text", "x")
 
 
+class AdoptionWindow(unittest.TestCase):
+    """§27.1, §4.5: with no --since, health reads from the queue's latest `plane`/`adopted` event on."""
+
+    ADOPTED = health._ts(T0 + 5000)
+    BEFORE, AFTER = health._ts(T0 + 1000), health._ts(T0 + 6000)
+
+    def setUp(self):
+        self.p = Product()
+        self.addCleanup(self.p.cleanup)
+        for i in (1, 2):
+            self.p.task(f"000{i}-t{i}")
+        git(self.p.root, "init", "-q", "-b", "main")
+        git(self.p.root, "add", "-A")
+        commit(self.p.root, "init", T0)
+        for i in (1, 2):  # 0001 before the adoption, 0002 after it
+            self.p.write(f"app/{i}.py", "x\n")
+            git(self.p.root, "add", "-A")
+            commit(self.p.root, f"Task 000{i}: change {i} (#{i})", T0 + i * 3600)
+        self._q = tempfile.TemporaryDirectory()
+        self.addCleanup(self._q.cleanup)
+        self.q = Path(self._q.name)
+
+    def rows(self, rel, *rows):
+        f = self.q / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        with f.open("a") as fh:
+            for r in rows:
+                fh.write(json.dumps(r) + "\n")
+
+    def adopt(self, at=None):
+        self.rows("observability/events.jsonl", {"at": at or self.ADOPTED, "project_id": "demo", "task_id": "",
+                                                 "actor": "operator", "type": "plane", "op": "adopted",
+                                                 "payload": {"plane": "abc", "binding": "kept"}})
+
+    def health(self, *args):
+        out = io.StringIO()
+        with redirect_stdout(out), redirect_stderr(io.StringIO()), mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)}):
+            self.assertEqual(cli.main(["--root", str(self.p.root), "health", *args]), 0)
+        return out.getvalue()
+
+    def report(self, *args):
+        return json.loads(self.health("--json", *args))
+
+    def test_only_the_tasks_merged_since_adoption_are_listed(self):
+        self.adopt()
+        r = self.report()
+        self.assertEqual([t["task_id"] for t in r["tasks"]], ["0002-t2"])
+        self.assertEqual((r["adopted_at"], r["before_adoption"]), (self.ADOPTED, 1))
+        r = self.report("--since", "2025-10-09")
+        self.assertEqual([t["task_id"] for t in r["tasks"]], ["0001-t1", "0002-t2"])
+        self.assertEqual((r["adopted_at"], r["before_adoption"]), (self.ADOPTED, 0))
+
+    def test_the_text_names_the_window_and_what_it_left_out(self):
+        self.adopt()
+        [line] = [ln for ln in self.health().splitlines() if ln.startswith("since adoption")]
+        self.assertIn(self.ADOPTED, line)
+        self.assertIn("; 1 earlier", line)
+        self.assertNotIn("since adoption", self.health("--since", "2025-10-09"))
+
+    def test_the_latest_event_starts_the_window(self):
+        self.adopt(health._ts(T0 + 60))
+        self.adopt()
+        self.assertEqual(self.report()["before_adoption"], 1)
+        self.adopt(health._ts(T0 + 2 * 3600))  # at 0002's merge: a merge at the adoption's second is in the window
+        r = self.report()
+        self.assertEqual(([t["task_id"] for t in r["tasks"]], r["before_adoption"]), (["0002-t2"], 1))
+
+    def test_a_queue_with_no_event_reads_whole(self):
+        self.rows("observability/events.jsonl", {"at": self.AFTER, "task_id": "", "type": "plane", "op": "proposed"})
+        r = self.report()
+        self.assertEqual([t["task_id"] for t in r["tasks"]], ["0001-t1", "0002-t2"])
+        self.assertEqual((r["adopted_at"], r["before_adoption"]), (None, 0))
+        self.assertNotIn("since adoption", self.health())
+
+    def test_other_readers_of_the_rows_keep_the_whole_history(self):
+        self.adopt()
+        r = health.collect(self.p.cfg, self.q)
+        self.assertEqual([t["task_id"] for t in r["tasks"]], ["0001-t1", "0002-t2"])
+        self.assertNotIn("adopted_at", r)
+
+    def test_the_queue_figures_before_adoption_are_left_out(self):
+        from tests.test_gate_time import ended, started
+        mods = [{"name": "tests.test_a", "seconds": 1.0, "tests": 3}]
+        self.rows("health/metrics.jsonl",
+                  *({"at": at, "task_id": "0001-t1", "metric": "suite_seconds", "value": v, "kind": "cold"}
+                    for at, v in ((self.BEFORE, 100), (self.AFTER, 200))))
+        self.rows("health/notes.jsonl", {"at": self.BEFORE, "text": "a"}, {"at": self.AFTER, "text": "b"},
+                  {"at": self.ADOPTED, "text": "c"})  # at the adoption's second: in the window
+        self.rows("observability/events.jsonl",
+                  *({"at": at, "task_id": "", "type": "runner", "op": "rotate", "payload": {"name": "r"}}
+                    for at in (self.BEFORE, self.AFTER)),
+                  {"at": self.BEFORE, "task_id": "0001-t1", "type": "phase", "op": "transition", "payload": {"to": "done"}},
+                  {"at": self.AFTER, "task_id": "0002-t2", "type": "phase", "op": "transition", "payload": {"to": "done"}})
+        self.rows("runs/_suites.jsonl",
+                  started("st-a", at=self.BEFORE), {**ended("st-a", 700.0, cached=0, at=self.BEFORE), "modules": mods},
+                  started("st-b", at=self.AFTER), {**ended("st-b", 300.0, cached=0, at=self.AFTER), "modules": mods},
+                  started("st-k", at=self.BEFORE))  # never ended, long past the shell limit
+        whole = self.report()
+        self.assertEqual((whole["suite"]["cold"]["runs"], whole["notes"], whole["gate_time"]["cold_runs"],
+                          whole["suite_modules"]["runs"], [k["suite_id"] for k in whole["gate_time"]["killed"]],
+                          whole["rotation"]["rotations"], whole["rotation"]["tasks_done"]), (2, 3, 2, 2, ["st-k"], 2, 2))
+        self.adopt()
+        r = self.report()
+        self.assertEqual((r["suite"]["cold"]["runs"], r["suite"]["cold"]["latest_s"], r["notes"]), (1, 200, 2))
+        self.assertEqual((r["gate_time"]["cold_runs"], r["gate_time"]["latest"]["suite_id"], r["gate_time"]["killed"]),
+                         (1, "st-b", []))
+        self.assertEqual((r["suite_modules"]["runs"], r["suite_modules"]["latest"]["suite_id"]), (1, "st-b"))
+        self.assertEqual((r["rotation"]["rotations"], r["rotation"]["tasks_done"]), (1, 1))
+        since = self.report("--since", "2025-10-09")
+        self.assertEqual((since["suite"]["cold"]["runs"], since["notes"], since["gate_time"]["cold_runs"],
+                          since["rotation"]["rotations"]), (2, 3, 2, 2))
+
+
 class UsageAdviceGuards(unittest.TestCase):
     """§24.6, §27: health's usage advice never breaks health, and needs a queue."""
 

@@ -50,6 +50,7 @@ runner, `task-verifier` for the verifier subagent), `operator` and `system`.
 | `verify` | `recorded` | `run_id`, `verdict`, `head_sha` |
 | `allowance` | `sample` | the sample's gating figures (§25.1) |
 | `plane` | `proposed`, `again`, `triaged` | §31 |
+| `plane` | `adopted` | `plane` (the plane checkout's HEAD), `binding` (`written`, `kept`); `ccp init` (§4.5) |
 | `suite` | `recorded` | `suite_id`, `run_id`, `phase`, `lane`, `exit_code`, `seconds`, `tests`, `failed`, `skipped`, `ran`, `cached`, `cached_tests`, `counts_from`, `interrupted` (§14) |
 | `prefer` | `set`, `clear` | `set`: `by`, `reason`; `clear`: `was`, `reason` (`claimed` when the claim took it); `task_id` is the preferred task |
 
@@ -515,6 +516,11 @@ gates nothing.
 - **Sources:** git (the merges that name a task, with files and lines split by the `architect.areas`
   globs); the queue (report times under `progress/<task>/*-report.md`, phase events, review, verify,
   fix, merge and ruling rounds); prompt audits (prompt sizes).
+- **Window:** with no `--since`, from the queue's latest `plane`/`adopted` event (§4.5): the task
+  merges, the suite series, gate and module time, the rotation counts and the friction notes before it
+  are left out (the usage advice, `ccp usage`'s, and the rotation slots due now still read the whole
+  queue), and the report gives `adopted_at` and `before_adoption`, the count of task merges left out;
+  a given `--since` wins, and a queue with no such event is read whole.
 - **Per task:** wall time; the spans of implementing, reviewing and verifying; review, verify, fix,
   merge and ruling rounds; files and lines by area. **Trend:** rolling medians and the drift ratio
   (§19).

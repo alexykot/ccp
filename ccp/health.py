@@ -52,6 +52,12 @@ Everything comes from data the plane already holds; nothing here is a target or 
   naming its task only as `Task NNNN: …`, the form the implementer is asked for), not a
   reconcile commit naming a task, not named in a task's `covers:`, and changing more than the task log.
 
+- **adoption window** (§27.1, §4.5): with no `--since`, `ccp health` starts its window at the queue's latest
+  `plane`/`adopted` event (`ccp init`): the task merges, the suite series, gate and module time, the
+  rotation counts and the friction notes before it are left out, and `before_adoption` counts the task
+  merges left out. The usage advice (`ccp usage`'s) and the rotation slots due now are not windowed.
+  A queue with no such event, and a `--since`, read as before.
+
 A task's **active time** is its wall time less the time it waited (`waits_s`): every `waiting_on`
 interval, set to clear, whatever it waited on (§23.3's waits; an open one runs to the merge), and its
 suite runs' waits on an exclusive lane (§16.6: a `started` row's `wait_s`, a `busy` row's `waited_s`
@@ -291,6 +297,18 @@ def notes(q: Path | None, since: str | None = None) -> list[dict[str, Any]]:
         return []
     s = _epoch(since) if since else None
     return [n for n in _jsonl(q / "health" / "notes.jsonl") if s is None or (_epoch(n.get("at", "")) or 0) > s]
+
+
+def adopted_at(q: Path | None) -> str | None:
+    """§4.5: the time of the queue's latest `plane`/`adopted` ledger event (`ccp init`), or None."""
+    ats = [str(e.get("at")) for e in (_jsonl(_events_path(q)) if q else [])
+           if (e.get("type"), e.get("op")) == ("plane", "adopted") and _epoch(str(e.get("at") or "")) is not None]
+    return max(ats, key=lambda a: _epoch(a) or 0, default=None)
+
+
+def _from(at: Any, start: float | None) -> bool:
+    """Whether a record's time is in the window starting at `start` (no start: always)."""
+    return start is None or (_epoch(str(at or "")) or 0) >= start
 
 
 def _append(p: Path, rec: dict[str, Any]) -> None:
@@ -543,29 +561,33 @@ def suite_trend(entries: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
-def cold_gate_runs(cfg: Config | None, q: Path, rows: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
+def cold_gate_runs(cfg: Config | None, q: Path, rows: list[dict[str, Any]],
+                   start: float | None = None) -> tuple[str, list[dict[str, Any]]]:
     """The gate role's lane and its cold runs among the folded suite `rows`, oldest first (§14.6, §27.2):
-    passed, counted tests, nothing cached or no test cache yet, and timed."""
+    passed, counted tests, nothing cached or no test cache yet, and timed; with `start`, only those
+    started at or after it (the cache's start is still read from every row)."""
     from ccp.config import lane_for  # noqa: PLC0415
     lane = lane_for(cfg, "gate")
-    mine = [s for s in rows if s.get("lane") == lane and s.get("state") == "passed"]
-    start = cache_start(cfg, q, rows) if mine else None
+    mine = [s for s in rows if s.get("lane") == lane and s.get("state") == "passed" and _from(s.get("started_at"), start)]
+    cache_from = cache_start(cfg, q, rows) if mine else None
 
     def cache_then(s: dict[str, Any]) -> bool:
-        return start is not None and (_epoch(str(s.get("started_at") or "")) or 0) >= start
+        return cache_from is not None and (_epoch(str(s.get("started_at") or "")) or 0) >= cache_from
 
     return lane, [s for s in mine if classify(s, cache_then(s), lanes=(lane,)) == "cold"
                   and isinstance(s.get("seconds"), (int, float)) and not isinstance(s.get("seconds"), bool)]
 
 
-def suite_modules(cfg: Config | None, q: Path, rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def suite_modules(cfg: Config | None, q: Path, rows: list[dict[str, Any]] | None = None,
+                  start: float | None = None) -> dict[str, Any]:
     """The test modules' time (§27.2), from the cold runs of the gate role's lane whose result carried
     `modules` (§14.3): the latest's `health.slowest_modules` slowest modules with their seconds and
     tests, and the seconds per test (the run's seconds over its tests) of the last
-    `health.suite_trend_runs` of them: their median, the first and the latest."""
+    `health.suite_trend_runs` of them: their median, the first and the latest. With `start`, only the
+    runs started at or after it."""
     h = getattr(cfg, "health", None) or HEALTH_DEFAULTS
     rows = _folded(q) if rows is None else rows
-    lane, cold = cold_gate_runs(cfg, q, rows)
+    lane, cold = cold_gate_runs(cfg, q, rows, start)
     timed = [(s, mods) for s in cold if (mods := [m for m in s.get("modules") or [] if isinstance(m, dict)
                                                    and isinstance(m.get("name"), str) and _num(m.get("seconds"))])]
     latest, mods = timed[-1] if timed else (None, [])
@@ -597,7 +619,7 @@ def modules_text(m: dict[str, Any] | None) -> list[str]:
 
 
 def gate_time(cfg: Config | None, q: Path, rows: list[dict[str, Any]] | None = None,
-              now: float | None = None) -> dict[str, Any]:
+              now: float | None = None, start: float | None = None) -> dict[str, Any]:
     """The gate's time against the agent's shell limit (§14.6): the latest cold run of the gate role's
     lane (cold as §27.2 decides: passed, counted tests, nothing cached or no test cache yet), judged
     against plane.json `gate`'s cut line and limit. `finding` is that run when it took longer than the
@@ -606,12 +628,13 @@ def gate_time(cfg: Config | None, q: Path, rows: list[dict[str, Any]] | None = N
     oldest first, the gate role's runs with no `ended` row whose elapsed time reached the limit (to the
     earliest of their run's stop, report or abandonment when fold knows it, else to `now`), started
     after the latest gate run that passed or failed: killed at the shell limit. A run that stopped
-    earlier, or one with an `ended` row (an interrupted run included), is not listed."""
+    earlier, or one with an `ended` row (an interrupted run included), is not listed. With `start`, only
+    the runs started at or after it are judged or listed."""
     from ccp.config import gate_limits  # noqa: PLC0415
     limit, line = gate_limits(cfg)
     now = time.time() if now is None else now
     rows = _folded(q, now) if rows is None else rows
-    lane, cold = cold_gate_runs(cfg, q, rows)
+    lane, cold = cold_gate_runs(cfg, q, rows, start)
     latest = cold[-1] if cold else None
     finding = None
     if latest is not None and latest["seconds"] > line:
@@ -622,7 +645,7 @@ def gate_time(cfg: Config | None, q: Path, rows: list[dict[str, Any]] | None = N
                    "started_at": latest.get("started_at"), "seconds": _seconds(latest["seconds"]),
                    "over_limit": latest["seconds"] > limit,
                    "slowest_stage": {"name": slow.get("name"), "seconds": _seconds(slow["seconds"])} if slow else None}
-    ours = [s for s in rows if s.get("lane") == lane]
+    ours = [s for s in rows if s.get("lane") == lane and _from(s.get("started_at"), start)]
     since = max((i + 1 for i, s in enumerate(ours) if s.get("state") in ("passed", "failed")), default=0)
     killed = [{k: s.get(k) for k in ("suite_id", "task_id", "run_id", "started_at")} for s in ours[since:]
               if s.get("state") in ("open", "killed") and (t0 := _epoch(str(s.get("started_at") or ""))) is not None
@@ -716,14 +739,17 @@ def _queue_view(q: Path) -> dict[str, dict[str, Any]]:
     return view
 
 
-def rotation(q: Path) -> dict[str, Any]:
+def rotation(q: Path, start: float | None = None) -> dict[str, Any]:
     """§10.2 step 4: the runner slots due for rotation and not rotated (`lifecycle.rotation_due`), and the
     ledger's count of rotations (`runner`/`rotate` events) against tasks done (distinct tasks moved to
-    `done`), so a runner kept past its threshold shows."""
+    `done`), so a runner kept past its threshold shows. With `start`, the counts take only the events at
+    or after it."""
     from ccp.lifecycle import rotation_due  # noqa: PLC0415
     from ccp.queue import load_work, runner_slots  # noqa: PLC0415
     rotations, done = 0, set()
     for ev in _jsonl(_events_path(q)):
+        if not _from(ev.get("at"), start):
+            continue
         if (ev.get("type"), ev.get("op")) == ("runner", "rotate"):
             rotations += 1
         elif ev.get("type") == "phase" and ev.get("task_id") and (ev.get("payload") or {}).get("to") == "done":
@@ -959,23 +985,35 @@ def sign_off_text(w: dict[str, Any] | None) -> list[str]:
 
 
 def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool = True,
-            rev: str = "HEAD") -> dict[str, Any]:
+            rev: str = "HEAD", from_adoption: bool = False) -> dict[str, Any]:
     """Per-task rows (one per merged task on `rev`'s first-parent history, oldest merge first) and the
-    trend over them. Without `files`, only what the trend needs: no per-file lines and no prompt sizes."""
+    trend over them. Without `files`, only what the trend needs: no per-file lines and no prompt sizes.
+    With `from_adoption` and no `since` (`ccp health`, §27.1), the window starts at the queue's latest
+    `plane`/`adopted` event: the task merges, the suite series, gate and module time, the rotation
+    counts and the friction notes before it are left out (not the usage advice, `ccp usage`'s, nor the
+    rotation slots due now), and `before_adoption` counts the merges left out (`adopted_at` is that
+    event's time either way)."""
     a = cfg.architect or ARCHITECT_DEFAULTS
     tasks = tasklog.load(cfg)
     ms = merges(cfg, tasks, rev)
+    adopted = adopted_at(q) if from_adoption else None
+    window = None  # the adoption window's start: None reads the whole queue
+    before = 0
     if since:
         s = _epoch(since + ("T00:00:00Z" if len(since) == 10 else ""))
         if s is None:
             raise ValueError(f"--since {since!r}: give a date (YYYY-MM-DD) or YYYY-MM-DDTHH:MM:SSZ")
         ms = [m for m in ms if m["at"] >= s]
+    elif adopted is not None:
+        window = _epoch(adopted)
+        kept = [m for m in ms if m["at"] >= (window or 0)]
+        before, ms = len(ms) - len(kept), kept
     stats = numstat(cfg, {m["sha"] for m in ms}, rev) if files else {}
     areas = [(n, [glob_re(g) for g in gs]) for n, gs in a["areas"].items()]
     ev = _queue_view(q) if q else {}
     lanes = lane_waits(q) if q else {}
     metrics: dict[str, dict[str, Any]] = {}
-    entries = suite_view(_jsonl(_metrics_path(q))) if q else []
+    entries = [m for m in suite_view(_jsonl(_metrics_path(q))) if _from(m.get("at"), window)] if q else []
     for m in entries:  # a task's latest of each; the suite's are filed per kind (file_suites)
         metrics.setdefault(str(m.get("task_id")), {})[str(m.get("metric"))] = m.get("value")
     rows: dict[str, dict[str, Any]] = {}
@@ -1006,18 +1044,20 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
     out_rows = list(rows.values())
     out: dict[str, Any] = {"tasks": out_rows, "trend": trend(out_rows, a["drift_ratio"]), "suite": suite_trend(entries),
                            "queue": str(q) if q else None}
+    if from_adoption:
+        out.update(adopted_at=adopted, before_adoption=before)
     if files:
         out["small_tasks"] = small_tasks(cfg, out_rows)  # needs the lines, which only `files` counts
         out["budget_failures"] = budget_failures(cfg)  # diagnostics; `ccp architect due` makes them a trigger
         try:  # §14.6: a damaged suites file or report never breaks health
-            out["gate_time"] = gate_time(cfg, q) if q else None
+            out["gate_time"] = gate_time(cfg, q, start=window) if q else None
         except Exception:  # noqa: BLE001
             out["gate_time"] = None
         try:  # §27.2: nor does a damaged module list
-            out["suite_modules"] = suite_modules(cfg, q) if q else None
+            out["suite_modules"] = suite_modules(cfg, q, start=window) if q else None
         except Exception:  # noqa: BLE001
             out["suite_modules"] = None
-        out["rotation"] = rotation(q) if q else None  # §10.2 step 4
+        out["rotation"] = rotation(q, window) if q else None  # §10.2 step 4
         try:  # §27.1: nor does a damaged ledger or verification record
             out["sign_off_wait"] = sign_off_wait(q, out_rows, tasks) if q else None
         except Exception:  # noqa: BLE001
@@ -1118,16 +1158,20 @@ def main(cfg: Config, a: Any) -> int:
         return 0
     q = _queue(False)
     try:
-        report = collect(cfg, q, a.since)
+        report = collect(cfg, q, a.since, from_adoption=True)
     except ValueError as e:
         print(f"ccp health: {e}", file=sys.stderr)
         return 2
-    report["notes"] = len(notes(q))
+    start = None if a.since or not report["adopted_at"] else _epoch(report["adopted_at"])
+    report["notes"] = len([n for n in notes(q) if _from(n.get("at"), start)])
     if a.json:
         print(json.dumps(report, indent=2))
         return 0
     if not q:
         print("(QUEUE_ROOT not set: git figures only, no wall times)")
+    elif start is not None:
+        print(f"since adoption {report['adopted_at']}; {report['before_adoption']} earlier task(s) left out"
+              " (--since to include them)")
     print(_table(report))
     print(summary_text(report, 0))
     for b in report["budget_failures"]:

@@ -133,7 +133,9 @@ of reach when the sentence is edited.
   2 call sites ``. The implementer re-runs it at its base before building and, if the figure changed
   materially, stops with a scope question. `ccp tasks check` warns, without failing, about a task not
   yet `done` or `dropped` whose Context states a number with no backticked command (a code span of
-  two words or more) on its line.
+  two words or more) on its line. A stated limit (the number right after `at most`, `at least`,
+  `up to`, `no more than`, `no less than`, `within` or `under`) and a protocol code (right after
+  `status`, `status code`, `HTTP`, `exit`, `exits` or `exit code`) are not measurements and are skipped.
 - **Copy into Context what workers cannot reach**: data only the live system, a session or the
   operator holds.
 - **A ruling or sign-off is in git before anyone acts on it**: in the task's notes or a commit,

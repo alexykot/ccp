@@ -112,4 +112,24 @@ brief to measure a rule's own limit or a protocol code.
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `ccp init` records `plane`/`adopted` (actor `operator`; payload `plane`, the
+  plane checkout's HEAD, empty when it is not a git checkout, and `binding`) after it loads the product's
+  config, when the binding was written (a first adoption or `--force`) or the ledger has no such event.
+  `health.adopted_at(q)` is the one reader of the event, used by init and health. `ccp health` alone
+  applies the window (`collect(..., from_adoption=True)`); the board, architect, estimate and forecast
+  callers of `collect` read the whole history as before. Windowed: the task merges (and so the rows,
+  trend, small tasks and sign-off wait), the suite series, gate and module time (the judged runs; the
+  cache's start is still read from every run), the rotation counts and the friction notes, each at or
+  after the event's second. Not windowed: `usage_advice` (`ccp usage`'s advice, Out) and the rotation
+  slots due now. `adopted_at` is in the report whenever the queue has the event; `before_adoption` is 0
+  when `--since` is given, and the text line prints only when the adoption window applies. With
+  `--since`, health reads as before (only the merges windowed). The unmeasured-number warning blanks
+  the number right after the listed words, separated by spaces or tabs only, before reading the line.
+- 2026-11-18 (implementer, fix round 1): review MAJOR 1: the usage advice stays unwindowed (Scope Out
+  names `ccp usage`), so the SPEC §27.1 Window sentence and the `ccp/health.py` module and `collect`
+  docstrings now name what is windowed (task merges, suite series, gate and module time, rotation counts,
+  friction notes) and what is not (the usage advice, the rotation slots due now) instead of "the queue's
+  figures". MINOR 1: `cold_gate_runs`'s cache start is now the local `cache_from`, no longer rebinding
+  the `start` parameter. No behaviour changes.
+
 ## Verification notes

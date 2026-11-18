@@ -127,6 +127,9 @@ _NUM = r"\d+(?:[.,]\d+)*"
 _UNIT = r"(?i:[kmgtp]i?b|b|k|m|ns|us|µs|ms|s|secs?|mins?|h|hrs?|d|x)"
 CONTEXT_NUMBER_RE = re.compile(rf"(?<![\w§.\-/:#])(?!0\d)(?!(?:19|20)\d\d-(?:0[1-9]|1[0-2])(?!\d))"
                                rf"{_NUM}(?:-{_NUM})?{_UNIT}?(?![\w\-/:]|[.,]\d)")
+# A stated limit or a protocol code is not a measurement: the number right after one of these words.
+NOT_MEASURED_RE = re.compile(r"(?i:\b(?:at most|at least|up to|no more than|no less than|within|under|status code|status|"
+                             rf"HTTP|exit code|exits|exit)[ \t]+)({_NUM}(?:-{_NUM})?{_UNIT}?)")
 LIST_MARKER_RE = re.compile(r"^([ \t]*)\d+[.)](?=[ \t])")
 _MONTH = (r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|"
           r"Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?")
@@ -584,7 +587,10 @@ def _check_placeholders(t: dict[str, Any], rel: str) -> list[str]:
 
 def unmeasured_numbers(t: dict[str, Any], rel: str) -> list[str]:
     """§5: a task not yet done or dropped whose Context states a number on a line with no backticked
-    command, named with its line. Fenced blocks and code spans are quoted text, not read for numbers."""
+    command, named with its line. Fenced blocks and code spans are quoted text, not read for numbers, nor
+    is a stated limit or a protocol code: a number right after `at most`, `at least`, `up to`, `no more
+    than`, `no less than`, `within` or `under`, or after `status`, `status code`, `HTTP`, `exit`, `exits`
+    or `exit code` (any case)."""
     if t.get("status") in TERMINAL:
         return []
     at = _section_at(t["_text"], SEC_CONTEXT)
@@ -598,6 +604,7 @@ def unmeasured_numbers(t: dict[str, Any], rel: str) -> list[str]:
         if any(len(span.group(0).strip("`").split()) > 1 for span in CODE_SPAN_RE.finditer(line)):
             continue
         prose = WORD_DATE_RE.sub(_blank, LIST_MARKER_RE.sub(r"\1", CODE_SPAN_RE.sub(_blank, line)))
+        prose = NOT_MEASURED_RE.sub(lambda m: m.group(0)[:m.start(1) - m.start(0)] + " " * len(m.group(1)), prose)
         nums = [m.group(0) for m in CONTEXT_NUMBER_RE.finditer(prose)]
         if nums:
             out.append(f"{rel}:{first + n}: Context states a number ({', '.join(nums)}) with no backticked command on "
