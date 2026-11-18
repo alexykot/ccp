@@ -108,6 +108,25 @@ class Adopt(unittest.TestCase):
                               ("plane.json none", False), ("nonetheless set x", False), ("", False)):
             self.assertEqual(tasklog.asks_nothing(step), nothing, step)
 
+    def test_a_required_prefix_marks_the_step_and_is_read_past(self):
+        for step, want in (("required: plane.json alpha.on", (True, "plane.json alpha.on")),
+                           ("Required:plane.json alpha.on", (True, "plane.json alpha.on")),
+                           ("plane.json beta.on", (False, "plane.json beta.on")),
+                           ("required plane.json x.y", (False, "required plane.json x.y")),
+                           ("none", (False, "none"))):
+            self.assertEqual(tasklog.adopt_required(step), want, step)
+        self.assertTrue(tasklog.asks_nothing("required: none"))
+
+    def test_the_step_keeps_its_required_prefix(self):
+        self.task("0001-a", extra='adopt: "required: plane.json verify.accept_cache"')
+        self.assertEqual(tasklog.adopt_step(tasklog.load(self.p.cfg)[0]), "required: plane.json verify.accept_cache")
+
+    def test_a_required_none_value_naming_a_key_warns_as_a_hidden_step(self):
+        self.task("0001-a", extra='adopt: "required: none: plane.json verify.accept_cache turns it on"')
+        warned = self.warns()
+        self.assertEqual(len(warned), 1, warned)
+        self.assertIn("verify.accept_cache", warned[0])
+
     def test_the_task_file_schema_carries_adopt(self):
         schema = json.loads((Path(__file__).resolve().parents[1] / "contracts/task_file.schema.json").read_text())
         self.assertEqual(schema["properties"]["adopt"]["type"], "string")

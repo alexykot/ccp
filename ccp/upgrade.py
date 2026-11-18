@@ -12,6 +12,8 @@ A step is read by its form only: `<file> <key.path> [value]`, where the file is 
 (`docs/delivery/plane.json`), `binding` (the product's binding) or `settings` (`.claude/settings.json`).
 Such a step is taken when the product's file holds the key, whatever its value. A step whose first word
 is `none` asks nothing. Any other step, and one whose file cannot be read, is listed as "check by hand".
+A step that starts with `required:` is one the product must take, and is read without that prefix; any
+other is optional. `status` names the plane checkout's HEAD commit it read, so two readings compare.
 plane.json `upgrade.declined` leaves a task's step out; `upgrade.taken` leaves out a step the product took
 in a way the command cannot see, and lists it under `taken` with its reason.
 The proposals a task answers are those the plane session closed as built by it (`ccp plane built`).
@@ -107,8 +109,9 @@ def notes(_cfg: Config, a: Any) -> dict[str, Any]:
 
 
 def parse_step(step: str) -> tuple[str, str, str] | None:
-    """A step this command can check, as (file kind, key path, the value it names or ""); None otherwise."""
-    words = step.split(None, 2)
+    """A step this command can check, as (file kind, key path, the value it names or ""); None otherwise.
+    A `required:` prefix is read past."""
+    words = tasklog.adopt_required(step.strip())[1].split(None, 2)
     if len(words) < 2 or words[0] not in STEP_FILES or not KEY_RE.match(words[1]):
         return None
     return STEP_FILES[words[0]], words[1], words[2].strip() if len(words) > 2 else ""
@@ -167,9 +170,10 @@ def _change(kind: str, key: str, value: str) -> str:
 
 
 def status(cfg: Config, _a: Any) -> dict[str, Any]:
-    """§29.3: each `adopt` step of a merged plane task that this product has not taken, with the task, the
-    product's own proposal for it and the change to make. A declined task's step is left out; a step the
-    product recorded as taken (`upgrade.taken`) is too, and is listed under `taken` with its reason."""
+    """§29.3: each `adopt` step of a merged plane task that this product has not taken, with the task, whether
+    it is required, the product's own proposal for it and the change to make, and the plane checkout's HEAD
+    commit it read (`plane`). A declined task's step is left out; a step the product recorded as taken
+    (`upgrade.taken`) is too, and is listed under `taken` with its reason."""
     declined = (cfg.upgrade or {}).get("declined") or {}
     recorded = (cfg.upgrade or {}).get("taken") or {}
     sources = _sources(cfg)
@@ -182,13 +186,14 @@ def status(cfg: Config, _a: Any) -> dict[str, Any]:
         if tid in recorded:
             taken.append({"task": tid, "title": t.get("title"), "adopt": step, "reason": recorded[tid]})
             continue
+        required, bare = tasklog.adopt_required(step)
         parsed = parse_step(step)
         if parsed and sources[parsed[0]] is not None:
             if _has(sources[parsed[0]], parsed[1]):
                 continue
             check, change = NOT_TAKEN, _change(*parsed)
         else:
-            check, change = BY_HAND, step
-        steps.append({"task": tid, "title": t.get("title"), "adopt": step, "check": check, "change": change,
-                      "proposals": mine.get(tid, [])})
-    return {"ok": True, "steps": steps, "taken": taken}
+            check, change = BY_HAND, bare or step  # a step of only the prefix is shown as written
+        steps.append({"task": tid, "title": t.get("title"), "adopt": step, "required": required, "check": check,
+                      "change": change, "proposals": mine.get(tid, [])})
+    return {"ok": True, "plane": _git(_plane_root(), "rev-parse", "HEAD"), "steps": steps, "taken": taken}

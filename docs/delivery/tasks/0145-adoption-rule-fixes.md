@@ -122,4 +122,26 @@ it must take from the ones it may take, and which plane commit the reading came 
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): premises re-checked at `f3db9fb`: `git log --oneline -1 2821df0` names task 0120;
+  `SEAT_SCRIPTS` holds the two seat scripts, each printed bare and behind `QUEUE_ROOT=` (four entries); no
+  `adopt:` value on the log starts with `required:`.
+  - **Docs check.** `ccp/cli.py` names the pattern once (`PLANE_PATH_RE`, with `PLANE_DIR_RE` for the
+    checkout directory). A match in `.claude/settings.json` is re-read as JSON: an entry of
+    `permissions.allow` or `permissions.deny` that names a plane path only through a seat script (the
+    checkout directory followed by an entry of `init.SEAT_SCRIPTS`, not followed by a word character, `.` or
+    `-`) is set aside, and the rest of the file is searched again. A file that does not load as JSON is
+    warned about as before. The seat-script list stays in `ccp/init.py`, its one home.
+  - **Required steps.** `tasklog.adopt_required(step)` returns (required, the step without the prefix); the
+    prefix is matched case-insensitively, as `none` is. `asks_nothing` and `upgrade.parse_step` read the
+    step through it, so `hidden_step` does too (through `asks_nothing`): its key scan needs no change, since
+    `required` is no dotted key. `adopt_step` and the `adopt` field of `ccp upgrade status` and `notes` keep
+    the whole value; a by-hand step's `change` is the step without the prefix. `ccp upgrade status` gains
+    `plane`, the plane checkout's HEAD (`null` when that is not a git checkout). Entries under `taken` carry
+    no `required` (the task names the steps only).
+  - **Fix round 1 (review MINORs and one NIT).** Two tests pin what the review's mutants showed loose: a
+    seat-script entry under `permissions.deny` draws no warning, and an entry naming `scripts/team.sh.bak`
+    or `scripts/team.sh-x` under the plane checkout is still warned about (the boundary after the script
+    name). A step of only `required:` is now listed by hand with the step as written for its `change`,
+    not an empty one.
+
 ## Verification notes

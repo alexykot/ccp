@@ -233,6 +233,51 @@ class Status(UpgradeFixture, unittest.TestCase):
         self.assertEqual(steps, {"0001-cache": ["pp-mine"], "0003-hand": []})
 
 
+class Required(UpgradeFixture, unittest.TestCase):
+    """§5.2, §29.3: a step that starts with `required:` is marked required, any other optional, and the reading
+    names the plane checkout's commit; a plane.json block no step names changes nothing."""
+
+    def setUp(self):
+        super().setUp()
+        self.plane_task("0001-alpha", "done", "Alpha", "required: plane.json alpha.on")
+        self.plane_task("0002-beta", "done", "Beta", "plane.json beta.on")
+        self.head = self.commit("plane")
+        self.product_json()
+
+    def reading(self) -> dict:
+        code, body, err = self.ccp("upgrade", "status")
+        self.assertEqual(code, 0, err)
+        return body
+
+    def test_each_step_is_marked_required_or_optional_and_the_plane_commit_is_named(self):
+        body = self.reading()
+        self.assertEqual([(s["task"], s["required"], s["check"]) for s in body["steps"]],
+                         [("0001-alpha", True, "not taken"), ("0002-beta", False, "not taken")])
+        self.assertEqual(body["steps"][0]["change"], "set `alpha.on` in docs/delivery/plane.json")
+        self.assertEqual(body["steps"][0]["adopt"], "required: plane.json alpha.on")
+        self.assertEqual(body["plane"], self.head)
+
+    def test_a_required_step_the_product_took_is_not_listed(self):
+        self.product_json(alpha={"on": True})
+        self.assertEqual([s["task"] for s in self.reading()["steps"]], ["0002-beta"])
+
+    def test_a_required_step_it_cannot_check_is_listed_by_hand_without_the_prefix(self):
+        self.plane_task("0003-hand", "done", "Hand", "required: run the migration by hand")
+        step = {s["task"]: s for s in self.reading()["steps"]}["0003-hand"]
+        self.assertEqual((step["required"], step["check"], step["change"]),
+                         (True, "check by hand", "run the migration by hand"))
+
+    def test_a_step_of_only_the_prefix_is_listed_by_hand_as_written(self):
+        self.plane_task("0004-bare", "done", "Bare", "required:")
+        step = {s["task"]: s for s in self.reading()["steps"]}["0004-bare"]
+        self.assertEqual((step["required"], step["check"], step["change"]), (True, "check by hand", "required:"))
+
+    def test_a_block_no_step_names_leaves_the_reading_as_it_was(self):
+        before = self.reading()
+        self.product_json(gamma={"on": True})
+        self.assertEqual(self.reading(), before)
+
+
 class Declined(unittest.TestCase):
     def test_upgrade_declined_maps_a_task_id_to_a_reason(self):
         p = Product({"upgrade": {"declined": {"0001-a": "not for us"}}})

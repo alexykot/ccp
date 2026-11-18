@@ -3,11 +3,16 @@ operator to apply and writes nothing; the README's adoption checklist names real
 Scratch HOME, bindings, repos and queues."""
 from __future__ import annotations
 
+import io
 import json
+import os
 import re
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
 
+from ccp import cli
 from tests.test_init import PLANE, InitCase
 
 SCHEMA = PLANE / "contracts" / "plane_config.schema.json"
@@ -124,6 +129,90 @@ class Permissions(InitCase):
             self.assertEqual(r.returncode, 2, r.stdout)
             self.assertIn(f"drop {args[0]}", r.stderr)
             self.assertEqual(r.stdout, "")
+
+
+class AppliedBlockDocsCheck(InitCase):
+    """§4.3, §4.4: the block `ccp init --permissions` prints, applied to `.claude/settings.json`, draws no
+    docs-check warning; any other plane path in the file still does. The fence's own plane path does not
+    match the docs check's pattern, so the block is printed for a scratch plane path that does."""
+
+    def setUp(self):
+        super().setUp()
+        self.plane = self.home.parent / "src" / "control-plane"
+        code, res = self.init("--project-id", "demo")
+        self.assertEqual(code, 0, res)
+
+    def run_ccp(self, *args: str) -> tuple[int, str]:
+        out = io.StringIO()
+        with mock.patch("ccp.init.PLANE", self.plane), mock.patch.dict(os.environ, self.env, clear=True), \
+                redirect_stdout(out), redirect_stderr(io.StringIO()):
+            code = cli.main(["--root", str(self.repo), *args])
+        return code, out.getvalue()
+
+    def apply(self, **extra) -> list[str]:
+        """Apply the printed block (and `extra` keys) to the product's settings, commit, and return the block's
+        entries that name the plane by a path the docs check matches."""
+        code, out = self.run_ccp("init", "--permissions")
+        self.assertEqual(code, 0, out)
+        block = json.loads(out)
+        settings_file = self.repo / ".claude/settings.json"
+        settings = json.loads(settings_file.read_text())
+        settings.update(block, **extra)
+        settings_file.write_text(json.dumps(settings, indent=2))
+        self.git("add", ".")
+        self.git("commit", "-q", "-m", "permissions")
+        return [e for e in block["permissions"]["allow"] if re.search(cli.PLANE_PATH_RE, e)]
+
+    def settings_warnings(self) -> list[str]:
+        _, out = self.run_ccp("docs", "check")
+        return [line for line in out.splitlines() if "warning:" in line and ".claude/settings.json" in line]
+
+    def test_the_applied_block_draws_no_warning(self):
+        named = self.apply()
+        self.assertEqual(len(named), 4, named)  # team.sh and spec-maintainer-ask.sh, each bare and behind QUEUE_ROOT=
+        self.assertEqual(self.settings_warnings(), [])
+
+    def test_another_plane_path_in_the_settings_is_still_warned_about(self):
+        hook = str(self.plane / "plugin" / "hooks" / "runner-idle.sh")
+        self.apply(hooks={"Stop": [{"hooks": [{"type": "command", "command": hook}]}]})
+        warned = self.settings_warnings()
+        self.assertEqual(len(warned), 1, warned)
+        self.assertIn("SPEC §4.4", warned[0])
+
+    def test_a_permission_entry_naming_another_plane_path_beside_a_seat_script_is_warned_about(self):
+        team, other = self.plane / "scripts" / "team.sh", self.plane / "scripts" / "other.sh"
+        self.apply()
+        settings_file = self.repo / ".claude/settings.json"
+        settings = json.loads(settings_file.read_text())
+        settings["permissions"]["allow"].append(f"Bash({team} && {other}:*)")
+        settings_file.write_text(json.dumps(settings))
+        self.assertEqual(len(self.settings_warnings()), 1)
+
+    def test_a_seat_script_entry_under_deny_draws_no_warning(self):
+        named = self.apply()
+        settings_file = self.repo / ".claude/settings.json"
+        settings = json.loads(settings_file.read_text())
+        settings["permissions"]["allow"] = [e for e in settings["permissions"]["allow"] if e not in named]
+        settings["permissions"]["deny"] += named
+        settings_file.write_text(json.dumps(settings))
+        self.assertEqual(self.settings_warnings(), [])
+
+    def test_an_entry_naming_a_file_that_only_starts_with_a_seat_script_name_is_warned_about(self):
+        self.apply()
+        settings_file = self.repo / ".claude/settings.json"
+        before = settings_file.read_text()
+        for name in ("team.sh.bak", "team.sh-x"):
+            with self.subTest(name=name):
+                settings = json.loads(before)
+                settings["permissions"]["allow"].append(f"Bash({self.plane / 'scripts' / name}:*)")
+                settings_file.write_text(json.dumps(settings))
+                self.assertEqual(len(self.settings_warnings()), 1)
+
+    def test_a_settings_file_that_is_not_json_is_warned_about_as_before(self):
+        self.apply()
+        settings_file = self.repo / ".claude/settings.json"
+        settings_file.write_text(settings_file.read_text() + "\n,")
+        self.assertEqual(len(self.settings_warnings()), 1)
 
 
 class AdoptionChecklist(unittest.TestCase):
