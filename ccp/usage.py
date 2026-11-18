@@ -167,10 +167,6 @@ def advice_start(knobs: dict[str, Any] | None, since: float | None = None, now: 
     return None if hours <= 0 else float(int(time.time() if now is None else now) - hours * 3600)
 
 
-def _utc(t: float | None) -> str | None:
-    return None if t is None else time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
-
-
 def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None = None,
          knobs: dict[str, Any] | None = None, advice_since: float | None = None) -> dict[str, Any]:
     """Every request attributed to a run or a seat (the module docstring), and the advice: the design seat's
@@ -321,7 +317,7 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
         start = f" (requests since {_utc(advice_since)})" if advice_since is not None else " (every request)"
         advice += [line + start for line in
                    cost_advice({k: _out(v) for k, v in adv_seats.items()}, contexts, knobs, worker_runs=len(adv_runs))]
-    return {"advice_since": _utc(advice_since),
+    return {"advice_since": None if advice_since is None else _utc(advice_since),
             "recent": {k: {key: sorted(v, key=lambda x: str(x.get("at") or ""))[-RECENT:] for key, v in d.items()}
                        for k, d in recent.items()},
             "timeline": timeline, "run_models": run_models, "runs": rows, "task_id": task_id, "task_total": task_total, "advice": advice, "daily": daily,
