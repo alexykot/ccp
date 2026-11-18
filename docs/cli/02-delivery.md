@@ -24,7 +24,7 @@ argument takes the full id or its number.
 | `ccp tasks release <id> [--keep-branch] --reason "…"` | lead, runner | §10.4, §10.5, §16.5 (names `idle_runners` and `vacant_slots`, as close does) |
 | `ccp tasks drop <id> --reason "…"` | lead, runner | §10.4 |
 | `ccp tasks sync` | lead, runner | §10.4 |
-| `ccp tasks orphans --since <ref> [--json]` | lead | §10.7 |
+| `ccp tasks orphans --since <ref> [--json]` | lead | §10.7 (a commit that changes only the task log and the SPEC files is covered) |
 | `ccp tasks check --lease [--staged]` | lead, the commit hook template (`scripts/git-hooks/pre-commit.template`) | §10.5 |
 | `ccp tasks worktree [--runner <slot>]` | runner | §12.1 (`--runner` with several runners) |
 

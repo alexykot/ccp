@@ -45,10 +45,10 @@ class Migrate(InitCase):
         super().setUp()
         self.git("remote", "add", "origin", "https://github.com/team/repo.git")
 
-    def adopt(self, files: dict[str, str]) -> None:
+    def adopt(self, files: dict[str, str], index: str = OLD_INDEX) -> None:
         tasks = self.repo / TASKS
         tasks.mkdir(parents=True)
-        (self.repo / "docs/delivery/INDEX.yaml").write_text(OLD_INDEX)
+        (self.repo / "docs/delivery/INDEX.yaml").write_text(index)
         for name, text in files.items():
             (tasks / name).write_text(text)
         self.git("add", "docs")
@@ -142,6 +142,33 @@ class Migrate(InitCase):
         self.assertEqual(failing, [f"{TASKS}/0003-own-checks.md", f"{TASKS}/0004-after.md"], check.stdout)
         self.assertNotIn("dod_checks", check.stdout)
 
+    def test_a_backticked_meta_and_refs_table_under_a_noted_heading_converts(self):
+        meta = ("## Meta\n\n| Field | Value |\n|---|---|\n| `task_id` | `0002-b` |\n| `status` | `done` |\n"
+                '| `depends_on` | `["0001-a"]` |\n| `created` | `2026-01-02` |\n\n')
+        refs = ("## Refs (required for verifier packet)\n\n| Field | Value |\n|---|---|\n"
+                "| `spec_refs` | `docs/SPEC.md#first-part`, `docs/SPEC.md#second-part` |\n\n")
+        other = (meta.replace("0002-b", "0003-c").replace('["0001-a"]', "[]")
+                 + refs.replace("`docs/SPEC.md#first-part`, `docs/SPEC.md#second-part`", "`docs/OTHER.md#x`"))
+        self.adopt({"0001-a.md": old_task("0001", "A", {"Status": "done", "Created": "2026-01-01"}),
+                    "0002-b.md": "# Task 0002: B\n\n" + meta + refs},
+                   "tasks:\n  - id: 0001-a\n    title: A\n  - id: 0002-b\n    title: B\n")
+        for args in (("tasks", "migrate"), ("tasks", "check")):
+            r = self.ccp(*args)
+            self.assertEqual(r.returncode, 0, f"{args}: {r.stdout}{r.stderr}")
+        fm = tasklog.frontmatter(self.read("0002-b.md"))
+        self.assertEqual((fm["status"], fm["depends_on"], fm["spec_refs"]),
+                         ("done", ["0001-a"], ["docs/SPEC.md#first-part", "docs/SPEC.md#second-part"]))
+
+        third = "# Task 0003: C\n\n" + other
+        (self.repo / TASKS / "0003-c.md").write_text(third)
+        dry = self.ccp("tasks", "migrate", "--dry-run")
+        self.assertEqual(dry.returncode, 1, dry.stdout + dry.stderr)
+        [line] = [ln for ln in dry.stdout.splitlines() if ln.startswith(TASKS)]
+        self.assertTrue(line.startswith(f"{TASKS}/0003-c.md: cannot convert"), line)
+        for token in ("## Refs (required for verifier packet)", "spec_refs", "docs/OTHER.md#x"):
+            self.assertIn(token, line)
+        self.assertEqual(self.read("0003-c.md"), third)
+
 
 class Convert(unittest.TestCase):
     """The rulings one by one, on a temp product (no init needed)."""
@@ -211,6 +238,19 @@ class Convert(unittest.TestCase):
     def test_spec_refs_read_each_form_and_keep_their_order(self):
         cfg = config.load(self.p.root)
         self.assertEqual(taskmigrate.spec_refs(cfg, ["§6.1, S4", "§ 6 and S12.3; MS3 S3-bucket"]), ["S6", "S4", "S12"])
+
+    def test_spec_refs_keep_a_link_into_a_spec_file_and_read_backticked_items(self):
+        cfg = config.load(self.p.root)
+        got = taskmigrate.spec_refs(cfg, ["`docs/SPEC.md#a-part`, `§4.1`", "`docs/OTHER.md#x`, `src/S5.md#y`",
+                                          "docs/spec/02-b.md#c, S5", "`docs/SPEC.md#a-part`"])
+        self.assertEqual(got, ["docs/SPEC.md#a-part", "S4", "docs/spec/02-b.md#c", "S5"])
+
+    def test_a_file_with_no_spec_section_names_the_refs_heading_and_its_rows(self):
+        self.p.write(f"{TASKS}/0001-a.md", old_task("0001", "x", self.meta(), specs="`docs/OTHER.md#x`"))
+        self.p.write(f"{TASKS}/0002-b.md", old_task("0002", "x", self.meta(), specs=None))
+        rows = self.rows()
+        self.assertIn("## Refs: spec = `docs/OTHER.md#x`; adr = 0012", rows["0001-a.md"]["reason"])
+        self.assertIn("no Refs heading", rows["0002-b.md"]["reason"])
 
     def test_keys_match_in_any_case_and_a_bare_number_names_its_file(self):
         self.p.write(f"{TASKS}/0001-a.md", old_task("0001", "x", self.meta()))

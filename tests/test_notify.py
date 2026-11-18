@@ -394,11 +394,22 @@ class TestNotice(test_sandbox.SandboxCase):
 
     def test_upgrade_an_unknown_task_and_a_reason_of_two_lines_are_refused(self):
         root, _ = self.sandbox()
-        for args in (("upgrade",), ("blocker", "--task", "9999"), ("blocker", "--reason", "two\nlines")):
+        for args in (("upgrade",), ("blocker", "--task", "9999"), ("blocker", "--id", "G1", "--reason", "two\nlines")):
             with self.subTest(args=args):
                 r = self.ccp("--root", root, "notify", "fire", *args)
                 self.assertEqual(r.returncode, 2, r.stderr)
         self.assertEqual(self.pending(root), [])
+
+    def test_a_test_notice_with_neither_task_nor_id_is_refused(self):
+        root, _ = self.sandbox()
+        r = self.ccp("--root", root, "notify", "fire", "decision")
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn("--task", r.stderr)
+        self.assertIn("--id", r.stderr)
+        self.assertEqual(self.pending(root), [])
+        r = self.ccp("--root", root, "notify", "fire", "decision", "--id", "Q1")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.pending(root), [("decision", "Q1")])
 
     def test_outside_a_sandbox_nothing_fires(self):
         root, q = self.plain()

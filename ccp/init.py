@@ -31,8 +31,9 @@ moves nothing.
 
 It records the adoption in the queue's ledger, a `plane`/`adopted` event (the plane checkout's HEAD, the
 binding `written` or `kept`), when it writes the binding, or when the ledger holds no such event yet (a
-queue from before the event, re-adopted); a rerun on an adopted product records nothing (§4.5).
-`ccp health` reads from the latest one onwards (§27.1).
+queue from before the event, re-adopted), then with `since`, the binding file's last change, as the
+adoption point; a rerun on an adopted product records nothing (§4.5). `ccp health` reads from the latest
+one onwards (§27.1).
 
 A kept binding is checked against the current shape (§8.3): the result's `warnings` names, with the binding
 file and the fix, each key it lacks (the contract's required keys, `product_root`, a `runner` block with
@@ -58,6 +59,7 @@ import re
 import shlex
 import subprocess
 import sys
+from datetime import datetime, timezone
 from urllib.parse import urlsplit
 from pathlib import Path
 from typing import Any
@@ -423,7 +425,7 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
             "with `ccp plane check --archive`")
 
     cfg = config.load(root)
-    record_adoption(q, cfg, "binding" in out["written"])
+    record_adoption(q, cfg, "binding" in out["written"], binding)
     old_files = [f for f in sorted(cfg.tasks_dir.glob("*.md")) if not tasklog.has_frontmatter(f.read_text())]
     if old_files:  # §5.3: an earlier plane generation's task log
         out.setdefault("warnings", []).append(
@@ -438,17 +440,22 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     return out
 
 
-def record_adoption(q: Path, cfg: config.Config, written: bool) -> dict[str, Any] | None:
+def record_adoption(q: Path, cfg: config.Config, written: bool, binding: Path | None = None) -> dict[str, Any] | None:
     """§4.5: the `plane`/`adopted` ledger event, recorded when init wrote the binding or when the queue's
     ledger holds none yet (a queue from before the event, re-adopted); else nothing, so a rerun does not
     move the adoption forward. Its payload: `plane`, the plane checkout's HEAD; `binding`, `written` or
-    `kept`."""
+    `kept`; for a kept one, `since`, the binding file's last change in UTC, the adoption point `ccp health`
+    reads in place of the event's time (the binding is rewritten only by `--force`, which records its own)."""
     from ccp import health  # noqa: PLC0415  (health is heavy; only init's adoption reads it)
     if not written and health.adopted_at(q) is not None:
         return None
     head = subprocess.run(["git", "-C", str(PLANE), "rev-parse", "HEAD"], capture_output=True, text=True)
-    return emit(q, cfg, "", "plane", "adopted", {"plane": head.stdout.strip() if head.returncode == 0 else "",
-                                                 "binding": "written" if written else "kept"}, who="operator")
+    payload = {"plane": head.stdout.strip() if head.returncode == 0 else "",
+               "binding": "written" if written else "kept"}
+    if not written and binding is not None and binding.is_file():
+        changed = datetime.fromtimestamp(binding.stat().st_mtime, timezone.utc)
+        payload["since"] = changed.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return emit(q, cfg, "", "plane", "adopted", payload, who="operator")
 
 
 def _rule(cmd: str) -> str:

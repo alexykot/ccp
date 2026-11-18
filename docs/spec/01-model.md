@@ -283,7 +283,7 @@ configuration.
   `ccp notify pending` lists every notice fired with no later `sent` event for the same trigger,
   task and id with `ok` true, once however often it fired, so a trigger that fired while the lead
   was idle is still found.
-- **Test notice.** In a sandbox only (§29.3), `ccp notify fire <trigger>` fires a notice as a step would: the `pending` record, the command channel, the rendered notice.
+- **Test notice.** In a sandbox only (§29.3), `ccp notify fire <trigger>` fires a notice as a step would: the `pending` record, the command channel, the rendered notice. It needs `--task` or `--id`, as every step that fires one gives; without either it refuses (exit 2) and records nothing.
 - **Channels** (plane.json `notify`, §8.1):
   - `command`, a shell command (default null), and `timeout_seconds` (default 30): the unattended
     channel `ccp` runs on each trigger but `upgrade`, which is only recorded for the lead to dispatch, so a release runs no product command, with an empty stdin, in the checkout the call came from (for
@@ -429,9 +429,8 @@ A product is adopted by running `ccp init` in its repository. It writes:
   (§4.3);
 - outside the repository, the local binding and its queue directory (§8.3).
 
-It records the adoption as a `plane`/`adopted` ledger event (§23.2) when it writes the binding, and when
-the queue's ledger holds no such event yet (a queue from before the event, re-adopted); a rerun on an
-adopted product records nothing.
+It records the adoption as a `plane`/`adopted` ledger event (§23.2) when it writes the binding, and
+when the queue's ledger holds no such event yet (a queue from before the event, re-adopted), with `since`, the binding file's last change, as the adoption point `ccp health` reads in place of the event's time; a rerun on an adopted product records nothing.
 
 It keeps a file that already exists and lists it as kept, unless given `--force`, so running it again
 changes nothing. Even with `--force` it merges into `.claude/settings.json` and keeps every value already there, `subagentPromptCacheTtl` and `autoCompactWindow` included. It refuses, writing nothing, when keeping would leave the product inconsistent: a

@@ -445,6 +445,18 @@ class AdoptionWindow(unittest.TestCase):
         r = self.report()
         self.assertEqual(([t["task_id"] for t in r["tasks"]], r["before_adoption"]), (["0002-t2"], 1))
 
+    def test_a_backfilled_event_s_since_is_the_adoption_point(self):
+        self.adopt(health._ts(T0 + 60))
+        self.rows("observability/events.jsonl", {"at": health._ts(T0 + 3 * 3600), "project_id": "demo", "task_id": "",
+                                                 "actor": "operator", "type": "plane", "op": "adopted",
+                                                 "payload": {"plane": "abc", "binding": "kept", "since": self.ADOPTED}})
+        r = self.report()
+        self.assertEqual([t["task_id"] for t in r["tasks"]], ["0002-t2"])
+        self.assertEqual((r["adopted_at"], r["before_adoption"]), (self.ADOPTED, 1))
+        self.adopt(health._ts(T0 + 4 * 3600))  # a later event without one: its own time
+        r = self.report()
+        self.assertEqual((r["tasks"], r["adopted_at"], r["before_adoption"]), ([], health._ts(T0 + 4 * 3600), 2))
+
     def test_a_queue_with_no_event_reads_whole(self):
         self.rows("observability/events.jsonl", {"at": self.AFTER, "task_id": "", "type": "plane", "op": "proposed"})
         r = self.report()

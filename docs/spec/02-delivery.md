@@ -252,7 +252,7 @@ covering task merged on the remote counts once the checkout has it. A commit is 
 2. it is a reconcile commit as `ccp tasks close` writes it (`Reconcile <NNNN>: done (PR #<n>,
    squash <sha>)`, §10.5) for a task in the log;
 3. a task not `dropped` names it in `covers:`; or
-4. it changes nothing outside the task log (its task files, `INDEX.yaml`, the reconcile log).
+4. it changes nothing outside the task log (its task files, `INDEX.yaml`, the reconcile log) and the SPEC files (`task_log.spec_paths`): the lead's own task-log commits and spec rulings, however they were merged.
 
 A merge commit is one commit: its change against its first parent. A `covers:` entry that is not a
 sha is a warning. Exit 0 with nothing listed, 1 with a commit listed, 2 when a ref does not

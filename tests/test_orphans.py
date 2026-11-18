@@ -104,6 +104,11 @@ class Orphans(unittest.TestCase):
         beyond = self.change("Add a task and a doc", "docs/delivery/tasks/0002-t2.md", "docs/guide.md")
         self.assertEqual(self.listed(), [beyond])
 
+    def test_a_task_log_and_spec_commit_is_not_listed_and_one_beyond_them_is(self):
+        self.change("Lead's ruling on Q3 (#8)", "docs/delivery/tasks/0001-t1.md", "docs/spec/x.md")
+        mixed = self.change("Ruling and a fix (#9)", "docs/spec/x.md", "src/app.py")
+        self.assertEqual(self.listed(), [mixed])
+
     def test_covers_takes_a_full_sha_and_a_dropped_task_covers_nothing(self):
         a = self.change("outside one", "app/a.py")
         b = self.change("outside two", "app/b.py")
