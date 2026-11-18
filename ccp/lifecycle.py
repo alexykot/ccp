@@ -911,13 +911,14 @@ def sign_off_gaps(q: Path, meta: dict[str, Any], stages: list[str], head: str | 
                            f"merge is {head[:12]}; the operator signs the new head (`ccp tasks sign-off {tid} "
                            "--stage build`, SPEC §3.5)" + passages)
         elif stage == "brief" and text_in is not None:
-            out += _brief_stale(text_in, meta, str(got.get("head") or ""))
+            out += brief_stale(text_in, meta, str(got.get("head") or ""))
     return out
 
 
-def _brief_stale(cfg: Config, meta: dict[str, Any], signed: str) -> list[str]:
+def brief_stale(cfg: Config, meta: dict[str, Any], signed: str) -> list[str]:
     """§3.5: a `brief` sign-off holds while its head contains the commit that last changed the task file
-    (that commit, or a descendant of it): an edit to the text after the signing makes it stale."""
+    (that commit, or a descendant of it): an edit to the text after the signing makes it stale. The one
+    test: the claim (`sign_off_gaps`) and `ccp tasks next` (`selection.unsigned`, §10.3) both apply it."""
     tid, rel = str(meta["task_id"]), cfg.rel(meta["_file"])
     r = git(cfg.root, "log", "-1", "--format=%H", "--", rel)
     last = r.stdout.strip() if r.returncode == 0 else ""

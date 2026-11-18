@@ -178,9 +178,8 @@ def cmd_tasks_next(cfg: config.Config, a: argparse.Namespace) -> int:
         h = sel["held"].get(tid) or {}
         print(f"ccp tasks next: passed over {tid}: held ({', '.join(x for x in (h.get('by') or '?', h.get('reason')) if x)}; "
               f"`ccp tasks hold --clear {tid}`)", file=sys.stderr)
-    for tid in sel["unsigned"]:  # §10.3, §3.5: claim would refuse it
-        print(f"ccp tasks next: passed over {tid}: no brief sign-off on record (the lead records the operator's "
-              f"with `ccp tasks sign-off {tid} --stage brief`, SPEC §3.5)", file=sys.stderr)
+    for tid in sel["unsigned"]:  # §10.3, §3.5: claim would refuse it (missing, stale or malformed)
+        print(f"ccp tasks next: passed over {tid}: {sel['unsigned_why'][tid]['why']}", file=sys.stderr)
     if getattr(a, "explain", False):
         _explain(cfg, sel)
     from ccp import parallel  # noqa: PLC0415  (§16.3: the board's ready queue reads the same choice)
@@ -218,8 +217,9 @@ def cmd_tasks_next(cfg: config.Config, a: argparse.Namespace) -> int:
 
 
 def _nothing_ready_why(sel: dict) -> str:
-    """Why `tasks next` found nothing: the counts of the ready tasks it passed over for a missing brief
-    sign-off (§3.5) or a hold (§10.4), which stderr names, else blocked or done."""
+    """Why `tasks next` found nothing: the counts of the ready tasks it passed over for a brief sign-off
+    missing or stale, or a malformed `sign_off:` value (§3.5), or a hold (§10.4), which stderr names, else
+    blocked or done."""
     unsigned, held = len(sel["unsigned"]), len(sel["passed_over"])
     if not unsigned and not held:
         return "every pending task is blocked on a dependency, or all are done"
@@ -241,8 +241,8 @@ def _slots_full(a: argparse.Namespace, held: dict) -> int:
 
 def _explain(cfg: config.Config, sel: dict) -> None:
     """`ccp tasks next --explain`: the full ranked queue on stderr, held tasks and those awaiting their
-    brief sign-off marked, the pick first."""
-    held, waits = sel["held"], set(sel["unsigned"])
+    sign-off (missing, stale or malformed) marked, the pick first."""
+    held, waits = sel["held"], sel["unsigned_why"]
     rows = sel["ranked_all"]
     pick = sel["ranked"][0][0].get("task_id") if sel["ranked"] else None
     print(f"ccp tasks next --explain: {len(rows)} ready, {len(sel['passed_over'])} held, {len(waits)} unsigned",
@@ -252,7 +252,7 @@ def _explain(cfg: config.Config, sel: dict) -> None:
         mark = "held" if tid in held else ("sign" if tid in waits else ("next" if tid == pick else ""))
         h = held.get(tid) or {}
         extra = f" held by {h.get('by') or '?'}" + (f": {h['reason']}" if h.get("reason") else "") if tid in held else ""
-        extra += " awaits its brief sign-off" if mark == "sign" else ""
+        extra += f" awaits its sign-off: {waits[tid]['kind']}" if mark == "sign" else ""
         print(f"  {n:>2}. {mark:<4} {tid}  {t.get('title') or ''}{'  — ' + why if why else ''}{extra}", file=sys.stderr)
     for tid in sorted(set(held) - {str(t.get('task_id')) for t, _ in rows}):
         h = held[tid]

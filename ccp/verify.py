@@ -93,8 +93,9 @@ that head, `catch_up.to`, in place of `head_sha` only when `catch_up.from` is `h
 
 `spec-text` (§15.2) checks a PR's SPEC edits against the words the operator signed (§3.5): each
 `PROPOSED:` marker in the task's Scope followed by `> ` blockquote lines is a signed passage
-(`signed_passages`), and each must appear, whitespace-normalised, in the lines `git diff <base>...HEAD`
-adds to files under `task_log.spec_paths` (`spec_text`), each hunk's added lines read as one text. The
+(`signed_passages`), and each must appear, whitespace-normalised, in a hunk `git diff <base>...HEAD`
+makes to a file under `task_log.spec_paths` (`spec_text`), read with the unchanged lines around it up to
+the nearest blank line on each side, covering at least one line the hunk adds (`spec_hunks`). The
 base defaults to `origin/<integration branch>` (the binding's with QUEUE_ROOT, else `main`); nothing is
 fetched. Exit 0 when every passage is found, 1 naming each that is not, 2 when the task has none. It
 needs no QUEUE_ROOT and writes nothing.
@@ -1213,18 +1214,23 @@ def signed_passages(text: str) -> list[tuple[int, str]]:
     return out
 
 
-def added_spec_lines(cfg: Config, base: str) -> dict[str, list[str]] | None:
-    """§15.2: per SPEC file (`task_log.spec_paths`), the lines `git diff <base>...HEAD` adds to it, one text
-    per hunk (each hunk's added lines joined in order and whitespace-normalised); None when the diff cannot be
-    read (`base` resolves to nothing). A file's `+++ ` header is read only between its `diff --git` line and
-    its first `@@` line: within a hunk every `+` line is content, one that begins `++ ` too."""
+_HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
+
+
+def spec_hunks(cfg: Config, base: str) -> dict[str, list[tuple[str, str]]] | None:
+    """§15.2: per SPEC file (`task_log.spec_paths`), one text per hunk `git diff <base>...HEAD` makes to it:
+    the hunk's lines in the head's file, extended with the unchanged lines before and after it up to the
+    nearest blank line on each side (a hunk's own blank first or last line is that line), joined and
+    whitespace-normalised, as (text, mask), the mask `+` under each character of a line the hunk adds and
+    `.` elsewhere. A hunk that adds nothing has no text. None when the diff cannot be read (`base` resolves
+    to nothing). A file's `+++ ` header is read only between its `diff --git` line and its first `@@` line."""
     from ccp import tasklog  # noqa: PLC0415
     r = subprocess.run(["git", "-C", str(cfg.root), "-c", "core.quotePath=false", "diff", "--no-color",
                         "--no-ext-diff", "--unified=0", f"{base}...HEAD"], capture_output=True, text=True)
     if r.returncode != 0:
         return None
     spec_paths = cfg.task_log.get("spec_paths") or []
-    added: dict[str, list[list[str]]] = {}
+    ranges: dict[str, list[tuple[int, int]]] = {}
     cur: str | None = None
     header = False
     for line in r.stdout.splitlines():
@@ -1237,19 +1243,48 @@ def added_spec_lines(cfg: Config, base: str) -> dict[str, list[str]] | None:
                 cur = None
         elif line.startswith("@@"):  # with no context lines, no content line begins `@@`
             header = False
-            if cur is not None:
-                added.setdefault(cur, []).append([])
-        elif not header and cur is not None and line.startswith("+"):
-            added[cur][-1].append(line[1:])
-    texts = {f: [t for t in (_norm(" ".join(h)) for h in hunks) if t] for f, hunks in added.items()}
-    return {f: ts for f, ts in texts.items() if ts}
+            m = _HUNK_RE.match(line)
+            if cur is not None and m and (n := int(m.group(2) or 1)):  # +start,count: 0 adds nothing
+                ranges.setdefault(cur, []).append((int(m.group(1)) - 1, n))
+    out: dict[str, list[tuple[str, str]]] = {}
+    for f, hunks in ranges.items():
+        shown = subprocess.run(["git", "-C", str(cfg.root), "show", f"HEAD:{f}"], capture_output=True, text=True)
+        if shown.returncode != 0:
+            continue
+        lines = shown.stdout.splitlines()
+        for start, n in hunks:
+            lo, hi = start, min(start + n, len(lines))
+            while lo > 0 and lines[lo].strip() and lines[lo - 1].strip():
+                lo -= 1
+            while 0 < hi < len(lines) and lines[hi - 1].strip() and lines[hi].strip():
+                hi += 1
+            words = [(w, start <= k < start + n) for k in range(lo, hi) for w in lines[k].split()]
+            text = " ".join(w for w, _ in words)
+            mask = ".".join(("+" if added else ".") * len(w) for w, added in words)
+            if "+" in mask:
+                out.setdefault(f, []).append((text, mask))
+    return out
+
+
+def _found(passage: str, hunk: tuple[str, str]) -> bool:
+    """§15.2: whether `passage` lies within the hunk's text and covers at least one character of a line the
+    hunk adds (some occurrence of it, when it occurs more than once)."""
+    text, mask = hunk
+    at = text.find(passage)
+    while at >= 0:
+        if "+" in mask[at:at + len(passage)]:
+            return True
+        at = text.find(passage, at + 1)
+    return False
 
 
 def spec_text(cfg: Config, task: str, base: str | None = None) -> tuple[int, dict[str, Any]]:
     """§15.2 `ccp verify spec-text`: whether each passage the task carries for the operator's sign-off
-    (`signed_passages`) is in the SPEC lines the branch adds (`added_spec_lines`), each hunk's added lines
-    read as one text: a passage is found when it lies within one hunk's text. The exit code (0 all found, 1
-    one or more not, 2 no passage, an unknown task or a base that does not resolve) and the body."""
+    (`signed_passages`) is in the SPEC text the branch changes (`spec_hunks`), each hunk read with the
+    unchanged lines around it up to the nearest blank line: a passage is found when it lies within one hunk's
+    text and covers a character of a line that hunk adds (`_found`), so one wholly inside unchanged lines is
+    not. The exit code (0 all found, 1 one or more not, 2 no passage, an unknown task or a base that does not
+    resolve) and the body."""
     from ccp.queue import QueueError, integration_branch, task_meta  # noqa: PLC0415
     try:
         meta = task_meta(cfg, task)
@@ -1264,13 +1299,13 @@ def spec_text(cfg: Config, task: str, base: str | None = None) -> tuple[int, dic
         return 2, {"ok": False, "task_id": tid, "base": base,
                    "error": f"{cfg.rel(meta['_file'])} carries no PROPOSED: block (a `PROPOSED:` marker followed by "
                             "`> ` blockquote lines) in its Scope"}
-    added = added_spec_lines(cfg, base)
+    added = spec_hunks(cfg, base)
     if added is None:
         return 2, {"ok": False, "task_id": tid, "base": base,
                    "error": f"git diff {base}...HEAD failed: is {base} a ref in {cfg.root}?"}
     rel = cfg.rel(meta["_file"])
     rows = [{"line": f"{rel}:{n}", "passage": text,
-             "found_in": [f for f, hunks in sorted(added.items()) if any(text in h for h in hunks)]}
+             "found_in": [f for f, hunks in sorted(added.items()) if any(_found(text, h) for h in hunks)]}
             for n, text in passages]
     missing = [r for r in rows if not r["found_in"]]
     return (1 if missing else 0), {"ok": not missing, "task_id": tid, "base": base, "passages": rows,
@@ -1292,7 +1327,7 @@ def main(cfg: Config, a: Any) -> int:
             print(f"ccp verify spec-text: {body['error']}", file=sys.stderr)
         for r in body.get("passages") or []:
             if not r["found_in"]:
-                print(f"ccp verify spec-text: not found in the SPEC lines the branch adds since {body['base']}: the "
+                print(f"ccp verify spec-text: not found in the SPEC text the branch changes since {body['base']}: the "
                       f"passage at {r['line']}: {r['passage']}", file=sys.stderr)
         print(json.dumps(body, indent=2, ensure_ascii=False))
         return code
