@@ -1,7 +1,7 @@
 ---
 task_id: 0159-test-readers-and-mutate
 title: A product maps its own paths to tests for ccp suite affected, ccp mutate tells a mutant that does not build from one a test killed, and a shallow ver works with LFS and --revert
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S20", "S12"]
@@ -166,3 +166,5 @@ find the merge base.
   is a warning in the result's `warnings` (printed on stderr by `ccp wt`), and nothing is recorded.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #177 head `999f546` (squash `d6c1f75`): APPROVE. Passed: aff-01, aff-02, mut-01, wt-01, wt-02, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -m unittest tests.test_suite_affected tests.test_mutate tests.test_wt` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0159-test-readers-and-mutate.json.
+
