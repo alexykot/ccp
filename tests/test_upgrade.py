@@ -267,6 +267,11 @@ class Required(UpgradeFixture, unittest.TestCase):
         self.assertEqual((step["required"], step["check"], step["change"]),
                          (True, "check by hand", "run the migration by hand"))
 
+    def test_a_step_of_only_the_prefix_is_listed_by_hand_as_written(self):
+        self.plane_task("0004-bare", "done", "Bare", "required:")
+        step = {s["task"]: s for s in self.reading()["steps"]}["0004-bare"]
+        self.assertEqual((step["required"], step["check"], step["change"]), (True, "check by hand", "required:"))
+
     def test_a_block_no_step_names_leaves_the_reading_as_it_was(self):
         before = self.reading()
         self.product_json(gamma={"on": True})

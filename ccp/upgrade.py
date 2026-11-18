@@ -193,7 +193,7 @@ def status(cfg: Config, _a: Any) -> dict[str, Any]:
                 continue
             check, change = NOT_TAKEN, _change(*parsed)
         else:
-            check, change = BY_HAND, bare
+            check, change = BY_HAND, bare or step  # a step of only the prefix is shown as written
         steps.append({"task": tid, "title": t.get("title"), "adopt": step, "required": required, "check": check,
                       "change": change, "proposals": mine.get(tid, [])})
     return {"ok": True, "plane": _git(_plane_root(), "rev-parse", "HEAD"), "steps": steps, "taken": taken}

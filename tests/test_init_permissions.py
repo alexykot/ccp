@@ -188,6 +188,26 @@ class AppliedBlockDocsCheck(InitCase):
         settings_file.write_text(json.dumps(settings))
         self.assertEqual(len(self.settings_warnings()), 1)
 
+    def test_a_seat_script_entry_under_deny_draws_no_warning(self):
+        named = self.apply()
+        settings_file = self.repo / ".claude/settings.json"
+        settings = json.loads(settings_file.read_text())
+        settings["permissions"]["allow"] = [e for e in settings["permissions"]["allow"] if e not in named]
+        settings["permissions"]["deny"] += named
+        settings_file.write_text(json.dumps(settings))
+        self.assertEqual(self.settings_warnings(), [])
+
+    def test_an_entry_naming_a_file_that_only_starts_with_a_seat_script_name_is_warned_about(self):
+        self.apply()
+        settings_file = self.repo / ".claude/settings.json"
+        before = settings_file.read_text()
+        for name in ("team.sh.bak", "team.sh-x"):
+            with self.subTest(name=name):
+                settings = json.loads(before)
+                settings["permissions"]["allow"].append(f"Bash({self.plane / 'scripts' / name}:*)")
+                settings_file.write_text(json.dumps(settings))
+                self.assertEqual(len(self.settings_warnings()), 1)
+
     def test_a_settings_file_that_is_not_json_is_warned_about_as_before(self):
         self.apply()
         settings_file = self.repo / ".claude/settings.json"

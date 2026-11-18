@@ -138,5 +138,10 @@ it must take from the ones it may take, and which plane commit the reading came 
     the whole value; a by-hand step's `change` is the step without the prefix. `ccp upgrade status` gains
     `plane`, the plane checkout's HEAD (`null` when that is not a git checkout). Entries under `taken` carry
     no `required` (the task names the steps only).
+  - **Fix round 1 (review MINORs and one NIT).** Two tests pin what the review's mutants showed loose: a
+    seat-script entry under `permissions.deny` draws no warning, and an entry naming `scripts/team.sh.bak`
+    or `scripts/team.sh-x` under the plane checkout is still warned about (the boundary after the script
+    name). A step of only `required:` is now listed by hand with the step as written for its `change`,
+    not an empty one.
 
 ## Verification notes
