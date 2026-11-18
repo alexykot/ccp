@@ -1,7 +1,7 @@
 ---
 task_id: 0149-gate-cache-in-fix-and-merge-rounds
 title: Fix and merge rounds run the product's full suite as its declared lane, so they get the gate's parallel run and test cache
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S13"]
@@ -162,3 +162,5 @@ passes its own command on a lane plane.json gives a command is told which comman
   shows), after the lanes resolve and before anything runs; the argv is shown space-joined.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #167 head `f1a89e3` (close's catch-up of the approved `91ce96c`, gate run st-20261118T134554Z-6d5d22) (squash `f7bddd9`): APPROVE. Passed: prm-01, prm-02, cmd-01, doc-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0149-gate-cache-in-fix-and-merge-rounds.json.
+
