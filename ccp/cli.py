@@ -54,7 +54,8 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp plane propose --need T --generic T [--task ID] [--workaround T] [--frequency F] | propose --again ID
             | triage ID --accept|--merge-into ID|--decline --reason T | built ID --task ID | list [--open]
             | check [--archive]  (queue entries the plane does not write; --archive moves them to _legacy/, SPEC §31.3)
-  ccp upgrade notes [--since COMMIT] | status  (what a plane release asks of a product, SPEC §29.3)
+  ccp upgrade notes [--since COMMIT] | status | decline TASK --reason R | take TASK --reason R
+            (what a plane release asks of a product; decline and take record a step in plane.json, SPEC §29.3)
   ccp agent start|stop          (the SubagentStart / SubagentStop hooks; hook JSON on stdin)
   ccp orientation               (the SessionStart orientation, for a session that adopted mid-run, SPEC §9.3)
   ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--starter-rules] [--force]
@@ -982,7 +983,8 @@ def _plane(cfg: config.Config, a: argparse.Namespace):
 
 def _upgrade(cfg: config.Config, a: argparse.Namespace):
     from ccp import upgrade
-    return {"notes": upgrade.notes, "status": upgrade.status}[a.cmd](cfg, a)
+    return {"notes": upgrade.notes, "status": upgrade.status, "decline": upgrade.decline,
+            "take": upgrade.take}[a.cmd](cfg, a)
 
 
 def cmd_agent(cfg: config.Config, a: argparse.Namespace) -> int:
@@ -1320,6 +1322,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=upgrade_fn)
     up.add_parser("status", help="the adopt steps of merged plane tasks this product has not taken") \
         .set_defaults(fn=upgrade_fn)
+    for name, what in (("decline", "declined (upgrade.declined)"), ("take", "taken (upgrade.taken)")):
+        p = up.add_parser(name, help=f"record a merged plane task's adopt step as {what} in plane.json; "
+                                     "commits nothing")
+        p.add_argument("task", help="the plane task's id or number")
+        p.add_argument("--reason", help="why (required)")
+        p.set_defaults(fn=upgrade_fn)
 
     sub.add_parser("otel", help="the telemetry receiver: serve | env | install | uninstall | status "
                                 "(SPEC §24.5, §24; runs without a product)")

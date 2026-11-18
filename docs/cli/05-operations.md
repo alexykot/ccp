@@ -31,6 +31,8 @@ ccp plane check [--archive]    the queue entries the plane does not write (scrip
 ```
 ccp upgrade notes [--since <commit>]
 ccp upgrade status
+ccp upgrade decline <task> --reason R    record the task's adopt step as declined (plane.json upgrade.declined)
+ccp upgrade take <task> --reason R       record it as taken (plane.json upgrade.taken); each removes the task from the other
 ccp sandbox create [DIR] [-- <ccp init options>]
 ccp sandbox remove DIR
 ccp notify fire <trigger> [--task ID] [--id ID] [--reason R]    a test notice, in a sandbox only (§3.6)
