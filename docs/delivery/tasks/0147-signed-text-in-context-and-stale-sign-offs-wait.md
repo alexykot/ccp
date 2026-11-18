@@ -1,7 +1,7 @@
 ---
 task_id: 0147-signed-text-in-context-and-stale-sign-offs-wait
 title: The signed-text check finds a passage that starts on an unchanged line, and next passes over a stale or malformed brief sign-off
-status: pending
+status: done
 kind: feature
 depends_on: ["0142-signed-text-checks"]
 spec_refs: ["S3", "S10", "S15"]
@@ -10,7 +10,7 @@ sign_off: brief
 paths: ["ccp/verify.py", "ccp/selection.py", "ccp/cli.py", "ccp/lifecycle.py", "docs/spec/02-delivery.md", "tests/test_verify_spec_text.py", "tests/test_sign_off.py"]
 adopt: "none"
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Task: 0147-signed-text-in-context-and-stale-sign-offs-wait
@@ -128,3 +128,5 @@ malformed as well as missing.
   task exits 0.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #164 head `6626bff` (squash `da2e9ad`): APPROVE. Passed: spec-01, spec-02, next-01, next-02, check-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0147-signed-text-in-context-and-stale-sign-offs-wait.json.
+
