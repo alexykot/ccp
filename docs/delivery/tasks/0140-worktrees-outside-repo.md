@@ -1,7 +1,7 @@
 ---
 task_id: 0140-worktrees-outside-repo
 title: worktrees.dir may be an absolute path or lead outside the main checkout, such as a sibling directory
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12"]
@@ -10,7 +10,7 @@ sign_off: brief
 paths: ["ccp/config.py", "ccp/wt.py", "ccp/prompt.py", "contracts/plane_config.schema.json", "docs/spec/02-delivery.md", "tests/test_wt.py", "tests/test_wt_outside.py"]
 adopt: "none"
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Task: 0140-worktrees-outside-repo
@@ -119,4 +119,18 @@ that layout.
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `_worktree_blocks` now takes the product root. A value with no `..` that is
+  not absolute is refused as the main checkout when it normalises to `.`; an absolute or `..` value is
+  resolved against the main checkout (`wt.main_of`, which asks git, so only for those values) and
+  refused when it is that checkout. The main-checkout refusal appends ", not the main checkout itself"
+  to the Scope's message. The legacy `adapter.worktree_dir` type refusal uses the same message.
+  `wt.base_dir` and `prompt.worktree_for` resolve. The outside rule is `wt._git_named`/`_ours`: `None`
+  (any directory) when the resolved dir is the main checkout's descendant, else the resolved paths
+  `git worktree list --porcelain` names; applied in `listing`, `remove_task`'s fallback (pre-record
+  names and the merge worktree) and `gc`'s merge sweep. `ccp wt remove NAME` of an unrecorded
+  directory and `create`'s adoption of an existing one are unchanged (not in Scope). SPEC text for the
+  outside rule was not carried by the task: proposed as `pp-20261118T073953Z-eec0`.
+
 ## Verification notes
+- 2026-11-18 — verifier, PR #158 head `fdbc008` (squash `4ef5438`): APPROVE. Passed: cfg-01, wt-01, close-01, wt-02, check-01, suite-01. Gate: `ccp suite run --run 0140-worktrees-outside-repo/verify --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0140-worktrees-outside-repo.json.
+

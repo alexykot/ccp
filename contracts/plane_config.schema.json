@@ -607,7 +607,7 @@
             "string",
             "null"
           ],
-          "description": "Where `ccp tasks claim` makes task worktrees, relative to the main checkout (impl-NNNN); reviewers and verifiers use rev-NNNN and ver-NNNN beside them."
+          "description": "Where `ccp tasks claim` makes task worktrees: a path relative to the main checkout, which may lead outside it with `..`, such as a sibling directory, or an absolute path; not the main checkout itself (impl-NNNN); reviewers and verifiers use rev-NNNN and ver-NNNN beside them."
         },
         "worktree_links": {
           "type": "array",
@@ -637,7 +637,7 @@
             "string",
             "null"
           ],
-          "description": "Relative to the main checkout; worktrees are named <kind>-<nnnn>[-<n>] (impl, rev, ver, mut, mac, base). Null: no plane-made worktrees."
+          "description": "A path relative to the main checkout, which may lead outside it with `..`, such as a sibling directory, or an absolute path; not the main checkout itself; worktrees are named <kind>-<nnnn>[-<n>] (impl, rev, ver, mut, mac, base). Null: no plane-made worktrees."
         },
         "links": {
           "type": "array",

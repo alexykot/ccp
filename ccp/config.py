@@ -149,8 +149,10 @@ RECONCILE_LOG_FIELDS = ("date", "task_id", "nnnn", "pr", "head", "head7", "merge
 # Legacy (before §12.1's worktrees/env blocks): `adapter.worktree_dir` and `adapter.worktree_links`
 # read as `worktrees.dir` and `worktrees.links`; `adapter.post_close` commands still run once at close.
 ADAPTER_DEFAULTS: dict[str, Any] = {"worktree_dir": None, "worktree_links": [], "post_close": []}
-# §12.1: where `ccp wt` makes worktrees (relative to the main checkout; null = none) and what it links in.
+# §12.1: where `ccp wt` makes worktrees (relative to the main checkout, `..` allowed, or absolute; not the
+# main checkout itself; null = none) and what it links in.
 WORKTREES_DEFAULTS: dict[str, Any] = {"dir": None, "links": []}
+WORKTREES_DIR_RULE = "{} must be a path relative to the main checkout (`..` allowed) or an absolute path, or null"
 # §12 env hooks: shell command templates `ccp wt` runs in a worktree (null = none).
 ENV_DEFAULTS: dict[str, Any] = {"setup": None, "teardown": None, "up": None, "down": None, "urls": None,
                                 "timeout_seconds": 600}
@@ -846,7 +848,7 @@ def _workers_problems(w: dict[str, Any]) -> list[str]:
     return bad
 
 
-def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
+def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
     """The §10 blocks, merged with their defaults and checked value by value: they drive merges,
     commits and commands, so a wrong type fails loudly."""
     out = {"prompts": _merge(PROMPTS_DEFAULTS, raw.get("prompts"), "prompts"),
@@ -958,11 +960,11 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
         bad.append("reconcile.hooks must be a list of commands")
     ad = out["adapter"]
     if not _opt_str(ad["worktree_dir"]):
-        bad.append("adapter.worktree_dir must be a path relative to the product root")
+        bad.append(WORKTREES_DIR_RULE.format("adapter.worktree_dir"))
     for k in ("worktree_links", "post_close"):
         if not _str_list(ad[k]):
             bad.append(f"adapter.{k} must be a list of non-empty strings")
-    bad += _worktree_blocks(raw, out)
+    bad += _worktree_blocks(raw, out, root)
     tel = out["telemetry"]
     if isinstance(tel["otel_port"], bool) or not isinstance(tel["otel_port"], int) or not 1 <= tel["otel_port"] <= 65535:
         bad.append("telemetry.otel_port must be a port number")
@@ -1158,7 +1160,21 @@ def _toolkit(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return out
 
 
-def _worktree_blocks(raw: dict[str, Any], out: dict[str, Any]) -> list[str]:
+def _is_main_checkout(root: Path, d: Any) -> bool:
+    """§12.1: whether `worktrees.dir` `d` names the main checkout of the product at `root` itself. One with
+    no `..` and not absolute does when it normalises to `.`; any other is resolved against the main checkout
+    (`wt.main_of`, which asks git) and compared with it."""
+    if not isinstance(d, str) or not d.strip():
+        return False
+    if not Path(d).is_absolute() and ".." not in Path(d).parts:
+        return os.path.normpath(d) == "."
+    from ccp.wt import main_of  # noqa: PLC0415  (wt imports this module)
+
+    main = main_of(root)
+    return (main / d).resolve() == main.resolve()
+
+
+def _worktree_blocks(raw: dict[str, Any], out: dict[str, Any], root: Path) -> list[str]:
     """§12.1: worktrees, env hooks, merge and auth probes; the legacy adapter keys fold into worktrees."""
     bad: list[str] = []
     ad, wt = out["adapter"], out["worktrees"]
@@ -1171,9 +1187,10 @@ def _worktree_blocks(raw: dict[str, Any], out: dict[str, Any]) -> list[str]:
         if given.get("links") not in (None, [], ad["worktree_links"]):
             bad.append("set worktrees.links or the legacy adapter.worktree_links, not both")
         wt["links"] = list(ad["worktree_links"])
-    d = wt["dir"]
-    if not _opt_str(d) or (isinstance(d, str) and (d.startswith("/") or ".." in Path(d).parts)):
-        bad.append("worktrees.dir must be a path relative to the main checkout, or null")
+    if not _opt_str(wt["dir"]):
+        bad.append(WORKTREES_DIR_RULE.format("worktrees.dir"))
+    elif _is_main_checkout(root, wt["dir"]):
+        bad.append(WORKTREES_DIR_RULE.format("worktrees.dir") + ", not the main checkout itself")
     if not isinstance(wt["links"], list) or not all(isinstance(x, str) and x.strip() for x in wt["links"]):
         bad.append("worktrees.links must be a list of paths")
     env = out["env"]
@@ -1379,5 +1396,5 @@ def _parse(root: Path, text: str) -> Config:
         adr=_adr(raw.get("adr")),
         upgrade=_upgrade(raw.get("upgrade")),
         unknown_keys=tuple(unknown),
-        **_toolkit(raw),
+        **_toolkit(raw, root),
     )
