@@ -783,7 +783,7 @@ tasks:
     depends_on: []
     path: tasks/0156-plane-hygiene.md
   - id: 0157-spec-text-sections-and-head
-    status: pending
+    status: done
     title: ccp verify spec-text reads signed passages from a Rule changes section too, and checks a past commit with --head
     depends_on: []
     path: tasks/0157-spec-text-sections-and-head.md

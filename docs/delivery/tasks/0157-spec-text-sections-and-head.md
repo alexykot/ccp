@@ -1,7 +1,7 @@
 ---
 task_id: 0157-spec-text-sections-and-head
 title: ccp verify spec-text reads signed passages from a Rule changes section too, and checks a past commit with --head
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S15", "S3"]
@@ -121,3 +121,5 @@ checking that commit out.
   bad-base one, is in the code and module docstring only, as the task carried no passage for it.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #176 head `dd5ab11` (squash `838efa2`): APPROVE. Passed: sec-01, sec-02, head-01, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0157-spec-text-sections-and-head.json.
+
