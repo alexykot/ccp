@@ -753,7 +753,7 @@ tasks:
     depends_on: []
     path: tasks/0150-runner-loop-fixes.md
   - id: 0151-rotation-refills-the-slot
-    status: pending
+    status: done
     title: A runner being rotated out takes no new task, and a slot left empty after a rotation is named to the lead until it is refilled
     depends_on: []
     path: tasks/0151-rotation-refills-the-slot.md

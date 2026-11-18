@@ -1,7 +1,7 @@
 ---
 task_id: 0151-rotation-refills-the-slot
 title: A runner being rotated out takes no new task, and a slot left empty after a rotation is named to the lead until it is refilled
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S10", "S16", "S18"]
@@ -144,3 +144,5 @@ output says the slot stays empty until the spawn runs.
   `rotation-due`, as it does for `bind_pending`.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #173 head `cf03ef9` (squash `1dce71a`): APPROVE. Passed: rot-01, rot-02, rot-03, vac-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0, `ccp verify spec-text 0151-rotation-refills-the-slot --base origin/main` exit 0. Record: verification/0151-rotation-refills-the-slot.json.
+
