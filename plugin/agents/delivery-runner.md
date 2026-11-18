@@ -132,7 +132,10 @@ before anything else.
 7. **Review.** `ccp prompt review <task_id> --pr <n> --head <sha>`: a fresh `delivery-reviewer` subagent with
    no implementer context. It refuses (exit 2) a PR whose body does not contain the task id: repair the
    body first (`gh pr edit <n> --body-file <file>`, the PR number always given), then ask again. When it finds a BLOCKER or MAJOR, `ccp prompt fix <task_id> --pr <n> --head <sha>`
-   launches the implementer on the findings, then review again. Two rounds of the implementer have their
+   launches the implementer on the findings. After a fix round, run `ccp prompt verify <task_id> --pr <n> --head
+   <new sha>` first: it opens the verify when the fix needs no new review (a clean review's MINOR and NIT fix
+   under `verify.skip_review_after_clean`, or a fix `verify.skip_review` or a review prover proves), and
+   refuses (exit 4), naming why, when it needs one: then run `ccp prompt review` on the new head. Two rounds of the implementer have their
    own kind, never an `implement-N` with a note: `ccp prompt merge <task_id> --pr <n> --head <sha>` only
    merges the integration tip into the task branch, and `ccp prompt ruling <task_id> --pr <n> --head <sha>
    --note-file <the lead's ruling>` only applies a lead's ruling (before review too). Review and verify treat

@@ -232,8 +232,7 @@ with work_lock(root):
     elif "resets_at" in work and action == "clear":
         work["resets_at"] = None
     work["quota_class"] = qclass
-    if detail:
-        work["waiting_on_detail"] = detail
+    work["waiting_on_detail"] = detail if action == "set" else None  # a clear, or a set without one, leaves none
     work["updated_at"] = now_s
     write_json(work_path, work)
 

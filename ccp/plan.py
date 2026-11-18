@@ -158,8 +158,9 @@ def ready_queue(cfg: Config, q: Path, tasks: list[dict[str, Any]]) -> dict[str, 
     """The ready tasks in `ccp tasks next`'s order, from the selection the command itself runs
     (`selection.pick`, `tasklog.ranked`). `next` is what the command returns now (`parallel.next_choice`):
     row 0 without parallel, which may be a task already in flight (its file still says pending: the
-    command would resume it); with it (§16.3), the head of the line when it may join what the runner
-    holds, else none, and `slots_full` says why. `in_flight` lists work.json's tasks in flight."""
+    command would resume it); with it (§16.3), the first ready task that may join what the runner holds,
+    past any that only a path in flight keeps out, else none, and `slots_full` says why. `in_flight`
+    lists work.json's tasks in flight."""
     from ccp import parallel  # noqa: PLC0415
     sel = selection.pick(cfg, q, None, tasks)
     flight = sel["in_flight"]
