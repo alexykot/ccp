@@ -77,6 +77,17 @@ class SpecEditsAreSignedAtTasking(unittest.TestCase):
                          ["docs/delivery/tasks/0001-a.md", "docs/delivery/tasks/0002-b.md",
                           "docs/delivery/tasks/0004-d.md"])
 
+    def test_the_default_names_what_init_writes_and_the_estimators_spec_dirs(self):
+        self.task("0001-a", paths='["docs/SPEC.md"]')
+        self.task("0002-b", paths='["spec/a.md"]')
+        self.task("0003-c", paths='["docs/other.md"]')
+        self.p.index()
+        code, ws = self.check()
+        self.assertEqual(code, 0)
+        self.assertEqual(len(ws), 2, ws)
+        self.assertIn("docs/delivery/tasks/0001-a.md: its paths name the SPEC (docs/SPEC.md)", ws[0])
+        self.assertIn("docs/delivery/tasks/0002-b.md: its paths name the SPEC (spec/a.md)", ws[1])
+
     def test_an_entry_without_a_slash_meets_only_the_path_it_equals(self):
         self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "task_log": {"spec_paths": ["rules"]}}))
         self.task("0001-a", paths='["rules"]')

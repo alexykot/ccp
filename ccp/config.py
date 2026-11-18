@@ -55,7 +55,8 @@ TASK_LOG_DEFAULTS: dict[str, Any] = {
     "dry_run": False,
     # SPEC §3.5: the paths that hold the SPEC. A task not yet done whose `paths` name one, with no
     # `brief` sign-off and no `§31.1` in its Scope, is warned about. A path ending in `/` is a directory.
-    "spec_paths": ["docs/spec/", "SPEC.md"],
+    # The same files `estimate.spec_paths` names by default, in this key's form (paths and directories).
+    "spec_paths": ["docs/SPEC.md", "SPEC.md", "docs/spec/", "spec/"],
 }
 # SPEC §16.2: several tasks in flight under one runner. 1 (the default) is one task at a time.
 # `shared` lists the paths tasks only append lines to: they keep no two tasks apart (§16.3 rule 3), and
