@@ -145,5 +145,9 @@ the way with one command that never deletes anything, after which `ccp plane che
   as `script_drift` already skips); the binding's `auth_check.script` is not listed at the root either;
   `--archive` writes no ledger event (no event type exists for it); an entry that cannot be moved
   (an `OSError`) is listed under `not_moved` with the error, like an existing target.
+- Fix round 1 (review MINOR 1, 2): a top-level directory that holds the binding's `auth_check.script`
+  (say `tools/auth.sh`) is no longer listed or archived, so the auth check keeps its script; the SPEC
+  §31.3 bullet and the CLI doc now say that the auth-check script, a directory holding it and an
+  atomic write's `*.tmp` are not listed.
 
 ## Verification notes

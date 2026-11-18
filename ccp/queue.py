@@ -521,12 +521,13 @@ def script_drift(q: Path) -> list[str]:
 def leftover_entries(q: Path) -> list[str]:
     """§31.3: each top-level entry of QUEUE_ROOT not in QUEUE_OWNED, by name. An atomic write's
     temporary file (`*.tmp`) is not one: it is replaced in place a moment later; nor is the binding's
-    auth-check script (§30), wherever in the queue it names."""
+    auth-check script (§30), nor a directory that holds it, wherever in the queue it names."""
     if not q.is_dir():
         return []
     sanctioned = _sanctioned_scripts(q)
     return [e.name for e in sorted(q.iterdir())
-            if e.name not in QUEUE_OWNED and not e.name.endswith(".tmp") and e.resolve() not in sanctioned]
+            if e.name not in QUEUE_OWNED and not e.name.endswith(".tmp")
+            and not any(s.is_relative_to(e.resolve()) for s in sanctioned)]
 
 
 def queue_leftovers(q: Path) -> list[str]:

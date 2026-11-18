@@ -23,6 +23,7 @@ ccp plane built <id> --task <plane task id>
 
 ```
 ccp plane check [--archive]    the queue entries the plane does not write (scripts, root); --archive moves them to QUEUE_ROOT/_legacy/<UTC date>/
+                               not listed: a byte-identical plane script, the binding's auth_check.script (and a directory holding it), an atomic write's *.tmp
 ```
 
 ## Releases (§29)

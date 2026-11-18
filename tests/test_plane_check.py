@@ -159,6 +159,18 @@ class Archive(SandboxCase):
         self.assertTrue(auth.is_file() and gate.is_file())
         self.assertFalse((self.q / "_legacy").exists())
 
+    def test_a_directory_holding_the_auth_check_script_stays(self):
+        with open(self.sb["binding"], "a") as fh:
+            fh.write("auth_check:\n  script: tools/auth/check.sh\n")
+        auth = self.put("tools/auth/check.sh", "#!/bin/sh\nexit 0\n")
+        self.put("run-task.sh", "#!/bin/sh\n")
+        code, body, err = self.ccp("plane", "check", "--archive")
+        self.assertEqual(code, 0, err)
+        self.assertEqual([r["path"] for r in body["archived"]], ["run-task.sh"])
+        self.assertEqual((body["root"], body["not_moved"]), ([], []))
+        self.assertEqual(auth.read_text(), "#!/bin/sh\nexit 0\n")
+        self.assertFalse((self.q / "_legacy" / utc_day() / "tools").exists())
+
     def test_the_archive_date_is_utc_whatever_the_local_zone(self):
         # Between them, these two zones put the local date off the UTC date at every hour of the day.
         for tz in ("Etc/GMT+12", "Pacific/Kiritimati"):
