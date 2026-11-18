@@ -106,4 +106,25 @@ malformed as well as missing.
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `ccp/verify.py` `spec_hunks` replaces `added_spec_lines`: from the `-U0` diff it
+  takes each hunk's `+start,count` range, reads the head's file (`git show HEAD:<path>`), extends the range
+  over the unchanged lines up to the nearest blank line each side, and keeps the normalised text with a
+  mask of the characters that come from added lines; `_found` accepts an occurrence of the passage that
+  covers at least one masked character. A hunk's own blank first or last line bounds it, so a hunk that
+  adds `\n<text>` under a paragraph does not reach into that paragraph (spec-02 case B). Blank lines
+  inside one hunk are still joined, as before: only matching across hunks is out. A hunk that adds
+  nothing (a pure deletion) has no text.
+- `ccp/selection.py` `unsigned(cfg, q, tasks)` now returns, per unleased task the claim would refuse, its
+  `kind` (`malformed`, `missing`, `stale`) and the stderr text with its fix; `pick` keeps `unsigned` as the
+  list of ids and adds `unsigned_why`. Malformed is judged whatever the stages (claim refuses it so); stale
+  is `lifecycle.brief_stale` (renamed from `_brief_stale`, the claim's own test, read in `cfg`'s
+  checkout), so its other refusals (no commit for the task file, no sha, a head not in the checkout)
+  are passed over as stale too. `next`'s stderr, `--explain` and the preference note name the kind; the
+  stdout line when nothing is ready keeps its wording ("waits on a brief sign-off").
+- Premise re-measured at `3351764`: task 0128's file carries 10 signed passages (not 12); 4 of them are
+  not found by the old reading of `git diff 7ff1abd^ 7ff1abd -- docs/spec`, as stated, and all 10 are
+  found by the new one.
+- SPEC: §10.3 and §15.2 carry the PROPOSED text, each on a line of its own; `ccp verify spec-text` on this
+  task exits 0.
+
 ## Verification notes

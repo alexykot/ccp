@@ -1,7 +1,7 @@
 """`ccp verify spec-text` (SPEC §15.2, §3.5): the passages a task carries for the operator's sign-off, each a
 `PROPOSED:` marker followed by `> ` blockquote lines in its Scope, are looked for, whitespace-normalised, in
-the lines the branch adds to the product's SPEC files; and the review and verify prompts of a task that
-declares a `brief` sign-off ask for it."""
+each hunk the branch makes to the product's SPEC files, read with its paragraph, where they cover a line the
+hunk adds; and the review and verify prompts of a task that declares a `brief` sign-off ask for it."""
 from __future__ import annotations
 
 import io
@@ -121,6 +121,68 @@ class SpecText(unittest.TestCase):
         self.assertEqual(code, 1, err)
         self.assertEqual(len(body["missing"]), 1)
         self.assertIn("Alpha one. Beta two.", err)
+
+    def signs(self, passage: str) -> None:
+        """The task signs `passage` alone, committed on the branch."""
+        scope = SCOPE.replace(SCOPE[SCOPE.index("    > A task"):SCOPE.index("  - the code")], f"    > {passage}\n")
+        self.p.task("0001-signed", body=TASK.format(scope=scope))
+        git(self.p.root, "commit", "-q", "-am", "the passage")
+
+    def on_base(self, text: str) -> None:
+        """The SPEC file reads `text` on the base, merged into the branch, so the branch changes nothing yet."""
+        git(self.p.root, "checkout", "-q", "main")
+        (self.p.root / "docs/spec/x.md").write_text(text)
+        git(self.p.root, "commit", "-q", "-am", "the base's SPEC")
+        git(self.p.root, "checkout", "-q", "task/0001-signed")
+        git(self.p.root, "merge", "-q", "--no-edit", "main")
+
+    def edit(self, old: str, new: str) -> None:
+        x = self.p.root / "docs/spec/x.md"
+        x.write_text(x.read_text().replace(old, new, 1))
+        git(self.p.root, "commit", "-q", "-am", "the edit")
+
+    def test_a_passage_whose_head_sits_on_an_unchanged_line_is_found(self):
+        self.signs("Alpha one two three four five.")
+        self.on_base("# Spec\n\n## 1. Rules\n\nAlpha one two\nthree four.\n\nAn older rule.\n")
+        self.edit("three four.\n", "three four five.\n")
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 0, err)
+        self.assertEqual([r["found_in"] for r in body["passages"]], [["docs/spec/x.md"]])
+
+    def test_a_passage_whose_tail_sits_on_an_unchanged_line_is_found(self):
+        self.signs("Alpha one two three four five.")
+        self.on_base("# Spec\n\nAlpha one\nthree four five.\n")
+        self.edit("Alpha one\n", "Alpha one two\n")
+        self.assertEqual(self.run_cmd("0001-signed", "--base", "main")[0], 0)
+
+    def test_a_passage_wholly_in_unchanged_lines_is_not_found(self):
+        self.signs("Alpha one two three four.")
+        self.on_base("# Spec\n\nAlpha one two\nthree four.\n\nAn older rule.\n")
+        self.edit("An older rule.\n", "An older rule, reworded.\n")  # elsewhere: another paragraph
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 1, err)
+        self.assertEqual(len(body["missing"]), 1)
+        self.assertIn("Alpha one two three four.", err)
+        self.edit("three four.\n", "three four.\nA sentence the branch adds.\n")  # in its paragraph, after it
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 1, err)
+        self.assertIn("Alpha one two three four.", err)
+
+    def test_a_passage_across_a_blank_line_is_not_found(self):
+        self.signs("Alpha one two. Three four.")
+        self.on_base("# Spec\n\nAlpha one two.\n")
+        self.change("docs/spec/x.md", "\nThree four.\n")  # the hunk adds the blank line and the second half
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 1, err)
+        self.assertIn("Alpha one two. Three four.", err)
+
+    def test_a_passage_across_an_unchanged_blank_line_is_not_found(self):
+        self.signs("Alpha one two. Three four.")
+        self.on_base("# Spec\n\nAlpha one two.\n\n")
+        self.change("docs/spec/x.md", "Three four.\n")  # the blank line before it unchanged
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 1, err)
+        self.assertIn("Alpha one two. Three four.", err)
 
     def test_an_added_line_beginning_plus_plus_is_content(self):
         self.change("docs/spec/x.md", "\n++ counter\n" + PASSAGE + "\n")
