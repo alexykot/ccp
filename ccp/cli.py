@@ -1335,7 +1335,9 @@ def build_parser() -> argparse.ArgumentParser:
                                      "--system: usage outside every project by cwd and day (§24)")
     p.add_argument("--task", help="only this task's runs")
     p.add_argument("--system", action="store_true", help="the receiver's system sink (no product needed)")
-    p.add_argument("--since", help="with --system: YYYY-MM-DD")
+    p.add_argument("--since", help="the cost advice's start (default: plane.json usage.advice.window_hours back, "
+                                   "every request when 0), YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ; with --system: "
+                                   "YYYY-MM-DD")
     p.add_argument("--by-model", action="store_true",
                    help="one seat's tasks compared by model: tasks, cost, rounds and MAJOR findings per task (§2.4)")
     p.add_argument("--seat", default="implementer", help="with --by-model: the seat (default implementer)")
@@ -1645,12 +1647,16 @@ def cmd_usage(cfg: config.Config, a: argparse.Namespace) -> int:
     except QueueError as e:
         print(f"ccp usage: {e}", file=sys.stderr)
         return e.code
+    since = None
+    if a.since is not None and (since := usage.since_epoch(a.since)) is None:
+        print(f"ccp usage: --since takes {usage.SINCE_FORMS}, not {a.since!r}", file=sys.stderr)
+        return 2
     if a.by_model:  # §2.4: a seat's tasks by model, over every task, for the implementer model trial
         bm = usage.by_model(q, usage.fold(q), a.seat)
         print(json.dumps(bm, indent=2) if a.json else usage.by_model_table(bm))
         return 0
-    report = usage.fold(q, tid, (cfg.telemetry or {}).get("design_seat"),
-                        (cfg.usage or config.USAGE_DEFAULTS)["advice"])  # §24.6
+    knobs = (cfg.usage or config.USAGE_DEFAULTS)["advice"]  # §24.6, from --since, else window_hours back
+    report = usage.fold(q, tid, (cfg.telemetry or {}).get("design_seat"), knobs, usage.advice_start(knobs, since))
     report.pop("recent", None)  # the board's live-seat rows, not a usage figure
     report.pop("timeline", None)  # the board's drill-down intervals, likewise
     report.pop("run_models", None)  # each run's cost by model, for --by-model

@@ -754,7 +754,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `notify` | the operator's channels on each trigger: the command `ccp` runs (`command`, `timeout_seconds`) and the lead's tool (`lead`: `tool`, `to`) | §3.6 |
 | `telemetry`, `board`, `estimate` | usage, allowance windows, the board, estimation | §24–§28 |
 | `health` | the line below which a merged task counts as small (`small_task_lines`, default 100), the slowest test modules listed (`slowest_modules`, default 5) and the gate runs the suite trend spans (`suite_trend_runs`, default 10) | §27.1 |
-| `usage` | the cost advice's thresholds (`advice`: `cache_5m_share` 0.5, `context_tokens` 300000, `coordination_share` 0.4) | §24.6 |
+| `usage` | the cost advice's thresholds (`advice`: `cache_5m_share` 0.5, `context_tokens` 300000, `coordination_share` 0.4) and its window (`window_hours` 0: every request) | §24.6 |
 
 An example, with neutral values:
 

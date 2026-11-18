@@ -245,6 +245,8 @@ their run record (`ccp architect`).
 `ccp usage` prints an advice line for each measure past its threshold, naming the seat, the measure and
 the setting that fixes it; `ccp health` prints the same lines (`usage_advice` in `--json`). The
 thresholds are plane.json `usage.advice` knobs. Advice only: no setting is changed.
+The advice reads the requests of the last `usage.advice.window_hours` hours (default 0: every request), or
+from `--since` when given, and each line names its start.
 
 - **Short-lived cache writes:** a seat whose 5-minute cache writes (`cache_creation_5m_tokens`, §24.2)
   are more than `cache_5m_share` (default `0.5`) of its cache-write tokens: set

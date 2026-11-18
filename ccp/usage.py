@@ -13,7 +13,8 @@ The fold reads `board/usage-requests.jsonl` and `board/usage-spans.jsonl` (writt
 coverage figures, and flags a run whose observed model or effort differs from what its
 definition pins (an alias pin, §2.4, matches any full id of its family: `models.matches`; so does the
 window join). With plane.json `usage.advice` it also advises on cost (§24.6): short-lived cache writes,
-an oversized context, a high coordination share (`cost_advice`).
+an oversized context, a high coordination share (`cost_advice`), from the requests since the advice's
+start (`advice_start`: `--since`, else `window_hours` back, else every request), each line naming it.
 
 It also keeps each run's and seat's latest requests (`recent`: time, model, effort, query source,
 session, tokens), from which the board's live seats read the model and effort now in use, and each
@@ -145,11 +146,38 @@ def _main_seat(row: dict[str, Any], root: str | None, runner_wts: set[str]) -> s
     return "design-seat" if real == root else "other-sessions"
 
 
+SINCE_FORMS = "YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ"
+
+
+def since_epoch(s: str) -> float | None:
+    """A `--since` value as epoch seconds: `YYYY-MM-DD` (that day's midnight, UTC) or `YYYY-MM-DDTHH:MM:SSZ`;
+    None for any other value."""
+    import re  # noqa: PLC0415
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s):
+        s += "T00:00:00Z"
+    return _t(s) if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", s) else None
+
+
+def advice_start(knobs: dict[str, Any] | None, since: float | None = None, now: float | None = None) -> float | None:
+    """§24.6: where the cost advice starts reading requests: `since` (epoch seconds) when given, else plane.json
+    `usage.advice.window_hours` before `now`, to the second; None, every request, when that is 0."""
+    if since is not None:
+        return since
+    hours = int((knobs or {}).get("window_hours") or 0)
+    return None if hours <= 0 else float(int(time.time() if now is None else now) - hours * 3600)
+
+
+def _utc(t: float | None) -> str | None:
+    return None if t is None else time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
+
+
 def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None = None,
-         knobs: dict[str, Any] | None = None) -> dict[str, Any]:
+         knobs: dict[str, Any] | None = None, advice_since: float | None = None) -> dict[str, Any]:
     """Every request attributed to a run or a seat (the module docstring), and the advice: the design seat's
     model and effort against `design_seat` (§24.5) and, with `knobs` (plane.json `usage.advice`), the cost
-    advice (§24.6, `cost_advice`)."""
+    advice (§24.6, `cost_advice`). The cost advice reads only the requests whose `at` is at or after
+    `advice_since` (epoch seconds; None: every request), and each of its lines ends naming that start
+    (`advice_since` in the result, UTC); every other figure reads every request."""
     # An exporter retries after a timeout: one request is one row, the last one received.
     reqs = list({r.get("request_id") or f"_{i}": r
                  for i, r in enumerate(_jsonl(q / "board" / "usage-requests.jsonl"))}.values())
@@ -173,8 +201,11 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
     total = _blank()
     recent: dict[str, dict[str, list[dict[str, Any]]]] = {"runs": {}, "seats": {}}  # the board's live seats (§28.3)
     timeline: dict[str, list[tuple[float, float]]] = {}  # run → its requests' (start, end), for the drill-down
-    contexts: dict[str, list[int]] = {}  # seat → each request's context (§24.6); the lead's are in lead_calls
+    # §24.6, the cost advice's own figures, from the requests since `advice_since` only:
+    contexts: dict[str, list[int]] = {}  # seat → each request's context; the lead's are in lead_calls
     lead_calls: list[tuple[str, Any, int, int]] = []  # the lead's (session, model, tokens, context), for its median
+    adv_seats: dict[str, dict[str, Any]] = {}  # seat → its figures
+    adv_runs: set[str] = set()  # the worker runs with requests
     run_models: dict[str, dict[str, float]] = {}  # run → model → its cost (§2.4, `by_model`)
     for req in reqs:
         _add(total, req)
@@ -216,7 +247,11 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
                 {"at": req.get("at"), "model": req.get("model"), "effort": req.get("effort"),
                  "query_source": req.get("query_source"), "session_id": req.get("session_id"),
                  "tokens": sum(int(_n(req.get(k))) for k in TOKENS)})
-        if run is not None or seat is not None:
+        if (run is not None or seat is not None) and (
+                advice_since is None or (_t(req.get("at")) or float("-inf")) >= advice_since):
+            _add(adv_seats.setdefault(bucket, _blank()), req)
+            if run is not None:
+                adv_runs.add(run["run_id"])
             ctx = sum(int(_n(req.get(k))) for k in CONTEXT_TOKENS)
             if run is None and seat == "design-seat":
                 lead_calls.append((str(req.get("session_id") or ""), req.get("model"),
@@ -283,8 +318,11 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
     if knobs is not None:
         if lead_calls:
             contexts["design-seat"] = main_model_contexts(lead_calls)
-        advice += cost_advice({k: _out(v) for k, v in seats.items()}, contexts, knobs, worker_runs=len(per_run))
-    return {"recent": {k: {key: sorted(v, key=lambda x: str(x.get("at") or ""))[-RECENT:] for key, v in d.items()}
+        start = f" (requests since {_utc(advice_since)})" if advice_since is not None else " (every request)"
+        advice += [line + start for line in
+                   cost_advice({k: _out(v) for k, v in adv_seats.items()}, contexts, knobs, worker_runs=len(adv_runs))]
+    return {"advice_since": _utc(advice_since),
+            "recent": {k: {key: sorted(v, key=lambda x: str(x.get("at") or ""))[-RECENT:] for key, v in d.items()}
                        for k, d in recent.items()},
             "timeline": timeline, "run_models": run_models, "runs": rows, "task_id": task_id, "task_total": task_total, "advice": advice, "daily": daily,
             "seats": {k: _out(v) for k, v in sorted(seats.items())},

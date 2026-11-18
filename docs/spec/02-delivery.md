@@ -797,7 +797,9 @@ Claude Code). A cold gate run must fit that limit with room to spare.
 
 `ccp suite affected [--since <ref> | --paths <path>…]` prints the test modules a change touches, one
 per line, sorted, so a worker picks the `part` lane from them after a merge or a fix instead of
-guessing. It runs nothing and records nothing.
+guessing. It runs nothing and records nothing. After the list it prints, on stderr, the command that
+runs them on the `part` role's lane (`ccp suite run --lane <part lane> -- <command> <modules>`), for a
+language whose command it names (Python: `python3 -m unittest`); stdout keeps the list alone.
 
 - **The change** is `--paths`, normalised relative to the product root (`./` stripped, `..`
   collapsed, an absolute path made relative), else the files `git diff <ref>` names against the

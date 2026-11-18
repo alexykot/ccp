@@ -45,7 +45,8 @@ Everything comes from data the plane already holds; nothing here is a target or 
   (`sign_off_wait` in --json).
 
 - **usage advice** (§24.6): `ccp usage`'s cost advice over the queue's usage, at plane.json
-  `usage.advice`'s thresholds (`usage_advice` in --json).
+  `usage.advice`'s thresholds (`usage_advice` in --json), from `--since`, else from `window_hours` back
+  (`usage_advice_since` in --json; null: every request).
 
 - **uncovered commits** (§10.7, `ccp tasks orphans`): the commits on the integration branch's
   first-parent history since a ref that no task covers: not a task's merge (the rule above, a squash
@@ -55,7 +56,9 @@ Everything comes from data the plane already holds; nothing here is a target or 
 - **adoption window** (§27.1, §4.5): with no `--since`, `ccp health` starts its window at the queue's latest
   `plane`/`adopted` event (`ccp init`): the task merges, the suite series, gate and module time, the
   rotation counts and the friction notes before it are left out, and `before_adoption` counts the task
-  merges left out. The usage advice (`ccp usage`'s) and the rotation slots due now are not windowed.
+  merges left out. The usage advice (`ccp usage`'s) has its own window, the requests since `--since`, else
+  of plane.json `usage.advice.window_hours` back (every request when 0); the rotation slots due now judge
+  each slot since its own spawn.
   A queue with no such event, and a `--since`, read as before.
 
 A task's **active time** is its wall time less the time it waited (`waits_s`): every `waiting_on`
@@ -990,15 +993,16 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
     trend over them. Without `files`, only what the trend needs: no per-file lines and no prompt sizes.
     With `from_adoption` and no `since` (`ccp health`, §27.1), the window starts at the queue's latest
     `plane`/`adopted` event: the task merges, the suite series, gate and module time, the rotation
-    counts and the friction notes before it are left out (not the usage advice, `ccp usage`'s, nor the
-    rotation slots due now), and `before_adoption` counts the merges left out (`adopted_at` is that
-    event's time either way)."""
+    counts and the friction notes before it are left out (not the usage advice, `ccp usage`'s, which reads
+    from `since`, else `usage.advice.window_hours` back, nor the rotation slots due now), and
+    `before_adoption` counts the merges left out (`adopted_at` is that event's time either way)."""
     a = cfg.architect or ARCHITECT_DEFAULTS
     tasks = tasklog.load(cfg)
     ms = merges(cfg, tasks, rev)
     adopted = adopted_at(q) if from_adoption else None
     window = None  # the adoption window's start: None reads the whole queue
     before = 0
+    s = None
     if since:
         s = _epoch(since + ("T00:00:00Z" if len(since) == 10 else ""))
         if s is None:
@@ -1063,16 +1067,19 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
         except Exception:  # noqa: BLE001
             out["sign_off_wait"] = None
         try:  # §24.6: nor does a damaged usage sink
-            out["usage_advice"] = usage_advice(cfg, q) if q else None
+            out["usage_advice"], out["usage_advice_since"] = usage_advice(cfg, q, s) if q else (None, None)
         except Exception:  # noqa: BLE001
-            out["usage_advice"] = None
+            out["usage_advice"], out["usage_advice_since"] = None, None
     return out
 
 
-def usage_advice(cfg: Config, q: Path) -> list[str]:
-    """§24.6: `ccp usage`'s cost advice for the queue's usage, at plane.json `usage.advice`'s thresholds."""
+def usage_advice(cfg: Config, q: Path, since: float | None = None) -> tuple[list[str], str | None]:
+    """§24.6: `ccp usage`'s cost advice for the queue's usage, at plane.json `usage.advice`'s thresholds, and its
+    start (UTC, None for every request): `since` (epoch seconds) when given, else `window_hours` back."""
     from ccp import usage  # noqa: PLC0415
-    return usage.fold(q, None, None, (getattr(cfg, "usage", None) or USAGE_DEFAULTS)["advice"])["advice"]
+    knobs = (getattr(cfg, "usage", None) or USAGE_DEFAULTS)["advice"]
+    r = usage.fold(q, None, None, knobs, usage.advice_start(knobs, since))
+    return r["advice"], r["advice_since"]
 
 
 def _h(s: float | None) -> str:
