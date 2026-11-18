@@ -142,11 +142,14 @@ This rule is in every seat brief and in the plugin's orientation (§9).
   - `ccp plane check` lists the files in `QUEUE_ROOT/scripts/` that are not the plane's copy
     (`scripts`) and each top-level entry of the queue the plane does not keep (`root`, a directory once,
     with a trailing `/`), and exits 1 when either list is non-empty; a byte-identical copy of a plane
-    script, the binding's `auth_check.script` (§30) and a directory that holds it, and an atomic write's
-    `*.tmp`, are not listed. `ccp plane check --archive` moves every entry it lists to
+    script, the binding's `auth_check.script` (§30) and a directory that holds it, an atomic write's
+    `*.tmp`, and the `.DS_Store` macOS Finder drops in a folder, are not listed.
+    `ccp plane check --archive` moves every entry it lists to
     `QUEUE_ROOT/_legacy/<YYYY-MM-DD>/<its path relative to QUEUE_ROOT>`,
     the date in UTC, and never deletes or overwrites: an entry whose target already exists stays where
-    it is, listed under `not_moved` with the reason. It then checks again and exits as the check does.
+    it is, listed under `not_moved` with the reason. When anything moved or failed to move, it records
+    the archive in the ledger as `plane`/`archived` (§23.2). It then checks again and exits as the
+    check does.
     `ccp init` on a queue holding such entries warns with their count and `ccp plane check --archive`,
     and moves nothing.
 

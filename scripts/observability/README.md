@@ -23,7 +23,6 @@ $QUEUE_ROOT/
   auth/status.json
   work.json
   tasks/<task_id>.json
-  running.json
 ```
 
 Seat ids (match actor enum): `task-runner`, `task-verifier`, `delivery-watchdog`.

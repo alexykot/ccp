@@ -485,6 +485,8 @@ QUEUE_OWNED = frozenset({
     "worktrees",                # §12.1: worktree records and hook logs
 })
 LEGACY_DIR = "_legacy"
+# §31.3: the metadata file macOS Finder drops in any folder it opens; never a leftover, never moved.
+FINDER_METADATA = ".DS_Store"
 
 
 def _sanctioned_scripts(q: Path) -> set[Path]:
@@ -496,14 +498,15 @@ def _sanctioned_scripts(q: Path) -> set[Path]:
 def script_findings(q: Path) -> list[tuple[str, str, str]]:
     """§31.3: each file in QUEUE_ROOT/scripts/ that is not the plane's own copy, as (kind, its path
     relative to QUEUE_ROOT, message). `kind` is `unknown` (the plane does not ship it), `drifted`
-    (the plane ships it with other content) or `retired` (the plane used to ship it)."""
+    (the plane ships it with other content) or `retired` (the plane used to ship it). Finder's
+    `.DS_Store`, in `scripts/` or a folder under it, is none of these."""
     d = q / "scripts"
     if not d.is_dir():
         return []
     sanctioned = _sanctioned_scripts(q)
     out = []
     for f in sorted(d.rglob("*")):
-        if not f.is_file() or "__pycache__" in f.parts or f.suffix in (".pyc", ".tmp"):
+        if not f.is_file() or "__pycache__" in f.parts or f.suffix in (".pyc", ".tmp") or f.name == FINDER_METADATA:
             continue
         if f.resolve() in sanctioned:
             continue
@@ -529,13 +532,14 @@ def script_drift(q: Path) -> list[str]:
 
 def leftover_entries(q: Path) -> list[str]:
     """§31.3: each top-level entry of QUEUE_ROOT not in QUEUE_OWNED, by name. An atomic write's
-    temporary file (`*.tmp`) is not one: it is replaced in place a moment later; nor is the binding's
-    auth-check script (§30), nor a directory that holds it, wherever in the queue it names."""
+    temporary file (`*.tmp`) is not one: it is replaced in place a moment later; nor is Finder's
+    `.DS_Store`, nor the binding's auth-check script (§30), nor a directory that holds it, wherever in
+    the queue it names."""
     if not q.is_dir():
         return []
     sanctioned = _sanctioned_scripts(q)
     return [e.name for e in sorted(q.iterdir())
-            if e.name not in QUEUE_OWNED and not e.name.endswith(".tmp")
+            if e.name not in QUEUE_OWNED and not e.name.endswith(".tmp") and e.name != FINDER_METADATA
             and not any(s.is_relative_to(e.resolve()) for s in sanctioned)]
 
 

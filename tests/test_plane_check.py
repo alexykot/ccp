@@ -95,6 +95,15 @@ class Listing(SandboxCase):
         self.put("work.json.tmp", "{}\n")
         self.assertEqual(queue.queue_leftovers(self.q), [])
 
+    def test_finders_metadata_file_is_neither_listed_nor_moved(self):
+        files = [self.put(rel, "") for rel in (".DS_Store", "scripts/.DS_Store", "scripts/queue/.DS_Store")]
+        for args in (("plane", "check"), ("plane", "check", "--archive")):
+            with self.subTest(args=args):
+                code, body, err = self.ccp(*args)
+                self.assertEqual((code, body["scripts"], body["root"]), (0, [], []), err)
+                self.assertTrue(all(f.is_file() for f in files))
+                self.assertFalse((self.q / "_legacy").exists())
+
     def test_the_bindings_auth_check_script_at_the_root_is_not_a_leftover(self):
         with open(self.sb["binding"], "a") as fh:
             fh.write("auth_check:\n  script: auth-check.sh\n")
@@ -104,6 +113,45 @@ class Listing(SandboxCase):
 
 
 class Archive(SandboxCase):
+    def events(self) -> list[dict]:
+        ledger = self.q / "observability" / "events.jsonl"
+        return [json.loads(line) for line in ledger.read_text().splitlines()] if ledger.is_file() else []
+
+    def test_an_archive_is_one_ledger_event_with_counts_and_no_path(self):
+        self.put("old.txt", "old\n")
+        self.put("results/0001.json", "{}\n")
+        code, _, err = self.ccp("plane", "check", "--archive")
+        self.assertEqual(code, 0, err)
+        ev = self.events()[-1]
+        self.assertEqual((ev["type"], ev["op"]), ("plane", "archived"))
+        self.assertEqual(ev["payload"], {"day": utc_day(), "archived": 2, "not_moved": 0})
+
+    def test_an_archive_that_moved_nothing_records_what_it_could_not_move(self):
+        self.put("run-task.sh", "old\n")
+        self.put(f"_legacy/{utc_day()}", "a file where the day's directory would go\n")
+        before = len(self.events())
+        self.assertEqual(self.ccp("plane", "check", "--archive")[0], 1)
+        rows = self.events()[before:]
+        self.assertEqual([(ev["op"], ev["payload"]) for ev in rows],
+                         [("archived", {"day": utc_day(), "archived": 0, "not_moved": 1})])
+
+    def test_a_clean_queues_archive_writes_no_event(self):
+        before = self.events()
+        code, body, err = self.ccp("plane", "check", "--archive")
+        self.assertEqual((code, body["archived"], body["not_moved"]), (0, [], []), err)
+        self.assertEqual(self.events(), before)
+
+    def test_the_archived_event_and_its_keys_are_in_the_contract(self):
+        lib = queue.lib
+        schema = json.loads((PLANE / "contracts" / "observability_event.schema.json").read_text())
+        self.assertIn("archived", schema["properties"]["op"]["enum"])
+        ev = {"at": "2026-01-01T00:00:00Z", "project_id": "demo", "task_id": "", "actor": "operator", "type": "plane",
+              "op": "archived", "payload": {"day": "2026-01-01", "archived": 1, "not_moved": 0}}
+        self.assertEqual(lib.validate_event(ev), [])
+        for key in ("day", "archived", "not_moved"):
+            payload = {k: v for k, v in ev["payload"].items() if k != key}
+            self.assertIn(f"payload missing {key}", lib.validate_event({**ev, "payload": payload}))
+
     def test_one_command_archives_every_leftover_and_loses_nothing(self):
         files = self.leftovers()
         code, body, err = self.ccp("plane", "check", "--archive")

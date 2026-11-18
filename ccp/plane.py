@@ -173,12 +173,12 @@ def listing(_cfg: Config, a: Any) -> dict[str, Any]:
     return {"ok": True, "proposals": rows, "stale": [r["id"] for r in rows if r["stale"]]}
 
 
-def check(_cfg: Config, a: Any) -> tuple[dict[str, Any], int]:
+def check(cfg: Config, a: Any) -> tuple[dict[str, Any], int]:
     """§31.3: `scripts`, the files in QUEUE_ROOT/scripts/ that are not the plane's copy, and `root`,
     the top-level entries the plane does not keep; exit 1 when either is non-empty. With `--archive`
     it first moves every entry it would list (`archive`), then checks again."""
     q = root()
-    moved = archive(q) if getattr(a, "archive", False) else None
+    moved = archive(q, cfg) if getattr(a, "archive", False) else None
     scripts, left = script_drift(q), queue_leftovers(q)
     body: dict[str, Any] = {"ok": not (scripts or left), "scripts": scripts, "root": left}
     if moved is not None:
@@ -186,12 +186,13 @@ def check(_cfg: Config, a: Any) -> tuple[dict[str, Any], int]:
     return body, (0 if body["ok"] else 1)
 
 
-def archive(q: Path) -> dict[str, list[dict[str, str]]]:
+def archive(q: Path, cfg: Config) -> dict[str, list[dict[str, str]]]:
     """§31.3: move each entry `check` lists (the scripts that are unknown, drifted or retired, then the
     top-level entries) to QUEUE_ROOT/_legacy/<YYYY-MM-DD, UTC>/<its path relative to QUEUE_ROOT>. It
     never deletes: an entry whose target already exists, or that cannot be moved, stays where it is and
     is listed under `not_moved` with the reason. Paths are relative to QUEUE_ROOT; a directory's ends
-    in `/`."""
+    in `/`. When anything moved or failed to move, it emits one `plane`/`archived` event with the day
+    and the two counts, never a path."""
     day = now().strftime("%Y-%m-%d")
     archived: list[dict[str, str]] = []
     not_moved: list[dict[str, str]] = []
@@ -210,6 +211,9 @@ def archive(q: Path) -> dict[str, list[dict[str, str]]]:
             not_moved.append({**row, "reason": f"could not move it: {e.strerror or e}"})
             continue
         archived.append(row)
+    if archived or not_moved:
+        emit(q, cfg, "", "plane", "archived", {"day": day, "archived": len(archived), "not_moved": len(not_moved)},
+             actor("operator"))
     return {"archived": archived, "not_moved": not_moved}
 
 

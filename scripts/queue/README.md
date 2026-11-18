@@ -17,7 +17,6 @@ Live queue state lives **outside** product git (e.g. `$HOME/projects/.delivery-q
   queue/pending|leased|implementing|implemented|reviewed|submitted|verifying|merging|done|blocked|failed/
   tasks/<task_id>.json
   progress/<task_id>.json
-  results/<task_id>.json
   review/<task_id>.json
   questions/<task_id>/<n>.json          # implementation-class questions the Runner answers itself
   questions/sm-<UTC>-<hex>.json         # SPEC §17 spec-maintainer question (flat; raised via ../spec-maintainer-ask.sh)
@@ -31,10 +30,8 @@ Live queue state lives **outside** product git (e.g. `$HOME/projects/.delivery-q
   health/metrics.jsonl                  # §27.2 numbers: suite series from ccp report, others from ccp health record
   escalations/<task_id>/<n>.json
   verification/<task_id>.json
-  artifacts/<task_id>/
   auth/status.json
   work.json
-  running.json
   observability/events.jsonl
   observability/seats/<seat_id>.json
   prompts/<task_id>/          # Layer 2; never commit

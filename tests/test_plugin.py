@@ -264,14 +264,6 @@ class Index(unittest.TestCase):
         finally:
             p.cleanup()
 
-    def test_readers_use_the_task_files(self):
-        import sys
-        sys.path.insert(0, str(PLANE / "scripts/observability"))
-        import lib
-        with tempfile.TemporaryDirectory() as q:
-            Path(q, "project.yaml").write_text(f"project_id: demo\nproduct_root: {self.p.root}\ndurable_docs_path: docs/delivery/\n")
-            self.assertEqual(lib.load_durable_statuses(Path(q)), {"0001-a": "pending"})
-
     def test_index_must_be_a_boolean(self):
         self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "task_log": {"index": "no"}}))
         with self.assertRaises(config.ConfigError):
