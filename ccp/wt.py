@@ -26,7 +26,9 @@ What a product needs beyond a git worktree (a database branch, a local stack) is
 what it serves, and `urls` prints the URLs it serves as a JSON list of `{name, url}`, as many as the
 product has. Each hook is a shell command template run in the worktree with a timeout; its fields
 are also in the environment as `CCP_WT_<FIELD>`, and `ccp suite run` gives a lane's stages run in the
-worktree the same variables (§14.2).
+worktree the same variables (§14.2). The hooks and their timeout come from the caller's plane.json; a
+worktree made with `--own-hooks` (recorded `own_hooks: true`) takes them from the plane.json in the
+worktree itself, so a head that changes its hooks or the scripts they call runs its own (§12.2).
 
 `ccp wt exec [NAME] -- ARGS` runs a worktree's own `bin/ccp`, so a change that adds a subcommand can
 be tried before the installed `ccp` has it; `--print` prints that path instead.
@@ -47,9 +49,9 @@ import time
 from pathlib import Path
 from typing import Any, Iterator
 
-from ccp import refs
+from ccp import config, refs
 from ccp.envvars import for_child
-from ccp.config import WT_FIELDS, Config, fill
+from ccp.config import CONFIG_REL, WT_FIELDS, Config, ConfigError, fill
 from ccp.queue import QueueError, git, integration_branch, iso, load_task_state, read_json, write_json
 
 KINDS: dict[str, tuple[str, str]] = {  # kind -> (default seat, default tag)
@@ -231,21 +233,43 @@ def _killpg(pid: int) -> None:
 PATH_FIELDS = ("worktree", "main_checkout", "name")
 
 
-def hook(cfg: Config, q: Path, name: str, st: dict[str, Any]) -> tuple[int, str] | None:
-    """Run env.<name> in the worktree `st`; None when the product declares no such hook. The path
+def hook_env(cfg: Config, st: dict[str, Any]) -> dict[str, Any]:
+    """The `env` block the worktree `st`'s hooks and their timeout come from (§12.2): the caller's
+    plane.json, or, for one made with `--own-hooks` (`own_hooks: true`), the plane.json in the worktree
+    itself, loaded as `config.load` does. That one not loading (a path gone included) raises
+    QueueError (exit 1) naming it."""
+    if not st.get("own_hooks"):
+        return cfg.env or {}
+    root = Path(str(st["path"]))
+    try:
+        return config.load(root).env or {}
+    except (ConfigError, OSError) as e:
+        raise QueueError(f"the worktree's own {root / CONFIG_REL} does not load (--own-hooks): {e}", 1) from None
+
+
+def hook(cfg: Config, q: Path, name: str, st: dict[str, Any],
+         env: dict[str, Any] | None = None) -> tuple[int, str] | None:
+    """Run env.<name> in the worktree `st`; None when the product declares no such hook. The hook comes
+    from `env`, else `hook_env` (which raises when a worktree's own plane.json does not load). The path
     fields are shell-quoted in the template (in the environment, `"$CCP_WT_WORKTREE"` and the rest are
     the raw values). Output goes to `QUEUE_ROOT/worktrees/<name>.<hook>.log`."""
-    cmd = (cfg.env or {}).get(name)
+    env = hook_env(cfg, st) if env is None else env
+    cmd = env.get(name)
     if not cmd:
         return None
     ctx = context(cfg, st)
     line = fill(cmd, {k: shlex.quote(v) if k in PATH_FIELDS else v for k, v in ctx.items()})
-    return run_cmd(line, Path(st["path"]), hook_timeout(cfg), env_fields(cfg, st), state_dir(q) / f"{st['name']}.{name}.log")
+    return run_cmd(line, Path(st["path"]), _timeout(env), env_fields(cfg, st), state_dir(q) / f"{st['name']}.{name}.log")
 
 
 def hook_timeout(cfg: Config) -> int:
     """plane.json `env.timeout_seconds` (default 600): a hook's limit, and a base run's by default (§12.2)."""
-    return int((cfg.env or {}).get("timeout_seconds") or 600)
+    return _timeout(cfg.env or {})
+
+
+def _timeout(env: dict[str, Any]) -> int:
+    """An `env` block's `timeout_seconds` (default 600)."""
+    return int(env.get("timeout_seconds") or 600)
 
 
 def parse_urls(out: str) -> list[dict[str, str]]:
@@ -344,12 +368,13 @@ def resolve_sha(cfg: Config, sha: str, code: int = 2) -> str:
 
 def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None, name: str | None = None,
            seat: str | None = None, tag: str | None = None, shallow: bool = False,
-           bind: dict[str, Any] | None = None) -> dict[str, Any]:
+           bind: dict[str, Any] | None = None, own_hooks: bool = False) -> dict[str, Any]:
     """Make (or adopt) the worktree; run env.setup when it is new. A failed setup removes it again, and
-    so does any failure after a base worktree is made. With `shallow`, a detached kind is a depth-1 clone
-    of `sha` (`_clone_shallow`), not a git worktree. The baseline worktree (`create_baseline`) is the one
-    made with no task: `task_id` and `nnnn` are "". `bind`, when given, gets the new worktree's record the
-    moment it exists, before anything else runs, so a caller interrupted before `create` returns still
+    so does any failure after a base worktree is made. With `own_hooks`, it is recorded `own_hooks: true`
+    and its hooks come from its own plane.json (`hook_env`): one that does not load fails the setup.
+    With `shallow`, a detached kind is a depth-1 clone of `sha` (`_clone_shallow`), not a git worktree.
+    The baseline worktree (`create_baseline`) is the one made with no task: `task_id` and `nnnn` are "".
+    `bind`, when given, gets the new worktree's record the moment it exists, before anything else runs, so a caller interrupted before `create` returns still
     knows what to remove (`run_on_base`). A SIGTERM that a base run takes (`_on_sigterm`) waits while
     the worktree is made and bound (`_sigterm_held`), at most `SIGTERM_HOLD_SECONDS`: a make that is
     still going then is cut short and what it made so far removed (`_discard`)."""
@@ -382,6 +407,7 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
     if st and Path(st["path"]).is_dir():
         _same_head(path, name, sha)
         _same_depth(path, name, shallow)
+        _same_hooks(st, name, own_hooks)
         return {**st, "created": False}
     d_seat, d_tag = KINDS[kind]
     st = {"name": name, "kind": kind, "task_id": task_id, "nnnn": nnnn, "seat": seat or d_seat, "tag": tag or d_tag,
@@ -389,6 +415,8 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
           "round": round_of(name), "created_at": iso(), "state": "created", "urls": []}
     if shallow:
         st["shallow"] = True
+    if own_hooks:
+        st["own_hooks"] = True
     if path.is_dir():  # made before §12.1 recorded worktrees: adopt it, setup already happened
         _same_head(path, name, sha)
         _same_depth(path, name, shallow)
@@ -433,7 +461,11 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
         raise QueueError(f"{'a shallow clone' if shallow else 'git worktree add'} {name}: {err.strip()}", 1)
     try:
         _link(cfg, main, path)
-        res = hook(cfg, q, "setup", st)
+        try:
+            res = hook(cfg, q, "setup", st)
+        except QueueError as e:  # its own plane.json does not load: failed like a setup
+            _rm_tree(main, path)
+            raise QueueError(f"env.setup for {name} was not run: {e}; the worktree is removed again", 1) from None
         if res and res[0] != 0:
             _rm_tree(main, path)
             raise QueueError(f"env.setup for {name} exited {res[0]}; the worktree is removed again:\n{res[1].strip()}", 1)
@@ -512,6 +544,15 @@ def _same_head(path: Path, name: str, sha: str | None) -> None:
                          f"{_or_else(name)}", 3)
 
 
+def _same_hooks(st: dict[str, Any], name: str, own_hooks: bool) -> None:
+    """An existing worktree is reused only with the hooks asked for: one set up by the caller's never
+    stands in for one asked `--own-hooks`, nor the other way round."""
+    have = bool(st.get("own_hooks"))
+    if have != own_hooks:
+        made = "with its own hooks (--own-hooks)" if have else "with the caller's hooks (no --own-hooks)"
+        raise QueueError(f"worktree {name} exists {made}: remove it (`ccp wt remove {name}`) {_or_else(name)}", 3)
+
+
 def _or_else(name: str) -> str:
     """The second way out of a refused reuse: another name, except for the baseline, which `--baseline`
     names itself (it refuses `--name`)."""
@@ -530,14 +571,21 @@ def remove(cfg: Config, q: Path, name: str) -> list[str]:
             raise QueueError(f"no worktree {name} recorded in {state_dir(q)} or under worktrees.dir", 3)
         st = {"name": name, "path": str(base / name), "state": "created"}
     if recorded and not Path(st["path"]).is_dir():
-        if (cfg.env or {}).get("teardown") or (st.get("state") == "up" and (cfg.env or {}).get("down")):
+        own = bool(st.get("own_hooks"))  # its hooks were in the worktree: whether it had any is not known
+        if own or (cfg.env or {}).get("teardown") or (st.get("state") == "up" and (cfg.env or {}).get("down")):
             warnings.append(f"{st['path']} is gone: env.down and env.teardown for {name} were not run "
                             "(they run only in the worktree)")
     elif recorded:
-        if st.get("state") == "up" and (res := hook(cfg, q, "down", st)) and res[0] != 0:
-            warnings.append(f"env.down for {name} exited {res[0]}: {res[1].strip()[-300:]}")
-        if (res := hook(cfg, q, "teardown", st)) and res[0] != 0:
-            warnings.append(f"env.teardown for {name} exited {res[0]}: {res[1].strip()[-300:]}")
+        try:
+            env: dict[str, Any] | None = hook_env(cfg, st)
+        except QueueError as e:  # §12.2: its own plane.json does not load; it is removed regardless
+            env = None
+            warnings.append(f"env.down and env.teardown for {name} were skipped: {e}")
+        if env is not None:
+            if st.get("state") == "up" and (res := hook(cfg, q, "down", st, env)) and res[0] != 0:
+                warnings.append(f"env.down for {name} exited {res[0]}: {res[1].strip()[-300:]}")
+            if (res := hook(cfg, q, "teardown", st, env)) and res[0] != 0:
+                warnings.append(f"env.teardown for {name} exited {res[0]}: {res[1].strip()[-300:]}")
     if Path(st["path"]).is_dir():
         rc, err = _rm_tree(main_checkout(cfg), Path(st["path"]))
         if rc != 0:
@@ -649,14 +697,16 @@ def _sigterm_held() -> Iterator[None]:
 
 
 def run_on_base(cfg: Config, q: Path, task_id: str, head: str, command: list[str], name: str | None = None,
-                seat: str | None = None, tag: str | None = None, timeout: int | None = None) -> dict[str, Any]:
+                seat: str | None = None, tag: str | None = None, timeout: int | None = None,
+                own_hooks: bool = False) -> dict[str, Any]:
     """A `base` worktree (§12.1): made detached at the merge base of `head` and the integration branch,
     `command` run there (argv, no shell, in its own process group) with its output passed through as it
     comes, then removed again whatever the command did, whatever failed after it was made, and on a
     SIGTERM to this process. Returns the result; its `exit` is the command's exit code (127 when it
     cannot be found, 126 when it cannot run, 128 + N when signal N ended it), 124 when it outlived
     `timeout` seconds (default plane.json `env.timeout_seconds`) and was killed, or 128 + 15 when this
-    process was sent SIGTERM. A refusal or a failure of its own raises QueueError with BASE_REFUSED."""
+    process was sent SIGTERM. A refusal or a failure of its own raises QueueError with BASE_REFUSED.
+    With `own_hooks`, the worktree's hooks come from its own plane.json, the merge base's (`create`)."""
     if not command:
         raise QueueError("a base worktree runs a command: give it after `--`", BASE_REFUSED)
     if not head:
@@ -676,7 +726,7 @@ def run_on_base(cfg: Config, q: Path, task_id: str, head: str, command: list[str
     try:
         try:
             sha = merge_base(cfg, q, head, warnings)
-            st.update(create(cfg, q, task_id, "base", sha, name, seat, tag, bind=st))  # as setup left it
+            st.update(create(cfg, q, task_id, "base", sha, name, seat, tag, bind=st, own_hooks=own_hooks))  # as setup left it
             st.pop("created", None)
             st["head"] = head
             save(q, st)
@@ -861,9 +911,15 @@ def up(cfg: Config, q: Path, name: str) -> dict[str, Any]:
 
 
 def down(cfg: Config, q: Path, name: str) -> dict[str, Any]:
+    """Run env.down and mark the worktree down. A failed hook, or a worktree's own plane.json that does
+    not load (`--own-hooks`; the hook is then skipped), is a warning (§12.2)."""
     st = _need(q, name)
-    res = hook(cfg, q, "down", st)
-    warnings = [f"env.down for {name} exited {res[0]}: {res[1].strip()[-300:]}"] if res and res[0] != 0 else []
+    try:
+        res = hook(cfg, q, "down", st)
+    except QueueError as e:
+        res, warnings = None, [f"env.down for {name} was skipped: {e}"]
+    else:
+        warnings = [f"env.down for {name} exited {res[0]}: {res[1].strip()[-300:]}"] if res and res[0] != 0 else []
     st.update(state="down", urls=[])
     save(q, st)
     return {"ok": True, "name": name, "state": "down", "hook": res is not None, "warnings": warnings}
