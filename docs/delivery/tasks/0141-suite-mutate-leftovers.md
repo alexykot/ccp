@@ -111,4 +111,15 @@ has to restore a committed file in its own worktree, which the permission system
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): premises re-measured at `8376cdd`: §20.6 holds one `mutate.command`
+  bullet, the refusal named nothing to set, the verify fallback said "put the file back", and
+  `scripts/CLAUDE.md` named `GATE_COLD=1` but not `CCP_SUITE_COLD`. The refusal now names
+  `{test}`, a per-test runner and `sh {test}`. The §20.6 sentence is appended to the end of the
+  **The product's command.** bullet. The fallback in `_common.md`, `verify.md` and the three agent
+  definitions sends the seat to a `mut` worktree (`wt create --kind mut --task <id> --sha <head>`),
+  the test through `ccp suite run` on the part lane, and `wt remove <name>`. `_common.md` gives
+  `--sha <head>` (the committed head the seat tests or judges); `verify.md` fills in the PR head.
+  `tests/test_prompt_tools.py`: two tests that said no prompt names `--kind mut` now say none does
+  outside that fallback clause; the new whole-script tests are in `tests/test_mutate.py`.
+
 ## Verification notes

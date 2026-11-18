@@ -29,8 +29,8 @@ don't redesign around it.
   or `ccp mutate --run <run_id> --test <id> …` from your own worktree where the product declares
   `mutate.command` (SPEC §14.1, §20.6). Where it declares none, break code by hand only in a mutation
   worktree at the committed head (`ccp wt create --kind mut --task <id> --sha <head>`), run the test
-  there through `ccp suite run` on the part lane, and remove it with `ccp wt remove <name>`; never a
-  hand edit and restore in your own worktree.
+  there on the part lane as above, and remove it with `ccp wt remove <name>`; never a hand edit and
+  restore in your own worktree.
 - After you merge the integration branch in, or change code, take the part lane's test modules from
   `ccp suite affected` (`--since <ref>` for what a merge brought in), not from a guess at their names.
 - Before you build, re-run at your base each command the task's Context names for a measured

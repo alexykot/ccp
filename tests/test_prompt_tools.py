@@ -52,7 +52,7 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
             self.assertIn("wt create --kind mut --task 0002-second --sha ", f)
             self.assertIn("wt remove <name>", f)
         self.assertIn(f"wt create --kind mut --task 0002-second --sha {A}`", text)
-        self.assertIn(f"suite run --run {run_id} --lane part -- <command>`", text)
+        self.assertIn(f"suite run --run {run_id}` with `--lane part`", text)
         _impl_run, text_impl = self.render("implement", "--base", "abc1234")  # every seat, through the common rules
         fallbacks = FALLBACK.findall(text_impl)
         self.assertTrue(fallbacks)
