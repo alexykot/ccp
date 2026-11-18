@@ -123,4 +123,14 @@ reads as a sentence, whatever the step's wording.
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `ccp upgrade decline|take <task> --reason R` (`ccp/upgrade.py` `_record`)
+  resolve the task against the plane's merged tasks by id or number (`refs.ids(...).same_task`), refuse a
+  blank or missing reason, an unmerged task and a step that asks nothing, load plane.json, set the entry,
+  remove the id from the other object, check the result with `config._parse` (the parse `config.load`
+  runs) and write it through `queue.write_json` (`json.dumps(data, indent=2)` plus a newline, atomic
+  replace). An `upgrade.<other>` object left empty stays as `{}`. `--reason` is optional in argparse so a
+  missing one is refused by the command, exit 2. `status` gains `detected`; `_change` renders the three
+  forms. The premises re-run at `7fc5197` held (help offered only notes and status; no plane.json
+  writer outside `ccp/init.py`; the dry run showed the 0034, 0068 and 0126 lines as the task quotes).
+
 ## Verification notes
