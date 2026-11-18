@@ -51,12 +51,13 @@ Everything comes from data the plane already holds; nothing here is a target or 
 - **uncovered commits** (§10.7, `ccp tasks orphans`): the commits on the integration branch's
   first-parent history since a ref that no task covers: not a task's merge (the rule above, a squash
   naming its task only as `Task NNNN: …`, the form the implementer is asked for), not a
-  reconcile commit naming a task, not named in a task's `covers:`, and changing more than the task log.
+  reconcile commit naming a task, not named in a task's `covers:`, and changing more than the task log
+  and the SPEC files (`task_log.spec_paths`).
 
 - **adoption window** (§27.1, §4.5): with no `--since`, `ccp health` starts its window at the queue's latest
-  `plane`/`adopted` event (`ccp init`): the task merges, the suite series, gate and module time, the
-  rotation counts and the friction notes before it are left out, and `before_adoption` counts the task
-  merges left out. The usage advice (`ccp usage`'s) has its own window, the requests since `--since`, else
+  `plane`/`adopted` event (`ccp init`), at its payload's `since` when it has one: the task merges, the
+  suite series, gate and module time, the rotation counts and the friction notes before it are left out,
+  and `before_adoption` counts the task merges left out. The usage advice (`ccp usage`'s) has its own window, the requests since `--since`, else
   of plane.json `usage.advice.window_hours` back (every request when 0); the rotation slots due now judge
   each slot since its own spawn.
   A queue with no such event, and a `--since`, read as before.
@@ -204,8 +205,8 @@ def integration_tip(cfg: Config, q: Path | None) -> str:
 def uncovered(cfg: Config, since: str, tip: str) -> dict[str, Any]:
     """§10.7: the commits on `tip`'s first-parent history after `since` that no task covers, oldest
     first. Covered: a task's merge (`merges`), a reconcile commit naming a task of the log, a commit a
-    task not dropped names in `covers:`, and one that changes nothing outside the task log. Raises
-    ValueError for a ref that does not resolve."""
+    task not dropped names in `covers:`, and one that changes nothing outside the task log and the SPEC
+    files (`task_log.spec_paths`). Raises ValueError for a ref that does not resolve."""
     from ccp.lifecycle import reconcile_re, task_log_paths  # noqa: PLC0415
     for ref in (since, tip):
         if not _resolve(cfg, ref):
@@ -217,9 +218,11 @@ def uncovered(cfg: Config, since: str, tip: str) -> dict[str, Any]:
     rec_re = reconcile_re(cfg)
     named, warnings = _covers(tasks)
     log = task_log_paths(cfg)
+    spec_paths = cfg.task_log.get("spec_paths") or []
 
     def in_log(path: str) -> bool:
-        return any(path == x or path.startswith(x.rstrip("/") + "/") for x in log)
+        return (any(path == x or path.startswith(x.rstrip("/") + "/") for x in log)
+                or tasklog._names_spec(path, spec_paths))
 
     out = []
     for rec in _git(cfg.root, "log", "--first-parent", "-m", "--reverse", "--name-only",
@@ -303,10 +306,15 @@ def notes(q: Path | None, since: str | None = None) -> list[dict[str, Any]]:
 
 
 def adopted_at(q: Path | None) -> str | None:
-    """§4.5: the time of the queue's latest `plane`/`adopted` ledger event (`ccp init`), or None."""
-    ats = [str(e.get("at")) for e in (_jsonl(_events_path(q)) if q else [])
+    """§4.5: the adoption point of the queue's latest `plane`/`adopted` ledger event (`ccp init`): its payload's
+    `since` when it has one (a backfilled event: the binding's last change), else its time; or None."""
+    evs = [e for e in (_jsonl(_events_path(q)) if q else [])
            if (e.get("type"), e.get("op")) == ("plane", "adopted") and _epoch(str(e.get("at") or "")) is not None]
-    return max(ats, key=lambda a: _epoch(a) or 0, default=None)
+    if not evs:
+        return None
+    latest = max(evs, key=lambda e: _epoch(str(e["at"])) or 0)
+    since = (latest.get("payload") or {}).get("since") if isinstance(latest.get("payload"), dict) else None
+    return str(since) if since and _epoch(str(since)) is not None else str(latest["at"])
 
 
 def _from(at: Any, start: float | None) -> bool:
@@ -995,7 +1003,7 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
     `plane`/`adopted` event: the task merges, the suite series, gate and module time, the rotation
     counts and the friction notes before it are left out (not the usage advice, `ccp usage`'s, which reads
     from `since`, else `usage.advice.window_hours` back, nor the rotation slots due now), and
-    `before_adoption` counts the merges left out (`adopted_at` is that event's time either way)."""
+    `before_adoption` counts the merges left out (`adopted_at` is that event's adoption point either way)."""
     a = cfg.architect or ARCHITECT_DEFAULTS
     tasks = tasklog.load(cfg)
     ms = merges(cfg, tasks, rev)

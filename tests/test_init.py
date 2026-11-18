@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -293,6 +294,22 @@ class Adoption(InitCase):
         self.assertEqual(json.loads(ledger.read_text().splitlines()[0]), older)
         self.assertEqual(self.init("--project-id", "demo")[0], 0)
         self.assertEqual(len(self.adopted()), 1)
+
+    def test_a_backfilled_event_dates_the_adoption_at_the_binding_s_last_change(self):
+        self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        self.assertNotIn("since", self.adopted()[0]["payload"])
+        lib.events_path(self.queue).write_text("")  # the queue as it was before the event existed
+        since = "2026-01-05T10:00:00Z"
+        stamp = datetime.strptime(since, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+        os.utime(self.binding, (stamp, stamp))
+        for _ in range(2):
+            self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        [ev] = self.adopted()
+        self.assertEqual((ev["payload"]["binding"], ev["payload"]["since"]), ("kept", since))
+        self.assertEqual(lib.validate_event(ev), [])
+        r = self.ccp("health", "--json", QUEUE_ROOT=str(self.queue))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(r.stdout)["adopted_at"], since)
 
     def test_force_rewriting_the_binding_records_another(self):
         self.assertEqual(self.init("--project-id", "demo")[0], 0)

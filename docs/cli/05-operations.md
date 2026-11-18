@@ -35,7 +35,7 @@ ccp upgrade decline <task> --reason R    record the task's adopt step as decline
 ccp upgrade take <task> --reason R       record it as taken (plane.json upgrade.taken); each removes the task from the other
 ccp sandbox create [DIR] [-- <ccp init options>]
 ccp sandbox remove DIR
-ccp notify fire <trigger> [--task ID] [--id ID] [--reason R]    a test notice, in a sandbox only (§3.6)
+ccp notify fire <trigger> [--task ID] [--id ID] [--reason R]    a test notice, in a sandbox only, with --task or --id (§3.6)
 scripts/run-checkout.sh install | update | status
 scripts/release.sh [worktree]
 ```

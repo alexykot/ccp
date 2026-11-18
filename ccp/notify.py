@@ -25,7 +25,8 @@ bound product after its checks, writes the `pending` event (the release's commit
 as its reason) and runs no command; the lead dispatches it like any other pending notice.
 
 `ccp notify fire` fires a test notice as a step would (`fire`), in a sandbox only (§29.3): firing a
-made-up notice in a real product would reach the operator.
+made-up notice in a real product would reach the operator. It needs `--task` or `--id`, as every step
+that fires one gives.
 """
 from __future__ import annotations
 
@@ -329,8 +330,8 @@ def cmd_render(cfg: Config, a: argparse.Namespace) -> int:
 
 def cmd_fire(cfg: Config, a: argparse.Namespace) -> int:
     """`ccp notify fire`: a test notice, fired as a step fires one (`fire`), in a sandbox only (§3.6, §29.3).
-    Refused (exit 2) outside a sandbox, for `upgrade` (`ccp notify upgrade` records it), and for an id or
-    reason that is not one line."""
+    Refused (exit 2) outside a sandbox, for `upgrade` (`ccp notify upgrade` records it), without `--task` or
+    `--id` (every step that fires one gives a task or an id), and for an id or reason that is not one line."""
     from ccp import queue, sandbox  # noqa: PLC0415
     if sandbox.sandbox_of(cfg.root) is None:
         print(f"ccp notify fire: {cfg.root} is not in a sandbox: a test notice fires only in one (SPEC §29.3), "
@@ -338,6 +339,10 @@ def cmd_fire(cfg: Config, a: argparse.Namespace) -> int:
         return 2
     if a.trigger in RECORD_ONLY:
         print(f"ccp notify fire: {a.trigger} is recorded by `ccp notify {a.trigger}`, not fired", file=sys.stderr)
+        return 2
+    if not (a.task or "").strip() and not (a.id or "").strip():
+        print("ccp notify fire: give --task or --id: a notice names the task, gate or question it is about, "
+              "as every step that fires one does (SPEC §3.6)", file=sys.stderr)
         return 2
     try:
         q = queue.root()

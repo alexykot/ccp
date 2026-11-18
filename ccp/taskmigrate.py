@@ -3,21 +3,28 @@
 An earlier generation wrote a task file with no frontmatter: a `# Task NNNN: <title>` heading, a
 `## Meta` table (`| Field | Value |` rows `ID`, `Status`, `Depends on`, `Created`), a `## Refs` table
 (`| Kind | Ref |` rows such as `SPEC` and `ADR`), then free sections, its title in the old
-`INDEX.yaml` (`- id:` / `title:` entries). A task file is never deleted (§5.1), so such a file is
-converted where it is, never archived.
+`INDEX.yaml` (`- id:` / `title:` entries). A second shape writes its keys and values in backticks: a
+Meta table with rows `task_id`, `status`, `depends_on` (a `["<id>", …]` list) and `created`, and a
+Refs table (`| Field | Value |`) whose `spec_refs` row lists backticked `<path>#<anchor>` links into the
+SPEC, under a heading with a note after it (`## Refs (…)`). A task file is never deleted (§5.1), so
+such a file is converted where it is, never archived.
 
 The frontmatter comes from those tables: `task_id` the file stem; `title` from the `INDEX.yaml`
 committed at HEAD, else the heading without its `Task NNNN:` prefix, else the slug; `status` `done` or
-`dropped` by the old status's word; `depends_on` the `Depends on` row's ids (a bare number names the
-one file holding it); `spec_refs` each `§N`, `§N.M` or `SN` of the `SPEC` rows as the product's spec
-ref for section N, deduplicated in order; `created` and `updated` the `Created` date; `adopt: "none"`.
+`dropped` by the old status's word; `depends_on` the `Depends on` (or `depends_on`) row's ids (a bare
+number names the one file holding it); `spec_refs` from the Refs rows keyed `SPEC` or `spec_refs`, each
+value split into its backticked items (else on commas): each `§N`, `§N.M` or `SN` as the product's spec
+ref for section N, and a `<path>#<anchor>` whose path names a SPEC file (`task_log.spec_paths`) kept as
+written, deduplicated in order; `created` and `updated` the `Created` date; `adopt: "none"`.
 The whole old text is kept verbatim, in a fenced block, under `## Context (not checked)`; the other
 sections say the record was converted and not re-verified (one dod_check, `legacy-01`, and one
-verification note). Table keys are matched case-insensitively.
+verification note). Table keys are matched case-insensitively; a table's heading may carry a note after
+its name.
 
 An open task (any other old status) is converted only with `drop_open`, as `dropped` with a note. A
 file it cannot convert, or whose converted text `ccp tasks check` would fail, is named with the reason
-and left byte for byte; a file that already has frontmatter is left alone without a line of its own.
+and left byte for byte; a file with no SPEC section names the Refs heading it read (or none) and each
+of its rows. A file that already has frontmatter is left alone without a line of its own.
 """
 from __future__ import annotations
 
@@ -39,16 +46,25 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 SEPARATOR_CELL_RE = re.compile(r"^:?-+:?$")
 INDEX_ENTRY_RE = re.compile(r"^[ \t]*-[ \t]+id:[ \t]*(.+?)[ \t]*$")
 INDEX_TITLE_RE = re.compile(r"^[ \t]*title:[ \t]*(.+?)[ \t]*$")
+BACKTICKED_RE = re.compile(r"`([^`]+)`")
+SPEC_LINK_RE = re.compile(r"^([^\s#]+)#\S+$")
+REFS_KEYS = ("spec", "spec_refs")
 
 
 def _cell(v: str) -> str:
     return v.strip().strip("`*_").strip()
 
 
-def table(text: str, heading: str) -> list[tuple[str, str]] | None:
-    """The `(key, value)` rows of the two-column table under `## <heading>` (any case), its header and
-    separator rows left out; None when there is no such heading or it holds no row."""
-    m = re.search(rf"^##[ \t]+{re.escape(heading)}[ \t]*$", text, re.M | re.I)
+def heading(text: str, name: str) -> re.Match[str] | None:
+    """The first `## <name>` heading line (any case), with or without a note after a space."""
+    return re.search(rf"^##[ \t]+{re.escape(name)}(?:[ \t][^\n]*)?$", text, re.M | re.I)
+
+
+def table(text: str, name: str, raw: bool = False) -> list[tuple[str, str]] | None:
+    """The `(key, value)` rows of the two-column table under `## <name>` (`heading`), its header and
+    separator rows left out; None when there is no such heading or it holds no row. Each key is lowercased
+    without its backticks or emphasis; each value too, or with `raw` only trimmed."""
+    m = heading(text, name)
     if not m:
         return None
     nxt = re.search(r"^#{1,2}[ \t]", text[m.end():], re.M)
@@ -64,7 +80,8 @@ def table(text: str, heading: str) -> list[tuple[str, str]] | None:
                 rows.pop()  # the row above a separator is the header
             continue
         if len(cells) >= 2:
-            rows.append((_cell(cells[0]).lower(), _cell("|".join(cells[1:]))))
+            value = "|".join(cells[1:])
+            rows.append((_cell(cells[0]).lower(), value.strip() if raw else _cell(value)))
     return rows or None
 
 
@@ -85,18 +102,33 @@ def index_titles(cfg: Config) -> dict[str, str]:
 
 
 def spec_refs(cfg: Config, values: list[str]) -> list[str]:
-    """Each `§N`, `§N.M` or `SN` (or the product's prefix) in `values` as the product's ref for section N."""
+    """The spec refs `values` name, in order, deduplicated. Each value is split into its backticked items
+    when it has any, else on commas; in each item a `§N`, `§N.M` or `SN` (or the product's prefix) is the
+    product's ref for section N, and an item `<path>#<anchor>` whose path names a SPEC file
+    (`task_log.spec_paths`) is kept as written."""
     ids = refs.ids(cfg)
     prefixes = "|".join(re.escape(p) for p in dict.fromkeys(("S", ids.spec_prefix)))
     ref_re = re.compile(rf"(?:§[ \t]*|(?<![\w/-])(?:{prefixes}))(\d{{1,3}})(?:\.\d+)*(?![\w/-])")
-    found = [ids.spec_ref(int(m.group(1))) for v in values for m in ref_re.finditer(v)]
+    spec_paths = cfg.task_log.get("spec_paths") or []
+    found = []
+    for v in values:
+        for item in BACKTICKED_RE.findall(v) or v.split(","):
+            item = item.strip().strip("*").strip()
+            if (m := SPEC_LINK_RE.match(item)) and tasklog._names_spec(m.group(1), spec_paths):
+                found.append(item)
+            else:
+                found += [ids.spec_ref(int(r.group(1))) for r in ref_re.finditer(item)]
     return list(dict.fromkeys(found))
 
 
 def _depends(cfg: Config, value: str) -> tuple[list[str], str | None]:
-    """The ids a `Depends on` value names, each resolved to a task file, or why one has no file."""
+    """The ids a `Depends on` value names (a `["<id>", …]` list as its ids), each resolved to a task file, or
+    why one has no file."""
     ids = refs.ids(cfg)
-    words = [w.strip("`*_ ") for w in re.split(r"[,\s]+", value)]
+    value = value.strip()
+    if value.startswith("[") and value.endswith("]"):  # a `["<id>", …]` list
+        value = value[1:-1]
+    words = [w.strip("`*_ \"'") for w in re.split(r"[,\s]+", value)]
     out = []
     for w in words:
         if not w or w in ("-", "—", "–", "none"):
@@ -148,6 +180,15 @@ def render(cfg: Config, tid: str, meta: dict[str, Any], old: str, today: str) ->
             f"## {tasklog.SEC_VERIFY}\n\n" + "\n".join(notes) + "\n")
 
 
+def _refs_read(text: str, rows: list[tuple[str, str]]) -> str:
+    """What was read for the Refs table: its heading line (or none) and each row's key with its value."""
+    m = heading(text, "Refs")
+    if not m:
+        return " (no Refs heading)"
+    read = "; ".join(f"{k} = {v}" for k, v in rows) or "no rows"
+    return f" ({m.group(0).strip()}: {read})"
+
+
 def convert(cfg: Config, f: Path, titles: dict[str, str], drop_open: bool) -> tuple[dict[str, Any] | None, str | None]:
     """What the old file `f` converts to, or why it cannot be converted."""
     ids = refs.ids(cfg)
@@ -169,10 +210,10 @@ def convert(cfg: Config, f: Path, titles: dict[str, str], drop_open: bool) -> tu
     if dropped_open and not drop_open:
         return None, (f"an open task (Status: {old_status or 'empty'}): rewrite it as a new task, or pass "
                       "--drop-open to convert it as dropped")
-    spec_vals = [v for k, v in table(text, "Refs") or [] if k == "spec"]
-    specs = spec_refs(cfg, spec_vals)
+    ref_rows = table(text, "Refs", raw=True) or []
+    specs = spec_refs(cfg, [v for k, v in ref_rows if k in REFS_KEYS])
     if not specs:
-        return None, "no SPEC section in its Refs table"
+        return None, "no SPEC section in its Refs table" + _refs_read(text, ref_rows)
     created = row.get("created", "")
     if not DATE_RE.match(created):
         return None, f"Created {created!r} is not YYYY-MM-DD"
@@ -180,7 +221,7 @@ def convert(cfg: Config, f: Path, titles: dict[str, str], drop_open: bool) -> tu
         date.fromisoformat(created)
     except ValueError:
         return None, f"Created {created!r} is not YYYY-MM-DD"
-    deps, why = _depends(cfg, row.get("depends on", ""))
+    deps, why = _depends(cfg, row.get("depends on", row.get("depends_on", "")))
     if why:
         return None, why
     title = titles.get(f.stem) or titles.get(ids.task_number(f.stem))
