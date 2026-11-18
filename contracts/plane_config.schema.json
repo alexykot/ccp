@@ -1176,7 +1176,7 @@
           "minLength": 1,
           "pattern": "\\{test\\}",
           "default": null,
-          "description": "A shell command run in the mutation worktree's root that runs the one test named by {test} (filled in shell-quoted); exit 0 = the test passed, anything else = it failed."
+          "description": "A shell command run in the mutation worktree's root that runs the one test named by {test} (filled in shell-quoted); exit 0 = the test passed, anything else = it failed. A per-test runner names the test id, e.g. `python3 -m unittest {test}`; a product whose tests are whole scripts sets `sh {test}` (or the interpreter its scripts need) and names the script as --test."
         },
         "timeout_seconds": {
           "type": "integer",
