@@ -708,7 +708,7 @@ tasks:
     depends_on: []
     path: tasks/0141-suite-mutate-leftovers.md
   - id: 0142-signed-text-checks
-    status: pending
+    status: done
     title: The signed-text check reads each hunk on its own and no content line as a header, next's stdout names unsigned tasks, and a spec path without a slash is exact
     depends_on: []
     path: tasks/0142-signed-text-checks.md

@@ -1,7 +1,7 @@
 ---
 task_id: 0142-signed-text-checks
 title: The signed-text check reads each hunk on its own and no content line as a header, next's stdout names unsigned tasks, and a spec path without a slash is exact
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3", "S15", "S10"]
@@ -9,7 +9,7 @@ review_point: R9
 paths: ["ccp/verify.py", "ccp/cli.py", "ccp/tasklog.py", "tests/test_verify_spec_text.py", "tests/test_tasklog_spec_signoff.py", "tests/test_sign_off.py"]
 adopt: "none"
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Task: 0142-signed-text-checks
@@ -130,3 +130,5 @@ configured SPEC path without a trailing `/` matches only itself, as the signed Â
   same 4 per hunk, so per-hunk matching changes no outcome there.
 
 ## Verification notes
+- 2026-11-18 â€” verifier, PR #153 head `2021b2a` (squash `4fc06e4`): APPROVE. Passed: spec-01, spec-02, spec-03, next-01, path-01, suite-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0142-signed-text-checks.json.
+
