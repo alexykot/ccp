@@ -683,7 +683,7 @@ tasks:
     depends_on: []
     path: tasks/0136-init-adoption-leftovers.md
   - id: 0137-gate-lane-and-test-counts
-    status: pending
+    status: done
     title: ccp init --gate keeps a shell line whole as one stage, and suite.count_re reads any runner's summary lines
     depends_on: []
     path: tasks/0137-gate-lane-and-test-counts.md

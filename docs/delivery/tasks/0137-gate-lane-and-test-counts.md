@@ -1,7 +1,7 @@
 ---
 task_id: 0137-gate-lane-and-test-counts
 title: ccp init --gate keeps a shell line whole as one stage, and suite.count_re reads any runner's summary lines
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4", "S14"]
@@ -9,7 +9,7 @@ review_point: R9
 paths: ["ccp/init.py", "ccp/suite.py", "ccp/config.py", "contracts/plane_config.schema.json", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "README.md", "tests/test_init.py", "tests/test_suite.py", "tests/test_sandbox.py"]
 adopt: "plane.json suite.count_re, a pattern or a list of patterns matching the product's test runners' summary lines, when they are not Python unittest's"
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Task: 0137-gate-lane-and-test-counts
@@ -134,3 +134,5 @@ gets its test count recorded on every suite run.
   `suite.count_re` row and the pytest, `go test -v` and shell-script patterns below the table.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #155 head `f8d13fc` (squash `2a1eadc`): APPROVE. Passed: init-01, init-02, count-01, count-02, count-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0137-gate-lane-and-test-counts.json.
+
