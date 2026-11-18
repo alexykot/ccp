@@ -122,4 +122,15 @@ gets its test count recorded on every suite run.
 
 *Append-only, newest last.*
 
+- 2026-11-18 (implementer): `ccp init --gate` writes `suite.lanes.gate` as one stage `{"name": "gate",
+  "cmd": GATE}`, the line verbatim; `plane_json_text` still calls `shlex.split` on it only to refuse an
+  unclosed quote (exit 2, nothing written). `suite.count_re` is a non-blank string or a non-empty list
+  of non-blank strings, each compiling; a blank pattern is refused too, since without a group it would
+  count every line (narrowest reading of "a string"). `suite._count_res` compiles the list in order;
+  `_Counter` takes the list and counts a line with the first pattern that matches it (its first group,
+  or 1 for a pattern with no group), then stops; `digest` ends a failure section at a dash rule before
+  any count pattern's line. An optional group that matched nothing counts nothing instead of raising.
+  SPEC §4.5 and §14.3 carry the task's §31.1 text; the README's adoption checklist gains a
+  `suite.count_re` row and the pytest, `go test -v` and shell-script patterns below the table.
+
 ## Verification notes
