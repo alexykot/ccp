@@ -673,7 +673,7 @@ tasks:
     depends_on: []
     path: tasks/0134-tasks-migrate.md
   - id: 0135-queue-legacy-archive
-    status: pending
+    status: done
     title: ccp plane check names every queue entry the plane does not write, and --archive moves them to QUEUE_ROOT/_legacy/<date>/
     depends_on: []
     path: tasks/0135-queue-legacy-archive.md

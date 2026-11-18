@@ -1,7 +1,7 @@
 ---
 task_id: 0135-queue-legacy-archive
 title: ccp plane check names every queue entry the plane does not write, and --archive moves them to QUEUE_ROOT/_legacy/<date>/
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S31", "S29", "S4"]
@@ -9,7 +9,7 @@ review_point: R9
 paths: ["ccp/queue.py", "ccp/plane.py", "ccp/cli.py", "ccp/init.py", "docs/spec/05-operations.md", "docs/cli/05-operations.md", "tests/test_plane_check.py"]
 adopt: "none"
 created: 2026-11-17
-updated: 2026-11-17
+updated: 2026-11-18
 ---
 
 # Task: 0135-queue-legacy-archive
@@ -151,3 +151,5 @@ the way with one command that never deletes anything, after which `ccp plane che
   atomic write's `*.tmp` are not listed.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #154 head `973f206` (squash `812de17`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, cmd-05, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0135-queue-legacy-archive.json.
+
