@@ -701,7 +701,9 @@ has a `Suite:` line but no suite run is recorded for its run.
   summary line and a `result_problem` label, and the output's counts stand. `counts_from` says which
   (`result` or `output`).
 - **Without a result file** the counts are read from the output: each line matched against
-  `suite.count_re` (default `^Ran (\d+) tests? in `), the matches summed; `suite.summary`'s
+  `suite.count_re` (default `^Ran (\d+) tests? in `), a pattern or a list of patterns: the first
+  pattern a line matches counts it, its first group as the count, or the line as one when the pattern
+  has no group, so no line counts twice; the matches summed; `suite.summary`'s
   `failed_re`, `skipped_re`, `ran_re`, `cached_re` and `cached_tests_re` (a pattern or a list, first
   group a number, summed) give the rest. The defaults read Python unittest only (`OK (skipped=N)`,
   `FAILED (failures=N, errors=N, skipped=N)`); `ran_re`, `cached_re` and `cached_tests_re`

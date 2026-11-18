@@ -31,14 +31,15 @@ command may write a JSON result to (contracts/suite_result.schema.json: tests, r
 cached_tests, skipped, failed, failures, seconds, modules). When it does, its numbers are the
 record's, and its `modules` (each test module's name, seconds and tests) go on the `ended` row. When
 it does not, each line is matched against the product's `suite.count_re` (default: unittest's
-`Ran N tests in`) and `suite.summary`'s patterns (defaults: unittest's failures and skips only). The
-numbers are summed, and nothing else of the output, or of the result file, is kept in the records:
-failure ids are shown in the summary, never recorded. The command's environment is the caller's,
-unchanged, plus CCP_SUITE_ID and CCP_SUITE_RESULT: `bin/ccp` sets no variable, and a QUEUE_ROOT
-`ccp` finds from the binding when the caller set none stays `ccp`'s own. `--cold` asks for a cold run
-the same way in every product: what the run starts also gets CCP_SUITE_COLD=1, which a product's gate
-reads as its own cold option, and the `ended` row records `cold: true` unless the run's own count shows
-units cached. A lane's stages run in a
+`Ran N tests in`; a list is tried in order, the first pattern a line matches counting it, its first
+group or, with no group, the line as one test) and `suite.summary`'s patterns (defaults: unittest's
+failures and skips only). The numbers are summed, and nothing else of the output, or of the result
+file, is kept in the records: failure ids are shown in the summary, never recorded. The command's
+environment is the caller's, unchanged, plus CCP_SUITE_ID and CCP_SUITE_RESULT: `bin/ccp` sets no
+variable, and a QUEUE_ROOT `ccp` finds from the binding when the caller set none stays `ccp`'s own.
+`--cold` asks for a cold run the same way in every product: what the run starts also gets
+CCP_SUITE_COLD=1, which a product's gate reads as its own cold option, and the `ended` row records
+`cold: true` unless the run's own count shows units cached. A lane's stages run in a
 worktree `ccp wt` made also get that worktree's `CCP_WT_<FIELD>` variables, the ones its env hooks
 get (§12.2), and its task as `CCP_TASK_ID` and `CCP_NNNN`; a command after `--` gets none. A
 `ccp suite run` inside it records nothing and writes no log: it becomes its command, so the outer run
@@ -220,11 +221,12 @@ class _Warn:
 
 
 class _Counter:
-    """Scans one stream's lines for the count pattern, and for the summary's other numbers, as
+    """Scans one stream's lines for the count patterns, and for the summary's other numbers, as
     they pass. Keeps no output."""
 
-    def __init__(self, pattern: re.Pattern[bytes], fields: dict[str, list[re.Pattern[bytes]]] | None = None) -> None:
-        self.pattern = pattern
+    def __init__(self, patterns: list[re.Pattern[bytes]],
+                 fields: dict[str, list[re.Pattern[bytes]]] | None = None) -> None:
+        self.patterns = patterns
         self.fields = fields or {}
         self.partial = b""
         self.skip = False  # the rest of an over-long line: never matched
@@ -250,12 +252,14 @@ class _Counter:
 
     def _line(self, ln: bytes) -> None:
         ln = ln.rstrip(b"\r")
-        m = self.pattern.search(ln)
-        if m:
-            try:
-                self.total = (self.total or 0) + int(m.group(1))
-            except (IndexError, ValueError):
-                pass
+        for pat in self.patterns:  # §14.3: the first pattern the line matches counts it, and only it
+            m = pat.search(ln)
+            if m:
+                try:
+                    self.total = (self.total or 0) + (int(m.group(1)) if pat.groups else 1)
+                except (TypeError, ValueError):  # an optional group that matched nothing, or not a number
+                    pass
+                break
         for name, pats in self.fields.items():
             for pat in pats:
                 f = pat.search(ln)
@@ -346,9 +350,10 @@ def _usage_problem(a: Any) -> str | None:
     return None
 
 
-def _count_re(cfg: Config | None) -> re.Pattern[bytes]:
+def _count_res(cfg: Config | None) -> list[re.Pattern[bytes]]:
+    """plane.json `suite.count_re` compiled, in order: a pattern or a list of them (§14.3)."""
     pat = ((cfg.suite or {}).get("count_re") if cfg else None) or DEFAULT_COUNT_RE
-    return re.compile(pat.encode())
+    return [re.compile(p.encode()) for p in ([pat] if isinstance(pat, str) else pat)]
 
 
 # ------------------------------------------------------------------------------ summary mode
@@ -405,12 +410,12 @@ def _lines(fh: Any) -> Any:
         yield raw.rstrip(b"\n").rstrip(b"\r").decode("utf-8", "replace")
 
 
-def digest(log: Path, scfg: dict[str, Any], count_re: re.Pattern[bytes]) -> dict[str, Any]:
+def digest(log: Path, scfg: dict[str, Any], count_res: list[re.Pattern[bytes]]) -> dict[str, Any]:
     """What summary mode shows of a finished run's log: the failing tests' sections (a `====` rule,
     a `section_re` line, and everything to the next `====` rule or the `----` rule before a count
     line), the `show_re` lines, and the last `tail_lines` lines. Bounded: past `max_chars` of
     sections, the rest are counted, not kept."""
-    count = re.compile(count_re.pattern.decode("utf-8", "replace"))
+    counts = [re.compile(c.pattern.decode("utf-8", "replace")) for c in count_res]
     section_res, show_res = scfg["section_re"], scfg["show_re"]
     budget = scfg["max_chars"]
     sections: list[tuple[int, int, list[str]]] = []
@@ -444,7 +449,7 @@ def digest(log: Path, scfg: dict[str, Any], count_re: re.Pattern[bytes]) -> dict
         for n, line in enumerate(_lines(fh)):
             if cur is not None:
                 if held_dash is not None:
-                    if count.search(line):
+                    if any(c.search(line) for c in counts):
                         close(n - 2)
                     else:
                         cur.append(held_dash)
@@ -1138,9 +1143,9 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
             pass
     # 2. the run itself
     try:
-        pattern = _count_re(cfg)
+        patterns = _count_res(cfg)
     except re.error:
-        pattern = re.compile(DEFAULT_COUNT_RE.encode())
+        patterns = [re.compile(DEFAULT_COUNT_RE.encode())]
     scfg = _summary_cfg(cfg)
     fpats = _field_patterns(scfg)
     # Summary mode (§14.3, 2026-10-22): the output goes to a log file, and ccp prints a start line,
@@ -1181,7 +1186,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
             old[s] = signal.signal(s, forward)
         except (ValueError, OSError):  # not the main thread
             pass
-    counters = [_Counter(pattern, fpats), _Counter(pattern, fpats)]
+    counters = [_Counter(patterns, fpats), _Counter(patterns, fpats)]
     staged = bool(stages[0].get("staged"))
     done: list[dict[str, Any]] = []  # §14.2: each stage that ran: name, seconds, exit code
     results: list[tuple[dict[str, Any] | None, str | None]] = []
@@ -1271,7 +1276,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                 while chunk := fh.read(65536):
                     counters[0].feed(chunk)
             counters[0].close()
-            dig = digest(log, scfg, pattern)
+            dig = digest(log, scfg, patterns)
         except Exception as e:  # noqa: BLE001
             warn(f"could not read the log back ({type(e).__name__}): see {log}")
     totals = [c.total for c in counters if c.total is not None]
@@ -1673,7 +1678,7 @@ def ended_summary(cfg: Config | None, started: dict[str, Any] | None, ended: dic
     log = Path(ended["log"]) if isinstance(ended.get("log"), str) else None
     if log is not None and log.is_file():
         try:
-            dig = digest(log, scfg, _count_re(cfg))
+            dig = digest(log, scfg, _count_res(cfg))
         except Exception:  # noqa: BLE001  (the summary line still stands)
             dig = None
         out = render_summary(sid, log, code, lane, seconds, ended.get("tests"), fields, sig_name, dig,

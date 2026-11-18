@@ -101,7 +101,14 @@ class Adopt(InitCase):
         self.assertIn("integration_branch: trunk", self.binding.read_text().splitlines())
         self.assertIn("production_branch: trunk", self.binding.read_text().splitlines())
         cfg = json.loads((self.repo / "docs/delivery/plane.json").read_text())
-        self.assertEqual(cfg["suite"]["lanes"]["gate"], ["python3", "-m", "unittest", "discover", "-s", "tests"])
+        self.assertEqual(cfg["suite"]["lanes"]["gate"], [{"name": "gate", "cmd": "python3 -m unittest discover -s tests"}])
+
+    def test_a_gate_is_one_stage_holding_the_line_as_given(self):
+        line = "cd sub && make check 'a  b' | tee out.txt"
+        code, res = self.init("--project-id", "demo", "--gate", line)
+        self.assertEqual(code, 0, res)
+        cfg = json.loads((self.repo / "docs/delivery/plane.json").read_text())
+        self.assertEqual(cfg["suite"], {"lanes": {"gate": [{"name": "gate", "cmd": line}]}})
 
     def test_a_gate_against_a_kept_plane_json_is_listed_as_not_applied(self):
         self.assertEqual(self.init("--project-id", "demo")[0], 0)
@@ -291,6 +298,7 @@ class Refusals(InitCase):
     def test_a_gate_that_does_not_split(self):
         err = self.assert_refused_untouched("--project-id", "demo", "--gate", 'echo "x')
         self.assertIn("--gate", err)
+        self.assertFalse((self.repo / "docs/delivery/plane.json").exists())
         self.assertFalse(self.binding.exists())
 
     def test_a_kept_plane_json_that_does_not_load(self):

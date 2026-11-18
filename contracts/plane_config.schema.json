@@ -928,9 +928,12 @@
         "count_re": {
           "type": [
             "string",
+            "array",
             "null"
           ],
-          "description": "A regular expression whose first group is a test count, matched per output line and summed. Default: unittest's `Ran N tests in`."
+          "items": {"type": "string"},
+          "minItems": 1,
+          "description": "SPEC §14.3: a regular expression, or a list of them, matched per output line: the first pattern a line matches counts it, its first group as the count, or the line as one test when the pattern has no group; the counts are summed. Default: unittest's `Ran N tests in`."
         },
         "roles": {
           "type": "object",

@@ -414,8 +414,8 @@ A product is adopted by running `ccp init` in its repository. It writes:
 - the PROJECT, SPEC and delivery templates (`templates/docs-project/`, `templates/docs-delivery/`)
   and, with `--starter-rules`, the starter house rules as `docs/ENGINEERING.md` (§20.5);
 - a minimal `docs/delivery/plane.json` (§8.1): the project id, the worktrees directory, with
-  `--gate` the gate lane, and with `--starter-rules` `docs.starter_rules` and the `package_docs`
-  settings the starter rules' checks name; and `INDEX.yaml` when the product keeps one (§5.7) and has
+  `--gate` the gate lane (one stage, `gate`, running the line as given), and with `--starter-rules`
+  `docs.starter_rules` and the `package_docs` settings the starter rules' checks name; and `INDEX.yaml` when the product keeps one (§5.7) and has
   none yet (an existing one is kept and listed as kept); with `--gate`, the gate command written into
   `standing-dod.md`'s placeholder product item;
 - `.plane-runtime/` in `.gitignore`;
