@@ -1210,7 +1210,7 @@ class GateFromSuite(SuiteFixture, unittest.TestCase):
 
 
 class Digest(unittest.TestCase):
-    def digest(self, text: bytes, **over) -> dict:
+    def digest(self, text: bytes, count_res: list[bytes] | None = None, **over) -> dict:
         import tempfile
         from ccp.config import SUITE_SUMMARY_DEFAULTS
         f = tempfile.NamedTemporaryFile(delete=False)
@@ -1220,7 +1220,7 @@ class Digest(unittest.TestCase):
         scfg = suite._summary_cfg(None)
         scfg.update(over)
         self.assertEqual(set(scfg), set(SUITE_SUMMARY_DEFAULTS))
-        return suite.digest(Path(f.name), scfg, [re.compile(rb"^Ran (\d+) tests? in ")])
+        return suite.digest(Path(f.name), scfg, [re.compile(p) for p in count_res or [rb"^Ran (\d+) tests? in "]])
 
     def test_a_section_ends_at_the_rule_before_the_count(self):
         eq, dash = b"=" * 70, b"-" * 70
@@ -1234,6 +1234,13 @@ class Digest(unittest.TestCase):
         self.assertIn("not the end", bodies[0])
         self.assertEqual(bodies[1][-2:], ["boom", ""])
         self.assertNotIn("Ran 2 tests in 0.1s", bodies[1])
+
+    def test_a_section_ends_at_the_rule_before_any_count_patterns_line(self):
+        eq, dash = b"=" * 70, b"-" * 70
+        text = b"\n".join([eq, b"FAIL: test_a (m.T.test_a)", dash, b"boom", dash, b"7 passed", b"after"]) + b"\n"
+        d = self.digest(text, [rb"^Ran (\d+) tests? in ", rb"^(\d+) passed"])
+        self.assertEqual([b for _s, _e, b in d["sections"]], [[eq.decode(), "FAIL: test_a (m.T.test_a)", dash.decode(),
+                                                              "boom"]])
 
     def test_an_over_long_line_is_cut_and_reading_is_bounded(self):
         d = self.digest(b"x" * (suite.LINE_MAX * 3) + b"\nlast\n", tail_lines=2)
