@@ -8,7 +8,8 @@
 # A runner holding a task (work.json `in_flight`) is kept working only on what it holds, never sent to
 # another task its claim would refuse.
 # Any other teammate (among them an earlier runner a rotation replaced: the runner is the name
-# work.json `runner` binds, SPEC §10.2), the runner's own subagents, a draining/idle runner, a
+# work.json `runner` binds, SPEC §10.2), a runner whose rotation is recorded and whose fresh runner is
+# not yet bound, the runner's own subagents, a draining/idle runner, a
 # rotation due (either trigger, as `ccp tasks rotation-due` judges it), or a missing queue: exit 0. A subagent is told apart by the hook input: Claude Code adds `agent_id` and
 # `agent_type` when a hook fires inside a subagent, and the runner's subagents share its
 # teammate_name. So it acts only when there is no agent_id, or agent_type is the runner's own type.
@@ -103,12 +104,14 @@ SLOTS = work.get("runners") if isinstance(work.get("runners"), dict) else {}
 SLOT = None
 if SLOTS:
     SLOT = next((k for k, v in SLOTS.items() if str((v or {}).get("bound_name") or k) == hook.get("teammate_name")), None)
-    if SLOT is None or (SLOTS[SLOT] or {}).get("bind_pending"):
-        sys.exit(0)  # no slot's runner, or one respawned after a rotation and not yet bound
+    if SLOT is None or (SLOTS[SLOT] or {}).get("bind_pending") or (SLOTS[SLOT] or {}).get("rotated_at"):
+        sys.exit(0)  # no slot's runner, one being rotated out (not yet respawned), or one respawned and not yet bound
     RUNNER = str(SLOTS[SLOT].get("bound_name") or SLOT)
 else:
     if work.get("runner_bind_pending"):
         sys.exit(0)  # §10.2: respawned after a rotation, not yet bound: which teammate is the runner is unknown
+    if work.get("runner_rotated_at") and str(work["runner_rotated_at"]) >= str(work.get("runner_spawned_at") or ""):
+        sys.exit(0)  # §10.2: rotated since its spawn: the runner being rotated out takes no new task
     # §10.2: the live runner is the name the lead bound in work.json (`team.sh runner bind`): after a
     # rotation the harness may have named the fresh one `runner-2` while the old one, still idling under
     # the binding's name, must not be nudged back to work.

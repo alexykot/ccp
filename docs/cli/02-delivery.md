@@ -16,12 +16,12 @@ argument takes the full id or its number.
 | `ccp tasks rotation-due [--holder <slot>]` | the `TeammateIdle` hook, runner, lead | §10.2 step 4, §18.2 |
 | `ccp tasks phase <id> <phase>` | runner | §10.1 |
 | `ccp tasks wait <id> <reason> [--until T] [--detail …]` / `ccp tasks resume <id>` | runner, lead | §10.1, §3.6 (a wait on `reauth`, `operator_step` or `operator_decision` fires a notice: pending on record, and the notify command if any) |
-| `ccp tasks close <id> --pr N [--summary "…"]` | runner | §10.5, §15.5, §16.5 |
+| `ccp tasks close <id> --pr N [--summary "…"]` | runner | §10.5, §15.5, §16.5 (names `idle_runners` and `vacant_slots`, the slots rotated and not respawned) |
 | `ccp tasks prefer [<id>… [--reason "…"] \| --clear]` | lead | §10.4 |
 | `ccp tasks hold [<id> [--reason "…"] \| --clear <id>]` | lead | §10.4 |
 | `ccp tasks sign-off <id> --by <who> --words "…" [--stage brief\|build] [--head\|--from <sha>] [--at <date>]` | lead | §3.5, §10.5 |
 | `ccp tasks ruling <id> --words "…" [--check <dod_check_id>]` | lead | §17.5, §15.4 |
-| `ccp tasks release <id> [--keep-branch] --reason "…"` | lead, runner | §10.4, §10.5 |
+| `ccp tasks release <id> [--keep-branch] --reason "…"` | lead, runner | §10.4, §10.5, §16.5 (names `idle_runners` and `vacant_slots`, as close does) |
 | `ccp tasks drop <id> --reason "…"` | lead, runner | §10.4 |
 | `ccp tasks sync` | lead, runner | §10.4 |
 | `ccp tasks orphans --since <ref> [--json]` | lead | §10.7 |

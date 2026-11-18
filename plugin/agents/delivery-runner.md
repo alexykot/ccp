@@ -237,7 +237,9 @@ runners, each holding one task. Otherwise ignore this section.
    conflict is the same case. Another task's reconcile alone (LOG, INDEX, task file) never holds you back;
    a reconcile that collides with another runner's is rebuilt by `close` itself.
 5. **Wake the idle.** When `ccp tasks close` or `release` lists `idle_runners`, send each of them one message:
-   "a slot is free: `ccp tasks next`". The hook cannot wake a runner that is already idle.
+   "a slot is free: `ccp tasks next`". The hook cannot wake a runner that is already idle. When it (or
+   `drop`) lists `vacant_slots`, slots rotated and not respawned, send the lead one message naming each
+   slot and `team.sh runner spawn --slot <slot>`.
 6. **Rotation is yours alone.** When your slot's rotation is due (below), finish your task, then ask the lead
    to rotate your slot. The fresh runner resumes your slot's task.
 7. **The session park parks every task in flight.** At exit 6, send the lead one message, then idle; its

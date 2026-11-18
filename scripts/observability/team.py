@@ -523,7 +523,8 @@ def refactor_scope(root: Path, args: argparse.Namespace, w: dict[str, Any],
 def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[str, Any]) -> int:
     """SPEC §16.5: several runner teammates, one per slot (`<runner.name>-<n>`), each holding one task.
     work.json `runners` maps slot -> {bound_name, spawned_at, tasks_done, bind_pending, rotated_at,
-    worktree}; status, scope and the review point stay queue-wide."""
+    worktree}; status, scope and the review point stay queue-wide. `status` marks a slot rotated and not
+    respawned (`rotated_at` set) `vacant`: it holds no runner until `spawn --slot` runs."""
     slots = slots_of(w)
     if args.op == "status":
         def phase(t: str) -> Any:
@@ -533,7 +534,9 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
                 return None
         gates = [g["escalation_id"] for g in iter_gates(root) if g.get("status") in OPEN_GATE_STATUSES]
         return out({"work": {k: w.get(k) for k in ("status", "scope", "review_point", "in_flight", "updated_at")},
-                    "runners": {k: {**v, "tasks": {t: phase(t) for t in slot_tasks(root, w, k)}}
+                    # §16.5 rule 7: a slot rotated and not respawned holds no runner until its spawn runs
+                    "runners": {k: {**v, "vacant": bool(v.get("rotated_at")),
+                                    "tasks": {t: phase(t) for t in slot_tasks(root, w, k)}}
                                 for k, v in sorted(slots.items())},
                     "open_gates": gates, "open_questions": [q["question_id"] for q in sm.open_questions(root)]})
     if args.op == "spawn":
@@ -641,7 +644,9 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
             {"action": "shutdown_teammate", "name": name,
              "detail": "Send the shutdown_request and wait for its acknowledgement; without one, stop it (TaskStop)."},
             {"action": "respawn", "cmd": f"team.sh runner spawn --slot {slot}",
-             "detail": f"Once {name} is gone; then `team.sh runner bind --name <the Agent result's name> --as {slot}`."}]})
+             "detail": f"Once {name} is gone; then `team.sh runner bind --name <the Agent result's name> --as {slot}`. "
+                       f"Until that spawn runs, {slot} holds no runner and takes no task: to run fewer runners, "
+                       f"`team.sh runner stop --slot {slot}` instead."}]})
     if args.op == "stop":
         if args.slot and args.slot not in slots:
             die(f"--slot {args.slot}: no such slot ({', '.join(sorted(slots))})", 2)

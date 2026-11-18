@@ -1,7 +1,8 @@
 """SPEC §10.2 step 4: rotation is due at `runner.rotate_after_tasks` tasks done, or at
 `runner.rotate_at_context_tokens` of the runner teammate's latest request context (§24); `ccp tasks claim`
-refuses the due slot a new task (exit 7) until `team.sh runner rotate` records the rotation, never a
-resume; `ccp health` reports the due slot and the rotations against tasks done."""
+refuses the due slot a new task (exit 7) until `team.sh runner rotate` records the rotation, and from the
+rotation until the lead binds the fresh runner, never a resume; `ccp health` reports the due slot and the
+rotations against tasks done."""
 from __future__ import annotations
 
 import json
@@ -77,6 +78,8 @@ class Rotation(RotationFixture, unittest.TestCase):
         self.assertEqual(self.health()["due"], [])  # recorded: no longer reported as due
         code, out, err = self.team("runner", "spawn", "--slot", "runner-1")
         self.assertEqual(code, 0, out + err)
+        code, out, err = self.team("runner", "bind", "--name", "runner-1", "--as", "runner-1")
+        self.assertEqual(code, 0, out + err)
         code, _, out, err = self.claim()
         self.assertEqual(code, 0, out + err)
 
@@ -108,8 +111,9 @@ class Rotation(RotationFixture, unittest.TestCase):
         self.assertIn("`team.sh runner rotate`", err)
         code, out, err = self.team("runner", "rotate")
         self.assertEqual(code, 0, out + err)
-        code, _, out, err = self.ccp("tasks", "claim", "0002", root=self.main)
-        self.assertEqual(code, 0, out + err)
+        code, _, out, err = self.ccp("tasks", "claim", "0002", root=self.main)  # rotated: held until the bind
+        self.assertEqual(code, 7, out + err)
+        self.assertIn("`team.sh runner spawn`", err)
 
     def test_a_large_context_makes_rotation_due(self):
         self.binding(rotate_at_context_tokens=100000)
@@ -132,6 +136,7 @@ class Rotation(RotationFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         # the fresh runner has made no request yet: the old incarnation's large one predates its spawn
         self.assertEqual(self.health()["due"], [])
+        self.assertEqual(self.team("runner", "bind", "--name", "runner-1-b", "--as", "runner-1")[0], 0)
         code, _, out, err = self.claim()
         self.assertEqual(code, 0, out + err)
 
