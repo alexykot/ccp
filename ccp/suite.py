@@ -38,9 +38,9 @@ file, is kept in the records: failure ids are shown in the summary, never record
 environment is the caller's, unchanged, plus CCP_SUITE_ID and CCP_SUITE_RESULT: `bin/ccp` sets no
 variable, and a QUEUE_ROOT `ccp` finds from the binding when the caller set none stays `ccp`'s own.
 `--cold` asks for a cold run the same way in every product: what the run starts also gets
-CCP_SUITE_COLD=1, which a product's gate reads as its own cold option, and the `ended` row records
-`cold: true` unless the run's own count shows units cached. A lane's stages run in a
-worktree `ccp wt` made also get that worktree's `CCP_WT_<FIELD>` variables, the ones its env hooks
+CCP_SUITE_COLD=1, which a product's gate reads as its own cold option, and the run is recorded cold
+only when its own count shows nothing cached (§14.6): asking does not make it cold. A lane's stages
+run in a worktree `ccp wt` made also get that worktree's `CCP_WT_<FIELD>` variables, the ones its env hooks
 get (§12.2), and its task as `CCP_TASK_ID` and `CCP_NNNN`; a command after `--` gets none. A
 `ccp suite run` inside it records nothing and writes no log: it becomes its command, so the outer run
 captures the output.
@@ -1320,8 +1320,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         _say(f"ccp suite: {suite_id}: failing (from the gate's result): {', '.join(_cut(x) for x in shown)}"
              + (f" and {len(failures) - len(shown)} more" if len(failures) > len(shown) else "") + "\n")
     _finish(cfg, q, started, warn, code, seconds, tests, sig, fields, log, source, problem,
-            done if stages[0]["name"] is not None else None, failed_stage, proven, mods,
-            asked_cold=bool(cold_env))
+            done if stages[0]["name"] is not None else None, failed_stage, proven, mods)
     if lane_fd is not None and lane_fd >= 0 and q is not None:
         release_lane(q, suite_id)  # a normal end: the next holder is not told this one died
     return code
@@ -1412,15 +1411,12 @@ def _finish(cfg: Config | None, q: Path | None, started: dict[str, Any] | None, 
             seconds: float, tests: int | None, sig: int | None, fields: dict[str, int | None] | None = None,
             log: Path | None = None, source: str = "output", problem: str | None = None,
             stages: list[dict[str, Any]] | None = None, failed_stage: str | None = None,
-            proven: list[dict[str, Any]] | None = None, modules: list[dict[str, Any]] | None = None,
-            asked_cold: bool = False) -> None:
+            proven: list[dict[str, Any]] | None = None, modules: list[dict[str, Any]] | None = None) -> None:
     if q is None or started is None:
         return
     name = _sig_name(sig)
     nums = {f: (fields or {}).get(f) for f in SUMMARY_FIELDS}
-    cold = run_cold(nums.get("cached"))
-    if asked_cold and cold is None:  # §14.2 `--cold`: asked for and not contradicted by the run's own count
-        cold = True
+    cold = run_cold(nums.get("cached"))  # §14.2: from the run's own count alone, `--cold` or not
     row = {"op": "ended", "suite_id": started["suite_id"], "at": iso(), "exit_code": code,
            "seconds": round(seconds, 3), "tests": tests, **nums, "cold": cold, "counts_from": source,
            **({"result_problem": problem[:80]} if problem else {}),
