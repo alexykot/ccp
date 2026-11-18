@@ -55,6 +55,8 @@ After task 0135's queue check, the plane's own docs and code agree with what tha
     `contracts/observability_event.schema.json` (the op enum) admit it. §31.1:
     `docs/spec/04-observability.md` §24's event table gets the row, and `docs/spec/05-operations.md`
     §31.3 says in one clause that the archive is recorded.
+    `archive(q)` takes no config today (only the queue path), so the implementer passes the project id
+    (or the `cfg`) in from `check --archive`'s caller to emit the ledger event.
   - `ccp/queue.py`: `.DS_Store` is not a leftover, at the queue root or in the queue's `scripts` directory.
     §31.1: §31.3's list of what is not listed names it.
   - `tests/test_plane_check.py`: the tests for this task.

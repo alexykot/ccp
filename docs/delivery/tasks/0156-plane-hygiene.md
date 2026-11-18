@@ -1,12 +1,12 @@
 ---
 task_id: 0156-plane-hygiene
-title: The plane's self-check reads its own checkout, a kept binding's shape is read by nesting, the idle runner is told of a due architect pass, and a claim's start has one time
+title: The plane's self-check reads its own checkout, a kept binding's shape is read by nesting, and a claim's start has one time
 status: pending
 kind: feature
 depends_on: []
-spec_refs: ["S29", "S8", "S18", "S19", "S10"]
+spec_refs: ["S29", "S8", "S10"]
 review_point: R10
-paths: ["ccp/cli.py", "ccp/init.py", "ccp/queue.py", "ccp/lifecycle.py", "plugin/hooks/runner-idle.sh", "tests/test_plugin.py", "tests/test_init.py", "tests/test_runner_idle_rotation.py", "tests/test_release.py"]
+paths: ["ccp/cli.py", "ccp/init.py", "ccp/queue.py", "ccp/lifecycle.py", "tests/test_plugin.py", "tests/test_init.py", "tests/test_release.py"]
 adopt: "none"
 created: 2026-11-18
 updated: 2026-11-18
@@ -15,11 +15,10 @@ updated: 2026-11-18
 # Task: 0156-plane-hygiene
 ## Intent
 
-Four plane follow-ups that make its warnings and readings true:
+Three plane follow-ups that make its warnings and readings true:
 - The §29 self-check warns only when the plane checkout `ccp` runs from has drifted, never because of
   the caller's checkout, so a worker can trust it.
 - A kept binding's shape warnings name exactly the keys it lacks or carries at the depth they belong.
-- A runner whose only task waits is told to start a due architect pass instead of idling past it.
 - A claim's recorded start is one instant, so a release-and-claim reading never splits across a second.
 
 ## Context (not checked)
@@ -38,12 +37,7 @@ Four plane follow-ups that make its warnings and readings true:
   `['agent_type', 'slots', 'a', 'name']`, so it misses that `runner.name` is absent. It also warns
   that the binding carries `seats.runner`, which is two levels deep. `upgrade.binding_keys` in
   `ccp/upgrade.py` already reads the binding as nested objects by indentation.
-- **Idle runner.** `plugin/hooks/runner-idle.sh` asks `ccp tasks next` (where an architect pass due
-  shows) only `if ready and (parallel_on or has_architect)`. A runner whose held task waits has
-  nothing ready, so the hook lets it idle and never names a due pass. `ccp architect due` exits 0 with
-  the reason when a pass is due, and 3 when none is (`"0 if info[\"due\"] else 3"` in
-  `ccp/architect.py`). Its JSON carries `failed_in_a_row`, and `architect.gate` stops blocking on a
-  pass once two in a row have failed.
+- The idle hook's architect nudge while the held task waits changes §18.2 and is left to a signed task.
 - **Claim time.** `claim` in `ccp/lifecycle.py` stamps `claimed_at` from `t = now()` and then writes
   the `lease`/`set` event through `emit`, which takes its own `iso()`. Across a second boundary the
   two differ by a second. `drill.collect` starts an open task at the earlier of the two, so
@@ -65,17 +59,11 @@ Four plane follow-ups that make its warnings and readings true:
   - `ccp/init.py`: `binding_shape_warnings` reads the binding with `upgrade.binding_keys` (nested by
     indentation). A top-level key's children are only its first-level keys. `IGNORED_NESTED`
     (`<top>.<child>`) matches only a first-level child. `_binding_keys` is removed.
-  - `plugin/hooks/runner-idle.sh`: when nothing is ready, the scope has a task that waits (a
-    `waiting_on`, or held by an open question or gate), the product has an `architect` block, and no
-    rotation is due, the hook runs `ccp architect due` (with `QUEUE_ROOT`). When it exits 0 and its
-    `failed_in_a_row` is below 2, the hook blocks (exit 2, counted against `idle_block_limit` as any
-    block) with: "<reason>. Run `ccp architect run --detach` (SPEC §19.6) while <the waiting task>
-    waits, then report." Its header comment says so.
   - `ccp/queue.py` `emit` takes an optional `at` (an ISO string) used as the event's time. `claim` in
     `ccp/lifecycle.py` passes `iso(t)`, the same instant as `claimed_at` and `lease_since`, to its
     `lease`/`set` and `phase`/`transition` events.
   - Tests for each: `tests/test_plugin.py` (the self-check), `tests/test_init.py` (the binding),
-    `tests/test_runner_idle_rotation.py` (the hook), `tests/test_release.py` (the claim time).
+    `tests/test_release.py` (the claim time).
 - **Out:**
   - Other `git -C <PLANE>` callers (`ccp/upgrade.py` `_git`).
   - The `Task: <id>` line in PR bodies, the other half of the same proposal.
@@ -98,20 +86,6 @@ Four plane follow-ups that make its warnings and readings true:
     1. Call `init.binding_shape_warnings(<path>, <text>)`.
   expect: one warning names `runner.name` as lacking; no warning names `seats.runner`.
   dry run (`85d388b`, the probe): no `runner.name` warning, and a `seats.runner` warning.
-- id: `hook-01`
-  story: As a runner holding only a waiting task, I am told to start a due architect pass.
-  setup: the fixture of `tests/test_runner_idle_rotation.py`'s held-task tests (`test_a_held_task_on_a_gate_lets_the_runner_idle_until_the_gate_closes`): one runner holding a task that waits on an open gate; plane.json with an `architect` block and the queue's architect state making a pass due.
-  steps:
-    1. Run the hook with the runner's TeammateIdle input.
-  expect: exit 2; stderr names `ccp architect run --detach` and the waiting task.
-  dry run: n/a.
-- id: `hook-02`
-  story: As a runner holding only a waiting task, I am let idle when no pass is due.
-  setup: the fixture of hook-01 with no pass due; then, separately, with a pass due whose last two attempts failed.
-  steps:
-    1. Run the hook with the runner's TeammateIdle input in each case.
-  expect: exit 0 in both cases.
-  dry run: n/a.
 - id: `time-01`
   story: As the drill-down, a claim's start is one instant.
   setup: a scratch queue (`ToolkitFixture`) with task 0002 pending; `lifecycle.now` patched to return 12:00:00.9Z and `queue.iso` patched to return 12:00:01Z when called with no argument.

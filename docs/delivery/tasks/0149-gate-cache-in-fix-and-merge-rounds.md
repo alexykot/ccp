@@ -6,7 +6,7 @@ kind: feature
 depends_on: []
 spec_refs: ["S14", "S13"]
 review_point: R10
-paths: ["templates/prompts/_common.md", "templates/prompts/fix.md", "templates/prompts/merge.md", "templates/prompts/implement.md", "templates/prompts/ruling.md", "ccp/prompt.py", "ccp/suite.py", "docs/spec/02-delivery.md", "docs/cli/02-delivery.md", "CLAUDE.md", "docs/ENGINEERING.md", "tests/test_suite.py", "tests/test_prompt_rounds.py", "tests/test_worker_efficiency.py", "tests/test_full_lane_prompt.py"]
+paths: ["templates/prompts/_common.md", "templates/prompts/fix.md", "templates/prompts/merge.md", "templates/prompts/implement.md", "templates/prompts/ruling.md", "ccp/prompt.py", "ccp/suite.py", "docs/spec/02-delivery.md", "docs/cli/02-delivery.md", "CLAUDE.md", "docs/ENGINEERING.md", "tests/test_suite.py", "tests/test_prompt_rounds.py", "tests/test_worker_efficiency.py", "tests/test_full_lane_prompt.py", "tests/test_prompt_tools.py", "tests/CLAUDE.md"]
 adopt: "none"
 created: 2026-11-18
 updated: 2026-11-18
@@ -33,13 +33,13 @@ passes its own command on a lane plane.json gives a command is told which comman
   python3 -c "import json,os;R=[json.loads(l) for l in open(os.environ['QUEUE_ROOT']+'/runs/_suites.jsonl')];S={r['suite_id']:r for r in R if r['op']=='started'};[print(S[r['suite_id']].get('phase'),S[r['suite_id']]['cmd'],S[r['suite_id']].get('argc'),r['seconds'],r.get('cached')) for r in R if r['op']=='ended' and r['suite_id'] in S and S[r['suite_id']].get('lane') in ('full','gate') and S[r['suite_id']]['at']>='2026-11-17T10:15']"
   ```
 
-  - fix: 13 runs, all `python3` with 7 arguments (`-m unittest discover -s tests -t .`), median 768 s (`the command above`);
-  - merge: 3 runs, all the same `python3` command, median 750 s (`the command above`);
-  - ruling: 1 run, the same command, 946 s (`the command above`);
-  - implement: 40 runs of `gate.sh` with nothing cached, median 145 s (the parallel cold gate), 1 cached, and 4 runs of the `python3` command, median 837 s (`the command above`);
-  - verify: 22 runs cached, median 0 s, and 20 not, median 153 s (`the command above`).
-- The proposal read every run over 450 s as "uncached" (`the command above`). That threshold separates the serial
-  `unittest discover` (`the command above`: about 700 to 1000 s) from the parallel gate (`the command above`: about 120 to 190 s), not cached
+  - fix: 13 runs, all `python3` with 7 arguments (`-m unittest discover -s tests -t .`), median 768 s;
+  - merge: 3 runs, all the same `python3` command, median 750 s;
+  - ruling: 1 run, the same command, 946 s;
+  - implement: 40 runs of `gate.sh` with nothing cached, median 145 s (the parallel cold gate), 1 cached, and 4 runs of the `python3` command, median 837 s;
+  - verify: 22 runs cached, median 0 s, and 20 not, median 153 s.
+- The proposal read every run over 450 s as "uncached". That threshold separates the serial
+  `unittest discover` (about 700 to 1000 s) from the parallel gate (about 120 to 190 s), not cached
   from uncached: implement's gate runs are cold too (the code changed). The cache is not missed by
   these rounds; they never use it.
 - **Why fix and merge workers pick that command.** The implement prompt (`templates/prompts/implement.md`) tells the worker to read
@@ -54,16 +54,16 @@ passes its own command on a lane plane.json gives a command is told which comman
   command after `--` instead of the lane's own, silently. Task 0145 shows it: its fix round's full
   lane log (`runs/0145-adoption-rule-fixes/fix-suite-*.log`) is one `Ran 2344 tests in 920.384s`, while
   its implement round's full lane run was `gate.sh`.
-- **The verify after such a round is cold as a result.** Read with `the command above`, taking each
-  verify's previous full or gate lane run of the same task: of the 20 verify runs with nothing cached (`the command above`),
-  18 followed a `python3` run and 2 a `gate.sh` run (`the command above`); all 22 cached ones followed a `gate.sh` run (`the command above`). A round that runs `scripts/gate.sh` on its final head records each module, and the
+- **The verify after such a round is cold as a result.** Read with the command above, taking each
+  verify's previous full or gate lane run of the same task: of the 20 verify runs with nothing cached,
+  18 followed a `python3` run and 2 a `gate.sh` run; all 22 cached ones followed a `gate.sh` run. A round that runs `scripts/gate.sh` on its final head records each module, and the
   verify at that head is served from the cache.
 - **The key is not the cause, and is left as it is.** `scripts/gate_parallel.py` keys every module on
   all tracked files (`shared_inputs`), so any change to a non-test file misses every module; that is the
   §15.3 rule as built in task 0113 and is why implement's gate runs are cold. A narrower per-module key is
   a separate change and not this task's.
-- Expected saving per fix or merge round: the serial run (`the command above`: about 770 s median) becomes the parallel
-  cold gate (`the command above`: about 150 s), and the verify after it a cache hit (`the command above`: about 150 s to under 1 s).
+- Expected saving per fix or merge round: the serial run (about 770 s median) becomes the parallel
+  cold gate (about 150 s), and the verify after it a cache hit (about 150 s to under 1 s).
 - No § rule changes. §14.1 already says `--lane` "without `-- <command>` runs what plane.json
   `suite.lanes` gives that lane". The §14.2 sentence below describes this task's own warning (§31.1).
   `git grep -n "replaces\|replaced" -- docs/spec/02-delivery.md` at `85d388b` finds no sentence on a
@@ -94,9 +94,10 @@ passes its own command on a lane plane.json gives a command is told which comman
   - This repo: `CLAUDE.md`'s "Run the full suite" line and `docs/ENGINEERING.md` E1 name
     `scripts/gate.sh` (a plane worker runs it as `ccp suite run --lane full`), adding that it runs the
     same modules as `python3 -m unittest discover -s tests -t .` in parallel, with the test cache. E1's
-    rule (the full suite passes on every change) is unchanged.
+    rule (the full suite passes on every change) is unchanged. `tests/CLAUDE.md` line 3, which names
+    the same `unittest` command, names `scripts/gate.sh` the same way.
   - `tests/test_full_lane_prompt.py` (new); `tests/test_suite.py`, `tests/test_prompt_rounds.py` and
-    `tests/test_worker_efficiency.py` where they pin the lane wording this changes.
+    `tests/test_worker_efficiency.py` and `tests/test_prompt_tools.py` where they pin the lane wording this changes.
 - **Out:**
   - The cache key in `scripts/gate_parallel.py` and `scripts/gate.sh` (unchanged).
   - Refusing a command after `--` on an argv lane (a rule change; the warning is enough to show it).
