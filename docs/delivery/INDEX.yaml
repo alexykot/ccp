@@ -742,3 +742,63 @@ tasks:
     title: A worker corrects a recorded report before the task's next run opens, the earlier one kept as superseded
     depends_on: []
     path: tasks/0148-report-correction.md
+  - id: 0149-gate-cache-in-fix-and-merge-rounds
+    status: pending
+    title: Fix and merge rounds run the product's full suite as its declared lane, so they get the gate's parallel run and test cache
+    depends_on: []
+    path: tasks/0149-gate-cache-in-fix-and-merge-rounds.md
+  - id: 0150-runner-loop-fixes
+    status: pending
+    title: The runner tries verify first after a fix of a clean review, next passes over a task held back only by a path clash, the PR body names the task, and a cleared wait clears its detail
+    depends_on: []
+    path: tasks/0150-runner-loop-fixes.md
+  - id: 0151-rotation-refills-the-slot
+    status: pending
+    title: A runner being rotated out takes no new task, and a slot left empty after a rotation is named to the lead until it is refilled
+    depends_on: []
+    path: tasks/0151-rotation-refills-the-slot.md
+  - id: 0152-adoption-test-leftovers
+    status: pending
+    title: Migrate reads a backticked Refs table, a backfilled adoption keeps its real date, a test notice names what it is about, and orphans pass over the lead's own task-log and SPEC commits
+    depends_on: []
+    path: tasks/0152-adoption-test-leftovers.md
+  - id: 0153-upgrade-status-decline-and-taken
+    status: pending
+    title: A product records an adopt step as declined or taken with one command, upgrade status names the steps it saw taken, and each change line reads as written
+    depends_on: []
+    path: tasks/0153-upgrade-status-decline-and-taken.md
+  - id: 0154-worktrees-outside-repo-safety
+    status: pending
+    title: Under a worktrees.dir outside the main checkout, wt create adopts and wt remove deletes an unrecorded directory only when git names it, and §12.1 says which unrecorded directories the plane touches there
+    depends_on: []
+    path: tasks/0154-worktrees-outside-repo-safety.md
+  - id: 0155-recent-window-for-usage-and-health
+    status: pending
+    title: Cost advice can read a recent window and says which requests it read; init refuses a blank gate; verifiers check ccp by hand with the head's own; suite affected prints a ready command
+    depends_on: []
+    path: tasks/0155-recent-window-for-usage-and-health.md
+  - id: 0156-plane-hygiene
+    status: pending
+    title: The plane's self-check reads its own checkout, a kept binding's shape is read by nesting, and a claim's start has one time
+    depends_on: []
+    path: tasks/0156-plane-hygiene.md
+  - id: 0157-spec-text-sections-and-head
+    status: pending
+    title: ccp verify spec-text reads signed passages from a Rule changes section too, and checks a past commit with --head
+    depends_on: []
+    path: tasks/0157-spec-text-sections-and-head.md
+  - id: 0158-env-hooks-from-worktree-and-operator-step
+    status: pending
+    title: A worktree can run its own env hooks, and the runner doc names the operator gate class
+    depends_on: []
+    path: tasks/0158-env-hooks-from-worktree-and-operator-step.md
+  - id: 0159-test-readers-and-mutate
+    status: pending
+    title: A product maps its own paths to tests for ccp suite affected, ccp mutate tells a mutant that does not build from one a test killed, and a shallow ver works with LFS and --revert
+    depends_on: []
+    path: tasks/0159-test-readers-and-mutate.md
+  - id: 0160-queue-legacy-follow-ups
+    status: pending
+    title: The queue docs name only what the plane writes, an unused reader goes, a queue archive is in the ledger, and a Finder .DS_Store is no leftover
+    depends_on: []
+    path: tasks/0160-queue-legacy-follow-ups.md
