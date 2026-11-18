@@ -748,7 +748,7 @@ tasks:
     depends_on: []
     path: tasks/0149-gate-cache-in-fix-and-merge-rounds.md
   - id: 0150-runner-loop-fixes
-    status: pending
+    status: done
     title: The runner tries verify first after a fix of a clean review, next passes over a task held back only by a path clash, the PR body names the task, and a cleared wait clears its detail
     depends_on: []
     path: tasks/0150-runner-loop-fixes.md

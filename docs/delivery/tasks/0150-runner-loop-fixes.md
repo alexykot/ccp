@@ -1,7 +1,7 @@
 ---
 task_id: 0150-runner-loop-fixes
 title: The runner tries verify first after a fix of a clean review, next passes over a task held back only by a path clash, the PR body names the task, and a cleared wait clears its detail
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S16", "S15", "S10"]
@@ -158,3 +158,5 @@ prompt review` does not refuse it. A cleared wait leaves no stale detail in `wor
   comment on the head of line.
 
 ## Verification notes
+- 2026-11-18 — verifier, PR #172 head `6800f63` (squash `b45a603`): APPROVE. Passed: brief-01, next-01, next-02, prm-01, wait-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0, `ccp verify spec-text 0150-runner-loop-fixes --base origin/main` exit 0. Record: verification/0150-runner-loop-fixes.json.
+
