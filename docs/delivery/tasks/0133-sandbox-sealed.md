@@ -49,6 +49,17 @@ operator notice fires one with a real command instead of inventing one.
     the variable and the sandbox, with a usage exit code, so a shell left pointing at a real product cannot reach it.
   - The test notice is a new `ccp notify fire`, refused outside a sandbox: firing a made-up notice
     in a real product would reach the operator.
+- Lead's ruling on spec question sm-20261118T074808Z-0cd1 (operator accepted the amended text,
+  2026-11-18: 'accept 0133's amended sealing text'), commit 57630bc700cfbc09f9245947ba75a22144d7d318:
+  Build as implemented: inside a sandbox CCP_BINDINGS_DIR is replaced by the sandbox's own; an
+  exported PROJECT_YAML, or a QUEUE_ROOT or --queue-root, naming a path outside it is refused (exit 2).
+  In PR #159, amend the task's signed PROPOSED §29.3 sentence and the SPEC text identically to:
+  '`CCP_BINDINGS_DIR` is replaced by the sandbox's own, an exported `PROJECT_YAML` or a `QUEUE_ROOT`
+  or `--queue-root` naming a path outside it is refused (exit 2)' in place of the clause
+  '`CCP_BINDINGS_DIR`, `PROJECT_YAML` and `QUEUE_ROOT` are set to the sandbox's own, an exported value
+  or a `--queue-root` naming a path outside it is refused (exit 2)'. Note the change in the task's
+  Implementation notes. The smaller choice stands: init refuses a --queue-root inside the sandbox other
+  than its own queue directory.
 
 ## Scope
 
@@ -72,7 +83,7 @@ operator notice fires one with a real command instead of inventing one.
   - Rule change, signed at tasking (it makes an exception to §8.3's `PROJECT_YAML` resolution and init's
     default queue): `docs/spec/05-operations.md` §29.3, the sandbox bullet. CURRENT: none (new text). PROPOSED, appended after "…works only below
     the fence's temporary root.":
-    > Inside a sandbox (a directory whose main checkout sits beside the marker), `ccp init`, `--force` or not, and every other command use the sandbox's binding and queue: `CCP_BINDINGS_DIR`, `PROJECT_YAML` and `QUEUE_ROOT` are set to the sandbox's own, an exported value or a `--queue-root` naming a path outside it is refused (exit 2), and nothing is written to the installation's bindings directory or the default queue directory (§8.3). `ccp notify fire <trigger> [--task ID] [--id ID] [--reason R]` fires a test notice there as a step would (§3.6), and is refused outside a sandbox.
+    > Inside a sandbox (a directory whose main checkout sits beside the marker), `ccp init`, `--force` or not, and every other command use the sandbox's binding and queue: `CCP_BINDINGS_DIR` is replaced by the sandbox's own, an exported `PROJECT_YAML` or a `QUEUE_ROOT` or `--queue-root` naming a path outside it is refused (exit 2), and nothing is written to the installation's bindings directory or the default queue directory (§8.3). `ccp notify fire <trigger> [--task ID] [--id ID] [--reason R]` fires a test notice there as a step would (§3.6), and is refused outside a sandbox.
   - Signed with the above: `docs/spec/01-model.md` §3.6. CURRENT: none (new text). PROPOSED, a new bullet after **Record.**:
     > - **Test notice.** In a sandbox only (§29.3), `ccp notify fire <trigger>` fires a notice as a step would: the `pending` record, the command channel, the rendered notice.
   - `docs/cli/05-operations.md` and `docs/cli/01-model.md`: the `ccp notify fire` line.
@@ -150,6 +161,14 @@ operator notice fires one with a real command instead of inventing one.
   that is not one line. `test_project_yaml_naming_another_products_binding_is_not_taken` now uses a
   product outside every sandbox (the resolver's product_root check). A new test covers a sandbox refusing
   another sandbox's `PROJECT_YAML`.
+- 2026-11-18 (implementer, ruling round 1): the lead ruled (sm-20261118T074808Z-0cd1, the operator
+  accepted the amended text) that the build stands: an outside `CCP_BINDINGS_DIR` is replaced, not
+  refused. The signed PROPOSED §29.3 sentence in Scope and the SPEC text in
+  `docs/spec/05-operations.md` §29.3 now read, identically, "`CCP_BINDINGS_DIR` is replaced by the
+  sandbox's own, an exported `PROJECT_YAML` or a `QUEUE_ROOT` or `--queue-root` naming a path outside
+  it is refused (exit 2)", in place of the clause that listed all three names as set and refused. No
+  code or test changed. §3.6 (`docs/spec/01-model.md`) and `docs/cli` do not restate the sealing
+  clause and still agree.
 
 ## Verification notes
 
