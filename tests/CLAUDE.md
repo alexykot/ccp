@@ -14,12 +14,12 @@ checks against this repo, read-only.
 
 Modules share a few fixtures; reuse one before building another. Where a check needs no repository,
 queue or subprocess, test a function on plain values instead (`test_catch_up_decision.py`).
-- `helpers.py`'s `Product`: a temp product root with a `plane.json` and helpers to add tasks and files.
+- `helpers.py`'s `Product`: a temp product root with a plane config and helpers to add tasks and files.
   Most modules build on it.
 - `test_toolkit.py`'s `ToolkitFixture`: a git product (a bare origin, a main clone and a runner worktree), a
   queue and a fake `gh`. The most reused one: for close, claim, verify and
   every test that runs `ccp` against a real repository.
-- `test_team_hosting.py`'s `TeamCase`: a `Product` and a claude-team queue (`project.yaml`, `work.json`,
+- `test_team_hosting.py`'s `TeamCase`: a `Product` and a claude-team queue (its binding, work state and
   claimed task files) with a `run_cmd` that runs a script against it.
 - `test_init.py`'s `InitCase`: a temp git repository, a temp home and bindings directory, and `ccp()` and
   `init()` to run `ccp init` there.
