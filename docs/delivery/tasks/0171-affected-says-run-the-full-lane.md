@@ -1,7 +1,7 @@
 ---
 task_id: 0171-affected-says-run-the-full-lane
 title: ccp suite affected says to run the full lane when a change reaches most of the suite, and the worker templates stop restating the pre-gate
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S14"]
@@ -143,3 +143,5 @@ pre-gate rule.
   touched modules stay under the share.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #195 head `59a7d89` (squash `d0f131d`): APPROVE. Passed: aff-01, aff-02, aff-03, tpl-01, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0171-affected-says-run-the-full-lane.json.
+
