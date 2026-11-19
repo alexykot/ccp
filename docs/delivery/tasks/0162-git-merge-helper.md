@@ -137,4 +137,16 @@ does changes.
 
 *Append-only, newest last.*
 
+- `gitmerge.probe` returns a frozen `Probe` (tree, conflicts, returncode, failed, detail). The three refusal
+  texts that name a subcommand are `gitmerge.cannot_merge_text`, `conflict_text` and `old_git_text`, byte for
+  byte as before. `_judge_fix` keeps testing `returncode not in (0, 1)` for the git 2.38 text (so a clean
+  exit with no tree still reads "does not merge cleanly", as before); `failed` serves close.
+- `own_patch_id(root, sha, base_ref, run)` calls `run(root, *git_args, data=None)`: the runner takes the
+  directory as its first argument so `root` is used. `runs.same_change`'s inner `g` therefore takes `cwd` first,
+  and `_same_patch(g, root, a, b, integ)` gained `root` (no test references it). It still stops at the first head
+  with no patch id, as before.
+- `remerge_diff` runs `git show --remerge-diff --format=` (so a clean merge gives ""), and raises `QueueError`
+  when git fails rather than returning "", so a later caller cannot read a failure as a clean merge.
+- `STAGE_RE` moved from `lifecycle` to `gitmerge`; nothing else used it.
+
 ## Verification notes
