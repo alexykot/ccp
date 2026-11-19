@@ -244,7 +244,7 @@ if plane:
         from ccp import config as ccp_config, parallel as ccp_parallel
         with contextlib.redirect_stderr(io.StringIO()):
             cfg = ccp_config.load(Path(cwd))
-        has_architect = cfg.architect is not None
+        has_architect = ccp_config.architect_on(cfg)
         parallel_on = int(ccp_parallel.settings(cfg)["max_in_flight"]) > 1
     except Exception:
         has_architect, parallel_on = False, False

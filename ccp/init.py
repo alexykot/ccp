@@ -614,7 +614,7 @@ def rules_doc(root: Path, path: str, adopt: bool) -> dict[str, Any]:
     out["starter_rules"] = (f"the plane's starter rules (SPEC §20.5), {rules.STARTER_DOC}: a rule the plane "
                             "already checks can take its `docs` check there; adopt the set with "
                             "docs.starter_rules in plane.json")
-    if not cfg or not cfg.architect or cfg.architect.get("rules_doc") != rel:
+    if not cfg or not config.architect_on(cfg) or cfg.architect.get("rules_doc") != rel:
         out["note"] = (f"set architect.rules_doc to {rel} in plane.json: until then ccp docs check does not "
                        "check it and no architect judges its `check: pass` rules")
     return out

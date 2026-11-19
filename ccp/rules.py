@@ -35,7 +35,7 @@ from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from ccp import docrules, refs
+from ccp import config, docrules, refs
 from ccp.config import DOC_RULES, Config
 
 def rule_re(ids: refs.Ids = refs.DEFAULT) -> re.Pattern[str]:
@@ -456,7 +456,7 @@ def run_command(cfg: Config, cmd: str, timeout: int, cwd: Path | None = None) ->
 def check(cfg: Config) -> list[str]:
     """What §20 puts in the verifier's gate: the rules doc's shape and the product's checks. Not
     the budgets (see the module doc). [] when the architect block is absent."""
-    if cfg.architect is None:
+    if not config.architect_on(cfg):
         return []
     return check_doc(cfg) + [f"check {e}" for e in check_failures(cfg)]
 
