@@ -1,7 +1,7 @@
 ---
 task_id: 0178-role-model-table
 title: One table of each role's default model, which the launchers and the seat checks read
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S2"]
@@ -122,3 +122,5 @@ override (0181), it edits the table and one lookup. Nothing the plane does chang
   the rows to `FULL_IDS`, the flags, and the two launchers' constants to `headless_flags`.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #204 head `6d2e682` (squash `a1c444f`): APPROVE. Passed: mod-01, mod-02, mod-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0178-role-model-table.json.
+

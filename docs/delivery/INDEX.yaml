@@ -888,7 +888,7 @@ tasks:
     depends_on: []
     path: tasks/0177-architect-on-and-adoption-point.md
   - id: 0178-role-model-table
-    status: pending
+    status: done
     title: One table of each role's default model, which the launchers and the seat checks read
     depends_on: []
     path: tasks/0178-role-model-table.md
