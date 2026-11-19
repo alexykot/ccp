@@ -308,6 +308,15 @@ class Language(unittest.TestCase):
         self.assertEqual((code, lines), (2, []))
         self.assertIn("suite.affected_map", err)
 
+    def test_a_product_with_a_map_alone_has_no_suite_size_so_never_the_full_lane_line(self):
+        self.p.write("docs/delivery/plane.json", json.dumps(
+            {"project_id": "demo", "package_docs": {"language": "none"},
+             "suite": {"affected_map": {"src/*": ["t1", "t2", "t3", "t4"]}}}))
+        code, lines, err = self.run_cli("--paths", "src/x.go")
+        self.assertEqual((code, lines), (0, ["t1", "t2", "t3", "t4"]), err)
+        self.assertNotIn("full lane", err)
+        self.assertNotIn("test modules", err)
+
     def test_a_glob_star_crosses_directories_and_matches_case_exactly(self):
         self.p.write("docs/delivery/plane.json", json.dumps(
             {"project_id": "demo", "package_docs": {"language": "none"},
