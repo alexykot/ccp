@@ -1524,36 +1524,21 @@ def build_parser() -> argparse.ArgumentParser:
     return ap
 
 
-def binding_file(cfg: config.Config) -> Path | None:
-    """SPEC §8.3, §9.2: this product's binding: the file `PROJECT_YAML` names, when it is set, ahead of
-    `<bindings>/<project_id>.yaml` (a sandbox's binding sits outside the bindings directory, §29.3);
-    either only when its product_root is this checkout or its main checkout. A scratch clone or a fork
-    that names a live project's id gets nothing."""
+def product_binding(cfg: config.Config) -> Path | None:
+    """SPEC §8.3, §9.2: this product's binding (`lib.product_binding`), for the checkout and its main
+    checkout; None for an id that is not well formed."""
     from ccp.prompt import main_checkout  # noqa: PLC0415
     from ccp.queue import lib  # noqa: PLC0415
     if not config.PROJECT_ID_RE.match(cfg.project_id):
         return None
-    mine = (cfg.root.resolve(), main_checkout(cfg).resolve())
-    explicit = envvar("PROJECT_YAML")
-    for b in ([Path(explicit).expanduser()] if explicit else []) + [lib.bindings_dir() / f"{cfg.project_id}.yaml"]:
-        if not b.is_file():
-            continue
-        root = _scalar(b.read_text(), "product_root")
-        if root and Path(root).expanduser().resolve() in mine:
-            return b
-    return None
+    return lib.product_binding(cfg.project_id, (cfg.root.resolve(), main_checkout(cfg).resolve()))
 
 
-def _scalar(text: str, key: str) -> str | None:
-    import re  # noqa: PLC0415
-    m = re.search(rf"^{key}:\s*([^#\n]+)", text, re.M)
-    return m.group(1).strip().strip("'\"") if m else None
-
-
-def binding_queue_root(cfg: config.Config) -> str | None:
-    """SPEC §9.2: the project's queue, from this product's binding (`binding_file`)."""
-    b = binding_file(cfg)
-    q = _scalar(b.read_text(), "queue_root") if b else None
+def product_queue_root(cfg: config.Config) -> str | None:
+    """SPEC §9.2: the project's queue, from this product's binding (`product_binding`)."""
+    from ccp.queue import lib  # noqa: PLC0415
+    b = product_binding(cfg)
+    q = lib.binding_str(lib.read_binding(b.read_text()), "queue_root") if b else None
     return str(Path(q).expanduser()) if q and Path(q).expanduser().is_dir() else None
 
 
@@ -1695,7 +1680,7 @@ def cmd_where(cfg: config.Config, _a: argparse.Namespace) -> int:
     path, as `ccp init` prints them."""
     from ccp.queue import CCP_BIN, PLANE, _main_worktree, lib  # noqa: PLC0415
     q = os.environ.get("QUEUE_ROOT")
-    b = lib.binding_path(Path(q)) if q else binding_file(cfg)
+    b = lib.binding_path(Path(q)) if q else product_binding(cfg)
     print(json.dumps({"project_id": cfg.project_id, "product_root": str(_main_worktree(cfg.root.resolve())),
                       "binding": str(b.resolve()) if b else None,
                       "queue_root": str(Path(q).expanduser().resolve()) if q else None,
@@ -1822,7 +1807,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ccp: {e}", file=sys.stderr)
         return 2
     if not os.environ.get("QUEUE_ROOT") and envvar("CCP_NO_BINDING_QUEUE") != "1" \
-            and (q := binding_queue_root(cfg)):
+            and (q := product_queue_root(cfg)):
         os.environ["QUEUE_ROOT"] = q
     code = a.fn(cfg, a)
     refresh_board(cfg, a, code)

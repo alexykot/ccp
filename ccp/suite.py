@@ -1483,7 +1483,7 @@ def main_run(a: Any, command: list[str] | None) -> int:
         warn(f"{str(e).splitlines()[0][:200] if str(e) else type(e).__name__}: running the tests without recording them")
     if cfg is not None and not os.environ.get("QUEUE_ROOT") and envvar("CCP_NO_BINDING_QUEUE") != "1":
         try:
-            if q := cli.binding_queue_root(cfg):
+            if q := cli.product_queue_root(cfg):
                 os.environ["QUEUE_ROOT"] = q
         except Exception:  # noqa: BLE001
             pass
