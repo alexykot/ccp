@@ -1,7 +1,7 @@
 ---
 task_id: 0161-paths-meet-and-parallel-defaults
 title: Rename parallel.clash to paths_meet behind one pairwise predicate, and read the parallel defaults from one place
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S16"]
@@ -113,4 +113,10 @@ them. Nothing the plane does changes.
 
 *Append-only, newest last.*
 
+- Built as the Scope gives it. Premises re-run at d3a352c: `git grep -nw "clash" -- ccp` 3 lines (179, 213, 291), `git grep -n 'clash(' -- tests` finds no function call, the docs search finds nothing, `"session_ceiling_pct": 60` in 2 lines (`ccp/config.py:64`, `ccp/parallel.py:36`): as the task states.
+- `settings` falls back to `copy.deepcopy(config.PARALLEL_DEFAULTS)` (lists copied too); only the fallback copies, a loaded `cfg.parallel` is returned as before. `parallel.py` imports `PARALLEL_DEFAULTS` from `ccp.config` next to `Config`.
+- `kept_apart`'s docstring states it is the one pairwise predicate and where a scheduling mode branches; its body is `return paths_meet(cfg, a, b)`.
+
 ## Verification notes
+- 2026-11-19 — verifier, PR #180 head `6e1bf80` (squash `a10053c`): APPROVE. Passed: par-01, par-02, par-03, par-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -q tests.test_parallel_defaults tests.test_parallel_claims tests.test_next_passes_over tests.test_parallel_slots tests.test_parallel_state tests.test_parallel_lanes tests.test_forecast tests.test_toolkit` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0161-paths-meet-and-parallel-defaults.json.
+
