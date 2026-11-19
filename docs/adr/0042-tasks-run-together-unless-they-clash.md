@@ -1,7 +1,7 @@
 ---
 id: ADR-0042
 title: "Tasks run together unless they clash"
-status: proposed
+status: accepted
 date: "2026-11-18"
 deciders: operator
 spec_refs: [S5, S10, S13, S15, S16, S19, S27]
@@ -10,6 +10,14 @@ notes: |-
   them): schedule by logical clash rather than shared files, make conflicts cheap by catching up
   before review, and write wide plans rather than deep chains. It changes SPEC rules (listed under
   Consequences), so the operator decides it. Tasks follow the architect's shape.
+  2026-11-19: status proposed → accepted: Accepted by the operator (2026-11-19, in the lead session: 'accept ADR-0042'). Its decisions stay not_built until the shaped tasks build them.
+decisions:
+  - "D1 not_built"
+  - "D2 not_built"
+  - "D3 not_built"
+  - "D4 not_built"
+  - "D5 not_built"
+  - "D6 not_built"
 ---
 # ADR-0042 — Tasks run together unless they clash
 
