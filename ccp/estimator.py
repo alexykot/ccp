@@ -3,8 +3,8 @@
   ccp tasks estimate ID [--force] [--dry-run] [--print-prompt]   one agent estimate
   ccp tasks estimate --all [--max N] [--dry-run] [--detach]       every open task without a current one
 
-A headless `claude -p` on Sonnet at medium effort (`HEADLESS_MODEL`), pinned here like the
-architect's, with **no tools** (`--tools ""`): everything it needs is rendered into the prompt
+A headless `claude -p` on Sonnet at medium effort by default (`HEADLESS_MODEL`; `models.estimator`
+overrides it), like the architect's, with **no tools** (`--tools ""`): everything it needs is rendered into the prompt
 (`templates/prompts/estimate.md`), so a call is one model turn, cheap, and cannot read or write
 anything. It runs in an empty temporary directory under `--safe-mode --setting-sources local`
 (`ISOLATION`), so no CLAUDE.md, memory, settings file, hook, plugin or MCP server, the user's or a
@@ -50,8 +50,8 @@ from ccp.config import Config
 from ccp.queue import PLANE, append_jsonl, iso, read_json
 
 SEAT = "estimator"
-# Pinned like architecture_review.HEADLESS_MODEL, from the role table (`models.ROLES`; operator, 2026-10-22:
-# "Sonnet headless at medium effort").
+# The plane's default, like architecture_review.HEADLESS_MODEL, from the role table (`models.ROLES`; operator,
+# 2026-10-22: "Sonnet headless at medium effort"); a product's `models.estimator` overrides it.
 HEADLESS_MODEL = models.headless_flags("estimator")
 NO_TOOLS = ["--tools", ""]
 # No user customisation reaches the seat: --safe-mode turns off CLAUDE.md (user and project), auto-memory,

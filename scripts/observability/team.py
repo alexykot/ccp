@@ -631,8 +631,8 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
                            "bind_pending": bool(was.get("rotated_at")), "rotated_at": None,
                            "worktree": was.get("worktree") or (f"{base}-{slot}" if base else None)}
             actions.append({"action": "spawn_teammate", "name": slot, "subagent_type": rc["agent_type"], **model_arg(root, rc), "prompt": prompt,
-                            **no_rp_detail(rp, "Spawn it now with the Agent tool: exactly this name, agent type and "
-                                               "prompt. Then `team.sh runner bind --name <the name the Agent result "
+                            **no_rp_detail(rp, "Spawn it now with the Agent tool: exactly this name, agent type, prompt "
+                                               "and model, when the action carries one. Then `team.sh runner bind --name <the name the Agent result "
                                                f"gave> --as {slot}`, whatever the name.")})
         save_work(root, {"status": "running", "scope": scope, "review_point": rp,
                          "review_point_refactors": rp_refactors, "runners": slots})
@@ -772,7 +772,8 @@ def cmd_runner(args: argparse.Namespace) -> int:
         save_work(root, {"status": "running", "scope": scope, "review_point": rp,
                          "review_point_refactors": rp_refactors, "runner_bind_pending": pending,
                          "runner": rc["name"], "runner_spawned_at": fmt_dt(utcnow()), "runner_tasks_done": 0})
-        detail = ("Spawn it now with the Agent tool: exactly this name, agent type and prompt. If the Agent result "
+        detail = ("Spawn it now with the Agent tool: exactly this name, agent type, prompt and model, when the "
+                  "action carries one. If the Agent result "
                   f"names the teammate otherwise (such as `{rc['name']}-2`, while the old one holds the name), run "
                   "`team.sh runner bind --name <that name>` at once, so the hook and the workers' prompts follow it.")
         if pending:

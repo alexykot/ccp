@@ -10,14 +10,15 @@ Expected (pinned) values come from the pins in effect: a run's record (what `ccp
 the definition), else the agent definition (`runs.definition`: the product's `.claude/agents` copy
 while it has one, else the plugin's); the binding's runner agent type's definition; the product's
 `telemetry.design_seat` (advisory, §24); the headless reviewers' `--model`/`--effort`
-(`architecture_review.HEADLESS_MODEL`); the estimator's (`estimator.HEADLESS_MODEL`, §26.3).
+(`architecture_review.HEADLESS_MODEL`, the default; `models.architect` overrides it); the estimator's
+(`estimator.HEADLESS_MODEL`, §26.3, the same).
 
 Observed values come from `ccp usage`'s fold (`recent`): the requests attributed to that run or
 seat, less those of sessions the plane launched headless (tagged, or in headless-usage.jsonl) on
 the lead's and the runner's rows. Of its requests in the WINDOW_MINUTES up to its latest one, the model with the most tokens
 (so a helper call on a small model does not hide the main loop), and the effort of the latest
 request on it. Without any request the row says "no telemetry yet", never a guess. A pin that is an
-alias (§2.4 `workers.implementer_model`) matches any full id of its family (`models.matches`).
+alias (§2.4 `models`) matches any full id of its family (`models.matches`).
 
 Read-only: it reads the queue, the binding, the definitions and git refs, and writes nothing.
 """

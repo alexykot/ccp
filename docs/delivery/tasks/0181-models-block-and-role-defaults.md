@@ -181,5 +181,11 @@ Sonnet. A product overrides any role in one plane.json `models` block, which rep
   the implementer's model for the task), `tests/test_init.py` and `tests/test_init_session_settings.py` (the `model` setting),
   `tests/test_team_hosting.py` (the reviewer's pinned id), `tests/test_estimator.py` (`_headless` takes the config),
   `tests/test_role_models.py` (the lead has a row but no effort).
+- Fix round 1 (review): the runner spawn's `detail` strings in `scripts/observability/team.py` (the slot spawn and the single
+  runner spawn) now tell the lead to pass the action's `model` too, when it carries one, since the action now carries it. The
+  stale references to `workers.implementer_model` as the trial's lever (`docs/cli/04-observability.md`, `ccp/usage.py`
+  docstrings) and the `HEADLESS_MODEL` descriptions (`ccp/estimator.py`, `ccp/seats.py`) now name the `models` block and
+  say the pin is the plane's default. Left as they are: `models.runner` honoured only when plane.json names it, and this
+  repo's own plane.json dropping the deprecated key.
 
 ## Verification notes
