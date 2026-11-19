@@ -1,7 +1,7 @@
 ---
 task_id: 0166-catch-up-before-review
 title: The implementer catches up with the tip before review, and ccp prompt review refuses a head whose merge of the tip would conflict
-status: pending
+status: done
 kind: feature
 depends_on: ["0162-git-merge-helper"]
 spec_refs: ["S13", "S15", "S16"]
@@ -162,3 +162,5 @@ does not send the implementer back again and again.
 - ADR-0042 D3 marked built.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #186 head `4232599` (squash `0d6b869`): APPROVE. Passed: rev-01, rev-02, rev-03, tpl-01, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0166-catch-up-before-review.json.
+

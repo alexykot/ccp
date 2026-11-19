@@ -828,7 +828,7 @@ tasks:
     depends_on: []
     path: tasks/0165-wide-plans-chain-warning.md
   - id: 0166-catch-up-before-review
-    status: pending
+    status: done
     title: The implementer catches up with the tip before review, and ccp prompt review refuses a head whose merge of the tip would conflict
     depends_on: [0162-git-merge-helper]
     path: tasks/0166-catch-up-before-review.md
