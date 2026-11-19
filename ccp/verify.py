@@ -620,6 +620,34 @@ def review_errors(queue: Path, rec: dict[str, Any]) -> list[str]:
             "or verify.skip_review_after_clean took it as a fix of a clean review's minor findings"]
 
 
+def resolution_errors(queue: Path, rec: dict[str, Any]) -> list[str]:
+    """§15.6 rule 3: an approve at the head a contained resolution review judged (it is the task's latest review
+    that reported done) leaves none of the checks that review named in `Affected checks` unrun: each is in the
+    record and not `ran: false`. Nothing for a reject, or for a PR that is not a task's."""
+    from ccp import runs  # noqa: PLC0415
+    from ccp.queue import QueueError  # noqa: PLC0415
+
+    tid = str(rec.get("task_id") or "")
+    if rec.get("verdict") != "approve" or not tid or tid.startswith("pr-"):
+        return []
+    try:
+        done = [r for r in runs.all_runs(queue, tid) if r.get("phase") == "review" and runs.state(r) == "reported"
+                and r.get("outcome") == "done"]
+    except QueueError:
+        return []
+    last = done[-1] if done else None
+    if not last or last.get("mode") != "resolution" or last.get("resolution") != "contained" \
+            or not heads_match(str(last.get("head") or ""), str(rec.get("head_sha") or "").strip()):
+        return []
+    got = {str(c.get("dod_check_id")): c for c in rec.get("checks") or [] if isinstance(c, dict)}
+    unrun = [i for i in last.get("affected_checks") or [] if i not in got or got[i].get("ran") is False]
+    if not unrun:
+        return []
+    return [f"the resolution review {last['run_id']} named {', '.join(unrun)} in `Affected checks`: an approve at "
+            f"{str(rec.get('head_sha'))[:12]} reruns every check it names, and {', '.join(unrun)} "
+            f"{'is' if len(unrun) == 1 else 'are'} missing from the record or recorded `ran: false` (SPEC §15.6 rule 3)"]
+
+
 def adr_errors(cfg: Config, rec: dict[str, Any]) -> list[str]:
     """§6.7 before the verdict (§15.4): an approve of a head on which a decision the task cites is still
     recorded `not_built` is refused under `adr.strict`, since closing the task would turn the integration
@@ -1369,6 +1397,7 @@ def main(cfg: Config, a: Any) -> int:
         errs = fill_gate(queue, rec) if isinstance(rec, dict) else []
         errs = errs or (cache_errors(cfg, rec) if isinstance(rec, dict) else [])
         errs = errs or (review_errors(queue, rec) if isinstance(rec, dict) else [])
+        errs = errs or (resolution_errors(queue, rec) if isinstance(rec, dict) else [])
         errs = errs or (adr_errors(cfg, rec) if isinstance(rec, dict) else [])
         if not errs and isinstance(rec, dict):
             fill_reason(queue, rec)

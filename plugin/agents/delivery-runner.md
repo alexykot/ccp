@@ -178,7 +178,9 @@ before anything else.
    - Head moved only by an integration merge (a `ccp prompt merge` round), own change unchanged: no new
      review; re-verify with
      `ccp prompt verify --head <new> --note "head moved by an integration merge; prior approve at <old>"`.
-     A conflict or a changed own diff: review, then verify, in full.
+     A merge round whose merge conflicted goes to `ccp prompt review --mode resolution` (SPEC §13.2, §15.6
+     rule 3), then verify; a resolution judged `beyond`, or any other change to the own diff, goes to a full
+     review and verify.
    - Minors not fixed before the merge, and why a verify reran, go in the verifier's findings; never
      hand-edit the task file's notes (`ccp tasks close` writes them).
    - A docs-only PR still needs its `verification/pr-<n>.json` before you merge it.

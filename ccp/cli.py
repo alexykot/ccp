@@ -35,8 +35,9 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
             | resume ID REASON [--detail T] | close ID --pr N [--summary T]
             | sync [--dry-run]  (the queue follows the task log: done or dropped tasks lose waits and leases)
   ccp prompt implement|fix|merge|ruling|review|verify ID [--pr N --head SHA] [--base SHA] [--worktree P] [--note T]
-             [--supersede] [--allow-unreviewed-fix --reason T]  (merge: only merge the integration tip in; ruling:
-             only apply the lead's ruling, given as the note, SPEC §13.2)
+             [--supersede] [--allow-unreviewed-fix --reason T] [--mode resolution]  (merge: only merge the
+             integration tip in; ruling: only apply the lead's ruling, given as the note; --mode resolution, review
+             only: review a conflicted merge's resolution, SPEC §13.2)
   ccp prompt env WORKTREE  (the worker_env lines that worktree's workers would get; opens no run, SPEC §13.3)
   ccp report RUN_ID FILE
   ccp runs gc [--dry-run]  (abandon runs that will never report: superseded by a later round, or
@@ -90,7 +91,7 @@ import sys
 from pathlib import Path
 
 from ccp.envvars import envvar
-from ccp import config, pkgdocs, refs, rules, tasklog
+from ccp import config, pkgdocs, refs, rules, runs, tasklog
 from ccp.queue import QueueError
 
 
@@ -1201,7 +1202,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("prompt", help="render a worker's prompt, audit it, open its run (SPEC §13.2; needs QUEUE_ROOT); "
                                       "`ccp prompt env <worktree>` prints the worker_env lines a worktree's workers "
                                       "would get, opening nothing (SPEC §13.3)")
-    p.add_argument("phase", choices=("implement", "fix", "merge", "ruling", "review", "verify", "env"))  # runs.PHASES
+    p.add_argument("phase", choices=(*runs.PHASES, "env"))
     p.add_argument("task", help="task id or NNNN; for env, the worktree (its path or its recorded name)")
     p.add_argument("--pr")
     p.add_argument("--head", help="the PR head this run works on (every phase but implement)")
@@ -1216,6 +1217,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--allow-unreviewed-fix", action="store_true",
                    help="verify: open it although a fix round is newer than the last review (§15.2); needs --reason")
     p.add_argument("--reason", help="with --allow-unreviewed-fix: the lead's or the operator's words, recorded as a friction note")
+    p.add_argument("--mode", choices=("resolution",),
+                   help="review only: a resolution review of a conflicted integration merge's head (SPEC §13.2)")
     p.set_defaults(fn=cmd_prompt)
 
     p = sub.add_parser("report", help="a worker submits its report and closes its run (SPEC §10.4)")

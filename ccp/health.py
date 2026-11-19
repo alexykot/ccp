@@ -87,7 +87,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ccp import refs, tasklog
+from ccp import refs, runs, tasklog
 from ccp.config import ARCHITECT_DEFAULTS, HEALTH_DEFAULTS, USAGE_DEFAULTS, Config
 from ccp.queue import QueueError
 from ccp.rules import budget_failures, glob_re
@@ -803,7 +803,7 @@ def waits_s(waiting: list[dict[str, Any]], lanes: list[tuple[float, float]], lo:
     return round(drill.length(drill.clip(drill.union(iv), lo, hi)))
 
 
-ROUND_KINDS = ("implement", "review", "fix", "merge", "ruling", "verify")  # runs.PHASES, each its own bucket
+ROUND_KINDS = runs.PHASES  # each its own bucket
 
 
 def _phase(name: str) -> str:

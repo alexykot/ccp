@@ -8,6 +8,10 @@ The report is the worker's own words plus a few lines `ccp` reads:
   section (§3.5): a `- ` line for each passage of normative text the PR adds or changes that the task's
   brief and its ADRs do not call for, or the single line `none`; the run keeps only their count
   (`spec_beyond_intent`);
+- a review with `mode: resolution` (a resolution review of a conflicted integration merge, §13.2), when done:
+  `Resolution: contained` or `Resolution: beyond <why>`, and `Affected checks: <id>, <id>` (or `none`), each id one
+  of the task file's dod_check ids; a report missing either line, or naming an unknown id, is refused
+  (exit 1, nothing written), and the run keeps `resolution` and `affected_checks`;
 - verify, when done: `Verdict: approve|reject` and `Head: <sha>`;
 - `Suite: <n> tests, <s> s`, when the worker ran the full suite; it may end `ran <r>, cached <c>`
   (or `<r> modules ran, <c> cached`),
@@ -69,6 +73,8 @@ AUTO_ROLES = ("full", "gate")  # a report with no Suite: line takes its run's la
 FRICTION_RE = re.compile(r"^##\s+Friction[ \t]*\r?$", re.M)
 BEYOND_RE = re.compile(r"^##\s+(?:Spec beyond intent|spec_beyond_intent)[ \t]*\r?$", re.I | re.M)  # §3.5
 FIELD_PHASES = runs.CHANGE_PHASES  # §13.4: the rounds that push a head (PR, Head) and state the declared verdicts
+RESOLUTION_RE = re.compile(r"^[^\w\n]*Resolution[ \t*_]*:[ \t*_`]*(.*?)[ \t]*\r?$", re.I | re.M)  # §13.4
+AFFECTED_RE = re.compile(r"^[^\w\n]*Affected checks[ \t*_]*:[ \t*_`]*(.*?)[ \t]*\r?$", re.I | re.M)  # §13.4
 PROMPT_RE = re.compile(r"^[^\w\n]*Prompt[*_]*:[\s*_`]*([0-9A-Za-z]+)", re.M)  # §13.4: the prompt's token, repeated
 
 
@@ -257,8 +263,56 @@ def fill_suite(q: Path, run_id: str, phase: str, parsed: dict[str, Any], accept_
     return [], []
 
 
+def resolution_lines(text: str, checks: list[str] | None) -> tuple[dict[str, Any], list[str]]:
+    """§13.4: a resolution review's `Resolution:` (`contained`, or `beyond` and why) and `Affected checks:` (dod_check
+    ids, comma-separated, or `none`) lines. The values found (`resolution`, `affected_checks`) and an error for each
+    line missing, stated twice, or unreadable, or an id that is not in `checks` (the task file's, when given)."""
+    out: dict[str, Any] = {}
+    errs: list[str] = []
+    ms = list(RESOLUTION_RE.finditer(text))
+    if not ms:
+        errs.append("no `Resolution: contained` or `Resolution: beyond <why>` line: a resolution review says whether the "
+                    "resolution stays within the conflict hunks")
+    elif len(ms) > 1:
+        errs.append(f"`Resolution:` is stated on {len(ms)} lines, "
+                    + ", ".join(f"line {_line_no(text, m)} (`{m.group(1)[:80]}`)" for m in ms) + "; state it once")
+    else:
+        said = ms[0].group(1)
+        m = re.match(r"(contained|beyond)\b(.*)$", said, re.I)
+        if not m or re.match(r"[ \t*_`]*\|", m.group(2)):  # a `|` right after the value: the prompt's template pasted
+            errs.append(f"`Resolution:` on line {_line_no(text, ms[0])} says `{said[:80]}`; it is `contained`, or "
+                        "`beyond <why>`, exactly one")
+        else:
+            out["resolution"] = m.group(1).lower()
+    am = list(AFFECTED_RE.finditer(text))
+    if not am:
+        errs.append("no `Affected checks: <id>, <id>` or `Affected checks: none` line: a resolution review names the "
+                    "task's dod_checks the resolution can affect")
+    elif len(am) > 1:
+        errs.append(f"`Affected checks:` is stated on {len(am)} lines, "
+                    + ", ".join(f"line {_line_no(text, m)} (`{m.group(1)[:80]}`)" for m in am) + "; state it once")
+    else:
+        said = am[0].group(1)
+        if re.sub(r"[\s`*_.]", "", said).lower() == "none":
+            out["affected_checks"] = []
+        else:
+            ids = list(dict.fromkeys(t for t in (x.strip("`*_.") for x in re.split(r"[,\s]+", said)) if t))
+            unknown = [i for i in ids if checks is not None and i not in checks]
+            if not ids:
+                errs.append(f"`Affected checks:` on line {_line_no(text, am[0])} is empty: name the task's dod_check ids, "
+                            "or `none`")
+            elif unknown:
+                errs.append(f"`Affected checks:` names {', '.join(f'`{i}`' for i in unknown)}, which "
+                            f"{'is' if len(unknown) == 1 else 'are'} not a dod_check of the task "
+                            f"({', '.join(checks or []) or 'it has none'})")
+            else:
+                out["affected_checks"] = ids
+    return out, errs
+
+
 def parse(phase: str, text: str, accept_cache: bool = False,
-          declared: list[dict[str, Any]] | None = None) -> tuple[dict[str, Any], list[str]]:
+          declared: list[dict[str, Any]] | None = None, mode: str | None = None,
+          checks: list[str] | None = None) -> tuple[dict[str, Any], list[str]]:
     errs: list[str] = []
     out: dict[str, Any] = {}
     m = OUTCOME_RE.search(text)
@@ -299,6 +353,10 @@ def parse(phase: str, text: str, accept_cache: bool = False,
             errs.append("no `## Spec beyond intent` section: a `- ` line for each passage of normative text (SPEC, "
                         "contract) the PR adds or changes that the task's brief and its ADRs do not call for, or the "
                         "single line `none` (SPEC §3.5)")
+    if phase == "review" and mode == "resolution" and done:
+        got, rerrs = resolution_lines(text, checks)
+        out.update(got)
+        errs += rerrs
     s = SUITE_RE.search(text)
     if s:
         out["suite_tests"] = int(s.group(1))
@@ -327,7 +385,7 @@ def parse(phase: str, text: str, accept_cache: bool = False,
 
 # The run record's fields a report's lines give (§13.4); a correction replaces them all.
 PARSED_KEYS = ("pr", "head", "verdict", "severity", "spec_beyond_intent", "suite_tests", "suite_seconds", "suite_ran",
-               "suite_cached", "suite_from", "suite_filled", "fields")
+               "suite_cached", "suite_from", "suite_filled", "fields", "resolution", "affected_checks")
 
 
 def _supersede(src: Path, dest: Path) -> Path | None:
@@ -362,8 +420,12 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
     if cut:
         raise QueueError(cut, 2)
     from ccp.verify import cache_rule  # noqa: PLC0415
+    checks = None
+    if rec["phase"] == "review" and rec.get("mode") == "resolution":  # §13.4: ids are checked against the task file's
+        from ccp.queue import task_meta  # noqa: PLC0415
+        checks = [str(c) for c in task_meta(cfg, str(rec["task_id"])).get("_checks") or []]
     parsed, errs = parse(rec["phase"], text, accept_cache=bool(cache_rule(cfg)),
-                         declared=(cfg.report or {}).get("required_fields") or [])
+                         declared=(cfg.report or {}).get("required_fields") or [], mode=rec.get("mode"), checks=checks)
     fill_errs, fill_warnings = fill_suite(q, run_id, rec["phase"], parsed, bool(cache_rule(cfg)),
                                           tuple(lane_for(cfg, r) for r in AUTO_ROLES))
     errs += fill_errs
@@ -423,7 +485,7 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
              _actor_for(rec["seat"]))
     return {"ok": True, "run_id": run_id, "report": str(dest), **{k: v for k, v in rec.items() if k in (
         "outcome", "pr", "head", "verdict", "severity", "spec_beyond_intent", "suite_tests", "suite_seconds",
-        "suite_ran", "suite_cached",
+        "suite_ran", "suite_cached", "resolution", "affected_checks",
         "suite_from", "suite_filled", "friction_count", "fields",
         "suite_runs_recorded", "suite_s_recorded", "corrections")}, **({"warnings": warnings} if warnings else {})}
 

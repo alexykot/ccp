@@ -9,7 +9,9 @@ Prove each dod_check yourself at the PR head, from evidence you checked, not fro
 REJECT only on a BLOCKER or MAJOR finding. Check `gh pr view {{pr}} --json headRefOid` at the start and the end: the verdict names the exact head you judged.
 {{#minor_only}}
 No new review saw this head (plane.json `verify.skip_review_after_clean`, SPEC §15.2): the last review, {{minor_review_run}} at {{minor_reviewed}}, was clean, and the fix rounds since answer its findings below MAJOR, {{minor_findings}}, whose text is in its report {{minor_review_report}}. Read that report, and check the fix diff, from {{minor_reviewed}} to {{head}} (merges of the integration branch aside), against each MINOR and NIT finding there: it addresses each of them and changes nothing beyond them. A change beyond them is a MAJOR finding: REJECT, naming it, and the task goes back to review.
-{{/minor_only}}{{#refactor}}
+{{/minor_only}}{{#resolved_verify}}
+This head follows a resolution review (SPEC §15.6 rule 3): {{resolution_run}} judged the conflict resolution at {{head}} to stay within the conflict hunks, and an earlier approve covers the task's own change, so this replaces proving every dod_check yourself. Rerun {{#has_affected}}the checks that review names in `Affected checks`: {{affected_checks}}{{/has_affected}}{{^has_affected}}no dod_check: that review names none in `Affected checks`{{/has_affected}}, and run the gate at {{head}} through `ccp suite run`. {{#has_old}}Record every other dod_check `ran: false`, `pass: null`, `rests_on: "approve at {{old_approve}}"`, the head of the task's latest approve.{{/has_old}}{{^has_old}}The task has no approve yet, so there is nothing for the other checks to rest on: run every check.{{/has_old}} `ccp verify record` refuses an approve that leaves a check named there not run.
+{{/resolved_verify}}{{#refactor}}
 This is a `kind: refactor` task: also prove the refactor DoD (SPEC §20.4): behaviour unchanged, the suite and scenario checks pass, no test expectation changed unless the task names it, SPEC unchanged.
 {{/refactor}}{{#prior_reports}}
 Earlier reports on this task (judge their open notes and the reviewer's MINORs yourself):

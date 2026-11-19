@@ -377,17 +377,28 @@ def _same_patch(g: Any, root: str, a: str, b: str, integ: str) -> bool:
     return first == gitmerge.own_patch_id(root, b, f"origin/{integ}", g)
 
 
+def is_resolution_beyond(rec: dict[str, Any]) -> bool:
+    """§13.2, §15.2: a resolution review that judged the resolution `beyond` the conflict hunks."""
+    return rec.get("mode") == "resolution" and rec.get("resolution") == "beyond"
+
+
 def unreviewed_fix(q: Path, task_id: str, head: str | None = None) -> str | None:
     """§15.2 (the runner brief's step 7: a fix round, then review again): why verifying `head` now
     would skip a review, or None. Refused when the task's latest fix, merge or ruling run (not
     abandoned, §13.2) was opened after its latest review run that reported done, or when `head` is not
     the head that review judged (commits pushed since). Rounds since that review that are all merge
-    rounds pass when `head` carries the reviewed change unchanged (the integration-merge rule). A task
+    rounds pass when `head` carries the reviewed change unchanged (the integration-merge rule). A done
+    resolution review (§13.2) is the review of the head it judged, with no change to compare, unless it judged the
+    resolution `beyond` the conflict hunks: then the head is refused until a full review. A task
     with no runs (one before the toolkit, a PR that is not a task's) has nothing to compare and passes."""
     from ccp.verify import heads_match  # noqa: PLC0415
 
     rs = [r for r in all_runs(q, task_id) if state(r) != "abandoned"]
-    reviews = [r for r in rs if r.get("phase") == "review" and state(r) == "reported" and r.get("outcome") == "done"]
+    done = [r for r in rs if r.get("phase") == "review" and state(r) == "reported" and r.get("outcome") == "done"]
+    if done and is_resolution_beyond(done[-1]):  # §15.2: the reviewer's word: this head gets a full review
+        return (f"{done[-1]['run_id']}: the resolution review judged it beyond the conflict hunks: run a full "
+                "`ccp prompt review` (SPEC §15.2)")
+    reviews = done
     last = reviews[-1] if reviews else None
     judged = str((last or {}).get("head") or "").strip()
     # a tie (one second) counts the round as newer: a fix opens only once a report exists to fix from
