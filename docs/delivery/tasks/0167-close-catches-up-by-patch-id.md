@@ -1,7 +1,7 @@
 ---
 task_id: 0167-close-catches-up-by-patch-id
 title: Under parallel.schedule clashes, close catches a verified head up when its own patch is unchanged, and carries a build sign-off by the same test
-status: pending
+status: done
 kind: feature
 depends_on: ["0162-git-merge-helper", "0163-catch-up-decision-as-a-function", "0164-clashes-with-and-schedule"]
 spec_refs: ["S16", "S3"]
@@ -212,3 +212,5 @@ SPEC §16.5 rule 4 instead of restating it, so the rule lives in the SPEC and th
 - ADR-0042 D4 marked built by this task (first of 0167 and 0168 to close).
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #187 head `ee0f6b8` (squash `aeebec0`): APPROVE. Passed: cu-01, cu-02, cu-03, so-01, brief-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0167-close-catches-up-by-patch-id.json.
+

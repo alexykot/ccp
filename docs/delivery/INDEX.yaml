@@ -833,7 +833,7 @@ tasks:
     depends_on: [0162-git-merge-helper]
     path: tasks/0166-catch-up-before-review.md
   - id: 0167-close-catches-up-by-patch-id
-    status: pending
+    status: done
     title: Under parallel.schedule clashes, close catches a verified head up when its own patch is unchanged, and carries a build sign-off by the same test
     depends_on: [0162-git-merge-helper, 0163-catch-up-decision-as-a-function, 0164-clashes-with-and-schedule]
     path: tasks/0167-close-catches-up-by-patch-id.md
