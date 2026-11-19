@@ -119,5 +119,11 @@ schedule, in both modes. With one slot the forecast is exactly as today.
   task is not delayed by `apart` (it already started); later tasks wait for its drawn end. The gap is not
   added after an `apart` end, as with a dependency. ADR-0042 D1 and D2 were already built (6/6) at the base,
   so this task marks nothing.
+- 2026-11-19 (fix round 1): the review found the CLI test pinned only the pair count and the label, so
+  `collect` could build `apart` and not pass it to `simulate`, or pass it reversed, and every test stayed
+  green. `Records.test_the_forecast_reads_rule_3_...` now also reads the backlog's `hours` band: under
+  `paths` (the pair kept apart) its P50 is later than under `clashes` without `clashes_with` (the pair runs
+  side by side), and `clashes` with `clashes_with` gives the same band as `paths`. Both mutants (the `apart`
+  argument dropped, the pair's direction swapped) are killed. No code change.
 
 ## Verification notes
