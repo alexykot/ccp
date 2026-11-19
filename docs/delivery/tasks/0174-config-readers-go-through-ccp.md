@@ -1,7 +1,7 @@
 ---
 task_id: 0174-config-readers-go-through-ccp
 title: Hooks and scripts read plane.json through ccp's loaded configuration, never raw with their own defaults
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S8"]
@@ -116,3 +116,5 @@ of `plugin/` and `scripts/`. Nothing the plane does changes.
   the hook's comment now says a `--ccp` wrapper kept outside a plane checkout gets the fallback.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #199 head `15c4da8` (squash `4fa42e3`): APPROVE. Passed: cfg-01, cfg-02, cfg-03. Gate: `ccp suite run --lane gate` exit 0, `./bin/ccp --root . tasks check` exit 0, `./bin/ccp --root . docs check` exit 0. Record: verification/0174-config-readers-go-through-ccp.json.
+

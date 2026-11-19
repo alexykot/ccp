@@ -868,7 +868,7 @@ tasks:
     depends_on: []
     path: tasks/0173-plane-json-block-registry.md
   - id: 0174-config-readers-go-through-ccp
-    status: pending
+    status: done
     title: Hooks and scripts read plane.json through ccp's loaded configuration, never raw with their own defaults
     depends_on: []
     path: tasks/0174-config-readers-go-through-ccp.md
