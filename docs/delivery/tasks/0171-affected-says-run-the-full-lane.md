@@ -132,4 +132,14 @@ pre-gate rule.
 
 *Append-only, newest last.*
 
+- `ccp/suite.py`: `AFFECTED_FULL_SHARE = 0.25` and `AFFECTED_SIZERS` (a pack's count of its test modules; Python:
+  `_python_suite_size`, the files the reader walks, via a new `_python_test_files` the reader now shares).
+  `main_affected` prints the full-lane line when the list is strictly more than the share of that count (a quarter
+  exactly keeps the part-lane line); a language with no sizer (a map-only product) has no count and keeps today's
+  line. Measured: `--paths ccp/config.py` prints "61 of 142 test modules", `--paths ccp/doclang/python.py` the
+  part-lane line.
+- The four templates carry the new pre-gate sentence; `tests/test_worker_efficiency.py` pinned the old wording and
+  moved with it. The scratch product in `tests/test_suite_affected.py` gains six filler test modules so one or two
+  touched modules stay under the share.
+
 ## Verification notes
