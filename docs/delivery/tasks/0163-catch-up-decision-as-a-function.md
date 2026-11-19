@@ -133,4 +133,16 @@ Nothing the plane does changes.
 
 *Append-only, newest last.*
 
+- `catch_up_blocked(declared, tip_files, task_files, shared, signed_due)` sits just above `_catch_up` in
+  `ccp/lifecycle.py` and imports `ccp.parallel` lazily, as the module does elsewhere. `_catch_up` calls it with
+  empty lists before the gate-lane check (so "no declared paths" is still judged before "no gate lane") and in
+  the loop with the tip's and task's files. The three texts moved verbatim.
+- Premise check at `cf65d46`: the three `git grep` lines, the 66 `helpers` importers and the imports of
+  `test_toolkit` (58, against 57 at `b9e58ce`: one more importer since) hold. `tests/CLAUDE.md` states no count,
+  so the figures cannot go stale there.
+- `tests/CLAUDE.md` also loses its claim that every test builds its product with `Product`, which the 58
+  `ToolkitFixture` importers contradict; `Product` is now one entry of the fixtures list.
+- The task's Scope names `GateFixture` under "the `TestCase` bases without tests"; it lives in
+  `test_gate_parallel.py` as written and is listed there.
+
 ## Verification notes
