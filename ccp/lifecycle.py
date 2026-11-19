@@ -1617,28 +1617,20 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
                      f"`ccp tasks close {tid} --pr {pr}` again once the PR shows {head[:7]} (SPEC §16.5 rule 4)", 1)
 
 
-STAGE_RE = re.compile(r"^(\d{6}) ([0-9a-f]{40,64}) ([123])\t(.+)$", re.S)  # merge-tree -z: a conflicted file's stage
-
-
 def _catch_up_commit(cfg: Config, head: str, tip: str, branch: str, integ: str,
                      shared: list[str] | None = None) -> tuple[str, list[str]]:
-    """§16.5 rule 4 (a): the merge of `tip` into `head` as a commit, from `git merge-tree`; touches no working
+    """§16.5 rule 4 (a): the merge of `tip` into `head` as a commit, from `gitmerge.probe`; touches no working
     tree. A merge whose only conflicts are in `shared` (plane.json `parallel.shared`) paths where both sides only
     added lines is resolved as the tip's lines, then the task's (`_union`). The commit and the files resolved
     so. Raises _NoCatchUp naming the conflicting files."""
-    from ccp import parallel  # noqa: PLC0415
-    r = git(cfg.root, "merge-tree", "--write-tree", "-z", "--no-messages", head, tip)
-    if r.returncode not in (0, 1) or not r.stdout.split("\0", 1)[0].strip():
-        raise _NoCatchUp(f"conflict: git merge-tree could not merge {head[:7]} and origin/{integ}: "
-                         f"{(r.stderr or r.stdout).strip()[:200]}")
-    tree, *rest = r.stdout.split("\0")
-    tree = tree.strip()
+    from ccp import gitmerge, parallel  # noqa: PLC0415
+    p = gitmerge.probe(cfg.root, head, tip)
+    if p.failed:
+        raise _NoCatchUp(gitmerge.cannot_merge_text(p, head, integ))
+    tree = p.tree
     unioned: list[str] = []
-    if r.returncode == 1:
-        stages: dict[str, dict[int, tuple[str, str]]] = {}
-        for x in rest:
-            if m := STAGE_RE.match(x):
-                stages.setdefault(m.group(4), {})[int(m.group(3))] = (m.group(1), m.group(2))
+    if p.returncode == 1:
+        stages = p.conflicts
         files = sorted(stages)
         why = ""
         resolved: dict[str, tuple[str, str]] = {}
@@ -1650,8 +1642,7 @@ def _catch_up_commit(cfg: Config, head: str, tip: str, branch: str, integ: str,
                     break
                 resolved[f] = got
         if not files or len(resolved) != len(files):
-            raise _NoCatchUp(f"conflict: git merge-tree of {head[:7]} and origin/{integ} conflicts"
-                             + (f" in {', '.join(files[:5])}" if files else "") + why)
+            raise _NoCatchUp(gitmerge.conflict_text(head, integ, files, why))
         tree = _tree_with(cfg, tree, resolved)
         unioned = files
     msg = f"Merge origin/{integ} into {branch} (ccp tasks close catch-up, SPEC §16.5 rule 4)"
@@ -1691,7 +1682,7 @@ def _added(base: list[bytes], side: list[bytes]) -> dict[int, list[bytes]] | Non
 
 
 def _union(cfg: Config, st: dict[int, tuple[str, str]]) -> tuple[str, str] | None:
-    """§16.5 rule 4: one `parallel.shared` file's conflict, its merge-tree stages (1 base, absent when both sides
+    """§16.5 rule 4: one `parallel.shared` file's conflict, its conflict stages (1 base, absent when both sides
     added the file; 2 the task's head; 3 the tip), resolved as a line union: every base line, and at each place
     the tip's added lines, then the task's. The (mode, blob) written, or None when a side does more than add
     lines, the file is not a regular file on both sides, or the result would join two lines."""
