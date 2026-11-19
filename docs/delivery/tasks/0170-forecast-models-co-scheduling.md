@@ -76,7 +76,7 @@ schedule, in both modes. With one slot the forecast is exactly as today.
     > free slot after its dependencies merge and after every task ahead of it that claim rule 3 keeps it from running beside ends (§16.3, by `parallel.schedule`: paths that meet, or a clash), never before the task ahead of it started; a task without
   - `tests/test_parallel_records.py`: the checks below, in `Slots` and a new case beside it. The
     existing `Slots` tests stay unchanged.
-  - ADR-0042 D1 and D2: task 0164 marked both built (ruling sm-20261119T113130Z-8831); this task marks nothing.
+  - ADR-0042 D1 and D2: task 0164 marks both built in its own PR (ruling sm-20261119T113130Z-8831; 0164 is claimed, so its file is not edited here); this task marks nothing.
 - **Out:**
   - The order the forecast replays.
   - The 5-hour ceiling.
