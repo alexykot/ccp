@@ -1,10 +1,84 @@
 # CCP — Claude Control Plane
 
-A delivery control plane for software products built by a **Claude Code agent team**.
+A delivery control plane for software products built by a **Claude Code agent team**. It takes a
+feature from its definition to a reviewed, verified, merged change, and aims to take it on to
+production, with a developer overseeing the work rather than supervising each step.
 
-> **Status: experimental.** CCP is built and run by one operator on macOS, with Claude Code's
-> experimental agent teams. It works for that setup daily; expect rough edges elsewhere. Open work
-> is in [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status: alpha.** CCP is built and run daily by one operator, on its own development and on
+> other products. Formats, commands and the SPEC still change between releases, and it depends on
+> Claude Code's experimental agent teams. Expect rough edges outside that setup. Open work is in
+> [docs/ROADMAP.md](docs/ROADMAP.md).
+
+## Aims and status
+
+**An L4.5 delivery system: autonomous from feature definition to production, with oversight.**
+On Dan Shapiro's [five levels](https://www.danshapiro.com/blog/2026/01/the-five-levels-from-spicy-autocomplete-to-the-software-factory/)
+of AI-assisted development, at L3 a human reviews every diff, at L4 a human writes the specs and
+checks the outcome, and at L5 (the "dark factory") no human takes part. CCP aims between L4 and L5.
+A developer (the operator) stays in the loop, and their job is to:
+
+- set the direction and the product's intent;
+- turn business requirements into ADRs, working with the design seat;
+- make or direct critical research, prototyping, and invention that becomes requirements;
+- hold the architectural vision;
+- in rare cases, look at a specific critical pieces of logic.
+
+Everything else runs without them: breaking ADRs into tasks, implementation, code review,
+verification against each task's own checks, merge and, as the goal, release to production by
+default. The developer is the escalation point, chief architect and the inventor, 
+not the reviewer of each change.
+
+### Current Assumptions
+_may change in the future_
+
+
+- **Claude Code is the interface, and Claude is the target model.** Every seat is a Claude Code
+  session, teammate or subagent, and the seats' models are Claude models. Other agent harnesses and
+  model providers are not supported or tested, and are not a goal for now.
+- **One operator, on their own machine.** The queue is local files. Agents run with the operator's
+  credentials, and CCP relies on Claude Code's own permission controls to keep them in check; there
+  is no OS-level sandbox.
+
+### What works
+
+- **Feature to merge.** ADRs become tasks with dependencies, declared paths and `dod_checks`
+  written to fail without the change (a product can require a recorded dry run for each,
+  `task_log.dry_run`). Runners take each task through review and fix rounds, an independent
+  verification at the PR's head and a merge pinned to the verified commit (see
+  [How it works](#how-it-works)).
+- **Separation of duties.** The implementer, reviewer and verifier are fresh agents with their own
+  contexts. A verdict records which seat produced each piece of evidence, and the seat that rules
+  never produces the evidence it rules on.
+- **Parallel runners**, up to four, scheduled by declared paths or declared clashes.
+- **Structural upkeep.** A scheduled architect pass reviews the codebase and the house rules, and
+  refactor capacity is reserved.
+- **Planning and telemetry.** Estimates are checked against actuals, a forecast is built from them,
+  and a local telemetry receiver records numbers and ids only. Work parks before a session-window limit
+  and resumes after it.
+- **Several products per operator**, each with its own binding and queue.
+- **Self-hosting.** CCP's own development is recorded in its own task log, ADRs and checks.
+
+### What will work in the future
+
+- **Production.** Promotion to production is operator-gated and not automated today (SPEC §3.4),
+  and the plane has no deploy or post-merge smoke step of its own. Auto-release by default is the
+  goal; it needs a SPEC change and a design for release and rollback hooks.
+- **PR hosts other than GitHub.** Every task lands as a GitHub pull request through `gh`. The PR
+  host as an adapter is accepted
+  ([ADR-0040](docs/adr/0040-the-pr-host-is-an-adapter.md)), but its adapters are not built yet.
+- **A threat model and isolation.** No threat model is written yet. The destructive-command deny
+  list is a guard against accidents, not a security boundary (see [Permissions](#permissions)).
+- **A batching merge queue.** Each PR merges on its own, so many runners with a slow gate spend
+  their time catching up with the integration branch.
+- **Multi-user.** One operator and a file-backed queue; a hosted store and dashboard are on the
+  roadmap.
+- **Platforms.** The optional telemetry and board services install as launchd agents, so they run on
+  macOS only. `ccp` itself is plain Python, git and `gh`, but it is run and tested only on
+  macOS.
+- **Published figures from CCP's own runs,** such as first-pass approval rate, estimate accuracy
+  and cost per task: the plane computes them, but none are public yet.
+
+## Overview
 
 CCP solves the problem of agent supervision: having to babysit individual agents implementing
 specific tasks.
@@ -48,7 +122,7 @@ only documents and one settings entry. You are expected to bring your own CI sys
 for your project, and connect it through the hooks a product provides (`docs.checks`,
 `architect.checks`, `reconcile.hooks`, env hooks).
 
-**It is** an agent orchestration system, designed to work with Claude Code, running on the
+**It is** an agent orchestration and delivery system, built for Claude Code, running on the
 developer's machine.
 
 **Terms.** A *seat* is a role in the team. The **lead** is your interactive Claude Code session in
