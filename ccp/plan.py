@@ -194,6 +194,43 @@ def _depths(deps: dict[str, list[str]]) -> dict[str, int]:
     return depth
 
 
+CHAIN_WARN_MIN = 3     # §21.1: a longest depends_on chain of this many tasks or more may warn
+CHAIN_WARN_WIDTH = 2   # §21.1: ... when the point has fewer than this many pending tasks per depth, on average
+NO_POINT = "no review point"
+
+
+def chain_report(cfg: Config, tasks: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
+    """`ccp tasks check` (§21.1): per review point (tasks with none form one group), over its pending
+    tasks and the `depends_on` edges between them, the longest chain and the tasks at each depth, as
+    `(notes, warnings)`. A note for each group of 2 or more; a warning when the chain is at least
+    CHAIN_WARN_MIN tasks and the group has fewer than CHAIN_WARN_WIDTH tasks per depth on average."""
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for t in tasks:
+        if t.get("status") == "pending":
+            groups.setdefault(str(t.get("review_point") or "") or NO_POINT, []).append(t)
+    notes, warnings = [], []
+    for point, ts in groups.items():
+        if len(ts) < 2:
+            continue
+        ids = [str(t.get("task_id")) for t in ts]
+        deps = {i: [d for d in map(str, tasklog._as_list(t.get("depends_on"))) if d in ids and d != i]
+                for i, t in zip(ids, ts)}
+        depth = _depths(deps)
+        chain = max(depth.values()) + 1
+        width = [sum(1 for d in depth.values() if d == k) for k in range(chain)]
+        notes.append(f"{point}: {len(ts)} pending tasks, longest depends_on chain {chain}, "
+                     f"width by depth {', '.join(map(str, width))}")
+        if chain >= CHAIN_WARN_MIN and len(ts) < CHAIN_WARN_WIDTH * chain:
+            tid = min(i for i in ids if depth[i] == chain - 1)
+            path = [tid]
+            while depth[path[0]] > 0:
+                path.insert(0, min(d for d in deps[path[0]] if depth[d] == depth[path[0]] - 1))
+            warnings.append(f"{point}: the longest depends_on chain is {chain} tasks ({' → '.join(path)}) and the plan "
+                            f"is {len(ts) / chain:.1f} tasks wide on average: sequence tasks only for a dependency "
+                            "or a clash (writing-tasks skill, Wide plans)")
+    return notes, warnings
+
+
 def graph(rows: list[dict[str, Any]], ready_ids: set[str], flight: set[str] | None = None,
           scope: list[str] | None = None) -> dict[str, Any]:
     """Open tasks as nodes (with their depth: the longest chain of open dependencies under them) and

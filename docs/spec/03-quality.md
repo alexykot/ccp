@@ -504,7 +504,9 @@ Choosing mutants is the seat's; the plane ships no mutation operators.
   citation (§19.6).
 
 It warns, without failing, when a task not yet done names a later task as a prerequisite in prose:
-the prerequisite goes in `depends_on` instead. Inline `# comments` in frontmatter are ignored.
+the prerequisite goes in `depends_on` instead. For each review point with pending tasks it also notes the
+longest `depends_on` chain and the width at each depth, and warns when the chain is at least 3 tasks and
+the point has fewer than 2 tasks per depth on average. Inline `# comments` in frontmatter are ignored.
 
 ### 21.2 `ccp docs check`
 
