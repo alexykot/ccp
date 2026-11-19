@@ -813,7 +813,7 @@ tasks:
     depends_on: []
     path: tasks/0162-git-merge-helper.md
   - id: 0163-catch-up-decision-as-a-function
-    status: pending
+    status: done
     title: Close's catch-up decision as a pure function with unit tests, and the shared test fixtures documented
     depends_on: [0162-git-merge-helper]
     path: tasks/0163-catch-up-decision-as-a-function.md

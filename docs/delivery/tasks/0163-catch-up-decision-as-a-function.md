@@ -1,7 +1,7 @@
 ---
 task_id: 0163-catch-up-decision-as-a-function
 title: Close's catch-up decision as a pure function with unit tests, and the shared test fixtures documented
-status: pending
+status: done
 kind: refactor
 depends_on: ["0162-git-merge-helper"]
 spec_refs: ["S16", "S21"]
@@ -146,3 +146,5 @@ Nothing the plane does changes.
   `test_gate_parallel.py` as written and is listed there.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #183 head `9320539` (squash `9b59aa6`): APPROVE. Passed: cu-01, cu-02, cu-03, cu-04, cu-05, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0163-catch-up-decision-as-a-function.json.
+
