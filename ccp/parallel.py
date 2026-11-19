@@ -1,14 +1,14 @@
 """SPEC §16.3: which tasks the runner may hold at once.
 
 A task's paths are the backticked paths in its Scope section's **In:** item. Which pairs rule 3 keeps
-apart depends on `parallel.schedule`. Under `paths` (the default), two tasks run together only when their
+apart depends on `parallel.schedule`. Under `paths`, two tasks run together only when their
 paths do not meet (unless both are covered by a `parallel.shared` entry, a file tasks only append lines
-to). Under `clashes`, they run together unless one names the other in `clashes_with` (§5), whatever their
+to). Under `clashes` (the default), they run together unless one names the other in `clashes_with` (§5), whatever their
 paths; paths then only feed rules 2 and 4. Either way neither touches a product's `parallel.exclusive` entry, and the
 account's 5-hour usage is below `parallel.session_ceiling_pct` (a product without
 `telemetry.allowance_cmd` reads no usage, so that rule passes). Correctness never rests on these
 rules (§16.1): verify and merge run one at a time on the current head. They only decide what to
-start together. With `parallel.max_in_flight` 1 (the default) nothing here is consulted.
+start together. With `parallel.max_in_flight` 1 nothing here is consulted.
 """
 from __future__ import annotations
 

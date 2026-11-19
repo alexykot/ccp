@@ -1,7 +1,7 @@
 ---
 task_id: 0180-parallel-by-default
 title: A product with no parallel block runs three tasks at once, scheduled by clashes
-status: pending
+status: done
 kind: feature
 depends_on: ["0172-fixtures-name-their-config", "0173-plane-json-block-registry", "0174-config-readers-go-through-ccp"]
 spec_refs: ["S16"]
@@ -109,5 +109,11 @@ still keep tasks apart, and a product that wants the old behaviour sets `max_in_
 ## Implementation notes
 
 *Append-only, newest last.*
+- 2026-11-19 — Built as written: `PARALLEL_DEFAULTS` and the schema now default to three slots and the `clashes` schedule; the README, the four SPEC passages (§16.1, §16.2 twice, §16.5 rule 4) carry the signed text; ADR-0043 D2 is marked built. The premise held at the base (`1 paths`).
+- Tests the flip broke, updated in the same PR (setup only, no expectation weakened): fixtures that wrote a `parallel` block naming only `max_in_flight` or `shared` now name `schedule: paths` (`test_parallel_claims`, `test_behind_tip_catch_up`, `test_parallel_merging`, `test_next_passes_over`); tests whose subject is one runner now say `max_in_flight: 1` (`test_parallel_claims`, `test_parallel_merging`, `test_parallel_records`, `test_parallel_runner`); `test_clashes_with` now asserts `clashes` as the default and sets `paths` where `clashes_with` must not be read; `test_parallel_hook` and `test_team_hosting` flip direction (the default has several slots, a patched default of one gives one) and still prove the readers follow ccp's default; `test_tasks_migrate` leaves warnings out of its failing-files list, since an adopted product now gets the parallel warnings.
+- Not changed, outside Scope: comments that still call one slot or `paths` the default (`ccp/parallel.py` module docstring, `ccp/lifecycle.py` `catch_up_blocked` docstring, `scripts/observability/team.py` `max_in_flight` docstring, the `.get("schedule", "paths")` fallbacks in `ccp/parallel.py` and `ccp/lifecycle.py`, which `settings` never reaches).
+- 2026-11-19 — Fix round 1 (review MINOR 1): the `ccp/parallel.py` module docstring and the `ccp/lifecycle.py` `catch_up_blocked` docstring no longer call `paths` or one slot the default, and now name `clashes` the default; comments only, no behaviour change. `team.py`'s `max_in_flight` docstring was not stale (its 1 is the fallback when the configuration does not load). The unreachable `.get("schedule", "paths")` fallbacks are left as they are.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #206 head `4320652` (squash `a202def`): APPROVE. Passed: par-01, par-02, par-03, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0180-parallel-by-default.json.
+

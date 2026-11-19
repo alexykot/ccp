@@ -701,9 +701,10 @@ class TheRunnerSpawnFollowsCcpsDefault(TeamCase):
         self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo"}))
         self.origin()
 
-    def test_a_product_with_no_parallel_block_gets_two_slots_when_ccps_default_is_two(self):
+    def test_a_product_with_no_parallel_block_gets_the_slots_ccps_default_gives(self):
+        self.patch_default("PARALLEL_DEFAULTS", "max_in_flight", 1)
         code, _, err = self.team("runner", "spawn", "--scope", "0001-a,0002-b", "--count", "2")
-        self.assertEqual(code, 2, err)  # the default is one slot
+        self.assertEqual(code, 2, err)  # ccp's default, set to one slot here
         self.assertIn("max_in_flight", err)
         self.patch_default("PARALLEL_DEFAULTS", "max_in_flight", 2)
         code, res, err = self.team("runner", "spawn", "--scope", "0001-a,0002-b", "--count", "2")

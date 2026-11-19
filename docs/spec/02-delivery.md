@@ -1117,8 +1117,7 @@ a head that contains the current integration tip (the task log and the paths in
 `merge.behind_tip_ignore` aside, §16.5 rule 4), verified there or caught up by close (§16.5 rule 4),
 and git resolves the rest with no merge lock. Two merges that conflict: the later fails, and its
 implementer resolves it. A merge landing between another task's catch-up and its merge is a small
-window, accepted. Under `parallel.schedule: paths`, the default, declared paths decide what to start together; under `clashes`, the writer's `clashes_with` does, and paths still decide what `parallel.exclusive` keeps alone (§16.3). Off (`max_in_flight: 1`) is the
-single-runner behaviour, exactly.
+window, accepted. Under `parallel.schedule: clashes`, the default, the writer's `clashes_with` decides what to start together, and paths still decide what `parallel.exclusive` keeps alone (§16.3); under `paths`, declared paths decide. Parallel work is on by default; `max_in_flight: 1` is the single-runner behaviour, exactly.
 
 ### 16.2 The knob
 
@@ -1128,12 +1127,12 @@ single-runner behaviour, exactly.
 "merge": { "behind_tip_ignore": ["docs/notes"] }
 ```
 
-No `parallel` block, or `max_in_flight: 1`: one task at a time. `max_in_flight` is 1 to 4;
+With no `parallel` block, several tasks run at once, scheduled by clashes (the defaults are in code and the schema); `max_in_flight: 1` runs one task at a time. `max_in_flight` is 1 to 4;
 `exclusive` lists paths and globs (`**` spans directories) whose concurrent edits git cannot merge
 safely (a schema or migration file); `session_ceiling_pct` defaults to 60. `shared` (empty by
 default) lists paths and globs that tasks only append lines to, such as a package doc's file map; two
 tasks may hold one at once (rule 3), and close merges them as §16.5 rule 4 says. A path may not be
-both `shared` and `exclusive`. `schedule` picks claim rule 3 (§16.3): `paths`, the default, keeps apart tasks whose paths meet; `clashes` keeps apart only tasks that clash (`clashes_with`, §5), whatever their paths, and `shared` then matters only at close (§16.5 rule 4). Any other value is refused. `merge.behind_tip_ignore`
+both `shared` and `exclusive`. `schedule` picks claim rule 3 (§16.3): `clashes`, the default, keeps apart only tasks that clash (`clashes_with`, §5), whatever their paths, and `shared` then matters only at close (§16.5 rule 4); `paths` keeps apart tasks whose paths meet. Any other value is refused. `merge.behind_tip_ignore`
 (empty by default) lists the paths whose commits on the tip do not make a head behind it (§16.5 rule
 4); it applies with one runner too. Config loading validates these blocks; unknown keys are handled as §8 says.
 Lowering `parallel.max_in_flight` is completed by `stop --slot` for the extra slots.
@@ -1244,7 +1243,7 @@ exits as the spawn would. It writes nothing: no `work.json`, prompt audit, event
    several runners close still checks.
    When the merge with the tip is clean, or its only conflicts are in `parallel.shared` paths where both
    sides only added lines (resolved as the tip's lines, then the task's), the tip's new commits change no
-   file the task's own diff or declared paths change other than a `parallel.shared` path (under `parallel.schedule: paths`, the default), or, under `parallel.schedule: clashes`, the task's own patch is unchanged by the merge, whatever files the tip changed and whether or not the task declares paths (the same `git patch-id --stable` of its diff from its merge base with the tip, before the merge and after it, `parallel.shared` paths left out of both),
+   file the task's own diff or declared paths change other than a `parallel.shared` path (under `parallel.schedule: paths`), or, under `parallel.schedule: clashes`, the default, the task's own patch is unchanged by the merge, whatever files the tip changed and whether or not the task declares paths (the same `git patch-id --stable` of its diff from its merge base with the tip, before the merge and after it, `parallel.shared` paths left out of both),
    and any build sign-off due on the task (§3.5) is recorded for the verified head, with, under `paths`, the tip's new commits changing no file the task's own diff changes, a `parallel.shared` path included, or, under `clashes`, the task's whole own patch, `parallel.shared` paths included, unchanged by the merge, close merges the tip into the verified head itself,
    runs the gate lane on the result as a recorded run in its `merge-<nnnn>` worktree, whose stages
    get that worktree's `CCP_WT_<FIELD>` variables (kind `merge`) and `prompts.worker_env` rendered for it,
