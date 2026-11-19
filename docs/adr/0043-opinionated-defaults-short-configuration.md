@@ -1,7 +1,7 @@
 ---
 id: ADR-0043
 title: "Opinionated defaults, short configuration"
-status: proposed
+status: accepted
 date: "2026-11-19"
 deciders: operator
 spec_refs: [S2, S3, S4, S5, S6, S8, S10, S12, S14, S15, S16, S18, S19, S20, S21, S22, S23, S24, S25, S26, S27, S28, S30]
@@ -11,6 +11,17 @@ notes: |-
   passages and partly supersedes ADR-0012 D1 and D5 and ADR-0042 D1, so the operator decides it.
   Removed keys and new required steps reach products through ADR-0041's upgrade steps. Tasks follow
   the architect's shape.
+  2026-11-19: status proposed → accepted: Accepted by the operator 2026-11-19: "accept ADR-0043"
+decisions:
+  - "D1 not_built"
+  - "D2 not_built"
+  - "D3 not_built"
+  - "D4 not_built"
+  - "D5 not_built"
+  - "D6 not_built"
+  - "D7 not_built"
+  - "D8 not_built"
+  - "D9 not_built"
 ---
 # ADR-0043 — Opinionated defaults, short configuration
 
