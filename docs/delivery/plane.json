@@ -54,7 +54,8 @@
         "id": "merge-helper",
         "cmd": "! git grep -n -e merge-tree -e patch-id -e remerge-diff -- ccp ':(exclude)ccp/gitmerge.py'"
       }
-    ]
+    ],
+    "workers": 4
   },
   "suite": {
     "lanes": {
@@ -83,13 +84,14 @@
     ]
   },
   "estimate": {
-    "auto": false
+    "auto": true
   },
   "review_points": {
     "file": "docs/delivery/review-points.yaml"
   },
   "parallel": {
-    "max_in_flight": 2
+    "max_in_flight": 3,
+    "schedule": "clashes"
   },
   "workers": {
     "implementer_model": {
