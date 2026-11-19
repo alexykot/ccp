@@ -1238,8 +1238,8 @@ exits as the spawn would. It writes nothing: no `work.json`, prompt audit, event
    several runners close still checks.
    When the merge with the tip is clean, or its only conflicts are in `parallel.shared` paths where both
    sides only added lines (resolved as the tip's lines, then the task's), the tip's new commits change no
-   file the task's own diff or declared paths change other than a `parallel.shared` path,
-   and any build sign-off due on the task (§3.5) is recorded for the verified head, with the tip's new commits changing no file the task's own diff changes, a `parallel.shared` path included, close merges the tip into the verified head itself,
+   file the task's own diff or declared paths change other than a `parallel.shared` path (under `parallel.schedule: paths`, the default), or, under `parallel.schedule: clashes`, the task's own patch is unchanged by the merge, whatever files the tip changed and whether or not the task declares paths (the same `git patch-id --stable` of its diff from its merge base with the tip, before the merge and after it, `parallel.shared` paths left out of both),
+   and any build sign-off due on the task (§3.5) is recorded for the verified head, with, under `paths`, the tip's new commits changing no file the task's own diff changes, a `parallel.shared` path included, or, under `clashes`, the task's whole own patch, `parallel.shared` paths included, unchanged by the merge, close merges the tip into the verified head itself,
    runs the gate lane on the result as a recorded run in its `merge-<nnnn>` worktree, whose stages
    get that worktree's `CCP_WT_<FIELD>` variables (kind `merge`) and `prompts.worker_env` rendered for it,
    re-checks the tip (at most 3 catch-ups), and on a green gate merges that commit,

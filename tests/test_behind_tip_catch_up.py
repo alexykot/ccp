@@ -3,7 +3,8 @@ up itself when the merge is clean, the tip's new commits change no file the task
 change (with a build sign-off due, none the task's own diff changes, a parallel.shared path included, and the
 catch-up carries the sign-off) and the product has a gate lane: it merges the tip in, runs the gate lane on the
 merge as a recorded run, re-checks the tip, pushes the merge and merges it. Otherwise it refuses `behind_tip`,
-naming the condition, with the task branch unchanged."""
+naming the condition, with the task branch unchanged. Under `parallel.schedule: clashes` the file condition is the
+task's own patch unchanged by the merge (`git patch-id --stable`), declared paths or none."""
 from __future__ import annotations
 
 import json
@@ -415,6 +416,75 @@ if done < {moves}:
         self.tip(self.put("docs/a/README.md", README + "- `tip.py`: the tip's\n"))
         code, _, out, err = self.close()
         self.refused(code, out, err, head, "conflicts in", "docs/a/README.md")
+
+    # ------------------------------------------------------------------ parallel.schedule: clashes
+
+    def clashes(self) -> None:
+        """The fixture product schedules by clashes: close's file condition is the patch test alone."""
+        self.plane_json(lambda c: c["parallel"].update(schedule="clashes"))
+
+    def test_under_clashes_a_tip_edit_far_from_the_task_s_hunks_is_caught_up(self):
+        self.clashes()
+        head = self.approved()
+        tip = self.tip(self.put("shared.txt", SHARED.replace("line 10\n", "line ten\n")))  # a file the task changes
+        code, body, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(body["merged_now"])
+        cu = self.record()["catch_up"]
+        self.assertEqual((cu["from"], cu["tip"], cu["merge_tree"]), (head, tip, "clean"))
+        self.assertEqual(cu["tip_files"], ["shared.txt"])
+        self.assertEqual([r["suite_id"] for r in self.gate_runs()], [cu["gate_run"]])
+        self.assertIn(f"--match-head-commit {cu['to']}", (self.ghstate / "merge-called").read_text())
+
+    def test_under_clashes_a_tip_edit_near_the_task_s_hunks_refuses_naming_the_patch(self):
+        self.clashes()
+        head = self.approved()
+        self.tip(self.put("shared.txt", SHARED.replace("line 3\n", "line three\n")))  # inside the hunk's context
+        code, _, out, err = self.close()
+        self.refused(code, out, err, head, "patch changed")
+        self.assertEqual(self.gate_runs(), [])
+
+    def test_under_clashes_a_task_with_no_declared_paths_is_caught_up(self):
+        self.clashes()
+        head = self.approved(paths=False)
+        tip = self.tip(self.put("other/b.txt", "b\n"))
+        code, body, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        cu = self.record()["catch_up"]
+        self.assertEqual((cu["from"], cu["tip"]), (head, tip))
+        self.assertEqual(body["caught_up"], cu)
+        self.assertEqual(git(self.main, "rev-list", "--parents", "-n1", cu["to"]).split()[1:], [head, tip])
+
+    def test_under_clashes_a_union_in_a_shared_path_is_caught_up(self):
+        self.shared_readme()
+        self.clashes()
+        head = self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
+        tip = self.tip(self.put("docs/a/README.md", README + "- `tip.py`: the tip's\n"))
+        code, body, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        cu = self.record()["catch_up"]
+        self.assertEqual((cu["from"], cu["tip"], cu["merge_tree"]), (head, tip, "union"))
+        self.assertNotIn("sign_off_carried", cu)
+
+    def test_under_clashes_a_build_sign_off_is_not_carried_over_a_union_in_a_shared_path(self):
+        self.shared_readme()
+        self.clashes()
+        head = self.approved(sign_off="build", extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
+        self.sign_build()
+        self.tip(self.put("docs/a/README.md", README + "- `tip.py`: the tip's\n"))
+        code, _, out, err = self.close()
+        self.refused(code, out, err, head, "build sign-off")
+        self.assertEqual(self.gate_runs(), [])
+
+    def test_under_clashes_a_build_sign_off_is_carried_when_the_whole_patch_is_unchanged(self):
+        self.clashes()
+        head = self.approved(sign_off="build")
+        self.sign_build()
+        tip = self.tip(self.put("shared.txt", SHARED.replace("line 10\n", "line ten\n")))
+        code, body, out, err = self.close()
+        self.assertEqual(code, 0, out + err)
+        cu = self.record()["catch_up"]
+        self.assertEqual((cu["from"], cu["tip"], cu["sign_off_carried"]), (head, tip, head))
 
     def test_a_red_gate_on_the_merge_refuses_naming_the_gate_run(self):
         head = self.approved()

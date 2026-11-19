@@ -82,5 +82,63 @@ class FiveFiles(unittest.TestCase):
         self.assertEqual([f for f in self.FILES if f in why], self.FILES[:5])
 
 
+class Clashes(unittest.TestCase):
+    """Under `parallel.schedule: clashes` the file condition is the patch test alone."""
+
+    def blocked(self, declared=("ccp/a.py",), tip=("ccp/a.py",), task=("ccp/a.py",), shared=(), signed=False, **kw):
+        return catch_up_blocked(list(declared), list(tip), list(task), list(shared), signed, "clashes", **kw)
+
+    def test_a_tip_changing_a_file_the_task_changes_and_declares_is_allowed_when_its_patch_is_unchanged(self):
+        self.assertIsNone(self.blocked(patch_same=True, whole_patch_same=True))
+
+    def test_a_task_declaring_no_paths_is_allowed_when_its_patch_is_unchanged(self):
+        self.assertIsNone(self.blocked(declared=(), patch_same=True, whole_patch_same=True))
+
+    def test_a_changed_patch_is_refused_naming_it(self):
+        why = self.blocked(declared=(), tip=(), task=(), patch_same=False)
+        self.assertTrue(why and why.startswith("patch changed"))
+
+    def test_an_unread_patch_is_refused_naming_it(self):
+        why = self.blocked(patch_same=None)
+        self.assertTrue(why and why.startswith("patch unread"))
+
+    def test_a_patch_not_given_is_unread(self):
+        why = self.blocked()
+        self.assertTrue(why and why.startswith("patch unread"))
+
+    def test_the_patch_is_named_before_the_sign_off(self):
+        why = self.blocked(signed=True, patch_same=False, whole_patch_same=False)
+        self.assertTrue(why and why.startswith("patch changed"))
+
+    def test_a_sign_off_due_is_carried_when_the_whole_patch_is_unchanged(self):
+        self.assertIsNone(self.blocked(signed=True, patch_same=True, whole_patch_same=True))
+
+    def test_a_sign_off_due_is_refused_when_only_a_shared_path_changed_in_the_patch(self):
+        why = self.blocked(signed=True, patch_same=True, whole_patch_same=False)
+        self.assertTrue(why and why.startswith("build sign-off:"))
+
+    def test_the_whole_patch_is_not_looked_at_when_no_sign_off_is_due(self):
+        self.assertIsNone(self.blocked(patch_same=True, whole_patch_same=False))
+
+    def test_an_unread_whole_patch_refuses_a_sign_off(self):
+        why = self.blocked(signed=True, patch_same=True, whole_patch_same=None)
+        self.assertTrue(why and why.startswith("build sign-off:"))
+
+
+class PathsSchedule(unittest.TestCase):
+    """The schedule given as `paths` is the default: the patch inputs are not looked at."""
+
+    def test_overlap_is_still_refused(self):
+        args = (["ccp/a.py"], ["ccp/a.py"], ["ccp/a.py"], [], False)
+        for extra in ((), ("paths", True, True)):
+            why = catch_up_blocked(*args, *extra)
+            self.assertTrue(why and why.startswith("overlap:"))
+
+    def test_no_declared_paths_is_still_refused(self):
+        for extra in ((), ("paths", True, True)):
+            why = catch_up_blocked([], [], [], [], False, *extra)
+            self.assertTrue(why and why.startswith("no declared paths:"))
+
+
 if __name__ == "__main__":
     unittest.main()
