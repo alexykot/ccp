@@ -145,4 +145,20 @@ does not send the implementer back again and again.
 
 *Append-only, newest last.*
 
+- 2026-11-19 (implementer): `ccp/prompt.py` `tip_gate` now runs for `review` and `verify`. For review, a head behind
+  (`lifecycle.behind_tip`) is judged with `gitmerge.probe(head, origin/<integ>)`; the conflicted files outside the
+  task log (`lifecycle.task_log_paths`) and `merge.behind_tip_ignore` refuse (exit 4), up to 5 named then "and N more",
+  with `ccp prompt merge`. The ignore match is the path itself or anything under it (the same reading as the
+  pathspec `behind_tip` uses). Verify's refusal is unchanged except that its text shares the `ccp prompt merge` sentence.
+- Open choices, narrowest reading: (1) a probe that fails to run (git older than 2.38) is a `behind_tip not checked`
+  warning and the review opens, like a fetch that fails; (2) the review's fetch warning carries no "close checks it"
+  suffix, since close judges only a verify's head; (3) a head behind only by task-log or `behind_tip_ignore` commits is
+  not behind at all (`behind_tip` is empty), so the probe never runs for it: the conflict-only-in-the-log fixtures
+  therefore carry a second tip change outside the log, or the head would not be judged.
+- `tests/test_worker_efficiency.py` `test_workers_merge_the_integration_branch_in_never_rebase` pinned the fix
+  prompt's old wording ("merge it into the branch"); it now pins the catch-up wording ("by merging it in",
+  "never by rebasing"). `tests/test_run_abandon.py` `test_a_running_round_is_superseded_with_a_warning` counted
+  every warning; it now counts the ones other than `behind_tip not checked`.
+- ADR-0042 D3 marked built.
+
 ## Verification notes

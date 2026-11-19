@@ -480,7 +480,7 @@ instructions are in <path>. Read that file in full first and follow it exactly."
 retyped.
 
 **Round kinds.** The implementer's rounds are `implement`, `fix` (on review or verify findings; it
-needs such a report), `merge` and `ruling`, each with its own template and run name:
+needs such a report), `merge` and `ruling`, each with its own template and run name. An `implement` or `fix` round's last step before it pushes the head it reports is a catch-up: it merges the integration tip into the task branch (§15.6 rule 2: never a rebase), resolves any conflict, listing each in its report, and runs its suite (§14) on the merged code. The other two:
 
 - `ccp prompt merge <id> --pr <n> --head <sha>` only merges the integration tip into the task branch
   (§15.6 rule 2), resolving conflicts and adapting the task's code to the tip, nothing else;
@@ -859,7 +859,7 @@ result.
 - **Review starts on a settled head.** The runner opens a review (`ccp prompt review --head`) only
   once the task's open spec questions are answered and their rulings are on the PR.
   `ccp prompt review` refuses (exit 2), naming the task and the PR, a PR whose body does not contain
-  the task id; the runner repairs the body first. A commit landing while a review runs makes its head
+  the task id; the runner repairs the body first. It refuses (exit 4, nothing opened) a head behind the integration tip (`behind_tip`, §16.5 rule 4) only when merging the tip into it would conflict in a file outside the task log and `merge.behind_tip_ignore`, judged with `git merge-tree`, which writes nothing; the refusal names the conflicted files, and `ccp prompt merge` has the implementer resolve them. A head behind by a clean merge is reviewed, and a later catch-up handles it (§15.6 rule 3, §16.5 rule 4). A tip or head that cannot be fetched to judge is a warning on the run, and the review opens. A commit landing while a review runs makes its head
   stale.
 - **A fix round is reviewed again before it is verified**, unless a proof or a clean review covers it
   (the next three rules).

@@ -212,7 +212,8 @@ class CacheSplit(unittest.TestCase):
         """A rebase needs a force-push, which Claude Code's auto mode denies."""
         self.assertIn("by merging it in (`git merge origin/", render("implement"))
         self.assertIn("never by rebasing", render("implement"))
-        self.assertIn("merge it into the branch (`git merge origin/", render("fix"))
+        self.assertIn("by merging it in (`git merge origin/", render("fix"))
+        self.assertIn("never by rebasing", render("fix"))
         self.assertNotIn("Rebase onto", render("implement"))
 
 

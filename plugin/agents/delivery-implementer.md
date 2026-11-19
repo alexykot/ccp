@@ -46,6 +46,9 @@ don't redesign around it.
   file's `Context (not checked)` section on your branch, besides your Implementation notes (SPEC
   §10.5).
   Change nothing else in the task file.
+- The last step before you push the head you report from an implement or fix round is the catch-up merge
+  of the integration tip into your branch, conflicts resolved and your tests run on the merged code (SPEC
+  §13.2); never a rebase.
 - Run every shell command in the foreground, a long one too (a test suite, a build): an agent
   waiting on a background command stalls.
 - After a command that was interrupted (a timeout, a cancelled call, a lost shell), check git
