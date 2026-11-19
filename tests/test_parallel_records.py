@@ -8,6 +8,7 @@ import unittest
 
 from ccp import board, config, forecast, lifecycle, tasklog
 from tests import test_parallel_claims
+from tests.test_parallel_claims import task
 from tests.test_toolkit import git
 
 NOW = 1_800_000_000.0
@@ -39,6 +40,38 @@ class Slots(unittest.TestCase):
             ["a", "b"], {}, dur, {}, [0.0], NOW, {"a": 600.0}, trials=300, targets={"b": ["b"]}, slots=2,
             alone=alone)["targets"]["b"]["end"])
         self.assertGreater(run({"a"})[150], run(set())[150])
+
+
+class Apart(unittest.TestCase):
+    """§16.7: the forecast starts a task after every task ahead of it that rule 3 keeps it from running beside."""
+
+    def ends(self, apart, slots=2, target=("a", "b", "c", "d"), gaps=(0.0,)):
+        order = list("abcd")
+        dur = {t: forecast.lognormal(3600, 5400) for t in order}
+        r = forecast.simulate(order, {}, dur, {}, list(gaps), NOW, {}, trials=300, targets={"all": order, "ab": list(target)},
+                              slots=slots, apart=apart)
+        return r["targets"]
+
+    def test_none_and_empty_are_the_model_before(self):
+        order = list("abcd")
+        dur = {t: forecast.lognormal(3600, 5400) for t in order}
+        before = forecast.simulate(order, {}, dur, {}, [0.0], NOW, {}, trials=300, targets={"all": order}, slots=2)
+        self.assertEqual(self.ends(None)["all"], before["targets"]["all"])
+        self.assertEqual(self.ends({})["all"], before["targets"]["all"])
+
+    def test_a_pair_kept_apart_runs_one_after_the_other(self):
+        median = lambda xs: sorted(xs)[len(xs) // 2]  # noqa: E731
+        free = self.ends(None, target=("a", "b"))["ab"]["end"]
+        held = self.ends({"b": {"a"}}, target=("a", "b"))["ab"]["end"]
+        self.assertGreater(median(held), median(free))
+        self.assertTrue(all(h >= f for h, f in zip(held, free)))
+
+    def test_every_task_kept_apart_from_every_earlier_one_is_the_one_slot_run(self):
+        every = {"b": {"a"}, "c": {"a", "b"}, "d": {"a", "b", "c"}}
+        self.assertEqual(self.ends(every)["all"]["end"], self.ends(None, slots=1)["all"]["end"])
+
+    def test_a_task_kept_apart_from_a_later_one_or_an_unknown_one_waits_for_nothing(self):
+        self.assertEqual(self.ends({"a": {"d"}, "b": {"zz"}})["all"], self.ends(None)["all"])
 
 
 class Records(test_parallel_claims.ParallelFixture, unittest.TestCase):
@@ -98,6 +131,50 @@ class Records(test_parallel_claims.ParallelFixture, unittest.TestCase):
         self.assertEqual([(f["task_id"], f["phase"], f["peak_in_flight"]) for f in fl],
                          [("0002-second", "leased", 2), ("0003-third", "leased", 2)])
         self.assertTrue(all(f["since"] for f in fl))
+
+    def throughput(self, third_extra="", **par):
+        """`ccp forecast --backlog --json` with two pending tasks whose declared paths meet."""
+        self.plane(max_in_flight=2, **par)
+        self.write("docs/delivery/tasks/0002-second.md", task("0002-second", "`src/app/pool.py`"))
+        self.write("docs/delivery/tasks/0003-third.md", task("0003-third", "`src/app/pool.py`", extra=third_extra))
+        for tid in ("0004-fourth", "0005-fifth", "0006-sixth", "0007-watch"):
+            self.write(f"docs/delivery/tasks/{tid}.md", task(tid, "`other/x.py`", status="dropped"))
+        (self.q / "estimates").mkdir(exist_ok=True)
+        for tid in ("0002-second", "0003-third"):
+            (self.q / "estimates" / f"{tid}.jsonl").write_text(json.dumps({
+                "at": "2026-10-22T10:00:00Z", "task_id": tid, "version": 1, "source": "baseline",
+                "total": {"p50_s": 600, "p90_s": 900}, "tokens": None, "cost_usd": None}) + "\n")
+        code, body, out, err = self.ccp("forecast", "--backlog", "--json", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["order"], ["0002-second", "0003-third"])
+        return body
+
+    def test_the_forecast_reads_rule_3_through_the_claims_predicate_under_either_schedule(self):
+        hours = {}
+        for par, extra, schedule, pairs in (({}, "", "paths", 1),
+                                            ({"schedule": "clashes"}, "", "clashes", 0),
+                                            ({"schedule": "clashes"}, "clashes_with: [0002-second]\n", "clashes", 1)):
+            body = self.throughput(extra, **par)
+            tp = body["throughput"]
+            self.assertEqual((tp["schedule"], tp["apart_pairs"], tp["slots"]), (schedule, pairs, 2))
+            self.assertNotIn("paths meet", tp["text"])
+            self.assertIn(f"{pairs} pair(s) of tasks kept apart", tp["text"])
+            self.assertIn(f"parallel.schedule {schedule}", tp["text"])
+            hours[(schedule, pairs)] = body["backlog"]["hours"]
+        # the dates the lead reads: the pair kept apart runs one after the other, the free pair side by side
+        self.assertGreater(hours[("paths", 1)]["p50"], hours[("clashes", 0)]["p50"])
+        self.assertEqual(hours[("paths", 1)], hours[("clashes", 1)])
+
+    def test_one_slot_has_no_pairs_to_report(self):
+        self.plane(max_in_flight=1)
+        self.write("docs/delivery/tasks/0003-third.md", task("0003-third", "`src/app/pool.py`"))
+        (self.q / "estimates").mkdir(exist_ok=True)
+        (self.q / "estimates" / "0002-second.jsonl").write_text(json.dumps({
+            "at": "2026-10-22T10:00:00Z", "task_id": "0002-second", "version": 1, "source": "baseline",
+            "total": {"p50_s": 600, "p90_s": 900}, "tokens": None, "cost_usd": None}) + "\n")
+        code, body, out, err = self.ccp("forecast", "--backlog", "--json", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        self.assertNotIn("apart_pairs", body["throughput"])
 
 
 if __name__ == "__main__":

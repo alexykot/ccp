@@ -25,7 +25,8 @@ P50 and P90 of the ones that have one, and is counted (`unestimated`).
 **The throughput** (`throughput`). The runner takes one task at a time (with SPEC §16's
 `parallel.max_in_flight` above 1, that many slots: a task starts at the earliest free slot, and one
 that runs alone takes them all; a gap is measured only where the task that starts was held alone, though
-every merge moves the frontier; tasks whose paths meet, and the 5-hour ceiling, are not modelled): the next task starts at the
+every merge moves the frontier; a task also starts after each task ahead of it that claim rule 3 keeps it from running
+beside, `parallel.kept_apart`, by `parallel.schedule`; the 5-hour ceiling is not modelled): the next task starts at the
 latest merge so far plus a gap drawn from the gaps observed between consecutive tasks (the drill-down's
 windows, first recorded event to the merge, for the recent merged tasks). A negative gap is an observed
 overlap: the next task started before the previous one merged. A gap of GAP_STOP_S or more is a stop
@@ -361,7 +362,8 @@ def simulate(order: list[str], deps: dict[str, list[str]], dur: dict[str, tuple[
              flight_elapsed: dict[str, float], trials: int = TRIALS, seed: int = SEED,
              targets: dict[str, list[str]] | None = None, burn: dict[str, Any] | None = None,
              rho: float | None = None, session: dict[str, Any] | None = None,
-             slots: int = 1, alone: set[str] | None = None) -> dict[str, Any]:
+             slots: int = 1, alone: set[str] | None = None,
+             apart: dict[str, set[str]] | None = None) -> dict[str, Any]:
     """Monte Carlo over the order (`rho`: the deviates' correlation, RHO by default). Returns, per target (a list of task ids), the completion times and
     each measure summed (`meas`: name -> task -> (mu, sigma); tokens, cost; the in-flight task's
     remainder only); with `burn` (the allowance: `measure`, k per unit, the baseline %/s, the current
@@ -372,11 +374,16 @@ def simulate(order: list[str], deps: dict[str, list[str]], dur: dict[str, tuple[
     pauses draw no random numbers, so the trials' draws are the same with and without them.
     `slots` (§16.7, parallel.max_in_flight): a task starts at the earliest free slot after its
     dependencies; a task in `alone` takes every slot. One slot is the model before §16, exactly: the
-    one slot's free time is the frontier, and the draws are the same."""
+    one slot's free time is the frontier, and the draws are the same. `apart` (§16.7): per task, the tasks
+    ahead of it in `order` that claim rule 3 keeps it from running beside; it starts no earlier than each
+    one's end (in flight or drawn), as with a dependency. No random number is drawn for it, so with `apart`
+    empty or None every draw and result is as without."""
     rng = random.Random(seed)
     gauss, choice, rand = rng.gauss, rng.choice, rng.random
     idx = {t: i for i, t in enumerate(order)}
     dep_ix = [[idx[d] for d in deps.get(t, []) if d in idx and idx[d] < i] for i, t in enumerate(order)]
+    apart_ix = [[idx[o] for o in sorted((apart or {}).get(t, ())) if o in idx and idx[o] < i]
+                for i, t in enumerate(order)]
     mus = [dur[t][0] for t in order]
     sig = [dur[t][1] for t in order]
     names = list(meas)
@@ -431,6 +438,9 @@ def simulate(order: list[str], deps: dict[str, list[str]], dur: dict[str, tuple[
                 if st < prev_start:
                     st = prev_start
                 for j in dep_ix[i]:
+                    if end[j] > st:
+                        st = end[j]
+                for j in apart_ix[i]:
                     if end[j] > st:
                         st = end[j]
                 e = st + exp(mu + s * z)
@@ -1005,14 +1015,25 @@ def collect(cfg: Config, q: Path | None, *, tasks: list[dict[str, Any]] | None =
     tp = throughput(windows(drill, _held_alone(q, drill)))
     slots = int(parallel.settings(cfg)["max_in_flight"]) if parallel.enabled(cfg) else 1
     alone: set[str] = set()
+    apart: dict[str, set[str]] = {}
     if slots > 1:
         metas = {str(t.get("task_id")): t for t in (tasks if tasks is not None else tasklog.load(cfg))}
         alone = {t for t in order if t in metas and parallel.runs_alone(cfg, metas[t])}
+        # §16.7: a task starts after each task ahead of it that rule 3 keeps it from running beside
+        for j, b in enumerate(order):
+            for a in order[:j]:
+                if a in metas and b in metas and parallel.kept_apart(cfg, metas[a], metas[b]) is not None:
+                    apart.setdefault(b, set()).add(a)
+        schedule = str(parallel.settings(cfg).get("schedule", "paths"))
+        pairs = sum(len(v) for v in apart.values())
         tp["model"] = "slots"
         tp["slots"] = slots
+        tp["apart_pairs"] = pairs
+        tp["schedule"] = schedule
         tp["text"] = (f"up to {slots} tasks at once (parallel.max_in_flight, SPEC §16); each starts at the earliest "
-                      f"free slot plus an observed gap; {len(alone)} task(s) run alone. Not modelled: two tasks "
-                      "whose paths meet, or work past the 5-hour ceiling, still share slots. " + tp["text"])
+                      f"free slot plus an observed gap; {len(alone)} task(s) run alone; {pairs} pair(s) of tasks "
+                      f"kept apart (rule 3, parallel.schedule {schedule}): the later starts after the earlier ends. "
+                      "Not modelled: work past the 5-hour ceiling, which still shares slots. " + tp["text"])
     elapsed = {t: _flight_elapsed(q, t, drill, work, now) for t in seq["in_flight"]}
     # waits flagged now: an open wait, gate or question on a remaining task
     oi = open_items or {}
@@ -1055,7 +1076,7 @@ def collect(cfg: Config, q: Path | None, *, tasks: list[dict[str, Any]] | None =
     if rp_open:
         targets["point"] = rp_open
     sim = simulate(order, seq["deps"], dur, {"tokens": tok, "cost": cost}, tp["gaps"], now, elapsed, trials, SEED,
-                   targets, burn, rho, sess, slots, alone)
+                   targets, burn, rho, sess, slots, alone, apart)
     for k in targets:
         ids = targets[k]
         r = sim["targets"][k]
