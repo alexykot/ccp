@@ -314,6 +314,29 @@ class Resolution(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.verify_head(h2)
         self.assertEqual(code, 0, out + err)
 
+    def test_after_a_beyond_resolution_a_resolution_review_is_refused(self):
+        _, h2 = self.to_merge_round()
+        beyond = self.open_resolution(h2)["run_id"]
+        self.resolution_report(beyond, "Resolution: beyond the fix renames a function the task adds\n"
+                                       "Affected checks: cmd-01")
+        m = self.main  # the tip moves again and the branch merges it, with another conflict, as H3
+        self.write("shared.txt", "one\ntip change again\nthree\n")
+        git(m, "commit", "-q", "-am", "tip change again")
+        git(m, "push", "-q", "origin", "main")
+        git(m, "checkout", "-q", "feat")
+        self.assertEqual(sh(m, "merge", "-q", "--no-edit", "origin/main").returncode, 1)
+        self.write("shared.txt", "one\ntask change and tip change again\nthree\n")
+        git(m, "add", "shared.txt")
+        git(m, "commit", "-q", "--no-edit")
+        h3 = git(m, "rev-parse", "HEAD")
+        git(m, "checkout", "-q", "main")
+        self.run_phase("merge", h2, f"PR: #7\nHead: {h3}")
+        code, _, out, err = self.resolution(h3)
+        self.assertEqual(code, 2, out + err)
+        self.assertIn(f"{beyond}: the resolution review judged it beyond the conflict hunks: run a full "
+                      "`ccp prompt review`", err)
+        self.assertFalse((self.q / "runs/0002-second/review-3.json").exists())  # nothing opened
+
     def test_a_beyond_resolution_is_refused_though_the_change_is_the_same(self):
         h1, h2 = self.to_merge_round()
         run_id = self.open_resolution(h2)["run_id"]

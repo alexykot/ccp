@@ -526,7 +526,8 @@ def tip_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> list[str]:
 def resolution_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> bool:
     """§13.2: `--mode resolution` opens a resolution review of a conflicted integration merge. True for it,
     False with no `--mode`. Refused (exit 2, nothing opened): any phase but review; a task with no review that
-    reported `done`; a round since the latest such review that is not a merge round; a head that is not a merge
+    reported `done`; a latest such review that is a resolution review judged `beyond` (a full review is due,
+    §15.2); a round since the latest such review that is not a merge round; a head that is not a merge
     commit (two parents or more); a head whose remerge diff (`gitmerge.remerge_diff`) is empty, a clean merge."""
     mode = getattr(a, "mode", None)
     if not mode:
@@ -540,6 +541,9 @@ def resolution_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> bool:
         raise QueueError(f"{tid} has no review that reported done: a resolution review never stands in for the "
                          "first review; run `ccp prompt review` in full (SPEC §13.2)", 2)
     last = done[-1]
+    if runs.is_resolution_beyond(last):  # §15.2: a beyond resolution is not a review of the head; a full one is due
+        raise QueueError(f"{last['run_id']}: the resolution review judged it beyond the conflict hunks: run a full "
+                         "`ccp prompt review` (SPEC §13.2, §15.2)", 2)
     since = [r for r in rs if r.get("phase") in runs.REWORK_PHASES
              and str(last.get("opened_at") or "") <= str(r.get("opened_at") or "")]
     other = next((r for r in since if r.get("phase") != "merge"), None)
