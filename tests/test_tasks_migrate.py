@@ -138,7 +138,8 @@ class Migrate(InitCase):
             self.assertIn("converted (done)", lines[f"{TASKS}/{n}"])
         check = self.ccp("tasks", "check")
         self.assertEqual(check.returncode, 1, check.stdout + check.stderr)
-        failing = sorted({ln.strip().split(":", 1)[0] for ln in check.stdout.splitlines() if TASKS in ln})
+        failing = sorted({ln.strip().split(":", 1)[0] for ln in check.stdout.splitlines()
+                          if TASKS in ln and not ln.strip().startswith("warning:")})  # warnings are not failures
         self.assertEqual(failing, [f"{TASKS}/0003-own-checks.md", f"{TASKS}/0004-after.md"], check.stdout)
         self.assertNotIn("dod_checks", check.stdout)
 

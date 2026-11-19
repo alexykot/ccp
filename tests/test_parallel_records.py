@@ -108,7 +108,7 @@ class Records(test_parallel_claims.ParallelFixture, unittest.TestCase):
         git(self.main, "commit", "-q", "-am", "with its task file")
         sha = git(self.main, "rev-parse", "HEAD").strip()
         self.assertEqual(lifecycle._undeclared(config.load(self.main), meta, sha), [])
-        self.plane()  # parallel off: nothing is recorded
+        self.plane(max_in_flight=1)  # parallel off: nothing is recorded
         self.assertIsNone(lifecycle._undeclared(config.load(self.main), meta, sha))
 
     def test_gaps_are_measured_where_a_task_starts_alone_but_every_merge_moves_the_frontier(self):
@@ -151,7 +151,7 @@ class Records(test_parallel_claims.ParallelFixture, unittest.TestCase):
 
     def test_the_forecast_reads_rule_3_through_the_claims_predicate_under_either_schedule(self):
         hours = {}
-        for par, extra, schedule, pairs in (({}, "", "paths", 1),
+        for par, extra, schedule, pairs in (({"schedule": "paths"}, "", "paths", 1),
                                             ({"schedule": "clashes"}, "", "clashes", 0),
                                             ({"schedule": "clashes"}, "clashes_with: [0002-second]\n", "clashes", 1)):
             body = self.throughput(extra, **par)

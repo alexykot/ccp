@@ -72,7 +72,7 @@ class ParallelFixture(ToolkitFixture):
     def plane(self, **par):
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
         cfg["telemetry"] = {"allowance_cmd": f"cat '{self.reading}'"}
-        cfg["parallel"] = par
+        cfg["parallel"] = {"schedule": "paths", **par}  # the default schedule is `clashes`: these tests are about paths
         self.write("docs/delivery/plane.json", json.dumps(cfg))
 
     def five(self, pct):
@@ -195,8 +195,8 @@ class Claims(ParallelFixture, unittest.TestCase):
         self.five(70)  # above the ceiling, below the 5-hour park (§25.4)
         self.assertEqual(self.claim("0002")[0], 0)
 
-    def test_off_by_default(self):
-        self.plane()  # no keys: max_in_flight 1
+    def test_off_with_one_slot(self):
+        self.plane(max_in_flight=1)
         self.assertEqual(self.claim("0002")[0], 0)
         self.assertEqual(self.claim("0004")[0], 0, "one task at a time is not enforced by claim before §16")
         code, _, out, _ = self.next()

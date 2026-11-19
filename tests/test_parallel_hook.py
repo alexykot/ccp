@@ -54,11 +54,11 @@ class SlotHook(TeamCase):
         """The hook asks ccp's loaded configuration for parallel.max_in_flight: with no `parallel` block it
         follows the default `ccp` has, not one of its own."""
         self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo"}))
-        self.assertEqual(self.hook("runner-2-x")[0], 0)  # the default is one slot: no `next`, nothing to claim
-        self.patch_default("PARALLEL_DEFAULTS", "max_in_flight", 2)
-        code, err = self.hook("runner-2-x")
+        code, err = self.hook("runner-2-x")  # the default has several slots
         self.assertEqual(code, 2, err)
         self.assertIn("ccp tasks claim 0002-b --holder runner-2", err)
+        self.patch_default("PARALLEL_DEFAULTS", "max_in_flight", 1)
+        self.assertEqual(self.hook("runner-2-x")[0], 0)  # one slot: no `next`, nothing to claim
 
     def test_other_names_an_unbound_slot_and_a_rotation_due_are_left_alone(self):
         self.assertEqual(self.hook("runner")[0], 0)  # the single runner's name is no slot's
