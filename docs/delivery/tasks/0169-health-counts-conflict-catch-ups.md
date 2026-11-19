@@ -1,7 +1,7 @@
 ---
 task_id: 0169-health-counts-conflict-catch-ups
 title: ccp report records each round's integration merges and whether they conflicted, and ccp health reports conflict catch-ups before and after review
-status: pending
+status: done
 kind: feature
 depends_on: ["0166-catch-up-before-review", "0168-resolution-review"]
 spec_refs: ["S27", "S11", "S13"]
@@ -149,3 +149,5 @@ default. It comes from a field the plane computes when each round reports, not f
 - The text line is in `health.summary_text`, so the architect's prompt carries it too.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #189 head `432ed7d` (squash `9e4a7aa`): APPROVE. Passed: run-01, hl-01, hl-02, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0169-health-counts-conflict-catch-ups.json.
+

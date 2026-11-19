@@ -843,7 +843,7 @@ tasks:
     depends_on: [0162-git-merge-helper]
     path: tasks/0168-resolution-review.md
   - id: 0169-health-counts-conflict-catch-ups
-    status: pending
+    status: done
     title: ccp report records each round's integration merges and whether they conflicted, and ccp health reports conflict catch-ups before and after review
     depends_on: [0166-catch-up-before-review, 0168-resolution-review]
     path: tasks/0169-health-counts-conflict-catch-ups.md
