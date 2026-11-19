@@ -15,6 +15,7 @@ from unittest import mock
 from pathlib import Path
 
 from ccp import board, config, suite
+from tests.helpers import Product
 from tests.test_toolkit import ToolkitFixture
 
 PLANE = Path(__file__).resolve().parents[1]
@@ -707,8 +708,11 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
         from ccp import prompt as prompt_mod
         self.assertIn("`--lane gate`", vtext)
         c = config.load(self.runner)
-        self.assertIn("`--lane gate` for the formal gate", prompt_mod.suite_lanes(c, "verify"))
-        self.assertIn("`--lane part` for the tests you run", prompt_mod.suite_lanes(c, "review"))
+        self.assertIn("`--lane gate` with nothing after `--`", prompt_mod.suite_lanes(c, "verify"))
+        bare = Product(bare=True)  # a product that declares no lanes: the worker brings the command
+        self.addCleanup(bare.cleanup)
+        self.assertIn("`--lane gate` for the formal gate", prompt_mod.suite_lanes(bare.cfg, "verify"))
+        self.assertIn("`--lane part` for the tests you run", prompt_mod.suite_lanes(bare.cfg, "review"))
         rec = json.loads((self.q / "runs/0002-second/implement.json").read_text())
         self.assertEqual(rec["worktree"], str(self.main / ".rt" / "impl-0002"))
         # §14.1 (amended 2026-10-22): the rule is stated once, in the prompt; a definition names the

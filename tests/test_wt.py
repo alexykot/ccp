@@ -125,7 +125,7 @@ class Create(WtFixture, unittest.TestCase):
         self.assertEqual(self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head(), "--name", "rev-0002")[0], 2)
 
     def test_no_worktrees_dir_refuses(self):
-        self.plane(adapter={"worktree_dir": None, "worktree_links": [], "post_close": []})
+        self.plane(worktrees={"dir": None, "links": []})
         code, _, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head())
         self.assertEqual(code, 2)
         self.assertIn("worktrees.dir", err)
@@ -414,12 +414,16 @@ class Config(WtFixture, unittest.TestCase):
     def test_legacy_adapter_keys_fold_into_worktrees(self):
         cfg = config.load(self.main)
         self.assertEqual((cfg.worktrees["dir"], cfg.worktrees["links"]), (".rt", [".venv"]))
+        self.plane(worktrees={"dir": None, "links": []},
+                   adapter={"worktree_dir": ".lg", "worktree_links": [".env"], "post_close": []})
+        cfg = config.load(self.main)
+        self.assertEqual((cfg.worktrees["dir"], cfg.worktrees["links"]), (".lg", [".env"]))
         self.plane(adapter={"worktree_dir": None, "worktree_links": [], "post_close": []},
                    worktrees={"dir": ".wt", "links": [".venv"]})
         self.assertEqual(config.load(self.main).worktrees["dir"], ".wt")
 
     def test_bad_blocks_are_refused(self):
-        for bad in ({"worktrees": {"dir": ".x"}},  # with the legacy adapter.worktree_dir .rt
+        for bad in ({"worktrees": {"dir": ".x"}, "adapter": {"worktree_dir": ".rt"}},  # both the block and the legacy key
                     {"env": {"up": 3}}, {"env": {"timeout_seconds": 0}},
                     {"merge": {"command": "gh pr merge {pr} --squash"}},  # not pinned to the head
                     {"auth_check": {"probes": [{"id": "gh"}]}},

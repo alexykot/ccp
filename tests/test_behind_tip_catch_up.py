@@ -634,7 +634,7 @@ if done < {moves}:
 
     def test_a_product_with_no_worktrees_dir_refuses(self):
         head = self.approved()
-        self.plane_json(lambda c: c["adapter"].pop("worktree_dir"))  # on the tip: it is what the head lacks
+        self.plane_json(lambda c: c["worktrees"].pop("dir"))  # on the tip: it is what the head lacks
         git(self.runner, "fetch", "-q", "origin")
         git(self.runner, "checkout", "-q", "--detach", "origin/main")
         code, _, out, err = self.close()
