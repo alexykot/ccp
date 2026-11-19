@@ -107,5 +107,12 @@
     "accept_cache": {
       "max_age_days": 7
     }
+  },
+  "upgrade": {
+    "taken": {
+      "0164-clashes-with-and-schedule": "plane.json parallel.schedule clashes (PR 191)",
+      "0019-parallel-doc-checks": "plane.json docs.workers 4 (PR #191)",
+      "0112-parallel-gate-and-slow-modules": "the plane's own gate.sh already runs gate_parallel.py"
+    }
   }
 }
