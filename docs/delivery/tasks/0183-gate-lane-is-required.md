@@ -111,4 +111,20 @@ unset. During the grace release they warn and carry on.
 
 *Append-only, newest last.*
 
+- 2026-11-19 (implementer): `config.gate_lane_missing(cfg)` returns the refusal line, or None: the lane
+  `lane_for(cfg, "gate")` names, with at least one non-blank command (argv words or stage `cmd`s) and none
+  holding `LANE_PLACEHOLDER`. `config.require_gate_lane(cfg)` applies the grace switch: during
+  `REQUIRED_KEYS_GRACE` it returns the warning (once per product and process, naming the upgrade step and
+  `ccp init --gate`), after it raises `MissingKey`. `lifecycle.claim` asks it first, before anything is taken
+  (a resumed claim too); `cli.cmd_tasks_next` asks it first and names no task.
+- The loader already refuses an empty gate lane and a placeholder one (exit 2, its own message), before
+  claim or next run, so on a real plane.json those two shapes never reach `gate_lane_missing`; the tests for
+  them hand claim and next a loaded Config with the shape put in (`dataclasses.replace`). Load validation is
+  unchanged.
+- `ccp init`'s `required_unset` (and its stderr line) adds `suite.lanes.gate` when `gate_lane_missing`.
+  `ccp upgrade status` judges the step `plane.json suite.lanes.gate` by `gate_lane_missing` rather than by
+  the key's presence, so a product whose `suite.roles` renames the gate lane has taken it.
+- README: the checklist had no gate-lane row; a `suite.lanes.gate` row was added, marked required.
+- ADR-0043 D5 marked built (`ccp adr decide 43 D5 built`); INDEX.md has no column that changes.
+
 ## Verification notes

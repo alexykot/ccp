@@ -25,7 +25,8 @@ has no `origin`, or its host is not GitHub, init warns on stderr and in the resu
 naming the commands that need one, and adopts the product all the same.
 
 The result's `required_unset`, and a line on stderr, name each required plane.json key (§8.1) still
-unset in the plane.json init leaves (a kept one included), as a step to take before the first task. A
+unset in the plane.json init leaves (a kept one included), the gate lane (`suite.lanes.gate`, given by
+`--gate`) among them, as a step to take before the first task. A
 `--language` that names no language pack and is not `none` is refused (exit 2) before anything is written.
 
 When the task directory already holds task files with no frontmatter (an earlier plane generation's),
@@ -452,8 +453,10 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
 
 
 def required_unset(cfg: config.Config) -> list[str]:
-    """The required plane.json keys (§8.1) the product's plane.json leaves unset."""
-    return [k for k in config.REQUIRED_KEYS if getattr(cfg, k, None) in (None, "")]
+    """The required plane.json keys (§8.1) the product's plane.json leaves unset, the gate lane
+    (`suite.lanes.gate`, §14.1) among them when it has none (config.gate_lane_missing)."""
+    return [k for k in config.REQUIRED_KEYS if getattr(cfg, k, None) in (None, "")] \
+        + (["suite.lanes.gate"] if config.gate_lane_missing(cfg) else [])
 
 
 def record_adoption(q: Path, cfg: config.Config, written: bool, binding: Path | None = None) -> dict[str, Any] | None:

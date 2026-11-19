@@ -111,7 +111,8 @@ A task whose `brief` sign-off is due and not recorded, is stale, or whose `sign_
 A held task (§10.4) is passed over, a held refactor and a held preference alike, and stderr says so;
 `--explain` prints the whole ranked queue with the pick and the holds marked. The runner always
 takes `next`'s pick and turns a lead's "take X next" back to the lead as `ccp tasks prefer X`. With
-several runners `next` also applies §16.3 (head of line, exit 7).
+several runners `next` also applies §16.3 (head of line, exit 7). With no gate lane it names no task
+and exits 2 (§14.1).
 
 ### 10.4 The lead's preference, holds, release and drop
 
@@ -597,7 +598,10 @@ gate, a subset of modules, every rerun) through
 plane reads three lane **roles**: `full` (the implementer's and fixer's full suite), `gate` (the
 verifier's formal gate, whose script picks its own lanes) and `part` (a subset, such as the
 reviewer's modules or a mutation check). plane.json `suite.roles` names the product's lane for each
-(default: the role's own name; a role left out keeps it; two roles may not share a lane); the prompts,
+(default: the role's own name; a role left out keeps it; two roles may not share a lane). The gate
+role's lane is required: every task's verify runs it, and so does its catch-up with the tip before
+review, so with none `ccp tasks claim` and `ccp tasks next` refuse (exit 2, §8.1); `ccp init --gate`
+writes it. The other roles' lanes are optional; the prompts,
 the report's auto-fill and the health series use these names. `--lane` is a short label; without `-- <command>` it runs what plane.json `suite.lanes` gives that lane, from the checkout's root: an argv, or stages (§14.2). A run
 with no `--lane` is recorded without a lane (filed as part); for an exclusive lane's lock and its
 usual duration it counts as the `full` role's lane. `ccp report` warns, never refuses, when a report

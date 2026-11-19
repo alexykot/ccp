@@ -121,23 +121,23 @@ class Adopt(InitCase):
     def test_the_language_is_written_and_without_it_init_names_it_as_a_required_key_still_unset(self):
         code, res = self.init("--project-id", "demo")
         self.assertEqual(code, 0, res)
-        self.assertEqual(res["required_unset"], ["language"])
+        self.assertEqual(res["required_unset"], ["language", "suite.lanes.gate"])
         self.assertNotIn("language", json.loads((self.repo / "docs/delivery/plane.json").read_text()))
         r = self.ccp("init", "--project-id", "demo")
         self.assertIn("`language` is unset", r.stderr)
         code, res = self.init("--project-id", "demo", "--language", "python", "--force")
         self.assertEqual(code, 0, res)
-        self.assertNotIn("required_unset", res)
+        self.assertEqual(res["required_unset"], ["suite.lanes.gate"])  # no --gate: the gate lane is still unset
         self.assertEqual(json.loads((self.repo / "docs/delivery/plane.json").read_text())["language"], "python")
         r = self.ccp("init", "--project-id", "demo")
-        self.assertNotIn("is unset", r.stderr)
+        self.assertNotIn("`language` is unset", r.stderr)
 
     def test_a_language_against_a_kept_plane_json_is_listed_as_not_applied(self):
         self.assertEqual(self.init("--project-id", "demo")[0], 0)
         code, res = self.init("--project-id", "demo", "--language", "none")
         self.assertEqual(code, 0, res)
         self.assertIn("docs/delivery/plane.json (--language not applied)", res["kept"])
-        self.assertEqual(res["required_unset"], ["language"])
+        self.assertEqual(res["required_unset"], ["language", "suite.lanes.gate"])
 
     def test_a_language_that_is_no_pack_is_refused_writing_nothing(self):
         r = self.ccp("init", "--project-id", "demo", "--language", "cobol")
