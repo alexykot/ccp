@@ -1,7 +1,7 @@
 ---
 task_id: 0175-one-binding-reader
 title: One module resolves and parses a product's binding, and the binding schema is readable
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S8"]
@@ -157,3 +157,5 @@ written on several lines so its diff can be read. Nothing the plane does changes
   the refusal still refuses any `#`.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #200 head `bb10598` (squash `6ff9abc`): APPROVE. Passed: bind-01, bind-02, bind-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0175-one-binding-reader.json.
+
