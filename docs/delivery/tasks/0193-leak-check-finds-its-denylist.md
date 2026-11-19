@@ -60,6 +60,8 @@ on an installation that keeps none, such as a fresh clone of the open-source rep
   - `CCP_LEAK_DENYLIST` wins over it;
   - a `CCP_BINDINGS_DIR` with no denylist means "nothing checked", even when a stub `ccp` on PATH
     would name one;
+  - with `CCP_BINDINGS_DIR` unset, a stub `ccp` whose `where` names a temp binding finds the
+    denylist beside it (lookup step 3, the path workers take);
   - with neither, the check passes with the "nothing checked" line.
 
   Every test runs the script against a temp git repo with `ccp` hidden from PATH, or replaced by a

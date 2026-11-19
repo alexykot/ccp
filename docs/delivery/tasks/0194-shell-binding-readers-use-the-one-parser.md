@@ -46,9 +46,15 @@ writes, behaviour is unchanged.
 - **`runner-idle.sh`:** its `block()` function is deleted. The hook reads the `runner:` block through
   `lib._yaml_block_scalars(text, "runner")`, which already returns what `block("runner")` does: empty
   values dropped, quotes and ` #` comments stripped.
-  - `lib.py` is found from the hook's own location, `plugin/hooks/../../scripts/observability`. The
-    hook passes that path into its heredoc, because `python3 -` has no `__file__`. This works in
-    both modes: plain (`ccp where`) and managed copy (`--queue-root`/`--ccp`).
+  - `lib.py` is found in this order, and the hook passes the result into its heredoc, because
+    `python3 -` has no `__file__`:
+    1. the hook's own location, two levels up, but only when `ccp/` and `bin/ccp` sit there (a plane
+       checkout);
+    2. the plane in `ccp where`'s `plane` field;
+    3. the checkout two levels above `--ccp`, when that is a real `bin/ccp`.
+
+    A managed copy installed as `<product>/.claude/hooks/runner-idle.sh` must never import a
+    product's own `scripts/observability/lib.py`. A test covers a hook copied outside the plane.
   - If the import fails, the hook falls back to the runner defaults it uses today when the binding
     has no `runner:` block, and exits 0.
   - 0188 runs first and makes the runner settings constants, so this task reads only what 0188
