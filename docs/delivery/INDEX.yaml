@@ -808,7 +808,7 @@ tasks:
     depends_on: []
     path: tasks/0161-paths-meet-and-parallel-defaults.md
   - id: 0162-git-merge-helper
-    status: pending
+    status: done
     title: One git merge helper module for the merge probe, a head's own patch id and the remerge diff
     depends_on: []
     path: tasks/0162-git-merge-helper.md

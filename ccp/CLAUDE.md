@@ -14,6 +14,7 @@ normative, and a module that disagrees with it is the bug.
 - **The runtime queue:** `queue.py` (QUEUE_ROOT, the ledger, the runner's work.json), `lifecycle.py` (claim,
   phase, wait, release, close), `selection.py` and `parallel.py` (what the runner may take),
   `runs.py`, `report.py`, `verify.py`, `suite.py`, `wt.py`, `mutate.py`, `prompt.py`, `plane.py`,
+  `gitmerge.py` (the one reading of git's merge analysis, house rule E14),
   `upgrade.py` (what a plane release asks of a product, §29.3),
   `sandbox.py` (a throwaway adopted product for end-to-end checks, §29.3),
   `notify.py` (the operator's notices: fired, rendered, recorded and listed pending, §3.6).

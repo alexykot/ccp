@@ -49,6 +49,10 @@
       {
         "id": "leak-check",
         "cmd": "scripts/leak-check.sh"
+      },
+      {
+        "id": "merge-helper",
+        "cmd": "! git grep -n -e merge-tree -e patch-id -e remerge-diff -- ccp ':(exclude)ccp/gitmerge.py'"
       }
     ]
   },
