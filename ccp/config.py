@@ -60,8 +60,11 @@ TASK_LOG_DEFAULTS: dict[str, Any] = {
 }
 # SPEC §16.2: several tasks in flight under one runner. 1 (the default) is one task at a time.
 # `shared` lists the paths tasks only append lines to: they keep no two tasks apart (§16.3 rule 3), and
-# close's catch-up merges their appended lines (§16.5 rule 4).
-PARALLEL_DEFAULTS: dict[str, Any] = {"max_in_flight": 1, "exclusive": [], "shared": [], "session_ceiling_pct": 60}
+# close's catch-up merges their appended lines (§16.5 rule 4). `schedule` picks claim rule 3 (§16.3): `paths`
+# keeps apart tasks whose paths meet, `clashes` only tasks that clash (`clashes_with`, §5).
+PARALLEL_SCHEDULES = ("paths", "clashes")
+PARALLEL_DEFAULTS: dict[str, Any] = {"max_in_flight": 1, "exclusive": [], "shared": [], "session_ceiling_pct": 60,
+                                     "schedule": "paths"}
 # §22: the review-point register, a product file (ccp/reviewpoints.py).
 REVIEW_POINTS_DEFAULTS: dict[str, Any] = {"file": "docs/delivery/review-points.yaml"}
 
@@ -913,6 +916,8 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
     scp = par["session_ceiling_pct"]
     if isinstance(scp, bool) or not isinstance(scp, (int, float)) or not 0 < scp <= 100:
         bad.append("parallel.session_ceiling_pct must be a number above 0, at most 100")
+    if par["schedule"] not in PARALLEL_SCHEDULES:
+        bad.append(f"parallel.schedule must be one of {', '.join(PARALLEL_SCHEDULES)}, not {par['schedule']!r}")
     rpp = raw.get("task_log", {}).get("review_point_pattern", TASK_LOG_DEFAULTS["review_point_pattern"])
     try:
         if not isinstance(rpp, str) or not rpp:

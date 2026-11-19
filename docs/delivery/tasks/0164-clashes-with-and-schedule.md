@@ -50,6 +50,8 @@ refuses an id that names no task. With plane.json `parallel.schedule: clashes`, 
   line, exit 7).", which stays true. The `next` walk's rule lives in §16.3, changed below.
 - The forecast (§16.7) and close's catch-up (§16.5) are tasks 0170 and 0167.
 - The SPEC passages below change claim rule 3, the walk and §16.1's intent line: `sign_off: brief`.
+- Lead's ruling on spec question sm-20261119T113130Z-8831 (spec commit eb4f0a632fd2412a1b212bda6af9d7c73c07a65a), verbatim:
+  "A task marks built every ADR decision it cites, in its own PR. Run a fix round on 0164 (PR #184) that marks ADR-0042 D1 and D2 built (`ccp adr decide 42 D1 built`, `ccp adr decide 42 D2 built`). This overrides 0164's Scope line saying it marks nothing; the task is claimed, so its file was not edited."
 
 ## Scope
 
@@ -152,5 +154,12 @@ refuses an id that names no task. With plane.json `parallel.schedule: clashes`, 
 ## Implementation notes
 
 *Append-only, newest last.*
+
+- Premise re-run: `git grep -n "clash(" -- ccp` now prints nothing, 0161 having renamed it; the three sites are `kept_apart`'s definition and its two callers (`join_refusal`, `next_choice`), as the task states.
+- `kept_apart` returns a frozen dataclass `parallel.Apart(kind, a_path, b_path)`; `kind` is `paths` or `clash`. `paths_meet` is unchanged (still returns the path pair). The module's `clashes(a, b)` reads `clashes_with` both ways.
+- Narrow choices where the task is silent: under `clashes` a task whose frontmatter `status` is `done` or `dropped` is never held back (so a clash recorded on it holds nothing); `clashes_with` naming itself is refused with `clashes_with \`<id>\`, which is the task itself`; `PARALLEL_SCHEDULES` in `ccp/config.py` is the one tuple of the two values; the plane.json error reads `parallel.schedule must be one of paths, clashes, not '<value>'`.
+- `tests/test_parallel_claims.py` and `tests/test_next_passes_over.py` needed no edit: the `paths` messages are unchanged.
+- ADR-0042 D1 and D2 marked nothing built, as the task says (task 0170 marks both).
+- Ruling round 1 (sm-20261119T113130Z-8831): under `adr.strict`, `ccp verify record` refuses an approve citing a decision not built at the head, so this PR now marks ADR-0042 D1 and D2 built (`ccp adr decide 42 D1 built`, `ccp adr decide 42 D2 built`), overriding the Scope line and the note above; `docs/adr/INDEX.md` was unchanged by `ccp adr index`. Also, from the review's NIT, the comment on the passed-over loop in `ccp/cli.py` now names rule 3 rather than paths only, as `clashes` can keep a task apart by a recorded clash.
 
 ## Verification notes

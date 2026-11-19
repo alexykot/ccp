@@ -11,6 +11,8 @@ spec_refs: []            # ["docs/SPEC.md#flows"] — the sections this task mus
 # shaping: waived — <reason>
 # The files or globs this task touches; parallel scheduling reads them (plane SPEC §16.3):
 # paths: ["src/exports/", "tests/test_exports.py"]
+# Tasks this one clashes with (they change the same logic in different ways); read under parallel.schedule: clashes (plane SPEC §16.3):
+# clashes_with: ["0007-other-task"]
 # Only when the task-log owner amends this task's id (a new slug, the same NNNN): the old id.
 # renamed_from: NNNN-old-slug
 created: YYYY-MM-DD

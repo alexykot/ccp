@@ -44,6 +44,13 @@
       },
       "description": "Task ids that must be done first; one may have a higher number (SPEC §5). A cycle or a missing id is refused."
     },
+    "clashes_with": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Task ids this task clashes with: both change the same logic in different ways, so they run in either order, never together. Symmetric: a clash recorded on either task holds for both. Read only under plane.json parallel.schedule: clashes (SPEC §16.3). An id that names no task, or the task itself, is refused."
+    },
     "created": {
       "type": "string",
       "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
