@@ -1,7 +1,7 @@
 ---
 task_id: 0165-wide-plans-chain-warning
 title: ccp tasks check reports each review point's longest depends_on chain and width, warns on a deep plan, and the writing-tasks skill says to write wide plans
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S21", "S19", "S5"]
@@ -130,3 +130,5 @@ architect's shape pass and review triage point to that one place rather than res
   absent rather than any `note:`.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #182 head `ac512f1` (close's catch-up of the approved `bead50a`, gate run st-20261119T100646Z-2f836f) (squash `ef631e2`): APPROVE. Passed: chain-01, chain-02, chain-03, doc-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0165-wide-plans-chain-warning.json.
+

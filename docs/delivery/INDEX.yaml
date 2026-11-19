@@ -823,7 +823,7 @@ tasks:
     depends_on: [0161-paths-meet-and-parallel-defaults]
     path: tasks/0164-clashes-with-and-schedule.md
   - id: 0165-wide-plans-chain-warning
-    status: pending
+    status: done
     title: ccp tasks check reports each review point's longest depends_on chain and width, warns on a deep plan, and the writing-tasks skill says to write wide plans
     depends_on: []
     path: tasks/0165-wide-plans-chain-warning.md
