@@ -1,7 +1,7 @@
 ---
 task_id: 0176-language-pack-owns-test-facts
 title: The language pack owns its test-output patterns, its affected reader and its test command
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S14", "S21"]
@@ -118,4 +118,21 @@ does changes.
 
 *Append-only, newest last.*
 
+- 2026-11-19: Built as written, with these choices the task left open:
+  - The pack's reader takes the file list from the core: `affected(root, changed, files)` and a sixth field,
+    `suite_size(root, files)`, replace `AFFECTED_READERS` and `AFFECTED_SIZERS`. `ccp/suite.py` lists the
+    files once (`_tracked_files`), so the pack imports nothing from `ccp.suite` and the git failure still
+    exits 2 from the core. `_py_module`, `_py_imports`, `_read` and the test-file walk moved to
+    `ccp/doclang/python.py` with the reader.
+  - `for_tests(cfg)` returns the language's pack with the Python pack's `count_re` and `summary` put over
+    it (`dataclasses.replace`), so a `none` product has no reader, counter or command and today's output
+    patterns.
+  - The `affected` refusal for a pack with no reader lists the packs that have one.
+  - The schema's three summary keys state `"default": null` and keep their type (a `null` given in
+    plane.json is still refused, as before).
+  - `tests/test_suite_affected.py` reaches the pack's command and counter through `doclang` instead of
+    `suite.AFFECTED_COMMANDS` and `suite._python_suite_size`; no expectation changed.
+
 ## Verification notes
+- 2026-11-19 — verifier, PR #201 head `50c52b0` (squash `118e337`): APPROVE. Passed: lang-01, lang-02, lang-03, lang-04. Gate: `ccp suite run --lane gate` exit 0, `./bin/ccp --root . tasks check` exit 0, `./bin/ccp --root . docs check` exit 0. Record: verification/0176-language-pack-owns-test-facts.json.
+

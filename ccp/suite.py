@@ -15,8 +15,8 @@ it if `ccp` itself dies.
 Summary mode, the default without a terminal on stdin (`--summary` forces it): the command's
 stdout and stderr both go to one log file, in the order the command wrote them (`--log`, else
 next to the run's record in the queue, else a temp file). `ccp` prints a start line naming the
-log, and when the command ends, a summary: on a failure the failing tests' sections (unittest's
-FAIL:/ERROR: blocks) and the log's last lines, capped with the tail cut from its front so the end
+log, and when the command ends, a summary: on a failure the failing tests' sections (what
+the language pack's `section_re` matches) and the log's last lines, capped with the tail cut from its front so the end
 always shows; always every `show_re` line; then one line with the exit code, lane, seconds, tests,
 failures, skips and modules ran and cached, and the log's path. A log that cannot be opened
 streams the run as --full does, with a warning. Options that do not parse run nothing: `ccp`
@@ -30,10 +30,10 @@ The gate-result contract (§14.3): the command's environment carries CCP_SUITE_R
 command may write a JSON result to (contracts/suite_result.schema.json: tests, ran, cached,
 cached_tests, skipped, failed, failures, seconds, modules). When it does, its numbers are the
 record's, and its `modules` (each test module's name, seconds and tests) go on the `ended` row. When
-it does not, each line is matched against the product's `suite.count_re` (default: unittest's
-`Ran N tests in`; a list is tried in order, the first pattern a line matches counting it, its first
-group or, with no group, the line as one test) and `suite.summary`'s patterns (defaults: unittest's
-failures and skips only). The numbers are summed, and nothing else of the output, or of the result
+it does not, each line is matched against the product's `suite.count_re` (default: the language pack's;
+a list is tried in order, the first pattern a line matches counting it, its first
+group or, with no group, the line as one test) and `suite.summary`'s patterns (defaults: the language pack's
+failure, skip and section patterns only). The numbers are summed, and nothing else of the output, or of the result
 file, is kept in the records: failure ids are shown in the summary, never recorded. The command's
 environment is the caller's, unchanged, plus CCP_SUITE_ID and CCP_SUITE_RESULT: `bin/ccp` sets no
 variable, and a QUEUE_ROOT `ccp` finds from the binding when the caller set none stays `ccp`'s own.
@@ -83,7 +83,7 @@ counts as killed exits 1 at once, since it will never end. It writes nothing.
 
 `affected` prints the test modules a change touches, for the `part` lane, and runs nothing (§14.7); after
 them, on stderr, the `ccp suite run` line that runs them on the part lane, for a language with a named
-command (Python: `python3 -m unittest`); when the list holds more than AFFECTED_FULL_SHARE of the
+command (the pack's `test_command`); when the list holds more than AFFECTED_FULL_SHARE of the
 suite's test modules (the pack counts them), the line says to skip the pre-gate and run the full lane. The
 change is `--paths` (normalised, relative to the root), else what `git diff REF` (default HEAD) names
 against the working tree plus the untracked files; REF is resolved with `git rev-parse --verify` first, so
@@ -100,7 +100,6 @@ nothing, or nothing more. The one exception is options that do not parse: the ca
 """
 from __future__ import annotations
 
-import ast
 import contextlib
 import fnmatch
 import json
@@ -119,11 +118,10 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from ccp.envvars import envvar, for_child
-from ccp import runs
+from ccp import doclang, runs
 from ccp.config import PLANE_DOCS_STAGE, SUITE_LANE_RE, Config, fill, lane_for, lane_stages, skip_rules_at
 from ccp.queue import QueueError, emit, iso, root
 
-DEFAULT_COUNT_RE = r"^Ran (\d+) tests? in "
 COLD_VAR = "CCP_SUITE_COLD"  # §14.2: `ccp suite run --cold` sets it to 1 for what the run starts
 LINE_MAX = 8192  # a partial line longer than this is dropped from the count scan, never from the output
 
@@ -371,7 +369,7 @@ def _usage_problem(a: Any) -> str | None:
 
 def _count_res(cfg: Config | None) -> list[re.Pattern[bytes]]:
     """plane.json `suite.count_re` compiled, in order: a pattern or a list of them (§14.3)."""
-    pat = ((cfg.suite or {}).get("count_re") if cfg else None) or DEFAULT_COUNT_RE
+    pat = ((cfg.suite or {}).get("count_re") if cfg else None) or doclang.for_tests(cfg).count_re
     return [re.compile(p.encode()) for p in ([pat] if isinstance(pat, str) else pat)]
 
 
@@ -394,7 +392,10 @@ def _summary_cfg(cfg: Config | None) -> dict[str, Any]:
     given = {SUITE_SUMMARY_ALIASES[k]: v for k, v in raw.items() if k in SUITE_SUMMARY_ALIASES}
     given.update({k: v for k, v in raw.items() if k not in SUITE_SUMMARY_ALIASES})  # a new name wins
     out: dict[str, Any] = {}
+    packs = doclang.for_tests(cfg).summary
     for k, default in SUITE_SUMMARY_DEFAULTS.items():
+        if default is None:  # the language pack's
+            default = packs[k]
         v = given.get(k, default)
         if k in ("tail_lines", "max_chars"):
             out[k] = v if isinstance(v, int) and not isinstance(v, bool) else default
@@ -1167,7 +1168,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
     try:
         patterns = _count_res(cfg)
     except re.error:
-        patterns = [re.compile(DEFAULT_COUNT_RE.encode())]
+        patterns = [re.compile(doclang.for_tests(cfg).count_re.encode())]
     scfg = _summary_cfg(cfg)
     fpats = _field_patterns(scfg)
     # Summary mode (§14.3, 2026-10-22): the output goes to a log file, and ccp prints a start line,
@@ -1753,8 +1754,6 @@ def main_wait(cfg: Config, a: Any) -> int:
 
 
 # §14.7: the test modules a change touches, for choosing the `part` lane. Nothing is run or recorded.
-TEST_FILE_GLOB = "test*.py"  # the Python pack's test modules: unittest's default discovery pattern
-
 
 def _git_lines(root: Path, *args: str) -> list[str]:
     """`git -C root <args>`'s output lines; a QueueError (exit 2) naming git's complaint when it fails."""
@@ -1806,107 +1805,14 @@ def changed_paths(root: Path, since: str | None, given: list[str] | None) -> lis
     return sorted(set(diff) | set(_git_lines(root, "ls-files", "--others", "--exclude-standard")))
 
 
-def _py_module(rel: str) -> str | None:
-    """The dotted module a root-relative `.py` path is (`pkg/__init__.py` is `pkg`), or None."""
-    if not rel.endswith(".py"):
-        return None
-    parts = rel[:-3].split("/")
-    if parts[-1] == "__init__":
-        parts = parts[:-1]
-    return ".".join(parts) if parts and all(p.isidentifier() for p in parts) else None
-
-
-def _py_imports(text: str, module: str, is_pkg: bool) -> set[str]:
-    """Every module a file's import statements name, wherever they sit (a function's too): `import a.b`
-    gives a.b, `from a import b` gives a and a.b (b may be a submodule), a relative import is resolved
-    against the file's own package. Each one's parent packages are added: importing a.b runs a."""
-    try:
-        tree = ast.parse(text)
-    except (SyntaxError, ValueError):
-        return set()
-    own = module.split(".") if is_pkg else module.split(".")[:-1]
-    names: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            names.update(a.name for a in node.names)
-        elif isinstance(node, ast.ImportFrom):
-            if node.level:
-                if node.level - 1 > len(own):
-                    continue
-                parts = own[:len(own) - (node.level - 1)] + (node.module.split(".") if node.module else [])
-            else:
-                parts = node.module.split(".") if node.module else []
-            base = ".".join(parts)
-            if base:
-                names.add(base)
-            names.update(f"{base}.{a.name}" if base else a.name for a in node.names if a.name != "*")
-    return {".".join(n.split(".")[:i]) for n in names for i in range(1, n.count(".") + 2)}
-
-
-def _read(p: Path) -> str | None:
-    try:
-        return p.read_text(errors="replace") if p.is_file() and not p.is_symlink() else None
-    except OSError:
-        return None
-
-
-def _python_test_files(root: Path) -> list[tuple[str, str]]:
-    """(root-relative path, dotted module) of each `test*.py` file git tracks or would track, in git's order."""
-    files = _git_lines(root, "ls-files", "--cached", "--others", "--exclude-standard")
-    return [(rel, mod) for rel in files if (mod := _py_module(rel))
-            and fnmatch.fnmatchcase(rel.rsplit("/", 1)[-1], TEST_FILE_GLOB)]
-
-
-def _python_suite_size(root: Path) -> int:
-    """§14.7: how many test modules the Python pack counts in the suite: the ones the reader walks (a file
-    deleted in the working tree or not a regular file is no module)."""
-    return sum(1 for rel, _ in _python_test_files(root) if _read(root / rel) is not None)
-
-
-def _python_affected(root: Path, changed: list[str]) -> list[str]:
-    """The Python pack: each `test*.py` file git tracks or would track that changed itself, imports a
-    changed module directly or through one package level (a package it imports whose `__init__.py`
-    imports it), or names a changed file's name in its text: a name with an extension, never a directory's
-    (an extension-less name such as `Makefile`, or `pkg`, would match nearly every test)."""
-    files = _git_lines(root, "ls-files", "--cached", "--others", "--exclude-standard")
-    changed_mods = {m for m in map(_py_module, changed) if m}
-    packages = {m: rel for rel in files if rel.endswith("/__init__.py") and (m := _py_module(rel))}
-    init_imports: dict[str, set[str]] = {}
-
-    def through(pkg: str) -> set[str]:
-        if pkg not in init_imports:
-            init_imports[pkg] = _py_imports(_read(root / packages[pkg]) or "", pkg, True)
-        return init_imports[pkg]
-
-    names = {Path(c).name for c in changed if Path(c).suffix and not (root / c).is_dir()}  # a file's name only
-    name_re = re.compile("|".join(rf"(?<![\w.-]){re.escape(n)}(?![\w-])" for n in sorted(names))) if names else None
-    out, touched = set(), set(changed)
-    for rel, mod in _python_test_files(root):
-        text = _read(root / rel)
-        if text is None:  # deleted in the working tree, or not a regular file
-            continue
-        if rel in touched:
-            out.add(mod)
-            continue
-        direct = _py_imports(text, mod, False)
-        reached = direct.union(*(through(p) for p in direct if p in packages))
-        if reached & changed_mods or (name_re is not None and name_re.search(text)):
-            out.add(mod)
-    return sorted(out)
-
-
-AFFECTED_READERS = {"python": _python_affected}
-# §14.7: how many test modules a language's pack counts in the suite; a language with no counter has no suite size
-AFFECTED_SIZERS = {"python": _python_suite_size}
 # §14.7: past this share of the suite's test modules, the serial part lane loses to the parallel full lane
 AFFECTED_FULL_SHARE = 0.25
-# §14.7: the command that runs a language's test modules by name, for the line `affected` hands the worker
-AFFECTED_COMMANDS = {"python": "python3 -m unittest"}
 
 
-def _language(cfg: Config) -> str:
-    from ccp.config import PACKAGE_DOCS_DEFAULTS  # noqa: PLC0415
-    return str((cfg.package_docs or PACKAGE_DOCS_DEFAULTS)["language"])
+def _tracked_files(root: Path) -> list[str]:
+    """Every file git tracks or would track (not ignored), root-relative, in git's order: what a pack's
+    reader and counter walk."""
+    return _git_lines(root, "ls-files", "--cached", "--others", "--exclude-standard")
 
 
 def _mapped(amap: dict[str, list[str]], changed: list[str]) -> set[str]:
@@ -1920,23 +1826,24 @@ def affected(cfg: Config, since: str | None, paths: list[str] | None) -> tuple[l
     (`package_docs.language`; its default when the block is absent) and what plane.json
     `suite.affected_map` maps them to, sorted, each once. A pack with no reader uses the map alone, and
     with no map either it is refused."""
-    lang = _language(cfg)
-    reader = AFFECTED_READERS.get(lang)
+    pack = doclang.for_tests(cfg)
+    reader = pack.affected
     amap = (getattr(cfg, "suite", None) or {}).get("affected_map") or {}
     if reader is None and not amap:
-        raise QueueError(f"package_docs.language {lang!r} has no test reader (one of: "
-                         f"{', '.join(sorted(AFFECTED_READERS))}) and plane.json sets no suite.affected_map, "
+        raise QueueError(f"package_docs.language {pack.name!r} has no test reader (one of: "
+                         f"{', '.join(n for n in doclang.NAMES if doclang.get(n).affected)}) and plane.json "
+                         "sets no suite.affected_map, "
                          "the path globs that map a change to its tests", 2)
     changed = changed_paths(cfg.root, since, paths)
     if not changed:
         return changed, []
-    found = set(reader(cfg.root, changed)) if reader is not None else set()
+    found = set(reader(cfg.root, changed, _tracked_files(cfg.root))) if reader is not None else set()
     return changed, sorted(found | _mapped(amap, changed))
 
 
 def main_affected(cfg: Config, a: Any) -> int:
     """`ccp suite affected`: the test modules, one per line; after them, on stderr, the `ccp suite run` line
-    that runs them on the part lane, when the language has a command (`AFFECTED_COMMANDS`), or, when they
+    that runs them on the part lane, when the language pack has a command (`test_command`), or, when they
     are more than AFFECTED_FULL_SHARE of the suite's test modules, says to run the full lane; a note on
     stderr when there are none."""
     try:
@@ -1946,13 +1853,13 @@ def main_affected(cfg: Config, a: Any) -> int:
         return e.code
     for m in mods:
         print(m)
-    sizer = AFFECTED_SIZERS.get(_language(cfg))
-    total = sizer(cfg.root) if mods and sizer is not None else 0
+    pack = doclang.for_tests(cfg)
+    total = pack.suite_size(cfg.root, _tracked_files(cfg.root)) if mods and pack.suite_size is not None else 0
     if total and len(mods) > AFFECTED_FULL_SHARE * total:
         sys.stdout.flush()
         print(f"ccp suite affected: {len(mods)} of {total} test modules: skip the pre-gate and run the full lane: "
               f"ccp suite run --lane {lane_for(cfg, 'full')}", file=sys.stderr)
-    elif mods and (cmd := AFFECTED_COMMANDS.get(_language(cfg))):
+    elif mods and (cmd := pack.test_command):
         sys.stdout.flush()
         print(f"ccp suite affected: run them with: ccp suite run --lane {lane_for(cfg, 'part')} -- {cmd} "
               + " ".join(mods), file=sys.stderr)
