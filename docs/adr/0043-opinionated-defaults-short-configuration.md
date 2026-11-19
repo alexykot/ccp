@@ -4,7 +4,7 @@ title: "Opinionated defaults, short configuration"
 status: proposed
 date: "2026-11-19"
 deciders: operator
-spec_refs: [S2, S4, S6, S8, S10, S14, S15, S16, S18, S19, S20, S21, S23, S24, S25, S26, S27]
+spec_refs: [S2, S3, S4, S5, S6, S8, S10, S12, S14, S15, S16, S18, S19, S20, S21, S22, S23, S24, S25, S26, S27, S28, S30]
 notes: |-
   Proposed from the operator's configuration principles (2026-11-19, in the lead session), quoted in
   Context, and an audit of every per-product setting. It changes stated defaults in many SPEC
@@ -93,7 +93,9 @@ SPEC states the behaviour, not the number.
   - `ccp suite affected`;
   - test-output parsing.
 
-  Other commands run, so claims, merges and closes in flight are never stopped.
+  Other commands run, such as claims, merges and closes. A task already in flight cannot pass its
+  gate while the language is unset. The grace release in D9 exists so that never happens by
+  surprise.
 - **The docs check makes it required in practice:** every task's gate runs `docs check`, so a
   product cannot deliver without the language. That is the operator's condition for refusing:
   required for operation.
@@ -103,9 +105,8 @@ SPEC states the behaviour, not the number.
 
 ### D5. A gate lane is required
 
-With clash scheduling on by default (D2), every task catches up with the integration tip before
-review, and catch-up runs the gate lane (ADR-0042 D3). A product with no gate lane cannot deliver in
-parallel. So `suite.lanes` must name a gate lane, and `ccp tasks claim` and `ccp tasks next` refuse
+Every task's verify runs the gate lane, and so does its catch-up with the integration tip before
+review (ADR-0042 D3). A product with no gate lane cannot deliver. So `suite.lanes` must name a gate lane, and `ccp tasks claim` and `ccp tasks next` refuse
 (exit 2) without one. `ccp init` asks for the command. It assumes no tool or language: the gate is
 whatever command the product runs.
 
@@ -154,8 +155,9 @@ whatever command the product runs.
 
 ### D8. Account facts move to the machine
 
-- **One config per machine:** the allowance command and the weekly stop, which defaults to 90%, move
-  from each product's `plane.json` into one installation config per machine. Shaping decides where
+- **One config per machine:** the allowance command and the weekly stop move from each product's
+  `plane.json` into one installation config per machine. The weekly stop gains a default of 90%;
+  today it has none, so nothing stops for the weekly allowance at all. Shaping decides where
   it lives.
 - **Constants:** the session park, wake and ceiling knobs become constants. The provider's session
   window is optional, and the rules already pass when an account has none.
@@ -182,10 +184,19 @@ The appendix lists every key with its outcome.
   failures at release.
 - **`verify.skip_review_after_clean`:** it stays a setting, default off. It is a quality choice, not
   a constant.
+- **Defaults that change with a key becoming a constant:**
+  - `estimate.auto`: on, so the per-size implementer models (D3) apply without a manual run.
+  - `architect.shape_adrs`: on whenever ADRs are on.
+  - `prompts.fragment`: the product's `docs/delivery/WORKERS.md`, when it exists.
+  - `worktrees.dir`: `.plane-runtime`, which `ccp init` already writes.
 
 **Migration (ADR-0041):**
 - A removed key keeps working for one release. `ccp` warns and ignores it, and that release's
   upgrade step tells each product what to delete.
+- **A non-default value of a key that becomes a constant is never dropped silently.** The upgrade
+  step lists every such value the product sets. Examples are `task_log.index: false`, its own
+  `sections`, or `architect.grace_tasks`. For each, the lead either accepts the constant or files a
+  plane proposal to keep the key. Until the step is taken, the old value still applies.
 - The required steps for a product with history are:
   - **The language:** set it. The step proposes `python` where the product relied on the old
     default.
@@ -258,7 +269,9 @@ The appendix lists every key with its outcome.
 **`plane.json`, removed as dead or duplicate:**
 - `task_log.statuses`
 - `task_log.review_point_pattern`
-- `estimate.spec_paths`
+- `task_log.spec_paths`, `estimate.spec_paths`: merged into `spec_paths`.
+- `workers.implementer_model` (`small`, `refactor`): replaced by `models`.
+- `$schema`, `_note`: the schema's own annotations; they stay accepted and mean nothing.
 - `adapter.worktree_dir`, `adapter.worktree_links`, `adapter.post_close`
 - `suite.summary.modules_ran_re`, `suite.summary.modules_cached_re`
 - `telemetry.otel_port`
@@ -304,7 +317,8 @@ The appendix lists every key with its outcome.
 - `estimate`:
   - `auto`: on;
   - `k`, `path_suffixes`;
-  - `calibration`: `half_life`, `min_pairs`, `k`.
+  - `calibration`: `half_life`, `min_pairs`, `k`. Code accepts these today, but the schema rejects
+    them. That drift is what D1's schema test closes.
 - `mutate.timeout_seconds`
 - `notify.timeout_seconds`
 
