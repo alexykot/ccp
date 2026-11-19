@@ -141,7 +141,7 @@ is no longer a product setting.
   steps:
     1. Run `ccp verify spec-text 0184-init-turns-telemetry-on --base origin/main`.
     2. Run `grep -n '"D6 ' docs/adr/0043-opinionated-defaults-short-configuration.md`.
-  expect: step 1 exits 0 with every passage found; step 2\'s output contains `- "D6 built"`.
+  expect: step 1 exits 0 with every passage found; step 2's output contains `- "D6 built"`.
   dry run (`e9ff0fc`): step 2 printed `- "D6 not_built"`.
 - id: `suite-01`
   story: As a plane developer, nothing else broke.

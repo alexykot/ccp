@@ -95,7 +95,7 @@ and names no constant as something a product sets. The operator signs the whole 
   steps:
     1. Run `git diff --name-only origin/main...HEAD`.
     2. Run `grep -n '"D1 ' docs/adr/0043-opinionated-defaults-short-configuration.md`.
-  expect: step 1 lists only files in this task's `paths`, plus the task file and `docs/delivery/INDEX.yaml`; step 2\'s output contains `- "D1 built"`.
+  expect: step 1 lists only files in this task's `paths`, plus the task file and `docs/delivery/INDEX.yaml`; step 2's output contains `- "D1 built"`.
   dry run (`e9ff0fc`): step 2 printed `- "D1 not_built"`.
 - id: `suite-01`
   story: As a plane developer, the docs still check.
