@@ -129,7 +129,7 @@ back to a full round, on the reviewer's word. The round phases are listed once, 
     4. §15.6 rule 3. CURRENT (at `b9e58ce`): "printing nothing). A merge with a conflict, or one whose own change moved, is reviewed and verified" PROPOSED:
        > printing nothing). A merge whose own change moved is reviewed and verified in full, except that a merge with a conflict must have a resolution review, or a full round (§13.2): after a resolution review, the verifier reruns the checks that review names in `Affected checks` and runs the gate at the new head through `ccp suite run`, and records every other check `ran: false`, `pass: null`, `rests_on: "approve at <old>"`, `<old>` the head of the task's latest approve (with no approve yet, it runs every check); `ccp verify record` refuses an approve that leaves an affected check not run. A resolution the reviewer judges `beyond` the conflict hunks is reviewed and verified
   - `tests/test_resolution_review.py` (new): the checks below, on fenced temp products and queues.
-  - ADR-0042 D4 (shared with task 0167): the second of 0167 and 0168 to close marks D4 built (`ccp adr decide 42 D4 built`); the first marks nothing.
+  - ADR-0042 D4 (shared with task 0167): the first of 0167 and 0168 to close marks D4 built (`ccp adr decide 42 D4 built`), since `adr.strict` refuses an approve citing a decision not built at the head (ruling sm-20261119T113130Z-8831); the second marks nothing.
 - **Out:**
   - Close's own catch-up (task 0167).
   - The implementer's catch-up before review and the review refusal of a conflicting head (task 0166).
