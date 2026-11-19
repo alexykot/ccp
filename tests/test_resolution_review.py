@@ -144,6 +144,15 @@ class Resolution(ToolkitFixture, unittest.TestCase):
         self.assertIn(f"git show --remerge-diff {h2}", text)
         self.assertNotIn("gh pr diff", text)  # not the full diff
 
+    def test_the_report_contract_lists_the_two_lines_in_this_mode_only(self):
+        from ccp import config, prompt
+        cfg = config.load(self.runner)
+        plain = prompt.report_lines(cfg, "review")
+        self.assertNotIn("Affected checks", plain)
+        self.assertIn("Resolution:", prompt.report_lines(cfg, "review", "resolution"))
+        self.assertIn("Affected checks:", prompt.report_lines(cfg, "review", "resolution"))
+        self.assertEqual(prompt.report_lines(cfg, "verify", "resolution"), prompt.report_lines(cfg, "verify"))
+
     def test_a_full_review_renders_as_before(self):
         _, h2 = self.to_merge_round()
         code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", h2)
