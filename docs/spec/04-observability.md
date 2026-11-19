@@ -542,6 +542,17 @@ gates nothing.
   operator sign-off or a merge gate, with the median and the longest wait (from the latest approving
   verdict to the `build` sign-off or the gate's decision, whichever came first); `sign_off_wait` in
   `--json`.
+- **Conflict catch-ups:** the integration merges the done change rounds recorded when they reported
+  (`integration_merges`, §11.1) that conflicted, before the task's first review and after it, from the runs
+  reported in the window; `conflict_catch_ups` in `--json`, one line in the text output.
+  - `before_review` and `after_review` each give `count` (the conflicted merges), `rounds` (the runs holding
+    them), `wall_s` and `tokens`. A run's wall time is `started_at` (else `opened_at`) to `reported_at`; its
+    tokens are the sum of its usage tokens in the usage fold (§24), as the board sums them.
+  - Before review the merge sits inside a larger implement or fix round, so those figures are the rounds'
+    totals. After review they are the merge round's plus those of the resolution reviews that followed it
+    (§13.2), which `after_review` also counts as `resolution_reviews`.
+  - `clean_merges` counts the integration merges that did not conflict; `unmeasured` counts the change
+    rounds in the window with no record.
 - **Diagnostic only.** Nothing here is a target for a worker or part of a DoD.
 
 ### 27.2 Suite series

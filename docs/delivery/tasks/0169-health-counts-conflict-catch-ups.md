@@ -130,4 +130,22 @@ default. It comes from a field the plane computes when each round reports, not f
 
 *Append-only, newest last.*
 
+- `ccp/report.py`: `round_merges` finds the integration merges and `before_review` the review order; both are stored at
+  submit (`COMPUTED_KEYS`, popped and computed again on a correction). `before_review` is stored on every done change
+  round with a head, `integration_merges` only when measured.
+- Choices the task left open, each the narrowest reading:
+  - Merges are walked on the head's first-parent line (`rev-list --merges --first-parent`). Without it, a merge
+    commit inside the integration tip (a merge of another branch, in the range because the head merged the tip)
+    would count as the round's own.
+  - Nothing is fetched. A head, previous head or `origin/<integration>` missing from the object store records nothing.
+  - "Opened before the first review that reported done" compares `opened_at`; a tie counts as after, as
+    `runs.unreviewed_fix` does.
+  - An octopus merge is probed on its first two parents.
+  - Health reads runs reported in `window` (the adoption point); like the suite series it does not narrow to `--since`.
+  - A resolution review "followed" a conflicted after-review round when it is a reported `mode: resolution` run of the
+    same task opened at or after that round and before the task's next non-abandoned change round.
+  - `unmeasured` counts reported, done change rounds with no `integration_merges`; blocked, failed and abandoned
+    rounds are in no figure. `usage.fold` is read only when a counted run exists.
+- The text line is in `health.summary_text`, so the architect's prompt carries it too.
+
 ## Verification notes

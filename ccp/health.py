@@ -44,6 +44,12 @@ Everything comes from data the plane already holds; nothing here is a target or 
   the median and the longest wait, in whole minutes; a wait under one minute is left out
   (`sign_off_wait` in --json).
 
+- **conflict catch-ups** (§27.1): the integration merges `ccp report` recorded on each done change round
+  (`integration_merges`, `before_review`, §11.1) that conflicted, before the task's first review and after it,
+  with the wall time and tokens of the rounds that held them (after review, with the resolution reviews
+  that followed), the merges that did not conflict, and the change rounds with no record
+  (`conflict_catch_ups` in --json); the runs reported in the window.
+
 - **usage advice** (§24.6): `ccp usage`'s cost advice over the queue's usage, at plane.json
   `usage.advice`'s thresholds (`usage_advice` in --json), from `--since`, else from `window_hours` back
   (`usage_advice_since` in --json; null: every request).
@@ -995,6 +1001,80 @@ def sign_off_text(w: dict[str, Any] | None) -> list[str]:
             f"{v['median_min']} min, longest {v['longest_min']} min" for rp, v in (w or {}).items()]
 
 
+def _wall_s(r: dict[str, Any]) -> float:
+    """A run's wall time: `started_at` (else `opened_at`) to `reported_at`; 0 when either is unreadable."""
+    a, b = _epoch(str(r.get("started_at") or r.get("opened_at") or "")), _epoch(str(r.get("reported_at") or ""))
+    return max(0.0, b - a) if a is not None and b is not None else 0.0
+
+
+def conflict_catch_ups(q: Path, start: float | None = None) -> dict[str, Any]:
+    """§27.1: the conflicted integration merges, from the runs reported at or after `start` (epoch seconds; None:
+    all). Each done change round (implement, fix, merge, ruling) records its merges when it reports
+    (`integration_merges`, §11.1); a round without that key is `unmeasured`. A conflicted merge is before review
+    when its round's `before_review` is set, else after. `before_review` and `after_review` give the conflicted
+    merges (`count`), the runs holding them (`rounds`) and those runs' wall time (`wall_s`) and tokens (the sum of
+    `usage.TOKENS` over the run in `usage.fold`'s runs, as `ccp board` sums them); `after_review` adds the
+    resolution review runs that followed each such round, up to the task's next change round, as
+    `resolution_reviews`, with their wall time and tokens in its totals. `clean_merges` counts the merges that
+    did not conflict."""
+    from ccp import usage  # noqa: PLC0415
+    reported = [r for r in runs.all_runs(q) if runs.state(r) == "reported"]
+    unmeasured = clean = 0
+    held: dict[str, list[dict[str, Any]]] = {"before_review": [], "after_review": []}
+    counts = {"before_review": 0, "after_review": 0}
+    for r in reported:
+        if r.get("phase") not in runs.CHANGE_PHASES or r.get("outcome") != "done" or not _from(r.get("reported_at"), start):
+            continue
+        ms = r.get("integration_merges")
+        if not isinstance(ms, list):
+            unmeasured += 1
+            continue
+        hit = sum(1 for m in ms if isinstance(m, dict) and m.get("conflicted"))
+        clean += len(ms) - hit
+        if hit:
+            k = "before_review" if r.get("before_review") else "after_review"
+            counts[k] += hit
+            held[k].append(r)
+    later: dict[str, list[dict[str, Any]]] = {}  # a task's non-abandoned change rounds, to bound each follow-up
+    for r in runs.all_runs(q):
+        if r.get("phase") in runs.CHANGE_PHASES and runs.state(r) != "abandoned":
+            later.setdefault(str(r.get("task_id")), []).append(r)
+    follow: dict[str, dict[str, Any]] = {}  # the resolution reviews that followed a conflicted after-review round
+    for r in held["after_review"]:
+        opened = str(r.get("opened_at") or "")
+        nxt = min((str(x.get("opened_at") or "") for x in later.get(str(r.get("task_id")), [])
+                   if str(x.get("opened_at") or "") > opened), default=None)
+        for x in reported:
+            at = str(x.get("opened_at") or "")
+            if x.get("task_id") == r.get("task_id") and x.get("phase") == "review" and x.get("mode") == "resolution" \
+                    and at >= opened and (nxt is None or at < nxt) and _from(x.get("reported_at"), start):
+                follow[str(x["run_id"])] = x
+    ids = [str(r["run_id"]) for r in [*held["before_review"], *held["after_review"], *follow.values()]]
+    tokens: dict[str, int] = {}
+    if ids:
+        tokens = {str(r["run_id"]): sum(int(r["usage"][t]) for t in usage.TOKENS) for r in usage.fold(q)["runs"]}
+
+    def total(rs: list[dict[str, Any]]) -> dict[str, int]:
+        return {"wall_s": round(sum(_wall_s(r) for r in rs)), "tokens": sum(tokens.get(str(r["run_id"]), 0) for r in rs)}
+
+    before = {"count": counts["before_review"], "rounds": len(held["before_review"]), **total(held["before_review"])}
+    rounds = [*held["after_review"], *follow.values()]
+    after = {"count": counts["after_review"], "rounds": len(held["after_review"]),
+             "resolution_reviews": len(follow), **total(rounds)}
+    return {"before_review": before, "after_review": after, "clean_merges": clean, "unmeasured": unmeasured}
+
+
+def conflict_text(c: dict[str, Any] | None) -> str | None:
+    """The one text line for `conflict_catch_ups` (§27.1); None when it was not measured."""
+    if not c:
+        return None
+    b, a = c["before_review"], c["after_review"]
+    return (f"Conflict catch-ups: {b['count']} before review ({b['rounds']} round(s), {b['wall_s']} s and "
+            f"{b['tokens']} tokens in the rounds' totals), {a['count']} after review ({a['rounds']} merge round(s) "
+            f"and {a['resolution_reviews']} resolution review(s), {a['wall_s']} s, {a['tokens']} tokens); "
+            f"{c['clean_merges']} clean merge(s), {c['unmeasured']} change round(s) unmeasured")
+
+
 def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool = True,
             rev: str = "HEAD", from_adoption: bool = False) -> dict[str, Any]:
     """Per-task rows (one per merged task on `rev`'s first-parent history, oldest merge first) and the
@@ -1070,6 +1150,10 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
         except Exception:  # noqa: BLE001
             out["suite_modules"] = None
         out["rotation"] = rotation(q, window) if q else None  # §10.2 step 4
+        try:  # §27.1: nor does a damaged run record or usage sink
+            out["conflict_catch_ups"] = conflict_catch_ups(q, window) if q else None
+        except Exception:  # noqa: BLE001
+            out["conflict_catch_ups"] = None
         try:  # §27.1: nor does a damaged ledger or verification record
             out["sign_off_wait"] = sign_off_wait(q, out_rows, tasks) if q else None
         except Exception:  # noqa: BLE001
@@ -1117,6 +1201,8 @@ def summary_text(report: dict[str, Any], n: int = 10) -> str:
         lines.append(kt)
     lines += modules_text(report.get("suite_modules"))
     lines += sign_off_text(report.get("sign_off_wait"))
+    if cc := conflict_text(report.get("conflict_catch_ups")):
+        lines.append(cc)
     for r in report["tasks"][-n:] if n else []:
         lines.append(f"- {r['task_id']}: merged {r['merged_at']}, wall {_h(r.get('wall_s'))}, active {_h(r.get('active_s'))}"
                      f" (impl {_h(r.get('implementing_s'))},"
