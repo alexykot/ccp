@@ -37,6 +37,10 @@ from lib import (  # noqa: E402
 )
 import spec_maintainer as sm  # noqa: E402  (lock, quota parse, Claude JSON parse, binding helpers)
 
+if str(HERE.parents[1]) not in sys.path:
+    sys.path.insert(0, str(HERE.parents[1]))
+from ccp import models  # noqa: E402  (each role's default model and effort)
+
 CATEGORIES = ("holdover", "not-first-class", "duplication", "vocabulary-drift", "dead-surface",
               "incoherence", "unobserved", "cost", "rule-cost")
 
@@ -67,7 +71,7 @@ BASE_READ_TOOLS = ["Read", "Grep", "Glob", "Skill",
 DENY_TOOLS = "Edit,Write,NotebookEdit,WebFetch,WebSearch,Agent,Task"
 # Fresh headless reviewers pin their own model and effort rather than take the operator's defaults
 # (SPEC §2.4 *Models and effort*). The resumed owner triage keeps the owner session's own settings.
-HEADLESS_MODEL = ["--model", "claude-opus-5-5", "--effort", "high"]
+HEADLESS_MODEL = models.headless_flags("architect")
 ARCHITECT_SKILL = ".claude/skills/architect/SKILL.md"  # §19: a product's managed copy, if it keeps one
 PLUGIN_DIR = Path(__file__).resolve().parents[2] / "plugin"
 

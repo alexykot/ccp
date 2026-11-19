@@ -15,7 +15,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import estimate, estimator, seats
+from ccp import estimate, estimator, models, seats
 from tests.helpers import Product
 from tests import test_estimate as te
 from tests.test_board_drill import Fixture
@@ -106,14 +106,13 @@ class Prompt(Base):
         for k in ("ANTHROPIC_API_KEY", "CLAUDE_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
             self.assertEqual(argv[argv.index(k) - 1], "-u")
         self.assertEqual(argv[argv.index("--tools") + 1], "")
-        self.assertEqual(argv[argv.index("--model") + 1], "claude-sonnet-5-5")
-        self.assertEqual(argv[argv.index("--effort") + 1], "medium")
+        self.assertEqual((argv[argv.index("--model") + 1], argv[argv.index("--effort") + 1]), models.default("estimator"))
         self.assertEqual(argv[argv.index("--output-format") + 1], "json")
         self.assertNotIn("--allowedTools", argv)
         self.assertIn("--safe-mode", argv)                            # no CLAUDE.md, memory, hooks, plugins
         self.assertEqual(argv[argv.index("--setting-sources") + 1], "local")  # no user settings file
         self.assertNotIn("--bare", argv)                              # it would drop the OAuth login
-        self.assertEqual(estimator.pins()["model"], "claude-sonnet-5-5")
+        self.assertEqual(estimator.pins()["model"], models.default("estimator")[0])
         from ccp import architect
         with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k", "OTEL_RESOURCE_ATTRIBUTES": "a=b,ccp.seat=old"}):
             env = architect.sm.headless_env("demo", estimator.SEAT)
@@ -394,7 +393,7 @@ class SeatsAndBoard(Fixture, unittest.TestCase):
             self.assertIn("estimator", claimed)
             row = [r for r in rows if r["seat"].startswith("estimator")][0]
             self.assertIn("0005-sf-store", row["seat"])
-            self.assertEqual((row["expected"]["model"], row["expected"]["effort"]), ("claude-sonnet-5-5", "medium"))
+            self.assertEqual((row["expected"]["model"], row["expected"]["effort"]), models.default("estimator"))
             estimator.lock_release(q, "es-run")
             rows, _ = seats._headless(q, "claude-team", {"runs": {}, "seats": {}}, 0)
             self.assertFalse([r for r in rows if r["seat"].startswith("estimator")])

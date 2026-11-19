@@ -43,15 +43,16 @@ from typing import Any
 
 from ccp.envvars import envvar
 from ccp import estimate as est
-from ccp import adr, tasklog
+from ccp import adr, models, tasklog
 from ccp.refs import ids as _ids
 from ccp.refs import number_prefix
 from ccp.config import Config
 from ccp.queue import PLANE, append_jsonl, iso, read_json
 
 SEAT = "estimator"
-# Pinned like architecture_review.HEADLESS_MODEL (operator, 2026-10-22: "Sonnet headless at medium effort").
-HEADLESS_MODEL = ["--model", "claude-sonnet-5-5", "--effort", "medium"]
+# Pinned like architecture_review.HEADLESS_MODEL, from the role table (`models.ROLES`; operator, 2026-10-22:
+# "Sonnet headless at medium effort").
+HEADLESS_MODEL = models.headless_flags("estimator")
 NO_TOOLS = ["--tools", ""]
 # No user customisation reaches the seat: --safe-mode turns off CLAUDE.md (user and project), auto-memory,
 # skills, plugins, hooks, MCP servers, custom agents and output styles while auth (the OAuth login) and

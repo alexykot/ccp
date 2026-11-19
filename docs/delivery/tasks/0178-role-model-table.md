@@ -98,4 +98,27 @@ override (0181), it edits the table and one lookup. Nothing the plane does chang
 
 *Append-only, newest last.*
 
+- `ccp/models.py`: `ROLES`, `FULL_IDS` and `headless_flags` as decided, plus `default(role)` (the full id and
+  effort of a row), the one lookup the seat checks and the tests read; `headless_flags` calls it. A role with
+  no row (the lead) raises `KeyError`.
+- `ccp/estimator.py` and `scripts/observability/architecture_review.py`: `HEADLESS_MODEL` is
+  `models.headless_flags(...)`, same names; `ccp/seats.py` still reads those constants, so it needed no change. The
+  review kit now puts the repo root on `sys.path` and imports `ccp.models`, as `team.py` does for other `ccp` modules.
+- `ccp/prompt.py` and `ccp/runs.py` name no role's default model (the first reads the definition and the
+  `workers.implementer_model` alias, the second the definition), so they are unchanged.
+- `ccp/CLAUDE.md`: its one-line module description of `models.py` also says it holds the role table.
+- Premise re-run at 8da6d52: `git grep` of the two full ids in `ccp scripts` printed the same 2 lines; in `tests` it
+  sums to 98 lines (47 in `tests/test_board_seats.py`), one more than the 97 (46) the task states, not material.
+- Test assertions changed (default model of a seat, now read from the table):
+  - `tests/test_board_seats.py`: the product-copy definition pin's model for the implementer, the plugin runner's
+    pin, the runner block's expected model (a runner of the implementer's agent type), the runner's and the implementer
+    run's expected model and effort, the headless architect row's expected model and effort.
+  - `tests/test_estimator.py`: the launch argv's `--model`/`--effort`, `estimator.pins()["model"]`, the estimator
+    seat row's expected model and effort.
+  - `tests/test_prompt_model.py`: the four `expected_model` assertions that pin the implementer definition's model.
+  Telemetry samples, the lead's `design_seat` values and the `mismatch` unit cases stay literal. `tests/test_architect.py`
+  and `tests/test_plugin.py` also hold a literal default but are outside the task's `paths`, so I left them.
+- `tests/test_role_models.py` (new) holds each of the four definitions' `model:` and `effort:` to its role's row,
+  the rows to `FULL_IDS`, the flags, and the two launchers' constants to `headless_flags`.
+
 ## Verification notes
