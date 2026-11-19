@@ -505,6 +505,7 @@ One `key: value` per line, lists inline.
 | `review_point` | no | the review point whose scope it belongs to (§22) |
 | `paths` | no | files or globs it touches, declared by its writer; parallel safety reads them before the Scope **In:** item (§16) |
 | `parallel` | no | whether it may run beside other tasks (§16) |
+| `clashes_with` | no | ids of tasks it clashes with: both change the same logic in different ways, so they run in either order, never together; the relation is symmetric, a clash recorded on either task holds for both. Read only under `parallel.schedule: clashes` (§16.3); an id that names no task, or the task itself, is refused |
 | `gate` | no | `cold` only (§15) |
 | `shaping` | no | `waived — <reason>` (§19) |
 | `renamed_from` | no | the old id after an amended slug |

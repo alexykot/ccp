@@ -32,6 +32,7 @@ One `key: value` per line; lists inline (`["a", "b"]`), on one line.
 | `review_point` | the review point whose scope it belongs to (`R<n>`) |
 | `paths` | the files or globs it touches. Parallel scheduling reads these first; without them it guesses from Scope **In:** |
 | `parallel` | `true`: changes no file and runs beside anything; `false`: always alone |
+| `clashes_with` | ids of tasks it clashes with: both change the same logic in different ways, so they run in either order, never together. Symmetric (a clash recorded on either task holds for both). Read only under plane.json `parallel.schedule: clashes`; an id that names no task, or the task itself, is refused |
 | `shaping` | `waived — <reason>`, only for an ADR that truly needs no shape |
 | `gate` | `cold`: the verifier accepts no test cache for this task |
 | `sign_off` | text the operator must sign (a SPEC CURRENT → PROPOSED, a contract): `brief` when the task carries it, signed before the claim; `build` when the build finds it, signed after verify at the head that merges; `[brief, build]` for both. The lead records each with `ccp tasks sign-off`; claim and close refuse without it (SPEC §3.5). By default a task declares none: SPEC or contract text that follows from its accepted ADR and brief, describing only the accepted feature, needs no sign-off. Text the build adds beyond that intent is caught by the reviewer and the verifier (`spec_beyond_intent`), which makes a `build` sign-off due without a declaration |

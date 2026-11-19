@@ -1,8 +1,10 @@
 """SPEC §16.3: which tasks the runner may hold at once.
 
-A task's paths are the backticked paths in its Scope section's **In:** item. Two tasks run together
-only when their paths do not meet (unless both are covered by a `parallel.shared` entry, a file tasks only
-append lines to), neither touches a product's `parallel.exclusive` entry, and the
+A task's paths are the backticked paths in its Scope section's **In:** item. Which pairs rule 3 keeps
+apart depends on `parallel.schedule`. Under `paths` (the default), two tasks run together only when their
+paths do not meet (unless both are covered by a `parallel.shared` entry, a file tasks only append lines
+to). Under `clashes`, they run together unless one names the other in `clashes_with` (§5), whatever their
+paths; paths then only feed rules 2 and 4. Either way neither touches a product's `parallel.exclusive` entry, and the
 account's 5-hour usage is below `parallel.session_ceiling_pct` (a product without
 `telemetry.allowance_cmd` reads no usage, so that rule passes). Correctness never rests on these
 rules (§16.1): verify and merge run one at a time on the current head. They only decide what to
@@ -12,6 +14,7 @@ from __future__ import annotations
 
 import copy
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -190,11 +193,33 @@ def paths_meet(cfg: Config, a: dict[str, Any], b: dict[str, Any]) -> tuple[str, 
     return None
 
 
-def kept_apart(cfg: Config, a: dict[str, Any], b: dict[str, Any]) -> tuple[str, str] | None:
-    """Whether tasks `a` and `b` may not run together (§16.3 rule 3): the pair `(path of a, path of b)`
-    that keeps them apart, or None when they may. The one pairwise predicate: rule 3 and `next`'s
-    passed-over walk both ask it, and it is where a scheduling mode branches. Today it is `paths_meet`."""
-    return paths_meet(cfg, a, b)
+@dataclass(frozen=True)
+class Apart:
+    """Why two tasks may not run together (§16.3 rule 3): `kind` is `paths` (`a_path` of the first meets
+    `b_path` of the second) or `clash` (one names the other in `clashes_with`; no paths)."""
+    kind: str
+    a_path: str = ""
+    b_path: str = ""
+
+
+def clashes(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    """§5: either task names the other in `clashes_with` (the relation is symmetric). A task that is done
+    or dropped holds nothing back."""
+    if a.get("status") in ("done", "dropped") or b.get("status") in ("done", "dropped"):
+        return False
+    return (str(b.get("task_id")) in map(str, tasklog._as_list(a.get("clashes_with")))
+            or str(a.get("task_id")) in map(str, tasklog._as_list(b.get("clashes_with"))))
+
+
+def kept_apart(cfg: Config, a: dict[str, Any], b: dict[str, Any]) -> Apart | None:
+    """Whether tasks `a` and `b` may not run together (§16.3 rule 3): the reason, or None when they may.
+    The one pairwise predicate: rule 3 and `next`'s passed-over walk both ask it. Under `parallel.schedule`
+    `paths` it is `paths_meet`; under `clashes` it is the recorded clash, whatever the paths, and
+    `parallel: true` does not lift it."""
+    if settings(cfg).get("schedule", "paths") == "clashes":
+        return Apart("clash") if clashes(a, b) else None
+    met = paths_meet(cfg, a, b)
+    return Apart("paths", met[0], met[1]) if met is not None else None
 
 
 def join_refusal(cfg: Config, cand: dict[str, Any], active: list[dict[str, Any]],
@@ -219,7 +244,9 @@ def join_refusal(cfg: Config, cand: dict[str, Any], active: list[dict[str, Any]]
             return f"{tid} names no path in its Scope In: item and does not say parallel: true: it runs alone (rule 2)"
     for t in active if rule3 else []:
         if (met := kept_apart(cfg, cand, t)) is not None:
-            return f"{cid}'s `{met[0]}` meets in-flight {t.get('task_id')}'s `{met[1]}` (rule 3)"
+            if met.kind == "clash":
+                return f"{cid} clashes with in-flight {t.get('task_id')} (clashes_with, rule 3)"
+            return f"{cid}'s `{met.a_path}` meets in-flight {t.get('task_id')}'s `{met.b_path}` (rule 3)"
     for t in group:
         if flag(t) is True:
             continue
@@ -260,9 +287,10 @@ def next_choice(cfg: Config, q: Path | None, sel: dict[str, Any]) -> dict[str, A
     None, `slots_full`, None or what to tell the runner (§16.3, exit 7), and `passed_over`, the
     `{task_id, why}` of each task passed over. Without parallel, row 0 of the selection, as before §16
     (an in-flight task included: the runner resumes it). With tasks in flight, the ready tasks not in
-    flight are walked in rank order: the first that may join what the runner holds and meets no path of
-    a task passed over is taken. A task that rule 3 alone keeps out (a path meets an in-flight task's),
-    or that meets a passed-over task's path, is passed over: it waits only for the tasks its paths meet.
+    flight are walked in rank order: the first that may join what the runner holds and that rule 3 would
+    not keep from joining a task passed over is taken. A task that rule 3 alone keeps out, or that rule 3
+    would keep from joining a passed-over task, is passed over: it waits only for the tasks rule 3 keeps
+    it from (its paths meet, or under `parallel.schedule: clashes` it clashes with).
     A task any other rule keeps out ends the walk with none (head of line); `slots_full` names the first
     ready task as `head`, with its refusal. Rule 5 is judged on the latest allowance sample while it is
     fresh (15 minutes); the claim samples anew either way."""
@@ -300,7 +328,9 @@ def next_choice(cfg: Config, q: Path | None, sel: dict[str, Any]) -> dict[str, A
         if why is None and behind is None:
             return {"pick": row, "slots_full": None, "passed_over": passed}
         if why is None and behind is not None:
-            why = f"{tid}'s `{behind[1][0]}` meets passed-over {behind[0].get('task_id')}'s `{behind[1][1]}`"
+            o, met = behind
+            why = (f"{tid} clashes with passed-over {o.get('task_id')}" if met.kind == "clash" else
+                   f"{tid}'s `{met.a_path}` meets passed-over {o.get('task_id')}'s `{met.b_path}`")
         passed.append({"task_id": tid, "why": why})
         held.append(t)
     return {"pick": None, "passed_over": passed,

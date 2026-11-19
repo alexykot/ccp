@@ -299,6 +299,18 @@ def _as_list(v: Any) -> list[str]:
     return v if isinstance(v, list) else ([] if v in (None, "") else [v])
 
 
+def _id_list_errors(rel: str, t: dict[str, Any], key: str, ids: set[Any], own: bool = False) -> list[str]:
+    """§5: a frontmatter list of task ids (`depends_on`, `clashes_with`): an id that names no task is
+    refused, and with `own` so is the task's own id (a task cannot clash with itself)."""
+    out = []
+    for x in _as_list(t.get(key)):
+        if x not in ids:
+            out.append(f"{rel}: {key} `{x}`, which does not exist")
+        elif own and x == t.get("task_id"):
+            out.append(f"{rel}: {key} `{x}`, which is the task itself")
+    return out
+
+
 def sign_off_stages(t: dict[str, Any]) -> list[str]:
     """§3.5: the sign-offs the task declares (`sign_off: brief`, `build` or both), in that order."""
     want = {str(x).strip().lower() for x in _as_list(t.get("sign_off"))}
@@ -894,9 +906,8 @@ def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
                                 f"({tl['review_point_pattern']}, SPEC §22)")
             elif why := reviewpoints.problem(cfg, rp, register):
                 errs.append(f"{rel}: {why}")
-        for dep in _as_list(t.get("depends_on")):
-            if dep not in ids:
-                errs.append(f"{rel}: depends_on `{dep}`, which does not exist")
+        errs += _id_list_errors(rel, t, "depends_on", ids)
+        errs += _id_list_errors(rel, t, "clashes_with", ids, own=True)
         if not own_refs and tl["refs_any"] and not any(_as_list(t.get(k)) for k in tl["refs_any"]):
             errs.append(f"{rel}: cites none of {', '.join(tl['refs_any'])}" + _spec_hint(tl["refs_any"]))
         if cfg.architect is not None:
