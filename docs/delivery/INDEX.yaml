@@ -838,7 +838,7 @@ tasks:
     depends_on: [0162-git-merge-helper, 0163-catch-up-decision-as-a-function, 0164-clashes-with-and-schedule]
     path: tasks/0167-close-catches-up-by-patch-id.md
   - id: 0168-resolution-review
-    status: pending
+    status: done
     title: A conflicted integration merge gets a resolution review mode, which names the dod_checks the resolution can affect, and the verifier reruns those
     depends_on: [0162-git-merge-helper]
     path: tasks/0168-resolution-review.md

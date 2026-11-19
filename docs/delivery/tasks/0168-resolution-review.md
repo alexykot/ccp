@@ -1,7 +1,7 @@
 ---
 task_id: 0168-resolution-review
 title: A conflicted integration merge gets a resolution review mode, which names the dod_checks the resolution can affect, and the verifier reruns those
-status: pending
+status: done
 kind: feature
 depends_on: ["0162-git-merge-helper"]
 spec_refs: ["S13", "S15", "S11"]
@@ -220,3 +220,5 @@ back to a full round, on the reviewer's word. The round phases are listed once, 
   left as they are, on the runner's word.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #188 head `1b35c73` (squash `ac5f7e5`): APPROVE. Passed: rr-01, rep-01, gate-01, rec-01, f08-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0168-resolution-review.json.
+
