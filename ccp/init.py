@@ -16,8 +16,8 @@ already has is never overwritten, `--force` or not; the result's `settings` name
 kept. It refuses, writing nothing, when keeping a file would leave the product inconsistent: a
 `plane.json` naming another project id or not loading, a binding for the id that names another
 product root, or a settings file that is not a JSON object. It also refuses, writing nothing, a
-`--gate` it cannot split and a product root or queue path holding `#`, which every binding reader
-cuts off as a comment.
+`--gate` it cannot split and a product root or queue path holding `#`, since the binding reader
+cuts a value at ` #` as a comment.
 
 Pull requests need a GitHub origin until the PR host is an adapter (ADR-0040 D7): when the product
 has no `origin`, or its host is not GitHub, init warns on stderr and in the result's `warnings`,
@@ -355,8 +355,8 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     q = (q or Path.home() / ".delivery-queue" / pid).resolve()
     for what, path in (("product root", product_root), ("queue path", q)):
         if "#" in str(path):
-            raise QueueError(f"ccp init: the {what} {path} holds `#`, which the binding readers cut off "
-                             "as a comment; use a path without it", 2)
+            raise QueueError(f"ccp init: the {what} {path} holds `#`, and the binding reader cuts a value "
+                             "at ` #` as a comment; use a path without `#`", 2)
     settings = root / ".claude" / "settings.json"
     # §4.5: the window is the binding's as it stands after init: the kept one's, else the default.
     lead = lib._yaml_block_scalars(old, "lead") if keep_binding and old else {}

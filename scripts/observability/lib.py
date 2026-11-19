@@ -680,27 +680,6 @@ def empty_seat(sid: str | None = None) -> dict[str, Any]:
     }
 
 
-def _parse_simple_yaml_scalar_map(text: str) -> dict[str, str]:
-    """Tiny YAML subset: top-level `key: value` scalars (no nested structures)."""
-    out: dict[str, str] = {}
-    for line in text.splitlines():
-        s = line.strip()
-        if not s or s.startswith("#") or ":" not in s:
-            continue
-        if s.startswith("-"):
-            continue
-        if line[:1].isspace():
-            continue
-        key, _, val = s.partition(":")
-        key = key.strip()
-        if not key:
-            continue
-        val = val.strip().strip(chr(34)+chr(39))
-        if val:
-            out[key] = val
-    return out
-
-
 def resolve_durable_docs_dir(root: Path) -> Path | None:
     """Resolve product docs/delivery for INDEX status mirror.
 
@@ -715,12 +694,12 @@ def resolve_durable_docs_dir(root: Path) -> Path | None:
     text = project_yaml_text(root)
     if not text:
         return None
-    data = _parse_simple_yaml_scalar_map(text)
-    abs_docs = data.get("durable_docs") or data.get("durable_docs_abs")
+    data = read_binding(text)
+    abs_docs = binding_str(data, "durable_docs") or binding_str(data, "durable_docs_abs")
     if abs_docs:
         return Path(abs_docs).expanduser()
-    product_root = data.get("product_root") or data.get("hamlet_root")
-    rel = data.get("durable_docs_path") or "docs/delivery"
+    product_root = binding_str(data, "product_root") or binding_str(data, "hamlet_root")
+    rel = binding_str(data, "durable_docs_path") or "docs/delivery"
     if product_root:
         return (Path(product_root).expanduser() / rel).resolve()
     return None

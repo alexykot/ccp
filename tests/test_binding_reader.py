@@ -191,6 +191,18 @@ class ReadersTest(BindingDir):
         other = Path(self._d.name) / "none"
         self.assertEqual(sm.product_root(other), "")
 
+    def test_the_durable_docs_directory_is_read_from_the_binding(self):
+        with mock.patch.dict(os.environ, {"DURABLE_DOCS": ""}):
+            self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.product / "docs/delivery")
+            self.binding.write_text(f"product_root: {self.product}  # the checkout\nqueue_root: {self.queue}\n"
+                                    "durable_docs_path: notes/log   # relative\n"
+                                    "runner:\n  durable_docs: /not/top/level\n")
+            self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.product / "notes/log")
+            self.binding.write_text(f"queue_root: {self.queue}\ndurable_docs: '/abs/docs'  # absolute\n")
+            self.assertEqual(lib.resolve_durable_docs_dir(self.queue), Path("/abs/docs"))
+            self.binding.write_text(f"queue_root: {self.queue}\n")
+            self.assertIsNone(lib.resolve_durable_docs_dir(self.queue))
+
 
 class SyncReaderTest(unittest.TestCase):
     """`scripts/sync-product-docs.sh` reads the binding through the same parser."""

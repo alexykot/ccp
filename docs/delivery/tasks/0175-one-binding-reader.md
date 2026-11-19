@@ -55,6 +55,20 @@ written on several lines so its diff can be read. Nothing the plane does changes
   with two-space indentation, its content unchanged.
 - No SPEC change: §8.3 already says every reader resolves through one resolver; this makes it true for
   parsing as well (`git grep -n "one resolver" -- docs/spec` at `e9ff0fc`: one line, §8.3).
+- Ruling `0175-one-binding-reader-r1` from the lead (verbatim): Accepted: differences (a)-(e) in how a
+  hand-edited binding is read (whole value rather than first word; a comment needs ' #'; the last
+  repeated key wins; only direct children of a block; 'key: # comment' opens a block) are forced by
+  E17's one parser, and none affects a binding ccp init writes. Behaviour on init-written bindings stays
+  unchanged, which is what the refactor rule protects. State these differences in the task's
+  Implementation notes (list them: the review report's finding 1 at
+  /Volumes/Work/Projects/.delivery-queue/control-plane/progress/0175-one-binding-reader/review-report.md
+  names them). MINOR 2 (the second parser _parse_simple_yaml_scalar_map in
+  scripts/observability/lib.py, used by resolve_durable_docs_dir; read durable_docs, product_root,
+  durable_docs_path through binding_str(read_binding(text), ...) and delete it, keeping or dropping the
+  legacy hamlet_root key deliberately and saying which) and NIT 4 (ccp/init.py refusal wording: readers
+  now cut only at ' #') are fixed in this round. MINOR 3 (runner-idle.sh, run-checkout.sh) is out of
+  paths; the lead files a follow-up. Also add the ruling to the task file's Context (not checked)
+  section.
 
 ## Scope
 
@@ -122,5 +136,24 @@ written on several lines so its diff can be read. Nothing the plane does changes
   `lib.binding_runner_name`: renames only. `tests/test_board_seats.py` gained one test (the runner row
   reads the binding's `runner` block).
 - `contracts/project.schema.json`: `json.dumps(indent=2)` of the same object, 305 lines.
+- Ruling r1. The differences from the old readers, on a hand-edited binding only (none on a binding
+  `ccp init` writes), accepted by the lead as forced by the one parser:
+  (a) a value is read whole: `spec_maintainer.py` `project_id`/`product_root` and
+  `sync-product-docs.sh` took the first word before;
+  (b) a comment needs ` #`: `otel`, `usage`, `queue`, `lifecycle` and `seats` cut a value at any `#`;
+  (c) a repeated key: the regex readers took the first, `read_binding` takes the last;
+  (d) a block's scalars are its direct children only: `_yaml_block_scalars` (behind `team.runner_cfg`,
+  `lifecycle.rotation_knobs`, init's `lead`, `project_seat_agent`) and `seats` read any depth;
+  (e) `key: # comment` opens a block: the `lifecycle`/`usage`/`queue` `runner` regexes needed
+  `runner:` then a newline.
+- Ruling r1, MINOR 2: `lib._parse_simple_yaml_scalar_map` is gone; `resolve_durable_docs_dir` reads
+  `durable_docs` (and `durable_docs_abs`), `product_root` and `durable_docs_path` with
+  `binding_str(read_binding(text), ...)`. The legacy `hamlet_root` fallback is kept, deliberately: this
+  is a refactor, and dropping a key a binding may still carry is a behaviour change, which belongs with
+  the key removals of 0188. The old parser cut no comment (a value now ends at ` #`) and read
+  `key: # comment` as the value `# comment` (now an empty block, so no value). New test:
+  `test_binding_reader` `test_the_durable_docs_directory_is_read_from_the_binding`.
+- Ruling r1, NIT 4: `ccp/init.py`'s `#` refusal and its docstring say the reader cuts a value at ` #`;
+  the refusal still refuses any `#`.
 
 ## Verification notes
