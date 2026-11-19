@@ -1290,7 +1290,7 @@ and outlasts its caller's command limit is waited on by its suite id with `ccp s
   and `undeclared_paths` (files its PR changed that its declared paths did not name). Calibration may
   split by `peak_in_flight` once enough tasks exist; until then it is recorded, not used.
 - **Forecast** (§26): `max_in_flight` slots; a task starts at the earliest free slot after its
-  dependencies; one without paths and without `parallel: true`, or touching an exclusive path, takes
+  dependencies and after every task ahead of it that claim rule 3 keeps it from running beside (§16.3, by `parallel.schedule`: paths that meet, or a clash); one without paths and without `parallel: true`, or touching an exclusive path, takes
   every slot; gaps between tasks are drawn only from closes with `peak_in_flight` 1. One slot is the
   single-runner model, exactly.
 - **Usage:** the runner seat covers every slot's worktree and every bound name a `runner` event
