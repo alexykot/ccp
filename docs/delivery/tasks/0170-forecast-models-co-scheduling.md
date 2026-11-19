@@ -113,4 +113,11 @@ schedule, in both modes. With one slot the forecast is exactly as today.
 
 *Append-only, newest last.*
 
+- 2026-11-19: `simulate` takes `apart`; `collect` builds it from `parallel.kept_apart` over each pair in the
+  order (earlier ahead), when `slots > 1`. `apart_pairs` counts every pair kept apart, including pairs with a
+  task that runs alone (rule 2 already holds those apart); the simulation adds no draw for it. An in-flight
+  task is not delayed by `apart` (it already started); later tasks wait for its drawn end. The gap is not
+  added after an `apart` end, as with a dependency. ADR-0042 D1 and D2 were already built (6/6) at the base,
+  so this task marks nothing.
+
 ## Verification notes
