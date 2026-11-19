@@ -863,7 +863,7 @@ tasks:
     depends_on: []
     path: tasks/0172-fixtures-name-their-config.md
   - id: 0173-plane-json-block-registry
-    status: pending
+    status: done
     title: One registry of plane.json blocks and their defaults, and one test that holds the schema to it
     depends_on: []
     path: tasks/0173-plane-json-block-registry.md

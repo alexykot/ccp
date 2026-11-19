@@ -1,7 +1,7 @@
 ---
 task_id: 0173-plane-json-block-registry
 title: One registry of plane.json blocks and their defaults, and one test that holds the schema to it
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S8"]
@@ -135,3 +135,5 @@ them constants, each change is checked as it lands. Nothing the plane does chang
   seven removals and the schema half of `tests/test_parallel_defaults.py` are whole-test deletions.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #198 head `1da2e03` (squash `68e392d`): APPROVE. Passed: reg-01, reg-02, reg-03, reg-04. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -q tests.test_plane_config_defaults tests.test_toolkit tests.test_config_unknown_keys tests.test_parallel_defaults tests.test_adr tests.test_rules` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0173-plane-json-block-registry.json.
+
