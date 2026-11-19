@@ -296,12 +296,6 @@ class Knobs(unittest.TestCase):
             with self.subTest(given=given), self.assertRaises(config.ConfigError):
                 self.load(given)
 
-    def test_the_schema_names_the_knobs(self):
-        schema = json.loads((Path(__file__).resolve().parents[1] / "contracts" / "plane_config.schema.json").read_text())
-        self.assertEqual(set(schema["properties"]["usage"]["properties"]), set(config.USAGE_DEFAULTS))
-        self.assertEqual(set(schema["properties"]["usage"]["properties"]["advice"]["properties"]),
-                         set(config.USAGE_DEFAULTS["advice"]))
-
 
 if __name__ == "__main__":
     unittest.main()

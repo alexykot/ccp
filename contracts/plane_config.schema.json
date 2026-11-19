@@ -113,6 +113,15 @@
           "items": {
             "type": "string"
           },
+          "default": [
+            "should",
+            "may",
+            "might",
+            "as appropriate",
+            "gracefully",
+            "robust",
+            "robustly"
+          ],
           "description": "Words refused inside ## dod_checks"
         },
         "review_point_pattern": {
@@ -532,10 +541,12 @@
             "string",
             "null"
           ],
+          "default": null,
           "description": "Product path of the fragment (e.g. docs/delivery/WORKERS.md)."
         },
         "worker_env": {
           "type": "object",
+          "default": {},
           "description": "SPEC §13: NAME: template. `ccp prompt` renders each ({{run_id}}, {{task_id}}, {{nnnn}}, {{phase}}, {{kind}}, {{seat}}, {{round}}, {{worktree}}, {{main_checkout}}, {{queue_root}}, {{project_id}}) into the run's env file, which the prompt tells the worker to source in each command.",
           "propertyNames": {
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
@@ -546,6 +557,7 @@
         },
         "keep_body": {
           "type": "boolean",
+          "default": false,
           "description": "SPEC §23.8: keep the full prompt text (prompt_body) in each prompt audit. Default false: the audit holds ids, refs and the prompt's sha256 and length."
         },
         "audit_keep_days": {
@@ -554,6 +566,7 @@
             "null"
           ],
           "minimum": 1,
+          "default": null,
           "description": "SPEC §23.8: prompt audits (QUEUE_ROOT/prompts/**/<UTC>_<phase>.json) older than this many days, by the stamp in their name, are removed when `ccp prompt` writes an audit. Default null: all are kept."
         }
       }
@@ -573,6 +586,7 @@
             "path",
             "entry"
           ],
+          "default": null,
           "description": "Prepend one entry to a product log. `entry` is a Python format string with date, task_id, nnnn, pr, head, head7, merge_sha, merge7, summary, review_point, title; it goes before the first line matching the regex `before` (or at the end).",
           "properties": {
             "path": {
@@ -595,6 +609,7 @@
             "type": "string",
             "minLength": 1
           },
+          "default": [],
           "description": "Product commands run in the runner worktree, with TASK_ID, PR, HEAD_SHA, MERGE_SHA, SUMMARY and QUEUE_ROOT set. Their changes join the reconcile commit. A hook must be idempotent: a close re-run after a failure runs the hooks again."
         }
       }
@@ -609,6 +624,7 @@
             "string",
             "null"
           ],
+          "default": null,
           "description": "Where `ccp tasks claim` makes task worktrees: a path relative to the main checkout, which may lead outside it with `..`, such as a sibling directory, or an absolute path; not the main checkout itself (impl-NNNN); reviewers and verifiers use rev-NNNN and ver-NNNN beside them."
         },
         "worktree_links": {
@@ -617,6 +633,7 @@
             "type": "string",
             "minLength": 1
           },
+          "default": [],
           "description": "Paths linked into each task worktree from the main checkout (e.g. .venv)."
         },
         "post_close": {
@@ -625,6 +642,7 @@
             "type": "string",
             "minLength": 1
           },
+          "default": [],
           "description": "Commands `ccp tasks close` runs in the main checkout after the reconcile; {task_id} and {nnnn} are filled in. A failure is a warning."
         }
       }
@@ -639,6 +657,7 @@
             "string",
             "null"
           ],
+          "default": null,
           "description": "A path relative to the main checkout, which may lead outside it with `..`, such as a sibling directory, or an absolute path; not the main checkout itself; worktrees are named <kind>-<nnnn>[-<n>] (impl, rev, ver, mut, mac, base). Null: no plane-made worktrees."
         },
         "links": {
@@ -647,6 +666,7 @@
             "type": "string",
             "minLength": 1
           },
+          "default": [],
           "description": "Paths linked into each worktree from the main checkout (e.g. a virtualenv)."
         }
       }
@@ -661,6 +681,7 @@
             "string",
             "null"
           ],
+          "default": null,
           "description": "When a worktree is made; a failure removes it again."
         },
         "teardown": {
@@ -668,6 +689,7 @@
             "string",
             "null"
           ],
+          "default": null,
           "description": "When a worktree is removed (close, drop, release, gc, `ccp wt remove`); a failure is a warning."
         },
         "up": {
@@ -675,6 +697,7 @@
             "string",
             "null"
           ],
+          "default": null,
           "description": "`ccp wt up`: start what the worktree serves; a failure leaves it down and exits non-zero."
         },
         "down": {
@@ -682,6 +705,7 @@
             "string",
             "null"
           ],
+          "default": null,
           "description": "`ccp wt down` (and before removal of an up worktree); a failure is a warning."
         },
         "urls": {
@@ -689,6 +713,7 @@
             "string",
             "null"
           ],
+          "default": null,
           "description": "Prints a JSON list of {name, url}, any length: what the worktree serves (recorded on up; `ccp wt urls`)."
         },
         "timeout_seconds": {
@@ -708,6 +733,7 @@
             "string",
             "null"
           ],
+          "default": null,
           "description": "A template naming {pr}, {head_sha} (required: the merge is pinned to the verified head) and {task_id}; null: gh pr merge {pr} --squash --match-head-commit {head_sha}."
         },
         "behind_tip_ignore": {
@@ -743,7 +769,8 @@
                 "description": "Exit 0 = the credential works. Never print a secret."
               }
             }
-          }
+          },
+          "default": []
         },
         "timeout_seconds": {
           "type": "integer",
@@ -759,19 +786,22 @@
       "properties": {
         "otel_port": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "default": 4318
         },
         "allowance_cmd": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "default": null
         },
         "allowance_stop_weekly": {
           "type": [
             "number",
             "null"
           ],
+          "default": null,
           "description": "SPEC §25.3: the weekly checkpoint (percent). A new claim stops there until the lead records the operator's decision (ccp allowance continue)."
         },
         "session_park_pct": {
@@ -801,6 +831,7 @@
             "null"
           ],
           "additionalProperties": false,
+          "default": null,
           "description": "SPEC §24.5: the lead's expected model and effort. Advice only: the plane flags a difference, it never sets them.",
           "properties": {
             "model": {
@@ -822,7 +853,8 @@
       "properties": {
         "refresh_minutes": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "default": 5
         }
       }
     },
@@ -853,6 +885,12 @@
         "advice": {
           "type": "object",
           "additionalProperties": false,
+          "default": {
+            "cache_5m_share": 0.5,
+            "context_tokens": 300000,
+            "coordination_share": 0.4,
+            "window_hours": 0
+          },
           "description": "The thresholds of the cost advice `ccp usage` and `ccp health` print, a line per measure past its threshold. Advice only: no setting is changed.",
           "properties": {
             "cache_5m_share": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.5, "description": "A seat whose 5-minute cache writes are more than this share of its cache-write tokens is advised to set subagentPromptCacheTtl to 1h."},
@@ -889,6 +927,7 @@
         "exclusive_lanes": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$"}, "default": [], "description": "SPEC §16.6: lanes that run one at a time in the queue (a run with no --lane is `full`). A run that finds one held exits 75 at once and runs nothing."},
         "lanes": {
           "type": "object",
+          "default": {},
           "description": "SPEC \u00a714.2: a lane name to what `ccp suite run --lane NAME` runs from the checkout's root: an argv (one stage, named after the lane), or an ordered list of {name, cmd} stages, run in order until one fails. The gate role's staged lane ends with the plane's doc checks as the stage `plane-docs`.",
           "propertyNames": {
             "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$"
@@ -936,11 +975,17 @@
           ],
           "items": {"type": "string"},
           "minItems": 1,
+          "default": null,
           "description": "SPEC §14.3: a regular expression, or a list of them, matched per output line: the first pattern a line matches counts it, its first group as the count, or the line as one test when the pattern has no group; the counts are summed. Default: unittest's `Ran N tests in`."
         },
         "roles": {
           "type": "object",
           "additionalProperties": false,
+          "default": {
+            "full": "full",
+            "gate": "gate",
+            "part": "part"
+          },
           "description": "SPEC §14.1: the lane name the product gives each role the plane reads. Default: each role's own name.",
           "properties": {
             "full": {"type": "string", "description": "The whole suite; a run with no --lane is this lane."},
@@ -957,6 +1002,7 @@
         "log_keep_days": {
           "type": "integer",
           "minimum": 1,
+          "default": 14,
           "description": "SPEC §14.1: summary-mode logs in the queue (runs/<task>/*-suite-*.log, runs/_suite-logs/) older than this many days are removed when a `ccp suite run` starts. Default 14."
         },
         "summary": {
@@ -965,6 +1011,7 @@
             "null"
           ],
           "additionalProperties": false,
+          "default": null,
           "description": "SPEC §14.1: what `ccp suite run` reads from the output when the gate writes no result file (CCP_SUITE_RESULT, contracts/suite_result.schema.json), and what summary mode shows. Each `*_re` is a regular expression or a list of them; a key left out keeps its default (Python unittest's failures and skips; no cache counters).",
           "properties": {
             "failed_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "First group a failure count, summed. Default: unittest's `FAILED (failures=N` and `errors=N`."},
@@ -991,7 +1038,18 @@
         "k": {"type": "integer", "minimum": 5, "maximum": 8, "default": 6, "description": "The reference class's size"},
         "auto": {"type": "boolean", "default": false, "description": "Phase B: `ccp tasks check` and `ccp tasks index` start the estimator seat in the background for open tasks whose agent estimate is missing or stale (at most 10 per batch, one batch at a time). Off by default: `ccp tasks estimate --all` runs it by hand"},
         "spec_paths": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": ["docs/SPEC.md", "SPEC.md", "docs/spec/*.md", "spec/*.md"], "description": "SPEC §26.3: where the estimator looks for cited SPEC headings (globs relative to the product root, in order)"},
-        "path_suffixes": {"type": ["array", "null"], "items": {"type": "string", "pattern": "^\\."}, "default": null, "description": "SPEC §26.3: suffixes that make a backticked token a cited path (null: the built-in list)"}
+        "path_suffixes": {"type": ["array", "null"], "items": {"type": "string", "pattern": "^\\."}, "default": null, "description": "SPEC §26.3: suffixes that make a backticked token a cited path (null: the built-in list)"},
+        "calibration": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {"half_life": 40, "min_pairs": 8, "k": null},
+          "description": "SPEC §26.3 phase D: the calibration fit (ccp/calibrate.py). A key left out keeps its default.",
+          "properties": {
+            "half_life": {"type": "number", "exclusiveMinimum": 0, "default": 40, "description": "The weight of a merged task halves every this many merges"},
+            "min_pairs": {"type": "integer", "minimum": 3, "default": 8, "description": "The fewest estimate-and-actual pairs per source and metric that a fit needs"},
+            "k": {"type": ["number", "null"], "exclusiveMinimum": 0, "default": null, "description": "The shrinkage strength of the fit; null: fitted (empirical Bayes)"}
+          }
+        }
       }
     },
     "review_points": {
@@ -1107,6 +1165,7 @@
           "required": [
             "max_age_days"
           ],
+          "default": null,
           "description": "The product's content-keyed test cache stands in for a rerun: a unit (test, module or file, the product's unit) the verifier's own gate run reports as a hit on identical inputs counts as run; the gate run records ran and cached (from the gate's result file or its output's counts, §14.1), and the verify report's Suite: line ends `ran <r>, cached <c>`.",
           "properties": {
             "max_age_days": {

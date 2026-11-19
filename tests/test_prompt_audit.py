@@ -92,10 +92,6 @@ class PromptAudit(ToolkitFixture, unittest.TestCase):
         self.assertEqual(config.load(self.runner).prompts["audit_keep_days"], None)
         self.assertIs(config.load(self.main).prompts["keep_body"], False)
 
-    def test_the_config_schema_names_the_knobs(self):
-        schema = json.loads((OBS.parent.parent / "contracts/plane_config.schema.json").read_text())
-        self.assertLessEqual(set(config.PROMPTS_DEFAULTS), set(schema["properties"]["prompts"]["properties"]))
-
 
 class Pruning(unittest.TestCase):
     def test_age_is_read_from_the_name_and_only_audits_go(self):

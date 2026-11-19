@@ -392,10 +392,6 @@ class TemplatesAndContracts(unittest.TestCase):
         self.assertTrue(found and all(found.values()), found)
         self.assertLessEqual(len(text.splitlines()), config.ARCHITECT_DEFAULTS["rules_max_lines"])
 
-    def test_plane_config_schema_has_every_architect_key(self):
-        schema = json.loads((self.PLANE / "contracts/plane_config.schema.json").read_text())
-        self.assertEqual(set(schema["properties"]["architect"]["properties"]), set(config.ARCHITECT_DEFAULTS))
-
     def test_report_schema_categories_are_the_lenses(self):
         from ccp import architect
         schema = json.loads((self.PLANE / "contracts/architect_report.schema.json").read_text())

@@ -1,7 +1,7 @@
 ---
 task_id: 0173-plane-json-block-registry
 title: One registry of plane.json blocks and their defaults, and one test that holds the schema to it
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S8"]
@@ -118,4 +118,22 @@ them constants, each change is checked as it lands. Nothing the plane does chang
 
 *Append-only, newest last.*
 
+- `config.BLOCK_DEFAULTS` holds the 28 blocks in `BLOCKS`' old order; `BLOCKS = tuple(BLOCK_DEFAULTS)`. `_toolkit`
+  merges every block outside `_OWN_LOADER_BLOCKS` (`task_log`, `package_docs`, `architect`, `usage`, `suite`,
+  `adr`, `ids`, `docs`, `upgrade`) in one comprehension; `_merge(` now appears 11 times in `ccp/config.py`.
+- The schema gained `estimate.calibration` and a `default` on the 31 keys (the values are the code's). The schema's
+  `calibration` constraints (`half_life` > 0, `min_pairs` >= 3, `k` > 0 or null) restate what `ccp/config.py`
+  already checks.
+- `tests/test_plane_config_defaults.py` compares, per block, the schema's keys with the registry's and each stated
+  `default` with the code's value; every top-level key must state one (a key that is an object of listed keys
+  states its leaves'). Nested dicts are compared by recursion where the code's default is a non-empty dict
+  (`usage.advice`, `estimate.calibration`, `ids.*`, `suite.roles`); `suite.summary` and `verify.accept_cache`, whose
+  defaults sit in `SUITE_SUMMARY_DEFAULTS` and `ACCEPT_CACHE_DEFAULTS`, are compared by key set and any stated
+  default, without requiring one on each leaf (the task adds none there). `suite.summary` also lists its two
+  pre-contract alias keys.
+- `tests/test_adr.py` keeps its frontmatter half (renamed `test_the_schema_lists_the_frontmatter`); the other
+  seven removals and the schema half of `tests/test_parallel_defaults.py` are whole-test deletions.
+
 ## Verification notes
+- 2026-11-19 — verifier, PR #198 head `1da2e03` (squash `68e392d`): APPROVE. Passed: reg-01, reg-02, reg-03, reg-04. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -q tests.test_plane_config_defaults tests.test_toolkit tests.test_config_unknown_keys tests.test_parallel_defaults tests.test_adr tests.test_rules` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0173-plane-json-block-registry.json.
+
