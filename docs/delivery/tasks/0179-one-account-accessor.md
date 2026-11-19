@@ -78,4 +78,16 @@ windows, the session park and wake, the parallel session ceiling) are read throu
 
 *Append-only, newest last.*
 
+- `usage.account(cfg)` builds all seven facts eagerly from `cfg.telemetry` and `cfg.parallel`, each with the
+  default and the null/bad-value handling its reader had (`park_pct` and `wake_arm_pct` through `_num_or_none`,
+  the arm falling back to the default on 0 or null; `wake_margin_s` an int or the default; `windows` the
+  merge `window_rules` built). `window_rules` and `session_settings` now return from it.
+- `ceiling_pct` is the raw `parallel.session_ceiling_pct`; rule 5 still applies `float()` to it, as before.
+  It reads `getattr(cfg, "parallel", None)`, because several existing tests pass a `SimpleNamespace`
+  carrying only `telemetry` to `session_settings`; a `Config` always has the attribute.
+- `ccp/parallel.py` now imports `ccp.usage` at module level (it had no import of it; `usage` imports
+  `parallel` only inside functions, so no cycle).
+- `tests/test_account_accessor.py` (new) covers the defaults (no block, `None`, the built-in defaults),
+  each key set, `session_park_pct: null`, bad wake values, the window merge, and the two `parallel` readers.
+
 ## Verification notes
