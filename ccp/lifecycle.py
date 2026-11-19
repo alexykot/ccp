@@ -1507,11 +1507,11 @@ def catch_up_blocked(declared: list[str], tip_files: list[str], task_files: list
                      whole_patch_same: bool | None = None) -> str | None:
     """§16.5 rule 4: the first condition that stops close catching a verified head up itself, as the text
     `_catch_up` raises, or None. On plain values, with no git, file or queue access; the order is behaviour.
-    Under `parallel.schedule: paths` (the default): (1) the task declares no `paths`; (2) overlap: a file the
+    Under `parallel.schedule: paths`: (1) the task declares no `paths`; (2) overlap: a file the
     tip's new commits change is one the task's own diff (`task_files`) or a declared path changes, other than a
     `parallel.shared` path; (3) build sign-off: when one is due (`signed_due`), a file the tip's new commits
     change is one the task's own diff changes, a `parallel.shared` path included, since the sign-off covers the
-    verified head. Under `clashes` the file condition is the patch test alone: `patch_same`, the task's own
+    verified head. Under `clashes` (the default) the file condition is the patch test alone: `patch_same`, the task's own
     patch with `parallel.shared` paths left out unchanged by the merge (None: it could not be read), and, with
     a build sign-off due, `whole_patch_same` too, the whole patch, shared paths included."""
     from ccp import parallel  # noqa: PLC0415
