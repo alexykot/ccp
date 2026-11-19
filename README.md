@@ -19,14 +19,18 @@ A developer (the operator) stays in the loop, and their job is to:
 
 - set the direction and the product's intent;
 - turn business requirements into ADRs, working with the design seat;
+- make or direct critical research, prototyping, and invention that becomes requirements;
 - hold the architectural vision;
-- in rare cases, look at a specific piece of logic.
+- in rare cases, look at a specific critical pieces of logic.
 
 Everything else runs without them: breaking ADRs into tasks, implementation, code review,
 verification against each task's own checks, merge and, as the goal, release to production by
-default. The developer is the escalation point, not the reviewer of each change.
+default. The developer is the escalation point, chief architect and the inventor, 
+not the reviewer of each change.
 
-### Assumptions
+### Current Assumptions
+_may change in the future_
+
 
 - **Claude Code is the interface, and Claude is the target model.** Every seat is a Claude Code
   session, teammate or subagent, and the seats' models are Claude models. Other agent harnesses and
@@ -54,9 +58,9 @@ default. The developer is the escalation point, not the reviewer of each change.
 - **Several products per operator**, each with its own binding and queue.
 - **Self-hosting.** CCP's own development is recorded in its own task log, ADRs and checks.
 
-### What is not there yet
+### What will work in the future
 
-- **Production.** Promotion to production is operator-gated and never automated today (SPEC §3.4),
+- **Production.** Promotion to production is operator-gated and not automated today (SPEC §3.4),
   and the plane has no deploy or post-merge smoke step of its own. Auto-release by default is the
   goal; it needs a SPEC change and a design for release and rollback hooks.
 - **PR hosts other than GitHub.** Every task lands as a GitHub pull request through `gh`. The PR
