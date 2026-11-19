@@ -41,7 +41,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ccp import health, pkgdocs, refs, rules, tasklog
+from ccp import config, health, pkgdocs, refs, rules, tasklog
 from ccp.adr import find_file as find_adr_file
 from ccp.config import ARCHITECT_DEFAULTS, Config
 
@@ -185,12 +185,12 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
     if n_notes >= a["notes_due"]:
         reasons.append(("notes", f"{n_notes} friction note(s) since {label}", -1))
     drift = None
-    if cfg.architect is not None:
+    if config.architect_on(cfg):
         drift = health.trend(health.collect(cfg, q, files=False)["tasks"], a["drift_ratio"])
         if drift["drift"] and not last.get("health_drift"):
             reasons.append(("drift", f"health drift: median active time of the last 5 tasks is {drift['drift_ratio']}x "
                                      f"the 10 before (limit {a['drift_ratio']})", -1))
-    budgets = rules.budget_failures(cfg) if cfg.architect is not None else []
+    budgets = rules.budget_failures(cfg) if config.architect_on(cfg) else []
     new_budgets = [b for b in budgets if b.split(":", 1)[0] not in set(last.get("budget_ids") or [])]
     if new_budgets:
         reasons.append(("budget", "budget check fails: " + "; ".join(new_budgets[:3]), -1))
@@ -231,7 +231,7 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
             break
         failed_in_a_row += 1
     info: dict[str, Any] = {
-        "enabled": cfg.architect is not None, "done_total": len(done), "done_since_last": since,
+        "enabled": config.architect_on(cfg), "done_total": len(done), "done_since_last": since,
         "days_since_last": days, "last_review_id": last.get("review_id"), "running": running,
         "awaiting_triage": awaiting, "notes_since_last": n_notes, "budget_failures": budgets,
         "health": drift, "reasons": [t for _, t, _ in reasons], "merges_since_due": max(waited, default=0),
@@ -239,7 +239,7 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
         "merges_since_attempt": len(done) - attempt["done_count"] if restart is not None else None,
         "grace_tasks": a["grace_tasks"], "triage_grace_tasks": a["triage_grace_tasks"],
     }
-    if cfg.architect is None:
+    if not config.architect_on(cfg):
         info.update(due=False, reason="no architect block in docs/delivery/plane.json")
     elif running:
         info.update(due=False, reason=f"pass {running[0]} is running")
@@ -464,7 +464,7 @@ def cmd_run(cfg: Config, q: Path, a: argparse.Namespace, actor: str) -> int:
         raise SystemExit("ccp architect run --mode shape: give --adr <id>")
     info = due_info(cfg, q, work_scope(q, a.scope))
     if mode == "pass":
-        if cfg.architect is None and not a.force:
+        if not config.architect_on(cfg) and not a.force:
             return ar.out({"outcome": "disabled", **info}, 3)
         if not a.force and not info["due"]:
             return ar.out({"outcome": "not_due", **info}, 3)

@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ccp import health, plane, quality, refs, runs, suite, usage
+from ccp import config, health, plane, quality, refs, runs, suite, usage
 from ccp.config import Config
 from ccp.queue import (PLANE, durable_statuses, iso, launchd_bootout, launchd_reload, load_work, preferred_ids, read_json, run_ccp,
                        run_ccp_warning, script_drift)
@@ -267,7 +267,7 @@ def _refactors_waiting(cfg: Config, scope: list[str]) -> dict[str, Any] | None:
     """§20.4: outstanding refactors outside work.json's scope (neither named nor depended on; all of
     them when it records no scope), and the oldest one's age from its `created` date. None without the architect block (kind is not read)."""
     from ccp import tasklog  # noqa: PLC0415
-    if cfg.architect is None:
+    if not config.architect_on(cfg):
         return None
     if scope:
         waiting = tasklog.waiting_refactors(cfg, [str(s) for s in scope])

@@ -189,7 +189,7 @@ def refactor_log(root: Path, quiet: bool = False) -> tuple[Any, list[dict[str, A
     from ccp import config as ccp_config, tasklog  # noqa: PLC0415
     try:
         cfg = ccp_config.load(Path(prod))
-        if cfg.architect is None or cfg.architect["refactor_in_scope"] != "deps":
+        if not ccp_config.architect_on(cfg) or cfg.architect["refactor_in_scope"] != "deps":
             return None
         tasks = tasklog.load(cfg)
     except Exception as e:  # noqa: BLE001  (a bad plane.json or task file: refuse cleanly, write nothing)

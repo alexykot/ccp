@@ -495,6 +495,19 @@ def lane_for(cfg: Any, role: str) -> str:
     return str(roles.get(role) or SUITE_DEFAULTS["roles"][role])
 
 
+def architect_on(cfg: Any) -> bool:
+    """Whether the architect seat is on for the product: the one test every on/off site asks (§19)."""
+    return getattr(cfg, "architect", None) is not None
+
+
+def adoption_point(cfg: Any) -> int | None:
+    """The task number the architect starts from (`architect.shape_from_task`, a number or an id), or
+    None when the architect is off or names none (§19.6)."""
+    sft = (getattr(cfg, "architect", None) or {}).get("shape_from_task")
+    m = refs.ids(cfg).task_number_re.match(str(sft or ""))
+    return int(m.group(1)) if m else None
+
+
 def _merge(defaults: dict[str, Any], given: Any, name: str) -> dict[str, Any]:
     if given is None:
         return copy.deepcopy(defaults)
