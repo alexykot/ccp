@@ -38,7 +38,9 @@ directory inside the repository; failing on a leftover `state/*` branch is gate.
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import json
 import os
 import re
@@ -177,11 +179,15 @@ def module_key(name: str, shared: str) -> str:
 
 
 def max_age_days() -> int | None:
-    """plane.json `verify.accept_cache.max_age_days`: an entry older than it is no hit (None: no limit)."""
+    """plane.json `verify.accept_cache.max_age_days`, as ccp loads it: an entry older than it is no hit
+    (None: no limit, also when the configuration does not load). The load's warnings are not printed."""
+    sys.path.insert(0, str(ROOT))
     try:
-        cfg = json.loads((ROOT / "docs" / "delivery" / "plane.json").read_text())
-        age = ((cfg.get("verify") or {}).get("accept_cache") or {}).get("max_age_days")
-    except (OSError, ValueError, AttributeError):
+        from ccp import config  # noqa: PLC0415
+        with contextlib.redirect_stderr(io.StringIO()):
+            cfg = config.load(ROOT)
+        age = ((cfg.verify or {}).get("accept_cache") or {}).get("max_age_days")
+    except Exception:  # noqa: BLE001  (no plane.json, invalid JSON, a ConfigError: no limit, as before)
         return None
     return age if isinstance(age, int) and not isinstance(age, bool) and age >= 1 else None
 
