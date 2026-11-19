@@ -174,5 +174,11 @@ is no longer a product setting.
 - tel-04 step 2 (a live `claude -p` with the receiver running) was not run: it needs the operator's logged-in session and
   receiver, and this worker has neither fenced off. Which keys took effect is therefore not recorded here; the block keeps
   all three, as the task says.
+- Fix round 1: (a) `ccp sandbox create` passing `--telemetry off` to its init, refusing `--telemetry` as a create
+  option, and `init` refusing `--telemetry on` inside a sandbox (choice 2 above) is a decision beyond the Scope paths
+  (`ccp/sandbox.py`), taken so a sandbox never touches the user's settings or services; SPEC §29.3 is unchanged and does
+  not mention it. (b) `otel.receiver_port` falls back to the default port when `CCP_OTEL_PORT` is not a number, instead
+  of raising at the end of an otherwise complete init. (c) The tag test gives each case a fresh repository, so the `off`
+  consent case is shown to write the tag from fresh.
 
 ## Verification notes

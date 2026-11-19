@@ -617,8 +617,12 @@ def env_block(port: int) -> dict[str, str]:
 
 
 def receiver_port() -> int:
-    """The receiver's port: `CCP_OTEL_PORT`, else the default. The receiver owns it; plane.json holds none."""
-    return int(envvar("CCP_OTEL_PORT") or DEFAULT_PORT)
+    """The receiver's port: `CCP_OTEL_PORT`, else the default (also when the variable is not a number, so a bad
+    environment never breaks `ccp init` after it has written everything). The receiver owns it; plane.json holds none."""
+    try:
+        return int(envvar("CCP_OTEL_PORT") or DEFAULT_PORT)
+    except ValueError:
+        return DEFAULT_PORT
 
 
 def off_block() -> dict[str, str]:

@@ -9,6 +9,7 @@ import contextlib
 import io
 import json
 import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -203,17 +204,25 @@ class Sandboxed(Machine):
 
 
 class Tag(InitCase):
+    def fresh_repo(self):
+        """An empty repository and no bindings, so each case starts from a product `init` has never touched."""
+        for d in (self.repo, self.bindings):
+            shutil.rmtree(d, ignore_errors=True)
+        self.repo.mkdir()
+        self.git("init", "-q", ".")
+
     def settings(self):
         return json.loads((self.repo / ".claude" / "settings.json").read_text())
 
     def test_the_tag_is_written_beside_the_agent_teams_key_whatever_the_consent(self):
         for flag in ((), ("--telemetry", "off")):
             with self.subTest(flag=flag):
+                self.fresh_repo()
                 code, res = self.init("--project-id", "demo", *flag)
                 self.assertEqual(code, 0, res)
                 self.assertEqual(self.settings()["env"], {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
                                                           "OTEL_RESOURCE_ATTRIBUTES": "ccp.project_id=demo"})
-                self.assertEqual(res["telemetry"]["tag"], "kept" if flag else "added")
+                self.assertEqual(res["telemetry"]["tag"], "added")
 
     def test_a_tag_the_product_set_is_never_overwritten(self):
         (self.repo / ".claude").mkdir()
@@ -270,6 +279,13 @@ class OptOut(unittest.TestCase):
 
 
 class Port(unittest.TestCase):
+    def test_a_non_numeric_port_in_the_environment_falls_back_to_the_default(self):
+        for bad in ("abc", "43.18", " "):
+            with self.subTest(value=bad), mock.patch.dict(os.environ, {"CCP_OTEL_PORT": bad}):
+                self.assertEqual(otel.receiver_port(), otel.DEFAULT_PORT)
+        with mock.patch.dict(os.environ, {"CCP_OTEL_PORT": "4999"}):
+            self.assertEqual(otel.receiver_port(), 4999)
+
     def test_plane_json_that_still_sets_otel_port_loads_with_the_unknown_key_warning(self):
         p = Product({"telemetry": {"otel_port": 4318}})
         self.addCleanup(p.cleanup)
