@@ -1,7 +1,7 @@
 ---
 task_id: 0180-parallel-by-default
 title: A product with no parallel block runs three tasks at once, scheduled by clashes
-status: pending
+status: done
 kind: feature
 depends_on: ["0172-fixtures-name-their-config", "0173-plane-json-block-registry", "0174-config-readers-go-through-ccp"]
 spec_refs: ["S16"]
@@ -115,3 +115,5 @@ still keep tasks apart, and a product that wants the old behaviour sets `max_in_
 - 2026-11-19 — Fix round 1 (review MINOR 1): the `ccp/parallel.py` module docstring and the `ccp/lifecycle.py` `catch_up_blocked` docstring no longer call `paths` or one slot the default, and now name `clashes` the default; comments only, no behaviour change. `team.py`'s `max_in_flight` docstring was not stale (its 1 is the fallback when the configuration does not load). The unreachable `.get("schedule", "paths")` fallbacks are left as they are.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #206 head `4320652` (squash `a202def`): APPROVE. Passed: par-01, par-02, par-03, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0180-parallel-by-default.json.
+
