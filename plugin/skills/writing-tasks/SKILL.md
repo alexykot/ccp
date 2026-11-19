@@ -180,6 +180,19 @@ refactor not yet done whose check step runs the gate or full lane (the lanes `su
 `suite.lanes` declares them) in a one-line backticked command: as a whole command, also behind `env`,
 `bash`/`sh`, `time` or `timeout N` or before a redirection, or as `ccp suite run --lane <lane>`.
 
+## Wide plans, not deep chains
+
+A review point written as one long chain, each task waiting on the one before, runs one task at a
+time. Write it wide:
+
+- Sequence two tasks only for a dependency or a clash, never because they touch the same files.
+- For a feature, write one thin first task that fixes the interfaces, then tasks that build on it in
+  parallel.
+- Make tasks smaller where each piece still works on its own. There is no hard size cap.
+
+`ccp tasks check` notes each review point's longest `depends_on` chain and its width at each depth,
+and warns when the chain is long and the plan narrow.
+
 ## Review points and shaping
 
 - **Review points** (§22.1, §22): set `review_point: R<n>` when scoping (`ccp review-points tag`).

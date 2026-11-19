@@ -293,10 +293,13 @@ def cmd_tasks_check(cfg: config.Config, a: argparse.Namespace) -> int:
     code = _print_errs("tasks", errs, f" ({len(tasklog.load(cfg))} tasks)")
     from ccp import reviewpoints  # noqa: PLC0415
     from ccp import parallel  # noqa: PLC0415
-    for w in tasklog.warnings(cfg) + reviewpoints.notes(cfg) + parallel.scope_warnings(cfg, tasklog.load(cfg)):
+    from ccp import plan  # noqa: PLC0415  (§21.1: advisory; never changes the exit code)
+    tasks = tasklog.load(cfg)
+    chain_notes, chain_warnings = plan.chain_report(cfg, tasks)
+    for w in tasklog.warnings(cfg) + reviewpoints.notes(cfg) + parallel.scope_warnings(cfg, tasks) + chain_warnings:
         print(f"  warning: {w}")
     from ccp import estimator  # noqa: PLC0415  (§26.3: advisory; never changes the exit code)
-    for n in estimator.notice(cfg):
+    for n in chain_notes + estimator.notice(cfg):
         print(f"  note: {n}")
     return code
 

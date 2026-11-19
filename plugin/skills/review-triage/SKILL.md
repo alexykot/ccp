@@ -158,7 +158,8 @@ A shape advises how to task an accepted ADR. You still give each finding a dispo
 - write the shaping record `docs/delivery/reviews/<review_id>.md` with a line `ADR: ADR-NNNN`
   naming the ADR it shaped: `ccp tasks check` looks for that line before it accepts new tasks
   citing the ADR (when `architect.shape_adrs` is on);
-- adjust the ADR's task graph (its tasks' `depends_on` and order) as far as the advice holds;
+- adjust the ADR's task graph (its tasks' `depends_on` and order) as far as the advice holds, keeping
+  it wide (writing-tasks skill, *Wide plans, not deep chains*);
 - create at most **3 preparatory refactor tasks** (`kind: refactor`, citing the shape's findings in
   `review_refs`), and make the ADR's first feature tasks depend on them.
 

@@ -1,7 +1,7 @@
 ---
 task_id: 0165-wide-plans-chain-warning
 title: ccp tasks check reports each review point's longest depends_on chain and width, warns on a deep plan, and the writing-tasks skill says to write wide plans
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S21", "S19", "S5"]
@@ -120,4 +120,15 @@ architect's shape pass and review triage point to that one place rather than res
 
 *Append-only, newest last.*
 
+- `plan.chain_report(cfg, tasks)` reuses `_depths` on each review point's pending tasks (edges kept inside the
+  group); the chain's ids come from walking back from the lowest-numbered deepest task, taking the lowest-numbered
+  dependency one depth down. `cmd_tasks_check` prints its notes with the estimator's and its warnings with the others.
+- Open choices, narrowest reading: the group of tasks with no `review_point` is labelled `no review point` in its
+  note; groups print in the order their first task appears in the log; a group of one pending task prints nothing;
+  only `pending` tasks count (legacy `in_progress` and `blocked` already read as pending).
+- ADR-0042 D6 marked built (`ccp adr decide 42 D6 built`). `tests/test_estimator.py` now asserts `note: estimates`
+  absent rather than any `note:`.
+
 ## Verification notes
+- 2026-11-19 — verifier, PR #182 head `ac512f1` (close's catch-up of the approved `bead50a`, gate run st-20261119T100646Z-2f836f) (squash `ef631e2`): APPROVE. Passed: chain-01, chain-02, chain-03, doc-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0165-wide-plans-chain-warning.json.
+
