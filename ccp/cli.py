@@ -60,7 +60,8 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
             (what a plane release asks of a product; decline and take record a step in plane.json, SPEC §29.3)
   ccp agent start|stop          (the SubagentStart / SubagentStop hooks; hook JSON on stdin)
   ccp orientation               (the SessionStart orientation, for a session that adopted mid-run, SPEC §9.3)
-  ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--starter-rules] [--force]
+  ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--language L] [--gate CMD]
+           [--starter-rules] [--force]
             (adopt this repository: footprint, binding and queue, SPEC §4.3, §8.3; the starter
             house rules, §20.5)
   ccp sandbox create [DIR] [-- INIT_OPTIONS …] | remove DIR  (a throwaway adopted product, its binding and queue
@@ -379,6 +380,11 @@ def cmd_docs_history_paths(cfg: config.Config, a: argparse.Namespace) -> int:
 def cmd_docs_check(cfg: config.Config, _a: argparse.Namespace) -> int:
     # The task log and the house rules are part of the documentation contract: one command, one gate.
     from ccp import adr  # noqa: PLC0415
+    try:  # §8.1: the package-doc checks follow the language; unset, a warning in the grace release, else exit 2
+        config.require_language(cfg, "`ccp docs check`")
+    except config.MissingKey as e:
+        print(f"ccp docs check: {e}", file=sys.stderr)
+        return 2
     docs_checks = [f"docs check {e}" for e in rules.run_checks(cfg, cfg.docs["checks"])]  # §21.5 docs.checks
     code = _print_errs("docs", config.unknown_key_errors(cfg) + pkgdocs.check(cfg) + tasklog.check(cfg)
                        + rules.check(cfg) + rules.starter_check(cfg) + adr.check(cfg) + docs_checks, "")
@@ -1387,6 +1393,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--project-id", help="the project id (default: plane.json's, else the directory's name)")
     p.add_argument("--queue-root", help="the queue directory (default: ~/.delivery-queue/<project_id>)")
     p.add_argument("--integration-branch", help="the binding's integration branch (default: main)")
+    p.add_argument("--language", help="the product's language pack, or none, written to plane.json language "
+                                      "(SPEC §8.1); not applied when plane.json exists and is kept (no --force)")
     p.add_argument("--gate", help="the gate lane's command, written to plane.json suite.lanes.gate; "
                                   "not applied when plane.json exists and is kept (no --force)")
     p.add_argument("--starter-rules", action="store_true",

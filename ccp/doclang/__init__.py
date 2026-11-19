@@ -2,7 +2,7 @@
 
 `ccp docs check` judges documentation in two layers. The core (ccp/pkgdocs.py) is language-neutral:
 a doc per source directory, its title, no planning sections, its size, no dead paths. A language
-pack adds what a language's own conventions demand, and is chosen by `package_docs.language`.
+pack adds what a language's own conventions demand, and is chosen by the product's `language` (§8.1).
 
 A pack declares the source suffixes and directory names it brings to the core, the per-file checks
 it runs over `package_docs.docstring_globs`, opt-in per-file checks a product enables by naming
@@ -10,11 +10,12 @@ them in `package_docs.rules`, and how it reads a file's code comments, which the
 delivery-id check searches. It also owns what the plane knows about the language's tests (house rule
 E18): how its test runner prints a count and a failure, how a test module is found and what it
 imports, and the command that runs named modules; `for_tests` is the one lookup of them. Adding a
-language is adding a module here and a line to PACKS; `language: none` runs the core alone.
+language is adding a module here and a line to PACKS; `language: none` turns the package-doc checks off
+and knows no test output.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
@@ -69,17 +70,13 @@ NAMES = tuple(sorted(PACKS))
 def get(name: str) -> Pack:
     """The pack called `name`; a KeyError names the packs there are."""
     if name not in PACKS:
-        raise KeyError(f"package_docs.language {name!r} is not one of {', '.join(NAMES)}")
+        raise KeyError(f"language {name!r} is not one of {', '.join(NAMES)}")
     return PACKS[name]()
 
 
 def for_tests(cfg: Any) -> Pack:
-    """The pack a product's test facts come from (§14.1, §14.7). The reader, the counter and the command
-    are those of `package_docs.language` (`python` when the block is absent, or `cfg` is None). The output
-    patterns are the Python pack's for every product, as they were before they lived in a pack, unless the
-    product sets `suite.count_re` / `suite.summary`; making them follow the language is a behaviour change
-    of its own."""
-    from ccp.config import PACKAGE_DOCS_DEFAULTS  # noqa: PLC0415
-    block = (getattr(cfg, "package_docs", None) or PACKAGE_DOCS_DEFAULTS) if cfg is not None else PACKAGE_DOCS_DEFAULTS
-    pack, py = get(str(block["language"])), get("python")
-    return replace(pack, count_re=py.count_re, summary=py.summary)
+    """The pack a product's test facts come from (§14.1, §14.7): the one its `language` names (§8.1), output
+    patterns, reader, counter and command alike; `none` knows none of them. With no language (the grace
+    release, §29.3), or `cfg` None, the pack it was read with before the key was required."""
+    from ccp.config import language_name  # noqa: PLC0415
+    return get(language_name(cfg))

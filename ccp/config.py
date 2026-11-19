@@ -2,9 +2,12 @@
 
 The file is product-owned: it travels with the code it describes, so a worktree or a verifier
 checkout needs nothing from the queue. Its presence is the opt-in — a product without it has
-not adopted `ccp`, and every command says so rather than guessing. Every key but `project_id`
-has a plane default; a block that is absent means "use the defaults", except `package_docs` and
-`architect`, whose absence turns that part off (they are a product's choice, not a plane rule).
+not adopted `ccp`, and every command says so rather than guessing. Every key but `project_id` and
+`language` has a plane default; a block that is absent means "use the defaults", except `architect`,
+whose absence turns that part off (a product's choice, not a plane rule). The package-doc checks
+follow `language`: a pack turns them on, with the `package_docs` block's settings or its defaults,
+and `none` turns them off. A command that needs the language and finds it unset warns during the
+grace release (`REQUIRED_KEYS_GRACE`) and behaves as before; after it, it refuses (`require_language`).
 The `architect` block is checked value by value as well as key by key: it drives a gate at
 `ccp tasks next`, so a wrong type must fail loudly rather than turn the gate off.
 """
@@ -74,9 +77,9 @@ PACKAGE_DOCS_DEFAULTS: dict[str, Any] = {
     # Directories (relative to the root) documented by an auto-loaded CLAUDE.md instead of doc_name. A
     # directory of documents only (.md) needs a package doc only when it is listed here.
     "claude_md_dirs": [],
-    # The language pack (ccp/doclang): it adds its suffixes and directory names to the core's and runs
-    # its per-file checks on docstring_globs. "none" runs the language-neutral core alone.
-    "language": "python",
+    # Deprecated: the top-level `language` replaces it (§8.1). Read in its place, with a warning, while
+    # `language` is unset (§29.3); ignored, with a warning, when `language` is set. null: not given.
+    "language": None,
     # null: the core's own plus the pack's (§21.4 names them). A list replaces both.
     "source_suffixes": None,
     "exempt_dirs": None,
@@ -357,6 +360,15 @@ PROJECT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # §4.5, §8.3: the binding's `lead` block. `auto_compact_window` is the `autoCompactWindow` `ccp init` writes
 # into a product's `.claude/settings.json` when it has none.
 LEAD_DEFAULTS: dict[str, Any] = {"auto_compact_window": 350000}
+# §8.1: the top-level keys plane.json must give. `language` names a language pack (ccp/doclang) or `none`
+# and has no default. While REQUIRED_KEYS_GRACE is true (the grace release, §29.3), a command that needs a
+# required key and finds it unset warns and behaves as before the key was required; once it is false, it
+# refuses (exit 2).
+REQUIRED_KEYS = ("project_id", "language")
+REQUIRED_KEYS_GRACE = True
+# §29.3: the language a product that names none is read with during the grace release, as before the key
+# was required (the old `package_docs.language` default).
+GRACE_LANGUAGE = "python"
 
 
 def lead_auto_compact_window(lead: dict[str, str]) -> int:
@@ -383,6 +395,12 @@ class Config:
     project_id: str
     task_log: dict[str, Any]
     package_docs: dict[str, Any] | None
+    # §8.1: the product's language (a pack's name, or `none`), from the top-level `language` or, while that
+    # is unset, the old `package_docs.language`; None when neither names one.
+    language: str | None = None
+    # Where `language` came from when it was not the top-level key: "package_docs.language" (read at its old
+    # place), or "ignored" (both given: the old place is ignored); "" otherwise.
+    language_moved: str = ""
     docs: dict[str, Any] = field(default_factory=lambda: copy.deepcopy(DOCS_DEFAULTS))
     architect: dict[str, Any] | None = None
     prompts: dict[str, Any] | None = None
@@ -480,6 +498,86 @@ def _aliases_ignored(suite: Any) -> tuple[str, ...]:
     return tuple(old for old, new in SUITE_SUMMARY_ALIASES.items() if old in sm and new in sm)
 
 
+class MissingKey(ConfigError):
+    """A required plane.json key (§8.1) is unset, and the grace release that introduced it has ended."""
+
+
+_LANGUAGE_WARNED: set[str] = set()  # the products already warned about an unset language in this process
+
+
+def language_name(cfg: Any) -> str:
+    """The language pack a product's facts come from: its `language`, or, while it names none (the grace
+    release, §29.3), GRACE_LANGUAGE, as before the key was required."""
+    return str(getattr(cfg, "language", None) or GRACE_LANGUAGE) if cfg is not None else GRACE_LANGUAGE
+
+
+def package_docs_on(cfg: Any) -> bool:
+    """Whether the package-doc checks (§21.3, §21.4) run: `language` names a pack; with no language (the
+    grace release), whether plane.json has a `package_docs` block, as before the key was required."""
+    lang = getattr(cfg, "language", None)
+    if lang is None:
+        return getattr(cfg, "package_docs", None) is not None
+    return lang != "none"
+
+
+def missing_language(what: str) -> str:
+    """The line that says a product names no language, which `what` needs (§8.1)."""
+    return (f"{CONFIG_REL} sets no `language` (one of {', '.join(_language_names())}), which {what} needs "
+            "(SPEC §8.1)")
+
+
+def require_language(cfg: Any, what: str) -> str | None:
+    """§8.1: the product's language for a command that needs it (`what`). Unset: during the grace release
+    (REQUIRED_KEYS_GRACE) a warning on stderr, once per product and process, naming the key and its upgrade
+    step, and None, so the command behaves as before; after it, MissingKey (exit 2)."""
+    lang = getattr(cfg, "language", None)
+    if lang is not None:
+        return str(lang)
+    if not REQUIRED_KEYS_GRACE:
+        raise MissingKey(f"{missing_language(what)}: set it")
+    key = str(getattr(cfg, "root", ""))
+    if key not in _LANGUAGE_WARNED:
+        _LANGUAGE_WARNED.add(key)
+        print(f"ccp: warning: {missing_language(what)}; this release still runs as before it was required, and a "
+              "later one refuses: set it (the upgrade step `required: plane.json language`, `ccp upgrade status`)",
+              file=sys.stderr)
+    return None
+
+
+def _language_names() -> tuple[str, ...]:
+    from ccp import doclang  # noqa: PLC0415
+    return doclang.NAMES
+
+
+def _language(raw: dict[str, Any]) -> tuple[str | None, str]:
+    """(the product's language, where it came from) from plane.json's top-level `language` and the old
+    `package_docs.language` (§8.1, §29.3). Each value given must be a pack's name or `none`."""
+    names = _language_names()
+    pkg = raw.get("package_docs")
+    old = pkg.get("language") if isinstance(pkg, dict) else None
+    if old is not None and old not in names:
+        raise ConfigError(f"{CONFIG_REL}: package_docs.language {old!r} is not one of {', '.join(names)}")
+    if "language" not in raw:
+        return (old, "package_docs.language") if old is not None else (None, "")
+    lang = raw["language"]
+    if not isinstance(lang, str) or lang not in names:
+        raise ConfigError(f"{CONFIG_REL}: language {lang!r} is not one of {', '.join(names)}")
+    return lang, ("ignored" if old is not None else "")
+
+
+def language_warnings(cfg: Any) -> list[str]:
+    """§29.3: what plane.json says about the language at the old place, `package_docs.language`."""
+    moved = getattr(cfg, "language_moved", "")
+    if moved == "package_docs.language":
+        return [f"{CONFIG_REL}: package_docs.language has moved to the top-level `language`; it is read from "
+                "its old place while `language` is unset, which a later release ends: set `language` and delete "
+                "package_docs.language (SPEC §29.3)"]
+    if moved == "ignored":
+        return [f"{CONFIG_REL}: package_docs.language is ignored: the top-level `language` is set; delete it "
+                "(SPEC §29.3)"]
+    return []
+
+
 def unknown_key_errors(cfg: Any) -> list[str]:
     """§8.1: one failure per plane.json key this ccp does not know, for `ccp docs check`."""
     return [f"{CONFIG_REL}: unknown key {k}: a typo, or a key this ccp predates (update ccp)"
@@ -489,7 +587,8 @@ def unknown_key_errors(cfg: Any) -> list[str]:
 def config_warnings(cfg: Any) -> list[str]:
     """What plane.json says that is accepted but has no effect, for `ccp tasks check` to show."""
     return [f"{CONFIG_REL}: suite.summary.{old} is ignored: {SUITE_SUMMARY_ALIASES[old]} is given too and wins "
-            "(remove the old name, §14.1)" for old in getattr(cfg, "suite_aliases_ignored", ())]
+            "(remove the old name, §14.1)" for old in getattr(cfg, "suite_aliases_ignored", ())] \
+        + language_warnings(cfg)
 
 
 def gate_limits(cfg: Any) -> tuple[float, float]:
@@ -549,15 +648,13 @@ def _entries(a: dict[str, Any], key: str, allowed: set[str], required: set[str],
             raise ConfigError(f"{where}[{i}]: id {e['id']!r} is not a house-rule id ({ids.rule_shape})")
 
 
-def _package_docs(given: Any) -> dict[str, Any] | None:
-    """§21: absent means off. The language must be a known pack; each opt-in rule is checked."""
-    if given is None:
+def _package_docs(given: Any, language: str | None) -> dict[str, Any] | None:
+    """§21: the block's settings over their defaults, loaded when plane.json gives the block or `language`
+    names a pack (the package-doc checks run on the defaults); None otherwise. Each opt-in rule is checked
+    (the language is checked by `_language`)."""
+    if given is None and (language is None or language == "none"):
         return None
-    from ccp import doclang  # noqa: PLC0415
     pd = _merge(PACKAGE_DOCS_DEFAULTS, given, "package_docs")
-    if pd["language"] not in doclang.PACKS:
-        raise ConfigError(f"{CONFIG_REL}: package_docs.language {pd['language']!r} is not one of "
-                          f"{', '.join(doclang.NAMES)}")
     for k in ("source_suffixes", "exempt_dirs"):
         if pd[k] is not None and not (isinstance(pd[k], list) and all(isinstance(x, str) for x in pd[k])):
             raise ConfigError(f"{CONFIG_REL}: package_docs.{k} must be a list of strings or null")
@@ -1375,7 +1472,8 @@ _BLOCK_KEYS: dict[str, Any] = {
     "notify": _known(NOTIFY_DEFAULTS, lead=_known(NOTIFY_LEAD_KEYS)),
     "upgrade": _known(UPGRADE_DEFAULTS),
 }
-PLANE_KEYS: dict[str, Any] = {"$schema": None, "_note": None, "project_id": None, **{b: _BLOCK_KEYS[b] for b in BLOCKS}}
+PLANE_KEYS: dict[str, Any] = {"$schema": None, "_note": None, **dict.fromkeys(REQUIRED_KEYS),
+                              **{b: _BLOCK_KEYS[b] for b in BLOCKS}}
 
 
 def _drop_unknown(v: Any, shape: Any, where: str, out: list[str]) -> Any:
@@ -1408,6 +1506,10 @@ def load(root: Path) -> Config:
         raise ConfigError(f"no {CONFIG_REL} in {root}: this product has not adopted ccp "
                           "(control-plane SPEC §8.1)")
     cfg = _parse(root, p.read_text())
+    for w in language_warnings(cfg):  # §29.3: the old place of a moved key, once per file and process
+        if (str(p), w) not in _WARNED:
+            _WARNED.add((str(p), w))
+            print(f"ccp: warning: {w}", file=sys.stderr)
     new = [k for k in cfg.unknown_keys if (str(p), k) not in _WARNED]
     if new:
         _WARNED.update((str(p), k) for k in new)
@@ -1449,14 +1551,17 @@ def _parse(root: Path, text: str) -> Config:
     ids = refs.from_config(raw.get("ids"))
     pkg = raw.get("package_docs")
     tl = raw.get("task_log")
+    language, moved = _language(raw)
     return Config(
         root=root,
         project_id=str(raw["project_id"]).strip(),
+        language=language,
+        language_moved=moved,
         review_point_pattern_set=isinstance(tl, dict) and "review_point_pattern" in tl,
         suite_aliases_ignored=_aliases_ignored(raw.get("suite")),
         models_given=tuple(raw["models"]) if isinstance(raw.get("models"), dict) else (),
         task_log=_task_log(tl),
-        package_docs=_package_docs(pkg),
+        package_docs=_package_docs(pkg, language),
         docs=_docs(raw.get("docs")),
         architect=_architect(raw.get("architect"), ids),
         ids=ids,

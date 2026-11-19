@@ -14,7 +14,8 @@ SRC = "\n".join(f"x{i} = {i}" for i in range(40)) + "\n"
 
 class PkgDocsTest(unittest.TestCase):
     def setUp(self):
-        self.p = Product({"package_docs": {"docstring_globs": ["app/**/*.py"], "claude_md_dirs": ["app"]}})
+        self.p = Product({"language": "python",
+                          "package_docs": {"docstring_globs": ["app/**/*.py"], "claude_md_dirs": ["app"]}})
         self.p.write("app/CLAUDE.md", "# app\n\nThe app.\n")
         self.p.write("app/main.py", '"""Main."""\n' + SRC)
         self.p.write("app/sub/.claude.md", "# sub\n\nSee `app/main.py`.\n")
@@ -29,7 +30,7 @@ class PkgDocsTest(unittest.TestCase):
     def test_clean(self):
         self.assertEqual(self.errs(), [])
 
-    def test_off_without_block(self):
+    def test_off_under_language_none(self):
         q = Product()
         q.write("lib/x.py", "x = 1\n")
         self.assertEqual(pkgdocs.check(q.cfg), [])
@@ -54,7 +55,7 @@ class PkgDocsTest(unittest.TestCase):
     def test_a_directory_of_documents_only_needs_no_package_doc_unless_listed(self):
         for git in (False, True):
             with self.subTest(git=git):
-                q = Product({"package_docs": {"claude_md_dirs": ["listed"]}})
+                q = Product({"language": "python", "package_docs": {"claude_md_dirs": ["listed"]}})
                 self.addCleanup(q.cleanup)
                 q.write("notes/a.md", "# a\n")
                 q.write("notes/deeper/b.md", "# b\n")
@@ -73,7 +74,7 @@ class PkgDocsTest(unittest.TestCase):
     def test_a_package_doc_in_a_directory_of_documents_only_is_checked(self):
         for git in (False, True):
             with self.subTest(git=git):
-                q = Product({"package_docs": {}})
+                q = Product({"language": "python", "package_docs": {}})
                 self.addCleanup(q.cleanup)
                 q.write("notes/a.md", "# a\n" + "line\n" * 20)
                 q.write("notes/.claude.md", "no title\n\nSee `gone.md`.\n")

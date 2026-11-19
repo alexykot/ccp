@@ -718,12 +718,13 @@ has a `Suite:` line but no suite run is recorded for its run.
   summary line and a `result_problem` label, and the output's counts stand. `counts_from` says which
   (`result` or `output`).
 - **Without a result file** the counts are read from the output: each line matched against
-  `suite.count_re` (default `^Ran (\d+) tests? in `), a pattern or a list of patterns: the first
+  `suite.count_re` (default: the language pack's, §21.4; Python's reads unittest's `Ran N tests in`), a pattern or a list of patterns: the first
   pattern a line matches counts it, its first group as the count, or the line as one when the pattern
   has no group, so no line counts twice; the matches summed; `suite.summary`'s
   `failed_re`, `skipped_re`, `ran_re`, `cached_re` and `cached_tests_re` (a pattern or a list, first
-  group a number, summed) give the rest. The defaults read Python unittest only (`OK (skipped=N)`,
-  `FAILED (failures=N, errors=N, skipped=N)`); `ran_re`, `cached_re` and `cached_tests_re`
+  group a number, summed) give the rest. The defaults are the language pack's (Python's read
+  unittest's `OK (skipped=N)` and `FAILED (failures=N, errors=N, skipped=N)`); with `language: none`
+  there are none, and only the product's own patterns count; `ran_re`, `cached_re` and `cached_tests_re`
   match nothing until a product sets them. Their older names `modules_ran_re` and `modules_cached_re`
   are read; given both, the new name wins and `ccp tasks check` warns. `section_re`, `show_re`
   (default none), `tail_lines` and `max_chars` shape the summary.
@@ -823,8 +824,7 @@ language whose command it names (Python: `python3 -m unittest`); stdout keeps th
   working tree (a rename as both its paths) plus the untracked files git does not ignore; `--since`
   defaults to `HEAD`, the uncommitted change. A range `<a>..<b>` given to `--since` is the files
   `git diff <a>..<b>` names, without the working tree.
-- **The product's language pack reads the tests** (`package_docs.language`; its default, `python`,
-  when the block is absent). A pack with no test reader (`none`) exits 2 unless plane.json `suite.affected_map` is set, which then reads the tests alone.
+- **The product's language pack reads the tests** (`language`, §8.1). A pack with no test reader (`none`) exits 2 unless plane.json `suite.affected_map` is set, which then reads the tests alone.
 - **Python.** A test module is a `test*.py` file git tracks or does not ignore, named by its dotted
   path from the root (`tests/test_a.py` is `tests.test_a`). It is touched when it changed itself;
   when it imports a changed module directly (any `import` or `from … import`, a relative one or one

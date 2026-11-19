@@ -29,7 +29,7 @@ class Scratch:
     filler test modules import nothing (eight in all, so one or two touched modules are under the full-lane share)."""
 
     def setUp(self, cfg: dict | None = None):
-        self.p = Product(cfg)
+        self.p = Product({"language": "python", **(cfg or {})})
         self.addCleanup(self.p.cleanup)
         for rel, text in {
             "pkg/__init__.py": "",
@@ -75,7 +75,7 @@ class Affected(Scratch, unittest.TestCase):
         self.assertIn("ccp suite run --lane part -- python3 -m unittest tests.test_a tests.test_b\n", err)
 
     def test_the_command_names_the_lane_the_product_gives_the_part_role(self):
-        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "suite": {"roles": {"part": "quick"}}}))
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "language": "python", "suite": {"roles": {"part": "quick"}}}))
         _, lines, err = self.run_cli("--paths", "pkg/a.py")
         self.assertEqual(lines, ["tests.test_a"])
         self.assertIn("ccp suite run --lane quick -- python3 -m unittest tests.test_a", err)
@@ -103,7 +103,7 @@ class Affected(Scratch, unittest.TestCase):
 
     def test_the_full_lane_line_names_the_lane_the_product_gives_the_full_role(self):
         self.p.write("docs/delivery/plane.json", json.dumps(
-            {"project_id": "demo", "suite": {"roles": {"full": "everything"}}}))
+            {"project_id": "demo", "language": "python", "suite": {"roles": {"full": "everything"}}}))
         _, lines, err = self.run_cli("--paths", *FILLERS[:3], "pkg/a.py")
         self.assertEqual(len(lines), 4)
         self.assertIn("4 of 8 test modules: skip the pre-gate and run the full lane: ccp suite run --lane everything\n",
@@ -279,7 +279,7 @@ class Affected(Scratch, unittest.TestCase):
 
 class Language(unittest.TestCase):
     def setUp(self):
-        self.p = Product({"package_docs": {"language": "none"}})
+        self.p = Product({"language": "none"})
         self.addCleanup(self.p.cleanup)
         git(self.p.root, "init", "-q", "-b", "main")
 
@@ -298,21 +298,21 @@ class Language(unittest.TestCase):
     def test_a_pack_with_no_reader_reads_the_tests_from_the_products_map_alone(self):
         amap = {"internal/store/*": ["./internal/store/..."], "ops/*.sh": ["ops/test_ops.sh"]}
         self.p.write("docs/delivery/plane.json", json.dumps(
-            {"project_id": "demo", "package_docs": {"language": "none"}, "suite": {"affected_map": amap}}))
+            {"project_id": "demo", "language": "none", "suite": {"affected_map": amap}}))
         code, lines, err = self.run_cli("--paths", "internal/store/db.go", "ops/deploy.sh", "docs/readme.md")
         self.assertEqual((code, lines), (0, ["./internal/store/...", "ops/test_ops.sh"]), err)
         self.assertNotIn("ccp suite run", err)  # no command is named for a language with no reader
         self.assertNotIn("full lane", err)  # no pack reader, no suite size: never the full-lane line
         code, lines, err = self.run_cli("--paths", "docs/readme.md")
         self.assertEqual((code, lines), (0, []), err)
-        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "package_docs": {"language": "none"}}))
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "language": "none"}))
         code, lines, err = self.run_cli("--paths", "internal/store/db.go", "ops/deploy.sh", "docs/readme.md")
         self.assertEqual((code, lines), (2, []))
         self.assertIn("suite.affected_map", err)
 
     def test_a_product_with_a_map_alone_has_no_suite_size_so_never_the_full_lane_line(self):
         self.p.write("docs/delivery/plane.json", json.dumps(
-            {"project_id": "demo", "package_docs": {"language": "none"},
+            {"project_id": "demo", "language": "none",
              "suite": {"affected_map": {"src/*": ["t1", "t2", "t3", "t4"]}}}))
         code, lines, err = self.run_cli("--paths", "src/x.go")
         self.assertEqual((code, lines), (0, ["t1", "t2", "t3", "t4"]), err)
@@ -321,7 +321,7 @@ class Language(unittest.TestCase):
 
     def test_a_glob_star_crosses_directories_and_matches_case_exactly(self):
         self.p.write("docs/delivery/plane.json", json.dumps(
-            {"project_id": "demo", "package_docs": {"language": "none"},
+            {"project_id": "demo", "language": "none",
              "suite": {"affected_map": {"internal/*": ["./internal/..."], "*.SH": ["upper"]}}}))
         code, lines, err = self.run_cli("--paths", "internal/store/deep/db.go", "ops/x.sh")
         self.assertEqual((code, lines), (0, ["./internal/..."]), err)

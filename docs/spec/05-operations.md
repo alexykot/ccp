@@ -37,7 +37,14 @@ A release can land while a task is in flight, so:
 
 - Runtime formats (queue files, run records, events, reports) only gain optional fields. A change
   beyond that carries a `schema_version`, and the new code still reads the old version.
-- `plane.json`'s schema only gains optional keys.
+- `plane.json`'s schema only gains optional keys, except through an upgrade step (a task's `adopt`,
+  §5.2) that comes with a **grace release**. During it a command that will refuse without a required
+  key warns instead and behaves as before; a removed key is ignored with a warning naming it; a moved
+  or merged key is still read at its old place, with a warning naming the new one, when the new place
+  is unset; and `ccp upgrade status` names each step. The release that ends the grace refuses without
+  the required key and no longer reads the old places. A key that becomes a constant in code is never
+  dropped silently: a value other than the constant still applies, with a warning, until the product
+  deletes the key or the plane takes a proposal to keep it.
 - A release that changes the runner's contract (its brief, or what a command expects of it) says so
   in its pull request and is followed by a runner rotation in each live product, because workers'
   prompts render per launch while the runner's brief loads at spawn.
