@@ -104,6 +104,57 @@ class OwnPatchId(Repo):
         self.assertIsNone(gitmerge.own_patch_id(self.root, "no-such-ref", "main", run))
 
 
+    def test_an_excluded_file_is_left_out_of_the_patch(self):
+        run = lambda cwd, *args, data=None: subprocess.run(  # noqa: E731
+            ["git", "-C", str(cwd), *args], capture_output=True, text=True, input=data)
+        base = self.commit("base.txt", "base\n")
+        git(self.root, "branch", "tip", base)
+        git(self.root, "checkout", "-q", "-b", "one", base)
+        self.commit("feature.txt", "same\n")
+        self.commit("noise.txt", "one\n")
+        one = git(self.root, "rev-parse", "HEAD")
+        git(self.root, "checkout", "-q", "-b", "two", base)
+        self.commit("feature.txt", "same\n")
+        self.commit("noise.txt", "two\n")
+        two = git(self.root, "rev-parse", "HEAD")
+        self.assertNotEqual(gitmerge.own_patch_id(self.root, one, "tip", run),
+                            gitmerge.own_patch_id(self.root, two, "tip", run))
+        a = gitmerge.own_patch_id(self.root, one, "tip", run, exclude=["noise.txt"])
+        self.assertTrue(a)
+        self.assertEqual(a, gitmerge.own_patch_id(self.root, two, "tip", run, exclude=["noise.txt"]))
+        self.assertNotEqual(a, gitmerge.own_patch_id(self.root, one, "tip", run, exclude=["feature.txt"]))
+
+    def test_an_exclude_is_a_literal_path_not_a_glob(self):
+        run = lambda cwd, *args, data=None: subprocess.run(  # noqa: E731
+            ["git", "-C", str(cwd), *args], capture_output=True, text=True, input=data)
+        base = self.commit("base.txt", "base\n")
+        git(self.root, "branch", "tip", base)
+        git(self.root, "checkout", "-q", "-b", "one", base)
+        self.commit("a.txt", "a\n")
+        one = git(self.root, "rev-parse", "HEAD")
+        whole = gitmerge.own_patch_id(self.root, one, "tip", run)
+        self.assertEqual(whole, gitmerge.own_patch_id(self.root, one, "tip", run, exclude=["*.txt"]))
+        self.assertNotEqual(whole, gitmerge.own_patch_id(self.root, one, "tip", run, exclude=["a.txt"], empty="x"))
+
+    def test_an_empty_diff_gives_the_empty_text_when_asked(self):
+        run = lambda cwd, *args, data=None: subprocess.run(  # noqa: E731
+            ["git", "-C", str(cwd), *args], capture_output=True, text=True, input=data)
+        self.assertEqual(gitmerge.own_patch_id(self.root, "main", "main", run, empty=""), "")
+        self.assertIsNone(gitmerge.own_patch_id(self.root, "main", "main", run))
+        self.assertIsNone(gitmerge.own_patch_id(self.root, "no-such-ref", "main", run, empty=""))
+
+    def test_a_diff_whose_files_are_all_excluded_is_empty(self):
+        run = lambda cwd, *args, data=None: subprocess.run(  # noqa: E731
+            ["git", "-C", str(cwd), *args], capture_output=True, text=True, input=data)
+        base = self.commit("base.txt", "base\n")
+        git(self.root, "branch", "tip", base)
+        git(self.root, "checkout", "-q", "-b", "one", base)
+        self.commit("only.txt", "x\n")
+        one = git(self.root, "rev-parse", "HEAD")
+        self.assertEqual(gitmerge.own_patch_id(self.root, one, "tip", run, exclude=["only.txt"], empty=""), "")
+        self.assertIsNone(gitmerge.own_patch_id(self.root, one, "tip", run, exclude=["only.txt"]))
+
+
 class RemergeDiff(Repo):
     def test_a_hand_resolved_conflict_has_a_remerge_diff(self):
         o, t = self.diverged(("a.txt", "one\nTWO\nthree\n"), ("a.txt", "one\n2\nthree\n"))

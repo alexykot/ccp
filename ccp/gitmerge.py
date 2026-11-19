@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -60,17 +60,23 @@ def old_git_text(p: Probe) -> str:
     return f"`git merge-tree --write-tree` failed (exit {p.returncode}); it needs git 2.38 or later"
 
 
-def own_patch_id(root: Path | str, sha: str, base_ref: str, run: Callable[..., subprocess.CompletedProcess[str]]) -> str | None:
+def own_patch_id(root: Path | str, sha: str, base_ref: str, run: Callable[..., subprocess.CompletedProcess[str]],
+                 *, exclude: Sequence[str] = (), empty: str | None = None) -> str | None:
     """The patch id (`git patch-id --stable`) of the diff from the merge base of `sha` and `base_ref` to `sha`:
     the change `sha` carries of its own. None when it cannot be read or the diff is empty (a head `base_ref`
     already holds). Never fetches. `run(root, *git_args, data=None)` is the caller's git runner, so the caller
-    keeps its environment and timeout (a timeout it raises passes through)."""
+    keeps its environment and timeout (a timeout it raises passes through). `exclude` leaves those files out of
+    the diff (literal pathspecs); `empty` is what an empty diff returns instead of None (a diff whose every
+    file is left out is empty)."""
     mb = run(root, "merge-base", sha, base_ref)
     if mb.returncode != 0:
         return None
-    d = run(root, "diff", "--binary", mb.stdout.strip(), sha)
+    spec = ["--", ".", *(f":(exclude,literal){f}" for f in exclude)] if exclude else []
+    d = run(root, "diff", "--binary", mb.stdout.strip(), sha, *spec)
     if d.returncode != 0:
         return None
+    if empty is not None and not d.stdout.strip():
+        return empty
     pid = run(root, "patch-id", "--stable", data=d.stdout)
     if pid.returncode != 0 or not pid.stdout.split():
         return None

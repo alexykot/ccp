@@ -35,11 +35,8 @@ changes. The reconcile is committed and pushed from the task's own merge worktre
 branch, HEAD and index; a runner worktree (detached) is then moved to the reconcile. Run it from the
 runner worktree (§12.1).
 
-With several runners, a verified head behind the integration tip is caught up by `close` itself
-(§16.5 rule 4, `_catch_up`) when the merge is clean (or its only conflicts are in `parallel.shared` paths where
-both sides only added lines, which it resolves as the tip's lines, then the task's: `_union`), the tip's new
-commits change no file the task's own diff or declared `paths` change other than a `parallel.shared` path, no
-build sign-off is due on the task and the product has a gate lane:
+With several runners, a verified head behind the integration tip is caught up by `close` itself when
+SPEC §16.5 rule 4 allows (`_catch_up`; `catch_up_blocked` holds the conditions that name the refusal):
 it merges the tip in (in its merge worktree), runs the gate lane there as a recorded `ccp suite run`
 with that worktree's environment (`_task_worktree_env`: its `CCP_WT_*` variables, kind `merge`, the task's
 seat, tag and round from its `impl` worktree's record, and `prompts.worker_env` rendered for it),
@@ -1509,14 +1506,27 @@ class _NoCatchUp(Exception):
 
 
 def catch_up_blocked(declared: list[str], tip_files: list[str], task_files: list[str], shared: list[str],
-                     signed_due: bool) -> str | None:
+                     signed_due: bool, schedule: str = "paths", patch_same: bool | None = None,
+                     whole_patch_same: bool | None = None) -> str | None:
     """§16.5 rule 4: the first condition that stops close catching a verified head up itself, as the text
-    `_catch_up` raises, or None. On plain values, with no git, file or queue access; the order is behaviour:
-    (1) the task declares no `paths`; (2) overlap: a file the tip's new commits change is one the task's own
-    diff (`task_files`) or a declared path changes, other than a `parallel.shared` path; (3) build sign-off:
-    when one is due (`signed_due`), a file the tip's new commits change is one the task's own diff changes, a
-    `parallel.shared` path included, since the sign-off covers the verified head."""
+    `_catch_up` raises, or None. On plain values, with no git, file or queue access; the order is behaviour.
+    Under `parallel.schedule: paths` (the default): (1) the task declares no `paths`; (2) overlap: a file the
+    tip's new commits change is one the task's own diff (`task_files`) or a declared path changes, other than a
+    `parallel.shared` path; (3) build sign-off: when one is due (`signed_due`), a file the tip's new commits
+    change is one the task's own diff changes, a `parallel.shared` path included, since the sign-off covers the
+    verified head. Under `clashes` the file condition is the patch test alone: `patch_same`, the task's own
+    patch with `parallel.shared` paths left out unchanged by the merge (None: it could not be read), and, with
+    a build sign-off due, `whole_patch_same` too, the whole patch, shared paths included."""
     from ccp import parallel  # noqa: PLC0415
+    if schedule == "clashes":
+        if patch_same is None:
+            return "patch unread: the task's own patch could not be read"
+        if not patch_same:
+            return "patch changed: the merge changes the task's own patch (parallel.schedule clashes)"
+        if signed_due and not whole_patch_same:
+            return ("build sign-off: the merge changes the task's whole own patch, which the build sign-off "
+                    "covers (SPEC §16.5 rule 4)")
+        return None
     if not declared:
         return ("no declared paths: the task declares no `paths`, so the tip's files cannot be checked "
                 "against them")
@@ -1537,22 +1547,23 @@ def catch_up_blocked(declared: list[str], tip_files: list[str], task_files: list
 def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, start: str, body: dict[str, Any],
               integ: str, facts: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     """§16.5 rule 4: close merges origin/<integ> into the PR head `start` itself, when the merge is clean or its
-    only conflicts are in `parallel.shared` paths where both sides only added lines (`_union`), the tip's new
-    commits change no file the task's own diff or declared paths change other than a `parallel.shared` path, and
-    the product has a gate lane; where a build sign-off is due on the task (declared, or from its verdict's
-    spec_beyond_intent, §3.5; `close` has checked it is recorded for the verified head), the tip's new commits
-    also change no file the task's own diff changes, a `parallel.shared` path included, and the catch-up
-    carries the sign-off (`sign_off_carried`); it runs the gate lane on the merge in its merge worktree as a
+    only conflicts are in `parallel.shared` paths where both sides only added lines (`_union`), the file
+    condition of `catch_up_blocked` holds (under `parallel.schedule: paths` the tip's new commits change no
+    file the task's own diff or declared paths change; under `clashes` the task's own patch is unchanged by
+    the merge) and the product has a gate lane; where a build sign-off is due on the task (declared, or from
+    its verdict's spec_beyond_intent, §3.5; `close` has checked it is recorded for the verified head), the
+    catch-up carries it (`sign_off_carried`) when `catch_up_blocked` allows; it runs the gate lane on the merge in its merge worktree as a
     recorded run, re-checks the tip (at most CATCH_UPS catch-ups), pushes the merge as the task branch's new
     head, records the catch-up on the verification record, and returns the head to merge and the catch-up.
     Raises _NoCatchUp, with nothing pushed, naming the condition that failed (`catch_up_blocked` holds the
-    declared-paths, overlap and build sign-off conditions, in the order they are judged)."""
+    file and build sign-off conditions, in the order they are judged)."""
     from ccp import parallel, suite, verify  # noqa: PLC0415
     from ccp.config import lane_for  # noqa: PLC0415
     verified = str(body.get("head_sha") or start)
     signed_due = "build" in due_stages(q, meta)[0]  # §3.5: declared, or from the verdict's spec_beyond_intent
     declared = [p.strip().removeprefix("./") for p in tasklog._as_list(meta.get("paths")) if p.strip()]
-    if why := catch_up_blocked(declared, [], [], [], signed_due):  # only the declared paths can fail here
+    clashes = parallel.settings(cfg).get("schedule", "paths") == "clashes"
+    if not clashes and (why := catch_up_blocked(declared, [], [], [], signed_due)):  # only the declared paths fail here
         raise _NoCatchUp(why)
     lane = lane_for(cfg, "gate")
     if lane not in ((cfg.suite or {}).get("lanes") or {}):
@@ -1574,7 +1585,14 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
             merged, union_files = _catch_up_commit(cfg, head, tip, branch, integ, shared)  # (a) clean, or a union
             task_files = _task_files(cfg, head, tip)
             tip_files = _tip_files(cfg, head, tip)
-            if why := catch_up_blocked(declared, tip_files, task_files, shared, signed_due):  # (b), (b')
+            same: dict[str, bool | None] = {}
+            if clashes:  # the patch test: the task's own patch before the merge and after it
+                before = _own_patches(cfg, head, tip, shared, task_files)
+                after = _own_patches(cfg, merged, tip, shared)
+                same = {k: None if before[k] is None or after[k] is None else before[k] == after[k]
+                        for k in ("whole", "kept")}
+            if why := catch_up_blocked(declared, tip_files, task_files, shared, signed_due,  # (b), (b')
+                                       "clashes" if clashes else "paths", same.get("kept"), same.get("whole")):
                 raise _NoCatchUp(why)
             wt = _merge_checkout(cfg, tid, integ).root
             made = True
@@ -1756,6 +1774,25 @@ def _task_files(cfg: Config, head: str, tip: str) -> list[str]:
     if r.returncode != 0:
         raise _NoCatchUp(f"the task's own diff could not be read: {(r.stderr or r.stdout).strip()[:200]}")
     return sorted({p for p in r.stdout.split("\0")[1::2] if p})
+
+
+def _own_patches(cfg: Config, ref: str, tip: str, shared: list[str],
+                 files: list[str] | None = None) -> dict[str, str | None]:
+    """§16.5 rule 4 under `parallel.schedule: clashes`: the task's own patch at `ref`, as `gitmerge.own_patch_id`
+    against `tip`, whole (`whole`) and with the files `parallel.shared` covers left out (`kept`); "" for an empty
+    diff, None when a patch could not be read. `files` are the diff's files when the caller has them."""
+    from ccp import gitmerge, parallel  # noqa: PLC0415
+
+    def run(cwd: Any, *args: str, data: str | None = None) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True, input=data, timeout=60,
+                              env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})  # never wait on a credential prompt
+
+    left_out = [f for f in (_task_files(cfg, ref, tip) if files is None else files) if parallel.covered(f, shared)]
+    try:
+        return {"whole": gitmerge.own_patch_id(cfg.root, ref, tip, run, empty=""),
+                "kept": gitmerge.own_patch_id(cfg.root, ref, tip, run, exclude=left_out, empty="")}
+    except subprocess.TimeoutExpired:
+        return {"whole": None, "kept": None}
 
 
 def _tip_files(cfg: Config, head: str, tip: str) -> list[str]:

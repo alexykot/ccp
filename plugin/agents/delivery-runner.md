@@ -223,10 +223,8 @@ runners, each holding one task. Otherwise ignore this section.
    `ccp prompt verify` refuses (exit 4, `behind_tip`, nothing opened) a head that lacks a tip commit changing
    more than the task log and the product's `merge.behind_tip_ignore` paths: the head is stale, so merge the
    tip in and verify the new head. A verified head that lacks code another task merged since is caught up by
-   `ccp tasks close` itself when the merge is clean, the tip's new commits touch none of the task's own or
-   declared files, no build sign-off is due on the task (declared, or from its verdict's `spec_beyond_intent`)
-   and the product has a gate lane: close merges the tip
-   in, runs the gate lane on it as a recorded run, pushes it and merges it, with no new review or verify
+   `ccp tasks close` itself when SPEC §16.5 rule 4 allows (close's refusal names the condition that
+   failed): close merges the tip in, runs the gate lane on it as a recorded run, pushes it and merges it, with no new review or verify
    (SPEC §16.5 rule 4). That gate run may take minutes and repeat up to 3 times: give close the longest
    timeout, and if it is interrupted run it again (nothing is pushed before the gate is green). Otherwise
    it refuses (exit 1, `behind_tip`, nothing merged, the task branch unchanged)
