@@ -952,7 +952,7 @@
         "lanes": {
           "type": "object",
           "default": {},
-          "description": "SPEC \u00a714.2: a lane name to what `ccp suite run --lane NAME` runs from the checkout's root: an argv (one stage, named after the lane), or an ordered list of {name, cmd} stages, run in order until one fails. The gate role's staged lane ends with the plane's doc checks as the stage `plane-docs`.",
+          "description": "SPEC \u00a714.2: a lane name to what `ccp suite run --lane NAME` runs from the checkout's root: an argv (one stage, named after the lane), or an ordered list of {name, cmd} stages, run in order until one fails. The gate role's staged lane ends with the plane's doc checks as the stage `plane-docs`. A gate lane, the lane `suite.roles` gives the gate role, is required (SPEC \u00a78.1, \u00a714.1): every task's verify runs it, and without one `ccp tasks claim` and `ccp tasks next` refuse (exit 2; a warning during the grace release). `ccp init --gate` writes it.",
           "propertyNames": {
             "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$"
           },

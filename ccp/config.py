@@ -8,6 +8,8 @@ whose absence turns that part off (a product's choice, not a plane rule). The pa
 follow `language`: a pack turns them on, with the `package_docs` block's settings or its defaults,
 and `none` turns them off. A command that needs the language and finds it unset warns during the
 grace release (`REQUIRED_KEYS_GRACE`) and behaves as before; after it, it refuses (`require_language`).
+`suite.lanes` must name the gate role's lane: `ccp tasks claim` and `ccp tasks next` ask
+`require_gate_lane`, which warns the same way during the grace release and refuses after it.
 The `architect` block is checked value by value as well as key by key: it drives a gate at
 `ccp tasks next`, so a wrong type must fail loudly rather than turn the gate off.
 """
@@ -542,6 +544,40 @@ def require_language(cfg: Any, what: str) -> str | None:
               "later one refuses: set it (the upgrade step `required: plane.json language`, `ccp upgrade status`)",
               file=sys.stderr)
     return None
+
+
+_GATE_WARNED: set[str] = set()  # the products already warned about a missing gate lane in this process
+
+
+def gate_lane_missing(cfg: Any) -> str | None:
+    """§8.1, §14.1: the line that says the product has no gate lane, or None when it has one. The gate lane
+    is the lane `suite.lanes` gives the gate role (`lane_for`); it is missing when there is no such entry,
+    its argv or stages are empty, or a command in it still holds LANE_PLACEHOLDER."""
+    lane = lane_for(cfg, "gate")
+    v = ((getattr(cfg, "suite", None) or {}).get("lanes") or {}).get(lane)
+    cmds = [str(st.get("cmd") or "") for st in v] if lane_stages(v) is not None else \
+        [str(a) for a in v] if isinstance(v, list) else []
+    if any(c.strip() for c in cmds) and not any(LANE_PLACEHOLDER in c for c in cmds):
+        return None
+    return (f"no gate lane: plane.json suite.lanes names no lane {lane!r} for the gate role (§14.1); every task's "
+            "verify runs it")
+
+
+def require_gate_lane(cfg: Any) -> str | None:
+    """§8.1: for `ccp tasks claim` and `ccp tasks next`, None when the product has a gate lane. Without one:
+    during the grace release (REQUIRED_KEYS_GRACE) the warning to print, once per product and process ("" when
+    already given), naming its upgrade step; after it, MissingKey (exit 2) with gate_lane_missing's line."""
+    why = gate_lane_missing(cfg)
+    if why is None:
+        return None
+    if not REQUIRED_KEYS_GRACE:
+        raise MissingKey(why)
+    key = str(getattr(cfg, "root", ""))
+    if key in _GATE_WARNED:
+        return ""
+    _GATE_WARNED.add(key)
+    return (f"{why}; this release still runs as before it was required, and a later one refuses: name it (the "
+            "upgrade step `required: plane.json suite.lanes.gate`, `ccp upgrade status`; `ccp init --gate` writes it)")
 
 
 def _language_names() -> tuple[str, ...]:

@@ -18,6 +18,9 @@ other is optional. `status` names the plane checkout's HEAD commit it read, so t
 The step that sets plane.json `language` (§8.1) gets the product's own change: with a `package_docs` block,
 the block's language (`python` where the block relied on the old default) as the value to set; without
 one, the choice between a language pack and `none`, with what each costs. It proposes no value silently.
+The step that names plane.json `suite.lanes.gate` is taken when the product has a gate lane by the rule
+claim and next apply (`config.gate_lane_missing`, §14.1): the lane `suite.roles` gives the gate role,
+with a command that is not the placeholder.
 plane.json `upgrade.declined` leaves a task's step out; `upgrade.taken` leaves out a step the product took
 in a way the command cannot see, and lists it under `taken` with its reason. A step the command checked and
 found taken is listed under `detected`. `decline` and `take` write those two objects, each removing the task
@@ -205,7 +208,11 @@ def status(cfg: Config, _a: Any) -> dict[str, Any]:
         required, bare = tasklog.adopt_required(step)
         parsed = parse_step(step)
         if parsed and sources[parsed[0]] is not None:
-            if _has(sources[parsed[0]], parsed[1]):
+            if parsed[:2] == ("plane.json", "suite.lanes.gate"):  # §14.1: taken when the gate role has a lane
+                found = config.gate_lane_missing(cfg) is None
+            else:
+                found = _has(sources[parsed[0]], parsed[1])
+            if found:
                 detected.append({"task": tid, "title": t.get("title"), "adopt": step})
                 continue
             check, change = NOT_TAKEN, _change(*parsed)

@@ -729,9 +729,11 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
   change with its code, and work in a worktree or a verifier checkout that never sees the queue.
 - Its presence is the opt-in: `ccp` refuses to guess for a product without one. Two keys are
   required: `project_id` (lowercase letters, digits and hyphens) and `language`, the product's
-  language pack (§21.4) or `none`; the plane assumes no language. A command that needs the language
-  (the package-doc checks and with them `ccp docs check`, `ccp suite affected`, and the reading of
-  test output, §14.1) refuses with exit 2, naming the key, when it is unset; other commands run.
+  language pack (§21.4) or `none`; the plane assumes no language. `suite.lanes` must name a gate lane
+  (§14.1): without one, `ccp tasks claim` and `ccp tasks next` refuse with exit 2, naming it. A
+  command that needs the language (the package-doc checks and with them `ccp docs check`, `ccp suite
+  affected`, and the reading of test output, §14.1) refuses with exit 2, naming the key, when it is
+  unset; other commands run.
   During the grace release that introduces a required key (§29.3), a command that needs it warns
   instead, naming the key and its upgrade step, and behaves as before the key was required.
 - Unknown keys warn when the configuration loads (stderr, naming each and saying the running `ccp`

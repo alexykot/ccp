@@ -170,6 +170,12 @@ def _architect_gate(cfg: config.Config, a: argparse.Namespace, scope: list[str] 
 
 def cmd_tasks_next(cfg: config.Config, a: argparse.Namespace) -> int:
     from ccp import selection  # noqa: PLC0415  (the board's ready queue reads the same function, §20)
+    try:  # §8.1, §10.3, §14.1: no gate lane names no task (exit 2); a warning in the grace release
+        if warning := config.require_gate_lane(cfg):
+            print(f"ccp tasks next: warning: {warning}", file=sys.stderr)
+    except config.MissingKey as e:
+        print(f"ccp tasks next: {e}", file=sys.stderr)
+        return 2
     scope = [s.strip() for s in (a.scope or "").split(",") if s.strip()] or None
     q = os.environ.get("QUEUE_ROOT")
     sel = selection.pick(cfg, Path(q) if q else None, scope)
@@ -1041,7 +1047,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_tasks_list)
     p = t.add_parser("next", help="lowest pending task whose dependencies are done (exit 3: none; "
                                   "exit 4: an architect pass or triage is overdue; exit 7: the runner "
-                                  "holds what it can, carry on with it, SPEC §16.3)")
+                                  "holds what it can, carry on with it, SPEC §16.3; exit 2: no gate lane, §14.1)")
     p.add_argument("--scope", help="comma-separated task ids or NNNN numbers; only these are candidates")
     p.add_argument("--json", action="store_true")
     p.add_argument("--allow-overdue", metavar="REASON",
