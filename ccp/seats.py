@@ -86,19 +86,6 @@ def headless_pins() -> dict[str, Any]:
             "source": "scripts/observability/architecture_review.py HEADLESS_MODEL (claude -p flags)"}
 
 
-def _binding_block(text: str, key: str) -> dict[str, str]:
-    """A flat `key:` block of the binding (indented `name: value` lines), comments dropped."""
-    m = re.search(rf"^{re.escape(key)}:[ \t]*\n((?:[ \t]+.*\n|[ \t]*\n)*)", text + "\n", re.M)
-    out: dict[str, str] = {}
-    for line in (m.group(1) if m else "").splitlines():
-        line = line.split("#", 1)[0].rstrip()
-        if ":" in line and line.strip():
-            k, _, v = line.strip().partition(":")
-            if v.strip():
-                out[k.strip()] = v.strip().strip("'\"")
-    return out
-
-
 # ------------------------------------------------------------------------------------- observed
 
 def observed(reqs: list[dict[str, Any]] | None) -> dict[str, Any] | None:
@@ -192,8 +179,7 @@ def _ev_activity(e: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) -> dict[str, Any]:
-    from ccp.queue import binding_text  # noqa: PLC0415
-    text = binding_text(q)
+    from ccp.queue import lib  # noqa: PLC0415
     team = "claude-team"
     recent = report.get("recent") or {"runs": {}, "seats": {}}
     events = _events(q)
@@ -226,7 +212,7 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
                      lead_obs, _activity(lead_obs, _ev_activity(_last_event(events, "design-seat"))),
                      advisory=True, prefix=True, notes=notes))
 
-    rb = _binding_block(text, "runner")
+    rb = lib._yaml_block_scalars(lib.project_yaml_text(q), "runner")
     rname = work.get("runner") or rb.get("name") or "runner"  # §10.2: the bound name after a rotation
     rexp = definition_pins(cfg, rb.get("agent_type") or "delivery-runner")
     r_reqs, r_aside = _split(recent["seats"].get("runner"), headless_sids)

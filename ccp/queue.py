@@ -169,21 +169,6 @@ def actor(default: str = "task-runner") -> str:
     return a if a in lib.ACTORS else default
 
 
-def binding_text(q: Path) -> str:
-    return lib.project_yaml_text(q)
-
-
-def binding_scalar(q: Path, key: str) -> str | None:
-    m = re.search(rf"^{re.escape(key)}:\s*([^#\n]+)", binding_text(q), re.M)
-    return m.group(1).strip().strip("'\"") if m else None
-
-
-def binding_runner_name(q: Path) -> str:
-    """The binding's `runner.name` (§8.3), the name the lead asks for at a spawn; `runner` by default."""
-    m = re.search(r"^runner:\s*\n(?:[ \t]+.*\n)*?[ \t]+name:\s*(\S+)", binding_text(q) + "\n", re.M)
-    return m.group(1).strip("'\"") if m else "runner"
-
-
 def runner_teammate(q: Path) -> str:
     """§10.2: the live runner teammate's actual name. The harness gives a fresh spawn a suffixed name
     (`runner-2`) while the old teammate still holds the asked-for one; the lead binds the actual name
@@ -193,7 +178,7 @@ def runner_teammate(q: Path) -> str:
     except QueueError:  # a broken work.json must not stop the readers that only want a name
         w = {}
     name = w.get("runner") if isinstance(w, dict) else None
-    return str(name) if name else binding_runner_name(q)
+    return str(name) if name else lib.binding_runner_name(q)
 
 
 def runner_slots(w: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -222,7 +207,7 @@ def holder_teammate(q: Path, task_id: str) -> str:
 def runner_names(q: Path) -> set[str]:
     """Every name a runner teammate of this queue has had: the binding's, work.json's, and each name a
     `runner` event recorded (spawn, bound). Telemetry from an earlier runner still counts as the runner's."""
-    names = {binding_runner_name(q), runner_teammate(q)}
+    names = {lib.binding_runner_name(q), runner_teammate(q)}
     try:  # §16.7: every slot and every bound name
         for slot, rec in runner_slots(read_json(q / "work.json", {})).items():
             names |= {slot, str(rec.get("bound_name") or slot)}
@@ -243,7 +228,7 @@ def runner_names(q: Path) -> set[str]:
 
 
 def integration_branch(q: Path) -> str:
-    return binding_scalar(q, "integration_branch") or "main"
+    return lib.binding_str(lib.binding_data(q), "integration_branch") or "main"
 
 
 def emit(q: Path, cfg: Config, task_id: str, typ: str, op: str, payload: dict[str, Any],
@@ -491,8 +476,8 @@ FINDER_METADATA = ".DS_Store"
 
 def _sanctioned_scripts(q: Path) -> set[Path]:
     """The binding's own auth-check script lives in the queue by design (§30, `auth_check.script`)."""
-    m = re.search(r"^auth_check:\s*\n(?:[ \t]+.*\n)*?[ \t]+script:\s*(\S+)", binding_text(q) + "\n", re.M)
-    return {(q / m.group(1).strip("'\"")).resolve()} if m else set()
+    script = lib.binding_str(lib.binding_data(q), "auth_check", "script")
+    return {(q / script).resolve()} if script else set()
 
 
 def script_findings(q: Path) -> list[tuple[str, str, str]]:

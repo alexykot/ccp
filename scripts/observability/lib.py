@@ -680,27 +680,6 @@ def empty_seat(sid: str | None = None) -> dict[str, Any]:
     }
 
 
-def _parse_simple_yaml_scalar_map(text: str) -> dict[str, str]:
-    """Tiny YAML subset: top-level `key: value` scalars (no nested structures)."""
-    out: dict[str, str] = {}
-    for line in text.splitlines():
-        s = line.strip()
-        if not s or s.startswith("#") or ":" not in s:
-            continue
-        if s.startswith("-"):
-            continue
-        if line[:1].isspace():
-            continue
-        key, _, val = s.partition(":")
-        key = key.strip()
-        if not key:
-            continue
-        val = val.strip().strip(chr(34)+chr(39))
-        if val:
-            out[key] = val
-    return out
-
-
 def resolve_durable_docs_dir(root: Path) -> Path | None:
     """Resolve product docs/delivery for INDEX status mirror.
 
@@ -715,33 +694,52 @@ def resolve_durable_docs_dir(root: Path) -> Path | None:
     text = project_yaml_text(root)
     if not text:
         return None
-    data = _parse_simple_yaml_scalar_map(text)
-    abs_docs = data.get("durable_docs") or data.get("durable_docs_abs")
+    data = read_binding(text)
+    abs_docs = binding_str(data, "durable_docs") or binding_str(data, "durable_docs_abs")
     if abs_docs:
         return Path(abs_docs).expanduser()
-    product_root = data.get("product_root") or data.get("hamlet_root")
-    rel = data.get("durable_docs_path") or "docs/delivery"
+    product_root = binding_str(data, "product_root") or binding_str(data, "hamlet_root")
+    rel = binding_str(data, "durable_docs_path") or "docs/delivery"
     if product_root:
         return (Path(product_root).expanduser() / rel).resolve()
     return None
 
 
-def _yaml_block_scalars(text: str, block: str) -> dict[str, str]:
-    """Tiny YAML subset: indented `key: value` scalars under a top-level `block:`."""
-    out: dict[str, str] = {}
-    inside = False
+_BINDING_LINE = re.compile(r"^([ \t]*)([^\s#:-][^:#]*?):(?:[ \t]+(.*))?$")
+
+
+def read_binding(text: str) -> dict[str, Any]:
+    """SPEC §8.3: the one parser of a binding's text. The `key: value` lines as nested objects by
+    indentation: a scalar is its string (quotes and an ` #` comment dropped), a key with no value on its
+    line is a dict of what is indented under it (empty when nothing is). List items are not read."""
+    out: dict[str, Any] = {}
+    stack: list[tuple[int, dict[str, Any]]] = [(-1, out)]
     for line in text.splitlines():
-        if not line.strip() or line.strip().startswith("#"):
+        m = _BINDING_LINE.match(line.split(" #", 1)[0].rstrip())
+        if not m:
             continue
-        if not line[:1].isspace():
-            inside = line.split("#", 1)[0].strip() == f"{block}:"
-            continue
-        if inside and ":" in line:
-            key, _, val = line.strip().partition(":")
-            val = val.split(" #", 1)[0].strip().strip(chr(34) + chr(39))
-            if key.strip() and val:
-                out[key.strip()] = val
+        depth = len(m.group(1).expandtabs(2))
+        while stack[-1][0] >= depth:
+            stack.pop()
+        node: dict[str, Any] = {}
+        stack[-1][1][m.group(2).strip()] = (m.group(3) or "").strip().strip("'\"") or node
+        stack.append((depth, node))
     return out
+
+
+def binding_str(data: dict[str, Any], *path: str) -> str | None:
+    """The scalar at `path` in a `read_binding` dict (`binding_str(d, "runner", "name")`), or None when
+    the key is absent, has no value or holds a block."""
+    node: Any = data
+    for key in path:
+        node = node.get(key) if isinstance(node, dict) else None
+    return node if isinstance(node, str) and node else None
+
+
+def _yaml_block_scalars(text: str, block: str) -> dict[str, str]:
+    """The scalars directly under a top-level `block:` of the binding, by `read_binding`."""
+    node = read_binding(text).get(block)
+    return {k: v for k, v in node.items() if isinstance(v, str)} if isinstance(node, dict) else {}
 
 
 def bindings_dir() -> Path:
@@ -771,13 +769,39 @@ def binding_path(root: Path) -> Path | None:
     d = bindings_dir()
     for b in sorted(d.glob("*.yaml")) if d.is_dir() else []:
         try:
-            m = re.search(r"^queue_root:\s*([^#\n]+)", b.read_text(), re.M)
+            queue = binding_str(read_binding(b.read_text()), "queue_root")
         except OSError:
             continue
-        if m and _same_dir(m.group(1).strip().strip("'\""), root):
+        if queue and _same_dir(queue, root):
             return b
     p = root / "project.yaml"
     return p if p.is_file() else None
+
+
+def product_binding(project_id: str, roots: Any) -> Path | None:
+    """SPEC §8.3, §9.2: the binding of the product `project_id` (the caller checks the id is well formed):
+    the file `PROJECT_YAML` names, when it is set, ahead of `<bindings_dir()>/<project_id>.yaml` (a
+    sandbox's binding sits outside the bindings directory, §29.3); either only when its `product_root` is
+    one of `roots` (real paths: the checkout and its main checkout). A scratch clone or a fork that names
+    a live project's id gets nothing."""
+    explicit = os.environ.get("PROJECT_YAML")
+    for b in ([Path(explicit).expanduser()] if explicit else []) + [bindings_dir() / f"{project_id}.yaml"]:
+        if not b.is_file():
+            continue
+        root = binding_str(read_binding(b.read_text()), "product_root")
+        if root and Path(root).expanduser().resolve() in roots:
+            return b
+    return None
+
+
+def binding_data(root: Path) -> dict[str, Any]:
+    """The binding of the queue `root` (`binding_path`), parsed by `read_binding`; empty when there is none."""
+    return read_binding(project_yaml_text(root))
+
+
+def binding_runner_name(root: Path) -> str:
+    """The binding's `runner.name` (§8.3), the name the lead asks for at a spawn; `runner` by default."""
+    return binding_str(binding_data(root), "runner", "name") or "runner"
 
 
 def project_yaml_text(root: Path) -> str:

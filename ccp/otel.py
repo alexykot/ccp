@@ -136,9 +136,10 @@ def user_settings_path() -> Path:
     return Path(envvar("CCP_USER_SETTINGS") or Path.home() / ".claude" / "settings.json")
 
 
-def _scalar(text: str, key: str) -> str | None:
-    m = re.search(rf"^{key}:\s*([^#\n]+)", text, re.M)
-    return m.group(1).strip().strip("'\"") if m else None
+def _bound(text: str, key: str) -> str | None:
+    """A top-level scalar of the binding `text`, by the one parser (`lib.read_binding`)."""
+    from ccp.queue import lib  # noqa: PLC0415
+    return lib.binding_str(lib.read_binding(text), key)
 
 
 def queue_for(project_id: Any, cache: dict[str, Path | None]) -> Path | None:
@@ -151,7 +152,7 @@ def queue_for(project_id: Any, cache: dict[str, Path | None]) -> Path | None:
     if PROJECT_RE.match(pid):
         b = bindings_dir() / f"{pid}.yaml"
         if b.is_file():
-            raw = _scalar(b.read_text(), "queue_root")
+            raw = _bound(b.read_text(), "queue_root")
             path = Path(raw) if raw else None
             q = path if path and path.is_dir() else None
     if q is not None:
@@ -180,8 +181,8 @@ def bindings() -> list[tuple[str, str, Path]]:
             text = b.read_text()
         except OSError:
             continue
-        pid = _scalar(text, "project_id") or b.stem
-        root, q = _scalar(text, "product_root"), _scalar(text, "queue_root")
+        pid = _bound(text, "project_id") or b.stem
+        root, q = _bound(text, "product_root"), _bound(text, "queue_root")
         if PROJECT_RE.match(pid) and root and q and Path(q).is_dir():
             out.append((pid, os.path.realpath(root), Path(q)))
     return out
@@ -622,7 +623,7 @@ def env_for_project(project_id: str, port: int) -> dict[str, Any]:
     b = bindings_dir() / f"{project_id}.yaml"
     if not PROJECT_ID_RE.match(project_id) or not b.is_file():
         raise ValueError(f"{project_id!r} is not a bound project ({bindings_dir()}/<id>.yaml)")
-    root = _scalar(b.read_text(), "product_root")
+    root = _bound(b.read_text(), "product_root")
     return {
         "project": {"path": f"{root or '<product>'}/.claude/settings.json", "env": project_env(project_id)},
         "user": {"path": f"{user_settings_path()} (or the shell)", "env": env_block(port)},
