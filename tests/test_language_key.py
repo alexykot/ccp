@@ -221,7 +221,7 @@ class ArchitectDocsLens(unittest.TestCase):
             with self.subTest(language=lang):
                 p = Product({"language": lang, "package_docs": {}, "architect": {}})
                 self.addCleanup(p.cleanup)
-                p.write("src/a.py", "x = 1\n")
+                p.write("src/b.sql", "select 1;\n")  # a core suffix: source under either language
                 q = tempfile.TemporaryDirectory()
                 self.addCleanup(q.cleanup)
                 text = architect.prompt_for(p.cfg, Path(q.name), "ar-x", "pass", ["docs"], "abc", None, False,
