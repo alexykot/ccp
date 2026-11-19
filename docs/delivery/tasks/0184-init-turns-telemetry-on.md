@@ -155,4 +155,24 @@ is no longer a product setting.
 
 *Append-only, newest last.*
 
+- Built as the task says. `ccp init --telemetry on|off` records the consent in `machine.json` beside the bindings
+  (`lib.machine_path()`, `lib.read_machine()`; contract `contracts/machine.schema.json`); the machine step is
+  `init.machine_telemetry`, run at the end of `init()` and reported in the result's `telemetry` (`tag`, `consent`,
+  `user_settings`, `receiver_up`, ...). The notices go to stderr, so stdout stays the JSON result.
+- The install steps were already callable: init calls `otel.launchd("install", port)` and `board.launchd(cfg, "install")`
+  (through `init.board_launchd`); `ccp/board.py` needed no change. New in `ccp/otel.py`: `write_user_env`, `receiver_live`,
+  `receiver_up`, `receiver_port`, `off_block`, `env_off` and `ccp otel env --off [--project ID]`.
+- Choices the task left open, each the narrowest: (1) with no consent recorded and no flag, init prints the notice on every
+  run until the operator decides; (2) `--telemetry on` inside a sandbox is refused (exit 2, nothing written), and
+  `ccp sandbox create` passes `--telemetry off` to its init, so a sandbox records `off` in its own machine file and never
+  touches the user's settings or services; `--telemetry` is refused as a sandbox create option; (3) a user settings file
+  that is not a JSON object is reported as a warning and left alone, init continuing; (4) after the install on macOS init
+  waits up to 3 s for the receiver, elsewhere it checks once; (5) the non-macOS commands printed are `ccp otel serve` and
+  `ccp --root <root> board build --quiet`.
+- `ccp init`'s `--permissions` and `--rules-doc` refuse `--telemetry` as a writing flag. `tests/test_init.py` expectations
+  gain the tag in `env` (the change necessarily breaks them).
+- tel-04 step 2 (a live `claude -p` with the receiver running) was not run: it needs the operator's logged-in session and
+  receiver, and this worker has neither fenced off. Which keys took effect is therefore not recorded here; the block keeps
+  all three, as the task says.
+
 ## Verification notes

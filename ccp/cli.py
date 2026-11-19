@@ -60,9 +60,10 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
             (what a plane release asks of a product; decline and take record a step in plane.json, SPEC §29.3)
   ccp agent start|stop          (the SubagentStart / SubagentStop hooks; hook JSON on stdin)
   ccp orientation               (the SessionStart orientation, for a session that adopted mid-run, SPEC §9.3)
-  ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--starter-rules] [--force]
+  ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--gate CMD] [--starter-rules]
+            [--telemetry on|off] [--force]
             (adopt this repository: footprint, binding and queue, SPEC §4.3, §8.3; the starter
-            house rules, §20.5)
+            house rules, §20.5; the machine's telemetry consent, §4.5, §24.1)
   ccp sandbox create [DIR] [-- INIT_OPTIONS …] | remove DIR  (a throwaway adopted product, its binding and queue
             inside DIR, for end-to-end checks; remove deletes only a sandbox, SPEC §29.3; inside one,
             every command, init included, uses its binding and queue)
@@ -1392,6 +1393,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--starter-rules", action="store_true",
                    help="adopt the plane's starter house rules (SPEC §20.5): docs/ENGINEERING.md and their "
                         "plane.json settings; the settings are not applied to a kept plane.json")
+    p.add_argument("--telemetry", choices=("on", "off"),
+                   help="record the operator's consent for telemetry on this machine, once (machine.json beside the "
+                        "bindings): on writes the user-level keys and installs the receiver and the board timer, and "
+                        "covers every Claude Code session here; off declines (SPEC §4.5, §24.1)")
     p.add_argument("--force", action="store_true", help="overwrite the files init writes")
     p.add_argument("--permissions", action="store_true",
                    help="print, writing nothing, the runner's and workers' allowlist and a deny list for "

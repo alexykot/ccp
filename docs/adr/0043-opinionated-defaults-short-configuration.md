@@ -19,7 +19,7 @@ decisions:
   - "D3 built"
   - "D4 not_built"
   - "D5 not_built"
-  - "D6 not_built"
+  - "D6 built"
   - "D7 not_built"
   - "D8 not_built"
   - "D9 not_built"

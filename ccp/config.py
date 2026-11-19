@@ -176,7 +176,7 @@ def fill(template: str, values: dict[str, str]) -> str:
 # §30: auth probes the runner runs before each task (`ccp auth check`, and `ccp tasks claim`).
 AUTH_CHECK_DEFAULTS: dict[str, Any] = {"probes": [], "timeout_seconds": 60}
 # §24.4, §25.1, §28.1: read by later steps; validated now so a binding written early is not refused.
-TELEMETRY_DEFAULTS: dict[str, Any] = {"otel_port": 4318, "allowance_cmd": None, "allowance_stop_weekly": None,
+TELEMETRY_DEFAULTS: dict[str, Any] = {"allowance_cmd": None, "allowance_stop_weekly": None,
                                       # §24.5: the lead's expected model and effort, as advice only
                                       "design_seat": None,
                                       # §25.4 the session park: claim and prompt park the task at this 5-hour %
@@ -1016,8 +1016,6 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
             bad.append(f"adapter.{k} must be a list of non-empty strings")
     bad += _worktree_blocks(raw, out, root)
     tel = out["telemetry"]
-    if isinstance(tel["otel_port"], bool) or not isinstance(tel["otel_port"], int) or not 1 <= tel["otel_port"] <= 65535:
-        bad.append("telemetry.otel_port must be a port number")
     if not _opt_str(tel["allowance_cmd"]):
         bad.append("telemetry.allowance_cmd must be a command")
     stop = tel["allowance_stop_weekly"]

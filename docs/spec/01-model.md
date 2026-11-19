@@ -421,10 +421,8 @@ A product is adopted by running `ccp init` in its repository. It writes:
   none yet (an existing one is kept and listed as kept); with `--gate`, the gate command written into
   `standing-dod.md`'s placeholder product item;
 - `.plane-runtime/` in `.gitignore`;
-- the anchor merged into `.claude/settings.json`, leaving its other keys and values alone, with
-  `subagentPromptCacheTtl: "1h"` and `autoCompactWindow` (the binding's `lead.auto_compact_window`,
-  default `350000`) added when absent and never overwritten, and the one `CLAUDE.md` line, once
-  (§4.3);
+- the anchor merged into `.claude/settings.json`, leaving its other keys and values alone, with `subagentPromptCacheTtl: "1h"`, `autoCompactWindow` (the binding's `lead.auto_compact_window`, default `350000`), the lead's `model` (§2.4) and the telemetry tag `env.OTEL_RESOURCE_ATTRIBUTES` (`ccp.project_id=<project_id>`, §24.1) added when absent and never overwritten, and the one `CLAUDE.md` line, once (§4.3);
+- with the operator's consent for the machine (`--telemetry on`, recorded once in the machine file beside the bindings, §8.3), the user-level telemetry keys (§24.1), the receiver and the product's board timer; it says first that the keys cover every Claude Code session on the machine, and that a project turns telemetry off in its own `.claude/settings.json` (§24.1). `--telemetry off` records a refusal, and init then writes nothing outside the product. With neither recorded, it prints what `--telemetry on` would do and writes nothing outside the product. When the receiver is down, it prints the command to run in a normal terminal: the receiver cannot be started from inside Claude Code, and only macOS has a service definition;
 - outside the repository, the local binding and its queue directory (§8.3).
 
 It records the adoption as a `plane`/`adopted` ledger event (§23.2) when it writes the binding, and
@@ -775,7 +773,7 @@ An example, with neutral values:
              "worker_env": { "<NAME>": "<template: {{main_checkout}}, {{worktree}}, {{queue_root}}, {{round}}, …>" },
              "keep_body": false, "audit_keep_days": null },
 "reconcile": { "hooks": ["<product command, run in close's merge worktree (§10.5)>"] },
-"telemetry": { "otel_port": 4318, "allowance_cmd": "<command printing the allowance JSON>" },
+"telemetry": { "allowance_cmd": "<command printing the allowance JSON>" },
 "board": { "refresh_minutes": 5 },
 "adr": { "dir": "docs/adr", "index": "docs/adr/INDEX.md" },
 "suite": { "lanes": { "full": ["scripts/test.sh"],
@@ -852,7 +850,7 @@ lead:
 
 ### 8.4 Configuration knobs
 
-- `telemetry.otel_port` (default 4318); `board.refresh_minutes` (default 5).
+- `board.refresh_minutes` (default 5).
 - The `--note` length limit on `ccp` commands that take one (4000 characters).
 - How long the usage records (`usage.jsonl`) are kept (default: everything; they hold no content).
 

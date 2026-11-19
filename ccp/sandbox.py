@@ -9,7 +9,8 @@ JSON: `root`, `binding`, `queue_root` and `env`, the `PROJECT_YAML` and `QUEUE_R
 one that holds the working directory.
 
 DIR must not exist, or be an empty directory. `--queue-root` and init's flags that adopt nothing
-(`--permissions`, `--rules-doc`, `--adopt`) are refused: the sandbox places the queue itself. On a
+(`--permissions`, `--rules-doc`, `--adopt`) and `--telemetry` (it records `off` in the sandbox's own machine file, so
+no sandbox touches the user's settings or services) are refused: the sandbox places the queue itself. On a
 failure, what create made is removed again. Under the test fence (`tests/__init__.py`), which sets
 `CCP_SANDBOX_ROOT`, create works only below that directory.
 
@@ -36,7 +37,8 @@ from ccp.queue import CCP_BIN, _main_worktree
 MARKER = ".ccp-sandbox"
 PRODUCT, BINDINGS, QUEUE = "product", "bindings", "queue"
 # Init flags a sandbox does not pass on: it places the queue itself, and these adopt nothing.
-REFUSED = ("--queue-root", "--permissions", "--rules-doc", "--adopt", "--root")
+# `--telemetry` is one: the sandbox declines telemetry for its own bindings directory (`_build`), never the machine's.
+REFUSED = ("--queue-root", "--permissions", "--rules-doc", "--adopt", "--root", "--telemetry")
 GIT_ID = ("-c", "user.name=ccp sandbox", "-c", "user.email=ccp-sandbox@localhost", "-c", "commit.gpgsign=false")
 
 
@@ -164,7 +166,7 @@ def _build(d: Path, init_opts: list[str]) -> dict[str, Any]:
     # §8.3: init writes the binding here, never in the installation's bindings directory.
     env = {**os.environ, "CCP_BINDINGS_DIR": str(bindings)}
     r = subprocess.run([sys.executable, str(CCP_BIN), "--root", str(root), "init", *init_opts,
-                        "--queue-root", str(queue)], capture_output=True, text=True, env=env)
+                        "--queue-root", str(queue), "--telemetry", "off"], capture_output=True, text=True, env=env)
     if r.stderr:
         sys.stderr.write(r.stderr)
     if r.returncode != 0:

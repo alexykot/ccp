@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:machine.schema.json",
+  "title": "ControlPlaneMachineFile",
+  "description": "SPEC §8.3, §4.5: `machine.json` in the bindings directory, the operator's choices for this machine, made once and kept beside the bindings. A key that is absent has not been decided.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "telemetry": {
+      "enum": ["on", "off"],
+      "description": "The operator's consent to telemetry for every Claude Code session on this machine, recorded by `ccp init --telemetry on|off`. `on`: init writes the user-level telemetry keys and installs the receiver and the product's board timer. `off`: init writes nothing outside the product and no longer mentions telemetry."
+    }
+  }
+}

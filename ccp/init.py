@@ -3,12 +3,22 @@
 Run in a product's repository, it writes the product footprint (the PROJECT, SPEC and delivery
 templates, with `--starter-rules` the plane's starter house rules (§20.5), a minimal `plane.json`,
 `.plane-runtime/` in `.gitignore`, the plugin anchor merged into `.claude/settings.json` with the
-session settings `subagentPromptCacheTtl`, `autoCompactWindow` and `model` (the lead's, §2.4), the one `CLAUDE.md` line) and,
+session settings `subagentPromptCacheTtl`, `autoCompactWindow` and `model` (the lead's, §2.4), the telemetry tag
+`env.OTEL_RESOURCE_ATTRIBUTES` (§24.1), the one `CLAUDE.md` line) and,
 outside the repository, the binding in this plane's bindings directory and the queue directory it
 names. Inside a sandbox (`ccp sandbox`, §29.3) the binding is `<project_id>.yaml` in the sandbox's
 bindings directory and the queue is the sandbox's, `--force` or not; a `--queue-root` naming any other
 path is refused, writing nothing. The binding is the one source of truth: every reader resolves it through `lib.binding_path`,
 and no copy goes into the queue (§8.3).
+
+Telemetry (§4.5, §24.1): the tag goes in whatever the consent. With the operator's consent for the machine, recorded
+once in `machine.json` beside the bindings (`--telemetry on|off`), init also writes the user-level telemetry keys
+(`ccp otel env`, absent ones only, never the prompt and tool-content keys), installs the receiver and the product's
+board timer (macOS; elsewhere it prints the commands) and checks the receiver, printing the command for a normal
+terminal when it is down. Before it does so, with `--telemetry on`, it says the keys cover every Claude Code session
+on the machine and that a project turns them off in its own `.claude/settings.json` (`ccp otel env --off`). With
+`off` recorded it writes nothing outside the product and says nothing; with nothing recorded and no flag it prints
+that notice and writes nothing outside the product. Inside a sandbox `--telemetry on` is refused (§29.3).
 
 It never overwrites a file without `--force`: an existing file is kept and listed as kept, so a
 second run, or a run after the binding was edited, changes nothing. A session setting the product
@@ -55,6 +65,7 @@ else, and points at the plane's starter rules (§20.5) for the checks the plane 
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import subprocess
@@ -64,7 +75,7 @@ from urllib.parse import urlsplit
 from pathlib import Path
 from typing import Any
 
-from ccp import config, docrules, models, refs, rules, tasklog
+from ccp import config, docrules, models, otel, refs, rules, tasklog
 from ccp.queue import PLANE, QueueError, _main_worktree, emit, lib, queue_leftovers, script_drift
 
 TEMPLATES = PLANE / "templates"
@@ -114,6 +125,11 @@ CLAUDE_LINE = "This repo is delivered by CCP (Claude Control Plane): its plugin 
 CACHE_TTL_SETTING = ("subagentPromptCacheTtl", "1h")
 COMPACT_SETTING = "autoCompactWindow"
 MODEL_SETTING = "model"  # §2.4: the lead's model (plane.json `models.lead`), added when the settings have none
+# §4.5, §24.1: the telemetry tag, added to the product's `env` when absent; `--telemetry` is the consent flag.
+TAG_KEY = "OTEL_RESOURCE_ATTRIBUTES"
+TELEMETRY_SCOPE = ("telemetry covers every Claude Code session on this machine, not only this product's; a project "
+                   "turns it off in its own .claude/settings.json with the keys `ccp otel env --off` prints "
+                   "(managed settings, a --settings file or the launch environment that set an exporter override them)")
 # §4.5, §18.5: what `--permissions` allows besides `ccp`, the plane's seat scripts and the gate lane:
 # the git verbs the runner and its workers run, and the destructive commands it denies.
 SEAT_SCRIPTS = ("scripts/team.sh", "scripts/spec-maintainer-ask.sh")
@@ -132,7 +148,7 @@ GITHUB_ONLY = ("ccp verify merge-ok", "ccp tasks close (its default merge and it
 # The init flags that write: `--permissions` writes nothing, so it refuses them.
 WRITING_FLAGS = (("--project-id", "project_id"), ("--queue-root", "queue_root"),
                  ("--integration-branch", "integration_branch"), ("--gate", "gate"),
-                 ("--starter-rules", "starter_rules"), ("--force", "force"))
+                 ("--starter-rules", "starter_rules"), ("--force", "force"), ("--telemetry", "telemetry"))
 
 
 def _default_id(root: Path) -> str:
@@ -268,10 +284,12 @@ def plane_json_text(project_id: str, gate: str | None, starter_rules: bool = Fal
     return json.dumps(cfg, indent=2) + "\n"
 
 
-def _merged_settings(path: Path, compact_window: int, lead_model: str) -> tuple[dict[str, Any], bool, dict[str, str]]:
-    """The settings with the anchor merged in and the session settings (§4.5) added when absent; True
-    when that changed them; each session setting as `added` or `kept`. Other keys, and any value the
-    product already set for these, stay as they are."""
+def _merged_settings(path: Path, compact_window: int, lead_model: str,
+                     project_id: str) -> tuple[dict[str, Any], bool, dict[str, str], str]:
+    """The settings with the anchor merged in and the session settings (§4.5) and the telemetry tag
+    `env.OTEL_RESOURCE_ATTRIBUTES` added when absent; True when that changed them; each session setting as
+    `added` or `kept`, and the tag the same. Other keys, and any value the product already set for these,
+    stay as they are."""
     data: Any = {}
     if path.is_file():
         try:
@@ -291,11 +309,13 @@ def _merged_settings(path: Path, compact_window: int, lead_model: str) -> tuple[
     for key, value in (CACHE_TTL_SETTING, (COMPACT_SETTING, compact_window), (MODEL_SETTING, lead_model)):
         session[key] = "kept" if key in data else "added"
         data.setdefault(key, value)
-    return data, json.dumps(data, sort_keys=True) != before, session
+    tag = "kept" if TAG_KEY in data["env"] else "added"
+    data["env"].setdefault(TAG_KEY, otel.project_env(project_id)[TAG_KEY])
+    return data, json.dumps(data, sort_keys=True) != before, session, tag
 
 
 def init(root: Path, project_id: str | None, queue_root: str | None, branch: str | None,
-         gate: str | None, force: bool, starter_rules: bool = False) -> dict[str, Any]:
+         gate: str | None, force: bool, starter_rules: bool = False, telemetry: str | None = None) -> dict[str, Any]:
     """Adopt the product at `root`; returns what was written, merged and kept. Raises QueueError
     (nothing written) on a refusal."""
     if gate is not None and not gate.strip():  # §4.5: refused before anything is written
@@ -335,6 +355,9 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
                     else "names a path outside the sandbox")
             raise QueueError(f"ccp init: --queue-root {given} {what} {sandbox}: its queue is {own}; leave "
                              "--queue-root out (SPEC §29.3)", 2)
+    if sandbox is not None and telemetry == "on":  # §29.3: the machine's settings and services are not a sandbox's
+        raise QueueError("ccp init: --telemetry on writes the user's Claude Code settings and installs services for "
+                         f"the whole machine, which a sandbox ({sandbox}) never does (SPEC §29.3)", 2)
     binding = (sandbox / sandboxes.BINDINGS if sandbox is not None else lib.bindings_dir()) / f"{pid}.yaml"
     old = binding.read_text() if binding.is_file() else None
     held = lib.read_binding(old or "")
@@ -364,7 +387,7 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     window = config.lead_auto_compact_window(lead)
     # refuses before anything is written
     lead_model = models.model_for(config.load(root), "lead") if keep_plane_json else models.ROLES["lead"][0]
-    merged_settings, settings_changed, session = _merged_settings(settings, window, lead_model)
+    merged_settings, settings_changed, session, tag = _merged_settings(settings, window, lead_model, pid)
 
     out: dict[str, Any] = {"project_id": pid, "product_root": str(product_root), "binding": str(binding.resolve()),
                            "queue_root": str(q), "written": [], "merged": [], "kept": [], "settings": session}
@@ -423,6 +446,7 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
 
     cfg = config.load(root)
     record_adoption(q, cfg, "binding" in out["written"], binding)
+    out["telemetry"] = {"tag": tag, **machine_telemetry(cfg, telemetry)}
     old_files = [f for f in sorted(cfg.tasks_dir.glob("*.md")) if not tasklog.has_frontmatter(f.read_text())]
     if old_files:  # §5.3: an earlier plane generation's task log
         out.setdefault("warnings", []).append(
@@ -435,6 +459,76 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     elif cfg.task_log.get("index", True):  # kept: a rewrite could drop what an earlier generation's files need
         out["kept"].append(index)
     return out
+
+
+def _record_consent(value: str) -> None:
+    """Write `telemetry: <value>` into the machine file (§8.3), its other keys kept; atomically."""
+    p = lib.machine_path()
+    data = {**lib.read_machine(), "telemetry": value}
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2) + "\n")
+    os.replace(tmp, p)
+
+
+def _macos() -> bool:
+    return sys.platform == "darwin"
+
+
+def _note(text: str) -> None:
+    print(f"ccp init: telemetry: {text}", file=sys.stderr)
+
+
+def machine_telemetry(cfg: config.Config, flag: str | None) -> dict[str, Any]:
+    """§4.5: the machine-wide telemetry step. `flag` is `--telemetry`'s value (`on`, `off`, or None); the consent
+    is the flag, else the one recorded in the machine file. `off`: nothing written outside the product, nothing
+    said. None: the notice, nothing written. `on`: the notice first when the flag gave it, then the user-level
+    keys (absent ones only), the receiver and the product's board timer (macOS; else the commands are printed),
+    then the receiver check, with the command for a normal terminal when it is down. Returns what it did, for
+    init's result."""
+    recorded = lib.read_machine().get("telemetry")
+    recorded = recorded if recorded in ("on", "off") else None
+    consent = flag or recorded
+    out: dict[str, Any] = {"consent": consent, "recorded": recorded is not None or flag is not None}
+    if flag and flag != recorded:
+        _record_consent(flag)
+    if consent == "off":
+        return out
+    if consent is None:
+        _note(f"not set up. {TELEMETRY_SCOPE[0].upper()}{TELEMETRY_SCOPE[1:]}. `ccp init --telemetry on` writes the "
+              "user-level keys and installs the receiver and the board timer; `--telemetry off` declines, and init "
+              "then stops mentioning it")
+        return out
+    if flag == "on":
+        _note(f"{TELEMETRY_SCOPE[0].upper()}{TELEMETRY_SCOPE[1:]}")
+    port = otel.receiver_port()
+    try:
+        out["user_settings"] = otel.write_user_env(port)
+    except ValueError as e:
+        out["error"] = str(e)
+        print(f"ccp init: warning: telemetry: {e}", file=sys.stderr)
+        return out
+    for k in out["user_settings"]["differing"]:
+        _note(f"{out['user_settings']['path']} already sets {k} to another value: kept, so nothing may export")
+    if _macos():
+        out["receiver_install"] = {k: v for k, v in otel.launchd("install", port).items() if k in ("ok", "plist", "error")}
+        out["board_timer"] = {k: v for k, v in board_launchd(cfg).items() if k in ("ok", "plist", "label", "error")}
+    else:
+        out["services"] = "not installed: only macOS has a service definition"
+        _note("no service definition on this OS: run `ccp otel serve` yourself, and `ccp --root "
+              f"{cfg.root} board build --quiet` every {int((cfg.board or {}).get('refresh_minutes') or 5)} minutes")
+    out["receiver_up"] = otel.receiver_up(port, 3 if _macos() else 0)
+    if not out["receiver_up"]:
+        _note(f"the receiver does not answer on port {port}: run `ccp otel install` in a normal terminal "
+              "(Claude Code cannot start it)" if _macos() else
+              f"the receiver does not answer on port {port}: run `ccp otel serve` in a normal terminal")
+    return out
+
+
+def board_launchd(cfg: config.Config) -> dict[str, Any]:
+    """Install the product's board timer, as `ccp board install` does."""
+    from ccp import board  # noqa: PLC0415  (board is heavy; only a consenting init installs the timer)
+    return board.launchd(cfg, "install")
 
 
 def record_adoption(q: Path, cfg: config.Config, written: bool, binding: Path | None = None) -> dict[str, Any] | None:
@@ -648,7 +742,8 @@ def main(root_arg: str | None, a: Any) -> int:
     if getattr(a, "permissions", False):
         return print_permissions(root, a)
     try:
-        res = init(root, a.project_id, a.queue_root, a.integration_branch, a.gate, a.force, a.starter_rules)
+        res = init(root, a.project_id, a.queue_root, a.integration_branch, a.gate, a.force, a.starter_rules,
+                   getattr(a, "telemetry", None))
     except QueueError as e:
         print(str(e), file=sys.stderr)
         return e.code
