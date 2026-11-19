@@ -135,6 +135,7 @@ SPEC §16.5 rule 4 instead of restating it, so the rule lives in the SPEC and th
     `CatchUp`. A helper switches the fixture product to `parallel.schedule: clashes`: it rewrites the
     product's plane.json and pushes it, as `setUp` pushes the product's files. A subclass would run
     every inherited test a second time in the suite's slowest module.
+  - ADR-0042 D4 (shared with task 0168): the second of 0167 and 0168 to close marks D4 built (`ccp adr decide 42 D4 built`); the first marks nothing.
 - **Out:**
   - Conflicted catch-ups and the resolution review (task 0168).
   - The behind-tip check itself (`_close_behind_tip`, `merge.behind_tip_ignore`), which is unchanged.

@@ -7,7 +7,7 @@ depends_on: ["0162-git-merge-helper"]
 spec_refs: ["S13", "S15", "S16"]
 adr_refs: ["0042 D3"]
 review_point: R11
-paths: ["ccp/prompt.py", "templates/prompts/implement.md", "templates/prompts/fix.md", "plugin/agents/delivery-implementer.md", "plugin/agents/delivery-runner.md", "docs/spec/02-delivery.md", "tests/test_review_tip_gate.py", "tests/test_prompt_pr_body.py"]
+paths: ["ccp/prompt.py", "templates/prompts/implement.md", "templates/prompts/fix.md", "plugin/agents/delivery-implementer.md", "plugin/agents/delivery-runner.md", "docs/spec/02-delivery.md", "tests/test_review_tip_gate.py", "tests/test_prompt_pr_body.py", "tests/test_run_abandon.py"]
 adopt: "none"
 sign_off: brief
 created: 2026-11-19
@@ -55,7 +55,9 @@ does not send the implementer back again and again.
   - A tip or head that cannot be fetched is a warning on the run (`behind_tip not checked: …`), and the review
     opens, as at verify. Review tests that pass a made-up `--head` now get that warning:
     `tests/test_prompt_pr_body.py` `test_a_body_naming_its_task_renders_the_prompt` asserts no warnings and
-    changes to assert none but that one.
+    changes to assert none but that one. `tests/test_run_abandon.py` `test_a_stopped_round_is_superseded_by_the_next`
+    (lines 60-61 at `b9e58ce`) calls `ccp prompt review` with `--head` of 40 `a`s and asserts no warning in stderr
+    or the body; it changes to assert no warning but the `behind_tip not checked` one.
   - The catch-up in the implement and fix prompts comes right before the round's full-lane run, so that run
     is on the merged code; the tip moving during the run starts no second catch-up. Conflicts resolved are
     listed in the report, file by file, as the merge prompt asks today.
@@ -85,7 +87,9 @@ does not send the implementer back again and again.
     > needs such a report), `merge` and `ruling`, each with its own template and run name. An `implement` or `fix` round's last step before it pushes the head it reports is a catch-up: it merges the integration tip into the task branch (§15.6 rule 2: never a rebase), resolves any conflict, listing each in its report, and runs its suite (§14) on the merged code. The other two:
   - `docs/spec/02-delivery.md` §15.2: CURRENT (at `b9e58ce`): "the task id; the runner repairs the body first. A commit landing while a review runs makes its head stale." PROPOSED:
     > the task id; the runner repairs the body first. It refuses (exit 4, nothing opened) a head behind the integration tip (`behind_tip`, §16.5 rule 4) only when merging the tip into it would conflict in a file outside the task log and `merge.behind_tip_ignore`, judged with `git merge-tree`, which writes nothing; the refusal names the conflicted files, and `ccp prompt merge` has the implementer resolve them. A head behind by a clean merge is reviewed, and a later catch-up handles it (§15.6 rule 3, §16.5 rule 4). A tip or head that cannot be fetched to judge is a warning on the run, and the review opens. A commit landing while a review runs makes its head stale.
-  - `tests/test_review_tip_gate.py` (new): the checks below. `tests/test_prompt_pr_body.py`: as in Context.
+  - `tests/test_review_tip_gate.py` (new): the checks below. `tests/test_prompt_pr_body.py` and
+    `tests/test_run_abandon.py`: as in Context.
+  - ADR-0042 D3: this task marks it built (`ccp adr decide 42 D3 built`).
 - **Out:**
   - The resolution review mode and verify rerunning affected checks (task 0168), close's catch-up (task 0167),
     counting conflict catch-ups (task 0169).

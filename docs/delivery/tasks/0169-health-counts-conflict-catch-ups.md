@@ -85,6 +85,7 @@ default. It comes from a field the plane computes when each round reports, not f
   - `docs/cli/04-observability.md`: the `ccp health` row names `conflict_catch_ups`.
   - `tests/test_health_conflicts.py` (new): the checks below, on fenced temp products, origins and
     queues.
+  - ADR-0042 D5: this task marks it built (`ccp adr decide 42 D5 built`).
 - **Out:**
   - Close's own catch-ups. They never conflict (a union of `parallel.shared` lines is recorded on the
     verification record as `merge_tree: union`).
@@ -96,12 +97,12 @@ default. It comes from a field the plane computes when each round reports, not f
 
 - id: `run-01`
   story: As the plane, each round's report records its integration merges and whether they conflicted.
-  setup: a fenced product with an origin and a queue: task 0002 claimed, its implement round reported at H1; then a merge round whose head H2 is a merge of `origin/main` that conflicted in one file and was resolved; a second merge round whose head H3 merges a later tip cleanly.
+  setup: a fenced product with an origin and a queue: task 0002 claimed, its implement round reported at H1; a review run of 0002 that reported `done`; then a merge round whose head H2 is a merge of `origin/main` that conflicted in one file and was resolved; a second merge round whose head H3 merges a later tip cleanly.
   steps:
     1. Submit the merge round's done report at H2 through `ccp report`.
     2. Submit the second merge round's done report at H3.
     3. Submit a done fix report whose `Head:` names a sha that is not in the product's object store.
-  expect: step 1's run has `integration_merges` with one entry, `conflicted: true`, `files: 1`, and `before_review` false when a done review precedes it; step 2's run has one entry with `conflicted: false`; step 3 exits 0 and its run has no `integration_merges` key.
+  expect: step 1's run has `integration_merges` with one entry, `conflicted: true`, `files: 1`, and `before_review` false; step 2's run has one entry with `conflicted: false`; step 3 exits 0 and its run has no `integration_merges` key.
   dry run: n/a — `ccp report` records no such field at `b9e58ce`.
 - id: `hl-01`
   story: As the operator, health shows conflict catch-ups before and after review, with their cost.

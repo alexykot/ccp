@@ -67,6 +67,11 @@ refuses an id that names no task. With plane.json `parallel.schedule: clashes`, 
     other in `clashes_with`; their paths are not compared. Rule 3's refusal then reads `<C> clashes with
     in-flight <T> (clashes_with, rule 3)`, and a task passed over behind another passed-over task reads
     `<C> clashes with passed-over <T>`. The module docstring says which rule 3 each schedule applies.
+  - `ccp/parallel.py` `kept_apart`: today it returns a pair of paths (`tuple[str, str] | None`); it returns a reason
+    for a recorded clash too, so its return type changes to one that carries either the two meeting paths or the
+    clash (for example a small reason value with a `kind` of `paths` or `clash`), and `join_refusal` and
+    `next_choice` word their messages from it.
+  - ADR-0042 D1 and D2: this task marks nothing built; task 0170, the last of 0164 and 0170, marks both.
   - `README.md`: the adoption checklist gains a `parallel.schedule` row (`clashes`: tasks whose paths meet
     run together unless one names the other in `clashes_with`; when `max_in_flight` is above 1 and most
     tasks meet on hub files).

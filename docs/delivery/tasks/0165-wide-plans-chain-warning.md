@@ -7,7 +7,7 @@ depends_on: []
 spec_refs: ["S21", "S19", "S5"]
 adr_refs: ["0042 D6"]
 review_point: R11
-paths: ["ccp/plan.py", "ccp/cli.py", "docs/spec/03-quality.md", "plugin/skills/writing-tasks/SKILL.md", "plugin/skills/architect/SKILL.md", "plugin/skills/review-triage/SKILL.md", "tests/test_tasks_check_chain.py"]
+paths: ["ccp/plan.py", "ccp/cli.py", "docs/spec/03-quality.md", "plugin/skills/writing-tasks/SKILL.md", "plugin/skills/architect/SKILL.md", "plugin/skills/review-triage/SKILL.md", "tests/test_tasks_check_chain.py", "tests/test_estimator.py"]
 adopt: "none"
 created: 2026-11-19
 updated: 2026-11-19
@@ -68,6 +68,10 @@ architect's shape pass and review triage point to that one place rather than res
     `plugin/skills/review-triage/SKILL.md` ("After a shape"): one line each pointing to the writing-tasks
     skill's `Wide plans, not deep chains`, restating none of it.
   - `tests/test_tasks_check_chain.py` (new): the checks below, on fenced temp products.
+  - `tests/test_estimator.py`: `test_with_auto_off_neither_command_notes_or_starts_an_estimator` asserts
+    `assertNotIn("note:", out)`, and its fixture has 0005 depending on 0004, so the chain note now prints.
+    Narrow that assertion to the estimates note (`assertNotIn("note: estimates", out)`); do not remove it.
+  - ADR-0042 D6: this task marks it built (`ccp adr decide 42 D6 built`).
 - **Out:**
   - Any refusal: the report and warning never change the exit code.
   - `clashes_with` (task 0164) and any change to `ccp tasks next` or the board's graph.
@@ -77,21 +81,21 @@ architect's shape pass and review triage point to that one place rather than res
 
 - id: `chain-01`
   story: As a task-log owner, I see how deep and wide each review point's pending plan is.
-  setup: a fenced temp product with review point R1 holding 6 pending tasks: A, B (depends on A), C (depends on A), D (depends on B), E and F (no dependencies); and one done task in R1 that A depends on.
+  setup: a fenced temp product with review point R1 holding 6 pending tasks: A, B (depends on A), C (depends on A), D (depends on B), E and F (no dependencies); and one done task in R1 that A depends on; the index rebuilt.
   steps:
     1. Run `ccp tasks check`.
   expect: exit 0; stdout holds exactly one note for R1, reading `R1: 6 pending tasks, longest depends_on chain 3, width by depth 3, 2, 1`, and no chain warning (6 is not fewer than 2 × 3).
   dry run (`b9e58ce`): `./bin/ccp --root . tasks check` prints `tasks: clean (160 tasks)` and no `longest depends_on chain` line: the note does not exist yet.
 - id: `chain-02`
   story: As a task-log owner, a review point written as a chain is flagged before a runner starts.
-  setup: a fenced temp product with review point R2 holding 4 pending tasks in a chain (each depends on the one before, written with the dependency's number higher than its dependant's for one link) and 2 pending tasks with no dependencies.
+  setup: a fenced temp product with review point R2 holding 4 pending tasks in a chain (each depends on the one before, written with the dependency's number higher than its dependant's for one link) and 2 pending tasks with no dependencies; the index rebuilt.
   steps:
     1. Run `ccp tasks check`.
   expect: exit 0; stdout holds one `warning:` line for R2 naming chain 4 and the four ids in run order joined by ` → `, and `1.5 tasks wide`.
   dry run: n/a — the warning does not exist yet.
 - id: `chain-03`
   story: As a task-log owner, a wide plan or a short chain is not flagged.
-  setup: a fenced temp product with R3 holding 8 pending tasks at chain 4 (widths 2, 2, 2, 2), R4 holding 2 pending tasks where one depends on the other, and 3 pending tasks with no review point and no dependencies.
+  setup: a fenced temp product with R3 holding 8 pending tasks at chain 4 (widths 2, 2, 2, 2), R4 holding 2 pending tasks where one depends on the other, and 3 pending tasks with no review point and no dependencies; the index rebuilt.
   steps:
     1. Run `ccp tasks check`.
   expect: exit 0; no chain warning; one note each for R3 (chain 4), R4 (chain 2) and the no-review-point group (chain 1, width 3).
