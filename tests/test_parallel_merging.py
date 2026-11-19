@@ -15,7 +15,7 @@ from tests.test_toolkit import ToolkitFixture, git
 class Merging(ToolkitFixture, unittest.TestCase):
     # §16.5 rule 4: close checks it with several runners, verify with any number; commits only under
     # docs/notes/ do not make a head behind the tip
-    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "parallel": {"max_in_flight": 2},
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "parallel": {"max_in_flight": 2, "schedule": "paths"},
                   "merge": {"behind_tip_ignore": ["docs/notes"]}}
 
     def push_to_main(self, rel: str, text: str, msg: str) -> None:
@@ -46,7 +46,7 @@ class Merging(ToolkitFixture, unittest.TestCase):
 
     def one_runner(self) -> None:
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg.pop("parallel")
+        cfg["parallel"] = {"max_in_flight": 1}
         self.write("docs/delivery/plane.json", json.dumps(cfg))
         git(self.main, "commit", "-qam", "one runner")
         git(self.main, "push", "-q", "origin", "HEAD:main")

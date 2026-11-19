@@ -40,7 +40,7 @@ README = "# Package a\n\nIntro.\n\n## Files\n- `one.py`: one\n- `two.py`: two\n"
 
 
 class CatchUp(ToolkitFixture, unittest.TestCase):
-    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "parallel": {"max_in_flight": 2},
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "parallel": {"max_in_flight": 2, "schedule": "paths"},
                   "suite": {"lanes": {"gate": ["/bin/sh", "-c", GATE]}}}
 
     def setUp(self):

@@ -1124,13 +1124,13 @@
     "parallel": {
       "type": "object",
       "additionalProperties": false,
-      "description": "SPEC §16: several tasks in flight under one runner. Absent, or max_in_flight 1: one task at a time.",
+      "description": "SPEC §16: several tasks in flight under one runner. Absent, several tasks run at once, scheduled by clashes; max_in_flight 1 is one task at a time.",
       "properties": {
-        "max_in_flight": {"type": "integer", "minimum": 1, "maximum": 4, "default": 1, "description": "The most tasks the runner holds at once (§16.3 rule 1)."},
+        "max_in_flight": {"type": "integer", "minimum": 1, "maximum": 4, "default": 3, "description": "The most tasks the runner holds at once (§16.3 rule 1); 1 is one task at a time."},
         "exclusive": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": [], "description": "Paths and globs (** spans directories) whose tasks run alone: files concurrent edits cannot be merged in safely (§16.3 rule 4)."},
         "shared": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": [], "description": "Paths and globs that tasks only append lines to, such as a package doc's file map: two tasks meeting only in them may run together (§16.3 rule 3), and close's catch-up merges both sides' appended lines, the tip's first (§16.5 rule 4). An entry may not also be in exclusive."},
         "session_ceiling_pct": {"type": "number", "exclusiveMinimum": 0, "maximum": 100, "default": 60, "description": "A second task is claimed only while the account's 5-hour usage is below this (§16.3 rule 5)."},
-        "schedule": {"enum": ["paths", "clashes"], "default": "paths", "description": "What claim rule 3 keeps apart (§16.3): paths, tasks whose paths meet; clashes, only tasks that clash (clashes_with in the task's frontmatter, §5), whatever their paths."}
+        "schedule": {"enum": ["paths", "clashes"], "default": "clashes", "description": "What claim rule 3 keeps apart (§16.3): clashes, the default, only tasks that clash (clashes_with in the task's frontmatter, §5), whatever their paths; paths, tasks whose paths meet."}
       }
     },
     "ids": {

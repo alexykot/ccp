@@ -17,7 +17,7 @@ class PassesOver(ToolkitFixture, unittest.TestCase):
     def setUp(self):
         super().setUp()
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["parallel"] = {"max_in_flight": 2, "shared": ["docs/notes.md"]}
+        cfg["parallel"] = {"max_in_flight": 2, "schedule": "paths", "shared": ["docs/notes.md"]}
         self.write("docs/delivery/plane.json", json.dumps(cfg))
         self.tasks({"0002-second": "`src/a.py`"})
         (self.q / "work.json").write_text(json.dumps({"status": "running"}))

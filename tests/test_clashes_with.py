@@ -1,6 +1,5 @@
-"""SPEC §5, §16.3: a task may record `clashes_with`, and under `parallel.schedule: clashes` claim rule 3 and
-`ccp tasks next` keep apart only tasks that clash, whatever their paths; under `paths`, the default, the
-field is not read."""
+"""SPEC §5, §16.3: a task may record `clashes_with`, and under `parallel.schedule: clashes`, the default, claim rule 3
+and `ccp tasks next` keep apart only tasks that clash, whatever their paths; under `paths`, the field is not read."""
 from __future__ import annotations
 
 import io
@@ -64,11 +63,11 @@ class Schedule(Fixture, unittest.TestCase):
             cfg = config.load(self.main)
         return cfg, err.getvalue()
 
-    def test_the_schedule_defaults_to_paths_and_takes_only_its_two_values(self):
+    def test_the_schedule_defaults_to_clashes_and_takes_only_its_two_values(self):
         cfg, err = self.load(max_in_flight=2)
-        self.assertEqual(parallel.settings(cfg)["schedule"], "paths")
-        cfg, err = self.load(max_in_flight=2, schedule="clashes")
         self.assertEqual(parallel.settings(cfg)["schedule"], "clashes")
+        cfg, err = self.load(max_in_flight=2, schedule="paths")
+        self.assertEqual(parallel.settings(cfg)["schedule"], "paths")
         self.assertNotIn("schedule", err)
         self.plane(max_in_flight=2, schedule="files")
         with redirect_stderr(io.StringIO()), self.assertRaises(config.ConfigError) as cm:
@@ -122,7 +121,7 @@ class Claims(Fixture, unittest.TestCase):
         self.assertIn("rule 4", err)
 
     def test_under_paths_clashes_with_is_not_read(self):
-        self.plane(max_in_flight=3)
+        self.plane(max_in_flight=3, schedule="paths")
         code, _, out, err = self.claim("0003")
         self.assertEqual(code, 0, out + err)  # paths differ, so it joins despite its recorded clash
         code, _, out, err = self.claim("0004")

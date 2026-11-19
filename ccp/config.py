@@ -58,13 +58,13 @@ TASK_LOG_DEFAULTS: dict[str, Any] = {
     # The same files `estimate.spec_paths` names by default, in this key's form (paths and directories).
     "spec_paths": ["docs/SPEC.md", "SPEC.md", "docs/spec/", "spec/"],
 }
-# SPEC §16.2: several tasks in flight under one runner. 1 (the default) is one task at a time.
-# `shared` lists the paths tasks only append lines to: they keep no two tasks apart (§16.3 rule 3), and
-# close's catch-up merges their appended lines (§16.5 rule 4). `schedule` picks claim rule 3 (§16.3): `paths`
-# keeps apart tasks whose paths meet, `clashes` only tasks that clash (`clashes_with`, §5).
+# SPEC §16.2: several tasks in flight under one runner; 1 is one task at a time. `shared` lists the paths
+# tasks only append lines to: they keep no two tasks apart (§16.3 rule 3), and close's catch-up merges their
+# appended lines (§16.5 rule 4). `schedule` picks claim rule 3 (§16.3): `clashes` (the default) keeps apart
+# only tasks that clash (`clashes_with`, §5), `paths` tasks whose paths meet.
 PARALLEL_SCHEDULES = ("paths", "clashes")
-PARALLEL_DEFAULTS: dict[str, Any] = {"max_in_flight": 1, "exclusive": [], "shared": [], "session_ceiling_pct": 60,
-                                     "schedule": "paths"}
+PARALLEL_DEFAULTS: dict[str, Any] = {"max_in_flight": 3, "exclusive": [], "shared": [], "session_ceiling_pct": 60,
+                                     "schedule": "clashes"}
 # §22: the review-point register, a product file (ccp/reviewpoints.py).
 REVIEW_POINTS_DEFAULTS: dict[str, Any] = {"file": "docs/delivery/review-points.yaml"}
 
