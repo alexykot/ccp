@@ -26,7 +26,9 @@ repairs the body first (§15.2); a body `gh` cannot read is a warning on the run
 A verify round with no fix round since the task's last verify round needs `--note` with the reason
 (§15.6 rule 4): without it the command refuses, exit 4, nothing opened. A verify of a head that lacks the
 integration tip, beyond the task log and `merge.behind_tip_ignore`, refuses the same way, with one runner
-or several: merge the tip in first (§16.5 rule 4).
+or several: merge the tip in first (§16.5 rule 4). A review of a head behind the tip refuses the same way
+only when merging the tip into it would conflict beyond the task log and `merge.behind_tip_ignore` (§15.2);
+a head behind by a clean merge is reviewed.
 
 `ccp prompt env <worktree>` renders the product's `prompts.worker_env` for a worktree `ccp wt` recorded and
 prints the `export` lines its workers would get, opening no run and writing nothing (§13.3).
@@ -473,25 +475,41 @@ def repeat_gate(q: Path, tid: str, phase: str, note: str | None) -> dict[str, st
 def tip_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> list[str]:
     """§16.5 rule 4: a verify of a head behind the integration tip (the task log and
     `merge.behind_tip_ignore` aside) is refused (exit 4), nothing opened, with one runner or several
-    (ADR-0035 D2). A tip or head that cannot be fetched to judge is a warning, returned to record on the
-    run; with several runners close still checks."""
-    from ccp import lifecycle, parallel  # noqa: PLC0415
-    if phase != "verify":
+    (ADR-0035 D2). §15.2: a review of a head behind the tip is refused the same way only when merging the tip
+    into it would conflict in a file outside the task log and `merge.behind_tip_ignore` (`gitmerge.probe`); a
+    head behind by a clean merge is reviewed. A tip or head that cannot be fetched to judge is a warning,
+    returned to record on the run; with several runners close still checks."""
+    from ccp import gitmerge, lifecycle, parallel  # noqa: PLC0415
+    if phase not in ("review", "verify"):
         return []
     integ = integration_branch(q)
+    rule = "SPEC §15.2" if phase == "review" else "SPEC §16.5 rule 4"
     try:
         behind = lifecycle.behind_tip(cfg, a.pr, tid, a.head, integ)
     except lifecycle.Unjudged as exc:
         what = f"origin/{integ}" if exc.what == "tip" else f"the head {a.head[:7]}"
-        close = "; close checks it" if parallel.enabled(cfg) else ""  # close checks only with several runners
-        return [f"behind_tip not checked: {what} could not be fetched (SPEC §16.5 rule 4){close}"]
-    if behind:
-        raise QueueError(f"behind_tip: the head {a.head[:7]} lacks {len(behind)} commit(s) on origin/{integ} that change "
-                         f"more than the task log and merge.behind_tip_ignore ({', '.join(behind[:5])}). Merge the "
-                         f"tip in first: `ccp prompt merge {tid} --pr {a.pr} --head {a.head[:7]}` has the implementer "
-                         f"merge origin/{integ} into task/{tid} (a plain push, never a rebase), then verify the new head "
-                         "(SPEC §13.2, §16.5 rule 4)", 4)
-    return []
+        # close checks only with several runners, and only a verify's head
+        close = "; close checks it" if phase == "verify" and parallel.enabled(cfg) else ""
+        return [f"behind_tip not checked: {what} could not be fetched ({rule}){close}"]
+    if not behind:
+        return []
+    merge_in = (f"`ccp prompt merge {tid} --pr {a.pr} --head {a.head[:7]}` has the implementer merge "
+                f"origin/{integ} into task/{tid} (a plain push, never a rebase)")
+    if phase == "review":
+        p = gitmerge.probe(cfg.root, a.head, f"origin/{integ}")
+        if p.failed:
+            return [f"behind_tip not checked: {gitmerge.old_git_text(p)} ({rule})"]
+        skip = [x.strip().removeprefix("./").rstrip("/") for x in
+                lifecycle.task_log_paths(cfg) + [str(x) for x in ((cfg.merge or {}).get("behind_tip_ignore") or [])]]
+        files = sorted(f for f in p.conflicts if not any(f == x or f.startswith(x + "/") for x in skip))
+        if not files:
+            return []
+        raise QueueError(f"behind_tip: merging origin/{integ} into the head {a.head[:7]} would conflict in "
+                         f"{', '.join(files[:5])}" + (f" and {len(files) - 5} more" if len(files) > 5 else "")
+                         + f". Merge the tip in first: {merge_in}, then review the new head (SPEC §15.2)", 4)
+    raise QueueError(f"behind_tip: the head {a.head[:7]} lacks {len(behind)} commit(s) on origin/{integ} that change "
+                     f"more than the task log and merge.behind_tip_ignore ({', '.join(behind[:5])}). Merge the "
+                     f"tip in first: {merge_in}, then verify the new head (SPEC §13.2, §16.5 rule 4)", 4)
 
 
 GH_TIMEOUT_S = 60  # how long `ccp prompt review` waits on `gh pr view` for the PR's body

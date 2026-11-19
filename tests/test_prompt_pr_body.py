@@ -58,7 +58,7 @@ class PrBody(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.review()
         self.assertEqual(code, 0, out + err)
         self.assertTrue(Path(body["prompt_path"]).is_file())
-        self.assertNotIn("warnings", body)
+        self.assertEqual([w for w in body.get("warnings", []) if not w.startswith("behind_tip not checked")], [])
         self.assertEqual(self.runs(), ["review.json"])
 
     def test_a_body_gh_cannot_read_is_a_warning_and_the_review_opens(self):

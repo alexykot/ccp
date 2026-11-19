@@ -57,8 +57,8 @@ class Abandon(ToolkitFixture, unittest.TestCase):
         self.assertEqual((old["abandoned_reason"], old["abandoned_by"]), ("superseded by 0002-second/review-2", "task-runner"))
         self.assertTrue(old["abandoned_at"])
         self.assertEqual(self.abandoned(), [{"run_id": "0002-second/review", "reason": "superseded by 0002-second/review-2"}])
-        self.assertNotIn("warning", err)
-        self.assertNotIn("warnings", body)
+        self.assertEqual([ln for ln in err.splitlines() if "warning" in ln and "behind_tip not checked" not in ln], [])
+        self.assertEqual([w for w in body.get("warnings", []) if not w.startswith("behind_tip not checked")], [])
 
     def test_a_pending_round_is_superseded_with_supersede(self):
         self.ccp("tasks", "claim", "0002")
@@ -75,7 +75,7 @@ class Abandon(ToolkitFixture, unittest.TestCase):
         body, err = self.review()
         self.assertEqual(runs.state(self.run_rec("0002-second/review")), "abandoned")
         self.assertIn("0002-second/review was still running", err)
-        self.assertEqual(len(body["warnings"]), 1)
+        self.assertEqual(len([w for w in body["warnings"] if not w.startswith("behind_tip not checked")]), 1)
         code, _, _, err = self.report("0002-second/review", "Outcome: done\nSeverity: BLOCKER=0 MAJOR=0 MINOR=0 NIT=0\n"
                                                             "## Spec beyond intent\nnone\n## Friction\nnone\n")
         self.assertEqual(code, 1)
