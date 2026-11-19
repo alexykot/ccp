@@ -113,4 +113,8 @@ them. Nothing the plane does changes.
 
 *Append-only, newest last.*
 
+- Built as the Scope gives it. Premises re-run at d3a352c: `git grep -nw "clash" -- ccp` 3 lines (179, 213, 291), `git grep -n 'clash(' -- tests` finds no function call, the docs search finds nothing, `"session_ceiling_pct": 60` in 2 lines (`ccp/config.py:64`, `ccp/parallel.py:36`): as the task states.
+- `settings` falls back to `copy.deepcopy(config.PARALLEL_DEFAULTS)` (lists copied too); only the fallback copies, a loaded `cfg.parallel` is returned as before. `parallel.py` imports `PARALLEL_DEFAULTS` from `ccp.config` next to `Config`.
+- `kept_apart`'s docstring states it is the one pairwise predicate and where a scheduling mode branches; its body is `return paths_meet(cfg, a, b)`.
+
 ## Verification notes

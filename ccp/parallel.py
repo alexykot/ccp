@@ -10,12 +10,13 @@ start together. With `parallel.max_in_flight` 1 (the default) nothing here is co
 """
 from __future__ import annotations
 
+import copy
 import re
 from pathlib import Path
 from typing import Any
 
 from ccp import tasklog
-from ccp.config import Config
+from ccp.config import PARALLEL_DEFAULTS, Config
 
 EXIT_SLOTS = 7  # §16.3: the runner holds what it can; carry on with it (not "nothing ready", exit 3)
 
@@ -33,7 +34,7 @@ MARK_RE = re.compile(r"\b(?:new|removed)\b", re.I)  # §5.5: a Scope path the ta
 
 
 def settings(cfg: Config) -> dict[str, Any]:
-    return cfg.parallel or {"max_in_flight": 1, "exclusive": [], "shared": [], "session_ceiling_pct": 60}
+    return cfg.parallel or copy.deepcopy(PARALLEL_DEFAULTS)
 
 
 def enabled(cfg: Config) -> bool:
@@ -176,7 +177,7 @@ def reads_usage(cfg: Config) -> bool:
     return bool((cfg.telemetry or {}).get("allowance_cmd"))
 
 
-def clash(cfg: Config, a: dict[str, Any], b: dict[str, Any]) -> tuple[str, str] | None:
+def paths_meet(cfg: Config, a: dict[str, Any], b: dict[str, Any]) -> tuple[str, str] | None:
     """§16.3 rule 3 between two tasks: the first path of `a` that meets a path of `b`, with that path,
     unless both are covered by a `parallel.shared` entry; a task saying `parallel: true` meets nothing."""
     if flag(a) is True or flag(b) is True:
@@ -187,6 +188,13 @@ def clash(cfg: Config, a: dict[str, Any], b: dict[str, Any]) -> tuple[str, str] 
             if meets(p, o) and not (covered(p, shared) and covered(o, shared)):
                 return p, o
     return None
+
+
+def kept_apart(cfg: Config, a: dict[str, Any], b: dict[str, Any]) -> tuple[str, str] | None:
+    """Whether tasks `a` and `b` may not run together (§16.3 rule 3): the pair `(path of a, path of b)`
+    that keeps them apart, or None when they may. The one pairwise predicate: rule 3 and `next`'s
+    passed-over walk both ask it, and it is where a scheduling mode branches. Today it is `paths_meet`."""
+    return paths_meet(cfg, a, b)
 
 
 def join_refusal(cfg: Config, cand: dict[str, Any], active: list[dict[str, Any]],
@@ -210,7 +218,7 @@ def join_refusal(cfg: Config, cand: dict[str, Any], active: list[dict[str, Any]]
         if flag(t) is not True and not paths(cfg, t):
             return f"{tid} names no path in its Scope In: item and does not say parallel: true: it runs alone (rule 2)"
     for t in active if rule3 else []:
-        if (met := clash(cfg, cand, t)) is not None:
+        if (met := kept_apart(cfg, cand, t)) is not None:
             return f"{cid}'s `{met[0]}` meets in-flight {t.get('task_id')}'s `{met[1]}` (rule 3)"
     for t in group:
         if flag(t) is True:
@@ -288,7 +296,7 @@ def next_choice(cfg: Config, q: Path | None, sel: dict[str, Any]) -> dict[str, A
             head_why = why
         if why is not None and join_refusal(cfg, t, active, last, five_known=fresh, rule3=False) is not None:
             break  # rules 1, 2, 4 or 5: the line waits here
-        behind = next(((o, met) for o in held if (met := clash(cfg, t, o)) is not None), None)
+        behind = next(((o, met) for o in held if (met := kept_apart(cfg, t, o)) is not None), None)
         if why is None and behind is None:
             return {"pick": row, "slots_full": None, "passed_over": passed}
         if why is None and behind is not None:
