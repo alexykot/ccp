@@ -11,6 +11,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tests.test_gate_parallel import MORE, OK, GateFixture, ROOT, SCRIPTS
 from tests.test_suite_stages import StagedFixture
@@ -263,15 +264,31 @@ class AChangeRerunsWhatItCanAffect(CacheFixture):
 
 class TheAgeTheColdOptionAndTheDirectory(CacheFixture):
     def test_an_entry_older_than_max_age_days_is_no_hit(self):
+        (self.repo / "ccp").symlink_to(ROOT / "ccp")  # the gate reads plane.json through the checkout's own ccp
         (self.repo / "docs" / "delivery").mkdir(parents=True)
         (self.repo / "docs" / "delivery" / "plane.json").write_text(
-            json.dumps({"verify": {"accept_cache": {"max_age_days": 2}}}))
+            json.dumps({"project_id": "demo", "verify": {"accept_cache": {"max_age_days": 2}}}))
         self.commit()
         self.cgate()
         old = [p for p in self.cache.glob("*.json")][0]
         old.write_text(json.dumps({**json.loads(old.read_text()), "at": "2020-01-01T00:00:00Z"}))
         r, res = self.cgate()
         self.assertEqual((res["cached"], res["ran"]), (1, 1), r.stdout)
+
+    def test_the_age_limit_is_the_one_ccp_loads_with_its_default(self):
+        """gate_parallel asks ccp's loaded configuration, so an `accept_cache` block that leaves out
+        `max_age_days` gets the default `ccp` has."""
+        (self.repo / "docs" / "delivery").mkdir(parents=True)
+        (self.repo / "docs" / "delivery" / "plane.json").write_text(
+            json.dumps({"project_id": "demo", "verify": {"accept_cache": {}}}))
+        self.addCleanup(setattr, sys, "path", list(sys.path))  # the reader puts the checkout on the path
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import gate_parallel  # noqa: PLC0415
+        from ccp import config  # noqa: PLC0415
+        with mock.patch.object(gate_parallel, "ROOT", self.repo):
+            self.assertIsNone(gate_parallel.max_age_days())  # the default has no age: the block is refused
+            with mock.patch.dict(config.ACCEPT_CACHE_DEFAULTS, {"max_age_days": 3}):
+                self.assertEqual(gate_parallel.max_age_days(), 3)
 
     def test_the_cold_option_reads_and_writes_no_cache(self):
         self.commit()

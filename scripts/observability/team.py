@@ -13,6 +13,8 @@ it prints what the calling seat (the team lead or the runner) must do.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import os
 import subprocess
@@ -60,12 +62,16 @@ def live_name(rc: dict[str, str], w: dict[str, Any]) -> str:
 
 
 def max_in_flight(root: Path) -> int:
-    """SPEC §16.2: the product's plane.json parallel.max_in_flight (1 when absent or unreadable)."""
+    """SPEC §16.2: the product's parallel.max_in_flight as ccp loads it, defaults included (1 when the
+    configuration does not load). The load's warnings are not printed."""
     prod = sm.product_root(root)
+    sys.path.insert(0, str(HERE.parents[1]))
+    from ccp import config as ccp_config, parallel  # noqa: PLC0415
     try:
-        par = json.loads((Path(prod) / "docs" / "delivery" / "plane.json").read_text()).get("parallel") or {}
-        return max(1, int(par.get("max_in_flight", 1)))
-    except (OSError, ValueError, TypeError, AttributeError):
+        with contextlib.redirect_stderr(io.StringIO()):
+            cfg = ccp_config.load(Path(prod))
+        return max(1, int(parallel.settings(cfg)["max_in_flight"]))
+    except Exception:  # noqa: BLE001  (no plane.json, invalid JSON, a ConfigError: one slot, as before)
         return 1
 
 

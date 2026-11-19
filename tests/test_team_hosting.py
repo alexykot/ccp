@@ -45,6 +45,16 @@ class TeamCase(unittest.TestCase):
         self.prod.cleanup()
         self._q.cleanup()
 
+    def patch_default(self, table: str, key: str, value) -> None:
+        """Run the child processes of this test with `ccp.config.<table>[key]` set to `value`: a reader that
+        takes the setting from ccp's loaded configuration follows it, one with a default of its own does not."""
+        d = tempfile.TemporaryDirectory()
+        self.addCleanup(d.cleanup)
+        (Path(d.name) / "sitecustomize.py").write_text(
+            f"import sys\nsys.path.insert(0, {str(PLANE)!r})\nfrom ccp import config\n"
+            f"config.{table}[{key!r}] = {value!r}\n")
+        self.env["PYTHONPATH"] = os.pathsep.join(p for p in (d.name, os.environ.get("PYTHONPATH")) if p)
+
     def run_cmd(self, *argv, stdin=None):
         return subprocess.run([str(a) for a in argv], capture_output=True, text=True, env=self.env, input=stdin)
 
@@ -679,6 +689,28 @@ class TestArchitectInTemplates(unittest.TestCase):
             self.assertIn("architect.rules_doc", b, w)
 
 
+class TheRunnerSpawnFollowsCcpsDefault(TeamCase):
+    """SPEC §16.2: `runner spawn` asks ccp's loaded configuration for parallel.max_in_flight, so a product
+    with no `parallel` block gets the default `ccp` has, not one of the spawn's own."""
+
+    def setUp(self):
+        super().setUp()
+        (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text().replace(
+            "runner:\n  name: runner\n", "runner:\n  name: runner\n  worktree: /tmp/demo-runner\n"))
+        # The subject is a missing `parallel` block: the plane.json `Product(bare=True)` writes.
+        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo"}))
+        self.origin()
+
+    def test_a_product_with_no_parallel_block_gets_two_slots_when_ccps_default_is_two(self):
+        code, _, err = self.team("runner", "spawn", "--scope", "0001-a,0002-b", "--count", "2")
+        self.assertEqual(code, 2, err)  # the default is one slot
+        self.assertIn("max_in_flight", err)
+        self.patch_default("PARALLEL_DEFAULTS", "max_in_flight", 2)
+        code, res, err = self.team("runner", "spawn", "--scope", "0001-a,0002-b", "--count", "2")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(res["slots"], ["runner-1", "runner-2"])
+
+
 class TestSync(TeamCase):
     def test_installs_agent_and_executable_hook(self):
         yml = self.q / "project.yaml"
@@ -699,6 +731,17 @@ class TestSync(TeamCase):
         chk = subprocess.run(["bash", str(PLANE / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml),
                               "--check"], capture_output=True, text=True)
         self.assertNotIn("DRIFT .claude/hooks", chk.stdout)
+
+    def test_the_rules_doc_note_names_the_path_ccps_default_gives(self):
+        """The note on a missing `architect.rules_doc` takes the path from ccp's loaded configuration."""
+        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {}}))
+        self.patch_default("ARCHITECT_DEFAULTS", "rules_doc", "docs/HOUSE-RULES.md")
+        yml = self.q / "project.yaml"
+        chk = subprocess.run(["bash", str(PLANE / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml),
+                              "--check"], capture_output=True, text=True, env=self.env)
+        if "is not committed" in chk.stderr:
+            self.skipTest("templates not committed yet")
+        self.assertIn("plane.json architect.rules_doc docs/HOUSE-RULES.md does not exist", chk.stdout)
 
     def test_architect_skill_replaces_the_two_old_ones(self):
         yml = self.q / "project.yaml"

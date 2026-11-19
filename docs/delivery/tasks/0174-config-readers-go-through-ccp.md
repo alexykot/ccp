@@ -1,7 +1,7 @@
 ---
 task_id: 0174-config-readers-go-through-ccp
 title: Hooks and scripts read plane.json through ccp's loaded configuration, never raw with their own defaults
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S8"]
@@ -96,4 +96,25 @@ of `plugin/` and `scripts/`. Nothing the plane does changes.
 
 *Append-only, newest last.*
 
+- The four readers (`runner-idle.sh`, `team.py` `max_in_flight`, `gate_parallel.py` `max_age_days`,
+  `sync-product-docs.sh` rules doc) call `ccp.config.load` and read the loaded blocks
+  (`cfg.architect is not None`, `parallel.settings(cfg)["max_in_flight"]`, `cfg.verify["accept_cache"]`,
+  `cfg.architect["rules_doc"]`); each catches any exception from the load and keeps its old fallback, with the
+  load's stderr warnings swallowed (`contextlib.redirect_stderr`). The `config-reader` docs check is in
+  `docs/delivery/plane.json`.
+- Choice the task left open: the hook's plane. Plugin mode takes `where["plane"]`; a call with
+  `--queue-root` (a managed copy) has no `ccp where`, so it takes the checkout the `--ccp` path sits in
+  (`<plane>/bin/ccp`, resolved; it counts only when `ccp/config.py` is there). The task text says a copy with
+  `--ccp` and no plane keeps the fallback; but every hook test and every managed copy run with `--queue-root` and
+  `--ccp`, and the fallback would turn off their architect and parallel behaviour, a change. A bare `ccp`
+  not on PATH and with no plane keeps the fallback.
+- Tests: `patch_default` in `TeamCase` (a `sitecustomize` on the child's `PYTHONPATH` sets one
+  `ccp.config` default) drives the hook, spawn and sync tests; the gate test patches `ACCEPT_CACHE_DEFAULTS`
+  in-process. The fixture of the existing `max_age_days` test now links the checkout's `ccp` (the gate imports
+  it from its own root) and its plane.json carries a `project_id` (the load requires one).
+- Fix round 1: these notes moved here from `## Verification notes`, which is the verifier's and is left empty;
+  the hook's comment now says a `--ccp` wrapper kept outside a plane checkout gets the fallback.
+
 ## Verification notes
+- 2026-11-19 — verifier, PR #199 head `15c4da8` (squash `4fa42e3`): APPROVE. Passed: cfg-01, cfg-02, cfg-03. Gate: `ccp suite run --lane gate` exit 0, `./bin/ccp --root . tasks check` exit 0, `./bin/ccp --root . docs check` exit 0. Record: verification/0174-config-readers-go-through-ccp.json.
+
