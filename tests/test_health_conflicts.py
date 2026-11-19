@@ -147,6 +147,15 @@ class RoundReport(ToolkitFixture, unittest.TestCase):
         merge = self.run_phase("merge", h1, f"PR: #7\nHead: {head}")
         self.assertEqual([x["sha"] for x in self.record(merge)["integration_merges"]], [head])
 
+    def test_a_round_opened_in_the_review_runs_second_is_after_review(self):
+        from ccp import report
+        review = {"phase": "review", "outcome": "done", "reported_at": "2026-10-22T10:05:00Z", "opened_at": "2026-10-22T10:01:00Z"}
+        at = lambda t: {"phase": "fix", "opened_at": f"2026-10-22T{t}Z"}  # noqa: E731
+        self.assertTrue(report.before_review([review], at("10:00:59")))
+        self.assertFalse(report.before_review([review], at("10:01:00")))
+        self.assertFalse(report.before_review([review], at("10:02:00")))
+        self.assertTrue(report.before_review([], at("10:02:00")))
+
     def test_a_round_measures_from_the_previous_rounds_head(self):
         h1 = self.branch()
         self.implement(h1)
