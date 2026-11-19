@@ -126,6 +126,27 @@ class RoundReport(ToolkitFixture, unittest.TestCase):
         git(m, "checkout", "-q", "main")
         self.assertEqual(self.record(self.implement(head))["integration_merges"], [])
 
+    def test_a_merge_inside_the_tip_is_not_the_rounds_own(self):
+        m = self.main
+        h1 = self.branch()
+        self.implement(h1)
+        self.review(h1)
+        git(m, "checkout", "-q", "-b", "other-work", "main")  # the tip itself holds a merge commit of another branch
+        self.write("tip-side.txt", "side\n")
+        git(m, "add", "tip-side.txt")
+        git(m, "commit", "-q", "-m", "other work")
+        git(m, "checkout", "-q", "main")
+        self.write("other.txt", "alpha\nbeta\n")
+        git(m, "commit", "-q", "-am", "tip change")
+        self.assertEqual(sh(m, "merge", "-q", "--no-ff", "--no-edit", "other-work").returncode, 0)
+        git(m, "push", "-q", "origin", "main")
+        git(m, "checkout", "-q", "feat")
+        self.assertEqual(sh(m, "merge", "-q", "--no-edit", "origin/main").returncode, 0)
+        head = git(m, "rev-parse", "HEAD")
+        git(m, "checkout", "-q", "main")
+        merge = self.run_phase("merge", h1, f"PR: #7\nHead: {head}")
+        self.assertEqual([x["sha"] for x in self.record(merge)["integration_merges"]], [head])
+
     def test_a_round_measures_from_the_previous_rounds_head(self):
         h1 = self.branch()
         self.implement(h1)
