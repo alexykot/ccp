@@ -15,7 +15,7 @@ notes: |-
   Operator 2026-11-19: the language is a top-level `language` key; package-doc checks follow it, `none` turns them off (shape F03)
 decisions:
   - "D1 not_built"
-  - "D2 not_built"
+  - "D2 built"
   - "D3 not_built"
   - "D4 not_built"
   - "D5 not_built"

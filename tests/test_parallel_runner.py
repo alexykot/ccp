@@ -55,7 +55,7 @@ class Rotation(TeamCase):
         self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "parallel": {"max_in_flight": 2}}))
 
     def test_one_task_at_a_time_rotation_is_as_before(self):
-        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo"}))
+        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "parallel": {"max_in_flight": 1}}))
         self.team("runner", "spawn", "--scope", "0001-a")
         w = json.loads((self.q / "work.json").read_text())
         (self.q / "work.json").write_text(json.dumps({**w, "in_flight": ["0001-a"], "task_id": "0001-a"}))
