@@ -11,7 +11,7 @@ import re
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
-from ccp import cli, config
+from ccp import cli, config, models
 from tests.helpers import Product
 from tests.test_toolkit import ToolkitFixture
 
@@ -71,7 +71,7 @@ class PickedModel(ToolkitFixture, unittest.TestCase):
         self.assertIn(NO_ESTIMATE, err)
         self.assertIn("no estimate", err)
         self.assertNotIn("model", body["agent_call"])
-        self.assertEqual(body["expected_model"], "claude-opus-5-5")  # the definition's
+        self.assertEqual(body["expected_model"], models.default("implementer")[0])  # the definition's
 
     def test_an_estimated_task_draws_no_warning_whichever_side_of_the_bound(self):
         for minutes in (20, 90):
@@ -85,7 +85,7 @@ class PickedModel(ToolkitFixture, unittest.TestCase):
         self.shape(90)
         body = self.implement()
         self.assertNotIn("model", body["agent_call"])
-        self.assertEqual(body["expected_model"], "claude-opus-5-5")  # the definition's
+        self.assertEqual(body["expected_model"], models.default("implementer")[0])  # the definition's
 
     def test_the_bound_is_inclusive_and_an_unestimated_task_is_not_small(self):
         self.shape(30)
@@ -107,7 +107,7 @@ class PickedModel(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.ccp("prompt", "merge", "0002", "--pr", "7", "--head", "abc1234")
         self.assertEqual(code, 0, out + err)
         self.assertNotIn("model", body["agent_call"])
-        self.assertEqual(body["expected_model"], "claude-opus-5-5")
+        self.assertEqual(body["expected_model"], models.default("implementer")[0])
 
     def test_a_rework_round_of_an_unestimated_task_draws_no_warning(self):
         self.shape(None)
@@ -141,7 +141,7 @@ class NoKnob(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
         self.assertEqual(code, 0, out + err)
         self.assertNotIn("model", body["agent_call"])
-        self.assertEqual(body["expected_model"], "claude-opus-5-5")
+        self.assertEqual(body["expected_model"], models.default("implementer")[0])
 
     def test_an_unestimated_task_draws_no_warning(self):
         self.ccp("tasks", "claim", "0002")

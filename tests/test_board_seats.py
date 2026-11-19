@@ -10,9 +10,11 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from ccp import board, config, runs, seats, usage
+from ccp import board, config, models, runs, seats, usage
 from tests.test_board_quality import HOSTILE, STUB, _hostile
 from tests.test_toolkit import ToolkitFixture
+
+RUNNER, IMPLEMENTER = models.default("runner"), models.default("implementer")  # each role's default model and effort
 
 
 def at(minutes_ago: float) -> str:
@@ -57,18 +59,18 @@ class Expected(Base, unittest.TestCase):
         f.write_text(f.read_text().replace("effort: high", "effort: max"))
         cfg = config.load(self.main)
         imp = seats.definition_pins(cfg, "delivery-implementer")
-        self.assertEqual((imp["model"], imp["effort"]), ("claude-opus-5-5", "max"))
+        self.assertEqual((imp["model"], imp["effort"]), (IMPLEMENTER[0], "max"))
         self.assertIn(".claude/agents/delivery-implementer.md (product copy)", imp["source"])
         # no product copy of the runner: the plugin's definition, read from the real file
         run = seats.definition_pins(cfg, "ccp:delivery-runner")
-        self.assertEqual((run["model"], run["effort"]), ("claude-sonnet-5-5", "high"))
+        self.assertEqual((run["model"], run["effort"]), RUNNER)
         self.assertEqual(run["source"], "plane:plugin/agents/delivery-runner.md (plugin)")
 
     def test_the_runner_row_reads_the_bindings_runner_block(self):
         (self.q / "project.yaml").write_text("project_id: demo\nintegration_branch: main\nrunner:\n"
                                              "  name: steward\n  agent_type: delivery-implementer\n")
         row = self.rows(self.build())["runner (steward)"]
-        self.assertEqual(row["expected"]["model"], "claude-opus-5-5")
+        self.assertEqual(row["expected"]["model"], IMPLEMENTER[0])
 
     def test_an_unknown_agent_type(self):
         self.assertEqual(seats.definition_pins(config.load(self.main), ""),
@@ -102,8 +104,8 @@ class Expected(Base, unittest.TestCase):
         lead, runner, run = r["design seat"], r["runner"], r[f"implementer {rid}"]
         self.assertEqual((lead["expected"]["model"], lead["expected"]["effort"], lead["expected"]["advisory"]),
                          ("claude-opus-5-5", "xhigh", True))
-        self.assertEqual((runner["expected"]["model"], runner["expected"]["effort"]), ("claude-sonnet-5-5", "high"))
-        self.assertEqual((run["expected"]["model"], run["expected"]["effort"]), ("claude-opus-5-5", "high"))
+        self.assertEqual((runner["expected"]["model"], runner["expected"]["effort"]), RUNNER)
+        self.assertEqual((run["expected"]["model"], run["expected"]["effort"]), IMPLEMENTER)
         self.assertIn("run record", run["expected"]["source"])
         self.assertEqual(run["status"], "pending · implement")
         for x in r.values():  # never a fake value
@@ -147,7 +149,7 @@ class Expected(Base, unittest.TestCase):
         (self.q / "architect.json").write_text(json.dumps(st))
         r = self.rows(self.build())["architect pass ar-20261021T100000Z-abcd"]
         self.assertEqual((r["kind"], r["status"], r["expected"]["model"], r["expected"]["effort"]),
-                         ("headless", "running", "claude-opus-5-5", "high"))
+                         ("headless", "running", *models.default("architect")))
         self.assertEqual(json.loads((self.q / "architect.json").read_text()), st)
         self.assertEqual(r["stale"], "lock gone")  # no lock, past the reaper's grace: shown, not reaped
         import os, socket
