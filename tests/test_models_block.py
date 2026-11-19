@@ -10,6 +10,7 @@ from pathlib import Path
 
 from ccp import architect, config, estimator, models, seats
 from tests.helpers import Product
+from tests.test_architect import Harness as ArchitectHarness
 from tests.test_board_seats import Base as SeatsBase
 from tests.test_init import InitCase
 from tests.test_team_hosting import TeamCase
@@ -248,6 +249,16 @@ class WorkersCarryAnAliasOnlyWhenTheModelDiffers(ToolkitFixture, unittest.TestCa
         self.assertIn("models.implementer_small", err)
 
 
+class ArchitectPass(ArchitectHarness):
+    def test_the_pass_runs_on_the_products_architect_model(self):
+        plane = json.loads((self.p.root / "docs/delivery/plane.json").read_text())
+        self.p.write("docs/delivery/plane.json", json.dumps({**plane, "models": {"architect": "sonnet"}}))
+        self.stub_report([])
+        self.assertEqual(self.dpj("architect", "run", "--force")[0], 0)
+        argv = json.loads(Path(str(self.report) + ".argv").read_text())
+        self.assertIn(f"--model {SONNET_ID} --effort high", " ".join(argv))
+
+
 class SeatsExpectTheRolesModel(SeatsBase, unittest.TestCase):
     PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "models": {"runner": "opus", "architect": "sonnet", "estimator": "haiku"}}
 
@@ -282,6 +293,11 @@ class RunnerSpawn(TeamCase):
     def test_a_runner_the_product_moved_to_opus_carries_the_alias(self):
         self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "models": {"runner": "opus"}}))
         self.assertEqual(self.spawn()["model"], "opus")
+
+    def test_a_runner_of_the_products_own_agent_type_keeps_that_definitions_model(self):
+        (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text().replace(
+            "runner:\n  name: runner\n", "runner:\n  name: runner\n  agent_type: delivery-implementer\n"))
+        self.assertNotIn("model", self.spawn())
 
     def test_a_runner_moved_to_its_own_default_passes_none(self):
         self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "models": {"runner": "sonnet"}}))
