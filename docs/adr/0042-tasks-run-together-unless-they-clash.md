@@ -13,8 +13,8 @@ notes: |-
   2026-11-19: status proposed → accepted: Accepted by the operator (2026-11-19, in the lead session: 'accept ADR-0042'). Its decisions stay not_built until the shaped tasks build them.
   2026-11-19: operator ruling on shape F04: 'patch id alone'.
 decisions:
-  - "D1 not_built"
-  - "D2 not_built"
+  - "D1 built"
+  - "D2 built"
   - "D3 not_built"
   - "D4 not_built"
   - "D5 not_built"
