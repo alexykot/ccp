@@ -19,8 +19,12 @@ def git(root, *a):
                           capture_output=True, text=True).stdout.strip()
 
 
+FILLERS = [f"tests/test_filler{i}.py" for i in range(1, 7)]
+
+
 class Scratch:
-    """A scratch Python product: tests/test_a.py imports pkg/a.py, tests/test_b.py imports pkg/b.py."""
+    """A scratch Python product: tests/test_a.py imports pkg/a.py, tests/test_b.py imports pkg/b.py, and six
+    filler test modules import nothing (eight in all, so one or two touched modules are under the full-lane share)."""
 
     def setUp(self, cfg: dict | None = None):
         self.p = Product(cfg)
@@ -32,6 +36,7 @@ class Scratch:
             "tests/__init__.py": "",
             "tests/test_a.py": "import unittest\nfrom pkg import a\n",
             "tests/test_b.py": "import unittest\nfrom pkg.b import Y\n",
+            **{rel: "import unittest\n" for rel in FILLERS},
         }.items():
             self.p.write(rel, text)
         git(self.p.root, "init", "-q", "-b", "main")
@@ -78,6 +83,41 @@ class Affected(Scratch, unittest.TestCase):
             code, lines, err = self.run_cli("--paths", "pkg/a.py")
         self.assertEqual((code, lines), (0, ["tests.test_a"]))
         self.assertNotIn("ccp suite run", err)
+
+    def test_past_a_quarter_of_the_suite_stderr_says_skip_the_pre_gate_and_run_the_full_lane(self):
+        self.p.write("pkg/__init__.py", "from pkg import a, b\n")  # every test importing pkg reaches a and b
+        for rel in FILLERS[:1]:
+            self.p.write(rel, "import unittest\nimport pkg\n")
+        code, lines, err = self.run_cli("--paths", "pkg/a.py")
+        self.assertEqual((code, lines), (0, ["tests.test_a", "tests.test_b", "tests.test_filler1"]), err)
+        self.assertEqual(err, "ccp suite affected: 3 of 8 test modules: skip the pre-gate and run the full lane: "
+                              "ccp suite run --lane full\n")
+
+    def test_a_quarter_of_the_suite_exactly_still_gets_the_part_lane_line(self):
+        code, lines, err = self.run_cli("--paths", "pkg/a.py", "pkg/b.py")  # 2 of 8
+        self.assertEqual(lines, ["tests.test_a", "tests.test_b"])
+        self.assertIn("run them with: ccp suite run --lane part -- python3 -m unittest tests.test_a tests.test_b\n", err)
+        self.assertNotIn("full lane", err)
+
+    def test_the_full_lane_line_names_the_lane_the_product_gives_the_full_role(self):
+        self.p.write("docs/delivery/plane.json", json.dumps(
+            {"project_id": "demo", "suite": {"roles": {"full": "everything"}}}))
+        _, lines, err = self.run_cli("--paths", *FILLERS[:3], "pkg/a.py")
+        self.assertEqual(len(lines), 4)
+        self.assertIn("4 of 8 test modules: skip the pre-gate and run the full lane: ccp suite run --lane everything\n",
+                      err)
+
+    def test_the_full_lane_line_leaves_stdout_the_list_alone(self):
+        code, lines, err = self.run_cli("--paths", *FILLERS[:3])
+        self.assertEqual((code, lines), (0, ["tests.test_filler1", "tests.test_filler2", "tests.test_filler3"]))
+        self.assertNotIn("run them with", err)
+
+    def test_the_suite_size_counts_the_test_modules_the_reader_walks(self):
+        self.assertEqual(suite._python_suite_size(self.p.root), 8)
+        (self.p.root / "tests/test_filler1.py").unlink()  # deleted in the working tree: no module
+        self.p.write("tests/test_new.py", "import unittest\n")  # untracked: a module
+        self.p.write("tests/helper.py", "X = 1\n")  # not a test module
+        self.assertEqual(suite._python_suite_size(self.p.root), 8)
 
     def test_no_change_prints_nothing_and_exits_0(self):
         code, lines, _ = self.run_cli()
@@ -260,12 +300,22 @@ class Language(unittest.TestCase):
         code, lines, err = self.run_cli("--paths", "internal/store/db.go", "ops/deploy.sh", "docs/readme.md")
         self.assertEqual((code, lines), (0, ["./internal/store/...", "ops/test_ops.sh"]), err)
         self.assertNotIn("ccp suite run", err)  # no command is named for a language with no reader
+        self.assertNotIn("full lane", err)  # no pack reader, no suite size: never the full-lane line
         code, lines, err = self.run_cli("--paths", "docs/readme.md")
         self.assertEqual((code, lines), (0, []), err)
         self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "package_docs": {"language": "none"}}))
         code, lines, err = self.run_cli("--paths", "internal/store/db.go", "ops/deploy.sh", "docs/readme.md")
         self.assertEqual((code, lines), (2, []))
         self.assertIn("suite.affected_map", err)
+
+    def test_a_product_with_a_map_alone_has_no_suite_size_so_never_the_full_lane_line(self):
+        self.p.write("docs/delivery/plane.json", json.dumps(
+            {"project_id": "demo", "package_docs": {"language": "none"},
+             "suite": {"affected_map": {"src/*": ["t1", "t2", "t3", "t4"]}}}))
+        code, lines, err = self.run_cli("--paths", "src/x.go")
+        self.assertEqual((code, lines), (0, ["t1", "t2", "t3", "t4"]), err)
+        self.assertNotIn("full lane", err)
+        self.assertNotIn("test modules", err)
 
     def test_a_glob_star_crosses_directories_and_matches_case_exactly(self):
         self.p.write("docs/delivery/plane.json", json.dumps(

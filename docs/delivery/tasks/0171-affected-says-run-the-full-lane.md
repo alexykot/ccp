@@ -1,7 +1,7 @@
 ---
 task_id: 0171-affected-says-run-the-full-lane
 title: ccp suite affected says to run the full lane when a change reaches most of the suite, and the worker templates stop restating the pre-gate
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S14"]
@@ -132,4 +132,16 @@ pre-gate rule.
 
 *Append-only, newest last.*
 
+- `ccp/suite.py`: `AFFECTED_FULL_SHARE = 0.25` and `AFFECTED_SIZERS` (a pack's count of its test modules; Python:
+  `_python_suite_size`, the files the reader walks, via a new `_python_test_files` the reader now shares).
+  `main_affected` prints the full-lane line when the list is strictly more than the share of that count (a quarter
+  exactly keeps the part-lane line); a language with no sizer (a map-only product) has no count and keeps today's
+  line. Measured: `--paths ccp/config.py` prints "61 of 142 test modules", `--paths ccp/doclang/python.py` the
+  part-lane line.
+- The four templates carry the new pre-gate sentence; `tests/test_worker_efficiency.py` pinned the old wording and
+  moved with it. The scratch product in `tests/test_suite_affected.py` gains six filler test modules so one or two
+  touched modules stay under the share.
+
 ## Verification notes
+- 2026-11-19 — verifier, PR #195 head `59a7d89` (squash `d0f131d`): APPROVE. Passed: aff-01, aff-02, aff-03, tpl-01, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0171-affected-says-run-the-full-lane.json.
+

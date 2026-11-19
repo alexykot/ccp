@@ -573,11 +573,7 @@ shows.
 - **Cache lifetime.** `experimental.cacheTtl: 1h` in every delivery definition covers worker
   subagents; the runner teammate's comes from `subagentPromptCacheTtl` in settings (§2.4). `ccp usage`
   shows the 1-hour cache writes (`W-1H`) per run and seat.
-- **Fail fast.** Before the full suite, the implementer and fixer run a pre-gate: the product's
-  `architect.checks` commands (rendered from plane.json) and the test modules depending on the
-  changed paths as `ccp suite affected` lists them (§14.7), through `ccp suite run --lane part`. It
-  never stands in for the full suite, which runs on the final code and must be
-  green.
+- **Fail fast.** Before the full suite, the implementer and fixer run a pre-gate: the product's `architect.checks` commands (rendered from plane.json) and the run `ccp suite affected` prints on stderr (§14.7), through `ccp suite run`: the part lane, or, when it says the change reaches most of the suite, no pre-gate and the full lane. It never stands in for the full suite, which runs on the final code and must be green.
 - **Exploration hygiene.** What the task cites is read in full; a listing, search or log likely past
   about 200 lines goes to a scratch file and is read in slices; independent reads go as parallel tool
   calls in one turn.
@@ -820,7 +816,7 @@ Claude Code). A cold gate run must fit that limit with room to spare.
 per line, sorted, so a worker picks the `part` lane from them after a merge or a fix instead of
 guessing. It runs nothing and records nothing. After the list it prints, on stderr, the command that
 runs them on the `part` role's lane (`ccp suite run --lane <part lane> -- <command> <modules>`), for a
-language whose command it names (Python: `python3 -m unittest`); stdout keeps the list alone.
+language whose command it names (Python: `python3 -m unittest`); stdout keeps the list alone. When the list holds more than a fixed share of the suite's test modules (a constant in code; the pack counts the suite), the stderr line says instead to skip the pre-gate and run the `full` role's lane: the part lane runs its modules one after another, and past that share it is slower than the full lane. A product that maps tests with `suite.affected_map` alone has no suite count and always gets the part-lane line.
 
 - **The change** is `--paths`, normalised relative to the product root (`./` stripped, `..`
   collapsed, an absolute path made relative), else the files `git diff <ref>` names against the

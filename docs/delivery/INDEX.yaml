@@ -853,7 +853,7 @@ tasks:
     depends_on: [0164-clashes-with-and-schedule]
     path: tasks/0170-forecast-models-co-scheduling.md
   - id: 0171-affected-says-run-the-full-lane
-    status: pending
+    status: done
     title: ccp suite affected says to run the full lane when a change reaches most of the suite, and the worker templates stop restating the pre-gate
     depends_on: []
     path: tasks/0171-affected-says-run-the-full-lane.md
