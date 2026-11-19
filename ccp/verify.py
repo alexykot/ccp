@@ -663,7 +663,7 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     there that does not load, reads none, and the refusal says so), a fix run (not abandoned; a
     merge or ruling round counts as one, §13.2) opened since the last review that reported done, and that
     review's head on record. The fix diff runs from the reviewed change carried onto the head's
-    base on the integration branch (`git merge-tree` of the reviewed head and that base, which must merge
+    base on the integration branch (`gitmerge.probe` of the reviewed head and that base, which must merge
     cleanly) to the head, so an integration merge in between is not counted as the fix's. It must touch
     at least one file. `verify.skip_review` proves it when the diff touches only files under `paths` (git
     pathspecs, as `merge.behind_tip_ignore`) and the product's `proof` command exits 0; failing that, each
@@ -675,8 +675,8 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     text, §14.4), or None and why not, as "<the settings> does not apply: <why>" or "nothing is skipped:
     <why>" ("" when neither is set or there is no fix to judge).
 
-    `git merge-tree --write-tree` needs git 2.38 or later. It exits 1 on a conflict; any other failure,
-    such as an older git that lacks the option, is named as such, and the review stands either way."""
+    The probe needs git 2.38 or later. It reports a conflict; any other failure, such as an older git that
+    lacks the option, is named as such, and the review stands either way."""
     from ccp import runs  # noqa: PLC0415
     from ccp.config import skip_rules_at  # noqa: PLC0415
     from ccp.queue import git, integration_branch  # noqa: PLC0415
@@ -713,6 +713,7 @@ def _judge_fix(cfg: Config, queue: Path, task_id: str, reviewed: str, head: str,
     """`skip_review`'s judgement of the fix diff by the rules read from the integration branch at `tip`,
     their commands run in a clean checkout of `tip`: what to record on the verify run, or None and why
     not."""
+    from ccp import gitmerge  # noqa: PLC0415
     from ccp.queue import git  # noqa: PLC0415
 
     shas = []  # `skip_review` fetched origin
@@ -730,12 +731,12 @@ def _judge_fix(cfg: Config, queue: Path, task_id: str, reviewed: str, head: str,
     base = git(cfg.root, "merge-base", head, f"origin/{integ}")
     if base.returncode != 0:
         return None, f"the head has no merge base with origin/{integ}"
-    tree = git(cfg.root, "merge-tree", "--write-tree", "--no-messages", reviewed, base.stdout.strip())
+    tree = gitmerge.probe(cfg.root, reviewed, base.stdout.strip())
     if tree.returncode not in (0, 1):
-        return None, (f"`git merge-tree --write-tree` failed (exit {tree.returncode}); it needs git 2.38 or later")
-    if tree.returncode != 0 or not tree.stdout.split():
+        return None, gitmerge.old_git_text(tree)
+    if tree.returncode != 0 or not tree.tree:
         return None, f"the reviewed head does not merge cleanly onto the head's base on origin/{integ}"
-    start = tree.stdout.split()[0]
+    start = tree.tree
     touched = git(cfg.root, "diff", "--name-only", "--no-renames", start, head)  # a rename names both of its paths
     if touched.returncode != 0:
         return None, "the fix diff could not be read"

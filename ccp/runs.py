@@ -358,33 +358,23 @@ def same_change(q: Path, a: str, b: str) -> bool:
 
     import os  # noqa: PLC0415
 
-    def g(*args: str, data: str | None = None) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(["git", "-C", root, *args], capture_output=True, text=True, input=data, timeout=60,
+    def g(cwd: Any, *args: str, data: str | None = None) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True, input=data, timeout=60,
                               env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})  # never wait on a credential prompt
 
     try:
-        return _same_patch(g, a, b, integ)
+        return _same_patch(g, root, a, b, integ)
     except subprocess.TimeoutExpired:
         return False
 
 
-def _same_patch(g: Any, a: str, b: str, integ: str) -> bool:
-    g("fetch", "-q", "origin")
-    ids = []
-    for sha in (a, b):
-        mb = g("merge-base", sha, f"origin/{integ}")
-        if mb.returncode != 0:
-            return False
-        d = g("diff", "--binary", mb.stdout.strip(), sha)
-        if d.returncode != 0:
-            return False
-        pid = g("patch-id", "--stable", data=d.stdout)
-        if pid.returncode != 0:
-            return False
-        if not pid.stdout.split():
-            return False  # no change of its own (a head the integration branch already holds): nothing to match
-        ids.append(pid.stdout.split()[0])
-    return ids[0] == ids[1]
+def _same_patch(g: Any, root: str, a: str, b: str, integ: str) -> bool:
+    from ccp import gitmerge  # noqa: PLC0415
+    g(root, "fetch", "-q", "origin")
+    first = gitmerge.own_patch_id(root, a, f"origin/{integ}", g)
+    if first is None:  # unreadable, or no change of its own (a head the integration branch already holds)
+        return False
+    return first == gitmerge.own_patch_id(root, b, f"origin/{integ}", g)
 
 
 def unreviewed_fix(q: Path, task_id: str, head: str | None = None) -> str | None:
