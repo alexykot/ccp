@@ -1,7 +1,7 @@
 ---
 task_id: 0177-architect-on-and-adoption-point
 title: One test for "the architect is on" and one accessor for its adoption point
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S19", "S20"]
@@ -101,3 +101,5 @@ those two functions instead of about twenty call sites. Nothing the plane does c
   `tests.test_architect_on`); `tests.test_architect` alone does not catch it, returning `False` it does.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #202 head `dbfd419` (close's catch-up of the approved `e41e7d2`, gate run st-20261119T202138Z-6eb535) (squash `cd7df24`): APPROVE. Passed: arch-01, arch-02, arch-03. Gate: `ccp suite run --lane gate (scripts/gate.sh)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0177-architect-on-and-adoption-point.json.
+
