@@ -106,9 +106,9 @@ SPEC states the behaviour, not the number.
 ### D5. A gate lane is required
 
 Every task's verify runs the gate lane, and so does its catch-up with the integration tip before
-review (ADR-0042 D3). A product with no gate lane cannot deliver. So `suite.lanes` must name a gate lane, and `ccp tasks claim` and `ccp tasks next` refuse
-(exit 2) without one. `ccp init` asks for the command. It assumes no tool or language: the gate is
-whatever command the product runs.
+review (ADR-0042 D3). A product with no gate lane cannot deliver. So `suite.lanes` must name a gate
+lane, and `ccp tasks claim` and `ccp tasks next` refuse (exit 2) without one. `ccp init` asks for
+the command. It assumes no tool or language: the gate is whatever command the product runs.
 
 ### D6. Telemetry on and working by default
 
@@ -220,6 +220,8 @@ The appendix lists every key with its outcome.
 
 ## Appendix: every key and its outcome
 
+The schema's own annotations, `$schema` and `_note`, stay accepted and mean nothing.
+
 "Constant" means it moves into code at today's default unless stated otherwise.
 
 **`plane.json`, kept (some with new defaults):**
@@ -271,7 +273,6 @@ The appendix lists every key with its outcome.
 - `task_log.review_point_pattern`
 - `task_log.spec_paths`, `estimate.spec_paths`: merged into `spec_paths`.
 - `workers.implementer_model` (`small`, `refactor`): replaced by `models`.
-- `$schema`, `_note`: the schema's own annotations; they stay accepted and mean nothing.
 - `adapter.worktree_dir`, `adapter.worktree_links`, `adapter.post_close`
 - `suite.summary.modules_ran_re`, `suite.summary.modules_cached_re`
 - `telemetry.otel_port`
