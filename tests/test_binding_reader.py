@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -75,7 +76,9 @@ class ReadBindingTest(unittest.TestCase):
         self.assertEqual(lib._yaml_block_scalars(BINDING, "nope"), {})
 
 
-class ResolutionTest(unittest.TestCase):
+class BindingDir(unittest.TestCase):
+    """A temp bindings directory with one binding, its queue and its product (no tests of its own)."""
+
     def setUp(self):
         self._d = tempfile.TemporaryDirectory()
         self.addCleanup(self._d.cleanup)
@@ -95,6 +98,8 @@ class ResolutionTest(unittest.TestCase):
         for k in ("PROJECT_YAML", "PLANE_PROJECT_YAML"):
             os.environ.pop(k, None)
 
+
+class ResolutionTest(BindingDir):
     def test_by_queue_finds_the_binding_naming_the_queue(self):
         self.assertEqual(lib.binding_path(self.queue), self.binding)
         self.assertEqual(lib.binding_runner_name(self.queue), "steward")
@@ -132,6 +137,56 @@ class ResolutionTest(unittest.TestCase):
             # an explicit file naming another product falls through to the directory's
             explicit.write_text("product_root: /somewhere/else\n")
             self.assertEqual(lib.product_binding("demo", (self.product,)), self.binding)
+
+
+class ReadersTest(BindingDir):
+    """The modules that read a binding's keys, each through the one parser."""
+
+    def setUp(self):
+        super().setUp()
+        self.binding.write_text(f"project_id: demo\nproduct_root: {self.product}   # the checkout\n"
+                                f"queue_root: '{self.queue}'\nintegration_branch: dev\nrunner:\n  name: steward\n")
+
+    def test_the_integration_branch_is_the_bindings_else_main(self):
+        from ccp import queue  # noqa: PLC0415
+        self.assertEqual(queue.integration_branch(self.queue), "dev")
+        self.binding.write_text(f"queue_root: {self.queue}\n")
+        self.assertEqual(queue.integration_branch(self.queue), "main")
+
+    def test_the_same_change_judge_asks_in_the_bindings_product_root_and_branch(self):
+        from ccp import runs  # noqa: PLC0415
+        with mock.patch("ccp.runs._same_patch", return_value=True) as same:
+            self.assertTrue(runs.same_change(self.queue, "aaa", "bbb"))
+        self.assertEqual(same.call_args.args[1:], (str(self.product), "aaa", "bbb", "dev"))
+        self.binding.write_text(f"queue_root: {self.queue}\n")
+        self.assertFalse(runs.same_change(self.queue, "aaa", "bbb"))
+
+    def test_the_receiver_reads_the_binding_for_queue_roots_and_env(self):
+        from ccp import otel  # noqa: PLC0415
+        self.assertEqual(otel.queue_for("demo", {}), self.queue)
+        self.assertEqual(otel.bindings(), [("demo", os.path.realpath(self.product), self.queue)])
+        self.assertEqual(otel.env_for_project("demo", 4318)["project"]["path"],
+                         f"{self.product}/.claude/settings.json")
+
+    def test_the_product_queue_root_is_the_bindings_when_it_is_a_directory(self):
+        from types import SimpleNamespace  # noqa: PLC0415
+        from ccp import cli  # noqa: PLC0415
+        cfg = SimpleNamespace(project_id="demo", root=self.product)
+        with mock.patch("ccp.prompt.main_checkout", return_value=self.product):
+            self.assertEqual(cli.product_queue_root(cfg), str(self.queue))
+            self.assertEqual(cli.product_binding(cfg), self.binding)
+            self.assertIsNone(cli.product_binding(SimpleNamespace(project_id="Demo", root=self.product)))
+            self.binding.write_text(f"product_root: {self.product}\nqueue_root: {self.queue}/missing\n")
+            self.assertIsNone(cli.product_queue_root(cfg))
+
+    def test_the_spec_maintainer_reads_the_project_id_and_product_root(self):
+        sys.path.insert(0, str(PLANE / "scripts" / "observability"))
+        import spec_maintainer as sm  # noqa: PLC0415
+        with mock.patch.dict(os.environ, {"PROJECT_ID": ""}):
+            self.assertEqual(sm.project_id(self.queue), "demo")
+        self.assertEqual(sm.product_root(self.queue), str(self.product))
+        other = Path(self._d.name) / "none"
+        self.assertEqual(sm.product_root(other), "")
 
 
 class SyncReaderTest(unittest.TestCase):
