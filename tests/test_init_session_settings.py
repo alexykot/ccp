@@ -43,7 +43,7 @@ class SessionSettings(InitCase):
         self.assertEqual(settings["subagentPromptCacheTtl"], "1h")
         self.assertEqual(settings["autoCompactWindow"], 350000)
         self.assertEqual(settings["permissions"], {})
-        self.assertEqual(res["settings"], {"subagentPromptCacheTtl": "added", "autoCompactWindow": "added"})
+        self.assertEqual(res["settings"], {"subagentPromptCacheTtl": "added", "autoCompactWindow": "added", "model": "added"})
         self.assertIn(".claude/settings.json", res["merged"])
 
     def test_values_the_product_set_are_kept_whatever_the_binding_says(self):
@@ -53,14 +53,15 @@ class SessionSettings(InitCase):
             res = self.adopt(*args)
             settings = self.settings()
             self.assertEqual((settings["subagentPromptCacheTtl"], settings["autoCompactWindow"]), ("5m", 200000), args)
-            self.assertEqual(res["settings"], {"subagentPromptCacheTtl": "kept", "autoCompactWindow": "kept"}, args)
+            self.assertEqual(res["settings"], {"subagentPromptCacheTtl": "kept", "autoCompactWindow": "kept",
+                                            "model": "kept" if args else "added"}, args)
 
     def test_one_setting_kept_the_other_added(self):
         self.write_settings({"autoCompactWindow": 200000})
         res = self.adopt()
         self.assertEqual(self.settings()["subagentPromptCacheTtl"], "1h")
         self.assertEqual(self.settings()["autoCompactWindow"], 200000)
-        self.assertEqual(res["settings"], {"subagentPromptCacheTtl": "added", "autoCompactWindow": "kept"})
+        self.assertEqual(res["settings"], {"subagentPromptCacheTtl": "added", "autoCompactWindow": "kept", "model": "added"})
 
     def test_the_kept_bindings_window_goes_into_a_new_settings_file(self):
         self.write_binding(500000)

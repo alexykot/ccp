@@ -3,7 +3,7 @@
 Run in a product's repository, it writes the product footprint (the PROJECT, SPEC and delivery
 templates, with `--starter-rules` the plane's starter house rules (§20.5), a minimal `plane.json`,
 `.plane-runtime/` in `.gitignore`, the plugin anchor merged into `.claude/settings.json` with the
-session settings `subagentPromptCacheTtl` and `autoCompactWindow`, the one `CLAUDE.md` line) and,
+session settings `subagentPromptCacheTtl`, `autoCompactWindow` and `model` (the lead's, §2.4), the one `CLAUDE.md` line) and,
 outside the repository, the binding in this plane's bindings directory and the queue directory it
 names. Inside a sandbox (`ccp sandbox`, §29.3) the binding is `<project_id>.yaml` in the sandbox's
 bindings directory and the queue is the sandbox's, `--force` or not; a `--queue-root` naming any other
@@ -64,7 +64,7 @@ from urllib.parse import urlsplit
 from pathlib import Path
 from typing import Any
 
-from ccp import config, docrules, refs, rules, tasklog
+from ccp import config, docrules, models, refs, rules, tasklog
 from ccp.queue import PLANE, QueueError, _main_worktree, emit, lib, queue_leftovers, script_drift
 
 TEMPLATES = PLANE / "templates"
@@ -110,9 +110,10 @@ ANCHOR: dict[str, dict[str, Any]] = {
 }
 CLAUDE_LINE = "This repo is delivered by CCP (Claude Control Plane): its plugin and `ccp`."
 # §2.4, §4.5: the session settings init adds when absent and never overwrites: the runner teammate's
-# prompt-cache lifetime, and the lead's compaction window (the binding's `lead.auto_compact_window`).
+# prompt-cache lifetime, the lead's compaction window (the binding's `lead.auto_compact_window`) and its model.
 CACHE_TTL_SETTING = ("subagentPromptCacheTtl", "1h")
 COMPACT_SETTING = "autoCompactWindow"
+MODEL_SETTING = "model"  # §2.4: the lead's model (plane.json `models.lead`), added when the settings have none
 # §4.5, §18.5: what `--permissions` allows besides `ccp`, the plane's seat scripts and the gate lane:
 # the git verbs the runner and its workers run, and the destructive commands it denies.
 SEAT_SCRIPTS = ("scripts/team.sh", "scripts/spec-maintainer-ask.sh")
@@ -267,7 +268,7 @@ def plane_json_text(project_id: str, gate: str | None, starter_rules: bool = Fal
     return json.dumps(cfg, indent=2) + "\n"
 
 
-def _merged_settings(path: Path, compact_window: int) -> tuple[dict[str, Any], bool, dict[str, str]]:
+def _merged_settings(path: Path, compact_window: int, lead_model: str) -> tuple[dict[str, Any], bool, dict[str, str]]:
     """The settings with the anchor merged in and the session settings (§4.5) added when absent; True
     when that changed them; each session setting as `added` or `kept`. Other keys, and any value the
     product already set for these, stay as they are."""
@@ -287,7 +288,7 @@ def _merged_settings(path: Path, compact_window: int) -> tuple[dict[str, Any], b
         for k, v in add.items():
             block.setdefault(k, v)
     session: dict[str, str] = {}
-    for key, value in (CACHE_TTL_SETTING, (COMPACT_SETTING, compact_window)):
+    for key, value in (CACHE_TTL_SETTING, (COMPACT_SETTING, compact_window), (MODEL_SETTING, lead_model)):
         session[key] = "kept" if key in data else "added"
         data.setdefault(key, value)
     return data, json.dumps(data, sort_keys=True) != before, session
@@ -362,7 +363,8 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     lead = lib._yaml_block_scalars(old, "lead") if keep_binding and old else {}
     window = config.lead_auto_compact_window(lead)
     # refuses before anything is written
-    merged_settings, settings_changed, session = _merged_settings(settings, window)
+    lead_model = models.model_for(config.load(root), "lead") if keep_plane_json else models.ROLES["lead"][0]
+    merged_settings, settings_changed, session = _merged_settings(settings, window, lead_model)
 
     out: dict[str, Any] = {"project_id": pid, "product_root": str(product_root), "binding": str(binding.resolve()),
                            "queue_root": str(q), "written": [], "merged": [], "kept": [], "settings": session}

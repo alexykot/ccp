@@ -20,7 +20,7 @@ It also keeps each run's and seat's latest requests (`recent`: time, model, effo
 session, tokens), from which the board's live seats read the model and effort now in use, and each
 run's request intervals (`timeline`: when a request was in flight), from which the board's drill-down
 takes model time (ccp/drill.py). `by_model` compares one seat's tasks by the model they ran on
-(`ccp usage --by-model`, §2.4: the trial of plane.json `workers.implementer_model`). Headless runs
+(`ccp usage --by-model`, §2.4: the trial of plane.json `models.implementer_small` and `models.implementer_refactor`). Headless runs
 (architect passes, triage) are recorded from `claude -p`'s own `modelUsage` in
 `board/headless-usage.jsonl`.
 """
@@ -1168,7 +1168,7 @@ def table(report: dict[str, Any]) -> str:
 # ------------------------------------------------------------------------------------- usage by model
 
 def by_model(q: Path, report: dict[str, Any], seat: str = "implementer") -> dict[str, Any]:
-    """§2.4: one seat's work compared by model, for a trial of `workers.implementer_model`. A task's model is
+    """§2.4: one seat's work compared by model, for a trial of the `models` block. A task's model is
     the one that carried most of the cost of its first run of the seat (none observed: that run's expected
     model). Per model: the tasks, the seat's cost per task, its rounds per task (the task's runs of the seat,
     leaving out one abandoned before it started) and MAJOR review findings per task (the review runs'

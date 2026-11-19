@@ -161,4 +161,31 @@ Sonnet. A product overrides any role in one plane.json `models` block, which rep
 
 *Append-only, newest last.*
 
+- `models.ROLES` holds all nine roles in the block's order, as `(alias, effort)`; the lead's effort is `None` (the operator's
+  session sets it) and `headless_flags` refuses a role with none. `config.MODELS_DEFAULTS` derives from it, so `ccp/config.py`
+  now imports `ccp/models.py` (which imports nothing at run time) and `models.ALIASES` is the one alias list
+  (`config.WORKER_MODEL_ALIASES` is it).
+- `models` is validated by its own loader, `config._models`, not `_merge`, so the refusal names `models.<key>`; its entry in the
+  unknown-key shape is `None` (not read by key) for the same reason: a key that is no role is refused, not dropped with a warning.
+  `Config.models_given` records the keys plane.json set, so `workers.implementer_model` applies only where `models` leaves an arm.
+- `model_for(cfg, role, task=None, estimate_s=None)`: the task's estimate is passed in (`models.py` reads no queue). A worker's
+  Agent call carries an alias only when `models.pin` says the alias is not the definition's family (`runs.worker_model`);
+  `prompt.worker_model` supplies the estimate and the warnings. The no-estimate warning is given only when the small model differs
+  from the implementer's, and the deprecation warning on every implement prompt while `workers.implementer_model` is set.
+- The runner row and the runner spawn apply `models.runner` only when plane.json sets it: a binding may name a runner agent type of the
+  product's own, whose model then stands. Every other role resolves through `model_for`.
+- A model another alias than `sonnet` or `opus` (`haiku`, `fable`) has no full id in `FULL_IDS`: the headless seats pass the alias to
+  `claude --model` as it is.
+- This repo's own plane.json dropped its `workers.implementer_model` (small and refactor `sonnet`): the new defaults are the same.
+- Tests that pinned the old behaviour were updated: `tests/test_prompt_model.py` (the default small arm, rework rounds now take
+  the implementer's model for the task), `tests/test_init.py` and `tests/test_init_session_settings.py` (the `model` setting),
+  `tests/test_team_hosting.py` (the reviewer's pinned id), `tests/test_estimator.py` (`_headless` takes the config),
+  `tests/test_role_models.py` (the lead has a row but no effort).
+- Fix round 1 (review): the runner spawn's `detail` strings in `scripts/observability/team.py` (the slot spawn and the single
+  runner spawn) now tell the lead to pass the action's `model` too, when it carries one, since the action now carries it. The
+  stale references to `workers.implementer_model` as the trial's lever (`docs/cli/04-observability.md`, `ccp/usage.py`
+  docstrings) and the `HEADLESS_MODEL` descriptions (`ccp/estimator.py`, `ccp/seats.py`) now name the `models` block and
+  say the pin is the plane's default. Left as they are: `models.runner` honoured only when plane.json names it, and this
+  repo's own plane.json dropping the deprecated key.
+
 ## Verification notes

@@ -752,7 +752,7 @@ def board_view(q: Path, limit: int = 400, cfg: Config | None = None) -> dict[str
                 p = _pair(rs, src)
                 tasks[tid][f"{src}_scored"] = _est_view(p[0], fac) if p else None
     from ccp import estimator  # noqa: PLC0415  (phase B: the seat's calls and spend)
-    return {"tasks": tasks, "accuracy": accuracy(by), "advisory": True, "estimator": estimator.spend(q),
+    return {"tasks": tasks, "accuracy": accuracy(by), "advisory": True, "estimator": estimator.spend(q, cfg=cfg),
             "calibration": calibrate.summary(cal) if fac else cal}
 
 

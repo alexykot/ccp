@@ -72,6 +72,13 @@ DENY_TOOLS = "Edit,Write,NotebookEdit,WebFetch,WebSearch,Agent,Task"
 # Fresh headless reviewers pin their own model and effort rather than take the operator's defaults
 # (SPEC §2.4 *Models and effort*). The resumed owner triage keeps the owner session's own settings.
 HEADLESS_MODEL = models.headless_flags("architect")
+
+
+def headless_flags(cfg: Any = None) -> list[str]:
+    """The `claude -p` flags for the architect's model: the product's (`models.architect`, with `cfg`), else the default."""
+    return models.headless_flags("architect", cfg)
+
+
 ARCHITECT_SKILL = ".claude/skills/architect/SKILL.md"  # §19: a product's managed copy, if it keeps one
 PLUGIN_DIR = Path(__file__).resolve().parents[2] / "plugin"
 

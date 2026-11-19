@@ -9,9 +9,10 @@ last line is `Prompt end: <token>`, the token a short hash of the run id and the
 the run (`prompt_token`): the worker's report repeats it as `Prompt: <token>`, so `ccp report` can tell
 a prompt that reached the worker cut (§13.4). It prints the Agent call to make:
 the agent type, a description that starts with the run's task and phase, and the prompt: a pointer to
-the file, never its text retyped, and, for an implement round, the alias plane.json `workers.implementer_model`
-picks for the task (`model`, §2.4; the run expects it); with none picked the call carries no `model` and the
-runner passes none. With the knob's `small` arm set and no estimate for the task, it warns that the arm cannot
+the file, never its text retyped, and, when the role's model for this round (plane.json `models`, else the
+plane's default; the implementer's per task) is not the agent definition's, its alias (`model`, §2.4; the run
+expects it); otherwise the call carries no `model` and the runner passes none. For an implement round with no
+estimate for the task, it warns that the small choice cannot
 apply. First it samples the allowance: at the
 5-hour park % it parks the task and refuses, exit 6, writing nothing else (§25.4 the session park).
 Besides implement, fix, review and verify, a merge round only merges the integration tip into the task
@@ -52,7 +53,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from ccp import refs, runs, tasklog, verify
+from ccp import models, refs, runs, tasklog, verify
 from ccp.config import Config, lane_for
 from ccp.envvars import envvar
 from ccp.queue import (CCP_BIN, OBS, PLANE, QueueError, git, integration_branch, load_task_state, load_work, phase_move,
@@ -109,23 +110,27 @@ def task_estimate_s(q: Path, tid: str) -> float | None:
     return None
 
 
-def implementer_model(cfg: Config, q: Path, meta: dict[str, Any]) -> tuple[str | None, str | None]:
-    """§2.4: the alias plane.json `workers.implementer_model` picks for the task's implementer, else None
-    (the definition's): `refactor` for a task of that kind, else `small` for one whose estimate is at most
-    `workers.small_estimate_minutes`. Second, a warning when the `small` arm is consulted and the task has
-    no estimate, so it cannot apply."""
-    w = cfg.workers or {}
-    arms = w.get("implementer_model") or {}
-    if arms.get("refactor") and tasklog.kind_of(meta) == "refactor":
-        return str(arms["refactor"]), None
-    if arms.get("small"):
+def worker_model(cfg: Config, q: Path, phase: str, meta: dict[str, Any]) -> tuple[str | None, str | None, list[str]]:
+    """§2.4: the model a round of `phase` pins, the alias its Agent call carries (None when the definition's
+    model is the role's), and warnings. The implementer's rounds (implement, fix, merge, ruling) take
+    `models.implementer_refactor` for a task of that kind, else `models.implementer_small` when its estimate is
+    at most `workers.small_estimate_minutes`, else `models.implementer`. The implement round warns when the
+    task has no estimate and the small model differs from the implementer's, so the small choice cannot
+    apply, and when the deprecated `workers.implementer_model` is set."""
+    warns: list[str] = []
+    est = None
+    if runs.SEAT[phase] == "implementer" and tasklog.kind_of(meta) != "refactor":
         est = task_estimate_s(q, str(meta["task_id"]))
-        if est is None:
-            return None, (f"workers.implementer_model: the small arm cannot apply to {meta['task_id']}: it has no "
-                          "estimate (ccp tasks estimate), so its implementer keeps the definition's model (SPEC §2.4)")
-        if est <= float(w.get("small_estimate_minutes") or 30) * 60:
-            return str(arms["small"]), None
-    return None, None
+    if phase == "implement":
+        small, plain = models.model_for(cfg, "implementer_small"), models.model_for(cfg, "implementer")
+        if est is None and tasklog.kind_of(meta) != "refactor" and small != plain:
+            warns.append(f"models.implementer_small: the small choice cannot apply to {meta['task_id']}: it has no "
+                         f"estimate (ccp tasks estimate), so its implementer takes the model {plain} (SPEC §2.4)")
+        if (cfg.workers or {}).get("implementer_model"):
+            warns.append("workers.implementer_model is deprecated: move its small and refactor aliases to "
+                         "models.implementer_small and models.implementer_refactor (SPEC §2.4)")
+    model, alias = runs.worker_model(cfg, phase, meta, est)
+    return model, alias, warns
 
 
 def report_lines(cfg: Config, phase: str, mode: str | None = None) -> str:
@@ -746,9 +751,8 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     ref = audit(q, cfg, tid, phase, prompt_file, run_id, meta, worktree if phase in runs.CHANGE_PHASES else own, note)
     prune_audits(q, cfg)
     warnings: list[str] = list(session_warn) + tip_warn + body_warn
-    model, model_warn = implementer_model(cfg, q, meta) if phase == "implement" else (None, None)  # §2.4
-    if model_warn:
-        warnings.append(model_warn)
+    model, alias, model_warns = worker_model(cfg, q, phase, meta)  # §2.4
+    warnings.extend(model_warns)
     rec = runs.open_run(q, cfg, tid, phase, prompt_ref=ref, note=note, supersede=a.supersede, warnings=warnings, by=caller,
                         extra={"pr": a.pr or None, "head": a.head or None, "prompt_token": token,
                                **({"expected_model": model} if model else {}),
@@ -777,5 +781,5 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
             **({"report_fields": {"run_id": verdicts_run, "fields": verdicts}} if verdicts else {}),
             **({"warnings": warnings} if warnings else {}),
             "agent_call": {"subagent_type": runs.definition(cfg, runs.AGENT_TYPE[phase])[0], "description": desc,
-                           "prompt": pointer(prompt_file), **({"model": model} if model else {})}}
+                           "prompt": pointer(prompt_file), **({"model": alias} if alias else {})}}
 

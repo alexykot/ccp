@@ -16,7 +16,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from ccp import tasklog
+from ccp import models, tasklog
 from ccp.refs import ANY_TASK_ID
 from ccp.config import Config
 from ccp.queue import QueueError, actor, emit, iso, read_json, write_json
@@ -218,6 +218,16 @@ def expected(cfg: Config, agent_type: str) -> tuple[str | None, str | None]:
         return None, None
     fm = agent_frontmatter(f.read_text())
     return (str(fm["model"]) if fm.get("model") else None), (str(fm["effort"]) if fm.get("effort") else None)
+
+
+def worker_model(cfg: Config, phase: str, task: dict[str, Any] | None = None,
+                 estimate_s: float | None = None) -> tuple[str | None, str | None]:
+    """The model a round of `phase` pins and the alias its Agent call must carry (§2.4): the role's model for
+    the task (`models.model_for`: plane.json `models`, else the plane's default), which the definition's
+    `model` already is when it is that alias's family (no alias to carry, the definition's id pinned)."""
+    alias = models.model_for(cfg, SEAT[phase], task if SEAT[phase] == "implementer" else None, estimate_s)
+    pinned = models.pin(alias, expected(cfg, AGENT_TYPE[phase])[0])
+    return pinned, (alias if pinned == alias else None)
 
 
 SUPERSEDE_GRACE_S = 120  # §16.4: another runner's run this fresh is about to be launched, never superseded
