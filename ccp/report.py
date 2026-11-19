@@ -25,6 +25,9 @@ The report is the worker's own words plus a few lines `ccp` reads:
 - `Prompt: <token>`, always, the token on the last line of the run's prompt (`Prompt end: <token>`, §13.2).
   A report with none, or with another token, is refused (exit 2) naming the run's: the prompt the worker
   read was probably cut. A run opened before the token (none recorded on it) is not held to it;
+- implement, fix, merge and ruling, when done, with a `Head:`: the plane computes the round's integration merges
+  from git and keeps them on the run (`integration_merges`, `before_review`; `round_merges`, §11.1, §27.1); a
+  round it cannot measure keeps none, and the report is never refused for it;
 - implement, fix, merge and ruling, when done: each verdict the product declares in plane.json
   `report.required_fields`, as `<name>: <value>` with one of its declared values, on one line (§13.4). They are
   kept on the run (`fields`) and shown in the review prompt; whether a verdict is right is not judged.
@@ -388,6 +391,68 @@ PARSED_KEYS = ("pr", "head", "verdict", "severity", "spec_beyond_intent", "suite
                "suite_cached", "suite_from", "suite_filled", "fields", "resolution", "affected_checks")
 
 
+# The run record's fields the plane computes at submit (§11.1); a correction computes them again.
+COMPUTED_KEYS = ("integration_merges", "before_review")
+
+
+def before_review(runs_of_task: list[dict[str, Any]], rec: dict[str, Any]) -> bool:
+    """§11.1: whether the round `rec` opened before its task's first review run that reported done (a tie in
+    `opened_at`, one second's resolution, counts the round as after, as `runs.unreviewed_fix` does). A task with
+    no such review yet has every round before review."""
+    first = next((r for r in runs_of_task if r.get("phase") == "review" and runs.state(r) == "reported"
+                  and r.get("outcome") == "done"), None)
+    return first is None or str(rec.get("opened_at") or "") < str(first.get("opened_at") or "")
+
+
+def round_merges(cfg: Config, q: Path, rec: dict[str, Any], head: str) -> list[dict[str, Any]] | None:
+    """§11.1, §27.1: the integration merges of a done change round that reported `head`: the merge commits on the
+    head's first-parent line in `<the task's previous done change round's reported head>..<head>` (for its first
+    such round, `origin/<integration>..<head>`) whose second parent is an ancestor of `origin/<integration>`, each
+    as `{sha, conflicted, files}` (the count of conflicted files, never their names), oldest first. Whether one
+    conflicted is `gitmerge.probe` of its first and second parents: the merge git would make on its own, so a
+    recorded resolution does not hide it. Nothing is fetched. An empty list: none found. None: it could not be
+    measured (no product checkout, a head, a previous head or the integration tip not in the object store, a git
+    call that failed, a probe git could not run), so the run records none (never a refusal)."""
+    from ccp import gitmerge, queue  # noqa: PLC0415
+    repo = cfg.root
+    if not repo.is_dir():
+        return None
+
+    def rev(ref: str) -> str | None:
+        r = queue.git(repo, "rev-parse", "--verify", "-q", f"{ref}^{{commit}}")
+        return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else None
+
+    integ = rev(f"origin/{queue.integration_branch(q)}")
+    tip = rev(head)
+    if integ is None or tip is None:
+        return None
+    rs = [r for r in runs.all_runs(q, str(rec["task_id"])) if runs.state(r) != "abandoned"]
+    prior = [r for r in rs if r.get("run_id") != rec.get("run_id") and r.get("phase") in runs.CHANGE_PHASES
+             and runs.state(r) == "reported" and r.get("outcome") == "done" and r.get("head")
+             and str(r.get("opened_at") or "") <= str(rec.get("opened_at") or "")]
+    base = rev(str(prior[-1]["head"])) if prior else integ
+    if base is None:
+        return None
+    found = queue.git(repo, "rev-list", "--merges", "--first-parent", "--topo-order", "--reverse", f"{base}..{tip}")
+    if found.returncode != 0:
+        return None
+    out: list[dict[str, Any]] = []
+    for sha in found.stdout.split():
+        ids = queue.git(repo, "rev-list", "--parents", "-n", "1", sha).stdout.split()
+        if len(ids) < 3:
+            return None
+        anc = queue.git(repo, "merge-base", "--is-ancestor", ids[2], integ)
+        if anc.returncode == 1:
+            continue  # a merge of something else (not the integration branch)
+        if anc.returncode != 0:
+            return None
+        p = gitmerge.probe(repo, ids[1], ids[2])
+        if p.failed:
+            return None
+        out.append({"sha": sha, "conflicted": p.returncode == 1, "files": len(p.conflicts)})
+    return out
+
+
 def _supersede(src: Path, dest: Path) -> Path | None:
     """§13.4: keep the stored report `dest` beside it as `<stem>.superseded-<k>.md`, `k` the first free
     from 1, before a correction replaces it. None when there is nothing earlier to keep: the corrected
@@ -449,6 +514,8 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
                             "was overwritten before this correction, so none is kept as superseded")
         rec["corrections"] = [*(rec.get("corrections") or []),
                               {"at": iso(), "superseded": str(superseded) if superseded else None}]
+        for k in COMPUTED_KEYS:  # computed again below, from the corrected head
+            rec.pop(k, None)
         for k in PARSED_KEYS:  # the run's figures are the corrected report's, none left from the earlier one
             if not (rec["phase"] == "verify" and k in ("verdict", "head")):  # those are `ccp verify record`'s
                 rec.pop(k, None)
@@ -474,6 +541,14 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
         pass
     if not correcting:  # a correction keeps the time the run closed: its figures change, not its timing
         rec["reported_at"] = iso()
+    if rec["phase"] in FIELD_PHASES and parsed.get("outcome") == "done" and parsed.get("head"):
+        rec["before_review"] = before_review(runs.all_runs(q, tid), rec)  # §11.1, §27.1
+        try:  # a failed measurement records none: health counts the round unmeasured, the report is not refused
+            merges = round_merges(cfg, q, rec, str(parsed["head"]))
+        except Exception:  # noqa: BLE001
+            merges = None
+        if merges is not None:
+            rec["integration_merges"] = merges
     rec.update(outcome=parsed["outcome"], report=str(dest), friction_count=len(parsed.get("friction") or []),
                **{k: parsed[k] for k in PARSED_KEYS if k in parsed})
     runs.save(q, rec)

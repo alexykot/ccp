@@ -275,7 +275,15 @@ reported in.
   `session_id`, `worktree`, `started_at`, `stopped_at`, `reported_at`, `abandoned_at`,
   `abandoned_reason`, `abandoned_by`, `outcome`, `suite_tests`, `suite_seconds`, `severity`
   (BLOCKER, MAJOR, MINOR, NIT counts), `friction_count`, `usage` (§24), `observed_models`,
-  `observed_efforts`.
+  `observed_efforts`, `integration_merges` and `before_review` (a done implement, fix, merge or ruling
+  round with a head).
+  `ccp report` computes them when the round reports, never from the report's prose: `integration_merges` lists,
+  oldest first, the merge commits on the head's first-parent line, from the task's previous done change round's
+  reported head (for its first, from `origin/<integration>`) to this head, whose second parent is an ancestor of
+  `origin/<integration>`, each as `{sha, conflicted, files}` (whether git's own merge of its two parents
+  conflicts, and in how many files, `ccp/gitmerge.py`); `before_review` is true when the round opened before the
+  task's first review run that reported `done`. A round that cannot be measured (no product checkout, a commit
+  not in the object store, a failed merge probe) records no `integration_merges`, and its report is accepted.
 - **Binding.** `ccp prompt` opens the run as `pending`. The harness's `SubagentStart` hook calls
   `ccp agent start`, which binds the oldest pending run of that `agent_type` (whatever the session)
   to the agent (`agent_id`, `agent_type`, `session_id`); `SubagentStop` calls `ccp agent stop`. So

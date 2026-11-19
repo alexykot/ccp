@@ -17,7 +17,7 @@ decisions:
   - "D2 built"
   - "D3 built"
   - "D4 built"
-  - "D5 not_built"
+  - "D5 built"
   - "D6 built"
 ---
 # ADR-0042 — Tasks run together unless they clash
