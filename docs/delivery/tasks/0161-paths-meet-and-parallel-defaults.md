@@ -1,7 +1,7 @@
 ---
 task_id: 0161-paths-meet-and-parallel-defaults
 title: Rename parallel.clash to paths_meet behind one pairwise predicate, and read the parallel defaults from one place
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S16"]
@@ -118,3 +118,5 @@ them. Nothing the plane does changes.
 - `kept_apart`'s docstring states it is the one pairwise predicate and where a scheduling mode branches; its body is `return paths_meet(cfg, a, b)`.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #180 head `6e1bf80` (squash `a10053c`): APPROVE. Passed: par-01, par-02, par-03, par-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -q tests.test_parallel_defaults tests.test_parallel_claims tests.test_next_passes_over tests.test_parallel_slots tests.test_parallel_state tests.test_parallel_lanes tests.test_forecast tests.test_toolkit` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0161-paths-meet-and-parallel-defaults.json.
+
