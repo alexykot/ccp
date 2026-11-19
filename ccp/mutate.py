@@ -54,7 +54,7 @@ from glob import escape as glob_escape
 from pathlib import Path
 from typing import Any, Iterator
 
-from ccp import runs
+from ccp import doclang, runs
 from ccp.config import Config, fill
 from ccp.queue import QueueError, emit, git, iso
 
@@ -477,10 +477,11 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
     mutant_files = mutant_files or []
     mu = cfg.mutate or {}
     if not mu.get("command"):
+        runner = doclang.for_tests(cfg).test_command
+        shape = f"a per-test runner (`{runner} {{test}}`)" if runner else "a command that runs one test"
         raise QueueError("plane.json names no mutate.command: the product has no command that runs one test "
-                         "(§20.6). Set mutate.command to a shell template that runs the test named by {test}: a "
-                         "per-test runner (`python3 -m unittest {test}`), or, where each test is a whole script, "
-                         "`sh {test}` with --test the script's path", 2)
+                         f"(§20.6). Set mutate.command to a shell template that runs the test named by {{test}}: {shape}, "
+                         "or, where each test is a whole script, `sh {test}` with --test the script's path", 2)
     if not test.strip():
         raise QueueError("--test names the test a mutant is judged by", 2)
     if not mutants and not reverts and not mutant_files:

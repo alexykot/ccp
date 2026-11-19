@@ -233,7 +233,7 @@ ADR_DEFAULTS: dict[str, Any] = {"dir": "docs/adr", "index": None,
                                 "strict": False, "template": None}
 # §14.1 `ccp suite run`: named lanes (a lane name to the argv it runs, from the checkout's root, or to
 # an ordered list of `{name, cmd}` stages, §14.2) and the regular expression whose first group is a test count in the suite's output (summed over every
-# line that matches; the default reads unittest's "Ran N tests in Xs").
+# line that matches; the default is the language pack's, ccp/doclang).
 SUITE_DEFAULTS: dict[str, Any] = {"lanes": {}, "count_re": None, "summary": None, "log_keep_days": 14,
                                   # §14.7 `ccp suite affected`: a glob of root-relative paths to the test ids
                                   # its part lane runs, added to what the language pack reads ({} = none)
@@ -249,19 +249,20 @@ SUITE_ROLES = ("full", "gate", "part")
 # `suite.summary` (§14.1): what `ccp suite run` reads from the output when the gate writes no
 # result file (CCP_SUITE_RESULT, contracts/suite_result.schema.json). Each `*_re` is a regular
 # expression, or a list of them, whose first group is a number, summed over every matching line:
-# `failed` (unittest's failures and errors), `skipped`, and, for a product with a test cache, `ran`
+# `failed` (failures and errors), `skipped`, and, for a product with a test cache, `ran`
 # and `cached` (units run and served from the cache, in the product's unit: tests, modules, files)
-# and `cached_tests` (the tests behind the cached units). The defaults read Python unittest only;
-# `ran`, `cached` and `cached_tests` match nothing until a product sets them. `section_re` starts a
+# and `cached_tests` (the tests behind the cached units). `failed_re`, `skipped_re` and
+# `section_re` default to None, the language pack's (ccp/doclang, house rule E18); `ran`, `cached` and
+# `cached_tests` match nothing until a product sets them. `section_re` starts a
 # failing test's section (the line after a `====` rule); `show_re` lines are shown whatever the
 # result; `tail_lines` and `max_chars` bound what a failure shows. A key left out keeps its default.
 SUITE_SUMMARY_DEFAULTS: dict[str, Any] = {
-    "failed_re": [r"^FAILED \(.*\bfailures=(\d+)", r"^FAILED \(.*\berrors=(\d+)"],
-    "skipped_re": r"^(?:OK|FAILED) \(.*\bskipped=(\d+)",
+    "failed_re": None,
+    "skipped_re": None,
     "ran_re": [],
     "cached_re": [],
     "cached_tests_re": [],
-    "section_re": r"^(?:FAIL|ERROR|UNEXPECTED SUCCESS): ",
+    "section_re": None,
     "show_re": [],
     "tail_lines": 40,
     "max_chars": 40000,

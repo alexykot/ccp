@@ -7,10 +7,12 @@ import json
 import subprocess
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli, config, suite
+from ccp import cli, config, doclang, suite
+from ccp.doclang import python as py_pack
 from tests.helpers import Product
 
 
@@ -79,7 +81,7 @@ class Affected(Scratch, unittest.TestCase):
         self.assertIn("ccp suite run --lane quick -- python3 -m unittest tests.test_a", err)
 
     def test_a_language_with_no_command_named_gets_no_command_line(self):
-        with mock.patch.dict(suite.AFFECTED_COMMANDS, clear=True):
+        with mock.patch.dict(doclang.PACKS, {"python": lambda: replace(py_pack.PACK, test_command=None)}):
             code, lines, err = self.run_cli("--paths", "pkg/a.py")
         self.assertEqual((code, lines), (0, ["tests.test_a"]))
         self.assertNotIn("ccp suite run", err)
@@ -113,11 +115,11 @@ class Affected(Scratch, unittest.TestCase):
         self.assertNotIn("run them with", err)
 
     def test_the_suite_size_counts_the_test_modules_the_reader_walks(self):
-        self.assertEqual(suite._python_suite_size(self.p.root), 8)
+        self.assertEqual(py_pack.suite_size(self.p.root, suite._tracked_files(self.p.root)), 8)
         (self.p.root / "tests/test_filler1.py").unlink()  # deleted in the working tree: no module
         self.p.write("tests/test_new.py", "import unittest\n")  # untracked: a module
         self.p.write("tests/helper.py", "X = 1\n")  # not a test module
-        self.assertEqual(suite._python_suite_size(self.p.root), 8)
+        self.assertEqual(py_pack.suite_size(self.p.root, suite._tracked_files(self.p.root)), 8)
 
     def test_no_change_prints_nothing_and_exits_0(self):
         code, lines, _ = self.run_cli()
