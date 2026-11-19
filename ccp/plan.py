@@ -202,7 +202,7 @@ NO_POINT = "no review point"
 def chain_report(cfg: Config, tasks: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
     """`ccp tasks check` (§21.1): per review point (tasks with none form one group), over its pending
     tasks and the `depends_on` edges between them, the longest chain and the tasks at each depth, as
-    `(notes, warnings)`. A note for each group of 2 or more; a warning when the chain is at least
+    `(notes, warnings)`. A note for each group of 2 or more (a group with a cycle is left to the check); a warning when the chain is at least
     CHAIN_WARN_MIN tasks and the group has fewer than CHAIN_WARN_WIDTH tasks per depth on average."""
     groups: dict[str, list[dict[str, Any]]] = {}
     for t in tasks:
@@ -210,7 +210,7 @@ def chain_report(cfg: Config, tasks: list[dict[str, Any]]) -> tuple[list[str], l
             groups.setdefault(str(t.get("review_point") or "") or NO_POINT, []).append(t)
     notes, warnings = [], []
     for point, ts in groups.items():
-        if len(ts) < 2:
+        if len(ts) < 2 or tasklog.dependency_cycles(ts):   # a cycle is the check's failure, named there
             continue
         ids = [str(t.get("task_id")) for t in ts]
         deps = {i: [d for d in map(str, tasklog._as_list(t.get("depends_on"))) if d in ids and d != i]

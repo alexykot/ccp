@@ -121,6 +121,14 @@ class Chain(unittest.TestCase):
         self.assertEqual(len(warns), 1, warns)
         self.assertIn("R7: the longest depends_on chain is 3 tasks (0002-t2 → 0003-t3 → 0004-t4)", warns[0])
 
+    def test_a_group_with_a_dependency_cycle_is_left_to_the_check_that_refuses_it(self):
+        self.add(1, ["0002-t2"], "R8")
+        self.add(2, ["0001-t1"], "R8")
+        self.add(3, point="R8")
+        code, notes, warns = self.check()
+        self.assertEqual(code, 1)
+        self.assertEqual((notes, warns), ([], []))
+
     def test_the_report_reads_the_loaded_tasks_and_the_thresholds_are_the_rules(self):
         self.assertEqual((plan.CHAIN_WARN_MIN, plan.CHAIN_WARN_WIDTH), (3, 2))
         ts = [{"task_id": "a", "status": "pending", "review_point": "R1"},
