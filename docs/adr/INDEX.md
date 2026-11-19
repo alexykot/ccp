@@ -46,3 +46,4 @@
 | [ADR-0040](0040-the-pr-host-is-an-adapter.md) | The PR host is an adapter | accepted | 2026-11-12 |  |
 | [ADR-0041](0041-a-release-tells-each-product-what-to-adopt.md) | A release tells each product what to adopt | accepted | 2026-11-17 |  |
 | [ADR-0042](0042-tasks-run-together-unless-they-clash.md) | Tasks run together unless they clash | accepted | 2026-11-18 |  |
+| [ADR-0043](0043-opinionated-defaults-short-configuration.md) | Opinionated defaults, short configuration | accepted | 2026-11-19 |  |
