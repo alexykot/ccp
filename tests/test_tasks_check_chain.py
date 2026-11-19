@@ -114,7 +114,7 @@ class Chain(unittest.TestCase):
         a = self.add(1, point="R6")
         b = self.add(2, [a], "R7")
         c = self.add(3, [b], "R7")
-        self.add(4, [c], "R7")
+        self.add(4, [a, c], "R7")
         self.add(5, point="R6")
         code, _, warns = self.check()
         self.assertEqual(code, 0)
