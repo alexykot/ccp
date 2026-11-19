@@ -270,7 +270,8 @@ reported in.
   `_runner/spawn-<n>`, `_architect/<review_id>`, `_triage/<review_id>`.
 - **Record:** `QUEUE_ROOT/runs/<task_id>/<phase>[-<n>].json` (`contracts/run.schema.json`):
   `run_id`, `task_id`, `phase`, `round`, `seat`, `agent_type`, `expected_model`,
-  `expected_effort`, `prompt_ref`, `opened_at`, `opened_by` (the runner slot), `agent_id`,
+  `expected_effort`, `prompt_ref`, `mode` (`resolution` on a resolution review, §13.2), `resolution` and
+  `affected_checks` (a resolution review's report lines, §13.4), `opened_at`, `opened_by` (the runner slot), `agent_id`,
   `session_id`, `worktree`, `started_at`, `stopped_at`, `reported_at`, `abandoned_at`,
   `abandoned_reason`, `abandoned_by`, `outcome`, `suite_tests`, `suite_seconds`, `severity`
   (BLOCKER, MAJOR, MINOR, NIT counts), `friction_count`, `usage` (§24), `observed_models`,
@@ -495,7 +496,7 @@ and verify treat a merge or ruling round's head as a fix round's: the review pro
 the fix of a clean review's minor findings (§15.2), and it counts as a fix round between verify rounds
 (§15.6 rule 4).
 Rounds since the last review that are all merge rounds need no new review when the head carries the
-reviewed change unchanged (the same patch id, §15.2).
+reviewed change unchanged (the same patch id, §15.2). After a merge round whose merge conflicted, `ccp prompt review <id> --pr <n> --head <sha> --mode resolution` opens a resolution review in place of a full one: a review run with `mode: resolution`, rendered from the review template, whose reviewer reads only the resolution (`git show --remerge-diff` of the head, which shows how the committed merge differs from git's own merge) and reports whether it stays within the conflict hunks and which dod_checks it can affect (§13.4). It is refused (exit 2, nothing opened) when the task has no review that reported `done`, when a round since the latest such review is not a merge round, when the head is not a merge commit, or when the head's remerge diff is empty.
 
 ### 13.3 Worker environment
 
@@ -527,6 +528,7 @@ and suite filing stay the first submission's. Report lines:
   recorded as `changes`, otherwise `clean`);
 - `## Spec beyond intent` for review with `Outcome: done`: a `- ` line for each passage of normative
   text beyond the task's intent, or the single line `none` (§3.5; the run keeps only their count);
+- for a review with `mode: resolution` and `Outcome: done`, `Resolution: contained` (the resolution changes nothing of the task's own beyond the conflict hunks) or `Resolution: beyond` followed by why, and `Affected checks:` followed by the ids of the task's dod_checks the resolution can affect, comma-separated, or `none`; a report missing either line, or naming an id that is not a dod_check of the task, is refused (exit 1, nothing written), and the run keeps `resolution` and `affected_checks`;
 - `Verdict:` and `Head:` for verify, matching the verdict `ccp verify record` noted;
 - `Suite:` when the full suite ran, or `Suite: from <suite_id>`, or none (filled from the run's
   record, §14.4);
@@ -862,7 +864,7 @@ result.
   the task id; the runner repairs the body first. It refuses (exit 4, nothing opened) a head behind the integration tip (`behind_tip`, §16.5 rule 4) only when merging the tip into it would conflict in a file outside the task log and `merge.behind_tip_ignore`, judged with `git merge-tree`, which writes nothing; the refusal names the conflicted files, and `ccp prompt merge` has the implementer resolve them. A head behind by a clean merge is reviewed, and a later catch-up handles it (§15.6 rule 3, §16.5 rule 4). A tip or head that cannot be fetched to judge is a warning on the run, and the review opens. A commit landing while a review runs makes its head
   stale.
 - **A fix round is reviewed again before it is verified**, unless a proof or a clean review covers it
-  (the next three rules).
+  (the next three rules). A resolution review (§13.2) that reported `done` with `Resolution: contained` is the review of the head it judged; one with `Resolution: beyond` is not, and the head is reviewed again in full.
   `ccp prompt verify` refuses (exit 4,
   nothing opened) when the task's latest fix run, or a merge or ruling round (§13.2), that was not
   abandoned opened no later than its latest review run that reported `done`, or when `--head` is not
@@ -1050,7 +1052,7 @@ They hold for every PR the runner merges, a task's or not (ADR-0011).
    new head through `ccp suite run` (bound to this run), records each `dod_check` it does not rerun
    as `ran: false`, `pass: null`, `rests_on: "approve at <old>"`, and puts in `findings` the command
    showing the PR's own files are unchanged (for example `git diff <old> <new> -- <the PR's files>`
-   printing nothing). A merge with a conflict, or one whose own change moved, is reviewed and verified
+   printing nothing). A merge whose own change moved is reviewed and verified in full, except that a merge with a conflict must have a resolution review, or a full round (§13.2): after a resolution review, the verifier reruns the checks that review names in `Affected checks` and runs the gate at the new head through `ccp suite run`, and records every other check `ran: false`, `pass: null`, `rests_on: "approve at <old>"`, `<old>` the head of the task's latest approve (with no approve yet, it runs every check); `ccp verify record` refuses an approve that leaves an affected check not run. A resolution the reviewer judges `beyond` the conflict hunks is reviewed and verified
    in full. A new head needs a new verdict, except a catch-up close made itself (§16.5 rule 4).
 4. **Minors before merge; reasons and the rest in the verifier's record.** A minor finding that
    could cost a later cycle is fixed before the merge. A second verify round with no fix round,

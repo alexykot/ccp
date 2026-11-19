@@ -76,7 +76,7 @@ def values(**over) -> dict:
     v = {n: f"<{n}>" for n in names}
     v.update(refactor=False, prior_reports="", note="", worker_env="", rules_doc="", fragment="", main_checkout="/m",
              accept_cache=False, review_cache=False, cold_gate=False, architect_checks="", cache_max_age_days="",
-             budgets=False)
+             budgets=False, resolution=False, resolved_verify=False, has_affected=False, has_old=False)
     v.update(over)
     return v
 

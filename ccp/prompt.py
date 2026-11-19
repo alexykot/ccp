@@ -29,6 +29,10 @@ integration tip, beyond the task log and `merge.behind_tip_ignore`, refuses the 
 or several: merge the tip in first (§16.5 rule 4). A review of a head behind the tip refuses the same way
 only when merging the tip into it would conflict beyond the task log and `merge.behind_tip_ignore` (§15.2);
 a head behind by a clean merge is reviewed.
+`ccp prompt review --mode resolution` reviews the resolution of a conflicted integration merge in place of a
+full review (§13.2): refused, exit 2, nothing opened, without a done review, over a round that is not a merge
+round, for a head that is not a merge commit or whose resolution is empty; any other phase refuses `--mode`.
+The verify that follows a contained resolution review lists the checks it names to rerun (§15.6 rule 3).
 
 `ccp prompt env <worktree>` renders the product's `prompts.worker_env` for a worktree `ccp wt` recorded and
 prints the `export` lines its workers would get, opening no run and writing nothing (§13.3).
@@ -76,6 +80,11 @@ REPORT_LINES = {
               "the record you wrote with `ccp verify record`.\n",
 }
 REPORT_LINES.update({p: REPORT_LINES["implement"] for p in runs.REWORK_PHASES})
+# §13.4: a resolution review's own report lines
+RESOLUTION_LINES = ("   - When done: `Resolution: contained` (the resolution changes nothing of the task's own beyond the "
+                    "conflict hunks) or `Resolution: beyond <why>`.\n"
+                    "   - When done: `Affected checks: <id>, <id>`, the task's dod_check ids the resolution can affect, "
+                    "or `Affected checks: none`.\n")
 # §14.1: the lane each worker labels its test runs with, by role; the names come from plane.json
 # suite.roles (`{full}`, `{gate}`, `{part}` below). A role whose lane plane.json `suite.lanes` declares is
 # written as that lane with nothing after `--` (`{<role>_for}` and `{<role>_as}` fill in the form).
@@ -119,10 +128,12 @@ def implementer_model(cfg: Config, q: Path, meta: dict[str, Any]) -> tuple[str |
     return None, None
 
 
-def report_lines(cfg: Config, phase: str) -> str:
+def report_lines(cfg: Config, phase: str, mode: str | None = None) -> str:
     """The report contract's phase lines; for a round that pushes a head (implement, fix, merge, ruling),
     a line naming each verdict the product declares in plane.json `report.required_fields` with its
-    allowed values (§13.4)."""
+    allowed values (§13.4); for a resolution review, its `Resolution:` and `Affected checks:` lines."""
+    if phase == "review" and mode == "resolution":
+        return REPORT_LINES[phase] + RESOLUTION_LINES
     declared = (cfg.report or {}).get("required_fields") or []
     if phase not in runs.CHANGE_PHASES or not declared:
         return REPORT_LINES[phase]
@@ -512,6 +523,74 @@ def tip_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> list[str]:
                      f"tip in first: {merge_in}, then verify the new head (SPEC §13.2, §16.5 rule 4)", 4)
 
 
+def resolution_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> bool:
+    """§13.2: `--mode resolution` opens a resolution review of a conflicted integration merge. True for it,
+    False with no `--mode`. Refused (exit 2, nothing opened): any phase but review; a task with no review that
+    reported `done`; a latest such review that is a resolution review judged `beyond` (a full review is due,
+    §15.2); a round since the latest such review that is not a merge round; a head that is not a merge
+    commit (two parents or more); a head whose remerge diff (`gitmerge.remerge_diff`) is empty, a clean merge."""
+    mode = getattr(a, "mode", None)
+    if not mode:
+        return False
+    if phase != "review":
+        raise QueueError(f"--mode {mode} is for `ccp prompt review` only, not {phase} (SPEC §13.2)", 2)
+    from ccp import gitmerge  # noqa: PLC0415
+    rs = [r for r in runs.all_runs(q, tid) if runs.state(r) != "abandoned"]
+    done = [r for r in rs if r.get("phase") == "review" and runs.state(r) == "reported" and r.get("outcome") == "done"]
+    if not done:
+        raise QueueError(f"{tid} has no review that reported done: a resolution review never stands in for the "
+                         "first review; run `ccp prompt review` in full (SPEC §13.2)", 2)
+    last = done[-1]
+    if runs.is_resolution_beyond(last):  # §15.2: a beyond resolution is not a review of the head; a full one is due
+        raise QueueError(f"{last['run_id']}: the resolution review judged it beyond the conflict hunks: run a full "
+                         "`ccp prompt review` (SPEC §13.2, §15.2)", 2)
+    since = [r for r in rs if r.get("phase") in runs.REWORK_PHASES
+             and str(last.get("opened_at") or "") <= str(r.get("opened_at") or "")]
+    other = next((r for r in since if r.get("phase") != "merge"), None)
+    if other:
+        raise QueueError(f"{other['phase']} round {other['run_id']} is newer than the last review {last['run_id']}: a "
+                         "resolution review covers merge rounds only; run `ccp prompt review` in full (SPEC §13.2)", 2)
+    head = str(a.head).strip()
+    if git(cfg.root, "cat-file", "-e", f"{head}^{{commit}}").returncode != 0:  # not here: the PR's ref, then the branch
+        for ref in ([f"refs/pull/{a.pr}/head"] if a.pr else []) + [f"task/{tid}"]:
+            if git(cfg.root, "fetch", "-q", "origin", ref).returncode == 0 \
+                    and git(cfg.root, "cat-file", "-e", f"{head}^{{commit}}").returncode == 0:
+                break
+        else:
+            raise QueueError(f"the head {head[:12]} could not be read here or fetched from origin (SPEC §13.2)", 2)
+    parents = git(cfg.root, "rev-list", "--parents", "-n", "1", head).stdout.split()[1:]
+    if len(parents) < 2:
+        raise QueueError(f"the head {head[:12]} is not a merge commit (it has {len(parents)} parent(s)): a resolution "
+                         "review judges the merge round's head (SPEC §13.2)", 2)
+    if not gitmerge.remerge_diff(cfg.root, head).strip():
+        raise QueueError(f"no conflict was resolved: a clean merge needs no resolution review (the head {head[:12]} "
+                         "has an empty remerge diff; SPEC §13.2)", 2)
+    return True
+
+
+def resolution_verify(q: Path, tid: str, phase: str, head: str) -> dict[str, Any]:
+    """§15.6 rule 3: the verify prompt's view of a contained resolution review: set when the task's latest
+    review that reported `done` is a resolution review that judged `head` and found the resolution `contained`.
+    The checks it names to rerun, and the head of the task's latest approve (`old`) the other checks rest
+    on; with no approve yet, every check runs."""
+    none: dict[str, Any] = {"resolved_verify": False, "resolution_run": "", "has_affected": False,
+                            "affected_checks": "", "has_old": False, "old_approve": ""}
+    if phase != "verify":
+        return none
+    rs = [r for r in runs.all_runs(q, tid) if runs.state(r) != "abandoned"]
+    done = [r for r in rs if r.get("phase") == "review" and runs.state(r) == "reported" and r.get("outcome") == "done"]
+    last = done[-1] if done else None
+    if not last or last.get("mode") != "resolution" or last.get("resolution") != "contained" \
+            or not verify.heads_match(str(last.get("head") or ""), head):
+        return none
+    affected = [str(x) for x in last.get("affected_checks") or []]
+    approves = [r for r in runs.all_runs(q, tid) if r.get("phase") == "verify" and r.get("verdict") == "approve"
+                and r.get("head")]
+    old = str(approves[-1]["head"]) if approves else ""
+    return {"resolved_verify": True, "resolution_run": str(last["run_id"]), "has_affected": bool(affected),
+            "affected_checks": ", ".join(affected), "has_old": bool(old), "old_approve": old}
+
+
 GH_TIMEOUT_S = 60  # how long `ccp prompt review` waits on `gh pr view` for the PR's body
 
 
@@ -586,6 +665,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     # §25.4 the session park: no run opens at or past the 5-hour park % (exit 6, the task parked)
     # (best effort: only the park refuses; a failed sample or wait write is a warning)
     session_warn = usage.session_step(cfg, q, tid, lambda: usage.sample_allowance(cfg, q, gate=False), f"ccp prompt {phase}")
+    resolution = resolution_gate(cfg, q, tid, phase, a)
     override, skipped = review_gate(cfg, q, tid, phase, a)
     repeat = repeat_gate(q, tid, phase, note)
     tip_warn = tip_gate(cfg, q, tid, phase, a)
@@ -636,7 +716,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "queue_root": str(q), "ccp": ccp_command(cfg), "report_path": str(report),
         "verification_example": str(PLANE / "contracts" / "verification.example.json"),  # §15.4, from any checkout
         "runner": holder_teammate(q, tid),  # §10.2, §16.4: the runner that holds this task, as bound
-        "report_lines": report_lines(cfg, phase), "suite_lanes": suite_lanes(cfg, phase),
+        "report_lines": report_lines(cfg, phase, "resolution" if resolution else None), "suite_lanes": suite_lanes(cfg, phase),
         # §13.4: the product's declared verdicts, as the latest implementer report states them
         "report_verdicts": "; ".join(f"`{k}: {v}`" for k, v in verdicts.items()), "report_verdicts_run": verdicts_run,
         "full_lane": lane_for(cfg, "full"),  # §14.1: the lane the product's full suite runs as
@@ -654,6 +734,8 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "architect_checks": ", ".join(f"`{c['cmd']}`" for c in (cfg.architect or {}).get("checks") or []),
         "budgets": bool((cfg.architect or {}).get("budgets")),  # §20.2: `ccp budgets check` in the gates
         **minor_only(q, skipped),  # §15.2: a fix of a clean review's minor findings, verified with no new review
+        "resolution": resolution,  # §13.2: a resolution review of a conflicted integration merge
+        **resolution_verify(q, tid, phase, a.head or ""),  # §15.6 rule 3: the verify after a contained one
     }
     body = render((TEMPLATES / f"{phase}.md").read_text(), values).rstrip() + "\n\n" \
         + render((TEMPLATES / "_common.md").read_text(), values).rstrip() + "\n"
@@ -674,6 +756,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
                                "worktree": (worktree if phase in runs.CHANGE_PHASES else own) or None,
                                **({"allow_unreviewed_fix": override} if override else {}),
                                **({"review_skip": skipped} if skipped else {}),
+                               **({"mode": "resolution"} if resolution else {}),
                                **({"repeat_verify": repeat} if repeat else {})})
     if rec["run_id"] != run_id:  # a run of this phase was opened between our count and now
         raise QueueError(f"run id moved from {run_id} to {rec['run_id']} while rendering: run ccp prompt again", 1)
@@ -689,6 +772,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
             "report_path": str(report), "prompt_ref": ref, "prompt_token": token, "env_file": env_file or None, "expected_model": rec["expected_model"],
             "expected_effort": rec["expected_effort"], **({"allow_unreviewed_fix": override} if override else {}),
             **({"review_skip": skipped} if skipped else {}),
+            **({"mode": "resolution"} if resolution else {}),
             **({"repeat_verify": repeat} if repeat else {}),
             **({"report_fields": {"run_id": verdicts_run, "fields": verdicts}} if verdicts else {}),
             **({"warnings": warnings} if warnings else {}),

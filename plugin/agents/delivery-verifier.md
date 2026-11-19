@@ -80,8 +80,9 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   this is not a reject case: run the gate at the new head the way your prompt says, record each
   `dod_check` you do not rerun as `ran: false`, `pass: null`, `rests_on: "approve at <old head>"`, put
   in `findings` the command showing the PR's own files are unchanged since that head and its empty
-  output, and say why this round ran. A conflict, or any change to the PR's own files, is a full
-  verify.
+  output, and say why this round ran. After a resolution review (your prompt names it), rerun the checks
+  your prompt names and the gate; the rest rest on the approve your prompt names (SPEC §15.6 rule 3). A
+  resolution judged `beyond` the conflict hunks, or any change to the PR's own files, is a full verify.
 - A test module the task's change necessarily breaks is in scope even if the task's Scope does not
   name it: changing it is not a finding against the task.
 - A test that fails under load (other suites or runners sharing the machine) is rerun alone before
