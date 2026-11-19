@@ -182,4 +182,22 @@ grace release it warns and behaves as before, and `ccp init --language` writes i
 
 *Append-only, newest last.*
 
+- 2026-11-19 (implementer): `config.REQUIRED_KEYS` (`project_id`, `language`), `REQUIRED_KEYS_GRACE = True`
+  and `GRACE_LANGUAGE` (`python`, the old default) in `ccp/config.py`. `Config.language` is the top-level key,
+  else the old `package_docs.language` (`language_moved` says which); `load` warns once per file about the
+  old place (read in its place, or ignored when `language` is set). `PACKAGE_DOCS_DEFAULTS["language"]` is
+  now `null` and marked deprecated in the schema. `config.package_docs_on(cfg)` decides whether the core,
+  pack and id checks run (a pack: on; `none`: off; unset: the block's presence, as before);
+  `config.require_language(cfg, what)` warns during the grace release and raises `MissingKey` (exit 2)
+  after it. `ccp docs check`, `ccp suite affected` and `ccp suite run` (when it has a config) call it.
+  `doclang.for_tests` now returns the named pack whole, so `none` has no count or summary defaults;
+  `suite._count_res` drops an empty pattern and `_summary_cfg` reads a missing pack pattern as none.
+- `rules.configured("package_docs")` is unchanged (the key's block is set, or now a pack loads its
+  defaults): under `none` a starter product's `package-maps` check counts as set though its checks do not
+  run. The narrowest reading of "the starter rules rely on them under `none`"; flagged in the report.
+- Outside `paths`: this repo's own `docs/delivery/plane.json` takes the step (`language: python`, the
+  block's language removed); `ccp/architect.py`'s docs lens lists directories only when the checks run;
+  `docs/cli/01-model.md` names `--language`; `tests/test_doclang_test_facts.py`,
+  `tests/test_plane_config_defaults.py` and `tests/test_init_permissions.py` change with the behaviour.
+
 ## Verification notes
