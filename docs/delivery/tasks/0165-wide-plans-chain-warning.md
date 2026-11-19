@@ -120,4 +120,13 @@ architect's shape pass and review triage point to that one place rather than res
 
 *Append-only, newest last.*
 
+- `plan.chain_report(cfg, tasks)` reuses `_depths` on each review point's pending tasks (edges kept inside the
+  group); the chain's ids come from walking back from the lowest-numbered deepest task, taking the lowest-numbered
+  dependency one depth down. `cmd_tasks_check` prints its notes with the estimator's and its warnings with the others.
+- Open choices, narrowest reading: the group of tasks with no `review_point` is labelled `no review point` in its
+  note; groups print in the order their first task appears in the log; a group of one pending task prints nothing;
+  only `pending` tasks count (legacy `in_progress` and `blocked` already read as pending).
+- ADR-0042 D6 marked built (`ccp adr decide 42 D6 built`). `tests/test_estimator.py` now asserts `note: estimates`
+  absent rather than any `note:`.
+
 ## Verification notes

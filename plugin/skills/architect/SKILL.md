@@ -154,7 +154,8 @@ contradict a recorded decision, says so in `why`: the owner takes it to the proj
     rule or finding it serves;
   - `single_sources`: facts the change would otherwise update in several places, and the one source
     to create first;
-  - `task_graph`: tasks that could run in parallel where the code allows, with their dependencies.
+  - `task_graph`: tasks that could run in parallel where the code allows, with their dependencies;
+    write it wide, as the writing-tasks skill's *Wide plans, not deep chains* says.
 
   Your advice is advisory: the owner decides.
 

@@ -338,7 +338,7 @@ class Triggers(Base):
                 seen.assert_called_once()  # the command asks; the setting says no
                 sp.assert_not_called()
                 self.assertNotIn("estimates:", out)
-                self.assertNotIn("note:", out)
+                self.assertNotIn("note: estimates", out)
 
     def test_the_budget_cap_defers_the_rest(self):
         self.p.write("docs/delivery/tasks/0006-sf-more.md", body("0006-sf-more"))
