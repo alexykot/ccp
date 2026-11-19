@@ -87,4 +87,17 @@ those two functions instead of about twenty call sites. Nothing the plane does c
 
 *Append-only, newest last.*
 
+- `config.architect_on(cfg)` and `config.adoption_point(cfg)` sit in `ccp/config.py` after `lane_for`; both take
+  any cfg-like object (`getattr`), as `lane_for` does. `adoption_point` matches the product's task-number
+  width through `refs.ids(cfg)`, as `tasklog._number` does.
+- Every on/off test at the 16 sites the Context counts moved to `config.architect_on(cfg)`. A 17th, in
+  `plugin/hooks/runner-idle.sh` (a python heredoc, arrived with 0174 after `e9ff0fc`), moved too, because
+  arch-01 step 1 greps `plugin`: it calls `ccp_config.architect_on(cfg)`. `ccp/tasklog.py` dropped its
+  function-local `from ccp import config, init` for a module-level `config` import.
+- `ccp/docrules.py`, `ccp/health.py` and `ccp/prompt.py` (in `paths`) hold only key reads
+  (`(cfg.architect or {})...`), which stay, so they are unchanged.
+- The `_check_shaping` docstring named `shape_from_task`; it now says "adoption point", so arch-02 step 2 prints nothing.
+- Mutation check on arch-03: `architect_on` returning `True` is killed by `tests.test_kinds` (and
+  `tests.test_architect_on`); `tests.test_architect` alone does not catch it, returning `False` it does.
+
 ## Verification notes

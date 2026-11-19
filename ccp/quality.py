@@ -26,7 +26,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from ccp import health, refs, rules, tasklog
+from ccp import config, health, refs, rules, tasklog
 from ccp.config import Config
 
 PASSES = 20       # the latest passes shown
@@ -54,7 +54,7 @@ def _epoch(at: Any) -> float | None:
 
 def architect(cfg: Config, q: Path, tasks: list[dict[str, Any]], scope: list[str] | None) -> dict[str, Any] | None:
     """Passes, triage and the cadence; None without the architect block (the seat is off)."""
-    if cfg.architect is None:
+    if not config.architect_on(cfg):
         return None
     from ccp import architect as arch  # noqa: PLC0415
     a = cfg.architect
@@ -229,7 +229,7 @@ def collect(cfg: Config, q: Path, scope: list[str] | None = None) -> dict[str, A
     errors: dict[str, str] = {}
     tasks = _guard(errors, "tasks", tasklog.load, cfg)
     arch = _guard(errors, "architect", architect, cfg, q, tasks or [], scope) if tasks is not None else None
-    if tasks is None and cfg.architect is not None:
+    if tasks is None and config.architect_on(cfg):
         errors["architect"] = errors["tasks"]
     last = ((arch or {}).get("last") or {}).get("started_at")
     return {"architect": arch, "rules": _guard(errors, "rules", house_rules, cfg),

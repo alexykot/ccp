@@ -44,7 +44,7 @@ from typing import Any, Iterator
 
 import functools
 
-from ccp import refs, reviewpoints
+from ccp import config, refs, reviewpoints
 from ccp.config import Config, lane_for, lane_stages
 
 NAME_RE = refs.DEFAULT.task_file_re  # the default; checks use refs.ids(cfg).task_file_re
@@ -389,7 +389,7 @@ def hidden_step(t: dict[str, Any], rel: str) -> list[str]:
     v = t.get("adopt")
     if t.get("status") == "dropped" or not isinstance(v, str) or not asks_nothing(v.strip()):
         return []
-    from ccp import config, init  # noqa: PLC0415  (init reads the task log)
+    from ccp import init  # noqa: PLC0415  (init reads the task log)
     settings = {*init.ANCHOR, init.CACHE_TTL_SETTING[0], init.COMPACT_SETTING}
     keys: list[str] = []
     for m in ADOPT_KEY_RE.finditer(v):
@@ -663,12 +663,12 @@ def _spec_hint(lists: list[str]) -> str:
 
 
 def _check_shaping(cfg: Config, t: dict[str, Any], rel: str, shaped: set[int]) -> list[str]:
-    """§19.6: with shape_adrs on, a pending task from shape_from_task on that cites an ADR needs the
+    """§19.6: with shape_adrs on, a pending task from the architect's adoption point on that cites an ADR needs the
     ADR's shaping record, or `shaping: waived — <reason>`."""
     a = cfg.architect
     if not a or not a["shape_adrs"] or t.get("status") != "pending":
         return []
-    n, start = _number(t.get("task_id"), cfg), _number(a["shape_from_task"], cfg)
+    n, start = _number(t.get("task_id"), cfg), config.adoption_point(cfg)
     if n is None or start is None or n < start:
         return []
     waiver = str(t.get("shaping") or "")
@@ -876,7 +876,7 @@ def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
             errs.append(f"{rel}: {NO_FRONTMATTER}")
             continue
         # Kinds exist only with the architect block; without it `kind:` is not read (§19).
-        own_refs = cfg.architect is not None and bool(((tl.get("kinds") or {}).get(kind_of(t)) or {}).get("refs_any"))
+        own_refs = config.architect_on(cfg) and bool(((tl.get("kinds") or {}).get(kind_of(t)) or {}).get("refs_any"))
         for k in tl["required"]:
             # A kind with its own refs (a refactor) may leave out the ones it is not allowed to fill (§20).
             own = ((tl.get("kinds") or {}).get(kind_of(t)) or {}).get("refs_any") or []
@@ -910,7 +910,7 @@ def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
         errs += _id_list_errors(rel, t, "clashes_with", ids, own=True)
         if not own_refs and tl["refs_any"] and not any(_as_list(t.get(k)) for k in tl["refs_any"]):
             errs.append(f"{rel}: cites none of {', '.join(tl['refs_any'])}" + _spec_hint(tl["refs_any"]))
-        if cfg.architect is not None:
+        if config.architect_on(cfg):
             errs += _check_kind(cfg, t, rel)
             errs += _check_refactor_gate(cfg, t, rel)
         if why := sign_off_malformed(t):  # §3.5: brief, build or both
@@ -1073,7 +1073,7 @@ def waiting_refactors(cfg: Config, scope: list[str] | None,
                       tasks: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """§20.4: outstanding (pending, ready or not) refactors that the scope neither names nor reaches,
     in task order. Under "deps" these go to the top of the next review point's scope (§10.2)."""
-    if cfg.architect is None or not scope:
+    if not config.architect_on(cfg) or not scope:
         return []
     tasks = tasks if tasks is not None else load(cfg)
     reach = refactor_reach(cfg, tasks, scope)

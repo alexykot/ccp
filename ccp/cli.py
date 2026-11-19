@@ -191,7 +191,7 @@ def cmd_tasks_next(cfg: config.Config, a: argparse.Namespace) -> int:
         print(f"ccp tasks next: passed over {over['task_id']}: {over['why']}", file=sys.stderr)
     t, why = choice["pick"] or (None, None)
     why = why or None
-    if cfg.architect is not None:
+    if config.architect_on(cfg):
         code = _architect_gate(cfg, a, scope, t)
         if code is not None:
             return code
