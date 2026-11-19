@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ccp import tasklog
+from ccp import tasklog, usage
 from ccp.config import PARALLEL_DEFAULTS, Config
 
 EXIT_SLOTS = 7  # §16.3: the runner holds what it can; carry on with it (not "nothing ready", exit 3)
@@ -177,7 +177,7 @@ def no_five_hour_limit(sample: dict[str, Any] | None) -> bool:
 def reads_usage(cfg: Config) -> bool:
     """The product sets `telemetry.allowance_cmd`: rule 5 has a reading to judge (§16.3). Without
     it the plane reads no usage, and the rule passes."""
-    return bool((cfg.telemetry or {}).get("allowance_cmd"))
+    return bool(usage.account(cfg)["allowance_cmd"])
 
 
 def paths_meet(cfg: Config, a: dict[str, Any], b: dict[str, Any]) -> tuple[str, str] | None:
@@ -255,7 +255,7 @@ def join_refusal(cfg: Config, cand: dict[str, Any], active: list[dict[str, Any]]
                 if meets(p, x):
                     return f"{t.get('task_id')}'s `{p}` is exclusive (`{x}`, parallel.exclusive): it runs alone (rule 4)"
     if five_known and reads_usage(cfg) and not no_five_hour_limit(sample):
-        ceiling = float(s["session_ceiling_pct"])
+        ceiling = float(usage.account(cfg)["ceiling_pct"])
         five_hour = (sample or {}).get("five_hour")
         if five_hour is None:
             return "the 5-hour usage is unknown, so no second task is taken (rule 5)"

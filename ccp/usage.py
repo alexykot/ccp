@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp import models, runs
-from ccp.config import Config
+from ccp.config import PARALLEL_DEFAULTS, TELEMETRY_DEFAULTS, Config
 from ccp.queue import QueueError, emit, iso, runner_names
 
 TOKENS = ("input_tokens", "output_tokens", "cache_read_tokens", "cache_creation_tokens")
@@ -452,20 +452,38 @@ def wname(rec: dict[str, Any] | None, kind: str) -> str:
     return str(r.get("session_window") or "five_hour")
 
 
-def window_rules(cfg: Config) -> dict[str, dict[str, Any]]:
-    """Each known window's rule {kind, stop_pct, park_pct}: the built-in seven_day (weekly, stop at
-    `allowance_stop_weekly`) and five_hour (session, park at `session_park_pct`), then `telemetry.windows`
-    merged over them per name."""
-    from ccp.config import TELEMETRY_DEFAULTS as D  # noqa: PLC0415
+def account(cfg: Config) -> dict[str, Any]:
+    """The facts about the Claude account on this machine, the one place that reads them (§25): the
+    allowance command (`allowance_cmd`, or None), the weekly stop (`stop_weekly`, or None), the usage
+    windows (`windows`: each name's rule {kind, stop_pct, park_pct}; the built-in seven_day, weekly, stopping
+    at `stop_weekly`, and five_hour, session, parking at `park_pct`, then `telemetry.windows` merged over
+    them per name), the session park % (`park_pct`, or None when the park is off), the wake-arm % and the
+    wake margin in seconds (`wake_arm_pct`, `wake_margin_s`), and the parallel session ceiling (`ceiling_pct`,
+    §16.3 rule 5), each with its default filled in and a null or bad value handled as it always was."""
+    D = TELEMETRY_DEFAULTS
     tel = cfg.telemetry or {}
-    rules: dict[str, dict[str, Any]] = {
+    park = _num_or_none(tel.get("session_park_pct", D["session_park_pct"]))
+    windows: dict[str, dict[str, Any]] = {
         "seven_day": {"kind": "weekly", "stop_pct": tel.get("allowance_stop_weekly"), "park_pct": None},
-        "five_hour": {"kind": "session", "stop_pct": None,
-                      "park_pct": _num_or_none(tel.get("session_park_pct", D["session_park_pct"]))}}
+        "five_hour": {"kind": "session", "stop_pct": None, "park_pct": park}}
     for name, w in (tel.get("windows") or {}).items():
-        base = rules.get(name, {"kind": "weekly", "stop_pct": None, "park_pct": None})
-        rules[name] = {**base, **{k: (_num_or_none(v) if k != "kind" else v) for k, v in w.items()}}
-    return rules
+        base = windows.get(name, {"kind": "weekly", "stop_pct": None, "park_pct": None})
+        windows[name] = {**base, **{k: (_num_or_none(v) if k != "kind" else v) for k, v in w.items()}}
+    margin = tel.get("session_wake_margin_s", D["session_wake_margin_s"])
+    return {"allowance_cmd": tel.get("allowance_cmd"),
+            "stop_weekly": tel.get("allowance_stop_weekly"),
+            "windows": windows,
+            "park_pct": park,
+            "wake_arm_pct": (_num_or_none(tel.get("session_wake_arm_pct", D["session_wake_arm_pct"]))
+                             or float(D["session_wake_arm_pct"])),
+            "wake_margin_s": (int(margin) if isinstance(margin, int) and not isinstance(margin, bool)
+                              else D["session_wake_margin_s"]),
+            "ceiling_pct": (getattr(cfg, "parallel", None) or PARALLEL_DEFAULTS)["session_ceiling_pct"]}
+
+
+def window_rules(cfg: Config) -> dict[str, dict[str, Any]]:
+    """Each known window's rule {kind, stop_pct, park_pct}, as `account` builds them."""
+    return account(cfg)["windows"]
 
 
 def window_kind(rules: dict[str, dict[str, Any]], name: str) -> str | None:
@@ -537,8 +555,7 @@ def project(cfg: Config, wins: list[dict[str, Any]], q: Path | None = None,
 def sample_allowance(cfg: Config, q: Path, gate: bool = True) -> dict[str, Any] | None:
     """§25.1: run the binding's allowance command, record the sample, refuse past the weekly stop.
     A command that fails or prints something unexpected records the sample as unknown, never zero."""
-    tel = cfg.telemetry or {}
-    cmd = tel.get("allowance_cmd")
+    cmd = account(cfg)["allowance_cmd"]
     if not cmd:
         return None
     try:
@@ -742,15 +759,11 @@ WAKES = "session-wakes.jsonl"
 def session_settings(cfg: Config, rec: dict[str, Any] | None = None) -> tuple[float | None, float, int]:
     """(park %, or None when the park is off; wake-arm %; wake margin in seconds), defaults filled in.
     With a sample, the park % is its gating session window's (`park_pct`, §25.4 the usage windows)."""
-    from ccp.config import TELEMETRY_DEFAULTS as D  # noqa: PLC0415
-    tel = cfg.telemetry or {}
+    acct = account(cfg)
     # the park % is the window's rule now (§25.4), not one stored in the sample
-    park = window_rules(cfg).get(wname(rec, "session"), {}).get("park_pct") if rec and rec.get("session_window") \
-        else tel.get("session_park_pct", D["session_park_pct"])
-    arm = tel.get("session_wake_arm_pct", D["session_wake_arm_pct"])
-    margin = tel.get("session_wake_margin_s", D["session_wake_margin_s"])
-    return (_num_or_none(park), _num_or_none(arm) or float(D["session_wake_arm_pct"]),
-            int(margin) if isinstance(margin, int) and not isinstance(margin, bool) else D["session_wake_margin_s"])
+    park = acct["windows"].get(wname(rec, "session"), {}).get("park_pct") if rec and rec.get("session_window") \
+        else acct["park_pct"]
+    return (park, acct["wake_arm_pct"], acct["wake_margin_s"])
 
 
 def _ts(v: Any) -> float | None:
@@ -974,7 +987,7 @@ def session_wake(cfg: Config, q: Path, sample: bool = False, rearm: bool = False
         out.update(wake_at=_utc(wt), wake_local=_local(wt), cron=cron_for(wt),
                    armed=armed_wake(q, reset if rt is not None and rt > now else None, now, wt))
     arm = False
-    if not (cfg.telemetry or {}).get("allowance_cmd"):  # §25.1: nothing to sample, with --sample or without
+    if not account(cfg)["allowance_cmd"]:  # §25.1: nothing to sample, with --sample or without
         why = "no telemetry.allowance_cmd in the binding: no allowance sample can be taken (SPEC §25.1)"
     elif park is None:
         why = "telemetry.session_park_pct is null: the session park and wake are off"
