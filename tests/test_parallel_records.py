@@ -147,17 +147,23 @@ class Records(test_parallel_claims.ParallelFixture, unittest.TestCase):
         code, body, out, err = self.ccp("forecast", "--backlog", "--json", root=self.main)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["order"], ["0002-second", "0003-third"])
-        return body["throughput"]
+        return body
 
     def test_the_forecast_reads_rule_3_through_the_claims_predicate_under_either_schedule(self):
+        hours = {}
         for par, extra, schedule, pairs in (({}, "", "paths", 1),
                                             ({"schedule": "clashes"}, "", "clashes", 0),
                                             ({"schedule": "clashes"}, "clashes_with: [0002-second]\n", "clashes", 1)):
-            tp = self.throughput(extra, **par)
+            body = self.throughput(extra, **par)
+            tp = body["throughput"]
             self.assertEqual((tp["schedule"], tp["apart_pairs"], tp["slots"]), (schedule, pairs, 2))
             self.assertNotIn("paths meet", tp["text"])
             self.assertIn(f"{pairs} pair(s) of tasks kept apart", tp["text"])
             self.assertIn(f"parallel.schedule {schedule}", tp["text"])
+            hours[(schedule, pairs)] = body["backlog"]["hours"]
+        # the dates the lead reads: the pair kept apart runs one after the other, the free pair side by side
+        self.assertGreater(hours[("paths", 1)]["p50"], hours[("clashes", 0)]["p50"])
+        self.assertEqual(hours[("paths", 1)], hours[("clashes", 1)])
 
     def test_one_slot_has_no_pairs_to_report(self):
         self.plane(max_in_flight=1)
