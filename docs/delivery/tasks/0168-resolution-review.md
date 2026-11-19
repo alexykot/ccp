@@ -213,5 +213,10 @@ back to a full round, on the reviewer's word. The round phases are listed once, 
   pasted), an empty `Affected checks:` and `none` beside ids are refused too. A bare `Resolution: beyond` (no why)
   is accepted.
 - ADR-0042 D4 was already `built` at the base (task 0167 closed first), so this task marks nothing.
+- Fix round 1 (review MINOR 1): `prompt.resolution_gate` now refuses (exit 2, nothing opened) when the task's
+  latest done review is itself a resolution review judged `beyond`, naming that run and saying to run a full
+  `ccp prompt review`. Without it a further merge round let a second resolution review stand in for the full one
+  the `beyond` called for. The two review NITs (a bare `Resolution: beyond`; the fetch before the refusals) are
+  left as they are, on the runner's word.
 
 ## Verification notes
