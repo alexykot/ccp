@@ -15,7 +15,7 @@ notes: |-
 decisions:
   - "D1 built"
   - "D2 built"
-  - "D3 not_built"
+  - "D3 built"
   - "D4 not_built"
   - "D5 not_built"
   - "D6 built"

@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from ccp import gitmerge
 from tests.test_toolkit import ToolkitFixture, git
 
 
@@ -78,7 +80,9 @@ class ReviewTipGate(ToolkitFixture, unittest.TestCase):
         git(wt, "commit", "-qam", "Task 0002: retitle")
         git(wt, "push", "-q", "-u", "origin", "task/0002-second")
         head = git(wt, "rev-parse", "HEAD")
-        self.push_to_main({task: (self.runner / task).read_text().replace("title: Second", "title: Second, theirs")})
+        # the tip also carries other code, so the head is behind it: only then is the merge judged
+        self.push_to_main({task: (self.runner / task).read_text().replace("title: Second", "title: Second, theirs"),
+                           "other.py": "x = 1\n"})
         code, body, out, err = self.review(head)
         self.assertEqual(code, 0, out + err)
         self.assertTrue(self.opened())
@@ -86,7 +90,7 @@ class ReviewTipGate(ToolkitFixture, unittest.TestCase):
 
     def test_a_conflict_only_under_a_declared_path_is_reviewed(self):
         head = self.pushed_head({"docs/notes/today.md": "mine\n"})
-        self.push_to_main({"docs/notes/today.md": "theirs\n"})
+        self.push_to_main({"docs/notes/today.md": "theirs\n", "other.py": "x = 1\n"})  # other.py: behind, so judged
         code, _, out, err = self.review(head)
         self.assertEqual(code, 0, out + err)
         self.assertTrue(self.opened())
@@ -111,6 +115,17 @@ class ReviewTipGate(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertEqual(len(body["warnings"]), 1, body)
         self.assertTrue(body["warnings"][0].startswith("behind_tip not checked"), body)
+        self.assertTrue(self.opened())
+
+    def test_a_merge_git_cannot_run_is_a_warning_and_the_review_opens(self):
+        head = self.pushed_head()
+        self.push_to_main({"feature.txt": "someone else's\n"})
+        with mock.patch("ccp.gitmerge.probe", return_value=gitmerge.Probe("", returncode=129, failed=True)):
+            code, body, out, err = self.review(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(len(body["warnings"]), 1, body)
+        self.assertTrue(body["warnings"][0].startswith("behind_tip not checked"), body)
+        self.assertIn("git 2.38", body["warnings"][0])
         self.assertTrue(self.opened())
 
     def test_a_verify_of_a_head_behind_by_a_clean_merge_is_still_refused(self):
