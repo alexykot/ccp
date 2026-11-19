@@ -848,7 +848,7 @@ tasks:
     depends_on: [0166-catch-up-before-review, 0168-resolution-review]
     path: tasks/0169-health-counts-conflict-catch-ups.md
   - id: 0170-forecast-models-co-scheduling
-    status: pending
+    status: done
     title: The forecast keeps apart the tasks claim rule 3 keeps apart, through the pairwise co-scheduling predicate
     depends_on: [0164-clashes-with-and-schedule]
     path: tasks/0170-forecast-models-co-scheduling.md

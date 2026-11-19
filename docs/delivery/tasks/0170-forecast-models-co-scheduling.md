@@ -1,7 +1,7 @@
 ---
 task_id: 0170-forecast-models-co-scheduling
 title: The forecast keeps apart the tasks claim rule 3 keeps apart, through the pairwise co-scheduling predicate
-status: pending
+status: done
 kind: feature
 depends_on: ["0164-clashes-with-and-schedule"]
 spec_refs: ["S16", "S26"]
@@ -127,3 +127,5 @@ schedule, in both modes. With one slot the forecast is exactly as today.
   argument dropped, the pair's direction swapped) are killed. No code change.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #190 head `7496577` (squash `092a381`): APPROVE. Passed: fc-01, fc-02, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp wt exec ver-0170 -- tasks check` exit 0, `ccp wt exec ver-0170 -- docs check` exit 0, `ccp wt exec ver-0170 -- adr check` exit 0. Record: verification/0170-forecast-models-co-scheduling.json.
+
