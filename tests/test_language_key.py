@@ -212,5 +212,22 @@ class TestOutput(unittest.TestCase):
         self.assertFalse(ran.exists())
 
 
+
+class ArchitectDocsLens(unittest.TestCase):
+    def test_the_docs_lens_lists_the_directories_only_where_the_checks_run(self):
+        import tempfile  # noqa: PLC0415
+        from ccp import architect  # noqa: PLC0415
+        for lang, listed in (("none", False), ("python", True)):
+            with self.subTest(language=lang):
+                p = Product({"language": lang, "package_docs": {}, "architect": {}})
+                self.addCleanup(p.cleanup)
+                p.write("src/a.py", "x = 1\n")
+                q = tempfile.TemporaryDirectory()
+                self.addCleanup(q.cleanup)
+                text = architect.prompt_for(p.cfg, Path(q.name), "ar-x", "pass", ["docs"], "abc", None, False,
+                                            None, "due", None)
+                self.assertEqual('"dir": "src"' in text, listed)
+
+
 if __name__ == "__main__":
     unittest.main()

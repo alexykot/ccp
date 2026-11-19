@@ -219,7 +219,7 @@ class AppliedBlockDocsCheck(InitCase):
 class AdoptionChecklist(unittest.TestCase):
     """The README's adoption checklist names keys the plane.json contract has."""
 
-    KEYS = ("env", "telemetry.allowance_cmd", "telemetry.allowance_stop_weekly", "auth_check.probes",
+    KEYS = ("language", "env", "telemetry.allowance_cmd", "telemetry.allowance_stop_weekly", "auth_check.probes",
             "parallel.exclusive", "merge.behind_tip_ignore", "reconcile.log", "notify", "docs.starter_rules",
             "architect.checks", "verify.accept_cache", "mutate.command", "report.required_fields")
 
@@ -238,6 +238,7 @@ class AdoptionChecklist(unittest.TestCase):
     def test_it_names_the_keys_a_product_may_need_and_each_is_in_the_contract(self):
         keys = self.keys()
         self.assertTrue(set(self.KEYS) <= set(keys), set(self.KEYS) - set(keys))
+        self.assertEqual(keys[0], "language")  # the required key comes first
         schema = json.loads(SCHEMA.read_text())
         for key in keys:
             node = schema
