@@ -534,7 +534,10 @@ here rather than restate it. A product's docs come in three tiers, by how a sess
 A package doc is a map of what exists in its directory: what each part is for and where to look. It
 is never a record of what a task did; that is the task log and Git.
 
-The rules are opt-in: they run only with a `package_docs` block. The core is language-neutral.
+The rules follow the product's `language` (§8.1): a language pack turns them on, with the
+`package_docs` block's settings or, without the block, their defaults, and `none` turns them off. The
+generic rules a product names in `package_docs.rules` (§21.6) run whatever the language. The core is
+language-neutral.
 Every directory below the root that holds source (not exempt) carries a package doc (`doc_name`, or
 `CLAUDE.md` for `claude_md_dirs`), and the language pack's files carry module docstrings (§21.4).
 A directory whose source files are all `.md` holds documents only and needs no package doc unless
@@ -573,8 +576,9 @@ brief.
 
 ### 21.4 Language packs
 
-`package_docs.language` selects a pack (default `python`; `none` runs the core alone; any other name
-is a configuration error that lists the packs). A pack adds its source suffixes and directory names
+The top-level `language` (§8.1) selects a pack; it has no default. `none` turns the package-doc
+rules off (§21.3); any other name that is not a pack is a configuration error that lists the packs.
+The pack also reads the product's test output (§14.1) and the tests a change touches (§14.7). A pack adds its source suffixes and directory names
 to the core's, and it runs its per-file checks over `docstring_globs`. `language: none` with
 `docstring_globs` set warns.
 

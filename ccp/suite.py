@@ -33,7 +33,8 @@ record's, and its `modules` (each test module's name, seconds and tests) go on t
 it does not, each line is matched against the product's `suite.count_re` (default: the language pack's;
 a list is tried in order, the first pattern a line matches counting it, its first
 group or, with no group, the line as one test) and `suite.summary`'s patterns (defaults: the language pack's
-failure, skip and section patterns only). The numbers are summed, and nothing else of the output, or of the result
+failure, skip and section patterns only; with `language: none` there are none, and only the product's own
+patterns count). The numbers are summed, and nothing else of the output, or of the result
 file, is kept in the records: failure ids are shown in the summary, never recorded. The command's
 environment is the caller's, unchanged, plus CCP_SUITE_ID and CCP_SUITE_RESULT: `bin/ccp` sets no
 variable, and a QUEUE_ROOT `ccp` finds from the binding when the caller set none stays `ccp`'s own.
@@ -93,6 +94,9 @@ for Python, a `test*.py` module that changed, imports a changed module directly 
 would match nearly every test). plane.json `suite.affected_map` adds the test ids of each glob a changed
 path matches; a pack with no reader (`none`) uses the map alone, and without one it is refused.
 
+`run` and `affected` need the product's `language` (§8.1): with none set, each warns on stderr during the
+grace release (config.REQUIRED_KEYS_GRACE) and reads with the pack it read with before; after it, exit 2.
+
 Recording never stands between a worker and its tests. With a command after `--`, it runs and its
 exit code is returned whatever else fails: no QUEUE_ROOT, no checkout, an unreadable plane.json, a bad
 --lane label or --phase, a failed write. `ccp` prints one `ccp suite:` warning on stderr and records
@@ -118,7 +122,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from ccp.envvars import envvar, for_child
-from ccp import doclang, runs
+from ccp import config, doclang, runs
 from ccp.config import PLANE_DOCS_STAGE, SUITE_LANE_RE, Config, fill, lane_for, lane_stages, skip_rules_at
 from ccp.queue import QueueError, emit, iso, root
 
@@ -370,7 +374,7 @@ def _usage_problem(a: Any) -> str | None:
 def _count_res(cfg: Config | None) -> list[re.Pattern[bytes]]:
     """plane.json `suite.count_re` compiled, in order: a pattern or a list of them (§14.3)."""
     pat = ((cfg.suite or {}).get("count_re") if cfg else None) or doclang.for_tests(cfg).count_re
-    return [re.compile(p.encode()) for p in ([pat] if isinstance(pat, str) else pat)]
+    return [re.compile(p.encode()) for p in ([pat] if isinstance(pat, str) else pat) if p]  # none: no pattern
 
 
 # ------------------------------------------------------------------------------ summary mode
@@ -394,8 +398,8 @@ def _summary_cfg(cfg: Config | None) -> dict[str, Any]:
     out: dict[str, Any] = {}
     packs = doclang.for_tests(cfg).summary
     for k, default in SUITE_SUMMARY_DEFAULTS.items():
-        if default is None:  # the language pack's
-            default = packs[k]
+        if default is None:  # the language pack's; none where it knows none (`language: none`)
+            default = packs.get(k, [])
         v = given.get(k, default)
         if k in ("tail_lines", "max_chars"):
             out[k] = v if isinstance(v, int) and not isinstance(v, bool) else default
@@ -1082,6 +1086,12 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         if len(stages) > 1:
             return _passthrough_stages(stages, inner)  # the outer `ccp suite run` records this time
         return _passthrough(argv, inner)  # the outer `ccp suite run` records this time
+    if cfg is not None:  # §8.1: the reading of the test output follows the product's language
+        try:
+            config.require_language(cfg, "`ccp suite run`'s reading of the test output")
+        except config.MissingKey as e:
+            print(f"ccp suite: {e}", file=sys.stderr)
+            return 2
     if problem:
         warn(f"{problem}: running the command without recording it")
         record = False
@@ -1168,7 +1178,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
     try:
         patterns = _count_res(cfg)
     except re.error:
-        patterns = [re.compile(doclang.for_tests(cfg).count_re.encode())]
+        patterns = [re.compile(p.encode()) for p in [doclang.for_tests(cfg).count_re] if p]
     scfg = _summary_cfg(cfg)
     fpats = _field_patterns(scfg)
     # Summary mode (§14.3, 2026-10-22): the output goes to a log file, and ccp prints a start line,
@@ -1823,14 +1833,14 @@ def _mapped(amap: dict[str, list[str]], changed: list[str]) -> set[str]:
 
 def affected(cfg: Config, since: str | None, paths: list[str] | None) -> tuple[list[str], list[str]]:
     """(the changed paths, the tests they touch): what the product's language pack reads
-    (`package_docs.language`; its default when the block is absent) and what plane.json
+    (`language`, §8.1) and what plane.json
     `suite.affected_map` maps them to, sorted, each once. A pack with no reader uses the map alone, and
     with no map either it is refused."""
     pack = doclang.for_tests(cfg)
     reader = pack.affected
     amap = (getattr(cfg, "suite", None) or {}).get("affected_map") or {}
     if reader is None and not amap:
-        raise QueueError(f"package_docs.language {pack.name!r} has no test reader (one of: "
+        raise QueueError(f"language {pack.name!r} has no test reader (one of: "
                          f"{', '.join(n for n in doclang.NAMES if doclang.get(n).affected)}) and plane.json "
                          "sets no suite.affected_map, "
                          "the path globs that map a change to its tests", 2)
@@ -1845,7 +1855,13 @@ def main_affected(cfg: Config, a: Any) -> int:
     """`ccp suite affected`: the test modules, one per line; after them, on stderr, the `ccp suite run` line
     that runs them on the part lane, when the language pack has a command (`test_command`), or, when they
     are more than AFFECTED_FULL_SHARE of the suite's test modules, says to run the full lane; a note on
-    stderr when there are none."""
+    stderr when there are none. A product with no `language` gets a warning during the grace release and the
+    pack it was read with before; after it, exit 2 (§8.1)."""
+    try:
+        config.require_language(cfg, "`ccp suite affected`")
+    except config.MissingKey as e:
+        print(f"ccp suite affected: {e}", file=sys.stderr)
+        return 2
     try:
         changed, mods = affected(cfg, a.since, a.paths)
     except QueueError as e:

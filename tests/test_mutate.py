@@ -47,6 +47,8 @@ COMMAND = f"{shlex.quote(sys.executable)} -B -m unittest -q {{test}}"
 
 
 class MutateFixture(ToolkitFixture):
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "language": "python"}  # a Python product, its tests unittest's
+
     def setUp(self):
         super().setUp()
         self.write("docs/delivery/plane.json", json.dumps({**self.PLANE_JSON, "mutate": {"command": COMMAND}}))

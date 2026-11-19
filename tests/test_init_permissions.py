@@ -124,7 +124,8 @@ class Permissions(InitCase):
 
     def test_a_writing_flag_is_refused(self):
         self.adopt()
-        for args in (("--force",), ("--gate", "make test"), ("--starter-rules",), ("--project-id", "demo")):
+        for args in (("--force",), ("--gate", "make test"), ("--language", "python"), ("--starter-rules",),
+                     ("--project-id", "demo")):
             r = self.permissions(*args)
             self.assertEqual(r.returncode, 2, r.stdout)
             self.assertIn(f"drop {args[0]}", r.stderr)

@@ -418,7 +418,7 @@ A product is adopted by running `ccp init` in its repository. It writes:
 - the PROJECT, SPEC and delivery templates (`templates/docs-project/`, `templates/docs-delivery/`)
   and, with `--starter-rules`, the starter house rules as `docs/ENGINEERING.md` (§20.5);
 - a minimal `docs/delivery/plane.json` (§8.1): the project id, the worktrees directory, with
-  `--gate` the gate lane (one stage, `gate`, running the line as given), and with `--starter-rules`
+  `--language` the language, with `--gate` the gate lane (one stage, `gate`, running the line as given), and with `--starter-rules`
   `docs.starter_rules` and the `package_docs` settings the starter rules' checks name; and `INDEX.yaml` when the product keeps one (§5.7) and has
   none yet (an existing one is kept and listed as kept); with `--gate`, the gate command written into
   `standing-dod.md`'s placeholder product item;
@@ -439,7 +439,8 @@ changes nothing. Even with `--force` it merges into `.claude/settings.json` and 
 wrote, and adds its own worktree and environment hooks to `plane.json` (§12). It warns, on stderr
 and in its result's `warnings`, when the product has no `origin` or its origin is not on GitHub, and
 adopts it all the same: review, merge and close need a GitHub origin until the PR host adapter of
-ADR-0040 exists. Only `github.com` and its subdomains count as GitHub, so an origin on a GitHub
+ADR-0040 exists. Its result, and its stderr, list each required plane.json key (§8.1) still unset, as
+a step to take before the first task. Only `github.com` and its subdomains count as GitHub, so an origin on a GitHub
 Enterprise host on its own domain is warned about as not on GitHub. This is deliberate: the plane
 knows GitHub by that host name only, and the warning does not stop the adoption.
 
@@ -728,12 +729,17 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 - Product-owned; contract `contracts/plane_config.schema.json`; example
   `templates/docs-delivery/example-plane.json`. The rules it sets describe the product's own tree,
   change with its code, and work in a worktree or a verifier checkout that never sees the queue.
-- Its presence is the opt-in: `ccp` refuses to guess for a product without one. Only `project_id` is
-  required: lowercase letters, digits and hyphens.
+- Its presence is the opt-in: `ccp` refuses to guess for a product without one. Two keys are
+  required: `project_id` (lowercase letters, digits and hyphens) and `language`, the product's
+  language pack (§21.4) or `none`; the plane assumes no language. A command that needs the language
+  (the package-doc checks and with them `ccp docs check`, `ccp suite affected`, and the reading of
+  test output, §14.1) refuses with exit 2, naming the key, when it is unset; other commands run.
+  During the grace release that introduces a required key (§29.3), a command that needs it warns
+  instead, naming the key and its upgrade step, and behaves as before the key was required.
 - Unknown keys warn when the configuration loads (stderr, naming each and saying the running `ccp`
   may predate it) and are otherwise ignored, so a `ccp` older than a key keeps working until it is
   updated; `ccp docs check`, which every gate runs, refuses them, so a typo cannot silently turn a
-  rule off. The schema only gains optional keys.
+  rule off. The schema gains a required key, or drops or moves one, only as §29.3 allows.
 - Each block is off, or at its defaults, when absent:
 
 | Block | Sets | § |
@@ -741,7 +747,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `ids` | id and reference patterns | §7 |
 | `task_log` | task directory, required keys and sections, `refs_any`, `kinds`, `max_checks`, soft words, `dry_run`, `spec_paths`, `reviews_dir`, `index`; the statuses are fixed | §5, §10 |
 | `adr` | `dir`, `index` (or `null`), `statuses`, `transitions`, `strict`, `template` (or `null` for the plane's) | §6 |
-| `package_docs`, `docs` | doc checks (`claude_md_dirs`, `language`, `path_ref_suffixes`, `docstring_globs`, `no_delivery_ids`, `delivery_id_patterns`, `rules`), product check commands (`docs.checks`, `docs.workers`), the starter house rules (`docs.starter_rules`, §20.5) | §21 |
+| `package_docs`, `docs` | doc checks, run when `language` names a pack (`claude_md_dirs`, `path_ref_suffixes`, `docstring_globs`, `no_delivery_ids`, `delivery_id_patterns`, `rules`), product check commands (`docs.checks`, `docs.workers`), the starter house rules (`docs.starter_rules`, §20.5) | §21 |
 | `architect` | the architect seat, house rules, budgets, refactors | §19, §20 |
 | `review_points` | the review-point register | §22 |
 | `worktrees`, `env`, `merge`, `auth_check` | worktrees and environment hooks (`ccp wt`), the merge step (`merge.command`) and the paths that do not make a head behind the tip (`merge.behind_tip_ignore`), credential probes (`auth_check.probes`) | §12, §15, §16, §30 |

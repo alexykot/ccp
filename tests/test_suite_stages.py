@@ -213,7 +213,10 @@ DOCS_ONLY = "test -z \"$(git diff --name-only {from} {head} -- . ':!docs')\""  #
 class ProversSkipStages(StagedFixture, unittest.TestCase):
     """§14.2: a declared prover that exits 0 on the task's diff skips the gate stage it names, recorded on
     the run; a prover that fails, or cannot judge the diff, skips nothing. The provers are read from the
-    integration branch's plane.json, never from the head under test, and run in a clean checkout of its tip."""
+    integration branch's plane.json, never from the head under test, and run in a clean checkout of its tip.
+    The product names no language pack (its `src/` carries no package doc) and counts its tests itself."""
+
+    PLANE_JSON = {**StagedFixture.PLANE_JSON, "language": "none"}
 
     def setUp(self):
         super().setUp()
@@ -228,7 +231,8 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         cfg = json.loads(p.read_text())
         cfg["suite"] = {"lanes": lanes or {"gate": [
             {"name": "lint", "cmd": "true"},
-            {"name": "suite", "cmd": f"touch {self.marker} && " + _shell_py("print('Ran 3 tests in 0.1s')")}]}}
+            {"name": "suite", "cmd": f"touch {self.marker} && " + _shell_py("print('Ran 3 tests in 0.1s')")}]},
+            "count_re": r"^Ran (\d+) tests? in "}
         cfg["verify"] = {"provers": provers}
         p.write_text(json.dumps(cfg))
         git(self.runner, "add", "docs/delivery/plane.json")

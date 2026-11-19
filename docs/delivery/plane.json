@@ -1,5 +1,6 @@
 {
   "project_id": "control-plane",
+  "language": "python",
   "task_log": {
     "dir": "docs/delivery"
   },
@@ -7,7 +8,6 @@
     "dir": ".plane-runtime"
   },
   "package_docs": {
-    "language": "python",
     "doc_name": "CLAUDE.md",
     "exempt_dirs": [
       ".git",

@@ -15,11 +15,11 @@ FUTURE = {"future_block": {}, "verify": {"future_knob": True}}
 
 # One known key at every level the plane reads by key: none of them is unknown.
 EVERY_LEVEL = {
-    "$schema": "x", "_note": "x",
+    "$schema": "x", "_note": "x", "language": "none",
     "ids": {"task": {"width": 4}, "adr": {"prefix": "ADR-", "width": 4}, "spec": {"prefix": "S"},
             "rule": {"pattern": "E[0-9]+"}, "review_point": {"pattern": "R[1-9][0-9]*"}},
     "task_log": {"kinds": {"feature": {"refs_any": ["spec_refs"], "forbid": []}}, "max_checks": 6},
-    "package_docs": {"language": "none", "rules": {"citations": {"globs": ["*.md"], "targets": ["x"], "ignore": []},
+    "package_docs": {"rules": {"citations": {"globs": ["*.md"], "targets": ["x"], "ignore": []},
                                                    "no_ids": {"globs": ["*.md"], "patterns": []},
                                                    "no_overlap": True}},
     "docs": {"checks": [{"id": "c", "cmd": "true", "timeout_seconds": 5}], "workers": 1,

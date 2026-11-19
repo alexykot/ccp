@@ -51,6 +51,8 @@ TALLY_SUMMARY = {
 
 
 class SuiteFixture(ToolkitFixture):
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "language": "python"}  # the tests below print unittest's output
+
     def tally(self, summary: dict | None = None) -> None:
         """Configure the product's tally regexes (the pre-contract defaults) in its plane.json."""
         p = self.runner / "docs/delivery/plane.json"

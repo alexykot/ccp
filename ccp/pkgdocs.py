@@ -1,15 +1,18 @@
 """Package-doc coverage and drift, checked mechanically (SPEC §21).
 
 Coverage rot is invisible: nothing points at the doc that was never written. So where a product
-opts in (a `package_docs` block in `plane.json`), the rule is mechanical rather than a judgement.
+names a language pack (`language` in `plane.json`), the rule is mechanical rather than a judgement,
+with the `package_docs` block's settings or their defaults; `language: none` turns it off.
 The language-neutral core: every directory holding source carries a package doc (one holding
 documents only, `.md`, needs none unless the product lists it, but one it has is checked), the doc opens with a title, names no
 file that is gone, plans nothing, and stays shorter than a fraction of its source. The language
-pack (`package_docs.language`, ccp/doclang) adds its source suffixes and directory names, and its
+pack (ccp/doclang) adds its source suffixes and directory names, and its
 per-file checks over `docstring_globs` (Python: a module docstring that says what the module
-does). Package docs and code comments name no delivery id (a task in the task log, an architect
+does). With no `language` (the grace release, SPEC §29.3) the rules run as before it was required:
+with a `package_docs` block, its old `language` or Python. Package docs and code comments name no delivery id (a task in the task log, an architect
 finding, a spec question's ruling, or the product's own patterns): a package doc is a map of what
-exists, and the task log is the record. Opt-in generic rules are ccp/docrules.py.
+exists, and the task log is the record. Opt-in generic rules are ccp/docrules.py; they run whatever the
+language.
 Staleness a rule cannot see is the architect's docs lens instead (`ccp architect`, §21.7).
 """
 from __future__ import annotations
@@ -19,7 +22,7 @@ import subprocess
 from collections.abc import Iterable
 from pathlib import Path
 
-from ccp import doclang, refs
+from ccp import config, doclang, refs
 from ccp.config import Config
 
 # The core's own source suffixes and directory names; a language pack adds its own (ccp/doclang).
@@ -31,7 +34,7 @@ DOC_SUFFIX = ".md"
 
 
 def pack(cfg: Config) -> doclang.Pack:
-    return doclang.get(cfg.package_docs["language"])
+    return doclang.get(config.language_name(cfg))
 
 
 def suffixes(cfg: Config) -> set[str]:
@@ -225,19 +228,19 @@ def ids_check(cfg: Config, numbers: Iterable[str] | None = None) -> list[str]:
 def notes(cfg: Config) -> list[str]:
     """Warnings, not failures: configuration that does nothing."""
     pd = cfg.package_docs
-    if pd is not None and pd["language"] == "none" and pd["docstring_globs"]:
+    if pd is not None and cfg.language == "none" and pd["docstring_globs"]:
         return ["package_docs.docstring_globs is set but language is none: no per-file checks run"]
     return []
 
 
 def check(cfg: Config) -> list[str]:
-    """Every package-doc rule, plus the opted-in generic rules. Returns the failures; [] when the
-    product has not opted in."""
+    """Every package-doc rule, when the language turns them on (config.package_docs_on), plus the opted-in
+    generic rules, whatever the language. Returns the failures; [] when there is nothing to run."""
     if cfg.package_docs is None:
         return []
     from ccp import docrules, rules, tasklog  # noqa: PLC0415
     numbers = tasklog.task_numbers(cfg)   # once per run: both id checks match tasks against it
     # A declined starter rule naming `package_docs` turns the package-doc rules off (§20.5).
-    own = ([] if "package_docs" in rules.declined_keys(cfg)
+    own = ([] if "package_docs" in rules.declined_keys(cfg) or not config.package_docs_on(cfg)
            else core_check(cfg) + pack_check(cfg) + ids_check(cfg, numbers))
     return own + docrules.check(cfg, numbers)

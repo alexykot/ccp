@@ -118,6 +118,39 @@ class Adopt(InitCase):
         self.assertIn("docs/delivery/plane.json (--gate not applied)", res["kept"])
         self.assertNotIn("suite", json.loads((self.repo / "docs/delivery/plane.json").read_text()))
 
+    def test_the_language_is_written_and_without_it_init_names_it_as_a_required_key_still_unset(self):
+        code, res = self.init("--project-id", "demo")
+        self.assertEqual(code, 0, res)
+        self.assertEqual(res["required_unset"], ["language"])
+        self.assertNotIn("language", json.loads((self.repo / "docs/delivery/plane.json").read_text()))
+        r = self.ccp("init", "--project-id", "demo")
+        self.assertIn("`language` is unset", r.stderr)
+        code, res = self.init("--project-id", "demo", "--language", "python", "--force")
+        self.assertEqual(code, 0, res)
+        self.assertNotIn("required_unset", res)
+        self.assertEqual(json.loads((self.repo / "docs/delivery/plane.json").read_text())["language"], "python")
+        r = self.ccp("init", "--project-id", "demo")
+        self.assertNotIn("is unset", r.stderr)
+
+    def test_a_language_against_a_kept_plane_json_is_listed_as_not_applied(self):
+        self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        code, res = self.init("--project-id", "demo", "--language", "none")
+        self.assertEqual(code, 0, res)
+        self.assertIn("docs/delivery/plane.json (--language not applied)", res["kept"])
+        self.assertEqual(res["required_unset"], ["language"])
+
+    def test_a_language_that_is_no_pack_is_refused_writing_nothing(self):
+        r = self.ccp("init", "--project-id", "demo", "--language", "cobol")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("none, python", r.stderr)
+        self.assertFalse((self.repo / "docs/delivery/plane.json").exists())
+
+    def test_starter_rules_write_no_language(self):
+        self.assertEqual(self.init("--project-id", "demo", "--starter-rules")[0], 0)
+        cfg = json.loads((self.repo / "docs/delivery/plane.json").read_text())
+        self.assertNotIn("language", cfg)
+        self.assertNotIn("language", cfg["package_docs"])
+
     def test_starter_rules_are_offered_and_adopted(self):
         code, res = self.init("--project-id", "demo", "--starter-rules")
         self.assertEqual(code, 0, res)

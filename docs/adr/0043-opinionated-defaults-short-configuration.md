@@ -17,7 +17,7 @@ decisions:
   - "D1 not_built"
   - "D2 built"
   - "D3 not_built"
-  - "D4 not_built"
+  - "D4 built"
   - "D5 not_built"
   - "D6 not_built"
   - "D7 not_built"

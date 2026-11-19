@@ -19,8 +19,9 @@ from tests.helpers import Product
 REPO = Path(__file__).resolve().parents[1]
 
 
-def tests_cfg(block: dict | None = None, extra: dict | None = None) -> config.Config:
-    p = Product({**({"package_docs": block} if block is not None else {}), **(extra or {})})
+def tests_cfg(language: str | None = None, extra: dict | None = None) -> config.Config:
+    """A product's config with `language` (None: it names none, as in the grace release) and `extra`."""
+    p = Product({**({"language": language} if language is not None else {}), **(extra or {})}, bare=True)
     cfg = p.cfg
     p.cleanup()
     return cfg
@@ -64,7 +65,7 @@ class PythonPack(unittest.TestCase):
 
 
 class ForTests(unittest.TestCase):
-    def test_a_product_with_no_package_docs_block_gets_the_python_pack(self):
+    def test_a_product_that_names_no_language_gets_the_python_pack_as_before(self):
         pack = doclang.for_tests(tests_cfg())
         self.assertEqual((pack.name, pack.test_command), ("python", "python3 -m unittest"))
         self.assertIs(pack.affected, py_pack.PACK.affected)
@@ -73,21 +74,21 @@ class ForTests(unittest.TestCase):
         self.assertEqual(doclang.for_tests(None).name, "python")
 
     def test_a_python_product_gets_the_python_pack(self):
-        pack = doclang.for_tests(tests_cfg({"language": "python"}))
-        self.assertEqual((pack.name, pack.count_re), ("python", py_pack.COUNT_RE))
+        pack = doclang.for_tests(tests_cfg("python"))
+        self.assertEqual((pack.name, pack.count_re, pack.summary), ("python", py_pack.COUNT_RE, py_pack.SUMMARY))
 
-    def test_a_none_product_has_no_reader_or_command_but_the_python_output_patterns(self):
-        pack = doclang.for_tests(tests_cfg({"language": "none"}))
+    def test_a_none_product_has_no_reader_command_or_output_patterns(self):
+        pack = doclang.for_tests(tests_cfg("none"))
         self.assertEqual((pack.name, pack.affected, pack.suite_size, pack.test_command), ("none", None, None, None))
-        self.assertEqual((pack.count_re, pack.summary), (py_pack.COUNT_RE, py_pack.SUMMARY))
+        self.assertEqual((pack.count_re, pack.summary), ("", {}))
 
 
 class Readers(unittest.TestCase):
     def test_the_summary_reader_takes_the_packs_patterns_for_what_the_product_leaves_out(self):
-        scfg = suite._summary_cfg(tests_cfg())
+        scfg = suite._summary_cfg(tests_cfg("python"))
         self.assertEqual([p.pattern for p in scfg["failed_re"]], py_pack.SUMMARY["failed_re"])
         self.assertEqual([p.pattern for p in scfg["section_re"]], [py_pack.SUMMARY["section_re"]])
-        mine = suite._summary_cfg(tests_cfg(extra={"suite": {"summary": {"failed_re": r"(\d+) failed"}}}))
+        mine = suite._summary_cfg(tests_cfg("python", {"suite": {"summary": {"failed_re": r"(\d+) failed"}}}))
         self.assertEqual([p.pattern for p in mine["failed_re"]], [r"(\d+) failed"])
         self.assertEqual([p.pattern for p in mine["skipped_re"]], [py_pack.SUMMARY["skipped_re"]])
 
@@ -100,15 +101,15 @@ class Readers(unittest.TestCase):
         self.assertEqual([p.pattern for p in scfg["section_re"]], ["^BROKE: "])
 
     def test_the_count_reader_takes_the_packs_pattern_unless_the_product_sets_one(self):
-        self.assertEqual([p.pattern for p in suite._count_res(tests_cfg())], [py_pack.COUNT_RE.encode()])
-        mine = tests_cfg(extra={"suite": {"count_re": r"^(\d+) passed"}})
+        self.assertEqual([p.pattern for p in suite._count_res(tests_cfg("python"))], [py_pack.COUNT_RE.encode()])
+        mine = tests_cfg("python", {"suite": {"count_re": r"^(\d+) passed"}})
         self.assertEqual([p.pattern for p in suite._count_res(mine)], [rb"^(\d+) passed"])
         pack = doclang.Pack("fake", (), (), (), count_re=r"^Counted (\d+)")
         with mock.patch.object(doclang, "for_tests", return_value=pack):
             self.assertEqual([p.pattern for p in suite._count_res(tests_cfg())], [rb"^Counted (\d+)"])
 
     def test_a_none_product_with_no_map_is_refused_a_reader_and_with_a_map_lists_the_mapped_tests(self):
-        p = Product({"package_docs": {"language": "none"}})
+        p = Product({"language": "none"})
         self.addCleanup(p.cleanup)
         subprocess.run(["git", "-C", str(p.root), "init", "-q", "-b", "main"], check=True)
         with self.assertRaises(QueueError) as cm:
@@ -116,19 +117,19 @@ class Readers(unittest.TestCase):
         self.assertEqual(cm.exception.code, 2)
         self.assertIn("python", str(cm.exception))
         self.assertIn("'none' has no test reader", str(cm.exception))
-        mapped = Product({"package_docs": {"language": "none"}, "suite": {"affected_map": {"a.*": ["t1"]}}})
+        mapped = Product({"language": "none", "suite": {"affected_map": {"a.*": ["t1"]}}})
         self.addCleanup(mapped.cleanup)
         self.assertEqual(suite.affected(mapped.cfg, None, ["a.txt"]), (["a.txt"], ["t1"]))
 
     def test_the_mutate_refusal_names_the_packs_command_when_the_language_has_one(self):
-        def refusal(block: dict) -> str:
-            cfg = tests_cfg(block)
+        def refusal(language: str) -> str:
+            cfg = tests_cfg(language)
             cfg = dataclasses.replace(cfg, mutate=None)
             with self.assertRaises(QueueError) as cm:
                 mutate._run(cfg, Path("."), "x", "t", ["a:b=>c"], [], None, None)
             return str(cm.exception)
-        self.assertIn("`python3 -m unittest {test}`", refusal({"language": "python"}))
-        none = refusal({"language": "none"})
+        self.assertIn("`python3 -m unittest {test}`", refusal("python"))
+        none = refusal("none")
         self.assertIn("a command that runs one test, or", none)
         self.assertNotIn("unittest", none)
 

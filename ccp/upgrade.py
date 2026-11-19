@@ -15,6 +15,9 @@ Such a step is taken when the product's file holds the key, whatever its value. 
 is `none` asks nothing. Any other step, and one whose file cannot be read, is listed as "check by hand".
 A step that starts with `required:` is one the product must take, and is read without that prefix; any
 other is optional. `status` names the plane checkout's HEAD commit it read, so two readings compare.
+The step that sets plane.json `language` (§8.1) gets the product's own change: with a `package_docs` block,
+the block's language (`python` where the block relied on the old default) as the value to set; without
+one, the choice between a language pack and `none`, with what each costs. It proposes no value silently.
 plane.json `upgrade.declined` leaves a task's step out; `upgrade.taken` leaves out a step the product took
 in a way the command cannot see, and lists it under `taken` with its reason. A step the command checked and
 found taken is listed under `detected`. `decline` and `take` write those two objects, each removing the task
@@ -160,6 +163,25 @@ def _change(kind: str, key: str, value: str) -> str:
     return f"{where} to {value}" if len(value.split()) == 1 else f"{where}: {value}"
 
 
+def language_change(plane: dict[str, Any]) -> str:
+    """§29.3: the change the `language` step (§8.1) asks of a product whose plane.json is `plane`: with a
+    `package_docs` block, its language (`python` where it named none, the old default) as the value to set;
+    without one, the choice between `python` and `none`, each with what it costs."""
+    where = f"set `language` in {config.CONFIG_REL}"
+    block = plane.get("package_docs")
+    if isinstance(block, dict):
+        old = block.get("language")
+        why = ("the package_docs block's language, which moves there: delete package_docs.language" if old
+               else "the old default your package_docs block relied on")
+        return f"{where} to {old or config.GRACE_LANGUAGE} ({why})"
+    return (f"{where}; this product has no package_docs block, so choose: (a) python: the test output is read and "
+            "`ccp suite affected` works with the Python pack, and it also turns on the package-doc checks, which "
+            "this product has never run: write the package docs first (every source directory's CLAUDE.md, "
+            "SPEC §21.3), or the gate's plane-docs stage fails; (b) none: no package-doc checks, but then give "
+            "suite.affected_map and your own suite.count_re and suite.summary patterns, or `ccp suite affected` "
+            "exits 2 and the run's tests are not counted")
+
+
 def status(cfg: Config, _a: Any) -> dict[str, Any]:
     """§29.3: each `adopt` step of a merged plane task that this product has not taken, with the task, whether
     it is required, the product's own proposal for it and the change to make, and the plane checkout's HEAD
@@ -187,6 +209,8 @@ def status(cfg: Config, _a: Any) -> dict[str, Any]:
                 detected.append({"task": tid, "title": t.get("title"), "adopt": step})
                 continue
             check, change = NOT_TAKEN, _change(*parsed)
+            if parsed[:2] == ("plane.json", "language"):  # §8.1: the product's own value, or its choice
+                change = language_change(sources["plane.json"] or {})
         else:
             check, change = BY_HAND, bare or step  # a step of only the prefix is shown as written
         steps.append({"task": tid, "title": t.get("title"), "adopt": step, "required": required, "check": check,
