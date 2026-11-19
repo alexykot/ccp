@@ -308,10 +308,21 @@ NOTIFY_LEAD_KEYS = ("tool", "to")
 # §29.3: the plane tasks' `adopt` steps this product declined, and those it took in a way `ccp upgrade
 # status` cannot see, each task id -> reason; the command leaves both out of its steps (none by default).
 UPGRADE_DEFAULTS: dict[str, Any] = {"declined": {}, "taken": {}}
-# §8.1: plane.json's top-level blocks (besides `project_id`, `$schema` and `_note`).
-BLOCKS = ("task_log", "package_docs", "architect", "prompts", "reconcile", "adapter", "worktrees", "env", "merge",
-          "auth_check", "telemetry", "board", "gate", "health", "usage", "workers", "suite", "adr", "verify",
-          "review_points", "estimate", "parallel", "ids", "docs", "mutate", "report", "notify", "upgrade")
+# §8.1: plane.json's top-level blocks (besides `project_id`, `$schema` and `_note`), each with its defaults:
+# the one place the block list and the merge of each block derive from. `ids` keeps its defaults in refs.py.
+BLOCK_DEFAULTS: dict[str, dict[str, Any]] = {
+    "task_log": TASK_LOG_DEFAULTS, "package_docs": PACKAGE_DOCS_DEFAULTS, "architect": ARCHITECT_DEFAULTS,
+    "prompts": PROMPTS_DEFAULTS, "reconcile": RECONCILE_DEFAULTS, "adapter": ADAPTER_DEFAULTS,
+    "worktrees": WORKTREES_DEFAULTS, "env": ENV_DEFAULTS, "merge": MERGE_DEFAULTS,
+    "auth_check": AUTH_CHECK_DEFAULTS, "telemetry": TELEMETRY_DEFAULTS, "board": BOARD_DEFAULTS,
+    "gate": GATE_DEFAULTS, "health": HEALTH_DEFAULTS, "usage": USAGE_DEFAULTS, "workers": WORKERS_DEFAULTS,
+    "suite": SUITE_DEFAULTS, "adr": ADR_DEFAULTS, "verify": VERIFY_DEFAULTS,
+    "review_points": REVIEW_POINTS_DEFAULTS, "estimate": ESTIMATE_DEFAULTS, "parallel": PARALLEL_DEFAULTS,
+    "ids": refs.IDS_DEFAULTS, "docs": DOCS_DEFAULTS, "mutate": MUTATE_DEFAULTS, "report": REPORT_DEFAULTS,
+    "notify": NOTIFY_DEFAULTS, "upgrade": UPGRADE_DEFAULTS}
+BLOCKS = tuple(BLOCK_DEFAULTS)
+# The blocks with a loader of their own (a check or a merge beyond the plain one); `_toolkit` merges the rest.
+_OWN_LOADER_BLOCKS = ("task_log", "package_docs", "architect", "usage", "suite", "adr", "ids", "docs", "upgrade")
 # The keys of the objects inside blocks that the validators below read key by key.
 CHECK_KEYS = ("id", "cmd", "timeout_seconds")  # an entry of docs.checks or architect.checks
 BUDGET_KEYS = ("id", "glob", "path", "max_lines", "max_bytes", "cut_line")  # architect.budgets
@@ -861,27 +872,9 @@ def _workers_problems(w: dict[str, Any]) -> list[str]:
 def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
     """The §10 blocks, merged with their defaults and checked value by value: they drive merges,
     commits and commands, so a wrong type fails loudly."""
-    out = {"prompts": _merge(PROMPTS_DEFAULTS, raw.get("prompts"), "prompts"),
-           "reconcile": _merge(RECONCILE_DEFAULTS, raw.get("reconcile"), "reconcile"),
-           "adapter": _merge(ADAPTER_DEFAULTS, raw.get("adapter"), "adapter"),
-           "worktrees": _merge(WORKTREES_DEFAULTS, raw.get("worktrees"), "worktrees"),
-           "env": _merge(ENV_DEFAULTS, raw.get("env"), "env"),
-           "merge": _merge(MERGE_DEFAULTS, raw.get("merge"), "merge"),
-           "auth_check": _merge(AUTH_CHECK_DEFAULTS, raw.get("auth_check"), "auth_check"),
-           "telemetry": _merge(TELEMETRY_DEFAULTS, raw.get("telemetry"), "telemetry"),
-           "board": _merge(BOARD_DEFAULTS, raw.get("board"), "board"),
-           "gate": _merge(GATE_DEFAULTS, raw.get("gate"), "gate"),
-           "health": _merge(HEALTH_DEFAULTS, raw.get("health"), "health"),
-           "usage": _usage(raw.get("usage")),
-           "workers": _merge(WORKERS_DEFAULTS, raw.get("workers"), "workers"),
-           "suite": _suite(raw.get("suite")),
-           "verify": _merge(VERIFY_DEFAULTS, raw.get("verify"), "verify"),
-           "review_points": _merge(REVIEW_POINTS_DEFAULTS, raw.get("review_points"), "review_points"),
-           "estimate": _merge(ESTIMATE_DEFAULTS, raw.get("estimate"), "estimate"),
-           "parallel": _merge(PARALLEL_DEFAULTS, raw.get("parallel"), "parallel"),
-           "mutate": _merge(MUTATE_DEFAULTS, raw.get("mutate"), "mutate"),
-           "report": _merge(REPORT_DEFAULTS, raw.get("report"), "report"),
-           "notify": _merge(NOTIFY_DEFAULTS, raw.get("notify"), "notify")}
+    out = {b: _merge(BLOCK_DEFAULTS[b], raw.get(b), b) for b in BLOCKS if b not in _OWN_LOADER_BLOCKS}
+    out["usage"] = _usage(raw.get("usage"))
+    out["suite"] = _suite(raw.get("suite"))
     bad = []
     if not isinstance(raw.get("task_log", {}).get("index", True), bool):
         bad.append("task_log.index must be true or false")

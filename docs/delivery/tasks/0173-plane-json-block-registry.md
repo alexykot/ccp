@@ -118,4 +118,20 @@ them constants, each change is checked as it lands. Nothing the plane does chang
 
 *Append-only, newest last.*
 
+- `config.BLOCK_DEFAULTS` holds the 28 blocks in `BLOCKS`' old order; `BLOCKS = tuple(BLOCK_DEFAULTS)`. `_toolkit`
+  merges every block outside `_OWN_LOADER_BLOCKS` (`task_log`, `package_docs`, `architect`, `usage`, `suite`,
+  `adr`, `ids`, `docs`, `upgrade`) in one comprehension; `_merge(` now appears 11 times in `ccp/config.py`.
+- The schema gained `estimate.calibration` and a `default` on the 31 keys (the values are the code's). The schema's
+  `calibration` constraints (`half_life` > 0, `min_pairs` >= 3, `k` > 0 or null) restate what `ccp/config.py`
+  already checks.
+- `tests/test_plane_config_defaults.py` compares, per block, the schema's keys with the registry's and each stated
+  `default` with the code's value; every top-level key must state one (a key that is an object of listed keys
+  states its leaves'). Nested dicts are compared by recursion where the code's default is a non-empty dict
+  (`usage.advice`, `estimate.calibration`, `ids.*`, `suite.roles`); `suite.summary` and `verify.accept_cache`, whose
+  defaults sit in `SUITE_SUMMARY_DEFAULTS` and `ACCEPT_CACHE_DEFAULTS`, are compared by key set and any stated
+  default, without requiring one on each leaf (the task adds none there). `suite.summary` also lists its two
+  pre-contract alias keys.
+- `tests/test_adr.py` keeps its frontmatter half (renamed `test_the_schema_lists_the_frontmatter`); the other
+  seven removals and the schema half of `tests/test_parallel_defaults.py` are whole-test deletions.
+
 ## Verification notes

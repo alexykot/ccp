@@ -330,11 +330,6 @@ class SmallTasks(unittest.TestCase):
             with self.assertRaises(config.ConfigError, msg=repr(bad)):
                 config.load(self.p.root)
 
-    def test_the_schema_names_the_knob(self):
-        from ccp import config
-        schema = json.loads((Path(__file__).resolve().parents[1] / "contracts" / "plane_config.schema.json").read_text())
-        self.assertEqual(set(schema["properties"]["health"]["properties"]), set(config.HEALTH_DEFAULTS))
-
 
 class NoteAndRecord(unittest.TestCase):
     def setUp(self):

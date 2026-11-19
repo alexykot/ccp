@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 from ccp import config, report
-from tests.test_toolkit import PLANE, ToolkitFixture
+from tests.test_toolkit import ToolkitFixture
 
 MIGRATION = {"name": "migration", "values": ["required", "not required"]}
 DOWNTIME = {"name": "downtime", "values": ["yes", "no"]}
@@ -278,10 +278,6 @@ class ConfigBlock(ToolkitFixture, unittest.TestCase):
                     {"required_fields": [{"name": "migration", "values": [" a"]}]}):
             with self.assertRaises(config.ConfigError, msg=bad):
                 self.load(bad)
-
-    def test_the_schema_lists_the_block(self):
-        schema = json.loads((PLANE / "contracts/plane_config.schema.json").read_text())
-        self.assertEqual(set(schema["properties"]["report"]["properties"]), set(config.REPORT_DEFAULTS))
 
 
 if __name__ == "__main__":
