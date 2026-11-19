@@ -165,6 +165,9 @@ class ReadersTest(BindingDir):
         from ccp import otel  # noqa: PLC0415
         self.assertEqual(otel.queue_for("demo", {}), self.queue)
         self.assertEqual(otel.bindings(), [("demo", os.path.realpath(self.product), self.queue)])
+        (self.bindings / "file-name.yaml").write_text(f"project_id: named-id\nproduct_root: {self.product}\n"
+                                                      f"queue_root: {self.queue}\n")
+        self.assertEqual([b[0] for b in otel.bindings()], ["demo", "named-id"])
         self.assertEqual(otel.env_for_project("demo", 4318)["project"]["path"],
                          f"{self.product}/.claude/settings.json")
 
