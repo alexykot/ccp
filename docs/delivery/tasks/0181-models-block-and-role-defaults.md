@@ -1,7 +1,7 @@
 ---
 task_id: 0181-models-block-and-role-defaults
 title: Every role has a default model, the reviewer runs on Opus, and one models block overrides any role
-status: pending
+status: done
 kind: feature
 depends_on: ["0173-plane-json-block-registry", "0178-role-model-table"]
 spec_refs: ["S2", "S4", "S8"]
@@ -189,3 +189,5 @@ Sonnet. A product overrides any role in one plane.json `models` block, which rep
   repo's own plane.json dropping the deprecated key.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #207 head `8f08ea1` (squash `4f4f5b3`): APPROVE. Passed: mdl-01, mdl-02, mdl-03, mdl-04, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0181-models-block-and-role-defaults.json.
+
