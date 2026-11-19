@@ -153,4 +153,10 @@ refuses an id that names no task. With plane.json `parallel.schedule: clashes`, 
 
 *Append-only, newest last.*
 
+- Premise re-run: `git grep -n "clash(" -- ccp` now prints nothing, 0161 having renamed it; the three sites are `kept_apart`'s definition and its two callers (`join_refusal`, `next_choice`), as the task states.
+- `kept_apart` returns a frozen dataclass `parallel.Apart(kind, a_path, b_path)`; `kind` is `paths` or `clash`. `paths_meet` is unchanged (still returns the path pair). The module's `clashes(a, b)` reads `clashes_with` both ways.
+- Narrow choices where the task is silent: under `clashes` a task whose frontmatter `status` is `done` or `dropped` is never held back (so a clash recorded on it holds nothing); `clashes_with` naming itself is refused with `clashes_with \`<id>\`, which is the task itself`; `PARALLEL_SCHEDULES` in `ccp/config.py` is the one tuple of the two values; the plane.json error reads `parallel.schedule must be one of paths, clashes, not '<value>'`.
+- `tests/test_parallel_claims.py` and `tests/test_next_passes_over.py` needed no edit: the `paths` messages are unchanged.
+- ADR-0042 D1 and D2 marked nothing built, as the task says (task 0170 marks both).
+
 ## Verification notes
