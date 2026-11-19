@@ -53,6 +53,10 @@
       {
         "id": "merge-helper",
         "cmd": "! git grep -n -e merge-tree -e patch-id -e remerge-diff -- ccp ':(exclude)ccp/gitmerge.py'"
+      },
+      {
+        "id": "config-reader",
+        "cmd": "! git grep -nE 'plane\\.json\"\\)\\.read_text' -- plugin scripts"
       }
     ],
     "workers": 4

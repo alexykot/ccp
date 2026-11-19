@@ -30,7 +30,7 @@ set -uo pipefail
 HOOK_INPUT="$(cat)"
 export HOOK_INPUT
 exec python3 - "$@" <<'PY'
-import datetime, json, os, re, shutil, subprocess, sys
+import contextlib, datetime, io, json, os, re, shutil, subprocess, sys
 from pathlib import Path
 
 args = sys.argv[1:]
@@ -228,16 +228,25 @@ for tid in scope:
         ready.append(tid)
 
 architect_due = None
-try:
-    pj = json.loads((Path(cwd) / "docs/delivery/plane.json").read_text())
-except (OSError, ValueError, TypeError):
-    pj = {}
-has_architect = isinstance(pj, dict) and "architect" in pj
-par = pj.get("parallel") if isinstance(pj, dict) and isinstance(pj.get("parallel"), dict) else {}
-try:
-    parallel_on = int(par.get("max_in_flight", 1)) > 1
-except (TypeError, ValueError):
-    parallel_on = False
+# The product's configuration as ccp loads it, defaults included (SPEC §8.1): the hook reads no plane.json
+# itself. The plane is the checkout `ccp where` named, or the one the `--ccp` path sits in; with neither,
+# or a configuration that does not load (no plane.json, invalid JSON, a ConfigError), the product runs one
+# slot with no architect. The load's warnings are not printed.
+plane = where.get("plane") if not arg("--queue-root") else None
+if not plane:
+    cand = Path(shutil.which(ccp) or ccp).resolve().parent.parent
+    plane = str(cand) if (cand / "ccp" / "config.py").is_file() else None
+has_architect, parallel_on = False, False
+if plane:
+    sys.path.insert(0, plane)
+    try:
+        from ccp import config as ccp_config, parallel as ccp_parallel
+        with contextlib.redirect_stderr(io.StringIO()):
+            cfg = ccp_config.load(Path(cwd))
+        has_architect = cfg.architect is not None
+        parallel_on = int(ccp_parallel.settings(cfg)["max_in_flight"]) > 1
+    except Exception:
+        has_architect, parallel_on = False, False
 
 def worker_open(tid):
     """A worker run of tid opened and not yet reported, abandoned or stopped: the runner waits on it.

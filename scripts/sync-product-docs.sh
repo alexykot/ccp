@@ -44,7 +44,7 @@
 set -euo pipefail
 PLANE="$(cd "$(dirname "$0")/.." && pwd)"
 exec python3 - "$PLANE" "$@" <<'PY'
-import difflib, json, os, re, subprocess, sys, tempfile
+import contextlib, difflib, io, json, os, re, subprocess, sys, tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -178,9 +178,12 @@ if sm and not plugin:
         notes.append(f"binding {yml}: spec_maintainer.kind claude-session was removed (SPEC §17, 2026-11-05); "
                      "the team lead answers spec questions: drop the block or set kind team-lead")
 
-try:
-    rules_doc = (json.loads((root / "docs/delivery/plane.json").read_text()).get("architect") or {}).get("rules_doc")
-except (OSError, ValueError, AttributeError):
+try:  # the product's configuration as ccp loads it (defaults included); the load's warnings are not printed
+    sys.path.insert(0, str(plane))
+    from ccp import config as ccp_config
+    with contextlib.redirect_stderr(io.StringIO()):
+        rules_doc = (ccp_config.load(root).architect or {}).get("rules_doc")
+except Exception:  # no plane.json, invalid JSON, a ConfigError: no rules doc
     rules_doc = None
 if rules_doc and not (root / rules_doc).is_file():
     notes.append(f"plane.json architect.rules_doc {rules_doc} does not exist: copy "

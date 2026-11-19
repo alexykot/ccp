@@ -97,3 +97,20 @@ of `plugin/` and `scripts/`. Nothing the plane does changes.
 *Append-only, newest last.*
 
 ## Verification notes
+
+- The four readers (`runner-idle.sh`, `team.py` `max_in_flight`, `gate_parallel.py` `max_age_days`,
+  `sync-product-docs.sh` rules doc) call `ccp.config.load` and read the loaded blocks
+  (`cfg.architect is not None`, `parallel.settings(cfg)["max_in_flight"]`, `cfg.verify["accept_cache"]`,
+  `cfg.architect["rules_doc"]`); each catches any exception from the load and keeps its old fallback, with the
+  load's stderr warnings swallowed (`contextlib.redirect_stderr`). The `config-reader` docs check is in
+  `docs/delivery/plane.json`.
+- Choice the task left open: the hook's plane. Plugin mode takes `where["plane"]`; a call with
+  `--queue-root` (a managed copy) has no `ccp where`, so it takes the checkout the `--ccp` path sits in
+  (`<plane>/bin/ccp`, resolved; it counts only when `ccp/config.py` is there). The task text says a copy with
+  `--ccp` and no plane keeps the fallback; but every hook test and every managed copy run with `--queue-root` and
+  `--ccp`, and the fallback would turn off their architect and parallel behaviour, a change. A bare `ccp`
+  not on PATH and with no plane keeps the fallback.
+- Tests: `patch_default` in `TeamCase` (a `sitecustomize` on the child's `PYTHONPATH` sets one
+  `ccp.config` default) drives the hook, spawn and sync tests; the gate test patches `ACCEPT_CACHE_DEFAULTS`
+  in-process. The fixture of the existing `max_age_days` test now links the checkout's `ccp` (the gate imports
+  it from its own root) and its plane.json carries a `project_id` (the load requires one).
