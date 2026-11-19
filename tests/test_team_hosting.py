@@ -697,6 +697,8 @@ class TheRunnerSpawnFollowsCcpsDefault(TeamCase):
         super().setUp()
         (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text().replace(
             "runner:\n  name: runner\n", "runner:\n  name: runner\n  worktree: /tmp/demo-runner\n"))
+        # The subject is a missing `parallel` block: the plane.json `Product(bare=True)` writes.
+        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo"}))
         self.origin()
 
     def test_a_product_with_no_parallel_block_gets_two_slots_when_ccps_default_is_two(self):
