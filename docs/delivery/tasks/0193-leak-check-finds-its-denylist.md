@@ -7,7 +7,7 @@ depends_on: ["0175-one-binding-reader"]
 spec_refs: ["S8"]
 rule_refs: ["E3"]
 review_point: R12
-paths: ["scripts/leak-check.sh", "tests/test_leak_check.py", "docs/ENGINEERING.md"]
+paths: ["scripts/leak-check.sh", "tests/test_leak_check.py", "tests/test_self_hosting.py", "docs/ENGINEERING.md"]
 adopt: "none"
 created: 2026-11-19
 updated: 2026-11-19
@@ -41,19 +41,30 @@ on an installation that keeps none, such as a fresh clone of the open-source rep
 - `scripts/leak-check.sh` looks for the denylist in this order:
   1. `CCP_LEAK_DENYLIST`, as today. When it is set but names a missing file, the check exits 2, as
      today.
-  2. `leak-denylist.txt` in `CCP_BINDINGS_DIR`, when that variable is set.
-  3. `leak-denylist.txt` in the directory of the binding that `ccp where` resolves (or
-     `<plane>/projects/`), when `ccp` is on PATH and resolves one.
-- The first file found is used. Its path goes on stdout, as `leak-check: denylist <path>`.
+  2. When `CCP_BINDINGS_DIR` is set, it is authoritative: `leak-denylist.txt` in it, or no
+     denylist. Step 3 does not run. This keeps tests fenced, because `tests/__init__.py` sets it.
+  3. Otherwise, `ccp where --root <the repo being checked>`, run from PATH. Its JSON names
+     `binding`, and the denylist is `leak-denylist.txt` in that binding's directory. When there is
+     no `binding`, it is `<plane>/projects/leak-denylist.txt`. If `ccp` is missing, exits non-zero
+     or prints output that doesn't parse, the step falls through quietly, which matters under
+     `set -euo pipefail`.
+- The first file found is used. Stdout names its source, never its path:
+  `leak-check: denylist found (CCP_LEAK_DENYLIST)` or `leak-check: denylist found (bindings dir)`. A
+  local absolute path never reaches gate output, verifier notes or PR bodies.
+- The script's header comment describes the lookup.
 - When none is found, it prints `leak-check: no denylist found (CCP_LEAK_DENYLIST, the bindings
   directory): nothing checked` and passes, as today.
 - E3's check line in `docs/ENGINEERING.md` names the fallback.
 - New `tests/test_leak_check.py`:
   - a denylist in a temp `CCP_BINDINGS_DIR` is found and a match fails the check;
   - `CCP_LEAK_DENYLIST` wins over it;
-  - with neither, and `ccp` hidden from PATH, the check passes with the "nothing checked" line.
+  - a `CCP_BINDINGS_DIR` with no denylist means "nothing checked", even when a stub `ccp` on PATH
+    would name one;
+  - with neither, the check passes with the "nothing checked" line.
 
-  The tests run the script against a temp git repo, never this repo's tracked files.
+  Every test runs the script against a temp git repo with `ccp` hidden from PATH, or replaced by a
+  stub, and never reads the real installation. `tests/test_self_hosting.py`'s existing leak-check
+  test keeps passing, or moves into the new module.
 
 Out of scope: the patterns themselves (local), and any other docs check.
 
@@ -65,9 +76,9 @@ Out of scope: the patterns themselves (local), and any other docs check.
     `leak-denylist.txt`.
   steps:
     1. Run `env -u CCP_LEAK_DENYLIST -u CCP_BINDINGS_DIR scripts/leak-check.sh; echo rc=$?`.
-  expect: the output contains `leak-check: denylist ` followed by a path ending in
-    `leak-denylist.txt`, and either `leak-check: clean` with `rc=0` or a match list with `rc=1`. It
-    does not contain `nothing checked`.
+  expect: the output contains `leak-check: denylist found (bindings dir)`, and either
+    `leak-check: clean` with `rc=0` or a match list with `rc=1`. It contains no `nothing checked`
+    and no absolute path. Record only the rc and the first line in the verification notes.
   dry run (`9d36e52`): `leak-check: no denylist (CCP_LEAK_DENYLIST unset): nothing checked`, rc=0,
     so the expect fails today.
 - id: `lk-02`

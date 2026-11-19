@@ -970,5 +970,5 @@ tasks:
   - id: 0194-shell-binding-readers-use-the-one-parser
     status: pending
     title: The runner's idle hook and run-checkout.sh read the binding through the one binding module
-    depends_on: [0175-one-binding-reader]
+    depends_on: [0175-one-binding-reader, 0188-short-binding]
     path: tasks/0194-shell-binding-readers-use-the-one-parser.md
