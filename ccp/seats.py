@@ -216,7 +216,8 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
     rb = lib._yaml_block_scalars(lib.project_yaml_text(q), "runner")
     rname = work.get("runner") or rb.get("name") or "runner"  # §10.2: the bound name after a rotation
     rexp = definition_pins(cfg, rb.get("agent_type") or "delivery-runner")
-    if (rmodel := models.pin(models.model_for(cfg, "runner"), rexp["model"])) != rexp["model"]:  # §2.4 `models.runner`
+    # §2.4: the product's `models.runner`, when it sets one, over the model of the runner's definition
+    if "runner" in cfg.models_given and (rmodel := models.pin(models.model_for(cfg, "runner"), rexp["model"])) != rexp["model"]:
         rexp = {**rexp, "model": rmodel, "source": f"{rexp['source']}, overridden by plane.json models.runner"}
     r_reqs, r_aside = _split(recent["seats"].get("runner"), headless_sids)
     r_obs = observed(r_reqs)
@@ -266,7 +267,7 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
         rows.append(_row(team, f"{r.get('seat') or 'worker'} {r['run_id']}", "worker", f"{st} · {r.get('phase')}",
                          r.get("started_at") or r.get("opened_at"), exp, obs, _activity(obs, fallback)))
 
-    headless, claimed = _headless(q, team, recent, now)
+    headless, claimed = _headless(cfg, q, team, recent, now)
     rows += headless
 
     # `other-sessions` aggregates every session outside the seats (§24): not one seat, not a row.
@@ -312,7 +313,7 @@ def _lock_alive(q: Path, lock_name: str, rid: str) -> bool:
     return isinstance(cur, dict) and cur.get("review_id") == rid and not architect.sm.lock_is_stale(cur)
 
 
-def _headless(q: Path, team: str, recent: dict[str, Any], now: float) -> tuple[list[dict[str, Any]], set[str]]:
+def _headless(cfg: Config, q: Path, team: str, recent: dict[str, Any], now: float) -> tuple[list[dict[str, Any]], set[str]]:
     """Architect passes recorded as running (read only: the board never reaps), and the telemetry
     seats they claim: the `ccp.seat` tag a plane-launched `claude -p` carries (`architect-<mode>`;
     §24). An older queue's docs-audit record is read the same way. A pass whose lock is gone or

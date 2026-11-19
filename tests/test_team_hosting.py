@@ -556,7 +556,7 @@ class TestIdleHook(TeamCase):
 AGENT_MODELS = {  # SPEC §2.4 *Models and effort*: (model, effort); every seat pinned (operator, 2026-10-21)
     "delivery-runner": ("claude-sonnet-5-5", "high"),
     "delivery-implementer": ("claude-opus-5-5", "high"),
-    "delivery-reviewer": ("claude-sonnet-5-5", "high"),
+    "delivery-reviewer": ("claude-opus-5-5", "high"),
     "delivery-verifier": ("claude-sonnet-5-5", "high"),
 }
 

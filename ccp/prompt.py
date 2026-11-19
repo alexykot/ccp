@@ -53,7 +53,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from ccp import refs, runs, tasklog, verify
+from ccp import models, refs, runs, tasklog, verify
 from ccp.config import Config, lane_for
 from ccp.envvars import envvar
 from ccp.queue import (CCP_BIN, OBS, PLANE, QueueError, git, integration_branch, load_task_state, load_work, phase_move,

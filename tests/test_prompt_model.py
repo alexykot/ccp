@@ -1,8 +1,9 @@
-"""SPEC §2.4: plane.json `workers.implementer_model` picks the implementer's model per task. `ccp prompt
-implement` prints it in the Agent call (`model`) for a `small` task (its estimate at most
-`workers.small_estimate_minutes`) or a `refactor` one, and the run expects it; with the knob unset, or for a
-task neither arm matches, the call carries no `model`. The knob takes only the aliases the Agent call's `model`
-accepts, and a `small` arm that a task's missing estimate keeps from applying is a warning."""
+"""SPEC §2.4: the implementer's model per task. `ccp prompt implement` prints it in the Agent call (`model`) for
+a small task (its estimate at most `workers.small_estimate_minutes`) or a `refactor` one, as the plane's default
+(Sonnet) or plane.json `models` gives it, and the run expects it; for any other task the call carries no `model`.
+The deprecated `workers.implementer_model` still picks an arm `models` leaves to its default, taking only the
+aliases the Agent call's `model` accepts; a small choice that a task's missing estimate keeps from applying is a
+warning."""
 from __future__ import annotations
 
 import io
@@ -16,7 +17,7 @@ from tests.helpers import Product
 from tests.test_toolkit import ToolkitFixture
 
 SONNET = "sonnet"
-NO_ESTIMATE = "the small arm cannot apply"
+NO_ESTIMATE = "cannot apply"
 KNOB = {"implementer_model": {"small": SONNET, "refactor": SONNET}}
 
 
@@ -69,7 +70,6 @@ class PickedModel(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234", "--supersede")
         self.assertEqual(code, 0, out + err)
         self.assertIn(NO_ESTIMATE, err)
-        self.assertIn("no estimate", err)
         self.assertNotIn("model", body["agent_call"])
         self.assertEqual(body["expected_model"], models.default("implementer")[0])  # the definition's
 
@@ -102,12 +102,11 @@ class PickedModel(ToolkitFixture, unittest.TestCase):
                                  "total": {"p50_s": 600, "p90_s": 1200}}) + "\n")
         self.assertEqual(self.implement()["agent_call"].get("model"), SONNET)
 
-    def test_a_rework_round_keeps_the_definitions_model(self):
+    def test_a_rework_round_takes_the_implementers_model_for_the_task(self):
         self.shape(20)
         code, body, out, err = self.ccp("prompt", "merge", "0002", "--pr", "7", "--head", "abc1234")
         self.assertEqual(code, 0, out + err)
-        self.assertNotIn("model", body["agent_call"])
-        self.assertEqual(body["expected_model"], models.default("implementer")[0])
+        self.assertEqual((body["agent_call"].get("model"), body["expected_model"]), (SONNET, SONNET))
 
     def test_a_rework_round_of_an_unestimated_task_draws_no_warning(self):
         self.shape(None)
@@ -132,22 +131,35 @@ class SmallBound(ToolkitFixture, unittest.TestCase):
         self.assertEqual(body["agent_call"].get("model"), SONNET)
 
 
-class NoKnob(ToolkitFixture, unittest.TestCase):
-    def test_a_small_task_carries_no_model(self):
-        self.ccp("tasks", "claim", "0002")
+class Defaults(ToolkitFixture, unittest.TestCase):
+    def estimate(self, seconds: float) -> None:
         (self.q / "estimates").mkdir()
         (self.q / "estimates" / "0002-second.jsonl").write_text(json.dumps(
-            {"at": "2026-11-01T00:00:00Z", "source": "baseline", "version": 1, "total": {"p50_s": 60, "p90_s": 120}}) + "\n")
+            {"at": "2026-11-01T00:00:00Z", "source": "baseline", "version": 1, "total": {"p50_s": seconds, "p90_s": 2 * seconds}}) + "\n")
+
+    def test_a_small_task_carries_the_small_model_with_nothing_configured(self):
+        self.ccp("tasks", "claim", "0002")
+        self.estimate(60)
+        code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((body["agent_call"].get("model"), body["expected_model"]), (SONNET, SONNET))
+        self.assertNotIn("workers.implementer_model", err)
+
+    def test_a_large_task_carries_no_model(self):
+        self.ccp("tasks", "claim", "0002")
+        self.estimate(7200)
         code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
         self.assertEqual(code, 0, out + err)
         self.assertNotIn("model", body["agent_call"])
         self.assertEqual(body["expected_model"], models.default("implementer")[0])
+        self.assertNotIn(NO_ESTIMATE, err)
 
-    def test_an_unestimated_task_draws_no_warning(self):
+    def test_an_unestimated_task_warns_that_the_small_choice_cannot_apply(self):
         self.ccp("tasks", "claim", "0002")
         code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
         self.assertEqual(code, 0, out + err)
-        self.assertNotIn(NO_ESTIMATE, err)
+        self.assertIn(NO_ESTIMATE, err)
+        self.assertNotIn("model", body["agent_call"])
 
 
 class Knob(unittest.TestCase):
@@ -156,7 +168,7 @@ class Knob(unittest.TestCase):
         self.addCleanup(p.cleanup)
         return p.cfg
 
-    def test_defaults_are_off(self):
+    def test_the_defaults_leave_it_off(self):
         self.assertEqual(self.load({}).workers, {"implementer_model": None, "small_estimate_minutes": 30})
 
     def test_each_alias_the_agent_call_accepts_loads(self):

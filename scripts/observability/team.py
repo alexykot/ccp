@@ -335,9 +335,9 @@ def no_rp_detail(rp: str | None, detail: str = "") -> dict[str, str]:
 
 
 def model_arg(root: Path, rc: dict[str, str]) -> dict[str, str]:
-    """SPEC §2.4: `{"model": <alias>}` for the runner's spawn when the product's model for the runner
-    (plane.json `models.runner`, else the plane's default) is not its definition's, so the Agent call carries it,
-    as `ccp prompt` prints a worker's; `{}` when the definition's model is the runner's (or plane.json does not load)."""
+    """SPEC §2.4: `{"model": <alias>}` for the runner's spawn when plane.json sets `models.runner` and it is not
+    the definition's model, so the Agent call carries it, as `ccp prompt` prints a worker's; `{}` otherwise (or
+    when plane.json does not load)."""
     prod = sm.product_root(root)
     if not prod or not (Path(prod) / "docs" / "delivery" / "plane.json").is_file():
         return {}
@@ -347,6 +347,8 @@ def model_arg(root: Path, rc: dict[str, str]) -> dict[str, str]:
     try:
         cfg = ccp_config.load(Path(prod))
     except Exception:  # noqa: BLE001  (the spawn goes on without it; the product's own commands report the load)
+        return {}
+    if "runner" not in cfg.models_given:  # the binding's agent type may be the product's own: its model stands
         return {}
     alias = models.model_for(cfg, "runner")
     return {"model": alias} if models.pin(alias, runs.expected(cfg, rc["agent_type"].split(":", 1)[-1])[0]) == alias else {}

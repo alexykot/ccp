@@ -24,7 +24,7 @@ class TheRoleTable(unittest.TestCase):
     def test_every_row_names_a_pinned_alias(self):
         for role, (alias, effort) in models.ROLES.items():
             self.assertIn(alias, models.FULL_IDS, role)
-            self.assertIn(effort, ("low", "medium", "high", "xhigh", "max"), role)
+            self.assertIn(effort, ("low", "medium", "high", "xhigh", "max", None), role)  # None: the operator sets it
 
     def test_the_headless_flags_are_the_rows(self):
         self.assertEqual(models.headless_flags("architect"), ["--model", "claude-opus-5-5", "--effort", "high"])
@@ -34,9 +34,15 @@ class TheRoleTable(unittest.TestCase):
         self.assertEqual(estimator.HEADLESS_MODEL, models.headless_flags("estimator"))
         self.assertEqual(architecture_review.HEADLESS_MODEL, models.headless_flags("architect"))
 
-    def test_a_role_without_a_row_is_refused(self):
-        with self.assertRaises(KeyError):
-            models.headless_flags("lead")
+    def test_a_role_without_a_row_or_an_effort_is_refused(self):
+        for role in ("nobody", "lead"):
+            with self.assertRaises(KeyError, msg=role):
+                models.headless_flags(role)
+
+    def test_the_reviewer_runs_on_opus_and_the_small_arms_on_sonnet(self):
+        self.assertEqual(models.default("reviewer")[0], "claude-opus-5-5")
+        self.assertEqual([models.ROLES[r][0] for r in ("implementer_small", "implementer_refactor", "lead")],
+                         ["sonnet", "sonnet", "opus"])
 
 
 if __name__ == "__main__":

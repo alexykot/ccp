@@ -58,10 +58,9 @@ The implementer, reviewer and verifier are your subagents (Agent tool), each lau
 agent type: `delivery-implementer`, `delivery-reviewer`, `delivery-verifier` (`subagent_type`), from
 the ccp plugin as `ccp:delivery-implementer` and so on. Use the type `ccp prompt`
 prints: it names the plugin's, or the product's own copy while it still has one.
-Their agent definitions fix each one's effort and hold its role's default model (SPEC §2.4). **For any
-phase, pass `model` in the Agent call only when `ccp prompt` prints it**, as printed: plane.json `models`
-may pick another model for the role, and the implementer's for a task. Otherwise pass none: it would
-override the definition.
+Their agent definitions fix each one's effort and hold its role's default model (SPEC §2.4). **Pass `model` in the Agent call
+only when `ccp prompt` prints it**, for any phase, as printed: plane.json `models` may pick another model for the
+role, and the implementer's for a task. Otherwise pass none: it would override the definition.
 
 `ccp prompt <phase> <task_id>` renders the worker's prompt from the plane's templates and the
 product's fragment, writes its audit, opens the **run** (`<task_id>/<phase>[-n]`) and prints the Agent

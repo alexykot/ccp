@@ -15,7 +15,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import estimate, estimator, models, seats
+from ccp import config, estimate, estimator, models, seats
 from tests.helpers import Product
 from tests import test_estimate as te
 from tests.test_board_drill import Fixture
@@ -389,13 +389,13 @@ class SeatsAndBoard(Fixture, unittest.TestCase):
         try:
             ok, body_ = estimator.lock_take(q, "es-run", 600)
             estimator._lock_note(q, body_, "0005-sf-store")
-            rows, claimed = seats._headless(q, "claude-team", {"runs": {}, "seats": {}}, 0)
+            rows, claimed = seats._headless(config.load(self.main), q, "claude-team", {"runs": {}, "seats": {}}, 0)
             self.assertIn("estimator", claimed)
             row = [r for r in rows if r["seat"].startswith("estimator")][0]
             self.assertIn("0005-sf-store", row["seat"])
             self.assertEqual((row["expected"]["model"], row["expected"]["effort"]), models.default("estimator"))
             estimator.lock_release(q, "es-run")
-            rows, _ = seats._headless(q, "claude-team", {"runs": {}, "seats": {}}, 0)
+            rows, _ = seats._headless(config.load(self.main), q, "claude-team", {"runs": {}, "seats": {}}, 0)
             self.assertFalse([r for r in rows if r["seat"].startswith("estimator")])
         finally:
             shutil.rmtree(q, ignore_errors=True)
