@@ -83,7 +83,8 @@ counts as killed exits 1 at once, since it will never end. It writes nothing.
 
 `affected` prints the test modules a change touches, for the `part` lane, and runs nothing (§14.7); after
 them, on stderr, the `ccp suite run` line that runs them on the part lane, for a language with a named
-command (Python: `python3 -m unittest`). The
+command (Python: `python3 -m unittest`); when the list holds more than AFFECTED_FULL_SHARE of the
+suite's test modules (the pack counts them), the line says to skip the pre-gate and run the full lane. The
 change is `--paths` (normalised, relative to the root), else what `git diff REF` (default HEAD) names
 against the working tree plus the untracked files; REF is resolved with `git rev-parse --verify` first, so
 one that starts with a dash is an unknown ref, never an option. The product's language pack reads them:
@@ -1849,6 +1850,19 @@ def _read(p: Path) -> str | None:
         return None
 
 
+def _python_test_files(root: Path) -> list[tuple[str, str]]:
+    """(root-relative path, dotted module) of each `test*.py` file git tracks or would track, in git's order."""
+    files = _git_lines(root, "ls-files", "--cached", "--others", "--exclude-standard")
+    return [(rel, mod) for rel in files if (mod := _py_module(rel))
+            and fnmatch.fnmatchcase(rel.rsplit("/", 1)[-1], TEST_FILE_GLOB)]
+
+
+def _python_suite_size(root: Path) -> int:
+    """§14.7: how many test modules the Python pack counts in the suite: the ones the reader walks (a file
+    deleted in the working tree or not a regular file is no module)."""
+    return sum(1 for rel, _ in _python_test_files(root) if _read(root / rel) is not None)
+
+
 def _python_affected(root: Path, changed: list[str]) -> list[str]:
     """The Python pack: each `test*.py` file git tracks or would track that changed itself, imports a
     changed module directly or through one package level (a package it imports whose `__init__.py`
@@ -1867,10 +1881,7 @@ def _python_affected(root: Path, changed: list[str]) -> list[str]:
     names = {Path(c).name for c in changed if Path(c).suffix and not (root / c).is_dir()}  # a file's name only
     name_re = re.compile("|".join(rf"(?<![\w.-]){re.escape(n)}(?![\w-])" for n in sorted(names))) if names else None
     out, touched = set(), set(changed)
-    for rel in files:
-        mod = _py_module(rel)
-        if not mod or not fnmatch.fnmatchcase(rel.rsplit("/", 1)[-1], TEST_FILE_GLOB):
-            continue
+    for rel, mod in _python_test_files(root):
         text = _read(root / rel)
         if text is None:  # deleted in the working tree, or not a regular file
             continue
@@ -1885,6 +1896,10 @@ def _python_affected(root: Path, changed: list[str]) -> list[str]:
 
 
 AFFECTED_READERS = {"python": _python_affected}
+# §14.7: how many test modules a language's pack counts in the suite; a language with no counter has no suite size
+AFFECTED_SIZERS = {"python": _python_suite_size}
+# §14.7: past this share of the suite's test modules, the serial part lane loses to the parallel full lane
+AFFECTED_FULL_SHARE = 0.25
 # §14.7: the command that runs a language's test modules by name, for the line `affected` hands the worker
 AFFECTED_COMMANDS = {"python": "python3 -m unittest"}
 
@@ -1921,7 +1936,8 @@ def affected(cfg: Config, since: str | None, paths: list[str] | None) -> tuple[l
 
 def main_affected(cfg: Config, a: Any) -> int:
     """`ccp suite affected`: the test modules, one per line; after them, on stderr, the `ccp suite run` line
-    that runs them on the part lane, when the language has a command (`AFFECTED_COMMANDS`); a note on
+    that runs them on the part lane, when the language has a command (`AFFECTED_COMMANDS`), or, when they
+    are more than AFFECTED_FULL_SHARE of the suite's test modules, says to run the full lane; a note on
     stderr when there are none."""
     try:
         changed, mods = affected(cfg, a.since, a.paths)
@@ -1930,7 +1946,13 @@ def main_affected(cfg: Config, a: Any) -> int:
         return e.code
     for m in mods:
         print(m)
-    if mods and (cmd := AFFECTED_COMMANDS.get(_language(cfg))):
+    sizer = AFFECTED_SIZERS.get(_language(cfg))
+    total = sizer(cfg.root) if mods and sizer is not None else 0
+    if total and len(mods) > AFFECTED_FULL_SHARE * total:
+        sys.stdout.flush()
+        print(f"ccp suite affected: {len(mods)} of {total} test modules: skip the pre-gate and run the full lane: "
+              f"ccp suite run --lane {lane_for(cfg, 'full')}", file=sys.stderr)
+    elif mods and (cmd := AFFECTED_COMMANDS.get(_language(cfg))):
         sys.stdout.flush()
         print(f"ccp suite affected: run them with: ccp suite run --lane {lane_for(cfg, 'part')} -- {cmd} "
               + " ".join(mods), file=sys.stderr)
