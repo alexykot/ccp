@@ -61,11 +61,11 @@ written on several lines so its diff can be read. Nothing the plane does changes
   E17's one parser, and none affects a binding ccp init writes. Behaviour on init-written bindings stays
   unchanged, which is what the refactor rule protects. State these differences in the task's
   Implementation notes (list them: the review report's finding 1 at
-  /Volumes/Work/Projects/.delivery-queue/control-plane/progress/0175-one-binding-reader/review-report.md
+  progress/0175-one-binding-reader/review-report.md in the queue
   names them). MINOR 2 (the second parser _parse_simple_yaml_scalar_map in
   scripts/observability/lib.py, used by resolve_durable_docs_dir; read durable_docs, product_root,
   durable_docs_path through binding_str(read_binding(text), ...) and delete it, keeping or dropping the
-  legacy hamlet_root key deliberately and saying which) and NIT 4 (ccp/init.py refusal wording: readers
+  legacy product-named root key deliberately and saying which) and NIT 4 (ccp/init.py refusal wording: readers
   now cut only at ' #') are fixed in this round. MINOR 3 (runner-idle.sh, run-checkout.sh) is out of
   paths; the lead files a follow-up. Also add the ruling to the task file's Context (not checked)
   section.
@@ -148,9 +148,9 @@ written on several lines so its diff can be read. Nothing the plane does changes
   `runner:` then a newline.
 - Ruling r1, MINOR 2: `lib._parse_simple_yaml_scalar_map` is gone; `resolve_durable_docs_dir` reads
   `durable_docs` (and `durable_docs_abs`), `product_root` and `durable_docs_path` with
-  `binding_str(read_binding(text), ...)`. The legacy `hamlet_root` fallback is kept, deliberately: this
-  is a refactor, and dropping a key a binding may still carry is a behaviour change, which belongs with
-  the key removals of 0188. The old parser cut no comment (a value now ends at ` #`) and read
+  `binding_str(read_binding(text), ...)`. A legacy product-named root key was kept as a fallback at
+  first; it was removed after merge because its name broke the no-product-specifics rule (E3) and no
+  binding carries it. The old parser cut no comment (a value now ends at ` #`) and read
   `key: # comment` as the value `# comment` (now an empty block, so no value). New test:
   `test_binding_reader` `test_the_durable_docs_directory_is_read_from_the_binding`.
 - Ruling r1, NIT 4: `ccp/init.py`'s `#` refusal and its docstring say the reader cuts a value at ` #`;

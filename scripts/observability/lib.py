@@ -698,7 +698,7 @@ def resolve_durable_docs_dir(root: Path) -> Path | None:
     abs_docs = binding_str(data, "durable_docs") or binding_str(data, "durable_docs_abs")
     if abs_docs:
         return Path(abs_docs).expanduser()
-    product_root = binding_str(data, "product_root") or binding_str(data, "hamlet_root")
+    product_root = binding_str(data, "product_root")
     rel = binding_str(data, "durable_docs_path") or "docs/delivery"
     if product_root:
         return (Path(product_root).expanduser() / rel).resolve()
