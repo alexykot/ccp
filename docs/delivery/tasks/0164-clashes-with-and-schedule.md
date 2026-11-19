@@ -1,7 +1,7 @@
 ---
 task_id: 0164-clashes-with-and-schedule
 title: A task may record clashes_with, and parallel.schedule clashes lets tasks whose paths meet run together unless they clash
-status: pending
+status: done
 kind: feature
 depends_on: ["0161-paths-meet-and-parallel-defaults"]
 spec_refs: ["S5", "S16", "S10"]
@@ -163,3 +163,5 @@ refuses an id that names no task. With plane.json `parallel.schedule: clashes`, 
 - Ruling round 1 (sm-20261119T113130Z-8831): under `adr.strict`, `ccp verify record` refuses an approve citing a decision not built at the head, so this PR now marks ADR-0042 D1 and D2 built (`ccp adr decide 42 D1 built`, `ccp adr decide 42 D2 built`), overriding the Scope line and the note above; `docs/adr/INDEX.md` was unchanged by `ccp adr index`. Also, from the review's NIT, the comment on the passed-over loop in `ccp/cli.py` now names rule 3 rather than paths only, as `clashes` can keep a task apart by a recorded clash.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #184 head `f71e357` (squash `c138c69`): APPROVE. Passed: fm-01, cfg-01, claim-01, next-01, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -q tests.test_clashes_with tests.test_parallel_claims tests.test_next_passes_over tests.test_parallel_defaults` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0164-clashes-with-and-schedule.json.
+

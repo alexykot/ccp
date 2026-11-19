@@ -818,7 +818,7 @@ tasks:
     depends_on: [0162-git-merge-helper]
     path: tasks/0163-catch-up-decision-as-a-function.md
   - id: 0164-clashes-with-and-schedule
-    status: pending
+    status: done
     title: A task may record clashes_with, and parallel.schedule clashes lets tasks whose paths meet run together unless they clash
     depends_on: [0161-paths-meet-and-parallel-defaults]
     path: tasks/0164-clashes-with-and-schedule.md
