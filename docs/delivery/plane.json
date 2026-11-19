@@ -57,6 +57,10 @@
       {
         "id": "config-reader",
         "cmd": "! git grep -nE 'plane\\.json\"\\)\\.read_text' -- plugin scripts"
+      },
+      {
+        "id": "language-pack",
+        "cmd": "! git grep -n unittest -- ccp ':(exclude)ccp/doclang'"
       }
     ],
     "workers": 4
