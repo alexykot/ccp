@@ -1508,6 +1508,32 @@ class _NoCatchUp(Exception):
     failed. Raised before anything is pushed: the task branch is unchanged."""
 
 
+def catch_up_blocked(declared: list[str], tip_files: list[str], task_files: list[str], shared: list[str],
+                     signed_due: bool) -> str | None:
+    """§16.5 rule 4: the first condition that stops close catching a verified head up itself, as the text
+    `_catch_up` raises, or None. On plain values, with no git, file or queue access; the order is behaviour:
+    (1) the task declares no `paths`; (2) overlap: a file the tip's new commits change is one the task's own
+    diff (`task_files`) or a declared path changes, other than a `parallel.shared` path; (3) build sign-off:
+    when one is due (`signed_due`), a file the tip's new commits change is one the task's own diff changes, a
+    `parallel.shared` path included, since the sign-off covers the verified head."""
+    from ccp import parallel  # noqa: PLC0415
+    if not declared:
+        return ("no declared paths: the task declares no `paths`, so the tip's files cannot be checked "
+                "against them")
+    own = set(task_files)
+    overlap = [f for f in tip_files if (f in own or any(parallel.meets(f, p) for p in declared))
+               and not parallel.covered(f, shared)]
+    if overlap:
+        return (f"overlap: the tip's new commits change {', '.join(overlap[:5])}, which the task's "
+                "own diff or declared paths change")
+    if signed_due and (signed_over := [f for f in tip_files if f in own]):  # the signed text may change
+        return (f"build sign-off: the tip's new commits change {', '.join(signed_over[:5])}, which "
+                "the task's own diff changes (a parallel.shared path included), so the build "
+                "sign-off, which covers the verified head, is not carried over them (SPEC §16.5 "
+                "rule 4)")
+    return None
+
+
 def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, start: str, body: dict[str, Any],
               integ: str, facts: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     """§16.5 rule 4: close merges origin/<integ> into the PR head `start` itself, when the merge is clean or its
@@ -1519,15 +1545,15 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
     carries the sign-off (`sign_off_carried`); it runs the gate lane on the merge in its merge worktree as a
     recorded run, re-checks the tip (at most CATCH_UPS catch-ups), pushes the merge as the task branch's new
     head, records the catch-up on the verification record, and returns the head to merge and the catch-up.
-    Raises _NoCatchUp, with nothing pushed, naming the condition that failed."""
+    Raises _NoCatchUp, with nothing pushed, naming the condition that failed (`catch_up_blocked` holds the
+    declared-paths, overlap and build sign-off conditions, in the order they are judged)."""
     from ccp import parallel, suite, verify  # noqa: PLC0415
     from ccp.config import lane_for  # noqa: PLC0415
     verified = str(body.get("head_sha") or start)
     signed_due = "build" in due_stages(q, meta)[0]  # §3.5: declared, or from the verdict's spec_beyond_intent
     declared = [p.strip().removeprefix("./") for p in tasklog._as_list(meta.get("paths")) if p.strip()]
-    if not declared:
-        raise _NoCatchUp("no declared paths: the task declares no `paths`, so the tip's files cannot be checked "
-                         "against them")
+    if why := catch_up_blocked(declared, [], [], [], signed_due):  # only the declared paths can fail here
+        raise _NoCatchUp(why)
     lane = lane_for(cfg, "gate")
     if lane not in ((cfg.suite or {}).get("lanes") or {}):
         raise _NoCatchUp(f"no gate lane: plane.json suite.lanes names no lane {lane!r} for the gate role "
@@ -1548,17 +1574,8 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
             merged, union_files = _catch_up_commit(cfg, head, tip, branch, integ, shared)  # (a) clean, or a union
             task_files = _task_files(cfg, head, tip)
             tip_files = _tip_files(cfg, head, tip)
-            own = set(task_files)
-            overlap = [f for f in tip_files if (f in own or any(parallel.meets(f, p) for p in declared))
-                       and not parallel.covered(f, shared)]
-            if overlap:  # (b)
-                raise _NoCatchUp(f"overlap: the tip's new commits change {', '.join(overlap[:5])}, which the task's "
-                                 "own diff or declared paths change")
-            if signed_due and (signed_over := [f for f in tip_files if f in own]):  # (b'): the signed text may change
-                raise _NoCatchUp(f"build sign-off: the tip's new commits change {', '.join(signed_over[:5])}, which "
-                                 "the task's own diff changes (a parallel.shared path included), so the build "
-                                 "sign-off, which covers the verified head, is not carried over them (SPEC §16.5 "
-                                 "rule 4)")
+            if why := catch_up_blocked(declared, tip_files, task_files, shared, signed_due):  # (b), (b')
+                raise _NoCatchUp(why)
             wt = _merge_checkout(cfg, tid, integ).root
             made = True
             co = git(wt, "checkout", "-q", "--detach", merged)
