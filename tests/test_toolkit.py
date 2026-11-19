@@ -16,6 +16,7 @@ from unittest import mock
 
 from ccp import cli, config, prompt as prompt_mod
 from ccp.queue import QueueError
+from tests import helpers
 from tests.helpers import TASK
 
 PLANE = Path(__file__).resolve().parents[1]
@@ -68,11 +69,11 @@ class ToolkitFixture:
     """A git product (bare origin, main checkout, runner worktree) and a Claude team queue."""
 
     PLANE_JSON = {
-        "project_id": "demo",
+        **helpers.BASE_PLANE,
         "prompts": {"fragment": "docs/delivery/WORKERS.md"},
         "reconcile": {"log": {"path": "docs/LOG.md", "entry": "**{date} (runner):** `{nnnn}` done: {summary} PR #{pr}, squash `{merge7}`.",
                               "before": r"^\*\*\d{4}-"}},
-        "adapter": {"worktree_dir": ".rt", "worktree_links": [".venv"], "post_close": ["touch closed-{nnnn}"]},
+        "worktrees": {"dir": ".rt", "links": [".venv"]},
     }
 
     def setUp(self):
@@ -199,7 +200,7 @@ class ToolkitFixture:
 class Toolkit(ToolkitFixture, unittest.TestCase):
     def test_config_accepts_the_blocks_and_refuses_wrong_types(self):
         cfg = config.load(self.main)
-        self.assertEqual(cfg.adapter["worktree_links"], [".venv"])
+        self.assertEqual(cfg.worktrees["links"], [".venv"])
         self.assertEqual(cfg.telemetry["otel_port"], 4318)
         for bad in ({"adapter": {"worktree_dir": 3}}, {"reconcile": {"hooks": "make"}},
                     {"reconcile": {"log": {"path": "x"}}}, {"telemetry": {"otel_port": 0}},
@@ -413,6 +414,10 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.assertIn(("verify", "recorded"), self.ops())
 
     def test_close_merges_reconciles_pushes_and_clears_the_queue(self):
+        self.write("docs/delivery/plane.json", json.dumps({**self.PLANE_JSON, "adapter": {"post_close": ["touch closed-{nnnn}"]}}))
+        git(self.main, "commit", "-q", "-am", "post_close hook")
+        git(self.main, "push", "-q", "origin", "main")
+        git(self.runner, "checkout", "-q", "--detach", "origin/main")
         head = self._to_approved_pr()
         code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
         self.assertEqual(code, 0, out + err)

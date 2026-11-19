@@ -1,7 +1,7 @@
 ---
 task_id: 0172-fixtures-name-their-config
 title: The shared test fixtures name the configuration they rely on
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S8"]
@@ -98,4 +98,15 @@ tests, not a break in dozens of modules. Nothing the plane does changes.
 
 *Append-only, newest last.*
 
+- `tests/helpers.py`: `BASE_PLANE` (`project_id`, `suite.lanes.gate` `["true"]`, `parallel` `{"max_in_flight": 1, "schedule": "paths"}`), a small `merged_plane(cfg)` (block-by-block merge over a deep copy) and `Product(cfg=None, bare=False)`. No test needed `bare=True` to keep its expectation; one test (below) uses it for its subject.
+- `tests/test_toolkit.py`: `ToolkitFixture.PLANE_JSON` is `{**helpers.BASE_PLANE, prompts, reconcile, worktrees}`; no `adapter` key. `test_close_merges_reconciles_pushes_and_clears_the_queue` commits a plane.json with `adapter.post_close` to origin/main and moves the runner checkout to it before it closes (the checkout `ccp tasks close` runs from must be clean, so the change is committed, not a dirty edit). `test_config_accepts_the_blocks_and_refuses_wrong_types` reads `cfg.worktrees["links"]` where it read `cfg.adapter["worktree_links"]` (the same value, the fixture now writes it as `worktrees.links`).
+- Tests that relied on a missing block or on the fixture's legacy keys, each keeping its assertion:
+  - `tests/test_suite.py` `test_the_prompt_tells_workers_to_use_it`: its "no lane declared" wording is now asserted on `Product(bare=True).cfg`; a line asserts the declared-lane wording on the fixture's config.
+  - `tests/test_sign_off_beyond_intent.py` `test_a_verdict_listing_text_beyond_intent_no_longer_refuses_the_catch_up_by_itself`: its subject is the "no gate lane" refusal, so it writes the fixture's plane.json without `suite` before the catch-up.
+  - `tests/test_wt.py` `test_no_worktrees_dir_refuses` nulls `worktrees.dir` instead of `adapter.worktree_dir`; `test_bad_blocks_are_refused` names the legacy `adapter.worktree_dir` in its first bad case itself (the fixture no longer does); `test_legacy_adapter_keys_fold_into_worktrees` now sets the legacy keys itself (with `worktrees` nulled) and asserts they fold in, since the fixture no longer exercises them.
+  - `tests/test_tasks_close.py` and `tests/test_behind_tip_catch_up.py`: the no-worktrees-dir cases pop `worktrees.dir` where they popped `adapter.worktree_dir`.
+- No test needed `bare=True` because of the base's `parallel` block.
+
 ## Verification notes
+- 2026-11-19 — verifier, PR #197 head `df1c917` (close's catch-up of the approved `91327e1`, gate run st-20261119T191416Z-d9d1fc) (squash `000024c`): APPROVE. Passed: fix-01, fix-02, fix-03. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -q tests.test_toolkit tests.test_wt tests.test_wt_outside tests.test_behind_tip_catch_up tests.test_parallel_claims tests.test_suite` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0172-fixtures-name-their-config.json.
+

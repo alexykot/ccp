@@ -1,6 +1,7 @@
 """Build throwaway product checkouts for the `ccp` tests."""
 from __future__ import annotations
 
+import copy
 import json
 import tempfile
 from pathlib import Path
@@ -49,14 +50,32 @@ Something true for the user.
 """
 
 
-class Product:
-    """A temp product root with a plane.json and helpers to add tasks and files."""
+# The settings the shared fixtures' tests rely on, named so a change of a default shows here: a gate lane
+# that passes and one task in flight under the `paths` schedule.
+BASE_PLANE: dict = {
+    "project_id": "demo",
+    "suite": {"lanes": {"gate": ["true"]}},
+    "parallel": {"max_in_flight": 1, "schedule": "paths"},
+}
 
-    def __init__(self, cfg: dict | None = None):
+
+def merged_plane(cfg: dict | None = None) -> dict:
+    """BASE_PLANE with `cfg` over it, block by block: a block `cfg` gives replaces the base's block."""
+    return {**copy.deepcopy(BASE_PLANE), **copy.deepcopy(cfg or {})}
+
+
+class Product:
+    """A temp product root with a plane.json and helpers to add tasks and files.
+
+    `cfg` goes over BASE_PLANE block by block; `bare=True` writes only `project_id` and `cfg`, for a test
+    whose subject is a missing block."""
+
+    def __init__(self, cfg: dict | None = None, bare: bool = False):
         self._tmp = tempfile.TemporaryDirectory()
         self.root = Path(self._tmp.name)
         (self.root / "docs/delivery/tasks").mkdir(parents=True)
-        self.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", **(cfg or {})}))
+        plane = {"project_id": "demo", **(cfg or {})} if bare else merged_plane(cfg)
+        self.write("docs/delivery/plane.json", json.dumps(plane))
 
     def cleanup(self) -> None:
         self._tmp.cleanup()

@@ -99,7 +99,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         cwd = self.main.parent / "hook-cwd"
         self._to_approved_pr()
         cfg = json.loads((self.runner / "docs/delivery/plane.json").read_text())
-        cfg["adapter"].pop("worktree_dir")
+        cfg["worktrees"].pop("dir")
         cfg["reconcile"]["hooks"] = [f"pwd -P > {cwd}"]
         (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
         git(self.runner, "commit", "-qam", "no worktrees dir")
