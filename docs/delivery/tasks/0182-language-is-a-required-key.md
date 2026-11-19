@@ -1,7 +1,7 @@
 ---
 task_id: 0182-language-is-a-required-key
 title: The product's language is a required top-level key that the doc checks, the test-output reading and affected follow
-status: pending
+status: done
 kind: feature
 depends_on: ["0172-fixtures-name-their-config", "0173-plane-json-block-registry", "0176-language-pack-owns-test-facts"]
 spec_refs: ["S4", "S8", "S14", "S21", "S29"]
@@ -201,3 +201,5 @@ grace release it warns and behaves as before, and `ccp init --language` writes i
   `tests/test_plane_config_defaults.py` and `tests/test_init_permissions.py` change with the behaviour.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #210 head `f7cb665` (squash `d3fbbda`): APPROVE. Passed: lng-01, lng-02, lng-03, lng-04, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0182-language-is-a-required-key.json.
+
