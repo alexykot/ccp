@@ -1,7 +1,7 @@
 ---
 task_id: 0183-gate-lane-is-required
 title: A product must name a gate lane, and claim and next say so when it has none
-status: pending
+status: done
 kind: feature
 depends_on: ["0172-fixtures-name-their-config", "0182-language-is-a-required-key"]
 spec_refs: ["S4", "S8", "S10", "S14"]
@@ -128,3 +128,5 @@ unset. During the grace release they warn and carry on.
 - ADR-0043 D5 marked built (`ccp adr decide 43 D5 built`); INDEX.md has no column that changes.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #212 head `6f53d9b` (squash `a76e370`): APPROVE. Passed: gate-01, gate-02, gate-03, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0183-gate-lane-is-required.json.
+
