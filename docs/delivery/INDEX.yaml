@@ -893,7 +893,7 @@ tasks:
     depends_on: []
     path: tasks/0178-role-model-table.md
   - id: 0179-one-account-accessor
-    status: pending
+    status: done
     title: One accessor reads the account's allowance command, weekly stop, windows and session knobs
     depends_on: []
     path: tasks/0179-one-account-accessor.md

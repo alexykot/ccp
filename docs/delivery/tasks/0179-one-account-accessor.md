@@ -1,7 +1,7 @@
 ---
 task_id: 0179-one-account-accessor
 title: One accessor reads the account's allowance command, weekly stop, windows and session knobs
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S25"]
@@ -91,3 +91,5 @@ windows, the session park and wake, the parallel session ceiling) are read throu
   each key set, `session_park_pct: null`, bad wake values, the window merge, and the two `parallel` readers.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #205 head `b2c33d2` (squash `7550832`): APPROVE. Passed: acct-01, acct-02, acct-03. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -q tests.test_account_accessor tests.test_usage tests.test_allowance_windows tests.test_allowance_lapse tests.test_session_park tests.test_parallel_slots tests.test_forecast` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0179-one-account-accessor.json.
+
