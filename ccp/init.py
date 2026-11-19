@@ -16,8 +16,8 @@ already has is never overwritten, `--force` or not; the result's `settings` name
 kept. It refuses, writing nothing, when keeping a file would leave the product inconsistent: a
 `plane.json` naming another project id or not loading, a binding for the id that names another
 product root, or a settings file that is not a JSON object. It also refuses, writing nothing, a
-`--gate` it cannot split and a product root or queue path holding `#`, which every binding reader
-cuts off as a comment.
+`--gate` it cannot split and a product root or queue path holding `#`, since the binding reader
+cuts a value at ` #` as a comment.
 
 Pull requests need a GitHub origin until the PR host is an adapter (ADR-0040 D7): when the product
 has no `origin`, or its host is not GitHub, init warns on stderr and in the result's `warnings`,
@@ -66,12 +66,11 @@ from typing import Any
 
 from ccp import config, docrules, refs, rules, tasklog
 from ccp.queue import PLANE, QueueError, _main_worktree, emit, lib, queue_leftovers, script_drift
-from ccp.upgrade import binding_keys
 
 TEMPLATES = PLANE / "templates"
 SCHEMA = PLANE / "contracts" / "project.schema.json"
 # §8.3: the binding's nested keys the plane ignores, each `<top>.<child>` a first-level child of its top-level
-# key (the binding read nested by indentation, `upgrade.binding_keys`); a top-level key whose contract description says
+# key (the binding read nested by indentation, `lib.read_binding`); a top-level key whose contract description says
 # ignored or retired is obsolete too, and so is one the contract does not list.
 IGNORED_NESTED = ("seats.runner", "seats.verifier", "seats.watchdog", "cadence.verify_stale_minutes")
 IGNORED_TOP = ("email",)
@@ -139,11 +138,6 @@ def _default_id(root: Path) -> str:
     return re.sub(r"-+", "-", re.sub(r"[^a-z0-9-]", "-", root.name.lower())).strip("-")
 
 
-def _scalar(text: str, key: str) -> str | None:
-    m = re.search(rf"^{key}:\s*([^#\n]+)", text, re.M)
-    return m.group(1).strip().strip("'\"") if m else None
-
-
 def _paragraph_break(text: str) -> str:
     """What goes between `text` and an appended line so the line is its own paragraph: nothing after
     an empty file or one already ending in a blank line, else the line break(s) up to one blank line."""
@@ -206,7 +200,7 @@ def binding_shape_warnings(binding: Path, text: str) -> list[str]:
     schema = json.loads(SCHEMA.read_text())
     props: dict[str, Any] = schema.get("properties", {})
     # each top-level key with its first-level keys only (one with a value of its own has none)
-    keys = {k: list(v) if isinstance(v, dict) else [] for k, v in binding_keys(text).items()}
+    keys = {k: list(v) if isinstance(v, dict) else [] for k, v in lib.read_binding(text).items()}
     fix = f"edit {binding}, or run `ccp init --force` to rewrite it (its other edits are lost)"
     out: list[str] = []
     out += [f"the kept binding {binding} lacks `{k}`: {fix}"
@@ -342,8 +336,9 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
                              "--queue-root out (SPEC §29.3)", 2)
     binding = (sandbox / sandboxes.BINDINGS if sandbox is not None else lib.bindings_dir()) / f"{pid}.yaml"
     old = binding.read_text() if binding.is_file() else None
+    held = lib.read_binding(old or "")
     if old is not None and not force:
-        bound = _scalar(old, "product_root")
+        bound = lib.binding_str(held, "product_root")
         if not bound or Path(bound).expanduser().resolve() != product_root:
             raise QueueError(f"ccp init: the binding {binding} names another product root ({bound}); "
                              "pick another --project-id, or --force to rewrite it", 2)
@@ -352,7 +347,7 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     if sandbox is not None:
         q = sandbox / sandboxes.QUEUE
     if keep_binding:
-        bound_q = _scalar(old, "queue_root")
+        bound_q = lib.binding_str(held, "queue_root")
         if q and (not bound_q or Path(bound_q).expanduser().resolve() != q.resolve()):
             raise QueueError(f"ccp init: the binding {binding} names the queue {bound_q}, not {q}; "
                              "edit the binding, or --force to rewrite it", 2)
@@ -360,8 +355,8 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     q = (q or Path.home() / ".delivery-queue" / pid).resolve()
     for what, path in (("product root", product_root), ("queue path", q)):
         if "#" in str(path):
-            raise QueueError(f"ccp init: the {what} {path} holds `#`, which the binding readers cut off "
-                             "as a comment; use a path without it", 2)
+            raise QueueError(f"ccp init: the {what} {path} holds `#`, and the binding reader cuts a value "
+                             "at ` #` as a comment; use a path without `#`", 2)
     settings = root / ".claude" / "settings.json"
     # §4.5: the window is the binding's as it stands after init: the kept one's, else the default.
     lead = lib._yaml_block_scalars(old, "lead") if keep_binding and old else {}
@@ -498,8 +493,8 @@ def print_permissions(root: Path, a: Any) -> int:
     except config.ConfigError as e:
         print(f"ccp init: {e}; adopt the product with `ccp init` first", file=sys.stderr)
         return 2
-    from ccp.cli import binding_queue_root  # noqa: PLC0415  (cli imports this module lazily)
-    q = binding_queue_root(cfg)
+    from ccp.cli import product_queue_root  # noqa: PLC0415  (cli imports this module lazily)
+    q = product_queue_root(cfg)
     if not q:
         print(f"ccp init: no binding with a queue for {cfg.project_id!r} names this product; "
               "adopt it with `ccp init` first", file=sys.stderr)

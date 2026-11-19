@@ -38,6 +38,8 @@ from lib import (  # noqa: E402
     ACTORS,
     append_event,
     apply_event,
+    binding_data,
+    binding_str,
     die,
     events_path,
     fmt_dt,
@@ -48,7 +50,6 @@ from lib import (  # noqa: E402
     parse_dt,
     project_seat_agent,
     resolve_durable_docs_dir,
-    project_yaml_text,
     read_json,
     write_json,
 )
@@ -90,14 +91,14 @@ def root_dir() -> Path:
     """The live queue: QUEUE_ROOT when set; else, as `ccp` finds it (SPEC §9.2), the queue the plane's own
     `bin/ccp --root <dir> where` prints for this product (the dir: CLAUDE_PROJECT_DIR, else the working
     directory). With neither, it dies naming `ccp init` and QUEUE_ROOT."""
-    raw = os.environ.get("QUEUE_ROOT") or binding_queue_root()
+    raw = os.environ.get("QUEUE_ROOT") or where_queue_root()
     if not raw:
         die("set QUEUE_ROOT to the live queue dir outside product git; no binding names this product: "
             "run `ccp init`, or set QUEUE_ROOT", 2)
     return Path(raw).expanduser().resolve()
 
 
-def binding_queue_root() -> str | None:
+def where_queue_root() -> str | None:
     """SPEC §9.2: the queue `ccp where` prints for the product at CLAUDE_PROJECT_DIR (else the working
     directory), from the plane's own `bin/ccp`; None when it names none or does not answer."""
     where = [sys.executable, str(HERE.parents[1] / "bin" / "ccp"),
@@ -112,13 +113,7 @@ def binding_queue_root() -> str | None:
 
 def project_id(root: Path, q: dict[str, Any] | None = None) -> str:
     pid = os.environ.get("PROJECT_ID") or (q or {}).get("project_id")
-    if not pid:
-        for line in project_yaml_text(root).splitlines():
-            m = re.match(r"^project_id:\s*(\S+)", line)
-            if m:
-                pid = m.group(1).strip("'\"")
-                break
-    return pid or root.name
+    return pid or binding_str(binding_data(root), "project_id") or root.name
 
 
 def env_raiser() -> str | None:
@@ -338,11 +333,7 @@ def notify_operator(root: Path, trigger: str, task_id: str, ident: str, actor: s
 
 
 def product_root(root: Path) -> str:
-    for line in project_yaml_text(root).splitlines():
-        m = re.match(r"^product_root:\s*(\S+)", line)
-        if m:
-            return m.group(1).strip("'\"")
-    return ""
+    return binding_str(binding_data(root), "product_root") or ""
 
 
 def protocol_doc_path(cfg: dict[str, str], root: Path) -> str:

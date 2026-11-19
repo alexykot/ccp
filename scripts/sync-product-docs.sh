@@ -49,6 +49,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 plane = Path(sys.argv[1]); args = sys.argv[2:]
+sys.path.insert(0, str(plane / "scripts" / "observability"))
+import lib  # the one binding parser (SPEC §8.3)
 IMPORT_LINE = "@docs/delivery/CONTROL-PLANE.md"
 SECTION = ("## Control plane\n\n" + IMPORT_LINE + "\n\n"
            "That file is the control plane's orientation for this repo: how work flows, which seats "
@@ -104,19 +106,19 @@ if stamp:
 
 yml = Path(project_yaml) if project_yaml else plane / "projects" / f"{project}.yaml"
 if not yml.is_file(): fail(f"no project binding {yml}")
-text = yml.read_text()
+binding = lib.read_binding(yml.read_text())
 def top(key):
-    m = re.search(rf"^{key}:\s*(\S+)", text, re.M)
-    return m.group(1).strip("'\"") if m else None
+    return lib.binding_str(binding, key)
 if top("project_id") and top("project_id") != project:
     fail(f"{yml} is project_id {top('project_id')}, not {project}")
 root = Path(product_root or top("product_root") or "")
 if not str(root) or str(root) == ".": fail(f"{yml} has no product_root (pass --product-root)")
 if not root.is_dir(): fail(f"product_root {root} does not exist")
 
-sm = re.search(r"^spec_maintainer:\s*\n((?:[ \t]+.*\n?|[ \t]*#.*\n?|\s*\n)*)", text, re.M)
+sm = binding.get("spec_maintainer")
+sm = sm if isinstance(sm, dict) else None  # a block, empty or not
 managed = [("plugin/orientation.md", "docs/delivery/CONTROL-PLANE.md")]
-if sm:
+if sm is not None:
     managed.append(("plugin/skills/spec-maintainer/SKILL.md", "docs/delivery/SPEC-MAINTAINER.md"))
 managed += [("plugin/skills/review-triage/SKILL.md", "docs/delivery/REVIEW-TRIAGE.md"),
             ("plugin/skills/architect/SKILL.md", ".claude/skills/architect/SKILL.md")]
@@ -171,10 +173,8 @@ if tkeys:
 if isinstance(penv, dict) and re.search(r"\bcpl\.project_id=", str(penv.get("OTEL_RESOURCE_ATTRIBUTES") or "")):
     notes.append(".claude/settings.json: OTEL_RESOURCE_ATTRIBUTES uses the old key cpl.project_id; rename it to "
                  "ccp.project_id (`ccp otel env --project ID`): the receiver no longer reads the old key")
-if sm and not plugin:
-    pd = re.search(r"^\s+protocol_doc:\s*(\S+)", sm.group(1), re.M)
-    kind = re.search(r"^\s+kind:\s*(\S+)", sm.group(1), re.M)
-    if kind and kind.group(1) == "claude-session":
+if sm is not None and not plugin:
+    if sm.get("kind") == "claude-session":
         notes.append(f"binding {yml}: spec_maintainer.kind claude-session was removed (SPEC §17, 2026-11-05); "
                      "the team lead answers spec questions: drop the block or set kind team-lead")
 

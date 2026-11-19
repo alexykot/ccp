@@ -98,26 +98,21 @@ def _places(q: Path) -> tuple[str | None, set[str]]:
     """Real paths of the product root and of the team runners' checkouts, from the queue's binding (§24):
     `runner.worktree`, and with several runners (§16.4) each slot's own (`-<slot>`, or as recorded)."""
     import os  # noqa: PLC0415
-    import re  # noqa: PLC0415
-    from ccp.queue import binding_text  # noqa: PLC0415
-    text = binding_text(q) + "\n"
-    root = re.search(r"^product_root:\s*([^#\n]+)", text, re.M)
-    wt = re.search(r"^runner:\s*\n(?:[ \t]+.*\n)*?[ \t]+worktree:\s*([^#\n]+)", text, re.M)
-    real = lambda m: os.path.realpath(m.group(1).strip().strip("'\"")) if m else None  # noqa: E731
-    prod = root.group(1).strip().strip("'\"") if root else None
+    from ccp.queue import lib  # noqa: PLC0415
+    data = lib.binding_data(q)
+    root, wt = lib.binding_str(data, "product_root"), lib.binding_str(data, "runner", "worktree")
     # a relative runner.worktree is the product root's, as `ccp tasks worktree` reads it (§16.5)
-    at = lambda p: os.path.realpath(p if os.path.isabs(p) or not prod else os.path.join(prod, p))  # noqa: E731
-    wts = {at(wt.group(1).strip().strip("'\""))} if wt else set()
+    at = lambda p: os.path.realpath(p if os.path.isabs(p) or not root else os.path.join(root, p))  # noqa: E731
+    wts = {at(wt)} if wt else set()
     try:
         from ccp.queue import load_work, runner_slots  # noqa: PLC0415
-        base = wt.group(1).strip().strip("'\"") if wt else None
         for slot, rec in runner_slots(load_work(q)).items():
-            for p in (rec.get("worktree"), f"{base}-{slot}" if base else None):
+            for p in (rec.get("worktree"), f"{wt}-{slot}" if wt else None):
                 if p:
                     wts.add(at(str(p)))
     except Exception:  # noqa: BLE001  (an unreadable work.json: the binding's one checkout)
         pass
-    return real(root), wts
+    return os.path.realpath(root) if root else None, wts
 
 
 UNTAGGED = "headless-untagged"

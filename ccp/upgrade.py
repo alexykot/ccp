@@ -32,7 +32,7 @@ from typing import Any
 
 from ccp import config, refs, tasklog
 from ccp.config import Config
-from ccp.queue import QueueError
+from ccp.queue import QueueError, lib
 
 TAKEN, NOT_TAKEN, BY_HAND = "taken", "not taken", "check by hand"
 KEY_RE = re.compile(r"^[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*)*$")
@@ -139,29 +139,12 @@ def _json_file(p: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def binding_keys(text: str) -> dict[str, Any]:
-    """The binding's `key: value` lines as nested objects by indentation (list items are not read)."""
-    out: dict[str, Any] = {}
-    stack: list[tuple[int, dict[str, Any]]] = [(-1, out)]
-    for line in text.splitlines():
-        m = re.match(r"^([ \t]*)([^\s#:-][^:#]*?):(?:[ \t]+(.*))?$", line.split(" #", 1)[0].rstrip())
-        if not m:
-            continue
-        depth = len(m.group(1).expandtabs(2))
-        while stack[-1][0] >= depth:
-            stack.pop()
-        node: dict[str, Any] = {}
-        stack[-1][1][m.group(2).strip()] = (m.group(3) or "").strip() or node
-        stack.append((depth, node))
-    return out
-
-
 def _sources(cfg: Config) -> dict[str, dict[str, Any] | None]:
     """The product's three files as the steps read them; None for one that cannot be read."""
-    from ccp.cli import binding_file  # noqa: PLC0415
-    b = binding_file(cfg)
+    from ccp.cli import product_binding  # noqa: PLC0415
+    b = product_binding(cfg)
     try:
-        binding = binding_keys(b.read_text()) if b else None
+        binding = lib.read_binding(b.read_text()) if b else None
     except OSError:
         binding = None
     return {"plane.json": _json_file(cfg.root / config.CONFIG_REL), "binding": binding,

@@ -1350,7 +1350,7 @@ class CallerEnvironment(SuiteFixture, unittest.TestCase):
         a = type("A", (), {"lane": "part", "phase": None, "run": None, "task": None, "root": str(self.runner)})()
         env = {k: v for k, v in os.environ.items() if k not in ("QUEUE_ROOT", "CCP_NO_BINDING_QUEUE")}
         with mock.patch.dict(os.environ, env, clear=True), \
-                mock.patch("ccp.cli.binding_queue_root", return_value=str(self.q)):
+                mock.patch("ccp.cli.product_queue_root", return_value=str(self.q)):
             code = suite.main_run(a, [PY, "-c", DUMP_ENV, str(out)])
             self.assertEqual(os.environ.get("QUEUE_ROOT"), str(self.q))  # ccp recorded against it
         self.assertEqual(code, 0)

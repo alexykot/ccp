@@ -350,8 +350,8 @@ def same_change(q: Path, a: str, b: str) -> bool:
     only merged the integration branch in (§16.5 rule 4) is the reviewed change on a newer base. False
     when anything cannot be judged (no product checkout, a head not fetched): the gate stays strict."""
     import subprocess  # noqa: PLC0415
-    from ccp.queue import binding_scalar, integration_branch  # noqa: PLC0415
-    root = binding_scalar(q, "product_root")
+    from ccp.queue import integration_branch, lib  # noqa: PLC0415
+    root = lib.binding_str(lib.binding_data(q), "product_root")
     if not root or not Path(root).is_dir():
         return False
     integ = integration_branch(q)

@@ -64,6 +64,12 @@ class Expected(Base, unittest.TestCase):
         self.assertEqual((run["model"], run["effort"]), ("claude-sonnet-5-5", "high"))
         self.assertEqual(run["source"], "plane:plugin/agents/delivery-runner.md (plugin)")
 
+    def test_the_runner_row_reads_the_bindings_runner_block(self):
+        (self.q / "project.yaml").write_text("project_id: demo\nintegration_branch: main\nrunner:\n"
+                                             "  name: steward\n  agent_type: delivery-implementer\n")
+        row = self.rows(self.build())["runner (steward)"]
+        self.assertEqual(row["expected"]["model"], "claude-opus-5-5")
+
     def test_an_unknown_agent_type(self):
         self.assertEqual(seats.definition_pins(config.load(self.main), ""),
                          {"model": None, "effort": None, "source": "unknown agent type"})

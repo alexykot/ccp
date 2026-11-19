@@ -107,8 +107,7 @@ def _positive_int(v: Any) -> int | None:
 def rotation_knobs(q: Path) -> tuple[int, int | None]:
     """§8.3: the binding's `runner.rotate_after_tasks` (default 4) and `runner.rotate_at_context_tokens`
     (default null: off)."""
-    from ccp.queue import binding_text  # noqa: PLC0415
-    rc = lib._yaml_block_scalars(binding_text(q), "runner")
+    rc = lib._yaml_block_scalars(lib.project_yaml_text(q), "runner")
     return (_positive_int(rc.get("rotate_after_tasks")) or ROTATE_AFTER_TASKS,
             _positive_int(rc.get("rotate_at_context_tokens")))
 
@@ -699,10 +698,8 @@ def runner_worktree(cfg: Config, slot: str | None) -> dict[str, Any]:
     """§12.1, §16.5 rule 1: a runner's own merge worktree, made when missing, detached at the integration
     tip. With a slot: work.json `runners.<slot>.worktree`, else the binding's `runner.worktree` plus
     `-<slot>`. Without one (one runner, no slots recorded): the binding's `runner.worktree` itself."""
-    import re as _re  # noqa: PLC0415
     from ccp import wt as _wt  # noqa: PLC0415
     from ccp.prompt import main_checkout  # noqa: PLC0415
-    from ccp.queue import binding_text  # noqa: PLC0415
     q = root()
     slots = runner_slots(load_work(q))
     if slot is None and slots:
@@ -712,11 +709,11 @@ def runner_worktree(cfg: Config, slot: str | None) -> dict[str, Any]:
                          "the lead records slots with `team.sh runner spawn --count`", 2)
     path = str(slots[slot].get("worktree") or "") if slot is not None else ""
     if not path:
-        m = _re.search(r"^runner:\s*\n(?:[ \t]+.*\n)*?[ \t]+worktree:\s*([^#\n]+)", binding_text(q) + "\n", _re.M)
-        if not m:
+        worktree = lib.binding_str(lib.binding_data(q), "runner", "worktree")
+        if not worktree:
             what = "put the runners' worktrees beside" if slot is not None else "make the runner's worktree at"
             raise QueueError(f"the binding names no runner.worktree to {what} (SPEC §12.1)", 2)
-        path = m.group(1).strip().strip("'\"") + (f"-{slot}" if slot is not None else "")
+        path = worktree + (f"-{slot}" if slot is not None else "")
     wt, made = _wt.runner_worktree(main_checkout(cfg), path, integration_branch(q))
     return {"ok": True, "slot": slot, "worktree": str(wt), "made": made,
             "next": f"cd {wt} && run every ccp command from there (SPEC §16.5)"}

@@ -704,8 +704,8 @@ class OneBinding(InitCase):
             os.environ.pop("PROJECT_YAML", None)
             self.assertEqual(lib.binding_path(self.queue), self.binding)
             self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.repo / "docs/delivery")
-            from ccp import queue, verify  # noqa: PLC0415
-            self.assertEqual(queue.binding_runner_name(self.queue), "steward")
+            from ccp import verify  # noqa: PLC0415
+            self.assertEqual(lib.binding_runner_name(self.queue), "steward")
             self.assertTrue(verify._ci(self.queue))
 
     def test_without_a_binding_the_queue_copy_still_reads(self):
