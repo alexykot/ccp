@@ -56,5 +56,11 @@ review_points:
   - id: R10
     name: loop speed and adoption follow-ups
     goal: Fix and merge rounds reuse the gate cache, the runner loop wastes no rounds or slots, real earlier-generation task files migrate, upgrade status can decline and record steps, and R9's follow-ups close.
-    status: current
+    status: closed
+    closed: "2026-11-19"
     opened: "2026-11-18"
+  - id: R11
+    name: tasks run together unless they clash
+    goal: ADR-0042 is built - a product can opt into clash scheduling, the implementer catches up before review, a conflicted catch-up gets a resolution review, health measures conflicts, and plans are wide.
+    status: current
+    opened: "2026-11-19"

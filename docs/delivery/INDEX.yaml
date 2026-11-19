@@ -802,3 +802,53 @@ tasks:
     title: The queue docs name only what the plane writes, an unused reader goes, a queue archive is in the ledger, and a Finder .DS_Store is no leftover
     depends_on: []
     path: tasks/0160-queue-legacy-follow-ups.md
+  - id: 0161-paths-meet-and-parallel-defaults
+    status: pending
+    title: Rename parallel.clash to paths_meet behind one pairwise predicate, and read the parallel defaults from one place
+    depends_on: []
+    path: tasks/0161-paths-meet-and-parallel-defaults.md
+  - id: 0162-git-merge-helper
+    status: pending
+    title: One git merge helper module for the merge probe, a head's own patch id and the remerge diff
+    depends_on: []
+    path: tasks/0162-git-merge-helper.md
+  - id: 0163-catch-up-decision-as-a-function
+    status: pending
+    title: Close's catch-up decision as a pure function with unit tests, and the shared test fixtures documented
+    depends_on: [0162-git-merge-helper]
+    path: tasks/0163-catch-up-decision-as-a-function.md
+  - id: 0164-clashes-with-and-schedule
+    status: pending
+    title: A task may record clashes_with, and parallel.schedule clashes lets tasks whose paths meet run together unless they clash
+    depends_on: [0161-paths-meet-and-parallel-defaults]
+    path: tasks/0164-clashes-with-and-schedule.md
+  - id: 0165-wide-plans-chain-warning
+    status: pending
+    title: ccp tasks check reports each review point's longest depends_on chain and width, warns on a deep plan, and the writing-tasks skill says to write wide plans
+    depends_on: []
+    path: tasks/0165-wide-plans-chain-warning.md
+  - id: 0166-catch-up-before-review
+    status: pending
+    title: The implementer catches up with the tip before review, and ccp prompt review refuses a head whose merge of the tip would conflict
+    depends_on: [0162-git-merge-helper]
+    path: tasks/0166-catch-up-before-review.md
+  - id: 0167-close-catches-up-by-patch-id
+    status: pending
+    title: Under parallel.schedule clashes, close catches a verified head up when its own patch is unchanged, and carries a build sign-off by the same test
+    depends_on: [0162-git-merge-helper, 0163-catch-up-decision-as-a-function, 0164-clashes-with-and-schedule]
+    path: tasks/0167-close-catches-up-by-patch-id.md
+  - id: 0168-resolution-review
+    status: pending
+    title: A conflicted integration merge gets a resolution review mode, which names the dod_checks the resolution can affect, and the verifier reruns those
+    depends_on: [0162-git-merge-helper]
+    path: tasks/0168-resolution-review.md
+  - id: 0169-health-counts-conflict-catch-ups
+    status: pending
+    title: ccp report records each round's integration merges and whether they conflicted, and ccp health reports conflict catch-ups before and after review
+    depends_on: [0166-catch-up-before-review, 0168-resolution-review]
+    path: tasks/0169-health-counts-conflict-catch-ups.md
+  - id: 0170-forecast-models-co-scheduling
+    status: pending
+    title: The forecast keeps apart the tasks claim rule 3 keeps apart, through the pairwise co-scheduling predicate
+    depends_on: [0164-clashes-with-and-schedule]
+    path: tasks/0170-forecast-models-co-scheduling.md

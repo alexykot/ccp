@@ -11,6 +11,7 @@ notes: |-
   before review, and write wide plans rather than deep chains. It changes SPEC rules (listed under
   Consequences), so the operator decides it. Tasks follow the architect's shape.
   2026-11-19: status proposed → accepted: Accepted by the operator (2026-11-19, in the lead session: 'accept ADR-0042'). Its decisions stay not_built until the shaped tasks build them.
+  2026-11-19: operator ruling on shape F04: 'patch id alone'.
 decisions:
   - "D1 not_built"
   - "D2 not_built"
@@ -73,8 +74,8 @@ The other claim rules stay:
 ### D2. Paths stay as information
 
 A task still declares `paths`. They feed the reviewer, `parallel.exclusive`, the forecast and its
-`undeclared_paths` check (§16.7), and close's catch-up condition (§16.5 rule 4). Under `clashes` they
-no longer decide rule 3.
+`undeclared_paths` check (§16.7), and, under `paths` only, close's catch-up condition (§16.5 rule 4).
+Under `clashes` they no longer decide rule 3 or close's catch-up.
 
 `ccp tasks next` walks the ready tasks as today. Under `clashes` it passes over a task held back only
 by a clash with an in-flight task. It also passes over a task that clashes with one it passed over,
@@ -100,7 +101,8 @@ When the tip moves after review, the catch-up is a merge of the tip into the tas
   `clashes`, close may make this catch-up itself, even when the tip changed a file the task changes.
   Today close refuses that case (§16.5 rule 4), and it carries a build sign-off only when the tip
   changed no file the task changes; under `clashes` that carry follows the same patch-id test, or
-  every signed task would fall back. Close still resolves an append-only conflict in a
+  every signed task would fall back. Under `clashes` the patch-id test is close's whole catch-up
+  condition: neither the tip changing a declared path nor a task declaring no paths refuses it. Close still resolves an append-only conflict in a
   `parallel.shared` path itself.
 - **A merge with a conflict** is resolved by the implementer. It then gets a resolution review, a new
   review mode, instead of a full round:
