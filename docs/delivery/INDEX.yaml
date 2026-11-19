@@ -878,7 +878,7 @@ tasks:
     depends_on: []
     path: tasks/0175-one-binding-reader.md
   - id: 0176-language-pack-owns-test-facts
-    status: pending
+    status: done
     title: The language pack owns its test-output patterns, its affected reader and its test command
     depends_on: []
     path: tasks/0176-language-pack-owns-test-facts.md

@@ -1,7 +1,7 @@
 ---
 task_id: 0176-language-pack-owns-test-facts
 title: The language pack owns its test-output patterns, its affected reader and its test command
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S14", "S21"]
@@ -134,3 +134,5 @@ does changes.
     `suite.AFFECTED_COMMANDS` and `suite._python_suite_size`; no expectation changed.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #201 head `50c52b0` (squash `118e337`): APPROVE. Passed: lang-01, lang-02, lang-03, lang-04. Gate: `ccp suite run --lane gate` exit 0, `./bin/ccp --root . tasks check` exit 0, `./bin/ccp --root . docs check` exit 0. Record: verification/0176-language-pack-owns-test-facts.json.
+
