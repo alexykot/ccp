@@ -3,7 +3,7 @@ task_id: 0189-spec-states-behaviour
 title: The SPEC states behaviour, not default numbers, and names no constant as a setting, in one text the operator signs once
 status: pending
 kind: feature
-depends_on: ["0171-affected-says-run-the-full-lane", "0173-plane-json-block-registry", "0180-parallel-by-default", "0181-models-block-and-role-defaults", "0182-language-is-a-required-key", "0183-gate-lane-is-required", "0184-init-turns-telemetry-on", "0185-architect-on-by-default", "0186-account-facts-on-the-machine", "0187-short-plane-json", "0188-short-binding"]
+depends_on: ["0171-affected-says-run-the-full-lane", "0173-plane-json-block-registry", "0180-parallel-by-default", "0181-models-block-and-role-defaults", "0182-language-is-a-required-key", "0183-gate-lane-is-required", "0184-init-turns-telemetry-on", "0185-architect-on-by-default", "0186-account-facts-on-the-machine", "0187-short-plane-json", "0188-short-binding", "0192-plane-json-constants-and-defaults"]
 spec_refs: ["S2", "S3", "S5", "S8", "S10", "S12", "S14", "S15", "S16", "S19", "S20", "S21", "S22", "S24", "S25", "S26", "S28", "S30"]
 adr_refs: ["0043 D1"]
 review_point: R12
@@ -36,7 +36,7 @@ and names no constant as something a product sets. The operator signs the whole 
   CURRENT text exists only once they merge. That is why this brief cannot quote CURRENT → PROPOSED
   passage by passage, and declares `sign_off: build`: the operator signs the build's whole SPEC diff,
   once, after verify, at the head that merges (§3.5).
-- Today, at `e9ff0fc`: `grep -o "(default [^)]*)" docs/spec/0*.md | wc -l` prints 50 (the shape's 51
+- Today, at `e9ff0fc`: `grep -o "(default [^)]*)" docs/spec/0*.md | wc -l` prints 50 (46 without the non-knob matches `doc-01` excludes) (the shape's 51
   counted `RULINGS.md`, a record of past rulings that this task does not edit);
   `git grep -cwP 'grace_tasks|triage_grace_tasks|rules_max_lines|shell_limit_seconds|cut_line_seconds|small_task_lines|max_new_tasks|call_timeout_minutes|small_estimate_minutes|log_keep_days|refresh_minutes' -- 'docs/spec/0*.md'`
   counts 25 lines (10, 5, 8 and 2 in `01`–`04`).
@@ -46,7 +46,7 @@ and names no constant as something a product sets. The operator signs the whole 
     `parallel.max_in_flight`"), or is deleted where the sentence already says it; the value is in the
     schema's `default`, which the SPEC names once, in §8.1: "Each key's default is in the schema
     (`contracts/plane_config.schema.json`), which the plane's tests hold to the code."
-  - A constant (0187, 0186, 0188) is described by what it does, with its value when the value is the
+  - A constant (0192, 0186, 0188) is described by what it does, with its value when the value is the
     behaviour ("a pass due for one further merge blocks `next`"), and never as a key a product sets.
     The §8 tables list only the keys that remain settings.
   - Exit codes, protocol numbers, limits that are not knobs (`at most 6 checks`) and the plane's own
@@ -69,12 +69,12 @@ and names no constant as something a product sets. The operator signs the whole 
 ## dod_checks
 
 - id: `doc-01`
-  story: As a plane developer, no SPEC sentence restates a default's number.
+  story: As a plane developer, no SPEC sentence restates a knob's default number.
   setup: a checkout of the PR head.
   steps:
-    1. Run `grep -o "(default [^)]*)" docs/spec/0*.md | wc -l`.
-  expect: prints `0`.
-  dry run (`e9ff0fc`): printed `50`.
+    1. Run `grep -o "(default [^)]*)" docs/spec/0*.md | grep -v -e '(default .feature.)' -e '(default .~/.delivery-queue/' -e '(default a new temporary directory' -e '(default plane.json .env.timeout_seconds.)' -e 'language pack' | wc -l`.
+  expect: prints `0`. The excluded matches are not knob defaults and stay: a task's `kind` (`feature`), `ccp init`'s queue path, `ccp sandbox create`'s DIR, the env hook's timeout naming its plane.json key, and the language pack's default patterns (0182).
+  dry run (`e9ff0fc`): printed `46` (50 matches, less the 4 exclusions present at the base; the language-pack one comes with 0182).
 - id: `doc-02`
   story: As a plane developer, no SPEC sentence offers a constant as a setting.
   setup: a checkout of the PR head.
@@ -95,7 +95,7 @@ and names no constant as something a product sets. The operator signs the whole 
   steps:
     1. Run `git diff --name-only origin/main...HEAD`.
     2. Run `grep -n '"D1 ' docs/adr/0043-opinionated-defaults-short-configuration.md`.
-  expect: step 1 lists only files in this task's `paths`, plus the task file and `docs/delivery/INDEX.yaml`; step 2 prints `- "D1 built"`.
+  expect: step 1 lists only files in this task's `paths`, plus the task file and `docs/delivery/INDEX.yaml`; step 2\'s output contains `- "D1 built"`.
   dry run (`e9ff0fc`): step 2 printed `- "D1 not_built"`.
 - id: `suite-01`
   story: As a plane developer, the docs still check.

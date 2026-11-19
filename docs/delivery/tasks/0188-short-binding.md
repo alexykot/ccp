@@ -3,10 +3,10 @@ task_id: 0188-short-binding
 title: The binding holds only where the product and its queue are, its integration branch, its CI and notes
 status: pending
 kind: feature
-depends_on: ["0175-one-binding-reader", "0182-language-is-a-required-key"]
+depends_on: ["0175-one-binding-reader", "0182-language-is-a-required-key", "0184-init-turns-telemetry-on", "0187-short-plane-json"]
 spec_refs: ["S4", "S8", "S9", "S10", "S29"]
 review_point: R12
-paths: ["ccp/init.py", "ccp/lifecycle.py", "ccp/usage.py", "ccp/seats.py", "ccp/prompt.py", "ccp/plane.py", "ccp/runs.py", "ccp/config.py", "ccp/upgrade.py", "scripts/observability/", "plugin/hooks/runner-idle.sh", "plugin/agents/delivery-runner.md", "contracts/project.schema.json", "templates/", "README.md", "docs/spec/01-model.md", "tests/test_short_binding.py", "tests/"]
+paths: ["ccp/init.py", "ccp/lifecycle.py", "ccp/usage.py", "ccp/seats.py", "ccp/prompt.py", "ccp/plane.py", "ccp/runs.py", "ccp/config.py", "ccp/upgrade.py", "scripts/observability/", "plugin/hooks/runner-idle.sh", "plugin/agents/delivery-runner.md", "contracts/project.schema.json", "templates/", "README.md", "docs/spec/01-model.md", "tests/test_short_binding.py", "tests/test_architect.py", "tests/test_board_drill.py", "tests/test_init.py", "tests/test_init_session_settings.py", "tests/test_parallel_claims.py", "tests/test_parallel_hook.py", "tests/test_plugin.py", "tests/test_prompt_rounds.py", "tests/test_review_aliases_retired.py", "tests/test_rotation.py", "tests/test_rotation_refill.py", "tests/test_run_abandon.py", "tests/test_run_checkout_upgrade.py", "tests/test_runner_idle_rotation.py", "tests/test_suite.py", "tests/test_tasklog.py", "tests/test_tasklog_adopt.py", "tests/test_team_hosting.py", "tests/test_toolkit.py", "tests/test_upgrade.py", "tests/test_usage.py", "tests/test_usage_advice.py", "tests/test_usage_by_model.py", "tests/test_verify.py"]
 adopt: "binding: delete the keys ccp upgrade status lists (production_branch, durable_docs_path, display_name, adapter, adapter_config_path, hosting, grok, runner, lead, spec_maintainer, auth_check, seats, cadence, email, verifier_access, architecture_review)"
 sign_off: brief
 created: 2026-11-19
@@ -29,7 +29,9 @@ binding, and a binding that still holds a removed key is told which to delete.
   `adr_refs`: D9 is marked built by 0191, which ends its grace.
 - Depends on 0175: every binding read goes through `lib.read_binding` and `lib.product_binding`, so
   each removed key is dropped in one place, and the derived values have one home. Depends on 0182 for
-  §29.3's grace rule.
+  §29.3's grace rule, 0184 (its §4.5 PROPOSED is this task's CURRENT, and both edit init's settings
+  writer) and 0187 (the constant mechanism, `config.constant_override`, which the runner constants
+  here reuse; this task builds none of its own).
 - Today, at `e9ff0fc`: `ccp sandbox create` writes a binding with `project_id`, `integration_branch`,
   `production_branch`, `product_root`, `durable_docs_path`, `queue_root` and a `runner` block
   (`agent_type`, `name`, `worktree`) (dry run below); `contracts/project.schema.json` `required` is
@@ -68,7 +70,8 @@ binding, and a binding that still holds a removed key is told which to delete.
   - `plugin/hooks/runner-idle.sh`, `plugin/agents/delivery-runner.md`: the constants.
   - `ccp/upgrade.py`: the step. `contracts/project.schema.json`; the binding templates under
     `templates/`; `README.md`.
-  - `tests/test_short_binding.py` (new); tests that build bindings drop the removed keys.
+  - `tests/test_short_binding.py` (new); the modules that build bindings with a removed key drop it
+    (`git grep -lwP` over the removed key names in `tests` at `e9ff0fc`: 24 modules, listed in `paths`).
   - `docs/spec/01-model.md` §8.3: CURRENT (at `e9ff0fc`): "Contract: `contracts/project.schema.json`; required: `project_id`,
     `integration_branch`, `queue_root`, `durable_docs_path`." PROPOSED:
     > Contract: `contracts/project.schema.json`; required: `project_id`, `integration_branch`, `queue_root`, `product_root`. Optional: `ci` and `notes`. Nothing else is read: the runner's agent (`ccp:delivery-runner`), name (`runner`) and worktree (`<product_root>/<worktrees.dir>/runner`, the prefix with several runners, §16) are derived, and its rotation (after 4 tasks, §10.2) and idle limit are constants.

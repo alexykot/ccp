@@ -77,11 +77,11 @@ unset. During the grace release they warn and carry on.
   dry run (`e9ff0fc`): exit 0, the task named, no warning (`0001-first  Do the first thing`).
 - id: `gate-02`
   story: As a runner, once the grace ends, claim and next refuse without a gate lane, and pass with one.
-  setup: a checkout of the PR head; then a separate copy with `config.REQUIRED_KEYS_GRACE = False`.
+  setup: a checkout of the PR head; then a separate copy where `config.gate_lane_missing` always returns `None`.
   steps:
-    1. In the copy, run `python3 -B -m unittest -q tests.test_gate_lane_required`.
-    2. On the head, run the same.
-  expect: both exit 0; the module's tests cover, under a patched `REQUIRED_KEYS_GRACE = False`, `claim` and `next` exiting 2 with `no gate lane` on a product with no `suite` block, with an empty gate lane and with the placeholder, and exiting 0 with a gate lane; and the warning under the grace.
+    1. On the head, run `python3 -B -m unittest -q tests.test_gate_lane_required`.
+    2. In the copy, run the same.
+  expect: step 1 exits 0 and step 2 exits non-zero; the module's tests cover, under a patched `REQUIRED_KEYS_GRACE = False`, `claim` and `next` exiting 2 with `no gate lane` on a product with no `suite` block, with an empty gate lane and with the placeholder, and exiting 0 with a gate lane; and the warning under the grace.
   dry run: n/a — new module.
 - id: `gate-03`
   story: As an operator adopting a product, init names the gate lane as required when I give none.
@@ -97,7 +97,7 @@ unset. During the grace release they warn and carry on.
   steps:
     1. Run `ccp verify spec-text 0183-gate-lane-is-required --base origin/main`.
     2. Run `grep -n '"D5 ' docs/adr/0043-opinionated-defaults-short-configuration.md`.
-  expect: step 1 exits 0 with every passage found; step 2 prints `- "D5 built"`.
+  expect: step 1 exits 0 with every passage found; step 2\'s output contains `- "D5 built"`.
   dry run (`e9ff0fc`): step 2 printed `- "D5 not_built"`.
 - id: `suite-01`
   story: As a plane developer, nothing else broke.

@@ -96,7 +96,7 @@ still keep tasks apart, and a product that wants the old behaviour sets `max_in_
   steps:
     1. Run `ccp verify spec-text 0180-parallel-by-default --base origin/main`.
     2. Run `grep -n '"D2 ' docs/adr/0043-opinionated-defaults-short-configuration.md`.
-  expect: step 1 exits 0 with all four passages found; step 2 prints the line `- "D2 built"`.
+  expect: step 1 exits 0 with all four passages found; step 2's output contains `- "D2 built"`.
   dry run (`e9ff0fc`): step 2 printed `- "D2 not_built"`.
 - id: `suite-01`
   story: As a plane developer, nothing else broke.

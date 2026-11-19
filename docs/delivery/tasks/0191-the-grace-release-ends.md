@@ -3,10 +3,10 @@ task_id: 0191-the-grace-release-ends
 title: ADR-0043's grace release ends: the language and the gate lane are enforced, and old key places are no longer read
 status: pending
 kind: feature
-depends_on: ["0181-models-block-and-role-defaults", "0182-language-is-a-required-key", "0183-gate-lane-is-required", "0186-account-facts-on-the-machine", "0187-short-plane-json", "0188-short-binding", "0190-the-plane-takes-its-own-upgrade-steps"]
+depends_on: ["0181-models-block-and-role-defaults", "0182-language-is-a-required-key", "0183-gate-lane-is-required", "0186-account-facts-on-the-machine", "0187-short-plane-json", "0188-short-binding", "0190-the-plane-takes-its-own-upgrade-steps", "0192-plane-json-constants-and-defaults"]
 spec_refs: ["S8", "S29"]
 adr_refs: ["0043 D9"]
-review_point: R12
+review_point: R13
 paths: ["ccp/config.py", "ccp/lifecycle.py", "ccp/models.py", "ccp/prompt.py", "ccp/seats.py", "ccp/usage.py", "ccp/init.py", "ccp/upgrade.py", "scripts/observability/lib.py", "plugin/agents/delivery-runner.md", "contracts/plane_config.schema.json", "contracts/project.schema.json", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/spec/03-quality.md", "docs/spec/04-observability.md", "docs/adr/0043-opinionated-defaults-short-configuration.md", "docs/adr/INDEX.md", "tests/test_grace_ended.py", "tests/"]
 adopt: "required: the ADR-0043 steps ccp upgrade status lists (plane.json language and suite.lanes.gate; move every key it names from its old place)"
 created: 2026-11-19
@@ -32,7 +32,7 @@ is ignored with a warning instead. The code that read the old places is gone.
   (`ccp upgrade status` in each lists none of 0182, 0183 or 0185 as not taken). The lead holds this
   task (`ccp tasks hold`) until the products' leads confirm it; the plane itself takes them in 0190.
 - Not ended here, by the ADR: a constant's non-default value keeps applying, with its warning, until
-  the product deletes the key (0187); removed keys keep being ignored with a warning.
+  the product deletes the key (0187, 0192); removed keys keep being ignored with a warning.
 - Today, at `e9ff0fc`: the old places are read by name in
   `git grep -cwP 'implementer_model|post_close|modules_ran_re|modules_cached_re' -- ccp scripts plugin ':!ccp/upgrade.py' ':!ccp/config.py'`:
   15 lines in `ccp/lifecycle.py` (5), `ccp/models.py` (1), `ccp/prompt.py` (6), `ccp/seats.py` (1),
@@ -94,7 +94,7 @@ is ignored with a warning instead. The code that read the old places is gone.
   setup: a checkout of the PR head.
   steps:
     1. Run `grep -n '"D9 ' docs/adr/0043-opinionated-defaults-short-configuration.md`.
-  expect: prints `- "D9 built"`.
+  expect: its output contains `- "D9 built"`.
   dry run (`e9ff0fc`): printed `- "D9 not_built"`.
 - id: `suite-01`
   story: As a plane developer, nothing else broke, the plane's own configuration included.

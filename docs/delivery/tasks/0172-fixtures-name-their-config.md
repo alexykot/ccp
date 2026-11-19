@@ -92,7 +92,7 @@ tests, not a break in dozens of modules. Nothing the plane does changes.
   steps:
     1. Run `git diff --name-only origin/main...HEAD -- ccp scripts plugin contracts docs`.
     2. Run `python3 -B -m unittest -q tests.test_toolkit tests.test_wt tests.test_wt_outside tests.test_behind_tip_catch_up tests.test_parallel_claims tests.test_suite`.
-  expect: step 1 prints nothing; step 2 exits 0.
+  expect: step 1 prints nothing but this task's own file, `docs/delivery/tasks/0172-fixtures-name-their-config.md`, and `docs/delivery/INDEX.yaml`; step 2 exits 0.
   dry run (`e9ff0fc`): step 2's modules pass at the base (the regression guard this refactor keeps).
 ## Implementation notes
 

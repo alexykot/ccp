@@ -25,9 +25,11 @@ those two functions instead of about twenty call sites. Nothing the plane does c
 ## Context (not checked)
 
 - Shape `sh-20261119T170325Z-8142`, finding F08 and preparatory refactor P6.
-- The call sites, `git grep -n 'architect is None\|architect is not None\|not cfg.architect\|\.architect or\|cfg.architect)' -- ccp scripts plugin`
-  at `e9ff0fc`: 27 lines (architect.py 6, board.py 1, cli.py 1, docrules.py 1, health.py 2, init.py 1,
-  prompt.py 3, quality.py 3, rules.py 4, selection.py 1, tasklog.py 3, scripts/observability/team.py 1).
+- The on/off tests, `git grep -n 'architect is None\|architect is not None\|not cfg\.architect ' -- ccp scripts plugin ':(exclude)ccp/config.py'`
+  at `e9ff0fc`: 16 lines (architect.py 5, board.py 1, cli.py 1, init.py 1, quality.py 2, rules.py 1,
+  selection.py 1, tasklog.py 3, scripts/observability/team.py 1). Key reads such as
+  `(cfg.architect or {}).get("checks")` or `cfg.architect or ARCHITECT_DEFAULTS` (11 more lines) are
+  not on/off tests and stay as they are.
   A line that reads a key (`cfg.architect["grace_tasks"]`) after the on-test stays; only the test of
   "is it on" moves.
 - `shape_from_task` is read in `ccp/config.py` (validation) and `ccp/tasklog.py` (`def _check_shaping`,
@@ -60,10 +62,10 @@ those two functions instead of about twenty call sites. Nothing the plane does c
   story: As a plane developer, "is the architect on" is asked in one place.
   setup: a checkout of the PR head.
   steps:
-    1. Run `git grep -n 'architect is None\|architect is not None\|not cfg.architect\|\.architect or\|cfg.architect)' -- ccp scripts plugin ':(exclude)ccp/config.py'`.
+    1. Run `git grep -n 'architect is None\|architect is not None\|not cfg\.architect ' -- ccp scripts plugin ':(exclude)ccp/config.py'`.
     2. Run `git grep -n 'architect_on(' -- ccp scripts | wc -l`.
-  expect: step 1 prints nothing; step 2 prints at least 20.
-  dry run (`e9ff0fc`): step 1 printed 27 lines (counts in Context); step 2 printed 0.
+  expect: step 1 prints nothing; step 2 prints at least 16.
+  dry run (`e9ff0fc`): step 1 printed 16 lines (counts in Context); step 2 printed 0.
 - id: `arch-02`
   story: As a plane developer, the adoption point has one accessor.
   setup: a checkout of the PR head.

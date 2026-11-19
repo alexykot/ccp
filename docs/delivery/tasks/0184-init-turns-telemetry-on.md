@@ -67,9 +67,8 @@ is no longer a product setting.
     `CLAUDE_CODE_ENABLE_TELEMETRY` `"0"`) and where it goes (`<product>/.claude/settings.json` `env`).
     `ccp init`, before it asks for consent (the notice with no consent recorded, and `--telemetry on`),
     says that telemetry covers every Claude Code session on the machine, and that a project turns it
-    off in its own `.claude/settings.json` with the keys `ccp otel env --off` prints.
-    `ccp init --telemetry-off-here` writes that block into the adopted product's settings (adding
-    absent keys, never overwriting one); `ccp otel status` names a project whose settings carry it.
+    off in its own `.claude/settings.json` with the keys `ccp otel env --off` prints. Init never writes
+    that block itself.
   - `telemetry.otel_port` is removed from the code and the schema: a plane.json that still sets it
     loads with the unknown-key warning (§8.1).
   - Tests stub the launchd and user-settings writes (E2: no launchd, no real home directory).
@@ -80,7 +79,7 @@ is no longer a product setting.
 - **In:**
   - `ccp/init.py`, `ccp/cli.py`: `--telemetry`; the tag; the consent and the machine setup.
   - `ccp/otel.py`, `ccp/board.py`: the install steps callable from init; `ccp otel env --off`; the
-    opt-out in `ccp otel status` and the module docstring.
+    opt-out in the module docstring.
   - `scripts/observability/lib.py`: `machine_path()` and `read_machine()`;
     `contracts/machine.schema.json` (new).
   - `ccp/config.py`, `contracts/plane_config.schema.json`: `otel_port` removed.
@@ -92,7 +91,7 @@ is no longer a product setting.
     (§4.3);" PROPOSED:
     > - the anchor merged into `.claude/settings.json`, leaving its other keys and values alone, with `subagentPromptCacheTtl: "1h"`, `autoCompactWindow` (the binding's `lead.auto_compact_window`, default `350000`), the lead's `model` (§2.4) and the telemetry tag `env.OTEL_RESOURCE_ATTRIBUTES` (`ccp.project_id=<project_id>`, §24.1) added when absent and never overwritten, and the one `CLAUDE.md` line, once (§4.3);
   - `docs/spec/01-model.md` §4.5, after that list item: CURRENT: none (a new list item). PROPOSED:
-    > - with the operator's consent for the machine (`--telemetry on`, recorded once in the machine file beside the bindings, §8.3), the user-level telemetry keys (§24.1), the receiver and the product's board timer; it says first that the keys cover every Claude Code session on the machine, and that a project turns telemetry off in its own `.claude/settings.json` (§24.1; `--telemetry-off-here` writes that for the product it adopts). `--telemetry off` records a refusal, and init then writes nothing outside the product. With neither recorded, it prints what `--telemetry on` would do and writes nothing outside the product. When the receiver is down, it prints the command to run in a normal terminal: the receiver cannot be started from inside Claude Code, and only macOS has a service definition;
+    > - with the operator's consent for the machine (`--telemetry on`, recorded once in the machine file beside the bindings, §8.3), the user-level telemetry keys (§24.1), the receiver and the product's board timer; it says first that the keys cover every Claude Code session on the machine, and that a project turns telemetry off in its own `.claude/settings.json` (§24.1). `--telemetry off` records a refusal, and init then writes nothing outside the product. With neither recorded, it prints what `--telemetry on` would do and writes nothing outside the product. When the receiver is down, it prints the command to run in a normal terminal: the receiver cannot be started from inside Claude Code, and only macOS has a service definition;
   - `docs/spec/04-observability.md` §24.1: CURRENT (at `e9ff0fc`): "endpoint `http://127.0.0.1:<telemetry.otel_port>`, and no project
     id. Claude Code ignores these enabling keys in a project's `.claude/settings.json`, so a product
     carries none of them." PROPOSED:
@@ -120,7 +119,7 @@ is no longer a product setting.
   steps:
     1. Run `python3 -B -m unittest -q tests.test_init_telemetry`.
   expect: exits 0; its tests, with a fenced bindings directory and home and stubbed launchd, cover: no consent recorded and no flag (the machine-wide notice printed; no user settings, plist or machine file written); `--telemetry on` (the user keys added without overwriting a differing one, neither prompt-logging key written, the receiver and board installs called, `machine.json` `telemetry` `on`, and the notice naming the per-project opt-out printed before it); a later init on that machine with no flag (the setup checked again, no notice); `--telemetry off` (recorded, nothing written outside the product); a receiver that stays down (the normal-terminal command printed).
-  dry run: n/a — new module (it also covers `--telemetry-off-here` writing the off block without overwriting a key); `ccp init --telemetry` is refused as an unknown argument at `e9ff0fc`.
+  dry run: n/a — new module; `ccp init --telemetry` is refused as an unknown argument at `e9ff0fc`.
 - id: `tel-03`
   story: As an operator, the receiver's port is not a product setting.
   setup: a checkout of the PR head.
@@ -142,7 +141,7 @@ is no longer a product setting.
   steps:
     1. Run `ccp verify spec-text 0184-init-turns-telemetry-on --base origin/main`.
     2. Run `grep -n '"D6 ' docs/adr/0043-opinionated-defaults-short-configuration.md`.
-  expect: step 1 exits 0 with every passage found; step 2 prints `- "D6 built"`.
+  expect: step 1 exits 0 with every passage found; step 2\'s output contains `- "D6 built"`.
   dry run (`e9ff0fc`): step 2 printed `- "D6 not_built"`.
 - id: `suite-01`
   story: As a plane developer, nothing else broke.

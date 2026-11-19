@@ -3,7 +3,7 @@ task_id: 0190-the-plane-takes-its-own-upgrade-steps
 title: The plane's own plane.json takes the ADR-0043 upgrade steps before their grace ends
 status: pending
 kind: feature
-depends_on: ["0181-models-block-and-role-defaults", "0182-language-is-a-required-key", "0183-gate-lane-is-required", "0185-architect-on-by-default", "0186-account-facts-on-the-machine", "0187-short-plane-json"]
+depends_on: ["0181-models-block-and-role-defaults", "0182-language-is-a-required-key", "0183-gate-lane-is-required", "0185-architect-on-by-default", "0186-account-facts-on-the-machine", "0187-short-plane-json", "0192-plane-json-constants-and-defaults"]
 spec_refs: ["S8", "S19", "S29"]
 review_point: R12
 paths: ["docs/delivery/plane.json", ".claude/settings.json"]
@@ -27,7 +27,7 @@ warning.
 - ADR-0043 D9's migration (the required steps for a product with history), accepted 2026-11-19.
 - Depends on the tasks that introduce each step: 0182 (`language`), 0183 (the gate lane: the plane
   already has one, `scripts/gate.sh`), 0185 (the adoption point), 0181 (`models`), 0186 (the account
-  keys: the plane's plane.json sets none) and 0187 (removed, merged and constant keys).
+  keys: the plane's plane.json sets none), 0187 (removed and merged keys) and 0192 (constant keys).
 - Today, at `e9ff0fc`, `docs/delivery/plane.json` holds `package_docs.language: python`,
   `workers.implementer_model {small: sonnet, refactor: sonnet}`, `task_log.dir`, `worktrees.dir`,
   `package_docs.doc_name`, `docs.workers: 4`, `estimate.auto: true`, `review_points.file`, and no
@@ -70,7 +70,7 @@ warning.
   steps:
     1. Run `ccp --root . upgrade status` and list each step whose `check` is `not taken` and whose `adopt` names `plane.json`.
     2. Run `ccp --root . tasks check` and read its stderr.
-  expect: step 1 lists no step from 0181, 0182, 0183, 0185 or 0187; step 2 exits 0 with no `deprecated`, `unknown key` or `moves to` warning about `docs/delivery/plane.json`.
+  expect: step 1 lists no step from 0181, 0182, 0183, 0185, 0187 or 0192; step 2 exits 0 with no `deprecated`, `unknown key` or `moves to` warning about `docs/delivery/plane.json`.
   dry run: n/a — those steps come with their tasks.
 - id: `pl-03`
   story: As the operator, the architect seat is on and adopted, and not due at once.

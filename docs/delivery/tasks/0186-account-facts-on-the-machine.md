@@ -3,12 +3,11 @@ task_id: 0186-account-facts-on-the-machine
 title: The allowance command and the weekly stop live in the machine file, the weekly stop defaults to 90%, and an unread allowance is said out loud
 status: pending
 kind: feature
-depends_on: ["0173-plane-json-block-registry", "0175-one-binding-reader", "0179-one-account-accessor", "0184-init-turns-telemetry-on"]
+depends_on: ["0173-plane-json-block-registry", "0175-one-binding-reader", "0179-one-account-accessor", "0184-init-turns-telemetry-on", "0187-short-plane-json"]
 spec_refs: ["S8", "S16", "S24", "S25"]
 adr_refs: ["0043 D8"]
 review_point: R12
 paths: ["ccp/config.py", "ccp/usage.py", "ccp/parallel.py", "ccp/board.py", "ccp/init.py", "ccp/upgrade.py", "plugin/hooks/", "scripts/observability/lib.py", "contracts/machine.schema.json", "contracts/plane_config.schema.json", "README.md", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/spec/04-observability.md", "docs/adr/0043-opinionated-defaults-short-configuration.md", "docs/adr/INDEX.md", "tests/test_machine_account.py", "tests/"]
-clashes_with: ["0187-short-plane-json"]
 adopt: "machine.json allowance_cmd (move telemetry.allowance_cmd and telemetry.allowance_stop_weekly out of each product's plane.json into the machine file beside the bindings, once per machine)"
 sign_off: brief
 created: 2026-11-19
@@ -31,7 +30,9 @@ wake and ceiling numbers are constants.
 - ADR-0043 D8, accepted 2026-11-19.
 - Depends on 0179 (every reader of these keys goes through `usage.account(cfg)`; this task changes
   where that reads them), 0184 (the machine file, `machine.json` in `lib.bindings_dir()`, and its
-  contract), 0175 (the one binding module that resolves it) and 0173 (the block registry).
+  contract), 0175 (the one binding module that resolves it), 0173 (the block registry) and 0187 (the
+  constant mechanism, `config.constant_override`, and the upgrade step that lists constants: this
+  task marks its knobs constant through it and builds no mechanism of its own).
 - Today, at `e9ff0fc`: with no `telemetry` block the window rules have no weekly stop:
   `usage.window_rules(cfg)` prints `{'seven_day': {'kind': 'weekly', 'stop_pct': None, 'park_pct': None}, 'five_hour': {'kind': 'session', 'stop_pct': None, 'park_pct': 95.0}}`
   (`python3 -B -c "…usage.window_rules(config.load(d))…"` on a plane.json of `project_id` only, at
@@ -44,10 +45,8 @@ wake and ceiling numbers are constants.
     set it, the machine file wins and the warning says the product's value is ignored. 0191 ends this.
   - **Constants**, at today's defaults: `session_park_pct` 95, `session_wake_arm_pct` 50,
     `session_wake_margin_s` 180, `parallel.session_ceiling_pct` 60, and `telemetry.windows` (the two
-    built-in windows). A plane.json that sets one of them to a value other than the constant keeps it,
-    with a stderr warning naming the key and the constant, and `ccp upgrade status` lists it as a value
-    to accept or to argue for with a plane proposal (ADR-0043 D9's migration). Setting it to the
-    constant's value warns that the key can be deleted.
+    built-in windows), each marked constant in the registry so 0187's mechanism applies: a non-default
+    value keeps applying with a warning, and `ccp upgrade status` lists it.
   - **Unread usage.** With no allowance command: `ccp init` and the session-start hook print one
     warning that no usage is read and nothing bounds spend, naming `allowance_cmd` and the machine
     file; the board's usage panel shows `usage unread`, and its JSON carries `"usage_read": false`.
@@ -120,7 +119,7 @@ wake and ceiling numbers are constants.
   steps:
     1. Run `ccp verify spec-text 0186-account-facts-on-the-machine --base origin/main`.
     2. Run `grep -n '"D8 ' docs/adr/0043-opinionated-defaults-short-configuration.md`.
-  expect: step 1 exits 0 with every passage found; step 2 prints `- "D8 built"`.
+  expect: step 1 exits 0 with every passage found; step 2\'s output contains `- "D8 built"`.
   dry run (`e9ff0fc`): step 2 printed `- "D8 not_built"`.
 - id: `suite-01`
   story: As a plane developer, nothing else broke.

@@ -127,7 +127,7 @@ by an upgrade step in its own repo.
   dry run (`e9ff0fc`): `ConfigError: … `architect` must be an object` (and `architect_on` comes with 0177).
 - id: `arc-03`
   story: As the lead of a product with history, turning the seat on judges no old task and owes no pass at once, and an unadopted seat says so.
-  setup: a checkout of the PR head; then a separate copy where `adoption_point(cfg)` always returns `"0001"`.
+  setup: a checkout of the PR head; then a separate copy where `adoption_point(cfg)` always returns `1`.
   steps:
     1. On the head, run `python3 -B -m unittest -q tests.test_architect_default_on`.
     2. In the copy, run the same.
@@ -146,7 +146,7 @@ by an upgrade step in its own repo.
   steps:
     1. Run `ccp verify spec-text 0185-architect-on-by-default --base origin/main`.
     2. Run `grep -n '"D7 ' docs/adr/0043-opinionated-defaults-short-configuration.md`.
-  expect: step 1 exits 0 with every passage found; step 2 prints `- "D7 built"`.
+  expect: step 1 exits 0 with every passage found; step 2\'s output contains `- "D7 built"`.
   dry run (`e9ff0fc`): step 2 printed `- "D7 not_built"`.
 - id: `suite-01`
   story: As a plane developer, nothing else broke.

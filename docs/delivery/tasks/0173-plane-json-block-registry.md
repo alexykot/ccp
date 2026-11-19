@@ -111,7 +111,7 @@ them constants, each change is checked as it lands. Nothing the plane does chang
     1. Run `git grep -nE 'set\(schema\["properties"\]\["[a-z_]+"\]\["properties"\]\)' -- tests`.
     2. Run `python3 -B -m unittest -q tests.test_toolkit tests.test_config_unknown_keys tests.test_parallel_defaults tests.test_adr tests.test_rules`.
     3. Run `git diff --name-only origin/main...HEAD -- ccp scripts plugin docs`.
-  expect: step 1 prints nothing; step 2 exits 0; step 3 prints only `ccp/config.py`.
+  expect: step 1 prints nothing; step 2 exits 0; step 3 prints only `ccp/config.py`, plus this task's own file, `docs/delivery/tasks/0173-plane-json-block-registry.md`, and `docs/delivery/INDEX.yaml`.
   dry run (`e9ff0fc`): step 1 printed 7 lines (`tests/test_adr.py:146`, `tests/test_health.py:336`, `tests/test_mutate.py:880`, `tests/test_report_fields.py:284`, `tests/test_rules.py:397`, `tests/test_usage_advice.py:301`, `tests/test_prompt_audit.py:97`); step 2's modules pass.
 
 ## Implementation notes

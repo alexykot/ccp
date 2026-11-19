@@ -70,3 +70,8 @@ review_points:
     goal: ADR-0043 is built - a product runs with opinionated defaults (parallel, architect on, every role on a set model, telemetry on consent), names only its language and gate lane, keeps a short plane.json and binding with account facts on the machine, and the SPEC states behaviour rather than default numbers.
     status: current
     opened: "2026-11-19"
+  - id: R13
+    name: grace ends
+    goal: ADR-0043's grace release ends once every bound product has taken its upgrade steps - the language and gate lane are enforced and old key places are no longer read.
+    status: planned
+    opened: "2026-11-19"

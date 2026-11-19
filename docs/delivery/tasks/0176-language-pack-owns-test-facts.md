@@ -105,7 +105,7 @@ does changes.
     1. Run `python3 -B -m unittest -q tests.test_suite tests.test_suite_affected tests.test_suite_stages tests.test_mutate tests.test_doclang_test_facts`.
     2. Run `./bin/ccp --root . suite affected --paths ccp/doclang/python.py`.
   expect: step 1 exits 0; step 2 lists the modules it lists at the base plus any test module that now imports the pack's new fields, with the part-lane line.
-  dry run (`e9ff0fc`): step 2 listed 3 modules; step 1's existing modules pass at the base.
+  dry run (`e9ff0fc`): step 2 listed 1 module (`tests.test_doc_rules`); step 1's existing modules pass at the base.
 - id: `lang-04`
   story: As a plane developer, the summary reader really takes the pack's patterns.
   setup: a separate copy of the PR head with the Python pack's `failed_re` changed to match nothing (`"^NEVER$"`).

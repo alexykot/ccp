@@ -96,7 +96,7 @@ pre-gate rule.
   steps:
     1. Run `./bin/ccp --root . suite affected --paths ccp/doclang/python.py`.
   expect: stdout lists 3 or fewer modules; stderr holds the `run them with: ccp suite run --lane part -- python3 -m unittest` line and no `full lane` text.
-  dry run (`e9ff0fc`): 3 modules and the part-lane line (a regression guard: this case must not change).
+  dry run (`e9ff0fc`): 1 module (`tests.test_doc_rules`) and the part-lane line (a regression guard: this case must not change).
 - id: `aff-03`
   story: As a plane developer, the share's branch is tested and the test bites.
   setup: a checkout of the PR head; then a separate copy with `AFFECTED_FULL_SHARE` set to `1.0`.

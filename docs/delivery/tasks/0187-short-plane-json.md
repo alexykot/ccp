@@ -1,13 +1,13 @@
 ---
 task_id: 0187-short-plane-json
-title: plane.json keeps only what a product decides; removed keys warn, merged keys move, tuning values are constants, and the upgrade status lists each
+title: plane.json keys that were removed warn, merged keys move, and a constant's non-default value applies with a warning; the upgrade status lists each
 status: pending
 kind: feature
-depends_on: ["0172-fixtures-name-their-config", "0173-plane-json-block-registry", "0181-models-block-and-role-defaults", "0182-language-is-a-required-key"]
-spec_refs: ["S3", "S8", "S12", "S14", "S15", "S22", "S24", "S26", "S29"]
+depends_on: ["0172-fixtures-name-their-config", "0173-plane-json-block-registry", "0182-language-is-a-required-key"]
+spec_refs: ["S3", "S7", "S8", "S12", "S14", "S22", "S26", "S29"]
 review_point: R12
-paths: ["ccp/config.py", "ccp/refs.py", "ccp/lifecycle.py", "ccp/backfill.py", "ccp/estimator.py", "ccp/prompt.py", "ccp/usage.py", "ccp/board.py", "ccp/upgrade.py", "ccp/cli.py", "contracts/plane_config.schema.json", "templates/docs-delivery/example-plane.json", "README.md", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/spec/03-quality.md", "docs/spec/04-observability.md", "tests/test_short_plane_json.py", "tests/"]
-clashes_with: ["0185-architect-on-by-default", "0186-account-facts-on-the-machine"]
+paths: ["ccp/config.py", "ccp/refs.py", "ccp/lifecycle.py", "ccp/backfill.py", "ccp/estimator.py", "ccp/upgrade.py", "ccp/cli.py", "contracts/plane_config.schema.json", "templates/docs-delivery/example-plane.json", "README.md", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/spec/03-quality.md", "docs/spec/04-observability.md", "tests/test_short_plane_json.py", "tests/test_allowance_windows.py", "tests/test_behind_tip_catch_up.py", "tests/test_board_plan.py", "tests/test_config_unknown_keys.py", "tests/test_estimate.py", "tests/test_refs.py", "tests/test_review_points.py", "tests/test_suite.py", "tests/test_tasklog_spec_signoff.py", "tests/test_tasks_close.py", "tests/test_team_hosting.py", "tests/test_toolkit.py", "tests/test_verify_spec_text.py", "tests/test_worker_efficiency.py", "tests/test_wt.py", "tests/test_wt_outside.py"]
+clashes_with: ["0185-architect-on-by-default"]
 adopt: "plane.json spec_paths (ccp upgrade status lists each removed, merged and constant key the product still sets, with its replacement)"
 sign_off: brief
 created: 2026-11-19
@@ -18,21 +18,19 @@ updated: 2026-11-19
 
 ## Intent
 
-A product's plane.json holds where things are, what only the product knows, and the choices it makes;
-nothing else. Every other key has one outcome, the one ADR-0043's appendix gives it, and the plane
-tells the product which of its keys to delete or move: a removed key is ignored with a warning, a
-merged key is read at its new place (and at its old one, with a warning, during the grace), and a
-tuning value becomes a constant whose non-default value still applies, with a warning, until the
-product deletes it. Four defaults change: estimates start by themselves, ADRs are shaped, the
-product's `WORKERS.md` is the prompt fragment, and the lead's expected model follows `models.lead`.
+Every plane.json key that is not the product's to decide gets one outcome, the one ADR-0043's appendix
+gives it, and the plane tells the product which of its keys to delete or move: a removed key is ignored
+with a warning, a merged key is read at its new place (and at its old one, with a warning, during the
+grace), and a key that becomes a constant keeps a non-default value, with a warning, until the product
+deletes it. This task builds that mechanism once, with the moved, merged and removed keys; 0192 marks
+the constants and changes four defaults through it, and 0186 and 0188 reuse it.
 
 ## Context (not checked)
 
-- ADR-0043 D9 (plane.json half; the binding half is 0188), accepted 2026-11-19. This task cites no
-  `adr_refs`: D9 is marked built by 0191, which ends its grace.
+- ADR-0043 D9 (plane.json half; the constants are 0192, the binding 0188), accepted 2026-11-19. This
+  task cites no `adr_refs`: D9 is marked built by 0191, which ends its grace.
 - Depends on 0173 (the block registry: this task adds each key's outcome to it), 0182 (§29.3's grace
-  rule, which this task applies), 0181 (`models.lead`, which `telemetry.design_seat` now follows) and
-  0172 (the fixtures).
+  rule, which this task applies) and 0172 (the fixtures).
 - The shape's F05 is right that four keys the appendix calls dead are read today; this task classes
   them as merged:
   - `adapter.post_close` runs at close (`"The legacy adapter.post_close commands"` in
@@ -43,9 +41,7 @@ product's `WORKERS.md` is the prompt fragment, and the lead's expected model fol
     `task_log.review_point_pattern` `^Q[0-9]+$` loads it as given while `cfg.ids.review_point_pattern`
     stays `R[1-9][0-9]*`). It merges into `ids.review_point.pattern`.
 - Measured at `e9ff0fc` (`python3 -B -c "…config.load(d)…"` on temp products): a top-level
-  `spec_paths` loads with `unknown key(s) spec_paths ignored`; with `adr: {}`, `architect: {}` and a
-  `docs/delivery/WORKERS.md`, `estimate.auto` is `False`, `prompts.fragment` `None`,
-  `architect.shape_adrs` `False`, `telemetry.design_seat` `None` (no `config.design_seat` exists); `gate.shell_limit_seconds: 99` loads
+  `spec_paths` loads with `unknown key(s) spec_paths ignored`; `gate.shell_limit_seconds: 99` loads
   with no warning.
 - Decided here, key by key (ADR-0043's appendix, with F05's correction):
   - **Moved:** `spec_paths` becomes one top-level key, merging `task_log.spec_paths` and
@@ -59,27 +55,14 @@ product's `WORKERS.md` is the prompt fragment, and the lead's expected model fol
   - **Removed** (ignored, with a warning): `task_log.statuses`, `suite.summary.modules_ran_re`,
     `suite.summary.modules_cached_re`. (`telemetry.otel_port` goes with 0184, `workers.implementer_model`
     with 0181, the account keys with 0186.)
-  - **Constants** (each key's current default moved into code; a value other than it still applies,
-    with one warning per key per load naming the key and the constant): `task_log` `dir`, `required`,
-    `refs_any`, `sections`, `kinds`, `reviews_dir`, `max_checks`, `soft_words`, `index`, `dry_run`;
-    `package_docs` `doc_name`, `size_ratio`, `banned_headings`, `path_ref_suffixes` (the pack's),
-    `no_delivery_ids` (on); `docs.workers`; `architect` `rules_max_lines`, `max_days`, `notes_due`,
-    `drift_ratio`, `grace_tasks`, `triage_grace_tasks`, `refactor_in_scope`, `call_timeout_minutes`,
-    `max_new_tasks`; `prompts` `keep_body`, `audit_keep_days`; `worktrees.dir`; `env.timeout_seconds`;
-    `auth_check.timeout_seconds`; `board.refresh_minutes`; `gate` `shell_limit_seconds`,
-    `cut_line_seconds`; `health` `small_task_lines`, `slowest_modules`, `suite_trend_runs`;
-    `usage.advice` `cache_5m_share`, `context_tokens`, `coordination_share`, `window_hours`;
-    `workers.small_estimate_minutes`; `suite.summary` `ran_re`, `cached_re`, `cached_tests_re`,
-    `tail_lines`, `max_chars`; `suite.log_keep_days`; `suite.roles`; `adr` `statuses`, `transitions`;
-    `review_points.file`; `estimate` `k`, `path_suffixes`, `calibration`; `mutate.timeout_seconds`;
-    `notify.timeout_seconds`.
-  - **Kept as settings:** `adr.strict`, `verify.skip_review_after_clean` (default off), and every key not
-    named above.
-  - **New defaults:** `estimate.auto` on; `architect.shape_adrs` on whenever the product has an `adr`
-    block (it applies from the adoption point, 0185); `prompts.fragment` `docs/delivery/WORKERS.md` when
-    that file exists; `telemetry.design_seat` derived from `models.lead`: `config.design_seat(cfg)` returns `{model, effort}` from it and the role table (0178), and the board and `ccp usage` read that (the key becomes a constant).
+  - **The constant mechanism.** A registry entry (0173) may carry the outcome `constant` with its
+    value. The loader then uses the value in code; a plane.json that sets the key to another value keeps
+    that value, with one warning per key per load naming the key and the constant; one that sets it to
+    the constant's value warns that the key can be deleted. Any reader (0186's account knobs, 0188's
+    runner numbers in the binding) calls the same function, `config.constant_override`. This task marks
+    no plane.json key constant; 0192 does, and the tests here register a test-only entry.
   - The schema marks every removed, merged and constant key `deprecated` with its outcome; the registry
-    (0173) holds each key's outcome, and one loader applies it, so no outcome is written twice.
+    holds each key's outcome, and one loader applies it, so no outcome is written twice.
   - `ccp upgrade status` gains one step listing, for the product, each key it sets that is removed,
     merged (with its replacement) or a constant set to a value other than the constant.
 - The SPEC passages that describe a constant as a setting (the §8 tables, the default parentheticals)
@@ -89,12 +72,14 @@ product's `WORKERS.md` is the prompt fragment, and the lead's expected model fol
 ## Scope
 
 - **In:**
-  - `ccp/config.py`: the outcomes, the warnings, the new defaults; `ccp/refs.py`, `ccp/backfill.py`,
+  - `ccp/config.py`: the outcomes, the warnings, `constant_override`; `ccp/refs.py`, `ccp/backfill.py`,
     `ccp/cli.py` (the review-point pattern), `ccp/lifecycle.py` (`post_close`), `ccp/estimator.py`
-    (`spec_paths`), `ccp/prompt.py` (the fragment), `ccp/usage.py`, `ccp/board.py` (the design seat).
+    (`spec_paths`).
   - `ccp/upgrade.py`: the step.
   - `contracts/plane_config.schema.json`, `templates/docs-delivery/example-plane.json`, `README.md`.
-  - `tests/test_short_plane_json.py` (new); tests that set a removed or merged key move it.
+  - `tests/test_short_plane_json.py` (new); the modules that set a moved, merged or removed key move it
+    (`git grep -l 'spec_paths\|review_point_pattern\|post_close\|worktree_dir\|worktree_links\|modules_ran_re\|modules_cached_re' -- tests`
+    at `e9ff0fc`: 16 modules, listed in `paths`).
   - `docs/spec/01-model.md` §3.5: CURRENT (at `e9ff0fc`): "(plane.json `task_log.spec_paths`, default `["docs/SPEC.md", "SPEC.md", "docs/spec/", "spec/"]`, the files `estimate.spec_paths` names by default;" PROPOSED:
     > (plane.json `spec_paths`, default `["docs/SPEC.md", "SPEC.md", "docs/spec/", "spec/"]`;
   - `docs/spec/01-model.md` §8.1, the `task_log` row: CURRENT (at `e9ff0fc`): "| `task_log` | task directory, required keys and sections, `refs_any`, `kinds`, `max_checks`, soft words, `dry_run`, `spec_paths`, `reviews_dir`, `index`; the statuses are fixed | §5, §10 |" PROPOSED:
@@ -111,27 +96,19 @@ product's `WORKERS.md` is the prompt fragment, and the lead's expected model fol
   - `docs/spec/02-delivery.md` §14.4: CURRENT (at `e9ff0fc`): "Their older names `modules_ran_re` and `modules_cached_re`
     are read; given both, the new name wins and `ccp tasks check` warns." PROPOSED:
     > Their older names `modules_ran_re` and `modules_cached_re` are removed keys (§29.3).
-  - `docs/spec/02-delivery.md` §15: CURRENT (at `e9ff0fc`): "2. **The product fragment**: the file plane.json `prompts.fragment` names," PROPOSED:
-    > 2. **The product fragment**: `docs/delivery/WORKERS.md` when it exists, or the file plane.json `prompts.fragment` names,
   - `docs/spec/03-quality.md` §22: CURRENT (at `e9ff0fc`): "A `task_log.review_point_pattern`
     key is then ignored, with a warning." PROPOSED:
     > A `task_log.review_point_pattern` key, merged into `ids.review_point.pattern` (§29.3), is then ignored, with a warning.
   - `docs/spec/03-quality.md` §22: CURRENT (at `e9ff0fc`): "a task's `review_point` is held to `task_log.review_point_pattern` (default
     `^R[0-9]+$`), with no strict error;" PROPOSED:
     > a task's `review_point` is held to `ids.review_point.pattern` (its old place, `task_log.review_point_pattern`, is read during the grace release, §29.3), with no strict error;
-  - `docs/spec/03-quality.md` §19.11, the row as 0185 leaves it: CURRENT: "| `shape_adrs`, `shape_from_task` | off, — | The shaping check (§19.6); `shape_from_task` is the adoption point |" PROPOSED:
-    > | `shape_adrs`, `shape_from_task` | on with an `adr` block, — | The shaping check (§19.6); `shape_from_task` is the adoption point |
-  - `docs/spec/04-observability.md` §24: CURRENT (at `e9ff0fc`): "The product's `plane.json` names the lead's expected values
-    (`telemetry.design_seat`);" PROPOSED:
-    > The lead's expected model is `models.lead` (§2.4);
   - `docs/spec/04-observability.md` §26.2: CURRENT (at `e9ff0fc`): "(looked up in `estimate.spec_paths`,
     globs relative to the root)," PROPOSED:
     > (looked up in `spec_paths`, §3.5),
-  - `docs/spec/04-observability.md` §26.3: CURRENT (at `e9ff0fc`): "with **`estimate.auto`** on (default `false`)," PROPOSED:
-    > with **`estimate.auto`** on (by default),
   - The two §13 and §16 mentions of `task_log.spec_paths` become `spec_paths` under §31.1, quoted in the PR body with any other sentence this makes false.
 - **Out:**
-  - The binding's keys (0188). Ending the grace (0191). The SPEC's remaining default numbers (0189).
+  - The constants and the new defaults (0192). The binding's keys (0188). Ending the grace (0191). The
+    SPEC's remaining default numbers (0189).
 
 ## dod_checks
 
@@ -143,21 +120,14 @@ product's `WORKERS.md` is the prompt fragment, and the lead's expected model fol
   expect: prints `['spec/']`; stderr carries no `unknown key`.
   dry run (`e9ff0fc`): stderr `unknown key(s) spec_paths ignored` (and `config.spec_paths` does not exist).
 - id: `cfg-02`
-  story: As an operator, four defaults now work without my setting them.
-  setup: a checkout of the PR head; a temp product with plane.json `{"project_id": "demo", "language": "none", "adr": {}, "models": {"lead": "opus"}}` and a `docs/delivery/WORKERS.md`.
-  steps:
-    1. Load it with `config.load` and print `estimate["auto"]`, `prompts["fragment"]`, `architect["shape_adrs"]` and `config.design_seat(c)["model"]`.
-  expect: `True`, `docs/delivery/WORKERS.md`, `True`, `opus`.
-  dry run (`e9ff0fc`): `False`, `None`, `False`, `None` (with `architect: {}` given, as the seat needs a block today).
-- id: `cfg-03`
-  story: As the lead of a product with history, every key I must delete or move is named, and a tuning value I set still applies until I take the step.
-  setup: a checkout of the PR head; then a separate copy where the loader ignores a constant's given value.
+  story: As the lead of a product with history, every key I must delete or move is named, and a value I set for a constant still applies until I take the step.
+  setup: a checkout of the PR head; then a separate copy where `config.constant_override` ignores the given value.
   steps:
     1. On the head, run `python3 -B -m unittest -q tests.test_short_plane_json`.
     2. In the copy, run the same.
-  expect: step 1 exits 0, its tests covering: each removed key ignored with its warning; each merged key read at its old place with a warning naming the new one, and the new place winning when both are set; `gate.shell_limit_seconds: 99` applying with a warning; every key in the registry having exactly one outcome that matches the schema's `deprecated` marking; `ccp upgrade status` listing the product's keys with their replacement; step 2 exits non-zero.
+  expect: step 1 exits 0, its tests covering: each removed key ignored with its warning; each merged key read at its old place with a warning naming the new one, and the new place winning when both are set; a test-registered constant set to another value applying with a warning, and set to its own value warning that it can be deleted; every key in the registry having exactly one outcome that matches the schema's `deprecated` marking; `ccp upgrade status` listing the product's keys with their replacement; step 2 exits non-zero.
   dry run: n/a — new module.
-- id: `cfg-04`
+- id: `cfg-03`
   story: As an operator, a review-point pattern has one default.
   setup: a checkout of the PR head; a temp product with no review-point register whose plane.json is `{"project_id": "demo", "language": "none", "task_log": {"review_point_pattern": "^Q[0-9]+$"}}`.
   steps:
