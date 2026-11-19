@@ -1,7 +1,7 @@
 ---
 task_id: 0162-git-merge-helper
 title: One git merge helper module for the merge probe, a head's own patch id and the remerge diff
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S13", "S15", "S16"]
@@ -150,3 +150,5 @@ does changes.
 - `STAGE_RE` moved from `lifecycle` to `gitmerge`; nothing else used it.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #181 head `b0a7a64` (squash `12c83b5`): APPROVE. Passed: gm-01, gm-02, gm-03, gm-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0162-git-merge-helper.json.
+
