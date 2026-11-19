@@ -193,4 +193,25 @@ back to a full round, on the reviewer's word. The round phases are listed once, 
 
 *Append-only, newest last.*
 
+- Built as the task says. `prompt.resolution_gate` makes the four refusals (exit 2, nothing opened) in the order:
+  no done review, a non-merge rework round since the latest done review, a head that is not a merge commit
+  (read with `git rev-list --parents`, in `prompt.py`: E14 names only merge-tree, patch-id and remerge-diff), an
+  empty `gitmerge.remerge_diff`. A head not in the checkout is fetched (the PR's ref, then the task branch) as
+  `lifecycle.behind_tip` does; one that cannot be read is refused (exit 2). `--mode` on any phase but review is refused
+  (exit 2) before anything opens.
+- "The latest done review" in the gate is any done review, a resolution review included (a beyond one too); the
+  rework rounds since it are counted as `unreviewed_fix` counts them (`runs.REWORK_PHASES`, opened at or after it).
+- `runs.unreviewed_fix`: a contained resolution review is the review of its head, with no change to compare, so the
+  existing `judged` logic needed no new branch. A task whose latest done review is a beyond resolution review is
+  refused whatever the patch ids say (the reviewer's word binds; the task text only says it does not count as a
+  review), naming the run and saying "run a full `ccp prompt review`".
+- The verify prompt's section and `verify.resolution_errors` both read the task's latest done review (not
+  abandoned): a contained resolution review whose head is the verify head. `<old>` is the head of the latest verify
+  run that has `verdict: approve` and a `head` on its record (what `ccp verify record` notes on the run).
+- `ccp report`: `report.parse` takes `mode` and `checks` (the task file's ids, from `task_meta`). Both lines are
+  required for a done resolution review; `Resolution:` stated twice, a `|` right after the value (the template
+  pasted), an empty `Affected checks:` and `none` beside ids are refused too. A bare `Resolution: beyond` (no why)
+  is accepted.
+- ADR-0042 D4 was already `built` at the base (task 0167 closed first), so this task marks nothing.
+
 ## Verification notes
