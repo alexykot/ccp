@@ -96,8 +96,6 @@ of `plugin/` and `scripts/`. Nothing the plane does changes.
 
 *Append-only, newest last.*
 
-## Verification notes
-
 - The four readers (`runner-idle.sh`, `team.py` `max_in_flight`, `gate_parallel.py` `max_age_days`,
   `sync-product-docs.sh` rules doc) call `ccp.config.load` and read the loaded blocks
   (`cfg.architect is not None`, `parallel.settings(cfg)["max_in_flight"]`, `cfg.verify["accept_cache"]`,
@@ -114,3 +112,7 @@ of `plugin/` and `scripts/`. Nothing the plane does changes.
   `ccp.config` default) drives the hook, spawn and sync tests; the gate test patches `ACCEPT_CACHE_DEFAULTS`
   in-process. The fixture of the existing `max_age_days` test now links the checkout's `ccp` (the gate imports
   it from its own root) and its plane.json carries a `project_id` (the load requires one).
+- Fix round 1: these notes moved here from `## Verification notes`, which is the verifier's and is left empty;
+  the hook's comment now says a `--ccp` wrapper kept outside a plane checkout gets the fallback.
+
+## Verification notes

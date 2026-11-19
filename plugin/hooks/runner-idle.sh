@@ -232,6 +232,7 @@ architect_due = None
 # itself. The plane is the checkout `ccp where` named, or the one the `--ccp` path sits in; with neither,
 # or a configuration that does not load (no plane.json, invalid JSON, a ConfigError), the product runs one
 # slot with no architect. The load's warnings are not printed.
+# A `--ccp` wrapper kept outside a plane checkout (not `<plane>/bin/ccp`) names no plane: it gets the fallback.
 plane = where.get("plane") if not arg("--queue-root") else None
 if not plane:
     cand = Path(shutil.which(ccp) or ccp).resolve().parent.parent
