@@ -35,8 +35,9 @@ class PlaneConfigDefaults(unittest.TestCase):
                 self.compare(f"{where}.{key}", prop["properties"], value)
 
     def test_the_schema_lists_the_registry_blocks_and_nothing_else(self):
-        self.assertEqual(set(SCHEMA["properties"]) - {"$schema", "_note", "project_id"},
+        self.assertEqual(set(SCHEMA["properties"]) - {"$schema", "_note", *config.REQUIRED_KEYS},
                          set(config.BLOCK_DEFAULTS))
+        self.assertEqual(SCHEMA["required"], list(config.REQUIRED_KEYS))
         self.assertEqual(config.BLOCKS, tuple(config.BLOCK_DEFAULTS))
 
     def test_every_block_has_the_schemas_keys_and_defaults(self):

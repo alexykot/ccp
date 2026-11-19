@@ -50,10 +50,12 @@ Something true for the user.
 """
 
 
-# The settings the shared fixtures' tests rely on, named so a change of a default shows here: a gate lane
-# that passes and one task in flight under the `paths` schedule.
+# The settings the shared fixtures' tests rely on, named so a change of a default shows here: no language
+# (so no package-doc checks and no test-output patterns of a pack), a gate lane that passes and one task in
+# flight under the `paths` schedule.
 BASE_PLANE: dict = {
     "project_id": "demo",
+    "language": "none",
     "suite": {"lanes": {"gate": ["true"]}},
     "parallel": {"max_in_flight": 1, "schedule": "paths"},
 }

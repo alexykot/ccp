@@ -408,6 +408,36 @@ class Change(UpgradeFixture, unittest.TestCase):
                           "set `e.f` in docs/delivery/plane.json: with tool and to naming the channel"])
 
 
+class LanguageStep(UpgradeFixture, unittest.TestCase):
+    """§8.1, §29.3: the step that sets `language` proposes the product's own value, or states the choice."""
+
+    def setUp(self):
+        super().setUp()
+        self.plane_task("0001-lang", "done", "Lang", "required: plane.json language (python, or none)")
+        self.commit("plane")
+
+    def change(self, **plane) -> str | None:
+        self.product_json(**plane)
+        code, body, err = self.ccp("upgrade", "status")
+        self.assertEqual(code, 0, err)
+        steps = [s for s in body["steps"] if s["task"] == "0001-lang"]
+        return steps[0]["change"] if steps else None
+
+    def test_a_package_docs_block_names_its_language_or_the_old_default(self):
+        self.assertIn("to none ", self.change(package_docs={"language": "none"}))
+        self.assertIn("to python ", self.change(package_docs={"language": "python"}))
+        self.assertIn("to python ", self.change(package_docs={}))
+
+    def test_with_no_package_docs_block_it_states_the_choice_and_proposes_no_value(self):
+        change = self.change()
+        self.assertIn("(a) python", change)
+        self.assertIn("(b) none", change)
+        self.assertNotIn(" to ", change.split(";")[0])
+
+    def test_a_product_that_sets_language_has_taken_it(self):
+        self.assertIsNone(self.change(language="none"))
+
+
 class Declined(unittest.TestCase):
     def test_upgrade_declined_maps_a_task_id_to_a_reason(self):
         p = Product({"upgrade": {"declined": {"0001-a": "not for us"}}})

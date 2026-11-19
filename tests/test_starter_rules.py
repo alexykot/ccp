@@ -25,7 +25,8 @@ FAULTS = {
 
 
 def starter_product(declined: dict | None = None, **package_docs) -> Product:
-    cfg = json.loads(json.dumps(ccp_init.STARTER_CONFIG))
+    """A product with the starter settings, its language a pack, so the package-maps rule's checks run."""
+    cfg = {"language": "python", **json.loads(json.dumps(ccp_init.STARTER_CONFIG))}
     cfg["package_docs"].update(package_docs)
     cfg["docs"]["starter_rules"]["declined"] = declined or {}
     p = Product(cfg)
@@ -196,7 +197,7 @@ class Decline(unittest.TestCase):
     def test_a_check_an_adopted_rule_also_names_still_runs(self):
         fake = {"a": {"id": "E1", "kind": "docs", "keys": ["package_docs.rules.citations", "package_docs"]},
                 "b": {"id": "E2", "kind": "docs", "keys": ["package_docs"]}}
-        p = Product({"package_docs": {"language": "none"}, "docs": {"starter_rules": {"declined": {"a": "r"}}}})
+        p = Product({"package_docs": {}, "docs": {"starter_rules": {"declined": {"a": "r"}}}})
         try:
             with mock.patch.object(rules, "starter_rules", return_value=fake):
                 self.assertEqual(rules.declined_keys(p.cfg), {"package_docs.rules.citations"})

@@ -20,6 +20,9 @@ request's context reached `runner.rotate_at_context_tokens`. It refuses one too 
 the lead binds the fresh runner (`rotation_step_left`), so the runner being rotated out takes no new task.
 A resume is never refused.
 
+`claim` refuses any claim (exit 2) of a product with no gate lane (§8.1, §14.1, `config.require_gate_lane`);
+during the grace release it warns on stderr and carries on.
+
 `rotation-due` answers the same rule for one slot without claiming: the `TeammateIdle` hook asks it
 (§18.2).
 
@@ -59,7 +62,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp.envvars import envvar, for_child
-from ccp import notify, refs, runs, tasklog
+from ccp import config, notify, refs, runs, tasklog
 from ccp.queue import lib
 from ccp.config import Config
 from ccp.queue import (OBS, QueueError, actor, durable_statuses, emit, file_lock, git, heartbeat, integration_branch, iso,
@@ -239,6 +242,11 @@ def rotation_check(holder: str = "runner") -> dict[str, Any]:
 
 def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
     q = root()
+    try:  # §8.1, §14.1: no gate lane, no task: a warning in the grace release, else exit 2, nothing taken
+        if warning := config.require_gate_lane(cfg):
+            print(f"ccp tasks claim: warning: {warning}", file=sys.stderr)
+    except config.MissingKey as e:
+        raise QueueError(str(e), 2) from e
     meta = task_meta(cfg, task)
     tid = str(meta["task_id"])
     if tasklog.canonical_status(meta.get("status")) != "pending":

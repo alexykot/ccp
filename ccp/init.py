@@ -1,7 +1,8 @@
 """`ccp init`: adopt a product with one command (SPEC §4.3, §4.5, §8.3).
 
 Run in a product's repository, it writes the product footprint (the PROJECT, SPEC and delivery
-templates, with `--starter-rules` the plane's starter house rules (§20.5), a minimal `plane.json`,
+templates, with `--starter-rules` the plane's starter house rules (§20.5), a minimal `plane.json` (with
+`--language` the product's language, §8.1),
 `.plane-runtime/` in `.gitignore`, the plugin anchor merged into `.claude/settings.json` with the
 session settings `subagentPromptCacheTtl`, `autoCompactWindow` and `model` (the lead's, §2.4), the telemetry tag
 `env.OTEL_RESOURCE_ATTRIBUTES` (§24.1), the one `CLAUDE.md` line) and,
@@ -32,6 +33,11 @@ cuts a value at ` #` as a comment.
 Pull requests need a GitHub origin until the PR host is an adapter (ADR-0040 D7): when the product
 has no `origin`, or its host is not GitHub, init warns on stderr and in the result's `warnings`,
 naming the commands that need one, and adopts the product all the same.
+
+The result's `required_unset`, and a line on stderr, name each required plane.json key (§8.1) still
+unset in the plane.json init leaves (a kept one included), the gate lane (`suite.lanes.gate`, given by
+`--gate`) among them, as a step to take before the first task. A
+`--language` that names no language pack and is not `none` is refused (exit 2) before anything is written.
 
 When the task directory already holds task files with no frontmatter (an earlier plane generation's),
 the result's `warnings` names their count and `ccp tasks migrate` (§5.3).
@@ -101,10 +107,10 @@ COPIES = {
 }
 # §20.5: `--starter-rules` writes the starter house rules here, and these settings into a new plane.json:
 # the set adopted, nothing declined, and the `package_docs` rules its `docs` checks name, with neutral
-# defaults (no language pack; the docs are the top-level ones init writes, the SPEC its own).
+# defaults (no language: `--language` names it; the docs are the top-level ones init writes, the SPEC its own).
 STARTER_RULES_DOC = ("docs/ENGINEERING.md", "docs-project/starter-rules.md")
 STARTER_CONFIG: dict[str, Any] = {
-    "package_docs": {"language": "none", "rules": {
+    "package_docs": {"rules": {
         "history_attr": "history",
         "no_ids": {"globs": ["docs/*.md"]},
         "citations": {"globs": ["docs/*.md"], "targets": ["docs/SPEC.md"]}}},
@@ -147,7 +153,7 @@ GITHUB_ONLY = ("ccp verify merge-ok", "ccp tasks close (its default merge and it
                "the workers' `gh pr` steps (the implementer's PR, review and verify)")
 # The init flags that write: `--permissions` writes nothing, so it refuses them.
 WRITING_FLAGS = (("--project-id", "project_id"), ("--queue-root", "queue_root"),
-                 ("--integration-branch", "integration_branch"), ("--gate", "gate"),
+                 ("--integration-branch", "integration_branch"), ("--gate", "gate"), ("--language", "language"),
                  ("--starter-rules", "starter_rules"), ("--force", "force"), ("--telemetry", "telemetry"))
 
 
@@ -270,12 +276,14 @@ def binding_text(project_id: str, product_root: Path, queue_root: Path, branch: 
             f"  worktree: {product_root / WORKTREES_DIR / 'runner'}\n")
 
 
-def plane_json_text(project_id: str, gate: str | None, starter_rules: bool = False) -> str:
-    """A minimal plane.json (§8.1): the id, the worktrees directory, the gate lane when given, and the
-    starter rules' settings with `--starter-rules` (§20.5). The gate lane is one stage, `gate`, running
+def plane_json_text(project_id: str, gate: str | None, starter_rules: bool = False,
+                    language: str | None = None) -> str:
+    """A minimal plane.json (§8.1): the id, the language when given, the worktrees directory, the gate lane
+    when given, and the starter rules' settings with `--starter-rules` (§20.5). The gate lane is one stage, `gate`, running
     the line as given (§4.5), so a chained or `cd`-ing line keeps its meaning; a line `shlex` cannot
     split raises ValueError."""
-    cfg: dict[str, Any] = {"project_id": project_id, "worktrees": {"dir": WORKTREES_DIR}}
+    cfg: dict[str, Any] = {"project_id": project_id, **({"language": language} if language else {}),
+                           "worktrees": {"dir": WORKTREES_DIR}}
     if gate:
         shlex.split(gate)  # an unclosed quote is refused, though the line is stored whole
         cfg["suite"] = {"lanes": {"gate": [{"name": "gate", "cmd": gate}]}}
@@ -315,11 +323,15 @@ def _merged_settings(path: Path, compact_window: int, lead_model: str,
 
 
 def init(root: Path, project_id: str | None, queue_root: str | None, branch: str | None,
-         gate: str | None, force: bool, starter_rules: bool = False, telemetry: str | None = None) -> dict[str, Any]:
+         gate: str | None, force: bool, starter_rules: bool = False, language: str | None = None,
+         telemetry: str | None = None) -> dict[str, Any]:
     """Adopt the product at `root`; returns what was written, merged and kept. Raises QueueError
     (nothing written) on a refusal."""
     if gate is not None and not gate.strip():  # §4.5: refused before anything is written
         raise QueueError("ccp init: --gate is blank: give the gate lane's command, or leave --gate out", 2)
+    from ccp import doclang  # noqa: PLC0415
+    if language is not None and language not in doclang.NAMES:  # §8.1: refused before anything is written
+        raise QueueError(f"ccp init: --language {language!r} is not one of {', '.join(doclang.NAMES)}", 2)
     product_root = _main_worktree(root.resolve())
     plane_json = root / config.CONFIG_REL
     existing_id = None
@@ -342,7 +354,7 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
         except config.ConfigError as e:
             raise QueueError(f"ccp init: {e}; fix it, or --force to rewrite it", 2) from e
     try:
-        plane_json_new = plane_json_text(pid, gate, starter_rules)
+        plane_json_new = plane_json_text(pid, gate, starter_rules, language)
     except ValueError as e:
         raise QueueError(f"ccp init: --gate {gate!r} is not a shell command line ({e})", 2) from e
 
@@ -403,7 +415,8 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     copies = {**COPIES, **(dict([STARTER_RULES_DOC]) if starter_rules else {})}
     for rel, tpl in copies.items():
         put(root / rel, standing_dod_text(gate) if rel == STANDING_DOD else (TEMPLATES / tpl).read_text(), rel)
-    unapplied = [flag for flag, given in (("--gate", gate), ("--starter-rules", starter_rules)) if given]
+    unapplied = [flag for flag, given in (("--gate", gate), ("--language", language),
+                                          ("--starter-rules", starter_rules)) if given]
     put(plane_json, plane_json_new,
         config.CONFIG_REL + (f" ({', '.join(unapplied)} not applied)" if unapplied and keep_plane_json else ""))
     (root / "docs" / "delivery" / "tasks").mkdir(parents=True, exist_ok=True)
@@ -445,6 +458,9 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
             "with `ccp plane check --archive`")
 
     cfg = config.load(root)
+    unset = required_unset(cfg)
+    if unset:  # §4.5, §8.1: a step to take before the first task
+        out["required_unset"] = unset
     record_adoption(q, cfg, "binding" in out["written"], binding)
     out["telemetry"] = {"tag": tag, **machine_telemetry(cfg, telemetry)}
     old_files = [f for f in sorted(cfg.tasks_dir.glob("*.md")) if not tasklog.has_frontmatter(f.read_text())]
@@ -529,6 +545,13 @@ def board_launchd(cfg: config.Config) -> dict[str, Any]:
     """Install the product's board timer, as `ccp board install` does."""
     from ccp import board  # noqa: PLC0415  (board is heavy; only a consenting init installs the timer)
     return board.launchd(cfg, "install")
+
+
+def required_unset(cfg: config.Config) -> list[str]:
+    """The required plane.json keys (§8.1) the product's plane.json leaves unset, the gate lane
+    (`suite.lanes.gate`, §14.1) among them when it has none (config.gate_lane_missing)."""
+    return [k for k in config.REQUIRED_KEYS if getattr(cfg, k, None) in (None, "")] \
+        + (["suite.lanes.gate"] if config.gate_lane_missing(cfg) else [])
 
 
 def record_adoption(q: Path, cfg: config.Config, written: bool, binding: Path | None = None) -> dict[str, Any] | None:
@@ -743,11 +766,14 @@ def main(root_arg: str | None, a: Any) -> int:
         return print_permissions(root, a)
     try:
         res = init(root, a.project_id, a.queue_root, a.integration_branch, a.gate, a.force, a.starter_rules,
-                   getattr(a, "telemetry", None))
+                   getattr(a, "language", None), getattr(a, "telemetry", None))
     except QueueError as e:
         print(str(e), file=sys.stderr)
         return e.code
     for w in res.get("warnings", []):
         print(f"ccp init: warning: {w}", file=sys.stderr)
+    for k in res.get("required_unset", []):
+        print(f"ccp init: required: {config.CONFIG_REL} `{k}` is unset; set it before the first task "
+              "(SPEC §8.1)", file=sys.stderr)
     print(json.dumps(res))
     return 0

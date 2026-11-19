@@ -173,7 +173,7 @@ or update it with `/plugin` in Claude Code; keep both on the same release.
 Run this from the root of the product's repository:
 
 ```bash
-ccp init --project-id my-product --gate "python3 -m unittest discover -s tests"
+ccp init --project-id my-product --language python --gate "python3 -m unittest discover -s tests"
 ```
 
 In the repository it writes `docs/PROJECT.md` and `docs/SPEC.md` from the templates, the delivery
@@ -202,6 +202,8 @@ plugin and `ccp`." Outside the repository it writes the binding, `$PLANE/project
 and creates the queue, `~/.delivery-queue/my-product/` (`--queue-root` picks another).
 
 - Put your own test command in `--gate`; the example is Python's.
+- Name the product's language in `--language`: `python`, or `none`. Without it, init lists `language`
+  under `required_unset` and on stderr: set it before the first task.
 - It warns on stderr, and lists in `warnings`, when the product's `origin` is missing or not on
   GitHub (see the prerequisites); it adopts the product all the same.
 - It never overwrites a file without `--force`: it keeps the file and lists it as kept, so running it
@@ -216,6 +218,8 @@ and creates the queue, `~/.delivery-queue/my-product/` (`--queue-root` picks ano
 
 | Key | What it is for | A product needs it when |
 |---|---|---|
+| `language` | the product's language pack (`python`) or `none`, with no default: a pack runs the package-doc checks (§21.3, §21.4), reads the test output (§14.1) and finds the tests a change touches (§14.7); `none` turns the package-doc checks off and leaves test output to `suite.count_re` and `suite.summary` | always: it is required, and `ccp docs check`, `ccp suite affected` and `ccp suite run`'s reading of the output refuse without it once the grace release ends |
+| `suite.lanes` | the test commands by lane; the gate lane (`suite.lanes.gate`, or the lane `suite.roles` gives the gate role) is the command the verifier runs on every task's head and close runs on its catch-up with the tip (§14.1); `ccp init --gate` writes it | always: the gate lane is required, and `ccp tasks claim` and `ccp tasks next` refuse without it (exit 2) once the grace release ends |
 | `env` (`setup`, `teardown`, `up`, `down`, `urls`) | shell hooks run in each worktree: prepare it, clean it up, start and stop what it serves, say where it serves (§12.2) | a worktree needs more than a checkout to build and test: dependencies, a database, a server the verifier opens |
 | `telemetry.allowance_cmd`, `telemetry.allowance_stop_weekly` | a command that prints the account's usage windows, and the weekly checkpoint where new claims stop until the operator decides (§25) | the team runs unattended on a plan with usage limits; without the command no usage is read and nothing stops |
 | `auth_check.probes` | `[{id, cmd}]` credential checks run before each new task; a failing one stops the claim and raises a `reauth` gate (§30.1) | the work needs a login that can expire: `gh`, Claude, a cloud CLI |
@@ -232,7 +236,7 @@ and creates the queue, `~/.delivery-queue/my-product/` (`--queue-root` picks ano
 | `verify.accept_cache` | the verifier counts a hit in the product's content-keyed test cache as run and passed (§15.3) | the gate has such a cache and is slow to run cold |
 | `mutate.command` | runs one test, `{test}`, for `ccp mutate`, which tells a test that passes from a test that checks something (§20.6) | the team should show that a new test fails when the change it guards is broken |
 | `report.required_fields` | verdicts every implementer report must state, `[{name, values}]` (§13.4) | the product needs the same fixed answer from every implementer |
-| `suite.count_re` | a pattern, or a list of patterns, that reads the test count from a `suite.lanes` lane's output when it writes no `$CCP_SUITE_RESULT`; the first pattern a line matches counts it, its first group as the count, or the line as one test when it has no group (§14.3) | the tests run under a runner other than Python's unittest, or under more than one |
+| `suite.count_re` | a pattern, or a list of patterns, that reads the test count from a `suite.lanes` lane's output when it writes no `$CCP_SUITE_RESULT`; the first pattern a line matches counts it, its first group as the count, or the line as one test when it has no group (§14.3) | the tests run under a runner the language pack does not read, or under more than one, or `language` is `none` |
 
 Patterns for `suite.count_re`, one per runner; a gate that mixes runners lists them all, such as
 `"count_re": ["^Ran (\\d+) tests? in ", "^--- PASS: "]`:
@@ -416,8 +420,8 @@ in that product (SPEC §31.4).
 - `docs/PROJECT.md` (purpose, users, constraints) and `docs/SPEC.md` (what to build).
 - Tasks in `docs/delivery/tasks/NNNN-slug.md`, in the canonical format: frontmatter plus intent,
   scope and `dod_checks`. Statuses are `pending`, `done` and `dropped`.
-- `docs/delivery/plane.json`. Only `project_id` is required; unknown keys warn and fail `ccp docs
-  check`. Optional blocks:
+- `docs/delivery/plane.json`. `project_id` and `language` are required; unknown keys warn and fail
+  `ccp docs check`. Optional blocks:
   - `suite.lanes`, the test commands; a gate may write `$CCP_SUITE_RESULT`;
   - `worktrees`, with `env.setup`, `teardown`, `up`, `down` and `urls` hooks;
   - `docs.checks`, `architect.checks`, `auth_check.probes`;

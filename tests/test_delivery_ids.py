@@ -28,7 +28,7 @@ def log(p: Product, *tids: str) -> Product:
 
 
 def product(**pd) -> Product:
-    p = log(Product({"package_docs": {"docstring_globs": ["app/**/*.py"], **pd}}), *TASKS)
+    p = log(Product({"language": "python", "package_docs": {"docstring_globs": ["app/**/*.py"], **pd}}), *TASKS)
     p.write("app/.claude.md", "# app\n\nThe app's entry point.\n")
     p.write("app/main.py", SRC)
     return p
@@ -77,7 +77,7 @@ class PackageDocs(unittest.TestCase):
             p.cleanup()
 
     def test_a_claude_md_package_doc_is_checked(self):
-        p = log(Product({"package_docs": {"claude_md_dirs": ["lib"]}}), *TASKS)
+        p = log(Product({"language": "python", "package_docs": {"claude_md_dirs": ["lib"]}}), *TASKS)
         try:
             p.write("lib/CLAUDE.md", "# lib\n\nBuilt by task #3.\n")
             p.write("lib/q.sql", "select 1;\n" * 10)
@@ -94,7 +94,7 @@ class PackageDocs(unittest.TestCase):
             p.cleanup()
 
     def test_the_task_width_comes_from_the_ids_block(self):
-        p = log(Product({"ids": {"task": {"width": 5}}, "package_docs": {}}), "00012-wide-id", "0012-narrow")
+        p = log(Product({"ids": {"task": {"width": 5}}, "language": "python", "package_docs": {}}), "00012-wide-id", "0012-narrow")
         try:
             p.write("lib/.claude.md", "# lib\n\n00012 and 00012-wide-id, not 0012.\n")
             p.write("lib/q.sql", "select 1;\n" * 10)
@@ -153,16 +153,18 @@ class CodeComments(unittest.TestCase):
         finally:
             p.cleanup()
 
-    def test_language_none_reads_no_comments_but_checks_package_docs(self):
-        p = log(Product({"package_docs": {"language": "none"}}), *TASKS)
-        try:
-            p.write("lib/.claude.md", "# lib\n\nAdded in 0012.\n")
-            p.write("lib/q.sql", "-- task 4\n" + "select 1;\n" * 10)
-            errs = pkgdocs.check(p.cfg)
-            self.assertEqual(len(errs), 1, errs)
-            self.assertTrue(errs[0].startswith("lib/.claude.md:3:"), errs)
-        finally:
-            p.cleanup()
+    def test_language_none_checks_no_package_doc_and_reads_no_comments(self):
+        for lang, want in (("none", 0), ("python", 1)):
+            with self.subTest(language=lang):
+                p = log(Product({"language": lang, "package_docs": {}}), *TASKS)
+                try:
+                    p.write("lib/.claude.md", "# lib\n\nAdded in 0012.\n")
+                    p.write("lib/q.sql", "-- task 4\n" + "select 1;\n" * 10)
+                    errs = pkgdocs.check(p.cfg)
+                    self.assertEqual(len(errs), want, errs)
+                    self.assertTrue(all(e.startswith("lib/.claude.md:3:") for e in errs), errs)
+                finally:
+                    p.cleanup()
 
     def test_product_patterns_are_checked_beside_the_planes(self):
         p = product(delivery_id_patterns=[r"\bRUL-\d+\b"])
@@ -205,7 +207,7 @@ class Command(unittest.TestCase):
 
 class Config(unittest.TestCase):
     def test_defaults(self):
-        p = Product({"package_docs": {}})
+        p = Product({"language": "python", "package_docs": {}})
         try:
             self.assertIs(p.cfg.package_docs["no_delivery_ids"], True)
             self.assertEqual(p.cfg.package_docs["delivery_id_patterns"], [])
@@ -215,7 +217,7 @@ class Config(unittest.TestCase):
     def test_bad_values_are_refused(self):
         for pd in ({"no_delivery_ids": "no"}, {"delivery_id_patterns": "RUL-1"},
                    {"delivery_id_patterns": [""]}, {"delivery_id_patterns": ["("]}):
-            p = Product({"package_docs": pd})
+            p = Product({"language": "python", "package_docs": pd})
             try:
                 with self.assertRaises(config.ConfigError, msg=pd):
                     p.cfg
@@ -227,7 +229,7 @@ class TaskLog(unittest.TestCase):
     """A task id counts only when its task is in the product's task log."""
 
     def scratch(self, doc: str, **pd) -> Product:
-        p = log(Product({"package_docs": {"docstring_globs": ["app/**/*.py"], **pd}}), "0001-setup", "0007-add-login")
+        p = log(Product({"language": "python", "package_docs": {"docstring_globs": ["app/**/*.py"], **pd}}), "0001-setup", "0007-add-login")
         p.write("app/.claude.md", "# app\n\n" + doc)
         p.write("app/main.py", SRC)
         return p
@@ -271,7 +273,7 @@ class TaskLog(unittest.TestCase):
             p.cleanup()
 
     def test_with_no_task_log_the_stamp_ids_are_still_flagged(self):
-        p = Product({"package_docs": {}})
+        p = Product({"language": "python", "package_docs": {}})
         try:
             p.write("lib/.claude.md", f"# lib\n\nSee 0001-setup, task 1 and 0001.\n{FINDING}\n")
             p.write("lib/q.sql", "select 1;\n" * 10)

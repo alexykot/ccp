@@ -2,11 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:control-plane:contracts:plane_config.schema.json",
   "title": "ControlPlaneProductConfig",
-  "description": "SPEC §8.1. The product-owned docs/delivery/plane.json read by `ccp`. Its presence is the product's opt-in to ccp. Every key but project_id has a plane default (ccp/config.py); unknown keys warn when it loads and are ignored, and `ccp docs check` refuses them (SPEC §8.1). No secrets.",
+  "description": "SPEC §8.1. The product-owned docs/delivery/plane.json read by `ccp`. Its presence is the product's opt-in to ccp. Every key but project_id and language has a plane default (ccp/config.py); during the grace release that made language required (SPEC §29.3) a product without it still loads, and a command that needs it warns; unknown keys warn when it loads and are ignored, and `ccp docs check` refuses them (SPEC §8.1). No secrets.",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "project_id"
+    "project_id",
+    "language"
   ],
   "properties": {
     "$schema": {
@@ -19,6 +20,11 @@
       "type": "string",
       "minLength": 1,
       "description": "Same id as the plane binding; written into INDEX.yaml"
+    },
+    "language": {
+      "type": "string",
+      "enum": ["python", "none"],
+      "description": "SPEC §8.1, §21.4: the product's language pack (ccp/doclang), or none; no default. A pack turns on the package-doc checks (with the package_docs block's settings or their defaults), reads the test output and finds the tests a change touches; none turns the package-doc checks off and leaves test output to suite.count_re and suite.summary. A command that needs it refuses (exit 2) when it is unset, and warns instead during the grace release"
     },
     "task_log": {
       "type": "object",
@@ -158,7 +164,7 @@
     "package_docs": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Absent: package-doc rules are off",
+      "description": "The package-doc rules' settings (SPEC §21): they run when the top-level language names a pack, on these or their defaults; the opt-in rules named in rules run whatever the language",
       "properties": {
         "doc_name": {
           "type": "string",
@@ -173,10 +179,11 @@
           "default": []
         },
         "language": {
-          "type": "string",
-          "enum": ["python", "none"],
-          "default": "python",
-          "description": "SPEC §21: the language pack (ccp/doclang). It adds its source suffixes and directory names to the core's and runs its per-file checks over docstring_globs; none runs the language-neutral core alone"
+          "type": ["string", "null"],
+          "enum": ["python", "none", null],
+          "default": null,
+          "deprecated": true,
+          "description": "Deprecated (SPEC §29.3): the top-level language replaces it. Read in its place, with a warning, while language is unset; ignored, with a warning, when language is set"
         },
         "source_suffixes": {
           "type": ["array", "null"],
@@ -940,7 +947,7 @@
         "lanes": {
           "type": "object",
           "default": {},
-          "description": "SPEC \u00a714.2: a lane name to what `ccp suite run --lane NAME` runs from the checkout's root: an argv (one stage, named after the lane), or an ordered list of {name, cmd} stages, run in order until one fails. The gate role's staged lane ends with the plane's doc checks as the stage `plane-docs`.",
+          "description": "SPEC \u00a714.2: a lane name to what `ccp suite run --lane NAME` runs from the checkout's root: an argv (one stage, named after the lane), or an ordered list of {name, cmd} stages, run in order until one fails. The gate role's staged lane ends with the plane's doc checks as the stage `plane-docs`. A gate lane, the lane `suite.roles` gives the gate role, is required (SPEC \u00a78.1, \u00a714.1): every task's verify runs it, and without one `ccp tasks claim` and `ccp tasks next` refuse (exit 2; a warning during the grace release). `ccp init --gate` writes it.",
           "propertyNames": {
             "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$"
           },

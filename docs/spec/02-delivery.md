@@ -111,7 +111,8 @@ A task whose `brief` sign-off is due and not recorded, is stale, or whose `sign_
 A held task (§10.4) is passed over, a held refactor and a held preference alike, and stderr says so;
 `--explain` prints the whole ranked queue with the pick and the holds marked. The runner always
 takes `next`'s pick and turns a lead's "take X next" back to the lead as `ccp tasks prefer X`. With
-several runners `next` also applies §16.3 (head of line, exit 7).
+several runners `next` also applies §16.3 (head of line, exit 7). With no gate lane it names no task
+and exits 2 (§14.1).
 
 ### 10.4 The lead's preference, holds, release and drop
 
@@ -597,7 +598,10 @@ gate, a subset of modules, every rerun) through
 plane reads three lane **roles**: `full` (the implementer's and fixer's full suite), `gate` (the
 verifier's formal gate, whose script picks its own lanes) and `part` (a subset, such as the
 reviewer's modules or a mutation check). plane.json `suite.roles` names the product's lane for each
-(default: the role's own name; a role left out keeps it; two roles may not share a lane); the prompts,
+(default: the role's own name; a role left out keeps it; two roles may not share a lane). The gate
+role's lane is required: every task's verify runs it, and so does its catch-up with the tip before
+review, so with none `ccp tasks claim` and `ccp tasks next` refuse (exit 2, §8.1); `ccp init --gate`
+writes it. The other roles' lanes are optional; the prompts,
 the report's auto-fill and the health series use these names. `--lane` is a short label; without `-- <command>` it runs what plane.json `suite.lanes` gives that lane, from the checkout's root: an argv, or stages (§14.2). A run
 with no `--lane` is recorded without a lane (filed as part); for an exclusive lane's lock and its
 usual duration it counts as the `full` role's lane. `ccp report` warns, never refuses, when a report
@@ -718,12 +722,13 @@ has a `Suite:` line but no suite run is recorded for its run.
   summary line and a `result_problem` label, and the output's counts stand. `counts_from` says which
   (`result` or `output`).
 - **Without a result file** the counts are read from the output: each line matched against
-  `suite.count_re` (default `^Ran (\d+) tests? in `), a pattern or a list of patterns: the first
+  `suite.count_re` (default: the language pack's, §21.4; Python's reads unittest's `Ran N tests in`), a pattern or a list of patterns: the first
   pattern a line matches counts it, its first group as the count, or the line as one when the pattern
   has no group, so no line counts twice; the matches summed; `suite.summary`'s
   `failed_re`, `skipped_re`, `ran_re`, `cached_re` and `cached_tests_re` (a pattern or a list, first
-  group a number, summed) give the rest. The defaults read Python unittest only (`OK (skipped=N)`,
-  `FAILED (failures=N, errors=N, skipped=N)`); `ran_re`, `cached_re` and `cached_tests_re`
+  group a number, summed) give the rest. The defaults are the language pack's (Python's read
+  unittest's `OK (skipped=N)` and `FAILED (failures=N, errors=N, skipped=N)`); with `language: none`
+  there are none, and only the product's own patterns count; `ran_re`, `cached_re` and `cached_tests_re`
   match nothing until a product sets them. Their older names `modules_ran_re` and `modules_cached_re`
   are read; given both, the new name wins and `ccp tasks check` warns. `section_re`, `show_re`
   (default none), `tail_lines` and `max_chars` shape the summary.
@@ -823,8 +828,7 @@ language whose command it names (Python: `python3 -m unittest`); stdout keeps th
   working tree (a rename as both its paths) plus the untracked files git does not ignore; `--since`
   defaults to `HEAD`, the uncommitted change. A range `<a>..<b>` given to `--since` is the files
   `git diff <a>..<b>` names, without the working tree.
-- **The product's language pack reads the tests** (`package_docs.language`; its default, `python`,
-  when the block is absent). A pack with no test reader (`none`) exits 2 unless plane.json `suite.affected_map` is set, which then reads the tests alone.
+- **The product's language pack reads the tests** (`language`, §8.1). A pack with no test reader (`none`) exits 2 unless plane.json `suite.affected_map` is set, which then reads the tests alone.
 - **Python.** A test module is a `test*.py` file git tracks or does not ignore, named by its dotted
   path from the root (`tests/test_a.py` is `tests.test_a`). It is touched when it changed itself;
   when it imports a changed module directly (any `import` or `from … import`, a relative one or one

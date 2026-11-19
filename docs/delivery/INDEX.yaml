@@ -908,12 +908,12 @@ tasks:
     depends_on: [0173-plane-json-block-registry, 0178-role-model-table]
     path: tasks/0181-models-block-and-role-defaults.md
   - id: 0182-language-is-a-required-key
-    status: pending
+    status: done
     title: The product's language is a required top-level key that the doc checks, the test-output reading and affected follow
     depends_on: [0172-fixtures-name-their-config, 0173-plane-json-block-registry, 0176-language-pack-owns-test-facts]
     path: tasks/0182-language-is-a-required-key.md
   - id: 0183-gate-lane-is-required
-    status: pending
+    status: done
     title: A product must name a gate lane, and claim and next say so when it has none
     depends_on: [0172-fixtures-name-their-config, 0182-language-is-a-required-key]
     path: tasks/0183-gate-lane-is-required.md

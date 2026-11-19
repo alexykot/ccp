@@ -13,21 +13,20 @@ SRC = "\n".join(f"x{i} = {i}" for i in range(40)) + "\n"
 
 
 class Languages(unittest.TestCase):
-    def test_none_runs_the_core_only(self):
-        p = Product({"package_docs": {"language": "none", "docstring_globs": ["app/**/*.py"]}})
+    def test_none_turns_the_package_doc_checks_off(self):
+        p = Product({"language": "none", "package_docs": {"docstring_globs": ["app/**/*.py"]}})
         try:
-            p.write("app/.claude.md", "# app\n")
+            p.write("app/.claude.md", "app, with no title\n")    # the core would fail it
             p.write("app/main.py", SRC)                      # no docstring: no pack, no rule
-            p.write("app/data.sql", "select 1;\n" * 10)
+            p.write("lib/q.sql", "select 1;\n")                # no package doc: the core would fail it
             self.assertEqual(pkgdocs.check(p.cfg), [])
             self.assertNotIn(".py", pkgdocs.suffixes(p.cfg))  # .py is the Python pack's
-            p.write("lib/q.sql", "select 1;\n")                # the core still judges coverage
-            self.assertIn("lib: no .claude.md", "\n".join(pkgdocs.check(p.cfg)))
         finally:
             p.cleanup()
 
     def test_python_pack_docstrings_and_opt_in_call_bullets(self):
-        p = Product({"package_docs": {"docstring_globs": ["app/**/*.py"], "rules": {"no_call_bullets": True}}})
+        p = Product({"language": "python",
+                     "package_docs": {"docstring_globs": ["app/**/*.py"], "rules": {"no_call_bullets": True}}})
         try:
             p.write("app/.claude.md", "# app\n")
             p.write("app/ok.py", '"""Does one thing."""\n' + SRC)
@@ -46,7 +45,7 @@ class Languages(unittest.TestCase):
 
     def test_defaults_equal_the_old_checks(self):
         # No call-bullet rule unless named; files under .venv are still read, __pycache__ is not.
-        p = Product({"package_docs": {"docstring_globs": ["**/*.py"]}})
+        p = Product({"language": "python", "package_docs": {"docstring_globs": ["**/*.py"]}})
         try:
             p.write("app/.claude.md", "# app\n")
             p.write("app/api.py", '"""The API.\n\n- `load(path)`: reads\n"""\n' + SRC)
@@ -60,7 +59,7 @@ class Languages(unittest.TestCase):
             p.cleanup()
 
     def test_language_none_with_docstring_globs_warns(self):
-        p = Product({"package_docs": {"language": "none", "docstring_globs": ["app/*.py"]}})
+        p = Product({"language": "none", "package_docs": {"docstring_globs": ["app/*.py"]}})
         try:
             self.assertIn("language is none", "\n".join(pkgdocs.notes(p.cfg)))
         finally:
@@ -77,7 +76,7 @@ class Languages(unittest.TestCase):
         self.assertEqual(doclang.NAMES, ("none", "python"))
 
     def test_explicit_suffixes_replace_core_and_pack(self):
-        p = Product({"package_docs": {"source_suffixes": [".go"], "path_ref_suffixes": [".go"]}})
+        p = Product({"language": "python", "package_docs": {"source_suffixes": [".go"], "path_ref_suffixes": [".go"]}})
         try:
             self.assertEqual(pkgdocs.suffixes(p.cfg), {".go"})
             p.write("svc/.claude.md", "# svc\n\nSee `svc/gone.go` and `svc/old.py`.\n")
@@ -117,7 +116,7 @@ class DocsChecks(unittest.TestCase):
 
 class Rules(unittest.TestCase):
     def product(self, rules, **extra):
-        return Product({"package_docs": {"language": "none", "rules": rules}, **extra})
+        return Product({"language": "none", "package_docs": {"rules": rules}, **extra})  # they run whatever the language
 
     def test_citations_spec_refs_and_heading_links(self):
         p = self.product({"citations": {"globs": ["src/**/*.md", "src/**/*.py"], "targets": ["docs/SPEC.md"]}})

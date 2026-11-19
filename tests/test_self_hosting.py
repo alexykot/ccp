@@ -53,7 +53,7 @@ class ReviewFixes(unittest.TestCase):
         from ccp import config, pkgdocs
         r = self.tmp / "prod"
         (r / "docs/delivery").mkdir(parents=True)
-        (r / "docs/delivery/plane.json").write_text('{"project_id": "p", "package_docs": {}}')
+        (r / "docs/delivery/plane.json").write_text('{"project_id": "p", "language": "python", "package_docs": {}}')
         (r / "pkg").mkdir()
         (r / "pkg/m.py").write_text('"""m."""\n')
         (r / ".pytest_cache/v").mkdir(parents=True)

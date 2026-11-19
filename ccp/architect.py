@@ -342,7 +342,7 @@ def prompt_for(cfg: Config, q: Path, rid: str, mode: str, lenses: list[str], hea
     else:
         lines.append("House rules: none yet (architect.rules_doc is not set). Propose a first set in `rule_changes`.")
     lines.append(f"Allowed probe commands besides read-only git/ls/wc: {probe_txt}.")
-    if "docs" in lenses and cfg.package_docs is not None:
+    if "docs" in lenses and config.package_docs_on(cfg):
         dirs = [{"dir": cfg.rel(d), "doc": pkgdocs.doc_for(cfg, d).name} for d in pkgdocs.source_dirs(cfg)]
         lines.append(f"Docs lens, directories `ccp docs check` judges (each against its own package doc): {json.dumps(dirs)}")
     lines.append(f"Shape-only directories (read for structure, never quote a value): {json.dumps(a['shape_only_dirs'])}")
