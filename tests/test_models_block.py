@@ -260,7 +260,7 @@ class ArchitectPass(ArchitectHarness):
 
 
 class SeatsExpectTheRolesModel(SeatsBase, unittest.TestCase):
-    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "models": {"runner": "opus", "architect": "sonnet", "estimator": "haiku"}}
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "models": {"runner": "opus", "reviewer": "sonnet"}}
 
     def test_the_runner_row_expects_the_products_runner_model(self):
         row = self.rows(self.build())["runner"]
@@ -270,9 +270,9 @@ class SeatsExpectTheRolesModel(SeatsBase, unittest.TestCase):
         self.ccp("tasks", "claim", "0002")
         code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", "a" * 40)
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(body["agent_call"].get("model"), None)  # the default reviewer is the definition's
+        self.assertEqual(body["agent_call"]["model"], "sonnet")
         row = self.rows(self.build())["reviewer 0002-second/review"]
-        self.assertEqual(row["expected"]["model"], OPUS_ID)
+        self.assertEqual(row["expected"]["model"], "sonnet")
 
 
 class RunnerSpawn(TeamCase):
