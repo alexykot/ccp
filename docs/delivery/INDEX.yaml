@@ -852,3 +852,108 @@ tasks:
     title: The forecast keeps apart the tasks claim rule 3 keeps apart, through the pairwise co-scheduling predicate
     depends_on: [0164-clashes-with-and-schedule]
     path: tasks/0170-forecast-models-co-scheduling.md
+  - id: 0171-affected-says-run-the-full-lane
+    status: pending
+    title: ccp suite affected says to run the full lane when a change reaches most of the suite, and the worker templates stop restating the pre-gate
+    depends_on: []
+    path: tasks/0171-affected-says-run-the-full-lane.md
+  - id: 0172-fixtures-name-their-config
+    status: pending
+    title: The shared test fixtures name the configuration they rely on
+    depends_on: []
+    path: tasks/0172-fixtures-name-their-config.md
+  - id: 0173-plane-json-block-registry
+    status: pending
+    title: One registry of plane.json blocks and their defaults, and one test that holds the schema to it
+    depends_on: []
+    path: tasks/0173-plane-json-block-registry.md
+  - id: 0174-config-readers-go-through-ccp
+    status: pending
+    title: Hooks and scripts read plane.json through ccp's loaded configuration, never raw with their own defaults
+    depends_on: []
+    path: tasks/0174-config-readers-go-through-ccp.md
+  - id: 0175-one-binding-reader
+    status: pending
+    title: One module resolves and parses a product's binding, and the binding schema is readable
+    depends_on: []
+    path: tasks/0175-one-binding-reader.md
+  - id: 0176-language-pack-owns-test-facts
+    status: pending
+    title: The language pack owns its test-output patterns, its affected reader and its test command
+    depends_on: []
+    path: tasks/0176-language-pack-owns-test-facts.md
+  - id: 0177-architect-on-and-adoption-point
+    status: pending
+    title: One test for "the architect is on" and one accessor for its adoption point
+    depends_on: []
+    path: tasks/0177-architect-on-and-adoption-point.md
+  - id: 0178-role-model-table
+    status: pending
+    title: One table of each role's default model, which the launchers and the seat checks read
+    depends_on: []
+    path: tasks/0178-role-model-table.md
+  - id: 0179-one-account-accessor
+    status: pending
+    title: One accessor reads the account's allowance command, weekly stop, windows and session knobs
+    depends_on: []
+    path: tasks/0179-one-account-accessor.md
+  - id: 0180-parallel-by-default
+    status: pending
+    title: A product with no parallel block runs three tasks at once, scheduled by clashes
+    depends_on: [0172-fixtures-name-their-config, 0173-plane-json-block-registry, 0174-config-readers-go-through-ccp]
+    path: tasks/0180-parallel-by-default.md
+  - id: 0181-models-block-and-role-defaults
+    status: pending
+    title: Every role has a default model, the reviewer runs on Opus, and one models block overrides any role
+    depends_on: [0173-plane-json-block-registry, 0178-role-model-table]
+    path: tasks/0181-models-block-and-role-defaults.md
+  - id: 0182-language-is-a-required-key
+    status: pending
+    title: The product's language is a required top-level key that the doc checks, the test-output reading and affected follow
+    depends_on: [0172-fixtures-name-their-config, 0173-plane-json-block-registry, 0176-language-pack-owns-test-facts]
+    path: tasks/0182-language-is-a-required-key.md
+  - id: 0183-gate-lane-is-required
+    status: pending
+    title: A product must name a gate lane, and claim and next say so when it has none
+    depends_on: [0172-fixtures-name-their-config, 0182-language-is-a-required-key]
+    path: tasks/0183-gate-lane-is-required.md
+  - id: 0184-init-turns-telemetry-on
+    status: pending
+    title: ccp init tags the product's telemetry and, with the operator's consent once per machine, turns telemetry on
+    depends_on: [0175-one-binding-reader, 0181-models-block-and-role-defaults]
+    path: tasks/0184-init-turns-telemetry-on.md
+  - id: 0185-architect-on-by-default
+    status: pending
+    title: The architect runs without a block, from the product's adoption point, and only "architect": false turns it off
+    depends_on: [0172-fixtures-name-their-config, 0173-plane-json-block-registry, 0174-config-readers-go-through-ccp, 0177-architect-on-and-adoption-point, 0182-language-is-a-required-key]
+    path: tasks/0185-architect-on-by-default.md
+  - id: 0186-account-facts-on-the-machine
+    status: pending
+    title: The allowance command and the weekly stop live in the machine file, the weekly stop defaults to 90%, and an unread allowance is said out loud
+    depends_on: [0173-plane-json-block-registry, 0175-one-binding-reader, 0179-one-account-accessor, 0184-init-turns-telemetry-on]
+    path: tasks/0186-account-facts-on-the-machine.md
+  - id: 0187-short-plane-json
+    status: pending
+    title: plane.json keeps only what a product decides; removed keys warn, merged keys move, tuning values are constants, and the upgrade status lists each
+    depends_on: [0172-fixtures-name-their-config, 0173-plane-json-block-registry, 0181-models-block-and-role-defaults, 0182-language-is-a-required-key]
+    path: tasks/0187-short-plane-json.md
+  - id: 0188-short-binding
+    status: pending
+    title: The binding holds only where the product and its queue are, its integration branch, its CI and notes
+    depends_on: [0175-one-binding-reader, 0182-language-is-a-required-key]
+    path: tasks/0188-short-binding.md
+  - id: 0189-spec-states-behaviour
+    status: pending
+    title: The SPEC states behaviour, not default numbers, and names no constant as a setting, in one text the operator signs once
+    depends_on: [0171-affected-says-run-the-full-lane, 0173-plane-json-block-registry, 0180-parallel-by-default, 0181-models-block-and-role-defaults, 0182-language-is-a-required-key, 0183-gate-lane-is-required, 0184-init-turns-telemetry-on, 0185-architect-on-by-default, 0186-account-facts-on-the-machine, 0187-short-plane-json, 0188-short-binding]
+    path: tasks/0189-spec-states-behaviour.md
+  - id: 0190-the-plane-takes-its-own-upgrade-steps
+    status: pending
+    title: The plane's own plane.json takes the ADR-0043 upgrade steps before their grace ends
+    depends_on: [0181-models-block-and-role-defaults, 0182-language-is-a-required-key, 0183-gate-lane-is-required, 0185-architect-on-by-default, 0186-account-facts-on-the-machine, 0187-short-plane-json]
+    path: tasks/0190-the-plane-takes-its-own-upgrade-steps.md
+  - id: 0191-the-grace-release-ends
+    status: pending
+    title: ADR-0043's grace release ends: the language and the gate lane are enforced, and old key places are no longer read
+    depends_on: [0181-models-block-and-role-defaults, 0182-language-is-a-required-key, 0183-gate-lane-is-required, 0186-account-facts-on-the-machine, 0187-short-plane-json, 0188-short-binding, 0190-the-plane-takes-its-own-upgrade-steps]
+    path: tasks/0191-the-grace-release-ends.md
