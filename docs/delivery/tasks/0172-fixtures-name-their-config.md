@@ -1,7 +1,7 @@
 ---
 task_id: 0172-fixtures-name-their-config
 title: The shared test fixtures name the configuration they rely on
-status: pending
+status: done
 kind: refactor
 depends_on: []
 spec_refs: ["S8"]
@@ -108,3 +108,5 @@ tests, not a break in dozens of modules. Nothing the plane does changes.
 - No test needed `bare=True` because of the base's `parallel` block.
 
 ## Verification notes
+- 2026-11-19 — verifier, PR #197 head `df1c917` (close's catch-up of the approved `91327e1`, gate run st-20261119T191416Z-d9d1fc) (squash `000024c`): APPROVE. Passed: fix-01, fix-02, fix-03. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -q tests.test_toolkit tests.test_wt tests.test_wt_outside tests.test_behind_tip_catch_up tests.test_parallel_claims tests.test_suite` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0172-fixtures-name-their-config.json.
+
