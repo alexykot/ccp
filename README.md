@@ -4,18 +4,18 @@ A delivery control plane for software products built by a **Claude Code agent te
 feature from its definition to a reviewed, verified, merged change, and aims to take it on to
 production, with a developer overseeing the work rather than supervising each step.
 
-> **Status: alpha.** CCP is built and run daily by one operator, on its own development and on a
-> few products. Formats, commands and the SPEC still change between releases, and it depends on
+> **Status: alpha.** CCP is built and run daily by one operator, on its own development and on
+> other products. Formats, commands and the SPEC still change between releases, and it depends on
 > Claude Code's experimental agent teams. Expect rough edges outside that setup. Open work is in
 > [docs/ROADMAP.md](docs/ROADMAP.md).
 
-## What CCP aims to be
+## Aims and status
 
 **An L4.5 delivery system: autonomous from feature definition to production, with oversight.**
 On Dan Shapiro's [five levels](https://www.danshapiro.com/blog/2026/01/the-five-levels-from-spicy-autocomplete-to-the-software-factory/)
 of AI-assisted development, at L3 a human reviews every diff, at L4 a human writes the specs and
 checks the outcome, and at L5 (the "dark factory") no human takes part. CCP aims between L4 and L5.
-A developer stays in the loop, and their job is to:
+A developer (the operator) stays in the loop, and their job is to:
 
 - set the direction and the product's intent;
 - turn business requirements into ADRs, working with the design seat;
@@ -37,23 +37,22 @@ default. The developer is the escalation point, not the reviewer of each change.
 
 ### What works
 
-- **Feature to merge.** ADRs become tasks with dependencies, declared paths and `dod_checks` that a
-  dry run shows fail without the change. Runners take each task through claim, implementation, pull
-  request, review and fix rounds, then an independent verification at the PR's head, a merge pinned
-  to the verified commit, and close.
+- **Feature to merge.** ADRs become tasks with dependencies, declared paths and `dod_checks`
+  written to fail without the change (a product can require a recorded dry run for each,
+  `task_log.dry_run`). Runners take each task through review and fix rounds, an independent
+  verification at the PR's head and a merge pinned to the verified commit (see
+  [How it works](#how-it-works)).
 - **Separation of duties.** The implementer, reviewer and verifier are fresh agents with their own
   contexts. A verdict records which seat produced each piece of evidence, and the seat that rules
   never produces the evidence it rules on.
-- **Escalation.** The design seat settles spec questions and small decisions. What it can't settle
-  goes to the operator as a recorded gate with options and a recommendation.
 - **Parallel runners**, up to four, scheduled by declared paths or declared clashes.
 - **Structural upkeep.** A scheduled architect pass reviews the codebase and the house rules, and
   refactor capacity is reserved.
 - **Planning and telemetry.** Estimates are checked against actuals, a forecast is built from them,
-  and a local telemetry receiver records numbers and ids only. Work parks before a usage-window limit
+  and a local telemetry receiver records numbers and ids only. Work parks before a session-window limit
   and resumes after it.
 - **Several products per operator**, each with its own binding and queue.
-- **Self-hosting.** CCP's own development runs through its own task log.
+- **Self-hosting.** CCP's own development is recorded in its own task log, ADRs and checks.
 
 ### What is not there yet
 
@@ -62,16 +61,18 @@ default. The developer is the escalation point, not the reviewer of each change.
   goal; it needs a SPEC change and a design for release and rollback hooks.
 - **PR hosts other than GitHub.** Every task lands as a GitHub pull request through `gh`. The PR
   host as an adapter is accepted
-  ([ADR-0040](docs/adr/0040-the-pr-host-is-an-adapter.md)) but not built.
+  ([ADR-0040](docs/adr/0040-the-pr-host-is-an-adapter.md)), but its adapters are not built yet.
 - **A threat model and isolation.** No threat model is written yet. The destructive-command deny
   list is a guard against accidents, not a security boundary (see [Permissions](#permissions)).
-- **Scale.** At most four runners, and each PR merges on its own; there is no batching merge queue.
+- **A batching merge queue.** Each PR merges on its own, so many runners with a slow gate spend
+  their time catching up with the integration branch.
 - **Multi-user.** One operator and a file-backed queue; a hosted store and dashboard are on the
   roadmap.
 - **Platforms.** The optional telemetry and board services install as launchd agents, so they run on
-  macOS only; `ccp` itself needs only Python, git and `gh`.
-- **Published outcome metrics,** such as first-pass approval rate, estimate accuracy and cost per
-  task.
+  macOS only. `ccp` itself is plain Python, git and `gh`, but it is run and tested only on
+  macOS.
+- **Published figures from CCP's own runs,** such as first-pass approval rate, estimate accuracy
+  and cost per task: the plane computes them, but none are public yet.
 
 ## Overview
 
