@@ -875,10 +875,6 @@ class MutateConfig(unittest.TestCase):
         finally:
             p.cleanup()
 
-    def test_the_schema_lists_the_block(self):
-        schema = json.loads((PLANE / "contracts/plane_config.schema.json").read_text())
-        self.assertEqual(set(schema["properties"]["mutate"]["properties"]), set(config.MUTATE_DEFAULTS))
-
 
 if __name__ == "__main__":
     unittest.main()

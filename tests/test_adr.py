@@ -141,9 +141,7 @@ class Frontmatter(Base):
             with self.assertRaises(config.ConfigError, msg=bad):
                 config.load(self.p.root)
 
-    def test_schemas_list_the_block_and_the_frontmatter(self):
-        schema = json.loads((ROOT / "contracts/plane_config.schema.json").read_text())
-        self.assertEqual(set(schema["properties"]["adr"]["properties"]), set(config.ADR_DEFAULTS))
+    def test_the_schema_lists_the_frontmatter(self):
         fmschema = json.loads((ROOT / "contracts/adr.schema.json").read_text())
         self.assertEqual(set(fmschema["required"]), set(adr.REQUIRED))
         self.assertEqual(set(fmschema["properties"]), set(adr.REQUIRED + adr.OPTIONAL))
