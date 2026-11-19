@@ -12,6 +12,7 @@ notes: |-
   Removed keys and new required steps reach products through ADR-0041's upgrade steps. Tasks follow
   the architect's shape.
   2026-11-19: status proposed → accepted: Accepted by the operator 2026-11-19: "accept ADR-0043"
+  Operator 2026-11-19: the language is a top-level `language` key; package-doc checks follow it, `none` turns them off (shape F03)
 decisions:
   - "D1 not_built"
   - "D2 not_built"

@@ -45,20 +45,31 @@ run through `docs.checks` and the gate (`scripts/gate.sh`) rather than `architec
   renamed value stays as a deprecated alias in code and schema until the managed products have
   rewritten their data; then the alias is removed (the role's old names went this way, task 0025).
   check: pass
-- **E12** One source per enumerated concept: a list of values (round phases, event types, a
-  plane.json block's keys and defaults) is defined once in code. Other code derives from it, and a
-  test holds each schema enum or default to it.
-  check: pass — the architect looks for literal copies; a test per schema compares its enum or
-  defaults with the code constant
+- **E12** One source per enumerated concept: a list of values (round phases, event types,
+  plane.json's blocks, their keys and defaults, the roles and their default models) is defined once in
+  code. Other code derives from it; one test compares every plane.json block's keys and defaults with
+  contracts/plane_config.schema.json, and the agent definitions' models with the role table.
+  check: command — the generic schema-defaults test in the gate (`ccp suite run --lane gate`)
 - **E14** Git merge analysis (merge-tree, patch-id, remerge-diff) goes through one helper module; no
   other module calls those git subcommands.
   check: command — `git grep -n "merge-tree\|patch-id\|remerge-diff" -- ccp` lists only the helper
   module
+- **E16** Only ccp/config.py reads plane.json. A hook or script that needs a setting asks `ccp` (JSON
+  out) or imports ccp.config; it never reads the file and defaults a key itself.
+  check: command — `! git grep -nE 'plane\.json"\)\.read_text' -- plugin scripts` (docs.checks
+  `config-reader`)
+- **E17** One module resolves and parses a product's binding; every other reader calls it.
+  check: pass — the architect looks for binding regexes outside that module
+- **E18** A language's facts (its doc conventions, test-output patterns, test command and import
+  reading) live in its language pack (ccp/doclang). Core code names no language and no test runner.
+  check: command — `! git grep -n unittest -- ccp ':(exclude)ccp/doclang'` (docs.checks
+  `language-pack`), once the pack owns the patterns
 
 ## Docs
 
-- **E10** The SPEC is normative and current: a rule, its knob and its default. Rationale lives in
-  ADRs (docs/adr), history in Git. A § rule change needs the operator's approval (SPEC §31).
+- **E10** The SPEC is normative and current: a rule and its knob, stated as behaviour. A default's
+  value lives in code and the schema (E12), not in SPEC text. Rationale lives in ADRs (docs/adr),
+  history in Git. A § rule change needs the operator's approval (SPEC §31).
   check: pass
 - **E11** Durable knowledge from a change lands in the SPEC, the docs or an ADR in the same PR.
   check: pass
