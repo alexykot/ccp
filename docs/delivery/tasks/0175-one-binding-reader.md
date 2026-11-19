@@ -99,4 +99,28 @@ written on several lines so its diff can be read. Nothing the plane does changes
 
 *Append-only, newest last.*
 
+- Premises re-run at `052f9b3`: step 1 printed the 10 lines and step 2 the 6 lines the Context lists;
+  `contracts/project.schema.json` was 1 line, 6858 bytes. No figure changed.
+- `scripts/observability/lib.py` gained `read_binding` (the `upgrade.binding_keys` parser, moved; a
+  scalar's surrounding quotes are dropped, as every regex reader did), `binding_str(data, *path)` (the
+  scalar at a path, or None for a gap or a block), `binding_data(queue)` (`binding_path` then
+  `read_binding`), `binding_runner_name(queue)` (default `runner`) and `product_binding(project_id, roots)`.
+  `binding_path` keeps its three rules; it reads each candidate's `queue_root` through `read_binding`.
+  `_yaml_block_scalars` is `read_binding` too: the strings directly under the block.
+- `cli.binding_file` and `cli.binding_queue_root` are now `cli.product_binding(cfg)` (the id check and the
+  checkout roots, then `lib.product_binding`) and `cli.product_queue_root(cfg)`: bind-01 forbids the old
+  names outside `lib.py`. `queue.binding_scalar`, `queue.binding_runner_name` and `queue.binding_text`
+  went; callers use `lib.binding_str(lib.binding_data(q), ...)`. The `spec_maintainer.py` function that
+  asks `bin/ccp where` for the queue (no parsing) is renamed `where_queue_root` for the same reason.
+- Two readers the task did not list went through the parser too, being binding regexes in the same
+  modules: `queue._sanctioned_scripts` (`auth_check.script`) and `verify._ci` (`ci`).
+- Left alone, outside the task's paths: `plugin/hooks/runner-idle.sh` (a block parser of its own, a
+  plugin hook) and `scripts/run-checkout.sh` (shell `sed` for top-level scalars).
+- A value is now read whole: `spec_maintainer.product_root` and `project_id` took the first word before,
+  `otel` and `usage` cut at any `#` and now cut at ` #` (`ccp init` refuses a `#` in the paths it writes).
+- `tests/test_suite.py` patches `ccp.cli.product_queue_root`, `tests/test_init.py` calls
+  `lib.binding_runner_name`: renames only. `tests/test_board_seats.py` gained one test (the runner row
+  reads the binding's `runner` block).
+- `contracts/project.schema.json`: `json.dumps(indent=2)` of the same object, 305 lines.
+
 ## Verification notes
