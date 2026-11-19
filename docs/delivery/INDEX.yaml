@@ -903,7 +903,7 @@ tasks:
     depends_on: [0172-fixtures-name-their-config, 0173-plane-json-block-registry, 0174-config-readers-go-through-ccp]
     path: tasks/0180-parallel-by-default.md
   - id: 0181-models-block-and-role-defaults
-    status: pending
+    status: done
     title: Every role has a default model, the reviewer runs on Opus, and one models block overrides any role
     depends_on: [0173-plane-json-block-registry, 0178-role-model-table]
     path: tasks/0181-models-block-and-role-defaults.md
@@ -962,3 +962,13 @@ tasks:
     title: Tuning keys in plane.json become constants, and four defaults change so a product works without setting them
     depends_on: [0181-models-block-and-role-defaults, 0185-architect-on-by-default, 0187-short-plane-json]
     path: tasks/0192-plane-json-constants-and-defaults.md
+  - id: 0193-leak-check-finds-its-denylist
+    status: pending
+    title: The leak check finds the installation's denylist when CCP_LEAK_DENYLIST is unset, so the gate checks for real
+    depends_on: [0175-one-binding-reader]
+    path: tasks/0193-leak-check-finds-its-denylist.md
+  - id: 0194-shell-binding-readers-use-the-one-parser
+    status: pending
+    title: The runner's idle hook and run-checkout.sh read the binding through the one binding module
+    depends_on: [0175-one-binding-reader, 0188-short-binding]
+    path: tasks/0194-shell-binding-readers-use-the-one-parser.md

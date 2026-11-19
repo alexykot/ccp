@@ -334,6 +334,26 @@ def no_rp_detail(rp: str | None, detail: str = "") -> dict[str, str]:
     return {"detail": detail} if detail else {}
 
 
+def model_arg(root: Path, rc: dict[str, str]) -> dict[str, str]:
+    """SPEC §2.4: `{"model": <alias>}` for the runner's spawn when plane.json sets `models.runner` and it is not
+    the definition's model, so the Agent call carries it, as `ccp prompt` prints a worker's; `{}` otherwise (or
+    when plane.json does not load)."""
+    prod = sm.product_root(root)
+    if not prod or not (Path(prod) / "docs" / "delivery" / "plane.json").is_file():
+        return {}
+    if str(HERE.parents[1]) not in sys.path:
+        sys.path.insert(0, str(HERE.parents[1]))
+    from ccp import config as ccp_config, models, runs  # noqa: PLC0415
+    try:
+        cfg = ccp_config.load(Path(prod))
+    except Exception:  # noqa: BLE001  (the spawn goes on without it; the product's own commands report the load)
+        return {}
+    if "runner" not in cfg.models_given:  # the binding's agent type may be the product's own: its model stands
+        return {}
+    alias = models.model_for(cfg, "runner")
+    return {"model": alias} if models.pin(alias, runs.expected(cfg, rc["agent_type"].split(":", 1)[-1])[0]) == alias else {}
+
+
 def keep_body(root: Path) -> list[str]:
     """SPEC §23.8: `--keep-body` for `write-prompt-audit.sh` when the product's plane.json sets
     `prompts.keep_body`, as `ccp prompt` passes it; nothing when it is off, absent or unreadable."""
@@ -590,7 +610,7 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
             return dry_run_out(readiness(root, rc, scope, single=False), {
                 "slots": new, "scope": scope, "review_point": rp, "refactors_added": added,
                 **({"warnings": rp_warnings} if rp_warnings else {}),
-                "actions": [{"action": "spawn_teammate", "name": slot, "subagent_type": rc["agent_type"],
+                "actions": [{"action": "spawn_teammate", "name": slot, "subagent_type": rc["agent_type"], **model_arg(root, rc),
                              "prompt": prompts[slot], **no_rp_detail(rp)} for slot in new]})
         actions = []
         for slot in new:
@@ -610,9 +630,9 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
             slots[slot] = {"bound_name": slot, "spawned_at": fmt_dt(utcnow()), "tasks_done": 0,
                            "bind_pending": bool(was.get("rotated_at")), "rotated_at": None,
                            "worktree": was.get("worktree") or (f"{base}-{slot}" if base else None)}
-            actions.append({"action": "spawn_teammate", "name": slot, "subagent_type": rc["agent_type"], "prompt": prompt,
-                            **no_rp_detail(rp, "Spawn it now with the Agent tool: exactly this name, agent type and "
-                                               "prompt. Then `team.sh runner bind --name <the name the Agent result "
+            actions.append({"action": "spawn_teammate", "name": slot, "subagent_type": rc["agent_type"], **model_arg(root, rc), "prompt": prompt,
+                            **no_rp_detail(rp, "Spawn it now with the Agent tool: exactly this name, agent type, prompt "
+                                               "and model, when the action carries one. Then `team.sh runner bind --name <the name the Agent result "
                                                f"gave> --as {slot}`, whatever the name.")})
         save_work(root, {"status": "running", "scope": scope, "review_point": rp,
                          "review_point_refactors": rp_refactors, "runners": slots})
@@ -732,7 +752,7 @@ def cmd_runner(args: argparse.Namespace) -> int:
                 **({"warnings": rp_warnings} if rp_warnings else {}),
                 **({"would_stop": old} if old else {}),
                 "actions": ([{"action": "shutdown_teammate", "name": old}] if old else []) + [
-                    {"action": "spawn_teammate", "name": rc["name"], "subagent_type": rc["agent_type"],
+                    {"action": "spawn_teammate", "name": rc["name"], "subagent_type": rc["agent_type"], **model_arg(root, rc),
                      "prompt": spawn_prompt(root, scope, rp, added), **no_rp_detail(rp)}]})
         made = single_runner_worktree(root, rc)  # after the refusals, before the runtime writes
         prompt = spawn_prompt(root, scope, rp, added)
@@ -752,7 +772,8 @@ def cmd_runner(args: argparse.Namespace) -> int:
         save_work(root, {"status": "running", "scope": scope, "review_point": rp,
                          "review_point_refactors": rp_refactors, "runner_bind_pending": pending,
                          "runner": rc["name"], "runner_spawned_at": fmt_dt(utcnow()), "runner_tasks_done": 0})
-        detail = ("Spawn it now with the Agent tool: exactly this name, agent type and prompt. If the Agent result "
+        detail = ("Spawn it now with the Agent tool: exactly this name, agent type, prompt and model, when the "
+                  "action carries one. If the Agent result "
                   f"names the teammate otherwise (such as `{rc['name']}-2`, while the old one holds the name), run "
                   "`team.sh runner bind --name <that name>` at once, so the hook and the workers' prompts follow it.")
         if pending:
@@ -779,7 +800,7 @@ def cmd_runner(args: argparse.Namespace) -> int:
                     **({"runner_worktree": made} if made else {}),
                     **({"stopped": old} if old else {}),
                     "actions": stop + [{"action": "spawn_teammate", "name": rc["name"],
-                                        "subagent_type": rc["agent_type"], "prompt": prompt, "detail": detail}]})
+                                        "subagent_type": rc["agent_type"], **model_arg(root, rc), "prompt": prompt, "detail": detail}]})
 
     if args.op == "bind":
         name = (args.name or "").strip()

@@ -512,7 +512,7 @@ def cmd_run(cfg: Config, q: Path, a: argparse.Namespace, actor: str) -> int:
         argv = ["env"]
         for k in sm.STRIP_KEYS:
             argv += ["-u", k]
-        argv += [os.environ.get("DA_CLAUDE_BIN") or "claude", "-p", prompt, *ar.HEADLESS_MODEL, *ar.plugin_args(cfg.root),
+        argv += [os.environ.get("DA_CLAUDE_BIN") or "claude", "-p", prompt, *ar.headless_flags(cfg), *ar.plugin_args(cfg.root),
                  "--output-format", "json", "--allowedTools", ",".join(tools), "--disallowedTools", ",".join(deny)]
         audit = subprocess.run(
             ["bash", str(OBS / "write-prompt-audit.sh"), "--task-id", ARCH.audit_task, "--phase", f"architect-{mode}",

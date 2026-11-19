@@ -88,32 +88,30 @@ tasks.
 
 ### 2.4 Models, effort and tools
 
-Each seat's model and effort is fixed in its agent definition (or launch flags) and never depends on
-the lead session's settings, except the implementer's model, which plane.json
-`workers.implementer_model` may set per task: `{"small": <alias>, "refactor": <alias>}`, an alias
-being one the Agent call's `model` accepts (`sonnet`, `opus`, `haiku`, `fable`), where `small` is a
-task whose estimate is at most `workers.small_estimate_minutes` (default 30) and `refactor` a task of
-that kind; unset (the default) leaves the definition's model. `ccp prompt implement` prints the alias
-in its Agent call, and the runner passes it as given; with the knob set and no estimate for the task,
-it warns that the `small` arm cannot apply:
+Every role has a default model, set by the plane, and its effort is fixed in its agent definition (or
+launch flags); neither depends on the lead session's settings. A product may override any role's model in
+plane.json `models` (`lead`, `runner`, `implementer`, `implementer_small`, `implementer_refactor`,
+`reviewer`, `verifier`, `architect`, `estimator`), each an alias the Agent call's `model` accepts (`sonnet`,
+`opus`, `haiku`, `fable`). The implementer's model is chosen per task: `implementer_small` for a task whose
+estimate is at most `workers.small_estimate_minutes`, `implementer_refactor` for a task of that kind, else
+`implementer`; its fix, merge and ruling rounds take the same model. Without an estimate the small choice
+cannot apply, and `ccp prompt implement` warns. The defaults:
 
-| Seat | Model | Effort |
+| Role | Model | Effort |
 |---|---|---|
-| Design seat (lead) | the operator's choice (the plane advises; it cannot set it) | the operator's choice |
-| Runner | `claude-sonnet-5-5` | `high` |
-| Implementer | `claude-opus-5-5` | `high` |
-| Reviewer | `claude-sonnet-5-5` | `high` |
-| Verifier | `claude-sonnet-5-5` | `high` |
-| Architect | `claude-opus-5-5` | `high` (`--model`, `--effort`) |
+| Design seat (lead) | Opus: `ccp init` writes it into the product's `.claude/settings.json` when no `model` is set there, and never overwrites one | the operator's choice |
+| Runner | Sonnet | `high` |
+| Implementer (and its fix, merge and ruling rounds) | Opus; Sonnet for a small task or a refactor | `high` |
+| Reviewer | Opus | `high` |
+| Verifier | Sonnet | `high` |
+| Architect | Opus | `high` (`--model`, `--effort`) |
+| Estimator | Sonnet | `medium` (`--model`, `--effort`) |
 
 - Models in agent definitions are **full ids**, never aliases: with an alias (`opus`, `sonnet`) or
   `inherit`, a subagent of the lead's model family runs on the lead's exact model, including its
   `[1m]` suffix. Moving to a newer model is a deliberate change of the definitions.
-  `workers.implementer_model` alone takes aliases, because the Agent call's `model` accepts nothing
-  else.
-- The runner launches each worker by its agent type and **never passes `model`** in the Agent call,
-  except the alias `ccp prompt implement` prints from `workers.implementer_model`: a call's `model`
-  overrides the definition.
+  `models` takes aliases, because the Agent call's `model` accepts nothing else; a definition's full id is its role's default model, which a test holds to the plane's role table.
+- The runner launches each worker by its agent type and passes `model` in the Agent call only when `ccp prompt` prints an alias for that round: when the role's model for the task (§2.4 `models`, or its default) is not the definition's. A call's `model` overrides the definition. The runner's own spawn carries an alias the same way.
 - Every seat's effort is fixed in its own definition, the runner's included; none is inherited from
   the design seat.
 - Each worker definition names its tools (`tools:`, an allowlist that replaces the default set):

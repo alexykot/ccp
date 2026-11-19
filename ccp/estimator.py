@@ -3,8 +3,8 @@
   ccp tasks estimate ID [--force] [--dry-run] [--print-prompt]   one agent estimate
   ccp tasks estimate --all [--max N] [--dry-run] [--detach]       every open task without a current one
 
-A headless `claude -p` on Sonnet at medium effort (`HEADLESS_MODEL`), pinned here like the
-architect's, with **no tools** (`--tools ""`): everything it needs is rendered into the prompt
+A headless `claude -p` on Sonnet at medium effort by default (`HEADLESS_MODEL`; `models.estimator`
+overrides it), like the architect's, with **no tools** (`--tools ""`): everything it needs is rendered into the prompt
 (`templates/prompts/estimate.md`), so a call is one model turn, cheap, and cannot read or write
 anything. It runs in an empty temporary directory under `--safe-mode --setting-sources local`
 (`ISOLATION`), so no CLAUDE.md, memory, settings file, hook, plugin or MCP server, the user's or a
@@ -50,8 +50,8 @@ from ccp.config import Config
 from ccp.queue import PLANE, append_jsonl, iso, read_json
 
 SEAT = "estimator"
-# Pinned like architecture_review.HEADLESS_MODEL, from the role table (`models.ROLES`; operator, 2026-10-22:
-# "Sonnet headless at medium effort").
+# The plane's default, like architecture_review.HEADLESS_MODEL, from the role table (`models.ROLES`; operator,
+# 2026-10-22: "Sonnet headless at medium effort"); a product's `models.estimator` overrides it.
 HEADLESS_MODEL = models.headless_flags("estimator")
 NO_TOOLS = ["--tools", ""]
 # No user customisation reaches the seat: --safe-mode turns off CLAUDE.md (user and project), auto-memory,
@@ -92,8 +92,10 @@ REASONING_MAX, REASON_MAX = 600, 200
 
 # ------------------------------------------------------------------------------------ pins
 
-def pins() -> dict[str, Any]:
-    pick = lambda k: HEADLESS_MODEL[HEADLESS_MODEL.index(k) + 1]  # noqa: E731
+def pins(cfg: Config | None = None) -> dict[str, Any]:
+    """The seat's model and effort: the product's (`models.estimator`, with `cfg`), else the plane's default."""
+    flags = models.headless_flags(SEAT, cfg)
+    pick = lambda k: flags[flags.index(k) + 1]  # noqa: E731
     return {"model": pick("--model"), "effort": pick("--effort"),
             "source": "ccp/estimator.py HEADLESS_MODEL (claude -p flags)"}
 
@@ -393,7 +395,7 @@ def to_row(tid: str, version: int, thash: str, feats: dict[str, Any], b: dict[st
     """The `agent` row: the estimate row's shape (seconds, like the baseline), plus the profile."""
     named = list(dict.fromkeys(m for x in ans["reference_tasks"] if (m := _match(x, offered))))
     now = iso()
-    p = pins()
+    p = pins(cfg)
     return {"at": now, "as_of": now, "task_id": tid, "source": "agent", "version": version, "task_hash": thash,
             "inputs": {"features": feats, "novelty": b["novelty"], "reference_tasks": named,
                        "reference_tasks_tokens": [], "offered": offered, "deps_done": deps_done,
@@ -423,12 +425,12 @@ def _sm():
     return architect.sm, architect.ar
 
 
-def argv_for(prompt: str) -> list[str]:
+def argv_for(prompt: str, cfg: Config | None = None) -> list[str]:
     sm, _ = _sm()
     argv = ["env"]
     for k in sm.STRIP_KEYS:
         argv += ["-u", k]
-    return argv + [envvar("CCP_ESTIMATOR_CLAUDE_BIN") or "claude", "-p", prompt, *HEADLESS_MODEL, *NO_TOOLS,
+    return argv + [envvar("CCP_ESTIMATOR_CLAUDE_BIN") or "claude", "-p", prompt, *models.headless_flags(SEAT, cfg), *NO_TOOLS,
                    *ISOLATION, "--strict-mcp-config", "--no-session-persistence", "--max-budget-usd", MAX_BUDGET_USD,
                    "--output-format", "json"]
 
@@ -461,7 +463,7 @@ def call(cfg: Config, q: Path, prompt: str, run_id: str, tid: str, actor: str = 
     """One headless call: (the parsed `--output-format json` result, stderr, exit code). The tests
     replace this function; nothing else here starts a process that costs money."""
     sm, _ = _sm()
-    argv = argv_for(prompt)
+    argv = argv_for(prompt, cfg)
     audit = subprocess.run(
         ["bash", str(PLANE / "scripts" / "observability" / "write-prompt-audit.sh"), "--task-id", SEAT, "--phase", "estimate",
          "--prompt-file", "-", "--argv", json.dumps(argv[:argv.index("-p") + 1] + ["<prompt>"] + argv[argv.index("-p") + 2:]),
@@ -814,7 +816,7 @@ def calls(q: Path) -> list[dict[str, Any]]:
         return []
 
 
-def spend(q: Path, days: int = 7) -> dict[str, Any]:
+def spend(q: Path, days: int = 7, cfg: Config | None = None) -> dict[str, Any]:
     """The seat's calls and cost (the board's Estimation card), from `estimator/calls.jsonl`."""
     cs = calls(q)
     cut = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -825,7 +827,7 @@ def spend(q: Path, days: int = 7) -> dict[str, Any]:
     return {"calls": len(cs), "cost_usd": cost(cs), f"cost_usd_{days}d": cost(recent), "calls_7d": len(recent),
             "estimates": len(tasks_ok), "failed": len(tasks_all - tasks_ok),
             "per_estimate_usd": round(cost(cs) / len(tasks_ok), 3) if tasks_ok else None,
-            "last_at": max((str(x.get("at")) for x in cs), default=None), "pins": pins()}
+            "last_at": max((str(x.get("at")) for x in cs), default=None), "pins": pins(cfg)}
 
 
 def run_text(body: dict[str, Any]) -> str:

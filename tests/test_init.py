@@ -73,7 +73,7 @@ class Adopt(InitCase):
                          {"project_id": "demo", "worktrees": {"dir": ".plane-runtime"}})
         self.assertIn(".plane-runtime/", (self.repo / ".gitignore").read_text().splitlines())
         settings = json.loads((self.repo / ".claude/settings.json").read_text())
-        self.assertEqual(settings, {**ccp_init.ANCHOR, "subagentPromptCacheTtl": "1h", "autoCompactWindow": 350000})
+        self.assertEqual(settings, {**ccp_init.ANCHOR, "subagentPromptCacheTtl": "1h", "autoCompactWindow": 350000, "model": "opus"})
         self.assertTrue(settings["enabledPlugins"]["ccp@ccp"])
         self.assertIn("ccp", settings["extraKnownMarketplaces"])
         self.assertEqual(settings["env"]["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"], "1")
@@ -255,7 +255,7 @@ class NoClobber(InitCase):
                 "other": {"source": {"source": "github", "repo": "x/y"}}}
         text = json.dumps({"extraKnownMarketplaces": mine, "enabledPlugins": {"ccp@ccp": False, "other@x": True},
                            "env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"},
-                           "subagentPromptCacheTtl": "1h", "autoCompactWindow": 350000}, indent=4)
+                           "subagentPromptCacheTtl": "1h", "autoCompactWindow": 350000, "model": "opus"}, indent=4)
         (self.repo / ".claude/settings.json").write_text(text)
         code, res = self.init("--project-id", "demo")
         self.assertEqual(code, 0, res)

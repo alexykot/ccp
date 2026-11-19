@@ -911,19 +911,36 @@
     "workers": {
       "type": "object",
       "additionalProperties": false,
-      "description": "SPEC §2.4: the implementer's model per task. Off by default: the agent definition's model.",
+      "description": "SPEC §2.4: when a task is small for the implementer's model (`models.implementer_small`).",
       "properties": {
         "implementer_model": {
           "type": ["object", "null"],
           "additionalProperties": false,
           "default": null,
-          "description": "The alias `ccp prompt implement` prints in its Agent call, and the runner passes as given: `small` for a task whose estimate (its latest agent estimate, else its baseline, total P50) is at most small_estimate_minutes, `refactor` for a task of that kind (it wins when both apply). Each an alias the Agent call's model accepts (sonnet, opus, haiku, fable), nothing else, a full id included. Null (the default) leaves the definition's model. With the knob set and no estimate for the task, ccp prompt implement warns that the small arm cannot apply.",
+          "deprecated": true,
+          "description": "DEPRECATED: move `small` and `refactor` to `models.implementer_small` and `models.implementer_refactor`; removed after the grace release. Until then each arm applies where `models` does not set that role, and `ccp prompt implement` warns. The alias `ccp prompt implement` prints in its Agent call, and the runner passes as given: `small` for a task whose estimate (its latest agent estimate, else its baseline, total P50) is at most small_estimate_minutes, `refactor` for a task of that kind (it wins when both apply). Each an alias the Agent call's model accepts (sonnet, opus, haiku, fable), nothing else, a full id included. Null (the default) leaves the definition's model. With the knob set and no estimate for the task, ccp prompt implement warns that the small arm cannot apply.",
           "properties": {
             "small": {"type": "string", "enum": ["sonnet", "opus", "haiku", "fable"]},
             "refactor": {"type": "string", "enum": ["sonnet", "opus", "haiku", "fable"]}
           }
         },
-        "small_estimate_minutes": {"type": "integer", "minimum": 1, "default": 30, "description": "A task whose estimate is at most this many minutes is `small` for implementer_model."}
+        "small_estimate_minutes": {"type": "integer", "minimum": 1, "default": 30, "description": "A task whose estimate is at most this many minutes is small, and takes `models.implementer_small`."}
+      }
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §2.4: each role's model, an alias the Agent call's `model` accepts. A role left out takes the plane's default. The implementer's model is chosen per task: `implementer_refactor` for a task of kind refactor (it wins), `implementer_small` for a task whose estimate is at most `workers.small_estimate_minutes`, else `implementer`; its fix, merge and ruling rounds take the same model. A worker's Agent call carries `model` only when the role's model for the task is not its agent definition's.",
+      "properties": {
+        "lead": {"type": "string", "enum": ["sonnet", "opus", "haiku", "fable"], "default": "opus", "description": "The design seat's model: `ccp init` writes it into the product's .claude/settings.json when no `model` is set there, and never overwrites one."},
+        "runner": {"type": "string", "enum": ["sonnet", "opus", "haiku", "fable"], "default": "sonnet"},
+        "implementer": {"type": "string", "enum": ["sonnet", "opus", "haiku", "fable"], "default": "opus"},
+        "implementer_small": {"type": "string", "enum": ["sonnet", "opus", "haiku", "fable"], "default": "sonnet", "description": "The implementer's model for a task whose estimate is at most `workers.small_estimate_minutes`."},
+        "implementer_refactor": {"type": "string", "enum": ["sonnet", "opus", "haiku", "fable"], "default": "sonnet", "description": "The implementer's model for a task of kind refactor."},
+        "reviewer": {"type": "string", "enum": ["sonnet", "opus", "haiku", "fable"], "default": "opus"},
+        "verifier": {"type": "string", "enum": ["sonnet", "opus", "haiku", "fable"], "default": "sonnet"},
+        "architect": {"type": "string", "enum": ["sonnet", "opus", "haiku", "fable"], "default": "opus"},
+        "estimator": {"type": "string", "enum": ["sonnet", "opus", "haiku", "fable"], "default": "sonnet"}
       }
     },
     "suite": {

@@ -10,14 +10,15 @@ Expected (pinned) values come from the pins in effect: a run's record (what `ccp
 the definition), else the agent definition (`runs.definition`: the product's `.claude/agents` copy
 while it has one, else the plugin's); the binding's runner agent type's definition; the product's
 `telemetry.design_seat` (advisory, §24); the headless reviewers' `--model`/`--effort`
-(`architecture_review.HEADLESS_MODEL`); the estimator's (`estimator.HEADLESS_MODEL`, §26.3).
+(`architecture_review.HEADLESS_MODEL`, the default; `models.architect` overrides it); the estimator's
+(`estimator.HEADLESS_MODEL`, §26.3, the same).
 
 Observed values come from `ccp usage`'s fold (`recent`): the requests attributed to that run or
 seat, less those of sessions the plane launched headless (tagged, or in headless-usage.jsonl) on
 the lead's and the runner's rows. Of its requests in the WINDOW_MINUTES up to its latest one, the model with the most tokens
 (so a helper call on a small model does not hide the main loop), and the effort of the latest
 request on it. Without any request the row says "no telemetry yet", never a guess. A pin that is an
-alias (§2.4 `workers.implementer_model`) matches any full id of its family (`models.matches`).
+alias (§2.4 `models`) matches any full id of its family (`models.matches`).
 
 Read-only: it reads the queue, the binding, the definitions and git refs, and writes nothing.
 """
@@ -78,9 +79,10 @@ def definition_pins(cfg: Config, agent_type: str) -> dict[str, Any]:
             "source": f"{_rel(cfg, f)} ({where})" if f else f"no definition of {agent_type} found"}
 
 
-def headless_pins() -> dict[str, Any]:
+def headless_pins(cfg: Config | None = None) -> dict[str, Any]:
+    """The architect's headless pins: the product's (`models.architect`, with `cfg`), else the plane's default."""
     from ccp import architect  # noqa: PLC0415  (imports the review kit: architecture_review)
-    flags = list(architect.ar.HEADLESS_MODEL)
+    flags = architect.ar.headless_flags(cfg)
     pick = lambda k: flags[flags.index(k) + 1] if k in flags and flags.index(k) + 1 < len(flags) else None  # noqa: E731
     return {"model": pick("--model"), "effort": pick("--effort"),
             "source": "scripts/observability/architecture_review.py HEADLESS_MODEL (claude -p flags)"}
@@ -215,6 +217,9 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
     rb = lib._yaml_block_scalars(lib.project_yaml_text(q), "runner")
     rname = work.get("runner") or rb.get("name") or "runner"  # §10.2: the bound name after a rotation
     rexp = definition_pins(cfg, rb.get("agent_type") or "delivery-runner")
+    # §2.4: the product's `models.runner`, when it sets one, over the model of the runner's definition
+    if "runner" in cfg.models_given and (rmodel := models.pin(models.model_for(cfg, "runner"), rexp["model"])) != rexp["model"]:
+        rexp = {**rexp, "model": rmodel, "source": f"{rexp['source']}, overridden by plane.json models.runner"}
     r_reqs, r_aside = _split(recent["seats"].get("runner"), headless_sids)
     r_obs = observed(r_reqs)
     rstat = str(work.get("status") or "not running")
@@ -263,7 +268,7 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
         rows.append(_row(team, f"{r.get('seat') or 'worker'} {r['run_id']}", "worker", f"{st} · {r.get('phase')}",
                          r.get("started_at") or r.get("opened_at"), exp, obs, _activity(obs, fallback)))
 
-    headless, claimed = _headless(q, team, recent, now)
+    headless, claimed = _headless(cfg, q, team, recent, now)
     rows += headless
 
     # `other-sessions` aggregates every session outside the seats (§24): not one seat, not a row.
@@ -309,7 +314,7 @@ def _lock_alive(q: Path, lock_name: str, rid: str) -> bool:
     return isinstance(cur, dict) and cur.get("review_id") == rid and not architect.sm.lock_is_stale(cur)
 
 
-def _headless(q: Path, team: str, recent: dict[str, Any], now: float) -> tuple[list[dict[str, Any]], set[str]]:
+def _headless(cfg: Config, q: Path, team: str, recent: dict[str, Any], now: float) -> tuple[list[dict[str, Any]], set[str]]:
     """Architect passes recorded as running (read only: the board never reaps), and the telemetry
     seats they claim: the `ccp.seat` tag a plane-launched `claude -p` carries (`architect-<mode>`;
     §24). An older queue's docs-audit record is read the same way. A pass whose lock is gone or
@@ -325,7 +330,7 @@ def _headless(q: Path, team: str, recent: dict[str, Any], now: float) -> tuple[l
         for rid, rec in sorted((reviews or {}).items()) if isinstance(reviews, dict) else []:
             if not isinstance(rec, dict) or rec.get("status") != "running":
                 continue
-            exp = exp or headless_pins()
+            exp = exp or headless_pins(cfg)
             mode = str(rec.get("mode") or "pass")
             seat = tag.format(mode=mode)
             claimed.add(seat)
@@ -343,7 +348,7 @@ def _headless(q: Path, team: str, recent: dict[str, Any], now: float) -> tuple[l
     if cur:
         obs = observed(recent["seats"].get(estimator.SEAT))
         rows.append(_row(team, f"estimator {cur.get('review_id')}" + (f" · {cur['task_id']}" if cur.get("task_id") else ""),
-                         "headless", "running", cur.get("since"), estimator.pins(), obs,
+                         "headless", "running", cur.get("since"), estimator.pins(cfg), obs,
                          _activity(obs, {"at": cur.get("task_since") or cur.get("since"), "source": estimator.LOCK})))
     return rows, claimed
 

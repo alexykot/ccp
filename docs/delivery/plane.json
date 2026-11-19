@@ -101,12 +101,6 @@
     "max_in_flight": 3,
     "schedule": "clashes"
   },
-  "workers": {
-    "implementer_model": {
-      "small": "sonnet",
-      "refactor": "sonnet"
-    }
-  },
   "mutate": {
     "command": "python3 -B -m unittest -q {test}"
   },
