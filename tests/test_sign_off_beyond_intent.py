@@ -115,6 +115,7 @@ class CloseHolds(ToolkitFixture, unittest.TestCase):
         head = self._to_approved_pr()
         self.verdict(head, [PASSAGE])
         meta = {"task_id": "0002-second", "paths": ["feature.txt"]}
+        self.write("docs/delivery/plane.json", json.dumps({k: v for k, v in self.PLANE_JSON.items() if k != "suite"}))
         with mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)}):
             with self.assertRaises(lifecycle._NoCatchUp) as cm:
                 lifecycle._catch_up(config.load(self.main), self.q, meta, "0002-second", "7", head,
