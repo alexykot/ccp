@@ -78,9 +78,10 @@ def definition_pins(cfg: Config, agent_type: str) -> dict[str, Any]:
             "source": f"{_rel(cfg, f)} ({where})" if f else f"no definition of {agent_type} found"}
 
 
-def headless_pins() -> dict[str, Any]:
+def headless_pins(cfg: Config | None = None) -> dict[str, Any]:
+    """The architect's headless pins: the product's (`models.architect`, with `cfg`), else the plane's default."""
     from ccp import architect  # noqa: PLC0415  (imports the review kit: architecture_review)
-    flags = list(architect.ar.HEADLESS_MODEL)
+    flags = architect.ar.headless_flags(cfg)
     pick = lambda k: flags[flags.index(k) + 1] if k in flags and flags.index(k) + 1 < len(flags) else None  # noqa: E731
     return {"model": pick("--model"), "effort": pick("--effort"),
             "source": "scripts/observability/architecture_review.py HEADLESS_MODEL (claude -p flags)"}
@@ -215,6 +216,8 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
     rb = lib._yaml_block_scalars(lib.project_yaml_text(q), "runner")
     rname = work.get("runner") or rb.get("name") or "runner"  # §10.2: the bound name after a rotation
     rexp = definition_pins(cfg, rb.get("agent_type") or "delivery-runner")
+    if (rmodel := models.pin(models.model_for(cfg, "runner"), rexp["model"])) != rexp["model"]:  # §2.4 `models.runner`
+        rexp = {**rexp, "model": rmodel, "source": f"{rexp['source']}, overridden by plane.json models.runner"}
     r_reqs, r_aside = _split(recent["seats"].get("runner"), headless_sids)
     r_obs = observed(r_reqs)
     rstat = str(work.get("status") or "not running")
@@ -325,7 +328,7 @@ def _headless(q: Path, team: str, recent: dict[str, Any], now: float) -> tuple[l
         for rid, rec in sorted((reviews or {}).items()) if isinstance(reviews, dict) else []:
             if not isinstance(rec, dict) or rec.get("status") != "running":
                 continue
-            exp = exp or headless_pins()
+            exp = exp or headless_pins(cfg)
             mode = str(rec.get("mode") or "pass")
             seat = tag.format(mode=mode)
             claimed.add(seat)
@@ -343,7 +346,7 @@ def _headless(q: Path, team: str, recent: dict[str, Any], now: float) -> tuple[l
     if cur:
         obs = observed(recent["seats"].get(estimator.SEAT))
         rows.append(_row(team, f"estimator {cur.get('review_id')}" + (f" · {cur['task_id']}" if cur.get("task_id") else ""),
-                         "headless", "running", cur.get("since"), estimator.pins(), obs,
+                         "headless", "running", cur.get("since"), estimator.pins(cfg), obs,
                          _activity(obs, {"at": cur.get("task_since") or cur.get("since"), "source": estimator.LOCK})))
     return rows, claimed
 

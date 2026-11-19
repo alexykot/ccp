@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp.envvars import envvar
+from ccp import models as role_models
 from ccp import refs
 
 CONFIG_REL = "docs/delivery/plane.json"
@@ -206,9 +207,13 @@ USAGE_DEFAULTS: dict[str, Any] = {"advice": {"cache_5m_share": 0.5, "context_tok
 # §2.4 the implementer's model per task: `implementer_model` (null: the definition's) maps `small` (a task whose
 # estimate is at most `small_estimate_minutes`) and `refactor` (a task of that kind) to an alias the Agent call's
 # `model` accepts, `WORKER_MODEL_ALIASES`: it takes nothing else, a full id included.
+# `implementer_model` is deprecated: `models.implementer_small` and `models.implementer_refactor` replace its arms.
 WORKERS_DEFAULTS: dict[str, Any] = {"implementer_model": None, "small_estimate_minutes": 30}
 WORKER_MODEL_ARMS = ("small", "refactor")
-WORKER_MODEL_ALIASES = ("sonnet", "opus", "haiku", "fable")
+WORKER_MODEL_ALIASES = role_models.ALIASES
+# §2.4 `models`: each role's model, an alias the Agent call's `model` accepts (`WORKER_MODEL_ALIASES`); the
+# defaults are the plane's role table (`ccp/models.py`).
+MODELS_DEFAULTS: dict[str, Any] = {role: alias for role, (alias, _) in role_models.ROLES.items()}
 # §26.3 estimation: `reference_since` (YYYY-MM-DD, or null) leaves tasks merged before a process change
 # out of every reference class; `k` is the reference class's size (5 to 8).
 ESTIMATE_DEFAULTS: dict[str, Any] = {"reference_since": None, "k": 6, "auto": False,  # auto: §26.3 phase B triggers
@@ -317,13 +322,15 @@ BLOCK_DEFAULTS: dict[str, dict[str, Any]] = {
     "worktrees": WORKTREES_DEFAULTS, "env": ENV_DEFAULTS, "merge": MERGE_DEFAULTS,
     "auth_check": AUTH_CHECK_DEFAULTS, "telemetry": TELEMETRY_DEFAULTS, "board": BOARD_DEFAULTS,
     "gate": GATE_DEFAULTS, "health": HEALTH_DEFAULTS, "usage": USAGE_DEFAULTS, "workers": WORKERS_DEFAULTS,
+    "models": MODELS_DEFAULTS,
     "suite": SUITE_DEFAULTS, "adr": ADR_DEFAULTS, "verify": VERIFY_DEFAULTS,
     "review_points": REVIEW_POINTS_DEFAULTS, "estimate": ESTIMATE_DEFAULTS, "parallel": PARALLEL_DEFAULTS,
     "ids": refs.IDS_DEFAULTS, "docs": DOCS_DEFAULTS, "mutate": MUTATE_DEFAULTS, "report": REPORT_DEFAULTS,
     "notify": NOTIFY_DEFAULTS, "upgrade": UPGRADE_DEFAULTS}
 BLOCKS = tuple(BLOCK_DEFAULTS)
 # The blocks with a loader of their own (a check or a merge beyond the plain one); `_toolkit` merges the rest.
-_OWN_LOADER_BLOCKS = ("task_log", "package_docs", "architect", "usage", "suite", "adr", "ids", "docs", "upgrade")
+_OWN_LOADER_BLOCKS = ("task_log", "package_docs", "architect", "usage", "suite", "adr", "ids", "docs", "upgrade",
+                      "models")
 # The keys of the objects inside blocks that the validators below read key by key.
 CHECK_KEYS = ("id", "cmd", "timeout_seconds")  # an entry of docs.checks or architect.checks
 BUDGET_KEYS = ("id", "glob", "path", "max_lines", "max_bytes", "cut_line")  # architect.budgets
@@ -391,6 +398,7 @@ class Config:
     health: dict[str, Any] | None = None
     usage: dict[str, Any] | None = None
     workers: dict[str, Any] | None = None
+    models: dict[str, Any] | None = None
     suite: dict[str, Any] | None = None
     adr: dict[str, Any] | None = None
     verify: dict[str, Any] | None = None
@@ -404,6 +412,9 @@ class Config:
     # Whether plane.json names task_log.review_point_pattern itself (§22: ignored, with a warning,
     # once the product keeps a review-point register).
     review_point_pattern_set: bool = False
+    # The `models` keys plane.json sets itself: a key it leaves out may still be set by the deprecated
+    # `workers.implementer_model` (`models.model_for`).
+    models_given: tuple[str, ...] = ()
     # §14.1: suite.summary's pre-contract knob names given beside their new names (the new one wins).
     suite_aliases_ignored: tuple[str, ...] = ()
     # The product's id and reference patterns (plane.json `ids`, SPEC §7); the defaults otherwise.
@@ -863,6 +874,25 @@ def _usage(given: Any) -> dict[str, Any]:
     return out
 
 
+def _models(given: Any) -> dict[str, Any]:
+    """§2.4 the `models` block: the role defaults with the roles plane.json names, each an alias the Agent
+    call's `model` accepts (`WORKER_MODEL_ALIASES`); a key that is no role, or any other value, is refused."""
+    if given is None:
+        return copy.deepcopy(MODELS_DEFAULTS)
+    if not isinstance(given, dict):
+        raise ConfigError(f"{CONFIG_REL}: `models` must be an object")
+    bad = []
+    for k, v in given.items():
+        if k not in MODELS_DEFAULTS:
+            bad.append(f"models.{k} is not a role: one of " + ", ".join(MODELS_DEFAULTS))
+        elif v not in WORKER_MODEL_ALIASES:
+            bad.append(f"models.{k} must be one of " + ", ".join(WORKER_MODEL_ALIASES)
+                       + f", the aliases the Agent call's model accepts, not {v!r} (SPEC §2.4)")
+    if bad:
+        raise ConfigError(f"{CONFIG_REL}: " + "; ".join(bad))
+    return {**MODELS_DEFAULTS, **given}
+
+
 def _workers_problems(w: dict[str, Any]) -> list[str]:
     """§2.4 the `workers` block: `implementer_model` null or an object of `small` and `refactor`, each an alias
     the Agent call's `model` accepts (`WORKER_MODEL_ALIASES`), `small_estimate_minutes` an integer >= 1."""
@@ -889,6 +919,7 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
     out = {b: _merge(BLOCK_DEFAULTS[b], raw.get(b), b) for b in BLOCKS if b not in _OWN_LOADER_BLOCKS}
     out["usage"] = _usage(raw.get("usage"))
     out["suite"] = _suite(raw.get("suite"))
+    out["models"] = _models(raw.get("models"))
     bad = []
     if not isinstance(raw.get("task_log", {}).get("index", True), bool):
         bad.append("task_log.index must be true or false")
@@ -1328,6 +1359,7 @@ _BLOCK_KEYS: dict[str, Any] = {
     "health": _known(HEALTH_DEFAULTS),
     "usage": _known(USAGE_DEFAULTS, advice=_known(USAGE_DEFAULTS["advice"])),
     "workers": _known(WORKERS_DEFAULTS, implementer_model=_known(WORKER_MODEL_ARMS)),
+    "models": None,  # not read by key here: `_models` refuses a key that is no role, naming it
     "suite": _known(SUITE_DEFAULTS, lanes=_Each(_Each(_known(sorted(SUITE_STAGE_KEYS)))),
                     summary=_known([*SUITE_SUMMARY_DEFAULTS, *SUITE_SUMMARY_ALIASES]), roles=_known(SUITE_ROLES)),
     "adr": _known(ADR_DEFAULTS),
@@ -1422,6 +1454,7 @@ def _parse(root: Path, text: str) -> Config:
         project_id=str(raw["project_id"]).strip(),
         review_point_pattern_set=isinstance(tl, dict) and "review_point_pattern" in tl,
         suite_aliases_ignored=_aliases_ignored(raw.get("suite")),
+        models_given=tuple(raw["models"]) if isinstance(raw.get("models"), dict) else (),
         task_log=_task_log(tl),
         package_docs=_package_docs(pkg),
         docs=_docs(raw.get("docs")),

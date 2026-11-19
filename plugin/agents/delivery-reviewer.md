@@ -2,7 +2,7 @@
 name: delivery-reviewer
 description: Control-plane code reviewer (SPEC §2.4). Launched only by the runner teammate, fresh, with no implementer context; reviews one task's PR. Not for ad-hoc use.
 tools: Bash, Read, Write, Grep, Glob, SendMessage, ToolSearch
-model: claude-sonnet-5-5
+model: claude-opus-5-5
 effort: high
 experimental:
   cacheTtl: 1h
