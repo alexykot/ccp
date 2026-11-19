@@ -199,4 +199,16 @@ SPEC §16.5 rule 4 instead of restating it, so the rule lives in the SPEC and th
 
 *Append-only, newest last.*
 
+- Premise re-run at b2c2845: the three named end-to-end tests pass (3 tests, OK); the `git grep` for the runner
+  brief and merge prompt texts printed the 3 lines the task states; `git grep -n "touch none" -- tests` printed nothing.
+- `own_patch_id` takes `exclude` as a `Sequence[str]` (the task says `list[str]`; a tuple default is the
+  narrower typing). Excludes are `:(exclude,literal)<path>` pathspecs after `-- .`.
+- Close runs git for the patch ids through a small runner in `lifecycle._own_patches` (`subprocess.run` with
+  `input=`, 60 s timeout, `GIT_TERMINAL_PROMPT=0`, the same as `runs.same_change`), since `queue.git` takes no
+  stdin. A timeout there reads as an unread patch (`patch unread` refuses).
+- Under `clashes` the `task_files` of the merge are read once more (`_task_files(cfg, merged, tip)`) to find the
+  shared files to leave out of the after-merge patch; the before-merge ones reuse the loop's `task_files`.
+- A sign-off due with an unread whole patch refuses `build sign-off` (the whole patch is not known unchanged).
+- ADR-0042 D4 marked built by this task (first of 0167 and 0168 to close).
+
 ## Verification notes
