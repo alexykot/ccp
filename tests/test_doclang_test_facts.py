@@ -136,8 +136,8 @@ class Readers(unittest.TestCase):
 
 class CoreCheck(unittest.TestCase):
     def test_the_language_pack_check_is_declared(self):
-        ids = [c["id"] for c in json.loads((REPO / "docs/delivery/plane.json").read_text())["docs"]["checks"]]
-        self.assertIn("language-pack", ids)
+        ids = [c["id"] for c in json.loads((REPO / "docs/delivery/plane.json").read_text())["architect"]["checks"]]
+        self.assertIn("E18", ids)
 
 
 if __name__ == "__main__":
