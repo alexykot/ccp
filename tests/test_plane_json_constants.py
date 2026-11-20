@@ -64,7 +64,7 @@ WAS = {
     "package_docs.doc_name": ".claude.md", "package_docs.size_ratio": 0.5,
     "package_docs.banned_headings": ["future", "planned", "next steps", "roadmap", "todo"],
     "package_docs.path_ref_suffixes": [".py", ".sql", ".json", ".md", ".sh"], "package_docs.no_delivery_ids": True,
-    "docs.workers": 1,
+    "docs.workers": None,  # was 1: ADR-0043 D9 names this constant, as many workers as there are checks
     "architect.rules_max_lines": 150, "architect.max_days": 14, "architect.notes_due": 3,
     "architect.drift_ratio": 1.5, "architect.grace_tasks": 1, "architect.triage_grace_tasks": 2,
     "architect.refactor_in_scope": "deps", "architect.call_timeout_minutes": 45, "architect.max_new_tasks": 5,
@@ -155,7 +155,8 @@ class TheConstants(unittest.TestCase):
     def test_unset_a_product_hears_nothing_and_the_blocks_hold_the_constants(self):
         cfg, err = load({})
         self.assertEqual((err, cfg.key_notes), ("", ()))
-        self.assertEqual((cfg.gate["shell_limit_seconds"], cfg.docs["workers"], cfg.architect["max_days"]), (600, 1, 14))
+        self.assertEqual((cfg.gate["shell_limit_seconds"], cfg.docs["workers"], cfg.architect["max_days"]),
+                         (600, None, 14))
         self.assertEqual(cfg.task_log["dir"], "docs/delivery")
 
     def test_a_value_other_than_the_constant_applies_with_one_warning_naming_the_key_and_the_constant(self):
@@ -174,9 +175,10 @@ class TheConstants(unittest.TestCase):
             self.assertIn(f"{key} is a constant in code", err)
 
     def test_a_value_equal_to_the_constant_warns_that_the_key_can_go(self):
-        cfg, err = load({"docs": {"workers": 1}, "review_points": {"file": "docs/delivery/review-points.yaml"}})
-        self.assertEqual(cfg.docs["workers"], 1)
-        self.assertIn("docs.workers is a constant in code (1) and is set to that value: delete it", err)
+        cfg, err = load({"architect": {"max_days": 14},
+                         "review_points": {"file": "docs/delivery/review-points.yaml"}})
+        self.assertEqual(cfg.architect["max_days"], 14)
+        self.assertIn("architect.max_days is a constant in code (14) and is set to that value: delete it", err)
         self.assertIn("review_points.file is a constant in code", err)
 
     def test_an_invalid_value_is_still_refused(self):
@@ -187,7 +189,7 @@ class TheConstants(unittest.TestCase):
 
 class TheUpgradeStatus(UpgradeFixture, unittest.TestCase):
     def test_a_constant_set_to_another_value_is_listed_and_one_set_to_the_constant_is_not(self):
-        self.product_json(language="none", gate={"shell_limit_seconds": 99}, docs={"workers": 1},
+        self.product_json(language="none", gate={"shell_limit_seconds": 99}, architect={"max_days": 14},
                           telemetry={"design_seat": {"model": "sonnet"}})
         code, body, err = self.ccp("upgrade", "status")
         self.assertEqual(code, 0, err)

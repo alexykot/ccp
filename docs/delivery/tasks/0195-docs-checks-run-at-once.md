@@ -137,4 +137,16 @@ written into each cmd. It passes only when all three run at once.
 
 ## Implementation notes
 
+- `DOCS_DEFAULTS["workers"]` is `None`, and so the registered constant; `_docs` accepts null or an
+  integer >= 1. `run_checks` runs `len(checks)` at once on null and caps a number at `len(checks)`.
+- `Outcome` gains `shown`, a display text for a constant; `constant_override` prints it in place of
+  `repr` in both warnings. Only `docs.workers` sets it.
+- §21.5's text at the base was not the CURRENT the task quotes: task 0189 had already rewritten it to
+  "The check commands (...) run one at a time, each under its own timeout; results are reported in
+  declared order." That sentence is what the PROPOSED text replaces.
+- `ccp upgrade status` (`ccp/upgrade.py`, outside this task's paths) still prints the constant with
+  `repr` in its change line, so it shows `None` for `docs.workers`. Left as is and flagged.
+- The Context's note that this plane's `plane.json` sets `docs.workers` no longer held at the base:
+  task 0190 had deleted it. Nothing here depended on it.
+
 ## Verification notes

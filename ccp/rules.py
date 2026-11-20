@@ -406,10 +406,11 @@ def check_failures(cfg: Config) -> list[str]:
 
 def run_checks(cfg: Config, checks: list[dict[str, Any]]) -> list[str]:
     """Run product check commands (`{id, cmd, timeout_seconds?}`) in the root, as `architect.checks`
-    and `docs.checks` both are: exit 0 passes; a non-zero exit or a timeout is a failure. Up to
-    `docs.workers` of them run at once (§21.5), each under its own timeout; the failures come back
-    in the order the checks are declared, whichever finishes first."""
-    workers = min(int((cfg.docs or {}).get("workers", 1)), len(checks))
+    and `docs.checks` both are: exit 0 passes; a non-zero exit or a timeout is a failure. All of them
+    run at once, or up to `docs.workers` when it is a number (§21.5), each under its own timeout; the
+    failures come back in the order the checks are declared, whichever finishes first."""
+    cap = (cfg.docs or {}).get("workers")
+    workers = len(checks) if cap is None else min(int(cap), len(checks))
     run = lambda c: run_command(cfg, c["cmd"], c.get("timeout_seconds", 600))  # noqa: E731
     if workers > 1:
         with ThreadPoolExecutor(max_workers=workers) as pool:

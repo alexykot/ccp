@@ -94,9 +94,9 @@ PACKAGE_DOCS_DEFAULTS: dict[str, Any] = {
     "rules": {},
 }
 # §21.5: product commands `ccp docs check` runs, not tied to a house rule (exit 0 = pass). `workers`:
-# how many check commands (these and `architect.checks`) run at once; 1 runs them one after another.
+# how many check commands (these and `architect.checks`) run at once; null runs them all at once, 1 one after another.
 # §20.5 `starter_rules`: null (the starter house rules not adopted) or {declined?: {name: reason}}.
-DOCS_DEFAULTS: dict[str, Any] = {"checks": [], "workers": 1, "starter_rules": None}
+DOCS_DEFAULTS: dict[str, Any] = {"checks": [], "workers": None, "starter_rules": None}
 DOC_RULES = {"citations": {"globs", "targets", "ignore"}, "no_ids": {"globs", "patterns"}, "history_attr": None,
              "no_overlap": None, "no_call_bullets": None}
 
@@ -358,7 +358,8 @@ class Outcome:
     lacks it). `constant`: the code uses `value`; a value the product sets other than it still applies, with a
     warning, until the key is deleted (`constant_override`); a value equal to it warns that the key can go,
     unless `quiet_equal` (a key `ccp init` used to write: a product adopted before still sets it, which is no
-    news). `why` is what the warning adds."""
+    news); `shown`, when set, names the constant in its warnings in place of its value. `why` is what the
+    warning adds."""
     kind: str
     into: str = ""
     value: Any = None
@@ -368,6 +369,7 @@ class Outcome:
     globs: bool = False
     machine: bool = False
     quiet_equal: bool = False
+    shown: str = ""
     why: str = ""
 
 
@@ -432,6 +434,8 @@ KEY_OUTCOMES.update({f"{block}.{key}": Outcome(CONSTANT, value=copy.deepcopy(def
 # `ccp init` wrote `worktrees.dir` until it became a constant (ADR-0043 D9): a plane.json that still sets the constant's
 # own value loads with no warning, and only a different value warns.
 KEY_OUTCOMES["worktrees.dir"] = replace(KEY_OUTCOMES["worktrees.dir"], quiet_equal=True)
+# `docs.workers`' constant is null, which runs every check command at once (§21.5): its warnings say so in words.
+KEY_OUTCOMES["docs.workers"] = replace(KEY_OUTCOMES["docs.workers"], shown="as many as there are checks")
 UNSET: Any = object()  # `constant_override`: the key is not set
 
 
@@ -528,14 +532,15 @@ def constant_override(key: str, given: Any = UNSET, *, notes: list[str] | None =
         raise KeyError(f"{key} is not a constant")
     if given is UNSET:
         return out.value
+    shown = out.shown or repr(out.value)
     if _same(given, out.value):
         if out.quiet_equal:
             return out.value
-        msg = (f"{where}: {key} is a constant in code ({out.value!r}) and is set to that value: delete it "
+        msg = (f"{where}: {key} is a constant in code ({shown}) and is set to that value: delete it "
                "(SPEC §29.3)")
         use = out.value
     else:
-        msg = (f"{where}: {key} is a constant in code ({out.value!r}); the value {given!r} set here still "
+        msg = (f"{where}: {key} is a constant in code ({shown}); the value {given!r} set here still "
                "applies until you delete the key, or file a plane proposal to keep it (SPEC §29.3)")
         use = given
     if notes is None:
@@ -1043,11 +1048,11 @@ def _package_docs(given: Any, language: str | None) -> dict[str, Any] | None:
 
 def _docs(given: Any) -> dict[str, Any]:
     """§21.5: `docs.checks`, product commands `ccp docs check` runs (exit 0 = pass), and `docs.workers`,
-    how many check commands run at once."""
+    how many check commands run at once (null: all of them)."""
     d = _merge(DOCS_DEFAULTS, given, "docs")
     w = d["workers"]
-    if isinstance(w, bool) or not isinstance(w, int) or w < 1:
-        raise ConfigError(f"{CONFIG_REL}: docs.workers must be an integer >= 1")
+    if w is not None and (isinstance(w, bool) or not isinstance(w, int) or w < 1):
+        raise ConfigError(f"{CONFIG_REL}: docs.workers must be null or an integer >= 1")
     seen: set[str] = set()
     if not isinstance(d["checks"], list):
         raise ConfigError(f"{CONFIG_REL}: docs.checks must be a list of {{id, cmd}}")
