@@ -215,7 +215,7 @@ not product work and counts with the system sink (§26.5).
 - a span `agent_id` → the run bound to it (§11); `<name>@session-…` → the teammate of that name
   (the runner, or any name a `runner` event recorded);
 - a call with no `agent_id` goes by its session's cwd: the product root is the lead's
-  (`design-seat`), a runner's merge checkout (`runner.worktree`) is that runner's, except a headless
+  (`design-seat`), a runner's merge checkout (§12.1) is that runner's, except a headless
   session (claude -p), which is attributed as headless, not to the runner, and any other cwd is
   `other-sessions`, listed by cwd. Only `design-seat` rows feed the design-seat advice;
 - logs without spans fall back to a time window: a request belongs to a run when exactly one open
@@ -251,8 +251,7 @@ from `--since` when given, and each line names its start.
   `subagentPromptCacheTtl` to `1h`.
 - **Oversized context:** the lead (`design-seat`) or the runner seat whose median context per request
   (input, cache read and cache written tokens) exceeds `context_tokens` (default `300000`): the lead
-  lowers it with `autoCompactWindow`, a runner with the binding's `runner.rotate_at_context_tokens`
-  (§10.2).
+  lowers it with `autoCompactWindow`, a runner by rotating it sooner (§10.2).
 - **Coordination share:** the lead's and the runner's cost together over all seats' cost, above
   `coordination_share` (default `0.4`).
 

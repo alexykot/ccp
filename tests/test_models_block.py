@@ -294,9 +294,8 @@ class RunnerSpawn(TeamCase):
         self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "models": {"runner": "opus"}}))
         self.assertEqual(self.spawn()["model"], "opus")
 
-    def test_a_runner_of_the_products_own_agent_type_keeps_that_definitions_model(self):
-        (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text().replace(
-            "runner:\n  name: runner\n", "runner:\n  name: runner\n  agent_type: delivery-implementer\n"))
+    def test_a_runner_with_a_definition_of_the_products_own_keeps_that_definitions_model(self):
+        self.prod.write(".claude/agents/delivery-runner.md", "---\nname: delivery-runner\nmodel: opus\neffort: max\n---\n")
         self.assertNotIn("model", self.spawn())
 
     def test_a_runner_moved_to_its_own_default_passes_none(self):

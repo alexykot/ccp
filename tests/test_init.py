@@ -90,9 +90,8 @@ class Adopt(InitCase):
         self.assertTrue(self.queue.is_dir())
         self.assertFalse((self.queue / "project.yaml").exists())  # §8.3: no copy in the queue
         b = self.binding.read_text()
-        for line in ("project_id: demo", "integration_branch: main", "production_branch: main", f"product_root: {self.repo}",
-                     "durable_docs_path: docs/delivery/", f"queue_root: {self.queue}", "  name: runner"):
-            self.assertIn(line, b.splitlines())
+        self.assertEqual(b.splitlines(), ["project_id: demo", "integration_branch: main", f"product_root: {self.repo}",
+                                          f"queue_root: {self.queue}"])  # §8.3: where things are, nothing derived
         self.assertEqual((res["binding"], res["queue_root"]), (str(self.binding), str(self.queue)))
 
         for check in (("tasks", "check"), ("docs", "check")):
@@ -109,7 +108,6 @@ class Adopt(InitCase):
         self.assertTrue(q.is_dir())
         self.assertIn(f"queue_root: {q}", self.binding.read_text().splitlines())
         self.assertIn("integration_branch: trunk", self.binding.read_text().splitlines())
-        self.assertIn("production_branch: trunk", self.binding.read_text().splitlines())
         cfg = json.loads((self.repo / "docs/delivery/plane.json").read_text())
         self.assertEqual(cfg["suite"]["lanes"]["gate"], [{"name": "gate", "cmd": "python3 -m unittest discover -s tests"}])
 
@@ -325,20 +323,20 @@ class NoClobber(InitCase):
     def test_force_overwrites_the_files_init_writes(self):
         self.assertEqual(self.init("--project-id", "demo")[0], 0)
         (self.repo / "docs/SPEC.md").write_text("# My spec\n")
-        self.binding.write_text(self.binding.read_text().replace("name: runner", "name: steward"))
+        self.binding.write_text(self.binding.read_text() + "notes: mine\n")
         code, res = self.init("--project-id", "demo", "--force")
         self.assertEqual(code, 0, res)
         self.assertEqual((self.repo / "docs/SPEC.md").read_text(), (PLANE / "templates/docs-project/SPEC.md").read_text())
-        self.assertIn("  name: runner", self.binding.read_text().splitlines())
+        self.assertNotIn("notes: mine", self.binding.read_text().splitlines())
         self.assertEqual(json.loads((self.repo / ".claude/settings.json").read_text())["env"]["MINE"], "x")
 
     def test_a_rerun_keeps_an_edited_binding(self):
         self.assertEqual(self.init("--project-id", "demo")[0], 0)
-        self.binding.write_text(self.binding.read_text().replace("name: runner", "name: steward"))
+        self.binding.write_text(self.binding.read_text() + "notes: mine\n")
         code, res = self.init("--project-id", "demo")
         self.assertEqual(code, 0, res)
         self.assertIn("binding", res["kept"])
-        self.assertIn("  name: steward", self.binding.read_text().splitlines())
+        self.assertIn("notes: mine", self.binding.read_text().splitlines())
 
 
 class Adoption(InitCase):
@@ -591,46 +589,45 @@ class KeptBinding(InitCase):
             self.assertIn(part, hits[0])
         return hits[0]
 
-    def test_an_earlier_generations_binding_is_named_with_what_it_lacks_and_carries(self):
+    def test_an_earlier_generations_binding_is_named_with_each_key_it_carries(self):
         _, err = self.keep(f"project_id: demo\nintegration_branch: main\nproduct_root: {self.repo}\n"
                            f"durable_docs_path: docs/delivery/\nqueue_root: {self.queue}\n"
                            "seats:\n  runner: x\n  steerer: y\nemail:\n  alert_to: a@example.com\nhosting: claude\n")
         res = json.loads(self.ccp("init", "--project-id", "demo").stdout)
-        self.assertIn("lacks", self.named(res["warnings"], "the `runner` block"))
-        for key in ("`seats.runner`", "`email`", "`hosting`"):
+        for key in ("`durable_docs_path`", "`seats.runner`", "`seats.steerer`", "`email.alert_to`", "`hosting`"):
             self.assertIn("carries", self.named(res["warnings"], key))
-        self.assertEqual(len(res["warnings"]), 4, res["warnings"])  # `seats.steerer` is current
+        self.assertEqual(len(res["warnings"]), 5, res["warnings"])  # no `runner` block is lacked: it is derived
         self.assertIn("seats.runner", err)
 
-    def test_retired_unlisted_and_partial_keys_are_named_and_still_read_ones_are_not(self):
+    def test_every_removed_key_and_runner_limit_is_named_and_the_kept_ones_are_not(self):
         res, _ = self.keep(f"project_id: demo\nintegration_branch: main\nproduct_root: {self.repo}\n"
-                           f"queue_root: {self.queue}  # here\nrunner:\n  agent_type: ccp:delivery-runner\n"
+                           f"queue_root: {self.queue}  # here\nci: github-actions\nnotes: n\n"
+                           "runner:\n  agent_type: ccp:delivery-runner\n  rotate_after_tasks: 2\n"
                            "cadence:\n  verify_stale_minutes: 5\n  runner: '*/5 * * * *'\ngrok:\n  model: x\n"
                            "architecture_review:\n  enabled: false\nmystery: 1\n"
-                           "auth_check:\n  script: auth.sh\nspec_maintainer:\n  kind: team-lead\n")
+                           "auth_check:\n  script: auth.sh\nspec_maintainer:\n  kind: team-lead\nlead:\n  auto_compact_window: 500000\n")
         w = res["warnings"]
-        for key in ("`durable_docs_path`", "`runner.name`"):
-            self.assertIn("lacks", self.named(w, key))
-        for key in ("`cadence.verify_stale_minutes`", "`grok`", "`architecture_review`", "`mystery`"):
+        for key in ("`runner.agent_type`", "`cadence.verify_stale_minutes`", "`cadence.runner`", "`grok.model`",
+                    "`architecture_review.enabled`", "`mystery`", "`auth_check.script`", "`spec_maintainer.kind`"):
             self.assertIn("carries", self.named(w, key))
-        self.assertEqual(len(w), 6, w)
-        self.assertFalse([x for x in w if "auth_check" in x or "spec_maintainer" in x or "`queue_root`" in x])
+        self.assertIn("a constant in code, 4", self.named(w, "`runner.rotate_after_tasks`"))
+        self.assertIn("moved to", self.named(w, "`lead.auto_compact_window`"))
+        self.assertEqual(len(w), 10, w)
+        self.assertFalse([x for x in w if "`queue_root`" in x or "`ci`" in x or "`notes`" in x])
 
-    def test_the_shape_is_read_by_depth(self):
-        text = (f"project_id: demo\nintegration_branch: main\nproduct_root: {self.repo}\n"
-                f"durable_docs_path: docs/delivery/\nqueue_root: {self.queue}\n"
-                "runner:\n  agent_type: ccp:delivery-runner\n  slots:\n    a:\n      name: r1\n"
-                "seats:\n  lead:\n    runner: x\n")
+    def test_a_key_is_named_by_its_whole_path(self):
+        text = (f"project_id: demo\nintegration_branch: main\nproduct_root: {self.repo}\nqueue_root: {self.queue}\n"
+                "runner:\n  slots:\n    a:\n      name: r1\nseats:\n  lead:\n    runner: x\n")
         w = ccp_init.binding_shape_warnings(self.binding, text)
-        self.assertIn("lacks", self.named(w, "`runner.name`"))
-        self.assertFalse([x for x in w if "seats.runner" in x], w)
+        self.assertIn("carries", self.named(w, "`runner.slots.a.name`"))
+        self.assertIn("carries", self.named(w, "`seats.lead.runner`"))
+        self.assertEqual(len(w), 2, w)
 
-    def test_a_runner_with_a_value_of_its_own_lacks_the_block(self):
-        text = (f"project_id: demo\nintegration_branch: main\nproduct_root: {self.repo}\n"
-                f"durable_docs_path: docs/delivery/\nqueue_root: {self.queue}\nrunner: agent_type name\n")
-        w = ccp_init.binding_shape_warnings(self.binding, text)
-        self.assertIn("lacks", self.named(w, "the `runner` block"))
-        self.assertEqual(len(w), 1, w)
+    def test_a_required_key_the_binding_lacks_is_named(self):
+        w = ccp_init.binding_shape_warnings(self.binding, f"project_id: demo\nqueue_root: {self.queue}\n")
+        for key in ("`integration_branch`", "`product_root`"):
+            self.assertIn("lacks", self.named(w, key))
+        self.assertEqual(len(w), 2, w)
 
     def test_a_binding_init_wrote_is_not_warned_about(self):
         self.assertEqual(self.init("--project-id", "demo")[0], 0)
@@ -644,7 +641,7 @@ class KeptBinding(InitCase):
         code, res = self.init("--project-id", "demo", "--force")
         self.assertEqual(code, 0, res)
         self.assertNotIn("warnings", res)
-        self.assertIn("  name: runner", self.binding.read_text().splitlines())
+        self.assertNotIn("email:", self.binding.read_text().splitlines())
 
 
 class PathsAgree(InitCase):
@@ -663,8 +660,7 @@ class PathsAgree(InitCase):
         (self.home / "blink").symlink_to(self.bindings)
         binding = self.bindings / "repo.yaml"
         binding.write_text(f"project_id: repo\nintegration_branch: main\nproduct_root: {self.repo}\n"
-                           f"durable_docs_path: docs/delivery/\nqueue_root: {self.home / 'link' / 'q'}\n"
-                           "runner:\n  agent_type: ccp:delivery-runner\n  name: runner\n")
+                           f"queue_root: {self.home / 'link' / 'q'}\n")
         env = {"CCP_BINDINGS_DIR": str(self.home / "blink")}
         r = self.ccp("--root", str(wt), "init", **env)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -766,9 +762,9 @@ class OneBinding(InitCase):
     def setUp(self):
         super().setUp()
         self.assertEqual(self.init("--project-id", "demo")[0], 0)
-        self.binding.write_text(self.binding.read_text().replace("name: runner", "name: steward") + "ci: github-actions\n")
+        self.binding.write_text(self.binding.read_text() + "ci: github-actions\nrunner:\n  name: steward\n")
 
-    def test_team_sh_spawns_the_name_in_the_binding(self):
+    def test_team_sh_spawns_the_derived_name_whatever_the_binding_names(self):
         # the spawn makes the runner worktree from origin/main (SPEC §12.1): the repo needs that ref
         bare = Path(self._d.name) / "origin.git"
         self.git("init", "-q", "--bare", "-b", "main", str(bare))
@@ -779,7 +775,8 @@ class OneBinding(InitCase):
         r = subprocess.run(["bash", str(TEAM), "runner", "spawn", "--scope", "0001-a"], capture_output=True,
                            text=True, env={**self.env, "QUEUE_ROOT": str(self.queue)})
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(json.loads(r.stdout)["actions"][0]["name"], "steward")
+        self.assertEqual(json.loads(r.stdout)["actions"][0]["name"], "runner")
+        self.assertIn("runner.name is removed and ignored", r.stderr)
 
     def test_the_resolver_prefers_the_binding_to_a_stale_queue_copy(self):
         (self.queue / "project.yaml").write_text("project_id: demo\nrunner:\n  name: old\n")
@@ -788,7 +785,7 @@ class OneBinding(InitCase):
             self.assertEqual(lib.binding_path(self.queue), self.binding)
             self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.repo / "docs/delivery")
             from ccp import verify  # noqa: PLC0415
-            self.assertEqual(lib.binding_runner_name(self.queue), "steward")
+            self.assertEqual(lib.runner_worktree(self.queue), str(self.repo / ".plane-runtime" / "runner"))
             self.assertTrue(verify._ci(self.queue))
 
     def test_without_a_binding_the_queue_copy_still_reads(self):
@@ -820,8 +817,8 @@ class OneBinding(InitCase):
         def hook(name):
             stdin = json.dumps({"hook_event_name": "TeammateIdle", "teammate_name": name, "cwd": str(self.repo)})
             return subprocess.run(["bash", str(HOOK)], capture_output=True, text=True, env=env, input=stdin).returncode
-        self.assertEqual(hook("runner"), 0)   # not the binding's runner any more
-        self.assertEqual(hook("steward"), 2)  # the binding's name: kept working on its ready task
+        self.assertEqual(hook("steward"), 0)  # a name the binding gives is not the runner's: it is `runner`
+        self.assertEqual(hook("runner"), 2)   # kept working on its ready task
 
 
 if __name__ == "__main__":

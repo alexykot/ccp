@@ -102,8 +102,7 @@ class ReleaseLeavesAnUpgradeNotice(unittest.TestCase):
         git(root, "commit", "-qm", "conforming")
         q.mkdir(parents=True)
         (self.run_dir / "projects" / f"{name}.yaml").write_text(
-            f"project_id: {name}\nintegration_branch: main\nproduct_root: {root}\nqueue_root: {q}\n"
-            "durable_docs_path: docs/delivery/\n")
+            f"project_id: {name}\nintegration_branch: main\nproduct_root: {root}\nqueue_root: {q}\n")
         return root, q
 
     def ccp(self, root: Path, q: Path, *args: str) -> subprocess.CompletedProcess:

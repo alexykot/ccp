@@ -63,8 +63,7 @@ class Harness(unittest.TestCase):
         self._q = tempfile.TemporaryDirectory()
         self.q = Path(self._q.name)
         (self.q / "project.yaml").write_text(
-            f"project_id: demo\nhosting: claude-team\nproduct_root: {self.p.root}\n"
-            "spec_maintainer:\n  kind: team-lead\n  alias: demo-design\n  protocol_doc: docs/delivery/SPEC-MAINTAINER.md\n")
+            f"project_id: demo\nproduct_root: {self.p.root}\n")
         stub = self.q / "claude-stub"
         stub.write_text(STUB)
         stub.chmod(0o755)
@@ -503,8 +502,7 @@ class NoHostingLine(Harness):
     """A binding without the old `hosting` line is a Claude team like any other."""
 
     def test_a_binding_without_hosting_blocks_on_an_overdue_pass(self):
-        text = (self.q / "project.yaml").read_text().replace("hosting: claude-team\n", "")
-        (self.q / "project.yaml").write_text(text)
+        self.assertNotIn("hosting", (self.q / "project.yaml").read_text())
         for n in range(1, 6):
             self.merge(n)
         code, out, err = self.ccp("tasks", "next")

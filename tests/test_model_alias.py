@@ -45,7 +45,7 @@ class UsageFold(unittest.TestCase):
         self._d = tempfile.TemporaryDirectory()
         self.addCleanup(self._d.cleanup)
         self.q = Path(self._d.name)
-        (self.q / "project.yaml").write_text("project_id: demo\nrunner:\n  name: runner\n")
+        (self.q / "project.yaml").write_text("project_id: demo\n")
         (self.q / "board").mkdir()
         self.mkrun("0001-a/implement", "implementer", "sonnet", "high", agent="a1", start=0, stop=100)
         self.mkrun("0002-b/implement", "implementer", "sonnet", "high", agent="b1", start=200, stop=300)

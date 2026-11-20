@@ -25,8 +25,8 @@ from typing import Any
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from lib import (OPEN_GATE_STATUSES, _yaml_block_scalars, die, fmt_dt, looks_like_secret,  # noqa: E402
-                 project_yaml_text, read_json, utcnow, work_lock, write_json)
+from lib import (OPEN_GATE_STATUSES, RUNNER_NAME, die, fmt_dt, looks_like_secret,  # noqa: E402
+                 read_json, runner_worktree, utcnow, work_lock, write_json)
 import spec_maintainer as sm  # noqa: E402
 
 LEAD, RUNNER = "design-seat", "task-runner"
@@ -43,16 +43,16 @@ def out(obj: dict[str, Any], code: int = 0) -> int:
 
 
 def runner_cfg(root: Path) -> dict[str, str]:
-    c = _yaml_block_scalars(project_yaml_text(root), "runner")
-    c.setdefault("agent_type", "delivery-runner")
+    # SPEC §8.3: the runner's agent, name and worktree are derived, not the binding's.
+    c = {"agent_type": "delivery-runner", "name": RUNNER_NAME}
+    if worktree := runner_worktree(root):
+        c["worktree"] = worktree
     # SPEC §9: the product's own copy of the runner while it has one, else the plugin's type.
     t = c["agent_type"].split(":", 1)[-1]
     prod = sm.product_root(root)
     if prod and not (Path(prod) / ".claude" / "agents" / f"{t}.md").is_file() \
             and (HERE.parents[1] / "plugin" / "agents" / f"{t}.md").is_file():
         c["agent_type"] = f"ccp:{t}"
-    c.setdefault("name", "runner")
-    c.setdefault("rotate_after_tasks", "4")
     return c
 
 
@@ -220,9 +220,9 @@ def product_log(root: Path, quiet: bool = False) -> tuple[Any, list[dict[str, An
 
 
 def single_runner_worktree(root: Path, rc: dict[str, str]) -> dict[str, Any] | None:
-    """SPEC §12.1: the one runner's worktree (the binding's `runner.worktree`), made at its spawn when
+    """SPEC §12.1: the one runner's worktree (the derived one, `lib.runner_worktree`), made at its spawn when
     missing, detached at `origin/<integration_branch>`; an existing one is left alone. None when the
-    binding names no `runner.worktree` or no product root. A missing `origin/<integration_branch>` has
+    binding names no product root. A missing `origin/<integration_branch>` has
     refused the spawn before this (`refuse_without_integration_ref`). One it cannot make otherwise (a
     directory there that is no working tree) is a warning, `made: false` with `error`: the spawn goes on, and the
     runner's `ccp tasks worktree` makes it once the cause is fixed. The spawn makes it after its
@@ -276,7 +276,7 @@ def refuse_without_integration_ref(root: Path, paths: list[str | None]) -> None:
 def readiness(root: Path, rc: dict[str, str], scope: list[str], single: bool) -> list[dict[str, Any]]:
     """SPEC §16.5, `runner spawn --dry-run`: the §10.2 readiness checks a lead runs before a spawn, those
     a machine can answer, as {check, ok, detail}: every scope entry names a task in the product's task
-    log, `ccp tasks check` is clean, and (one runner with a `runner.worktree`) the runner worktree is a
+    log, `ccp tasks check` is clean, and (one runner) the runner worktree is a
     working tree or can be made (a missing `origin/<integration_branch>` has refused the spawn before
     this). Reads only: it makes no worktree and fetches nothing."""
     if str(HERE.parents[1]) not in sys.path:
@@ -547,7 +547,7 @@ def refactor_scope(root: Path, args: argparse.Namespace, w: dict[str, Any],
 
 
 def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[str, Any]) -> int:
-    """SPEC §16.5: several runner teammates, one per slot (`<runner.name>-<n>`), each holding one task.
+    """SPEC §16.5: several runner teammates, one per slot (`runner-<n>`), each holding one task.
     work.json `runners` maps slot -> {bound_name, spawned_at, tasks_done, bind_pending, rotated_at,
     worktree}; status, scope and the review point stay queue-wide. `status` marks a slot rotated and not
     respawned (`rotated_at` set) `vacant`: it holds no runner until `spawn --slot` runs."""

@@ -30,7 +30,7 @@ Non-normative notes behind SPEC §10. The rules are in `docs/spec/04-observabili
 - **Seats** (`ccp/seats.py`). A table in the Now area, and one `seat` line
   each in `ccp board status`, for every live seat: its team, the seat, status and since, the model
   and effort §2 pins, the model and effort observed, a check, and the last activity.
-  - **Seats.** The design seat; the runner (the binding's `runner` block); each
+  - **Seats.** The design seat; the runner; each
     open worker run (pending, running or stopped) with its phase; each architect pass recorded as
     `running`, and an older queue's docs-audit record likewise (read only: the board never reaps one); and any other telemetry seat with
     requests in the last 30 minutes, shown as not pinned.

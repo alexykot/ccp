@@ -33,6 +33,9 @@ The proposals a task answers are those the plane session closed as built by it (
 made a constant (`config.KEY_OUTCOMES`, §29.3): it lists each such key with its outcome (a removed key to
 delete, a merged key and the key it moves to, a constant set to a value other than the constant). It is no
 task's step, so it is never declined or taken: the product deletes or moves the keys.
+It ends with one more, `binding keys`, when the product's binding sets a key the plane removed, or a runner
+limit (`lib.binding_findings`, §8.3): a removed key to delete, a limit set (a constant), the lead's
+compaction window (it moves to the product's own settings).
 """
 from __future__ import annotations
 
@@ -196,6 +199,7 @@ def language_change(plane: dict[str, Any]) -> str:
 
 ADOPTION_KEY = ("plane.json", "architect.shape_from_task")
 KEYS_STEP = "plane.json keys"  # the step that lists the product's removed, merged and constant keys; no task's
+BINDING_STEP = "binding keys"  # the same for the binding's: removed keys, runner limits; no task's
 
 
 def adoption_change(cfg: Config) -> str:
@@ -231,13 +235,40 @@ def keys_step(plane: dict[str, Any] | None) -> dict[str, Any] | None:
             "change": "; ".join(f["change"] for f in found), "proposals": [], "keys": found}
 
 
+def binding_change(found: dict[str, Any]) -> str:
+    """§8.3: the change one key of the `binding keys` step asks: delete a removed key, or a runner limit (a
+    constant now: or file a plane proposal to keep it), and move the lead's window to the product's settings."""
+    key = found["key"]
+    if found["outcome"] == "removed":
+        return f"delete `{key}`: it is removed" + (f" ({found['why']})" if found["why"] else "")
+    if found["outcome"] == "moved":
+        return f"move `{key}` to {found['replacement']}, then delete it"
+    if not found["differs"]:
+        return f"delete `{key}`: it is a constant, {found['constant']!r}, which is what yours already is"
+    return (f"delete `{key}`: it is a constant, {found['constant']!r}, and yours is {found['set']!r}; or file a "
+            "plane proposal to keep the key")
+
+
+def binding_step(binding: dict[str, Any] | None) -> dict[str, Any] | None:
+    """§8.3: the `binding keys` step for a product whose binding is `binding` (`lib.read_binding`), or None when
+    it sets no key the plane removed, no runner limit and no lead window."""
+    found = lib.binding_findings(binding or {})
+    if not found:
+        return None
+    for f in found:
+        f["change"] = binding_change(f)
+    return {"task": BINDING_STEP, "title": "binding keys the plane removed or made constants",
+            "adopt": BINDING_STEP, "required": False, "check": NOT_TAKEN,
+            "change": "; ".join(f["change"] for f in found), "proposals": [], "keys": found}
+
+
 def status(cfg: Config, _a: Any) -> dict[str, Any]:
     """§29.3: each `adopt` step of a merged plane task that this product has not taken, with the task, whether
     it is required, the product's own proposal for it and the change to make, and the plane checkout's HEAD
     commit it read (`plane`). A declined task's step is left out; a step the product recorded as taken
     (`upgrade.taken`) is too, and is listed under `taken` with its reason; a step the command checked and
-    found taken is listed under `detected`. A last step, `plane.json keys`, lists the keys the product sets that
-    the plane removed, merged or made constants (`keys_step`)."""
+    found taken is listed under `detected`. Then `plane.json keys`, the keys the product sets that the plane
+    removed, merged or made constants (`keys_step`), and `binding keys`, those of its binding (`binding_step`)."""
     declined = (cfg.upgrade or {}).get("declined") or {}
     recorded = (cfg.upgrade or {}).get("taken") or {}
     sources = _sources(cfg)
@@ -274,6 +305,8 @@ def status(cfg: Config, _a: Any) -> dict[str, Any]:
         steps.append({"task": tid, "title": t.get("title"), "adopt": step, "required": required, "check": check,
                       "change": change, "proposals": mine.get(tid, [])})
     if keys := keys_step(sources["plane.json"]):
+        steps.append(keys)
+    if keys := binding_step(sources["binding"]):
         steps.append(keys)
     return {"ok": True, "plane": _git(_plane_root(), "rev-parse", "HEAD"), "steps": steps, "taken": taken,
             "detected": detected}

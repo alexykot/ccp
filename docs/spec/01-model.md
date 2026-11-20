@@ -142,11 +142,11 @@ After launching a worker the runner may end its turn.
 
 ### 2.6 Seat knobs
 
-- `runner.rotate_after_tasks` (default 4) and `runner.rotate_at_context_tokens` (default null: off):
-  a runner's rotation is due when either is reached (§10.2 step 4). With one runner, rotation reads
+- A runner's rotation is due after 4 tasks, or at a request context of a size that is off unless
+  a binding still sets one (§10.2 step 4, §29.3). With one runner, rotation reads
   the single-runner fields of `work.json` whatever holder the claim names; only with several runners
   does the holder pick the slot.
-- `lead.auto_compact_window` (default 350000): the `autoCompactWindow` `ccp init` writes into the product's settings (§4.5).
+- `autoCompactWindow` (350000): `ccp init` writes it into the product's settings (§4.5).
 - The lead may run several runners at once (`--count`), up to `parallel.max_in_flight`, sharing one
   review-point scope, each holding one task (§16).
 - The verifier is the runner's subagent with a fixed packet (the alternative, a teammate spawned by
@@ -189,8 +189,8 @@ files, decisions, standing approvals) are §17.
 
 ### 3.4 Production
 
-Promotion to production is operator-gated and never automated. A product's branch names are its
-binding's (`integration_branch`, `production_branch`, §8.3).
+Promotion to production is operator-gated and never automated. A product's integration branch is its
+binding's (`integration_branch`, §8.3).
 
 ### 3.5 Operator sign-off
 
@@ -422,7 +422,7 @@ A product is adopted by running `ccp init` in its repository. It writes:
   `standing-dod.md`'s placeholder product item;
 - in a `plane.json` it writes, the architect's adoption point (`architect.shape_from_task`, the next task number, §19.11), and the starter house rules unless the product has a rules doc (§20.5);
 - `.plane-runtime/` in `.gitignore`;
-- the anchor merged into `.claude/settings.json`, leaving its other keys and values alone, with `subagentPromptCacheTtl: "1h"`, `autoCompactWindow` (the binding's `lead.auto_compact_window`, default `350000`), the lead's `model` (§2.4) and the telemetry tag `env.OTEL_RESOURCE_ATTRIBUTES` (`ccp.project_id=<project_id>`, §24.1) added when absent and never overwritten, and the one `CLAUDE.md` line, once (§4.3);
+- the anchor merged into `.claude/settings.json`, leaving its other keys and values alone, with `subagentPromptCacheTtl: "1h"`, `autoCompactWindow` (`350000`), the lead's `model` (§2.4) and the telemetry tag `env.OTEL_RESOURCE_ATTRIBUTES` (`ccp.project_id=<project_id>`, §24.1) added when absent and never overwritten, and the one `CLAUDE.md` line, once (§4.3);
 - with the operator's consent for the machine (`--telemetry on`, recorded once in the machine file beside the bindings, §8.3), the user-level telemetry keys (§24.1), the receiver and the product's board timer; it says first that the keys cover every Claude Code session on the machine, and that a project turns telemetry off in its own `.claude/settings.json` (§24.1). `--telemetry off` records a refusal, and init then writes nothing outside the product. With neither recorded, it prints what `--telemetry on` would do and writes nothing outside the product. When the receiver is down, it prints the command to run in a normal terminal: the receiver cannot be started from inside Claude Code, and only macOS has a service definition;
 - outside the repository, the local binding and its queue directory (§8.3).
 
@@ -816,25 +816,13 @@ An example, with neutral values:
 
 A product's binding is local configuration of the plane installation, not part of either
 repository: `projects/<project_id>.yaml` beside the run checkout's code, gitignored, until the store
-holds bindings (§29). Contract: `contracts/project.schema.json`; required: `project_id`,
-`integration_branch`, `queue_root`, `durable_docs_path`.
+holds bindings (§29). Contract: `contracts/project.schema.json`; required: `project_id`, `integration_branch`, `queue_root`, `product_root`. Optional: `ci` and `notes`. Nothing else is read: the runner's agent (`ccp:delivery-runner`), name (`runner`) and worktree (`<product_root>/<worktrees.dir>/runner`, the prefix with several runners, §16) are derived, and its rotation (after 4 tasks, §10.2) and idle limit are constants.
 
 ```yaml
 project_id: example-product
 integration_branch: main
-production_branch: main
-product_root: /path/to/example-product          # the product's main checkout
-durable_docs_path: docs/delivery/
+product_root: /path/to/example-product   # the product's main checkout
 queue_root: /path/to/.delivery-queue/example-product
-runner:
-  agent_type: ccp:delivery-runner      # the plugin's runner (§9)
-  name: runner                                   # the teammate name asked for at a spawn; work.json `runner` binds the actual one (§16)
-  worktree: /path/to/example-product/.plane-runtime/runner   # runner.worktree: with several runners, the prefix (§16)
-  rotate_after_tasks: 4
-  rotate_at_context_tokens: null                 # rotation due at this request context (§10.2); null: off
-  idle_block_limit: 3
-lead:
-  auto_compact_window: 350000            # autoCompactWindow ccp init writes (§4.5)
 ```
 
 - `ccp` maps a directory to its binding (`product_root`, or its main checkout for a worktree) and the
@@ -847,15 +835,10 @@ lead:
 - `ccp init` writes the binding and creates its queue (default `~/.delivery-queue/<project_id>/`),
   with the product footprint (§4.3). It keeps an existing binding unless given `--force`, and refuses
   one that names another product root. A kept binding is checked against the current shape: init warns,
-  naming each missing key (the schema's required keys, `product_root`, a `runner` block with
-  `agent_type` and `name`) and each obsolete one (the ignored keys below, a key the schema marks ignored
-  or retired, a key it does not list).
+  naming each missing key (the schema's required keys) and each obsolete one (a key the schema marks deprecated, a key it does not list).
 - A binding whose `product_root` is the plane's own repository is the plane managing itself; its
   usage counts as non-product use (§24).
-- A `spec_maintainer` block is accepted, deprecated: the lead is every project's spec maintainer
-  (§17). `seats.runner`, `seats.verifier`, `seats.watchdog` and `email` are
-  ignored, as is a leftover `hosting:` line; the operator's channel is plane.json `notify` (§3.6). `cadence.verify_stale_minutes` is retired with the
-  `verify_stale` blocker (§18.3).
+- A binding key not listed above is a removed key (§29.3): it loads with a warning naming it and is otherwise ignored. The lead is every project's spec maintainer (§17), and the operator's channel is plane.json `notify` (§3.6).
 
 **The machine file**, `machine.json` beside the bindings (`contracts/machine.schema.json`), holds what belongs to the machine's account, not to a product: `telemetry` (the operator's consent, §4.5), `allowance_cmd` and `allowance_stop_weekly` (§25).
 
@@ -873,7 +856,7 @@ lead:
 
 | Part | Notes |
 |---|---|
-| `agents/delivery-{runner,implementer,reviewer,verifier}.md` | named `ccp:delivery-runner` and so on; the binding's `runner.agent_type` and `ccp`'s run binding use the scoped names |
+| `agents/delivery-{runner,implementer,reviewer,verifier}.md` | named `ccp:delivery-runner` and so on; the runner's agent (`ccp:delivery-runner`) and `ccp`'s run binding use the scoped names |
 | `skills/architect/` | `ccp:architect` |
 | `skills/spec-maintainer/`, `skills/review-triage/`, `skills/writing-tasks/` | loaded when the role needs them |
 | `orientation.md` | the role-neutral orientation (§9.3) |
@@ -890,7 +873,8 @@ no hook entry names a path. A directory that maps to no binding makes every hook
 `QUEUE_ROOT` is unset, `ccp` sets it from the binding for the `project_id` in the product's
 `plane.json`, the same from the main checkout and from any worktree; `ccp where` prints the project,
 the product root (the main checkout, from any worktree), the binding file's path, the queue, the plane
-checkout and the `ccp` path, each path as its real path, as `ccp init` prints them.
+checkout and the `ccp` path, each path as its real path, as `ccp init` prints them, and the idle hook's
+limit (`idle_limit`, §18.2).
 
 ### 9.3 Orientation
 

@@ -56,12 +56,11 @@ adoption point; a rerun on an adopted product records nothing (§4.5). `ccp heal
 one onwards (§27.1).
 
 A kept binding is checked against the current shape (§8.3): the result's `warnings` names, with the binding
-file and the fix, each key it lacks (the contract's required keys, `product_root`, a `runner` block with
-`agent_type` and `name`) and each obsolete key it carries (the keys §8.3 says are ignored, a key the
-contract marks ignored or retired, a key it does not list). An existing `INDEX.yaml` is kept and listed
-as kept. With `--gate`, the gate lane is one stage, `gate`, whose `cmd` is the line as given, and a
-`standing-dod.md` init writes names the gate in its placeholder product item (§4.5). A blank `--gate` (empty
-or only whitespace) is refused (exit 2) before anything is written.
+file and the fix, each key it lacks (the contract's required keys) and each obsolete key it carries (a key
+the contract marks deprecated, a key it does not list, a runner limit set, `lib.binding_findings`). An
+existing `INDEX.yaml` is kept and listed as kept. With `--gate`, the gate lane is one stage, `gate`, whose
+`cmd` is the line as given, and a `standing-dod.md` init writes names the gate in its placeholder product
+item (§4.5). A blank `--gate` (empty or only whitespace) is refused (exit 2) before anything is written.
 
 With `--permissions` it writes nothing: in an adopted product it prints the runner's and workers'
 permission allowlist and a deny list for destructive commands, as a JSON `permissions` block for the
@@ -90,13 +89,6 @@ from ccp.queue import PLANE, QueueError, _main_worktree, emit, lib, queue_leftov
 
 TEMPLATES = PLANE / "templates"
 SCHEMA = PLANE / "contracts" / "project.schema.json"
-# §8.3: the binding's nested keys the plane ignores, each `<top>.<child>` a first-level child of its top-level
-# key (the binding read nested by indentation, `lib.read_binding`); a top-level key whose contract description says
-# ignored or retired is obsolete too, and so is one the contract does not list.
-IGNORED_NESTED = ("seats.runner", "seats.verifier", "seats.watchdog", "cadence.verify_stale_minutes")
-IGNORED_TOP = ("email",)
-RETIRED_RE = re.compile(r"\b(ignored|retired)\b", re.I)
-RUNNER_KEYS = ("agent_type", "name")
 # §4.5, §21.2: the template's placeholder product item, and the gate item init writes in its place.
 STANDING_DOD = "docs/delivery/standing-dod.md"
 PLACEHOLDER_RE = re.compile(r"^\s*\d+\.\s*…\s*$")
@@ -120,7 +112,8 @@ STARTER_CONFIG: dict[str, Any] = {
         "citations": {"globs": ["docs/*.md"], "targets": ["docs/SPEC.md"]}}},
     "docs": {"starter_rules": {"declined": {}}},
 }
-WORKTREES_DIR = config.WORKTREES_DIR  # the constant `worktrees.dir`; init writes no key for it
+# §12.1: the constant `worktrees.dir`; init writes no key for it (the derived runner worktree is under it)
+WORKTREES_DIR = config.WORKTREES_DIR
 # §4.3: the anchor and the CLAUDE.md line, the one source the SPEC and the README quote. The anchor
 # names the plane's marketplace, not a version, so a release needs no product commit; the env entry
 # turns on the agent team the plane runs on (§2.2).
@@ -131,7 +124,7 @@ ANCHOR: dict[str, dict[str, Any]] = {
 }
 CLAUDE_LINE = "This repo is delivered by CCP (Claude Control Plane): its plugin and `ccp`."
 # §2.4, §4.5: the session settings init adds when absent and never overwrites: the runner teammate's
-# prompt-cache lifetime, the lead's compaction window (the binding's `lead.auto_compact_window`) and its model.
+# prompt-cache lifetime, the lead's compaction window and its model.
 CACHE_TTL_SETTING = ("subagentPromptCacheTtl", "1h")
 COMPACT_SETTING = "autoCompactWindow"
 MODEL_SETTING = "model"  # §2.4: the lead's model (plane.json `models.lead`), added when the settings have none
@@ -224,26 +217,16 @@ def github_warning(root: Path) -> str | None:
 
 def binding_shape_warnings(binding: Path, text: str) -> list[str]:
     """§8.3: what a kept binding lacks and what obsolete keys it carries, each a warning naming the
-    binding file and the fix."""
+    binding file and the fix. A key is obsolete when the contract marks it deprecated or does not list it
+    (`lib.binding_findings`: every key the binding keeps is listed and not deprecated)."""
     schema = json.loads(SCHEMA.read_text())
-    props: dict[str, Any] = schema.get("properties", {})
-    # each top-level key with its first-level keys only (one with a value of its own has none)
-    keys = {k: list(v) if isinstance(v, dict) else [] for k, v in lib.read_binding(text).items()}
+    data = lib.read_binding(text)
     fix = f"edit {binding}, or run `ccp init --force` to rewrite it (its other edits are lost)"
-    out: list[str] = []
-    out += [f"the kept binding {binding} lacks `{k}`: {fix}"
-            for k in (*schema.get("required", []), "product_root") if k not in keys]
-    if "runner" not in keys or not keys["runner"]:
-        out.append(f"the kept binding {binding} lacks the `runner` block (with `agent_type` and `name`): {fix}")
-    else:
-        out += [f"the kept binding {binding} lacks `runner.{k}`: {fix}" for k in RUNNER_KEYS if k not in keys["runner"]]
-    for k in keys:
-        if k not in props:
-            out.append(f"the kept binding {binding} carries `{k}`, which {SCHEMA.name} does not list: {fix}")
-        elif k in IGNORED_TOP or RETIRED_RE.search(str(props[k].get("description", ""))):
-            out.append(f"the kept binding {binding} carries `{k}`, which the plane ignores (SPEC §8.3): {fix}")
-    out += [f"the kept binding {binding} carries `{k}`, which the plane ignores (SPEC §8.3): {fix}"
-            for k in IGNORED_NESTED if k.partition(".")[2] in keys.get(k.partition(".")[0], [])]
+    out = [f"the kept binding {binding} lacks `{k}`: {fix}" for k in schema.get("required", []) if k not in data]
+    for f in lib.binding_findings(data):
+        what = {"removed": "which the plane no longer reads", "moved": f"which moved to {f.get('replacement')}",
+                "constant": f"which is a constant in code, {f.get('constant')!r}"}[f["outcome"]]
+        out.append(f"the kept binding {binding} carries `{f['key']}`, {what} (SPEC §8.3, §29.3): {fix}")
     return out
 
 
@@ -267,18 +250,11 @@ def placeholder_warnings(root: Path) -> list[str]:
 
 
 def binding_text(project_id: str, product_root: Path, queue_root: Path, branch: str) -> str:
-    """The binding init writes (§8.3): the required keys, `production_branch` (the integration branch
-    until the operator names another), the product root and the runner block."""
+    """The binding init writes (§8.3): where the product and its queue are, and its integration branch."""
     return (f"project_id: {project_id}\n"
             f"integration_branch: {branch}\n"
-            f"production_branch: {branch}\n"
             f"product_root: {product_root}\n"
-            "durable_docs_path: docs/delivery/\n"
-            f"queue_root: {queue_root}\n"
-            "runner:\n"
-            "  agent_type: ccp:delivery-runner\n"
-            "  name: runner\n"
-            f"  worktree: {product_root / WORKTREES_DIR / 'runner'}\n")
+            f"queue_root: {queue_root}\n")
 
 
 def next_task_number(root: Path) -> str:
@@ -417,7 +393,7 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
             raise QueueError(f"ccp init: the {what} {path} holds `#`, and the binding reader cuts a value "
                              "at ` #` as a comment; use a path without `#`", 2)
     settings = root / ".claude" / "settings.json"
-    # §4.5: the window is the binding's as it stands after init: the kept one's, else the default.
+    # §4.5: the window is 350000, or the value a kept binding still sets (it warns, §29.3).
     lead = lib._yaml_block_scalars(old, "lead") if keep_binding and old else {}
     window = config.lead_auto_compact_window(lead)
     # refuses before anything is written

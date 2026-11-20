@@ -1116,7 +1116,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=life)
     p = t.add_parser("worktree", help="a runner's own merge worktree, made when missing (SPEC §12.1, §16.5)")
     p.add_argument("--runner", metavar="SLOT", help="the runner's slot (required with several runners; without "
-                                                    "it, the one runner's binding runner.worktree)")
+                                                    "it, the one runner's derived worktree, §12.1)")
     p.set_defaults(fn=life)
     p = t.add_parser("release", help="undo a claim taken too early: a leased task with no run goes back to pending, "
                                      "its lease and wait cleared; its worktree is kept (SPEC §10.4)")
@@ -1552,7 +1552,13 @@ def product_binding(cfg: config.Config) -> Path | None:
     from ccp.queue import lib  # noqa: PLC0415
     if not config.PROJECT_ID_RE.match(cfg.project_id):
         return None
-    return lib.product_binding(cfg.project_id, (cfg.root.resolve(), main_checkout(cfg).resolve()))
+    b = lib.product_binding(cfg.project_id, (cfg.root.resolve(), main_checkout(cfg).resolve()))
+    if b is not None:  # §29.3: a key the plane no longer reads is named, once
+        try:
+            lib.warn_binding(lib.read_binding(b.read_text()), str(b))
+        except OSError:
+            pass
+    return b
 
 
 def product_queue_root(cfg: config.Config) -> str | None:
@@ -1702,10 +1708,11 @@ def cmd_where(cfg: config.Config, _a: argparse.Namespace) -> int:
     from ccp.queue import CCP_BIN, PLANE, _main_worktree, lib  # noqa: PLC0415
     q = os.environ.get("QUEUE_ROOT")
     b = lib.binding_path(Path(q)) if q else product_binding(cfg)
+    idle = lib.runner_limits(Path(q))["idle_limit"] if q else None  # §18.2: the idle hook's, constant or the binding's
     print(json.dumps({"project_id": cfg.project_id, "product_root": str(_main_worktree(cfg.root.resolve())),
                       "binding": str(b.resolve()) if b else None,
                       "queue_root": str(Path(q).expanduser().resolve()) if q else None,
-                      "plane": str(PLANE), "ccp": str(CCP_BIN)}))
+                      "plane": str(PLANE), "ccp": str(CCP_BIN), "idle_limit": idle}))
     return 0
 
 

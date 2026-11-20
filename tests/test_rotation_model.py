@@ -28,8 +28,7 @@ class RunnerSeatModel(unittest.TestCase):
         root = Path(self._d.name) / "prod"
         (root / ".plane-runtime/runner").mkdir(parents=True)
         (self.q / "board").mkdir(parents=True)
-        (self.q / "project.yaml").write_text(f"project_id: demo\nproduct_root: {root}\nrunner:\n  name: runner\n"
-                                             f"  worktree: {root}/.plane-runtime/runner\n")
+        (self.q / "project.yaml").write_text(f"project_id: demo\nproduct_root: {root}\n")
         self.root = root
 
     def tearDown(self):

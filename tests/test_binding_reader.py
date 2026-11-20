@@ -91,7 +91,7 @@ class BindingDir(unittest.TestCase):
         self.product.mkdir()
         self.binding = self.bindings / "demo.yaml"
         self.binding.write_text(f"project_id: demo\nproduct_root: {self.product}\nqueue_root: {self.queue}\n"
-                                "runner:\n  name: steward\n")
+                                "integration_branch: steward\n")
         env = mock.patch.dict(os.environ, {"CCP_BINDINGS_DIR": str(self.bindings)})
         env.start()
         self.addCleanup(env.stop)
@@ -102,7 +102,7 @@ class BindingDir(unittest.TestCase):
 class ResolutionTest(BindingDir):
     def test_by_queue_finds_the_binding_naming_the_queue(self):
         self.assertEqual(lib.binding_path(self.queue), self.binding)
-        self.assertEqual(lib.binding_runner_name(self.queue), "steward")
+        self.assertEqual(lib.binding_str(lib.binding_data(self.queue), "integration_branch"), "steward")
         self.assertEqual(lib.binding_str(lib.binding_data(self.queue), "product_root"), str(self.product))
 
     def test_by_queue_falls_back_to_the_retired_queue_copy_only_without_a_binding(self):
@@ -110,16 +110,16 @@ class ResolutionTest(BindingDir):
         other.mkdir()
         self.assertIsNone(lib.binding_path(other))
         self.assertEqual(lib.binding_data(other), {})
-        (other / "project.yaml").write_text("runner:\n  name: old\n")
+        (other / "project.yaml").write_text("integration_branch: old\n")
         self.assertEqual(lib.binding_path(other), other / "project.yaml")
-        self.assertEqual(lib.binding_runner_name(other), "old")
+        self.assertEqual(lib.binding_str(lib.binding_data(other), "integration_branch"), "old")
 
     def test_by_queue_prefers_an_explicit_project_yaml(self):
         explicit = Path(self._d.name) / "explicit.yaml"
-        explicit.write_text("runner:\n  name: chosen\n")
+        explicit.write_text("integration_branch: chosen\n")
         with mock.patch.dict(os.environ, {"PROJECT_YAML": str(explicit)}):
             self.assertEqual(lib.binding_path(self.queue), explicit)
-            self.assertEqual(lib.binding_runner_name(self.queue), "chosen")
+            self.assertEqual(lib.binding_str(lib.binding_data(self.queue), "integration_branch"), "chosen")
 
     def test_by_product_finds_the_binding_when_the_product_root_is_among_the_roots(self):
         self.assertEqual(lib.product_binding("demo", (self.product,)), self.binding)
@@ -145,7 +145,7 @@ class ReadersTest(BindingDir):
     def setUp(self):
         super().setUp()
         self.binding.write_text(f"project_id: demo\nproduct_root: {self.product}   # the checkout\n"
-                                f"queue_root: '{self.queue}'\nintegration_branch: dev\nrunner:\n  name: steward\n")
+                                f"queue_root: '{self.queue}'\nintegration_branch: dev\n")
 
     def test_the_integration_branch_is_the_bindings_else_main(self):
         from ccp import queue  # noqa: PLC0415
@@ -191,17 +191,20 @@ class ReadersTest(BindingDir):
         other = Path(self._d.name) / "none"
         self.assertEqual(sm.product_root(other), "")
 
-    def test_the_durable_docs_directory_is_read_from_the_binding(self):
+    def test_the_task_log_directory_is_the_products_not_the_bindings(self):
         with mock.patch.dict(os.environ, {"DURABLE_DOCS": ""}):
             self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.product / "docs/delivery")
             self.binding.write_text(f"product_root: {self.product}  # the checkout\nqueue_root: {self.queue}\n"
-                                    "durable_docs_path: notes/log   # relative\n"
-                                    "runner:\n  durable_docs: /not/top/level\n")
+                                    "durable_docs_path: notes/log   # removed: nothing reads it\n"
+                                    "durable_docs: /not/read\n")
+            self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.product / "docs/delivery")
+            (self.product / "docs/delivery").mkdir(parents=True)
+            (self.product / "docs/delivery/plane.json").write_text('{"project_id": "demo", "task_log": {"dir": "notes/log"}}')
             self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.product / "notes/log")
-            self.binding.write_text(f"queue_root: {self.queue}\ndurable_docs: '/abs/docs'  # absolute\n")
-            self.assertEqual(lib.resolve_durable_docs_dir(self.queue), Path("/abs/docs"))
             self.binding.write_text(f"queue_root: {self.queue}\n")
             self.assertIsNone(lib.resolve_durable_docs_dir(self.queue))
+        with mock.patch.dict(os.environ, {"DURABLE_DOCS": "/abs/docs"}):
+            self.assertEqual(lib.resolve_durable_docs_dir(self.queue), Path("/abs/docs"))
 
 
 class SyncReaderTest(unittest.TestCase):
@@ -219,20 +222,15 @@ class SyncReaderTest(unittest.TestCase):
         return subprocess.run(["bash", str(PLANE / "scripts" / "sync-product-docs.sh"), "demo",
                                "--project-yaml", str(self.yml), "--check"], capture_output=True, text=True)
 
-    def test_a_spec_maintainer_block_adds_its_managed_copy(self):
-        r = self.sync("spec_maintainer:\n  kind: team-lead\n")
+    def test_a_product_that_has_the_maintainer_doc_gets_its_managed_copy(self):
+        (self.product / "docs" / "delivery").mkdir(parents=True)
+        (self.product / "docs" / "delivery" / "SPEC-MAINTAINER.md").write_text("old\n")
+        r = self.sync("")
         self.assertIn("docs/delivery/SPEC-MAINTAINER.md", r.stdout, r.stderr)
-        self.assertNotIn("claude-session", r.stdout)
 
-    def test_an_empty_spec_maintainer_block_counts_as_declared(self):
-        self.assertIn("docs/delivery/SPEC-MAINTAINER.md", self.sync("spec_maintainer:\n").stdout)
-
-    def test_without_the_block_there_is_no_such_copy(self):
-        self.assertNotIn("docs/delivery/SPEC-MAINTAINER.md", self.sync("runner:\n  name: r\n").stdout)
-
-    def test_the_removed_claude_session_kind_gets_a_note(self):
-        r = self.sync("spec_maintainer:\n  kind: claude-session   # old\n")
-        self.assertIn("spec_maintainer.kind claude-session was removed", r.stdout, r.stderr)
+    def test_without_the_doc_there_is_no_such_copy_whatever_the_binding_holds(self):
+        r = self.sync("spec_maintainer:\n  kind: team-lead\n")
+        self.assertNotIn("docs/delivery/SPEC-MAINTAINER.md", r.stdout, r.stderr)
 
     def test_a_binding_for_another_project_id_is_refused(self):
         self.yml.write_text(f"project_id: other\nproduct_root: {self.product}\n")

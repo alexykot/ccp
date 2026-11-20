@@ -480,7 +480,7 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertFalse(self.seen.exists())
         self.marker.unlink()
         (self.runner / "untracked.txt").unlink()
-        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\nintegration_branch: nowhere\n")
+        (self.q / "project.yaml").write_text("project_id: demo\nintegration_branch: nowhere\n")
         self.gate("--task", "0002")
         self.assertTrue(self.marker.exists())  # no integration branch to fetch: no prover is read
         self.assertFalse(self.seen.exists())

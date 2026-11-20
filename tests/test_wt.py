@@ -222,7 +222,7 @@ class Baseline(WtFixture, unittest.TestCase):
         self.assertFalse((self.main / ".plane-runtime" / "ver-baseline").exists())
 
     def test_no_integration_tip_refuses(self):
-        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\nintegration_branch: trunk\n")
+        (self.q / "project.yaml").write_text("project_id: demo\nintegration_branch: trunk\n")
         code, _, _, err = self.wt("create", "--kind", "ver", "--baseline")
         self.assertEqual(code, 3)
         self.assertIn("origin/trunk", err)
@@ -613,15 +613,16 @@ sys.exit(2)
 
 
 class SingleRunnerWorktree(WtFixture, unittest.TestCase):
-    """§12.1: the one runner's worktree (binding `runner.worktree`) is made by its spawn or by
+    """§12.1: the one runner's worktree (derived, §8.3) is made by its spawn or by
     `ccp tasks worktree` without a slot, detached at the integration tip; an existing one is left alone."""
 
     def setUp(self):
         super().setUp()
         (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text()
-                                             + f"product_root: {self.main}\nrunner:\n  name: runner\n  worktree: .plane-runtime/solo\n")
+                                             + f"product_root: {self.main}\n")
         (self.q / "work.json").write_text(json.dumps({"project_id": "demo", "status": "idle"}))
-        self.solo = self.main / ".plane-runtime" / "solo"
+        git(self.main, "worktree", "remove", "--force", str(self.runner))  # the fixture's: the spawn makes its own
+        self.solo = self.main / ".plane-runtime" / "runner"  # `worktrees.dir` is the constant; the runner is `runner` in it (§8.3)
 
     def spawn(self):
         r = subprocess.run(["bash", str(PLANE / "scripts" / "team.sh"), "runner", "spawn", "--scope", "0002-second"],
@@ -676,17 +677,17 @@ class SingleRunnerWorktree(WtFixture, unittest.TestCase):
         self.assertEqual((code, body["made"]), (0, False))
         self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
 
-    def test_tasks_worktree_without_a_slot_refuses_beside_slots_or_with_no_runner_worktree(self):
+    def test_tasks_worktree_without_a_slot_refuses_beside_slots_or_with_no_product_root(self):
         w = json.loads((self.q / "work.json").read_text())
         (self.q / "work.json").write_text(json.dumps({**w, "runners": {"runner-1": {"bound_name": "runner-1"}}}))
         code, _, _, err = self.ccp("tasks", "worktree", root=self.main)
         self.assertEqual(code, 2)
         self.assertIn("--runner", err)
         (self.q / "work.json").write_text(json.dumps(w))
-        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\nintegration_branch: main\n")
+        (self.q / "project.yaml").write_text("project_id: demo\nintegration_branch: main\n")
         code, _, _, err = self.ccp("tasks", "worktree", root=self.main)
         self.assertEqual(code, 2)
-        self.assertIn("runner.worktree", err)
+        self.assertIn("names no product_root", err)
         self.assertFalse(self.solo.exists())
 
 

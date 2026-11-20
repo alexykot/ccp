@@ -7,7 +7,8 @@
 #
 # Managed copies (in product_root):
 #   docs/delivery/CONTROL-PLANE.md   always (role-neutral orientation, template plugin/orientation.md)
-#   docs/delivery/SPEC-MAINTAINER.md  only when the binding declares a spec_maintainer block (SPEC §17)
+#   docs/delivery/SPEC-MAINTAINER.md  only where the product already has one (SPEC §17; the lead's protocol
+#                                     is otherwise the plugin's spec-maintainer skill)
 #   docs/delivery/REVIEW-TRIAGE.md    always (the architect's review triage protocol, SPEC §19.8)
 #   .claude/skills/architect/SKILL.md  always (the architect skill, SPEC §19; template
 #                                      plugin/skills/architect/SKILL.md). It replaces the
@@ -115,10 +116,8 @@ root = Path(product_root or top("product_root") or "")
 if not str(root) or str(root) == ".": fail(f"{yml} has no product_root (pass --product-root)")
 if not root.is_dir(): fail(f"product_root {root} does not exist")
 
-sm = binding.get("spec_maintainer")
-sm = sm if isinstance(sm, dict) else None  # a block, empty or not
 managed = [("plugin/orientation.md", "docs/delivery/CONTROL-PLANE.md")]
-if sm is not None:
+if (root / "docs/delivery/SPEC-MAINTAINER.md").is_file():  # the product's copy of the lead's protocol, kept current
     managed.append(("plugin/skills/spec-maintainer/SKILL.md", "docs/delivery/SPEC-MAINTAINER.md"))
 managed += [("plugin/skills/review-triage/SKILL.md", "docs/delivery/REVIEW-TRIAGE.md"),
             ("plugin/skills/architect/SKILL.md", ".claude/skills/architect/SKILL.md")]
@@ -173,10 +172,6 @@ if tkeys:
 if isinstance(penv, dict) and re.search(r"\bcpl\.project_id=", str(penv.get("OTEL_RESOURCE_ATTRIBUTES") or "")):
     notes.append(".claude/settings.json: OTEL_RESOURCE_ATTRIBUTES uses the old key cpl.project_id; rename it to "
                  "ccp.project_id (`ccp otel env --project ID`): the receiver no longer reads the old key")
-if sm is not None and not plugin:
-    if sm.get("kind") == "claude-session":
-        notes.append(f"binding {yml}: spec_maintainer.kind claude-session was removed (SPEC §17, 2026-11-05); "
-                     "the team lead answers spec questions: drop the block or set kind team-lead")
 
 try:  # the product's configuration as ccp loads it (defaults included); the load's warnings are not printed
     sys.path.insert(0, str(plane))

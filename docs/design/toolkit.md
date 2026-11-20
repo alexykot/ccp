@@ -34,8 +34,7 @@ the task); one read model, `board.json`, built without an LLM; numbers are diagn
   task-id shape, because the id becomes paths and command arguments; `reconcile.log.entry` and
   `adapter.post_close` are format-checked when the binding loads; friction bullets may wrap; worktree
   links are named in `info/exclude`.
-- **`ccp plane check`** lists the queue's own scripts and `.orig` leftovers, apart from the binding's
-  `auth_check.script`.
+- **`ccp plane check`** lists the queue's own scripts and `.orig` leftovers.
 - **Test runs, summary mode.** In summary mode the command's stdout and stderr are the log file
   itself, opened once (mode 0600), so the order is the command's own and no pipe is pumped; counts
   and failing sections are read back from the file line by line in bounded memory. A gate log can be

@@ -411,7 +411,7 @@ class SyncInPluginMode(unittest.TestCase):
             mine.parent.mkdir(parents=True)
             mine.write_text("my own runner, no header\n")
             yml = Path(d) / "demo.yaml"
-            yml.write_text(f"project_id: demo\nproduct_root: {root}\nhosting: claude-team\n")
+            yml.write_text(f"project_id: demo\nproduct_root: {root}\n")
             sync = [str(PLANE / "scripts/sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--allow-dirty"]
             r = run(["bash", *sync[0:1], *sync[1:], "--check"])
             self.assertIn("DRIFT docs/delivery/REVIEW-TRIAGE.md: retired", r.stdout, r.stdout + r.stderr)
@@ -466,7 +466,7 @@ class SyncFlagsStaleHookEntries(unittest.TestCase):
             (root / ".claude/settings.local.json").write_text(json.dumps({"hooks": {"TeammateIdle": [{"hooks": [
                 {"type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/runner-idle.sh --queue-root /q"}]}]}}))
             yml = Path(d) / "demo.yaml"
-            yml.write_text(f"project_id: demo\nproduct_root: {root}\nhosting: claude-team\n")
+            yml.write_text(f"project_id: demo\nproduct_root: {root}\n")
             r = run(["bash", str(PLANE / "scripts/sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--check"])
             self.assertIn("DRIFT .claude/settings.local.json: stale_hooks", r.stdout, r.stdout + r.stderr)
 
@@ -482,8 +482,7 @@ class BindingNeedsNoChange(unittest.TestCase):
         p = Product()
         try:
             with tempfile.TemporaryDirectory() as q:
-                Path(q, "project.yaml").write_text(f"project_id: demo\nproduct_root: {p.root}\nhosting: claude-team\n"
-                                                   "runner:\n  agent_type: delivery-runner\n")
+                Path(q, "project.yaml").write_text(f"project_id: demo\nproduct_root: {p.root}\n")
                 self.assertEqual(team.runner_cfg(Path(q))["agent_type"], "ccp:delivery-runner")
                 self.assertEqual(Path(sm.protocol_doc_path({}, Path(q))), PLUGIN / "skills/spec-maintainer/SKILL.md")
                 p.write(".claude/agents/delivery-runner.md", "---\nname: delivery-runner\n---\n")

@@ -48,7 +48,6 @@ from lib import (  # noqa: E402
     looks_like_secret,
     new_task_state,
     parse_dt,
-    project_seat_agent,
     resolve_durable_docs_dir,
     read_json,
     write_json,
@@ -519,9 +518,6 @@ def cmd_raise(args: argparse.Namespace) -> int:
         "asked_at": fmt_dt(t),
         "updated_at": fmt_dt(t),
     }
-    seat = project_seat_agent(root, {"task-runner": "runner", "task-verifier": "verifier"}[raised_by])
-    if seat:
-        q["raised_by_seat"] = seat
     errs = validate_question(q)
     if errs:
         die("invalid question: " + "; ".join(errs), 2)

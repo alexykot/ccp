@@ -77,7 +77,7 @@ class Board(ToolkitFixture, unittest.TestCase):
         self.assertEqual(board.merge_rev(cfg, self.q), "origin/main")
         git(self.main, "update-ref", "-d", "refs/remotes/origin/main")
         self.assertEqual(board.merge_rev(cfg, self.q), "main")
-        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\nintegration_branch: trunk\n")
+        (self.q / "project.yaml").write_text("project_id: demo\nintegration_branch: trunk\n")
         self.assertEqual(board.merge_rev(cfg, self.q), "HEAD")
 
     def test_close_writes_the_merge_record_when_the_queue_already_says_done(self):

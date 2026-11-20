@@ -1,6 +1,6 @@
 """SPEC §2.4, §4.5: `ccp init` adds the session settings to `.claude/settings.json` when absent, the
-runner teammate's prompt-cache lifetime and the lead's compaction window (the binding's
-`lead.auto_compact_window`), and never overwrites one the product set. Scratch HOME, bindings, repos
+runner teammate's prompt-cache lifetime and the lead's compaction window (350000, or the value a binding
+still sets, with a warning, §29.3), and never overwrites one the product set. Scratch HOME, bindings, repos
 and queues."""
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ class SessionSettings(InitCase):
     def write_binding(self, window):
         self.bindings.mkdir(exist_ok=True)
         self.binding.write_text(f"project_id: demo\nintegration_branch: main\nproduct_root: {self.repo}\n"
-                                f"durable_docs_path: docs/delivery/\nqueue_root: {self.queue}\n"
+                                f"queue_root: {self.queue}\n"
                                 f"lead:\n  auto_compact_window: {window}\n")
 
     def adopt(self, *args):

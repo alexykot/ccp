@@ -172,13 +172,13 @@ def actor(default: str = "task-runner") -> str:
 def runner_teammate(q: Path) -> str:
     """§10.2: the live runner teammate's actual name. The harness gives a fresh spawn a suffixed name
     (`runner-2`) while the old teammate still holds the asked-for one; the lead binds the actual name
-    into work.json `runner` (`team.sh runner bind`). Else the binding's name."""
+    into work.json `runner` (`team.sh runner bind`). Else `runner` (§8.3)."""
     try:
         w = read_json(q / "work.json", {})
     except QueueError:  # a broken work.json must not stop the readers that only want a name
         w = {}
     name = w.get("runner") if isinstance(w, dict) else None
-    return str(name) if name else lib.binding_runner_name(q)
+    return str(name) if name else lib.RUNNER_NAME
 
 
 def runner_slots(w: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -207,7 +207,7 @@ def holder_teammate(q: Path, task_id: str) -> str:
 def runner_names(q: Path) -> set[str]:
     """Every name a runner teammate of this queue has had: the binding's, work.json's, and each name a
     `runner` event recorded (spawn, bound). Telemetry from an earlier runner still counts as the runner's."""
-    names = {lib.binding_runner_name(q), runner_teammate(q)}
+    names = {lib.RUNNER_NAME, runner_teammate(q)}
     try:  # §16.7: every slot and every bound name
         for slot, rec in runner_slots(read_json(q / "work.json", {})).items():
             names |= {slot, str(rec.get("bound_name") or slot)}
@@ -474,12 +474,6 @@ LEGACY_DIR = "_legacy"
 FINDER_METADATA = ".DS_Store"
 
 
-def _sanctioned_scripts(q: Path) -> set[Path]:
-    """The binding's own auth-check script lives in the queue by design (§30, `auth_check.script`)."""
-    script = lib.binding_str(lib.binding_data(q), "auth_check", "script")
-    return {(q / script).resolve()} if script else set()
-
-
 def script_findings(q: Path) -> list[tuple[str, str, str]]:
     """§31.3: each file in QUEUE_ROOT/scripts/ that is not the plane's own copy, as (kind, its path
     relative to QUEUE_ROOT, message). `kind` is `unknown` (the plane does not ship it), `drifted`
@@ -488,12 +482,9 @@ def script_findings(q: Path) -> list[tuple[str, str, str]]:
     d = q / "scripts"
     if not d.is_dir():
         return []
-    sanctioned = _sanctioned_scripts(q)
     out = []
     for f in sorted(d.rglob("*")):
         if not f.is_file() or "__pycache__" in f.parts or f.suffix in (".pyc", ".tmp") or f.name == FINDER_METADATA:
-            continue
-        if f.resolve() in sanctioned:
             continue
         rel = f.relative_to(d)
         mine = PLANE / "scripts" / rel
@@ -518,14 +509,11 @@ def script_drift(q: Path) -> list[str]:
 def leftover_entries(q: Path) -> list[str]:
     """§31.3: each top-level entry of QUEUE_ROOT not in QUEUE_OWNED, by name. An atomic write's
     temporary file (`*.tmp`) is not one: it is replaced in place a moment later; nor is Finder's
-    `.DS_Store`, nor the binding's auth-check script (§30), nor a directory that holds it, wherever in
-    the queue it names."""
+    `.DS_Store`."""
     if not q.is_dir():
         return []
-    sanctioned = _sanctioned_scripts(q)
     return [e.name for e in sorted(q.iterdir())
-            if e.name not in QUEUE_OWNED and not e.name.endswith(".tmp") and e.name != FINDER_METADATA
-            and not any(s.is_relative_to(e.resolve()) for s in sanctioned)]
+            if e.name not in QUEUE_OWNED and not e.name.endswith(".tmp") and e.name != FINDER_METADATA]
 
 
 def queue_leftovers(q: Path) -> list[str]:

@@ -311,7 +311,7 @@ class Tools(unittest.TestCase):
         self.q = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.q)
         (self.q / "observability").mkdir()
-        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\n")
+        (self.q / "project.yaml").write_text("project_id: demo\n")
         (self.q / "work.json").write_text(json.dumps({"status": "running", "review_point": "PM", "scope": ["0003-c", "0004-d"]}))
         (self.q / "observability" / "events.jsonl").write_text(json.dumps(spawn("2026-10-22T10:00:00Z", "PM", ["0003-c"])) + "\n")
         self.env = mock.patch.dict(os.environ, {**GIT_ENV, "QUEUE_ROOT": str(self.q), "ACTOR": "design-seat"})

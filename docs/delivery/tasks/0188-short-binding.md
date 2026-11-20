@@ -140,4 +140,46 @@ binding, and a binding that still holds a removed key is told which to delete.
 
 *Append-only, newest last.*
 
+- The one reader (`scripts/observability/lib.py`) now holds the whole mechanism: `binding_findings` (per
+  dotted leaf key: `removed`, `constant`, `moved`), `warn_binding` (one warning per key, once per process,
+  through `config._warn_once`), `binding_constants` (a binding registry of its own, because
+  `config.KEY_OUTCOMES` is plane.json's and `test_short_plane_json` iterates it against that schema;
+  `config.constant_override` got a `registry` parameter to take it), `runner_limits`, `runner_worktree`
+  (`<product_root>/<worktrees.dir>/runner`, read from the raw plane.json: `worktrees.dir`, else the old
+  `adapter.worktree_dir`, else `.plane-runtime`) and the constants `RUNNER_AGENT`, `RUNNER_NAME`,
+  `TASK_LOG_DIR`. `binding_runner_name` and `project_seat_agent` are gone.
+- `ccp init` writes the four keys, writes `autoCompactWindow` 350000 (a binding's value is used for that
+  write, with a warning, during the grace), and reports one "carries" warning per removed key of a kept binding.
+- The idle hook takes its limit from a new `idle_limit` field of `ccp where` (a managed copy of the hook
+  uses 3). The rotation-due JSON keys became `after_tasks` and `at_context_tokens` and the messages were
+  reworded, so the removed key names occur only in `lib.py` and `upgrade.py`.
+- `ccp upgrade status` has the step `binding keys` (`upgrade.BINDING_STEP`), listing each removed, constant
+  and moved key with what to do.
+- The schema's `required` is `project_id`, `integration_branch`, `queue_root`, `product_root`; every removed key
+  stays in `properties`, marked `deprecated`.
+- Decisions and flags:
+  - `auth_check.script` is no longer read (`ccp plane check` no longer sanctions that script, and the queue
+    leftover check no longer exempts it); `auth_check.probes` in plane.json is untouched.
+  - `scripts/observability/sync-product-docs.sh` still reads the `spec_maintainer` block; it is outside this
+    task's scope and untouched.
+  - Every spawn now makes the derived runner worktree from `origin/<integration_branch>`, so spawn fixtures
+    (`TeamCase`) got a git origin; the dry-run test that relied on a binding with no `runner.worktree` was
+    deleted (there is no such binding any more).
+  - The task's Context counts 24 test modules with a removed key; at the base `git grep -lwP` found more
+    (the modules that build a binding, plus the ones asserting the removed names in messages). All that the
+    change broke are updated in this PR.
+  - SPEC: the exact text of the task is in; the example block's comment alignment is narrowed to one that
+    shows the block as an added line, so `ccp verify spec-text` finds it (the diff had only unchanged lines
+    there). §31.1 corrections to the other sentences naming a removed key are in `01-model.md` (§2.6, §9.1,
+    §9.2), `02-delivery.md` (§10.2, §12.1, §16.4, §18.2 and the dry-run sentence), `04-observability.md`
+    (§24) and `05-operations.md`; each is quoted in the PR body.
+- Fix round 1 (review at `720db5f`): SPEC §3.4 now names only `integration_branch`, and §17's sentence says a
+  `spec_maintainer` block is a removed key and not read (§31.1). `scripts/sync-product-docs.sh` no longer reads the
+  binding's `spec_maintainer` block: the managed `docs/delivery/SPEC-MAINTAINER.md` is kept current where the
+  product already has that file (the lead is every project's maintainer, so the binding decides nothing), and the
+  `claude-session` note is gone. Help text and docstrings that named `runner.worktree`, `runner.name` or the
+  binding's `runner` block say the derived value. `contracts/project.schema.json` is written back unescaped
+  (`§` not `\u00a7`). The `warn_binding` call in `ccp init` is dropped: a kept binding's keys reach the caller
+  through the result's `warnings`, which init also prints on stderr.
+
 ## Verification notes

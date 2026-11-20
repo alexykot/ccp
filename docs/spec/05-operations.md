@@ -149,7 +149,7 @@ This rule is in every seat brief and in the plugin's orientation (§9).
   - `ccp plane check` lists the files in `QUEUE_ROOT/scripts/` that are not the plane's copy
     (`scripts`) and each top-level entry of the queue the plane does not keep (`root`, a directory once,
     with a trailing `/`), and exits 1 when either list is non-empty; a byte-identical copy of a plane
-    script, the binding's `auth_check.script` (§30) and a directory that holds it, an atomic write's
+    script, an atomic write's
     `*.tmp`, and the `.DS_Store` macOS Finder drops in a folder, are not listed.
     `ccp plane check --archive` moves every entry it lists to
     `QUEUE_ROOT/_legacy/<YYYY-MM-DD>/<its path relative to QUEUE_ROOT>`,

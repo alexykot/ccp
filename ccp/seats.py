@@ -214,9 +214,8 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
                      lead_obs, _activity(lead_obs, _ev_activity(_last_event(events, "design-seat"))),
                      advisory=True, prefix=True, notes=notes))
 
-    rb = lib._yaml_block_scalars(lib.project_yaml_text(q), "runner")
-    rname = work.get("runner") or rb.get("name") or "runner"  # §10.2: the bound name after a rotation
-    rexp = definition_pins(cfg, rb.get("agent_type") or "delivery-runner")
+    rname = work.get("runner") or lib.RUNNER_NAME  # §10.2: the bound name after a rotation
+    rexp = definition_pins(cfg, runs.unscoped(lib.RUNNER_AGENT))
     # §2.4: the product's `models.runner`, when it sets one, over the model of the runner's definition
     if "runner" in cfg.models_given and (rmodel := models.pin(models.model_for(cfg, "runner"), rexp["model"])) != rexp["model"]:
         rexp = {**rexp, "model": rmodel, "source": f"{rexp['source']}, overridden by plane.json models.runner"}
