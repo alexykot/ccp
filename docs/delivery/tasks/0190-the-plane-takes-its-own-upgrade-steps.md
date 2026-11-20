@@ -86,6 +86,9 @@ warning.
     1. Run the full suite through `ccp suite run`, then `ccp docs check` and `ccp adr check`, then `git branch --list 'state/*'`.
   expect: all pass and the branch list is empty.
   dry run: n/a.
+- Lead's rulings on this task (questions sm-20261120T134838Z-ddcd), verbatim:
+  - r1 (suite-01): "E1: change E1's check line in docs/ENGINEERING.md to 'check: pass — the verifier's gate runs the suite on every task (§15); an architect.checks entry would run the gate inside itself'; fix the stale docs.checks mentions for E3, E16 and E18 to architect.checks; docs/ENGINEERING.md is added to 0190's scope; no SPEC text changes; claude_md_dirs and moving the command rules to architect.checks with E2 and E12 are accepted as part of adopting."
+  - r2 (pl-03): "Notes and drift counting from the queue's start is a defect against ADR-0043 D7 and §19.11; task 0196 (PR #222) makes only the cadence count before a product's first pass; 0190 waits for 0196, so pl-03 holds as written once 0196 is merged. Adoption point: apply the task's own rule at the build's final base, highest task number plus one; with 0195 and 0196 on main that is 0197; rebase onto main after 0196 merges and set it then."
 
 ## Implementation notes
 
@@ -113,5 +116,15 @@ warning.
 - Open: `ccp architect due` prints `"due": true` here, not `"due": false`. With no pass yet, the friction-note
   and health-drift triggers (§19.6) count every note and task since the queue began, not from the adoption
   point; only the cadence trigger is counted from it. See the implement report.
+- Ruling round 1 (rulings r1 and r2 above, recorded verbatim in Context):
+  - r1: `docs/ENGINEERING.md` is in scope. E1's check line is now `check: pass`, with the reason that the
+    verifier's gate runs the suite and an `architect.checks` entry would run the gate inside itself; the
+    intro and E3, E16 and E18 name `architect.checks` instead of `docs.checks`. The `architect.checks`
+    entries for E2, E12, E3, E14, E16 and E18, and `claude_md_dirs`, stay. This closes the first "Open" note
+    above.
+  - r2: `architect.shape_from_task` stays `"0196"`: at this merge, task 0196 (PR #222) is neither merged nor
+    on `origin/main`, whose highest task is 0195. The ruling sets `"0197"` once 0196 is on main (merge
+    `origin/main`, never rebase, then change that one value). Until task 0196 merges, `ccp architect due`
+    prints `"due": true` (the second "Open" note above): that is expected, and not worked around.
 
 ## Verification notes
