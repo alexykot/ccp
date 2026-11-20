@@ -90,6 +90,13 @@ class NoAdoptionPoint(Seat):
         self.assertIsNone(g["blocked"])
         self.assertEqual(g["notices"], [])
 
+    def test_a_report_awaiting_triage_does_not_block_an_unadopted_seat(self):
+        (self.q / "architect.json").write_text(json.dumps({"reviews": {"ar-1": {
+            "status": "reported", "mode": "pass", "done_at_report": ["0001-t1"]}}}))
+        g = architect.gate(self.p.cfg, self.q, None, None)
+        self.assertEqual((g["blocked"], g["notices"]), (None, []))
+        self.assertEqual(self.ccp(self.p, "tasks", "next")[0], 0)
+
     def test_a_done_refactor_citing_the_spec_passes_tasks_check(self):
         f = self.p.task("0004-t4", "done")
         f.write_text(f.read_text().replace("status: done", "status: done\n" + REFACTOR.strip()))
@@ -109,6 +116,40 @@ class NoAdoptionPoint(Seat):
         f.write_text(f.read_text().replace("status: pending", "status: pending\n" + REFACTOR.strip()))
         order = [t["task_id"] for t, _ in tasklog.ranked(self.p.cfg, None, since=9)]
         self.assertEqual(order, sorted(order))
+
+    def test_waiting_refactors_and_the_review_points_are_not_read_unadopted(self):
+        from ccp import board, selection
+        f = self.p.task("0016-t16", "pending")
+        f.write_text(f.read_text().replace("status: pending", "status: pending\n" + REFACTOR.strip()))
+        cfg = self.p.cfg
+        self.assertEqual(tasklog.waiting_refactors(cfg, ["0011"]), [])
+        self.assertEqual(tasklog.refactor_reach(cfg, tasklog.load(cfg), ["0011"]), {})
+        self.assertIsNone(board._refactors_waiting(cfg, ["0011"]))
+        (self.q / "work.json").write_text(json.dumps({"status": "running", "scope": ["0011"],
+                                                      "review_point_refactors": ["0011"]}))
+        self.assertEqual(selection.inputs(cfg, self.q)["first"], [])
+
+    def test_a_refactor_outside_the_scope_is_not_pulled_in_unadopted(self):
+        p = self.make({"refactor_in_scope": True})
+        f = p.task("0016-t16", "pending")
+        f.write_text(f.read_text().replace("status: pending", "status: pending\n" + REFACTOR.strip()))
+        self.assertEqual(tasklog.refactor_reach(p.cfg, tasklog.load(p.cfg), ["0011"]), {})
+        adopted = self.make({"refactor_in_scope": True, "shape_from_task": "0001"})
+        g = adopted.task("0016-t16", "pending")
+        g.write_text(g.read_text().replace("status: pending", "status: pending\n" + REFACTOR.strip()))
+        self.assertEqual(list(tasklog.refactor_reach(adopted.cfg, tasklog.load(adopted.cfg), ["0011"])), ["0016-t16"])
+
+    def test_the_forecast_order_has_no_refactor_lane_unadopted_and_has_one_adopted(self):
+        from ccp import forecast
+        orders = {}
+        for name, block in (("unadopted", None), ("adopted", {"shape_from_task": "0001"})):
+            p = self.make(block, done=4, pending=5)
+            f = p.task("0009-t9", "pending")
+            f.write_text(f.read_text().replace("status: pending", "status: pending\n" + REFACTOR.strip()))
+            merged = [f"{i:04d}-t{i}" for i in range(1, 5)]
+            orders[name] = forecast.sequence(p.cfg, self.q, tasklog.load(p.cfg), merged)["order"]
+        self.assertEqual(orders["unadopted"], sorted(orders["unadopted"]))
+        self.assertEqual(orders["adopted"][0], "0009-t9")
 
     def test_the_board_sections_see_the_seat_on(self):
         cfg = self.p.cfg
