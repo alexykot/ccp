@@ -648,8 +648,8 @@ note gives the test, the old expectation and the new one.
   - The production fallback also applies when the machine file's directory is not writable (the cache's
     atomic write would fail); a failed cache write after the command ran is the warning only.
   - `ccp allowance status` also shows `backoff_until` and `unread_since`, the backoff the spec-maintainer
-    skill tells the lead to honour. Its § bullet (§25.3) is unchanged: plane proposal
-    pp-20261120T221917Z-5177.
+    skill tells the lead to honour. Its § bullet (§25.3) is unchanged: a plane proposal, filed from the
+    implement run, asks for its text.
   - `contracts/allowance.schema.json`: the legacy branch's `not` also excludes an object holding only
     `retry_after_s`, so the `oneOf` stays exclusive with the new third branch.
   - The SPEC-maintainer skill's bullet does not restate the stop's condition (house rule E13).
