@@ -69,7 +69,10 @@ pass, every trigger works as today.
   - **Budgets:** a baseline. The first `due_info` call with `record=True` after adoption, with no
     last pass, saves the budget ids failing at that moment in the architect state, as `seen` is
     saved. Until the first pass, only a failing budget id not in that baseline fires. The first pass
-    records `budget_ids` as today, and the baseline is no longer read.
+    records `budget_ids` as today, and the baseline is no longer read. With no baseline saved yet, the budgets
+    failing now are the baseline, so nothing fires; a `record=False` call (the board, `ccp architect
+    status`) computes it but never writes it. The baseline approximates the adoption moment: it is
+    what fails when the seat first checks once adopted.
   - **Cadence and `max_days`:** keep their 0185 behaviour. `max_days` needs a last pass, as today.
   - The returned `health` value may still be computed for display.
 - `ccp architect due` exits 3 (not due) for a product that has just adopted, whatever its history.
@@ -80,7 +83,8 @@ pass, every trigger works as today.
 - **SPEC §19.6**, after the list of triggers, a new sentence: "Before a product's first pass, each
   trigger counts only what follows the adoption point (§19.11): a review point counts its tasks from
   the adoption point, friction notes count only those tasks' notes, drift compares only those
-  tasks, and a budget counts only if it starts failing after adoption, so a product that adopts the
+  tasks, and a budget counts only if it starts failing after the seat first checks it
+  once adopted, so a product that adopts the
   seat with history owes no pass at once."
 
   Both state ADR-0043 D7 ("an upgraded product owes no pass at once") and §19.11 ("everything it
@@ -94,7 +98,8 @@ pass, every trigger works as today.
   "drift_ratio": 2.0}` and `architect.rules.budget_failures` to return a failing budget.
   - `test_history_owes_nothing`: no last pass; `notes_due + 5` notes on tasks before the adoption
     point; drift; a failing budget; a done review-point scope of pre-adoption tasks. `due_info`
-    gives no reason, and a second call still gives none.
+    gives no reason, first with `record=False` and then with
+    `record=True`, and a further call still gives none.
   - `test_cadence_from_the_adoption_point`: no last pass; `every_n_tasks` tasks done from the
     adoption point. The only reason is cadence.
   - `test_new_work_still_triggers`: no last pass; `notes_due` notes on tasks from the adoption point.
