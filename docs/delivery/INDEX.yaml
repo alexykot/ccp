@@ -948,7 +948,7 @@ tasks:
     depends_on: [0171-affected-says-run-the-full-lane, 0173-plane-json-block-registry, 0180-parallel-by-default, 0181-models-block-and-role-defaults, 0182-language-is-a-required-key, 0183-gate-lane-is-required, 0184-init-turns-telemetry-on, 0185-architect-on-by-default, 0186-account-facts-on-the-machine, 0187-short-plane-json, 0188-short-binding, 0192-plane-json-constants-and-defaults]
     path: tasks/0189-spec-states-behaviour.md
   - id: 0190-the-plane-takes-its-own-upgrade-steps
-    status: pending
+    status: done
     title: The plane's own plane.json takes the ADR-0043 upgrade steps before their grace ends
     depends_on: [0181-models-block-and-role-defaults, 0182-language-is-a-required-key, 0183-gate-lane-is-required, 0185-architect-on-by-default, 0186-account-facts-on-the-machine, 0187-short-plane-json, 0192-plane-json-constants-and-defaults]
     path: tasks/0190-the-plane-takes-its-own-upgrade-steps.md

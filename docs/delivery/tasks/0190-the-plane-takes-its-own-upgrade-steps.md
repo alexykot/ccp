@@ -1,7 +1,7 @@
 ---
 task_id: 0190-the-plane-takes-its-own-upgrade-steps
 title: The plane's own plane.json takes the ADR-0043 upgrade steps before their grace ends
-status: pending
+status: done
 kind: feature
 depends_on: ["0181-models-block-and-role-defaults", "0182-language-is-a-required-key", "0183-gate-lane-is-required", "0185-architect-on-by-default", "0186-account-facts-on-the-machine", "0187-short-plane-json", "0192-plane-json-constants-and-defaults"]
 spec_refs: ["S8", "S19", "S29"]
@@ -9,7 +9,7 @@ review_point: R12
 paths: ["docs/delivery/plane.json", ".claude/settings.json"]
 adopt: none
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Task: 0190-the-plane-takes-its-own-upgrade-steps
@@ -140,3 +140,5 @@ warning.
     `E12` entry runs (`python3 -B -m unittest -q tests.test_plane_config_defaults`), which the gate also runs.
 
 ## Verification notes
+- 2026-11-20 — verifier, PR #221 head `ed0b9b9` (squash `083de1b`): APPROVE. Passed: pl-01, pl-02, pl-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0190-the-plane-takes-its-own-upgrade-steps.json.
+
