@@ -3,6 +3,7 @@
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "OTEL_RESOURCE_ATTRIBUTES": "ccp.project_id=control-plane"
   },
+  "model": "opus",
   "subagentPromptCacheTtl": "1h",
   "autoCompactWindow": 350000
 }

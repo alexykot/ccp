@@ -91,4 +91,16 @@ warning.
 
 *Append-only, newest last.*
 
+- `docs/delivery/plane.json`: `architect.shape_from_task` is `"0195"` (the highest task file at the base is 0194),
+  `models` holds `implementer_small` and `implementer_refactor` as `sonnet`, and `package_docs.doc_name` and
+  `docs.workers` are deleted (the constants apply). At the base the file already had no `package_docs.language`,
+  `workers`, `task_log`, `worktrees` or `review_points` keys (0181, 0182, 0187 and 0192 had removed them), so
+  `ccp upgrade status` listed only `doc_name` and `docs.workers` as constants to delete. `estimate.auto` is not
+  listed, so it stays.
+- `upgrade.taken` records 0181, 0182, 0183, 0185, 0187 and 0192 with this task's PR.
+- `.claude/settings.json` gains `"model": "opus"`.
+- Open: `ccp architect due` prints `"due": true` here, not `"due": false`. With no pass yet, the friction-note
+  and health-drift triggers (§19.6) count every note and task since the queue began, not from the adoption
+  point; only the cadence trigger is counted from it. See the implement report.
+
 ## Verification notes
