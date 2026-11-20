@@ -928,7 +928,7 @@ tasks:
     depends_on: [0172-fixtures-name-their-config, 0173-plane-json-block-registry, 0174-config-readers-go-through-ccp, 0177-architect-on-and-adoption-point, 0182-language-is-a-required-key]
     path: tasks/0185-architect-on-by-default.md
   - id: 0186-account-facts-on-the-machine
-    status: pending
+    status: done
     title: The allowance command and the weekly stop live in the machine file, the weekly stop defaults to 90%, and an unread allowance is said out loud
     depends_on: [0173-plane-json-block-registry, 0175-one-binding-reader, 0179-one-account-accessor, 0184-init-turns-telemetry-on, 0187-short-plane-json]
     path: tasks/0186-account-facts-on-the-machine.md

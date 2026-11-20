@@ -1,7 +1,7 @@
 ---
 task_id: 0186-account-facts-on-the-machine
 title: The allowance command and the weekly stop live in the machine file, the weekly stop defaults to 90%, and an unread allowance is said out loud
-status: pending
+status: done
 kind: feature
 depends_on: ["0173-plane-json-block-registry", "0175-one-binding-reader", "0179-one-account-accessor", "0184-init-turns-telemetry-on", "0187-short-plane-json"]
 spec_refs: ["S8", "S16", "S24", "S25"]
@@ -11,7 +11,7 @@ paths: ["ccp/config.py", "ccp/usage.py", "ccp/parallel.py", "ccp/board.py", "ccp
 adopt: "machine.json allowance_cmd (move telemetry.allowance_cmd and telemetry.allowance_stop_weekly out of each product's plane.json into the machine file beside the bindings, once per machine)"
 sign_off: brief
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Task: 0186-account-facts-on-the-machine
@@ -140,3 +140,5 @@ wake and ceiling numbers are constants.
 - §31.1 corrections beyond the task's passages (quoted in the PR body): the `telemetry` line of §8.1's example (`01-model.md`), the `session_ceiling_pct` of §16.2's example, §16.3 rule 5's `session_ceiling_pct` (now "the session ceiling"), and §18.4's `telemetry.session_park_pct, default 95` (now "95%"). §16.2's "`session_ceiling_pct` defaults to 60." became "(file). The session ceiling is 60%." and §25.4's margin passage reads "180 s (`set-waiting-on.sh …`)" with no space after the bracket.
 
 ## Verification notes
+- 2026-11-20 — verifier, PR #216 head `bf8d8f7` (squash `8433e1e`): APPROVE. Passed: acc-01, acc-02, acc-03, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0186-account-facts-on-the-machine.json.
+
