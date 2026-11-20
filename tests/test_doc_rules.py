@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import io
+import shlex
 import subprocess
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 
 from ccp import cli, config, docrules, doclang, pkgdocs, rules
 from tests.helpers import Product
@@ -271,7 +272,7 @@ class Runner(unittest.TestCase):
 
 
 class ParallelChecks(unittest.TestCase):
-    """`docs.workers` (§21.5): check commands run at once, results in declared order."""
+    """§21.5: check commands run at once (a number in `docs.workers` caps them), results in declared order."""
 
     def run_docs_check(self, p):
         import time
@@ -345,17 +346,54 @@ class ParallelChecks(unittest.TestCase):
         finally:
             p.cleanup()
 
-    def test_the_default_runs_checks_one_after_another(self):
-        from ccp import rules
+    def barrier(self, marks):
+        """Three checks that each leave a mark in the directory `marks`, then wait up to 5 s for all three marks:
+        each passes only when the three run together. `marks` is emptied first."""
+        marks.mkdir(exist_ok=True)
+        for f in marks.iterdir():
+            f.unlink()
+        d = shlex.quote(str(marks))
+        wait = (f"for n in $(seq 50); do [ -e {d}/a ] && [ -e {d}/b ] && [ -e {d}/c ] && exit 0; sleep 0.1; done; "
+                "exit 1")
+        return [{"id": x, "cmd": f"touch {d}/{x}; {wait}"} for x in "abc"]
+
+    def test_the_default_runs_every_check_at_once(self):
         p = Product()
         try:
-            self.assertEqual(p.cfg.docs["workers"], 1)
-            mark = p.root / "a-done"
-            checks = [{"id": "a", "cmd": f"sleep 0.5; touch {mark}"}, {"id": "b", "cmd": f"test -f {mark}"}]
-            self.assertEqual(rules.run_checks(p.cfg, checks), [])          # b ran after a finished
-            mark.unlink()
-            self.set_workers(p, 2)
-            self.assertEqual([e.split(":")[0] for e in rules.run_checks(config.load(p.root), checks)], ["b"])
+            self.assertIsNone(p.cfg.docs["workers"])
+            self.assertEqual(rules.run_checks(p.cfg, self.barrier(p.root / "marks")), [])
+        finally:
+            p.cleanup()
+
+    def test_a_number_set_still_caps_them_with_the_constant_warning(self):
+        p = Product()
+        try:
+            self.set_workers(p, 1)
+            err = io.StringIO()
+            with redirect_stderr(err):
+                config._WARNED.clear()
+                cfg = config.load(p.root)
+            self.assertEqual(cfg.docs["workers"], 1)
+            self.assertEqual(err.getvalue().count("docs.workers"), 1, err.getvalue())
+            self.assertIn("as many as there are checks", err.getvalue())
+            # one after another: a and b each wait for marks not yet made; c, last, finds all three
+            self.assertEqual([e.split(":")[0] for e in rules.run_checks(cfg, self.barrier(p.root / "marks"))],
+                             ["a", "b"])
+        finally:
+            p.cleanup()
+
+    def test_an_explicit_null_is_the_constant_and_warns_that_the_key_can_go(self):
+        p = Product()
+        try:
+            self.set_workers(p, None)
+            err = io.StringIO()
+            with redirect_stderr(err):
+                config._WARNED.clear()
+                cfg = config.load(p.root)
+            self.assertIsNone(cfg.docs["workers"])
+            self.assertIn("docs.workers is a constant in code (as many as there are checks) and is set to that "
+                          "value: delete it", err.getvalue())
+            self.assertEqual(rules.run_checks(cfg, self.barrier(p.root / "marks")), [])
         finally:
             p.cleanup()
 
@@ -374,7 +412,7 @@ class ParallelChecks(unittest.TestCase):
 
     def test_bad_workers_are_refused(self):
         import json
-        for bad in (0, -1, True, "2", 1.5, None):
+        for bad in (0, -1, True, "2", 1.5):
             p = Product()
             try:
                 (p.root / "docs/delivery/plane.json").write_text(

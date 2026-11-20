@@ -336,11 +336,11 @@
           }
         },
         "workers": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 1,
-          "default": 1,
+          "default": null,
           "deprecated": true,
-          "description": "Constant, 1 (SPEC §29.3): How many check commands (docs.checks, and architect.checks) ccp docs check runs at once, each under its own timeout; results in declared order. 1 runs them one after another. A value set here other than the constant still applies, with a warning, until the key is deleted."
+          "description": "Constant: as many as there are checks; a number still caps them, with a warning"
         },
         "starter_rules": {
           "type": ["object", "null"],
