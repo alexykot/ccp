@@ -147,6 +147,9 @@ in. Everything above applies, with these differences.
   weekly usage, the time until reset (`ccp allowance status`) and the tasks still outstanding. If they
   say go on, record their decision in their words, `ccp allowance continue --to <percent> --reason "…"`,
   then tell the runner to resume. If they say stop, let the runner stop. You never decide it alone.
+  On a `usage unread` stop, check `allowance_cmd`, then run `ccp allowance status --sample` until
+  `latest_good` is in force, honouring the backoff `status` reports rather than retrying in a loop;
+  then tell the runner to resume. No `continue` decision is recorded; tell the operator the outcome.
 - **When the operator must hear** (SPEC §3.6): a `blocker` (a task waits on `reauth` or
   `operator_step`), a `decision` (a gate you take to them, a `needs_operator` answer), a
   `review_point_done` (a close leaves its review point with no open task) and an

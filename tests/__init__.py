@@ -13,6 +13,10 @@ os.environ["CCP_USER_SETTINGS"] = "/nonexistent/claude-user-settings-guard.json"
 os.environ["CCP_RUN_CHECKOUT"] = "/nonexistent/control-plane-run-guard"
 os.environ["CCP_OTEL_LABEL"] = "ccp.test.no-such-receiver"  # run-checkout.sh never signals the live one
 os.environ["CCP_BINDINGS_DIR"] = "/nonexistent/control-plane-bindings-guard"
+# §25.1: the allowance reader's cache is shared by every product on the machine; a test's stub
+# command, rewritten between two claims, would be reused or backed off from by the next. So every
+# test reads unshared (each call runs its command, no cache); the shared reader's tests unset this.
+os.environ["CCP_ALLOWANCE_UNSHARED"] = "1"
 # §15.2, §15.5: no test calls the real gh (GitHub); the tests that read a PR name a stand-in.
 os.environ["CCP_GH_BIN"] = "/nonexistent/gh-guard"
 # §14: a seat's exported queue and binding never reach a test; the tests that need one set their own.

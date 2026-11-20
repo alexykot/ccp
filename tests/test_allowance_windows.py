@@ -47,7 +47,7 @@ class Windows(unittest.TestCase):
         f.write_text(json.dumps(data))
         cfg = p.cfg
         cfg.telemetry["allowance_cmd"] = f"cat {f}"
-        return usage.sample_allowance(cfg, self.q, gate=gate)
+        return usage.claim_reading(cfg, self.q, new=gate)["row"]
 
     def test_defaults_read_the_legacy_command_as_before(self):
         p = self.product({"allowance_stop_weekly": 80})
@@ -60,8 +60,8 @@ class Windows(unittest.TestCase):
 
     def test_a_named_weekly_window_stops_at_its_own_checkpoint(self):
         p = self.product({"windows": {"week": {"kind": "weekly", "stop_pct": 60}}})
-        with self.assertRaises(QueueError) as e:
-            self.sample(p, {"windows": [{"name": "week", "pct": 61, "resets_at": "2026-11-09T08:00:00Z"}]})
+        with self.assertRaises(QueueError) as e:  # a weekly reset still ahead (§25.1)
+            self.sample(p, {"windows": [{"name": "week", "pct": 61, "resets_at": "2099-11-09T08:00:00Z"}]})
         self.assertEqual(e.exception.code, 5)
         self.assertIn("checkpoint is 60%", str(e.exception))
         rec = self.sample(p, {"windows": [{"name": "week", "pct": 30, "resets_at": "2026-11-09T08:00:00Z"}]})
@@ -102,8 +102,8 @@ class Windows(unittest.TestCase):
     def test_any_weekly_window_past_its_own_checkpoint_refuses(self):
         p = self.product({"windows": {"week": {"kind": "weekly", "stop_pct": 60},
                                       "month": {"kind": "weekly", "stop_pct": 90}}})
-        data = {"windows": [{"name": "week", "pct": 10, "resets_at": "2026-11-30T08:00:00Z"},
-                            {"name": "month", "pct": 95, "resets_at": "2026-11-09T08:00:00Z"}]}
+        data = {"windows": [{"name": "week", "pct": 10, "resets_at": "2099-11-30T08:00:00Z"},
+                            {"name": "month", "pct": 95, "resets_at": "2099-11-09T08:00:00Z"}]}
         with self.assertRaises(QueueError) as e:
             self.sample(p, data)
         self.assertIn("the month window is at 95%", str(e.exception))

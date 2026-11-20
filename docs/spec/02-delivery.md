@@ -159,7 +159,7 @@ stale one (its head lacks the task file's last change), or whose `sign_off:` val
 3, naming it; no task is taken (§3.5).
 Then it takes the lease, writes `work.json` (`task_id`, `phase`,
 `runtime_status`, `in_flight`) and `tasks/<id>.json` from the task file, makes the task's implement
-worktree (`ccp wt create --kind impl`, §12), samples the allowance (§25) and writes a heartbeat. A
+worktree (`ccp wt create --kind impl`, §12), takes an allowance reading (§25.1) and writes a heartbeat. A
 `draining` or `stopped` `work.json` refuses a new task. A legacy `in_progress` or `blocked` file
 status reads as `pending`. With several runners, §16.3 and §16.4 apply.
 
@@ -1160,10 +1160,13 @@ allowed only when all hold; otherwise it refuses with exit 7, naming the rule an
 3. Under `parallel.schedule: paths`, no path of C meets a path of a task in A (equal, one a directory holding the other, or a glob or
    bare name of one matching the other), unless both are covered by a `parallel.shared` entry. Under `clashes`, C clashes with no task in A: neither names the other in `clashes_with` (§5), whether or not their paths meet.
 4. No path of C or of a task in A meets an `exclusive` entry.
-5. The account's session-window usage, sampled at this claim, is below the session ceiling (the
-   gating session window, §25). A sample whose weekly figure is known but has no session figure
-   means the account has no session limit: the rule passes. A sample with neither (a failed
-   read) refuses. A machine without `allowance_cmd` reads no usage: the rule passes (§25.1).
+5. The account's session-window usage, in the reading in force (the latest good reading no older
+   than 15 minutes, §25.1), is below the session ceiling (the gating session window, §25). A
+   reading whose weekly figure is known but has no session figure means the account has no
+   session limit: the rule passes. With no reading in force, a second claim refuses; a failed read
+   is never judged. `ccp tasks next` judges this rule on the reading in force and, with none,
+   leaves it to the claim, which reads. A machine without `allowance_cmd` reads no usage: the rule
+   passes (§25.1).
 
 A claim into an empty active set is judged as single-runner; a resume is never refused by these
 rules. A claim by a runner that already holds a task not closed or released refuses (exit 7).

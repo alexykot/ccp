@@ -13,8 +13,8 @@ the file, never its text retyped, and, when the role's model for this round (pla
 plane's default; the implementer's per task) is not the agent definition's, its alias (`model`, §2.4; the run
 expects it); otherwise the call carries no `model` and the runner passes none. For an implement round with no
 estimate for the task, it warns that the small choice cannot
-apply. First it samples the allowance: at the
-5-hour park % it parks the task and refuses, exit 6, writing nothing else (§25.4 the session park).
+apply. Once its refusal gates pass, it takes an allowance reading (§25.1; a refused prompt reads nothing): at
+the 5-hour park % it parks the task and refuses, exit 6, writing nothing else (§25.4 the session park).
 Besides implement, fix, review and verify, a merge round only merges the integration tip into the task
 branch and a ruling round only applies a lead's ruling (its `--note`); review and verify treat their heads
 as a fix round's (§13.2). A verify of a fix round that no review has seen is refused, exit 4, nothing
@@ -673,10 +673,6 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     if not st.get("lease_holder") or st.get("status") == "done":
         raise QueueError(f"{tid} is not claimed (or is done): `ccp tasks claim {tid}` first", 3)
     caller = opener(q, tid, st, getattr(a, "holder", None))
-    from ccp import usage  # noqa: PLC0415
-    # §25.4 the session park: no run opens at or past the 5-hour park % (exit 6, the task parked)
-    # (best effort: only the park refuses; a failed sample or wait write is a warning)
-    session_warn = usage.session_step(cfg, q, tid, lambda: usage.sample_allowance(cfg, q, gate=False), f"ccp prompt {phase}")
     resolution = resolution_gate(cfg, q, tid, phase, a)
     override, skipped = review_gate(cfg, q, tid, phase, a)
     repeat = repeat_gate(q, tid, phase, note)
@@ -684,6 +680,12 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     body_warn = body_gate(cfg, tid, phase, a.pr)
     runs.check_pending(q, runs.AGENT_TYPE[phase], a.supersede, caller)
     runs.check_running_rounds(q, tid, phase, caller, a.supersede)
+    from ccp import usage  # noqa: PLC0415
+    # §25.4 the session park: no run opens at or past the 5-hour park % (exit 6, the task parked). Below the
+    # refusal gates, so a refused prompt reads no usage (§25.1). Best effort: only the park refuses; a failed
+    # reading or wait write is a warning
+    session_warn = usage.session_step(cfg, q, tid, f"ccp prompt {phase}",
+                                      read=lambda: usage.reading_warnings(cfg, q, usage.reading(cfg, q)))
     n = runs.next_round(q, tid, phase)
     run_id = runs.make_id(tid, phase, n)
     report = runs.report_path(q, run_id)

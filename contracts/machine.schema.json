@@ -13,7 +13,7 @@
     "allowance_cmd": {
       "type": "string",
       "minLength": 1,
-      "description": "SPEC §25.1: the shell command that prints the account's usage windows (contracts/allowance.schema.json), run by `ccp tasks claim` and `ccp board build` for every product on this machine. Absent: no usage is read and nothing bounds spend, and `ccp init`, the session-start check and the board say so. A plane.json `telemetry.allowance_cmd` is the old place, read while this is absent."
+      "description": "SPEC §25.1: the shell command that prints the account's usage windows (contracts/allowance.schema.json), read through one shared reader per machine by `ccp tasks claim`, `ccp prompt`, `ccp allowance status --sample` and `ccp allowance session-wake --sample` and `--fire`, for every product on this machine. Absent: no usage is read and nothing bounds spend, and `ccp init`, the session-start check and the board say so. A plane.json `telemetry.allowance_cmd` is the old place, read while this is absent."
     },
     "allowance_stop_weekly": {
       "type": "number",

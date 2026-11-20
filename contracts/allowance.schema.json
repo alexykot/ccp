@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:control-plane:contracts:allowance.schema.json",
   "title": "ControlPlaneAllowanceReading",
-  "description": "SPEC §25.2: what `telemetry.allowance_cmd` prints: any number of named usage windows, each with its percentage used (0 or more; a figure past 100 is kept as read) and its reset time. Either the generic form, or the legacy one: an object per window with `utilization` and `resets_at` (e.g. `five_hour`, `seven_day`). A window whose figure is null or missing keeps its reset and gates nothing; an empty or unreadable reading is unknown, never zero.",
+  "description": "SPEC §25.1, §25.2: what the machine's `allowance_cmd` prints: any number of named usage windows, each with its percentage used (0 or more; a figure past 100 is kept as read) and its reset time. Either the generic form, or the legacy one: an object per window with `utilization` and `resets_at` (e.g. `five_hour`, `seven_day`). Either may carry `retry_after_s`, the seconds to wait before the command is run again; an object holding only `retry_after_s` is a failed read that says when to retry. A window whose figure is null or missing keeps its reset and gates nothing; a reading with no window figure is a failed read, never zero.",
   "oneOf": [
     {
       "type": "object",
@@ -41,14 +41,29 @@
               }
             }
           }
+        },
+        "retry_after_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "SPEC §25.1: seconds before the command is run again; the shared reader backs off at least this long, at most 3600 seconds."
         }
       }
     },
     {
       "type": "object",
       "not": {
-        "required": [
-          "windows"
+        "anyOf": [
+          {
+            "required": [
+              "windows"
+            ]
+          },
+          {
+            "required": [
+              "retry_after_s"
+            ],
+            "maxProperties": 1
+          }
         ]
       },
       "additionalProperties": {
@@ -69,7 +84,28 @@
             "format": "date-time"
           }
         }
+      },
+      "properties": {
+        "retry_after_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "SPEC §25.1: seconds before the command is run again; the shared reader backs off at least this long, at most 3600 seconds."
+        }
       }
+    },
+    {
+      "type": "object",
+      "required": [
+        "retry_after_s"
+      ],
+      "properties": {
+        "retry_after_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "SPEC §25.1: seconds before the command is run again; the shared reader backs off at least this long, at most 3600 seconds."
+        }
+      },
+      "additionalProperties": false
     }
   ]
 }

@@ -423,6 +423,17 @@ class Page(Fixture, unittest.TestCase):
         self.assertTrue((self.q / "board" / "forecast-fit.json").is_file())  # the cache, keyed by the samples
         self.assertEqual(b["forecast"]["allowance"]["fit"], self.build()[0]["forecast"]["allowance"]["fit"])
 
+    def test_a_failed_latest_sample_keeps_the_projection(self):
+        self.seed_forecast()
+        p = self.q / "board" / "allowance.jsonl"
+        good = json.loads(p.read_text().splitlines()[-1])
+        with p.open("a") as fh:  # §25.1: a failed sample is never judged; the latest good one is projected
+            fh.write(json.dumps({"at": iso(time.time()), "five_hour": None, "seven_day": None, "resets_at": None,
+                                 "windows": [], "failed": True, "exit": 1}) + "\n")
+        a = self.build()[0]["forecast"]["allowance"]
+        self.assertNotIn("unavailable", a)
+        self.assertEqual((a["pct_sample"], a["sample_at"]), (good["seven_day"], good["at"]))
+
     @unittest.skipUnless(shutil.which("node"), "node is not installed")
     def test_the_page_shows_the_forecast_in_the_queue_tab_and_the_strip_escaped(self):
         self.seed_forecast()

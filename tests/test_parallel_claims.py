@@ -146,7 +146,7 @@ class Claims(ParallelFixture, unittest.TestCase):
         self.reading.write_text("not json")
         code, _, _, err = self.claim("0003")
         self.assertEqual(code, 7)
-        self.assertIn("unknown", err)
+        self.assertIn("60%", err)  # a failed read is never judged: the 60% reading is still in force
         self.five(59)
         self.assertEqual(self.claim("0003")[0], 0)
 
@@ -182,10 +182,14 @@ class Claims(ParallelFixture, unittest.TestCase):
 
     def test_a_usage_command_that_prints_nothing_still_refuses(self):
         self.assertEqual(self.claim("0002")[0], 0)
+        board = self.q / "board" / "allowance.jsonl"  # the good reading is older than the reading in force
+        stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 3600))
+        board.write_text(json.dumps({"at": stamp, "five_hour": 10, "seven_day": 5}) + "\n")
         self._allowance_cmd("true")
         code, _, out, err = self.claim("0003")
         self.assertEqual(code, 7, out + err)
         self.assertIn("rule 5", err)
+        self.assertTrue(json.loads(board.read_text().splitlines()[-1])["failed"])
 
     def test_a_resume_is_never_refused(self):
         self.assertEqual(self.claim("0002")[0], 0)

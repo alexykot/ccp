@@ -226,8 +226,9 @@ def join_refusal(cfg: Config, cand: dict[str, Any], active: list[dict[str, Any]]
                  sample: dict[str, Any] | None, five_known: bool = True, rule3: bool = True) -> str | None:
     """Why `cand` may not be claimed beside `active` (§16.3 rules 1-5), or None when it may.
     An empty `active` is never refused here: a lone claim is judged as before §16. `sample` is the
-    allowance reading (`five_hour`, `seven_day`); `five_known` False skips rule 5 (no fresh sample to
-    judge it by; the claim samples), and so does a machine with no `allowance_cmd`.
+    reading in force (`five_hour`, `seven_day`; §25.1), None when there is none, which refuses rule 5;
+    `five_known` False skips rule 5 (`next` with no reading in force: the claim reads), and so does a
+    machine with no `allowance_cmd`.
     `rule3` False skips the path rule (`next` asks whether rule 3 alone keeps a task out)."""
     if not active:
         return None
@@ -256,7 +257,10 @@ def join_refusal(cfg: Config, cand: dict[str, Any], active: list[dict[str, Any]]
                     return f"{t.get('task_id')}'s `{p}` is exclusive (`{x}`, parallel.exclusive): it runs alone (rule 4)"
     if five_known and reads_usage(cfg) and not no_five_hour_limit(sample):
         ceiling = float(usage.account(cfg)["ceiling_pct"])
-        five_hour = (sample or {}).get("five_hour")
+        if sample is None:
+            return (f"no good usage reading in the last {usage.IN_FORCE_S // 60} minutes, so no second task is "
+                    "taken (rule 5)")
+        five_hour = sample.get("five_hour")
         if five_hour is None:
             return "the 5-hour usage is unknown, so no second task is taken (rule 5)"
         if five_hour >= ceiling:
@@ -292,13 +296,11 @@ def next_choice(cfg: Config, q: Path | None, sel: dict[str, Any]) -> dict[str, A
     would keep from joining a passed-over task, is passed over: it waits only for the tasks rule 3 keeps
     it from (its paths meet, or under `parallel.schedule: clashes` it clashes with).
     A task any other rule keeps out ends the walk with none (head of line); `slots_full` names the first
-    ready task as `head`, with its refusal. Rule 5 is judged on the latest allowance sample while it is
-    fresh (15 minutes); the claim samples anew either way."""
+    ready task as `head`, with its refusal. Rule 5 is judged on the reading in force (§25.1: the latest
+    good sample no older than `usage.IN_FORCE_S`); with none it is not judged here, and the claim reads."""
     ranked = sel["ranked"]
     if q is None or not enabled(cfg):
         return {"pick": ranked[0] if ranked else None, "slots_full": None, "passed_over": []}
-    import time  # noqa: PLC0415
-    from datetime import datetime  # noqa: PLC0415
     from ccp import usage  # noqa: PLC0415
     from ccp.queue import load_work  # noqa: PLC0415
     rows = [r for r in ranked if str(r[0].get("task_id")) not in sel["in_flight"]]
@@ -309,11 +311,8 @@ def next_choice(cfg: Config, q: Path | None, sel: dict[str, Any]) -> dict[str, A
     if not rows:
         return {"pick": None, "slots_full": {"in_flight": ids, "reason": "nothing else is ready", "passed_over": []},
                 "passed_over": []}
-    last = usage._latest(q)
-    try:
-        fresh = time.time() - datetime.fromisoformat(str(last.get("at")).replace("Z", "+00:00")).timestamp() < 15 * 60
-    except ValueError:
-        fresh = False
+    last = usage.in_force(q, usage.now())  # a failed sample is never in force, so never makes the slots full
+    fresh = last is not None
     passed: list[dict[str, Any]] = []
     held: list[dict[str, Any]] = []  # the passed-over tasks themselves
     head_why = None
