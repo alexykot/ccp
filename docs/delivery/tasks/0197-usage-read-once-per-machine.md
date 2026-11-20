@@ -634,4 +634,43 @@ note gives the test, the old expectation and the new one.
 
 ## Implementation notes
 
+- **The reader.** `usage.reading(cfg, q)` replaces `sample_allowance`, which is gone; the claim calls it
+  through `usage.claim_reading(cfg, q, new=…)`, which raises `usage.CheckpointStop` (exit 5, with the
+  notice's `reason`) for a weekly checkpoint (`weekly_over`) or the unread stop (`checkpoint_stop`). The
+  decisions on plain values are `good`, `good_row`, `plan_read`, `after_read`, `next_backoff`,
+  `backoff_end`, `backoff_from_log` and `unread_since_log` (tested in `tests/test_usage_reader_rules.py`;
+  `tests/test_usage_reading.py` holds exactly the six end-to-end tests ur-01 counts).
+- **Choices where the brief was open (flagged in the report):**
+  - A sample with no `windows` list (written before the usage windows) is judged by its legacy
+    `five_hour`/`seven_day` figures (house rule E9); one with a list, by the list.
+  - A zero-exit read with no figure keeps its parsed windows on its failed row, so a null figure's reset
+    is still recorded, as before; the cache's `good` is not touched.
+  - The production fallback also applies when the machine file's directory is not writable (the cache's
+    atomic write would fail); a failed cache write after the command ran is the warning only.
+  - `ccp allowance status` also shows `backoff_until` and `unread_since`, the backoff the spec-maintainer
+    skill tells the lead to honour. Its § bullet (§25.3) is unchanged: plane proposal
+    pp-20261120T221917Z-5177.
+  - `contracts/allowance.schema.json`: the legacy branch's `not` also excludes an object holding only
+    `retry_after_s`, so the `oneOf` stays exclusive with the new third branch.
+  - The SPEC-maintainer skill's bullet does not restate the stop's condition (house rule E13).
+- **Tests whose expectations changed** (old, then new):
+  - `test_parallel_claims` `test_the_session_ceiling_and_an_unknown_reading`: a bad reading after the 60%
+    row refused naming `unknown`; it now refuses naming `60%` (the 60% row is in force).
+  - `test_parallel_claims` `test_a_usage_command_that_prints_nothing_still_refuses`: the empty read
+    refused beside an in-force 10% reading; the test now ages the good reading past 15 minutes, so the
+    refusal is rule 5 with no reading in force, and the row says `failed: true`.
+  - `test_session_park` `test_an_unknown_reading_proceeds_but_keeps_the_park_and_a_past_reset_lifts_it`,
+    renamed `test_a_failed_reading_parks_again_on_the_good_one_and_a_past_reset_lifts_it`: exit 0, now
+    exit 6.
+  - `test_toolkit` `test_an_unknown_sample_never_stops_a_claim`: the warning "allowance reading is
+    unknown" is now "no good allowance reading in force"; the row has `failed: true` and `shared: false`.
+  - Weekly resets in the past (2026-10/11 dates) are no longer judged (§25.1: a window whose reset is still
+    ahead), so the fixtures that expect a weekly stop moved them to 2099: `test_allowance_windows`
+    (`test_a_named_weekly_window_stops_at_its_own_checkpoint`, `test_any_weekly_window_past_its_own_checkpoint_refuses`),
+    `test_toolkit` `Allowance` and `Checkpoint`, and `test_session_park`'s reading helper
+    (`test_the_weekly_gate_is_unchanged_and_comes_first`).
+  - `test_allowance_windows`' helper calls `usage.claim_reading` and `test_session_park`
+    `test_prompt_and_claim_stay_best_effort` patches `usage.reading`, for the removed `sample_allowance`.
+  - No test broke on the prompt's moved step.
+
 ## Verification notes
