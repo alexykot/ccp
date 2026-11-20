@@ -740,7 +740,7 @@
           ],
           "default": ".plane-runtime",
           "deprecated": true,
-          "description": "Constant, \".plane-runtime\" (SPEC §29.3): A path relative to the main checkout, which may lead outside it with `..`, such as a sibling directory, or an absolute path; not the main checkout itself; worktrees are named <kind>-<nnnn>[-<n>] (impl, rev, ver, mut, mac, base). ccp init adds the directory to .gitignore and writes no key. A value set here other than the constant (null: no plane-made worktrees) still applies, with a warning, until the key is deleted."
+          "description": "Constant, \".plane-runtime\" (SPEC §29.3): A path relative to the main checkout, which may lead outside it with `..`, such as a sibling directory, or an absolute path; not the main checkout itself; worktrees are named <kind>-<nnnn>[-<n>] (impl, rev, ver, mut, mac, base). ccp init adds the directory to .gitignore and writes no key. The one constant that a product may still set to its own value with no warning (`ccp init` wrote it before); a value other than the constant (null: no plane-made worktrees) still applies, with a warning, until the key is deleted. A directory inside the main checkout is named in the repository's info/exclude when the first worktree is made."
         },
         "links": {
           "type": "array",

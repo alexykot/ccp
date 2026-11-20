@@ -45,6 +45,28 @@ class Create(WtFixture, unittest.TestCase):
         st = json.loads((self.q / "worktrees" / "impl-0002.json").read_text())
         self.assertEqual((st["kind"], st["task_id"], st["branch"], st["state"]), ("impl", "0002-second", "task/0002-second", "created"))
 
+    def test_a_base_directory_inside_the_checkout_is_excluded_when_the_gitignore_lacks_it(self):
+        self.write(".gitignore", ".venv/\nclosed-*\n")
+        git(self.main, "commit", "-qam", "drop the runtime ignore line")
+        self.assertEqual(self.ccp("tasks", "claim", "0002")[0], 0)
+        self.assertEqual(git(self.main, "status", "--porcelain"), "")  # .plane-runtime is not untracked
+        ex = (self.main / ".git" / "info" / "exclude").read_text().splitlines()
+        self.assertEqual(ex.count("/.plane-runtime"), 1)
+        self.assertEqual(self.wt("create", "--kind", "rev", "--task", "0002", "--sha", self.head())[0], 0)
+        self.assertEqual((self.main / ".git" / "info" / "exclude").read_text().splitlines().count("/.plane-runtime"), 1)
+
+    def test_a_base_directory_outside_the_checkout_is_not_excluded(self):
+        other = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, other, True)
+        self.plane(worktrees={"dir": str(other / "trees")})
+        code, body, _, err = self.wt("create", "--kind", "rev", "--task", "0002", "--sha", self.head())
+        self.assertEqual(code, 0, err)
+        self.assertTrue(Path(body["path"]).is_relative_to(other.resolve()), body["path"])
+        ex = self.main / ".git" / "info" / "exclude"
+        text = ex.read_text() if ex.is_file() else ""
+        self.assertNotIn("/trees", text)
+        self.assertNotIn("worktrees directory", text)
+
     def test_rev_worktree_is_detached_runs_setup_with_fields_and_env(self):
         self.plane(env={"setup": "echo {kind} {seat} {tag} {nnnn} $CCP_WT_NAME > setup.txt"})
         code, body, _, err = self.wt("create", "--kind", "rev", "--task", "0002", "--sha", self.head(), "--name", "rev-0002-2")

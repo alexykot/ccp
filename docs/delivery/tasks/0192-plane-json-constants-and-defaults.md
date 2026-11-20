@@ -167,5 +167,15 @@ the prompt fragment, and the lead's expected model follows `models.lead`.
   test now (`TheLeadsExpectedModelReaders`), and the constants' old values are a literal table.
   `docs/spec/01-model.md` (the adoption passage) still says init writes "the worktrees directory" into plane.json: left to a proposal,
   with §19.6's "needs `shape_from_task`" (0189's sweep).
+- Fix round 2. The lead's ruling holds to the letter: a plane.json that still sets `worktrees.dir` to `.plane-runtime` loads
+  with no stderr output, and only a different value (or null) warns. The carve-out is a registry flag,
+  `Outcome.quiet_equal`, set on this one key (`config.KEY_OUTCOMES["worktrees.dir"]`): `constant_override` returns the
+  constant without a warning when the entry is quiet and the value equals it, `_apply_outcomes` then records no finding.
+  Every other constant keeps 0187's equal-value warning. The schema's `worktrees.dir` description says so. The behaviour
+  change behind the constant: a product with no `worktrees` key and no `.plane-runtime` line in its .gitignore now has
+  plane-made worktrees where it had none, so `wt.create` names the base directory in the repository's `info/exclude`
+  (`wt._exclude_base`, once, as it does for `worktrees.links`) when it lies inside the main checkout, so `git status`
+  stays clean; a directory outside the checkout is left alone. Adoption: no step for the lead beyond the task's `adopt:`
+  line.
 
 ## Verification notes

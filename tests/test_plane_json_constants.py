@@ -303,11 +303,16 @@ class TheWorktreesDirectory(unittest.TestCase):
         cfg = self.product().cfg
         self.assertEqual(wt.base_dir(cfg), (cfg.root / ".plane-runtime").resolve())
 
-    def test_a_product_that_still_sets_the_constant_value_loads_with_the_note_to_delete_it(self):
+    def test_a_product_that_still_sets_the_constant_value_loads_with_no_warning(self):
         cfg, err = load({"worktrees": {"dir": ".plane-runtime"}})
-        self.assertEqual(cfg.worktrees["dir"], ".plane-runtime")
-        self.assertIn("worktrees.dir is a constant in code ('.plane-runtime') and is set to that value: delete it", err)
-        self.assertNotIn("still applies", err)
+        self.assertEqual((cfg.worktrees["dir"], err), (".plane-runtime", ""))
+        self.assertEqual(config.key_outcomes_set({"worktrees": {"dir": ".plane-runtime"}}), [])
+        cfg, err = load({"worktrees": {"dir": ".other"}})
+        self.assertEqual(cfg.worktrees["dir"], ".other")
+        self.assertIn("worktrees.dir is a constant in code ('.plane-runtime'); the value '.other' set here still applies", err)
+
+    def test_only_that_key_is_quiet_at_its_own_value(self):
+        self.assertEqual([k for k, o in config.KEY_OUTCOMES.items() if o.quiet_equal], ["worktrees.dir"])
 
     def test_a_different_value_applies_with_a_warning_and_null_is_no_worktrees(self):
         cfg, err = load({"worktrees": {"dir": "../trees"}})

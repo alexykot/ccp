@@ -22,7 +22,7 @@ import os
 import re
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -356,7 +356,9 @@ class Outcome:
     list is as good as unset; `globs`: an entry `dir/*.md` moves as `dir/`; `machine`: `into` is a key of the
     machine file (§8.3), whose own value wins, and the key stays read here, `in_place`, while the machine file
     lacks it). `constant`: the code uses `value`; a value the product sets other than it still applies, with a
-    warning, until the key is deleted (`constant_override`). `why` is what the warning adds."""
+    warning, until the key is deleted (`constant_override`); a value equal to it warns that the key can go,
+    unless `quiet_equal` (a key `ccp init` used to write: a product adopted before still sets it, which is no
+    news). `why` is what the warning adds."""
     kind: str
     into: str = ""
     value: Any = None
@@ -365,6 +367,7 @@ class Outcome:
     blank: bool = False
     globs: bool = False
     machine: bool = False
+    quiet_equal: bool = False
     why: str = ""
 
 
@@ -426,6 +429,9 @@ _CONSTANT_KEYS: tuple[tuple[str, dict[str, Any], tuple[str, ...]], ...] = (
 )
 KEY_OUTCOMES.update({f"{block}.{key}": Outcome(CONSTANT, value=copy.deepcopy(defaults[key]))
                      for block, defaults, keys in _CONSTANT_KEYS for key in keys})
+# `ccp init` wrote `worktrees.dir` until it became a constant (ADR-0043 D9): a plane.json that still sets the constant's
+# own value loads with no warning, and only a different value warns.
+KEY_OUTCOMES["worktrees.dir"] = replace(KEY_OUTCOMES["worktrees.dir"], quiet_equal=True)
 UNSET: Any = object()  # `constant_override`: the key is not set
 
 
@@ -510,7 +516,8 @@ def constant_override(key: str, given: Any = UNSET, *, notes: list[str] | None =
     """The value to use for `key`, a registry entry (`KEY_OUTCOMES`) with the outcome `constant`: its value
     when `given` is UNSET; else, with one warning naming the key and the constant, `given` when it is another
     value (it applies until the product deletes the key or the plane takes a proposal to keep it), or the
-    constant when `given` is the constant's own value (the warning says the key can be deleted). The warning
+    constant when `given` is the constant's own value (the warning says the key can be deleted; none when the
+    entry is `quiet_equal`). The warning
     goes to `notes` when that is given (once per key), else to stderr once per `where` and process. Every
     reader of a constant calls this: plane.json's loader, the account knobs, the runner numbers (SPEC §29.3)."""
     out = KEY_OUTCOMES[key]
@@ -519,6 +526,8 @@ def constant_override(key: str, given: Any = UNSET, *, notes: list[str] | None =
     if given is UNSET:
         return out.value
     if _same(given, out.value):
+        if out.quiet_equal:
+            return out.value
         msg = (f"{where}: {key} is a constant in code ({out.value!r}) and is set to that value: delete it "
                "(SPEC §29.3)")
         use = out.value
@@ -593,7 +602,10 @@ def _apply_outcomes(raw: dict[str, Any], ignored: dict[str, str] | None = None, 
             notes: list[str] = []
             use = constant_override(key, given, notes=notes)
             _put(raw, key, copy.deepcopy(use))
-            f.update(constant=o.value, differs=not _same(given, o.value), note=notes[0])
+            f.update(constant=o.value, differs=not _same(given, o.value))
+            if not notes:  # a `quiet_equal` key set to the constant: nothing to say
+                continue
+            f["note"] = notes[0]
         found.append(f)
     return raw, found
 
