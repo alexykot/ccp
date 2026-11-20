@@ -978,7 +978,7 @@ tasks:
     depends_on: [0192-plane-json-constants-and-defaults]
     path: tasks/0195-docs-checks-run-at-once.md
   - id: 0196-no-pass-owed-at-adoption
-    status: pending
+    status: done
     title: A product that adopts the architect owes no pass at once; before its first pass each trigger counts only what follows the adoption point
     depends_on: [0185-architect-on-by-default]
     path: tasks/0196-no-pass-owed-at-adoption.md

@@ -1,7 +1,7 @@
 ---
 task_id: 0196-no-pass-owed-at-adoption
 title: A product that adopts the architect owes no pass at once; before its first pass each trigger counts only what follows the adoption point
-status: pending
+status: done
 kind: feature
 depends_on: ["0185-architect-on-by-default"]
 spec_refs: ["S19"]
@@ -165,3 +165,5 @@ adoption point.
   `False and` on the drift guard).
 
 ## Verification notes
+- 2026-11-20 — verifier, PR #223 head `45734b6` (squash `40ca743`): APPROVE. Passed: np-01, np-02, np-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0196-no-pass-owed-at-adoption.json.
+
