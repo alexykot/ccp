@@ -182,5 +182,13 @@ by an upgrade step in its own repo.
 - §31.1 corrections beyond the quoted passages (no new rule): 01-model §4.5 (`--starter-rules` bullets), 03-quality §19.6
   item 5 (on demand "with the seat off"), §20.3 (kinds), §20.3's board line (`refactors_waiting` null unless adopted);
   README, `docs/cli/01-model.md`, the starter-rules and ENGINEERING templates, `contracts/task_file.schema.json`.
+- Fix round 1: the refactor lane reads a task's `kind` only from the adoption point, as the kind checks do:
+  `tasklog.lane_refactor(cfg, t)` (kind refactor and `seat_reads`) replaces `kind_of(t) == "refactor"` in `ranked`,
+  `refactor_reach`, `waiting_refactors`, `features_since_refactor`, the forecast's replay and the board's waiting
+  refactors, so an old pending refactor numbered below the point is an ordinary task. Workers are sent to the house rules
+  doc only when the file exists (`prompt.rules_doc_for`). `ccp init` refuses `--starter-rules` with `--no-starter-rules`
+  (exit 2). The stale "with an `architect` block" wording in `tasks next`'s help, the verifier agent, the runner-idle hook,
+  the board design doc, `tasklog`'s docstring and `docs/ENGINEERING.md` now says the seat is adopted or on; the extra
+  blank line in §19.11 is gone. SPEC §20.3's board line (`refactors_waiting` null unless adopted) still reads true.
 
 ## Verification notes
