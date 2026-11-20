@@ -987,3 +987,63 @@ tasks:
     title: Usage is read once per machine, a failed read backs off, and every rule judges the latest good reading
     depends_on: [0186-account-facts-on-the-machine]
     path: tasks/0197-usage-read-once-per-machine.md
+  - id: 0198-architect-runs-in-its-own-worktree
+    status: pending
+    title: The architect runs in its own worktree at the head it names, and one call shapes every ADR due
+    depends_on: []
+    path: tasks/0198-architect-runs-in-its-own-worktree.md
+  - id: 0199-suite-wait-auto
+    status: pending
+    title: ccp suite run --wait auto derives the wait from the shell limit and the lane's usual cold time
+    depends_on: []
+    path: tasks/0199-suite-wait-auto.md
+  - id: 0200-mutate-together
+    status: pending
+    title: ccp mutate --together applies the given mutants as one, so a mutant can move lines
+    depends_on: []
+    path: tasks/0200-mutate-together.md
+  - id: 0201-plane-json-records-keep-layout
+    status: pending
+    title: Commands that record into plane.json change only their own key and keep the file's layout
+    depends_on: []
+    path: tasks/0201-plane-json-records-keep-layout.md
+  - id: 0202-forecast-and-health-report-task-supply
+    status: pending
+    title: The forecast and health name the accepted decisions that no task cites yet
+    depends_on: []
+    path: tasks/0202-forecast-and-health-report-task-supply.md
+  - id: 0203-follow-up-fixes
+    status: pending
+    title: Follow-up fixes - a claim clears the wait, beyond needs a reason, constants shown in words, a finite retry
+    depends_on: []
+    path: tasks/0203-follow-up-fixes.md
+  - id: 0204-spec-descriptions-catch-up
+    status: pending
+    title: SPEC descriptions catch up with built behaviour
+    depends_on: []
+    path: tasks/0204-spec-descriptions-catch-up.md
+  - id: 0205-threat-model
+    status: pending
+    title: A threat model for the plane, and roadmap notes for a batching merge queue and seat isolation
+    depends_on: []
+    path: tasks/0205-threat-model.md
+  - id: 0206-package-doc-is-not-its-own-source
+    status: pending
+    title: A package doc listed in claude_md_dirs does not count its own lines as source
+    depends_on: []
+    path: tasks/0206-package-doc-is-not-its-own-source.md
+  - id: 0207-sync-product-docs-finds-the-binding-through-lib
+    status: pending
+    title: scripts/sync-product-docs.sh finds a product's binding through the one binding module
+    depends_on: []
+    path: tasks/0207-sync-product-docs-finds-the-binding-through-lib.md
+  - id: 0208-board-reads-the-latest-good-allowance
+    status: pending
+    title: The board reads the latest good allowance reading for the weekly tile and the checkpoint blocker
+    depends_on: []
+    path: tasks/0208-board-reads-the-latest-good-allowance.md
+  - id: 0209-spec-text-finds-signed-contract-text
+    status: pending
+    title: ccp verify spec-text finds a signed passage that lands outside the SPEC, such as in a contract
+    depends_on: []
+    path: tasks/0209-spec-text-finds-signed-contract-text.md
