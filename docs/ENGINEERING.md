@@ -26,7 +26,7 @@ run through `docs.checks` and the gate (`scripts/gate.sh`) rather than `architec
 
 - **E3** No managed product's names, ids, paths, data or rulings in tracked files, commit messages or
   PR titles. Rules are written generically, with knobs that have neutral defaults.
-  check: command — scripts/leak-check.sh (docs.checks `leak-check`), patterns in a local denylist
+  check: command — scripts/leak-check.sh (docs.checks `leak-check`), patterns in a local denylist: `CCP_LEAK_DENYLIST`, else `leak-denylist.txt` in the bindings directory (`CCP_BINDINGS_DIR`, else beside the binding `ccp where` names)
 - **E5** Telemetry and records carry numbers and ids only: never prompt, response, command or file
   content. The receiver keeps a field whitelist.
   check: pass
