@@ -1,7 +1,7 @@
 # Engineering rules
 
 The control plane's house rules. Every change follows them; every rule says how it is checked. The
-format is the one `ccp` reads (SPEC §20.1). Until the architect block is enabled, the command rules
+format is the one `ccp` reads (SPEC §20.1). Until the architect seat is adopted (SPEC §19.11), the command rules
 run through `docs.checks` and the gate (`scripts/gate.sh`) rather than `architect.checks`.
 
 ## Tests

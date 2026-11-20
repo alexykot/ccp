@@ -203,11 +203,11 @@ def sequence(cfg: Config, q: Path | None, tasks: list[dict[str, Any]] | None = N
             by_id[tid]["status"] = "held"
     every = cfg.architect["refactor_every"] if config.architect_adopted(cfg) else 0
     since = 0
-    if every and any(tasklog.kind_of(t) == "refactor" and t.get("status") == "pending" for t in open_):
-        since = since_refactor({str(t.get("task_id")): tasklog.kind_of(t) for t in tasks}, merged) \
+    if every and any(tasklog.lane_refactor(cfg, t) and t.get("status") == "pending" for t in open_):
+        since = since_refactor({str(t.get("task_id")): "refactor" if tasklog.lane_refactor(cfg, t) else "feature" for t in tasks}, merged) \
             if merged is not None else tasklog.features_since_refactor(cfg, tasks)
     for tid in flight:
-        since = 0 if tasklog.kind_of(by_id[tid]) == "refactor" else since + 1
+        since = 0 if tasklog.lane_refactor(cfg, by_id[tid]) else since + 1
     # the lead's list: each entry goes first once it is ready, in the lead's order, until it is taken
     pref = [(pid, why) for t, why in sel.get("prefer") or []
             if (pid := str(t.get("task_id"))) in by_id and pid not in held and pid not in flight]
@@ -224,7 +224,7 @@ def sequence(cfg: Config, q: Path | None, tasks: list[dict[str, Any]] | None = N
             t["status"] = "done"
             first = [x for x in first if x != tid]
             pref = [(x, why) for x, why in pref if x != tid]
-            since = 0 if tasklog.kind_of(t) == "refactor" else since + 1
+            since = 0 if tasklog.lane_refactor(cfg, t) else since + 1
     seen = set(order)
     unreached = {}
     for t in open_:

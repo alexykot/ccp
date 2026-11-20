@@ -16,7 +16,7 @@ Judge from that packet and the code; you have no implementer context and need no
 
 Be adversarial. Prove each `dod_check` from evidence you checked yourself, not from what the PR or
 the evidence claims. Where the product has `docs/delivery/plane.json`, gate first on
-`ccp tasks check && ccp docs check` (SPEC §21.8); with an `architect` block, `ccp docs check` also holds
+`ccp tasks check && ccp docs check` (SPEC §21.8); with the architect seat on (§19.11), `ccp docs check` also holds
 the house rules' shape and runs the product's `architect.checks` (§20.1). Run them yourself at the
 PR head, with the product's unit and lint commands: that is the formal gate (§15.3). Record each
 command in your verdict's `gate.runs` (the command, its exit code, the tests run and skipped, the

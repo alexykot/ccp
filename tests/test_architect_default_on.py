@@ -139,6 +139,24 @@ class NoAdoptionPoint(Seat):
         g.write_text(g.read_text().replace("status: pending", "status: pending\n" + REFACTOR.strip()))
         self.assertEqual(list(tasklog.refactor_reach(adopted.cfg, tasklog.load(adopted.cfg), ["0011"])), ["0016-t16"])
 
+    def test_a_refactor_numbered_before_the_adoption_point_is_no_refactor_for_the_lane(self):
+        from ccp import board, forecast
+        p = self.make({"shape_from_task": "0015", "refactor_in_scope": True}, done=10, pending=6)
+        for n in (13, 16):  # 0013 is before the point, 0016 from it
+            f = p.task(f"{n:04d}-t{n}", "pending")
+            f.write_text(f.read_text().replace("status: pending", "status: pending\n" + REFACTOR.strip()))
+        cfg = p.cfg
+        tasks = tasklog.load(cfg)
+        ids = lambda rows: [t["task_id"] for t, _ in rows]  # noqa: E731
+        self.assertEqual(ids(tasklog.ranked(cfg, None, since=9))[0], "0016-t16")  # a refactor is due: the one from the point
+        self.assertEqual(ids(tasklog.ranked(cfg, ["0011"], since=9))[:2], ["0016-t16", "0011-t11"])
+        self.assertEqual(list(tasklog.refactor_reach(cfg, tasks, ["0011"])), ["0016-t16"])
+        self.assertEqual([t["task_id"] for t in tasklog.waiting_refactors(cfg, ["0011"])], [])
+        self.assertEqual(board._refactors_waiting(cfg, [])["ids"], ["0016-t16"])
+        merged = [f"{i:04d}-t{i}" for i in range(1, 11)]
+        order = forecast.sequence(cfg, self.q, tasks, merged)["order"]
+        self.assertEqual(order, ["0016-t16", "0011-t11", "0012-t12", "0013-t13", "0014-t14", "0015-t15"])
+
     def test_the_forecast_order_has_no_refactor_lane_unadopted_and_has_one_adopted(self):
         from ccp import forecast
         orders = {}

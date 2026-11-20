@@ -116,7 +116,7 @@ Non-normative notes behind SPEC §10. The rules are in `docs/spec/04-observabili
 - **Quality** (step 4, 2026-10-21; §28.3 priority 4). `ccp/quality.py` adds `board.json`'s
   `quality` block, and the page shows it below plane health. It reads only what the plane already
   records and runs no product command:
-  - **Architect** (`null` without an `architect` block): each pass in `architect.json`, with its
+  - **Architect** (`null` while the architect seat is off, `"architect": false`): each pass in `architect.json`, with its
     mode, status, start, error, finding count by severity (from `reviews/<id>.json`), dispositions
     and rule-change dispositions (from `<id>.triage.json`, in §19's and §19.8's vocabulary: `task`,
     `spec`, `defer`, `needs_operator`, `duplicate`, `reject`; `applied`, `rejected`, `needs_operator`),

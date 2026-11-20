@@ -157,6 +157,12 @@ class Adopt(InitCase):
         self.assertEqual(cfg, {"project_id": "demo", "worktrees": {"dir": ".plane-runtime"},
                                "architect": {"shape_from_task": "0001"}})
 
+    def test_the_two_starter_rules_flags_together_are_refused_and_write_nothing(self):
+        code, err = self.init("--project-id", "demo", "--starter-rules", "--no-starter-rules")
+        self.assertEqual(code, 2)
+        self.assertIn("--starter-rules and --no-starter-rules contradict each other", err)
+        self.assertFalse((self.repo / "docs/delivery/plane.json").exists())
+
     def test_the_adoption_point_is_the_next_task_number(self):
         tasks = self.repo / "docs/delivery/tasks"
         tasks.mkdir(parents=True)

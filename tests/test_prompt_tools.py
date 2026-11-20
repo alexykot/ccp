@@ -113,5 +113,23 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         self.assertEqual(prompt_mod.TEMPLATES, PLANE / "templates/prompts")
 
 
+class PromptsNameTheHouseRules(ToolkitFixture, unittest.TestCase):
+    """The architect seat is on without a block (§19.11): its default `rules_doc` is named in a prompt only
+    once the file exists."""
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "architect": {}}
+
+    def render(self) -> str:
+        code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234", "--supersede")
+        self.assertEqual(code, 0, out + err)
+        return Path(body["prompt_path"]).read_text()
+
+    def test_a_worker_is_sent_to_the_house_rules_only_when_the_file_exists(self):
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
+        self.assertNotIn("Read the house rules", self.render())
+        (self.runner / "docs/ENGINEERING.md").write_text("# Rules\n")
+        self.assertIn("Read the house rules, docs/ENGINEERING.md, and follow them.", self.render())
+
+
 if __name__ == "__main__":
     unittest.main()

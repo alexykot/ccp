@@ -19,7 +19,7 @@
 # change in what the harness sends can be seen.
 # After `idle_block_limit` consecutive blocks on the same ready set it lets the runner idle, so a
 # runner that genuinely cannot proceed reports instead of looping.
-# With an `architect` block in the product's plane.json (SPEC §19.6) it also asks `ccp tasks next`:
+# With the architect seat adopted in the product (SPEC §19.6, §19.11) it also asks `ccp tasks next`:
 # a report overdue for triage waits on the lead (let it idle); a pass due tells it to start the pass.
 #
 # settings.json:

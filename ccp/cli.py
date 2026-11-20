@@ -74,7 +74,7 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
 
 `tasks` and `docs check` are free and deterministic (`index` writes INDEX.yaml; `docs check` also
 holds the house rules' shape and runs the product's `architect.checks`; every budget is `architect due`'s
-and `health`'s; `budgets check` gates only on the files a change grew). With an `architect` block, `tasks next` reads the queue
+and `health`'s; `budgets check` gates only on the files a change grew). With the architect seat adopted (§19.11), `tasks next` reads the queue
 (QUEUE_ROOT) and exits 4 while a pass or a triage is overdue (§19.6). `architect run` launches a
 headless read-only Claude session; it and `health note|record` need QUEUE_ROOT. Exit codes: 0 ok,
 1 check failures or a failed run, 2 usage or configuration, 3 not due / busy / nothing ready, 4 an

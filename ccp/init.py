@@ -784,6 +784,9 @@ def main(root_arg: str | None, a: Any) -> int:
     except config.ConfigError as e:
         print(f"ccp init: {e}", file=sys.stderr)
         return 2
+    if getattr(a, "starter_rules", False) and getattr(a, "no_starter_rules", False):
+        print("ccp init: --starter-rules and --no-starter-rules contradict each other: give one", file=sys.stderr)
+        return 2
     if getattr(a, "adopt", False) and not getattr(a, "rules_doc", None):
         print("ccp init: --adopt goes with --rules-doc PATH", file=sys.stderr)
         return 2

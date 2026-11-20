@@ -272,7 +272,7 @@ def _refactors_waiting(cfg: Config, scope: list[str]) -> dict[str, Any] | None:
     if scope:
         waiting = tasklog.waiting_refactors(cfg, [str(s) for s in scope])
     else:  # no scope recorded: every outstanding refactor is waiting for one
-        waiting = [t for t in tasklog.load(cfg) if tasklog.kind_of(t) == "refactor" and t.get("status") == "pending"]
+        waiting = [t for t in tasklog.load(cfg) if tasklog.lane_refactor(cfg, t) and t.get("status") == "pending"]
     days = []
     for t in waiting:
         c = _ts(f"{t.get('created')}T00:00:00+00:00") if t.get("created") else None
