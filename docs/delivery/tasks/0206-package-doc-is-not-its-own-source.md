@@ -45,6 +45,9 @@ Measured at `58cf1d0`.
   the SPEC needs no change (`grep -n 'half its directory' docs/spec/03-quality.md` at `58cf1d0`:
   one line).
 - `tests/test_pkgdocs_config.py` holds the `claude_md_dirs` tests.
+- A managed product that lists `claude_md_dirs` may find its integration branch stale after the
+  release, since a directory's doc no longer counts as its source: `scripts/release.sh` prints
+  what went stale (§29.3), and the lead is told.
 
 ## Scope
 

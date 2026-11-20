@@ -4,6 +4,7 @@ title: ccp mutate --together applies the given mutants as one, so a mutant can m
 status: pending
 kind: feature
 depends_on: []
+clashes_with: ["0198-architect-runs-in-its-own-worktree"]
 spec_refs: ["S20"]
 review_point: R14
 paths: ["ccp/mutate.py", "ccp/cli.py", "docs/spec/03-quality.md", "docs/cli/03-quality.md", "tests/test_mutate.py"]

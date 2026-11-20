@@ -4,6 +4,7 @@ title: SPEC descriptions catch up with built behaviour
 status: pending
 kind: feature
 depends_on: []
+clashes_with: ["0202-forecast-and-health-report-task-supply"]
 spec_refs: ["S13", "S19", "S23", "S25", "S27", "S31"]
 review_point: R14
 paths: ["docs/spec/02-delivery.md", "docs/spec/03-quality.md", "docs/spec/04-observability.md"]
@@ -123,12 +124,17 @@ paragraph.
   setup: a checkout of the PR head.
   steps:
     1. Run `python3 -B -m unittest -q tests.test_resolution_review tests.test_mutate tests.test_health`.
-    2. Read `resolution_gate` in `ccp/prompt.py`, `status` in `ccp/usage.py` and `_architect` in
-       `ccp/config.py` against PROPOSED items 2, 4 and 5.
-  expect: step 1 exits 0. In step 2, each refusal PROPOSED item 2 names is a `raise` in
-    `resolution_gate`, and each field item 5 names is a key `status` returns. Item 4's default is the
-    `adr_on` line in `_architect`. The verifier lists each match in its note.
-  dry run (`58cf1d0`): step 1, 25, 60 and 31 tests, OK.
+    2. Run `git grep -n 'has no review that reported done\|judged it beyond the conflict hunks\|is newer than the last review\|could not be read here or fetched from origin\|is not a merge commit\|no conflict was resolved' ccp/prompt.py`.
+    3. Run `git grep -n '"latest_good": good_last, "in_force"\|"backoff_until":\|"unread_since":' ccp/usage.py`.
+    4. Run `git grep -n 'if adr_on and not' ccp/config.py`.
+  expect: step 1 exits 0. Step 2's output includes six `raise QueueError` lines in
+    `resolution_gate` (any docstring line aside), one per refusal PROPOSED item 2 names, in that
+    order: no review that reported done, judged beyond, a newer round, a head neither read nor
+    fetched, not a merge commit, no conflict resolved. Step 3's output includes the keys PROPOSED
+    item 5 names (`latest_good`, `in_force`, `backoff_until`, `unread_since`) in `status` and
+    `reader_state`. Step 4 prints the line in `_architect` that turns `shape_adrs` on when the
+    product has an `adr` block, PROPOSED item 4's default.
+  dry run (`58cf1d0`): step 1, 25, 60 and 31 tests, OK; steps 2 to 4 print as expected.
 
 - id: `sd-04`
   story: As the plane, the change is SPEC text only.

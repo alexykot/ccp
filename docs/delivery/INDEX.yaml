@@ -1009,12 +1009,12 @@ tasks:
     path: tasks/0201-plane-json-records-keep-layout.md
   - id: 0202-forecast-and-health-report-task-supply
     status: pending
-    title: The forecast and health report task supply - accepted decisions not yet tasked, and slots idle with nothing ready
+    title: The forecast and health name the accepted decisions that no task cites yet
     depends_on: []
     path: tasks/0202-forecast-and-health-report-task-supply.md
   - id: 0203-follow-up-fixes
     status: pending
-    title: Follow-up fixes - a claim clears the wait, beyond needs a reason, catch-ups skip integration merges, constants shown in words, a finite retry
+    title: Follow-up fixes - a claim clears the wait, beyond needs a reason, constants shown in words, a finite retry
     depends_on: []
     path: tasks/0203-follow-up-fixes.md
   - id: 0204-spec-descriptions-catch-up

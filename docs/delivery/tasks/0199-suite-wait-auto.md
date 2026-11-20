@@ -26,6 +26,7 @@ derived.
 
 Measured at `58cf1d0`.
 
+- Provenance: an accepted plane proposal (triage item T7a).
 - `ccp/cli.py` declares `--wait` as `type=int` (`git grep -n '"--wait", type=int' ccp/cli.py` at
   `58cf1d0`: one line), so `ccp --root . suite run --wait auto -- true` exits 2 with "invalid int
   value: 'auto'".

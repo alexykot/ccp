@@ -4,6 +4,7 @@ title: The architect runs in its own worktree at the head it names, and one call
 status: pending
 kind: feature
 depends_on: []
+clashes_with: ["0200-mutate-together"]
 spec_refs: ["S12", "S19"]
 review_point: R14
 paths: ["ccp/architect.py", "ccp/cli.py", "docs/spec/02-delivery.md", "docs/spec/03-quality.md", "docs/cli/03-quality.md", "tests/test_architect.py"]
@@ -41,6 +42,16 @@ Measured at `58cf1d0`.
   never at once. Running them at once would change that rule, so it is out of scope.
 - `merge-<nnnn>` is the model to follow (§12.1). It is close's own worktree, made under the worktree
   directory (`wt.base_dir`, default `.plane-runtime`), not a `ccp wt` kind and not recorded.
+- The deny list names `private_dirs` only relative to the cwd: `Read(./<p>)` and `Read(./<p>/**)`
+  (`git grep -n 'Read(./{p})' ccp/architect.py` at `58cf1d0`: one line). A pass in a worktree could
+  still read the product root's copy by its absolute path. Claude Code reads a rule path that starts
+  with `//` as absolute from the filesystem root.
+- `wt._link(cfg, main, path)` links `worktrees.links` from the main checkout into a worktree.
+  `wt.base_dir(cfg)` is None when the product sets no `worktrees.dir`.
+- `load(q, reap=False)` only reads (the board's and `due_info(record=False)`'s view); `cmd_run` and
+  `due_info(record=True)` load with `reap=True`, the write path.
+- Task 0200 also edits `ccp/cli.py`, `docs/spec/03-quality.md` and `docs/cli/03-quality.md`, hence
+  the clash.
 - The proposals this answers were accepted at triage. The SPEC text below describes only the feature
   this task builds (§31.1).
 - `tests/test_architect.py` uses a stub `claude` (`STUB`) that writes its argv beside the report.
@@ -52,17 +63,30 @@ Measured at `58cf1d0`.
   `docs/cli/03-quality.md`, `tests/test_architect.py`.
 - **The pass's own worktree.** `cmd_run`, once it holds the lock and has recorded `head`, makes a
   worktree `arch-<review id>` under `wt.base_dir(cfg)` with `git worktree add --detach <path> <head>`,
-  run in the main checkout. Every later step of the pass runs there: the prompt audit's
-  `--worktree`, and the headless call's `cwd`. The worktree's path goes into the pass's record as
-  `worktree`.
+  run in the main checkout, then links `worktrees.links` into it with `wt._link`, so a probe sees
+  the product root's dependencies. `env.setup` is not run: probes read committed files and the
+  links. Every later step of the pass runs there: the prompt audit's `--worktree`, and the headless
+  call's `cwd`. The pass's record gains `worktree` (its path) and `main` (the main checkout's path,
+  where it is removed from).
+  - With no `worktrees.dir` (`wt.base_dir` is None), the pass runs in the product root as today and
+    records no `worktree`.
   - The `finally` that releases the lock first removes the worktree (`git worktree remove --force`,
     then `git worktree prune`), whatever the pass's outcome.
   - When `_reap` marks a dead `running` pass `failed`, it also removes that pass's recorded worktree
-    if it is still there.
+    if it is still there, running `git worktree remove --force` in the recorded `main`. Only the
+    write path does this (`load` with `reap=True`); a read-only load (`reap=False`) never removes
+    anything.
   - `head` and `dirty` are still read in the product root, as today. The pass reads only committed
-    files, which the prompt already implies by naming `head`.
+    files, which the prompt already implies by naming `head`. The prompt's `dirty` line becomes "The
+    caller's checkout was dirty; you are reading `head`." (with the head's short id).
   - A worktree that cannot be made fails the pass (`failed`, the git error as its `error`), nothing
     launched.
+  - `ccp wt list` shows the directory as unrecorded while a pass runs, as it does `merge-<nnnn>`.
+    That is expected, and this task leaves `ccp wt` as it is.
+- **Private paths.** The deny list keeps `Read(./<p>)` and `Read(./<p>/**)` for each `private_dirs`
+  entry and adds the same two rules on the absolute path of `<p>` under the pass's cwd and under the
+  product root, in Claude Code's absolute form: `Read(/<absolute path>)` and
+  `Read(/<absolute path>/**)`, which begin `//`.
 - **`--adr` takes several ADRs.** `--adr` accepts a comma-separated list of ids, or the word `due`.
   `due` means every ADR in `shape_due`, read when the call starts. It is refused with any mode but
   `shape`.
@@ -84,16 +108,28 @@ Measured at `58cf1d0`.
     `claude -p "/architect …"` in the pass's own worktree, `arch-<review id>` under the worktree
     directory (§12.1), made detached at `head` and removed when the run ends, so a checkout that moves
     during the pass changes nothing the pass reads:".
+  - §19.7 step 2, the deny bullet. CURRENT (`docs/spec/03-quality.md` at `58cf1d0`): "and
+    `Read(./<p>)` / `Read(./<p>/**)` denied for each `private_dirs` entry;". PROPOSED: "and
+    `Read(./<p>)` / `Read(./<p>/**)` denied for each `private_dirs` entry, with the same two rules
+    on `<p>`'s absolute path under the pass's worktree and under the product root;".
   - §19.5, the `shape` bullet, gains a last sentence: "`--adr` takes several ADR ids, comma-separated,
     or `due`, every ADR `ccp architect due` lists in `shape_due`; one call then runs a shape for
     each, one after another."
   - §12.1, after the `merge-<nnnn>` bullet, a new bullet: "`arch-<review id>` is an architect pass's
     own worktree (§19.7), not a `ccp wt` kind and not recorded: the pass makes it detached at the head
-    it reviews and removes it when it ends, as does the check that marks a dead pass `failed`."
+    it reviews, links `worktrees.links` into it, and removes it when it ends, as does the check that
+    marks a dead pass `failed`. With no `worktrees.dir` the pass runs in the product root."
 - **Tests** in `tests/test_architect.py`. The stub also writes its working directory beside its
   argv.
   - A pass's headless call ran in `<worktrees dir>/arch-<review id>`, at the recorded `head`.
   - That directory is gone afterwards, after a pass that reported and after one that failed.
+  - A `worktrees.links` entry is a link in the pass's worktree while the stub runs.
+  - With no `worktrees.dir`, the headless call runs in the product root.
+  - A dead `running` pass with a recorded worktree: `load(q, reap=False)` leaves the directory, and
+    `load(q)` marks the pass `failed` and removes it.
+  - With `private_dirs: ["secret"]`, the stub's argv denies `Read(./secret)`, `Read(./secret/**)`, and
+    both absolute forms under the worktree and under the product root. The test's name contains
+    `private`.
   - A commit made in the product root while the pass runs does not change what the pass read. The
     stub reads a file at its start, sleeps, and reads it again, while the test commits a change to
     the file in the product root.
@@ -110,8 +146,9 @@ Measured at `58cf1d0`.
   setup: a checkout of the PR head.
   steps:
     1. Run `python3 -B -m unittest -v tests.test_architect 2>&1 | tail -60`.
-  expect: exit 0. The output lists the Scope's tests by name: the cwd test, the removal test after a
-    reported pass and after a failed one, and the moving-checkout test, each `ok`.
+  expect: exit 0. The output lists the Scope's tests by name, each `ok`: the cwd test, the removal
+    test after a reported pass and after a failed one, the moving-checkout test, the links test, the
+    no-`worktrees.dir` test, the read-only-load test and the `private` test.
   dry run (`58cf1d0`): 30 tests, OK; none of the new tests exists yet.
 
 - id: `ar-02`
@@ -122,6 +159,15 @@ Measured at `58cf1d0`.
     1. In the copy, run `python3 -B -m unittest -q tests.test_architect`.
   expect: at least one failure, naming the cwd test or the moving-checkout test.
   dry run: n/a — the tests are new.
+
+- id: `ar-05`
+  story: As an operator, a pass in a worktree still cannot read a private path by its absolute path.
+  setup: a copy of the PR head (`git worktree add --detach <tmp> HEAD`) in which the deny list
+    keeps only the two `./` rules.
+  steps:
+    1. In the copy, run `python3 -B -m unittest -v tests.test_architect 2>&1 | grep -i private`.
+  expect: the `private` test is listed as a failure.
+  dry run: n/a — the test is new.
 
 - id: `ar-03`
   story: As a lead, one call shapes every ADR due.
@@ -140,8 +186,9 @@ Measured at `58cf1d0`.
     1. Run `grep -c 'from the product root' docs/spec/03-quality.md`.
     2. Run `tr -s '[:space:]' ' ' < docs/spec/02-delivery.md | grep -c 'is an architect pass.s own worktree (§19.7), not a .ccp wt. kind'`.
     3. Run `tr -s '[:space:]' ' ' < docs/spec/03-quality.md | grep -c 'in the pass.s own worktree, .arch-<review id>. under the worktree directory'`.
-  expect: step 1 prints 0; steps 2 and 3 each print 1.
-  dry run (`58cf1d0`): 1, 0 and 0.
+    4. Run `tr -s '[:space:]' ' ' < docs/spec/03-quality.md | grep -c 'absolute path under the pass.s worktree and under the product root'`.
+  expect: step 1 prints 0; steps 2, 3 and 4 each print 1.
+  dry run (`58cf1d0`): 1, 0, 0 and 0.
 
 - id: `suite-01`
   story: As the plane, nothing else broke.

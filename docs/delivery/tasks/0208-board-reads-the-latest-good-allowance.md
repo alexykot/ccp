@@ -47,7 +47,8 @@ Measured at `58cf1d0`.
 
 - **In:** `ccp/board.py`, `ccp/board_page.html`, `tests/test_board.py`, `tests/test_board_layout.py`.
 - **`board.py`:** where `now.allowance` is built, it also gets `weekly_over`: `{window, pct,
-  checkpoint}` from `usage.weekly_over(cfg, q, usage.latest_good(q), <now>)`, or `None`.
+  checkpoint}`, built from the `(window, cp)` result of `usage.weekly_over(cfg, q,
+  usage.latest_good(q), <now>)`, or `None` when that is None.
   - `_blockers` adds "allowance at the checkpoint: <pct>% of <checkpoint>%" (and the lapsed-decision
     text, as today) when `weekly_over` is set, and only then.
   - `status_text` takes the weekly figure from `latest_good`. When `in_force` is false and a
