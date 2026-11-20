@@ -1,7 +1,7 @@
 ---
 task_id: 0188-short-binding
 title: The binding holds only where the product and its queue are, its integration branch, its CI and notes
-status: pending
+status: done
 kind: feature
 depends_on: ["0175-one-binding-reader", "0182-language-is-a-required-key", "0184-init-turns-telemetry-on", "0187-short-plane-json"]
 spec_refs: ["S4", "S8", "S9", "S10", "S29"]
@@ -10,7 +10,7 @@ paths: ["ccp/init.py", "ccp/lifecycle.py", "ccp/usage.py", "ccp/seats.py", "ccp/
 adopt: "binding: delete the keys ccp upgrade status lists (production_branch, durable_docs_path, display_name, adapter, adapter_config_path, hosting, grok, runner, lead, spec_maintainer, auth_check, seats, cadence, email, verifier_access, architecture_review)"
 sign_off: brief
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Task: 0188-short-binding
@@ -183,3 +183,5 @@ binding, and a binding that still holds a removed key is told which to delete.
   through the result's `warnings`, which init also prints on stderr.
 
 ## Verification notes
+- 2026-11-20 — verifier, PR #217 head `94967ce` (squash `d95f0cb`): APPROVE. Passed: bnd-01, bnd-02, bnd-03, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0188-short-binding.json.
+
