@@ -962,3 +962,22 @@ def project_yaml_text(root: Path) -> str:
         return p.read_text()
     except OSError:
         return ""
+
+
+def main(argv: list[str]) -> int:
+    """`lib.py binding <file>`: the top-level scalars of a binding file (`read_binding`) as one JSON
+    object, for the shell that reads a binding (SPEC §8.3: no second parser). A block is not printed."""
+    if len(argv) != 2 or argv[0] != "binding":
+        print("usage: lib.py binding <binding file>", file=sys.stderr)
+        return 2
+    try:
+        text = Path(argv[1]).read_text()
+    except OSError as e:
+        print(f"lib.py: cannot read {argv[1]}: {e.strerror or e}", file=sys.stderr)
+        return 1
+    print(json.dumps({k: v for k, v in read_binding(text).items() if isinstance(v, str)}))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
