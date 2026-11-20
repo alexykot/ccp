@@ -1,6 +1,7 @@
 """The one reader of a product's binding (SPEC §8.3): its parser and its two resolutions."""
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -74,6 +75,29 @@ class ReadBindingTest(unittest.TestCase):
         self.assertEqual(lib._yaml_block_scalars(BINDING, "auth_check"), {"script": "auth.sh"})
         self.assertEqual(lib._yaml_block_scalars(BINDING, "seats"), {"lead": "opus"})
         self.assertEqual(lib._yaml_block_scalars(BINDING, "nope"), {})
+
+
+class BindingEntryPointTest(unittest.TestCase):
+    """`lib.py binding <file>`: what the release script reads a binding through."""
+
+    def run_entry(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run([sys.executable, "-I", str(PLANE / "scripts/observability/lib.py"), *args],
+                              capture_output=True, text=True)
+
+    def test_it_prints_the_top_level_scalars_as_json(self):
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / "demo.yaml"
+            f.write_text(BINDING)
+            r = self.run_entry("binding", str(f))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(r.stdout), {"project_id": "demo", "product_root": "/work/demo",
+                                                "queue_root": "/work/queue", "integration_branch": "main",
+                                                "ci": "github-actions"})
+
+    def test_it_refuses_a_missing_file_and_a_wrong_call(self):
+        self.assertEqual(self.run_entry("binding", "/nonexistent/x.yaml").returncode, 1)
+        self.assertEqual(self.run_entry().returncode, 2)
+        self.assertEqual(self.run_entry("other", "x").returncode, 2)
 
 
 class BindingDir(unittest.TestCase):
