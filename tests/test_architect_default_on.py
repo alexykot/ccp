@@ -296,6 +296,26 @@ class NoPassOwedAtAdoption(Seat):
         self.assertEqual(len(info["reasons"]), 1, info["reasons"])
         self.assertIn(f"{self.notes_due} friction note(s) since ar-20261020T100000Z-abcd", info["reasons"][0])
 
+    def last_pass(self, **extra) -> None:
+        (self.q / "architect.json").write_text(json.dumps({"schema_version": 1, "reviews": {}, "last": {
+            "review_id": "ar-20261020T100000Z-abcd", "started_at": "2026-10-20T10:00:00Z", "done": [], **extra}}))
+
+    def test_after_a_pass_the_notes_of_any_task_count(self):
+        self.last_pass(health_drift=True)
+        self.note(self.notes_due - 1, None)  # no task
+        self.note(1, "0003-t3")  # a task before the adoption point
+        info = self.info()
+        self.assertEqual(len(info["reasons"]), 1, info["reasons"])
+        self.assertIn(f"{self.notes_due} friction note(s) since ar-20261020T100000Z-abcd", info["reasons"][0])
+
+    def test_after_a_pass_drift_that_the_pass_did_not_see_triggers(self):
+        self.last_pass()
+        info = self.info()
+        self.assertEqual(len(info["reasons"]), 1, info["reasons"])
+        self.assertIn("health drift", info["reasons"][0])
+        self.last_pass(health_drift=True)  # drift the last pass already saw is not new
+        self.assertEqual(self.info()["reasons"], [])
+
     def test_a_budget_breached_after_adoption_triggers(self):
         a, b = "a: app/a.py has 9 lines > 5", "b: app/b.py has 9 lines > 5"
         self.assertEqual(self.info(record=False, budgets=[a])["reasons"], [])

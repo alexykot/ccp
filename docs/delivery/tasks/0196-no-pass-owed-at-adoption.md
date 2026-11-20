@@ -157,5 +157,11 @@ adoption point.
 - Of the four tests the task names, only the budget one in `tests/test_rules.py` failed: the others already
   use tasks and notes numbered from their adoption point (0001). That one now writes a last pass in the state.
   The module docstring's trigger list says the same as §19.6.
+- Fix round 1 (tests only, no code change): the review found the true side of two `last` guards in `due_info`
+  untested. `NoPassOwedAtAdoption` gains `test_after_a_pass_the_notes_of_any_task_count` (a recorded pass, notes
+  with no task and a pre-adoption task alone reach `notes_due`, and count) and
+  `test_after_a_pass_drift_that_the_pass_did_not_see_triggers` (a recorded pass without `health_drift` gives a
+  drift reason; with it, none). Each dies under the reviewer's mutant (`if True:` on the notes filter,
+  `False and` on the drift guard).
 
 ## Verification notes
