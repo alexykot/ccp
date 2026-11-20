@@ -121,7 +121,9 @@ class UnknownKeys(unittest.TestCase):
 
     def test_every_known_key_is_known(self):
         c, err = _load(self.product(EVERY_LEVEL))
-        self.assertEqual((c.unknown_keys, err), ((), ""))
+        self.assertEqual(c.unknown_keys, ())
+        # a constant set to another value applies with its own warning (§29.3); no key is called unknown
+        self.assertEqual([x for x in err.splitlines() if "is a constant in code" not in x], [])
 
     def test_each_key_is_warned_about_once_a_process(self):
         p = self.product(FUTURE)

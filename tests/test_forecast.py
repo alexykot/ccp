@@ -20,7 +20,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from ccp import board, calibrate, forecast
-from tests.helpers import TASK, Product
+from tests.helpers import TASK, Product, machine_file
 from tests.test_board_drill import HASH_STUB, Fixture
 from tests.test_board_quality import HOSTILE, _hostile
 
@@ -373,8 +373,7 @@ class Page(Fixture, unittest.TestCase):
 
     def seed_forecast(self):
         self.seed()
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        self.write("docs/delivery/plane.json", json.dumps({**cfg, "telemetry": {"allowance_stop_weekly": 80}}))
+        machine_file(self, allowance_stop_weekly=80)
         (self.q / "estimates").mkdir(exist_ok=True)
         (self.q / "estimates" / "0002-second.jsonl").write_text(json.dumps(
             {"at": "2026-10-20T09:00:00Z", "task_id": "0002-second", "version": 1, **est(3600, 7200, (3e7, 5e7), (10, 20))}) + "\n")

@@ -13,7 +13,7 @@ from unittest import mock
 
 from ccp import config, tasklog
 from tests import test_sandbox
-from tests.helpers import Product
+from tests.helpers import Product, machine_file
 from tests.test_toolkit import ToolkitFixture, git
 
 # One line per run: the trigger, project, task, id, reason, and the line ccp composes, `|`-separated
@@ -135,7 +135,7 @@ class Channel(ChannelFixture, unittest.TestCase):
     def test_a_claim_refused_at_the_weekly_checkpoint_notifies(self):
         reading = Path(self._tmp.name) / "reading.json"
         reading.write_text(json.dumps({"five_hour": {"utilization": 10}, "seven_day": {"utilization": 90}}))
-        self.set_plane(telemetry={"allowance_cmd": f"cat '{reading}'", "allowance_stop_weekly": 80})
+        machine_file(self, allowance_cmd=f"cat '{reading}'", allowance_stop_weekly=80)
         code, _, _, err = self.ccp("tasks", "claim", "0002", root=self.main)
         self.assertEqual(code, 5, err)
         self.assertEqual([(r[0], r[2]) for r in sent(self.out)], [("allowance_checkpoint", "0002-second")])
@@ -143,8 +143,8 @@ class Channel(ChannelFixture, unittest.TestCase):
     def test_a_failing_command_at_the_checkpoint_adds_its_warning_to_the_refusal(self):
         reading = Path(self._tmp.name) / "reading.json"
         reading.write_text(json.dumps({"five_hour": {"utilization": 10}, "seven_day": {"utilization": 90}}))
-        self.set_plane(telemetry={"allowance_cmd": f"cat '{reading}'", "allowance_stop_weekly": 80},
-                       notify={"command": "exit 3"})
+        machine_file(self, allowance_cmd=f"cat '{reading}'", allowance_stop_weekly=80)
+        self.set_plane(notify={"command": "exit 3"})
         code, _, _, err = self.ccp("tasks", "claim", "0002", root=self.main)
         self.assertEqual(code, 5, err)
         self.assertIn("notify:", err)
@@ -152,7 +152,7 @@ class Channel(ChannelFixture, unittest.TestCase):
     def test_a_claim_under_the_checkpoint_notifies_nothing(self):
         reading = Path(self._tmp.name) / "reading.json"
         reading.write_text(json.dumps({"five_hour": {"utilization": 10}, "seven_day": {"utilization": 20}}))
-        self.set_plane(telemetry={"allowance_cmd": f"cat '{reading}'", "allowance_stop_weekly": 80})
+        machine_file(self, allowance_cmd=f"cat '{reading}'", allowance_stop_weekly=80)
         self.assertEqual(self.ccp("tasks", "claim", "0002", root=self.main)[0], 0)
         self.assertEqual(sent(self.out), [])
 
@@ -223,9 +223,7 @@ class NoChannel(ToolkitFixture, unittest.TestCase):
     def test_a_claim_refused_at_the_checkpoint_is_refused_as_today_and_nothing_runs(self):
         reading = Path(self._tmp.name) / "reading.json"
         reading.write_text(json.dumps({"five_hour": {"utilization": 10}, "seven_day": {"utilization": 90}}))
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["telemetry"] = {"allowance_cmd": f"cat '{reading}'", "allowance_stop_weekly": 80}
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        machine_file(self, allowance_cmd=f"cat '{reading}'", allowance_stop_weekly=80)
         with mock.patch("ccp.wt.run_cmd", side_effect=AssertionError("a command ran")):
             code, _, _, err = self.ccp("tasks", "claim", "0002", root=self.main)
         self.assertEqual(code, 5, err)

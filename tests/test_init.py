@@ -53,6 +53,11 @@ class InitCase(unittest.TestCase):
         r = self.ccp("init", *args, cwd=cwd)
         return r.returncode, (json.loads(r.stdout) if r.returncode == 0 else r.stderr)
 
+    def machine_reads_usage(self) -> None:
+        """The machine file sets an allowance command, so init has no unread-usage warning to count (§25.1)."""
+        self.bindings.mkdir(exist_ok=True)
+        (self.bindings / "machine.json").write_text(json.dumps({"allowance_cmd": "true"}))
+
     @property
     def binding(self) -> Path:
         return self.bindings / "demo.yaml"
@@ -478,6 +483,7 @@ class GithubOrigin(InitCase):
     """ADR-0040 D7: pull requests need a GitHub origin; init warns, naming the commands, and adopts anyway."""
 
     def adopt(self):
+        self.machine_reads_usage()
         r = self.ccp("init", "--project-id", "demo")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue((self.repo / "docs/delivery/plane.json").is_file())
@@ -534,6 +540,7 @@ class EarlierTaskFiles(InitCase):
     def setUp(self):
         super().setUp()
         self.git("remote", "add", "origin", "https://github.com/team/repo.git")  # no origin warning
+        self.machine_reads_usage()  # no unread-usage warning
 
     def test_task_files_with_no_frontmatter_are_counted_in_the_warnings(self):
         tasks = self.repo / "docs/delivery/tasks"
@@ -566,6 +573,7 @@ class KeptBinding(InitCase):
         super().setUp()
         self.git("remote", "add", "origin", "https://github.com/team/repo.git")  # no origin warning
         self.bindings.mkdir()
+        self.machine_reads_usage()  # no unread-usage warning
 
     def keep(self, text: str) -> tuple[dict, str]:
         self.binding.write_text(text)
@@ -651,6 +659,7 @@ class PathsAgree(InitCase):
         real_q.mkdir(parents=True)
         (self.home / "link").symlink_to(self.home / "real")
         self.bindings.mkdir()
+        self.machine_reads_usage()
         (self.home / "blink").symlink_to(self.bindings)
         binding = self.bindings / "repo.yaml"
         binding.write_text(f"project_id: repo\nintegration_branch: main\nproduct_root: {self.repo}\n"

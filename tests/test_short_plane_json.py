@@ -18,6 +18,7 @@ from tests.helpers import Product
 from tests.test_upgrade import UpgradeFixture
 
 SCHEMA = json.loads((Path(__file__).resolve().parents[1] / "contracts/plane_config.schema.json").read_text())
+MACHINE_SCHEMA = json.loads((Path(__file__).resolve().parents[1] / "contracts/machine.schema.json").read_text())
 
 # A test-only constant: a real key (so the loader knows it), registered here as the constant it is not in the plane.
 CONSTANT_KEY = "board.refresh_minutes"
@@ -257,7 +258,10 @@ class Registry(unittest.TestCase):
                 if o.kind == config.MERGED:
                     self.assertIn(f"`{o.into}`", prop["description"])
                     self.assertTrue(o.into)
-                    self.schema_prop(o.into)  # it moves to a key that exists
+                    if o.machine:  # it moves to the machine file's key (`machine.json <key>`)
+                        self.assertIn(o.into.split()[1], MACHINE_SCHEMA["properties"])
+                    else:
+                        self.schema_prop(o.into)  # it moves to a key that exists
 
     def test_every_deprecated_key_in_the_schema_has_an_outcome(self):
         # Two keys carry their own mechanism, for as long as it lasts: the language's old place (§8.1), and the

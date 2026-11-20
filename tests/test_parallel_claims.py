@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, parallel, plan, tasklog
-from tests.helpers import TASK
+from tests.helpers import TASK, machine_file
 from tests.test_toolkit import ToolkitFixture
 
 
@@ -71,7 +71,7 @@ class ParallelFixture(ToolkitFixture):
 
     def plane(self, **par):
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["telemetry"] = {"allowance_cmd": f"cat '{self.reading}'"}
+        machine_file(self, allowance_cmd=f"cat '{self.reading}'")
         cfg["parallel"] = {"schedule": "paths", **par}  # the default schedule is `clashes`: these tests are about paths
         self.write("docs/delivery/plane.json", json.dumps(cfg))
 
@@ -160,9 +160,7 @@ class Claims(ParallelFixture, unittest.TestCase):
         self.assertEqual(self.claim("0003")[0], 0)
 
     def _allowance_cmd(self, cmd):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["telemetry"] = {"allowance_cmd": cmd} if cmd else {}
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        machine_file(self, allowance_cmd=cmd)
 
     def test_without_a_usage_command_a_second_task_is_claimed(self):
         self._allowance_cmd(None)
@@ -245,12 +243,9 @@ class Claims(ParallelFixture, unittest.TestCase):
     def test_the_weekly_stop_and_a_stopped_runner_say_more_than_exit_7(self):
         self.assertEqual(self.claim("0002")[0], 0)
         self.write("docs/delivery/tasks/0003-third.md", task("0003-third", "`src/app/pool.py`"))  # would meet
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["telemetry"]["allowance_stop_weekly"] = 4
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        machine_file(self, allowance_cmd=f"cat '{self.reading}'", allowance_stop_weekly=4)
         self.assertEqual(self.claim("0003")[0], 5)
-        cfg["telemetry"]["allowance_stop_weekly"] = None
-        self.write("docs/delivery/plane.json", json.dumps(cfg))
+        machine_file(self, allowance_cmd=f"cat '{self.reading}'")
         w = self.work()
         (self.q / "work.json").write_text(json.dumps({**w, "status": "draining"}))
         self.assertEqual(self.claim("0003")[0], 3)

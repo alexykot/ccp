@@ -219,9 +219,8 @@ class AppliedBlockDocsCheck(InitCase):
 class AdoptionChecklist(unittest.TestCase):
     """The README's adoption checklist names keys the plane.json contract has."""
 
-    KEYS = ("language", "env", "telemetry.allowance_cmd", "telemetry.allowance_stop_weekly", "auth_check.probes",
-            "parallel.exclusive", "merge.behind_tip_ignore", "reconcile.log", "notify", "docs.starter_rules",
-            "architect.checks", "verify.accept_cache", "mutate.command", "report.required_fields")
+    KEYS = ("language", "env", "auth_check.probes", "parallel.exclusive", "merge.behind_tip_ignore", "reconcile.log",
+            "notify", "docs.starter_rules", "architect.checks", "verify.accept_cache", "mutate.command", "report.required_fields")
 
     def keys(self) -> list[str]:
         text = (PLANE / "README.md").read_text()
