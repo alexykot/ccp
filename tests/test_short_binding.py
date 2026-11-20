@@ -193,6 +193,15 @@ class Limits(BindingDir):
         self.assertEqual(err.count("which is no value it takes"), 3, err)
         self.assertEqual(lifecycle.rotation_knobs(self.queue), (4, None))
 
+    def test_a_slot_at_the_task_constant_is_due_with_no_binding_key_for_it(self):
+        self.limits()
+        work = {"status": "running", "runner_tasks_done": 4, "runner_spawned_at": "2026-01-01T00:00:00Z"}
+        (self.queue / "work.json").write_text(json.dumps(work))
+        due = lifecycle.rotation_due(self.queue, "runner")
+        self.assertEqual((due["trigger"], due["after_tasks"], due["tasks_done"]), ("tasks", 4, 4))
+        (self.queue / "work.json").write_text(json.dumps({**work, "runner_tasks_done": 3}))
+        self.assertIsNone(lifecycle.rotation_due(self.queue, "runner"))
+
     def test_the_idle_hooks_limit_is_what_ccp_where_reports(self):
         self.binding.write_text(f"project_id: demo\nproduct_root: {self.product}\nqueue_root: {self.queue}\n"
                                 "runner:\n  idle_block_limit: 2\n")
