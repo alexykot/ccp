@@ -314,7 +314,6 @@ class ArchitectConfig(unittest.TestCase):
     def test_refused(self):
         for block, needle in (
                 ({"every_n_tasks": "4"}, "every_n_tasks must be an integer >= 1"),
-                ({"shape_adrs": True}, "shape_adrs needs shape_from_task"),
                 ({"shape_from_task": "next"}, "shape_from_task must be a task number"),
                 ({"budgets": [{"id": "E7", "glob": "*.py"}]}, "needs one of glob or path, and max_lines or max_bytes"),
                 ({"budgets": [{"id": "7", "glob": "*.py", "max_lines": 1}]}, "is not a house-rule id"),

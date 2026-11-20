@@ -1,6 +1,6 @@
 """SPEC §26.3 phase B: the estimator seat. The prompt (bounded, notes stripped, plain text), the
 strict validation and its one retry, a failure keeping the baseline, the triggers (hash and
-dependency, in-flight tasks left out), the auto flag (off by default), the budget cap, the
+dependency, in-flight tasks left out), the auto flag (on by default), the budget cap, the
 headless launch (no tools, pinned model, keys stripped), the live-seats row and the board. Every
 `claude -p` is mocked (`estimator.call`)."""
 from __future__ import annotations
@@ -250,7 +250,8 @@ class Triggers(Base):
         self.assertEqual(self.run_(["0005"])["tasks"][0]["action"], "written")
         self.assertEqual(self.run_(["0005"])["tasks"][0]["action"], "unchanged")
 
-    def test_auto_is_off_by_default_and_says_nothing(self):
+    def test_auto_off_says_nothing(self):
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "estimate": {"auto": False}}))
         self.assertIs(self.p.cfg.estimate["auto"], False)
         self.assertEqual(len(estimator.stale(self.p.cfg, self.q)), 2)  # tasks need an estimate all the same
         with mock.patch.object(estimator, "spawn") as sp:
@@ -288,12 +289,13 @@ class Triggers(Base):
     def test_tasks_check_prints_the_note_and_keeps_its_exit_code(self):
         from ccp import cli
         self.p.index()
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "estimate": {"auto": False}}))
         def check():
             o = io.StringIO()
             with mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)}), redirect_stdout(o), redirect_stderr(io.StringIO()):
                 return cli.main(["--root", str(self.p.root), "tasks", "check"]), o.getvalue()
         off_code, out = check()
-        self.assertNotIn("estimates:", out)  # estimate.auto is off by default: no note
+        self.assertNotIn("estimates:", out)  # estimate.auto set to false: no note
         self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "estimate": {"auto": True}}))
         code, out = check()
         self.assertEqual(code, off_code)
@@ -312,9 +314,10 @@ class Triggers(Base):
             return cli.main(["--root", str(self.p.root), "tasks", *args]), o.getvalue()
 
     def test_tasks_index_prints_the_note_with_auto_on(self):
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "estimate": {"auto": False}}))
         code, out = self.tasks("index")
         self.assertEqual(code, 0, out)
-        self.assertNotIn("estimates:", out)  # estimate.auto is off by default: no note
+        self.assertNotIn("estimates:", out)  # estimate.auto set to false: no note
         self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "estimate": {"auto": True}}))
         with mock.patch.object(estimator, "_linked_worktree", return_value=False):
             code, out = self.tasks("index")
@@ -323,6 +326,7 @@ class Triggers(Base):
         self.assertIn("not started (CCP_NO_ESTIMATOR_SPAWN)", out)
 
     def test_with_auto_off_neither_command_notes_or_starts_an_estimator(self):
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "estimate": {"auto": False}}))
         self.p.index()
         env = {k: v for k, v in os.environ.items() if k != "CCP_NO_ESTIMATOR_SPAWN"}
         with mock.patch.object(estimator, "notice", return_value=[]):

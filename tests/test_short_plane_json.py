@@ -320,7 +320,7 @@ class UpgradeStatus(UpgradeFixture, unittest.TestCase):
         listed = {k["key"]: k for k in step["keys"]}
         self.assertEqual(set(listed), {"task_log.statuses", "task_log.spec_paths", "task_log.review_point_pattern",
                                        "estimate.spec_paths", "adapter.worktree_dir", "adapter.worktree_links",
-                                       "adapter.post_close", "suite.summary.modules_ran_re"})
+                                       "adapter.post_close", "suite.summary.modules_ran_re", "worktrees.dir"})
         self.assertEqual(listed["task_log.statuses"]["outcome"], "removed")
         self.assertEqual((listed["task_log.spec_paths"]["outcome"], listed["task_log.spec_paths"]["replacement"]),
                          ("merged", "spec_paths"))
@@ -331,7 +331,7 @@ class UpgradeStatus(UpgradeFixture, unittest.TestCase):
         self.assertIn("delete `task_log.statuses`", step["change"])
 
     def test_a_product_that_sets_none_has_no_such_step(self):
-        self.assertIsNone(self.keys_step(spec_paths=["spec/"], worktrees={"dir": ".rt"}))
+        self.assertIsNone(self.keys_step(spec_paths=["spec/"], worktrees={"links": [".env"]}))
 
     def test_a_constant_is_listed_only_when_it_is_set_to_another_value(self):
         with mock.patch.dict(config.KEY_OUTCOMES, TEST_CONSTANT):

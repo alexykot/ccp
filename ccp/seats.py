@@ -9,7 +9,7 @@ seen in the last WINDOW_MINUTES (a teammate, or a seat the receiver adds).
 Expected (pinned) values come from the pins in effect: a run's record (what `ccp prompt` read from
 the definition), else the agent definition (`runs.definition`: the product's `.claude/agents` copy
 while it has one, else the plugin's); the binding's runner agent type's definition; the product's
-`telemetry.design_seat` (advisory, §24); the headless reviewers' `--model`/`--effort`
+`models.lead` (`config.design_seat`, advisory, §24); the headless reviewers' `--model`/`--effort`
 (`architecture_review.HEADLESS_MODEL`, the default; `models.architect` overrides it); the estimator's
 (`estimator.HEADLESS_MODEL`, §26.3, the same).
 
@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ccp import models, runs
+from ccp import config, models, runs
 from ccp.config import Config
 from ccp.queue import read_json
 from ccp.usage import UNTAGGED  # the fold's seat for `claude -p` rows with no tag and no placement
@@ -189,8 +189,8 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
                            "telemetry": bool(report.get("total", {}).get("requests")), "rows": []}
     rows = out["rows"]
     now = _now()
-    tel = cfg.telemetry or {}
-    ds = tel.get("design_seat") or {}
+    ds = config.design_seat(cfg)
+    set_here = (cfg.telemetry or {}).get("design_seat")
     # A headless session the plane launched (tagged with its seat, or named in headless-usage.jsonl)
     # is never the lead or the runner, whichever bucket a row of it landed in: set it aside there.
     headless_sids = {str(h.get("session_id")) for h in report.get("headless") or [] if h.get("session_id")}
@@ -209,8 +209,8 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
     rows.append(_row(team, "design seat", "lead", "active" if active else "idle" if lead_obs else "live team lead",
                      None,
                      {"model": ds.get("model"), "effort": ds.get("effort"),
-                      "source": "docs/delivery/plane.json telemetry.design_seat (advisory, §24.5)" if ds
-                      else "not set: telemetry.design_seat in docs/delivery/plane.json"},
+                      "source": "docs/delivery/plane.json telemetry.design_seat (a constant; advisory, §24.5)" if set_here
+                      else "docs/delivery/plane.json models.lead (advisory, §24.5)"},
                      lead_obs, _activity(lead_obs, _ev_activity(_last_event(events, "design-seat"))),
                      advisory=True, prefix=True, notes=notes))
 

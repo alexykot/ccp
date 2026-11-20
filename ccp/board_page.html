@@ -205,7 +205,7 @@ function seatsCard(S) {
         <td title="${esc(e.source || "")}">${e.model || e.effort ? mo(e.model, e.effort) : `<span class="muted">${esc(e.source || "–")}</span>`}${e.advisory ? ' <span class="muted">(advisory)</span>' : ""}</td>
         <td>${o ? mo(o.model, o.effort) + (o.other_models?.length ? ` <span class="muted">also ${esc(o.other_models.join(", "))}</span>` : "") : `<span class="muted">${esc(r.observed_note || "–")}</span>`}</td>
         <td>${check}${(r.notes || []).map((x) => `<div class="muted">${esc(x)}</div>`).join("")}</td><td style="white-space:nowrap" title="${esc(la?.source || "")}">${la ? esc(ago(la.at)) + ` <span class="muted">${esc(la.source || "")}</span>` : "–"}</td></tr>`; }).join("")}
-    </table></div><p class="meta">Pinned: the definitions, the run records, <code>telemetry.design_seat</code> and the headless flags (hover for the source). Observed: the seat's latest requests in the telemetry, the model with most tokens within ${esc(S.window_minutes)} min of its last one${S.telemetry ? "" : ". No telemetry has been received for this project yet"}.</p>`;
+    </table></div><p class="meta">Pinned: the definitions, the run records, <code>models.lead</code> and the headless flags (hover for the source). Observed: the seat's latest requests in the telemetry, the model with most tokens within ${esc(S.window_minutes)} min of its last one${S.telemetry ? "" : ". No telemetry has been received for this project yet"}.</p>`;
   }
   return `<section class="card"><h2>Seats</h2>${body}</section>`;
 }

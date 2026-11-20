@@ -232,8 +232,8 @@ their run record (`ccp architect`).
   values differ. A `CLAUDE_CODE_EFFORT_LEVEL` in the environment overrides a definition's effort
   without warning; this check is what catches it.
 - **The design seat is advisory.** The lead is the operator's interactive session, so the plane
-  cannot set its model or effort. The product's `plane.json` names the lead's expected values
-  (`telemetry.design_seat`); `ccp usage` and the board flag a lead whose calls differ, as advice to
+  cannot set its model or effort. The lead's expected model is `models.lead` (§2.4);
+  `ccp usage` and the board flag a lead whose calls differ, as advice to
   the operator. Nothing enforces it.
 - **`cost_usd` is the client's own estimate.** On a subscription the unit that matters is the
   allowance percentage (§25); the board shows cost only as a relative measure.
@@ -425,7 +425,7 @@ short labels only; an agent row also holds the seat's bounded reasons.
   since its last (`deps_done` grew); a baseline is also rewritten when the baseline method's version
   changed (`--force` writes anyway, `--dry-run` writes nothing). Done, dropped and in-flight tasks
   are skipped by the batch (an estimate made after the start is never scored). `ccp tasks check` and
-  `ccp tasks index`: with **`estimate.auto`** on (default `false`), they name the tasks that need an
+  `ccp tasks index`: with **`estimate.auto`** on (by default), they name the tasks that need an
   estimate and also start a detached batch (at most `--max`, default 10), unless one is running or
   the checkout is a linked worktree; with it off, they print no estimates note. Neither the note nor
   the launch blocks the command or changes its exit code.

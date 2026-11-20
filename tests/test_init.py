@@ -21,6 +21,7 @@ sys.path.insert(0, str(PLANE / "scripts" / "observability"))
 import lib  # noqa: E402
 
 from ccp import init as ccp_init  # noqa: E402
+from tests.helpers import without_constant_warnings  # noqa: E402
 
 GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
            "GIT_COMMITTER_EMAIL": "t@example.com", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
@@ -531,7 +532,7 @@ class GithubOrigin(InitCase):
                 self.git("remote", "set-url", "origin", url)
                 res, err = self.adopt()
                 self.assertNotIn("warnings", res)
-                self.assertNotIn("warning", err)
+                self.assertNotIn("warning", without_constant_warnings(err))
 
 
 class EarlierTaskFiles(InitCase):

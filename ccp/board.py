@@ -309,8 +309,7 @@ def _holds(work: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def build(cfg: Config, q: Path) -> dict[str, Any]:
-    tel = cfg.telemetry or {}
-    report = usage.fold(q, None, tel.get("design_seat"))
+    report = usage.fold(q, None, config.design_seat(cfg))
     work = load_work(q)
     open_runs = [{"run_id": r["run_id"], "seat": r.get("seat"), "state": runs.state(r),
                   "opened_at": r.get("opened_at"), "expected_model": r.get("expected_model")}
@@ -420,7 +419,7 @@ def task_text(cfg: Config, q: Path, task: str) -> str:
         rows = health.collect(cfg, q, files=False, rev=merge_rev(cfg, q))["tasks"]
     except Exception:  # noqa: BLE001  (git unreadable: an open task's view still prints)
         rows = []
-    report = usage.fold(q, None, (cfg.telemetry or {}).get("design_seat"))
+    report = usage.fold(q, None, config.design_seat(cfg))
     return drill.text(drill.collect(q, rows, report, only=tid)[tid])
 
 
