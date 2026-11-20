@@ -332,6 +332,10 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
   removes one.
 - `merge-<nnnn>` is `ccp tasks close`'s own worktree, not a `ccp wt` kind and not recorded: close
   makes it for the reconcile and removes it once the reconcile has landed (§10.5).
+- `arch-<review id>` is an architect pass's own worktree (§19.7), not a `ccp wt` kind and not recorded:
+  the pass makes it detached at the head it reviews, links `worktrees.links` into it, and removes it
+  when it ends, as does the check that marks a dead pass `failed`. With no `worktrees.dir` the pass runs
+  in the product root.
 - `ccp tasks close` removes every worktree of the task, and its branch. `ccp tasks drop` and
   `release` keep them: an implementer may still be working there, and a later claim resumes in them.
 - `ccp wt gc` prunes git's worktree list, forgets records whose worktree is gone, and removes the

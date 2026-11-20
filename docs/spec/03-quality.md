@@ -86,7 +86,9 @@ is never rejected as intentional without the operator's word.
   - a task graph that lets tasks run in parallel where the code allows.
 
   Its advice is advisory: the owner decides. A shape report is always triaged, never resets the
-  cadence, and counts toward the triage block like a pass. Ids are `sh-…`.
+  cadence, and counts toward the triage block like a pass. Ids are `sh-…`. `--adr` takes several ADR
+  ids, comma-separated, or `due`, every ADR `ccp architect due` lists in `shape_due`; one call then runs
+  a shape for each, one after another.
 - **The shaping record is the architect's own output:** `ccp architect run --mode shape`, whose
   triage writes `docs/delivery/reviews/sh-*.md`. The task-log owner never writes a shape of its own,
   which would let `ccp tasks check` pass on self-review.
@@ -167,12 +169,16 @@ count toward any task's timers.
    `failed` at the next check.
 2. **Launch.** Write the prompt audit (§23; phases `architect-pass`, `architect-shape`,
    `architect-triage`, under `prompts/architect/`), emit the `architect` launch event, then run a
-   fresh `claude -p "/architect …"` from the product root:
+   fresh `claude -p "/architect …"` in the pass's own worktree, `arch-<review id>` under the worktree
+   directory (or the product root when there is no worktree directory, §12.1), made detached at
+   `head` and removed when the run ends, so a checkout that moves during the pass changes nothing
+   the pass reads:
    - with the read-only tool list: `Read`, `Grep`, `Glob`, `Skill`, and `Bash` for `git log`,
      `git show`, `git diff`, `git ls-files`, `git grep`, `git status`, `git rev-parse`, `git blame`,
      `ls` and `wc`, plus each probe in `architect.probes` as `Bash(<probe>:*)`;
    - with `Edit`, `Write`, `NotebookEdit`, `WebFetch`, `WebSearch`, `Agent` and `Task` disallowed,
-     and `Read(./<p>)` / `Read(./<p>/**)` denied for each `private_dirs` entry;
+     and `Read(./<p>)` / `Read(./<p>/**)` denied for each `private_dirs` entry, with the same two rules
+     on `<p>`'s absolute path under the pass's worktree and under the product root;
    - with the API-key variables stripped (§30), the seat's pinned model and effort (`claude-opus-5-5` at
      `high`, §2), and
      a limit of 45 minutes.
