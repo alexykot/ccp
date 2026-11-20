@@ -1318,9 +1318,8 @@ and observability (§23).
 The runner raises spec questions, including ones its implementer, reviewer or verifier classifies as
 `spec`. Only the spec maintainer may return `needs_operator`; seats never contact the operator about
 spec questions. The operator gates (§3) are not spec questions and keep their route (§17.9). No
-binding is needed for the lead to be the maintainer; an older binding's `spec_maintainer` block is
-accepted (`kind: team-lead` only; a `claude-session` block is reported as removed; only its
-`protocol_doc` is read). The lead's protocol is the
+binding is needed for the lead to be the maintainer; a binding's `spec_maintainer` block is a removed key
+(§8.3) and is not read. The lead's protocol is the
 plugin's `spec-maintainer` skill, or the product's `docs/delivery/SPEC-MAINTAINER.md` where one is
 installed.
 

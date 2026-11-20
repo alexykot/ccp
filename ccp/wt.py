@@ -17,7 +17,7 @@ checkout, inside it or outside it with `..`, or absolute), gets `worktrees.links
 recorded in `QUEUE_ROOT/worktrees/<name>.json`, so close, drop, release and gc remove exactly what was
 made. Under a `worktrees.dir` outside the main checkout, which another checkout may share, a directory
 with no record is taken for this product's only when the main checkout's `git worktree list` names it. A runner's own merge worktree
-(`runner_worktree`, binding `runner.worktree`) is made here too, detached at the integration tip,
+(`runner_worktree`, the derived runner worktree) is made here too, detached at the integration tip,
 by `ccp tasks worktree` and the single runner's spawn; it is not a task's, so it is not recorded.
 `ccp tasks close`'s own `merge-<nnnn>` (`merge_path`, §10.5) is not recorded either: one a failed
 close left behind is listed, removed with the rest of its task's worktrees, and removed by gc once

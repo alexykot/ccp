@@ -17,16 +17,16 @@
     "display_name": {
       "type": "string",
       "deprecated": true,
-      "description": "Removed and ignored (SPEC \u00a729.3): nothing reads it. Delete it."
+      "description": "Removed and ignored (SPEC §29.3): nothing reads it. Delete it."
     },
     "adapter": {
       "type": "string",
-      "description": "Removed and ignored (SPEC \u00a712.1, \u00a729.3): the plane makes worktrees and runs the product's env hooks itself. Delete it.",
+      "description": "Removed and ignored (SPEC §12.1, §29.3): the plane makes worktrees and runs the product's env hooks itself. Delete it.",
       "deprecated": true
     },
     "adapter_config_path": {
       "type": "string",
-      "description": "Removed and ignored (SPEC \u00a712.1, \u00a729.3). Delete it.",
+      "description": "Removed and ignored (SPEC §12.1, §29.3). Delete it.",
       "deprecated": true
     },
     "integration_branch": {
@@ -34,7 +34,7 @@
     },
     "production_branch": {
       "type": "string",
-      "description": "Removed and ignored (SPEC \u00a729.3): nothing reads it. Delete it.",
+      "description": "Removed and ignored (SPEC §29.3): nothing reads it. Delete it.",
       "deprecated": true
     },
     "queue_root": {
@@ -43,7 +43,7 @@
     },
     "durable_docs_path": {
       "type": "string",
-      "description": "Removed and ignored (SPEC \u00a729.3): the task log is plane.json `task_log.dir`, `docs/delivery` unless it sets one. Delete it.",
+      "description": "Removed and ignored (SPEC §29.3): the task log is plane.json `task_log.dir`, `docs/delivery` unless it sets one. Delete it.",
       "deprecated": true
     },
     "product_root": {
@@ -62,24 +62,24 @@
         },
         "watchdog": {
           "type": "string",
-          "description": "Historical Delivery Watchdog seat. Not used by the Claude team (SPEC \u00a718.2)."
+          "description": "Historical Delivery Watchdog seat. Not used by the Claude team (SPEC §18.2)."
         },
         "steerer": {
           "type": "string"
         }
       },
       "deprecated": true,
-      "description": "Removed and ignored (SPEC \u00a729.3): nothing reads it. Delete it."
+      "description": "Removed and ignored (SPEC §29.3): nothing reads it. Delete it."
     },
     "cadence": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Removed and ignored (SPEC \u00a729.3): nothing reads it. Delete it.",
+      "description": "Removed and ignored (SPEC §29.3): nothing reads it. Delete it.",
       "properties": {
         "watchdog": {
           "type": "string",
           "default": "*/30 * * * *",
-          "description": "Historical Delivery Watchdog cron. Not used by the Claude team (SPEC \u00a718.2)."
+          "description": "Historical Delivery Watchdog cron. Not used by the Claude team (SPEC §18.2)."
         },
         "runner": {
           "type": "string",
@@ -91,12 +91,12 @@
             "event"
           ],
           "default": "event",
-          "description": "Task Verifier has NO routine: the runner's subagent (SPEC \u00a718.3)"
+          "description": "Task Verifier has NO routine: the runner's subagent (SPEC §18.3)"
         },
         "verify_stale_minutes": {
           "type": "integer",
           "minimum": 1,
-          "description": "Deprecated and ignored: retired with the verify_stale blocker (SPEC \u00a718.3, ADR-0034 D6). Allowed so an older binding still validates; nothing reads it."
+          "description": "Deprecated and ignored: retired with the verify_stale blocker (SPEC §18.3, ADR-0034 D6). Allowed so an older binding still validates; nothing reads it."
         }
       },
       "deprecated": true
@@ -119,7 +119,7 @@
         }
       },
       "deprecated": true,
-      "description": "Removed and ignored (SPEC \u00a729.3): the operator's channel is plane.json `notify` (\u00a73.6). Delete it."
+      "description": "Removed and ignored (SPEC §29.3): the operator's channel is plane.json `notify` (§3.6). Delete it."
     },
     "verifier_access": {
       "type": "object",
@@ -144,14 +144,14 @@
         }
       },
       "deprecated": true,
-      "description": "Removed and ignored (SPEC \u00a729.3): nothing reads it. Delete it."
+      "description": "Removed and ignored (SPEC §29.3): nothing reads it. Delete it."
     },
     "ci": {
       "type": "string",
       "enum": [
         "github-actions"
       ],
-      "description": "\u00a715.1: the product runs the formal unit/lint workflow as CI; only then may a verdict cite gate.ci_run. Omit for no CI; CI is never the gate."
+      "description": "§15.1: the product runs the formal unit/lint workflow as CI; only then may a verdict cite gate.ci_run. Omit for no CI; CI is never the gate."
     },
     "auth_check": {
       "type": "object",
@@ -163,7 +163,7 @@
         "includes_gcloud_adc": {
           "type": "boolean",
           "default": true,
-          "description": "A product that depends on cloud credentials sets true (\u00a730). Products with no gcloud dependency may set false"
+          "description": "A product that depends on cloud credentials sets true (§30). Products with no gcloud dependency may set false"
         },
         "includes_adapter_doctor": {
           "type": "boolean",
@@ -174,11 +174,11 @@
           "default": true
         }
       },
-      "description": "Removed and ignored (SPEC \u00a729.3, \u00a730): auth probes are plane.json `auth_check.probes`. Delete it.",
+      "description": "Removed and ignored (SPEC §29.3, §30): auth probes are plane.json `auth_check.probes`. Delete it.",
       "deprecated": true
     },
     "spec_maintainer": {
-      "description": "Removed and ignored (SPEC \u00a717, \u00a729.3): the lead is every project's spec maintainer. Delete it.",
+      "description": "Removed and ignored (SPEC §17, §29.3): the lead is every project's spec maintainer. Delete it.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -204,7 +204,7 @@
       "deprecated": true
     },
     "architecture_review": {
-      "description": "Removed and ignored (SPEC \u00a719.12, \u00a729.3): read by nothing. Delete it.",
+      "description": "Removed and ignored (SPEC §19.12, §29.3): read by nothing. Delete it.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -249,7 +249,7 @@
     },
     "hosting": {
       "type": "string",
-      "description": "Removed and ignored (SPEC \u00a72.2, \u00a729.3): the plane has one hosting, the Claude team. Delete it.",
+      "description": "Removed and ignored (SPEC §2.2, §29.3): the plane has one hosting, the Claude team. Delete it.",
       "deprecated": true
     },
     "notes": {
@@ -259,30 +259,30 @@
     "runner": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Removed (SPEC \u00a729.3): the runner's agent (`ccp:delivery-runner`), name (`runner`) and worktree (`<product_root>/<worktrees.dir>/runner`) are derived, and its limits are constants. Delete the block.",
+      "description": "Removed (SPEC §29.3): the runner's agent (`ccp:delivery-runner`), name (`runner`) and worktree (`<product_root>/<worktrees.dir>/runner`) are derived, and its limits are constants. Delete the block.",
       "properties": {
         "agent_type": {
           "type": "string",
           "minLength": 1,
-          "description": "Removed and ignored (SPEC \u00a729.3): the runner's agent is `ccp:delivery-runner`. Delete it.",
+          "description": "Removed and ignored (SPEC §29.3): the runner's agent is `ccp:delivery-runner`. Delete it.",
           "deprecated": true
         },
         "name": {
           "type": "string",
           "minLength": 1,
-          "description": "Removed and ignored (SPEC \u00a729.3): the runner's name is `runner`. Delete it.",
+          "description": "Removed and ignored (SPEC §29.3): the runner's name is `runner`. Delete it.",
           "deprecated": true
         },
         "worktree": {
           "type": "string",
           "minLength": 1,
-          "description": "Removed and ignored (SPEC \u00a729.3): the runner's worktree is `<product_root>/<worktrees.dir>/runner`. Delete it.",
+          "description": "Removed and ignored (SPEC §29.3): the runner's worktree is `<product_root>/<worktrees.dir>/runner`. Delete it.",
           "deprecated": true
         },
         "rotate_after_tasks": {
           "type": "integer",
           "minimum": 1,
-          "description": "Constant (SPEC \u00a729.3): 4 (\u00a710.2). A value set here still applies, with a warning, until the key is deleted.",
+          "description": "Constant (SPEC §29.3): 4 (§10.2). A value set here still applies, with a warning, until the key is deleted.",
           "deprecated": true,
           "default": 4
         },
@@ -292,14 +292,14 @@
             "null"
           ],
           "minimum": 1,
-          "description": "Constant (SPEC \u00a729.3): off (\u00a710.2). A value set here still applies, with a warning, until the key is deleted.",
+          "description": "Constant (SPEC §29.3): off (§10.2). A value set here still applies, with a warning, until the key is deleted.",
           "deprecated": true,
           "default": null
         },
         "idle_block_limit": {
           "type": "integer",
           "minimum": 1,
-          "description": "Constant (SPEC \u00a729.3): 3 (\u00a718.2). A value set here still applies, with a warning, until the key is deleted.",
+          "description": "Constant (SPEC §29.3): 3 (§18.2). A value set here still applies, with a warning, until the key is deleted.",
           "deprecated": true,
           "default": 3
         }
@@ -309,12 +309,12 @@
     "lead": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Removed (SPEC \u00a729.3): the product's own .claude/settings.json holds the lead's `autoCompactWindow`. Delete the block.",
+      "description": "Removed (SPEC §29.3): the product's own .claude/settings.json holds the lead's `autoCompactWindow`. Delete the block.",
       "properties": {
         "auto_compact_window": {
           "type": "integer",
           "minimum": 1,
-          "description": "Moved (SPEC \u00a74.5, \u00a729.3): `ccp init` writes `autoCompactWindow` (350000) into the product's .claude/settings.json when it has none, with this value while it is set. Delete it.",
+          "description": "Moved (SPEC §4.5, §29.3): `ccp init` writes `autoCompactWindow` (350000) into the product's .claude/settings.json when it has none, with this value while it is set. Delete it.",
           "deprecated": true,
           "default": 350000
         }
@@ -323,7 +323,7 @@
     },
     "grok": {
       "type": "object",
-      "description": "Removed and ignored (SPEC \u00a729.3): Grok hosting was removed. Delete it.",
+      "description": "Removed and ignored (SPEC §29.3): Grok hosting was removed. Delete it.",
       "deprecated": true
     }
   }

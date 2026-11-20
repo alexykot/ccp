@@ -173,5 +173,13 @@ binding, and a binding that still holds a removed key is told which to delete.
     there). §31.1 corrections to the other sentences naming a removed key are in `01-model.md` (§2.6, §9.1,
     §9.2), `02-delivery.md` (§10.2, §12.1, §16.4, §18.2 and the dry-run sentence), `04-observability.md`
     (§24) and `05-operations.md`; each is quoted in the PR body.
+- Fix round 1 (review at `720db5f`): SPEC §3.4 now names only `integration_branch`, and §17's sentence says a
+  `spec_maintainer` block is a removed key and not read (§31.1). `scripts/sync-product-docs.sh` no longer reads the
+  binding's `spec_maintainer` block: the managed `docs/delivery/SPEC-MAINTAINER.md` is kept current where the
+  product already has that file (the lead is every project's maintainer, so the binding decides nothing), and the
+  `claude-session` note is gone. Help text and docstrings that named `runner.worktree`, `runner.name` or the
+  binding's `runner` block say the derived value. `contracts/project.schema.json` is written back unescaped
+  (`§` not `\u00a7`). The `warn_binding` call in `ccp init` is dropped: a kept binding's keys reach the caller
+  through the result's `warnings`, which init also prints on stderr.
 
 ## Verification notes

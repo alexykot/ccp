@@ -3,7 +3,7 @@
 The join, from the spike (docs/design/telemetry.md):
 
 - a span whose `agent_id` is a bound run's `agent_id` → that worker run;
-- a span `agent_id` of `<name>@session-…` → that teammate (`runner.name`, or a name a rotation bound, → the runner seat);
+- a span `agent_id` of `<name>@session-…` → that teammate (the runner's name, `runner`, or a name a rotation bound, → the runner seat);
 - a request with no `agent_id`, from the main thread → the lead (the design seat);
 - a request with no span (no traces) and `query_source: agent:*` → the one run open at that time
   whose model and effort match, else unattributed.

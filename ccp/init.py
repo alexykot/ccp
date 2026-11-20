@@ -395,8 +395,6 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     settings = root / ".claude" / "settings.json"
     # §4.5: the window is 350000, or the value a kept binding still sets (it warns, §29.3).
     lead = lib._yaml_block_scalars(old, "lead") if keep_binding and old else {}
-    if keep_binding:
-        lib.warn_binding(held, str(binding))
     window = config.lead_auto_compact_window(lead)
     # refuses before anything is written
     lead_model = models.model_for(config.load(root), "lead") if keep_plane_json else models.ROLES["lead"][0]

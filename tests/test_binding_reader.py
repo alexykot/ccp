@@ -222,20 +222,15 @@ class SyncReaderTest(unittest.TestCase):
         return subprocess.run(["bash", str(PLANE / "scripts" / "sync-product-docs.sh"), "demo",
                                "--project-yaml", str(self.yml), "--check"], capture_output=True, text=True)
 
-    def test_a_spec_maintainer_block_adds_its_managed_copy(self):
-        r = self.sync("spec_maintainer:\n  kind: team-lead\n")
+    def test_a_product_that_has_the_maintainer_doc_gets_its_managed_copy(self):
+        (self.product / "docs" / "delivery").mkdir(parents=True)
+        (self.product / "docs" / "delivery" / "SPEC-MAINTAINER.md").write_text("old\n")
+        r = self.sync("")
         self.assertIn("docs/delivery/SPEC-MAINTAINER.md", r.stdout, r.stderr)
-        self.assertNotIn("claude-session", r.stdout)
 
-    def test_an_empty_spec_maintainer_block_counts_as_declared(self):
-        self.assertIn("docs/delivery/SPEC-MAINTAINER.md", self.sync("spec_maintainer:\n").stdout)
-
-    def test_without_the_block_there_is_no_such_copy(self):
-        self.assertNotIn("docs/delivery/SPEC-MAINTAINER.md", self.sync("runner:\n  name: r\n").stdout)
-
-    def test_the_removed_claude_session_kind_gets_a_note(self):
-        r = self.sync("spec_maintainer:\n  kind: claude-session   # old\n")
-        self.assertIn("spec_maintainer.kind claude-session was removed", r.stdout, r.stderr)
+    def test_without_the_doc_there_is_no_such_copy_whatever_the_binding_holds(self):
+        r = self.sync("spec_maintainer:\n  kind: team-lead\n")
+        self.assertNotIn("docs/delivery/SPEC-MAINTAINER.md", r.stdout, r.stderr)
 
     def test_a_binding_for_another_project_id_is_refused(self):
         self.yml.write_text(f"project_id: other\nproduct_root: {self.product}\n")

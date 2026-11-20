@@ -189,8 +189,8 @@ files, decisions, standing approvals) are §17.
 
 ### 3.4 Production
 
-Promotion to production is operator-gated and never automated. A product's branch names are its
-binding's (`integration_branch`, `production_branch`, §8.3).
+Promotion to production is operator-gated and never automated. A product's integration branch is its
+binding's (`integration_branch`, §8.3).
 
 ### 3.5 Operator sign-off
 
