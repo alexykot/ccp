@@ -14,7 +14,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
 from ccp import cli, config
-from tests.helpers import Product
+from tests.helpers import Product, machine_file
 from tests.test_notify import PLANE, ChannelFixture
 from tests.test_toolkit import ToolkitFixture
 
@@ -223,7 +223,7 @@ class NoCommand(ChannelFixture, unittest.TestCase):
     def test_a_claim_refused_at_the_checkpoint_records_a_notice_for_the_lead_s_session(self):
         reading = Path(self._tmp.name) / "reading.json"
         reading.write_text(json.dumps({"five_hour": {"utilization": 10}, "seven_day": {"utilization": 90}}))
-        self.set_plane(telemetry={"allowance_cmd": f"cat '{reading}'", "allowance_stop_weekly": 80})
+        machine_file(self, allowance_cmd=f"cat '{reading}'", allowance_stop_weekly=80)
         code, _, _, err = self.ccp("tasks", "claim", "0002", root=self.main)
         self.assertEqual(code, 5, err)
         self.assertEqual(self.triggers(), ["allowance_checkpoint"])

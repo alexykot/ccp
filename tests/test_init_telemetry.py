@@ -317,9 +317,9 @@ class Port(unittest.TestCase):
 
 
 class MachineFile(unittest.TestCase):
-    def test_the_contract_lists_the_one_key(self):
+    def test_the_contract_lists_the_consent_and_the_accounts_keys(self):
         schema = json.loads((ROOT / "contracts/machine.schema.json").read_text())
-        self.assertEqual(list(schema["properties"]), ["telemetry"])
+        self.assertEqual(list(schema["properties"]), ["telemetry", "allowance_cmd", "allowance_stop_weekly"])
         self.assertEqual(schema["properties"]["telemetry"]["enum"], ["on", "off"])
         self.assertFalse(schema["additionalProperties"])
 

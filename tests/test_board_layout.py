@@ -99,6 +99,7 @@ class Layout(Fixture, unittest.TestCase):
         self.seed()
         b = self.build()[0]
         b["now"]["allowance"] = {"latest": {"seven_day": "x"}}  # .toFixed throws: the tiles and the Allowance card
+        b["usage"]["usage_read"] = True  # an allowance command is set: the tile shows the weekly figure
         b["usage"]["seats"] = {"implementer": None}
         b["runs"] = [{}]
         b["headless"] = [None]

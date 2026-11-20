@@ -9,6 +9,18 @@
     "telemetry": {
       "enum": ["on", "off"],
       "description": "The operator's consent to telemetry for every Claude Code session on this machine, recorded by `ccp init --telemetry on|off`. `on`: init writes the user-level telemetry keys and installs the receiver and the product's board timer. `off`: init writes nothing outside the product and no longer mentions telemetry."
+    },
+    "allowance_cmd": {
+      "type": "string",
+      "minLength": 1,
+      "description": "SPEC §25.1: the shell command that prints the account's usage windows (contracts/allowance.schema.json), run by `ccp tasks claim` and `ccp board build` for every product on this machine. Absent: no usage is read and nothing bounds spend, and `ccp init`, the session-start check and the board say so. A plane.json `telemetry.allowance_cmd` is the old place, read while this is absent."
+    },
+    "allowance_stop_weekly": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 100,
+      "default": 90,
+      "description": "SPEC §25.3: the weekly checkpoint, in percent of the weekly allowance, for every product on this machine: a new claim stops there until the lead records the operator's decision (`ccp allowance continue`). A plane.json `telemetry.allowance_stop_weekly` is the old place, read while this is absent."
     }
   }
 }

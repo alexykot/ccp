@@ -21,16 +21,16 @@ class AccountTests(unittest.TestCase):
             a = usage.account(cfg_with(tel, None))
             self.assertEqual((a["park_pct"], a["wake_arm_pct"], a["wake_margin_s"], a["ceiling_pct"]),
                              (95, 50, 180, 60))
-            self.assertIsNone(a["stop_weekly"])
+            self.assertEqual(a["stop_weekly"], 90)
             self.assertIsNone(a["allowance_cmd"])
             self.assertEqual(a["windows"], {
-                "seven_day": {"kind": "weekly", "stop_pct": None, "park_pct": None},
+                "seven_day": {"kind": "weekly", "stop_pct": 90, "park_pct": None},
                 "five_hour": {"kind": "session", "stop_pct": None, "park_pct": 95.0}})
 
     def test_the_built_in_defaults_give_the_same(self):
         a = usage.account(cfg_with(copy.deepcopy(config.TELEMETRY_DEFAULTS), copy.deepcopy(config.PARALLEL_DEFAULTS)))
         self.assertEqual((a["park_pct"], a["wake_arm_pct"], a["wake_margin_s"], a["ceiling_pct"],
-                          a["stop_weekly"], a["allowance_cmd"]), (95, 50, 180, 60, None, None))
+                          a["stop_weekly"], a["allowance_cmd"]), (95, 50, 180, 60, 90, None))
 
     def test_each_key_set(self):
         tel = {**config.TELEMETRY_DEFAULTS, "allowance_cmd": "echo {}", "allowance_stop_weekly": 88,

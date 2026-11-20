@@ -6,7 +6,7 @@ Non-normative notes behind SPEC §25 and §26. The rules are in `docs/spec/04-ob
 
 - `ccp tasks claim` refuses a new claim at the checkpoint in force (exit 5, "allowance checkpoint").
   The message tells the runner to stop and the lead to ask the operator. The checkpoint in force is the
-  project's `allowance_stop_weekly`, raised by the decisions recorded for the current window (the
+  machine's `allowance_stop_weekly` (default 90), raised by the decisions recorded for the current window (the
   latest sample's `resets_at`).
 - `ccp allowance continue --to <percent> --reason "<the operator's words>"` (the lead) appends to
   `board/allowance-decisions.jsonl` and emits `allowance/decided`. It refuses without a reason, a

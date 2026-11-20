@@ -260,7 +260,7 @@ from `--since` when given, and each line names its start.
 
 ### 25.1 Samples
 
-`ccp tasks claim` and `ccp board build` run the binding's `telemetry.allowance_cmd`. It prints the
+`ccp tasks claim` and `ccp board build` run the machine's `allowance_cmd`, from the machine file beside the bindings (§8.3), shared by every product on the machine. Without it no usage is read and nothing bounds spend: `ccp init` and the session-start check warn, naming the key, and the board shows `usage unread`. The command prints the
 account's usage windows as JSON (`contracts/allowance.schema.json`): `{windows: [{name, pct, resets_at}]}`,
 or the legacy form, one object per window with `utilization` and `resets_at`. Each run appends a
 sample to `board/allowance.jsonl` and emits `allowance/sample`. If the command fails or prints
@@ -269,9 +269,7 @@ something unexpected, the sample is recorded as unknown, never as zero, and an u
 
 ### 25.2 Usage windows
 
-Each window has a rule, `telemetry.windows`: `{<name>: {kind: weekly|session, stop_pct, park_pct}}`,
-merged over two built-in ones: `seven_day` (weekly, `stop_pct` = `telemetry.allowance_stop_weekly`)
-and `five_hour` (session, `park_pct` = `telemetry.session_park_pct`, default 95). So, by default, a
+Each window has a rule: `{kind: weekly|session, stop_pct, park_pct}`. There are two: `seven_day` (weekly, `stop_pct` = the machine's `allowance_stop_weekly`, default 90) and `five_hour` (session, `park_pct` 95). So, by default, a
 reading with a `five_hour` figure parks claims and prompts at 95% of it. A window that is neither
 built in nor named by the rules is recorded and otherwise ignored. A config that sets a built-in
 window's threshold both ways (the legacy key and `windows.<name>`), a `stop_pct` on a session window
@@ -295,8 +293,7 @@ or a `park_pct` on a weekly one, is refused.
 
 ### 25.3 The checkpoint
 
-- The project's checkpoint (the gating weekly window's `stop_pct`; by default
-  `telemetry.allowance_stop_weekly`) is drawn on the board. It is a point where the work stops and
+- The project's checkpoint (the gating weekly window's `stop_pct`, the machine's `allowance_stop_weekly`, default 90%) is drawn on the board. It is a point where the work stops and
   the operator decides, not a hard limit.
 - When a sample reaches it, `ccp tasks claim` refuses a **new** claim (exit 5, "allowance
   checkpoint"). A resumed claim of a runner's own lease is never refused.
@@ -332,7 +329,7 @@ the window's reset; the weekly checkpoint still stops for the operator.
   `ccp allowance session-wake --sample`.
   - Before refusing, `ccp` parks the task through `set-waiting-on.sh --task-only`: `waiting_on: quota`,
     `quota_class: session`, `resets_at` the window's reset and `planned_resume_at` the reset plus
-    `telemetry.session_wake_margin_s` (default 180 s; `set-waiting-on.sh --planned-resume-at`), with
+    180 s (`set-waiting-on.sh --planned-resume-at`), with
     its `waiting_on/set` event. It is written on the task's queue file, and on `work.json` only when
     that names the task; a refused new claim gets a queue file of its own (`status: pending`, no
     lease) and never overwrites `work.json`'s account of the task in flight.
@@ -347,7 +344,7 @@ the window's reset; the weekly checkpoint still stops for the operator.
     written still refuses, and says so).
   - **With several runners the park parks every task in flight**, whoever holds it, and the lead's
     wake resumes every runner (§16).
-- **The warning.** From `telemetry.session_wake_arm_pct` (default 50), while no wake is recorded for
+- **The warning.** From 50% of the session window, while no wake is recorded for
   the current window, claim and prompt warn that no session wake is armed; the runner forwards it to
   the lead.
 - **`ccp allowance session-wake [--sample]`** reports the window's percentage, its reset, `wake_at`
