@@ -46,7 +46,8 @@ it, with 0192's constant warning.
 - `docs/spec/01-model.md`'s key table lists `docs.workers` among the product check keys. That stays
   true and needs no change.
 - This plane's own `docs/delivery/plane.json` sets a number equal to its check count. Task 0190
-  deletes it once this task lands; this task leaves the file alone.
+  (already claimed, so not edited here) keeps that key if it closes before this task, and the lead
+  has told its runner so; whichever lands second deletes it. This task leaves the file alone.
 
 ## Scope
 
@@ -71,7 +72,8 @@ it, with 0192's constant warning.
   ADR-0043 D9, which the operator accepted (§31.1).
 - **`tests/test_doc_rules.py` `ParallelChecks`**, the one home for these tests:
   - the default test becomes "the default runs every check at once". Three checks each `touch` a
-    marker, then wait up to 5 s for all three markers. The run passes only if they ran together.
+    marker in a directory of the test's own, empty at the start of each run, then wait up to 5 s for
+    all three markers. The run passes only if they ran together.
   - with `docs.workers: 1`, the same three checks fail, which proves they ran one after another, and
     the load warns once, naming the key and "as many as there are checks";
   - `None` leaves the refused-values list;
@@ -89,8 +91,8 @@ Out of scope: any product's own check scripts, `architect.checks`' own settings,
 
 The barrier check used below is a `docs.checks` entry `{"id": "<x>", "cmd": "touch $D/<x>; for n in
 $(seq 50); do [ -e $D/a ] && [ -e $D/b ] && [ -e $D/c ] && exit 0; sleep 0.1; done; exit 1"}`, for
-`<x>` in `a`, `b` and `c`, with `$D` an empty temp directory. It passes only when all three run at
-once.
+`<x>` in `a`, `b` and `c`, with `$D` replaced by the absolute path of an empty temp directory
+written into each cmd. It passes only when all three run at once.
 
 - id: `dw-01`
   story: As a product that took 0192's upgrade step, my check commands run at once.
@@ -105,7 +107,8 @@ once.
 
 - id: `dw-02`
   story: As a product that still sets a number, it keeps applying.
-  setup: the same root, with `"workers": 1` added to `docs`.
+  setup: the same root, its marker directory emptied first (`rm -f <dir>/*`), with `"workers": 1`
+    added to `docs`.
   steps:
     1. `ccp --root <temp> docs check; echo rc=$?`.
   expect: a non-zero `rc`, with `docs check a` reported as exited 1, and one warning naming
