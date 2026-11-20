@@ -33,7 +33,7 @@ class SessionFixture(ToolkitFixture):
     def reading(self, five, reset_in=3600.0, seven=20.0, frac="", tel=None):
         five_hour = {"utilization": five, **({"resets_at": utc(time.time() + reset_in, frac)} if reset_in is not None else {})}
         self.reading_file.write_text(json.dumps({"five_hour": five_hour, "seven_day": {
-            "utilization": seven, "resets_at": "2026-10-27T04:00:00Z"}}))
+            "utilization": seven, "resets_at": "2099-10-27T04:00:00Z"}}))
         own = {k: v for k, v in (tel or {}).items() if k in config.MACHINE_ACCOUNT_KEYS}
         machine_file(self, allowance_cmd=f"cat '{self.reading_file}'", **own)
         cfg = json.loads((self.runner / "docs/delivery/plane.json").read_text())
@@ -134,7 +134,7 @@ class Park(SessionFixture, unittest.TestCase):
         """§25.4: no 5-hour figure since 2026-10-31 means no 5-hour limit, not an unknown read."""
         self.reading(96, reset_in=40 * 60)
         self.assertEqual(self.ccp("tasks", "claim", "0002")[0], 6)  # parked under the old limit
-        self.reading_file.write_text(json.dumps({"seven_day": {"utilization": 20, "resets_at": "2026-10-27T04:00:00Z"}}))
+        self.reading_file.write_text(json.dumps({"seven_day": {"utilization": 20, "resets_at": "2099-10-27T04:00:00Z"}}))
         code, body, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
         self.assertIsNone(self.task_state()["waiting_on"])  # the old park is lifted
@@ -145,7 +145,7 @@ class Park(SessionFixture, unittest.TestCase):
         """--fire (§25.4): with no 5-hour figure there is no window to wait for: every park lifts."""
         self.reading(96, reset_in=40 * 60)
         self.assertEqual(self.ccp("tasks", "claim", "0002")[0], 6)
-        self.reading_file.write_text(json.dumps({"seven_day": {"utilization": 20, "resets_at": "2026-10-27T04:00:00Z"}}))
+        self.reading_file.write_text(json.dumps({"seven_day": {"utilization": 20, "resets_at": "2099-10-27T04:00:00Z"}}))
         with mock.patch.dict(os.environ, {"ACTOR": "design-seat"}):
             code, body, out, err = self.ccp("allowance", "session-wake", "--fire")
         self.assertEqual(code, 0, out + err)
@@ -404,14 +404,14 @@ class ReviewFixes(SessionFixture, unittest.TestCase):
         self.assertFalse(usage.expired(st, now=due2 - 1))
         self.assertTrue(usage.expired(st, now=due2 + 1))
 
-    def test_an_unknown_reading_proceeds_but_keeps_the_park_and_a_past_reset_lifts_it(self):
+    def test_a_failed_reading_parks_again_on_the_good_one_and_a_past_reset_lifts_it(self):
         self.ccp("tasks", "claim", "0002")
         self.reading(96, reset_in=600)
         self.assertEqual(self.ccp("tasks", "claim", "0002")[0], 6)
         self.reading_file.write_text("garbage")
         code, body, out, err = self.ccp("tasks", "claim", "0002")
-        self.assertEqual(code, 0, out + err)  # best effort: the call goes on
-        self.assertEqual(self.task_state()["waiting_on"], "quota")  # but an unknown reading lifts nothing
+        self.assertEqual(code, 6, out + err)  # §25.1: judged on the 96% sample, whose reset is ahead
+        self.assertEqual(self.task_state()["waiting_on"], "quota")  # and a failed read lifts nothing
         self.assertNotIn(("waiting_on", "clear"), self.ops())
         self.reading(99, reset_in=-30)  # the endpoint still shows the old window's %
         code, _, out, err = self.ccp("prompt", "implement", "0002", "--base", "HEAD")
@@ -449,7 +449,7 @@ class ReviewFixes(SessionFixture, unittest.TestCase):
 
     def test_prompt_and_claim_stay_best_effort(self):
         self.ccp("tasks", "claim", "0002")
-        with mock.patch.object(usage, "sample_allowance", side_effect=OSError("disk full")):
+        with mock.patch.object(usage, "reading", side_effect=OSError("disk full")):
             code, _, out, err = self.ccp("prompt", "implement", "0002", "--base", "HEAD")
         self.assertEqual(code, 0, out + err)
         self.assertIn("session park was not checked", err)

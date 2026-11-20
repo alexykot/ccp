@@ -1046,10 +1046,11 @@ def collect(cfg: Config, q: Path | None, *, tasks: list[dict[str, Any]] | None =
             fit, pp, sp = cached_fit(q, now)
         except Exception as exc:  # noqa: BLE001  (the forecast stands without it)
             fit, pp, sp = {"error": f"{type(exc).__name__}: {exc}"[:200]}, [], []
-        last = (allowance or {}).get("latest") or {}
+        # §25.1: the latest good sample, so a failed latest sample does not drop the projection
+        last = (allowance or {}).get("latest_good") or {}
         if not last:
-            from ccp.usage import _jsonl  # noqa: PLC0415
-            last = (_jsonl(q / "board" / "allowance.jsonl") or [{}])[-1]
+            from ccp.usage import latest_good  # noqa: PLC0415
+            last = latest_good(q) or {}
         cur, reset = _num(last.get("seven_day")), _ep(last.get("resets_at"))
         if fit.get("chosen") and cur is not None and reset is not None:
             add = _since_sample(fit, pp, sp, str(last.get("at") or ""))

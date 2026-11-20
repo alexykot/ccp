@@ -278,14 +278,15 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
             failed = ", ".join(f"{r['id']} (exit {r['exit']})" for r in auth["probes"] if not r["ok"])
             raise QueueError(f"auth probe(s) failed: {failed}. Set waiting_on reauth and raise it to the lead "
                              "(SPEC §30); `ccp auth check` shows each", EXIT_AUTH)
-    # §25.1: refuses (exit 5) past the project's weekly stop; a resumed claim of its own lease is not refused.
+    # §25.1, §25.3: one reading through the shared reader; a new claim stops (exit 5) at a weekly checkpoint
+    # or with the account unread too long. A resumed claim of its own lease is not refused.
     try:
-        sample = usage.sample_allowance(cfg, q, gate=not resumed)
-    except QueueError as exc:
-        if exc.code == 5:  # §3.6: the weekly checkpoint is the operator's to pass
-            if warn := notify.fire(cfg, q, "allowance_checkpoint", task_id=tid)[1]:
-                raise QueueError(f"{exc}. {warn[0]}", exc.code) from exc
+        read = usage.claim_reading(cfg, q, new=not resumed)
+    except usage.CheckpointStop as exc:  # §3.6: the checkpoint is the operator's to hear of
+        if warn := notify.fire(cfg, q, "allowance_checkpoint", task_id=tid, reason=exc.reason)[1]:
+            raise QueueError(f"{exc}. {warn[0]}", exc.code) from exc
         raise
+    read_warn = usage.reading_warnings(cfg, q, read)
     status = str(load_work(q).get("status") or "")
     # The runner is started by `team.sh runner spawn` (status running); `stop` leaves idle.
     stopped = STOPPED + ("idle",)
@@ -294,11 +295,11 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
     # §16.3: beside tasks already in flight, a new claim must be able to join them (after the weekly stop
     # and a stopped runner, which say more; before the session park, which would park a task not taken)
     active = parallel.active_tasks(cfg, q, load_work(q), but=tid) if not resumed and parallel.enabled(cfg) else []
-    if why := parallel.join_refusal(cfg, meta, active, sample):
+    if why := parallel.join_refusal(cfg, meta, active, usage.in_force(q)):  # §25.1: the reading in force
         raise QueueError(f"{tid} cannot join the task(s) in flight: {why}. Carry on with what you hold (SPEC §16.3)",
                          parallel.EXIT_SLOTS)
     # §25.4 the session park: refuses (exit 6) and parks the task at the 5-hour park %, new or resumed
-    session_warn = usage.session_step(cfg, q, tid, sample, "the claim")  # best effort but the park
+    session_warn = usage.session_step(cfg, q, tid, "the claim")  # best effort but the park
     if not resumed:
         with file_lock(task_state_path(q, tid)):  # §16.4: two runners claiming one task: one wins
             again = load_task_state(q, tid).get("lease_holder")
@@ -374,7 +375,7 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
                  + (f" ({held[tid]['reason']})" if held[tid].get("reason") else "")
                  + f": claimed anyway; `ccp tasks hold --clear {tid}` once that is settled"] if tid in held else []
     return {"ok": True, "task_id": tid, "resumed": resumed, "worktree": wt, "kind": tasklog.kind_of(meta),
-            "warnings": script_drift(q) + ([sample["warning"]] if sample and sample.get("warning") else []) + hold_warn
+            "warnings": script_drift(q) + read_warn + hold_warn
             + session_warn}
 
 

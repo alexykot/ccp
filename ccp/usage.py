@@ -573,38 +573,353 @@ def project(cfg: Config, wins: list[dict[str, Any]], q: Path | None = None,
     return rec
 
 
-def sample_allowance(cfg: Config, q: Path, gate: bool = True) -> dict[str, Any] | None:
-    """§25.1: run the binding's allowance command, record the sample, refuse past the weekly stop.
-    A command that fails or prints something unexpected records the sample as unknown, never zero."""
-    cmd = account(cfg)["allowance_cmd"]
-    if not cmd:
+# ------------------------------------------------------------------------------------- the shared reader
+
+# §25.1: one reader per machine. None of these is a setting.
+READ_TTL_S = 60           # a good reading younger than this is reused: the command does not run
+BACKOFF_MIN_S = 60        # after a failed read, no caller runs the command for this long,
+BACKOFF_MAX_S = 900       # doubling at each further failure up to this,
+RETRY_AFTER_MAX_S = 3600  # or for the `retry_after_s` the command printed, when longer, up to this
+IN_FORCE_S = 900          # the reading in force: the latest good sample no older than this
+UNREAD_STOP_S = 3600      # the account unread this long, a new claim stops at the checkpoint (§25.3)
+# Test-only: every call runs the command, with no cache, no reuse and no backoff, as before the shared
+# reader; its rows say `shared: false` (tests/__init__.py sets it, so a test's stub reaches no other test).
+UNSHARED_ENV = "CCP_ALLOWANCE_UNSHARED"
+FIELDS = ("five_hour", "seven_day", "resets_at", "five_hour_resets_at")  # what `allowance/sample` carries
+
+
+def now() -> float:
+    """The one clock of the shared reader and of every judgment on its readings (§25.1)."""
+    return time.time()
+
+
+def good(windows: Any) -> bool:
+    """§25.1: a reading is good when at least one of its windows has a figure."""
+    return isinstance(windows, list) and any(isinstance(w, dict) and w.get("pct") is not None for w in windows)
+
+
+def _row_windows(row: dict[str, Any]) -> list[dict[str, Any]]:
+    """A sample's windows; a row written before the usage windows has none listed, and its legacy
+    figures stand for its built-in windows."""
+    if isinstance(row.get("windows"), list):
+        return [w for w in row["windows"] if isinstance(w, dict) and isinstance(w.get("name"), str)]
+    return [{"name": wname(row, kind), "pct": _num_or_none(row.get(f)), "resets_at": row.get(r)}
+            for kind, f, r in (("weekly", "seven_day", "resets_at"), ("session", "five_hour", "five_hour_resets_at"))]
+
+
+def good_row(row: Any) -> bool:
+    """§25.1: a sample that is not `failed: true` and whose windows are a good reading."""
+    return isinstance(row, dict) and not row.get("failed") and good(_row_windows(row))
+
+
+def _when(v: Any) -> float | None:
+    """A recorded time as epoch seconds: an ISO time, or a number; None for anything else."""
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return float(v)
+    return _ts(v)
+
+
+def _rows(q: Path) -> list[dict[str, Any]]:
+    return _jsonl(q / "board" / "allowance.jsonl")
+
+
+def latest_good(q: Path) -> dict[str, Any] | None:
+    """§25.1: the product's latest good sample, of any age, or None."""
+    return next((r for r in reversed(_rows(q)) if good_row(r)), None)
+
+
+def fresh(row: dict[str, Any] | None, t: float) -> bool:
+    """A sample no older than IN_FORCE_S at `t`."""
+    at = _when((row or {}).get("at"))
+    return at is not None and t - at <= IN_FORCE_S
+
+
+def in_force(q: Path, t: float | None = None) -> dict[str, Any] | None:
+    """§25.1: the reading in force, the latest good sample when it is no older than IN_FORCE_S; else None."""
+    row = latest_good(q)
+    return row if fresh(row, now() if t is None else t) else None
+
+
+def unread_since_log(rows: list[dict[str, Any]]) -> float | None:
+    """When the account went unread, from a product's own samples: the first failed sample after its latest
+    good one, or the log's first failed sample when none is good; None when the latest sample is good."""
+    last_good = max((i for i, r in enumerate(rows) if good_row(r)), default=-1)
+    return next((_when(r.get("at")) for r in rows[last_good + 1:]), None)
+
+
+def next_backoff(prev_s: Any) -> float:
+    """§25.1: the backoff after a failure: BACKOFF_MIN_S on the first, doubling on each further one up to BACKOFF_MAX_S."""
+    prev = _num_or_none(prev_s)
+    return float(BACKOFF_MIN_S) if not prev or prev <= 0 else float(min(prev * 2, BACKOFF_MAX_S))
+
+
+def backoff_end(at: float, backoff_s: float, retry_after_s: float | None) -> float:
+    """When a backoff begun at `at` ends: `backoff_s` on, or the `retry_after_s` the command printed when that
+    is longer (at most RETRY_AFTER_MAX_S)."""
+    wait = backoff_s if retry_after_s is None else max(backoff_s, min(retry_after_s, RETRY_AFTER_MAX_S))
+    return at + wait
+
+
+def backoff_from_log(rows: list[dict[str, Any]]) -> float | None:
+    """§25.1, the reader's fallback without its cache: when the backoff the product's own samples give
+    ends. With n failed samples after the latest good one, BACKOFF_MIN_S doubled n-1 times up to
+    BACKOFF_MAX_S, raised to the last one's `retry_after_s`, from that sample's `at`. None with no failure."""
+    last_good = max((i for i, r in enumerate(rows) if good_row(r)), default=-1)
+    failed = rows[last_good + 1:]
+    at = _when(failed[-1].get("at")) if failed else None
+    if at is None:
         return None
+    s = float(min(BACKOFF_MIN_S * 2 ** min(len(failed) - 1, 16), BACKOFF_MAX_S))
+    return backoff_end(at, s, _num_or_none(failed[-1].get("retry_after_s")))
+
+
+def plan_read(cache: dict[str, Any], t: float) -> str:
+    """§25.1, under the reader's lock: `backoff` (inside a backoff: the command does not run), `reuse` (the
+    last good reading is younger than READ_TTL_S) or `run`."""
+    until = _when(cache.get("backoff_until"))
+    if until is not None and t < until:
+        return "backoff"
+    at = _when((cache.get("good") or {}).get("at"))
+    if at is not None and good((cache.get("good") or {}).get("windows")) and t - at < READ_TTL_S:
+        return "reuse"
+    return "run"
+
+
+def after_read(cache: dict[str, Any], t: float, wins: list[dict[str, Any]] | None,
+               retry_after_s: float | None) -> dict[str, Any]:
+    """The reader's cache after the command ran at `t`: a good reading (`wins`) is kept and ends the
+    backoff; a failure (`wins` None) keeps the last good reading, starts or doubles the backoff, and
+    sets `failing_since` on the first failure only."""
+    if wins is not None:
+        return {"good": {"windows": wins, "at": _utc(t)}, "failing_since": None, "backoff_s": None, "backoff_until": None}
+    s = next_backoff(cache.get("backoff_s"))
+    since = cache.get("failing_since") if _when(cache.get("failing_since")) is not None else _utc(t)
+    return {"good": cache.get("good"), "failing_since": since, "backoff_s": s,
+            "backoff_until": _utc(backoff_end(t, s, retry_after_s))}
+
+
+def cache_path(cmd: str) -> Path:
+    """§8.3, §25.1: the reader's cache for one allowance command, in the machine file's directory."""
+    import hashlib  # noqa: PLC0415
+    return lib.bindings_dir() / f"allowance-cache-{hashlib.sha256(cmd.encode()).hexdigest()[:12]}.json"
+
+
+def _run(cmd: str) -> tuple[list[dict[str, Any]], bool, int | None, float | None]:
+    """Run the allowance command once: (its windows, read only on exit 0; whether the read is good; the exit
+    code, None when it did not exit; the `retry_after_s` it printed). Stdout is parsed whatever the exit, but
+    windows only on exit 0. No output text is kept."""
     try:
         r = subprocess.run(["/bin/sh", "-c", cmd], capture_output=True, text=True, timeout=8)
-        wins = parse_windows(json.loads(r.stdout) if r.returncode == 0 else {})
-    except (OSError, ValueError, subprocess.SubprocessError, AttributeError):
-        wins = []
-    rec = {"at": iso(), **project(cfg, wins, q, _latest(q))}
-    seven, resets = rec["seven_day"], rec["resets_at"]
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return [], False, None, None
+    try:
+        data = json.loads(r.stdout or "")
+    except ValueError:
+        data = None
+    retry = _num_or_none(data.get("retry_after_s")) if isinstance(data, dict) else None
+    retry = retry if retry is not None and retry >= 0 else None
+    wins = parse_windows(data) if r.returncode == 0 else []
+    return wins, r.returncode == 0 and good(wins), r.returncode, retry
+
+
+def _append(q: Path, row: dict[str, Any]) -> dict[str, Any]:
     p = q / "board" / "allowance.jsonl"
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a") as fh:
-        fh.write(json.dumps(rec) + "\n")
-    emit(q, cfg, "", "allowance", "sample", {k: rec[k] for k in ("five_hour", "seven_day", "resets_at", "five_hour_resets_at")})
-    if seven is None:
-        rec["warning"] = "the allowance reading is unknown; the weekly checkpoint was not checked (SPEC §25.3)"
-    # every weekly window is held to its own checkpoint (§25.3): one past it refuses, whichever window gates
-    rules = window_rules(cfg)
-    over = [(w, cp) for w in sorted(rec["windows"], key=lambda w: w["name"])
-            if w.get("pct") is not None and window_kind(rules, w["name"]) == "weekly"
-            and (cp := checkpoint(cfg, q, w.get("resets_at"), w["name"])) is not None and w["pct"] >= cp]
-    if gate and over:
-        w, stop = over[0]
-        seven, resets = w["pct"], w.get("resets_at")
-        raise QueueError(f"allowance checkpoint: the {w['name']} window is at {seven:g}%, its checkpoint is {stop:g}% "
-                         f"(SPEC §25.3); resets {resets or 'at an unknown time'}. Runner: stop and tell the lead. Lead: ask the operator, "
-                         "and record their decision with `ccp allowance continue --to <percent> --reason \"<their words>\"`", 5)
-    return rec
+        fh.write(json.dumps(row) + "\n")
+    return row
+
+
+def _record(cfg: Config, q: Path, t: float, wins: list[dict[str, Any]], ok: bool, code: int | None,
+            retry: float | None, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Append the product's sample of a run of the command, and emit `allowance/sample`. A failed run
+    is the unknown sample, never zero (a window with no figure keeps its reset), with `failed`, its exit
+    and any `retry_after_s`."""
+    row: dict[str, Any] = {"at": _utc(t), **project(cfg, wins, q, latest_good(q))}
+    if not ok:
+        row.update({"failed": True, "exit": code, **({"retry_after_s": retry} if retry is not None else {})})
+    row.update(extra or {})
+    _append(q, row)
+    emit(q, cfg, "", "allowance", "sample", {k: row[k] for k in FIELDS})
+    return row
+
+
+def _reuse(cfg: Config, q: Path, kept: Any) -> dict[str, Any] | None:
+    """A reading the command did not take now: appended to the product's samples, its fields worked out
+    for this product, with its own `at` and `reused: true`, when it is newer than the product's latest good
+    sample. Emits nothing."""
+    kept = kept if isinstance(kept, dict) else {}
+    at, wins = _when(kept.get("at")), kept.get("windows")
+    mine = latest_good(q)
+    if at is None or not good(wins) or (mine is not None and (_when(mine.get("at")) or 0) >= at):
+        return None
+    return _append(q, {"at": _utc(at), **project(cfg, wins, q, mine), "reused": True})
+
+
+def _load_cache(path: Path) -> dict[str, Any]:
+    """The reader's cache; one that is missing or unreadable is empty (it is state, and may be deleted)."""
+    try:
+        data = json.loads(path.read_text()) if path.is_file() else {}
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def reading(cfg: Config, q: Path) -> dict[str, Any]:
+    """§25.1: take a reading of the machine's allowance command through the one shared reader. Under an
+    exclusive lock on the command's cache: inside a backoff nothing runs; a good reading younger than
+    READ_TTL_S is reused; otherwise the command runs, and its sample is appended. A reading the command did
+    not take now reaches the product's samples (`_reuse`). Returns `ran` (the command ran), `row` (the sample
+    this call appended, or None), `unread_since` (epoch seconds: when the current run of failures began, or
+    None) and `warnings` (the cache could not be used). No `allowance_cmd`: nothing is read."""
+    cmd = account(cfg)["allowance_cmd"]
+    out: dict[str, Any] = {"ran": False, "row": None, "unread_since": None, "warnings": []}
+    if not cmd:
+        return out
+    if os.environ.get(UNSHARED_ENV) == "1":
+        wins, ok, code, retry = _run(cmd)
+        out.update(ran=True, row=_record(cfg, q, now(), wins, ok, code, retry, {"shared": False}))
+        out["unread_since"] = unread_since_log(_rows(q))
+        return out
+    from contextlib import ExitStack  # noqa: PLC0415
+    from ccp.queue import file_lock, write_json  # noqa: PLC0415
+    path = cache_path(cmd)
+    with ExitStack() as stack:
+        try:
+            stack.enter_context(file_lock(path))
+        except OSError as exc:
+            return _read_unshared(cfg, q, cmd, out, f"usage reads are not shared: {exc}")
+        if not os.access(path.parent, os.W_OK):
+            return _read_unshared(cfg, q, cmd, out, f"usage reads are not shared: {path.parent} is not writable")
+        cache = _load_cache(path)
+        t = now()
+        if plan_read(cache, t) != "run":
+            out["row"] = _reuse(cfg, q, cache.get("good"))
+        else:
+            wins, ok, code, retry = _run(cmd)
+            out.update(ran=True, row=_record(cfg, q, t, wins, ok, code, retry))
+            cache = after_read(cache, t, wins if ok else None, retry)
+            try:
+                write_json(path, cache)
+            except OSError as exc:
+                out["warnings"].append(f"usage reads are not shared: {exc}")
+        out["unread_since"] = _when(cache.get("failing_since"))
+    return out
+
+
+def _read_unshared(cfg: Config, q: Path, cmd: str, out: dict[str, Any], why: str) -> dict[str, Any]:
+    """§25.1, the reader without its cache: from the product's own samples, a good one younger than
+    READ_TTL_S is reused and the backoff they give is kept; otherwise the command runs."""
+    rows, t = _rows(q), now()
+    out["warnings"].append(why)
+    last = latest_good(q)
+    until = backoff_from_log(rows)
+    recent = last is not None and (at := _when(last.get("at"))) is not None and t - at < READ_TTL_S
+    if not (until is not None and t < until) and not recent:
+        wins, ok, code, retry = _run(cmd)
+        out.update(ran=True, row=_record(cfg, q, t, wins, ok, code, retry))
+        rows = _rows(q)
+    out["unread_since"] = unread_since_log(rows)
+    return out
+
+
+def reader_state(cfg: Config, q: Path) -> dict[str, Any]:
+    """What `ccp allowance status` shows of the shared reader (§25.1): `backoff_until`, when the command may
+    next run (None outside a backoff), and `unread_since`, when the current run of failed reads began. From
+    the cache, read without its lock; under the test-only switch or with no cache, from the product's samples."""
+    cmd = account(cfg)["allowance_cmd"]
+    if not cmd:
+        return {"backoff_until": None, "unread_since": None}
+    rows, t = _rows(q), now()
+    cache = {} if os.environ.get(UNSHARED_ENV) == "1" else _load_cache(cache_path(cmd))
+    if cache:
+        until, since = _when(cache.get("backoff_until")), _when(cache.get("failing_since"))
+    else:
+        until = None if os.environ.get(UNSHARED_ENV) == "1" else backoff_from_log(rows)
+        since = unread_since_log(rows)
+    return {"backoff_until": _utc(until) if until is not None and until > t else None,
+            "unread_since": _utc(since) if since is not None else None}
+
+
+def unread_minutes(q: Path, read: dict[str, Any], t: float) -> int | None:
+    """For how many whole minutes the account has gone unread: since its failures began, else since its
+    latest good sample; None when neither is known."""
+    since = read.get("unread_since")
+    if since is None:
+        since = _when((latest_good(q) or {}).get("at"))
+    return None if since is None else max(0, int((t - since) // 60))
+
+
+def reading_warnings(cfg: Config, q: Path, read: dict[str, Any]) -> list[str]:
+    """The claim's and the prompt's warnings on a reading (§25.1): the cache could not be used; no
+    good reading is in force."""
+    out = list(read.get("warnings") or [])
+    t = now()
+    if usage_read(cfg) and in_force(q, t) is None:
+        n = unread_minutes(q, read, t)
+        out.append("no good allowance reading in force: the account's usage has gone unread for "
+                   f"{'an unknown number of' if n is None else n} minutes (SPEC §25.1)")
+    return out
+
+
+class CheckpointStop(QueueError):
+    """§25.3: a new claim refused at the allowance checkpoint (exit 5); `reason` is the notice's
+    (`usage unread`, or empty for a weekly checkpoint)."""
+
+    def __init__(self, msg: str, reason: str = ""):
+        super().__init__(msg, 5)
+        self.reason = reason
+
+
+def weekly_over(cfg: Config, q: Path, row: dict[str, Any] | None, t: float) -> tuple[dict[str, Any], float] | None:
+    """§25.3 on the latest good sample: the first weekly window, by name, at or past its own checkpoint
+    while its reset is still ahead (one with no reset time only while the sample is in force); None when none."""
+    if row is None:
+        return None
+    rules, live = window_rules(cfg), fresh(row, t)
+    for w in sorted(_row_windows(row), key=lambda w: w["name"]):
+        pct = _num_or_none(w.get("pct"))
+        if pct is None or window_kind(rules, w["name"]) != "weekly":
+            continue
+        rt = _ts(w.get("resets_at"))
+        if (rt is None and not live) or (rt is not None and rt <= t):
+            continue
+        cp = checkpoint(cfg, q, w.get("resets_at"), w["name"])
+        if cp is not None and pct >= cp:
+            return w, cp
+    return None
+
+
+def checkpoint_stop(cfg: Config, q: Path, read: dict[str, Any]) -> CheckpointStop | None:
+    """§25.3: why a new claim stops at the allowance checkpoint, or None: a weekly window of the latest good
+    sample past its checkpoint (`weekly_over`), or the account unread for UNREAD_STOP_S with no reading in force."""
+    if not usage_read(cfg):
+        return None
+    t = now()
+    if over := weekly_over(cfg, q, latest_good(q), t):
+        w, stop = over
+        resets = w.get("resets_at")
+        return CheckpointStop(
+            f"allowance checkpoint: the {w['name']} window is at {float(w['pct']):g}%, its checkpoint is {stop:g}% "
+            f"(SPEC §25.3); resets {resets or 'at an unknown time'}. Runner: stop and tell the lead. Lead: ask the operator, "
+            "and record their decision with `ccp allowance continue --to <percent> --reason \"<their words>\"`")
+    since = read.get("unread_since")
+    if in_force(q, t) is None and since is not None and t - since >= UNREAD_STOP_S:
+        return CheckpointStop(
+            f"allowance checkpoint: the account's usage has not been read for {int((t - since) // 60)} minutes "
+            "(SPEC §25.3). Runner: stop and tell the lead. Lead: check `allowance_cmd`, run `ccp allowance status "
+            "--sample` until it shows a good reading, then tell the runner to resume; no decision is recorded",
+            "usage unread")
+    return None
+
+
+def claim_reading(cfg: Config, q: Path, new: bool = True) -> dict[str, Any]:
+    """§25.1, §25.3: the claim's reading (`reading`); a `new` claim at the allowance checkpoint raises
+    `CheckpointStop` (exit 5). A resumed claim of a runner's own lease is never refused."""
+    read = reading(cfg, q)
+    if new and (stop := checkpoint_stop(cfg, q, read)):
+        raise stop
+    return read
 
 
 def decisions(q: Path) -> list[dict[str, Any]]:
@@ -705,7 +1020,7 @@ def continue_(cfg: Config, q: Path, to: float, reason: str) -> dict[str, Any]:
         raise QueueError("--reason looks like it holds a secret", 2)
     if not 0 < to <= 100:
         raise QueueError("--to is a percentage of the weekly allowance", 2)
-    last = (_jsonl(q / "board" / "allowance.jsonl") or [{}])[-1]
+    last = latest_good(q) or {}  # §25.1: a failed sample is never judged
     if not last.get("resets_at"):
         raise QueueError("no allowance sample with a reset time yet: a decision belongs to a weekly window "
                          "(run `ccp allowance status --sample`)", 3)
@@ -725,21 +1040,26 @@ def continue_(cfg: Config, q: Path, to: float, reason: str) -> dict[str, Any]:
 
 
 def status(cfg: Config, q: Path, sample: bool) -> dict[str, Any]:
-    """The latest sample, the checkpoint in force and this window's decisions, each with `lapsed_at`
-    (the counter reset that lapsed it, or None). `decision_lapsed_at` is the reset that lapsed the
-    latest decision, when that one is no longer in force. `usage_read` says whether an allowance command is
-    set (§25.1); when it is not, `warning` says that no usage is read and nothing bounds spend."""
+    """The latest sample (`latest`, a failed one included), the latest good one (`latest_good`) and whether
+    it is in force (`in_force`, §25.1), the checkpoint in force and this window's decisions, each with
+    `lapsed_at` (the counter reset that lapsed it, or None), all of the latest good sample's window.
+    `decision_lapsed_at` is the reset that lapsed the latest decision, when that one is no longer in force.
+    `backoff_until` is when the shared reader may next run the command (None outside a backoff) and
+    `unread_since` when the current run of failed reads began. `usage_read` says whether an allowance command
+    is set (§25.1); when it is not, `warning` says that no usage is read and nothing bounds spend."""
     if sample:
-        sample_allowance(cfg, q, gate=False)
-    last = (_jsonl(q / "board" / "allowance.jsonl") or [None])[-1]
-    resets = (last or {}).get("resets_at")
-    win = wname(last, "weekly")
+        reading(cfg, q)
+    last = (_rows(q) or [None])[-1]
+    good_last = latest_good(q)
+    resets = (good_last or {}).get("resets_at")
+    win = wname(good_last, "weekly")
     times = counter_resets(q, resets, win)
     dec = [{**d, "lapsed_at": _lapsed_at(d, times)} for d in decisions(q)
            if wname(d, "weekly") == win and same_window(resets, d.get("resets_at"))]
     read = usage_read(cfg)
     return {"ok": True, "usage_read": read, **({} if read else {"warning": unread_warning()}),
-            "latest": last, "window": win, "checkpoint": checkpoint(cfg, q, resets, win),
+            "latest": last, "latest_good": good_last, "in_force": fresh(good_last, now()), **reader_state(cfg, q),
+            "window": win, "checkpoint": checkpoint(cfg, q, resets, win),
             "project_checkpoint": window_rules(cfg).get(win, {}).get("stop_pct"),
             "decisions": dec, "counter_resets": times,
             "decision_lapsed_at": dec[-1]["lapsed_at"] if dec else None}
@@ -916,25 +1236,29 @@ def _held_others(cfg: Config, q: Path, tid: str, parked_too: bool = False) -> li
     return out
 
 
-def session_gate(cfg: Config, q: Path, tid: str, rec: dict[str, Any] | None, step: str) -> list[str]:
-    """§25.4: at or past the park %, park `tid` and refuse (exit 6); otherwise lift any park the task
-    had, and warn from the arm % while no wake is armed for this window. An unknown reading, a park
-    that is off, or a window whose reset has passed gates nothing; the last two lift the park, an
-    unknown reading keeps it. Best effort:
-    any failure but the park itself is a warning (`session_step`)."""
+def session_gate(cfg: Config, q: Path, tid: str, step: str) -> list[str]:
+    """§25.4: when the latest good sample (§25.1) shows the session window at or past the park % and its
+    reset still ahead (with no reset time, only while that sample is in force), park `tid` and refuse
+    (exit 6); otherwise lift any park the task had once the window is free (the reading in force shows it
+    known and under the park, or no 5-hour limit; the latest good sample's reset has passed; or the park is
+    off), and warn from the arm % while no wake is armed for this window. With no good sample whose window
+    is still open nothing parks. Best effort: any failure but the park itself is a warning (`session_step`)."""
+    rec = latest_good(q)
+    t = now()  # the one clock (§25.1)
+    live = rec if fresh(rec, t) else None
     park, arm, margin = session_settings(cfg, rec)
-    five = (rec or {}).get("five_hour")
+    five = _num_or_none((rec or {}).get("five_hour"))
     reset = (rec or {}).get("five_hour_resets_at")
-    rt, now = _ts(reset), time.time()
-    if park is not None and five is not None and five >= park and not (rt is not None and rt <= now):
+    rt = _ts(reset)
+    if park is not None and five is not None and five >= park and (rt is not None and rt > t or rt is None and live):
         if rt is not None:
             planned = _utc(wake_time(rt, margin))
         else:  # a retry: a live retry park keeps its time, so a refusal never pushes it out again
             from ccp.queue import load_task_state  # noqa: PLC0415
             st = load_task_state(q, tid)
-            live = st.get("waiting_on") == "quota" and st.get("quota_class") == "session" \
-                and st.get("planned_resume_at") and not expired(st, now)
-            planned = st["planned_resume_at"] if live else _utc(now + PARK_RETRY_S)
+            held = st.get("waiting_on") == "quota" and st.get("quota_class") == "session" \
+                and st.get("planned_resume_at") and not expired(st, t)
+            planned = st["planned_resume_at"] if held else _utc(t + PARK_RETRY_S)
         note = ""
         try:
             _park(cfg, q, tid, five, park, reset, planned)
@@ -955,37 +1279,37 @@ def session_gate(cfg: Config, q: Path, tid: str, rec: dict[str, Any] | None, ste
             "Runner: send the lead one message with this %, the reset time and the task, then idle. "
             "Lead: `ccp allowance session-wake --sample`, and arm the wake it prints", PARK_EXIT)
     out = []
-    # lifted only on a reading that shows the window free: known and under the park %, its reset past,
-    # or the park off. An unknown reading proceeds (best effort) but keeps a live park
+    # lifted only when the window is free: the reading in force shows it known and under the park %, the
+    # latest good sample's reset has passed, or the park is off. With none in force a live park is kept
     from ccp.parallel import no_five_hour_limit  # noqa: PLC0415
     # §25.2: a weekly-only reading means no 5-hour limit (since 2026-10-31): the window is free
-    free = park is None or (five is not None and five < park) or (rt is not None and rt <= now) or no_five_hour_limit(rec)
-    for t in [tid, *(_held_others(cfg, q, tid, parked_too=True) if free else [])]:  # §16.5 rule 6: all held lift too
-        if free and clear_park(cfg, q, t):
-            out.append(f"{t}: the 5-hour park is lifted" + (f" (the window is at {five:g}%)" if five is not None else ""))
-    if park is not None and five is not None and five >= arm and rt is not None and rt > now \
-            and armed_wake(q, reset, now) is None:
+    free = park is None or (live is not None and five is not None and five < park) or (rt is not None and rt <= t) \
+        or no_five_hour_limit(live)
+    for x in [tid, *(_held_others(cfg, q, tid, parked_too=True) if free else [])]:  # §16.5 rule 6: all held lift too
+        if free and clear_park(cfg, q, x):
+            out.append(f"{x}: the 5-hour park is lifted" + (f" (the window is at {five:g}%)" if five is not None else ""))
+    if park is not None and five is not None and five >= arm and rt is not None and rt > t \
+            and armed_wake(q, reset, t) is None:
         out.append(f"5-hour window at {five:g}%: no session wake armed; tell the lead to arm one "
                    "(`ccp allowance session-wake`)")
     return out
 
 
-def session_step(cfg: Config, q: Path, tid: str, rec: Any, step: str) -> list[str]:
+def session_step(cfg: Config, q: Path, tid: str, step: str, read: Any = None) -> list[str]:
     """`session_gate`, best effort (claim and prompt): only the park (exit 6) refuses; any other failure
-    (a sample, the wait's writer, the wake records) becomes a warning. `rec` may be a callable that
-    takes the sample."""
+    (a reading, the wait's writer, the wake records) becomes a warning. `read`, when given, is a callable
+    that takes the reading first and returns its warnings."""
+    warns: list[str] = []
     try:
-        return session_gate(cfg, q, tid, rec() if callable(rec) else rec, step)
+        if read is not None:
+            warns = list(read())
+        return warns + session_gate(cfg, q, tid, step)
     except QueueError as e:
         if e.code == PARK_EXIT:
             raise
-        return [f"the session park was not checked: {e} (SPEC §25.4)"]
+        return warns + [f"the session park was not checked: {e} (SPEC §25.4)"]
     except Exception as exc:  # noqa: BLE001
-        return [f"the session park was not checked: {type(exc).__name__}: {exc} (SPEC §25.4)"]
-
-
-def _latest(q: Path) -> dict[str, Any]:
-    return (_jsonl(q / "board" / "allowance.jsonl") or [{}])[-1]
+        return warns + [f"the session park was not checked: {type(exc).__name__}: {exc} (SPEC §25.4)"]
 
 
 def session_wake(cfg: Config, q: Path, sample: bool = False, rearm: bool = False) -> dict[str, Any]:
@@ -995,21 +1319,22 @@ def session_wake(cfg: Config, q: Path, sample: bool = False, rearm: bool = False
     unknown, a parked task's retry time (`PARK_RETRY_S`) is the wake. `rearm` (from `--fire` before the
     window reset: the cron fired early, e.g. at a clock change) offers the armed wake again."""
     if sample:
-        sample_allowance(cfg, q, gate=False)
-    park, arm_pct, margin = session_settings(cfg, _latest(q))
-    last, now = _latest(q), time.time()
+        reading(cfg, q)
+    last = latest_good(q) or {}  # §25.1: the window, reset and park of the latest good sample
+    park, arm_pct, margin = session_settings(cfg, last or None)
+    t = now()
     five, reset = _num_or_none(last.get("five_hour")), last.get("five_hour_resets_at")
     rt = _ts(reset)
     waiting = parked(q)
-    retry = min((t for p in waiting if (t := _ts(p.get("planned_resume_at"))) and t > now), default=None)
+    retry = min((d for p in waiting if (d := _ts(p.get("planned_resume_at"))) and d > t), default=None)
     out: dict[str, Any] = {"ok": True, "sample_at": last.get("at"), "window": last.get("session_window") or "five_hour",
                            "five_hour": five, "five_hour_resets_at": reset,
                            "park_pct": park, "arm_pct": arm_pct, "margin_s": margin, "parked": waiting,
                            "wake_at": None, "wake_local": None, "cron": None, "armed": None, "prompt": WAKE_PROMPT}
-    wt = wake_time(rt, margin) if rt is not None and rt > now else (wake_time(retry, 0) if retry else None)
+    wt = wake_time(rt, margin) if rt is not None and rt > t else (wake_time(retry, 0) if retry else None)
     if wt is not None:
         out.update(wake_at=_utc(wt), wake_local=_local(wt), cron=cron_for(wt),
-                   armed=armed_wake(q, reset if rt is not None and rt > now else None, now, wt))
+                   armed=armed_wake(q, reset if rt is not None and rt > t else None, t, wt))
     arm = False
     if not account(cfg)["allowance_cmd"]:  # §25.1: nothing to sample, with --sample or without
         why = "no allowance_cmd in the machine file: no allowance sample can be taken (SPEC §25.1)"
@@ -1030,7 +1355,7 @@ def session_wake(cfg: Config, q: Path, sample: bool = False, rearm: bool = False
         why = f"a wake is already armed for this window ({out['armed'].get('wake_at')})"
     elif waiting:
         arm, why = True, f"{len(waiting)} task(s) parked on the 5-hour window" + (
-            "; its reset is unknown, so the wake is the park's retry" if rt is None or rt <= now else "")
+            "; its reset is unknown, so the wake is the park's retry" if rt is None or rt <= t else "")
     elif five is not None and five >= arm_pct:
         arm, why = True, f"the 5-hour window is at {five:g}% (arm from {arm_pct:g}%)"
     else:
@@ -1052,7 +1377,7 @@ def session_armed(cfg: Config, q: Path) -> dict[str, Any]:
     """`ccp allowance session-wake --armed`: the lead records the wake it armed, the one `session-wake`
     prints now. A second record for the same window (or retry time) is not written."""
     from ccp.queue import actor  # noqa: PLC0415
-    park, _arm, _margin = session_settings(cfg, _latest(q))
+    park, _arm, _margin = session_settings(cfg, latest_good(q))
     if park is None:
         raise QueueError("telemetry.session_park_pct is null: the session park and wake are off", 2)
     w = session_wake(cfg, q)
@@ -1061,7 +1386,7 @@ def session_armed(cfg: Config, q: Path) -> dict[str, Any]:
                          "and arm the wake it prints", 3)
     if w.get("armed"):
         return {"ok": True, "already": True, "armed": w["armed"]}
-    reset = w["five_hour_resets_at"] if (_ts(w["five_hour_resets_at"]) or 0) > time.time() else None
+    reset = w["five_hour_resets_at"] if (_ts(w["five_hour_resets_at"]) or 0) > now() else None
     rec = {"at": iso(), "by": actor("design-seat"), "five_hour_resets_at": reset, "wake_at": w["wake_at"],
            "wake_local": w["wake_local"], "cron": w["cron"], "five_hour": w.get("five_hour")}
     from ccp.queue import append_jsonl  # noqa: PLC0415
@@ -1071,23 +1396,24 @@ def session_armed(cfg: Config, q: Path) -> dict[str, Any]:
 
 
 def session_fire(cfg: Config, q: Path) -> dict[str, Any]:
-    """`ccp allowance session-wake --fire` (the wake's prompt): a fresh sample. The window has reset when
-    the 5-hour reading is under the park %, or the reading's own reset time has passed (the endpoint
-    may still show the old window's %); then every parked task whose planned resume is due (within
-    FIRE_SLACK_S) is un-parked, and the lead is told how to resume the runner. Otherwise it says the
-    window has not reset, with the wake to arm (again)."""
+    """`ccp allowance session-wake --fire` (the wake's prompt): takes a reading (§25.1) and judges the reading
+    in force. The window has reset when its 5-hour figure is under the park %, or its own reset time has
+    passed (the endpoint may still show the old window's %); then every parked task whose planned resume is
+    due (within FIRE_SLACK_S) is un-parked, and the lead is told how to resume the runner. Otherwise it says
+    the window has not reset, with the wake to arm (again)."""
     from ccp.queue import actor, load_work  # noqa: PLC0415
-    rec = sample_allowance(cfg, q, gate=False)
-    park, _arm, _margin = session_settings(cfg, rec or _latest(q))  # the fresh reading's window
+    reading(cfg, q)
+    t = now()
+    rec = in_force(q, t)
+    park, _arm, _margin = session_settings(cfg, rec or latest_good(q))  # the reading's window
     five = (rec or {}).get("five_hour")
     rt = _ts((rec or {}).get("five_hour_resets_at"))
-    now = time.time()
     waiting = parked(q)
     out: dict[str, Any] = {"ok": True, "five_hour": five, "five_hour_resets_at": (rec or {}).get("five_hour_resets_at"),
                            "park_pct": park, "unparked": [], "still_parked": []}
     from ccp.parallel import no_five_hour_limit  # noqa: PLC0415
     # §25.4: a weekly-only reading means no 5-hour limit (since 2026-10-31): every park lifts
-    reset = park is not None and (five is not None and five < park or rt is not None and rt <= now
+    reset = park is not None and (five is not None and five < park or rt is not None and rt <= t
                                   or no_five_hour_limit(rec))
     if not reset:
         out["reset"] = False
@@ -1100,7 +1426,7 @@ def session_fire(cfg: Config, q: Path) -> dict[str, Any]:
     nolimit = no_five_hour_limit(rec)
     for p in waiting:
         due = _ts(p.get("planned_resume_at"))
-        if due is not None and due > now + FIRE_SLACK_S and not nolimit:  # no limit: nothing to wait for
+        if due is not None and due > t + FIRE_SLACK_S and not nolimit:  # no limit: nothing to wait for
             out["still_parked"].append(p)
             continue
         clear_park(cfg, q, p["task_id"])

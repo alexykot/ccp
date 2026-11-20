@@ -673,10 +673,6 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     if not st.get("lease_holder") or st.get("status") == "done":
         raise QueueError(f"{tid} is not claimed (or is done): `ccp tasks claim {tid}` first", 3)
     caller = opener(q, tid, st, getattr(a, "holder", None))
-    from ccp import usage  # noqa: PLC0415
-    # §25.4 the session park: no run opens at or past the 5-hour park % (exit 6, the task parked)
-    # (best effort: only the park refuses; a failed sample or wait write is a warning)
-    session_warn = usage.session_step(cfg, q, tid, lambda: usage.sample_allowance(cfg, q, gate=False), f"ccp prompt {phase}")
     resolution = resolution_gate(cfg, q, tid, phase, a)
     override, skipped = review_gate(cfg, q, tid, phase, a)
     repeat = repeat_gate(q, tid, phase, note)
@@ -684,6 +680,12 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     body_warn = body_gate(cfg, tid, phase, a.pr)
     runs.check_pending(q, runs.AGENT_TYPE[phase], a.supersede, caller)
     runs.check_running_rounds(q, tid, phase, caller, a.supersede)
+    from ccp import usage  # noqa: PLC0415
+    # §25.4 the session park: no run opens at or past the 5-hour park % (exit 6, the task parked). Below the
+    # refusal gates, so a refused prompt reads no usage (§25.1). Best effort: only the park refuses; a failed
+    # reading or wait write is a warning
+    session_warn = usage.session_step(cfg, q, tid, f"ccp prompt {phase}",
+                                      read=lambda: usage.reading_warnings(cfg, q, usage.reading(cfg, q)))
     n = runs.next_round(q, tid, phase)
     run_id = runs.make_id(tid, phase, n)
     report = runs.report_path(q, run_id)

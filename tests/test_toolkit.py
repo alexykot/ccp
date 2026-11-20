@@ -707,7 +707,7 @@ class Allowance(ToolkitFixture, unittest.TestCase):
 
     def test_claim_samples_and_stops_past_the_weekly_gate(self):
         sample = json.dumps({"five_hour": {"utilization": 12.0}, "seven_day": {"utilization": 85.0,
-                                                                               "resets_at": "2026-10-27T04:00:00Z"}})
+                                                                               "resets_at": "2099-10-27T04:00:00Z"}})
         self.plane_json(f"echo '{sample}'", stop=80)
         code, _, _, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 5)
@@ -730,16 +730,17 @@ class Allowance(ToolkitFixture, unittest.TestCase):
         self.plane_json("exit 1", stop=80)
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
-        self.assertIn("allowance reading is unknown", err)
+        self.assertIn("no good allowance reading in force", err)
         row = json.loads((self.q / "board/allowance.jsonl").read_text().splitlines()[-1])
         self.assertIsNone(row["seven_day"])
+        self.assertTrue(row["failed"])
 
 
 class Checkpoint(ToolkitFixture, unittest.TestCase):
     plane_json = Allowance.plane_json
 
     def test_the_operator_decides_to_continue_until_the_next_checkpoint(self):
-        sample = lambda pct: json.dumps({"seven_day": {"utilization": pct, "resets_at": "2026-10-27T04:00:00Z"}})
+        sample = lambda pct: json.dumps({"seven_day": {"utilization": pct, "resets_at": "2099-10-27T04:00:00Z"}})
         self.plane_json(f"echo '{sample(85)}'", stop=80)
         code, _, _, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 5)
@@ -763,20 +764,20 @@ class Checkpoint(ToolkitFixture, unittest.TestCase):
         # A decision made below the checkpoint at 72%, then readings
         # whose resets_at differ by under a second, must keep the raised checkpoint in force.
         sample = lambda pct, at: "echo '" + json.dumps({"seven_day": {"utilization": pct, "resets_at": at}}) + "'"
-        self.plane_json(sample(72, "2026-10-27T03:59:59.52Z"), stop=80)
+        self.plane_json(sample(72, "2099-10-27T03:59:59.52Z"), stop=80)
         self.ccp("allowance", "status", "--sample")
         code, _, out, err = self.ccp("allowance", "continue", "--to", "95", "--reason", "the product may go on to 95%")
         self.assertEqual(code, 0, out + err)
-        self.plane_json(sample(85, "2026-10-27T04:00:00.24Z"), stop=80)
+        self.plane_json(sample(85, "2099-10-27T04:00:00.24Z"), stop=80)
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
         code, body, _, _ = self.ccp("allowance", "status")
         self.assertEqual((body["checkpoint"], len(body["decisions"])), (95.0, 1))
 
     def test_a_decision_holds_for_its_weekly_window_only(self):
-        self.plane_json("echo '" + json.dumps({"seven_day": {"utilization": 85, "resets_at": "2026-10-27T04:00:00Z"}}) + "'", stop=80)
+        self.plane_json("echo '" + json.dumps({"seven_day": {"utilization": 85, "resets_at": "2099-10-27T04:00:00Z"}}) + "'", stop=80)
         self.ccp("tasks", "claim", "0002")
         self.ccp("allowance", "continue", "--to", "95", "--reason", "go on")
-        self.plane_json("echo '" + json.dumps({"seven_day": {"utilization": 85, "resets_at": "2026-11-03T04:00:00Z"}}) + "'", stop=80)
+        self.plane_json("echo '" + json.dumps({"seven_day": {"utilization": 85, "resets_at": "2099-11-03T04:00:00Z"}}) + "'", stop=80)
         code, _, _, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 5)
