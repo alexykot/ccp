@@ -14,6 +14,11 @@ the task-log owner triages it under `docs/delivery/REVIEW-TRIAGE.md`. Everything
 - **drift:** `ccp health` drift (on active time: wall time less waits), or a budget failing, that the last
   pass did not see.
 
+All of these count from the product's adoption point (§19.11). Before its first pass, a review point counts
+its tasks numbered from that point, friction counts only those tasks' notes, drift is not judged, and a budget
+counts only if it was not already failing when the seat first checked it (`budget_baseline` in the state file),
+so a product that adopts with history owes no pass at once.
+
 `gate()` is what `ccp tasks next` enforces: exit 4 once a due pass has gone unstarted for
 `grace_tasks` more merges (or nothing is left to merge), or a report has waited `triage_grace_tasks`
 merges for triage. A running pass blocks nothing. Merges are counted as tasks reaching `done` in the
@@ -180,7 +185,9 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
     label = last.get("review_id") or "none"
     # §19.11: the cadence counts the tasks numbered from the adoption point (none before it, none unadopted).
     start = config.adoption_point(cfg)
-    counted = {tid for tid in done if adopted and ((n := tasklog._number(tid, cfg)) is None or n >= (start or 0))}
+    def from_adoption(tid: Any) -> bool:
+        return adopted and ((n := tasklog._number(tid, cfg)) is None or n >= (start or 0))
+    counted = {tid for tid in done if from_adoption(tid)}
     since = len(counted - set(last.get("done") or []))
     days = round((ar.now_utc() - parse_dt(last["started_at"])).total_seconds() / 86400, 1) \
         if last.get("started_at") else None
@@ -197,19 +204,34 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
     elif days is not None and days >= a["max_days"] and since >= 1:
         reasons.append(("max_days", f"{days} days and {since} task(s) done since {label}", -1))
     scope_ids = {str(t.get("task_id")) for t in tasks if scope and tasklog.in_scope(str(t.get("task_id")), scope)}
+    if not last:  # §19.6: before the first pass a review point counts its tasks from the adoption point
+        scope_ids = {tid for tid in scope_ids if from_adoption(tid)}
     if adopted and scope_ids and scope_ids <= done and not _covered(st, scope_ids):
         reasons.append(("review_point", "review point closes: every task in scope is done", -1))
-    n_notes = len(health.notes(q, last.get("started_at")))
+    notes = health.notes(q, last.get("started_at"))
+    if not last:  # only the notes of tasks from the adoption point; a note with no task does not count
+        notes = [n for n in notes if n.get("task_id") and from_adoption(n["task_id"])]
+    n_notes = len(notes)
     if adopted and n_notes >= a["notes_due"]:
         reasons.append(("notes", f"{n_notes} friction note(s) since {label}", -1))
     drift = None
     if adopted:
         drift = health.trend(health.collect(cfg, q, files=False)["tasks"], a["drift_ratio"])
-        if drift["drift"] and not last.get("health_drift"):
+        if last and drift["drift"] and not last.get("health_drift"):  # no drift is judged before the first pass
             reasons.append(("drift", f"health drift: median active time of the last 5 tasks is {drift['drift_ratio']}x "
                                      f"the 10 before (limit {a['drift_ratio']})", -1))
     budgets = rules.budget_failures(cfg) if adopted else []
-    new_budgets = [b for b in budgets if b.split(":", 1)[0] not in set(last.get("budget_ids") or [])]
+    if last:
+        known = set(last.get("budget_ids") or [])
+    else:
+        # Before the first pass, the budgets failing when the seat first checks once adopted are the baseline.
+        known = set(st.get("budget_baseline") or []) if "budget_baseline" in st else {b.split(":", 1)[0] for b in budgets}
+        if adopted and "budget_baseline" not in st and record:
+            def keep_baseline(fresh: dict[str, Any]) -> None:
+                if not fresh.get("last") and "budget_baseline" not in fresh:
+                    fresh["budget_baseline"] = sorted(known)
+            ar.update_state(q, ARCH, keep_baseline)
+    new_budgets = [b for b in budgets if b.split(":", 1)[0] not in known]
     if new_budgets:
         reasons.append(("budget", "budget check fails: " + "; ".join(new_budgets[:3]), -1))
     # A non-cadence reason became due when it was first seen; remember that moment.
