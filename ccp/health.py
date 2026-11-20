@@ -58,7 +58,7 @@ Everything comes from data the plane already holds; nothing here is a target or 
   first-parent history since a ref that no task covers: not a task's merge (the rule above, a squash
   naming its task only as `Task NNNN: …`, the form the implementer is asked for), not a
   reconcile commit naming a task, not named in a task's `covers:`, and changing more than the task log
-  and the SPEC files (`task_log.spec_paths`).
+  and the SPEC files (`spec_paths`).
 
 - **adoption window** (§27.1, §4.5): with no `--since`, `ccp health` starts its window at the queue's latest
   `plane`/`adopted` event (`ccp init`), at its payload's `since` when it has one: the task merges, the
@@ -95,6 +95,7 @@ from typing import Any
 
 from ccp import refs, runs, tasklog
 from ccp.config import ARCHITECT_DEFAULTS, HEALTH_DEFAULTS, USAGE_DEFAULTS, Config
+from ccp.config import spec_paths as spec_paths_of
 from ccp.queue import QueueError
 from ccp.rules import budget_failures, glob_re
 
@@ -212,7 +213,7 @@ def uncovered(cfg: Config, since: str, tip: str) -> dict[str, Any]:
     """§10.7: the commits on `tip`'s first-parent history after `since` that no task covers, oldest
     first. Covered: a task's merge (`merges`), a reconcile commit naming a task of the log, a commit a
     task not dropped names in `covers:`, and one that changes nothing outside the task log and the SPEC
-    files (`task_log.spec_paths`). Raises ValueError for a ref that does not resolve."""
+    files (`spec_paths`). Raises ValueError for a ref that does not resolve."""
     from ccp.lifecycle import reconcile_re, task_log_paths  # noqa: PLC0415
     for ref in (since, tip):
         if not _resolve(cfg, ref):
@@ -224,7 +225,7 @@ def uncovered(cfg: Config, since: str, tip: str) -> dict[str, Any]:
     rec_re = reconcile_re(cfg)
     named, warnings = _covers(tasks)
     log = task_log_paths(cfg)
-    spec_paths = cfg.task_log.get("spec_paths") or []
+    spec_paths = spec_paths_of(cfg)
 
     def in_log(path: str) -> bool:
         return (any(path == x or path.startswith(x.rstrip("/") + "/") for x in log)

@@ -120,7 +120,7 @@ of reach when the sentence is edited.
   exact CURRENT → PROPOSED text of each passage in its Scope and declares `sign_off: brief`, so the
   operator signs the words before the claim. A task whose SPEC text only describes its own feature
   (§31.1) says `§31.1` on a Scope line instead. `ccp tasks check` warns on a task whose `paths` name
-  the SPEC (`task_log.spec_paths`) with neither (plane SPEC §3.5).
+  the SPEC (`spec_paths`) with neither (plane SPEC §3.5).
 - **"No SPEC change" is measured:** cite a SPEC search, at a named commit, for each concept the task
   adds, renames or changes.
 - **Locate code by symbol with a short quote** (`"def export_rows"`), never by a bare `path:line`:
@@ -213,7 +213,7 @@ citing nothing, zero or more than `max_checks` checks, duplicate check ids, soft
 a task file that is gone (restore it; convert an earlier generation's file with
 `ccp tasks migrate`), a number held by another file without `renamed_from`, a kind's ref rules broken, and (with `shape_adrs`) a new task citing an unshaped ADR
 without a waiver. A `review_point` not in the register (or, without one, not matching
-`task_log.review_point_pattern`). A task not yet `done` or `dropped` that still holds a template
+`ids.review_point.pattern`). A task not yet `done` or `dropped` that still holds a template
 placeholder (`NNNN-kebab-slug`, `YYYY-MM-DD`, `As a <role>`, `<preconditions`,
 `<concrete, observable result>`, `One line, imperative`), named with its line; a placeholder quoted
 in a code span or a fenced block is not read. A task citing nothing, where `spec_refs` is one of the

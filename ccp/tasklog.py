@@ -14,7 +14,7 @@ file with no frontmatter is one failure that names `ccp tasks migrate` (`ccp/tas
 `warnings()` names a later task cited as a prerequisite in prose, where nothing enforces it (list it in
 `depends_on` instead), a number a task's Context states with no backticked command on its line (a
 measured premise names the command and the commit it ran at), a task whose `paths` name the SPEC
-(`task_log.spec_paths`) with neither a `brief` sign-off nor `§31.1` in its Scope (§3.5), and a task whose
+(`spec_paths`) with neither a `brief` sign-off nor `§31.1` in its Scope (§3.5), and a task whose
 `paths` name the plane.json schema or a settings template with no `adopt:` step (§5.2, ADR-0041 D1), and
 one whose `adopt:` is `none` yet names a plane.json, binding or settings key (a step hidden behind `none`).
 
@@ -28,7 +28,7 @@ for the top of the next review point's scope. New tasks citing an ADR need its s
 A task carries `review_point` (§22.1, §22): the review point whose scope it belongs to, set by the
 task-log owner when scoping. With the review-point register (`ccp/reviewpoints.py`, which this check
 also validates) it is `R<n>` and one of the register's ids; without it, it matches
-`task_log.review_point_pattern`, as before the register. `ccp tasks close`
+`ids.review_point.pattern`, as before the register. `ccp tasks close`
 stamps work.json's point into a task that carries none, as a fallback.
 
 The product-specific values live in `plane.json`.
@@ -651,7 +651,7 @@ def unmeasured_numbers(t: dict[str, Any], rel: str) -> list[str]:
 
 
 def _names_spec(path: str, spec_paths: list[str]) -> bool:
-    """§3.5: whether a path names a SPEC file: it equals an entry of `task_log.spec_paths` or, for an entry
+    """§3.5: whether a path names a SPEC file: it equals an entry of `spec_paths` or, for an entry
     ending in `/`, lies under it; an entry without its `/` is exact (`docs/spec` meets no file under it)."""
     p = path.strip().removeprefix("./")
     return any(p == e or (e.endswith("/") and p.startswith(e))
@@ -659,12 +659,12 @@ def _names_spec(path: str, spec_paths: list[str]) -> bool:
 
 
 def unsigned_spec_edit(cfg: Config, t: dict[str, Any], rel: str) -> list[str]:
-    """§3.5: a task not yet done or dropped whose `paths` name a SPEC file (`task_log.spec_paths`) and that
+    """§3.5: a task not yet done or dropped whose `paths` name a SPEC file (`spec_paths`) and that
     neither declares a `brief` sign-off nor says `§31.1` on a Scope line (its SPEC text only describes its
     own feature). A warning: the rule text is signed when the task is written, not after verify."""
     if t.get("status") in TERMINAL or "brief" in sign_off_stages(t):
         return []
-    named = [str(p) for p in _as_list(t.get("paths")) if _names_spec(str(p), cfg.task_log.get("spec_paths") or [])]
+    named = [str(p) for p in _as_list(t.get("paths")) if _names_spec(str(p), config.spec_paths(cfg))]
     if not named or "§31.1" in (_section(t["_text"], SEC_SCOPE) or ""):
         return []
     return [f"{rel}: its paths name the SPEC ({', '.join(named)}) but it declares no `sign_off: brief`: a task "
@@ -918,9 +918,9 @@ def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
         if "review_point" in t:  # §22, §22.4: set when scoping; `ccp tasks close` stamps it otherwise
             rp = t["review_point"]
             if register is None:  # no register: the rule before it, unchanged (§22)
-                if not isinstance(rp, str) or not re.match(tl["review_point_pattern"], rp):
-                    errs.append(f"{rel}: review_point {rp!r} does not match task_log.review_point_pattern "
-                                f"({tl['review_point_pattern']}, SPEC §22)")
+                if not isinstance(rp, str) or not refs.ids(cfg).is_review_point(rp):
+                    errs.append(f"{rel}: review_point {rp!r} does not match ids.review_point.pattern "
+                                f"({refs.ids(cfg).review_point_pattern}, SPEC §22)")
             elif why := reviewpoints.problem(cfg, rp, register):
                 errs.append(f"{rel}: {why}")
         errs += _id_list_errors(rel, t, "depends_on", ids)

@@ -158,8 +158,8 @@ class ConfigChecks(unittest.TestCase):
                 p.cleanup()
 
     def test_bad_estimate_inputs_are_refused(self):
-        for bad in ({"spec_paths": "SPEC.md"}, {"path_suffixes": ["py"]}):
-            p = Product({"estimate": bad})
+        for bad in ({"spec_paths": "SPEC.md"}, {"estimate": {"path_suffixes": ["py"]}}):
+            p = Product(bad)
             try:
                 with self.assertRaises(config.ConfigError):
                     _ = p.cfg
@@ -178,7 +178,7 @@ class EstimatorInputs(unittest.TestCase):
             p.cleanup()
 
     def test_configured_suffixes_and_spec_paths(self):
-        p = Product({"estimate": {"path_suffixes": [".rs"], "spec_paths": ["design/*.md"]}})
+        p = Product({"estimate": {"path_suffixes": [".rs"]}, "spec_paths": ["design/*.md"]})
         try:
             self.assertEqual(estimate.cited("see `x.rs` and `y.py`", p.cfg), ["x.rs"])
             p.write("design/rules.md", "# Rules\n\n## S7 — Seven\n\nbody seven\n")

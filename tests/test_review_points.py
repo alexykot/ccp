@@ -14,7 +14,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import adr, backfill, board, cli, plan, reviewpoints, tasklog
+from ccp import adr, backfill, board, cli, config, plan, reviewpoints, tasklog
 from tests.helpers import TASK, Product
 from tests.test_backfill import GIT_ENV, claim, ev, spawn
 from tests.test_board_quality import HOSTILE, STUB, Base, _hostile
@@ -80,9 +80,8 @@ class Register(unittest.TestCase):
     def test_no_register_keeps_the_pattern_rule(self):
         self.assertEqual(reviewpoints.load(self.p.cfg), (None, []))
         self.assertIsNone(reviewpoints.problem(self.p.cfg, "R99"))
-        self.assertIsNone(reviewpoints.problem(self.p.cfg, "R0"))  # the default pattern, ^R[0-9]+$
-        for bad in ("PM", "r1", "", None, 8):
-            self.assertIn("does not match task_log.review_point_pattern", reviewpoints.problem(self.p.cfg, bad), bad)
+        for bad in ("PM", "r1", "R0", "", None, 8):  # the one default pattern, R[1-9][0-9]*
+            self.assertIn("does not match ids.review_point.pattern", reviewpoints.problem(self.p.cfg, bad), bad)
         self.assertEqual(reviewpoints.notes(self.p.cfg), [])  # no task uses a review point: nothing to say
         _tagged(self.p, "0001-a", "pending", "R1")
         self.assertEqual(reviewpoints.notes(self.p.cfg), ["no review-point register: docs/delivery/review-points.yaml; "
@@ -93,7 +92,8 @@ class Register(unittest.TestCase):
         self.p.write("docs/delivery/review-points.yaml", REGISTER)
         self.assertIn("is not R<number>", reviewpoints.problem(self.p.cfg, "PM"))
         self.assertIn("is not R<number>", reviewpoints.problem(self.p.cfg, "R0"))
-        self.assertIn("review_point_pattern is ignored", reviewpoints.notes(self.p.cfg)[0])
+        self.assertEqual(reviewpoints.notes(self.p.cfg), [])
+        self.assertIn("task_log.review_point_pattern is ignored", config.config_warnings(self.p.cfg)[0])
 
     def test_validation(self):
         _, errs = self.reg("""review_points:
@@ -175,7 +175,7 @@ class Register(unittest.TestCase):
         self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo"}))
         code, out, _ = self.run_cli("tasks", "check")
         self.assertEqual(code, 1)
-        self.assertIn("0002-b.md: review_point 'PM' does not match task_log.review_point_pattern (^R[0-9]+$, SPEC §22)", out)
+        self.assertIn("0002-b.md: review_point 'PM' does not match ids.review_point.pattern (R[1-9][0-9]*, SPEC §22)", out)
 
     def test_with_the_register_a_pattern_key_is_ignored_and_warned(self):
         self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "task_log": {"review_point_pattern": "^(R[0-9]+|PM)$"}}))
@@ -479,7 +479,7 @@ class SpawnNoRegister(TeamCase):
         _tagged(self.prod, "0001-a", "pending", "R8")
         code, res, err = self.team("runner", "spawn", "--scope", "0001-a", "--review-point", "PM")
         self.assertEqual(code, 0, err)  # warned, not refused
-        self.assertIn("review point 'PM' does not match task_log.review_point_pattern", res["warnings"][0])
+        self.assertIn("review point 'PM' does not match ids.review_point.pattern", res["warnings"][0])
         self.assertEqual(err.count("no review-point register"), 1)
         code, res, err = self.team("runner", "spawn", "--review-point", "R8")  # no tagged scope without a register
         self.assertEqual((code, res["scope"]), (0, ["0001-a"]), err)  # work.json's scope, as before

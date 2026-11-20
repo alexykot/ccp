@@ -95,7 +95,7 @@ that head, `catch_up.to`, in place of `head_sha` only when `catch_up.from` is `h
 `PROPOSED:` marker followed by `> ` blockquote lines in the task's Scope, or in a section whose heading
 begins `Rule changes`, is a signed passage (`signed_passages`; one carried in both is listed once), and
 each must appear, whitespace-normalised, in a hunk `git diff <base>...<head>` makes to a file under
-`task_log.spec_paths` (`spec_text`), read as it is at `<head>` with the unchanged lines around it up to
+`spec_paths` (`spec_text`), read as it is at `<head>` with the unchanged lines around it up to
 the nearest blank line on each side, covering at least one line the hunk adds (`spec_hunks`). The base
 defaults to `origin/<integration branch>` (the binding's with QUEUE_ROOT, else `main`), the head to
 `HEAD`; the task file is read from the checkout, and nothing is fetched. Exit 0 when every passage is
@@ -117,6 +117,7 @@ from typing import Any
 
 from ccp.envvars import envvar
 from ccp.config import Config
+from ccp.config import spec_paths as spec_paths_of
 from ccp.refs import ANY_TASK_ID, QUESTION_ID
 
 SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "verification.schema.json"
@@ -1265,7 +1266,7 @@ _HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
 def spec_hunks(cfg: Config, base: str, head: str = "HEAD") -> dict[str, list[tuple[str, str]]] | None:
-    """§15.2: per SPEC file (`task_log.spec_paths`), one text per hunk `git diff <base>...<head>` makes to it:
+    """§15.2: per SPEC file (`spec_paths`), one text per hunk `git diff <base>...<head>` makes to it:
     the hunk's lines in the file as it is at `head`, extended with the unchanged lines before and after it up to the
     nearest blank line on each side (a hunk's own blank first or last line is that line), joined and
     whitespace-normalised, as (text, mask), the mask `+` under each character of a line the hunk adds and
@@ -1276,7 +1277,7 @@ def spec_hunks(cfg: Config, base: str, head: str = "HEAD") -> dict[str, list[tup
                         "--no-ext-diff", "--unified=0", f"{base}...{head}"], capture_output=True, text=True)
     if r.returncode != 0:
         return None
-    spec_paths = cfg.task_log.get("spec_paths") or []
+    spec_paths = spec_paths_of(cfg)
     ranges: dict[str, list[tuple[int, int]]] = {}
     cur: str | None = None
     header = False

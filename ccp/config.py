@@ -34,9 +34,6 @@ CONFIG_REL = "docs/delivery/plane.json"
 
 TASK_LOG_DEFAULTS: dict[str, Any] = {
     "dir": "docs/delivery",
-    # SPEC §5: the task file's statuses are fixed (pending, done, dropped; in-flight states live in
-    # the queue). Kept so a plane.json that names it still loads; it is not read.
-    "statuses": ["pending", "done", "dropped"],
     "required": ["task_id", "title", "status", "depends_on", "spec_refs", "created", "updated"],
     # At least one of these must be non-empty: a task that cites nothing is not traceable.
     "refs_any": ["spec_refs"],
@@ -53,17 +50,15 @@ TASK_LOG_DEFAULTS: dict[str, Any] = {
     "soft_words": ["should", "may", "might", "as appropriate", "gracefully", "robust", "robustly"],
     # SPEC §5.7: INDEX.yaml is the product's choice. Its format is frozen; with false there is none.
     "index": True,
-    # SPEC §22: honoured only while the product keeps no review-point register. With the
-    # register, review points are strict R<n> in it, and this key is ignored with a warning.
-    "review_point_pattern": "^R[0-9]+$",
     # SPEC §10: a not-done task's check that runs a command records its
     # writer's dry run, or says why there is none. Off unless the product turns it on.
     "dry_run": False,
-    # SPEC §3.5: the paths that hold the SPEC. A task not yet done whose `paths` name one, with no
-    # `brief` sign-off and no `§31.1` in its Scope, is warned about. A path ending in `/` is a directory.
-    # The same files `estimate.spec_paths` names by default, in this key's form (paths and directories).
-    "spec_paths": ["docs/SPEC.md", "SPEC.md", "docs/spec/", "spec/"],
 }
+# SPEC §3.5, §26.3: the top-level `spec_paths`, the paths that hold the SPEC (a path ending in `/` is a
+# directory). A task not yet done whose `paths` name one, with no `brief` sign-off and no `§31.1` in its Scope,
+# is warned about; the estimator reads the directories as their `*.md`.
+SPEC_PATHS_DEFAULT: tuple[str, ...] = ("docs/SPEC.md", "SPEC.md", "docs/spec/", "spec/")
+OPTIONAL_TOP_KEYS = ("spec_paths",)
 # SPEC §16.2: several tasks in flight under one runner; 1 is one task at a time. `shared` lists the paths
 # tasks only append lines to: they keep no two tasks apart (§16.3 rule 3), and close's catch-up merges their
 # appended lines (§16.5 rule 4). `schedule` picks claim rule 3 (§16.3): `clashes` (the default) keeps apart
@@ -157,9 +152,10 @@ RECONCILE_DEFAULTS: dict[str, Any] = {"log": None, "hooks": []}
 RECONCILE_LOG_KEYS = {"path", "entry", "before"}
 RECONCILE_LOG_FIELDS = ("date", "task_id", "nnnn", "pr", "head", "head7", "merge_sha", "merge7", "summary",
                         "review_point", "title")
-# Legacy (before §12.1's worktrees/env blocks): `adapter.worktree_dir` and `adapter.worktree_links`
-# read as `worktrees.dir` and `worktrees.links`; `adapter.post_close` commands still run once at close.
-ADAPTER_DEFAULTS: dict[str, Any] = {"worktree_dir": None, "worktree_links": [], "post_close": []}
+# Legacy (before §12.1's worktrees/env blocks): `adapter.post_close` commands still run once at close, with a
+# warning that they move to `reconcile.hooks` (`KEY_OUTCOMES`); `adapter.worktree_dir` and `adapter.worktree_links`
+# are merged into `worktrees.dir` and `worktrees.links` when plane.json loads, so they have no default.
+ADAPTER_DEFAULTS: dict[str, Any] = {"post_close": []}
 # §12.1: where `ccp wt` makes worktrees (relative to the main checkout, `..` allowed, or absolute; not the
 # main checkout itself; null = none) and what it links in.
 WORKTREES_DEFAULTS: dict[str, Any] = {"dir": None, "links": []}
@@ -223,9 +219,7 @@ MODELS_DEFAULTS: dict[str, Any] = {role: alias for role, (alias, _) in role_mode
 # §26.3 estimation: `reference_since` (YYYY-MM-DD, or null) leaves tasks merged before a process change
 # out of every reference class; `k` is the reference class's size (5 to 8).
 ESTIMATE_DEFAULTS: dict[str, Any] = {"reference_since": None, "k": 6, "auto": False,  # auto: §26.3 phase B triggers
-                                     # §26.3: where the estimator looks for cited SPEC headings (globs, in order),
-                                     # and which backticked suffixes count as cited paths (null: the built-in list)
-                                     "spec_paths": ["docs/SPEC.md", "SPEC.md", "docs/spec/*.md", "spec/*.md"],
+                                     # §26.3: which backticked suffixes count as cited paths (null: the built-in list)
                                      "path_suffixes": None,
                                      # phase D (ccp/calibrate.py): half_life in merges, min_pairs per source and
                                      # metric, k the shrinkage strength (null: fitted, empirical Bayes)
@@ -278,8 +272,6 @@ SUITE_SUMMARY_DEFAULTS: dict[str, Any] = {
     "tail_lines": 40,
     "max_chars": 40000,
 }
-# Names `suite.summary` keys had before the gate-result contract: read as their new key.
-SUITE_SUMMARY_ALIASES = {"modules_ran_re": "ran_re", "modules_cached_re": "cached_re"}
 # The verifier's gate (§15.3): `accept_cache` (null = off) lets a product's content-keyed test cache
 # stand in for a rerun. A module the verifier's own gate run reports as a hit on identical inputs
 # counts as run; an entry over `max_age_days` is no hit; a task whose id matches a `cold_tasks` glob,
@@ -334,6 +326,201 @@ BLOCK_DEFAULTS: dict[str, dict[str, Any]] = {
     "ids": refs.IDS_DEFAULTS, "docs": DOCS_DEFAULTS, "mutate": MUTATE_DEFAULTS, "report": REPORT_DEFAULTS,
     "notify": NOTIFY_DEFAULTS, "upgrade": UPGRADE_DEFAULTS}
 BLOCKS = tuple(BLOCK_DEFAULTS)
+
+
+# ---------------------------------------------------------------- keys the product no longer decides
+# ADR-0043 D9, SPEC §29.3: a plane.json key that is not the product's to decide has one outcome here, and one
+# loader (`_apply_outcomes`) applies it, so no outcome is written twice. The schema marks each such key
+# `deprecated` with its outcome, and `ccp upgrade status` lists each one a product still sets.
+REMOVED, MERGED, CONSTANT = "removed", "merged", "constant"
+
+
+@dataclass(frozen=True)
+class Outcome:
+    """What becomes of one plane.json key (a dotted path). `removed`: ignored, with a warning. `merged`: read
+    at `into` (`in_place`: still read where it is, the warning saying it moves there), the old place read
+    only while `into` is unset (`exclusive`: both set to different values is an error; `blank`: null or an empty
+    list is as good as unset; `globs`: an entry `dir/*.md` moves as `dir/`). `constant`: the code
+    uses `value`; a value the product sets other than it still applies, with a warning, until the key is
+    deleted (`constant_override`). `why` is what the warning adds."""
+    kind: str
+    into: str = ""
+    value: Any = None
+    in_place: bool = False
+    exclusive: bool = False
+    blank: bool = False
+    globs: bool = False
+    why: str = ""
+
+
+KEY_OUTCOMES: dict[str, Outcome] = {
+    "task_log.statuses": Outcome(REMOVED, why="a task file's statuses are fixed, pending, done and dropped (§5)"),
+    "suite.summary.modules_ran_re": Outcome(REMOVED, why="its name is `ran_re` (§14.1)"),
+    "suite.summary.modules_cached_re": Outcome(REMOVED, why="its name is `cached_re` (§14.1)"),
+    "task_log.spec_paths": Outcome(MERGED, into="spec_paths"),
+    "estimate.spec_paths": Outcome(MERGED, into="spec_paths", globs=True),
+    "adapter.worktree_dir": Outcome(MERGED, into="worktrees.dir", exclusive=True, blank=True),
+    "adapter.worktree_links": Outcome(MERGED, into="worktrees.links", exclusive=True, blank=True),
+    "adapter.post_close": Outcome(MERGED, into="reconcile.hooks", in_place=True, blank=True,
+                                  why="the commands still run once at close; `$TASK_ID` stands for `{task_id}` there"),
+    "task_log.review_point_pattern": Outcome(MERGED, into="ids.review_point.pattern"),
+}
+UNSET: Any = object()  # `constant_override`: the key is not set
+
+
+def old_keys(prefix: str) -> list[str]:
+    """The names directly under `prefix` that `KEY_OUTCOMES` holds: keys the schema still lists."""
+    head = prefix + "."
+    return [k[len(head):] for k in KEY_OUTCOMES if k.startswith(head) and "." not in k[len(head):]]
+
+
+def _lookup(raw: Any, key: str) -> tuple[bool, Any]:
+    for part in key.split("."):
+        if not isinstance(raw, dict) or part not in raw:
+            return False, None
+        raw = raw[part]
+    return True, raw
+
+
+def _put(raw: dict[str, Any], key: str, value: Any) -> bool:
+    """Set the dotted `key` in `raw`, making the objects on the way; False (nothing set) when one is not an object."""
+    *path, last = key.split(".")
+    node = raw
+    for part in path:
+        if node.get(part) is None:
+            node[part] = {}
+        if not isinstance(node[part], dict):
+            return False
+        node = node[part]
+    node[last] = value
+    return True
+
+
+def _remove(raw: dict[str, Any], key: str) -> None:
+    *path, last = key.split(".")
+    ok, node = _lookup(raw, ".".join(path)) if path else (True, raw)
+    if ok and isinstance(node, dict):
+        node.pop(last, None)
+
+
+def _dir_forms(value: Any) -> tuple[Any, list[str]]:
+    """`value`, a list of paths, with each entry `dir/*.md` (no glob in `dir`) as `dir/`, and the entries changed:
+    `estimate.spec_paths` held globs, and `spec_paths` names a directory by a trailing `/` (§3.5)."""
+    if not isinstance(value, list):
+        return value, []
+    out, changed = [], []
+    for x in value:
+        if isinstance(x, str) and x.endswith("/*.md") and not any(c in x[:-4] for c in "*?["):
+            out.append(x[:-4])
+            changed.append(x)
+        else:
+            out.append(x)
+    return out, changed
+
+
+def _same(a: Any, b: Any) -> bool:
+    return type(a) is type(b) and a == b
+
+
+def constant_override(key: str, given: Any = UNSET, *, notes: list[str] | None = None, where: str = CONFIG_REL) -> Any:
+    """The value to use for `key`, a registry entry (`KEY_OUTCOMES`) with the outcome `constant`: its value
+    when `given` is UNSET; else, with one warning naming the key and the constant, `given` when it is another
+    value (it applies until the product deletes the key or the plane takes a proposal to keep it), or the
+    constant when `given` is the constant's own value (the warning says the key can be deleted). The warning
+    goes to `notes` when that is given (once per key), else to stderr once per `where` and process. Every
+    reader of a constant calls this: plane.json's loader, the account knobs, the runner numbers (SPEC §29.3)."""
+    out = KEY_OUTCOMES[key]
+    if out.kind != CONSTANT:
+        raise KeyError(f"{key} is not a constant")
+    if given is UNSET:
+        return out.value
+    if _same(given, out.value):
+        msg = (f"{where}: {key} is a constant in code ({out.value!r}) and is set to that value: delete it "
+               "(SPEC §29.3)")
+        use = out.value
+    else:
+        msg = (f"{where}: {key} is a constant in code ({out.value!r}); the value {given!r} set here still "
+               "applies until you delete the key, or file a plane proposal to keep it (SPEC §29.3)")
+        use = given
+    if notes is None:
+        _warn_once(where, msg)
+    elif msg not in notes:
+        notes.append(msg)
+    return use
+
+
+def _apply_outcomes(raw: dict[str, Any], ignored: dict[str, str] | None = None, *,
+                    strict: bool = True) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """plane.json `raw` (a copy) with each `KEY_OUTCOMES` key it sets applied, and one finding per such key:
+    `{key, outcome, set, note, ...}` (`note` the warning; a merged key has `replacement`, a constant `constant`
+    and `differs`). `ignored` maps a merged key to why it is ignored whatever its place. `strict`: an exclusive
+    key set to a value other than its new place's is a ConfigError (else the new place wins)."""
+    raw = copy.deepcopy(raw)
+    found: list[dict[str, Any]] = []
+    for key, o in KEY_OUTCOMES.items():
+        here, given = _lookup(raw, key)
+        if not here:
+            continue
+        f: dict[str, Any] = {"key": key, "outcome": o.kind, "set": given}
+        where = f"{CONFIG_REL}: {key}"
+        if o.kind == REMOVED:
+            _remove(raw, key)
+            f["note"] = f"{where} is removed and ignored" + (f": {o.why}" if o.why else "") + "; delete it (SPEC §29.3)"
+        elif o.kind == MERGED:
+            f["replacement"] = o.into
+            new_set, new = _lookup(raw, o.into)
+            new_set = new_set and not (o.blank and new in (None, []))
+            if key in (ignored or {}):
+                _remove(raw, key)
+                f["note"] = f"{where} is ignored: {ignored[key]}; delete it (SPEC §29.3)"
+            elif o.blank and given in (None, []):
+                _remove(raw, key)
+                f["note"] = f"{where} is empty and ignored: delete it (SPEC §29.3)"
+            elif o.in_place:
+                f["note"] = (f"{where} moves to {o.into}: {o.why}; a later release ends it, so move them and "
+                             "delete the key (SPEC §29.3)")
+            elif new_set:
+                if strict and o.exclusive and not _same(new, given):
+                    raise ConfigError(f"{CONFIG_REL}: set {o.into} or the old {key}, not both")
+                _remove(raw, key)
+                f["note"] = f"{where} is ignored: {o.into} is set; delete it (SPEC §29.3)"
+            elif _put(raw, o.into, _dir_forms(given)[0] if o.globs else given):
+                _remove(raw, key)
+                f["moved"] = True
+                f["note"] = (f"{where} has moved to {o.into}; it is read from its old place while {o.into} is "
+                             f"unset, which a later release ends: set {o.into} and delete {key} (SPEC §29.3)")
+                changed = _dir_forms(given)[1] if o.globs else []
+                if changed:
+                    f["note"] += (f"; {', '.join(changed)} read as "
+                                  f"{', '.join(_dir_forms(changed)[0])} (a directory ends in `/`, not `/*.md`)")
+            else:  # the object it would move into is no object: the block's own check says so
+                f["note"] = f"{where} has moved to {o.into} (SPEC §29.3)"
+        else:
+            notes: list[str] = []
+            use = constant_override(key, given, notes=notes)
+            _put(raw, key, use)
+            f.update(constant=o.value, differs=not _same(given, o.value), note=notes[0])
+        found.append(f)
+    return raw, found
+
+
+def _at_origin(message: str, found: list[dict[str, Any]]) -> str:
+    """`message`, a check's error about a value that `_apply_outcomes` moved, naming the key the product wrote
+    (the old place) where it names the new one."""
+    for f in found:
+        if f.get("moved"):
+            message = re.sub(r"(?<![\w.])" + re.escape(f["replacement"]) + r"(?![\w])", f["key"], message)
+    return message
+
+
+def key_outcomes_set(plane: Any) -> list[dict[str, Any]]:
+    """§29.3: each key the plane.json data `plane` sets that has an outcome (`KEY_OUTCOMES`) the product acts
+    on: a removed key, a merged one (with `replacement`), a constant set to a value other than the constant."""
+    if not isinstance(plane, dict):
+        return []
+    return [f for f in _apply_outcomes(plane, strict=False)[1] if f["outcome"] != CONSTANT or f["differs"]]
+
+
 # The blocks with a loader of their own (a check or a merge beyond the plain one); `_toolkit` merges the rest.
 _OWN_LOADER_BLOCKS = ("task_log", "package_docs", "architect", "usage", "suite", "adr", "ids", "docs", "upgrade",
                       "models")
@@ -435,14 +622,14 @@ class Config:
     report: dict[str, Any] | None = None
     notify: dict[str, Any] | None = None
     upgrade: dict[str, Any] | None = None
-    # Whether plane.json names task_log.review_point_pattern itself (§22: ignored, with a warning,
-    # once the product keeps a review-point register).
-    review_point_pattern_set: bool = False
+    # §3.5: the top-level `spec_paths` (or, while it is unset, the old `task_log.spec_paths` or
+    # `estimate.spec_paths`), the default otherwise; read through `spec_paths(cfg)`.
+    spec_paths: tuple[str, ...] = SPEC_PATHS_DEFAULT
+    # §29.3: one warning for each plane.json key with an outcome (`KEY_OUTCOMES`) that the product sets.
+    key_notes: tuple[str, ...] = ()
     # The `models` keys plane.json sets itself: a key it leaves out may still be set by the deprecated
     # `workers.implementer_model` (`models.model_for`).
     models_given: tuple[str, ...] = ()
-    # §14.1: suite.summary's pre-contract knob names given beside their new names (the new one wins).
-    suite_aliases_ignored: tuple[str, ...] = ()
     # The product's id and reference patterns (plane.json `ids`, SPEC §7); the defaults otherwise.
     ids: refs.Ids = refs.DEFAULT
 
@@ -497,13 +684,6 @@ def _suite(given: Any) -> dict[str, Any]:
     if isinstance(given, dict) and isinstance(given.get("roles"), dict):
         out["roles"] = {**SUITE_DEFAULTS["roles"], **given["roles"]}
     return out
-
-
-def _aliases_ignored(suite: Any) -> tuple[str, ...]:
-    sm = suite.get("summary") if isinstance(suite, dict) else None
-    if not isinstance(sm, dict):
-        return ()
-    return tuple(old for old, new in SUITE_SUMMARY_ALIASES.items() if old in sm and new in sm)
 
 
 class MissingKey(ConfigError):
@@ -628,9 +808,12 @@ def unknown_key_errors(cfg: Any) -> list[str]:
 
 def config_warnings(cfg: Any) -> list[str]:
     """What plane.json says that is accepted but has no effect, for `ccp tasks check` to show."""
-    return [f"{CONFIG_REL}: suite.summary.{old} is ignored: {SUITE_SUMMARY_ALIASES[old]} is given too and wins "
-            "(remove the old name, §14.1)" for old in getattr(cfg, "suite_aliases_ignored", ())] \
-        + language_warnings(cfg)
+    return [*getattr(cfg, "key_notes", ()), *language_warnings(cfg)]
+
+
+def spec_paths(cfg: Any) -> list[str]:
+    """§3.5: the paths that hold the product's SPEC (plane.json `spec_paths`); the default for a config without one."""
+    return list(getattr(cfg, "spec_paths", SPEC_PATHS_DEFAULT))
 
 
 def gate_limits(cfg: Any) -> tuple[float, float]:
@@ -1082,10 +1265,10 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
         bad.append("task_log.reviews_dir must be a path relative to task_log.dir")
     if not isinstance(raw.get("task_log", {}).get("dry_run", False), bool):
         bad.append("task_log.dry_run must be true or false")
-    sp = raw.get("task_log", {}).get("spec_paths", TASK_LOG_DEFAULTS["spec_paths"])
+    sp = raw.get("spec_paths", list(SPEC_PATHS_DEFAULT))
     if not isinstance(sp, list) or not all(isinstance(x, str) and x.strip() and not x.startswith("/")
                                            and ".." not in Path(x).parts for x in sp):
-        bad.append("task_log.spec_paths must be a list of paths relative to the product root")
+        bad.append("spec_paths must be a list of paths relative to the product root")
     par = out["parallel"]
     mif = par["max_in_flight"]
     if isinstance(mif, bool) or not isinstance(mif, int) or not 1 <= mif <= 4:
@@ -1104,13 +1287,6 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
         bad.append("parallel.session_ceiling_pct must be a number above 0, at most 100")
     if par["schedule"] not in PARALLEL_SCHEDULES:
         bad.append(f"parallel.schedule must be one of {', '.join(PARALLEL_SCHEDULES)}, not {par['schedule']!r}")
-    rpp = raw.get("task_log", {}).get("review_point_pattern", TASK_LOG_DEFAULTS["review_point_pattern"])
-    try:
-        if not isinstance(rpp, str) or not rpp:
-            raise re.error("it must be a non-empty string")
-        re.compile(rpp)
-    except re.error as e:
-        bad.append(f"task_log.review_point_pattern is not a regular expression ({e})")
     rpf = out["review_points"]["file"]
     if not (isinstance(rpf, str) and rpf.strip()) or rpf.startswith("/") or ".." in Path(rpf).parts:
         bad.append("review_points.file must be a path relative to the product root")
@@ -1156,12 +1332,8 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
             bad.append(f"adapter.post_close {cmd!r}: {e!r}; it may name task_id and nnnn")
     if not _str_list(out["reconcile"]["hooks"]):
         bad.append("reconcile.hooks must be a list of commands")
-    ad = out["adapter"]
-    if not _opt_str(ad["worktree_dir"]):
-        bad.append(WORKTREES_DIR_RULE.format("adapter.worktree_dir"))
-    for k in ("worktree_links", "post_close"):
-        if not _str_list(ad[k]):
-            bad.append(f"adapter.{k} must be a list of non-empty strings")
+    if not _str_list(out["adapter"]["post_close"]):
+        bad.append("adapter.post_close must be a list of non-empty strings")
     bad += _worktree_blocks(raw, out, root)
     tel = out["telemetry"]
     if not _opt_str(tel["allowance_cmd"]):
@@ -1206,8 +1378,6 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
                            or not all(isinstance(v, str) and v.strip() for v in ds.values())):
         bad.append("telemetry.design_seat must be {model, effort}, each a string")
     est = out["estimate"]
-    if not _str_list(est["spec_paths"]):
-        bad.append("estimate.spec_paths must be a list of path globs relative to the product root")
     ps = est["path_suffixes"]
     if ps is not None and not (_str_list(ps) and all(s.startswith(".") for s in ps)):
         bad.append("estimate.path_suffixes must be a list of suffixes like \".py\", or null")
@@ -1296,7 +1466,7 @@ def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
         bad.append("suite.log_keep_days must be an integer >= 1 (days a summary-mode log is kept)")
     sm = out["suite"]["summary"]
     if sm is not None:
-        if not isinstance(sm, dict) or set(sm) - set(SUITE_SUMMARY_DEFAULTS) - set(SUITE_SUMMARY_ALIASES):
+        if not isinstance(sm, dict) or set(sm) - set(SUITE_SUMMARY_DEFAULTS):
             bad.append(f"suite.summary must be an object of {', '.join(SUITE_SUMMARY_DEFAULTS)}")
         else:
             for k, v in sm.items():
@@ -1386,18 +1556,10 @@ def _is_main_checkout(root: Path, d: Any) -> bool:
 
 
 def _worktree_blocks(raw: dict[str, Any], out: dict[str, Any], root: Path) -> list[str]:
-    """§12.1: worktrees, env hooks, merge and auth probes; the legacy adapter keys fold into worktrees."""
+    """§12.1: worktrees, env hooks, merge and auth probes (`worktrees.dir` and `.links` were `adapter.worktree_dir`
+    and `.worktree_links`, merged in when plane.json loads)."""
     bad: list[str] = []
-    ad, wt = out["adapter"], out["worktrees"]
-    given = raw.get("worktrees") if isinstance(raw.get("worktrees"), dict) else {}
-    if ad["worktree_dir"] is not None:
-        if given.get("dir") not in (None, ad["worktree_dir"]):
-            bad.append("set worktrees.dir or the legacy adapter.worktree_dir, not both")
-        wt["dir"] = ad["worktree_dir"]
-    if ad["worktree_links"]:
-        if given.get("links") not in (None, [], ad["worktree_links"]):
-            bad.append("set worktrees.links or the legacy adapter.worktree_links, not both")
-        wt["links"] = list(ad["worktree_links"])
+    wt = out["worktrees"]
     if not _opt_str(wt["dir"]):
         bad.append(WORKTREES_DIR_RULE.format("worktrees.dir"))
     elif _is_main_checkout(root, wt["dir"]):
@@ -1479,22 +1641,23 @@ class _Each:
     shape: Any
 
 
-def _known(keys: Any, **nested: Any) -> dict[str, Any]:
-    """An object's known keys (a defaults dict's, or a sequence), each with no shape of its own but `nested`'s."""
-    return {**dict.fromkeys(keys), **nested}
+def _known(keys: Any, *, old: str = "", **nested: Any) -> dict[str, Any]:
+    """An object's known keys (a defaults dict's, or a sequence, and the `KEY_OUTCOMES` keys under the dotted
+    path `old`), each with no shape of its own but `nested`'s."""
+    return {**dict.fromkeys(keys), **dict.fromkeys(old_keys(old)), **nested}
 
 
 # §8.1: the keys plane.json may hold, at every level `ccp` reads by key. A dict maps each known key to the
 # shape of its value (None: not read by key here); `_Each` is a list or a map of named items, each of that
 # shape. A key outside it is unknown: `load` ignores it with a warning and `ccp docs check` refuses it.
 _BLOCK_KEYS: dict[str, Any] = {
-    "task_log": _known(TASK_LOG_DEFAULTS, kinds=_Each(_known(KIND_KEYS))),
+    "task_log": _known(TASK_LOG_DEFAULTS, old="task_log", kinds=_Each(_known(KIND_KEYS))),
     "package_docs": _known(PACKAGE_DOCS_DEFAULTS, rules={n: None if k is None else _known(sorted(k))
                                                          for n, k in DOC_RULES.items()}),
     "architect": _known(ARCHITECT_DEFAULTS, checks=_Each(_known(CHECK_KEYS)), budgets=_Each(_known(BUDGET_KEYS))),
     "prompts": _known(PROMPTS_DEFAULTS),
     "reconcile": _known(RECONCILE_DEFAULTS, log=_known(sorted(RECONCILE_LOG_KEYS))),
-    "adapter": _known(ADAPTER_DEFAULTS),
+    "adapter": _known(ADAPTER_DEFAULTS, old="adapter"),
     "worktrees": _known(WORKTREES_DEFAULTS),
     "env": _known(ENV_DEFAULTS),
     "merge": _known(MERGE_DEFAULTS),
@@ -1507,12 +1670,12 @@ _BLOCK_KEYS: dict[str, Any] = {
     "workers": _known(WORKERS_DEFAULTS, implementer_model=_known(WORKER_MODEL_ARMS)),
     "models": None,  # not read by key here: `_models` refuses a key that is no role, naming it
     "suite": _known(SUITE_DEFAULTS, lanes=_Each(_Each(_known(sorted(SUITE_STAGE_KEYS)))),
-                    summary=_known([*SUITE_SUMMARY_DEFAULTS, *SUITE_SUMMARY_ALIASES]), roles=_known(SUITE_ROLES)),
+                    summary=_known(SUITE_SUMMARY_DEFAULTS, old="suite.summary"), roles=_known(SUITE_ROLES)),
     "adr": _known(ADR_DEFAULTS),
     "verify": _known(VERIFY_DEFAULTS, accept_cache=_known(ACCEPT_CACHE_DEFAULTS),
                      skip_review=_known(sorted(SKIP_REVIEW_KEYS)), provers=_Each(_known(sorted(PROVER_KEYS)))),
     "review_points": _known(REVIEW_POINTS_DEFAULTS),
-    "estimate": _known(ESTIMATE_DEFAULTS, calibration=_known(ESTIMATE_DEFAULTS["calibration"])),
+    "estimate": _known(ESTIMATE_DEFAULTS, old="estimate", calibration=_known(ESTIMATE_DEFAULTS["calibration"])),
     "parallel": _known(PARALLEL_DEFAULTS),
     "ids": {k: _known(v) for k, v in refs.IDS_DEFAULTS.items()},
     "docs": _known(DOCS_DEFAULTS, checks=_Each(_known(CHECK_KEYS)), starter_rules=_known(["declined"])),
@@ -1522,6 +1685,7 @@ _BLOCK_KEYS: dict[str, Any] = {
     "upgrade": _known(UPGRADE_DEFAULTS),
 }
 PLANE_KEYS: dict[str, Any] = {"$schema": None, "_note": None, **dict.fromkeys(REQUIRED_KEYS),
+                              **dict.fromkeys(OPTIONAL_TOP_KEYS),
                               **{b: _BLOCK_KEYS[b] for b in BLOCKS}}
 
 
@@ -1549,16 +1713,21 @@ def _drop_unknown(v: Any, shape: Any, where: str, out: list[str]) -> Any:
 _WARNED: set[tuple[str, str]] = set()  # (file, key) already warned about in this process
 
 
+def _warn_once(where: str, msg: str) -> None:
+    """Print `msg` to stderr, once per `where` and process."""
+    if (where, msg) not in _WARNED:
+        _WARNED.add((where, msg))
+        print(f"ccp: warning: {msg}", file=sys.stderr)
+
+
 def load(root: Path) -> Config:
     p = root / CONFIG_REL
     if not p.is_file():
         raise ConfigError(f"no {CONFIG_REL} in {root}: this product has not adopted ccp "
                           "(control-plane SPEC §8.1)")
     cfg = _parse(root, p.read_text())
-    for w in language_warnings(cfg):  # §29.3: the old place of a moved key, once per file and process
-        if (str(p), w) not in _WARNED:
-            _WARNED.add((str(p), w))
-            print(f"ccp: warning: {w}", file=sys.stderr)
+    for w in [*language_warnings(cfg), *cfg.key_notes]:  # §29.3: a moved or removed key, once per file and process
+        _warn_once(str(p), w)
     new = [k for k in cfg.unknown_keys if (str(p), k) not in _WARNED]
     if new:
         _WARNED.update((str(p), k) for k in new)
@@ -1582,6 +1751,20 @@ def skip_rules_at(root: Path, rev: str, label: str | None = None) -> tuple[dict[
         return copy.deepcopy(VERIFY_DEFAULTS), f"plane.json on {label or rev} does not load ({str(e)[:200]})"
 
 
+def _ignored_keys(root: Path, raw: dict[str, Any]) -> dict[str, str]:
+    """The merged keys plane.json's `raw` sets that are ignored whatever their place: `task_log.review_point_pattern`
+    once the product keeps a review-point register (§22), which holds strict `R<n>` ids."""
+    rp = raw.get("review_points")
+    file = rp.get("file") if isinstance(rp, dict) else None
+    file = file if isinstance(file, str) and file.strip() else REVIEW_POINTS_DEFAULTS["file"]
+    try:
+        kept = (root / file).is_file()
+    except (OSError, ValueError):
+        kept = False
+    return {"task_log.review_point_pattern": f"the review-point register {file} exists, and review points are "
+                                             "then R<number> in it (SPEC §22)"} if kept else {}
+
+
 def _parse(root: Path, text: str) -> Config:
     """plane.json's text, parsed and checked, as the Config of the product at `root`."""
     try:
@@ -1594,6 +1777,15 @@ def _parse(root: Path, text: str) -> Config:
         raise ConfigError(f"{CONFIG_REL}: project_id {raw['project_id']!r} is not lowercase letters, digits and hyphens")
     unknown: list[str] = []
     raw = _drop_unknown(raw, PLANE_KEYS, "", unknown)
+    raw, found = _apply_outcomes(raw, _ignored_keys(root, raw))
+    try:
+        return _config_of(root, raw, found, unknown)
+    except ConfigError as e:
+        raise ConfigError(_at_origin(str(e), found)) from None
+
+
+def _config_of(root: Path, raw: dict[str, Any], found: list[dict[str, Any]], unknown: list[str]) -> Config:
+    """The Config of plane.json's checked data `raw` (outcomes applied: `found`, what they did)."""
     bad_ids = refs.validate(raw.get("ids"))
     if bad_ids:
         raise ConfigError(f"{CONFIG_REL}: " + "; ".join(bad_ids))
@@ -1606,8 +1798,7 @@ def _parse(root: Path, text: str) -> Config:
         project_id=str(raw["project_id"]).strip(),
         language=language,
         language_moved=moved,
-        review_point_pattern_set=isinstance(tl, dict) and "review_point_pattern" in tl,
-        suite_aliases_ignored=_aliases_ignored(raw.get("suite")),
+        key_notes=tuple(f["note"] for f in found),
         models_given=tuple(raw["models"]) if isinstance(raw.get("models"), dict) else (),
         task_log=_task_log(tl),
         package_docs=_package_docs(pkg, language),
@@ -1619,4 +1810,5 @@ def _parse(root: Path, text: str) -> Config:
         upgrade=_upgrade(raw.get("upgrade")),
         unknown_keys=tuple(unknown),
         **_toolkit(raw, root),
+        spec_paths=tuple(raw["spec_paths"]) if isinstance(raw.get("spec_paths"), list) else SPEC_PATHS_DEFAULT,
     )

@@ -209,7 +209,7 @@ and close refuse the task until it is fixed.
 A task whose change adds or changes a § rule carries, in its Scope, the exact CURRENT → PROPOSED text
 of each passage and declares `sign_off: brief`, so the operator signs the words before the claim.
 `ccp tasks check` warns on a task not yet `done` or `dropped` whose `paths` name a SPEC file
-(plane.json `task_log.spec_paths`, default `["docs/SPEC.md", "SPEC.md", "docs/spec/", "spec/"]`, the files `estimate.spec_paths` names by default; a path meets an entry it equals or, for an entry ending in `/`, lies under, so `docs/spec` without its `/` meets none) and that neither declares a
+(plane.json `spec_paths`, default `["docs/SPEC.md", "SPEC.md", "docs/spec/", "spec/"]`; a path meets an entry it equals or, for an entry ending in `/`, lies under, so `docs/spec` without its `/` meets none) and that neither declares a
 `brief` sign-off nor says in its Scope that its SPEC text only describes its own feature (the word
 `§31.1` on a Scope line). Rule text the build finds that the brief does not carry goes to a follow-up
 proposal (`ccp plane propose`), and the PR merges on the signed text. Only text without which the
@@ -714,8 +714,7 @@ An ADR prefix that would read a decision ref as an ADR (`D`, `D-`) is refused.
 - **SPEC refs:** `<prefix><n>` and ranges (`S3–S5`). The citation rule of the doc checks (§21) reads
   them with `ids.spec.prefix`.
 - **House-rule and review-point ids** match their pattern in full. A review point's first run of
-  digits orders the points. `task_log.review_point_pattern` keeps its meaning for a product without
-  a register (§22).
+  digits orders the points. Without a register, a task's review point is held to `ids.review_point.pattern` (§22).
 
 Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means the default pattern.
 
@@ -739,12 +738,14 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
   may predate it) and are otherwise ignored, so a `ccp` older than a key keeps working until it is
   updated; `ccp docs check`, which every gate runs, refuses them, so a typo cannot silently turn a
   rule off. The schema gains a required key, or drops or moves one, only as §29.3 allows.
+- A key that is not the product's to decide is a constant in code. The schema keeps a key that was removed, merged or made constant, marked deprecated with its outcome, and `ccp upgrade status` lists each one a product still sets (§29.3).
 - Each block is off, or at its defaults, when absent:
 
 | Block | Sets | § |
 |---|---|---|
 | `ids` | id and reference patterns | §7 |
-| `task_log` | task directory, required keys and sections, `refs_any`, `kinds`, `max_checks`, soft words, `dry_run`, `spec_paths`, `reviews_dir`, `index`; the statuses are fixed | §5, §10 |
+| `task_log` | task directory, required keys and sections, `refs_any`, `kinds`, `max_checks`, soft words, `dry_run`, `reviews_dir`, `index`; the statuses are fixed | §5, §10 |
+| `spec_paths` | the SPEC files, read by the sign-off checks and the estimator | §3.5, §26 |
 | `adr` | `dir`, `index` (or `null`), `statuses`, `transitions`, `strict`, `template` (or `null` for the plane's) | §6 |
 | `package_docs`, `docs` | doc checks, run when `language` names a pack (`claude_md_dirs`, `path_ref_suffixes`, `docstring_globs`, `no_delivery_ids`, `delivery_id_patterns`, `rules`), product check commands (`docs.checks`, `docs.workers`), the starter house rules (`docs.starter_rules`, §20.5) | §21 |
 | `architect` | the architect seat, house rules, budgets, refactors | §19, §20 |

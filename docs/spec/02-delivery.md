@@ -253,7 +253,7 @@ covering task merged on the remote counts once the checkout has it. A commit is 
 2. it is a reconcile commit as `ccp tasks close` writes it (`Reconcile <NNNN>: done (PR #<n>,
    squash <sha>)`, §10.5) for a task in the log;
 3. a task not `dropped` names it in `covers:`; or
-4. it changes nothing outside the task log (its task files, `INDEX.yaml`, the reconcile log) and the SPEC files (`task_log.spec_paths`): the lead's own task-log commits and spec rulings, however they were merged.
+4. it changes nothing outside the task log (its task files, `INDEX.yaml`, the reconcile log) and the SPEC files (`spec_paths`): the lead's own task-log commits and spec rulings, however they were merged.
 
 A merge commit is one commit: its change against its first parent. A `covers:` entry that is not a
 sha is a warning. Exit 0 with nothing listed, 1 with a commit listed, 2 when a ref does not
@@ -428,9 +428,7 @@ and use those URLs for checks that need the running product, browser checks incl
 
 ### 12.4 Legacy keys
 
-`adapter.worktree_dir` and `adapter.worktree_links` read as `worktrees.dir` and `worktrees.links`
-(setting both is an error). `adapter.post_close` commands (`{task_id}`, `{nnnn}`, run in the main
-checkout) still run once at close, before the worktrees are removed. The binding's `adapter` and
+`adapter.worktree_dir`, `adapter.worktree_links` and `adapter.post_close` are merged keys (§29.3): the first two read as `worktrees.dir` and `worktrees.links` (setting both is an error); `adapter.post_close` commands (`{task_id}`, `{nnnn}`, run in the main checkout) still run once at close, before the worktrees are removed, with a warning that they move to `reconcile.hooks`. After the grace release none is read. The binding's `adapter` and
 `adapter_config_path` are ignored. A product with no `env` block behaves as before.
 
 ## 13. Workers and prompts
@@ -729,8 +727,7 @@ has a `Suite:` line but no suite run is recorded for its run.
   group a number, summed) give the rest. The defaults are the language pack's (Python's read
   unittest's `OK (skipped=N)` and `FAILED (failures=N, errors=N, skipped=N)`); with `language: none`
   there are none, and only the product's own patterns count; `ran_re`, `cached_re` and `cached_tests_re`
-  match nothing until a product sets them. Their older names `modules_ran_re` and `modules_cached_re`
-  are read; given both, the new name wins and `ccp tasks check` warns. `section_re`, `show_re`
+  match nothing until a product sets them. Their older names `modules_ran_re` and `modules_cached_re` are removed keys (§29.3). `section_re`, `show_re`
   (default none), `tail_lines` and `max_chars` shape the summary.
 - **An all-cached run:** with no test count found and the run saying 0 units ran and some cached,
   the test count is 0, not none; `cached_tests` is recorded beside it, and the summary ends
@@ -930,7 +927,7 @@ result.
 - **The signed SPEC text, checked.** `ccp verify spec-text <task_id> [--base REF] [--head REF]` reads each passage
   the task's Scope, or a section of the task whose heading begins `Rule changes`, carries for the operator's sign-off (§3.5: a `PROPOSED:` marker followed by `> `
   blockquote lines)
-  and looks for it, whitespace-normalised, in each hunk the branch's diff makes to files under `task_log.spec_paths`, read with the unchanged lines around it up to the nearest blank line on each side, where it covers at least one line the hunk adds
+  and looks for it, whitespace-normalised, in each hunk the branch's diff makes to files under `spec_paths`, read with the unchanged lines around it up to the nearest blank line on each side, where it covers at least one line the hunk adds
   (`git diff <base>...<head>`, each SPEC file read as it is at `<head>`, which defaults to `HEAD`; the base defaults to `origin/<integration branch>`,
   and nothing is fetched). It exits 0 when every passage is found, 1 naming each that is not, and 2 when
   the task carries no `PROPOSED:` block. For a task with `sign_off: brief`, the reviewer and the

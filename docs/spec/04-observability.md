@@ -417,8 +417,7 @@ short labels only; an agent row also holds the seat's bounded reasons.
   tools, no settings, memory, hooks, plugins, skills or MCP servers in its context, in an empty
   temporary directory, its environment stripped of API keys and tagged `ccp.seat=estimator`, its
   prompt audited, its `modelUsage` recorded. Everything it needs is in a bounded prompt: the task
-  without its notes, each cited ADR decision and SPEC section (looked up in `estimate.spec_paths`,
-  globs relative to the root), the cited paths and their sizes, the features, the reference class,
+  without its notes, each cited ADR decision and SPEC section (looked up in `spec_paths`, §3.5), the cited paths and their sizes, the features, the reference class,
   the baseline and the calibration (§26.6).
 - **Its answer** is one JSON object (complexity per criterion with a short reason, rounds, phases,
   total, tokens, cost, the reference tasks it used, waits, and bounded reasoning), validated strictly;

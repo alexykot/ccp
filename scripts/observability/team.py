@@ -374,7 +374,7 @@ def review_point_scope(root: Path, args: argparse.Namespace, scope: list[str], r
     """SPEC §22, at spawn: the scope and the review-point warnings. With the product's
     review-point register: `--review-point` must be R<n> in it (exit 2, before any write), and without
     `--scope` the scope is the point's open tagged tasks. Without a register, the rule before it,
-    unchanged: a point that `task_log.review_point_pattern` refuses is a warning (close will not stamp
+    unchanged: a point that `ids.review_point.pattern` refuses is a warning (close will not stamp
     it), and the missing register is named once on stderr."""
     prod = sm.product_root(root)
     reg_file = None

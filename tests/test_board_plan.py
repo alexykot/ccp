@@ -69,7 +69,7 @@ class Stamp(Base, unittest.TestCase):
         self.work(review_point="PM")
         body, task = self.close()
         self.assertNotIn("review_point", task.split("\n---\n", 1)[0])
-        self.assertTrue(any("does not match task_log.review_point_pattern" in w for w in body["warnings"]), body)
+        self.assertTrue(any("does not match ids.review_point.pattern" in w for w in body["warnings"]), body)
 
     def test_a_crlf_task_file_is_stamped_and_stays_crlf(self):
         f = self.main / "docs/delivery/tasks/0002-second.md"
@@ -106,7 +106,7 @@ class Stamp(Base, unittest.TestCase):
 
 class Check(unittest.TestCase):
     def test_tasks_check_holds_review_point_to_the_pattern(self):
-        p = Product({"task_log": {"review_point_pattern": "^(R[0-9]+|PM)$"}})
+        p = Product({"ids": {"review_point": {"pattern": "R[0-9]+|PM"}}})
         self.addCleanup(p.cleanup)
         _task(p, "0001-a", extra="review_point: PM")
         _task(p, "0002-b", extra="review_point: R3")
@@ -114,8 +114,8 @@ class Check(unittest.TestCase):
         p.index()
         errs = tasklog.check(p.cfg)
         self.assertEqual([e for e in errs if "review_point" in e],
-                         ["docs/delivery/tasks/0003-c.md: review_point 'X9' does not match task_log.review_point_pattern "
-                          "(^(R[0-9]+|PM)$, SPEC §22)"])
+                         ["docs/delivery/tasks/0003-c.md: review_point 'X9' does not match ids.review_point.pattern "
+                          "(R[0-9]+|PM, SPEC §22)"])
 
 
 class Plan(unittest.TestCase):

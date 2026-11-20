@@ -508,7 +508,6 @@ class Config(unittest.TestCase):
         p = Product({"estimate": {"reference_since": "2026-10-21", "k": 8}})
         try:
             self.assertEqual(p.cfg.estimate, {"reference_since": "2026-10-21", "k": 8, "auto": False,
-                                              "spec_paths": ["docs/SPEC.md", "SPEC.md", "docs/spec/*.md", "spec/*.md"],
                                               "path_suffixes": None,
                                               "calibration": {"half_life": 40, "min_pairs": 8, "k": None}})
         finally:

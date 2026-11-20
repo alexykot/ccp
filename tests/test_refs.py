@@ -98,7 +98,7 @@ class NonDefaultIds(unittest.TestCase):
 
     def setUp(self):
         self.p = Product({"ids": self.IDS, "adr": {"dir": "docs/decisions", "index": None},
-                          "adapter": {"worktree_dir": ".rt", "worktree_links": [], "post_close": []}})
+                          "worktrees": {"dir": ".rt"}})
         self.p.task("00001-first")
         self.p.task("00002-second", deps=["00001-first"])
         self.p.write("docs/decisions/007-pick.md",

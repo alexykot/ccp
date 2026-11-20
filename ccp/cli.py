@@ -842,7 +842,7 @@ def cmd_tasks_backfill(cfg: config.Config, a: argparse.Namespace) -> int:
         print(f"{r['task_id']} -> {r['review_point'] or '-'}  (claim {r['claim_at'] or '?'} from {r['claim_from']}; {ev}){tail}")
     counts = ", ".join(f"{k} {v}" for k, v in body["counts"].items()) or "none"
     print(f"\n{len(body['tasks'])} done tasks without a review point: {counts}. Already set: {body['already_set']}. "
-          f"To stamp: {body['to_stamp']}; not an accepted review point (task_log.review_point_pattern, or the register once it exists): {body['skipped_pattern']}.")
+          f"To stamp: {body['to_stamp']}; not an accepted review point (ids.review_point.pattern, or the register once it exists): {body['skipped_pattern']}.")
     if body["written"]:
         print(f"Written (working tree only, nothing committed): {len(body['written'])} files. Review the diff, then "
               f"commit them as one change:\n  {body['commit']}")

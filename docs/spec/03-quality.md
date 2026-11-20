@@ -681,10 +681,8 @@ review_points:
 
 - **With a register,** a review point is `R<n>` and one of the register's ids everywhere: task
   frontmatter, ADR frontmatter, `work.json`, `team.sh runner spawn --review-point` (refused
-  otherwise, before any write), the stamp at close and the backfill. A `task_log.review_point_pattern`
-  key is then ignored, with a warning.
-- **Without one,** a task's `review_point` is held to `task_log.review_point_pattern` (default
-  `^R[0-9]+$`), with no strict error; while any task carries a review point, `ccp tasks check`,
+  otherwise, before any write), the stamp at close and the backfill. A `task_log.review_point_pattern` key, merged into `ids.review_point.pattern` (§29.3), is then ignored, with a warning.
+- **Without one,** a task's `review_point` is held to `ids.review_point.pattern` (its old place, `task_log.review_point_pattern`, is read during the grace release, §29.3), with no strict error; while any task carries a review point, `ccp tasks check`,
   `ccp docs check`, the backfill, `ccp review-points` and the spawn each print one warning ("no
   review-point register: <path>; review points are unchecked — create it") and the board shows a
   banner suggesting the register. While any ADR carries `review_points`, `ccp adr check`, and so

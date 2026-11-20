@@ -14,7 +14,7 @@ committed at HEAD, else the heading without its `Task NNNN:` prefix, else the sl
 `dropped` by the old status's word; `depends_on` the `Depends on` (or `depends_on`) row's ids (a bare
 number names the one file holding it); `spec_refs` from the Refs rows keyed `SPEC` or `spec_refs`, each
 value split into its backticked items (else on commas): each `§N`, `§N.M` or `SN` as the product's spec
-ref for section N, and a `<path>#<anchor>` whose path names a SPEC file (`task_log.spec_paths`) kept as
+ref for section N, and a `<path>#<anchor>` whose path names a SPEC file (`spec_paths`) kept as
 written, deduplicated in order; `created` and `updated` the `Created` date; `adopt: "none"`.
 The whole old text is kept verbatim, in a fenced block, under `## Context (not checked)`; the other
 sections say the record was converted and not re-verified (one dod_check, `legacy-01`, and one
@@ -36,6 +36,7 @@ from typing import Any
 
 from ccp import refs, tasklog
 from ccp.config import Config
+from ccp.config import spec_paths as spec_paths_of
 
 DONE_WORDS = ("done", "complete", "completed")
 DROPPED_WORDS = ("dropped", "cancelled", "canceled", "superseded", "abandoned")
@@ -105,11 +106,11 @@ def spec_refs(cfg: Config, values: list[str]) -> list[str]:
     """The spec refs `values` name, in order, deduplicated. Each value is split into its backticked items
     when it has any, else on commas; in each item a `§N`, `§N.M` or `SN` (or the product's prefix) is the
     product's ref for section N, and an item `<path>#<anchor>` whose path names a SPEC file
-    (`task_log.spec_paths`) is kept as written."""
+    (`spec_paths`) is kept as written."""
     ids = refs.ids(cfg)
     prefixes = "|".join(re.escape(p) for p in dict.fromkeys(("S", ids.spec_prefix)))
     ref_re = re.compile(rf"(?:§[ \t]*|(?<![\w/-])(?:{prefixes}))(\d{{1,3}})(?:\.\d+)*(?![\w/-])")
-    spec_paths = cfg.task_log.get("spec_paths") or []
+    spec_paths = spec_paths_of(cfg)
     found = []
     for v in values:
         for item in BACKTICKED_RE.findall(v) or v.split(","):

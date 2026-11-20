@@ -210,7 +210,7 @@ class SpecText(unittest.TestCase):
         self.assertIn("no PROPOSED: block", err)
 
     def test_only_lines_the_branch_adds_to_a_spec_file_count(self):
-        self.change("notes.md", "\n" + PASSAGE + "\n")  # not under task_log.spec_paths
+        self.change("notes.md", "\n" + PASSAGE + "\n")  # not under spec_paths
         self.assertEqual(self.run_cmd("0001-signed", "--base", "main")[0], 1)
         git(self.p.root, "checkout", "-q", "main")
         self.change("docs/spec/x.md", "\n" + PASSAGE + "\n")  # on the base: the branch adds nothing

@@ -102,12 +102,12 @@ class TestRunner(TeamCase):
         self.assertEqual((ev[-1]["op"], ev[-1]["actor"]), ("spawn", "design-seat"))
 
     def test_spawn_warns_when_close_will_not_stamp_the_review_point(self):
-        """§22.1: `ccp tasks close` stamps only a review point that matches task_log.review_point_pattern."""
+        """§22.1: `ccp tasks close` stamps only a review point that matches ids.review_point.pattern."""
         code, res, err = self.team("runner", "spawn", "--scope", "0001-a", "--review-point", "R2")
         self.assertEqual((code, "warnings" in res), (0, False), err)
         code, res, err = self.team("runner", "spawn", "--scope", "0001-a", "--review-point", "PM")
         self.assertEqual(code, 0, err)
-        self.assertIn("review point 'PM' does not match task_log.review_point_pattern", res["warnings"][0])
+        self.assertIn("review point 'PM' does not match ids.review_point.pattern", res["warnings"][0])
         self.assertIn("warning: review point 'PM'", err)
 
     def test_the_lead_audits_follow_keep_body(self):
