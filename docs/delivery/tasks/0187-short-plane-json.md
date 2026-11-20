@@ -1,7 +1,7 @@
 ---
 task_id: 0187-short-plane-json
 title: plane.json keys that were removed warn, merged keys move, and a constant's non-default value applies with a warning; the upgrade status lists each
-status: pending
+status: done
 kind: feature
 depends_on: ["0172-fixtures-name-their-config", "0173-plane-json-block-registry", "0182-language-is-a-required-key"]
 spec_refs: ["S3", "S7", "S8", "S12", "S14", "S22", "S26", "S29"]
@@ -11,7 +11,7 @@ clashes_with: ["0185-architect-on-by-default"]
 adopt: "plane.json spec_paths (ccp upgrade status lists each removed, merged and constant key the product still sets, with its replacement)"
 sign_off: brief
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Task: 0187-short-plane-json
@@ -184,3 +184,5 @@ Fix round 1 (review of 7a27187):
   in the error with the old one for each key that moved. `docs/design/allowance.md` gives `spec_paths`' own defaults.
 
 ## Verification notes
+- 2026-11-20 — verifier, PR #215 head `aa09248` (squash `3b86ed3`): APPROVE. Passed: cfg-01, cfg-02, cfg-03, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0187-short-plane-json.json.
+
