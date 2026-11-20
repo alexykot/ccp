@@ -835,7 +835,6 @@ queue_root: /path/to/.delivery-queue/example-product
 
 ### 8.4 Configuration knobs
 
-- How often the board's timer rebuilds it (every 5 minutes, §28.2).
 - The `--note` length limit on `ccp` commands that take one (4000 characters).
 - How long the usage records (`usage.jsonl`) are kept (default: everything; they hold no content).
 

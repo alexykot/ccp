@@ -130,5 +130,15 @@ and names no constant as something a product sets. The operator signs the whole 
   dropped (its path rules, its override values).
 - ADR-0043 D1 marked built (`ccp adr decide 43 D1 built`); `docs/adr/INDEX.md` lists no decision
   states, so it did not change.
+- 2026-11-20 (implementer, fix round 1): review findings 1-4 and the NIT. Where a constant's other
+  values still carry a rule for a product that sets the key (§29.3), the rule is back in the "a
+  product that still sets" wording: `worktrees.dir` null reconciles in the checkout close runs from
+  (§10.5) and makes no merge worktree (§12.1's runner paragraph), and the override's accepted forms
+  (§12.1); `suite.summary`'s `ran_re`, `cached_re` and `cached_tests_re` (§14.1); `doc_name` (§21.3's
+  table and its package-doc sentence); `refactor_in_scope` `true`/`false` at the runner spawn (§10.2).
+  Constants no longer offered as settings: the board refresh left §8.4's knob list (§28.2 states it),
+  §12.2 no longer names `env.timeout_seconds`, README's `--adopt` line gives the 150-line limit
+  (§20.1) for `architect.rules_max_lines`. §20.2 gives the per-check time limit, 600 seconds unless
+  the check sets `timeout_seconds` (a setting, so its value is behaviour).
 
 ## Verification notes

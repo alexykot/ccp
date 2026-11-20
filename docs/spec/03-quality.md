@@ -310,7 +310,7 @@ lines, which `ccp docs check` enforces.
 
 - `budget`: a `ccp` budget in `architect.budgets` with the rule's id;
 - `command`: a product command in `architect.checks` (`{id, cmd, timeout_seconds?}`, each run
-  under a time limit), exit 0 = pass, run inside `ccp docs check` so the verifier gates on it (§21.2);
+  under a time limit of 600 seconds unless the check sets `timeout_seconds`), exit 0 = pass, run inside `ccp docs check` so the verifier gates on it (§21.2);
 - `docs`: a rule `ccp docs check` runs, named after a dash by its `plane.json` key, several
   separated by commas: `package_docs` (§21.3, §21.4) or `package_docs.rules.<name>` (§21.6);
 - `pass`: the architect judges it.
@@ -525,8 +525,8 @@ here rather than restate it. A product's docs come in three tiers, by how a sess
 | Tier | File | Loaded |
 |---|---|---|
 | Project brief | the root `CLAUDE.md` | always |
-| Package doc | `CLAUDE.md` in a source directory (`claude_md_dirs`) | automatically, when a session reads a file under that directory |
-| On-demand package doc | `.claude.md` in a source directory | when a session reads it |
+| Package doc | `CLAUDE.md` in a source directory (`claude_md_dirs`, or every source directory in a product that still sets `doc_name: CLAUDE.md`, §29.3) | automatically, when a session reads a file under that directory |
+| On-demand package doc | `.claude.md` in a source directory (or the `doc_name` a product still sets, §29.3) | when a session reads it |
 
 A package doc is a map of what exists in its directory: what each part is for and where to look. It
 is never a record of what a task did; that is the task log and Git.
@@ -535,8 +535,8 @@ The rules follow the product's `language` (§8.1): a language pack turns them on
 `package_docs` block's settings or, without the block, their defaults, and `none` turns them off. The
 generic rules a product names in `package_docs.rules` (§21.6) run whatever the language. The core is
 language-neutral.
-Every directory below the root that holds source (not exempt) carries a package doc (`.claude.md`, or
-`CLAUDE.md` for `claude_md_dirs`), and the language pack's files carry module docstrings (§21.4).
+Every directory below the root that holds source (not exempt) carries a package doc (`.claude.md`, or the `doc_name` a product
+still sets, or `CLAUDE.md` for `claude_md_dirs`), and the language pack's files carry module docstrings (§21.4).
 A directory whose source files are all `.md` holds documents only and needs no package doc unless
 `claude_md_dirs` lists it; a directory with any other source file still needs one. Each doc:
 

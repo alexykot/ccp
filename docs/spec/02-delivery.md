@@ -41,7 +41,9 @@ only through its single writer (`ccp tasks wait|resume`, which call `set-waiting
    the prompt audit (`phase: runner-spawn`, task id `_runner`), emits `runner`/`spawn`, records
    `status: running`, `scope`, `review_point` and the runner slots in `work.json`, and prints the
    exact Agent call (name, agent type `delivery-runner`, a fixed spawn prompt naming the project,
-   the scope, the queue root and the slot). The spawn prompt holds nothing else. A spawn that starts a new review point puts every waiting refactor
+   the scope, the queue root and the slot). The spawn prompt holds nothing else. Unless a product
+   still sets `refactor_in_scope` to `true` or `false` (§20.4, §29.3), a spawn that starts a new
+   review point puts every waiting refactor
    at the top of the scope it records, names them in the prompt and the printed action, and lists
    them as `refactors_added` in the `runner`/`spawn` payload and as `review_point_refactors` in
    `work.json`; a respawn of the same review point puts back the ones still pending and adds no
@@ -201,7 +203,8 @@ plane's commit hook template (`scripts/git-hooks/pre-commit.template`) runs it w
    own **merge worktree**, `merge-<nnnn>` under the worktree directory (§12.1), detached at `origin/<integration>`
    with the `worktrees.links` linked in; close removes it once the reconcile has landed, and a re-run
    after a failed reconcile discards what the earlier close left in it. With it, the main checkout's
-   HEAD and branch never move.
+   HEAD and branch never move. A product that still sets `worktrees.dir` to null (§29.3) reconciles
+   in the checkout close runs from.
 3. The adapter's legacy `post_close` (§12.4), then every recorded worktree of the task and its
    branch removed (§12.1).
 4. `lease/clear`, `work.json`, the slot's `tasks_done`, and the task's runs abandoned (§11.1).
@@ -313,7 +316,10 @@ this host, even inside the TTL, or, for a lock from another host (whose pid cann
 ### 12.1 Worktrees
 
 `ccp wt create --kind KIND --task ID [--sha SHA] [--name N] [--seat S] [--tag T] [--shallow]` makes a git
-worktree under the worktree directory, `.plane-runtime` in the main checkout, named
+worktree under the worktree directory, `.plane-runtime` in the main checkout (a `worktrees.dir` a
+product still sets, which applies with a warning, §29.3, is a path relative to the main checkout,
+which may lead outside it with `..`, such as a sibling directory, or an absolute path; not the main
+checkout itself), named
 `<kind>-<nnnn>[-<n>]`. Kinds: `impl` (the implementer's, on `task/<id>` from
 `origin/<integration>`; `ccp tasks claim` makes it), `rev` and `ver` (detached at the head they
 judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--sha`, and `base`
@@ -390,8 +396,8 @@ when missing; with several runners that path with `-<slot>` added, made by
 main checkout holds the branch). An existing one is left alone; one the spawn cannot make is a
 warning, except a missing `origin/<integration_branch>`, which refuses the spawn (exit 3), dry run
 or real, naming the ref, and the runner's `ccp tasks worktree` makes it once the cause is fixed. No
-runner makes it with `git worktree add`. It fetches and re-detaches before each task.
-`ccp tasks close` makes the reconcile in its `merge-<nnnn>` worktree and pushes it with
+runner makes it with `git worktree add`. It fetches and re-detaches before each task. Unless a
+product still sets `worktrees.dir` to null (§29.3), `ccp tasks close` makes the reconcile in its `merge-<nnnn>` worktree and pushes it with
 `git push origin HEAD:<integration_branch>` (§10.5); run from any checkout, it does not move that
 checkout's branch or HEAD, except that a detached runner worktree is moved to the reconcile commit
 once it has landed. Each implementer works in its task's `impl` worktree.
@@ -401,8 +407,7 @@ once it has landed. Each implementer works in its task's `impl` worktree.
 plane.json `env` holds shell command templates or null: `setup` when a worktree is made, `teardown`
 when it is removed, `up` and `down` to start and stop what it serves, `urls` to say where it serves.
 
-- A hook runs in the worktree, in its own process group, killed whole after 600 seconds
-  (`env.timeout_seconds`). Its output goes to `QUEUE_ROOT/worktrees/<name>.<hook>.log`, and it returns when its
+- A hook runs in the worktree, in its own process group, killed whole after 600 seconds. Its output goes to `QUEUE_ROOT/worktrees/<name>.<hook>.log`, and it returns when its
   shell exits, so `up` must start services in the background and exit.
 - The fields `{task_id} {nnnn} {kind} {seat} {tag} {worktree} {main_checkout} {name}` are filled in
   (the path fields `{worktree}`, `{main_checkout}` and `{name}` shell-quoted; any other brace is
@@ -725,7 +730,9 @@ has a `Suite:` line but no suite run is recorded for its run.
   and skips. The defaults are the language pack's (Python's read
   unittest's `OK (skipped=N)` and `FAILED (failures=N, errors=N, skipped=N)`); with `language: none`
   there are none, and only the product's own patterns count. No pattern reads the units ran or cached
-  from the output; the older keys `suite.summary.modules_ran_re` and `modules_cached_re` are removed
+  from the output unless a product still sets `suite.summary`'s `ran_re`, `cached_re` or
+  `cached_tests_re` (§29.3): those (a pattern or a list, first group a number, summed) give the units
+  ran and cached and the tests behind the cached units. The older keys `suite.summary.modules_ran_re` and `modules_cached_re` are removed
   keys (§29.3). `section_re` and `show_re` shape the summary.
 - **An all-cached run:** with no test count found and the run saying 0 units ran and some cached,
   the test count is 0, not none; `cached_tests` is recorded beside it, and the summary ends
