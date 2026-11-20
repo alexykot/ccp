@@ -391,10 +391,8 @@ RULE_DASH = re.compile(r"^-{20,}\s*$")
 def _summary_cfg(cfg: Config | None) -> dict[str, Any]:
     """plane.json `suite.summary` over its defaults, the patterns compiled. A pattern that does not
     compile keeps its default (config.load refuses one; this guards a run without a checked config)."""
-    from ccp.config import SUITE_SUMMARY_ALIASES, SUITE_SUMMARY_DEFAULTS  # noqa: PLC0415
-    raw = ((cfg.suite or {}).get("summary") if cfg else None) or {}
-    given = {SUITE_SUMMARY_ALIASES[k]: v for k, v in raw.items() if k in SUITE_SUMMARY_ALIASES}
-    given.update({k: v for k, v in raw.items() if k not in SUITE_SUMMARY_ALIASES})  # a new name wins
+    from ccp.config import SUITE_SUMMARY_DEFAULTS  # noqa: PLC0415
+    given = ((cfg.suite or {}).get("summary") if cfg else None) or {}
     out: dict[str, Any] = {}
     packs = doclang.for_tests(cfg).summary
     for k, default in SUITE_SUMMARY_DEFAULTS.items():

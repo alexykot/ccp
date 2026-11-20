@@ -2026,13 +2026,16 @@ def _estimate_actuals(cfg: Config, q: Path, tid: str) -> list[str]:
 
 
 def _cleanup(cfg: Config, tid: str) -> list[str]:
-    """The legacy `adapter.post_close` commands, then every worktree of the task (§12.1: env.down and
-    env.teardown, then removal), then its branch. Failures are warnings: the merge and the reconcile
-    have landed."""
+    """The `adapter.post_close` commands (a merged key, §29.3: still run here, with a warning that they move to
+    `reconcile.hooks`), then every worktree of the task (§12.1: env.down and env.teardown, then removal), then
+    its branch. Failures are warnings: the merge and the reconcile have landed."""
     warnings = []
     main = _main_checkout(cfg)
     nnnn = refs.ids(cfg).task_number(tid)
     vals = {"task_id": tid, "nnnn": nnnn}
+    if cfg.adapter and cfg.adapter["post_close"]:
+        warnings.append("adapter.post_close moves to reconcile.hooks (`$TASK_ID` for `{task_id}`): a later "
+                        "release no longer runs it here (SPEC §29.3)")
     for cmd in cfg.adapter["post_close"] if cfg.adapter else []:
         try:
             line = cmd.format(**vals)

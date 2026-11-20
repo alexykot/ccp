@@ -13,8 +13,9 @@ from ccp import config
 SCHEMA = json.loads((Path(__file__).resolve().parents[1] / "contracts/plane_config.schema.json").read_text())
 
 # The nested objects whose defaults the code keeps in a dict of their own, not inside the block's: the block,
-# the key, the dict, and the extra keys the schema lists besides it (the names a key had before).
-SEPARATE = (("suite", "summary", config.SUITE_SUMMARY_DEFAULTS, tuple(config.SUITE_SUMMARY_ALIASES)),
+# the key, the dict, and the extra keys the schema lists besides it (the keys the plane removed or merged, which
+# `config.KEY_OUTCOMES` holds and the schema marks deprecated).
+SEPARATE = (("suite", "summary", config.SUITE_SUMMARY_DEFAULTS, tuple(config.old_keys("suite.summary"))),
             ("verify", "accept_cache", config.ACCEPT_CACHE_DEFAULTS, ()))
 
 
@@ -35,15 +36,18 @@ class PlaneConfigDefaults(unittest.TestCase):
                 self.compare(f"{where}.{key}", prop["properties"], value)
 
     def test_the_schema_lists_the_registry_blocks_and_nothing_else(self):
-        self.assertEqual(set(SCHEMA["properties"]) - {"$schema", "_note", *config.REQUIRED_KEYS},
+        self.assertEqual(set(SCHEMA["properties"]) - {"$schema", "_note", *config.REQUIRED_KEYS,
+                                                      *config.OPTIONAL_TOP_KEYS},
                          set(config.BLOCK_DEFAULTS))
+        self.assertEqual(SCHEMA["properties"]["spec_paths"]["default"], list(config.SPEC_PATHS_DEFAULT))
         self.assertEqual(SCHEMA["required"], list(config.REQUIRED_KEYS))
         self.assertEqual(config.BLOCKS, tuple(config.BLOCK_DEFAULTS))
 
     def test_every_block_has_the_schemas_keys_and_defaults(self):
         for block, defaults in config.BLOCK_DEFAULTS.items():
             with self.subTest(block=block):
-                self.compare(block, SCHEMA["properties"][block]["properties"], defaults, every_default=True)
+                self.compare(block, SCHEMA["properties"][block]["properties"], defaults,
+                             extra=tuple(config.old_keys(block)), every_default=True)
 
     def test_nested_defaults_the_code_keeps_apart_match_the_schema(self):
         for block, key, defaults, extra in SEPARATE:

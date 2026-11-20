@@ -26,6 +26,20 @@
       "enum": ["python", "none"],
       "description": "SPEC §8.1, §21.4: the product's language pack (ccp/doclang), or none; no default. A pack turns on the package-doc checks (with the package_docs block's settings or their defaults), reads the test output and finds the tests a change touches; none turns the package-doc checks off and leaves test output to suite.count_re and suite.summary. A command that needs it refuses (exit 2) when it is unset, and warns instead during the grace release"
     },
+    "spec_paths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": [
+        "docs/SPEC.md",
+        "SPEC.md",
+        "docs/spec/",
+        "spec/"
+      ],
+      "description": "SPEC §3.5, §26.3: the paths that hold the SPEC, relative to the product root (one ending in `/` is a directory, which the estimator reads as its *.md). ccp tasks check warns on a task not yet done or dropped whose `paths` name one and that neither declares a `brief` sign-off nor has `§31.1` on a Scope line; the estimator looks here for cited SPEC headings. Merges task_log.spec_paths and estimate.spec_paths"
+    },
     "task_log": {
       "type": "object",
       "additionalProperties": false,
@@ -40,12 +54,8 @@
           "items": {
             "type": "string"
           },
-          "default": [
-            "pending",
-            "done",
-            "dropped"
-          ],
-          "description": "Deprecated and not read: a task file's statuses are fixed, pending | done | dropped (SPEC §5)"
+          "deprecated": true,
+          "description": "Removed (SPEC §29.3): ignored, with a warning. A task file's statuses are fixed, pending | done | dropped (SPEC §5)"
         },
         "required": {
           "type": "array",
@@ -132,8 +142,8 @@
         },
         "review_point_pattern": {
           "type": "string",
-          "default": "^R[0-9]+$",
-          "description": "SPEC §22.1, §22: while the product keeps no review-point register, a task's `review_point` matches this and `ccp tasks close` stamps only a point that does. Once the register exists it is ignored, with a warning: review points are then R<n> and listed in the register."
+          "deprecated": true,
+          "description": "Merged into `ids.review_point.pattern` (SPEC §29.3): read there, and at this old place while that is unset, with a warning; ignored, with a warning, when it is set or once the product keeps a review-point register (SPEC §22)."
         },
         "index": {
           "type": "boolean",
@@ -151,13 +161,8 @@
             "type": "string",
             "minLength": 1
           },
-          "default": [
-            "docs/SPEC.md",
-            "SPEC.md",
-            "docs/spec/",
-            "spec/"
-          ],
-          "description": "SPEC §3.5: the paths that hold the SPEC, relative to the product root (one ending in `/` is a directory). ccp tasks check warns on a task not yet done or dropped whose `paths` name one and that neither declares a `brief` sign-off nor has `§31.1` on a Scope line"
+          "deprecated": true,
+          "description": "Merged into `spec_paths` (SPEC §29.3): read there, and at this old place while that is unset, with a warning"
         }
       }
     },
@@ -629,15 +634,15 @@
     "adapter": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Legacy (before SPEC §12): worktree_dir and worktree_links read as worktrees.dir and worktrees.links; post_close commands still run once at close. New products use worktrees and env.",
+      "description": "Legacy (before SPEC §12), every key merged (SPEC §29.3): worktree_dir and worktree_links read as worktrees.dir and worktrees.links; post_close commands still run once at close, with a warning that they move to reconcile.hooks. New products use worktrees, env and reconcile.hooks.",
       "properties": {
         "worktree_dir": {
           "type": [
             "string",
             "null"
           ],
-          "default": null,
-          "description": "Where `ccp tasks claim` makes task worktrees: a path relative to the main checkout, which may lead outside it with `..`, such as a sibling directory, or an absolute path; not the main checkout itself (impl-NNNN); reviewers and verifiers use rev-NNNN and ver-NNNN beside them."
+          "deprecated": true,
+          "description": "Merged into `worktrees.dir` (SPEC §29.3): read there, and at this old place while that is unset, with a warning; setting both to different values is an error."
         },
         "worktree_links": {
           "type": "array",
@@ -645,8 +650,8 @@
             "type": "string",
             "minLength": 1
           },
-          "default": [],
-          "description": "Paths linked into each task worktree from the main checkout (e.g. .venv)."
+          "deprecated": true,
+          "description": "Merged into `worktrees.links` (SPEC §29.3): read there, and at this old place while that is unset, with a warning; setting both to different values is an error."
         },
         "post_close": {
           "type": "array",
@@ -655,7 +660,8 @@
             "minLength": 1
           },
           "default": [],
-          "description": "Commands `ccp tasks close` runs in the main checkout after the reconcile; {task_id} and {nnnn} are filled in. A failure is a warning."
+          "deprecated": true,
+          "description": "Merged into `reconcile.hooks` (SPEC §29.3): the commands still run once at close, in the main checkout after the reconcile, with a warning that they move there ({task_id} and {nnnn} are filled in; `$TASK_ID` in a hook). A failure is a warning."
         }
       }
     },
@@ -1043,8 +1049,8 @@
             "ran_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "First group the units (tests, modules, files) that ran, for a product with a test cache. Default: none (set it, or write the gate's result file)."},
             "cached_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "First group the units the product's cache served as hits. Default: none."},
             "cached_tests_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "First group the tests behind the cached units, from their last runs, recorded as cached_tests. Default: none."},
-            "modules_ran_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "Deprecated name of ran_re."},
-            "modules_cached_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "Deprecated name of cached_re."},
+            "modules_ran_re": {"type": ["string", "array"], "items": {"type": "string"}, "deprecated": true, "description": "Removed (SPEC §29.3): ignored, with a warning. Its name is ran_re."},
+            "modules_cached_re": {"type": ["string", "array"], "items": {"type": "string"}, "deprecated": true, "description": "Removed (SPEC §29.3): ignored, with a warning. Its name is cached_re."},
             "section_re": {"type": ["string", "array"], "items": {"type": "string"}, "default": null, "description": "The line after a `====` rule that starts a failing test's section. Default: the language pack's (Python: `FAIL:`, `ERROR:`, `UNEXPECTED SUCCESS:`)."},
             "show_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "Lines shown whatever the result (at most 20). Default: none."},
             "tail_lines": {"type": "integer", "minimum": 0, "description": "The log's last lines a failure shows. Default 40."},
@@ -1061,7 +1067,7 @@
         "reference_since": {"type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "default": null, "description": "Tasks merged before this date (a process change) are left out of every reference class"},
         "k": {"type": "integer", "minimum": 5, "maximum": 8, "default": 6, "description": "The reference class's size"},
         "auto": {"type": "boolean", "default": false, "description": "Phase B: `ccp tasks check` and `ccp tasks index` start the estimator seat in the background for open tasks whose agent estimate is missing or stale (at most 10 per batch, one batch at a time). Off by default: `ccp tasks estimate --all` runs it by hand"},
-        "spec_paths": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": ["docs/SPEC.md", "SPEC.md", "docs/spec/*.md", "spec/*.md"], "description": "SPEC §26.3: where the estimator looks for cited SPEC headings (globs relative to the product root, in order)"},
+        "spec_paths": {"type": "array", "items": {"type": "string", "minLength": 1}, "deprecated": true, "description": "Merged into `spec_paths` (SPEC §29.3): read there, and at this old place while that is unset, with a warning"},
         "path_suffixes": {"type": ["array", "null"], "items": {"type": "string", "pattern": "^\\."}, "default": null, "description": "SPEC §26.3: suffixes that make a backticked token a cited path (null: the built-in list)"},
         "calibration": {
           "type": "object",

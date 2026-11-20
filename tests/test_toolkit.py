@@ -421,6 +421,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["head"], head)
+        self.assertTrue(any("adapter.post_close moves to reconcile.hooks" in w for w in body["warnings"]), body)
         git(self.main, "fetch", "-q", "origin")
         task = git(self.main, "show", "origin/main:docs/delivery/tasks/0002-second.md")
         self.assertIn("status: done", task)

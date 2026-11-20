@@ -969,11 +969,11 @@ class Summary(SuiteFixture, unittest.TestCase):
         ended = self.rows()[-1]
         self.assertEqual((ended["tests"], ended["ran"], ended["cached"], ended["cached_tests"]), (3, None, None, None))
 
-    def test_the_legacy_knob_names_still_read(self):
+    def test_the_removed_knob_names_are_ignored(self):
         self.tally({"modules_ran_re": TALLY_SUMMARY["ran_re"], "modules_cached_re": TALLY_SUMMARY["cached_re"]})
         r = self.run_suite("--lane", "gate", "--", PY, "-c", "print('Ran 1 test in 0.1s'); print('g: 2 modules ran, 5 cached')")
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual((self.rows()[-1]["ran"], self.rows()[-1]["cached"]), (2, 5))
+        self.assertEqual((self.rows()[-1]["ran"], self.rows()[-1]["cached"]), (None, None))
 
     ALL_CACHED = ("print('cached: tests.test_a (5 tests, 0 skipped)'); print('cached: tests.test_b (4 tests, 0 skipped)');"
                   "print('gate: 0 modules ran, 2 cached; 0 tests ran in 0 s, 0 skipped; the cached modules\\' "
@@ -1474,15 +1474,14 @@ class ResultForTheVerifier(SuiteFixture, unittest.TestCase):
 
 
 class ReviewFixes(SuiteFixture, unittest.TestCase):
-    def test_the_new_knob_name_wins_and_the_old_one_is_flagged(self):
+    def test_the_new_knob_name_is_read_and_the_removed_one_is_flagged(self):
         self.tally({"modules_ran_re": r"^m: (\d+) old", "ran_re": r"^m: \d+ old, (\d+) new"})
         r = self.run_suite("--lane", "gate", "--", PY, "-c", "print('Ran 1 test in 0.1s'); print('m: 7 old, 3 new')")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(self.rows()[-1]["ran"], 3)
         c = config.load(self.runner)
-        self.assertEqual(c.suite_aliases_ignored, ("modules_ran_re",))
         from ccp import tasklog
-        self.assertTrue(any("suite.summary.modules_ran_re is ignored" in w for w in tasklog.warnings(c)))
+        self.assertTrue(any("suite.summary.modules_ran_re is removed and ignored" in w for w in tasklog.warnings(c)))
 
     def test_usual_seconds_reads_an_unlabelled_run_as_the_full_roles_lane(self):
         rows = [{"op": "started", "suite_id": "s1", "lane": None}, {"op": "ended", "suite_id": "s1", "exit_code": 0, "seconds": 8},

@@ -426,7 +426,10 @@ in that product (SPEC §31.4).
   - `suite.lanes`, the test commands; a gate may write `$CCP_SUITE_RESULT`;
   - `worktrees`, with `env.setup`, `teardown`, `up`, `down` and `urls` hooks;
   - `docs.checks`, `architect.checks`, `auth_check.probes`;
-  - `merge.command`, `adr`, `review_points`, `parallel`.
+  - `merge.command`, `adr`, `review_points`, `parallel`;
+  - `spec_paths`, where the SPEC is (the one key behind the sign-off checks and the estimator). A key the
+    plane removed, merged or made a constant still loads with a warning, and `ccp upgrade status` lists each
+    one the product still sets (SPEC §29.3).
 
   See SPEC §8.1 in [`docs/spec/01-model.md`](docs/spec/01-model.md).
 

@@ -43,7 +43,7 @@ from typing import Any
 
 from ccp.envvars import envvar
 from ccp import estimate as est
-from ccp import adr, models, tasklog
+from ccp import adr, config, models, tasklog
 from ccp.refs import ids as _ids
 from ccp.refs import number_prefix
 from ccp.config import Config
@@ -153,9 +153,10 @@ def adr_excerpts(cfg: Config, refs: list[str]) -> str:
 
 
 def _spec_files(cfg: Config) -> list[Path]:
-    """The product's SPEC files, in `estimate.spec_paths` order (globs relative to the root, §26.3)."""
+    """The product's SPEC files, in `spec_paths` order (§3.5; globs relative to the root, a directory read as its
+    `*.md`, §26.3)."""
     out: list[Path] = []
-    for pat in (cfg.estimate or {}).get("spec_paths") or ["docs/SPEC.md", "SPEC.md", "docs/spec/*.md", "spec/*.md"]:
+    for pat in (f"{p}*.md" if p.endswith("/") else p for p in config.spec_paths(cfg)):
         hits = sorted(cfg.root.glob(pat)) if any(ch in pat for ch in "*?[") else [cfg.root / pat]
         out += [p for p in hits if p.is_file() and p not in out]
     return out

@@ -16,7 +16,7 @@ the queue file's `claimed_at` or `implementation_started_at`. A task belongs to:
 
 A task claimed before the first recorded spawn, or between runners with no scope naming it, stays
 unset. So does one whose point the product does not accept: with the review-point register, an R<n>
-it lists (§22); without it, one matching `task_log.review_point_pattern`. A point that `ccp review-points migrate` renamed (a ledger `runner`/`set` event)
+it lists (§22); without it, one matching `ids.review_point.pattern`. A point that `ccp review-points migrate` renamed (a ledger `runner`/`set` event)
 reads as its new name, in the ledger and the log alike.
 
 It writes only the working tree: `review_point: R` as the frontmatter's last line of each task file

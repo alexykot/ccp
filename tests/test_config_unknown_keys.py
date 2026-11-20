@@ -34,7 +34,7 @@ EVERY_LEVEL = {
     "usage": {"advice": {"context_tokens": 1000}},
     "workers": {"implementer_model": {"small": "sonnet", "refactor": "opus"}},
     "suite": {"lanes": {"full": ["true"], "gate": [{"name": "tests", "cmd": "true"}]},
-              "summary": {"tail_lines": 5, "modules_ran_re": r"(\d+) ran"},
+              "summary": {"tail_lines": 5, "ran_re": r"(\d+) ran"},
               "roles": {"full": "full", "gate": "gate", "part": "part"}},
     "verify": {"accept_cache": {"max_age_days": 7, "cold_tasks": [], "review": False},
                "skip_review": {"paths": ["docs"], "proof": "true"},

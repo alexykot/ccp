@@ -33,8 +33,8 @@ the ADR frontmatter reader (`ccp.adr.parse`: plain, quoted, `|-` blocks), and a 
 is a `ccp docs check` failure.
 
 **Strict ids, once the register exists.** With the register, a review point is `R<n>` and one of its
-ids, and `task_log.review_point_pattern` is ignored (with a warning). Without it nothing changes from
-before the register: the pattern rule holds, and each checking command warns once that there is no
+ids, and `task_log.review_point_pattern`, merged into `ids.review_point.pattern`, is ignored (with a warning).
+Without it nothing changes from before the register: the pattern rule holds, and each checking command warns once that there is no
 register. `ccp tasks check` (and so `ccp docs check` and the verifier's gate), `ccp tasks close`'s stamp,
 the backfill and `team.sh runner spawn` all ask `problem()`.
 
@@ -212,14 +212,14 @@ def known(entries: list[dict[str, Any]] | None, ids: refs.Ids = refs.DEFAULT) ->
 def problem(cfg: Config, rp: Any, entries: Any = ...) -> str | None:
     """Why `rp` is not a review point this product accepts, or None. With a register (§22): strict
     `R<n>`, one of its ids. Without one, the rule before the register, unchanged: a plain token
-    matching `task_log.review_point_pattern` (§22.1). `entries` is load()'s, when the caller has it."""
+    matching `ids.review_point.pattern` (§22.1). `entries` is load()'s, when the caller has it."""
     entries = load(cfg)[0] if entries is ... else entries
-    if entries is None:
-        pat = cfg.task_log["review_point_pattern"]
-        if not isinstance(rp, str) or not re.match(pat, rp) or not TOKEN_RE.match(rp):
-            return f"review point {rp!r} does not match task_log.review_point_pattern ({pat}, SPEC §22.1)"
-        return None
     ids = refs.ids(cfg)
+    if entries is None:
+        if not isinstance(rp, str) or not ids.is_review_point(rp) or not TOKEN_RE.match(rp):
+            return (f"review point {rp!r} does not match ids.review_point.pattern "
+                    f"({ids.review_point_pattern}, SPEC §22.1)")
+        return None
     if not isinstance(rp, str) or not ids.is_review_point(rp):
         return f"review point {rp!r} is not {ids.review_point_shape}; SPEC §22.1, §22.7)"
     if rp not in (known(entries, ids) or set()):
@@ -230,7 +230,7 @@ def problem(cfg: Config, rp: Any, entries: Any = ...) -> str | None:
 
 def notes(cfg: Config, entries: Any = ...) -> list[str]:
     """The one warning a command prints about the register: none yet while tasks carry review points
-    (they then follow the old pattern rule), or an ignored `review_point_pattern` beside it."""
+    (they then follow the pattern rule)."""
     entries = load(cfg)[0] if entries is ... else entries
     if entries is None:
         try:  # a product that uses no review point hears nothing about a register
@@ -240,10 +240,6 @@ def notes(cfg: Config, entries: Any = ...) -> list[str]:
         except Exception:  # noqa: BLE001  (an unreadable log: the check itself says so)
             return []
         return [f"no review-point register: {cfg.rel(path(cfg))}; review points are unchecked — create it (SPEC §22.1)"]
-    if cfg.review_point_pattern_set:
-        return [f"docs/delivery/plane.json: task_log.review_point_pattern is ignored now that the review-point "
-                f"register {cfg.rel(path(cfg))} exists: review points are R<number> in it (SPEC §22); "
-                "remove the key"]
     return []
 
 

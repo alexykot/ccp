@@ -48,7 +48,7 @@ class SpecEditsAreSignedAtTasking(unittest.TestCase):
     def test_spec_paths_says_where_the_spec_is(self):
         self.three()
         plane = json.loads((self.p.root / "docs/delivery/plane.json").read_text())
-        self.p.write("docs/delivery/plane.json", json.dumps({**plane, "task_log": {"spec_paths": ["spec/"]}}))
+        self.p.write("docs/delivery/plane.json", json.dumps({**plane, "spec_paths": ["spec/"]}))
         code, ws = self.check()
         self.assertEqual((code, ws), (0, []))
 
@@ -91,11 +91,11 @@ class SpecEditsAreSignedAtTasking(unittest.TestCase):
 
     def test_the_schema_gives_the_default_the_code_applies(self):
         schema = json.loads((Path(__file__).resolve().parents[1] / "contracts/plane_config.schema.json").read_text())
-        knob = schema["properties"]["task_log"]["properties"]["spec_paths"]
-        self.assertEqual(knob["default"], config.TASK_LOG_DEFAULTS["spec_paths"])
+        knob = schema["properties"]["spec_paths"]
+        self.assertEqual(knob["default"], list(config.SPEC_PATHS_DEFAULT))
 
     def test_an_entry_without_a_slash_meets_only_the_path_it_equals(self):
-        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "task_log": {"spec_paths": ["rules"]}}))
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "spec_paths": ["rules"]}))
         self.task("0001-a", paths='["rules"]')
         self.task("0002-b", paths='["rules/one.md"]')
         self.task("0003-c", paths='["rulesets/one.md"]')
@@ -109,10 +109,10 @@ class SpecEditsAreSignedAtTasking(unittest.TestCase):
         for bad in ("docs/spec/", ["/abs/spec"], ["../spec"], [""], [3]):
             with self.subTest(bad=bad):
                 self.p.write("docs/delivery/plane.json",
-                             json.dumps({"project_id": "demo", "task_log": {"spec_paths": bad}}))
+                             json.dumps({"project_id": "demo", "spec_paths": bad}))
                 with self.assertRaises(config.ConfigError) as cm:
                     config.load(self.p.root)
-                self.assertIn("task_log.spec_paths", str(cm.exception))
+                self.assertIn("spec_paths must be a list", str(cm.exception))
 
 
 if __name__ == "__main__":
