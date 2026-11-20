@@ -30,7 +30,7 @@ it, with 0192's constant warning.
   `workers = min(int((cfg.docs or {}).get("workers", 1)), len(checks))`
   (`git grep -n '"workers"' ccp/rules.py` at `6f90b9f`).
 - `ccp/config.py` holds the old default in `DOCS_DEFAULTS` and registers it as the constant;
-  `_docs` refuses any value that is not an integer >= 1; `constant_override` prints the constant
+  `_docs` refuses any value that is not a positive integer; `constant_override` prints the constant
   with `repr` (`git grep -n 'workers\|out.value!r' ccp/config.py` at `6f90b9f`).
 - `contracts/plane_config.schema.json` types `docs.workers` as an integer with the old default, and
   `tests/test_plane_config_defaults.py` asserts that schema defaults equal the code's
@@ -94,9 +94,11 @@ once.
 
 - id: `dw-01`
   story: As a product that took 0192's upgrade step, my check commands run at once.
-  setup: a temp product root with `docs/delivery/plane.json` setting `language: none` and the three
-    barrier checks, no `docs.workers` key, and an empty `docs/delivery/tasks/`. Run
-    `ccp --root <temp> tasks index` once, so `docs check` finds its index.
+  setup: a temp product root with `docs/delivery/plane.json` setting a `project_id`, `language: none`
+    and the three barrier checks, no `docs.workers` key, and an empty `docs/delivery/tasks/`, in a
+    git repo. Run `ccp --root <temp> tasks index` once, so `docs check` finds its index. (Dry run at
+    `6f90b9f`: with `workers: 3` this setup prints `docs: clean`; with `workers: 1`, `docs check a`
+    and `b` exit 1.)
   steps:
     1. `ccp --root <temp> docs check; echo rc=$?`.
   expect: `rc=0`, and no warning names `docs.workers`.
