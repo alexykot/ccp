@@ -2,7 +2,7 @@
   "project_id": "control-plane",
   "language": "python",
   "architect": {
-    "shape_from_task": "0195",
+    "shape_from_task": "0196",
     "checks": [
       {
         "id": "E2",
@@ -125,12 +125,12 @@
       "0164-clashes-with-and-schedule": "plane.json parallel.schedule clashes (PR 191)",
       "0019-parallel-doc-checks": "plane.json docs.workers 4 (PR #191)",
       "0112-parallel-gate-and-slow-modules": "the plane's own gate.sh already runs gate_parallel.py",
-      "0181-models-block-and-role-defaults": "plane.json models implementer_small and implementer_refactor sonnet; .claude/settings.json model opus (PR #219)",
-      "0182-language-is-a-required-key": "plane.json language python (PR #219)",
+      "0181-models-block-and-role-defaults": "plane.json models implementer_small and implementer_refactor sonnet; .claude/settings.json model opus (PR #220)",
+      "0182-language-is-a-required-key": "plane.json language python (PR #220)",
       "0183-gate-lane-is-required": "the plane's own suite.lanes.gate already runs scripts/gate.sh",
-      "0185-architect-on-by-default": "plane.json architect.shape_from_task 0195 (PR #219)",
-      "0187-short-plane-json": "plane.json: no removed or merged key is set (PR #219)",
-      "0192-plane-json-constants-and-defaults": "plane.json: package_docs.doc_name and docs.workers deleted, the constants apply (PR #219)"
+      "0185-architect-on-by-default": "plane.json architect.shape_from_task 0196 (PR #220)",
+      "0187-short-plane-json": "plane.json: no removed or merged key is set (PR #220)",
+      "0192-plane-json-constants-and-defaults": "plane.json: package_docs.doc_name and docs.workers deleted, the constants apply (PR #220)"
     }
   }
 }

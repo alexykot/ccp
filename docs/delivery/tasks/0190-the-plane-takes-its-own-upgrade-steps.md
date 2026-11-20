@@ -91,7 +91,7 @@ warning.
 
 *Append-only, newest last.*
 
-- `docs/delivery/plane.json`: `architect.shape_from_task` is `"0195"` (the highest task file at the base is 0194),
+- `docs/delivery/plane.json`: `architect.shape_from_task` is `"0196"` (the base had 0194 as its highest task file; the catch-up merge brought 0195, so the next number is 0196),
   `models` holds `implementer_small` and `implementer_refactor` as `sonnet`, and `package_docs.doc_name` and
   `docs.workers` are deleted (the constants apply). At the base the file already had no `package_docs.language`,
   `workers`, `task_log`, `worktrees` or `review_points` keys (0181, 0182, 0187 and 0192 had removed them), so
