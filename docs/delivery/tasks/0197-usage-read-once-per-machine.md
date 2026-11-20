@@ -6,7 +6,7 @@ kind: feature
 depends_on: ["0186-account-facts-on-the-machine"]
 spec_refs: ["S3", "S8", "S16", "S25"]
 review_point: R12
-paths: ["ccp/usage.py", "ccp/parallel.py", "ccp/lifecycle.py", "ccp/prompt.py", "ccp/notify.py", "ccp/forecast.py", "contracts/allowance.schema.json", "contracts/machine.schema.json", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/spec/04-observability.md", "plugin/agents/delivery-runner.md", "plugin/skills/spec-maintainer/SKILL.md", "plugin/orientation.md", "tests/__init__.py", "tests/test_usage_reading.py", "tests/"]
+paths: ["ccp/usage.py", "ccp/parallel.py", "ccp/lifecycle.py", "ccp/prompt.py", "ccp/notify.py", "ccp/forecast.py", "contracts/allowance.schema.json", "contracts/machine.schema.json", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/spec/04-observability.md", "plugin/agents/delivery-runner.md", "plugin/skills/spec-maintainer/SKILL.md", "plugin/orientation.md", "tests/__init__.py", "tests/test_usage_reading.py", "tests/test_parallel_claims.py", "tests/test_session_park.py", "tests/test_toolkit.py", "tests/"]
 clashes_with: ["0189-spec-states-behaviour", "0191-the-grace-release-ends"]
 adopt: "none"
 sign_off: brief
@@ -137,7 +137,8 @@ printed nothing.
   `contracts/machine.schema.json`, `docs/spec/01-model.md`, `docs/spec/02-delivery.md`,
   `docs/spec/04-observability.md`, `plugin/agents/delivery-runner.md`,
   `plugin/skills/spec-maintainer/SKILL.md`, `plugin/orientation.md`, `tests/__init__.py`,
-  `tests/test_usage_reading.py` (new), and the existing tests that the moved prompt step breaks.
+  `tests/test_usage_reading.py` (new), `tests/test_parallel_claims.py`, `tests/test_session_park.py`,
+  `tests/test_toolkit.py`, and the other existing tests §7 names.
 
 ### The constants and the clock (in `ccp/usage.py`)
 
@@ -191,8 +192,10 @@ printed nothing.
     and the backoff is computed from the log (§2).
 - **Test-only switch.** With `CCP_ALLOWANCE_UNSHARED=1`, the reader runs the command on every call,
   with no cache, no reuse and no backoff, as before this task. It appends its row with
-  `shared: false` and gives no warning. `tests/__init__.py` sets the switch, with a comment saying
-  why, and the new tests unset it. Nothing else reads it, and the SPEC does not name it.
+  `shared: false` and gives no warning. The unread clock and every judgment then come from the
+  product's own log, as in the production fallback (§3, §5). `tests/__init__.py` sets the switch,
+  with a comment saying why, and the new tests unset it. Nothing else reads it, and the SPEC does
+  not name it.
 
 ### 2. A failed read backs off
 
@@ -223,7 +226,7 @@ printed nothing.
 - **The reading in force**, `usage.in_force(q)`: the latest good row when its `at` is no older than
   `IN_FORCE_S`, else None.
 - **Judgments that stop work use the latest good row**, of any age, while the window they judge has
-  not reset. Usage only grows within a window, so an old figure at or past a threshold still holds.
+  not reset: an old figure at or past a threshold is kept until a newer good reading.
   - **The weekly checkpoint at the claim.** Each weekly window in the latest good row's `windows`
     whose `resets_at` is still ahead is held to its checkpoint, as the `over` loop of
     `sample_allowance` does today. A window with no `resets_at` is judged only while the row is in
@@ -240,8 +243,9 @@ printed nothing.
     which reads. A failed row is never in force, so it never makes `next` report slots full.
   - **Lifting a park.** A park lifts only when the reading in force shows the window known and under
     the park, when the latest good row's reset has passed, or when the park is off.
-- **With no reading in force**, nothing passes on a figure. The claim and the prompt carry a
-  `warning:` that says how long the account has gone unread.
+- **With no reading in force**, nothing passes on a figure. The claim and the prompt carry the
+  `warning:` "no good allowance reading in force: the account's usage has gone unread for N minutes
+  (SPEC §25.1)".
 - **The other readers of the last row:**
   - `project`'s `prev` and `continue_` read `latest_good(q)`. A failed latest row no longer resets
     the stable window choice or refuses a decision.
@@ -267,7 +271,8 @@ printed nothing.
 
 ### 5. The unread checkpoint (operator's option (a))
 
-- **Unread since.** This is the cache's `failing_since`. Under the production fallback, it is the
+- **Unread since.** This is the cache's `failing_since`. Under the production fallback and the
+  test-only switch, it is the
   `at` of the first failed row after the product's latest good row, or of the log's first failed
   row when no row is good.
 - **The stop.** It applies when all three hold:
@@ -289,9 +294,10 @@ printed nothing.
   - a stop judged on the latest good row still applies (§3).
 - **The recovery, in the plugin's words:**
   - `plugin/agents/delivery-runner.md`, item (c): exit 5 is either the weekly checkpoint or usage
-    unread. On either, the runner tells the lead what the claim printed and stops.
-  - `plugin/skills/spec-maintainer/SKILL.md`, the allowance checkpoint bullet: on a usage-unread
-    stop, the lead checks `allowance_cmd`, then runs `ccp allowance status --sample` until
+    unread. On either, the runner tells the lead what the claim printed and stops. The item
+    contains the words `usage unread` on one line.
+  - `plugin/skills/spec-maintainer/SKILL.md`, the allowance checkpoint bullet, which contains on one
+    line the phrase "On a `usage unread` stop" and then says: the lead checks `allowance_cmd`, then runs `ccp allowance status --sample` until
     `latest_good` is in force. It honours the backoff `status` reports, rather than retrying in a
     loop. Then it tells the runner to resume. No `continue` decision is recorded, and the operator
     is told the outcome.
@@ -426,8 +432,9 @@ CURRENT:
 > - An unknown reading, or no `allowance_cmd`, gates nothing and lifts nothing.
 
 PROPOSED:
-> - No good sample whose window is still open, or no `allowance_cmd`, gates nothing; no reading in
->   force lifts nothing.
+> - No good sample whose window is still open, or no `allowance_cmd`, gates nothing; with no
+>   reading in force, a park lifts only when the latest good sample's reset has passed or the park
+>   is off.
 
 CURRENT:
 > - **`--fire`** (what the wake runs) takes a fresh sample;
@@ -524,9 +531,23 @@ Class `SharedReading`, with these six tests:
   - `ccp prompt verify --pr 1 --head <sha>` with no `--note` exits 4 (`repeat_gate`), and the
     counter file is still empty.
 
-The existing tests run under `CCP_ALLOWANCE_UNSHARED=1`, so the cache does not reach them. A test
-that the moved prompt step breaks is updated, and named in the Implementation notes with why. No
-other expectation of an existing test changes.
+The existing tests run under `CCP_ALLOWANCE_UNSHARED=1`, so the cache does not reach them, but
+the new judgments do. These change their expectations (lines at `438c97f`):
+- `tests/test_parallel_claims.py`, `test_the_session_ceiling_and_an_unknown_reading`
+  (`sed -n 140,151p`): after the 60% row, a bad reading still refuses rule 5 (exit 7), and the
+  message names `60%`, not `unknown`, since the 60% row is still in force.
+- `tests/test_session_park.py`,
+  `test_an_unknown_reading_proceeds_but_keeps_the_park_and_a_past_reset_lifts_it`
+  (`sed -n 407,414p`): after the 96% row whose reset is ahead, the claim with a garbage reading
+  parks again (exit 6) instead of proceeding with exit 0. The rest of the test (a past reset lifts
+  the park) is unchanged. The test is renamed to say what it now checks.
+- `tests/test_toolkit.py`, `test_an_unknown_sample_never_stops_a_claim` (`sed -n 729,735p`): the
+  claim still exits 0, and the warning it checks is the new one, "no good allowance reading in
+  force" (§3), instead of "allowance reading is unknown". The row has `failed: true`.
+
+Any other test that asserts an unknown reading gates or lifts nothing is updated to the new rule
+(§3) and listed in the Implementation notes. So is a test that the moved prompt step breaks. Each
+note gives the test, the old expectation and the new one.
 
 - **Out:**
   - the board, which reads the log and never the command;
