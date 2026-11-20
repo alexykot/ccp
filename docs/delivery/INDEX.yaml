@@ -958,7 +958,7 @@ tasks:
     depends_on: [0181-models-block-and-role-defaults, 0182-language-is-a-required-key, 0183-gate-lane-is-required, 0186-account-facts-on-the-machine, 0187-short-plane-json, 0188-short-binding, 0190-the-plane-takes-its-own-upgrade-steps, 0192-plane-json-constants-and-defaults]
     path: tasks/0191-the-grace-release-ends.md
   - id: 0192-plane-json-constants-and-defaults
-    status: pending
+    status: done
     title: Tuning keys in plane.json become constants, and four defaults change so a product works without setting them
     depends_on: [0181-models-block-and-role-defaults, 0185-architect-on-by-default, 0187-short-plane-json]
     path: tasks/0192-plane-json-constants-and-defaults.md

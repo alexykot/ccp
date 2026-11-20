@@ -1,7 +1,7 @@
 ---
 task_id: 0192-plane-json-constants-and-defaults
 title: Tuning keys in plane.json become constants, and four defaults change so a product works without setting them
-status: pending
+status: done
 kind: feature
 depends_on: ["0181-models-block-and-role-defaults", "0185-architect-on-by-default", "0187-short-plane-json"]
 spec_refs: ["S8", "S15", "S19", "S24", "S26"]
@@ -10,7 +10,7 @@ paths: ["ccp/config.py", "ccp/prompt.py", "ccp/usage.py", "ccp/board.py", "ccp/e
 adopt: "plane.json: delete each constant ccp upgrade status lists, or file a plane proposal to keep it"
 sign_off: brief
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Task: 0192-plane-json-constants-and-defaults
@@ -179,3 +179,5 @@ the prompt fragment, and the lead's expected model follows `models.lead`.
   line.
 
 ## Verification notes
+- 2026-11-20 — verifier, PR #218 head `ed9721f` (squash `efdfb64`): APPROVE. Passed: con-01, con-02, con-03, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0192-plane-json-constants-and-defaults.json.
+
