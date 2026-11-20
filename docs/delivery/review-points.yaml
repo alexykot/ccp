@@ -75,3 +75,8 @@ review_points:
     goal: ADR-0043's grace release ends once every bound product has taken its upgrade steps - the language and gate lane are enforced and old key places are no longer read.
     status: planned
     opened: "2026-11-19"
+  - id: R14
+    name: fixes and speedups
+    goal: Follow-ups and accepted proposals that change no SPEC rule - defects found in R10-R12, suite and mutate speedups, architect isolation, task-supply reporting, and SPEC descriptions caught up with built behaviour.
+    status: planned
+    opened: "2026-11-20"
