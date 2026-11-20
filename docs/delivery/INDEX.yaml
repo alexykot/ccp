@@ -968,7 +968,7 @@ tasks:
     depends_on: [0175-one-binding-reader]
     path: tasks/0193-leak-check-finds-its-denylist.md
   - id: 0194-shell-binding-readers-use-the-one-parser
-    status: pending
+    status: done
     title: The runner's idle hook and run-checkout.sh read the binding through the one binding module
     depends_on: [0175-one-binding-reader, 0188-short-binding]
     path: tasks/0194-shell-binding-readers-use-the-one-parser.md

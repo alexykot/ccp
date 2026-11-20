@@ -1,7 +1,7 @@
 ---
 task_id: 0194-shell-binding-readers-use-the-one-parser
 title: The runner's idle hook and run-checkout.sh read the binding through the one binding module
-status: pending
+status: done
 kind: refactor
 depends_on: ["0175-one-binding-reader", "0188-short-binding"]
 spec_refs: ["S8"]
@@ -11,7 +11,7 @@ review_point: R12
 paths: ["plugin/hooks/runner-idle.sh", "scripts/run-checkout.sh", "scripts/observability/lib.py", "tests/test_runner_idle_rotation.py", "tests/test_run_checkout_upgrade.py", "tests/test_binding_reader.py", "tests/test_team_hosting.py", "tests/test_self_hosting.py", "tests/test_sync_on_release.py", "tests/test_plugin.py"]
 adopt: "none"
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Task: 0194-shell-binding-readers-use-the-one-parser
@@ -112,3 +112,5 @@ writes, behaviour is unchanged.
   as `test_run_checkout_upgrade` already arranges its code; one new test there covers the missing parser.
 
 ## Verification notes
+- 2026-11-20 — verifier, PR #224 head `68bdb9e` (squash `d9d907e`): APPROVE. Passed: sb-01, sb-02, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -q tests.test_runner_idle_rotation tests.test_run_checkout_upgrade tests.test_binding_reader tests.test_team_hosting tests.test_self_hosting tests.test_sync_on_release tests.test_plugin` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0194-shell-binding-readers-use-the-one-parser.json.
+
