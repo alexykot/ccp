@@ -27,7 +27,7 @@ class RotationFixture(ToolkitFixture):
     def binding(self, **runner):
         lines = "".join(f"  {k}: {v}\n" for k, v in runner.items())
         (self.q / "project.yaml").write_text(f"project_id: demo\nintegration_branch: main\nproduct_root: {self.main}\n"
-                                             f"runner:\n  name: runner\n{lines}")
+                                             + (f"runner:\n{lines}" if lines else ""))
 
     def slots(self, **rec):
         spawned = iso(time.time() - 3600)
@@ -215,7 +215,7 @@ class RotationReadsItsRecordSafely(RotationFixture, unittest.TestCase):
         self.slots(tasks_done="2")
         code, _, out, err = self.claim()
         self.assertEqual(code, 7, out + err)
-        self.assertNotIn("warning:", err)
+        self.assertNotIn("not a whole number", err)
 
     def test_no_spawn_time_counts_from_the_slots_latest_spawn_event(self):
         self.binding(rotate_at_context_tokens=100000)

@@ -20,6 +20,10 @@ HOOK = PLANE / "plugin" / "hooks" / "runner-idle.sh"
 
 
 class TeamCase(unittest.TestCase):
+    # The runner's worktree is derived from the binding's product root (SPEC §8.3), so a spawn makes it from
+    # origin/<integration>: the product has an origin with its `main` pushed unless a class sets this False.
+    with_origin = True
+
     def setUp(self):
         self.prod = Product()
         self.prod.write("docs/delivery/SPEC-MAINTAINER.md", "# protocol\n")
@@ -28,11 +32,7 @@ class TeamCase(unittest.TestCase):
         self.q = Path(self._q.name)
         (self.q / "project.yaml").write_text(
             "project_id: demo\n"
-            "hosting: claude-team\n"
-            f"product_root: {self.prod.root}\n"
-            "runner:\n  name: runner\n  rotate_after_tasks: 4\n  idle_block_limit: 2\n"
-            "spec_maintainer:\n  kind: team-lead\n  alias: demo-design\n"
-            "  protocol_doc: docs/delivery/SPEC-MAINTAINER.md\n")
+            f"product_root: {self.prod.root}\n")
         (self.q / "work.json").write_text(json.dumps({"project_id": "demo", "status": "idle"}))
         (self.q / "tasks").mkdir()
         for tid in ("0001-a", "0002-b"):  # claimed tasks have a runtime file (the runner writes it at claim)
@@ -40,6 +40,9 @@ class TeamCase(unittest.TestCase):
         self.env = {**os.environ, "QUEUE_ROOT": str(self.q)}
         self.env.pop("PROJECT_YAML", None)
         self.env.pop("ACTOR", None)
+        self._origin: Path | None = None
+        if self.with_origin:
+            self.origin()
 
     def tearDown(self):
         self.prod.cleanup()
@@ -68,8 +71,10 @@ class TeamCase(unittest.TestCase):
 
     def origin(self, push: bool = True) -> Path:
         """Make the product a git checkout with a bare origin; push its `main` there unless `push` is False
-        (an origin with no integration branch). Returns the origin."""
+        (an origin with no integration branch). Returns the origin; a second call returns the same one."""
         from tests.test_toolkit import git  # noqa: PLC0415
+        if self._origin is not None:
+            return self._origin
         o = tempfile.TemporaryDirectory()
         self.addCleanup(o.cleanup)
         bare = Path(o.name) / "origin.git"
@@ -80,6 +85,7 @@ class TeamCase(unittest.TestCase):
         git(self.prod.root, "commit", "-q", "--allow-empty", "-m", "base")
         if push:
             git(self.prod.root, "push", "-q", "-u", "origin", "main")
+        self._origin = bare
         return bare
 
     def task_wait(self, tid):
@@ -446,7 +452,8 @@ class TestIdleHook(TeamCase):
     def test_keeps_runner_working_then_lets_go(self):
         self.assertEqual(self.hook(), 2)
         self.assertEqual(self.hook(), 2)
-        self.assertEqual(self.hook(), 0)  # idle_block_limit 2 on the same ready set
+        self.assertEqual(self.hook(), 2)
+        self.assertEqual(self.hook(), 0)  # the idle limit, 3, on the same ready set
 
     def test_a_session_park_lets_the_runner_idle_until_its_resume(self):
         # SPEC §25.4: the 5-hour window is the account's, so a park in work.json is a scope-wide stop
@@ -695,11 +702,8 @@ class TheRunnerSpawnFollowsCcpsDefault(TeamCase):
 
     def setUp(self):
         super().setUp()
-        (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text().replace(
-            "runner:\n  name: runner\n", "runner:\n  name: runner\n  worktree: /tmp/demo-runner\n"))
         # The subject is a missing `parallel` block: the plane.json `Product(bare=True)` writes.
         self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo"}))
-        self.origin()
 
     def test_a_product_with_no_parallel_block_gets_the_slots_ccps_default_gives(self):
         self.patch_default("PARALLEL_DEFAULTS", "max_in_flight", 1)

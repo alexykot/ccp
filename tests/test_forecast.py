@@ -96,7 +96,7 @@ class Order(unittest.TestCase):
                                   ("0007-g", "pending", (), "R9"), ("0009-gone", "dropped", (), None)):
             self.p.write(f"docs/delivery/tasks/{tid}.md", task_text(tid, st, deps, rp=rp))
         self.q = Path(tempfile.mkdtemp())
-        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\n")
+        (self.q / "project.yaml").write_text("project_id: demo\n")
 
     def tearDown(self):
         self.p.cleanup()

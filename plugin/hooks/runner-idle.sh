@@ -17,7 +17,7 @@
 # as the runner's own type too; the runner's subagents report their own (plugin-scoped) types.
 # Every input's non-secret fields go to observability/runner-idle-inputs.jsonl (bounded), so a
 # change in what the harness sends can be seen.
-# After `idle_block_limit` consecutive blocks on the same ready set it lets the runner idle, so a
+# After 3 consecutive blocks on the same ready set (SPEC §18.2) it lets the runner idle, so a
 # runner that genuinely cannot proceed reports instead of looping.
 # With the architect seat adopted in the product (SPEC §19.6, §19.11) it also asks `ccp tasks next`:
 # a report overdue for triage waits on the lead (let it idle); a pass due tells it to start the pass.
@@ -43,6 +43,7 @@ except ValueError:
     sys.exit(0)
 root = Path(arg("--queue-root", "") or "/nonexistent")
 ccp = arg("--ccp", "ccp")
+where = {}
 if not arg("--queue-root"):
     # Plugin mode (SPEC §9): the project's queue and plane come from `ccp where`.
     try:
@@ -57,24 +58,11 @@ if not arg("--queue-root"):
 if not root.is_dir() or not (root / "work.json").is_file():
     sys.exit(0)   # no queue, or no runner has ever run here: nothing to keep working, nothing to log
 
-# SPEC §8.3: the binding `ccp where` resolved; a product on managed copies keeps its queue copy.
-yml_p = Path(where["binding"]) if not arg("--queue-root") and where.get("binding") else root / "project.yaml"
-yml = yml_p.read_text() if yml_p.is_file() else ""
-def block(name):
-    out, inside = {}, False
-    for line in yml.splitlines():
-        if not line.strip() or line.strip().startswith("#"):
-            continue
-        if not line[:1].isspace():
-            inside = line.split("#", 1)[0].strip() == f"{name}:"
-            continue
-        if inside and ":" in line:
-            k, _, v = line.strip().partition(":")
-            v = v.split(" #", 1)[0].strip().strip("'\"")
-            if v:
-                out[k.strip()] = v
-    return out
-rc = block("runner")
+# SPEC §8.3: the runner's name and agent are derived, not the binding's. The idle limit is a constant (3, §18.2)
+# that `ccp where` reports, with the value a binding still sets (§29.3); a product on managed copies has no `where`.
+RUNNER_NAME, RUNNER_AGENT, IDLE_LIMIT = "runner", "delivery-runner", 3
+if isinstance(where.get("idle_limit"), int) and where["idle_limit"] >= 1:
+    IDLE_LIMIT = where["idle_limit"]
 
 # Record what the harness sent: whitelisted fields only (no prompts, no transcript contents).
 LOG_FIELDS = ("hook_event_name", "teammate_name", "team_name", "agent_id", "agent_type", "session_id",
@@ -114,16 +102,15 @@ else:
         sys.exit(0)  # §10.2: rotated since its spawn: the runner being rotated out takes no new task
     # §10.2: the live runner is the name the lead bound in work.json (`team.sh runner bind`): after a
     # rotation the harness may have named the fresh one `runner-2` while the old one, still idling under
-    # the binding's name, must not be nudged back to work.
-    RUNNER = str(work.get("runner") or rc.get("name", "runner"))
+    # the derived name, must not be nudged back to work.
+    RUNNER = str(work.get("runner") or RUNNER_NAME)
 
 def is_runner_itself(h):
     if h.get("teammate_name") != RUNNER:
         return False
     atype = h.get("agent_type")
     if atype:
-        own = rc.get("agent_type", "delivery-runner").split(":", 1)[-1]
-        return atype.split(":", 1)[-1] in (own, RUNNER, rc.get("name", "runner"))
+        return atype.split(":", 1)[-1] in (RUNNER_AGENT, RUNNER, RUNNER_NAME)
     return not h.get("agent_id")  # agent_id without agent_type: still a subagent
 
 if not is_runner_itself(hook):
@@ -323,7 +310,7 @@ if not ready:
     code = 0
 else:
     count = state.get("count", 0) + 1 if state.get("key") == key else 1
-    limit = int(rc.get("idle_block_limit", 3))
+    limit = IDLE_LIMIT
     state = {"key": key, "count": count}
     code = 2 if count <= limit else 0
 state_p.parent.mkdir(parents=True, exist_ok=True)

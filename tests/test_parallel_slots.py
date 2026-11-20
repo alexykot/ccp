@@ -20,9 +20,6 @@ class LeadSlots(TeamCase):
     def setUp(self):
         super().setUp()
         self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "parallel": {"max_in_flight": 2}}))
-        (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text().replace(
-            "runner:\n  name: runner\n", "runner:\n  name: runner\n  worktree: /tmp/demo-runner\n"))
-        self.origin()  # a slot's spawn promises a worktree made from origin/main (SPEC §12.1)
 
     def work(self):
         return json.loads((self.q / "work.json").read_text())
@@ -34,7 +31,8 @@ class LeadSlots(TeamCase):
         self.assertEqual([a["name"] for a in res["actions"]], ["runner-1", "runner-2"])
         self.assertIn("--holder runner-2", res["actions"][1]["prompt"])
         r = self.work()["runners"]
-        self.assertEqual((r["runner-1"]["worktree"], r["runner-2"]["tasks_done"]), ("/tmp/demo-runner-runner-1", 0))
+        self.assertEqual((r["runner-1"]["worktree"], r["runner-2"]["tasks_done"]),
+                         (str(self.prod.root / ".plane-runtime" / "runner-runner-1"), 0))
         self.assertEqual(self.team("runner", "spawn", "--count", "3")[0], 2)  # above max_in_flight
         self.assertEqual(self.team("runner", "spawn", "--count", "2")[0], 2)  # recorded already
         code, res, _ = self.team("runner", "spawn", "--slot", "runner-2")  # a respawn
@@ -203,8 +201,6 @@ class Claims(test_parallel_claims.ParallelFixture, unittest.TestCase):
         self.assertTrue((self.q / "runs/0002-second/implement-2.json").exists())
 
     def test_each_runner_gets_its_own_worktree(self):
-        (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text()
-                                             + f"runner:\n  worktree: {self.main / '.rt' / 'runner'}\n")
         code, body, out, err = self.ccp("tasks", "worktree", "--runner", "runner-2", root=self.main)
         self.assertEqual(code, 0, out + err)
         self.assertTrue(body["made"])

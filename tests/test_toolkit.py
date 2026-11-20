@@ -108,7 +108,7 @@ class ToolkitFixture:
         git(self.main, "worktree", "add", "-q", "--detach", str(self.runner), "origin/main")
         self.q = t / "queue"
         self.q.mkdir()
-        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\nintegration_branch: main\n")
+        (self.q / "project.yaml").write_text(f"project_id: demo\nintegration_branch: main\nproduct_root: {self.main}\n")
         (t / "ghstate").mkdir()
         (t / "gh").write_text(FAKE_GH)
         (t / "gh").chmod(0o755)
@@ -267,21 +267,23 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         # Grok hosting is gone; an old queue may still carry its lock and binding keys.
         (self.q / "hosting.lock").write_text(json.dumps({"live": "grok"}))
         (self.q / "STATE_REF").write_text("plane\n")
-        (self.q / "project.yaml").write_text("project_id: demo\nhosting: grok\nintegration_branch: main\n"
-                                             "grok:\n  state_ref: plane\n")
+        (self.q / "project.yaml").write_text(f"project_id: demo\nhosting: grok\nintegration_branch: main\n"
+                                             f"product_root: {self.main}\ngrok:\n  state_ref: plane\n")
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
         self.assertTrue((self.q / "observability/events.jsonl").is_file())
         self.assertFalse((self.q / "observability/events.grok.jsonl").exists())
 
-    def test_plane_check_accepts_the_bindings_auth_check(self):
-        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\nintegration_branch: main\n"
+    def test_plane_check_lists_a_script_the_binding_still_names_as_the_planes_do(self):
+        # SPEC §29.3: the binding's `auth_check` is removed, so its script is no queue script the plane keeps.
+        (self.q / "project.yaml").write_text(f"project_id: demo\nintegration_branch: main\nproduct_root: {self.main}\n"
                                              "auth_check:\n  script: scripts/auth-check.sh\n")
         (self.q / "scripts").mkdir()
         (self.q / "scripts/auth-check.sh").write_text("#!/bin/sh\n")
         (self.q / "scripts/with-scratch-db.sh.orig-0153").write_text("old\n")
         code, body, _, _ = self.ccp("plane", "check")
-        self.assertEqual(body["scripts"], ["unknown: scripts/with-scratch-db.sh.orig-0153"])
+        self.assertEqual(body["scripts"], ["unknown: scripts/auth-check.sh",
+                                           "unknown: scripts/with-scratch-db.sh.orig-0153"])
 
     def test_claim_warns_of_scripts_that_are_not_the_plane(self):
         (self.q / "scripts").mkdir()

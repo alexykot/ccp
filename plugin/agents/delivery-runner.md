@@ -1,6 +1,6 @@
 ---
 name: delivery-runner
-description: Control-plane Task Runner (SPEC §2). Spawned by the team lead (the design seat) as the teammate named in the binding; runs one review-point scope task by task through implement, review, verify, merge, operator step and reconcile. Not for ad-hoc use.
+description: Control-plane Task Runner (SPEC §2). Spawned by the team lead (the design seat) as the teammate `runner`; runs one review-point scope task by task through implement, review, verify, merge, operator step and reconcile. Not for ad-hoc use.
 tools: Agent, Bash, Read, Edit, Write
 model: claude-sonnet-5-5
 effort: high
@@ -311,8 +311,8 @@ when), next. At (a) on a review point, say so: it is the hard stop.
 When `ccp tasks claim` or `ccp prompt` warns "no session wake armed", forward that line to the lead
 at once, and carry on.
 
-Your rotation is due when `runner_tasks_done` reaches the binding's `rotate_after_tasks`, or your
-latest request's context reaches its `rotate_at_context_tokens` (when set): `ccp tasks claim` then
+Your rotation is due when `runner_tasks_done` reaches 4, or your latest request's context reaches the
+context limit (off unless the binding still sets one): `ccp tasks claim` then
 refuses you a new task (exit 7, naming the rotation) until the lead rotates you. Finish the current
 phase, write `work.json`, and ask the lead to rotate you, as you may sooner when your context feels
 heavy. With a runner slot, count your slot's own `tasks_done` (`work.json` `runners`), not

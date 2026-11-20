@@ -58,8 +58,8 @@ only through its single writer (`ccp tasks wait|resume`, which call `set-waiting
    It reports to the lead in one message: what finished, what is waiting and why, and the next
    step. At a review point, (a) is the hard stop; the review pack is the lead's to prepare with the
    operator. With several runners the last runner to finish reports the stop.
-4. **Rotate.** When its slot's `tasks_done` reaches `runner.rotate_after_tasks` (default 4), or the
-   runner seat's request context reaches `runner.rotate_at_context_tokens` (default off), rotation is
+4. **Rotate.** When its slot's `tasks_done` reaches 4, or the
+   runner seat's request context reaches its limit (off unless a binding still sets one, §29.3), rotation is
    due:
    `ccp tasks claim` refuses the slot a new task until the lead rotates it, and from the rotation until the lead binds the fresh runner (`team.sh runner bind`), so the runner being rotated out takes no new task.
    The runner finishes
@@ -386,8 +386,8 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
 
 **The lead and the runners.** The lead keeps the product's main checkout and pulls it when a merge is
 reported. Each runner merges and runs operator steps from its own **runner worktree**
-(binding `runner.worktree`, made by the single runner's `team.sh runner spawn` or `ccp tasks worktree`
-when missing; with several runners `<runner.worktree>-<slot>`, made by
+(`<product_root>/<worktrees.dir>/runner`, made by the single runner's `team.sh runner spawn` or `ccp tasks worktree`
+when missing; with several runners that path with `-<slot>` added, made by
 `ccp tasks worktree --runner <slot>` when missing), detached at `origin/<integration_branch>` (the
 main checkout holds the branch). An existing one is left alone; one the spawn cannot make is a
 warning, except a missing `origin/<integration_branch>`, which refuses the spawn (exit 3), dry run
@@ -1174,7 +1174,7 @@ ready. `ccp tasks check` warns when a task not yet done has neither a path nor `
 ### 16.4 Queue state
 
 - **Runners.** `work.json` `runners` maps each runner's **slot** (`runner-1` … `runner-N`; one
-  runner: `runner.name`) to `bound_name`, `spawned_at`, `tasks_done`, `bind_pending`, `rotated_at`
+  runner: `runner`) to `bound_name`, `spawned_at`, `tasks_done`, `bind_pending`, `rotated_at`
   and `worktree`. The slot is stable across rotations; the bound name is not. The hook and `ccp
   prompt` map a teammate name to its slot through `bound_name`. `status`, `scope`, `review_point`,
   the preference list and holds stay queue-wide. With one runner and no `runners` map, `work.json`
@@ -1213,7 +1213,7 @@ task's holder.
 `team.sh runner spawn --dry-run` (with any of the spawn's other flags) runs the spawn's refusals and
 prints what the spawn would print, its `actions` included, with `dry_run: true`, and the readiness
 checks of §10.2 that a machine can answer: every scope entry names a task in the task log, `ccp tasks
-check` is clean, and the one runner's `runner.worktree` is a working tree or can be made: its path
+check` is clean, and the one runner's worktree (§12.1) is a working tree or can be made: its path
 is absent or an empty directory. A runner worktree that is not a working tree yet needs
 `origin/<integration_branch>`: when that ref does not resolve, the dry run is refused before the
 checks, as the spawn is (exit 3, §12.1). It exits 0 with `ready: true` when every check passes, and 1
@@ -1499,10 +1499,9 @@ durable tasks remain and allowance is available, work continues. On a wait (`ope
 The lead gets the runners' idle and failure notices. The `TeammateIdle` hook
 (`templates/claude-hooks/runner-idle.sh`, installed by the plugin) keeps a runner working:
 
-- It acts only on a bound runner (`work.json` `runners` bound names, else `runner`, else
-  `runner.name`), only while `work.json` says `status: running`. It fires inside a runner's subagents
+- It acts only on a bound runner (`work.json` `runners` bound names, else `runner`), only while `work.json` says `status: running`. It fires inside a runner's subagents
   too, with the runner's `teammate_name`; it acts only when there is no `agent_id`, or `agent_type` is
-  `runner.agent_type`.
+  the runner's (`delivery-runner`).
 - Every input's non-secret fields (a whitelist: event, teammate and team name, agent id and type,
   session id, cwd, permission mode, and the list of keys) are appended to
   `observability/runner-idle-inputs.jsonl` (trimmed past 256 KiB); its block counter per slot is in
@@ -1512,8 +1511,8 @@ The lead gets the runners' idle and failure notices. The `TeammateIdle` hook
   `pending`, or a legacy `blocked` read as pending, with its dependencies done) and not held by
   its runtime `waiting_on`, an open question's `blocks`, or an undecided gate. `work.json`'s own
   `waiting_on` is not a scope-wide stop.
-- It lets the runner go idle when its slot's rotation is due, after `runner.idle_block_limit`
-  consecutive blocks on the same ready set (default 3), and while a task is parked on a session window
+- It lets the runner go idle when its slot's rotation is due, after 3
+  consecutive blocks on the same ready set (the value `ccp where` reports as `idle_limit`), and while a task is parked on a session window
   (`waiting_on: quota`, `quota_class: session`) with its `planned_resume_at` still ahead. A park past
   its `planned_resume_at` has expired and holds nothing back.
 

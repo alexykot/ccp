@@ -144,7 +144,7 @@ class Fold(unittest.TestCase):
     def setUp(self):
         self._d = tempfile.TemporaryDirectory()
         self.q = Path(self._d.name)
-        (self.q / "project.yaml").write_text("project_id: demo\nrunner:\n  name: runner\n")
+        (self.q / "project.yaml").write_text("project_id: demo\n")
         (self.q / "board").mkdir()
         self.mkrun("0001-a/implement", "implementer", "claude-opus-5-5", "high", agent="a1", start=0, stop=100)
         self.mkrun("0001-a/review", "reviewer", "claude-sonnet-5-5", "high", agent=None, start=200, stop=300)
@@ -216,15 +216,14 @@ class Fold(unittest.TestCase):
         self.assertEqual(r["seats"]["teammate:probe"]["output_tokens"], 1)
 
     def test_every_runner_slots_worktree_is_the_runner_seat(self):
-        """§16.7: with several runners, each slot's own checkout (`<runner.worktree>-<slot>`) is the runner seat."""
+        """§16.7: with several runners, each slot's own checkout (`<the runner's worktree>-<slot>`) is the runner seat."""
         root = Path(self._d.name) / "prod"
-        (root / ".ccp-runtime").mkdir(parents=True)
-        (self.q / "project.yaml").write_text(f"project_id: demo\nproduct_root: {root}\nrunner:\n  name: runner\n"
-                                             f"  worktree: {root}/.ccp-runtime/runner\n")
+        (root / ".plane-runtime").mkdir(parents=True)
+        (self.q / "project.yaml").write_text(f"project_id: demo\nproduct_root: {root}\n")
         (self.q / "work.json").write_text(json.dumps({"runners": {"runner-1": {}, "runner-2": {"worktree": "x2"}}}))  # relative
         main = dict(source="repl_main_thread")
         self.write("usage-requests.jsonl", self.rows(
-            req("a", 1, session__id="s1", cwd=f"{root}/.ccp-runtime/runner-runner-1", out=5, **main),
+            req("a", 1, session__id="s1", cwd=f"{root}/.plane-runtime/runner-runner-1", out=5, **main),
             req("b", 2, session__id="s2", cwd=f"{root}/x2", out=6, **main)))
         self.write("usage-spans.jsonl", [{"request_id": "a"}, {"request_id": "b"}])
         r = usage.fold(self.q)
@@ -278,18 +277,17 @@ class Fold(unittest.TestCase):
         """§24: headless sessions (and their subagents) are their kind's seat; calls without an agent_id go by
         their session's cwd: the product root is the design seat, the runner's checkout the runner, else other-sessions."""
         root = Path(self._d.name) / "prod"
-        (root / ".ccp-runtime/runner").mkdir(parents=True)
+        (root / ".plane-runtime/runner").mkdir(parents=True)
         (root / "scratch-wt").mkdir()
-        (self.q / "project.yaml").write_text(f"project_id: demo\nproduct_root: {root}\nrunner:\n  name: runner\n"
-                                             f"  worktree: {root}/.ccp-runtime/runner   # detached\n")
+        (self.q / "project.yaml").write_text(f"project_id: demo\nproduct_root: {root}\n")
         usage.record_headless(self.q, "architect-pass", "ar-1", {"session_id": "hs-0001"})
         main = dict(source="repl_main_thread")
         self.write("usage-requests.jsonl", self.rows(
             req("h1", 1, session__id="hs-0001", cwd=str(root), **main),            # the headless pass itself
             req("h2", 2, session__id="hs-0001", cwd=str(root)),                    # its subagent
             req("d1", 3, session__id="docs-0001", cwd=str(root), seat="docs-audit", **main),  # tagged by ccp.seat
-            req("r1", 4, session__id="run-0001", cwd=f"{root}/.ccp-runtime/runner", model="claude-sonnet-5-5", out=7, **main),
-            req("w1", 10, session__id="run-0001", cwd=f"{root}/.ccp-runtime/runner"),  # a worker inside the runner
+            req("r1", 4, session__id="run-0001", cwd=f"{root}/.plane-runtime/runner", model="claude-sonnet-5-5", out=7, **main),
+            req("w1", 10, session__id="run-0001", cwd=f"{root}/.plane-runtime/runner"),  # a worker inside the runner
             req("s1", 5, session__id="adhoc-001", cwd=f"{root}/scratch-wt", model="claude-haiku-5-5", out=11, **main),
             req("l1", 6, session__id="lead-0001", cwd=str(root), model="claude-opus-5-5", effort="xhigh", out=3, **main)))
         self.write("usage-spans.jsonl", [{"request_id": "h1"}, {"request_id": "h2", "agent_id": "a-sub"},
@@ -411,7 +409,7 @@ class SessionRouting(unittest.TestCase):
         self.assertEqual([r["request_id"] for r in self.rows(self.prodq)], ["r1", "r2"])
 
     def test_a_worktree_under_the_root_and_a_git_worktree_elsewhere_route_to_the_project(self):
-        wt = self.real / ".ccp-runtime" / "impl-0233"
+        wt = self.real / ".plane-runtime" / "impl-0233"
         wt.mkdir(parents=True)
         transcript(self.claude, wt, "sess-wt-0001")
         gitwt = self.real / ".git" / "worktrees" / "spike"

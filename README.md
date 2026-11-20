@@ -192,8 +192,7 @@ alone:
 
 It also adds two session settings there when absent, and never overwrites one the product set:
 `"subagentPromptCacheTtl": "1h"`, the runner teammate's prompt-cache lifetime, and
-`"autoCompactWindow": 350000`, the lead's compaction window (the binding's `lead.auto_compact_window`
-sets another). Its result's `settings` names each as added or kept. It also tags the product's
+`"autoCompactWindow": 350000`, the lead's compaction window. Its result's `settings` names each as added or kept. It also tags the product's
 sessions for telemetry: `env.OTEL_RESOURCE_ATTRIBUTES` is `ccp.project_id=my-product` there, added when
 absent.
 
@@ -208,8 +207,10 @@ and creates the queue, `~/.delivery-queue/my-product/` (`--queue-root` picks ano
   GitHub (see the prerequisites); it adopts the product all the same.
 - It never overwrites a file without `--force`: it keeps the file and lists it as kept, so running it
   again is safe.
-- The binding is the one place for the product root, the queue and the runner: edit it there, and
-  `ccp`, the team scripts and the hooks all read the change. `ccp where` names it.
+- The binding holds only where the product and its queue are, its integration branch, and its CI and
+  notes: four keys, `project_id`, `integration_branch`, `product_root` and `queue_root`, and the optional
+  `ci` and `notes`. The runner's agent, name and worktree are derived. Edit the binding there, and `ccp`,
+  the team scripts and the hooks all read the change. `ccp where` names it.
 
 #### Adoption checklist
 
@@ -439,7 +440,7 @@ in that product (SPEC §31.4).
 |---|---|---|
 | `<product>/docs/delivery/` | yes | `plane.json`, tasks, `INDEX.yaml`, review points |
 | `<product>/.plane-runtime/` | no (gitignored) | worktrees for implement, review and verify |
-| `$PLANE/projects/<id>.yaml` | no (gitignored) | the binding: product root, queue, runner |
+| `$PLANE/projects/<id>.yaml` | no (gitignored) | the binding: product root, queue, integration branch |
 | `~/.delivery-queue/<id>/` | no | the queue: leases, runs, verdicts, the board |
 | `~/.local/state/control-plane/` | no | telemetry: numbers and ids only, never content |
 

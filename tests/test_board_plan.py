@@ -127,7 +127,7 @@ class Plan(unittest.TestCase):
         self._q = tempfile.TemporaryDirectory()
         self.addCleanup(self._q.cleanup)
         self.q = Path(self._q.name)
-        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\n")
+        (self.q / "project.yaml").write_text("project_id: demo\n")
         (self.q / "tasks").mkdir()
         _task(self.p, "0001-base", "done", extra='adr_refs: ["0007 D1"]\nreview_point: R1', created="2026-09-28")
         _task(self.p, "0002-feat", "done", ["0001-base"], extra='adr_refs: ["ADR-0007"]\nreview_point: R1',

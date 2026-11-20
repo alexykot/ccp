@@ -8,29 +8,34 @@
     "project_id",
     "integration_branch",
     "queue_root",
-    "durable_docs_path"
+    "product_root"
   ],
   "properties": {
     "project_id": {
       "type": "string"
     },
     "display_name": {
-      "type": "string"
+      "type": "string",
+      "deprecated": true,
+      "description": "Removed and ignored (SPEC \u00a729.3): nothing reads it. Delete it."
     },
     "adapter": {
       "type": "string",
-      "description": "Deprecated and ignored (SPEC §12.1): the plane makes worktrees and runs the product's env hooks itself."
+      "description": "Removed and ignored (SPEC \u00a712.1, \u00a729.3): the plane makes worktrees and runs the product's env hooks itself. Delete it.",
+      "deprecated": true
     },
     "adapter_config_path": {
       "type": "string",
-      "description": "Deprecated and ignored (SPEC §12.1)."
+      "description": "Removed and ignored (SPEC \u00a712.1, \u00a729.3). Delete it.",
+      "deprecated": true
     },
     "integration_branch": {
       "type": "string"
     },
     "production_branch": {
       "type": "string",
-      "description": "Human-gated; never auto-promoted"
+      "description": "Removed and ignored (SPEC \u00a729.3): nothing reads it. Delete it.",
+      "deprecated": true
     },
     "queue_root": {
       "type": "string",
@@ -38,11 +43,12 @@
     },
     "durable_docs_path": {
       "type": "string",
-      "description": "Durable DAG under product docs/, e.g. docs/delivery/"
+      "description": "Removed and ignored (SPEC \u00a729.3): the task log is plane.json `task_log.dir`, `docs/delivery` unless it sets one. Delete it.",
+      "deprecated": true
     },
     "product_root": {
       "type": "string",
-      "description": "Absolute product main checkout (durable docs resolver)"
+      "description": "The product's main checkout (absolute)"
     },
     "seats": {
       "type": "object",
@@ -56,22 +62,24 @@
         },
         "watchdog": {
           "type": "string",
-          "description": "Historical Delivery Watchdog seat. Not used by the Claude team (SPEC §18.2)."
+          "description": "Historical Delivery Watchdog seat. Not used by the Claude team (SPEC \u00a718.2)."
         },
         "steerer": {
           "type": "string"
         }
-      }
+      },
+      "deprecated": true,
+      "description": "Removed and ignored (SPEC \u00a729.3): nothing reads it. Delete it."
     },
     "cadence": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Seat schedules. No secrets.",
+      "description": "Removed and ignored (SPEC \u00a729.3): nothing reads it. Delete it.",
       "properties": {
         "watchdog": {
           "type": "string",
           "default": "*/30 * * * *",
-          "description": "Historical Delivery Watchdog cron. Not used by the Claude team (SPEC §18.2)."
+          "description": "Historical Delivery Watchdog cron. Not used by the Claude team (SPEC \u00a718.2)."
         },
         "runner": {
           "type": "string",
@@ -83,14 +91,15 @@
             "event"
           ],
           "default": "event",
-          "description": "Task Verifier has NO routine: the runner's subagent (SPEC §18.3)"
+          "description": "Task Verifier has NO routine: the runner's subagent (SPEC \u00a718.3)"
         },
         "verify_stale_minutes": {
           "type": "integer",
           "minimum": 1,
-          "description": "Deprecated and ignored: retired with the verify_stale blocker (SPEC §18.3, ADR-0034 D6). Allowed so an older binding still validates; nothing reads it."
+          "description": "Deprecated and ignored: retired with the verify_stale blocker (SPEC \u00a718.3, ADR-0034 D6). Allowed so an older binding still validates; nothing reads it."
         }
-      }
+      },
+      "deprecated": true
     },
     "email": {
       "type": "object",
@@ -108,7 +117,9 @@
         "subject_prefix": {
           "type": "string"
         }
-      }
+      },
+      "deprecated": true,
+      "description": "Removed and ignored (SPEC \u00a729.3): the operator's channel is plane.json `notify` (\u00a73.6). Delete it."
     },
     "verifier_access": {
       "type": "object",
@@ -131,14 +142,16 @@
             "null"
           ]
         }
-      }
+      },
+      "deprecated": true,
+      "description": "Removed and ignored (SPEC \u00a729.3): nothing reads it. Delete it."
     },
     "ci": {
       "type": "string",
       "enum": [
         "github-actions"
       ],
-      "description": "§15.1: the product runs the formal unit/lint workflow as CI; only then may a verdict cite gate.ci_run. Omit for no CI; CI is never the gate."
+      "description": "\u00a715.1: the product runs the formal unit/lint workflow as CI; only then may a verdict cite gate.ci_run. Omit for no CI; CI is never the gate."
     },
     "auth_check": {
       "type": "object",
@@ -150,7 +163,7 @@
         "includes_gcloud_adc": {
           "type": "boolean",
           "default": true,
-          "description": "A product that depends on cloud credentials sets true (§30). Products with no gcloud dependency may set false"
+          "description": "A product that depends on cloud credentials sets true (\u00a730). Products with no gcloud dependency may set false"
         },
         "includes_adapter_doctor": {
           "type": "boolean",
@@ -161,10 +174,11 @@
           "default": true
         }
       },
-      "description": "Deprecated (SPEC §30): auth probes are plane.json auth_check.probes. `script` names the product's own copy in the queue, which script-drift checks leave alone."
+      "description": "Removed and ignored (SPEC \u00a729.3, \u00a730): auth probes are plane.json `auth_check.probes`. Delete it.",
+      "deprecated": true
     },
     "spec_maintainer": {
-      "description": "§17, deprecated and optional. The team lead always answers spec questions; the block is read only for `protocol_doc` (default: the plugin's spec-maintainer skill). The headless `claude-session` maintainer was removed on 2026-11-05. No secrets.",
+      "description": "Removed and ignored (SPEC \u00a717, \u00a729.3): the lead is every project's spec maintainer. Delete it.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -186,10 +200,11 @@
           "minLength": 1,
           "description": "Relative to product_root: docs/delivery/SPEC-MAINTAINER.md (managed copy)"
         }
-      }
+      },
+      "deprecated": true
     },
     "architecture_review": {
-      "description": "Retired with the architecture-review alias (SPEC §19.12): read by nothing; allowed so an older binding still validates. No secrets.",
+      "description": "Removed and ignored (SPEC \u00a719.12, \u00a729.3): read by nothing. Delete it.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -229,11 +244,13 @@
           },
           "description": "Read-only command prefixes the reviewer may run, besides git/ls/wc (each becomes Bash(<probe>:*)). Nothing that writes, spends, sends or calls an agent"
         }
-      }
+      },
+      "deprecated": true
     },
     "hosting": {
       "type": "string",
-      "description": "Deprecated and ignored: the plane has one hosting, the Claude team (SPEC §2.2). A leftover line of any value is read as if absent."
+      "description": "Removed and ignored (SPEC \u00a72.2, \u00a729.3): the plane has one hosting, the Claude team. Delete it.",
+      "deprecated": true
     },
     "notes": {
       "type": "string",
@@ -242,30 +259,32 @@
     "runner": {
       "type": "object",
       "additionalProperties": false,
-      "description": "§8.3 runner teammate. No secrets",
+      "description": "Removed (SPEC \u00a729.3): the runner's agent (`ccp:delivery-runner`), name (`runner`) and worktree (`<product_root>/<worktrees.dir>/runner`) are derived, and its limits are constants. Delete the block.",
       "properties": {
         "agent_type": {
           "type": "string",
           "minLength": 1,
-          "default": "delivery-runner",
-          "description": "Claude Code agent definition the lead spawns the runner from (.claude/agents/<agent_type>.md, managed copy)"
+          "description": "Removed and ignored (SPEC \u00a729.3): the runner's agent is `ccp:delivery-runner`. Delete it.",
+          "deprecated": true
         },
         "name": {
           "type": "string",
           "minLength": 1,
-          "default": "runner",
-          "description": "Teammate name; the TeammateIdle hook (§18.2) acts only on this name"
+          "description": "Removed and ignored (SPEC \u00a729.3): the runner's name is `runner`. Delete it.",
+          "deprecated": true
         },
         "worktree": {
           "type": "string",
           "minLength": 1,
-          "description": "Absolute runner worktree on the integration branch (detached), for merges and operator steps (§12.1)"
+          "description": "Removed and ignored (SPEC \u00a729.3): the runner's worktree is `<product_root>/<worktrees.dir>/runner`. Delete it.",
+          "deprecated": true
         },
         "rotate_after_tasks": {
           "type": "integer",
           "minimum": 1,
-          "default": 4,
-          "description": "Tasks one runner teammate completes before the lead rotates it (§10.2)"
+          "description": "Constant (SPEC \u00a729.3): 4 (\u00a710.2). A value set here still applies, with a warning, until the key is deleted.",
+          "deprecated": true,
+          "default": 4
         },
         "rotate_at_context_tokens": {
           "type": [
@@ -273,33 +292,39 @@
             "null"
           ],
           "minimum": 1,
-          "default": null,
-          "description": "Context tokens of the runner teammate's latest request (§24) at which its rotation is due; null: off (§10.2)"
+          "description": "Constant (SPEC \u00a729.3): off (\u00a710.2). A value set here still applies, with a warning, until the key is deleted.",
+          "deprecated": true,
+          "default": null
         },
         "idle_block_limit": {
           "type": "integer",
           "minimum": 1,
-          "default": 3,
-          "description": "Consecutive TeammateIdle blocks on the same ready set before the hook lets the runner go idle (§18.2)"
+          "description": "Constant (SPEC \u00a729.3): 3 (\u00a718.2). A value set here still applies, with a warning, until the key is deleted.",
+          "deprecated": true,
+          "default": 3
         }
-      }
+      },
+      "deprecated": true
     },
     "lead": {
       "type": "object",
       "additionalProperties": false,
-      "description": "§4.5 the lead (design seat). No secrets",
+      "description": "Removed (SPEC \u00a729.3): the product's own .claude/settings.json holds the lead's `autoCompactWindow`. Delete the block.",
       "properties": {
         "auto_compact_window": {
           "type": "integer",
           "minimum": 1,
-          "default": 350000,
-          "description": "The autoCompactWindow `ccp init` adds to the product's .claude/settings.json when it has none (§4.5); an existing value is never overwritten"
+          "description": "Moved (SPEC \u00a74.5, \u00a729.3): `ccp init` writes `autoCompactWindow` (350000) into the product's .claude/settings.json when it has none, with this value while it is set. Delete it.",
+          "deprecated": true,
+          "default": 350000
         }
-      }
+      },
+      "deprecated": true
     },
     "grok": {
       "type": "object",
-      "description": "Deprecated and ignored: Grok hosting was removed on 2026-11-05. A leftover block is read as if absent."
+      "description": "Removed and ignored (SPEC \u00a729.3): Grok hosting was removed. Delete it.",
+      "deprecated": true
     }
   }
 }

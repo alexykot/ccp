@@ -1,5 +1,5 @@
 """SPEC §18.2, §10.2 step 4: the `TeammateIdle` hook lets a runner idle when its rotation is due under
-either trigger, `runner.rotate_after_tasks` or `runner.rotate_at_context_tokens`, by the rule
+either trigger, the task limit or the context limit (a constant, or the value a binding still sets), by the rule
 `ccp tasks claim` enforces (asked of `ccp tasks rotation-due`), and keeps driving it below both."""
 from __future__ import annotations
 
@@ -20,8 +20,7 @@ class IdleHookRotation(TeamCase):
         self.prod.task("0002-b", deps=["0001-a"])
         self.prod.index()
         yaml = (self.q / "project.yaml").read_text()
-        (self.q / "project.yaml").write_text(yaml.replace("  rotate_after_tasks: 4\n",
-                                                          "  rotate_after_tasks: 4\n  rotate_at_context_tokens: 100000\n"))
+        (self.q / "project.yaml").write_text(yaml + "runner:\n  rotate_at_context_tokens: 100000\n")
 
     def hook(self, name):
         r = self.run_cmd("bash", HOOK, "--queue-root", self.q, "--ccp", PLANE / "bin" / "ccp",

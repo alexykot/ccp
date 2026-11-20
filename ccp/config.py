@@ -422,14 +422,17 @@ def _same(a: Any, b: Any) -> bool:
     return type(a) is type(b) and a == b
 
 
-def constant_override(key: str, given: Any = UNSET, *, notes: list[str] | None = None, where: str = CONFIG_REL) -> Any:
-    """The value to use for `key`, a registry entry (`KEY_OUTCOMES`) with the outcome `constant`: its value
+def constant_override(key: str, given: Any = UNSET, *, notes: list[str] | None = None, where: str = CONFIG_REL,
+                      registry: dict[str, Outcome] | None = None) -> Any:
+    """The value to use for `key`, an entry of `registry` (default `KEY_OUTCOMES`) with the outcome `constant`: its value
     when `given` is UNSET; else, with one warning naming the key and the constant, `given` when it is another
     value (it applies until the product deletes the key or the plane takes a proposal to keep it), or the
     constant when `given` is the constant's own value (the warning says the key can be deleted). The warning
     goes to `notes` when that is given (once per key), else to stderr once per `where` and process. Every
-    reader of a constant calls this: plane.json's loader, the account knobs, the runner numbers (SPEC §29.3)."""
-    out = KEY_OUTCOMES[key]
+    reader of a constant calls this: plane.json's loader, the account knobs, the runner numbers (SPEC §29.3).
+    The binding's constants are a registry of their own (`lib.binding_constants`), since plane.json's
+    keys are another file's."""
+    out = (KEY_OUTCOMES if registry is None else registry)[key]
     if out.kind != CONSTANT:
         raise KeyError(f"{key} is not a constant")
     if given is UNSET:
@@ -547,8 +550,8 @@ _INTS = {"rules_max_lines": 1, "every_n_tasks": 1, "max_days": 1, "notes_due": 1
 _STR_LISTS = ("probes", "metrics", "shape_only_dirs", "private_dirs")
 RULE_ID_RE = refs.DEFAULT.rule_id_re  # the default house-rule id; a product may set ids.rule (refs.py)
 PROJECT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-# §4.5, §8.3: the binding's `lead` block. `auto_compact_window` is the `autoCompactWindow` `ccp init` writes
-# into a product's `.claude/settings.json` when it has none.
+# §4.5: the `autoCompactWindow` `ccp init` writes into a product's `.claude/settings.json` when it has none. A
+# binding that still sets `lead.auto_compact_window` has that value written instead, with a warning (§29.3).
 LEAD_DEFAULTS: dict[str, Any] = {"auto_compact_window": 350000}
 # §8.1: the top-level keys plane.json must give. `language` names a language pack (ccp/doclang) or `none`
 # and has no default. While REQUIRED_KEYS_GRACE is true (the grace release, §29.3), a command that needs a

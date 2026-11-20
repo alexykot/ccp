@@ -39,10 +39,10 @@ check it end to end.
   so the bash wrapper reads the hook JSON first and passes it as `HOOK_INPUT`. The hook ships with
   the plugin; a product that installed a copy at `.claude/hooks/runner-idle.sh` keeps it working.
 - **Rotation names.** While the old teammate still holds the name, the harness gives the fresh one a
-  suffixed name (`runner-2`); a spawn records the binding's `runner.name` and the bind records the
+  suffixed name (`runner-2`); a spawn records the derived name `runner` and the bind records the
   name the harness gave into `work.json` (single runner: `runner`, with `runner_tasks_done: 0` at
-  spawn). When a rotation is due (SPEC §10.2 step 4: `tasks_done ≥ rotate_after_tasks`, or the latest
-  request context at `rotate_at_context_tokens`), `ccp tasks claim` refuses the slot a new task
+  spawn). When a rotation is due (SPEC §10.2 step 4: `tasks_done ≥ 4`, or the latest
+  request context at its limit), `ccp tasks claim` refuses the slot a new task
   (`lifecycle.rotation_due`) until `team.sh runner rotate` records the rotation; `ccp health` lists
   the due slot.
 - **The usage-limit wake.** When a session limit is hit, the runner's idle notice fails, the lead's

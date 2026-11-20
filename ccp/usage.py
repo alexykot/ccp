@@ -96,12 +96,13 @@ def _out(acc: dict[str, Any]) -> dict[str, Any]:
 
 def _places(q: Path) -> tuple[str | None, set[str]]:
     """Real paths of the product root and of the team runners' checkouts, from the queue's binding (§24):
-    `runner.worktree`, and with several runners (§16.4) each slot's own (`-<slot>`, or as recorded)."""
+    the derived runner worktree (`lib.runner_worktree`), and with several runners (§16.4) each slot's own
+    (`-<slot>`, or as recorded)."""
     import os  # noqa: PLC0415
     from ccp.queue import lib  # noqa: PLC0415
     data = lib.binding_data(q)
-    root, wt = lib.binding_str(data, "product_root"), lib.binding_str(data, "runner", "worktree")
-    # a relative runner.worktree is the product root's, as `ccp tasks worktree` reads it (§16.5)
+    root, wt = lib.binding_str(data, "product_root"), lib.runner_worktree(q)
+    # a relative recorded worktree is the product root's, as `ccp tasks worktree` reads it (§16.5)
     at = lambda p: os.path.realpath(p if os.path.isabs(p) or not root else os.path.join(root, p))  # noqa: E731
     wts = {at(wt)} if wt else set()
     try:
@@ -324,8 +325,8 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
 
 
 COORDINATION = ("design-seat", "runner")  # the lead and the runner: the seats that coordinate the workers (§24.6)
-CONTEXT_SETTING = {"design-seat": "autoCompactWindow (.claude/settings.json)",
-                   "runner": "runner.rotate_at_context_tokens (the binding)"}
+CONTEXT_SETTING = {"design-seat": "with autoCompactWindow (.claude/settings.json)",
+                   "runner": "by rotating it sooner (`team.sh runner rotate`, SPEC §10.2)"}
 
 
 def main_model_contexts(calls: list[tuple[str, Any, int, int]]) -> list[int]:
@@ -359,7 +360,7 @@ def cost_advice(seats: dict[str, dict[str, Any]], contexts: dict[str, list[int]]
     for name in COORDINATION:
         if contexts.get(name) and (m := statistics.median(contexts[name])) > knobs["context_tokens"]:
             out.append(f"{name}: median context {m:.0f} tokens per request (above {knobs['context_tokens']}): "
-                       f"lower it with {CONTEXT_SETTING[name]}")
+                       f"lower it {CONTEXT_SETTING[name]}")
     total = sum(u.get("cost_usd") or 0 for u in seats.values())
     coord = sum((seats.get(n) or {}).get("cost_usd") or 0 for n in COORDINATION)
     if worker_runs > 0 and total > 0 and coord / total > knobs["coordination_share"]:

@@ -101,14 +101,11 @@ class TestSpawnDryRun(TeamCase):
         self.assertEqual(snapshot(self.q), before)
 
     def test_the_runner_worktree_is_checked_and_not_made(self):
-        self.origin()
-        yaml = (self.q / "project.yaml").read_text()
-        (self.q / "project.yaml").write_text(yaml.replace("  name: runner\n", "  name: runner\n  worktree: rwt\n"))
         code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
         self.assertEqual(code, 0, err)
         self.assertEqual((res["ready"], self.check(res, "runner_worktree")["ok"]), (True, True))
-        self.assertFalse((self.prod.root / "rwt").exists())
-        self.prod.write("rwt/stray.txt", "x")
+        self.assertFalse((self.prod.root / ".plane-runtime").exists())
+        self.prod.write(".plane-runtime/runner/stray.txt", "x")
         code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
         self.assertEqual(code, 1, err)
         self.assertEqual((res["ready"], self.check(res, "runner_worktree")["ok"]), (False, False))
@@ -137,16 +134,13 @@ class TestSpawnDryRun(TeamCase):
 class TestSpawnNeedsTheIntegrationRef(TeamCase):
     """SPEC §12.1: a spawn that would make a runner worktree, or tell a slot's runner to make one, refuses
     when origin/<integration> does not resolve: dry run or real, before anything is made or written."""
+    with_origin = False  # each test sets its origin up: with the integration branch pushed or not
 
     def setUp(self):
         super().setUp()
         for tid in ("0001-a", "0002-b"):
             self.prod.task(tid)
         self.prod.index()
-
-    def worktree(self, path="rwt"):
-        yaml = (self.q / "project.yaml").read_text()
-        (self.q / "project.yaml").write_text(yaml.replace("  name: runner\n", f"  name: runner\n  worktree: {path}\n"))
 
     def slots(self):
         self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "parallel": {"max_in_flight": 2}}))
@@ -156,11 +150,11 @@ class TestSpawnNeedsTheIntegrationRef(TeamCase):
                         "runner-2": {"bound_name": "runner-2", "tasks_done": 0}}}))
 
     def made(self):
-        return [p.name for p in self.prod.root.iterdir() if p.name.startswith("rwt")]
+        runtime = self.prod.root / ".plane-runtime"  # the derived runner worktree is `runner` under it (§8.3)
+        return [p.name for p in runtime.iterdir()] if runtime.is_dir() else []
 
     def test_one_runner_refuses_dry_run_and_real(self):
         self.origin(push=False)
-        self.worktree()
         before = snapshot(self.q)
         for dry in (["--dry-run"], []):
             code, _res, err = self.team("runner", "spawn", *dry, "--scope", "0001-a")
@@ -171,7 +165,6 @@ class TestSpawnNeedsTheIntegrationRef(TeamCase):
 
     def test_the_binding_names_the_integration_branch(self):
         self.origin()
-        self.worktree()
         (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text() + "integration_branch: develop\n")
         code, _res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
         self.assertEqual(code, 3, err)
@@ -179,9 +172,8 @@ class TestSpawnNeedsTheIntegrationRef(TeamCase):
 
     def test_an_existing_runner_worktree_needs_no_ref(self):
         self.origin(push=False)
-        self.worktree()
         from tests.test_toolkit import git  # noqa: PLC0415
-        git(self.prod.root, "worktree", "add", "-q", "--detach", str(self.prod.root / "rwt"), "HEAD")
+        git(self.prod.root, "worktree", "add", "-q", "--detach", str(self.prod.root / ".plane-runtime" / "runner"), "HEAD")
         code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
         self.assertEqual(code, 0, err)
         self.assertTrue(self.check(res, "runner_worktree")["ok"])
@@ -190,7 +182,6 @@ class TestSpawnNeedsTheIntegrationRef(TeamCase):
         from tests.test_toolkit import git  # noqa: PLC0415
         self.origin()
         git(self.prod.root, "update-ref", "-d", "refs/remotes/origin/main")  # pushed from elsewhere, never fetched
-        self.worktree()
         before = snapshot(self.q)
         code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
         self.assertEqual(code, 0, err)
@@ -199,20 +190,15 @@ class TestSpawnNeedsTheIntegrationRef(TeamCase):
         git(self.prod.root, "update-ref", "-d", "refs/remotes/origin/main")
         code, _res, err = self.team("runner", "spawn", "--scope", "0001-a")
         self.assertEqual(code, 0, err)
-        self.assertEqual(self.made(), ["rwt"])
-        self.assertEqual(git(self.prod.root / "rwt", "rev-parse", "HEAD"), git(self.prod.root, "rev-parse", "main"))
-
-    def test_no_runner_worktree_named_checks_no_ref(self):
-        self.origin(push=False)
-        code, _res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
-        self.assertEqual(code, 0, err)
+        self.assertEqual(self.made(), ["runner"])
+        self.assertEqual(git(self.prod.root / ".plane-runtime" / "runner", "rev-parse", "HEAD"),
+                         git(self.prod.root, "rev-parse", "main"))
 
     def check(self, res, name):
         return next(c for c in res["checks"] if c["check"] == name)
 
     def test_a_slot_respawn_refuses_without_the_ref_and_writes_nothing(self):
         self.origin(push=False)
-        self.worktree()
         self.slots()
         before = snapshot(self.q)
         for dry in (["--dry-run"], []):
@@ -224,7 +210,6 @@ class TestSpawnNeedsTheIntegrationRef(TeamCase):
 
     def test_a_slot_respawn_dry_run_prints_that_slots_spawn_only(self):
         self.origin()
-        self.worktree()
         self.slots()
         before = snapshot(self.q)
         code, res, err = self.team("runner", "spawn", "--slot", "runner-1", "--review-point", "R1", "--dry-run")

@@ -104,12 +104,13 @@ class Listing(SandboxCase):
                 self.assertTrue(all(f.is_file() for f in files))
                 self.assertFalse((self.q / "_legacy").exists())
 
-    def test_the_bindings_auth_check_script_at_the_root_is_not_a_leftover(self):
+    def test_a_script_the_binding_still_names_as_its_auth_check_is_a_leftover_like_any_other(self):
+        # SPEC §29.3: the binding's `auth_check` is removed, so it keeps nothing in the queue.
         with open(self.sb["binding"], "a") as fh:
             fh.write("auth_check:\n  script: auth-check.sh\n")
         self.put("auth-check.sh", "#!/bin/sh\n")
         code, body, _ = self.ccp("plane", "check")
-        self.assertEqual((code, body["root"]), (0, []))
+        self.assertEqual((code, body["root"]), (1, ["unknown: auth-check.sh"]))
 
 
 class Archive(SandboxCase):
@@ -196,28 +197,29 @@ class Archive(SandboxCase):
         self.assertEqual(code, 0)
         self.assertEqual([r["path"] for r in body["archived"]], ["scripts/spec-maintainer-lock.sh"])
 
-    def test_the_auth_check_script_and_a_clean_copy_stay(self):
+    def test_a_clean_copy_stays_and_the_script_a_binding_names_as_its_auth_check_is_archived(self):
         with open(self.sb["binding"], "a") as fh:
             fh.write("auth_check:\n  script: scripts/auth-check.sh\n")
         auth = self.put("scripts/auth-check.sh", "#!/bin/sh\nexit 0\n")
         gate = self.put("scripts/gate.sh", (PLANE / "scripts/gate.sh").read_text())
         code, body, err = self.ccp("plane", "check", "--archive")
         self.assertEqual(code, 0, err)
-        self.assertEqual((body["scripts"], body["root"], body["archived"], body["not_moved"]), ([], [], [], []))
-        self.assertTrue(auth.is_file() and gate.is_file())
-        self.assertFalse((self.q / "_legacy").exists())
+        self.assertEqual((body["scripts"], body["root"], [r["path"] for r in body["archived"]], body["not_moved"]),
+                         ([], [], ["scripts/auth-check.sh"], []))
+        self.assertFalse(auth.exists())
+        self.assertTrue(gate.is_file())
 
-    def test_a_directory_holding_the_auth_check_script_stays(self):
+    def test_a_directory_holding_the_script_a_binding_names_as_its_auth_check_is_archived_whole(self):
         with open(self.sb["binding"], "a") as fh:
             fh.write("auth_check:\n  script: tools/auth/check.sh\n")
         auth = self.put("tools/auth/check.sh", "#!/bin/sh\nexit 0\n")
         self.put("run-task.sh", "#!/bin/sh\n")
         code, body, err = self.ccp("plane", "check", "--archive")
         self.assertEqual(code, 0, err)
-        self.assertEqual([r["path"] for r in body["archived"]], ["run-task.sh"])
+        self.assertEqual([r["path"] for r in body["archived"]], ["run-task.sh", "tools/"])
         self.assertEqual((body["root"], body["not_moved"]), ([], []))
-        self.assertEqual(auth.read_text(), "#!/bin/sh\nexit 0\n")
-        self.assertFalse((self.q / "_legacy" / utc_day() / "tools").exists())
+        self.assertFalse(auth.exists())
+        self.assertEqual((self.q / "_legacy" / utc_day() / "tools/auth/check.sh").read_text(), "#!/bin/sh\nexit 0\n")
 
     def test_the_archive_date_is_utc_whatever_the_local_zone(self):
         # Between them, these two zones put the local date off the UTC date at every hour of the day.

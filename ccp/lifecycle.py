@@ -15,8 +15,8 @@ review point fire the operator's triggers: a pending notice on record, and the p
 if it names one (§3.6, `ccp.notify`).
 
 `claim` refuses a new task (exit 7) to a runner slot due for rotation and not rotated since its spawn
-(§10.2 step 4, `rotation_due`): its `tasks_done` reached `runner.rotate_after_tasks`, or its latest
-request's context reached `runner.rotate_at_context_tokens`. It refuses one too from the rotation until
+(§10.2 step 4, `rotation_due`): its `tasks_done` reached the runner's task limit (4, §10.2), or its latest
+request's context reached its context limit (off unless the binding still sets one, §29.3). It refuses one too from the rotation until
 the lead binds the fresh runner (`rotation_step_left`), so the runner being rotated out takes no new task.
 A resume is never refused.
 
@@ -96,23 +96,13 @@ def _worktree(cfg: Config, q: Path, tid: str) -> dict[str, Any] | None:
 
 STOPPED = ("draining", "stopped", "stopping")
 EXIT_AUTH = 8  # §30: an auth probe failed, so `ccp tasks claim` took no task (7 is §16.3's "carry on")
-ROTATE_AFTER_TASKS = 4  # §2.6, §8.3: `runner.rotate_after_tasks`'s default
-
-
-def _positive_int(v: Any) -> int | None:
-    try:
-        n = int(str(v).strip())
-    except (TypeError, ValueError):
-        return None
-    return n if n >= 1 else None
 
 
 def rotation_knobs(q: Path) -> tuple[int, int | None]:
-    """§8.3: the binding's `runner.rotate_after_tasks` (default 4) and `runner.rotate_at_context_tokens`
-    (default null: off)."""
-    rc = lib._yaml_block_scalars(lib.project_yaml_text(q), "runner")
-    return (_positive_int(rc.get("rotate_after_tasks")) or ROTATE_AFTER_TASKS,
-            _positive_int(rc.get("rotate_at_context_tokens")))
+    """§10.2, §29.3: the tasks a runner completes before its rotation (4) and the request context at which it
+    is due (None: off): constants (`lib.runner_limits`), or the value a binding still sets, with a warning."""
+    limits = lib.runner_limits(q)
+    return int(limits["after_tasks"] or 0), limits["at_context_tokens"]
 
 
 def _tasks_done(v: Any, field: str) -> int:
@@ -156,8 +146,8 @@ def _last_spawn(q: Path, slot: str | None) -> str | None:
 
 def rotation_due(q: Path, slot: str, w: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """§10.2 step 4: whether runner `slot` is due for rotation and not rotated since its spawn. Due when
-    its `tasks_done` reaches `runner.rotate_after_tasks`, or when its teammate's latest request since the
-    spawn sent `runner.rotate_at_context_tokens` or more (§24). With several runners the slot's record
+    its `tasks_done` reaches the task limit, or when its teammate's latest request since the
+    spawn sent the context limit's tokens or more (§24, `rotation_knobs`). With several runners the slot's record
     in work.json `runners`; with one, the single-runner fields (`runner_tasks_done`, `runner_rotated_at`
     against `runner_spawned_at`), whatever `slot` says. `team.sh runner rotate` records the rotation.
     None when not due, or when `slot` is no recorded runner slot.
@@ -185,18 +175,18 @@ def rotation_due(q: Path, slot: str, w: dict[str, Any] | None = None) -> dict[st
     if rotated:
         return None
     after, at_context = rotation_knobs(q)
-    base = {"slot": slot, "tasks_done": done, "rotate_after_tasks": after, "rotate": cmd}
+    base = {"slot": slot, "tasks_done": done, "after_tasks": after, "rotate": cmd}
     if done >= after:
-        return {**base, "trigger": "tasks", "why": f"its tasks_done {done} reached runner.rotate_after_tasks {after}"}
+        return {**base, "trigger": "tasks", "why": f"its tasks_done {done} reached the task limit, {after}"}
     if at_context is not None:
         from ccp import usage  # noqa: PLC0415
         if not spawned:
             spawned = _last_spawn(q, slot if slots else None)
         ctx = usage.runner_context(q, names, since=spawned) if spawned else None
         if ctx and ctx["tokens"] >= at_context:
-            return {**base, "trigger": "context", "context_tokens": ctx["tokens"], "rotate_at_context_tokens": at_context,
+            return {**base, "trigger": "context", "context_tokens": ctx["tokens"], "at_context_tokens": at_context,
                     "why": f"its latest request's context, {ctx['tokens']} tokens, reached "
-                           f"runner.rotate_at_context_tokens {at_context}"}
+                           f"the context limit, {at_context}"}
     return None
 
 
@@ -704,8 +694,8 @@ def vacant_slots(q: Path) -> list[str]:
 
 def runner_worktree(cfg: Config, slot: str | None) -> dict[str, Any]:
     """§12.1, §16.5 rule 1: a runner's own merge worktree, made when missing, detached at the integration
-    tip. With a slot: work.json `runners.<slot>.worktree`, else the binding's `runner.worktree` plus
-    `-<slot>`. Without one (one runner, no slots recorded): the binding's `runner.worktree` itself."""
+    tip. With a slot: work.json `runners.<slot>.worktree`, else the derived runner worktree (`lib.runner_worktree`)
+    plus `-<slot>`. Without one (one runner, no slots recorded): the derived worktree itself."""
     from ccp import wt as _wt  # noqa: PLC0415
     from ccp.prompt import main_checkout  # noqa: PLC0415
     q = root()
@@ -717,10 +707,10 @@ def runner_worktree(cfg: Config, slot: str | None) -> dict[str, Any]:
                          "the lead records slots with `team.sh runner spawn --count`", 2)
     path = str(slots[slot].get("worktree") or "") if slot is not None else ""
     if not path:
-        worktree = lib.binding_str(lib.binding_data(q), "runner", "worktree")
+        worktree = lib.runner_worktree(q)
         if not worktree:
             what = "put the runners' worktrees beside" if slot is not None else "make the runner's worktree at"
-            raise QueueError(f"the binding names no runner.worktree to {what} (SPEC §12.1)", 2)
+            raise QueueError(f"the binding names no product_root to {what} (SPEC §12.1)", 2)
         path = worktree + (f"-{slot}" if slot is not None else "")
     wt, made = _wt.runner_worktree(main_checkout(cfg), path, integration_branch(q))
     return {"ok": True, "slot": slot, "worktree": str(wt), "made": made,

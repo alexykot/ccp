@@ -681,28 +681,18 @@ def empty_seat(sid: str | None = None) -> dict[str, Any]:
 
 
 def resolve_durable_docs_dir(root: Path) -> Path | None:
-    """Resolve product docs/delivery for INDEX status mirror.
-
-    Order:
-      1. DURABLE_DOCS env
-      2. the binding (`binding_path`): durable_docs (abs) OR product_root + durable_docs_path
-    """
+    """The product's task-log directory for the queue `root` (§8.3): the `DURABLE_DOCS` environment variable
+    when set, else `task_log.dir` of the product's plane.json (`docs/delivery` unless it sets one) under
+    the binding's `product_root`; None when there is none."""
     env = os.environ.get("DURABLE_DOCS")
     if env:
         return Path(env).expanduser()
-
-    text = project_yaml_text(root)
-    if not text:
+    product_root = binding_str(binding_data(root), "product_root")
+    if not product_root:
         return None
-    data = read_binding(text)
-    abs_docs = binding_str(data, "durable_docs") or binding_str(data, "durable_docs_abs")
-    if abs_docs:
-        return Path(abs_docs).expanduser()
-    product_root = binding_str(data, "product_root")
-    rel = binding_str(data, "durable_docs_path") or "docs/delivery"
-    if product_root:
-        return (Path(product_root).expanduser() / rel).resolve()
-    return None
+    task_log = _product_plane(Path(product_root).expanduser()).get("task_log")
+    rel = (task_log.get("dir") if isinstance(task_log, dict) else None) or TASK_LOG_DIR
+    return (Path(product_root).expanduser() / str(rel)).resolve()
 
 
 _BINDING_LINE = re.compile(r"^([ \t]*)([^\s#:-][^:#]*?):(?:[ \t]+(.*))?$")
@@ -813,14 +803,154 @@ def product_binding(project_id: str, roots: Any) -> Path | None:
     return None
 
 
+def binding_where(root: Path) -> str:
+    """How a warning names the binding of the queue `root`: its path (`binding_path`), else `the binding`."""
+    p = binding_path(root)
+    return str(p) if p else "the binding"
+
+
 def binding_data(root: Path) -> dict[str, Any]:
-    """The binding of the queue `root` (`binding_path`), parsed by `read_binding`; empty when there is none."""
-    return read_binding(project_yaml_text(root))
+    """The binding of the queue `root` (`binding_path`), parsed by `read_binding`, with one warning for each
+    key it sets that the plane no longer reads (`warn_binding`); empty when there is none."""
+    data = read_binding(project_yaml_text(root))
+    warn_binding(data, binding_where(root))
+    return data
 
 
-def binding_runner_name(root: Path) -> str:
-    """The binding's `runner.name` (§8.3), the name the lead asks for at a spawn; `runner` by default."""
-    return binding_str(binding_data(root), "runner", "name") or "runner"
+# §8.3: what a binding holds, and what became of the rest. The runner's agent, name and worktree and the
+# task-log directory are derived; the runner's limits are constants (§29.3); the lead's compaction window
+# moved to the product's own settings.
+BINDING_KEPT = ("project_id", "integration_branch", "product_root", "queue_root", "ci", "notes")
+RUNNER_AGENT = "ccp:delivery-runner"
+RUNNER_NAME = "runner"
+WORKTREES_DIR = ".plane-runtime"  # the runner's worktree is `<product_root>/<worktrees.dir>/runner`
+TASK_LOG_DIR = "docs/delivery"
+# The constants' short names, as callers read them, and the binding key each was set under.
+RUNNER_LIMITS = {"after_tasks": "runner.rotate_after_tasks", "at_context_tokens": "runner.rotate_at_context_tokens",
+                 "idle_limit": "runner.idle_block_limit"}
+WINDOW_KEY = "lead.auto_compact_window"
+DERIVED_KEYS = {
+    "runner.agent_type": f"the runner's agent is {RUNNER_AGENT}",
+    "runner.name": f"the runner's name is {RUNNER_NAME}",
+    "runner.worktree": "the runner's worktree is <product_root>/<worktrees.dir>/runner",
+    "durable_docs_path": f"the task log is plane.json task_log.dir, {TASK_LOG_DIR} unless it sets one",
+}
+MOVED_KEYS = {WINDOW_KEY: "the product's .claude/settings.json autoCompactWindow, which `ccp init` writes when it is absent"}
+
+
+def _config() -> Any:
+    """`ccp.config`, for the constant mechanism (`constant_override`); importable from a script here too."""
+    try:
+        from ccp import config  # noqa: PLC0415
+    except ImportError:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+        from ccp import config  # noqa: PLC0415
+    return config
+
+
+def binding_constants() -> dict[str, Any]:
+    """The runner's constants (§29.3) as `config.constant_override`'s registry: each `RUNNER_LIMITS` key with
+    its value (`rotate_at_context_tokens` is None: off)."""
+    c = _config()
+    return {"runner.rotate_after_tasks": c.Outcome(c.CONSTANT, value=4),
+            "runner.rotate_at_context_tokens": c.Outcome(c.CONSTANT, value=None),
+            "runner.idle_block_limit": c.Outcome(c.CONSTANT, value=3)}
+
+
+def _leaves(data: dict[str, Any], prefix: str = "") -> list[tuple[str, Any]]:
+    """Each dotted key of a `read_binding` dict that holds a value (a scalar, or a block with nothing in it)."""
+    out: list[tuple[str, Any]] = []
+    for k, v in data.items():
+        out += _leaves(v, f"{prefix}{k}.") if isinstance(v, dict) and v else [(f"{prefix}{k}", v)]
+    return out
+
+
+def _limit_value(raw: str, constant: Any) -> tuple[bool, Any]:
+    """A limit as the binding wrote it: (True, the whole number), (True, None) for `null` where the constant is
+    off (None), else (False, None): not a value the limit takes."""
+    if raw.strip().lower() in ("null", "~") and constant is None:
+        return True, None
+    if re.fullmatch(r"[0-9]+", raw.strip()) and int(raw) >= 1:
+        return True, int(raw)
+    return False, None
+
+
+def binding_findings(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """§8.3, §29.3: each key a `read_binding` dict sets that the plane no longer reads, as `{key, outcome, set}`:
+    `removed` (ignored: any key `BINDING_KEPT` does not hold, `why` for a derived one), `constant` (a runner
+    limit: `constant`, `differs`, and `use`, the value that applies: the binding's when it is a valid other
+    value) or `moved` (`replacement`: the lead's compaction window)."""
+    consts = binding_constants()
+    out: list[dict[str, Any]] = []
+    for key, given in _leaves(data):
+        if key.split(".")[0] in BINDING_KEPT:
+            continue
+        f: dict[str, Any] = {"key": key, "set": given}
+        if key in consts:
+            const = consts[key].value
+            ok, value = _limit_value(given, const) if isinstance(given, str) else (False, None)
+            f.update(outcome="constant", constant=const, valid=ok, use=value if ok else const,
+                     differs=not (ok and value == const))
+        elif key in MOVED_KEYS:
+            f.update(outcome="moved", replacement=MOVED_KEYS[key])
+        else:
+            f.update(outcome="removed", why=DERIVED_KEYS.get(key, ""))
+        out.append(f)
+    return out
+
+
+def warn_binding(data: dict[str, Any], where: str) -> None:
+    """One warning on stderr for each key `binding_findings` lists (once per `where` and process): a removed key
+    is ignored, a limit set to another value still applies, the lead's window is used by `ccp init`."""
+    c = _config()
+    consts = binding_constants()
+    for f in binding_findings(data):
+        key = f["key"]
+        if f["outcome"] == "removed":
+            c._warn_once(where, f"{where}: {key} is removed and ignored" + (f": {f['why']}" if f["why"] else "")
+                         + "; delete it (SPEC §29.3)")
+        elif f["outcome"] == "moved":
+            c._warn_once(where, f"{where}: {key} moved to {f['replacement']}; `ccp init` writes the binding's value "
+                         "there while it is set: set it there and delete the key (SPEC §29.3)")
+        elif f["valid"]:
+            c.constant_override(key, f["use"], where=where, registry=consts)
+        else:
+            c._warn_once(where, f"{where}: {key} is {f['set']!r}, which is no value it takes; the constant "
+                         f"{f['constant']!r} applies: delete the key (SPEC §29.3)")
+
+
+def runner_limits(root: Path) -> dict[str, int | None]:
+    """§8.3, §29.3: the runner's limits for the queue `root`, by `RUNNER_LIMITS`' short names: the constants
+    (rotation after 4 tasks, no rotation by context, 3 idle blocks), or the value the binding still sets
+    (warned, `warn_binding`)."""
+    findings = {f["key"]: f for f in binding_findings(binding_data(root))}
+    consts = binding_constants()
+    return {short: findings[key]["use"] if key in findings else consts[key].value
+            for short, key in RUNNER_LIMITS.items()}
+
+
+def _product_plane(product_root: Path) -> dict[str, Any]:
+    """The product's plane.json as the JSON object it is (the raw keys); empty when there is none or it does not read."""
+    try:
+        data = json.loads((product_root / _config().CONFIG_REL).read_text())
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def runner_worktree(root: Path) -> str | None:
+    """§8.3, §16: the runner's worktree for the queue `root`, derived: `<product_root>/<worktrees.dir>/runner`
+    (`.plane-runtime` while plane.json names no directory); with several runners each slot's is this plus
+    `-<slot>`. None when the binding has no `product_root`."""
+    product_root = binding_str(binding_data(root), "product_root")
+    if not product_root:
+        return None
+    base = Path(product_root).expanduser()
+    plane = _product_plane(base)
+    adapter = plane.get("adapter")
+    wdir = (plane.get("worktrees") or {}).get("dir") if isinstance(plane.get("worktrees"), dict) else None
+    wdir = wdir or (adapter.get("worktree_dir") if isinstance(adapter, dict) else None) or WORKTREES_DIR
+    return os.path.normpath(base / str(wdir) / RUNNER_NAME)
 
 
 def project_yaml_text(root: Path) -> str:
@@ -832,7 +962,3 @@ def project_yaml_text(root: Path) -> str:
         return p.read_text()
     except OSError:
         return ""
-
-
-def project_seat_agent(root: Path, role: str) -> str | None:
-    return _yaml_block_scalars(project_yaml_text(root), "seats").get(role)

@@ -599,7 +599,7 @@ class MergeOk(unittest.TestCase):
         self.p = Product()
         self._q = tempfile.TemporaryDirectory()
         self.q = Path(self._q.name)
-        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\n")
+        (self.q / "project.yaml").write_text("project_id: demo\n")
         self.pr = {"number": 7, "state": "OPEN", "headRefOid": HEAD_A, "mergedAt": None}
         gh = self.q / "fake-gh"
         gh.write_text("#!/bin/sh\ncat \"$(dirname \"$0\")/pr.json\"\n")

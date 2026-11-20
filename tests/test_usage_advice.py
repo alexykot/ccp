@@ -43,7 +43,7 @@ class AdviceCase(unittest.TestCase):
         self.p = Product()
         self._q = tempfile.TemporaryDirectory()
         self.q = Path(self._q.name)
-        (self.q / "project.yaml").write_text("project_id: demo\nrunner:\n  name: runner\n")
+        (self.q / "project.yaml").write_text("project_id: demo\n")
         (self.q / "board").mkdir()
         run = self.q / "runs" / "0001-a" / "implement.json"
         run.parent.mkdir(parents=True)
@@ -101,7 +101,7 @@ class Advice(AdviceCase):
         runner = next(x for x in lines if "design-seat" not in x)
         self.assertIn("runner", runner)
         self.assertIn("350000", runner)
-        self.assertIn("runner.rotate_at_context_tokens", runner)
+        self.assertIn("team.sh runner rotate", runner)
 
     def test_the_median_not_the_mean_decides(self):
         self.sink(*(row(f"l{i}", "lead", ctx=c) for i, c in enumerate((100000, 200000, 1500000))),

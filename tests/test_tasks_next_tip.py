@@ -70,7 +70,7 @@ class NextReadsTheTip(ToolkitFixture, unittest.TestCase):
 
     def test_the_tip_is_the_bindings_integration_branch(self):
         git(self.main, "push", "-q", "origin", "main:trunk")
-        (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\nintegration_branch: trunk\n")
+        (self.q / "project.yaml").write_text("project_id: demo\nintegration_branch: trunk\n")
         self.set_status("0002-second", "done")
         self.commit_and_push("Task 0002: done (#1)")  # on main only: origin/trunk still holds the worktree's commit
         self.assertEqual(self.next_id()[1], "0002-second")
