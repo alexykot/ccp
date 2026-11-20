@@ -95,4 +95,20 @@ writes, behaviour is unchanged.
 
 ## Implementation notes
 
+- **`runner-idle.sh`: nothing left to route.** Task 0188 (merged before this base, 1774a22) already deleted
+  the hook's `block()` function and its `runner:` block read: the hook now reads no binding text at all
+  (the runner name and agent are derived, the idle limit comes from `ccp where`). So no `lib.py` lookup,
+  no fallback and no hook-outside-the-plane test were added: there is no import to find or to guard.
+  `sb-01` already holds for the hook at the base.
+- **`run-checkout.sh`:** `scalar()` is deleted. `lib.py` gained `main`, run as
+  `python3 -I lib.py binding <file>`: it prints the binding's top-level scalars (`read_binding`; blocks
+  left out) as one JSON object, exit 1 for an unreadable file and 2 for a wrong call. The script runs it
+  from `$RUN/scripts/observability/lib.py` (`binding_json`) and takes a key out of the JSON with a
+  one-line `python3 -c` (`binding_key`).
+- **Narrowest rule where the task is silent:** a run checkout with no `lib.py` checks no product, with a
+  line on stderr, as it already does for a missing `bin/ccp`; a binding the entry point cannot read is
+  reported as not checked, and the loop goes on to the next.
+- `tests/test_sync_on_release.py` copies the plane's `lib.py` into its scratch run checkout (untracked),
+  as `test_run_checkout_upgrade` already arranges its code; one new test there covers the missing parser.
+
 ## Verification notes

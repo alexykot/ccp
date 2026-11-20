@@ -43,9 +43,13 @@ clean_on_main() {
   [ -z "$(g status --porcelain --untracked-files=no)" ] || die "$RUN has local changes: nobody edits the run checkout (SPEC §29.2)"
 }
 
-# A top-level scalar of a binding (projects/<id>.yaml): comment and quotes dropped.
-scalar() {
-  sed -n -E "s/^$2:[[:space:]]*([^#]*).*/\1/p" "$1" | head -n 1 | sed -E "s/[[:space:]]+\$//; s/^['\"]//; s/['\"]\$//"
+# The top-level scalars of a binding (projects/<id>.yaml) as a JSON object: read by the one binding
+# parser (SPEC §8.3, `read_binding` in the run checkout's scripts/observability/lib.py, the version just
+# moved in), never by a parser of this script's own.
+binding_json() { python3 -I "$RUN/scripts/observability/lib.py" binding "$1"; }
+# One key of that object: its string, or nothing.
+binding_key() {
+  python3 -c 'import json, sys; v = json.loads(sys.argv[1]).get(sys.argv[2]); print(v if isinstance(v, str) else "")' "$1" "$2"
 }
 
 # SPEC §29.3: after a release, run the new `ccp docs check`, `ccp tasks check` and (with an `adr` block)
@@ -55,14 +59,18 @@ scalar() {
 # product is reported, never fixed, and never fails the update. Each checked product then gets its
 # `upgrade` notice (upgrade_notice). $1: the run checkout's commit before the update.
 check_products() {
-  local before="${1:-}" bdir="${CCP_BINDINGS_DIR:-$RUN/projects}" ccp="$RUN/bin/ccp" b pid root branch sha ref tmp c out rc stale=0
+  local before="${1:-}" data bdir="${CCP_BINDINGS_DIR:-$RUN/projects}" ccp="$RUN/bin/ccp" b pid root branch sha ref tmp c out rc stale=0
   [ -d "$bdir" ] || return 0
   if [ ! -x "$ccp" ]; then echo "run-checkout: no $ccp; bound products not checked" >&2; return 0; fi
+  if [ ! -f "$RUN/scripts/observability/lib.py" ]; then echo "run-checkout: no $RUN/scripts/observability/lib.py; bound products not checked" >&2; return 0; fi
   for b in "$bdir"/*.yaml; do
     [ -f "$b" ] || continue
-    pid="$(scalar "$b" project_id)"; pid="${pid:-$(basename "$b" .yaml)}"
-    root="$(scalar "$b" product_root)"; root="${root/#\~/$HOME}"
-    branch="$(scalar "$b" integration_branch)"; branch="${branch:-main}"
+    if ! data="$(binding_json "$b" 2>/dev/null)"; then
+      echo "run-checkout: binding $(basename "$b"): not checked: cannot read it"; continue
+    fi
+    pid="$(binding_key "$data" project_id)"; pid="${pid:-$(basename "$b" .yaml)}"
+    root="$(binding_key "$data" product_root)"; root="${root/#\~/$HOME}"
+    branch="$(binding_key "$data" integration_branch)"; branch="${branch:-main}"
     if [ -z "$root" ] || ! git --no-optional-locks -C "$root" rev-parse --git-dir >/dev/null 2>&1; then
       echo "run-checkout: product $pid: not checked: no git repository at product_root ${root:-(unset)}"; continue
     fi
@@ -122,7 +130,7 @@ check_products() {
 upgrade_notice() {
   local b="$1" pid="$2" root="$3" bdir="$4" ccp="$5" before="$6" q out err rc=0
   [ -n "$before" ] && [ "$before" != "$(g rev-parse HEAD)" ] || return 0   # the update brought nothing
-  q="$(scalar "$b" queue_root)"; q="${q/#\~/$HOME}"
+  q="$(binding_key "$(binding_json "$b" 2>/dev/null || echo '{}')" queue_root)"; q="${q/#\~/$HOME}"
   if [ -z "$q" ] || [ ! -d "$q" ]; then
     echo "run-checkout: upgrade notice for $pid not recorded: no queue at its binding's queue_root ${q:-(unset)}"
     return 0

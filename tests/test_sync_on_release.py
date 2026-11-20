@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -49,6 +50,10 @@ class ReleaseChecksProducts(unittest.TestCase):
         self.plane_commit(OLD_CCP, "old rules")
         run(["git", "clone", "-q", str(self.origin), str(self.run_dir)])
         (self.run_dir / "projects").mkdir()
+        # The run checkout's binding parser, present and untracked as a clean checkout's code is: the
+        # release reads each binding through it.
+        (self.run_dir / "scripts/observability").mkdir(parents=True)
+        shutil.copy(PLANE / "scripts/observability/lib.py", self.run_dir / "scripts/observability/lib.py")
         self.env = {"CCP_RUN_CHECKOUT": str(self.run_dir), "CCP_BIN_LINK": str(self.d / "bin/ccp"),
                     "CCP_BINDINGS_DIR": str(self.run_dir / "projects")}
 
@@ -161,6 +166,14 @@ class ReleaseChecksProducts(unittest.TestCase):
         self.assertIn("docs/delivery/plane.json", line)
         self.assertNotIn("STALE", r.stdout)
         self.assertNotIn("tell each one's lead", r.stdout)
+
+    def test_a_run_checkout_without_the_binding_parser_checks_no_product(self):
+        self.bind("any", self.product("any", adr=False))
+        (self.run_dir / "scripts/observability/lib.py").unlink()
+        self.plane_commit(NEW_CCP, "new rules")
+        r = self.update()
+        self.assertIn("scripts/observability/lib.py; bound products not checked", r.stderr)
+        self.assertNotIn("product any", r.stdout)
 
     def test_a_check_that_prints_a_lot_neither_kills_the_update_nor_floods_it(self):
         self.bind("big", self.product("big", adr=False))
