@@ -138,6 +138,21 @@ class Consent(Machine):
         self.assertIn("normal terminal", self.err.getvalue())
         self.assertFalse(res["telemetry"]["receiver_up"])
 
+    def test_a_failed_install_leaves_one_stderr_line_each(self):
+        self.otel_install.return_value = {"ok": False, "plist": "o.plist", "error": "bootstrap refused"}
+        self.board_install.return_value = {"ok": False, "plist": "b.plist", "error": "no such label"}
+        res = self.run_init(telemetry="on")
+        lines = [ln for ln in self.err.getvalue().splitlines() if "install failed" in ln]
+        self.assertEqual(len(lines), 2, self.err.getvalue())
+        self.assertIn("the receiver install failed: bootstrap refused", lines[0])
+        self.assertIn("the board timer install failed: no such label", lines[1])
+        self.assertFalse(res["telemetry"]["receiver_install"]["ok"])
+        self.clear_err()
+        self.otel_install.return_value = {"ok": True, "plist": "o.plist"}
+        self.board_install.return_value = {"ok": True, "plist": "b.plist"}
+        self.run_init()
+        self.assertNotIn("install failed", self.err.getvalue())
+
     def test_a_live_receiver_prints_no_command(self):
         self.run_init(telemetry="on")
         self.assertNotIn("normal terminal", self.err.getvalue())

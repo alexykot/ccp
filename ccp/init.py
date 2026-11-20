@@ -529,6 +529,9 @@ def machine_telemetry(cfg: config.Config, flag: str | None) -> dict[str, Any]:
     if _macos():
         out["receiver_install"] = {k: v for k, v in otel.launchd("install", port).items() if k in ("ok", "plist", "error")}
         out["board_timer"] = {k: v for k, v in board_launchd(cfg).items() if k in ("ok", "plist", "label", "error")}
+        for what, res in (("the receiver install", out["receiver_install"]), ("the board timer install", out["board_timer"])):
+            if not res.get("ok"):
+                _note(f"{what} failed" + (f": {res['error']}" if res.get("error") else ""))
     else:
         out["services"] = "not installed: only macOS has a service definition"
         _note("no service definition on this OS: run `ccp otel serve` yourself, and `ccp --root "
