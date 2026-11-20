@@ -1282,7 +1282,10 @@ plane.json `suite.exclusive_lanes` names the `ccp suite run` lanes that run one 
 `QUEUE_ROOT/locks/suite-exclusive.lock` first. Held, `ccp suite run` exits 75 at once, saying who
 holds it, since when, and the holder's usual duration; the worker does other work and retries.
 `--wait SECONDS` waits up to that bound instead (the wait plus the run stay under the worker shell's
-600 s limit), recorded as `wait_s` apart from the run's time. A lock whose holder process is gone is
+600 s limit), recorded as `wait_s` apart from the run's time. `--wait auto` takes the bound from that
+limit (§14.6) less the lane's usual cold run (the median of its last ten passing cold runs, else of
+its last ten passing runs) and a 30 s margin, never below 0; with no passing run of the lane recorded
+it waits 0 s and says so. A lock whose holder process is gone is
 taken over with a warning. Busy exits are recorded on the run (`lane_busy`). A run that has started
 and outlasts its caller's command limit is waited on by its suite id with `ccp suite wait` (§14.2).
 

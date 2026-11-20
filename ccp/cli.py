@@ -96,6 +96,16 @@ from ccp import config, pkgdocs, refs, rules, runs, tasklog
 from ccp.queue import QueueError
 
 
+def _wait_arg(raw: str) -> int | str:
+    """`ccp suite run --wait`: a whole number of seconds, or the word `auto` (SPEC §16.6)."""
+    if raw == "auto":
+        return raw
+    try:
+        return int(raw)
+    except ValueError:
+        raise argparse.ArgumentTypeError("--wait takes seconds or auto") from None
+
+
 def _print_errs(label: str, errs: list[str], clean: str) -> int:
     if not errs:
         print(f"{label}: clean{clean}")
@@ -1247,15 +1257,16 @@ def build_parser() -> argparse.ArgumentParser:
     su = sub.add_parser("suite", help="run tests through ccp, which records their time (SPEC §14.1)") \
         .add_subparsers(dest="cmd", required=True)
     p = su.add_parser("run", help="run a test command transparently and record its time, exit code and test count",
-                      usage="ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--wait S] [--cold] [--full | --summary] "
+                      usage="ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--wait S|auto] [--cold] [--full | --summary] "
                             "[--log PATH] [-- COMMAND ...]")
     p.add_argument("--lane", help="a short label; alone, the argv plane.json suite.lanes names for it")
     p.add_argument("--run", help="the run it belongs to (<task_id>/<phase>[-n], as the prompt names it)")
     p.add_argument("--task", help="else the task: its latest open run (of --phase)")
     p.add_argument("--phase", help="implement, fix, review or verify")
-    p.add_argument("--wait", type=int, metavar="SECONDS",
+    p.add_argument("--wait", type=_wait_arg, metavar="SECONDS|auto",
                    help="an exclusive lane held by another run: wait up to this long for it instead of exiting 75 "
-                        "at once; keep the wait plus the run under your shell's limit (SPEC §16.6)")
+                        "at once; keep the wait plus the run under your shell's limit; `auto` waits as long as that "
+                        "limit allows once the lane's usual cold run and a margin are set aside (SPEC §16.6)")
     p.add_argument("--cold", action="store_true",
                    help="a cold run: what it starts gets CCP_SUITE_COLD=1, the product's gate's cold option; the run is "
                         "recorded cold only when its own count shows nothing cached (SPEC §14.2)")

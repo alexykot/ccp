@@ -48,7 +48,8 @@ captures the output.
 
 `--lane NAME` labels the run. A lane plane.json `suite.exclusive_lanes` names (a run with no lane counts as
 the `full` role's lane, `suite.roles`) runs one at a time in the queue (SPEC §16.6): a run that finds it held exits 75 at once,
-naming the holder and its usual duration, runs nothing, and counts `lane_busy` on its run. A run
+naming the holder and its usual duration, runs nothing, and counts `lane_busy` on its run
+(`--wait SECONDS|auto` waits instead; `auto` is the shell limit less the lane's usual cold run and a margin). A run
 that records nothing (no QUEUE_ROOT, recording off) takes no lock: recording never blocks tests.
 Without `-- COMMAND`, it runs what `plane.json` `suite.lanes` names for that lane, from the
 checkout's root: an argv, run as one stage named after the lane, or an ordered list of `{name, cmd}`
@@ -187,9 +188,8 @@ def release_lane(q: Path, suite_id: str) -> None:
         pass
 
 
-def usual_seconds(q: Path, lane: str | None, default: str = "full") -> float | None:
-    """The median of this lane's last ten passing runs, from the suite records (a failed or cut-off run
-    says little about how long the holder will take)."""
+def _lane_seconds(q: Path, lane: str | None, default: str, cold_only: bool = False) -> float | None:
+    """The median of this lane's last ten passing runs (only those recorded cold, with `cold_only`)."""
     started: dict[str, str | None] = {}
     secs: list[float] = []
     try:
@@ -198,12 +198,38 @@ def usual_seconds(q: Path, lane: str | None, default: str = "full") -> float | N
             if r.get("op") == "started":
                 started[r.get("suite_id")] = r.get("lane")
             elif r.get("op") == "ended" and (started.get(r.get("suite_id")) or default) == (lane or default) \
-                    and r.get("exit_code") == 0 and isinstance(r.get("seconds"), (int, float)):
+                    and r.get("exit_code") == 0 and isinstance(r.get("seconds"), (int, float)) \
+                    and (r.get("cold") is True or not cold_only):
                 secs.append(float(r["seconds"]))
     except (OSError, ValueError):
         return None
     last = sorted(secs[-10:])
     return last[len(last) // 2] if last else None
+
+
+def usual_seconds(q: Path, lane: str | None, default: str = "full") -> float | None:
+    """The median of this lane's last ten passing runs, from the suite records (a failed or cut-off run
+    says little about how long the holder will take)."""
+    return _lane_seconds(q, lane, default)
+
+
+WAIT_AUTO_MARGIN_S = 30  # `--wait auto` keeps this much of the shell limit clear (SPEC §16.6)
+WAIT_AUTO_NO_RUN = "the lane has no passing run recorded, so it waits 0 s"
+
+
+def auto_wait(cfg: Config | None, q: Path, lane: str | None) -> tuple[int, str]:
+    """§16.6 `--wait auto`: (the seconds to wait, what it derived from). The shell limit (§14.6) less the lane's
+    usual cold run (the median of its last ten passing cold runs, else of its last ten passing runs) and
+    WAIT_AUTO_MARGIN_S, never below 0; with no passing run of the lane recorded, 0 (WAIT_AUTO_NO_RUN)."""
+    default = lane_for(cfg, "full")
+    cold = _lane_seconds(q, lane, default, cold_only=True)
+    if cold is None:
+        cold = _lane_seconds(q, lane, default)
+    if cold is None:
+        return 0, WAIT_AUTO_NO_RUN
+    limit = config.gate_limits(cfg)[0]
+    return (max(0, int(limit - cold - WAIT_AUTO_MARGIN_S)),
+            f"limit {limit:g} s, the lane's usual cold run {cold:.0f} s, margin {WAIT_AUTO_MARGIN_S} s")
 
 
 def _append(q: Path, row: dict[str, Any]) -> None:
@@ -1117,11 +1143,18 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         # `--wait SECONDS` at most, the wait recorded apart from the run's time
         mine = {"suite_id": suite_id, "pid": os.getpid(), "at": started["at"], "lane": a.lane or lane_for(cfg, "full"),
                 "run_id": started.get("run_id"), "task_id": started.get("task_id")}
-        wait = max(0, int(getattr(a, "wait", None) or 0))
+        auto = getattr(a, "wait", None) == "auto"
+        wait = 0 if auto else max(0, int(getattr(a, "wait", None) or 0))
         t_wait = time.monotonic()
         try:
             lane_fd, holder = take_lane(q, mine)
             told = False
+            if auto and lane_fd is None:  # resolved once, when the lane turns out to be held
+                wait, why = auto_wait(cfg, q, a.lane or lane_for(cfg, "full"))
+                held = f"ccp suite: lane {a.lane or 'full'} is held by {holder.get('suite_id') or 'another run'}; "
+                print(held + (f"--wait auto: {why}" if why == WAIT_AUTO_NO_RUN
+                              else f"waiting up to {wait} s (--wait auto: {why})"), file=sys.stderr)
+                told = True
             while lane_fd is None and time.monotonic() - t_wait < wait:
                 mine["at"] = iso()  # a holder's record dates from when it took the lane
                 if not told:
@@ -1144,7 +1177,8 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                 _append(q, {"op": "busy", "suite_id": suite_id, "at": iso(), "lane": a.lane or lane_for(cfg, "full"),
                             "run_id": started.get("run_id"), "task_id": started.get("task_id"),
                             "held_by": holder.get("suite_id"),
-                            **({"waited_s": round(time.monotonic() - t_wait, 1)} if wait else {})})
+                            **({"waited_s": round(time.monotonic() - t_wait, 1)} if wait else {}),
+                            **({"wait_auto": True} if auto else {})})
                 # §16.6: counted on the run, for the parallel-work measures (§16.7). Unlocked: the worker that owns
                 # the run is the one waiting in this shell, so nothing else writes it now
                 if started.get("run_id"):
@@ -1158,7 +1192,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                   + (f" (task {holder['task_id']})" if holder.get("task_id") else "")
                   + (f" since {holder['at']}" if holder.get("at") else "")
                   + (f"; its usual run is {usual:.0f} s" if usual is not None else "")
-                  + f". Nothing ran. Do other work, then run it again, or wait for it with `--wait SECONDS` "
+                  + f". Nothing ran. Do other work, then run it again, or wait for it with `--wait SECONDS` or `--wait auto` "
                   f"(exit {BUSY_EXIT}).", file=sys.stderr)
             return BUSY_EXIT
     if q is not None and started is not None:

@@ -10,7 +10,7 @@ import subprocess
 import time
 import unittest
 
-from ccp import config
+from ccp import config, suite
 from tests.test_suite import CCP, PY, SuiteFixture
 
 
@@ -87,6 +87,67 @@ class Lanes(SuiteFixture, unittest.TestCase):
         started = [x for x in self.rows() if x.get("op") == "started"][-1]
         self.assertGreater(started.get("wait_s", 0), 0.4)
         holder.wait(timeout=30)
+
+    def seed(self, *runs: tuple[float, bool, int], lane: str = "gate") -> None:
+        """Record finished runs of a lane: (seconds, cold, exit code), oldest first."""
+        p = self.q / "runs" / "_suites.jsonl"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with p.open("a") as fh:
+            for i, (seconds, cold, code) in enumerate(runs):
+                sid = f"st-seed-{lane}-{i}-{len(self.rows())}"
+                fh.write(json.dumps({"op": "started", "suite_id": sid, "lane": lane}) + "\n")
+                fh.write(json.dumps({"op": "ended", "suite_id": sid, "exit_code": code, "seconds": seconds,
+                                     "cold": cold}) + "\n")
+
+    def test_auto_wait_is_the_limit_less_the_median_cold_run_and_a_margin(self):
+        cfg = config.load(self.runner)
+        self.seed((100, True, 0), (999, True, 1), (120, True, 0), (5, False, 0), (140, True, 0))
+        self.assertEqual(suite.auto_wait(cfg, self.q, "gate")[0], 450)  # 600 - 120 - 30
+        self.assertIn("limit 600 s, the lane's usual cold run 120 s, margin 30 s", suite.auto_wait(cfg, self.q, "gate")[1])
+
+    def test_auto_wait_without_a_cold_run_uses_the_passing_runs(self):
+        cfg = config.load(self.runner)
+        self.seed((60, False, 0), (500, True, 1), (80, False, 0), (100, False, 0))
+        self.assertEqual(suite.auto_wait(cfg, self.q, "gate")[0], 490)  # 600 - 80 - 30
+        self.seed((1000, False, 0), lane="other")  # another lane's runs say nothing
+        self.assertEqual(suite.auto_wait(cfg, self.q, "gate")[0], 490)
+
+    def test_auto_wait_never_goes_below_zero(self):
+        cfg = config.load(self.runner)
+        self.seed((590, True, 0))
+        self.assertEqual(suite.auto_wait(cfg, self.q, "gate")[0], 0)
+
+    def test_auto_wait_with_no_passing_run_exits_busy_at_once_and_says_why(self):
+        cfg = config.load(self.runner)
+        self.seed((50, True, 1))
+        self.assertEqual(suite.auto_wait(cfg, self.q, "gate")[0], 0)
+        holder = self.hold(seconds=60)
+        t0 = time.monotonic()
+        r = self.run_suite("--lane", "gate", "--wait", "auto", "--", PY, "-c", "print(1)")
+        self.assertLess(time.monotonic() - t0, 3)
+        self.assertEqual(r.returncode, 75, r.stderr)
+        self.assertIn(b"--wait auto: the lane has no passing run recorded, so it waits 0 s", r.stderr)
+        busy = [x for x in self.rows() if x.get("op") == "busy"][-1]
+        self.assertIs(busy.get("wait_auto"), True)
+        _killpg(holder)
+        holder.wait(timeout=30)
+
+    def test_auto_wait_runs_once_the_lane_is_released(self):
+        self.seed((10, True, 0))
+        holder = self.hold(seconds=3)
+        r = self.run_suite("--lane", "gate", "--wait", "auto", "--", PY, "-c", "print(1)")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(b"waiting up to 560 s (--wait auto: limit 600 s, the lane's usual cold run 10 s, margin 30 s)", r.stderr)
+        started = [x for x in self.rows() if x.get("op") == "started"][-1]
+        self.assertGreater(started.get("wait_s", 0), 0.4)
+        holder.wait(timeout=30)
+
+    def test_wait_takes_seconds_or_auto(self):
+        r = self.run_suite("--lane", "gate", "--wait", "soon", "--", PY, "-c", "print(1)")
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn(b"--wait takes seconds or auto", r.stderr)
+        r = self.run_suite("--lane", "gate", "--wait", "auto", "--", PY, "-c", "print(1)")  # the lane is free
+        self.assertEqual(r.returncode, 0, r.stderr)
 
     def test_a_killed_holder_frees_the_lane(self):
         holder = self.hold(seconds=30)
