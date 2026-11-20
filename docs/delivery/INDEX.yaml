@@ -973,7 +973,7 @@ tasks:
     depends_on: [0175-one-binding-reader, 0188-short-binding]
     path: tasks/0194-shell-binding-readers-use-the-one-parser.md
   - id: 0195-docs-checks-run-at-once
-    status: pending
+    status: done
     title: The docs.workers constant runs every check command at once, as ADR-0043 D9 decided
     depends_on: [0192-plane-json-constants-and-defaults]
     path: tasks/0195-docs-checks-run-at-once.md

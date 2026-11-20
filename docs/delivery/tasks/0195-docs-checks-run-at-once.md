@@ -1,7 +1,7 @@
 ---
 task_id: 0195-docs-checks-run-at-once
 title: The docs.workers constant runs every check command at once, as ADR-0043 D9 decided
-status: pending
+status: done
 kind: feature
 depends_on: ["0192-plane-json-constants-and-defaults"]
 spec_refs: ["S21"]
@@ -150,3 +150,5 @@ written into each cmd. It passes only when all three run at once.
   task 0190 had deleted it. Nothing here depended on it.
 
 ## Verification notes
+- 2026-11-20 — verifier, PR #230 head `6a34a1c` (squash `d43e751`): APPROVE. Passed: dw-01, dw-02, dw-03, dw-04. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0195-docs-checks-run-at-once.json.
+
