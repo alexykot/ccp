@@ -807,7 +807,9 @@
             "string",
             "null"
           ],
-          "default": null
+          "default": null,
+          "deprecated": true,
+          "description": "Merged into `machine.json allowance_cmd` (SPEC §29.3, §8.3): the account is the machine's, set once in the machine file beside the bindings. Read here, with a warning, while the machine file lacks it; the machine file's value wins."
         },
         "allowance_stop_weekly": {
           "type": [
@@ -815,7 +817,8 @@
             "null"
           ],
           "default": null,
-          "description": "SPEC §25.3: the weekly checkpoint (percent). A new claim stops there until the lead records the operator's decision (ccp allowance continue)."
+          "deprecated": true,
+          "description": "Merged into `machine.json allowance_stop_weekly` (SPEC §29.3, §8.3): the weekly checkpoint (percent) is the machine's, default 90. Read here, with a warning, while the machine file lacks it; the machine file's value wins."
         },
         "session_park_pct": {
           "type": [
@@ -823,21 +826,24 @@
             "null"
           ],
           "default": 95,
-          "description": "SPEC §25.4 the session park: `ccp tasks claim` and `ccp prompt` refuse (exit 6) and park the task at this 5-hour %. null: no park, no session wake, no 5-hour modelling in the forecast."
+          "deprecated": true,
+          "description": "Constant, 95 (SPEC §29.3, §25.4): `ccp tasks claim` and `ccp prompt` refuse (exit 6) and park the task at this 5-hour %. A value set here other than the constant still applies, with a warning, until the key is deleted. null: no park, no session wake, no 5-hour modelling in the forecast."
         },
         "session_wake_arm_pct": {
           "type": "number",
           "default": 50,
-          "description": "SPEC §25.4: from this 5-hour %, `ccp allowance session-wake` tells the lead to arm a one-shot wake, and claim and prompt warn while none is armed."
+          "deprecated": true,
+          "description": "Constant, 50 (SPEC §29.3, §25.4): from this 5-hour %, `ccp allowance session-wake` tells the lead to arm a one-shot wake, and claim and prompt warn while none is armed. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "session_wake_margin_s": {
           "type": "integer",
           "minimum": 0,
           "maximum": 3600,
           "default": 180,
-          "description": "SPEC §25.4: the wake (and a parked task's planned_resume_at) is the 5-hour window's reset plus this many seconds."
+          "deprecated": true,
+          "description": "Constant, 180 (SPEC §29.3, §25.4): the wake (and a parked task's planned_resume_at) is the 5-hour window's reset plus this many seconds. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
-        "windows": {"type": ["object", "null"], "default": null, "description": "SPEC §25.4 the usage windows: {<name>: {kind: weekly|session, stop_pct, park_pct}}, merged over the built-in seven_day (weekly, stop_pct = allowance_stop_weekly) and five_hour (session, park_pct = session_park_pct). The most constrained window of each kind gates.", "propertyNames": {"pattern": "^[A-Za-z][A-Za-z0-9_-]{0,31}$"}, "additionalProperties": {"type": "object", "additionalProperties": false, "properties": {"kind": {"enum": ["weekly", "session"]}, "stop_pct": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 100}, "park_pct": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 100}}}},
+        "windows": {"type": ["object", "null"], "default": null, "deprecated": true, "description": "Constant, the two built-in windows (SPEC §29.3, §25.2): seven_day (weekly, stop_pct = the machine's allowance_stop_weekly) and five_hour (session, park_pct 95). A window set here other than that still applies, with a warning, until the key is deleted: {<name>: {kind: weekly|session, stop_pct, park_pct}}, merged over the built-in two; the most constrained window of each kind gates.", "propertyNames": {"pattern": "^[A-Za-z][A-Za-z0-9_-]{0,31}$"}, "additionalProperties": {"type": "object", "additionalProperties": false, "properties": {"kind": {"enum": ["weekly", "session"]}, "stop_pct": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 100}, "park_pct": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 100}}}},
         "design_seat": {
           "type": [
             "object",
@@ -1159,7 +1165,7 @@
         "max_in_flight": {"type": "integer", "minimum": 1, "maximum": 4, "default": 3, "description": "The most tasks the runner holds at once (§16.3 rule 1); 1 is one task at a time."},
         "exclusive": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": [], "description": "Paths and globs (** spans directories) whose tasks run alone: files concurrent edits cannot be merged in safely (§16.3 rule 4)."},
         "shared": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": [], "description": "Paths and globs that tasks only append lines to, such as a package doc's file map: two tasks meeting only in them may run together (§16.3 rule 3), and close's catch-up merges both sides' appended lines, the tip's first (§16.5 rule 4). An entry may not also be in exclusive."},
-        "session_ceiling_pct": {"type": "number", "exclusiveMinimum": 0, "maximum": 100, "default": 60, "description": "A second task is claimed only while the account's 5-hour usage is below this (§16.3 rule 5)."},
+        "session_ceiling_pct": {"type": "number", "exclusiveMinimum": 0, "maximum": 100, "default": 60, "deprecated": true, "description": "Constant, 60 (SPEC §29.3, §16.2): a second task is claimed only while the account's 5-hour usage is below this (§16.3 rule 5). A value set here other than the constant still applies, with a warning, until the key is deleted."},
         "schedule": {"enum": ["paths", "clashes"], "default": "clashes", "description": "What claim rule 3 keeps apart (§16.3): clashes, the default, only tasks that clash (clashes_with in the task's frontmatter, §5), whatever their paths; paths, tasks whose paths meet."}
       }
     },

@@ -342,8 +342,9 @@ def build(cfg: Config, q: Path) -> dict[str, Any]:
                                 "reason": work.get("next_task_reason") or ""} if (ids := preferred_ids(work)) else None),
                 "held": _holds(work),
                 "allowance": usage.status(cfg, q, sample=False), "seats": _seats(cfg, q, report, work)},
-        "usage": {k: report[k] for k in ("seats", "unattributed", "total", "how", "coverage", "traces", "advice",
-                                         "unattributed_sources", "daily")},
+        "usage": {**{k: report[k] for k in ("seats", "unattributed", "total", "how", "coverage", "traces", "advice",
+                                            "unattributed_sources", "daily")},
+                  "usage_read": usage.usage_read(cfg)},  # §25.1: false without an allowance command
         "runs": [r for r in report["runs"] if r["usage"]["requests"] or r["flags"]][-200:],
         "headless": report["headless"][-50:],
         "tasks": tasks, "trend": _trend(tasks, counts),
@@ -588,6 +589,8 @@ def status_text(b: dict[str, Any]) -> str:
              + (f"  decision lapsed at the counter reset {a['decision_lapsed_at']}" if a.get("decision_lapsed_at") else ""),
              f"usage coverage {b['usage']['coverage'] * 100:.1f}%" if b["usage"]["coverage"] is not None
              else "usage: none recorded yet"]
+    if b["usage"].get("usage_read") is False:  # §25.1: no allowance command, so nothing is read and nothing bounds spend
+        lines.insert(3, "usage unread")
     from ccp import seats  # noqa: PLC0415
     lines += seats.status_lines(b["now"].get("seats"))
     nt = b["now"].get("next_tasks")  # §10.4: the lead's `ccp tasks prefer` list

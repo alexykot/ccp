@@ -905,7 +905,7 @@ function render() {
     : ((h.stale_sources || []).length || (h.divergence || []).length || (u.advice || []).length) ? "warning" : "good");
   try { document.title = `${B.project_id || "Delivery"} board${(B.blockers || []).length ? ` · ${(B.blockers || []).length} blocker${(B.blockers || []).length > 1 ? "s" : ""}` : ""}`; } catch (e) { /* title is decoration */ }
   const tiles = safe("Tiles", () => `<div class="tiles">
-    <div class="tile"><div class="k">Weekly allowance</div><div class="v">${seven == null ? "?" : seven.toFixed(0) + "%"}</div>
+    <div class="tile"><div class="k">Weekly allowance</div><div class="v">${u.usage_read === false ? "usage unread" : seven == null ? "?" : seven.toFixed(0) + "%"}</div>
       <div class="meter" aria-hidden="true"><div class="fill" style="width:${Math.min(100, seven || 0)}%"></div>${cp != null ? `<div class="mark" style="left:${cp}%"></div>` : ""}</div>
       <div class="d">checkpoint ${cp ?? "–"}%${a.decision_lapsed_at ? ` · decision lapsed at the counter reset ${esc(String(a.decision_lapsed_at).slice(0, 16).replace("T", " "))}` : ""} · ${last.resets_at ? "resets " + new Date(last.resets_at).toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"}) : "reset unknown"}</div>
       ${(() => { try { const t = fcAllowLine(B.forecast, true); return t ? `<div class="d" title="estimate, advisory (SPEC §26.4)">${t}</div>` : ""; } catch (e) { return ""; } })()}</div>

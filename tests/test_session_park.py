@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from ccp import config, usage
+from tests.helpers import machine_file
 from tests.test_toolkit import ToolkitFixture
 
 
@@ -33,8 +34,10 @@ class SessionFixture(ToolkitFixture):
         five_hour = {"utilization": five, **({"resets_at": utc(time.time() + reset_in, frac)} if reset_in is not None else {})}
         self.reading_file.write_text(json.dumps({"five_hour": five_hour, "seven_day": {
             "utilization": seven, "resets_at": "2026-10-27T04:00:00Z"}}))
+        own = {k: v for k, v in (tel or {}).items() if k in config.MACHINE_ACCOUNT_KEYS}
+        machine_file(self, allowance_cmd=f"cat '{self.reading_file}'", **own)
         cfg = json.loads((self.runner / "docs/delivery/plane.json").read_text())
-        cfg["telemetry"] = {"allowance_cmd": f"cat '{self.reading_file}'", **(tel or {})}
+        cfg["telemetry"] = {k: v for k, v in (tel or {}).items() if k not in own}
         (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
 
     def rows(self):
@@ -181,9 +184,7 @@ class Park(SessionFixture, unittest.TestCase):
         code, _, out, err = self.ccp("prompt", "implement", "0002", "--base", "HEAD")
         self.assertEqual(code, 0, out + err)
         self.assertNotIn("session wake", err)
-        cfg = json.loads((self.runner / "docs/delivery/plane.json").read_text())
-        cfg["telemetry"] = {}  # no allowance_cmd at all
-        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        machine_file(self)  # no allowance_cmd at all
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
 
@@ -283,14 +284,12 @@ class Wake(SessionFixture, unittest.TestCase):
     def test_no_allowance_cmd_names_the_missing_command_and_never_arms(self):
         self.reading(70, reset_in=3600)
         self.assertTrue(self.wake("--sample")[1]["arm"])  # a sample from before the command was removed
-        cfg = json.loads((self.runner / "docs/delivery/plane.json").read_text())
-        cfg["telemetry"] = {}
-        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        machine_file(self)
         for flags in (("--sample",), ()):
             code, body, out, err = self.wake(*flags)
             self.assertEqual(code, 0, out + err)
             self.assertFalse(body["arm"], flags)
-            self.assertIn("telemetry.allowance_cmd", body["reason"], flags)
+            self.assertIn("allowance_cmd", body["reason"], flags)
             self.assertNotIn("run with --sample", body["reason"], flags)
 
     def test_park_off_never_arms(self):

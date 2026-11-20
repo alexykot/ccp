@@ -7,6 +7,8 @@
 # lead finds what fired while it was away, an `upgrade` notice a release left (§29.3) among them. It asks
 # the `ccp` beside the plugin (the plane checkout it is in), else `ccp` on PATH; no queue, no notices.
 # That call gets 3 s: a slow queue drops the notices, never the orientation (the hook's own limit is 10 s).
+# It also asks `ccp allowance status` (3 s) whether usage is read; when no allowance command is set, it adds the
+# warning `ccp` gives (SPEC §25.1: no usage is read and nothing bounds spend).
 # It always exits 0.
 set -u
 root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
@@ -33,6 +35,14 @@ if sys.argv[2]:
         rows = json.loads(res.stdout).get("pending") or []
     except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
         rows = []
+warn = ""
+if sys.argv[2]:
+    try:
+        res = subprocess.run([sys.argv[2], "--root", sys.argv[3], "allowance", "status"], capture_output=True,
+                             text=True, stdin=subprocess.DEVNULL, timeout=3)
+        warn = str(json.loads(res.stdout).get("warning") or "")[:600]
+    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
+        warn = ""
 notes = ""
 if rows:
     head = ("\n\n## Pending notices\n\nFired and not yet sent (plane SPEC §3.6). The lead sends each over the "
@@ -50,6 +60,8 @@ if rows:
             break
         body += ln + "\n"
     notes = head + body
+if warn:
+    notes += f"\n\n## Warning\n\n{warn}\n"
 text = text[:9500 - len(notes)].rstrip("\n") + notes if notes else text[:9500]
 print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}))
 PY

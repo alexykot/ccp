@@ -783,7 +783,6 @@ An example, with neutral values:
              "worker_env": { "<NAME>": "<template: {{main_checkout}}, {{worktree}}, {{queue_root}}, {{round}}, …>" },
              "keep_body": false, "audit_keep_days": null },
 "reconcile": { "hooks": ["<product command, run in close's merge worktree (§10.5)>"] },
-"telemetry": { "allowance_cmd": "<command printing the allowance JSON>" },
 "board": { "refresh_minutes": 5 },
 "adr": { "dir": "docs/adr", "index": "docs/adr/INDEX.md" },
 "suite": { "lanes": { "full": ["scripts/test.sh"],
@@ -840,6 +839,8 @@ queue_root: /path/to/.delivery-queue/example-product
 - A binding whose `product_root` is the plane's own repository is the plane managing itself; its
   usage counts as non-product use (§24).
 - A binding key not listed above is a removed key (§29.3): it loads with a warning naming it and is otherwise ignored. The lead is every project's spec maintainer (§17), and the operator's channel is plane.json `notify` (§3.6).
+
+**The machine file**, `machine.json` beside the bindings (`contracts/machine.schema.json`), holds what belongs to the machine's account, not to a product: `telemetry` (the operator's consent, §4.5), `allowance_cmd` and `allowance_stop_weekly` (§25).
 
 ### 8.4 Configuration knobs
 

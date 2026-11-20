@@ -1123,14 +1123,14 @@ window, accepted. Under `parallel.schedule: clashes`, the default, the writer's 
 ### 16.2 The knob
 
 ```json
-"parallel": { "max_in_flight": 2, "exclusive": ["db/schema.sql"], "shared": [], "session_ceiling_pct": 60 },
+"parallel": { "max_in_flight": 2, "exclusive": ["db/schema.sql"], "shared": [] },
 "suite": { "exclusive_lanes": ["gate", "full"] },
 "merge": { "behind_tip_ignore": ["docs/notes"] }
 ```
 
 With no `parallel` block, several tasks run at once, scheduled by clashes (the defaults are in code and the schema); `max_in_flight: 1` runs one task at a time. `max_in_flight` is 1 to 4;
 `exclusive` lists paths and globs (`**` spans directories) whose concurrent edits git cannot merge
-safely (a schema or migration file); `session_ceiling_pct` defaults to 60. `shared` (empty by
+safely (a schema or migration file). The session ceiling is 60%. `shared` (empty by
 default) lists paths and globs that tasks only append lines to, such as a package doc's file map; two
 tasks may hold one at once (rule 3), and close merges them as §16.5 rule 4 says. A path may not be
 both `shared` and `exclusive`. `schedule` picks claim rule 3 (§16.3): `clashes`, the default, keeps apart only tasks that clash (`clashes_with`, §5), whatever their paths, and `shared` then matters only at close (§16.5 rule 4); `paths` keeps apart tasks whose paths meet. Any other value is refused. `merge.behind_tip_ignore`
@@ -1157,10 +1157,10 @@ allowed only when all hold; otherwise it refuses with exit 7, naming the rule an
 3. Under `parallel.schedule: paths`, no path of C meets a path of a task in A (equal, one a directory holding the other, or a glob or
    bare name of one matching the other), unless both are covered by a `parallel.shared` entry. Under `clashes`, C clashes with no task in A: neither names the other in `clashes_with` (§5), whether or not their paths meet.
 4. No path of C or of a task in A meets an `exclusive` entry.
-5. The account's session-window usage, sampled at this claim, is below `session_ceiling_pct` (the
+5. The account's session-window usage, sampled at this claim, is below the session ceiling (the
    gating session window, §25). A sample whose weekly figure is known but has no session figure
    means the account has no session limit: the rule passes. A sample with neither (a failed
-   read) refuses. A product without `telemetry.allowance_cmd` reads no usage: the rule passes.
+   read) refuses. A machine without `allowance_cmd` reads no usage: the rule passes (§25.1).
 
 A claim into an empty active set is judged as single-runner; a resume is never refused by these
 rules. A claim by a runner that already holds a task not closed or released refuses (exit 7).
@@ -1528,7 +1528,7 @@ runner's subagent and reports by message and file (§15).
 
 - A quota wait is `waiting_on=quota`: not a failure, never a stall to stop.
 - **The session park and wake.** At a usage window's park threshold (§25; the built-in five-hour
-  window parks at `telemetry.session_park_pct`, default 95), `ccp tasks claim` and `ccp prompt` park
+  window parks at 95%), `ccp tasks claim` and `ccp prompt` park
   every task in flight until the window's actual reset plus a margin and exit 6; the lead keeps a
   one-shot wake armed at that reset (`ccp allowance session-wake`), armed before the limit while the
   lead can still act. The weekly checkpoints stop for the operator (§25).

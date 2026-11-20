@@ -703,9 +703,7 @@ if __name__ == "__main__":
 
 class Allowance(ToolkitFixture, unittest.TestCase):
     def plane_json(self, cmd, stop=None):
-        cfg = json.loads((self.runner / "docs/delivery/plane.json").read_text())
-        cfg["telemetry"] = {"allowance_cmd": cmd, **({"allowance_stop_weekly": stop} if stop else {})}
-        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        helpers.machine_file(self, allowance_cmd=cmd, allowance_stop_weekly=stop)
 
     def test_claim_samples_and_stops_past_the_weekly_gate(self):
         sample = json.dumps({"five_hour": {"utilization": 12.0}, "seven_day": {"utilization": 85.0,

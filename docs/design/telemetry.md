@@ -79,9 +79,9 @@ JSON receiver.
   attributed), how each request was attributed, and which agent ids lie behind unattributed tokens.
   It flags a run whose observed model or effort differs from its pinned values. The board (step 3)
   reads the same fold.
-- **Allowance (§25.1).** `ccp tasks claim` runs `telemetry.allowance_cmd` before it takes the lease,
+- **Allowance (§25.1).** `ccp tasks claim` runs the machine's `allowance_cmd` (the machine file, §8.3) before it takes the lease,
   appends the sample to `board/allowance.jsonl` and emits `allowance/sample`. It refuses with exit 5
-  when `seven_day` is at or above `telemetry.allowance_stop_weekly`. An unreadable sample is
+  when `seven_day` is at or above the machine's `allowance_stop_weekly` (default 90). An unreadable sample is
   recorded with nulls and never stops a claim. *(2026-10-23: claim and `ccp prompt` also park at the
   5-hour park %, exit 6, §25.4 the session park.)*
 - **Headless runs.** `ccp architect run` appends `claude -p`'s

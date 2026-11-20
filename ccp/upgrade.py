@@ -54,8 +54,9 @@ TAKEN, NOT_TAKEN, BY_HAND = "taken", "not taken", "check by hand"
 KEY_RE = re.compile(r"^[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*)*$")
 # The files a step may name, as the step writes them, and the kind of file each is.
 STEP_FILES = {"plane.json": "plane.json", config.CONFIG_REL: "plane.json", "binding": "binding",
-              "settings": "settings", ".claude/settings.json": "settings"}
-SHOWN = {"plane.json": config.CONFIG_REL, "binding": "the binding", "settings": ".claude/settings.json"}
+              "settings": "settings", ".claude/settings.json": "settings", "machine.json": "machine"}
+SHOWN = {"plane.json": config.CONFIG_REL, "binding": "the binding", "settings": ".claude/settings.json",
+         "machine": "the machine file (machine.json beside the bindings)"}
 
 
 def _plane_root() -> Path:
@@ -156,7 +157,7 @@ def _json_file(p: Path) -> dict[str, Any] | None:
 
 
 def _sources(cfg: Config) -> dict[str, dict[str, Any] | None]:
-    """The product's three files as the steps read them; None for one that cannot be read."""
+    """The product's three files and the machine file (§8.3) as the steps read them; None for one that cannot be read."""
     from ccp.cli import product_binding  # noqa: PLC0415
     b = product_binding(cfg)
     try:
@@ -164,7 +165,8 @@ def _sources(cfg: Config) -> dict[str, dict[str, Any] | None]:
     except OSError:
         binding = None
     return {"plane.json": _json_file(cfg.root / config.CONFIG_REL), "binding": binding,
-            "settings": _json_file(cfg.root / ".claude" / "settings.json")}
+            "settings": _json_file(cfg.root / ".claude" / "settings.json"),
+            "machine": _json_file(lib.machine_path())}
 
 
 def _change(kind: str, key: str, value: str) -> str:

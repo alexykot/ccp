@@ -40,6 +40,9 @@ unset in the plane.json init leaves (a kept one included), the gate lane (`suite
 `--gate`) among them, as a step to take before the first task. A
 `--language` that names no language pack and is not `none` is refused (exit 2) before anything is written.
 
+With no `allowance_cmd` in the machine file (§25.1) no usage is read and nothing bounds spend: the result's
+`warnings` says so, naming the key and the machine file.
+
 When the task directory already holds task files with no frontmatter (an earlier plane generation's),
 the result's `warnings` names their count and `ccp tasks migrate` (§5.3).
 When the queue it keeps already holds entries `ccp plane check` would list (an earlier plane
@@ -81,7 +84,7 @@ from urllib.parse import urlsplit
 from pathlib import Path
 from typing import Any
 
-from ccp import config, docrules, models, otel, refs, rules, tasklog
+from ccp import config, docrules, models, otel, refs, rules, tasklog, usage
 from ccp.queue import PLANE, QueueError, _main_worktree, emit, lib, queue_leftovers, script_drift
 
 TEMPLATES = PLANE / "templates"
@@ -463,6 +466,8 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     if unset:  # §4.5, §8.1: a step to take before the first task
         out["required_unset"] = unset
     record_adoption(q, cfg, "binding" in out["written"], binding)
+    if not usage.usage_read(cfg):  # §25.1: no allowance command, so nothing is read and nothing bounds spend
+        out.setdefault("warnings", []).append(usage.unread_warning())
     out["telemetry"] = {"tag": tag, **machine_telemetry(cfg, telemetry)}
     old_files = [f for f in sorted(cfg.tasks_dir.glob("*.md")) if not tasklog.has_frontmatter(f.read_text())]
     if old_files:  # §5.3: an earlier plane generation's task log

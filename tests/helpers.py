@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 from ccp import config, tasklog
 
@@ -61,6 +63,22 @@ BASE_PLANE: dict = {
     "suite": {"lanes": {"gate": ["true"]}},
     "parallel": {"max_in_flight": 1, "schedule": "paths"},
 }
+
+
+def machine_file(case, **keys) -> Path:
+    """SPEC §8.3: the machine file of a fenced bindings directory (`CCP_BINDINGS_DIR`, a temp directory the test
+    case removes) holding `keys`, written over what an earlier call in the same case wrote. Returns its path."""
+    d = getattr(case, "_machine_dir", None)
+    if d is None:
+        tmp = tempfile.TemporaryDirectory()
+        patch = mock.patch.dict(os.environ, {"CCP_BINDINGS_DIR": tmp.name})
+        patch.start()
+        case.addCleanup(tmp.cleanup)
+        case.addCleanup(patch.stop)
+        case._machine_dir = d = Path(tmp.name)
+    path = d / "machine.json"
+    path.write_text(json.dumps({k: v for k, v in keys.items() if v is not None}))
+    return path
 
 
 def merged_plane(cfg: dict | None = None) -> dict:
