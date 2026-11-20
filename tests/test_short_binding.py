@@ -191,6 +191,7 @@ class Limits(BindingDir):
         limits, err = self.limits("runner:\n  rotate_after_tasks: 0\n  idle_block_limit: null\n  rotate_at_context_tokens: big\n")
         self.assertEqual(limits, {"after_tasks": 4, "at_context_tokens": None, "idle_limit": 3})
         self.assertEqual(err.count("which is no value it takes"), 3, err)
+        self.assertEqual(lifecycle.rotation_knobs(self.queue), (4, None))
 
     def test_the_idle_hooks_limit_is_what_ccp_where_reports(self):
         self.binding.write_text(f"project_id: demo\nproduct_root: {self.product}\nqueue_root: {self.queue}\n"
