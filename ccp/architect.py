@@ -139,8 +139,7 @@ def _covered(st: dict[str, Any], ids: set[str]) -> bool:
 def shape_due(cfg: Config, tasks: list[dict[str, Any]]) -> list[str]:
     """ADRs that pending tasks cite with no shaping record and no waiver (§19.6); `ccp tasks check`
     is what enforces it."""
-    a = cfg.architect
-    if not a or not a["shape_adrs"]:
+    if not config.architect_on(cfg) or not cfg.architect["shape_adrs"]:
         return []
     shaped = tasklog.shaped_adrs(cfg)
     out: set[str] = set()
@@ -154,6 +153,19 @@ def shape_due(cfg: Config, tasks: list[dict[str, Any]]) -> list[str]:
     return sorted(out)
 
 
+NO_ADOPTION_POINT = ('no adoption point: record architect.shape_from_task (the next task number) '
+                    'or set "architect": false')
+
+
+def _rules_doc_state(cfg: Config) -> str | None:
+    """The house rules doc `due` reports: its path, `missing: <path>` when the file is absent (a pass then runs
+    without house rules, §19.11), None when the product names none."""
+    rel = _settings(cfg).get("rules_doc")
+    if not rel:
+        return None
+    return rel if (cfg.root / rel).is_file() else f"missing: {rel}"
+
+
 def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool = True,
              tasks: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Whether a pass is due, why, and how many merges each reason has waited; and any report
@@ -163,9 +175,13 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
     st = load(q, reap=record)
     tasks = tasks if tasks is not None else tasklog.load(cfg)
     done = _done(tasks)
+    adopted = config.architect_adopted(cfg)
     last = st.get("last") or {}
     label = last.get("review_id") or "none"
-    since = len(done - set(last.get("done") or []))
+    # §19.11: the cadence counts the tasks numbered from the adoption point (none before it, none unadopted).
+    start = config.adoption_point(cfg)
+    counted = {tid for tid in done if adopted and ((n := tasklog._number(tid, cfg)) is None or n >= (start or 0))}
+    since = len(counted - set(last.get("done") or []))
     days = round((ar.now_utc() - parse_dt(last["started_at"])).total_seconds() / 86400, 1) \
         if last.get("started_at") else None
     running = [r for r, rec in st["reviews"].items() if rec.get("status") == "running"]
@@ -174,23 +190,25 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
                 for r, rec in st["reviews"].items() if rec.get("status") in AWAITING]
     # Each reason: (key, text, the done count when it became due).
     reasons: list[tuple[str, str, int]] = []
-    if since >= a["every_n_tasks"]:
+    if not adopted:
+        pass  # the seat enforces nothing without an adoption point
+    elif since >= a["every_n_tasks"]:
         reasons.append(("cadence", f"{since} task(s) done since {label}", len(done) - (since - a["every_n_tasks"])))
     elif days is not None and days >= a["max_days"] and since >= 1:
         reasons.append(("max_days", f"{days} days and {since} task(s) done since {label}", -1))
     scope_ids = {str(t.get("task_id")) for t in tasks if scope and tasklog.in_scope(str(t.get("task_id")), scope)}
-    if scope_ids and scope_ids <= done and not _covered(st, scope_ids):
+    if adopted and scope_ids and scope_ids <= done and not _covered(st, scope_ids):
         reasons.append(("review_point", "review point closes: every task in scope is done", -1))
     n_notes = len(health.notes(q, last.get("started_at")))
-    if n_notes >= a["notes_due"]:
+    if adopted and n_notes >= a["notes_due"]:
         reasons.append(("notes", f"{n_notes} friction note(s) since {label}", -1))
     drift = None
-    if config.architect_on(cfg):
+    if adopted:
         drift = health.trend(health.collect(cfg, q, files=False)["tasks"], a["drift_ratio"])
         if drift["drift"] and not last.get("health_drift"):
             reasons.append(("drift", f"health drift: median active time of the last 5 tasks is {drift['drift_ratio']}x "
                                      f"the 10 before (limit {a['drift_ratio']})", -1))
-    budgets = rules.budget_failures(cfg) if config.architect_on(cfg) else []
+    budgets = rules.budget_failures(cfg) if adopted else []
     new_budgets = [b for b in budgets if b.split(":", 1)[0] not in set(last.get("budget_ids") or [])]
     if new_budgets:
         reasons.append(("budget", "budget check fails: " + "; ".join(new_budgets[:3]), -1))
@@ -238,9 +256,12 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
         "shape_due": shape_due(cfg, tasks), "last_failure": last_failure, "failed_in_a_row": failed_in_a_row,
         "merges_since_attempt": len(done) - attempt["done_count"] if restart is not None else None,
         "grace_tasks": a["grace_tasks"], "triage_grace_tasks": a["triage_grace_tasks"],
+        "adoption_point": start, "rules_doc": _rules_doc_state(cfg),
     }
     if not config.architect_on(cfg):
-        info.update(due=False, reason="no architect block in docs/delivery/plane.json")
+        info.update(due=False, reason=f'the architect seat is off ("architect": false in {config.CONFIG_REL})')
+    elif not adopted:
+        info.update(due=False, reason=NO_ADOPTION_POINT)
     elif running:
         info.update(due=False, reason=f"pass {running[0]} is running")
     elif awaiting:
@@ -259,6 +280,8 @@ def gate(cfg: Config, q: Path, scope: list[str] | None, task: dict[str, Any] | N
     a = _settings(cfg)
     info = due_info(cfg, q, scope)
     notices: list[str] = []
+    if not config.architect_adopted(cfg):
+        return {"blocked": None, "notices": notices, "info": info}  # the seat enforces nothing yet (§19.11)
     for w in info["awaiting_triage"]:
         if w["merges_since"] >= a["triage_grace_tasks"]:
             action = (f"run `ccp architect triage {w['review_id']}` and hand it to the task-log owner "
@@ -335,10 +358,12 @@ def prompt_for(cfg: Config, q: Path, rid: str, mode: str, lenses: list[str], hea
         p = _adr_path(cfg, adr or "")
         lines.append(f"ADR to shape: {adr}" + (f" ({p})" if p else " (find it in the design record)")
                      + ". Return the `shape` object as well as findings.")
-    if rs["rules_doc"]:
-        lines.append(f"House rules: {rs['rules_doc']}" + (f" ({rs['rules']} rules, {rs['lines']} of "
-                     f"{rs['rules_max_lines']} lines)" if rs["present"] else " (missing)")
-                     + ". Propose additions, amendments and deletions in `rule_changes`.")
+    if rs["rules_doc"] and not rs["present"]:
+        lines.append(f"House rules: {rs['rules_doc']} is missing, so this pass runs without house rules. "
+                     "Propose a first set in `rule_changes`.")
+    elif rs["rules_doc"]:
+        lines.append(f"House rules: {rs['rules_doc']} ({rs['rules']} rules, {rs['lines']} of "
+                     f"{rs['rules_max_lines']} lines). Propose additions, amendments and deletions in `rule_changes`.")
     else:
         lines.append("House rules: none yet (architect.rules_doc is not set). Propose a first set in `rule_changes`.")
     lines.append(f"Allowed probe commands besides read-only git/ls/wc: {probe_txt}.")

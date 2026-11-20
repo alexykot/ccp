@@ -651,6 +651,13 @@ def opener(q: Path, tid: str, st: dict[str, Any], holder: str | None) -> str | N
     return held
 
 
+def rules_doc_for(cfg: Config) -> str:
+    """The house rules doc a worker is told to read (§19.11): the architect's `rules_doc` while the file exists.
+    The default names a file a product may not have yet, and a worker is never sent to read one that is absent."""
+    rel = (cfg.architect or {}).get("rules_doc") or ""
+    return rel if rel and (cfg.root / rel).is_file() else ""
+
+
 def build(cfg: Config, a: Any) -> dict[str, Any]:
     q = root()
     phase = a.phase
@@ -715,7 +722,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "main_checkout": str(main_checkout(cfg)), "integration": integration_branch(q),
         "base": (a.base or (base_sha(cfg, q) if phase == "implement" else "")),
         "pr": a.pr or "", "head": a.head or "",
-        "rules_doc": (cfg.architect or {}).get("rules_doc") or "",
+        "rules_doc": rules_doc_for(cfg),
         "fragment": frag, "fragment_path": frag_path, "note": note or "",
         "prior_reports": prior_reports(q, tid, phase),
         "queue_root": str(q), "ccp": ccp_command(cfg), "report_path": str(report),

@@ -21,7 +21,7 @@ one whose `adopt:` is `none` yet names a plane.json, binding or settings key (a 
 A task has a kind (§20): `feature` (the default) or `refactor`. A refactor changes no rule, so it
 cites house rules or review findings (`rule_refs`, `review_refs`) instead of the spec, and proves
 itself by its own checks, never by re-running the gate or full lane (§21.1). With the
-`architect` block on, refactors get reserved capacity in `next_task`; by default a refactor joins a
+architect seat adopted (§19.11), refactors get reserved capacity in `next_task`; by default a refactor joins a
 scope only when a task in it depends on the refactor (`refactor_in_scope: "deps"`), and the rest wait
 for the top of the next review point's scope. New tasks citing an ADR need its shaping record (`reviews/sh-*.md`) or a waiver.
 
@@ -413,6 +413,22 @@ def _number(tid: Any, cfg: Config | None = None) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def seat_reads(cfg: Config, t: dict[str, Any]) -> bool:
+    """Whether the architect seat judges this task (§19.11): the seat is on and the task is numbered from its
+    adoption point. With no adoption point it judges none; a task without a number is judged."""
+    start = config.adoption_point(cfg)
+    if not config.architect_adopted(cfg):
+        return False
+    n = _number(t.get("task_id"), cfg)
+    return n is None or n >= start
+
+
+def lane_refactor(cfg: Config, t: dict[str, Any]) -> bool:
+    """Whether the refactor lane (§20.3, §20.4) counts this task a refactor: its `kind` is read, like the
+    kind checks, only from the adoption point (§19.11); one numbered before it is an ordinary task."""
+    return kind_of(t) == "refactor" and seat_reads(cfg, t)
+
+
 def shaped_adrs(cfg: Config) -> set[int]:
     """ADR numbers that have a shaping record: the `ADR-NNNN` tokens on a `reviews/sh-*.md`'s `ADR:`
     lines (`ADR: ADR-0031 (accepted 2026-10-06)` names ADR 31 only), or anywhere in a record that has
@@ -666,7 +682,7 @@ def _check_shaping(cfg: Config, t: dict[str, Any], rel: str, shaped: set[int]) -
     """§19.6: with shape_adrs on, a pending task from the architect's adoption point on that cites an ADR needs the
     ADR's shaping record, or `shaping: waived — <reason>`."""
     a = cfg.architect
-    if not a or not a["shape_adrs"] or t.get("status") != "pending":
+    if not config.architect_on(cfg) or not a["shape_adrs"] or t.get("status") != "pending":
         return []
     n, start = _number(t.get("task_id"), cfg), config.adoption_point(cfg)
     if n is None or start is None or n < start:
@@ -856,7 +872,7 @@ def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
     if not cfg.tasks_dir.is_dir():
         return [f"{cfg.rel(cfg.tasks_dir)}: missing — the task log lives here"]
     tasks = load(cfg, texts)
-    shaped = shaped_adrs(cfg) if cfg.architect and cfg.architect["shape_adrs"] else set()
+    shaped = shaped_adrs(cfg) if config.architect_on(cfg) and cfg.architect["shape_adrs"] else set()
     register, reg_errs = reviewpoints.load(cfg)  # §22: the review-point register, when the product keeps one
     errs += reg_errs
     seen: dict[str, str] = {}
@@ -875,8 +891,9 @@ def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
         if not has_frontmatter(t["_text"]):  # §21.1: one failure, not one per key
             errs.append(f"{rel}: {NO_FRONTMATTER}")
             continue
-        # Kinds exist only with the architect block; without it `kind:` is not read (§19).
-        own_refs = config.architect_on(cfg) and bool(((tl.get("kinds") or {}).get(kind_of(t)) or {}).get("refs_any"))
+        # Kinds are read with the architect seat on, for tasks from its adoption point; otherwise `kind:` is not (§19.11).
+        judged = seat_reads(cfg, t)
+        own_refs = judged and bool(((tl.get("kinds") or {}).get(kind_of(t)) or {}).get("refs_any"))
         for k in tl["required"]:
             # A kind with its own refs (a refactor) may leave out the ones it is not allowed to fill (§20).
             own = ((tl.get("kinds") or {}).get(kind_of(t)) or {}).get("refs_any") or []
@@ -910,7 +927,7 @@ def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
         errs += _id_list_errors(rel, t, "clashes_with", ids, own=True)
         if not own_refs and tl["refs_any"] and not any(_as_list(t.get(k)) for k in tl["refs_any"]):
             errs.append(f"{rel}: cites none of {', '.join(tl['refs_any'])}" + _spec_hint(tl["refs_any"]))
-        if config.architect_on(cfg):
+        if judged:
             errs += _check_kind(cfg, t, rel)
             errs += _check_refactor_gate(cfg, t, rel)
         if why := sign_off_malformed(t):  # §3.5: brief, build or both
@@ -1027,7 +1044,7 @@ def done_order(cfg: Config, tasks: list[dict[str, Any]] | None = None) -> list[s
 
 def features_since_refactor(cfg: Config, tasks: list[dict[str, Any]]) -> int:
     """Feature tasks merged since the last refactor merged (all of them, if none has)."""
-    kinds = {t.get("task_id"): kind_of(t) for t in tasks}
+    kinds = {t.get("task_id"): "refactor" if lane_refactor(cfg, t) else "feature" for t in tasks}
     n = 0
     for tid in done_order(cfg, tasks):
         n = 0 if kinds.get(tid) == "refactor" else n + 1
@@ -1058,14 +1075,14 @@ def scope_deps(tasks: list[dict[str, Any]], scope: list[str] | None) -> dict[str
 def refactor_reach(cfg: Config, tasks: list[dict[str, Any]], scope: list[str] | None) -> dict[str, str]:
     """§20: the refactors outside the scope that `next` widens it to, each with the reason:
     every refactor under `refactor_in_scope: true`, the ones a scope task depends on under "deps",
-    none under false or without the architect block."""
+    none under false or unless the seat is adopted."""
     a = cfg.architect
-    mode = a["refactor_in_scope"] if a else False
+    mode = a["refactor_in_scope"] if config.architect_adopted(cfg) else False
     if not scope or mode is False:
         return {}
     need = scope_deps(tasks, scope) if mode == "deps" else {}
     return {str(t.get("task_id")): need.get(str(t.get("task_id")), "")
-            for t in tasks if kind_of(t) == "refactor" and not in_scope(str(t.get("task_id")), scope)
+            for t in tasks if lane_refactor(cfg, t) and not in_scope(str(t.get("task_id")), scope)
             and (mode is True or str(t.get("task_id")) in need)}
 
 
@@ -1073,11 +1090,11 @@ def waiting_refactors(cfg: Config, scope: list[str] | None,
                       tasks: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """§20.4: outstanding (pending, ready or not) refactors that the scope neither names nor reaches,
     in task order. Under "deps" these go to the top of the next review point's scope (§10.2)."""
-    if not config.architect_on(cfg) or not scope:
+    if not config.architect_adopted(cfg) or not scope:
         return []
     tasks = tasks if tasks is not None else load(cfg)
     reach = refactor_reach(cfg, tasks, scope)
-    return [t for t in tasks if kind_of(t) == "refactor" and t.get("status") == "pending"
+    return [t for t in tasks if lane_refactor(cfg, t) and t.get("status") == "pending"
             and not in_scope(str(t.get("task_id")), scope) and str(t.get("task_id")) not in reach]
 
 
@@ -1131,15 +1148,15 @@ def ranked(cfg: Config, scope: list[str] | None = None, first: list[str] | None 
         if p[0] in ready:
             ready.remove(p[0])
             out.append(p)
-    every = a["refactor_every"] if a else 0
+    every = a["refactor_every"] if config.architect_adopted(cfg) else 0
     # git's count is only needed when a ready refactor could jump the queue (it is one `git log`)
     since = (since if since is not None else features_since_refactor(cfg, tasks)) \
-        if every and any(kind_of(t) == "refactor" for t in ready) else 0
+        if every and any(lane_refactor(cfg, t) for t in ready) else 0
     for p, _ in out:
-        since = 0 if kind_of(p) == "refactor" else since + 1
+        since = 0 if lane_refactor(cfg, p) else since + 1
     while ready:
         firsts = [t for t in ready if str(t.get("task_id")) in (first or [])]
-        refactors = [t for t in ready if kind_of(t) == "refactor"]
+        refactors = [t for t in ready if lane_refactor(cfg, t)]
         if firsts:
             pick = firsts[0]
             why = (f"a refactor waiting from an earlier cycle, taken first at review point {review_point or '?'} "
@@ -1156,7 +1173,7 @@ def ranked(cfg: Config, scope: list[str] | None = None, first: list[str] | None 
                    "(plane.json architect.refactor_in_scope: true, SPEC §20.4)"
                    if scope and not in_scope(tid, scope) else "")
         ready.remove(pick)
-        since = 0 if kind_of(pick) == "refactor" else since + 1
+        since = 0 if lane_refactor(cfg, pick) else since + 1
         out.append((pick, why))
     return out
 

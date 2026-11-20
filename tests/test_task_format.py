@@ -100,7 +100,7 @@ class Sections(unittest.TestCase):
 
 class Kinds(unittest.TestCase):
     def test_a_configured_kind_sets_its_own_refs(self):
-        p = Product({"architect": {}, "task_log": {"kinds": {
+        p = Product({"architect": {"shape_from_task": "0001"}, "task_log": {"kinds": {
             "feature": {}, "refactor": {"refs_any": ["rule_refs", "review_refs"], "forbid": ["spec_refs", "adr_refs"]},
             "chore": {"refs_any": ["review_refs"], "forbid": ["spec_refs"]}}}})
         try:
@@ -176,7 +176,7 @@ class ReviewFixes(unittest.TestCase):
             p.cleanup()
 
     def test_naming_one_kind_keeps_the_default_feature_kind(self):
-        p = Product({"architect": {}, "task_log": {"kinds": {"refactor": {"refs_any": ["rule_refs"]}}}})
+        p = Product({"architect": {"shape_from_task": "0001"}, "task_log": {"kinds": {"refactor": {"refs_any": ["rule_refs"]}}}})
         try:
             self.assertIn("feature", p.cfg.task_log["kinds"])
             p.task("0001-a")

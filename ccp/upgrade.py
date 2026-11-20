@@ -21,6 +21,9 @@ one, the choice between a language pack and `none`, with what each costs. It pro
 The step that names plane.json `suite.lanes.gate` is taken when the product has a gate lane by the rule
 claim and next apply (`config.gate_lane_missing`, §14.1): the lane `suite.roles` gives the gate role,
 with a command that is not the placeholder.
+The step that names plane.json `architect.shape_from_task` (§19.11) is taken when plane.json records it or
+sets `"architect": false`; until then it proposes the product's next task number as the adoption point, or
+`"architect": false`.
 plane.json `upgrade.declined` leaves a task's step out; `upgrade.taken` leaves out a step the product took
 in a way the command cannot see, and lists it under `taken` with its reason. A step the command checked and
 found taken is listed under `detected`. `decline` and `take` write those two objects, each removing the task
@@ -185,6 +188,17 @@ def language_change(plane: dict[str, Any]) -> str:
             "exits 2 and the run's tests are not counted")
 
 
+ADOPTION_KEY = ("plane.json", "architect.shape_from_task")
+
+
+def adoption_change(cfg: Config) -> str:
+    """§19.11: the change the adoption-point step asks of this product: its next task number as the point (no
+    task before it is judged and no pass is owed at once), or `"architect": false` to keep the seat off."""
+    where = f"set `architect.shape_from_task` in {config.CONFIG_REL}"
+    return (f"{where} to {tasklog.next_number(cfg)}, the next task number: the architect judges no task before it "
+            f"and no pass is owed at once; or set `\"architect\": false` in {config.CONFIG_REL} to keep the seat off")
+
+
 def status(cfg: Config, _a: Any) -> dict[str, Any]:
     """§29.3: each `adopt` step of a merged plane task that this product has not taken, with the task, whether
     it is required, the product's own proposal for it and the change to make, and the plane checkout's HEAD
@@ -210,6 +224,8 @@ def status(cfg: Config, _a: Any) -> dict[str, Any]:
         if parsed and sources[parsed[0]] is not None:
             if parsed[:2] == ("plane.json", "suite.lanes.gate"):  # §14.1: taken when the gate role has a lane
                 found = config.gate_lane_missing(cfg) is None
+            elif parsed[:2] == ADOPTION_KEY:  # §19.11: taken when the point is recorded or the seat is off
+                found = _has(sources[parsed[0]], parsed[1]) or (sources[parsed[0]] or {}).get("architect") is False
             else:
                 found = _has(sources[parsed[0]], parsed[1])
             if found:
@@ -218,6 +234,8 @@ def status(cfg: Config, _a: Any) -> dict[str, Any]:
             check, change = NOT_TAKEN, _change(*parsed)
             if parsed[:2] == ("plane.json", "language"):  # §8.1: the product's own value, or its choice
                 change = language_change(sources["plane.json"] or {})
+            elif parsed[:2] == ADOPTION_KEY:
+                change = adoption_change(cfg)
         else:
             check, change = BY_HAND, bare or step  # a step of only the prefix is shown as written
         steps.append({"task": tid, "title": t.get("title"), "adopt": step, "required": required, "check": check,

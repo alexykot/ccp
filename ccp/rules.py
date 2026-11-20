@@ -142,10 +142,12 @@ def parse_rules(text: str, ids: refs.Ids = refs.DEFAULT) -> tuple[dict[str, str 
 def check_doc(cfg: Config) -> list[str]:
     """The rules doc's own shape: present, short, every rule checked by something that exists."""
     a = cfg.architect
-    if not a or not a["rules_doc"]:
+    if not config.architect_on(cfg) or not a["rules_doc"]:
         return []
     doc = cfg.root / a["rules_doc"]
     rel = a["rules_doc"]
+    if not cfg.rules_doc_set and not (config.architect_adopted(cfg) and doc.is_file()):
+        return []  # the default doc: judged once the seat is adopted; missing, a pass just runs without house rules
     if not doc.is_file():
         return [f"{rel}: missing (architect.rules_doc; template: control-plane templates/docs-project/ENGINEERING.md)"]
     text = doc.read_text()
@@ -250,7 +252,7 @@ def starter_notes(cfg: Config) -> list[str]:
 def budget_failures(cfg: Config) -> list[str]:
     """Each file over its budget, as `E<n>: <path> <measure> > <limit>`."""
     a = cfg.architect
-    if not a or not a["budgets"]:
+    if not config.architect_on(cfg) or not a["budgets"]:
         return []
     files = tracked_files(cfg.root)
     out: list[str] = []
@@ -285,7 +287,7 @@ def budget_check(cfg: Config, base: str) -> dict[str, Any]:
     and within its limit. Files the change does not touch are not judged."""
     a = cfg.architect
     out: dict[str, Any] = {"base": base, "merge_base": None, "touched": 0, "failures": [], "warnings": []}
-    if not a or not a["budgets"]:
+    if not config.architect_on(cfg) or not a["budgets"]:
         return {**out, "note": "no architect.budgets in plane.json"}
     git = lambda *args: subprocess.run(["git", "-C", str(cfg.root), *args], capture_output=True)  # noqa: E731
     mb = git("merge-base", "HEAD", base)
@@ -352,7 +354,7 @@ def budget_status(cfg: Config) -> list[dict[str, Any]]:
     with the files it covers, the largest of them, and how many are over. `budget_failures` stays
     the trigger's own list."""
     a = cfg.architect
-    if not a or not a["budgets"]:
+    if not config.architect_on(cfg) or not a["budgets"]:
         return []
     files = tracked_files(cfg.root)
     out: list[dict[str, Any]] = []
@@ -455,7 +457,7 @@ def run_command(cfg: Config, cmd: str, timeout: int, cwd: Path | None = None) ->
 
 def check(cfg: Config) -> list[str]:
     """What §20 puts in the verifier's gate: the rules doc's shape and the product's checks. Not
-    the budgets (see the module doc). [] when the architect block is absent."""
+    the budgets (see the module doc). [] when the seat is off (`"architect": false`)."""
     if not config.architect_on(cfg):
         return []
     return check_doc(cfg) + [f"check {e}" for e in check_failures(cfg)]

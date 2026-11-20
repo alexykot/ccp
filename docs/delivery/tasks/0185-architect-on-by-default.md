@@ -160,4 +160,35 @@ by an upgrade step in its own repo.
 
 *Append-only, newest last.*
 
+- Representation: `cfg.architect` is the merged settings dict whenever the seat is on (no block, `{}` or a block) and
+  None only for `"architect": false`, so `architect_on` stays `cfg.architect is not None` and the truthiness tests of
+  the architect config the runner's note names (forecast, rules, tasklog, quality) route through `architect_on`.
+  `"architect": true` is a configuration error. New `config.architect_adopted(cfg)` (on and an adoption point): the
+  seat enforces only then. `Config.rules_doc_set` records whether plane.json names `rules_doc` itself.
+- Gated on adoption, beyond the cadence the Context names: the `next` gate and its QUEUE_ROOT requirement, the review-point,
+  notes, drift and budget triggers of `ccp architect due`, a report awaiting triage (no block while unadopted), the kind and
+  refactor-reference checks (per task, `tasklog.seat_reads`), and the refactor lane (`ranked`, `refactor_reach`,
+  `waiting_refactors`, the forecast, the review point's refactors in `selection`, the board's waiting refactors): a product
+  with history and refactor tasks would otherwise see its order change at the merge. A product with a block and no
+  `shape_from_task` is unadopted too: the seat stops enforcing until the step is taken.
+- The default `rules_doc` (`docs/ENGINEERING.md`): missing is no failure of `ccp docs check` unless plane.json names it;
+  present, the default doc is judged only once the seat is adopted. `ccp architect due` carries `rules_doc` (`missing: <path>`)
+  and `adoption_point`; the prompt says the pass runs without house rules.
+- `ccp init`: `starter_rules` defaults on; the doc is never overwritten (`--force` included) and its plane.json settings are
+  left out when the product's own rules doc exists; the adoption point is the next number from the task files' names.
+  Re-running on a kept plane.json lists `--starter-rules` as not applied only when it wrote the doc that run.
+- Tests: `BASE_PLANE` gains `"architect": false`; the architect blocks of the modules that exercise enforcement name
+  `"shape_from_task": "0001"`.
+- §31.1 corrections beyond the quoted passages (no new rule): 01-model §4.5 (`--starter-rules` bullets), 03-quality §19.6
+  item 5 (on demand "with the seat off"), §20.3 (kinds), §20.3's board line (`refactors_waiting` null unless adopted);
+  README, `docs/cli/01-model.md`, the starter-rules and ENGINEERING templates, `contracts/task_file.schema.json`.
+- Fix round 1: the refactor lane reads a task's `kind` only from the adoption point, as the kind checks do:
+  `tasklog.lane_refactor(cfg, t)` (kind refactor and `seat_reads`) replaces `kind_of(t) == "refactor"` in `ranked`,
+  `refactor_reach`, `waiting_refactors`, `features_since_refactor`, the forecast's replay and the board's waiting
+  refactors, so an old pending refactor numbered below the point is an ordinary task. Workers are sent to the house rules
+  doc only when the file exists (`prompt.rules_doc_for`). `ccp init` refuses `--starter-rules` with `--no-starter-rules`
+  (exit 2). The stale "with an `architect` block" wording in `tasks next`'s help, the verifier agent, the runner-idle hook,
+  the board design doc, `tasklog`'s docstring and `docs/ENGINEERING.md` now says the seat is adopted or on; the extra
+  blank line in §19.11 is gone. SPEC §20.3's board line (`refactors_waiting` null unless adopted) still reads true.
+
 ## Verification notes

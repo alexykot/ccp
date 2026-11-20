@@ -35,7 +35,7 @@
     "kind": {
       "type": "string",
       "default": "feature",
-      "description": "A key of plane.json task_log.kinds (default feature, refactor); read only with the architect block on (§20)"
+      "description": "A key of plane.json task_log.kinds (default feature, refactor); read with the architect seat on, for tasks from its adoption point (§19.11, §20)"
     },
     "depends_on": {
       "type": "array",

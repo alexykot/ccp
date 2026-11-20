@@ -127,8 +127,8 @@ developer's machine.
 
 **Terms.** A *seat* is a role in the team. The **lead** is your interactive Claude Code session in
 the product: the design seat, which owns the task log and maintains the spec. A **runner** is a
-teammate the lead spawns to drive tasks through the loop. The **architect** is an optional headless
-pass that reviews the product's structure. The **operator** is you.
+teammate the lead spawns to drive tasks through the loop. The **architect** is a headless
+pass that reviews the product's structure; it is on by default and `"architect": false` turns it off. The **operator** is you.
 
 ## Quick start
 
@@ -230,7 +230,8 @@ and creates the queue, `~/.delivery-queue/my-product/` (`--queue-root` picks ano
 | `merge.behind_tip_ignore` | paths whose commits on the tip do not make a verified head stale (§16.5) | other work commits to those paths often and should not force a new verify |
 | `reconcile.log` | an entry `ccp tasks close` adds to a product log at each close (§10.5) | the product keeps a delivery log or changelog |
 | `notify` | the operator's channel for blockers, decisions, finished review points and the checkpoint: a command `ccp` runs, or a tool the lead sends with (§3.6) | the operator is away from the lead's session |
-| `docs.starter_rules` | adopts the plane's starter house rules (`ccp init --starter-rules`, §20.5) | the product has no house rules of its own yet |
+| `docs.starter_rules` | adopts the plane's starter house rules (`ccp init` writes them unless `--no-starter-rules`, §20.5) | the product has no house rules of its own yet |
+| `architect.shape_from_task` | the architect's adoption point: the next task number, from which it enforces its passes, shaping and task kinds; `ccp init` records it, and `ccp upgrade status` lists it for a product with history (§19.11); `"architect": false` keeps the seat off | the product has finished tasks: set it to the next task number, or turn the seat off. With none the seat is on and enforces nothing |
 | `architect.checks` | product commands for the house rules a command can check; `ccp docs check` runs them (§20.1, §21.2) | a house rule can be checked by a command: a linter, a leak scan |
 | `models` | the model of any role (`lead`, `runner`, `implementer`, `implementer_small`, `implementer_refactor`, `reviewer`, `verifier`, `architect`, `estimator`), an alias: `sonnet`, `opus`, `haiku` or `fable`; a role left out takes the plane's default (§2.4) | a role should run on another model than its default: a cheaper reviewer, an implementer that stays on Opus for small tasks |
 | `verify.accept_cache` | the verifier counts a hit in the product's content-keyed test cache as run and passed (§15.3) | the gate has such a cache and is slow to run cold |
@@ -292,7 +293,7 @@ ccp init --rules-doc docs/ENGINEERING.md --adopt   # gives each of them `check: 
 ```
 
 `--adopt` refuses when the new lines would put the doc over `architect.rules_max_lines`. Then set
-`architect.rules_doc` to the doc's path in `plane.json`, so `ccp docs check` checks it and the
+`architect.rules_doc` to the doc's path in `plane.json` (the default is `docs/ENGINEERING.md`), so `ccp docs check` checks it and the
 architect judges the `pass` rules. The report also names the plane's starter rules
 (§20.5): where one of yours matches a starter rule, its `docs` check can replace `check: pass`.
 
@@ -404,7 +405,7 @@ templates/                  plane.json, tasks/,       ~/.local/state/control-pla
 | **Lead** (design seat) | Writes intent, specs and tasks; starts runners; asks the operator | Implements tasks |
 | **Runner** (teammate) | Claims tasks, drives each through the loop, merges, closes | Writes product code or verdicts |
 | **Implementer, reviewer, verifier** (subagents) | Write the change; review it; run the gate on the exact commit | Judge their own work |
-| **Architect** (headless, optional) | Reviews structure — house rules, budgets, drift — when `ccp architect` runs; its report goes to the lead for triage. Scheduled passes are on with the `architect` block; `ccp architect run --force` works without it | Changes code or the task log |
+| **Architect** (headless) | Reviews structure — house rules, budgets, drift — when `ccp architect` runs; its report goes to the lead for triage. Scheduled passes are on unless `"architect": false`, from the product's adoption point; `ccp architect run --force` works with the seat off | Changes code or the task log |
 | **Operator** (you) | Rules on escalations, approves rule changes, merges when policy requires | Is asked what the docs already answer |
 
 ### The split

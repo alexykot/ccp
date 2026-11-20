@@ -3,8 +3,8 @@
 The file is product-owned: it travels with the code it describes, so a worktree or a verifier
 checkout needs nothing from the queue. Its presence is the opt-in — a product without it has
 not adopted `ccp`, and every command says so rather than guessing. Every key but `project_id` and
-`language` has a plane default; a block that is absent means "use the defaults", except `architect`,
-whose absence turns that part off (a product's choice, not a plane rule). The package-doc checks
+`language` has a plane default; a block that is absent means "use the defaults", and `"architect": false`
+is the one way to turn the architect seat off (§19.11). The package-doc checks
 follow `language`: a pack turns them on, with the `package_docs` block's settings or its defaults,
 and `none` turns them off. A command that needs the language and finds it unset warns during the
 grace release (`REQUIRED_KEYS_GRACE`) and behaves as before; after it, it refuses (`require_language`).
@@ -44,7 +44,7 @@ TASK_LOG_DEFAULTS: dict[str, Any] = {
     "sections": ["Intent", "Context (not checked)", "Scope", "dod_checks",
                  "Implementation notes", "Verification notes"],
     # SPEC §5.5, §20.4: per kind, the ref lists it cites one of (`refs_any`, default the task log's)
-    # and the ones it leaves empty (`forbid`). Read only with the architect block on.
+    # and the ones it leaves empty (`forbid`). Read with the architect seat on, for tasks from its adoption point.
     "kinds": {"feature": {}, "refactor": {"refs_any": ["rule_refs", "review_refs"],
                                           "forbid": ["spec_refs", "adr_refs"]}},
     # Shaping records (`sh-*.md`) and triage records, under `dir` (§19.6).
@@ -106,8 +106,8 @@ DOC_RULES = {"citations": {"globs", "targets", "ignore"}, "no_ids": {"globs", "p
              "no_overlap": None, "no_call_bullets": None}
 
 ARCHITECT_DEFAULTS: dict[str, Any] = {
-    # The house rules (SPEC §20.1): a product path, or None for none yet.
-    "rules_doc": None,
+    # The house rules (SPEC §20.1): a product path; when the doc is missing a pass runs without them.
+    "rules_doc": "docs/ENGINEERING.md",
     "rules_max_lines": 150,
     # Triggers (§19.6).
     "every_n_tasks": 4,
@@ -117,8 +117,9 @@ ARCHITECT_DEFAULTS: dict[str, Any] = {
     # Enforcement at `ccp tasks next` (§19.6).
     "grace_tasks": 1,
     "triage_grace_tasks": 2,
-    # Shaping (§19.6): with shape_adrs on, shape_from_task is required, so turning the check on
-    # never fails the tasks written before it.
+    # Shaping (§19.6) and the adoption point: shape_from_task is the task number the seat's rules start
+    # from (the next task number when it turned on), so no finished task is judged by rules written after
+    # it; with shape_adrs on it is required. Unset: the seat enforces nothing.
     "shape_adrs": False,
     "shape_from_task": None,
     # Refactor lane (§20). "deps": a refactor joins a scope only when a scope task depends on it;
@@ -404,7 +405,12 @@ class Config:
     # place), or "ignored" (both given: the old place is ignored); "" otherwise.
     language_moved: str = ""
     docs: dict[str, Any] = field(default_factory=lambda: copy.deepcopy(DOCS_DEFAULTS))
+    # The architect's settings (the defaults when plane.json has no block), or None when plane.json sets
+    # `"architect": false`: the seat is off.
     architect: dict[str, Any] | None = None
+    # Whether plane.json names architect.rules_doc itself: a rules doc it names that is missing is an error
+    # for `ccp docs check`; the default one missing only means a pass runs without house rules (§19.11).
+    rules_doc_set: bool = False
     prompts: dict[str, Any] | None = None
     reconcile: dict[str, Any] | None = None
     adapter: dict[str, Any] | None = None
@@ -642,16 +648,23 @@ def lane_for(cfg: Any, role: str) -> str:
 
 
 def architect_on(cfg: Any) -> bool:
-    """Whether the architect seat is on for the product: the one test every on/off site asks (§19)."""
+    """Whether the architect seat is on for the product: the one test every on/off site asks (§19). It is
+    on unless plane.json sets `"architect": false`, which leaves `cfg.architect` None."""
     return getattr(cfg, "architect", None) is not None
 
 
 def adoption_point(cfg: Any) -> int | None:
     """The task number the architect starts from (`architect.shape_from_task`, a number or an id), or
-    None when the architect is off or names none (§19.6)."""
+    None when the architect is off or names none: then it enforces nothing (§19.11)."""
     sft = (getattr(cfg, "architect", None) or {}).get("shape_from_task")
     m = refs.ids(cfg).task_number_re.match(str(sft or ""))
     return int(m.group(1)) if m else None
+
+
+def architect_adopted(cfg: Any) -> bool:
+    """Whether the seat enforces anything (§19.11): it is on and has an adoption point. The seat on with no
+    adoption point enforces nothing: no cadence, no block at `next`, no kind or shaping check."""
+    return architect_on(cfg) and adoption_point(cfg) is not None
 
 
 def _merge(defaults: dict[str, Any], given: Any, name: str) -> dict[str, Any]:
@@ -774,8 +787,10 @@ def _docs(given: Any) -> dict[str, Any]:
 
 
 def _architect(given: Any, ids: refs.Ids = refs.DEFAULT) -> dict[str, Any] | None:
-    if given is None:
-        return None
+    if given is False:
+        return None  # the one way to turn the seat off (§19.11)
+    if given is True:
+        raise ConfigError(f"{CONFIG_REL}: `architect` must be an object, or false to turn the seat off")
     a = _merge(ARCHITECT_DEFAULTS, given, "architect")
     bad = []
     for k, lo in _INTS.items():
@@ -1598,6 +1613,7 @@ def _parse(root: Path, text: str) -> Config:
         package_docs=_package_docs(pkg, language),
         docs=_docs(raw.get("docs")),
         architect=_architect(raw.get("architect"), ids),
+        rules_doc_set=isinstance(raw.get("architect"), dict) and "rules_doc" in raw["architect"],
         ids=ids,
         adr=_adr(raw.get("adr")),
         upgrade=_upgrade(raw.get("upgrade")),

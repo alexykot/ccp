@@ -47,7 +47,7 @@ def inputs(cfg: Config, q: Path | None, scope: list[str] | None = None,
     if scope is None and w.get("status") == "running" and w.get("scope"):
         scope, from_work = [str(s) for s in w["scope"]], True
     first, rp = [], None
-    if config.architect_on(cfg):
+    if config.architect_adopted(cfg):
         first = [str(x) for x in w.get("review_point_refactors") or [] if tasklog.in_scope(str(x), scope)]
         rp = w.get("review_point")
     prefer: list[tuple[dict[str, Any], str]] = []

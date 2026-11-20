@@ -61,9 +61,9 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
   ccp agent start|stop          (the SubagentStart / SubagentStop hooks; hook JSON on stdin)
   ccp orientation               (the SessionStart orientation, for a session that adopted mid-run, SPEC §9.3)
   ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--language L] [--gate CMD]
-           [--starter-rules] [--telemetry on|off] [--force]
-            (adopt this repository: footprint, binding and queue, SPEC §4.3, §8.3; the starter
-            house rules, §20.5; the machine's telemetry consent, §4.5, §24.1)
+           [--no-starter-rules] [--telemetry on|off] [--force]
+            (adopt this repository: footprint, binding and queue, SPEC §4.3, §8.3; the architect's
+            adoption point, §19.11; the starter house rules, §20.5; the machine's telemetry consent, §4.5, §24.1)
   ccp sandbox create [DIR] [-- INIT_OPTIONS …] | remove DIR  (a throwaway adopted product, its binding and queue
             inside DIR, for end-to-end checks; remove deletes only a sandbox, SPEC §29.3; inside one,
             every command, init included, uses its binding and queue)
@@ -74,7 +74,7 @@ The seat toolkit (SPEC §10.4; every command needs QUEUE_ROOT and writes its own
 
 `tasks` and `docs check` are free and deterministic (`index` writes INDEX.yaml; `docs check` also
 holds the house rules' shape and runs the product's `architect.checks`; every budget is `architect due`'s
-and `health`'s; `budgets check` gates only on the files a change grew). With an `architect` block, `tasks next` reads the queue
+and `health`'s; `budgets check` gates only on the files a change grew). With the architect seat adopted (§19.11), `tasks next` reads the queue
 (QUEUE_ROOT) and exits 4 while a pass or a triage is overdue (§19.6). `architect run` launches a
 headless read-only Claude session; it and `health note|record` need QUEUE_ROOT. Exit codes: 0 ok,
 1 check failures or a failed run, 2 usage or configuration, 3 not due / busy / nothing ready, 4 an
@@ -133,10 +133,10 @@ def _architect_gate(cfg: config.Config, a: argparse.Namespace, scope: list[str] 
                     t: dict | None) -> int | None:
     """§19.6 at `next`: exit 4 (printing why and what to do) while a pass or a triage is overdue.
     None lets `next` go on; architect notices go to stderr either way."""
-    from ccp import architect, health  # noqa: PLC0415  (only products with an architect block pay for it)
+    from ccp import architect, health  # noqa: PLC0415  (only a product whose seat is adopted pays for it)
     q = architect.queue_root(required=False)
     if q is None:
-        print("ccp tasks next: this product has an architect block (SPEC §19.6): set QUEUE_ROOT to its runtime "
+        print("ccp tasks next: this product's architect seat is on (SPEC §19.6): set QUEUE_ROOT to its runtime "
               "queue so `next` can check the architect's passes", file=sys.stderr)
         return 2
     g = architect.gate(cfg, q, scope, t)
@@ -198,7 +198,7 @@ def cmd_tasks_next(cfg: config.Config, a: argparse.Namespace) -> int:
         print(f"ccp tasks next: passed over {over['task_id']}: {over['why']}", file=sys.stderr)
     t, why = choice["pick"] or (None, None)
     why = why or None
-    if config.architect_on(cfg):
+    if config.architect_adopted(cfg):
         code = _architect_gate(cfg, a, scope, t)
         if code is not None:
             return code
@@ -1404,8 +1404,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--gate", help="the gate lane's command, written to plane.json suite.lanes.gate; "
                                   "not applied when plane.json exists and is kept (no --force)")
     p.add_argument("--starter-rules", action="store_true",
-                   help="adopt the plane's starter house rules (SPEC §20.5): docs/ENGINEERING.md and their "
-                        "plane.json settings; the settings are not applied to a kept plane.json")
+                   help="accepted, and changes nothing: init writes the plane's starter house rules (SPEC §20.5) "
+                        "by default, docs/ENGINEERING.md and their plane.json settings (the settings are not "
+                        "applied to a kept plane.json), unless the product already has that file")
+    p.add_argument("--no-starter-rules", action="store_true",
+                   help="do not write the starter house rules (docs/ENGINEERING.md) or their plane.json settings")
     p.add_argument("--telemetry", choices=("on", "off"),
                    help="record the operator's consent for telemetry on this machine, once (machine.json beside the "
                         "bindings): on writes the user-level keys and installs the receiver and the board timer, and "

@@ -30,7 +30,7 @@ class Base(ToolkitFixture):
     def arch_on(self, **extra):
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
         self.write("docs/delivery/plane.json", json.dumps({**cfg, "architect": {
-            "rules_doc": "docs/ENGINEERING.md", "every_n_tasks": 4, "notes_due": 3,
+            "shape_from_task": "0001", "rules_doc": "docs/ENGINEERING.md", "every_n_tasks": 4, "notes_due": 3,
             "budgets": [{"id": "E1", "glob": "src/*.py", "max_lines": 3}],
             "checks": [{"id": "E3", "cmd": "false"}], **extra}}))
         self.write("docs/ENGINEERING.md", RULES)

@@ -1,7 +1,8 @@
 {
-  "_note": "Copy to the product as docs/delivery/plane.json (plane SPEC §8.1). project_id and language are required: language names the product's language pack (python), which runs the package-doc rules (tune them in a package_docs block) and reads the test output, or none, which turns the package-doc rules off; add an architect block (SPEC §8.1) to turn on the architect seat: house rules, enforced passes, refactor capacity. suite.lanes.gate shows a gate as named stages, run in order until one fails; ccp adds the plane's doc checks as the last stage, so no stage calls ccp (SPEC §14.2). Write your own commands in place of these.",
+  "_note": "Copy to the product as docs/delivery/plane.json (plane SPEC §8.1). project_id and language are required: language names the product's language pack (python), which runs the package-doc rules (tune them in a package_docs block) and reads the test output, or none, which turns the package-doc rules off; the architect seat is on without a block (house rules, enforced passes, refactor capacity) and enforces its rules from architect.shape_from_task, the adoption point: the next task number (SPEC §19.11); set \"architect\": false to keep the seat off. suite.lanes.gate shows a gate as named stages, run in order until one fails; ccp adds the plane's doc checks as the last stage, so no stage calls ccp (SPEC §14.2). Write your own commands in place of these.",
   "project_id": "example-product",
   "language": "python",
+  "architect": {"shape_from_task": "0001"},
   "suite": {
     "lanes": {
       "gate": [

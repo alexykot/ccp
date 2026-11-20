@@ -36,7 +36,7 @@ RULES = """# Engineering rules
 
 class RulesDoc(unittest.TestCase):
     def setUp(self):
-        self.p = Product({"architect": {"rules_doc": "docs/ENGINEERING.md", "rules_max_lines": 20,
+        self.p = Product({"architect": {"shape_from_task": "0001", "rules_doc": "docs/ENGINEERING.md", "rules_max_lines": 20,
                                         "checks": [{"id": "E1", "cmd": "true"}],
                                         "budgets": [{"id": "E7", "glob": "app/**/*.py", "max_lines": 5}]}})
         self.p.write("docs/ENGINEERING.md", RULES)
@@ -347,7 +347,7 @@ class ArchitectConfig(unittest.TestCase):
                 self.assertRegex(str(cm.exception), rf"\bE1\b.*\bE2\b.*\b{re.escape(shared)}(?![\w.])")
 
     def test_an_overlapping_config_fails_docs_check(self):
-        p = Product({"architect": {"checks": [{"id": "E1", "cmd": "python3 -m unittest tests.test_a"},
+        p = Product({"architect": {"shape_from_task": "0001", "checks": [{"id": "E1", "cmd": "python3 -m unittest tests.test_a"},
                                               {"id": "E2", "cmd": "python3 -m unittest tests.test_a"}]}})
         try:
             err = io.StringIO()

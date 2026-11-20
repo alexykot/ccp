@@ -53,7 +53,7 @@ def _epoch(at: Any) -> float | None:
 
 
 def architect(cfg: Config, q: Path, tasks: list[dict[str, Any]], scope: list[str] | None) -> dict[str, Any] | None:
-    """Passes, triage and the cadence; None without the architect block (the seat is off)."""
+    """Passes, triage and the cadence; None with the seat off (`"architect": false`)."""
     if not config.architect_on(cfg):
         return None
     from ccp import architect as arch  # noqa: PLC0415
@@ -162,10 +162,10 @@ def _architect_view(cfg: Config, a: dict[str, Any], due: dict[str, Any], tasks: 
 
 
 def house_rules(cfg: Config) -> dict[str, Any] | None:
-    """The rules doc's shape, the product checks it names, and each budget now. None without the
-    architect block."""
+    """The rules doc's shape, the product checks it names, and each budget now. None with the
+    seat off."""
     a = cfg.architect
-    if a is None:
+    if not config.architect_on(cfg):
         return None
     s = rules.summary(cfg)
     doc = cfg.root / a["rules_doc"] if a["rules_doc"] else None

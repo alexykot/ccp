@@ -51,11 +51,13 @@ Something true for the user.
 
 
 # The settings the shared fixtures' tests rely on, named so a change of a default shows here: no language
-# (so no package-doc checks and no test-output patterns of a pack), a gate lane that passes and one task in
-# flight under the `paths` schedule.
+# (so no package-doc checks and no test-output patterns of a pack), the architect seat off (it is on without a
+# block, SPEC §19.11: a test of the seat gives its own `architect` block), a gate lane that passes and one task
+# in flight under the `paths` schedule.
 BASE_PLANE: dict = {
     "project_id": "demo",
     "language": "none",
+    "architect": False,
     "suite": {"lanes": {"gate": ["true"]}},
     "parallel": {"max_in_flight": 1, "schedule": "paths"},
 }
