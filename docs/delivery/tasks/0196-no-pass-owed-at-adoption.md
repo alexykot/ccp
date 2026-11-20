@@ -148,4 +148,14 @@ adoption point.
 
 ## Implementation notes
 
+- `due_info` (`ccp/architect.py`) tests "from the adoption point" with one helper shared with `counted`
+  (a task without a number counts). With no last pass: the review-point scope is filtered by it; notes keep
+  only those with a `task_id` for which it holds (a note with no task does not count); drift is not judged
+  (`health` is still computed for display); budgets compare against `budget_baseline` in `architect.json`,
+  saved by the first `record=True` call (only while no pass and no baseline exist, under `update_state`), and
+  computed but never written by `record=False`. A last pass makes every trigger work as before.
+- Of the four tests the task names, only the budget one in `tests/test_rules.py` failed: the others already
+  use tasks and notes numbered from their adoption point (0001). That one now writes a last pass in the state.
+  The module docstring's trigger list says the same as §19.6.
+
 ## Verification notes
