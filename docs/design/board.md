@@ -36,7 +36,7 @@ Non-normative notes behind SPEC §10. The rules are in `docs/spec/04-observabili
     requests in the last 30 minutes, shown as not pinned.
   - **Pinned.** A run's record (what `ccp prompt` read from its definition), else the definition in
     effect (`runs.definition`: the product's `.claude/agents` copy while it has one, else the
-    plugin's); the runner's agent type's definition; `telemetry.design_seat`, shown as advisory
+    plugin's); the runner's agent type's definition; `models.lead`, shown as advisory
     (§24); the headless `--model` and `--effort` (`HEADLESS_MODEL`).
   - **Observed.** `ccp usage`'s fold keeps each run's and seat's latest requests (`recent`). Of a
     seat's requests in the 30 minutes up to its latest, the model with the most tokens (so a helper

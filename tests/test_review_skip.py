@@ -36,7 +36,7 @@ class SkipReview(ToolkitFixture, unittest.TestCase):
         self.log = t / "proof.log"
         os.environ.update(PROOF_BIN=str(t / "proof"), PROOF_LOG=str(self.log))  # the fixture's env patch restores it
         self.ccp("tasks", "claim", "0002")
-        self.wt = self.main / ".rt" / "impl-0002"  # the claim made it, on task/0002-second
+        self.wt = self.main / ".plane-runtime" / "impl-0002"  # the claim made it, on task/0002-second
 
     def commit(self, rel: str, text: str, wt: Path | None = None) -> str:
         wt = wt or self.wt
@@ -65,7 +65,7 @@ class SkipReview(ToolkitFixture, unittest.TestCase):
         return head
 
     def on_main(self, rel: str, text: str) -> None:
-        other = self.main / ".rt" / "other"  # another task merges to main meanwhile
+        other = self.main / ".plane-runtime" / "other"  # another task merges to main meanwhile
         git(self.main, "worktree", "add", "-q", "--detach", str(other), "origin/main")
         self.commit(rel, text, other)
         git(other, "push", "-q", "origin", "HEAD:main")
@@ -158,7 +158,7 @@ class SkipReview(ToolkitFixture, unittest.TestCase):
     def test_a_fix_that_edits_the_proofs_script_gets_the_integration_branchs_verdict(self):
         proof = '"$PROOF_BIN" {task_id} {reviewed} {head} {from} && sh tests/check.sh'
         self.on_main("tests/check.sh", "exit 1\n")  # the integration branch's script proves nothing
-        other = self.main / ".rt" / "other"
+        other = self.main / ".plane-runtime" / "other"
         self.commit("docs/delivery/plane.json", json.dumps(
             {**self.PLANE_JSON, "verify": {"skip_review": {"paths": ["tests"], "proof": proof}}}), other)
         git(other, "push", "-q", "origin", "HEAD:main")

@@ -1686,7 +1686,7 @@ def cmd_usage(cfg: config.Config, a: argparse.Namespace) -> int:
         print(json.dumps(bm, indent=2) if a.json else usage.by_model_table(bm))
         return 0
     knobs = (cfg.usage or config.USAGE_DEFAULTS)["advice"]  # §24.6, from --since, else window_hours back
-    report = usage.fold(q, tid, (cfg.telemetry or {}).get("design_seat"), knobs, usage.advice_start(knobs, since))
+    report = usage.fold(q, tid, config.design_seat(cfg), knobs, usage.advice_start(knobs, since))
     report.pop("recent", None)  # the board's live-seat rows, not a usage figure
     report.pop("timeline", None)  # the board's drill-down intervals, likewise
     report.pop("run_models", None)  # each run's cost by model, for --by-model

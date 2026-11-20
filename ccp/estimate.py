@@ -50,7 +50,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from ccp import refs, tasklog
+from ccp import config, refs, tasklog
 from ccp.config import Config
 from ccp.queue import append_jsonl, iso
 
@@ -438,7 +438,7 @@ def _live(cfg: Config, q: Path, only: str | None = None) -> tuple[list[dict[str,
         return [], {}
     if not rows_:
         return [], {}
-    report = usage.fold(q, None, (cfg.telemetry or {}).get("design_seat"))
+    report = usage.fold(q, None, config.design_seat(cfg))
     d = drill.collect(q, rows_, report, only=only) if only is not None else drill.collect(q, rows_, report, limit=len(rows_) + 1)
     return ([r for r in rows_ if r["task_id"] == only] if only is not None else rows_), d
 

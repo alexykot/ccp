@@ -204,12 +204,12 @@ class Claims(test_parallel_claims.ParallelFixture, unittest.TestCase):
         code, body, out, err = self.ccp("tasks", "worktree", "--runner", "runner-2", root=self.main)
         self.assertEqual(code, 0, out + err)
         self.assertTrue(body["made"])
-        self.assertTrue(body["worktree"].endswith(".rt/runner-runner-2"))
+        self.assertTrue(body["worktree"].endswith(".plane-runtime/runner-runner-2"))
         self.assertEqual(git(self.main, "-C", body["worktree"], "rev-parse", "HEAD"), git(self.main, "rev-parse", "origin/main"))
         code, body, _, _ = self.ccp("tasks", "worktree", "--runner", "runner-2", root=self.main)
         self.assertEqual((code, body["made"]), (0, False))
         self.assertEqual(self.ccp("tasks", "worktree", "--runner", "runner-9", root=self.main)[0], 2)
-        junk = self.main / ".rt" / "runner-runner-1"  # a directory that is no worktree is not taken over
+        junk = self.main / ".plane-runtime" / "runner-runner-1"  # a directory that is no worktree is not taken over
         junk.mkdir(parents=True)
         (junk / "x").write_text("x")
         self.assertEqual(self.ccp("tasks", "worktree", "--runner", "runner-1", root=self.main)[0], 2)

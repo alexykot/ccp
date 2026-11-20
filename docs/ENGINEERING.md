@@ -1,15 +1,15 @@
 # Engineering rules
 
 The control plane's house rules. Every change follows them; every rule says how it is checked. The
-format is the one `ccp` reads (SPEC §20.1). Until the architect seat is adopted (SPEC §19.11), the command rules
-run through `docs.checks` and the gate (`scripts/gate.sh`) rather than `architect.checks`.
+format is the one `ccp` reads (SPEC §20.1). The command rules run through `architect.checks` in
+`docs/delivery/plane.json` (SPEC §19.11), except E1, which the verifier's gate (`scripts/gate.sh`) runs.
 
 ## Tests
 
 - **E1** The full suite passes on every change: `scripts/gate.sh` (a plane worker runs it as
   `ccp suite run --lane full`), the same modules as `python3 -m unittest discover -s tests -t .`, run in
   parallel, with the test cache.
-  check: command — `ccp suite run --lane gate` (scripts/gate.sh)
+  check: pass — the verifier's gate runs the suite on every task (§15); an architect.checks entry would run the gate inside itself
 - **E2** Tests are fenced: no live queue, no real plane or product repo, no GitHub, no launchd; no test
   leaves a `state/*` branch behind.
   check: command — scripts/gate.sh fails on a leftover `state/*` branch; fencing in tests/__init__.py
@@ -26,7 +26,7 @@ run through `docs.checks` and the gate (`scripts/gate.sh`) rather than `architec
 
 - **E3** No managed product's names, ids, paths, data or rulings in tracked files, commit messages or
   PR titles. Rules are written generically, with knobs that have neutral defaults.
-  check: command — scripts/leak-check.sh (docs.checks `leak-check`), patterns in a local denylist: `CCP_LEAK_DENYLIST`, else `leak-denylist.txt` in the bindings directory (`CCP_BINDINGS_DIR`, else beside the binding `ccp where` names)
+  check: command — scripts/leak-check.sh (architect.checks `E3`), patterns in a local denylist: `CCP_LEAK_DENYLIST`, else `leak-denylist.txt` in the bindings directory (`CCP_BINDINGS_DIR`, else beside the binding `ccp where` names)
 - **E5** Telemetry and records carry numbers and ids only: never prompt, response, command or file
   content. The receiver keeps a field whitelist.
   check: pass
@@ -49,21 +49,21 @@ run through `docs.checks` and the gate (`scripts/gate.sh`) rather than `architec
   plane.json's blocks, their keys and defaults, the roles and their default models) is defined once in
   code. Other code derives from it; one test compares every plane.json block's keys and defaults with
   contracts/plane_config.schema.json, and the agent definitions' models with the role table.
-  check: command — the generic schema-defaults test in the gate (`ccp suite run --lane gate`)
+  check: command — the schema-defaults test, `python3 -B -m unittest -q tests.test_plane_config_defaults` (architect.checks `E12`); the gate (`ccp suite run --lane gate`) runs it too
 - **E14** Git merge analysis (merge-tree, patch-id, remerge-diff) goes through one helper module; no
   other module calls those git subcommands.
   check: command — `git grep -n "merge-tree\|patch-id\|remerge-diff" -- ccp` lists only the helper
   module
 - **E16** Only ccp/config.py reads plane.json. A hook or script that needs a setting asks `ccp` (JSON
   out) or imports ccp.config; it never reads the file and defaults a key itself.
-  check: command — `! git grep -nE 'plane\.json"\)\.read_text' -- plugin scripts` (docs.checks
-  `config-reader`)
+  check: command — `! git grep -nE 'plane\.json"\)\.read_text' -- plugin scripts` (architect.checks
+  `E16`)
 - **E17** One module resolves and parses a product's binding; every other reader calls it.
   check: pass — the architect looks for binding regexes outside that module
 - **E18** A language's facts (its doc conventions, test-output patterns, test command and import
   reading) live in its language pack (ccp/doclang). Core code names no language and no test runner.
-  check: command — `! git grep -n unittest -- ccp ':(exclude)ccp/doclang'` (docs.checks
-  `language-pack`), once the pack owns the patterns
+  check: command — `! git grep -n unittest -- ccp ':(exclude)ccp/doclang'` (architect.checks
+  `E18`), once the pack owns the patterns
 
 ## Docs
 

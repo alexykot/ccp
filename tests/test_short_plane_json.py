@@ -117,9 +117,9 @@ class MergedWorktrees(unittest.TestCase):
         self.assertIn("adapter.worktree_links has moved to worktrees.links", err)
 
     def test_the_new_keys_win_when_they_say_the_same_and_the_old_ones_are_ignored_with_a_warning(self):
-        cfg, err = load({"adapter": {"worktree_dir": ".rt", "worktree_links": [".env"]},
-                         "worktrees": {"dir": ".rt", "links": [".env"]}})
-        self.assertEqual((cfg.worktrees["dir"], cfg.worktrees["links"]), (".rt", [".env"]))
+        cfg, err = load({"adapter": {"worktree_dir": ".plane-runtime", "worktree_links": [".env"]},
+                         "worktrees": {"dir": ".plane-runtime", "links": [".env"]}})
+        self.assertEqual((cfg.worktrees["dir"], cfg.worktrees["links"]), (".plane-runtime", [".env"]))
         self.assertIn("adapter.worktree_dir is ignored: worktrees.dir is set", err)
         self.assertIn("adapter.worktree_links is ignored: worktrees.links is set", err)
 
@@ -314,7 +314,7 @@ class UpgradeStatus(UpgradeFixture, unittest.TestCase):
     def test_it_lists_each_removed_and_merged_key_with_its_replacement(self):
         step = self.keys_step(task_log={"statuses": [], "spec_paths": ["spec/"], "review_point_pattern": "Q1"},
                               estimate={"spec_paths": ["spec/"]},
-                              adapter={"worktree_dir": ".rt", "worktree_links": [".venv"], "post_close": ["true"]},
+                              adapter={"worktree_dir": ".plane-runtime", "worktree_links": [".venv"], "post_close": ["true"]},
                               suite={"summary": {"modules_ran_re": "(1)"}})
         self.assertFalse(step["required"])
         listed = {k["key"]: k for k in step["keys"]}
@@ -331,7 +331,7 @@ class UpgradeStatus(UpgradeFixture, unittest.TestCase):
         self.assertIn("delete `task_log.statuses`", step["change"])
 
     def test_a_product_that_sets_none_has_no_such_step(self):
-        self.assertIsNone(self.keys_step(spec_paths=["spec/"], worktrees={"dir": ".rt"}))
+        self.assertIsNone(self.keys_step(spec_paths=["spec/"], worktrees={"dir": ".plane-runtime"}))
 
     def test_a_constant_is_listed_only_when_it_is_set_to_another_value(self):
         with mock.patch.dict(config.KEY_OUTCOMES, TEST_CONSTANT):

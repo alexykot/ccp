@@ -29,7 +29,7 @@ class ReviewTipGate(ToolkitFixture, unittest.TestCase):
     def pushed_head(self, files: dict[str, str] | None = None) -> str:
         """Claim 0002, commit `files` (default: feature.txt) on its branch and push it: the PR head."""
         self.ccp("tasks", "claim", "0002")
-        wt = self.main / ".rt" / "impl-0002"
+        wt = self.main / ".plane-runtime" / "impl-0002"
         for rel, text in (files or {"feature.txt": "built\n"}).items():
             (wt / rel).parent.mkdir(parents=True, exist_ok=True)
             (wt / rel).write_text(text)
@@ -75,7 +75,7 @@ class ReviewTipGate(ToolkitFixture, unittest.TestCase):
     def test_a_conflict_only_in_the_task_file_is_reviewed(self):
         task = "docs/delivery/tasks/0002-second.md"
         self.ccp("tasks", "claim", "0002")
-        wt = self.main / ".rt" / "impl-0002"
+        wt = self.main / ".plane-runtime" / "impl-0002"
         (wt / task).write_text((wt / task).read_text().replace("title: Second", "title: Second, mine"))
         git(wt, "commit", "-qam", "Task 0002: retitle")
         git(wt, "push", "-q", "-u", "origin", "task/0002-second")

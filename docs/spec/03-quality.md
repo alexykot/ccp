@@ -98,7 +98,7 @@ log. A pass is due when **any** of these holds (each threshold is a knob, §19.1
 
 1. **Cadence.** `every_n_tasks` tasks (default 4) numbered from the adoption point (§19.11) have merged since the last pass, or `max_days`
    (default 14) have passed with at least one merge. Each pass records the done set at its start;
-   with no pass yet, every done task counts.
+   with no pass yet, every done task from the adoption point counts.
 2. **A review point closes.** Every task in the runner's scope is `done`. The scope's closing pass
    is part of its review pack. `ccp architect due|run --scope` (default: the running runner's
    `work.json` scope) carries the scope.
@@ -118,6 +118,8 @@ log. A pass is due when **any** of these holds (each threshold is a knob, §19.1
    seat off (`"architect": false`) too (an on-demand pass needs no scheduled reviews), but it is still refused
    while a pass is running or a report awaits triage; a `shape` run is refused only while one is
    running.
+
+Before a product's first pass, each trigger counts only what follows the adoption point (§19.11): a review point counts its tasks from the adoption point, friction notes count only those tasks' notes, drift compares only those tasks, and a budget counts only if it starts failing after the seat first checks it once adopted, so a product that adopts the seat with history owes no pass at once.
 
 **When a trigger fired.** Cadence's moment is computed from the merges; every other trigger's moment
 is the done count when `ccp` first saw it, kept in `architect.json` (`seen`), and the grace counts
@@ -263,7 +265,7 @@ The seat is on unless `plane.json` sets `"architect": false` (§8); an `architec
 | `rules_doc`, `rules_max_lines` | `docs/ENGINEERING.md`, 150 | The house rules (§20.1); when the doc is missing a pass runs without them and says so |
 | `every_n_tasks`, `max_days`, `notes_due`, `drift_ratio` | 4, 14, 3, 1.5 | The triggers (§19.6) |
 | `grace_tasks`, `triage_grace_tasks` | 1, 2 | The enforcement at `next` |
-| `shape_adrs`, `shape_from_task` | off, — | The shaping check (§19.6); `shape_from_task` is the adoption point |
+| `shape_adrs`, `shape_from_task` | on with an `adr` block, — | The shaping check (§19.6); `shape_from_task` is the adoption point |
 | `refactor_every`, `refactor_in_scope` | 4, `"deps"` | Refactor capacity and reach (§20.3, §20.4) |
 | `call_timeout_minutes`, `max_new_tasks` | 45, 5 | The run and triage caps |
 | `probes`, `checks`, `budgets` | — | Read-only probes (§19.7), product check commands and budgets (§20.1, §20.2) |

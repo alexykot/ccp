@@ -464,7 +464,7 @@ reviewer, fixer and verifier prompt from four parts, in order, writes the prompt
    through `ccp suite run` with the phase's lane (§14), a run cited as evidence, a mutation check
    included, through it or `ccp mutate` with the run's id filled in, never a bare test runner, the refactor DoD for a `kind: refactor` task
    (§20), and for the reviewer and verifier `ccp report` before removing their own checkout.
-2. **The product fragment**: the file plane.json `prompts.fragment` names, holding the product's
+2. **The product fragment**: `docs/delivery/WORKERS.md` when it exists, or the file plane.json `prompts.fragment` names, holding the product's
    own rules (for example scratch resources, suite limits, paths that must not be written). It is
    product-owned and reviewed like product code.
 3. **The task:** id, task file path, cited SPEC and ADR sections, the house rules (`rules_doc`), the

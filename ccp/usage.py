@@ -166,8 +166,8 @@ def advice_start(knobs: dict[str, Any] | None, since: float | None = None, now: 
 def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None = None,
          knobs: dict[str, Any] | None = None, advice_since: float | None = None) -> dict[str, Any]:
     """Every request attributed to a run or a seat (the module docstring), and the advice: the design seat's
-    model and effort against `design_seat` (§24.5) and, with `knobs` (plane.json `usage.advice`), the cost
-    advice (§24.6, `cost_advice`). The cost advice reads only the requests whose `at` is at or after
+    model and effort against `design_seat` (§24.5; `config.design_seat`, which follows `models.lead`) and, with
+    `knobs` (plane.json `usage.advice`), the cost advice (§24.6, `cost_advice`). The cost advice reads only the requests whose `at` is at or after
     `advice_since` (epoch seconds; None: every request), and each of its lines ends naming that start
     (`advice_since` in the result, UTC); every other figure reads every request."""
     # An exporter retries after a timeout: one request is one row, the last one received.

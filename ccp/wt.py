@@ -296,9 +296,9 @@ def parse_urls(out: str) -> list[dict[str, str]]:
 
 # ---------------------------------------------------------------- create / remove
 
-def _exclude(main: Path, links: list[str]) -> None:
+def _exclude(main: Path, links: list[str], what: str = "worktree links") -> None:
     """A linked path is a symlink in the worktree, which a `dir/` ignore pattern does not match: name
-    it in the repository's info/exclude, so a worker's commit cannot pick it up."""
+    it in the repository's info/exclude, so a worker's commit cannot pick it up. `what` is the comment."""
     r = git(main, "rev-parse", "--path-format=absolute", "--git-common-dir")
     if r.returncode != 0 or not links:
         return
@@ -307,7 +307,15 @@ def _exclude(main: Path, links: list[str]) -> None:
     want = [f"/{x.strip('/')}" for x in links if f"/{x.strip('/')}" not in have]
     if want:
         ex.parent.mkdir(parents=True, exist_ok=True)
-        ex.write_text("\n".join(have + ["# control-plane: worktree links (SPEC §12.1)", *want]) + "\n")
+        ex.write_text("\n".join(have + [f"# control-plane: {what} (SPEC §12.1)", *want]) + "\n")
+
+
+def _exclude_base(main: Path, base: Path) -> None:
+    """`worktrees.dir` inside the main checkout is named in its info/exclude, so a product whose .gitignore
+    lacks it (the directory is a constant, not something `ccp init` wrote) does not see its worktrees as untracked."""
+    root = main.resolve()
+    if root in base.parents:
+        _exclude(main, [base.relative_to(root).as_posix()], "worktrees directory")
 
 
 def _link(cfg: Config, main: Path, path: Path) -> None:
@@ -430,6 +438,7 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
         st["adopted"] = True
         save(q, st)
         return {**st, "created": False}
+    _exclude_base(main, base)
     git(main, "fetch", "-q", "origin")
     git(main, "worktree", "prune")
     warnings: list[str] = []

@@ -22,7 +22,7 @@ baseline stands. A valid answer is an `agent` row in `estimates/<task>.jsonl` (t
 baseline row, plus `complexity`, `waits`, `reasoning` and `seat`).
 
 A task needs an agent estimate when it has none, its hash changed, or a dependency merged since the
-last one (`stale`). With `plane.json estimate.auto: true` (default false), `ccp tasks check` and
+last one (`stale`). With `plane.json estimate.auto` on (the default), `ccp tasks check` and
 `ccp tasks index` (the task-writing flow) name those and start `--all` detached, one batch at a
 time (`estimator.lock`), and return at once; with it off they say nothing. Estimates are advisory:
 nothing gates on them.
