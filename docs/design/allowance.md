@@ -134,8 +134,8 @@ baseline, no accuracy rule and nothing that gates.
   without its notes and volatile frontmatter (`strip_notes`, at most 12,000 characters); each cited
   ADR decision (`0035 D1`: its `D1` heading or `D1.` paragraph; a bare ADR: its title and decision
   titles), 1,500 characters each and 6,000 in all; each cited SPEC section (the heading starting
-  with the ref, in the files `spec_paths` names, in order: globs relative to the root,
-  default `docs/SPEC.md`, `SPEC.md`, `docs/spec/*.md`, `spec/*.md`), 1,200 each and 4,000 in all;
+  with the ref, in the files `spec_paths` names, in order: paths relative to the root, a
+  path ending in `/` read as its `*.md`; default `docs/SPEC.md`, `SPEC.md`, `docs/spec/`, `spec/`), 1,200 each and 4,000 in all;
   the cited paths with their lines (existing files first, at most 40; the rest named as not found);
   phase A's features; the reference class (the baseline's wall and token tasks, at most 8, each
   with its similarity, kind, areas, size, actual wall and phases in minutes, tokens, cost, rounds

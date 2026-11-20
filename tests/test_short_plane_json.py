@@ -81,13 +81,23 @@ class MergedSpecPaths(unittest.TestCase):
         self.assertIn("task_log.spec_paths is ignored: spec_paths is set", err)
         self.assertIn("estimate.spec_paths is ignored: spec_paths is set", err)
 
-    def test_a_value_is_checked_wherever_it_was_set(self):
-        for plane in ({"spec_paths": "SPEC.md"}, {"task_log": {"spec_paths": ["../x"]}},
-                      {"estimate": {"spec_paths": [3]}}):
+    def test_a_value_is_checked_wherever_it_was_set_and_the_error_names_the_key_the_product_wrote(self):
+        for plane, key in (({"spec_paths": "SPEC.md"}, "spec_paths"),
+                           ({"task_log": {"spec_paths": ["../x"]}}, "task_log.spec_paths"),
+                           ({"estimate": {"spec_paths": [3]}}, "estimate.spec_paths")):
             with self.subTest(plane=plane):
-                with self.assertRaisesRegex(config.ConfigError, "spec_paths must be a list"), \
+                with self.assertRaisesRegex(config.ConfigError, f"{key.replace('.', '[.]')} must be a list"), \
                         redirect_stderr(io.StringIO()):
                     load(plane)
+
+    def test_an_old_estimate_glob_moves_as_its_directory_with_a_warning_saying_so(self):
+        cfg, err = load({"estimate": {"spec_paths": ["docs/spec/*.md", "SPEC.md", "x/*/*.md"]}})
+        self.assertEqual(config.spec_paths(cfg), ["docs/spec/", "SPEC.md", "x/*/*.md"])
+        self.assertIn("docs/spec/*.md read as docs/spec/", err)
+        self.assertNotIn("x/*/*.md read as", err)
+        cfg, err = load({"task_log": {"spec_paths": ["a/*.md"]}})
+        self.assertEqual(config.spec_paths(cfg), ["a/*.md"])
+        self.assertNotIn("read as", err)
 
     def test_the_estimator_reads_a_directory_as_its_markdown_files(self):
         p = Product({"spec_paths": ["design/", "RULES.md"]}, bare=True)
@@ -133,6 +143,12 @@ class MergedPostClose(unittest.TestCase):
         self.assertIn("adapter.post_close moves to reconcile.hooks", err)
         self.assertIn("$TASK_ID", err)
 
+    def test_an_empty_list_is_no_value_and_warns_of_nothing_to_move(self):
+        cfg, err = load({"adapter": {"post_close": []}})
+        self.assertEqual(cfg.adapter["post_close"], [])
+        self.assertIn("adapter.post_close is empty and ignored", err)
+        self.assertNotIn("moves to reconcile.hooks", err)
+
 
 class MergedReviewPointPattern(unittest.TestCase):
     def test_it_is_the_ids_pattern_with_a_warning_naming_the_new_key(self):
@@ -152,8 +168,8 @@ class MergedReviewPointPattern(unittest.TestCase):
         self.assertEqual(cfg.ids.review_point_pattern, "P[0-9]+")
         self.assertIn("task_log.review_point_pattern is ignored: ids.review_point.pattern is set", err)
 
-    def test_it_is_checked_as_a_regular_expression_where_it_was_set(self):
-        with self.assertRaisesRegex(config.ConfigError, "ids.review_point.pattern is not a regular expression"), \
+    def test_it_is_checked_as_a_regular_expression_and_the_error_names_the_key_the_product_wrote(self):
+        with self.assertRaisesRegex(config.ConfigError, "task_log.review_point_pattern is not a regular expression"), \
                 redirect_stderr(io.StringIO()):
             load({"task_log": {"review_point_pattern": "("}})
 

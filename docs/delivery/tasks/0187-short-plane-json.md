@@ -173,4 +173,14 @@ the constants and changes four defaults through it, and 0186 and 0188 reuse it.
   `scripts/observability/team.py`, `docs/design/allowance.md`. `ccp/refs.py` needed no change. The `task_log` row of §8.1 also
   loses `spec_paths`, which is now the row after it. 14 test modules hold the old key names at this base, not 16.
 
+Fix round 1 (review of 7a27187):
+- An old `estimate.spec_paths` entry `dir/*.md` (no glob in `dir`) now moves into `spec_paths` as `dir/`, and the warning
+  names each entry so read: the old globs never matched a SPEC file by equality or a `/` prefix, so the sign-off warning
+  and `ccp verify spec-text` would have stopped finding the SPEC. `task_log.spec_paths` is moved as written.
+- `adapter.post_close` is `blank`: `[]` or null is ignored with the empty-value note, as the worktree keys are, so it no
+  longer warns on every load for nothing to move.
+- A check's error about a moved value names the key the product wrote (`task_log.review_point_pattern`,
+  `task_log.spec_paths`, `estimate.spec_paths`, `adapter.worktree_*`), not the new place: `_parse` rewrites the new key
+  in the error with the old one for each key that moved. `docs/design/allowance.md` gives `spec_paths`' own defaults.
+
 ## Verification notes

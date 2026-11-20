@@ -340,7 +340,7 @@ class Outcome:
     """What becomes of one plane.json key (a dotted path). `removed`: ignored, with a warning. `merged`: read
     at `into` (`in_place`: still read where it is, the warning saying it moves there), the old place read
     only while `into` is unset (`exclusive`: both set to different values is an error; `blank`: null or an empty
-    list is as good as unset). `constant`: the code
+    list is as good as unset; `globs`: an entry `dir/*.md` moves as `dir/`). `constant`: the code
     uses `value`; a value the product sets other than it still applies, with a warning, until the key is
     deleted (`constant_override`). `why` is what the warning adds."""
     kind: str
@@ -349,6 +349,7 @@ class Outcome:
     in_place: bool = False
     exclusive: bool = False
     blank: bool = False
+    globs: bool = False
     why: str = ""
 
 
@@ -357,10 +358,10 @@ KEY_OUTCOMES: dict[str, Outcome] = {
     "suite.summary.modules_ran_re": Outcome(REMOVED, why="its name is `ran_re` (§14.1)"),
     "suite.summary.modules_cached_re": Outcome(REMOVED, why="its name is `cached_re` (§14.1)"),
     "task_log.spec_paths": Outcome(MERGED, into="spec_paths"),
-    "estimate.spec_paths": Outcome(MERGED, into="spec_paths"),
+    "estimate.spec_paths": Outcome(MERGED, into="spec_paths", globs=True),
     "adapter.worktree_dir": Outcome(MERGED, into="worktrees.dir", exclusive=True, blank=True),
     "adapter.worktree_links": Outcome(MERGED, into="worktrees.links", exclusive=True, blank=True),
-    "adapter.post_close": Outcome(MERGED, into="reconcile.hooks", in_place=True,
+    "adapter.post_close": Outcome(MERGED, into="reconcile.hooks", in_place=True, blank=True,
                                   why="the commands still run once at close; `$TASK_ID` stands for `{task_id}` there"),
     "task_log.review_point_pattern": Outcome(MERGED, into="ids.review_point.pattern"),
 }
@@ -400,6 +401,21 @@ def _remove(raw: dict[str, Any], key: str) -> None:
     ok, node = _lookup(raw, ".".join(path)) if path else (True, raw)
     if ok and isinstance(node, dict):
         node.pop(last, None)
+
+
+def _dir_forms(value: Any) -> tuple[Any, list[str]]:
+    """`value`, a list of paths, with each entry `dir/*.md` (no glob in `dir`) as `dir/`, and the entries changed:
+    `estimate.spec_paths` held globs, and `spec_paths` names a directory by a trailing `/` (§3.5)."""
+    if not isinstance(value, list):
+        return value, []
+    out, changed = [], []
+    for x in value:
+        if isinstance(x, str) and x.endswith("/*.md") and not any(c in x[:-4] for c in "*?["):
+            out.append(x[:-4])
+            changed.append(x)
+        else:
+            out.append(x)
+    return out, changed
 
 
 def _same(a: Any, b: Any) -> bool:
@@ -468,10 +484,15 @@ def _apply_outcomes(raw: dict[str, Any], ignored: dict[str, str] | None = None, 
                     raise ConfigError(f"{CONFIG_REL}: set {o.into} or the old {key}, not both")
                 _remove(raw, key)
                 f["note"] = f"{where} is ignored: {o.into} is set; delete it (SPEC §29.3)"
-            elif _put(raw, o.into, given):
+            elif _put(raw, o.into, _dir_forms(given)[0] if o.globs else given):
                 _remove(raw, key)
+                f["moved"] = True
                 f["note"] = (f"{where} has moved to {o.into}; it is read from its old place while {o.into} is "
                              f"unset, which a later release ends: set {o.into} and delete {key} (SPEC §29.3)")
+                changed = _dir_forms(given)[1] if o.globs else []
+                if changed:
+                    f["note"] += (f"; {', '.join(changed)} read as "
+                                  f"{', '.join(_dir_forms(changed)[0])} (a directory ends in `/`, not `/*.md`)")
             else:  # the object it would move into is no object: the block's own check says so
                 f["note"] = f"{where} has moved to {o.into} (SPEC §29.3)"
         else:
@@ -481,6 +502,15 @@ def _apply_outcomes(raw: dict[str, Any], ignored: dict[str, str] | None = None, 
             f.update(constant=o.value, differs=not _same(given, o.value), note=notes[0])
         found.append(f)
     return raw, found
+
+
+def _at_origin(message: str, found: list[dict[str, Any]]) -> str:
+    """`message`, a check's error about a value that `_apply_outcomes` moved, naming the key the product wrote
+    (the old place) where it names the new one."""
+    for f in found:
+        if f.get("moved"):
+            message = re.sub(r"(?<![\w.])" + re.escape(f["replacement"]) + r"(?![\w])", f["key"], message)
+    return message
 
 
 def key_outcomes_set(plane: Any) -> list[dict[str, Any]]:
@@ -1748,6 +1778,14 @@ def _parse(root: Path, text: str) -> Config:
     unknown: list[str] = []
     raw = _drop_unknown(raw, PLANE_KEYS, "", unknown)
     raw, found = _apply_outcomes(raw, _ignored_keys(root, raw))
+    try:
+        return _config_of(root, raw, found, unknown)
+    except ConfigError as e:
+        raise ConfigError(_at_origin(str(e), found)) from None
+
+
+def _config_of(root: Path, raw: dict[str, Any], found: list[dict[str, Any]], unknown: list[str]) -> Config:
+    """The Config of plane.json's checked data `raw` (outcomes applied: `found`, what they did)."""
     bad_ids = refs.validate(raw.get("ids"))
     if bad_ids:
         raise ConfigError(f"{CONFIG_REL}: " + "; ".join(bad_ids))
