@@ -47,3 +47,6 @@
 | [ADR-0041](0041-a-release-tells-each-product-what-to-adopt.md) | A release tells each product what to adopt | accepted | 2026-11-17 |  |
 | [ADR-0042](0042-tasks-run-together-unless-they-clash.md) | Tasks run together unless they clash | accepted | 2026-11-18 |  |
 | [ADR-0043](0043-opinionated-defaults-short-configuration.md) | Opinionated defaults, short configuration | accepted | 2026-11-19 |  |
+| [ADR-0044](0044-a-follow-up-is-tracked-not-left-in.md) | A follow-up is tracked, not left in notes | proposed | 2026-11-20 |  |
+| [ADR-0045](0045-checks-only-the-lead-s-environment-can-run.md) | Checks only the lead's environment can run | proposed | 2026-11-20 |  |
+| [ADR-0046](0046-decisions-may-depend-on-other-adrs-decisions.md) | Decisions may depend on other ADRs' decisions | proposed | 2026-11-20 |  |
