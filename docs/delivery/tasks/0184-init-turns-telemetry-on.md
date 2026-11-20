@@ -1,7 +1,7 @@
 ---
 task_id: 0184-init-turns-telemetry-on
 title: ccp init tags the product's telemetry and, with the operator's consent once per machine, turns telemetry on
-status: pending
+status: done
 kind: feature
 depends_on: ["0175-one-binding-reader", "0181-models-block-and-role-defaults"]
 spec_refs: ["S4", "S8", "S24"]
@@ -11,7 +11,7 @@ paths: ["ccp/init.py", "ccp/cli.py", "ccp/otel.py", "ccp/board.py", "ccp/config.
 adopt: ".claude/settings.json env.OTEL_RESOURCE_ATTRIBUTES ccp.project_id=<project_id> (ccp init writes it when absent)"
 sign_off: brief
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Task: 0184-init-turns-telemetry-on
@@ -194,3 +194,5 @@ is no longer a product setting.
   keeps all three, as the task decided).
 
 ## Verification notes
+- 2026-11-20 — verifier, PR #209 head `20c17f7` (close's catch-up of the approved `c484ba4`, gate run st-20261120T091422Z-26c1ec) (squash `adae834`): APPROVE. Passed: tel-01, tel-02, tel-03, tel-04, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0184-init-turns-telemetry-on.json.
+

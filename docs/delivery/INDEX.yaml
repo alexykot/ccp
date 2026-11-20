@@ -918,7 +918,7 @@ tasks:
     depends_on: [0172-fixtures-name-their-config, 0182-language-is-a-required-key]
     path: tasks/0183-gate-lane-is-required.md
   - id: 0184-init-turns-telemetry-on
-    status: pending
+    status: done
     title: ccp init tags the product's telemetry and, with the operator's consent once per machine, turns telemetry on
     depends_on: [0175-one-binding-reader, 0181-models-block-and-role-defaults]
     path: tasks/0184-init-turns-telemetry-on.md
