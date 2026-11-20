@@ -5,7 +5,7 @@ status: pending
 kind: feature
 depends_on: ["0186-account-facts-on-the-machine"]
 spec_refs: ["S3", "S16", "S25"]
-review_point: R13
+review_point: R12
 paths: ["ccp/usage.py", "ccp/parallel.py", "ccp/lifecycle.py", "ccp/prompt.py", "ccp/notify.py", "contracts/allowance.schema.json", "contracts/machine.schema.json", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/spec/04-observability.md", "tests/test_usage_reading.py", "tests/"]
 clashes_with: ["0189-spec-states-behaviour", "0191-the-grace-release-ends"]
 adopt: "none"
