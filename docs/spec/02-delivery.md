@@ -41,8 +41,7 @@ only through its single writer (`ccp tasks wait|resume`, which call `set-waiting
    the prompt audit (`phase: runner-spawn`, task id `_runner`), emits `runner`/`spawn`, records
    `status: running`, `scope`, `review_point` and the runner slots in `work.json`, and prints the
    exact Agent call (name, agent type `delivery-runner`, a fixed spawn prompt naming the project,
-   the scope, the queue root and the slot). The spawn prompt holds nothing else. Under
-   `refactor_in_scope: "deps"`, a spawn that starts a new review point puts every waiting refactor
+   the scope, the queue root and the slot). The spawn prompt holds nothing else. A spawn that starts a new review point puts every waiting refactor
    at the top of the scope it records, names them in the prompt and the printed action, and lists
    them as `refactors_added` in the `runner`/`spawn` payload and as `review_point_refactors` in
    `work.json`; a respawn of the same review point puts back the ones still pending and adds no
@@ -152,7 +151,7 @@ These are durable lead state in `work.json`, not messages, which can arrive afte
 ### 10.5 Claim and close
 
 **`ccp tasks claim <id> [--holder <slot>]`** runs the product's auth probes first
-(`auth_check.probes`, §30) and exits 8 when one fails: no task is taken, and the runner raises a `reauth` gate to the lead (probes: `[{id, cmd}]`, `auth_check.timeout_seconds`, default 60).
+(`auth_check.probes`, §30) and exits 8 when one fails: no task is taken, and the runner raises a `reauth` gate to the lead (probes: `[{id, cmd}]`, each given 60 seconds).
 Before the probes, a new claim of a task that declares a `brief` sign-off with none recorded, or with a
 stale one (its head lacks the task file's last change), or whose `sign_off:` value is malformed, exits
 3, naming it; no task is taken (§3.5).
@@ -199,11 +198,10 @@ plane's commit hook template (`scripts/git-hooks/pre-commit.template`) runs it w
    `check`; the product's `reconcile.log` entry and `reconcile.hooks` (§8; a hook must be
    idempotent, a re-run runs it again); a commit by path and a push, retried once after a fresh
    pull. There is no `--no-push`. The reconcile is made, its hooks run and it is pushed in close's
-   own **merge worktree**, `merge-<nnnn>` under `worktrees.dir`, detached at `origin/<integration>`
+   own **merge worktree**, `merge-<nnnn>` under the worktree directory (§12.1), detached at `origin/<integration>`
    with the `worktrees.links` linked in; close removes it once the reconcile has landed, and a re-run
    after a failed reconcile discards what the earlier close left in it. With it, the main checkout's
-   HEAD and branch never move. A product with no `worktrees.dir` still reconciles in the checkout
-   close runs from.
+   HEAD and branch never move.
 3. The adapter's legacy `post_close` (§12.4), then every recorded worktree of the task and its
    branch removed (§12.1).
 4. `lease/clear`, `work.json`, the slot's `tasks_done`, and the task's runs abandoned (§11.1).
@@ -315,7 +313,7 @@ this host, even inside the TTL, or, for a lock from another host (whose pid cann
 ### 12.1 Worktrees
 
 `ccp wt create --kind KIND --task ID [--sha SHA] [--name N] [--seat S] [--tag T] [--shallow]` makes a git
-worktree under plane.json `worktrees.dir` (a path relative to the main checkout, which may lead outside it with `..`, such as a sibling directory, or an absolute path; not the main checkout itself), named
+worktree under the worktree directory, `.plane-runtime` in the main checkout, named
 `<kind>-<nnnn>[-<n>]`. Kinds: `impl` (the implementer's, on `task/<id>` from
 `origin/<integration>`; `ccp tasks claim` makes it), `rev` and `ver` (detached at the head they
 judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--sha`, and `base`
@@ -334,7 +332,7 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
   worktrees of tasks done or dropped in the queue and leased by no one.
 - A worktree made before records (`impl-`, `rev-`, `ver-` with the task's number) is removed by
   close, or adopted by `create`. `create` reuses an existing worktree only at the `--sha` asked for;
-  at another head it refuses (exit 3). A default name taken meanwhile moves to the next `-<n>`. Under a `worktrees.dir` that resolves outside the main checkout, which another checkout may share, a directory with no worktree record is listed by `ccp wt list`, removed by `ccp wt remove NAME` or by close's fallback, swept by `ccp wt gc`, or adopted by `create` only when `git worktree list --porcelain` run in the main checkout names it; `ccp wt remove NAME` and `create` refuse any other (exit 3), and the rest leave it alone. Inside the main checkout these act on any matching directory, as above.
+  at another head it refuses (exit 3). A default name taken meanwhile moves to the next `-<n>`. Under a worktree directory that resolves outside the main checkout (a `worktrees.dir` a product still sets, which applies with a warning, §29.3), which another checkout may share, a directory with no worktree record is listed by `ccp wt list`, removed by `ccp wt remove NAME` or by close's fallback, swept by `ccp wt gc`, or adopted by `create` only when `git worktree list --porcelain` run in the main checkout names it; `ccp wt remove NAME` and `create` refuse any other (exit 3), and the rest leave it alone. Inside the main checkout these act on any matching directory, as above.
 - Workers make theirs with `ccp wt create`, never `git worktree add`.
 - A worktree's kind, seat and round reach what runs for it, besides its name: a worker's
   `prompts.worker_env` templates get `{{kind}}`, `{{seat}}` and `{{round}}` (§8.1, §13.3), and a lane's
@@ -386,14 +384,14 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
 
 **The lead and the runners.** The lead keeps the product's main checkout and pulls it when a merge is
 reported. Each runner merges and runs operator steps from its own **runner worktree**
-(`<product_root>/<worktrees.dir>/runner`, made by the single runner's `team.sh runner spawn` or `ccp tasks worktree`
+(`<product_root>/.plane-runtime/runner`, made by the single runner's `team.sh runner spawn` or `ccp tasks worktree`
 when missing; with several runners that path with `-<slot>` added, made by
 `ccp tasks worktree --runner <slot>` when missing), detached at `origin/<integration_branch>` (the
 main checkout holds the branch). An existing one is left alone; one the spawn cannot make is a
 warning, except a missing `origin/<integration_branch>`, which refuses the spawn (exit 3), dry run
 or real, naming the ref, and the runner's `ccp tasks worktree` makes it once the cause is fixed. No
-runner makes it with `git worktree add`. It fetches and re-detaches before each task. With `worktrees.dir`
-set, `ccp tasks close` makes the reconcile in its `merge-<nnnn>` worktree and pushes it with
+runner makes it with `git worktree add`. It fetches and re-detaches before each task.
+`ccp tasks close` makes the reconcile in its `merge-<nnnn>` worktree and pushes it with
 `git push origin HEAD:<integration_branch>` (§10.5); run from any checkout, it does not move that
 checkout's branch or HEAD, except that a detached runner worktree is moved to the reconcile commit
 once it has landed. Each implementer works in its task's `impl` worktree.
@@ -403,8 +401,8 @@ once it has landed. Each implementer works in its task's `impl` worktree.
 plane.json `env` holds shell command templates or null: `setup` when a worktree is made, `teardown`
 when it is removed, `up` and `down` to start and stop what it serves, `urls` to say where it serves.
 
-- A hook runs in the worktree, in its own process group, killed whole after `env.timeout_seconds`
-  (default 600). Its output goes to `QUEUE_ROOT/worktrees/<name>.<hook>.log`, and it returns when its
+- A hook runs in the worktree, in its own process group, killed whole after 600 seconds
+  (`env.timeout_seconds`). Its output goes to `QUEUE_ROOT/worktrees/<name>.<hook>.log`, and it returns when its
   shell exits, so `up` must start services in the background and exit.
 - The fields `{task_id} {nnnn} {kind} {seat} {tag} {worktree} {main_checkout} {name}` are filled in
   (the path fields `{worktree}`, `{main_checkout}` and `{name}` shell-quoted; any other brace is
@@ -595,8 +593,8 @@ gate, a subset of modules, every rerun) through
 `ccp suite run --run <run_id> --lane <lane> -- <command>`, outermost, around any wrapper the product's rules give, never inside a script. The
 plane reads three lane **roles**: `full` (the implementer's and fixer's full suite), `gate` (the
 verifier's formal gate, whose script picks its own lanes) and `part` (a subset, such as the
-reviewer's modules or a mutation check). plane.json `suite.roles` names the product's lane for each
-(default: the role's own name; a role left out keeps it; two roles may not share a lane). The gate
+reviewer's modules or a mutation check). Each role's lane is the `suite.lanes` lane of the role's own
+name. The gate
 role's lane is required: every task's verify runs it, and so does its catch-up with the tip before
 review, so with none `ccp tasks claim` and `ccp tasks next` refuse (exit 2, §8.1); `ccp init --gate`
 writes it. The other roles' lanes are optional; the prompts,
@@ -653,10 +651,10 @@ has a `Suite:` line but no suite run is recorded for its run.
   `QUEUE_ROOT/runs/_suite-logs/<suite_id>.log` for an unbound run, else a temp file. `ccp` prints a
   start line naming the log and, when the command ends, a summary:
   - on a failure (a non-zero exit, or a failure counted), the failing tests' sections in full
-    (`section_re`; unittest's `FAIL:` and `ERROR:` blocks), then the log's last `tail_lines` (40)
-    lines not inside a shown section. They share `max_chars` (40,000): the sections first, less a
+    (`section_re`; unittest's `FAIL:` and `ERROR:` blocks), then the log's last 40
+    lines not inside a shown section. They share a cap of 40,000 characters: the sections first, less a
     reserve for the tail (a quarter of the cap at most); the tail is cut from its front, so the log's
-    last lines and its final error always show. A log no longer than `tail_lines` is shown whole; an
+    last lines and its final error always show. A log no longer than 40 lines is shown whole; an
     empty one says "the command printed nothing";
   - always, every line `suite.summary.show_re` matches (at most 20), such as a gate's red step
     (`exit 1: scripts/lint.sh`), never dropped to fit the cap;
@@ -674,8 +672,8 @@ has a `Suite:` line but no suite run is recorded for its run.
 - When the command exits, `ccp` exits within a couple of seconds, even if a background child holds
   its output open. SIGINT and SIGTERM sent to `ccp` reach the command's whole process group; such a
   run is recorded as interrupted. No background or detached mode exists.
-- **Waiting on a run.** `ccp suite wait <suite_id> [--timeout SECONDS]` (default 540) waits, in the
-  foreground, on a run already started: one that outlasts the caller's command limit, or that its
+- **Waiting on a run.** `ccp suite wait <suite_id> [--timeout SECONDS]` waits in the
+  foreground, up to 540 seconds or `--timeout`, on a run already started: one that outlasts the caller's command limit, or that its
   harness moved to the background. When the run's `ended` row is written it prints the summary
   `ccp suite run` prints, rebuilt from the row and the log (the failure ids of a gate's result file and
   the stages not run are not recorded, so not shown), and exits 0 when the run passed and 1 when it
@@ -723,12 +721,12 @@ has a `Suite:` line but no suite run is recorded for its run.
   `suite.count_re` (default: the language pack's, §21.4; Python's reads unittest's `Ran N tests in`), a pattern or a list of patterns: the first
   pattern a line matches counts it, its first group as the count, or the line as one when the pattern
   has no group, so no line counts twice; the matches summed; `suite.summary`'s
-  `failed_re`, `skipped_re`, `ran_re`, `cached_re` and `cached_tests_re` (a pattern or a list, first
-  group a number, summed) give the rest. The defaults are the language pack's (Python's read
+  `failed_re` and `skipped_re` (a pattern or a list, first group a number, summed) give the failures
+  and skips. The defaults are the language pack's (Python's read
   unittest's `OK (skipped=N)` and `FAILED (failures=N, errors=N, skipped=N)`); with `language: none`
-  there are none, and only the product's own patterns count; `ran_re`, `cached_re` and `cached_tests_re`
-  match nothing until a product sets them. Their older names `modules_ran_re` and `modules_cached_re` are removed keys (§29.3). `section_re`, `show_re`
-  (default none), `tail_lines` and `max_chars` shape the summary.
+  there are none, and only the product's own patterns count. No pattern reads the units ran or cached
+  from the output; the older keys `suite.summary.modules_ran_re` and `modules_cached_re` are removed
+  keys (§29.3). `section_re` and `show_re` shape the summary.
 - **An all-cached run:** with no test count found and the run saying 0 units ran and some cached,
   the test count is 0, not none; `cached_tests` is recorded beside it, and the summary ends
   `; N tests behind the cached results`.
@@ -761,8 +759,7 @@ never its output; the event carries the numbers, `cold` and the stages, not the 
   another phase's, or an earlier verify round's is refused. `cold` is filled as `true` when the cited
   run has `cached == 0` and the entry leaves it out; an explicit `cold` from the verifier wins.
 - **Logs are pruned.** A recording `ccp suite run` removes summary-mode logs
-  (`runs/<task>/*-suite-st-*.log`, `runs/_suite-logs/st-*.log`) older than `suite.log_keep_days`
-  (default 14): no other file, no symlink, nothing outside `runs/`, at most 5,000 looked at, a failure
+  (`runs/<task>/*-suite-st-*.log`, `runs/_suite-logs/st-*.log`) older than 14 days: no other file, no symlink, nothing outside `runs/`, at most 5,000 looked at, a failure
   ignored.
 - **Totals.** A `started` row with no end is `open` while the run may still be going and `killed`
   once its run has stopped, reported or been abandoned since, or after 30 minutes (its time runs to
@@ -785,9 +782,8 @@ records nothing more. It exits 2 only with no command to run, with a command aft
 An agent runs the gate in its own foreground shell, which its harness ends at a fixed limit (600 s in
 Claude Code). A cold gate run must fit that limit with room to spare.
 
-- **Knobs:** plane.json `gate.shell_limit_seconds` (default 600), the harness's limit, and
-  `gate.cut_line_seconds` (default null: 90% of the limit), the line below it; the line is at most
-  the limit.
+- **The limit and the line:** the plane takes the harness's limit as 600 seconds, and the cut line
+  below it as 90% of the limit.
 - **Every run records whether it was cold:** the `ended` row and its event carry `cold`: `true` when
   the run counted nothing cached (`cached` 0), `false` when any unit was cached,
   null when it gave no `cached` count, a `--cold` run included (§14.2).
@@ -796,7 +792,7 @@ Claude Code). A cold gate run must fit that limit with room to spare.
   cold as §27.2 decides (passed, counted tests, and nothing cached or no test cache yet). Warm,
   unverified, failed, interrupted and killed runs, and other lanes' runs, are not judged against
   the line.
-- **Over the line** (longer than `cut_line_seconds`), `ccp health` reports the run as an advisory
+- **Over the line** (longer than the cut line), `ccp health` reports the run as an advisory
   finding: the run (its suite id, task and start), its seconds, the line, the limit and its slowest
   stage (§14.2; none for a run with no stage timings). The task-log owner decides whether to file a
   refactor task (§20.3) that brings its cold run under the line. **Over the limit** it is reported
@@ -804,7 +800,7 @@ Claude Code). A cold gate run must fit that limit with room to spare.
   it as `gate_time` (`finding` null when there is none), and the architect's health summary carries
   the same line.
 - **Killed at the limit.** A run of the gate role's lane with no `ended` row whose elapsed time
-  reached `shell_limit_seconds` is reported as killed at the shell limit. `gate_time.killed` carries
+  reached the limit is reported as killed at the shell limit. `gate_time.killed` carries
   each such run's suite id, task, run and start; the health and architect summaries give one line
   with their count and the latest to start (its suite id, task and start). Its elapsed time runs to
   the earliest of its run's stop, report or abandonment when known (as §14.4's totals reckon it),
