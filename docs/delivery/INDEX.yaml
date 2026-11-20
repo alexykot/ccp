@@ -982,3 +982,8 @@ tasks:
     title: A product that adopts the architect owes no pass at once; before its first pass each trigger counts only what follows the adoption point
     depends_on: [0185-architect-on-by-default]
     path: tasks/0196-no-pass-owed-at-adoption.md
+  - id: 0197-usage-read-once-per-machine
+    status: pending
+    title: Usage is read once per machine, a failed read backs off, and every rule judges the latest good reading
+    depends_on: [0186-account-facts-on-the-machine]
+    path: tasks/0197-usage-read-once-per-machine.md
