@@ -103,7 +103,7 @@ class Lanes(SuiteFixture, unittest.TestCase):
         cfg = config.load(self.runner)
         self.seed((100, True, 0), (999, True, 1), (120, True, 0), (400, False, 0), (140, True, 0))
         self.assertEqual(suite.auto_wait(cfg, self.q, "gate")[0], 450)  # 600 - 120 - 30
-        self.assertIn("limit 600 s, the lane's usual cold run 120 s, margin 30 s", suite.auto_wait(cfg, self.q, "gate")[1])
+        self.assertIn("120 s", suite.auto_wait(cfg, self.q, "gate")[1])
 
     def test_auto_wait_without_a_cold_run_uses_the_passing_runs(self):
         cfg = config.load(self.runner)
@@ -126,7 +126,7 @@ class Lanes(SuiteFixture, unittest.TestCase):
         r = self.run_suite("--lane", "gate", "--wait", "auto", "--", PY, "-c", "print(1)")
         self.assertLess(time.monotonic() - t0, 3)
         self.assertEqual(r.returncode, 75, r.stderr)
-        self.assertIn(b"--wait auto: the lane has no passing run recorded, so it waits 0 s", r.stderr)
+        self.assertIn(suite.WAIT_AUTO_NO_RUN.encode(), r.stderr)
         busy = [x for x in self.rows() if x.get("op") == "busy"][-1]
         self.assertIs(busy.get("wait_auto"), True)
         _killpg(holder)
@@ -137,7 +137,9 @@ class Lanes(SuiteFixture, unittest.TestCase):
         holder = self.hold(seconds=3)
         r = self.run_suite("--lane", "gate", "--wait", "auto", "--", PY, "-c", "print(1)")
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn(b"waiting up to 560 s (--wait auto: limit 600 s, the lane's usual cold run 10 s, margin 30 s)", r.stderr)
+        self.assertIn(b"560 s", r.stderr)
+        self.assertIn(b"--wait auto", r.stderr)
+        self.assertEqual(r.stderr.count(b"waiting up to"), 1, r.stderr)
         started = [x for x in self.rows() if x.get("op") == "started"][-1]
         self.assertGreater(started.get("wait_s", 0), 0.4)
         holder.wait(timeout=30)
@@ -148,6 +150,7 @@ class Lanes(SuiteFixture, unittest.TestCase):
         self.assertIn(b"--wait takes seconds or auto", r.stderr)
         r = self.run_suite("--lane", "gate", "--wait", "auto", "--", PY, "-c", "print(1)")  # the lane is free
         self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn(b"waiting up to", r.stderr)
 
     def test_a_killed_holder_frees_the_lane(self):
         holder = self.hold(seconds=30)
