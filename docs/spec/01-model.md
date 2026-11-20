@@ -822,7 +822,7 @@ holds bindings (§29). Contract: `contracts/project.schema.json`; required: `pro
 ```yaml
 project_id: example-product
 integration_branch: main
-product_root: /path/to/example-product          # the product's main checkout
+product_root: /path/to/example-product   # the product's main checkout
 queue_root: /path/to/.delivery-queue/example-product
 ```
 
