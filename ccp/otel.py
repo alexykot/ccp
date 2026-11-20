@@ -8,9 +8,13 @@ It keeps two kinds of record, and only their numbers and ids, never prompt or re
   id, or `<teammate>@session-…`), model, effort, the token counts.
 
 The six keys that turn telemetry on live in the USER settings (`~/.claude/settings.json`, or the
-shell; `ccp otel env`), for every Claude Code session on the Mac: Claude Code ignores them in a
-project's settings (§24.3). A product's settings carry only `OTEL_RESOURCE_ATTRIBUTES=ccp.project_id=<id>`
-(`ccp otel env --project ID`), which Claude Code honours there. Each record is routed, in this order:
+shell; `ccp otel env`, written by `ccp init --telemetry on`), for every Claude Code session on the Mac:
+Claude Code ignores them in a project's settings (§24.3). A product's settings carry
+`OTEL_RESOURCE_ATTRIBUTES=ccp.project_id=<id>` (`ccp otel env --project ID`), which Claude Code honours there.
+A project turns telemetry off for its own sessions in its `.claude/settings.json` `env`: the exporters
+`none` and `CLAUDE_CODE_ENABLE_TELEMETRY` `"0"` (`ccp otel env --off` prints the block); managed settings, a
+`--settings` file or the launch environment that set an exporter override it (§24.1). Each record is
+routed, in this order:
 
 1. the resource attribute `ccp.project_id` (the product's settings, or a process env), to that project's queue
    (this plane's binding `projects/<project_id>.yaml`);
@@ -24,6 +28,7 @@ It binds to localhost only. Metrics are accepted and ignored.
   ccp otel serve [--port N]             the receiver (launchd runs it: `ccp otel install`)
   ccp otel env [--port N]               the user-settings `env` block (static, no project)
   ccp otel env --project ID             that, and the product's block (OTEL_RESOURCE_ATTRIBUTES only)
+  ccp otel env --off [--project ID]     the project-level block that turns telemetry off for one directory
   ccp otel install|uninstall|status     the launchd agent on the Mac; status checks the user settings
 """
 from __future__ import annotations
@@ -611,6 +616,37 @@ def env_block(port: int) -> dict[str, str]:
             "OTEL_EXPORTER_OTLP_ENDPOINT": f"http://127.0.0.1:{port}"}
 
 
+def receiver_port() -> int:
+    """The receiver's port: `CCP_OTEL_PORT`, else the default (also when the variable is not a number, so a bad
+    environment never breaks `ccp init` after it has written everything). The receiver owns it; plane.json holds none."""
+    try:
+        return int(envvar("CCP_OTEL_PORT") or DEFAULT_PORT)
+    except ValueError:
+        return DEFAULT_PORT
+
+
+def off_block() -> dict[str, str]:
+    """The `env` a project's `.claude/settings.json` carries to turn telemetry off for its own sessions (§24.1):
+    the exporters `env_block` turns on, set to `none`, and `CLAUDE_CODE_ENABLE_TELEMETRY` `"0"` (ignored in
+    project settings by Claude Code, harmless there)."""
+    return {"CLAUDE_CODE_ENABLE_TELEMETRY": "0", "OTEL_LOGS_EXPORTER": "none", "OTEL_TRACES_EXPORTER": "none"}
+
+
+def env_off(project_id: str | None = None) -> dict[str, Any]:
+    """`ccp otel env --off`: the project-level opt-out block and where it goes. With `project_id`, the path is
+    that bound product's; raises ValueError for an unbound id."""
+    root = None
+    if project_id:
+        b = bindings_dir() / f"{project_id}.yaml"
+        if not b.is_file():
+            raise ValueError(f"{project_id!r} is not a bound project ({bindings_dir()}/<id>.yaml)")
+        root = _bound(b.read_text(), "product_root")
+    return {"project": {"path": f"{root or '<product>'}/.claude/settings.json", "env": off_block()},
+            "note": ("project: these keys in the directory's .claude/settings.json env turn telemetry off for its "
+                     "sessions; managed settings, a --settings file or the launch environment that set an exporter "
+                     "override them (SPEC §24.1)")}
+
+
 def project_env(project_id: str) -> dict[str, str]:
     """The one telemetry key a product's `.claude/settings.json` carries (§24.3): Claude Code honours
     `OTEL_RESOURCE_ATTRIBUTES` there, and the receiver routes by it ahead of the session's cwd."""
@@ -674,6 +710,56 @@ def user_settings_check(port: int, shell: dict[str, Any] | None = None) -> dict[
     return {"path": str(p), "ok": not warnings, "missing": missing, **({"warnings": warnings} if warnings else {})}
 
 
+def write_user_env(port: int) -> dict[str, Any]:
+    """Add the keys of `env_block(port)` the user settings' `env` lacks, never overwriting one, and never writing a
+    CONTENT_KEYS key (§24.1). Creates the file; leaves its other keys alone. Returns `path`, `added`, `kept`
+    (present already, and `differing` when the value is not the block's). Raises ValueError when the file is
+    not a JSON object or its `env` is not an object (nothing written)."""
+    p = user_settings_path()
+    data: Any = {}
+    if p.is_file():
+        try:
+            data = json.loads(p.read_text() or "{}")
+        except ValueError as e:
+            raise ValueError(f"{p} is not valid JSON ({e}); fix it, then run init again") from e
+        if not isinstance(data, dict):
+            raise ValueError(f"{p} is not a JSON object; fix it, then run init again")
+    env = data.setdefault("env", {})
+    if not isinstance(env, dict):
+        raise ValueError(f"{p}: `env` is not an object; fix it, then run init again")
+    want = env_block(port)
+    added = [k for k in want if k not in env]
+    kept = [k for k in want if k in env]
+    differing = [k for k in kept if str(env[k]) != want[k]]
+    for k in added:
+        env[k] = want[k]
+    if added:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(data, indent=2) + "\n")
+    return {"path": str(p), "added": added, "kept": kept, "differing": differing}
+
+
+def receiver_live(port: int) -> dict[str, Any] | None:
+    """The running receiver's `/status`, None when nothing answers on `port`."""
+    try:
+        import urllib.request  # noqa: PLC0415
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/status", timeout=3) as resp:
+            body = json.loads(resp.read())
+        return body if isinstance(body, dict) else {}
+    except (OSError, ValueError):
+        return None
+
+
+def receiver_up(port: int, seconds: float = 0) -> bool:
+    """Does the receiver answer, within `seconds` (checked once a second)?"""
+    for i in range(int(seconds) + 1):
+        if receiver_live(port) is not None:
+            return True
+        if i < int(seconds):
+            time.sleep(1)
+    return False
+
+
 def product_block_keys(settings: dict[str, Any]) -> list[str]:
     """Enabling telemetry keys in a product's settings `env`, which Claude Code ignores there (§24).
     `OTEL_RESOURCE_ATTRIBUTES` is honoured there and is not one of them."""
@@ -705,13 +791,7 @@ def launchd(action: str, port: int) -> dict[str, Any]:
     dom = f"gui/{os.getuid()}"
     if action == "status":
         r = subprocess.run(["launchctl", "print", f"{dom}/{launchd_label()}"], capture_output=True, text=True)
-        live = None
-        try:
-            import urllib.request  # noqa: PLC0415
-            with urllib.request.urlopen(f"http://127.0.0.1:{port}/status", timeout=3) as resp:
-                live = json.loads(resp.read())
-        except (OSError, ValueError):
-            live = None
+        live = receiver_live(port)
         user = user_settings_check(port)
         return {"ok": r.returncode == 0 and live is not None, "plist": str(p), "loaded": r.returncode == 0,
                 "state": next((ln.strip() for ln in r.stdout.splitlines() if ln.strip().startswith("state =")), None),
@@ -733,11 +813,22 @@ def main(argv: list[str]) -> int:
 
     ap = argparse.ArgumentParser(prog="ccp otel")
     ap.add_argument("action", choices=("serve", "env", "install", "uninstall", "status"))
-    ap.add_argument("--port", type=int, default=int(envvar("CCP_OTEL_PORT") or DEFAULT_PORT))
+    ap.add_argument("--port", type=int, default=receiver_port())
     ap.add_argument("--project", help="env: also the product's block, OTEL_RESOURCE_ATTRIBUTES=ccp.project_id=ID")
+    ap.add_argument("--off", action="store_true",
+                    help="env: the project-level block that turns telemetry off for one directory (§24.1)")
     a = ap.parse_args(argv)
     if a.action == "serve":
         return serve(a.port)
+    if a.action == "env" and a.off:
+        try:
+            body = env_off(a.project)
+        except ValueError as exc:
+            print(f"ccp otel env: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(body, indent=2))
+        print(f"ccp otel env: {body['note']}", file=sys.stderr)
+        return 0
     if a.action == "env":
         if not a.project:
             print(json.dumps({"env": env_block(a.port), "settings": str(user_settings_path())}, indent=2))

@@ -59,7 +59,7 @@ JSON receiver.
 ## 28.19 Step 2 implementation notes (2026-10-21, non-normative)
 
 - **`ccp otel serve`** (`ccp/otel.py`) is an OTLP/HTTP JSON receiver on 127.0.0.1 (default port
-  4318, `telemetry.otel_port`).
+  4318; the receiver owns it).
   - It keeps `api_request` log records in `board/usage-requests.jsonl` and `claude_code.llm_request`
     spans in `board/usage-spans.jsonl`, numbers and ids only, never content.
   - It routes by the resource attribute `ccp.project_id` to the queue named in the plane's binding

@@ -791,11 +791,6 @@
       "additionalProperties": false,
       "description": "SPEC §24, §25.",
       "properties": {
-        "otel_port": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 4318
-        },
         "allowance_cmd": {
           "type": [
             "string",

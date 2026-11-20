@@ -169,9 +169,7 @@ event carries `model`, `effort`, `input_tokens`, `output_tokens`, `cache_read_to
 - **Enabled in the user settings** (`~/.claude/settings.json` `env`, printed by `ccp otel env`), for
   every Claude Code session on the machine, not only the plane's: `CLAUDE_CODE_ENABLE_TELEMETRY=1`,
   `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1` (needed for trace spans), the logs and traces exporters set
-  to `otlp`, protocol `http/json`, endpoint `http://127.0.0.1:<telemetry.otel_port>`, and no project
-  id. Claude Code ignores these enabling keys in a project's `.claude/settings.json`, so a product
-  carries none of them.
+  to `otlp`, protocol `http/json`, endpoint `http://127.0.0.1:<the receiver's port>` (the receiver owns it), and no project id. `ccp init --telemetry on` writes them, with the operator's consent for the machine (§4.5). Claude Code ignores the enabling keys in a project's `.claude/settings.json`, so a product carries none of them to turn telemetry on. A project turns it off for its own sessions there: the exporters the user block turns on set to `none`, and `CLAUDE_CODE_ENABLE_TELEMETRY` set to `"0"`, the block `ccp otel env --off` prints. Managed settings, a `--settings` file or the launch environment that set an exporter override the project's value.
 - **Labelled per project, in the product's settings:** a product's `.claude/settings.json` `env`
   carries one key, `OTEL_RESOURCE_ATTRIBUTES=ccp.project_id=<project_id>`, which Claude Code honours
   there. `ccp otel env --project <id>` prints both blocks and says which goes where. The user

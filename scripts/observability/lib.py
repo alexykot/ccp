@@ -747,6 +747,25 @@ def bindings_dir() -> Path:
     return Path(os.environ.get("CCP_BINDINGS_DIR") or Path(__file__).resolve().parents[2] / "projects")
 
 
+MACHINE_FILE = "machine.json"
+
+
+def machine_path() -> Path:
+    """SPEC §8.3: the machine file, `machine.json` in the bindings directory (so `CCP_BINDINGS_DIR` moves it
+    with the bindings). Its name does not match the bindings' `*.yaml` glob. Contract
+    `contracts/machine.schema.json`."""
+    return bindings_dir() / MACHINE_FILE
+
+
+def read_machine() -> dict[str, Any]:
+    """The machine file's keys; empty when it is missing, unreadable or not a JSON object."""
+    try:
+        data = json.loads(machine_path().read_text())
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def _same_dir(a: str, b: Path) -> bool:
     try:
         return Path(a).expanduser().resolve() == b.resolve()

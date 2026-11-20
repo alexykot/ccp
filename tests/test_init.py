@@ -73,7 +73,8 @@ class Adopt(InitCase):
                          {"project_id": "demo", "worktrees": {"dir": ".plane-runtime"}})
         self.assertIn(".plane-runtime/", (self.repo / ".gitignore").read_text().splitlines())
         settings = json.loads((self.repo / ".claude/settings.json").read_text())
-        self.assertEqual(settings, {**ccp_init.ANCHOR, "subagentPromptCacheTtl": "1h", "autoCompactWindow": 350000, "model": "opus"})
+        self.assertEqual(settings, {**ccp_init.ANCHOR, "subagentPromptCacheTtl": "1h", "autoCompactWindow": 350000, "model": "opus",
+                                    "env": {**ccp_init.ANCHOR["env"], "OTEL_RESOURCE_ATTRIBUTES": "ccp.project_id=demo"}})
         self.assertTrue(settings["enabledPlugins"]["ccp@ccp"])
         self.assertIn("ccp", settings["extraKnownMarketplaces"])
         self.assertEqual(settings["env"]["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"], "1")
@@ -233,7 +234,8 @@ class NoClobber(InitCase):
         self.assertEqual(code, 0, res)
         settings = json.loads((self.repo / ".claude/settings.json").read_text())
         self.assertEqual(settings["permissions"], {"allow": ["Bash(ccp:*)"]})
-        self.assertEqual(settings["env"], {"MINE": "x", "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"})
+        self.assertEqual(settings["env"], {"MINE": "x", "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+                                           "OTEL_RESOURCE_ATTRIBUTES": "ccp.project_id=demo"})
         self.assertEqual(settings["enabledPlugins"], {"other@x": True, "ccp@ccp": True})
         lines = (self.repo / "CLAUDE.md").read_text().splitlines()
         self.assertEqual(lines, ["# My product", "No trailing newline", "", ccp_init.CLAUDE_LINE])
@@ -254,7 +256,8 @@ class NoClobber(InitCase):
         mine = {"ccp": {"source": {"source": "directory", "path": "/opt/my-ccp"}},
                 "other": {"source": {"source": "github", "repo": "x/y"}}}
         text = json.dumps({"extraKnownMarketplaces": mine, "enabledPlugins": {"ccp@ccp": False, "other@x": True},
-                           "env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"},
+                           "env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0",
+                                   "OTEL_RESOURCE_ATTRIBUTES": "ccp.project_id=demo"},
                            "subagentPromptCacheTtl": "1h", "autoCompactWindow": 350000, "model": "opus"}, indent=4)
         (self.repo / ".claude/settings.json").write_text(text)
         code, res = self.init("--project-id", "demo")
@@ -273,7 +276,7 @@ class NoClobber(InitCase):
         self.assertEqual(settings["extraKnownMarketplaces"],
                          {"ccp": mine, "other": {"source": {"source": "github", "repo": "x/y"}}})
         self.assertEqual(settings["enabledPlugins"], {"ccp@ccp": False})
-        self.assertEqual(settings["env"], ccp_init.ANCHOR["env"])
+        self.assertEqual(settings["env"], {**ccp_init.ANCHOR["env"], "OTEL_RESOURCE_ATTRIBUTES": "ccp.project_id=demo"})
         self.assertIn(".claude/settings.json", res["merged"])
 
     def test_force_overwrites_the_files_init_writes(self):

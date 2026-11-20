@@ -193,7 +193,9 @@ alone:
 It also adds two session settings there when absent, and never overwrites one the product set:
 `"subagentPromptCacheTtl": "1h"`, the runner teammate's prompt-cache lifetime, and
 `"autoCompactWindow": 350000`, the lead's compaction window (the binding's `lead.auto_compact_window`
-sets another). Its result's `settings` names each as added or kept.
+sets another). Its result's `settings` names each as added or kept. It also tags the product's
+sessions for telemetry: `env.OTEL_RESOURCE_ATTRIBUTES` is `ccp.project_id=my-product` there, added when
+absent.
 
 It appends one line to `CLAUDE.md`, once: "This repo is delivered by CCP (Claude Control Plane): its
 plugin and `ccp`." Outside the repository it writes the binding, `$PLANE/projects/my-product.yaml`,
@@ -368,10 +370,18 @@ It finds the queue as `ccp` does, from the product's binding (`QUEUE_ROOT`, when
 prints the Agent tool call to make. The runner claims the task, has subagents implement, review
 and verify it, merges it through a pull request, and closes it.
 
-Optional, macOS only (each writes a launchd agent to `~/Library/LaunchAgents`):
-- `ccp otel install` runs the telemetry receiver; put the block that `ccp otel env` prints into your
-  user settings (`~/.claude/settings.json`), not the product's.
-- `ccp board install` keeps a static board at `$QUEUE/board/index.html`.
+Telemetry is on once per machine, with your consent. `ccp init --telemetry on` records it (in
+`machine.json` beside the bindings) and writes the user-level telemetry keys to
+`~/.claude/settings.json` (absent keys only; prompt and tool content are never logged), installs the
+receiver and this product's board timer (macOS only, each a launchd agent in `~/Library/LaunchAgents`),
+and checks the receiver. **That covers every Claude Code session on the machine, not only the
+product's.** A project turns it off in its own `.claude/settings.json`: `ccp otel env --off` prints the
+keys. `ccp init --telemetry off` declines, and init then says nothing more about it; with neither,
+init prints a notice and writes nothing outside the product. The receiver cannot be started from
+inside Claude Code: when it is down, init prints the command to run in a normal terminal.
+
+Optional, macOS only: `ccp board install` keeps a static board at `$QUEUE/board/index.html` (a
+consenting init installs it).
 
 ## How it works
 

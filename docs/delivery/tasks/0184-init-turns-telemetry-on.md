@@ -155,4 +155,42 @@ is no longer a product setting.
 
 *Append-only, newest last.*
 
+- Built as the task says. `ccp init --telemetry on|off` records the consent in `machine.json` beside the bindings
+  (`lib.machine_path()`, `lib.read_machine()`; contract `contracts/machine.schema.json`); the machine step is
+  `init.machine_telemetry`, run at the end of `init()` and reported in the result's `telemetry` (`tag`, `consent`,
+  `user_settings`, `receiver_up`, ...). The notices go to stderr, so stdout stays the JSON result.
+- The install steps were already callable: init calls `otel.launchd("install", port)` and `board.launchd(cfg, "install")`
+  (through `init.board_launchd`); `ccp/board.py` needed no change. New in `ccp/otel.py`: `write_user_env`, `receiver_live`,
+  `receiver_up`, `receiver_port`, `off_block`, `env_off` and `ccp otel env --off [--project ID]`.
+- Choices the task left open, each the narrowest: (1) with no consent recorded and no flag, init prints the notice on every
+  run until the operator decides; (2) `--telemetry on` inside a sandbox is refused (exit 2, nothing written), and
+  `ccp sandbox create` passes `--telemetry off` to its init, so a sandbox records `off` in its own machine file and never
+  touches the user's settings or services; `--telemetry` is refused as a sandbox create option; (3) a user settings file
+  that is not a JSON object is reported as a warning and left alone, init continuing; (4) after the install on macOS init
+  waits up to 3 s for the receiver, elsewhere it checks once; (5) the non-macOS commands printed are `ccp otel serve` and
+  `ccp --root <root> board build --quiet`.
+- `ccp init`'s `--permissions` and `--rules-doc` refuse `--telemetry` as a writing flag. `tests/test_init.py` expectations
+  gain the tag in `env` (the change necessarily breaks them).
+- tel-04 step 2 (a live `claude -p` with the receiver running) was not run: it needs the operator's logged-in session and
+  receiver, and this worker has neither fenced off. Which keys took effect is therefore not recorded here; the block keeps
+  all three, as the task says.
+- Fix round 1: (a) `ccp sandbox create` passing `--telemetry off` to its init, refusing `--telemetry` as a create
+  option, and `init` refusing `--telemetry on` inside a sandbox (choice 2 above) is a decision beyond the Scope paths
+  (`ccp/sandbox.py`), taken so a sandbox never touches the user's settings or services; SPEC §29.3 is unchanged and does
+  not mention it. (b) `otel.receiver_port` falls back to the default port when `CCP_OTEL_PORT` is not a number, instead
+  of raising at the end of an otherwise complete init. (c) The tag test gives each case a fresh repository, so the `off`
+  consent case is shown to write the tag from fresh.
+- Fix round 2: (a) a failed receiver install or board timer install in `init.machine_telemetry` now leaves one stderr
+  line each (`ccp init: telemetry: the receiver install failed: <error>`), besides the `ok: false` in the result.
+  (b) tel-04 step 2, live result (measured 2026-11-20 by the runner, operator-approved gate
+  0184-init-turns-telemetry-on-1): one `claude -p "say ok"` per temp git directory, launched without the session's own
+  `CLAUDE_CODE_ENABLE_TELEMETRY`/`ENHANCED_TELEMETRY_BETA` so the user-level on-block in `~/.claude/settings.json`
+  applied; receiver rows counted 70 s later by a probe tag in the system sink. All three off keys
+  (`OTEL_LOGS_EXPORTER`=none, `OTEL_TRACES_EXPORTER`=none, `CLAUDE_CODE_ENABLE_TELEMETRY`="0") plus tag `optout-probe`:
+  0 request rows, 0 span rows (the tel-04 expectation, met). Control, tag only: 1 request row, 1 span row (the method
+  sees rows when telemetry is on). Only `CLAUDE_CODE_ENABLE_TELEMETRY`="0" plus tag: 1 request row, 1 span row, so that
+  key alone does not turn telemetry off in this Claude Code version. Only the two exporters = none plus tag: 0 rows, so
+  the two exporter keys are what took effect; `CLAUDE_CODE_ENABLE_TELEMETRY`="0" was not needed (harmless; the block
+  keeps all three, as the task decided).
+
 ## Verification notes

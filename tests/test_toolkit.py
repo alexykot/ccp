@@ -201,9 +201,8 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
     def test_config_accepts_the_blocks_and_refuses_wrong_types(self):
         cfg = config.load(self.main)
         self.assertEqual(cfg.worktrees["links"], [".venv"])
-        self.assertEqual(cfg.telemetry["otel_port"], 4318)
         for bad in ({"adapter": {"worktree_dir": 3}}, {"reconcile": {"hooks": "make"}},
-                    {"reconcile": {"log": {"path": "x"}}}, {"telemetry": {"otel_port": 0}},
+                    {"reconcile": {"log": {"path": "x"}}}, {"telemetry": {"allowance_cmd": 3}},
                     {"reconcile": {"log": {"path": "x", "entry": "y", "before": "("}}}):
             self.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", **bad}))
             with self.assertRaises(config.ConfigError, msg=bad):
