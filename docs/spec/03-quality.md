@@ -96,7 +96,7 @@ is never rejected as intentional without the operator's word.
 `ccp architect due` exits 0 when a pass is due. A **merge** is a task reaching `done` in the task
 log. A pass is due when **any** of these holds (each threshold is a knob, §19.11):
 
-1. **Cadence.** `every_n_tasks` tasks (default 4) have merged since the last pass, or `max_days`
+1. **Cadence.** `every_n_tasks` tasks (default 4) numbered from the adoption point (§19.11) have merged since the last pass, or `max_days`
    (default 14) have passed with at least one merge. Each pass records the done set at its start;
    with no pass yet, every done task counts.
 2. **A review point closes.** Every task in the runner's scope is `done`. The scope's closing pass
@@ -114,8 +114,8 @@ log. A pass is due when **any** of these holds (each threshold is a knob, §19.1
    plus its suite runs' waits on an exclusive lane (§16.6), each instant counted once and only inside
    its wall time. Time spent waiting does not count as slower work. Drift and budget triggers fire
    only when the last pass did not see them, so a lasting drift does not call a pass at every merge.
-5. **On demand.** The owner or the operator runs `ccp architect run --force`. It works with no
-   `architect` block too (an on-demand pass needs no scheduled reviews), but it is still refused
+5. **On demand.** The owner or the operator runs `ccp architect run --force`. It works with the
+   seat off (`"architect": false`) too (an on-demand pass needs no scheduled reviews), but it is still refused
    while a pass is running or a report awaits triage; a `shape` run is refused only while one is
    running.
 
@@ -133,7 +133,7 @@ when it has no such line; a bare number never counts). With `architect.shape_adr
 `shaping: waived — <reason>` (§15). Only `pending` tasks from `shape_from_task` on are checked, so
 older tasks never fail.
 
-**Enforcement at `ccp tasks next`.** With an `architect` block, `ccp tasks next` needs `QUEUE_ROOT`
+**Enforcement at `ccp tasks next`.** With the seat on and an adoption point, `ccp tasks next` needs `QUEUE_ROOT`
 (exit 2 without it). It exits **4** and names no task when:
 
 - a due pass has not started within `grace_tasks` further merges (default 1), counted from the
@@ -256,14 +256,15 @@ operator only through `needs_operator`.
 
 ### 19.11 Binding and knobs
 
-The seat is on when `plane.json` has an `architect` block (§8):
+The seat is on unless `plane.json` sets `"architect": false` (§8); an `architect` block holds its settings, and without one it runs with its defaults. Everything it enforces (the triggers and their blocks at `next`, §19.6; shaping; the kinds, §20.3) starts at the product's **adoption point**, `shape_from_task`: the next task number when the seat turned on. `ccp init` records it (§4.5); a product with history records it by an upgrade step (§29.3). With no adoption point the seat enforces nothing, and `ccp architect due` says so.
+
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `rules_doc`, `rules_max_lines` | —, 150 | The house rules (§20.1), for example `docs/ENGINEERING.md` |
+| `rules_doc`, `rules_max_lines` | `docs/ENGINEERING.md`, 150 | The house rules (§20.1); when the doc is missing a pass runs without them and says so |
 | `every_n_tasks`, `max_days`, `notes_due`, `drift_ratio` | 4, 14, 3, 1.5 | The triggers (§19.6) |
 | `grace_tasks`, `triage_grace_tasks` | 1, 2 | The enforcement at `next` |
-| `shape_adrs`, `shape_from_task` | off, — | The shaping check (§19.6) |
+| `shape_adrs`, `shape_from_task` | off, — | The shaping check (§19.6); `shape_from_task` is the adoption point |
 | `refactor_every`, `refactor_in_scope` | 4, `"deps"` | Refactor capacity and reach (§20.3, §20.4) |
 | `call_timeout_minutes`, `max_new_tasks` | 45, 5 | The run and triage caps |
 | `probes`, `checks`, `budgets` | — | Read-only probes (§19.7), product check commands and budgets (§20.1, §20.2) |
@@ -348,7 +349,7 @@ the operator recorded, goes to the operator (`needs_operator`).
 
 ### 20.3 Refactor tasks
 
-Kinds exist only with an `architect` block; without one, `kind:` is not read and a refactor is an
+Kinds are read with the seat on, for tasks from its adoption point (§19.11); otherwise `kind:` is not read and a refactor is an
 ordinary task.
 
 - **Frontmatter `kind: refactor`** (the default kind is `feature`, §5). A refactor cites `rule_refs`
@@ -392,7 +393,7 @@ out one cycle at most.
   that names it.
 
 The board shows the waiting refactors (`now.refactors_waiting`: count, ids, the oldest, the mode;
-with no scope in `work.json`, every pending refactor; `null` without an `architect` block), and
+with no scope in `work.json`, every pending refactor; `null` unless the seat is adopted), and
 `ccp board status` prints a line when the count is not zero (§28).
 
 ### 20.5 Starter rules
@@ -404,11 +405,8 @@ rule states its purpose, names itself in the set on a `starter: <name>` line, an
 where the check is mechanical it is a `docs` check. No starter rule is mandatory.
 
 - **Adopt.** `docs.starter_rules` in `plane.json` adopts the set (default `null`: not adopted; `{}`
-  adopts every rule). `ccp init --starter-rules` writes the set to `docs/ENGINEERING.md` and, in a
-  `plane.json` it writes, `docs.starter_rules` and the `package_docs` settings its `docs` checks name
-  (§4.5). With the set adopted, `ccp docs check` fails while an adopted rule's `docs` check is not
-  set, naming the rule and the key. It does not set `architect.rules_doc`: until the product sets it
-  to the rules doc, no architect judges the `pass` rules.
+  adopts every rule). `ccp init` writes the set to `docs/ENGINEERING.md` when the product has no such file (`--no-starter-rules` skips it) and, in a `plane.json` it writes, `docs.starter_rules` and the `package_docs` settings its `docs` checks name (§4.5). With the set adopted, `ccp docs check` fails while an adopted rule's `docs` check is not
+  set, naming the rule and the key. `architect.rules_doc` defaults to that doc, so the architect judges the `pass` rules.
 - **Decline.** The product names the rule with its reason in `docs.starter_rules.declined`
   (`{"<name>": "<reason>"}`) and deletes it from its rules doc. `ccp docs check` does not run what a
   declined rule's check names, set or not, unless an adopted rule names it too, and prints each

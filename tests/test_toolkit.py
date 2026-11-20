@@ -602,7 +602,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
 
     def test_next_says_why_it_returns_a_refactor_outside_the_scope(self):
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["architect"] = {"refactor_in_scope": True}
+        cfg["architect"] = {"shape_from_task": "0001", "refactor_in_scope": True}
         self.write("docs/delivery/plane.json", json.dumps(cfg))
         self.write("docs/delivery/tasks/0003-tidy.md", TASK.format(tid="0003-tidy", title="Tidy", status="pending", deps="",
                                                                    ver="*Append-only.*").replace('spec_refs: ["S1"]', 'spec_refs: []\nkind: refactor\nrule_refs: ["E1"]'))
@@ -616,7 +616,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
 
     def test_next_under_deps_says_which_scope_task_needs_the_refactor(self):
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        cfg["architect"] = {}  # §20: "deps" is the default
+        cfg["architect"] = {"shape_from_task": "0001"}  # §20: "deps" is the default
         self.write("docs/delivery/plane.json", json.dumps(cfg))
         refactor = lambda tid: TASK.format(tid=tid, title="Tidy", status="pending", deps="", ver="*Append-only.*").replace(  # noqa: E731
             'spec_refs: ["S1"]', 'spec_refs: []\nkind: refactor\nrule_refs: ["E1"]')
@@ -639,7 +639,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
 
     def test_next_takes_the_review_points_refactors_first_and_says_why(self):
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        self.write("docs/delivery/plane.json", json.dumps({**cfg, "architect": {}}))
+        self.write("docs/delivery/plane.json", json.dumps({**cfg, "architect": {"shape_from_task": "0001"}}))
         self.write("docs/delivery/tasks/0003-tidy.md", TASK.format(tid="0003-tidy", title="Tidy", status="pending", deps="",
                                                                    ver="*Append-only.*").replace('spec_refs: ["S1"]', 'spec_refs: []\nkind: refactor\nrule_refs: ["E1"]'))
         (self.q / "work.json").write_text(json.dumps({"status": "running", "scope": ["0003-tidy", "0002-second"],

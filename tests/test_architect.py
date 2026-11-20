@@ -47,7 +47,7 @@ def git(root: Path, *a: str) -> None:
 class Harness(unittest.TestCase):
     """A committed product with the architect skill, a team-lead runtime queue and a stub claude."""
 
-    ARCHITECT: dict = {}
+    ARCHITECT: dict = {"shape_from_task": "0001"}
     TASKS = 8
 
     def setUp(self):

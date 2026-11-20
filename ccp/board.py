@@ -265,9 +265,9 @@ def _divergence(q: Path, durable: dict[str, str]) -> list[str]:
 
 def _refactors_waiting(cfg: Config, scope: list[str]) -> dict[str, Any] | None:
     """§20.4: outstanding refactors outside work.json's scope (neither named nor depended on; all of
-    them when it records no scope), and the oldest one's age from its `created` date. None without the architect block (kind is not read)."""
+    them when it records no scope), and the oldest one's age from its `created` date. None unless the seat is adopted (kind is not read)."""
     from ccp import tasklog  # noqa: PLC0415
-    if not config.architect_on(cfg):
+    if not config.architect_adopted(cfg):
         return None
     if scope:
         waiting = tasklog.waiting_refactors(cfg, [str(s) for s in scope])

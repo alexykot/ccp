@@ -70,7 +70,10 @@ class Adopt(InitCase):
             self.assertTrue((self.repo / rel).is_file(), rel)
         self.assertEqual((self.repo / "docs/PROJECT.md").read_text(), (PLANE / "templates/docs-project/PROJECT.md").read_text())
         self.assertEqual(json.loads((self.repo / "docs/delivery/plane.json").read_text()),
-                         {"project_id": "demo", "worktrees": {"dir": ".plane-runtime"}})
+                         {"project_id": "demo", "worktrees": {"dir": ".plane-runtime"},
+                          "architect": {"shape_from_task": "0001"}, **ccp_init.STARTER_CONFIG})
+        self.assertEqual((self.repo / "docs/ENGINEERING.md").read_text(),
+                         (PLANE / "templates/docs-project/starter-rules.md").read_text())
         self.assertIn(".plane-runtime/", (self.repo / ".gitignore").read_text().splitlines())
         settings = json.loads((self.repo / ".claude/settings.json").read_text())
         self.assertEqual(settings, {**ccp_init.ANCHOR, "subagentPromptCacheTtl": "1h", "autoCompactWindow": 350000, "model": "opus",
@@ -146,6 +149,35 @@ class Adopt(InitCase):
         self.assertIn("none, python", r.stderr)
         self.assertFalse((self.repo / "docs/delivery/plane.json").exists())
 
+    def test_no_starter_rules_writes_neither_the_doc_nor_its_settings(self):
+        code, res = self.init("--project-id", "demo", "--no-starter-rules")
+        self.assertEqual(code, 0, res)
+        self.assertFalse((self.repo / "docs/ENGINEERING.md").exists())
+        cfg = json.loads((self.repo / "docs/delivery/plane.json").read_text())
+        self.assertEqual(cfg, {"project_id": "demo", "worktrees": {"dir": ".plane-runtime"},
+                               "architect": {"shape_from_task": "0001"}})
+
+    def test_the_adoption_point_is_the_next_task_number(self):
+        tasks = self.repo / "docs/delivery/tasks"
+        tasks.mkdir(parents=True)
+        for name in ("0001-a.md", "0007-b.md"):
+            (tasks / name).write_text("no frontmatter\n")
+        self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        cfg = json.loads((self.repo / "docs/delivery/plane.json").read_text())
+        self.assertEqual(cfg["architect"], {"shape_from_task": "0008"})
+
+    def test_a_rules_doc_the_product_has_is_kept_even_with_force_and_its_settings_are_not_written(self):
+        (self.repo / "docs").mkdir()
+        (self.repo / "docs/ENGINEERING.md").write_text("# Our own rules\n")
+        code, res = self.init("--project-id", "demo", "--force")
+        self.assertEqual(code, 0, res)
+        self.assertEqual((self.repo / "docs/ENGINEERING.md").read_text(), "# Our own rules\n")
+        self.assertIn("docs/ENGINEERING.md", res["kept"])
+        cfg = json.loads((self.repo / "docs/delivery/plane.json").read_text())
+        self.assertEqual(cfg["architect"], {"shape_from_task": "0001"})
+        self.assertNotIn("docs", cfg)
+        self.assertNotIn("package_docs", cfg)
+
     def test_starter_rules_write_no_language(self):
         self.assertEqual(self.init("--project-id", "demo", "--starter-rules")[0], 0)
         cfg = json.loads((self.repo / "docs/delivery/plane.json").read_text())
@@ -165,7 +197,7 @@ class Adopt(InitCase):
         self.assertFalse(self.init("--project-id", "demo")[1]["written"])
 
     def test_starter_rules_against_a_kept_plane_json_are_listed_as_not_applied(self):
-        self.assertEqual(self.init("--project-id", "demo")[0], 0)
+        self.assertEqual(self.init("--project-id", "demo", "--no-starter-rules")[0], 0)
         self.assertFalse((self.repo / "docs/ENGINEERING.md").exists())
         code, res = self.init("--project-id", "demo", "--gate", "make test", "--starter-rules")
         self.assertEqual(code, 0, res)

@@ -25,7 +25,7 @@ class RefactorKind(unittest.TestCase):
         self.p = Product({"task_log": {"required": ["task_id", "title", "status", "depends_on", "spec_refs",
                                                     "adr_refs", "created", "updated"],
                                        "refs_any": ["spec_refs", "adr_refs"]},
-                          "architect": {}})
+                          "architect": {"shape_from_task": "0001"}})
 
     def tearDown(self):
         self.p.cleanup()
@@ -81,7 +81,7 @@ class RefactorCapacity(unittest.TestCase):
     features once refactor_every merged."""
 
     def setUp(self):
-        self.p = Product({"architect": {"refactor_every": 4, "refactor_in_scope": True}})
+        self.p = Product({"architect": {"shape_from_task": "0001", "refactor_every": 4, "refactor_in_scope": True}})
         git(self.p.root, "init", "-q")
 
     def tearDown(self):
@@ -155,7 +155,7 @@ class RefactorDeps(unittest.TestCase):
     scope task depends on it; the rest wait for the next review point."""
 
     def setUp(self):
-        self.p = Product({"architect": {"refactor_every": 0}})
+        self.p = Product({"architect": {"shape_from_task": "0001", "refactor_every": 0}})
 
     def tearDown(self):
         self.p.cleanup()
@@ -209,10 +209,10 @@ class RefactorDeps(unittest.TestCase):
         self.refactor("0001-r")
         self.p.task("0002-f")
         for mode, want in ((True, "0001-r"), (False, "0002-f")):
-            self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {"refactor_in_scope": mode}}))
+            self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {"shape_from_task": "0001", "refactor_in_scope": mode}}))
             self.assertEqual(tasklog.next_task(self.p.cfg, ["0002"])["task_id"], want)
         self.assertEqual(tasklog.waiting_refactors(self.p.cfg, ["0002"])[0]["task_id"], "0001-r")  # false: it waits
-        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {"refactor_in_scope": "all"}}))
+        self.p.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {"shape_from_task": "0001", "refactor_in_scope": "all"}}))
         with self.assertRaisesRegex(Exception, 'refactor_in_scope must be "deps", true or false'):
             self.p.cfg
 

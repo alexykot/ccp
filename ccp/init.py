@@ -1,8 +1,9 @@
 """`ccp init`: adopt a product with one command (SPEC §4.3, §4.5, §8.3).
 
 Run in a product's repository, it writes the product footprint (the PROJECT, SPEC and delivery
-templates, with `--starter-rules` the plane's starter house rules (§20.5), a minimal `plane.json` (with
-`--language` the product's language, §8.1),
+templates, the plane's starter house rules (§20.5) unless the product has the rules doc or `--no-starter-rules`
+says not, a minimal `plane.json` (with `--language` the product's language, §8.1, and the architect's adoption
+point, the product's next task number, §19.11),
 `.plane-runtime/` in `.gitignore`, the plugin anchor merged into `.claude/settings.json` with the
 session settings `subagentPromptCacheTtl`, `autoCompactWindow` and `model` (the lead's, §2.4), the telemetry tag
 `env.OTEL_RESOURCE_ATTRIBUTES` (§24.1), the one `CLAUDE.md` line) and,
@@ -105,7 +106,7 @@ COPIES = {
     "docs/delivery/WRITING-tasks.md": "docs-delivery/WRITING-tasks.md",
     "docs/delivery/standing-dod.md": "docs-delivery/standing-dod.md",
 }
-# §20.5: `--starter-rules` writes the starter house rules here, and these settings into a new plane.json:
+# §20.5: init writes the starter house rules here, and these settings into a new plane.json:
 # the set adopted, nothing declined, and the `package_docs` rules its `docs` checks name, with neutral
 # defaults (no language: `--language` names it; the docs are the top-level ones init writes, the SPEC its own).
 STARTER_RULES_DOC = ("docs/ENGINEERING.md", "docs-project/starter-rules.md")
@@ -154,7 +155,8 @@ GITHUB_ONLY = ("ccp verify merge-ok", "ccp tasks close (its default merge and it
 # The init flags that write: `--permissions` writes nothing, so it refuses them.
 WRITING_FLAGS = (("--project-id", "project_id"), ("--queue-root", "queue_root"),
                  ("--integration-branch", "integration_branch"), ("--gate", "gate"), ("--language", "language"),
-                 ("--starter-rules", "starter_rules"), ("--force", "force"), ("--telemetry", "telemetry"))
+                 ("--starter-rules", "starter_rules"), ("--no-starter-rules", "no_starter_rules"),
+                 ("--force", "force"), ("--telemetry", "telemetry"))
 
 
 def _default_id(root: Path) -> str:
@@ -276,14 +278,27 @@ def binding_text(project_id: str, product_root: Path, queue_root: Path, branch: 
             f"  worktree: {product_root / WORKTREES_DIR / 'runner'}\n")
 
 
+def next_task_number(root: Path) -> str:
+    """The next free task number of the product at `root` (`0001` for an empty task log): its adoption point
+    (§19.11). The task files' own names, in the default id shape init's plane.json keeps (§7)."""
+    ids = refs.DEFAULT
+    tasks = root / "docs" / "delivery" / "tasks"
+    nums = [int(m.group(1)) for f in (tasks.glob("*.md") if tasks.is_dir() else [])
+            if (m := ids.task_file_re.match(f.name))]
+    return ids.format_task_number(max(nums, default=0) + 1)
+
+
 def plane_json_text(project_id: str, gate: str | None, starter_rules: bool = False,
-                    language: str | None = None) -> str:
-    """A minimal plane.json (§8.1): the id, the language when given, the worktrees directory, the gate lane
-    when given, and the starter rules' settings with `--starter-rules` (§20.5). The gate lane is one stage, `gate`, running
+                    language: str | None = None, adoption_point: str | None = None) -> str:
+    """A minimal plane.json (§8.1): the id, the language when given, the worktrees directory, the architect's
+    adoption point when given (§19.11), the gate lane when given, and the starter rules' settings when
+    `starter_rules` (§20.5). The gate lane is one stage, `gate`, running
     the line as given (§4.5), so a chained or `cd`-ing line keeps its meaning; a line `shlex` cannot
     split raises ValueError."""
     cfg: dict[str, Any] = {"project_id": project_id, **({"language": language} if language else {}),
                            "worktrees": {"dir": WORKTREES_DIR}}
+    if adoption_point:
+        cfg["architect"] = {"shape_from_task": adoption_point}
     if gate:
         shlex.split(gate)  # an unclosed quote is refused, though the line is stored whole
         cfg["suite"] = {"lanes": {"gate": [{"name": "gate", "cmd": gate}]}}
@@ -323,7 +338,7 @@ def _merged_settings(path: Path, compact_window: int, lead_model: str,
 
 
 def init(root: Path, project_id: str | None, queue_root: str | None, branch: str | None,
-         gate: str | None, force: bool, starter_rules: bool = False, language: str | None = None,
+         gate: str | None, force: bool, starter_rules: bool = True, language: str | None = None,
          telemetry: str | None = None) -> dict[str, Any]:
     """Adopt the product at `root`; returns what was written, merged and kept. Raises QueueError
     (nothing written) on a refusal."""
@@ -353,8 +368,14 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
             config.load(root)
         except config.ConfigError as e:
             raise QueueError(f"ccp init: {e}; fix it, or --force to rewrite it", 2) from e
+    # §20.5: the starter rules go in unless the product has a rules doc of its own (an earlier init's is the template).
+    starter_doc = root / STARTER_RULES_DOC[0]
+    starter_text = (TEMPLATES / STARTER_RULES_DOC[1]).read_text()
+    own_rules = starter_doc.is_file() and starter_doc.read_text() != starter_text
+    write_starter = starter_rules and not starter_doc.exists()
     try:
-        plane_json_new = plane_json_text(pid, gate, starter_rules, language)
+        plane_json_new = plane_json_text(pid, gate, starter_rules and not own_rules, language,
+                                         next_task_number(root))
     except ValueError as e:
         raise QueueError(f"ccp init: --gate {gate!r} is not a shell command line ({e})", 2) from e
 
@@ -414,9 +435,12 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
 
     copies = {**COPIES, **(dict([STARTER_RULES_DOC]) if starter_rules else {})}
     for rel, tpl in copies.items():
+        if rel == STARTER_RULES_DOC[0] and starter_doc.exists():  # a rules doc is never overwritten, `--force` or not
+            out["kept"].append(rel)
+            continue
         put(root / rel, standing_dod_text(gate) if rel == STANDING_DOD else (TEMPLATES / tpl).read_text(), rel)
     unapplied = [flag for flag, given in (("--gate", gate), ("--language", language),
-                                          ("--starter-rules", starter_rules)) if given]
+                                          ("--starter-rules", write_starter)) if given]
     put(plane_json, plane_json_new,
         config.CONFIG_REL + (f" ({', '.join(unapplied)} not applied)" if unapplied and keep_plane_json else ""))
     (root / "docs" / "delivery" / "tasks").mkdir(parents=True, exist_ok=True)
@@ -768,7 +792,7 @@ def main(root_arg: str | None, a: Any) -> int:
     if getattr(a, "permissions", False):
         return print_permissions(root, a)
     try:
-        res = init(root, a.project_id, a.queue_root, a.integration_branch, a.gate, a.force, a.starter_rules,
+        res = init(root, a.project_id, a.queue_root, a.integration_branch, a.gate, a.force, not getattr(a, "no_starter_rules", False),
                    getattr(a, "language", None), getattr(a, "telemetry", None))
     except QueueError as e:
         print(str(e), file=sys.stderr)

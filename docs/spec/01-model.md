@@ -414,12 +414,13 @@ nothing, and `scripts/sync-product-docs.sh` notes that it can be removed.
 A product is adopted by running `ccp init` in its repository. It writes:
 
 - the PROJECT, SPEC and delivery templates (`templates/docs-project/`, `templates/docs-delivery/`)
-  and, with `--starter-rules`, the starter house rules as `docs/ENGINEERING.md` (§20.5);
+  and the starter house rules as `docs/ENGINEERING.md` unless the product has it or `--no-starter-rules` says not (§20.5);
 - a minimal `docs/delivery/plane.json` (§8.1): the project id, the worktrees directory, with
-  `--language` the language, with `--gate` the gate lane (one stage, `gate`, running the line as given), and with `--starter-rules`
+  `--language` the language, with `--gate` the gate lane (one stage, `gate`, running the line as given), and with the starter rules
   `docs.starter_rules` and the `package_docs` settings the starter rules' checks name; and `INDEX.yaml` when the product keeps one (§5.7) and has
   none yet (an existing one is kept and listed as kept); with `--gate`, the gate command written into
   `standing-dod.md`'s placeholder product item;
+- in a `plane.json` it writes, the architect's adoption point (`architect.shape_from_task`, the next task number, §19.11), and the starter house rules unless the product has a rules doc (§20.5);
 - `.plane-runtime/` in `.gitignore`;
 - the anchor merged into `.claude/settings.json`, leaving its other keys and values alone, with `subagentPromptCacheTtl: "1h"`, `autoCompactWindow` (the binding's `lead.auto_compact_window`, default `350000`), the lead's `model` (§2.4) and the telemetry tag `env.OTEL_RESOURCE_ATTRIBUTES` (`ccp.project_id=<project_id>`, §24.1) added when absent and never overwritten, and the one `CLAUDE.md` line, once (§4.3);
 - with the operator's consent for the machine (`--telemetry on`, recorded once in the machine file beside the bindings, §8.3), the user-level telemetry keys (§24.1), the receiver and the product's board timer; it says first that the keys cover every Claude Code session on the machine, and that a project turns telemetry off in its own `.claude/settings.json` (§24.1). `--telemetry off` records a refusal, and init then writes nothing outside the product. With neither recorded, it prints what `--telemetry on` would do and writes nothing outside the product. When the receiver is down, it prints the command to run in a normal terminal: the receiver cannot be started from inside Claude Code, and only macOS has a service definition;
@@ -498,7 +499,7 @@ One `key: value` per line, lists inline.
 |---|---|---|
 | `task_id`, `title`, `status`, `depends_on`, `created`, `updated` | always | a `depends_on` naming a later task is allowed; a cycle or a missing id is refused |
 | `spec_refs`, `adr_refs`, `rule_refs`, `review_refs` | per `task_log.required`, `refs_any` and the kind | what the task answers to (§7 for ref shapes) |
-| `kind` | no (default `feature`) | a key of `task_log.kinds`; read with the architect block on (§20) |
+| `kind` | no (default `feature`) | a key of `task_log.kinds`; read with the architect seat on, for tasks from its adoption point (§19.11, §20) |
 | `review_point` | no | the review point whose scope it belongs to (§22) |
 | `paths` | no | files or globs it touches, declared by its writer; parallel safety reads them before the Scope **In:** item (§16) |
 | `parallel` | no | whether it may run beside other tasks (§16) |
@@ -532,7 +533,7 @@ dropped record marked converted and not re-verified. An open task is converted o
 
 ### 5.4 Kinds
 
-`task_log.kinds`, read with the architect block on. Each kind names `refs_any` (the ref lists it
+`task_log.kinds`, read with the architect seat on, for tasks from its adoption point (§19.11). Each kind names `refs_any` (the ref lists it
 cites at least one of; default the task log's) and `forbid` (lists it leaves empty). The default:
 `feature` uses the task log's `refs_any`; `refactor` cites `rule_refs` or `review_refs` and no
 `spec_refs` or `adr_refs` (a refactor changes no rule, §20).

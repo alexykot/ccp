@@ -90,7 +90,7 @@
         },
         "kinds": {
           "type": "object",
-          "description": "SPEC §5.4, §20: per task kind, refs_any (the ref lists it cites at least one of; default the task log's refs_any) and forbid (ref lists it leaves empty). Read only with the architect block on",
+          "description": "SPEC §5.4, §20: per task kind, refs_any (the ref lists it cites at least one of; default the task log's refs_any) and forbid (ref lists it leaves empty). Read with the architect seat on, for tasks from its adoption point",
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
@@ -306,17 +306,22 @@
       }
     },
     "architect": {
-      "type": "object",
+      "type": [
+        "object",
+        "boolean"
+      ],
+      "if": {"type": "boolean"},
+      "then": {"const": false},
       "additionalProperties": false,
-      "description": "SPEC §8.1. Absent: the architect seat is off (no exit 4 at `ccp tasks next`, no shaping check, no rule checks). Every value is checked",
+      "description": "SPEC §8.1, §19.11. The architect seat is on unless this is false; absent, or a block, it runs with these defaults. It enforces nothing until `shape_from_task` (the adoption point, the next task number when the seat turned on) is set. Every value is checked",
       "properties": {
         "rules_doc": {
           "type": [
             "string",
             "null"
           ],
-          "default": null,
-          "description": "Product path of the house rules, e.g. docs/ENGINEERING.md (template: templates/docs-project/ENGINEERING.md)"
+          "default": "docs/ENGINEERING.md",
+          "description": "Product path of the house rules (template: templates/docs-project/ENGINEERING.md); when the doc is missing a pass runs without them and says so"
         },
         "rules_max_lines": {
           "type": "integer",
@@ -372,7 +377,7 @@
           ],
           "pattern": "^[0-9]{4}(-|$)",
           "default": null,
-          "description": "Only tasks numbered from this one on are checked"
+          "description": "The adoption point: the seat enforces its rules (cadence, kinds, shaping) only on tasks numbered from this one on; unset, it enforces nothing"
         },
         "refactor_every": {
           "type": "integer",

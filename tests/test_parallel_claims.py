@@ -237,7 +237,7 @@ class Claims(ParallelFixture, unittest.TestCase):
         self.assertEqual(self.claim("0002")[0], 0)
         self.assertEqual(self.claim("0003")[0], 0)
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        self.write("docs/delivery/plane.json", json.dumps({**cfg, "architect": {}}))
+        self.write("docs/delivery/plane.json", json.dumps({**cfg, "architect": {"shape_from_task": "0001"}}))
         with mock.patch.object(cli, "_architect_gate", return_value=4) as gate:
             self.assertEqual(self.next()[0], 4)
         gate.assert_called_once()

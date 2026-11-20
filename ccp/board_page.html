@@ -608,7 +608,7 @@ function quality(Q, tasks) {
     ${R ? `<div class="tile"><div class="k">Budgets over</div><div class="v">${R.budgets_over}</div><div class="d">of ${R.budgets.length} · rules doc ${R.lines}/${R.rules_max_lines} lines</div></div>` : ""}
     ${F ? `<div class="tile"><div class="k">Friction notes, 7 days</div><div class="v">${F.last_7d}</div><div class="d">${F.since_last_pass}${F.notes_due != null ? "/" + F.notes_due : ""} since the last pass</div></div>` : ""}
   </div>`;
-  if (!A && !R && !E.architect && !E.rules) html += `<p class="muted all">No architect block in <code>docs/delivery/plane.json</code>: no passes, house rules or budgets to show.</p>`;
+  if (!A && !R && !E.architect && !E.rules) html += `<p class="muted all">The architect seat is off (<code>"architect": false</code> in <code>docs/delivery/plane.json</code>): no passes, house rules or budgets to show.</p>`;
   if (A) {
     const rows = A.passes.slice().reverse();
     html += `<section class="card s3 w4"><h2>Architect passes and triage</h2><div class="cols"><div>

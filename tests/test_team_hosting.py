@@ -166,7 +166,7 @@ class TestRunner(TeamCase):
 
     def test_a_new_review_point_starts_with_the_waiting_refactors(self):
         # §20.4 "deps" (the default): refactors no scope task depends on go to the top of the next review point.
-        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {}}))
+        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {"shape_from_task": "0001"}}))
         for tid, status, deps in (("0001-a", "pending", []), ("0002-b", "pending", ["0004-needed"]),
                                   ("0003-waiting", "pending", []), ("0004-needed", "pending", []),
                                   ("0005-old", "done", []), ("0006-blocked", "pending", ["0001-a"])):
@@ -206,12 +206,12 @@ class TestRunner(TeamCase):
         self.assertEqual((res["refactors_added"], res["scope"]), ([], ["0001-a"]))
         # true and false add nothing: true already reaches every refactor, false never does
         for mode in (True, False):
-            self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {"refactor_in_scope": mode}}))
+            self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {"shape_from_task": "0001", "refactor_in_scope": mode}}))
             code, res, _ = self.team("runner", "spawn", "--scope", "0001-a", "--review-point", f"R9{mode}")
             self.assertEqual((code, res["refactors_added"]), (0, []))
 
     def test_spawn_refuses_an_unreadable_task_log_and_writes_nothing(self):
-        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {}}))
+        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {"shape_from_task": "0001"}}))
         self.prod.write("docs/delivery/tasks/0001-a.md", "not a task file")
         (self.prod.root / "docs/delivery/tasks/0001-a.md").write_bytes(b"---\n\xff\xfe\n---\n")
         before = (self.q / "work.json").read_text()
@@ -506,7 +506,7 @@ class TestIdleHook(TeamCase):
         self.assertIn("hook_event_name", log[0]["keys"])
 
     def test_architect_triage_block_waits_on_the_lead(self):
-        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {"triage_grace_tasks": 1}}))
+        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {"shape_from_task": "0001", "triage_grace_tasks": 1}}))
         st = {"schema_version": 1, "seen": {}, "reviews": {"ar-20261014T000000Z-abcd": {
             "status": "reported", "mode": "pass", "done": [], "done_at_report": [], "started_at": "2026-10-14T00:00:00Z"}}}
         (self.q / "architect.json").write_text(json.dumps(st))
@@ -735,7 +735,7 @@ class TestSync(TeamCase):
 
     def test_the_rules_doc_note_names_the_path_ccps_default_gives(self):
         """The note on a missing `architect.rules_doc` takes the path from ccp's loaded configuration."""
-        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {}}))
+        self.prod.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "architect": {"shape_from_task": "0001"}}))
         self.patch_default("ARCHITECT_DEFAULTS", "rules_doc", "docs/HOUSE-RULES.md")
         yml = self.q / "project.yaml"
         chk = subprocess.run(["bash", str(PLANE / "scripts" / "sync-product-docs.sh"), "demo", "--project-yaml", str(yml),

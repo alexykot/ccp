@@ -34,7 +34,7 @@ class RefactorRerunsTheGate(unittest.TestCase):
         self.p.cleanup()
 
     def product(self, suite, architect=True):
-        p = Product({**({"architect": {}} if architect else {}), "suite": suite})
+        p = Product({**({"architect": {"shape_from_task": "0001"}} if architect else {}), "suite": suite})
         self.addCleanup(p.cleanup)
         return p
 

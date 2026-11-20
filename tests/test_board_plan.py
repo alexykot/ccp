@@ -122,7 +122,7 @@ class Plan(unittest.TestCase):
     """plan.collect against a product without git and a hand-made queue."""
 
     def setUp(self):
-        self.p = Product({"architect": {"refactor_every": 2}, "task_log": {"refs_any": ["spec_refs", "adr_refs"]}})
+        self.p = Product({"architect": {"shape_from_task": "0001", "refactor_every": 2}, "task_log": {"refs_any": ["spec_refs", "adr_refs"]}})
         self.addCleanup(self.p.cleanup)
         self._q = tempfile.TemporaryDirectory()
         self.addCleanup(self._q.cleanup)

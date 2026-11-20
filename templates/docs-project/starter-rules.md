@@ -3,11 +3,10 @@
   code and docs stay correct, each with its purpose and its check. Optional: a product adopts,
   declines or overrides each one.
 
-  - Adopt: `ccp init --starter-rules` writes this file to docs/ENGINEERING.md and, in the plane.json
-    it writes, `docs.starter_rules` and the `package_docs` settings the `docs` checks need. By hand:
-    copy the rules you keep and set `docs.starter_rules` to {} in plane.json. Either way, set
-    `architect.rules_doc` to the rules doc's path: until it is set, nobody judges the `check: pass`
-    rules.
+  - Adopt: `ccp init` writes this file to docs/ENGINEERING.md (unless the product has one) and, in the
+    plane.json it writes, `docs.starter_rules` and the `package_docs` settings the `docs` checks need.
+    By hand: copy the rules you keep and set `docs.starter_rules` to {} in plane.json. The architect
+    judges the `check: pass` rules in `architect.rules_doc`, which defaults to docs/ENGINEERING.md.
   - Decline: delete the rule here and name it, with the reason, in plane.json
     `docs.starter_rules.declined` ({"<starter name>": "<reason>"}); `ccp docs check` then does not
     run its check. Declining package-maps turns off every package-doc check (a doc per source

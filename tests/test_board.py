@@ -95,7 +95,7 @@ class Board(ToolkitFixture, unittest.TestCase):
         b = json.loads(Path(self.ccp("board", "build")[1]["board"]).read_text())
         self.assertIsNone(b["now"]["refactors_waiting"])  # no architect block: kind is not read (§20)
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        self.write("docs/delivery/plane.json", json.dumps({**cfg, "architect": {}}))
+        self.write("docs/delivery/plane.json", json.dumps({**cfg, "architect": {"shape_from_task": "0001"}}))
         for tid, created in (("0003-old", "2026-09-01"), ("0004-new", "2026-10-01")):
             self.write(f"docs/delivery/tasks/{tid}.md", TASK.format(tid=tid, title="Tidy", status="pending", deps="", ver="*Append-only.*")
                        .replace('spec_refs: ["S1"]', 'kind: refactor\nrule_refs: ["E1"]').replace("created: 2026-09-30", f"created: {created}"))

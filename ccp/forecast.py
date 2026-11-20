@@ -81,7 +81,7 @@ from pathlib import Path
 from statistics import NormalDist
 from typing import Any
 
-from ccp import tasklog
+from ccp import config, tasklog
 from ccp.config import Config
 
 FORECAST_V = 3         # 2: the 5-hour limit's pauses; 3: the P90_RATIO_MAX draw cap (2026-10-23)
@@ -201,8 +201,7 @@ def sequence(cfg: Config, q: Path | None, tasks: list[dict[str, Any]] | None = N
     for tid in held:
         if tid in by_id and by_id[tid].get("status") == "pending":
             by_id[tid]["status"] = "held"
-    a = cfg.architect
-    every = a["refactor_every"] if a else 0
+    every = cfg.architect["refactor_every"] if config.architect_adopted(cfg) else 0
     since = 0
     if every and any(tasklog.kind_of(t) == "refactor" and t.get("status") == "pending" for t in open_):
         since = since_refactor({str(t.get("task_id")): tasklog.kind_of(t) for t in tasks}, merged) \
