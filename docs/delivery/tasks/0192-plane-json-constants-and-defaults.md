@@ -128,4 +128,23 @@ the prompt fragment, and the lead's expected model follows `models.lead`.
 
 *Append-only, newest last.*
 
+- The constants are registry entries (`config.KEY_OUTCOMES`, built from `config._CONSTANT_KEYS`) at the default the block's
+  dict holds, so the loader (`_apply_outcomes`) and `ccp upgrade status` (0187's step, `ccp/upgrade.py` unchanged) handle
+  them with no reader change; the blocks still hold the constants for the readers. `telemetry.design_seat` is a constant
+  with no value (None): `config.design_seat(cfg)` is `models.lead` and the role table's effort (None for the lead), else a
+  value the product still sets.
+- `architect.shape_adrs` stays False in the block's defaults; `_architect` turns it on when the product has an `adr`
+  block and gives none. The `shape_adrs needs shape_from_task` refusal is gone; the shaping check was already held to the
+  adoption point by `tasklog._check_shaping`, so `ccp/tasklog.py` needed no change. `prompts.fragment` is derived in
+  `_toolkit` (`config.WORKERS_FRAGMENT`); a fragment the product names wins.
+- `worktrees.dir` is a constant at None, as the task says (today's default). `ccp init` writes `.plane-runtime` there and
+  this plane's own plane.json sets it, so each warns until the constant is `.plane-runtime` (ADR-0043 D9 says so) or init
+  stops writing it: raised to the runner as a scope question.
+- Files outside `paths` that changed: `ccp/cli.py`, `ccp/estimate.py`, `ccp/forecast.py`, `ccp/seats.py`,
+  `ccp/board_page.html` (the design seat now comes from `config.design_seat`), `docs/design/allowance.md`,
+  `docs/design/board.md`; tests `test_init`, `test_board`, `test_suite` (a `without_constant_warnings` helper in
+  `tests/helpers.py`: those fixtures set `worktrees.dir` and assert an empty stderr), `test_estimator`, `test_estimate`
+  (`estimate.auto` default), `test_rules` (the removed refusal), `test_short_plane_json` (`worktrees.dir` is a constant too).
+- Not changed, left as a proposal: `docs/spec/03-quality.md` §19.6 still says `shape_adrs` "needs `shape_from_task`".
+
 ## Verification notes
