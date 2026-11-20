@@ -101,7 +101,7 @@ class Lanes(SuiteFixture, unittest.TestCase):
 
     def test_auto_wait_is_the_limit_less_the_median_cold_run_and_a_margin(self):
         cfg = config.load(self.runner)
-        self.seed((100, True, 0), (999, True, 1), (120, True, 0), (5, False, 0), (140, True, 0))
+        self.seed((100, True, 0), (999, True, 1), (120, True, 0), (400, False, 0), (140, True, 0))
         self.assertEqual(suite.auto_wait(cfg, self.q, "gate")[0], 450)  # 600 - 120 - 30
         self.assertIn("limit 600 s, the lane's usual cold run 120 s, margin 30 s", suite.auto_wait(cfg, self.q, "gate")[1])
 
