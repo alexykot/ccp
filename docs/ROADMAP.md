@@ -45,6 +45,10 @@ All reshape phases have landed.
 
 ## After the reshape
 
+- **Proposed, awaiting the operator (after R12 and R13):** ADR-0044 (a follow-up is tracked, not
+  left in notes), ADR-0045 (checks only the operator's machine can run) and ADR-0046 (decisions may
+  depend on other ADRs' decisions). Each is tasked once accepted.
+
 - **Self-hosting:** the plane's own development is managed by the plane, with tasks, ADRs and
   house rules. It is the reference example of a managed project.
   - **Stage 1, records only (bootstrapped):** `docs/PROJECT.md`, `docs/delivery/` (`plane.json`,
