@@ -2,7 +2,7 @@
   "project_id": "control-plane",
   "language": "python",
   "architect": {
-    "shape_from_task": "0196",
+    "shape_from_task": "0197",
     "checks": [
       {
         "id": "E2",
@@ -128,7 +128,7 @@
       "0181-models-block-and-role-defaults": "plane.json models implementer_small and implementer_refactor sonnet; .claude/settings.json model opus (PR #221)",
       "0182-language-is-a-required-key": "plane.json language python (PR #221)",
       "0183-gate-lane-is-required": "the plane's own suite.lanes.gate already runs scripts/gate.sh",
-      "0185-architect-on-by-default": "plane.json architect.shape_from_task 0196 (PR #221)",
+      "0185-architect-on-by-default": "plane.json architect.shape_from_task 0197 (PR #221)",
       "0187-short-plane-json": "plane.json: no removed or merged key is set (PR #221)",
       "0192-plane-json-constants-and-defaults": "plane.json: package_docs.doc_name and docs.workers deleted, the constants apply (PR #221)"
     }

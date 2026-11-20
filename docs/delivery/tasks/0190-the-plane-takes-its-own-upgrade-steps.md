@@ -126,5 +126,17 @@ warning.
     on `origin/main`, whose highest task is 0195. The ruling sets `"0197"` once 0196 is on main (merge
     `origin/main`, never rebase, then change that one value). Until task 0196 merges, `ccp architect due`
     prints `"due": true` (the second "Open" note above): that is expected, and not worked around.
+- Fix round 1 (task 0196 is merged, `origin/main` merged in):
+  - `architect.shape_from_task` is now `"0197"` (the highest task on `origin/main` is 0196), and the
+    `upgrade.taken` text for 0185 names `0197` in the same commit (review MINOR 2).
+  - Review MINOR 1, recorded and not changed: dropping `package_docs.doc_name` stops `scripts/git-hooks/CLAUDE.md`
+    being judged by `ccp docs check`, because the constant `.claude.md` applies and the directory is not in
+    `claude_md_dirs`. Listing it there fails the size check: `source()` in `ccp/pkgdocs.py` excludes only
+    `doc_name`, so a listed `CLAUDE.md` counts its own `.md` lines as source (and it loosens the size check
+    for the six listed directories). A code follow-up is the lead's call; no code changed here.
+  - Review NIT 3: `docs/ENGINEERING.md` E3, E16 and E18 name their `architect.checks` entries by rule id
+    (`E3`, `E16`, `E18`).
+  - Review NIT 4: `docs/ENGINEERING.md` E12 now says the check is the schema-defaults test the `architect.checks`
+    `E12` entry runs (`python3 -B -m unittest -q tests.test_plane_config_defaults`), which the gate also runs.
 
 ## Verification notes
