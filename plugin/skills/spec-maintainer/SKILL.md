@@ -162,7 +162,7 @@ in. Everything above applies, with these differences.
   trigger `other`, send it, and record it with `--via lead --note "<ids and a short reason>"`. A
   notice carries ids and a short reason only, never a brief, a question's text or file content.
 - **The 5-hour session limit is not the operator's call** (SPEC §25.4): the runner parks at
-  `telemetry.session_park_pct` (exit 6) and you resume it with the session wake, as the orientation
+  the session park (exit 6) and you resume it with the session wake, as the orientation
   says (`ccp allowance session-wake`). Arm the wake before the limit: at the limit your own turn fails.
 - **You run the runner, not the tasks.** Spawn it with `team.sh runner spawn --scope …` and then the
   Agent tool, exactly as printed. Widen or narrow its scope while it runs with

@@ -21,7 +21,7 @@ decisions:
   - "D5 built"
   - "D6 built"
   - "D7 built"
-  - "D8 not_built"
+  - "D8 built"
   - "D9 not_built"
 ---
 # ADR-0043 — Opinionated defaults, short configuration

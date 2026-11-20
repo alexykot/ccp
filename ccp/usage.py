@@ -35,9 +35,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ccp import models, runs
+from ccp import config, models, runs
 from ccp.config import PARALLEL_DEFAULTS, TELEMETRY_DEFAULTS, Config
-from ccp.queue import QueueError, emit, iso, runner_names
+from ccp.queue import QueueError, emit, iso, lib, runner_names
 
 TOKENS = ("input_tokens", "output_tokens", "cache_read_tokens", "cache_creation_tokens")
 # The cache writes by lifetime: parts of cache_creation_tokens, so never added to a total. 0 on rows
@@ -454,7 +454,8 @@ def wname(rec: dict[str, Any] | None, kind: str) -> str:
 
 def account(cfg: Config) -> dict[str, Any]:
     """The facts about the Claude account on this machine, the one place that reads them (§25): the
-    allowance command (`allowance_cmd`, or None), the weekly stop (`stop_weekly`, or None), the usage
+    allowance command (`allowance_cmd`, or None) and the weekly stop (`stop_weekly`, default 90), each the
+    machine file's (§8.3) when it sets it, else plane.json's old `telemetry` key; the usage
     windows (`windows`: each name's rule {kind, stop_pct, park_pct}; the built-in seven_day, weekly, stopping
     at `stop_weekly`, and five_hour, session, parking at `park_pct`, then `telemetry.windows` merged over
     them per name), the session park % (`park_pct`, or None when the park is off), the wake-arm % and the
@@ -462,16 +463,23 @@ def account(cfg: Config) -> dict[str, Any]:
     §16.3 rule 5), each with its default filled in and a null or bad value handled as it always was."""
     D = TELEMETRY_DEFAULTS
     tel = cfg.telemetry or {}
+    mine = config.machine_account()
+    cmd = mine.get("allowance_cmd") or tel.get("allowance_cmd") or None
+    stop = mine.get("allowance_stop_weekly")
+    if stop is None:
+        stop = tel.get("allowance_stop_weekly")
+    if stop is None:
+        stop = config.ALLOWANCE_STOP_WEEKLY_DEFAULT
     park = _num_or_none(tel.get("session_park_pct", D["session_park_pct"]))
     windows: dict[str, dict[str, Any]] = {
-        "seven_day": {"kind": "weekly", "stop_pct": tel.get("allowance_stop_weekly"), "park_pct": None},
+        "seven_day": {"kind": "weekly", "stop_pct": stop, "park_pct": None},
         "five_hour": {"kind": "session", "stop_pct": None, "park_pct": park}}
     for name, w in (tel.get("windows") or {}).items():
         base = windows.get(name, {"kind": "weekly", "stop_pct": None, "park_pct": None})
         windows[name] = {**base, **{k: (_num_or_none(v) if k != "kind" else v) for k, v in w.items()}}
     margin = tel.get("session_wake_margin_s", D["session_wake_margin_s"])
-    return {"allowance_cmd": tel.get("allowance_cmd"),
-            "stop_weekly": tel.get("allowance_stop_weekly"),
+    return {"allowance_cmd": cmd,
+            "stop_weekly": stop,
             "windows": windows,
             "park_pct": park,
             "wake_arm_pct": (_num_or_none(tel.get("session_wake_arm_pct", D["session_wake_arm_pct"]))
@@ -479,6 +487,18 @@ def account(cfg: Config) -> dict[str, Any]:
             "wake_margin_s": (int(margin) if isinstance(margin, int) and not isinstance(margin, bool)
                               else D["session_wake_margin_s"]),
             "ceiling_pct": (getattr(cfg, "parallel", None) or PARALLEL_DEFAULTS)["session_ceiling_pct"]}
+
+
+def usage_read(cfg: Config) -> bool:
+    """§25.1: an allowance command is set, so usage is read. Without one nothing is sampled and nothing bounds spend."""
+    return bool(account(cfg)["allowance_cmd"])
+
+
+def unread_warning() -> str:
+    """§25.1: the one warning given when no allowance command is set (`ccp init`, the session-start check)."""
+    return ("no usage is read and nothing bounds spend: no `allowance_cmd` is set in the machine file "
+            f"{lib.machine_path()}, so the weekly stop and the session park have no reading to act on "
+            "(SPEC §25.1)")
 
 
 def window_rules(cfg: Config) -> dict[str, dict[str, Any]]:
@@ -660,7 +680,7 @@ def _lapsed_at(d: dict[str, Any], resets: list[str]) -> str | None:
 
 def checkpoint(cfg: Config, q: Path, resets_at: Any, window: str | None = None) -> float | None:
     """The checkpoint in force: the weekly window's own stop (`window`'s rule; default seven_day, i.e.
-    `allowance_stop_weekly`), raised by the operator's decisions for this window that no counter reset has
+    the machine's `allowance_stop_weekly`), raised by the operator's decisions for this window that no counter reset has
     lapsed since (§25.3)."""
     window = window or "seven_day"
     base = window_rules(cfg).get(window, {}).get("stop_pct")
@@ -706,7 +726,8 @@ def continue_(cfg: Config, q: Path, to: float, reason: str) -> dict[str, Any]:
 def status(cfg: Config, q: Path, sample: bool) -> dict[str, Any]:
     """The latest sample, the checkpoint in force and this window's decisions, each with `lapsed_at`
     (the counter reset that lapsed it, or None). `decision_lapsed_at` is the reset that lapsed the
-    latest decision, when that one is no longer in force."""
+    latest decision, when that one is no longer in force. `usage_read` says whether an allowance command is
+    set (§25.1); when it is not, `warning` says that no usage is read and nothing bounds spend."""
     if sample:
         sample_allowance(cfg, q, gate=False)
     last = (_jsonl(q / "board" / "allowance.jsonl") or [None])[-1]
@@ -715,7 +736,9 @@ def status(cfg: Config, q: Path, sample: bool) -> dict[str, Any]:
     times = counter_resets(q, resets, win)
     dec = [{**d, "lapsed_at": _lapsed_at(d, times)} for d in decisions(q)
            if wname(d, "weekly") == win and same_window(resets, d.get("resets_at"))]
-    return {"ok": True, "latest": last, "window": win, "checkpoint": checkpoint(cfg, q, resets, win),
+    read = usage_read(cfg)
+    return {"ok": True, "usage_read": read, **({} if read else {"warning": unread_warning()}),
+            "latest": last, "window": win, "checkpoint": checkpoint(cfg, q, resets, win),
             "project_checkpoint": window_rules(cfg).get(win, {}).get("stop_pct"),
             "decisions": dec, "counter_resets": times,
             "decision_lapsed_at": dec[-1]["lapsed_at"] if dec else None}
@@ -988,7 +1011,7 @@ def session_wake(cfg: Config, q: Path, sample: bool = False, rearm: bool = False
                    armed=armed_wake(q, reset if rt is not None and rt > now else None, now, wt))
     arm = False
     if not account(cfg)["allowance_cmd"]:  # §25.1: nothing to sample, with --sample or without
-        why = "no telemetry.allowance_cmd in the binding: no allowance sample can be taken (SPEC §25.1)"
+        why = "no allowance_cmd in the machine file: no allowance sample can be taken (SPEC §25.1)"
     elif park is None:
         why = "telemetry.session_park_pct is null: the session park and wake are off"
     elif not last.get("at"):

@@ -783,7 +783,6 @@ An example, with neutral values:
              "worker_env": { "<NAME>": "<template: {{main_checkout}}, {{worktree}}, {{queue_root}}, {{round}}, …>" },
              "keep_body": false, "audit_keep_days": null },
 "reconcile": { "hooks": ["<product command, run in close's merge worktree (§10.5)>"] },
-"telemetry": { "allowance_cmd": "<command printing the allowance JSON>" },
 "board": { "refresh_minutes": 5 },
 "adr": { "dir": "docs/adr", "index": "docs/adr/INDEX.md" },
 "suite": { "lanes": { "full": ["scripts/test.sh"],
@@ -857,6 +856,8 @@ lead:
   (§17). `seats.runner`, `seats.verifier`, `seats.watchdog` and `email` are
   ignored, as is a leftover `hosting:` line; the operator's channel is plane.json `notify` (§3.6). `cadence.verify_stale_minutes` is retired with the
   `verify_stale` blocker (§18.3).
+
+**The machine file**, `machine.json` beside the bindings (`contracts/machine.schema.json`), holds what belongs to the machine's account, not to a product: `telemetry` (the operator's consent, §4.5), `allowance_cmd` and `allowance_stop_weekly` (§25).
 
 ### 8.4 Configuration knobs
 

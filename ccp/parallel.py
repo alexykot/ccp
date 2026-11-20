@@ -5,8 +5,8 @@ apart depends on `parallel.schedule`. Under `paths`, two tasks run together only
 paths do not meet (unless both are covered by a `parallel.shared` entry, a file tasks only append lines
 to). Under `clashes` (the default), they run together unless one names the other in `clashes_with` (§5), whatever their
 paths; paths then only feed rules 2 and 4. Either way neither touches a product's `parallel.exclusive` entry, and the
-account's 5-hour usage is below `parallel.session_ceiling_pct` (a product without
-`telemetry.allowance_cmd` reads no usage, so that rule passes). Correctness never rests on these
+account's 5-hour usage is below the session ceiling, a constant (a machine without
+`allowance_cmd` reads no usage, so that rule passes). Correctness never rests on these
 rules (§16.1): verify and merge run one at a time on the current head. They only decide what to
 start together. With `parallel.max_in_flight` 1 nothing here is consulted.
 """
@@ -175,9 +175,9 @@ def no_five_hour_limit(sample: dict[str, Any] | None) -> bool:
 
 
 def reads_usage(cfg: Config) -> bool:
-    """The product sets `telemetry.allowance_cmd`: rule 5 has a reading to judge (§16.3). Without
+    """The machine sets `allowance_cmd`: rule 5 has a reading to judge (§16.3). Without
     it the plane reads no usage, and the rule passes."""
-    return bool(usage.account(cfg)["allowance_cmd"])
+    return usage.usage_read(cfg)
 
 
 def paths_meet(cfg: Config, a: dict[str, Any], b: dict[str, Any]) -> tuple[str, str] | None:
@@ -227,7 +227,7 @@ def join_refusal(cfg: Config, cand: dict[str, Any], active: list[dict[str, Any]]
     """Why `cand` may not be claimed beside `active` (§16.3 rules 1-5), or None when it may.
     An empty `active` is never refused here: a lone claim is judged as before §16. `sample` is the
     allowance reading (`five_hour`, `seven_day`); `five_known` False skips rule 5 (no fresh sample to
-    judge it by; the claim samples), and so does a product with no `telemetry.allowance_cmd`.
+    judge it by; the claim samples), and so does a machine with no `allowance_cmd`.
     `rule3` False skips the path rule (`next` asks whether rule 3 alone keeps a task out)."""
     if not active:
         return None

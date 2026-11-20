@@ -178,6 +178,9 @@ def fill(template: str, values: dict[str, str]) -> str:
 # §30: auth probes the runner runs before each task (`ccp auth check`, and `ccp tasks claim`).
 AUTH_CHECK_DEFAULTS: dict[str, Any] = {"probes": [], "timeout_seconds": 60}
 # §24.4, §25.1, §28.1: read by later steps; validated now so a binding written early is not refused.
+# `allowance_cmd` and `allowance_stop_weekly` are the machine's (§8.3, §25.1): the machine file holds them, and
+# the plane.json keys here are the old place, read while the machine file lacks them (`KEY_OUTCOMES`); the
+# session knobs and `windows` are constants (`KEY_OUTCOMES`), kept here at their values for the readers.
 TELEMETRY_DEFAULTS: dict[str, Any] = {"allowance_cmd": None, "allowance_stop_weekly": None,
                                       # §24.5: the lead's expected model and effort, as advice only
                                       "design_seat": None,
@@ -186,9 +189,13 @@ TELEMETRY_DEFAULTS: dict[str, Any] = {"allowance_cmd": None, "allowance_stop_wee
                                       # lead arms a wake from `arm_pct`, at the window's reset plus `margin_s`
                                       "session_park_pct": 95, "session_wake_arm_pct": 50, "session_wake_margin_s": 180,
                                       # §25.4 the usage windows: {<name>: {kind: weekly|session, stop_pct, park_pct}};
-                                      # merged over the two built-in ones (seven_day: weekly, stopping at
-                                      # allowance_stop_weekly; five_hour: session, parking at session_park_pct)
+                                      # merged over the two built-in ones (seven_day: weekly, stopping at the
+                                      # machine's allowance_stop_weekly; five_hour: session, parking at session_park_pct)
                                       "windows": None}
+# §25.3, §8.3: the weekly stop the machine file's `allowance_stop_weekly` defaults to, in percent.
+ALLOWANCE_STOP_WEEKLY_DEFAULT = 90
+# §8.3: the account's keys the machine file holds.
+MACHINE_ACCOUNT_KEYS = ("allowance_cmd", "allowance_stop_weekly")
 BOARD_DEFAULTS: dict[str, Any] = {"refresh_minutes": 5}
 # §14.6 the gate's time: `shell_limit_seconds` is the agent harness's foreground command limit, which a
 # cold gate run must fit; `cut_line_seconds` (null: 90% of the limit) the lower line above which the
@@ -340,9 +347,10 @@ class Outcome:
     """What becomes of one plane.json key (a dotted path). `removed`: ignored, with a warning. `merged`: read
     at `into` (`in_place`: still read where it is, the warning saying it moves there), the old place read
     only while `into` is unset (`exclusive`: both set to different values is an error; `blank`: null or an empty
-    list is as good as unset; `globs`: an entry `dir/*.md` moves as `dir/`). `constant`: the code
-    uses `value`; a value the product sets other than it still applies, with a warning, until the key is
-    deleted (`constant_override`). `why` is what the warning adds."""
+    list is as good as unset; `globs`: an entry `dir/*.md` moves as `dir/`; `machine`: `into` is a key of the
+    machine file (§8.3), whose own value wins, and the key stays read here, `in_place`, while the machine file
+    lacks it). `constant`: the code uses `value`; a value the product sets other than it still applies, with a
+    warning, until the key is deleted (`constant_override`). `why` is what the warning adds."""
     kind: str
     into: str = ""
     value: Any = None
@@ -350,9 +358,11 @@ class Outcome:
     exclusive: bool = False
     blank: bool = False
     globs: bool = False
+    machine: bool = False
     why: str = ""
 
 
+_ACCOUNT_WHY = "the account is the machine's, not a product's: set it once in the machine file beside the bindings"
 KEY_OUTCOMES: dict[str, Outcome] = {
     "task_log.statuses": Outcome(REMOVED, why="a task file's statuses are fixed, pending, done and dropped (§5)"),
     "suite.summary.modules_ran_re": Outcome(REMOVED, why="its name is `ran_re` (§14.1)"),
@@ -364,6 +374,17 @@ KEY_OUTCOMES: dict[str, Outcome] = {
     "adapter.post_close": Outcome(MERGED, into="reconcile.hooks", in_place=True, blank=True,
                                   why="the commands still run once at close; `$TASK_ID` stands for `{task_id}` there"),
     "task_log.review_point_pattern": Outcome(MERGED, into="ids.review_point.pattern"),
+    # ADR-0043 D8: the account's facts are the machine's (the machine file, §8.3); the old place is read while it lacks them
+    "telemetry.allowance_cmd": Outcome(MERGED, into="machine.json allowance_cmd", in_place=True, blank=True,
+                                       machine=True, why=_ACCOUNT_WHY),
+    "telemetry.allowance_stop_weekly": Outcome(MERGED, into="machine.json allowance_stop_weekly", in_place=True,
+                                               blank=True, machine=True, why=_ACCOUNT_WHY),
+    # the session park, wake and ceiling numbers, and the usage windows, are constants at today's values
+    "telemetry.session_park_pct": Outcome(CONSTANT, value=TELEMETRY_DEFAULTS["session_park_pct"]),
+    "telemetry.session_wake_arm_pct": Outcome(CONSTANT, value=TELEMETRY_DEFAULTS["session_wake_arm_pct"]),
+    "telemetry.session_wake_margin_s": Outcome(CONSTANT, value=TELEMETRY_DEFAULTS["session_wake_margin_s"]),
+    "telemetry.windows": Outcome(CONSTANT, value=TELEMETRY_DEFAULTS["windows"]),
+    "parallel.session_ceiling_pct": Outcome(CONSTANT, value=PARALLEL_DEFAULTS["session_ceiling_pct"]),
 }
 UNSET: Any = object()  # `constant_override`: the key is not set
 
@@ -422,6 +443,29 @@ def _same(a: Any, b: Any) -> bool:
     return type(a) is type(b) and a == b
 
 
+def machine_account() -> dict[str, Any]:
+    """§8.3, §25.1: the account facts the machine file sets (`MACHINE_ACCOUNT_KEYS`), each only when its value is
+    valid: `allowance_cmd` a non-empty command, `allowance_stop_weekly` a percentage above 0 and at most 100. A
+    value that is not valid is ignored, with one warning naming the file. The one reader (`usage.account`, the
+    loader's note for the old place) calls this."""
+    from ccp.queue import lib  # noqa: PLC0415  (queue imports this module)
+    data = lib.read_machine()
+    out: dict[str, Any] = {}
+    for key in MACHINE_ACCOUNT_KEYS:
+        if key not in data:
+            continue
+        v = data[key]
+        ok = (isinstance(v, str) and bool(v.strip())) if key == "allowance_cmd" else \
+            (isinstance(v, (int, float)) and not isinstance(v, bool) and 0 < v <= 100)
+        if ok:
+            out[key] = v
+        else:
+            _warn_once(str(lib.machine_path()), f"{lib.machine_path()}: {key} must be "
+                       + ("a command" if key == "allowance_cmd" else "a percentage above 0, at most 100")
+                       + f", not {v!r}; it is ignored (SPEC §8.3)")
+    return out
+
+
 def constant_override(key: str, given: Any = UNSET, *, notes: list[str] | None = None, where: str = CONFIG_REL) -> Any:
     """The value to use for `key`, a registry entry (`KEY_OUTCOMES`) with the outcome `constant`: its value
     when `given` is UNSET; else, with one warning naming the key and the constant, `given` when it is another
@@ -476,6 +520,16 @@ def _apply_outcomes(raw: dict[str, Any], ignored: dict[str, str] | None = None, 
             elif o.blank and given in (None, []):
                 _remove(raw, key)
                 f["note"] = f"{where} is empty and ignored: delete it (SPEC §29.3)"
+            elif o.machine:
+                name = key.rsplit(".", 1)[1]
+                from ccp.queue import lib  # noqa: PLC0415  (queue imports this module)
+                if name in machine_account():
+                    f["note"] = (f"{where} is ignored: the machine file {lib.machine_path()} sets {name}, which wins "
+                                 "for every product on the machine; delete it (SPEC §29.3)")
+                else:
+                    f["note"] = (f"{where} has moved to {name} in the machine file {lib.machine_path()}: {o.why}. "
+                                 f"It is still read from here while the machine file lacks {name}, which a later "
+                                 f"release ends: set {name} there and delete {key} (SPEC §29.3)")
             elif o.in_place:
                 f["note"] = (f"{where} moves to {o.into}: {o.why}; a later release ends it, so move them and "
                              "delete the key (SPEC §29.3)")
