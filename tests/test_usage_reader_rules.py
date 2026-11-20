@@ -198,6 +198,7 @@ class WithoutTheCache(unittest.TestCase):
         self.code.write_text("1")
         self.t = T0 + 61
         self.assertTrue(usage.reading(cfg, self.q)["ran"])
+        self.assertEqual(usage.status(cfg, self.q, False)["backoff_until"], utc(T0 + 61 + 60))
         self.t = T0 + 100
         self.assertFalse(usage.reading(cfg, self.q)["ran"])  # inside the backoff its failed sample gives
         self.t = T0 + 122

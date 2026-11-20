@@ -734,6 +734,7 @@ class Allowance(ToolkitFixture, unittest.TestCase):
         row = json.loads((self.q / "board/allowance.jsonl").read_text().splitlines()[-1])
         self.assertIsNone(row["seven_day"])
         self.assertTrue(row["failed"])
+        self.assertIs(row["shared"], False)  # the suite reads unshared (tests/__init__.py)
 
 
 class Checkpoint(ToolkitFixture, unittest.TestCase):

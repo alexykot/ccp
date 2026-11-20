@@ -440,6 +440,9 @@ class ReviewFixes(SessionFixture, unittest.TestCase):
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)  # no reset time and not in force: no park
         self.assertIn("no good allowance reading in force", err)
+        code, _, out, err = self.ccp("prompt", "implement", "0002", "--base", "HEAD")
+        self.assertEqual(code, 0, out + err)
+        self.assertIn("no good allowance reading in force", err)
 
     def test_a_park_lifts_on_no_old_sample_and_fire_judges_the_reading_in_force(self):
         self.ccp("tasks", "claim", "0002")
