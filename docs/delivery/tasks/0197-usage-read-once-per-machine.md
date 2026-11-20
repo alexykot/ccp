@@ -1,7 +1,7 @@
 ---
 task_id: 0197-usage-read-once-per-machine
 title: Usage is read once per machine, a failed read backs off, and every rule judges the latest good reading
-status: pending
+status: done
 kind: feature
 depends_on: ["0186-account-facts-on-the-machine"]
 spec_refs: ["S3", "S8", "S16", "S25"]
@@ -674,3 +674,5 @@ note gives the test, the old expectation and the new one.
   - No test broke on the prompt's moved step.
 
 ## Verification notes
+- 2026-11-20 — verifier, PR #231 head `9a9e5ec` (squash `cac3a72`): APPROVE. Passed: ur-01, ur-02, ur-03, ur-04, ur-05. Gate: `ccp suite run --lane gate` exit 0, `ccp --root . tasks check` exit 0, `ccp --root . docs check` exit 0. Record: verification/0197-usage-read-once-per-machine.json.
+
