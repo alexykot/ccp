@@ -153,4 +153,24 @@ the constants and changes four defaults through it, and 0186 and 0188 reuse it.
 
 *Append-only, newest last.*
 
+- `config.KEY_OUTCOMES` holds each key's outcome (`removed`, `merged`, `constant`); `_apply_outcomes` is the one loader
+  that applies it, before the blocks are validated, and `config.constant_override` is the one reader of a constant.
+  A removed or merged key is no longer in a block's defaults (the schema lists it, `deprecated`, through
+  `config.old_keys`); `adapter.post_close` is the one merged key kept in a default, because it is read in place.
+- Rules the task left open, written narrowest: with both old `spec_paths` set and the new unset, `task_log.spec_paths`
+  moves and `estimate.spec_paths` is ignored with a warning; `adapter.worktree_dir` and `adapter.worktree_links` set to a
+  value other than their new place's stay an error, as §12.4's PROPOSED text says, while null or `[]` at either place is
+  unset; with a review-point register, `task_log.review_point_pattern` is ignored (§22) and not moved, found by the
+  register file's existence when plane.json loads; the review-point pattern without a register is `ids.review_point.pattern`
+  alone, whose default `R[1-9][0-9]*` refuses `R0`, which the old default `^R[0-9]+$` accepted.
+- `ccp upgrade status` appends one step, task `plane.json keys`, when the product sets a removed or merged key or a
+  constant set to another value; it is no task's step, so `ccp upgrade decline|take` do not apply and the release notice
+  leaves it out.
+- Files outside the task's `paths` that had to change: `ccp/tasklog.py`, `ccp/health.py`, `ccp/taskmigrate.py`,
+  `ccp/verify.py` (read `config.spec_paths(cfg)`; tasklog also holds the review point to `ids.review_point.pattern`),
+  `ccp/reviewpoints.py` (the same, and its register warning moved to the loader), `ccp/suite.py` (the old
+  `suite.summary` names are no longer read), `tests/test_plane_config_defaults.py`; prose only: the writing-tasks skill,
+  `scripts/observability/team.py`, `docs/design/allowance.md`. `ccp/refs.py` needed no change. The `task_log` row of §8.1 also
+  loses `spec_paths`, which is now the row after it. 14 test modules hold the old key names at this base, not 16.
+
 ## Verification notes
