@@ -118,4 +118,8 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- `ccp/suite.py`: `usual_seconds` now delegates to `_lane_seconds(q, lane, default, cold_only)`, so the passing-run median and the cold median share one reader. `auto_wait(cfg, q, lane)` and `WAIT_AUTO_MARGIN_S = 30` are new; `run` resolves `auto` once, right after the first failed `take_lane`, prints the stderr line and then polls like `--wait SECONDS`.
+- Open points, narrowest reading taken: `wait_auto: true` goes on the busy row only (the task says "the row", after the busy row's `waited_s`); a started row records `wait_s` as today. `auto` with a known cold time but a limit it leaves under the margin gives 0 and prints `waiting up to 0 s (--wait auto: ...)` before the busy exit. `seconds` is truncated to a whole number. The busy message's hint now reads "`--wait SECONDS` or `--wait auto`".
+- `ccp/cli.py`: `_wait_arg` is the parser type (int or `auto`; anything else is `ArgumentTypeError("--wait takes seconds or auto")`, exit 2).
+
 ## Verification notes
