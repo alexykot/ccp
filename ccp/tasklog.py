@@ -120,7 +120,7 @@ FENCE_RE = re.compile(r"^[ \t]*(?P<f>(?P<c>[`~])(?P=c){2,})[^\n]*\n.*?^[ \t]*(?P
 CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)[^\n]+?(?<!`)\1(?!`)")
 # §5: a measured premise in Context names the command that measured it. A number here is a figure
 # stated in prose: a run of digits that is not part of an id or a ref (`R5`, `§31.1`, `ADR-0033`,
-# `PR #89`, a date, a time, a sha), not a zero-padded id (`0197`), not a list marker and not in a
+# `PR #89`, a date, a time, a sha), not a zero-padded id (`0000`), not a list marker and not in a
 # date written with its month's name (`11 Nov 2026`, `November 11, 2026`). A size or a time joined
 # to its unit (`40MB`, `300ms`) and a dash range (`5-10`, `2-3s`) are numbers too; a year and month
 # (`2026-11`) is not. A command is a code span of at least two words (`git grep -c foo`); a lone path
