@@ -215,7 +215,7 @@ class BothSkipKnobs(ToolkitFixture, unittest.TestCase):
         self.log = t / "proof.log"
         os.environ.update(PROOF_BIN=str(t / "proof"), PROOF_LOG=str(self.log))  # the fixture's env patch restores it
         self.ccp("tasks", "claim", "0002")
-        self.wt = self.main / ".rt" / "impl-0002"
+        self.wt = self.main / ".plane-runtime" / "impl-0002"
 
     def reviewed(self) -> str:
         self.commit("feature.txt", "built\n")

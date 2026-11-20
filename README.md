@@ -431,6 +431,11 @@ in that product (SPEC §31.4).
   - `spec_paths`, where the SPEC is (the one key behind the sign-off checks and the estimator). A key the
     plane removed, merged or made a constant still loads with a warning, and `ccp upgrade status` lists each
     one the product still sets (SPEC §29.3).
+  - Four things work without a key: estimates start by themselves (`estimate.auto`); with an `adr` block, ADRs
+    are shaped from the adoption point (`architect.shape_adrs`); the product's `docs/delivery/WORKERS.md` is the
+    prompt fragment when it exists (`prompts.fragment`); and the lead's expected model is `models.lead`.
+    Worktrees go under `.plane-runtime/` (the constant `worktrees.dir`, which `ccp init` adds to `.gitignore` and
+    writes no key for).
 
   See SPEC §8.1 in [`docs/spec/01-model.md`](docs/spec/01-model.md).
 

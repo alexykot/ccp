@@ -1,12 +1,6 @@
 {
   "project_id": "control-plane",
   "language": "python",
-  "task_log": {
-    "dir": "docs/delivery"
-  },
-  "worktrees": {
-    "dir": ".plane-runtime"
-  },
   "package_docs": {
     "doc_name": "CLAUDE.md",
     "exempt_dirs": [
@@ -93,9 +87,6 @@
   },
   "estimate": {
     "auto": true
-  },
-  "review_points": {
-    "file": "docs/delivery/review-points.yaml"
   },
   "parallel": {
     "max_in_flight": 3,

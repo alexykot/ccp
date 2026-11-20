@@ -1280,7 +1280,7 @@ def run(cfg: Config, q: Path, point: str | None = None) -> dict[str, Any]:
     from ccp.queue import durable_statuses  # noqa: PLC0415
     try:
         rows = health.collect(cfg, q, files=False)["tasks"]
-        report = usage.fold(q, None, (cfg.telemetry or {}).get("design_seat"))
+        report = usage.fold(q, None, config.design_seat(cfg))
         d = drill.collect(q, rows, report)
     except Exception:  # noqa: BLE001  (no history: back-to-back throughput)
         d = {}

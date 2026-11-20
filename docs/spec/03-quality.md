@@ -263,7 +263,7 @@ The seat is on unless `plane.json` sets `"architect": false` (§8); an `architec
 | `rules_doc`, `rules_max_lines` | `docs/ENGINEERING.md`, 150 | The house rules (§20.1); when the doc is missing a pass runs without them and says so |
 | `every_n_tasks`, `max_days`, `notes_due`, `drift_ratio` | 4, 14, 3, 1.5 | The triggers (§19.6) |
 | `grace_tasks`, `triage_grace_tasks` | 1, 2 | The enforcement at `next` |
-| `shape_adrs`, `shape_from_task` | off, — | The shaping check (§19.6); `shape_from_task` is the adoption point |
+| `shape_adrs`, `shape_from_task` | on with an `adr` block, — | The shaping check (§19.6); `shape_from_task` is the adoption point |
 | `refactor_every`, `refactor_in_scope` | 4, `"deps"` | Refactor capacity and reach (§20.3, §20.4) |
 | `call_timeout_minutes`, `max_new_tasks` | 45, 5 | The run and triage caps |
 | `probes`, `checks`, `budgets` | — | Read-only probes (§19.7), product check commands and budgets (§20.1, §20.2) |

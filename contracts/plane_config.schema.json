@@ -47,7 +47,8 @@
         "dir": {
           "type": "string",
           "default": "docs/delivery",
-          "description": "Holds tasks/ and INDEX.yaml"
+          "deprecated": true,
+          "description": "Constant, `docs/delivery` (SPEC §29.3): Holds tasks/ and INDEX.yaml. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "statuses": {
           "type": "array",
@@ -62,7 +63,6 @@
           "items": {
             "type": "string"
           },
-          "description": "Frontmatter keys every task carries",
           "default": [
             "task_id",
             "title",
@@ -71,24 +71,26 @@
             "spec_refs",
             "created",
             "updated"
-          ]
+          ],
+          "deprecated": true,
+          "description": "Constant, the default below (SPEC §29.3): Frontmatter keys every task carries. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "refs_any": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "At least one of these frontmatter lists is non-empty",
           "default": [
             "spec_refs"
-          ]
+          ],
+          "deprecated": true,
+          "description": "Constant, [\"spec_refs\"] (SPEC §29.3): At least one of these frontmatter lists is non-empty. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "sections": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "`## <name>` headings every task carries: the canonical six by default (SPEC §5); a product may require more. `Context (not verified)` is read as `Context (not checked)`",
           "default": [
             "Intent",
             "Context (not checked)",
@@ -96,33 +98,58 @@
             "dod_checks",
             "Implementation notes",
             "Verification notes"
-          ]
+          ],
+          "deprecated": true,
+          "description": "Constant, the default below (SPEC §29.3): `## <name>` headings every task carries: the canonical six by default (SPEC §5); a product may require more. `Context (not verified)` is read as `Context (not checked)`. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "kinds": {
           "type": "object",
-          "description": "SPEC §5.4, §20: per task kind, refs_any (the ref lists it cites at least one of; default the task log's refs_any) and forbid (ref lists it leaves empty). Read with the architect seat on, for tasks from its adoption point",
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "refs_any": {"type": "array", "items": {"type": "string"}},
-              "forbid": {"type": "array", "items": {"type": "string"}}
+              "refs_any": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "forbid": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
             }
           },
           "default": {
             "feature": {},
-            "refactor": {"refs_any": ["rule_refs", "review_refs"], "forbid": ["spec_refs", "adr_refs"]}
-          }
+            "refactor": {
+              "refs_any": [
+                "rule_refs",
+                "review_refs"
+              ],
+              "forbid": [
+                "spec_refs",
+                "adr_refs"
+              ]
+            }
+          },
+          "deprecated": true,
+          "description": "Constant, the default below (SPEC §29.3): SPEC §5.4, §20: per task kind, refs_any (the ref lists it cites at least one of; default the task log's refs_any) and forbid (ref lists it leaves empty). Read with the architect seat on, for tasks from its adoption point. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "reviews_dir": {
           "type": "string",
           "default": "reviews",
-          "description": "Shaping and triage records (sh-*.md, ar-*.md), relative to dir (SPEC §19.6)"
+          "deprecated": true,
+          "description": "Constant, `reviews` (SPEC §29.3): Shaping and triage records (sh-*.md, ar-*.md), relative to dir (SPEC §19.6). A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "max_checks": {
           "type": "integer",
           "minimum": 1,
-          "default": 6
+          "default": 6,
+          "deprecated": true,
+          "description": "Constant, 6 (SPEC §29.3). A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "soft_words": {
           "type": "array",
@@ -138,7 +165,8 @@
             "robust",
             "robustly"
           ],
-          "description": "Words refused inside ## dod_checks"
+          "deprecated": true,
+          "description": "Constant, the default below (SPEC §29.3): Words refused inside ## dod_checks. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "review_point_pattern": {
           "type": "string",
@@ -148,12 +176,14 @@
         "index": {
           "type": "boolean",
           "default": true,
-          "description": "SPEC §5.7: keep the generated INDEX.yaml (its format frozen), or none"
+          "deprecated": true,
+          "description": "Constant, true (SPEC §29.3): SPEC §5.7: keep the generated INDEX.yaml (its format frozen), or none. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "dry_run": {
           "type": "boolean",
           "default": false,
-          "description": "SPEC §21.1: ccp tasks check refuses a task not done or dropped whose dod_check has a step that runs a backticked command (`N. Run `...``) but neither a `dry run (`<sha>`):` line nor `dry run: n/a — <reason>`"
+          "deprecated": true,
+          "description": "Constant, false (SPEC §29.3): SPEC §21.1: ccp tasks check refuses a task not done or dropped whose dod_check has a step that runs a backticked command (`N. Run `...``) but neither a `dry run (`<sha>`):` line nor `dry run: n/a — <reason>`. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "spec_paths": {
           "type": "array",
@@ -173,7 +203,9 @@
       "properties": {
         "doc_name": {
           "type": "string",
-          "default": ".claude.md"
+          "default": ".claude.md",
+          "deprecated": true,
+          "description": "Constant, `.claude.md` (SPEC §29.3). A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "claude_md_dirs": {
           "type": "array",
@@ -204,14 +236,26 @@
         },
         "path_ref_suffixes": {
           "type": "array",
-          "items": {"type": "string", "pattern": "^\\."},
-          "default": [".py", ".sql", ".json", ".md", ".sh"],
-          "description": "Backticked paths with these suffixes in a package doc must exist"
+          "items": {
+            "type": "string",
+            "pattern": "^\\."
+          },
+          "default": [
+            ".py",
+            ".sql",
+            ".json",
+            ".md",
+            ".sh"
+          ],
+          "deprecated": true,
+          "description": "Constant, the default below (SPEC §29.3): Backticked paths with these suffixes in a package doc must exist. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "size_ratio": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "default": 0.5
+          "default": 0.5,
+          "deprecated": true,
+          "description": "Constant, 0.5 (SPEC §29.3). A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "banned_headings": {
           "type": "array",
@@ -224,7 +268,9 @@
             "next steps",
             "roadmap",
             "todo"
-          ]
+          ],
+          "deprecated": true,
+          "description": "Constant, the default below (SPEC §29.3). A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "docstring_globs": {
           "type": "array",
@@ -237,7 +283,8 @@
         "no_delivery_ids": {
           "type": "boolean",
           "default": true,
-          "description": "SPEC §21.3: no task, finding or ruling id in a package doc or in a code comment of a file under docstring_globs; false turns the check off"
+          "deprecated": true,
+          "description": "Constant, true (SPEC §29.3): SPEC §21.3: no task, finding or ruling id in a package doc or in a code comment of a file under docstring_globs; false turns the check off. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "delivery_id_patterns": {
           "type": "array",
@@ -292,7 +339,8 @@
           "type": "integer",
           "minimum": 1,
           "default": 1,
-          "description": "How many check commands (docs.checks, and architect.checks) ccp docs check runs at once, each under its own timeout; results in declared order. 1 runs them one after another"
+          "deprecated": true,
+          "description": "Constant, 1 (SPEC §29.3): How many check commands (docs.checks, and architect.checks) ccp docs check runs at once, each under its own timeout; results in declared order. 1 runs them one after another. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "starter_rules": {
           "type": ["object", "null"],
@@ -332,7 +380,8 @@
           "type": "integer",
           "minimum": 1,
           "default": 150,
-          "description": "ccp docs check fails a longer rules doc"
+          "deprecated": true,
+          "description": "Constant, 150 (SPEC §29.3): ccp docs check fails a longer rules doc. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "every_n_tasks": {
           "type": "integer",
@@ -344,36 +393,41 @@
           "type": "integer",
           "minimum": 1,
           "default": 14,
-          "description": "Or this many days since the last pass, with at least one task done"
+          "deprecated": true,
+          "description": "Constant, 14 (SPEC §29.3): Or this many days since the last pass, with at least one task done. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "notes_due": {
           "type": "integer",
           "minimum": 1,
           "default": 3,
-          "description": "Or this many friction notes since the last pass"
+          "deprecated": true,
+          "description": "Constant, 3 (SPEC §29.3): Or this many friction notes since the last pass. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "drift_ratio": {
           "type": "number",
           "exclusiveMinimum": 0,
           "default": 1.5,
-          "description": "Or the median wall time of the last 5 tasks is above this times the 10 before"
+          "deprecated": true,
+          "description": "Constant, 1.5 (SPEC §29.3): Or the median wall time of the last 5 tasks is above this times the 10 before. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "grace_tasks": {
           "type": "integer",
           "minimum": 0,
           "default": 1,
-          "description": "ccp tasks next exits 4 once a due pass is unstarted this many merges later"
+          "deprecated": true,
+          "description": "Constant, 1 (SPEC §29.3): ccp tasks next exits 4 once a due pass is unstarted this many merges later. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "triage_grace_tasks": {
           "type": "integer",
           "minimum": 0,
           "default": 2,
-          "description": "ccp tasks next exits 4 once a report has waited this many merges for triage"
+          "deprecated": true,
+          "description": "Constant, 2 (SPEC §29.3): ccp tasks next exits 4 once a report has waited this many merges for triage. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "shape_adrs": {
           "type": "boolean",
           "default": false,
-          "description": "ccp tasks check fails a pending task citing an ADR with no sh-*.md record (needs shape_from_task)"
+          "description": "ccp tasks check fails a pending task citing an ADR with no sh-*.md record, from the adoption point (shape_from_task) on; a product with no adoption point does not shape. Unset, it is true when plane.json has an adr block and false when it has none, so the default shown is the no-adr case; set it to false to turn the check off"
         },
         "shape_from_task": {
           "type": [
@@ -391,21 +445,28 @@
           "description": "After this many features merge since the last refactor, next returns a ready refactor first (0: off)"
         },
         "refactor_in_scope": {
-          "enum": ["deps", true, false],
+          "enum": [
+            "deps",
+            true,
+            false
+          ],
           "default": "deps",
-          "description": "deps: a refactor joins a scope only when a scope task depends on it, and the rest go to the top of the next review point's scope; true: every runner's scope; false: only a scope that names it (SPEC §20.4)"
+          "deprecated": true,
+          "description": "Constant, `deps` (SPEC §29.3): deps: a refactor joins a scope only when a scope task depends on it, and the rest go to the top of the next review point's scope; true: every runner's scope; false: only a scope that names it (SPEC §20.4). A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "call_timeout_minutes": {
           "type": "integer",
           "minimum": 1,
           "default": 45,
-          "description": "Wall-clock limit on the architect call"
+          "deprecated": true,
+          "description": "Constant, 45 (SPEC §29.3): Wall-clock limit on the architect call. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "max_new_tasks": {
           "type": "integer",
           "minimum": 0,
           "default": 5,
-          "description": "Cap on tasks one triage may create"
+          "deprecated": true,
+          "description": "Constant, 5 (SPEC §29.3): Cap on tasks one triage may create. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "probes": {
           "type": "array",
@@ -559,7 +620,7 @@
             "null"
           ],
           "default": null,
-          "description": "Product path of the fragment (e.g. docs/delivery/WORKERS.md)."
+          "description": "Product path of the fragment. null: docs/delivery/WORKERS.md when that file exists, else none."
         },
         "worker_env": {
           "type": "object",
@@ -575,7 +636,8 @@
         "keep_body": {
           "type": "boolean",
           "default": false,
-          "description": "SPEC §23.8: keep the full prompt text (prompt_body) in each prompt audit. Default false: the audit holds ids, refs and the prompt's sha256 and length."
+          "deprecated": true,
+          "description": "Constant, false (SPEC §29.3): SPEC §23.8: keep the full prompt text (prompt_body) in each prompt audit. Default false: the audit holds ids, refs and the prompt's sha256 and length. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "audit_keep_days": {
           "type": [
@@ -584,7 +646,8 @@
           ],
           "minimum": 1,
           "default": null,
-          "description": "SPEC §23.8: prompt audits (QUEUE_ROOT/prompts/**/<UTC>_<phase>.json) older than this many days, by the stamp in their name, are removed when `ccp prompt` writes an audit. Default null: all are kept."
+          "deprecated": true,
+          "description": "Constant, null (SPEC §29.3): SPEC §23.8: prompt audits (QUEUE_ROOT/prompts/**/<UTC>_<phase>.json) older than this many days, by the stamp in their name, are removed when `ccp prompt` writes an audit. Default null: all are kept. A value set here other than the constant still applies, with a warning, until the key is deleted."
         }
       }
     },
@@ -675,8 +738,9 @@
             "string",
             "null"
           ],
-          "default": null,
-          "description": "A path relative to the main checkout, which may lead outside it with `..`, such as a sibling directory, or an absolute path; not the main checkout itself; worktrees are named <kind>-<nnnn>[-<n>] (impl, rev, ver, mut, mac, base). Null: no plane-made worktrees."
+          "default": ".plane-runtime",
+          "deprecated": true,
+          "description": "Constant, \".plane-runtime\" (SPEC §29.3): A path relative to the main checkout, which may lead outside it with `..`, such as a sibling directory, or an absolute path; not the main checkout itself; worktrees are named <kind>-<nnnn>[-<n>] (impl, rev, ver, mut, mac, base). ccp init adds the directory to .gitignore and writes no key. The one constant that a product may still set to its own value with no warning (`ccp init` wrote it before); a value other than the constant (null: no plane-made worktrees) still applies, with a warning, until the key is deleted. A directory inside the main checkout is named in the repository's info/exclude when the first worktree is made."
         },
         "links": {
           "type": "array",
@@ -737,7 +801,9 @@
         "timeout_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 600
+          "default": 600,
+          "deprecated": true,
+          "description": "Constant, 600 (SPEC §29.3). A value set here other than the constant still applies, with a warning, until the key is deleted."
         }
       }
     },
@@ -793,7 +859,9 @@
         "timeout_seconds": {
           "type": "integer",
           "minimum": 1,
-          "default": 60
+          "default": 60,
+          "deprecated": true,
+          "description": "Constant, 60 (SPEC §29.3). A value set here other than the constant still applies, with a warning, until the key is deleted."
         }
       }
     },
@@ -851,7 +919,6 @@
           ],
           "additionalProperties": false,
           "default": null,
-          "description": "SPEC §24.5: the lead's expected model and effort. Advice only: the plane flags a difference, it never sets them.",
           "properties": {
             "model": {
               "type": "string",
@@ -861,7 +928,9 @@
               "type": "string",
               "minLength": 1
             }
-          }
+          },
+          "deprecated": true,
+          "description": "Constant, derived from `models.lead` (SPEC §29.3): SPEC §24.5: the lead's expected model and effort. Advice only: the plane flags a difference, it never sets them. A value set here other than the constant still applies, with a warning, until the key is deleted."
         }
       }
     },
@@ -873,7 +942,9 @@
         "refresh_minutes": {
           "type": "integer",
           "minimum": 1,
-          "default": 5
+          "default": 5,
+          "deprecated": true,
+          "description": "Constant, 5 (SPEC §29.3). A value set here other than the constant still applies, with a warning, until the key is deleted."
         }
       }
     },
@@ -882,8 +953,8 @@
       "additionalProperties": false,
       "description": "SPEC \u00a714.6: the gate's time against the agent harness's foreground command limit. `ccp health` judges the latest cold run of the gate role's lane.",
       "properties": {
-        "shell_limit_seconds": {"type": "number", "exclusiveMinimum": 0, "default": 600, "description": "The harness's foreground command limit; a cold gate run above it is a health breach."},
-        "cut_line_seconds": {"type": ["number", "null"], "exclusiveMinimum": 0, "default": null, "description": "The line above which ccp health reports the cold gate run as an advisory finding; at most shell_limit_seconds. Null: 90% of the limit."}
+        "shell_limit_seconds": {"type": "number", "exclusiveMinimum": 0, "default": 600, "deprecated": true, "description": "Constant, 600 (SPEC §29.3): The harness's foreground command limit; a cold gate run above it is a health breach. A value set here other than the constant still applies, with a warning, until the key is deleted."},
+        "cut_line_seconds": {"type": ["number", "null"], "exclusiveMinimum": 0, "default": null, "deprecated": true, "description": "Constant, null (SPEC §29.3): The line above which ccp health reports the cold gate run as an advisory finding; at most shell_limit_seconds. Null: 90% of the limit. A value set here other than the constant still applies, with a warning, until the key is deleted."}
       }
     },
     "health": {
@@ -891,9 +962,9 @@
       "additionalProperties": false,
       "description": "SPEC §27.1: `ccp health`'s own knobs.",
       "properties": {
-        "small_task_lines": {"type": "integer", "minimum": 1, "default": 100, "description": "A merged task whose diff (lines added plus deleted) is under this many lines is small; ccp health reports the share of small tasks among those merged in its window (`small_tasks` in --json)."},
-        "slowest_modules": {"type": "integer", "minimum": 1, "default": 5, "description": "SPEC §27.2: how many of the latest cold gate run's slowest test modules ccp health shows, from the runs whose result carried `modules` (`suite_modules` in --json)."},
-        "suite_trend_runs": {"type": "integer", "minimum": 1, "default": 10, "description": "SPEC §27.2: ccp health's median seconds per test is taken over this many of the latest cold gate runs whose result carried `modules`, shown with the first and latest of them."}
+        "small_task_lines": {"type": "integer", "minimum": 1, "default": 100, "deprecated": true, "description": "Constant, 100 (SPEC §29.3): A merged task whose diff (lines added plus deleted) is under this many lines is small; ccp health reports the share of small tasks among those merged in its window (`small_tasks` in --json). A value set here other than the constant still applies, with a warning, until the key is deleted."},
+        "slowest_modules": {"type": "integer", "minimum": 1, "default": 5, "deprecated": true, "description": "Constant, 5 (SPEC §29.3): SPEC §27.2: how many of the latest cold gate run's slowest test modules ccp health shows, from the runs whose result carried `modules` (`suite_modules` in --json). A value set here other than the constant still applies, with a warning, until the key is deleted."},
+        "suite_trend_runs": {"type": "integer", "minimum": 1, "default": 10, "deprecated": true, "description": "Constant, 10 (SPEC §29.3): SPEC §27.2: ccp health's median seconds per test is taken over this many of the latest cold gate runs whose result carried `modules`, shown with the first and latest of them. A value set here other than the constant still applies, with a warning, until the key is deleted."}
       }
     },
     "usage": {
@@ -912,10 +983,10 @@
           },
           "description": "The thresholds of the cost advice `ccp usage` and `ccp health` print, a line per measure past its threshold. Advice only: no setting is changed.",
           "properties": {
-            "cache_5m_share": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.5, "description": "A seat whose 5-minute cache writes are more than this share of its cache-write tokens is advised to set subagentPromptCacheTtl to 1h."},
-            "context_tokens": {"type": "integer", "minimum": 1, "default": 300000, "description": "The lead or a runner whose median context per request (input, cache read and cache written tokens) exceeds this is advised to lower it: the lead with autoCompactWindow, a runner with the binding's runner.rotate_at_context_tokens."},
-            "coordination_share": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.4, "description": "Advice when the lead's and the runner's cost together are more than this share of all seats' cost."},
-            "window_hours": {"type": "integer", "minimum": 0, "default": 0, "description": "The advice reads the requests of the last this many hours (ccp usage --since, or ccp health --since, gives another start); 0, the default, reads every request. Each advice line names its start."}
+            "cache_5m_share": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.5, "deprecated": true, "description": "Constant, 0.5 (SPEC §29.3): A seat whose 5-minute cache writes are more than this share of its cache-write tokens is advised to set subagentPromptCacheTtl to 1h. A value set here other than the constant still applies, with a warning, until the key is deleted."},
+            "context_tokens": {"type": "integer", "minimum": 1, "default": 300000, "deprecated": true, "description": "Constant, 300000 (SPEC §29.3): The lead or a runner whose median context per request (input, cache read and cache written tokens) exceeds this is advised to lower it: the lead with autoCompactWindow, a runner with the binding's runner.rotate_at_context_tokens. A value set here other than the constant still applies, with a warning, until the key is deleted."},
+            "coordination_share": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.4, "deprecated": true, "description": "Constant, 0.4 (SPEC §29.3): Advice when the lead's and the runner's cost together are more than this share of all seats' cost. A value set here other than the constant still applies, with a warning, until the key is deleted."},
+            "window_hours": {"type": "integer", "minimum": 0, "default": 0, "deprecated": true, "description": "Constant, 0 (SPEC §29.3): The advice reads the requests of the last this many hours (ccp usage --since, or ccp health --since, gives another start); 0, the default, reads every request. Each advice line names its start. A value set here other than the constant still applies, with a warning, until the key is deleted."}
           }
         }
       }
@@ -936,7 +1007,7 @@
             "refactor": {"type": "string", "enum": ["sonnet", "opus", "haiku", "fable"]}
           }
         },
-        "small_estimate_minutes": {"type": "integer", "minimum": 1, "default": 30, "description": "A task whose estimate is at most this many minutes is small, and takes `models.implementer_small`."}
+        "small_estimate_minutes": {"type": "integer", "minimum": 1, "default": 30, "deprecated": true, "description": "Constant, 30 (SPEC §29.3): A task whose estimate is at most this many minutes is small, and takes `models.implementer_small`. A value set here other than the constant still applies, with a warning, until the key is deleted."}
       }
     },
     "models": {
@@ -1022,12 +1093,22 @@
             "gate": "gate",
             "part": "part"
           },
-          "description": "SPEC §14.1: the lane name the product gives each role the plane reads. Default: each role's own name.",
           "properties": {
-            "full": {"type": "string", "description": "The whole suite; a run with no --lane is this lane."},
-            "gate": {"type": "string", "description": "The formal gate."},
-            "part": {"type": "string", "description": "A subset of the tests."}
-          }
+            "full": {
+              "type": "string",
+              "description": "The whole suite; a run with no --lane is this lane."
+            },
+            "gate": {
+              "type": "string",
+              "description": "The formal gate."
+            },
+            "part": {
+              "type": "string",
+              "description": "A subset of the tests."
+            }
+          },
+          "deprecated": true,
+          "description": "Constant, the default below (SPEC §29.3): SPEC §14.1: the lane name the product gives each role the plane reads. Default: each role's own name. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "affected_map": {
           "type": "object",
@@ -1039,7 +1120,8 @@
           "type": "integer",
           "minimum": 1,
           "default": 14,
-          "description": "SPEC §14.1: summary-mode logs in the queue (runs/<task>/*-suite-*.log, runs/_suite-logs/) older than this many days are removed when a `ccp suite run` starts. Default 14."
+          "deprecated": true,
+          "description": "Constant, 14 (SPEC §29.3): SPEC §14.1: summary-mode logs in the queue (runs/<task>/*-suite-*.log, runs/_suite-logs/) older than this many days are removed when a `ccp suite run` starts. Default 14. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "summary": {
           "type": [
@@ -1052,15 +1134,15 @@
           "properties": {
             "failed_re": {"type": ["string", "array"], "items": {"type": "string"}, "default": null, "description": "First group a failure count, summed. Default: the language pack's (Python: unittest's `FAILED (failures=N` and `errors=N`)."},
             "skipped_re": {"type": ["string", "array"], "items": {"type": "string"}, "default": null, "description": "First group a skip count, summed. Default: the language pack's (Python: unittest's `skipped=N`)."},
-            "ran_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "First group the units (tests, modules, files) that ran, for a product with a test cache. Default: none (set it, or write the gate's result file)."},
-            "cached_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "First group the units the product's cache served as hits. Default: none."},
-            "cached_tests_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "First group the tests behind the cached units, from their last runs, recorded as cached_tests. Default: none."},
+            "ran_re": {"type": ["string", "array"], "items": {"type": "string"}, "deprecated": true, "description": "Constant, [] (SPEC §29.3): First group the units (tests, modules, files) that ran, for a product with a test cache. Default: none (set it, or write the gate's result file). A value set here other than the constant still applies, with a warning, until the key is deleted."},
+            "cached_re": {"type": ["string", "array"], "items": {"type": "string"}, "deprecated": true, "description": "Constant, [] (SPEC §29.3): First group the units the product's cache served as hits. Default: none. A value set here other than the constant still applies, with a warning, until the key is deleted."},
+            "cached_tests_re": {"type": ["string", "array"], "items": {"type": "string"}, "deprecated": true, "description": "Constant, [] (SPEC §29.3): First group the tests behind the cached units, from their last runs, recorded as cached_tests. Default: none. A value set here other than the constant still applies, with a warning, until the key is deleted."},
             "modules_ran_re": {"type": ["string", "array"], "items": {"type": "string"}, "deprecated": true, "description": "Removed (SPEC §29.3): ignored, with a warning. Its name is ran_re."},
             "modules_cached_re": {"type": ["string", "array"], "items": {"type": "string"}, "deprecated": true, "description": "Removed (SPEC §29.3): ignored, with a warning. Its name is cached_re."},
             "section_re": {"type": ["string", "array"], "items": {"type": "string"}, "default": null, "description": "The line after a `====` rule that starts a failing test's section. Default: the language pack's (Python: `FAIL:`, `ERROR:`, `UNEXPECTED SUCCESS:`)."},
             "show_re": {"type": ["string", "array"], "items": {"type": "string"}, "description": "Lines shown whatever the result (at most 20). Default: none."},
-            "tail_lines": {"type": "integer", "minimum": 0, "description": "The log's last lines a failure shows. Default 40."},
-            "max_chars": {"type": "integer", "minimum": 1000, "description": "The cap on what a failure shows. Default 40000."}
+            "tail_lines": {"type": "integer", "minimum": 0, "deprecated": true, "description": "Constant, 40 (SPEC §29.3): The log's last lines a failure shows. Default 40. A value set here other than the constant still applies, with a warning, until the key is deleted."},
+            "max_chars": {"type": "integer", "minimum": 1000, "deprecated": true, "description": "Constant, 40000 (SPEC §29.3): The cap on what a failure shows. Default 40000. A value set here other than the constant still applies, with a warning, until the key is deleted."}
           }
         }
       }
@@ -1071,20 +1153,43 @@
       "description": "SPEC §26.3: task estimation (advisory). The reference-class baseline and the estimator seat read these.",
       "properties": {
         "reference_since": {"type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "default": null, "description": "Tasks merged before this date (a process change) are left out of every reference class"},
-        "k": {"type": "integer", "minimum": 5, "maximum": 8, "default": 6, "description": "The reference class's size"},
-        "auto": {"type": "boolean", "default": false, "description": "Phase B: `ccp tasks check` and `ccp tasks index` start the estimator seat in the background for open tasks whose agent estimate is missing or stale (at most 10 per batch, one batch at a time). Off by default: `ccp tasks estimate --all` runs it by hand"},
+        "k": {"type": "integer", "minimum": 5, "maximum": 8, "default": 6, "deprecated": true, "description": "Constant, 6 (SPEC §29.3): The reference class's size. A value set here other than the constant still applies, with a warning, until the key is deleted."},
+        "auto": {"type": "boolean", "default": true, "description": "Phase B: `ccp tasks check` and `ccp tasks index` start the estimator seat in the background for open tasks whose agent estimate is missing or stale (at most 10 per batch, one batch at a time). On by default; false leaves it to `ccp tasks estimate --all` by hand"},
         "spec_paths": {"type": "array", "items": {"type": "string", "minLength": 1}, "deprecated": true, "description": "Merged into `spec_paths` (SPEC §29.3): read there, and at this old place while that is unset, with a warning"},
-        "path_suffixes": {"type": ["array", "null"], "items": {"type": "string", "pattern": "^\\."}, "default": null, "description": "SPEC §26.3: suffixes that make a backticked token a cited path (null: the built-in list)"},
+        "path_suffixes": {"type": ["array", "null"], "items": {"type": "string", "pattern": "^\\."}, "default": null, "deprecated": true, "description": "Constant, null (SPEC §29.3): SPEC §26.3: suffixes that make a backticked token a cited path (null: the built-in list). A value set here other than the constant still applies, with a warning, until the key is deleted."},
         "calibration": {
           "type": "object",
           "additionalProperties": false,
-          "default": {"half_life": 40, "min_pairs": 8, "k": null},
-          "description": "SPEC §26.3 phase D: the calibration fit (ccp/calibrate.py). A key left out keeps its default.",
+          "default": {
+            "half_life": 40,
+            "min_pairs": 8,
+            "k": null
+          },
           "properties": {
-            "half_life": {"type": "number", "exclusiveMinimum": 0, "default": 40, "description": "The weight of a merged task halves every this many merges"},
-            "min_pairs": {"type": "integer", "minimum": 3, "default": 8, "description": "The fewest estimate-and-actual pairs per source and metric that a fit needs"},
-            "k": {"type": ["number", "null"], "exclusiveMinimum": 0, "default": null, "description": "The shrinkage strength of the fit; null: fitted (empirical Bayes)"}
-          }
+            "half_life": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "default": 40,
+              "description": "The weight of a merged task halves every this many merges"
+            },
+            "min_pairs": {
+              "type": "integer",
+              "minimum": 3,
+              "default": 8,
+              "description": "The fewest estimate-and-actual pairs per source and metric that a fit needs"
+            },
+            "k": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "exclusiveMinimum": 0,
+              "default": null,
+              "description": "The shrinkage strength of the fit; null: fitted (empirical Bayes)"
+            }
+          },
+          "deprecated": true,
+          "description": "Constant, the default below (SPEC §29.3): SPEC §26.3 phase D: the calibration fit (ccp/calibrate.py). A key left out keeps its default. A value set here other than the constant still applies, with a warning, until the key is deleted."
         }
       }
     },
@@ -1097,7 +1202,8 @@
           "type": "string",
           "minLength": 1,
           "default": "docs/delivery/review-points.yaml",
-          "description": "The register, relative to the product root"
+          "deprecated": true,
+          "description": "Constant, the default below (SPEC §29.3): The register, relative to the product root. A value set here other than the constant still applies, with a warning, until the key is deleted."
         }
       }
     },
@@ -1136,14 +1242,41 @@
             "superseded",
             "withdrawn",
             "retired"
-          ]
+          ],
+          "deprecated": true,
+          "description": "Constant, the default below (SPEC §29.3). A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "transitions": {
           "type": "object",
-          "additionalProperties": {"type": "array", "items": {"type": "string", "minLength": 1}},
-          "default": {"proposed": ["accepted", "rejected", "withdrawn"], "accepted": ["superseded", "retired"],
-                      "in-progress": ["accepted", "superseded", "retired"], "implemented": ["superseded", "retired"]},
-          "description": "The moves `ccp adr status` allows: a status to the statuses it may become; every name must be in `statuses`"
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "default": {
+            "proposed": [
+              "accepted",
+              "rejected",
+              "withdrawn"
+            ],
+            "accepted": [
+              "superseded",
+              "retired"
+            ],
+            "in-progress": [
+              "accepted",
+              "superseded",
+              "retired"
+            ],
+            "implemented": [
+              "superseded",
+              "retired"
+            ]
+          },
+          "deprecated": true,
+          "description": "Constant, the default below (SPEC §29.3): The moves `ccp adr status` allows: a status to the statuses it may become; every name must be in `statuses`. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "strict": {
           "type": "boolean",
@@ -1287,7 +1420,8 @@
           "type": "integer",
           "minimum": 1,
           "default": 600,
-          "description": "How long one run of the command may take; at the limit its process group is killed and the run counts as the test failing."
+          "deprecated": true,
+          "description": "Constant, 600 (SPEC §29.3): How long one run of the command may take; at the limit its process group is killed and the run counts as the test failing. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "unbuilt_re": {
           "type": ["string", "array", "null"],
@@ -1345,7 +1479,8 @@
           "type": "integer",
           "minimum": 1,
           "default": 30,
-          "description": "How long one run of the command may take; at the limit it is killed and the step warns."
+          "deprecated": true,
+          "description": "Constant, 30 (SPEC §29.3): How long one run of the command may take; at the limit it is killed and the step warns. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "lead": {
           "type": ["object", "null"],

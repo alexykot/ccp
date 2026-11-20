@@ -120,7 +120,7 @@ STARTER_CONFIG: dict[str, Any] = {
         "citations": {"globs": ["docs/*.md"], "targets": ["docs/SPEC.md"]}}},
     "docs": {"starter_rules": {"declined": {}}},
 }
-WORKTREES_DIR = ".plane-runtime"
+WORKTREES_DIR = config.WORKTREES_DIR  # the constant `worktrees.dir`; init writes no key for it
 # §4.3: the anchor and the CLAUDE.md line, the one source the SPEC and the README quote. The anchor
 # names the plane's marketplace, not a version, so a release needs no product commit; the env entry
 # turns on the agent team the plane runs on (§2.2).
@@ -293,13 +293,12 @@ def next_task_number(root: Path) -> str:
 
 def plane_json_text(project_id: str, gate: str | None, starter_rules: bool = False,
                     language: str | None = None, adoption_point: str | None = None) -> str:
-    """A minimal plane.json (§8.1): the id, the language when given, the worktrees directory, the architect's
+    """A minimal plane.json (§8.1): the id, the language when given, the architect's
     adoption point when given (§19.11), the gate lane when given, and the starter rules' settings when
     `starter_rules` (§20.5). The gate lane is one stage, `gate`, running
     the line as given (§4.5), so a chained or `cd`-ing line keeps its meaning; a line `shlex` cannot
     split raises ValueError."""
-    cfg: dict[str, Any] = {"project_id": project_id, **({"language": language} if language else {}),
-                           "worktrees": {"dir": WORKTREES_DIR}}
+    cfg: dict[str, Any] = {"project_id": project_id, **({"language": language} if language else {})}
     if adoption_point:
         cfg["architect"] = {"shape_from_task": adoption_point}
     if gate:

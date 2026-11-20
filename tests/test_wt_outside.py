@@ -52,8 +52,8 @@ class Config(unittest.TestCase):
                               "or an absolute path, or null", str(cm.exception))
 
     def test_a_relative_directory_inside_resolves_under_the_main_checkout(self):
-        cfg = self.load(worktrees={"dir": ".rt"})
-        self.assertEqual(wt.base_dir(cfg), (self.p.root / ".rt").resolve())
+        cfg = self.load(worktrees={"dir": ".plane-runtime"})
+        self.assertEqual(wt.base_dir(cfg), (self.p.root / ".plane-runtime").resolve())
 
 
 class SiblingFixture(ToolkitFixture):
@@ -259,7 +259,7 @@ class Inside(ToolkitFixture, unittest.TestCase):
     """Inside the main checkout an unrecorded directory is still taken for the product's, as before."""
 
     def test_a_plain_unrecorded_directory_under_an_inside_dir_is_listed(self):
-        (self.main / ".rt" / "rev-0002").mkdir(parents=True)
+        (self.main / ".plane-runtime" / "rev-0002").mkdir(parents=True)
         code, _, body, err = self.ccp("wt", "list", root=self.main)
         self.assertEqual(code, 0, body + err)
         names = {s["name"] for s in json.loads(body)}
@@ -267,15 +267,15 @@ class Inside(ToolkitFixture, unittest.TestCase):
 
     def test_an_unrecorded_directory_inside_is_still_adopted_and_removed(self):
         self.write("docs/delivery/plane.json",
-                   json.dumps({**self.PLANE_JSON, "adapter": LEGACY_OFF, "worktrees": {"dir": ".rt"}}))
-        (self.main / ".rt" / "impl-0002").mkdir(parents=True)
+                   json.dumps({**self.PLANE_JSON, "adapter": LEGACY_OFF, "worktrees": {"dir": ".plane-runtime"}}))
+        (self.main / ".plane-runtime" / "impl-0002").mkdir(parents=True)
         code, body, out, err = self.ccp("wt", "create", "--kind", "impl", "--task", "0002", root=self.main)
         self.assertEqual(code, 0, out + err)
         self.assertIs(body["adopted"], True)
-        git(self.main, "worktree", "add", "-q", "--detach", str(self.main / ".rt" / "rev-0002"), "origin/main")
+        git(self.main, "worktree", "add", "-q", "--detach", str(self.main / ".plane-runtime" / "rev-0002"), "origin/main")
         code, _, out, err = self.ccp("wt", "remove", "rev-0002", root=self.main)
         self.assertEqual(code, 0, out + err)
-        self.assertFalse((self.main / ".rt" / "rev-0002").exists())
+        self.assertFalse((self.main / ".plane-runtime" / "rev-0002").exists())
 
 
 if __name__ == "__main__":

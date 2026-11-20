@@ -22,7 +22,7 @@ import os
 import re
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -114,7 +114,9 @@ ARCHITECT_DEFAULTS: dict[str, Any] = {
     "triage_grace_tasks": 2,
     # Shaping (§19.6) and the adoption point: shape_from_task is the task number the seat's rules start
     # from (the next task number when it turned on), so no finished task is judged by rules written after
-    # it; with shape_adrs on it is required. Unset: the seat enforces nothing.
+    # it. Unset: the seat enforces nothing. `shape_adrs` below is the value for a product with no `adr` block:
+    # unset, `_architect` makes it True for a product that has one (the check runs from the adoption point only),
+    # and a product turns the check off by setting it to False.
     "shape_adrs": False,
     "shape_from_task": None,
     # Refactor lane (§20). "deps": a refactor joins a scope only when a scope task depends on it;
@@ -157,8 +159,10 @@ RECONCILE_LOG_FIELDS = ("date", "task_id", "nnnn", "pr", "head", "head7", "merge
 # are merged into `worktrees.dir` and `worktrees.links` when plane.json loads, so they have no default.
 ADAPTER_DEFAULTS: dict[str, Any] = {"post_close": []}
 # §12.1: where `ccp wt` makes worktrees (relative to the main checkout, `..` allowed, or absolute; not the
-# main checkout itself; null = none) and what it links in.
-WORKTREES_DEFAULTS: dict[str, Any] = {"dir": None, "links": []}
+# main checkout itself) and what it links in. `dir` is a constant (ADR-0043 D9, `KEY_OUTCOMES`): `ccp init` adds
+# it to the product's .gitignore and writes no key for it.
+WORKTREES_DIR = ".plane-runtime"
+WORKTREES_DEFAULTS: dict[str, Any] = {"dir": WORKTREES_DIR, "links": []}
 WORKTREES_DIR_RULE = "{} must be a path relative to the main checkout (`..` allowed) or an absolute path, or null"
 # §12 env hooks: shell command templates `ccp wt` runs in a worktree (null = none).
 ENV_DEFAULTS: dict[str, Any] = {"setup": None, "teardown": None, "up": None, "down": None, "urls": None,
@@ -197,6 +201,8 @@ ALLOWANCE_STOP_WEEKLY_DEFAULT = 90
 # §8.3: the account's keys the machine file holds.
 MACHINE_ACCOUNT_KEYS = ("allowance_cmd", "allowance_stop_weekly")
 BOARD_DEFAULTS: dict[str, Any] = {"refresh_minutes": 5}
+# §15.2, ADR-0043 D9: the product's fragment of the worker prompts, when `prompts.fragment` names none and the file exists.
+WORKERS_FRAGMENT = "docs/delivery/WORKERS.md"
 # §14.6 the gate's time: `shell_limit_seconds` is the agent harness's foreground command limit, which a
 # cold gate run must fit; `cut_line_seconds` (null: 90% of the limit) the lower line above which the
 # gate is cut down. `ccp health` judges the latest cold gate run against both.
@@ -225,7 +231,7 @@ WORKER_MODEL_ALIASES = role_models.ALIASES
 MODELS_DEFAULTS: dict[str, Any] = {role: alias for role, (alias, _) in role_models.ROLES.items()}
 # §26.3 estimation: `reference_since` (YYYY-MM-DD, or null) leaves tasks merged before a process change
 # out of every reference class; `k` is the reference class's size (5 to 8).
-ESTIMATE_DEFAULTS: dict[str, Any] = {"reference_since": None, "k": 6, "auto": False,  # auto: §26.3 phase B triggers
+ESTIMATE_DEFAULTS: dict[str, Any] = {"reference_since": None, "k": 6, "auto": True,  # auto: §26.3 phase B triggers
                                      # §26.3: which backticked suffixes count as cited paths (null: the built-in list)
                                      "path_suffixes": None,
                                      # phase D (ccp/calibrate.py): half_life in merges, min_pairs per source and
@@ -350,7 +356,9 @@ class Outcome:
     list is as good as unset; `globs`: an entry `dir/*.md` moves as `dir/`; `machine`: `into` is a key of the
     machine file (§8.3), whose own value wins, and the key stays read here, `in_place`, while the machine file
     lacks it). `constant`: the code uses `value`; a value the product sets other than it still applies, with a
-    warning, until the key is deleted (`constant_override`). `why` is what the warning adds."""
+    warning, until the key is deleted (`constant_override`); a value equal to it warns that the key can go,
+    unless `quiet_equal` (a key `ccp init` used to write: a product adopted before still sets it, which is no
+    news). `why` is what the warning adds."""
     kind: str
     into: str = ""
     value: Any = None
@@ -359,6 +367,7 @@ class Outcome:
     blank: bool = False
     globs: bool = False
     machine: bool = False
+    quiet_equal: bool = False
     why: str = ""
 
 
@@ -385,7 +394,44 @@ KEY_OUTCOMES: dict[str, Outcome] = {
     "telemetry.session_wake_margin_s": Outcome(CONSTANT, value=TELEMETRY_DEFAULTS["session_wake_margin_s"]),
     "telemetry.windows": Outcome(CONSTANT, value=TELEMETRY_DEFAULTS["windows"]),
     "parallel.session_ceiling_pct": Outcome(CONSTANT, value=PARALLEL_DEFAULTS["session_ceiling_pct"]),
+    # ADR-0043 D9: the lead's expected model and effort follow `models.lead` (`design_seat`); the key is a constant
+    # with no value of its own, and one a product still sets applies
+    "telemetry.design_seat": Outcome(CONSTANT, value=TELEMETRY_DEFAULTS["design_seat"]),
 }
+# ADR-0043 D9: the tuning keys a product would not change, by block: each is a constant at the default the block's
+# dict holds (the readers still read it from the loaded block), and a value set other than it applies, with a warning.
+_CONSTANT_KEYS: tuple[tuple[str, dict[str, Any], tuple[str, ...]], ...] = (
+    ("task_log", TASK_LOG_DEFAULTS, ("dir", "required", "refs_any", "sections", "kinds", "reviews_dir", "max_checks",
+                                     "soft_words", "index", "dry_run")),
+    ("package_docs", PACKAGE_DOCS_DEFAULTS, ("doc_name", "size_ratio", "banned_headings", "path_ref_suffixes",
+                                             "no_delivery_ids")),
+    ("docs", DOCS_DEFAULTS, ("workers",)),
+    ("architect", ARCHITECT_DEFAULTS, ("rules_max_lines", "max_days", "notes_due", "drift_ratio", "grace_tasks",
+                                       "triage_grace_tasks", "refactor_in_scope", "call_timeout_minutes",
+                                       "max_new_tasks")),
+    ("prompts", PROMPTS_DEFAULTS, ("keep_body", "audit_keep_days")),
+    ("worktrees", WORKTREES_DEFAULTS, ("dir",)),
+    ("env", ENV_DEFAULTS, ("timeout_seconds",)),
+    ("auth_check", AUTH_CHECK_DEFAULTS, ("timeout_seconds",)),
+    ("board", BOARD_DEFAULTS, ("refresh_minutes",)),
+    ("gate", GATE_DEFAULTS, ("shell_limit_seconds", "cut_line_seconds")),
+    ("health", HEALTH_DEFAULTS, ("small_task_lines", "slowest_modules", "suite_trend_runs")),
+    ("usage.advice", USAGE_DEFAULTS["advice"], ("cache_5m_share", "context_tokens", "coordination_share",
+                                                "window_hours")),
+    ("workers", WORKERS_DEFAULTS, ("small_estimate_minutes",)),
+    ("suite.summary", SUITE_SUMMARY_DEFAULTS, ("ran_re", "cached_re", "cached_tests_re", "tail_lines", "max_chars")),
+    ("suite", SUITE_DEFAULTS, ("log_keep_days", "roles")),
+    ("adr", ADR_DEFAULTS, ("statuses", "transitions")),
+    ("review_points", REVIEW_POINTS_DEFAULTS, ("file",)),
+    ("estimate", ESTIMATE_DEFAULTS, ("k", "path_suffixes", "calibration")),
+    ("mutate", MUTATE_DEFAULTS, ("timeout_seconds",)),
+    ("notify", NOTIFY_DEFAULTS, ("timeout_seconds",)),
+)
+KEY_OUTCOMES.update({f"{block}.{key}": Outcome(CONSTANT, value=copy.deepcopy(defaults[key]))
+                     for block, defaults, keys in _CONSTANT_KEYS for key in keys})
+# `ccp init` wrote `worktrees.dir` until it became a constant (ADR-0043 D9): a plane.json that still sets the constant's
+# own value loads with no warning, and only a different value warns.
+KEY_OUTCOMES["worktrees.dir"] = replace(KEY_OUTCOMES["worktrees.dir"], quiet_equal=True)
 UNSET: Any = object()  # `constant_override`: the key is not set
 
 
@@ -470,7 +516,8 @@ def constant_override(key: str, given: Any = UNSET, *, notes: list[str] | None =
     """The value to use for `key`, a registry entry (`KEY_OUTCOMES`) with the outcome `constant`: its value
     when `given` is UNSET; else, with one warning naming the key and the constant, `given` when it is another
     value (it applies until the product deletes the key or the plane takes a proposal to keep it), or the
-    constant when `given` is the constant's own value (the warning says the key can be deleted). The warning
+    constant when `given` is the constant's own value (the warning says the key can be deleted; none when the
+    entry is `quiet_equal`). The warning
     goes to `notes` when that is given (once per key), else to stderr once per `where` and process. Every
     reader of a constant calls this: plane.json's loader, the account knobs, the runner numbers (SPEC §29.3)."""
     out = KEY_OUTCOMES[key]
@@ -479,6 +526,8 @@ def constant_override(key: str, given: Any = UNSET, *, notes: list[str] | None =
     if given is UNSET:
         return out.value
     if _same(given, out.value):
+        if out.quiet_equal:
+            return out.value
         msg = (f"{where}: {key} is a constant in code ({out.value!r}) and is set to that value: delete it "
                "(SPEC §29.3)")
         use = out.value
@@ -552,8 +601,11 @@ def _apply_outcomes(raw: dict[str, Any], ignored: dict[str, str] | None = None, 
         else:
             notes: list[str] = []
             use = constant_override(key, given, notes=notes)
-            _put(raw, key, use)
-            f.update(constant=o.value, differs=not _same(given, o.value), note=notes[0])
+            _put(raw, key, copy.deepcopy(use))
+            f.update(constant=o.value, differs=not _same(given, o.value))
+            if not notes:  # a `quiet_equal` key set to the constant: nothing to say
+                continue
+            f["note"] = notes[0]
         found.append(f)
     return raw, found
 
@@ -1023,12 +1075,14 @@ def _docs(given: Any) -> dict[str, Any]:
     return d
 
 
-def _architect(given: Any, ids: refs.Ids = refs.DEFAULT) -> dict[str, Any] | None:
+def _architect(given: Any, ids: refs.Ids = refs.DEFAULT, adr_on: bool = False) -> dict[str, Any] | None:
     if given is False:
         return None  # the one way to turn the seat off (§19.11)
     if given is True:
         raise ConfigError(f"{CONFIG_REL}: `architect` must be an object, or false to turn the seat off")
     a = _merge(ARCHITECT_DEFAULTS, given, "architect")
+    if adr_on and not (isinstance(given, dict) and "shape_adrs" in given):
+        a["shape_adrs"] = True  # ADR-0043 D9: ADRs are shaped from the adoption point, whenever the product has any
     bad = []
     for k, lo in _INTS.items():
         v = a[k]
@@ -1048,8 +1102,6 @@ def _architect(given: Any, ids: refs.Ids = refs.DEFAULT) -> dict[str, Any] | Non
     sft = a["shape_from_task"]
     if sft is not None and not re.match(rf"^[0-9]{{{ids.task_width}}}(?:-|$)", str(sft)):
         bad.append("shape_from_task must be a task number (NNNN) or id")
-    if a["shape_adrs"] is True and sft is None:
-        bad.append("shape_adrs needs shape_from_task, so tasks written before the check do not fail")
     areas = a["areas"]
     if not isinstance(areas, dict) or not all(
             isinstance(v, list) and all(isinstance(g, str) and g for g in v) for v in areas.values()):
@@ -1298,10 +1350,29 @@ def _workers_problems(w: dict[str, Any]) -> list[str]:
     return bad
 
 
+def _is_file(p: Path) -> bool:
+    try:
+        return p.is_file()
+    except (OSError, ValueError):
+        return False
+
+
+def design_seat(cfg: Any) -> dict[str, Any]:
+    """§24.5: the lead's expected `{model, effort}`, as advice only: the product's `models.lead` (§2.4) and the
+    role table's effort for it (None where the operator's session sets it); a `telemetry.design_seat` the product
+    still sets (a constant, `KEY_OUTCOMES`) applies in its place."""
+    given = (getattr(cfg, "telemetry", None) or {}).get("design_seat")
+    if given:
+        return {"model": given.get("model"), "effort": given.get("effort")}
+    return {"model": role_models.model_for(cfg, "lead"), "effort": role_models.ROLES["lead"][1]}
+
+
 def _toolkit(raw: dict[str, Any], root: Path) -> dict[str, dict[str, Any]]:
     """The §10 blocks, merged with their defaults and checked value by value: they drive merges,
     commits and commands, so a wrong type fails loudly."""
     out = {b: _merge(BLOCK_DEFAULTS[b], raw.get(b), b) for b in BLOCKS if b not in _OWN_LOADER_BLOCKS}
+    if out["prompts"]["fragment"] is None and _is_file(root / WORKERS_FRAGMENT):
+        out["prompts"]["fragment"] = WORKERS_FRAGMENT  # ADR-0043 D9: the product's WORKERS.md is the fragment
     out["usage"] = _usage(raw.get("usage"))
     out["suite"] = _suite(raw.get("suite"))
     out["models"] = _models(raw.get("models"))
@@ -1847,6 +1918,7 @@ def _config_of(root: Path, raw: dict[str, Any], found: list[dict[str, Any]], unk
     pkg = raw.get("package_docs")
     tl = raw.get("task_log")
     language, moved = _language(raw)
+    adr = _adr(raw.get("adr"))
     return Config(
         root=root,
         project_id=str(raw["project_id"]).strip(),
@@ -1857,10 +1929,10 @@ def _config_of(root: Path, raw: dict[str, Any], found: list[dict[str, Any]], unk
         task_log=_task_log(tl),
         package_docs=_package_docs(pkg, language),
         docs=_docs(raw.get("docs")),
-        architect=_architect(raw.get("architect"), ids),
+        architect=_architect(raw.get("architect"), ids, adr_on=adr is not None),
         rules_doc_set=isinstance(raw.get("architect"), dict) and "rules_doc" in raw["architect"],
         ids=ids,
-        adr=_adr(raw.get("adr")),
+        adr=adr,
         upgrade=_upgrade(raw.get("upgrade")),
         unknown_keys=tuple(unknown),
         **_toolkit(raw, root),

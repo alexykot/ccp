@@ -15,7 +15,7 @@ Non-normative notes behind SPEC §25 and §26. The rules are in `docs/spec/04-ob
   own and this window's decisions.
 - The runner's stop condition (d) and the lead's protocol (the spec-maintainer skill, "When you are
   the team lead") say this.
-- `plane.json` `telemetry.design_seat: {model, effort}`.
+- The lead's expected model is `models.lead` (`config.design_seat`; the old `telemetry.design_seat` key is a constant).
   `ccp usage` gives `advice` lines when none of the lead's calls ran on that model (a `[1m]`
   suffix still matches), or none at that effort. The lead's small helper calls on other models
   (session titles) are not advice.
@@ -168,8 +168,8 @@ baseline, no accuracy rule and nothing that gates.
   estimates them one at a time, at most N per batch (default 10; the rest are reported as
   deferred), under `QUEUE_ROOT/estimator.lock`; `--detach` runs that batch in its own session and
   returns; `--dry-run` renders the prompts and calls nothing; `--print-prompt ID` prints one
-  prompt; `--force` re-estimates. **`plane.json estimate.auto`** (default `false`, until the
-  operator enables it): with it on, `ccp tasks check` and `ccp tasks index` (run after a task is
+  prompt; `--force` re-estimates. **`plane.json estimate.auto`** (default `true`; `false` leaves it to
+  `ccp tasks estimate --all` by hand): with it on, `ccp tasks check` and `ccp tasks index` (run after a task is
   written) print one note naming the tasks that need an estimate and also start `--all` detached, unless a
   batch is running or the checkout is a linked worktree (a verifier's: the
   main checkout's task files are the ones estimated). The note and the launch never block the
