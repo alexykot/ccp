@@ -107,7 +107,7 @@ class ConfigTest(unittest.TestCase):
         p = Product({"task_log": {"max_checks": 3}})
         c = p.cfg
         self.assertEqual(c.task_log["max_checks"], 3)
-        self.assertEqual(c.task_log["statuses"][-1], "dropped")
+        self.assertNotIn("statuses", c.task_log)  # a removed key (§29.3)
         self.assertIsNone(c.package_docs)
         p.cleanup()
 
