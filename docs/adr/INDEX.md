@@ -48,5 +48,5 @@
 | [ADR-0042](0042-tasks-run-together-unless-they-clash.md) | Tasks run together unless they clash | accepted | 2026-11-18 |  |
 | [ADR-0043](0043-opinionated-defaults-short-configuration.md) | Opinionated defaults, short configuration | accepted | 2026-11-19 |  |
 | [ADR-0044](0044-a-follow-up-is-tracked-not-left-in.md) | A follow-up is tracked, not left in notes | proposed | 2026-11-20 |  |
-| [ADR-0045](0045-checks-only-the-lead-s-environment-can-run.md) | Checks only the lead's environment can run | proposed | 2026-11-20 |  |
+| [ADR-0045](0045-checks-only-the-operator-s-machine-can-run.md) | Checks only the operator's machine can run | proposed | 2026-11-20 |  |
 | [ADR-0046](0046-decisions-may-depend-on-other-adrs-decisions.md) | Decisions may depend on other ADRs' decisions | proposed | 2026-11-20 |  |
