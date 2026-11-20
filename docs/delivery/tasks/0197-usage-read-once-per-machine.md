@@ -7,7 +7,7 @@ depends_on: ["0186-account-facts-on-the-machine"]
 spec_refs: ["S3", "S8", "S16", "S25"]
 review_point: R12
 paths: ["ccp/usage.py", "ccp/parallel.py", "ccp/lifecycle.py", "ccp/prompt.py", "ccp/notify.py", "ccp/forecast.py", "contracts/allowance.schema.json", "contracts/machine.schema.json", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/spec/04-observability.md", "plugin/agents/delivery-runner.md", "plugin/skills/spec-maintainer/SKILL.md", "plugin/orientation.md", "tests/__init__.py", "tests/test_usage_reading.py", "tests/test_parallel_claims.py", "tests/test_session_park.py", "tests/test_toolkit.py", "tests/"]
-clashes_with: ["0189-spec-states-behaviour", "0191-the-grace-release-ends"]
+clashes_with: ["0191-the-grace-release-ends"]
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
@@ -31,9 +31,10 @@ and switches the weekly stop off. After this task:
 
 ## Context (not checked)
 
-File:line references are at `1774a22`. None of the files this task reads changed between it and
-`438c97f`: `git diff --stat 1774a22 438c97f -- docs/spec ccp contracts plugin tests/__init__.py`
-printed nothing.
+File:line references and measurements are at `f47ae7b`, after the SPEC sweep (0189). Of the code,
+contracts, plugin and tests this task reads, only a comment in `ccp/tasklog.py` changed since
+`1774a22`, where the brief was first written:
+`git diff --stat 1774a22 f47ae7b -- ccp contracts plugin tests/__init__.py tests/test_parallel_claims.py tests/test_session_park.py tests/test_toolkit.py`.
 
 - **Every claim reads.** `ccp/lifecycle.py:283`, in the claim path:
   `sample = usage.sample_allowance(cfg, q, gate=not resumed)`. It runs after the auth probes and
@@ -46,17 +47,17 @@ printed nothing.
 - **None of the five prompt gates writes state.** Each was searched for `save_`, `append`, `write`,
   `emit(` and `fire(` with
   `awk -v f=$fn '$0 ~ "^def "f"\\(" {p=1} p && /^def / && $0 !~ "^def "f"\\(" {p=0} p' ccp/prompt.py | grep -c 'save_\|append\|write\|emit(\|fire('`
-  at `1774a22`. Body lines / matches: `resolution_gate` 45/0, `review_gate` 36/0, `repeat_gate`
+  at `f47ae7b`. Body lines / matches: `resolution_gate` 45/0, `review_gate` 36/0, `repeat_gate`
   15/0, `tip_gate` 40/0, `body_gate` 30/0.
 - **Other readers:**
   - `ccp allowance status --sample` (`usage.status`, `ccp/usage.py:733`);
   - `ccp allowance session-wake --sample` (`usage.session_wake`, `ccp/usage.py:998`);
   - `--fire` (`usage.session_fire`, `ccp/usage.py:1080`).
 
-  `git grep -n "sample_allowance" -- ccp` at `1774a22`: those five call sites and the definition.
+  `git grep -n "sample_allowance" -- ccp` at `f47ae7b`: those five call sites and the definition.
 - **No cache, lock or backoff.** `sample_allowance` (`ccp/usage.py:576`) runs
   `subprocess.run(["/bin/sh", "-c", cmd], ..., timeout=8)` every time it is called.
-  `grep -n "flock\|backoff\|retry_after" ccp/usage.py` at `1774a22`: no match.
+  `grep -n "flock\|backoff\|retry_after" ccp/usage.py` at `f47ae7b`: no match.
 - **Each product works out its own fields from the raw windows.** `project(cfg, wins, q, prev)`
   (`ccp/usage.py:552`) uses the product's own checkpoint (its decisions) and the previous row's
   gating window names. So the same raw reading can give different fields for different products,
@@ -73,7 +74,7 @@ printed nothing.
     warning, and the stop loop looks only at windows whose `pct` is not None. So spend is unbounded
     while the endpoint fails. SPEC §25.1 says so: an unknown reading "gates nothing".
 - **Readers of the last row**, each listed by `grep -n "_latest(q)\|\[-1\]" ccp/usage.py ccp/forecast.py`
-  at `1774a22`:
+  at `f47ae7b`:
   - `project`'s `prev` (`ccp/usage.py:587`);
   - `continue_` (`ccp/usage.py:708`);
   - `status` (`ccp/usage.py:734`);
@@ -95,7 +96,7 @@ printed nothing.
   `bindings_dir() / MACHINE_FILE`, so `CCP_BINDINGS_DIR` moves it. `tests/__init__.py` points
   `CCP_BINDINGS_DIR` at `/nonexistent/control-plane-bindings-guard`, which cannot be created.
   - Tests that set `telemetry.allowance_cmd` without a bindings dir, found with
-    `grep -ln allowance_cmd tests/*.py` and then `grep -c CCP_BINDINGS_DIR` on each at `1774a22`:
+    `grep -ln allowance_cmd tests/*.py` and then `grep -c CCP_BINDINGS_DIR` on each at `f47ae7b`:
     `test_account_accessor`, `test_allowance_windows`, `test_notify_lead`, `test_notify`,
     `test_parallel_claims`, `test_session_park`, `test_toolkit` (seven files).
   - Several of them change the stub's output between two claims, so a shared cache would break
@@ -110,9 +111,9 @@ printed nothing.
   - `plugin/agents/delivery-runner.md` ("Stop, report, rotate", item (c): "tell the lead the weekly
     usage and the reset time it printed");
   - `plugin/skills/spec-maintainer/SKILL.md` ("The allowance checkpoint is the operator's call",
-    `sed -n 145,149p` at `1774a22`), which tells the lead to record a `continue` decision;
+    `sed -n 145,149p` at `f47ae7b`), which tells the lead to record a `continue` decision;
   - `plugin/orientation.md` (the notice list, "the allowance checkpoint", `sed -n 42,43p` at
-    `1774a22`).
+    `f47ae7b`).
 
   An unread stop needs no decision, so each must say what to do instead.
 - **The operator's decision on the unread policy** (2026-11-20, verbatim: "T1 - (a)"): option (a),
@@ -123,12 +124,10 @@ printed nothing.
   usage limit, say) is a failing reader under this task: it backs off, and after an hour it stops
   new claims. Such a machine unsets `allowance_cmd` instead: no usage is read, and the existing
   §25.1 warning says that nothing bounds spend. The task does not special-case it.
-- **Clashes.** Two pending tasks touch the same ground:
-  - 0191 edits `ccp/usage.py` (`account`'s old-place fallback);
-  - 0189 rewrites §16 and §25 to drop default numbers.
-
-  If either merges first, the CURRENT quotes below move, and the brief must be re-quoted and
-  signed again before the claim.
+- **Clashes.** Task 0191, still pending, edits `ccp/usage.py` (`account`'s old-place fallback) and
+  the SPEC. If it merges first, the CURRENT quotes below may move, and the brief must be re-quoted
+  and signed again before the claim. The SPEC sweep (0189) has merged, and the quotes were re-taken
+  after it.
 
 ## Scope
 
@@ -307,7 +306,7 @@ printed nothing.
 
 ### 6. SPEC changes (signed in the brief, §31)
 
-The CURRENT texts are verbatim at `1774a22` (unchanged at `438c97f`).
+The CURRENT texts are verbatim at `f47ae7b`, re-taken after the SPEC sweep (0189).
 
 **a. §16.3 rule 5**, `docs/spec/02-delivery.md`.
 
@@ -326,7 +325,7 @@ PROPOSED:
 >    leaves it to the claim, which reads. A machine without `allowance_cmd` reads no usage: the rule
 >    passes (§25.1).
 
-**b. §10 claim steps**, `docs/spec/02-delivery.md` (around line 161 at `1774a22`).
+**b. §10 claim steps**, `docs/spec/02-delivery.md` (around line 162 at `f47ae7b`).
 
 CURRENT:
 > worktree (`ccp wt create --kind impl`, §12), samples the allowance (§25) and writes a heartbeat.
@@ -532,7 +531,7 @@ Class `SharedReading`, with these six tests:
     counter file is still empty.
 
 The existing tests run under `CCP_ALLOWANCE_UNSHARED=1`, so the cache does not reach them, but
-the new judgments do. These change their expectations (lines at `438c97f`):
+the new judgments do. These change their expectations (lines at `f47ae7b`):
 - `tests/test_parallel_claims.py`, `test_the_session_ceiling_and_an_unknown_reading`
   (`sed -n 140,151p`): after the 60% row, a bad reading still refuses rule 5 (exit 7), and the
   message names `60%`, not `unknown`, since the 60% row is still in force.
@@ -567,7 +566,7 @@ note gives the test, the old expectation and the new one.
     `test_a_failed_read_backs_off`, `test_retry_after_is_honoured`,
     `test_a_failed_read_keeps_the_good_reading`, `test_an_hour_unread_refuses_a_new_claim` and
     `test_a_refused_prompt_reads_nothing`.
-  dry run (`438c97f`): `tests/test_usage_reading.py` does not exist.
+  dry run (`f47ae7b`): `tests/test_usage_reading.py` does not exist.
 
 - id: `ur-02`
   story: As the plane, the tests bite on the TTL, the reading in force, the prompt's order and the
@@ -585,7 +584,7 @@ note gives the test, the old expectation and the new one.
     (b) fails `test_a_failed_read_keeps_the_good_reading`;
     (c) fails `test_a_refused_prompt_reads_nothing`;
     (d) fails `test_a_failed_read_keeps_the_good_reading`.
-  dry run (`438c97f`): n/a, the constants and the test file do not exist yet.
+  dry run (`f47ae7b`): n/a, the constants and the test file do not exist yet.
 
 - id: `ur-03`
   story: As the SPEC reader, §8.3, §10, §16.3, §25.1, §25.3, §25.4 and §3.6 say what the code does,
@@ -604,7 +603,7 @@ note gives the test, the old expectation and the new one.
     - step 3: two phrases, each with count 1;
     - step 4: at least `2`;
     - step 5: `0` for both files.
-  dry run (`438c97f`): steps 1 to 3 print nothing, step 4 prints `0`, and step 5 prints `1` for
+  dry run (`f47ae7b`): steps 1 to 3 print nothing, step 4 prints `0`, and step 5 prints `1` for
     each file.
 
 - id: `ur-04`
@@ -615,7 +614,7 @@ note gives the test, the old expectation and the new one.
     2. `grep -n "allowance status --sample" plugin/skills/spec-maintainer/SKILL.md`
   expect: step 1 gives at least `1` for each file. Step 2 prints at least one line, inside the
     allowance checkpoint bullet.
-  dry run (`438c97f`): step 1 prints `0` for each file; step 2 prints nothing.
+  dry run (`f47ae7b`): step 1 prints `0` for each file; step 2 prints nothing.
 
 - id: `ur-05`
   story: As the plane, nothing else broke.
