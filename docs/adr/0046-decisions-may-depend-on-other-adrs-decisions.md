@@ -74,7 +74,8 @@ prerequisites (resolved as D4 says) is:
 - not recorded `built` or `live`; and
 - not cited by the task itself, or by any task in its `depends_on` closure.
 
-It names the prerequisite, and the writer adds the `depends_on`. The report is a failure under
+It names the prerequisite and both remedies: add a `depends_on` on a task that builds it, or, when
+no task cites the prerequisite, write one or record it built with `ccp adr decide`. The report is a failure under
 `adr.strict` and a warning otherwise. `ccp tasks next` does not change.
 
 ### D4. A superseded prerequisite resolves through `retired by`

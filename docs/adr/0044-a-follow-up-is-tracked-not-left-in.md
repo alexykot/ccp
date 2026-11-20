@@ -82,9 +82,9 @@ The command refuses an id that does not resolve. Running it again replaces the o
 
 With `QUEUE_ROOT` set, `ccp tasks check` fails when the register (§22.2) records a point `closed`
 while a follow-up from a run of one of its tasks is undecided. It names each one, with the command
-that decides it. So the register edit that closes the point fails the check, and `team.sh runner
-spawn`, which needs a clean check (§10.2), does not start the next scope on top of it. Without a
-queue the check cannot see follow-ups, and it says so in one warning. Closing a task does not change.
+that decides it. So the register edit that closes the point fails the check, and the lead's
+readiness check before a scope (§10.2) and `team.sh runner spawn --dry-run` name it. Without a queue
+the check says nothing, so fenced tests and CI stay quiet. Closing a task does not change.
 
 ### D4. The lead sees the open count
 

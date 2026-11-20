@@ -74,8 +74,9 @@ the check in a `--kind mac` worktree, under the task's approved `operator` gate 
 credential the runner may not use) is run by the operator under the same gate.
 
 Each new head handed to the verifier gets a new run of the check. A fix round always produces a new
-head. The only exception is a head that moved only by an integration merge, where the check rests on
-the earlier approve (D3). The implement and verify prompts list such checks as not the worker's to
+head. The only exceptions are a head that moved only by an integration merge, or a catch-up whose
+resolution review does not list the check in `Affected checks`; there the check rests on the earlier
+approve (D3). The implement and verify prompts list such checks as not the worker's to
 run.
 
 ### D3. Its evidence must be a result, not a promise
