@@ -1,7 +1,7 @@
 ---
 id: ADR-0044
 title: "A follow-up is tracked, not left in notes"
-status: proposed
+status: accepted
 date: "2026-11-20"
 deciders: operator
 spec_refs: [S9, S11, S13, S21, S22]
@@ -10,6 +10,12 @@ notes: |-
   follow-up field in worker reports. Triage suggested that close check it; this ADR enforces it at
   the review point instead (see Options). It changes SPEC rules (listed under Consequences), so the
   operator decides it.
+  2026-11-20: status proposed → accepted: Operator: "accept 0044, 0045, 0046" (2026-11-20)
+decisions:
+  - "D1 not_built"
+  - "D2 not_built"
+  - "D3 not_built"
+  - "D4 not_built"
 ---
 # ADR-0044 — A follow-up is tracked, not left in notes
 
