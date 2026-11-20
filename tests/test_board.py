@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import board, cli
-from tests.helpers import TASK, without_constant_warnings
+from tests.helpers import TASK
 from tests.test_toolkit import ToolkitFixture, git
 import unittest
 
@@ -388,7 +388,7 @@ class QueueFollowsTheLog(ToolkitFixture, unittest.TestCase):
                 tid=tid, title="Gone", status="dropped", deps="", ver="*Append-only.*"))
             (self.q / f"tasks/{tid}.json").write_text(json.dumps({"task_id": tid, "status": "pending"}))
         _, _, _, err = self.ccp("board", "build")
-        lines = without_constant_warnings(err).strip().splitlines()
+        lines = err.strip().splitlines()
         self.assertTrue(lines[0].startswith("warning: 11 queue file(s)"), err)
         self.assertEqual(len(lines), 6)
         _, _, out, _ = self.ccp("board", "status")

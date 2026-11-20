@@ -60,7 +60,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.sign()
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["sign_off"]["head"], head_a)  # the verified head, by default
-        wt = self.main / ".rt" / "impl-0002"
+        wt = self.main / ".plane-runtime" / "impl-0002"
         (wt / "feature.txt").write_text("built again\n")
         git(wt, "commit", "-q", "-am", "Task 0002: fix it")
         git(wt, "push", "-q", "origin", "task/0002-second")
@@ -123,7 +123,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 3)
         self.assertIn("no brief sign-off", err)
         self.assertFalse((self.q / "tasks/0002-second.json").exists())
-        self.assertFalse((self.main / ".rt" / "impl-0002").exists())
+        self.assertFalse((self.main / ".plane-runtime" / "impl-0002").exists())
         code, body, out, err = self.sign()
         self.assertEqual(code, 0, out + err)
         task_commit = git(self.main, "log", "-1", "--format=%H", "--", TASK_FILE)
@@ -184,7 +184,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         code, _, _, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 3, err)
         self.assertFalse((self.q / "tasks/0002-second.json").exists())
-        self.assertFalse((self.main / ".rt" / "impl-0002").exists())
+        self.assertFalse((self.main / ".plane-runtime" / "impl-0002").exists())
 
     def test_a_malformed_sign_off_value_refuses_the_claim(self):
         self.declare("brief, build")
@@ -192,7 +192,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 3)
         self.assertIn("ccp tasks check", err)
         self.assertFalse((self.q / "tasks/0002-second.json").exists())
-        self.assertFalse((self.main / ".rt" / "impl-0002").exists())
+        self.assertFalse((self.main / ".plane-runtime" / "impl-0002").exists())
 
     def test_a_build_sign_off_does_not_hold_back_the_claim(self):
         self.declare("build")

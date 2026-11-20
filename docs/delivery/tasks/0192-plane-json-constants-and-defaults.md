@@ -58,6 +58,12 @@ the prompt fragment, and the lead's expected model follows `models.lead`.
     that would refuse every product with an `adr` block and no adoption point, so the validation is
     relaxed: an unadopted product (no `shape_from_task`) does not shape and loads normally; `ccp tasks
     check` runs the shaping check only from the adoption point (0185).
+- Lead's ruling (question sm-20261120T123415Z-e65d, 2026-11-20, verbatim): "(a): worktrees.dir is a constant at
+  `.plane-runtime`. ccp init stops writing the key. A plane.json that still sets `.plane-runtime` matches the constant,
+  so it loads without a warning. Only a different value warns, through 0187's constant-override mechanism. Check that
+  ccp wt and the .gitignore handling read the constant. Record this ruling in the task's Implementation notes."
+  Reasoning: ADR-0043 D9 names worktrees.dir's new default as `.plane-runtime`; the task's "today's default (None)"
+  is the error; the ADR governs.
 - The test modules that set one of these keys follow the constants (`git grep -l` over the key names
   at `e9ff0fc`: 53 modules), so `paths` names `tests/` whole.
 - The §8 tables' constants and the default parentheticals are rewritten by 0189; this task changes only
@@ -146,5 +152,20 @@ the prompt fragment, and the lead's expected model follows `models.lead`.
   `tests/helpers.py`: those fixtures set `worktrees.dir` and assert an empty stderr), `test_estimator`, `test_estimate`
   (`estimate.auto` default), `test_rules` (the removed refusal), `test_short_plane_json` (`worktrees.dir` is a constant too).
 - Not changed, left as a proposal: `docs/spec/03-quality.md` §19.6 still says `shape_adrs` "needs `shape_from_task`".
+- Fix round 1. Lead's ruling on `worktrees.dir` (Context, verbatim): the constant is `.plane-runtime`, not None. Built:
+  `config.WORKTREES_DIR` is the one source (`ccp/init.py` takes it); `WORKTREES_DEFAULTS["dir"]` is it; `ccp init` writes
+  no `worktrees` key; a plane.json that sets `.plane-runtime` loads with only the "delete it" note (the value equals the
+  constant), a different value or null applies with the 0187 warning. `ccp wt`, `lifecycle` and `prompt` read
+  `cfg.worktrees["dir"]` from the loaded block, so they follow the constant with no change; init's `.gitignore` line is the
+  same constant. A product that named no dir now has plane-made worktrees under `.plane-runtime`: the tests that set none
+  to mean "no worktrees" now set null (`test_tasks_close`, `test_behind_tip_catch_up`), and the fixtures that named
+  `.rt` use the constant (`ToolkitFixture` names no dir). The `without_constant_warnings` helper is gone. The schema's
+  `worktrees.dir` default and description follow; the shape_adrs schema note and the `ARCHITECT_DEFAULTS` comment say the
+  value shown is the no-`adr` case. This plane's plane.json drops `task_log.dir`, `worktrees` and `review_points.file`
+  (each equal to its constant); `package_docs.doc_name` (CLAUDE.md, not the constant `.claude.md`) and `docs.workers` (4,
+  taken in `upgrade.taken`) stay, as removing them changes behaviour. The readers of the lead's expected model each have a
+  test now (`TheLeadsExpectedModelReaders`), and the constants' old values are a literal table.
+  `docs/spec/01-model.md` (the adoption passage) still says init writes "the worktrees directory" into plane.json: left to a proposal,
+  with §19.6's "needs `shape_from_task`" (0189's sweep).
 
 ## Verification notes

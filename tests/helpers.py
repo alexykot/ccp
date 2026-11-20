@@ -65,14 +65,6 @@ BASE_PLANE: dict = {
 }
 
 
-def without_constant_warnings(text: str | bytes) -> str | bytes:
-    """`text`, stderr output, without the lines that warn a constant is set (SPEC §29.3): a fixture that sets
-    `worktrees.dir` has the warning on every load, and a test of other output leaves it out."""
-    if isinstance(text, bytes):
-        return b"".join(x for x in text.splitlines(keepends=True) if b"is a constant in code" not in x)
-    return "".join(x for x in text.splitlines(keepends=True) if "is a constant in code" not in x)
-
-
 def machine_file(case, **keys) -> Path:
     """SPEC §8.3: the machine file of a fenced bindings directory (`CCP_BINDINGS_DIR`, a temp directory the test
     case removes) holding `keys`, written over what an earlier call in the same case wrote. Returns its path."""

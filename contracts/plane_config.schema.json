@@ -427,7 +427,7 @@
         "shape_adrs": {
           "type": "boolean",
           "default": false,
-          "description": "ccp tasks check fails a pending task citing an ADR with no sh-*.md record, from the adoption point (shape_from_task) on; a product with no adoption point does not shape. On when plane.json has an adr block and sets none (the default shown is for a product with no adr block)"
+          "description": "ccp tasks check fails a pending task citing an ADR with no sh-*.md record, from the adoption point (shape_from_task) on; a product with no adoption point does not shape. Unset, it is true when plane.json has an adr block and false when it has none, so the default shown is the no-adr case; set it to false to turn the check off"
         },
         "shape_from_task": {
           "type": [
@@ -738,9 +738,9 @@
             "string",
             "null"
           ],
-          "default": null,
+          "default": ".plane-runtime",
           "deprecated": true,
-          "description": "Constant, null (SPEC §29.3): A path relative to the main checkout, which may lead outside it with `..`, such as a sibling directory, or an absolute path; not the main checkout itself; worktrees are named <kind>-<nnnn>[-<n>] (impl, rev, ver, mut, mac, base). Null: no plane-made worktrees. A value set here other than the constant still applies, with a warning, until the key is deleted."
+          "description": "Constant, \".plane-runtime\" (SPEC §29.3): A path relative to the main checkout, which may lead outside it with `..`, such as a sibling directory, or an absolute path; not the main checkout itself; worktrees are named <kind>-<nnnn>[-<n>] (impl, rev, ver, mut, mac, base). ccp init adds the directory to .gitignore and writes no key. A value set here other than the constant (null: no plane-made worktrees) still applies, with a warning, until the key is deleted."
         },
         "links": {
           "type": "array",

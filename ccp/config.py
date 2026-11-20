@@ -114,8 +114,9 @@ ARCHITECT_DEFAULTS: dict[str, Any] = {
     "triage_grace_tasks": 2,
     # Shaping (§19.6) and the adoption point: shape_from_task is the task number the seat's rules start
     # from (the next task number when it turned on), so no finished task is judged by rules written after
-    # it. Unset: the seat enforces nothing. `shape_adrs` is on whenever the product has an `adr` block and
-    # sets none (`_architect`); the check runs from the adoption point only.
+    # it. Unset: the seat enforces nothing. `shape_adrs` below is the value for a product with no `adr` block:
+    # unset, `_architect` makes it True for a product that has one (the check runs from the adoption point only),
+    # and a product turns the check off by setting it to False.
     "shape_adrs": False,
     "shape_from_task": None,
     # Refactor lane (§20). "deps": a refactor joins a scope only when a scope task depends on it;
@@ -158,8 +159,10 @@ RECONCILE_LOG_FIELDS = ("date", "task_id", "nnnn", "pr", "head", "head7", "merge
 # are merged into `worktrees.dir` and `worktrees.links` when plane.json loads, so they have no default.
 ADAPTER_DEFAULTS: dict[str, Any] = {"post_close": []}
 # §12.1: where `ccp wt` makes worktrees (relative to the main checkout, `..` allowed, or absolute; not the
-# main checkout itself; null = none) and what it links in.
-WORKTREES_DEFAULTS: dict[str, Any] = {"dir": None, "links": []}
+# main checkout itself) and what it links in. `dir` is a constant (ADR-0043 D9, `KEY_OUTCOMES`): `ccp init` adds
+# it to the product's .gitignore and writes no key for it.
+WORKTREES_DIR = ".plane-runtime"
+WORKTREES_DEFAULTS: dict[str, Any] = {"dir": WORKTREES_DIR, "links": []}
 WORKTREES_DIR_RULE = "{} must be a path relative to the main checkout (`..` allowed) or an absolute path, or null"
 # §12 env hooks: shell command templates `ccp wt` runs in a worktree (null = none).
 ENV_DEFAULTS: dict[str, Any] = {"setup": None, "teardown": None, "up": None, "down": None, "urls": None,

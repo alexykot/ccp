@@ -39,7 +39,7 @@ class Create(WtFixture, unittest.TestCase):
     def test_claim_records_the_impl_worktree_at_the_same_path(self):
         code, body, _, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, err)
-        path = self.main / ".rt" / "impl-0002"
+        path = self.main / ".plane-runtime" / "impl-0002"
         self.assertEqual(Path(body["worktree"]["path"]), path)
         self.assertTrue((path / ".venv").is_symlink())
         st = json.loads((self.q / "worktrees" / "impl-0002.json").read_text())
@@ -104,12 +104,12 @@ class Create(WtFixture, unittest.TestCase):
             st = json.loads((self.q / "worktrees" / f"{name}.json").read_text())
             self.assertEqual(st["sha"], mine)
             self.assertEqual(git(Path(st["path"]), "rev-parse", "HEAD"), mine)
-        before = (sorted(p.name for p in (self.q / "worktrees").iterdir()), sorted(p.name for p in (self.main / ".rt").iterdir()))
+        before = (sorted(p.name for p in (self.q / "worktrees").iterdir()), sorted(p.name for p in (self.main / ".plane-runtime").iterdir()))
         code, _, _, err = self.ccp("wt", "create", "--kind", "mut", "--task", "0002", "--sha", "nope")
         self.assertEqual(code, 2, err)
         self.assertIn("nope", err)
         self.assertEqual((sorted(p.name for p in (self.q / "worktrees").iterdir()),
-                          sorted(p.name for p in (self.main / ".rt").iterdir())), before)
+                          sorted(p.name for p in (self.main / ".plane-runtime").iterdir())), before)
 
     def test_a_failed_setup_removes_the_half_made_worktree(self):
         self.plane(env={"setup": "echo no database; exit 3"})
@@ -117,7 +117,7 @@ class Create(WtFixture, unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("env.setup for ver-0002 exited 3", err)
         self.assertIn("no database", err)
-        self.assertFalse((self.main / ".rt" / "ver-0002").exists())
+        self.assertFalse((self.main / ".plane-runtime" / "ver-0002").exists())
         self.assertFalse((self.q / "worktrees" / "ver-0002.json").exists())
 
     def test_detached_kinds_need_a_sha_and_names_follow_the_kind(self):
@@ -140,7 +140,7 @@ class Baseline(WtFixture, unittest.TestCase):
         code, body, _, err = self.wt("create", "--kind", "ver", "--baseline")
         self.assertEqual(code, 0, err)
         p = Path(body["path"])
-        self.assertEqual((p, body["created"]), (self.main / ".rt" / "ver-baseline", True))
+        self.assertEqual((p, body["created"]), (self.main / ".plane-runtime" / "ver-baseline", True))
         self.assertEqual(git(p, "rev-parse", "HEAD"), self.head())
         self.assertEqual(git(p, "rev-parse", "--abbrev-ref", "HEAD"), "HEAD")  # detached
         self.assertEqual((p / "setup.txt").read_text().split(), ["ver", "ver", "ver-baseline", "[]"])
@@ -176,8 +176,8 @@ class Baseline(WtFixture, unittest.TestCase):
         (self.q / "tasks" / "0002-second.json").write_text(json.dumps({"task_id": "0002-second", "status": "done"}))
         self.assertEqual(self.wt("gc")[1]["removed"], ["ver-0002"])
         self.assertEqual(wt.remove_task(config.load(self.main), self.q, "0001-first"), [])  # close's cleanup
-        self.assertFalse((self.main / ".rt" / "ver-0001").exists())
-        self.assertTrue((self.main / ".rt" / "ver-baseline").is_dir())
+        self.assertFalse((self.main / ".plane-runtime" / "ver-0001").exists())
+        self.assertTrue((self.main / ".plane-runtime" / "ver-baseline").is_dir())
         self.assertEqual([r["name"] for r in self.wt("list")[1]], ["ver-baseline"])
 
     def test_without_baseline_a_ver_worktree_still_needs_a_task(self):
@@ -192,12 +192,12 @@ class Baseline(WtFixture, unittest.TestCase):
                      ("list", "--baseline")):
             with self.subTest(args=args):
                 self.assertEqual(self.wt(*args)[0], 2)
-        self.assertFalse((self.main / ".rt" / "ver-baseline").exists())
+        self.assertFalse((self.main / ".plane-runtime" / "ver-baseline").exists())
 
     def test_its_name_is_not_a_task_worktree_name(self):
         code, _, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head(), "--name", "ver-baseline")
         self.assertEqual(code, 2, err)
-        self.assertFalse((self.main / ".rt" / "ver-baseline").exists())
+        self.assertFalse((self.main / ".plane-runtime" / "ver-baseline").exists())
 
     def test_no_integration_tip_refuses(self):
         (self.q / "project.yaml").write_text("project_id: demo\nhosting: claude-team\nintegration_branch: trunk\n")
@@ -224,7 +224,7 @@ class UpDownUrls(WtFixture, unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual([u["name"] for u in body["urls"]], ["api", "app"])
         self.assertEqual(body["urls"][0]["url"], "http://localhost:310002/")
-        self.assertTrue((self.main / ".rt" / name / "up.flag").exists())
+        self.assertTrue((self.main / ".plane-runtime" / name / "up.flag").exists())
         self.assertEqual(self.state(name)["state"], "up")
         self.assertEqual(self.wt("urls", name)[1], body["urls"])
 
@@ -268,7 +268,7 @@ class UpDownUrls(WtFixture, unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(marker.read_text().split("\n")[:2], ["down", "teardown main"])
         self.assertIn("env.teardown", err)
-        self.assertFalse((self.main / ".rt" / name).exists())
+        self.assertFalse((self.main / ".plane-runtime" / name).exists())
         self.assertFalse((self.q / "worktrees" / f"{name}.json").exists())
 
     def test_a_hook_that_hangs_is_killed_with_its_children(self):
@@ -285,19 +285,19 @@ class Cleanup(WtFixture, unittest.TestCase):
     def test_remove_task_takes_every_recorded_worktree_and_old_unrecorded_ones(self):
         self.ccp("tasks", "claim", "0002")
         self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head())
-        git(self.main, "worktree", "add", "-q", "--detach", str(self.main / ".rt" / "rev-0002"), self.head())  # pre-§12.1
+        git(self.main, "worktree", "add", "-q", "--detach", str(self.main / ".plane-runtime" / "rev-0002"), self.head())  # pre-§12.1
         listed = {r["name"]: r.get("recorded", True) for r in self.wt("list")[1]}
         self.assertEqual(listed, {"impl-0002": True, "ver-0002": True, "rev-0002": False})
         warnings = wt.remove_task(config.load(self.main), self.q, "0002-second")
         self.assertEqual(warnings, [])
         for n in ("impl-0002", "ver-0002", "rev-0002"):
-            self.assertFalse((self.main / ".rt" / n).exists(), n)
+            self.assertFalse((self.main / ".plane-runtime" / n).exists(), n)
         self.assertEqual(list((self.q / "worktrees").glob("*.json")), [])
 
     def test_gc_forgets_missing_and_removes_finished_tasks(self):
         self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head())
         self.wt("create", "--kind", "mac", "--task", "0002", "--sha", self.head())
-        git(self.main, "worktree", "remove", "--force", str(self.main / ".rt" / "mac-0002"))
+        git(self.main, "worktree", "remove", "--force", str(self.main / ".plane-runtime" / "mac-0002"))
         body = self.wt("gc")[1]
         self.assertEqual(body["forgot"], ["mac-0002"])
         (self.q / "tasks").mkdir(exist_ok=True)
@@ -311,7 +311,7 @@ class LeftoverMergeWorktree(WtFixture, unittest.TestCase):
     worktrees, and removed by gc once its task is done or dropped and leased by no one."""
 
     def leftover(self, nnnn: str = "0002") -> Path:
-        path = self.main / ".rt" / f"merge-{nnnn}"
+        path = self.main / ".plane-runtime" / f"merge-{nnnn}"
         git(self.main, "worktree", "add", "-q", "--detach", str(path), self.head())
         return path
 
@@ -395,9 +395,9 @@ class MainCheckout(unittest.TestCase):
 
     def test_a_linked_worktree_of_a_separate_git_dir_finds_the_main_checkout(self):
         main = self.repo("--separate-git-dir", str(self.t / "gitdir"))
-        git(main, "worktree", "add", "-q", "--detach", str(main / ".rt" / "inside"))
+        git(main, "worktree", "add", "-q", "--detach", str(main / ".plane-runtime" / "inside"))
         git(main, "worktree", "add", "-q", "--detach", str(self.t / "beside"))
-        self.assertEqual(wt.main_of(main / ".rt" / "inside"), main)  # under the main checkout
+        self.assertEqual(wt.main_of(main / ".plane-runtime" / "inside"), main)  # under the main checkout
         self.assertEqual(wt.main_of(self.t / "beside"), main)  # next to it
         (self.t / "beside" / "sub").mkdir()
         self.assertEqual(wt.main_of(self.t / "beside" / "sub"), main)
@@ -413,7 +413,7 @@ class MainCheckout(unittest.TestCase):
 class Config(WtFixture, unittest.TestCase):
     def test_legacy_adapter_keys_fold_into_worktrees(self):
         cfg = config.load(self.main)
-        self.assertEqual((cfg.worktrees["dir"], cfg.worktrees["links"]), (".rt", [".venv"]))
+        self.assertEqual((cfg.worktrees["dir"], cfg.worktrees["links"]), (".plane-runtime", [".venv"]))
         self.plane(worktrees={"dir": None, "links": []},
                    adapter={"worktree_dir": ".lg", "worktree_links": [".env"], "post_close": []})
         cfg = config.load(self.main)
@@ -423,7 +423,7 @@ class Config(WtFixture, unittest.TestCase):
         self.assertEqual(config.load(self.main).worktrees["dir"], ".wt")
 
     def test_bad_blocks_are_refused(self):
-        for bad in ({"worktrees": {"dir": ".x"}, "adapter": {"worktree_dir": ".rt"}},  # both the block and the legacy key
+        for bad in ({"worktrees": {"dir": ".x"}, "adapter": {"worktree_dir": ".plane-runtime"}},  # both the block and the legacy key
                     {"env": {"up": 3}}, {"env": {"timeout_seconds": 0}},
                     {"merge": {"command": "gh pr merge {pr} --squash"}},  # not pinned to the head
                     {"auth_check": {"probes": [{"id": "gh"}]}},
@@ -503,7 +503,7 @@ class ReviewFixes(WtFixture, unittest.TestCase):
         self.ccp("tasks", "claim", "0002")
         code, body, _, err = self.ccp("tasks", "release", "0002", "--reason", "too early")
         self.assertEqual(code, 0, err)
-        self.assertTrue((self.main / ".rt" / "impl-0002").is_dir())
+        self.assertTrue((self.main / ".plane-runtime" / "impl-0002").is_dir())
         self.assertTrue(any("worktree" in w and "kept" in w for w in body["warnings"]))
 
     def test_gc_spares_a_leased_task(self):
@@ -529,7 +529,7 @@ class ReviewFixes(WtFixture, unittest.TestCase):
         marker = self.main / "ran-in-main"
         self.plane(env={"teardown": f"touch {marker}"})
         name = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head())[1]["name"]
-        git(self.main, "worktree", "remove", "--force", str(self.main / ".rt" / name))
+        git(self.main, "worktree", "remove", "--force", str(self.main / ".plane-runtime" / name))
         code, _, _, err = self.wt("remove", name)
         self.assertEqual(code, 0)
         self.assertIn("were not run", err)
@@ -547,13 +547,13 @@ class ReviewFixes(WtFixture, unittest.TestCase):
     def test_path_fields_are_quoted_and_raw_in_the_environment(self):
         self.plane(env={"setup": 'printf "%s|%s" {worktree} "$CCP_WT_WORKTREE" > fields.txt'})
         name = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head())[1]["name"]
-        p = self.main / ".rt" / name
+        p = self.main / ".plane-runtime" / name
         self.assertEqual((p / "fields.txt").read_text(), f"{p}|{p}")
 
     def test_create_prunes_a_stale_registration_and_retries_a_taken_name(self):
         name = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head())[1]["name"]
         import shutil
-        shutil.rmtree(self.main / ".rt" / name)  # gone from disk, still registered with git
+        shutil.rmtree(self.main / ".plane-runtime" / name)  # gone from disk, still registered with git
         (self.q / "worktrees" / f"{name}.json").unlink()
         code, body, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head())
         self.assertEqual(code, 0, err)
@@ -597,9 +597,9 @@ class SingleRunnerWorktree(WtFixture, unittest.TestCase):
     def setUp(self):
         super().setUp()
         (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text()
-                                             + f"product_root: {self.main}\nrunner:\n  name: runner\n  worktree: .rt/solo\n")
+                                             + f"product_root: {self.main}\nrunner:\n  name: runner\n  worktree: .plane-runtime/solo\n")
         (self.q / "work.json").write_text(json.dumps({"project_id": "demo", "status": "idle"}))
-        self.solo = self.main / ".rt" / "solo"
+        self.solo = self.main / ".plane-runtime" / "solo"
 
     def spawn(self):
         r = subprocess.run(["bash", str(PLANE / "scripts" / "team.sh"), "runner", "spawn", "--scope", "0002-second"],
@@ -673,7 +673,7 @@ class ExecOwnCcp(WtFixture, unittest.TestCase):
 
     def made(self) -> tuple[str, Path]:
         name = self.wt("create", "--kind", "rev", "--task", "0002", "--sha", self.head())[1]["name"]
-        path = self.main / ".rt" / name
+        path = self.main / ".plane-runtime" / name
         (path / "bin").mkdir(exist_ok=True)
         (path / "bin" / "ccp").write_text(OWN_CCP)
         return name, path
@@ -804,11 +804,11 @@ class Shallow(WtFixture, unittest.TestCase):
         name = self.shallow(self.head())[1]["name"]
         code, body, _, err = self.wt("remove", name)
         self.assertEqual((code, body["warnings"]), (0, []), err)
-        self.assertFalse((self.main / ".rt" / name).exists())
+        self.assertFalse((self.main / ".plane-runtime" / name).exists())
         self.assertFalse((self.q / "worktrees" / f"{name}.json").exists())
         name = self.shallow(self.head())[1]["name"]
         self.assertEqual(wt.remove_task(config.load(self.main), self.q, "0002-second"), [])
-        self.assertFalse((self.main / ".rt" / name).exists())
+        self.assertFalse((self.main / ".plane-runtime" / name).exists())
 
     def test_reuse_needs_the_same_depth(self):
         head = self.head()
@@ -826,14 +826,14 @@ class Shallow(WtFixture, unittest.TestCase):
         head = self.head()
         code, _, _, err = self.wt("create", "--kind", "impl", "--task", "0002", "--shallow")
         self.assertEqual(code, 2, err)
-        self.assertFalse((self.main / ".rt" / "impl-0002").exists())
+        self.assertFalse((self.main / ".plane-runtime" / "impl-0002").exists())
         code, _, _, err = self.wt("create", "--kind", "base", "--task", "0002", "--sha", head, "--shallow", "--", "true")
         self.assertEqual(code, 125, err)
         self.assertEqual(self.wt("list", "--shallow")[0], 2)
         self.assertEqual(self.wt("create", "--kind", "ver", "--baseline", "--shallow")[0], 2)
         code, _, _, err = self.shallow("f" * 40)
         self.assertEqual(code, 1, err)
-        self.assertFalse((self.main / ".rt" / "ver-0002").exists())
+        self.assertFalse((self.main / ".plane-runtime" / "ver-0002").exists())
         self.assertEqual(list((self.q / "worktrees").glob("*.json")) if (self.q / "worktrees").is_dir() else [], [])
 
 
@@ -984,8 +984,8 @@ class OwnHooks(WtFixture, unittest.TestCase):
         sha = self.commit("{ not json")
         code, _, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--own-hooks")
         self.assertEqual(code, 1, err)
-        self.assertIn(str(self.main / ".rt" / "ver-0002" / "docs/delivery/plane.json"), err)
-        self.assertFalse((self.main / ".rt" / "ver-0002").exists())
+        self.assertIn(str(self.main / ".plane-runtime" / "ver-0002" / "docs/delivery/plane.json"), err)
+        self.assertFalse((self.main / ".plane-runtime" / "ver-0002").exists())
         self.assertFalse((self.q / "worktrees" / "ver-0002.json").exists())
 
     def test_the_hook_timeout_is_the_worktrees_own(self):
@@ -1001,7 +1001,7 @@ class OwnHooks(WtFixture, unittest.TestCase):
         self.plane(env={**self.MAIN_ENV, "up": "exit 9", "down": "exit 9", "teardown": "exit 9"})
         sha = self.own(up="echo head > up.txt", down="echo head > down.txt", teardown=f"echo head > {marker}")
         name = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--own-hooks")[1]["name"]
-        p = self.main / ".rt" / name
+        p = self.main / ".plane-runtime" / name
         code, _, _, err = self.wt("up", name)
         self.assertEqual(code, 0, err)
         self.assertEqual((p / "up.txt").read_text().strip(), "head")
@@ -1017,7 +1017,7 @@ class OwnHooks(WtFixture, unittest.TestCase):
         self.plane(env={**self.MAIN_ENV, "down": f"touch {marker}", "teardown": f"touch {marker}"})
         sha = self.own(setup="true")
         name = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--own-hooks")[1]["name"]
-        p = self.main / ".rt" / name
+        p = self.main / ".plane-runtime" / name
         (p / "docs/delivery/plane.json").write_text("{ not json")
         code, body, _, err = self.wt("down", name)
         self.assertEqual(code, 0, err)
@@ -1034,7 +1034,7 @@ class OwnHooks(WtFixture, unittest.TestCase):
         self.plane(env={})  # the caller declares no hooks; the worktree's own are unknown once it is gone
         sha = self.own(teardown="true")
         name = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", sha, "--own-hooks")[1]["name"]
-        git(self.main, "worktree", "remove", "--force", str(self.main / ".rt" / name))
+        git(self.main, "worktree", "remove", "--force", str(self.main / ".plane-runtime" / name))
         code, _, _, err = self.wt("remove", name)
         self.assertEqual(code, 0, err)
         self.assertIn("were not run", err)
@@ -1062,10 +1062,10 @@ class OwnHooks(WtFixture, unittest.TestCase):
                                   "--own-hooks")
         self.assertEqual(code, 3, err)
         self.assertEqual(self.wt("create", "--kind", "ver", "--baseline", "--own-hooks")[0], 2)
-        self.assertFalse((self.main / ".rt" / "ver-baseline").exists())
+        self.assertFalse((self.main / ".plane-runtime" / "ver-baseline").exists())
         self.assertEqual(self.wt("list", "--own-hooks")[0], 2)
         self.assertEqual(self.wt("remove", "ver-0002", "--own-hooks")[0], 2)
-        self.assertTrue((self.main / ".rt" / "ver-0002").is_dir())
+        self.assertTrue((self.main / ".plane-runtime" / "ver-0002").is_dir())
 
 
 if __name__ == "__main__":

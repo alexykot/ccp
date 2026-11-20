@@ -21,7 +21,6 @@ sys.path.insert(0, str(PLANE / "scripts" / "observability"))
 import lib  # noqa: E402
 
 from ccp import init as ccp_init  # noqa: E402
-from tests.helpers import without_constant_warnings  # noqa: E402
 
 GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
            "GIT_COMMITTER_EMAIL": "t@example.com", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
@@ -76,7 +75,7 @@ class Adopt(InitCase):
             self.assertTrue((self.repo / rel).is_file(), rel)
         self.assertEqual((self.repo / "docs/PROJECT.md").read_text(), (PLANE / "templates/docs-project/PROJECT.md").read_text())
         self.assertEqual(json.loads((self.repo / "docs/delivery/plane.json").read_text()),
-                         {"project_id": "demo", "worktrees": {"dir": ".plane-runtime"},
+                         {"project_id": "demo",
                           "architect": {"shape_from_task": "0001"}, **ccp_init.STARTER_CONFIG})
         self.assertEqual((self.repo / "docs/ENGINEERING.md").read_text(),
                          (PLANE / "templates/docs-project/starter-rules.md").read_text())
@@ -160,7 +159,7 @@ class Adopt(InitCase):
         self.assertEqual(code, 0, res)
         self.assertFalse((self.repo / "docs/ENGINEERING.md").exists())
         cfg = json.loads((self.repo / "docs/delivery/plane.json").read_text())
-        self.assertEqual(cfg, {"project_id": "demo", "worktrees": {"dir": ".plane-runtime"},
+        self.assertEqual(cfg, {"project_id": "demo",
                                "architect": {"shape_from_task": "0001"}})
 
     def test_the_two_starter_rules_flags_together_are_refused_and_write_nothing(self):
@@ -532,7 +531,7 @@ class GithubOrigin(InitCase):
                 self.git("remote", "set-url", "origin", url)
                 res, err = self.adopt()
                 self.assertNotIn("warnings", res)
-                self.assertNotIn("warning", without_constant_warnings(err))
+                self.assertNotIn("warning", err)
 
 
 class EarlierTaskFiles(InitCase):

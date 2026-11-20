@@ -11,9 +11,12 @@ import unittest
 from contextlib import redirect_stderr
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
-from ccp import architect, config, prompt, tasklog, usage
+from ccp import architect, board, config, drill, estimate, forecast, health, init, prompt, tasklog, usage, wt
 from tests.helpers import Product
+from tests.test_board_seats import Base, req
+from tests.test_toolkit import ToolkitFixture
 from tests.test_upgrade import UpgradeFixture
 from tests.test_usage_advice import row
 
@@ -44,6 +47,47 @@ CONSTANTS = {
     "mutate": ("timeout_seconds",),
     "notify": ("timeout_seconds",),
     "telemetry": ("design_seat",),
+}
+# The default each of these keys had before it became a constant (read from the code at the merge base): a constant
+# moves the value into code and must not change it.
+WAS = {
+    "task_log.dir": "docs/delivery",
+    "task_log.required": ["task_id", "title", "status", "depends_on", "spec_refs", "created", "updated"],
+    "task_log.refs_any": ["spec_refs"],
+    "task_log.sections": ["Intent", "Context (not checked)", "Scope", "dod_checks", "Implementation notes",
+                          "Verification notes"],
+    "task_log.kinds": {"feature": {}, "refactor": {"refs_any": ["rule_refs", "review_refs"],
+                                                   "forbid": ["spec_refs", "adr_refs"]}},
+    "task_log.reviews_dir": "reviews", "task_log.max_checks": 6,
+    "task_log.soft_words": ["should", "may", "might", "as appropriate", "gracefully", "robust", "robustly"],
+    "task_log.index": True, "task_log.dry_run": False,
+    "package_docs.doc_name": ".claude.md", "package_docs.size_ratio": 0.5,
+    "package_docs.banned_headings": ["future", "planned", "next steps", "roadmap", "todo"],
+    "package_docs.path_ref_suffixes": [".py", ".sql", ".json", ".md", ".sh"], "package_docs.no_delivery_ids": True,
+    "docs.workers": 1,
+    "architect.rules_max_lines": 150, "architect.max_days": 14, "architect.notes_due": 3,
+    "architect.drift_ratio": 1.5, "architect.grace_tasks": 1, "architect.triage_grace_tasks": 2,
+    "architect.refactor_in_scope": "deps", "architect.call_timeout_minutes": 45, "architect.max_new_tasks": 5,
+    "prompts.keep_body": False, "prompts.audit_keep_days": None,
+    "worktrees.dir": ".plane-runtime",  # was null: ADR-0043 D9 names this default, and init wrote it
+    "env.timeout_seconds": 600, "auth_check.timeout_seconds": 60, "board.refresh_minutes": 5,
+    "gate.shell_limit_seconds": 600, "gate.cut_line_seconds": None,
+    "health.small_task_lines": 100, "health.slowest_modules": 5, "health.suite_trend_runs": 10,
+    "usage.advice.cache_5m_share": 0.5, "usage.advice.context_tokens": 300000,
+    "usage.advice.coordination_share": 0.4, "usage.advice.window_hours": 0,
+    "workers.small_estimate_minutes": 30,
+    "suite.summary.ran_re": [], "suite.summary.cached_re": [], "suite.summary.cached_tests_re": [],
+    "suite.summary.tail_lines": 40, "suite.summary.max_chars": 40000,
+    "suite.log_keep_days": 14, "suite.roles": {"full": "full", "gate": "gate", "part": "part"},
+    "adr.statuses": ["proposed", "accepted", "in-progress", "implemented", "rejected", "superseded", "withdrawn",
+                     "retired"],
+    "adr.transitions": {"proposed": ["accepted", "rejected", "withdrawn"], "accepted": ["superseded", "retired"],
+                        "in-progress": ["accepted", "superseded", "retired"],
+                        "implemented": ["superseded", "retired"]},
+    "review_points.file": "docs/delivery/review-points.yaml",
+    "estimate.k": 6, "estimate.path_suffixes": None, "estimate.calibration": {"half_life": 40, "min_pairs": 8, "k": None},
+    "mutate.timeout_seconds": 600, "notify.timeout_seconds": 30,
+    "telemetry.design_seat": None,  # the lead's expected model is `models.lead` now (`config.design_seat`)
 }
 KEPT = (("adr", "strict"), ("verify", "skip_review_after_clean"), ("estimate", "auto"), ("architect", "shape_adrs"),
         ("prompts", "fragment"), ("suite", "lanes"))
@@ -95,6 +139,10 @@ class TheConstants(unittest.TestCase):
                 self.assertIsNot(schema_prop(f"{block}.{key}").get("deprecated"), True)
 
     def test_a_constant_is_the_default_the_key_had(self):
+        self.assertEqual(set(WAS), set(self.keys()))
+        for key, was in WAS.items():
+            with self.subTest(key=key):
+                self.assertEqual(config.KEY_OUTCOMES[key].value, was)
         for key in self.keys():
             o = config.KEY_OUTCOMES[key]
             *path, name = key.split(".")
@@ -238,6 +286,89 @@ class TheNewDefaults(unittest.TestCase):
                     cfg, _ = load({"models": {"lead": lead}})
                     advice = usage.fold(q, None, config.design_seat(cfg))["advice"]
                     self.assertEqual(any("the design seat ran on" in x for x in advice), not ran_on_it, advice)
+
+
+class TheWorktreesDirectory(unittest.TestCase):
+    """`worktrees.dir` is a constant at `.plane-runtime` (ADR-0043 D9): a product that names nothing has its
+    worktrees there, and `ccp init` writes no key for it."""
+
+    def product(self, **plane):
+        p = Product({"project_id": "demo", "language": "none", **plane}, bare=True)
+        self.addCleanup(p.cleanup)
+        return p
+
+    def test_unset_the_worktrees_go_under_the_constant_with_no_warning(self):
+        cfg, err = load({})
+        self.assertEqual((cfg.worktrees["dir"], err), (".plane-runtime", ""))
+        cfg = self.product().cfg
+        self.assertEqual(wt.base_dir(cfg), (cfg.root / ".plane-runtime").resolve())
+
+    def test_a_product_that_still_sets_the_constant_value_loads_with_the_note_to_delete_it(self):
+        cfg, err = load({"worktrees": {"dir": ".plane-runtime"}})
+        self.assertEqual(cfg.worktrees["dir"], ".plane-runtime")
+        self.assertIn("worktrees.dir is a constant in code ('.plane-runtime') and is set to that value: delete it", err)
+        self.assertNotIn("still applies", err)
+
+    def test_a_different_value_applies_with_a_warning_and_null_is_no_worktrees(self):
+        cfg, err = load({"worktrees": {"dir": "../trees"}})
+        self.assertEqual(cfg.worktrees["dir"], "../trees")
+        self.assertIn("worktrees.dir is a constant in code ('.plane-runtime'); the value '../trees' set here still applies", err)
+        cfg, err = load({"worktrees": {"dir": None}})
+        self.assertIsNone(cfg.worktrees["dir"])
+        self.assertIn("worktrees.dir is a constant in code", err)
+        self.assertIsNone(wt.base_dir(self.product(worktrees={"dir": None}).cfg))
+
+    def test_init_writes_no_key_for_it_and_ignores_the_constants_directory(self):
+        self.assertNotIn("worktrees", json.loads(init.plane_json_text("demo", "scripts/gate.sh", True, "python", "0001")))
+        self.assertEqual(init.WORKTREES_DIR, config.WORKTREES_DIR)
+        self.assertEqual(config.WORKTREES_DIR, ".plane-runtime")
+        self.assertEqual(schema_prop("worktrees.dir")["default"], ".plane-runtime")
+
+
+class TheLeadsExpectedModelReaders(Base, ToolkitFixture, unittest.TestCase):
+    """A product with no `telemetry.design_seat` and `models.lead` on an alias other than the default, whose lead ran
+    on opus: each reader of the lead's expected model reads `models.lead` (`config.design_seat`)."""
+
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "models": {"lead": "sonnet"}}
+
+    def setUp(self):
+        super().setUp()
+        self.requests(req("r1", 1, "claude-opus-5-5", "high"), spans=[{"request_id": "r1"}])
+
+    def spy(self, *call):
+        """What each `usage.fold` the call makes was given as the design seat."""
+        with mock.patch.object(usage, "fold", wraps=usage.fold) as fold:
+            call[0](*call[1:])
+        self.assertTrue(fold.call_args_list)
+        return [c.args[2] for c in fold.call_args_list]
+
+    def test_the_seats_row_expects_models_lead_and_says_where_from(self):
+        self.assertIsNone(config.load(self.main).telemetry["design_seat"])
+        lead = self.rows(self.build())["design seat"]
+        self.assertEqual(lead["expected"]["model"], "sonnet")
+        self.assertEqual(lead["expected"]["source"], "docs/delivery/plane.json models.lead (advisory, §24.5)")
+        self.assertEqual(lead["observed"]["model"], "claude-opus-5-5")
+        self.assertTrue(any(m.startswith("model ") for m in lead["mismatch"]), lead["mismatch"])
+
+    def test_the_board_advises_that_the_operator_expects_models_lead(self):
+        advice = self.build()["usage"]["advice"]
+        self.assertTrue(any("the design seat ran on claude-opus-5-5; the operator expects sonnet" in x for x in advice),
+                        advice)
+
+    def test_ccp_usage_advises_that_the_operator_expects_models_lead(self):
+        code, body, out, err = self.ccp("usage", "--json", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(any("the design seat ran on claude-opus-5-5; the operator expects sonnet" in x
+                            for x in body["advice"]), body["advice"])
+
+    def test_the_task_view_the_estimator_and_the_forecast_fold_the_usage_against_models_lead(self):
+        cfg = config.load(self.main)
+        want = {"model": "sonnet", "effort": None}
+        self.assertEqual(self.spy(board.task_text, cfg, self.q, "0001"), [want])
+        with mock.patch.object(health, "collect", return_value={"tasks": [{"task_id": "0001-first"}]}), \
+                mock.patch.object(drill, "collect", return_value={}):  # a merged task to fold the usage for
+            self.assertEqual(self.spy(estimate._live, cfg, self.q), [want])
+        self.assertEqual(self.spy(forecast.run, cfg, self.q), [want])
 
 
 if __name__ == "__main__":

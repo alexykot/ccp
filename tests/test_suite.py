@@ -15,7 +15,7 @@ from unittest import mock
 from pathlib import Path
 
 from ccp import board, config, suite
-from tests.helpers import Product, without_constant_warnings
+from tests.helpers import Product
 from tests.test_toolkit import ToolkitFixture
 
 PLANE = Path(__file__).resolve().parents[1]
@@ -80,13 +80,13 @@ class Transparency(SuiteFixture, unittest.TestCase):
         r = self.run_suite("--full", "--lane", "part", "--", PY, "-c", script)
         self.assertEqual(r.returncode, 3)
         self.assertEqual(r.stdout, b"out \xff\n" * 3 + b"no newline")
-        self.assertEqual(without_constant_warnings(r.stderr), b"err line\n")
+        self.assertEqual(r.stderr, b"err line\n")
         ended = [x for x in self.rows() if x["op"] == "ended"]
         self.assertEqual([x["exit_code"] for x in ended], [3])
 
     def test_stdin_is_the_commands_and_a_zero_exit_is_zero(self):
         r = self.run_suite("--full", "--", PY, "-c", "import sys; sys.stdout.write(sys.stdin.read().upper())", stdin=b"abc\n")
-        self.assertEqual((r.returncode, r.stdout, without_constant_warnings(r.stderr)), (0, b"ABC\n", b""))
+        self.assertEqual((r.returncode, r.stdout, r.stderr), (0, b"ABC\n", b""))
 
     def test_a_missing_command_exits_127(self):
         r = self.run_suite("--", "/nonexistent/suite-command")
@@ -146,7 +146,7 @@ class Binding(SuiteFixture, unittest.TestCase):
 
     def test_without_flags_a_running_run_binds_only_inside_its_worktree(self):
         self.implementing()
-        wt = self.main / ".rt" / "impl-0002"
+        wt = self.main / ".plane-runtime" / "impl-0002"
         ccp_proc(wt, "suite", "run", "--", PY, "-c", "pass")
         self.assertIsNone(self.rows()[0]["run_id"])  # pending, not running: unbound
         self.ccp("agent", "start", stdin=json.dumps({"agent_id": "a1", "agent_type": "delivery-implementer"}))
@@ -345,7 +345,7 @@ class NeverBlocks(SuiteFixture, unittest.TestCase):
             r = subprocess.run([CCP, "suite", "run", "--full", "--", PY, "-c", script], cwd=self.runner, stdout=fh,
                                stderr=subprocess.STDOUT, env=dict(os.environ), timeout=60)
         self.assertEqual(r.returncode, 0)
-        self.assertEqual(without_constant_warnings(out.read_text()), "".join(f"{i}\n" for i in range(50)))
+        self.assertEqual(out.read_text(), "".join(f"{i}\n" for i in range(50)))
 
     def test_signals_are_forwarded_and_the_run_recorded_as_interrupted(self):
         child = ("import signal, sys, time\n"
@@ -716,7 +716,7 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
         self.assertIn("`--lane gate` for the formal gate", prompt_mod.suite_lanes(bare.cfg, "verify"))
         self.assertIn("`--lane part` for the tests you run", prompt_mod.suite_lanes(bare.cfg, "review"))
         rec = json.loads((self.q / "runs/0002-second/implement.json").read_text())
-        self.assertEqual(rec["worktree"], str(self.main / ".rt" / "impl-0002"))
+        self.assertEqual(rec["worktree"], str(self.main / ".plane-runtime" / "impl-0002"))
         # §14.1 (amended 2026-10-22): the rule is stated once, in the prompt; a definition names the
         # command only in its evidence bullet (§13.1)
         for a in ("implementer", "reviewer", "verifier"):
@@ -778,7 +778,7 @@ class Summary(SuiteFixture, unittest.TestCase):
         script = ("import sys\nfor i in range(500): print(f'line-{i}')\n"
                   "print('Ran 3 tests in 0.1s', file=sys.stderr); print('OK (skipped=1)', file=sys.stderr)\n")
         r = self.run_suite("--lane", "full", "--", PY, "-c", script, env={"PYTHONUNBUFFERED": "1"})
-        self.assertEqual((r.returncode, without_constant_warnings(r.stderr)), (0, b""), r.stderr)
+        self.assertEqual((r.returncode, r.stderr), (0, b""), r.stderr)
         out = r.stdout.decode()
         self.assertNotIn("line-", out)
         lines = out.splitlines()
@@ -891,7 +891,7 @@ class Summary(SuiteFixture, unittest.TestCase):
         inner = f"{CCP} suite run --summary --lane part -- {PY} -c \"print('Ran 2 tests in 0s')\""
         r = self.run_suite("--lane", "full", "--", "sh", "-c", inner)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(without_constant_warnings(_start_log(r.stdout).read_text()), "Ran 2 tests in 0s\n")
+        self.assertEqual(_start_log(r.stdout).read_text(), "Ran 2 tests in 0s\n")
         self.assertEqual(r.stdout.decode().count("ccp suite: st-"), 2)  # the outer's start and summary lines
         self.assertEqual([x["op"] for x in self.rows()], ["started", "ended"])
         self.assertEqual(self.rows()[1]["tests"], 2)

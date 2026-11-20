@@ -316,11 +316,11 @@ class MergeIn(ToolkitFixture, unittest.TestCase):
         return git(wt, "rev-parse", "HEAD")
 
     def test_a_merge_in_with_the_same_change_needs_no_new_review(self):
-        wt = self.main / ".rt" / "impl-0002"
+        wt = self.main / ".plane-runtime" / "impl-0002"
         reviewed = self.commit(wt, "feature.txt", "built\n", "Task 0002: build it")
         git(wt, "push", "-q", "-u", "origin", "task/0002-second")
         self.review(reviewed)
-        other = self.main / ".rt" / "other"  # another task merges to main meanwhile
+        other = self.main / ".plane-runtime" / "other"  # another task merges to main meanwhile
         git(self.main, "worktree", "add", "-q", "--detach", str(other), "origin/main")
         self.commit(other, "other.txt", "x\n", "Task 0009: other")
         git(other, "push", "-q", "origin", "HEAD:main")
