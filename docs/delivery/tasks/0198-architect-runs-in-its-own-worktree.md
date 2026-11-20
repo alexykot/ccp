@@ -106,8 +106,9 @@ Measured at `58cf1d0`.
   - §19.7 step 2. CURRENT (`docs/spec/03-quality.md` at `58cf1d0`): "then run a fresh
     `claude -p "/architect …"` from the product root:". PROPOSED: "then run a fresh
     `claude -p "/architect …"` in the pass's own worktree, `arch-<review id>` under the worktree
-    directory (§12.1), made detached at `head` and removed when the run ends, so a checkout that moves
-    during the pass changes nothing the pass reads:".
+    directory (or the product root when there is no worktree directory, §12.1), made detached at
+    `head` and removed when the run ends, so a checkout that moves during the pass changes nothing
+    the pass reads:".
   - §19.7 step 2, the deny bullet. CURRENT (`docs/spec/03-quality.md` at `58cf1d0`): "and
     `Read(./<p>)` / `Read(./<p>/**)` denied for each `private_dirs` entry;". PROPOSED: "and
     `Read(./<p>)` / `Read(./<p>/**)` denied for each `private_dirs` entry, with the same two rules
@@ -160,15 +161,6 @@ Measured at `58cf1d0`.
   expect: at least one failure, naming the cwd test or the moving-checkout test.
   dry run: n/a — the tests are new.
 
-- id: `ar-05`
-  story: As an operator, a pass in a worktree still cannot read a private path by its absolute path.
-  setup: a copy of the PR head (`git worktree add --detach <tmp> HEAD`) in which the deny list
-    keeps only the two `./` rules.
-  steps:
-    1. In the copy, run `python3 -B -m unittest -v tests.test_architect 2>&1 | grep -i private`.
-  expect: the `private` test is listed as a failure.
-  dry run: n/a — the test is new.
-
 - id: `ar-03`
   story: As a lead, one call shapes every ADR due.
   setup: a checkout of the PR head.
@@ -189,6 +181,15 @@ Measured at `58cf1d0`.
     4. Run `tr -s '[:space:]' ' ' < docs/spec/03-quality.md | grep -c 'absolute path under the pass.s worktree and under the product root'`.
   expect: step 1 prints 0; steps 2, 3 and 4 each print 1.
   dry run (`58cf1d0`): 1, 0, 0 and 0.
+
+- id: `ar-05`
+  story: As an operator, a pass in a worktree still cannot read a private path by its absolute path.
+  setup: a copy of the PR head (`git worktree add --detach <tmp> HEAD`) in which the deny list
+    keeps only the two `./` rules.
+  steps:
+    1. In the copy, run `python3 -B -m unittest -v tests.test_architect 2>&1 | grep -i private`.
+  expect: the `private` test is listed as a failure.
+  dry run: n/a — the test is new.
 
 - id: `suite-01`
   story: As the plane, nothing else broke.

@@ -37,10 +37,11 @@ Measured at `58cf1d0`.
   Both are descriptions that landed in `contracts/allowance.schema.json` and
   `contracts/machine.schema.json`, each present there verbatim, as a search of each file for its
   passage's words shows (`grep -c 'is a failed read that says when to retry' contracts/allowance.schema.json` at `58cf1d0`: 1).
-- Each of those two blocks names its file in backticks on a plain line above its CURRENT
+- Each of those two blocks names its file in backticks, opening the line just above its CURRENT
   (`grep -n '^.contracts/' docs/delivery/tasks/0197-*.md` at `58cf1d0`: lines 462 and 477, naming
   `contracts/allowance.schema.json` and `contracts/machine.schema.json`). The quoted CURRENT text mentions other files, but
-  only inside `> ` lines, which the rule below does not read.
+  only inside `> ` lines, which the rule below does not read. A Scope block written inline names its
+  file in a locator instead, as in "CURRENT (`docs/spec/02-delivery.md` at `58cf1d0`)".
 - `spec_text` has four `return 2` cases: an unknown task, no passage, a `--head` that names no
   commit, and a base the diff cannot be read against (`git grep -n 'return 2' ccp/verify.py` at
   `58cf1d0`, in `spec_text`: four returns). §15.2 names only the no-passage case. A plane proposal on
@@ -56,26 +57,34 @@ Measured at `58cf1d0`.
 ## Scope
 
 - **In:** `ccp/verify.py`, `docs/spec/02-delivery.md`, `tests/test_verify_spec_text.py`.
-- **The file a passage names.** For each passage, its named files are the paths written in
-  backticks on the lines that are not `> ` quotes, between the end of the previous passage (or the
-  start of its section) and its own `PROPOSED:` line. `signed_passages` gives each passage these
-  paths, or a new helper beside it does.
+- **The file a passage names.** A passage's block (its `CURRENT` and `PROPOSED:` markers with their
+  quotes) names at most one file, found in one of two places only:
+  - the path in the block's locator, `(`<path>` at `<commit>`)`, written after its `CURRENT`;
+  - the backticked path that opens the nearest line above the block that is neither blank nor a
+    `> ` quote, as in "`contracts/machine.schema.json`, `allowance_cmd`'s `description`.".
+
+  The name counts only when it is a path containing `/` and no glob character (`*`, `?`, `[`), and
+  never when it lies under `tests/`, under the task log's directory (`cfg.tasks_dir`), or is a SPEC
+  file. A backticked token anywhere else, such as one inside quoted CURRENT or PROPOSED text, inline
+  or in `> ` lines, names nothing. `signed_passages` gives each passage its named file, or None, or a
+  new helper beside it does.
 - **`ccp/verify.py`:** the hunk reader takes a predicate on the path. `spec_hunks` keeps the SPEC
   files as today. A new `named_hunks(cfg, base, head, paths)` keeps only the given paths, and never
-  a path under `tests/`, under the task log's directory (`cfg.tasks_dir`), or a SPEC file. Both read
+  one the rule above excludes. Both read
   hunks the same way: unchanged lines up to the nearest blank line, and a passage must cover an added
   character.
   - `spec_text` looks for each passage in the SPEC hunks first. Only a passage not found there is
-    looked for in the hunks of its own named files. `found_in` names the file or files it was found in.
+    looked for in the hunks of its own named file. `found_in` names the file or files it was found in.
   - A passage whose block names no file the branch changes is looked for in the SPEC only, as today.
   - The stderr line for a missing passage says "not found in the SPEC or the file its block names, in
     the text <head> changes since <base>".
 - **SPEC §15.2 (§31.1).** CURRENT (`docs/spec/02-delivery.md` at `58cf1d0`): "and nothing is
   fetched). It exits 0 when every passage is found, 1 naming each that is not, and 2 when the task
   carries no `PROPOSED:` block." PROPOSED: "and nothing is fetched). A passage not found there is
-  looked for in the same way in the hunks the diff makes to the files its own block names in
-  backticks outside its quotes, such as a contract whose text the operator signed, never a file under
-  `tests/` or the task log's directory; the result names the file each passage was found in. It
+  looked for in the same way in the hunks the diff makes to the one file its own block names, in its
+  `(<path> at <commit>)` locator or opening the line just above it, such as a contract whose text the
+  operator signed; a path inside quoted text names nothing, and a file under `tests/` or the task
+  log's directory is never searched. The result names the file each passage was found in. It
   exits 0 when every passage is found, 1 naming each that is not, and 2 when the task carries no
   `PROPOSED:` block, names no task, or gives a `--head` that names no commit or a base the diff cannot
   be read against."
@@ -87,6 +96,10 @@ Measured at `58cf1d0`.
     not found (exit 1);
   - a passage that the branch's diff adds only to the task file itself is not found (exit 1);
   - a passage that sits only in unchanged lines of the named file is not found (exit 1);
+  - a passage whose only mention of the contract is a backticked path inside its quoted CURRENT
+    text, with no locator and no line above naming it, is not found (exit 1), even though the
+    contract holds the text;
+  - a block whose locator names a glob (`contracts/*.json`) names nothing (exit 1);
   - a passage found in the SPEC is not also looked for elsewhere: `found_in` names the SPEC file
     alone, even when its named contract holds the same text.
 - **Out:** what the operator signs (§3.5), the reviewer's and verifier's use of the result, and a
@@ -110,7 +123,7 @@ Measured at `58cf1d0`.
   steps:
     1. On the head, run `python3 -B -m unittest -v tests.test_verify_spec_text 2>&1 | tail -30`.
     2. In the copy, run `python3 -B -m unittest -q tests.test_verify_spec_text`.
-  expect: step 1 exits 0 with the six Scope tests listed `ok`; step 2 fails, naming the `tests/`
+  expect: step 1 exits 0 with the eight Scope tests listed `ok`; step 2 fails, naming the `tests/`
     test.
   dry run (`58cf1d0`): step 1 runs 24 tests, OK.
 
@@ -118,7 +131,7 @@ Measured at `58cf1d0`.
   story: As the SPEC reader, §15.2 says where the check looks and every exit 2.
   setup: a checkout of the PR head.
   steps:
-    1. Run `tr -s '[:space:]' ' ' < docs/spec/02-delivery.md | grep -c 'the files its own block names in backticks outside its quotes'`.
+    1. Run `tr -s '[:space:]' ' ' < docs/spec/02-delivery.md | grep -c 'the one file its own block names, in its .(<path> at <commit>). locator'`.
     2. Run `grep -c 'carries no .PROPOSED:. block\. For a task' docs/spec/02-delivery.md`.
   expect: step 1 prints 1; step 2 prints 0.
   dry run (`58cf1d0`): step 1 prints 0; step 2 prints 1.
