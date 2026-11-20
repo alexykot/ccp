@@ -252,12 +252,37 @@ The advice reads every request, or those from `--since` when given, and each lin
 
 ### 25.1 Samples
 
-`ccp tasks claim` and `ccp board build` run the machine's `allowance_cmd`, from the machine file beside the bindings (§8.3), shared by every product on the machine. Without it no usage is read and nothing bounds spend: `ccp init` and the session-start check warn, naming the key, and the board shows `usage unread`. The command prints the
-account's usage windows as JSON (`contracts/allowance.schema.json`): `{windows: [{name, pct, resets_at}]}`,
-or the legacy form, one object per window with `utilization` and `resets_at`. Each run appends a
-sample to `board/allowance.jsonl` and emits `allowance/sample`. If the command fails or prints
-something unexpected, the sample is recorded as unknown, never as zero, and an unknown reading is a
-`warning:` on the claim that gates nothing.
+`ccp tasks claim`, `ccp prompt` (once its other refusal gates pass), `ccp allowance status
+--sample` and `ccp allowance session-wake --sample` and `--fire` take a reading of the machine's
+`allowance_cmd`, from the machine file beside the bindings (§8.3), shared by every product on the
+machine. Without it no usage is read and nothing bounds spend: `ccp init` and the session-start
+check warn, naming the key, and the board shows `usage unread`. The command prints the account's
+usage windows as JSON (`contracts/allowance.schema.json`): `{windows: [{name, pct, resets_at}]}`,
+or the legacy form, one object per window with `utilization` and `resets_at`. It may add
+`retry_after_s`, the seconds to wait before it is run again. A reading is good when the command
+exits 0 and at least one window has a figure.
+
+- **One reader per machine.** A reading is taken under an exclusive lock on a cache file in the
+  machine file's directory, one per command, which keeps the last good reading's windows. That
+  reading is reused while it is younger than 60 seconds; otherwise the command runs. Each run
+  appends a sample to `board/allowance.jsonl` and emits `allowance/sample`. A reused reading newer
+  than the product's latest good sample is appended with its own `at` and `reused: true`, its
+  fields worked out for this product, and emits nothing. When the cache cannot be locked, the
+  claim and the prompt say so in a `warning:`, and the reader works from the product's own
+  samples, with the same reuse and backoff.
+- **A failed read backs off.** If the command fails or prints no figure, the sample is recorded as
+  unknown, never as zero, with `failed: true`, its exit code and any `retry_after_s`, and never its
+  output. No caller then runs the command for 60 seconds, doubling at each further failure up to
+  15 minutes, or for the `retry_after_s` it printed when that is longer (at most 60 minutes). The
+  next good reading ends the backoff.
+- **Which reading a rule judges.** A failed sample is never judged. A rule that stops work (the
+  weekly checkpoint, §25.3; the session park, §25.4) judges the latest good sample of any age,
+  for each window whose reset is still ahead; a window with no reset time counts only while that
+  sample is in force. A rule that lets work through (the parallel claim rule, §16.3 rule 5;
+  lifting a park) judges only the reading in force: the latest good sample no older than
+  15 minutes. With none in force, the claim and the prompt say so in a `warning:`. Once the
+  account has gone unread for 60 minutes (no good reading since its failures began), a new claim
+  refuses (§25.3).
 
 ### 25.2 Usage windows
 
@@ -287,8 +312,15 @@ or a `park_pct` on a weekly one, is refused.
 
 - The project's checkpoint (the gating weekly window's `stop_pct`, the machine's `allowance_stop_weekly`) is drawn on the board. It is a point where the work stops and
   the operator decides, not a hard limit.
-- When a sample reaches it, `ccp tasks claim` refuses a **new** claim (exit 5, "allowance
-  checkpoint"). A resumed claim of a runner's own lease is never refused.
+- When the latest good sample reaches it, while its window's reset is still ahead (§25.1),
+  `ccp tasks claim` refuses a **new** claim (exit 5, "allowance checkpoint"). A resumed claim of a
+  runner's own lease is never refused.
+- **An account gone unread.** When the account has had no good reading for 60 minutes (§25.1),
+  `ccp tasks claim` refuses a **new** claim the same way (exit 5, "allowance checkpoint", usage
+  unread), and fires `allowance_checkpoint` with the reason `usage unread`, so the checkpoint
+  cannot lapse unseen. A resumed claim is never refused. The lead checks `allowance_cmd`, runs
+  `ccp allowance status --sample` until a good reading lands, then tells the runner to resume; no
+  decision is recorded, and the next good reading clears it.
 - On exit 5 the runner stops and tells the lead; the lead asks the operator and records their
   decision: `ccp allowance continue --to <percent> --reason "<the operator's words>"`. It refuses
   without a reason, a `--to` that does not raise the checkpoint, or a missing sample with a reset
@@ -315,8 +347,9 @@ the window's reset; the weekly checkpoint still stops for the operator.
   unknown.
 - **The park.** The gating session window's `park_pct` as configured at the time of the decision
   (null turns the park, the wake and the forecast's pauses off for that window). `ccp tasks claim`
-  (new or resumed) and `ccp prompt` (before it opens a run) take a sample; when the window is at or
-  above the park, they refuse with **exit 6** ("session park"), naming the percentage, the reset in
+  (new or resumed) and `ccp prompt` (once its other refusal gates pass, before it opens a run) take
+  a reading (§25.1); when the latest good sample shows the window at or above the park and its reset
+  is still ahead, they refuse with **exit 6** ("session park"), naming the percentage, the reset in
   UTC and local time, and what to do: the runner sends the lead one message and idles; the lead runs
   `ccp allowance session-wake --sample`.
   - Before refusing, `ccp` parks the task through `set-waiting-on.sh --task-only`: `waiting_on: quota`,
@@ -329,11 +362,12 @@ the window's reset; the weekly checkpoint still stops for the operator.
     (`usage.PARK_RETRY_S`); a live retry park keeps its time.
   - A park whose `planned_resume_at` has passed has expired and holds nothing back. A later claim or
     prompt of the task that does not park lifts any park it had (`waiting_on/clear`, reason
-    `session_reset`) when its reading shows the window free: known and under the park, its reset
-    already passed, or the park off.
-  - An unknown reading, or no `allowance_cmd`, gates nothing and lifts nothing. Only the park itself
-    refuses; a failed sample, wait write or wake record is a `warning:` (a park whose wait cannot be
-    written still refuses, and says so).
+    `session_reset`) when the window is free: the reading in force (§25.1) shows it known and under
+    the park, the latest good sample's reset has passed, or the park is off.
+  - No good sample whose window is still open, or no `allowance_cmd`, gates nothing; with no
+    reading in force, a park lifts only when the latest good sample's reset has passed or the park
+    is off. Only the park itself refuses; a failed sample, wait write or wake record is a `warning:`
+    (a park whose wait cannot be written still refuses, and says so).
   - **With several runners the park parks every task in flight**, whoever holds it, and the lead's
     wake resumes every runner (§16).
 - **The warning.** From 50% of the session window, while no wake is recorded for
@@ -349,7 +383,7 @@ the window's reset; the weekly checkpoint still stops for the operator.
   the window's length.
 - **`--armed`** records that the lead armed the wake (`board/session-wakes.jsonl`, `allowance/armed`).
   Once its wake time has passed, a record no longer counts as armed.
-- **`--fire`** (what the wake runs) takes a fresh sample; when the window is under the park, or the
+- **`--fire`** (what the wake runs) takes a reading (§25.1) and judges the reading in force; when the window is under the park, or the
   reading's own reset has passed, every parked task due within 2 minutes is un-parked and the lead is
   told to resume each at its recorded phase (with nothing parked, `work.json`'s task). Otherwise it
   says the window has not reset and gives the next wake to arm; a wake still recorded as armed is

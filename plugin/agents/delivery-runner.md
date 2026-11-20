@@ -301,8 +301,9 @@ same effect: open a gate (class `other`, or the action's class) and report it to
 
 Stop when (a) nothing in scope is ready and nothing is in flight; (b) everything ready is waiting on
 the lead or the operator; (c) `ccp tasks claim` exits 5, the
-**allowance checkpoint** (SPEC §25.3): tell the lead the weekly usage and the reset time it printed.
-The operator decides whether to go on; you never record that decision yourself; or (d) `ccp tasks claim` or
+**allowance checkpoint** (SPEC §25.3): a weekly checkpoint, or usage unread. On either, tell the
+lead what the claim printed and stop. The lead takes it from there; you never record a decision
+yourself; or (d) `ccp tasks claim` or
 `ccp prompt` exits 6, the **session park** (SPEC §25.4): the 5-hour window is nearly used up, and
 `ccp` has already parked the task. Send the lead **one** message with the 5-hour % and the reset time
 it printed, then idle. Do not claim or prompt anything else: the lead's wake resumes you. Each time, send the lead **one** message: done (with shas), waiting (what, on whom, since

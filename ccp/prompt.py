@@ -13,8 +13,8 @@ the file, never its text retyped, and, when the role's model for this round (pla
 plane's default; the implementer's per task) is not the agent definition's, its alias (`model`, §2.4; the run
 expects it); otherwise the call carries no `model` and the runner passes none. For an implement round with no
 estimate for the task, it warns that the small choice cannot
-apply. First it samples the allowance: at the
-5-hour park % it parks the task and refuses, exit 6, writing nothing else (§25.4 the session park).
+apply. Once its refusal gates pass, it takes an allowance reading (§25.1; a refused prompt reads nothing): at
+the 5-hour park % it parks the task and refuses, exit 6, writing nothing else (§25.4 the session park).
 Besides implement, fix, review and verify, a merge round only merges the integration tip into the task
 branch and a ruling round only applies a lead's ruling (its `--note`); review and verify treat their heads
 as a fix round's (§13.2). A verify of a fix round that no review has seen is refused, exit 4, nothing

@@ -26,8 +26,9 @@ during the grace release it warns on stderr and carries on.
 `rotation-due` answers the same rule for one slot without claiming: the `TeammateIdle` hook asks it
 (§18.2).
 
-`claim` samples the allowance first: past the weekly checkpoint a new claim refuses (exit 5), and at
-the 5-hour park % any claim parks the task and refuses (exit 6, §25.4).
+`claim` takes an allowance reading first, through the shared reader (§25.1): at a weekly checkpoint, or
+with the account unread too long, a new claim refuses (exit 5, §25.3); rule 5 judges the reading in force
+(§16.3); and at the 5-hour park % any claim parks the task and refuses (exit 6, §25.4).
 
 `close` is the merge and the reconcile as one step: `ccp verify merge-ok` first (§15.5), then the
 merge pinned to the head it printed, then the task file, the product's records (`reconcile.log`,

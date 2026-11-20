@@ -23,6 +23,13 @@ takes model time (ccp/drill.py). `by_model` compares one seat's tasks by the mod
 (`ccp usage --by-model`, §2.4: the trial of plane.json `models.implementer_small` and `models.implementer_refactor`). Headless runs
 (architect passes, triage) are recorded from `claude -p`'s own `modelUsage` in
 `board/headless-usage.jsonl`.
+
+The allowance (§25.1) is read through one reader per machine (`reading`): a cache per allowance command
+beside the machine file, under its lock, keeps the last good reading's raw windows, reuses it for
+READ_TTL_S and backs off after a failed read; each product appends its own sample, its fields worked out
+by its own `project`. A failed sample is never judged: the rules that stop work judge the latest good
+sample (`latest_good`) while its window is open, the rules that let work through the reading in force
+(`in_force`), and the account unread for UNREAD_STOP_S stops a new claim (`checkpoint_stop`, §25.3).
 """
 from __future__ import annotations
 

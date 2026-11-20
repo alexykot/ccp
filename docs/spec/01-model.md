@@ -258,7 +258,7 @@ The plane names when the operator must hear; the product names the channel.
 | `blocker` | `ccp tasks wait <id> reauth` or `operator_step`: a wait only the operator clears | the task; the wait's reason |
 | `decision` | a decision the operator must take: `team.sh gate ask-operator` (§17.9), a spec question answered `needs_operator` (§17.6), or `ccp tasks wait <id> operator_decision` | the task; the gate or question id |
 | `review_point_done` | `ccp tasks close`, when the reconcile leaves the task's review point with no open task (every task that carries it done or dropped) | the task; the review point |
-| `allowance_checkpoint` | `ccp tasks claim` refused at a weekly checkpoint (exit 5, §25.3) | the task |
+| `allowance_checkpoint` | `ccp tasks claim` refused at a weekly checkpoint, or with the account's usage unread for 60 minutes (exit 5, §25.3) | the task; the reason `usage unread` for the latter |
 | `upgrade` | `scripts/run-checkout.sh update`, for each bound product with an `adopt` step it has not taken among the tasks the release brought (§29.3) | the release's commit; the steps |
 
 Every other wait (quota, the lead's own gates and questions) is not a trigger.
@@ -831,7 +831,7 @@ queue_root: /path/to/.delivery-queue/example-product
   usage counts as non-product use (§24).
 - A binding key not listed above is a removed key (§29.3): it loads with a warning naming it and is otherwise ignored. The lead is every project's spec maintainer (§17), and the operator's channel is plane.json `notify` (§3.6).
 
-**The machine file**, `machine.json` beside the bindings (`contracts/machine.schema.json`), holds what belongs to the machine's account, not to a product: `telemetry` (the operator's consent, §4.5), `allowance_cmd` and `allowance_stop_weekly` (§25).
+**The machine file**, `machine.json` beside the bindings (`contracts/machine.schema.json`), holds what belongs to the machine's account, not to a product: `telemetry` (the operator's consent, §4.5), `allowance_cmd` and `allowance_stop_weekly` (§25). Beside it, the shared allowance reader keeps one cache file per allowance command (`allowance-cache-<hash>.json`) and its lock (§25.1); they are state, not configuration, and may be deleted.
 
 ### 8.4 Configuration knobs
 
