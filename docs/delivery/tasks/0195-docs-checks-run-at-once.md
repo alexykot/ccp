@@ -134,3 +134,7 @@ written into each cmd. It passes only when all three run at once.
 - ADR-0043 D9 and its appendix (`docs.workers`: "as many as there are checks").
 - Task 0192 (the constants mechanism and warning); task 0190 (the plane's own key).
 - SPEC §21.5, §29.3.
+
+## Implementation notes
+
+## Verification notes
