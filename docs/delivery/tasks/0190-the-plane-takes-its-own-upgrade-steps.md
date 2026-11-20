@@ -99,6 +99,17 @@ warning.
   listed, so it stays.
 - `upgrade.taken` records 0181, 0182, 0183, 0185, 0187 and 0192 with this task's PR.
 - `.claude/settings.json` gains `"model": "opus"`.
+- Added beyond the task's text, because the suite fails without them (the task did not see them):
+  - `package_docs.claude_md_dirs` lists `ccp`, `ccp/doclang`, `contracts`, `scripts`, `scripts/observability` and `tests`:
+    with `doc_name` deleted the constant `.claude.md` applies, and these directories carry `CLAUDE.md`; listing them
+    keeps the files and renames nothing.
+  - With the seat adopted, `ccp docs check` holds `docs/ENGINEERING.md`'s command rules to `architect.checks`
+    entries. `docs.checks` (`leak-check`, `merge-helper`, `config-reader`, `language-pack`) moved there as E3, E14,
+    E16 and E18 (the `docs` block is gone: its `workers` is deleted too); E12 runs
+    `tests.test_plane_config_defaults`; E2 tests that no `state/*` branch is left.
+- Open: E1 ("the full suite passes", `ccp suite run --lane gate`) has no `architect.checks` entry, so `ccp docs check`
+  and the gate's `test_the_docs_are_clean` fail on it: the gate runs the docs check, so a command running the gate
+  would recurse. See the implement report.
 - Open: `ccp architect due` prints `"due": true` here, not `"due": false`. With no pass yet, the friction-note
   and health-drift triggers (§19.6) count every note and task since the queue began, not from the adoption
   point; only the cadence trigger is counted from it. See the implement report.

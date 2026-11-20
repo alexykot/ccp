@@ -2,13 +2,47 @@
   "project_id": "control-plane",
   "language": "python",
   "architect": {
-    "shape_from_task": "0195"
+    "shape_from_task": "0195",
+    "checks": [
+      {
+        "id": "E2",
+        "cmd": "test -z \"$(git branch --list 'state/*')\""
+      },
+      {
+        "id": "E12",
+        "cmd": "python3 -B -m unittest -q tests.test_plane_config_defaults"
+      },
+      {
+        "id": "E3",
+        "cmd": "scripts/leak-check.sh"
+      },
+      {
+        "id": "E14",
+        "cmd": "! git grep -n -e merge-tree -e patch-id -e remerge-diff -- ccp ':(exclude)ccp/gitmerge.py'"
+      },
+      {
+        "id": "E16",
+        "cmd": "! git grep -nE 'plane\\.json\"\\)\\.read_text' -- plugin scripts"
+      },
+      {
+        "id": "E18",
+        "cmd": "! git grep -n unittest -- ccp ':(exclude)ccp/doclang'"
+      }
+    ]
   },
   "models": {
     "implementer_small": "sonnet",
     "implementer_refactor": "sonnet"
   },
   "package_docs": {
+    "claude_md_dirs": [
+      "ccp",
+      "ccp/doclang",
+      "contracts",
+      "scripts",
+      "scripts/observability",
+      "tests"
+    ],
     "exempt_dirs": [
       ".git",
       ".github",
@@ -43,26 +77,6 @@
     "dir": "docs/adr",
     "index": "docs/adr/INDEX.md",
     "strict": true
-  },
-  "docs": {
-    "checks": [
-      {
-        "id": "leak-check",
-        "cmd": "scripts/leak-check.sh"
-      },
-      {
-        "id": "merge-helper",
-        "cmd": "! git grep -n -e merge-tree -e patch-id -e remerge-diff -- ccp ':(exclude)ccp/gitmerge.py'"
-      },
-      {
-        "id": "config-reader",
-        "cmd": "! git grep -nE 'plane\\.json\"\\)\\.read_text' -- plugin scripts"
-      },
-      {
-        "id": "language-pack",
-        "cmd": "! git grep -n unittest -- ccp ':(exclude)ccp/doclang'"
-      }
-    ]
   },
   "suite": {
     "lanes": {
