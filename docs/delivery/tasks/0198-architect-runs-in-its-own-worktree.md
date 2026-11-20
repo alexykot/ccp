@@ -201,4 +201,22 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- `cmd_run` is split: `cmd_run` reads `--adr` (`adr_plan`, plain values) and runs one pass or one shape per
+  ADR; `_run_one` is the single synchronous pass, returning its outcome object and exit code instead of
+  printing it. `_refused` and `_head` are the old preconditions, unchanged, shared by the detached path.
+- The pass's worktree path and `main` go into the record before `move("running")`, so a pass that dies
+  while the worktree is being made is still cleaned up by `_reap`. The worktree is made right after the
+  pass is recorded `running`; a git error raises and fails the pass before the prompt audit and launch.
+- Beyond the Scope's steps, `_make_worktree` also calls `wt._exclude_base(main, <worktrees dir>)`, as
+  `ccp wt create` does, so a `git add -A` in the product root while a pass runs cannot pick the pass's
+  worktree up as an embedded repository.
+- Choices the task left open: the new `dirty` prompt line applies when the pass has its own worktree;
+  with no `worktrees.dir` (the pass reads the product root's files) the old line stays. The absolute deny
+  rules name each root as given and resolved (`/var/…` and `/private/var/…` on macOS), once each. Several
+  ids with a mode other than `shape` are refused like `due`; `due` mixed with ids is refused; a repeated
+  id runs once. `--adr due` always prints the `{"runs": […]}` form, even when one ADR is due; the
+  detached multi-ADR start keeps `review_id` (the first) beside `review_ids`.
+- `docs/cli/03-quality.md`'s cost column for the row now says one Claude session per pass, one per ADR
+  for a shape.
+
 ## Verification notes
