@@ -45,9 +45,12 @@ All reshape phases have landed.
 
 ## After the reshape
 
-- **Proposed, awaiting the operator (after R12 and R13):** ADR-0044 (a follow-up is tracked, not
-  left in notes), ADR-0045 (checks only the operator's machine can run) and ADR-0046 (decisions may
-  depend on other ADRs' decisions). Each is tasked once accepted.
+- **Accepted, to be tasked after R12:** ADR-0044 (a follow-up is tracked, not left in notes),
+  ADR-0045 (checks only the operator's machine can run) and ADR-0046 (decisions may depend on other
+  ADRs' decisions).
+- **Considered and declined:** continuing past the weekly allowance into paid extra usage (the plane
+  runs on the prepaid allowance only, ADR-0026), and a separate task-drafting seat (the lead drafts
+  tasks, with a writer subagent when several land at once).
 
 - **Self-hosting:** the plane's own development is managed by the plane, with tasks, ADRs and
   house rules. It is the reference example of a managed project.

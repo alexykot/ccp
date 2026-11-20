@@ -1,7 +1,7 @@
 ---
 id: ADR-0046
 title: "Decisions may depend on other ADRs' decisions"
-status: proposed
+status: accepted
 date: "2026-11-20"
 deciders: operator
 spec_refs: [S6, S10, S21, S22]
@@ -9,6 +9,12 @@ notes: |-
   Proposed from a product's plane proposal: a decision sometimes presupposes a decision in another
   ADR, and nothing records it or orders the work by it. It changes the ADR format and SPEC rules
   (listed under Consequences), so the operator decides it.
+  2026-11-20: status proposed → accepted: Operator: "accept 0044, 0045, 0046" (2026-11-20)
+decisions:
+  - "D1 not_built"
+  - "D2 not_built"
+  - "D3 not_built"
+  - "D4 not_built"
 ---
 # ADR-0046 — Decisions may depend on other ADRs' decisions
 
