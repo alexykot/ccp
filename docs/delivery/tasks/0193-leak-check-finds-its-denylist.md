@@ -1,7 +1,7 @@
 ---
 task_id: 0193-leak-check-finds-its-denylist
 title: The leak check finds the installation's denylist when CCP_LEAK_DENYLIST is unset, so the gate checks for real
-status: pending
+status: done
 kind: feature
 depends_on: ["0175-one-binding-reader"]
 spec_refs: ["S8"]
@@ -10,7 +10,7 @@ review_point: R12
 paths: ["scripts/leak-check.sh", "tests/test_leak_check.py", "tests/test_self_hosting.py", "docs/ENGINEERING.md"]
 adopt: "none"
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Task: 0193-leak-check-finds-its-denylist
@@ -123,3 +123,5 @@ Out of scope: the patterns themselves (local), and any other docs check.
   `tests/test_self_hosting.py` is unchanged and passes.
 
 ## Verification notes
+- 2026-11-20 — verifier, PR #213 head `ccbc52b` (squash `f17a658`): APPROVE. Passed: lk-01, lk-02, lk-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0193-leak-check-finds-its-denylist.json.
+
