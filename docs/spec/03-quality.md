@@ -403,8 +403,8 @@ deterministic tests, current-only docs, package docs are maps, and every referen
 rule states its purpose, names itself in the set on a `starter: <name>` line, and names its check;
 where the check is mechanical it is a `docs` check. No starter rule is mandatory.
 
-- **Adopt.** `docs.starter_rules` in `plane.json` adopts the set (default `null`: not adopted; `{}`
-  adopts every rule). `ccp init` writes the set to `docs/ENGINEERING.md` when the product has no such file (`--no-starter-rules` skips it) and, in a `plane.json` it writes, `docs.starter_rules` and the `package_docs` settings its `docs` checks name (§4.5). With the set adopted, `ccp docs check` fails while an adopted rule's `docs` check is not
+- **Adopt.** `docs.starter_rules` in `plane.json` adopts the set (`{}`
+  adopts every rule; without the key the set is not adopted). `ccp init` writes the set to `docs/ENGINEERING.md` when the product has no such file (`--no-starter-rules` skips it) and, in a `plane.json` it writes, `docs.starter_rules` and the `package_docs` settings its `docs` checks name (§4.5). With the set adopted, `ccp docs check` fails while an adopted rule's `docs` check is not
   set, naming the rule and the key. `architect.rules_doc` defaults to that doc, so the architect judges the `pass` rules.
 - **Decline.** The product names the rule with its reason in `docs.starter_rules.declined`
   (`{"<name>": "<reason>"}`) and deletes it from its rules doc. `ccp docs check` does not run what a

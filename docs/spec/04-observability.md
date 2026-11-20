@@ -261,7 +261,7 @@ something unexpected, the sample is recorded as unknown, never as zero, and an u
 
 ### 25.2 Usage windows
 
-Each window has a rule: `{kind: weekly|session, stop_pct, park_pct}`. There are two: `seven_day` (weekly, `stop_pct` = the machine's `allowance_stop_weekly`, default 90) and `five_hour` (session, `park_pct` 95). So, by default, a
+Each window has a rule: `{kind: weekly|session, stop_pct, park_pct}`. There are two: `seven_day` (weekly, `stop_pct` = the machine's `allowance_stop_weekly`) and `five_hour` (session, `park_pct` 95). So a
 reading with a `five_hour` figure parks claims and prompts at 95% of it. A window that is neither
 built in nor named by the rules is recorded and otherwise ignored. A config that sets a built-in
 window's threshold both ways (the legacy key and `windows.<name>`), a `stop_pct` on a session window
@@ -285,7 +285,7 @@ or a `park_pct` on a weekly one, is refused.
 
 ### 25.3 The checkpoint
 
-- The project's checkpoint (the gating weekly window's `stop_pct`, the machine's `allowance_stop_weekly`, default 90%) is drawn on the board. It is a point where the work stops and
+- The project's checkpoint (the gating weekly window's `stop_pct`, the machine's `allowance_stop_weekly`) is drawn on the board. It is a point where the work stops and
   the operator decides, not a hard limit.
 - When a sample reaches it, `ccp tasks claim` refuses a **new** claim (exit 5, "allowance
   checkpoint"). A resumed claim of a runner's own lease is never refused.
