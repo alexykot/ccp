@@ -943,7 +943,7 @@ tasks:
     depends_on: [0175-one-binding-reader, 0182-language-is-a-required-key, 0184-init-turns-telemetry-on, 0187-short-plane-json]
     path: tasks/0188-short-binding.md
   - id: 0189-spec-states-behaviour
-    status: pending
+    status: done
     title: The SPEC states behaviour, not default numbers, and names no constant as a setting, in one text the operator signs once
     depends_on: [0171-affected-says-run-the-full-lane, 0173-plane-json-block-registry, 0180-parallel-by-default, 0181-models-block-and-role-defaults, 0182-language-is-a-required-key, 0183-gate-lane-is-required, 0184-init-turns-telemetry-on, 0185-architect-on-by-default, 0186-account-facts-on-the-machine, 0187-short-plane-json, 0188-short-binding, 0192-plane-json-constants-and-defaults]
     path: tasks/0189-spec-states-behaviour.md

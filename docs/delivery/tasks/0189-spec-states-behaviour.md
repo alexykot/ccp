@@ -1,7 +1,7 @@
 ---
 task_id: 0189-spec-states-behaviour
 title: The SPEC states behaviour, not default numbers, and names no constant as a setting, in one text the operator signs once
-status: pending
+status: done
 kind: feature
 depends_on: ["0171-affected-says-run-the-full-lane", "0173-plane-json-block-registry", "0180-parallel-by-default", "0181-models-block-and-role-defaults", "0182-language-is-a-required-key", "0183-gate-lane-is-required", "0184-init-turns-telemetry-on", "0185-architect-on-by-default", "0186-account-facts-on-the-machine", "0187-short-plane-json", "0188-short-binding", "0192-plane-json-constants-and-defaults"]
 spec_refs: ["S2", "S3", "S5", "S8", "S10", "S12", "S14", "S15", "S16", "S19", "S20", "S21", "S22", "S24", "S25", "S26", "S28", "S30"]
@@ -11,7 +11,7 @@ paths: ["docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/spec/03-quali
 adopt: none
 sign_off: build
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Task: 0189-spec-states-behaviour
@@ -142,3 +142,5 @@ and names no constant as something a product sets. The operator signs the whole 
   the check sets `timeout_seconds` (a setting, so its value is behaviour).
 
 ## Verification notes
+- 2026-11-20 — verifier, PR #227 head `546cc03` (squash `e09b782`): APPROVE. Passed: doc-01, doc-02, doc-03, doc-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0189-spec-states-behaviour.json.
+
