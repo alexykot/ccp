@@ -63,8 +63,13 @@ pass, every trigger works as today.
     same numbering test as `counted`. It fires when that subset is non-empty and all done.
   - **Notes:** only notes whose task is numbered from the adoption point count. A note with no task
     does not count.
-  - **Drift and budgets:** do not fire. Their window is history. A failing budget still shows in
-    `ccp health` and in `rules.budget_failures`, and the first pass records it.
+  - **Drift:** compares only tasks numbered from the adoption point. Drift needs 15 timed tasks and
+    the cadence fires after `every_n_tasks`, so in practice it does not fire before the first pass;
+    implementing it as "off with no last pass" is acceptable.
+  - **Budgets:** a baseline. The first `due_info` call with `record=True` after adoption, with no
+    last pass, saves the budget ids failing at that moment in the architect state, as `seen` is
+    saved. Until the first pass, only a failing budget id not in that baseline fires. The first pass
+    records `budget_ids` as today, and the baseline is no longer read.
   - **Cadence and `max_days`:** keep their 0185 behaviour. `max_days` needs a last pass, as today.
   - The returned `health` value may still be computed for display.
 - `ccp architect due` exits 3 (not due) for a product that has just adopted, whatever its history.
@@ -74,8 +79,9 @@ pass, every trigger works as today.
   counts." PROPOSED: "with no pass yet, every done task from the adoption point counts."
 - **SPEC §19.6**, after the list of triggers, a new sentence: "Before a product's first pass, each
   trigger counts only what follows the adoption point (§19.11): a review point counts its tasks from
-  the adoption point, friction notes count only those tasks' notes, and drift and budgets wait for
-  the first pass, so a product that adopts the seat with history owes no pass at once."
+  the adoption point, friction notes count only those tasks' notes, drift compares only those
+  tasks, and a budget counts only if it starts failing after adoption, so a product that adopts the
+  seat with history owes no pass at once."
 
   Both state ADR-0043 D7 ("an upgraded product owes no pass at once") and §19.11 ("everything it
   enforces ... starts at the product's adoption point"), which the operator accepted (§31.1).
@@ -88,12 +94,15 @@ pass, every trigger works as today.
   "drift_ratio": 2.0}` and `architect.rules.budget_failures` to return a failing budget.
   - `test_history_owes_nothing`: no last pass; `notes_due + 5` notes on tasks before the adoption
     point; drift; a failing budget; a done review-point scope of pre-adoption tasks. `due_info`
-    gives no reason.
+    gives no reason, and a second call still gives none.
   - `test_cadence_from_the_adoption_point`: no last pass; `every_n_tasks` tasks done from the
     adoption point. The only reason is cadence.
   - `test_new_work_still_triggers`: no last pass; `notes_due` notes on tasks from the adoption point.
     A notes reason. Also, with a recorded last pass, `notes_due` notes since it give a notes reason,
     as today.
+  - `test_a_budget_breached_after_adoption_triggers`: no last pass; a first `due_info` call with
+    budget `a` failing gives no reason; budget `b` then also fails, and the next call gives a budget
+    reason naming `b` only.
 
 Out of scope: the cadence itself, `max_days`, how a pass records its state, and any product's own
 adoption point.
@@ -107,8 +116,9 @@ adoption point.
     1. `python3 -m unittest tests.test_architect_default_on.NoPassOwedAtAdoption -v 2>&1 | grep -E '^test_|^OK|FAIL'`.
     2. `git diff $(git merge-base origin/main HEAD) HEAD -- ccp/architect.py | git apply -R`, rerun
        step 1, then `git checkout -- ccp/architect.py`.
-  expect: step 1 shows three `... ok` lines (`test_history_owes_nothing`,
-    `test_cadence_from_the_adoption_point`, `test_new_work_still_triggers`) and `OK`. In step 2,
+  expect: step 1 shows four `... ok` lines (`test_history_owes_nothing`,
+    `test_cadence_from_the_adoption_point`, `test_new_work_still_triggers`,
+    `test_a_budget_breached_after_adoption_triggers`) and `OK`. In step 2,
     `test_history_owes_nothing` fails.
 
 - id: `np-02`
