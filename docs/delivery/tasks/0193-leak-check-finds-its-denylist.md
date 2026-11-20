@@ -1,7 +1,7 @@
 ---
 task_id: 0193-leak-check-finds-its-denylist
 title: The leak check finds the installation's denylist when CCP_LEAK_DENYLIST is unset, so the gate checks for real
-status: pending
+status: done
 kind: feature
 depends_on: ["0175-one-binding-reader"]
 spec_refs: ["S8"]
@@ -10,7 +10,7 @@ review_point: R12
 paths: ["scripts/leak-check.sh", "tests/test_leak_check.py", "tests/test_self_hosting.py", "docs/ENGINEERING.md"]
 adopt: "none"
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Task: 0193-leak-check-finds-its-denylist
@@ -111,4 +111,17 @@ Out of scope: the patterns themselves (local), and any other docs check.
 
 ## Implementation notes
 
+- `scripts/leak-check.sh` implements the lookup as written (steps 1 to 3, source named on stdout, the
+  header describes it). Step 3 runs `ccp --root "$PWD" where`, not `ccp where --root <repo>`: `--root`
+  is a global flag of `ccp`, and `ccp where --root .` is refused by the argument parser. The JSON is
+  parsed with `python3` (the plane is Python); a missing `ccp` or `python3`, a non-zero exit or
+  unparseable output leaves the directory empty and the lookup falls through.
+- The existing "named but missing" error no longer prints the denylist's path (it printed the value of
+  `CCP_LEAK_DENYLIST`), so no local absolute path reaches gate output; the exit code is still 2.
+- `tests/test_leak_check.py` runs a copy of the script in a temp git repo, with `PATH` holding a
+  `python3` link and the system dirs, and a stub `ccp` only where a test names one.
+  `tests/test_self_hosting.py` is unchanged and passes.
+
 ## Verification notes
+- 2026-11-20 — verifier, PR #213 head `ccbc52b` (squash `f17a658`): APPROVE. Passed: lk-01, lk-02, lk-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0193-leak-check-finds-its-denylist.json.
+
