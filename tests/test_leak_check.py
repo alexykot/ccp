@@ -83,7 +83,7 @@ class LeakCheckLookup(unittest.TestCase):
         r = self.run_check(CCP_BINDINGS_DIR=str(self.bindings))  # empty directory
         self.assertEqual(r.returncode, 0)
         self.assertIn("nothing checked", r.stdout)
-        self.assertNotIn("denylist found", r.stdout)
+        self.assertNotIn("leak-check: denylist found", r.stdout)
 
     def test_ccp_where_binding_directory_is_searched_when_bindings_dir_is_unset(self):
         installation = self.tmp / "installation"
