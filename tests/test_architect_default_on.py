@@ -244,6 +244,90 @@ class SeatOff(Seat):
         self.assertEqual((code, json.loads(out)["outcome"]), (3, "disabled"))
 
 
+class NoPassOwedAtAdoption(Seat):
+    """Before a product's first pass each trigger counts only what follows the adoption point (§19.6), so a
+    product that adopts the seat with history owes no pass at once."""
+
+    def setUp(self):
+        self.p = self.make({"shape_from_task": "0011"})  # tasks 0001..0010 are done and predate the adoption point
+        self.notes_due = self.p.cfg.architect["notes_due"]
+        self.drift = {"drift": True, "drift_ratio": 2.0}
+
+    def info(self, record: bool = True, scope=None, budgets=()) -> dict:
+        with mock.patch.object(architect.health, "trend", return_value=self.drift), \
+                mock.patch.object(architect.rules, "budget_failures", return_value=list(budgets)):
+            return architect.due_info(self.p.cfg, self.q, scope, record=record)
+
+    def note(self, n: int, task: str | None) -> None:
+        for i in range(n):
+            architect.health.add_note(self.q, f"friction {i}", task_id=task)
+
+    def state(self) -> dict:
+        f = self.q / "architect.json"
+        return json.loads(f.read_text()) if f.is_file() else {}
+
+    def test_history_owes_nothing(self):
+        self.note(self.notes_due + 5, "0003-t3")
+        self.note(self.notes_due, None)  # a note with no task does not count
+        scope = ["0001", "0002", "0003"]  # a done review-point scope of pre-adoption tasks
+        for record in (False, True, True):
+            info = self.info(record, scope, budgets=["E7: app/big.py has 9 lines > 5"])
+            self.assertEqual((info["reasons"], info["due"]), ([], False), record)
+        self.assertEqual(self.ccp(self.p, "architect", "due")[0], 3)
+
+    def test_cadence_from_the_adoption_point(self):
+        for n in range(11, 11 + self.p.cfg.architect["every_n_tasks"]):
+            self.merge(self.p, n)
+        self.note(self.notes_due + 5, "0003-t3")
+        info = self.info(budgets=["E7: app/big.py has 9 lines > 5"])
+        self.assertEqual(len(info["reasons"]), 1, info["reasons"])
+        self.assertIn("task(s) done since none", info["reasons"][0])
+
+    def test_new_work_still_triggers(self):
+        self.note(self.notes_due, "0011-t11")
+        info = self.info()
+        self.assertEqual(len(info["reasons"]), 1, info["reasons"])
+        self.assertIn(f"{self.notes_due} friction note(s) since none", info["reasons"][0])
+        # With a recorded pass, the notes since it count whatever their task.
+        (self.q / "architect.json").write_text(json.dumps({"schema_version": 1, "reviews": {}, "last": {
+            "review_id": "ar-20261020T100000Z-abcd", "started_at": "2026-10-20T10:00:00Z", "done": [],
+            "health_drift": True}}))
+        info = self.info()
+        self.assertEqual(len(info["reasons"]), 1, info["reasons"])
+        self.assertIn(f"{self.notes_due} friction note(s) since ar-20261020T100000Z-abcd", info["reasons"][0])
+
+    def last_pass(self, **extra) -> None:
+        (self.q / "architect.json").write_text(json.dumps({"schema_version": 1, "reviews": {}, "last": {
+            "review_id": "ar-20261020T100000Z-abcd", "started_at": "2026-10-20T10:00:00Z", "done": [], **extra}}))
+
+    def test_after_a_pass_the_notes_of_any_task_count(self):
+        self.last_pass(health_drift=True)
+        self.note(self.notes_due - 1, None)  # no task
+        self.note(1, "0003-t3")  # a task before the adoption point
+        info = self.info()
+        self.assertEqual(len(info["reasons"]), 1, info["reasons"])
+        self.assertIn(f"{self.notes_due} friction note(s) since ar-20261020T100000Z-abcd", info["reasons"][0])
+
+    def test_after_a_pass_drift_that_the_pass_did_not_see_triggers(self):
+        self.last_pass()
+        info = self.info()
+        self.assertEqual(len(info["reasons"]), 1, info["reasons"])
+        self.assertIn("health drift", info["reasons"][0])
+        self.last_pass(health_drift=True)  # drift the last pass already saw is not new
+        self.assertEqual(self.info()["reasons"], [])
+
+    def test_a_budget_breached_after_adoption_triggers(self):
+        a, b = "a: app/a.py has 9 lines > 5", "b: app/b.py has 9 lines > 5"
+        self.assertEqual(self.info(record=False, budgets=[a])["reasons"], [])
+        self.assertNotIn("budget_baseline", self.state())  # a read computes the baseline and never writes it
+        self.assertEqual(self.info(budgets=[a])["reasons"], [])
+        self.assertEqual(self.state()["budget_baseline"], ["a"])
+        info = self.info(budgets=[a, b])
+        self.assertEqual(info["reasons"], [f"budget check fails: {b}"])
+        self.assertEqual(self.info(budgets=[a])["reasons"], [])  # the baseline is kept, not rewritten
+        self.assertEqual(self.state()["budget_baseline"], ["a"])
+
+
 class Adoption(Seat):
     def test_an_unadopted_seat_is_not_adopted_and_an_adopted_one_is(self):
         self.assertFalse(config.architect_adopted(self.make().cfg))

@@ -134,6 +134,9 @@ class RulesDoc(unittest.TestCase):
         self.assertEqual(self.docs_check(), (0, "docs: clean\n"))
         self.assertEqual(rules.budget_failures(self.p.cfg), ["E7: app/sub/big.py has 9 lines > 5"])
         with tempfile.TemporaryDirectory() as q, mock.patch.dict(os.environ, {"QUEUE_ROOT": q}):
+            # A budget fires after a pass, or after the seat first checked it (the baseline); here a pass has run.
+            (Path(q) / "architect.json").write_text(json.dumps({"schema_version": 1, "reviews": {}, "last": {
+                "review_id": "ar-20261020T100000Z-abcd", "started_at": "2026-10-20T10:00:00Z", "budget_ids": []}}))
             out = io.StringIO()
             with redirect_stdout(out), redirect_stderr(io.StringIO()):
                 code = cli.main(["--root", str(self.p.root), "architect", "due"])
