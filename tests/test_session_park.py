@@ -418,6 +418,42 @@ class ReviewFixes(SessionFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertIsNone(self.task_state()["waiting_on"])
 
+    def old_sample(self, five, reset_in, ago=40 * 60):
+        """A good sample `ago` seconds old (past the reading in force, §25.1), and a reader that now fails."""
+        now = time.time()
+        row = {"at": utc(now - ago).replace("+00:00", "Z"), "five_hour": five, "seven_day": 20.0,
+               "five_hour_resets_at": utc(now + reset_in) if reset_in is not None else None,
+               "windows": [{"name": "five_hour", "pct": five,
+                            "resets_at": utc(now + reset_in) if reset_in is not None else None}]}
+        (self.q / "board").mkdir(exist_ok=True)
+        (self.q / "board/allowance.jsonl").write_text(json.dumps(row) + "\n")
+        self.reading_file.write_text("garbage")
+
+    def test_an_old_sample_parks_while_its_reset_is_ahead_and_without_one_gates_nothing(self):
+        self.old_sample(97, reset_in=3600)
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 6, out + err)
+        self.assertTrue(self.rows()[-1]["failed"])
+        _, body, _, _ = self.wake()  # the wake takes the window and reset from the latest good sample
+        self.assertEqual((body["five_hour"], body["arm"]), (97.0, True))
+        self.old_sample(97, reset_in=None)
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)  # no reset time and not in force: no park
+        self.assertIn("no good allowance reading in force", err)
+
+    def test_a_park_lifts_on_no_old_sample_and_fire_judges_the_reading_in_force(self):
+        self.ccp("tasks", "claim", "0002")
+        self.reading(97, reset_in=3600)
+        self.assertEqual(self.ccp("tasks", "claim", "0002")[0], 6)
+        self.old_sample(40, reset_in=3600)  # under the park, but not in force: the park is kept
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.task_state()["waiting_on"], "quota")
+        code, body, out, err = self.wake("--fire")
+        self.assertEqual(code, 0, out + err)
+        self.assertFalse(body["reset"])
+        self.assertIsNone(body["five_hour"])
+
     def test_fire_counts_a_past_reset_as_reset_and_unparks_a_task_due_within_two_minutes(self):
         self.ccp("tasks", "claim", "0002")
         self.reading(96, reset_in=600, tel={"session_wake_margin_s": 0})
