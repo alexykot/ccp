@@ -1,7 +1,7 @@
 ---
 task_id: 0185-architect-on-by-default
 title: The architect runs without a block, from the product's adoption point, and only "architect": false turns it off
-status: pending
+status: done
 kind: feature
 depends_on: ["0172-fixtures-name-their-config", "0173-plane-json-block-registry", "0174-config-readers-go-through-ccp", "0177-architect-on-and-adoption-point", "0182-language-is-a-required-key"]
 spec_refs: ["S4", "S5", "S8", "S19", "S20"]
@@ -12,7 +12,7 @@ clashes_with: ["0181-models-block-and-role-defaults", "0184-init-turns-telemetry
 adopt: "required: plane.json architect.shape_from_task (the adoption point: the next task number; or \"architect\": false to keep the seat off)"
 sign_off: brief
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Task: 0185-architect-on-by-default
@@ -192,3 +192,5 @@ by an upgrade step in its own repo.
   blank line in §19.11 is gone. SPEC §20.3's board line (`refactors_waiting` null unless adopted) still reads true.
 
 ## Verification notes
+- 2026-11-20 — verifier, PR #214 head `59b8a53` (squash `9ffab51`): APPROVE. Passed: arc-01, arc-02, arc-03, arc-04, spec-01, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -q tests.test_architect_default_on tests.test_architect tests.test_kinds tests.test_rules tests.test_init tests.test_board_quality tests.test_prompt_tools` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0, `ccp adr check` exit 0. Record: verification/0185-architect-on-by-default.json.
+
