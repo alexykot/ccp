@@ -138,23 +138,17 @@ removed; nothing writes or reads it.
   `scripts/observability/write-prompt-audit.sh`), and its path is the launch event's `prompt_ref`.
 - The file holds the argv, the stripped environment keys, the wallet, the git head, the worktree, the
   task's path and spec refs, and the prompt's sha256 and length (`prompt_chars`). The full prompt text
-  (`prompt_body`) is kept only when the product opts in with plane.json `prompts.keep_body`; it is off
-  by default, in line with records that carry ids and counts, not content.
+  (`prompt_body`) is not kept, in line with records that carry ids and counts, not content.
 - No API key, token or `.env` content goes in it. It lives in the runtime queue only, never in a
   product's git or the plane's.
-- Prompt audits are pruned by age when plane.json `prompts.audit_keep_days` is set: each time
-  `ccp prompt` writes an audit, it removes the audits under `QUEUE_ROOT/prompts/` whose name stamps
-  are older than that many days. Unset (`null`, the default), every audit is kept. Only audit files
-  are pruned: the rendered prompt the runner reads (`prompts/<task_id>/<phase>[-n]-prompt.md`) and
-  other files stay. `scripts/observability/prune-prompts.sh` prunes by age or count on demand.
+- Every prompt audit is kept: `ccp prompt` prunes none. `scripts/observability/prune-prompts.sh`
+  prunes audit files by age or count on demand; the rendered prompt the runner reads
+  (`prompts/<task_id>/<phase>[-n]-prompt.md`) and other files stay.
 - Out of scope: full tool-call transcripts, and browser traces (the verifier's evidence holds those).
 
 ### 23.9 Knobs
 
-| Knob | Default |
-| --- | --- |
-| Full prompt bodies in the audit (`prompts.keep_body`) | `false` (opt-in) |
-| Prompt audit retention in days (`prompts.audit_keep_days`) | `null`: every audit is kept |
+The prompt audit has none: it holds no full prompt body, and every audit is kept (§23.8).
 
 ## 24. Usage and telemetry
 
@@ -242,18 +236,17 @@ their run record (`ccp architect`).
 
 `ccp usage` prints an advice line for each measure past its threshold, naming the seat, the measure and
 the setting that fixes it; `ccp health` prints the same lines (`usage_advice` in `--json`). The
-thresholds are plane.json `usage.advice` knobs. Advice only: no setting is changed.
-The advice reads the requests of the last `usage.advice.window_hours` hours (default 0: every request), or
-from `--since` when given, and each line names its start.
+thresholds are the plane's, below. Advice only: no setting is changed.
+The advice reads every request, or those from `--since` when given, and each line names its start.
 
 - **Short-lived cache writes:** a seat whose 5-minute cache writes (`cache_creation_5m_tokens`, §24.2)
-  are more than `cache_5m_share` (default `0.5`) of its cache-write tokens: set
+  are more than half of its cache-write tokens: set
   `subagentPromptCacheTtl` to `1h`.
 - **Oversized context:** the lead (`design-seat`) or the runner seat whose median context per request
-  (input, cache read and cache written tokens) exceeds `context_tokens` (default `300000`): the lead
+  (input, cache read and cache written tokens) exceeds 300,000 tokens: the lead
   lowers it with `autoCompactWindow`, a runner by rotating it sooner (§10.2).
 - **Coordination share:** the lead's and the runner's cost together over all seats' cost, above
-  `coordination_share` (default `0.4`).
+  40%.
 
 ## 25. Allowance and usage windows
 
@@ -268,7 +261,7 @@ something unexpected, the sample is recorded as unknown, never as zero, and an u
 
 ### 25.2 Usage windows
 
-Each window has a rule: `{kind: weekly|session, stop_pct, park_pct}`. There are two: `seven_day` (weekly, `stop_pct` = the machine's `allowance_stop_weekly`, default 90) and `five_hour` (session, `park_pct` 95). So, by default, a
+Each window has a rule: `{kind: weekly|session, stop_pct, park_pct}`. There are two: `seven_day` (weekly, `stop_pct` = the machine's `allowance_stop_weekly`) and `five_hour` (session, `park_pct` 95). So a
 reading with a `five_hour` figure parks claims and prompts at 95% of it. A window that is neither
 built in nor named by the rules is recorded and otherwise ignored. A config that sets a built-in
 window's threshold both ways (the legacy key and `windows.<name>`), a `stop_pct` on a session window
@@ -292,7 +285,7 @@ or a `park_pct` on a weekly one, is refused.
 
 ### 25.3 The checkpoint
 
-- The project's checkpoint (the gating weekly window's `stop_pct`, the machine's `allowance_stop_weekly`, default 90%) is drawn on the board. It is a point where the work stops and
+- The project's checkpoint (the gating weekly window's `stop_pct`, the machine's `allowance_stop_weekly`) is drawn on the board. It is a point where the work stops and
   the operator decides, not a hard limit.
 - When a sample reaches it, `ccp tasks claim` refuses a **new** claim (exit 5, "allowance
   checkpoint"). A resumed claim of a runner's own lease is never refused.
@@ -394,7 +387,7 @@ short labels only; an agent row also holds the seat's bounded reasons.
 - **Features**, read from the task file without its notes and its `status`, `updated` and
   `review_point` lines (what the task said before the work): kind; the task-id family (via `ids`);
   the areas (the first two path components of each cited path; a citation is a path when it has a
-  slash or one of `estimate.path_suffixes`); cited files that exist and their total lines; ADR, spec
+  slash or a known file suffix such as `.py`, `.md` or `.json`); cited files that exist and their total lines; ADR, spec
   and rule refs; dod_checks by id prefix, and the mutation and story mentions in them; dependencies;
   text length.
 - **`task_hash`** is the sha256 of that same text, so a status flip or a note does not re-estimate.
@@ -405,7 +398,7 @@ short labels only; an agent row also holds the seat's bounded reasons.
   weighted mean: same kind (1), same family (2), shared areas (2, Jaccard) and ADRs (1.5, Jaccard),
   and closeness in cited lines, dod_checks, text length and dependencies (0.5 each,
   `exp(-|log ratio|)`), each score halved for every 30 tasks merged since the candidate. The class is
-  the k best (`estimate.k`, 5–8, default 6) among tasks sharing the family, an area or an ADR (tier
+  the 6 best among tasks sharing the family, an area or an ADR (tier
   `similar`); with fewer than 3, the same kind; then all. P50 and P90 of the class's actuals give each
   phase and the total; tokens and cost choose their own class from tasks with telemetry.
   `estimate.reference_since` leaves out tasks merged before a process change.
@@ -445,7 +438,7 @@ review point and for the whole backlog. It is advisory.
 - **Durations.** Each task takes its latest agent estimate, else its baseline, calibrated (§26.6). Wall
   time is a lognormal through P50 and P90 (sigma = ln(P90/P50) / 1.2816, at least 0.05), each band's
   P90 capped at 4 × P50; tokens and cost likewise, drawn with the wall time's deviate. Any two tasks'
-  deviates correlate at rho (default 0.3). The task in flight is drawn conditioned on not having
+  deviates correlate at rho: 0.3, unless the calibration's fitted rho replaces it (§26.6). The task in flight is drawn conditioned on not having
   finished. A task with no estimate takes the median band of the others and is counted.
 - **Throughput.** The model has `parallel.max_in_flight` slots (§16). A task starts at the earliest
   free slot after its dependencies merge and after every task ahead of it that claim rule 3 keeps it from running beside ends (§16.3, by `parallel.schedule`: paths that meet, or a clash), never before the task ahead of it started; a task without
@@ -485,13 +478,13 @@ review point and for the whole backlog. It is advisory.
 gates nothing.
 
 - **The pairs:** per source and metric, each task's actual against the estimate it had before it
-  started, each weighted 0.5^(age / half-life) (`estimate.calibration.half_life`, default 40).
+  started, each weighted 0.5^(age / half-life), with a half-life of 40.
 - **The bias:** the weighted median of actual/P50, overall, by kind and by family, a group's factor
-  shrunk toward its parent by n/(n+k) (k fitted, or `estimate.calibration.k`). A task takes its
+  shrunk toward its parent by n/(n+k), k fitted. A task takes its
   family's factor when the family has 2 or more pairs, else its kind's, else the overall.
 - **The width:** the P90 is widened (never narrowed) so the pairs are covered at 90%, stopping at
   P90 = 4 × P50.
-- **Too few pairs** (under `estimate.calibration.min_pairs`, default 8): factors 1.0, not fitted, with
+- **Too few pairs** (under 8): factors 1.0, not fitted, with
   the reason shown.
 - **Applied at read time:** P50' = P50 × bias, P90' = P50' × (P90/P50)^width; phases stay raw. The
   model is cached in `board/estimate-calibration.json`.
@@ -528,7 +521,7 @@ gates nothing.
   with its trigger and the rotate command, and the ledger's rotations (`runner`/`rotate` events)
   against the tasks done (distinct tasks moved to `done`); `rotation` in `--json`.
 - **Small tasks:** the share of the tasks merged in the window whose diff (lines added plus deleted,
-  summed over all of a task's merges in the window) is strictly fewer than `health.small_task_lines`
+  summed over all of a task's merges in the window) is strictly fewer than 100
   lines, with the count and the line, so the task-log owner sees follow-ups drifting into one task
   each (bundle them by area, the writing-tasks skill); `small_tasks` in `--json`.
 - **Sign-off wait:** per review point, the tasks that waited after their verified approve on an
@@ -553,7 +546,7 @@ gates nothing.
 Suite time comes from the recorded test runs (§14). For a report whose outcome is done (for a
 verify, verdict `approve`), `ccp report` files the passing `ccp suite run`s recorded against that run,
 each once by `suite_id`, under its kind; a blocked, failed or rejecting report files none. The `full`
-and `gate` lanes are those of the roles in `suite.roles`; the counters are the run's `ran`, `cached`
+and `gate` lanes are those of the roles (§14.1); the counters are the run's `ran`, `cached`
 and `cached_tests`, and a record that names them `modules_ran` and `modules_cached` is read as `ran`
 and `cached`.
 
@@ -574,9 +567,9 @@ and `cached`.
 - **Gate time:** `ccp health` judges the latest cold gate run against the shell limit and the
   cut line, and reports gate runs killed at the limit (§14.6; `gate_time` in `--json`).
 - **Module time:** from the cold runs of the gate role's lane whose record carries `modules`
-  (§14.3), `ccp health` shows the latest's `health.slowest_modules` (default 5) slowest modules with
+  (§14.3), `ccp health` shows the latest's 5 slowest modules with
   their seconds and tests, and the seconds per test (a run's seconds over its tests) of the last
-  `health.suite_trend_runs` (default 10) of those runs: their median, the first's and the latest's.
+  10 of those runs: their median, the first's and the latest's.
   Without such a run it shows neither. `suite_modules` in `--json`.
 
 ## 28. The board
@@ -597,7 +590,7 @@ status files. `ccp board status` is its terminal summary (§23.4).
   starts a detached rebuild unless one is running (a build while the mark is set costs one more
   build). The command never waits for it and keeps its exit code; a failed rebuild is shown by
   `ccp board status` until a later build succeeds. A timer (`ccp board install`, templates in
-  `templates/launchd/`) rebuilds every `board.refresh_minutes` (default 5) for changes made outside
+  `templates/launchd/`) rebuilds every 5 minutes for changes made outside
   `ccp`; it is a plain
   process, with no agent and no tokens.
 

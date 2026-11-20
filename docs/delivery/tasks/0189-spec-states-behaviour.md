@@ -109,4 +109,36 @@ and names no constant as something a product sets. The operator signs the whole 
 
 *Append-only, newest last.*
 
+- 2026-11-20 (implementer): premises re-run at `1774a22`: the doc-01 count printed `34`, not the
+  dry run's `46` (`grep -o "(default [^)]*)" docs/spec/0*.md | grep -v … | wc -l`; 38 matches in all),
+  because the dependency tasks had already rewritten some; doc-02 still counted 25 lines (10, 5, 8, 2).
+  All twelve dependencies are `done`.
+- Every default parenthetical on a setting became the behaviour it gives or was deleted, and each
+  default number the §19.11 and §23.9 tables and the README restated is gone; §8.1 names the schema
+  once. The §8.1 block table lists only blocks that keep a setting: `task_log`, `review_points`,
+  `gate`, `health`, `usage`, `telemetry` and `board` hold only constants now and lost their rows;
+  constants left the other rows and the example.
+- Constants (0192's list, with 0186's) are described by what they do, with the value where it is the
+  behaviour, across §2.4, §3.6, §4.5, §5, §6, §8, §10, §12, §14, §19, §20, §21, §22, §23, §24, §26,
+  §27 and §28, not only the eleven keys doc-02 greps. Where a constant's other values still carry a
+  rule for a product that sets the key (`worktrees.dir` outside the checkout, `refactor_in_scope`
+  `true`/`false`, `task_log.dry_run: true`, `task_log.index: false`), the text keeps that rule for "a
+  product that still sets" the key (§29.3), never as a setting.
+- Kept as the task says: the env hook's `(default plane.json `env.timeout_seconds`)` in §12.1 (doc-01's
+  exclusion); §12.2 now gives that timeout as 600 seconds and names the key once beside it.
+- No schema `description` needed changing: each constant's description already carries what the SPEC
+  dropped (its path rules, its override values).
+- ADR-0043 D1 marked built (`ccp adr decide 43 D1 built`); `docs/adr/INDEX.md` lists no decision
+  states, so it did not change.
+- 2026-11-20 (implementer, fix round 1): review findings 1-4 and the NIT. Where a constant's other
+  values still carry a rule for a product that sets the key (§29.3), the rule is back in the "a
+  product that still sets" wording: `worktrees.dir` null reconciles in the checkout close runs from
+  (§10.5) and makes no merge worktree (§12.1's runner paragraph), and the override's accepted forms
+  (§12.1); `suite.summary`'s `ran_re`, `cached_re` and `cached_tests_re` (§14.1); `doc_name` (§21.3's
+  table and its package-doc sentence); `refactor_in_scope` `true`/`false` at the runner spawn (§10.2).
+  Constants no longer offered as settings: the board refresh left §8.4's knob list (§28.2 states it),
+  §12.2 no longer names `env.timeout_seconds`, README's `--adopt` line gives the 150-line limit
+  (§20.1) for `architect.rules_max_lines`. §20.2 gives the per-check time limit, 600 seconds unless
+  the check sets `timeout_seconds` (a setting, so its value is behaviour).
+
 ## Verification notes

@@ -94,21 +94,21 @@ is never rejected as intentional without the operator's word.
 ### 19.6 When a pass is due, and how `ccp` enforces it
 
 `ccp architect due` exits 0 when a pass is due. A **merge** is a task reaching `done` in the task
-log. A pass is due when **any** of these holds (each threshold is a knob, §19.11):
+log. A pass is due when **any** of these holds (the cadence's task count is a setting, §19.11):
 
-1. **Cadence.** `every_n_tasks` tasks (default 4) numbered from the adoption point (§19.11) have merged since the last pass, or `max_days`
-   (default 14) have passed with at least one merge. Each pass records the done set at its start;
+1. **Cadence.** `every_n_tasks` tasks numbered from the adoption point (§19.11) have merged since the last pass, or 14 days
+   have passed with at least one merge. Each pass records the done set at its start;
    with no pass yet, every done task from the adoption point counts.
 2. **A review point closes.** Every task in the runner's scope is `done`. The scope's closing pass
    is part of its review pack. `ccp architect due|run --scope` (default: the running runner's
    `work.json` scope) carries the scope.
-3. **Friction notes.** `notes_due` notes (default 3) have arrived since the last pass's start. Any
+3. **Friction notes.** 3 notes have arrived since the last pass's start. Any
    worker (implementer, reviewer, verifier) may report friction in the *Friction* section of its
    report, and the runner records each line with `ccp health note`: a fact changed in many places, a
    test that pinned wording, a document read that did not help, a rule that forced extra work. The
    notes go to the next pass as leads.
 4. **Health drift.** `ccp health` finds the median active time of the last 5 tasks above
-   `drift_ratio` (default 1.5) times the median of the 10 before them (drift needs 15 timed tasks),
+   1.5 times the median of the 10 before them (drift needs 15 timed tasks),
    or a house-rule budget (§20.2) over its limit on the integration branch. A task's active time is
    its wall time less its waits: every interval §23.3's `wait_hours` counts, whatever it waited on,
    plus its suite runs' waits on an exclusive lane (§16.6), each instant counted once and only inside
@@ -138,10 +138,10 @@ older tasks never fail.
 **Enforcement at `ccp tasks next`.** With the seat on and an adoption point, `ccp tasks next` needs `QUEUE_ROOT`
 (exit 2 without it). It exits **4** and names no task when:
 
-- a due pass has not started within `grace_tasks` further merges (default 1), counted from the
+- a due pass has not started within one further merge, counted from the
   moment it became due, printing the due
   reason;
-- a report has waited for triage for at least `triage_grace_tasks` merges (default 2);
+- a report has waited for triage for at least two merges;
 - `next` would name no task at all and a pass is due: a due pass then blocks at once, so a runner
   never stops with a due pass behind it.
 
@@ -175,7 +175,7 @@ count toward any task's timers.
      and `Read(./<p>)` / `Read(./<p>/**)` denied for each `private_dirs` entry;
    - with the API-key variables stripped (§30), the seat's pinned model and effort (`claude-opus-5-5` at
      `high`, §2), and
-     `call_timeout_minutes` (default 45).
+     a limit of 45 minutes.
 
    The prompt carries the mode and lenses, `head` and `base`, the `ccp health` summary, the friction
    notes since the last pass, the rules doc's path and, for `shape`, the ADR. `ccp architect run
@@ -217,7 +217,7 @@ their INDEX entries (never editing existing ids, `depends_on` or `dod_checks`), 
 `docs/delivery/reviews/<id>.md`, record known-intentional notes in the house rules, and record
 deferrals in the project's planning document. It re-checks each finding's evidence, gives every
 finding one disposition (`task`, `spec`, `defer`, `needs_operator`, `duplicate` or `reject`),
-creates at most `max_new_tasks` tasks (default 5, grouping related findings; doc fixes grouped into
+creates at most 5 tasks (grouping related findings; doc fixes grouped into
 one or two tasks), and commits by path with `review(<id>): triage — …`. Product decisions reach the
 operator only through `needs_operator`.
 
@@ -260,16 +260,14 @@ operator only through `needs_operator`.
 
 The seat is on unless `plane.json` sets `"architect": false` (§8); an `architect` block holds its settings, and without one it runs with its defaults. Everything it enforces (the triggers and their blocks at `next`, §19.6; shaping; the kinds, §20.3) starts at the product's **adoption point**, `shape_from_task`: the next task number when the seat turned on. `ccp init` records it (§4.5); a product with history records it by an upgrade step (§29.3). With no adoption point the seat enforces nothing, and `ccp architect due` says so.
 
-| Key | Default | Meaning |
-| --- | --- | --- |
-| `rules_doc`, `rules_max_lines` | `docs/ENGINEERING.md`, 150 | The house rules (§20.1); when the doc is missing a pass runs without them and says so |
-| `every_n_tasks`, `max_days`, `notes_due`, `drift_ratio` | 4, 14, 3, 1.5 | The triggers (§19.6) |
-| `grace_tasks`, `triage_grace_tasks` | 1, 2 | The enforcement at `next` |
-| `shape_adrs`, `shape_from_task` | on with an `adr` block, — | The shaping check (§19.6); `shape_from_task` is the adoption point |
-| `refactor_every`, `refactor_in_scope` | 4, `"deps"` | Refactor capacity and reach (§20.3, §20.4) |
-| `call_timeout_minutes`, `max_new_tasks` | 45, 5 | The run and triage caps |
-| `probes`, `checks`, `budgets` | — | Read-only probes (§19.7), product check commands and budgets (§20.1, §20.2) |
-| `areas`, `metrics`, `private_dirs`, `shape_only_dirs` | — | Path groups for measurements, extra metrics (§27), paths the architect may not read, paths judged on shape only |
+| Key | Meaning |
+| --- | --- |
+| `rules_doc` | The house rules (§20.1), the product's `docs/ENGINEERING.md` unless it names another; when the doc is missing a pass runs without them and says so |
+| `every_n_tasks` | The cadence trigger (§19.6) |
+| `shape_adrs`, `shape_from_task` | The shaping check (§19.6), on with an `adr` block; `shape_from_task` is the adoption point |
+| `refactor_every` | Refactor capacity (§20.3) |
+| `probes`, `checks`, `budgets` | Read-only probes (§19.7), product check commands and budgets (§20.1, §20.2) |
+| `areas`, `metrics`, `private_dirs`, `shape_only_dirs` | Path groups for measurements, extra metrics (§27), paths the architect may not read, paths judged on shape only |
 
 **No test under two checks.** A test runs once per gate, and a failure belongs to one check. The
 config is refused when two `checks` select the same tests: each check's `cmd` resolves to the test
@@ -278,7 +276,7 @@ Two checks overlap when they name the same module, class or test, or one contain
 refusal names both checks and the shared module or class. A test directory or a `discover` run
 names no module and is not judged.
 
-Every default above can be overridden per product. `shape` is started by the task-log owner, when
+Every key above can be set per product, its default in the schema (§8.1). `shape` is started by the task-log owner, when
 `ccp tasks check` fails on an unshaped ADR; it never runs on its own when an ADR is accepted.
 
 ### 19.12 Older commands
@@ -292,8 +290,8 @@ managed copies of the two older skills and `--check` reports them as `retired`.
 ### 20.1 House rules (`rules_doc`)
 
 The house rules are the product's own engineering standards: product-owned, current-only (no
-history), and short, because every implementer reads them. They are at most `rules_max_lines`
-lines (default 150), which `ccp docs check` enforces.
+history), and short, because every implementer reads them. They are at most 150
+lines, which `ccp docs check` enforces.
 
 **Sections:**
 
@@ -311,8 +309,8 @@ lines (default 150), which `ccp docs check` enforces.
 `ids.rule`, §7), and its check a line opening `check: pass|budget|command|docs`:
 
 - `budget`: a `ccp` budget in `architect.budgets` with the rule's id;
-- `command`: a product command in `architect.checks` (`{id, cmd, timeout_seconds?}`, default
-  timeout 600), exit 0 = pass, run inside `ccp docs check` so the verifier gates on it (§21.2);
+- `command`: a product command in `architect.checks` (`{id, cmd, timeout_seconds?}`, each run
+  under a time limit of 600 seconds unless the check sets `timeout_seconds`), exit 0 = pass, run inside `ccp docs check` so the verifier gates on it (§21.2);
 - `docs`: a rule `ccp docs check` runs, named after a dash by its `plane.json` key, several
   separated by commas: `package_docs` (§21.3, §21.4) or `package_docs.rules.<name>` (§21.6);
 - `pass`: the architect judges it.
@@ -355,14 +353,14 @@ ordinary task.
 
 - **Frontmatter `kind: refactor`** (the default kind is `feature`, §5). A refactor cites `rule_refs`
   (house-rule ids) or `review_refs` (finding ids) in place of `spec_refs`/`adr_refs`, and may leave
-  the task log's `refs_any` keys out of its frontmatter. `ccp tasks check` refuses a refactor whose
-  `spec_refs` or `adr_refs` are non-empty, because a refactor changes no rule. These are the default
-  per-kind rules of `task_log.kinds` (§5).
+  `spec_refs` out of its frontmatter. `ccp tasks check` refuses a refactor whose
+  `spec_refs` or `adr_refs` are non-empty, because a refactor changes no rule. These are the
+  per-kind rules of §5.4.
 - **Its own standing DoD: behaviour is unchanged.** The suite and the product's scenario checks
   pass; no test expectation changes except where the task names it; the SPEC does not change. A
   change to behaviour or to stored data is not a refactor: it is a feature task under the product's
   rules.
-- **Capacity.** Once `refactor_every` feature tasks (default 4; `refactor_every: 0` turns it off) have merged since the
+- **Capacity.** Once `refactor_every` feature tasks (`refactor_every: 0` turns it off) have merged since the
   last refactor merged, `ccp tasks next` returns a ready refactor the scope reaches (§20.4) ahead of
   any feature task, with a `why:` line ("a refactor, due after N feature merges since the last").
   "Merged since the last refactor" follows the git order in which task files became `done`, else
@@ -370,13 +368,13 @@ ordinary task.
 - **Preparatory refactors from a `shape` pass** are ordinary refactor tasks; the ADR's first feature
   tasks depend on them.
 
-### 20.4 Which refactors a scope reaches (`refactor_in_scope`)
+### 20.4 Which refactors a scope reaches
 
 A refactor relevant to the current work is done as part of it; one that is not immediately needed is
 not added to the current scope, but waits at the top of the next review point's scope, so it sits
 out one cycle at most.
 
-- **`"deps"`** (the default, also when the key is left out): a refactor is in a scope when a task in
+- **Through dependencies:** a refactor is in a scope when a task in
   the scope depends on it, directly or transitively (the walk passes through tasks of any kind; a
   done or dropped task pulls nothing in and ends the walk). `ccp tasks next` widens the scope to
   those refactors only, and its `why:` line names the scope task that needs it.
@@ -390,8 +388,8 @@ out one cycle at most.
   cycle. The lead may take one out with `team.sh runner scope --remove`, which drops it from the
   list. When a spawn starts no new review point, or `runner scope --add` widens the scope, while
   refactors wait, `team.sh` says how many wait and that they join only at a new `--review-point`.
-- **`true`:** refactors belong to every runner's scope. **`false`:** a refactor runs only in a scope
-  that names it.
+- **A product that still sets `refactor_in_scope`** (§29.3) keeps its value, with a warning: `true`
+  puts refactors in every runner's scope, `false` runs a refactor only in a scope that names it.
 
 The board shows the waiting refactors (`now.refactors_waiting`: count, ids, the oldest, the mode;
 with no scope in `work.json`, every pending refactor; `null` unless the seat is adopted), and
@@ -405,14 +403,14 @@ deterministic tests, current-only docs, package docs are maps, and every referen
 rule states its purpose, names itself in the set on a `starter: <name>` line, and names its check;
 where the check is mechanical it is a `docs` check. No starter rule is mandatory.
 
-- **Adopt.** `docs.starter_rules` in `plane.json` adopts the set (default `null`: not adopted; `{}`
-  adopts every rule). `ccp init` writes the set to `docs/ENGINEERING.md` when the product has no such file (`--no-starter-rules` skips it) and, in a `plane.json` it writes, `docs.starter_rules` and the `package_docs` settings its `docs` checks name (§4.5). With the set adopted, `ccp docs check` fails while an adopted rule's `docs` check is not
+- **Adopt.** `docs.starter_rules` in `plane.json` adopts the set (`{}`
+  adopts every rule; without the key the set is not adopted). `ccp init` writes the set to `docs/ENGINEERING.md` when the product has no such file (`--no-starter-rules` skips it) and, in a `plane.json` it writes, `docs.starter_rules` and the `package_docs` settings its `docs` checks name (§4.5). With the set adopted, `ccp docs check` fails while an adopted rule's `docs` check is not
   set, naming the rule and the key. `architect.rules_doc` defaults to that doc, so the architect judges the `pass` rules.
 - **Decline.** The product names the rule with its reason in `docs.starter_rules.declined`
   (`{"<name>": "<reason>"}`) and deletes it from its rules doc. `ccp docs check` does not run what a
   declined rule's check names, set or not, unless an adopted rule names it too, and prints each
   decline with its reason. Declining `package-maps` turns off the package-doc checks of §21.3 and
-  §21.4, `no_delivery_ids` and the path check included; the `package_docs.rules` checks (§21.6)
+  §21.4, the delivery-id check and the path check included; the `package_docs.rules` checks (§21.6)
   still run. A name outside the set is refused when the config loads.
 - **Override.** The product tunes its check's settings in `plane.json` (globs, targets, patterns) or
   rewords the rule in its own rules doc; to replace the check, it declines the rule and writes its
@@ -430,8 +428,8 @@ nothing else.
   `{test}` (required) filled in shell-quoted; exit 0 means the test passed. `--test` is one test id,
   passed whole, so it may name a single test method (`<module>.<Class>.<method>` for a unittest
   command); what runs is the command's. It runs in the worktree's root, in its own process group,
-  killed after `mutate.timeout_seconds` (default 600); a run killed at the limit counts as the test
-  failing. With no command (`null`, the default) `ccp mutate` refuses (exit 2). Its test runs are not suite runs (§14.1): `ccp mutate` runs the command itself, and
+  killed after 600 seconds; a run killed at the limit counts as the test
+  failing. With no command `ccp mutate` refuses (exit 2). Its test runs are not suite runs (§14.1): `ccp mutate` runs the command itself, and
   records them in its own rows and log, not as `suite` events. A product whose tests are whole
   scripts sets `mutate.command` to `sh {test}` (or the interpreter its scripts need) and names the
   script as `--test`.
@@ -482,12 +480,12 @@ Choosing mutants is the seat's; the plane ships no mutation operators.
 - a status other than `pending`, `done` or `dropped` (a legacy `in_progress` or `blocked` reads as
   `pending` and warns);
 - a dependency that does not exist, or a cycle of `depends_on` (named);
-- no `refs_any` list non-empty (per kind, §20.3), or a missing required section;
+- none of the ref lists its kind requires non-empty (§5.4, §20.3), or a missing required section;
 - a `kind: refactor` task whose dod_check runs the gate or full lane (named);
-- other than 1..`max_checks` unique `` - id: `kind-NN` `` checks, or soft language inside
+- other than 1..6 unique `` - id: `kind-NN` `` checks, or soft language inside
   `## dod_checks` (dry-run lines are left out of that scan, since they quote output);
 - a `done` task with no verification note (no `- ` line under `## Verification notes`);
-- with `task_log.dry_run: true`, a `dod_check` of a task not `done` or `dropped` whose numbered step
+- in a product that still sets `task_log.dry_run: true` (§29.3), a `dod_check` of a task not `done` or `dropped` whose numbered step
   runs a backticked command but that carries no ``dry run (`<commit>`): <what it printed>`` line, or
   `dry run: n/a — <reason>` when it cannot be run yet, each with text after it (the check is that
   the line is there, not that it is true);
@@ -527,8 +525,8 @@ here rather than restate it. A product's docs come in three tiers, by how a sess
 | Tier | File | Loaded |
 |---|---|---|
 | Project brief | the root `CLAUDE.md` | always |
-| Package doc | `CLAUDE.md` in a source directory (`claude_md_dirs`, or `doc_name: CLAUDE.md`) | automatically, when a session reads a file under that directory |
-| On-demand package doc | `doc_name` (default `.claude.md`) in a source directory | when a session reads it |
+| Package doc | `CLAUDE.md` in a source directory (`claude_md_dirs`, or every source directory in a product that still sets `doc_name: CLAUDE.md`, §29.3) | automatically, when a session reads a file under that directory |
+| On-demand package doc | `.claude.md` in a source directory (or the `doc_name` a product still sets, §29.3) | when a session reads it |
 
 A package doc is a map of what exists in its directory: what each part is for and where to look. It
 is never a record of what a task did; that is the task log and Git.
@@ -537,19 +535,19 @@ The rules follow the product's `language` (§8.1): a language pack turns them on
 `package_docs` block's settings or, without the block, their defaults, and `none` turns them off. The
 generic rules a product names in `package_docs.rules` (§21.6) run whatever the language. The core is
 language-neutral.
-Every directory below the root that holds source (not exempt) carries a package doc (`doc_name`, or
-`CLAUDE.md` for `claude_md_dirs`), and the language pack's files carry module docstrings (§21.4).
+Every directory below the root that holds source (not exempt) carries a package doc (`.claude.md`, or the `doc_name` a product
+still sets, or `CLAUDE.md` for `claude_md_dirs`), and the language pack's files carry module docstrings (§21.4).
 A directory whose source files are all `.md` holds documents only and needs no package doc unless
 `claude_md_dirs` lists it; a directory with any other source file still needs one. Each doc:
 
 - opens with a `# ` title;
-- has no heading naming a plan (`banned_headings`);
-- is no longer than `size_ratio` × its directory's source lines;
-- names no backticked path with a `path_ref_suffixes` suffix (default `.py .sql .json .md .sh`)
+- has no heading naming a plan (`future`, `planned`, `next steps`, `roadmap` or `todo`);
+- is no longer than half its directory's source lines;
+- names no backticked path ending `.py`, `.sql`, `.json`, `.md` or `.sh`
   that exists neither from the root nor from its directory;
 - names no delivery id (below).
 
-**No delivery ids (`no_delivery_ids`, default `true`).** No line of a package doc, and no code
+**No delivery ids.** No line of a package doc, and no code
 comment of a file under `docstring_globs`, carries a task, finding or ruling id. Comments are read
 only in files under `docstring_globs`, as the language pack reads them (§21.4): a product without
 `docstring_globs` gets no comment check, and strings and docstrings are not comments. Each is
@@ -600,8 +598,8 @@ A pack is a module in `ccp/doclang/`.
 root, exit 0 = pass, like `architect.checks` (§20.1) but not tied to a house rule. A failure is
 reported as `docs check <id>` (a house-rule check as `check <id>`). Both kinds run in their own
 process group, killed whole on timeout, and keep the last 20,000 characters of output.
-`docs.workers` (default 1) is how many check commands (`docs.checks` and `architect.checks`) run at
-once, each under its own timeout; results are reported in declared order.
+The check commands (`docs.checks` and `architect.checks`) run one at a time, each under its own
+timeout; results are reported in declared order.
 
 ### 21.6 Opt-in generic rules (`package_docs.rules`)
 
@@ -653,8 +651,8 @@ them by keeping a register.
 
 ### 22.2 The register
 
-A product that uses review points keeps a register at `review_points.file` (default
-`docs/delivery/review-points.yaml`): YAML, a list of mappings at the top level or under
+A product that uses review points keeps a register at
+`docs/delivery/review-points.yaml`: YAML, a list of mappings at the top level or under
 `review_points:`:
 
 ```yaml
@@ -789,7 +787,7 @@ pick and the current point.
 
 ### 22.10 INDEX and the plan's task fields
 
-INDEX.yaml keeps its frozen format (§5); with `task_log.index: false` there is no INDEX. The fields
+INDEX.yaml keeps its frozen format (§5.7). The fields
 a plan needs per task (`kind`, `adr_refs`, `spec_refs`, `review_point`, `pr`, `merge_sha`,
 `done_at`) are on `board.json`'s `plan.tasks`, one row per task. `pr`, `merge_sha` and `done_at` come
 from the queue's close record (`tasks/<id>.json`), else from git's merge of the task (the subject's

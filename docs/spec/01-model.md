@@ -93,7 +93,7 @@ launch flags); neither depends on the lead session's settings. A product may ove
 plane.json `models` (`lead`, `runner`, `implementer`, `implementer_small`, `implementer_refactor`,
 `reviewer`, `verifier`, `architect`, `estimator`), each an alias the Agent call's `model` accepts (`sonnet`,
 `opus`, `haiku`, `fable`). The implementer's model is chosen per task: `implementer_small` for a task whose
-estimate is at most `workers.small_estimate_minutes`, `implementer_refactor` for a task of that kind, else
+estimate is at most 30 minutes, `implementer_refactor` for a task of that kind, else
 `implementer`; its fix, merge and ruling rounds take the same model. Without an estimate the small choice
 cannot apply, and `ccp prompt implement` warns. The defaults:
 
@@ -283,7 +283,7 @@ configuration.
   was idle is still found.
 - **Test notice.** In a sandbox only (§29.3), `ccp notify fire <trigger>` fires a notice as a step would: the `pending` record, the command channel, the rendered notice. It needs `--task` or `--id`, as every step that fires one gives; without either it refuses (exit 2) and records nothing.
 - **Channels** (plane.json `notify`, §8.1):
-  - `command`, a shell command (default null), and `timeout_seconds` (default 30): the unattended
+  - `command`, a shell command, which `ccp` gives 30 seconds: the unattended
     channel `ccp` runs on each trigger but `upgrade`, which is only recorded for the lead to dispatch, so a release runs no product command, with an empty stdin, in the checkout the call came from (for
     a gate or a spec question, the binding's product root). Its environment carries the trigger and
     ids only: `CCP_NOTIFY_TRIGGER`, `CCP_PROJECT_ID`, `CCP_TASK_ID`, `CCP_NOTIFY_ID` (the gate,
@@ -291,7 +291,7 @@ configuration.
     `CCP_NOTIFY_LINE`. Never a brief, a question's text or file content. The command is the
     product's (an email, a chat message, another tool); the plane ships no client. `ccp` records its
     send itself (`via: command`, `ok: false` when it failed or timed out).
-  - `lead`, `{"tool": …, "to": …}` (default null), both non-empty, single-line strings: the lead
+  - `lead`, `{"tool": …, "to": …}`, both non-empty, single-line strings: the lead
     sends each notice with that tool from its own session (a tool that exists only there, such as an
     MCP mail or chat server). Any other key, a missing one, or a value that is blank or holds a line
     break, is refused.
@@ -415,7 +415,7 @@ A product is adopted by running `ccp init` in its repository. It writes:
 
 - the PROJECT, SPEC and delivery templates (`templates/docs-project/`, `templates/docs-delivery/`)
   and the starter house rules as `docs/ENGINEERING.md` unless the product has it or `--no-starter-rules` says not (§20.5);
-- a minimal `docs/delivery/plane.json` (§8.1): the project id, the worktrees directory, with
+- a minimal `docs/delivery/plane.json` (§8.1): the project id, with
   `--language` the language, with `--gate` the gate lane (one stage, `gate`, running the line as given), and with the starter rules
   `docs.starter_rules` and the `package_docs` settings the starter rules' checks name; and `INDEX.yaml` when the product keeps one (§5.7) and has
   none yet (an existing one is kept and listed as kept); with `--gate`, the gate command written into
@@ -460,7 +460,7 @@ knows GitHub by that host name only, and the warning does not stop the adoption.
   rule of the product's own house-rules doc that has no `check:` line (§20.1) and points at the
   starter rules (§20.5); it writes nothing. With `--adopt` it gives each such rule a `check: pass`
   line at the end of its item, and refuses (exit 1), writing nothing, when that would put the doc over
-  `rules_max_lines`, or when the doc, parsed again with those lines, would have an adopted rule not
+  its 150-line cap (§20.1), or when the doc, parsed again with those lines, would have an adopted rule not
   reading `pass` or another rule's check changed (a fenced block left open, for one). The rules parser
   skips fenced code blocks: a line inside one opens no rule and is no rule's `check:`. The rule ids
   and the cap are the product's when its `plane.json` loads. It does not set `architect.rules_doc`,
@@ -488,7 +488,7 @@ A copy of the template that was not filled in fails `ccp tasks check`:
 
 ### 5.1 File
 
-`docs/delivery/tasks/<task_id>.md` (`task_log.dir`). `task_id` is the file name: a number of
+`docs/delivery/tasks/<task_id>.md`. `task_id` is the file name: a number of
 `ids.task.width` digits and a kebab slug (§7). Never deleted, never renumbered.
 
 ### 5.2 Frontmatter
@@ -498,8 +498,8 @@ One `key: value` per line, lists inline.
 | Key | Required | Meaning |
 |---|---|---|
 | `task_id`, `title`, `status`, `depends_on`, `created`, `updated` | always | a `depends_on` naming a later task is allowed; a cycle or a missing id is refused |
-| `spec_refs`, `adr_refs`, `rule_refs`, `review_refs` | per `task_log.required`, `refs_any` and the kind | what the task answers to (§7 for ref shapes) |
-| `kind` | no (default `feature`) | a key of `task_log.kinds`; read with the architect seat on, for tasks from its adoption point (§19.11, §20) |
+| `spec_refs`, `adr_refs`, `rule_refs`, `review_refs` | per the kind (§5.4) | what the task answers to (§7 for ref shapes) |
+| `kind` | no (default `feature`) | `feature` or `refactor` (§5.4); read with the architect seat on, for tasks from its adoption point (§19.11, §20) |
 | `review_point` | no | the review point whose scope it belongs to (§22) |
 | `paths` | no | files or globs it touches, declared by its writer; parallel safety reads them before the Scope **In:** item (§16) |
 | `parallel` | no | whether it may run beside other tasks (§16) |
@@ -508,9 +508,9 @@ One `key: value` per line, lists inline.
 | `shaping` | no | `waived — <reason>` (§19) |
 | `renamed_from` | no | the old id after an amended slug |
 | `covers` | no | an after-the-fact task's merged commits, as shas (§10.7) |
-| `adopt` | no (default `none`) | what a product must do to use what the task delivers: `none`, or one concrete step naming the file and key (ADR-0041 D1). A task that ships an off-by-default knob carries its step, never `none`; `ccp tasks check` warns on a `none` value that names a plane.json, binding or settings key. A step a product must take for the plane to keep working with it starts with `required:`; any other step is optional |
+| `adopt` | no | what a product must do to use what the task delivers: `none` (also when the key is absent), or one concrete step naming the file and key (ADR-0041 D1). A task that ships an off-by-default knob carries its step, never `none`; `ccp tasks check` warns on a `none` value that names a plane.json, binding or settings key. A step a product must take for the plane to keep working with it starts with `required:`; any other step is optional |
 
-A product may require more keys (`task_log.required`) and add its own. Runtime keys (lease, session,
+A product may add keys of its own. Runtime keys (lease, session,
 `waiting_on`, ports, …) are refused.
 
 ### 5.3 Status
@@ -533,10 +533,10 @@ dropped record marked converted and not re-verified. An open task is converted o
 
 ### 5.4 Kinds
 
-`task_log.kinds`, read with the architect seat on, for tasks from its adoption point (§19.11). Each kind names `refs_any` (the ref lists it
-cites at least one of; default the task log's) and `forbid` (lists it leaves empty). The default:
-`feature` uses the task log's `refs_any`; `refactor` cites `rule_refs` or `review_refs` and no
-`spec_refs` or `adr_refs` (a refactor changes no rule, §20).
+Two kinds, read with the architect seat on, for tasks from its adoption point (§19.11). Each names
+the ref lists a task of that kind cites at least one of, and the lists it leaves empty: `feature`
+cites `spec_refs`; `refactor` cites `rule_refs` or `review_refs` and no `spec_refs` or `adr_refs` (a
+refactor changes no rule, §20).
 
 ### 5.5 Sections
 
@@ -547,16 +547,16 @@ In order, each a `## ` heading:
 | `Intent` | task writer | one paragraph: what is true for the user when this is done |
 | `Context (not checked)` | task writer; the design seat when ruling (§17); on a claimed task, the implementer, writing a ruling the runner passes (§10.5) | background and constraints the verifier does not walk as checks. `Context (not verified)` is read as this heading. A count, size, site list or "already"/"never" claim in it names, on its line, the command that measured it and the commit it ran at; `ccp tasks check` warns, without refusing, about a line of it, in a task not yet done, that states a number with no backticked command on it |
 | `Scope` | task writer | `- **In:** …` and `- **Out:** …`. In **In:**, a path the task creates is marked `new` and one it deletes `removed`, the word within the 25 characters after the path and before the next backtick; `ccp tasks check` warns, for a task not yet done, about a path there (holding a `/`, not a glob) that does not exist, is not marked and is not in a dependency's **In:** (§16.3) |
-| `dod_checks` | task writer | 1..`max_checks` checks, each `` - id: `kind-NN` `` then `story`, `setup`, `steps`, `expect`; a check whose steps run a command carries `dry run (<commit>): …` or `dry run: n/a — <reason>` when `task_log.dry_run` is on (§10). No soft language |
+| `dod_checks` | task writer | 1..6 checks, each `` - id: `kind-NN` `` then `story`, `setup`, `steps`, `expect`; a check whose steps run a command carries `dry run (<commit>): …` or `dry run: n/a — <reason>` where dry runs are required (§21.1). No soft language |
 | `Implementation notes` | runner, from the implementer's output | append-only |
 | `Verification notes` | verifier; `ccp tasks close` | append-only, one `- ` line per check; a `done` task has at least one |
 
 ### 5.6 Fixed and configurable
 
 The section names, the check grammar and the statuses are fixed: they are what `ccp` reads and
-writes. A product configures which keys and sections are required (it may add, not rename),
-`refs_any`, the kinds, `max_checks`, the soft words, `dry_run`, the SPEC paths (`spec_paths`, §3.5), the records directory
-(`task_log.reviews_dir`, default `reviews`) and the ids (§7).
+writes, and so are the required keys and sections, the kinds, the check count, the soft words and
+the records directory (`docs/delivery/reviews`). A product configures the SPEC paths (`spec_paths`,
+§3.5) and the ids (§7).
 
 ### 5.7 `INDEX.yaml`
 
@@ -564,7 +564,7 @@ writes. A product configures which keys and sections are required (it may add, n
 - Its format is **frozen** at the fields `id`, `status`, `title`, `depends_on`, `path`. The plane never
   changes it; new task fields (`merge_sha`, `done_at`, …) go to the board's data, `board.json` (§28),
   instead.
-- It is the product's choice: `task_log.index: true` (the default) or `false`. With `false`,
+- Every product keeps one. A product that still sets `task_log.index: false` (§29.3) keeps none:
   `ccp tasks check` does not require it, no command writes one, and the plane's readers use the task
   files.
 - The plane's own readers read the task files, not the index.
@@ -589,7 +589,7 @@ block and list values; a line outside it fails the check.
 
 | Key | | Meaning |
 |---|---|---|
-| `id`, `title`, `status`, `date` | required | `status` one of `adr.statuses`; `date` `YYYY-MM-DD` |
+| `id`, `title`, `status`, `date` | required | `status` one of the statuses (§6.4); `date` `YYYY-MM-DD` |
 | `deciders` | optional | who decides |
 | `supersedes`, `superseded_by`, `amends` | optional | links, each a list of `<ADR id>` or `<ADR id> Dn` |
 | `review_points` | optional | the review points it is built in (§22) |
@@ -621,11 +621,12 @@ What is built and what still stands is a field per decision, never free text.
 
 ### 6.4 Statuses and moves
 
-- `adr.statuses` is the vocabulary (default `proposed`, `accepted`, `in-progress`, `implemented`,
-  `rejected`, `superseded`, `withdrawn`, `retired`; `in-progress` and `implemented` are kept for older
-  ADRs, the build state lives per decision).
-- `adr.transitions` lists the moves `ccp adr status` allows (default `proposed` → `accepted` |
-  `rejected` | `withdrawn`; `accepted` → `superseded` | `retired`).
+- The statuses are `proposed`, `accepted`, `in-progress`, `implemented`, `rejected`, `superseded`,
+  `withdrawn` and `retired` (`in-progress` and `implemented` are kept for older ADRs, the build state
+  lives per decision).
+- `ccp adr status` allows the moves `proposed` → `accepted` | `rejected` | `withdrawn` and
+  `accepted` → `superseded` | `retired`, and for older ADRs
+  `in-progress` → `accepted` | `superseded` | `retired` and `implemented` → `superseded` | `retired`.
 - Accepting an ADR records every body decision not yet recorded as `not_built`; retiring it retires
   every decision.
 
@@ -644,7 +645,7 @@ What is built and what still stands is a field per decision, never free text.
 `ccp adr` (`ccp docs adr index|list` is the same):
 
 - `new "<title>"` (`ccp adr new`) — the next number, a slug, `adr.template` (or the plane's), status `proposed`;
-- `status N <status> [--note T]` — a move `adr.transitions` allows (`superseded` only through
+- `status N <status> [--note T]` — a move §6.4 allows (`superseded` only through
   `supersede`);
 - `supersede OLD NEW [--decisions D2,D4] [--by Dk] [--archive]` — both links; without `--decisions`
   OLD becomes `superseded` with every decision retired, and `--archive` moves it into
@@ -662,7 +663,7 @@ They regenerate `adr.index` when it is set. Call syntax: `docs/cli/01-model.md`.
 `ccp adr check`, and so `ccp docs check`:
 
 - **Failures:** frontmatter the reader cannot read; a missing required key; an id that is not the
-  file's number; a status outside `adr.statuses`; `superseded` without `superseded_by`; a link or `by`
+  file's number; a status outside §6.4's; `superseded` without `superseded_by`; a link or `by`
   that resolves to no ADR or decision; a malformed or duplicate `decisions` entry, or one naming no
   body decision; a task `adr_refs` entry citing a decision (`NNNN Dn`) its ADR does not have; a stale
   or missing index.
@@ -739,40 +740,34 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
   updated; `ccp docs check`, which every gate runs, refuses them, so a typo cannot silently turn a
   rule off. The schema gains a required key, or drops or moves one, only as §29.3 allows.
 - A key that is not the product's to decide is a constant in code. The schema keeps a key that was removed, merged or made constant, marked deprecated with its outcome, and `ccp upgrade status` lists each one a product still sets (§29.3).
-- Each block is off, or at its defaults, when absent:
+- Each block is off, or at its defaults, when absent. Each key's default is in the schema
+  (`contracts/plane_config.schema.json`), which the plane's tests hold to the code. The blocks that
+  hold settings:
 
 | Block | Sets | § |
 |---|---|---|
 | `ids` | id and reference patterns | §7 |
-| `task_log` | task directory, required keys and sections, `refs_any`, `kinds`, `max_checks`, soft words, `dry_run`, `reviews_dir`, `index`; the statuses are fixed | §5, §10 |
 | `spec_paths` | the SPEC files, read by the sign-off checks and the estimator | §3.5, §26 |
-| `adr` | `dir`, `index` (or `null`), `statuses`, `transitions`, `strict`, `template` (or `null` for the plane's) | §6 |
-| `package_docs`, `docs` | doc checks, run when `language` names a pack (`claude_md_dirs`, `path_ref_suffixes`, `docstring_globs`, `no_delivery_ids`, `delivery_id_patterns`, `rules`), product check commands (`docs.checks`, `docs.workers`), the starter house rules (`docs.starter_rules`, §20.5) | §21 |
+| `adr` | `dir`, `index` (or `null`), `strict`, `template` (or `null` for the plane's) | §6 |
+| `package_docs`, `docs` | doc checks, run when `language` names a pack (`claude_md_dirs`, `docstring_globs`, `delivery_id_patterns`, `rules`), product check commands (`docs.checks`), the starter house rules (`docs.starter_rules`, §20.5) | §21 |
 | `architect` | the architect seat, house rules, budgets, refactors | §19, §20 |
-| `review_points` | the review-point register | §22 |
-| `worktrees`, `env`, `merge`, `auth_check` | worktrees and environment hooks (`ccp wt`), the merge step (`merge.command`) and the paths that do not make a head behind the tip (`merge.behind_tip_ignore`), credential probes (`auth_check.probes`) | §12, §15, §16, §30 |
-| `prompts` | the worker prompt fragment and `worker_env`; the prompt audit's `keep_body` (default `false`) and `audit_keep_days` (default `null`, keep all) | §13, §23.8 |
+| `worktrees`, `env`, `merge`, `auth_check` | worktree links and environment hooks (`ccp wt`), the merge step (`merge.command`) and the paths that do not make a head behind the tip (`merge.behind_tip_ignore`), credential probes (`auth_check.probes`) | §12, §15, §16, §30 |
+| `prompts` | the worker prompt fragment and `worker_env` | §13 |
 | `reconcile` | commands run at close | §10 |
-| `gate` | the agent's shell limit and the gate's cut line (`shell_limit_seconds`, `cut_line_seconds`) | §14.6 |
 | `suite`, `verify` | test runs and lanes (an argv or ordered `{name, cmd}` stages), verification and cache acceptance (`verify.accept_cache`), the fix rounds that need no new review (`verify.skip_review`, `verify.skip_review_after_clean`), the declared provers that skip a gate stage or the review (`verify.provers`) | §14, §15 |
 | `parallel` | several runners | §16 |
 | `report` | the verdicts every implementer report must state (`report.required_fields`) | §13.4 |
-| `notify` | the operator's channels on each trigger: the command `ccp` runs (`command`, `timeout_seconds`) and the lead's tool (`lead`: `tool`, `to`) | §3.6 |
-| `telemetry`, `board`, `estimate` | usage, allowance windows, the board, estimation | §24–§28 |
-| `health` | the line below which a merged task counts as small (`small_task_lines`, default 100), the slowest test modules listed (`slowest_modules`, default 5) and the gate runs the suite trend spans (`suite_trend_runs`, default 10) | §27.1 |
-| `usage` | the cost advice's thresholds (`advice`: `cache_5m_share` 0.5, `context_tokens` 300000, `coordination_share` 0.4) and its window (`window_hours` 0: every request) | §24.6 |
+| `notify` | the operator's channels on each trigger: the command `ccp` runs (`command`) and the lead's tool (`lead`: `tool`, `to`) | §3.6 |
+| `estimate` | estimation | §26 |
 
 An example, with neutral values:
 
 ```json
 "architect": {
   "rules_doc": "docs/ENGINEERING.md",
-  "rules_max_lines": 150,
-  "every_n_tasks": 4, "max_days": 14, "notes_due": 3, "drift_ratio": 1.5,
-  "grace_tasks": 1, "triage_grace_tasks": 2,
+  "every_n_tasks": 4,
   "shape_adrs": true, "shape_from_task": "0100",
-  "refactor_every": 4, "refactor_in_scope": "deps",
-  "call_timeout_minutes": 45, "max_new_tasks": 5,
+  "refactor_every": 4,
   "probes": ["<read-only command prefix>"],
   "checks": [{"id": "E3", "cmd": "<product command; exit 0 = pass>"}],
   "budgets": [{"id": "E7", "glob": "src/**/*.py", "max_lines": 800}],
@@ -780,15 +775,11 @@ An example, with neutral values:
   "private_dirs": [".env"]
 },
 "prompts": { "fragment": "docs/delivery/WORKERS.md",
-             "worker_env": { "<NAME>": "<template: {{main_checkout}}, {{worktree}}, {{queue_root}}, {{round}}, …>" },
-             "keep_body": false, "audit_keep_days": null },
+             "worker_env": { "<NAME>": "<template: {{main_checkout}}, {{worktree}}, {{queue_root}}, {{round}}, …>" } },
 "reconcile": { "hooks": ["<product command, run in close's merge worktree (§10.5)>"] },
-"board": { "refresh_minutes": 5 },
 "adr": { "dir": "docs/adr", "index": "docs/adr/INDEX.md" },
 "suite": { "lanes": { "full": ["scripts/test.sh"],
-                      "gate": [{"name": "lint", "cmd": "scripts/lint.sh"}, {"name": "tests", "cmd": "scripts/test.sh"}] },
-           "summary": { "tail_lines": 40, "max_chars": 40000 },
-           "log_keep_days": 14 }
+                      "gate": [{"name": "lint", "cmd": "scripts/lint.sh"}, {"name": "tests", "cmd": "scripts/test.sh"}] } }
 ```
 
 - `reconcile.hooks` commands get `TASK_ID`, `PR`, `HEAD_SHA`, `MERGE_SHA` and `SUMMARY` in their
@@ -816,7 +807,7 @@ An example, with neutral values:
 
 A product's binding is local configuration of the plane installation, not part of either
 repository: `projects/<project_id>.yaml` beside the run checkout's code, gitignored, until the store
-holds bindings (§29). Contract: `contracts/project.schema.json`; required: `project_id`, `integration_branch`, `queue_root`, `product_root`. Optional: `ci` and `notes`. Nothing else is read: the runner's agent (`ccp:delivery-runner`), name (`runner`) and worktree (`<product_root>/<worktrees.dir>/runner`, the prefix with several runners, §16) are derived, and its rotation (after 4 tasks, §10.2) and idle limit are constants.
+holds bindings (§29). Contract: `contracts/project.schema.json`; required: `project_id`, `integration_branch`, `queue_root`, `product_root`. Optional: `ci` and `notes`. Nothing else is read: the runner's agent (`ccp:delivery-runner`), name (`runner`) and worktree (`<product_root>/.plane-runtime/runner`, the prefix with several runners, §16) are derived, and its rotation (after 4 tasks, §10.2) and idle limit are constants.
 
 ```yaml
 project_id: example-product
@@ -844,7 +835,6 @@ queue_root: /path/to/.delivery-queue/example-product
 
 ### 8.4 Configuration knobs
 
-- `board.refresh_minutes` (default 5).
 - The `--note` length limit on `ccp` commands that take one (4000 characters).
 - How long the usage records (`usage.jsonl`) are kept (default: everything; they hold no content).
 
