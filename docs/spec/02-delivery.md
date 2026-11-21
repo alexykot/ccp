@@ -282,9 +282,10 @@ reported in.
   `ccp report` computes them when the round reports, never from the report's prose: `integration_merges` lists,
   oldest first, the merge commits on the head's first-parent line, from the task's previous done change round's
   reported head (for its first, from `origin/<integration>`) to this head, whose second parent is an ancestor of
-  `origin/<integration>`, each as `{sha, conflicted, files}` (whether git's own merge of its two parents
-  conflicts, and in how many files, `ccp/gitmerge.py`); `before_review` is true when the round opened before the
-  task's first review run that reported `done`. A round that cannot be measured (no product checkout, a commit
+  `origin/<integration>`, leaving out every commit already on `origin/<integration>` (a branch rebuilt on a newer
+  tip does not count the tip's own merges), each as `{sha, conflicted, files}` (whether git's own merge of its two
+  parents conflicts, and in how many files, `ccp/gitmerge.py`); `before_review` is true when the round opened before
+  the task's first review run that reported `done`. A round that cannot be measured (no product checkout, a commit
   not in the object store, a failed merge probe) records no `integration_merges`, and its report is accepted.
 - **Binding.** `ccp prompt` opens the run as `pending`. The harness's `SubagentStart` hook calls
   `ccp agent start`, which binds the oldest pending run of that `agent_type` (whatever the session)

@@ -499,12 +499,13 @@ def before_review(runs_of_task: list[dict[str, Any]], rec: dict[str, Any]) -> bo
 def round_merges(cfg: Config, q: Path, rec: dict[str, Any], head: str) -> list[dict[str, Any]] | None:
     """§11.1, §27.1: the integration merges of a done change round that reported `head`: the merge commits on the
     head's first-parent line in `<the task's previous done change round's reported head>..<head>` (for its first
-    such round, `origin/<integration>..<head>`) whose second parent is an ancestor of `origin/<integration>`, each
-    as `{sha, conflicted, files}` (the count of conflicted files, never their names), oldest first. Whether one
-    conflicted is `gitmerge.probe` of its first and second parents: the merge git would make on its own, so a
-    recorded resolution does not hide it. Nothing is fetched. An empty list: none found. None: it could not be
-    measured (no product checkout, a head, a previous head or the integration tip not in the object store, a git
-    call that failed, a probe git could not run), so the run records none (never a refusal)."""
+    such round, `origin/<integration>..<head>`) whose second parent is an ancestor of `origin/<integration>`,
+    leaving out every commit already on `origin/<integration>` (a branch rebuilt on a newer tip does not count the
+    tip's own merges), each as `{sha, conflicted, files}` (the count of conflicted files, never their names), oldest
+    first. Whether one conflicted is `gitmerge.probe` of its first and second parents: the merge git would make on
+    its own, so a recorded resolution does not hide it. Nothing is fetched. An empty list: none found. None: it could
+    not be measured (no product checkout, a head, a previous head or the integration tip not in the object store, a
+    git call that failed, a probe git could not run), so the run records none (never a refusal)."""
     from ccp import gitmerge, queue  # noqa: PLC0415
     repo = cfg.root
     if not repo.is_dir():
@@ -525,7 +526,8 @@ def round_merges(cfg: Config, q: Path, rec: dict[str, Any], head: str) -> list[d
     base = rev(str(prior[-1]["head"])) if prior else integ
     if base is None:
         return None
-    found = queue.git(repo, "rev-list", "--merges", "--first-parent", "--topo-order", "--reverse", f"{base}..{tip}")
+    found = queue.git(repo, "rev-list", "--merges", "--first-parent", "--topo-order", "--reverse", f"{base}..{tip}",
+                      f"^{integ}")
     if found.returncode != 0:
         return None
     out: list[dict[str, Any]] = []
