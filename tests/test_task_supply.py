@@ -246,7 +246,7 @@ class Forecast(Base):
 
 
 def at(hours: float) -> str:
-    """An RFC3339 time `hours` after T0."""
+    """An RFC3339 time `hours` after 2026-11-20 08:00 UTC."""
     from datetime import datetime, timedelta, timezone
     return (datetime(2026, 11, 20, 8, tzinfo=timezone.utc) + timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
