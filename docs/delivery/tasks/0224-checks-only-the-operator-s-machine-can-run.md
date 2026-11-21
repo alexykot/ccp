@@ -1,7 +1,7 @@
 ---
 task_id: 0224-checks-only-the-operator-s-machine-can-run
 title: A dod_check the workers cannot take is marked runs_on operator-machine, and the task check reads the mark
-status: pending
+status: done
 kind: feature
 depends_on: ["0234-one-check-parser-and-one-file-at-rev-reader", "0244-tasks-check-runs-dry-runs"]
 clashes_with: ["0244-tasks-check-runs-dry-runs"]
@@ -161,3 +161,5 @@ PROPOSED: (new lines after it)
   generic.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #282 head `4b7ae00` (squash `f52b603`): APPROVE. Passed: ro-01, ro-02, ro-03, ro-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0224-checks-only-the-operator-s-machine-can-run.json.
+

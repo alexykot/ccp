@@ -1118,7 +1118,7 @@ tasks:
     depends_on: [0228-report-sections-as-one-table, 0230-the-lead-decides-each-follow-up]
     path: tasks/0223-a-follow-up-is-tracked-not-left-in-notes.md
   - id: 0224-checks-only-the-operator-s-machine-can-run
-    status: pending
+    status: done
     title: A dod_check the workers cannot take is marked runs_on operator-machine, and the task check reads the mark
     depends_on: [0234-one-check-parser-and-one-file-at-rev-reader, 0244-tasks-check-runs-dry-runs]
     path: tasks/0224-checks-only-the-operator-s-machine-can-run.md
