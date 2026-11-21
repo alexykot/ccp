@@ -29,6 +29,29 @@ def sh(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True, env={**os.environ, **GIT_ENV})
 
 
+def parse_resolution(line: str) -> tuple[dict, list[str]]:
+    """A done resolution review's report whose `Resolution:` line is `line`, parsed (§13.4)."""
+    return report.parse("review", f"Outcome: done\nSeverity: BLOCKER=0 MAJOR=0 MINOR=0 NIT=0\n{line}\n"
+                                  "Affected checks: none\n## Spec beyond intent\nnone\n## Friction\nnone\n",
+                        mode="resolution", checks=["cmd-01"])
+
+
+class BeyondReason(unittest.TestCase):
+    """`Resolution: beyond` says why: a word after its punctuation and markup (§13.4)."""
+
+    def test_a_bare_beyond_is_refused(self):
+        for line in ("Resolution: beyond", "Resolution: beyond.", "Resolution: beyond —", "**Resolution:** beyond `_`"):
+            got, errs = parse_resolution(line)
+            self.assertNotIn("resolution", got, line)
+            self.assertTrue(any("`Resolution: beyond` needs its reason" in e for e in errs), (line, errs))
+
+    def test_beyond_with_a_reason_is_accepted(self):
+        got, errs = parse_resolution("Resolution: beyond the merge rewrote a helper")
+        self.assertEqual((errs, got["resolution"]), ([], "beyond"))
+        got, errs = parse_resolution("Resolution: contained")  # contained needs none
+        self.assertEqual((errs, got["resolution"]), ([], "contained"))
+
+
 class Resolution(ToolkitFixture, unittest.TestCase):
     run_phase = test_review_gate.ReviewGate.run_phase
     review = test_review_gate.ReviewGate.review

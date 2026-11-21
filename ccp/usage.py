@@ -34,6 +34,7 @@ sample (`latest_good`) while its window is open, the rules that let work through
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -724,7 +725,7 @@ def _run(cmd: str) -> tuple[list[dict[str, Any]], bool, int | None, float | None
     except ValueError:
         data = None
     retry = _num_or_none(data.get("retry_after_s")) if isinstance(data, dict) else None
-    retry = retry if retry is not None and retry >= 0 else None
+    retry = retry if retry is not None and math.isfinite(retry) and retry >= 0 else None  # `Infinity` is no JSON
     wins = parse_windows(data) if r.returncode == 0 else []
     return wins, r.returncode == 0 and good(wins), r.returncode, retry
 

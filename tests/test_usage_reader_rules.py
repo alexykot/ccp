@@ -206,6 +206,32 @@ class WithoutTheCache(unittest.TestCase):
         self.assertEqual(self.runs(), 3)
 
 
+def strict_json(line: str) -> object:
+    """A JSON line as a strict reader takes it: `Infinity`, `-Infinity` and `NaN` are no JSON."""
+    def refuse(token: str) -> object:
+        raise ValueError(f"not JSON: {token}")
+    return json.loads(line, parse_constant=refuse)
+
+
+class InfiniteRetry(unittest.TestCase):
+    def test_an_infinite_retry_after_is_not_kept_and_the_samples_stay_json(self):
+        p = Product({})
+        self.addCleanup(p.cleanup)
+        env = mock.patch.dict(os.environ)
+        env.start()
+        self.addCleanup(env.stop)
+        os.environ.pop(usage.UNSHARED_ENV, None)
+        machine_file(self, allowance_cmd="echo '{\"retry_after_s\": Infinity}'; exit 1")
+        q = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, q, True)
+        with mock.patch.object(usage, "now", lambda: T0):
+            read = usage.reading(p.cfg, q)
+        self.assertTrue(read["ran"])
+        rows = [strict_json(x) for x in (q / "board/allowance.jsonl").read_text().splitlines()]
+        self.assertEqual((rows[-1]["failed"], rows[-1]["exit"]), (True, 1))
+        self.assertNotIn("retry_after_s", rows[-1])
+
+
 class Reused(unittest.TestCase):
     def test_a_reading_newer_than_the_products_is_appended_inside_a_backoff(self):
         p = Product({})

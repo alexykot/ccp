@@ -202,6 +202,16 @@ class TheUpgradeStatus(UpgradeFixture, unittest.TestCase):
         self.assertIn("delete `gate.shell_limit_seconds`", step["change"])
 
 
+    def test_a_constant_in_words_is_named_in_words(self):
+        self.product_json(language="none", docs={"workers": 2})
+        code, body, err = self.ccp("upgrade", "status")
+        self.assertEqual(code, 0, err)
+        step = next(s for s in body["steps"] if s["task"] == "plane.json keys")
+        self.assertIn(f"delete `docs.workers`: it is a constant, {config.KEY_OUTCOMES['docs.workers'].shown}, and "
+                      "yours is 2;", step["change"])
+        self.assertNotIn("constant, None", step["change"])
+
+
 class TheNewDefaults(unittest.TestCase):
     ADR = {"adr": {}}
 

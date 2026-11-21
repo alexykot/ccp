@@ -142,4 +142,23 @@ window to `conflict_catch_ups` (`git grep -n 'conflict_catch_ups(q, window)' ccp
 
 ## Implementation notes
 
+- Premises re-measured at `4e12249`: each `git grep` of the Context gives the line it states (one claim
+  line, one `contained|beyond` line, the fetch after the run refusals, three `constant']!r` lines, one
+  `retry >= 0` line, no SPEC line naming a claim or a finite check, health's windowed
+  `conflict_catch_ups`).
+- **Claim:** `lifecycle.claim` writes every `WAIT_KEYS` key as `None` with `waiting_on`; the same write
+  serves a first and a resumed claim.
+- **Beyond:** `report.resolution_lines` refuses `beyond` when what follows holds no letter or digit
+  (`[^\W_]`, so an underscore counts as markup); the `|` template check comes first.
+- **Constants in words:** `upgrade.shown_constant(outcome)` is `outcome.shown or repr(outcome.value)`,
+  the load warning's form; `key_change` takes the outcome from `config.KEY_OUTCOMES`, `binding_change` from
+  `lib.binding_constants()`, which gives `runner.rotate_at_context_tokens` `shown="off"`. The binding's
+  `set` is the raw YAML text, so "yours is" shows the limit as the number it applies (`use`) when the value
+  is one the limit takes, and the text as written otherwise: `yours is 100000`, `yours is 'lots'`. The load
+  warning's `(None)` for that limit now reads `(off)`, and the binding step's `yours is '2'` reads
+  `yours is 2`: `tests/test_short_binding.py` follows both.
+- **Finite retry:** `usage._run` keeps `retry_after_s` only when `math.isfinite(retry) and retry >= 0`.
+- Not changed (outside the Scope): `lib.warn_binding`'s warning for a value no limit takes still names the
+  constant with `repr` (`the constant None applies`).
+
 ## Verification notes
