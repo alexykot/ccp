@@ -1238,7 +1238,7 @@ tasks:
     depends_on: [0251-adr-check-holds-the-requires-links, 0250-generic-cycles-and-closure-helpers]
     path: tasks/0252-the-task-check-reports-a-decision-built-before-its-prerequisite.md
   - id: 0253-one-wait-reason-table
-    status: pending
+    status: done
     title: One wait-reason table, the retired steerer wait refused on set, and the retired snapshot's schema removed
     depends_on: [0243-one-source-for-syntax-events-and-config]
     path: tasks/0253-one-wait-reason-table.md

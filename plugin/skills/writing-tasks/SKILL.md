@@ -4,10 +4,10 @@ description: How to write durable control-plane delivery tasks (docs/delivery/ta
 ---
 # How to write durable delivery tasks
 
-For the task-log owner (the design seat, or a steerer). This is the plane's canonical task format
-(plane SPEC §5) and its generic writing rules. A product keeps its own additions in
-`docs/delivery/WRITING-tasks.md` (template: `templates/docs-delivery/WRITING-tasks.md`); where they
-are stricter, they win. Template: `templates/docs-delivery/TEMPLATE-task.md`.
+For the task-log owner (the design seat: the team lead, who is also the spec maintainer). This is the
+plane's canonical task format (plane SPEC §5) and its generic writing rules. A product keeps its own
+additions in `docs/delivery/WRITING-tasks.md` (template: `templates/docs-delivery/WRITING-tasks.md`);
+where they are stricter, they win. Template: `templates/docs-delivery/TEMPLATE-task.md`.
 
 ## The file
 
