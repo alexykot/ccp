@@ -9,12 +9,13 @@ notes: |-
   Proposed with task 0077, from an accepted plane proposal taken as a design item: the operator
   decides it; the tasks that build its adapters follow its acceptance.
   2026-11-12: status proposed → accepted: Accepted by the operator at gate 0077-adr-the-pr-host-is-an-adapter-1 (2026-11-12, in the lead session: 'approve ADR-0040 and 0077's section 4.5 change'). Its decisions stay not_built until the adapter tasks build them.
-  2026-11-21: D1 and D3 amended, and ADR-0029 D1 recorded as superseded by D1, on the operator's answer to
-  shape sh-20261120T235116Z-eb9f (F02, F06), in the lead session: "accept the shape recommendations". D1:
-  view also returns the head branch, the merge time and the body, and edit (the PR body) is a sixth
-  operation, so the §15.2 body gate and the runner's body repair work on any host; D3's record keeps the
-  body. ADR-0029 D1's merge-strategy interface is this ADR's PR-host interface: `pr_host.adapter` (D5)
-  selects the adapter and `merge.command` overrides its merge, two knobs rather than three.
+  2026-11-21: D1, D3 and D4 amended, and ADR-0029 D1 recorded as superseded by D1, on the operator's
+  answer to shape sh-20261120T235116Z-eb9f (F02, F06), in the lead session: "accept the shape
+  recommendations". D1: view also returns the head branch, the merge time and the body, and edit
+  (the PR body) is a sixth operation, so the §15.2 body gate and the runner's body repair work on
+  any host; D3's record keeps the body and the merge time, and D4 counts six operations. ADR-0029
+  D1's merge-strategy interface is this ADR's PR-host interface: `pr_host.adapter` (D5) selects the
+  adapter and `merge.command` overrides its merge, two knobs rather than three.
 decisions:
   - "D1 not_built"
   - "D2 not_built"

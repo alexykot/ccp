@@ -23,8 +23,10 @@ below.
 7. **The gate is `ccp suite run --lane gate`** (`scripts/gate.sh`): the full suite passes and no test
    leaves a `state/*` branch behind.
 8. **No managed-product specifics** reach a tracked file, a commit message or a PR title (E3).
-9. **Telemetry carries numbers and ids only**: no prompt, response, command or file content. A queue
-   record holds no content beyond a worker's own short statement lines, secret-checked (E5).
+9. **Telemetry carries numbers and ids only**: never prompt, response, command or file content, and the
+   receiver keeps a field whitelist. A queue record may hold a worker's own short statement lines
+   (friction, follow-ups, a proposal's need), each refused when it looks like a secret; such text never
+   goes to the telemetry receiver (E5).
 10. **Headless children strip** `ANTHROPIC_API_KEY`, `CLAUDE_API_KEY` and `ANTHROPIC_AUTH_TOKEN`.
 11. **Written down:** durable knowledge from the task lands in the SPEC, the docs or an ADR in the
     same PR.

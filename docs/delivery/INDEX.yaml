@@ -1264,7 +1264,7 @@ tasks:
     path: tasks/0257-one-gate-block-and-one-sentence-per-line.md
   - id: 0258-the-plane-writes-the-pre-merge-phases
     status: pending
-    title: The plane writes the pre-merge phases the standing DoD describes, and its contracts match what it writes
+    title: The plane writes the pre-merge phases the standing DoD describes, and its phase contracts match what it writes
     depends_on: [0221-workers-reach-the-pr-host-through-ccp-pr, 0242-retire-restructure-scaffolding-and-queue-markers]
     path: tasks/0258-the-plane-writes-the-pre-merge-phases.md
   - id: 0259-a-check-failure-already-on-the-integration-branch-is-reported
