@@ -22,7 +22,7 @@
       },
       {
         "id": "E16",
-        "cmd": "! git grep -nE '(plane\\.json\"|CONFIG_REL)\\)\\.read_text' -- plugin scripts"
+        "cmd": "! git grep -nE '(plane\\.json\"|CONFIG_REL)\\)\\.read_text' -- ccp plugin scripts ':(exclude)ccp/config.py'"
       },
       {
         "id": "E18",
