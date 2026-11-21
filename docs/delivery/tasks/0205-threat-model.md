@@ -144,4 +144,22 @@ trigger that would make it worth building.
 
 ## Implementation notes
 
+- `docs/design/threat-model.md` (new): the seven headings of the Scope, T1 to T9 each with its
+  controls labelled Boundary, Guard or Gap. A boundary is defined there as a control enforced outside
+  the seat's session that no tool the seat holds turns off; a guard as one a seat with the operator's
+  rights can get past. Every control was checked against the code at 361fc1a.
+- Proposal items written as gaps, because the code does not have them: T6 (nothing confines a seat to
+  its own product), T9 beyond the rule (nothing stops a seat holding deploy credentials; the plane has no
+  deploy step), and for T8 the lead, teammates and subagents, which the plane does not launch and whose
+  environment it does not strip (only the architect and the estimator are stripped, via `STRIP_KEYS`).
+- Controls found beyond the proposal's list: the estimator's no-tools launch (`ccp/estimator.py`, a
+  boundary for T1), the merge pinned with `--match-head-commit` (`ccp/lifecycle.py`, a boundary for T4),
+  provers run from the integration tip's checkout (SPEC §14.2, a guard for T4), and the
+  `ccp otel status` warning on `OTEL_LOG_USER_PROMPTS` / `OTEL_LOG_TOOL_DETAILS` (a guard for T7).
+- The architect's read-only tool set is labelled a guard, not a boundary: its allowed `Bash` commands
+  and the product's probes are prefix-matched.
+- `docs/ROADMAP.md`: the batching merge queue under Merge handling; Seat isolation as a new item after
+  it. `README.md`: the threat-model bullet links the note and the roadmap. Its separate "A batching
+  merge queue" bullet is unchanged (out of the Scope).
+
 ## Verification notes
