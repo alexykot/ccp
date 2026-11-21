@@ -42,8 +42,8 @@ don't redesign around it.
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
   the merge base and go by what it says, not by the number.
 - Work only in the worktree your prompt names, on its `task/<task_id>` branch.
-- A lead ruling or clarification on your task, passed verbatim in your prompt, goes into the task
-  file's `Context (not checked)` section on your branch, besides your Implementation notes (SPEC
+- A lead ruling or clarification on your task, passed verbatim in your prompt, goes as a quoted block
+  into the task file's `Context (not checked)` section on your branch, besides your Implementation notes (SPEC
   §10.5).
   Change nothing else in the task file.
 - The last step before you push the head you report from an implement or fix round is the catch-up merge

@@ -167,7 +167,7 @@ status reads as `pending`. With several runners, §16.3 and §16.4 apply.
 release, drop or sync), the task's file changes on the integration branch only by the task's own squash
 merge and reconcile, and by the lead marking it `dropped` (§10.4). A ruling or clarification on a
 claimed task goes to the runner holding it, which passes it verbatim in the next implementer prompt;
-the implementer writes it into the task file's `Context (not checked)` section on the task branch,
+the implementer writes it, as a quoted block (each line beginning `> `), into the task file's `Context (not checked)` section on the task branch,
 besides its Implementation notes, so it lands in the task's PR (§17.4). A change to the task's
 intent, scope, `dod_checks`, id or dependencies is not a clarification: it follows the task-log
 owner's limit (§17.4: never once a task is claimed without superseding it), so the runner releases

@@ -128,4 +128,27 @@ From architect pass `ar-20261120T234012Z-27eb`, findings F12, F13 and F14, triag
 
 ## Implementation notes
 
+- `ccp/dryrun.py` (new) holds `ccp tasks dry-run`: the refusal, the record and the printout on plain values,
+  then the wiring. The tip is `wt.tip` (a fetch, then `origin/<integration_branch>`); the worktree is a
+  temp directory outside the product, made with `git worktree add --detach`, `worktrees.links` linked in, and
+  removed (`worktree remove --force`, the directory, `worktree prune`) in a `finally`. Each step runs as
+  `bash -c` in its own process group, stdin closed, under `STEP_TIMEOUT_S`; the first output line kept
+  is capped at `FIRST_LINE_CAP` characters.
+- Choices the task left open, each the narrowest reading: the command needs `QUEUE_ROOT` (the claim and
+  the integration branch live in the queue and the binding), exit 2 without it; a done, dropped or claimed
+  task exits 3 (§10.6 "nothing ready"), writing nothing; "claimed" is a live lease as §10.5 defines it
+  (`lease_holder` set, queue status neither done nor dropped). A step counts as one backticked command and
+  nothing else when its text, line breaks folded to spaces, is `Run` (any case), one code span and an
+  optional full stop. The record is ``dry run (`<7-char tip sha>`): step N exited C, L lines, first: `…`.``
+  (`no output` for an empty one, `timed out after … s` on timeout), steps joined by `; `; a record with no
+  line before it is added after the check's last indented line, at its keys' indent. No ledger event is
+  written: the command changes no delivery state.
+- `ccp/tasklog.py`: `check_blocks` is now the one splitter of `## dod_checks` (house rule E22); the
+  dry-run presence check and the refactor-gate check use it. `check_steps` and `with_dry_runs` read and
+  write the steps and the record. `stale_context` warns (first ``Measured at `<sha>` `` in Context, the
+  task's `paths`, `git log --format=%h <sha>..HEAD -- <paths>`), naming `STALE_NAMED` commits, then a
+  count; no paths, an unknown sha or no git gives none. `unmeasured_numbers` skips a line matching
+  `QUOTED_RE` (`>` then a space or the line's end); `NOT_MEASURED_RE` is unchanged.
+- `config.load` takes a `Path` or a str.
+
 ## Verification notes
