@@ -120,8 +120,10 @@ before anything else.
    worktree on `task/<task_id>`, a heartbeat. It prints the worktree. Exit 7 naming a rotation: your
    rotation is due (below); ask the lead to rotate you.
 4. **Auth.** The claim runs the product's auth probes (`auth_check.probes`). Exit 8 means one failed:
-   no task was taken. Raise it to the lead as a gate (class `reauth`) and wait for the operator's
-   reauth; `ccp auth check` shows which probe, and passes once it is fixed.
+   no task was taken, and the claim has already fired the operator's `blocker` notice (SPEC §3.6).
+   Raise it to the lead as a gate (class `reauth`), passing on any `notify:` warning; set no `reauth`
+   wait (you hold no task). Wait for the lead's word before you claim again; `ccp auth check` shows
+   which probe, and passes once it is fixed.
 5. **Implement.** `ccp prompt implement <task_id>`, then make the Agent call it prints: a
    `delivery-implementer` subagent in the task worktree. For a
    `kind: refactor` task the prompt carries the refactor DoD itself.

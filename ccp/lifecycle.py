@@ -277,8 +277,11 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
         auth = wtmod.auth_check(cfg, q)
         if not auth["ok"]:
             failed = ", ".join(f"{r['id']} (exit {r['exit']})" for r in auth["probes"] if not r["ok"])
-            raise QueueError(f"auth probe(s) failed: {failed}. Set waiting_on reauth and raise it to the lead "
-                             "(SPEC §30); `ccp auth check` shows each", EXIT_AUTH)
+            # §3.6: an expired login is the operator's to fix; no task is held, so the claim itself notifies
+            warn = notify.fire(cfg, q, "blocker", task_id=tid, reason="reauth")[1]
+            raise QueueError(f"auth probe(s) failed: {failed}. The operator was notified (blocker); raise a reauth "
+                             "gate to the lead (SPEC §30); `ccp auth check` shows each"
+                             + (f". {warn[0]}" if warn else ""), EXIT_AUTH)
     # §25.1, §25.3: one reading through the shared reader; a new claim stops (exit 5) at a weekly checkpoint
     # or with the account unread too long. A resumed claim of its own lease is not refused.
     try:

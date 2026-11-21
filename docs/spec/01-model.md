@@ -255,7 +255,7 @@ The plane names when the operator must hear; the product names the channel.
 
 | Trigger | Fired by | Ids it carries |
 |---|---|---|
-| `blocker` | `ccp tasks wait <id> reauth` or `operator_step`: a wait only the operator clears | the task; the wait's reason |
+| `blocker` | `ccp tasks wait <id> reauth` or `operator_step`: a wait only the operator clears; `ccp tasks claim` refused by a failed auth probe (exit 8, §30.1) | the task; the wait's reason, `reauth` for the refused claim |
 | `decision` | a decision the operator must take: `team.sh gate ask-operator` (§17.9), a spec question answered `needs_operator` (§17.6), or `ccp tasks wait <id> operator_decision` | the task; the gate or question id |
 | `review_point_done` | `ccp tasks close`, when the reconcile leaves the task's review point with no open task (every task that carries it done or dropped) | the task; the review point |
 | `allowance_checkpoint` | `ccp tasks claim` refused at a weekly checkpoint, or with the account's usage unread for 60 minutes (exit 5, §25.3) | the task; the reason `usage unread` for the latter |

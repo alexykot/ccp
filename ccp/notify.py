@@ -2,12 +2,12 @@
 the lead dispatches; the channel is the product's `notify` block.
 
 The plane names five triggers on which the operator must hear: a `blocker` (a wait only the operator
-clears: `reauth`, `operator_step`), a `decision` (a wait on `operator_decision`: a gate taken to the
-operator, a spec question answered `needs_operator`), `review_point_done` (a close that leaves its
-review point with no open task), `allowance_checkpoint` (a claim refused at the weekly checkpoint, or
-with the account's usage unread for an hour, reason `usage unread`, §25.3) and
-`upgrade` (a release brought `adopt` steps the product has not taken, §29.3). A notice the lead sends
-on its own judgment is trigger `other`.
+clears: `reauth`, `operator_step`; or a claim refused by a failed auth probe, reason `reauth`, §30.1), a
+`decision` (a wait on `operator_decision`: a gate taken to the operator, a spec question answered
+`needs_operator`), `review_point_done` (a close that leaves its review point with no open task),
+`allowance_checkpoint` (a claim refused at the weekly checkpoint, or with the account's usage unread
+for an hour, reason `usage unread`, §25.3) and `upgrade` (a release brought `adopt` steps the product
+has not taken, §29.3). A notice the lead sends on its own judgment is trigger `other`.
 
 When a trigger fires (`fire`), `ccp` writes a `notify` `pending` event to the ledger and prints the
 rendered notice on stderr with the channel to use. plane.json `notify.command` is the unattended
