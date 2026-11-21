@@ -45,7 +45,7 @@ runner, `task-verifier` for the verifier subagent), `operator` and `system`.
 | `note` | `set` | `message` (free text; the structured types are preferred) |
 | `question`, `spec_maintainer` | §17 | spec questions and their answers |
 | `run` | `opened`, `bound`, `stopped`, `reported` | `run_id`, `phase`, `round`, `agent_type`, `expected_model`, `expected_effort`, `agent_id?`, `outcome?` |
-| `run` | `recorded` | `run_id`, `mutants`, `killed`, `survived` (one `ccp mutate` call, §20.6) |
+| `run` | `recorded` | `run_id`, `mutants`, `killed`, `unbuilt`, `survived` (one `ccp mutate` call, §20.6) |
 | `review` | `recorded` | `run_id`, `verdict`, `severity` |
 | `verify` | `recorded` | `run_id`, `verdict`, `head_sha` |
 | `allowance` | `sample` | the sample's gating figures (§25.1) |
@@ -331,8 +331,11 @@ or a `park_pct` on a weekly one, is refused.
   counter reset is a fall of the weekly percentage by `usage.RESET_DROP_PP` (20 points) or more
   between consecutive known samples of the same window. After the lapse the project's own checkpoint
   applies again until the operator decides anew.
-- `ccp allowance status` shows the latest sample, the checkpoint in force, the counter resets
-  detected and the window's decisions, each lapsed one with its reset's time (`lapsed_at`); the board
+- `ccp allowance status` shows the latest sample (a failed one included), the latest good one
+  (`latest_good`) and whether it is in force (`in_force`, §25.1), the shared reader's state
+  (`backoff_until`, when it may next run the command, and `unread_since`, when the current run of
+  failed reads began), the checkpoint in force, the counter resets detected and the window's
+  decisions, each lapsed one with its reset's time (`lapsed_at`); the board
   says "decision lapsed at the counter reset <time>" when the latest decision has lapsed.
 - Only the lead records a decision, and only the operator's.
 
@@ -543,8 +546,10 @@ gates nothing.
   fix, merge and ruling rounds); prompt audits (prompt sizes).
 - **Window:** with no `--since`, from the queue's latest `plane`/`adopted` event (§4.5): the task
   merges, the suite series, gate and module time, the rotation counts and the friction notes before it
-  are left out (the usage advice, `ccp usage`'s, and the rotation slots due now still read the whole
-  queue), and the report gives `adopted_at` and `before_adoption`, the count of task merges left out;
+  are left out (the usage advice, `ccp usage`'s, reads the requests since `--since`, else
+  `usage.advice.window_hours` back, every request when that is 0; the rotation slots due now judge
+  each slot since its own spawn), and the report gives `adopted_at` and `before_adoption`, the count
+  of task merges left out;
   a given `--since` wins, and a queue with no such event is read whole.
 - **Per task:** wall time; the spans of implementing, reviewing and verifying; review, verify, fix,
   merge and ruling rounds; files and lines by area. **Trend:** rolling medians and the drift ratio

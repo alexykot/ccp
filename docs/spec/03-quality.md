@@ -132,10 +132,10 @@ from there.
 
 **Shape is due** when a pending task cites, in `adr_refs`, an ADR with no shaping record (a
 `docs/delivery/reviews/sh-*.md` naming it on an `ADR: ADR-NNNN` line, or by any `ADR-NNNN` mention
-when it has no such line; a bare number never counts). With `architect.shape_adrs` on (which needs
-`shape_from_task`), `ccp tasks check` fails such a task unless its frontmatter says
-`shaping: waived — <reason>` (§15). Only `pending` tasks from `shape_from_task` on are checked, so
-older tasks never fail.
+when it has no such line; a bare number never counts). With `architect.shape_adrs` on (by default
+whenever the product has an `adr` block, §19.11), `ccp tasks check` fails such a task unless its
+frontmatter says `shaping: waived — <reason>` (§15). Only `pending` tasks from `shape_from_task` on
+are checked, so older tasks never fail, and a product with no adoption point checks none.
 
 **Enforcement at `ccp tasks next`.** With the seat on and an adoption point, `ccp tasks next` needs `QUEUE_ROOT`
 (exit 2 without it). It exits **4** and names no task when:
