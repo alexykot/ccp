@@ -1520,7 +1520,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("orientation", help="print the orientation the plugin's SessionStart hook gives a session in this "
                                        "product, for a session that started before the product was adopted (SPEC §9.3)")
     p.add_argument("--tail", action="store_true", help="print only the text the hook appends after the orientation: "
-                                                       "the pending notices and the allowance warning (needs QUEUE_ROOT)")
+                                                       "the pending notices, the allowance warning and the open "
+                                                       "follow-ups' count (needs QUEUE_ROOT)")
     p.set_defaults(fn=cmd_orientation)
 
     p = sub.add_parser("init", help="adopt this repository: the product footprint, the binding and the queue "
@@ -1887,9 +1888,9 @@ def cmd_where(cfg: config.Config, _a: argparse.Namespace) -> int:
 
 def _orientation_tail(cfg: config.Config) -> int:
     """`ccp orientation --tail`: what the hook appends after the orientation, `notify.orientation_tail` over
-    the pending notices and the allowance warning. A part that cannot be read is left out; with no queue
-    there is nothing to say (exit 1, nothing printed)."""
-    from ccp import notify, usage  # noqa: PLC0415
+    the pending notices, the allowance warning and the open follow-ups' count. A part that cannot be read is
+    left out; with no queue there is nothing to say (exit 1, nothing printed)."""
+    from ccp import followups, notify, usage  # noqa: PLC0415
     from ccp.queue import root  # noqa: PLC0415
     try:
         q = root()
@@ -1903,7 +1904,11 @@ def _orientation_tail(cfg: config.Config) -> int:
         warning = str(usage.status(cfg, q, False).get("warning") or "")
     except (OSError, ValueError, QueueError):
         warning = ""
-    print(notify.orientation_tail(rows, warning), end="")
+    try:
+        open_follow_ups = followups.open_count(q)
+    except (OSError, ValueError, QueueError):
+        open_follow_ups = 0
+    print(notify.orientation_tail(rows, warning, open_follow_ups), end="")
     return 0
 
 
