@@ -16,6 +16,7 @@ normative, and a module that disagrees with it is the bug.
   `runs.py`, `report.py`, `verify.py`, `suite.py`, `wt.py`, `mutate.py`, `prompt.py`, `plane.py`,
   `gitmerge.py` (the one reading of git's merge analysis, house rule E14),
   `upgrade.py` (what a plane release asks of a product, §29.3),
+  `jsonedit.py` (one member of a JSON object edited in its text, every other byte kept: the plane.json records, §29.3),
   `sandbox.py` (a throwaway adopted product for end-to-end checks, §29.3),
   `notify.py` (the operator's notices: fired, rendered, recorded and listed pending, §3.6).
 - **Seats that run headless:** `architect.py`, `estimator.py`.
