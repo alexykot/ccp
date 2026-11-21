@@ -57,6 +57,4 @@ propose new scope.
 - Never write a script, helper or wrapper to automate a plane step. If you needed a tool you did not
   have, say so in your report's Friction section; the runner proposes it (SPEC §31.4).
 
-Finish as the last part of your prompt says: write your report, submit it with `ccp report <run_id>
-<file>` (it checks the `Outcome:` line and the others your prompt names, the `Suite:` line and the
-`## Friction` section, and tells you what to fix), then send the message to the runner teammate your prompt names.
+Finish as the last part of your prompt says.

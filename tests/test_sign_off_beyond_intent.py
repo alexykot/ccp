@@ -225,8 +225,11 @@ class Briefs(unittest.TestCase):
             self.assertIn(needle, (PLANE / path).read_text(), path)
 
     def test_the_review_report_lines_name_the_section(self):
-        self.assertIn("## Spec beyond intent", prompt.REPORT_LINES["review"])
-        self.assertNotIn("Spec beyond intent", prompt.REPORT_LINES["verify"] + prompt.REPORT_LINES["implement"])
+        product = Product()
+        self.addCleanup(product.cleanup)
+        cfg = product.cfg
+        self.assertIn("## Spec beyond intent", prompt.report_lines(cfg, "review"))
+        self.assertNotIn("Spec beyond intent", prompt.report_lines(cfg, "verify") + prompt.report_lines(cfg, "implement"))
 
 
 if __name__ == "__main__":

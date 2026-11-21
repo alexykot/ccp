@@ -682,18 +682,16 @@ class TestArchitectInTemplates(unittest.TestCase):
         self.assertIn("exits 4 with \"architect pass due: …\":** run `ccp architect run --detach`", b)
         self.assertIn("exits 4 with \"… awaits triage\":** run `ccp architect triage <id>` and send the lead", b)
         self.assertIn("then ask `next` again", b)
-        # §10.3: the worker's `ccp report` records the Suite: and Friction lines the runner used to copy,
+        # §10.3: the worker's `ccp report` records what the runner used to copy (§13.4),
         # and `ccp prompt` gives every worker the house rules.
-        self.assertIn("records its `Suite:` line and Friction lines for `ccp health`", b)
+        self.assertIn("`ccp report <run_id> <report path>`", b)
+        self.assertIn("(SPEC §13.4)", b)
         common = (PLANE / "templates" / "prompts" / "_common.md").read_text()
         self.assertIn("{{#rules_doc}}- Read the house rules, {{rules_doc}}", common)
 
-    def test_workers_report_friction_and_read_the_rules(self):
-        self.assertIn("A `## Friction` section", (PLANE / "templates" / "prompts" / "_common.md").read_text())
+    def test_workers_read_the_rules(self):
         for w in ("delivery-implementer", "delivery-reviewer", "delivery-verifier"):
-            b = self.brief(w)
-            self.assertIn("`## Friction` section", b, w)
-            self.assertIn("architect.rules_doc", b, w)
+            self.assertIn("architect.rules_doc", self.brief(w), w)
 
 
 class TheRunnerSpawnFollowsCcpsDefault(TeamCase):
