@@ -1,7 +1,7 @@
 ---
 task_id: 0240-plane-workers-run-the-head
 title: The plane's own workers run the head they change, and briefs name commands rather than restating their conditions
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12", "S15", "S29"]
@@ -187,3 +187,5 @@ From architect pass `ar-20261120T234012Z-27eb`, findings F01 and F15, triaged by
   - `docs/cli/02-delivery.md`: `ccp wt exec`'s seat column is now "workers".
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #274 head `d6961af` (squash `cfe52cb`): APPROVE. Passed: head-01, head-02, head-03, head-04, head-05, head-06. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0240-plane-workers-run-the-head.json.
+
