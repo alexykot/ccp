@@ -173,4 +173,16 @@ PROPOSED:
 
 ## Implementation notes
 
+- 2026-11-21 (implementer): `ccp tasks next --holder SLOT` writes `runner`/`starved` on both exit-3 paths
+  through `_record_starved` in `ccp/cli.py`; the guard and the stretches are plain functions in
+  `ccp/health.py` (`starved_open`, `starved_stretches`, both over a list of events; `slot_starved` and
+  `starved` read the ledger). `in_flight` counts the work.json `in_flight` tasks whose `lease_holder` is
+  the slot and whose status is not `done`. `scope` is the scope's ids as `next` holds them (as given, or
+  work.json's), `[]` with none.
+- Choices the task left open: the window is the one the report reads (`--since` when given, else the
+  adoption window); a second `runner`/`starved` inside an open stretch (a race) continues it; a stretch
+  counts when any part of it lies in the window; `slot_hours` is rounded to 2 decimals and printed to 1;
+  with no queue `task_supply.idle_slots` is `null`, and when the ADR read fails `task_supply` stays `null`
+  as before. A `QUEUE_ROOT` that is not a directory is a failed write (a warning).
+
 ## Verification notes
