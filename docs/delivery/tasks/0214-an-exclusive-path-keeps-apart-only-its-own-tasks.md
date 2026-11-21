@@ -1,7 +1,7 @@
 ---
 task_id: 0214-an-exclusive-path-keeps-apart-only-its-own-tasks
 title: An exclusive path keeps apart only the tasks that meet the same entry
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S16", "S26"]
@@ -10,7 +10,7 @@ paths: ["ccp/parallel.py", "ccp/forecast.py", "docs/spec/02-delivery.md", "docs/
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0214-an-exclusive-path-keeps-apart-only-its-own-tasks
@@ -181,4 +181,28 @@ PROPOSED:
 
 ## Implementation notes
 
+- Premises re-measured at `1aa5e3f`: one `(rule 4)` line in `ccp/parallel.py`, one
+  `parallel.runs_alone` call (`ccp/forecast.py`), `kept_apart(` at its definition, two calls in
+  `parallel.py` and one in `forecast.py`. Unchanged.
+- `ccp/parallel.py`: a new `exclusive_meet(cfg, a, b)` returns the first path of each task meeting
+  the same `parallel.exclusive` entry, with the entry (none when either says `parallel: true`).
+  `kept_apart` asks it first, under either schedule, and returns `Apart("exclusive", a_path, b_path)`
+  as the Scope gives it; the entry is not a field of `Apart` but is found again from the two paths when
+  the message is written.
+- One formatter, `apart_why`, writes why two tasks are kept apart for both places that say it: the
+  claim's refusal (`in-flight`, with the rule from `RULE_OF`) and `next`'s passed-over walk
+  (`passed-over`). The clash and paths messages are unchanged; the exclusive one is new in both places,
+  so `both meet the exclusive` appears on one line.
+- `join_refusal`'s `rule3` flag is renamed `pairwise` (its only caller is `next_choice`) and skips rules
+  3 and 4 together. The whole-set loop is gone. `runs_alone` keeps rule 2 only.
+- `ccp/forecast.py`: no logic change; its `apart` pairs come from `kept_apart` and so hold the exclusive
+  pairs. The module docstring, the comment and the throughput text now say rules 3 and 4.
+- Tests: `test_meeting_paths_are_refused_and_a_task_that_runs_alone_holds_the_line` now gives 0005
+  `parallel: false` so a task that runs alone still holds the line (the exclusive 0005 alone would now
+  be offered). Beyond the Scope's four tests, one covers a task held behind a passed-over task by a
+  shared exclusive entry (the new passed-over message) and one unit-tests `kept_apart` and
+  `runs_alone` on plain values under both schedules.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #263 head `96d2ef9` (squash `b002e82`): APPROVE. Passed: ex-01, ex-02, ex-03, ex-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0214-an-exclusive-path-keeps-apart-only-its-own-tasks.json.
+

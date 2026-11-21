@@ -1133,7 +1133,7 @@ a head that contains the current integration tip (the task log and the paths in
 `merge.behind_tip_ignore` aside, §16.5 rule 4), verified there or caught up by close (§16.5 rule 4),
 and git resolves the rest with no merge lock. Two merges that conflict: the later fails, and its
 implementer resolves it. A merge landing between another task's catch-up and its merge is a small
-window, accepted. Under `parallel.schedule: clashes`, the default, the writer's `clashes_with` decides what to start together, and paths still decide what `parallel.exclusive` keeps alone (§16.3); under `paths`, declared paths decide. Parallel work is on by default; `max_in_flight: 1` is the single-runner behaviour, exactly.
+window, accepted. Under `parallel.schedule: clashes`, the default, the writer's `clashes_with` decides what to start together, and paths still decide which tasks `parallel.exclusive` keeps apart (§16.3 rule 4); under `paths`, declared paths decide. Parallel work is on by default; `max_in_flight: 1` is the single-runner behaviour, exactly.
 
 ### 16.2 The knob
 
@@ -1171,7 +1171,9 @@ allowed only when all hold; otherwise it refuses with exit 7, naming the rule an
 2. No task in A or C says `parallel: false`; each has at least one path or says `parallel: true`.
 3. Under `parallel.schedule: paths`, no path of C meets a path of a task in A (equal, one a directory holding the other, or a glob or
    bare name of one matching the other), unless both are covered by a `parallel.shared` entry. Under `clashes`, C clashes with no task in A: neither names the other in `clashes_with` (§5), whether or not their paths meet.
-4. No path of C or of a task in A meets an `exclusive` entry.
+4. No task in A meets an `exclusive` entry that C also meets: a path of each meeting the same entry
+   (a task that says `parallel: true` meets none). A task meeting an exclusive entry runs beside
+   tasks that do not.
 5. The account's session-window usage, in the reading in force (the latest good reading no older
    than 15 minutes, §25.1), is below the session ceiling (the gating session window, §25). A
    reading whose weekly figure is known but has no session figure means the account has no
@@ -1183,7 +1185,7 @@ allowed only when all hold; otherwise it refuses with exit 7, naming the rule an
 A claim into an empty active set is judged as single-runner; a resume is never refused by these
 rules. A claim by a runner that already holds a task not closed or released refuses (exit 7).
 
-**`ccp tasks next`** ranks as before (§10.3), then walks the ready tasks not in A in that order and returns the first that could be claimed beside A and that rule 3 would not keep from joining any task it passed over; it passes over, naming each, a task that rule 3 alone keeps from joining A and a task that rule 3 would keep from joining one it passed over; a task that any other rule keeps from joining A ends the walk with none (head of line: no task waits forever behind smaller ones, and a task passed over waits only for the in-flight tasks rule 3 keeps it from: those its paths meet, or under `clashes` those it clashes with).
+**`ccp tasks next`** ranks as before (§10.3), then walks the ready tasks not in A in that order and returns the first that could be claimed beside A and that rules 3 and 4 would not keep from joining any task it passed over; it passes over, naming each, a task that rules 3 and 4 alone keep from joining A and a task that they would keep from joining one it passed over; a task that any other rule keeps from joining A ends the walk with none (head of line: no task waits forever behind smaller ones, and a task passed over waits only for the in-flight tasks rules 3 and 4 keep it from: those its paths meet, or under `clashes` those it clashes with, and those meeting an exclusive entry it meets).
 Returning none because of A (full, head of line, the ceiling), it
 exits 7 with `slots_full: true` and the in-flight tasks to resume; exit 3 still means nothing is
 ready. `ccp tasks check` warns when a task not yet done has neither a path nor `parallel: true` while
@@ -1311,8 +1313,9 @@ and outlasts its caller's command limit is waited on by its suite id with `ccp s
   and `undeclared_paths` (files its PR changed that its declared paths did not name). Calibration may
   split by `peak_in_flight` once enough tasks exist; until then it is recorded, not used.
 - **Forecast** (§26): `max_in_flight` slots; a task starts at the earliest free slot after its
-  dependencies and after every task ahead of it that claim rule 3 keeps it from running beside (§16.3, by `parallel.schedule`: paths that meet, or a clash); one without paths and without `parallel: true`, or touching an exclusive path, takes
-  every slot; gaps between tasks are drawn only from closes with `peak_in_flight` 1. One slot is the
+  dependencies and after every task ahead of it that claim rule 3 keeps it from running beside (§16.3, by `parallel.schedule`: paths that meet, or a clash); one without paths and without `parallel: true`, or saying `parallel: false`, takes
+  every slot, and one touching an exclusive entry starts after each task ahead of it that touches
+  the same entry (rule 4); gaps between tasks are drawn only from closes with `peak_in_flight` 1. One slot is the
   single-runner model, exactly.
 - **Usage:** the runner seat covers every slot's worktree and every bound name a `runner` event
   recorded (§24).
