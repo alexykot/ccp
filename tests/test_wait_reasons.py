@@ -15,7 +15,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ccp import lifecycle
+from ccp import lifecycle, usage
 from ccp.queue import QueueError
 from tests.test_toolkit import ToolkitFixture
 
@@ -148,6 +148,25 @@ class SetWait(unittest.TestCase):
         self.assertEqual(ctx.exception.code, 1)
 
 
+    def test_sync_clears_task_only_and_passes_the_writer_s_code_through(self) -> None:
+        refused = QueueError("set-waiting-on: 0001-a: observability: no", 2)
+        with mock.patch.object(lifecycle.runs, "abandon_task_runs"), \
+                mock.patch.object(lifecycle, "set_wait", side_effect=refused) as sw, \
+                self.assertRaises(QueueError) as ctx:
+            lifecycle._apply(self.cfg, Path("/q"), TASK, {"waiting_on": "quota"}, "done")  # noqa: SLF001
+        self.assertEqual(ctx.exception.code, 2)
+        self.assertEqual(sw.call_args.args[2:], ("clear", TASK, "done_in_log"))
+        self.assertEqual(sw.call_args.kwargs, {"task_only": True})
+
+
+    def test_lifting_a_park_is_task_only(self) -> None:
+        with mock.patch.object(usage, "parked", return_value=[{"task_id": TASK}]), \
+                mock.patch.object(lifecycle, "set_wait") as sw:
+            self.assertTrue(usage.clear_park(self.cfg, Path("/q"), TASK))
+        self.assertEqual(sw.call_args.args[2:], ("clear", TASK, "session_reset"))
+        self.assertEqual(sw.call_args.kwargs, {"task_only": True})
+
+
 class TasksWait(ToolkitFixture, unittest.TestCase):
     """`ccp tasks wait` end to end, on a scratch product."""
 
@@ -164,6 +183,18 @@ class TasksWait(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.ccp("tasks", "wait", "0002", "steerer")
         self.assertEqual(code, 2, out + err)
         self.assertIsNone(json.loads((self.q / "tasks" / "0002-second.json").read_text()).get("waiting_on"))
+
+    def test_release_clears_the_wait_as_the_releasing_seat_task_only(self) -> None:
+        self.assertEqual(self.ccp("tasks", "claim", "0002")[0], 0)
+        self.assertEqual(self.ccp("tasks", "wait", "0002", "design_seat", "--detail", "g-1")[0], 0)
+        env = {k: v for k, v in os.environ.items() if k != "ACTOR"}  # the release's own default seat, the lead
+        with mock.patch.dict(os.environ, env, clear=True), \
+                mock.patch.object(lifecycle, "set_wait", wraps=lifecycle.set_wait) as sw:
+            code, _, out, err = self.ccp("tasks", "release", "0002", "--reason", "re-planned")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(sw.call_args.kwargs, {"actor": "design-seat", "task_only": True})
+        clear = [e for e in self.events() if (e["type"], e["op"]) == ("waiting_on", "clear")]
+        self.assertEqual((clear[-1]["actor"], clear[-1]["payload"]["was"]), ("design-seat", "design_seat"))
 
 
 if __name__ == "__main__":
