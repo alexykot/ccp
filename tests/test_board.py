@@ -48,7 +48,7 @@ class Board(ToolkitFixture, unittest.TestCase):
     def test_close_asks_for_a_rebuild_and_the_drain_shows_the_merge(self):
         self._to_approved_pr()
         with mock.patch("ccp.board.refresh") as r:
-            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(r.call_count, 1)
         (self.q / "board").mkdir(exist_ok=True)
@@ -62,7 +62,7 @@ class Board(ToolkitFixture, unittest.TestCase):
     def test_a_checkout_that_has_not_pulled_sees_the_merge_on_the_remote_integration_branch(self):
         self._to_approved_pr()
         head = git(self.main, "rev-parse", "HEAD")
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(git(self.main, "rev-parse", "HEAD"), head)  # the main checkout has not pulled
         code, body, out, err = self.ccp("board", "build", root=self.main)
@@ -84,7 +84,7 @@ class Board(ToolkitFixture, unittest.TestCase):
         self._to_approved_pr()
         t = json.loads((self.q / "tasks/0002-second.json").read_text())
         (self.q / "tasks/0002-second.json").write_text(json.dumps({**t, "status": "done"}))
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         t = json.loads((self.q / "tasks/0002-second.json").read_text())
         self.assertTrue(t["merge_sha"] and t["reconcile_sha"] and t["merged_at"])
@@ -200,7 +200,7 @@ class Refresh(ToolkitFixture, unittest.TestCase):
             step("tasks", "phase", "0002", "implementing", "--note", "x")
             step("tasks", "wait", "0002", "design_seat", "--detail", "x")
             step("tasks", "resume", "0002", "answered")
-            step("prompt", "review", "0002", "--pr", "7", "--head", "a" * 40)
+            step("prompt", "review", "0002", "--pr", self.PR, "--head", "a" * 40)
             n = r.call_count
             code, _, out, err = self.report("0002-second/review", "Outcome: done\nSeverity: BLOCKER=0 MAJOR=0 MINOR=0 NIT=0\n"
                                                                    "## Spec beyond intent\nnone\n## Friction\nnone\n")

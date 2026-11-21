@@ -196,7 +196,7 @@ class CommandChannel(ChannelFixture, unittest.TestCase):
     def test_the_review_point_close_records_its_notice(self):
         self.tag("0001", "0002")
         self._to_approved_pr()
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual([(e["payload"]["trigger"], e["payload"]["id"]) for e in self.notices("pending")],
                          [("review_point_done", "R1")])
@@ -213,11 +213,11 @@ class NoCommand(ChannelFixture, unittest.TestCase):
     def test_a_close_that_finishes_its_review_point_records_a_notice_with_no_channel(self):
         self.tag("0001", "0002")
         self._to_approved_pr()
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertNotIn("notified", body)
         self.assertEqual(self.triggers(), ["review_point_done"])
-        self.ccp("tasks", "close", "0002", "--pr", "7")  # a re-run records nothing more
+        self.ccp("tasks", "close", "0002", "--pr", self.PR)  # a re-run records nothing more
         self.assertEqual(self.triggers(), ["review_point_done"])
 
     def test_a_claim_refused_at_the_checkpoint_records_a_notice_for_the_lead_s_session(self):

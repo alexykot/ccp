@@ -422,7 +422,7 @@ class Accuracy(unittest.TestCase):
 class Close(ToolkitFixture, unittest.TestCase):
     def test_close_appends_the_actual_row_once(self):
         self._to_approved_pr()
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         rs = estimate.rows(self.q, "0002-second")
         self.assertEqual([r["source"] for r in rs], ["actual"])
@@ -431,14 +431,14 @@ class Close(ToolkitFixture, unittest.TestCase):
         self.assertEqual(set(a["phases"]), set(estimate.PHASES) | {"merge", "ruling"})
         self.assertEqual(a["phases_from"], "runs")
         self.assertIn("BLOCKER", a["findings"])
-        code, *_ = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, *_ = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0)
         self.assertEqual(len(estimate.rows(self.q, "0002-second")), 1)
 
     def test_a_failing_estimate_never_blocks_the_close(self):
         self._to_approved_pr()
         with mock.patch.object(estimate, "record_actuals", side_effect=RuntimeError("boom")):
-            code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+            code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertTrue(any("estimate actuals not recorded (RuntimeError: boom)" in w for w in body["warnings"]))
         self.assertEqual(json.loads((self.q / "tasks/0002-second.json").read_text())["status"], "done")

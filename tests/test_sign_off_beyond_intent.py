@@ -43,24 +43,24 @@ class CloseHolds(ToolkitFixture, unittest.TestCase):
     def test_close_refuses_naming_the_passage_until_the_build_sign_off_is_recorded(self):
         head = self._to_approved_pr()
         self.verdict(head, [PASSAGE, SECOND])
-        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 1)
         self.assertIn("no build sign-off", err)
         self.assertIn(PASSAGE, err)
         self.assertIn(SECOND, err)
         self.assertIn("ccp tasks sign-off 0002-second --stage build", err)
-        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assert_pr_not_merged()
         code, body, out, err = self.sign()  # no --stage: build is the one stage due
         self.assertEqual(code, 0, out + err)
         self.assertEqual((body["sign_off"]["stage"], body["sign_off"]["head"]), ("build", head))
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["head"], head)
 
     def test_an_empty_list_needs_no_sign_off(self):
         head = self._to_approved_pr()
         self.verdict(head, [])
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["head"], head)
         self.assertEqual(self.signed(), [])
@@ -68,11 +68,11 @@ class CloseHolds(ToolkitFixture, unittest.TestCase):
     def test_the_latest_verdict_wins_a_reverify_with_none_clears_the_due_sign_off(self):
         head = self._to_approved_pr()
         self.verdict(head, [PASSAGE])
-        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 1)
         self.assertIn(PASSAGE, err)
         self.verdict(head, [])  # the fix round took the passage out; the re-verify lists none
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["head"], head)
         self.assertEqual(self.signed(), [])
@@ -94,15 +94,15 @@ class CloseHolds(ToolkitFixture, unittest.TestCase):
         self.verdict(head, [PASSAGE])
         code, _, out, err = self.sign("--head", "1234567")
         self.assertEqual(code, 0, out + err)
-        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 1)
         self.assertIn("stale", err)
         self.assertIn(PASSAGE, err)
-        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assert_pr_not_merged()
 
     def test_a_review_keeps_only_the_count_of_its_passages_on_its_run(self):
         self.ccp("tasks", "claim", "0002")
-        code, _, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", "a" * 40)
+        code, _, out, err = self.ccp("prompt", "review", "0002", "--pr", self.PR, "--head", "a" * 40)
         self.assertEqual(code, 0, out + err)
         code, body, out, err = self.report("0002-second/review", "Outcome: done\nSeverity: BLOCKER=0 MAJOR=0 MINOR=0 "
                                            f"NIT=0\n## Spec beyond intent\n- {PASSAGE}\n## Friction\nnone\n")

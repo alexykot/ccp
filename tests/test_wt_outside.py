@@ -108,9 +108,8 @@ class Sibling(SiblingFixture, unittest.TestCase):
         git(impl, "commit", "-q", "-m", "Task 0002: build it")
         git(impl, "push", "-q", "-u", "origin", "task/0002-second")
         head = git(impl, "rev-parse", "HEAD")
-        (self.ghstate / "pr.json").write_text(json.dumps({"state": "OPEN", "head": head, "origin": str(self.origin),
-                                                           "base": "main", "branch": "task/0002-second"}))
-        self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", head)
+        self.open_pr()
+        self.ccp("prompt", "verify", "0002", "--pr", self.PR, "--head", head)
         rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head)
         rec.pop("checked_at", None)
@@ -128,9 +127,9 @@ class Sibling(SiblingFixture, unittest.TestCase):
             return rc
 
         with mock.patch.object(lifecycle, "_merge_checkout", spy):
-            code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
+            code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "it is built.")
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(made, [self.outside / "merge-0002"])
+        self.assertEqual(set(made), {self.outside / "merge-0002"})  # close's own checkout, and the host's squash in it
         git(self.main, "fetch", "-q", "origin")
         self.assertTrue(git(self.main, "log", "-1", "--format=%s", "origin/main").startswith("Reconcile 0002"))
         self.assertFalse(impl.exists())
