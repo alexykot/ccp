@@ -86,4 +86,23 @@ Measured at `8aefa59`.
 
 ## Implementation notes
 
+- `ToolkitFixture` writes `"pr_host": {"adapter": "local"}` in its plane.json and no longer builds a `gh`, a
+  `ghstate` directory or `CCP_GH_BIN`. It gains `PR` (the number the local host gives its first PR, `"1"`),
+  `open_pr()` (the host's `open` for the pushed task branch), `pr_record()` (the host's record) and
+  `assert_pr_not_merged()`; `_push_task_work()` is the claim, commit, push and open that `_to_approved_pr()` builds on.
+- Where a test read the fake's files, it reads the record: `merge-called` absent became "record open, no
+  `merge_commit`"; `--match-head-commit X` became "record merged at head X"; the fake's `refuse-merge` file
+  became a pre-receive hook on origin that refuses the merge's push to `main`. A merge by hand is
+  `ccp pr merge`. Literal `--pr 7` on a real PR became `self.PR`.
+- Where a test opened a review on a PR the fake answered for without a record (the fake's body read
+  answered for any PR), the test now pushes the task branch and opens the PR first
+  (`test_review_tip_gate`, `test_run_abandon`), else the body gate's warning is a second warning.
+- `test_wt_outside` now sees close's merge checkout twice: the local host's squash runs in it.
+  The test asserts the set of checkouts made is the sibling `merge-0002`.
+- `test_tasks_close` keeps its "PR number as given" check with `01`, the local host's read of `1`.
+- `test_prompt_pr_body` is a GitHub adapter test (a stub `gh`, its argv): it sets `pr_host.adapter: github`
+  for its own class, and its stub's env var is renamed so `fx-01`'s grep is empty.
+- `test_prhost_local` drops its `PLANE_JSON` override, now the fixture's default.
+- `docs/ENGINEERING.md` E2, `tests/CLAUDE.md` and `docs/design/toolkit.md` say the fixture uses the local PR host.
+
 ## Verification notes
