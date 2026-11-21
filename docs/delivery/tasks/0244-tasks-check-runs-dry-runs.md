@@ -157,5 +157,11 @@ From architect pass `ar-20261120T234012Z-27eb`, findings F12, F13 and F14, triag
   output pipe returns `None` within the limit. `dryrun.claimed` uses `tasklog.TERMINAL`. The
   writing-tasks skill keeps the `task_log.dry_run` condition and says the tool runs only ``Run `…`.``
   steps, the writer records any other command step.
+- Fix round 2 (review-2): `check_steps` folds only a line break and the indent around it into one
+  space (`LINE_BREAK_RE`), so a run of spaces inside a command on one line is run and recorded as
+  written. A step whose output starts with a blank line is recorded as `first line blank`, not an
+  empty code span. `--write` re-reads the task file after the steps ran and sets the records in that
+  text, so an edit made meanwhile is kept. The insertion tests now cover a check whose keys are
+  indented by 4 and a paragraph after the last check.
 
 ## Verification notes
