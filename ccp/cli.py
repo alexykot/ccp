@@ -1662,10 +1662,12 @@ CALLER_GIT_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR
 
 def checkout_warning() -> str | None:
     """SPEC §29.2: products run `main` as published. Warn when the checkout `ccp` runs from has local
-    changes, is off `main`, or is behind `origin/main`. `CCP_DEV=1` (development, tests) silences it.
+    changes, is off `main`, or is behind `origin/main`. `CCP_DEV=1` (development, tests) silences it,
+    and so does `wt.EXEC_CHILD`: a `ccp wt exec` child runs a worktree's head on purpose (§12.1).
     Git runs without the caller's repository variables (`GIT_DIR` and the like override `-C`), so the
     warning is about the plane checkout, never the caller's."""
-    if envvar("CCP_DEV") == "1":
+    from ccp.wt import EXEC_CHILD  # noqa: PLC0415
+    if envvar("CCP_DEV") == "1" or envvar(EXEC_CHILD):
         return None
     import subprocess  # noqa: PLC0415
     from ccp.queue import PLANE  # noqa: PLC0415

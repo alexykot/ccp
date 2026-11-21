@@ -854,12 +854,6 @@ class ExecOwnCcp(WtFixture, unittest.TestCase):
         self.assertEqual(cm.exception.code, 2)
         self.assertIn("name a worktree or a checkout", str(cm.exception))
 
-    def test_the_reviewer_and_verifier_briefs_say_print_shows_which_ccp_runs(self):
-        for seat in ("reviewer", "verifier"):
-            text = " ".join((PLANE / "plugin" / "agents" / f"delivery-{seat}.md").read_text().split())
-            self.assertIn("`ccp wt exec --print` shows which `ccp` that runs", text, seat)
-            self.assertIn("`$CCP_ROOT`", text, seat)
-
 
 class Shallow(WtFixture, unittest.TestCase):
     """`ccp wt create --shallow`: a depth-1 clone at --sha, for a check that must pass without git history."""

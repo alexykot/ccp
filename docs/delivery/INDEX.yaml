@@ -1198,7 +1198,7 @@ tasks:
     depends_on: [0202-forecast-and-health-report-task-supply]
     path: tasks/0239-one-adr-reference-parser-and-a-decision-index.md
   - id: 0240-plane-workers-run-the-head
-    status: pending
+    status: done
     title: The plane's own workers run the head they change, and briefs name commands rather than restating their conditions
     depends_on: []
     path: tasks/0240-plane-workers-run-the-head.md

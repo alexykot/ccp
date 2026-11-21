@@ -1,7 +1,7 @@
 ---
 task_id: 0240-plane-workers-run-the-head
 title: The plane's own workers run the head they change, and briefs name commands rather than restating their conditions
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12", "S15", "S29"]
@@ -146,4 +146,46 @@ From architect pass `ar-20261120T234012Z-27eb`, findings F01 and F15, triaged by
 
 ## Implementation notes
 
+- Premises re-measured at `ce0f4bb`: all figures as stated (12 template lines, 6 `wt exec` lines in the
+  briefs and verify prompt, 2 in `ccp/verify.py`, 3 runner-brief lines, 1 skill row, 5 test modules,
+  10 lines for head-03 step 1). The per-file split of the 12 template lines is 3 in `_common.md` and
+  4 in `verify.md` (the Context has them the other way round); the total is unchanged.
+- `ccp_command` appends ` wt exec --` to the command it already picks when `cfg.root/bin/ccp` is a
+  file: `ccp wt exec --` with `ccp` on PATH, `<plane>/bin/ccp wt exec --` where it renders the plane's
+  path (no `ccp` on PATH, or managed agent copies), so a worker's commands still run its worktree's head.
+- The child's variable is `CCP_WT_EXEC` (`wt.EXEC_CHILD`), set to `1` through `envvars.for_child`;
+  `checkout_warning` returns nothing while it is set (non-empty, as `envvar` reads it). It reaches the
+  child's own children too (a suite run's tests), so `tests/test_plugin.py`'s checkout-warning tests
+  clear it.
+- Templates: every literal `ccp suite|report|mutate|verify` command became `{{ccp}}`. `verify.md` drops
+  both workaround sentences and says to run `verify record` from the checkout of the head (§15.4) and a
+  check's `ccp` command by hand as `{{ccp}} <args>` from that checkout; `review.md` carries the same
+  by-hand rule after its resolution/non-resolution branches.
+- `ccp/verify.py`'s refusal line (`NEWER_CONTRACT`) points at running `verify record` from the head's
+  checkout with the `ccp` the prompt names; its test now checks the constant, not wording.
+- Runner brief: the note limit, the supersede grace and the three exit-3 meanings are cut to the
+  command and §11.1/§13.2/§16.4 (each refusal already names its condition). Skill: the two
+  `ccp tasks check` warnings left the `adopt` row; a line under the table says `ccp tasks check` holds
+  `adopt` to §5.2 (both warnings already name their condition and §5.2).
+- Removed tests that pinned removed text: `test_prompt_end.HeadsOwnCcp` and
+  `test_wt.ExecOwnCcp.test_the_reviewer_and_verifier_briefs_say_print_shows_which_ccp_runs`; the
+  rendering is held by `tests/test_plane_workers_run_head.py`.
+- Fix round 1 (review of `0e58435`):
+  - `review.md` and `verify.md`: the fallback for a removed checkout was "add `--root <main>` before
+    `report`", which the plane's `ccp wt exec -- --root <main> report` hands to the child, so
+    `wt exec` still resolves the checkout from the cwd and fails outside one. It now says to run
+    `report` from the main checkout, which works for both renderings (`test_worker_efficiency` pins
+    the new sentence).
+  - `_common.md`: the two literal commands left (`ccp mutate` in the timeout line, `ccp report` in
+    the re-report line) are `{{ccp}}`. The remaining literal `ccp report` in `review.md`, `verify.md`
+    and the report lines is prose about what the command accepts or refuses, not a command to run.
+  - `tests/test_plane_workers_run_head.py` `EveryPhaseRunsTheHead` renders the implement, review and
+    fix prompts of a product with `bin/ccp` and pins each command line of the shared rules and the
+    review's by-hand rule as `wt exec --`, and holds that no `QUEUE_ROOT=… ccp` line skips it.
+  - `tests/__init__.py` clears `CCP_WT_EXEC`, as it does `CCP_SUITE_ID`, so a suite run through
+    `ccp wt exec` does not hand the child marker to every test.
+  - `docs/cli/02-delivery.md`: `ccp wt exec`'s seat column is now "workers".
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #274 head `d6961af` (squash `cfe52cb`): APPROVE. Passed: head-01, head-02, head-03, head-04, head-05, head-06. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0240-plane-workers-run-the-head.json.
+

@@ -182,7 +182,7 @@ class DeclaredPregateLane(_PregateBriefs, unittest.TestCase):
         texts = self.briefs()
         self.assertEqual(sorted(texts), ["fix", "implement", "merge", "ruling"])
         for phase, text in texts.items():
-            self.assertIn("the product's pre-gate lane (`ccp suite run --lane pregate`, as plane.json gives it) and "
+            self.assertIn("suite run --lane pregate`, as plane.json gives it) and "
                           "the run `", text, phase)
             self.assertIn("suite affected --since ", text, phase)
             for c in CHECKS:

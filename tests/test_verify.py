@@ -568,13 +568,13 @@ class Record(unittest.TestCase):
         code, _, err = self.record(approve(seat_run="x"))
         self.assertEqual(code, 1)
         self.assertIn("unexpected key seat_run", err)
-        self.assertIn("ccp wt exec", err)
+        self.assertIn(verify.NEWER_CONTRACT, err)
         self.assertFalse(self.written().exists())
         body = approve()
         del body["head_sha"]
         code, _, err = self.record(body)  # refused for another reason: no line about the head's ccp
         self.assertEqual(code, 1)
-        self.assertNotIn("ccp wt exec", err)
+        self.assertNotIn(verify.NEWER_CONTRACT, err)
 
     def test_a_key_added_to_the_record_raises_its_version(self):
         schema = json.loads((ROOT / "contracts/verification.schema.json").read_text())
