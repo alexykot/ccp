@@ -8,11 +8,12 @@ the task-log owner triages it under `docs/delivery/REVIEW-TRIAGE.md`. Everything
 
 `ccp` computes when a pass is due, so no seat has to remember it (§19.6), from:
 
-- **cadence:** `every_n_tasks` tasks done since the last pass, or `max_days` with at least one;
+- **cadence:** `every_n_tasks` times the slots (`parallel.max_in_flight`, 1 when tasks run one at a time) tasks
+  done since the last pass, or `max_days` with at least one;
 - **a review point closing:** every task in the scope `ccp tasks next` was given is done;
 - **friction:** `notes_due` friction notes since the last pass;
 - **drift:** `ccp health` drift (on active time: wall time less waits), or a budget failing, that the last
-  pass did not see.
+  pass did not see and no `pending` task cites in its `rule_refs`.
 
 All of these count from the product's adoption point (§19.11). Before its first pass, a review point counts
 its tasks numbered from that point, friction counts only those tasks' notes, drift is not judged, and a budget
@@ -46,7 +47,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ccp import config, health, pkgdocs, refs, rules, tasklog, wt
+from ccp import config, health, parallel, pkgdocs, refs, rules, tasklog, wt
 from ccp.adr import find_file as find_adr_file
 from ccp.config import ARCHITECT_DEFAULTS, Config
 from ccp.queue import spawn_detached
@@ -92,6 +93,18 @@ def _settings(cfg: Config) -> dict[str, Any]:
 
 def _done(tasks: list[dict[str, Any]]) -> set[str]:
     return {str(t.get("task_id")) for t in tasks if t.get("status") == "done"}
+
+
+def _tasked_rules(tasks: list[dict[str, Any]]) -> set[str]:
+    """The house-rule ids `pending` tasks cite in `rule_refs`: a budget breach among them is already tasked
+    and makes no pass due (§19.6)."""
+    return {str(r) for t in tasks if t.get("status") == "pending" for r in tasklog._as_list(t.get("rule_refs"))}
+
+
+def _cadence(cfg: Config) -> int:
+    """The merges the cadence waits for (§19.6): `every_n_tasks` times the tasks the product runs at once."""
+    slots = int(parallel.settings(cfg)["max_in_flight"]) if parallel.enabled(cfg) else 1
+    return int(_settings(cfg)["every_n_tasks"]) * slots
 
 
 def work_scope(q: Path, given: str | None = None) -> list[str] | None:
@@ -203,6 +216,7 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
     since = len(counted - set(last.get("done") or []))
     days = round((ar.now_utc() - parse_dt(last["started_at"])).total_seconds() / 86400, 1) \
         if last.get("started_at") else None
+    cadence = _cadence(cfg)
     running = [r for r, rec in st["reviews"].items() if rec.get("status") == "running"]
     awaiting = [{"review_id": r, "mode": rec.get("mode"),
                  "merges_since": len(done - set(rec.get("done_at_report") or rec.get("done") or []))}
@@ -211,8 +225,8 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
     reasons: list[tuple[str, str, int]] = []
     if not adopted:
         pass  # the seat enforces nothing without an adoption point
-    elif since >= a["every_n_tasks"]:
-        reasons.append(("cadence", f"{since} task(s) done since {label}", len(done) - (since - a["every_n_tasks"])))
+    elif since >= cadence:
+        reasons.append(("cadence", f"{since} task(s) done since {label}", len(done) - (since - cadence)))
     elif days is not None and days >= a["max_days"] and since >= 1:
         reasons.append(("max_days", f"{days} days and {since} task(s) done since {label}", -1))
     scope_ids = {str(t.get("task_id")) for t in tasks if scope and tasklog.in_scope(str(t.get("task_id")), scope)}
@@ -243,7 +257,8 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
                 if not fresh.get("last") and "budget_baseline" not in fresh:
                     fresh["budget_baseline"] = sorted(known)
             ar.update_state(q, ARCH, keep_baseline)
-    new_budgets = [b for b in budgets if b.split(":", 1)[0] not in known]
+    skip = known | _tasked_rules(tasks)  # a breach a pending task already fixes calls no pass
+    new_budgets = [b for b in budgets if b.split(":", 1)[0] not in skip]
     if new_budgets:
         reasons.append(("budget", "budget check fails: " + "; ".join(new_budgets[:3]), -1))
     # A non-cadence reason became due when it was first seen; remember that moment.
@@ -284,7 +299,7 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
         failed_in_a_row += 1
     info: dict[str, Any] = {
         "enabled": config.architect_on(cfg), "done_total": len(done), "done_since_last": since,
-        "days_since_last": days, "last_review_id": last.get("review_id"), "running": running,
+        "days_since_last": days, "cadence_tasks": cadence, "last_review_id": last.get("review_id"), "running": running,
         "awaiting_triage": awaiting, "notes_since_last": n_notes, "budget_failures": budgets,
         "health": drift, "reasons": [t for _, t, _ in reasons], "merges_since_due": max(waited, default=0),
         "shape_due": shape_due(cfg, tasks), "last_failure": last_failure, "failed_in_a_row": failed_in_a_row,
@@ -304,7 +319,7 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
     elif reasons:
         info.update(due=True, reason="; ".join(info["reasons"]))
     else:
-        info.update(due=False, reason=f"{since} of {a['every_n_tasks']} tasks done since {label}; nothing else due")
+        info.update(due=False, reason=f"{since} of {cadence} tasks done since {label}; nothing else due")
     return info
 
 
@@ -651,7 +666,8 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
     st = load(q, actor)
     last = st.get("last") or {}
     base = last.get("head")
-    done = sorted(_done(tasklog.load(cfg)))
+    tasks = tasklog.load(cfg)
+    done, tasked = sorted(_done(tasks)), _tasked_rules(tasks)
     result: dict[str, Any] = {"review_id": rid, "mode": mode, "lenses": lenses, "head": head, "base": base, "dirty": dirty}
     # This pass's record, re-applied on every write so no other writer can lose it.
     rec0 = {"mode": mode, "lenses": lenses, "adr": adr, "head": head, "base": base, "done": done,
@@ -729,7 +745,7 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
             def finish(f: dict[str, Any]) -> None:
                 f["last"] = {"review_id": rid, "started_at": rec0["started_at"], "at": fmt_dt(ar.now_utc()),
                              "head": head, "done": done, "health_drift": bool((info.get("health") or {}).get("drift")),
-                             "budget_ids": sorted({b.split(":", 1)[0] for b in info.get("budget_failures") or []})}
+                             "budget_ids": sorted({b.split(":", 1)[0] for b in info.get("budget_failures") or []} - tasked)}
                 f["seen"] = {}
             ar.update_state(q, ARCH, finish)
         if mode == "pass" and not report["findings"] and not report["rule_changes"]:
