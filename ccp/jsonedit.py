@@ -10,8 +10,9 @@ wrote it, so the diff is the entry alone.
 A scanner reads the text (strings with their escapes, numbers, literals, nested objects and arrays,
 whitespace) and records each object member's key span and value span. An edit splices only those spans:
 - an existing member's value span is replaced by `json.dumps(value, ensure_ascii=False)`;
-- a new member goes after the object's last member, on a line of its own indented like that member when
-  the member sits on its own line, else inline as `, "key": value`; into an empty object as `"key": value`;
+- a new member goes after the object's last member, on a line of its own indented and broken like that
+  member's when the member sits on its own line, else inline as `, "key": value`; into an empty object as
+  `"key": value`;
 - a missing object on `path` is made the same way, holding the rest of the path inline (`{"key": value}`);
 - a deleted member takes its separating comma with it (the one after it, or before it when it is the
   last member); deleting the only member leaves `{}`. A key that is not there, or a path that does not
@@ -165,8 +166,8 @@ def _insert(text: str, obj: _Node, key: str, value: Any) -> str:
     last = obj.members[-1]
     line_start = text.rfind("\n", obj.start, last.key_start) + 1
     indent = text[line_start:last.key_start]
-    if line_start and not indent.strip(_WS):  # the last member sits on its own line
-        sep = ",\n" + indent
+    if line_start and not indent.strip(_WS):  # the last member sits on its own line, broken as that line is
+        sep = (",\r\n" if text[line_start - 2:line_start] == "\r\n" else ",\n") + indent
     else:
         sep = ", "
     return text[:last.value.end] + sep + pair + text[last.value.end:]

@@ -361,6 +361,14 @@ class Record(UpgradeFixture, unittest.TestCase):
         self.assertEqual((upgrade["taken"], upgrade["declined"]), ({}, {"0001-alpha": "not for us"}))
         self.assertEqual(json.loads("{" + after[-3] + "}"), {"upgrade": upgrade})
 
+    def test_a_file_with_crlf_line_ends_keeps_them(self):
+        path = self.product.root / "docs/delivery/plane.json"
+        before = b'{\r\n  "project_id": "demo"\r\n}\r\n'
+        path.write_bytes(before)
+        self.assertEqual(self.ccp("upgrade", "take", "0001-alpha", "--reason", "done by hand")[0], 0)
+        entry = b',\r\n  "upgrade": {"taken": {"0001-alpha": "done by hand"}}'
+        self.assertEqual(path.read_bytes(), before.replace(b'"demo"', b'"demo"' + entry))
+
     def test_a_plane_json_the_editor_cannot_change_in_place_is_refused_and_left_as_it_was(self):
         path = self.product.root / "docs/delivery/plane.json"
         before = path.read_bytes()

@@ -8,7 +8,8 @@ from unittest import mock
 
 from ccp import jsonedit
 
-INDENTED = '{\n  "project_id": "demo",\n  "suite": {"lanes": {"gate": ["true"]}},\n  "upgrade": {\n    "taken": {\n      "0001-a": "kept"\n    }\n  }\n}\n'
+INDENTED = ('{\n  "project_id": "demo",\n  "suite": {"lanes": {"gate": ["true"]}},\n'
+            '  "upgrade": {\n    "taken": {\n      "0001-a": "kept"\n    }\n  }\n}\n')
 TRICKY = '{"a": "x{y}z", "b": "q\\"u{o}te\\\\", "c": "café } {", "d": [1, {"e": "]"}], "f": {}}'
 
 
@@ -33,6 +34,11 @@ class SetMember(Spliced):
         after = jsonedit.set_member(INDENTED, [], "language", "none")
         at = INDENTED.rindex("}\n  }") + len("}\n  }")
         self.spliced(INDENTED, after, at, "", ',\n  "language": "none"')
+
+    def test_a_new_line_breaks_as_the_last_members_line_does(self):
+        before = '{\r\n  "a": 1\r\n}\r\n'
+        after = jsonedit.set_member(before, [], "b", 2)
+        self.spliced(before, after, before.index("1") + 1, "", ',\r\n  "b": 2')
 
     def test_a_new_member_in_an_inline_object_is_written_inline(self):
         before = '{\n  "suite": {"lanes": {"gate": ["true"]}},\n  "x": 1\n}\n'
