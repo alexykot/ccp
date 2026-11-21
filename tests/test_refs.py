@@ -38,6 +38,23 @@ class Defaults(unittest.TestCase):
         self.assertEqual(D.adr_globs(3), ("0003-*.md", "ADR-0003*.md", "0003.md"))
         self.assertEqual([int(m) for m in D.adr_mention_re.findall("ADR-0031 and ADR 7, not 0099")], [31, 7])
 
+    def test_adr_link_accepts_the_whole_link_forms(self):
+        for ref, want in (("ADR-0007", (7, None)), ("adr-7", (7, None)), ("0007", (7, None)), ("7", (7, None)),
+                          ("ADR-0007 D2", (7, "2")), ("0031 D2a", (31, "2a")), ("  ADR-0007   D2  ", (7, "2")),
+                          (7, (7, None))):
+            self.assertEqual(D.adr_link(ref), want, ref)
+        self.assertEqual(refs.Ids(adr_prefix="DEC-").adr_link("DEC-007 D1"), (7, "1"))
+
+    def test_adr_link_refuses_anything_else(self):
+        for ref in ("", "nothing", "2026-10-01", "0031-x", "ADR-0007 D", "ADR-0007 Acceptance", "ADR-0007 D2 and more",
+                    "docs/adr/0012-x.md", "see ADR-0007", "ADR 0007", "ADR-0007, ADR-0008"):
+            self.assertIsNone(D.adr_link(ref), ref)
+
+    def test_parse_adr_ref_reads_a_link_through_adr_link(self):
+        self.assertEqual(D.parse_adr_ref("ADR-0007 D2"), refs.AdrRef(7, "2", None, "ADR-0007 D2"))
+        self.assertEqual(D.parse_adr_ref("ADR-0007"), refs.AdrRef(7, None, None, "ADR-0007"))
+        self.assertEqual(D.parse_adr_ref("0040 D2 and more").decision, "2")  # not a whole link: the loose reading
+
     def test_spec_rule_review_point(self):
         self.assertEqual(D.spec_ref_re.search("see S3–S5 here").groups(), ("3", "5"))
         self.assertEqual(D.spec_ref(12), "S12")

@@ -1,28 +1,5 @@
-"""ADRs (SPEC §6): the plane's ADR format, its checks, its commands and the generated index.
-
-  ccp adr new "<title>"                          the next ADR, from the template, status proposed
-  ccp adr status N <status> [--note T]           move an ADR along adr.transitions
-  ccp adr supersede OLD NEW [--decisions D2,D4] [--by Dk] [--archive]
-                                                 links both ways, statuses and decision states
-  ccp adr decide N D3 <state> [--by "ADR-0007 D1"] [--note T]
-                                                 one decision's build state
-  ccp adr check | index [--stdout] | list [--json] | migrate --markers [--dry-run]
-
-An ADR opens with YAML frontmatter (`id`, `title`, `status`, `date` required; `deciders`,
-`supersedes`, `superseded_by`, `amends`, `review_points`, `spec_refs`, `decisions`, `notes`
-declared; any other key is a warning). Its decisions are numbered headings, `### D1. Title`; other
-styles (a bold bullet, a bold lead, a paragraph) are read for compatibility and warned about, or
-refused under `adr.strict`. `decisions:` records each decision's build state as one string per
-decision, `D<n> <state>[ by <ADR id>[ D<n>]][ — <note>]`, state one of not_built, built, live,
-retired. Links (`supersedes`, `superseded_by`, `amends`) are lists of `<ADR id>[ D<n>]`; the reverse
-of each is checked.
-
-The plane takes no YAML dependency: the writer emits a small subset (plain tokens, JSON-quoted
-strings, `|-` literal blocks, inline and block lists) and the reader understands that subset plus
-hand-written plain and single-quoted scalars. A line it does not understand is a `ccp docs check`
-failure, never a silent skip. Commands rewrite only the frontmatter keys they change; every other
-line of the file is kept byte for byte.
-"""
+"""ADRs (SPEC §6): the ADR files, their checks, the decisions' build state (`DecisionIndex`), the
+`ccp adr` commands and the generated index. The command surface is written once, in docs/cli."""
 from __future__ import annotations
 
 import json
@@ -32,7 +9,7 @@ import shutil
 import subprocess
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from ccp import refs, reviewpoints
 from ccp.config import ADR_DEFAULTS, Config
@@ -467,10 +444,7 @@ def load(cfg: Config, override: str | None = None) -> tuple[list[dict[str, Any]]
 
 
 def _link(ids: refs.Ids, s: str) -> tuple[int, str | None] | None:
-    """`ADR-0007` or `ADR-0007 D2` (or the bare number) → (7, "2"); anything else → None."""
-    pre = re.escape(ids.adr_prefix.rstrip("-"))
-    m = re.fullmatch(rf"\s*(?:{pre}-?)?0*(\d+)(?:\s+D(\d+[a-z]?))?\s*", str(s), re.I)
-    return (int(m.group(1)), m.group(2)) if m else None
+    return ids.adr_link(s)
 
 
 def analyse(cfg: Config) -> tuple[list[dict[str, Any]], list[str], list[str]]:
@@ -503,7 +477,7 @@ def analyse(cfg: Config) -> tuple[list[dict[str, Any]], list[str], list[str]]:
             return None
         return ln
 
-    states: dict[tuple[int, str], dict[str, Any]] = {}
+    index = DecisionIndex.build(adrs, ids)
     for m in adrs:
         rel, me = m["_path"], m["_number"]
         unknown = sorted(k for k in m if not k.startswith("_") and k not in REQUIRED + OPTIONAL)
@@ -537,7 +511,6 @@ def analyse(cfg: Config) -> tuple[list[dict[str, Any]], list[str], list[str]]:
                 errs.append(f"{rel}: decisions entry D{d['id']}: the body has no decision D{d['id']}")
             if d["by"]:
                 resolve(rel, f"decisions D{d['id']} by", d["by"])
-            states[(me, d["id"])] = d
     # review points with no register to check them against (§22.3): a warning, under strict too
     tagged = [ids.adr_id(m["_number"]) for m in adrs if _as_list(m.get("review_points"))]
     if tagged and reviewpoints.load(cfg)[0] is None:
@@ -571,8 +544,7 @@ def analyse(cfg: Config) -> tuple[list[dict[str, Any]], list[str], list[str]]:
                     if other.get("status") != "superseded":
                         soft.append(f"{rel}: supersedes {s!r}, whose status is {other.get('status')!r}, not superseded")
                 elif key == "supersedes":
-                    st = states.get((n, dec))
-                    if st is None or st["state"] != "retired":
+                    if not index.is_retired(n, dec):
                         soft.append(f"{rel}: supersedes {s!r}, but {other['_path']} does not record D{dec} as retired")
     # the tasks that cite decisions
     try:
@@ -592,8 +564,7 @@ def analyse(cfg: Config) -> tuple[list[dict[str, Any]], list[str], list[str]]:
             if r.decision not in dec_ids(m):
                 errs.append(f"{tid}: adr_refs {ref!r}: {m['_path']} has no decision D{r.decision}")
                 continue
-            st = states.get((r.number, r.decision))
-            if t.get("status") == "done" and not_in_force(st):
+            if t.get("status") == "done" and index.blocks_done(r.number, r.decision):
                 soft.append(f"{tid}: done, and cites {ids.adr_id(r.number)} D{r.decision}, which {m['_path']} "
                             "records as not_built (`ccp adr decide` it built or live)")
     # the index
@@ -638,7 +609,9 @@ def unbuilt_cited(cfg: Config, tasks: list[dict[str, Any]]) -> list[str]:
     if not head.startswith("task/"):
         return []
     ids = refs.ids(cfg)
-    by_num = {m["_number"]: m for m in load(cfg)[0]}
+    adrs = load(cfg)[0]
+    by_num = {m["_number"]: m for m in adrs}
+    index = DecisionIndex.build(adrs, ids)
     out: list[str] = []
     for t in tasks:
         if str(t.get("task_id") or t["_file"].stem) != head[len("task/"):]:
@@ -650,18 +623,11 @@ def unbuilt_cited(cfg: Config, tasks: list[dict[str, Any]]) -> list[str]:
             m = by_num.get(r.number) if r is not None and r.decision is not None else None
             if m is None:
                 continue
-            st = {d["id"]: d for d in decision_states(m)}.get(r.decision)
-            if not_in_force(st):
+            if index.blocks_done(r.number, r.decision):
                 out.append(f"{cfg.rel(t['_file'])}: cites {ref!r} ({ids.adr_id(r.number)} D{r.decision}), which "
                            f"{m['_path']} records as not_built: once the task builds it, run "
                            f"`ccp adr decide {r.number} D{r.decision} built` in its PR (SPEC §6.7, §15.4)")
     return out
-
-
-def not_in_force(state: dict[str, Any] | None) -> bool:
-    """§6.7 in force: a decision a done task cites must not be recorded `not_built`. One rule for the
-    check (`analyse`) and for the verdict (`in_force_at`)."""
-    return state is not None and state["state"] == "not_built"
 
 
 def _at(cfg: Config, head: str, rel: str) -> str | None:
@@ -723,8 +689,7 @@ def in_force_at(cfg: Config, task: dict[str, Any], head: str) -> list[str]:
             meta = parse(fm) if fm is not None else {}
         except ParseError:
             meta = {}  # `ccp adr check` names an unreadable frontmatter; the gate runs it
-        states = {x["id"]: x for x in (parse_decision(s) for s in _as_list(meta.get("decisions"))) if x}
-        if not_in_force(states.get(dec)):
+        if DecisionIndex.build([{**meta, "_number": n}], ids).blocks_done(n, dec):
             errs.append(f"{tid} cites {ids.adr_id(n)} D{dec}, which {path} records as not_built at the PR head "
                         f"{head[:12]}: closing the task marks it done, and the in-force ADR check (SPEC §6.7, "
                         f"adr.strict) then fails on the integration branch; flip it on the PR head: "
@@ -772,21 +737,94 @@ def public(m: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+class Resolved(NamedTuple):
+    """Where a decision's `retired by` chain ends: ADR `adr` decision `decision` (None when the last
+    link names a whole ADR). `loop` is set when the chain came back to a decision it had passed, and
+    then `adr`, `decision` name that decision."""
+    adr: int
+    decision: str | None
+    loop: bool = False
+
+
+class DecisionIndex:
+    """Each decision's recorded build state, read once from the loaded ADRs, and the one reading of it:
+    `state`, `resolve`, `is_built`, `blocks_done`. A decision no ADR records a state for has none."""
+
+    def __init__(self, recorded: dict[tuple[int, str], dict[str, Any]], body: dict[int, list[str]],
+                 ids: refs.Ids = refs.DEFAULT) -> None:
+        self._recorded = recorded
+        self._body = body
+        self._ids = ids
+
+    @classmethod
+    def build(cls, adrs: list[dict[str, Any]], ids: refs.Ids = refs.DEFAULT) -> DecisionIndex:
+        recorded: dict[tuple[int, str], dict[str, Any]] = {}
+        body: dict[int, list[str]] = {}
+        for m in adrs:
+            n = m.get("_number")
+            body[n] = [d["id"] for d in m.get("_decisions") or []]
+            for s in _as_list(m.get("decisions")):
+                if d := parse_decision(s):
+                    recorded[(n, d["id"])] = d
+        return cls(recorded, body, ids)
+
+    def state(self, adr: int, d: str) -> dict[str, Any] | None:
+        """The recorded `{id, state, by, note}` of decision `d` of ADR `adr`, or None."""
+        return self._recorded.get((adr, d))
+
+    def decisions(self, adr: int) -> list[dict[str, Any]]:
+        """ADR `adr`'s body decisions in order, each once (`state` None when it records none)."""
+        return [self.state(adr, i) or {"id": i, "state": None, "by": None, "note": None} for i in self._body.get(adr, [])]
+
+    def resolve(self, adr: int, d: str) -> Resolved:
+        """Follow each recorded `retired by <ADR id> Dk` from decision `d` of ADR `adr` to the decision
+        that is not retired by another (the start itself when it is not). A chain that comes back to a
+        decision it passed is returned with `loop` set."""
+        seen: set[tuple[int, str]] = set()
+        here = (adr, d)
+        while True:
+            if here in seen:
+                return Resolved(*here, loop=True)
+            seen.add(here)
+            st = self.state(*here)
+            nxt = self._ids.adr_link(st["by"]) if st and st["state"] == "retired" and st["by"] else None
+            if nxt is None:
+                return Resolved(*here)
+            if nxt[1] is None:
+                return Resolved(nxt[0], None)
+            here = (nxt[0], nxt[1])
+
+    def is_retired(self, adr: int, d: str) -> bool:
+        st = self.state(adr, d)
+        return st is not None and st["state"] == "retired"
+
+    def is_built(self, adr: int, d: str) -> bool:
+        """Built or live. A decision with no recorded state is not built (the `ccp adr list` count)."""
+        st = self.state(adr, d)
+        return st is not None and st["state"] in ("built", "live")
+
+    def blocks_done(self, adr: int, d: str) -> bool:
+        """§6.7 in force: recorded `not_built`, which a done task must not cite. A decision with no
+        recorded state does not block (the reading of the check, the warning and the verdict)."""
+        st = self.state(adr, d)
+        return st is not None and st["state"] == "not_built"
+
+
 def built(m: dict[str, Any]) -> tuple[int, int] | None:
     """(built or live, decisions not retired) when the ADR records any state; a body decision with
     no recorded state counts as not built. None when it records none."""
-    states = decision_states(m)
+    index = DecisionIndex.build([m])
+    states = index.decisions(m.get("_number"))
     if not any(d["state"] for d in states):
         return None
     standing = [d for d in states if d["state"] != "retired"]
-    return sum(d["state"] in ("built", "live") for d in standing), len(standing)
+    return sum(index.is_built(m.get("_number"), d["id"]) for d in standing), len(standing)
 
 
 def decision_states(m: dict[str, Any]) -> list[dict[str, Any]]:
     """The recorded states, in the body's order, each body decision once (`state` None when the ADR
     records none for it)."""
-    rec = {d["id"]: d for d in (parse_decision(s) for s in _as_list(m.get("decisions"))) if d}
-    return [rec.get(d["id"]) or {"id": d["id"], "state": None, "by": None, "note": None} for d in m.get("_decisions") or []]
+    return DecisionIndex.build([m]).decisions(m.get("_number"))
 
 
 def untasked(cfg: Config, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -801,6 +839,8 @@ def untasked(cfg: Config, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if cfg.adr is None or not adr_dir(cfg).is_dir():
         return []
     ids = refs.ids(cfg)
+    adrs = load(cfg)[0]
+    index = DecisionIndex.build(adrs, ids)
     whole: set[int] = set()
     cited: set[tuple[int, str]] = set()
     for t in tasks:
@@ -816,11 +856,11 @@ def untasked(cfg: Config, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 whole.add(r.number)
             # else a section anchor (`<n> Implementation 10`) cites no decision (§7)
     out: list[dict[str, Any]] = []
-    for m in sorted(load(cfg)[0], key=lambda x: x["_number"]):
+    for m in sorted(adrs, key=lambda x: x["_number"]):
         if m.get("status") not in ("accepted", "in-progress") or m["_number"] in whole:
             continue
-        left = [d["id"] for d in decision_states(m)
-                if d["state"] == "not_built" and (m["_number"], d["id"]) not in cited]
+        left = [d["id"] for d in index.decisions(m["_number"])
+                if index.blocks_done(m["_number"], d["id"]) and (m["_number"], d["id"]) not in cited]
         if left:
             out.append({"adr": ids.adr_id(m["_number"]), "decisions": left})
     return out
