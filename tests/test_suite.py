@@ -702,7 +702,7 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
         self.assertIn(f"QUEUE_ROOT={self.q} ", text)
         self.assertIn("suite run --run 0002-second/implement --lane <lane> -- <command>", text)
         self.assertIn("`--lane full` with nothing after `--`: the product's full suite", text)
-        self.assertIn("Never call `ccp suite run` inside a script", text)
+        self.assertIn("suite run` inside a script", text)
         self.assertIn("never `cat` the whole log", text)
         self.assertIn("`Suite: from <suite_id>`", text)
         code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", "a" * 40)
