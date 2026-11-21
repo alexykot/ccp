@@ -1,7 +1,7 @@
 ---
 task_id: 0220-one-pr-host-interface-with-the-github-adapter
 title: The PR-host interface is ccp pr, and the SPEC names its operations instead of gh
-status: pending
+status: done
 kind: feature
 depends_on: ["0226-one-pr-host-module-github-only"]
 spec_refs: ["S10", "S15"]
@@ -150,3 +150,5 @@ PROPOSED:
   both, and for the PR number losing its leading zeros and `open` reading a number from a URL ending in `/`.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #271 head `2ddd55e` (squash `edded74`): APPROVE. Passed: ph-01, ph-02, ph-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0220-one-pr-host-interface-with-the-github-adapter.json.
+
