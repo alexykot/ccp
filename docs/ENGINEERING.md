@@ -136,3 +136,7 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - The gate's test cache keys every module on all the inputs it shares (every tracked and untracked
   file but the test modules no other imports), not on what it imports: one source edit reruns every
   module (scripts/gate_parallel.py).
+
+- Health's before-review conflict catch-up figures (`ccp/health.py` `conflict_catch_ups`) are the
+  whole implement or fix rounds' wall time and tokens, as §27.1 says and the text line labels them:
+  no round records a merge step's own cost (ar-20261121T174754Z-7df5 F12).

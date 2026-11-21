@@ -4,11 +4,11 @@ title: Module docstrings and the standing DoD carry no usage tables or restated 
 status: pending
 kind: refactor
 depends_on: ["0255-test-fixtures-shared-helpers-and-one-repo-build"]
-clashes_with: ["0213-a-green-tree-skips-the-lane-queue", "0214-an-exclusive-path-keeps-apart-only-its-own-tasks", "0240-plane-workers-run-the-head", "0256-suite-run-refuses-a-closed-run-and-config-reads"]
+clashes_with: ["0213-a-green-tree-skips-the-lane-queue", "0214-an-exclusive-path-keeps-apart-only-its-own-tasks", "0240-plane-workers-run-the-head", "0256-suite-run-refuses-a-closed-run-and-config-reads", "0265-one-gate-lane-and-worker-runs-wait-for-it"]
 review_refs: ["ar-20261121T111633Z-4e26#F05", "ar-20261121T111633Z-4e26#F07", "ar-20261121T111633Z-4e26#F08", "ar-20261121T174754Z-7df5#F05"]
 rule_refs: ["E4", "E24", "E25", "E26"]
 review_point: R19
-paths: ["ccp/board.py", "ccp/calibrate.py", "ccp/drill.py", "ccp/estimate.py", "ccp/estimator.py", "ccp/forecast.py", "ccp/health.py", "ccp/init.py", "ccp/mutate.py", "ccp/otel.py", "ccp/plane.py", "ccp/reviewpoints.py", "ccp/suite.py", "ccp/upgrade.py", "ccp/verify.py", "tests/test_cli_reference.py", "tests/test_verify_cache.py", "docs/delivery/plane.json", "docs/ENGINEERING.md", "docs/cli/*.md", "ccp/CLAUDE.md", "docs/delivery/standing-dod.md"]
+paths: ["ccp/board.py", "ccp/calibrate.py", "ccp/drill.py", "ccp/estimate.py", "ccp/estimator.py", "ccp/forecast.py", "ccp/health.py", "ccp/init.py", "ccp/mutate.py", "ccp/otel.py", "ccp/plane.py", "ccp/reviewpoints.py", "ccp/suite.py", "ccp/upgrade.py", "ccp/verify.py", "tests/test_cli_reference.py", "tests/test_verify_cache.py", "docs/delivery/plane.json", "docs/ENGINEERING.md", "docs/cli/*.md", "ccp/CLAUDE.md", "docs/delivery/standing-dod.md", "tests/CLAUDE.md"]
 adopt: "none"
 created: 2026-11-21
 updated: 2026-11-21
@@ -20,8 +20,8 @@ updated: 2026-11-21
 
 A flag or rule changes in one place. Module docstrings in `ccp/` name their § and purpose and hold
 no hand-written call syntax or restated SPEC rules, and the test that holds `docs/cli` to the parser
-checks every module, so a stale usage line cannot come back. The standing DoD and `ccp/CLAUDE.md`
-name the house rules by id instead of restating them, so a rule changes in one file. The house-rule checks the pre-gate
+checks every module, so a stale usage line cannot come back. The standing DoD, `ccp/CLAUDE.md` and
+`tests/CLAUDE.md` name the house rules by id instead of restating them, so a rule changes in one file. The house-rule checks the pre-gate
 renders hold no bare test-runner command (the gate already runs those test modules), and house rule
 E4 gets a command check that stops the count of long prose-pinning assertions from growing.
 
@@ -35,11 +35,17 @@ Measured at `1aa5e3f`.
   `check:` lines, E25's entry and E4's count are this task's.
 - **Restated house rules** (architect pass `ar-20261121T174754Z-7df5`, F05, folded in by its
   triage, which added house rule E26: a rule is stated once, in `docs/ENGINEERING.md`).
-  `git grep -n -e 'short statement lines' -e 'ANTHROPIC_AUTH_TOKEN' -e 'managed-product specifics' -e 'from product prose' -- docs/delivery/standing-dod.md ccp/CLAUDE.md` at `31357f0`: 5 lines (standing DoD items 8, 9 and 10; `ccp/CLAUDE.md`'s Conventions, E8 and E5).
-  Ruling: the standing DoD's last four items become one, "**The house rules hold**
-  (`docs/ENGINEERING.md`), E3, E5, E8 and E11 among them."; `ccp/CLAUDE.md`'s Conventions lines for
-  E5, E6 and E8 become one line naming those ids and the rules doc. The queue-write and event line
-  (`queue.py`'s helpers, `queue.emit`) stays: it names this package's own helpers.
+  `git grep -n -e 'managed-product specifics' -e 'short statement lines' -e 'ANTHROPIC_AUTH_TOKEN' -e 'product fact is read' -e 'Written down' -e 'branch behind' -e 'the same modules' -e 'The suite is fenced' -e 'prompt wording' afb8ce6 -- docs/delivery/standing-dod.md ccp/CLAUDE.md tests/CLAUDE.md | wc -l` at `afb8ce6`: 11 lines (the standing DoD's items 7 to 11; `ccp/CLAUDE.md`'s Conventions for E6, E8 and E5; `tests/CLAUDE.md`'s restatements of E1, E2 and E4).
+  Ruling:
+  - The standing DoD's item 7 keeps its first sentence part, "**The gate is `ccp suite run --lane gate`**
+    (`scripts/gate.sh`)", and ends "(E1, E2)." in place of its restated rule; its last four items
+    become one, "**The house rules hold** (`docs/ENGINEERING.md`), E3, E5, E8 and E11 among them."
+  - `ccp/CLAUDE.md`'s Conventions lines for E5, E6 and E8 become one line naming those ids and the
+    rules doc. The queue-write and event line (`queue.py`'s helpers, `queue.emit`) stays: it names this
+    package's own helpers.
+  - `tests/CLAUDE.md`'s first two paragraphs become one naming the gate script and house rules E1, E2
+    and E4, keeping only what the rules do not say (`test_self_hosting.py` runs the plane's checks on
+    this repo). Its Shared fixtures section stays. 0265 rewrites the same paragraph's lane name (a clash).
 - **The worktrees literal** (the same triage's amendment to E4's check). `git grep -n '\.plane-runtime' -- 'tests/test_*.py' ':(exclude)tests/test_plane_json_constants.py'`
   at `31357f0`: nothing (exit 1); 0241's check held it only until its own merge.
 - **Usage lines.** `git grep -nP '^ {2}ccp [a-z]' -- 'ccp/*.py'` at `1aa5e3f`: 42 lines in 13
@@ -89,7 +95,7 @@ Measured at `1aa5e3f`.
   `tests/test_cli_reference.py`, `tests/test_verify_cache.py`, `docs/delivery/plane.json`
   (`architect.checks`), `docs/ENGINEERING.md` (E4's and E25's `check:` lines), `docs/cli/*.md`
   and `ccp/CLAUDE.md` (for anything a docstring held that they lack, and its Conventions' restated
-  rules), `docs/delivery/standing-dod.md` (items 8 to 11).
+  rules), `docs/delivery/standing-dod.md` (items 7 to 11), `tests/CLAUDE.md` (its first two paragraphs).
 - **Out:** code outside docstrings, other
   long-literal assertions (ar-20261120T234012Z-27eb#F10, deferred).
 
@@ -135,14 +141,14 @@ Measured at `1aa5e3f`.
   expect: step 1 ends `exit 0` on the head and a non-zero exit in the copy; step 2 prints `0`.
   dry run (`1aa5e3f`): step 1 n/a (no `E4` entry until 0255); step 2 printed `3`.
 - id: `dc-06`
-  story: As a plane developer, the standing DoD and ccp/CLAUDE.md name house rules by id, so changing a rule edits one file.
+  story: As a plane developer, the standing DoD and the package docs name house rules by id, so changing a rule edits one file.
   setup: A checkout of the PR head.
   steps:
-    1. Run `git grep -n -e 'short statement lines' -e 'ANTHROPIC_AUTH_TOKEN' -e 'managed-product specifics' -e 'from product prose' -- docs/delivery/standing-dod.md ccp/CLAUDE.md`.
-    2. Run `git grep -c -e 'short statement lines' -e 'ANTHROPIC_AUTH_TOKEN' -- docs/ENGINEERING.md`.
+    1. Run `git grep -n -e 'managed-product specifics' -e 'short statement lines' -e 'ANTHROPIC_AUTH_TOKEN' -e 'product fact is read' -e 'Written down' -e 'branch behind' -e 'the same modules' -e 'The suite is fenced' -e 'prompt wording' -- docs/delivery/standing-dod.md ccp/CLAUDE.md tests/CLAUDE.md`.
+    2. Run the same search at `afb8ce6`: `git grep -n -e 'managed-product specifics' -e 'short statement lines' -e 'ANTHROPIC_AUTH_TOKEN' -e 'product fact is read' -e 'Written down' -e 'branch behind' -e 'the same modules' -e 'The suite is fenced' -e 'prompt wording' afb8ce6 -- docs/delivery/standing-dod.md ccp/CLAUDE.md tests/CLAUDE.md`.
     3. Run `grep -c 'docs/ENGINEERING.md' docs/delivery/standing-dod.md`.
-  expect: step 1 prints nothing (exit 1); step 2 prints `docs/ENGINEERING.md:3` (the pattern finds the rules where they are stated); step 3 prints a number of at least 1.
-  dry run (triage branch of `ar-20261121T174754Z-7df5`, off `31357f0`): step 1 printed 5 lines; step 2 printed `docs/ENGINEERING.md:3`; step 3 printed `0`.
+  expect: step 1 prints nothing (exit 1); step 2 prints exactly 11 lines, each pattern finding its positive: `ccp/CLAUDE.md` lines 36, 38 and 40, `docs/delivery/standing-dod.md` lines 24, 25, 27, 30 and 31, `tests/CLAUDE.md` lines 3, 7 and 10; step 3 prints a number of at least 1.
+  dry run (`afb8ce6`): step 1 printed 11 lines; step 2 printed those 11 lines; step 3 printed `0`.
 
 ## Implementation notes
 

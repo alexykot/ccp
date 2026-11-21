@@ -31,7 +31,7 @@ adapter, never `gh`, so an operator on the local adapter is not told about a too
 ## Context (not checked)
 
 From architect pass `ar-20261121T174754Z-7df5`, findings F02 and F03 (the record is in
-`docs/delivery/reviews/`), and two follow-ups of 0222 from the lead's log. Measured at `31357f0`.
+`docs/delivery/reviews/`), and two follow-ups of 0222 from the lead's log. Measured at `afb8ce6` (the figures below match `31357f0`, where the dry runs ran).
 
 - **F02, three copies of a GitHub fetch.** `git grep -n 'refs/pull' -- ccp plugin templates scripts`
   at `31357f0`: 3 lines, one loop each in `ccp/lifecycle.py` `"def behind_tip"`, `ccp/prompt.py`

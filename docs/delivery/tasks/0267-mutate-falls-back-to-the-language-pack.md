@@ -29,7 +29,7 @@ test-output patterns for `ccp suite`.
 ## Context (not checked)
 
 From architect pass `ar-20261121T174754Z-7df5`, finding F04, and its proposed amendment to house rule
-E18 (the record is in `docs/delivery/reviews/`). Measured at `31357f0`.
+E18 (the record is in `docs/delivery/reviews/`). Measured at `afb8ce6` (the figures below match `31357f0`, where the dry runs ran).
 
 - **The gap.** `ccp/config.py` `MUTATE_DEFAULTS`: `"unbuilt_re": None`. `docs/delivery/plane.json`
   `mutate`: `{"command": "python3 -B -m unittest -q {test}"}`, no `unbuilt_re`

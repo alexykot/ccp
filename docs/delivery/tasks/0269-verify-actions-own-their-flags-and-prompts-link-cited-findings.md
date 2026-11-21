@@ -28,7 +28,7 @@ record that holds its evidence, so it reads the finding before judging the task.
 
 From architect pass `ar-20261121T174754Z-7df5`, findings F08 and F11 (the record is in
 `docs/delivery/reviews/`). Two small findings on what a worker types and reads, bundled into one task.
-Measured at `31357f0`.
+Measured at `afb8ce6` (the figures below match `31357f0`, where the dry runs ran).
 
 - **F08, one flat parser for six actions.** `ccp/cli.py`'s `verify` parser:
   `p.add_argument("action", choices=("record", "merge-ok", "check", "spec-text", "later", "deferred"))`,
@@ -84,7 +84,7 @@ Measured at `31357f0`.
   steps:
     1. On the head, run `python3 -B -m unittest -q tests.test_verify_parser tests.test_cli_reference tests.test_verify tests.test_verify_later tests.test_verify_spec_text`.
     2. In the copy, run `python3 -B -m unittest -q tests.test_verify_parser`.
-  expect: step 1 exits 0, `tests/test_verify_parser.py` holding a test per action that a flag only another action takes exits 2; step 2 exits non-zero.
+  expect: step 1 exits 0, `tests/test_verify_parser.py` holding a test per action that a flag only another action takes exits 2, the `later` case passing `--json` (a `deferred` flag); step 2 exits non-zero.
   dry run (`31357f0`): step 1 without `tests.test_verify_parser` (new) exited 0 (`OK`); step 2 n/a.
 - id: `pr-01`
   story: As a reviewer of a task that cites a review finding, my prompt names the record that holds the finding's evidence.

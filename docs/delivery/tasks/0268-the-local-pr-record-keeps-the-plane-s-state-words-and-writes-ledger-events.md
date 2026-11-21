@@ -23,16 +23,16 @@ updated: 2026-11-21
 
 The local PR record, a format the plane writes and reads itself, stores a PR's state in the plane's
 own words (`open`, `merged`, `closed`), so the PR-host module keeps one table of state words and
-translates only GitHub's. Every write of a local record (opening a PR, replacing its body, close's
-squash merge, a read that finds the merge on the base) appends a `pr` event to the ledger, as every
-other queue write does, so the ledger shows a local PR's life as it shows a task's.
+translates only GitHub's. Opening a local PR, replacing its body and its merge each append one `pr`
+event to the ledger, as every other queue change does, so the ledger shows a local PR's life as it
+shows a task's.
 
 ## Context (not checked)
 
 From architect pass `ar-20261121T174754Z-7df5`, finding F07 (the record is in
 `docs/delivery/reviews/`), and a follow-up of 0222 from the lead's log (its review's MINOR 3: the
 local adapter's record writes record no ledger event; 0222's verification note says the ledger has no
-`pr` event type). Measured at `31357f0`.
+`pr` event type). Measured at `afb8ce6` (the figures below match `31357f0`, where the dry runs ran).
 
 - **F07, a second state vocabulary.** `contracts/pr_record.schema.json`:
   `"state": {"enum": ["OPEN", "MERGED", "CLOSED"]}`.
@@ -47,11 +47,14 @@ local adapter's record writes record no ledger event; 0222's verification note s
 - **The follow-up, ledger events.** House rule E7: every queue write goes through `ccp` and records
   its own event. `Local`'s writes (`"def open"`, `"def edit"`, `"def merge"`'s `merge_commit`, and
   `"def _read"`'s refresh that finds the squash on the base) call `_save` and emit nothing
-  (`grep -c 'emit' ccp/prhost.py` at `31357f0`: 0). Ruling: `Local._save`'s callers append one event
-  through `queue.emit` per write: type `pr`, op `opened` (open), `edited` (edit) or `merged` (the
-  merge commit recorded by close's merge, or the refresh that sets the state to `merged`; once per
-  PR: a write that finds the record already `merged` emits nothing), payload `pr` (the number) and
-  `head`, plus `merge_commit` for `merged`; `task_id` the branch's task id when the branch is
+  (`grep -c 'emit' ccp/prhost.py` at `31357f0`: 0). Ruling: one event through `queue.emit` per
+  opening, body edit and merge: type `pr`, op `opened` (`"def open"`), `edited` (`"def edit"`) or
+  `merged`, payload `pr` (the number) and `head`, plus `merge_commit` for `merged`. `merged` is
+  emitted only by the write that first sets the record's state to `merged`, so once per PR.
+  `"def merge"` sets the state itself: its write after the push records `merge_commit`, the state
+  `merged` and `merged_at` (the squash commit's time) together, and emits `merged`. The refresh in
+  `"def _read"` emits `merged` only when it is the write that first sets the state (a merge made by
+  `merge.command`); a refresh that only moves the record's `head` emits nothing; `task_id` the branch's task id when the branch is
   `task/<id>`, else empty. The GitHub adapter writes nothing to the queue and emits nothing.
   `scripts/observability/lib.py` gains the type in `TOOLKIT_EVENT_TYPES`, the ops `edited` and
   `merged` in `EVENT_OPS`, and `REQUIRED_PAYLOAD` entries for the three ops; the schema follows
@@ -82,7 +85,7 @@ local adapter's record writes record no ledger event; 0222's verification note s
 
     PROPOSED:
     > | `verify` | `recorded` | `run_id`, `verdict`, `head_sha` |
-    > | `pr` | `opened`, `edited`, `merged` | `pr` (the number), `head`; `merged` adds `merge_commit`. Only the local PR host writes them, one per write of its record (§4.5): `ccp pr open`, `ccp pr edit`, and the merge recorded by close or found on the base |
+    > | `pr` | `opened`, `edited`, `merged` | `pr` (the number), `head`; `merged` adds `merge_commit`. Only the local PR host writes them (§4.5), one per opening, body edit and merge: `ccp pr open`, `ccp pr edit`, and the write that first records the PR as merged, by close or on finding the merge on the base |
 - **Out:** events for the GitHub adapter; health or board readers of the new events; the record's
   other fields.
 
@@ -105,12 +108,12 @@ local adapter's record writes record no ledger event; 0222's verification note s
   expect: step 1 prints at least one line ending `ok`, a test that writes `prs/1.json` with `"state": "OPEN"` and gets an error from `ccp pr view 1` naming `1.json`, exit non-zero; step 2 exits 0.
   dry run (`31357f0`): step 1 printed nothing; step 2 n/a (the five modules ran in the gate at `31357f0`).
 - id: `ev-01`
-  story: As an operator, each write of a local PR record appears in the ledger as one pr event, and the GitHub adapter writes none.
+  story: As an operator, each opening, body edit and merge of a local PR appears in the ledger as one pr event, and the GitHub adapter writes none.
   setup: A checkout of the PR head; then a separate copy of it where `Local.open` emits nothing.
   steps:
     1. On the head, run `python3 -B -m unittest -v tests.test_prhost_events 2>&1 | tail -8`.
     2. In the copy, run `python3 -B -m unittest -q tests.test_prhost_events`.
-  expect: step 1 exits 0, listing as `ok` tests that, on a fenced product with the local adapter, `ccp pr open`, `ccp pr edit` and `ccp tasks close` each append exactly one `pr` event (ops `opened`, `edited`, `merged`, the last with `merge_commit`), a second `ccp pr view` of the merged PR appends none, and under the GitHub adapter `ccp pr open` appends none; step 2 exits non-zero.
+  expect: step 1 exits 0, listing as `ok` tests that, on a fenced product with the local adapter, `ccp pr open`, `ccp pr edit` and `ccp tasks close` each append exactly one `pr` event (ops `opened`, `edited`, `merged`, the last with `merge_commit`), a `ccp pr view` that only moves an open PR's head appends none, a second `ccp pr view` of the merged PR appends none, a PR merged by `merge.command` gets its one `merged` event from the `ccp pr view` that finds the squash on the base, and under the GitHub adapter `ccp pr open` appends none; step 2 exits non-zero.
   dry run: n/a — the module is new.
 - id: `ev-02`
   story: As a plane developer, the ledger's registry and its schema hold the new type and ops.
