@@ -94,4 +94,11 @@ PROPOSED: (new lines after it)
 
 ## Implementation notes
 
+- `orientation_tail` (0229) is `ccp/notify.py`'s, which the task's `paths` do not list: it takes
+  `open_follow_ups` (default 0) and, above zero, ends with the line, after the notices and the allowance
+  warning. `followups.open_count(q)` counts `undecided` over the queue's run records; `cli._orientation_tail`
+  passes it, left at 0 when the records do not read. Without a queue `--tail` prints nothing, as before.
+- The Scope's `follow-up(s)` is read as a plural: `1 follow-up open`, `2 follow-ups open`.
+- The hook (`plugin/hooks/orientation.sh`) needs no change: it appends whatever `--tail` prints.
+
 ## Verification notes
