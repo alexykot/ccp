@@ -53,7 +53,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from ccp import models, prhost, refs, runs, tasklog, verify
+from ccp import models, prhost, refs, report, runs, tasklog, verify
 from ccp.config import Config, lane_for
 from ccp.queue import (CCP_BIN, OBS, PLANE, QueueError, git, integration_branch, load_task_state, load_work, phase_move,
                        runner_slots,
@@ -68,23 +68,6 @@ PROMPT_END = "Prompt end: "  # §13.2: the rendered prompt's last line, before i
 # §13.2: a merge or ruling round reworks the open PR, as a fix round does
 PHASE_STATUS = {"implement": "implementing", "fix": "fixing", "merge": "fixing", "ruling": "fixing",
                 "review": "reviewing", "verify": "verifying"}
-REPORT_LINES = {
-    "implement": "   - `Outcome: done`, `Outcome: blocked` or `Outcome: failed`.\n"
-                 "   - When done: `PR: #<number>` and `Head: <full sha of the PR head>`.\n",
-    "review": "   - `Outcome: done`, `Outcome: blocked` or `Outcome: failed`.\n"
-              "   - When done: `Severity: BLOCKER=<n> MAJOR=<n> MINOR=<n> NIT=<n>`, the counts of your findings.\n"
-              "   - When done: a `## Spec beyond intent` section, a `- ` line for each passage of normative text "
-              "beyond the task's intent, or the single line `none` (SPEC §3.5).\n",
-    "verify": "   - `Outcome: done`, `Outcome: blocked` or `Outcome: failed`.\n"
-              "   - When done: `Verdict: approve` or `Verdict: reject`, and `Head: <full sha you judged>`, the same as in "
-              "the record you wrote with `ccp verify record`.\n",
-}
-REPORT_LINES.update({p: REPORT_LINES["implement"] for p in runs.REWORK_PHASES})
-# §13.4: a resolution review's own report lines
-RESOLUTION_LINES = ("   - When done: `Resolution: contained` (the resolution changes nothing of the task's own beyond the "
-                    "conflict hunks) or `Resolution: beyond <why>`.\n"
-                    "   - When done: `Affected checks: <id>, <id>`, the task's dod_check ids the resolution can affect, "
-                    "or `Affected checks: none`.\n")
 # §14.1: the lane each worker labels its test runs with, by role; the names come from plane.json
 # suite.roles (`{full}`, `{gate}`, `{part}` below). A role whose lane plane.json `suite.lanes` declares is
 # written as that lane with nothing after `--` (`{<role>_for}` and `{<role>_as}` fill in the form).
@@ -132,18 +115,15 @@ def worker_model(cfg: Config, q: Path, phase: str, meta: dict[str, Any]) -> tupl
     return model, alias, warns
 
 
-def report_lines(cfg: Config, phase: str, mode: str | None = None) -> str:
-    """The report contract's phase lines; for a round that pushes a head (implement, fix, merge, ruling),
-    a line naming each verdict the product declares in plane.json `report.required_fields` with its
-    allowed values (§13.4); for a resolution review, its `Resolution:` and `Affected checks:` lines."""
-    if phase == "review" and mode == "resolution":
-        return REPORT_LINES[phase] + RESOLUTION_LINES
+def report_lines(cfg: Config, phase: str, mode: str | None = None, *, runner: str) -> str:
+    """The report contract's lines for `phase`, rendered from `report.SECTIONS` (§13.4): each section the phase
+    carries (a resolution review's `Resolution:` and `Affected checks:` for `mode`), and, for a round that
+    pushes a head, a line naming each verdict the product declares in plane.json `report.required_fields` with
+    its allowed values, when it declares any. `runner` is the teammate the worker tells when its prompt was cut."""
     declared = (cfg.report or {}).get("required_fields") or []
-    if phase not in runs.CHANGE_PHASES or not declared:
-        return REPORT_LINES[phase]
     each = "; ".join(f"`{f['name']}: " + "|".join(f["values"]) + "`" for f in declared)
-    return REPORT_LINES[phase] + ("   - When done, a line for each verdict this product requires (plane.json "
-                                  f"`report.required_fields`), with one of the values shown: {each}.\n")
+    return "".join(s.prompt.format(runner=runner, each=each) for s in report.sections_for(phase, mode)
+                   if s.prompt and (declared or s.key != "fields"))
 
 
 def reported_verdicts(cfg: Config, q: Path, task_id: str) -> tuple[str, dict[str, str]]:
@@ -695,6 +675,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "round": str(bound["round"] if bound else wt.round_of(Path(workdir).name) if workdir else 1),
         "main_checkout": str(main_checkout(cfg)), "queue_root": str(q), "project_id": cfg.project_id})
     verdicts_run, verdicts = reported_verdicts(cfg, q, tid) if phase == "review" else ("", {})
+    runner = holder_teammate(q, tid)
     cited = tasklog._as_list(meta.get("spec_refs")) + tasklog._as_list(meta.get("adr_refs")) \
         + tasklog._as_list(meta.get("rule_refs")) + tasklog._as_list(meta.get("review_refs"))
     values: dict[str, Any] = {
@@ -713,8 +694,9 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "prior_reports": prior_reports(q, tid, phase),
         "queue_root": str(q), "ccp": ccp_command(cfg), "report_path": str(report),
         "verification_example": str(PLANE / "contracts" / "verification.example.json"),  # §15.4, from any checkout
-        "runner": holder_teammate(q, tid),  # §10.2, §16.4: the runner that holds this task, as bound
-        "report_lines": report_lines(cfg, phase, "resolution" if resolution else None), "suite_lanes": suite_lanes(cfg, phase),
+        "runner": runner,  # §10.2, §16.4: the runner that holds this task, as bound
+        "report_lines": report_lines(cfg, phase, "resolution" if resolution else None, runner=runner),
+        "suite_lanes": suite_lanes(cfg, phase),
         # §13.4: the product's declared verdicts, as the latest implementer report states them
         "report_verdicts": "; ".join(f"`{k}: {v}`" for k, v in verdicts.items()), "report_verdicts_run": verdicts_run,
         "full_lane": lane_for(cfg, "full"),  # §14.1: the lane the product's full suite runs as

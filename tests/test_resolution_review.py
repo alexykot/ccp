@@ -170,11 +170,12 @@ class Resolution(ToolkitFixture, unittest.TestCase):
     def test_the_report_contract_lists_the_two_lines_in_this_mode_only(self):
         from ccp import config, prompt
         cfg = config.load(self.runner)
-        plain = prompt.report_lines(cfg, "review")
+        plain = prompt.report_lines(cfg, "review", runner="r")
         self.assertNotIn("Affected checks", plain)
-        self.assertIn("Resolution:", prompt.report_lines(cfg, "review", "resolution"))
-        self.assertIn("Affected checks:", prompt.report_lines(cfg, "review", "resolution"))
-        self.assertEqual(prompt.report_lines(cfg, "verify", "resolution"), prompt.report_lines(cfg, "verify"))
+        self.assertIn("Resolution:", prompt.report_lines(cfg, "review", "resolution", runner="r"))
+        self.assertIn("Affected checks:", prompt.report_lines(cfg, "review", "resolution", runner="r"))
+        self.assertEqual(prompt.report_lines(cfg, "verify", "resolution", runner="r"),
+                         prompt.report_lines(cfg, "verify", runner="r"))
 
     def test_a_full_review_renders_as_before(self):
         _, h2 = self.to_merge_round()

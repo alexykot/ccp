@@ -113,4 +113,44 @@ Measured at `8aefa59`.
 
 ## Implementation notes
 
+- `report.SECTIONS` (a tuple of `Section`: key, name, label, phases, required, secret, keys, stored, reader,
+  missing text, prompt line, mode) is read by `report.parse` (via `sections_for`), by `prompt.report_lines`
+  (which renders each phase's report part, `runner` filled in) and by `submit` (the secret check; the returned
+  fields). `prompt.REPORT_LINES` and `RESOLUTION_LINES` are gone, and so are `_common.md`'s `Prompt:`, `Suite:`
+  and `## Friction` lines: the template ends in `{{report_lines}}`.
+- `PARSED_KEYS` is derived from the table's `stored` fields (less `outcome` and `friction_count`, set apart in
+  `SET_APART`); `submit` returns the record's fields in `RETURNED_KEYS` (set-apart and parsed fields, and
+  `suite_runs_recorded`, `suite_s_recorded`, `corrections`). The reply's fields are as before.
+- **`COMPUTED_KEYS` is not in the reply.** The task says the returned fields derive from `PARSED_KEYS`,
+  `COMPUTED_KEYS` and an explicit list, but the reply today carries neither `integration_merges` nor
+  `before_review`; adding them would change `ccp report`'s output in a refactor, so they stay out.
+- The seventh dumped prompt is the resolution review (`ccp prompt review --mode resolution`): the task says
+  "verify `--mode resolution`", but `--mode` is for `review` only (`prompt.resolution_gate`).
+- The dump (`python3 -m tests.test_report_sections --dump <dir> --ccp <checkout>/bin/ccp`) writes
+  `implement`, `fix`, `merge`, `ruling`, `review`, `verify` and `resolution` `.txt`. The fixture declares one
+  verdict (`report.required_fields`) so the implementer rounds' declared line is dumped too. Times, hashes
+  (including the prompt token) and the two paths are replaced by tokens; git dates are pinned.
+- `test_report_sections` asserts the prompt names each section the table gives the phase and, from its own
+  literal, `Outcome:`, `Prompt:`, `Suite:` and `## Friction` for every phase, so a table that loses one fails.
+- `tests/test_team_hosting.py`: the `## Friction` brief assertions go; the runner-brief assertion on the
+  recorded lines now checks the brief names `ccp report` and SPEC §13.4. `tests/test_sign_off_beyond_intent.py`
+  reads the review prompt's lines through `prompt.report_lines`, as `REPORT_LINES` is gone.
+- The briefs end in `Finish as the last part of your prompt says.`; the runner's brief names `ccp report` and
+  §13.4 and no longer lists what it records.
+- A `Section` for `Affected checks:` has no reader of its own: `resolution_lines` reads it with `Resolution:`
+  (one function, which R14's 0203 changes).
+
+**Fix round 1.**
+- **Member order is a known, non-semantic change.** `PARSED_KEYS` follows the table's order, so a new
+  implement run's record, and the JSON `ccp report` prints, list `head` before `pr`, and `resolution`,
+  `affected_checks` and `fields` before the `suite_*` fields. The keys and values are the same, and no reader
+  depends on member order. Reordering the table to restore it would reorder the refusal messages or the prompt.
+- `tests/test_report_sections.py` builds its fixture history (`start`, `move_tip`, `review`) in the module and no
+  longer binds other modules' test-class methods. Its table test compares refusals with `Section.missing`
+  instead of copied literals.
+- `ccp/report.py`'s module docstring no longer restates each section: it points at `SECTIONS` and §13.4 and
+  keeps what the table does not hold. The `Section` docstring says `read` is None for `Affected checks:` too.
+- `prompt.report_lines` takes `runner` as a required keyword (no default `the runner` text); the two test
+  modules that call it pass one.
+
 ## Verification notes
