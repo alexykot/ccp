@@ -14,7 +14,9 @@ record, and the line the prompt asks for it in (§13.4). The rest of what a repo
   from git and keeps them on the run (`integration_merges`, `before_review`; `round_merges`, §11.1, §27.1); a
   round it cannot measure keeps none, and the report is never refused for it;
 - the declared verdicts (plane.json `report.required_fields`) are kept on the run (`fields`) and shown in the
-  review prompt; whether a verdict is right is not judged (§13.4).
+  review prompt; whether a verdict is right is not judged (§13.4);
+- `## Follow-ups`, any report's: each line is kept on the run (`follow_ups`) with its id `<run_id>#<n>` and no
+  outcome, for the lead to decide (`ccp tasks follow-up`); the plane never interprets the text (§13.4, ADR-0044 D1).
 
 A report that lacks one is refused with what is missing, and nothing is written. An accepted one
 is stored at the run's report path, its friction lines are recorded for `ccp health` (what the
@@ -29,7 +31,9 @@ A run already reported takes a corrected report while no later run of its task h
 stored one is kept beside it as `<stem>.superseded-<k>.md`, the run's `corrections` gets `{at, superseded}`,
 its report fields are the corrected report's, and the `run reported` event (`corrected: true`) and a
 review's `review recorded` event are written again. Its friction lines and suite filing are not recorded
-again: those are the first submission's.
+again: those are the first submission's. Its follow-ups replace the run's, numbered afresh: an outcome the lead
+recorded carries over to a line whose text is identical (`followups.carry`), and each one that does not is named
+in a warning.
 """
 from __future__ import annotations
 
@@ -38,7 +42,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Callable, NamedTuple
 
-from ccp import health, runs
+from ccp import followups, health, refs, runs
 from ccp.config import Config, lane_for
 from ccp.queue import QueueError, emit, iso, root
 
@@ -58,6 +62,7 @@ SUITE_FROM_RE = re.compile(r"^[^\w\n]*Suite:[\s*_]*from\s+(st-[A-Za-z0-9-]+)", r
 SUITE_ANY_RE = re.compile(r"^[^\w\n]*Suite:.*$", re.I | re.M)
 AUTO_ROLES = ("full", "gate")  # a report with no Suite: line takes its run's latest of these roles' lanes (§14.1)
 FRICTION_RE = re.compile(r"^##\s+Friction[ \t]*\r?$", re.M)
+FOLLOW_UPS_RE = re.compile(r"^##\s+Follow-ups[ \t]*\r?$", re.I | re.M)  # §13.4, ADR-0044 D1
 BEYOND_RE = re.compile(r"^##\s+(?:Spec beyond intent|spec_beyond_intent)[ \t]*\r?$", re.I | re.M)  # §3.5
 FIELD_PHASES = runs.CHANGE_PHASES  # §13.4: the rounds that push a head (PR, Head) and state the declared verdicts
 RESOLUTION_RE = re.compile(r"^[^\w\n]*Resolution[ \t*_]*:[ \t*_`]*(.*?)[ \t]*\r?$", re.I | re.M)  # §13.4
@@ -187,6 +192,34 @@ def friction(text: str, heading: re.Pattern[str] = FRICTION_RE) -> list[str] | N
     if any(re.sub(r"[.\s]+$", "", i).lower() == "none" for i in items):
         return None  # "none" beside real items is a contradiction, not a note
     return items or None
+
+
+def follow_ups(text: str) -> tuple[list[str], str | None]:
+    """§13.4, ADR-0044 D1: the `## Follow-ups` section's lines, each a `- ` item (a wrapped item's indented
+    continuation joins it), or the single line `none`; a missing or empty section reads as `none`. The lines,
+    and None; or an error naming the first line that is neither, or a `none` beside items."""
+    m = FOLLOW_UPS_RE.search(text)
+    if not m:
+        return [], None
+    nxt = re.search(r"^#{1,2}\s", text[m.end():], re.M)
+    body = text[m.end(): m.end() + nxt.start()] if nxt else text[m.end():]
+    lines = [raw.rstrip("\r") for raw in body.splitlines() if raw.strip()]
+    if len(lines) == 1 and re.sub(r"^-\s+", "", lines[0].strip()).rstrip(".").strip().lower() == "none":
+        return [], None
+    items: list[str] = []
+    for raw in lines:
+        ln = raw.strip()
+        if ln[:2] == "- " and ln[2:].strip():
+            items.append(ln[2:].strip())
+        elif raw[:1] in (" ", "\t") and items:  # a wrapped item: its continuation line
+            items[-1] += " " + ln
+        else:
+            return [], (f"the `## Follow-ups` section's line `{ln[:80]}` is neither a `- ` item nor the single line "
+                        "`none`: write one `- ` line per follow-up, or `none` (SPEC §13.4)")
+    if any(re.sub(r"[.\s]+$", "", i).lower() == "none" for i in items):
+        return [], ("the `## Follow-ups` section says `none` beside follow-ups: write one `- ` line per follow-up, "
+                    "or the single line `none` (SPEC §13.4)")
+    return items, None
 
 
 NO_CACHE_COUNTS = ("the `Suite:` line gives no `ran <r>, cached <c>`: this product accepts its test cache's hits "
@@ -391,6 +424,11 @@ def _read_friction(text: str, c: Ctx) -> tuple[dict[str, Any], list[str]]:
     return ({"friction": fr} if fr is not None else {}), []
 
 
+def _read_follow_ups(text: str, c: Ctx) -> tuple[dict[str, Any], list[str]]:
+    items, err = follow_ups(text)
+    return ({}, [err]) if err else ({"follow_ups": items}, [])
+
+
 _ALL = runs.PHASES
 _SAME = "   - `Outcome: done`, `Outcome: blocked` or `Outcome: failed`.\n"
 
@@ -447,6 +485,12 @@ SECTIONS: tuple[Section, ...] = (
             "changed in many places, a test that pinned wording, a doc that did not help, a rule that forced extra "
             "work, a tool you needed and did not have), or the single line `none`. Facts, not complaints; never a "
             "reason to do less.\n"),
+    Section("follow_ups", "Follow-ups", "## Follow-ups", _ALL, "no", True, ("follow_ups",), ("follow_ups",),
+            _read_follow_ups, "",
+            "   - A `## Follow-ups` section: one `- ` line per piece of work you found that is not yours to do here (a "
+            "deferred finding, a test gap out of scope, a step for a later task, rule text the task does not carry), "
+            "or the single line `none`; a missing section reads as `none`. `ccp report` keeps each line on the run "
+            "for the lead to decide. Out-of-scope work goes there, never only in notes or prose.\n"),
 )
 
 
@@ -602,7 +646,14 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
     dest = runs.report_path(q, run_id)
     dest.parent.mkdir(parents=True, exist_ok=True)
     warnings = list(fill_warnings)
+    earlier = rec.get("follow_ups") if isinstance(rec.get("follow_ups"), list) else []
+    parsed["follow_ups"] = [{"id": refs.follow_up_id(run_id, n), "text": t, "outcome": None}
+                            for n, t in enumerate(parsed.get("follow_ups") or [], 1)]  # §13.4, ADR-0044 D1
     if correcting:
+        parsed["follow_ups"], dropped = followups.carry(earlier, parsed["follow_ups"])
+        warnings += [f"follow-up {fu.get('id')} (`{str(fu.get('text') or '')[:80]}`) had the outcome "
+                     f"{followups.outcome_word(fu.get('outcome'))}; the corrected report has no line with its text, "
+                     "so that outcome is dropped (SPEC §13.4)" for fu in dropped]
         superseded = _supersede(src, dest)
         if superseded is None:
             warnings.append(f"the corrected report is the stored one ({dest}), edited in place: the earlier report "
