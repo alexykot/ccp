@@ -1,7 +1,7 @@
 ---
 task_id: 0209-spec-text-finds-signed-contract-text
 title: ccp verify spec-text finds a signed passage that lands outside the SPEC, such as in a contract
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3", "S15"]
@@ -9,7 +9,7 @@ review_point: R14
 paths: ["ccp/verify.py", "docs/spec/02-delivery.md", "tests/test_verify_spec_text.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0209-spec-text-finds-signed-contract-text
@@ -166,3 +166,5 @@ Measured at `58cf1d0`.
   and the exclusion is where st-02's copy breaks it.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #248 head `79f774c` (close's catch-up of the approved `84a5dd3`, gate run st-20261121T041241Z-5787ea) (squash `079beb3`): APPROVE. Passed: st-01, st-02, st-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0209-spec-text-finds-signed-contract-text.json.
+
