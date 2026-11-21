@@ -818,7 +818,7 @@
             "null"
           ],
           "default": null,
-          "description": "A template naming {pr}, {head_sha} (required: the merge is pinned to the verified head) and {task_id}; null: gh pr merge {pr} --squash --match-head-commit {head_sha}."
+          "description": "A template naming {pr}, {head_sha} (required: the merge is pinned to the verified head) and {task_id}; null: the PR host's merge, pinned to the verified head (ccp/prhost.py)."
         },
         "behind_tip_ignore": {
           "type": "array",

@@ -108,4 +108,38 @@ Measured at `8aefa59`.
 
 ## Implementation notes
 
+- `ccp/prhost.py` holds `PrFacts`, `HostError`/`HostUnavailable`, `MergeResult` and the GitHub adapter's
+  `view`, `body`, `merge` and `confirm`. It alone reads `CCP_GH_BIN` and alone holds the `gh pr merge` argv.
+- `PrFacts.body` exists as the task names it, but `view` leaves it `None`: the review's body gate asks for
+  `--json body` alone (`tests/test_prompt_pr_body.py` pins that argv, and the shared fake `gh` of
+  `ToolkitFixture` answers any `pr view … body` with the body only), so the body is read by the separate
+  `prhost.body(cfg, pr)`, which returns the text. Choice made, not asked.
+- `merge` returns a `MergeResult` (`ok`, `message`, `conflict`): the adapter decides what GitHub's wording of a
+  conflicting merge is, so `close` no longer greps the output. `confirm` is the same read as `view`.
+- A state GitHub names outside OPEN, MERGED, CLOSED (or none) is a `HostError`; before, a missing state read as
+  "not open" in merge-ok and as "not merged" elsewhere. Narrowest rule: every read answers one of the three.
+- Wording kept: each refusal reads as before, except the unreadable-PR JSON message, one now (`gh printed no
+  JSON for PR <n>`, also for a JSON that is no object). (Fix round 1: the missing-gh tail `: merge-ok reads the
+  PR with gh` is restored by `verify.merge_ok`, and "exited 0 but the PR is <state>" prints GitHub's word again.)
+- merge-ok: `verify.merge_ok` reads (host, record, `recorded_at`) and `verify.merge_ok_reasons(cfg, queue,
+  facts, rec, rid, recorded)` decides on plain values. It still reads the queue for the record's producers and
+  catch-up gate run (`producer_errors`, `catch_up_refusal`), so it is not free of I/O; moving those out was
+  beyond the task.
+- `lifecycle._merge` and `_gh` are gone. The two `tests/test_wt.py` tests that called `_merge` (a merge
+  command template, the default argv) moved to `tests/test_prhost.py` with the same expectations; the close
+  test that wrapped `lifecycle._merge` wraps `prhost.merge`.
+- The three verify test modules call `verify.merge_ok_reasons` through `tests.test_verify.decide`; the
+  end-to-end merge-ok tests in `tests/test_verify.py` (no record, a git checkout's record time, a missing
+  binary) patch `prhost.view` instead of writing a fake `gh`.
+- Pointers moved: `MERGE_DEFAULTS`' comment, the schema's `merge.command` description, `docs/design/threat-model.md`
+  (the merge pin lives in `ccp/prhost.py`) and `ccp/CLAUDE.md`'s layout.
+- Fix round 1: merge-ok's "PR <n> is <state>" reason uses the PR as the caller named it (`merge_ok_reasons`
+  takes `pr`), so close's re-run filter on `PR {pr} is merged` still matches for `--pr 07`; a non-zero `gh pr view`
+  is `prhost.HostReadFailed` (a `HostError` subclass), so merge-ok keeps `could not read PR <n>: <words>` even with
+  no words; `view`'s argv is pinned whole in `tests/test_prhost.py`.
+- Left for the verifier to rule: a missing or unknown state, or JSON that is no object, is a `HostError`
+  (a refusal), where `tasks drop` once read it as "not merged" and merge-ok as "not open". It is implied by
+  `PrFacts`' three-valued `state`; real gh always answers `state` when asked for it.
+- Baseline: 3076 tests, 1 skipped, passing on the head (`st-20261121T044424Z-4c669c`).
+
 ## Verification notes
