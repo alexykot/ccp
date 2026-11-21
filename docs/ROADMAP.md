@@ -57,6 +57,15 @@ All reshape phases have landed.
     0207, which touch the same files.
   - F16: check how health attributes tokens to catch-up rounds before review (about 20 times those
     after review). Taken up when R15's integration-merges task lands.
+- **Deferred from architect pass `ar-20261121T020523Z-1d5f`** (record in `docs/delivery/reviews/`):
+  - F08: one contract test that validates an output of each writer against its schema in
+    `contracts/`, with enums such as the worktree kinds derived from code; then either schemas for
+    the run records and `runs/_suites.jsonl`, or contracts/CLAUDE.md narrowed to what is checked.
+    Past the cap, and it needs a validator choice first (the plane has no jsonschema dependency).
+    The proposed house rule comes with that task.
+  - F12: the plane's own `pregate` lane (`ccp tasks check` plus `ccp docs check`, beside its
+    `architect.checks`) is a lead adopt step once R15's 0212 lands, so a docs-rule failure shows
+    before the full lane. No task.
 - **Considered and declined:** continuing past the weekly allowance into paid extra usage (the plane
   runs on the prepaid allowance only, ADR-0026), and a separate task-drafting seat (the lead drafts
   tasks, with a writer subagent when several land at once).
@@ -96,6 +105,18 @@ All reshape phases have landed.
   - **Depends on the strategy:** the runner's rule "bring the integration tip into a PR by merging,
     never rebasing" (§15.6) is safe only because PRs squash-merge, so the branch's own history
     never reaches main. A rebase-merge or merge-commit strategy would need its own rule there.
+  - **Later: a batching merge queue.** Today each PR merges alone, pinned to its verified head,
+    and every merge sends the other runners to catch up and re-run the gate. A queue would run the
+    gate once per batch on the merged stack and bisect failures. It needs its own strategy, and a
+    rule for what a verdict binds to when the landed commit is a batch: §15.5 stops close when the
+    host accepts a merge without merging. Trigger: merge catch-ups, not the number of runners,
+    become the throughput limit.
+- **Seat isolation (later).** Every seat runs as the operator's OS user, with the operator's
+  credentials (`docs/design/threat-model.md`). Options by cost: Claude Code's command sandbox,
+  per-product scoped forge tokens, a container per worker, a separate OS user or VM per product.
+  In-process teammates share the lead's process, so isolation per seat beyond the command sandbox
+  means headless worker processes. Trigger: other models behind the harness, many more runners, or
+  several operators' products on one host. It follows the threat model.
 - **Store:** a `Store` interface over today's file-backed queue first, then a hosted multi-user,
   multi-project backend that also serves the dashboard.
 - **Publishing:**

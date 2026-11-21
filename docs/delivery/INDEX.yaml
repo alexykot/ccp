@@ -1023,7 +1023,7 @@ tasks:
     depends_on: []
     path: tasks/0204-spec-descriptions-catch-up.md
   - id: 0205-threat-model
-    status: pending
+    status: done
     title: A threat model for the plane, and roadmap notes for a batching merge queue and seat isolation
     depends_on: []
     path: tasks/0205-threat-model.md
@@ -1237,3 +1237,28 @@ tasks:
     title: ccp tasks check reports a pending task that could build a decision before its prerequisite
     depends_on: [0251-adr-check-holds-the-requires-links, 0250-generic-cycles-and-closure-helpers]
     path: tasks/0252-the-task-check-reports-a-decision-built-before-its-prerequisite.md
+  - id: 0253-one-wait-reason-table
+    status: pending
+    title: One wait-reason table, the retired steerer wait refused on set, and the retired snapshot's schema removed
+    depends_on: [0243-one-source-for-syntax-events-and-config]
+    path: tasks/0253-one-wait-reason-table.md
+  - id: 0254-close-and-architect-share-the-unrecorded-worktree-helper
+    status: pending
+    title: Close and the architect make and remove their own worktrees through one wt helper, and wt list shows a leftover arch- worktree
+    depends_on: [0215-a-reused-runner-worktree-moves-to-the-tip]
+    path: tasks/0254-close-and-architect-share-the-unrecorded-worktree-helper.md
+  - id: 0255-test-fixtures-shared-helpers-and-one-repo-build
+    status: pending
+    title: Test helpers other modules borrow move to test-free mixins, and ToolkitFixture builds its repositories once per test class
+    depends_on: [0227-the-test-fixture-uses-the-local-pr-host, 0241-gate-module-tests-wiring-only]
+    path: tasks/0255-test-fixtures-shared-helpers-and-one-repo-build.md
+  - id: 0256-suite-run-refuses-a-closed-run-and-config-reads
+    status: pending
+    title: ccp suite run refuses a closed run as ccp mutate does, the sandbox reads plane.json through config, and suite busy rows lose wait_auto
+    depends_on: [0243-one-source-for-syntax-events-and-config]
+    path: tasks/0256-suite-run-refuses-a-closed-run-and-config-reads.md
+  - id: 0257-one-gate-block-and-one-sentence-per-line
+    status: pending
+    title: The before-push gate block is written once for the four phases, prompt templates hold one sentence per line, and the writing-tasks skill names two check pitfalls
+    depends_on: [0212-full-role-runs-the-gate-lane-and-a-pregate-lane, 0221-workers-reach-the-pr-host-through-ccp-pr, 0223-a-follow-up-is-tracked-not-left-in-notes, 0228-report-sections-as-one-table, 0233-briefs-point-at-the-evidence-rules, 0238-the-runner-runs-marked-checks-before-verify, 0240-plane-workers-run-the-head, 0244-tasks-check-runs-dry-runs]
+    path: tasks/0257-one-gate-block-and-one-sentence-per-line.md

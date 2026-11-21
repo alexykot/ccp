@@ -1,7 +1,7 @@
 ---
 task_id: 0205-threat-model
 title: A threat model for the plane, and roadmap notes for a batching merge queue and seat isolation
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S2", "S15", "S23", "S30"]
@@ -9,7 +9,7 @@ review_point: R14
 paths: ["docs/design/threat-model.md", "docs/ROADMAP.md", "README.md"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0205-threat-model
@@ -144,4 +144,46 @@ trigger that would make it worth building.
 
 ## Implementation notes
 
+- `docs/design/threat-model.md` (new): the seven headings of the Scope, T1 to T9 each with its
+  controls labelled Boundary, Guard or Gap. A boundary is defined there as a control enforced outside
+  the seat's session that no tool the seat holds turns off; a guard as one a seat with the operator's
+  rights can get past. Every control was checked against the code at 361fc1a.
+- Proposal items written as gaps, because the code does not have them: T6 (nothing confines a seat to
+  its own product), T9 beyond the rule (nothing stops a seat holding deploy credentials; the plane has no
+  deploy step), and for T8 the lead, teammates and subagents, which the plane does not launch and whose
+  environment it does not strip (only the architect and the estimator are stripped, via `STRIP_KEYS`).
+- Controls found beyond the proposal's list: the estimator's no-tools launch (`ccp/estimator.py`, a
+  boundary for T1), the merge pinned with `--match-head-commit` (`ccp/lifecycle.py`, a boundary for T4),
+  provers run from the integration tip's checkout (SPEC §14.2, a guard for T4), and the
+  `ccp otel status` warning on `OTEL_LOG_USER_PROMPTS` / `OTEL_LOG_TOOL_DETAILS` (a guard for T7).
+- The architect's read-only tool set is labelled a guard, not a boundary: its allowed `Bash` commands
+  and the product's probes are prefix-matched.
+- `docs/ROADMAP.md`: the batching merge queue under Merge handling; Seat isolation as a new item after
+  it. `README.md`: the threat-model bullet links the note and the roadmap. Its separate "A batching
+  merge queue" bullet is unchanged (out of the Scope).
+- Fix round 1 (review of 27f508b):
+  - T4's merge pin is now a guard, not a boundary: only the merge `ccp tasks close` runs carries
+    `--match-head-commit`, and the permission block allows `gh pr` and `git push`, so a seat can
+    merge without the pin or push to the integration branch. The note says so; the label count
+    is unchanged.
+  - T4's accepted risk drops the claim that a forged record shows as a disagreement with the forge's
+    merge history (a forged approve followed by a merge leaves all three in agreement); the reason
+    kept is that every seat acts for the one operator, and it now also covers unpinned merges.
+  - T4's gap cites E7 for what it says (every queue write goes through `ccp`) and SPEC §23.2 for the
+    append-only ledger.
+  - T1: a change passes the verifier, and the reviewer unless SPEC §15.2 skips its review, instead
+    of "two seats".
+  - Queue write protection says it would come from the hosted backend behind the `Store` interface,
+    which the ROADMAP's Store item does not plan yet; the ROADMAP is unchanged.
+- Fix round 2 (review of 5061a70), wording only:
+  - T4: the integration-branch read covers provers and `verify.skip_review` only; the gate lane,
+    its scripts and the tests come from the head under test, so the note no longer says a task's
+    diff cannot change its own verdict.
+  - T3 and T9: the merge guards name the runner's merge through `ccp tasks close` and point to T4
+    for the `gh pr` and `git push` way round it, instead of reading as unconditional.
+  - T6: the permission block also allows bare `ccp`, so a `ccp --root` naming another product
+    passes; the note says so.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #242 head `60ea499` (close's catch-up of the approved `d6bc604`, gate run st-20261121T030553Z-e8e6a4) (squash `543a21f`): APPROVE. Passed: tm-01, tm-02, tm-03, tm-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0205-threat-model.json.
+
