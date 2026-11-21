@@ -1103,7 +1103,7 @@ tasks:
     depends_on: [0226-one-pr-host-module-github-only]
     path: tasks/0220-one-pr-host-interface-with-the-github-adapter.md
   - id: 0221-workers-reach-the-pr-host-through-ccp-pr
-    status: pending
+    status: done
     title: The worker prompts and the runner's brief reach the PR host through ccp pr, never gh
     depends_on: [0220-one-pr-host-interface-with-the-github-adapter, 0240-plane-workers-run-the-head]
     path: tasks/0221-workers-reach-the-pr-host-through-ccp-pr.md

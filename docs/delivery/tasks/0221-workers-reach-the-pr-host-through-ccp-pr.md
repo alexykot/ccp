@@ -1,7 +1,7 @@
 ---
 task_id: 0221-workers-reach-the-pr-host-through-ccp-pr
 title: The worker prompts and the runner's brief reach the PR host through ccp pr, never gh
-status: pending
+status: done
 kind: feature
 depends_on: ["0220-one-pr-host-interface-with-the-github-adapter", "0240-plane-workers-run-the-head"]
 clashes_with: ["0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0223-a-follow-up-is-tracked-not-left-in-notes", "0228-report-sections-as-one-table", "0233-briefs-point-at-the-evidence-rules"]
@@ -148,3 +148,5 @@ PROPOSED:
   `pr diff 7`, and `tests/test_prompt_pr_body.py` pins the body gate's repair as `ccp pr edit 7`.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #277 head `a89e34e` (squash `3de4f49`): APPROVE. Passed: pc-01, pc-02, pc-03, pc-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0221-workers-reach-the-pr-host-through-ccp-pr.json.
+
