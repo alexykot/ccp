@@ -135,7 +135,6 @@ Refuse API keys, ADC tokens, `.env` contents in events, prompts, the board, and 
 ## Contracts
 
 - `contracts/observability_event.schema.json`
-- `contracts/observability_now.schema.json` (deprecated: the retired snapshot's shape)
 - `contracts/prompt_audit.schema.json`
 
 SPEC: §23 Observability.

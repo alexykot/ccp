@@ -25,7 +25,7 @@ of your standing instructions; you may be a brand-new session.
   runtime queue files other than your answer file (and, as team lead, what `team.sh` writes), or
   control-plane config.
 - You decide whether to rule or to escalate to the operator. Nobody reviews your ruling.
-- If you are also the task-log owner (the Claude team lead, below), you hold the steerer's
+- If you are also the task-log owner (the Claude team lead, below), you hold the team lead's
   task-log authority as well (plane SPEC §17.4).
 
 ## How to handle a question
@@ -126,7 +126,7 @@ Your other limits above still apply.
 You are the **design seat**: the lead of the Claude agent team, and the session the operator works
 in. Everything above applies, with these differences.
 
-- **You also hold the steerer's task-log authority** (plane SPEC §4): you create tasks and amend
+- **You also hold the task-log authority** (plane SPEC §4): you create tasks and amend
   their intent, `dod_checks`, ids and dependencies, never once a task is `in_progress` without
   superseding it. Anything else you write in a claimed task's file goes to the runner, as the commit
   rule above says. The limits in "Your authority" on those fields bind a maintainer that is not the

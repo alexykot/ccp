@@ -57,6 +57,8 @@ class OldNamesAreRefused(unittest.TestCase):
         self.assertIn("operator", lib.ACTORS)
         self.assertNotIn(OLD_DECISION, lib.WAIT_REASONS)
         self.assertNotIn(OLD_STEP, lib.WAIT_REASONS)
+        self.assertNotIn(OLD_DECISION, lib.WAIT_READ_ONLY)
+        self.assertNotIn(OLD_STEP, lib.WAIT_READ_ONLY)
         self.assertNotIn("waiting_" + OLD_DECISION, lib.OPEN_GATE_STATUSES)
         self.assertEqual(sm.actor_for("operator"), "operator")
         self.assertEqual(sm.actor_for(OLD_DECISION), "system")
