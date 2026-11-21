@@ -21,6 +21,7 @@ from tests.test_verify import approve, now_iso
 TID = "0002-second"
 CID = "mac-01"
 STEP = f"{TID}-1"
+RULING = f"{TID}-2"  # a gate that is not of class operator: a ruling
 H, OLD, OLDER = "1" * 40, "2" * 40, "3" * 40
 MARKED = f"""- id: `{CID}`
   story: As the operator, it runs on my machine.
@@ -109,7 +110,12 @@ class MarkedErrors(unittest.TestCase):
         self.assertEqual(self.errors(resting("The operator's live run", seat="operator"), marked=()), [])
 
     def test_a_marked_check_waived_by_a_ruling_is_accepted(self):
-        self.assertEqual(self.errors(resting(STEP, seat=None), rulings=frozenset({STEP})), [])
+        self.assertEqual(self.errors(resting(RULING, seat=None), rulings=frozenset({RULING})), [])
+
+    def test_operator_evidence_is_never_a_waiver_even_naming_a_ruling(self):
+        errs = self.errors(resting(RULING, seat="operator"), rulings=frozenset({RULING}))
+        self.assertEqual(len(errs), 1, errs)
+        self.assertIn("never a ruling", errs[0])
 
     def test_a_checks_suite_id_is_an_id(self):
         self.assertEqual(verify.record_errors(verdict(ran())), [])
@@ -262,6 +268,23 @@ class RecordAndMerge(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("missing", out)
         self.assertFalse((self.q / "verification" / f"{TID}.json").exists())
+
+    def test_the_tasks_operator_gate_cited_as_a_waiver_is_refused(self):
+        for check in (resting(f"The operator's live run, pasted into the task notes, under gate {STEP}", seat="operator"),
+                      resting(STEP), resting(f"run under {STEP}", seat=None)):
+            code, out = self.record(check)
+            self.assertEqual(code, 1, (check, out))
+            self.assertIn(CID, out)
+        self.assertFalse((self.q / "verification" / f"{TID}.json").exists())
+
+    def test_a_waiver_by_a_gate_that_is_not_an_operator_gate_is_recorded(self):
+        gate = self.q / "escalations" / TID / "2.json"
+        gate.write_text(json.dumps({"task_id": TID, "escalation_id": RULING, "class": "other", "status": "closed",
+                                    "decision": "approved"}))
+        (self.q / "runs").mkdir(exist_ok=True)
+        self.put_run("verify", "2026-10-22T10:00:00Z")
+        code, out = self.record(resting(f"waived under {RULING}, beside {STEP}"))
+        self.assertEqual(code, 0, out)
 
     def test_a_carry_after_an_integration_merge_is_recorded_with_no_run_at_the_new_head(self):
         self.earlier_approve()

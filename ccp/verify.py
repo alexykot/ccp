@@ -721,7 +721,8 @@ def marked_errors(rec: dict[str, Any], marked: list[str], suites: list[dict[str,
     check is refused when it is missing from the record; when it was run and names no `operator_step` in `steps`
     (the approved operator gates of the task), whoever produced it, or no `suite_id` of a passed run in `suites`
     (`suite.fold`'s rows) of its lane, bound to the task, at the record's `head_sha`; when it is `ran: false` on a
-    `rests_on` that is neither a ruling (`rulings`, the texts `_ruling_refusal` accepts) nor a carried verdict; and
+    `rests_on` that is neither a ruling (`rulings`, the texts `_ruling_refusal` accepts that name more than operator
+    gates, `_waiver_texts`) nor a carried verdict, or on any `rests_on` of evidence the operator produced; and
     when it carries `approve at <old>` that the task's verify runs (`verifies`, oldest first) do not hold as a
     pass it may carry (`_carry_refusal`). A failed check is `approve_errors`' to refuse, and a waived one passes."""
     tid, head = str(rec.get("task_id") or ""), str(rec.get("head_sha") or "").strip()
@@ -744,10 +745,12 @@ def marked_errors(rec: dict[str, Any], marked: list[str], suites: list[dict[str,
                 if (why := _carry_refusal(cid, old, tid, verifies, suites, steps)) is not None:
                     errs.append(f"{name} carries a verdict it may not carry ({why}): run it again at the head "
                                 "(SPEC §15.6 rule 3, §15.8)")
-            elif rests not in rulings:
-                errs.append(f"{name} is ran: false on {rests[:60]!r}, which is no ruling: free-text operator evidence "
-                            "is never its evidence; it rests on a passed run at the head, a verdict it may carry or a "
-                            "ruling that waives it (SPEC §15.4)")
+            elif c.get("produced_by") == "operator" or rests not in rulings:
+                what = "evidence the operator produced, never a ruling" if c.get("produced_by") == "operator" \
+                    else "no ruling that waives it"
+                errs.append(f"{name} is ran: false on {rests[:60]!r}, {what}: free-text operator evidence is never its "
+                            "evidence; it rests on a passed run at the head, a verdict it may carry or a ruling that "
+                            "waives it (SPEC §15.4)")
             continue
         if c.get("pass") is False:
             continue
@@ -794,10 +797,30 @@ def marked_refusals(cfg: Config, queue: Path, rec: dict[str, Any], head: str) ->
     named |= {str(f.get("operator_step")) for r in verifies for f in r.get("checks") or []
               if isinstance(f, dict) and f.get("operator_step")}
     steps = {s for s in named if _operator_step_refusal(queue, tid, s) is None}
-    rulings = {str(c["rests_on"]).strip() for c in rec.get("checks") or []
-               if isinstance(c, dict) and isinstance(c.get("rests_on"), str) and c["rests_on"].strip()
-               and _ruling_refusal(queue, c["rests_on"]) is None}
-    return marked_errors(rec, marked, suites, verifies, steps, rulings)
+    return marked_errors(rec, marked, suites, verifies, steps, _waiver_texts(queue, rec))
+
+
+def _waiver_texts(queue: Path, rec: dict[str, Any]) -> set[str]:
+    """The `rests_on` texts of `rec`'s checks that may waive a marked check (ADR-0045 D3): a ruling the queue holds
+    (`_ruling_refusal`) naming at least one id that is not a gate of class `operator`. An operator gate approves
+    running a step, never skipping it, so a text whose only ids are operator gates waives nothing."""
+    def waives(text: str) -> bool:
+        if _ruling_refusal(queue, text) is not None:
+            return False
+        if _QUESTION_TOKEN.search(text) or _RULING_TOKEN.search(text):
+            return True
+        for m in _GATE_TOKEN.finditer(text):
+            try:
+                gate = json.loads((queue / "escalations" / m.group(1) / f"{m.group(2)}.json").read_text())
+            except (OSError, json.JSONDecodeError):
+                continue
+            if isinstance(gate, dict) and gate.get("class") != "operator":
+                return True
+        return False
+
+    return {str(c["rests_on"]).strip() for c in rec.get("checks") or []
+            if isinstance(c, dict) and isinstance(c.get("rests_on"), str) and c["rests_on"].strip()
+            and waives(c["rests_on"])}
 
 
 PROOF_TIMEOUT = 600  # seconds a proof (verify.skip_review.proof, a verify.provers command) may take; a timeout proves nothing
