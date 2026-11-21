@@ -66,8 +66,11 @@ _may change in the future_
 - **PR hosts other than GitHub.** Every task lands as a GitHub pull request through `gh`. The PR
   host as an adapter is accepted
   ([ADR-0040](docs/adr/0040-the-pr-host-is-an-adapter.md)), but its adapters are not built yet.
-- **A threat model and isolation.** No threat model is written yet. The destructive-command deny
-  list is a guard against accidents, not a security boundary (see [Permissions](#permissions)).
+- **A threat model and isolation.** The [threat model](docs/design/threat-model.md) names what the
+  plane protects, which controls are boundaries and which only guard against accidents, and the
+  risks a single-operator install accepts. Seat isolation (a command sandbox, scoped forge tokens,
+  a container or OS user per product) is on the [roadmap](docs/ROADMAP.md). The destructive-command
+  deny list is a guard against accidents, not a security boundary (see [Permissions](#permissions)).
 - **A batching merge queue.** Each PR merges on its own, so many runners with a slow gate spend
   their time catching up with the integration branch.
 - **Multi-user.** One operator and a file-backed queue; a hosted store and dashboard are on the
