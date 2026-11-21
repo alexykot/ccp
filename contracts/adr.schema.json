@@ -16,6 +16,8 @@
     "superseded_by": {"oneOf": [{"$ref": "#/$defs/link"}, {"type": "array", "items": {"$ref": "#/$defs/link"}}],
                       "description": "The ADR(s) that replace this one as a whole; status superseded needs it"},
     "amends": {"type": "array", "items": {"$ref": "#/$defs/link"}, "description": "ADRs or decisions this ADR changes without replacing"},
+    "requires": {"type": "array", "items": {"$ref": "#/$defs/requirement"},
+                 "description": "Each decision's prerequisites: a link that replaces nothing and needs no reverse entry"},
     "review_points": {"type": "array", "items": {"type": "string"}, "description": "Review points it is built in (the register's ids)"},
     "spec_refs": {"type": "array", "items": {"type": "string"}, "description": "SPEC sections it relies on or changes"},
     "decisions": {"type": "array", "items": {"$ref": "#/$defs/decision"},
@@ -25,6 +27,8 @@
   "$defs": {
     "link": {"type": "string", "pattern": "^([A-Za-z][A-Za-z0-9_-]*)?[0-9]+( D[0-9]+[a-z]?)?$",
              "description": "<ADR id>, or <ADR id> D<n> for one decision"},
+    "requirement": {"type": "string", "pattern": "^D[0-9]+[a-z]? (([A-Za-z][A-Za-z0-9_-]*)?[0-9]+ )?D[0-9]+[a-z]?$",
+                    "description": "D<n> <ADR id> D<m>: this ADR's Dn rests on that ADR's Dm; D<n> D<m> within this ADR"},
     "decision": {"type": "string",
                  "pattern": "^D[0-9]+[a-z]? (not_built|built|live|retired)( by [A-Za-z][A-Za-z0-9_-]*[0-9]+( D[0-9]+[a-z]?)?)?( — .*)?$",
                  "description": "D<n> <state>[ by <ADR id>[ D<n>]][ — <note>]; state not_built | built | live | retired"}

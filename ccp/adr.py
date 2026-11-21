@@ -18,7 +18,8 @@ FILE_RE = refs.DEFAULT.adr_file_re  # the default; a product may set ids.adr (re
 KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):(?:[ \t]+(.*?))?[ \t]*$")
 PLAIN_OK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 REQUIRED = ("id", "title", "status", "date")
-OPTIONAL = ("deciders", "supersedes", "superseded_by", "amends", "review_points", "spec_refs", "decisions", "notes")
+OPTIONAL = ("deciders", "supersedes", "superseded_by", "amends", "requires", "review_points", "spec_refs", "decisions",
+            "notes")
 LIST_KEYS = ("supersedes", "superseded_by", "amends", "review_points", "spec_refs", "decisions")
 LINK_KEYS = ("supersedes", "superseded_by", "amends")
 STATES = ("not_built", "built", "live", "retired")
@@ -738,6 +739,22 @@ def public(m: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def parse_requires(s: Any, adr: int, ids: refs.Ids = refs.DEFAULT) -> tuple[str, tuple[int, str]] | None:
+    """One `requires` entry of ADR `adr` (§6.2): `D5 ADR-0042 D3` → ("5", (42, "3")); `D5 D3`, a decision
+    of the same ADR → ("5", (adr, "3")). The leading `Dn` is split off and each part read by the one
+    link parser (`refs.Ids.adr_link`); an entry of neither form, or one naming a whole ADR → None."""
+    first, _, rest = str(s).strip().partition(" ")
+    own = ids.adr_link(f"{ids.adr_id(adr)} {first}")
+    if own is None or own[1] is None:
+        return None
+    target = ids.adr_link(rest)
+    if target is None or target[1] is None:
+        target = ids.adr_link(f"{ids.adr_id(adr)} {rest.strip()}")
+    if target is None or target[1] is None:
+        return None
+    return own[1], (target[0], target[1])
+
+
 class Resolved(NamedTuple):
     """Where a decision's `retired by` chain ends: ADR `adr` decision `decision` (None when the last
     link names a whole ADR). `loop` is set when the chain came back to a decision it had passed, and
@@ -749,25 +766,31 @@ class Resolved(NamedTuple):
 
 class DecisionIndex:
     """Each decision's recorded build state, read once from the loaded ADRs, and the one reading of it:
-    `state`, `resolve`, `is_built`, `blocks_done`. A decision no ADR records a state for has none."""
+    `state`, `resolve`, `is_built`, `blocks_done`. A decision no ADR records a state for has none. Each
+    decision's `requires` entries are read in too (`requires`, `required`): a link that replaces nothing,
+    so it has no reverse entry; an entry `parse_requires` cannot read is left out."""
 
     def __init__(self, recorded: dict[tuple[int, str], dict[str, Any]], body: dict[int, list[str]],
-                 ids: refs.Ids = refs.DEFAULT) -> None:
+                 ids: refs.Ids = refs.DEFAULT,
+                 requires: dict[int, list[tuple[str, tuple[int, str]]]] | None = None) -> None:
         self._recorded = recorded
         self._body = body
         self._ids = ids
+        self._requires = requires or {}
 
     @classmethod
     def build(cls, adrs: list[dict[str, Any]], ids: refs.Ids = refs.DEFAULT) -> DecisionIndex:
         recorded: dict[tuple[int, str], dict[str, Any]] = {}
         body: dict[int, list[str]] = {}
+        requires: dict[int, list[tuple[str, tuple[int, str]]]] = {}
         for m in adrs:
             n = m.get("_number")
             body[n] = [d["id"] for d in m.get("_decisions") or []]
             for s in _as_list(m.get("decisions")):
                 if d := parse_decision(s):
                     recorded[(n, d["id"])] = d
-        return cls(recorded, body, ids)
+            requires[n] = [r for r in (parse_requires(s, n, ids) for s in _as_list(m.get("requires"))) if r]
+        return cls(recorded, body, ids, requires)
 
     def state(self, adr: int, d: str) -> dict[str, Any] | None:
         """The recorded `{id, state, by, note}` of decision `d` of ADR `adr`, or None."""
@@ -794,6 +817,14 @@ class DecisionIndex:
             if nxt[1] is None:
                 return Resolved(nxt[0], None)
             here = (nxt[0], nxt[1])
+
+    def required(self, adr: int) -> list[tuple[str, tuple[int, str]]]:
+        """ADR `adr`'s `requires` entries in file order: (its decision, (target ADR, target decision))."""
+        return list(self._requires.get(adr, []))
+
+    def requires(self, adr: int, d: str) -> list[tuple[int, str]]:
+        """The prerequisites decision `d` of ADR `adr` names, as (ADR, decision), in file order."""
+        return [t for own, t in self._requires.get(adr, []) if own == d]
 
     def is_retired(self, adr: int, d: str) -> bool:
         st = self.state(adr, d)
@@ -969,11 +1000,28 @@ def _transition(cfg: Config, meta: dict[str, Any], to: str) -> None:
                        f"(adr.transitions: {frm or '(none)'} → {', '.join(allowed) or 'nothing'})", 1)
 
 
+def _refuse_proposed_prerequisites(cfg: Config, meta: dict[str, Any]) -> None:
+    """§6.4: accepting waits while a `requires` target in another ADR is in a `proposed` ADR. A target in
+    the ADR itself never holds it; a target naming no ADR is `ccp adr check`'s to report."""
+    ids = refs.ids(cfg)
+    me = meta["_number"]
+    status = {m["_number"]: m for m in load(cfg)[0]}
+    held = []
+    for own, (n, dec) in DecisionIndex.build([meta], ids).required(me):
+        other = status.get(n)
+        if n != me and other is not None and other.get("status") == "proposed":
+            held.append(f"D{own} requires {ids.adr_id(n)} D{dec}, and {other['_path']} is still proposed")
+    if held:
+        raise AdrError(f"{meta['_path']}: not accepted: {'; '.join(held)}; accept the prerequisite first (SPEC §6.4)")
+
+
 def set_status(cfg: Config, arg: str, to: str, note: str | None = None) -> dict[str, Any]:
     f, meta = _find(cfg, arg)
     if to == "superseded":
         raise AdrError("use `ccp adr supersede OLD NEW`: it links both ADRs")
     _transition(cfg, meta, to)
+    if to == "accepted":
+        _refuse_proposed_prerequisites(cfg, meta)
     upd: dict[str, Any] = {"status": to}
     states = [d for d in (parse_decision(s) for s in _as_list(meta.get("decisions"))) if d]
     if to == "accepted" and meta["_decisions"]:
