@@ -9,6 +9,13 @@ notes: |-
   Proposed with task 0077, from an accepted plane proposal taken as a design item: the operator
   decides it; the tasks that build its adapters follow its acceptance.
   2026-11-12: status proposed → accepted: Accepted by the operator at gate 0077-adr-the-pr-host-is-an-adapter-1 (2026-11-12, in the lead session: 'approve ADR-0040 and 0077's section 4.5 change'). Its decisions stay not_built until the adapter tasks build them.
+  2026-11-21: D1, D3 and D4 amended, and ADR-0029 D1 recorded as superseded by D1, on the operator's
+  answer to shape sh-20261120T235116Z-eb9f (F02, F06), in the lead session: "accept the shape
+  recommendations". D1: view also returns the head branch, the merge time and the body, and edit
+  (the PR body) is a sixth operation, so the §15.2 body gate and the runner's body repair work on
+  any host; D3's record keeps the body and the merge time, and D4 counts six operations. ADR-0029
+  D1's merge-strategy interface is this ADR's PR-host interface: `pr_host.adapter` (D5) selects the
+  adapter and `merge.command` overrides its merge, two knobs rather than three.
 decisions:
   - "D1 not_built"
   - "D2 not_built"
@@ -17,6 +24,7 @@ decisions:
   - "D5 not_built"
   - "D6 not_built"
   - "D7 built"
+supersedes: ["ADR-0029 D1"]
 ---
 # ADR-0040 — The PR host is an adapter
 
@@ -41,12 +49,15 @@ would adopt cleanly and fail at its first close. `merge.command` (§15.5) replac
 
 ### D1. One PR-host interface
 
-The plane reaches the PR host only through one interface with five operations: **open** a PR for a
-pushed task branch, **view** it (number, state, head, merge commit), **diff** it against its base,
-**merge** it pinned to a head, and **confirm** a merge. The plane's commands and the worker prompts
-call it through `ccp pr open|view|diff|merge`, never a forge's CLI directly, so a prompt reads the
-same whatever the host. `merge-ok` (view), close's merge (merge) and its confirmation (confirm),
-review (diff), verify (view) and the implementer's PR (open) are its callers.
+The plane reaches the PR host only through one interface with six operations: **open** a PR for a
+pushed task branch, **view** it (number, state, head, head branch, merge commit, merge time, body),
+**diff** it against its base, **merge** it pinned to a head, **confirm** a merge, and **edit** its
+body. The plane's commands and the worker prompts call it through `ccp pr open|view|diff|merge|edit`,
+never a forge's CLI directly, so a prompt reads the same whatever the host. `merge-ok` (view, with the
+merge time), close's merge (merge) and its confirmation (confirm), tasks drop and the catch-up (view,
+with the head branch), review (diff), the review body gate (view, with the body), the runner's body
+repair (edit), verify (view) and the implementer's PR (open) are its callers. This interface is the
+merge-strategy interface ADR-0029 D1 decided, which it supersedes.
 
 ### D2. The GitHub adapter
 
@@ -58,18 +69,18 @@ origin and a logged-in `gh`, and it is the default.
 ### D3. The local adapter
 
 In the local adapter the plane keeps the PR record itself, in the queue: a number the plane gives,
-the branch, its base, the head it last saw, its state, the review state (the verification and
-review records already bound to a head, §15) and, once merged, the merge commit. Open records the
-pushed branch; view reads the head from `origin/<branch>`; diff is `git diff
-origin/<base>...<head>`; merge squashes the branch onto the integration tip in close's merge
-worktree, refusing a branch whose head is not the verified one, commits it with the subject
-`Task <NNNN>: <title> (#<n>)` (§10.7 rule 1) and pushes it; confirm finds that commit on
-`origin/<base>`. It needs only a git origin the plane can push to, a bare repository included, and
-it serves no repository settings.
+the branch, its base, the head it last saw, its state, its body (edit rewrites it), the review state
+(the verification and review records already bound to a head, §15) and, once merged, the merge
+commit and the merge time. Open records the pushed branch; view reads the head from
+`origin/<branch>`; diff is `git diff origin/<base>...<head>`; merge squashes the branch onto the
+integration tip in close's merge worktree, refusing a branch whose head is not the verified one,
+commits it with the subject `Task <NNNN>: <title> (#<n>)` (§10.7 rule 1) and pushes it; confirm
+finds that commit on `origin/<base>`. It needs only a git origin the plane can push to, a bare
+repository included, and it serves no repository settings.
 
 ### D4. GitLab and Gitea later
 
-GitLab and Gitea adapters come later, each serving the five operations through its own API or CLI:
+GitLab and Gitea adapters come later, each serving the six operations through its own API or CLI:
 its merge request or pull request number as the PR number, its merge call pinned to the head sha,
 and its repository settings where ADR-0029 D3 asks for them. Neither is built with the interface.
 
