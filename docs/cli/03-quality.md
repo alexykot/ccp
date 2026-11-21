@@ -7,7 +7,7 @@ the working directory).
 
 | Command | What it does | Cost | SPEC |
 | --- | --- | --- | --- |
-| `ccp tasks check` | Hold the task log to the canonical format | Free | §21.1 |
+| `ccp tasks check [--closed-points]` | Hold the task log to the canonical format; with `--closed-points`, also fail on a review point the register records closed while a follow-up of one of its tasks is undecided. That reads `QUEUE_ROOT`; without it, a note | Free | §21.1, §22.2 |
 | `ccp tasks dry-run <id> [--write]` | Run a task's dod_check commands at the integration tip, in a temporary worktree, and print what each printed; with `--write`, write each check's dry-run record. Needs `QUEUE_ROOT` | Runs each command once | §21.1 |
 | `ccp tasks checks <id> [--json]` | A task's dod_checks in the checkout, each id with its `runs_on` value, or null for a check the workers run; exit 2 for an unknown task | Free | §5.5 |
 | `ccp docs check` | Package-doc rules, opted-in generic rules, house rules' shape, `architect.checks`, `docs.checks`, the ADR check and `ccp tasks check` | Free | §21.2 |

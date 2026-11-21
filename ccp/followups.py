@@ -1,9 +1,10 @@
-"""Worker follow-ups (SPEC §13.4, ADR-0044 D1, D2 and D4): a worker report states them (`## Follow-ups`, read by
-`ccp report`), the lead records what became of each (`ccp tasks follow-up`), and `ccp tasks follow-ups` lists them
-across tasks.
+"""Worker follow-ups (SPEC §13.4, §22.2, ADR-0044 D1 to D4): a worker report states them (`## Follow-ups`, read by
+`ccp report`), the lead records what became of each (`ccp tasks follow-up`), `ccp tasks follow-ups` lists them
+across tasks, and `ccp tasks check --closed-points` and the spawn's readiness check fail while a closed review point
+holds an undecided one.
 
 A follow-up lives on its run record (`follow_ups`, each with its id `<run_id>#<n>`, refs.py) beside the
-lead's `outcome`. `undecided`, `listing` and `carry` work on plain values; `undecided` is the one list of open
+lead's `outcome`. `undecided`, `listing`, `carry` and `closed_point_errors` work on plain values; `undecided` is the one list of open
 follow-ups that every reader counts.
 """
 from __future__ import annotations
@@ -11,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ccp import health, plane, queue, refs, runs, tasklog
+from ccp import health, plane, queue, refs, reviewpoints, runs, tasklog
 from ccp.config import Config
 from ccp.queue import QueueError
 
@@ -59,6 +60,36 @@ def carry(old: list[Any], new: list[dict[str, Any]]) -> tuple[list[dict[str, Any
             fu = {**fu, "outcome": hit["outcome"]}
         out.append(fu)
     return out, pool
+
+
+def closed_point_errors(entries: list[dict[str, Any]] | None, point_tasks: dict[str, list[str]],
+                        runs: list[dict[str, Any]]) -> list[str]:
+    """§22.2, ADR-0044 D3: one error per undecided follow-up on `runs` of a task of a review point the register
+    `entries` records `closed` (`point_tasks`: each point's task ids), naming the point, the follow-up and the
+    command that decides it; in the register's order, then the runs'."""
+    errs = []
+    open_rows = undecided(runs)
+    for e in entries or []:
+        rp = str(e.get("id") or "")
+        if e.get("status") != "closed" or not rp:
+            continue
+        tasks = set(point_tasks.get(rp) or [])
+        for r in open_rows:
+            if r["task_id"] in tasks:
+                errs.append(f"review point {rp} is closed, but follow-up {r['id']} of {r['task_id']} is undecided: "
+                            f"the lead decides it with `ccp tasks follow-up {r['id']} --task <id> | --proposal <id> "
+                            '| --drop "<reason>"` (SPEC §22.2)')
+    return errs
+
+
+def closed_points(cfg: Config, q: Path) -> list[str]:
+    """§22.2: `closed_point_errors` for the product's register and task log and the run records of queue `q`. A
+    product with no register, or one that does not read (the task check names it), has no closed point."""
+    point_tasks: dict[str, list[str]] = {}
+    for row in reviewpoints.task_rows(tasklog.load(cfg)):
+        if row["review_point"]:
+            point_tasks.setdefault(str(row["review_point"]), []).append(row["task_id"])
+    return closed_point_errors(reviewpoints.load(cfg)[0], point_tasks, runs.all_runs(q))
 
 
 def outcome_word(outcome: dict[str, Any] | None) -> str:
@@ -137,4 +168,4 @@ def decide(q: Path, cfg: Config, fid: str, kind: str, ref_or_reason: str, by: st
     return {"ok": True, "id": fid, "task_id": task_id, "outcome": outcome, "replaced": replaced}
 
 
-__all__ = ["KINDS", "LEAD", "carry", "decide", "line", "listing", "outcome_word", "resolve_task", "undecided"]
+__all__ = ["KINDS", "LEAD", "carry", "closed_point_errors", "closed_points", "decide", "line", "listing", "outcome_word", "resolve_task", "undecided"]
