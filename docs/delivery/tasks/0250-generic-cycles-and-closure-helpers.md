@@ -1,7 +1,7 @@
 ---
 task_id: 0250-generic-cycles-and-closure-helpers
 title: One cycles helper and one closure helper over a dependency map, used by the task log's walks
-status: pending
+status: done
 kind: refactor
 depends_on: []
 clashes_with: ["0234-one-check-parser-and-one-file-at-rev-reader"]
@@ -84,3 +84,5 @@ Measured at `8aefa59`.
 - Fix round 1: the two §21.1 mentions in `ccp/tasklog.py` now say "(§21.1); each warning is stated with its rule's §", since §21.1 states only one of the warnings. Added pins for what the rewrites preserved: two `scope_deps` tests in `tests/test_kinds.py` (the lowest open scope task is the needing one; the walk does not go through a scope task) and a self-dependency group case in `tests/test_tasks_check_chain.py`. NIT 1 (gr-01's `tail -8`) is the task file's check and is left as written.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #258 head `7ce8de2` (squash `b48712c`): APPROVE. Passed: gr-01, gr-02, gr-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0250-generic-cycles-and-closure-helpers.json.
+
