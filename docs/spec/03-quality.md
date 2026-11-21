@@ -425,7 +425,7 @@ where the check is mechanical it is a `docs` check. No starter rule is mandatory
 ### 20.6 Mutation checks (`ccp mutate`)
 
 `ccp mutate --run <run_id> --test <id> [--mutant <m> …] [--mutant-file <path> …]
-[--revert <path>[:<lines>] …]` tells "the test passes" from "the test checks something", in any
+[--revert <path>[:<lines>] …] [--together]` tells "the test passes" from "the test checks something", in any
 language. It runs in the calling seat's own worktree (the implementer's `impl`, the reviewer's `rev`
 or the verifier's `ver`) or a mutation worktree (`ccp wt create --kind mut`, §12.1), and changes
 nothing else.
@@ -455,6 +455,11 @@ nothing else.
   worktree's. A revert that changes nothing, or a range outside the file, refuses the call (exit 2). The
   call takes at least one mutant; the `--mutant`s are numbered first, then the `--mutant-file`s, then
   the `--revert`s, each in the order given.
+- **Together.** `--together` applies every mutant given as one mutant, numbered 1, its row's
+  `kind` `together` with its parts' kinds in `parts`. Substitutions on one file apply in order, each
+  `old` found exactly once in what the earlier ones leave, so a move is two substitutions, one that
+  deletes the lines and one that puts them back elsewhere. Any other two parts on one file refuse
+  the call (exit 2), as does a call with fewer than two.
 - **Killed only when the named test fails.** The test first runs unmutated; when it fails, the call
   stops (exit 1), nothing applied or recorded. Then each mutant is applied alone, the test runs, and
   the mutant is `killed` when it exits non-zero and `survived` when it exits 0, except that one whose run exits non-zero with an output line matching plane.json `mutate.unbuilt_re` (a regular expression or a list of them; null, the default, matches nothing) is `unbuilt`: the code did not build or import, which proves nothing about the test. Another test the
@@ -466,8 +471,8 @@ nothing else.
 - **Bound to the calling seat's run.** `--run` names the run, which must be open (not reported or
   abandoned), and the worktree must be a recorded `impl`, `mut`, `rev` or `ver` worktree of the run's task;
   otherwise it refuses (exit 2). Each mutant adds a row to the run record's `mutation` list: the
-  test id, the mutant's number, `kind` (`text`, `patch` or `revert`), the files it touched, a
-  12-character digest, the outcome, the exit code, the seconds, `timed_out` and the worktree's name;
+  test id, the mutant's number, `kind` (`text`, `patch`, `revert` or `together`), the files it
+  touched, a 12-character digest, the outcome, the exit code, the seconds, `timed_out` and the worktree's name;
   never the mutant's text, old or new, or the test's output, which goes to `<run record>-mutate.log`
   beside the run record.
   The call ends with one `run`/`recorded` event (run id and the counts).

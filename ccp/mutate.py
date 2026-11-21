@@ -3,6 +3,7 @@ time in the seat's worktree, runs the product's one-test command, and records th
 when that test fails, and `unbuilt` when the run says the code did not build or import.
 
   ccp mutate --run RUN_ID --test ID [--mutant M …] [--mutant-file PATH …] [--revert PATH[:N[-M]] …]
+             [--together]
 
 `--test` is one test id, passed whole as `{test}`, so it may name a single test method. A mutant is
 `<file>:<old>=><new>` (the text `old`, found exactly once in the file, relative to the worktree's
@@ -16,11 +17,19 @@ from it that a range of the worktree file's lines overlaps or borders, the chang
 record holds, and with none the call is refused. The `--mutant`s come first, then the `--mutant-file`s,
 then the `--revert`s, each in the order given.
 
+`--together` makes them one mutant, numbered 1, its parts in that order; it needs at least two. Parts on
+different files are each checked against the unmutated tree. Substitutions on one file are checked in
+order on a copy of it, each `old` found exactly once in the text the earlier ones leave, so
+a move is two substitutions, one that deletes the lines and one that puts them back elsewhere.
+Any other two parts on one file (a patch or a revert with anything else) refuse the call. The parts
+are applied in order under one snapshot of all their files, the test runs once, and every file is
+restored; a part that does not apply restores the tree and refuses the call.
+
 Every mutant is checked before anything runs. Then the named test runs once unmutated: a test that
-fails already proves nothing, so the command stops there. Each mutant is applied alone, the test
-runs (plane.json `mutate.command` with `{test}` filled in shell-quoted, in the worktree's root, in
-its own process group, killed after `mutate.timeout_seconds`, which counts as the test failing), and
-every file the mutant touched is written back byte for byte (a file or directory it made is
+fails already proves nothing, so the command stops there. Each mutant (a `--together` one whole) is
+applied alone, the test runs (plane.json `mutate.command` with `{test}` filled in shell-quoted, in the
+worktree's root, in its own process group, killed after `mutate.timeout_seconds`, which counts as the
+test failing), and every file the mutant touched is written back byte for byte (a file or directory it made is
 removed), and checked, before the next. A mutated Python file loses its compiled `__pycache__` entries
 before its test runs, so bytecode compiled from another source (an unchecked hash-based `.pyc`, or one
 whose recorded mtime and size happen to match) never runs in its place; a restored one loses them
@@ -32,10 +41,12 @@ A SIGTERM at any point of the call kills the running test, restores the files an
 
 It runs only from a recorded `impl`, `mut`, `rev` or `ver` worktree of the run's task, and only for a
 run that is still open. Each mutant adds a row to the run record's `mutation` list: the test id, the
-mutant's number, kind, files and a digest, the outcome, the exit code and seconds; never the
-mutant's text, old or new, or the test's output, which goes to a log next to the run's record. The
-call ends with one `run`/`recorded` event. Exit 0 when every mutant was killed, 1 when one survived
-or was unbuilt or the unmutated test failed, 2 for a usage or configuration problem.
+mutant's number, kind, files and a digest, the outcome, the exit code and seconds (a `--together` one:
+kind `together`, its parts' kinds in `parts`, the union of their files in order of first touch, and a
+digest of the parts' digests); never the mutant's text, old or new, or the test's output, which goes
+to a log next to the run's record. The call ends with one `run`/`recorded` event. Exit 0 when every
+mutant was killed, 1 when one survived or was unbuilt or the unmutated test failed, 2 for a usage or
+configuration problem.
 """
 from __future__ import annotations
 
@@ -70,15 +81,16 @@ def _inside(root: Path, p: Path) -> bool:
     return p == root or root in p.parents
 
 
-def parse(root: Path, spec: str, cwd: Path) -> dict[str, Any]:
+def parse(root: Path, spec: str, cwd: Path, count: bool = True) -> dict[str, Any]:
     """One `--mutant`: a substitution when it holds `=>`, else a patch file. Checked against the
-    unmutated tree; nothing is written."""
+    unmutated tree; nothing is written. Without `count`, a substitution's old text is left for `together`
+    to find."""
     if SEP in spec:
         target, _, new = spec.partition(SEP)
         rel, colon, old = target.partition(":")
         if not colon or not rel or not old:
             raise QueueError(f"mutant {spec!r}: a substitution is <file>:<old>=><new>, with a file and the old text", 2)
-        return _substitution(root, f"mutant {spec!r}", rel, old.encode(), new.encode())
+        return _substitution(root, f"mutant {spec!r}", rel, old.encode(), new.encode(), count)
     patch = Path(spec) if Path(spec).is_absolute() else cwd / spec
     if not patch.is_file():
         raise QueueError(f"mutant {spec!r} is neither <file>:<old>=><new> nor a patch file", 2)
@@ -97,27 +109,34 @@ def parse(root: Path, spec: str, cwd: Path) -> dict[str, Any]:
             "digest": hashlib.sha256(patch.read_bytes()).hexdigest()[:12]}
 
 
-def _substitution(root: Path, label: str, rel: str, old: bytes, new: bytes) -> dict[str, Any]:
+def _substitution(root: Path, label: str, rel: str, old: bytes, new: bytes, count: bool = True) -> dict[str, Any]:
     """A text mutant: `old`, found exactly once in the worktree file `rel`, becomes `new`. Checked against
-    the unmutated tree; nothing is written."""
+    the unmutated tree (the count only with `count`); nothing is written."""
     if Path(rel).is_absolute() or ".." in Path(rel).parts:
         raise QueueError(f"{label}: {rel} must be a path relative to the worktree's root", 2)
     path = root / rel
     if not path.is_file() or not _inside(root, path.resolve()):
         raise QueueError(f"{label}: {rel} is not a file in the worktree", 2)
-    n = path.read_bytes().count(old)
-    if n != 1:
-        raise QueueError(f"{label}: the old text is in {rel} {n} times; a mutant names one place", 2)
+    if count:
+        _once(label, rel, path.read_bytes(), old, False)
     digest = hashlib.sha256(b"\0".join((rel.encode(), old, new))).hexdigest()[:12]
-    return {"kind": "text", "files": [rel], "old": old, "new": new, "digest": digest}
+    return {"kind": "text", "files": [rel], "old": old, "new": new, "digest": digest, "label": label}
 
 
-def parse_file(root: Path, spec: str, cwd: Path) -> dict[str, Any]:
+def _once(label: str, rel: str, text: bytes, old: bytes, after: bool) -> None:
+    """Refuse (exit 2) unless `old` is in `text` exactly once; `after`: `text` is what earlier parts left."""
+    n = text.count(old)
+    if n != 1:
+        where = f"{rel} as the earlier parts on it leave it" if after else rel
+        raise QueueError(f"{label}: the old text is in {where} {n} times; a mutant names one place", 2)
+
+
+def parse_file(root: Path, spec: str, cwd: Path, count: bool = True) -> dict[str, Any]:
     """One `--mutant-file`: the target file's path on the first line, then a line `=== old`, the old text,
     a line `=== new` and the new text (§20.6). Each text is exactly the bytes between its marker line and
     the next marker line or the file's end, so a mutant spanning lines needs no shell quoting. A part
     missing (the path, either marker, or the old text) refuses the call (exit 2). Checked against the
-    unmutated tree; nothing is written."""
+    unmutated tree (the old text's count only with `count`); nothing is written."""
     label = f"mutant file {spec!r}"
     f = Path(spec) if Path(spec).is_absolute() else cwd / spec
     if not f.is_file():
@@ -139,7 +158,35 @@ def parse_file(root: Path, spec: str, cwd: Path) -> dict[str, Any]:
     old, new = b"".join(lines[i + 1:j]), b"".join(lines[j + 1:])
     if not old:
         raise QueueError(f"{label}: the old text between `=== old` and `=== new` is empty", 2)
-    return _substitution(root, label, rel, old, new)
+    return _substitution(root, label, rel, old, new, count)
+
+
+def together(parts: list[dict[str, Any]], texts: dict[str, bytes]) -> dict[str, Any]:
+    """`--together`: the parsed parts (at least two, in order) as one mutant. `texts` holds the unmutated
+    bytes of every file a substitution names. Substitutions on one file are checked in order, each old text
+    exactly once in what the earlier ones leave (a lone one: in the unmutated file); a file any other part
+    shares with another refuses the call (exit 2). Nothing is written."""
+    if len(parts) < 2:
+        raise QueueError(f"--together makes the mutants given one; it needs at least two, and {len(parts)} was "
+                         "given", 2)
+    on: dict[str, list[int]] = {}
+    for i, p in enumerate(parts):
+        for rel in p["files"]:
+            on.setdefault(rel, []).append(i)
+    for rel, idx in on.items():
+        kinds = [parts[i]["kind"] for i in idx]
+        if len(idx) > 1 and any(k != "text" for k in kinds):
+            raise QueueError(f"--together: {rel} is touched by parts {', '.join(str(i + 1) for i in idx)} "
+                             f"({', '.join(kinds)}); only substitutions may share a file", 2)
+        if kinds[0] != "text":
+            continue
+        text = texts[rel]
+        for k, i in enumerate(idx):
+            _once(parts[i]["label"], rel, text, parts[i]["old"], k > 0)
+            text = text.replace(parts[i]["old"], parts[i]["new"], 1)
+    digest = hashlib.sha256("\0".join(p["digest"] for p in parts).encode()).hexdigest()[:12]
+    return {"kind": "together", "parts": [p["kind"] for p in parts], "files": list(on), "digest": digest,
+            "members": parts}
 
 
 def _relpath(root: Path, spec: str, rel: str) -> Path:
@@ -335,6 +382,13 @@ def _restore(root: Path, snapshot: Snapshot) -> list[str]:
 
 
 def _apply(root: Path, m: dict[str, Any]) -> None:
+    if m["kind"] == "together":
+        for k, part in enumerate(m["members"], 1):
+            try:
+                _apply(root, part)
+            except QueueError as e:
+                raise QueueError(f"part {k} of the --together mutant did not apply: {e}", 2) from e
+        return
     if m["kind"] == "revert":
         p = root / m["files"][0]
         if m["content"] is None:
@@ -467,13 +521,15 @@ def log_path(q: Path, run_id: str) -> Path:
 
 
 def run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], cwd: Path | None = None,
-        reverts: list[str] | None = None, mutant_files: list[str] | None = None) -> tuple[dict[str, Any], int]:
+        reverts: list[str] | None = None, mutant_files: list[str] | None = None,
+        together: bool = False) -> tuple[dict[str, Any], int]:
     with _on_sigterm() as stop:
-        return _run(cfg, q, run_id, test, mutants, reverts or [], cwd, stop, mutant_files or [])
+        return _run(cfg, q, run_id, test, mutants, reverts or [], cwd, stop, mutant_files or [], together)
 
 
 def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], reverts: list[str],
-         cwd: Path | None, stop: _Stop, mutant_files: list[str] | None = None) -> tuple[dict[str, Any], int]:
+         cwd: Path | None, stop: _Stop, mutant_files: list[str] | None = None,
+         as_one: bool = False) -> tuple[dict[str, Any], int]:
     mutant_files = mutant_files or []
     mu = cfg.mutate or {}
     if not mu.get("command"):
@@ -494,8 +550,8 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
     task_id = rec["task_id"]
     st = _worktree(cfg, q, task_id)
     root = cfg.root.resolve()
-    parsed = [parse(root, m, cwd or Path.cwd()) for m in mutants]
-    parsed += [parse_file(root, m, cwd or Path.cwd()) for m in mutant_files]
+    parsed = [parse(root, m, cwd or Path.cwd(), not as_one) for m in mutants]
+    parsed += [parse_file(root, m, cwd or Path.cwd(), not as_one) for m in mutant_files]
     base = None
     if reverts:
         from ccp import wt  # noqa: PLC0415
@@ -509,6 +565,9 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
             head = git(root, "rev-parse", "HEAD").stdout.strip()
             base = wt.merge_base(cfg, q, head)
         parsed += [parse_revert(root, r, base) for r in reverts]
+    if as_one:
+        texts = {p["files"][0]: (root / p["files"][0]).read_bytes() for p in parsed if p["kind"] == "text"}
+        parsed = [together(parsed, texts)]
     line = fill(mu["command"], {"test": shlex.quote(test)})
     timeout = int(mu["timeout_seconds"])
     unbuilt = _unbuilt_patterns(mu)
@@ -548,7 +607,8 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
         assert res is not None
         at = res.pop(OUTPUT_AT)
         outcome = "survived" if res["exit_code"] == 0 else "unbuilt" if _says_unbuilt(log, at, unbuilt) else "killed"
-        row = {"at": iso(), "test": test, "mutant": n, "kind": m["kind"], "files": m["files"],
+        parts = {"parts": m["parts"]} if "parts" in m else {}  # a --together mutant's parts' kinds
+        row = {"at": iso(), "test": test, "mutant": n, "kind": m["kind"], **parts, "files": m["files"],
                "digest": m["digest"], "outcome": outcome, **res}
         rec = runs.load(q, run_id)
         rec.setdefault("mutation", []).append({**row, "worktree": st["name"]})
@@ -563,4 +623,4 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
     return out, 0 if killed == len(rows) else 1
 
 
-__all__ = ["log_path", "parse", "parse_file", "parse_revert", "run"]
+__all__ = ["log_path", "parse", "parse_file", "parse_revert", "run", "together"]
