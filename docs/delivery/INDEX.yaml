@@ -1275,7 +1275,7 @@ tasks:
   - id: 0260-review-tools-and-the-tests-for-new-behaviour-section
     status: pending
     title: The review prompt names the affected-modules command and the reviewer brief a base checkout, and the report table asks for and checks the tests-for-new-behaviour section
-    depends_on: [0257-one-gate-block-and-one-sentence-per-line]
+    depends_on: [0255-test-fixtures-shared-helpers-and-one-repo-build, 0257-one-gate-block-and-one-sentence-per-line]
     path: tasks/0260-review-tools-and-the-tests-for-new-behaviour-section.md
   - id: 0261-a-declared-part-lane-runs-the-affected-modules
     status: pending

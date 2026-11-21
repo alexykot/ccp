@@ -3,13 +3,13 @@ task_id: 0260-review-tools-and-the-tests-for-new-behaviour-section
 title: The review prompt names the affected-modules command and the reviewer brief a base checkout, and the report table asks for and checks the tests-for-new-behaviour section
 status: pending
 kind: feature
-depends_on: ["0257-one-gate-block-and-one-sentence-per-line"]
-clashes_with: ["0219-integration-merges-leave-out-the-tip", "0258-the-plane-writes-the-pre-merge-phases"]
+depends_on: ["0255-test-fixtures-shared-helpers-and-one-repo-build", "0257-one-gate-block-and-one-sentence-per-line"]
+clashes_with: ["0219-integration-merges-leave-out-the-tip", "0242-retire-restructure-scaffolding-and-queue-markers", "0256-suite-run-refuses-a-closed-run-and-config-reads", "0258-the-plane-writes-the-pre-merge-phases"]
 spec_refs: ["S13", "S15"]
 review_refs: ["ar-20261121T111633Z-4e26#F02", "ar-20261121T111633Z-4e26#F03"]
 rule_refs: ["E13"]
 review_point: R19
-paths: ["templates/prompts/review.md", "templates/prompts/implement.md", "templates/prompts/fix.md", "templates/prompts/merge.md", "templates/prompts/ruling.md", "plugin/agents/delivery-reviewer.md", "ccp/report.py", "tests/test_prompt_tools.py", "tests/test_worker_efficiency.py", "tests/test_report_tests_section.py"]
+paths: ["templates/prompts/review.md", "templates/prompts/implement.md", "templates/prompts/fix.md", "templates/prompts/merge.md", "templates/prompts/ruling.md", "plugin/agents/delivery-reviewer.md", "ccp/report.py", "docs/spec/02-delivery.md", "tests/helpers.py", "tests/test_prompt_tools.py", "tests/test_worker_efficiency.py", "tests/test_report_tests_section.py", "tests/test_board_staleness.py", "tests/test_full_lane_prompt.py", "tests/test_health_conflicts.py", "tests/test_prompt_end.py", "tests/test_prompt_rounds.py", "tests/test_report_correction.py", "tests/test_report_fields.py", "tests/test_report_sections.py", "tests/test_resolution_review.py", "tests/test_review_gate.py", "tests/test_review_skip.py", "tests/test_review_skip_clean.py", "tests/test_review_skip_provers.py", "tests/test_suite.py", "tests/test_tasks_release_keep_branch.py", "tests/test_toolkit.py"]
 adopt: "none"
 created: 2026-11-21
 updated: 2026-11-21
@@ -45,15 +45,23 @@ Measured at `1aa5e3f`.
   `1aa5e3f`: the four change-round templates and `review.md`, one line each; `ccp/report.py` none.
   `report.SECTIONS` has no such section, so the last part never asks for it and `ccp report` never
   reads it. `merge.md` alone gives its `none` form (`none: the merge adds no behaviour`).
-- **No SPEC change.** §13.4 already lists the section among the report lines ("for implement, fix,
+- **SPEC text.** §13.4 already lists the section among the report lines ("for implement, fix,
   merge and ruling, `## Tests for new behaviour` (§13.5)"), and §13.5 describes the self-check
   (`git grep -n 'Tests for new behaviour' -- docs/spec` at `1aa5e3f`: 2 lines). Every other report
-  line §13.4 lists is refused when missing; this task makes this one the same.
+  line §13.4 lists is refused when missing; this task makes this one the same, and its §13.4 bullet
+  says when it is required and gives its `none` form, describing only this feature (§31.1, Scope).
+- **Tests that file done reports.** Requiring the section breaks every test module that files a done
+  implement, fix, merge or ruling report without it: `GATE_COLD=1 python3 scripts/gate_parallel.py` in a scratch copy of `7b242fe` with a minimal required section added: 16 modules fail.
+  They are `test_board_staleness`, `test_full_lane_prompt`, `test_health_conflicts`,
+  `test_prompt_end`, `test_prompt_rounds`, `test_report_correction`, `test_report_fields`,
+  `test_report_sections`, `test_resolution_review`, `test_review_gate`, `test_review_skip`,
+  `test_review_skip_clean`, `test_review_skip_provers`, `test_suite`,
+  `test_tasks_release_keep_branch` and `test_toolkit`.
 - **Rulings for the build** (the lead's):
   - The section is a `report.SECTIONS` entry for the implement, fix, merge and ruling phases,
     required with `Outcome: done`: `- ` (or `* `) lines, or a single line beginning `none` followed
     by why. A done report without it, or with an empty section, is refused (exit 1, nothing
-    written), naming the section. The run keeps nothing new.
+    written), naming the section. The run keeps nothing new. The rendered last part asks for it from the entry's prompt line.
   - The four change-round templates keep the self-check instruction (list each branch, field,
     refusal or behaviour the diff adds or changes, with the test that fails without it, and write
     the missing tests) and name neither the section's heading nor its format: those come from the
@@ -63,17 +71,35 @@ Measured at `1aa5e3f`.
   - The reviewer brief names `ccp wt create --kind base --task <task_id> --sha <merge base> --
     <command>` (the merge base from `git merge-base origin/<integration> <PR head>`) for reading or
     running code at the base, and says never a hand-made checkout, `git archive` or `--kind mut` for it.
+  - The tests file done reports through one shared helper in `tests/helpers.py` that writes a done
+    report for a phase, with the section for the four change rounds; the modules listed above use it
+    instead of their own report text.
 - **Ordering.** `depends_on` 0257, which rewrites every template one sentence per line and depends on
-  every pending template task; clashes with 0219 and 0258, which edit `ccp/report.py`.
+  every pending template task, and 0255, which reworks the shared fixtures and most of those modules
+  (it depends on 0227 and 0241, which touch `tests/helpers.py` and `test_toolkit`). Clashes with 0219
+  and 0258 (`ccp/report.py`; 0258 also `test_toolkit` and `test_tasks_release_keep_branch`), 0242
+  (`test_toolkit`, `test_tasks_release_keep_branch`) and 0256 (`test_suite`).
 
 ## Scope
 
 - **In:** `templates/prompts/review.md`, `templates/prompts/implement.md`, `templates/prompts/fix.md`,
   `templates/prompts/merge.md`, `templates/prompts/ruling.md`, `plugin/agents/delivery-reviewer.md`,
-  `ccp/report.py` (the new `SECTIONS` entry and its reader), `tests/test_prompt_tools.py`,
-  `tests/test_worker_efficiency.py` (its three lines that pin the section's template wording),
-  `tests/test_report_tests_section.py` (new).
-- **Out:** `ccp suite affected` itself (unchanged), the verifier brief, the SPEC, the run record.
+  `ccp/report.py` (the new `SECTIONS` entry and its reader), `tests/helpers.py` (the done-report
+  helper), `tests/test_prompt_tools.py`, `tests/test_worker_efficiency.py` (its three lines that pin
+  the section's template wording), `tests/test_report_tests_section.py` (new), and the 16 modules
+  listed in Context (their done reports through the helper).
+- **SPEC (§31.1: the text only describes this task's feature):** `docs/spec/02-delivery.md` §13.4,
+  the report-lines bullet for the section:
+
+  CURRENT (`docs/spec/02-delivery.md` at `7b242fe`):
+  > - for implement, fix, merge and ruling, `## Tests for new behaviour` (§13.5);
+
+  PROPOSED:
+  > - for implement, fix, merge and ruling with `Outcome: done`, `## Tests for new behaviour` (§13.5): a
+  >   `- ` line for each behaviour the round's commits add or change, with the test that fails without
+  >   it, or a single line beginning `none` followed by why; a done report without it, or with the
+  >   section empty, is refused;
+- **Out:** `ccp suite affected` itself (unchanged), the verifier brief, the run record.
 
 ## dod_checks
 
@@ -108,6 +134,14 @@ Measured at `1aa5e3f`.
     2. Run `python3 -B -m unittest -v tests.test_worker_efficiency 2>&1 | tail -3`.
   expect: step 1 prints exactly one line, `templates/prompts/review.md:1`; step 2 ends `OK`.
   dry run (`1aa5e3f`): step 1 printed five lines (`fix.md`, `implement.md`, `merge.md`, `review.md`, `ruling.md`, 1 each); step 2 n/a (the test changes with the task).
+
+- id: `rv-05`
+  story: As the lead, §13.4 describes the section as the brief gives it.
+  setup: A checkout of the PR head.
+  steps:
+    1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0260`.
+  expect: exit 0, the PROPOSED passage found in `docs/spec/02-delivery.md`.
+  dry run (simulated, the passage applied to `docs/spec/02-delivery.md` on a scratch branch off `7b242fe`): exit 0, the passage found in `docs/spec/02-delivery.md`.
 
 ## Implementation notes
 

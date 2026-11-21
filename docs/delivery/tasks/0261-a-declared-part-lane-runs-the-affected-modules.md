@@ -99,8 +99,8 @@ Measured at `1aa5e3f`.
   story: As a reviewer in the plane's checkout, `ccp suite affected` hands me the plane's part lane, even for many modules.
   setup: A checkout of the PR head.
   steps:
-    1. Run `./bin/ccp suite affected --paths ccp/graph.py 2>&1 >/dev/null`.
-    2. Run `./bin/ccp suite affected --paths ccp/config.py 2>&1 >/dev/null`.
+    1. Run `CCP_DEV=1 ./bin/ccp suite affected --paths ccp/graph.py 2>&1 >/dev/null`.
+    2. Run `CCP_DEV=1 ./bin/ccp suite affected --paths ccp/config.py 2>&1 >/dev/null`.
   expect: step 1 prints `ccp suite affected: run them with: ccp suite run --lane part -- scripts/gate.sh tests.test_graph`; step 2 prints one line starting `ccp suite affected: run them with: ccp suite run --lane part -- scripts/gate.sh `, and no line saying to run the full lane.
   dry run (`1aa5e3f`): step 1 printed `ccp suite affected: run them with: ccp suite run --lane part -- python3 -m unittest tests.test_graph`; step 2 printed `ccp suite affected: 79 of 173 test modules: skip the pre-gate and run the full lane: ccp suite run --lane full`.
 - id: `pl-03`
@@ -117,7 +117,7 @@ Measured at `1aa5e3f`.
   steps:
     1. Run `./bin/ccp verify spec-text 0261`.
   expect: exit 0, the PROPOSED passage found in `docs/spec/02-delivery.md`.
-  dry run (simulated, the passage applied to `docs/spec/02-delivery.md` on a scratch branch off `1aa5e3f`): exit 0, the passage found in `docs/spec/02-delivery.md`.
+  dry run (simulated, the passage applied to `docs/spec/02-delivery.md` on a scratch branch off `7b242fe`): exit 0, the passage found in `docs/spec/02-delivery.md`.
 
 ## Implementation notes
 

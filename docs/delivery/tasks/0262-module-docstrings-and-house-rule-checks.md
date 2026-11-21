@@ -8,7 +8,7 @@ clashes_with: ["0213-a-green-tree-skips-the-lane-queue", "0214-an-exclusive-path
 review_refs: ["ar-20261121T111633Z-4e26#F05", "ar-20261121T111633Z-4e26#F07", "ar-20261121T111633Z-4e26#F08"]
 rule_refs: ["E4", "E24", "E25"]
 review_point: R19
-paths: ["ccp/board.py", "ccp/calibrate.py", "ccp/drill.py", "ccp/estimate.py", "ccp/estimator.py", "ccp/forecast.py", "ccp/health.py", "ccp/init.py", "ccp/mutate.py", "ccp/otel.py", "ccp/plane.py", "ccp/reviewpoints.py", "ccp/suite.py", "ccp/upgrade.py", "ccp/verify.py", "tests/test_cli_reference.py", "tests/test_verify_cache.py", "docs/delivery/plane.json", "docs/ENGINEERING.md"]
+paths: ["ccp/board.py", "ccp/calibrate.py", "ccp/drill.py", "ccp/estimate.py", "ccp/estimator.py", "ccp/forecast.py", "ccp/health.py", "ccp/init.py", "ccp/mutate.py", "ccp/otel.py", "ccp/plane.py", "ccp/reviewpoints.py", "ccp/suite.py", "ccp/upgrade.py", "ccp/verify.py", "tests/test_cli_reference.py", "tests/test_verify_cache.py", "docs/delivery/plane.json", "docs/ENGINEERING.md", "docs/cli/*.md", "ccp/CLAUDE.md"]
 adopt: "none"
 created: 2026-11-21
 updated: 2026-11-21
@@ -29,8 +29,9 @@ E4 gets a command check that stops the count of long prose-pinning assertions fr
 Measured at `1aa5e3f`.
 
 - From architect pass `ar-20261121T111633Z-4e26`, F05, F07 and F08, with its amendments to house
-  rules E25 and E4 (the record is in `docs/delivery/reviews/`). Its E12 amendment was applied by
-  the triage itself: E12's `architect.checks` entry is gone.
+  rules E25 and E4 (the record is in `docs/delivery/reviews/`). The triage applied the E12
+  amendment (E12's `architect.checks` entry is gone) and the E25 and E4 rule texts; the two rules'
+  `check:` lines, E25's entry and E4's count are this task's.
 - **Usage lines.** `git grep -nP '^ {2}ccp [a-z]' -- 'ccp/*.py'` at `1aa5e3f`: 42 lines in 13
   modules (`board`, `calibrate`, `drill`, `estimate`, `estimator`, `forecast`, `mutate`, `otel`,
   `plane`, `reviewpoints`, `suite`, `upgrade`, `verify`), all in module docstrings. `ccp/suite.py`'s
@@ -60,14 +61,12 @@ Measured at `1aa5e3f`.
     `<N>` the count at this task's head (at most 342).
   - `ORIGINAL` in `tests/test_verify_cache.py` is replaced by the token it guards (the setting's
     section is absent or present), not the sentence.
-  - `docs/ENGINEERING.md` takes these texts (house rules, no SPEC):
-    - **E25**: "The parser is the one source of the command surface. Call syntax is written by hand
-      in one place (docs/cli), held to the parser by a test; no module docstring in ccp/ carries a
-      usage table." `check: pass, plus the gate — tests.test_cli_reference checks the docs against
+  - `docs/ENGINEERING.md` takes these `check:` lines (house rules, no SPEC; the rule texts are
+    already in):
+    - **E25**: `check: pass, plus the gate — tests.test_cli_reference checks the docs against
       the parser and every ccp module's docstring for usage lines; the gate runs it (E1); no
       architect.checks entry`.
-    - **E4**: its text with "(it would run twice)" and the planning words "with task 0255" dropped;
-      `check: command — architect.checks E4: the borrowed-helper grep, and the count of assertIn and
+    - **E4**: `check: command — architect.checks E4: the borrowed-helper grep, and the count of assertIn and
       assertNotIn lines on a long string literal in tests/*.py held at or below
       the figure in the command (lowered as tasks remove them)`.
 - A refactor: behaviour is unchanged; the only test expectations that change are the docstring test
@@ -77,8 +76,9 @@ Measured at `1aa5e3f`.
 
 - **In:** the 13 modules' docstrings and those of `ccp/health.py` and `ccp/init.py`;
   `tests/test_cli_reference.py`, `tests/test_verify_cache.py`, `docs/delivery/plane.json`
-  (`architect.checks`), `docs/ENGINEERING.md` (E4, E25).
-- **Out:** code outside docstrings, `docs/cli` beyond anything a docstring held that it lacks, other
+  (`architect.checks`), `docs/ENGINEERING.md` (E4's and E25's `check:` lines), `docs/cli/*.md`
+  and `ccp/CLAUDE.md` (only for anything a docstring held that they lack).
+- **Out:** code outside docstrings, other
   long-literal assertions (ar-20261120T234012Z-27eb#F10, deferred).
 
 ## dod_checks
@@ -111,7 +111,7 @@ Measured at `1aa5e3f`.
   setup: A checkout of the PR head.
   steps:
     1. Run `python3 -B -c "import json; print([c['id'] for c in json.load(open('docs/delivery/plane.json'))['architect']['checks'] if '-m unittest' in c['cmd']])"`.
-    2. Run `./bin/ccp docs check 2>&1 | head -1`.
+    2. Run `CCP_DEV=1 ./bin/ccp docs check 2>&1 | head -1`.
   expect: step 1 prints `[]`; step 2 prints `docs: clean`.
   dry run (triage branch, after the E12 entry was dropped): step 1 printed `['E25']`; step 2 printed `docs: clean`.
 - id: `dc-05`

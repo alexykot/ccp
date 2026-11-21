@@ -16,11 +16,11 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - **E4** A test checks behaviour, not wording: no assertion on prose, help text or prompt text beyond
   the token it pins. A test names a plane constant or shared fixture fact (the worktrees directory, a
   binding) through the code or a fixture helper, never as a copied literal. A fixture class other
-  modules reuse holds no test methods; a class with tests is never imported into another module (it
-  would run twice), and no module binds another module's test-class methods as its own helpers.
+  modules reuse holds no test methods; a class with tests is never imported into another module, and no
+  module binds another module's test-class methods as its own helpers.
   check: pass — the architect counts long string-literal assertions and constants copied into tests;
   it becomes also a command check (architect.checks `E4`:
-  `! git grep -nE '= test_[a-z_]+\.[A-Z][A-Za-z]+\.[a-z_]+' -- tests`) with task 0255
+  `! git grep -nE '= test_[a-z_]+\.[A-Z][A-Za-z]+\.[a-z_]+' -- tests`)
 - **E15** Decision logic is separate from git, process and file I/O, so each branch is unit-tested on
   plain values. End-to-end tests cover the wiring, not every branch.
   check: pass — the architect looks for branches reachable only through a fixture repo; the health
@@ -101,7 +101,7 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   check: pass — the architect looks for ADR-link and task-id regexes outside ccp/refs.py, the known
   intentional ones below excepted
 - **E25** The parser is the one source of the command surface. Call syntax is written by hand in one
-  place (docs/cli), held to the parser by a test; no module docstring carries a usage table.
+  place (docs/cli), held to the parser by a test; no module docstring in ccp/ carries a usage table.
   check: command — `python3 -B -m unittest -q tests.test_cli_reference` (architect.checks `E25`)
 
 ## Docs

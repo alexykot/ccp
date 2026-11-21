@@ -52,9 +52,11 @@ Measured at `1aa5e3f`.
     `> ` blockquote under it. A `PROPOSED:` inside a code span or a fenced block is not read.
   - `refs.Ids` gains the merge-subject and branch task-id patterns (built from `ids.task.width`);
     `health` and `lifecycle` call them, and `health` keeps no task-id regex but the squash pattern.
-  - `ccp/adr.py`: one id-parameterised pattern each for a decision heading and a decision mark;
-    the matching patterns with groups and the finding patterns are built from them. The
-    known-intentional line of `docs/ENGINEERING.md` is updated to the names that remain.
+  - `ccp/adr.py`: `_DEC_HEAD` and `_DEC_MARK`, the id-parameterised descriptions of a decision
+    heading and a decision mark, are the one source. `_HEAD_PARTS` and `_MARK_PARTS` (matching with
+    named groups) are built from them, not written as their own raw regexes, and `_DEC_ANY` stays
+    built from them. The known-intentional line of `docs/ENGINEERING.md` names `_DEC_HEAD` and
+    `_DEC_MARK` as the line grammar and says the other patterns derive from them.
   - `plugin/skills/writing-tasks/SKILL.md`'s "Rule text is signed when the task is written" bullet
     says that every PROPOSED, §31.1 text included, goes in a `> ` blockquote under a `PROPOSED:` line.
 - **Ordering.** `depends_on` 0234 (it makes `ccp/tasklog.py` the one check parser and edits
@@ -112,18 +114,18 @@ Measured at `1aa5e3f`.
   story: As a plane developer, adr.py describes a decision's heading and mark once, and the refs and ADR tests hold.
   setup: A checkout of the PR head; then a separate copy of it with the mark pattern's `\*\*` alternatives removed.
   steps:
-    1. Run `git grep -nE '^_DEC_(HEAD|MARK) = r' -- ccp/adr.py | wc -l`.
+    1. Run `git grep -nE '^_(MARK|HEAD)_PARTS = re.compile\(r' -- ccp/adr.py`.
     2. On the head, run `python3 -B -m unittest -q tests.test_refs tests.test_adr`.
     3. In the copy, run `python3 -B -m unittest -q tests.test_adr`.
-  expect: step 1 prints `0` (no second hand-written description); step 2 exits 0; step 3 exits non-zero.
-  dry run (`1aa5e3f`): step 1 printed `2`; step 2 exited 0; step 3 n/a (the shared pattern lands with the task).
+  expect: step 1 prints nothing (the matching patterns are built from `_DEC_HEAD` and `_DEC_MARK`, not hand-written); step 2 exits 0; step 3 exits non-zero.
+  dry run (`7b242fe`): step 1 printed 2 lines (`_MARK_PARTS`, `_HEAD_PARTS`); step 2 exited 0; step 3 n/a (the shared pattern lands with the task).
 - id: `sb-05`
   story: As the operator, §3.5 reads as I signed it.
   setup: A checkout of the PR head; the brief sign-off recorded.
   steps:
     1. Run `./bin/ccp verify spec-text 0264`.
   expect: exit 0, the PROPOSED passage found in `docs/spec/01-model.md`.
-  dry run (simulated, the passage applied to `docs/spec/01-model.md` on a scratch branch off `1aa5e3f`): exit 0, the passage found in `docs/spec/01-model.md`.
+  dry run (simulated, the passage applied to `docs/spec/01-model.md` on a scratch branch off `7b242fe`): exit 0, the passage found in `docs/spec/01-model.md`.
 
 ## Implementation notes
 
