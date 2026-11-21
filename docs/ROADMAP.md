@@ -57,6 +57,15 @@ All reshape phases have landed.
     0207, which touch the same files.
   - F16: check how health attributes tokens to catch-up rounds before review (about 20 times those
     after review). Taken up when R15's integration-merges task lands.
+- **Deferred from architect pass `ar-20261121T020523Z-1d5f`** (record in `docs/delivery/reviews/`):
+  - F08: one contract test that validates an output of each writer against its schema in
+    `contracts/`, with enums such as the worktree kinds derived from code; then either schemas for
+    the run records and `runs/_suites.jsonl`, or contracts/CLAUDE.md narrowed to what is checked.
+    Past the cap, and it needs a validator choice first (the plane has no jsonschema dependency).
+    The proposed house rule comes with that task.
+  - F12: the plane's own `pregate` lane (`ccp tasks check` plus `ccp docs check`, beside its
+    `architect.checks`) is a lead adopt step once R15's 0212 lands, so a docs-rule failure shows
+    before the full lane. No task.
 - **Considered and declined:** continuing past the weekly allowance into paid extra usage (the plane
   runs on the prepaid allowance only, ADR-0026), and a separate task-drafting seat (the lead drafts
   tasks, with a writer subagent when several land at once).
