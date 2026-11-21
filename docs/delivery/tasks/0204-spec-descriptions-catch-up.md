@@ -154,4 +154,12 @@ paragraph.
 
 ## Implementation notes
 
+- The five PROPOSED texts are in place verbatim, re-wrapped to the files' line width (one long line
+  kept long in §13.2, as the paragraph is written). No code, no other text changed.
+- Premises re-run at `9c915aa`: all held (`window_hours` docstrings and `advice_start`; seven
+  `raise QueueError` in `resolution_gate`, six after the phase refusal; one counts line in
+  `ccp/mutate.py`; `shape_adrs` set from `adr_on` in `_architect`; the board-build count 0).
+- `bin/ccp verify spec-text` cannot judge this task: its Scope gives PROPOSED as quoted prose, not
+  `> ` blockquote lines, so sd-02's whitespace-normalised search is the proof.
+
 ## Verification notes
