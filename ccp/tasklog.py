@@ -62,6 +62,10 @@ NOTES_SECTIONS = (SEC_IMPL, SEC_VERIFY)
 CHECK_RE = re.compile(r"^- id: `([a-z]+-\d+)`[ \t]*(?:#.*)?$", re.M)
 # A key line of a check's block: an indent, a lowercase key (`dry run (`sha`)` is the key `dry run`), a colon.
 FIELD_RE = re.compile(r"^([ \t]+)([a-z_]+(?: [a-z_]+)*)(?: \([^)\n]*\))?:[ \t]*(.*)$", re.M)
+# Where a check runs (§5.5): its `runs_on:` line, right after its `setup:` line, holds the one value; a check
+# without the line is the workers' to run.
+RUNS_ON_KEY = "runs_on"
+RUNS_ON_OPERATOR = "operator-machine"
 # The statuses a task file carries: knowledge and outcomes. Who is working on a task, and in which
 # phase, is runtime state in the queue (§4).
 STATUSES = ("pending", "done", "dropped")
@@ -263,6 +267,17 @@ class Check:
     start: int
     end: int
 
+    @property
+    def runs_on(self) -> str | None:
+        """§5.5: the value of the check's `runs_on:` line as written, or None when it has none (the workers'
+        check). Only `operator-machine` is valid; `runs_on_errors` names any other, or a misplaced line."""
+        return self.fields.get(RUNS_ON_KEY)
+
+    @property
+    def on_operator_machine(self) -> bool:
+        """§5.5: the check is marked as one the workers cannot take."""
+        return self.runs_on == RUNS_ON_OPERATOR
+
 
 def _fields(block: str) -> dict[str, str]:
     """The `key: value` lines of a check's block, at the indent of its first one; a key repeated keeps its
@@ -290,6 +305,26 @@ def checks(text: str) -> list[Check]:
     for i, m in enumerate(heads):
         lo, hi = start + m.end(), start + (heads[i + 1].start() if i + 1 < len(heads) else len(body))
         out.append(Check(m.group(1), text[lo:hi], _fields(text[lo:hi]), lo, hi))
+    return out
+
+
+def runs_on_errors(c: Check) -> list[str]:
+    """§21.1: what is wrong with a check's `runs_on:` lines, each a phrase naming the line: a value other than
+    `operator-machine`, or a line that is not the key right after the check's `setup:` (its wrapped lines
+    aside). A line deeper in than the check's keys is out of place too."""
+    keys = list(FIELD_RE.finditer(c.block))
+    indent = keys[0].group(1) if keys else ""
+    out: list[str] = []
+    prev: str | None = None
+    for m in keys:
+        key, value = m.group(2), m.group(3).strip()
+        if key == RUNS_ON_KEY:
+            if value != RUNS_ON_OPERATOR:
+                out.append(f"`{RUNS_ON_KEY}: {value}` is not `{RUNS_ON_KEY}: {RUNS_ON_OPERATOR}`, the one value it takes")
+            if m.group(1) != indent or prev != "setup":
+                out.append(f"its `{RUNS_ON_KEY}:` line is not right after its `setup:` line")
+        if m.group(1) == indent:
+            prev = key
     return out
 
 
@@ -615,6 +650,12 @@ def _check_dry_runs(t: dict[str, Any], rel: str) -> list[str]:
             errs.append(f"{rel}: dod_check `{cid}` runs a command but records no `dry run (<commit>):` "
                         "line from its writer's run, nor `dry run: n/a — <reason>` (task_log.dry_run, WRITING-tasks.md)")
     return errs
+
+
+def _check_runs_on(t: dict[str, Any], rel: str) -> list[str]:
+    """§21.1: each check's `runs_on:` line holds `operator-machine` and comes right after its `setup:` line,
+    in a task of any status; a failure names the task's file and the check."""
+    return [f"{rel}: dod_check `{c.id}`: {why} (SPEC §5.5)" for c in checks(t["_text"]) for why in runs_on_errors(c)]
 
 
 def _tokens(cmd: str) -> list[str]:
@@ -1058,6 +1099,7 @@ def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
                         "more than one task (WRITING-tasks.md)")
         if len(set(checks)) != len(checks):
             errs.append(f"{rel}: duplicate dod_check ids")
+        errs += _check_runs_on(t, rel)
         if tl["dry_run"]:
             errs += _check_dry_runs(t, rel)
         if soft_re:

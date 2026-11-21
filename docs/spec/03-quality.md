@@ -500,6 +500,8 @@ Choosing mutants is the seat's; the plane ships no mutation operators.
 - a `kind: refactor` task whose dod_check runs the gate or full lane (named);
 - other than 1..6 unique `` - id: `kind-NN` `` checks, or soft language inside
   `## dod_checks` (dry-run lines are left out of that scan, since they quote output);
+- a `runs_on:` line with a value other than `operator-machine`, or not right after the check's
+  `setup:` line (§5.5);
 - a `done` task with no verification note (no `- ` line under `## Verification notes`);
 - in a product that still sets `task_log.dry_run: true` (§29.3), a `dod_check` of a task not `done` or `dropped` whose numbered step
   runs a backticked command but that carries no ``dry run (`<commit>`): <what it printed>`` line, or
