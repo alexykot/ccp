@@ -1,7 +1,7 @@
 ---
 task_id: 0229-orientation-extras-from-one-ccp-call
 title: The orientation hook gets everything it appends from one ccp call
-status: pending
+status: done
 kind: refactor
 depends_on: []
 review_refs: ["sh-20261120T235613Z-4fce#F08"]
@@ -103,3 +103,5 @@ Measured at `8aefa59`.
   (warning from the allowance status, a fired notice, no queue).
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #252 head `4f92fe9` (squash `9e8dcc6`): APPROVE. Passed: ot-01, ot-02, ot-04, ot-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0229-orientation-extras-from-one-ccp-call.json.
+
