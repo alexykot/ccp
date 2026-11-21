@@ -98,6 +98,17 @@ class Strict(InForceAtVerify):
         code, out, err = self.record(approve(head_sha=flipped[:12]))
         self.assertEqual(code, 0, out + err)
 
+    def test_a_frontmatter_key_named_like_the_loaded_body_does_not_crash_the_refusal(self):
+        path = self.p.root / "docs/adr/0001-a.md"
+        text = path.read_text()
+        path.write_text(text.replace("decisions: [", "_decisions: x\ndecisions: [", 1))
+        self.assertIn("_decisions: x", path.read_text())
+        head = self.commit("a hand-written _decisions key in the frontmatter")
+        code, _, err = self.record(approve(head_sha=head))
+        self.assertEqual(code, 1, err)
+        self.assertIn("ADR-0001 D1", err)
+        self.assertFalse(self.written().exists())
+
     def test_a_reject_is_never_held_back(self):
         code, out, err = self.record(approve(verdict="reject", head_sha=self.not_flipped))
         self.assertEqual(code, 0, out + err)

@@ -690,7 +690,7 @@ def in_force_at(cfg: Config, task: dict[str, Any], head: str) -> list[str]:
             meta = parse(fm) if fm is not None else {}
         except ParseError:
             meta = {}  # `ccp adr check` names an unreadable frontmatter; the gate runs it
-        if DecisionIndex.build([{**meta, "_number": n}], ids).blocks_done(n, dec):
+        if DecisionIndex.build([{"_number": n, "decisions": meta.get("decisions")}], ids).blocks_done(n, dec):
             errs.append(f"{tid} cites {ids.adr_id(n)} D{dec}, which {path} records as not_built at the PR head "
                         f"{head[:12]}: closing the task marks it done, and the in-force ADR check (SPEC §6.7, "
                         f"adr.strict) then fails on the integration branch; flip it on the PR head: "
