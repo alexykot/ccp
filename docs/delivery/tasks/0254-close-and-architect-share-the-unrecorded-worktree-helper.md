@@ -110,4 +110,21 @@ callers in `ccp/lifecycle.py`, next to the code this task moves.
 
 ## Implementation notes
 
+- 2026-11-21 (implementer): `ccp/wt.py`'s `_link` is now the public `link`; `add_unrecorded(cfg, main, path, rev)`
+  names `worktrees.dir` (`base_dir(cfg)`, when set) in info/exclude, adds `path` detached at `rev` and links; a git
+  error raises `QueueError(..., 1)` naming the path. `remove_unrecorded(main, path)` is `worktree remove --force`
+  then `prune`, failures ignored. `ARCH_PREFIX`/`ARCH_RE` sit beside `MERGE_RE`; `ARCH_RE` takes `arch-` plus a
+  review id's shape (`<letters>-<8 digits>T<6 digits>Z-<4 hex>`), and a test holds it to both id kinds the
+  architect makes. `ccp wt list` (no `--task`) shows an `arch-` directory as `kind: arch`, `recorded: false`,
+  no task; with `--task` it does not, as for a pre-record worktree.
+- The architect builds its worktree's name from `wt.ARCH_PREFIX`; `_make_worktree` drops its `wdir` argument
+  (`add_unrecorded` takes the directory from the config). Its git error is now a `QueueError`, not a
+  `RuntimeError`; the pass catches either and fails the same way.
+- Close's merge worktree: a reused one is reset, cleaned and linked as before; a new one is made with
+  `add_unrecorded`, which also names the worktree directory in info/exclude (close did not before; `ccp wt create`
+  and the architect did). Close's own removal of the merge worktree is unchanged.
+- Tasks dry-run's temporary tree is made and removed through the helpers; its unused `_git` went.
+- `tests/test_wt_outside.py`: close calls `_merge_checkout` twice at this head, for the local host's squash and
+  then the reconcile, so the test pins `[merge-0002, merge-0002]`.
+
 ## Verification notes
