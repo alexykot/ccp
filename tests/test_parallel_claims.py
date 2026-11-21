@@ -3,6 +3,7 @@ the claim's refusals (exit 7), `next`'s head of line, the tasks it passes over a
 `parallel.max_in_flight` is 1."""
 from __future__ import annotations
 
+import dataclasses
 import json
 import time
 import unittest
@@ -117,25 +118,94 @@ class Claims(ParallelFixture, unittest.TestCase):
         self.assertIn("`src/app/pool.py` meets in-flight 0002-second", err)
         self.assertNotIn("0003-third", self.work()["in_flight"])
         self.assertFalse((self.q / "tasks/0003-third.json").exists())  # refused before anything was written
-        # next passes over 0003 and 0004 (only 0002's path keeps them out); 0005, exclusive, runs alone and
-        # holds the line, so nothing is offered
+        # next passes over 0003 and 0004 (only 0002's path keeps them out); 0005 says parallel: false, runs
+        # alone and holds the line, so nothing is offered
+        self.write("docs/delivery/tasks/0005-fifth.md", task("0005-fifth", "`db/schema.sql`, `src/db.py`",
+                                                             extra="parallel: false\n"))
         code, body, out, err = self.ccp("tasks", "next", "--json", root=self.main)
         self.assertEqual(code, 7, out)
         self.assertEqual((body["slots_full"], body["head"], body["in_flight"]), (True, "0003-third", ["0002-second"]))
         self.assertEqual([p["task_id"] for p in body["passed_over"]], ["0003-third", "0004-fourth"])
         self.assertIn("passed over 0003-third", err)
 
-    def test_exclusive_no_path_and_parallel_false_run_alone(self):
-        self.assertEqual(self.claim("0005")[0], 0)  # alone: allowed
-        code, _, out, err = self.claim("0003")
-        self.assertEqual(code, 7)
-        self.assertIn("is exclusive", err)
-        self.ccp("tasks", "release", "0005", "--reason", "t", root=self.main)
+    def test_a_task_meeting_no_exclusive_entry_is_claimed_beside_an_exclusive_one(self):
+        self.assertEqual(self.claim("0005")[0], 0)  # `db/schema.sql`, exclusive
+        code, _, out, err = self.claim("0003")  # `src/app/views.py`
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.work()["in_flight"], ["0005-fifth", "0003-third"])
+
+    def test_two_tasks_meeting_one_exclusive_entry_are_kept_apart_and_next_passes_over_the_second(self):
+        self.write("docs/delivery/tasks/0002-second.md", task("0002-second", "`db/schema.sql`"))
+        self.assertEqual(self.claim("0005")[0], 0)
+        code, _, out, err = self.claim("0002")
+        self.assertEqual(code, 7, out + err)
+        self.assertIn("in-flight 0005-fifth", err)
+        self.assertIn("exclusive `db/schema.sql`", err)
+        self.assertIn("rule 4", err)
+        self.assertNotIn("0002-second", self.work()["in_flight"])
+        code, body, out, err = self.ccp("tasks", "next", "--json", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["task_id"], "0003-third")  # meets no exclusive entry
+        self.assertEqual([p["task_id"] for p in body["passed_over"]], ["0002-second"])
+        self.assertIn("rule 4", body["passed_over"][0]["why"])
+
+    def test_a_task_meeting_the_exclusive_entry_of_a_passed_over_task_is_passed_over_too(self):
+        self.plane(max_in_flight=2, exclusive=["db/schema.sql", "db/migrations/"])
+        self.write("docs/delivery/tasks/0002-second.md", task("0002-second", "`db/schema.sql`, `db/migrations/0001.sql`"))
+        self.write("docs/delivery/tasks/0003-third.md", task("0003-third", "`db/migrations/0002.sql`"))
+        self.assertEqual(self.claim("0005")[0], 0)
+        code, body, out, err = self.ccp("tasks", "next", "--json", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["task_id"], "0004-fourth")
+        self.assertEqual([p["task_id"] for p in body["passed_over"]], ["0002-second", "0003-third"])
+        why = body["passed_over"][1]["why"]
+        self.assertIn("passed-over 0002-second", why)
+        self.assertIn("exclusive `db/migrations/`", why)
+
+    def test_parallel_false_and_no_path_still_run_alone(self):
         self.assertEqual(self.claim("0003")[0], 0)
         code, _, _, err = self.claim("0006")  # no path, no parallel: true
         self.assertEqual(code, 7)
         self.assertIn("names no path", err)
+        self.write("docs/delivery/tasks/0004-fourth.md", task("0004-fourth", "`src/other.py`", extra="parallel: false\n"))
+        code, _, _, err = self.claim("0004")
+        self.assertEqual(code, 7)
+        self.assertIn("parallel: false", err)
+        self.assertIn("rule 2", err)
         self.assertEqual(self.claim("0007")[0], 0, "parallel: true changes no file and runs beside anything")
+
+    def test_an_exclusive_task_shares_the_forecast_slots_with_a_task_meeting_no_exclusive_entry(self):
+        self.plane(max_in_flight=2, schedule="clashes", exclusive=["db/schema.sql"])
+        self.write("docs/delivery/tasks/0002-second.md", task("0002-second", "`db/schema.sql`"))
+        self.write("docs/delivery/tasks/0003-third.md", task("0003-third", "`db/`"))
+        self.write("docs/delivery/tasks/0004-fourth.md", task("0004-fourth", "`src/app/views.py`"))
+        for tid in ("0005-fifth", "0006-sixth", "0007-watch"):
+            self.write(f"docs/delivery/tasks/{tid}.md", task(tid, "`other/x.py`", status="dropped"))
+        (self.q / "estimates").mkdir(exist_ok=True)
+        for tid in ("0002-second", "0003-third", "0004-fourth"):
+            (self.q / "estimates" / f"{tid}.jsonl").write_text(json.dumps({
+                "at": "2026-10-22T10:00:00Z", "task_id": tid, "version": 1, "source": "baseline",
+                "total": {"p50_s": 600, "p90_s": 900}, "tokens": None, "cost_usd": None}) + "\n")
+        code, body, out, err = self.ccp("forecast", "--backlog", "--json", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["order"], ["0002-second", "0003-third", "0004-fourth"])
+        tp = body["throughput"]
+        self.assertEqual((tp["slots"], tp["apart_pairs"]), (2, 1))  # 0003 after 0002; 0004 beside 0002
+        self.assertIn("0 task(s) run alone", tp["text"])
+
+    def test_the_pairwise_exclusive_rule_under_either_schedule(self):
+        base = config.load(self.main)
+        a = {"task_id": "0002-a", "paths": ["db/schema.sql", "src/a.py"], "_text": ""}
+        b = {"task_id": "0003-b", "paths": ["src/b.py", "db/"], "_text": ""}
+        c = {"task_id": "0004-c", "paths": ["src/c.py"], "_text": ""}
+        for schedule in ("paths", "clashes"):
+            cfg = dataclasses.replace(base, parallel={**config.PARALLEL_DEFAULTS, "schedule": schedule,
+                                                      "exclusive": ["db/schema.sql"]})
+            self.assertEqual(parallel.kept_apart(cfg, a, b), parallel.Apart("exclusive", "db/schema.sql", "db/"), schedule)
+            self.assertEqual(parallel.kept_apart(cfg, b, a), parallel.Apart("exclusive", "db/", "db/schema.sql"), schedule)
+            self.assertIsNone(parallel.kept_apart(cfg, a, c), schedule)
+            self.assertIsNone(parallel.kept_apart(cfg, {**b, "parallel": True}, a), schedule)
+            self.assertFalse(parallel.runs_alone(cfg, a), schedule)
 
     def test_the_session_ceiling_and_an_unknown_reading(self):
         self.assertEqual(self.claim("0002")[0], 0)

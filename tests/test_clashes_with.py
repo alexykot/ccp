@@ -116,6 +116,7 @@ class Claims(Fixture, unittest.TestCase):
         self.assertEqual(code, 7, out + err)
         self.assertIn("clashes with in-flight 0002-second", err)  # rule 3 speaks first
         self.task("0003-third", "`src/app/views.py`")
+        self.task("0002-second", "`src/app/pool.py`, `src/app/views.py`")  # in flight: both meet the entry
         code, _, out, err = self.claim("0003")
         self.assertEqual(code, 7, out + err)
         self.assertIn("rule 4", err)
