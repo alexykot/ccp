@@ -25,8 +25,9 @@ P50 and P90 of the ones that have one, and is counted (`unestimated`).
 **The throughput** (`throughput`). The runner takes one task at a time (with SPEC §16's
 `parallel.max_in_flight` above 1, that many slots: a task starts at the earliest free slot, and one
 that runs alone takes them all; a gap is measured only where the task that starts was held alone, though
-every merge moves the frontier; a task also starts after each task ahead of it that claim rule 3 keeps it from running
-beside, `parallel.kept_apart`, by `parallel.schedule`; the 5-hour ceiling is not modelled): the next task starts at the
+every merge moves the frontier; a task also starts after each task ahead of it that claim rules 3 and 4 keep it from
+running beside, `parallel.kept_apart`: rule 3 by `parallel.schedule`, rule 4 a `parallel.exclusive` entry both meet;
+the 5-hour ceiling is not modelled): the next task starts at the
 latest merge so far plus a gap drawn from the gaps observed between consecutive tasks (the drill-down's
 windows, first recorded event to the merge, for the recent merged tasks). A negative gap is an observed
 overlap: the next task started before the previous one merged. A gap of GAP_STOP_S or more is a stop
@@ -1018,7 +1019,7 @@ def collect(cfg: Config, q: Path | None, *, tasks: list[dict[str, Any]] | None =
     if slots > 1:
         metas = {str(t.get("task_id")): t for t in (tasks if tasks is not None else tasklog.load(cfg))}
         alone = {t for t in order if t in metas and parallel.runs_alone(cfg, metas[t])}
-        # §16.7: a task starts after each task ahead of it that rule 3 keeps it from running beside
+        # §16.7: a task starts after each task ahead of it that rules 3 and 4 keep it from running beside
         for j, b in enumerate(order):
             for a in order[:j]:
                 if a in metas and b in metas and parallel.kept_apart(cfg, metas[a], metas[b]) is not None:
@@ -1031,7 +1032,7 @@ def collect(cfg: Config, q: Path | None, *, tasks: list[dict[str, Any]] | None =
         tp["schedule"] = schedule
         tp["text"] = (f"up to {slots} tasks at once (parallel.max_in_flight, SPEC §16); each starts at the earliest "
                       f"free slot plus an observed gap; {len(alone)} task(s) run alone; {pairs} pair(s) of tasks "
-                      f"kept apart (rule 3, parallel.schedule {schedule}): the later starts after the earlier ends. "
+                      f"kept apart (rules 3 and 4, parallel.schedule {schedule}): the later starts after the earlier ends. "
                       "Not modelled: work past the 5-hour ceiling, which still shares slots. " + tp["text"])
     elapsed = {t: _flight_elapsed(q, t, drill, work, now) for t in seq["in_flight"]}
     # waits flagged now: an open wait, gate or question on a remaining task

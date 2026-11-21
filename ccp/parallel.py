@@ -4,8 +4,9 @@ A task's paths are the backticked paths in its Scope section's **In:** item. Whi
 apart depends on `parallel.schedule`. Under `paths`, two tasks run together only when their
 paths do not meet (unless both are covered by a `parallel.shared` entry, a file tasks only append lines
 to). Under `clashes` (the default), they run together unless one names the other in `clashes_with` (§5), whatever their
-paths; paths then only feed rules 2 and 4. Either way neither touches a product's `parallel.exclusive` entry, and the
-account's 5-hour usage is below the session ceiling, a constant (a machine without
+paths; paths then only feed rules 2 and 4. Rule 4 is pairwise too, under either schedule: two tasks that both meet the
+same `parallel.exclusive` entry run apart, and a task meeting one runs beside tasks that do not. The
+account's 5-hour usage must be below the session ceiling, a constant (a machine without
 `allowance_cmd` reads no usage, so that rule passes). Correctness never rests on these
 rules (§16.1): verify and merge run one at a time on the current head. They only decide what to
 start together. With `parallel.max_in_flight` 1 nothing here is consulted.
@@ -193,10 +194,25 @@ def paths_meet(cfg: Config, a: dict[str, Any], b: dict[str, Any]) -> tuple[str, 
     return None
 
 
+def exclusive_meet(cfg: Config, a: dict[str, Any], b: dict[str, Any]) -> tuple[str, str, str] | None:
+    """§16.3 rule 4 between two tasks: the first path of `a` and path of `b` that both meet the same
+    `parallel.exclusive` entry, with that entry; a task saying `parallel: true` meets none."""
+    if flag(a) is True or flag(b) is True:
+        return None
+    for x in settings(cfg).get("exclusive") or []:
+        for p in paths(cfg, a):
+            if meets(p, x):
+                for o in paths(cfg, b):
+                    if meets(o, x):
+                        return p, o, x
+    return None
+
+
 @dataclass(frozen=True)
 class Apart:
-    """Why two tasks may not run together (§16.3 rule 3): `kind` is `paths` (`a_path` of the first meets
-    `b_path` of the second) or `clash` (one names the other in `clashes_with`; no paths)."""
+    """Why two tasks may not run together (§16.3 rules 3 and 4): `kind` is `exclusive` (`a_path` of the first
+    and `b_path` of the second meet the same `parallel.exclusive` entry, rule 4), `paths` (`a_path` of the
+    first meets `b_path` of the second) or `clash` (one names the other in `clashes_with`; no paths)."""
     kind: str
     a_path: str = ""
     b_path: str = ""
@@ -212,24 +228,41 @@ def clashes(a: dict[str, Any], b: dict[str, Any]) -> bool:
 
 
 def kept_apart(cfg: Config, a: dict[str, Any], b: dict[str, Any]) -> Apart | None:
-    """Whether tasks `a` and `b` may not run together (§16.3 rule 3): the reason, or None when they may.
-    The one pairwise predicate: rule 3 and `next`'s passed-over walk both ask it. Under `parallel.schedule`
-    `paths` it is `paths_meet`; under `clashes` it is the recorded clash, whatever the paths, and
-    `parallel: true` does not lift it."""
+    """Whether tasks `a` and `b` may not run together (§16.3 rules 3 and 4): the reason, or None when they may.
+    The one pairwise predicate: the claim rules and `next`'s passed-over walk both ask it. Rule 4 first, under
+    either schedule: both meet the same exclusive entry (`exclusive_meet`). Then rule 3: under
+    `parallel.schedule` `paths` it is `paths_meet`; under `clashes` it is the recorded clash, whatever the
+    paths, and `parallel: true` does not lift it."""
+    if (ex := exclusive_meet(cfg, a, b)) is not None:
+        return Apart("exclusive", ex[0], ex[1])
     if settings(cfg).get("schedule", "paths") == "clashes":
         return Apart("clash") if clashes(a, b) else None
     met = paths_meet(cfg, a, b)
     return Apart("paths", met[0], met[1]) if met is not None else None
 
 
+def apart_why(cfg: Config, cid: str, met: Apart, other: str, whose: str) -> str:
+    """Why `cid` may not run beside `other`, `whose` the other's place (`in-flight`, `passed-over`):
+    the clash, the two paths that meet, or the two paths that meet the same exclusive entry."""
+    if met.kind == "clash":
+        return f"{cid} clashes with {whose} {other}"
+    if met.kind == "exclusive":
+        x = next((x for x in settings(cfg).get("exclusive") or [] if meets(met.a_path, x) and meets(met.b_path, x)), "")
+        return f"{cid}'s `{met.a_path}` and {whose} {other}'s `{met.b_path}` both meet the exclusive `{x}`"
+    return f"{cid}'s `{met.a_path}` meets {whose} {other}'s `{met.b_path}`"
+
+
+RULE_OF = {"clash": "clashes_with, rule 3", "exclusive": "parallel.exclusive, rule 4", "paths": "rule 3"}
+
+
 def join_refusal(cfg: Config, cand: dict[str, Any], active: list[dict[str, Any]],
-                 sample: dict[str, Any] | None, five_known: bool = True, rule3: bool = True) -> str | None:
+                 sample: dict[str, Any] | None, five_known: bool = True, pairwise: bool = True) -> str | None:
     """Why `cand` may not be claimed beside `active` (§16.3 rules 1-5), or None when it may.
     An empty `active` is never refused here: a lone claim is judged as before §16. `sample` is the
     reading in force (`five_hour`, `seven_day`; §25.1), None when there is none, which refuses rule 5;
     `five_known` False skips rule 5 (`next` with no reading in force: the claim reads), and so does a
     machine with no `allowance_cmd`.
-    `rule3` False skips the path rule (`next` asks whether rule 3 alone keeps a task out)."""
+    `pairwise` False skips rules 3 and 4, the pairwise rules (`next` asks whether they alone keep a task out)."""
     if not active:
         return None
     s = settings(cfg)
@@ -243,18 +276,9 @@ def join_refusal(cfg: Config, cand: dict[str, Any], active: list[dict[str, Any]]
             return f"{tid} says parallel: false: it runs alone (rule 2)"
         if flag(t) is not True and not paths(cfg, t):
             return f"{tid} names no path in its Scope In: item and does not say parallel: true: it runs alone (rule 2)"
-    for t in active if rule3 else []:
+    for t in active if pairwise else []:
         if (met := kept_apart(cfg, cand, t)) is not None:
-            if met.kind == "clash":
-                return f"{cid} clashes with in-flight {t.get('task_id')} (clashes_with, rule 3)"
-            return f"{cid}'s `{met.a_path}` meets in-flight {t.get('task_id')}'s `{met.b_path}` (rule 3)"
-    for t in group:
-        if flag(t) is True:
-            continue
-        for p in paths(cfg, t):
-            for x in s["exclusive"]:
-                if meets(p, x):
-                    return f"{t.get('task_id')}'s `{p}` is exclusive (`{x}`, parallel.exclusive): it runs alone (rule 4)"
+            return f"{apart_why(cfg, cid, met, str(t.get('task_id')), 'in-flight')} ({RULE_OF[met.kind]})"
     if five_known and reads_usage(cfg) and not no_five_hour_limit(sample):
         ceiling = float(usage.account(cfg)["ceiling_pct"])
         if sample is None:
@@ -291,10 +315,11 @@ def next_choice(cfg: Config, q: Path | None, sel: dict[str, Any]) -> dict[str, A
     None, `slots_full`, None or what to tell the runner (§16.3, exit 7), and `passed_over`, the
     `{task_id, why}` of each task passed over. Without parallel, row 0 of the selection, as before §16
     (an in-flight task included: the runner resumes it). With tasks in flight, the ready tasks not in
-    flight are walked in rank order: the first that may join what the runner holds and that rule 3 would
-    not keep from joining a task passed over is taken. A task that rule 3 alone keeps out, or that rule 3
-    would keep from joining a passed-over task, is passed over: it waits only for the tasks rule 3 keeps
-    it from (its paths meet, or under `parallel.schedule: clashes` it clashes with).
+    flight are walked in rank order: the first that may join what the runner holds and that rules 3 and 4
+    would not keep from joining a task passed over is taken. A task that rules 3 and 4 alone keep out, or
+    that they would keep from joining a passed-over task, is passed over: it waits only for the tasks they
+    keep it from (its paths meet, or under `parallel.schedule: clashes` it clashes with, and those meeting
+    an exclusive entry it meets).
     A task any other rule keeps out ends the walk with none (head of line); `slots_full` names the first
     ready task as `head`, with its refusal. Rule 5 is judged on the reading in force (§25.1: the latest
     good sample no older than `usage.IN_FORCE_S`); with none it is not judged here, and the claim reads."""
@@ -321,15 +346,14 @@ def next_choice(cfg: Config, q: Path | None, sel: dict[str, Any]) -> dict[str, A
         why = join_refusal(cfg, t, active, last, five_known=fresh)
         if n == 0:
             head_why = why
-        if why is not None and join_refusal(cfg, t, active, last, five_known=fresh, rule3=False) is not None:
-            break  # rules 1, 2, 4 or 5: the line waits here
+        if why is not None and join_refusal(cfg, t, active, last, five_known=fresh, pairwise=False) is not None:
+            break  # rules 1, 2 or 5: the line waits here
         behind = next(((o, met) for o in held if (met := kept_apart(cfg, t, o)) is not None), None)
         if why is None and behind is None:
             return {"pick": row, "slots_full": None, "passed_over": passed}
         if why is None and behind is not None:
             o, met = behind
-            why = (f"{tid} clashes with passed-over {o.get('task_id')}" if met.kind == "clash" else
-                   f"{tid}'s `{met.a_path}` meets passed-over {o.get('task_id')}'s `{met.b_path}`")
+            why = apart_why(cfg, tid, met, str(o.get("task_id")), "passed-over")
         passed.append({"task_id": tid, "why": why})
         held.append(t)
     return {"pick": None, "passed_over": passed,
@@ -338,13 +362,13 @@ def next_choice(cfg: Config, q: Path | None, sel: dict[str, Any]) -> dict[str, A
 
 
 def runs_alone(cfg: Config, t: dict[str, Any]) -> bool:
-    """§16.3 rules 2 and 4 for one task: it never shares the runner (parallel: false; no path and no
-    parallel: true; a path that meets an exclusive entry). The forecast gives it every slot (§16.7)."""
+    """§16.3 rule 2 for one task: it never shares the runner (parallel: false; no path and no
+    parallel: true). The forecast gives it every slot (§16.7); an exclusive entry keeps a task apart only
+    from the tasks that meet the same entry (rule 4, `kept_apart`)."""
     f = flag(t)
     if f is True:
         return False
-    ps = paths(cfg, t)
-    return f is False or not ps or any(meets(p, x) for p in ps for x in settings(cfg)["exclusive"])
+    return f is False or not paths(cfg, t)
 
 
 def missing_paths(cfg: Config, t: dict[str, Any], tasks: list[dict[str, Any]] | None = None) -> list[str]:

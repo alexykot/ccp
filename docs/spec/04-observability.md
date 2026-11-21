@@ -479,7 +479,9 @@ review point and for the whole backlog. It is advisory.
   finished. A task with no estimate takes the median band of the others and is counted.
 - **Throughput.** The model has `parallel.max_in_flight` slots (§16). A task starts at the earliest
   free slot after its dependencies merge and after every task ahead of it that claim rule 3 keeps it from running beside ends (§16.3, by `parallel.schedule`: paths that meet, or a clash), never before the task ahead of it started; a task without
-  paths and without `parallel: true`, or touching an exclusive path, takes every slot. The gap before a
+  paths and without `parallel: true`, or saying `parallel: false`, takes every slot, and a task
+  touching an exclusive entry also waits for each task ahead of it touching the same entry (§16.3
+  rule 4). The gap before a
   start is drawn from observed gaps between consecutive tasks (only closes with `peak_in_flight` 1);
   a gap of 30 minutes or more is a stop, left out and counted. With one slot this is the one-at-a-time
   model.
