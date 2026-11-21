@@ -121,6 +121,7 @@ its task file is resolved, never a blocker; the board lists it as queue-against-
 | `progress/<id>.json`, the verifier packet | the runner |
 | `progress/<id>/<phase>-report.md` (`progress/<task_id>/<phase>-report.md`) | each worker submits its full report with `ccp report <run_id> FILE`, then tells the runner by `SendMessage` |
 | `verification/<id>.json` | the verifier subagent, through `ccp verify record` |
+| `verification/<id>.later.jsonl` | the lead or the runner, through `ccp verify later`, after the task closed (§15.4) |
 | `review/` | the reviewer subagent |
 | `prompts/<task_id>/<UTC>_<phase>.json` | the runner, before each worker launch (the audit of the prompt it passes, `session_id` replaced by the worker's name; §23.8); the lead, before each runner spawn (`phase: runner-spawn`) |
 | `questions/sm-*.json` | the runner |
