@@ -1,7 +1,7 @@
 ---
 task_id: 0227-the-test-fixture-uses-the-local-pr-host
 title: The shared test fixture runs on the local PR host, and the fake gh goes
-status: pending
+status: done
 kind: refactor
 depends_on: ["0222-a-product-without-github-uses-the-local-pr-host"]
 clashes_with: ["0241-gate-module-tests-wiring-only", "0242-retire-restructure-scaffolding-and-queue-markers"]
@@ -106,3 +106,5 @@ Measured at `8aefa59`.
 - `docs/ENGINEERING.md` E2, `tests/CLAUDE.md` and `docs/design/toolkit.md` say the fixture uses the local PR host.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #281 head `4d6d5d3` (close's catch-up of the approved `4581044`, gate run st-20261121T182439Z-a95751) (squash `64efe0c`): APPROVE. Passed: fx-01, fx-02, fx-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0227-the-test-fixture-uses-the-local-pr-host.json.
+
