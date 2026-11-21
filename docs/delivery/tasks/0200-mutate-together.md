@@ -132,4 +132,20 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- `mutate.together(parts, texts)` is the decision on plain values: the fewer-than-two refusal, the
+  file-sharing refusal (any part other than a substitution sharing a file), the in-order check of
+  substitutions on one file and the row's `parts`, `files` (union, order of first touch) and `digest`.
+  `_run` parses the substitutions without the per-file count check under `--together` (`parse` and
+  `parse_file` take `count`), so a later part may find an old text an earlier one wrote; a lone
+  substitution on its file is then checked against the unmutated file by `together`, as before.
+- The fewer-than-two refusal comes after the run, worktree and per-part checks, still before
+  anything runs (no unmutated run, no log).
+- `_apply` applies a `together` mutant's parts in order under the one snapshot `_run` already takes
+  of `m["files"]`; a part that does not apply raises exit 2 and the existing `finally` restores the
+  tree. The row gains `parts` only for a `together` mutant.
+- Beyond the six Scope tests: a later part editing what an earlier one wrote, a part that does not
+  apply (exit 2, tree restored), and `together` on plain parts.
+- The move test alone does not catch "`--together` applies only its first part" (deleting the step
+  already fails its test); the two-file test does (mt-02 asks for one of the two).
+
 ## Verification notes
