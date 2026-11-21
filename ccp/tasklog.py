@@ -705,7 +705,9 @@ def unmeasured_numbers(t: dict[str, Any], rel: str) -> list[str]:
     unfenced = FENCE_RE.sub(_blank, body)
     out = []
     for n, line in enumerate(unfenced.split("\n")):
-        if QUOTED_RE.match(line) or any(len(span.group(0).strip("`").split()) > 1 for span in CODE_SPAN_RE.finditer(line)):
+        if QUOTED_RE.match(line):
+            continue
+        if any(len(span.group(0).strip("`").split()) > 1 for span in CODE_SPAN_RE.finditer(line)):
             continue
         prose = WORD_DATE_RE.sub(_blank, LIST_MARKER_RE.sub(r"\1", CODE_SPAN_RE.sub(_blank, line)))
         prose = NOT_MEASURED_RE.sub(lambda m: m.group(0)[:m.start(1) - m.start(0)] + " " * len(m.group(1)), prose)

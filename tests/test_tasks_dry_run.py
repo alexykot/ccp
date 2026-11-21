@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import unittest
 
-from ccp import dryrun, tasklog
-from tests.helpers import TASK
+from ccp import config, dryrun, tasklog
+from tests.helpers import TASK, Product
 from tests.test_toolkit import ToolkitFixture, git
 
 CHECKS = """- id: `cmd-01`
@@ -75,6 +75,14 @@ class StepsAndRecords(unittest.TestCase):
         self.assertFalse(dryrun.claimed({"lease_holder": None}))
 
 
+class ConfigLoad(unittest.TestCase):
+    def test_a_check_may_load_the_config_from_a_str(self):
+        p = Product()
+        self.addCleanup(p.cleanup)
+        self.assertEqual(config.load(str(p.root)).project_id, p.cfg.project_id)
+        self.assertEqual(config.load(str(p.root)).root, p.root)
+
+
 class DryRunCommand(ToolkitFixture, unittest.TestCase):
     """The command against a product with a bare origin and a clone: 0003 pending with a check that runs
     `echo one` and one whose step is prose; 0002 claimed."""
@@ -132,7 +140,6 @@ class DryRunCommand(ToolkitFixture, unittest.TestCase):
         self.assertEqual(git(self.main, "status", "--porcelain"), "")
 
     def cfg_main(self):
-        from ccp import config  # noqa: PLC0415
         return config.load(self.main)
 
 
