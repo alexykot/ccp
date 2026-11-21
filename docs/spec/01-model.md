@@ -592,6 +592,7 @@ block and list values; a line outside it fails the check.
 | `id`, `title`, `status`, `date` | required | `status` one of the statuses (§6.4); `date` `YYYY-MM-DD` |
 | `deciders` | optional | who decides |
 | `supersedes`, `superseded_by`, `amends` | optional | links, each a list of `<ADR id>` or `<ADR id> Dn` |
+| `requires` | optional | prerequisites, each `"<Dn> <ADR id> <Dm>"` (this ADR's Dn rests on that ADR's Dm) or `"<Dn> <Dm>"` within the ADR; only decisions are named (§6.5) |
 | `review_points` | optional | the review points it is built in (§22) |
 | `spec_refs` | optional | SPEC sections it relies on or changes |
 | `decisions` | optional | each decision's build state (§6.3) |
@@ -628,7 +629,8 @@ What is built and what still stands is a field per decision, never free text.
   `accepted` → `superseded` | `retired`, and for older ADRs
   `in-progress` → `accepted` | `superseded` | `retired` and `implemented` → `superseded` | `retired`.
 - Accepting an ADR records every body decision not yet recorded as `not_built`; retiring it retires
-  every decision.
+  every decision. Accepting refuses while another ADR its `requires` names is still `proposed`,
+  naming it: the prerequisite is accepted first.
 
 ### 6.5 Links
 
