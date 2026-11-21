@@ -118,5 +118,8 @@ Measured at `58cf1d0`.
   `half its directory` line in the SPEC: as the task states.
 - `ccp` on PATH runs the run checkout, so before release `ccp --root . docs check` shows the old
   failure (`8 lines against 8 of source`); `bin/ccp` of the worktree prints `docs: clean`.
+- Fix round 1 (review MINOR): the one test holding all three Scope cases is now three, so `unittest -v`
+  lists each. A small `check_listed` helper in the test module builds the product, once from files and once
+  from a checkout, and yields the errors. No code change.
 
 ## Verification notes
