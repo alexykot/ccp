@@ -26,7 +26,7 @@
       },
       {
         "id": "E19",
-        "cmd": "! git grep -nE 'CCP_GH_BIN|headRefOid|mergeCommit' -- ccp ':(exclude)ccp/prhost.py'"
+        "cmd": "! git grep -nE 'CCP_GH_BIN|headRefOid|mergeCommit' -- ccp ':(exclude)ccp/prhost.py' && ! git grep -n 'gh pr' -- templates plugin/agents"
       },
       {
         "id": "E25",

@@ -1590,5 +1590,6 @@ runner's subagent and reports by message and file (§15).
 Laptop sleep, the lead's exit and a host restart are not covered: nothing inside the session survives
 them. Recovery is the operator resuming the lead, which respawns the runners (§10.2 step 5).
 Teammate permission prompts appear in the lead's session and block while the operator is away, so
-before a run the runner's commands (tests, `ccp`, `gh`, git by path, the product's operator commands)
-are pre-approved in the product's settings.
+before a run the runner's commands (tests, `ccp`, git by path, the product's operator commands)
+are pre-approved in the product's settings. The runner and the workers reach the PR host only
+through `ccp pr` (ADR-0040 D1), never a forge's CLI.

@@ -1,7 +1,7 @@
 ---
 task_id: 0221-workers-reach-the-pr-host-through-ccp-pr
 title: The worker prompts and the runner's brief reach the PR host through ccp pr, never gh
-status: pending
+status: done
 kind: feature
 depends_on: ["0220-one-pr-host-interface-with-the-github-adapter", "0240-plane-workers-run-the-head"]
 clashes_with: ["0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0223-a-follow-up-is-tracked-not-left-in-notes", "0228-report-sections-as-one-table", "0233-briefs-point-at-the-evidence-rules"]
@@ -134,4 +134,19 @@ PROPOSED:
 
 ## Implementation notes
 
+- Premise re-run at `58546f7`: `git grep -n 'gh pr' -- templates plugin` gives the same five lines;
+  `ccp/*.py` holds the literal `"gh"` and `CCP_GH_BIN` only in `ccp/prhost.py`.
+- The prompts name `{{ccp}} pr diff|view|open`; the implementer's `pr open` carries
+  `QUEUE_ROOT={{queue_root}}`, which `ccp pr open` needs. Verify reads `{{ccp}} pr view {{pr}} --json`
+  and its `head` field in place of `headRefOid`. `_common.md`'s PR-number rule is removed.
+- `architect.checks` `E19` keeps one entry and runs both commands, joined with `&&`; E19's `check:`
+  line names both.
+- `tests/test_prhost_only.py` scans `ccp/**/*.py` (subpackages included) for a string constant equal
+  to `gh` or naming `CCP_GH_BIN`, by AST, so a docstring naming the override counts too; the prompt and
+  brief scan matches `gh pr` or `gh api` as a command, not inside a longer word.
+- `tests/test_resolution_review.py` pins the review prompt's diff command as the rendered `ccp` value's
+  `pr diff 7`, and `tests/test_prompt_pr_body.py` pins the body gate's repair as `ccp pr edit 7`.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #277 head `a89e34e` (squash `3de4f49`): APPROVE. Passed: pc-01, pc-02, pc-03, pc-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0221-workers-reach-the-pr-host-through-ccp-pr.json.
+
