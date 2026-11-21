@@ -63,9 +63,12 @@ _may change in the future_
 - **Production.** Promotion to production is operator-gated and not automated today (SPEC §3.4),
   and the plane has no deploy or post-merge smoke step of its own. Auto-release by default is the
   goal; it needs a SPEC change and a design for release and rollback hooks.
-- **PR hosts other than GitHub.** Every task lands as a GitHub pull request through `gh`. The PR
-  host as an adapter is accepted
-  ([ADR-0040](docs/adr/0040-the-pr-host-is-an-adapter.md)), but its adapters are not built yet.
+- **PR hosts other than GitHub.** A task lands as a GitHub pull request through `gh`, or, for a
+  product without GitHub that sets `pr_host.adapter: local` in plane.json, as a PR the plane keeps
+  in its queue and merges with git alone
+  ([ADR-0040](docs/adr/0040-the-pr-host-is-an-adapter.md)). Its PRs are then visible only in the
+  queue (`prs/<n>.json`, `ccp pr view`): there is no web view. GitLab and Gitea adapters are not
+  built yet.
 - **A threat model and isolation.** The [threat model](docs/design/threat-model.md) names what the
   plane protects, which controls are boundaries and which only guard against accidents, and the
   risks a single-operator install accepts. Seat isolation (a command sandbox, scoped forge tokens,
@@ -146,12 +149,14 @@ pass that reviews the product's structure; it is on by default and `"architect":
 - **Claude Code agent teams**: experimental and off by default; CCP needs them. They are turned on
   with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, which step 2 puts in the product's
   `.claude/settings.json`.
-- **A GitHub origin** for the product and the GitHub CLI `gh`, logged in (`gh auth login`): every
-  task lands as a pull request on GitHub. `ccp verify merge-ok`, the default merge and merge
-  confirmation of `ccp tasks close`, and the workers' `gh pr` steps (the implementer's PR, review,
-  verify) need both; `ccp init` warns when the origin is missing or not on GitHub. Other git hosts
-  are the subject of [ADR-0040](docs/adr/0040-the-pr-host-is-an-adapter.md), the PR host as an
-  adapter.
+- **A GitHub origin** for the product and the GitHub CLI `gh`, logged in (`gh auth login`): by
+  default every task lands as a pull request on GitHub. `ccp verify merge-ok`, the default merge and
+  merge confirmation of `ccp tasks close`, and the workers' `ccp pr` steps (the implementer's PR,
+  review, verify) need both; `ccp init` warns when the origin is missing or not on GitHub. A product
+  without GitHub sets `pr_host.adapter: local` in plane.json and needs only a git origin the plane
+  can push to, a bare repository included: the plane keeps each PR's record in the queue and
+  merges with git alone, so its PRs are visible only in the queue
+  ([ADR-0040](docs/adr/0040-the-pr-host-is-an-adapter.md)).
 - macOS, only for the optional telemetry and board (local dashboard) services (they install launchd
   agents).
 
@@ -206,8 +211,9 @@ and creates the queue, `~/.delivery-queue/my-product/` (`--queue-root` picks ano
 - Put your own test command in `--gate`; the example is Python's.
 - Name the product's language in `--language`: `python`, or `none`. Without it, init lists `language`
   under `required_unset` and on stderr: set it before the first task.
-- It warns on stderr, and lists in `warnings`, when the product's `origin` is missing or not on
-  GitHub (see the prerequisites); it adopts the product all the same.
+- It warns on stderr, and lists in `warnings`, when the product's `origin` does not suit its PR
+  host: missing or not on GitHub, or, under `pr_host.adapter: local`, missing (see the
+  prerequisites); it adopts the product all the same.
 - It never overwrites a file without `--force`: it keeps the file and lists it as kept, so running it
   again is safe.
 - The binding holds only where the product and its queue are, its integration branch, and its CI and
@@ -230,6 +236,7 @@ and creates the queue, `~/.delivery-queue/my-product/` (`--queue-root` picks ano
 | `parallel.max_in_flight` | the most tasks the runner holds at once, 1 to 4 (the default is in the schema); `1` runs one task at a time (§16.2) | the product wants one task at a time, or fewer at once than the default |
 | `parallel.schedule` | `clashes`, the default: tasks whose paths meet run together unless one names the other in `clashes_with` (§16.3); `paths` keeps apart tasks whose paths meet | `parallel.max_in_flight` is above 1 and tasks meeting on hub files should wait for each other |
 | `parallel.shared` | paths that tasks only append lines to (a package doc's file map): two tasks in flight may hold one, and close merges both sides' appended lines (§16.2) | `parallel.max_in_flight` is above 1 and most tasks add a line to the same index file |
+| `pr_host.adapter` | the PR host: `github`, the default, or `local`, where the plane keeps each PR in the queue and merges with git alone (§4.5, ADR-0040) | the product's origin is not on GitHub |
 | `merge.behind_tip_ignore` | paths whose commits on the tip do not make a verified head stale (§16.5) | other work commits to those paths often and should not force a new verify |
 | `reconcile.log` | an entry `ccp tasks close` adds to a product log at each close (§10.5) | the product keeps a delivery log or changelog |
 | `notify` | the operator's channel for blockers, decisions, finished review points and the checkpoint: a command `ccp` runs, or a tool the lead sends with (§3.6) | the operator is away from the lead's session |
@@ -265,7 +272,7 @@ ccp init --permissions
 
 It prints a JSON `permissions` block and writes nothing. The block allows `ccp` by name, and the
 plane's `team.sh` and `spec-maintainer-ask.sh` by absolute path, each also behind the queue's
-`QUEUE_ROOT=` as the seats run them; git by verb; `gh pr`; and your gate lane's commands. It denies
+`QUEUE_ROOT=` as the seats run them; git by verb; `gh pr` under the GitHub adapter; and your gate lane's commands. It denies
 destructive commands: `git reset --hard`, `git clean`, `git branch -D`, `git stash`,
 `git checkout --`, `git restore`, `rm -rf`, `gh repo delete`, and a forced push (`--force`,
 `--force-with-lease` or `-f` right after `push`, after the remote or branch, or at the end). The deny

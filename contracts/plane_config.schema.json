@@ -828,6 +828,18 @@
         }
       }
     },
+    "pr_host": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "SPEC §4.5, §15.5, ADR-0040 D5: the PR host the plane reaches through `ccp pr`.",
+      "properties": {
+        "adapter": {
+          "enum": ["github", "local"],
+          "default": "github",
+          "description": "github: pull requests on GitHub, through a logged-in `gh`. local: the plane keeps each PR's record in the queue (`prs/<n>.json`, contracts/pr_record.schema.json) and merges with git alone, so the product needs only an origin the plane can push to. `merge.command` overrides the merge under either."
+        }
+      }
+    },
     "auth_check": {
       "type": "object",
       "additionalProperties": false,

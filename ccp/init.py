@@ -31,9 +31,9 @@ product root, or a settings file that is not a JSON object. It also refuses, wri
 `--gate` it cannot split and a product root or queue path holding `#`, since the binding reader
 cuts a value at ` #` as a comment.
 
-Pull requests need a GitHub origin until the PR host is an adapter (ADR-0040 D7): when the product
-has no `origin`, or its host is not GitHub, init warns on stderr and in the result's `warnings`,
-naming the commands that need one, and adopts the product all the same.
+When the product's origin does not suit its PR host adapter (plane.json `pr_host.adapter`, ADR-0040 D5):
+under GitHub, no `origin` or one not on GitHub; under the local adapter, no `origin`: init warns on stderr
+and in the result's `warnings`, naming the commands that need one, and adopts the product all the same.
 
 The result's `required_unset`, and a line on stderr, name each required plane.json key (§8.1) still
 unset in the plane.json init leaves (a kept one included), the gate lane (`suite.lanes.gate`, given by
@@ -84,7 +84,7 @@ from urllib.parse import urlsplit
 from pathlib import Path
 from typing import Any
 
-from ccp import config, docrules, models, otel, refs, rules, tasklog, usage
+from ccp import config, docrules, models, otel, prhost, refs, rules, tasklog, usage
 from ccp.queue import PLANE, QueueError, _main_worktree, emit, lib, queue_leftovers, script_drift
 
 TEMPLATES = PLANE / "templates"
@@ -145,9 +145,12 @@ DENY = (*(f"git push {flag}" for flag in FORCE_FLAGS),
         *(f"git push * {flag}{tail}" for flag in FORCE_FLAGS for tail in (" *", "")),
         "git reset --hard", "git clean", "git branch -D", "git stash", "git checkout --", "git restore", "rm -rf",
         "gh repo delete")
-# ADR-0040 D7: what needs a GitHub origin and a logged-in `gh` until the PR host is an adapter.
+# ADR-0040 D5, D7: what needs a GitHub origin and a logged-in `gh` under the GitHub adapter (`pr_host.adapter`).
 GITHUB_ONLY = ("ccp verify merge-ok", "ccp tasks close (its default merge and its merge confirmation)",
                "the workers' `gh pr` steps (the implementer's PR, review and verify)")
+# ADR-0040 D3, D5: what needs an origin the plane can push to under the local adapter.
+ORIGIN_ONLY = ("`ccp pr` (open, view, diff, merge)", "ccp verify merge-ok",
+               "ccp tasks close (its merge, its merge confirmation and its reconcile push)")
 # The init flags that write: `--permissions` writes nothing, so it refuses them.
 WRITING_FLAGS = (("--project-id", "project_id"), ("--queue-root", "queue_root"),
                  ("--integration-branch", "integration_branch"), ("--gate", "gate"), ("--language", "language"),
@@ -199,10 +202,14 @@ def is_github(host: str | None) -> bool:
     return host is not None and (host == "github.com" or host.endswith(".github.com"))
 
 
-def github_warning(root: Path) -> str | None:
-    """ADR-0040 D7: the warning init gives when the product's origin is missing, does not parse, or is
-    not on GitHub."""
+def origin_warning(root: Path, github: bool) -> str | None:
+    """ADR-0040 D5, D7: the warning init gives when the product's origin does not suit its PR host adapter:
+    under the GitHub adapter (`github`), an origin that is missing, does not parse, or is not on GitHub;
+    under the local adapter, a missing origin."""
     url = origin_url(root)
+    if not github:
+        return None if url else ("the local PR host needs a git origin the plane can push to, and this product has "
+                                 f"no origin: {'; '.join(ORIGIN_ONLY)} will fail until it has one (ADR-0040 D3)")
     host = url_host(url) if url else None
     if is_github(host):
         return None
@@ -212,7 +219,8 @@ def github_warning(root: Path) -> str | None:
     else:
         where = "has no origin" if host is None else (f"has its origin on {host}" if host else "has a local origin")
     return (f"pull requests need a GitHub origin and a logged-in `gh`, and this product {where}: "
-            f"{'; '.join(GITHUB_ONLY)} will fail until it has one (ADR-0040)")
+            f"{'; '.join(GITHUB_ONLY)} will fail until it has one, or until plane.json sets `pr_host.adapter` to "
+            "`local`, which needs only an origin the plane can push to (ADR-0040)")
 
 
 def binding_shape_warnings(binding: Path, text: str) -> list[str]:
@@ -444,7 +452,8 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
     put(binding, binding_text(pid, product_root, q, branch or "main"), "binding")
     q.mkdir(parents=True, exist_ok=True)
 
-    warning = github_warning(product_root)
+    cfg = config.load(root)
+    warning = origin_warning(product_root, isinstance(prhost.adapter(cfg), prhost.GitHub))
     if warning:
         out["warnings"] = [warning]
     if keep_binding and old is not None:
@@ -459,7 +468,6 @@ def init(root: Path, project_id: str | None, queue_root: str | None, branch: str
             "(an earlier plane generation's?): see them with `ccp plane check`, move them to its `_legacy/` "
             "with `ccp plane check --archive`")
 
-    cfg = config.load(root)
     unset = required_unset(cfg)
     if unset:  # §4.5, §8.1: a step to take before the first task
         out["required_unset"] = unset
@@ -591,13 +599,15 @@ def _deny_rule(cmd: str) -> str:
 def permissions(cfg: config.Config, queue_root: str) -> dict[str, Any]:
     """§4.5, §18.5: the runner's and workers' permission block. Allowed: `ccp` by name (§4.3) and
     the plane's seat scripts by absolute path, each also behind the binding's `QUEUE_ROOT=` as the seats run them; git
-    by verb; `gh pr`; the gate lane's commands (its argv, or each stage's command). Denied: `DENY`."""
+    by verb; `gh pr` under the GitHub adapter (`pr_host.adapter`, ADR-0040 D5); the gate lane's commands (its
+    argv, or each stage's command). Denied: `DENY`."""
     q = shlex.quote(queue_root)
     allow: list[str] = []
     for cmd in ("ccp", *(shlex.quote(str(PLANE / s)) for s in SEAT_SCRIPTS)):
         allow += [_rule(cmd), _rule(f"QUEUE_ROOT={q} {cmd}")]
     allow += [_rule(f"git {verb}") for verb in GIT_VERBS]
-    allow.append(_rule("gh pr"))
+    if isinstance(prhost.adapter(cfg), prhost.GitHub):
+        allow.append(_rule("gh pr"))
     gate = ((cfg.suite or {}).get("lanes") or {}).get("gate")
     stages = config.lane_stages(gate)
     if stages is not None:
