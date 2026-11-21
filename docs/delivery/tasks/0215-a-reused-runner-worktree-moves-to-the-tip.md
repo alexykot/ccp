@@ -143,4 +143,18 @@ PROPOSED:
 
 ## Implementation notes
 
+- `ccp/wt.py`: `runner_worktree` returns `(path, made, moved, kept)`. For an existing working tree,
+  `_runner_to_tip` reads `git symbolic-ref -q HEAD` and `git status --porcelain` in the worktree; the
+  pure `runner_worktree_holds(branch, porcelain)` decides `on branch <b>` / `has changes` / nothing
+  (E15). A worktree that holds no task gets `git fetch -q origin` in the main checkout and
+  `git checkout -q --detach origin/<integ>`; `moved` compares HEAD before and after. A status, fetch or
+  checkout that fails is `kept` with the git error's first line, never a refusal. `kept_warning`
+  holds the one warning text both callers print.
+- `ccp tasks worktree` adds `moved` to its JSON, and `kept` plus a `warnings` entry when set (the
+  toolkit wrapper prints it on stderr as `warning: runner worktree <path> left as it is: <why>`).
+- The spawn's `runner_worktree` adds `moved`, and `kept` when set, which also goes into the spawn's
+  `warnings`. The dry run never calls `single_runner_worktree`, so it moves nothing, as before.
+- Narrowest choice: the spawn's `error` dict (a path that is no working tree) is unchanged, with no
+  `moved`: nothing ran on it.
+
 ## Verification notes

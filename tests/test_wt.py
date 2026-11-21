@@ -727,6 +727,19 @@ class SingleRunnerWorktree(WtFixture, unittest.TestCase):
         self.assertTrue(kept and "\n" not in kept, kept)
         self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
 
+    def test_a_status_that_fails_keeps_it_with_the_git_error(self):
+        tip = self.made_at_the_old_tip()
+        real = wt.git
+
+        def failing_status(cwd, *args, **kw):
+            if args[:1] == ("status",):
+                return subprocess.CompletedProcess(["git", *args], 128, "", "fatal: index file corrupt\nmore\n")
+            return real(cwd, *args, **kw)
+        with mock.patch.object(wt, "git", failing_status):
+            _, made, moved, kept = wt.runner_worktree(self.main, str(self.solo), "main")
+        self.assertEqual((made, moved, kept), (False, False, "fatal: index file corrupt"))
+        self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
+
     def test_what_an_existing_runner_worktree_holds(self):
         self.assertIsNone(wt.runner_worktree_holds("", ""))
         self.assertEqual(wt.runner_worktree_holds("refs/heads/side", ""), "on branch side")
