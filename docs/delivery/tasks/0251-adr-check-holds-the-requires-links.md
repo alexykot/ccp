@@ -163,5 +163,8 @@ PROPOSED:
 - Fix round 1: dropped the same-ADR requirer exemption from `_refuse_cut_requires` (a supersede that passed
   left `ccp adr check` red under `adr.strict`); skipped the rejected/withdrawn failure for a link inside that ADR
   itself; the supersede tests that succeed now assert `analyse` is clean afterwards.
+- Fix round 2: a test pins that a link from a rejected or withdrawn ADR to a different dead one still fails (the
+  `n != me` guard could be widened unnoticed); `graph` is imported at module level in `ccp/adr.py` (no import cycle
+  to avoid).
 
 ## Verification notes

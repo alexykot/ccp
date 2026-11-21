@@ -109,6 +109,14 @@ class Check(unittest.TestCase):
         self.write_adr(2, "withdrawn", requires=["D1 ADR-0002 D2"])
         self.assertEqual(self.analyse()[0], [])
 
+    def test_a_link_from_a_dead_adr_to_a_different_dead_one_still_fails(self):
+        self.write_adr(2, "withdrawn")
+        self.write_adr(4, "rejected", requires=["D1 ADR-0002 D1"])
+        errs = [e for e in self.analyse()[0] if "requires" in e]
+        self.assertEqual(len(errs), 1, errs)
+        self.assertIn("is withdrawn", errs[0])
+        self.assertTrue(errs[0].startswith("docs/adr/0004-a.md:"))
+
     def test_a_proposed_target_is_not_a_failure(self):
         self.write_adr(1, "proposed")
         self.write_adr(2, requires=["D1 ADR-0001 D1"])

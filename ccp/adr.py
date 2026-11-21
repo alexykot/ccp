@@ -11,7 +11,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from ccp import refs, reviewpoints
+from ccp import graph, refs, reviewpoints
 from ccp.config import ADR_DEFAULTS, Config
 
 FILE_RE = refs.DEFAULT.adr_file_re  # the default; a product may set ids.adr (refs.py)
@@ -586,8 +586,6 @@ def _check_requires(adrs: list[dict[str, Any]], index: DecisionIndex, ids: refs.
     itself excepted: it rests on nothing live), or that closes a cycle
     (across ADRs, on the links as written); a `soft` finding for a target whose `retired by` chain
     ends with no replacement (§6.5)."""
-    from ccp import graph  # noqa: PLC0415
-
     by_num = {m["_number"]: m for m in adrs}
 
     def node(n: int, d: str | None) -> str:
