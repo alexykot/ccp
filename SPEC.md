@@ -1,7 +1,7 @@
 # CCP — Claude Control Plane: SPEC
 
 The normative specification of CCP: what a managed product, its seats and the `ccp` tool must and
-must not do. It states rules only. The SPEC is five parts in `docs/spec/`, numbered by
+must not do. It states rules only. The SPEC is five parts in `docs/spec/` (ADR-0033), numbered by
 topic and continuously across parts (§1–§31, subsections §N.M); a reference to "SPEC §N" anywhere in
 the repository names one of these sections.
 

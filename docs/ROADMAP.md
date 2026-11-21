@@ -55,8 +55,6 @@ All reshape phases have landed.
   - F17: move `scripts/observability/lib.py` and `architecture_review.py` into the `ccp` package, so
     `ccp` imports nothing from `scripts/` (the E7 amendment comes with it). After R14's 0203 and
     0207, which touch the same files.
-  - F16: check how health attributes tokens to catch-up rounds before review (about 20 times those
-    after review). Taken up when R15's integration-merges task lands.
 - **Deferred from architect pass `ar-20261121T020523Z-1d5f`** (record in `docs/delivery/reviews/`):
   - F08: taken up by task 0263 (R19), after architect pass `ar-20261121T111633Z-4e26` (F06) found
     the validator already in `ccp/verify.py`.
@@ -68,6 +66,14 @@ All reshape phases have landed.
     `parse_file`) instead of through a git fixture. Re-measured after R17's 0255 makes
     `ToolkitFixture` cheap; tasked only if `tests.test_mutate` still stands out in the health
     summary's slowest modules.
+- **Deferred from architect pass `ar-20261121T174754Z-7df5`** (record in `docs/delivery/reviews/`):
+  - F01: a change to `ccp/cli.py` or `ccp/config.py` names more than a quarter of the test modules as
+    affected, so `ccp suite affected` says to run the full lane. Re-measured after R19's 0261 runs a
+    declared part lane in parallel: if a cli or config task's part run still takes longer than the
+    gate lane, the lead chooses between each command module registering its own parser and handler
+    (cli.py only dispatches) and a language-pack rule for a declared hub module.
+  - F10: the six retirement-guard test modules. Re-measured after R17's 0255 makes `ToolkitFixture`
+    cheap; a guard with no reader left is cut then, by one refactor task.
 - **Considered and declined:** continuing past the weekly allowance into paid extra usage (the plane
   runs on the prepaid allowance only, ADR-0026), and a separate task-drafting seat (the lead drafts
   tasks, with a writer subagent when several land at once).
