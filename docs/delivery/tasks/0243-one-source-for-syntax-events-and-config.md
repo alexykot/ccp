@@ -178,5 +178,10 @@ because their checks fail or do not exist until this task is built. Measured at 
   (the board's `close_fds=True` was the default already).
 - E12 and E16 amended, E25 added in docs/ENGINEERING.md, and `architect.checks` E12, E16, E25 in plane.json, with the
   text the task gives.
+- Fix round 1: `resolve_durable_docs_dir` falls back to `TASK_LOG_DEFAULTS["dir"]` again for a null or blank
+  `task_log.dir` (the old `or` fallback), pinned in `tests/test_binding_reader.py`. The docstring test is now
+  `test_the_cli_docstring_carries_no_usage_table`, which says what it checks. `DERIVED_KEYS` no longer writes the
+  default task-log directory into its text. docs/cli/02-delivery.md writes `[--detail …]` on the `tasks resume` half
+  of the wait row.
 
 ## Verification notes

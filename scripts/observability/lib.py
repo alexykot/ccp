@@ -695,7 +695,7 @@ def resolve_durable_docs_dir(root: Path) -> Path | None:
         return None
     base = Path(product_root).expanduser()
     cfg = _product_config(base)
-    rel = cfg.task_log["dir"] if cfg is not None else _config().TASK_LOG_DEFAULTS["dir"]
+    rel = (cfg.task_log.get("dir") if cfg is not None else None) or _config().TASK_LOG_DEFAULTS["dir"]
     return (base / str(rel)).resolve()
 
 
@@ -835,7 +835,7 @@ DERIVED_KEYS = {
     "runner.agent_type": f"the runner's agent is {RUNNER_AGENT}",
     "runner.name": f"the runner's name is {RUNNER_NAME}",
     "runner.worktree": "the runner's worktree is <product_root>/<worktrees.dir>/runner",
-    "durable_docs_path": "the task log is plane.json task_log.dir, docs/delivery unless it sets one",
+    "durable_docs_path": "the task log is plane.json task_log.dir, its default unless it sets one",
 }
 MOVED_KEYS = {WINDOW_KEY: "the product's .claude/settings.json autoCompactWindow, which `ccp init` writes when it is absent"}
 
