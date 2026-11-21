@@ -36,6 +36,7 @@ def argv(*words: str) -> str:
 class PrCli(unittest.TestCase):
     def setUp(self):
         self.p = Product()
+        self.p.task("0001-a")
         self.addCleanup(self.p.cleanup)
         t = tempfile.TemporaryDirectory()
         self.addCleanup(t.cleanup)
@@ -83,6 +84,11 @@ class Open(PrCli):
         self.assertEqual(self.calls(), [argv("pr", "create", "--head", "task/0001-a", "--base", "trunk",
                                              "--title", "Task 0001: a title", "--body-file", "-")])
         self.assertEqual(self.stdin(), "Task: 0001-a\n")
+
+    def test_open_reads_the_number_from_a_url_with_a_trailing_slash(self):
+        self.say({"FAKE_OUT": "https://example.test/o/r/pull/12/\n"})
+        code, out, _ = self.ccp("open", "--branch", "b", "--title", "t", "--body-file", self.body_file("x"))
+        self.assertEqual((code, out.strip()), (0, "12"))
 
     def test_a_create_that_names_no_pr_number_is_a_host_error(self):
         self.say({"FAKE_OUT": "created\n"})
@@ -136,6 +142,10 @@ class DiffEditMerge(PrCli):
         self.assertEqual(self.ccp("diff", "7")[:2], (0, patch))
         self.assertEqual(self.calls(), [argv("pr", "diff", "7")])
 
+    def test_the_pr_number_is_given_to_the_host_without_leading_zeros(self):
+        self.ccp("diff", "007")
+        self.assertEqual(self.calls(), [argv("pr", "diff", "7")])
+
     def test_edit_replaces_the_body_from_the_file(self):
         code, _, _ = self.ccp("edit", "7", "--body-file", self.body_file("Task: 0001-a\nnew\n"))
         self.assertEqual(code, 0)
@@ -162,8 +172,22 @@ class DiffEditMerge(PrCli):
     def test_merge_command_gets_the_task_and_the_head(self):
         self.p.cleanup()
         self.p = Product({"merge": {"command": f"{self.gh} merged {{pr}} {{head_sha}} {{task_id}}"}})
+        self.p.task("0001-a")
         self.assertEqual(self.ccp("merge", "12", "--head", HEAD, "--task", "0001-a")[0], 0)
         self.assertEqual(self.calls(), [argv("merged", "12", HEAD, "0001-a")])
+
+    def test_merge_command_gets_the_full_task_id_for_its_number_and_the_head_case_folded(self):
+        self.p.cleanup()
+        self.p = Product({"merge": {"command": f"{self.gh} merged {{pr}} {{head_sha}} {{task_id}}"}})
+        self.p.task("0001-a")
+        self.assertEqual(self.ccp("merge", "12", "--head", HEAD.upper(), "--task", "0001")[0], 0)
+        self.assertEqual(self.calls(), [argv("merged", "12", HEAD, "0001-a")])
+
+    def test_merge_for_an_unknown_task_is_a_usage_error_and_runs_nothing(self):
+        code, _, err = self.ccp("merge", "12", "--head", HEAD, "--task", "0099")
+        self.assertEqual(code, 2)
+        self.assertIn("0099", err)
+        self.assertEqual(self.calls(), [])
 
 
 class Refusals(PrCli):
@@ -172,11 +196,19 @@ class Refusals(PrCli):
         self.say({"CCP_GH_BIN": gone})
         body = self.body_file("x")
         for args in (("open", "--branch", "b", "--title", "t", "--body-file", body), ("view", "7"),
-                     ("diff", "7"), ("edit", "7", "--body-file", body), ("merge", "7", "--head", HEAD, "--task", "t")):
+                     ("diff", "7"), ("edit", "7", "--body-file", body), ("merge", "7", "--head", HEAD, "--task", "0001")):
             with self.subTest(args[0]):
                 code, _, err = self.ccp(*args)
                 self.assertEqual(code, 1)
                 self.assertIn(gone, err)
+
+    def test_merge_needs_the_full_head_sha(self):
+        for head in ("x", HEAD[:12], "task/0001-a", f"{HEAD}; true", "g" * 40):
+            with self.subTest(head):
+                with self.assertRaises(SystemExit) as cm:
+                    self.ccp("merge", "12", "--head", head, "--task", "0001")
+                self.assertEqual(cm.exception.code, 2)
+        self.assertEqual(self.calls(), [])
 
     def test_a_host_refusal_exits_1_with_the_hosts_words(self):
         self.say({"FAKE_RC": "1", "FAKE_ERR": "host said no", "FAKE_OUT": "https://example.test/o/r/pull/12"})
@@ -190,7 +222,7 @@ class Refusals(PrCli):
 
     def test_every_call_but_open_needs_the_pr_number(self):
         for args in (("view",), ("view", "task/0001-a"), ("diff", "0"), ("edit", "--body-file", "x"),
-                     ("merge", "HEAD", "--head", HEAD, "--task", "t")):
+                     ("merge", "HEAD", "--head", HEAD, "--task", "0001")):
             with self.subTest(args):
                 with self.assertRaises(SystemExit) as cm:
                     self.ccp(*args)

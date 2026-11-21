@@ -56,7 +56,7 @@ error, naming it; 2 on a usage error.
 | `ccp pr view <pr> [--json]` | reviewer, verifier, runner | §15.5 (`--json`: the PR's facts as one object) |
 | `ccp pr diff <pr>` | reviewer, verifier | §15.5 |
 | `ccp pr edit <pr> --body-file <file>` (`-` for stdin) | runner | §15.5, §15.2 |
-| `ccp pr merge <pr> --head <sha> --task <task_id>` | runner | §15.5 |
+| `ccp pr merge <pr> --head <sha> --task <task_id>` | runner | §15.5 (`--head`: the PR's full head sha) |
 
 ## Test runs
 

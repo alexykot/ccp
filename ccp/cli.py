@@ -497,6 +497,15 @@ def _pr_number(raw: str) -> str:
     return str(int(raw))
 
 
+def _full_sha(raw: str) -> str:
+    """`ccp pr merge --head`: the PR's full head sha (SHA-1 or SHA-256, case-folded), never a short sha, a
+    branch or anything else a `merge.command` template would take as given."""
+    from ccp.wt import FULL_SHA_RE  # noqa: PLC0415
+    if not FULL_SHA_RE.fullmatch(raw.lower()):
+        raise argparse.ArgumentTypeError(f"takes the full head sha, not {raw!r}")
+    return raw.lower()
+
+
 def _body_text(path: str) -> str:
     """`--body-file`: the file's text, or stdin for `-`; a file that cannot be read is a usage error."""
     if path == "-":
@@ -532,7 +541,7 @@ def cmd_pr(cfg: config.Config, a: argparse.Namespace) -> int:
             prhost.edit(cfg, a.pr, _body_text(a.body_file))
             print(f"PR #{a.pr}: body replaced")
         else:
-            r = prhost.merge(cfg, a.pr, a.head, a.task)
+            r = prhost.merge(cfg, a.pr, a.head, config_task(cfg, a.task))
             if not r.ok:
                 why = " (a conflict with what merged since)" if r.conflict else ""
                 print(f"ccp pr merge: PR #{a.pr} not merged{why}: {r.message}", file=sys.stderr)
@@ -1589,8 +1598,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_pr)
     p = pr.add_parser("merge", help="the PR host's merge pinned to a head (plane.json merge.command when set)")
     p.add_argument("pr", type=_pr_number, metavar="PR_NUMBER", help="the PR number")
-    p.add_argument("--head", required=True, help="the full head sha the merge is pinned to")
-    p.add_argument("--task", required=True, help="the task id, for merge.command's {task_id}")
+    p.add_argument("--head", required=True, type=_full_sha, help="the full head sha the merge is pinned to")
+    p.add_argument("--task", required=True, help="the task (full id or number), for merge.command's {task_id}")
     p.set_defaults(fn=cmd_pr)
 
     p = sub.add_parser("health", help="delivery measurements; note and record add to them (SPEC §27.1)")
