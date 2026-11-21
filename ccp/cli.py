@@ -709,6 +709,11 @@ def _lifecycle(cfg: config.Config, a: argparse.Namespace):
         return lifecycle.sign_off(cfg, a.task, a.stage, a.by or "", a.words or "", a.head, a.at)
     if a.cmd == "ruling":
         return lifecycle.ruling(cfg, a.task, a.words or "", a.check)
+    if a.cmd == "follow-up":
+        from ccp import followups, queue  # noqa: PLC0415
+        kind, value = next((k, v) for k, v in (("task", a.task), ("proposal", a.proposal), ("drop", a.drop))
+                           if v is not None)
+        return followups.decide(queue.root(), cfg, a.follow_up, kind, value, queue.actor(followups.LEAD))
     if a.cmd == "drop":
         return lifecycle.drop(cfg, a.task, (a.reason or "").strip())
     if a.cmd == "phase":
@@ -857,6 +862,25 @@ def cmd_estimate(cfg: config.Config, a: argparse.Namespace) -> int:
           f"row(s) {'to write' if a.dry_run else 'written'}; {body['kept']} already estimated; {body['no_pool']} with "
           f"no earlier task to compare with" + (" (dry run: nothing written)" if a.dry_run else ""))
     print(estimate.accuracy_text(body["accuracy"]))
+    return 0
+
+
+def cmd_tasks_follow_ups(cfg: config.Config, a: argparse.Namespace) -> int:
+    """§13.4, ADR-0044 D4: one line per follow-up (all, or with --open the undecided), then how many are open;
+    --json the list."""
+    from ccp import followups, queue  # noqa: PLC0415
+    try:
+        records = runs.all_runs(queue.root())
+    except QueueError as e:
+        print(f"ccp tasks: {e}", file=sys.stderr)
+        return e.code
+    rows = followups.listing(records, a.open)
+    if a.json:
+        print(json.dumps(rows, indent=2, ensure_ascii=False))
+        return 0
+    for r in rows:
+        print(followups.line(r))
+    print(f"{len(followups.undecided(records))} open")
     return 0
 
 
@@ -1166,6 +1190,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--words", required=True, help="the ruling, as the lead gave it, one line")
     p.add_argument("--check", help="the dod_check id the ruling concerns")
     p.set_defaults(fn=life)
+    p = t.add_parser("follow-up", help="the lead records what became of a worker report's follow-up: a task in the "
+                                       "log at the integration tip, a plane proposal, or dropped with a reason; run "
+                                       "again, it replaces the outcome (SPEC §13.4; needs QUEUE_ROOT)")
+    p.add_argument("follow_up", metavar="RUN_ID#N", help="the follow-up's id (`ccp tasks follow-ups` lists them)")
+    g = p.add_mutually_exclusive_group(required=True)
+    g.add_argument("--task", help="a task id or NNNN in the task log at origin/<integration branch>, of any status")
+    g.add_argument("--proposal", help="a plane proposal's id (plane/proposals.jsonl)")
+    g.add_argument("--drop", metavar="REASON", help="why the work is not worth doing")
+    p.set_defaults(fn=life)
+    p = t.add_parser("follow-ups", help="worker follow-ups across tasks, one line each with its outcome or `open`, "
+                                        "then how many are open (SPEC §13.4; needs QUEUE_ROOT)")
+    p.add_argument("--open", action="store_true", help="only those with no outcome")
+    p.add_argument("--json", action="store_true", help="the list as JSON")
+    p.set_defaults(fn=cmd_tasks_follow_ups)
     p = t.add_parser("claim", help="lease a task, make its worktree, record it (SPEC §10.5; needs QUEUE_ROOT)")
     p.add_argument("task", help="task id or NNNN")
     p.add_argument("--holder", default="runner", help="the claiming runner's slot (SPEC §16.4; required with "
