@@ -6,7 +6,7 @@ Non-normative notes behind SPEC §10. The rules are in `docs/spec/04-observabili
 
 `work.json` and `runs/*.json` are written only at phase changes, so while a runner runs they are stale past 30 minutes only when no open run shows it is live: an open run's telemetry request (`ccp usage`'s `recent`) or `runs/_suites.jsonl` row (started or ended) within the 30 minutes shows them as `live (telemetry 9s ago, <run>)` instead, and so does a suite of an open run still running (started within 60 minutes, no end yet); past 60 minutes with no end it no longer counts.
 
-## 28.21 Step 3 implementation notes: the board (2026-10-21, non-normative)
+## How the board is built
 
 - `ccp board build` (`ccp/board.py`) writes `board/board.json`, `board/index.html` and
   `board/history/<date>.json`. `ccp board status` prints the summary and exits 1 on a blocker:
@@ -103,7 +103,7 @@ Non-normative notes behind SPEC §10. The rules are in `docs/spec/04-observabili
   `dropped`, it clears `waiting_on` through `set-waiting-on.sh clear <id> <status>_in_log
   --task-only` (the new flag leaves `work.json` alone unless its `task_id` is that task), clears a
   stale lease (`lease/clear`), sets the queue status to the durable one (`durable/reconcile`, then a
-  `phase` transition), moves the `queue/<state>/` marker, takes the task out of `work.json` (the
+  `phase` transition), takes the task out of `work.json` (the
   next in-flight task becomes current, with its own phase). When it wrote something (not under
   `--dry-run`), `ccp` asks for the background board refresh, as every state change does. It prints what
   it changed, or with `--dry-run` would change, as JSON, and is idempotent. **It never takes a lease

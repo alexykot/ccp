@@ -11,5 +11,5 @@ carries a test count (`count_re`), the `summary` patterns that read failures, sk
 test's section, the `test_glob` of a test module, the reader `affected` of the modules a change
 touches, the counter `suite_size` and the `test_command` that runs named modules. `for_tests(cfg)` is
 the one lookup `ccp suite` and `ccp mutate` use; core code names no language and no test runner, and
-`language-pack` in plane.json's `docs.checks` keeps it so. All of them follow `language`; with none set
+the house rule's command check (plane.json `architect.checks` `E18`) keeps it so. All of them follow `language`; with none set
 (the grace release) they are the Python pack's, as before the key was required.

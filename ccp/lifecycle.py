@@ -68,7 +68,7 @@ from ccp.queue import lib
 from ccp.config import Config
 from ccp.queue import (OBS, QueueError, actor, durable_statuses, emit, file_lock, git, heartbeat, integration_branch, iso,
                        load_task_state, load_work, now, phase_move, preferred_ids, progress_event, root,
-                       rulings, runner_slots, save_task_state, save_work, script_drift, set_marker, sign_offs, task_meta,
+                       rulings, runner_slots, save_task_state, save_work, script_drift, sign_offs, task_meta,
                        task_state_path)
 
 VERIFY_PLACEHOLDER_RE = re.compile(r"^\*Append-only[^\r\n]*\*[ \t]*\r?$", re.M)
@@ -334,7 +334,6 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
         emit(q, cfg, tid, "phase", "transition", {"from": "pending", "to": "leased", "note": "ccp tasks claim"},
              at=iso(t))
         progress_event(q, tid, "pending", "leased", "claimed")
-        set_marker(q, tid, "leased")
     w = load_work(q)
     # §10.4: the claim that takes a preferred task removes only that entry, judged on the file as read at
     # the write (the lead may have set a new list since this read)
@@ -524,11 +523,6 @@ def wait(cfg: Config, task: str, action: str, reason: str, until: str | None, de
 RESOLVED = ("done", "dropped")
 
 
-def _markers(q: Path, tid: str) -> list[str]:
-    base = q / "queue"
-    return sorted(d.name for d in base.iterdir() if d.is_dir() and (d / tid).exists()) if base.is_dir() else []
-
-
 def _plan(q: Path, tid: str, st: dict[str, Any], want: str) -> list[str]:
     """What sync would change for one queue file whose task is done or dropped in its task file,
     its open runs abandoned among it (§11.1)."""
@@ -536,7 +530,6 @@ def _plan(q: Path, tid: str, st: dict[str, Any], want: str) -> list[str]:
     return ([f"cleared waiting_on {st['waiting_on']}"] if st.get("waiting_on") else []) \
         + ([f"cleared the lease of {st['lease_holder']}"] if st.get("lease_holder") else []) \
         + ([f"status {st.get('status') or 'none'} -> {want}"] if st.get("status") != want else []) \
-        + ([f"marker queue/{want}/"] if _markers(q, tid) != [want] else []) \
         + (["left work.json"] if tid in (w.get("in_flight") or []) or w.get("task_id") == tid else []) \
         + [f"abandoned run {r['run_id']} ({runs.CLOSED_REASON[want]})" for r in runs.all_runs(q, tid) if runs.state(r) in runs.OPEN]
 
@@ -587,8 +580,8 @@ def drop(cfg: Config, task: str, reason: str) -> dict[str, Any]:
 
 def sync(cfg: Config, dry_run: bool = False) -> dict[str, Any]:
     """The queue follows the log (§4): every queue file whose task is done or dropped in its task
-    file loses its wait (through set-waiting-on.sh) and its lease, takes the durable status, and has
-    its `queue/<state>/` marker moved. Each change is in the ledger. A second run changes nothing.
+    file loses its wait (through set-waiting-on.sh) and its lease, and takes the durable status. Each
+    change is in the ledger. A second run changes nothing.
 
     A task still leased in a mid-flight phase is skipped: either `ccp tasks close` is between its
     push and its queue update, or the live runner holds a task the log dropped under it. Close, or
@@ -635,8 +628,6 @@ def _apply(cfg: Config, q: Path, tid: str, st: dict[str, Any], want: str, source
         emit(q, cfg, tid, "durable", "reconcile", {"field": "status", "old": frm, "new": want,
                                                    "note": f"{source}: the queue follows the task file"})
         phase_move(q, cfg, tid, want, f"{source}: {want} in the task log")
-    if _markers(q, tid) != [want]:
-        set_marker(q, tid, want)
     _leave_work(q, tid)
 
 
@@ -771,7 +762,6 @@ def release(cfg: Config, task: str, reason: str, keep_branch: bool = False) -> d
     save_task_state(q, tid, {"lease_holder": None, "lease_expires_at": None, "lease_since": None, "claimed_at": None,
                              "implementation_started_at": None})
     done.append(f"cleared the lease of {st['lease_holder']}")
-    set_marker(q, tid, "pending")
     _leave_work(q, tid)
     branch = st.get("branch") or f"task/{tid}"
     return {"ok": True, "task_id": tid, "released_from": frm, "changed": done, "holder": st.get("lease_holder"),
@@ -1951,7 +1941,6 @@ def _reconciled(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, h
                                  **({"undeclared_paths": undeclared} if undeclared is not None else {})})
         if st.get("status") != "done":
             progress_event(q, tid, st.get("status"), "done", f"merged {merge[:7]}")
-        set_marker(q, tid, "done")
         def closed(w: dict[str, Any]) -> None:  # §16.4: judged on the file as read under its lock
             flight = [x for x in w.get("in_flight") or [] if x != tid]
             # §10.2 step 4: a count that is no whole number reads as 0, as claim reads it

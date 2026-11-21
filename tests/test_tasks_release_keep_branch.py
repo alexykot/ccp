@@ -44,7 +44,6 @@ class ReleaseKeepingBranch(ToolkitFixture, unittest.TestCase):
         self.assertEqual(body["kept_branch"], "task/0002-second")
         st = self.state()
         self.assertEqual((st["status"], st["lease_holder"], st["waiting_on"], st["lease_since"]), ("pending", None, None, None))
-        self.assertTrue((self.q / "queue/pending/0002-second").exists())
         w = json.loads((self.q / "work.json").read_text())
         self.assertEqual((w["in_flight"], w["task_id"]), ([], None))
         clear = [e for e in self.events() if (e["type"], e["op"]) == ("lease", "clear")]

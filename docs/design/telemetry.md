@@ -11,7 +11,7 @@ task's tokens must be attributed to a run.** If `agent.name` is not enough, use 
 (`agent_id`, `parent_agent_id`), with `OTEL_TRACES_EXPORTER` added and received the same way.
 §8.4 records what the spike found.
 
-## 28.18 Step 2 spike: headless results (2026-10-21, non-normative)
+## The headless spike's results
 
 Claude Code 2.1.306, `claude -p` with the probe plugin, a `claude-sonnet-5-5` session launching one
 `cp-probe:probe-worker` (pinned to `claude-haiku-5-5`, effort `low`), exported to a local OTLP/HTTP
@@ -56,7 +56,7 @@ JSON receiver.
   - no `agent_id` → the lead (the design seat);
   - logs without spans → the time-window fallback.
 
-## 28.19 Step 2 implementation notes (2026-10-21, non-normative)
+## The receiver, the usage fold and the allowance sample
 
 - **`ccp otel serve`** (`ccp/otel.py`) is an OTLP/HTTP JSON receiver on 127.0.0.1 (default port
   4318; the receiver owns it).
@@ -81,7 +81,7 @@ JSON receiver.
   reads the same fold.
 - **Allowance (§25.1).** `ccp tasks claim` runs the machine's `allowance_cmd` (the machine file, §8.3) before it takes the lease,
   appends the sample to `board/allowance.jsonl` and emits `allowance/sample`. It refuses with exit 5
-  when `seven_day` is at or above the machine's `allowance_stop_weekly` (default 90). An unreadable sample is
+  when `seven_day` is at or above the machine's `allowance_stop_weekly` (`ALLOWANCE_STOP_WEEKLY_DEFAULT` when unset). An unreadable sample is
   recorded with nulls and never stops a claim. *(2026-10-23: claim and `ccp prompt` also park at the
   5-hour park %, exit 6, §25.4 the session park.)*
 - **Headless runs.** `ccp architect run` appends `claude -p`'s
@@ -106,7 +106,7 @@ JSON receiver.
   (which had no run) appeared as unattributed under its agent id.
 
 
-## 28.22 Telemetry system-wide, routed by session (2026-10-21, non-normative)
+## Telemetry system-wide, routed by session
 
 - **The finding.** Claude Code 2.1.306 filters `CLAUDE_CODE_ENABLE_TELEMETRY` and every `OTEL_*`
   key out of a project's `.claude/settings.json` `env`; a plain variable in the same block does

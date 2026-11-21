@@ -14,7 +14,6 @@ Live queue state lives **outside** product git (e.g. `$HOME/projects/.delivery-q
 
 ```
 <queue_root>/
-  queue/pending|leased|implementing|implemented|reviewed|submitted|verifying|merging|done|blocked|failed/
   tasks/<task_id>.json
   progress/<task_id>.json
   review/<task_id>.json

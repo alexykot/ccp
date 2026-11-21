@@ -6,7 +6,7 @@ Non-normative notes behind SPEC §23. The rules are in `docs/spec/04-observabili
 
 A `phase` event's `from` and `to` are the phase or status names of `progress.schema` and the task status enum.
 
-#### 20.1.2 Event log schema (`events.jsonl`)
+#### Event log schema (`events.jsonl`)
 
 One JSON object per line. Append-only; never rewrite history. Contract: `contracts/observability_event.schema.json`.
 
@@ -26,7 +26,7 @@ One JSON object per line. Append-only; never rewrite history. Contract: `contrac
 
 Seat ids / actors for the three operational seats: `task-runner`, `task-verifier`, `delivery-watchdog`. `task_id` may be empty on seat-only or project-level auth events.
 
-#### 20.1.3 The retired snapshot
+#### The retired snapshot
 
 The older snapshot (`now.json`, `STATUS.md`) and its scripts (`rebuild-now.sh`, `status.sh`) are
 retired (SPEC §23.4, ADR-0034 D7): nothing writes or reads them, and an old copy left in a queue is
@@ -35,7 +35,7 @@ ignored. The board (`board/board.json`, built by `ccp board build`, §28) is the
 records the snapshot's shape.
 
 
-#### 20.2.2 Audit file schema
+#### Audit file schema
 
 Contract: `contracts/prompt_audit.schema.json`.
 
@@ -77,7 +77,7 @@ to the previous phase's end. Set `audit_keep_days` above the longest life of a t
 launch to its close, so no audit of a task still measured is pruned.
 
 
-## 20.4 Acceptance (plane-level)
+## Acceptance (plane-level)
 
 1. `ccp board status` shows runtime against durable divergence until reconciled.
 2. After a deliberate `waiting_on=quota` park with `resets_at`, the wait is a blocker of `ccp board status`; after clear, the wait interval closes.

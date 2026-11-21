@@ -33,8 +33,6 @@ class Release(ToolkitFixture, unittest.TestCase):
         self.assertEqual((body["task_id"], body["released_from"]), ("0002-second", "leased"))
         st = self.state()
         self.assertEqual((st["status"], st["lease_holder"], st["waiting_on"], st["claimed_at"]), ("pending", None, None, None))
-        self.assertTrue((self.q / "queue/pending/0002-second").exists())
-        self.assertFalse((self.q / "queue/leased/0002-second").exists())
         w = self.work()
         self.assertEqual((w["in_flight"], w["task_id"], w.get("lease"), w.get("waiting_on")), ([], None, None, None))
         evs = self.events()

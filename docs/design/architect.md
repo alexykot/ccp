@@ -69,7 +69,7 @@ a product's leftover managed copies of the two older skills, and `--check` repor
   reconcile), so the writing-tasks and review-triage skills bundle follow-ups, leftovers and findings
   by area into one task, a check per finding. `ccp health` shows whether that holds: `small_tasks`
   counts the tasks merged in its window whose lines, added plus deleted over all their merges, are
-  under plane.json `health.small_task_lines` (default 100). A diagnostic, like the rest of health.
+  under `health.small_task_lines` (its value in `HEALTH_DEFAULTS`, `ccp/config.py`). A diagnostic, like the rest of health.
 - **Report and triage contracts.** A finding's category must belong to the run's lenses, and
   `rule-cost` also needs fix `decide`. The triage file gains `rule_changes` (`applied`, `rejected`
   or `needs_operator`, with a reason).
