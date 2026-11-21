@@ -1193,7 +1193,7 @@ tasks:
     depends_on: [0224-checks-only-the-operator-s-machine-can-run, 0233-briefs-point-at-the-evidence-rules, 0234-one-check-parser-and-one-file-at-rev-reader, 0240-plane-workers-run-the-head]
     path: tasks/0238-the-runner-runs-marked-checks-before-verify.md
   - id: 0239-one-adr-reference-parser-and-a-decision-index
-    status: pending
+    status: done
     title: One ADR-reference parser in refs, and one pure decision index that every build-state reader uses
     depends_on: [0202-forecast-and-health-report-task-supply]
     path: tasks/0239-one-adr-reference-parser-and-a-decision-index.md

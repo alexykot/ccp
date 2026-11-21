@@ -1,7 +1,7 @@
 ---
 task_id: 0239-one-adr-reference-parser-and-a-decision-index
 title: One ADR-reference parser in refs, and one pure decision index that every build-state reader uses
-status: pending
+status: done
 kind: refactor
 depends_on: ["0202-forecast-and-health-report-task-supply"]
 clashes_with: ["0234-one-check-parser-and-one-file-at-rev-reader"]
@@ -107,3 +107,5 @@ Measured at `8aefa59`.
 - Fix round 3: `in_force_at` hands the index only `_number` and `decisions` from the PR head's frontmatter, not the whole raw frontmatter: `build` reads `_decisions` as the body, and a frontmatter key of that name (which `parse` accepts) crashed the pre-verdict refusal where the base refused cleanly (`tests/test_verify_adr.py`). `parse_adr_ref` keeps its `adr_link` call (the Scope names it).
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #257 head `20f37d8` (squash `bf0517f`): APPROVE. Passed: ai-01, ai-02, ai-03, ai-04. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0239-one-adr-reference-parser-and-a-decision-index.json.
+
