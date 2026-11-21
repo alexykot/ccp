@@ -104,6 +104,11 @@ class Check(unittest.TestCase):
         self.assertIn("is rejected", errs[0])
         self.assertIn("is withdrawn", errs[1])
 
+    def test_a_link_inside_a_rejected_or_withdrawn_adr_is_no_failure(self):
+        self.write_adr(1, "rejected", requires=["D1 D2"])
+        self.write_adr(2, "withdrawn", requires=["D1 ADR-0002 D2"])
+        self.assertEqual(self.analyse()[0], [])
+
     def test_a_proposed_target_is_not_a_failure(self):
         self.write_adr(1, "proposed")
         self.write_adr(2, requires=["D1 ADR-0001 D1"])
@@ -226,21 +231,30 @@ class Supersede(unittest.TestCase):
     def test_a_partial_supersede_of_another_decision_does_not_refuse(self):
         code, _, err = self.ccp("adr", "supersede", "1", "2", "--decisions", "D1")
         self.assertEqual(code, 0, err)
+        self.assertEqual(adr.analyse(self.p.cfg)[1:], ([], []))
 
     def test_a_decision_already_retired_by_a_decision_is_not_cut(self):
         self.old.write_text(self.old.read_text().replace("D2 built", "D2 retired by ADR-0002 D1"))
         code, _, err = self.ccp("adr", "supersede", "1", "2")
         self.assertEqual(code, 0, err)
+        self.assertEqual(adr.analyse(self.p.cfg)[1:], ([], []))
 
-    def test_a_requirer_in_the_adr_being_superseded_does_not_hold_it(self):
-        self.write_adr(4, decisions=["D1 built", "D2 built"], requires=["D1 D2"])
+    def test_a_requirer_in_the_adr_being_superseded_holds_it_too(self):
+        four = self.write_adr(4, decisions=["D1 built", "D2 built"], requires=["D1 D2"])
+        before = four.read_bytes()
         code, _, err = self.ccp("adr", "supersede", "4", "2")
+        self.assertEqual(code, 2)
+        self.assertIn("ADR-0004 D2 is required by ADR-0004 D1", err)
+        self.assertEqual(four.read_bytes(), before)
+        code, _, err = self.ccp("adr", "supersede", "4", "2", "--by", "D2")
         self.assertEqual(code, 0, err)
+        self.assertEqual(adr.analyse(self.p.cfg)[1:], ([], []))
 
     def test_no_requires_target_supersedes_as_before(self):
         self.dep.write_text(adr.emit({"id": "ADR-0003", "title": "T", "status": "accepted", "date": "2026-01-01"}) + BODY)
         code, _, err = self.ccp("adr", "supersede", "1", "2")
         self.assertEqual(code, 0, err)
+        self.assertEqual(adr.analyse(self.p.cfg)[1:], ([], []))
 
 
 if __name__ == "__main__":

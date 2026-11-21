@@ -582,7 +582,8 @@ def analyse(cfg: Config) -> tuple[list[dict[str, Any]], list[str], list[str]]:
 def _check_requires(adrs: list[dict[str, Any]], index: DecisionIndex, ids: refs.Ids, errs: list[str],
                     soft: list[str]) -> None:
     """§6.7, the `requires` links: a failure for an entry that is malformed, whose own or target
-    decision does not exist, whose target ADR is `rejected` or `withdrawn`, or that closes a cycle
+    decision does not exist, whose target ADR is `rejected` or `withdrawn` (a link inside such an ADR
+    itself excepted: it rests on nothing live), or that closes a cycle
     (across ADRs, on the links as written); a `soft` finding for a target whose `retired by` chain
     ends with no replacement (§6.5)."""
     from ccp import graph  # noqa: PLC0415
@@ -615,7 +616,9 @@ def _check_requires(adrs: list[dict[str, Any]], index: DecisionIndex, ids: refs.
             deps.setdefault(node(me, own), []).append(node(n, dec))
             where.setdefault(node(me, own), rel)
             if other.get("status") in ("rejected", "withdrawn"):
-                errs.append(f"{rel}: requires {s!r}: {other['_path']} is {other['status']}, so D{dec} will not be built")
+                if n != me:  # a link inside the dead ADR itself rests on nothing live
+                    errs.append(f"{rel}: requires {s!r}: {other['_path']} is {other['status']}, "
+                                f"so D{dec} will not be built")
                 continue
             end = index.resolve(n, dec)
             if end.loop:
@@ -1119,14 +1122,14 @@ def _refuse_cut_requires(cfg: Config, old: dict[str, Any], retiring: list[str], 
     """§6.5: `ccp adr supersede` without `--by` records each decision it retires as `retired by <ADR id>`,
     a whole ADR, which is no replacement for a decision another one rests on. Refuses, naming the
     requiring decisions, when one of `retiring` (the decisions of `old` that command newly retires) is a
-    `requires` target; a requirer that is retiring in the same move is not held."""
+    `requires` target."""
     me = old["_number"]
     adrs = load(cfg)[0]
     index = DecisionIndex.build(adrs, ids)
     held = []
     for m in adrs:
         for own, (n, dec) in index.required(m["_number"]):
-            if n == me and dec in retiring and not (m["_number"] == me and own in retiring):
+            if n == me and dec in retiring:
                 held.append(f"{ids.adr_id(n)} D{dec} is required by {ids.adr_id(m['_number'])} D{own}")
     if held:
         raise AdrError(f"{old['_path']}: not superseded without --by: {'; '.join(held)}; name the replacing "
