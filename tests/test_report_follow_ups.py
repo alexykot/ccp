@@ -6,17 +6,25 @@ from __future__ import annotations
 import json
 import unittest
 
-from ccp import followups, runs
+from ccp import followups, report, runs
 from tests.test_report_fields import HEAD
 from tests.test_toolkit import ToolkitFixture
 
 IMPLEMENT = "0002-second/implement"
+REVIEW = "0002-second/review"
 DROPPED = {"kind": "drop", "reason": "not worth it", "at": "2026-11-21T00:00:00Z", "by": followups.LEAD}
 TASKED = {"kind": "task", "ref": "0001-first", "at": "2026-11-21T00:00:00Z", "by": followups.LEAD}
 
 
 def implement_report(*follow_up_lines: str) -> str:
     return "\n".join(["Outcome: done", "PR: #7", f"Head: {HEAD}", "## Friction", "none", *follow_up_lines, ""])
+
+
+class Table(unittest.TestCase):
+
+    def test_every_phase_s_report_reads_the_section(self):
+        for phase in runs.PHASES:
+            self.assertIn("follow_ups", [s.key for s in report.sections_for(phase)], phase)
 
 
 class Carry(unittest.TestCase):
@@ -50,8 +58,8 @@ class Submit(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
         self.assertEqual(code, 0, out + err)
 
-    def run_rec(self) -> dict:
-        return json.loads(runs.path(self.q, IMPLEMENT).read_text())
+    def run_rec(self, run_id: str = IMPLEMENT) -> dict:
+        return json.loads(runs.path(self.q, run_id).read_text())
 
     def assert_refused(self, text: str, said: str) -> None:
         code, _, out, err = self.report(IMPLEMENT, text)
@@ -71,15 +79,41 @@ class Submit(ToolkitFixture, unittest.TestCase):
         self.assertEqual(self.run_rec()["follow_ups"], want)
         self.assertEqual(body["follow_ups"], want)
 
-    def test_a_missing_section_and_the_line_none_store_no_follow_ups(self):
+    def test_a_review_report_s_follow_ups_are_stored_on_its_run(self):
+        code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", HEAD)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["run_id"], REVIEW)
+        code, _, out, err = self.report(REVIEW, "\n".join([
+            "Outcome: done", "Severity: BLOCKER=0 MAJOR=0 MINOR=0 NIT=0", "## Spec beyond intent", "none",
+            "## Friction", "none", "## Follow-ups", "- a test gap outside this task", ""]))
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.run_rec(REVIEW)["follow_ups"],
+                         [{"id": f"{REVIEW}#1", "text": "a test gap outside this task", "outcome": None}])
+
+    def test_a_missing_section_stores_no_follow_ups(self):
         code, _, out, err = self.report(IMPLEMENT, implement_report())
         self.assertEqual(code, 0, out + err)
         self.assertEqual(self.run_rec()["follow_ups"], [])
 
-    def test_the_single_line_none_stores_no_follow_ups(self):
-        code, _, out, err = self.report(IMPLEMENT, implement_report("## Follow-ups", "none"))
+    def test_a_near_miss_heading_stores_none_and_warns(self):
+        for heading in ("### Follow-ups", "## Follow ups", "## Followups"):
+            code, _, out, err = self.report(IMPLEMENT, "\n".join([
+                "Outcome: done", "PR: #7", f"Head: {HEAD}", "## Notes", heading, "- a test gap", "## Friction", "none",
+                ""]))
+            self.assertEqual(code, 0, f"{heading}: {out}{err}")
+            self.assertEqual(self.run_rec()["follow_ups"], [], heading)
+            self.assertIn(f"`{heading}` is not read as the follow-ups", err)
+
+    def test_a_correct_heading_gives_no_near_miss_warning(self):
+        code, _, out, err = self.report(IMPLEMENT, implement_report("## Follow-ups", "- a test gap"))
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(self.run_rec()["follow_ups"], [])
+        self.assertNotIn("is not read as the follow-ups", err)
+
+    def test_an_empty_section_the_line_none_and_the_line_dash_none_store_no_follow_ups(self):
+        for lines in ((), ("none",), ("- none",)):
+            code, _, out, err = self.report(IMPLEMENT, implement_report("## Follow-ups", *lines))
+            self.assertEqual(code, 0, f"{lines}: {out}{err}")
+            self.assertEqual(self.run_rec()["follow_ups"], [], lines)
 
     def test_a_line_that_is_neither_an_item_nor_none_is_refused_and_nothing_is_written(self):
         self.assert_refused(implement_report("## Follow-ups", "- a test gap", "the parser needs a CRLF test"),
@@ -90,7 +124,7 @@ class Submit(ToolkitFixture, unittest.TestCase):
 
     def test_none_beside_follow_ups_is_refused(self):
         self.assert_refused(implement_report("## Follow-ups", "- a test gap", "- none"),
-                            "## Follow-ups")
+                            "says `none` beside follow-ups")
 
     def test_a_secret_like_line_is_refused_and_nothing_is_written(self):
         self.assert_refused(implement_report("## Follow-ups", "- rotate ANTHROPIC_API_KEY=abc123"),

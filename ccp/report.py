@@ -63,6 +63,7 @@ SUITE_ANY_RE = re.compile(r"^[^\w\n]*Suite:.*$", re.I | re.M)
 AUTO_ROLES = ("full", "gate")  # a report with no Suite: line takes its run's latest of these roles' lanes (§14.1)
 FRICTION_RE = re.compile(r"^##\s+Friction[ \t]*\r?$", re.M)
 FOLLOW_UPS_RE = re.compile(r"^##\s+Follow-ups[ \t]*\r?$", re.I | re.M)  # §13.4, ADR-0044 D1
+FOLLOW_UPS_NEAR_RE = re.compile(r"^#+\s*follow.?ups\b", re.I | re.M)  # a heading `ccp report` does not read as it
 BEYOND_RE = re.compile(r"^##\s+(?:Spec beyond intent|spec_beyond_intent)[ \t]*\r?$", re.I | re.M)  # §3.5
 FIELD_PHASES = runs.CHANGE_PHASES  # §13.4: the rounds that push a head (PR, Head) and state the declared verdicts
 RESOLUTION_RE = re.compile(r"^[^\w\n]*Resolution[ \t*_]*:[ \t*_`]*(.*?)[ \t]*\r?$", re.I | re.M)  # §13.4
@@ -649,6 +650,9 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
     earlier = rec.get("follow_ups") if isinstance(rec.get("follow_ups"), list) else []
     parsed["follow_ups"] = [{"id": refs.follow_up_id(run_id, n), "text": t, "outcome": None}
                             for n, t in enumerate(parsed.get("follow_ups") or [], 1)]  # §13.4, ADR-0044 D1
+    if not FOLLOW_UPS_RE.search(text) and (near := FOLLOW_UPS_NEAR_RE.search(text)):
+        warnings.append(f"the heading `{near.group(0)[:40]}` is not read as the follow-ups: only `## Follow-ups` is, "
+                        "so none are stored; correct the report to keep them (SPEC §13.4)")
     if correcting:
         parsed["follow_ups"], dropped = followups.carry(earlier, parsed["follow_ups"])
         warnings += [f"follow-up {fu.get('id')} (`{str(fu.get('text') or '')[:80]}`) had the outcome "
