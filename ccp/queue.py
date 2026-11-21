@@ -77,6 +77,16 @@ def run_ccp_warning() -> str | None:
     return None
 
 
+def spawn_detached(root: Path, q: Path, argv: list[str], *, stdout: Any, stderr: Any) -> subprocess.Popen:
+    """Start `ccp --root <root> <argv…>` as a child in its own session, so it outlives the caller: this plane's
+    ccp whatever the caller's cwd or PYTHONPATH, `QUEUE_ROOT` set to `q`, no stdin, the caller's `stdout` and
+    `stderr` (a file, `subprocess.DEVNULL` or `subprocess.STDOUT`)."""
+    boot = f"import sys; sys.path.insert(0, {str(PLANE)!r}); from ccp.cli import main; sys.exit(main(sys.argv[1:]))"
+    return subprocess.Popen([sys.executable, "-c", boot, "--root", str(root), *argv], stdin=subprocess.DEVNULL,
+                            stdout=stdout, stderr=stderr, cwd=root, env={**os.environ, "QUEUE_ROOT": str(q)},
+                            start_new_session=True)
+
+
 BOOTOUT_WAIT = 10.0  # seconds for launchd to forget a booted-out service
 BOOTSTRAP_BACKOFF = (1, 2, 4)  # retries after "Bootstrap failed: 5: Input/output error"
 RUNNING_CHECKS = 5  # one a second, for a KeepAlive agent to reach `state = running`

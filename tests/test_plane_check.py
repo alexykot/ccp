@@ -144,8 +144,6 @@ class Archive(SandboxCase):
 
     def test_the_archived_event_and_its_keys_are_in_the_contract(self):
         lib = queue.lib
-        schema = json.loads((PLANE / "contracts" / "observability_event.schema.json").read_text())
-        self.assertIn("archived", schema["properties"]["op"]["enum"])
         ev = {"at": "2026-01-01T00:00:00Z", "project_id": "demo", "task_id": "", "actor": "operator", "type": "plane",
               "op": "archived", "payload": {"day": "2026-01-01", "archived": 1, "not_moved": 0}}
         self.assertEqual(lib.validate_event(ev), [])

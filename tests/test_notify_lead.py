@@ -259,9 +259,6 @@ class LeadConfig(unittest.TestCase):
 class Contract(unittest.TestCase):
     def test_the_ledger_contract_and_its_validator_accept_the_notify_events(self):
         from ccp import queue
-        schema = json.loads((PLANE / "contracts/observability_event.schema.json").read_text())
-        self.assertIn("notify", schema["properties"]["type"]["enum"])
-        self.assertTrue({"pending", "sent"} <= set(schema["properties"]["op"]["enum"]))
         ev = {"at": "2026-11-11T00:00:00Z", "project_id": "demo", "task_id": "", "actor": "design-seat",
               "type": "notify", "op": "sent", "payload": {"trigger": "other"}}
         self.assertTrue(any("payload missing" in e for e in queue.lib.validate_event(ev)))

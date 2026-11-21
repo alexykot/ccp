@@ -5,9 +5,8 @@ command follows are in the SPEC, not here.
 
 | Command | What it does |
 |---|---|
-| `ccp board build [--quiet] [--backfill]` | Fold the sources into `board/board.json`, the page and the day's snapshot (§28) |
+| `ccp board build [--quiet]` | Fold the sources into `board/board.json`, the page and the day's snapshot (§28) |
 | `ccp board status` | Terminal summary; exits non-zero on an open blocker (§23.4) |
-| `ccp board html` | Write `board/index.html` |
 | `ccp board task <id\|NNNN>` | One task's drill-down in the terminal |
 | `ccp board install\|uninstall\|timer` | The per-project rebuild timer |
 | `ccp otel serve [--port N]` | The telemetry receiver (§24.2) |
@@ -19,7 +18,7 @@ command follows are in the SPEC, not here.
 | `ccp allowance status [--sample]` | Latest sample, checkpoint in force, resets and decisions (§25.3) |
 | `ccp allowance continue --to <percent> --reason "<the operator's words>"` | Record the operator's decision past the checkpoint |
 | `ccp allowance session-wake [--sample] [--armed] [--fire]` | The session wake (§25.4) |
-| `ccp tasks estimate ID [--baseline] [--force] [--dry-run] [--print-prompt ID]` | Estimate one task (§26.3) |
+| `ccp tasks estimate ID [--baseline] [--force] [--dry-run] [--json] [--print-prompt ID]` | Estimate one task (§26.3) |
 | `ccp tasks estimate --all [--baseline] [--max N] [--detach]` | Estimate every task that needs it |
 | `ccp tasks estimate show ID` | A task's rows, latest of each source, raw and calibrated |
 | `ccp estimate backfill [--dry-run]` | Baselines and actuals for merged tasks (§26.3) |

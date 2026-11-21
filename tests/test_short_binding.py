@@ -149,8 +149,23 @@ class OldBinding(BindingDir):
         (self.product / "docs/delivery/plane.json").write_text(
             '{"project_id": "demo", "adapter": {"worktree_dir": "../out"}}')  # the old key, read while it is set
         self.assertEqual(lib.runner_worktree(self.queue), os.path.normpath(self.product / ".." / "out" / "runner"))
+        (self.product / "docs/delivery/plane.json").write_text('{"project_id": "demo", "worktrees": {"dir": null}}')
+        self.assertEqual(lib.runner_worktree(self.queue), str(self.product / ".plane-runtime" / "runner"))  # null: the default
         self.binding.write_text(f"project_id: demo\nqueue_root: {self.queue}\n")
         self.assertIsNone(lib.runner_worktree(self.queue))  # no product root: nowhere to derive it from
+
+    def test_reading_the_worktree_leaves_the_plane_json_warnings_for_the_later_loads(self):
+        (self.product / "docs/delivery").mkdir(parents=True)
+        plane = self.product / "docs/delivery/plane.json"
+        plane.write_text('{"project_id": "demo", "zzz_unknown": 1}')
+        config._WARNED.difference_update({k for k in config._WARNED if k[0] == str(plane)})
+        self.addCleanup(lambda: config._WARNED.difference_update({k for k in config._WARNED if k[0] == str(plane)}))
+        with redirect_stderr(io.StringIO()) as quiet:
+            lib.runner_worktree(self.queue)
+        self.assertNotIn("zzz_unknown", quiet.getvalue())
+        with redirect_stderr(io.StringIO()) as later:
+            config.load(self.product)
+        self.assertIn("unknown key(s) zzz_unknown", later.getvalue())
 
     def test_the_lead_window_is_named_as_moved(self):
         self.binding.write_text(f"project_id: demo\nqueue_root: {self.queue}\nlead:\n  auto_compact_window: 500000\n")

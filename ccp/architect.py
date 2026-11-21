@@ -49,6 +49,7 @@ from typing import Any
 from ccp import config, health, pkgdocs, refs, rules, tasklog, wt
 from ccp.adr import find_file as find_adr_file
 from ccp.config import ARCHITECT_DEFAULTS, Config
+from ccp.queue import spawn_detached
 
 PLANE = Path(__file__).resolve().parent.parent
 OBS = PLANE / "scripts" / "observability"
@@ -522,11 +523,8 @@ def _spawn(cfg: Config, q: Path, argv: list[str], many: bool = False) -> int:
     rids = argv[argv.index("--review-id") + 1].split(",")
     rid = rids[0]  # several shapes run in turn: the call returns once the first is running
     log = ar.rdir(q) / f"{rid}.log"
-    boot = f"import sys; sys.path.insert(0, {str(PLANE)!r}); from ccp.cli import main; sys.exit(main(sys.argv[1:]))"
     with log.open("w") as fh:
-        p = subprocess.Popen([sys.executable, "-c", boot, "--root", str(cfg.root), "architect", "run", *argv],
-                             stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT, cwd=cfg.root,
-                             env={**os.environ, "QUEUE_ROOT": str(q)}, start_new_session=True)
+        p = spawn_detached(cfg.root, q, ["architect", "run", *argv], stdout=fh, stderr=subprocess.STDOUT)
     deadline = time.time() + 30
     status = None
     while time.time() < deadline:

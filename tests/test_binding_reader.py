@@ -225,6 +225,11 @@ class ReadersTest(BindingDir):
             (self.product / "docs/delivery").mkdir(parents=True)
             (self.product / "docs/delivery/plane.json").write_text('{"project_id": "demo", "task_log": {"dir": "notes/log"}}')
             self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.product / "notes/log")
+            for blank in ("null", '""'):
+                (self.product / "docs/delivery/plane.json").write_text(
+                    '{"project_id": "demo", "task_log": {"dir": %s}}' % blank)
+                self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.product / "docs/delivery", blank)
+            (self.product / "docs/delivery/plane.json").write_text('{"project_id": "demo", "task_log": {"dir": "notes/log"}}')
             self.binding.write_text(f"queue_root: {self.queue}\n")
             self.assertIsNone(lib.resolve_durable_docs_dir(self.queue))
         with mock.patch.dict(os.environ, {"DURABLE_DOCS": "/abs/docs"}):

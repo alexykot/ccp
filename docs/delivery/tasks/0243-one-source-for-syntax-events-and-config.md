@@ -1,7 +1,7 @@
 ---
 task_id: 0243-one-source-for-syntax-events-and-config
 title: One source for plane.json reads, command syntax, the event registry and the detached launch, and multi-line schemas
-status: pending
+status: done
 kind: refactor
 depends_on: ["0203-follow-up-fixes"]
 review_refs: ["ar-20261120T234012Z-27eb#F03", "ar-20261120T234012Z-27eb#F05", "ar-20261120T234012Z-27eb#F06", "ar-20261120T234012Z-27eb#F20", "ar-20261120T234012Z-27eb#F21"]
@@ -156,4 +156,38 @@ because their checks fail or do not exist until this task is built. Measured at 
 
 ## Implementation notes
 
+- F03: `lib._product_plane` is now `_product_config`, which loads the product's `ccp.config` Config with the load's
+  stderr warnings dropped (the way `team.max_in_flight` does) and gives None when plane.json is missing or does not
+  load. `runner_worktree` and `resolve_durable_docs_dir` read `worktrees.dir` and `task_log.dir` from it, with
+  `config.WORKTREES_DIR` and `config.TASK_LOG_DEFAULTS["dir"]` as the fallback; lib's `WORKTREES_DIR` and
+  `TASK_LOG_DIR` are gone. A plane.json that loads with an error is now the defaults too, where the raw read took
+  whatever its `worktrees.dir` said.
+- F05: `ccp/cli.py`'s docstring keeps its first line and points at `ccp -h` and docs/cli.md. `tests/test_cli_reference.py`
+  reads each table row, fenced line and paragraph of `docs/cli/*.md` as one unit: the `ccp <words>` in its code
+  spans name commands, its `--flags` belong to them. `otel` is the one command it does not walk past its name:
+  `ccp.cli.main` hands its words to `ccp.otel.main`, which has its own parser. A flag the parser marks
+  `help=SUPPRESS` is not required. `docs/cli/` was corrected: `--allow-overdue`, `--note`, `--dry-run`, `--json`,
+  `--telemetry`, `--by`, `--dir`, `--open`, the prompt's `--pr`, `--base`, `--worktree`, `--holder` and the architect's
+  `--actor`, `--apply` written in; `prompt --round`, `board build --backfill` and `ccp board html` (no such flag or
+  command) removed; `architect` and `review-points show` each have their own row.
+- F06: `lib.LEGACY_EVENT_TYPES = ("hosting",)`; `tests/test_event_registry.py` holds the schema's type and op enums and
+  `REQUIRED_PAYLOAD`'s keys to lib. The per-op schema assertions went from the four modules (the validator's own
+  assertions beside them stay).
+- F20: the six schemas are `json.dumps(indent=2, ensure_ascii=False)` plus a newline; parsed content is identical.
+- F21: `queue.spawn_detached(root, q, argv, stdout=, stderr=)`; the three callers pass their own `stdout` and `stderr`
+  (the board's `close_fds=True` was the default already).
+- E12 and E16 amended, E25 added in docs/ENGINEERING.md, and `architect.checks` E12, E16, E25 in plane.json, with the
+  text the task gives.
+- Fix round 1: `resolve_durable_docs_dir` falls back to `TASK_LOG_DEFAULTS["dir"]` again for a null or blank
+  `task_log.dir` (the old `or` fallback), pinned in `tests/test_binding_reader.py`. The docstring test is now
+  `test_the_cli_docstring_carries_no_usage_table`, which says what it checks. `DERIVED_KEYS` no longer writes the
+  default task-log directory into its text. docs/cli/02-delivery.md writes `[--detail …]` on the `tasks resume` half
+  of the wait row.
+- Fix round 2: `lib._product_config` restores `ccp.config._WARNED` after its silent load, so the process's later
+  `config.load` calls (`refactor_log`, `product_log`, `review_point_scope`, `spec_maintainer`) still print each
+  moved-key and unknown-key warning once, as before the task. Pinned in `tests/test_short_binding.py`. The null
+  `worktrees.dir` fallback in `runner_worktree` is pinned there too.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #250 head `9cf6f72` (squash `4acaf57`): APPROVE. Passed: one-01, one-02, one-03, one-04, one-05, one-06. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -q (the dod_check modules, 16 modules)` exit 0, `ccp wt exec -- tasks check` exit 0, `ccp wt exec -- docs check` exit 0. Record: verification/0243-one-source-for-syntax-events-and-config.json.
+

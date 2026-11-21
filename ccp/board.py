@@ -33,7 +33,7 @@ from typing import Any
 from ccp import config, health, plane, quality, refs, runs, suite, usage
 from ccp.config import Config
 from ccp.queue import (PLANE, durable_statuses, iso, launchd_bootout, launchd_reload, load_work, preferred_ids, read_json, run_ccp,
-                       run_ccp_warning, script_drift)
+                       run_ccp_warning, script_drift, spawn_detached)
 
 PAGE = Path(__file__).resolve().parent / "board_page.html"
 STALE_MINUTES = 30
@@ -485,11 +485,8 @@ def _spawn(cfg: Config, q: Path) -> None:
     leaves a trace."""
     log = q / "board" / LOG
     mode = "w" if log.is_file() and log.stat().st_size > LOG_MAX else "a"
-    boot = f"import sys; sys.path.insert(0, {str(PLANE)!r}); from ccp.cli import main; sys.exit(main(sys.argv[1:]))"
     with log.open(mode) as fh:
-        subprocess.Popen([sys.executable, "-c", boot, "--root", str(cfg.root), "board", "build", "--quiet", "--drain"],
-                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=fh, cwd=cfg.root,
-                         env={**os.environ, "QUEUE_ROOT": str(q)}, start_new_session=True, close_fds=True)
+        spawn_detached(cfg.root, q, ["board", "build", "--quiet", "--drain"], stdout=subprocess.DEVNULL, stderr=fh)
 
 
 def drain(cfg: Config, q: Path) -> int:
