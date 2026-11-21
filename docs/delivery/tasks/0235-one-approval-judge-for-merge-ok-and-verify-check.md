@@ -1,7 +1,7 @@
 ---
 task_id: 0235-one-approval-judge-for-merge-ok-and-verify-check
 title: merge-ok and ccp verify check judge a record with one function, and verify check refuses a verdict with no head
-status: pending
+status: done
 kind: feature
 depends_on: ["0226-one-pr-host-module-github-only"]
 spec_refs: ["S15"]
@@ -113,3 +113,5 @@ Measured at `8aefa59`.
   `MergeGate.verdict` helper carries a gate, since `check` now holds an approve to one.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #254 head `d8a3adf` (squash `25faa91`): APPROVE. Passed: jd-01, jd-02, jd-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0235-one-approval-judge-for-merge-ok-and-verify-check.json.
+
