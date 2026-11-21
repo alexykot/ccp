@@ -80,4 +80,23 @@ Measured at `8aefa59`.
 
 ## Implementation notes
 
+- The verify prompt's evidence paragraph, the verifier's and the runner's briefs and `ccp/verify.py`'s
+  docstring now name §15.4 and `ccp verify record` (and, in the docstring, `producer_errors`,
+  `rests_on_errors`, `as_written_errors`, `not_as_written`); the restated forms, the `operator_step`
+  exception and both inline sample checks are gone. The sample is `contracts/verification.example.json`.
+- The verify prompt's earlier sentence "resting on one of the three forms below" pointed at the removed
+  list; it now reads "resting on what SPEC §15.4 allows", and `tests/test_verify_cache.py`'s `ORIGINAL`
+  (which pins that sentence) changed with it. The verifier's brief's "in one of the three forms below" too.
+- `test_each_check_of_the_example_record_passes_the_records_checks` replaces the prose-parsing test: it
+  records each check of the example through `ccp verify record` and requires the example to hold a check
+  run and a check not run, and every check run to be `produced_by: verifier`. The last assertion is what
+  makes an `implementer` on a check run fail the test (`record` itself accepts that seat for a check run).
+  The operator sample's `produced_by` is not pinned, so 0237 can change it.
+- `tests/test_verify_producer.py`'s unused `import re` is gone.
+- Fix round 1 (review MINOR and both NITs), all in `plugin/agents/delivery-verifier.md`: the "A ruling
+  is not evidence" bullet no longer restates who `produced_by` names on a ruling waiver (§15.4 holds it,
+  as verify.md already did); the as_written bullet's "ruling form above" now reads "the ruling form
+  SPEC §15.4 gives"; and its restated `record` refusals shrank to "`record` refuses what breaks the rule",
+  matching verify.md.
+
 ## Verification notes

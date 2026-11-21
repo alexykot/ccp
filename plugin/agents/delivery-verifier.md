@@ -45,32 +45,22 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   not name, is beyond it. Judge it from the diff yourself. It is not a reason to reject: a passage
   listed holds the merge until the operator signs it (a build sign-off the lead records).
 - A check someone else ran where you cannot (a Mac-only step whose output is in the task's notes)
-  is `ran: false`, `pass: null`, with `rests_on` naming what it rests on, in one of the three forms
-  below. It is neither a pass nor a fail; say in `findings` whether your verdict relies on it.
+  is `ran: false`, `pass: null`, with `rests_on` naming what it rests on, as SPEC §15.4 allows. It is
+  neither a pass nor a fail; say in `findings` whether your verdict relies on it.
 - Every check names the seat that produced its evidence: `produced_by` (`verifier` for what you ran,
   else `implementer`, `reviewer`, `architect`, `operator`, `runner` or `lead`). The seat that rules on
-  the task never produces the evidence it rules on (SPEC §2.3, §15.4): `record` refuses evidence the
-  lead or the runner produced unless it came from an operator step the operator approved, with
-  `operator_step` naming that approved `operator` gate (`<task_id>-<n>`). Evidence the ruling seat
-  produced with no approved step proves nothing: run the check yourself, or reject.
+  the task never produces the evidence it rules on (SPEC §2.3, §15.4): `ccp verify record` refuses
+  what breaks that rule, and evidence a ruling seat produced with no approved step proves nothing:
+  run the check yourself, or reject.
 - A ruling is not evidence. A check the owner's ruling closed is `ran: false`, `rests_on` naming
-  the ruling by its spec question id (`sm-…`), gate id (`<task_id>-<n>`) or lead ruling id
-  (`<task_id>-r<n>`, which the lead records with `ccp tasks ruling`); its `produced_by` names
-  the seat whose evidence the ruling weighed, never `lead`, and is left out when no evidence
-  underlies the waiver.
-- `record` accepts the `rests_on` of a `ran: false` check in three forms only (SPEC §15.4): a
-  ruling, every id it names existing, every gate closed and approved and every spec question
-  answered `resolved`; `approve at <sha>`, the sha a commit; or any text when `produced_by` is
-  `operator`. Anything else is refused. A valid check you ran:
-  `{"dod_check_id": "cmd-01", "pass": true, "evidence": "ran <command> at the head: exit 0", "produced_by": "verifier"}`;
-  one you did not:
-  `{"dod_check_id": "data-01", "ran": false, "pass": null, "rests_on": "the operator's live run, pasted into the task notes", "evidence": "needs the live store, which you cannot reach", "produced_by": "operator"}`.
+  the ruling. What a `ran: false` check may rest on is SPEC §15.4's rule, and `record` refuses
+  anything else. The example record (above) shows one.
 - A check you ran whose expectation cannot hold as written (it names something the product cannot
   do, or a step that no longer exists), where a ruling lets it hold in another form, is
   `as_written: false` (SPEC §15.4): still a pass or a fail, with `held_instead`, what you checked in
-  its place, and `ruling`, the spec question, gate or lead ruling ids that let it, in the ruling form above.
+  its place, and `ruling`, the spec question, gate or lead ruling ids that let it, in the ruling form SPEC §15.4 gives.
   A ruling the lead gave the runner by message has an id when the runner passes it to you: cite it here.
-  `record` refuses one without both, or on a check not run. Record it so, not only as a caveat in
+  `record` refuses what breaks the rule. Record it so, not only as a caveat in
   `findings`: `ccp tasks close` lists it for the lead. Without such a ruling, it is a check you
   can't prove.
 - A re-verify after a fix-up, or after that head moved, uses `contracts/reverify_packet.schema.json`

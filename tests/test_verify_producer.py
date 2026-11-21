@@ -6,7 +6,6 @@ from __future__ import annotations
 import io
 import json
 import os
-import re
 import subprocess
 import tempfile
 import unittest
@@ -180,14 +179,16 @@ class Producer(unittest.TestCase):
         code, _, err = self.record(check(None, rests_on=f"the lead's ruling, gate {other}", **unrun))
         self.assertEqual(code, 0, err)
 
-    def test_the_example_checks_the_verifier_is_shown_are_valid(self):
-        for doc in ("templates/prompts/verify.md", "plugin/agents/delivery-verifier.md"):
-            shown = [json.loads(m) for m in re.findall(r'`(\{"dod_check_id".*?\})`', (ROOT / doc).read_text())]
-            self.assertEqual([c.get("ran", True) for c in shown], [True, False], doc)
-            for c in shown:
-                code, _, err = self.record(c)
-                self.assertEqual(code, 0, (doc, c, err))
-                self.written().unlink()
+    def test_each_check_of_the_example_record_passes_the_records_checks(self):
+        shown = json.loads((ROOT / "contracts/verification.example.json").read_text())["checks"]
+        self.assertEqual({c.get("ran", True) for c in shown}, {True, False})
+        self.gate(1, task="0042-example-task")  # the gate the example's not-as-written check cites
+        for c in shown:
+            if c.get("ran", True):
+                self.assertEqual(c["produced_by"], "verifier", c)  # what the verifier ran, it produced
+            code, _, err = self.record(c)
+            self.assertEqual(code, 0, (c, err))
+            self.written().unlink()
 
     def test_a_date_beside_a_ruling_reads_as_an_unknown_gate_id_and_is_refused(self):
         # Decided: refuse. A date is shaped like a gate id (`<digits>-<slug>-<digits>`), and the ruling
