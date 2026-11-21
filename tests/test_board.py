@@ -374,8 +374,6 @@ class QueueFollowsTheLog(ToolkitFixture, unittest.TestCase):
         (self.q / "tasks/0003-dropped.json").write_text(json.dumps({
             "task_id": "0003-dropped", "project_id": "demo", "status": "pending", "waiting_on": "operator_step",
             "waiting_on_since": "2026-10-18T05:40:01Z", "lease_holder": None}))
-        (self.q / "queue/pending").mkdir(parents=True)
-        (self.q / "queue/pending/0003-dropped").touch()
         g = self.q / "escalations/0003-dropped/1.json"
         g.parent.mkdir(parents=True)
         g.write_text(json.dumps({"escalation_id": "0003-dropped-1", "task_id": "0003-dropped", "status": "open",
@@ -421,11 +419,9 @@ class QueueFollowsTheLog(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.ccp("tasks", "sync")
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["changed"], [{"task_id": "0003-dropped", "durable_status": "dropped", "changed": [
-            "cleared waiting_on operator_step", "status pending -> dropped", "marker queue/dropped/"]}])
+            "cleared waiting_on operator_step", "status pending -> dropped"]}])
         t = json.loads((self.q / "tasks/0003-dropped.json").read_text())
         self.assertEqual((t["status"], t["waiting_on"], t["waiting_on_since"]), ("dropped", None, None))
-        self.assertTrue((self.q / "queue/dropped/0003-dropped").exists())
-        self.assertFalse((self.q / "queue/pending/0003-dropped").exists())
         mine = [e for e in self.events() if e["task_id"] == "0003-dropped"]
         self.assertEqual([(e["type"], e["op"]) for e in mine],
                          [("waiting_on", "clear"), ("durable", "reconcile"), ("phase", "transition")])
@@ -509,8 +505,7 @@ class QueueFollowsTheLog(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.ccp("tasks", "sync", "--dry-run")
         self.assertEqual(code, 0, out + err)
         self.assertTrue(body["dry_run"])
-        self.assertEqual(body["changed"][0]["changed"], ["cleared waiting_on operator_step", "status pending -> dropped",
-                                                         "marker queue/dropped/"])
+        self.assertEqual(body["changed"][0]["changed"], ["cleared waiting_on operator_step", "status pending -> dropped"])
         self.assertEqual({p: p.read_bytes() for p in self.q.rglob("*") if p.is_file()}, files)
 
     def test_sync_asks_for_a_rebuild_only_when_it_wrote(self):

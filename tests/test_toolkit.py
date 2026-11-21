@@ -255,7 +255,6 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.assertEqual((w["task_id"], w["status"], w["in_flight"]), ("0002-second", "running", ["0002-second"]))
         self.assertIn(("lease", "set"), self.ops())
         self.assertIn(("phase", "transition"), self.ops())
-        self.assertTrue((self.q / "queue/leased/0002-second").exists())
         code, body, out, err = self.ccp("tasks", "claim", "0002")  # a resumed claim keeps the lease
         self.assertEqual(code, 0, out + err)
         self.assertTrue(body["resumed"])

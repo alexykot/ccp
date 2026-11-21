@@ -22,8 +22,8 @@ CCP = PLANE / "bin" / "ccp"
 # Every top-level name the plane writes or still reads in a queue, as a file or a directory.
 OWNED = ("_legacy", "architect.json", "architect.json.lock", "architect.lock", "auth", "board", "docs-audit.json",
          "docs-audit.lock", "durable", "escalations", "estimates", "estimator", "estimator.lock", "health", "locks",
-         "observability", "plane", "product-docs-check.json", "progress", "project.yaml", "prompts", "queue",
-         "questions", "review", "reviews", "runs", "tasks", "verification", "work.json", "work.json.lock",
+         "observability", "plane", "product-docs-check.json", "progress", "project.yaml", "prompts", "questions",
+         "review", "reviews", "runs", "tasks", "verification", "work.json", "work.json.lock",
          "worktrees")
 
 

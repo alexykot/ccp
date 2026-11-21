@@ -18,8 +18,5 @@ Alongside the parts:
 - **Design notes** (non-normative: implementation notes, spikes, rationale): [`docs/design/`](docs/design/).
 - **Command reference** (call syntax and flags): [`docs/cli.md`](docs/cli.md) and `docs/cli/`.
 - **Decisions behind the rules**: the ADRs in [`docs/adr/`](docs/adr/).
-- **The restructure**: the layout is ADR-0033; [`docs/spec/MAP.md`](docs/spec/MAP.md) maps every
-  pre-restructure section to its new place, and [`docs/spec/RULINGS.md`](docs/spec/RULINGS.md) lists the
-  rules the operator ruled on during it (ADR-0034).
 
 A change to a § rule needs the operator's approval (§31.1).

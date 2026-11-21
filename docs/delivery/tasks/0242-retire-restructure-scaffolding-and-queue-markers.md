@@ -139,4 +139,23 @@ Measured at `8aefa59`.
 
 ## Implementation notes
 
+- Every Context premise re-measured at `2ae3e8c` before building: the same figures as at `8aefa59`
+  (two commits on the scaffolding, no gate caller, 10 marker lines in `ccp`, 7 marker test lines, the two
+  missing module names, 6 numbered headings, 7 restated defaults, 32 reference lines).
+- F09: `set_marker` and `_markers` are gone, with the claim, release, close and sync writers and sync's
+  `marker queue/<state>/` plan line; `"queue"` left `QUEUE_OWNED`, so `ccp plane check` lists an old
+  queue's `queue/` as `unknown: queue/` and `--archive` moves it to `_legacy/<UTC day>/queue/`.
+  `tests/test_plane_check.py`'s copy of the owned names drops `queue` with it (the module breaks
+  otherwise), and `tests/test_board.py`'s dry-run sync expectation loses the marker line too.
+- `tests/test_queue_markers_gone.py`: claim then release, close, and sync of a dropped task each leave
+  no `queue/` directory; an old queue's `queue/` is archived through `ccp plane check --archive`; on
+  plain values, `queue.leftover_entries` names it.
+- F08: `docs/spec/MAP.md` keeps its intro and Outline, retitled "The SPEC's layout"; its
+  `<!-- spec-refs: historical -->` line went with the map it qualified (nothing in the plane reads it).
+- F19: besides the 6 measured headings, `docs/design/observability.md`'s three `#### 20.x.y` headings
+  (which the dod regex does not match) also lost their old numbers. Each restated default now names
+  its constant (`ALLOWANCE_STOP_WEEKLY_DEFAULT`, `ESTIMATE_DEFAULTS`, `HEALTH_DEFAULTS` in
+  `ccp/config.py`, `--max` in `ccp/cli.py`). Defaults in other forms (`default port 4318`,
+  ``default `dev.ccp` ``, `estimate.auto` (default `true`)) are left as they were.
+
 ## Verification notes
