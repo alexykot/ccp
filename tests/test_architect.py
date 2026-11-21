@@ -8,21 +8,35 @@ import json
 import os
 import subprocess
 import tempfile
+import threading
 import time
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli
+from ccp import architect, cli
 from tests.helpers import Product
 
 STUB = """#!/usr/bin/env bash
 # Stub claude: answer with the report in $DA_STUB_REPORT, as `claude -p --output-format json` would.
 python3 - "$@" <<'PY'
-import json, os, re, sys
+import json, os, re, subprocess, sys, time
 prompt = sys.argv[sys.argv.index("-p") + 1]
-open(os.environ["DA_STUB_REPORT"] + ".argv", "w").write(json.dumps(sys.argv[1:]))
+R = os.environ["DA_STUB_REPORT"]
+open(R + ".argv", "w").write(json.dumps(sys.argv[1:]))
+open(R + ".cwd", "w").write(os.getcwd())
+open(R + ".head", "w").write(subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip())
+if os.environ.get("DA_STUB_LINK"):  # is this path a symlink in the pass's cwd
+    open(R + ".link", "w").write(str(os.path.islink(os.environ["DA_STUB_LINK"])))
+if os.environ.get("DA_STUB_WATCH"):  # read a file, wait for the test's go, read it again
+    first = open(os.environ["DA_STUB_WATCH"]).read()
+    open(R + ".started", "w").write("")
+    for _ in range(400):
+        if os.path.exists(R + ".go"):
+            break
+        time.sleep(0.05)
+    open(R + ".reads", "w").write(json.dumps([first, open(os.environ["DA_STUB_WATCH"]).read()]))
 open(os.environ["DA_STUB_REPORT"] + ".otel", "w").write(os.environ.get("OTEL_RESOURCE_ATTRIBUTES", ""))
 rid = re.search(r"review_id=(\\S+)", prompt).group(1)
 rep = json.loads(open(os.environ["DA_STUB_REPORT"]).read())
@@ -496,6 +510,247 @@ class RuleChangesAndShape(Harness):
         self.stub_report([{**FINDING, "category": "test-cost"}])
         code, res, _ = self.dpj("architect", "run", "--force", "--lens", "structure")
         self.assertIn("category 'test-cost'", " ".join(res["errors"]))
+
+
+SHAPE = {"hot_spots": [], "preparatory_refactors": [], "single_sources": [], "task_graph": []}
+
+
+class ThePassRunsInItsOwnWorktree(Harness):
+    """§19.7, §12.1: the headless call runs in `arch-<review id>` under the worktree directory, at `head`."""
+
+    def stub(self, name: str) -> str:
+        return Path(f"{self.report}.{name}").read_text()
+
+    def own(self, rid: str) -> Path:
+        return (self.p.root / ".plane-runtime" / f"arch-{rid}").resolve()
+
+    def plane(self, **blocks):
+        pj = self.p.root / "docs/delivery/plane.json"
+        cur = json.loads(pj.read_text())
+        for k, v in blocks.items():
+            cur[k] = {**(cur.get(k) or {}), **v}
+        pj.write_text(json.dumps(cur))
+
+    def registered(self) -> str:
+        return subprocess.run(["git", "-C", str(self.p.root), "worktree", "list", "--porcelain"],
+                              capture_output=True, text=True).stdout
+
+    def test_the_headless_call_runs_in_its_own_worktree_at_head_and_it_is_removed(self):
+        self.stub_report([FINDING])
+        code, res, _ = self.dpj("architect", "run", "--force")
+        self.assertEqual((code, res["outcome"]), (0, "reported"), res)
+        rid = res["review_id"]
+        self.assertEqual(self.stub("cwd"), str(self.own(rid)))
+        self.assertEqual(self.stub("head"), res["head"])
+        self.assertEqual(self.state()["reviews"][rid]["worktree"], str(self.own(rid)))
+        self.assertFalse(self.own(rid).exists())  # removed once the pass reported
+        self.assertNotIn(f"arch-{rid}", self.registered())
+
+    def test_a_failed_pass_removes_its_worktree(self):
+        self.report.write_text("not json")
+        code, res, _ = self.dpj("architect", "run", "--force")
+        self.assertEqual((code, res["outcome"]), (1, "failed"), res)
+        rid = res["review_id"]
+        self.assertEqual(self.stub("cwd"), str(self.own(rid)))
+        self.assertFalse(self.own(rid).exists())
+        self.assertNotIn(f"arch-{rid}", self.registered())
+
+    def test_worktree_links_are_links_in_the_pass_worktree(self):
+        self.plane(worktrees={"links": ["deps"]})
+        self.p.write("deps/lib.txt", "a dependency\n")  # untracked: only the link brings it in
+        self.stub_report([])
+        with mock.patch.dict(os.environ, {"DA_STUB_LINK": "deps"}):
+            code, res, _ = self.dpj("architect", "run", "--force")
+        self.assertEqual(code, 0, res)
+        self.assertEqual(self.stub("cwd"), str(self.own(res["review_id"])))
+        self.assertEqual(self.stub("link"), "True")
+
+    def test_without_a_worktrees_dir_the_pass_runs_in_the_product_root(self):
+        self.plane(worktrees={"dir": None})
+        self.stub_report([])
+        code, res, _ = self.dpj("architect", "run", "--force")
+        self.assertEqual(code, 0, res)
+        self.assertEqual(self.stub("cwd"), str(self.p.root.resolve()))
+        self.assertNotIn("worktree", self.state()["reviews"][res["review_id"]])
+
+    def test_a_dead_pass_worktree_is_removed_by_the_write_path_only(self):
+        rid = "ar-20261014T000000Z-abcd"
+        own = self.own(rid)
+        git(self.p.root, "worktree", "add", "-q", "--detach", str(own), "HEAD")
+        (self.q / "architect.json").write_text(json.dumps({"schema_version": 1, "seen": {}, "reviews": {rid: {
+            "status": "running", "mode": "pass", "done": [], "started_at": "2026-10-14T00:00:00Z",
+            "worktree": str(own), "main": str(self.p.root)}}}))
+        self.assertEqual(architect.load(self.q, reap=False)["reviews"][rid]["status"], "running")
+        self.assertTrue(own.is_dir())  # a read never removes anything
+        self.assertEqual(architect.load(self.q)["reviews"][rid]["status"], "failed")
+        self.assertFalse(own.exists())
+        self.assertNotIn(f"arch-{rid}", self.registered())
+
+    def test_private_paths_are_denied_by_their_absolute_paths_too(self):
+        self.plane(architect={"private_dirs": ["secret"]})
+        self.stub_report([])
+        code, res, _ = self.dpj("architect", "run", "--force")
+        self.assertEqual(code, 0, res)
+        argv = json.loads(self.stub("argv"))
+        deny = argv[argv.index("--disallowedTools") + 1].split(",")
+        own, root = str(self.own(res["review_id"])), str(self.p.root.resolve())
+        for rule in ("Read(./secret)", "Read(./secret/**)", f"Read(/{own}/secret)", f"Read(/{own}/secret/**)",
+                     f"Read(/{root}/secret)", f"Read(/{root}/secret/**)"):
+            self.assertIn(rule, deny)
+        self.assertTrue(f"Read(/{own}/secret)".startswith("Read(//"))
+
+    def test_a_commit_in_the_product_root_during_the_pass_changes_nothing_it_reads(self):
+        self.p.write("app/watched.txt", "one\n")
+        git(self.p.root, "add", "app/watched.txt")
+        git(self.p.root, "commit", "-qm", "watched")
+        started, go = Path(f"{self.report}.started"), Path(f"{self.report}.go")
+
+        def move_the_checkout():
+            for _ in range(400):
+                if started.exists():
+                    break
+                time.sleep(0.05)
+            self.p.write("app/watched.txt", "two\n")
+            git(self.p.root, "add", "app/watched.txt")
+            git(self.p.root, "commit", "-qm", "moved")
+            go.write_text("")
+
+        mover = threading.Thread(target=move_the_checkout)
+        mover.start()
+        self.stub_report([])
+        with mock.patch.dict(os.environ, {"DA_STUB_WATCH": "app/watched.txt"}):
+            code, res, _ = self.dpj("architect", "run", "--force")
+        mover.join()
+        self.assertEqual(code, 0, res)
+        self.assertEqual(json.loads(self.stub("reads")), ["one\n", "one\n"])
+
+    def test_a_worktree_that_cannot_be_made_fails_the_pass(self):
+        self.p.write(".plane-runtime", "a file where the worktree directory goes\n")
+        self.stub_report([])
+        code, res, _ = self.dpj("architect", "run", "--force")
+        self.assertEqual((code, res["outcome"]), (1, "failed"), res)
+        self.assertIn("git worktree add", self.state()["reviews"][res["review_id"]]["error"])
+        self.assertFalse(Path(f"{self.report}.argv").exists())  # nothing launched
+
+    def test_a_dirty_caller_checkout_names_the_head_the_pass_reads(self):
+        f = self.p.root / "docs/delivery/REVIEW-TRIAGE.md"
+        f.write_text(f.read_text() + "uncommitted\n")
+        self.stub_report([])
+        code, res, _ = self.dpj("architect", "run", "--force")
+        self.assertEqual((code, res["dirty"]), (0, True), res)
+        argv = json.loads(self.stub("argv"))
+        body = argv[argv.index("-p") + 1]
+        self.assertIn(f"`{res['head'][:7]}`", body)
+        self.assertNotIn("git show HEAD:", body)
+
+    def test_a_dirty_product_root_without_a_worktrees_dir_keeps_the_committed_state_line(self):
+        self.plane(worktrees={"dir": None})
+        f = self.p.root / "docs/delivery/REVIEW-TRIAGE.md"
+        f.write_text(f.read_text() + "uncommitted\n")
+        self.stub_report([])
+        code, res, _ = self.dpj("architect", "run", "--force")
+        self.assertEqual((code, res["dirty"]), (0, True), res)
+        argv = json.loads(self.stub("argv"))
+        body = argv[argv.index("-p") + 1]
+        self.assertIn("git show HEAD:", body)
+        self.assertNotIn("you are reading", body)
+
+
+class OneCallShapesEveryAdrDue(Harness):
+    """§19.5: `--adr` takes several ids, comma-separated, or `due`; one call shapes each in turn."""
+
+    def setUp(self):
+        super().setUp()
+        pj = self.p.root / "docs/delivery/plane.json"
+        pj.write_text(json.dumps({**json.loads(pj.read_text()),
+                                  "architect": {"shape_adrs": True, "shape_from_task": "0008"}}))
+        f = self.p.root / "docs/delivery/tasks/0008-t8.md"
+        f.write_text(f.read_text().replace('spec_refs: ["S1"]', 'spec_refs: ["S1"]\nadr_refs: ["0032 D1", "0031 D1"]'))
+        self.stub_report([FINDING], shape=SHAPE)
+
+    def adrs(self, rids):
+        return [self.state()["reviews"][r]["adr"] for r in rids]
+
+    def test_adr_due_shapes_every_adr_due_in_order_and_exits_3_with_none_due(self):
+        self.assertEqual(self.dpj("architect", "due")[1]["shape_due"], ["ADR-0031", "ADR-0032"])
+        code, res, _ = self.dpj("architect", "run", "--mode", "shape", "--adr", "due")
+        self.assertEqual(code, 0, res)
+        rids = [r["review_id"] for r in res["runs"]]
+        self.assertEqual([r["outcome"] for r in res["runs"]], ["reported", "reported"])
+        self.assertTrue(all(r.startswith("sh-") for r in rids) and len(set(rids)) == 2)
+        self.assertEqual(self.adrs(rids), ["ADR-0031", "ADR-0032"])
+        for n in (31, 32):
+            self.p.write(f"docs/delivery/reviews/sh-20261014T000000Z-00{n}.md", f"ADR: ADR-00{n}\n")
+        code, res, _ = self.dpj("architect", "run", "--mode", "shape", "--adr", "due")
+        self.assertEqual((code, res["outcome"]), (3, "not_due"), res)
+
+    def test_adr_comma_list_shapes_each_in_the_order_given(self):
+        code, res, _ = self.dpj("architect", "run", "--mode", "shape", "--adr", "31,32")
+        self.assertEqual(code, 0, res)
+        self.assertEqual(self.adrs([r["review_id"] for r in res["runs"]]), ["ADR-0031", "ADR-0032"])
+        code, res, _ = self.dpj("architect", "run", "--mode", "shape", "--adr", "32,31")
+        self.assertEqual(code, 0, res)
+        self.assertEqual(self.adrs([r["review_id"] for r in res["runs"]]), ["ADR-0032", "ADR-0031"])
+
+    def test_several_adrs_need_one_review_id_each(self):
+        code, out, err = self.ccp("architect", "run", "--mode", "shape", "--adr", "31,32", "--review-id",
+                                  "sh-20261014T000000Z-0001")
+        self.assertEqual((code, out), (2, ""))
+        self.assertIn("--review-id needs one id per ADR", err)
+        self.assertFalse((self.q / "architect.json").exists() and self.state()["reviews"])
+
+    def test_a_failed_shape_among_several_exits_1(self):
+        self.report.write_text("not json")
+        code, res, _ = self.dpj("architect", "run", "--mode", "shape", "--adr", "31,32")
+        self.assertEqual((code, [r["outcome"] for r in res["runs"]]), (1, ["failed", "failed"]), res)
+
+    def test_adr_due_detached_runs_every_shape_in_one_process(self):
+        code, res, _ = self.dpj("architect", "run", "--mode", "shape", "--adr", "due", "--detach")
+        self.assertEqual((code, res["outcome"]), (0, "started"), res)
+        rids = res["review_ids"]
+        self.assertEqual(len(set(rids)), 2)
+        for _ in range(200):
+            if all((self.state()["reviews"].get(r) or {}).get("status") == "reported" for r in rids):
+                break
+            time.sleep(0.1)
+        self.assertEqual(self.adrs(rids), ["ADR-0031", "ADR-0032"])
+        self.assertEqual([self.state()["reviews"][r]["status"] for r in rids], ["reported", "reported"])
+
+    def test_adr_due_detached_with_one_adr_due_still_prints_review_ids(self):
+        self.p.write("docs/delivery/reviews/sh-20261014T000000Z-0032.md", "ADR: ADR-0032\n")
+        self.assertEqual(self.dpj("architect", "due")[1]["shape_due"], ["ADR-0031"])
+        code, res, _ = self.dpj("architect", "run", "--mode", "shape", "--adr", "due", "--detach")
+        self.assertEqual((code, res["outcome"]), (0, "started"), res)
+        self.assertEqual(res["review_ids"], [res["review_id"]])
+        for _ in range(200):
+            if (self.state()["reviews"].get(res["review_id"]) or {}).get("status") == "reported":
+                break
+            time.sleep(0.1)
+        self.assertEqual(self.adrs(res["review_ids"]), ["ADR-0031"])
+
+
+class AdrPlan(unittest.TestCase):
+    """`--adr`'s reading on plain values (§19.5)."""
+
+    def test_ids_are_canonical_in_the_order_given(self):
+        self.assertEqual(architect.adr_plan("32, 31", "shape", lambda: []), ["ADR-0032", "ADR-0031"])
+        self.assertEqual(architect.adr_plan("31", "pass", lambda: []), ["ADR-0031"])  # one id: as before
+        self.assertEqual(architect.adr_plan(None, "shape", lambda: ["ADR-0001"]), [])
+
+    def test_due_reads_the_due_list(self):
+        self.assertEqual(architect.adr_plan("due", "shape", lambda: ["ADR-0031", "ADR-0032"]),
+                         ["ADR-0031", "ADR-0032"])
+
+    def test_due_or_several_ids_need_shape_mode(self):
+        for arg in ("due", "31,32"):
+            with self.assertRaises(SystemExit):
+                architect.adr_plan(arg, "pass", lambda: ["ADR-0031"])
+        with self.assertRaises(SystemExit):
+            architect.adr_plan("31,due", "shape", lambda: ["ADR-0031"])
+
+    def test_deny_rules_add_each_absolute_root(self):
+        self.assertEqual(architect.deny_rules(["s"], ["/w", "/w", "/r"]),
+                         ["Read(./s)", "Read(./s/**)", "Read(//w/s)", "Read(//w/s/**)", "Read(//r/s)", "Read(//r/s/**)"])
 
 
 class NoHostingLine(Harness):
