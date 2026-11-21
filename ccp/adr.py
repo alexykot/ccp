@@ -652,6 +652,25 @@ def warnings(cfg: Config) -> list[str]:
     return analyse(cfg)[2]
 
 
+def strict(cfg: Config) -> bool:
+    """`adr.strict`: every ADR warning is a failure."""
+    return bool(_settings(cfg).get("strict"))
+
+
+def decision_index(cfg: Config) -> DecisionIndex | None:
+    """The checkout's ADRs read into a `DecisionIndex`; None without the `adr` block or its directory."""
+    if cfg.adr is None or not adr_dir(cfg).is_dir():
+        return None
+    return DecisionIndex.build(load(cfg)[0], refs.ids(cfg))
+
+
+def cites_whole_adr(r: refs.AdrRef, ids: refs.Ids) -> bool:
+    """A parsed `adr_refs` entry that cites its whole ADR (§7): no decision, and either nothing after the
+    number (`ADR-0040`, `0040`) or the ADR's file (`docs/adr/0040-x.md`). A section anchor
+    (`0040 Implementation 10`) is not one."""
+    return r.decision is None and (r.section is None or bool(ids.adr_file_re.match(Path(r.raw.strip()).name)))
+
+
 def unbuilt_cited(cfg: Config, tasks: list[dict[str, Any]]) -> list[str]:
     """`ccp tasks check`'s warning, before the gate (§15.4): on a task's branch (HEAD is
     `task/<id>`), each decision that task, not yet done, cites in `adr_refs` that this checkout's ADRs
@@ -845,6 +864,11 @@ class DecisionIndex:
             requires[n] = [r for r in (parse_requires(s, n, ids) for s in _as_list(m.get("requires"))) if r]
         return cls(recorded, body, ids, requires)
 
+    @property
+    def ids(self) -> refs.Ids:
+        """The id formats the index was read with, which also read the refs that cite its decisions."""
+        return self._ids
+
     def state(self, adr: int, d: str) -> dict[str, Any] | None:
         """The recorded `{id, state, by, note}` of decision `d` of ADR `adr`, or None."""
         return self._recorded.get((adr, d))
@@ -936,7 +960,7 @@ def untasked(cfg: Config, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 continue
             if r.decision is not None:
                 cited.add((r.number, r.decision))
-            elif r.section is None or ids.adr_file_re.match(Path(str(ref).strip()).name):
+            elif cites_whole_adr(r, ids):
                 whole.add(r.number)
             # else a section anchor (`<n> Implementation 10`) cites no decision (§7)
     out: list[dict[str, Any]] = []

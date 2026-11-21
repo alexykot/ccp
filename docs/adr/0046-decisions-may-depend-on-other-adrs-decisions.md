@@ -13,7 +13,7 @@ notes: |-
 decisions:
   - "D1 built"
   - "D2 built"
-  - "D3 not_built"
+  - "D3 built"
   - "D4 built"
 ---
 # ADR-0046 — Decisions may depend on other ADRs' decisions

@@ -218,6 +218,8 @@ time. Write it wide:
 - For a feature, write one thin first task that fixes the interfaces, then tasks that build on it in
   parallel.
 - Make tasks smaller where each piece still works on its own. There is no hard size cap.
+- Read the cited ADRs' `requires` (§6.2): a task building a decision depends on a task that builds
+  each prerequisite not yet built. `ccp tasks check` reports the `depends_on` that is missing (§21.1).
 
 `ccp tasks check` notes each review point's longest `depends_on` chain and its width at each depth,
 and warns when the chain is long and the plan narrow.

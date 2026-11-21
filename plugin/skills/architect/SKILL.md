@@ -155,7 +155,9 @@ contradict a recorded decision, says so in `why`: the owner takes it to the proj
   - `single_sources`: facts the change would otherwise update in several places, and the one source
     to create first;
   - `task_graph`: tasks that could run in parallel where the code allows, with their dependencies;
-    write it wide, as the writing-tasks skill's *Wide plans, not deep chains* says.
+    write it wide, as the writing-tasks skill's *Wide plans, not deep chains* says, and order it
+    by the ADRs' `requires` too: a task building a decision depends on one building each prerequisite
+    not yet built (§21.1).
 
   Your advice is advisory: the owner decides.
 
