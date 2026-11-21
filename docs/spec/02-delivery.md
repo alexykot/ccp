@@ -366,6 +366,8 @@ judge), `mut` (a mutation copy) and `mac` (a machine check), all detached at `--
   path instead, which shows which `ccp` runs. NAME with no `QUEUE_ROOT`, or no NAME outside a git
   checkout, is refused (exit 2). It loads no plane.json, so a reviewer or verifier can run
   the change under review's own `ccp`, new subcommands included; `ccp` on PATH stays the released one.
+  For a product whose checkout carries its own `bin/ccp` (the plane itself), every `ccp` a worker
+  prompt names renders as `ccp wt exec --`, so a worker's commands run the head it is changing.
 - `ccp wt create --kind base --task ID --sha HEAD [--timeout S] -- COMMAND` runs COMMAND (argv, no
   shell) on the task's merge base: it fetches (a failed fetch is a warning that the base, taken from
   `origin/<integration>` as last fetched, may be stale), makes a `base-<nnnn>[-<n>]` worktree detached
@@ -1005,11 +1007,10 @@ reader older than the record (`ccp verify merge-ok`, `ccp verify check` and `ccp
 the run checkout before the release, §29.3) passes over keys its contract does not name and still
 refuses a key it names that holds a bad value. A record with no version, or one no newer than the
 reader, is refused for an extra key. So a task that adds a field to the record is verified with
-the PR head's `ccp` and merged and closed with the one on PATH. The verify prompt and the verifier's
-definition say so: when the task's own diff changes the record's contract
-(`contracts/verification.schema.json`, or the record's version), the verifier records with the head's
-own `ccp`, `ccp wt exec <its worktree> -- verify record <file>` (§12.1). `ccp verify record`'s refusal of
-a key its contract does not know adds a line saying the same.
+the PR head's `ccp` and merged and closed with the one on PATH. Only the plane changes that
+contract, and there a worker prompt's `ccp` already runs the head (§12.1), so the verifier records
+with the head's own `ccp`. `ccp verify record`'s refusal of a key its contract does not know adds a
+line saying the same.
 
 Each check names the seat that produced its evidence (`produced_by`: `verifier`, `implementer`,
 `reviewer`, `architect`, `operator`, `runner` or `lead`), whether the verifier ran it or not. A ruling

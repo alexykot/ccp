@@ -13,7 +13,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli, config, runs, tasklog
+from ccp import cli, config, runs, tasklog, wt
 from tests.helpers import Product
 
 PLANE = Path(__file__).resolve().parents[1]
@@ -298,6 +298,7 @@ class CheckoutWarning(unittest.TestCase):
             run(["git", "add", "f"], cwd=repo)
             run(["git", "commit", "-qm", "init"], cwd=repo)
             with mock.patch("ccp.queue.PLANE", repo), mock.patch.dict(os.environ, {"CCP_DEV": "0"}):
+                os.environ.pop(wt.EXEC_CHILD, None)  # a suite run through `ccp wt exec` sets it
                 self.assertIsNone(cli.checkout_warning())
                 (repo / "f").write_text("y")
                 self.assertIn("local changes", cli.checkout_warning())
@@ -319,6 +320,7 @@ class CheckoutWarning(unittest.TestCase):
             (mine / "f").write_text("y")
             caller = {"CCP_DEV": "0", "GIT_DIR": str(mine / ".git"), "GIT_WORK_TREE": str(mine)}
             with mock.patch("ccp.queue.PLANE", plane), mock.patch.dict(os.environ, caller):
+                os.environ.pop(wt.EXEC_CHILD, None)
                 self.assertIsNone(cli.checkout_warning())
 
 

@@ -16,7 +16,8 @@ A record carries the schema version of the `ccp` that wrote it (`schema_version`
 every key it knows to its contract; a record with no version, or one no newer than the reader, is
 held to the contract with no extra key. So a task that adds a field to the record can be verified
 with the newer `ccp` on its PR head and merged and closed with the older one on PATH (§15.4, §29.3):
-`record`'s refusal of a key its contract does not know says so, naming `ccp wt exec`.
+`record`'s refusal of a key its contract does not know says so, pointing at the worker prompt's own `ccp`,
+which for the plane runs the head (§12.1).
 
 An approve is one head, every check it ran passed, and the formal gate the verifier ran
 (`gate.runs`, every exit 0). `record` holds an approve to that, so a verdict it writes is one
@@ -961,7 +962,8 @@ def refusal(cfg: Config, queue: Path, task_id: str, pr_head: str) -> str | None:
 
 # §15.4: a key this contract does not know may be one the task's own head adds to it
 NEWER_CONTRACT = ("if the task's head carries a newer record contract (contracts/verification.schema.json), record "
-                  "with the head's own ccp: `ccp wt exec <your worktree> -- verify record <file>` (SPEC §15.4)")
+                  "with the head's own ccp: run `verify record` from your checkout of the head with the `ccp` your "
+                  "prompt names (SPEC §12.1, §15.4)")
 
 
 def write_record(root: Path, queue: Path, rec: Any, now: datetime) -> tuple[list[str], Path | None]:

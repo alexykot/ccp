@@ -112,14 +112,14 @@ class Templates(unittest.TestCase):
             self.assertIn("(run `report` from inside it first", text)
             self.assertIn("wt create --kind", text)
             self.assertNotIn("git worktree add --detach", text)
-            self.assertIn("add `--root /m` before `report`", text, phase)
+            self.assertIn("if it is already gone, run `report` from /m)", text, phase)
 
     def test_implement_and_fix_fail_fast_and_keep_the_full_suite(self):
         for phase in ("implement", "fix"):
             text = render(phase, architect_checks="`python -m unittest tests.test_a`")
             self.assertIn("run a quick pre-gate: the product's house-rule checks (`python -m unittest tests.test_a`) "
                           "and the run `<ccp> suite affected --since", text, phase)
-            self.assertIn("prints on stderr, through `ccp suite run` (the part lane, or the full lane when it says so)",
+            self.assertIn("prints on stderr, through `<ccp> suite run` (the part lane, or the full lane when it says so)",
                           text, phase)
             self.assertNotIn("the test modules that depend on the paths", text, phase)
             self.assertNotIn("a cheap failure shows in seconds", text, phase)
@@ -132,7 +132,7 @@ class Templates(unittest.TestCase):
         for phase in ("implement", "fix", "merge", "ruling"):
             text = render(phase)
             self.assertIn("the run `<ccp> suite affected --since", text, phase)
-            self.assertIn("prints on stderr, through `ccp suite run` (the part lane, or the full lane when it says so)",
+            self.assertIn("prints on stderr, through `<ccp> suite run` (the part lane, or the full lane when it says so)",
                           text, phase)
             self.assertNotIn("the test modules that depend on the paths", text, phase)
             self.assertNotIn("a cheap failure shows in seconds", text, phase)
