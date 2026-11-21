@@ -1158,7 +1158,7 @@ tasks:
     depends_on: [0223-a-follow-up-is-tracked-not-left-in-notes, 0230-the-lead-decides-each-follow-up]
     path: tasks/0231-a-review-point-does-not-close-over-an-undecided-follow-up.md
   - id: 0232-orientation-shows-the-open-follow-ups
-    status: pending
+    status: done
     title: The lead's orientation shows how many follow-ups are open, and the command that lists them
     depends_on: [0223-a-follow-up-is-tracked-not-left-in-notes, 0229-orientation-extras-from-one-ccp-call, 0230-the-lead-decides-each-follow-up]
     path: tasks/0232-orientation-shows-the-open-follow-ups.md

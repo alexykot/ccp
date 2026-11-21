@@ -1,7 +1,7 @@
 ---
 task_id: 0232-orientation-shows-the-open-follow-ups
 title: The lead's orientation shows how many follow-ups are open, and the command that lists them
-status: pending
+status: done
 kind: feature
 depends_on: ["0223-a-follow-up-is-tracked-not-left-in-notes", "0229-orientation-extras-from-one-ccp-call", "0230-the-lead-decides-each-follow-up"]
 spec_refs: ["S9"]
@@ -105,3 +105,5 @@ PROPOSED: (new lines after it)
   tests pin only the count and the command on the last line, not the noun or its plural form.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #292 head `319aa2e` (squash `0455523`): APPROVE. Passed: of-01, of-02, of-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0232-orientation-shows-the-open-follow-ups.json.
+
