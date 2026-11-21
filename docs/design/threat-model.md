@@ -96,8 +96,9 @@ A seat deletes work, rewrites history or reaches outside its worktree.
 - **Guard:** the allow list in the same block: a command it does not name prompts in the lead's
   session (SPEC §18.5). The gate lane's commands are allowed, and they run whatever the worktree's
   scripts say.
-- **Guard:** each task in its own worktree (SPEC §12.1), and the integration branch reached only by
-  a merge (SPEC §15.5).
+- **Guard:** each task in its own worktree (SPEC §12.1), and the runner's merge, through
+  `ccp tasks close`, the only way the plane moves the integration branch (SPEC §15.5); a seat
+  holding `gh pr` or `git push` can still reach it (see T4).
 - **Gap:** no OS sandbox catches another spelling of a denied command, a script that runs one, or a
   write outside the worktree.
 
@@ -109,7 +110,9 @@ A seat writes a verdict, a test result or a report that no seat produced, or edi
   rules on the task produced (`ccp/verify.py`, SPEC §2.3, §15.4); test runs are recorded by
   `ccp suite run` (`ccp/suite.py`, SPEC §14), and the verifier runs the gate itself (SPEC §15.1).
 - **Guard:** provers and `verify.skip_review` are read from the integration branch and run from the
-  tip's checkout (SPEC §14.2, §15.2), so a task's diff cannot change its own verdict.
+  tip's checkout (SPEC §14.2, §15.2), so a prover or a review skip that a task adds in its own diff
+  does not apply to that task. The gate lane, its scripts and the tests still come from the head
+  under test, which the reviewer and the verifier read.
 - **Guard:** the merge `ccp tasks close` runs is pinned to the verified head with
   `--match-head-commit` (`ccp/lifecycle.py`, SPEC §15.5), so the forge refuses that merge when the
   head moved after the verdict. The pin binds only that merge: a seat holding `gh pr` or `git push`,
@@ -135,7 +138,8 @@ A seat sends code, records or secrets to a host it should not reach.
 A seat working on one product reads or writes another product's repository or queue.
 
 - **Guard:** each product has its own binding, queue and worktrees (SPEC §4.2, §8.3), and the
-  permission block `ccp/init.py` prints names only that product's queue root.
+  permission block `ccp/init.py` prints names only that product's queue root. It also allows bare
+  `ccp`, so a `ccp --root` naming another product still passes.
 - **Gap:** the same OS user, forge token and SSH keys reach every product on the host; nothing
   confines a seat to its own product's paths.
 
@@ -171,8 +175,9 @@ A change reaches production without review, or a seat promotes it.
 
 - **Guard:** promotion is an operator gate, never automated (SPEC §3.4); the implementer must not
   promote (SPEC §2.1), and the plane has no deploy or promote step.
-- **Guard:** a pull request merges only on the verifier's approve at its head
-  (`ccp verify merge-ok`, `ccp/verify.py`, SPEC §15.5).
+- **Guard:** the runner's merge, through `ccp tasks close`, goes ahead only on the verifier's
+  approve at the pull request's head (`ccp verify merge-ok`, `ccp/verify.py`, SPEC §15.5); a seat
+  holding `gh pr` or `git push` can merge without it (see T4).
 - **Gap:** nothing stops a seat that holds the operator's deploy credentials from running a
   product's deploy command; the control is that the plane has no such step, not that a seat cannot.
 

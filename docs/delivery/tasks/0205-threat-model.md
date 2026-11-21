@@ -175,5 +175,13 @@ trigger that would make it worth building.
     of "two seats".
   - Queue write protection says it would come from the hosted backend behind the `Store` interface,
     which the ROADMAP's Store item does not plan yet; the ROADMAP is unchanged.
+- Fix round 2 (review of 5061a70), wording only:
+  - T4: the integration-branch read covers provers and `verify.skip_review` only; the gate lane,
+    its scripts and the tests come from the head under test, so the note no longer says a task's
+    diff cannot change its own verdict.
+  - T3 and T9: the merge guards name the runner's merge through `ccp tasks close` and point to T4
+    for the `gh pr` and `git push` way round it, instead of reading as unconditional.
+  - T6: the permission block also allows bare `ccp`, so a `ccp --root` naming another product
+    passes; the note says so.
 
 ## Verification notes
