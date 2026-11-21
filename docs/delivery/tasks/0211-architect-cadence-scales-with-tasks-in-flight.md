@@ -1,7 +1,7 @@
 ---
 task_id: 0211-architect-cadence-scales-with-tasks-in-flight
 title: The architect's cadence scales with tasks in flight, and a budget breach a pending task already fixes makes no pass due
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S19", "S20"]
@@ -10,7 +10,7 @@ paths: ["ccp/architect.py", "docs/spec/03-quality.md", "tests/test_architect_def
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0211-architect-cadence-scales-with-tasks-in-flight
@@ -180,3 +180,5 @@ PROPOSED:
   `done_since_last/every_n_tasks`; they are outside this task's paths.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #259 head `1a06d61` (squash `aaf50a1`): APPROVE. Passed: ca-01, ca-02, ca-03, ca-04, suite-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0211-architect-cadence-scales-with-tasks-in-flight.json.
+

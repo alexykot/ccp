@@ -1053,7 +1053,7 @@ tasks:
     depends_on: []
     path: tasks/0210-a-failed-auth-probe-fires-the-blocker.md
   - id: 0211-architect-cadence-scales-with-tasks-in-flight
-    status: pending
+    status: done
     title: The architect's cadence scales with tasks in flight, and a budget breach a pending task already fixes makes no pass due
     depends_on: []
     path: tasks/0211-architect-cadence-scales-with-tasks-in-flight.md
