@@ -55,7 +55,7 @@ class SetMember(Spliced):
     def test_an_existing_object_value_is_replaced_whole(self):
         before = '{"a": {"b": [1, 2]}, "c": 3}'
         after = jsonedit.set_member(before, [], "a", {"z": None})
-        self.spliced(before, after, 6, '{"b": [1, 2]}', '{"z": null}')
+        self.spliced(before, after, before.index('{"b"'), '{"b": [1, 2]}', '{"z": null}')
 
     def test_a_missing_object_on_the_path_is_made_inline(self):
         before = '{\n  "project_id": "demo",\n  "architect": false\n}\n'
@@ -86,22 +86,22 @@ class SetMember(Spliced):
 class DeleteMember(Spliced):
     def test_the_first_member_goes_with_its_comma(self):
         before = '{"a": 1, "b": 2, "c": 3}'
-        self.spliced(before, jsonedit.delete_member(before, [], "a"), 1, '"a": 1, ', "")
+        self.spliced(before, jsonedit.delete_member(before, [], "a"), before.index('"a"'), '"a": 1, ', "")
         before = '{\n  "a": 1,\n  "b": 2\n}\n'
-        self.spliced(before, jsonedit.delete_member(before, [], "a"), 4, '"a": 1,\n  ', "")
+        self.spliced(before, jsonedit.delete_member(before, [], "a"), before.index('"a"'), '"a": 1,\n  ', "")
 
     def test_a_middle_member_goes_with_its_comma(self):
         before = '{"a": 1, "b": "}", "c": 3}'
-        self.spliced(before, jsonedit.delete_member(before, [], "b"), 9, '"b": "}", ', "")
+        self.spliced(before, jsonedit.delete_member(before, [], "b"), before.index('"b"'), '"b": "}", ', "")
         after = jsonedit.delete_member(INDENTED, [], "suite")
         at = INDENTED.index('"suite"')
         self.spliced(INDENTED, after, at, '"suite": {"lanes": {"gate": ["true"]}},\n  ', "")
 
     def test_the_last_member_goes_with_the_comma_before_it(self):
         before = '{"a": 1, "b": 2, "c": 3}'
-        self.spliced(before, jsonedit.delete_member(before, [], "c"), 14, ', "c": 3', "")
+        self.spliced(before, jsonedit.delete_member(before, [], "c"), before.index(', "c"'), ', "c": 3', "")
         before = '{\n  "a": 1,\n  "b": 2\n}\n'
-        self.spliced(before, jsonedit.delete_member(before, [], "b"), 10, ',\n  "b": 2', "")
+        self.spliced(before, jsonedit.delete_member(before, [], "b"), before.index(',\n  "b"'), ',\n  "b": 2', "")
 
     def test_the_only_member_leaves_an_empty_object(self):
         after = jsonedit.delete_member(INDENTED, ["upgrade", "taken"], "0001-a")
