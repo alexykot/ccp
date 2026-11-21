@@ -1323,6 +1323,8 @@ def _hunks(cfg: Config, base: str, head: str, keep: Callable[[str], bool]) -> di
     whitespace-normalised, as (text, mask), the mask `+` under each character of a line the hunk adds and
     `.` elsewhere. A hunk that adds nothing has no text. None when the diff cannot be read (`base` resolves
     to nothing). A file's `+++ ` header is read only between its `diff --git` line and its first `@@` line."""
+    from ccp import tasklog  # noqa: PLC0415
+
     r = subprocess.run(["git", "-C", str(cfg.root), "-c", "core.quotePath=false", "diff", "--no-color",
                         "--no-ext-diff", "--unified=0", f"{base}...{head}"], capture_output=True, text=True)
     if r.returncode != 0:
@@ -1345,10 +1347,10 @@ def _hunks(cfg: Config, base: str, head: str, keep: Callable[[str], bool]) -> di
                 ranges.setdefault(cur, []).append((int(m.group(1)) - 1, n))
     out: dict[str, list[tuple[str, str]]] = {}
     for f, hunks in ranges.items():
-        shown = subprocess.run(["git", "-C", str(cfg.root), "show", f"{head}:{f}"], capture_output=True, text=True)
-        if shown.returncode != 0:
+        shown = tasklog.text_at(cfg, head, f)
+        if shown is None:
             continue
-        lines = shown.stdout.splitlines()
+        lines = shown.splitlines()
         for start, n in hunks:
             lo, hi = start, min(start + n, len(lines))
             while lo > 0 and lines[lo].strip() and lines[lo - 1].strip():

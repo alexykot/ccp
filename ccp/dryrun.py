@@ -89,7 +89,7 @@ def record(ran: list[Ran]) -> str:
 def plan(text: str) -> list[tuple[str, list[tuple[str, str | None]]]]:
     """Each dod_check of a task file's text, by id, with its numbered steps: the command a step runs, or
     None for a step that is not one backticked command and nothing else."""
-    return [(cid, tasklog.check_steps(text[start:end])) for cid, start, end in tasklog.check_blocks(text)]
+    return [(c.id, tasklog.check_steps(c.block)) for c in tasklog.checks(text)]
 
 
 def printout(tid: str, sha: str, ref: str, checks: list[tuple[str, list[tuple[str, str | None]]]],

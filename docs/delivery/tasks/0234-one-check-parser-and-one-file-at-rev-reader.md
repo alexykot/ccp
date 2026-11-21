@@ -93,4 +93,42 @@ Measured at `8aefa59`.
 
 ## Implementation notes
 
+- Base `200ca69` already carried 0244's `tasklog.check_blocks` and `check_steps`; `git grep -n 'CHECK_RE' -- ccp`
+  there printed 4 lines (the pattern, `check_blocks`' use, and the two `findall` readers in `tasklog.load`
+  and `ccp/estimate.py`), not the 5 the Context measured before 0244. `check_blocks` is replaced by
+  `tasklog.checks`; `with_dry_runs`, `_check_dry_runs`, `_check_refactor_gate`, `meta["_checks"]`,
+  `estimate.features` and `ccp/dryrun.plan` read it. `CHECK_RE` now occurs twice, both in `ccp/tasklog.py`.
+- `Check` carries `id`, `block` (the body after the `- id:` line), `fields` and the block's `start`/`end` in
+  the text (`with_dry_runs` edits by position). `fields` is the first line of each `key: value` at the indent of
+  the block's first key, a key lowercase words (`dry run (`sha`):` is the key `dry run`); a deeper line (a step,
+  a wrapped value) is no key and a value is its own line only. That is the narrowest reading of "the block's
+  `key:` lines"; 0224's `runs_on` will read `fields["runs_on"]`.
+- `text_at` reads `git show <rev>:./<rel>` (cwd-relative, as lifecycle's and `statuses_at`'s reads did; `adr._at`
+  and verify's used the toplevel-relative form, the same at a checkout root), "" for the index, None for a
+  missing file or a bad rev, decoded with `errors="replace"`. `adr.in_force_at` keeps its fall back to the
+  checkout's task (`cited(task)`), now commented at the call. `tasklog.statuses_at` stays a batch
+  `cat-file --batch` read (one process for many files); the Scope names four readers, not it.
+- Fix round 1: `text_at` decodes the raw bytes, so a CRLF task file kept its `\r\n`, where `queue.git()`
+  (`text=True`) had turned it into `\n`; `lifecycle.drop` and `_says_dropped` then read no status from such a
+  file. Both callers now normalise `\r\n` to `\n` before `tasklog.frontmatter` (as `adr.in_force_at` does);
+  `text_at` itself stays byte-faithful, so ADR bodies read at the head are unchanged. CRLF tests are in `tests/test_lease_edits.py` (`_says_dropped`) and
+  `tests/test_tasks_drop.py`. `Check` is `frozen=True, eq=False` (its `fields` dict makes it unhashable by
+  value); `text_at`'s docstring names what it reads (it is not "the one reader" of E22).
+- Fix round 2: universal newlines (`text=True`) turned a lone `\r` into `\n` as well as `\r\n`, so both
+  lifecycle callers now normalise `.replace("\r\n", "\n").replace("\r", "\n")`; `tests/test_tasks_drop.py` has a
+  lone-CR case beside the CRLF one. `checks`' docstring names only the ids the estimates read through it
+  (`estimate.features` still counts `story:` lines with its own regex).
+- Named difference, for the verifier's and lead's judgement (not accepted by anyone yet): `text_at` resolves `rel` against `cfg.root` (`git show <rev>:./<rel>`), where
+  `drop`, `adr._at` and `verify._hunks` used the toplevel-relative form. They differ only when `cfg.root` is below
+  the git toplevel (`--root`, `$CCP_ROOT`): `drop` then finds the task file instead of refusing, and
+  `in_force_at` reads the head's task instead of falling back to the checkout's, and reads the ADR bodies at
+  the head too: `by_num`'s paths come from `ls-tree` in the root-relative form, so at the base every ADR read at
+  the head failed there (`body` None, `meta` `{}`) and the in-force gate never refused anything; now the reads
+  succeed and an approve it used to pass can be refused. `verify._hunks` shows no change.
+  A decoding difference too: a file that is not valid UTF-8 is decoded with replacement characters, where the
+  old read raised `UnicodeDecodeError`.
+- E22 is a command check: `architect.checks` `E22`, and the rule's `check:` line says `command`.
+- Fix round 3 (test only, no production change): `tests/test_lease_edits.py` pins `_says_dropped`'s lone-CR
+  normalisation with a drop commit written with `\r` line ends, beside the CRLF one (a shared helper takes the line end).
+
 ## Verification notes
