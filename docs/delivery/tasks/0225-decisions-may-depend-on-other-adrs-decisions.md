@@ -1,7 +1,7 @@
 ---
 task_id: 0225-decisions-may-depend-on-other-adrs-decisions
 title: An ADR names the decisions each of its decisions rests on, and accepting it waits for theirs
-status: pending
+status: done
 kind: feature
 depends_on: ["0239-one-adr-reference-parser-and-a-decision-index"]
 spec_refs: ["S6"]
@@ -149,3 +149,5 @@ PROPOSED:
   as the runner asked.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #272 head `80bfd5b` (squash `4c7b5e7`): APPROVE. Passed: rq-01, rq-02, rq-03, rq-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0225-decisions-may-depend-on-other-adrs-decisions.json.
+
