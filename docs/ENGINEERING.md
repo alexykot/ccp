@@ -64,7 +64,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   defaults with contracts/plane_config.schema.json, one compares the ledger's event types, ops and
   required payloads with contracts/observability_event.schema.json, and one compares the agent
   definitions' models with the role table.
-  check: command — the schema tests, `python3 -B -m unittest -q tests.test_plane_config_defaults tests.test_event_registry` (architect.checks `E12`); the gate (`ccp suite run --lane gate`) runs them too
+  check: pass, plus the gate — tests.test_plane_config_defaults and tests.test_event_registry run in
+  the gate (E1); no architect.checks entry, so the pre-gate never renders a bare test run
 - **E14** Git merge analysis (merge-tree, patch-id, remerge-diff) goes through one helper module; no
   other module calls those git subcommands.
   check: command — `git grep -n "merge-tree\|patch-id\|remerge-diff" -- ccp` lists only the helper
@@ -84,9 +85,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   local PR record. Other code sees a PR as the normalised facts it returns (number, state, head,
   branch, merge commit, merge time, body), never a host's field names; prompts and briefs name
   `ccp pr`, never a forge's CLI.
-  check: pass — the architect reads the PR-host callers and the prompts; it becomes a command check
-  (architect.checks `E19`: `! git grep -nE 'CCP_GH_BIN|headRefOid|mergeCommit' -- ccp ':(exclude)ccp/prhost.py'`
-  and `! git grep -n 'gh pr' -- templates plugin/agents`) with the task that moves the prompts
+  check: command — architect.checks `E19`: `! git grep -nE 'CCP_GH_BIN|headRefOid|mergeCommit' -- ccp ':(exclude)ccp/prhost.py'`;
+  the task that moves the prompts (0221) adds `! git grep -n 'gh pr' -- templates plugin/agents` to it
 - **E20** One function judges whether a verdict lets a head merge: `ccp verify merge-ok`, `ccp verify
   check` and `ccp tasks close` call it, and `ccp verify record` refuses every approve it would refuse.
   check: pass — the architect compares the refusal lists of the merge-time judges
