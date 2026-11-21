@@ -15,7 +15,7 @@ decisions:
   - "D1 built"
   - "D2 built"
   - "D3 built"
-  - "D4 not_built"
+  - "D4 built"
 ---
 # ADR-0044 — A follow-up is tracked, not left in notes
 

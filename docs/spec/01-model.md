@@ -887,6 +887,7 @@ limit (`idle_limit`, §18.2).
   SessionStart context does not reach subagents or teammates; workers are oriented by their
   definitions and prompts.
 - After the orientation, the hook and `ccp orientation` list the product's pending notices (`ccp notify pending`, §3.6): each one's subject, reason and the call that records it sent, within the hook's cap.
+- Then, while any worker follow-up has no outcome (§13.4), one line gives how many and `ccp tasks follow-ups --open`. It is not a notice.
 - The orientation is short (aim for one screen), in plain language, with no role-specific
   permissions. It covers:
   - what the plane is: a delivery loop run by a Claude Code agent team, a lead that steers and a
