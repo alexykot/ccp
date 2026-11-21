@@ -156,6 +156,10 @@ class Merge(HostCase):
         cfg = self.cfg(merge={"command": "echo $CCP_GH_BIN {head_sha} > bin.txt"})
         prhost.merge(cfg, "12", "abc123", "0002-second")
         self.assertEqual((cfg.root / "bin.txt").read_text().split(), [str(self.gh), "abc123"])
+        with mock.patch.dict(os.environ):  # the variable unset: the child is told the default CLI
+            del os.environ["CCP_GH_BIN"]
+            prhost.merge(cfg, "12", "abc123", "0002-second")
+        self.assertEqual((cfg.root / "bin.txt").read_text().split(), ["gh", "abc123"])
 
     def test_a_failing_merge_command_is_a_refused_merge(self):
         cfg = self.cfg(merge={"command": "echo no >&2; exit 3 # {head_sha}"})
