@@ -122,8 +122,7 @@ def work_scope(q: Path, given: str | None = None) -> list[str] | None:
 def _drop_worktree(main: str | Path, path: str | Path) -> None:
     """Remove a pass's own worktree (§12.1 `arch-<review id>`) from the main checkout it was made in.
     Failures are ignored: the worktree may be gone already."""
-    ar.git(str(main), "worktree", "remove", "--force", str(path))
-    ar.git(str(main), "worktree", "prune")
+    wt.remove_unrecorded(Path(main), Path(path))
 
 
 def _reap(q: Path, st: dict[str, Any], actor: str) -> None:
@@ -630,15 +629,10 @@ def cmd_run(cfg: Config, q: Path, a: argparse.Namespace, actor: str) -> int:
     return ar.out({"runs": runs}, 0 if all(r.get("outcome") == "reported" for r in runs) else 1)
 
 
-def _make_worktree(cfg: Config, main: Path, wdir: Path, path: Path, head: str) -> None:
+def _make_worktree(cfg: Config, main: Path, path: Path, head: str) -> None:
     """§12.1 `arch-<review id>`: made detached at `head` from the main checkout, with `worktrees.links`
     linked in; env.setup is not run. A git error raises, and fails the pass."""
-    wt._exclude_base(main, wdir)
-    r = subprocess.run(["git", "-C", str(main), "worktree", "add", "-q", "--detach", str(path), head],
-                       capture_output=True, text=True)
-    if r.returncode != 0:
-        raise RuntimeError(f"git worktree add {path}: {(r.stderr or r.stdout).strip()[:300]}")
-    wt._link(cfg, main, path)
+    wt.add_unrecorded(cfg, main, path, head)
 
 
 def _abs_roots(*dirs: str) -> list[str]:
@@ -674,7 +668,7 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
             "started_at": fmt_dt(ar.now_utc()), "due_reason": info.get("reason")}
     # §12.1: the pass's own worktree, recorded before it is made so a pass that dies meanwhile is cleaned up.
     wdir, main = wt.base_dir(cfg), wt.main_checkout(cfg)
-    own = wdir / f"arch-{rid}" if wdir else None
+    own = wdir / f"{wt.ARCH_PREFIX}-{rid}" if wdir else None
     if own:
         rec0.update(worktree=str(own), main=str(main))
 
@@ -686,8 +680,8 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
             ar.update_state(q, ARCH, lambda f: f.__setitem__(
                 "last_attempt", {"review_id": rid, "done_count": len(done), "at": rec0["started_at"]}))
         move("running")
-        if own and wdir:
-            _make_worktree(cfg, main, wdir, own, head)
+        if own:
+            _make_worktree(cfg, main, own, head)
         cwd = str(own) if own else pr
         prompt = prompt_for(cfg, q, rid, mode, lenses, head, base, dirty, adr,
                             info["reason"] if info["due"] else "", last.get("started_at"), own_worktree=bool(own))

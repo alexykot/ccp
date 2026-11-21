@@ -129,7 +129,7 @@ class Sibling(SiblingFixture, unittest.TestCase):
         with mock.patch.object(lifecycle, "_merge_checkout", spy):
             code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "it is built.")
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(set(made), {self.outside / "merge-0002"})  # close's own checkout, and the host's squash in it
+        self.assertEqual(made, [self.outside / "merge-0002"] * 2)  # the host's squash in it, then close's reconcile
         git(self.main, "fetch", "-q", "origin")
         self.assertTrue(git(self.main, "log", "-1", "--format=%s", "origin/main").startswith("Reconcile 0002"))
         self.assertFalse(impl.exists())
