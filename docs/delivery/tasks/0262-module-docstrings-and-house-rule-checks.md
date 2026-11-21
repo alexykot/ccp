@@ -1,7 +1,7 @@
 ---
 task_id: 0262-module-docstrings-and-house-rule-checks
 title: Module docstrings and the standing DoD carry no usage tables or restated rules, house-rule checks hold no bare test run, and E4's check holds the long-literal count
-status: pending
+status: done
 kind: refactor
 depends_on: ["0255-test-fixtures-shared-helpers-and-one-repo-build"]
 clashes_with: ["0213-a-green-tree-skips-the-lane-queue", "0214-an-exclusive-path-keeps-apart-only-its-own-tasks", "0240-plane-workers-run-the-head", "0256-suite-run-refuses-a-closed-run-and-config-reads", "0265-one-gate-lane-and-worker-runs-wait-for-it"]
@@ -152,4 +152,33 @@ Measured at `1aa5e3f`.
 
 ## Implementation notes
 
+- Usage lines: the 42 lines in the 13 modules' docstrings are replaced by one sentence naming the commands and
+  pointing at `docs/cli` (the parser-checked place); `docs/cli` already names every command and flag, so it needed
+  no addition (`suite run --wait` is in it).
+- Long docstrings: `suite` 40, `verify` 40, `health` 40, `forecast` 40, `mutate` 37, `init` 34 lines. Each keeps its
+  § and what only the code holds (constants, function names, how a source is read); what the SPEC and `docs/cli` say
+  is a pointer. `mutate`'s `--together` paragraph is in `docs/spec/03-quality.md` and `docs/cli/03-quality.md`.
+- `tests/test_cli_reference.py`: the docstring test now reads the module docstring (by `ast`) of every `ccp/*.py` and
+  `ccp/doclang/*.py` and fails naming the file and line on `^\s*ccp [a-z]`.
+- `tests/test_verify_cache.py`: `ORIGINAL` is replaced by the token the setting's section carries
+  (`` `verify.accept_cache` ``): absent without the setting, present with it; the base brief is held by `Be adversarial:`.
+- `architect.checks`: `E25` removed; `E4`'s command is the borrowed-helper grep, the worktrees-literal grep, then
+  the long-literal count held at 345. The count command runs under `LC_ALL=C`: without it the count was 344 in a
+  UTF-8 locale and 345 in the C locale (one literal holds a multibyte arrow at the 40-character boundary), so the figure
+  depended on the machine's locale. The count at the base is 345 in the C locale, not the 342 the Context gives at `1aa5e3f`.
+- `docs/ENGINEERING.md`: E4's and E25's `check:` lines as the Context gives them.
+- Standing DoD items 7 to 11 become two (7 keeps the gate sentence ending "(E1, E2)."; 8 is "The house rules hold"); `ccp/CLAUDE.md`'s
+  E5, E6 and E8 lines become one; `tests/CLAUDE.md`'s first two paragraphs become one naming E1, E2 and E4.
+- Fix round 1 (docstring accuracy, from the review): `suite`'s nested-run sentence names its real trigger (a `ccp suite run`
+  started inside another one's command, CCP_SUITE_ID set), not a `ccp wt` worktree; `init`'s docstring says `required_unset`
+  is its own result key with its own stderr line, that every warning goes to stderr, that `since` is added only for a kept
+  binding, and that `--rules-doc --adopt` writes the `check: pass` lines; `mutate`'s docstring has the two code facts back (parts
+  on different files are each checked against the unmutated tree; a `--together` row's files and digest) and no longer credits
+  §20.6 with the snapshot; `health` names the `--json` key `small_tasks` (knob `health.small_task_lines`); `forecast`'s
+  paragraph break is back and the 5-hour ceiling is scoped to the slot model, with the order paragraph trimmed to stay at 40
+  lines (the SPEC §26.4 holds what is left out and `unreached`); `tests/CLAUDE.md` keeps the sentence on how a test builds its
+  product, queue and stubs, which E2 does not state.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #295 head `b059779` (close's catch-up of the approved `a325899`, gate run st-20261121T234322Z-e68641) (squash `52ae0d1`): APPROVE. Passed: dc-01, dc-02, dc-03, dc-04, dc-05, dc-06. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0262-module-docstrings-and-house-rule-checks.json.
+

@@ -34,9 +34,4 @@ normative, and a module that disagrees with it is the bug.
 
 - Writes to the queue go through `queue.py`'s helpers (atomic replace, `file_lock`); events go
   through `queue.emit`. A command records its own events.
-- A product fact is read from the product's plane.json or reported by the product as JSON; never parsed from
-  product prose.
-- Headless children strip `ANTHROPIC_API_KEY`, `CLAUDE_API_KEY` and `ANTHROPIC_AUTH_TOKEN`.
-- Telemetry carries numbers and ids, never prompt, response or file content. A queue record may hold a
-  worker's own short statement lines (friction, follow-ups, a proposal's need), refused when they look
-  like a secret and never sent to telemetry (E5).
+- House rules E5, E6 and E8 (`docs/ENGINEERING.md`) apply to every module here.

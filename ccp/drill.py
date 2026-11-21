@@ -1,6 +1,6 @@
 """The board's per-task drill-down (SPEC §28.3): where one task's wall time went.
 
-  ccp board task <id>    the same breakdown in the terminal (reads, never writes)
+The command is `board task` (`docs/cli`): the same breakdown in the terminal, which reads and never writes.
 
 For each run of the task (implement, review, fix, merge, ruling, verify), its window is split four ways:
 

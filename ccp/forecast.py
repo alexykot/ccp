@@ -1,72 +1,43 @@
-"""Task estimation, phase C (SPEC §26.4): completion forecasts and the allowance fit. Advisory.
+"""Task estimation, phase C (SPEC §26.4, §26.5): completion forecasts and the allowance fit. Advisory.
 
-  ccp forecast [--point R<n> | --backlog] [--json]
+The command is `forecast` (`docs/cli`); the model is §26.4 and §26.5's. This names where the code holds each part.
 
-**The order.** The open tasks are replayed in the order `ccp tasks next` would take them
-(`selection.pick`, `tasklog.ranked`: the lead's preference list, the holds, the review point's refactors,
-`refactor_every`, the dependencies): the task in flight first, then `ranked`'s first row, marked
-merged, then `ranked` again, so a task joins once its dependencies have merged. When the runner's
-scope runs out the replay goes on over the whole log (no scope). A held task, one whose dependency
-is dropped or missing, and one that is not pending are left out and listed (`unreached`).
+**The order** replays the open tasks as `ccp tasks next` would take them (`selection.pick`, `tasklog.ranked`): the
+task in flight first, then `ranked`'s first row, marked merged, then `ranked` again; past the scope, the whole log.
 
-**The durations.** Each task's estimate is its latest agent row, else its latest baseline row
-(ccp/estimate.py), calibrated (phase D, ccp/calibrate.py: the board view's `cal` bands; the stored
-bands where it has none, or with `calibrated=False`). Its wall time is a lognormal through the estimate's P50 and P90
-(mu = ln P50, sigma = ln(P90/P50) / 1.2816, the P90 capped at P90_RATIO_MAX = 4 x P50: a lognormal
-through a wider band has a mean many times its median, and summed means overshoot); tokens and cost the same, drawn with the same normal
-deviate as the wall time (a long task is also an expensive one). The deviates of one trial share a
-common part, so any two tasks' deviates correlate at rho (z = sqrt(rho) Z + sqrt(1 - rho) e, the task
-in flight included): RHO = 0.3, or the calibration's fitted rho when its backtest favours it (`rho_from`), since estimates made the same way tend to err the same
-way; independent tasks would make a backlog's P90 implausibly close to its P50. The task in flight is drawn
-conditioned on not having finished yet: its total is at least the time since it started, and its
-remaining time and tokens are what is left of that draw. A task with no estimate takes the median
-P50 and P90 of the ones that have one, and is counted (`unestimated`).
+**The durations.** A task's estimate is its latest agent row, else its latest baseline row (ccp/estimate.py),
+calibrated (ccp/calibrate.py: the board view's `cal` bands, the stored ones with none, or with `calibrated=False`).
+Wall time is a lognormal through P50 and P90 (mu = ln P50, sigma = ln(P90/P50) / 1.2816), the P90 capped at
+P90_RATIO_MAX = 4 x P50 (a wider band's mean is many times its median); tokens and cost are drawn with the same
+normal deviate. The deviates of one trial share a common part, so any two tasks' deviates correlate at rho
+(z = sqrt(rho) Z + sqrt(1 - rho) e): RHO = 0.3, or the calibration's fitted rho when its backtest favours it
+(`rho_from`). The task in flight is drawn conditioned on not having finished: its total is at least the time since
+it started. A task with no estimate takes the median P50 and P90 of the ones that have one (`unestimated`).
 
-**The throughput** (`throughput`). The runner takes one task at a time (with SPEC §16's
-`parallel.max_in_flight` above 1, that many slots: a task starts at the earliest free slot, and one
-that runs alone takes them all; a gap is measured only where the task that starts was held alone, though
-every merge moves the frontier; a task also starts after each task ahead of it that claim rules 3 and 4 keep it from
-running beside, `parallel.kept_apart`: rule 3 by `parallel.schedule`, rule 4 a `parallel.exclusive` entry both meet;
-the 5-hour ceiling is not modelled): the next task starts at the
-latest merge so far plus a gap drawn from the gaps observed between consecutive tasks (the drill-down's
-windows, first recorded event to the merge, for the recent merged tasks). A negative gap is an observed
-overlap: the next task started before the previous one merged. A gap of GAP_STOP_S or more is a stop
-(the runner was down, or waited on the operator) and is left out, and counted. A task never starts before its
-dependencies merge, nor before the task ahead of it started.
+**The throughput** (`throughput`): with `parallel.max_in_flight` above 1 a task starts at the earliest free slot,
+and one that runs alone takes them all (a gap is measured only where the task that starts was held alone); it also
+starts after each task ahead of it that claim rules 3 and 4 keep it from running beside (`parallel.kept_apart`).
+The next task starts at the latest merge so far plus a gap drawn from the observed gaps between consecutive tasks
+(the drill-down's windows, first recorded event to the merge). A negative gap is an observed overlap; a gap of
+GAP_STOP_S or more is a stop, left out and counted. Neither work past the 5-hour ceiling in this slot model
+nor waits on the operator are modelled; tasks with a wait open are reported (`waits_flagged`, `waits_expected`).
 
-**Waits on the operator** are not modelled: no calendar time is added for gates, questions or the allowance
-checkpoint. The remaining tasks with a wait, gate or question open now are reported
-(`waits_flagged`), and those whose agent estimate expects a wait (`waits_expected`), and the estimates' own wall times include whatever waits their reference tasks had.
+**The allowance fit** (`allowance_fit`): consecutive samples of `board/allowance.jsonl` in the same weekly window
+(`usage.same_window`) whose weekly % did not fall are joined into intervals of at least FIT_MIN_INTERVAL_S; the usage
+is summed from every bound project's `board/usage-requests.jsonl` and the system sink (§24.1), one row per request id,
+only from when both were recording. Models fitted through the origin: weekly % per token, per dollar, and either
+by model family (when two or more families each have usage in 3 intervals); the lowest leave-one-out RMSE wins, the
+simpler within 5%. The non-plane burn is the system sink's last 7 days, per hour, times the fit; a shorter history
+is averaged over BASELINE_MIN_SPAN_H (72 h) (`baseline_floored`).
 
-**The allowance fit** (`allowance_fit`). From `board/allowance.jsonl`: consecutive samples in the
-same weekly window (`usage.same_window`) whose weekly % did not fall are joined into intervals of at
-least FIT_MIN_INTERVAL_S. For each interval the Claude usage is summed from the telemetry: every
-bound project's `board/usage-requests.jsonl` (the plane's rows) and the system sink (§24.1, the use
-outside every project), one row per request id, only from when both sources were recording. Four
-models are fitted through the origin, weekly % per token, % per dollar of cost, and either of those
-by model family (when two or more families each have usage in 3 intervals or more), and the one
-with the lowest leave-one-out error (RMSE in percentage points per interval) is used; within 5% of
-the lowest, the simpler one. The non-plane
-burn is the system sink's usage over the last 7 days, per hour, times the fit; a history shorter than
-BASELINE_MIN_SPAN_H (72 h) is averaged over 72 h (`baseline_floored`).
+**The 5-hour window** (§25.4): `r5` is fitted from the samples (`session_fit`); in each trial the 5-hour % rises at
+r5 times the weekly % rate, and the window ends at the latest sample's `five_hour_resets_at`. When it would reach
+`telemetry.session_park_pct` first, work pauses until its end plus the wake margin and every later start and end
+moves by the pause (`_pauses`); a null park % models none. **The projection** rises each trial's weekly % from the
+latest sample, by the non-plane burn and each task's tokens or cost spread evenly between completions.
 
-**The 5-hour window** (§25.4 the session park, 2026-10-23). `r5`, the 5-hour % per weekly %, is fitted
-from the samples (`session_fit`). In each trial the 5-hour % rises at r5 times the weekly % rate (the
-non-plane burn plus the running task's burn spread over its run); the current window ends at the
-latest sample's `five_hour_resets_at`. When it would reach `telemetry.session_park_pct` first, work
-pauses until the window's end plus the wake margin, and every later start and end moves by the pause
-(`_pauses`). Each target reports its pauses and paused hours (P50, P90). A null park % models none.
-
-**The projection.** In each trial the weekly % rises from the latest sample (plus the fitted % of the
-usage recorded since) by the non-plane burn per hour and by each task's tokens or cost, spread
-evenly between task completions. It reports the % at the review point's and the backlog's completion,
-when the project's checkpoint and the checkpoint in force would be crossed (P50, and "P90" as the
-early side: 90% of trials cross later), and whether the work ends before `resets_at` or how much %
-it spills into the next week.
-
-The fit is cached in `board/forecast-fit.json`, keyed by the allowance samples and the telemetry
-files' sizes, mtimes and inodes: a file that grew is re-fitted only when what it appended holds a
-row inside the fitted span, so a board build usually re-fits only when a new sample arrives. Everything here is advisory: no claim, order or check reads it.
+The fit is cached in `board/forecast-fit.json`, keyed by the allowance samples and the telemetry files' sizes,
+mtimes and inodes; a file that grew is re-fitted only if its new rows reach the fitted span.
 """
 from __future__ import annotations
 

@@ -1,13 +1,9 @@
 """The review-point register (SPEC §22.1, §22.4): what each review point is for, and the tools that
 keep tasks, ADRs and the queue on it.
 
-  ccp review-points [list] [--json]                       every point: name, status, progress
-  ccp review-points show R8 [--json]                      one point: its goal, tasks and ADRs
-  ccp review-points tag R8 [ID ...] [--from-work] [--dry-run] [--json]
-                                                          set `review_point: R8` on tasks (planning)
-  ccp review-points migrate --from PM --to R8 [--dry-run] [--merge] [--json]
-                                                          rename a legacy point in the task files and
-                                                          the queue's work.json
+The commands are `review-points` (`list`, `show`, `tag`, `migrate`; `docs/cli`): every point with its progress, one
+point's goal, tasks and ADRs, `review_point: R8` set on tasks (planning), and a legacy point renamed in the task
+files and the queue's work.json.
 
 The operator, 2026-10-22: "Review points are points at which I get in and review the progress at a high
 level, at a functional level. … Review points need to have a name and description apart from a

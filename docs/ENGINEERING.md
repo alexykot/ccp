@@ -18,10 +18,9 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   binding) through the code or a fixture helper, never as a copied literal. A fixture class other
   modules reuse holds no test methods; a class with tests is never imported into another module, and no
   module binds another module's test-class methods as its own helpers.
-  check: pass — the architect counts long string-literal assertions and constants copied into tests;
-  it becomes also a command check (architect.checks `E4`:
-  `! git grep -nE '= test_[a-z_]+\.[A-Z][A-Za-z]+\.[a-z_]+' -- tests`, then
-  `! git grep -n '\.plane-runtime' -- 'tests/test_*.py' ':(exclude)tests/test_plane_json_constants.py'`)
+  check: command — architect.checks `E4`: the borrowed-helper grep, the worktrees-literal grep, and the count of
+  assertIn and assertNotIn lines on a long string literal in tests/*.py held at or below the figure in the
+  command (lowered as tasks remove them)
 - **E15** Decision logic is separate from git, process and file I/O, so each branch is unit-tested on
   plain values. End-to-end tests cover the wiring, not every branch.
   check: pass — the architect looks for branches reachable only through a fixture repo; the health
@@ -102,7 +101,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   intentional ones below excepted
 - **E25** The parser is the one source of the command surface. Call syntax is written by hand in one
   place (docs/cli), held to the parser by a test; no module docstring in ccp/ carries a usage table.
-  check: command — `python3 -B -m unittest -q tests.test_cli_reference` (architect.checks `E25`)
+  check: pass, plus the gate — tests.test_cli_reference checks the docs against the parser and every ccp
+  module's docstring for usage lines; the gate runs it (E1); no architect.checks entry
 
 ## Docs
 
