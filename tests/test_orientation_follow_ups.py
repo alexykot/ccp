@@ -42,6 +42,9 @@ class OnPlainValues(unittest.TestCase):
         self.assertEqual(text.count(LIST), 1)
         self.assertTrue(text.endswith(f"\n2 follow-ups open: {LIST}\n"), text[-80:])
 
+    def test_one_open_follow_up_is_counted_in_the_singular(self):
+        self.assertEqual(notify.orientation_tail([], "", 1), f"\n\n1 follow-up open: {LIST}\n")
+
 
 class TheCommand(unittest.TestCase):
     """`ccp orientation --tail` counts the undecided follow-ups on the queue's run records."""
