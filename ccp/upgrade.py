@@ -219,8 +219,15 @@ def key_change(found: dict[str, Any]) -> str:
         return f"delete `{key}`: it is removed" + (f" ({why})" if why else "")
     if found["outcome"] == config.MERGED:
         return f"move `{key}` to `{found['replacement']}`" + (f" ({why})" if why else "")
-    return (f"delete `{key}`: it is a constant, {found['constant']!r}, and yours is {found['set']!r}; or file a "
-            "plane proposal to keep the key")
+    const = shown_constant(config.KEY_OUTCOMES[key])
+    return (f"delete `{key}`: it is a constant, {const}, and yours is {found['set']!r}; or file a plane proposal "
+            "to keep the key")
+
+
+def shown_constant(outcome: config.Outcome) -> str:
+    """§29.3: a constant as its load warning names it (`config.constant_override`): in words when its outcome
+    has them, else its value."""
+    return outcome.shown or repr(outcome.value)
 
 
 def keys_step(plane: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -244,10 +251,12 @@ def binding_change(found: dict[str, Any]) -> str:
         return f"delete `{key}`: it is removed" + (f" ({found['why']})" if found["why"] else "")
     if found["outcome"] == "moved":
         return f"move `{key}` to {found['replacement']}, then delete it"
+    const = shown_constant(lib.binding_constants()[key])
     if not found["differs"]:
-        return f"delete `{key}`: it is a constant, {found['constant']!r}, which is what yours already is"
-    return (f"delete `{key}`: it is a constant, {found['constant']!r}, and yours is {found['set']!r}; or file a "
-            "plane proposal to keep the key")
+        return f"delete `{key}`: it is a constant, {const}, which is what yours already is"
+    yours = found["use"] if found["valid"] else found["set"]  # a limit it takes as the number, as the warning has it
+    return (f"delete `{key}`: it is a constant, {const}, and yours is {yours!r}; or file a plane proposal "
+            "to keep the key")
 
 
 def binding_step(binding: dict[str, Any] | None) -> dict[str, Any] | None:

@@ -358,9 +358,10 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
         unprefer(cur)
 
     # §16.4: the lease is the task's own (`tasks/<id>.json` `lease_holder`); work.json keeps none, and an
-    # old file's top-level `lease` is dropped here
+    # old file's top-level `lease` is dropped here. Every key of the wait goes with `waiting_on`, so a claim
+    # leaves no detail, start or resume time from the wait before it.
     save_work(q, {"task_id": tid, "phase": load_task_state(q, tid).get("status"),
-                  "runtime_status": "running", "waiting_on": None, "phase_since": iso(t)},
+                  "runtime_status": "running", **{k: None for k in WAIT_KEYS}, "phase_since": iso(t)},
               drop=(OLD_WORK_LEASE,), edit=take)
     if parallel.enabled(cfg):  # §16.7: each task held records the most tasks held at once in its window
         held_now = [str(t.get("task_id")) for t in parallel.active_tasks(cfg, q, load_work(q))]  # still claimed

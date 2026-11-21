@@ -285,6 +285,8 @@ def resolution_lines(text: str, checks: list[str] | None) -> tuple[dict[str, Any
         if not m or re.match(r"[ \t*_`]*\|", m.group(2)):  # a `|` right after the value: the prompt's template pasted
             errs.append(f"`Resolution:` on line {_line_no(text, ms[0])} says `{said[:80]}`; it is `contained`, or "
                         "`beyond <why>`, exactly one")
+        elif m.group(1).lower() == "beyond" and not re.search(r"[^\W_]", m.group(2)):  # punctuation and markup alone
+            errs.append("`Resolution: beyond` needs its reason: `Resolution: beyond <why>`")
         else:
             out["resolution"] = m.group(1).lower()
     am = list(AFFECTED_RE.finditer(text))
