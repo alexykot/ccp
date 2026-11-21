@@ -1108,7 +1108,7 @@ tasks:
     depends_on: [0220-one-pr-host-interface-with-the-github-adapter, 0240-plane-workers-run-the-head]
     path: tasks/0221-workers-reach-the-pr-host-through-ccp-pr.md
   - id: 0222-a-product-without-github-uses-the-local-pr-host
-    status: pending
+    status: done
     title: A product names its PR host in plane.json, and the local adapter serves one with only a git origin
     depends_on: [0221-workers-reach-the-pr-host-through-ccp-pr, 0226-one-pr-host-module-github-only]
     path: tasks/0222-a-product-without-github-uses-the-local-pr-host.md

@@ -1,7 +1,7 @@
 ---
 task_id: 0222-a-product-without-github-uses-the-local-pr-host
 title: A product names its PR host in plane.json, and the local adapter serves one with only a git origin
-status: pending
+status: done
 kind: feature
 depends_on: ["0221-workers-reach-the-pr-host-through-ccp-pr", "0226-one-pr-host-module-github-only"]
 spec_refs: ["S4", "S8", "S15"]
@@ -214,3 +214,5 @@ PROPOSED: (new lines after it)
     change, which the runner takes to the lead as a follow-up).
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #278 head `d808221` (squash `9ecab06`): APPROVE. Passed: lh-01, lh-02, lh-03, lh-04, lh-05, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0222-a-product-without-github-uses-the-local-pr-host.json.
+
