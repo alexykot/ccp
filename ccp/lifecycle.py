@@ -62,7 +62,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ccp.envvars import envvar
+from ccp.envvars import envvar, for_child
 from ccp import config, notify, prhost, refs, runs, tasklog
 from ccp.queue import lib
 from ccp.config import Config
