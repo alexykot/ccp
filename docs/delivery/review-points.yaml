@@ -90,8 +90,9 @@ review_points:
   - id: R16
     name: architect pass fixes
     goal: "Findings of architect pass ar-20261120T234012Z-27eb: plane workers run the head under test, a faster gate, pre-ccp holdovers removed, one source for command syntax, events and config, and task checks that run their dry runs."
-    status: planned
+    status: closed
     opened: "2026-11-21"
+    closed: "2026-11-21"
   - id: R17
     name: second architect pass fixes
     goal: "Findings of architect pass ar-20261121T020523Z-1d5f: one wait-reason table with the steerer only read, close and the architect sharing wt's worktree helper, cheaper and self-contained test fixtures, a closed run refused by suite run, and one gate block in one-sentence-per-line templates."
@@ -110,5 +111,10 @@ review_points:
   - id: R20
     name: fourth architect pass fixes
     goal: "Findings of architect pass ar-20261121T132817Z-d5e5: the plane's gate under one lane name, a worker's suite run that waits for a held exclusive lane, and suite run naming the lane it uses."
+    status: planned
+    opened: "2026-11-21"
+  - id: R21
+    name: fifth architect pass fixes
+    goal: "Findings of architect pass ar-20261121T174754Z-7df5: GitHub knowledge only in the PR-host module and no direct gh pr grant, ccp mutate taking its runner and did-not-build pattern from the language pack, the local PR record in the plane's own state words with ledger events for its writes, and ccp verify taking each action's own flags with worker prompts naming each cited finding's record."
     status: planned
     opened: "2026-11-21"
