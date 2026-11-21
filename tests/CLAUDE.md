@@ -41,5 +41,5 @@ queue or subprocess, test a function on plain values instead (`test_catch_up_dec
 **Reuse rule.** A fixture shared across modules is a class with no test methods (`ToolkitFixture` and the
 mixins above mix into a `TestCase`; the others are `TestCase` bases that hold no tests), imported by name. A class
 that holds tests is never imported into another module: discovery would run its tests twice. No module binds
-another module's test-class methods as its own helpers (`helper = test_x.Class.helper`): the helper moves to a
-mixin or a fixture, and the architect's `E4` command check fails on the binding.
+another module's test-class methods as its own helpers (a class attribute assigned from `test_x.Class`): the
+helper moves to a mixin or a fixture, and the architect's `E4` command check fails on the binding.

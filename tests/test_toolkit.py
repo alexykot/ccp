@@ -63,9 +63,9 @@ class ToolkitFixture:
     def _build_repos(cls, t: Path) -> None:
         """The bare origin, the main clone (holding the runner worktree) and the first commit, under `t`."""
         origin = t / "origin.git"
-        git(t, "init", "-q", "--template=", "--bare", "-b", "main", str(origin))
+        git(t, "init", "-q", "--bare", "-b", "main", str(origin))
         main = t / "product"
-        git(t, "clone", "-q", "--template=", str(origin), str(main))
+        git(t, "clone", "-q", str(origin), str(main))
         git(main, "checkout", "-q", "-b", "main")
 
         def put(rel: str, text: str) -> None:
@@ -790,3 +790,52 @@ class Checkpoint(ToolkitFixture, unittest.TestCase):
         self.plane_json("echo '" + json.dumps({"seven_day": {"utilization": 85, "resets_at": "2099-11-03T04:00:00Z"}}) + "'", stop=80)
         code, _, _, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 5)
+
+
+class SharedRepo(ToolkitFixture, unittest.TestCase):
+    """Each test copies its class's template: its repositories are its own and point at the copy."""
+
+    def test_the_copy_points_at_itself(self):
+        self.assertEqual(git(self.main, "remote", "get-url", "origin"), str(self.origin))
+        self.assertEqual(git(self.main, "rev-parse", "--show-toplevel"), str(self.main))
+        self.assertEqual(git(self.runner, "rev-parse", "--git-common-dir"), str(self.main / ".git"))
+        self.assertEqual(git(self.runner, "rev-parse", "--show-toplevel"), str(self.runner))
+        self.assertIn(f"worktree {self.runner}\n", git(self.main, "worktree", "list", "--porcelain") + "\n")
+
+    def _leave_a_commit(self):
+        self.assertFalse((self.main / "left.txt").exists())  # nothing of an earlier test's
+        self.assertEqual(git(self.origin, "rev-list", "--count", "main"), "1")
+        self.write("left.txt", "x\n")
+        git(self.main, "add", "left.txt")
+        git(self.main, "commit", "-q", "-m", "left")
+        git(self.main, "push", "-q", "origin", "main")
+
+    def test_a_commit_pushed_here_stays_here(self):
+        self._leave_a_commit()
+
+    def test_a_commit_pushed_in_another_test_is_not_seen(self):
+        self._leave_a_commit()
+
+    def test_a_test_works_in_its_own_tree_not_in_the_class_template(self):
+        template = Path(type(self)._template.name).resolve()
+        self.assertTrue(template.is_dir())
+        self.assertNotIn(template, [self.main, *self.main.parents])
+        self.assertNotEqual(self.origin.parent, template)
+
+
+class OwnPlaneJson(ToolkitFixture, unittest.TestCase):
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "worktrees": {"links": [".venv", "own"]}}
+
+    def test_the_template_holds_the_classs_own_plane_json(self):
+        self.assertEqual(json.loads((self.main / "docs/delivery/plane.json").read_text()), self.PLANE_JSON)
+        self.assertEqual(config.load(self.main).worktrees["links"], [".venv", "own"])
+
+
+class PerTestRepo(ToolkitFixture, unittest.TestCase):
+    SHARED_REPO = False
+
+    def test_no_template_is_built_and_the_repositories_work(self):
+        self.assertIsNone(type(self)._template)
+        self.assertEqual(git(self.runner, "rev-parse", "--show-toplevel"), str(self.runner))
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
