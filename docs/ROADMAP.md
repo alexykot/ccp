@@ -63,9 +63,9 @@ All reshape phases have landed.
     the run records and `runs/_suites.jsonl`, or contracts/CLAUDE.md narrowed to what is checked.
     Past the cap, and it needs a validator choice first (the plane has no jsonschema dependency).
     The proposed house rule comes with that task.
-  - F12: once R15's 0212 lands, the plane's own plane.json declares a `pregate` lane running its
-    `architect.checks` with `ccp tasks check` and `ccp docs check`, so a docs-rule failure shows
-    before the full lane (the lead's adopt step, no task).
+  - F12: the plane's own `pregate` lane (`ccp tasks check` plus `ccp docs check`, beside its
+    `architect.checks`) is a lead adopt step once R15's 0212 lands, so a docs-rule failure shows
+    before the full lane. No task.
 - **Considered and declined:** continuing past the weekly allowance into paid extra usage (the plane
   runs on the prepaid allowance only, ADR-0026), and a separate task-drafting seat (the lead drafts
   tasks, with a writer subagent when several land at once).

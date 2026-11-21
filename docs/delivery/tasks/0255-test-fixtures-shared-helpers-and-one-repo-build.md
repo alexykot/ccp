@@ -1,10 +1,10 @@
 ---
 task_id: 0255-test-fixtures-shared-helpers-and-one-repo-build
-title: Test helpers other modules borrow move to test-free mixins, and ToolkitFixture builds its repositories once per module
+title: Test helpers other modules borrow move to test-free mixins, and ToolkitFixture builds its repositories once per test class
 status: pending
 kind: refactor
 depends_on: ["0227-the-test-fixture-uses-the-local-pr-host", "0241-gate-module-tests-wiring-only"]
-clashes_with: ["0208-board-reads-the-latest-good-allowance", "0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0219-integration-merges-leave-out-the-tip", "0242-retire-restructure-scaffolding-and-queue-markers"]
+clashes_with: ["0208-board-reads-the-latest-good-allowance", "0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0219-integration-merges-leave-out-the-tip"]
 review_refs: ["ar-20261121T020523Z-1d5f#F06", "ar-20261121T020523Z-1d5f#F07"]
 rule_refs: ["E4"]
 review_point: R17
@@ -20,7 +20,7 @@ updated: 2026-11-21
 
 Helpers that several test modules use live on fixture classes that hold no tests, listed in
 tests/CLAUDE.md, so a change to one module's tests no longer reaches ten others. The most reused
-fixture, `ToolkitFixture`, builds its bare origin, clone and runner worktree once per module and gives
+fixture, `ToolkitFixture`, builds its bare origin, clone and runner worktree once per test class and gives
 each test a cheap private copy, so its 1200-odd tests stop paying seven git subprocesses each before
 their bodies run. Behaviour of the plane and of every test is unchanged.
 
@@ -47,14 +47,17 @@ modules and `tests/helpers.py`), so this task builds on both.
 - **F07, the fixture's cost.** `tests/test_toolkit.py` `ToolkitFixture.setUp` runs `git init --bare`,
   `clone`, `checkout -b`, `add -A`, `commit`, `push -u` and `worktree add`.
   `git grep -l ToolkitFixture -- tests | wc -l` at `aaa81b2`: 63 modules. 
-  Its setUp alone, timed by fx-03's step 1 (`python3 -B -c "…TextTestRunner…"`) at `aaa81b2`: 0.32 s and 0.48 s per test over two runs. Ruling: the first test of each module builds the
-  three repositories once into a module-level template under its own temp directory; every test
-  copies the template's directory tree into its own temp directory (`shutil.copytree`, symlinks kept)
-  and re-points the runner worktree and the clone's origin at the copy (`git worktree repair` and
-  `git remote set-url`), then writes what setUp writes today after the push (the queue, the fake PR
-  host, the environment). The template is removed at module teardown. A test that changes
-  `ToolkitFixture`'s built repository before setUp ends (a subclass overriding the build) keeps the
-  per-test build through a class attribute `SHARED_REPO = False`.
+  Its setUp alone, timed by fx-03's step 1 (`python3 -B -c "…TextTestRunner…"`) at `aaa81b2`: 0.32 s and 0.48 s per test over two runs. Ruling: each test class builds the
+  three repositories once, in `setUpClass`, into a class-level template under its own temp directory,
+  and removes it in `tearDownClass`. The template's plane.json is the class's own `PLANE_JSON`
+  (`git grep -l 'PLANE_JSON = ' -- tests | wc -l` at `aaa81b2`: 21 modules override it), so a class
+  that overrides `PLANE_JSON` gets its own template and never a copy of another class's. Every test
+  copies its class's template directory tree into its own temp directory (`shutil.copytree`, symlinks
+  kept) and re-points the runner worktree and the clone's origin at the copy (`git worktree repair`
+  and `git remote set-url`), then writes what setUp writes today after the push (the queue, the fake
+  PR host, the environment). A test that changes `ToolkitFixture`'s built repository before setUp
+  ends (a subclass overriding the build) keeps the per-test build through a class attribute
+  `SHARED_REPO = False`.
 - **E4, the text this task's check holds** (already in docs/ENGINEERING.md from the triage): "… A
   fixture class other modules reuse holds no test methods; a class with tests is never imported into
   another module (it would run twice), and no module binds another module's test-class methods as its
@@ -94,11 +97,11 @@ modules and `tests/helpers.py`), so this task builds on both.
   setup: a checkout of the PR head, on the operator's Mac or the verifier's machine, with no suite running.
   steps:
     1. Run `python3 -B -c "import time,unittest; from tests.test_toolkit import ToolkitFixture; T=type('T',(ToolkitFixture,unittest.TestCase),{'test_x':lambda s: None}); s=unittest.TestSuite([T('test_x') for _ in range(10)]); t=time.time(); unittest.TextTestRunner(verbosity=0).run(s); print(round((time.time()-t)/10,3))"`.
-  expect: the printed figure (seconds per test, the first test's template build included) is at most `0.12`.
+  expect: the printed figure (seconds per test, the class's template build included) is at most `0.12`.
   dry run (`aaa81b2`): printed `0.482` (`0.316` on an earlier run).
 - id: `fx-04`
   story: As a plane developer, each test still gets a private repository, and the tests that hold it bite.
-  setup: a checkout of the PR head; then a separate copy of it where `ToolkitFixture` hands every test the module template's own directories instead of a copy.
+  setup: a checkout of the PR head; then a separate copy of it where `ToolkitFixture` hands every test the class template's own directories instead of a copy.
   steps:
     1. On the head, run `python3 -B -m unittest -q tests.test_toolkit tests.test_tasks_close tests.test_review_gate tests.test_resolution_review` and then `git branch --list 'state/*'`.
     2. In the copy, run `python3 -B -m unittest -q tests.test_toolkit tests.test_tasks_close`.

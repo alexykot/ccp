@@ -4,7 +4,7 @@ title: One wait-reason table, the retired steerer wait refused on set, and the r
 status: pending
 kind: feature
 depends_on: ["0243-one-source-for-syntax-events-and-config"]
-clashes_with: ["0191-the-grace-release-ends", "0218-idle-runner-slots-are-recorded-and-measured", "0236-claim-keeps-no-copy-of-the-checks"]
+clashes_with: ["0191-the-grace-release-ends", "0218-idle-runner-slots-are-recorded-and-measured"]
 spec_refs: ["S10", "S23"]
 review_refs: ["ar-20261121T020523Z-1d5f#F02", "ar-20261121T020523Z-1d5f#F03", "ar-20261121T020523Z-1d5f#F09", "ar-20261121T020523Z-1d5f#F14"]
 review_point: R17
@@ -41,14 +41,19 @@ the parser, which this task's new flag must satisfy.
   `WAIT_READ_ONLY = ("steerer",)` (read, never written, house rule E9); the writer imports lib (it
   already does for the lock) and validates against `WAIT_REASONS`; its usage text names the reasons by
   pointing at §10.1 instead of listing them. The new `tests/test_wait_reasons.py` asserts that the
-  schema's `waiting_on` enum, less `null`, equals `WAIT_REASONS` plus `WAIT_READ_ONLY`.
+  schema's `waiting_on` enum, less `null`, equals `WAIT_REASONS` plus `WAIT_READ_ONLY`, and reads the
+  §23.2 `waiting_on` `set` row of `docs/spec/04-observability.md`: the backticked reasons before its
+  `;` equal `WAIT_REASONS`, and those after it equal `WAIT_READ_ONLY`.
 - **F02, the callers.** `git grep -n 'OBS / "set-waiting-on.sh"' -- ccp` at `aaa81b2`: 4 lines
   (`ccp/lifecycle.py` 3, `ccp/usage.py` 1). `ccp tasks wait` takes `--until` and `--detail` only
   (`./bin/ccp tasks wait -h | grep -c -- --quota-class` at `aaa81b2`: 0), so `ccp/usage.py`
   `"def _set_wait"` calls the script itself with `--task-only` and `--quota-class`. Ruling: one
   function in `ccp/lifecycle.py`, `"def set_wait"` (public), builds every call to the writer and
-  takes `task_only`, `quota_class`, `resets_at` and `detail`; the three lifecycle call sites and
-  usage.py call it, and usage.py's `_set_wait` goes. `ccp tasks wait` gains `--quota-class
+  takes `actor` (default `queue.actor()`; the release site passes its `who`), `task_only`,
+  `quota_class`, `resets_at` and `detail`, and raises `QueueError` with the writer's code at every
+  site: a writer exit 1 and a writer exit 2 pass through, any other code becomes exit 1. Today
+  `"def _apply"`'s in-log clear always raises exit 1. The three
+  lifecycle call sites and usage.py call it, and usage.py's `_set_wait` goes. `ccp tasks wait` gains `--quota-class
   {session,credit}`. `docs/cli/02-delivery.md`'s row gains the flag. `docs/cli/04-observability.md`
   says `set-waiting-on.sh` is waiting_on's single writer, which `ccp tasks wait|resume` call, instead
   of listing it among the wrappers over `ccp`.
@@ -118,9 +123,9 @@ the parser, which this task's new flag must satisfy.
   story: As a lead, the retired steerer wait can no longer be set, and no skill names the steerer as a role.
   setup: a checkout of the PR head.
   steps:
-    1. Run `python3 -B -m unittest -v tests.test_wait_reasons 2>&1 | grep -ci steerer`.
+    1. Run `python3 -B -m unittest -v tests.test_wait_reasons 2>&1 | grep -i steerer | grep -c ' ok$'`.
     2. Run `git grep -n -i steerer -- plugin/skills`.
-  expect: step 1 prints a number of at least 1 (a test that `set … steerer` exits non-zero and leaves the task's `waiting_on` unchanged, listed `ok`); step 2 prints nothing.
+  expect: step 1 prints a number of at least 1 (a test, named for steerer, that `set … steerer` exits non-zero and leaves the task's `waiting_on` unchanged); step 2 prints nothing.
   dry run (`aaa81b2`): step 1 n/a, the module is new; step 2 printed 4 lines.
 - id: `wr-04`
   story: As a reader of contracts/, the retired snapshot's schema is gone and nothing names it.

@@ -4,7 +4,7 @@ title: Close and the architect make and remove their own worktrees through one w
 status: pending
 kind: feature
 depends_on: ["0215-a-reused-runner-worktree-moves-to-the-tip"]
-clashes_with: ["0211-architect-cadence-scales-with-tasks-in-flight", "0240-plane-workers-run-the-head"]
+clashes_with: ["0240-plane-workers-run-the-head"]
 spec_refs: ["S12", "S19"]
 review_refs: ["ar-20261121T020523Z-1d5f#F05"]
 review_point: R17
@@ -29,7 +29,7 @@ From architect pass `ar-20261121T020523Z-1d5f`, finding F05, triaged by the lead
 Measured at `aaa81b2`. `depends_on` 0215 because it changes `ccp/wt.py`'s runner worktree and its
 callers in `ccp/lifecycle.py`, next to the code this task moves.
 
-- **The hand-made worktrees.** `git grep -n -e 'wt\._link(' -e 'wt\._exclude_base(' -- ccp` at
+- **The hand-made worktrees.** `git grep -nE 'wt\._(link|exclude_base)\(' -- ccp` at
   `aaa81b2`: 3 lines (`ccp/architect.py` `"def _make_worktree"` 2, `ccp/lifecycle.py` 1, close's merge
   worktree). `git grep -n '"worktree", "add"' -- ccp/architect.py ccp/lifecycle.py` at `aaa81b2`:
   2 lines. `ccp/architect.py` `"def _drop_worktree"` removes with `--force` and prunes, ignoring
@@ -37,11 +37,12 @@ callers in `ccp/lifecycle.py`, next to the code this task moves.
 - **Listing.** `ccp/wt.py` lists, among unrecorded directories, only those matching `MERGE_RE`
   (`grep -c 'MERGE_RE.match' ccp/wt.py` at `aaa81b2`: 2, one in listing, one in `gc`). SPEC §12.1:
   "`ccp wt list [--task ID]` shows the records and any unrecorded worktree" (`grep -c 'any unrecorded worktree' docs/spec/02-delivery.md` at `aaa81b2`: 1).
-- **Ruling.** `ccp/wt.py` gains `def add_unrecorded(cfg, main, path, rev)` (names the worktree base in
-  `info/exclude`, `git worktree add -q --detach`, links `worktrees.links`; a git error raises
+- **Ruling.** `ccp/wt.py` gains a public `def link(cfg, main, path)` (today's `_link`: links `worktrees.links` into `path`), `def add_unrecorded(cfg, main, path, rev)` (names the worktree base in
+  `info/exclude`, `git worktree add -q --detach`, then `link`; a git error raises
   `QueueError` naming the path) and `def remove_unrecorded(main, path)` (`worktree remove --force`,
   then `prune`; failures ignored, as `_drop_worktree` does today). Close's merge worktree keeps its own
-  reuse of an existing worktree (reset and clean) and calls `add_unrecorded` only to make a new one.
+  reuse of an existing worktree (reset and clean), then calls `link`, as it calls `wt._link` today;
+  it calls `add_unrecorded` only to make a new one.
   An `ARCH_RE` beside `MERGE_RE` (`^arch-` followed by the review id) makes `ccp wt list` show an `arch-`
   directory as unrecorded, with no task. `ccp wt gc` and `ccp wt remove` are unchanged: the pass's own
   check that marks a dead pass `failed` removes its worktree (§12.1).
@@ -51,7 +52,7 @@ callers in `ccp/lifecycle.py`, next to the code this task moves.
 
 ## Scope
 
-- **In:** `ccp/wt.py` (`add_unrecorded`, `remove_unrecorded`, `ARCH_RE` in listing),
+- **In:** `ccp/wt.py` (`link`, `add_unrecorded`, `remove_unrecorded`, `ARCH_RE` in listing),
   `ccp/architect.py` (`_make_worktree`, `_drop_worktree` call them), `ccp/lifecycle.py` (close's merge
   worktree), `tests/test_wt_unrecorded.py` (new).
 - **Out:** `ccp wt gc` sweeping `arch-` leftovers; recording either kind; `ccp/suite.py`'s prover
@@ -63,7 +64,7 @@ callers in `ccp/lifecycle.py`, next to the code this task moves.
   story: As a plane developer, no module outside wt calls its private worktree helpers or adds a worktree for close or the architect itself.
   setup: a checkout of the PR head.
   steps:
-    1. Run `git grep -n -e 'wt\._link(' -e 'wt\._exclude_base(' -- ccp`.
+    1. Run `git grep -nE 'wt\._(link|exclude_base)\(' -- ccp`.
     2. Run `git grep -n '"worktree", "add"' -- ccp/architect.py ccp/lifecycle.py`.
   expect: both print nothing.
   dry run (`aaa81b2`): step 1 printed 3 lines; step 2 printed 2 lines.

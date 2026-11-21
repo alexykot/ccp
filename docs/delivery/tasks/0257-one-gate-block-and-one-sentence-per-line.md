@@ -2,9 +2,9 @@
 task_id: 0257-one-gate-block-and-one-sentence-per-line
 title: The before-push gate block is written once for the four phases, prompt templates hold one sentence per line, and the writing-tasks skill names two check pitfalls
 status: pending
-kind: refactor
+kind: feature
 depends_on: ["0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0221-workers-reach-the-pr-host-through-ccp-pr", "0223-a-follow-up-is-tracked-not-left-in-notes", "0228-report-sections-as-one-table", "0233-briefs-point-at-the-evidence-rules", "0238-the-runner-runs-marked-checks-before-verify", "0240-plane-workers-run-the-head", "0244-tasks-check-runs-dry-runs"]
-clashes_with: ["0224-checks-only-the-operator-s-machine-can-run", "0252-the-task-check-reports-a-decision-built-before-its-prerequisite"]
+spec_refs: ["S5", "S13"]
 review_refs: ["ar-20261121T020523Z-1d5f#F04", "ar-20261121T020523Z-1d5f#F13"]
 rule_refs: ["E13", "E21"]
 review_point: R17
@@ -60,6 +60,8 @@ before them would conflict with each, so this task runs after them, on their tex
 - **In:** `templates/prompts/_gate.md` (new), the four phase templates, every other template under
   `templates/prompts/` (rewrapped), `ccp/prompt.py` (render `_gate.md`), `tests/test_prompt_gate_block.py`
   (new), `plugin/skills/writing-tasks/SKILL.md` (two bullets).
+- No SPEC change: the skill's two bullets apply the task format (§5) and the briefs' fail-fast rule
+  (§13.5) is rendered as before.
 - **Out:** changing what any instruction says; the review, verify and estimate templates' own text
   beyond rewrapping.
 
@@ -69,10 +71,10 @@ before them would conflict with each, so this task runs after them, on their tex
   story: As a plane developer, the before-push block is in one file.
   setup: a checkout of the PR head.
   steps:
-    1. Run `git grep -c 'Fail fast first' -- templates/prompts`.
-    2. Run `git grep -c 'The pre-gate never stands in for the full suite' -- templates/prompts`.
-  expect: each step prints exactly one line, `templates/prompts/_gate.md:1`.
-  dry run (`aaa81b2`): each step printed 4 lines (fix, implement, merge, ruling).
+    1. Run `git grep -c '{{gate}}' -- templates/prompts`.
+    2. Run `git grep -l 'Fail fast' -- templates/prompts`.
+  expect: step 1 prints exactly four lines, `fix.md:1`, `implement.md:1`, `merge.md:1` and `ruling.md:1` under `templates/prompts/`; step 2 prints exactly one line, `templates/prompts/_gate.md`.
+  dry run (`aaa81b2`): step 1 printed nothing; step 2 printed 4 lines (fix, implement, merge, ruling).
 - id: `tp-02`
   story: As a plane developer, every phase that pushes still gets the block, and no other phase does; the test bites.
   setup: a checkout of the PR head; then a separate copy of it where `ccp/prompt.py` renders `_gate.md` as empty for the fix phase.
@@ -92,7 +94,7 @@ before them would conflict with each, so this task runs after them, on their tex
   story: As a task writer in any product, the skill warns against sentence pins and expects that move with other tasks.
   setup: a checkout of the PR head.
   steps:
-    1. Run `grep -c -e 'pins the token the rule turns on' -e 'moves when another task' plugin/skills/writing-tasks/SKILL.md`.
+    1. Run `grep -c -e 'presence check' -e 'another task lands' plugin/skills/writing-tasks/SKILL.md`.
   expect: prints `2`.
   dry run (`aaa81b2`): printed `0`.
 
