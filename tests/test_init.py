@@ -20,6 +20,7 @@ HOOK = PLANE / "plugin" / "hooks" / "runner-idle.sh"
 sys.path.insert(0, str(PLANE / "scripts" / "observability"))
 import lib  # noqa: E402
 
+from ccp import config  # noqa: E402
 from ccp import init as ccp_init  # noqa: E402
 
 GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
@@ -79,7 +80,7 @@ class Adopt(InitCase):
                           "architect": {"shape_from_task": "0001"}, **ccp_init.STARTER_CONFIG})
         self.assertEqual((self.repo / "docs/ENGINEERING.md").read_text(),
                          (PLANE / "templates/docs-project/starter-rules.md").read_text())
-        self.assertIn(".plane-runtime/", (self.repo / ".gitignore").read_text().splitlines())
+        self.assertIn(f"{config.WORKTREES_DIR}/", (self.repo / ".gitignore").read_text().splitlines())
         settings = json.loads((self.repo / ".claude/settings.json").read_text())
         self.assertEqual(settings, {**ccp_init.ANCHOR, "subagentPromptCacheTtl": "1h", "autoCompactWindow": 350000, "model": "opus",
                                     "env": {**ccp_init.ANCHOR["env"], "OTEL_RESOURCE_ATTRIBUTES": "ccp.project_id=demo"}})
@@ -266,7 +267,7 @@ class NoClobber(InitCase):
         (self.repo / ".claude/settings.json").write_text(json.dumps(
             {"permissions": {"allow": ["Bash(ccp:*)"]}, "env": {"MINE": "x"}, "enabledPlugins": {"other@x": True}}))
         (self.repo / "CLAUDE.md").write_text("# My product\nNo trailing newline")
-        (self.repo / ".gitignore").write_text("node_modules/\n.plane-runtime\n")
+        (self.repo / ".gitignore").write_text(f"node_modules/\n{config.WORKTREES_DIR}\n")
 
     def test_twice_keeps_other_keys_one_claude_line_and_existing_docs(self):
         self.assertEqual(self.init("--project-id", "demo")[0], 0)
@@ -280,7 +281,7 @@ class NoClobber(InitCase):
         self.assertEqual(settings["enabledPlugins"], {"other@x": True, "ccp@ccp": True})
         lines = (self.repo / "CLAUDE.md").read_text().splitlines()
         self.assertEqual(lines, ["# My product", "No trailing newline", "", ccp_init.CLAUDE_LINE])
-        self.assertEqual((self.repo / ".gitignore").read_text(), "node_modules/\n.plane-runtime\n")
+        self.assertEqual((self.repo / ".gitignore").read_text(), f"node_modules/\n{config.WORKTREES_DIR}\n")
         self.assertEqual((self.repo / "docs/SPEC.md").read_text(), "# My spec\n")
         self.assertIn("docs/SPEC.md", res["kept"])
         self.assertEqual(res["written"], [])
@@ -783,7 +784,7 @@ class OneBinding(InitCase):
             self.assertEqual(lib.binding_path(self.queue), self.binding)
             self.assertEqual(lib.resolve_durable_docs_dir(self.queue), self.repo / "docs/delivery")
             from ccp import verify  # noqa: PLC0415
-            self.assertEqual(lib.runner_worktree(self.queue), str(self.repo / ".plane-runtime" / "runner"))
+            self.assertEqual(lib.runner_worktree(self.queue), str(self.repo / config.WORKTREES_DIR / "runner"))
             self.assertTrue(verify._ci(self.queue))
 
     def test_without_a_binding_the_queue_copy_still_reads(self):

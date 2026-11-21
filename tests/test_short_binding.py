@@ -27,7 +27,7 @@ KEPT = ["project_id", "integration_branch", "product_root", "queue_root"]
 # The binding `ccp init` wrote before this task: the keys the plane no longer reads, and the runner's.
 OLD_INIT = ("project_id: demo\nintegration_branch: main\nproduction_branch: main\nproduct_root: {root}\n"
             "durable_docs_path: docs/delivery/\nqueue_root: {queue}\nrunner:\n  agent_type: ccp:delivery-runner\n"
-            "  name: runner\n  worktree: {root}/.plane-runtime/runner\n")
+            f"  name: runner\n  worktree: {{root}}/{config.WORKTREES_DIR}/runner\n")
 OLD_KEYS = ["production_branch", "durable_docs_path", "runner.agent_type", "runner.name", "runner.worktree"]
 # §8.3, ADR-0043: every top-level key the plane removed from the binding.
 REMOVED = ("production_branch", "durable_docs_path", "display_name", "adapter", "adapter_config_path", "hosting",
@@ -125,14 +125,14 @@ class OldBinding(BindingDir):
         import team  # noqa: PLC0415
         rc = team.runner_cfg(self.queue)
         self.assertEqual((rc["name"], rc["agent_type"], rc["worktree"]),
-                         ("runner", "ccp:delivery-runner", str(self.product / ".plane-runtime" / "runner")))
+                         ("runner", "ccp:delivery-runner", str(self.product / config.WORKTREES_DIR / "runner")))
         self.assertEqual((lib.RUNNER_NAME, lib.RUNNER_AGENT), ("runner", "ccp:delivery-runner"))
-        self.assertEqual(lib.runner_worktree(self.queue), str(self.product / ".plane-runtime" / "runner"))
+        self.assertEqual(lib.runner_worktree(self.queue), str(self.product / config.WORKTREES_DIR / "runner"))
 
     def test_the_derived_values_ignore_what_the_binding_names(self):
         self.binding.write_text(OLD_INIT.format(root=self.product, queue=self.queue)
                                 .replace("name: runner", "name: steward").replace("ccp:delivery-runner", "x")
-                                .replace(f"{self.product}/.plane-runtime/runner", "/elsewhere"))
+                                .replace(f"{self.product}/{config.WORKTREES_DIR}/runner", "/elsewhere"))
         sys.path.insert(0, str(PLANE / "scripts" / "observability"))
         import team  # noqa: PLC0415
         from ccp import queue  # noqa: PLC0415
@@ -140,7 +140,7 @@ class OldBinding(BindingDir):
             rc = team.runner_cfg(self.queue)
             self.assertEqual(queue.runner_teammate(self.queue), "runner")
         self.assertEqual((rc["name"], rc["agent_type"], rc["worktree"]),
-                         ("runner", "ccp:delivery-runner", str(self.product / ".plane-runtime" / "runner")))
+                         ("runner", "ccp:delivery-runner", str(self.product / config.WORKTREES_DIR / "runner")))
 
     def test_the_worktree_is_under_the_products_worktrees_directory(self):
         (self.product / "docs/delivery").mkdir(parents=True)
@@ -150,7 +150,7 @@ class OldBinding(BindingDir):
             '{"project_id": "demo", "adapter": {"worktree_dir": "../out"}}')  # the old key, read while it is set
         self.assertEqual(lib.runner_worktree(self.queue), os.path.normpath(self.product / ".." / "out" / "runner"))
         (self.product / "docs/delivery/plane.json").write_text('{"project_id": "demo", "worktrees": {"dir": null}}')
-        self.assertEqual(lib.runner_worktree(self.queue), str(self.product / ".plane-runtime" / "runner"))  # null: the default
+        self.assertEqual(lib.runner_worktree(self.queue), str(self.product / config.WORKTREES_DIR / "runner"))  # null: the default
         self.binding.write_text(f"project_id: demo\nqueue_root: {self.queue}\n")
         self.assertIsNone(lib.runner_worktree(self.queue))  # no product root: nowhere to derive it from
 

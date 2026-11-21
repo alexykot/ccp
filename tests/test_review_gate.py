@@ -9,6 +9,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from ccp import config
+from tests.helpers import binding
 from tests.test_toolkit import PLANE, ToolkitFixture, git
 
 A, B = "a" * 40, "b" * 40
@@ -307,7 +309,7 @@ class MergeIn(ToolkitFixture, unittest.TestCase):
         patch.start()
         self.addCleanup(patch.stop)
         self.ccp("tasks", "claim", "0002")
-        (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text() + f"product_root: {self.main}\n")
+        (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text() + binding(project_id=None, product_root=self.main))
 
     def commit(self, wt, rel, text, msg):
         (wt / rel).write_text(text)
@@ -316,11 +318,11 @@ class MergeIn(ToolkitFixture, unittest.TestCase):
         return git(wt, "rev-parse", "HEAD")
 
     def test_a_merge_in_with_the_same_change_needs_no_new_review(self):
-        wt = self.main / ".plane-runtime" / "impl-0002"
+        wt = self.main / config.WORKTREES_DIR / "impl-0002"
         reviewed = self.commit(wt, "feature.txt", "built\n", "Task 0002: build it")
         git(wt, "push", "-q", "-u", "origin", "task/0002-second")
         self.review(reviewed)
-        other = self.main / ".plane-runtime" / "other"  # another task merges to main meanwhile
+        other = self.main / config.WORKTREES_DIR / "other"  # another task merges to main meanwhile
         git(self.main, "worktree", "add", "-q", "--detach", str(other), "origin/main")
         self.commit(other, "other.txt", "x\n", "Task 0009: other")
         git(other, "push", "-q", "origin", "HEAD:main")

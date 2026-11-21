@@ -17,7 +17,7 @@ from unittest import mock
 from ccp import cli, config, prompt as prompt_mod
 from ccp.queue import QueueError
 from tests import helpers
-from tests.helpers import TASK
+from tests.helpers import TASK, binding
 
 PLANE = Path(__file__).resolve().parents[1]
 GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
@@ -95,7 +95,7 @@ class ToolkitFixture:
         self.write("docs/delivery/tasks/0002-second.md", TASK.format(tid="0002-second", title="Second", status="pending",
                                                                      deps='"0001-first"', ver="*Append-only, per check id: pass or fail, with evidence.*"))
         self.write(".venv/marker", "")
-        self.write(".gitignore", ".venv/\n.plane-runtime/\nclosed-*\n")
+        self.write(".gitignore", f".venv/\n{config.WORKTREES_DIR}/\nclosed-*\n")
         (self.main / ".claude/agents").mkdir(parents=True)
         for a in ("implementer", "reviewer", "verifier"):
             shutil.copy(PLANE / f"plugin/agents/delivery-{a}.md", self.main / f".claude/agents/delivery-{a}.md")
@@ -104,11 +104,11 @@ class ToolkitFixture:
         git(self.main, "add", "-A")
         git(self.main, "commit", "-q", "-m", "init")
         git(self.main, "push", "-q", "-u", "origin", "main")
-        self.runner = self.main / ".plane-runtime" / "runner"
+        self.runner = self.main / config.WORKTREES_DIR / "runner"
         git(self.main, "worktree", "add", "-q", "--detach", str(self.runner), "origin/main")
         self.q = t / "queue"
         self.q.mkdir()
-        (self.q / "project.yaml").write_text(f"project_id: demo\nintegration_branch: main\nproduct_root: {self.main}\n")
+        (self.q / "project.yaml").write_text(binding(integration_branch="main", product_root=self.main))
         (t / "ghstate").mkdir()
         (t / "gh").write_text(FAKE_GH)
         (t / "gh").chmod(0o755)
@@ -173,7 +173,7 @@ class ToolkitFixture:
     def _to_approved_pr(self) -> str:
         """Claim 0002, commit work on its branch, push it, verify it: the PR head."""
         self.ccp("tasks", "claim", "0002")
-        wt = self.main / ".plane-runtime" / "impl-0002"
+        wt = self.main / config.WORKTREES_DIR / "impl-0002"
         (wt / "feature.txt").write_text("built\n")
         git(wt, "add", "feature.txt")
         git(wt, "commit", "-q", "-m", "Task 0002: build it")
@@ -245,7 +245,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
         wt = Path(body["worktree"]["path"])
-        self.assertEqual(wt, self.main / ".plane-runtime" / "impl-0002")
+        self.assertEqual(wt, self.main / config.WORKTREES_DIR / "impl-0002")
         self.assertEqual(git(wt, "rev-parse", "--abbrev-ref", "HEAD"), "task/0002-second")
         self.assertTrue((wt / ".venv").is_symlink())
         self.assertNotIn(".venv", git(wt, "status", "--porcelain"))  # the link is excluded, so `add -A` cannot take it
@@ -266,8 +266,8 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         # Grok hosting is gone; an old queue may still carry its lock and binding keys.
         (self.q / "hosting.lock").write_text(json.dumps({"live": "grok"}))
         (self.q / "STATE_REF").write_text("plane\n")
-        (self.q / "project.yaml").write_text(f"project_id: demo\nhosting: grok\nintegration_branch: main\n"
-                                             f"product_root: {self.main}\ngrok:\n  state_ref: plane\n")
+        (self.q / "project.yaml").write_text(binding(hosting="grok", integration_branch="main", product_root=self.main,
+                                                          grok={"state_ref": "plane"}))
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
         self.assertTrue((self.q / "observability/events.jsonl").is_file())
@@ -275,8 +275,8 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
 
     def test_plane_check_lists_a_script_the_binding_still_names_as_the_planes_do(self):
         # SPEC §29.3: the binding's `auth_check` is removed, so its script is no queue script the plane keeps.
-        (self.q / "project.yaml").write_text(f"project_id: demo\nintegration_branch: main\nproduct_root: {self.main}\n"
-                                             "auth_check:\n  script: scripts/auth-check.sh\n")
+        (self.q / "project.yaml").write_text(binding(integration_branch="main", product_root=self.main,
+                                                          auth_check={"script": "scripts/auth-check.sh"}))
         (self.q / "scripts").mkdir()
         (self.q / "scripts/auth-check.sh").write_text("#!/bin/sh\n")
         (self.q / "scripts/with-scratch-db.sh.orig-0153").write_text("old\n")
@@ -311,7 +311,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.assertEqual(body["agent_call"]["description"], "0002 implement")
         self.assertEqual((body["expected_model"], body["expected_effort"]), ("claude-opus-5-5", "high"))
         text = Path(body["prompt_path"]).read_text()
-        for want in ("Use the scratch database helper", "line numbers are stale", str(self.main / ".plane-runtime" / "impl-0002"),
+        for want in ("Use the scratch database helper", "line numbers are stale", str(self.main / config.WORKTREES_DIR / "impl-0002"),
                      f"report 0002-second/implement {self.q}/progress/0002-second/implement-report.md", "abc1234"):
             self.assertIn(want, text)
         self.assertNotIn("kind: refactor", text)
@@ -432,7 +432,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.assertLess(log.index("`0002` done: it is built. PR #7"), log.index("older entry"))
         self.assertIn("status: done", git(self.main, "show", "origin/main:docs/delivery/INDEX.yaml").split("0002-second")[1])
         self.assertTrue(git(self.main, "log", "-1", "--format=%s", "origin/main").startswith("Reconcile 0002"))
-        self.assertFalse((self.main / ".plane-runtime" / "impl-0002").exists())
+        self.assertFalse((self.main / config.WORKTREES_DIR / "impl-0002").exists())
         self.assertTrue((self.main / "closed-0002").exists())
         st = json.loads((self.q / "tasks/0002-second.json").read_text())
         self.assertEqual(st["status"], "done")
@@ -448,7 +448,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         baseline = Path(body["path"])
         code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
         self.assertEqual(code, 0, out + err)
-        self.assertFalse((self.main / ".plane-runtime" / "impl-0002").exists())  # the task's own worktree went
+        self.assertFalse((self.main / config.WORKTREES_DIR / "impl-0002").exists())  # the task's own worktree went
         code, gc, out, err = self.ccp("wt", "gc")
         self.assertEqual(code, 0, out + err)
         self.assertNotIn("ver-baseline", gc["removed"] + gc["forgot"])
@@ -467,7 +467,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
     def test_an_approval_recorded_after_a_merge_by_hand_is_not_one(self):
         import time
         self.ccp("tasks", "claim", "0002")
-        wt = self.main / ".plane-runtime" / "impl-0002"
+        wt = self.main / config.WORKTREES_DIR / "impl-0002"
         (wt / "feature.txt").write_text("built\n")
         git(wt, "add", "feature.txt")
         git(wt, "commit", "-q", "-m", "Task 0002: build it")

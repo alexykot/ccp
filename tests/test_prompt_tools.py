@@ -6,6 +6,7 @@ import re
 import unittest
 from pathlib import Path
 
+from ccp import config
 from ccp import prompt as prompt_mod
 from tests.test_toolkit import PLANE, ToolkitFixture
 
@@ -41,7 +42,7 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
     def test_the_verifier_reverts_from_its_own_worktree(self):
         run_id, text = self.render("verify", "--pr", "7", "--head", A)
         self.assertIn(f"mutate --run {run_id} --test <test id> --revert <path>[:<lines>]", text)
-        self.assertIn(str(self.main / ".plane-runtime" / "ver-0002"), text)
+        self.assertIn(str(self.main / config.WORKTREES_DIR / "ver-0002"), text)
         self.assertNotIn("wt create --kind mut", outside_the_fallback(text))
 
     def test_the_verifier_is_told_the_flag_that_runs_the_prs_own_hooks(self):

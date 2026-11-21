@@ -88,7 +88,7 @@ class CatchUp(ToolkitFixture, unittest.TestCase):
             self.assertEqual(code, 0, out + err)
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
-        wt = self.main / ".plane-runtime" / "impl-0002"
+        wt = self.main / config.WORKTREES_DIR / "impl-0002"
         (wt / "feature.txt").write_text("built\n")
         (wt / "ptests/test_feature.py").write_text(
             "import unittest\n\nfrom lib.helper import helper\n\n\nclass F(unittest.TestCase):\n"
@@ -203,7 +203,7 @@ if done < {moves}:
         squash = body["merge_sha"]
         self.assertEqual(git(self.main, "show", f"{squash}:other/b.txt"), "b")
         self.assertEqual(git(self.main, "show", f"{squash}:feature.txt"), "built")
-        self.assertFalse((self.main / ".plane-runtime" / "merge-0002").exists())
+        self.assertFalse((self.main / config.WORKTREES_DIR / "merge-0002").exists())
         caught = [e for e in self.events() if (e["type"], e["op"]) == ("verify", "set")]
         self.assertEqual([e["payload"]["to"] for e in caught], [merged])
         note = git(self.main, "show", "origin/main:docs/delivery/tasks/0002-second.md")
@@ -235,7 +235,7 @@ if done < {moves}:
         lines = f.read_text().splitlines()
         self.assertEqual(len(lines), 1, lines)
         got = lines[0].split("|")
-        return [str(Path(got[0]).resolve()), *got[1:]], str((self.main / ".plane-runtime" / "merge-0002").resolve())
+        return [str(Path(got[0]).resolve()), *got[1:]], str((self.main / config.WORKTREES_DIR / "merge-0002").resolve())
 
     def test_the_gate_runs_with_the_merge_worktree_s_environment_and_worker_env(self):
         seen = self.gate_env()
@@ -296,7 +296,7 @@ if done < {moves}:
         code, _, out, err = self.close()
         self.refused(code, out, err, head, "tip moved too often")
         self.assertEqual(len(self.gate_runs()), lifecycle.CATCH_UPS)
-        self.assertFalse((self.main / ".plane-runtime" / "merge-0002").exists())
+        self.assertFalse((self.main / config.WORKTREES_DIR / "merge-0002").exists())
 
     # ------------------------------------------------------------------ refusals
 
@@ -493,7 +493,7 @@ if done < {moves}:
         runs = self.gate_runs()
         self.assertEqual([r["state"] for r in runs], ["failed"])
         self.refused(code, out, err, head, "red gate", runs[0]["suite_id"])
-        self.assertFalse((self.main / ".plane-runtime" / "merge-0002").exists())
+        self.assertFalse((self.main / config.WORKTREES_DIR / "merge-0002").exists())
 
     def sign_build(self) -> None:
         code, _, out, err = self.ccp("tasks", "sign-off", "0002", "--stage", "build", "--by", "op", "--words", "ship it")

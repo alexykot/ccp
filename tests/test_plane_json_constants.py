@@ -301,7 +301,7 @@ class TheNewDefaults(unittest.TestCase):
 
 
 class TheWorktreesDirectory(unittest.TestCase):
-    """`worktrees.dir` is a constant at `.plane-runtime` (ADR-0043 D9): a product that names nothing has its
+    """`worktrees.dir` is a constant in code, `config.WORKTREES_DIR` (ADR-0043 D9): a product that names nothing has its
     worktrees there, and `ccp init` writes no key for it."""
 
     def product(self, **plane):
@@ -311,17 +311,17 @@ class TheWorktreesDirectory(unittest.TestCase):
 
     def test_unset_the_worktrees_go_under_the_constant_with_no_warning(self):
         cfg, err = load({})
-        self.assertEqual((cfg.worktrees["dir"], err), (".plane-runtime", ""))
+        self.assertEqual((cfg.worktrees["dir"], err), (config.WORKTREES_DIR, ""))
         cfg = self.product().cfg
-        self.assertEqual(wt.base_dir(cfg), (cfg.root / ".plane-runtime").resolve())
+        self.assertEqual(wt.base_dir(cfg), (cfg.root / config.WORKTREES_DIR).resolve())
 
     def test_a_product_that_still_sets_the_constant_value_loads_with_no_warning(self):
-        cfg, err = load({"worktrees": {"dir": ".plane-runtime"}})
-        self.assertEqual((cfg.worktrees["dir"], err), (".plane-runtime", ""))
-        self.assertEqual(config.key_outcomes_set({"worktrees": {"dir": ".plane-runtime"}}), [])
+        cfg, err = load({"worktrees": {"dir": config.WORKTREES_DIR}})
+        self.assertEqual((cfg.worktrees["dir"], err), (config.WORKTREES_DIR, ""))
+        self.assertEqual(config.key_outcomes_set({"worktrees": {"dir": config.WORKTREES_DIR}}), [])
         cfg, err = load({"worktrees": {"dir": ".other"}})
         self.assertEqual(cfg.worktrees["dir"], ".other")
-        self.assertIn("worktrees.dir is a constant in code ('.plane-runtime'); the value '.other' set here still applies", err)
+        self.assertIn(f"worktrees.dir is a constant in code ('{config.WORKTREES_DIR}'); the value '.other' set here still applies", err)
 
     def test_only_that_key_is_quiet_at_its_own_value(self):
         self.assertEqual([k for k, o in config.KEY_OUTCOMES.items() if o.quiet_equal], ["worktrees.dir"])
@@ -329,7 +329,7 @@ class TheWorktreesDirectory(unittest.TestCase):
     def test_a_different_value_applies_with_a_warning_and_null_is_no_worktrees(self):
         cfg, err = load({"worktrees": {"dir": "../trees"}})
         self.assertEqual(cfg.worktrees["dir"], "../trees")
-        self.assertIn("worktrees.dir is a constant in code ('.plane-runtime'); the value '../trees' set here still applies", err)
+        self.assertIn(f"worktrees.dir is a constant in code ('{config.WORKTREES_DIR}'); the value '../trees' set here still applies", err)
         cfg, err = load({"worktrees": {"dir": None}})
         self.assertIsNone(cfg.worktrees["dir"])
         self.assertIn("worktrees.dir is a constant in code", err)
@@ -339,7 +339,7 @@ class TheWorktreesDirectory(unittest.TestCase):
         self.assertNotIn("worktrees", json.loads(init.plane_json_text("demo", "scripts/gate.sh", True, "python", "0001")))
         self.assertEqual(init.WORKTREES_DIR, config.WORKTREES_DIR)
         self.assertEqual(config.WORKTREES_DIR, ".plane-runtime")
-        self.assertEqual(schema_prop("worktrees.dir")["default"], ".plane-runtime")
+        self.assertEqual(schema_prop("worktrees.dir")["default"], config.WORKTREES_DIR)
 
 
 class TheLeadsExpectedModelReaders(Base, ToolkitFixture, unittest.TestCase):
