@@ -152,4 +152,22 @@ Measured at `1aa5e3f`.
 
 ## Implementation notes
 
+- Usage lines: the 42 lines in the 13 modules' docstrings are replaced by one sentence naming the commands and
+  pointing at `docs/cli` (the parser-checked place); `docs/cli` already names every command and flag, so it needed
+  no addition (`suite run --wait` is in it).
+- Long docstrings: `suite` 40, `verify` 40, `health` 40, `forecast` 40, `mutate` 37, `init` 34 lines. Each keeps its
+  § and what only the code holds (constants, function names, how a source is read); what the SPEC and `docs/cli` say
+  is a pointer. `mutate`'s `--together` paragraph is in `docs/spec/03-quality.md` and `docs/cli/03-quality.md`.
+- `tests/test_cli_reference.py`: the docstring test now reads the module docstring (by `ast`) of every `ccp/*.py` and
+  `ccp/doclang/*.py` and fails naming the file and line on `^\s*ccp [a-z]`.
+- `tests/test_verify_cache.py`: `ORIGINAL` is replaced by the token the setting's section carries
+  (`` `verify.accept_cache` ``): absent without the setting, present with it; the base brief is held by `Be adversarial:`.
+- `architect.checks`: `E25` removed; `E4`'s command is the borrowed-helper grep, the worktrees-literal grep, then
+  the long-literal count held at 345. The count command runs under `LC_ALL=C`: without it the count was 344 in a
+  UTF-8 locale and 345 in the C locale (one literal holds a multibyte arrow at the 40-character boundary), so the figure
+  depended on the machine's locale. The count at the base is 345 in the C locale, not the 342 the Context gives at `1aa5e3f`.
+- `docs/ENGINEERING.md`: E4's and E25's `check:` lines as the Context gives them.
+- Standing DoD items 7 to 11 become two (7 keeps the gate sentence ending "(E1, E2)."; 8 is "The house rules hold"); `ccp/CLAUDE.md`'s
+  E5, E6 and E8 lines become one; `tests/CLAUDE.md`'s first two paragraphs become one naming E1, E2 and E4.
+
 ## Verification notes
