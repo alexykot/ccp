@@ -42,6 +42,7 @@ class MergeGate(unittest.TestCase):
             "task_id": task, "project_id": "demo", "verdict": "approve",
             "checked_at": "2026-10-16T12:00:00Z",
             "checks": [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it"}],
+            "gate": {"runs": [{"command": "scripts/unit.sh", "exit_code": 0}]},
             **fields,
         }
         d = self.q / "verification"
@@ -78,11 +79,13 @@ class MergeGate(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("not approve", err)
 
-    def test_a_missing_head_sha_passes_check_and_a_different_one_is_refused(self):
+    def test_a_missing_head_sha_is_refused_by_check_and_a_different_one_is_too(self):
         self.binding()
         self.verdict("0001-a")
         code, out, err = self.check("0001-a", HEAD_A)
-        self.assertEqual(code, 0, out + err)
+        self.assertEqual(code, 1, out + err)
+        self.assertIn("names no head_sha", err)
+        self.assertFalse(json.loads(out)["ok"])
         self.verdict("0001-a", head_sha=HEAD_A)
         code, _, err = self.check("0001-a", HEAD_B)
         self.assertEqual(code, 1)
@@ -410,7 +413,7 @@ def decide(p: Product, queue: Path, rec: dict, rid: str = "0001-a", recorded: tu
            pr: str = "7", **facts: object) -> tuple[list[str], dict]:
     """The merge-ok decision on plain values: an open PR at HEAD_A (`facts` override), `rec` recorded just now."""
     got = prhost.PrFacts(**{"number": 7, "state": "open", "head": HEAD_A, **facts})
-    return verify.merge_ok_reasons(p.cfg, queue, pr, got, rec, rid, recorded or (datetime.now(timezone.utc), "written"))
+    return verify.judge(p.cfg, queue, rec, rid, got.head, got, recorded or (datetime.now(timezone.utc), "written"), pr)
 
 
 class Record(unittest.TestCase):

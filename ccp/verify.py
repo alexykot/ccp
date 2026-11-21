@@ -22,6 +22,10 @@ An approve is one head, every check it ran passed, and the formal gate the verif
 (`gate.runs`, every exit 0). `record` holds an approve to that, so a verdict it writes is one
 `merge-ok` accepts.
 
+`merge-ok` and `check` judge a record with one function, `judge`: `check` is `merge-ok` without the PR
+host's facts (the PR's state, when the record was recorded), so it refuses a record with no `head_sha`, no
+gate or a failed check just as `merge-ok` does.
+
 `merge-ok` is the merge rule made mechanical: the PR is open; its head is the record's
 `head_sha`; the record is such an approve; and it was recorded (committed, when the queue is a git
 checkout; written, otherwise) no earlier than its `checked_at`. A verdict at another head, one recorded after the merge, or one relayed
@@ -949,25 +953,17 @@ def heads_match(approved: str, pr_head: str) -> bool:
     return a == b or a.startswith(b) or b.startswith(a)
 
 
-def refusal(queue: Path, task_id: str, pr_head: str) -> str | None:
-    """Why the runner must not merge, or None when the verdict covers this PR head."""
+def refusal(cfg: Config, queue: Path, task_id: str, pr_head: str) -> str | None:
+    """Why the runner must not merge, or None when the verdict covers this PR head. `ccp verify check`: the
+    record is read from the queue and judged by `judge` with no PR facts, the PR host never read."""
     path = queue / "verification" / f"{task_id}.json"
     if not path.is_file():
         return f"no verification file for {task_id}"
     loaded = _load(path)
     if isinstance(loaded, str):
         return loaded
-    errs = record_errors(loaded) + producer_errors(queue, loaded, require=False)
-    if errs:
-        return "the verification record is not valid: " + "; ".join(errs)
-    if loaded.get("verdict") != "approve":
-        return f"verdict is {loaded.get('verdict')!r}, not approve"
-    recorded = loaded.get("head_sha")
-    if not isinstance(recorded, str) or not recorded.strip():
-        return None
-    if not heads_match(recorded.strip(), pr_head.strip()):
-        return f"PR head {pr_head} differs from head_sha {recorded}"
-    return None
+    reasons, _ = judge(cfg, queue, loaded, task_id, pr_head.strip())
+    return "; ".join(reasons) or None
 
 
 # §15.4: a key this contract does not know may be one the task's own head adds to it
@@ -1051,7 +1047,7 @@ def recorded_at(queue: Path, path: Path) -> tuple[datetime | None, str]:
 
 def merge_ok(cfg: Config, queue: Path, pr: str, task_id: str | None) -> tuple[list[str], dict[str, Any]]:
     """Every reason the runner may not merge `pr` now (none means it may), and what was checked. The PR
-    is read from the PR host and the record from the queue; `merge_ok_reasons` judges them. Raises
+    is read from the PR host and the record from the queue; `judge` judges them. Raises
     prhost.HostUnavailable when the host's CLI cannot run here."""
     rid = task_id or f"pr-{pr}"
     path = queue / "verification" / f"{rid}.json"
@@ -1071,17 +1067,22 @@ def merge_ok(cfg: Config, queue: Path, pr: str, task_id: str | None) -> tuple[li
     rec = _load(path)
     if isinstance(rec, str):
         return [rec], body
-    reasons, found = merge_ok_reasons(cfg, queue, pr, facts, rec, rid, recorded_at(queue, path))
+    reasons, found = judge(cfg, queue, rec, rid, facts.head, facts, recorded_at(queue, path), pr)
     return reasons, {**body, **found}
 
 
-def merge_ok_reasons(cfg: Config, queue: Path, pr: str, facts: prhost.PrFacts, rec: dict[str, Any], rid: str,
-                     recorded: tuple[datetime | None, str]) -> tuple[list[str], dict[str, Any]]:
-    """The merge-ok decision on plain values: the PR as the caller named it (`pr`, which its reasons use), its
-    facts, the verification record `rec` for `rid`, and when and how it was recorded (`recorded_at`). Its reasons (none means the PR may merge) and what it
-    checked; the record's producers and catch-up are read from `queue`."""
+def judge(cfg: Config, queue: Path, rec: dict[str, Any], rid: str, head: str,
+          facts: prhost.PrFacts | None = None, recorded: tuple[datetime | None, str] | None = None,
+          pr: str | None = None) -> tuple[list[str], dict[str, Any]]:
+    """The one judge of a verification record `rec` for `rid` against `head`, on plain values, for `ccp verify
+    merge-ok` and `ccp verify check`: the record's contract, its project and task, the approve rule
+    (`approve_errors`: no failed check, a head, a passing gate), its producers, and the head (the record's
+    `head_sha`, or the `catch_up` close recorded from it, `catch_up_refusal`). With `facts`, the PR's own: it
+    is open (`pr` is how the caller named it, default its number); with `recorded` (`recorded_at`), the record
+    was recorded no earlier than its `checked_at`. `check` gives neither. Its reasons (none means the record
+    covers `head`) and what it checked; it reads the record's producers and catch-up from `queue`, never the PR
+    host."""
     body: dict[str, Any] = {}
-    head = facts.head
     reasons = record_errors(rec)
     if rec.get("project_id") != cfg.project_id:
         reasons.append(f"the record is for project {rec.get('project_id')!r}, not {cfg.project_id}")
@@ -1097,32 +1098,35 @@ def merge_ok_reasons(cfg: Config, queue: Path, pr: str, facts: prhost.PrFacts, r
         if "catch_up" in rec and why is None:
             body["catch_up"] = rec["catch_up"]  # §16.5 rule 4: close's own catch-up of the approved head
         else:
-            reasons.append(f"the PR head {head[:12]} is not the approved head {recorded_head[:12]}: "
-                           "a push after the verdict needs a new verdict (re-verify packet)"
+            reasons.append(f"the PR head {head[:12]} is not the approved head {recorded_head[:12]} "
+                           "(the head differs from head_sha): a push after the verdict needs a new verdict "
+                           "(re-verify packet)"
                            + (f"; the record's catch-up does not cover it: {why}" if why else ""))
     body["gate_runs"] = _gate_runs(rec)
-    when, how = recorded
-    body["recorded"] = how
-    if when is None:
-        reasons.append(how)
-    else:
-        body["recorded_at"] = _iso(when)
-        checked = _parse_dt(rec.get("checked_at"))
-        if checked is not None and checked > when + SKEW:
-            reasons.append(f"checked_at {rec.get('checked_at')} is after the record was recorded "
-                           f"({_iso(when)}): checked_at is the clock time the verdict was reached")
-    if facts.state != "open":
+    when = None
+    if recorded is not None:
+        when, how = recorded
+        body["recorded"] = how
+        if when is None:
+            reasons.append(how)
+        else:
+            body["recorded_at"] = _iso(when)
+            checked = _parse_dt(rec.get("checked_at"))
+            if checked is not None and checked > when + SKEW:
+                reasons.append(f"checked_at {rec.get('checked_at')} is after the record was recorded "
+                               f"({_iso(when)}): checked_at is the clock time the verdict was reached")
+    if facts is not None and facts.state != "open":
         merged = _parse_dt(facts.merged_at)
         when_s = f" at {_iso(merged)}" if merged else ""
         order = ""
         if merged and when:
             order = f"; the approval was recorded {'before' if when <= merged else 'after'} it"
-        reasons.append(f"PR {pr} is {facts.state}{when_s}{order}")
+        reasons.append(f"PR {pr or facts.number} is {facts.state}{when_s}{order}")
     body["unrun_checks"] = [c.get("dod_check_id") for c in rec.get("checks") or []
                             if isinstance(c, dict) and c.get("ran", True) is False]
     body["head_sha"] = recorded_head
-    if not reasons:
-        body["match_head_commit"] = head  # the PR's full head, which the approval names
+    if not reasons and facts is not None:
+        body["match_head_commit"] = facts.head  # the PR's full head, which the approval names
     return reasons, body
 
 
@@ -1498,7 +1502,7 @@ def main(cfg: Config, a: Any) -> int:
     if not str(a.head or "").strip():
         print("ccp verify: --head is the PR head the runner would merge", file=sys.stderr)
         return 2
-    reason = refusal(queue, a.target, a.head)
+    reason = refusal(cfg, queue, a.target, a.head)
     if reason:
         print(f"ccp verify: {reason}", file=sys.stderr)
         print(json.dumps({"ok": False, "task_id": a.target, "reason": reason}, indent=2))

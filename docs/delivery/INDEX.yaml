@@ -1173,7 +1173,7 @@ tasks:
     depends_on: [0244-tasks-check-runs-dry-runs]
     path: tasks/0234-one-check-parser-and-one-file-at-rev-reader.md
   - id: 0235-one-approval-judge-for-merge-ok-and-verify-check
-    status: pending
+    status: done
     title: merge-ok and ccp verify check judge a record with one function, and verify check refuses a verdict with no head
     depends_on: [0226-one-pr-host-module-github-only]
     path: tasks/0235-one-approval-judge-for-merge-ok-and-verify-check.md
