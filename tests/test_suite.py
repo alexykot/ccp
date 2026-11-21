@@ -146,7 +146,7 @@ class Binding(SuiteFixture, unittest.TestCase):
 
     def test_without_flags_a_running_run_binds_only_inside_its_worktree(self):
         self.implementing()
-        wt = self.main / ".plane-runtime" / "impl-0002"
+        wt = self.main / config.WORKTREES_DIR / "impl-0002"
         ccp_proc(wt, "suite", "run", "--", PY, "-c", "pass")
         self.assertIsNone(self.rows()[0]["run_id"])  # pending, not running: unbound
         self.ccp("agent", "start", stdin=json.dumps({"agent_id": "a1", "agent_type": "delivery-implementer"}))
@@ -718,7 +718,7 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
         self.assertIn("`--lane gate` for the formal gate", prompt_mod.suite_lanes(bare.cfg, "verify"))
         self.assertIn("`--lane part` for the tests you run", prompt_mod.suite_lanes(bare.cfg, "review"))
         rec = json.loads((self.q / "runs/0002-second/implement.json").read_text())
-        self.assertEqual(rec["worktree"], str(self.main / ".plane-runtime" / "impl-0002"))
+        self.assertEqual(rec["worktree"], str(self.main / config.WORKTREES_DIR / "impl-0002"))
         # §14.1 (amended 2026-10-22): the rule is stated once, in the prompt; a definition names the
         # command only in its evidence bullet (§13.1)
         for a in ("implementer", "reviewer", "verifier"):

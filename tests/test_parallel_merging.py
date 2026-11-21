@@ -8,7 +8,7 @@ import json
 import unittest
 from unittest import mock
 
-from ccp import lifecycle
+from ccp import config, lifecycle
 from tests.test_toolkit import ToolkitFixture, git
 
 
@@ -34,7 +34,7 @@ class Merging(ToolkitFixture, unittest.TestCase):
     def pushed_head(self) -> str:
         """Claim 0002, commit its work on its branch and push it, unverified: the PR head."""
         self.ccp("tasks", "claim", "0002")
-        wt = self.main / ".plane-runtime" / "impl-0002"
+        wt = self.main / config.WORKTREES_DIR / "impl-0002"
         (wt / "feature.txt").write_text("built\n")
         git(wt, "add", "feature.txt")
         git(wt, "commit", "-q", "-m", "Task 0002: build it")
@@ -181,7 +181,7 @@ class Merging(ToolkitFixture, unittest.TestCase):
         def another_runner_reconciles_first(cfg, integ):
             calls.append(1)
             if len(calls) == 1:  # meanwhile another runner lands its LOG entry at the same place
-                w = self.main / ".plane-runtime" / "other"
+                w = self.main / config.WORKTREES_DIR / "other"
                 git(self.main, "worktree", "add", "-q", "--detach", str(w), "origin/main")
                 git(w, "fetch", "-q", "origin")
                 git(w, "checkout", "-q", "--detach", "origin/main")

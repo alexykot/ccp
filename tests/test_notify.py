@@ -13,7 +13,7 @@ from unittest import mock
 
 from ccp import config, lifecycle, tasklog
 from tests import test_sandbox
-from tests.helpers import Product, machine_file
+from tests.helpers import Product, binding, machine_file
 from tests.test_toolkit import ToolkitFixture, git
 
 # One line per run: the trigger, project, task, id, reason, and the line ccp composes, `|`-separated
@@ -299,7 +299,7 @@ class Gates(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.q = Path(tmp.name) / "queue"
         (self.q / "tasks").mkdir(parents=True)
-        (self.q / "project.yaml").write_text(f"project_id: demo\nproduct_root: {self.prod.root}\n")
+        (self.q / "project.yaml").write_text(binding(product_root=self.prod.root))
         (self.q / "work.json").write_text(json.dumps({"project_id": "demo", "status": "idle"}))
         (self.q / "tasks/0001-a.json").write_text(json.dumps({"task_id": "0001-a", "waiting_on": None}))
         self.out = Path(tmp.name) / "notified.txt"
@@ -334,7 +334,7 @@ class Gates(unittest.TestCase):
         return eid, r
 
     def test_a_binding_with_no_product_root_sends_nothing_and_records_the_notice(self):
-        (self.q / "project.yaml").write_text("project_id: demo\n")
+        (self.q / "project.yaml").write_text(binding())
         eid, r = self.ask_operator()
         self.assertNotIn("warnings", json.loads(r.stdout))
         self.assertEqual(sent(self.out), [])

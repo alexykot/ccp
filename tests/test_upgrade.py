@@ -15,7 +15,7 @@ from unittest import mock
 
 from ccp import cli, config, upgrade
 from ccp.queue import QueueError
-from tests.helpers import TASK, Product
+from tests.helpers import TASK, Product, binding
 
 GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
            "GIT_COMMITTER_EMAIL": "t@example.com", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
@@ -204,7 +204,7 @@ class Status(UpgradeFixture, unittest.TestCase):
         self.plane_task("0006-other", "done", "Other", "binding lead.other")
         self.assertEqual({s["task"]: s["check"] for s in self.status()}["0005-window"], "check by hand")
         (self.bindings / "demo.yaml").write_text(
-            f"project_id: demo\nproduct_root: {self.product.root.resolve()}\nlead:\n  auto_compact_window: 350000\n")
+            binding(product_root=self.product.root.resolve(), lead={"auto_compact_window": 350000}))
         checks = {s["task"]: s["check"] for s in self.status()}
         self.assertNotIn("0005-window", checks)
         self.assertEqual(checks["0006-other"], "not taken")

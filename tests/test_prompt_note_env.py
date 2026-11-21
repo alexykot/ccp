@@ -97,7 +97,7 @@ class NoteAndEnv(ToolkitFixture, unittest.TestCase):
         self.claim()
         code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", "a" * 40)
         self.assertEqual(code, 0, out + err)
-        self.assertIn(f"export WT={self.main}/.plane-runtime/rev-0002", Path(body["env_file"]).read_text())
+        self.assertIn(f"export WT={self.main}/{config.WORKTREES_DIR}/rev-0002", Path(body["env_file"]).read_text())
 
     def test_worker_env_names_the_workers_kind_and_seat(self):
         self._with_env({"SEAT": "{{kind}}-{{seat}}-{{nnnn}}"})

@@ -10,6 +10,7 @@ import subprocess
 import time
 import unittest
 
+from tests.helpers import binding
 from tests.test_toolkit import PLANE, ToolkitFixture
 
 TEAM = PLANE / "scripts" / "team.sh"
@@ -25,9 +26,8 @@ class RotationFixture(ToolkitFixture):
         self.binding()
 
     def binding(self, **runner):
-        lines = "".join(f"  {k}: {v}\n" for k, v in runner.items())
-        (self.q / "project.yaml").write_text(f"project_id: demo\nintegration_branch: main\nproduct_root: {self.main}\n"
-                                             + (f"runner:\n{lines}" if lines else ""))
+        (self.q / "project.yaml").write_text(
+            binding(integration_branch="main", product_root=self.main, runner=runner or None))
 
     def slots(self, **rec):
         spawned = iso(time.time() - 3600)

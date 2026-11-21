@@ -131,7 +131,7 @@ class NonDefaultIds(unittest.TestCase):
 
     def setUp(self):
         self.p = Product({"ids": self.IDS, "adr": {"dir": "docs/decisions", "index": None},
-                          "worktrees": {"dir": ".plane-runtime"}})
+                          "worktrees": {"dir": config.WORKTREES_DIR}})
         self.p.task("00001-first")
         self.p.task("00002-second", deps=["00001-first"])
         self.p.write("docs/decisions/007-pick.md",
@@ -166,7 +166,7 @@ class NonDefaultIds(unittest.TestCase):
         cfg = self.p.cfg
         self.assertEqual(refs.ids(cfg).task_number("00002-second"), "00002")
         from ccp import prompt
-        self.assertTrue(str(prompt.worktree_for(cfg, "rev", refs.ids(cfg).task_number("00002-second"))).endswith(".plane-runtime/rev-00002"))
+        self.assertTrue(str(prompt.worktree_for(cfg, "rev", refs.ids(cfg).task_number("00002-second"))).endswith(f"{config.WORKTREES_DIR}/rev-00002"))
 
     def test_house_rules_use_the_pattern(self):
         parsed, errs = rules.parse_rules("- **H1** one\n  check: pass\n- **E2** not a rule here\n", refs.ids(self.p.cfg))

@@ -7,6 +7,7 @@ import json
 import unittest
 from pathlib import Path
 
+from ccp import config
 from tests.test_toolkit import ToolkitFixture, git
 
 
@@ -24,7 +25,7 @@ class ReleaseKeepingBranch(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         code, _, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
         self.assertEqual(code, 0, out + err)
-        wt = self.main / ".plane-runtime" / "impl-0002"
+        wt = self.main / config.WORKTREES_DIR / "impl-0002"
         (wt / "feature.txt").write_text("built\n")
         git(wt, "add", "feature.txt")
         git(wt, "commit", "-q", "-m", "Task 0002: build it")
@@ -49,7 +50,7 @@ class ReleaseKeepingBranch(ToolkitFixture, unittest.TestCase):
         clear = [e for e in self.events() if (e["type"], e["op"]) == ("lease", "clear")]
         self.assertTrue(clear[-1]["payload"]["released"])
         # the branch stays, here and on origin, and so does the worktree on it
-        wt = self.main / ".plane-runtime" / "impl-0002"
+        wt = self.main / config.WORKTREES_DIR / "impl-0002"
         self.assertEqual(git(self.main, "rev-parse", "refs/heads/task/0002-second"), head)
         self.assertEqual(git(self.main, "ls-remote", "origin", "refs/heads/task/0002-second").split()[0], head)
         self.assertTrue(wt.is_dir())

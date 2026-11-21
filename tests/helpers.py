@@ -81,6 +81,24 @@ def machine_file(case, **keys) -> Path:
     return path
 
 
+def binding(**keys) -> str:
+    """SPEC §8.3: the text of a binding (`projects/<id>.yaml`, or a queue's `project.yaml`): `project_id: demo`
+    first, then each of `keys` in the order given as `key: value`; a dict value is a block, indented two spaces;
+    `None` leaves a key out (`project_id=None`: no id). For a test that needs a binding, not one of the binding
+    reader's or `ccp init`'s own format."""
+    lines: list[str] = []
+
+    def put(items: dict, indent: str) -> None:
+        for k, v in items.items():
+            if isinstance(v, dict):
+                lines.append(f"{indent}{k}:")
+                put(v, indent + "  ")
+            elif v is not None:
+                lines.append(f"{indent}{k}: {v}")
+    put({"project_id": "demo", **keys}, "")
+    return "\n".join(lines) + "\n"
+
+
 def merged_plane(cfg: dict | None = None) -> dict:
     """BASE_PLANE with `cfg` over it, block by block: a block `cfg` gives replaces the base's block."""
     return {**copy.deepcopy(BASE_PLANE), **copy.deepcopy(cfg or {})}

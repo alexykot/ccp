@@ -8,8 +8,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ccp import report, runs, verify
+from ccp import config, report, runs, verify
 from tests import test_review_gate
+from tests.helpers import binding
 from tests.test_report_fields import HEAD, MIGRATION, implement_report
 from tests.test_toolkit import ToolkitFixture, git
 
@@ -48,7 +49,7 @@ class Rounds(ToolkitFixture, unittest.TestCase):
         self.assertEqual((body["run_id"], body["phase"]), ("0002-second/merge", "merge"))
         run = json.loads((self.q / "runs/0002-second/merge.json").read_text())
         self.assertEqual((run["phase"], run["seat"], run["agent_type"]), ("merge", "implementer", "delivery-implementer"))
-        self.assertEqual(run["worktree"], str(self.main / ".plane-runtime" / "impl-0002"))  # the task's own worktree
+        self.assertEqual(run["worktree"], str(self.main / config.WORKTREES_DIR / "impl-0002"))  # the task's own worktree
         self.assertFalse((self.q / "runs/0002-second/implement-2.json").exists())
         prompt = Path(body["prompt_path"])
         self.assertEqual(prompt.name, "merge-prompt.md")
@@ -181,14 +182,14 @@ class MergeInRealGit(ToolkitFixture, unittest.TestCase):
         patch.start()
         self.addCleanup(patch.stop)
         self.ccp("tasks", "claim", "0002")
-        (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text() + f"product_root: {self.main}\n")
+        (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text() + binding(project_id=None, product_root=self.main))
 
     def test_a_merge_round_judged_by_patch_id(self):
-        wt = self.main / ".plane-runtime" / "impl-0002"
+        wt = self.main / config.WORKTREES_DIR / "impl-0002"
         reviewed = self.commit(wt, "feature.txt", "built\n", "Task 0002: build it")
         git(wt, "push", "-q", "-u", "origin", "task/0002-second")
         self.review(reviewed)
-        other = self.main / ".plane-runtime" / "other"  # another task merges to main meanwhile
+        other = self.main / config.WORKTREES_DIR / "other"  # another task merges to main meanwhile
         git(self.main, "worktree", "add", "-q", "--detach", str(other), "origin/main")
         self.commit(other, "other.txt", "x\n", "Task 0009: other")
         git(other, "push", "-q", "origin", "HEAD:main")

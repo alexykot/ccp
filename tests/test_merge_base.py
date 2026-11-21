@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ccp import wt
+from ccp import config, wt
 from tests.test_toolkit import git
 from tests.test_wt import WtFixture
 
@@ -53,7 +53,7 @@ class OnTheMergeBase(WtFixture, unittest.TestCase):
         return code, result, body, err
 
     def assert_nothing_left(self, name: str = "base-0002") -> None:
-        self.assertFalse((self.main / ".plane-runtime" / name).exists())
+        self.assertFalse((self.main / config.WORKTREES_DIR / name).exists())
         self.assertFalse((self.q / "worktrees" / f"{name}.json").exists())
         self.assertNotIn(name, git(self.main, "worktree", "list"))
 
@@ -112,18 +112,18 @@ class OnTheMergeBase(WtFixture, unittest.TestCase):
         self.assertEqual(code, 125, err)  # no --sha
         code, _, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.pr_head, "--", "true")
         self.assertEqual(code, 2, err)  # only a base worktree runs a command
-        self.assertFalse((self.main / ".plane-runtime" / "ver-0002").exists())
+        self.assertFalse((self.main / config.WORKTREES_DIR / "ver-0002").exists())
         code, _, _, err = self.base_run("true", sha="f" * 40)
         self.assertEqual(code, 125, err)
         self.assertIn("no merge base", err)
         other = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.pr_head)[1]["path"]
         code, _, _, err = self.base_run("true", extra=("--name", "base-0002"))
         self.assertEqual(code, 0, err)
-        (self.main / ".plane-runtime" / "base-0002").mkdir()
+        (self.main / config.WORKTREES_DIR / "base-0002").mkdir()
         code, res, _, err = self.base_run("true", extra=("--name", "base-0002"))
         self.assertEqual(code, 125, err)  # never one it did not make
         self.assertIsNone(res)  # a refusal prints no result: nothing ran
-        self.assertTrue((self.main / ".plane-runtime" / "base-0002").is_dir())
+        self.assertTrue((self.main / config.WORKTREES_DIR / "base-0002").is_dir())
         self.assertTrue(Path(other).is_dir())
 
     def test_head_is_the_callers_own_head_and_a_sha_naming_no_commit_is_its_own_refusal(self):
@@ -194,7 +194,7 @@ class OnTheMergeBase(WtFixture, unittest.TestCase):
             self.assertEqual(code, 125, err)
         code, _, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.pr_head, "--timeout", "5")
         self.assertEqual(code, 2, err)
-        self.assertFalse((self.main / ".plane-runtime" / "ver-0002").exists())
+        self.assertFalse((self.main / config.WORKTREES_DIR / "ver-0002").exists())
         self.assert_nothing_left()
 
     def test_a_sigterm_to_ccp_stops_the_command_and_leaves_nothing(self):
@@ -238,7 +238,7 @@ class OnTheMergeBase(WtFixture, unittest.TestCase):
         code, res, err = self.sigterm_inside("create")
         self.assertEqual(code, 143, err)
         self.assertEqual((res["exit"], res["signal"], res["name"], res["removed"]), (143, 15, "base-0002", True))
-        self.assertFalse(list((self.main / ".plane-runtime").glob("base-0002/ran.txt")))  # the command never ran
+        self.assertFalse(list((self.main / config.WORKTREES_DIR).glob("base-0002/ran.txt")))  # the command never ran
         self.assert_nothing_left()
 
     def test_a_sigterm_as_git_worktree_add_returns_leaves_nothing(self):
@@ -273,7 +273,7 @@ class OnTheMergeBase(WtFixture, unittest.TestCase):
         self.assertEqual(got, [])
         self.assertEqual(code, 143, err)
         self.assertEqual((res["exit"], res["signal"], res["name"], res["removed"]), (143, 15, "base-0002", True))
-        self.assertFalse(list((self.main / ".plane-runtime").glob("base-0002/ran.txt")))  # the command never ran
+        self.assertFalse(list((self.main / config.WORKTREES_DIR).glob("base-0002/ran.txt")))  # the command never ran
         self.assert_nothing_left()
 
     def test_a_sigterm_while_git_worktree_add_hangs_is_acted_on_after_the_hold_and_leaves_nothing(self):
