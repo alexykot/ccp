@@ -936,8 +936,13 @@ result.
   blockquote lines)
   and looks for it, whitespace-normalised, in each hunk the branch's diff makes to files under `spec_paths`, read with the unchanged lines around it up to the nearest blank line on each side, where it covers at least one line the hunk adds
   (`git diff <base>...<head>`, each SPEC file read as it is at `<head>`, which defaults to `HEAD`; the base defaults to `origin/<integration branch>`,
-  and nothing is fetched). It exits 0 when every passage is found, 1 naming each that is not, and 2 when
-  the task carries no `PROPOSED:` block. For a task with `sign_off: brief`, the reviewer and the
+  and nothing is fetched). A passage not found there is looked for in the same way in the hunks the diff makes
+  to the one file its own block names, in its `(<path> at <commit>)` locator or opening the line just above it,
+  such as a contract whose text the operator signed; a path inside quoted text names nothing, and a file under
+  `tests/` or the task log's directory is never searched. The result names the file each passage was found in.
+  It exits 0 when every passage is found, 1 naming each that is not, and 2 when the task carries no
+  `PROPOSED:` block, names no task, or gives a `--head` that names no commit or a base the diff cannot be read
+  against. For a task with `sign_off: brief`, the reviewer and the
   verifier run it and report its result.
 
 ### 15.3 A product's test cache
