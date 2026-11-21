@@ -171,5 +171,9 @@ PROPOSED:
 - SPEC §14.1 and §13.5 carry the signed text (`ccp verify spec-text 0212` exit 0).
 - Tests: `tests/test_full_lane_prompt.py` gains `GateOnlyLanes`, `FullAndGateLanes`, `DeclaredPregateLane`
   and `NoPregateLane`.
+- Fix round 1 (review MINOR 1): `tests/test_full_lane_prompt.py` gains `RenamedGateOnlyLanes`, a product
+  with `suite.roles.gate: "formal"`, a `formal` lane and no full lane: the full role resolves to `formal`.
+  It pins the fallback reading the gate role's lane through `suite.roles`. The review's NIT 1 (`tasklog`'s
+  refactor-gate wording) and NIT 2 (README's `suite.lanes` row) are outside the task's paths: follow-ups.
 
 ## Verification notes

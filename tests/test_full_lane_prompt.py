@@ -122,6 +122,17 @@ class GateOnlyLanes(ToolkitFixture, unittest.TestCase):
             self.assertNotIn("--lane full", text, phase)
 
 
+class RenamedGateOnlyLanes(ToolkitFixture, unittest.TestCase):
+    """The fallback reads the gate role's lane by the name `suite.roles` gives it."""
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON,
+                  "suite": {"lanes": {"formal": ["scripts/gate.sh"]}, "roles": {"gate": "formal"}}}
+
+    def test_the_full_role_resolves_to_the_renamed_gate_lane(self):
+        c = config.load(self.runner)
+        self.assertEqual(config.lane_for(c, "full"), "formal")
+        self.assertEqual(config.lane_for(c, "gate"), "formal")
+
+
 class FullAndGateLanes(ToolkitFixture, unittest.TestCase):
     PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "suite": {"lanes": {"gate": ["scripts/gate.sh"], "full": ["scripts/all.sh"]}}}
 
