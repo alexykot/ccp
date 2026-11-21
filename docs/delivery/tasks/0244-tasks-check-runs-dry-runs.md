@@ -150,5 +150,12 @@ From architect pass `ar-20261120T234012Z-27eb`, findings F12, F13 and F14, triag
   count; no paths, an unknown sha or no git gives none. `unmeasured_numbers` skips a line matching
   `QUOTED_RE` (`>` then a space or the line's end); `NOT_MEASURED_RE` is unchanged.
 - `config.load` takes a `Path` or a str.
+- Fix round 1 (review): `DryRunCommand` now pins that the steps run at the integration tip in the
+  temporary worktree (a file committed but not pushed is absent there, and `git rev-parse HEAD` prints
+  `origin/main`, not the clone's HEAD), and that the command exits 2 without `QUEUE_ROOT`, writing
+  nothing. `RunStep` pins the step time limit and the process-group kill: a step whose child holds the
+  output pipe returns `None` within the limit. `dryrun.claimed` uses `tasklog.TERMINAL`. The
+  writing-tasks skill keeps the `task_log.dry_run` condition and says the tool runs only ``Run `…`.``
+  steps, the writer records any other command step.
 
 ## Verification notes
