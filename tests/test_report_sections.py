@@ -18,9 +18,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import report, runs
-from tests import test_resolution_review, test_review_gate
 from tests.test_report_fields import DOWNTIME, HEAD, implement_report
-from tests.test_toolkit import PLANE, ToolkitFixture
+from tests.test_toolkit import GIT_ENV, ToolkitFixture, git
 
 # What every report carries, whatever the table says (§13.4): a phase whose prompt lacks one is wrong.
 EVERY_REPORT = ("Outcome:", "Prompt:", "Suite:", "## Friction")
@@ -41,10 +40,6 @@ class Prompts(ToolkitFixture, unittest.TestCase):
 
     PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "report": {"required_fields": [DOWNTIME]}}
     ccp_bin: str | None = None
-    start = test_resolution_review.Resolution.start
-    move_tip = test_resolution_review.Resolution.move_tip
-    run_phase = test_review_gate.ReviewGate.run_phase
-    review = test_review_gate.ReviewGate.review
 
     def setUp(self):
         dates = mock.patch.dict(os.environ, DATES)  # the same commits, so the same hashes, in each dump
@@ -85,8 +80,47 @@ class Prompts(ToolkitFixture, unittest.TestCase):
         return self.prompt_text(key, "0002", *pr, "--head", head, *extra)
 
     def main_head(self) -> str:
-        from tests.test_toolkit import git  # noqa: PLC0415
         return git(self.main, "rev-parse", "HEAD")
+
+    def start(self) -> str:
+        """The task branch's head, forked from the integration branch before its tip moves."""
+        m = self.main
+        self.write("shared.txt", "one\ntwo\nthree\n")
+        git(m, "add", "shared.txt")
+        git(m, "commit", "-q", "-m", "base")
+        git(m, "push", "-q", "origin", "main")
+        git(m, "checkout", "-q", "-b", "feat")
+        self.write("shared.txt", "one\ntask change\nthree\n")
+        git(m, "commit", "-q", "-am", "task change")
+        head = git(m, "rev-parse", "HEAD")
+        git(m, "checkout", "-q", "main")
+        return head
+
+    def move_tip(self) -> str:
+        """The integration tip moves on the line the task changed; the task branch merges it, and its merge commit
+        holds a hand resolution. Returns that merge commit."""
+        m = self.main
+        self.write("shared.txt", "one\ntip change\nthree\n")
+        git(m, "commit", "-q", "-am", "tip change")
+        git(m, "push", "-q", "origin", "main")
+        git(m, "checkout", "-q", "feat")
+        merged = subprocess.run(["git", "-C", str(m), "merge", "-q", "--no-edit", "origin/main"],
+                                capture_output=True, text=True, env={**os.environ, **GIT_ENV})
+        self.assertEqual(merged.returncode, 1, merged.stdout + merged.stderr)
+        self.write("shared.txt", "one\ntask change and tip change\nthree\n")
+        git(m, "add", "shared.txt")
+        git(m, "commit", "-q", "--no-edit")
+        head = git(m, "rev-parse", "HEAD")
+        git(m, "checkout", "-q", "main")
+        return head
+
+    def review(self, head: str) -> None:
+        """A done review of `head` on record, which a fix or a resolution review works from."""
+        code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", head)
+        self.assertEqual(code, 0, out + err)
+        text = "Outcome: done\nSeverity: BLOCKER=0 MAJOR=1 MINOR=0 NIT=0\n## Spec beyond intent\nnone\n## Friction\nnone\n"
+        code, _, out, err = self.report(body["run_id"], text)
+        self.assertEqual(code, 0, out + err)
 
     def check(self, key: str) -> None:
         phase, mode = ("review", "resolution") if key == "resolution" else (key, None)
@@ -140,11 +174,11 @@ class Table(unittest.TestCase):
 
     def test_parse_asks_a_phase_for_its_required_sections(self):
         got, errs = report.parse("implement", "Outcome: done\n## Friction\nnone\n")
-        self.assertEqual(errs, ["no `Head: <sha>` line", "no `PR: #<number>` line"])
+        self.assertEqual(errs, [s.missing for s in report.SECTIONS if s.key in ("head", "pr")])
         got, errs = report.parse("verify", "Outcome: done\nHead: " + HEAD + "\nVerdict: approve\n## Friction\nnone\n")
         self.assertEqual((errs, got["verdict"], got["friction"]), ([], "approve", []))
         got, errs = report.parse("verify", "Outcome: blocked\n")  # only what is always required, when not done
-        self.assertEqual(errs, ["no `## Friction` section of `- ` lines, or the single line `none`"])
+        self.assertEqual(errs, [s.missing for s in report.SECTIONS if s.key == "friction"])
 
 
 class Submit(ToolkitFixture, unittest.TestCase):

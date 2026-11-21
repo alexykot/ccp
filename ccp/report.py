@@ -1,36 +1,20 @@
 """`ccp report <run_id> FILE` (SPEC §10): a worker submits its report, and the run closes.
 
-The report is the worker's own words plus a few lines `ccp` reads:
+The report is the worker's own words plus the lines and sections `ccp` reads. `SECTIONS` holds each of them:
+the phases that carry it, when it is required, what refuses a report without it, where it lands in the run's
+record, and the line the prompt asks for it in (§13.4). The rest of what a report meets is kept here:
 
-- `Outcome: done|blocked|failed`, always;
-- implement, fix, merge and ruling, when done: `PR: #<n>` and `Head: <sha>`;
-- review, when done: `Severity: BLOCKER=<n> MAJOR=<n> MINOR=<n> NIT=<n>`, and a `## Spec beyond intent`
-  section (§3.5): a `- ` line for each passage of normative text the PR adds or changes that the task's
-  brief and its ADRs do not call for, or the single line `none`; the run keeps only their count
-  (`spec_beyond_intent`);
-- a review with `mode: resolution` (a resolution review of a conflicted integration merge, §13.2), when done:
-  `Resolution: contained` or `Resolution: beyond <why>`, and `Affected checks: <id>, <id>` (or `none`), each id one
-  of the task file's dod_check ids; a report missing either line, or naming an unknown id, is refused
-  (exit 1, nothing written), and the run keeps `resolution` and `affected_checks`;
-- verify, when done: `Verdict: approve|reject` and `Head: <sha>`;
-- `Suite: <n> tests, <s> s`, when the worker ran the full suite; it may end `ran <r>, cached <c>`
-  (or `<r> modules ran, <c> cached`),
-  the units that ran and those a product's content-keyed test cache reported as hits. A
-  verify report on a product whose plane.json sets `verify.accept_cache` must give them (§15.3).
-  `Suite: from <suite_id>` takes them from that recorded `ccp suite run` of this run, and a report
+- `Suite: from <suite_id>` takes the numbers from that recorded `ccp suite run` of this run, and a report
   with no `Suite:` line gets them from the run's latest `full` or `gate` lane run when it passed
   (after a failed one, a warning and nothing filled; a failed run's numbers never reach `ccp health`
   from the record) (§14.1);
-- a `## Friction` section: `- ` lines, or `none`;
-- `Prompt: <token>`, always, the token on the last line of the run's prompt (`Prompt end: <token>`, §13.2).
-  A report with none, or with another token, is refused (exit 2) naming the run's: the prompt the worker
-  read was probably cut. A run opened before the token (none recorded on it) is not held to it;
+- a `Prompt:` token other than the run's is refused (exit 2) naming the run's: the prompt the worker
+  read was probably cut. A run opened before the token (none recorded on it) is not held to it (§13.2);
 - implement, fix, merge and ruling, when done, with a `Head:`: the plane computes the round's integration merges
   from git and keeps them on the run (`integration_merges`, `before_review`; `round_merges`, §11.1, §27.1); a
   round it cannot measure keeps none, and the report is never refused for it;
-- implement, fix, merge and ruling, when done: each verdict the product declares in plane.json
-  `report.required_fields`, as `<name>: <value>` with one of its declared values, on one line (§13.4). They are
-  kept on the run (`fields`) and shown in the review prompt; whether a verdict is right is not judged.
+- the declared verdicts (plane.json `report.required_fields`) are kept on the run (`fields`) and shown in the
+  review prompt; whether a verdict is right is not judged (§13.4).
 
 A report that lacks one is refused with what is missing, and nothing is written. An accepted one
 is stored at the run's report path, its friction lines are recorded for `ccp health` (what the
@@ -334,9 +318,9 @@ class Section(NamedTuple):
     it lands. `keys` are the names `parse` returns for it; `stored` the run record's fields they become
     (`friction` becomes `friction_count`, its lines filed as health notes). `required` is `always`, `done` (when
     the outcome is done) or `no`: a missing one is refused with `missing`. `read` is None for a line `submit`
-    checks before `parse` (`Prompt:`). A section with a `mode` is carried by that review mode only. `prompt` is
-    the line the prompt asks for it in (`{runner}` and `{each}` filled in), or None where another section's
-    line names it."""
+    checks before `parse` (`Prompt:`) or reads itself (`Affected checks:`, by `_read_resolution`). A section with
+    a `mode` is carried by that review mode only. `prompt` is the line the prompt asks for it in (`{runner}` and
+    `{each}` filled in), or None where another section's line names it."""
     key: str
     name: str
     label: str

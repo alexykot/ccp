@@ -140,4 +140,17 @@ Measured at `8aefa59`.
 - A `Section` for `Affected checks:` has no reader of its own: `resolution_lines` reads it with `Resolution:`
   (one function, which R14's 0203 changes).
 
+**Fix round 1.**
+- **Member order is a known, non-semantic change.** `PARSED_KEYS` follows the table's order, so a new
+  implement run's record, and the JSON `ccp report` prints, list `head` before `pr`, and `resolution`,
+  `affected_checks` and `fields` before the `suite_*` fields. The keys and values are the same, and no reader
+  depends on member order. Reordering the table to restore it would reorder the refusal messages or the prompt.
+- `tests/test_report_sections.py` builds its fixture history (`start`, `move_tip`, `review`) in the module and no
+  longer binds other modules' test-class methods. Its table test compares refusals with `Section.missing`
+  instead of copied literals.
+- `ccp/report.py`'s module docstring no longer restates each section: it points at `SECTIONS` and §13.4 and
+  keeps what the table does not hold. The `Section` docstring says `read` is None for `Affected checks:` too.
+- `prompt.report_lines` takes `runner` as a required keyword (no default `the runner` text); the two test
+  modules that call it pass one.
+
 ## Verification notes

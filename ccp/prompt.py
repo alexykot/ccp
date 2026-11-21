@@ -115,7 +115,7 @@ def worker_model(cfg: Config, q: Path, phase: str, meta: dict[str, Any]) -> tupl
     return model, alias, warns
 
 
-def report_lines(cfg: Config, phase: str, mode: str | None = None, runner: str = "the runner") -> str:
+def report_lines(cfg: Config, phase: str, mode: str | None = None, *, runner: str) -> str:
     """The report contract's lines for `phase`, rendered from `report.SECTIONS` (§13.4): each section the phase
     carries (a resolution review's `Resolution:` and `Affected checks:` for `mode`), and, for a round that
     pushes a head, a line naming each verdict the product declares in plane.json `report.required_fields` with
@@ -695,7 +695,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "queue_root": str(q), "ccp": ccp_command(cfg), "report_path": str(report),
         "verification_example": str(PLANE / "contracts" / "verification.example.json"),  # §15.4, from any checkout
         "runner": runner,  # §10.2, §16.4: the runner that holds this task, as bound
-        "report_lines": report_lines(cfg, phase, "resolution" if resolution else None, runner),
+        "report_lines": report_lines(cfg, phase, "resolution" if resolution else None, runner=runner),
         "suite_lanes": suite_lanes(cfg, phase),
         # §13.4: the product's declared verdicts, as the latest implementer report states them
         "report_verdicts": "; ".join(f"`{k}: {v}`" for k, v in verdicts.items()), "report_verdicts_run": verdicts_run,

@@ -228,8 +228,9 @@ class Briefs(unittest.TestCase):
         product = Product()
         self.addCleanup(product.cleanup)
         cfg = product.cfg
-        self.assertIn("## Spec beyond intent", prompt.report_lines(cfg, "review"))
-        self.assertNotIn("Spec beyond intent", prompt.report_lines(cfg, "verify") + prompt.report_lines(cfg, "implement"))
+        self.assertIn("## Spec beyond intent", prompt.report_lines(cfg, "review", runner="r"))
+        self.assertNotIn("Spec beyond intent",
+                         prompt.report_lines(cfg, "verify", runner="r") + prompt.report_lines(cfg, "implement", runner="r"))
 
 
 if __name__ == "__main__":
