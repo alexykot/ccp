@@ -4,6 +4,7 @@ checkout warning, while a plain run off `main` still does."""
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -121,6 +122,51 @@ class RenderedPrompt(ToolkitFixture, unittest.TestCase):
 
     def test_a_product_without_one_renders_no_wt_exec(self):
         self.assertNotIn(WT_EXEC, self.verify_prompt())
+
+
+# A command line a worker runs against the queue, naming `ccp` without going through the head's (SPEC §12.1).
+RUN_LINE = re.compile(r"QUEUE_ROOT=\S+ \S*ccp (?!wt exec -- )\S+")
+
+
+class EveryPhaseRunsTheHead(ToolkitFixture, unittest.TestCase):
+    """Each worker prompt of a product whose checkout carries `bin/ccp` names the head's `ccp` for the
+    commands the worker runs: the shared rules (suite runs, mutation runs, the report) and the phase's own."""
+
+    def open(self, phase: str, *args: str, report: str) -> tuple[str, str]:
+        code, body, out, err = self.ccp("prompt", phase, "0002", *args)
+        self.assertEqual(code, 0, out + err)
+        text = Path(body["prompt_path"]).read_text()
+        code, _, out, err = self.report(body["run_id"], f"Outcome: done\n{report}## Friction\nnone\n")
+        self.assertEqual(code, 0, out + err)
+        return body["run_id"], text
+
+    def prompts(self) -> dict:
+        (self.runner / "bin").mkdir()
+        (self.runner / "bin" / "ccp").write_text("")
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
+        pr = ("--pr", "7", "--head", HEAD)
+        return {"implement": self.open("implement", "--base", "abc1234", report=f"PR: #7\nHead: {HEAD}\n"),
+                "review": self.open("review", *pr, report="Severity: BLOCKER=1 MAJOR=0 MINOR=0 NIT=0\n"
+                                                        "## Spec beyond intent\nnone\n"),
+                "fix": self.open("fix", *pr, report=f"PR: #7\nHead: {HEAD}\n")}
+
+    def test_the_commands_a_worker_runs_are_the_rendered_ccp(self):
+        texts = self.prompts()
+        self.assertIn(f"{WT_EXEC} <args>", texts["review"][1])  # review's rule for checks by hand
+        for phase, (run_id, text) in texts.items():
+            self.assertIn(f"{WT_EXEC} suite run --run", text, phase)
+            self.assertIn(f"{WT_EXEC} suite run` and `", text, phase)
+            self.assertIn(f"{WT_EXEC} mutate` the Bash tool's full limit", text, phase)
+            self.assertIn(f"{WT_EXEC} mutate --run", text, phase)
+            self.assertIn(f"{WT_EXEC} report {run_id} ", text, phase)
+            self.assertIn(f"{WT_EXEC} report` again with that file", text, phase)
+            self.assertEqual([m.group(0) for m in RUN_LINE.finditer(text)], [], phase)
+
+    def test_the_report_fallback_needs_no_root_flag(self):
+        _, text = self.prompts()["review"]
+        self.assertIn("if it is already gone, run `report` from ", text)
+        self.assertNotIn("before `report`", text)
 
 
 if __name__ == "__main__":

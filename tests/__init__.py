@@ -27,6 +27,8 @@ for _k in ("OTEL_LOG_USER_PROMPTS", "OTEL_LOG_TOOL_DETAILS"):
     os.environ.pop(_k, None)
 # §14.1: the plane's own suite may run under `ccp suite run`; its tests' runs are not nested in it.
 os.environ.pop("CCP_SUITE_ID", None)
+# §12.1, §29.2: a suite run through `ccp wt exec` hands its children the child marker; no test inherits it.
+os.environ.pop("CCP_WT_EXEC", None)
 # §14.1 summary mode: a run with no queue logs to a temp file; the tests' go to one directory, removed at exit.
 import atexit  # noqa: E402
 import shutil  # noqa: E402

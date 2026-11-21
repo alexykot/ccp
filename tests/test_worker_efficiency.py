@@ -112,7 +112,7 @@ class Templates(unittest.TestCase):
             self.assertIn("(run `report` from inside it first", text)
             self.assertIn("wt create --kind", text)
             self.assertNotIn("git worktree add --detach", text)
-            self.assertIn("add `--root /m` before `report`", text, phase)
+            self.assertIn("if it is already gone, run `report` from /m)", text, phase)
 
     def test_implement_and_fix_fail_fast_and_keep_the_full_suite(self):
         for phase in ("implement", "fix"):

@@ -170,5 +170,20 @@ From architect pass `ar-20261120T234012Z-27eb`, findings F01 and F15, triaged by
 - Removed tests that pinned removed text: `test_prompt_end.HeadsOwnCcp` and
   `test_wt.ExecOwnCcp.test_the_reviewer_and_verifier_briefs_say_print_shows_which_ccp_runs`; the
   rendering is held by `tests/test_plane_workers_run_head.py`.
+- Fix round 1 (review of `0e58435`):
+  - `review.md` and `verify.md`: the fallback for a removed checkout was "add `--root <main>` before
+    `report`", which the plane's `ccp wt exec -- --root <main> report` hands to the child, so
+    `wt exec` still resolves the checkout from the cwd and fails outside one. It now says to run
+    `report` from the main checkout, which works for both renderings (`test_worker_efficiency` pins
+    the new sentence).
+  - `_common.md`: the two literal commands left (`ccp mutate` in the timeout line, `ccp report` in
+    the re-report line) are `{{ccp}}`. The remaining literal `ccp report` in `review.md`, `verify.md`
+    and the report lines is prose about what the command accepts or refuses, not a command to run.
+  - `tests/test_plane_workers_run_head.py` `EveryPhaseRunsTheHead` renders the implement, review and
+    fix prompts of a product with `bin/ccp` and pins each command line of the shared rules and the
+    review's by-hand rule as `wt exec --`, and holds that no `QUEUE_ROOT=… ccp` line skips it.
+  - `tests/__init__.py` clears `CCP_WT_EXEC`, as it does `CCP_SUITE_ID`, so a suite run through
+    `ccp wt exec` does not hand the child marker to every test.
+  - `docs/cli/02-delivery.md`: `ccp wt exec`'s seat column is now "workers".
 
 ## Verification notes
