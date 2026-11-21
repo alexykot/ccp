@@ -1,7 +1,7 @@
 ---
 task_id: 0214-an-exclusive-path-keeps-apart-only-its-own-tasks
 title: An exclusive path keeps apart only the tasks that meet the same entry
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S16", "S26"]
@@ -10,7 +10,7 @@ paths: ["ccp/parallel.py", "ccp/forecast.py", "docs/spec/02-delivery.md", "docs/
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0214-an-exclusive-path-keeps-apart-only-its-own-tasks
@@ -204,3 +204,5 @@ PROPOSED:
   `runs_alone` on plain values under both schedules.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #263 head `96d2ef9` (squash `b002e82`): APPROVE. Passed: ex-01, ex-02, ex-03, ex-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0214-an-exclusive-path-keeps-apart-only-its-own-tasks.json.
+

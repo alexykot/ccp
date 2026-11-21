@@ -1068,7 +1068,7 @@ tasks:
     depends_on: [0199-suite-wait-auto]
     path: tasks/0213-a-green-tree-skips-the-lane-queue.md
   - id: 0214-an-exclusive-path-keeps-apart-only-its-own-tasks
-    status: pending
+    status: done
     title: An exclusive path keeps apart only the tasks that meet the same entry
     depends_on: []
     path: tasks/0214-an-exclusive-path-keeps-apart-only-its-own-tasks.md
