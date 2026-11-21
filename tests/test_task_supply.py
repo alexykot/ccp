@@ -55,6 +55,11 @@ class Untasked(Base):
         self.assertEqual(self.untasked(), [{"adr": "ADR-0003", "decisions": ["1"]},
                                            {"adr": "ADR-0007", "decisions": ["1", "2"]}])
 
+    def test_a_decision_with_no_recorded_state_is_not_listed(self):
+        fields = {"id": "ADR-0002", "title": "T", "status": "accepted", "date": "2026-01-01", "decisions": ["D1 not_built"]}
+        self.p.write("docs/adr/0002-a.md", adr.emit(fields) + body(3))
+        self.assertEqual(self.untasked(), [{"adr": "ADR-0002", "decisions": ["1"]}])
+
     def test_a_pending_task_citing_a_decision_takes_only_that_decision_out(self):
         self.adr(1, "accepted", ["not_built", "not_built", "not_built"])
         self.task("0001-a", "pending", ["0001 D2"])
