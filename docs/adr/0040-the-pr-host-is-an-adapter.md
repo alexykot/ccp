@@ -17,8 +17,8 @@ notes: |-
   D1's merge-strategy interface is this ADR's PR-host interface: `pr_host.adapter` (D5) selects the
   adapter and `merge.command` overrides its merge, two knobs rather than three.
 decisions:
-  - "D1 not_built"
-  - "D2 not_built"
+  - "D1 built"
+  - "D2 built"
   - "D3 not_built"
   - "D4 not_built"
   - "D5 not_built"

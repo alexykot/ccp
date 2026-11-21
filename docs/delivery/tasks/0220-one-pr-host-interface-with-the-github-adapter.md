@@ -127,4 +127,26 @@ PROPOSED:
 
 ## Implementation notes
 
+- 2026-11-21 (implementer): `ccp/prhost.py` gains `open` (`gh pr create --head <b> --base <integration
+  branch> --title <t> --body-file -`, the body on stdin; the number is the last path segment of the URL gh
+  prints, a HostError when it is not a number), `diff` (`gh pr diff`, HostReadFailed on a non-zero exit)
+  and `edit` (`gh pr edit <pr> --body-file -`). `view` takes `with_body` and then reads the body in the same
+  `gh pr view` call (`PrFacts.body`); its default read and every existing caller are unchanged.
+- `ccp pr open|view|diff|edit|merge` (`ccp/cli.py` `cmd_pr`): the PR argument is a positive whole number
+  (`PR_NUMBER`; anything else, a branch name included, is argparse's usage error, exit 2). Open takes its
+  base from the queue binding's integration branch, so it needs QUEUE_ROOT (exit 2 without, gh not run) and
+  prints the PR number. `view` prints `key: value` lines and then the body; `view --json` prints `PrFacts`
+  (with the body) as one object. `edit` and `open` read `--body-file` (`-` for stdin); an unreadable file is
+  exit 2. `merge` is `prhost.merge` as close runs it (plane.json `merge.command` when set), `--task` passed
+  verbatim to its `{task_id}`; a refusal is exit 1 with the host's words. Every host error, a missing
+  binary included, is exit 1 naming it.
+- `docs/cli/02-delivery.md` gains a Pull requests table; §15.5 carries the signed text a and b; ADR-0040 D1
+  and D2 recorded built.
+- 2026-11-21 (fix round 1, review MINOR 1, 2 and NIT 1): `ccp pr merge --task` now resolves the task like
+  every other task argument (full id or number, `task_meta`; an unknown task is exit 2 and runs nothing), so
+  `merge.command`'s `{task_id}` is the full id whichever of close or `ccp pr` runs the merge. `--head` takes
+  only a full sha (SHA-1 or SHA-256, `wt.FULL_SHA_RE`, case-folded); anything else is argparse's usage error,
+  exit 2, nothing run, since `merge.command` substitutes it unquoted into a shell template. Tests added for
+  both, and for the PR number losing its leading zeros and `open` reading a number from a URL ending in `/`.
+
 ## Verification notes

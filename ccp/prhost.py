@@ -1,7 +1,8 @@
-"""The PR host (ADR-0040, E19): the one module that reaches a pull request's host. Everything else
-sees a PR as `PrFacts`, plain normalised values, never a host's field names or state words. Today
-the GitHub adapter is the only one: it runs `gh` (`CCP_GH_BIN`, else `gh`) and holds the one merge
-argv; `merge.command` in plane.json still replaces the merge operation (SPEC §15.5)."""
+"""The PR host (ADR-0040, E19; SPEC §15.5): the one module that reaches a pull request's host, and the PR-host
+interface `ccp pr` serves to workers and the runner. Everything else sees a PR as `PrFacts`, plain normalised
+values, never a host's field names or state words. Today the GitHub adapter is the only one: it runs `gh`
+(`CCP_GH_BIN`, else `gh`) and holds the one merge argv; `merge.command` in plane.json still replaces the merge
+operation (SPEC §15.5)."""
 from __future__ import annotations
 
 import json
@@ -41,7 +42,8 @@ class HostReadFailed(HostError):
 class PrFacts:
     """A PR as the plane sees it. `state` is one of `STATES`; `head` is the full head sha; `branch` is
     the head branch ('' when the host did not name it); `merged_at` is an ISO-8601 time or None;
-    `merge_commit` is the merge's sha ('' until merged). `body` is the PR's text, set only by `body()`."""
+    `merge_commit` is the merge's sha ('' until merged). `body` is the PR's text, set only when the read
+    asks for it (`view(..., with_body=True)`)."""
     number: int
     state: str
     head: str
@@ -65,9 +67,9 @@ def _gh() -> str:
 
 
 def _run(cfg: Config, cmd: list[str], env: dict[str, str] | None = None,
-         timeout: float | None = None) -> subprocess.CompletedProcess[str]:
+         timeout: float | None = None, stdin: str | None = None) -> subprocess.CompletedProcess[str]:
     try:
-        return subprocess.run(cmd, cwd=cfg.root, capture_output=True, text=True, timeout=timeout,
+        return subprocess.run(cmd, cwd=cfg.root, capture_output=True, text=True, timeout=timeout, input=stdin,
                               env={**os.environ, **(env or {})})
     except FileNotFoundError as exc:
         raise HostUnavailable(f"{cmd[0]} is not installed") from exc
@@ -77,10 +79,11 @@ def _words(r: subprocess.CompletedProcess[str]) -> str:
     return (r.stderr or r.stdout).strip()
 
 
-def view(cfg: Config, pr: str) -> PrFacts:
-    """The PR's facts, read from the host. Raises HostUnavailable when the CLI is missing, HostReadFailed
-    when the read exits non-zero, HostError when it names no PR state or no JSON."""
-    r = _run(cfg, [_gh(), "pr", "view", str(pr), "--json", _VIEW_FIELDS])
+def view(cfg: Config, pr: str, with_body: bool = False) -> PrFacts:
+    """The PR's facts, read from the host, with its body in the same read when `with_body`. Raises
+    HostUnavailable when the CLI is missing, HostReadFailed when the read exits non-zero, HostError when it
+    names no PR state or no JSON."""
+    r = _run(cfg, [_gh(), "pr", "view", str(pr), "--json", _VIEW_FIELDS + (",body" if with_body else "")])
     if r.returncode != 0:
         raise HostReadFailed(f"gh pr view {pr}: {_words(r)}", _words(r))
     try:
@@ -100,7 +103,8 @@ def view(cfg: Config, pr: str) -> PrFacts:
         head=str(got.get("headRefOid") or ""),
         branch=str(got.get("headRefName") or ""),
         merged_at=str(got["mergedAt"]) if got.get("mergedAt") else None,
-        merge_commit=str(merge.get("oid") or "") if isinstance(merge, dict) else "")
+        merge_commit=str(merge.get("oid") or "") if isinstance(merge, dict) else "",
+        body=str(got.get("body") or "") if with_body else None)
 
 
 def body(cfg: Config, pr: str, timeout: float | None = BODY_TIMEOUT_S) -> str:
@@ -123,6 +127,36 @@ def body(cfg: Config, pr: str, timeout: float | None = BODY_TIMEOUT_S) -> str:
     if not isinstance(text, str):
         raise HostError(f"{gh} pr view {pr} gave no body")
     return text
+
+
+def open(cfg: Config, branch: str, base: str, title: str, body: str) -> int:  # noqa: A001  (the operation's name)
+    """Open a PR for the pushed `branch` against `base`; its number. Raises HostUnavailable when the CLI is
+    missing, HostError when the host refuses or names no PR number."""
+    r = _run(cfg, [_gh(), "pr", "create", "--head", branch, "--base", base, "--title", title, "--body-file", "-"],
+             stdin=body)
+    if r.returncode != 0:
+        raise HostError(f"gh pr create --head {branch}: {_words(r)}", _words(r))
+    said = (r.stdout.strip().splitlines() or [""])[-1].rstrip("/").rsplit("/", 1)[-1]
+    if not said.isdigit():
+        raise HostError(f"gh pr create --head {branch} named no PR number: {r.stdout.strip()!r}")
+    return int(said)
+
+
+def diff(cfg: Config, pr: str) -> str:
+    """The PR's diff against its base. Raises HostUnavailable when the CLI is missing, HostReadFailed when
+    the read exits non-zero."""
+    r = _run(cfg, [_gh(), "pr", "diff", str(pr)])
+    if r.returncode != 0:
+        raise HostReadFailed(f"gh pr diff {pr}: {_words(r)}", _words(r))
+    return r.stdout
+
+
+def edit(cfg: Config, pr: str, body: str) -> None:
+    """Replace the PR's body. Raises HostUnavailable when the CLI is missing, HostError when the host
+    refuses."""
+    r = _run(cfg, [_gh(), "pr", "edit", str(pr), "--body-file", "-"], stdin=body)
+    if r.returncode != 0:
+        raise HostError(f"gh pr edit {pr}: {_words(r)}", _words(r))
 
 
 def merge(cfg: Config, pr: str, head: str, task_id: str) -> MergeResult:
