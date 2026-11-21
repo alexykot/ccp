@@ -814,7 +814,7 @@ def untasked(cfg: Config, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 cited.add((r.number, r.decision))
             elif r.section is None or ids.adr_file_re.match(Path(str(ref).strip()).name):
                 whole.add(r.number)
-            # else a section anchor (`0040 Implementation 10`) cites no decision (§7)
+            # else a section anchor (`<n> Implementation 10`) cites no decision (§7)
     out: list[dict[str, Any]] = []
     for m in sorted(load(cfg)[0], key=lambda x: x["_number"]):
         if m.get("status") not in ("accepted", "in-progress") or m["_number"] in whole:
