@@ -1163,7 +1163,7 @@ tasks:
     depends_on: [0223-a-follow-up-is-tracked-not-left-in-notes, 0229-orientation-extras-from-one-ccp-call, 0230-the-lead-decides-each-follow-up]
     path: tasks/0232-orientation-shows-the-open-follow-ups.md
   - id: 0233-briefs-point-at-the-evidence-rules
-    status: pending
+    status: done
     title: The briefs and the verify prompt cite §15.4 and the example contract instead of restating the evidence rules
     depends_on: []
     path: tasks/0233-briefs-point-at-the-evidence-rules.md

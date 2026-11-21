@@ -1,7 +1,7 @@
 ---
 task_id: 0233-briefs-point-at-the-evidence-rules
 title: The briefs and the verify prompt cite §15.4 and the example contract instead of restating the evidence rules
-status: pending
+status: done
 kind: refactor
 depends_on: []
 clashes_with: ["0221-workers-reach-the-pr-host-through-ccp-pr", "0228-report-sections-as-one-table", "0223-a-follow-up-is-tracked-not-left-in-notes"]
@@ -100,3 +100,5 @@ Measured at `8aefa59`.
   matching verify.md.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #256 head `1d45cf4` (squash `80d1c32`): APPROVE. Passed: ev-01, ev-02, ev-03. Gate: `ccp suite run --lane gate` exit 0, `ccp wt exec -- tasks check` exit 0, `ccp wt exec -- docs check` exit 0. Record: verification/0233-briefs-point-at-the-evidence-rules.json.
+
