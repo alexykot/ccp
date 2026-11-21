@@ -173,6 +173,9 @@ WT_FIELDS = ("task_id", "nnnn", "kind", "seat", "tag", "worktree", "main_checkou
 # `behind_tip_ignore` (§16.5 rule 4): paths whose commits on the tip do not make a head behind it.
 MERGE_DEFAULTS: dict[str, Any] = {"command": None, "behind_tip_ignore": []}
 MERGE_FIELDS = ("pr", "head_sha", "task_id")
+# §4.5, §15.5, ADR-0040 D5: the PR host's adapter (ccp/prhost.py); `merge.command` overrides its merge under either.
+PR_HOST_ADAPTERS = ("github", "local")
+PR_HOST_DEFAULTS: dict[str, Any] = {"adapter": "github"}
 
 
 def fill(template: str, values: dict[str, str]) -> str:
@@ -333,7 +336,7 @@ UPGRADE_DEFAULTS: dict[str, Any] = {"declined": {}, "taken": {}}
 BLOCK_DEFAULTS: dict[str, dict[str, Any]] = {
     "task_log": TASK_LOG_DEFAULTS, "package_docs": PACKAGE_DOCS_DEFAULTS, "architect": ARCHITECT_DEFAULTS,
     "prompts": PROMPTS_DEFAULTS, "reconcile": RECONCILE_DEFAULTS, "adapter": ADAPTER_DEFAULTS,
-    "worktrees": WORKTREES_DEFAULTS, "env": ENV_DEFAULTS, "merge": MERGE_DEFAULTS,
+    "worktrees": WORKTREES_DEFAULTS, "env": ENV_DEFAULTS, "merge": MERGE_DEFAULTS, "pr_host": PR_HOST_DEFAULTS,
     "auth_check": AUTH_CHECK_DEFAULTS, "telemetry": TELEMETRY_DEFAULTS, "board": BOARD_DEFAULTS,
     "gate": GATE_DEFAULTS, "health": HEALTH_DEFAULTS, "usage": USAGE_DEFAULTS, "workers": WORKERS_DEFAULTS,
     "models": MODELS_DEFAULTS,
@@ -721,6 +724,7 @@ class Config:
     worktrees: dict[str, Any] | None = None
     env: dict[str, Any] | None = None
     merge: dict[str, Any] | None = None
+    pr_host: dict[str, Any] | None = None
     auth_check: dict[str, Any] | None = None
     telemetry: dict[str, Any] | None = None
     board: dict[str, Any] | None = None
@@ -1701,7 +1705,7 @@ def _is_main_checkout(root: Path, d: Any) -> bool:
 
 
 def _worktree_blocks(raw: dict[str, Any], out: dict[str, Any], root: Path) -> list[str]:
-    """§12.1: worktrees, env hooks, merge and auth probes (`worktrees.dir` and `.links` were `adapter.worktree_dir`
+    """§12.1: worktrees, env hooks, merge, the PR host's adapter and auth probes (`worktrees.dir` and `.links` were `adapter.worktree_dir`
     and `.worktree_links`, merged in when plane.json loads)."""
     bad: list[str] = []
     wt = out["worktrees"]
@@ -1723,6 +1727,8 @@ def _worktree_blocks(raw: dict[str, Any], out: dict[str, Any], root: Path) -> li
         bad.append("merge.command must be a shell command, or null for the default")
     elif mc is not None and "{head_sha}" not in mc:
         bad.append("merge.command must name {head_sha}: the merge is pinned to the verified head (§15.5)")
+    if out["pr_host"]["adapter"] not in PR_HOST_ADAPTERS:
+        bad.append(f"pr_host.adapter must be one of {', '.join(PR_HOST_ADAPTERS)}, not {out['pr_host']['adapter']!r}")
     bti = out["merge"]["behind_tip_ignore"]
     if not isinstance(bti, list) or not all(_rel_path(x) for x in bti):
         bad.append("merge.behind_tip_ignore must be a list of paths relative to the product root")
@@ -1806,6 +1812,7 @@ _BLOCK_KEYS: dict[str, Any] = {
     "worktrees": _known(WORKTREES_DEFAULTS),
     "env": _known(ENV_DEFAULTS),
     "merge": _known(MERGE_DEFAULTS),
+    "pr_host": _known(PR_HOST_DEFAULTS),
     "auth_check": _known(AUTH_CHECK_DEFAULTS, probes=_Each(_known(PROBE_KEYS))),
     "telemetry": _known(TELEMETRY_DEFAULTS, design_seat=_known(DESIGN_SEAT_KEYS), windows=_Each(_known(WINDOW_KEYS))),
     "board": _known(BOARD_DEFAULTS),

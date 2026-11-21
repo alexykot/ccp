@@ -435,19 +435,22 @@ changes nothing. Even with `--force` it merges into `.claude/settings.json` and 
 `--queue-root`, or a `.claude/settings.json` that is not a JSON object. The product commits what it
 wrote, and adds its own worktree and environment hooks to `plane.json` (§12). It warns, on stderr
 and in its result's `warnings`, when the product has no `origin` or its origin is not on GitHub, and
-adopts it all the same: review, merge and close need a GitHub origin until the PR host adapter of
-ADR-0040 exists. Its result, and its stderr, list each required plane.json key (§8.1) still unset, as
-a step to take before the first task. Only `github.com` and its subdomains count as GitHub, so an origin on a GitHub
-Enterprise host on its own domain is warned about as not on GitHub. This is deliberate: the plane
-knows GitHub by that host name only, and the warning does not stop the adoption.
+adopts it all the same: under plane.json `pr_host.adapter` `github` (the default), review, merge
+and close need a GitHub origin. Under `local` it warns only when the product has no origin: the
+local adapter keeps each PR's record in the queue (`prs/<n>.json`) and merges by a squash commit,
+subject `Task <NNNN>: <title> (#<n>)`, pushed from close's merge worktree (ADR-0040 D3).
+Its result, and its stderr, list each required plane.json key (§8.1) still unset, as a step to take
+before the first task. Only `github.com` and its subdomains count as GitHub, so an origin on a
+GitHub Enterprise host on its own domain is warned about as not on GitHub. This is deliberate: the
+plane knows GitHub by that host name only, and the warning does not stop the adoption.
 
 - **The adoption checklist.** The plane's README lists each `plane.json` key a product may need beyond
   the minimal file, with what it is for and when a product needs it.
 - **The permission list.** `ccp init --permissions` writes nothing. In an adopted product it prints the
   runner's and workers' permissions (§18.5) as a JSON `permissions` block:
   - an allowlist: `ccp` by name (§4.3), and the plane's `team.sh` and `spec-maintainer-ask.sh` by
-    absolute path, each of the three also behind the binding's `QUEUE_ROOT=`; git by verb; `gh pr`;
-    and the gate lane's commands;
+    absolute path, each of the three also behind the binding's `QUEUE_ROOT=`; git by verb; `gh pr`
+    only under the GitHub adapter (`pr_host.adapter`); and the gate lane's commands;
   - a deny list of destructive commands.
 
   It refuses (exit 2) another init flag, and a product without a `plane.json` that loads or without
@@ -754,6 +757,7 @@ Where this SPEC writes `NNNN`, `ADR-NNNN`, `S<n>`, `E<n>` or `R<n>`, it means th
 | `package_docs`, `docs` | doc checks, run when `language` names a pack (`claude_md_dirs`, `docstring_globs`, `delivery_id_patterns`, `rules`), product check commands (`docs.checks`), the starter house rules (`docs.starter_rules`, §20.5) | §21 |
 | `architect` | the architect seat, house rules, budgets, refactors | §19, §20 |
 | `worktrees`, `env`, `merge`, `auth_check` | worktree links and environment hooks (`ccp wt`), the merge step (`merge.command`) and the paths that do not make a head behind the tip (`merge.behind_tip_ignore`), credential probes (`auth_check.probes`) | §12, §15, §16, §30 |
+| `pr_host` | the PR host's adapter (`adapter`: `github`, the default, or `local`, ADR-0040 D5) | §4.5, §15.5 |
 | `prompts` | the worker prompt fragment and `worker_env` | §13 |
 | `reconcile` | commands run at close | §10 |
 | `suite`, `verify` | test runs and lanes (an argv or ordered `{name, cmd}` stages), verification and cache acceptance (`verify.accept_cache`), the fix rounds that need no new review (`verify.skip_review`, `verify.skip_review_after_clean`), the declared provers that skip a gate stage or the review (`verify.provers`) | §14, §15 |

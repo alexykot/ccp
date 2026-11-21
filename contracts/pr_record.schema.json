@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:control-plane:contracts:pr_record.schema.json",
+  "title": "ControlPlanePrRecord",
+  "description": "SPEC §4.5, ADR-0040 D3: one pull request under the local PR host adapter (plane.json `pr_host.adapter: local`), QUEUE_ROOT/prs/<n>.json, written by ccp/prhost.py through `ccp pr` and `ccp tasks close`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["number", "branch", "base", "title", "body", "head", "state", "opened_at", "merged_at", "merge_commit"],
+  "properties": {
+    "number": {"type": "integer", "minimum": 1, "description": "Given by the plane: one more than the highest held, under prs/.lock"},
+    "branch": {"type": "string", "minLength": 1, "description": "The pushed head branch on origin"},
+    "base": {"type": "string", "minLength": 1, "description": "The branch it merges into: the integration branch"},
+    "title": {"type": "string"},
+    "body": {"type": "string", "description": "The PR's text; `ccp pr edit` replaces it"},
+    "head": {"type": "string", "description": "The head last seen on origin/<branch>"},
+    "state": {"enum": ["OPEN", "MERGED", "CLOSED"]},
+    "opened_at": {"type": "string"},
+    "merged_at": {"type": ["string", "null"], "description": "Set when the merge is confirmed on origin/<base>"},
+    "merge_commit": {"type": "string", "description": "The squash commit pushed to <base>; empty until the merge"}
+  }
+}
