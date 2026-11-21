@@ -3,7 +3,7 @@ task_id: 0232-orientation-shows-the-open-follow-ups
 title: The lead's orientation shows how many follow-ups are open, and the command that lists them
 status: pending
 kind: feature
-depends_on: ["0229-orientation-extras-from-one-ccp-call", "0230-the-lead-decides-each-follow-up"]
+depends_on: ["0223-a-follow-up-is-tracked-not-left-in-notes", "0229-orientation-extras-from-one-ccp-call", "0230-the-lead-decides-each-follow-up"]
 spec_refs: ["S9"]
 adr_refs: ["0044 D4"]
 review_point: R15
@@ -52,8 +52,7 @@ Measured at `31a7d7b`.
 CURRENT (`docs/spec/01-model.md` at `31a7d7b`):
 > - After the orientation, the hook and `ccp orientation` list the product's pending notices (`ccp notify pending`, §3.6): each one's subject, reason and the call that records it sent, within the hook's cap.
 
-PROPOSED:
-> - After the orientation, the hook and `ccp orientation` list the product's pending notices (`ccp notify pending`, §3.6): each one's subject, reason and the call that records it sent, within the hook's cap.
+PROPOSED: (new lines after it)
 > - Then, while any worker follow-up has no outcome (§13.4), one line gives how many and `ccp tasks follow-ups --open`. It is not a notice.
 
 - **Out:** a §3.6 notice trigger, the runner's relay (0223), the list command (0230).

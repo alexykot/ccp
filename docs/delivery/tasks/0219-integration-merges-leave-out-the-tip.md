@@ -4,6 +4,7 @@ title: A round's recorded integration merges leave out every commit already on t
 status: pending
 kind: feature
 depends_on: []
+clashes_with: ["0223-a-follow-up-is-tracked-not-left-in-notes"]
 spec_refs: ["S11", "S27"]
 review_point: R15
 paths: ["ccp/report.py", "docs/spec/02-delivery.md", "tests/test_health_conflicts.py"]
@@ -74,9 +75,9 @@ CURRENT (`docs/spec/02-delivery.md` at `8aefa59`):
 PROPOSED:
 > `ccp report` computes them when the round reports, never from the report's prose: `integration_merges` lists,
 >   oldest first, the merge commits on the head's first-parent line, from the task's previous done change round's
->   reported head (for its first, from `origin/<integration>`) to this head, leaving out every commit already on
->   `origin/<integration>` (a branch rebuilt on a newer tip does not count the tip's own merges), whose second
->   parent is an ancestor of `origin/<integration>`,
+>   reported head (for its first, from `origin/<integration>`) to this head, whose second parent is an ancestor of
+>   `origin/<integration>`, leaving out every commit already on `origin/<integration>` (a branch rebuilt on a newer
+>   tip does not count the tip's own merges),
 
 - **Out:** re-measuring rounds already recorded, the conflict probe, and health's report.
 

@@ -4,6 +4,7 @@ title: The shared test fixture runs on the local PR host, and the fake gh goes
 status: pending
 kind: refactor
 depends_on: ["0222-a-product-without-github-uses-the-local-pr-host"]
+clashes_with: ["0241-gate-module-tests-wiring-only", "0242-retire-restructure-scaffolding-and-queue-markers"]
 review_refs: ["sh-20261120T235116Z-eb9f#F04"]
 rule_refs: ["E2", "E15"]
 review_point: R15
@@ -35,7 +36,11 @@ Measured at `8aefa59`.
 - **Its reach.** `git grep -l ToolkitFixture -- tests` at `8aefa59`: 63 files, among them the slowest
   module, `tests.test_behind_tip_catch_up`.
 - **House rule E2** says tests use no GitHub; the shape proposed adding "end-to-end tests use the local
-  PR host". The triage held that clause for this task, since it is true only once the fixture moves.
+  PR host". The triage deferred that clause to this task (finding E2, deferred), since it is true only
+  once the fixture moves.
+- **Clashes with R16's 0241 and 0242.** 0241 cuts `tests/test_behind_tip_catch_up.py`, `tests/helpers.py`
+  and other gate modules down to wiring; 0242 edits `tests/test_toolkit.py`. This task rewrites the
+  same fixture, so it does not run beside either.
 - A refactor: the tests' expectations stay, except where a test read the fake's own files
   (`merge-called`, `pr.json`), which then read the local PR record.
 

@@ -4,11 +4,11 @@ title: A worker report states its follow-ups, and the run keeps them for the lea
 status: pending
 kind: feature
 depends_on: ["0228-report-sections-as-one-table", "0230-the-lead-decides-each-follow-up"]
-clashes_with: ["0219-integration-merges-leave-out-the-tip", "0233-briefs-point-at-the-evidence-rules"]
-spec_refs: ["S11", "S13"]
+clashes_with: ["0203-follow-up-fixes", "0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0219-integration-merges-leave-out-the-tip", "0221-workers-reach-the-pr-host-through-ccp-pr", "0233-briefs-point-at-the-evidence-rules", "0238-the-runner-runs-marked-checks-before-verify"]
+spec_refs: ["S3", "S11", "S13"]
 adr_refs: ["0044 D1"]
 review_point: R15
-paths: ["ccp/report.py", "ccp/followups.py", "templates/prompts/implement.md", "plugin/agents/delivery-implementer.md", "plugin/agents/delivery-reviewer.md", "plugin/agents/delivery-verifier.md", "plugin/agents/delivery-runner.md", "docs/spec/02-delivery.md", "docs/adr/0044-a-follow-up-is-tracked-not-left-in.md", "tests/test_report_follow_ups.py"]
+paths: ["ccp/report.py", "ccp/followups.py", "templates/prompts/implement.md", "plugin/agents/delivery-implementer.md", "plugin/agents/delivery-reviewer.md", "plugin/agents/delivery-verifier.md", "plugin/agents/delivery-runner.md", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/adr/0044-a-follow-up-is-tracked-not-left-in.md", "tests/test_report_follow_ups.py"]
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
@@ -38,8 +38,11 @@ Measured at `8aefa59`.
   - F03: the implementer's brief and the implement prompt send rule text the task does not carry to
     `ccp plane propose`, a route ADR-0044 rejects for workers (its Option 3); this task sends it to a
     `## Follow-ups` line (`grep -n 'follow-up proposal' plugin/agents/delivery-implementer.md` at
-    `8aefa59`: one line; the prompt says the same). Whether a tool need also moves from Friction to
-    Follow-ups is the operator's question; this brief leaves Friction as it is.
+    `8aefa59`: one line; the prompt says the same, citing §3.5). §3.5 itself routes such text to
+    `ccp plane propose`, so passage g below changes it, signed here. Passage g depends on the operator's
+    answer to F03; if the operator keeps the proposal route, g and the route change are dropped and
+    the brief is signed again. Whether a tool need also moves from Friction to Follow-ups is part of
+    the same question; this brief leaves Friction as it is.
   - F05: §11.1 is already wrong about the run record: it lists a phase `pr` the code does not have
     (`ccp/runs.py` `PHASES`), gives the report path without its `-report` suffix (`runs.report_path`),
     and cites `contracts/run.schema.json`, which does not exist (`ls contracts/run.schema.json` at
@@ -53,14 +56,15 @@ Measured at `8aefa59`.
 - **Corrections** (§13.4) replace a run's parsed fields; follow-ups keep an outcome for an identical
   line.
 - No R14 task edits these passages; 0219 edits the §11.1 sentence after the record list (adjacent
-  lines, hence the clash).
+  lines, hence the clash). R14's 0203 changes report parsing (`resolution_lines` in `ccp/report.py`),
+  and 0221 edits `templates/prompts/implement.md`'s one long line: clashes too.
 
 ## Scope
 
 - **In:** `ccp/report.py`, `ccp/followups.py`, `templates/prompts/implement.md`,
   `plugin/agents/delivery-implementer.md`, `plugin/agents/delivery-reviewer.md`,
   `plugin/agents/delivery-verifier.md`, `plugin/agents/delivery-runner.md`,
-  `docs/spec/02-delivery.md`, `docs/adr/0044-a-follow-up-is-tracked-not-left-in.md`,
+  `docs/spec/01-model.md`, `docs/spec/02-delivery.md`, `docs/adr/0044-a-follow-up-is-tracked-not-left-in.md`,
   `tests/test_report_follow_ups.py` (new).
 - **The section.** `report.SECTIONS` gains `## Follow-ups` for every phase: `- ` lines or the single
   line `none`, missing reads as `none`, secret-checked. `ccp report` refuses (exit 1, nothing written)
@@ -91,8 +95,7 @@ PROPOSED:
 CURRENT (`docs/spec/02-delivery.md` at `8aefa59`):
 > - `## Friction` as `- ` (or `* `) lines, or `none`;
 
-PROPOSED:
-> - `## Friction` as `- ` (or `* `) lines, or `none`;
+PROPOSED: (new lines after it)
 > - `## Follow-ups`, in any worker report, as `- ` lines, or `none` (missing reads as `none`): a line
 >   that is neither, or one that looks like a secret, is refused (exit 1, nothing written). The run
 >   keeps them as `follow_ups`, each with the id `<run_id>#<n>`; a corrected report renumbers them,
@@ -138,6 +141,16 @@ PROPOSED:
 >   `observed_efforts`, `integration_merges` and `before_review` (a done implement, fix, merge or ruling
 >   round with a head), and `follow_ups` (the report's lines, each with its id and the lead's
 >   `outcome`, §13.4).
+
+**g. §3.5, rule text the brief does not carry.**
+
+CURRENT (`docs/spec/01-model.md` at `8aefa59`):
+> Rule text the build finds that the brief does not carry goes to a follow-up
+> proposal (`ccp plane propose`), and the PR merges on the signed text.
+
+PROPOSED:
+> Rule text the build finds that the brief does not carry goes to a line of the report's
+> `## Follow-ups` (§13.4), and the PR merges on the signed text.
 
 - **Out:** the commands (0230), the review-point check (0231), the orientation line (0232), a
   `contracts/run.schema.json`, follow-ups the lead or the architect finds, and §15.8's code-only merge.

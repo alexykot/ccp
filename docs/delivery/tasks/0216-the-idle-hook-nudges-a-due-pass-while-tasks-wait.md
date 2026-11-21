@@ -17,7 +17,7 @@ updated: 2026-11-20
 
 ## Intent
 
-When every task a runner holds waits on someone (a gate, the operator, a quota park), the runner goes
+When every task a runner holds waits on someone (a gate, the operator), the runner goes
 idle, which is right for task work. But an architect pass that is due is work the runner can do in
 that time, and the idle hook never tells it so: it asks `ccp tasks next` only when some task is
 ready. The pass then waits until a task moves again. After this task, the idle hook, finding the
@@ -59,7 +59,8 @@ Measured at `1b734dd`.
 - **In:** `plugin/hooks/runner-idle.sh`, `docs/spec/02-delivery.md`, `tests/test_team_hosting.py`.
 - **The hook.** After its ready set is computed (and the slot or holding filter applied), when `ready`
   is empty, the architect seat is adopted (`has_architect`), and the runner (its slot, with slots)
-  holds at least one in-flight task not done or dropped, the hook runs the same `ccp tasks next
+  holds at least one in-flight task not done or dropped, and none of its held tasks waits on `quota`
+  (a pass would spend the allowance that is already out), the hook runs the same `ccp tasks next
   --scope … --json` call. Its existing exit-4 handling then applies: `kind: pass` blocks (exit 2) with
   the pass message and "the architect pass" as the work, counted toward the block limit like any
   other; `kind: triage` lets the runner idle. A runner holding nothing is unchanged (it stops at an
@@ -72,7 +73,8 @@ Measured at `1b734dd`.
     stderr holds `ccp architect run --detach`;
   - the same with a report awaiting triage past its grace instead: exit 0;
   - the same with no pass due: exit 0;
-  - a runner holding nothing, with nothing ready and a pass due: exit 0.
+  - a runner holding nothing, with nothing ready and a pass due: exit 0;
+  - a runner holding one task waiting on `quota`, with a pass due: exit 0.
 
 ### SPEC changes (signed in the brief, §31)
 
@@ -86,9 +88,9 @@ PROPOSED:
 > its runtime `waiting_on`, an open question's `blocks`, or an undecided gate. `work.json`'s own
 >   `waiting_on` is not a scope-wide stop.
 > - With the architect seat adopted (§19.11), it also exits 2 when nothing is ready but the runner
->   (its slot, with several) holds in-flight tasks that all wait and `ccp tasks next` answers that a
->   pass is due (§19.6): the runner starts the pass with `ccp architect run --detach` meanwhile. A
->   triage overdue lets it idle, as with a ready task.
+>   (its slot, with several) holds in-flight tasks that all wait, none on `quota`, and `ccp tasks
+>   next` answers that a pass is due (§19.6): the runner starts the pass with `ccp architect run
+>   --detach` meanwhile. A held task waiting on `quota`, or a triage overdue, lets it idle.
 
 - **Out:** the block limit, the rotation and park rules, `ccp tasks next` itself, and a runner holding
   no task.
@@ -100,7 +102,7 @@ PROPOSED:
   setup: a checkout of the PR head.
   steps:
     1. Run `python3 -B -m unittest -v tests.test_team_hosting.TestIdleHook 2>&1 | tail -25`.
-  expect: exit 0, with the Scope's four tests listed `ok`.
+  expect: exit 0, with the Scope's five tests listed `ok`.
   dry run (`1b734dd`): 12 tests, OK; the new tests do not exist yet.
 
 - id: `ih-02`

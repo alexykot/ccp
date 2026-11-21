@@ -4,6 +4,7 @@ title: A product with no full lane runs the gate lane for the full role, and a d
 status: pending
 kind: feature
 depends_on: []
+clashes_with: ["0221-workers-reach-the-pr-host-through-ccp-pr", "0223-a-follow-up-is-tracked-not-left-in-notes", "0238-the-runner-runs-marked-checks-before-verify"]
 spec_refs: ["S13", "S14"]
 review_point: R15
 paths: ["ccp/config.py", "ccp/prompt.py", "templates/prompts/implement.md", "templates/prompts/fix.md", "templates/prompts/ruling.md", "templates/prompts/merge.md", "docs/spec/02-delivery.md", "tests/test_full_lane_prompt.py"]
@@ -54,6 +55,11 @@ Measured at `1b734dd`.
 - The repo's own plane.json declares both `full` and `gate`, so nothing changes for it.
 - No R14 task edits these passages: 0199 edits `ccp/suite.py`'s `--wait` and §16.6, not `lane_for`
   or §13.5 and §14.1.
+- **Clashes.** 0221, 0223 and 0238 edit `templates/prompts/implement.md`, whose instructions are one
+  long line holding the pre-gate sentence this task changes, so each pair conflicts on that line.
+  R16's 0244 edits the line of `templates/prompts/ruling.md` that has the ruling written into the
+  Context; this task edits its "Fail fast first" line. Separate lines, so the two merge cleanly and no
+  clash is declared: `grep -n -e 'The ruling is binding' -e 'Fail fast first' templates/prompts/ruling.md` at `8aefa59` prints lines 5 and 9.
 
 ## Scope
 

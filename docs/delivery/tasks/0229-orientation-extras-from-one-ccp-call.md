@@ -7,7 +7,7 @@ depends_on: []
 review_refs: ["sh-20261120T235613Z-4fce#F08"]
 rule_refs: ["E15", "E16"]
 review_point: R15
-paths: ["plugin/hooks/orientation.sh", "ccp/cli.py", "ccp/notify.py", "tests/test_orientation_tail.py"]
+paths: ["plugin/hooks/orientation.sh", "ccp/cli.py", "ccp/notify.py", "docs/cli/01-model.md", "tests/test_orientation_tail.py"]
 adopt: "none"
 created: 2026-11-21
 updated: 2026-11-21
@@ -36,12 +36,14 @@ Measured at `8aefa59`.
 
 ## Scope
 
-- **In:** `plugin/hooks/orientation.sh`, `ccp/cli.py`, `ccp/notify.py`,
+- **In:** `plugin/hooks/orientation.sh`, `ccp/cli.py`, `ccp/notify.py`, `docs/cli/01-model.md`,
   `tests/test_orientation_tail.py` (new).
 - **`ccp orientation --tail`** prints the text the hook appends today: the pending-notices section (its
   heading, one line per notice, the cap and the "more" line) and the allowance warning, built from
   `notify.pending` and the allowance status by a function on plain values (`orientation_tail(rows,
   warning) -> str`).
+- `docs/cli/01-model.md` gains a `ccp orientation --tail` row (the text the hook appends after the
+  orientation: pending notices and the allowance warning; writes nothing; §9.3).
 - **The hook** makes that one call, with one 3-second timeout, and appends its stdout; a failed or slow
   call appends nothing, as today.
 - **Tests** in `tests/test_orientation_tail.py` (new): `orientation_tail` with no notice and no warning
@@ -65,6 +67,15 @@ Measured at `8aefa59`.
     1. Run `grep -c 'timeout=3' plugin/hooks/orientation.sh`.
   expect: prints 1.
   dry run (`8aefa59`): prints 2.
+
+- id: `ot-04`
+  story: As a plane developer, the tail tests bite.
+  setup: a checkout of the PR head; then a copy (`git worktree add --detach <tmp> HEAD`) in which
+    `orientation_tail` drops the "more" line past the cap.
+  steps:
+    1. In the copy, run `python3 -B -m unittest -q tests.test_orientation_tail`.
+  expect: at least one failure (the cap test).
+  dry run: n/a — the module is new.
 
 - id: `ot-03`
   story: As a lead, the session's orientation reads as before.

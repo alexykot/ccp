@@ -6,7 +6,7 @@ kind: feature
 depends_on: []
 spec_refs: ["S16", "S26"]
 review_point: R15
-paths: ["ccp/parallel.py", "ccp/forecast.py", "docs/spec/02-delivery.md", "docs/spec/04-observability.md", "tests/test_parallel_claims.py"]
+paths: ["ccp/parallel.py", "ccp/forecast.py", "docs/spec/02-delivery.md", "docs/spec/04-observability.md", "tests/test_parallel_claims.py", "tests/test_clashes_with.py"]
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
@@ -47,13 +47,18 @@ Measured at `1b734dd`.
   `test_exclusive_no_path_and_parallel_false_run_alone` asserts that a task beside an exclusive one
   is refused, and `test_meeting_paths_are_refused_and_a_task_that_runs_alone_holds_the_line` that an
   exclusive task holds the line; both change with this task.
+- **`tests/test_clashes_with.py`** asserts the whole-set rule too:
+  `Claims.test_a_task_with_no_path_still_runs_alone_and_exclusive_paths_still_apply` claims a task on
+  `src/app/views.py` (exclusive) beside an in-flight task on `src/app/pool.py` and expects a refusal
+  naming the exclusive rule; under the pairwise rule that claim succeeds, so the test changes
+  (`python3 -B -m unittest tests.test_clashes_with` at `1b734dd`: OK).
 - No R14 task edits `ccp/parallel.py` or these passages. Task 0202 edits §26.4's **Output** bullet,
   not the **Throughput** bullet below.
 
 ## Scope
 
 - **In:** `ccp/parallel.py`, `ccp/forecast.py`, `docs/spec/02-delivery.md`,
-  `docs/spec/04-observability.md`, `tests/test_parallel_claims.py`.
+  `docs/spec/04-observability.md`, `tests/test_parallel_claims.py`, `tests/test_clashes_with.py`.
 - **`kept_apart`** first asks rule 4: when neither task says `parallel: true` and some path of `a`
   and some path of `b` both meet the same `exclusive` entry `x`, it returns
   `Apart("exclusive", <a's path>, <b's path>)` (the entry in the message), under either
@@ -73,6 +78,9 @@ Measured at `1b734dd`.
   - `parallel: false` and a task with no path still run alone;
   - a forecast with two tasks meeting the same exclusive entry and one that does not runs the third
     beside the first (`apart_pairs` 1, no task in `alone`).
+- **`tests/test_clashes_with.py`**: `test_a_task_with_no_path_still_runs_alone_and_exclusive_paths_still_apply`
+  is rewritten so both tasks meet the entry: in-flight 0002 is given `src/app/views.py` too, and 0003's
+  claim is still refused with "rule 4"; its no-path half is unchanged.
 
 ### SPEC changes (signed in the brief, §31)
 

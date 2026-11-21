@@ -62,8 +62,7 @@ Measured at `8aefa59`.
 CURRENT (`docs/spec/01-model.md` at `8aefa59`):
 > | `supersedes`, `superseded_by`, `amends` | optional | links, each a list of `<ADR id>` or `<ADR id> Dn` |
 
-PROPOSED:
-> | `supersedes`, `superseded_by`, `amends` | optional | links, each a list of `<ADR id>` or `<ADR id> Dn` |
+PROPOSED: (new lines after it)
 > | `requires` | optional | prerequisites, each `"<Dn> <ADR id> <Dm>"` (this ADR's Dn rests on that ADR's Dm) or `"<Dn> <Dm>"` within the ADR; only decisions are named (§6.5) |
 
 **b. §6.4, accepting an ADR.**

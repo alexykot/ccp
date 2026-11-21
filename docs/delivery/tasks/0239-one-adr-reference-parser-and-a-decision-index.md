@@ -3,12 +3,12 @@ task_id: 0239-one-adr-reference-parser-and-a-decision-index
 title: One ADR-reference parser in refs, and one pure decision index that every build-state reader uses
 status: pending
 kind: refactor
-depends_on: []
+depends_on: ["0202-forecast-and-health-report-task-supply"]
 clashes_with: ["0234-one-check-parser-and-one-file-at-rev-reader"]
 review_refs: ["sh-20261121T001225Z-7dbe#F02", "sh-20261121T001225Z-7dbe#F03", "sh-20261121T001225Z-7dbe#F08"]
 rule_refs: ["E23", "E12", "E15", "E24"]
 review_point: R15
-paths: ["ccp/refs.py", "ccp/adr.py", "tests/test_refs.py", "tests/test_adr_index.py"]
+paths: ["ccp/refs.py", "ccp/adr.py", "tests/test_refs.py", "tests/test_adr_index.py", "tests/test_task_supply.py"]
 adopt: "none"
 created: 2026-11-21
 updated: 2026-11-21
@@ -40,16 +40,22 @@ Measured at `8aefa59`.
   `blocks_done`) and keeps each caller's.
 - **The docstring** lists the optional keys that `OPTIONAL` holds and `tests/test_adr.py` ties to the
   schema (`grep -c 'superseded_by' ccp/adr.py` at `8aefa59`: the docstring's two lines and `OPTIONAL`).
+- **R14's 0202** adds `adr.untasked` (`ccp health`'s and `ccp forecast`'s untasked decisions), a fifth
+  reader of decision state, and parses ADR refs in task frontmatter. This task depends on it (rather
+  than only clashing) so that `untasked` exists to fold into the index; its tests stay in
+  `tests/test_task_supply.py`.
 - A refactor: every refusal, warning and listing stays as it is.
 
 ## Scope
 
-- **In:** `ccp/refs.py`, `ccp/adr.py`, `tests/test_refs.py`, `tests/test_adr_index.py` (new).
+- **In:** `ccp/refs.py`, `ccp/adr.py`, `tests/test_refs.py`, `tests/test_adr_index.py` (new),
+  `tests/test_task_supply.py`.
 - **`refs.Ids.adr_link(s) -> (number, decision | None) | None`**, the one `<ADR id>[ Dn]` parser;
   `adr._link` and `parse_adr_ref` use it.
 - **`adr.DecisionIndex.build(adrs)`**: `state(adr, d)`, `resolve(adr, d)` following each recorded
   `retired by <ADR id> Dk` to its end (a loop returned as such), `is_built` and `blocks_done`;
-  `analyse`, `unbuilt_cited` and `built` read it.
+  `analyse`, `unbuilt_cited`, `built` and 0202's `untasked` read it, and `untasked` parses each task
+  ref with `refs.Ids.adr_link`.
 - `adr.py`'s module docstring names §6 and what the module is for; the key list goes.
 - **Tests** in `tests/test_adr_index.py` (new), on plain ADR dicts: each state; `resolve` through none,
   one and two links and a loop; both predicates on a decision with no recorded state. `tests/test_refs.py`
@@ -73,13 +79,22 @@ Measured at `8aefa59`.
   expect: prints 0.
   dry run (`8aefa59`): prints 1 (`_link`'s own pattern).
 
+- id: `ai-04`
+  story: As a plane developer, the index's `retired by` walk is tested.
+  setup: a checkout of the PR head; then a copy (`git worktree add --detach <tmp> HEAD`) in which
+    `DecisionIndex.resolve` stops after the first `retired by` link.
+  steps:
+    1. In the copy, run `python3 -B -m unittest -q tests.test_adr_index`.
+  expect: at least one failure (the two-link test).
+  dry run: n/a — the module is new.
+
 - id: `ai-03`
   story: As a task-log owner, ADR checks and listings behave as before.
   setup: a checkout of the PR head.
   steps:
-    1. Run `python3 -B -m unittest -q tests.test_adr tests.test_adr_decisions tests.test_refs tests.test_tasklog_adr_unbuilt 2>&1 | tail -3`.
+    1. Run `python3 -B -m unittest -q tests.test_adr tests.test_adr_decisions tests.test_refs tests.test_tasklog_adr_unbuilt tests.test_task_supply 2>&1 | tail -3`.
   expect: exit 0, `OK`.
-  dry run (`8aefa59`): `OK`.
+  dry run (`8aefa59`): `OK` for the first four modules; `tests.test_task_supply` comes with 0202.
 
 ## Implementation notes
 

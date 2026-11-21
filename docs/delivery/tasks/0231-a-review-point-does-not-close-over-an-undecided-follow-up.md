@@ -3,7 +3,8 @@ task_id: 0231-a-review-point-does-not-close-over-an-undecided-follow-up
 title: A review point recorded closed while a follow-up is undecided fails the lead's checks
 status: pending
 kind: feature
-depends_on: ["0230-the-lead-decides-each-follow-up"]
+depends_on: ["0223-a-follow-up-is-tracked-not-left-in-notes", "0230-the-lead-decides-each-follow-up"]
+clashes_with: ["0244-tasks-check-runs-dry-runs"]
 spec_refs: ["S21", "S22"]
 adr_refs: ["0044 D3"]
 review_point: R15
@@ -40,8 +41,10 @@ Measured at `8aefa59`.
 - **The register's tasks.** `ccp/reviewpoints.py` `summary()` already maps tasks to points; the check
   reuses it.
 - Without `QUEUE_ROOT` the check says nothing, so the fenced suite and CI stay quiet.
-- §21.1's last failure bullet is also edited by 0224 (another bullet) and 0252 (the paragraph below);
-  this task adds its text to §22.2 and a §21.1 sentence of its own, so the passages do not overlap.
+- §21.1 is also edited by 0224 (a failure bullet), 0252 (the "It warns" paragraph) and R16's 0244 (a
+  sentence in that paragraph and a new paragraph after "…are ignored."); this task's passages are only
+  the sentences it adds, so they are found in any merge order. It clashes with 0244, and depends on
+  0223, whose §13.4 text adds the follow-ups this check reads.
 
 ## Scope
 
@@ -57,7 +60,9 @@ Measured at `8aefa59`.
 - ADR-0044 D3 recorded `built`; `docs/cli/03-quality.md` gains the flag.
 - **Tests** in `tests/test_followups_closed_point.py` (new): the function on plain values (closed with
   an undecided follow-up, closed with all decided, open with an undecided one); `--closed-points` on a
-  temp product and queue failing then passing once decided; plain `tasks check` unaffected.
+  temp product and queue failing then passing once decided; plain `tasks check` unaffected. The
+  module can be run as `python3 -m tests.test_followups_closed_point --seed <queue> <task_id>` to write
+  one run record with an undecided follow-up (cp-03 uses it).
 
 ### SPEC changes (signed in the brief, §31)
 
@@ -66,8 +71,7 @@ Measured at `8aefa59`.
 CURRENT (`docs/spec/03-quality.md` at `8aefa59`):
 > - `ccp tasks check` and `ccp docs check` validate it.
 
-PROPOSED:
-> - `ccp tasks check` and `ccp docs check` validate it.
+PROPOSED: (new lines after it)
 > - `ccp tasks check --closed-points`, with `QUEUE_ROOT` set, and the spawn's readiness check
 >   (`team.sh runner spawn [--dry-run]`) also fail while the register records a point `closed` and a
 >   run of one of its tasks holds a follow-up with no outcome (§13.4), naming each and the command that
@@ -79,9 +83,9 @@ PROPOSED:
 CURRENT (`docs/spec/03-quality.md` at `8aefa59`):
 > the point has fewer than 2 tasks per depth on average. Inline `# comments` in frontmatter are ignored.
 
-PROPOSED:
-> the point has fewer than 2 tasks per depth on average. Inline `# comments` in frontmatter are ignored.
-> With `--closed-points` it also fails on a closed review point holding an undecided follow-up (§22.2).
+PROPOSED: (same line, after it)
+> With `--closed-points` it also fails on a closed review point holding an undecided follow-up
+> (§22.2).
 
 - **Out:** a refusal at `ccp tasks close`, a notice, and the follow-ups of the lead or the architect.
 
@@ -105,12 +109,17 @@ PROPOSED:
   dry run: n/a — the module is new.
 
 - id: `cp-03`
-  story: As a worker, my gate's task check is not held by the lead's follow-ups.
-  setup: a checkout of the PR head; QUEUE_ROOT a fresh temp directory.
+  story: As a worker, my gate's task check is not held by the lead's follow-ups, and the lead's is.
+  setup: a checkout of the PR head; a copy (`git worktree add --detach <tmp> HEAD`) whose
+    `docs/delivery/review-points.yaml` records R15 `closed`; QUEUE_ROOT a fresh temp directory holding
+    one run record of an R15 task with a follow-up whose `outcome` is null
+    (`runs/<task_id>/implement.json`, written by the test helper `tests/test_followups_closed_point.py`
+    uses, `python3 -m tests.test_followups_closed_point --seed "$QUEUE_ROOT" <task_id>`).
   steps:
-    1. Run `bin/ccp --root . tasks check 2>&1 | grep '^tasks:'`.
-  expect: one line starting `tasks: clean`.
-  dry run (`8aefa59`): `tasks: clean (209 tasks)` on `origin/main`.
+    1. Run `<tmp>/bin/ccp --root <tmp> tasks check 2>&1 | grep '^tasks:'`.
+    2. Run `<tmp>/bin/ccp --root <tmp> tasks check --closed-points >/dev/null 2>&1; echo rc=$?`.
+  expect: step 1 prints one line starting `tasks: clean`; step 2 prints `rc=1`.
+  dry run: n/a — `--closed-points` and the seed helper are new.
 
 - id: `cp-04`
   story: As the operator, the signed SPEC text is what landed.

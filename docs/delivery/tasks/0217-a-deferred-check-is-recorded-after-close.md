@@ -58,7 +58,7 @@ Measured at `1b734dd`.
 - **`ccp verify later <task_id> --check <id> (--pass | --fail) --evidence "<text>" --produced-by <seat>
   [--operator-step <gate id>]`**, needs `QUEUE_ROOT`. It appends one row to
   `QUEUE_ROOT/verification/<task_id>.later.jsonl`: `{task_id, dod_check_id, pass, evidence,
-  produced_by, operator_step, at, by}` (`by`: the seat it was run as). It refuses, exit 2 and nothing
+  produced_by, operator_step, at, by}` (`by`: `queue.actor()`, the `ACTOR` the command runs under, as every queue write records it). It refuses, exit 2 and nothing
   written, naming why:
   - a task that is not `done` in the queue, or has no verification record;
   - a check the record does not hold, or holds other than `ran: false`, or holds resting on a carried
@@ -93,10 +93,7 @@ CURRENT (`docs/spec/02-delivery.md` at `8aefa59`):
 > without both, or on a check not run, naming the check. `ccp tasks close` lists each one (its id,
 > `held_instead` and `ruling`) before it merges, and does not refuse on it.
 
-PROPOSED:
-> without both, or on a check not run, naming the check. `ccp tasks close` lists each one (its id,
-> `held_instead` and `ruling`) before it merges, and does not refuse on it.
->
+PROPOSED: (a new paragraph after it)
 > A check recorded `ran: false` that does not rest on a carried verdict may be run after its task
 > closed: the lead or the runner records the result with `ccp verify later <task_id> --check <id>
 > --pass|--fail --evidence "<one line>" --produced-by <seat> [--operator-step <gate>]`, appended to
@@ -104,15 +101,14 @@ PROPOSED:
 > check not recorded so, evidence that is empty, over 500 characters, on more than one line or looks
 > like a secret, and a producer the verdict record would refuse (a ruling seat without an approved
 > operator step). `ccp verify deferred` lists each such check of a done task as open, passed or
-> failed. A failed result reopens nothing: the lead tasks the fix.
+> failed. A failed result reopens nothing.
 
 **b. §23.7, the writers table.**
 
 CURRENT (`docs/spec/04-observability.md` at `8aefa59`):
 > | `verification/<id>.json` | the verifier subagent, through `ccp verify record` |
 
-PROPOSED:
-> | `verification/<id>.json` | the verifier subagent, through `ccp verify record` |
+PROPOSED: (new lines after it)
 > | `verification/<id>.later.jsonl` | the lead or the runner, through `ccp verify later`, after the task closed (§15.4) |
 
 - **Out:** a ledger event for the result, a notice on a failed result, and any change to the verdict

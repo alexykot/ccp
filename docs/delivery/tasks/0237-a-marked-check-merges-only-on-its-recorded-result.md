@@ -30,8 +30,8 @@ step that is not a check merge code-only.
 
 Measured at `8aefa59`.
 
-- Builds ADR-0045 D3, accepted by the operator on 2026-11-20. It needs the suite row's
-  `head`, on 0235's one judge and on 0234's parser and file-at-rev reader.
+- Builds ADR-0045 D3, accepted by the operator on 2026-11-20. It needs the suite row's `head`
+  (0238), 0235's one judge, and 0234's parser and file-at-rev reader.
 - **Shaped** by `sh-20261121T000350Z-5ef1`. Two decisions are the operator's:
   - F01: how a marked check's result is bound to its head. Recommended: the check's record entry cites
     the `suite_id` of the runner's passed run (0238), whose row names the head.
@@ -45,7 +45,13 @@ Measured at `8aefa59`.
 - **The example contract** carries the sample this task forbids for a marked check
   (`grep -c "operator's live run" contracts/verification.example.json` at `8aefa59`: 1); after 0233 it
   is the only copy, and it stays valid for an unmarked check.
-- **Clash.** 0217 also changes the handling of a check not run at verify (§15.4).
+- **Exemptions (ADR-0045 D2, D3).** A marked check may rest on a carried verdict (`approve at <old>`,
+  §15.6 rule 3: a head moved only by an integration merge, or a catch-up whose resolution review does
+  not list it in `Affected checks`), and a check waived by a ruling is handled as today. Neither needs
+  a run at the record's head.
+- **Clash with 0217**, which lets a check recorded `ran: false` on a ruling be run after close
+  (`ccp verify later`): that is the waiver case, which this task leaves as it is, and §15.8 below says
+  so. The two texts agree in either merge order.
 
 ## Scope
 
@@ -54,17 +60,23 @@ Measured at `8aefa59`.
   `docs/adr/0045-checks-only-the-operator-s-machine-can-run.md`, `tests/test_marked_checks_record.py` (new).
 - **A check's `suite_id`** (optional in the contract) names the run its evidence came from.
 - **The refusals**, in `judge` on plain values and so in `record` (on an approve), `merge-ok` and
-  `verify check`, each naming the check: a marked check missing from the record; evidence with no
-  approved `operator_step`, whoever produced it; no `suite_id` of a passed run of that lane, bound to
-  the task, whose `head` is the record's head; `ran: false` on free-text operator evidence; `approve at
-  <old>` where the run at `<old>` kept no qualifying facts for that check. `merge-ok` takes the marked
+  `verify check`, each naming the check, for a marked check that: is missing from the record; was run
+  and its evidence names no approved `operator_step`, whoever produced it; was run and names no
+  `suite_id` of a passed run of that lane, bound to the task, whose `head` is the record's head; is
+  `ran: false` on free-text operator evidence; or carries `approve at <old>` where the run at `<old>`
+  kept no qualifying facts for that check. A marked check carrying a qualifying verdict needs no run at
+  the new head, and a check waived by a ruling (`ran: false`, `rests_on` naming the ruling) is handled
+  as today. `merge-ok` takes the marked
   checks from the task file at the head (`tasklog.text_at`), never the checkout's.
 - **The verify run** keeps the per-check facts of the verdict recorded on it (`runs.py`).
 - `contracts/verification.example.json`'s operator sample names an unmarked check.
 - ADR-0045 D3 recorded `built`.
 - **Tests** in `tests/test_marked_checks_record.py` (new): each refusal on plain values; an approve
   with a passed run at the head accepted; a carry accepted from a qualifying verdict and from a
-  qualifying carry, refused from a free-text one; `merge-ok` reading the task file at the head.
+  qualifying carry, refused from a free-text one; a carried marked check accepted after an
+  integration-merge-only move and after a resolution review that does not list it, with no run at the
+  new head; a marked check waived by a ruling accepted; `merge-ok` reading the task file at the
+  head.
 
 ### SPEC changes (signed in the brief, §31)
 
@@ -77,11 +89,12 @@ CURRENT (`docs/spec/02-delivery.md` at `8aefa59`):
 PROPOSED:
 > where `<sha>` resolves to a commit; or evidence the operator produced, `produced_by: operator` with
 > free text, never for a check marked `runs_on: operator-machine`. On an approve it refuses a marked
-> check that is missing from the record, whose evidence names no approved `operator_step` (whoever
-> produced it, `operator` included) or no `suite_id` of a passed run recorded at the record's head,
-> that is `ran: false` on free-text operator evidence, or that carries a verdict it may not carry
-> (§15.6 rule 3); `ccp verify merge-ok` reads the marked checks from the task file at the head it is
-> given and refuses on the same terms.
+> check that is missing from the record; that was run with evidence naming no approved `operator_step`
+> (whoever produced it, `operator` included) or no `suite_id` of a passed run recorded at the record's
+> head; that is `ran: false` on free-text operator evidence; or that carries a verdict it may not
+> carry (§15.6 rule 3). A marked check resting on a verdict it may carry needs no run at the new head,
+> and one waived by a ruling is handled as any other. `ccp verify merge-ok` reads the marked checks
+> from the task file at the head it is given and refuses on the same terms.
 
 **b. §15.6 rule 3, a carried verdict.**
 
@@ -105,7 +118,8 @@ PROPOSED:
 >   A step that is not a dod_check (a rollout after the merge) may merge code-only, the step listed as
 >   a follow-up. A dod_check that needs that machine is marked `runs_on: operator-machine` (§5.5): the
 >   runner runs it, under the task's approved `operator` gate or a standing approval (§17.9), at each
->   head it hands the verifier, and the task never merges without its result. A parked step, and any check needing
+>   head it hands the verifier (§10.2), and the task never merges without its result, a verdict it
+>   carries (§15.6 rule 3) or a ruling that waives it (§15.4). A parked step, and any check needing
 
 - **Out:** records written before this task (not re-judged), the runner's loop (0238), and a step that
   is not a check.
@@ -127,6 +141,15 @@ PROPOSED:
   steps:
     1. In the copy, run `python3 -B -m unittest -q tests.test_marked_checks_record`.
   expect: at least one failure (the `ran: false` free-text test).
+  dry run: n/a — the module is new.
+
+- id: `mr-05`
+  story: As a runner, a re-verify after an integration merge is not held for a run the check does not need.
+  setup: a checkout of the PR head; then a copy (`git worktree add --detach <tmp> HEAD`) in which
+    `judge` asks every marked check for a passed run at the record's head, carried or not.
+  steps:
+    1. In the copy, run `python3 -B -m unittest -q tests.test_marked_checks_record`.
+  expect: at least two failures (the integration-merge and the resolution-review carries).
   dry run: n/a — the module is new.
 
 - id: `mr-03`

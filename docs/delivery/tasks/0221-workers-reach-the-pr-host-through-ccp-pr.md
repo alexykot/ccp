@@ -3,8 +3,8 @@ task_id: 0221-workers-reach-the-pr-host-through-ccp-pr
 title: The worker prompts and the runner's brief reach the PR host through ccp pr, never gh
 status: pending
 kind: feature
-depends_on: ["0220-one-pr-host-interface-with-the-github-adapter"]
-clashes_with: ["0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0228-report-sections-as-one-table", "0233-briefs-point-at-the-evidence-rules"]
+depends_on: ["0220-one-pr-host-interface-with-the-github-adapter", "0240-plane-workers-run-the-head"]
+clashes_with: ["0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0223-a-follow-up-is-tracked-not-left-in-notes", "0228-report-sections-as-one-table", "0233-briefs-point-at-the-evidence-rules"]
 spec_refs: ["S13", "S18"]
 adr_refs: ["0040 D1", "0040 D6"]
 review_point: R15
@@ -30,7 +30,10 @@ whatever the host, and a test keeps a forge's CLI out of everything outside the 
 Measured at `8aefa59`.
 
 - Builds ADR-0040 D6 (the forge-independent parts never call the host) and completes D1's "the worker
-  prompts call it through `ccp pr`". Depends on 0220, which adds `ccp pr`.
+  prompts call it through `ccp pr`". Depends on 0220, which adds `ccp pr`, and on R16's 0240, which
+  renders every `ccp` a worker prompt names as `{{ccp}}` (`ccp wt exec --` for the plane): the prompts
+  here write `{{ccp}} pr …`, so the rendered command is the head's `ccp`.
+- **Clash with 0223**, which edits `templates/prompts/implement.md`'s one long instruction line too.
 - **Where `gh` is named.** `git grep -n 'gh pr' -- templates plugin` at `8aefa59`: five lines, in
   `templates/prompts/_common.md` (the PR-number rule), `templates/prompts/review.md` (`gh pr diff
   {{pr}}`), `templates/prompts/verify.md` (`gh pr diff`, and `gh pr view {{pr}} --json headRefOid` at
@@ -54,8 +57,8 @@ Measured at `8aefa59`.
   `templates/prompts/review.md`, `templates/prompts/verify.md`, `plugin/agents/delivery-runner.md`,
   `ccp/prompt.py`, `docs/delivery/plane.json`, `docs/ENGINEERING.md`, `docs/spec/02-delivery.md`,
   `docs/adr/0040-the-pr-host-is-an-adapter.md`, `tests/test_prhost_only.py` (new).
-- **The prompts:** review reads `ccp pr diff {{pr}}`; verify reads `ccp pr diff {{pr}}` and checks
-  `ccp pr view {{pr}} --json` (its `head`) at start and end; implement opens its PR with `ccp pr open
+- **The prompts:** review reads `{{ccp}} pr diff {{pr}}`; verify reads `{{ccp}} pr diff {{pr}}` and checks
+  `{{ccp}} pr view {{pr}} --json` (its `head`) at start and end; implement opens its PR with `{{ccp}} pr open
   --branch task/{{task_id}} --title "Task {{nnnn}}: <short title>" --body-file <file>`; `_common.md`'s
   rule about `gh pr edit` and `gh pr view` taking the PR number is removed (`ccp pr` always takes it).
 - **The runner's brief** repairs a body with `ccp pr edit <n> --body-file <file>`.
@@ -67,7 +70,8 @@ Measured at `8aefa59`.
   - no line of `templates/prompts/*.md` or `plugin/agents/*.md` names `gh pr` or `gh api`;
   - no `ccp/*.py` other than `ccp/prhost.py` and `ccp/init.py` (the permission list and the init
     warning, 0222) holds the string literal `"gh"` or reads `CCP_GH_BIN`;
-  - each rendered prompt (implement, review, verify) for a fixture task holds `ccp pr`.
+  - each rendered prompt (implement, review, verify) for a fixture task holds the rendered `ccp`
+    command (the prompt's `ccp` value) followed by ` pr ` and `diff`, `view` or `open`.
 
 ### SPEC changes (signed in the brief, §31)
 
@@ -82,8 +86,8 @@ PROPOSED:
 > are pre-approved in the product's settings. The runner and the workers reach the PR host only
 > through `ccp pr` (ADR-0040 D1), never a forge's CLI.
 
-- **Out:** the permission list and `pr_host.adapter` (0222), the local adapter (0223), and the
-  README's prerequisites, which change with 0223.
+- **Out:** the permission list and `pr_host.adapter` (0222), the local adapter (0222), and the
+  README's prerequisites, which change with 0222.
 
 ## dod_checks
 

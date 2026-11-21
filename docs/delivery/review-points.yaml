@@ -82,7 +82,7 @@ review_points:
     opened: "2026-11-20"
   - id: R15
     name: signed rules
-    goal: "Accepted proposals and decisions that change SPEC rules, each signed by the operator: claim and lane rules, the architect cadence, runner worktrees, deferred checks, idle-slot reporting, the PR-host interface, and the rules of ADR-0044 to ADR-0046."
+    goal: "Accepted proposals and decisions that change SPEC rules, each signed by the operator: claim and lane rules, the architect cadence, an idle hook that starts a due pass while tasks wait, runner worktrees, deferred checks, idle-slot reporting, the integration merges a round counts, the PR-host interface, and the rules of ADR-0044 to ADR-0046."
     status: planned
     opened: "2026-11-20"
   - id: R16

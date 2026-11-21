@@ -4,6 +4,7 @@ title: A runner slot left with nothing ready is recorded, and health reports the
 status: pending
 kind: feature
 depends_on: ["0202-forecast-and-health-report-task-supply"]
+clashes_with: ["0243-one-source-for-syntax-events-and-config"]
 spec_refs: ["S10", "S23", "S27"]
 review_point: R15
 paths: ["ccp/cli.py", "ccp/health.py", "scripts/observability/lib.py", "contracts/observability_event.schema.json", "plugin/agents/delivery-runner.md", "docs/spec/04-observability.md", "docs/cli/02-delivery.md", "tests/test_task_supply.py"]
@@ -51,6 +52,9 @@ Measured at `1b734dd`.
   (at `1b734dd`,
   `grep -c starved scripts/observability/lib.py contracts/observability_event.schema.json`: 0 and 0). §23.2's event table has no `runner` row at all; §23.7 names the lead as the
   writer of the `runner` events.
+- **Clash with R16's 0243**, which edits the same `ccp tasks next` row in `docs/cli/02-delivery.md`
+  (it adds `--allow-overdue`), the event registry in `scripts/observability/lib.py` (a legacy-types
+  tuple), and adds `tests/test_event_registry.py`, which will check this task's new op.
 - **Depends on 0202**, which adds `task_supply` to `ccp health`, its text line, and the §27.1 bullet
   placed before "**Diagnostic only.**", and creates `tests/test_task_supply.py`. This task adds to
   each. The CURRENT below quotes the "**Diagnostic only.**" bullet, which 0202 leaves as it is.
@@ -97,7 +101,7 @@ CURRENT (`docs/spec/04-observability.md` at `8aefa59`):
 
 PROPOSED:
 > | `lease` | `set`, `clear` | `holder`, `expires_at?` |
-> | `runner` | `starved` | `slot`, `scope`, `in_flight` (`ccp tasks next --holder <slot>` found nothing ready, exit 3; once per stretch, which the slot's next `lease`/`set`, or a `runner`/`stop` or `runner`/`spawn` for the slot or for every slot, ends, §27.1) |
+> | `runner` | `starved` (the lead's `runner` ops: §23.7) | `slot`, `scope`, `in_flight` (`ccp tasks next --holder <slot>` found nothing ready, exit 3; once per stretch, which the slot's next `lease`/`set`, or a `runner`/`stop` or `runner`/`spawn` for the slot or for every slot, ends, §27.1) |
 
 **b. §23.7, the writers table.**
 
@@ -145,7 +149,7 @@ PROPOSED:
   setup: a checkout of the PR head; QUEUE_ROOT a fresh temp directory.
   steps:
     1. Run `bin/ccp --root . tasks next --scope 0001 --holder runner --allow-overdue "dod check"; echo rc=$?`.
-    2. Run `grep -c '"starved"' "$QUEUE_ROOT/events.jsonl"`.
+    2. Run `grep -c '"starved"' "$QUEUE_ROOT/observability/events.jsonl"`.
   expect: step 1 prints `rc=3` (0001 is done; `--allow-overdue` keeps a due architect pass from
     answering first); step 2 prints 1.
   dry run (`1b734dd`): without `--holder`, step 1 prints "nothing ready in scope" and `rc=3`; with it,

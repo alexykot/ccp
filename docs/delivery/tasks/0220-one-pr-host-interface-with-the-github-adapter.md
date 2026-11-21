@@ -51,7 +51,10 @@ Measured at `8aefa59`.
   `edit <pr> --body-file <f>` | `merge <pr> --head <sha> --task <id>`**: thin commands over the
   interface; each takes the PR number, never the current branch's PR. Exit 0 on success, 1 on a host
   error naming it, 2 on a usage error. `view --json` prints `PrFacts`.
-- `docs/cli/02-delivery.md` gains the rows; ADR-0040 D1 and D2 recorded `built`.
+- `docs/cli/02-delivery.md` gains the rows, and its `ccp verify check` row reads "a merge step that
+  does not read the PR host" (it says "a merge step without `gh`"); ADR-0040 D1 and D2 recorded
+  `built`. If the operator accepts F02's sixth operation, the lead amends ADR-0040 D1 (`ccp adr`)
+  before this task is claimed.
 - **Tests** in `tests/test_prhost_cli.py` (new), a stub `gh` on `CCP_GH_BIN` logging its argv: each
   command's argv and output, a missing binary exiting 1, `view 7 --json` printing the facts.
 
@@ -70,7 +73,8 @@ PROPOSED:
 > (`match_head_commit`). Close confirms the merge through the PR host (the merge commit is the one the
 > host names; a merge the host accepts without merging, such as a merge queue, stops it). The plane
 > reaches the PR host only through one interface (open, view, diff, edit, merge, confirm; ADR-0040),
-> which workers and the runner use as `ccp pr <operation> <number>`, never a forge's CLI. `merge-ok`
+> which workers and the runner use as `ccp pr open|view|diff|edit|merge`, each given the PR number
+> except open, never a forge's CLI. `merge-ok`
 > reads the PR through the host and refuses unless the PR is open, its head is the
 
 **b. §15.5, its last sentence.**

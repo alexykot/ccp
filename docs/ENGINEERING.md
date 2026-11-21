@@ -87,9 +87,11 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   check: pass — the architect looks for check-grammar readers outside tasklog; it becomes a command
   check (architect.checks `E22`: `! git grep -n CHECK_RE -- ccp ':(exclude)ccp/tasklog.py'`) once
   the parser is in
-- **E23** One parser per reference form: an ADR, decision, task or review-point reference is parsed by
-  ccp/refs.py; no other module holds a regex for it.
-  check: pass — the architect looks for reference regexes outside ccp/refs.py
+- **E23** One parser per reference form: an ADR-decision link (`<ADR id>[ Dn]`, as `adr_refs`,
+  `requires` and `retired by` write it) and a task-id reference are parsed by ccp/refs.py; no other
+  module holds a regex for either.
+  check: pass — the architect looks for ADR-link and task-id regexes outside ccp/refs.py, the known
+  intentional ones below excepted
 
 ## Docs
 
@@ -111,6 +113,10 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   check: pass — the architect compares module docstrings with the constants and § they would restate
 
 ## Known intentional
+
+- Line grammars that are not references stay with their reader (E23): ccp/health.py's squash-subject
+  pattern `^Task (\d{width}): `, and ccp/adr.py's `DECISION_RE` (a decision's state line),
+  `_MARK_PARTS` and `_HEAD_PARTS` (a decision's mark and heading in an ADR's body).
 
 - The gate's test cache keys every module on all the inputs it shares (every tracked and untracked
   file but the test modules no other imports), not on what it imports: one source edit reruns every

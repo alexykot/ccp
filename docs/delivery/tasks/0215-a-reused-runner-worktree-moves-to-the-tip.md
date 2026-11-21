@@ -62,13 +62,17 @@ Measured at `1b734dd`.
     it was already there);
   - otherwise it is left as it is, `kept` naming why (`on branch <b>`, or `has changes`);
   - a fetch or checkout that fails is `kept` with the git error's first line, never a refusal.
-- **The callers** add `moved` and, when set, `kept` to what they print: `ccp tasks worktree`'s JSON,
+- **The callers** add `moved` and, when set, `kept` to what they print: `ccp tasks worktree`'s JSON
+  (and, when `kept` is set, a `warning: runner worktree <path> left as it is: <why>` line on stderr),
   and the spawn's `runner_worktree` (whose `kept` also becomes a warning in the spawn's `warnings`).
+- **A spawn dry run** (`team.sh runner spawn --dry-run`) neither fetches nor moves the worktree: it
+  makes no change, as today.
 - **Tests** in `tests/test_wt.py` `SingleRunnerWorktree`:
   - the respawn and the second `ccp tasks worktree` after the tip advances leave the worktree at the
     new tip, `moved: true`;
   - a worktree with an untracked file, and one on a branch, stay where they were, `kept` naming why,
-    and the spawn warns.
+    and the spawn and `ccp tasks worktree` (on stderr) warn;
+  - a spawn dry run after the tip advances leaves the worktree where it was.
 
 ### SPEC changes (signed in the brief, §31)
 
@@ -116,9 +120,10 @@ PROPOSED:
   story: As the plane, the old "left alone" rule is gone from the code.
   setup: a checkout of the PR head.
   steps:
-    1. Run `git grep -n 'left alone when it exists' -- ccp/wt.py scripts/observability/team.py`.
+    1. Run `git grep -n -e 'left alone when it exists' -e 'existing one is left alone' -e 'leaves it alone' -- ccp/wt.py scripts/observability/team.py`.
   expect: prints nothing.
-  dry run (`1b734dd`): prints one line, `ccp/wt.py` (`runner_worktree`'s docstring).
+  dry run (`1b734dd`): prints three lines, `ccp/wt.py` (`runner_worktree`'s docstring) and
+    `scripts/observability/team.py` (`single_runner_worktree`'s docstring, twice).
 
 - id: `rw-04`
   story: As the operator, the signed SPEC text is what landed.

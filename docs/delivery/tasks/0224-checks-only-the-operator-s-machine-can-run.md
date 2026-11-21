@@ -3,11 +3,12 @@ task_id: 0224-checks-only-the-operator-s-machine-can-run
 title: A dod_check the workers cannot take is marked runs_on operator-machine, and the task check reads the mark
 status: pending
 kind: feature
-depends_on: ["0234-one-check-parser-and-one-file-at-rev-reader"]
+depends_on: ["0234-one-check-parser-and-one-file-at-rev-reader", "0244-tasks-check-runs-dry-runs"]
+clashes_with: ["0244-tasks-check-runs-dry-runs"]
 spec_refs: ["S5", "S21"]
 adr_refs: ["0045 D1"]
 review_point: R15
-paths: ["ccp/tasklog.py", "ccp/cli.py", "plugin/skills/writing-tasks/SKILL.md", "templates/docs-delivery/TEMPLATE-task.md", "docs/spec/01-model.md", "docs/spec/03-quality.md", "docs/cli/03-quality.md", "docs/adr/0045-checks-only-the-operator-s-machine-can-run.md", "tests/test_runs_on.py"]
+paths: ["ccp/tasklog.py", "ccp/dryrun.py", "ccp/cli.py", "plugin/skills/writing-tasks/SKILL.md", "templates/docs-delivery/TEMPLATE-task.md", "docs/spec/01-model.md", "docs/spec/03-quality.md", "docs/cli/03-quality.md", "docs/adr/0045-checks-only-the-operator-s-machine-can-run.md", "tests/test_runs_on.py"]
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
@@ -43,16 +44,24 @@ Measured at `8aefa59`.
     check of a `ccp` command runs the head's `bin/ccp`, and signed SPEC text is checked with `ccp
     verify spec-text`, as house rule E21 says.
 - **A line read nowhere today.** `git grep -n 'runs_on' -- ccp` at `8aefa59` prints nothing.
+- **R16's 0244** adds `ccp tasks dry-run`, which runs a check's one-command steps in a temporary
+  worktree and, with `--write`, rewrites its dry-run line. Unchanged, it would run a marked check on a
+  worker's machine and overwrite its `n/a — runs on the operator's machine` line. This task depends on
+  it and makes `ccp/dryrun.py` skip marked checks (listed as not run, their line kept); 0234 has already
+  routed dry-run through `tasklog.checks`. 0244 also edits the §5.5 row and §21.1, hence the clash; the
+  passages below are only the sentences this task adds, so either merge order keeps both.
 
 ## Scope
 
-- **In:** `ccp/tasklog.py`, `ccp/cli.py`, `plugin/skills/writing-tasks/SKILL.md`,
+- **In:** `ccp/tasklog.py`, `ccp/dryrun.py`, `ccp/cli.py`, `plugin/skills/writing-tasks/SKILL.md`,
   `templates/docs-delivery/TEMPLATE-task.md`, `docs/spec/01-model.md`, `docs/spec/03-quality.md`,
   `docs/cli/03-quality.md`, `docs/adr/0045-checks-only-the-operator-s-machine-can-run.md`,
   `tests/test_runs_on.py` (new).
 - **The grammar.** `tasklog.checks` gives each check's `runs_on`; `ccp tasks check` fails on a
   `runs_on:` line with another value, or not right after `setup:`, naming the task and the check.
   `dry run: n/a — runs on the operator's machine` is an accepted dry-run line.
+- **Dry run.** `ccp tasks dry-run` lists a marked check as not run, and `--write` leaves its dry-run
+  line as it is.
 - **`ccp tasks checks <task_id> [--json]`**: the task's checks at the checkout, each id with its
   `runs_on` (null when unmarked); exit 2 on an unknown task. `docs/cli/03-quality.md` gains the row.
 - **The skill and the template** show one marked check, say it holds only the steps the operator's
@@ -61,17 +70,20 @@ Measured at `8aefa59`.
   text is checked with `bin/ccp verify spec-text <task>`.
 - ADR-0045 D1 recorded `built`.
 - **Tests** in `tests/test_runs_on.py` (new): the mark read; another value, and the mark after
-  `steps:`, refused with the check's id; the n/a dry-run line accepted; `ccp tasks checks --json`.
+  `steps:`, refused with the check's id; the n/a dry-run line accepted; `ccp tasks checks --json`;
+  `ccp tasks dry-run --write` on a task with a marked check runs only the other checks and leaves the
+  marked check's line unchanged.
 
 ### SPEC changes (signed in the brief, §31)
 
-**a. §5.5, the dod_checks row.**
+**a. §5.5, the dod_checks row (the end of its dry-run sentence).**
 
 CURRENT (`docs/spec/01-model.md` at `8aefa59`):
-> | `dod_checks` | task writer | 1..6 checks, each `` - id: `kind-NN` `` then `story`, `setup`, `steps`, `expect`; a check whose steps run a command carries `dry run (<commit>): …` or `dry run: n/a — <reason>` where dry runs are required (§21.1). No soft language |
+> where dry runs are required (§21.1).
 
-PROPOSED:
-> | `dod_checks` | task writer | 1..6 checks, each `` - id: `kind-NN` `` then `story`, `setup`, `steps`, `expect`; a check whose steps run a command carries `dry run (<commit>): …` or `dry run: n/a — <reason>` where dry runs are required (§21.1). A check the workers cannot take carries `runs_on: operator-machine` on the line after `setup:` (§15.8). No soft language |
+PROPOSED: (same line, after it)
+> A check the workers cannot take carries `runs_on: operator-machine` on the line after `setup:`
+> (§15.8); `ccp tasks dry-run` does not run it and leaves its dry-run line as it is.
 
 **b. §21.1, a failure after the check-count bullet.**
 
@@ -79,9 +91,7 @@ CURRENT (`docs/spec/03-quality.md` at `8aefa59`):
 > - other than 1..6 unique `` - id: `kind-NN` `` checks, or soft language inside
 >   `## dod_checks` (dry-run lines are left out of that scan, since they quote output);
 
-PROPOSED:
-> - other than 1..6 unique `` - id: `kind-NN` `` checks, or soft language inside
->   `## dod_checks` (dry-run lines are left out of that scan, since they quote output);
+PROPOSED: (new lines after it)
 > - a `runs_on:` line with a value other than `operator-machine`, or not right after the check's
 >   `setup:` line (§5.5);
 

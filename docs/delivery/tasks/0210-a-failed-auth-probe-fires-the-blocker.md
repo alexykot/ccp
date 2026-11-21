@@ -48,7 +48,7 @@ Measured at `1b734dd`.
   while the login is still expired fires once per retry; the runner's definition says to wait for
   the lead's word, not to retry in a loop.
 - `tests/test_notify.py` holds the checkpoint's notice tests
-  (`grep -n 'def test_a_claim' tests/test_notify.py` at `1b734dd`: two tests) and its `ChannelFixture`
+  (`grep -n 'def test_a_claim' tests/test_notify.py` at `1b734dd`: three tests) and its `ChannelFixture`
   records each notice the product's command receives.
 - No R14 task edits `ccp/lifecycle.py` `claim` or the passages below: 0203 edits `claim`'s work.json
   update (`"waiting_on": None`), a different statement.
@@ -60,15 +60,20 @@ Measured at `1b734dd`.
   `tests/test_notify.py`.
 - **The claim.** On a failed probe, `claim` calls `notify.fire(cfg, q, "blocker", task_id=tid,
   reason="reauth")` before it raises exit 8. A `notify:` warning the fire returns is appended to the
-  refusal's message, as the checkpoint's is. Exit 8, its message and `auth/status.json` are otherwise
-  unchanged. A resumed claim runs no probe and fires nothing, as today.
+  refusal's message, as the checkpoint's is. The exit-8 message no longer says to set `waiting_on
+  reauth` (no task is held): it says the operator was notified and to raise a `reauth` gate to the
+  lead (SPEC §30), for example `auth probe(s) failed: <ids>. The operator was notified (blocker);
+  raise a reauth gate to the lead (SPEC §30); ccp auth check shows each`. Exit 8 and
+  `auth/status.json` are otherwise unchanged. A resumed claim runs no probe and fires nothing, as
+  today.
 - **The runner's definition**, step 4 **Auth**: the claim has already fired the operator's `blocker`
   notice; the runner still raises the `reauth` gate to the lead, passes on any `notify:` warning,
   sets no `reauth` wait (it holds no task) and waits for the lead's word before claiming again.
 - `ccp/notify.py`'s module docstring names the refused claim among the `blocker` triggers.
 - **Tests** in `tests/test_notify.py`, on `ChannelFixture`:
   - a claim refused by a failing probe exits 8 and the product's command receives one `blocker` line
-    naming the task, with reason `reauth`;
+    naming the task, with reason `reauth`; the refusal's message says the operator was notified and
+    names the `reauth` gate, and does not say `waiting_on`;
   - with probes that pass, the claim fires no notice;
   - a failing notify command adds its `notify:` warning to the exit-8 refusal.
 
@@ -115,7 +120,7 @@ PROPOSED:
   steps:
     1. Run `python3 -B -m unittest -v tests.test_notify 2>&1 | tail -40`.
   expect: exit 0, with the three Scope tests listed `ok`, among them a test whose name holds
-    `auth` and asserts one `blocker` line with reason `reauth`.
+    `auth` and asserts one `blocker` line with reason `reauth` and the refusal's new wording.
   dry run (`1b734dd`): `python3 -B -m unittest -q tests.test_notify` runs 30 tests, OK; no auth test exists yet.
 
 - id: `au-02`
@@ -139,9 +144,9 @@ PROPOSED:
   story: As a runner, my definition says the notice has already gone.
   setup: a checkout of the PR head.
   steps:
-    1. Run `grep -c 'blocker' plugin/agents/delivery-runner.md`.
-  expect: prints 2 or more (the Auth step names the `blocker` notice).
-  dry run (`8aefa59`): prints 1.
+    1. Run `grep -A6 '\*\*Auth' plugin/agents/delivery-runner.md | grep -c blocker`.
+  expect: prints 1 or more (the Auth step names the `blocker` notice).
+  dry run (`8aefa59`): prints 0.
 
 - id: `suite-01`
   story: As the plane, nothing else broke.

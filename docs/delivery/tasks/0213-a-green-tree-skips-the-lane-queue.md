@@ -4,13 +4,14 @@ title: Confirming a head whose gate is already recorded green does not queue for
 status: pending
 kind: feature
 depends_on: ["0199-suite-wait-auto"]
+clashes_with: ["0238-the-runner-runs-marked-checks-before-verify"]
 spec_refs: ["S14", "S15", "S16"]
 review_point: R15
 paths: ["ccp/suite.py", "docs/spec/02-delivery.md", "tests/test_parallel_lanes.py"]
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0213-a-green-tree-skips-the-lane-queue
@@ -35,7 +36,7 @@ Measured at `1b734dd`.
   first try and the wait loop). Nothing about the tree is consulted.
 - **No tree is recorded.** The `started` row holds `suite_id`, `at`, `lane`, `cmd`, `argc`, `output`
   and the bound run's fields (`git grep -n '"op": "started"' -- ccp/suite.py` at `1b734dd`: one line);
-  `git grep -n '"tree"' -- ccp/suite.py` at `1b734dd` finds no line. The `ended` row has `exit_code`,
+  `git grep -n '"tree":' -- ccp/suite.py` at `1b734dd` finds no line. The `ended` row has `exit_code`,
   `tests` and `interrupted`, which tell a passing run.
 - **ADR-0010** has the verifier run the gate itself. The proposal also asked that a confirmation be
   answered from the recorded result alone; that would replace the verifier's run and is not done
@@ -46,6 +47,11 @@ Measured at `1b734dd`.
 - **Depends on 0199**, which changed the same §16.6 paragraph and the same lock code in `run` (`--wait
   auto`); it merged at `9cec44f`. The CURRENT below quotes a sentence 0199 did not change, verbatim at
   `8aefa59` too.
+- **`tree`, not `head`.** 0238 adds `head` (`HEAD`) to the same `started` row, under the same
+  nothing-to-commit condition, because a verdict is keyed by the commit. This task keys on the tree:
+  two commits with the same tree (a catch-up merge that changed nothing the run reads, a rebase that
+  only rewrote messages) are the same test input, which a commit sha would miss. The two tasks clash
+  on the row; neither field replaces the other.
 - `tests/test_parallel_lanes.py` holds the exclusive-lane tests (`python3 -B -m unittest tests.test_parallel_lanes`: 8 tests at `1b734dd`, 14 at
   `8aefa59` after 0199).
 
@@ -86,7 +92,7 @@ PROPOSED:
 > A lock whose holder process is gone is
 > taken over with a warning. A run whose clean checkout (nothing to commit, untracked files included)
 > has the tree of a passing run of the same lane and command already recorded in the queue does not
-> take the lock: it runs at once, recorded `lane_skipped: "green_tree"` with that run's `green_from`,
+> take the lock: it runs at once, recorded `lane_skipped: "green_tree"` with `green_from` naming that run,
 > since the product's test cache answers most of it; a run bound to a task whose gate is cold (§15.3)
 > takes the lock as any other. The verifier still runs its gate (§15.3).
 

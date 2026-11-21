@@ -1105,7 +1105,7 @@ tasks:
   - id: 0221-workers-reach-the-pr-host-through-ccp-pr
     status: pending
     title: The worker prompts and the runner's brief reach the PR host through ccp pr, never gh
-    depends_on: [0220-one-pr-host-interface-with-the-github-adapter]
+    depends_on: [0220-one-pr-host-interface-with-the-github-adapter, 0240-plane-workers-run-the-head]
     path: tasks/0221-workers-reach-the-pr-host-through-ccp-pr.md
   - id: 0222-a-product-without-github-uses-the-local-pr-host
     status: pending
@@ -1120,7 +1120,7 @@ tasks:
   - id: 0224-checks-only-the-operator-s-machine-can-run
     status: pending
     title: A dod_check the workers cannot take is marked runs_on operator-machine, and the task check reads the mark
-    depends_on: [0234-one-check-parser-and-one-file-at-rev-reader]
+    depends_on: [0234-one-check-parser-and-one-file-at-rev-reader, 0244-tasks-check-runs-dry-runs]
     path: tasks/0224-checks-only-the-operator-s-machine-can-run.md
   - id: 0225-decisions-may-depend-on-other-adrs-decisions
     status: pending
@@ -1150,17 +1150,17 @@ tasks:
   - id: 0230-the-lead-decides-each-follow-up
     status: pending
     title: The lead records each follow-up's outcome, and ccp tasks follow-ups lists them
-    depends_on: []
+    depends_on: [0234-one-check-parser-and-one-file-at-rev-reader]
     path: tasks/0230-the-lead-decides-each-follow-up.md
   - id: 0231-a-review-point-does-not-close-over-an-undecided-follow-up
     status: pending
     title: A review point recorded closed while a follow-up is undecided fails the lead's checks
-    depends_on: [0230-the-lead-decides-each-follow-up]
+    depends_on: [0223-a-follow-up-is-tracked-not-left-in-notes, 0230-the-lead-decides-each-follow-up]
     path: tasks/0231-a-review-point-does-not-close-over-an-undecided-follow-up.md
   - id: 0232-orientation-shows-the-open-follow-ups
     status: pending
     title: The lead's orientation shows how many follow-ups are open, and the command that lists them
-    depends_on: [0229-orientation-extras-from-one-ccp-call, 0230-the-lead-decides-each-follow-up]
+    depends_on: [0223-a-follow-up-is-tracked-not-left-in-notes, 0229-orientation-extras-from-one-ccp-call, 0230-the-lead-decides-each-follow-up]
     path: tasks/0232-orientation-shows-the-open-follow-ups.md
   - id: 0233-briefs-point-at-the-evidence-rules
     status: pending
@@ -1170,12 +1170,12 @@ tasks:
   - id: 0234-one-check-parser-and-one-file-at-rev-reader
     status: pending
     title: One dod_check parser and one task-file-at-rev reader in tasklog, used by every current site
-    depends_on: []
+    depends_on: [0244-tasks-check-runs-dry-runs]
     path: tasks/0234-one-check-parser-and-one-file-at-rev-reader.md
   - id: 0235-one-approval-judge-for-merge-ok-and-verify-check
     status: pending
     title: merge-ok and ccp verify check judge a record with one function, and verify check refuses a verdict with no head
-    depends_on: []
+    depends_on: [0226-one-pr-host-module-github-only]
     path: tasks/0235-one-approval-judge-for-merge-ok-and-verify-check.md
   - id: 0236-claim-keeps-no-copy-of-the-checks
     status: pending
@@ -1190,12 +1190,12 @@ tasks:
   - id: 0238-the-runner-runs-marked-checks-before-verify
     status: pending
     title: The runner runs each marked check at the head it hands the verifier, and verify does not launch without it
-    depends_on: [0224-checks-only-the-operator-s-machine-can-run, 0233-briefs-point-at-the-evidence-rules, 0234-one-check-parser-and-one-file-at-rev-reader]
+    depends_on: [0224-checks-only-the-operator-s-machine-can-run, 0233-briefs-point-at-the-evidence-rules, 0234-one-check-parser-and-one-file-at-rev-reader, 0240-plane-workers-run-the-head]
     path: tasks/0238-the-runner-runs-marked-checks-before-verify.md
   - id: 0239-one-adr-reference-parser-and-a-decision-index
     status: pending
     title: One ADR-reference parser in refs, and one pure decision index that every build-state reader uses
-    depends_on: []
+    depends_on: [0202-forecast-and-health-report-task-supply]
     path: tasks/0239-one-adr-reference-parser-and-a-decision-index.md
   - id: 0240-plane-workers-run-the-head
     status: pending

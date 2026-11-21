@@ -122,8 +122,7 @@ PROPOSED:
 CURRENT (`docs/spec/01-model.md` at `8aefa59`):
 > | `worktrees`, `env`, `merge`, `auth_check` | worktree links and environment hooks (`ccp wt`), the merge step (`merge.command`) and the paths that do not make a head behind the tip (`merge.behind_tip_ignore`), credential probes (`auth_check.probes`) | §12, §15, §16, §30 |
 
-PROPOSED:
-> | `worktrees`, `env`, `merge`, `auth_check` | worktree links and environment hooks (`ccp wt`), the merge step (`merge.command`) and the paths that do not make a head behind the tip (`merge.behind_tip_ignore`), credential probes (`auth_check.probes`) | §12, §15, §16, §30 |
+PROPOSED: (new lines after it)
 > | `pr_host` | the PR host's adapter (`adapter`: `github`, the default, or `local`, ADR-0040 D5) | §4.5, §15.5 |
 
 - **Out:** GitLab and Gitea adapters (ADR-0040 D4), repository settings (ADR-0029 D3), a web view of

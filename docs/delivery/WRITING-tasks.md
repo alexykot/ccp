@@ -12,8 +12,4 @@ this product. Where a rule here is stricter, it wins.
   (`tests/helpers.py`), never a live queue, a product repo, GitHub or launchd.
 - **A SPEC change cites its rule and the operator's approval** (SPEC §31). The task carries the
   CURRENT → PROPOSED text.
-
-- **A check runs the head's own `ccp`** (house rule E21): `bin/ccp`, or `ccp wt exec … --`, never
-  `ccp` on PATH, which is the released plane and lacks what the task adds. Signed SPEC text is
-  checked with `bin/ccp verify spec-text <task>`; a grep of a doc pins one token, never a sentence or
-  a table row.
+- **A check runs the head's own `ccp`** (house rule E21).

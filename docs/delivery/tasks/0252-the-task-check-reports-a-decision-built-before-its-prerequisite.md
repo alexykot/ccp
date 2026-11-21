@@ -4,7 +4,7 @@ title: ccp tasks check reports a pending task that could build a decision before
 status: pending
 kind: feature
 depends_on: ["0251-adr-check-holds-the-requires-links", "0250-generic-cycles-and-closure-helpers"]
-clashes_with: ["0224-checks-only-the-operator-s-machine-can-run", "0231-a-review-point-does-not-close-over-an-undecided-follow-up"]
+clashes_with: ["0224-checks-only-the-operator-s-machine-can-run", "0231-a-review-point-does-not-close-over-an-undecided-follow-up", "0244-tasks-check-runs-dry-runs"]
 spec_refs: ["S21"]
 adr_refs: ["0046 D3"]
 review_point: R15
@@ -48,8 +48,11 @@ Measured at `8aefa59`.
   mode order tasks by `depends_on`; neither mentions `requires`.
 - **Limit** (ADR-0046 Notes): a decision built by several tasks reads `built` after the first merges;
   the writer adds an explicit `depends_on` for the rest.
-- §21.1's paragraph is edited only here; 0224 adds a failure bullet above it and 0231 a sentence to
-  the warnings paragraph, hence the clashes.
+- §21.1's "It warns" paragraph is extended by R16's 0244 (a stale-Context warning) and 0231 (a
+  sentence at its end); 0224 adds a failure bullet in the list above it. This task's text is a
+  paragraph of its own between the failure list and the warnings, since it is a failure or a warning
+  by `adr.strict`; the passage is only that paragraph, so it is found in any merge order. The clashes
+  stay: the four tasks edit neighbouring lines of §21.1.
 
 ## Scope
 
@@ -72,18 +75,17 @@ Measured at `8aefa59`.
 
 ### SPEC changes (signed in the brief, §31)
 
-**a. §21.1, the warnings paragraph.**
+**a. §21.1, a paragraph after the failure list (before the warnings paragraph).**
 
 CURRENT (`docs/spec/03-quality.md` at `8aefa59`):
-> It warns, without failing, when a task not yet done names a later task as a prerequisite in prose:
-> the prerequisite goes in `depends_on` instead.
+> - with a review-point register, an unknown point (§22.3); with `shape_adrs`, an unshaped ADR
+>   citation (§19.6).
 
-PROPOSED:
-> It warns, without failing, when a task not yet done names a later task as a prerequisite in prose:
-> the prerequisite goes in `depends_on` instead. It reports a pending task citing a decision whose
-> prerequisite (`requires`, resolved through `retired by`, §6.5) is neither recorded `built` or
-> `live` nor cited by the task or a task in its `depends_on` closure, naming the remedies; a failure
-> under `adr.strict`, a warning otherwise. `ccp tasks next` does not read `requires`.
+PROPOSED: (a new paragraph after it)
+> It reports a pending task citing a decision whose prerequisite (`requires`, resolved through
+> `retired by`, §6.5) is neither recorded `built` or `live` nor cited by the task or a task in its
+> `depends_on` closure, naming the remedies; a failure under `adr.strict`, a warning otherwise. `ccp
+> tasks next` does not read `requires`.
 
 - **Out:** a runtime hold in `ccp tasks next` or the plan, the board's dependency graph, and the
   verifier gate's handling of tip failures (the operator's decision).

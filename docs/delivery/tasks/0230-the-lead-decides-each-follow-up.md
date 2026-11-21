@@ -3,7 +3,7 @@ task_id: 0230-the-lead-decides-each-follow-up
 title: The lead records each follow-up's outcome, and ccp tasks follow-ups lists them
 status: pending
 kind: feature
-depends_on: []
+depends_on: ["0234-one-check-parser-and-one-file-at-rev-reader"]
 spec_refs: ["S13"]
 adr_refs: ["0044 D2", "0044 D4"]
 review_point: R15
@@ -35,9 +35,12 @@ Measured at `8aefa59`.
   never names a command that is not built.
 - **Where ids live.** `ccp/refs.py` holds every id pattern (`ccp/CLAUDE.md`); the follow-up id
   `<run_id>#<n>` joins the run id pattern there (the shape's single sources).
-- **A task at the tip.** D2's `--task` names a task in the task log at `origin/<integration>`; no
-  helper reads the task log at a ref today (the shape's hot spots), so `tasklog` gains
-  `task_ids_at(cfg, rev)`.
+- **A task at the tip.** D2's `--task` names a task in the task log at `origin/<integration>`.
+  `tasklog.statuses_at(cfg, ref, ids)` already reads named task files at a ref
+  (`grep -c 'def statuses_at' ccp/tasklog.py` at `8aefa59`: 1), and 0234 adds `tasklog.text_at`, the
+  one file-at-rev reader (listed in `depends_on`); this task builds `tasklog.task_ids_at(cfg, rev)` (the
+  task ids present at `rev`, for a `NNNN` given to `--task`) on `git ls-tree` and checks the full id
+  with `statuses_at`, never a reader of its own.
 - **Proposals.** `ccp/plane.py` `proposals(q)` reads `plane/proposals.jsonl`.
 - **Who runs it.** Only the lead: the same actor check `ccp tasks sign-off` uses.
 
@@ -54,6 +57,8 @@ Measured at `8aefa59`.
   refuses (exit 2, nothing written): an id resolving to no follow-up; `--task` naming no task at
   `origin/<integration>`; `--proposal` naming no row of `plane/proposals.jsonl`; an empty `--drop`
   reason; a caller other than the lead. Run again, it replaces the outcome.
+- **`tasklog.task_ids_at(cfg, rev) -> list[str]`**: the task ids whose files exist at `rev`; a `--task`
+  given as `NNNN` resolves through it, then `statuses_at` confirms it.
 - **`ccp tasks follow-ups [--open] [--json]`**: one line per follow-up,
   `<id> <task_id> <outcome or open>: <text>`, then `<n> open`. Exit 0.
 - ADR-0044 D2 recorded `built`; D4 stays `not_built` until its orientation line lands.

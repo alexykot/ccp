@@ -3,7 +3,7 @@ task_id: 0235-one-approval-judge-for-merge-ok-and-verify-check
 title: merge-ok and ccp verify check judge a record with one function, and verify check refuses a verdict with no head
 status: pending
 kind: feature
-depends_on: []
+depends_on: ["0226-one-pr-host-module-github-only"]
 spec_refs: ["S15"]
 review_refs: ["sh-20261121T000350Z-5ef1#F06"]
 review_point: R15
@@ -35,6 +35,9 @@ Measured at `8aefa59`.
   `test_a_missing_head_sha_passes_check_and_a_different_one_is_refused`
   (`grep -c 'def test_a_missing_head_sha_passes_check' tests/test_verify.py` at `8aefa59`: 1) expects
   exit 0 for a verdict with no head; this task changes that expectation to a refusal.
+- **Depends on 0226**, which gives `ccp/prhost.py` the `PrFacts` value and splits `merge_ok` into the
+  read and a decision on plain values (`merge_ok_reasons(facts, rec, …)`); the judge is built on that
+  split, so it never reads the PR host itself.
 - **No SPEC change.** §15.4 already says `record` refuses "an `approve` that `merge-ok` would refuse
   (… no `head_sha` …)" (`grep -c 'no .head_sha., or no .gate.' docs/spec/02-delivery.md` at `8aefa59`:
   1), and §15.5 names `verify check` as a merge step's judge; the change brings `verify check` to the
@@ -43,14 +46,16 @@ Measured at `8aefa59`.
 ## Scope
 
 - **In:** `ccp/verify.py`, `tests/test_verify.py`, `tests/test_verify_judge.py` (new).
-- **`judge(queue, rec, head) -> list[str]`** on a loaded record: the approve rule, the head (the
-  record's `head_sha` or a recorded catch-up head), the gate and the producers. `merge_ok` calls it
-  after reading the PR; `refusal` calls it in place of its own chain; `write_record`'s approve checks
-  call it where they overlap.
+- **`judge(queue, rec, head, facts: PrFacts | None) -> list[str]`** on plain values: the approve
+  rule, the head (the record's `head_sha` or a recorded catch-up head), the gate and the producers,
+  and, when `facts` is given, the PR's own facts (`merge_ok_reasons`' checks on state and head).
+  `merge_ok_reasons` becomes `judge` with the facts `merge_ok` read; `refusal` (`ccp verify check`,
+  which reads no PR host) calls it with `facts=None` in place of its own chain; `write_record`'s
+  approve checks call it where they overlap.
 - `ccp verify check` refuses a record with no `head_sha`, naming it.
-- **Tests** in `tests/test_verify_judge.py` (new): `judge` on plain records (approved at the head; no
-  head; another head; a failed gate run; a producer refusal); `verify check` and `merge-ok` giving the
-  same refusal for each. The `tests/test_verify.py` test above expects the refusal.
+- **Tests** in `tests/test_verify_judge.py` (new): `judge` on plain records and `PrFacts` values
+  (approved at the head; no head; another head; a failed gate run; a producer refusal; a closed PR);
+  `verify check` and `merge-ok` giving the same refusal for each record refusal. The `tests/test_verify.py` test above expects the refusal.
 - **Out:** the marked-check refusal (0237), `verify check`'s future (the operator's decision under
   ADR-0040's shape).
 
