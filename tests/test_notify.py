@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ccp import config, tasklog
+from ccp import config, lifecycle, tasklog
 from tests import test_sandbox
 from tests.helpers import Product, machine_file
 from tests.test_toolkit import ToolkitFixture, git
@@ -155,6 +155,38 @@ class Channel(ChannelFixture, unittest.TestCase):
         machine_file(self, allowance_cmd=f"cat '{reading}'", allowance_stop_weekly=80)
         self.assertEqual(self.ccp("tasks", "claim", "0002", root=self.main)[0], 0)
         self.assertEqual(sent(self.out), [])
+
+    # ------------------------------------------------------------------ auth probe
+
+    def test_a_claim_refused_by_a_failed_auth_probe_notifies_a_reauth_blocker(self):
+        self.set_plane(auth_check={"probes": [{"id": "token", "cmd": "exit 1"}]})
+        code, _, _, err = self.ccp("tasks", "claim", "0002", root=self.main)
+        self.assertEqual(code, lifecycle.EXIT_AUTH, err)
+        self.assertEqual([(r[0], r[2], r[4]) for r in sent(self.out)], [("blocker", "0002-second", "reauth")])
+        refusal = err.strip().splitlines()[-1]  # the notice is printed first; the refusal is the last line
+        self.assertIn("token (exit 1)", refusal)
+        self.assertIn("notified", refusal)
+        self.assertIn("reauth gate", refusal)
+        self.assertNotIn("waiting_on", refusal)
+
+    def test_a_claim_whose_auth_probes_pass_notifies_nothing(self):
+        self.set_plane(auth_check={"probes": [{"id": "token", "cmd": "true"}]})
+        self.assertEqual(self.ccp("tasks", "claim", "0002", root=self.main)[0], 0)
+        self.assertEqual(sent(self.out), [])
+
+    def test_a_resumed_claim_runs_no_probe_and_notifies_nothing(self):
+        self.assertEqual(self.ccp("tasks", "claim", "0002", root=self.main)[0], 0)
+        self.set_plane(auth_check={"probes": [{"id": "token", "cmd": "exit 1"}]})
+        code, body, out, err = self.ccp("tasks", "claim", "0002", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(body["resumed"], body)
+        self.assertEqual(sent(self.out), [])
+
+    def test_a_failing_command_at_a_failed_auth_probe_adds_its_warning_to_the_refusal(self):
+        self.set_plane(auth_check={"probes": [{"id": "token", "cmd": "exit 1"}]}, notify={"command": "exit 3"})
+        code, _, _, err = self.ccp("tasks", "claim", "0002", root=self.main)
+        self.assertEqual(code, lifecycle.EXIT_AUTH, err)
+        self.assertIn("notify:", err.strip().splitlines()[-1])
 
     # ------------------------------------------------------------------ review point done
 

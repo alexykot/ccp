@@ -85,8 +85,8 @@ ADR-0026 carries the reasons.
 - The product declares its credential checks as `plane.json` `auth_check.probes` (`[{id, cmd}]`;
   exit 0 means the credential works; a probe never prints a secret). They run before each new task.
 - `ccp tasks claim` runs the probes before each new task and refuses with exit 8 when one fails: no
-  task is taken, and the runner raises it to the lead as a `reauth` gate. `ccp auth check` runs them on
-  demand.
+  task is taken, the claim fires the operator's `blocker` notice with the reason `reauth` (§3.6), and
+  the runner raises it to the lead as a `reauth` gate. `ccp auth check` runs them on demand.
 - The status is kept in the runtime `auth/status.json`; a probe's output is withheld when it looks
   like a credential.
 - An expired credential sets `waiting_on=reauth`, raised to the lead.

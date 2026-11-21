@@ -153,7 +153,7 @@ These are durable lead state in `work.json`, not messages, which can arrive afte
 ### 10.5 Claim and close
 
 **`ccp tasks claim <id> [--holder <slot>]`** runs the product's auth probes first
-(`auth_check.probes`, §30) and exits 8 when one fails: no task is taken, and the runner raises a `reauth` gate to the lead (probes: `[{id, cmd}]`, each given 60 seconds).
+(`auth_check.probes`, §30) and exits 8 when one fails: no task is taken, the claim fires the `blocker` notice (§3.6), and the runner raises a `reauth` gate to the lead (probes: `[{id, cmd}]`, each given 60 seconds).
 Before the probes, a new claim of a task that declares a `brief` sign-off with none recorded, or with a
 stale one (its head lacks the task file's last change), or whose `sign_off:` value is malformed, exits
 3, naming it; no task is taken (§3.5).

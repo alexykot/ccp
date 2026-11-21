@@ -1,7 +1,7 @@
 ---
 task_id: 0210-a-failed-auth-probe-fires-the-blocker
 title: A claim refused by a failed auth probe fires the blocker notice
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3", "S10", "S30"]
@@ -10,7 +10,7 @@ paths: ["ccp/lifecycle.py", "ccp/notify.py", "docs/spec/01-model.md", "docs/spec
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0210-a-failed-auth-probe-fires-the-blocker
@@ -158,4 +158,25 @@ PROPOSED:
 
 ## Implementation notes
 
+- `ccp/lifecycle.py` `claim`: on a failed probe it calls `notify.fire(cfg, q, "blocker", task_id=tid,
+  reason="reauth")` and then raises exit 8. The message now reads `auth probe(s) failed: <ids>. The
+  operator was notified (blocker); raise a reauth gate to the lead (SPEC §30); ccp auth check shows
+  each`, with the fire's first `notify:` warning appended after a `. ` as the checkpoint does. The probes,
+  `auth/status.json`, exit 8 and the resumed claim (no probe, no notice) are unchanged.
+- `ccp/notify.py`: the module docstring names the refused claim among the `blocker` triggers.
+- `plugin/agents/delivery-runner.md` step 4 **Auth**: the notice has already gone; raise the `reauth`
+  gate, pass on a `notify:` warning, set no wait, wait for the lead's word before claiming again.
+- SPEC §3.6, §10.5 and §30.1 carry the signed text (a, b, c).
+- Three tests in `tests/test_notify.py` (`Channel`, on `ChannelFixture`): the refused claim's one
+  `blocker` line with reason `reauth` and the new wording, no notice when the probes pass, and a
+  failing notify command's warning on the refusal.
+- Fix round 2 (review MINOR and NIT 3):
+  - `queue/README.md` **Auth**: the passage still told the runner to set `waiting_on=reauth`, which
+    this change made false; it now says the claim refuses with exit 8 and fires the operator's
+    `blocker` notice, and the runner raises a `reauth` gate to the lead.
+  - `tests/test_notify.py`: a fourth test pins that a resumed claim runs no probe and fires no notice
+    (claim, then a failing probe, then the same claim again: resumed, exit 0, nothing sent).
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #261 head `8d6e339` (squash `837329f`): APPROVE. Passed: au-01, au-02, au-03, au-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0210-a-failed-auth-probe-fires-the-blocker.json.
+
