@@ -150,5 +150,14 @@ PROPOSED: (a new paragraph after it)
   that cites the prerequisite, as D3 words it.
 - The line names the task by its id, not its file, since the function reads plain values.
 - ADR-0046 D3 recorded `built`.
+- Fix round 1 (review MINOR 1, 2, NIT 1):
+  - A ref naming the ADR's file (`docs/adr/0046-x.md`) cites the whole ADR, as `adr.untasked` reads
+    it: the one predicate is `adr.cites_whole_adr`, which both `_cited_decisions` and `untasked` call.
+  - A `dropped` task cites no decision here either, as in `untasked`: it neither clears the report
+    from the closure nor is named as the `depends_on` to add, so the remedy falls back to
+    `ccp adr decide` or a task that builds it. This replaces "whatever its status" above for dropped
+    tasks; a `done` task still counts.
+  - A comment says why `end.loop` stays beside `is_retired` (a looped chain ends at a retired
+    decision; the term names the chains left to `ccp adr check`).
 
 ## Verification notes

@@ -664,6 +664,13 @@ def decision_index(cfg: Config) -> DecisionIndex | None:
     return DecisionIndex.build(load(cfg)[0], refs.ids(cfg))
 
 
+def cites_whole_adr(r: refs.AdrRef, ids: refs.Ids) -> bool:
+    """A parsed `adr_refs` entry that cites its whole ADR (§7): no decision, and either nothing after the
+    number (`ADR-0040`, `0040`) or the ADR's file (`docs/adr/0040-x.md`). A section anchor
+    (`0040 Implementation 10`) is not one."""
+    return r.decision is None and (r.section is None or bool(ids.adr_file_re.match(Path(r.raw.strip()).name)))
+
+
 def unbuilt_cited(cfg: Config, tasks: list[dict[str, Any]]) -> list[str]:
     """`ccp tasks check`'s warning, before the gate (§15.4): on a task's branch (HEAD is
     `task/<id>`), each decision that task, not yet done, cites in `adr_refs` that this checkout's ADRs
@@ -953,7 +960,7 @@ def untasked(cfg: Config, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 continue
             if r.decision is not None:
                 cited.add((r.number, r.decision))
-            elif r.section is None or ids.adr_file_re.match(Path(str(ref).strip()).name):
+            elif cites_whole_adr(r, ids):
                 whole.add(r.number)
             # else a section anchor (`<n> Implementation 10`) cites no decision (§7)
     out: list[dict[str, Any]] = []

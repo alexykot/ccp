@@ -74,6 +74,22 @@ class RequiresReport(unittest.TestCase):
         # a section citation names no decision
         self.assertEqual(tasklog.requires_report([task("0002-b", ["0002 Context"])], self.idx, strict=False), [])
 
+    def test_a_citation_by_the_adr_file_cites_the_whole_adr(self):
+        lines = tasklog.requires_report([task("0002-b", ["docs/adr/0002-x.md"])], self.idx, strict=False)
+        self.assertEqual(len(lines), 1, lines)
+        self.assertIn("ADR-0001 D1", lines[0])
+        tasks = [task("0001-a", ["docs/adr/0001-x.md"]), task("0002-b", ["0002 D1"], ["0001-a"])]
+        self.assertEqual(tasklog.requires_report(tasks, self.idx, strict=False), [])
+
+    def test_a_dropped_task_neither_clears_the_report_nor_is_named(self):
+        in_closure = [task("0001-a", ["0001 D1"], status="dropped"), task("0002-b", ["0002 D1"], ["0001-a"])]
+        outside = [task("0001-a", ["0001 D1"], status="dropped"), task("0002-b", ["0002 D1"])]
+        for tasks in (in_closure, outside):
+            lines = tasklog.requires_report(tasks, self.idx, strict=False)
+            self.assertEqual(len(lines), 1, lines)
+            self.assertNotIn("0001-a", lines[0])
+            self.assertIn("`ccp adr decide 1 D1 built`", lines[0])
+
     def test_a_retired_prerequisite_resolves_to_its_replacement(self):
         idx = self.index(decision_adr(1, ["retired by ADR-0003 D1"]),
                          decision_adr(2, ["not_built"], ["D1 ADR-0001 D1"]),

@@ -1029,15 +1029,20 @@ def dependency_cycles(tasks: list[dict[str, Any]]) -> list[list[str]]:
 
 def _cited_decisions(t: dict[str, Any], index: DecisionIndex) -> list[tuple[int, str]]:
     """The decisions a task's `adr_refs` cite, in order, each once: `NNNN Dn` that decision, a whole ADR
-    (no decision, no section) each of its body decisions."""
+    (`adr.cites_whole_adr`: its id or its file) each of its body decisions, a section anchor none. A
+    `dropped` task cites none, as in `adr.untasked`."""
+    from ccp import adr  # noqa: PLC0415  (adr reads the task log)
+
     out: list[tuple[int, str]] = []
+    if canonical_status(t.get("status")) == "dropped":
+        return out
     for ref in _as_list(t.get("adr_refs")):
         r = index.ids.parse_adr_ref(ref)
         if r is None:
             continue
         if r.decision is not None:
             got = [(r.number, r.decision)]
-        elif not r.section:
+        elif adr.cites_whole_adr(r, index.ids):
             got = [(r.number, d["id"]) for d in index.decisions(r.number)]
         else:
             got = []
@@ -1049,8 +1054,8 @@ def requires_report(tasks: list[dict[str, Any]], index: DecisionIndex, strict: b
     """§21.1, a task that can run before a prerequisite of a decision it cites: for each pending task, each
     decision it cites and each `requires` prerequisite of it, resolved through `retired by`
     (`DecisionIndex.resolve`, §6.5), that is neither recorded `built` or `live` nor cited by the task or a
-    task in its `depends_on` closure, one line naming the task, the decision, the prerequisite and the
-    remedy. `index` is an `adr.DecisionIndex`; `strict` (`adr.strict`) makes the lines failures. A chain
+    task in its `depends_on` closure (a `dropped` task cites none), one line naming the task, the decision,
+    the prerequisite and the remedy. `index` is an `adr.DecisionIndex`; `strict` (`adr.strict`) makes the lines failures. A chain
     that loops or ends at a whole ADR or a retired decision, or a prerequisite its ADR does not hold, is
     `ccp adr check`'s to report (§6.7), not this one's."""
     ids = index.ids
@@ -1067,6 +1072,8 @@ def requires_report(tasks: list[dict[str, Any]], index: DecisionIndex, strict: b
         for n, dec in cited[tid]:
             for pn, pd in index.requires(n, dec):
                 end = index.resolve(pn, pd)
+                # a looped chain ends at a retired decision, so `is_retired` covers it too; `end.loop`
+                # says which chains are left to `ccp adr check`
                 if end.loop or end.decision is None or index.is_retired(end.adr, end.decision) \
                         or end.decision not in {x["id"] for x in index.decisions(end.adr)}:
                     continue
