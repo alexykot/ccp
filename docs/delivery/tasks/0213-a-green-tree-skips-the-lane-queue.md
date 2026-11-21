@@ -170,5 +170,12 @@ PROPOSED:
   keeps the lock; a `--cold` run of a green tree still skips the lock, since the signed text exempts only a
   cold-gate task.
 - SPEC §14.4 and §16.6 carry the signed text verbatim; the module docstring gained one clause.
+- Fix round 1 (review MINOR 1, MINOR 2, NIT 1): `checkout_tree` passes `--untracked-files=normal`, so a
+  `status.showUntrackedFiles=no` config no longer hides untracked files and lets such a checkout record a
+  `tree`; the e2e dirty-checkout test sets that config before its untracked file. The e2e failed-run test
+  now holds the lane and asserts busy after each case on the first tree (a failed run of the lane, a passing
+  run of another lane) and after the tree changes, so each case bites on its own. The tracked-edit case runs
+  on the gate lane, where a passing run of the clean tree is recorded, so its busy answer comes from the
+  dirty check rather than from the held lock alone.
 
 ## Verification notes
