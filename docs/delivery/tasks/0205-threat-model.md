@@ -1,7 +1,7 @@
 ---
 task_id: 0205-threat-model
 title: A threat model for the plane, and roadmap notes for a batching merge queue and seat isolation
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S2", "S15", "S23", "S30"]
@@ -9,7 +9,7 @@ review_point: R14
 paths: ["docs/design/threat-model.md", "docs/ROADMAP.md", "README.md"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0205-threat-model
@@ -185,3 +185,5 @@ trigger that would make it worth building.
     passes; the note says so.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #242 head `60ea499` (close's catch-up of the approved `d6bc604`, gate run st-20261121T030553Z-e8e6a4) (squash `543a21f`): APPROVE. Passed: tm-01, tm-02, tm-03, tm-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0205-threat-model.json.
+
