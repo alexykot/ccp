@@ -312,7 +312,7 @@ def _allowance(cfg: Config, q: Path) -> dict[str, Any]:
     """§25.3, §28: `ccp allowance status` and `weekly_over`, the claim's own judge on the latest good sample:
     {window, pct, checkpoint} of the first weekly window at or past its checkpoint with its reset ahead, or None."""
     a = usage.status(cfg, q, sample=False)
-    over = usage.weekly_over(cfg, q, usage.latest_good(q), usage.now())
+    over = usage.weekly_over(cfg, q, a["latest_good"], usage.now())  # the row the tile shows: one read of the log
     a["weekly_over"] = {"window": over[0]["name"], "pct": float(over[0]["pct"]), "checkpoint": over[1]} if over else None
     return a
 

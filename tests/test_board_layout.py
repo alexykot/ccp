@@ -104,11 +104,14 @@ class Layout(Fixture, unittest.TestCase):
         b = self.build()[0]
         html = self.page(b, "#tab=health")[0]
         head = html.split('<div class="pane grid"', 1)[0]
-        self.assertIn("Weekly: <b>95%</b> · 5-hour: 10% · read 2.0 h ago", html.split("<h2>Allowance</h2>", 1)[1])
-        tile = re.search(r'<div class="k">Weekly allowance</div><div class="v">(.*?)</div>.*?<div class="d">(.*?)</div>', head, re.S)
+        self.assertRegex(html.split("<h2>Allowance</h2>", 1)[1], r"Weekly: <b>95%</b> · 5-hour: 10% · read 2\.\d h ago")
+        tile = re.search(r'<div class="k">Weekly allowance</div><div class="v">(.*?)</div>(.*?)<div class="d">(.*?)</div>', head, re.S)
         self.assertEqual(tile.group(1), "95%")
-        self.assertIn("checkpoint 90%", tile.group(2))
-        self.assertIn("last good reading 2.0 h ago", tile.group(2))
+        self.assertIn('style="width:95%"', tile.group(2))  # the meter, from the good reading too
+        self.assertIn("checkpoint 90%", tile.group(3))
+        self.assertIn(" · resets ", tile.group(3))  # the good reading's weekly reset, not "reset unknown"
+        self.assertNotIn("reset unknown", tile.group(3))
+        self.assertRegex(tile.group(3), r"last good reading 2\.\d h ago")
         self.assertIn("allowance at the checkpoint: 95% of 90%", head)
         b["usage"]["usage_read"] = False  # no allowance command: the tile says so, as before
         head = self.page(b)[0].split('<div class="pane grid"', 1)[0]
