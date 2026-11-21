@@ -1,36 +1,20 @@
 """`ccp report <run_id> FILE` (SPEC §10): a worker submits its report, and the run closes.
 
-The report is the worker's own words plus a few lines `ccp` reads:
+The report is the worker's own words plus the lines and sections `ccp` reads. `SECTIONS` holds each of them:
+the phases that carry it, when it is required, what refuses a report without it, where it lands in the run's
+record, and the line the prompt asks for it in (§13.4). The rest of what a report meets is kept here:
 
-- `Outcome: done|blocked|failed`, always;
-- implement, fix, merge and ruling, when done: `PR: #<n>` and `Head: <sha>`;
-- review, when done: `Severity: BLOCKER=<n> MAJOR=<n> MINOR=<n> NIT=<n>`, and a `## Spec beyond intent`
-  section (§3.5): a `- ` line for each passage of normative text the PR adds or changes that the task's
-  brief and its ADRs do not call for, or the single line `none`; the run keeps only their count
-  (`spec_beyond_intent`);
-- a review with `mode: resolution` (a resolution review of a conflicted integration merge, §13.2), when done:
-  `Resolution: contained` or `Resolution: beyond <why>`, and `Affected checks: <id>, <id>` (or `none`), each id one
-  of the task file's dod_check ids; a report missing either line, or naming an unknown id, is refused
-  (exit 1, nothing written), and the run keeps `resolution` and `affected_checks`;
-- verify, when done: `Verdict: approve|reject` and `Head: <sha>`;
-- `Suite: <n> tests, <s> s`, when the worker ran the full suite; it may end `ran <r>, cached <c>`
-  (or `<r> modules ran, <c> cached`),
-  the units that ran and those a product's content-keyed test cache reported as hits. A
-  verify report on a product whose plane.json sets `verify.accept_cache` must give them (§15.3).
-  `Suite: from <suite_id>` takes them from that recorded `ccp suite run` of this run, and a report
+- `Suite: from <suite_id>` takes the numbers from that recorded `ccp suite run` of this run, and a report
   with no `Suite:` line gets them from the run's latest `full` or `gate` lane run when it passed
   (after a failed one, a warning and nothing filled; a failed run's numbers never reach `ccp health`
   from the record) (§14.1);
-- a `## Friction` section: `- ` lines, or `none`;
-- `Prompt: <token>`, always, the token on the last line of the run's prompt (`Prompt end: <token>`, §13.2).
-  A report with none, or with another token, is refused (exit 2) naming the run's: the prompt the worker
-  read was probably cut. A run opened before the token (none recorded on it) is not held to it;
+- a `Prompt:` token other than the run's is refused (exit 2) naming the run's: the prompt the worker
+  read was probably cut. A run opened before the token (none recorded on it) is not held to it (§13.2);
 - implement, fix, merge and ruling, when done, with a `Head:`: the plane computes the round's integration merges
   from git and keeps them on the run (`integration_merges`, `before_review`; `round_merges`, §11.1, §27.1); a
   round it cannot measure keeps none, and the report is never refused for it;
-- implement, fix, merge and ruling, when done: each verdict the product declares in plane.json
-  `report.required_fields`, as `<name>: <value>` with one of its declared values, on one line (§13.4). They are
-  kept on the run (`fields`) and shown in the review prompt; whether a verdict is right is not judged.
+- the declared verdicts (plane.json `report.required_fields`) are kept on the run (`fields`) and shown in the
+  review prompt; whether a verdict is right is not judged (§13.4).
 
 A report that lacks one is refused with what is missing, and nothing is written. An accepted one
 is stored at the run's report path, its friction lines are recorded for `ccp health` (what the
@@ -52,7 +36,7 @@ from __future__ import annotations
 import re
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, NamedTuple
 
 from ccp import health, runs
 from ccp.config import Config, lane_for
@@ -315,86 +299,192 @@ def resolution_lines(text: str, checks: list[str] | None) -> tuple[dict[str, Any
     return out, errs
 
 
-def parse(phase: str, text: str, accept_cache: bool = False,
-          declared: list[dict[str, Any]] | None = None, mode: str | None = None,
-          checks: list[str] | None = None) -> tuple[dict[str, Any], list[str]]:
-    errs: list[str] = []
+class Ctx(NamedTuple):
+    """What a section's reader knows besides the text: the round's phase and mode, whether its outcome is
+    done, and the checks that need the product's settings and the task file."""
+    phase: str
+    mode: str | None
+    done: bool
+    accept_cache: bool
+    declared: list[dict[str, Any]]
+    checks: list[str] | None
+
+
+Read = Callable[[str, Ctx], tuple[dict[str, Any], list[str]]]
+
+
+class Section(NamedTuple):
+    """One section or line of a worker's report (§13.4): what `parse` reads, what the prompt asks for, and where
+    it lands. `keys` are the names `parse` returns for it; `stored` the run record's fields they become
+    (`friction` becomes `friction_count`, its lines filed as health notes). `required` is `always`, `done` (when
+    the outcome is done) or `no`: a missing one is refused with `missing`. `read` is None for a line `submit`
+    checks before `parse` (`Prompt:`) or reads itself (`Affected checks:`, by `_read_resolution`). A section with
+    a `mode` is carried by that review mode only. `prompt` is the line the prompt asks for it in (`{runner}` and
+    `{each}` filled in), or None where another section's line names it."""
+    key: str
+    name: str
+    label: str
+    phases: tuple[str, ...]
+    required: str
+    secret: bool
+    keys: tuple[str, ...]
+    stored: tuple[str, ...]
+    read: Read | None
+    missing: str
+    prompt: str | None
+    mode: str | None = None
+
+
+def _line(key: str, rx: re.Pattern[str], lower: bool = False) -> Read:
+    def read(text: str, c: Ctx) -> tuple[dict[str, Any], list[str]]:
+        m = rx.search(text)
+        return ({key: m.group(1).lower() if lower else m.group(1)} if m else {}), []
+    return read
+
+
+def _read_severity(text: str, c: Ctx) -> tuple[dict[str, Any], list[str]]:
+    s = SEVERITY_RE.search(text)
+    parts = {k.upper(): int(v) for k, v in SEV_PART_RE.findall(s.group(1))} if s else {}
+    return ({"severity": parts} if set(parts) == {"BLOCKER", "MAJOR", "MINOR", "NIT"} else {}), []
+
+
+def _read_beyond(text: str, c: Ctx) -> tuple[dict[str, Any], list[str]]:
+    beyond = friction(text, BEYOND_RE)
+    return ({"spec_beyond_intent": len(beyond)} if beyond is not None else {}), []
+
+
+def _read_resolution(text: str, c: Ctx) -> tuple[dict[str, Any], list[str]]:
+    """`Resolution:` and `Affected checks:` are read together by `resolution_lines`, a done resolution review's."""
+    return resolution_lines(text, c.checks) if c.done else ({}, [])
+
+
+def _read_suite(text: str, c: Ctx) -> tuple[dict[str, Any], list[str]]:
     out: dict[str, Any] = {}
-    m = OUTCOME_RE.search(text)
-    if not m:
-        errs.append("no `Outcome: done|blocked|failed` line")
-    else:
-        out["outcome"] = m.group(1).lower()
-    done = out.get("outcome") == "done"
-    if phase in (*FIELD_PHASES, "verify"):
-        h = HEAD_RE.search(text)
-        if h:
-            out["head"] = h.group(1)
-        elif done:
-            errs.append("no `Head: <sha>` line")
-    if phase in FIELD_PHASES:
-        p = PR_RE.search(text)
-        if p:
-            out["pr"] = p.group(1)
-        elif done:
-            errs.append("no `PR: #<number>` line")
-    if phase == "verify":
-        v = VERDICT_RE.search(text)
-        if v:
-            out["verdict"] = v.group(1).lower()
-        elif done:
-            errs.append("no `Verdict: approve|reject` line")
-    if phase == "review":
-        s = SEVERITY_RE.search(text)
-        parts = {k.upper(): int(v) for k, v in SEV_PART_RE.findall(s.group(1))} if s else {}
-        if set(parts) == {"BLOCKER", "MAJOR", "MINOR", "NIT"}:
-            out["severity"] = parts
-        elif done:
-            errs.append("no `Severity: BLOCKER=<n> MAJOR=<n> MINOR=<n> NIT=<n>` line with all four counts")
-        beyond = friction(text, BEYOND_RE)
-        if beyond is not None:
-            out["spec_beyond_intent"] = len(beyond)
-        elif done:
-            errs.append("no `## Spec beyond intent` section: a `- ` line for each passage of normative text (SPEC, "
-                        "contract) the PR adds or changes that the task's brief and its ADRs do not call for, or the "
-                        "single line `none` (SPEC §3.5)")
-    if phase == "review" and mode == "resolution" and done:
-        got, rerrs = resolution_lines(text, checks)
-        out.update(got)
-        errs += rerrs
+    errs: list[str] = []
     s = SUITE_RE.search(text)
     if s:
         out["suite_tests"] = int(s.group(1))
         sec = float(s.group(2))
         out["suite_seconds"] = int(sec) if sec.is_integer() else sec
         line = text[s.start():].split("\n", 1)[0]
-        c = cache_counts(line)
-        if c:
-            out["suite_ran"], out["suite_cached"] = c
-        elif phase == "verify" and accept_cache:
+        n = cache_counts(line)
+        if n:
+            out["suite_ran"], out["suite_cached"] = n
+        elif c.phase == "verify" and c.accept_cache:
             errs.append(NO_CACHE_COUNTS)
     elif f := SUITE_FROM_RE.search(text):
         out["suite_from"] = f.group(1)
     elif u := SUITE_ANY_RE.search(text):
         out["suite_unparsed"] = u.group(0).strip()[:200]
-    if phase in FIELD_PHASES and done and declared:
-        out["fields"], ferrs = fields(text, declared)
-        errs += ferrs
-    fr = friction(text)
-    if fr is None:
-        errs.append("no `## Friction` section of `- ` lines, or the single line `none`")
-    else:
-        out["friction"] = fr
     return out, errs
 
 
-# The run record's fields a report's lines give (§13.4); a correction replaces them all.
-PARSED_KEYS = ("pr", "head", "verdict", "severity", "spec_beyond_intent", "suite_tests", "suite_seconds", "suite_ran",
-               "suite_cached", "suite_from", "suite_filled", "fields", "resolution", "affected_checks")
+def _read_fields(text: str, c: Ctx) -> tuple[dict[str, Any], list[str]]:
+    if not (c.done and c.declared):
+        return {}, []
+    got, errs = fields(text, c.declared)
+    return {"fields": got}, errs
+
+
+def _read_friction(text: str, c: Ctx) -> tuple[dict[str, Any], list[str]]:
+    fr = friction(text)
+    return ({"friction": fr} if fr is not None else {}), []
+
+
+_ALL = runs.PHASES
+_SAME = "   - `Outcome: done`, `Outcome: blocked` or `Outcome: failed`.\n"
+
+# The report's sections, in the order `parse` reads them and the prompt asks for them (the worker's report is
+# checked and asked for from this one table). A section is added here, with its reader.
+SECTIONS: tuple[Section, ...] = (
+    Section("outcome", "Outcome", "Outcome:", _ALL, "always", False, ("outcome",), ("outcome",),
+            _line("outcome", OUTCOME_RE, lower=True), "no `Outcome: done|blocked|failed` line", _SAME),
+    Section("head", "Head", "Head:", (*FIELD_PHASES, "verify"), "done", False, ("head",), ("head",),
+            _line("head", HEAD_RE), "no `Head: <sha>` line", None),
+    Section("pr", "PR", "PR:", FIELD_PHASES, "done", False, ("pr",), ("pr",), _line("pr", PR_RE),
+            "no `PR: #<number>` line",
+            "   - When done: `PR: #<number>` and `Head: <full sha of the PR head>`.\n"),
+    Section("verdict", "Verdict", "Verdict:", ("verify",), "done", False, ("verdict",), ("verdict",),
+            _line("verdict", VERDICT_RE, lower=True), "no `Verdict: approve|reject` line",
+            "   - When done: `Verdict: approve` or `Verdict: reject`, and `Head: <full sha you judged>`, the same as in "
+            "the record you wrote with `ccp verify record`.\n"),
+    Section("severity", "Severity", "Severity:", ("review",), "done", False, ("severity",), ("severity",),
+            _read_severity, "no `Severity: BLOCKER=<n> MAJOR=<n> MINOR=<n> NIT=<n>` line with all four counts",
+            "   - When done: `Severity: BLOCKER=<n> MAJOR=<n> MINOR=<n> NIT=<n>`, the counts of your findings.\n"),
+    Section("beyond", "Spec beyond intent", "## Spec beyond intent", ("review",), "done", False,
+            ("spec_beyond_intent",), ("spec_beyond_intent",), _read_beyond,
+            "no `## Spec beyond intent` section: a `- ` line for each passage of normative text (SPEC, contract) the PR "
+            "adds or changes that the task's brief and its ADRs do not call for, or the single line `none` (SPEC §3.5)",
+            "   - When done: a `## Spec beyond intent` section, a `- ` line for each passage of normative text "
+            "beyond the task's intent, or the single line `none` (SPEC §3.5).\n"),
+    Section("resolution", "Resolution", "Resolution:", ("review",), "no", False, ("resolution",), ("resolution",),
+            _read_resolution, "",
+            "   - When done: `Resolution: contained` (the resolution changes nothing of the task's own beyond the "
+            "conflict hunks) or `Resolution: beyond <why>`.\n", mode="resolution"),
+    Section("affected", "Affected checks", "Affected checks:", ("review",), "no", False, ("affected_checks",),
+            ("affected_checks",), None, "",
+            "   - When done: `Affected checks: <id>, <id>`, the task's dod_check ids the resolution can affect, "
+            "or `Affected checks: none`.\n", mode="resolution"),
+    Section("fields", "Declared verdicts", "report.required_fields", FIELD_PHASES, "no", False,
+            ("fields",), ("fields",), _read_fields, "",
+            "   - When done, a line for each verdict this product requires (plane.json `report.required_fields`), "
+            "with one of the values shown: {each}.\n"),
+    Section("prompt", "Prompt", "Prompt:", _ALL, "no", False, (), (), None, "",
+            "   - `Prompt: <token>`, the token on this prompt's last line (`Prompt end: <token>`), copied exactly. "
+            "`ccp report` refuses a report without it. If this prompt has no such last line, it reached you cut: tell "
+            "the runner, `{runner}`, before you do anything else.\n"),
+    Section("suite", "Suite", "Suite:", _ALL, "no", False,
+            ("suite_tests", "suite_seconds", "suite_ran", "suite_cached", "suite_from"),
+            ("suite_tests", "suite_seconds", "suite_ran", "suite_cached", "suite_from", "suite_filled"),
+            _read_suite, "",
+            "   - `Suite: <n> tests, <s> s`: the size and wall time of your last full test run (leave it out if you ran "
+            "none). Or write `Suite: from <suite_id>`, the id in that run's summary, and `ccp report` copies the numbers "
+            "from the record. Without a `Suite:` line, it takes them from this run's latest `full` or `gate` lane run "
+            "if that run passed. `ccp report` warns when no `ccp suite run` is recorded for this run.\n"),
+    Section("friction", "Friction", "## Friction", _ALL, "always", True, ("friction",), ("friction_count",),
+            _read_friction, "no `## Friction` section of `- ` lines, or the single line `none`",
+            "   - A `## Friction` section: one `- ` line per thing that cost you work the task did not need (a fact "
+            "changed in many places, a test that pinned wording, a doc that did not help, a rule that forced extra "
+            "work, a tool you needed and did not have), or the single line `none`. Facts, not complaints; never a "
+            "reason to do less.\n"),
+)
+
+
+def sections_for(phase: str, mode: str | None = None) -> list[Section]:
+    """The sections a report of `phase` (a review's `mode`) carries, in table order."""
+    return [s for s in SECTIONS if phase in s.phases and (s.mode is None or s.mode == mode)]
+
+
+def parse(phase: str, text: str, accept_cache: bool = False,
+          declared: list[dict[str, Any]] | None = None, mode: str | None = None,
+          checks: list[str] | None = None) -> tuple[dict[str, Any], list[str]]:
+    """The values a report gives (by `Section.keys`) and what it lacks: each section of `SECTIONS` that `phase`
+    carries is read, and a required one it does not give is an error with the section's `missing` text."""
+    errs: list[str] = []
+    out: dict[str, Any] = {}
+    for s in sections_for(phase, mode):
+        if s.read is None:
+            continue
+        c = Ctx(phase, mode, out.get("outcome") == "done", accept_cache, declared or [], checks)
+        got, serrs = s.read(text, c)
+        out.update(got)
+        errs += serrs
+        if s.required != "no" and s.keys[0] not in got and (s.required == "always" or c.done):
+            errs.append(s.missing)
+    return out, errs
+
+
+# The run record's fields a report's lines give (§13.4), from the table (`outcome` and `friction_count` are
+# set apart by `submit`); a correction replaces them all.
+SET_APART = ("outcome", "friction_count")
+PARSED_KEYS = tuple(dict.fromkeys(k for s in SECTIONS for k in s.stored if k not in SET_APART))
 
 
 # The run record's fields the plane computes at submit (§11.1); a correction computes them again.
 COMPUTED_KEYS = ("integration_merges", "before_review")
+
+# What `submit` returns of the record: the table's fields, the ones set apart, and what submit itself records.
+RETURNED_KEYS = (*SET_APART, *PARSED_KEYS, "suite_runs_recorded", "suite_s_recorded", "corrections")
 
 
 def before_review(runs_of_task: list[dict[str, Any]], rec: dict[str, Any]) -> bool:
@@ -498,8 +588,9 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
     errs += fill_errs
     if errs:
         raise QueueError("report refused, nothing written:\n  " + "\n  ".join(errs), 1)
-    if parsed.get("friction") and any(health.looks_like_secret(f) for f in parsed["friction"]):
-        raise QueueError("report refused: a Friction line looks like it holds a secret; say it without the value", 1)
+    for s in SECTIONS:  # a section the table marks secret-checked is refused when a line looks like a secret
+        if s.secret and any(health.looks_like_secret(v) for v in parsed.get(s.keys[0]) or []):
+            raise QueueError(f"report refused: a {s.name} line looks like it holds a secret; say it without the value", 1)
     if rec["phase"] == "verify" and rec.get("verdict") and parsed.get("outcome") == "done":
         from ccp.verify import heads_match  # noqa: PLC0415
         if parsed.get("verdict") != rec["verdict"] or not heads_match(str(parsed.get("head") or ""), str(rec.get("head") or "")):
@@ -560,11 +651,8 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
         verdict = "changes" if parsed["severity"]["BLOCKER"] or parsed["severity"]["MAJOR"] else "clean"
         emit(q, cfg, tid, "review", "recorded", {"run_id": run_id, "verdict": verdict, "severity": parsed["severity"]},
              _actor_for(rec["seat"]))
-    return {"ok": True, "run_id": run_id, "report": str(dest), **{k: v for k, v in rec.items() if k in (
-        "outcome", "pr", "head", "verdict", "severity", "spec_beyond_intent", "suite_tests", "suite_seconds",
-        "suite_ran", "suite_cached", "resolution", "affected_checks",
-        "suite_from", "suite_filled", "friction_count", "fields",
-        "suite_runs_recorded", "suite_s_recorded", "corrections")}, **({"warnings": warnings} if warnings else {})}
+    return {"ok": True, "run_id": run_id, "report": str(dest), **{k: v for k, v in rec.items() if k in RETURNED_KEYS},
+            **({"warnings": warnings} if warnings else {})}
 
 
 def _actor_for(seat: str) -> str:

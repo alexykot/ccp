@@ -81,14 +81,12 @@ The Agent call returns when the worker ends (a teammate cannot run background ag
 its handback may still be lost. So the prompt tells each worker to report two ways, and you rely on
 neither the handback nor the Agent call's return value:
 
-- `ccp report <run_id> <report path>`: it checks the report's shape, stores it at
-  `$QUEUE_ROOT/progress/<task_id>/<phase>[-n]-report.md`, records its `Suite:` line and Friction lines
-  for `ccp health`, and closes the run. Workers run their tests through `ccp suite run` (SPEC §14.1);
-  `ccp report` warns when a `Suite:` line has no recorded suite run, and `ccp usage --task <id>` shows
-  the time each run spent in tests. When the product declares verdicts every implementer report must
-  state (plane.json `report.required_fields`, SPEC §13.4), it refuses an implement or fix report
-  missing one, keeps them on the run (`fields`), and `ccp prompt review` prints them
-  (`report_fields`) and shows them to the reviewer. It refuses (exit 2, nothing written, the run still
+- `ccp report <run_id> <report path>`: it checks the report, stores it at
+  `$QUEUE_ROOT/progress/<task_id>/<phase>[-n]-report.md`, records what it carries and closes the run
+  (SPEC §13.4). Workers run their tests through `ccp suite run` (SPEC §14.1), and `ccp usage --task <id>`
+  shows the time each run spent in tests. When the product declares verdicts every implementer report must
+  state (plane.json `report.required_fields`), `ccp prompt review` prints them (`report_fields`) and shows
+  them to the reviewer. It refuses (exit 2, nothing written, the run still
   open) a report with no `Prompt:` line, or a token that is not the run's: the prompt the worker read was probably
   cut. Launch the worker again with the pointer: a new `ccp prompt` of that phase (`--supersede` when the
   run never started);
