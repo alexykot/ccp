@@ -1272,3 +1272,28 @@ tasks:
     title: A docs or tasks check failure already on the integration branch is reported, not blocking, in a task's checks and the verifier's gate
     depends_on: [0244-tasks-check-runs-dry-runs, 0252-the-task-check-reports-a-decision-built-before-its-prerequisite]
     path: tasks/0259-a-check-failure-already-on-the-integration-branch-is-reported.md
+  - id: 0260-review-tools-and-the-tests-for-new-behaviour-section
+    status: pending
+    title: The review prompt names the affected-modules command and the reviewer brief a base checkout, and the report table asks for and checks the tests-for-new-behaviour section
+    depends_on: [0255-test-fixtures-shared-helpers-and-one-repo-build, 0257-one-gate-block-and-one-sentence-per-line]
+    path: tasks/0260-review-tools-and-the-tests-for-new-behaviour-section.md
+  - id: 0261-a-declared-part-lane-runs-the-affected-modules
+    status: pending
+    title: A part lane plane.json declares runs the affected modules, and the plane's part lane runs them in parallel with the test cache
+    depends_on: []
+    path: tasks/0261-a-declared-part-lane-runs-the-affected-modules.md
+  - id: 0262-module-docstrings-and-house-rule-checks
+    status: pending
+    title: Module docstrings carry no usage tables or restated rules, house-rule checks hold no bare test run, and E4's check holds the long-literal count
+    depends_on: [0255-test-fixtures-shared-helpers-and-one-repo-build]
+    path: tasks/0262-module-docstrings-and-house-rule-checks.md
+  - id: 0263-writers-are-checked-against-their-contracts
+    status: pending
+    title: One schema checker, and a test per live contract that validates what its writer writes or its reader reads
+    depends_on: [0258-the-plane-writes-the-pre-merge-phases]
+    path: tasks/0263-writers-are-checked-against-their-contracts.md
+  - id: 0264-one-parser-for-signed-blocks-and-task-id-patterns
+    status: pending
+    title: The task check warns on a PROPOSED that verify spec-text cannot read, through one signed-block parser in tasklog, and task-id and decision-marker patterns each have one source
+    depends_on: [0223-a-follow-up-is-tracked-not-left-in-notes, 0234-one-check-parser-and-one-file-at-rev-reader]
+    path: tasks/0264-one-parser-for-signed-blocks-and-task-id-patterns.md
