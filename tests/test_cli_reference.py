@@ -153,6 +153,9 @@ class CliReference(unittest.TestCase):
     def test_the_docs_hold_the_parsers_commands_and_flags_and_no_others(self):
         self.assertEqual(problems_of(DOCS), [])
 
+    def test_no_module_docstring_carries_a_usage_table(self):
+        self.assertEqual([l for l in cli.__doc__.splitlines() if l.lstrip().startswith("ccp ")], [])
+
     def copy_with(self, old: str, new: str) -> Path:
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
