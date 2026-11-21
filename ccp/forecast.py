@@ -1,34 +1,34 @@
 """Task estimation, phase C (SPEC §26.4, §26.5): completion forecasts and the allowance fit. Advisory.
 
-The command is `forecast` (`docs/cli`); the model is §26.4 and §26.5's. This names where the code holds each part.**The order** replays the open tasks in the order `ccp tasks next` would take them (`selection.pick`,
-`tasklog.ranked`): the task in flight first, then `ranked`'s first row, marked merged, then `ranked` again; when the
-runner's scope runs out it goes on over the whole log. Tasks left out are listed (`unreached`).
+The command is `forecast` (`docs/cli`); the model is §26.4 and §26.5's. This names where the code holds each part.
+
+**The order** replays the open tasks as `ccp tasks next` would take them (`selection.pick`, `tasklog.ranked`): the
+task in flight first, then `ranked`'s first row, marked merged, then `ranked` again; past the scope, the whole log.
 
 **The durations.** A task's estimate is its latest agent row, else its latest baseline row (ccp/estimate.py),
 calibrated (ccp/calibrate.py: the board view's `cal` bands, the stored ones with none, or with `calibrated=False`).
 Wall time is a lognormal through P50 and P90 (mu = ln P50, sigma = ln(P90/P50) / 1.2816), the P90 capped at
-P90_RATIO_MAX = 4 x P50 (a lognormal through a wider band has a mean many times its median, and summed means
-overshoot); tokens and cost are drawn with the same normal deviate. The deviates of one trial share a common part,
-so any two tasks' deviates correlate at rho (z = sqrt(rho) Z + sqrt(1 - rho) e): RHO = 0.3, or the calibration's
-fitted rho when its backtest favours it (`rho_from`). The task in flight is drawn conditioned on not having
-finished: its total is at least the time since it started. A task with no estimate takes the median P50 and P90
-of the ones that have one, and is counted (`unestimated`).
+P90_RATIO_MAX = 4 x P50 (a wider band's mean is many times its median); tokens and cost are drawn with the same
+normal deviate. The deviates of one trial share a common part, so any two tasks' deviates correlate at rho
+(z = sqrt(rho) Z + sqrt(1 - rho) e): RHO = 0.3, or the calibration's fitted rho when its backtest favours it
+(`rho_from`). The task in flight is drawn conditioned on not having finished: its total is at least the time since
+it started. A task with no estimate takes the median P50 and P90 of the ones that have one (`unestimated`).
 
 **The throughput** (`throughput`): with `parallel.max_in_flight` above 1 a task starts at the earliest free slot,
 and one that runs alone takes them all (a gap is measured only where the task that starts was held alone); it also
 starts after each task ahead of it that claim rules 3 and 4 keep it from running beside (`parallel.kept_apart`).
 The next task starts at the latest merge so far plus a gap drawn from the observed gaps between consecutive tasks
 (the drill-down's windows, first recorded event to the merge). A negative gap is an observed overlap; a gap of
-GAP_STOP_S or more is a stop, left out and counted. Neither the 5-hour ceiling nor waits on the
-operator are modelled; the tasks with a wait open are reported (`waits_flagged`, `waits_expected`).
+GAP_STOP_S or more is a stop, left out and counted. Neither work past the 5-hour ceiling in this slot model
+nor waits on the operator are modelled; tasks with a wait open are reported (`waits_flagged`, `waits_expected`).
 
 **The allowance fit** (`allowance_fit`): consecutive samples of `board/allowance.jsonl` in the same weekly window
 (`usage.same_window`) whose weekly % did not fall are joined into intervals of at least FIT_MIN_INTERVAL_S; the usage
-is summed from every bound project's `board/usage-requests.jsonl` and the system sink (§24.1), one row per request
-id, only from when both were recording. Models fitted through the origin: weekly % per token, per dollar, and either
-by model family (when two or more families each have usage in 3 intervals); the lowest leave-one-out RMSE wins,
-the simpler within 5%. The non-plane burn is the system sink's last 7 days, per hour, times the fit; a history shorter
-than BASELINE_MIN_SPAN_H (72 h) is averaged over 72 h (`baseline_floored`).
+is summed from every bound project's `board/usage-requests.jsonl` and the system sink (§24.1), one row per request id,
+only from when both were recording. Models fitted through the origin: weekly % per token, per dollar, and either
+by model family (when two or more families each have usage in 3 intervals); the lowest leave-one-out RMSE wins, the
+simpler within 5%. The non-plane burn is the system sink's last 7 days, per hour, times the fit; a shorter history
+is averaged over BASELINE_MIN_SPAN_H (72 h) (`baseline_floored`).
 
 **The 5-hour window** (§25.4): `r5` is fitted from the samples (`session_fit`); in each trial the 5-hour % rises at
 r5 times the weekly % rate, and the window ends at the latest sample's `five_hour_resets_at`. When it would reach
@@ -37,7 +37,7 @@ moves by the pause (`_pauses`); a null park % models none. **The projection** ri
 latest sample, by the non-plane burn and each task's tokens or cost spread evenly between completions.
 
 The fit is cached in `board/forecast-fit.json`, keyed by the allowance samples and the telemetry files' sizes,
-mtimes and inodes: a file that grew is re-fitted only when its appended rows reach the fitted span.
+mtimes and inodes; a file that grew is re-fitted only if its new rows reach the fitted span.
 """
 from __future__ import annotations
 

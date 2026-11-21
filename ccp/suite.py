@@ -14,8 +14,8 @@ The count and the result file (§14.3): the command's environment carries CCP_SU
 it may write a JSON result to, contracts/suite_result.schema.json); with none written, each line is matched
 against `suite.count_re` and `suite.summary`'s patterns. Failure ids are shown in the summary, never recorded.
 `--cold` also sets CCP_SUITE_COLD=1, and the run is recorded cold only when its own count shows nothing cached
-(§14.6). A `ccp suite run` inside a worktree `ccp wt` made records nothing and writes no log: it becomes its
-command, so the outer run captures the output.
+(§14.6). A `ccp suite run` started inside another one's command (CCP_SUITE_ID set) records nothing and writes no
+log: it becomes its command, so the outer run captures the output.
 
 An exclusive lane (§16.6) holds one run at a time: a run that finds it held exits 75, counts `lane_busy`, and
 with `--wait SECONDS|auto` waits instead. A run that records nothing takes no lock: recording never blocks tests.

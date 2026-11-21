@@ -169,5 +169,14 @@ Measured at `1aa5e3f`.
 - `docs/ENGINEERING.md`: E4's and E25's `check:` lines as the Context gives them.
 - Standing DoD items 7 to 11 become two (7 keeps the gate sentence ending "(E1, E2)."; 8 is "The house rules hold"); `ccp/CLAUDE.md`'s
   E5, E6 and E8 lines become one; `tests/CLAUDE.md`'s first two paragraphs become one naming E1, E2 and E4.
+- Fix round 1 (docstring accuracy, from the review): `suite`'s nested-run sentence names its real trigger (a `ccp suite run`
+  started inside another one's command, CCP_SUITE_ID set), not a `ccp wt` worktree; `init`'s docstring says `required_unset`
+  is its own result key with its own stderr line, that every warning goes to stderr, that `since` is added only for a kept
+  binding, and that `--rules-doc --adopt` writes the `check: pass` lines; `mutate`'s docstring has the two code facts back (parts
+  on different files are each checked against the unmutated tree; a `--together` row's files and digest) and no longer credits
+  §20.6 with the snapshot; `health` names the `--json` key `small_tasks` (knob `health.small_task_lines`); `forecast`'s
+  paragraph break is back and the 5-hour ceiling is scoped to the slot model, with the order paragraph trimmed to stay at 40
+  lines (the SPEC §26.4 holds what is left out and `unreached`); `tests/CLAUDE.md` keeps the sentence on how a test builds its
+  product, queue and stubs, which E2 does not state.
 
 ## Verification notes

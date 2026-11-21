@@ -1,7 +1,8 @@
 # tests — the plane's suite
 
 Run it with `scripts/gate.sh`; the house rules for it are E1, E2 and E4 (`docs/ENGINEERING.md`). `test_self_hosting.py`
-runs the plane's own checks against this repo, read-only.
+runs the plane's own checks against this repo, read-only. Every test builds its product in a temp directory, points
+`QUEUE_ROOT` at a temp queue, and stubs headless Claude calls.
 
 ## Shared fixtures
 

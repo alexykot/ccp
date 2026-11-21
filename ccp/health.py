@@ -24,8 +24,8 @@ sections named here hold each measure's rule; this holds how the code reads its 
   line and shell limit; the slowest modules are `health.slowest_modules` (default 5), the trend the last
   `health.suite_trend_runs` (default 10). Warm and unverified runs are not judged.
 - **small tasks, runner rotation, idle slots, sign-off wait, conflict catch-ups, usage advice** (§27.1, §10.2,
-  §23.2, §11.1, §24.6): each has its key in `--json` (`small_task_lines` default 100, `idle_slots`,
-  `sign_off_wait`, `conflict_catch_ups`, `usage_advice`).
+  §23.2, §11.1, §24.6): each has its key in `--json` (`small_tasks`, from plane.json
+  `health.small_task_lines`, default 100; `idle_slots`, `sign_off_wait`, `conflict_catch_ups`, `usage_advice`).
 - **uncovered commits** (§10.7, `ccp tasks orphans`): the first-parent commits since a ref that no task covers:
   not a task's merge (the rule above), not a reconcile commit naming a task, not named in a task's `covers:`,
   and changing more than the task log and the SPEC files (`spec_paths`).

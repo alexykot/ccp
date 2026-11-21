@@ -21,17 +21,18 @@ that is not a JSON object), a `--gate` it cannot split or that is blank, a `--la
 not `none` (exit 2, before anything is written), and a product root or queue path holding `#`, since the binding
 reader cuts a value at ` #` as a comment.
 
-The result's `warnings` (and stderr, for the first) carry what to do next: `required_unset`, each required
-plane.json key (§8.1) still unset, the gate lane among them; an origin that does not suit the PR host adapter
-(`pr_host.adapter`, ADR-0040 D5), adopting all the same; no `allowance_cmd` in the machine file (§25.1), so no usage
-is read and nothing bounds spend; task files with no frontmatter (`ccp tasks migrate`, §5.3); queue entries
-`ccp plane check` would list (`ccp plane check --archive`, §31.3), which init moves nothing of; and, for a kept
-binding checked against the current shape (§8.3), each key it lacks and each obsolete key it carries, with the
-file and the fix (`lib.binding_findings`).
+The result's `required_unset` lists each required plane.json key (§8.1) still unset, the gate lane among them
+(each gets its own stderr line). Its `warnings`, every one also printed on stderr, carry what to do next: an origin
+that does not suit the PR host adapter (`pr_host.adapter`, ADR-0040 D5), adopting all the same; no `allowance_cmd`
+in the machine file (§25.1), so no usage is read and nothing bounds spend; task files with no frontmatter
+(`ccp tasks migrate`, §5.3); queue entries `ccp plane check` would list (`ccp plane check --archive`, §31.3), which
+init moves nothing of; and, for a kept binding checked against the current shape (§8.3), each key it lacks and each
+obsolete key it carries, with the file and the fix (`lib.binding_findings`).
 
 The adoption is recorded in the ledger as a `plane`/`adopted` event (§4.5, §23.2) when the binding is written or the
-ledger holds none yet, with `since`, the binding file's last change; a rerun on an adopted product records nothing.
-`--permissions` and `--rules-doc` write nothing but the block and the list they print (§4.5, §18.5, §20.1).
+ledger holds none yet, with `since`, the binding file's last change, added when the binding was kept; a rerun on an
+adopted product records nothing. `--permissions` writes nothing but the block it prints, and `--rules-doc` lists the
+rules with no `check:` line; with `--adopt` it also gives each a `check: pass` line (§4.5, §18.5, §20.1).
 """
 from __future__ import annotations
 

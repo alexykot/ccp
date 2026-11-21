@@ -14,8 +14,10 @@ from it that a range of the worktree file's lines overlaps or borders, the chang
 record holds, and with none the call is refused. The `--mutant`s come first, then the `--mutant-file`s,
 then the `--revert`s, each in the order given.
 
-`--together` makes them one mutant (§20.6: the parts are applied in order under one snapshot of all their files, and
-a part that does not apply restores the tree and refuses the call).
+`--together` makes them one mutant: its parts are applied in order under one snapshot of all their files, and a
+part that does not apply restores the tree and refuses the call. Parts on different files are each checked against
+the unmutated tree. Its files are the union of its parts' files in order of first touch, and its digest is a digest of
+the parts' digests.
 
 Every mutant is checked before anything runs. Then the named test runs once unmutated: a test that
 fails already proves nothing, so the command stops there. Each mutant (a `--together` one whole) is
