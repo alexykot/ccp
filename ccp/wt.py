@@ -18,7 +18,8 @@ recorded in `QUEUE_ROOT/worktrees/<name>.json`, so close, drop, release and gc r
 made. Under a `worktrees.dir` outside the main checkout, which another checkout may share, a directory
 with no record is taken for this product's only when the main checkout's `git worktree list` names it. A runner's own merge worktree
 (`runner_worktree`, the derived runner worktree) is made here too, detached at the integration tip,
-by `ccp tasks worktree` and the single runner's spawn; it is not a task's, so it is not recorded.
+by `ccp tasks worktree` and the single runner's spawn, which move an existing one that holds no task to
+the tip; it is not a task's, so it is not recorded.
 `ccp tasks close`'s own `merge-<nnnn>` (`merge_path`, §10.5) is not recorded either: one a failed
 close left behind is listed, removed with the rest of its task's worktrees, and removed by gc once
 its task is done or dropped and leased by no one.
@@ -937,20 +938,64 @@ def _main_beside(common: Path, checkout: Path) -> Path | None:
     return None
 
 
-def runner_worktree(main: Path, path: str, integ: str) -> tuple[Path, bool]:
+def runner_worktree_holds(branch: str, porcelain: str) -> str | None:
+    """§12.1: why an existing runner worktree holds something a person or a step left there, so it is left
+    as it is: `on branch <b>` when its HEAD is a branch, `has changes` when `git status --porcelain`
+    prints anything (a tracked change or an untracked file); None when it holds no task."""
+    if branch:
+        return f"on branch {branch.removeprefix('refs/heads/')}"
+    if porcelain.strip():
+        return "has changes"
+    return None
+
+
+def kept_warning(path: Path | str, why: str) -> str:
+    """§12.1: the warning for an existing runner worktree left as it is."""
+    return f"runner worktree {path} left as it is: {why}"
+
+
+def _first_line(r: subprocess.CompletedProcess[str]) -> str:
+    text = (r.stderr or r.stdout or "").strip()
+    return text.splitlines()[0] if text else f"git exited {r.returncode}"
+
+
+def _runner_to_tip(main: Path, wt: Path, integ: str) -> tuple[bool, str | None]:
+    """§12.1: an existing runner worktree that holds no task fetched and moved to `origin/<integ>`.
+    Returns (moved, kept): moved false when it was there already; kept naming why it is left as it is
+    (what it holds, or the first line of the git error that stopped the move)."""
+    ref = git(wt, "symbolic-ref", "-q", "HEAD")
+    status = git(wt, "status", "--porcelain")
+    if status.returncode != 0:
+        return False, _first_line(status)
+    if why := runner_worktree_holds(ref.stdout.strip() if ref.returncode == 0 else "", status.stdout):
+        return False, why
+    fetch = git(main, "fetch", "-q", "origin")
+    if fetch.returncode != 0:
+        return False, _first_line(fetch)
+    before = git(wt, "rev-parse", "HEAD").stdout.strip()
+    move = git(wt, "checkout", "-q", "--detach", f"origin/{integ}")
+    if move.returncode != 0:
+        return False, _first_line(move)
+    return git(wt, "rev-parse", "HEAD").stdout.strip() != before, None
+
+
+def runner_worktree(main: Path, path: str, integ: str) -> tuple[Path, bool, bool, str | None]:
     """§12.1: a runner's own merge worktree at `path` (relative to the main checkout `main`), made
-    detached at `origin/<integ>` when it is missing and left alone when it exists. Returns (path, made).
-    Not recorded under `worktrees/`: it belongs to a runner, not to a task. A non-empty directory there
-    that is no working tree refuses (exit 2); a failed `git worktree add` exits 1."""
+    detached at `origin/<integ>` when it is missing; an existing one that holds no task is fetched and
+    moved there, one that holds something is kept as it is. Returns (path, made, moved, kept), kept
+    naming why when it is set. Not recorded under `worktrees/`: it belongs to a runner, not to a task.
+    A non-empty directory there that is no working tree refuses (exit 2); a failed `git worktree add`
+    exits 1; a failed fetch or checkout of an existing one is kept, never a refusal."""
     wt = Path(path) if Path(path).is_absolute() else main / path
     if (wt / ".git").exists() and git(wt, "rev-parse", "--is-inside-work-tree").stdout.strip() == "true":
-        return wt, False
+        moved, kept = _runner_to_tip(main, wt, integ)
+        return wt, False, moved, kept
     if wt.exists() and any(wt.iterdir()):
         raise QueueError(f"{wt} exists and is not a working tree of the product: move it away first", 2)
     git(main, "worktree", "prune")  # a worktree removed by hand still registered blocks the add
     git(main, "fetch", "-q", "origin")
     git(main, "worktree", "add", "-q", "--detach", str(wt), f"origin/{integ}", check=True)
-    return wt, True
+    return wt, True, False, None
 
 
 # ---------------------------------------------------------------- up / down / urls

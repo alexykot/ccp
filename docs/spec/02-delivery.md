@@ -397,7 +397,10 @@ reported. Each runner merges and runs operator steps from its own **runner workt
 (`<product_root>/.plane-runtime/runner`, made by the single runner's `team.sh runner spawn` or `ccp tasks worktree`
 when missing; with several runners that path with `-<slot>` added, made by
 `ccp tasks worktree --runner <slot>` when missing), detached at `origin/<integration_branch>` (the
-main checkout holds the branch). An existing one is left alone; one the spawn cannot make is a
+main checkout holds the branch). An existing one that holds no task (detached, with nothing to
+commit and no untracked file) is fetched and moved to `origin/<integration_branch>` by the same
+spawn or `ccp tasks worktree`; one on a branch or with changes is left as it is, with a warning
+naming why; one the spawn cannot make is a
 warning, except a missing `origin/<integration_branch>`, which refuses the spawn (exit 3), dry run
 or real, naming the ref, and the runner's `ccp tasks worktree` makes it once the cause is fixed. No
 runner makes it with `git worktree add`. It fetches and re-detaches before each task. Unless a
