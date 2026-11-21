@@ -120,7 +120,10 @@ class DeleteMember(Spliced):
         self.assertEqual(json.loads(after)["upgrade"]["taken"], {})
 
     def test_every_member_of_a_repeated_name_goes(self):
-        self.assertEqual(jsonedit.delete_member('{"a": 1, "b": 2, "a": 3}', [], "a"), '{"b": 2}')
+        for before, after in (('{"a": 1, "b": 2, "a": 3}', '{"b": 2}'),
+                              ('{"b": 2, "a": 1, "a": 3}', '{"b": 2}'),
+                              ('{"a": 1, "a": 2}', '{}')):
+            self.assertEqual(jsonedit.delete_member(before, [], "a"), after, before)
 
     def test_a_key_or_path_that_is_not_there_leaves_the_text_unchanged(self):
         for path, key in (([], "zz"), (["upgrade", "declined"], "0001-a"), (["project_id"], "x"),

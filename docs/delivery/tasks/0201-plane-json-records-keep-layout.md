@@ -140,5 +140,8 @@ Measured at `58cf1d0`.
   pinned the old whole-file rewrite, which this task removes; it is replaced by
   `test_a_one_line_file_gains_the_entry_inline_and_keeps_its_keys_in_order`, which pins the exact bytes
   after the command (the key order assertion is kept).
+- Fix round 1: `test_every_member_of_a_repeated_name_goes` gains two cases where the repeated name ends
+  the object (`{"b": 2, "a": 1, "a": 3}` and `{"a": 1, "a": 2}`). There the rescan after each drop is
+  what keeps the second drop's offsets right; the one case before left the stale offsets valid by chance.
 
 ## Verification notes
