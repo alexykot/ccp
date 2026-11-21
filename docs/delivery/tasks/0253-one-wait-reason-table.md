@@ -182,5 +182,10 @@ the parser, which this task's new flag must satisfy.
   included, and `set_wait` passing 2 through stay; `ccp tasks wait` takes `--quota-class` only and
   `planned_resume_at` stays a `set_wait` parameter usage.py passes. No code, test or doc changed in this
   round; the rulings are recorded in Context.
+- Fix round 1 (review MINOR and NITs): `SetWait`'s default-actor test sets `ACTOR=design-seat`, a valid
+  actor other than `queue.actor()`'s own default, so a hard-coded `"task-runner"` in `set_wait` fails it;
+  `set_wait`'s docstring says a timeout can leave work.json behind the ledger (the writer appends the event
+  and writes the task file before it waits on work.json's lock); the spec-maintainer skill's line 28 reads
+  "you hold the task-log authority as well", as line 129 does.
 
 ## Verification notes
