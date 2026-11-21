@@ -1143,7 +1143,7 @@ tasks:
     depends_on: []
     path: tasks/0228-report-sections-as-one-table.md
   - id: 0229-orientation-extras-from-one-ccp-call
-    status: pending
+    status: done
     title: The orientation hook gets everything it appends from one ccp call
     depends_on: []
     path: tasks/0229-orientation-extras-from-one-ccp-call.md

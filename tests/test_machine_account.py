@@ -16,7 +16,7 @@ from contextlib import redirect_stderr
 from pathlib import Path
 from unittest import mock
 
-from ccp import board, config, parallel, usage
+from ccp import board, config, notify, parallel, usage
 from ccp.queue import lib
 from tests.helpers import Product
 from tests.test_board_drill import HASH_STUB, Fixture
@@ -276,7 +276,7 @@ class InitWarns(MachineCase):
 
 
 class SessionStartCheck(MachineCase):
-    """The orientation hook asks `ccp allowance status` and adds the warning `ccp` gives."""
+    """The orientation hook appends the warning `ccp orientation --tail` gives from the allowance status."""
 
     def hook(self, status: dict | None) -> str:
         t = Path(tempfile.mkdtemp())
@@ -285,9 +285,9 @@ class SessionStartCheck(MachineCase):
         (t / "plugin" / "orientation.md").write_text("# Orientation\nmarker-1c9e\n")
         (t / "bin").mkdir()
         fake = t / "bin" / "ccp"
-        fake.write_text("#!/bin/sh\ncase \"$*\" in\n  *allowance*) cat \"$STATUS_FILE\" ;;\n  *) echo '{\"pending\": []}' ;;\nesac\n")
+        fake.write_text("#!/bin/sh\ncat \"$STATUS_FILE\"\n" if status is not None else "#!/bin/sh\nexit 1\n")  # `orientation --tail`
         fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
-        (t / "status.json").write_text(json.dumps(status or {}))
+        (t / "status.json").write_text(notify.orientation_tail([], (status or {}).get("warning") or ""))
         p = self.product()
         env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_ROOT"}
         env.update(CLAUDE_PROJECT_DIR=str(p.root), CLAUDE_PLUGIN_ROOT=str(t / "plugin"), STATUS_FILE=str(t / "status.json"))

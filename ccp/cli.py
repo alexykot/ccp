@@ -1327,9 +1327,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("where", help="this product's project id, binding, queue root and plane checkout (SPEC §9.2)") \
         .set_defaults(fn=cmd_where)
-    sub.add_parser("orientation", help="print the orientation the plugin's SessionStart hook gives a session in this "
-                                       "product, for a session that started before the product was adopted (SPEC §9.3)") \
-        .set_defaults(fn=cmd_orientation)
+    p = sub.add_parser("orientation", help="print the orientation the plugin's SessionStart hook gives a session in this "
+                                       "product, for a session that started before the product was adopted (SPEC §9.3)")
+    p.add_argument("--tail", action="store_true", help="print only the text the hook appends after the orientation: "
+                                                       "the pending notices and the allowance warning (needs QUEUE_ROOT)")
+    p.set_defaults(fn=cmd_orientation)
 
     p = sub.add_parser("init", help="adopt this repository: the product footprint, the binding and the queue "
                                     "(SPEC §4.3, §8.3); keeps existing files unless --force")
@@ -1654,9 +1656,34 @@ def cmd_where(cfg: config.Config, _a: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_orientation(cfg: config.Config, _a: argparse.Namespace) -> int:
+def _orientation_tail(cfg: config.Config) -> int:
+    """`ccp orientation --tail`: what the hook appends after the orientation, `notify.orientation_tail` over
+    the pending notices and the allowance warning. A part that cannot be read is left out; with no queue
+    there is nothing to say (exit 1, nothing printed)."""
+    from ccp import notify, usage  # noqa: PLC0415
+    from ccp.queue import root  # noqa: PLC0415
+    try:
+        q = root()
+    except QueueError:
+        return 1
+    try:
+        rows = notify.pending(cfg, q)
+    except (OSError, ValueError, QueueError):
+        rows = []
+    try:
+        warning = str(usage.status(cfg, q, False).get("warning") or "")
+    except (OSError, ValueError, QueueError):
+        warning = ""
+    print(notify.orientation_tail(rows, warning), end="")
+    return 0
+
+
+def cmd_orientation(cfg: config.Config, a: argparse.Namespace) -> int:
     """SPEC §9.3: the text the plugin's SessionStart hook (`plugin/hooks/orientation.sh`) injects for this
-    product, from this `ccp`'s plugin: the hook is run, so the text and where it applies stay its own."""
+    product, from this `ccp`'s plugin: the hook is run, so the text and where it applies stay its own.
+    With `--tail`, only the text the hook appends after the orientation, which the hook asks of this command."""
+    if a.tail:
+        return _orientation_tail(cfg)
     import subprocess  # noqa: PLC0415
     from ccp.queue import PLANE  # noqa: PLC0415
     plugin = PLANE / "plugin"

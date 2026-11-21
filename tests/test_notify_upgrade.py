@@ -140,7 +140,7 @@ class UpgradeNoticeOrientation(UpgradeFixture, unittest.TestCase):
 
 
 class OrientationHookNotices(unittest.TestCase):
-    """The hook asks the `ccp` beside its plugin (`<plugin>/../bin/ccp`) for the pending notices: here a
+    """The hook asks the `ccp` beside its plugin (`<plugin>/../bin/ccp`) for `orientation --tail`: here a
     stand-in that prints a fixed answer, or one that hangs."""
 
     def setUp(self):
@@ -173,8 +173,8 @@ class OrientationHookNotices(unittest.TestCase):
         rows = [{"trigger": "blocker", "subject": f"[demo] blocker: n{i}",
                  "reason": "r" * 500 + "TAIL" + "r" * 3496,
                  "record": f"ccp notify sent blocker --id n{i} --via lead"} for i in range(10)]
-        self.answer.write_text(json.dumps({"pending": rows}))
-        self.fake_ccp(f'cat "{self.answer}"')
+        self.answer.write_text(notify.orientation_tail(rows, ""))
+        self.fake_ccp(f'case "$*" in *"orientation --tail"*) cat "{self.answer}" ;; *) exit 1 ;; esac')
         _r, text = self.run_hook()
         self.assertLessEqual(len(text), 9500)
         self.assertTrue(text.startswith("# Orientation"))
