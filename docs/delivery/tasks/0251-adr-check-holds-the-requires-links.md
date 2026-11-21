@@ -144,4 +144,27 @@ PROPOSED:
 
 ## Implementation notes
 
+- `ccp/adr.py`: `_check_requires`, called from `analyse`, reads each ADR's `requires` with `parse_requires` and
+  reports the §6.7 failures; the cycle check runs `graph.cycles` over the links as written (nodes `ADR-NNNN Dn`),
+  each cycle once, filed under the ADR of its first decision. The warning goes to `soft` (a failure under
+  `adr.strict`). `DecisionIndex.resolve` (0239) already followed `retired by` and ended on a whole-ADR link, so it is
+  unchanged. `_refuse_cut_requires`, called from `supersede` before anything is written, refuses without `--by`.
+- Choices where the task is silent (the narrowest reading):
+  - A `retired by` loop on a prerequisite's chain is a failure ("a loop is a cycle"), not a warning.
+  - A target in a `proposed`, `superseded` or `retired` ADR is no failure; only `rejected` and `withdrawn` are.
+  - The `supersede` refusal covers the decisions the move newly gives a whole-ADR `retired by`: with
+    `--decisions`, those named; for a whole ADR, those with no `by` already recorded (one already `retired by`
+    another ADR's decision keeps it, so no chain is cut). A requirer in the ADR being superseded holds it too (the signed §6.5 text names no exemption).
+  - A `requires` link inside a `rejected` or `withdrawn` ADR itself (target and requirer in the same dead ADR)
+    is no failure: it rests on nothing live. A link from another ADR to it, or from a dead ADR to another
+    dead one, still fails.
+  - Resolution does not change the cycle check: it reads the links as written.
+- ADR-0046 D2 and D4 are recorded `built`; `docs/adr/INDEX.md` regenerates unchanged.
+- Fix round 1: dropped the same-ADR requirer exemption from `_refuse_cut_requires` (a supersede that passed
+  left `ccp adr check` red under `adr.strict`); skipped the rejected/withdrawn failure for a link inside that ADR
+  itself; the supersede tests that succeed now assert `analyse` is clean afterwards.
+- Fix round 2: a test pins that a link from a rejected or withdrawn ADR to a different dead one still fails (the
+  `n != me` guard could be widened unnoticed); `graph` is imported at module level in `ccp/adr.py` (no import cycle
+  to avoid).
+
 ## Verification notes
