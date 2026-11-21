@@ -803,7 +803,7 @@ class Together(MutateFixture, unittest.TestCase):
         self.refused("calc.py:a + b=>a - b", "./calc.py:return a + b=>return 0")
         patch = self.patch_file({"calc.py": CALC.replace("a * 2", "a * 3")})
         self.assertIn("calc.py", self.refused(str(patch), "./calc.py:a + b=>a - b"))
-        code, _, _, err = self.mutate("calc.py:a + b=>a ^ b", "./calc.py:a ^ b=>a % b", together=True)
+        code, _, _, err = self.mutate("./calc.py:a + b=>a ^ b", "./calc.py:a ^ b=>a % b", together=True)
         self.assertEqual((code, [(r["files"], r["outcome"]) for r in self.rows()]), (0, [(["calc.py"], "killed")]), err)
         self.assertEqual((self.mut / "calc.py").read_text(), CALC)
 
