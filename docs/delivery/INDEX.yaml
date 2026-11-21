@@ -1055,7 +1055,7 @@ tasks:
   - id: 0241-gate-module-tests-wiring-only
     status: pending
     title: The gate's slowest module tests the catch-up wiring only, and tests name fixture facts through code
-    depends_on: []
+    depends_on: [0240-plane-workers-run-the-head, 0242-retire-restructure-scaffolding-and-queue-markers, 0243-one-source-for-syntax-events-and-config, 0244-tasks-check-runs-dry-runs]
     path: tasks/0241-gate-module-tests-wiring-only.md
   - id: 0242-retire-restructure-scaffolding-and-queue-markers
     status: pending

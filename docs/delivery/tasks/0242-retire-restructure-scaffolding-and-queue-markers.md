@@ -7,8 +7,8 @@ depends_on: []
 spec_refs: ["S10", "S31"]
 review_refs: ["ar-20261120T234012Z-27eb#F08", "ar-20261120T234012Z-27eb#F09", "ar-20261120T234012Z-27eb#F18", "ar-20261120T234012Z-27eb#F19"]
 review_point: R16
-paths: ["docs/spec/RULINGS.md", "docs/spec/map/", "docs/spec/MAP.md", "SPEC.md", "scripts/spec_map_check.py", "scripts/CLAUDE.md", "tests/test_spec_map_check.py", "docs/design/", "ccp/queue.py", "ccp/lifecycle.py", "scripts/queue/README.md", "docs/spec/02-delivery.md", "ccp/CLAUDE.md", "ccp/doclang/CLAUDE.md", "tests/test_board.py", "tests/test_release.py", "tests/test_tasks_release_keep_branch.py", "tests/test_toolkit.py", "tests/test_queue_markers_gone.py"]
-adopt: "none"
+paths: ["docs/spec/RULINGS.md", "docs/spec/map/", "docs/spec/MAP.md", "SPEC.md", "scripts/spec_map_check.py", "scripts/CLAUDE.md", "tests/test_spec_map_check.py", "docs/design/allowance.md", "docs/design/board.md", "docs/design/observability.md", "docs/design/telemetry.md", "docs/design/architect.md", "docs/design/README.md", "ccp/queue.py", "ccp/lifecycle.py", "scripts/queue/README.md", "docs/spec/02-delivery.md", "ccp/CLAUDE.md", "ccp/doclang/CLAUDE.md", "tests/test_board.py", "tests/test_release.py", "tests/test_tasks_release_keep_branch.py", "tests/test_toolkit.py", "tests/test_queue_markers_gone.py"]
+adopt: "after the release, run ccp plane check --archive on each bound product's queue: it moves the retired queue/ marker directory to _legacy/"
 sign_off: brief
 created: 2026-11-21
 updated: 2026-11-21
@@ -37,7 +37,7 @@ Measured at `8aefa59`.
   at `8aefa59`: two commits, the initial commit and task 0012. Nothing runs the checker:
   `git grep -n spec_map_check -- scripts/gate.sh scripts/gate_parallel.py ccp plugin` at `8aefa59`
   prints nothing. Its `refs` subcommand goes with it; no gate or docs check calls it. References to
-  update: `SPEC.md`'s "The restructure" bullet, `docs/spec/MAP.md` (keep its Outline, drop "The map,
+  update: `SPEC.md`'s "The restructure" bullet (deleted outright, quoted below), `docs/spec/MAP.md` (keep its Outline, drop "The map,
   old → new" and the RULINGS paragraph), `docs/design/README.md` (the sentence saying MAP.md maps old
   sections), `scripts/CLAUDE.md`. ADR-0034's sentence naming `docs/spec/RULINGS.md` stays as written:
   an ADR records its time, and Git keeps the file.
@@ -47,7 +47,10 @@ Measured at `8aefa59`.
   sync's plan and its own re-sync. Ruling: stop writing them, drop `_markers` and its line in the
   sync plan, and remove `"queue"` from `QUEUE_OWNED` in `ccp/queue.py`, so an old queue's `queue/`
   directory is a leftover the archive moves to `_legacy/` (§31.3). `scripts/queue/README.md`'s
-  layout drops the `queue/…` line. Tests that assert on markers:
+  layout drops the `queue/…` line, and `docs/design/board.md`'s `ccp tasks sync` paragraph drops
+  "moves the `queue/<state>/` marker". An old queue keeps its `queue/` directory until the archive
+  moves it: each bound product's lead runs `ccp plane check --archive` after the release (the task's
+  `adopt` step, checked by hand). Tests that assert on markers:
   `git grep -nE 'queue/(pending|leased|done)' -- tests` at `8aefa59`: 7 lines in
   `tests/test_board.py`, `tests/test_release.py`, `tests/test_tasks_release_keep_branch.py` and
   `tests/test_toolkit.py`.
@@ -71,7 +74,9 @@ Measured at `8aefa59`.
   - `ccp/queue.py` (`set_marker` removed, `QUEUE_OWNED`), `ccp/lifecycle.py` (`_markers` and its
     callers), `scripts/queue/README.md`; the four test modules above; `tests/test_queue_markers_gone.py` (new).
   - `ccp/CLAUDE.md`, `ccp/doclang/CLAUDE.md`; `docs/design/allowance.md`, `docs/design/board.md`,
-    `docs/design/observability.md`, `docs/design/telemetry.md`, `docs/design/architect.md`.
+    `docs/design/observability.md`, `docs/design/telemetry.md`, `docs/design/architect.md`
+    (`docs/design/board.md` also loses the marker in its `ccp tasks sync` paragraph, F09).
+  - `SPEC.md`, the restructure bullet, deleted: CURRENT (at `8aefa59`): "**The restructure**: the layout is ADR-0033; [`docs/spec/MAP.md`](docs/spec/MAP.md) maps every pre-restructure section to its new place, and [`docs/spec/RULINGS.md`](docs/spec/RULINGS.md) lists the rules the operator ruled on during it (ADR-0034)." PROPOSED: the bullet is deleted, with no replacement text.
   - SPEC, signed before the claim (`sign_off: brief`):
   - `docs/spec/02-delivery.md` §10.4: CURRENT (at `8aefa59`): "Its wait is cleared through `set-waiting-on.sh`, its phase moves to `pending` (the `queue/pending/` marker), then a `lease` `clear` event with `released: true` and the reason;" PROPOSED:
     > Its wait is cleared through `set-waiting-on.sh`, its phase moves to `pending`, then a `lease` `clear` event with `released: true` and the reason;
@@ -119,10 +124,18 @@ Measured at `8aefa59`.
   story: As a reader of the design notes, headings name topics and defaults point at their source.
   setup: a checkout of the PR head.
   steps:
-    1. Run `git grep -nE '^#+ +[0-9]+\.[0-9]+ ' -- docs/design`.
-    2. Run `git grep -nE 'default [0-9]+|defaults? to [0-9]' -- docs/design`.
+    1. Run `git grep -nE '^#+ +[0-9]+\.[0-9]+ ' -- docs/design/allowance.md docs/design/board.md docs/design/observability.md docs/design/telemetry.md docs/design/architect.md`.
+    2. Run `git grep -nE 'default [0-9]+|defaults? to [0-9]' -- docs/design/allowance.md docs/design/board.md docs/design/observability.md docs/design/telemetry.md docs/design/architect.md`.
   expect: both print nothing.
   dry run (`8aefa59`): step 1 printed 6 lines; step 2 printed 7 lines.
+- id: `ret-06`
+  story: As an operator, the archive moves an old queue's marker directory aside (a rehearsal of the adopt step on a queue copy).
+  setup: a checkout of the PR head; a temp queue `Q` holding only `queue/pending/0001-x` (an empty file), the shape of an old queue; a temp product `D` with `docs/delivery/plane.json` holding `{"project_id": "demo", "language": "none"}`; `CCP_BINDINGS_DIR` an empty temp dir; `CCP_DEV=1`.
+  steps:
+    1. Run `QUEUE_ROOT=Q ./bin/ccp --root D plane check --archive` with `Q` and `D` replaced by the temp dirs.
+    2. Run `ls Q` and `find Q/_legacy -name 0001-x`.
+  expect: step 1's JSON lists `queue/` under `archived` and exits 0; step 2 shows no `queue` in `Q` and finds `Q/_legacy/<today, UTC>/queue/pending/0001-x`.
+  dry run (`8aefa59`): step 1 printed `"root": []` and `"archived": []`, exit 0; `Q` still held `queue`.
 
 ## Implementation notes
 

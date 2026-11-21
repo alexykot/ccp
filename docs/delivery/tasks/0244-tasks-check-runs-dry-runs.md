@@ -78,9 +78,9 @@ From architect pass `ar-20261120T234012Z-27eb`, findings F12, F13 and F14, triag
     > `ccp tasks check` warns, without refusing, about a line of it, in a task not yet done, that states a number with no backticked command on it, except a line of a quoted block (`> `), where a ruling written verbatim goes (§10.5)
   - `docs/spec/02-delivery.md` §10.5: CURRENT (at `8aefa59`): "the implementer writes it into the task file's `Context (not checked)` section on the task branch, besides its Implementation notes, so it lands in the task's PR (§17.4)." PROPOSED:
     > the implementer writes it, as a quoted block (each line beginning `> `), into the task file's `Context (not checked)` section on the task branch, besides its Implementation notes, so it lands in the task's PR (§17.4).
-  - `docs/spec/03-quality.md` §21.1: CURRENT (at `8aefa59`): "It warns, without failing, when a task not yet done names a later task as a prerequisite in prose: the prerequisite goes in `depends_on` instead." PROPOSED:
+  - `docs/spec/03-quality.md` §21.1, the warnings paragraph: CURRENT (at `8aefa59`): "It warns, without failing, when a task not yet done names a later task as a prerequisite in prose: the prerequisite goes in `depends_on` instead." PROPOSED:
     > It warns, without failing, when a task not yet done names a later task as a prerequisite in prose: the prerequisite goes in `depends_on` instead. It also warns about a task not yet done whose Context says ``Measured at `<sha>` `` when a commit since that sha changed one of the task's `paths`, naming the commits.
-    >
+  - `docs/spec/03-quality.md` §21.1: CURRENT (at `8aefa59`): none; a new paragraph goes at the end of §21.1, after the paragraph ending "Inline `# comments` in frontmatter are ignored." and before the `### 21.2` heading. PROPOSED:
     > **`ccp tasks dry-run <id> [--write]`** runs, in a temporary worktree detached at `origin/<integration_branch>` and removed afterwards, each `dod_check` step that is one backticked command and nothing else, and prints, per check, each command's exit code, its output's line count and its first line; any other step is listed as not run. With `--write` it writes each check's ``dry run (`<tip sha>`): …`` line from that output, replacing one already there, and changes nothing else in the file. It refuses a task that is `done`, `dropped` or claimed (§10.5).
 - **Out:**
   - Turning `task_log.dry_run` on for the plane (the lead's call, separately).
@@ -97,14 +97,12 @@ From architect pass `ar-20261120T234012Z-27eb`, findings F12, F13 and F14, triag
   expect: step 1 exits 0; step 2 exits non-zero.
   dry run: n/a — `tests/test_tasks_dry_run.py` is new.
 - id: `dry-02`
-  story: As the lead, a dry run leaves my checkout as it was.
-  setup: a clean checkout of the PR head with `origin/main` fetched; `QUEUE_ROOT` an empty temp dir.
+  story: As the lead, a dry run leaves my checkout as it was and refuses a claimed task.
+  setup: a checkout of the PR head. The fixture is in `tests/test_tasks_dry_run.py`: a temp product with a bare origin and a clone, whose task log holds one pending task with two checks (one whose only step runs `echo one`, one whose step is prose) and one claimed task.
   steps:
-    1. Run `git worktree list | wc -l` and note the number.
-    2. Run `./bin/ccp tasks dry-run 0242-retire-restructure-scaffolding-and-queue-markers`.
-    3. Run `git worktree list | wc -l` and `git status --porcelain`.
-  expect: step 2 exits 0 and prints a line for each of `ret-01` to `ret-05`; step 3 prints the number from step 1 and an empty status.
-  dry run (`8aefa59`): step 2 refused, exit 2, `invalid choice: 'dry-run'`.
+    1. Run `python3 -B -m unittest -q tests.test_tasks_dry_run -k checkout -k claimed`.
+  expect: exits 0, running at least two tests: one asserting that after `ccp tasks dry-run <pending task>` the clone's `git worktree list` has as many lines as before and `git status --porcelain` is empty, and that the output names both check ids, the second as not run; one asserting that `ccp tasks dry-run <claimed task>` exits non-zero and writes nothing.
+  dry run: n/a — `tests/test_tasks_dry_run.py` is new; at `8aefa59` `ccp tasks dry-run` is refused as an invalid choice.
 - id: `dry-03`
   story: As a check writer, `config.load` takes a str.
   setup: a checkout of the PR head, run from its root.
@@ -124,9 +122,9 @@ From architect pass `ar-20261120T234012Z-27eb`, findings F12, F13 and F14, triag
   setup: a checkout of the PR head with `origin/main` fetched.
   steps:
     1. Run `python3 -B -m unittest -q tests.test_tasklog_context_checks`.
-    2. Run `git diff origin/main...HEAD -- ccp/tasklog.py | grep -c '^[-+]NOT_MEASURED_RE'`.
-  expect: step 1 exits 0, with a test that a Context line beginning `> ` holding `§10.5`, `round 2` and `42` warns nothing while the same line unquoted warns; step 2 prints `0`.
-  dry run: n/a — the test module is new; step 2 printed `0` at `8aefa59` (no diff).
+    2. Run `git show origin/main:ccp/tasklog.py > /tmp/tasklog_main.py && python3 -B -c "import importlib.util as u, sys; sys.path.insert(0, '.'); s=u.spec_from_file_location('m', '/tmp/tasklog_main.py'); m=u.module_from_spec(s); s.loader.exec_module(m); from ccp import tasklog; print(m.NOT_MEASURED_RE.pattern == tasklog.NOT_MEASURED_RE.pattern)"`.
+  expect: step 1 exits 0, with a test that a Context line beginning `> ` holding `§10.5`, `round 2` and `42` warns nothing while the same line unquoted warns; step 2 prints `True`.
+  dry run: n/a — the test module is new; step 2 printed `True` at `8aefa59` (head equal to `origin/main`).
 
 ## Implementation notes
 

@@ -3,7 +3,7 @@ task_id: 0241-gate-module-tests-wiring-only
 title: The gate's slowest module tests the catch-up wiring only, and tests name fixture facts through code
 status: pending
 kind: refactor
-depends_on: []
+depends_on: ["0240-plane-workers-run-the-head", "0242-retire-restructure-scaffolding-and-queue-markers", "0243-one-source-for-syntax-events-and-config", "0244-tasks-check-runs-dry-runs"]
 review_refs: ["ar-20261120T234012Z-27eb#F02", "ar-20261120T234012Z-27eb#F11"]
 rule_refs: ["E15", "E4"]
 review_point: R16
@@ -54,6 +54,10 @@ through the code or a fixture helper). Measured at `8aefa59`.
   `tests/test_init_telemetry.py`). Name the worktrees directory as `config.WORKTREES_DIR` (or a
   fixture attribute set from it); a test that pins the constant's own value keeps the literal.
 - No test expectation changes, except where a branch moves module.
+- **Runs last in R16** (the lead's ruling on the triage review): it rewrites fixture literals across
+  most test modules, which every other R16 task's tests touch, so landing it after them spares each
+  of them a catch-up through this one. `depends_on` is how the plane orders it (§10.3); the
+  wide-plan advice is set aside here on purpose.
 
 ## Scope
 
@@ -73,11 +77,11 @@ through the code or a fixture helper). Measured at `8aefa59`.
   steps:
     1. Run `grep -c 'def test' tests/test_behind_tip_catch_up.py`.
     2. Run `/usr/bin/time -p python3 -B -m unittest -q tests.test_behind_tip_catch_up`.
-  expect: step 1 prints a number no greater than 18; step 2 exits 0 with `real` under 60 seconds.
+  expect: step 1 prints a number no greater than 14; step 2 exits 0 with `real` under 60 seconds.
   dry run (`8aefa59`): step 1 printed `46`; step 2 exited 0 with real 155.37.
 - id: `tb-02`
-  story: As a plane developer, every decision branch the end-to-end module dropped is still tested on plain values, and those tests bite.
-  setup: a checkout of the PR head; then a separate copy where `ccp/lifecycle.py` `catch_up_blocked` treats a task with no declared paths as not blocked.
+  story: As a plane developer, every decision branch the end-to-end module dropped is still tested on plain values, and a moved branch's test bites.
+  setup: a checkout of the PR head; then a separate copy where `ccp/lifecycle.py` `catch_up_blocked` refuses a task with no declared paths under `schedule == "clashes"` too (its `if not declared` test moved above the `clashes` branch): a branch the end-to-end module tests today as `test_under_clashes_a_task_with_no_declared_paths_is_caught_up`, which this task moves to the plain-value module.
   steps:
     1. On the head, run `python3 -B -m unittest -q tests.test_catch_up_decision tests.test_behind_tip_catch_up`.
     2. In the copy, run `python3 -B -m unittest -q tests.test_catch_up_decision`.
