@@ -1,9 +1,8 @@
 """The project board (SPEC §28): one read model, `board.json`, and the page that shows it.
 
-  ccp board build     fold every source into QUEUE_ROOT/board/board.json and write board/index.html
-  ccp board status    a terminal summary of the same, with §23.4's exit codes (1: a blocker)
-  ccp board task ID   one task's drill-down: where its wall time went (ccp/drill.py); reads only
-  ccp board install   a launchd timer that rebuilds it every `board.refresh_minutes` (uninstall, status)
+`build` folds every source into QUEUE_ROOT/board/board.json and writes board/index.html; `status` is a terminal
+summary of the same, with §23.4's exit codes; `task` is one task's drill-down (ccp/drill.py); `install` is a launchd
+timer that rebuilds it every `board.refresh_minutes`. The flags are in `docs/cli`.
 
 Each §10.3 command that changes delivery state also calls `refresh` once it succeeds: a detached,
 debounced `board build --drain` that never blocks, fails or prints into the command (§28.3).

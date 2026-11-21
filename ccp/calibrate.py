@@ -1,6 +1,6 @@
 """Task estimation, phase D (SPEC §26.6): the calibration loop. Advisory.
 
-  ccp estimate calibration [--json]      the factors, their sample sizes, the rolling-origin check and rho
+The command is `estimate calibration` (`docs/cli`): the factors, their sample sizes, the rolling-origin check and rho.
 
 **The pairs.** Each task with an actual is scored on the estimate it had before it started (phase A's
 `estimate._pair`: the latest row of the source made before the start, a live one ahead of a backfilled

@@ -10,8 +10,7 @@ from ccp import config, drill, report, suite, tasklog
 from tests.test_suite import PY, SuiteFixture
 from tests.test_toolkit import PLANE, ToolkitFixture, git
 
-ORIGINAL = ("A check you did not run is not a pass: record it as not run, resting on what SPEC §15.4 allows. "
-            "Be adversarial:")
+SECTION = "`verify.accept_cache`"
 CACHE = {"max_age_days": 3, "cold_tasks": ["*-rollout"]}
 
 
@@ -87,14 +86,15 @@ class Config(CacheFixture, unittest.TestCase):
 class Prompt(CacheFixture, unittest.TestCase):
     def test_without_the_setting_the_brief_is_unchanged(self):
         text = self.verify_prompt()
-        self.assertIn(ORIGINAL, text)
+        self.assertIn("Be adversarial:", text)
+        self.assertNotIn(SECTION, text)
         self.assertNotIn("accept_cache", text)
         self.assertNotIn("cached", text)
 
     def test_with_it_a_cache_hit_counts_as_run_and_the_gate_is_warm(self):
         self.plane(CACHE)
         text = self.verify_prompt()
-        self.assertNotIn(ORIGINAL, text)
+        self.assertIn(SECTION, text)
         self.assertIn("counts as run, and as passed", text)
         self.assertIn("An entry more than 3 days old is not a hit", text)
         self.assertIn("Run the gate warm", text)

@@ -14,7 +14,7 @@
       },
       {
         "id": "E4",
-        "cmd": "! git grep -nE '= test_[a-z_]+\\.[A-Z][A-Za-z]+\\.[a-z_]+' -- tests"
+        "cmd": "! git grep -nE '= test_[a-z_]+\\.[A-Z][A-Za-z]+\\.[a-z_]+' -- tests && ! git grep -n '\\.plane-runtime' -- 'tests/test_*.py' ':(exclude)tests/test_plane_json_constants.py' && test \"$(LC_ALL=C git grep -hE 'assert(Not)?In\\(\"[^\"]{40,}' -- 'tests/*.py' | wc -l)\" -le 345"
       },
       {
         "id": "E14",
@@ -35,10 +35,6 @@
       {
         "id": "E22",
         "cmd": "! git grep -n CHECK_RE -- ccp ':(exclude)ccp/tasklog.py'"
-      },
-      {
-        "id": "E25",
-        "cmd": "python3 -B -m unittest -q tests.test_cli_reference"
       }
     ]
   },

@@ -1,9 +1,11 @@
 """The parser, `ccp.cli.build_parser()`, is the one source of the command surface; this is the one test that holds
 the hand-written call syntax in `docs/cli/*.md` to it: every command and long flag the parser defines is written
-down, and every `ccp` command and flag the docs name is one the parser defines."""
+down, and every `ccp` command and flag the docs name is one the parser defines. No module docstring holds call
+syntax of its own: the docs are the one place it is written."""
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import tempfile
 import unittest
@@ -12,7 +14,9 @@ from pathlib import Path
 
 from ccp import cli
 
-DOCS = Path(__file__).resolve().parents[1] / "docs" / "cli"
+ROOT = Path(__file__).resolve().parents[1]
+DOCS = ROOT / "docs" / "cli"
+USAGE_LINE = re.compile(r"^\s*ccp [a-z]")
 # A command that parses its own words past the parser's first (`ccp.cli.main` hands it the rest): its name is
 # held, its own subcommands and flags are `ccp otel -h`'s.
 DELEGATED = ("otel",)
@@ -153,8 +157,12 @@ class CliReference(unittest.TestCase):
     def test_the_docs_hold_the_parsers_commands_and_flags_and_no_others(self):
         self.assertEqual(problems_of(DOCS), [])
 
-    def test_the_cli_docstring_carries_no_usage_table(self):
-        self.assertEqual([l for l in cli.__doc__.splitlines() if l.lstrip().startswith("ccp ")], [])
+    def test_no_module_docstring_carries_a_usage_line(self):
+        found = []
+        for path in sorted([*(ROOT / "ccp").glob("*.py"), *(ROOT / "ccp" / "doclang").glob("*.py")]):
+            doc = ast.get_docstring(ast.parse(path.read_text()), clean=False) or ""
+            found += [f"{path.relative_to(ROOT)}: {l.strip()}" for l in doc.splitlines() if USAGE_LINE.match(l)]
+        self.assertEqual(found, [])
 
     def copy_with(self, old: str, new: str) -> Path:
         tmp = tempfile.TemporaryDirectory()

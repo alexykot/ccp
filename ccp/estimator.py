@@ -1,7 +1,7 @@
 """Task estimation, phase B (SPEC §26.3): the estimator seat.
 
-  ccp tasks estimate ID [--force] [--dry-run] [--print-prompt]   one agent estimate
-  ccp tasks estimate --all [--max N] [--dry-run] [--detach]       every open task without a current one
+The command is `tasks estimate` without `--baseline` (`docs/cli`): one agent estimate, or with `--all` every open
+task without a current one.
 
 A headless `claude -p` on Sonnet at medium effort by default (`HEADLESS_MODEL`; `models.estimator`
 overrides it), like the architect's, with **no tools** (`--tools ""`): everything it needs is rendered into the prompt

@@ -1,8 +1,8 @@
 """What a plane release asks of a product (SPEC §29.3, ADR-0041 D2).
 
-  ccp upgrade notes [--since COMMIT]   the plane's tasks merged since COMMIT, each with its `adopt` step
-  ccp upgrade status                   the `adopt` steps this product has not taken
-  ccp upgrade decline|take TASK --reason R   record a task's step as declined or taken in plane.json
+The commands are `upgrade notes` (the plane's tasks merged since a commit, each with its `adopt` step),
+`upgrade status` (the steps this product has not taken) and `upgrade decline|take` (record a task's step as
+declined or taken in plane.json; `docs/cli`).
 
 Both read the plane's own task log, in the plane checkout `ccp` runs from (normally the run checkout):
 a task is merged when its file says `done`, and merged since COMMIT when its file there did not. The

@@ -1,109 +1,43 @@
 """`ccp suite run|wait|list|affected` (SPEC §10, §14.1, §14.2, §14.7): workers run their tests through `ccp`,
 which records how long each run took, wait on a run's summary, and ask it which test modules a change touches.
+The call syntax is in `docs/cli`; the rules are in the SPEC sections named here. This holds what only the code does.
 
-  ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--cold] [--full | --summary]
-                [--log PATH] [-- COMMAND …]
-  ccp suite wait SUITE_ID [--timeout SECONDS]
-  ccp suite list [--task ID]
-  ccp suite affected [--since REF | --since A..B | --paths PATH …]
+`run` wraps the command in the foreground, from the current directory, with stdin inherited, and exits with the
+command's exit code (128 + N when a signal N ended it). SIGINT and SIGTERM sent to `ccp` reach the command's
+process group; a watchdog in that group ends it if `ccp` itself dies. Options that do not parse run nothing:
+`ccp` exits 2, naming the problem (§14.5). Summary mode (the default without a terminal on stdin) writes stdout
+and stderr to one log in the order written (`--log`, else beside the run's record, else a temp file); a log
+that cannot be opened streams as `--full` does, with a warning. `--full` copies the output byte for byte as it
+arrives, at most DRAIN_SECONDS after the command exits.
 
-`run` wraps the command. It runs in the foreground, from the current directory, with stdin
-inherited, and `ccp` exits with the command's exit code (128 + N when a signal N ended it).
-SIGINT and SIGTERM sent to `ccp` reach the command's process group; a watchdog in that group ends
-it if `ccp` itself dies.
+The count and the result file (§14.3): the command's environment carries CCP_SUITE_ID and CCP_SUITE_RESULT (a path
+it may write a JSON result to, contracts/suite_result.schema.json); with none written, each line is matched
+against `suite.count_re` and `suite.summary`'s patterns. Failure ids are shown in the summary, never recorded.
+`--cold` also sets CCP_SUITE_COLD=1, and the run is recorded cold only when its own count shows nothing cached
+(§14.6). A `ccp suite run` started inside another one's command (CCP_SUITE_ID set) records nothing and writes no
+log: it becomes its command, so the outer run captures the output.
 
-Summary mode, the default without a terminal on stdin (`--summary` forces it): the command's
-stdout and stderr both go to one log file, in the order the command wrote them (`--log`, else
-next to the run's record in the queue, else a temp file). `ccp` prints a start line naming the
-log, and when the command ends, a summary: on a failure the failing tests' sections (what
-the language pack's `section_re` matches) and the log's last lines, capped with the tail cut from its front so the end
-always shows; always every `show_re` line; then one line with the exit code, lane, seconds, tests,
-failures, skips and modules ran and cached, and the log's path. A log that cannot be opened
-streams the run as --full does, with a warning. Options that do not parse run nothing: `ccp`
-exits 2, naming the problem (§14.5).
+An exclusive lane (§16.6) holds one run at a time: a run that finds it held exits 75, counts `lane_busy`, and
+with `--wait SECONDS|auto` waits instead. A run that records nothing takes no lock: recording never blocks tests.
+Without `-- COMMAND` a lane runs what plane.json `suite.lanes` names (§14.2) and records `stages` and
+`failed_stage`. On the gate role's staged lane, a recorded run that names its task runs the declared provers
+first (§14.4, `proven_skips`); they read plane.json from `origin/<integration branch>`, never from the checkout
+under test, in a clean worktree made for the run.
 
-`--full`, the default with a terminal on stdin: the output is
-copied to `ccp`'s own, byte for byte, as it arrives (one pipe when stdout and stderr are the same
-file, so their order is kept), at most DRAIN_SECONDS after the command exits.
+The record is `QUEUE_ROOT/runs/_suites.jsonl`, append-only: a `started` row and an `ended` row sharing a
+`suite_id` (the `ended` row also goes to the ledger as `suite/recorded`), holding numbers, ids, short labels
+and the log's path, never the command's arguments or output (§14.4). A `started` row with no end is `killed`
+once its run has stopped or reported, or after KILLED_AFTER_S. `wait` exits 0 for a run that passed, 1 for one
+that failed, 3 at `--timeout` (default WAIT_TIMEOUT_S) and 2 for an id with no record.
 
-The gate-result contract (§14.3): the command's environment carries CCP_SUITE_RESULT, a path the
-command may write a JSON result to (contracts/suite_result.schema.json: tests, ran, cached,
-cached_tests, skipped, failed, failures, seconds, modules). When it does, its numbers are the
-record's, and its `modules` (each test module's name, seconds and tests) go on the `ended` row. When
-it does not, each line is matched against the product's `suite.count_re` (default: the language pack's;
-a list is tried in order, the first pattern a line matches counting it, its first
-group or, with no group, the line as one test) and `suite.summary`'s patterns (defaults: the language pack's
-failure, skip and section patterns only; with `language: none` there are none, and only the product's own
-patterns count). The numbers are summed, and nothing else of the output, or of the result
-file, is kept in the records: failure ids are shown in the summary, never recorded. The command's
-environment is the caller's, unchanged, plus CCP_SUITE_ID and CCP_SUITE_RESULT: `bin/ccp` sets no
-variable, and a QUEUE_ROOT `ccp` finds from the binding when the caller set none stays `ccp`'s own.
-`--cold` asks for a cold run the same way in every product: what the run starts also gets
-CCP_SUITE_COLD=1, which a product's gate reads as its own cold option, and the run is recorded cold
-only when its own count shows nothing cached (§14.6): asking does not make it cold. A lane's stages
-run in a worktree `ccp wt` made also get that worktree's `CCP_WT_<FIELD>` variables, the ones its env hooks
-get (§12.2), and its task as `CCP_TASK_ID` and `CCP_NNNN`; a command after `--` gets none. A
-`ccp suite run` inside it records nothing and writes no log: it becomes its command, so the outer run
-captures the output.
+`affected` prints the test modules a change touches and, on stderr, the `ccp suite run` line that runs them
+(§14.7); above AFFECTED_FULL_SHARE of the suite's modules the line says to run the full lane. REF goes through
+`git rev-parse --verify` first, so one that starts with a dash is an unknown ref, never an option. `run` and
+`affected` without the product's `language` (§8.1) warn on stderr during the grace release
+(config.REQUIRED_KEYS_GRACE) and read with the pack they read with before; after it, exit 2.
 
-`--lane NAME` labels the run. A lane plane.json `suite.exclusive_lanes` names (a run with no lane counts as
-the `full` role's lane, `suite.roles`) runs one at a time in the queue (SPEC §16.6): a run that finds it held exits 75 at once,
-naming the holder and its usual duration, runs nothing, and counts `lane_busy` on its run
-(`--wait SECONDS|auto` waits instead; `auto` is the shell limit less the lane's usual cold run and a margin). A run
-from a clean checkout records its tree and its head (the commit, §10.2), and one whose tree, lane and command a recorded passing run shares runs
-without the lock, unless it is bound to a cold-gate task (§15.3). A run
-that records nothing (no QUEUE_ROOT, recording off) takes no lock: recording never blocks tests.
-Without `-- COMMAND`, it runs what `plane.json` `suite.lanes` names for that lane, from the
-checkout's root: an argv, run as one stage named after the lane, or an ordered list of `{name, cmd}`
-stages (§14.2), each run by the shell, in order, timed, until one exits non-zero. The gate role's staged
-lane ends with the plane's doc checks as the stage `plane-docs`. Such a run records `stages` (name,
-seconds, exit code of each that ran) and `failed_stage` on its `ended` row and event. A signal between
-stages stops the run before the next starts: it exits 128 + N and names that stage. Every `ended` row
-and event says whether the run was `cold` (§14.6: its own `cached` count was 0; null without one).
-A command after `--` on the `full` or `gate` role's lane, where plane.json gives that lane a different
-argv, still runs, after one warning on stderr naming the lane's own command, which it replaces (§14.2).
-On the gate role's staged lane, a run that is recorded and names its task runs a stage's declared provers
-(plane.json `verify.provers`, read from `origin/<integration branch>` once fetched, never from the checkout
-under test; a failed fetch reads none) before it starts: the first whose command exits 0 on the task's diff,
-from the head's merge base with the integration branch to HEAD in a clean checkout, skips the stage, and the
-`ended` row and its event record it in `proven_skips` (stage, prover name, exit code, run id: no command
-text, §14.4; the command is looked up in plane.json by the name). The provers run in a clean worktree of
-that branch's tip, made for the run and removed at its end, so nothing the task's diff changes alters their
-verdict.
-
-The record is `QUEUE_ROOT/runs/_suites.jsonl`, append-only: a `started` row when the command
-starts and an `ended` row when it ends, sharing a `suite_id`. The `ended` row also goes into the
-ledger as `suite/recorded`. A row holds numbers, ids, short labels and the log's path only: the
-lane, the output mode, the command's basename and its argument count, never its arguments or its
-output. The run it belongs to is `--run`, else the latest open run of `--task` (and `--phase`),
-else the one running worker run whose worktree holds the current directory. A `started` row with
-no end is `killed` once its run has stopped or reported, or after KILLED_AFTER_S.
-
-`wait` returns when a recorded run's `ended` row is written: it prints the summary `run` printed, rebuilt
-from the row and the log (the run's own exit code in it), and exits 0 when the run passed and 1 when it
-failed, so a run whose command exited 3 never reads as still going. A run still going at `--timeout`
-(default WAIT_TIMEOUT_S) prints its elapsed time and exits 3; an id with no record exits 2; a run §14.4
-counts as killed exits 1 at once, since it will never end. It writes nothing.
-
-`affected` prints the test modules a change touches, for the `part` lane, and runs nothing (§14.7); after
-them, on stderr, the `ccp suite run` line that runs them on the part lane, for a language with a named
-command (the pack's `test_command`); when the list holds more than AFFECTED_FULL_SHARE of the
-suite's test modules (the pack counts them), the line says to skip the pre-gate and run the full lane. The
-change is `--paths` (normalised, relative to the root), else what `git diff REF` (default HEAD) names
-against the working tree plus the untracked files; REF is resolved with `git rev-parse --verify` first, so
-one that starts with a dash is an unknown ref, never an option. The product's language pack reads them:
-for Python, a `test*.py` module that changed, imports a changed module directly or through one package's
-`__init__.py`, or names a changed file (a file with an extension: a directory or an extension-less name
-would match nearly every test). plane.json `suite.affected_map` adds the test ids of each glob a changed
-path matches; a pack with no reader (`none`) uses the map alone, and without one it is refused.
-
-`run` and `affected` need the product's `language` (§8.1): with none set, each warns on stderr during the
-grace release (config.REQUIRED_KEYS_GRACE) and reads with the pack it read with before; after it, exit 2.
-
-Recording never stands between a worker and its tests. With a command after `--`, it runs and its
-exit code is returned whatever else fails: no QUEUE_ROOT, no checkout, an unreadable plane.json, a bad
---lane label or --phase, a failed write. `ccp` prints one `ccp suite:` warning on stderr and records
-nothing, or nothing more. The one exception is options that do not parse: the call runs nothing.
+With a command after `--`, recording never stands between a worker and its tests: whatever else fails, the command
+runs and its exit code is returned, with one `ccp suite:` warning. The exception is options that do not parse.
 """
 from __future__ import annotations
 

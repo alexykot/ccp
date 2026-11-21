@@ -1,75 +1,38 @@
 """`ccp init`: adopt a product with one command (SPEC §4.3, §4.5, §8.3).
 
-Run in a product's repository, it writes the product footprint (the PROJECT, SPEC and delivery
-templates, the plane's starter house rules (§20.5) unless the product has the rules doc or `--no-starter-rules`
-says not, a minimal `plane.json` (with `--language` the product's language, §8.1, and the architect's adoption
-point, the product's next task number, §19.11),
-`.plane-runtime/` in `.gitignore`, the plugin anchor merged into `.claude/settings.json` with the
-session settings `subagentPromptCacheTtl`, `autoCompactWindow` and `model` (the lead's, §2.4), the telemetry tag
-`env.OTEL_RESOURCE_ATTRIBUTES` (§24.1), the one `CLAUDE.md` line) and,
-outside the repository, the binding in this plane's bindings directory and the queue directory it
-names. Inside a sandbox (`ccp sandbox`, §29.3) the binding is `<project_id>.yaml` in the sandbox's
-bindings directory and the queue is the sandbox's, `--force` or not; a `--queue-root` naming any other
-path is refused, writing nothing. The binding is the one source of truth: every reader resolves it through `lib.binding_path`,
-and no copy goes into the queue (§8.3).
+The call syntax is in `docs/cli`; what it writes, keeps and refuses is §4.5's. This holds what only the code does.
 
-Telemetry (§4.5, §24.1): the tag goes in whatever the consent. With the operator's consent for the machine, recorded
-once in `machine.json` beside the bindings (`--telemetry on|off`), init also writes the user-level telemetry keys
-(`ccp otel env`, absent ones only, never the prompt and tool-content keys), installs the receiver and the product's
-board timer (macOS; elsewhere it prints the commands) and checks the receiver, printing the command for a normal
-terminal when it is down. Before it does so, with `--telemetry on`, it says the keys cover every Claude Code session
-on the machine and that a project turns them off in its own `.claude/settings.json` (`ccp otel env --off`). With
-`off` recorded it writes nothing outside the product and says nothing; with nothing recorded and no flag it prints
-that notice and writes nothing outside the product. Inside a sandbox `--telemetry on` is refused (§29.3).
+The binding is the one source of truth: every reader resolves it through `lib.binding_path`, and no copy goes into
+the queue (§8.3). Inside a sandbox (`ccp sandbox`, §29.3) the binding is `<project_id>.yaml` in the sandbox's
+bindings directory and the queue is the sandbox's, `--force` or not; a `--queue-root` naming any other path is
+refused, writing nothing, and so is `--telemetry on`.
 
-It never overwrites a file without `--force`: an existing file is kept and listed as kept, so a
-second run, or a run after the binding was edited, changes nothing. A session setting the product
-already has is never overwritten, `--force` or not; the result's `settings` names each as added or
-kept. It refuses, writing nothing, when keeping a file would leave the product inconsistent: a
-`plane.json` naming another project id or not loading, a binding for the id that names another
-product root, or a settings file that is not a JSON object. It also refuses, writing nothing, a
-`--gate` it cannot split and a product root or queue path holding `#`, since the binding reader
-cuts a value at ` #` as a comment.
+Telemetry (§4.5, §24.1): the tag goes in whatever the consent. With consent recorded in `machine.json`, init also
+writes the user-level keys (`ccp otel env`, absent ones only, never the prompt and tool-content keys), installs
+the receiver and the board timer (macOS; elsewhere it prints the commands) and checks the receiver. With
+`--telemetry on` it first says the keys cover every Claude Code session on the machine; with `off` recorded, or
+nothing recorded and no flag, it writes nothing outside the product (with nothing recorded it prints that notice).
 
-When the product's origin does not suit its PR host adapter (plane.json `pr_host.adapter`, ADR-0040 D5):
-under GitHub, no `origin` or one not on GitHub; under the local adapter, no `origin`: init warns on stderr
-and in the result's `warnings`, naming the commands that need one, and adopts the product all the same.
+It never overwrites a file without `--force` (an existing one is listed as kept, so a second run changes nothing),
+and never a session setting the product already has, `--force` or not; the result's `settings` names each as
+added or kept. It refuses, writing nothing, when keeping a file would leave the product inconsistent (a
+`plane.json` naming another project id or not loading, a binding naming another product root, a settings file
+that is not a JSON object), a `--gate` it cannot split or that is blank, a `--language` that names no pack and is
+not `none` (exit 2, before anything is written), and a product root or queue path holding `#`, since the binding
+reader cuts a value at ` #` as a comment.
 
-The result's `required_unset`, and a line on stderr, name each required plane.json key (§8.1) still
-unset in the plane.json init leaves (a kept one included), the gate lane (`suite.lanes.gate`, given by
-`--gate`) among them, as a step to take before the first task. A
-`--language` that names no language pack and is not `none` is refused (exit 2) before anything is written.
+The result's `required_unset` lists each required plane.json key (§8.1) still unset, the gate lane among them
+(each gets its own stderr line). Its `warnings`, every one also printed on stderr, carry what to do next: an origin
+that does not suit the PR host adapter (`pr_host.adapter`, ADR-0040 D5), adopting all the same; no `allowance_cmd`
+in the machine file (§25.1), so no usage is read and nothing bounds spend; task files with no frontmatter
+(`ccp tasks migrate`, §5.3); queue entries `ccp plane check` would list (`ccp plane check --archive`, §31.3), which
+init moves nothing of; and, for a kept binding checked against the current shape (§8.3), each key it lacks and each
+obsolete key it carries, with the file and the fix (`lib.binding_findings`).
 
-With no `allowance_cmd` in the machine file (§25.1) no usage is read and nothing bounds spend: the result's
-`warnings` says so, naming the key and the machine file.
-
-When the task directory already holds task files with no frontmatter (an earlier plane generation's),
-the result's `warnings` names their count and `ccp tasks migrate` (§5.3).
-When the queue it keeps already holds entries `ccp plane check` would list (an earlier plane
-generation's), the result's `warnings` names their count and `ccp plane check --archive` (§31.3); init
-moves nothing.
-
-It records the adoption in the queue's ledger, a `plane`/`adopted` event (the plane checkout's HEAD, the
-binding `written` or `kept`), when it writes the binding, or when the ledger holds no such event yet (a
-queue from before the event, re-adopted), then with `since`, the binding file's last change, as the
-adoption point; a rerun on an adopted product records nothing (§4.5). `ccp health` reads from the latest
-one onwards (§27.1).
-
-A kept binding is checked against the current shape (§8.3): the result's `warnings` names, with the binding
-file and the fix, each key it lacks (the contract's required keys) and each obsolete key it carries (a key
-the contract marks deprecated, a key it does not list, a runner limit set, `lib.binding_findings`). An
-existing `INDEX.yaml` is kept and listed as kept. With `--gate`, the gate lane is one stage, `gate`, whose
-`cmd` is the line as given, and a `standing-dod.md` init writes names the gate in its placeholder product
-item (§4.5). A blank `--gate` (empty or only whitespace) is refused (exit 2) before anything is written.
-
-With `--permissions` it writes nothing: in an adopted product it prints the runner's and workers'
-permission allowlist and a deny list for destructive commands, as a JSON `permissions` block for the
-operator to apply to `.claude/settings.json` (§4.5, §18.5).
-
-With `--rules-doc PATH` it brings a product's existing house rules in (§4.5, §20.1): it lists each rule
-with no `check:` line and, with `--adopt`, gives each a `check: pass` line (the architect judges it),
-refusing, writing nothing, when that would put the doc over `rules_max_lines`. It writes nothing
-else, and points at the plane's starter rules (§20.5) for the checks the plane already runs.
+The adoption is recorded in the ledger as a `plane`/`adopted` event (§4.5, §23.2) when the binding is written or the
+ledger holds none yet, with `since`, the binding file's last change, added when the binding was kept; a rerun on an
+adopted product records nothing. `--permissions` writes nothing but the block it prints, and `--rules-doc` lists the
+rules with no `check:` line; with `--adopt` it also gives each a `check: pass` line (§4.5, §18.5, §20.1).
 """
 from __future__ import annotations
 

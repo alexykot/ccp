@@ -1,14 +1,8 @@
 # tests — the plane's suite
 
-Run it with `scripts/gate.sh` (a plane worker runs it as `ccp suite run --lane full`): the same modules
-as `python3 -m unittest discover -s tests -t .`, in parallel, with the test cache. Afterwards
-`git branch --list 'state/*'` must print nothing.
-
-**The suite is fenced** (`__init__.py`): no live queue, no real plane or product repo, no forge
-(GitHub or other; an end-to-end test uses the local PR host), no launchd. Every test builds its product in a temp directory, points
-`QUEUE_ROOT` at a temp queue, and stubs headless Claude calls. A test never asserts on prose, help
-text or prompt wording beyond the token it checks. `test_self_hosting.py` runs the plane's own
-checks against this repo, read-only.
+Run it with `scripts/gate.sh`; the house rules for it are E1, E2 and E4 (`docs/ENGINEERING.md`). `test_self_hosting.py`
+runs the plane's own checks against this repo, read-only. Every test builds its product in a temp directory, points
+`QUEUE_ROOT` at a temp queue, and stubs headless Claude calls.
 
 ## Shared fixtures
 

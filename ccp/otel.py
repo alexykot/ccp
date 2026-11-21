@@ -25,11 +25,9 @@ routed, in this order:
 
 It binds to localhost only. Metrics are accepted and ignored.
 
-  ccp otel serve [--port N]             the receiver (launchd runs it: `ccp otel install`)
-  ccp otel env [--port N]               the user-settings `env` block (static, no project)
-  ccp otel env --project ID             that, and the product's block (OTEL_RESOURCE_ATTRIBUTES only)
-  ccp otel env --off [--project ID]     the project-level block that turns telemetry off for one directory
-  ccp otel install|uninstall|status     the launchd agent on the Mac; status checks the user settings
+The commands are `otel serve` (the receiver, which launchd runs), `otel env` (the user-settings block, the product's
+with `--project`, the block that turns telemetry off with `--off`) and `otel install`, `uninstall` and `status`
+(the launchd agent; `status` checks the user settings). The flags are in `docs/cli`.
 """
 from __future__ import annotations
 
