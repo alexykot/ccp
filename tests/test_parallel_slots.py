@@ -223,7 +223,7 @@ class CloseCounts(ToolkitFixture, unittest.TestCase):
         (self.q / "tasks/0002-second.json").write_text(json.dumps({**st, "lease_holder": "runner-2"}))
         w = json.loads((self.q / "work.json").read_text())
         (self.q / "work.json").write_text(json.dumps({**w, "runners": SLOTS}))
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "it is built.")
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["head"], head)
         r = json.loads((self.q / "work.json").read_text())["runners"]

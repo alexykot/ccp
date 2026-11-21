@@ -13,11 +13,11 @@ from unittest import mock
 from tests.test_toolkit import ToolkitFixture
 
 BODY_GH = r'''#!/usr/bin/env python3
-"""A stand-in for gh: `pr view <n> --json body` prints the body in FAKE_GH_BODY, and logs its argv."""
+"""A stand-in for gh: `pr view <n> --json body` prints the body in STUB_BODY_FILE, and logs its argv."""
 import json, os, sys
-open(os.environ["FAKE_GH_BODY"] + ".argv", "a").write(json.dumps(sys.argv[1:]) + "\n")
+open(os.environ["STUB_BODY_FILE"] + ".argv", "a").write(json.dumps(sys.argv[1:]) + "\n")
 if sys.argv[1:3] == ["pr", "view"] and "body" in sys.argv:
-    print(json.dumps({"body": open(os.environ["FAKE_GH_BODY"]).read()}))
+    print(json.dumps({"body": open(os.environ["STUB_BODY_FILE"]).read()}))
     sys.exit(0)
 print("unexpected call", file=sys.stderr)
 sys.exit(1)
@@ -25,6 +25,8 @@ sys.exit(1)
 
 
 class PrBody(ToolkitFixture, unittest.TestCase):
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "pr_host": {"adapter": "github"}}  # the stand-in below is `gh`
+
     def setUp(self):
         super().setUp()
         self.ccp("tasks", "claim", "0002")
@@ -32,7 +34,7 @@ class PrBody(ToolkitFixture, unittest.TestCase):
         (t / "body-gh").write_text(BODY_GH)
         (t / "body-gh").chmod(0o755)
         self.body = t / "body.md"
-        gh = mock.patch.dict(os.environ, {"CCP_GH_BIN": str(t / "body-gh"), "FAKE_GH_BODY": str(self.body)})
+        gh = mock.patch.dict(os.environ, {"CCP_GH_BIN": str(t / "body-gh"), "STUB_BODY_FILE": str(self.body)})
         gh.start()
         self.addCleanup(gh.stop)
 

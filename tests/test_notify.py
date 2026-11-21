@@ -193,11 +193,11 @@ class Channel(ChannelFixture, unittest.TestCase):
     def test_the_close_that_finishes_a_review_point_notifies_once(self):
         self.tag("0001", "0002")
         self._to_approved_pr()
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual([(r[0], r[2], r[3]) for r in sent(self.out)], [("review_point_done", "0002-second", "R1")])
         self.assertEqual(body["notified"]["trigger"], "review_point_done")
-        self.ccp("tasks", "close", "0002", "--pr", "7")  # a re-run finds the reconcile done: nothing more
+        self.ccp("tasks", "close", "0002", "--pr", self.PR)  # a re-run finds the reconcile done: nothing more
         self.assertEqual(len(sent(self.out)), 1)
 
     def test_the_review_point_channel_runs_in_the_checkout_close_was_called_from(self):
@@ -205,7 +205,7 @@ class Channel(ChannelFixture, unittest.TestCase):
         self.set_plane(notify={"command": f"pwd -P > '{cwd}'"})
         self.tag("0001", "0002")  # commits the channel with the tags
         self._to_approved_pr()
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["notified"]["exit"], 0)
         self.assertEqual(cwd.read_text().strip(), str(self.runner.resolve()))
@@ -214,16 +214,16 @@ class Channel(ChannelFixture, unittest.TestCase):
         self.tag("0001", "0002")
         self._to_approved_pr()
         with mock.patch("ccp.lifecycle._cleanup", side_effect=RuntimeError("crashed")):
-            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertNotEqual(code, 0, out + err)
         self.assertIn("status: done", git(self.main, "show", "origin/main:" + TASK_FILE))  # the reconcile landed
         self.assertNotEqual(json.loads((self.q / "tasks/0002-second.json").read_text())["status"], "done")
         self.assertEqual(sent(self.out), [])
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertFalse(body["reconciled_now"])
         self.assertEqual([(r[0], r[3]) for r in sent(self.out)], [("review_point_done", "R1")])
-        self.ccp("tasks", "close", "0002", "--pr", "7")  # the queue says done now: nothing more
+        self.ccp("tasks", "close", "0002", "--pr", self.PR)  # the queue says done now: nothing more
         self.assertEqual(len(sent(self.out)), 1)
 
     def test_a_close_that_leaves_its_review_point_open_notifies_nothing(self):
@@ -231,7 +231,7 @@ class Channel(ChannelFixture, unittest.TestCase):
                    (self.main / TASK_FILE).read_text().replace("0002-second", "0003-third"))
         self.tag("0002", "0003")
         self._to_approved_pr()
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertNotIn("notified", body)
         self.assertEqual(sent(self.out), [])

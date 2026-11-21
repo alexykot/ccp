@@ -29,7 +29,7 @@ class Abandon(ToolkitFixture, unittest.TestCase):
         self.ccp("agent", "stop", stdin=json.dumps({"agent_id": agent, "agent_type": agent_type}))
 
     def review(self, *extra: str):
-        code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", HEAD, *extra)
+        code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", self.PR, "--head", HEAD, *extra)
         self.assertEqual(code, 0, out + err)
         return body, err
 
@@ -46,7 +46,7 @@ class Abandon(ToolkitFixture, unittest.TestCase):
     # ------------------------------------------------------------- superseded by a new round
 
     def test_a_stopped_round_is_superseded_by_the_next(self):
-        self.ccp("tasks", "claim", "0002")
+        self._push_task_work()
         self.review()
         self.start("r1")
         self.stop("r1")
@@ -61,7 +61,7 @@ class Abandon(ToolkitFixture, unittest.TestCase):
         self.assertEqual([w for w in body.get("warnings", []) if not w.startswith("behind_tip not checked")], [])
 
     def test_a_pending_round_is_superseded_with_supersede(self):
-        self.ccp("tasks", "claim", "0002")
+        self._push_task_work()
         self.review()
         self.review("--supersede")
         old = self.run_rec("0002-second/review")
@@ -69,7 +69,7 @@ class Abandon(ToolkitFixture, unittest.TestCase):
         self.assertEqual(len(self.abandoned()), 1)
 
     def test_a_running_round_is_superseded_with_a_warning(self):
-        self.ccp("tasks", "claim", "0002")
+        self._push_task_work()
         self.review()
         self.start("r1")
         body, err = self.review()
@@ -99,14 +99,14 @@ class Abandon(ToolkitFixture, unittest.TestCase):
 
     def test_close_abandons_the_tasks_leftover_runs(self):
         head = self._to_approved_pr()
-        self.ccp("prompt", "review", "0002", "--pr", "7", "--head", head)
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "built.")
+        self.ccp("prompt", "review", "0002", "--pr", self.PR, "--head", head)
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "built.")
         self.assertEqual(code, 0, out + err)
         # the verify run recorded its verdict but its worker never ran `ccp report`
         self.assertEqual(body["abandoned_runs"], ["0002-second/review", "0002-second/verify"])
         self.assertEqual(self.run_rec("0002-second/review")["abandoned_reason"], "task closed")
         self.assertEqual(self.run_rec("0002-second/verify")["verdict"], "approve")
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "built.")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "built.")
         self.assertEqual((code, body["abandoned_runs"]), (0, []), out + err)  # a re-run finds none left
 
     def test_sync_abandons_a_dropped_tasks_runs(self):

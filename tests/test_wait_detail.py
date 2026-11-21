@@ -54,7 +54,7 @@ class WaitDetail(ToolkitFixture, unittest.TestCase):
         self._to_approved_pr()
         w = self.work()  # a detail the close finds on its task, however it got there
         (self.q / "work.json").write_text(json.dumps({**w, "waiting_on_detail": "Q3"}))
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "it is built.")
         self.assertEqual(code, 0, out + err)
         self.assertEqual((self.work()["task_id"], self.work()["waiting_on_detail"]), (None, None))
 

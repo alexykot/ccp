@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import time
 import unittest
 from pathlib import Path
@@ -49,10 +48,10 @@ class SignOff(ToolkitFixture, unittest.TestCase):
     def test_close_refuses_a_task_with_no_sign_off_and_merges_nothing(self):
         self.declare("build")
         self._to_approved_pr()
-        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 1)
         self.assertIn("no build sign-off", err)
-        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assert_pr_not_merged()
 
     def test_a_sign_off_on_an_old_head_is_stale_until_signed_again(self):
         self.declare("build")
@@ -65,17 +64,15 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         git(wt, "commit", "-q", "-am", "Task 0002: fix it")
         git(wt, "push", "-q", "origin", "task/0002-second")
         head_b = git(wt, "rev-parse", "HEAD")
-        pr = json.loads((self.ghstate / "pr.json").read_text())
-        (self.ghstate / "pr.json").write_text(json.dumps({**pr, "head": head_b}))
-        self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", head_b, "--note", "the new head")
+        self.ccp("prompt", "verify", "0002", "--pr", self.PR, "--head", head_b, "--note", "the new head")
         self.verify_at(head_b, "verdict-b.json")
-        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 1)
         self.assertIn("stale", err)
-        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assert_pr_not_merged()
         code, body, out, err = self.sign()
         self.assertEqual((code, body["sign_off"]["head"]), (0, head_b), out + err)
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["head"], head_b)
 
@@ -83,8 +80,9 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         self.declare("build")
         head = self._to_approved_pr()
         time.sleep(1.2)  # the approval is recorded before the merge, to the second
-        subprocess.run([os.environ["CCP_GH_BIN"], "pr", "merge", "7", "--squash", "--match-head-commit", head], check=True)
-        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, out, err = self.ccp("pr", "merge", self.PR, "--head", head, "--task", "0002-second")
+        self.assertEqual(code, 0, out + err)
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 1)
         self.assertIn("close refused", err)
         self.assertNotIn("status: done", git(self.main, "show", f"origin/main:{TASK_FILE}"))
@@ -93,7 +91,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         self.declare("brief")
         self.assertEqual(self.sign()[0], 0)
         self._to_approved_pr()
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
 
     def test_close_refuses_a_declared_brief_sign_off_that_is_not_recorded(self):
@@ -101,19 +99,19 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         self.declare("[brief, build]")
         code, _, out, err = self.sign("--stage", "build")
         self.assertEqual(code, 0, out + err)
-        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 1)
         self.assertIn("no brief sign-off", err)
         self.assertNotIn("build sign-off", err)
-        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assert_pr_not_merged()
 
     def test_a_malformed_sign_off_value_refuses_the_close(self):
         self._to_approved_pr()
         self.declare("true")
-        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 1)
         self.assertIn("ccp tasks check", err)
-        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assert_pr_not_merged()
 
     # ------------------------------------------------------------------ claim
 
@@ -274,10 +272,10 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         self.declare("build")
         self.assertEqual(self.sign("--at", "2026-01-01", "--from", "a" * 40)[0], 0)
         self._to_approved_pr()
-        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 1)
         self.assertIn("stale", err)
-        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assert_pr_not_merged()
 
     def test_a_time_with_its_offset_is_kept_in_utc(self):
         self.declare("brief")

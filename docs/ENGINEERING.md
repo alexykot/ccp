@@ -10,8 +10,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   `ccp suite run` on the full role's lane), the same modules as `python3 -m unittest discover -s tests -t .`,
   run in parallel, with the test cache.
   check: pass — the verifier's gate runs the suite on every task (§15); an architect.checks entry would run the gate inside itself
-- **E2** Tests are fenced: no live queue, no real plane or product repo, no GitHub, no launchd; no test
-  leaves a `state/*` branch behind.
+- **E2** Tests are fenced: no live queue, no real plane or product repo, no forge (GitHub or other), no launchd;
+  end-to-end tests use the local PR host; no test leaves a `state/*` branch behind.
   check: command — scripts/gate.sh fails on a leftover `state/*` branch; fencing in tests/__init__.py
 - **E4** A test checks behaviour, not wording: no assertion on prose, help text or prompt text beyond
   the token it pins. A test names a plane constant or shared fixture fact (the worktrees directory, a

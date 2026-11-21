@@ -22,18 +22,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, lifecycle, suite, tasklog, verify
-from tests.test_toolkit import FAKE_GH, PLANE, ToolkitFixture, git
-
-# GitHub moves an open PR's head with its branch; a `refuse-merge` file makes the merge fail
-FOLLOWING_GH = FAKE_GH.replace("args = sys.argv[1:]\n", '''args = sys.argv[1:]
-if pr.get("state") == "OPEN" and pr.get("branch"):
-    got = subprocess.run(["git", "ls-remote", pr["origin"], "refs/heads/" + pr["branch"]],
-                         capture_output=True, text=True).stdout.split()
-    if got:
-        pr["head"] = got[0]
-if args[:2] == ["pr", "merge"] and os.path.exists(os.path.join(d, "refuse-merge")):
-    print("the hosting service refused the merge", file=sys.stderr); sys.exit(1)
-''', 1)
+from tests.test_toolkit import PLANE, ToolkitFixture, git
 
 PY = shlex.quote(sys.executable)
 GATE = (f'if [ -n "$CATCH_UP_GATE_HOOK" ]; then {PY} "$CATCH_UP_GATE_HOOK" || exit 9; fi; '
@@ -56,7 +45,6 @@ class CatchUp(ToolkitFixture, unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        (self.ghstate.parent / "gh").write_text(FOLLOWING_GH)
         self.write("lib/__init__.py", "")
         self.write("lib/helper.py", "def helper():\n    return 1\n")
         self.write("ptests/__init__.py", "")
@@ -112,9 +100,8 @@ class CatchUp(ToolkitFixture, unittest.TestCase):
         git(wt, "commit", "-q", "-m", "Task 0002: build it")
         git(wt, "push", "-q", "-u", "origin", "task/0002-second")
         head = git(wt, "rev-parse", "HEAD")
-        (self.ghstate / "pr.json").write_text(json.dumps({"state": "OPEN", "head": head, "origin": str(self.origin),
-                                                           "base": "main", "branch": "task/0002-second"}))
-        code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", head)
+        self.open_pr()
+        code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", self.PR, "--head", head)
         self.assertEqual(code, 0, out + err)
         rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head)
@@ -145,7 +132,7 @@ class CatchUp(ToolkitFixture, unittest.TestCase):
         return change
 
     def close(self, root: Path | None = None):
-        return self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.", root=root)
+        return self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "it is built.", root=root)
 
     def branch(self) -> str:
         return git(self.main, "ls-remote", str(self.origin), "refs/heads/task/0002-second").split()[0]
@@ -162,7 +149,7 @@ class CatchUp(ToolkitFixture, unittest.TestCase):
         self.assertIn("nothing merged", err)
         for n in names:
             self.assertIn(n, err)
-        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assert_pr_not_merged()
         self.assertEqual(self.branch(), head)
         self.assertNotIn("catch_up", self.record())
 
@@ -203,8 +190,7 @@ if done < {moves}:
         self.assertEqual(body["caught_up"], cu)
         self.assertEqual((cu["from"], cu["tip"], cu["merge_tree"]), (head, tip, "clean"))
         self.assertEqual(git(self.main, "rev-list", "--parents", "-n1", merged).split()[1:], [head, tip])
-        self.assertIn(f"--match-head-commit {merged}", (self.ghstate / "merge-called").read_text())
-        self.assertEqual(json.loads((self.ghstate / "pr.json").read_text())["head"], merged)
+        self.assertEqual((self.pr_record()["state"], self.pr_record()["head"]), ("MERGED", merged))  # merged at the caught-up head
         self.assertEqual(cu["tip_files"], ["other/b.txt"])
         self.assertEqual(cu["task_files"], ["feature.txt", "ptests/test_feature.py", "shared.txt"])
         runs = self.gate_runs()
@@ -278,7 +264,7 @@ if done < {moves}:
         self.assertEqual(cu["tip"], git(self.main, "rev-parse", "origin/main~2"))  # the mover's commit; then the squash
         self.assertEqual(cu["merge_tree"], "union")
         self.assertEqual(cu["tip_files"], ["docs/a/README.md", "other/moving.txt"])
-        self.assertIn(f"--match-head-commit {cu['to']}", (self.ghstate / "merge-called").read_text())
+        self.assertEqual((self.pr_record()["state"], self.pr_record()["head"]), ("MERGED", cu["to"]))
         self.assertEqual(git(self.main, "show", f"{body['merge_sha']}:docs/a/README.md") + "\n",
                          README + "- `tip.py`: the tip's\n- `task.py`: the task's\n")
 
@@ -323,7 +309,7 @@ if done < {moves}:
         tip = self.tip(self.put("other/b.txt", "b\n"))
         code, _, out, err = self.close(root=self.main)
         self.assertEqual(code, 1, out + err)
-        self.assertEqual(json.loads((self.ghstate / "pr.json").read_text())["state"], "MERGED")
+        self.assertEqual(self.pr_record()["state"], "MERGED")
         cu = self.record()["catch_up"]
         self.assertEqual((cu["from"], cu["tip"], cu["sign_off_carried"]), (head, tip, head))
         caught = [e for e in self.events() if (e["type"], e["op"]) == ("verify", "set")]
@@ -390,19 +376,22 @@ if done < {moves}:
     def test_a_refused_merge_after_the_push_is_closed_by_a_rerun(self):
         head = self.approved()
         self.tip(self.put("other/b.txt", "b\n"))
-        (self.ghstate / "refuse-merge").write_text("")
+        hook = self.origin / "hooks" / "pre-receive"  # the host refuses the merge's push to the integration branch
+        hook.write_text("#!/bin/sh\nwhile read old new ref; do case $ref in refs/heads/main) exit 1;; esac; done\n")
+        hook.chmod(0o755)
         code, _, out, err = self.close()
         self.assertEqual(code, 1, out + err)
         merged = self.record()["catch_up"]["to"]
         self.assertEqual(self.branch(), merged)  # pushed: the record covers it
         self.assertIn(f"close's catch-up {merged[:7]}", err)
-        (self.ghstate / "refuse-merge").unlink()
-        code, _, out, err = self.ccp("verify", "merge-ok", "7", "--task", "0002-second")
+        self.assert_pr_not_merged()
+        hook.unlink()
+        code, _, out, err = self.ccp("verify", "merge-ok", self.PR, "--task", "0002-second")
         self.assertEqual(code, 0, out + err)
         self.assertEqual(json.loads(out)["match_head_commit"], merged)
         code, body, out, err = self.close()
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(json.loads((self.ghstate / "pr.json").read_text())["head"], merged)
+        self.assertEqual((self.pr_record()["state"], self.pr_record()["head"]), ("MERGED", merged))
         self.assertEqual(self.record()["catch_up"]["from"], head)
         self.assertEqual(len(self.gate_runs()), 1)
 
@@ -412,7 +401,7 @@ if done < {moves}:
         self.tip(self.put("other/b.txt", "b\n"))
         code, _, out, err = self.close(root=self.main)
         self.assertEqual(code, 1, out + err)
-        self.assertEqual(json.loads((self.ghstate / "pr.json").read_text())["state"], "MERGED")
+        self.assertEqual(self.pr_record()["state"], "MERGED")
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
         cfg["reconcile"]["hooks"] = []
         self.write("docs/delivery/plane.json", json.dumps(cfg))

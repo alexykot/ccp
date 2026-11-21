@@ -14,7 +14,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli, config, prompt as prompt_mod
+from ccp import cli, config, prhost, prompt as prompt_mod
 from ccp.queue import QueueError
 from tests import helpers
 from tests.helpers import TASK, binding
@@ -22,41 +22,6 @@ from tests.helpers import TASK, binding
 PLANE = Path(__file__).resolve().parents[1]
 GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
            "GIT_COMMITTER_EMAIL": "t@example.com", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
-
-FAKE_GH = r'''#!/usr/bin/env python3
-"""A stand-in for gh: `pr view` reads the PR from FAKE_GH_DIR, `pr merge` squash-merges its branch."""
-import json, os, subprocess, sys, tempfile
-d = os.environ["FAKE_GH_DIR"]
-pr = json.load(open(os.path.join(d, "pr.json"))) if os.path.exists(os.path.join(d, "pr.json")) else {}
-args = sys.argv[1:]
-if args[:2] == ["pr", "view"] and "body" in args:  # the review prompt's check (SPEC 15.2): the fixture's open task
-    print(json.dumps({"body": "Task 0002-second: the fixture's change."}))
-    sys.exit(0)
-if args[:2] == ["pr", "view"]:
-    print(json.dumps({"number": int(args[2]), "state": pr["state"], "headRefOid": pr["head"], "mergedAt": pr.get("merged_at"),
-                      "mergeCommit": {"oid": pr["merge"]} if pr.get("merge") else None}))
-    sys.exit(0)
-if args[:2] == ["pr", "merge"]:
-    open(os.path.join(d, "merge-called"), "w").write(" ".join(args))
-    head = args[args.index("--match-head-commit") + 1]
-    if head != pr["head"]:
-        print("head moved", file=sys.stderr); sys.exit(1)
-    w = tempfile.mkdtemp()
-    run = lambda *a: subprocess.run(["git", "-C", w, *a], check=True, capture_output=True)
-    subprocess.run(["git", "clone", "-q", pr["origin"], w], check=True, capture_output=True)
-    run("checkout", "-q", pr["base"])
-    run("merge", "--squash", "origin/" + pr["branch"])
-    run("commit", "-q", "-m", f"Task {pr['branch'][5:9]}: done (#{args[2]})")
-    run("push", "-q", "origin", pr["base"])
-    pr["state"] = "MERGED"
-    import datetime
-    pr["merged_at"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    pr["merge"] = subprocess.run(["git", "-C", w, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-    json.dump(pr, open(os.path.join(d, "pr.json"), "w"))
-    sys.exit(0)
-sys.exit(2)
-'''
-
 
 def git(cwd: Path, *a: str) -> str:
     r = subprocess.run(["git", "-C", str(cwd), *a], capture_output=True, text=True, env={**os.environ, **GIT_ENV})
@@ -74,13 +39,14 @@ class ToolkitFixture:
         "reconcile": {"log": {"path": "docs/LOG.md", "entry": "**{date} (runner):** `{nnnn}` done: {summary} PR #{pr}, squash `{merge7}`.",
                               "before": r"^\*\*\d{4}-"}},
         "worktrees": {"links": [".venv"]},
+        "pr_host": {"adapter": "local"},
     }
+    PR = "1"  # the number the local PR host gives the fixture's first PR (`open_pr`)
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         t = Path(self._tmp.name).resolve()
-        self.env = mock.patch.dict(os.environ, {**GIT_ENV, "QUEUE_ROOT": str(t / "queue"), "ACTOR": "task-runner",
-                                                "CCP_GH_BIN": str(t / "gh"), "FAKE_GH_DIR": str(t / "ghstate")})
+        self.env = mock.patch.dict(os.environ, {**GIT_ENV, "QUEUE_ROOT": str(t / "queue"), "ACTOR": "task-runner"})
         self.env.start()
         self.origin = t / "origin.git"
         git(t, "init", "-q", "--bare", "-b", "main", str(self.origin))
@@ -109,10 +75,6 @@ class ToolkitFixture:
         self.q = t / "queue"
         self.q.mkdir()
         (self.q / "project.yaml").write_text(binding(integration_branch="main", product_root=self.main))
-        (t / "ghstate").mkdir()
-        (t / "gh").write_text(FAKE_GH)
-        (t / "gh").chmod(0o755)
-        self.ghstate = t / "ghstate"
 
     def tearDown(self):
         self.env.stop()
@@ -123,6 +85,21 @@ class ToolkitFixture:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(text)
         return p
+
+    def open_pr(self, branch: str = "task/0002-second", body: str = "Task: 0002-second\n") -> str:
+        """The pushed `branch`'s PR, opened with the local PR host's `open` (ADR-0040 D3): its number, `PR`."""
+        number = str(prhost.open(config.load(self.runner), branch, "main", "Task 0002: Second", body))
+        self.assertEqual(number, self.PR)
+        return number
+
+    def assert_pr_not_merged(self) -> None:
+        """The local PR host's record shows no merge: still open, no squash commit recorded."""
+        rec = self.pr_record()
+        self.assertEqual((rec["state"], rec["merge_commit"]), ("OPEN", ""))
+
+    def pr_record(self, number: str | None = None) -> dict:
+        """The local PR host's record of PR `number` (`PR` by default)."""
+        return json.loads((self.q / prhost.PRS_DIR / f"{number or self.PR}.json").read_text())
 
     def ccp(self, *args: str, stdin: str | None = None, root: Path | None = None):
         out, err = io.StringIO(), io.StringIO()
@@ -170,18 +147,21 @@ class ToolkitFixture:
 
     # ------------------------------------------------------------------ verify and close
 
-    def _to_approved_pr(self) -> str:
-        """Claim 0002, commit work on its branch, push it, verify it: the PR head."""
+    def _push_task_work(self) -> str:
+        """Claim 0002, commit work on its branch, push it, open its PR: the PR head."""
         self.ccp("tasks", "claim", "0002")
         wt = self.main / config.WORKTREES_DIR / "impl-0002"
         (wt / "feature.txt").write_text("built\n")
         git(wt, "add", "feature.txt")
         git(wt, "commit", "-q", "-m", "Task 0002: build it")
         git(wt, "push", "-q", "-u", "origin", "task/0002-second")
-        head = git(wt, "rev-parse", "HEAD")
-        (self.ghstate / "pr.json").write_text(json.dumps({"state": "OPEN", "head": head, "origin": str(self.origin),
-                                                           "base": "main", "branch": "task/0002-second"}))
-        self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", head)
+        self.open_pr()
+        return git(wt, "rev-parse", "HEAD")
+
+    def _to_approved_pr(self) -> str:
+        """Claim 0002, commit work on its branch, push it, open its PR, verify it: the PR head."""
+        head = self._push_task_work()
+        self.ccp("prompt", "verify", "0002", "--pr", self.PR, "--head", head)
         rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head)
         rec.pop("checked_at", None)
@@ -419,17 +399,17 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         git(self.main, "push", "-q", "origin", "main")
         git(self.runner, "checkout", "-q", "--detach", "origin/main")
         head = self._to_approved_pr()
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "it is built.")
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["head"], head)
         self.assertTrue(any("adapter.post_close moves to reconcile.hooks" in w for w in body["warnings"]), body)
         git(self.main, "fetch", "-q", "origin")
         task = git(self.main, "show", "origin/main:docs/delivery/tasks/0002-second.md")
         self.assertIn("status: done", task)
-        self.assertIn(f"PR #7 head `{head[:7]}`", task)
+        self.assertIn(f"PR #{self.PR} head `{head[:7]}`", task)
         self.assertNotIn("*Append-only, per check id", task)
         log = git(self.main, "show", "origin/main:docs/LOG.md")
-        self.assertLess(log.index("`0002` done: it is built. PR #7"), log.index("older entry"))
+        self.assertLess(log.index(f"`0002` done: it is built. PR #{self.PR}"), log.index("older entry"))
         self.assertIn("status: done", git(self.main, "show", "origin/main:docs/delivery/INDEX.yaml").split("0002-second")[1])
         self.assertTrue(git(self.main, "log", "-1", "--format=%s", "origin/main").startswith("Reconcile 0002"))
         self.assertFalse((self.main / config.WORKTREES_DIR / "impl-0002").exists())
@@ -446,7 +426,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.ccp("wt", "create", "--kind", "ver", "--baseline")
         self.assertEqual(code, 0, out + err)
         baseline = Path(body["path"])
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "it is built.")
         self.assertEqual(code, 0, out + err)
         self.assertFalse((self.main / config.WORKTREES_DIR / "impl-0002").exists())  # the task's own worktree went
         code, gc, out, err = self.ccp("wt", "gc")
@@ -456,28 +436,19 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.assertTrue((self.q / "worktrees" / "ver-baseline.json").is_file())
 
     def test_close_refuses_without_an_approval_and_merges_nothing(self):
-        self.ccp("tasks", "claim", "0002")
-        (self.ghstate / "pr.json").write_text(json.dumps({"state": "OPEN", "head": "b" * 40, "origin": str(self.origin),
-                                                           "base": "main", "branch": "task/0002-second"}))
-        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        self._push_task_work()
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 1)
         self.assertIn("nothing merged", err)
-        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assert_pr_not_merged()
 
     def test_an_approval_recorded_after_a_merge_by_hand_is_not_one(self):
         import time
-        self.ccp("tasks", "claim", "0002")
-        wt = self.main / config.WORKTREES_DIR / "impl-0002"
-        (wt / "feature.txt").write_text("built\n")
-        git(wt, "add", "feature.txt")
-        git(wt, "commit", "-q", "-m", "Task 0002: build it")
-        git(wt, "push", "-q", "-u", "origin", "task/0002-second")
-        head = git(wt, "rev-parse", "HEAD")
-        (self.ghstate / "pr.json").write_text(json.dumps({"state": "OPEN", "head": head, "origin": str(self.origin),
-                                                           "base": "main", "branch": "task/0002-second"}))
-        subprocess.run([os.environ["CCP_GH_BIN"], "pr", "merge", "7", "--squash", "--match-head-commit", head], check=True)
+        head = self._push_task_work()
+        code, _, out, err = self.ccp("pr", "merge", self.PR, "--head", head, "--task", "0002-second")
+        self.assertEqual(code, 0, out + err)
         time.sleep(1.2)
-        self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", head)
+        self.ccp("prompt", "verify", "0002", "--pr", self.PR, "--head", head)
         rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head)
         rec.pop("checked_at", None)
@@ -486,7 +457,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         f = Path(self._tmp.name) / "late.json"
         f.write_text(json.dumps(rec))
         self.assertEqual(self.ccp("verify", "record", str(f))[0], 0)
-        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 1)
         self.assertIn("recorded after it", err)
         self.assertNotIn("status: done", git(self.main, "show", "origin/main:docs/delivery/tasks/0002-second.md"))
@@ -494,11 +465,11 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
     def test_close_refuses_a_dirty_runner_worktree(self):
         self._to_approved_pr()
         (self.runner / "stray.txt").write_text("x")
-        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 2)
         self.assertIn(f"{self.runner.resolve()} has changes: the checkout `ccp tasks close` runs from must be clean", err)
         self.assertNotIn("runner worktree", err)  # close may run from any checkout (§10.5)
-        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assert_pr_not_merged()
 
     def test_close_after_a_failed_reconcile_finishes_without_merging_again(self):
         # the failing hook lands before the task's branch is cut, so its head contains the tip (§16.5 rule 4)
@@ -508,24 +479,25 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         git(self.runner, "commit", "-qam", "a failing hook")
         git(self.runner, "push", "-q", "origin", "HEAD:main")
         head = self._to_approved_pr()
-        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, _, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 1)
-        self.assertIn("PR 7 is merged", err)
-        self.assertIn("run `ccp tasks close 0002-second --pr 7` again", err)
+        self.assertIn(f"PR {self.PR} is merged", err)
+        self.assertIn(f"run `ccp tasks close 0002-second --pr {self.PR}` again", err)
+        merged = self.pr_record()["merge_commit"]
+        self.assertTrue(merged)
         git(self.runner, "fetch", "-q", "origin")  # close left the runner worktree where it was (§10.5)
         git(self.runner, "checkout", "-q", "--detach", "origin/main")
         cfg["reconcile"]["hooks"] = []
         (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
         git(self.runner, "commit", "-qam", "the hook fixed")
         git(self.runner, "push", "-q", "origin", "HEAD:main")
-        (self.ghstate / "merge-called").unlink()
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertFalse(body["merged_now"])
         self.assertTrue(body["reconciled_now"])
-        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assertEqual((self.pr_record()["state"], self.pr_record()["merge_commit"]), ("MERGED", merged))  # not merged again
         self.assertIn("status: done", git(self.main, "show", "origin/main:docs/delivery/tasks/0002-second.md"))
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")  # a third run changes nothing
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)  # a third run changes nothing
         self.assertEqual(code, 0, out + err)
         self.assertFalse(body["reconciled_now"])
         self.assertEqual(json.loads((self.q / "work.json").read_text())["runner_tasks_done"], 1)
