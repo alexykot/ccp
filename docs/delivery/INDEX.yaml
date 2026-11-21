@@ -1248,7 +1248,7 @@ tasks:
     depends_on: [0215-a-reused-runner-worktree-moves-to-the-tip]
     path: tasks/0254-close-and-architect-share-the-unrecorded-worktree-helper.md
   - id: 0255-test-fixtures-shared-helpers-and-one-repo-build
-    status: pending
+    status: done
     title: Test helpers other modules borrow move to test-free mixins, and ToolkitFixture builds its repositories once per test class
     depends_on: [0227-the-test-fixture-uses-the-local-pr-host, 0241-gate-module-tests-wiring-only]
     path: tasks/0255-test-fixtures-shared-helpers-and-one-repo-build.md

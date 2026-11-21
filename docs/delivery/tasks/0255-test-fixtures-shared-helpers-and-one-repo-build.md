@@ -1,7 +1,7 @@
 ---
 task_id: 0255-test-fixtures-shared-helpers-and-one-repo-build
 title: Test helpers other modules borrow move to test-free mixins, and ToolkitFixture builds its repositories once per test class
-status: pending
+status: done
 kind: refactor
 depends_on: ["0227-the-test-fixture-uses-the-local-pr-host", "0241-gate-module-tests-wiring-only"]
 clashes_with: ["0208-board-reads-the-latest-good-allowance", "0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0219-integration-merges-leave-out-the-tip"]
@@ -139,3 +139,5 @@ modules and `tests/helpers.py`), so this task builds on both.
 
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #283 head `724394f` (squash `5b23f26`): APPROVE. Passed: fx-01, fx-02, fx-03, fx-04. Gate: `ccp wt exec -- suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0255-test-fixtures-shared-helpers-and-one-repo-build.json.
+
