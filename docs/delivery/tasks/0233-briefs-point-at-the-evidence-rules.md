@@ -93,5 +93,10 @@ Measured at `8aefa59`.
   makes an `implementer` on a check run fail the test (`record` itself accepts that seat for a check run).
   The operator sample's `produced_by` is not pinned, so 0237 can change it.
 - `tests/test_verify_producer.py`'s unused `import re` is gone.
+- Fix round 1 (review MINOR and both NITs), all in `plugin/agents/delivery-verifier.md`: the "A ruling
+  is not evidence" bullet no longer restates who `produced_by` names on a ruling waiver (§15.4 holds it,
+  as verify.md already did); the as_written bullet's "ruling form above" now reads "the ruling form
+  SPEC §15.4 gives"; and its restated `record` refusals shrank to "`record` refuses what breaks the rule",
+  matching verify.md.
 
 ## Verification notes
