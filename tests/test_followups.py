@@ -7,7 +7,7 @@ import os
 import unittest
 from unittest import mock
 
-from ccp import followups, refs, runs
+from ccp import config, followups, refs, runs, tasklog
 from tests.test_toolkit import ToolkitFixture, git
 
 
@@ -146,6 +146,14 @@ class TheCommands(ToolkitFixture, unittest.TestCase):
         code, _, _, err = self.ccp("tasks", "follow-up", f"{self.RUN}#1", "--task", "0003", root=self.main)
         self.assertEqual(code, 0, err)
         self.assertEqual(self.follow_ups_on_record()[0]["outcome"]["ref"], "0003-third")
+
+    def test_the_task_ids_at_a_rev_are_its_task_files_only(self):
+        self.write("docs/delivery/tasks/README.md", "Not a task.\n")
+        git(self.main, "add", "docs/delivery/tasks/README.md")
+        git(self.main, "commit", "-q", "-m", "a file that is not a task")
+        cfg = config.load(self.main)
+        self.assertEqual(tasklog.task_ids_at(cfg, "HEAD"), ["0001-first", "0002-second"])
+        self.assertEqual(tasklog.task_ids_at(cfg, "no-such-rev"), [])
 
     def test_a_proposal_not_on_record_is_refused(self):
         self.assert_refused(self.decide(1, "--proposal", "pp-none"), "--proposal")
