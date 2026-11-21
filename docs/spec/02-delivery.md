@@ -753,7 +753,9 @@ mode's `log` path, `cold` (§14.6) and, for a lane plane.json names, `stages` an
 them (§14.3; on the row only, never the event), and
 `proven_skips` when a prover skipped a stage (§14.2: the prover's name, exit code and the run id, never
 its command). A staged
-lane's `started` row has `cmd` `stages` and its stage count as `argc`. Never the command's arguments,
+lane's `started` row has `cmd` `stages` and its stage count as `argc`. A run from a git checkout with
+nothing to commit adds `tree`, the `HEAD^{tree}` it ran (§16.6), and a run that skipped an exclusive
+lane's lock adds `lane_skipped` and `green_from`. Never the command's arguments,
 never its output; the event carries the numbers, `cold` and the stages, not the path. A row naming `modules_ran` and `modules_cached` reads as `ran` and `cached`.
 
 - **Reports cite them.** `Suite: from <suite_id>`, the preferred form, takes the tests, seconds and
@@ -1298,7 +1300,11 @@ holds it, since when, and the holder's usual duration; the worker does other wor
 limit (§14.6) less the lane's usual cold run (the median of its last ten passing cold runs, else of
 its last ten passing runs) and a 30 s margin, never below 0; with no passing run of the lane recorded
 it waits 0 s and says so. A lock whose holder process is gone is
-taken over with a warning. Busy exits are recorded on the run (`lane_busy`). A run that has started
+taken over with a warning. A run whose clean checkout (nothing to commit, untracked files included)
+has the tree of a passing run of the same lane and command already recorded in the queue does not
+take the lock: it runs at once, recorded `lane_skipped: "green_tree"` with `green_from` naming that run,
+since the product's test cache answers most of it; a run bound to a task whose gate is cold (§15.3)
+takes the lock as any other. The verifier still runs its gate (§15.3). Busy exits are recorded on the run (`lane_busy`). A run that has started
 and outlasts its caller's command limit is waited on by its suite id with `ccp suite wait` (§14.2).
 
 ### 16.7 Records, forecast, usage and the board

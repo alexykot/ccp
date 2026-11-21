@@ -50,6 +50,8 @@ captures the output.
 the `full` role's lane, `suite.roles`) runs one at a time in the queue (SPEC §16.6): a run that finds it held exits 75 at once,
 naming the holder and its usual duration, runs nothing, and counts `lane_busy` on its run
 (`--wait SECONDS|auto` waits instead; `auto` is the shell limit less the lane's usual cold run and a margin). A run
+from a clean checkout records its tree, and one whose tree, lane and command a recorded passing run shares runs
+without the lock, unless it is bound to a cold-gate task (§15.3). A run
 that records nothing (no QUEUE_ROOT, recording off) takes no lock: recording never blocks tests.
 Without `-- COMMAND`, it runs what `plane.json` `suite.lanes` names for that lane, from the
 checkout's root: an argv, run as one stage named after the lane, or an ordered list of `{name, cmd}`
@@ -230,6 +232,73 @@ def auto_wait(cfg: Config | None, q: Path, lane: str | None) -> tuple[int, str]:
     limit = config.gate_limits(cfg)[0]
     return (max(0, int(limit - cold - WAIT_AUTO_MARGIN_S)),
             f"limit {limit:g} s, the lane's usual cold run {cold:.0f} s, margin {WAIT_AUTO_MARGIN_S} s")
+
+
+GREEN_TREE = "green_tree"  # §16.6: the `lane_skipped` value of a run that a passing run of its tree let skip the lock
+
+
+def checkout_tree(cwd: Path) -> str | None:
+    """§14.4: the `HEAD^{tree}` of the git checkout holding `cwd` when it has nothing to commit (untracked files
+    included); None for a dirty checkout, outside one, or when git fails, which never blocks the run."""
+    try:
+        st = subprocess.run(["git", "-C", str(cwd), "status", "--porcelain", "--untracked-files=normal"],
+                            capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60)
+        if st.returncode != 0 or st.stdout.strip():
+            return None
+        rp = subprocess.run(["git", "-C", str(cwd), "rev-parse", "--verify", "--quiet", "HEAD^{tree}"],
+                            capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60)
+        tree = rp.stdout.strip()
+        return tree if rp.returncode == 0 and tree else None
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+
+
+def green_run(rows: list[Any], started: dict[str, Any], default_lane: str) -> str | None:
+    """§16.6: the suite id of the latest recorded run with this run's lane, `tree`, `cmd` and `argc` that ended with
+    exit code 0, a test count above 0 and no interruption; None when there is none or this run has no `tree`."""
+    tree = started.get("tree")
+    if not tree:
+        return None
+    key = ((started.get("lane") or default_lane), tree, started.get("cmd"), started.get("argc"))
+    same: set[str] = set()
+    found: str | None = None
+    for r in rows:
+        if not isinstance(r, dict) or not isinstance(r.get("suite_id"), str):
+            continue
+        if r.get("op") == "started" and ((r.get("lane") or default_lane), r.get("tree"), r.get("cmd"), r.get("argc")) == key:
+            same.add(r["suite_id"])
+        elif r.get("op") == "ended" and r["suite_id"] in same and r.get("exit_code") == 0 \
+                and isinstance(r.get("tests"), int) and not isinstance(r.get("tests"), bool) and r["tests"] > 0 \
+                and not r.get("interrupted"):
+            found = r["suite_id"]
+    return found
+
+
+def _green_from(cfg: Config | None, q: Path, started: dict[str, Any]) -> str | None:
+    """§16.6: the passing run of this tree that lets an exclusive-lane run skip the lock, or None: none recorded, the
+    suites file unreadable, or the run bound to a task whose gate is cold (§15.3; a task that cannot be read keeps
+    the lock too)."""
+    if not started.get("tree"):
+        return None
+    try:
+        rows = []
+        for line in path(q).read_text().splitlines():
+            try:
+                rows.append(json.loads(line))
+            except ValueError:
+                continue
+    except (OSError, ValueError):
+        return None
+    found = green_run(rows, started, lane_for(cfg, "full"))
+    if found and started.get("task_id") and cfg is not None:
+        try:
+            from ccp import verify  # noqa: PLC0415
+            from ccp.queue import task_meta  # noqa: PLC0415
+            if verify.cold_gate(cfg, task_meta(cfg, str(started["task_id"]))):
+                return None
+        except Exception:  # noqa: BLE001  (unknown whether the gate is cold: the lock, as before)
+            return None
+    return found
 
 
 def _append(q: Path, row: dict[str, Any]) -> None:
@@ -1134,11 +1203,19 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
             started = {"op": "started", "suite_id": suite_id, "at": iso(), "lane": a.lane,
                        **({"cmd": "stages", "argc": len(stages)} if stages[0].get("staged") else
                           {"cmd": Path(argv[0]).name[:64], "argc": len(argv) - 1}), "output": mode, **bound}
+            if tree := checkout_tree(Path(".")):  # §14.4: the tree a clean checkout ran (the working directory's)
+                started["tree"] = tree
     except Exception as e:  # noqa: BLE001  (recording never blocks the tests)
         warn(f"not recorded ({str(e).splitlines()[0][:200] if str(e) else type(e).__name__}): running the tests anyway")
         q = started = None
     lane_fd: int | None = None
-    if q is not None and started is not None and _exclusive(cfg, a.lane):
+    green = _green_from(cfg, q, started) if q is not None and started is not None and _exclusive(cfg, a.lane) else None
+    if green and started is not None:
+        # §16.6: a passing run of this tree in this lane is recorded; the product's test cache answers most of it
+        started.update(lane_skipped=GREEN_TREE, green_from=green)
+        print(f"ccp suite: lane {a.lane or 'full'}: a passing run of this tree is recorded ({green}): running without "
+              f"the lock", file=sys.stderr)
+    elif q is not None and started is not None and _exclusive(cfg, a.lane):
         # §16.6: one exclusive-lane run at a time in this queue; a held lane answers at once, or after
         # `--wait SECONDS` at most, the wait recorded apart from the run's time
         mine = {"suite_id": suite_id, "pid": os.getpid(), "at": started["at"], "lane": a.lane or lane_for(cfg, "full"),
