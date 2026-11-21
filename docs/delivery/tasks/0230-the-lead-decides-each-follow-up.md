@@ -102,4 +102,20 @@ Measured at `8aefa59`.
 
 ## Implementation notes
 
+- `ccp/followups.py` holds `undecided`, `listing`, the listing `line`, `resolve_task` (a full id, or a
+  number exactly one task at the rev has) and `decide`. An outcome is `{"kind": "task"|"proposal"|"drop",
+  "ref"|"reason", "at", "by"}`; a second decision replaces the first, and the command prints the one it
+  replaced. Each decision records a `run` `decided` event (ids only: run, follow-up, kind and, for a task
+  or proposal, its id; never the drop reason), both type and op already in the ledger's registry.
+- **The lead-only check.** `ccp tasks sign-off` has no refusal of its own: it records its event as
+  `queue.actor("design-seat")`. `follow-up` uses the same resolution and refuses (exit 2) when it gives
+  any other actor, so `ACTOR` naming another known seat (`task-runner`, `task-verifier`, ...) is refused
+  and an unset `ACTOR` reads as the lead, as for sign-off.
+- **The id.** The run id pattern lives in `ccp/runs.py` (`RUN_ID_RE`, built on its `PHASES`), not in
+  `ccp/refs.py`; `runs.py` is outside this task's paths. `refs.py` gains the follow-up id's shape
+  (`FOLLOW_UP_ID`, `follow_up_id`, `parse_follow_up_id`), with the run part read by `runs.parse_id`.
+- `--task` reads `origin/<integration>` as it is, unfetched; a task committed but not pushed is refused.
+- A `--drop` reason that looks like a secret is refused too (house rule E5: text on a queue record).
+- `ccp tasks follow-ups` needs `QUEUE_ROOT`, as every queue reader does.
+
 ## Verification notes
