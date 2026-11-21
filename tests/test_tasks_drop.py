@@ -44,17 +44,23 @@ class Drop(ToolkitFixture, unittest.TestCase):
         code, body, _, _ = self.ccp("tasks", "drop", "0002", "--reason", "again")  # a second run changes nothing
         self.assertEqual((code, body["changed"]), (0, []))
 
-    def test_a_task_file_committed_with_crlf_line_ends_is_dropped_too(self):
+    def _drop_committed_with_line_ends(self, eol: str):
         self.in_flight()
         text = TASK.format(tid="0002-second", title="Second", status="dropped", deps='"0001-first"',
                            ver="*Append-only.*")
         git(self.main, "config", "core.autocrlf", "false")
-        (self.main / "docs/delivery/tasks/0002-second.md").write_bytes(text.replace("\n", "\r\n").encode())
+        (self.main / "docs/delivery/tasks/0002-second.md").write_bytes(text.replace("\n", eol).encode())
         git(self.main, "commit", "-qam", "Drop 0002")
         git(self.main, "push", "-q", "origin", "HEAD:main")
         code, body, out, err = self.ccp("tasks", "drop", "0002", "--reason", "x")
         self.assertEqual(code, 0, out + err)
         self.assertEqual(json.loads((self.q / "tasks/0002-second.json").read_text())["status"], "dropped")
+
+    def test_a_task_file_committed_with_crlf_line_ends_is_dropped_too(self):
+        self._drop_committed_with_line_ends("\r\n")
+
+    def test_a_task_file_committed_with_lone_cr_line_ends_is_dropped_too(self):
+        self._drop_committed_with_line_ends("\r")
 
     def test_only_a_task_its_file_on_the_tip_marks_dropped(self):
         self.in_flight()

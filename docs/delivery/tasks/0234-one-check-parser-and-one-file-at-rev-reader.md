@@ -114,10 +114,17 @@ Measured at `8aefa59`.
   `text_at` itself stays byte-faithful, so ADR bodies read at the head are unchanged. CRLF tests are in `tests/test_lease_edits.py` (`_says_dropped`) and
   `tests/test_tasks_drop.py`. `Check` is `frozen=True, eq=False` (its `fields` dict makes it unhashable by
   value); `text_at`'s docstring names what it reads (it is not "the one reader" of E22).
-- Named, accepted difference: `text_at` resolves `rel` against `cfg.root` (`git show <rev>:./<rel>`), where
+- Fix round 2: universal newlines (`text=True`) turned a lone `\r` into `\n` as well as `\r\n`, so both
+  lifecycle callers now normalise `.replace("\r\n", "\n").replace("\r", "\n")`; `tests/test_tasks_drop.py` has a
+  lone-CR case beside the CRLF one. `checks`' docstring names only the ids the estimates read through it
+  (`estimate.features` still counts `story:` lines with its own regex).
+- Named difference, for the verifier's and lead's judgement (not accepted by anyone yet): `text_at` resolves `rel` against `cfg.root` (`git show <rev>:./<rel>`), where
   `drop`, `adr._at` and `verify._hunks` used the toplevel-relative form. They differ only when `cfg.root` is below
   the git toplevel (`--root`, `$CCP_ROOT`): `drop` then finds the task file instead of refusing, and
-  `in_force_at` reads the head's task instead of falling back to the checkout's; `verify._hunks` shows no change.
+  `in_force_at` reads the head's task instead of falling back to the checkout's, and reads the ADR bodies at
+  the head too: `by_num`'s paths come from `ls-tree` in the root-relative form, so at the base every ADR read at
+  the head failed there (`body` None, `meta` `{}`) and the in-force gate never refused anything; now the reads
+  succeed and an approve it used to pass can be refused. `verify._hunks` shows no change.
   A decoding difference too: a file that is not valid UTF-8 is decoded with replacement characters, where the
   old read raised `UnicodeDecodeError`.
 - E22 is a command check: `architect.checks` `E22`, and the rule's `check:` line says `command`.

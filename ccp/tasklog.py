@@ -279,8 +279,8 @@ def _fields(block: str) -> dict[str, str]:
 
 def checks(text: str) -> list[Check]:
     """§5.5: each dod_check of a task file's text, in order. The one parser of the section (house rule E22):
-    every reader of a check's id, block or fields (`tasks check`, the estimates, `tasks dry-run`, a check's
-    `runs_on`) reads it here. No `dod_checks` section: none."""
+    every reader of a check's id, block or fields (`tasks check`, `tasks dry-run`, a check's `runs_on`, and the
+    estimates' read of the ids) reads it here. No `dod_checks` section: none."""
     at = _section_at(text, SEC_CHECKS)
     if at is None:
         return []
