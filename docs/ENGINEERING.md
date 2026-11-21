@@ -23,6 +23,11 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   plain values. End-to-end tests cover the wiring, not every branch.
   check: pass — the architect looks for branches reachable only through a fixture repo; the health
   summary's slowest modules point at them
+- **E21** A dod_check proves behaviour with the head's own tool: a check of a `ccp` command runs the
+  checkout's `bin/ccp` (or `ccp wt exec … --`), never `ccp` on PATH, which is the released plane.
+  Signed SPEC text is proved by `bin/ccp verify spec-text <task>`; a doc grep pins one token, never a
+  sentence or a table row.
+  check: pass — the architect and the reviewer read new tasks' dod_checks
 
 ## Publishing
 
@@ -67,6 +72,24 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   reading) live in its language pack (ccp/doclang). Core code names no language and no test runner.
   check: command — `! git grep -n unittest -- ccp ':(exclude)ccp/doclang'` (architect.checks
   `E18`)
+- **E19** Only the PR-host module (ccp/prhost.py) reaches a PR host: a forge's CLI or API, or the
+  local PR record. Other code sees a PR as the normalised facts it returns (number, state, head,
+  branch, merge commit, merge time, body), never a host's field names; prompts and briefs name
+  `ccp pr`, never a forge's CLI.
+  check: pass — the architect reads the PR-host callers and the prompts; it becomes a command check
+  (architect.checks `E19`: `! git grep -nE 'CCP_GH_BIN|headRefOid|mergeCommit' -- ccp ':(exclude)ccp/prhost.py'`
+  and `! git grep -n 'gh pr' -- templates plugin/agents`) with the task that moves the prompts
+- **E20** One function judges whether a verdict lets a head merge: `ccp verify merge-ok`, `ccp verify
+  check` and `ccp tasks close` call it, and `ccp verify record` refuses every approve it would refuse.
+  check: pass — the architect compares the refusal lists of the merge-time judges
+- **E22** One parser per durable grammar: a task file's dod_checks are split and read by one tasklog
+  function; no other module matches `CHECK_RE` or re-splits the section.
+  check: pass — the architect looks for check-grammar readers outside tasklog; it becomes a command
+  check (architect.checks `E22`: `! git grep -n CHECK_RE -- ccp ':(exclude)ccp/tasklog.py'`) once
+  the parser is in
+- **E23** One parser per reference form: an ADR, decision, task or review-point reference is parsed by
+  ccp/refs.py; no other module holds a regex for it.
+  check: pass — the architect looks for reference regexes outside ccp/refs.py
 
 ## Docs
 
@@ -77,8 +100,15 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - **E11** Durable knowledge from a change lands in the SPEC, the docs or an ADR in the same PR.
   check: pass
 - **E13** Briefs and prompt templates name the command and the § that decides; they never restate a
-  rule's conditions. The command's refusal names the condition that failed.
-  check: pass — the architect compares plugin/agents and templates/prompts with the § rules they cite
+  rule's conditions, a tool's quirk a `ccp` command can absorb, or a sample record (a sample lives in
+  contracts/ as `*.example.json`, and a test runs it through the command). The report's lines and
+  sections are given once, in the rendered prompt's last part, from the parser's own table. The
+  command's refusal names the condition that failed.
+  check: pass — the architect compares plugin/agents and templates/prompts with the § rules they cite,
+  ccp/report.py's sections, and looks for inline sample records
+- **E24** A module docstring names the § it implements and what the module is for; it never lists the
+  keys, checks or formats the code or the SPEC holds.
+  check: pass — the architect compares module docstrings with the constants and § they would restate
 
 ## Known intentional
 
