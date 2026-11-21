@@ -159,4 +159,16 @@ PROPOSED:
 
 ## Implementation notes
 
+- `ccp/suite.py`: `checkout_tree` (git status --porcelain empty, then `HEAD^{tree}`; any git failure is None)
+  adds `tree` to the `started` row; `green_run` is the decision on plain rows (same lane, with no lane read as
+  the full role's lane as `_lane_seconds` reads it, same `tree`, `cmd`, `argc`; an `ended` row with exit 0, an
+  integer test count above 0 and no interruption; the latest such run); `_green_from` reads the suites file
+  (an unparseable line is skipped as `fold` skips it, an OSError keeps the lock) and applies the cold-gate
+  exception. In `run`, a found run sets `lane_skipped`/`green_from` and the lock block is skipped entirely, so
+  nothing is waited on, counted busy or released.
+- Narrow choices: a run bound to a task whose task file cannot be read (so whether its gate is cold is unknown)
+  keeps the lock; a `--cold` run of a green tree still skips the lock, since the signed text exempts only a
+  cold-gate task.
+- SPEC §14.4 and §16.6 carry the signed text verbatim; the module docstring gained one clause.
+
 ## Verification notes
