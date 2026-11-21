@@ -505,8 +505,7 @@ class QueueFollowsTheLog(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.ccp("tasks", "sync", "--dry-run")
         self.assertEqual(code, 0, out + err)
         self.assertTrue(body["dry_run"])
-        self.assertEqual(body["changed"][0]["changed"], ["cleared waiting_on operator_step", "status pending -> dropped",
-                                                         "marker queue/dropped/"])
+        self.assertEqual(body["changed"][0]["changed"], ["cleared waiting_on operator_step", "status pending -> dropped"])
         self.assertEqual({p: p.read_bytes() for p in self.q.rglob("*") if p.is_file()}, files)
 
     def test_sync_asks_for_a_rebuild_only_when_it_wrote(self):
