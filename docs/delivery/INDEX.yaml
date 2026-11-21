@@ -1018,7 +1018,7 @@ tasks:
     depends_on: []
     path: tasks/0203-follow-up-fixes.md
   - id: 0204-spec-descriptions-catch-up
-    status: pending
+    status: done
     title: SPEC descriptions catch up with built behaviour
     depends_on: []
     path: tasks/0204-spec-descriptions-catch-up.md
