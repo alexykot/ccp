@@ -134,4 +134,17 @@ PROPOSED:
 
 ## Implementation notes
 
+- Premise re-run at `58546f7`: `git grep -n 'gh pr' -- templates plugin` gives the same five lines;
+  `ccp/*.py` holds the literal `"gh"` and `CCP_GH_BIN` only in `ccp/prhost.py`.
+- The prompts name `{{ccp}} pr diff|view|open`; the implementer's `pr open` carries
+  `QUEUE_ROOT={{queue_root}}`, which `ccp pr open` needs. Verify reads `{{ccp}} pr view {{pr}} --json`
+  and its `head` field in place of `headRefOid`. `_common.md`'s PR-number rule is removed.
+- `architect.checks` `E19` keeps one entry and runs both commands, joined with `&&`; E19's `check:`
+  line names both.
+- `tests/test_prhost_only.py` scans `ccp/**/*.py` (subpackages included) for a string constant equal
+  to `gh` or naming `CCP_GH_BIN`, by AST, so a docstring naming the override counts too; the prompt and
+  brief scan matches `gh pr` or `gh api` as a command, not inside a longer word.
+- `tests/test_resolution_review.py` pins the review prompt's diff command as the rendered `ccp` value's
+  `pr diff 7`, and `tests/test_prompt_pr_body.py` pins the body gate's repair as `ccp pr edit 7`.
+
 ## Verification notes
