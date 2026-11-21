@@ -197,5 +197,14 @@ PROPOSED:
 - A carried marked check is judged only on what the run at `<old>` kept. Whether the move was an integration
   merge, or a resolution review that does not list the check, stays the job of `ccp prompt verify` (0238) and
   `resolution_errors`.
+- 2026-11-21, fix round 1 (review MAJOR 1). A marked check's waiver no longer accepts operator approval as a ruling:
+  `marked_errors` refuses a `ran: false` marked check whose evidence is `produced_by: operator`, whatever its
+  `rests_on` names, and `_waiver_texts` counts a `rests_on` as a waiver only when, besides passing
+  `_ruling_refusal`, it names an id that is not a gate of class `operator` (a spec question, a lead ruling or a
+  gate of another class). An operator gate approves running a step, never skipping it, so naming the task's own
+  operator gate, bare or in prose, waives nothing. The waiver test now uses a gate of class `other`.
+- Left as they are: the head-not-fetched refusal (review NIT 1) fails closed and names `git fetch`; plane
+  worktrees share the object store. `runs.check_facts` importing `carried_from` and `heads_match` from
+  `ccp.verify` inside the function (NIT 2): moving those helpers reaches modules outside this task's paths.
 
 ## Verification notes
