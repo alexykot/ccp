@@ -5,7 +5,7 @@ status: pending
 kind: feature
 depends_on: ["0234-one-check-parser-and-one-file-at-rev-reader"]
 spec_refs: ["S13"]
-adr_refs: ["0044 D2", "0044 D4"]
+adr_refs: ["0044 D2"]
 review_point: R15
 paths: ["ccp/followups.py", "ccp/refs.py", "ccp/tasklog.py", "ccp/cli.py", "ccp/CLAUDE.md", "docs/cli/02-delivery.md", "docs/adr/0044-a-follow-up-is-tracked-not-left-in.md", "tests/test_followups.py"]
 adopt: "none"
@@ -43,6 +43,14 @@ Measured at `8aefa59`.
   with `statuses_at`, never a reader of its own.
 - **Proposals.** `ccp/plane.py` `proposals(q)` reads `plane/proposals.jsonl`.
 - **Who runs it.** Only the lead: the same actor check `ccp tasks sign-off` uses.
+- **Lead ruling, spec question `sm-20261121T194256Z-d51f`** (lead, commit `4b10fa2`), as the runner
+  passed it:
+
+  > Drop "0044 D4" from this task's adr_refs, leaving ["0044 D2"]. 0230 builds only D4's list; 0232,
+  > which also cites D4, builds its orientation line and records D4 built. Make that one-line frontmatter
+  > edit on the task branch (PR #285), note this ruling (question id sm-20261121T194256Z-d51f) in the task
+  > file's `Context (not checked)` section, change nothing else, and also merge origin/main into the task
+  > branch (a plain push) if it is behind the tip. Do not touch ADR 0044's decisions.
 
 ## Scope
 
@@ -122,5 +130,8 @@ Measured at `8aefa59`.
   the secret-like `--drop` reason among the refusals. Two tests were added: a task file at the tip with no
   status is refused (the `statuses_at` confirmation of `--task`), and an id given with surrounding whitespace
   resolves. The code is unchanged.
+- Ruling round 1 (`sm-20261121T194256Z-d51f`): `adr_refs` drops `0044 D4`, leaving `["0044 D2"]`. This task
+  builds only D4's list; 0232 builds D4's orientation line and records D4 built. ADR 0044's decisions are
+  unchanged (D2 built, D4 not_built). No code, test or doc change; `origin/main` was already merged.
 
 ## Verification notes
