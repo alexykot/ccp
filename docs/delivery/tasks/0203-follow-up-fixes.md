@@ -1,7 +1,7 @@
 ---
 task_id: 0203-follow-up-fixes
 title: Follow-up fixes - a claim clears the wait, beyond needs a reason, constants shown in words, a finite retry
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S16", "S25", "S29"]
@@ -9,7 +9,7 @@ review_point: R14
 paths: ["ccp/lifecycle.py", "ccp/report.py", "ccp/upgrade.py", "ccp/usage.py", "scripts/observability/lib.py", "tests/test_wait_detail.py", "tests/test_resolution_review.py", "tests/test_short_binding.py", "tests/test_plane_json_constants.py", "tests/test_usage_reader_rules.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0203-follow-up-fixes
@@ -162,3 +162,5 @@ window to `conflict_catch_ups` (`git grep -n 'conflict_catch_ups(q, window)' ccp
   constant with `repr` (`the constant None applies`).
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #241 head `8e7d2bf` (squash `602330d`): APPROVE. Passed: fx-01, fx-02, fx-04, fx-05, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0203-follow-up-fixes.json.
+

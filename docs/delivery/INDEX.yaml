@@ -1013,7 +1013,7 @@ tasks:
     depends_on: []
     path: tasks/0202-forecast-and-health-report-task-supply.md
   - id: 0203-follow-up-fixes
-    status: pending
+    status: done
     title: Follow-up fixes - a claim clears the wait, beyond needs a reason, constants shown in words, a finite retry
     depends_on: []
     path: tasks/0203-follow-up-fixes.md
