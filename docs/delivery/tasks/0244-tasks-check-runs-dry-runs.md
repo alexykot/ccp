@@ -1,7 +1,7 @@
 ---
 task_id: 0244-tasks-check-runs-dry-runs
 title: A dod_check's dry run is run and recorded by ccp, stale measured Context is flagged, and quoted rulings raise no number warning
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S10", "S21"]
@@ -165,3 +165,5 @@ From architect pass `ar-20261120T234012Z-27eb`, findings F12, F13 and F14, triag
   indented by 4 and a paragraph after the last check.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #276 head `b35b841` (squash `c17cae3`): APPROVE. Passed: dry-01, dry-02, dry-03, dry-04, dry-05. Gate: `scripts/gate.sh (ccp suite run --lane gate)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0244-tasks-check-runs-dry-runs.json.
+
