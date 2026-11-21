@@ -1,7 +1,7 @@
 ---
 task_id: 0212-full-role-runs-the-gate-lane-and-a-pregate-lane
 title: A product with no full lane runs the gate lane for the full role, and a declared pre-gate lane replaces the rendered pre-gate list
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0221-workers-reach-the-pr-host-through-ccp-pr", "0223-a-follow-up-is-tracked-not-left-in-notes", "0238-the-runner-runs-marked-checks-before-verify"]
@@ -11,7 +11,7 @@ paths: ["ccp/config.py", "ccp/prompt.py", "templates/prompts/implement.md", "tem
 adopt: "plane.json suite.lanes.pregate: a lane that runs the product's fail-fast checks, if it wants one"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0212-full-role-runs-the-gate-lane-and-a-pregate-lane
@@ -177,3 +177,5 @@ PROPOSED:
   refactor-gate wording) and NIT 2 (README's `suite.lanes` row) are outside the task's paths: follow-ups.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #262 head `d0b16b6` (close's catch-up of the approved `eb978bd`, gate run st-20261121T115556Z-5aad35) (squash `a4ea8b9`): APPROVE. Passed: ln-01, ln-02, ln-03, ln-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0212-full-role-runs-the-gate-lane-and-a-pregate-lane.json.
+
