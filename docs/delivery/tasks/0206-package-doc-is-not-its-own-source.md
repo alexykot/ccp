@@ -1,7 +1,7 @@
 ---
 task_id: 0206-package-doc-is-not-its-own-source
 title: A package doc listed in claude_md_dirs does not count its own lines as source
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S21"]
@@ -9,7 +9,7 @@ review_point: R14
 paths: ["ccp/pkgdocs.py", "docs/delivery/plane.json", "tests/test_pkgdocs_config.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0206-package-doc-is-not-its-own-source
@@ -123,3 +123,5 @@ Measured at `58cf1d0`.
   from a checkout, and yields the errors. No code change.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #244 head `f303fb7` (squash `942df9f`): APPROVE. Passed: pd-01, pd-02, pd-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp wt exec ver-0206 -- --root . docs check` exit 0. Record: verification/0206-package-doc-is-not-its-own-source.json.
+

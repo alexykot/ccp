@@ -1028,7 +1028,7 @@ tasks:
     depends_on: []
     path: tasks/0205-threat-model.md
   - id: 0206-package-doc-is-not-its-own-source
-    status: pending
+    status: done
     title: A package doc listed in claude_md_dirs does not count its own lines as source
     depends_on: []
     path: tasks/0206-package-doc-is-not-its-own-source.md
