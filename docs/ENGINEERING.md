@@ -85,8 +85,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   local PR record. Other code sees a PR as the normalised facts it returns (number, state, head,
   branch, merge commit, merge time, body), never a host's field names; prompts and briefs name
   `ccp pr`, never a forge's CLI.
-  check: command — architect.checks `E19`: `! git grep -nE 'CCP_GH_BIN|headRefOid|mergeCommit' -- ccp ':(exclude)ccp/prhost.py'`;
-  the task that moves the prompts (0221) adds `! git grep -n 'gh pr' -- templates plugin/agents` to it
+  check: command — architect.checks `E19`: `! git grep -nE 'CCP_GH_BIN|headRefOid|mergeCommit' -- ccp ':(exclude)ccp/prhost.py'`
+  and `! git grep -n 'gh pr' -- templates plugin/agents`
 - **E20** One function judges whether a verdict lets a head merge: `ccp verify merge-ok`, `ccp verify
   check` and `ccp tasks close` call it, and `ccp verify record` refuses every approve it would refuse.
   check: pass — the architect compares the refusal lists of the merge-time judges

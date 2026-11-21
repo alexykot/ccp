@@ -48,6 +48,7 @@ class PrBody(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 2, out + err)
         self.assertIn("0002-second", err)
         self.assertIn("#7", err)
+        self.assertIn("ccp pr edit 7 ", err)  # the repair goes through the PR-host interface
         self.assertEqual(self.runs(), [])  # nothing opened
         self.assertEqual(list(self.q.glob("prompts/0002-second/review*")), [])
         argv = [json.loads(x) for x in Path(str(self.body) + ".argv").read_text().splitlines()]
