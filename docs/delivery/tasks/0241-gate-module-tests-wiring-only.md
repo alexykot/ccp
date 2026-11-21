@@ -1,7 +1,7 @@
 ---
 task_id: 0241-gate-module-tests-wiring-only
 title: The gate's slowest module tests the catch-up wiring only, and tests name fixture facts through code
-status: pending
+status: done
 kind: refactor
 depends_on: ["0240-plane-workers-run-the-head", "0242-retire-restructure-scaffolding-and-queue-markers", "0243-one-source-for-syntax-events-and-config", "0244-tasks-check-runs-dry-runs"]
 review_refs: ["ar-20261120T234012Z-27eb#F02", "ar-20261120T234012Z-27eb#F11"]
@@ -143,3 +143,5 @@ through the code or a fixture helper). Measured at `8aefa59`.
     it checks (a changed patch is refused under `clashes`).
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #279 head `d2350fd` (squash `ce5f845`): APPROVE. Passed: tb-01, tb-02, tb-03, tb-04. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0241-gate-module-tests-wiring-only.json.
+
