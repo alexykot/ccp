@@ -53,6 +53,12 @@ class OnPlainValues(unittest.TestCase):
         for token in ("R1", fid, f"ccp tasks follow-up {fid}"):
             self.assertIn(token, errs[0])
 
+    def test_every_closed_point_is_checked_not_only_the_first(self):
+        points = [{"id": "R1", "status": "closed"}, {"id": "R2", "status": "closed"}]
+        errs = followups.closed_point_errors(points, {"R1": ["0001-a"], "R2": ["0002-b"]}, [run_record("0002-b")])
+        self.assertEqual(len(errs), 1)
+        self.assertIn("review point R2", errs[0])
+
     def test_a_closed_point_with_every_follow_up_decided_passes(self):
         self.assertEqual(followups.closed_point_errors(POINTS, {"R1": ["0001-a"]}, [run_record("0001-a", DECIDED)]), [])
 

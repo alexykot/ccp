@@ -150,5 +150,7 @@ PROPOSED: (same line, after it)
   record fails it, named.
 - ADR-0044 D3's text names plain `ccp tasks check`; the shaped brief (F01) narrows it to `--closed-points` and the
   spawn. D3 is recorded `built`; its body is unchanged.
+- Fix round 1 (review MINOR 1): a plain-values test with two closed points, the undecided follow-up on the second
+  one's task, so a loop that checks only the first register entry fails a test.
 
 ## Verification notes
