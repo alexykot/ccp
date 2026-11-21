@@ -104,6 +104,24 @@ class Permissions(InitCase):
         self.adopt()
         self.assertEqual(self.block()["allow"][-1], "Bash(gh pr:*)")
 
+    def set_adapter(self, name: str) -> None:
+        cfg = self.repo / "docs/delivery/plane.json"
+        data = json.loads(cfg.read_text())
+        data["pr_host"] = {"adapter": name}
+        cfg.write_text(json.dumps(data))
+
+    def test_the_github_adapter_allows_gh_pr(self):
+        self.adopt()
+        self.set_adapter("github")
+        self.assertIn("Bash(gh pr:*)", self.block()["allow"])
+
+    def test_the_local_adapter_allows_no_gh_pr(self):
+        self.adopt()
+        self.set_adapter("local")
+        allow = self.block()["allow"]
+        self.assertFalse([e for e in allow if "gh " in e], allow)
+        self.assertIn("Bash(ccp:*)", allow)
+
     def test_a_queue_path_with_a_space_is_quoted_as_a_shell_would_run_it(self):
         self.adopt("--queue-root", str(self.home / "my queue"))
         self.assertIn(f"Bash(QUEUE_ROOT='{self.home / 'my queue'}' ccp:*)", self.block()["allow"])
@@ -130,6 +148,36 @@ class Permissions(InitCase):
             self.assertEqual(r.returncode, 2, r.stdout)
             self.assertIn(f"drop {args[0]}", r.stderr)
             self.assertEqual(r.stdout, "")
+
+
+class LocalAdapterOrigin(InitCase):
+    """ADR-0040 D3, D5: under `pr_host.adapter: local`, init warns only when the product has no origin."""
+
+    def adopt(self) -> tuple[dict, str]:
+        self.machine_reads_usage()
+        (self.repo / "docs/delivery").mkdir(parents=True)
+        (self.repo / "docs/delivery/plane.json").write_text(json.dumps({"project_id": "demo",
+                                                                         "pr_host": {"adapter": "local"}}))
+        r = self.ccp("init", "--project-id", "demo")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return json.loads(r.stdout), r.stderr
+
+    def test_a_bare_origin_is_not_warned_about(self):
+        bare = self.repo.parent / "bare.git"
+        self.git("init", "-q", "--bare", str(bare))
+        self.git("remote", "add", "origin", str(bare))
+        res, err = self.adopt()
+        self.assertNotIn("warnings", res)
+        self.assertNotIn("origin", err)
+
+    def test_no_origin_is_warned_about_naming_the_commands_that_need_one(self):
+        res, err = self.adopt()
+        self.assertEqual(len(res["warnings"]), 1, res)
+        for text in (res["warnings"][0], err):
+            self.assertIn("no origin", text)
+            for command in ("ccp verify merge-ok", "ccp tasks close"):
+                self.assertIn(command, text)
+            self.assertNotIn("gh pr", text)
 
 
 class AppliedBlockDocsCheck(InitCase):
