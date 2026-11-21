@@ -98,4 +98,9 @@ Measured at `8aefa59`.
 
 ## Implementation notes
 
+- `refs.Ids.adr_link` is the old `adr._link` pattern moved unchanged (a whole string, prefix and `D` case-insensitive, any number of digits). `adr._link` is a one-line delegate. `parse_adr_ref` reads number, decision from `adr_link` when the whole ref is a link, and keeps its loose reading (a `D` anywhere, a trailing section) for any other ref. The one difference: a whole-link ref with a lower-case `d` or a capital suffix (`0040 d2`, `0040 D2A`) now cites that decision, where `parse_adr_ref` read it as a section anchor.
+- `adr.DecisionIndex.build(adrs, ids=refs.DEFAULT)` holds the recorded states and each ADR's body order. `state`, `decisions` (the body's order, `state` None when unrecorded), `resolve` (returns `adr.Resolved(adr, decision, loop)`; a link naming a whole ADR ends the walk with `decision` None; a `retired by` that is not a link ends it at the decision), `is_retired`, `is_built` and `blocks_done`. `analyse`, `unbuilt_cited`, `in_force_at`, `built`, `decision_states` and `untasked` read it; `not_in_force` is gone, `blocks_done` is its rule. `untasked` uses `blocks_done` for its `not_built` test (the same fact).
+- `untasked` parses a ref with `parse_adr_ref`, which delegates to `adr_link`: calling `adr_link` there as well would change nothing for a whole link and would need the loose reading again for a file or section ref.
+- The module docstring drops the command table, the key list and the format paragraph (the SPEC §6 text and docs/cli hold them).
+
 ## Verification notes
