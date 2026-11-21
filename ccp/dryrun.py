@@ -77,7 +77,8 @@ def said(r: Ran) -> str:
     how = f"timed out after {STEP_TIMEOUT_S} s" if r.code is None else f"exited {r.code}"
     if not r.lines:
         return f"step {r.step} {how}, no output"
-    return f"step {r.step} {how}, {r.lines} line{'s' if r.lines != 1 else ''}, first: {_span(r.first)}"
+    first = f"first: {_span(r.first)}" if r.first.strip() else "first line blank"
+    return f"step {r.step} {how}, {r.lines} line{'s' if r.lines != 1 else ''}, {first}"
 
 
 def record(ran: list[Ran]) -> str:
@@ -175,8 +176,9 @@ def dry_run(cfg: Config, task: str, write: bool) -> int:
         print(line)
     if write:
         records = {cid: record(ran) for cid, ran in runs.items()}
-        new = tasklog.with_dry_runs(text, short, records)
-        if new != text:
+        now = path.read_text()  # the file as it is now: an edit made while the steps ran is kept
+        new = tasklog.with_dry_runs(now, short, records)
+        if new != now:
             path.write_text(new)
         print(f"wrote {len(records)} dry-run record(s) to {cfg.rel(path)}")
     return 0

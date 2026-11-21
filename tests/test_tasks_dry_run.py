@@ -41,10 +41,11 @@ class StepsAndRecords(unittest.TestCase):
     def test_only_a_step_that_is_one_backticked_command_and_nothing_else_is_run(self):
         block = ("\n  steps:\n    1. Run `echo one`.\n    2. run ``echo `two` ``\n    3. On the head, run `echo three`.\n"
                  "    4. Run `a` and `b`.\n    5. Run `ccp tasks check\n       --lease`.\n    6. Read the log.\n"
+                 "    7. Run `grep -c '    def ' x.py`.\n"
                  "  expect: fine.\n  dry run: n/a — none yet.\n")
         self.assertEqual(tasklog.check_steps(block),
                          [("1", "echo one"), ("2", "echo `two`"), ("3", None), ("4", None),
-                          ("5", "ccp tasks check --lease"), ("6", None)])
+                          ("5", "ccp tasks check --lease"), ("6", None), ("7", "grep -c '    def ' x.py")])
 
     def test_write_replaces_a_record_there_adds_a_missing_one_and_changes_nothing_else(self):
         text = with_checks(TASK.format(tid="0003-third", title="Third", status="pending", deps="", ver="*x*"),
@@ -60,6 +61,15 @@ class StepsAndRecords(unittest.TestCase):
         self.assertEqual(back, text)
         self.assertEqual(tasklog.with_dry_runs(text, "bbbbbbb", {}), text)
 
+    def test_write_adds_a_record_at_the_checks_own_indent_and_before_text_after_the_checks(self):
+        text = with_checks(TASK.format(tid="0003-third", title="Third", status="pending", deps="", ver="*x*"),
+                           "- id: `cmd-01`\n    story: s.\n    steps:\n      1. Run `true`.\n    expect: e.\n\n"
+                           "- id: `cmd-02`\n  story: s.\n  steps:\n    1. Run `true`.\n  expect: f.\n\n"
+                           "A paragraph after the checks.\n")
+        new = tasklog.with_dry_runs(text, "bbbbbbb", {"cmd-01": "R1.", "cmd-02": "R2."})
+        self.assertIn("    expect: e.\n    dry run (`bbbbbbb`): R1.\n\n- id: `cmd-02`", new)
+        self.assertIn("  expect: f.\n  dry run (`bbbbbbb`): R2.\n\nA paragraph after the checks.\n", new)
+
     def test_the_record_gives_each_step_its_exit_code_line_count_and_first_line(self):
         ran = [dryrun.outcome("1", "x", 0, "one\ntwo\n"), dryrun.outcome("2", "y", 2, ""),
                dryrun.outcome("3", "z", None, "a `tick`\n")]
@@ -69,6 +79,8 @@ class StepsAndRecords(unittest.TestCase):
         self.assertIn("`` a `tick` ``", rec)
         self.assertIn(f"after {dryrun.STEP_TIMEOUT_S} s", rec)
         self.assertEqual(len(dryrun.outcome("1", "x", 0, "y" * 1000).first), dryrun.FIRST_LINE_CAP + 1)
+        self.assertEqual(dryrun.record([dryrun.outcome("1", "x", 0, "\nsecond\n")]),
+                         "step 1 exited 0, 2 lines, first line blank.")
 
     def test_a_done_dropped_or_claimed_task_is_refused(self):
         self.assertIsNone(dryrun.refusal("t", "pending", False))
@@ -139,6 +151,18 @@ class DryRunCommand(ToolkitFixture, unittest.TestCase):
         self.assertIn(f"  expect: prints one.\n{line}\n", after)
         self.assertEqual(after.replace(f"\n{line}", ""), before)
         self.assertEqual(tasklog.check(self.cfg_main()), [])
+
+    def test_write_keeps_an_edit_made_to_the_task_file_while_the_steps_ran(self):
+        path = self.main / FILE
+        self.write(FILE, path.read_text().replace(
+            "  dry run: n/a — a prose step.\n", "  dry run: n/a — a prose step.\n\n- id: `cmd-03`\n  story: s.\n"
+            f"  steps:\n    1. Run `echo edited-while-running >> '{path}'`.\n  expect: e.\n"))
+        code, out, err = self.dry_run("0003", "--write")
+        self.assertEqual(code, 0, out + err)
+        after = path.read_text()
+        self.assertTrue(after.endswith("edited-while-running\n"), after[-200:])
+        self.assertIn("  expect: prints one.\n  dry run (`", after)
+        self.assertIn("step 1 exited 0, no output.", after)
 
     def test_a_claimed_task_is_refused_and_nothing_written(self):
         before = (self.main / "docs/delivery/tasks/0002-second.md").read_text()

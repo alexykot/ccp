@@ -99,8 +99,10 @@ INDEX_ID_RE = re.compile(r"^  - id: (\S+)$", re.M)
 # §21.1: a check's `steps:`, up to its `expect:` or a dry-run record, read for the commands it runs.
 STEPS_RE = re.compile(r"^[ \t]*steps:(.*?)(?=^[ \t]*(?:expect:|dry run\b)|\Z)", re.I | re.M | re.S)
 # §21.1 `ccp tasks dry-run`: a numbered step, and the one shape of step it runs: one backticked command and
-# nothing else (`N. Run `…`.`), read on the step's text with its line breaks and runs of spaces made one space.
+# nothing else (`N. Run `…`.`), read on the step's text with each line break and the indent around it made one
+# space; a run of spaces within a line is kept, as a code span keeps it.
 STEP_RE = re.compile(r"^[ \t]*(\d+)[.)][ \t]+", re.M)
+LINE_BREAK_RE = re.compile(r"[ \t]*\n[ \t]*")
 SOLE_COMMAND_RE = re.compile(r"run (`+)(?!`)((?:(?!\1).)+?)(?<!`)\1\.?", re.I)
 # The lane roles a refactor's own checks never re-run (§20.3): the verifier's gate already runs them.
 WHOLE_SUITE_ROLES = ("gate", "full")
@@ -267,7 +269,8 @@ def check_steps(block: str) -> list[tuple[str, str | None]]:
         steps = s.group(1)
         items = list(STEP_RE.finditer(steps))
         for i, m in enumerate(items):
-            text = " ".join(steps[m.end(): items[i + 1].start() if i + 1 < len(items) else len(steps)].split())
+            raw = steps[m.end(): items[i + 1].start() if i + 1 < len(items) else len(steps)]
+            text = LINE_BREAK_RE.sub(" ", raw.strip())
             sole = SOLE_COMMAND_RE.fullmatch(text)
             out.append((m.group(1), sole.group(2).strip() if sole and sole.group(2).strip() else None))
     return out
