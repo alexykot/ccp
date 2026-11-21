@@ -241,8 +241,8 @@ def checkout_tree(cwd: Path) -> str | None:
     """§14.4: the `HEAD^{tree}` of the git checkout holding `cwd` when it has nothing to commit (untracked files
     included); None for a dirty checkout, outside one, or when git fails, which never blocks the run."""
     try:
-        st = subprocess.run(["git", "-C", str(cwd), "status", "--porcelain"], capture_output=True, text=True,
-                            stdin=subprocess.DEVNULL, timeout=60)
+        st = subprocess.run(["git", "-C", str(cwd), "status", "--porcelain", "--untracked-files=normal"],
+                            capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60)
         if st.returncode != 0 or st.stdout.strip():
             return None
         rp = subprocess.run(["git", "-C", str(cwd), "rev-parse", "--verify", "--quiet", "HEAD^{tree}"],

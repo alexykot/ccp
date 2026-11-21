@@ -210,28 +210,33 @@ class Lanes(SuiteFixture, unittest.TestCase):
         holder.wait(timeout=30)
 
     def test_a_failed_run_another_tree_or_another_lane_leaves_the_lane_held(self):
+        def busy() -> None:
+            holder = self.hold(seconds=60)
+            r = self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")
+            self.assertEqual(r.returncode, suite.BUSY_EXIT, r.stderr)
+            _killpg(holder)
+            holder.wait(timeout=30)
         self.commit()
-        self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS + "; sys.exit(1)", "x")  # failed
-        self.run_suite("--lane", "full", "--", PY, "-c", self.PASS, "x")  # another lane, this tree
-        self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")  # this lane, a tree about to change
+        self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS + "; sys.exit(1)", "x")
+        busy()  # a failed run of this lane and tree
+        self.run_suite("--lane", "full", "--", PY, "-c", self.PASS, "x")
+        busy()  # a passing run of another lane, this tree
+        self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")
         self.commit("docs/LOG.md", "# Log\n\nchanged\n")
-        holder = self.hold(seconds=60)
-        r = self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")
-        self.assertEqual(r.returncode, suite.BUSY_EXIT, r.stderr)
-        _killpg(holder)
-        holder.wait(timeout=30)
+        busy()  # a passing run of this lane, another tree
 
     def test_an_uncommitted_change_records_no_tree_and_queues(self):
         self.commit()
         r = self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")
         self.assertEqual(r.returncode, 0, r.stderr)
         holder = self.hold(seconds=60)
+        git(self.runner, "config", "status.showUntrackedFiles", "no")  # a config hiding them changes nothing
         (self.runner / "untracked.txt").write_text("x")
         r = self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")
         self.assertEqual(r.returncode, suite.BUSY_EXIT, r.stderr)
         (self.runner / "untracked.txt").unlink()
         (self.runner / "docs/LOG.md").write_text("edited\n")
-        r = self.run_suite("--", PY, "-c", self.PASS, "x")  # the full lane, recorded but busy
+        r = self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")  # a tracked edit: busy too
         self.assertEqual(r.returncode, suite.BUSY_EXIT, r.stderr)
         r = self.run_suite("--lane", "unit", "--", PY, "-c", self.PASS, "x")  # not exclusive: it runs and records
         self.assertEqual(r.returncode, 0, r.stderr)
