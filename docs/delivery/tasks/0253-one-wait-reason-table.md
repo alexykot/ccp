@@ -1,7 +1,7 @@
 ---
 task_id: 0253-one-wait-reason-table
 title: One wait-reason table, the retired steerer wait refused on set, and the retired snapshot's schema removed
-status: pending
+status: done
 kind: feature
 depends_on: ["0243-one-source-for-syntax-events-and-config"]
 clashes_with: ["0191-the-grace-release-ends", "0218-idle-runner-slots-are-recorded-and-measured"]
@@ -189,3 +189,5 @@ the parser, which this task's new flag must satisfy.
   "you hold the task-log authority as well", as line 129 does.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #296 head `506d023` (squash `9c09bc3`): APPROVE. Passed: wr-01, wr-02, wr-03, wr-04, wr-05, wr-06. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0253-one-wait-reason-table.json.
+
