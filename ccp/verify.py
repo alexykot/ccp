@@ -708,8 +708,6 @@ def _carry_refusal(cid: str, old: str, tid: str, verifies: list[dict[str, Any]],
     step = fact.get("operator_step")
     if fact.get("ran", True) is not False and fact.get("pass") is not True:
         return f"the verify run {run.get('run_id')} at {old[:12]} did not hold it as a pass"
-    if fact.get("ran", True) is False and not (step and fact.get("suite_id")):
-        return f"the verify run {run.get('run_id')} at {old[:12]} held it not run, on no carried pass"
     if step not in steps:
         return f"the verify run {run.get('run_id')} at {old[:12]} kept no approved operator_step for it"
     why = _run_refusal(fact.get("suite_id"), cid, tid, suites, old if fact.get("ran", True) is not False else None)

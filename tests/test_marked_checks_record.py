@@ -136,6 +136,7 @@ class MarkedErrors(unittest.TestCase):
                          (approved_at(OLD, {**PASS_AT_OLD, "id": "cmd-01"}),),
                          ({**approved_at(OLD, PASS_AT_OLD), "verdict": "reject"},),
                          (approved_at(OLD, {**PASS_AT_OLD, "operator_step": None}),),
+                         (approved_at(OLD, {**PASS_AT_OLD, "pass": False}),),
                          (approved_at(OLD, other_head),)):
             errs = self.errors(resting(f"approve at {OLD}"), verifies=verifies)
             self.assertEqual(len(errs), 1, (verifies, errs))
