@@ -1195,23 +1195,13 @@ def parked(q: Path) -> list[dict[str, Any]]:
     return out
 
 
-def _set_wait(cfg: Config, q: Path, action: str, tid: str, reason: str, *extra: str) -> None:
-    """`waiting_on` through its single writer, set-waiting-on.sh (§23.2). Always `--task-only`: the
-    task's queue file, and work.json only when it names this task, so a refused new claim never
-    overwrites work.json's account of the task in flight."""
-    from ccp.queue import OBS, actor  # noqa: PLC0415
-    cmd = [str(OBS / "set-waiting-on.sh"), action, tid, reason, "--actor", actor(), "--project-id", cfg.project_id,
-           "--task-only", *extra]
-    r = subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(q)}, timeout=30)
-    if r.returncode != 0:
-        raise QueueError(f"set-waiting-on: {tid}: {(r.stderr or r.stdout).strip()}", 1)
-
-
 def clear_park(cfg: Config, q: Path, tid: str, why: str = "session_reset") -> bool:
-    """Lift a 5-hour park on `tid` (a later claim or prompt that passed the gate); False when none."""
+    """Lift a 5-hour park on `tid` (a later claim or prompt that passed the gate); False when none. Like the
+    park, task-only: work.json changes only when it names this task."""
+    from ccp import lifecycle  # noqa: PLC0415
     if not any(p["task_id"] == tid for p in parked(q)):
         return False
-    _set_wait(cfg, q, "clear", tid, why)
+    lifecycle.set_wait(cfg, q, "clear", tid, why, task_only=True)
     return True
 
 
@@ -1222,9 +1212,11 @@ def _park(cfg: Config, q: Path, tid: str, five: float, park: float, reset: Any, 
         return  # parked already, for this window
     if not st:  # a refused new claim: a queue file of its own carries the wait (the hook and --fire read it)
         save_task_state(q, tid, {"task_id": tid, "project_id": cfg.project_id, "status": "pending", "lease_holder": None})
-    extra = ["--quota-class", "session", "--detail", f"5-hour window at {five:g}% (park at {park:g}%)",
-             "--resets-at", reset or planned, "--planned-resume-at", planned]
-    _set_wait(cfg, q, "set", tid, "quota", *extra)
+    from ccp import lifecycle  # noqa: PLC0415
+    # task-only: a refused new claim never overwrites work.json's account of the task in flight
+    lifecycle.set_wait(cfg, q, "set", tid, "quota", task_only=True, quota_class="session",
+                       detail=f"5-hour window at {five:g}% (park at {park:g}%)", resets_at=reset or planned,
+                       planned_resume_at=planned)
 
 
 def _held_others(cfg: Config, q: Path, tid: str, parked_too: bool = False) -> list[str]:

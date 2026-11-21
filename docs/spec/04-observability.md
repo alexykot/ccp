@@ -34,7 +34,7 @@ runner, `task-verifier` for the verifier subagent), `operator` and `system`.
 | type | op | payload (required keys) |
 | --- | --- | --- |
 | `phase` | `transition` | `from`, `to`, `note?` |
-| `waiting_on` | `set` | `reason` (`quota`, `reauth`, `operator_decision`, `runner`, `steerer`, `spec_maintainer`, `null-class`, `operator_step`), `resets_at?` (RFC3339), `quota_class?` (`session`, `credit`), `detail?` |
+| `waiting_on` | `set` | `reason` (`quota`, `reauth`, `operator_decision`, `runner`, `spec_maintainer`, `design_seat`, `null-class`, `operator_step`; `steerer` only in older ledgers), `resets_at?` (RFC3339), `quota_class?` (`session`, `credit`), `detail?` |
 | `waiting_on` | `clear` | `reason` (what cleared it), `was` |
 | `lease` | `set`, `clear` | `holder`, `expires_at?` |
 | `runner` | `starved` (the lead's `runner` ops: §23.7) | `slot`, `scope`, `in_flight` (`ccp tasks next --holder <slot>` found nothing ready, exit 3; once per stretch, which the slot's next `lease`/`set`, or a `runner`/`stop` or `runner`/`spawn` for the slot or for every slot, ends, §27.1) |

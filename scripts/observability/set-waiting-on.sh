@@ -15,13 +15,12 @@ Usage:
 Single-writer rule: append the observability event, then mutate work.json / task JSON.
 Do not edit waiting_on on those files without this script.
 
-Reasons (set): quota | reauth | operator_decision | runner | steerer | spec_maintainer | design_seat | null-class |
-                operator_step
+Reasons (set): the runtime waits of SPEC §10.1 (lib.py WAIT_REASONS). A wait §10.1 only reads
+  (lib.py WAIT_READ_ONLY) is refused on set and cleared like any other.
   design_seat = (SPEC §17.9): blocked on a gate the design seat
                 has not decided yet; pass --detail <escalation_id>.
   spec_maintainer = blocked on an open spec-maintainer question (SPEC §17);
-                    pass --detail <question_id>. steerer stays for projects
-                    without a spec_maintainer block. A question escalated to the operator
+                    pass --detail <question_id>. A question escalated to the operator
                     uses reason operator_decision with --detail <question_id>.
   operator_step = a step only the operator's machine can do: a live upgrade or creating
           a database role. Pass --detail naming the step. The code-only change can
@@ -106,7 +105,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, os.environ.get("PYTHONPATH", ".").split(":")[0])
-from lib import append_event, die, fmt_dt, looks_like_secret, work_lock, write_json
+from lib import WAIT_REASONS, append_event, die, fmt_dt, looks_like_secret, work_lock, write_json
 
 root = Path(os.environ["QUEUE_ROOT"]).expanduser()
 action = os.environ["ACTION"]
@@ -150,9 +149,8 @@ project_id = (
 if not project_id:
     die("project_id required (--project-id, $PROJECT_ID, or task JSON)")
 
-if action == "set" and reason not in ("quota", "reauth", "operator_decision", "runner", "steerer", "spec_maintainer",
-                                     "design_seat", "null-class", "operator_step"):
-    die(f"invalid waiting_on reason {reason!r}")
+if action == "set" and reason not in WAIT_REASONS:  # SPEC §10.1: a read-only wait is never written
+    die(f"invalid waiting_on reason {reason!r}", 2)
 if quota_class and quota_class not in ("session", "credit"):
     die("quota-class must be session or credit")
 

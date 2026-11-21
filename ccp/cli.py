@@ -736,7 +736,7 @@ def _lifecycle(cfg: config.Config, a: argparse.Namespace):
         return lifecycle.phase(cfg, a.task, a.phase, a.note or "")
     if a.cmd in ("wait", "resume"):
         return lifecycle.wait(cfg, a.task, "set" if a.cmd == "wait" else "clear", a.reason,
-                              getattr(a, "until", None), a.detail)
+                              getattr(a, "until", None), a.detail, getattr(a, "quota_class", None))
     if a.cmd == "sync":
         body = lifecycle.sync(cfg, a.dry_run)
         a.board_dirty = bool(body["changed"]) and not a.dry_run  # §28.3: the board follows a sync that wrote
@@ -1260,6 +1260,7 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("reason", help="wait: why (quota, operator_decision, operator_step, design_seat, …); resume: what cleared it")
         if name == "wait":
             p.add_argument("--until", help="RFC3339 planned resume")
+            p.add_argument("--quota-class", choices=("session", "credit"), help="a quota wait's class (§23.6)")
         p.add_argument("--detail")
         p.set_defaults(fn=life)
     p = t.add_parser("close", help="merge-ok, the pinned merge, the reconcile, the queue: one step (SPEC §10.5)")

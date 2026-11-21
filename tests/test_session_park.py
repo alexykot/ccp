@@ -13,7 +13,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from ccp import config, usage
+from ccp import config, lifecycle, usage
 from tests.helpers import machine_file
 from tests.test_toolkit import ToolkitFixture
 
@@ -498,7 +498,7 @@ class ReviewFixes(SessionFixture, unittest.TestCase):
         self.assertIn("session park was not checked", err)
         # a wait that cannot be written still parks (the limit is near), and says so
         self.reading(99, reset_in=600)
-        with mock.patch.object(usage, "_set_wait", side_effect=OSError("no space")):
+        with mock.patch.object(lifecycle, "set_wait", side_effect=OSError("no space")):
             code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 6)
         self.assertIn("could not be recorded", err)

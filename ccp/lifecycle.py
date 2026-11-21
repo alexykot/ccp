@@ -63,7 +63,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp.envvars import envvar, for_child
-from ccp import config, notify, prhost, refs, runs, tasklog
+from ccp import config, notify, prhost, queue, refs, runs, tasklog
 from ccp.queue import lib
 from ccp.config import Config
 from ccp.queue import (OBS, QueueError, actor, durable_statuses, emit, file_lock, git, heartbeat, integration_branch, iso,
@@ -497,18 +497,40 @@ def phase(cfg: Config, task: str, to: str, note: str) -> dict[str, Any]:
     return {"ok": True, "task_id": tid, "from": frm, "to": to}
 
 
-def wait(cfg: Config, task: str, action: str, reason: str, until: str | None, detail: str | None) -> dict[str, Any]:
-    """`waiting_on` through its single writer, set-waiting-on.sh (§23.2)."""
+WAIT_WRITER_TIMEOUT_S = 30
+
+
+def set_wait(cfg: Config, q: Path, action: str, tid: str, reason: str, *, actor: str | None = None,
+             task_only: bool = False, quota_class: str | None = None, resets_at: str | None = None,
+             planned_resume_at: str | None = None, detail: str | None = None) -> None:
+    """Every `ccp` call to `waiting_on`'s single writer, set-waiting-on.sh (§10.1, §23.2). `task_only` leaves
+    work.json alone unless it names `tid`. The writer's exit 1 or 2 is the QueueError's code; any other
+    failure is 1. The writer appends the event and writes the task file before it waits on work.json's lock, so
+    a timeout can leave work.json behind the ledger."""
+    cmd = [str(OBS / "set-waiting-on.sh"), action, tid, reason, "--actor", actor or queue.actor(),
+           "--project-id", cfg.project_id]
+    for flag, value in (("--quota-class", quota_class), ("--resets-at", resets_at),
+                        ("--planned-resume-at", planned_resume_at), ("--detail", detail)):
+        if value:
+            cmd += [flag, value]
+    if task_only:
+        cmd.append("--task-only")
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(q)},
+                           timeout=WAIT_WRITER_TIMEOUT_S)
+    except subprocess.TimeoutExpired as exc:
+        raise QueueError(f"set-waiting-on: {tid}: no answer in {WAIT_WRITER_TIMEOUT_S}s", 1) from exc
+    if r.returncode != 0:
+        raise QueueError(f"set-waiting-on: {tid}: {(r.stderr or r.stdout).strip()}",
+                         r.returncode if r.returncode in (1, 2) else 1)
+
+
+def wait(cfg: Config, task: str, action: str, reason: str, until: str | None, detail: str | None,
+         quota_class: str | None = None) -> dict[str, Any]:
+    """`ccp tasks wait|resume`: `waiting_on` through its single writer (§10.1)."""
     q = root()
     tid = str(task_meta(cfg, task)["task_id"])
-    cmd = [str(OBS / "set-waiting-on.sh"), action, tid, reason, "--actor", actor(), "--project-id", cfg.project_id]
-    if until:
-        cmd += ["--resets-at", until]
-    if detail:
-        cmd += ["--detail", detail]
-    r = subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(q)})
-    if r.returncode != 0:
-        raise QueueError(f"set-waiting-on: {(r.stderr or r.stdout).strip()}", r.returncode if r.returncode in (1, 2) else 1)
+    set_wait(cfg, q, action, tid, reason, quota_class=quota_class, resets_at=until, detail=detail)
     out: dict[str, Any] = {"ok": True, "task_id": tid, "action": action, "reason": reason}
     # §3.6: a wait only the operator clears fires its notice (the reason is a fixed word)
     if action == "set" and (trigger := notify.trigger_for_wait(reason)):
@@ -615,11 +637,7 @@ def sync(cfg: Config, dry_run: bool = False) -> dict[str, Any]:
 def _apply(cfg: Config, q: Path, tid: str, st: dict[str, Any], want: str, source: str = "ccp tasks sync") -> None:
     runs.abandon_task_runs(q, cfg, tid, want)  # §11.1: they will never report now
     if st.get("waiting_on"):
-        cmd = [str(OBS / "set-waiting-on.sh"), "clear", tid, f"{want}_in_log", "--actor", actor(),
-               "--project-id", cfg.project_id, "--task-only"]
-        r = subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(q)})
-        if r.returncode != 0:
-            raise QueueError(f"set-waiting-on: {tid}: {(r.stderr or r.stdout).strip()}", 1)
+        set_wait(cfg, q, "clear", tid, f"{want}_in_log", task_only=True)
     if st.get("lease_holder"):
         emit(q, cfg, tid, "lease", "clear", {"holder": st["lease_holder"], "note": f"{want} in the task log"})
         save_task_state(q, tid, {"lease_holder": None, "lease_expires_at": None})
@@ -748,11 +766,7 @@ def release(cfg: Config, task: str, reason: str, keep_branch: bool = False) -> d
             raise QueueError("--reason: " + "; ".join(errs), 2)
     done: list[str] = []
     if st.get("waiting_on"):
-        cmd = [str(OBS / "set-waiting-on.sh"), "clear", tid, "released", "--actor", who, "--project-id", cfg.project_id,
-               "--task-only"]
-        r = subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(q)})
-        if r.returncode != 0:
-            raise QueueError(f"set-waiting-on: {(r.stderr or r.stdout).strip()}", r.returncode if r.returncode in (1, 2) else 1)
+        set_wait(cfg, q, "clear", tid, "released", actor=who, task_only=True)
         done.append(f"cleared waiting_on {st['waiting_on']}")
     frm = phase_move(q, cfg, tid, "pending", note, who)
     done.append(f"status {frm or 'none'} -> pending")

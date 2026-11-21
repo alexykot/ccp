@@ -124,7 +124,7 @@ that test goes to the plane, as `ccp plane propose --need "…" --generic "<why 
      "reason": "<one sentence>"}
   ],
   "question_for_operator": "<one exact question with options and your recommendation, or null>",
-  "answered_by": "spec_maintainer | steerer",
+  "answered_by": "spec_maintainer",
   "session_id": "<this session id if known, else null>"
 }
 ```

@@ -75,6 +75,11 @@ the parser, which this task's new flag must satisfy.
   event types 0243 adds as lib's read-only values, and drop "alias table".
 - No SPEC rule beyond the §23.2 row changes: §10.1 already lists `design_seat` and says `steerer` is
   only read.
+- **Lead's rulings on spec question `sm-20261121T225816Z-2535`** (ruling round 1), verbatim:
+
+  > Ruling 0253-one-wait-reason-table-r1: wr-02 step 1 holds as "prints at least 1", since argparse prints each flag twice.
+  >
+  > Ruling 0253-one-wait-reason-table-r2: (a) the writer's unknown-reason refusal exits 2, steerer included, and set_wait passes 2 through: keep the change. (b) Only --quota-class goes on `ccp tasks wait`; planned_resume_at stays a set_wait parameter that usage.py calls directly.
 
 ## Scope
 
@@ -154,5 +159,33 @@ the parser, which this task's new flag must satisfy.
   dry run: n/a — the passage lands with the task.
 
 ## Implementation notes
+
+- `scripts/observability/lib.py` holds `WAIT_REASONS` (what `set` accepts, no `steerer`) and
+  `WAIT_READ_ONLY = ("steerer",)`; its docstring and `scripts/observability/CLAUDE.md` name
+  `WAIT_READ_ONLY` and `LEGACY_EVENT_TYPES` as the values only read, in place of the "alias table".
+- `set-waiting-on.sh` imports `WAIT_REASONS` from lib and refuses any other reason on `set`, `steerer`
+  included, with exit 2 (it was lib's `die` default, exit 1, for every unknown reason; the ruling asks for
+  exit 2). `clear` takes any reason, so a `steerer` wait from an older queue still clears. Its usage text
+  points at SPEC §10.1 instead of listing the reasons.
+- `ccp/lifecycle.py` `set_wait` builds every `ccp` call to the writer: `actor`, `task_only`, `quota_class`,
+  `resets_at`, `detail`, and also `planned_resume_at`, which the session park passes (§25.4). A writer exit
+  1 or 2 passes through, any other failure (and a writer silent for 30 s, the timeout usage.py had) is exit
+  1. `wait`, `_apply` (sync), `release` and usage.py's `clear_park` and `_park` call it; usage.py's
+  `_set_wait` is gone. `ccp tasks wait` gains `--quota-class {session,credit}` only, as ruled.
+- `contracts/observability_now.schema.json` is removed, with its lines in `docs/design/observability.md`
+  and `scripts/observability/README.md`.
+- `tests/test_session_park.py` patched `usage._set_wait`; it now patches `lifecycle.set_wait`.
+- wr-02 step 1: argparse prints a flag on the usage line and under options, so `grep -c -- --quota-class`
+  prints 2, as `--until` does at the base; the flag is there once, as one option.
+- Ruling round 1 (`0253-one-wait-reason-table-r1`, `-r2`, on `sm-20261121T225816Z-2535`) confirms the
+  code as built: wr-02 step 1 reads as "at least 1"; the writer's exit 2 on an unknown reason, `steerer`
+  included, and `set_wait` passing 2 through stay; `ccp tasks wait` takes `--quota-class` only and
+  `planned_resume_at` stays a `set_wait` parameter usage.py passes. No code, test or doc changed in this
+  round; the rulings are recorded in Context.
+- Fix round 1 (review MINOR and NITs): `SetWait`'s default-actor test sets `ACTOR=design-seat`, a valid
+  actor other than `queue.actor()`'s own default, so a hard-coded `"task-runner"` in `set_wait` fails it;
+  `set_wait`'s docstring says a timeout can leave work.json behind the ledger (the writer appends the event
+  and writes the task file before it waits on work.json's lock); the spec-maintainer skill's line 28 reads
+  "you hold the task-log authority as well", as line 129 does.
 
 ## Verification notes

@@ -31,8 +31,7 @@ Seat ids / actors for the three operational seats: `task-runner`, `task-verifier
 The older snapshot (`now.json`, `STATUS.md`) and its scripts (`rebuild-now.sh`, `status.sh`) are
 retired (SPEC §23.4, ADR-0034 D7): nothing writes or reads them, and an old copy left in a queue is
 ignored. The board (`board/board.json`, built by `ccp board build`, §28) is the status, and
-`ccp board status` its terminal summary. The deprecated `contracts/observability_now.schema.json`
-records the snapshot's shape.
+`ccp board status` its terminal summary.
 
 
 #### Audit file schema

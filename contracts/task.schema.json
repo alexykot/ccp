@@ -144,7 +144,7 @@
         "operator_step",
         null
       ],
-      "description": "spec_maintainer = blocked on an open spec-maintainer question (§17); steerer stays for projects without a spec_maintainer block"
+      "description": "spec_maintainer = blocked on an open spec-maintainer question (§17); steerer is read for older queues and never written (§10.1)"
     },
     "waiting_on_since": {
       "type": [

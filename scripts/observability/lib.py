@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """The event ledger shared by `ccp` and the observability scripts: QUEUE_ROOT/observability/events.jsonl.
 
-It validates and appends events, holds the work.json lock, the shared constants and the alias table
-for values renamed over time, and folds a task's events into its timers. The board (`ccp board`,
-SPEC §28) is the status; the older snapshot and its scripts are retired (SPEC §23.4).
+It validates and appends events, holds the work.json lock and the shared constants, among them the
+values only read, never written (`WAIT_READ_ONLY`, `LEGACY_EVENT_TYPES`: house rule E9), and folds a
+task's events into its timers. The board (`ccp board`, SPEC §28) is the status; the older snapshot and
+its scripts are retired (SPEC §23.4).
 
 Timer formula (stable — see README.md):
 
@@ -91,8 +92,11 @@ EVENT_OPS = (
     "adopted",
     "archived",
 )
-WAIT_REASONS = ("quota", "reauth", "operator_decision", "runner", "steerer", "spec_maintainer", "design_seat", "null-class",
+# §10.1's runtime waits: what set-waiting-on.sh accepts on `set`. WAIT_READ_ONLY is read from an older queue,
+# cleared like any wait, and never written (E9's alias).
+WAIT_REASONS = ("quota", "reauth", "operator_decision", "runner", "spec_maintainer", "design_seat", "null-class",
                 "operator_step")
+WAIT_READ_ONLY = ("steerer",)
 
 OPEN_GATE_STATUSES = ("open", "waiting_operator")
 
