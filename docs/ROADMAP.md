@@ -45,9 +45,9 @@ All reshape phases have landed.
 
 ## After the reshape
 
-- **Accepted, to be tasked after R12:** ADR-0044 (a follow-up is tracked, not left in notes),
-  ADR-0045 (checks only the operator's machine can run) and ADR-0046 (decisions may depend on other
-  ADRs' decisions).
+- **Tasked in R15:** ADR-0044 (a follow-up is tracked, not left in notes; tasks 0223, 0230-0232),
+  ADR-0045 (checks only the operator's machine can run; 0224, 0237, 0238) and ADR-0046 (decisions may
+  depend on other ADRs' decisions; 0225, 0251, 0252).
 - **Deferred from architect pass `ar-20261120T234012Z-27eb`** (record in `docs/delivery/reviews/`):
   - F10: replace the tests' sentence assertions (hundreds of them, across most modules) with the
     token each guards, and derive the template flags' defaults from the templates. Too large for one
@@ -63,6 +63,11 @@ All reshape phases have landed.
   - F12: the plane's own `pregate` lane (`ccp tasks check` plus `ccp docs check`, beside its
     `architect.checks`) is a lead adopt step now that R15's 0212 has landed, so a docs-rule failure
     shows before the full lane. No task.
+- **Deferred from architect pass `ar-20261121T132817Z-d5e5`** (record in `docs/delivery/reviews/`):
+  - F06: test `ccp mutate`'s argument and mutant-text refusals on plain values (`_once`,
+    `parse_file`) instead of through a git fixture. Re-measured after R17's 0255 makes
+    `ToolkitFixture` cheap; tasked only if `tests.test_mutate` still stands out in the health
+    summary's slowest modules.
 - **Considered and declined:** continuing past the weekly allowance into paid extra usage (the plane
   runs on the prepaid allowance only, ADR-0026), and a separate task-drafting seat (the lead drafts
   tasks, with a writer subagent when several land at once).
@@ -73,19 +78,16 @@ All reshape phases have landed.
     task log, review points, writing rules, standing DoD), `docs/adr/`, `docs/ENGINEERING.md`,
     `scripts/gate.sh` and `scripts/leak-check.sh`, the telemetry anchor in `.claude/settings.json`
     (the plugin anchor lives in the gitignored `.claude/settings.local.json` until publication), and a test that runs the plane's checks on itself. `examples/` is
-    removed. Sessions still implement in worktrees by hand; the work is recorded in the plane's
-    own task log.
-  - **Stage 2, runner-driven (later, its own design):** a lead and runner teammates claim the
-    plane's tasks through `ccp`. The release must happen strictly between tasks, because the
-    `ccp` doing the work is the run checkout that a merge moves.
-- **The plane's decision record:** the operator's rulings so far become the plane's own ADRs,
-  accepted and implemented, with no private detail.
-- **SPEC restructure:**
-  - normative rules only;
-  - implementation notes move to `docs/design/`;
-  - history moves out;
-  - amendment layers are folded into current rules;
-  - neutral examples throughout.
+    removed.
+  - **Stage 2, runner-driven (running):** a lead and runner teammates claim the plane's tasks
+    through `ccp` (plane.json `parallel.max_in_flight`). A merge to main is a release (ADR-0024), and
+    it moves the run checkout that the runner's own `ccp` calls use while other tasks are in flight.
+    How a release relates to tasks in flight has no recorded rule yet. This roadmap earlier planned
+    releases strictly between tasks (option (b) of the question below), but no SPEC or ADR text
+    records that. It is a question for the operator from architect pass `ar-20261121T132817Z-d5e5`
+    (F04), and the answer goes into ADR-0031.
+- **Done:** the plane's decision record (the operator's rulings are the plane's own ADRs, ADR-0031
+  D3) and the SPEC restructure (review point R1).
 - **Merge handling (pluggable strategy):** the plane owns how a PR reaches the integration branch
   (main, by default).
   - **Builds on what exists:**

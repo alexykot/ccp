@@ -107,3 +107,8 @@ review_points:
     goal: "Findings of architect pass ar-20261121T111633Z-4e26: reviewers get the affected-modules command and a base checkout, the tests-for-new-behaviour section in the report table, a parallel part lane, module docstrings without usage tables and house-rule checks without bare test runs, writers checked against their contracts, and one parser for signed blocks and task-id patterns."
     status: planned
     opened: "2026-11-21"
+  - id: R20
+    name: fourth architect pass fixes
+    goal: "Findings of architect pass ar-20261121T132817Z-d5e5: the plane's gate under one lane name, a worker's suite run that waits for a held exclusive lane, and suite run naming the lane it uses."
+    status: planned
+    opened: "2026-11-21"

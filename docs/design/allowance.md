@@ -2,11 +2,11 @@
 
 Non-normative notes behind SPEC §25 and §26. The rules are in `docs/spec/04-observability.md`.
 
-## 28.20 Implementation notes: the checkpoint and the advisory design seat (2026-10-21, non-normative)
+## The checkpoint and the advisory design seat
 
 - `ccp tasks claim` refuses a new claim at the checkpoint in force (exit 5, "allowance checkpoint").
   The message tells the runner to stop and the lead to ask the operator. The checkpoint in force is the
-  machine's `allowance_stop_weekly` (default 90), raised by the decisions recorded for the current window (the
+  machine's `allowance_stop_weekly` (its default `ALLOWANCE_STOP_WEEKLY_DEFAULT` in `ccp/config.py`), raised by the decisions recorded for the current window (the
   latest sample's `resets_at`).
 - `ccp allowance continue --to <percent> --reason "<the operator's words>"` (the lead) appends to
   `board/allowance-decisions.jsonl` and emits `allowance/decided`. It refuses without a reason, a
@@ -69,7 +69,7 @@ into the seat's prompt and the optional gating rules, each needing the operator'
   same family (2), shared areas (2, Jaccard) and ADRs (1.5, Jaccard, when either has any), and
   closeness in cited lines, dod_checks, text length and dependencies (0.5 each, `exp(-|log ratio|)`).
   Each score is halved for every 30 tasks merged since the candidate (recent tasks weigh more). The
-  class is the k best (`plane.json estimate.k`, 5–8, default 6) among the tasks that share the
+  class is the k best (`plane.json estimate.k`, 5–8; its default in `ESTIMATE_DEFAULTS`, `ccp/config.py`) among the tasks that share the
   family, an area or an ADR (tier `similar`); with fewer than 3 of those, the same kind (`kind`);
   then all (`all`). P50 and P90 (linear interpolation) of the class's actuals give each phase and
   the total. Tokens and cost choose their own class, from the tasks with telemetry only.
@@ -165,7 +165,7 @@ baseline, no accuracy rule and nothing that gates.
   dependency merged since its last one (`deps_done` grew); done, dropped and in-flight tasks
   (`work.json`) are left out of `--all` and the triggers, since an estimate made after the start
   is never scored (a named task is estimated anyway). `ccp tasks estimate --all [--max N]`
-  estimates them one at a time, at most N per batch (default 10; the rest are reported as
+  estimates them one at a time, at most N per batch (`--max`, its default in `ccp/cli.py`; the rest are reported as
   deferred), under `QUEUE_ROOT/estimator.lock`; `--detach` runs that batch in its own session and
   returns; `--dry-run` renders the prompts and calls nothing; `--print-prompt ID` prints one
   prompt; `--force` re-estimates. **`plane.json estimate.auto`** (default `true`; `false` leaves it to
@@ -289,7 +289,7 @@ needs its own ruling from the operator.
   (phase A's rule). Per source (baseline, agent) and metric (wall, tokens, cost): (actual, P50,
   P90), with the estimate's kind and family, oldest merge first. Each pair weighs
   0.5^(age / half-life), its age in merges among the source's pairs (`plane.json
-  estimate.calibration.half_life`, default 40).
+  estimate.calibration.half_life`, its default in `ESTIMATE_DEFAULTS`, `ccp/config.py`).
 - **The bias.** The weighted median of actual/P50, overall, by kind and by family. A group's log
   factor is shrunk toward its prior (a kind toward the overall, a family toward its kind) by
   n/(n+k), n its effective size (Kish). k is fitted (empirical Bayes): the pooled within-group
@@ -303,7 +303,7 @@ needs its own ruling from the operator.
   (calibration widens a P90, never narrows one). One per source and metric. The widening stops at
   P90' = 4 x P50' (a raw band already wider keeps its own), so an already wide band is not raised to
   a power into a lognormal whose mean is many times its median.
-- **Too few pairs.** Fewer than `estimate.calibration.min_pairs` (default 8) for a source and
+- **Too few pairs.** Fewer than `estimate.calibration.min_pairs` (its default in `ESTIMATE_DEFAULTS`) for a source and
   metric: factors 1.0, `fitted: false`, and the reason, in every place the factors show.
 - **Applied at read time.** P50' = P50 x bias, P90' = P50' x (P90/P50)^width.
   `estimate.latest(rs, source, calibrated=True, cal=model)` returns the row with the calibrated

@@ -377,17 +377,6 @@ def progress_event(q: Path, task_id: str, frm: str | None, to: str, note: str = 
     write_json(p, prog)
 
 
-def set_marker(q: Path, task_id: str, state: str) -> None:
-    """The `queue/<state>/<task_id>` marker the plane's queue scripts keep: one per task."""
-    base = q / "queue"
-    if base.is_dir():
-        for d in base.iterdir():
-            if d.is_dir() and d.name != state and (d / task_id).exists():
-                (d / task_id).unlink()
-    (base / state).mkdir(parents=True, exist_ok=True)
-    (base / state / task_id).touch()
-
-
 def durable_statuses(cfg: Config) -> dict[str, str]:
     """Each task's durable status (§4), by its id (the file name when the frontmatter names none) and
     by NNNN. The board and `ccp tasks sync` both look a queue file up here, by its file name, so a
@@ -467,7 +456,6 @@ QUEUE_OWNED = frozenset({
     "progress",                 # §23.7: progress files and worker reports (§13.4)
     "project.yaml",             # §8.3: the retired queue copy of the binding, still read as a fallback
     "prompts",                  # §23.8: the prompt audit
-    "queue",                    # §10.4: the per-task state markers (`set_marker`)
     "questions",                # §17.3: spec questions and answers
     "review",                   # §23.7: the reviewer's files
     "reviews",                  # §19.3: architect reports and triage

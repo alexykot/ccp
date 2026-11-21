@@ -133,8 +133,8 @@ These are durable lead state in `work.json`, not messages, which can arrive afte
 - **Release** (lead or runner). `ccp tasks release <id> [--keep-branch] --reason "…"` undoes a claim: a task leased
   (or blocked) in the queue with no run at all (nor, from before run records, a prompt audit) or,
   with `--keep-branch`, a claimed task whose runs are all closed, keeping its branch and PR, goes
-  back to `pending`. Its wait is cleared through `set-waiting-on.sh`, its phase moves to `pending`
-  (the `queue/pending/` marker), then a `lease` `clear` event with `released: true` and the reason;
+  back to `pending`. Its wait is cleared through `set-waiting-on.sh`, its phase moves to `pending`,
+  then a `lease` `clear` event with `released: true` and the reason;
   `lease_since`, `claimed_at` and `implementation_started_at` are cleared, and it leaves `work.json`
   as `ccp tasks sync` does (out of `in_flight`, the next task in flight becomes current, none left
   makes `runtime_status` `idle`). The worktree and branch are kept, and a later claim resumes in
@@ -223,7 +223,7 @@ that merged) and only reconciles; a task already reconciled only has its queue s
 - **Token, model and effort figures come from the harness** (§24), never from an agent's account.
 - **Numbers are diagnostics, never targets**: no board figure is a DoD item or a worker goal.
 - The runner brief (`plugin/agents/delivery-runner.md`) names these commands at each step and describes no step in prose.
-  `scripts/queue/*.sh` and `scripts/observability/*.sh` stay as thin wrappers over `ccp`.
+  `scripts/observability/*.sh` stay as thin wrappers over `ccp`.
 
 **Exit codes** of `ccp` commands, run in the product checkout (`--root DIR`, else `$CCP_ROOT`, else
 the git toplevel): 0 ok; 1 check failures or a failed run; 2 usage or configuration; 3 nothing
