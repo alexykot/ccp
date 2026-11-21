@@ -787,6 +787,11 @@ class Together(MutateFixture, unittest.TestCase):
         self.assertEqual((self.mut / "calc.py").read_text(), CALC)
         self.assertFalse((self.mut / "extra.py").exists())
 
+    def test_together_a_later_part_finds_its_old_text_in_what_an_earlier_one_wrote(self):
+        code, _, _, err = self.mutate("calc.py:a + b=>a ^ b", "calc.py:a ^ b=>a % b", together=True)
+        self.assertEqual((code, [r["outcome"] for r in self.rows()]), (0, ["killed"]), err)
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+
     def test_together_a_patch_and_a_substitution_on_one_file_are_refused(self):
         patch = self.patch_file({"calc.py": CALC.replace("a * 2", "a * 3")})
         self.assertIn("calc.py", self.refused("calc.py:a + b=>a - b", str(patch)))
