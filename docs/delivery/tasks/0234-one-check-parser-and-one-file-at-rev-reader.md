@@ -1,7 +1,7 @@
 ---
 task_id: 0234-one-check-parser-and-one-file-at-rev-reader
 title: One dod_check parser and one task-file-at-rev reader in tasklog, used by every current site
-status: pending
+status: done
 kind: refactor
 depends_on: ["0244-tasks-check-runs-dry-runs"]
 review_refs: ["sh-20261121T000350Z-5ef1#F04", "sh-20261121T000350Z-5ef1#F05"]
@@ -132,3 +132,5 @@ Measured at `8aefa59`.
   normalisation with a drop commit written with `\r` line ends, beside the CRLF one (a shared helper takes the line end).
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #280 head `e2116c4` (squash `717d253`): APPROVE. Passed: cg-01, cg-02, cg-03, cg-04. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0234-one-check-parser-and-one-file-at-rev-reader.json.
+
