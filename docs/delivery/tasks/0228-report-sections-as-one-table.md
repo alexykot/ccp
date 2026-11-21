@@ -1,7 +1,7 @@
 ---
 task_id: 0228-report-sections-as-one-table
 title: The worker report's sections are defined once, and the briefs stop restating the report format
-status: pending
+status: done
 kind: refactor
 depends_on: []
 clashes_with: ["0203-follow-up-fixes", "0221-workers-reach-the-pr-host-through-ccp-pr", "0233-briefs-point-at-the-evidence-rules", "0238-the-runner-runs-marked-checks-before-verify"]
@@ -154,3 +154,5 @@ Measured at `8aefa59`.
   modules that call it pass one.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #253 head `ba150fc` (squash `61ce63c`): APPROVE. Passed: rs-01, rs-02, rs-03, rs-04, rs-05. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0228-report-sections-as-one-table.json.
+

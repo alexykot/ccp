@@ -1138,7 +1138,7 @@ tasks:
     depends_on: [0222-a-product-without-github-uses-the-local-pr-host]
     path: tasks/0227-the-test-fixture-uses-the-local-pr-host.md
   - id: 0228-report-sections-as-one-table
-    status: pending
+    status: done
     title: The worker report's sections are defined once, and the briefs stop restating the report format
     depends_on: []
     path: tasks/0228-report-sections-as-one-table.md
