@@ -263,6 +263,15 @@ class SyncReaderTest(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("is project_id other, not demo", r.stderr)
 
+    def test_without_a_project_yaml_the_binding_is_found_in_the_bindings_directory(self):
+        self.yml.write_text(f"project_id: demo\nproduct_root: {self.product}\n")
+        env = {**os.environ, "CCP_BINDINGS_DIR": self._d.name}
+        r = subprocess.run(["bash", str(PLANE / "scripts" / "sync-product-docs.sh"), "demo", "--check"],
+                           capture_output=True, text=True, env=env)
+        self.assertNotIn("no project binding", r.stderr)
+        self.assertIn("DRIFT docs/delivery/CONTROL-PLANE.md: missing", r.stdout, r.stderr)
+        self.assertEqual(r.returncode, 1, r.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

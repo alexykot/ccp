@@ -93,4 +93,8 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- `scripts/sync-product-docs.sh`: without `--project-yaml` the binding is `lib.bindings_dir() / f"{project}.yaml"`; `top()` is gone, its four uses call `lib.binding_str(binding, ...)` directly; the header's Defaults line names `CCP_BINDINGS_DIR`, else `<plane>/projects`.
+- `tests/test_binding_reader.py`: one `SyncReaderTest` test runs the script with no `--project-yaml` and `CCP_BINDINGS_DIR` at the temp directory. The existing tests still pass `--project-yaml`.
+- The premise figures held at `56c65cc`: one `"projects"` line, 23 tests in the module before the change.
+
 ## Verification notes

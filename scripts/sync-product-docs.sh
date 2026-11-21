@@ -40,7 +40,8 @@
 #   templates/docs-project/ENGINEERING.md; it is product-owned, never a managed copy).
 # Exit 2: usage / config error (unknown project, no product_root, product_root missing).
 #
-# Defaults: --project-yaml = <plane>/projects/<project_id>.yaml; --product-root = its product_root.
+# Defaults: --project-yaml = <the bindings directory>/<project_id>.yaml (CCP_BINDINGS_DIR, else
+# <plane>/projects); --product-root = its product_root.
 # No secrets are read or written.
 set -euo pipefail
 PLANE="$(cd "$(dirname "$0")/.." && pwd)"
@@ -105,14 +106,12 @@ if stamp:
               f"({prev.get('checked_at')}, drift={prev.get('drift')}); daily cadence (SPEC §9.5)")
         sys.exit(0)
 
-yml = Path(project_yaml) if project_yaml else plane / "projects" / f"{project}.yaml"
+yml = Path(project_yaml) if project_yaml else lib.bindings_dir() / f"{project}.yaml"
 if not yml.is_file(): fail(f"no project binding {yml}")
 binding = lib.read_binding(yml.read_text())
-def top(key):
-    return lib.binding_str(binding, key)
-if top("project_id") and top("project_id") != project:
-    fail(f"{yml} is project_id {top('project_id')}, not {project}")
-root = Path(product_root or top("product_root") or "")
+if lib.binding_str(binding, "project_id") and lib.binding_str(binding, "project_id") != project:
+    fail(f"{yml} is project_id {lib.binding_str(binding, 'project_id')}, not {project}")
+root = Path(product_root or lib.binding_str(binding, "product_root") or "")
 if not str(root) or str(root) == ".": fail(f"{yml} has no product_root (pass --product-root)")
 if not root.is_dir(): fail(f"product_root {root} does not exist")
 
