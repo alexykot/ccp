@@ -157,19 +157,24 @@ class TheCommands(ToolkitFixture, unittest.TestCase):
 
     def test_the_listing_prints_a_line_each_then_the_open_count_and_json_with_open(self):
         self.assertEqual(self.decide(1, "--drop", "not worth it")[0], 0)
+        runs.save(self.q, record("0001-first/verify", "one more gap", "and another"))
         code, _, out, err = self.ccp("tasks", "follow-ups")
         self.assertEqual(code, 0, err)
         lines = out.splitlines()
-        self.assertEqual([x.split(":")[0].split() for x in lines[:2]],
-                         [[f"{self.RUN}#1", "0002-second", "drop"], [f"{self.RUN}#2", "0002-second", "open"]])
-        self.assertEqual(lines[2], "1 open")
+        self.assertEqual([x.split(":")[0].split() for x in lines[:-1]],
+                         [["0001-first/verify#1", "0001-first", "open"], ["0001-first/verify#2", "0001-first", "open"],
+                          [f"{self.RUN}#1", "0002-second", "drop"], [f"{self.RUN}#2", "0002-second", "open"]])
+        self.assertEqual(lines[-1], "3 open")
         code, _, out, err = self.ccp("tasks", "follow-ups", "--open", "--json")
         self.assertEqual(code, 0, err)
         got = json.loads(out)
         self.assertEqual([(r["id"], r["task_id"], r["text"], r["outcome"]) for r in got],
-                         [(f"{self.RUN}#2", "0002-second", "a step for a later task", None)])
+                         [("0001-first/verify#1", "0001-first", "one more gap", None),
+                          ("0001-first/verify#2", "0001-first", "and another", None),
+                          (f"{self.RUN}#2", "0002-second", "a step for a later task", None)])
         code, _, out, err = self.ccp("tasks", "follow-ups", "--json")
-        self.assertEqual([r["outcome"]["kind"] if r["outcome"] else None for r in json.loads(out)], ["drop", None])
+        self.assertEqual([r["outcome"]["kind"] if r["outcome"] else None for r in json.loads(out)],
+                         [None, None, "drop", None])
 
 
 if __name__ == "__main__":
