@@ -117,5 +117,10 @@ Measured at `8aefa59`.
 - `--task` reads `origin/<integration>` as it is, unfetched; a task committed but not pushed is refused.
 - A `--drop` reason that looks like a secret is refused too (house rule E5: text on a queue record).
 - `ccp tasks follow-ups` needs `QUEUE_ROOT`, as every queue reader does.
+- Fix round 1 (review MINOR-1, MINOR-2, NIT-1): the command reference row now says the command is refused
+  when `ACTOR` names another seat (an unset or unknown `ACTOR` reads as the lead, as for sign-off) and lists
+  the secret-like `--drop` reason among the refusals. Two tests were added: a task file at the tip with no
+  status is refused (the `statuses_at` confirmation of `--task`), and an id given with surrounding whitespace
+  resolves. The code is unchanged.
 
 ## Verification notes
