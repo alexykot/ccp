@@ -1128,7 +1128,7 @@ tasks:
     depends_on: [0239-one-adr-reference-parser-and-a-decision-index]
     path: tasks/0225-decisions-may-depend-on-other-adrs-decisions.md
   - id: 0226-one-pr-host-module-github-only
-    status: pending
+    status: done
     title: One PR-host module owns every gh call and returns normalised PR facts, behaviour unchanged
     depends_on: []
     path: tasks/0226-one-pr-host-module-github-only.md

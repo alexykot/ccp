@@ -118,7 +118,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any, Callable
 
-from ccp.envvars import envvar
+from ccp import prhost
 from ccp.config import Config
 from ccp.config import spec_paths as spec_paths_of
 from ccp.refs import ANY_TASK_ID, QUESTION_ID
@@ -1049,42 +1049,39 @@ def recorded_at(queue: Path, path: Path) -> tuple[datetime | None, str]:
     return datetime.fromisoformat(log[1]), f"commit {log[0][:12]}"
 
 
-class NoGh(Exception):
-    """`gh` cannot run here: a configuration problem, not a refusal."""
-
-
-def _pr_facts(root: Path, pr: str) -> dict[str, Any] | str:
-    gh = envvar("CCP_GH_BIN") or "gh"
-    try:
-        proc = subprocess.run([gh, "pr", "view", pr, "--json", "number,state,headRefOid,mergedAt"],
-                              cwd=root, capture_output=True, text=True)
-    except FileNotFoundError as exc:
-        raise NoGh(f"{gh} is not installed: merge-ok reads the PR with gh") from exc
-    if proc.returncode != 0:
-        return f"could not read PR {pr}: {(proc.stderr or proc.stdout).strip()}"
-    try:
-        facts = json.loads(proc.stdout)
-    except json.JSONDecodeError as exc:
-        return f"gh printed no JSON for PR {pr}: {exc}"
-    return facts if isinstance(facts, dict) else f"gh printed no object for PR {pr}"
-
-
 def merge_ok(cfg: Config, queue: Path, pr: str, task_id: str | None) -> tuple[list[str], dict[str, Any]]:
-    """Every reason the runner may not merge `pr` now (none means it may), and what was checked."""
+    """Every reason the runner may not merge `pr` now (none means it may), and what was checked. The PR
+    is read from the PR host and the record from the queue; `merge_ok_reasons` judges them. Raises
+    prhost.HostUnavailable when the host's CLI cannot run here."""
     rid = task_id or f"pr-{pr}"
     path = queue / "verification" / f"{rid}.json"
     body: dict[str, Any] = {"pr": pr, "record": f"verification/{rid}.json"}
-    facts = _pr_facts(cfg.root, pr)
-    if isinstance(facts, str):
-        return [facts], body
-    head = str(facts.get("headRefOid") or "")
-    body["pr_head"] = head
+    try:
+        facts = prhost.view(cfg, pr)
+    except prhost.HostUnavailable as exc:
+        raise prhost.HostUnavailable(f"{exc}: merge-ok reads the PR with gh") from None
+    except prhost.HostReadFailed as exc:
+        return [f"could not read PR {pr}: {exc.detail}"], body
+    except prhost.HostError as exc:
+        return [str(exc)], body
+    body["pr_head"] = facts.head
     if not path.is_file():
         return [f"no verification record verification/{rid}.json"
                 + ("" if task_id else " (a task PR names its task with --task)")], body
     rec = _load(path)
     if isinstance(rec, str):
         return [rec], body
+    reasons, found = merge_ok_reasons(cfg, queue, pr, facts, rec, rid, recorded_at(queue, path))
+    return reasons, {**body, **found}
+
+
+def merge_ok_reasons(cfg: Config, queue: Path, pr: str, facts: prhost.PrFacts, rec: dict[str, Any], rid: str,
+                     recorded: tuple[datetime | None, str]) -> tuple[list[str], dict[str, Any]]:
+    """The merge-ok decision on plain values: the PR as the caller named it (`pr`, which its reasons use), its
+    facts, the verification record `rec` for `rid`, and when and how it was recorded (`recorded_at`). Its reasons (none means the PR may merge) and what it
+    checked; the record's producers and catch-up are read from `queue`."""
+    body: dict[str, Any] = {}
+    head = facts.head
     reasons = record_errors(rec)
     if rec.get("project_id") != cfg.project_id:
         reasons.append(f"the record is for project {rec.get('project_id')!r}, not {cfg.project_id}")
@@ -1104,7 +1101,7 @@ def merge_ok(cfg: Config, queue: Path, pr: str, task_id: str | None) -> tuple[li
                            "a push after the verdict needs a new verdict (re-verify packet)"
                            + (f"; the record's catch-up does not cover it: {why}" if why else ""))
     body["gate_runs"] = _gate_runs(rec)
-    when, how = recorded_at(queue, path)
+    when, how = recorded
     body["recorded"] = how
     if when is None:
         reasons.append(how)
@@ -1114,14 +1111,13 @@ def merge_ok(cfg: Config, queue: Path, pr: str, task_id: str | None) -> tuple[li
         if checked is not None and checked > when + SKEW:
             reasons.append(f"checked_at {rec.get('checked_at')} is after the record was recorded "
                            f"({_iso(when)}): checked_at is the clock time the verdict was reached")
-    state = str(facts.get("state") or "")
-    if state != "OPEN":
-        merged = _parse_dt(facts.get("mergedAt"))
+    if facts.state != "open":
+        merged = _parse_dt(facts.merged_at)
         when_s = f" at {_iso(merged)}" if merged else ""
         order = ""
         if merged and when:
             order = f"; the approval was recorded {'before' if when <= merged else 'after'} it"
-        reasons.append(f"PR {pr} is {state.lower() or 'not open'}{when_s}{order}")
+        reasons.append(f"PR {pr} is {facts.state}{when_s}{order}")
     body["unrun_checks"] = [c.get("dod_check_id") for c in rec.get("checks") or []
                             if isinstance(c, dict) and c.get("ran", True) is False]
     body["head_sha"] = recorded_head
@@ -1491,7 +1487,7 @@ def main(cfg: Config, a: Any) -> int:
             return 2
         try:
             reasons, body = merge_ok(cfg, queue, a.target, a.task)
-        except NoGh as exc:
+        except prhost.HostUnavailable as exc:
             print(f"ccp verify: {exc}", file=sys.stderr)
             return 2
         body = {"ok": not reasons, **body, **({"reasons": reasons} if reasons else {})}

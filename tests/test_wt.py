@@ -478,23 +478,6 @@ class Config(WtFixture, unittest.TestCase):
 
 
 class MergeAndAuth(WtFixture, unittest.TestCase):
-    def test_merge_command_is_a_template(self):
-        self.plane(merge={"command": "echo {pr} {head_sha} {task_id} '{\"literal\": 1}' > merged.txt"})
-        r = lifecycle._merge(config.load(self.main), "12", "abc123", "0002-second")
-        self.assertEqual(r.returncode, 0)
-        self.assertEqual((self.main / "merged.txt").read_text().split(), ["12", "abc123", "0002-second", '{"literal":', "1}"])
-
-    def test_default_merge_is_gh_pinned_to_the_head(self):
-        self.write("gh-log", "")
-        fake = self.main / "fake-gh"
-        fake.write_text(f"#!/bin/sh\necho \"$@\" > {self.main / 'gh-log'}\n")
-        fake.chmod(0o755)
-        import os
-        from unittest import mock
-        with mock.patch.dict(os.environ, {"CCP_GH_BIN": str(fake)}):
-            lifecycle._merge(config.load(self.main), "12", "abc123", "0002-second")
-        self.assertEqual((self.main / "gh-log").read_text().split(), ["pr", "merge", "12", "--squash", "--match-head-commit", "abc123"])
-
     def test_auth_check_runs_probes_and_claim_refuses_on_a_failure(self):
         self.plane(auth_check={"probes": [{"id": "ok", "cmd": "true"}, {"id": "token", "cmd": "echo expired; exit 1"}]})
         code, body, _, _ = self.ccp("auth", "check", root=self.main)

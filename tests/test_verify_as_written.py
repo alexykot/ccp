@@ -13,7 +13,7 @@ from unittest import mock
 
 from ccp import cli, verify
 from tests.helpers import Product
-from tests.test_verify import HEAD_A, approve
+from tests.test_verify import approve, decide
 
 ROOT = Path(__file__).resolve().parents[1]
 NEW_KEYS = ("as_written", "held_instead", "ruling")
@@ -39,12 +39,7 @@ class NotAsWritten(unittest.TestCase):
         for n, status, decision in ((1, "closed", "approved"), (2, "open", None)):
             (gates / f"{n}.json").write_text(json.dumps({"task_id": "0001-a", "escalation_id": f"0001-a-{n}",
                                                          "class": "other", "status": status, "decision": decision}))
-        (self.q / "pr.json").write_text(json.dumps({"number": 7, "state": "OPEN", "headRefOid": HEAD_A,
-                                                    "mergedAt": None}))
-        gh = self.q / "fake-gh"
-        gh.write_text("#!/bin/sh\ncat \"$(dirname \"$0\")/pr.json\"\n")
-        gh.chmod(0o755)
-        self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), "CCP_GH_BIN": str(gh)})
+        self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)})
         self.env.start()
 
     def tearDown(self):
@@ -66,14 +61,18 @@ class NotAsWritten(unittest.TestCase):
     def written(self) -> Path:
         return self.q / "verification" / "0001-a.json"
 
+    def merge_ok(self):
+        """The merge-ok decision on the record as written, for an open PR at its head."""
+        return decide(self.p, self.q, json.loads(self.written().read_text()))
+
     def test_a_check_held_in_another_form_is_written_and_may_merge(self):
         code, out, err = self.record(approve(checks=[held_otherwise()]))
         self.assertEqual(code, 0, out + err)
         check = json.loads(self.written().read_text())["checks"][0]
         self.assertEqual({k: check[k] for k in NEW_KEYS}, {k: held_otherwise()[k] for k in NEW_KEYS})
-        code, out, err = self.ccp("verify", "merge-ok", "7", "--task", "0001-a")
-        self.assertEqual(code, 0, out + err)
-        self.assertEqual(json.loads(out)["unrun_checks"], [])
+        reasons, body = self.merge_ok()
+        self.assertEqual(reasons, [])
+        self.assertEqual(body["unrun_checks"], [])
 
     def test_each_copy_without_what_it_needs_is_refused_naming_the_check(self):
         drop = held_otherwise()
@@ -126,14 +125,11 @@ class NotAsWritten(unittest.TestCase):
         schema.write_text(json.dumps(older))
         with mock.patch.object(verify, "RECORD_VERSION", verify.RECORD_VERSION - 1), \
                 mock.patch.object(verify, "SCHEMA", schema):
-            code, out, err = self.ccp("verify", "merge-ok", "7", "--task", "0001-a")
-            self.assertEqual(code, 0, out + err)
+            self.assertEqual(self.merge_ok()[0], [])
             # The same keys in a record no newer than that reader are refused: its contract is in force.
             rec = json.loads(self.written().read_text())
             self.written().write_text(json.dumps({**rec, "schema_version": verify.RECORD_VERSION}))
-            code, _, err = self.ccp("verify", "merge-ok", "7", "--task", "0001-a")
-            self.assertEqual(code, 1)
-            self.assertIn("unexpected key as_written", err)
+            self.assertIn("unexpected key as_written", "\n".join(self.merge_ok()[0]))
 
 
 if __name__ == "__main__":

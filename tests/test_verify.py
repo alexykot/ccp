@@ -1,6 +1,7 @@
 """The verifier's record and the runner's merge gate (SPEC §15.3), and the re-verify packet."""
 from __future__ import annotations
 
+import contextlib
 import io
 import json
 import os
@@ -12,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli, verify
+from ccp import cli, prhost, verify
 from tests.helpers import Product
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -405,6 +406,13 @@ def approve(task: str = "0001-a", **fields: object) -> dict:
     }
 
 
+def decide(p: Product, queue: Path, rec: dict, rid: str = "0001-a", recorded: tuple | None = None,
+           pr: str = "7", **facts: object) -> tuple[list[str], dict]:
+    """The merge-ok decision on plain values: an open PR at HEAD_A (`facts` override), `rec` recorded just now."""
+    got = prhost.PrFacts(**{"number": 7, "state": "open", "head": HEAD_A, **facts})
+    return verify.merge_ok_reasons(p.cfg, queue, pr, got, rec, rid, recorded or (datetime.now(timezone.utc), "written"))
+
+
 class Record(unittest.TestCase):
     """`ccp verify record`: the schema and the rules it cannot hold, before anything is written."""
 
@@ -600,11 +608,7 @@ class MergeOk(unittest.TestCase):
         self._q = tempfile.TemporaryDirectory()
         self.q = Path(self._q.name)
         (self.q / "project.yaml").write_text("project_id: demo\n")
-        self.pr = {"number": 7, "state": "OPEN", "headRefOid": HEAD_A, "mergedAt": None}
-        gh = self.q / "fake-gh"
-        gh.write_text("#!/bin/sh\ncat \"$(dirname \"$0\")/pr.json\"\n")
-        gh.chmod(0o755)
-        self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), "CCP_GH_BIN": str(gh)})
+        self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)})
         self.env.start()
 
     def tearDown(self):
@@ -619,28 +623,28 @@ class MergeOk(unittest.TestCase):
         path.write_text(json.dumps(rec))
         return path
 
-    def ok(self, *extra: str):
-        (self.q / "pr.json").write_text(json.dumps(self.pr))
+    def ok(self, *extra: str, host: bool = True):
+        """`ccp verify merge-ok` end to end: the record from the queue, the PR from `prhost.view` (an open PR
+        at HEAD_A, unless `host` is False and the real read runs)."""
         out, err = io.StringIO(), io.StringIO()
-        with redirect_stdout(out), redirect_stderr(err):
+        seen = prhost.PrFacts(number=7, state="open", head=HEAD_A)
+        with redirect_stdout(out), redirect_stderr(err), \
+                mock.patch.object(prhost, "view", return_value=seen) if host else contextlib.nullcontext():
             code = cli.main(["--root", str(self.p.root), "verify", "merge-ok", "7", *extra])
         return code, json.loads(out.getvalue()) if out.getvalue() else {}, err.getvalue()
 
     def test_an_approval_at_the_open_head_with_its_gate_may_merge(self):
-        self.put(approve(checked_at=now_iso()))
-        code, body, err = self.ok("--task", "0001-a")
-        self.assertEqual(code, 0, err)
-        self.assertTrue(body["ok"])
+        reasons, body = decide(self.p, self.q, approve(checked_at=now_iso()))
+        self.assertEqual(reasons, [])
         self.assertEqual((body["head_sha"], body["recorded"], body["unrun_checks"]), (HEAD_A, "written", []))
         self.assertEqual([r["command"] for r in body["gate_runs"]], ["scripts/unit.sh", "scripts/lint.sh"])
-        # A short approved sha still merges on the PR's full head (gh needs a full OID).
-        self.put(approve(head_sha=HEAD_A[:7], checked_at=now_iso()))
-        code, body, err = self.ok("--task", "0001-a")
-        self.assertEqual((code, body["match_head_commit"]), (0, HEAD_A), err)
+        # A short approved sha still merges on the PR's full head (the host needs a full sha).
+        reasons, body = decide(self.p, self.q, approve(head_sha=HEAD_A[:7], checked_at=now_iso()))
+        self.assertEqual((reasons, body["match_head_commit"]), ([], HEAD_A))
 
     def test_each_reason_not_to_merge_is_named(self):
         cases = (
-            ({"headRefOid": HEAD_B}, {}, "is not the approved head"),
+            ({"head": HEAD_B}, {}, "is not the approved head"),
             ({}, {"gate": None}, "carries no gate"),
             ({}, {"gate": {"runs": [{"command": "scripts/lint.sh", "exit_code": 1}]}},
              "gate run 'scripts/lint.sh' exited 1"),
@@ -650,17 +654,22 @@ class MergeOk(unittest.TestCase):
             ({}, {"task_id": "0009-z"}, "the record's task_id is '0009-z', not 0001-a"),
             ({}, {"checks": [{"dod_check_id": "cmd-01", "pass": False, "evidence": "exit 1"}]},
              "an approve with a failed check (cmd-01)"),
-            ({"state": "MERGED", "mergedAt": "2026-10-16T21:33:30Z"}, {},
+            ({"state": "merged", "merged_at": "2026-10-16T21:33:30Z"}, {},
              "PR 7 is merged at 2026-10-16T21:33:30Z; the approval was recorded after it"),
+            ({"state": "closed"}, {}, "PR 7 is closed"),
         )
-        for pr, rec, needle in cases:
-            self.pr = {"number": 7, "state": "OPEN", "headRefOid": HEAD_A, "mergedAt": None, **pr}
+        for facts, rec, needle in cases:
             body = {k: v for k, v in approve(checked_at=now_iso(), **rec).items() if v is not None}
-            self.put(body)
-            code, out, err = self.ok("--task", "0001-a")
-            self.assertEqual(code, 1, (needle, err))
-            self.assertIn(needle, err)
-            self.assertFalse(out["ok"])
+            reasons, out = decide(self.p, self.q, body, **facts)
+            self.assertIn(needle, "\n".join(reasons), needle)
+            self.assertNotIn("match_head_commit", out)
+
+    def test_a_merged_pr_is_refused_whichever_came_first(self):
+        merged = "2026-10-16T21:33:30Z"
+        before = (datetime(2026, 10, 16, 21, 0, tzinfo=timezone.utc), "written")
+        reasons, _ = decide(self.p, self.q, approve(checked_at="2026-10-16T20:59:00Z"), recorded=before,
+                            state="merged", merged_at=merged)
+        self.assertEqual(reasons, ["PR 7 is merged at 2026-10-16T21:33:30Z; the approval was recorded before it"])
 
     def test_a_pr_without_a_task_reads_its_pr_record(self):
         code, _, err = self.ok()
@@ -709,9 +718,8 @@ class MergeOk(unittest.TestCase):
         return rec
 
     def test_a_record_from_a_newer_version_with_keys_this_one_does_not_know_may_merge(self):
-        self.put(self.newer())
-        code, body, err = self.ok("--task", "0001-a")
-        self.assertEqual(code, 0, err)
+        reasons, body = decide(self.p, self.q, self.newer())
+        self.assertEqual(reasons, [])
         self.assertEqual(body["match_head_commit"], HEAD_A)
         # The same keys from a version no newer than this one, or from a record with none, are refused.
         for version in (verify.RECORD_VERSION, None):
@@ -720,9 +728,9 @@ class MergeOk(unittest.TestCase):
                 del rec["schema_version"]
             else:
                 rec["schema_version"] = version
-            self.put(rec)
-            code, _, err = self.ok("--task", "0001-a")
-            self.assertEqual(code, 1, version)
+            reasons, _ = decide(self.p, self.q, rec)
+            err = "\n".join(reasons)
+            self.assertTrue(reasons, version)
             for key in ("reviewed_at", "checks[0]: unexpected key seat_run", "gate.runs[0]: unexpected key lane",
                         "record.gate: unexpected key shard"):
                 self.assertIn(key, err)
@@ -738,24 +746,33 @@ class MergeOk(unittest.TestCase):
             ({"checks": [{"dod_check_id": "cmd-01", "pass": True, "produced_by": "verifier"}]}, "missing evidence"),
         )
         for fields, needle in cases:
-            self.put(self.newer(**fields))
-            code, _, err = self.ok("--task", "0001-a")
-            self.assertEqual(code, 1, (needle, err))
-            self.assertIn(needle, err)
+            reasons, _ = decide(self.p, self.q, self.newer(**fields))
+            self.assertIn(needle, "\n".join(reasons))
         # A version that is not an integer is a bad value, and the record is held to this contract.
         rec = self.newer()
         rec["schema_version"] = str(verify.RECORD_VERSION + 1)
-        self.put(rec)
-        code, _, err = self.ok("--task", "0001-a")
-        self.assertEqual(code, 1)
-        self.assertIn("record.schema_version", err)
-        self.assertIn("unexpected key reviewed_at", err)
+        reasons, _ = decide(self.p, self.q, rec)
+        self.assertIn("record.schema_version", "\n".join(reasons))
+        self.assertIn("unexpected key reviewed_at", "\n".join(reasons))
+
+    def test_a_pr_the_host_cannot_be_read_for_is_a_reason_not_to_merge(self):
+        for exc, needle in ((prhost.HostReadFailed("gh pr view 7: no such PR", "no such PR"), "could not read PR 7: no such PR"),
+                            (prhost.HostReadFailed("gh pr view 7: "), "could not read PR 7: "),
+                            (prhost.HostError("gh printed no JSON for PR 7"), "gh printed no JSON for PR 7")):
+            with mock.patch.object(prhost, "view", side_effect=exc):
+                reasons, body = verify.merge_ok(self.p.cfg, self.q, "7", "0001-a")
+            self.assertEqual(reasons, [needle])
+            self.assertNotIn("pr_head", body)
+
+    def test_a_reason_names_the_pr_as_the_caller_gave_it(self):
+        reasons, _ = decide(self.p, self.q, approve(checked_at=now_iso()), pr="07", state="closed")
+        self.assertEqual(reasons, ["PR 07 is closed"])
 
     def test_no_gh_is_a_configuration_error(self):
         with mock.patch.dict(os.environ, {"CCP_GH_BIN": str(self.q / "no-such-gh")}):
-            code, _, err = self.ok("--task", "0001-a")
+            code, _, err = self.ok("--task", "0001-a", host=False)
         self.assertEqual(code, 2)
-        self.assertIn("is not installed", err)
+        self.assertIn("is not installed: merge-ok reads the PR with gh", err)
 
 
 def now_iso() -> str:
