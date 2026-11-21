@@ -10,7 +10,7 @@
       },
       {
         "id": "E12",
-        "cmd": "python3 -B -m unittest -q tests.test_plane_config_defaults"
+        "cmd": "python3 -B -m unittest -q tests.test_plane_config_defaults tests.test_event_registry"
       },
       {
         "id": "E3",
@@ -22,11 +22,15 @@
       },
       {
         "id": "E16",
-        "cmd": "! git grep -nE 'plane\\.json\"\\)\\.read_text' -- plugin scripts"
+        "cmd": "! git grep -nE '(plane\\.json\"|CONFIG_REL)\\)\\.read_text' -- plugin scripts"
       },
       {
         "id": "E18",
         "cmd": "! git grep -n unittest -- ccp ':(exclude)ccp/doclang'"
+      },
+      {
+        "id": "E25",
+        "cmd": "python3 -B -m unittest -q tests.test_cli_reference"
       }
     ]
   },

@@ -14,7 +14,7 @@ ccp auth check                 run the product's auth_check.probes now; writes a
 ```
 ccp plane propose --need "…" --generic "<why any product needs it>" [--task <id>] [--workaround "…"] [--frequency per-task|per-run|once]
 ccp plane propose --again <id>
-ccp plane list
+ccp plane list [--open]
 ccp plane triage <id> --accept | --merge-into <id> | --decline --reason "…"
 ccp plane built <id> --task <plane task id>
 ```

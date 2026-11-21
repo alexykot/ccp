@@ -19,11 +19,12 @@ Do not change this formula without a SPEC + README note.
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import re
 import sys
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stderr
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,8 @@ REVIEW_EVENT_TYPES = ("architecture_review", "docs_audit", "architect")
 TEAM_EVENT_TYPES = ("gate", "runner")
 TOOLKIT_EVENT_TYPES = ("run", "review", "verify", "allowance", "plane", "suite", "prefer", "hold", "sign_off",
                        "ruling", "notify")
+# Read-only legacy types (E9's alias): the schema still allows them, so an old ledger validates; ccp writes none.
+LEGACY_EVENT_TYPES = ("hosting",)  # an old ledger's hosting switch (Grok hosting is gone)
 EVENT_TYPES = ("phase", "waiting_on", "lease", "claude", "auth", "seat", "durable", "note", "question", "spec_maintainer",
                *REVIEW_EVENT_TYPES, *TEAM_EVENT_TYPES, *TOOLKIT_EVENT_TYPES)
 EVENT_OPS = (
@@ -458,8 +461,8 @@ def apply_event(
             apply_spec_maintainer_event(extra, ev)
         return
 
-    if typ == "hosting":
-        return  # an old ledger's hosting switch (Grok hosting is gone): read past it
+    if typ in LEGACY_EVENT_TYPES:
+        return  # read past it
 
     if typ in TOOLKIT_EVENT_TYPES:
         # §23.2: the toolkit's own ledger. The phase, lease and waiting_on events ccp writes beside
@@ -690,9 +693,10 @@ def resolve_durable_docs_dir(root: Path) -> Path | None:
     product_root = binding_str(binding_data(root), "product_root")
     if not product_root:
         return None
-    task_log = _product_plane(Path(product_root).expanduser()).get("task_log")
-    rel = (task_log.get("dir") if isinstance(task_log, dict) else None) or TASK_LOG_DIR
-    return (Path(product_root).expanduser() / str(rel)).resolve()
+    base = Path(product_root).expanduser()
+    cfg = _product_config(base)
+    rel = (cfg.task_log.get("dir") if cfg is not None else None) or _config().TASK_LOG_DEFAULTS["dir"]
+    return (base / str(rel)).resolve()
 
 
 _BINDING_LINE = re.compile(r"^([ \t]*)([^\s#:-][^:#]*?):(?:[ \t]+(.*))?$")
@@ -823,8 +827,6 @@ def binding_data(root: Path) -> dict[str, Any]:
 BINDING_KEPT = ("project_id", "integration_branch", "product_root", "queue_root", "ci", "notes")
 RUNNER_AGENT = "ccp:delivery-runner"
 RUNNER_NAME = "runner"
-WORKTREES_DIR = ".plane-runtime"  # the runner's worktree is `<product_root>/<worktrees.dir>/runner`
-TASK_LOG_DIR = "docs/delivery"
 # The constants' short names, as callers read them, and the binding key each was set under.
 RUNNER_LIMITS = {"after_tasks": "runner.rotate_after_tasks", "at_context_tokens": "runner.rotate_at_context_tokens",
                  "idle_limit": "runner.idle_block_limit"}
@@ -833,7 +835,7 @@ DERIVED_KEYS = {
     "runner.agent_type": f"the runner's agent is {RUNNER_AGENT}",
     "runner.name": f"the runner's name is {RUNNER_NAME}",
     "runner.worktree": "the runner's worktree is <product_root>/<worktrees.dir>/runner",
-    "durable_docs_path": f"the task log is plane.json task_log.dir, {TASK_LOG_DIR} unless it sets one",
+    "durable_docs_path": "the task log is plane.json task_log.dir, its default unless it sets one",
 }
 MOVED_KEYS = {WINDOW_KEY: "the product's .claude/settings.json autoCompactWindow, which `ccp init` writes when it is absent"}
 
@@ -929,13 +931,20 @@ def runner_limits(root: Path) -> dict[str, int | None]:
             for short, key in RUNNER_LIMITS.items()}
 
 
-def _product_plane(product_root: Path) -> dict[str, Any]:
-    """The product's plane.json as the JSON object it is (the raw keys); empty when there is none or it does not read."""
+def _product_config(product_root: Path) -> Any:
+    """The product's `ccp.config` Config (E16: the one reader of plane.json), or None when plane.json is missing
+    or does not load. The load's warnings are not printed, and are not marked as shown: the process's later
+    loads (`ccp.config._WARNED`) still print each once."""
+    cfg = _config()
+    shown = set(cfg._WARNED)
     try:
-        data = json.loads((product_root / _config().CONFIG_REL).read_text())
-    except (OSError, ValueError):
-        return {}
-    return data if isinstance(data, dict) else {}
+        with redirect_stderr(io.StringIO()):
+            return cfg.load(product_root)
+    except Exception:  # noqa: BLE001  (no plane.json, invalid JSON, a ConfigError: the defaults, as before)
+        return None
+    finally:
+        cfg._WARNED.clear()
+        cfg._WARNED.update(shown)
 
 
 def runner_worktree(root: Path) -> str | None:
@@ -946,10 +955,8 @@ def runner_worktree(root: Path) -> str | None:
     if not product_root:
         return None
     base = Path(product_root).expanduser()
-    plane = _product_plane(base)
-    adapter = plane.get("adapter")
-    wdir = (plane.get("worktrees") or {}).get("dir") if isinstance(plane.get("worktrees"), dict) else None
-    wdir = wdir or (adapter.get("worktree_dir") if isinstance(adapter, dict) else None) or WORKTREES_DIR
+    cfg = _product_config(base)
+    wdir = ((cfg.worktrees or {}).get("dir") if cfg is not None else None) or _config().WORKTREES_DIR
     return os.path.normpath(base / str(wdir) / RUNNER_NAME)
 
 

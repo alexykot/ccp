@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import unittest
-from pathlib import Path
 
 from ccp.queue import lib
 from tests.test_upgrade import UpgradeFixture
@@ -68,8 +67,6 @@ class Built(UpgradeFixture, unittest.TestCase):
               "type": "plane", "op": "built", "payload": {"proposal_id": "pp-p", "built_task": "0001-cache"}}
         self.assertEqual(lib.validate_event(ev), [])
         self.assertTrue(lib.validate_event({**ev, "payload": {"proposal_id": "pp-p"}}))
-        schema = json.loads((Path(__file__).resolve().parents[1] / "contracts/observability_event.schema.json").read_text())
-        self.assertIn("built", schema["properties"]["op"]["enum"])
 
 
 if __name__ == "__main__":

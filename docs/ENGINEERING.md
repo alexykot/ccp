@@ -55,19 +55,22 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   rewritten their data; then the alias is removed. A contract no code writes or reads is removed,
   not kept.
   check: pass — the architect lists contracts with no writer or reader
-- **E12** One source per enumerated concept: a list of values (round phases, event types,
-  plane.json's blocks, their keys and defaults, the roles and their default models) is defined once in
-  code. Other code derives from it; one test compares every plane.json block's keys and defaults with
-  contracts/plane_config.schema.json, and the agent definitions' models with the role table.
-  check: command — the schema-defaults test, `python3 -B -m unittest -q tests.test_plane_config_defaults` (architect.checks `E12`); the gate (`ccp suite run --lane gate`) runs it too
+- **E12** One source per enumerated concept: a list of values (round phases, event types and
+  ops, plane.json's blocks, their keys and defaults, the roles and their default models) is defined
+  once in code. Other code derives from it. One test compares every plane.json block's keys and
+  defaults with contracts/plane_config.schema.json, one compares the ledger's event types, ops and
+  required payloads with contracts/observability_event.schema.json, and one compares the agent
+  definitions' models with the role table.
+  check: command — the schema tests, `python3 -B -m unittest -q tests.test_plane_config_defaults tests.test_event_registry` (architect.checks `E12`); the gate (`ccp suite run --lane gate`) runs them too
 - **E14** Git merge analysis (merge-tree, patch-id, remerge-diff) goes through one helper module; no
   other module calls those git subcommands.
   check: command — `git grep -n "merge-tree\|patch-id\|remerge-diff" -- ccp` lists only the helper
   module
-- **E16** Only ccp/config.py reads plane.json. A hook or script that needs a setting asks `ccp` (JSON
-  out) or imports ccp.config; it never reads the file and defaults a key itself.
-  check: command — `! git grep -nE 'plane\.json"\)\.read_text' -- plugin scripts` (architect.checks
-  `E16`)
+- **E16** Only ccp/config.py reads plane.json. A hook, script or shared library that needs a
+  setting asks `ccp` (JSON out) or takes it from ccp.config's loaded Config; it never opens the
+  file, by literal name or by `CONFIG_REL`, and never defaults a key itself.
+  check: command — `! git grep -nE '(plane\.json"|CONFIG_REL)\)\.read_text' -- plugin scripts`
+  (architect.checks `E16`)
 - **E17** One module resolves and parses a product's binding; every other reader calls it.
   check: pass — the architect looks for binding regexes outside that module
 - **E18** A language's facts (its doc conventions, test-output patterns, test command and import
@@ -94,6 +97,9 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   module holds a regex for either.
   check: pass — the architect looks for ADR-link and task-id regexes outside ccp/refs.py, the known
   intentional ones below excepted
+- **E25** The parser is the one source of the command surface. Call syntax is written by hand in one
+  place (docs/cli), held to the parser by a test; no module docstring carries a usage table.
+  check: command — `python3 -B -m unittest -q tests.test_cli_reference` (architect.checks `E25`)
 
 ## Docs
 
