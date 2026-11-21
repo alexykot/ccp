@@ -134,6 +134,17 @@ class Ids:
         return re.compile(rf"^\s*(?:{p}[- ]?)?0*(\d{{1,{self.adr_width}}})\b(?![-/.]\d)|\badr/(?:{p}-)?0*(\d+)", re.I)
 
     @cached_property
+    def _adr_link_re(self) -> re.Pattern[str]:
+        p = re.escape(self.adr_prefix.rstrip("-"))
+        return re.compile(rf"\s*(?:{p}-?)?0*(\d+)(?:\s+D(\d+[a-z]?))?\s*", re.I)
+
+    def adr_link(self, s: Any) -> tuple[int, str | None] | None:
+        """The one `<ADR id>[ Dn]` parser (the form `adr_refs` and the ADR links write): `ADR-0007`,
+        `ADR-0007 D2` or the bare number, as a whole string → (7, "2"); anything else → None."""
+        m = self._adr_link_re.fullmatch(str(s))
+        return (int(m.group(1)), m.group(2)) if m else None
+
+    @cached_property
     def _adr_num_re(self) -> re.Pattern[str]:
         return re.compile(r"(\d+)")
 
@@ -150,10 +161,14 @@ class Ids:
         n = self.adr_number(raw)
         if n is None:
             return None
-        d = re.search(r"\bD(\d+[a-z]?)\b", raw)
+        found = re.search(r"\bD(\d+[a-z]?)\b", raw)
+        link = self.adr_link(raw)
+        # `adr_link` also reads `d2`, `D2A`, and a prefix ending in `D` run into its number; a ref has
+        # always cited the first capital `D2` / `D2a` it holds, so the link counts only when it agrees.
+        d = link[1] if link and found and link[1] == found.group(1) else (found.group(1) if found else None)
         rest = re.sub(rf"^\s*(?:{re.escape(self.adr_prefix.rstrip('-'))}[- ]?)?0*\d+\s*", "", raw, flags=re.I).strip()
         section = None if d or not rest or rest.startswith("adr/") else rest
-        return AdrRef(n, d.group(1) if d else None, section, raw)
+        return AdrRef(n, d, section, raw)
 
     @cached_property
     def adr_mention_re(self) -> re.Pattern[str]:

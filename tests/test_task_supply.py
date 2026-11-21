@@ -55,6 +55,11 @@ class Untasked(Base):
         self.assertEqual(self.untasked(), [{"adr": "ADR-0003", "decisions": ["1"]},
                                            {"adr": "ADR-0007", "decisions": ["1", "2"]}])
 
+    def test_a_decision_with_no_recorded_state_is_not_listed(self):
+        fields = {"id": "ADR-0002", "title": "T", "status": "accepted", "date": "2026-01-01", "decisions": ["D1 not_built"]}
+        self.p.write("docs/adr/0002-a.md", adr.emit(fields) + body(3))
+        self.assertEqual(self.untasked(), [{"adr": "ADR-0002", "decisions": ["1"]}])
+
     def test_a_pending_task_citing_a_decision_takes_only_that_decision_out(self):
         self.adr(1, "accepted", ["not_built", "not_built", "not_built"])
         self.task("0001-a", "pending", ["0001 D2"])
@@ -69,6 +74,11 @@ class Untasked(Base):
         self.adr(1, "accepted", ["not_built", "not_built"])
         self.task("0001-a", "dropped", ["0001 D1"])
         self.assertEqual(self.untasked(), [{"adr": "ADR-0001", "decisions": ["1", "2"]}])
+
+    def test_two_files_with_one_number_are_each_read_on_their_own(self):
+        self.adr(3, "accepted", ["not_built"])
+        self.p.write("docs/adr/0003-b.md", adr_file(3, "accepted", ["built", "built"]))
+        self.assertEqual(self.untasked(), [{"adr": "ADR-0003", "decisions": ["1"]}])
 
     def test_a_ref_naming_only_the_adr_cites_all_its_decisions(self):
         self.adr(1, "accepted", ["not_built", "not_built"])
