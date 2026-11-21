@@ -1047,6 +1047,156 @@ tasks:
     title: ccp verify spec-text finds a signed passage that lands outside the SPEC, such as in a contract
     depends_on: []
     path: tasks/0209-spec-text-finds-signed-contract-text.md
+  - id: 0210-a-failed-auth-probe-fires-the-blocker
+    status: pending
+    title: A claim refused by a failed auth probe fires the blocker notice
+    depends_on: []
+    path: tasks/0210-a-failed-auth-probe-fires-the-blocker.md
+  - id: 0211-architect-cadence-scales-with-tasks-in-flight
+    status: pending
+    title: The architect's cadence scales with tasks in flight, and a budget breach a pending task already fixes makes no pass due
+    depends_on: []
+    path: tasks/0211-architect-cadence-scales-with-tasks-in-flight.md
+  - id: 0212-full-role-runs-the-gate-lane-and-a-pregate-lane
+    status: pending
+    title: A product with no full lane runs the gate lane for the full role, and a declared pre-gate lane replaces the rendered pre-gate list
+    depends_on: []
+    path: tasks/0212-full-role-runs-the-gate-lane-and-a-pregate-lane.md
+  - id: 0213-a-green-tree-skips-the-lane-queue
+    status: pending
+    title: Confirming a head whose gate is already recorded green does not queue for the exclusive lane
+    depends_on: [0199-suite-wait-auto]
+    path: tasks/0213-a-green-tree-skips-the-lane-queue.md
+  - id: 0214-an-exclusive-path-keeps-apart-only-its-own-tasks
+    status: pending
+    title: An exclusive path keeps apart only the tasks that meet the same entry
+    depends_on: []
+    path: tasks/0214-an-exclusive-path-keeps-apart-only-its-own-tasks.md
+  - id: 0215-a-reused-runner-worktree-moves-to-the-tip
+    status: pending
+    title: A reused runner worktree that holds no task is brought to the integration tip
+    depends_on: []
+    path: tasks/0215-a-reused-runner-worktree-moves-to-the-tip.md
+  - id: 0216-the-idle-hook-nudges-a-due-pass-while-tasks-wait
+    status: pending
+    title: The runner-idle hook nudges a due architect pass while the runner holds only waiting tasks
+    depends_on: []
+    path: tasks/0216-the-idle-hook-nudges-a-due-pass-while-tasks-wait.md
+  - id: 0217-a-deferred-check-is-recorded-after-close
+    status: pending
+    title: A check that verify deferred can be run and recorded after its task closed
+    depends_on: []
+    path: tasks/0217-a-deferred-check-is-recorded-after-close.md
+  - id: 0218-idle-runner-slots-are-recorded-and-measured
+    status: pending
+    title: A runner slot left with nothing ready is recorded, and health reports the slot-hours idle
+    depends_on: [0202-forecast-and-health-report-task-supply]
+    path: tasks/0218-idle-runner-slots-are-recorded-and-measured.md
+  - id: 0219-integration-merges-leave-out-the-tip
+    status: pending
+    title: A round's recorded integration merges leave out every commit already on the integration tip
+    depends_on: []
+    path: tasks/0219-integration-merges-leave-out-the-tip.md
+  - id: 0220-one-pr-host-interface-with-the-github-adapter
+    status: pending
+    title: The PR-host interface is ccp pr, and the SPEC names its operations instead of gh
+    depends_on: [0226-one-pr-host-module-github-only]
+    path: tasks/0220-one-pr-host-interface-with-the-github-adapter.md
+  - id: 0221-workers-reach-the-pr-host-through-ccp-pr
+    status: pending
+    title: The worker prompts and the runner's brief reach the PR host through ccp pr, never gh
+    depends_on: [0220-one-pr-host-interface-with-the-github-adapter, 0240-plane-workers-run-the-head]
+    path: tasks/0221-workers-reach-the-pr-host-through-ccp-pr.md
+  - id: 0222-a-product-without-github-uses-the-local-pr-host
+    status: pending
+    title: A product names its PR host in plane.json, and the local adapter serves one with only a git origin
+    depends_on: [0221-workers-reach-the-pr-host-through-ccp-pr, 0226-one-pr-host-module-github-only]
+    path: tasks/0222-a-product-without-github-uses-the-local-pr-host.md
+  - id: 0223-a-follow-up-is-tracked-not-left-in-notes
+    status: pending
+    title: A worker report states its follow-ups, and the run keeps them for the lead to decide
+    depends_on: [0228-report-sections-as-one-table, 0230-the-lead-decides-each-follow-up]
+    path: tasks/0223-a-follow-up-is-tracked-not-left-in-notes.md
+  - id: 0224-checks-only-the-operator-s-machine-can-run
+    status: pending
+    title: A dod_check the workers cannot take is marked runs_on operator-machine, and the task check reads the mark
+    depends_on: [0234-one-check-parser-and-one-file-at-rev-reader, 0244-tasks-check-runs-dry-runs]
+    path: tasks/0224-checks-only-the-operator-s-machine-can-run.md
+  - id: 0225-decisions-may-depend-on-other-adrs-decisions
+    status: pending
+    title: An ADR names the decisions each of its decisions rests on, and accepting it waits for theirs
+    depends_on: [0239-one-adr-reference-parser-and-a-decision-index]
+    path: tasks/0225-decisions-may-depend-on-other-adrs-decisions.md
+  - id: 0226-one-pr-host-module-github-only
+    status: pending
+    title: One PR-host module owns every gh call and returns normalised PR facts, behaviour unchanged
+    depends_on: []
+    path: tasks/0226-one-pr-host-module-github-only.md
+  - id: 0227-the-test-fixture-uses-the-local-pr-host
+    status: pending
+    title: The shared test fixture runs on the local PR host, and the fake gh goes
+    depends_on: [0222-a-product-without-github-uses-the-local-pr-host]
+    path: tasks/0227-the-test-fixture-uses-the-local-pr-host.md
+  - id: 0228-report-sections-as-one-table
+    status: pending
+    title: The worker report's sections are defined once, and the briefs stop restating the report format
+    depends_on: []
+    path: tasks/0228-report-sections-as-one-table.md
+  - id: 0229-orientation-extras-from-one-ccp-call
+    status: pending
+    title: The orientation hook gets everything it appends from one ccp call
+    depends_on: []
+    path: tasks/0229-orientation-extras-from-one-ccp-call.md
+  - id: 0230-the-lead-decides-each-follow-up
+    status: pending
+    title: The lead records each follow-up's outcome, and ccp tasks follow-ups lists them
+    depends_on: [0234-one-check-parser-and-one-file-at-rev-reader]
+    path: tasks/0230-the-lead-decides-each-follow-up.md
+  - id: 0231-a-review-point-does-not-close-over-an-undecided-follow-up
+    status: pending
+    title: A review point recorded closed while a follow-up is undecided fails the lead's checks
+    depends_on: [0223-a-follow-up-is-tracked-not-left-in-notes, 0230-the-lead-decides-each-follow-up]
+    path: tasks/0231-a-review-point-does-not-close-over-an-undecided-follow-up.md
+  - id: 0232-orientation-shows-the-open-follow-ups
+    status: pending
+    title: The lead's orientation shows how many follow-ups are open, and the command that lists them
+    depends_on: [0223-a-follow-up-is-tracked-not-left-in-notes, 0229-orientation-extras-from-one-ccp-call, 0230-the-lead-decides-each-follow-up]
+    path: tasks/0232-orientation-shows-the-open-follow-ups.md
+  - id: 0233-briefs-point-at-the-evidence-rules
+    status: pending
+    title: The briefs and the verify prompt cite §15.4 and the example contract instead of restating the evidence rules
+    depends_on: []
+    path: tasks/0233-briefs-point-at-the-evidence-rules.md
+  - id: 0234-one-check-parser-and-one-file-at-rev-reader
+    status: pending
+    title: One dod_check parser and one task-file-at-rev reader in tasklog, used by every current site
+    depends_on: [0244-tasks-check-runs-dry-runs]
+    path: tasks/0234-one-check-parser-and-one-file-at-rev-reader.md
+  - id: 0235-one-approval-judge-for-merge-ok-and-verify-check
+    status: pending
+    title: merge-ok and ccp verify check judge a record with one function, and verify check refuses a verdict with no head
+    depends_on: [0226-one-pr-host-module-github-only]
+    path: tasks/0235-one-approval-judge-for-merge-ok-and-verify-check.md
+  - id: 0236-claim-keeps-no-copy-of-the-checks
+    status: pending
+    title: Claim stops copying the check ids into queue state, and the task-state contract says so
+    depends_on: []
+    path: tasks/0236-claim-keeps-no-copy-of-the-checks.md
+  - id: 0237-a-marked-check-merges-only-on-its-recorded-result
+    status: pending
+    title: verify record and merge-ok refuse an approve whose marked check has no recorded pass at its head
+    depends_on: [0234-one-check-parser-and-one-file-at-rev-reader, 0235-one-approval-judge-for-merge-ok-and-verify-check, 0238-the-runner-runs-marked-checks-before-verify]
+    path: tasks/0237-a-marked-check-merges-only-on-its-recorded-result.md
+  - id: 0238-the-runner-runs-marked-checks-before-verify
+    status: pending
+    title: The runner runs each marked check at the head it hands the verifier, and verify does not launch without it
+    depends_on: [0224-checks-only-the-operator-s-machine-can-run, 0233-briefs-point-at-the-evidence-rules, 0234-one-check-parser-and-one-file-at-rev-reader, 0240-plane-workers-run-the-head]
+    path: tasks/0238-the-runner-runs-marked-checks-before-verify.md
+  - id: 0239-one-adr-reference-parser-and-a-decision-index
+    status: pending
+    title: One ADR-reference parser in refs, and one pure decision index that every build-state reader uses
+    depends_on: [0202-forecast-and-health-report-task-supply]
+    path: tasks/0239-one-adr-reference-parser-and-a-decision-index.md
   - id: 0240-plane-workers-run-the-head
     status: pending
     title: The plane's own workers run the head they change, and briefs name commands rather than restating their conditions
@@ -1072,3 +1222,18 @@ tasks:
     title: A dod_check's dry run is run and recorded by ccp, stale measured Context is flagged, and quoted rulings raise no number warning
     depends_on: []
     path: tasks/0244-tasks-check-runs-dry-runs.md
+  - id: 0250-generic-cycles-and-closure-helpers
+    status: pending
+    title: One cycles helper and one closure helper over a dependency map, used by the task log's walks
+    depends_on: []
+    path: tasks/0250-generic-cycles-and-closure-helpers.md
+  - id: 0251-adr-check-holds-the-requires-links
+    status: pending
+    title: ccp adr check holds requires links to live decisions with no cycle, resolving retired ones through retired by
+    depends_on: [0225-decisions-may-depend-on-other-adrs-decisions, 0250-generic-cycles-and-closure-helpers]
+    path: tasks/0251-adr-check-holds-the-requires-links.md
+  - id: 0252-the-task-check-reports-a-decision-built-before-its-prerequisite
+    status: pending
+    title: ccp tasks check reports a pending task that could build a decision before its prerequisite
+    depends_on: [0251-adr-check-holds-the-requires-links, 0250-generic-cycles-and-closure-helpers]
+    path: tasks/0252-the-task-check-reports-a-decision-built-before-its-prerequisite.md
