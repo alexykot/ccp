@@ -143,5 +143,9 @@ PROPOSED:
   built: the task cites `0046 D2` and this repo runs `adr.strict`, so `ccp verify record` refuses an
   approve while it is `not_built`, and a done task citing it would fail `ccp adr check` on main
   (flagged to the runner; 0251 records it built again when the check's part lands).
+- Fix round 1 (review MINOR 1): `test_other_moves_and_settled_prerequisites_do_not_wait` also gives
+  the accepted ADR a target in a `withdrawn` ADR, so only a `proposed` target holds acceptance is pinned
+  (a refusal on any target that is not `accepted` now fails it). The NIT (a pure helper split) is left,
+  as the runner asked.
 
 ## Verification notes

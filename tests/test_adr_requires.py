@@ -78,7 +78,7 @@ class Requires(unittest.TestCase):
         self.write_adr(3, "accepted")
         f = self.write_adr(2, "proposed", requires=["D1 ADR-0001 D1"])
         self.assertEqual(self.ccp("adr", "status", "2", "withdrawn")[0], 0)   # only accepting waits
-        g = self.write_adr(4, "proposed", requires=["D1 ADR-0003 D1", "D2 ADR-0099 D1"])
+        g = self.write_adr(4, "proposed", requires=["D1 ADR-0003 D1", "D2 ADR-0099 D1", "D1 ADR-0002 D1"])
         code, _, err = self.ccp("adr", "status", "4", "accepted")
         self.assertEqual(code, 0, err)
         self.assertEqual((self.meta(f)["status"], self.meta(g)["status"]), ("withdrawn", "accepted"))
