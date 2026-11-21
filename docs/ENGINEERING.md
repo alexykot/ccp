@@ -20,7 +20,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   module binds another module's test-class methods as its own helpers.
   check: pass — the architect counts long string-literal assertions and constants copied into tests;
   it becomes also a command check (architect.checks `E4`:
-  `! git grep -nE '= test_[a-z_]+\.[A-Z][A-Za-z]+\.[a-z_]+' -- tests`)
+  `! git grep -nE '= test_[a-z_]+\.[A-Z][A-Za-z]+\.[a-z_]+' -- tests`, then
+  `! git grep -n '\.plane-runtime' -- 'tests/test_*.py' ':(exclude)tests/test_plane_json_constants.py'`)
 - **E15** Decision logic is separate from git, process and file I/O, so each branch is unit-tested on
   plain values. End-to-end tests cover the wiring, not every branch.
   check: pass — the architect looks for branches reachable only through a fixture repo; the health
@@ -81,12 +82,13 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   reading) live in its language pack (ccp/doclang). Core code names no language and no test runner.
   check: command — `! git grep -n unittest -- ccp ':(exclude)ccp/doclang'` (architect.checks
   `E18`)
-- **E19** Only the PR-host module (ccp/prhost.py) reaches a PR host: a forge's CLI or API, or the
-  local PR record. Other code sees a PR as the normalised facts it returns (number, state, head,
-  branch, merge commit, merge time, body), never a host's field names; prompts and briefs name
-  `ccp pr`, never a forge's CLI.
+- **E19** Only the PR-host module (ccp/prhost.py) reaches a PR host: a forge's CLI or API, its ref
+  layout (refs/pull/…), or the local PR record. Other code sees a PR as the normalised facts it returns
+  (number, state, head, branch, merge commit, merge time, body), never a host's field names; prompts
+  and briefs name `ccp pr`, never a forge's CLI.
   check: command — architect.checks `E19`: `! git grep -nE 'CCP_GH_BIN|headRefOid|mergeCommit' -- ccp ':(exclude)ccp/prhost.py'`
-  and `! git grep -n 'gh pr' -- templates plugin/agents`
+  and `! git grep -n 'gh pr' -- templates plugin/agents`, then `! git grep -n 'refs/pull' -- ccp ':(exclude)ccp/prhost.py'`
+  (added by task 0266)
 - **E20** One function judges whether a verdict lets a head merge: `ccp verify merge-ok`, `ccp verify
   check` and `ccp tasks close` call it, and `ccp verify record` refuses every approve it would refuse.
   check: pass — the architect compares the refusal lists of the merge-time judges
@@ -110,6 +112,9 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   check: pass
 - **E11** Durable knowledge from a change lands in the SPEC, the docs or an ADR in the same PR.
   check: pass
+- **E26** A house rule is stated once, in this doc. The standing DoD and the package docs name its id;
+  they never restate its text. The root CLAUDE.md, the session's own instructions, is exempt.
+  check: pass — the architect looks for a rule's sentence outside this doc (`git grep -n 'short statement lines'`)
 - **E13** Briefs and prompt templates name the command and the § that decides; they never restate a
   rule's conditions, a tool's quirk a `ccp` command can absorb, or a sample record (a sample lives in
   contracts/ as `*.example.json`, and a test runs it through the command). The report's lines and
@@ -131,3 +136,7 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - The gate's test cache keys every module on all the inputs it shares (every tracked and untracked
   file but the test modules no other imports), not on what it imports: one source edit reruns every
   module (scripts/gate_parallel.py).
+
+- Health's before-review conflict catch-up figures (`ccp/health.py` `conflict_catch_ups`) are the
+  whole implement or fix rounds' wall time and tokens, as §27.1 says and the text line labels them:
+  no round records a merge step's own cost (ar-20261121T174754Z-7df5 F12).
