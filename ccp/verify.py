@@ -96,11 +96,14 @@ that head, `catch_up.to`, in place of `head_sha` only when `catch_up.from` is `h
 begins `Rule changes`, is a signed passage (`signed_passages`; one carried in both is listed once), and
 each must appear, whitespace-normalised, in a hunk `git diff <base>...<head>` makes to a file under
 `spec_paths` (`spec_text`), read as it is at `<head>` with the unchanged lines around it up to
-the nearest blank line on each side, covering at least one line the hunk adds (`spec_hunks`). The base
+the nearest blank line on each side, covering at least one line the hunk adds (`spec_hunks`). A passage
+not found there is looked for in the same way in the hunks made to the one file its own block names
+(`signed_blocks`, `named_hunks`), such as a contract the operator signed; a file under `tests/`, under the
+task log's directory or in the SPEC is never searched that way (`searchable`). The base
 defaults to `origin/<integration branch>` (the binding's with QUEUE_ROOT, else `main`), the head to
 `HEAD`; the task file is read from the checkout, and nothing is fetched. Exit 0 when every passage is
-found, 1 naming each that is not, 2 when the task has none or `--head` names no commit. It needs no
-QUEUE_ROOT and writes nothing.
+found, 1 naming each that is not, 2 when the task has none, names no task, or `--head` names no commit or
+the base cannot be diffed. It needs no QUEUE_ROOT and writes nothing.
 """
 from __future__ import annotations
 
@@ -113,7 +116,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from fnmatch import fnmatchcase
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from ccp.envvars import envvar
 from ccp.config import Config
@@ -1235,14 +1238,51 @@ def _signed_sections(text: str) -> list[tuple[int, str]]:
     return sorted(out)
 
 
-def signed_passages(text: str) -> list[tuple[int, str]]:
+_CURRENT_RE = re.compile(r"\bCURRENT\b")
+# A block's locator, written just after its `CURRENT`: (`<path>` at `<commit>`).
+_LOCATOR_RE = re.compile(r"\bCURRENT\s*\(\s*`([^`\n]+)`\s+at\s+`[^`\n]+`\s*\)")
+# A backticked path opening a line.
+_OPENING_PATH_RE = re.compile(r"^`([^`\n]+)`")
+
+
+def _path_like(path: str) -> bool:
+    """§15.2: whether a name a block gives can name a file: it holds a `/` and no glob character."""
+    return "/" in path and not any(c in path for c in "*?[")
+
+
+def _block_names(lines: list[str], n: int) -> str | None:
+    """§15.2: the one file the block of the `PROPOSED:` marker on `lines[n]` names, or None. The block runs from
+    its `CURRENT` marker (on that line, or on the nearest line above it that is neither blank nor a `> ` quote)
+    to its quotes; with no `CURRENT`, from the `PROPOSED:` line. The name is the path in the block's
+    (`<path>` at `<commit>`) locator after its `CURRENT`, when it has one; else the backticked path opening
+    the nearest line above the block that is neither blank nor a `> ` quote. Only a path holding a `/` and
+    no glob character counts (`_path_like`); a backticked token anywhere else names nothing."""
+    def above(k: int) -> int:
+        k -= 1
+        while k >= 0 and (not lines[k].strip() or _QUOTE_RE.match(lines[k])):
+            k -= 1
+        return k
+
+    own = lines[n].split("PROPOSED:", 1)[0]  # a `CURRENT` on the marker's own line comes before it
+    cur: str | None = own if _CURRENT_RE.search(own) else None
+    start = n
+    if cur is None and (k := above(n)) >= 0 and _CURRENT_RE.search(lines[k]) and not _PROPOSED_RE.search(lines[k]):
+        cur, start = lines[k], k  # a line holding another `PROPOSED:` is another block's
+    if cur is not None and (m := _LOCATOR_RE.search(cur)):
+        return m.group(1) if _path_like(m.group(1)) else None
+    k = above(start)
+    m = _OPENING_PATH_RE.match(lines[k]) if k >= 0 else None
+    return m.group(1) if m and _path_like(m.group(1)) else None
+
+
+def signed_blocks(text: str) -> list[tuple[int, str, str | None]]:
     """§3.5, §15.2: the passages a task file carries for the operator to sign, in its Scope or in a section
     whose heading begins `Rule changes` (`_signed_sections`), in file order, as (line number in the file, the
-    passage with its whitespace normalised): each line holding `PROPOSED:` followed at once by `> `
-    blockquote lines, the quote marks taken off. A `PROPOSED:` with no blockquote under it (one quoted
-    inline, or the word in prose) carries none. A passage carried in more than one place is listed once, at
-    its first line."""
-    out: list[tuple[int, str]] = []
+    passage with its whitespace normalised, the file its block names or None, `_block_names`): each line
+    holding `PROPOSED:` followed at once by `> ` blockquote lines, the quote marks taken off. A `PROPOSED:`
+    with no blockquote under it (one quoted inline, or the word in prose) carries none. A passage carried in
+    more than one place is listed once, at its first line."""
+    out: list[tuple[int, str, str | None]] = []
     seen: set[str] = set()
     for start, body in _signed_sections(text):
         first = text.count("\n", 0, start) + 1  # `body` starts on the heading's line, after the heading
@@ -1258,26 +1298,40 @@ def signed_passages(text: str) -> list[tuple[int, str]]:
                 quoted.append(m.group(1))
             if (passage := _norm(" ".join(quoted))) and passage not in seen:
                 seen.add(passage)
-                out.append((first + n, passage))
+                out.append((first + n, passage, _block_names(lines, n)))
     return out
+
+
+def signed_passages(text: str) -> list[tuple[int, str]]:
+    """§3.5, §15.2: `signed_blocks` without the file each block names: (line number in the file, passage)."""
+    return [(n, passage) for n, passage, _ in signed_blocks(text)]
 
 
 _HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
-def spec_hunks(cfg: Config, base: str, head: str = "HEAD") -> dict[str, list[tuple[str, str]]] | None:
-    """§15.2: per SPEC file (`spec_paths`), one text per hunk `git diff <base>...<head>` makes to it:
+def searchable(cfg: Config, path: str) -> bool:
+    """§15.2: whether a file a block names may be searched for its passage: a path holding a `/` and no glob
+    character (`_path_like`), not under `tests/`, not under the task log's directory (`cfg.tasks_dir`) and
+    not a SPEC file (`spec_paths`)."""
+    from ccp import tasklog  # noqa: PLC0415
+    p = path.strip().removeprefix("./")
+    tasks = cfg.rel(cfg.tasks_dir).rstrip("/") + "/"
+    return (_path_like(p) and not p.startswith("tests/") and not p.startswith(tasks)
+            and not tasklog._names_spec(p, spec_paths_of(cfg)))
+
+
+def _hunks(cfg: Config, base: str, head: str, keep: Callable[[str], bool]) -> dict[str, list[tuple[str, str]]] | None:
+    """§15.2: per file whose path `keep` accepts, one text per hunk `git diff <base>...<head>` makes to it:
     the hunk's lines in the file as it is at `head`, extended with the unchanged lines before and after it up to the
     nearest blank line on each side (a hunk's own blank first or last line is that line), joined and
     whitespace-normalised, as (text, mask), the mask `+` under each character of a line the hunk adds and
     `.` elsewhere. A hunk that adds nothing has no text. None when the diff cannot be read (`base` resolves
     to nothing). A file's `+++ ` header is read only between its `diff --git` line and its first `@@` line."""
-    from ccp import tasklog  # noqa: PLC0415
     r = subprocess.run(["git", "-C", str(cfg.root), "-c", "core.quotePath=false", "diff", "--no-color",
                         "--no-ext-diff", "--unified=0", f"{base}...{head}"], capture_output=True, text=True)
     if r.returncode != 0:
         return None
-    spec_paths = spec_paths_of(cfg)
     ranges: dict[str, list[tuple[int, int]]] = {}
     cur: str | None = None
     header = False
@@ -1287,7 +1341,7 @@ def spec_hunks(cfg: Config, base: str, head: str = "HEAD") -> dict[str, list[tup
         elif header and line.startswith("+++ "):
             path = line[4:]
             cur = path[2:] if path.startswith("b/") else None  # `/dev/null`: a deleted file
-            if cur is not None and not tasklog._names_spec(cur, spec_paths):
+            if cur is not None and not keep(cur):
                 cur = None
         elif line.startswith("@@"):  # with no context lines, no content line begins `@@`
             header = False
@@ -1314,6 +1368,18 @@ def spec_hunks(cfg: Config, base: str, head: str = "HEAD") -> dict[str, list[tup
     return out
 
 
+def spec_hunks(cfg: Config, base: str, head: str = "HEAD") -> dict[str, list[tuple[str, str]]] | None:
+    """§15.2: `_hunks` of the SPEC files (`spec_paths`)."""
+    from ccp import tasklog  # noqa: PLC0415
+    spec_paths = spec_paths_of(cfg)
+    return _hunks(cfg, base, head, lambda p: tasklog._names_spec(p, spec_paths))
+
+
+def named_hunks(cfg: Config, base: str, head: str, paths: set[str]) -> dict[str, list[tuple[str, str]]] | None:
+    """§15.2: `_hunks` of the given paths, the files signed blocks name, never one `searchable` refuses."""
+    return _hunks(cfg, base, head, lambda p: p in paths and searchable(cfg, p))
+
+
 def _found(passage: str, hunk: tuple[str, str]) -> bool:
     """§15.2: whether `passage` lies within the hunk's text and covers at least one character of a line the
     hunk adds (some occurrence of it, when it occurs more than once)."""
@@ -1328,12 +1394,14 @@ def _found(passage: str, hunk: tuple[str, str]) -> bool:
 
 def spec_text(cfg: Config, task: str, base: str | None = None, head: str | None = None) -> tuple[int, dict[str, Any]]:
     """§15.2 `ccp verify spec-text`: whether each passage the task carries for the operator's sign-off
-    (`signed_passages`, read from the task file in the checkout) is in the SPEC text `head` (default `HEAD`)
-    changes since `base` (`spec_hunks`), each hunk read with the
+    (`signed_blocks`, read from the task file in the checkout) is in the SPEC text `head` (default `HEAD`)
+    changes since `base` (`spec_hunks`), or else in the text it changes in the one file the passage's own
+    block names (`named_hunks`), each hunk read with the
     unchanged lines around it up to the nearest blank line: a passage is found when it lies within one hunk's
     text and covers a character of a line that hunk adds (`_found`), so one wholly inside unchanged lines is
-    not. The exit code (0 all found, 1 one or more not, 2 no passage, an unknown task, a head that names no
-    commit or a base that does not resolve) and the body."""
+    not. A passage found in the SPEC is not looked for in its named file. The exit code (0 all found, 1 one
+    or more not, 2 no passage, an unknown task, a head that names no commit or a base that does not resolve)
+    and the body, whose `found_in` names the file or files each passage was found in."""
     from ccp.queue import QueueError, integration_branch, task_meta  # noqa: PLC0415
     try:
         meta = task_meta(cfg, task)
@@ -1344,7 +1412,7 @@ def spec_text(cfg: Config, task: str, base: str | None = None, head: str | None 
         q = os.environ.get("QUEUE_ROOT")
         base = f"origin/{integration_branch(Path(q)) if q and Path(q).is_dir() else 'main'}"
     head = head or "HEAD"
-    passages = signed_passages(meta["_text"])
+    passages = signed_blocks(meta["_text"])
     if not passages:
         return 2, {"ok": False, "task_id": tid, "base": base, "head": head,
                    "error": f"{cfg.rel(meta['_file'])} carries no PROPOSED: block (a `PROPOSED:` marker followed by "
@@ -1360,7 +1428,12 @@ def spec_text(cfg: Config, task: str, base: str | None = None, head: str | None 
     rel = cfg.rel(meta["_file"])
     rows = [{"line": f"{rel}:{n}", "passage": text,
              "found_in": [f for f, hunks in sorted(added.items()) if any(_found(text, h) for h in hunks)]}
-            for n, text in passages]
+            for n, text, _ in passages]
+    named = {names for (_, _, names), r in zip(passages, rows) if names and not r["found_in"]}
+    elsewhere = (named_hunks(cfg, base, head, named) or {}) if named else {}
+    for (_, text, names), r in zip(passages, rows):
+        if not r["found_in"] and names in elsewhere and any(_found(text, h) for h in elsewhere[names]):
+            r["found_in"] = [names]
     missing = [r for r in rows if not r["found_in"]]
     return (1 if missing else 0), {"ok": not missing, "task_id": tid, "base": base, "head": head, "passages": rows,
                                    "missing": [r["line"] for r in missing]}
@@ -1381,8 +1454,8 @@ def main(cfg: Config, a: Any) -> int:
             print(f"ccp verify spec-text: {body['error']}", file=sys.stderr)
         for r in body.get("passages") or []:
             if not r["found_in"]:
-                print(f"ccp verify spec-text: not found in the SPEC text {body['head']} changes since {body['base']}: the "
-                      f"passage at {r['line']}: {r['passage']}", file=sys.stderr)
+                print(f"ccp verify spec-text: not found in the SPEC or the file its block names, in the text {body['head']} "
+                      f"changes since {body['base']}: the passage at {r['line']}: {r['passage']}", file=sys.stderr)
         print(json.dumps(body, indent=2, ensure_ascii=False))
         return code
     queue = _queue()

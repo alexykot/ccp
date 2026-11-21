@@ -146,4 +146,23 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- 2026-11-21, implementer. Premises re-measured at `9a49e15`: one `_names_spec` line in `ccp/verify.py`;
+  the 0197 probe exits 1 with 12 passages and lines 467 and 482 missing; the two blocks name their
+  contracts on lines 462 and 477; four `return 2` in `spec_text`; no `contract_paths`; 24 tests.
+- `ccp/verify.py`: `signed_blocks(text)` gives each passage (line, passage, named file or None), and
+  `signed_passages` is it without the file. `_block_names` reads the block's `CURRENT` (on the
+  `PROPOSED:` line before the marker, or on the nearest line above that is neither blank nor a `> `
+  quote and holds no other `PROPOSED:`), takes its `(`<path>` at `<commit>`)` locator, else the
+  backticked path opening the nearest such line above the block; `_path_like` keeps only a path with
+  a `/` and no glob character. The hunk reader is `_hunks(cfg, base, head, keep)`; `spec_hunks` keeps
+  the SPEC files and `named_hunks(cfg, base, head, paths)` keeps the given paths that `searchable`
+  allows (not under `tests/`, under the task log's directory, or a SPEC file). `spec_text` runs the
+  second diff only when a passage missing from the SPEC names a file.
+- Choices the Scope left open, taken narrowly: a block whose locator is present is named by it alone,
+  so a locator that does not count (a glob, a SPEC file) names nothing even when the line above names
+  a file; the commit in the locator is backticked as the Scope writes it; the line above must begin
+  with the backtick (no indentation or list marker); the `tests/`, task-log and SPEC exclusions are
+  applied in `named_hunks` (`searchable`), not in the text reader, so the reader stays free of config
+  and the exclusion is where st-02's copy breaks it.
+
 ## Verification notes

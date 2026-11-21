@@ -1,7 +1,9 @@
 """`ccp verify spec-text` (SPEC §15.2, §3.5): the passages a task carries for the operator's sign-off, each a
 `PROPOSED:` marker followed by `> ` blockquote lines in its Scope or in a section whose heading begins `Rule
 changes`, are looked for, whitespace-normalised, in each hunk the branch (or `--head`) makes to the product's SPEC
-files, read with its paragraph, where they cover a line the hunk adds; and the review and verify prompts of a task that declares a `brief` sign-off ask for it."""
+files, read with its paragraph, where they cover a line the hunk adds, and otherwise in the hunks made to the one file
+the passage's own block names, such as a contract; and the review and verify prompts of a task that declares a `brief`
+sign-off ask for it."""
 from __future__ import annotations
 
 import io
@@ -69,6 +71,15 @@ Something true for the user.
 """
 
 
+CONTRACT = '{\n  "description": "An older description.",\n  "type": "object"\n}\n'
+
+
+def contract_scope(above: str, current: str = "CURRENT:\n> An older description.\n") -> str:
+    """A Scope signing PASSAGE, on one line, in a block whose CURRENT is `current` and whose nearest line above
+    is `above`."""
+    return f"## Scope\n\n- **In:** the code.\n\n{above}\n\n{current}\nPROPOSED:\n> {PASSAGE}\n\n- **Out:** nothing.\n"
+
+
 class SpecText(unittest.TestCase):
     def setUp(self):
         self.p = Product()
@@ -80,6 +91,7 @@ class SpecText(unittest.TestCase):
         self.p.task("0001-signed", body=TASK.format(scope=SCOPE))
         self.p.write("docs/spec/x.md", "# Spec\n\n## 1. Rules\n\nAn older rule.\n")
         self.p.write("notes.md", "# Notes\n")
+        self.p.write("contracts/x.schema.json", CONTRACT)
         git(self.p.root, "init", "-q", "-b", "main")
         git(self.p.root, "add", ".")
         git(self.p.root, "commit", "-q", "-m", "init")
@@ -325,6 +337,110 @@ class SpecText(unittest.TestCase):
         self.assertEqual(self.run_cmd("0001-signed", "--base", f"{a}^")[0], 1)
         code, body, err = self.run_cmd("0001-signed", "--base", f"{a}^", "--head", a)
         self.assertEqual(code, 0, err)
+
+    def scope(self, scope: str) -> None:
+        """The task carries `scope` as its Scope, committed on the branch."""
+        self.p.task("0001-signed", body=TASK.format(scope=scope))
+        git(self.p.root, "commit", "-q", "-am", "the scope")
+
+    def describe(self, rel: str, text: str = PASSAGE) -> None:
+        """The branch writes `rel` as the contract with `text` as its description, committed."""
+        self.p.write(rel, CONTRACT.replace("An older description.", text))
+        git(self.p.root, "add", rel)
+        git(self.p.root, "commit", "-q", "-m", f"describe {rel}")
+
+    def test_a_passage_landing_in_the_contract_its_block_names_is_found_there(self):
+        for scope in (contract_scope("`contracts/x.schema.json`, the top-level `description`."),
+                      contract_scope("The contract's description.",
+                                     "CURRENT (`contracts/x.schema.json` at `abc1234`):\n> An older description.\n")):
+            with self.subTest(scope=scope):
+                git(self.p.root, "reset", "-q", "--hard", "main")
+                self.scope(scope)
+                self.describe("contracts/x.schema.json")
+                code, body, err = self.run_cmd("0001-signed", "--base", "main")
+                self.assertEqual(code, 0, err)
+                self.assertEqual([r["found_in"] for r in body["passages"]], [["contracts/x.schema.json"]])
+
+    def test_a_passage_landing_in_a_changed_file_its_block_does_not_name_is_not_found(self):
+        self.scope(contract_scope("`contracts/x.schema.json`, the top-level `description`."))
+        self.describe("contracts/x.schema.json", "A newer description.")
+        self.describe("contracts/y.schema.json")
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 1, err)
+        self.assertEqual(len(body["missing"]), 1)
+        self.assertIn(PASSAGE, err)
+
+    def test_a_named_file_under_tests_is_never_searched(self):
+        self.scope(contract_scope("`tests/fixture.json`, its `description`."))
+        self.describe("tests/fixture.json")
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 1, err)
+        self.assertEqual(len(body["missing"]), 1)
+
+    def test_a_passage_the_diff_adds_only_to_the_task_file_is_not_found(self):
+        rel = str(self.p.task("0001-signed", body=TASK.format(scope="")).relative_to(self.p.root))
+        self.scope(contract_scope(f"`{rel}`, this task."))  # the branch adds the passage, on one line, to the task file
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 1, err)
+        self.assertEqual(len(body["missing"]), 1)
+
+    def test_a_passage_only_in_unchanged_lines_of_the_named_file_is_not_found(self):
+        git(self.p.root, "checkout", "-q", "main")
+        self.describe("contracts/x.schema.json")  # on the base
+        git(self.p.root, "checkout", "-q", "task/0001-signed")
+        git(self.p.root, "merge", "-q", "--no-edit", "main")
+        self.scope(contract_scope("`contracts/x.schema.json`, the top-level `description`."))
+        x = self.p.root / "contracts/x.schema.json"
+        x.write_text(x.read_text().replace('"object"', '"array"'))  # the branch changes the file elsewhere
+        git(self.p.root, "commit", "-q", "-am", "another line")
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 1, err)
+        self.assertEqual(len(body["missing"]), 1)
+
+    def test_a_path_inside_quoted_current_text_names_nothing(self):
+        for current in ("CURRENT:\n> The `contracts/x.schema.json` description: an older description.\n",
+                        "CURRENT: \"the `contracts/x.schema.json` description\".\n"):
+            with self.subTest(current=current):
+                git(self.p.root, "reset", "-q", "--hard", "main")
+                self.scope(contract_scope("The contract's description.", current))
+                self.describe("contracts/x.schema.json")
+                code, body, err = self.run_cmd("0001-signed", "--base", "main")
+                self.assertEqual(code, 1, err)
+                self.assertEqual(len(body["missing"]), 1)
+
+    def test_a_locator_naming_a_glob_names_nothing(self):
+        self.scope(contract_scope("The contracts' descriptions.",
+                                  "CURRENT (`contracts/*.json` at `abc1234`):\n> An older description.\n"))
+        self.describe("contracts/x.schema.json")
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 1, err)
+        self.assertEqual(len(body["missing"]), 1)
+
+    def test_a_passage_found_in_the_spec_is_not_looked_for_in_its_named_file(self):
+        self.scope(contract_scope("`contracts/x.schema.json`, the top-level `description`."))
+        self.describe("contracts/x.schema.json")
+        self.change("docs/spec/x.md", "\n" + PASSAGE + "\n")
+        code, body, err = self.run_cmd("0001-signed", "--base", "main")
+        self.assertEqual(code, 0, err)
+        self.assertEqual([r["found_in"] for r in body["passages"]], [["docs/spec/x.md"]])
+
+    def test_the_file_a_block_names(self):
+        def names(scope: str) -> list:
+            return [f for _, _, f in verify.signed_blocks(TASK.format(scope=scope))]
+        self.assertEqual(names(contract_scope("`contracts/x.schema.json`, its `description`.")),
+                         ["contracts/x.schema.json"])
+        self.assertEqual(names(contract_scope("x", "CURRENT (`contracts/x.schema.json` at `abc1234`):\n> Older.\n")),
+                         ["contracts/x.schema.json"])
+        self.assertEqual(names(contract_scope("`notes.md`, a file at the root.")), [None])  # no `/`
+        self.assertEqual(names(contract_scope("See `contracts/x.schema.json`.")), [None])  # not opening the line
+        inline = ("## Scope\n\n`contracts/x.schema.json`, its `description`.\n"
+                  "- CURRENT (`contracts/y.schema.json` at `abc1234`): \"older\". PROPOSED:\n> Newer.\n")
+        self.assertEqual(names(inline), ["contracts/y.schema.json"])  # the locator, not the line above
+        # A second block with no CURRENT of its own takes neither the first's CURRENT nor its file.
+        self.assertEqual(names(inline + "\nPROPOSED:\n> A second passage.\n"), ["contracts/y.schema.json", None])
+        second = contract_scope("`contracts/x.schema.json`, its `description`.").replace(
+            "\n\n- **Out:**", "\nPROPOSED:\n> A second passage.\n\n- **Out:**")
+        self.assertEqual(names(second), ["contracts/x.schema.json", None])
 
 
 class Prompts(ToolkitFixture, unittest.TestCase):
