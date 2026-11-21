@@ -142,5 +142,11 @@ PROPOSED:
   binary included, is exit 1 naming it.
 - `docs/cli/02-delivery.md` gains a Pull requests table; §15.5 carries the signed text a and b; ADR-0040 D1
   and D2 recorded built.
+- 2026-11-21 (fix round 1, review MINOR 1, 2 and NIT 1): `ccp pr merge --task` now resolves the task like
+  every other task argument (full id or number, `task_meta`; an unknown task is exit 2 and runs nothing), so
+  `merge.command`'s `{task_id}` is the full id whichever of close or `ccp pr` runs the merge. `--head` takes
+  only a full sha (SHA-1 or SHA-256, `wt.FULL_SHA_RE`, case-folded); anything else is argparse's usage error,
+  exit 2, nothing run, since `merge.command` substitutes it unquoted into a shell template. Tests added for
+  both, and for the PR number losing its leading zeros and `open` reading a number from a URL ending in `/`.
 
 ## Verification notes
