@@ -82,14 +82,14 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         git(self.runner, "push", "-q", "origin", "HEAD:main")
         git(self.main, "pull", "-q", "origin", "main")
         self._to_approved_pr()
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", root=self.main)
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "07", root=self.main)  # the host reads 07 as 7
         self.assertEqual(code, 1, out + err)
         cfg["reconcile"]["hooks"] = []
         (self.main / "docs/delivery/plane.json").write_text(json.dumps(cfg))
         git(self.main, "commit", "-qam", "the hook fixed")
         git(self.main, "pull", "-q", "--rebase", "origin", "main")
         git(self.main, "push", "-q", "origin", "main")
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "07", root=self.main)  # the host reads 07 as 7
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "07", root=self.main)
         self.assertEqual(code, 0, out + err)
         self.assertFalse(body["merged_now"])
 
