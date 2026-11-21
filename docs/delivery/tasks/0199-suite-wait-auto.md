@@ -1,7 +1,7 @@
 ---
 task_id: 0199-suite-wait-auto
 title: ccp suite run --wait auto derives the wait from the shell limit and the lane's usual cold time
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S16"]
@@ -9,7 +9,7 @@ review_point: R14
 paths: ["ccp/suite.py", "ccp/cli.py", "docs/spec/02-delivery.md", "docs/cli/02-delivery.md", "tests/test_parallel_lanes.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0199-suite-wait-auto
@@ -129,3 +129,5 @@ Measured at `58cf1d0`.
 - Fix round 1: the CLI row now reads `--wait SECONDS\|auto` (ruling r1, review MINOR-1). Review NITs done: the `auto_wait` tests assert tokens (`120 s`, `WAIT_AUTO_NO_RUN`, `560 s`, `--wait auto`) instead of whole sentences; a free lane prints no `waiting up to`, and the release test sees it exactly once (pins resolving only when the lane is held, and the `told` guard).
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #233 head `4483f04` (squash `9cec44f`): APPROVE. Passed: wa-01, wa-02, wa-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0199-suite-wait-auto.json.
+
