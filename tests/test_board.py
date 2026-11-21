@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import board, cli
-from tests.helpers import TASK
+from tests.helpers import TASK, machine_file
 from tests.test_toolkit import ToolkitFixture, git
 import unittest
 
@@ -114,6 +114,66 @@ class Board(ToolkitFixture, unittest.TestCase):
     def test_the_page_has_no_external_resources(self):
         page = (Path(__file__).resolve().parents[1] / "ccp/board_page.html").read_text()
         self.assertFalse(re.search(r'<(script|link)[^>]+(src|href)="https?:', page))
+
+
+def _iso(t: float) -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
+
+
+def good_then_failed(q: Path, resets_in_s: float) -> dict:
+    """The product's samples: a good reading two hours old, weekly at 95% with its reset `resets_in_s` from now,
+    then a failed read a minute ago (§25.1: the unknown sample, no figures). Returns the good row."""
+    t = time.time()
+    resets = _iso(t + resets_in_s)
+    good = {"at": _iso(t - 7200), "five_hour": 10, "seven_day": 95, "resets_at": resets, "five_hour_resets_at": None,
+            "windows": [{"name": "seven_day", "pct": 95, "resets_at": resets}, {"name": "five_hour", "pct": 10, "resets_at": None}],
+            "weekly_window": "seven_day", "session_window": "five_hour"}
+    failed = {"at": _iso(t - 60), "five_hour": None, "seven_day": None, "resets_at": None, "five_hour_resets_at": None,
+              "windows": [], "failed": True, "exit": 1}
+    (q / "board").mkdir(exist_ok=True)
+    (q / "board" / "allowance.jsonl").write_text("".join(json.dumps(r) + "\n" for r in (good, failed)))
+    return good
+
+
+class AllowanceAfterAFailedRead(ToolkitFixture, unittest.TestCase):
+    """§25.3, §28: the board judges the latest good reading, as the claim does, not the failed row after it."""
+    def setUp(self):
+        super().setUp()
+        machine_file(self, allowance_cmd="false", allowance_stop_weekly=90)
+
+    def build(self) -> dict:
+        code, body, out, err = self.ccp("board", "build")
+        self.assertEqual(code, 0, out + err)
+        return json.loads(Path(body["board"]).read_text())
+
+    def test_the_checkpoint_blocker_stands_on_the_latest_good_reading(self):
+        good_then_failed(self.q, 86400)
+        b = self.build()
+        self.assertTrue(b["now"]["allowance"]["latest"]["failed"])
+        self.assertEqual(b["now"]["allowance"]["weekly_over"], {"window": "seven_day", "pct": 95.0, "checkpoint": 90.0})
+        self.assertIn("allowance at the checkpoint: 95% of 90%", b["blockers"])
+
+    def test_status_shows_the_latest_good_weekly_figure_and_its_age(self):
+        good = good_then_failed(self.q, 86400)
+        code, _, out, _ = self.ccp("board", "status")
+        self.assertEqual(code, 1, out)  # the checkpoint blocker
+        self.assertIn(f"allowance weekly 95% (last good reading {good['at']})  checkpoint 90", out)
+        self.assertIn("BLOCKER allowance at the checkpoint: 95% of 90%", out)
+
+    def test_a_good_reading_whose_reset_has_passed_is_no_blocker(self):
+        good_then_failed(self.q, -3600)
+        b = self.build()
+        self.assertIsNone(b["now"]["allowance"]["weekly_over"])
+        self.assertFalse([x for x in b["blockers"] if x.startswith("allowance")], b["blockers"])
+
+    def test_a_fresh_good_reading_carries_no_age(self):
+        p = self.q / "board" / "allowance.jsonl"
+        good = good_then_failed(self.q, 86400)
+        good["at"] = _iso(time.time() - 60)  # in force (§25.1): the latest row, and good
+        p.write_text(json.dumps(good) + "\n")
+        code, _, out, _ = self.ccp("board", "status")
+        self.assertIn("allowance weekly 95%  checkpoint 90", out)
+        self.assertNotIn("last good reading", out)
 
 
 class Refresh(ToolkitFixture, unittest.TestCase):

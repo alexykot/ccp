@@ -1,7 +1,7 @@
 ---
 task_id: 0208-board-reads-the-latest-good-allowance
 title: The board reads the latest good allowance reading for the weekly tile and the checkpoint blocker
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S25", "S28"]
@@ -9,7 +9,7 @@ review_point: R14
 paths: ["ccp/board.py", "ccp/board_page.html", "tests/test_board.py", "tests/test_board_layout.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0208-board-reads-the-latest-good-allowance
@@ -103,4 +103,25 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- `board._allowance` builds `now.allowance`: `usage.status(cfg, q, sample=False)` plus `weekly_over`
+  (`{window, pct, checkpoint}` from `usage.weekly_over(cfg, q, usage.latest_good(q), usage.now())`, or
+  None). `_blockers` adds the checkpoint blocker from `weekly_over` alone; `status_text` takes the weekly
+  figure from `latest_good` and appends `(last good reading <at>)` when `in_force` is false.
+- The page's `last = a.latest` became `good = a.latest_good || {}`. The Health tab's Allowance card shared
+  that variable, so its weekly, 5-hour and "read <ago>" figures now come from the latest good reading
+  too, matching the tile. The tile's `last good reading` suffix is left off when `usage_read` is false,
+  so `usage unread` shows as before.
+- Like the blocker before it, `weekly_over` on the board is not gated on `usage_read` (the claim's
+  `checkpoint_stop` is): without an allowance command no samples are written, so the two agree in practice.
+- `tests/test_allowance_lapse.py` and `tests/test_board_layout.py`'s throwing-card test built
+  `now.allowance` by hand with `latest` only; they now carry `latest_good` (and `weekly_over` for the
+  lapsed-decision blocker).
+- Fix round 1 (review MINOR-1, NIT-1, NIT-2): the tile test also checks the meter (`width:95%`) and that
+  the `d` line says `resets …`, not `reset unknown`, so both stay on the good reading; its ages match
+  `2.\d h ago`, so a slow render cannot turn them to `2.1 h`. `_allowance` passes `usage.status`'s own
+  `latest_good` to `weekly_over` instead of reading the samples log again: the same row, so the blocker
+  and the tile judge one reading.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #247 head `d5f673e` (squash `655749c`): APPROVE. Passed: bd-01, bd-02, bd-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0208-board-reads-the-latest-good-allowance.json.
+
