@@ -100,6 +100,9 @@ The progress and review contracts describe the records the plane writes, in the 
     naming the review record and `ccp tasks submit`; the `mk_pr_via_implementer_resume` comment drops
     "cold /mk-pr forbidden" for "the PR comes from the implementer's own worker". No item is added,
     moved or removed.
+- **Tasks in flight when this ships.** A task mid-flight when 0258 is released has no review record, so
+  `ccp tasks submit` refuses it (`review_artifact_present`) and it costs one extra review before
+  verify; accepted.
 - **SPEC.** The edits below only describe the kept phases (§31.1): no sign-off. §13.1's "with `/mk-pr`"
   and §30.2's "same-session `/mk-pr`" were already false (`git grep -n -e /mk-pr -- docs/spec` at
   `58e9220`: 2 lines) and are corrected the same way. `docs/cli/02-delivery.md` gains `ccp tasks submit`

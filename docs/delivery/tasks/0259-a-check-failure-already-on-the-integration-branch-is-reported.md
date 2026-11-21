@@ -8,7 +8,7 @@ clashes_with: ["0224-checks-only-the-operator-s-machine-can-run", "0230-the-lead
 spec_refs: ["S15", "S21"]
 review_refs: ["ar-20261121T020523Z-1d5f#F01", "sh-20261121T001225Z-7dbe#F05"]
 review_point: R18
-paths: ["ccp/baseline.py", "ccp/cli.py", "ccp/rules.py", "ccp/CLAUDE.md", "docs/spec/03-quality.md", "docs/cli/03-quality.md", "templates/docs-delivery/standing-dod.md", "docs/delivery/standing-dod.md", "tests/test_preexisting_failures.py", "tests/test_preexisting_checks.py"]
+paths: ["ccp/baseline.py", "ccp/cli.py", "scripts/observability/lib.py", "ccp/rules.py", "ccp/CLAUDE.md", "docs/spec/03-quality.md", "docs/cli/03-quality.md", "templates/docs-delivery/standing-dod.md", "docs/delivery/standing-dod.md", "tests/test_preexisting_failures.py", "tests/test_preexisting_checks.py"]
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
@@ -54,14 +54,21 @@ clear, while a failure the branch causes fails exactly as before.
     nothing fetched. No base (no such ref), a base equal to `HEAD` (the integration tip itself), or a
     base that cannot be checked out: every failure counts, as today.
   - **How.** The base run is the same command at the base, in a temporary detached worktree outside the
-    product root, removed afterwards whatever happens. It reads its config (plane.json, the rules doc,
-    the task log) from the base worktree, runs that worktree's own `bin/ccp` when the repository has one
-    (else the running `ccp` with the base worktree as its root), and runs with QUEUE_ROOT unset.
+    product root, removed afterwards whatever happens. It is the running `ccp` with the base worktree as
+    its root, so it reads its config (plane.json, the rules doc, the task log) from the base, and it runs
+    with QUEUE_ROOT unset. (A change to the checker code makes every failure count, below, so the
+    running `ccp` judges both sides alike.)
+  - **Inputs outside git resolve the same at both.** The base run's environment carries
+    `CCP_BINDINGS_DIR` set to the bindings directory the `HEAD` run resolved (the variable the leak
+    check and `lib`'s bindings lookup already read), and `CCP_LEAK_DENYLIST` unchanged when set, so a
+    check whose input lives outside git, such as E3's denylist, reads the same input at the base.
+    `ccp where` resolves the binding from `CCP_BINDINGS_DIR` when it is set; where it does not today,
+    this task makes it.
     `ccp docs check` and `ccp tasks check` share one function, in a new module `ccp/baseline.py`, with
     the decision on plain values.
   - **Checker code changed: no comparison.** When the branch changes the checker itself, every failure
-    counts: the repository's own `bin/ccp` or the package it runs (a path under `bin/` or `ccp/` in
-    `git diff --name-only <base>...HEAD`, where the repository has `bin/ccp`), and, for one command
+    counts: the repository's own `ccp` (a path under `bin/` or `ccp/` in
+    `git diff --name-only <base>...HEAD`, where the repository holds the `ccp` package), and, for one command
     check, any file its command line names that the branch changes (that check's failure counts).
   - **Which failures are pre-existing.** The branch's changed paths are
     `git diff --name-only <base>...HEAD`; a line names one when the path appears in it as a whole path
@@ -86,8 +93,10 @@ clear, while a failure the branch causes fails exactly as before.
 
 - **In:**
   - `ccp/baseline.py` (new): the base, the run at the base and the decision; `ccp/cli.py`
-    (`ccp docs check` and `ccp tasks check` call it); `ccp/rules.py` (run results that keep each
-    check's id and output for the decision); `ccp/CLAUDE.md` (the module list).
+    (`ccp docs check` and `ccp tasks check` call it; `ccp where` honours `CCP_BINDINGS_DIR` if it
+    does not already); `scripts/observability/lib.py` only if the bindings lookup needs it;
+    `ccp/rules.py` (run results that keep each check's id and output for the decision);
+    `ccp/CLAUDE.md` (the module list).
   - `docs/cli/03-quality.md` (the two commands' output).
   - `tests/test_preexisting_failures.py` (new, plain values), `tests/test_preexisting_checks.py`
     (new, a fixture repo).
@@ -100,18 +109,20 @@ clear, while a failure the branch causes fails exactly as before.
     PROPOSED:
     > **Failures already on the integration branch.** When `ccp docs check` or `ccp tasks check` fails
     > on a branch whose merge base with `origin/<integration>` is not `HEAD`, it runs the same command
-    > at that merge base, in a temporary worktree it removes afterwards, with the base's own config and,
-    > where the repository has one, its own `bin/ccp`, and with QUEUE_ROOT unset. A rule-failure line is
-    > pre-existing when the base prints it too and it names no file the branch changes. A check command
-    > (`architect.checks`, `docs.checks`) is pre-existing only when it fails at the base too, its output
-    > at `HEAD` is not empty, and every line of that output, with the worktree root normalised, also
-    > appears in the base's; an output that reached the kept-output cap counts as new. When the branch
-    > changes the checker (the repository's own `ccp`, or a file a check's command names), its failures
-    > all count. Pre-existing failures are printed under `pre-existing on <integration> at <sha>, not
-    > this change's: report it under Friction` and do not fail the command; every other failure fails it
-    > as before. With no such base, on the integration tip itself, or when the base cannot be checked
-    > out, every failure counts. The verifier's gate therefore rejects only on failures new against the
-    > integration tip the PR head last merged.
+    > at that merge base, in a temporary worktree it removes afterwards: the running `ccp` with the
+    > base as its root and the base's own config, QUEUE_ROOT unset, and `CCP_BINDINGS_DIR` set to the
+    > bindings directory the `HEAD` run resolved, so an input outside git, such as a denylist, is the
+    > same at both. A rule-failure line is pre-existing when the base prints it too and it names no
+    > file the branch changes. A check command (`architect.checks`, `docs.checks`) is pre-existing
+    > only when it fails at the base too, its output at `HEAD` is not empty, and every line of that
+    > output, with the worktree root normalised, also appears in the base's; an output that reached
+    > the kept-output cap counts as new. When the branch changes the checker (the repository's own
+    > `ccp`, or a file a check's command names), its failures all count. Pre-existing failures are
+    > printed under `pre-existing on <integration> at <sha>, not this change's: report it under
+    > Friction` and do not fail the command; every other failure fails it as before. With no such
+    > base, on the integration tip itself, or when the base cannot be checked out, every failure
+    > counts. The verifier's gate therefore rejects only on failures new against the integration tip
+    > the PR head last merged.
   - `docs/spec/03-quality.md` §21.8, the Verifier row; its last sentence replaced:
 
     CURRENT (`docs/spec/03-quality.md` at `58e9220`):
@@ -146,7 +157,7 @@ clear, while a failure the branch causes fails exactly as before.
   setup: a checkout of the PR head.
   steps:
     1. Run `python3 -B -m unittest -v tests.test_preexisting_checks 2>&1 | tail -10`.
-  expect: exit 0, listing as `ok` tests in a fixture repo whose integration branch carries a hit of an `architect.checks` grep command: on a task branch that does not touch the file, `ccp docs check` exits 0 and prints the `pre-existing on main at` heading naming the check; on a branch that adds a hit in a file it changes, it exits 1; on the integration branch itself it exits 1; the base run reads the base's plane.json (a check the branch adds is not run at the base) and sees no QUEUE_ROOT; and the temporary worktree is gone after each run (`git worktree list` shows only the fixture's own).
+  expect: exit 0, listing as `ok` tests in a fixture repo whose integration branch carries a hit of an `architect.checks` grep command: on a task branch that does not touch the file, `ccp docs check` exits 0 and prints the `pre-existing on main at` heading naming the check; on a branch that adds a hit in a file it changes, it exits 1; on the integration branch itself it exits 1; the base run reads the base's plane.json (a check the branch adds is not run at the base) and sees no QUEUE_ROOT; a leak-style check whose pattern list lives outside git (in the bindings directory) and whose hit is already on main is excused on a branch that does not touch the hit file, the base run having read the same list through `CCP_BINDINGS_DIR`; and the temporary worktree is gone after each run (`git worktree list` shows only the fixture's own).
   dry run: n/a — the module is new.
 - id: `pe-03`
   story: As a verifier, a task-log failure merged from the integration branch does not fail `ccp tasks check` on the task's head, and one the branch makes does.
