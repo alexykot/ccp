@@ -147,8 +147,20 @@ before anything else.
    takes it as the fix of a clean review's MINOR and NIT findings (a verify reject since sends it back to review). Only on the lead's or the operator's word:
    `ccp prompt verify … --allow-unreviewed-fix --reason "<their words>"`, recorded as a friction note; with
    it, no proof runs.
-8. **Verify.** `ccp prompt verify <task_id> --pr <n> --head <sha>`: a fresh `delivery-verifier` subagent
-   with the fixed packet. It writes its verdict with `ccp verify record` and reports APPROVE or REJECT with the
+8. **Verify.** First, the checks only the operator's machine can run (SPEC §10.2, §15.8): `ccp tasks checks
+   <task_id> --json` lists each dod_check with its `runs_on`. Run each marked `operator-machine` once per head you
+   hand the verifier, after any catch-up, before `ccp prompt verify`: open a gate (`team.sh gate open --class
+   operator`) unless a standing approval covers it, and once `team.sh gate status <id>` exits 0, make a worktree at
+   that head with `ccp wt create --kind mac --task <task_id> --sha <head>` (its seat is the verifier's by default),
+   and from inside it run the check's command as `ccp suite run --lane <check_id> --task <task_id> -- <the check's command>`;
+   the run records the head it ran at. A check only the operator can run by hand (a credential you may not use), the
+   operator runs with the same command in that worktree, under the same gate. Remove the worktree with `ccp wt
+   remove <name>` after the run. Pass the gate's id in the verify `--note`. A check that rests on an earlier approve
+   (the head moved only by an integration merge, or a resolution review that does not list it) or that a ruling
+   waives (`ccp prompt verify … --waived <check_id>=<ruling id>`) is not run again.
+   Then `ccp prompt verify <task_id> --pr <n> --head <sha>`: a fresh `delivery-verifier` subagent
+   with the fixed packet. It refuses (exit 1, nothing opened) while a marked check has no passed run at the head,
+   naming the check. It writes its verdict with `ccp verify record` and reports APPROVE or REJECT with the
    head it judged. REJECT goes back to step 7 (`ccp prompt fix`).
    It refuses (exit 4, `behind_tip`, nothing opened) a head that lacks a commit on `origin/<integration>`
    changing more than the task log and the product's `merge.behind_tip_ignore` paths, with one runner too:
@@ -184,12 +196,13 @@ before anything else.
    - Minors not fixed before the merge, and why a verify reran, go in the verifier's findings; never
      hand-edit the task file's notes (`ccp tasks close` writes them).
    - A docs-only PR still needs its `verification/pr-<n>.json` before you merge it.
-10. **Operator step.** If the task has one: open a gate
+10. **Operator step.** If the task has a step that is not a dod_check (a rollout after the merge): open a gate
     (`team.sh gate open --class operator`) unless a standing approval covers it,
     `ccp tasks phase <task_id> operator`, and run it from your runner worktree only once
-    `team.sh gate status <id>` exits 0.
+    `team.sh gate status <id>` exits 0. A marked dod_check is never this step: it runs before verify (step 8).
     You rule on the task, so you never produce the evidence its verdict rests on (SPEC §2.3, §15.4):
-    never run a task's checks for the verifier. Whether an approved operator step's output
+    never run a task's checks for the verifier, except a marked check under its approved operator gate (step 8).
+    Whether an approved operator step's output
     may be evidence, and the `produced_by` the verifier records it under, is §15.4's rule; `ccp verify
     record` refuses the runner's or the lead's evidence otherwise.
 11. Back to step 2.

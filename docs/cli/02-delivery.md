@@ -32,7 +32,7 @@ argument takes the full id or its number.
 
 | Command | Who | SPEC |
 |---|---|---|
-| `ccp prompt <phase> <id> [--note "…"]` (`<phase>`: `implement`, `fix`, `merge`, `ruling`, `review` or `verify`; `--note-file PATH` for the note; `--pr N`, `--head SHA`, `--base SHA`, `--worktree PATH`, `--holder <slot>`, `--supersede`, `--allow-unreviewed-fix --reason "…"`, `--mode resolution` (review only: a conflicted integration merge's resolution); a verify round with no fix round since the last needs `--note`) | runner | §13.2, §15.2, §15.6 |
+| `ccp prompt <phase> <id> [--note "…"]` (`<phase>`: `implement`, `fix`, `merge`, `ruling`, `review` or `verify`; `--note-file PATH` for the note; `--pr N`, `--head SHA`, `--base SHA`, `--worktree PATH`, `--holder <slot>`, `--supersede`, `--allow-unreviewed-fix --reason "…"`, `--mode resolution` (review only: a conflicted integration merge's resolution), `--waived <check_id>=<ruling id>` (verify only, repeatable: a check marked `runs_on: operator-machine` a ruling waives); a verify round with no fix round since the last needs `--note`; a verify is refused while a marked check has no passed suite run at the head, unless it carries an earlier approve or is waived) | runner | §13.2, §15.2, §15.6 |
 | `ccp prompt env <worktree>` (its path or recorded name: the `worker_env` lines its workers would get; opens no run) | runner, lead | §13.3 |
 | `ccp report <run_id> FILE` (again, with a corrected report, until the task's next run opens; the earlier one is kept as superseded) | each worker | §13.4 |
 | `ccp agent start\|stop` | the harness's hooks | §11.1 |

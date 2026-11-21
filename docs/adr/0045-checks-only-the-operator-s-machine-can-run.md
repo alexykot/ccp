@@ -11,7 +11,7 @@ notes: |-
   the existing operator step and recommends the smaller change. It changes SPEC rules (listed under
   Consequences), so the operator decides it.
   2026-11-20: status proposed → accepted: Operator: "accept 0044, 0045, 0046" (2026-11-20)
-decisions: ["D1 built", "D2 not_built", "D3 not_built"]
+decisions: ["D1 built", "D2 built", "D3 not_built"]
 ---
 # ADR-0045 — Checks only the operator's machine can run
 

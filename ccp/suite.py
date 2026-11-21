@@ -50,7 +50,7 @@ captures the output.
 the `full` role's lane, `suite.roles`) runs one at a time in the queue (SPEC §16.6): a run that finds it held exits 75 at once,
 naming the holder and its usual duration, runs nothing, and counts `lane_busy` on its run
 (`--wait SECONDS|auto` waits instead; `auto` is the shell limit less the lane's usual cold run and a margin). A run
-from a clean checkout records its tree, and one whose tree, lane and command a recorded passing run shares runs
+from a clean checkout records its tree and its head (the commit, §10.2), and one whose tree, lane and command a recorded passing run shares runs
 without the lock, unless it is bound to a cold-gate task (§15.3). A run
 that records nothing (no QUEUE_ROOT, recording off) takes no lock: recording never blocks tests.
 Without `-- COMMAND`, it runs what `plane.json` `suite.lanes` names for that lane, from the
@@ -237,20 +237,22 @@ def auto_wait(cfg: Config | None, q: Path, lane: str | None) -> tuple[int, str]:
 GREEN_TREE = "green_tree"  # §16.6: the `lane_skipped` value of a run that a passing run of its tree let skip the lock
 
 
-def checkout_tree(cwd: Path) -> str | None:
-    """§14.4: the `HEAD^{tree}` of the git checkout holding `cwd` when it has nothing to commit (untracked files
-    included); None for a dirty checkout, outside one, or when git fails, which never blocks the run."""
+def checkout_ids(cwd: Path) -> dict[str, str]:
+    """§14.4: what a run from the git checkout holding `cwd` records of it when it has nothing to commit (untracked
+    files included): `tree`, its `HEAD^{tree}` (§16.6), and `head`, its `HEAD` (§10.2: the commit a marked check
+    ran at). Empty for a dirty checkout, outside one, or when git fails, which never blocks the run."""
     try:
         st = subprocess.run(["git", "-C", str(cwd), "status", "--porcelain", "--untracked-files=normal"],
                             capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60)
         if st.returncode != 0 or st.stdout.strip():
-            return None
-        rp = subprocess.run(["git", "-C", str(cwd), "rev-parse", "--verify", "--quiet", "HEAD^{tree}"],
+            return {}
+        rp = subprocess.run(["git", "-C", str(cwd), "rev-parse", "HEAD^{tree}", "HEAD"],
                             capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60)
-        tree = rp.stdout.strip()
-        return tree if rp.returncode == 0 and tree else None
+        ids = rp.stdout.split()
+        ok = rp.returncode == 0 and len(ids) == 2 and all(re.fullmatch(r"[0-9a-f]{40,64}", x) for x in ids)
+        return {"tree": ids[0], "head": ids[1]} if ok else {}
     except (OSError, subprocess.SubprocessError, ValueError):
-        return None
+        return {}
 
 
 def green_run(rows: list[Any], started: dict[str, Any], default_lane: str) -> str | None:
@@ -1203,8 +1205,8 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
             started = {"op": "started", "suite_id": suite_id, "at": iso(), "lane": a.lane,
                        **({"cmd": "stages", "argc": len(stages)} if stages[0].get("staged") else
                           {"cmd": Path(argv[0]).name[:64], "argc": len(argv) - 1}), "output": mode, **bound}
-            if tree := checkout_tree(Path(".")):  # §14.4: the tree a clean checkout ran (the working directory's)
-                started["tree"] = tree
+            # §14.4: the tree and the commit a clean checkout ran (the working directory's)
+            started.update(checkout_ids(Path(".")))
     except Exception as e:  # noqa: BLE001  (recording never blocks the tests)
         warn(f"not recorded ({str(e).splitlines()[0][:200] if str(e) else type(e).__name__}): running the tests anyway")
         q = started = None

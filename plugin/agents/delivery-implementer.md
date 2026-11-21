@@ -20,6 +20,8 @@ don't redesign around it.
 - A `kind: refactor` task changes no behaviour: the suite and scenario checks pass, no test
   expectation changes unless the task names it, and SPEC does not change. If the work turns out to
   need a behaviour or stored-data change, stop and report it.
+- A dod_check marked `runs_on: operator-machine` is not yours to run: the runner runs it at the head it
+  hands the verifier, on the operator's machine (SPEC §10.2). Your prompt lists them.
 - A test module your change necessarily breaks is in scope even if the task's Scope does not name
   it: update it in the same PR.
 - A test that fails under load (other suites or runners sharing the machine) is rerun alone before

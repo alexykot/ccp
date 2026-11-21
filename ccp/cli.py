@@ -1292,6 +1292,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--reason", help="with --allow-unreviewed-fix: the lead's or the operator's words, recorded as a friction note")
     p.add_argument("--mode", choices=("resolution",),
                    help="review only: a resolution review of a conflicted integration merge's head (SPEC §13.2)")
+    p.add_argument("--waived", action="append", metavar="CHECK=RULING",
+                   help="verify only: a check marked runs_on: operator-machine that a ruling waives, so it needs no "
+                        "suite run at the head (SPEC §13.2, §15.4); repeatable")
     p.set_defaults(fn=cmd_prompt)
 
     p = sub.add_parser("report", help="a worker submits its report and closes its run (SPEC §10.4)")
