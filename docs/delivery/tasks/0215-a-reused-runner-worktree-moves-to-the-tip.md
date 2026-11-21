@@ -156,5 +156,9 @@ PROPOSED:
   `warnings`. The dry run never calls `single_runner_worktree`, so it moves nothing, as before.
 - Narrowest choice: the spawn's `error` dict (a path that is no working tree) is unchanged, with no
   `moved`: nothing ran on it.
+- Fix round 1 (review): `advance_tip` now puts the main checkout's `origin/main` back to the old tip
+  after the push, so the tip advances on origin only, as a forge merge does, and only the fetch
+  brings it in (a fetch that updates no ref used to pass). The failed fetch/checkout test asserts
+  that `kept` is git's own error: it names `origin/no-such-branch`, or the missing `no-such-origin`.
 
 ## Verification notes
