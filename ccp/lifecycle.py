@@ -505,7 +505,8 @@ def set_wait(cfg: Config, q: Path, action: str, tid: str, reason: str, *, actor:
              planned_resume_at: str | None = None, detail: str | None = None) -> None:
     """Every `ccp` call to `waiting_on`'s single writer, set-waiting-on.sh (§10.1, §23.2). `task_only` leaves
     work.json alone unless it names `tid`. The writer's exit 1 or 2 is the QueueError's code; any other
-    failure is 1."""
+    failure is 1. The writer appends the event and writes the task file before it waits on work.json's lock, so
+    a timeout can leave work.json behind the ledger."""
     cmd = [str(OBS / "set-waiting-on.sh"), action, tid, reason, "--actor", actor or queue.actor(),
            "--project-id", cfg.project_id]
     for flag, value in (("--quota-class", quota_class), ("--resets-at", resets_at),

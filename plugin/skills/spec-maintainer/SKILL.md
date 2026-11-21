@@ -25,8 +25,8 @@ of your standing instructions; you may be a brand-new session.
   runtime queue files other than your answer file (and, as team lead, what `team.sh` writes), or
   control-plane config.
 - You decide whether to rule or to escalate to the operator. Nobody reviews your ruling.
-- If you are also the task-log owner (the Claude team lead, below), you hold the team lead's
-  task-log authority as well (plane SPEC §17.4).
+- If you are also the task-log owner (the Claude team lead, below), you hold the task-log
+  authority as well (plane SPEC §17.4).
 
 ## How to handle a question
 

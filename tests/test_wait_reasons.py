@@ -129,9 +129,9 @@ class SetWait(unittest.TestCase):
         self.assertEqual(call.kwargs["env"]["QUEUE_ROOT"], "/q")
 
     def test_without_options_the_actor_is_the_queue_s_and_work_json_is_not_left_alone(self) -> None:
-        with mock.patch.dict(os.environ, {"ACTOR": "task-runner"}):
+        with mock.patch.dict(os.environ, {"ACTOR": "design-seat"}):
             cmd = self.call().args[0]
-        self.assertEqual(cmd[cmd.index("--actor") + 1], "task-runner")
+        self.assertEqual(cmd[cmd.index("--actor") + 1], "design-seat")
         for flag in ("--task-only", "--quota-class", "--resets-at", "--planned-resume-at", "--detail"):
             self.assertNotIn(flag, cmd)
 
