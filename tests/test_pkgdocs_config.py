@@ -94,6 +94,25 @@ class PkgDocsTest(unittest.TestCase):
                 q.write("bare/.claude.md", "# bare\n")
                 self.assertEqual(pkgdocs.check(q.cfg), [])
 
+    def test_a_listed_directorys_package_doc_is_not_its_own_source(self):
+        for git in (False, True):
+            with self.subTest(git=git):
+                q = Product({"language": "python", "package_docs": {"claude_md_dirs": ["listed", "bare"]}})
+                self.addCleanup(q.cleanup)
+                q.write("listed/CLAUDE.md", "# listed\n" + "line\n" * 9)
+                q.write("listed/a.py", '"""A."""\n' + "x = 1\n" * 9)
+                q.write("bare/CLAUDE.md", "# bare\n\nSee `gone.py`.\n")  # the doc alone, no other file
+                q.write("unlisted/CLAUDE.md", "# unlisted\n" + "line\n" * 20)  # not listed: still a .md file
+                if git:  # a checkout: the tracked files decide
+                    subprocess.run(["git", "init", "-q"], cwd=q.root, check=True)
+                    subprocess.run(["git", "add", "--", "listed", "bare", "unlisted"], cwd=q.root, check=True)
+                errs = pkgdocs.check(q.cfg)
+                text = "\n".join(errs)
+                self.assertIn("listed/CLAUDE.md: 10 lines against 10 of source", text)  # 20 counted before
+                self.assertIn("bare/CLAUDE.md: names `gone.py`, which does not exist", text)
+                self.assertNotIn("bare/CLAUDE.md: 3 lines against", text)  # no source left: no size check
+                self.assertFalse([e for e in errs if e.startswith("unlisted")], errs)  # not judged
+
 
 class ConfigTest(unittest.TestCase):
     def test_absent_plane_json_is_not_adopted(self):

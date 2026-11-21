@@ -78,7 +78,7 @@ def source_dirs(cfg: Config) -> list[Path]:
     sfx, ex = suffixes(cfg), exempt_dirs(cfg)
 
     def source(f: Path) -> bool:
-        return f.suffix in sfx and f.name != pd["doc_name"] and not f.name.startswith(".")
+        return f.suffix in sfx and not _is_doc(cfg, f) and not f.name.startswith(".")
 
     def judged(d: Path, found: set[str]) -> bool:
         # documents only (every source file .md): no package doc needed unless the product lists the
@@ -112,10 +112,16 @@ def doc_for(cfg: Config, d: Path) -> Path:
     return d / ("CLAUDE.md" if rel in cfg.package_docs["claude_md_dirs"] else cfg.package_docs["doc_name"])
 
 
+def _is_doc(cfg: Config, f: Path) -> bool:
+    """A package doc, not source: the product's `doc_name`, or the file `doc_for` names for the
+    directory (`CLAUDE.md` in a listed one), so a doc never counts as its own directory's source."""
+    return f.name in (cfg.package_docs["doc_name"], doc_for(cfg, f.parent).name)
+
+
 def _source_lines(cfg: Config, d: Path) -> int:
-    pd, sfx = cfg.package_docs, suffixes(cfg)
+    sfx = suffixes(cfg)
     return sum(len(f.read_text(errors="ignore").splitlines()) for f in d.iterdir()
-               if f.is_file() and f.suffix in sfx and f.name != pd["doc_name"])
+               if f.is_file() and f.suffix in sfx and not _is_doc(cfg, f))
 
 
 def core_check(cfg: Config) -> list[str]:
