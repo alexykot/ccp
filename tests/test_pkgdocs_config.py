@@ -94,24 +94,36 @@ class PkgDocsTest(unittest.TestCase):
                 q.write("bare/.claude.md", "# bare\n")
                 self.assertEqual(pkgdocs.check(q.cfg), [])
 
-    def test_a_listed_directorys_package_doc_is_not_its_own_source(self):
+    def check_listed(self, files, listed, git_dirs):
+        """Check a product listing `listed`, once from the files and once from a checkout; yield the errors."""
         for git in (False, True):
             with self.subTest(git=git):
-                q = Product({"language": "python", "package_docs": {"claude_md_dirs": ["listed", "bare"]}})
+                q = Product({"language": "python", "package_docs": {"claude_md_dirs": listed}})
                 self.addCleanup(q.cleanup)
-                q.write("listed/CLAUDE.md", "# listed\n" + "line\n" * 9)
-                q.write("listed/a.py", '"""A."""\n' + "x = 1\n" * 9)
-                q.write("bare/CLAUDE.md", "# bare\n\nSee `gone.py`.\n")  # the doc alone, no other file
-                q.write("unlisted/CLAUDE.md", "# unlisted\n" + "line\n" * 20)  # not listed: still a .md file
+                for name, text in files.items():
+                    q.write(name, text)
                 if git:  # a checkout: the tracked files decide
                     subprocess.run(["git", "init", "-q"], cwd=q.root, check=True)
-                    subprocess.run(["git", "add", "--", "listed", "bare", "unlisted"], cwd=q.root, check=True)
-                errs = pkgdocs.check(q.cfg)
-                text = "\n".join(errs)
-                self.assertIn("listed/CLAUDE.md: 10 lines against 10 of source", text)  # 20 counted before
-                self.assertIn("bare/CLAUDE.md: names `gone.py`, which does not exist", text)
-                self.assertNotIn("bare/CLAUDE.md: 3 lines against", text)  # no source left: no size check
-                self.assertFalse([e for e in errs if e.startswith("unlisted")], errs)  # not judged
+                    subprocess.run(["git", "add", "--", *git_dirs], cwd=q.root, check=True)
+                yield pkgdocs.check(q.cfg)
+
+    def test_a_listed_directorys_package_doc_is_not_counted_as_its_source(self):
+        files = {"listed/CLAUDE.md": "# listed\n" + "line\n" * 9, "listed/a.py": '"""A."""\n' + "x = 1\n" * 9}
+        for errs in self.check_listed(files, ["listed"], ["listed"]):
+            # the doc's own ten lines made twenty before
+            self.assertIn("listed/CLAUDE.md: 10 lines against 10 of source", "\n".join(errs))
+
+    def test_a_listed_directory_of_only_its_package_doc_is_judged_but_not_on_size(self):
+        files = {"bare/CLAUDE.md": "# bare\n\nSee `gone.py`.\n"}  # the doc alone, no other file
+        for errs in self.check_listed(files, ["bare"], ["bare"]):
+            text = "\n".join(errs)
+            self.assertIn("bare/CLAUDE.md: names `gone.py`, which does not exist", text)
+            self.assertNotIn("bare/CLAUDE.md: 3 lines against", text)  # no source left: no size check
+
+    def test_an_unlisted_directory_of_only_a_claude_md_is_not_judged(self):
+        files = {"unlisted/CLAUDE.md": "# unlisted\n" + "line\n" * 20}  # not listed: still a .md file
+        for errs in self.check_listed(files, ["other"], ["unlisted"]):
+            self.assertFalse([e for e in errs if e.startswith("unlisted")], errs)
 
 
 class ConfigTest(unittest.TestCase):
