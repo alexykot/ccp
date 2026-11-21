@@ -25,6 +25,8 @@ sys.exit(1)
 
 
 class PrBody(ToolkitFixture, unittest.TestCase):
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "pr_host": {"adapter": "github"}}  # the stand-in below is `gh`
+
     def setUp(self):
         super().setUp()
         self.ccp("tasks", "claim", "0002")

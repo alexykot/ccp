@@ -35,7 +35,7 @@ class Stamp(Base, unittest.TestCase):
 
     def close(self):
         self._to_approved_pr()
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "built.")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "built.")
         self.assertEqual(code, 0, out + err)
         git(self.main, "fetch", "-q", "origin")
         return body, git(self.main, "show", "origin/main:docs/delivery/tasks/0002-second.md")

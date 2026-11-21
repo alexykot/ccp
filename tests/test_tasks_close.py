@@ -26,7 +26,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self._to_approved_pr()
         before = self._state(self.main)
         self.assertEqual(before[1:], ("main", ""))
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", root=self.main)
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(self._state(self.main), before)
         git(self.main, "fetch", "-q", "origin")
@@ -38,7 +38,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
     def test_close_from_the_runner_worktree_ends_it_at_the_reconcile_and_leaves_the_main_checkout(self):
         self._to_approved_pr()
         main_before = self._state(self.main)
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(self._state(self.runner), (body["reconcile_sha"], None, ""))
         self.assertEqual(self._state(self.main), main_before)
@@ -55,7 +55,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         git(self.main, "pull", "-q", "origin", "main")
         self._to_approved_pr()
         before = self._state(self.main)
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", root=self.main)
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
         self.assertEqual(code, 1, out + err)
         self.assertEqual(self._state(self.main), before)
         merge_wt = self.main / config.WORKTREES_DIR / "merge-0002"
@@ -66,7 +66,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         git(self.main, "pull", "-q", "--rebase", "origin", "main")
         git(self.main, "push", "-q", "origin", "main")
         before = self._state(self.main)
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", root=self.main)
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
         self.assertEqual(code, 0, out + err)
         self.assertFalse(body["merged_now"])
         self.assertTrue(body["reconciled_now"])
@@ -82,22 +82,22 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         git(self.runner, "push", "-q", "origin", "HEAD:main")
         git(self.main, "pull", "-q", "origin", "main")
         self._to_approved_pr()
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "07", root=self.main)  # the host reads 07 as 7
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", f"0{self.PR}", root=self.main)  # the host reads 01 as 1
         self.assertEqual(code, 1, out + err)
         cfg["reconcile"]["hooks"] = []
         (self.main / "docs/delivery/plane.json").write_text(json.dumps(cfg))
         git(self.main, "commit", "-qam", "the hook fixed")
         git(self.main, "pull", "-q", "--rebase", "origin", "main")
         git(self.main, "push", "-q", "origin", "main")
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "07", root=self.main)
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", f"0{self.PR}", root=self.main)
         self.assertEqual(code, 0, out + err)
         self.assertFalse(body["merged_now"])
 
     def test_a_merge_the_host_has_not_completed_names_the_hosts_own_state_word(self):
         head = self._to_approved_pr()
-        queued = prhost.PrFacts(number=7, state="open", head=head)
+        queued = prhost.PrFacts(number=int(self.PR), state="open", head=head)
         with mock.patch.object(prhost, "confirm", return_value=queued):
-            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", root=self.main)
+            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
         self.assertEqual(code, 1, out + err)
         self.assertIn("exited 0 but the PR is OPEN (a merge queue or auto-merge?)", err)
 
@@ -105,7 +105,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self._to_approved_pr()
         git(self.main, "checkout", "-q", "--detach")
         before = (git(self.main, "rev-parse", "HEAD"), git(self.main, "status", "--porcelain"))
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", root=self.main)
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
         self.assertEqual(code, 0, out + err)
         self.assertEqual((git(self.main, "rev-parse", "HEAD"), git(self.main, "status", "--porcelain")), before)
         self.assertNotEqual(before[0], body["reconcile_sha"])
@@ -115,7 +115,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         (self.main / config.WORKTREES_DIR / "merge-0002").mkdir(parents=True)
         (self.main / config.WORKTREES_DIR / "merge-0002" / "keep.txt").write_text("not ours\n")
         before = self._state(self.main)
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", root=self.main)
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
         self.assertEqual(code, 1, out + err)
         self.assertIn("merge-0002", err)
         self.assertEqual(self._state(self.main), before)
@@ -131,7 +131,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
         git(self.runner, "commit", "-qam", "no worktrees dir")
         git(self.runner, "push", "-q", "origin", "HEAD:main")
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(cwd.read_text().strip(), str(self.runner.resolve()))
         self.assertEqual(git(self.runner, "rev-parse", "HEAD"), body["reconcile_sha"])
@@ -144,7 +144,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         git(self.runner, "commit", "-qam", "a hook that notes its directory")
         git(self.runner, "push", "-q", "origin", "HEAD:main")
         self._to_approved_pr()
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(cwd.read_text().strip(), str((self.main / config.WORKTREES_DIR / "merge-0002").resolve()))
 
@@ -157,7 +157,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         git(self.runner, "commit", "-qam", "a hook that reads a linked path")
         git(self.runner, "push", "-q", "origin", "HEAD:main")
         self._to_approved_pr()
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(seen.read_text(), "linked in\n")
         self.assertNotIn(".venv", body["committed"])
@@ -170,7 +170,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         git(self.runner, "commit", "-qam", "a failing hook")
         git(self.runner, "push", "-q", "origin", "HEAD:main")
         self._to_approved_pr()
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 1, out + err)
         merge_wt = self.main / config.WORKTREES_DIR / "merge-0002"
         code, _, out, err = self.ccp("wt", "list", "--task", "0002")
@@ -225,20 +225,20 @@ class CloseListsChecksNotAsWritten(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         seen, patch = self._merge_seeing_stderr()
         with patch:
-            code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+            code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         line = "check-01: held instead: ran the listing in place of the removed flag; ruling: 0002-second-1"
         self.assertEqual(len(seen), 1)
         self.assertIn(line, seen[0])
         self.assertNotIn("check-02:", seen[0])
         self.assertTrue(body["merged_now"])
-        self.assertEqual(json.loads((self.ghstate / "pr.json").read_text())["state"], "MERGED")
+        self.assertEqual(self.pr_record()["state"], "MERGED")
 
     def test_close_prints_no_list_when_every_check_held_as_written(self):
         self._to_approved_pr()
         seen, patch = self._merge_seeing_stderr()
         with patch:
-            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(len(seen), 1)
         self.assertNotIn("not as written", err)
@@ -262,7 +262,7 @@ class CloseNamesCarriedChecks(ToolkitFixture, unittest.TestCase):
         f.write_text(json.dumps(rec))
         code, _, out, err = self.ccp("verify", "record", str(f))
         self.assertEqual(code, 0, out + err)
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         git(self.main, "fetch", "-q", "origin")
         notes = git(self.main, "show", "origin/main:docs/delivery/tasks/0002-second.md").split("## Verification notes")[1]
@@ -295,7 +295,7 @@ class CloseReadsAMalformedRunnerCount(ToolkitFixture, unittest.TestCase):
     def test_one_runner_s_count(self):
         self._to_approved_pr()
         self.work(runner_tasks_done="x")
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertNotIn("Traceback", err)
         self.assertIn("runner_tasks_done", err)  # the warning claim gives too
@@ -305,7 +305,7 @@ class CloseReadsAMalformedRunnerCount(ToolkitFixture, unittest.TestCase):
         self._to_approved_pr()
         slot = json.loads((self.q / "tasks" / "0002-second.json").read_text())["lease_holder"]
         self.work(runners={slot: {"bound_name": slot, "tasks_done": "x"}})
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(json.loads((self.q / "work.json").read_text())["runners"][slot]["tasks_done"], 1)
 

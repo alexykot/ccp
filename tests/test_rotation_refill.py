@@ -144,7 +144,7 @@ class VacantSlots(ToolkitFixture, unittest.TestCase):
         self._to_approved_pr()
         self.hold("runner-2")
         self.runners()
-        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "done.")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "done.")
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["vacant_slots"], ["runner-1"])
         self.assertNotIn("runner-1", body.get("idle_runners", []))

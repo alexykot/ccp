@@ -30,7 +30,7 @@ class NoTransitionWritesAMarker(ToolkitFixture, unittest.TestCase):
 
     def test_a_close_leaves_no_marker(self):
         self._to_approved_pr()
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "it is built.")
         self.assertEqual(code, 0, out + err)
         self.assertEqual(json.loads((self.q / "tasks/0002-second.json").read_text())["status"], "done")
         self.assertNoMarkers()

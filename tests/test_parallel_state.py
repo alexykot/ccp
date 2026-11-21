@@ -102,7 +102,7 @@ class WorkLock(ToolkitFixture, unittest.TestCase):
         self._to_approved_pr()
         self.assertNotIn("lease", self.work())  # the claim writes none: the task's queue file holds it
         self.assertEqual(json.loads((self.q / "tasks/0002-second.json").read_text())["lease_holder"], "runner")
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "it is built.")
         self.assertEqual(code, 0, out + err)
         self.assertNotIn("lease", self.work())
         self.assertIsNone(json.loads((self.q / "tasks/0002-second.json").read_text())["lease_holder"])
@@ -110,7 +110,7 @@ class WorkLock(ToolkitFixture, unittest.TestCase):
     def test_a_close_removes_an_old_files_top_level_lease(self):
         self._to_approved_pr()
         queue.save_work(self.q, {"lease": {"holder": "runner", "task_id": "0002-second", "since": "2026-10-21T10:00:00Z"}})
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "it is built.")
         self.assertEqual(code, 0, out + err)
         self.assertNotIn("lease", self.work())
 
@@ -138,7 +138,7 @@ class WorkLock(ToolkitFixture, unittest.TestCase):
                                                                   "lease_holder": "runner-2"}))
         queue.save_work(self.q, {"in_flight": ["0002-second", "0009-other"],
                                  "lease": {"holder": "runner", "task_id": "0002-second", "since": "2026-10-21T10:00:00Z"}})
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "it is built.")
         self.assertEqual(code, 0, out + err)
         w = self.work()
         self.assertEqual((w["task_id"], w["in_flight"]), ("0009-other", ["0009-other"]))

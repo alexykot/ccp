@@ -29,7 +29,7 @@ class Merging(ToolkitFixture, unittest.TestCase):
         git(self.runner, "push", "-q", "origin", "HEAD:main")
 
     def close(self):
-        return self.ccp("tasks", "close", "0002", "--pr", "7", "--summary", "it is built.")
+        return self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "it is built.")
 
     def pushed_head(self) -> str:
         """Claim 0002, commit its work on its branch and push it, unverified: the PR head."""
@@ -42,7 +42,7 @@ class Merging(ToolkitFixture, unittest.TestCase):
         return git(wt, "rev-parse", "HEAD")
 
     def verify(self, head: str):
-        return self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", head)
+        return self.ccp("prompt", "verify", "0002", "--pr", self.PR, "--head", head)
 
     def one_runner(self) -> None:
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
@@ -58,7 +58,7 @@ class Merging(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 1, out + err)
         self.assertIn("behind_tip", err)
         self.assertIn("nothing merged", err)
-        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assert_pr_not_merged()
 
     def test_another_tasks_bookkeeping_alone_does_not_hold_it_back(self):
         self._to_approved_pr()
@@ -90,7 +90,7 @@ class Merging(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 1, out + err)
         self.assertIn("behind_tip", err)
         self.assertIn("`ccp prompt merge 0002-second", err)  # the round that catches up (SPEC §13.2)
-        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assert_pr_not_merged()
 
     def test_a_tip_that_cannot_be_fetched_refuses_the_merge(self):
         self._to_approved_pr()
@@ -99,7 +99,7 @@ class Merging(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 1, out + err)
         self.assertIn("could not be fetched", err)
         self.assertIn("nothing merged", err)
-        self.assertFalse((self.ghstate / "merge-called").exists())
+        self.assert_pr_not_merged()
 
     def test_verify_refuses_a_head_behind_the_tip(self):
         head = self.pushed_head()

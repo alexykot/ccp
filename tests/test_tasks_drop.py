@@ -79,12 +79,14 @@ class Drop(ToolkitFixture, unittest.TestCase):
     def test_a_pr_that_merged_outside_close_is_closed_not_dropped(self):
         self.in_flight()
         self.lead_drops_it()
+        head = self._push_task_work()
+        code, _, out, err = self.ccp("pr", "merge", self.PR, "--head", head, "--task", "0002-second")
+        self.assertEqual(code, 0, out + err)
         st = json.loads((self.q / "tasks/0002-second.json").read_text())
-        (self.q / "tasks/0002-second.json").write_text(json.dumps({**st, "merged_by_close": "7"}))
-        (self.ghstate / "pr.json").write_text(json.dumps({"state": "MERGED", "head": "a" * 40, "merge": "b" * 40}))
+        (self.q / "tasks/0002-second.json").write_text(json.dumps({**st, "merged_by_close": self.PR}))
         code, _, _, err = self.ccp("tasks", "drop", "0002", "--reason", "x")
         self.assertEqual(code, 3, err)
-        self.assertIn("PR 7 merged", err)
+        self.assertIn(f"PR {self.PR} merged", err)
 
 
 if __name__ == "__main__":

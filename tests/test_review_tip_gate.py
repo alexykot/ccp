@@ -36,10 +36,11 @@ class ReviewTipGate(ToolkitFixture, unittest.TestCase):
             git(wt, "add", rel)
         git(wt, "commit", "-q", "-m", "Task 0002: build it")
         git(wt, "push", "-q", "-u", "origin", "task/0002-second")
+        self.open_pr()
         return git(wt, "rev-parse", "HEAD")
 
     def review(self, head: str):
-        return self.ccp("prompt", "review", "0002", "--pr", "7", "--head", head)
+        return self.ccp("prompt", "review", "0002", "--pr", self.PR, "--head", head)
 
     def opened(self) -> bool:
         return (self.q / "runs/0002-second/review.json").exists()
@@ -50,7 +51,7 @@ class ReviewTipGate(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.review(head)
         self.assertEqual(code, 4, out + err)
         self.assertIn("feature.txt", err)
-        self.assertIn(f"ccp prompt merge 0002-second --pr 7 --head {head[:7]}", err)
+        self.assertIn(f"ccp prompt merge 0002-second --pr {self.PR} --head {head[:7]}", err)
         self.assertFalse(self.opened())
         self.assertEqual(list(self.q.glob("prompts/0002-second/review*")), [])
 
@@ -79,6 +80,7 @@ class ReviewTipGate(ToolkitFixture, unittest.TestCase):
         (wt / task).write_text((wt / task).read_text().replace("title: Second", "title: Second, mine"))
         git(wt, "commit", "-qam", "Task 0002: retitle")
         git(wt, "push", "-q", "-u", "origin", "task/0002-second")
+        self.open_pr()
         head = git(wt, "rev-parse", "HEAD")
         # the tip also carries other code, so the head is behind it: only then is the merge judged
         self.push_to_main({task: (self.runner / task).read_text().replace("title: Second", "title: Second, theirs"),
@@ -110,7 +112,7 @@ class ReviewTipGate(ToolkitFixture, unittest.TestCase):
         self.assertNotIn("warnings", body)
 
     def test_a_head_that_cannot_be_fetched_opens_the_review_with_a_warning(self):
-        self.ccp("tasks", "claim", "0002")
+        self.pushed_head()
         code, body, out, err = self.review("abc1234")
         self.assertEqual(code, 0, out + err)
         self.assertEqual(len(body["warnings"]), 1, body)

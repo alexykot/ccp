@@ -17,8 +17,6 @@ BRANCH = "task/0002-second"
 
 
 class LocalHost(ToolkitFixture, unittest.TestCase):
-    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "pr_host": {"adapter": "local"}}
-
     def setUp(self):
         super().setUp()
         nogh = mock.patch.dict(os.environ, {"CCP_GH_BIN": str(Path(self._tmp.name) / "no-such-gh")})

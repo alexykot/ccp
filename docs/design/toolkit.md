@@ -20,7 +20,7 @@ the task); one read model, `board.json`, built without an LLM; numbers are diagn
   `append_event`, `work.json`, the task's queue file, the queue's script check), `ccp/runs.py`,
   `ccp/prompt.py`, `ccp/report.py`, `ccp/lifecycle.py` (claim, phase, wait, close), `ccp/plane.py`
   (proposals, `plane check`, the agent hooks). Tests: `tests/test_toolkit.py`, with a real bare
-  origin, a runner worktree and a fake `gh` that squash-merges.
+  origin, a runner worktree and the local PR host, which squash-merges.
 - **Single writers stay single.** `ccp tasks wait|resume` call `set-waiting-on.sh`, and the toolkit's
   heartbeats call `heartbeat.sh`.
 - **Binding keys.** `reconcile.log` is `{path, entry, before}`: `entry` is a format string over date,
