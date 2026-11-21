@@ -623,7 +623,7 @@ def unbuilt_cited(cfg: Config, tasks: list[dict[str, Any]]) -> list[str]:
             m = by_num.get(r.number) if r is not None and r.decision is not None else None
             if m is None:
                 continue
-            if index.blocks_done(r.number, r.decision):
+            if r.decision in {d["id"] for d in m["_decisions"]} and index.blocks_done(r.number, r.decision):
                 out.append(f"{cfg.rel(t['_file'])}: cites {ref!r} ({ids.adr_id(r.number)} D{r.decision}), which "
                            f"{m['_path']} records as not_built: once the task builds it, run "
                            f"`ccp adr decide {r.number} D{r.decision} built` in its PR (SPEC §6.7, §15.4)")
@@ -840,7 +840,6 @@ def untasked(cfg: Config, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return []
     ids = refs.ids(cfg)
     adrs = load(cfg)[0]
-    index = DecisionIndex.build(adrs, ids)
     whole: set[int] = set()
     cited: set[tuple[int, str]] = set()
     for t in tasks:
@@ -859,6 +858,7 @@ def untasked(cfg: Config, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for m in sorted(adrs, key=lambda x: x["_number"]):
         if m.get("status") not in ("accepted", "in-progress") or m["_number"] in whole:
             continue
+        index = DecisionIndex.build([m], ids)  # this file's own decisions, as `built` reads them
         left = [d["id"] for d in index.decisions(m["_number"])
                 if index.blocks_done(m["_number"], d["id"]) and (m["_number"], d["id"]) not in cited]
         if left:

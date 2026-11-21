@@ -72,6 +72,14 @@ class UnbuiltDecisionWarning(unittest.TestCase):
         self.assertIn("ADR-0001 D1", warns[0])
         self.assertNotIn("D2", warns[0])
 
+    def test_a_decision_recorded_but_not_in_the_body_is_not_warned(self):
+        self.p.write("docs/adr/0001-a.md", adr.emit({"id": "ADR-0001", "title": "T", "status": "accepted",
+                                                      "date": "2026-01-01", "decisions": ["D1 built", "D9 not_built"]})
+                     + ADR_BODY)
+        self.task("0001-a", ["0001 D9"])
+        self.assertEqual([w for w in tasklog.warnings(self.p.cfg) if "not_built" in w], [])
+        self.assertEqual(adr.unbuilt_cited(self.p.cfg, tasklog.load(self.p.cfg)), [])
+
     def test_a_done_or_dropped_task_is_not_warned_here(self):
         self.adr("not_built")
         self.task("0001-a", ["0001 D1"], status="dropped")

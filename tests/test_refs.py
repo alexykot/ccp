@@ -55,6 +55,15 @@ class Defaults(unittest.TestCase):
         self.assertEqual(D.parse_adr_ref("ADR-0007"), refs.AdrRef(7, None, None, "ADR-0007"))
         self.assertEqual(D.parse_adr_ref("0040 D2 and more").decision, "2")  # not a whole link: the loose reading
 
+    def test_parse_adr_ref_cites_only_a_capital_d_and_a_lower_case_suffix(self):
+        # `adr_link` reads `0040 d2` and `0040 D2A` as decisions; a ref cites only `D2` / `D2a`, the rest is a section
+        for raw, want in (("0040 d2", refs.AdrRef(40, None, "d2", "0040 d2")),
+                          ("ADR-0040 d3", refs.AdrRef(40, None, "d3", "ADR-0040 d3")),
+                          ("0040 D2A", refs.AdrRef(40, None, "D2A", "0040 D2A")),
+                          ("0040 D2a", refs.AdrRef(40, "2a", None, "0040 D2a"))):
+            self.assertEqual(D.parse_adr_ref(raw), want, raw)
+            self.assertIsNotNone(D.adr_link(raw), raw)
+
     def test_spec_rule_review_point(self):
         self.assertEqual(D.spec_ref_re.search("see S3–S5 here").groups(), ("3", "5"))
         self.assertEqual(D.spec_ref(12), "S12")

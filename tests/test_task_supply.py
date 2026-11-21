@@ -75,6 +75,11 @@ class Untasked(Base):
         self.task("0001-a", "dropped", ["0001 D1"])
         self.assertEqual(self.untasked(), [{"adr": "ADR-0001", "decisions": ["1", "2"]}])
 
+    def test_two_files_with_one_number_are_each_read_on_their_own(self):
+        self.adr(3, "accepted", ["not_built"])
+        self.p.write("docs/adr/0003-b.md", adr_file(3, "accepted", ["built", "built"]))
+        self.assertEqual(self.untasked(), [{"adr": "ADR-0003", "decisions": ["1"]}])
+
     def test_a_ref_naming_only_the_adr_cites_all_its_decisions(self):
         self.adr(1, "accepted", ["not_built", "not_built"])
         self.adr(2, "accepted", ["not_built"])
