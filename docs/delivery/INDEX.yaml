@@ -1274,7 +1274,7 @@ tasks:
     path: tasks/0259-a-check-failure-already-on-the-integration-branch-is-reported.md
   - id: 0260-review-tools-and-the-tests-for-new-behaviour-section
     status: pending
-    title: The review prompt names the affected-modules command and the reviewer brief a base checkout, and the report table asks for and checks the tests-for-new-behaviour section
+    title: Every round names the affected-modules command against the integration tip, the reviewer brief a base checkout, and the report table asks for and checks the tests-for-new-behaviour section
     depends_on: [0255-test-fixtures-shared-helpers-and-one-repo-build, 0257-one-gate-block-and-one-sentence-per-line]
     path: tasks/0260-review-tools-and-the-tests-for-new-behaviour-section.md
   - id: 0261-a-declared-part-lane-runs-the-affected-modules
@@ -1297,3 +1297,8 @@ tasks:
     title: The task check warns on a PROPOSED that verify spec-text cannot read, through one signed-block parser in tasklog, and task-id and decision-marker patterns each have one source
     depends_on: [0223-a-follow-up-is-tracked-not-left-in-notes, 0234-one-check-parser-and-one-file-at-rev-reader]
     path: tasks/0264-one-parser-for-signed-blocks-and-task-id-patterns.md
+  - id: 0265-one-gate-lane-and-worker-runs-wait-for-it
+    status: pending
+    title: The plane's gate is one lane, a worker's run waits for a held exclusive lane, and suite run names its lane once
+    depends_on: []
+    path: tasks/0265-one-gate-lane-and-worker-runs-wait-for-it.md
