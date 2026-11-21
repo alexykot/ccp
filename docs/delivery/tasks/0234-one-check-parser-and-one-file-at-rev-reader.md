@@ -128,5 +128,7 @@ Measured at `8aefa59`.
   A decoding difference too: a file that is not valid UTF-8 is decoded with replacement characters, where the
   old read raised `UnicodeDecodeError`.
 - E22 is a command check: `architect.checks` `E22`, and the rule's `check:` line says `command`.
+- Fix round 3 (test only, no production change): `tests/test_lease_edits.py` pins `_says_dropped`'s lone-CR
+  normalisation with a drop commit written with `\r` line ends, beside the CRLF one (a shared helper takes the line end).
 
 ## Verification notes
