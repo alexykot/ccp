@@ -1,7 +1,7 @@
 ---
 task_id: 0216-the-idle-hook-nudges-a-due-pass-while-tasks-wait
 title: The runner-idle hook nudges a due architect pass while the runner holds only waiting tasks
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S18", "S19"]
@@ -10,7 +10,7 @@ paths: ["plugin/hooks/runner-idle.sh", "docs/spec/02-delivery.md", "tests/test_t
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0216-the-idle-hook-nudges-a-due-pass-while-tasks-wait
@@ -132,4 +132,30 @@ PROPOSED:
 
 ## Implementation notes
 
+- `plugin/hooks/runner-idle.sh`: after the slot and parallel filters, with `ready` empty, no `next` asked yet
+  and the architect adopted, the hook takes the runner's own open in-flight tasks (all of `in_flight`
+  without slots, the slot's leased ones with slots); when there is at least one and none waits on `quota`
+  (as `runtime_wait` reads it, so an expired 5-hour park is no quota wait), it makes the same
+  `ccp tasks next --scope … --json` call (now one `ask_next()` helper for both calls). The existing exit-4
+  handling then applies unchanged. `task_open` and `holder` moved to module level so both branches share
+  them. The header comment's architect line says it also asks `next` while every held task waits.
+- `docs/spec/02-delivery.md` §18.2: the signed bullet, verbatim.
+- Tests (`TestIdleHook`): the five Scope cases on a shared `architect_waiting` setup, with
+  `parallel.max_in_flight` 2 and two done tasks (`every_n_tasks` 1) making the cadence due; `hook()` now
+  keeps the last stderr. The holding-nothing case gives 0002-b an unmet dependency so that `next` too
+  names no task, and the test fails if the hook asks `next` for a runner holding nothing.
+- With `parallel.max_in_flight` 1, `ccp tasks next` names the runner's held task even while it waits
+  (it does not read runtime `waiting_on`), so it answers a due pass only once `architect.grace_tasks`
+  merges have passed since the pass became due; until then it names the held task and the runner idles.
+  With tasks in parallel or slots, `next` leaves in-flight tasks out and answers a due pass at once.
+  (The implement report's open question said the nudge never fires at one task in flight; the review
+  showed that premise wrong.)
+- Fix round 1: a test with two slots (`runners` in work.json, 0002-b leased to `runner-1`) pins the slot
+  filter of the new step: `runner-2`, holding nothing, idles while `runner-1` is nudged to the pass. The
+  `architect_waiting` setup takes the holder and extra work.json keys for it, and no longer sets
+  `architect.triage_grace_tasks`, a constant in code whose warning showed on every hook run; the default
+  (2) still makes the triage overdue with two merges.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #267 head `17a2c97` (close's catch-up of the approved `4fc944c`, gate run st-20261121T132934Z-d4e1fb) (squash `24ffb14`): APPROVE. Passed: ih-01, ih-02, ih-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0216-the-idle-hook-nudges-a-due-pass-while-tasks-wait.json.
+
