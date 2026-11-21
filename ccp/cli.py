@@ -1006,7 +1006,7 @@ def cmd_suite_affected(cfg: config.Config, a: argparse.Namespace) -> int:
 def _mutate(cfg: config.Config, a: argparse.Namespace):
     from ccp import mutate, wt  # noqa: PLC0415
     return mutate.run(cfg, wt._queue_root(), a.run, a.test, a.mutant or [], reverts=a.revert or [],
-                      mutant_files=a.mutant_file or [])
+                      mutant_files=a.mutant_file or [], together=a.together)
 
 
 def _plane(cfg: config.Config, a: argparse.Namespace):
@@ -1313,6 +1313,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--revert", action="append", metavar="PATH[:N[-M]]",
                    help="a mutant that puts back the merge base's version of the file, or of the changes lines N-M of "
                         "the worktree's file touch; repeat for more")
+    p.add_argument("--together", action="store_true",
+                   help="apply every mutant given (at least two) as one mutant, numbered 1: substitutions on one "
+                        "file apply in order, each old text once in what the earlier ones leave, so a move is two "
+                        "substitutions, one that deletes the lines and one that puts them back elsewhere; any other "
+                        "two parts on one file are refused")
     p.set_defaults(fn=_toolkit(_mutate))
 
     from ccp import notify  # noqa: PLC0415

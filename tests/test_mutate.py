@@ -2,6 +2,7 @@
 restored after each."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shlex
@@ -14,6 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, mutate, runs
+from ccp.queue import QueueError
 from tests.test_toolkit import PLANE, ToolkitFixture, git
 
 sys.path.insert(0, str(PLANE / "scripts" / "observability"))
@@ -68,8 +70,8 @@ class MutateFixture(ToolkitFixture):
         return Path(body["path"])
 
     def mutate(self, *mutants: str, test: str = ADD, root: Path | None = None, run: str | None = None,
-               reverts: tuple[str, ...] = (), files: tuple[Path, ...] = ()):
-        args = ["mutate", "--run", run or self.run_id, "--test", test]
+               reverts: tuple[str, ...] = (), files: tuple[Path, ...] = (), together: bool = False):
+        args = ["mutate", "--run", run or self.run_id, "--test", test] + (["--together"] if together else [])
         for m in mutants:
             args += ["--mutant", m]
         for f in files:
@@ -702,6 +704,148 @@ class RevertInAShallowWorktree(MutateFixture, unittest.TestCase):
         self.assertEqual(code, 2, err)
         self.assertIn("no merge base", err)
         self.assertEqual(self.rows(), [])
+
+
+BACKUP = "def add(a, b):\n    return a + b\n"
+EITHER_TESTS = """import unittest
+
+import backup
+import calc
+
+
+class EitherTest(unittest.TestCase):
+    def test_one_adds(self):
+        self.assertTrue(calc.add(1, 1) == 2 or backup.add(1, 1) == 2)
+"""
+EITHER = "test_either.EitherTest.test_one_adds"
+STEPS = 'def run(log):\n    log.append("open")\n    log.append("write")\n    log.append("close")\n    return log\n'
+STEPS_TESTS = """import unittest
+
+from steps import run
+
+
+class StepsTest(unittest.TestCase):
+    def test_order(self):
+        self.assertEqual(run([]), ["open", "write", "close"])
+"""
+ORDER = "test_steps.StepsTest.test_order"
+
+
+class Together(MutateFixture, unittest.TestCase):
+    """`--together`: the mutants given, applied as one mutant."""
+
+    def mfile(self, rel: str, old: str, new: str) -> Path:
+        f = Path(self._tmp.name) / f"part{len(list(Path(self._tmp.name).glob('part*')))}.txt"
+        f.write_text(f"{rel}\n=== old\n{old}=== new\n{new}")
+        return f
+
+    def refused(self, *mutants: str, **kw) -> str:
+        code, _, _, err = self.mutate(*mutants, together=True, **kw)
+        self.assertEqual(code, 2, err)
+        self.assertEqual(self.rows(), [])
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+        self.assertFalse(mutate.log_path(self.q, self.run_id).exists())  # not even the unmutated run
+        return err
+
+    def test_together_two_files_each_surviving_alone_are_killed(self):
+        (self.mut / "backup.py").write_text(BACKUP)
+        (self.mut / "test_either.py").write_text(EITHER_TESTS)
+        both = ("calc.py:a + b=>a - b", "backup.py:a + b=>a - b")
+        code, _, _, err = self.mutate(*both, test=EITHER)
+        self.assertEqual((code, [r["outcome"] for r in self.rows()]), (1, ["survived", "survived"]), err)
+        code, _, _, err = self.mutate(*both, test=EITHER, together=True)
+        self.assertEqual(code, 0, err)
+        self.assertEqual([(r["mutant"], r["kind"], r["outcome"]) for r in self.rows()[2:]], [(1, "together", "killed")])
+        self.assertEqual(((self.mut / "calc.py").read_text(), (self.mut / "backup.py").read_text()), (CALC, BACKUP))
+
+    def test_together_a_moved_step_is_killed_and_the_file_restored(self):
+        (self.mut / "steps.py").write_text(STEPS)
+        (self.mut / "test_steps.py").write_text(STEPS_TESTS)
+        cut = self.mfile("steps.py", '    log.append("open")\n', "")
+        put = self.mfile("steps.py", '    log.append("close")\n', '    log.append("close")\n    log.append("open")\n')
+        code, _, _, err = self.mutate(test=ORDER, files=(cut, put), together=True)
+        self.assertEqual(code, 0, err)
+        row = self.rows()[0]
+        self.assertEqual((row["kind"], row["parts"], row["files"], row["outcome"]),
+                         ("together", ["text", "text"], ["steps.py"], "killed"))
+        self.assertEqual((self.mut / "steps.py").read_bytes(), STEPS.encode())
+
+    def test_together_the_row_holds_its_parts_kinds_the_union_of_files_and_a_digest(self):
+        patch = self.patch_file({"extra.py": "X = 1\n"})
+        part = self.mfile("calc.py", "    return a * 2\n", "    return a * 3\n")
+        code, _, _, err = self.mutate("calc.py:a + b=>a - b", str(patch), files=(part,), together=True)
+        self.assertEqual(code, 0, err)
+        rows = self.rows()
+        self.assertEqual([(r["mutant"], r["kind"], r["parts"], r["files"], r["outcome"]) for r in rows],
+                         [(1, "together", ["text", "patch", "text"], ["calc.py", "extra.py"], "killed")])
+        digests = [mutate.parse(self.mut, "calc.py:a + b=>a - b", self.mut)["digest"],
+                   mutate.parse(self.mut, str(patch), self.mut)["digest"],
+                   mutate.parse_file(self.mut, str(part), self.mut)["digest"]]
+        want = hashlib.sha256("\0".join(digests).encode()).hexdigest()[:12]
+        self.assertEqual((len(rows[0]["digest"]), rows[0]["digest"]), (12, want))
+        self.assertNotIn("a * 3", runs.path(self.q, self.run_id).read_text())  # never a part's text
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+        self.assertFalse((self.mut / "extra.py").exists())
+
+    def test_together_a_later_part_finds_its_old_text_in_what_an_earlier_one_wrote(self):
+        code, _, _, err = self.mutate("calc.py:a + b=>a ^ b", "calc.py:a ^ b=>a % b", together=True)
+        self.assertEqual((code, [r["outcome"] for r in self.rows()]), (0, ["killed"]), err)
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+
+    def test_together_a_patch_and_a_substitution_on_one_file_are_refused(self):
+        patch = self.patch_file({"calc.py": CALC.replace("a * 2", "a * 3")})
+        self.assertIn("calc.py", self.refused("calc.py:a + b=>a - b", str(patch)))
+
+    def test_together_a_substitution_whose_old_text_an_earlier_one_removed_is_refused(self):
+        self.refused("calc.py:a + b=>a - b", "calc.py:return a + b=>return 0")
+
+    def test_together_two_spellings_of_one_file_are_one_file(self):
+        self.refused("calc.py:a + b=>a - b", "./calc.py:return a + b=>return 0")
+        patch = self.patch_file({"calc.py": CALC.replace("a * 2", "a * 3")})
+        self.assertIn("calc.py", self.refused(str(patch), "./calc.py:a + b=>a - b"))
+        code, _, _, err = self.mutate("./calc.py:a + b=>a ^ b", "./calc.py:a ^ b=>a % b", together=True)
+        self.assertEqual((code, [(r["files"], r["outcome"]) for r in self.rows()]), (0, [(["calc.py"], "killed")]), err)
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+
+    def test_together_with_one_mutant_is_refused(self):
+        self.refused("calc.py:a + b=>a - b")
+
+    def test_together_a_part_that_does_not_apply_restores_the_tree_and_refuses(self):
+        patch = self.patch_file({"extra.py": "X = 1\n"})
+        real = mutate.git
+
+        def failing(root, *args, **kw):
+            if args[:1] == ("apply",) and not args[1].startswith("-"):
+                return subprocess.CompletedProcess(args, 1, "", "error: refused here")
+            return real(root, *args, **kw)
+        before = self.tree()
+        with mock.patch.object(mutate, "git", failing):
+            code, _, _, err = self.mutate("calc.py:a + b=>a - b", str(patch), together=True)
+        self.assertEqual(code, 2, err)
+        self.assertEqual(self.rows(), [])
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+        self.assertEqual(self.tree(), before)
+
+
+class TogetherParts(unittest.TestCase):
+    """`mutate.together` on plain parts: the order checks, the union of files and the digest."""
+
+    @staticmethod
+    def sub(rel: str, old: bytes, new: bytes) -> dict:
+        return {"kind": "text", "files": [rel], "old": old, "new": new, "label": f"mutant {old!r}",
+                "digest": hashlib.sha1(old + new).hexdigest()[:12]}
+
+    def test_together_an_old_text_only_an_earlier_part_makes_is_found(self):
+        texts = {"a.py": b"x = 1\n"}
+        parts = [self.sub("a.py", b"x = 1", b"y = 1"), {"kind": "patch", "files": ["c.py", "b.py"], "digest": "p" * 12},
+                 self.sub("a.py", b"y = 1", b"y = 2")]
+        m = mutate.together(parts, texts)
+        self.assertEqual((m["kind"], m["parts"], m["files"]),
+                         ("together", ["text", "patch", "text"], ["a.py", "c.py", "b.py"]))
+        self.assertEqual(m["digest"], hashlib.sha256("\0".join(p["digest"] for p in parts).encode()).hexdigest()[:12])
+        with self.assertRaises(QueueError) as cm:
+            mutate.together([self.sub("a.py", b"x = 1", b"y = 1"), self.sub("a.py", b"x = 1", b"z")], texts)
+        self.assertEqual(cm.exception.code, 2)
 
 
 LIB_SH = 'greet() {\n    echo "hello $1"\n}\n'

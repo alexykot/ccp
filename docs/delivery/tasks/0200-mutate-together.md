@@ -1,7 +1,7 @@
 ---
 task_id: 0200-mutate-together
 title: ccp mutate --together applies the given mutants as one, so a mutant can move lines
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0198-architect-runs-in-its-own-worktree"]
@@ -10,7 +10,7 @@ review_point: R14
 paths: ["ccp/mutate.py", "ccp/cli.py", "docs/spec/03-quality.md", "docs/cli/03-quality.md", "tests/test_mutate.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0200-mutate-together
@@ -132,4 +132,27 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- `mutate.together(parts, texts)` is the decision on plain values: the fewer-than-two refusal, the
+  file-sharing refusal (any part other than a substitution sharing a file), the in-order check of
+  substitutions on one file and the row's `parts`, `files` (union, order of first touch) and `digest`.
+  `_run` parses the substitutions without the per-file count check under `--together` (`parse` and
+  `parse_file` take `count`), so a later part may find an old text an earlier one wrote; a lone
+  substitution on its file is then checked against the unmutated file by `together`, as before.
+- The fewer-than-two refusal comes after the run, worktree and per-part checks, still before
+  anything runs (no unmutated run, no log).
+- `_apply` applies a `together` mutant's parts in order under the one snapshot `_run` already takes
+  of `m["files"]`; a part that does not apply raises exit 2 and the existing `finally` restores the
+  tree. The row gains `parts` only for a `together` mutant.
+- Beyond the six Scope tests: a later part editing what an earlier one wrote, a part that does not
+  apply (exit 2, tree restored), and `together` on plain parts.
+- The move test alone does not catch "`--together` applies only its first part" (deleting the step
+  already fails its test); the two-file test does (mt-02 asks for one of the two).
+- Fix round 1 (review MINOR-1): `together` and `_run`'s `texts` key files by `_key(rel)`
+  (`os.path.normpath`, POSIX separators), so `./calc.py` and `calc.py` are one file for the in-order
+  check and the file-sharing refusal; the row's `files` holds that one spelling. A single mutant's
+  `files` and every part's digest keep the path as given. Test:
+  `test_together_two_spellings_of_one_file_are_one_file`.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #239 head `c055e83` (squash `da1607f`): APPROVE. Passed: mt-01, mt-02, mt-03, mt-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0200-mutate-together.json.
+
