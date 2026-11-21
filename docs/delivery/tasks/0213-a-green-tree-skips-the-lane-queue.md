@@ -1,7 +1,7 @@
 ---
 task_id: 0213-a-green-tree-skips-the-lane-queue
 title: Confirming a head whose gate is already recorded green does not queue for the exclusive lane
-status: pending
+status: done
 kind: feature
 depends_on: ["0199-suite-wait-auto"]
 clashes_with: ["0238-the-runner-runs-marked-checks-before-verify"]
@@ -179,3 +179,5 @@ PROPOSED:
   dirty check rather than from the held lock alone.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #265 head `b6332c4` (squash `02c9259`): APPROVE. Passed: gt-01, gt-02, gt-03, gt-04, suite-01. Gate: `ccp suite run --lane gate --wait auto` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0213-a-green-tree-skips-the-lane-queue.json.
+
