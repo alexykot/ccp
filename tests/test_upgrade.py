@@ -333,14 +333,51 @@ class Record(UpgradeFixture, unittest.TestCase):
         self.assertEqual(body["task"], "0001-alpha")
         self.assertEqual(self.plane_json()["upgrade"]["declined"], {"0001-alpha": "not for us"})
 
-    def test_the_file_is_rewritten_with_two_space_indent_and_its_keys_in_order(self):
-        self.product.write("docs/delivery/plane.json", json.dumps({"project_id": "demo", "zeta": {"a": 1},
-                                                                   "alpha": {"off": True}}))
+    def test_a_one_line_file_gains_the_entry_inline_and_keeps_its_keys_in_order(self):
+        before = json.dumps({"project_id": "demo", "zeta": {"a": 1}, "alpha": {"off": True}})
+        self.product.write("docs/delivery/plane.json", before)
         self.assertEqual(self.ccp("upgrade", "decline", "0001-alpha", "--reason", "not for us")[0], 0)
-        data = {"project_id": "demo", "zeta": {"a": 1}, "alpha": {"off": True},
-                "upgrade": {"declined": {"0001-alpha": "not for us"}}}
         self.assertEqual((self.product.root / "docs/delivery/plane.json").read_text(),
-                         json.dumps(data, indent=2) + "\n")
+                         before[:-1] + ', "upgrade": {"declined": {"0001-alpha": "not for us"}}}')
+
+    def test_take_then_decline_changes_only_the_upgrade_entry_and_keeps_every_other_line(self):
+        path = self.product.root / "docs/delivery/plane.json"
+        lines = ["{", '  "project_id": "demo",', '  "language": "none",',
+                 '  "suite": {"lanes": {"gate": ["true"], "full": ["a", "b"]}, "count_re": null},',
+                 '  "adr": {"dir": "docs/adr", "index": null, "strict": false},', '  "architect": false', "}"]
+        path.write_bytes(("\n".join(lines) + "\n").encode())
+        self.assertEqual(self.ccp("upgrade", "take", "0001-alpha", "--reason", "done by hand")[0], 0)
+        kept = [*lines[:-2], lines[-2] + ","]
+        after = path.read_text().split("\n")
+        self.assertEqual(after[:-3], kept)
+        self.assertEqual(after[-2:], ["}", ""])
+        self.assertEqual(json.loads("{" + after[-3] + "}"), {"upgrade": {"taken": {"0001-alpha": "done by hand"}}})
+        self.assertEqual(self.ccp("upgrade", "decline", "0001-alpha", "--reason", "not for us")[0], 0)
+        after = path.read_text().split("\n")
+        self.assertEqual(after[:-3], kept)
+        self.assertEqual(after[-2:], ["}", ""])
+        config.load(self.product.root)
+        upgrade = self.plane_json()["upgrade"]
+        self.assertEqual((upgrade["taken"], upgrade["declined"]), ({}, {"0001-alpha": "not for us"}))
+        self.assertEqual(json.loads("{" + after[-3] + "}"), {"upgrade": upgrade})
+
+    def test_a_file_with_crlf_line_ends_keeps_them(self):
+        path = self.product.root / "docs/delivery/plane.json"
+        before = b'{\r\n  "project_id": "demo"\r\n}\r\n'
+        path.write_bytes(before)
+        self.assertEqual(self.ccp("upgrade", "take", "0001-alpha", "--reason", "done by hand")[0], 0)
+        entry = b',\r\n  "upgrade": {"taken": {"0001-alpha": "done by hand"}}'
+        self.assertEqual(path.read_bytes(), before.replace(b'"demo"', b'"demo"' + entry))
+
+    def test_a_plane_json_the_editor_cannot_change_in_place_is_refused_and_left_as_it_was(self):
+        path = self.product.root / "docs/delivery/plane.json"
+        before = path.read_bytes()
+        with mock.patch("ccp.jsonedit.set_member", side_effect=ValueError("no")):
+            code, body, err = self.ccp("upgrade", "decline", "0001-alpha", "--reason", "not for us")
+        self.assertEqual((code, body), (2, None))
+        self.assertIn("could not be edited in place", err)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(list(path.parent.glob("*.tmp")), [])
 
     def test_a_bad_record_is_refused_and_nothing_is_written(self):
         path = self.product.root / "docs/delivery/plane.json"

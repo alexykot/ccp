@@ -121,4 +121,27 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- `ccp/jsonedit.py` (new): a recursive scanner records each object member's key and value spans;
+  `set_member` and `delete_member` splice only those spans and then check `json.loads(result)` against
+  the same edit on the loaded data, raising `ValueError` on a mismatch (and on text that is not one JSON
+  object, or a path through a value that is not an object).
+- Choices where the Scope was open, each the narrowest reading:
+  - a new member on its own line takes that line's break too: `\r\n` when the last member's line ends
+    with one, so a CRLF file stays CRLF; `_record` reads and writes plane.json as bytes (UTF-8) for the
+    same reason, where `read_text` would turn CRLF into LF;
+  - deleting the only member of an object leaves `{}` (the whitespace inside it goes too);
+  - a repeated key: `set_member` replaces the last one and `delete_member` removes every one, as
+    `json.loads` reads them;
+  - `delete_member` on a path that does not lead to an object returns the text unchanged (the key is not
+    there); `set_member` raises on one.
+- `_record` keeps its existing refusal for an `upgrade` or `upgrade.<key>` that is not an object, checked
+  on the loaded data before the edit; it no longer mutates the loaded data.
+- `tests/test_upgrade.py`: `test_the_file_is_rewritten_with_two_space_indent_and_its_keys_in_order`
+  pinned the old whole-file rewrite, which this task removes; it is replaced by
+  `test_a_one_line_file_gains_the_entry_inline_and_keeps_its_keys_in_order`, which pins the exact bytes
+  after the command (the key order assertion is kept).
+- Fix round 1: `test_every_member_of_a_repeated_name_goes` gains two cases where the repeated name ends
+  the object (`{"b": 2, "a": 1, "a": 3}` and `{"a": 1, "a": 2}`). There the rescan after each drop is
+  what keeps the second drop's offsets right; the one case before left the stale offsets valid by chance.
+
 ## Verification notes
