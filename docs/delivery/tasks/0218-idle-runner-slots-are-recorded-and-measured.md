@@ -1,7 +1,7 @@
 ---
 task_id: 0218-idle-runner-slots-are-recorded-and-measured
 title: A runner slot left with nothing ready is recorded, and health reports the slot-hours idle
-status: pending
+status: done
 kind: feature
 depends_on: ["0202-forecast-and-health-report-task-supply"]
 clashes_with: ["0243-one-source-for-syntax-events-and-config"]
@@ -11,7 +11,7 @@ paths: ["ccp/cli.py", "ccp/health.py", "scripts/observability/lib.py", "contract
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0218-idle-runner-slots-are-recorded-and-measured
@@ -190,3 +190,5 @@ PROPOSED:
   runner definition's `--allow-overdue` example now passes `--holder <your slot>`.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #269 head `e57a3bd` (squash `fe80e1a`): APPROVE. Passed: st-01, st-02, st-03, st-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0218-idle-runner-slots-are-recorded-and-measured.json.
+
