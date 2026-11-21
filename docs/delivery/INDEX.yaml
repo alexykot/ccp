@@ -1047,3 +1047,28 @@ tasks:
     title: ccp verify spec-text finds a signed passage that lands outside the SPEC, such as in a contract
     depends_on: []
     path: tasks/0209-spec-text-finds-signed-contract-text.md
+  - id: 0240-plane-workers-run-the-head
+    status: pending
+    title: The plane's own workers run the head they change, and briefs name commands rather than restating their conditions
+    depends_on: []
+    path: tasks/0240-plane-workers-run-the-head.md
+  - id: 0241-gate-module-tests-wiring-only
+    status: pending
+    title: The gate's slowest module tests the catch-up wiring only, and tests name fixture facts through code
+    depends_on: [0240-plane-workers-run-the-head, 0242-retire-restructure-scaffolding-and-queue-markers, 0243-one-source-for-syntax-events-and-config, 0244-tasks-check-runs-dry-runs]
+    path: tasks/0241-gate-module-tests-wiring-only.md
+  - id: 0242-retire-restructure-scaffolding-and-queue-markers
+    status: pending
+    title: Retire the SPEC restructure's scaffolding and the queue state markers, and fix stale package and design docs
+    depends_on: []
+    path: tasks/0242-retire-restructure-scaffolding-and-queue-markers.md
+  - id: 0243-one-source-for-syntax-events-and-config
+    status: pending
+    title: One source for plane.json reads, command syntax, the event registry and the detached launch, and multi-line schemas
+    depends_on: [0203-follow-up-fixes]
+    path: tasks/0243-one-source-for-syntax-events-and-config.md
+  - id: 0244-tasks-check-runs-dry-runs
+    status: pending
+    title: A dod_check's dry run is run and recorded by ccp, stale measured Context is flagged, and quoted rulings raise no number warning
+    depends_on: []
+    path: tasks/0244-tasks-check-runs-dry-runs.md
