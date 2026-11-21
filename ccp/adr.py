@@ -793,8 +793,9 @@ def untasked(cfg: Config, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """§26.4, §27.1 task supply: the `not_built` decisions of `accepted` and `in-progress` ADRs that no task
     cites, as `[{"adr": "ADR-0040", "decisions": ["1", "2"]}]` by ADR number, each ADR's decisions in the
     body's order. A ref with a decision (`0040 D2`) cites that decision; a ref naming only the ADR
-    (`ADR-0040`, `0040`) cites all of them; a `dropped` task cites none. Reads only; `[]` without the `adr`
-    block (or its directory)."""
+    (`ADR-0040`, `0040`) or its file (`docs/adr/0040-x.md`) cites all of them; a section-anchor ref
+    (`0023 Implementation 10`) cites no decision; a `dropped` task cites none. Reads only; `[]` without the
+    `adr` block (or its directory)."""
     from ccp import tasklog  # noqa: PLC0415  (as in unbuilt_cited)
 
     if cfg.adr is None or not adr_dir(cfg).is_dir():
@@ -809,10 +810,11 @@ def untasked(cfg: Config, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
             r = ids.parse_adr_ref(ref)
             if r is None:
                 continue
-            if r.decision is None:
-                whole.add(r.number)
-            else:
+            if r.decision is not None:
                 cited.add((r.number, r.decision))
+            elif r.section is None or ids.adr_file_re.match(Path(str(ref).strip()).name):
+                whole.add(r.number)
+            # else a section anchor (`0023 Implementation 10`) cites no decision (§7)
     out: list[dict[str, Any]] = []
     for m in sorted(load(cfg)[0], key=lambda x: x["_number"]):
         if m.get("status") not in ("accepted", "in-progress") or m["_number"] in whole:

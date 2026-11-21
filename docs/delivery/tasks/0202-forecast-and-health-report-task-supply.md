@@ -147,4 +147,10 @@ Fix round 1 (review of PR #240):
   forecast; a `D2a`-style decision id in the health line. The text tests now assert the count and the ADR
   list, not the whole prose line.
 
+Fix round 2 (review-2 of PR #240):
+- `adr.untasked`: a ref with a section anchor (`0023 Implementation 10`, §7's third ref shape) now cites no
+  decision; before, it took every decision of its ADR out of the list. A ref naming the ADR file
+  (`docs/adr/0023-x.md`, `adr/0023-x.md`) still cites the whole ADR, as §7 says. Tests: a section-anchor ref
+  leaves the decisions listed; file refs take them out.
+
 ## Verification notes

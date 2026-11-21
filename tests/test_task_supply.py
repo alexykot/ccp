@@ -77,6 +77,18 @@ class Untasked(Base):
         self.task("0002-b", "pending", ["0002"])
         self.assertEqual(self.untasked(), [])
 
+    def test_a_section_anchor_ref_cites_no_decision(self):
+        self.adr(1, "accepted", ["not_built", "not_built"])
+        self.task("0001-a", "pending", ["0001 Implementation 2"])
+        self.assertEqual(self.untasked(), [{"adr": "ADR-0001", "decisions": ["1", "2"]}])
+
+    def test_a_ref_naming_the_adr_file_cites_all_its_decisions(self):
+        self.adr(1, "accepted", ["not_built", "not_built"])
+        self.adr(2, "accepted", ["not_built"])
+        self.task("0001-a", "pending", ["docs/adr/0001-a.md"])
+        self.task("0002-b", "pending", ["adr/0002-a.md"])
+        self.assertEqual(self.untasked(), [])
+
     def test_a_dropped_task_naming_only_the_adr_cites_nothing(self):
         self.adr(1, "accepted", ["not_built"])
         self.task("0001-a", "dropped", ["ADR-0001"])
