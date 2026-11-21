@@ -420,6 +420,17 @@ def text_at(cfg: Config, rev: str, rel: str) -> str | None:
     return r.stdout.decode("utf-8", errors="replace") if r.returncode == 0 else None
 
 
+def task_ids_at(cfg: Config, rev: str) -> list[str]:
+    """The ids of the tasks whose files exist in the task log at `rev` (one `git ls-tree`), in number order:
+    [] when `rev` does not resolve or holds no task log. The files' contents are `statuses_at`'s to read."""
+    r = subprocess.run(["git", "-C", str(cfg.root), "ls-tree", "--name-only", f"{rev}:{cfg.rel(cfg.tasks_dir)}"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return []
+    pat = refs.ids(cfg).task_file_re
+    return sorted(name[:-3] for name in r.stdout.splitlines() if pat.match(name))
+
+
 def statuses_at(cfg: Config, ref: str, ids: list[str]) -> dict[str, str]:
     """The canonical status each named task's file says at `ref` (one `git cat-file --batch`), by task id
     (its file name). A task with no file there, or a `ref` that does not resolve, is left out."""
