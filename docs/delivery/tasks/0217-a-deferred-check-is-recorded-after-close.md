@@ -1,7 +1,7 @@
 ---
 task_id: 0217-a-deferred-check-is-recorded-after-close
 title: A check that verify deferred can be run and recorded after its task closed
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0237-a-marked-check-merges-only-on-its-recorded-result"]
@@ -178,3 +178,5 @@ PROPOSED: (new lines after it)
   refusal's `\r` half now has a test.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #268 head `4caa736` (squash `a898ee8`): APPROVE. Passed: dl-01, dl-02, dl-03, dl-04, suite-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0217-a-deferred-check-is-recorded-after-close.json.
+
