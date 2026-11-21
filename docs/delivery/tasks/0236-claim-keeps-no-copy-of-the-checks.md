@@ -1,7 +1,7 @@
 ---
 task_id: 0236-claim-keeps-no-copy-of-the-checks
 title: Claim stops copying the check ids into queue state, and the task-state contract says so
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4"]
@@ -74,4 +74,16 @@ Measured at `8aefa59`.
 
 ## Implementation notes
 
+- 2026-11-21 (implementer): claim no longer writes `dod_checks`; `contracts/task.schema.json` drops the
+  property. Dropping it alone did not make a claimed state validate: the schema also required `goal` and
+  `created_at`, which claim never writes (nor does anything else to task state), and its
+  `additionalProperties: false` refused eight keys claim does write (`kind`, `adr_refs`, `lease_since`,
+  `claimed_at`, `pr`, `merge_sha`, `branch`, `worktree_path`). The schema now names those eight and
+  requires only `task_id`, `project_id`, `title` and `status`, so the new test holds claim to it. No
+  other writer's keys were added: the test covers what claim writes, as the task says. Task states
+  written before this keep their `dod_checks` key; nothing reads it.
+- The test validates with `ccp.verify.schema_errors`, the plane's own checker of its contracts' keywords.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #255 head `e5bf38f` (squash `f5a1b23`): APPROVE. Passed: cs-01, cs-02, suite-01, mutation. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0236-claim-keeps-no-copy-of-the-checks.json.
+
