@@ -400,6 +400,14 @@ class StarvedHours(QueueBase):
                          {"slot_hours": 2.0, "stretches": 1, "open": []})
         self.assertIsNone(health.idle_text(None))
 
+    def test_the_report_counts_from_since_else_from_adoption(self):
+        self.ledger(starved_ev(0, "runner-1"), ev(2, "runner", "stop", name="r", reason="stop", slot="runner-1"))
+        idle = lambda *a: json.loads(self.run_health("--json", *a))["task_supply"]["idle_slots"]  # noqa: E731
+        self.assertEqual(idle("--since", at(1.5))["slot_hours"], 0.5)
+        self.ledger(ev(1, "plane", "adopted", plane="abc", binding="written"))
+        self.assertEqual(idle()["slot_hours"], 1.0)
+        self.assertEqual(idle("--since", at(1.5))["slot_hours"], 0.5)
+
 
 if __name__ == "__main__":
     unittest.main()
