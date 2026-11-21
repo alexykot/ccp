@@ -1244,7 +1244,7 @@ tasks:
     path: tasks/0253-one-wait-reason-table.md
   - id: 0254-close-and-architect-share-the-unrecorded-worktree-helper
     status: pending
-    title: Close and the architect make and remove their own worktrees through one wt helper, and wt list shows a leftover arch- worktree
+    title: Close, the architect and tasks dry-run make and remove their own worktrees through one wt helper, and wt list shows a leftover arch- worktree
     depends_on: [0215-a-reused-runner-worktree-moves-to-the-tip]
     path: tasks/0254-close-and-architect-share-the-unrecorded-worktree-helper.md
   - id: 0255-test-fixtures-shared-helpers-and-one-repo-build
@@ -1284,7 +1284,7 @@ tasks:
     path: tasks/0261-a-declared-part-lane-runs-the-affected-modules.md
   - id: 0262-module-docstrings-and-house-rule-checks
     status: pending
-    title: Module docstrings carry no usage tables or restated rules, house-rule checks hold no bare test run, and E4's check holds the long-literal count
+    title: Module docstrings and the standing DoD carry no usage tables or restated rules, house-rule checks hold no bare test run, and E4's check holds the long-literal count
     depends_on: [0255-test-fixtures-shared-helpers-and-one-repo-build]
     path: tasks/0262-module-docstrings-and-house-rule-checks.md
   - id: 0263-writers-are-checked-against-their-contracts
@@ -1302,3 +1302,23 @@ tasks:
     title: The plane's gate is one lane, a worker's run waits for a held exclusive lane, and suite run names its lane once
     depends_on: []
     path: tasks/0265-one-gate-lane-and-worker-runs-wait-for-it.md
+  - id: 0266-github-knowledge-stays-in-the-pr-host-module
+    status: pending
+    title: A PR's head is fetched through the PR-host module, init grants no gh pr, and close's messages name the PR host
+    depends_on: []
+    path: tasks/0266-github-knowledge-stays-in-the-pr-host-module.md
+  - id: 0267-mutate-falls-back-to-the-language-pack
+    status: pending
+    title: ccp mutate takes its per-test command and its did-not-build patterns from the language pack unless plane.json overrides them
+    depends_on: []
+    path: tasks/0267-mutate-falls-back-to-the-language-pack.md
+  - id: 0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events
+    status: pending
+    title: The local PR record stores the plane's own state words, and each write of it records a pr ledger event
+    depends_on: []
+    path: tasks/0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events.md
+  - id: 0269-verify-actions-own-their-flags-and-prompts-link-cited-findings
+    status: pending
+    title: ccp verify refuses a flag its action does not take, and a worker prompt names the record of each finding a task cites
+    depends_on: []
+    path: tasks/0269-verify-actions-own-their-flags-and-prompts-link-cited-findings.md
