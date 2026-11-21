@@ -1,7 +1,7 @@
 ---
 task_id: 0210-a-failed-auth-probe-fires-the-blocker
 title: A claim refused by a failed auth probe fires the blocker notice
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3", "S10", "S30"]
@@ -10,7 +10,7 @@ paths: ["ccp/lifecycle.py", "ccp/notify.py", "docs/spec/01-model.md", "docs/spec
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0210-a-failed-auth-probe-fires-the-blocker
@@ -178,3 +178,5 @@ PROPOSED:
     (claim, then a failing probe, then the same claim again: resumed, exit 0, nothing sent).
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #261 head `8d6e339` (squash `837329f`): APPROVE. Passed: au-01, au-02, au-03, au-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0210-a-failed-auth-probe-fires-the-blocker.json.
+
