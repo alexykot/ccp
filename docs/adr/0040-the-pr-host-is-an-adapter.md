@@ -22,7 +22,7 @@ decisions:
   - "D3 not_built"
   - "D4 not_built"
   - "D5 not_built"
-  - "D6 not_built"
+  - "D6 built"
   - "D7 built"
 supersedes: ["ADR-0029 D1"]
 ---

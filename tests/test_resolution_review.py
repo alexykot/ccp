@@ -165,7 +165,7 @@ class Resolution(ToolkitFixture, unittest.TestCase):
         self.assertEqual((run["phase"], run["mode"], run["head"]), ("review", "resolution", h2))
         text = Path(body["prompt_path"]).read_text()
         self.assertIn(f"git show --remerge-diff {h2}", text)
-        self.assertNotIn("gh pr diff", text)  # not the full diff
+        self.assertNotIn(" pr diff ", text)  # not the full diff
 
     def test_the_report_contract_lists_the_two_lines_in_this_mode_only(self):
         from ccp import config, prompt
@@ -182,7 +182,8 @@ class Resolution(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", h2)
         self.assertEqual(code, 0, out + err)
         text = Path(body["prompt_path"]).read_text()
-        self.assertIn("gh pr diff 7", text)
+        from ccp import config, prompt
+        self.assertIn(f"`{prompt.ccp_command(config.load(self.runner))} pr diff 7`", text)
         self.assertNotIn("remerge-diff", text)
         self.assertNotIn("mode", json.loads((self.q / "runs/0002-second/review-2.json").read_text()))
 
