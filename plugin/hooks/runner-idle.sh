@@ -19,8 +19,9 @@
 # change in what the harness sends can be seen.
 # After 3 consecutive blocks on the same ready set (SPEC §18.2) it lets the runner idle, so a
 # runner that genuinely cannot proceed reports instead of looping.
-# With the architect seat adopted in the product (SPEC §19.6, §19.11) it also asks `ccp tasks next`:
-# a report overdue for triage waits on the lead (let it idle); a pass due tells it to start the pass.
+# With the architect seat adopted in the product (SPEC §19.6, §19.11) it also asks `ccp tasks next`, and
+# asks it too while every task the runner holds waits (none on quota): a report overdue for triage waits
+# on the lead (let it idle); a pass due tells it to start the pass.
 #
 # settings.json:
 #   {"hooks": {"TeammateIdle": [{"hooks": [{"type": "command", "timeout": 20,
@@ -246,26 +247,31 @@ def worker_open(tid):
             return True
     return False
 
+def task_open(tid):
+    return all(s not in ("done", "dropped") for s in (queue_status(tid), tasks.get(tid, {}).get("status")))
+
+def holder(tid):
+    st = _read(root / "tasks" / f"{tid}.json")
+    return st.get("lease_holder") if isinstance(st, dict) else None
+
 if SLOT is None and not parallel_on:
     # SPEC §18.2: one runner holding a task (work.json `in_flight`, §16.3) not done or dropped is ready only
     # for that task: its claim of another refuses (§16.3). When every task it holds waits, or is held by a
     # question or a gate, nothing is ready and it is let idle, as with an empty ready set.
-    def task_open(tid):
-        return all(s not in ("done", "dropped") for s in (queue_status(tid), tasks.get(tid, {}).get("status")))
     holding = [t for t in (str(x) for x in work.get("in_flight") or []) if task_open(t)]
     if holding:
         ready = [t for t in ready if t in holding]
 
+def ask_next():  # it samples no allowance
+    return subprocess.run([ccp, "--root", cwd, "tasks", "next", "--scope", ",".join(scope), "--json"], cwd=cwd,
+                          capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(root)})
+
 n = None
-if ready and (parallel_on or has_architect):  # one `ccp tasks next` for both uses (it samples no allowance)
-    n = subprocess.run([ccp, "--root", cwd, "tasks", "next", "--scope", ",".join(scope), "--json"], cwd=cwd,
-                       capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(root)})
+if ready and (parallel_on or has_architect):  # one `ccp tasks next` for both uses
+    n = ask_next()
 if SLOT is not None and ready:
     # SPEC §16.5: a slot's runner holds one task: it is ready unless it waits (or its worker works); a
     # runner holding none is ready for the task `ccp tasks next` hands out now, to claim as its slot.
-    def holder(tid):
-        st = _read(root / "tasks" / f"{tid}.json")
-        return st.get("lease_holder") if isinstance(st, dict) else None
     flight = [str(x) for x in work.get("in_flight") or []]
     mine = [t for t in flight if holder(t) == SLOT]
     if mine:
@@ -288,6 +294,13 @@ elif parallel_on and ready:
         nxt = None
     new = [nxt["task_id"]] if isinstance(nxt, dict) and nxt.get("task_id") in ready and nxt["task_id"] not in flight else []
     ready = held_ready + new
+if not ready and n is None and has_architect:
+    # SPEC §18.2, §19.6: nothing is ready, but the runner (its slot, with several) holds in-flight tasks that
+    # all wait: a due pass is work it can do meanwhile, so it asks `next` all the same. A held task waiting on
+    # quota lets it idle (a pass would spend the allowance that is out); a runner holding nothing is unchanged.
+    own = [t for t in (str(x) for x in work.get("in_flight") or []) if task_open(t) and (SLOT is None or holder(t) == SLOT)]
+    if own and not any(runtime_wait(t) == "quota" for t in own):
+        n = ask_next()
 if n is not None and has_architect and n.returncode == 4:
     try:
         block = json.loads(n.stdout).get("architect") or {}
