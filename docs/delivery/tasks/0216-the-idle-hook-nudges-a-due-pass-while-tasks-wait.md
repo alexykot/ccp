@@ -1,7 +1,7 @@
 ---
 task_id: 0216-the-idle-hook-nudges-a-due-pass-while-tasks-wait
 title: The runner-idle hook nudges a due architect pass while the runner holds only waiting tasks
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S18", "S19"]
@@ -10,7 +10,7 @@ paths: ["plugin/hooks/runner-idle.sh", "docs/spec/02-delivery.md", "tests/test_t
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0216-the-idle-hook-nudges-a-due-pass-while-tasks-wait
@@ -157,3 +157,5 @@ PROPOSED:
   (2) still makes the triage overdue with two merges.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #267 head `17a2c97` (close's catch-up of the approved `4fc944c`, gate run st-20261121T132934Z-d4e1fb) (squash `24ffb14`): APPROVE. Passed: ih-01, ih-02, ih-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0216-the-idle-hook-nudges-a-due-pass-while-tasks-wait.json.
+
