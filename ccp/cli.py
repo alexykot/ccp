@@ -268,6 +268,15 @@ def cmd_tasks_check(cfg: config.Config, a: argparse.Namespace) -> int:
     return code
 
 
+def cmd_tasks_dry_run(cfg: config.Config, a: argparse.Namespace) -> int:
+    from ccp import dryrun  # noqa: PLC0415
+    try:
+        return dryrun.dry_run(cfg, a.task, a.write)
+    except QueueError as e:
+        print(f"ccp tasks dry-run: {e}", file=sys.stderr)
+        return e.code
+
+
 def cmd_tasks_index(cfg: config.Config, a: argparse.Namespace) -> int:
     gone = tasklog.missing_task_files(cfg)
     if gone:
@@ -1087,6 +1096,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help="with --lease: judge the staged change instead, when HEAD is on the integration branch "
                         "(the commit hook)")
     p.set_defaults(fn=cmd_tasks_check)
+    p = t.add_parser("dry-run", help="run each dod_check step that is one backticked command, at the integration tip "
+                                     "in a temporary worktree, and print what it printed (SPEC §21.1; needs QUEUE_ROOT; "
+                                     "exit 3: the task is done, dropped or claimed)")
+    p.add_argument("task", help="a task id or NNNN")
+    p.add_argument("--write", action="store_true",
+                   help="write each run check's dry-run record into the task file, replacing the one there")
+    p.set_defaults(fn=cmd_tasks_dry_run)
     p = t.add_parser("index", help="regenerate INDEX.yaml")
     p.add_argument("--stdout", action="store_true", help="print instead of writing")
     p.set_defaults(fn=cmd_tasks_index)

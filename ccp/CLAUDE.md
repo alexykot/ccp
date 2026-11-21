@@ -10,7 +10,8 @@ normative, and a module that disagrees with it is the bug.
   (the product root and its docs/delivery/plane.json), `envvars.py` (the plane's `CCP_*` environment
   variables, read and set in one place), `refs.py` (every id and reference pattern), `init.py`
   (`ccp init`: a product adopted in one command, §4.3, §8.3).
-- **Durable formats:** `tasklog.py` (task files, §5.6), `taskmigrate.py` (an earlier plane generation's task
+- **Durable formats:** `tasklog.py` (task files, §5.6), `dryrun.py` (`ccp tasks dry-run`: a task's check commands run at the
+  integration tip and their dry-run records written, §21.1), `taskmigrate.py` (an earlier plane generation's task
   files, converted in place, §5.3), `adr.py` (ADRs, §6), `reviewpoints.py`,
   `rules.py` (house rules, the starter set and budgets), `pkgdocs.py`, `docrules.py` and `doclang/` (doc checks).
 - **The runtime queue:** `queue.py` (QUEUE_ROOT, the ledger, the runner's work.json), `lifecycle.py` (claim,

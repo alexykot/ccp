@@ -517,9 +517,11 @@ Choosing mutants is the seat's; the plane ships no mutation operators.
   citation (§19.6).
 
 It warns, without failing, when a task not yet done names a later task as a prerequisite in prose:
-the prerequisite goes in `depends_on` instead. For each review point with pending tasks it also notes the
+the prerequisite goes in `depends_on` instead. It also warns about a task not yet done whose Context says ``Measured at `<sha>` `` when a commit since that sha changed one of the task's `paths`, naming the commits. For each review point with pending tasks it also notes the
 longest `depends_on` chain and the width at each depth, and warns when the chain is at least 3 tasks and
 the point has fewer than 2 tasks per depth on average. Inline `# comments` in frontmatter are ignored.
+
+**`ccp tasks dry-run <id> [--write]`** runs, in a temporary worktree detached at `origin/<integration_branch>` and removed afterwards, each `dod_check` step that is one backticked command and nothing else, and prints, per check, each command's exit code, its output's line count and its first line; any other step is listed as not run. With `--write` it writes each check's ``dry run (`<tip sha>`): …`` line from that output, replacing one already there, and changes nothing else in the file. It refuses a task that is `done`, `dropped` or claimed (§10.5).
 
 ### 21.2 `ccp docs check`
 
