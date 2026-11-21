@@ -77,4 +77,9 @@ Measured at `8aefa59`.
 
 ## Implementation notes
 
+- `graph.cycles` is `dependency_cycles`'s walk moved unchanged; `dependency_cycles` keeps its signature and builds the map.
+- `graph.closure(deps, start)` returns what `start` depends on, a dependency that is not a key included and not followed, `start` itself only through a cycle. `scope_deps` prunes the map to out-of-scope, non-dropped dependencies and takes the closure for each open scope task, lowest number first with `setdefault`: the same set and the same needing task as the old stack walk.
+- The planner's `chain_report` builds one map within the group (self-dependencies kept) for `graph.cycles`, and derives the self-free map `_depths` reads. `_depths` stays: it is a longest-chain computation, neither of the two helpers.
+- The module docstring and `warnings()` name §21.1; `ccp/CLAUDE.md` lists `graph.py` under Helpers.
+
 ## Verification notes
