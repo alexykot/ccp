@@ -933,13 +933,18 @@ def runner_limits(root: Path) -> dict[str, int | None]:
 
 def _product_config(product_root: Path) -> Any:
     """The product's `ccp.config` Config (E16: the one reader of plane.json), or None when plane.json is missing
-    or does not load. The load's warnings are not printed."""
+    or does not load. The load's warnings are not printed, and are not marked as shown: the process's later
+    loads (`ccp.config._WARNED`) still print each once."""
     cfg = _config()
+    shown = set(cfg._WARNED)
     try:
         with redirect_stderr(io.StringIO()):
             return cfg.load(product_root)
     except Exception:  # noqa: BLE001  (no plane.json, invalid JSON, a ConfigError: the defaults, as before)
         return None
+    finally:
+        cfg._WARNED.clear()
+        cfg._WARNED.update(shown)
 
 
 def runner_worktree(root: Path) -> str | None:
