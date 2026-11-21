@@ -1,7 +1,7 @@
 ---
 task_id: 0237-a-marked-check-merges-only-on-its-recorded-result
 title: verify record and merge-ok refuse an approve whose marked check has no recorded pass at its head
-status: pending
+status: done
 kind: feature
 depends_on: ["0234-one-check-parser-and-one-file-at-rev-reader", "0235-one-approval-judge-for-merge-ok-and-verify-check", "0238-the-runner-runs-marked-checks-before-verify"]
 clashes_with: ["0217-a-deferred-check-is-recorded-after-close"]
@@ -216,3 +216,5 @@ PROPOSED:
   `ccp/prompt.py`, outside this task's paths: a follow-up.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #289 head `7b2eb45` (squash `f17d2d2`): APPROVE. Passed: mr-01, mr-02, mr-05, mr-03, mr-04, suite-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0237-a-marked-check-merges-only-on-its-recorded-result.json.
+

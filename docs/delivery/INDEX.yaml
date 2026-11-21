@@ -1183,7 +1183,7 @@ tasks:
     depends_on: []
     path: tasks/0236-claim-keeps-no-copy-of-the-checks.md
   - id: 0237-a-marked-check-merges-only-on-its-recorded-result
-    status: pending
+    status: done
     title: verify record and merge-ok refuse an approve whose marked check has no recorded pass at its head
     depends_on: [0234-one-check-parser-and-one-file-at-rev-reader, 0235-one-approval-judge-for-merge-ok-and-verify-check, 0238-the-runner-runs-marked-checks-before-verify]
     path: tasks/0237-a-marked-check-merges-only-on-its-recorded-result.md
