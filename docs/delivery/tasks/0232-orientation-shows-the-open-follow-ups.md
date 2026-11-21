@@ -99,6 +99,9 @@ PROPOSED: (new lines after it)
   warning. `followups.open_count(q)` counts `undecided` over the queue's run records; `cli._orientation_tail`
   passes it, left at 0 when the records do not read. Without a queue `--tail` prints nothing, as before.
 - The Scope's `follow-up(s)` is read as a plural: `1 follow-up open`, `2 follow-ups open`.
-- The hook (`plugin/hooks/orientation.sh`) needs no change: it appends whatever `--tail` prints.
+- The hook (`plugin/hooks/orientation.sh`) needs no code change: it appends whatever `--tail` prints.
+- Fix round 1 (review MINOR and NITs): `orientation --tail`'s help text in `ccp/cli.py` and its row in
+  `docs/cli/01-model.md` now name the open follow-ups' count; the hook's header comment names the line; the
+  tests pin only the count and the command on the last line, not the noun or its plural form.
 
 ## Verification notes

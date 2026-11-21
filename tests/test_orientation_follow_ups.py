@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -31,6 +32,10 @@ def record(run_id: str, outcomes: list[dict | None]) -> dict:
                            for n, o in enumerate(outcomes, 1)]}
 
 
+def last_line(text: str) -> str:
+    return text.rstrip("\n").rsplit("\n", 1)[-1]
+
+
 class OnPlainValues(unittest.TestCase):
     def test_no_line_at_zero(self):
         self.assertEqual(notify.orientation_tail([], "", 0), "")
@@ -40,10 +45,12 @@ class OnPlainValues(unittest.TestCase):
         text = notify.orientation_tail([notice()], "", 2)
         self.assertLess(text.index("## Pending notices"), text.index(LIST))
         self.assertEqual(text.count(LIST), 1)
-        self.assertTrue(text.endswith(f"\n2 follow-ups open: {LIST}\n"), text[-80:])
+        self.assertRegex(last_line(text), rf"^2 .*{re.escape(LIST)}$")
 
-    def test_one_open_follow_up_is_counted_in_the_singular(self):
-        self.assertEqual(notify.orientation_tail([], "", 1), f"\n\n1 follow-up open: {LIST}\n")
+    def test_one_open_follow_up_gives_the_line(self):
+        text = notify.orientation_tail([], "", 1)
+        self.assertEqual(text.count(LIST), 1)
+        self.assertRegex(last_line(text), rf"^1 .*{re.escape(LIST)}$")
 
 
 class TheCommand(unittest.TestCase):
@@ -75,7 +82,7 @@ class TheCommand(unittest.TestCase):
         code, text = self.tail()
         self.assertEqual(code, 0)
         self.assertLess(text.index("## Pending notices"), text.index(LIST))
-        self.assertTrue(text.endswith(f"\n2 follow-ups open: {LIST}\n"), text[-80:])
+        self.assertRegex(last_line(text), rf"^2 .*{re.escape(LIST)}$")
 
     def test_no_line_when_every_follow_up_is_decided(self):
         runs.save(self.q, record("0001-a/implement", [DROPPED]))
