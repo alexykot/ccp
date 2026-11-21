@@ -156,4 +156,27 @@ because their checks fail or do not exist until this task is built. Measured at 
 
 ## Implementation notes
 
+- F03: `lib._product_plane` is now `_product_config`, which loads the product's `ccp.config` Config with the load's
+  stderr warnings dropped (the way `team.max_in_flight` does) and gives None when plane.json is missing or does not
+  load. `runner_worktree` and `resolve_durable_docs_dir` read `worktrees.dir` and `task_log.dir` from it, with
+  `config.WORKTREES_DIR` and `config.TASK_LOG_DEFAULTS["dir"]` as the fallback; lib's `WORKTREES_DIR` and
+  `TASK_LOG_DIR` are gone. A plane.json that loads with an error is now the defaults too, where the raw read took
+  whatever its `worktrees.dir` said.
+- F05: `ccp/cli.py`'s docstring keeps its first line and points at `ccp -h` and docs/cli.md. `tests/test_cli_reference.py`
+  reads each table row, fenced line and paragraph of `docs/cli/*.md` as one unit: the `ccp <words>` in its code
+  spans name commands, its `--flags` belong to them. `otel` is the one command it does not walk past its name:
+  `ccp.cli.main` hands its words to `ccp.otel.main`, which has its own parser. A flag the parser marks
+  `help=SUPPRESS` is not required. `docs/cli/` was corrected: `--allow-overdue`, `--note`, `--dry-run`, `--json`,
+  `--telemetry`, `--by`, `--dir`, `--open`, the prompt's `--pr`, `--base`, `--worktree`, `--holder` and the architect's
+  `--actor`, `--apply` written in; `prompt --round`, `board build --backfill` and `ccp board html` (no such flag or
+  command) removed; `architect` and `review-points show` each have their own row.
+- F06: `lib.LEGACY_EVENT_TYPES = ("hosting",)`; `tests/test_event_registry.py` holds the schema's type and op enums and
+  `REQUIRED_PAYLOAD`'s keys to lib. The per-op schema assertions went from the four modules (the validator's own
+  assertions beside them stay).
+- F20: the six schemas are `json.dumps(indent=2, ensure_ascii=False)` plus a newline; parsed content is identical.
+- F21: `queue.spawn_detached(root, q, argv, stdout=, stderr=)`; the three callers pass their own `stdout` and `stderr`
+  (the board's `close_fds=True` was the default already).
+- E12 and E16 amended, E25 added in docs/ENGINEERING.md, and `architect.checks` E12, E16, E25 in plane.json, with the
+  text the task gives.
+
 ## Verification notes
