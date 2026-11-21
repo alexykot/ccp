@@ -125,4 +125,23 @@ PROPOSED:
 
 ## Implementation notes
 
+- `adr.parse_requires(s, adr, ids)` reads one entry: the leading `Dn` is split off and each part goes
+  through `refs.Ids.adr_link` (F02); the own decision and a same-ADR target are read as
+  `adr_link("<this ADR's id> Dn")`, so no new reference regex. An entry of neither form, or one naming a
+  whole ADR, gives None and is left out of the index (0251's check reports it).
+- `DecisionIndex.build` reads each ADR's `requires`: `required(adr)` gives the ADR's entries in file
+  order as (own decision, (ADR, decision)), `requires(adr, d)` one decision's prerequisites. `requires`
+  is in `OPTIONAL` (no undeclared-key warning) and not in `LINK_KEYS`, so it needs no reverse entry and
+  no `<ADR id>[ Dn]` reading; it is not in `LIST_KEYS` either, so a scalar reads as one entry and no new
+  check failure is added (the check is 0251's).
+- `ccp adr status N accepted` (any move to `accepted`, after the transition check) refuses with exit 2,
+  nothing written, while a target in another ADR is in a `proposed` ADR, naming each such entry and the
+  target's file. A target in the ADR itself, by either form, never holds it (F09); a target naming no ADR
+  does not either (the check's to report).
+- Schema: `requires`, an array of `$defs/requirement` (`D<n>[ <ADR id>] D<m>`).
+- ADR-0046 D1 recorded `built`. D2 is recorded `built` too, with a note that only the accept refusal is
+  built: the task cites `0046 D2` and this repo runs `adr.strict`, so `ccp verify record` refuses an
+  approve while it is `not_built`, and a done task citing it would fail `ccp adr check` on main
+  (flagged to the runner; 0251 records it built again when the check's part lands).
+
 ## Verification notes
