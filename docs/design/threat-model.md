@@ -65,8 +65,9 @@ Text an agent reads carries instructions, and the agent acts on them with the op
   `plugin/agents/delivery-reviewer.md` and `plugin/agents/delivery-verifier.md` (SPEC §2.4) leave
   out `WebFetch` and `WebSearch`; `Bash` still reaches the network.
 - **Guard:** the reviewer and the verifier are fresh subagents with none of the implementer's
-  context (SPEC §2.1, §2.3), so a change an injected implementer makes must pass two seats that did
-  not read its session. They may still read the same issue or pull-request text.
+  context (SPEC §2.1, §2.3), so a change an injected implementer makes must pass the verifier, and
+  the reviewer unless SPEC §15.2 skips its review; neither seat has read its session. They may still
+  read the same issue or pull-request text.
 - **Guard:** the architect runs headless with a read-only tool list and `DENY_TOOLS` disallowed
   (`scripts/observability/architecture_review.py`, launched by `ccp/architect.py`, SPEC §19.7). Its
   allowed `Bash` commands and the product's probes are prefix-matched, so it is not a boundary.
@@ -109,11 +110,15 @@ A seat writes a verdict, a test result or a report that no seat produced, or edi
   `ccp suite run` (`ccp/suite.py`, SPEC §14), and the verifier runs the gate itself (SPEC §15.1).
 - **Guard:** provers and `verify.skip_review` are read from the integration branch and run from the
   tip's checkout (SPEC §14.2, §15.2), so a task's diff cannot change its own verdict.
-- **Boundary:** the merge is pinned to the verified head with `--match-head-commit`
-  (`ccp/lifecycle.py`, SPEC §15.5): the forge refuses it when the head moved after the verdict.
+- **Guard:** the merge `ccp tasks close` runs is pinned to the verified head with
+  `--match-head-commit` (`ccp/lifecycle.py`, SPEC §15.5), so the forge refuses that merge when the
+  head moved after the verdict. The pin binds only that merge: a seat holding `gh pr` or `git push`,
+  which the permission block in `ccp/init.py` allows, can merge without it or push to the
+  integration branch, and the forge does not refuse.
 - **Gap:** every seat can write the queue as the same OS user, so a verdict, a ledger line or a
-  report can be written without `ccp`; the ledger is append-only by convention (house rule E7 in
-  `docs/ENGINEERING.md`), not by protection.
+  report can be written without `ccp`. Every queue write goes through `ccp` by convention (house
+  rule E7 in `docs/ENGINEERING.md`), and the ledger is append-only by rule (SPEC §23.2), not by
+  protection.
 
 ### T5 Exfiltration over the network
 
@@ -181,8 +186,7 @@ A single-operator install accepts these gaps:
   machine, as a developer's tests would.
 - **T3, destructive commands:** work lives in git and on the forge, so a lost worktree costs a
   rerun; the deny list stops the common accidents.
-- **T4, queue writes:** every seat acts for the one operator, and a forged record would show as a
-  ledger and verify record that disagree with the forge's merge history.
+- **T4, queue writes and unpinned merges:** every seat acts for the one operator.
 - **T5, the open network:** the seats need the forge, package registries and the model provider,
   and an allowlist would have to be kept by hand on one machine.
 - **T6, other products:** one operator owns every product on the host, so a crossing harms no other
@@ -200,7 +204,8 @@ Several operators, or other people's products, on one host would need at least:
 - **Sandboxed command execution**, Claude Code's command sandbox or a container per worker:
   `docs/ROADMAP.md`, "Seat isolation (later)".
 - **A network allowlist** for the seats and the gate: `docs/ROADMAP.md`, "Seat isolation (later)".
-- **Queue write protection**, so only `ccp` can write a verdict or a ledger line:
-  `docs/ROADMAP.md`, "Store" (a hosted backend behind the `Store` interface).
+- **Queue write protection**, so only `ccp` can write a verdict or a ledger line, would come from
+  the hosted backend behind the `Store` interface: `docs/ROADMAP.md`, "Store", which does not plan
+  it yet.
 - **A separate OS user or VM per product**, so one product's seats cannot read another's files:
   `docs/ROADMAP.md`, "Seat isolation (later)".

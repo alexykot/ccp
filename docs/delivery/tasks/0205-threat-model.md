@@ -161,5 +161,19 @@ trigger that would make it worth building.
 - `docs/ROADMAP.md`: the batching merge queue under Merge handling; Seat isolation as a new item after
   it. `README.md`: the threat-model bullet links the note and the roadmap. Its separate "A batching
   merge queue" bullet is unchanged (out of the Scope).
+- Fix round 1 (review of 27f508b):
+  - T4's merge pin is now a guard, not a boundary: only the merge `ccp tasks close` runs carries
+    `--match-head-commit`, and the permission block allows `gh pr` and `git push`, so a seat can
+    merge without the pin or push to the integration branch. The note says so; the label count
+    is unchanged.
+  - T4's accepted risk drops the claim that a forged record shows as a disagreement with the forge's
+    merge history (a forged approve followed by a merge leaves all three in agreement); the reason
+    kept is that every seat acts for the one operator, and it now also covers unpinned merges.
+  - T4's gap cites E7 for what it says (every queue write goes through `ccp`) and SPEC §23.2 for the
+    append-only ledger.
+  - T1: a change passes the verifier, and the reviewer unless SPEC §15.2 skips its review, instead
+    of "two seats".
+  - Queue write protection says it would come from the hosted backend behind the `Store` interface,
+    which the ROADMAP's Store item does not plan yet; the ROADMAP is unchanged.
 
 ## Verification notes
