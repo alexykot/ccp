@@ -642,6 +642,11 @@ What is built and what still stands is a field per decision, never free text.
   `retired by …` and keeps its status (`--archive` refuses it). A decision link never answers a
   whole-ADR one.
 - `amends` changes an ADR or decision without replacing it.
+- `requires` says a decision rests on another and replaces nothing; it needs no reverse link. A
+  prerequisite recorded `retired by <ADR id> Dk` (§6.3) resolves to Dk, following the chain; one
+  recorded `retired by <ADR id>`, a whole ADR, has no replacement, so `ccp adr supersede` refuses
+  without `--by` while a decision it retires is a `requires` target. No command rewrites another
+  ADR's `requires`.
 - Each link must resolve (the ADR, and the decision when named); a missing reverse link is a
   warning.
 
@@ -670,11 +675,14 @@ They regenerate `adr.index` when it is set. Call syntax: `docs/cli/01-model.md`.
 - **Failures:** frontmatter the reader cannot read; a missing required key; an id that is not the
   file's number; a status outside §6.4's; `superseded` without `superseded_by`; a link or `by`
   that resolves to no ADR or decision; a malformed or duplicate `decisions` entry, or one naming no
-  body decision; a task `adr_refs` entry citing a decision (`NNNN Dn`) its ADR does not have; a stale
-  or missing index.
+  body decision; a task `adr_refs` entry citing a decision (`NNNN Dn`) its ADR does not have; a
+  `requires` entry that is malformed, names a decision that does not exist or one in a `rejected` or
+  `withdrawn` ADR, or closes a cycle (across ADRs included); a stale or missing index.
 - **Warnings, failures under `adr.strict`:** a non-canonical decision marker; two `### Dn.` headings
-  for one id; a missing reverse link; a link key holding prose; and **in force**: a `done` task
-  citing a decision recorded `not_built`.
+  for one id; a missing reverse link; a link key holding prose; a `requires` target whose `retired
+  by` chain ends in a decision retired with no replacement, a whole-ADR `retired by` included (the
+  decision resting on it goes to the operator); and **in force**: a `done` task citing a decision
+  recorded `not_built`.
 - **Always warnings:** undeclared keys; decisions out of number order; ADRs carrying `review_points`
   with no review-point register, one warning naming them (§22.3).
 
