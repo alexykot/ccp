@@ -39,6 +39,20 @@ class StateTests(unittest.TestCase):
         self.assertEqual(ix.decisions(1)[0]["state"], None)
 
 
+class BuiltCountTests(unittest.TestCase):
+    def test_built_and_live_count_over_the_decisions_not_retired(self):
+        self.assertEqual(adr.built(meta(5, "D1 built", "D2 live", "D3 not_built", "D4 retired")), (2, 3))
+
+    def test_a_body_decision_with_no_recorded_state_counts_as_not_built(self):
+        self.assertEqual(adr.built(meta(5, "D1 built")), (1, 4))
+
+    def test_an_adr_recording_no_state_has_no_count(self):
+        self.assertIsNone(adr.built(meta(5)))
+
+    def test_all_retired_is_a_count_over_none(self):
+        self.assertEqual(adr.built(meta(5, "D1 retired", "D2 retired", body=("1", "2"))), (0, 0))
+
+
 class ResolveTests(unittest.TestCase):
     def test_a_decision_nothing_retires_resolves_to_itself(self):
         ix = adr.DecisionIndex.build([meta(5, "D1 built", "D2 retired")])
