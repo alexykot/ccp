@@ -1,5 +1,6 @@
 """SPEC §26.4, §27.1: the accepted ADR decisions that no task cites (`adr.untasked`), named by `ccp health`
-and `ccp forecast`, which only read."""
+and `ccp forecast`, which only read; §23.2: the runner slots left with nothing ready (`ccp tasks next --holder`
+records each stretch once) and the slot-hours `ccp health` reports them idle."""
 from __future__ import annotations
 
 import io
@@ -136,7 +137,8 @@ class Health(Base):
         self.assertIn("6 accepted", line)
         self.assertIn("ADR-0040 D1-D6", line)
         ts = json.loads(self.run_health("--json"))["task_supply"]
-        self.assertEqual(ts, {"untasked_decisions": [{"adr": "ADR-0040", "decisions": [str(i) for i in range(1, 7)]}]})
+        self.assertEqual(ts, {"untasked_decisions": [{"adr": "ADR-0040", "decisions": [str(i) for i in range(1, 7)]}],
+                              "idle_slots": None})
 
     def test_the_line_and_a_gap_in_the_decisions(self):
         self.adr(1, "accepted", ["not_built", "built", "not_built", "not_built"])
@@ -167,7 +169,7 @@ class Health(Base):
         self.adr(1, "accepted", ["not_built"])
         self.task("0001-a", "pending", ["0001 D1"])
         self.assertNotIn("Task supply", self.run_health())
-        self.assertEqual(json.loads(self.run_health("--json"))["task_supply"], {"untasked_decisions": []})
+        self.assertEqual(json.loads(self.run_health("--json"))["task_supply"], {"untasked_decisions": [], "idle_slots": None})
 
     def test_the_text_helper_is_silent_without_a_list(self):
         self.assertIsNone(health.supply_text(None))
@@ -240,6 +242,170 @@ class Forecast(Base):
         text = self.run_forecast()
         self.assertIn("no open task to forecast", text)
         self.assertNotIn("Not yet tasked", text)
+
+
+
+def at(hours: float) -> str:
+    """An RFC3339 time `hours` after 2026-11-20 08:00 UTC."""
+    from datetime import datetime, timedelta, timezone
+    return (datetime(2026, 11, 20, 8, tzinfo=timezone.utc) + timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def ev(hours: float, typ: str, op: str, **payload) -> dict:
+    return {"at": at(hours), "project_id": "demo", "task_id": "", "actor": "task-runner", "type": typ, "op": op,
+            "payload": payload}
+
+
+def starved_ev(hours: float, slot: str) -> dict:
+    return ev(hours, "runner", "starved", slot=slot, scope=[], in_flight=0)
+
+
+class QueueBase(Base):
+    def setUp(self):
+        super().setUp()
+        self.q = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.q, True)
+        (self.q / "observability").mkdir()
+        self.task("0001-a", "done", [])
+
+    def ledger(self, *events: dict) -> None:
+        with (self.q / "observability" / "events.jsonl").open("a") as fh:
+            fh.writelines(json.dumps(e) + "\n" for e in events)
+
+    def events(self, typ: str, op: str) -> list[dict]:
+        p = self.q / "observability" / "events.jsonl"
+        rows = [json.loads(x) for x in p.read_text().splitlines()] if p.is_file() else []
+        return [e for e in rows if (e["type"], e["op"]) == (typ, op)]
+
+    def next(self, *args: str) -> tuple[int, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err), mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)}):
+            code = cli.main(["--root", str(self.p.root), "tasks", "next", "--scope", "0001", *args])
+        return code, err.getvalue()
+
+
+class Starved(QueueBase):
+    def test_the_json_path_records_one_event_per_stretch_and_a_claim_ends_it(self):
+        self.assertEqual(self.next("--holder", "runner-1", "--json")[0], 3)
+        evs = self.events("runner", "starved")
+        self.assertEqual(len(evs), 1)
+        self.assertEqual(evs[0]["payload"], {"slot": "runner-1", "scope": ["0001"], "in_flight": 0})
+        self.assertEqual(evs[0]["task_id"], "")
+        self.assertEqual(self.next("--holder", "runner-1", "--json")[0], 3)
+        self.assertEqual(len(self.events("runner", "starved")), 1)
+        self.ledger(ev(0, "lease", "set", holder="runner-2"))  # another slot's claim leaves this stretch open
+        self.assertEqual(self.next("--holder", "runner-1", "--json")[0], 3)
+        self.assertEqual(len(self.events("runner", "starved")), 1)
+        self.ledger(ev(0, "lease", "set", holder="runner-1"))
+        self.assertEqual(self.next("--holder", "runner-1", "--json")[0], 3)
+        self.assertEqual(len(self.events("runner", "starved")), 2)
+
+    def test_the_plain_path_records_it_and_no_holder_records_nothing(self):
+        self.assertEqual(self.next()[0], 3)
+        self.assertEqual(self.next("--json")[0], 3)
+        self.assertEqual(self.events("runner", "starved"), [])
+        self.assertEqual(self.next("--holder", "runner")[0], 3)
+        self.assertEqual([e["payload"]["slot"] for e in self.events("runner", "starved")], ["runner"])
+
+    def test_the_actor_is_the_callers(self):
+        with mock.patch.dict(os.environ, {"ACTOR": "design-seat"}):
+            self.next("--holder", "runner")
+        self.assertEqual([e["actor"] for e in self.events("runner", "starved")], ["design-seat"])
+
+    def test_in_flight_counts_the_tasks_the_slot_holds(self):
+        (self.q / "work.json").write_text(json.dumps({"in_flight": ["0002-b", "0003-c", "0004-d"]}))
+        (self.q / "tasks").mkdir()
+        for tid, holder, status in (("0002-b", "runner-1", "implementing"), ("0003-c", "runner-2", "reviewing"),
+                                    ("0004-d", "runner-1", "done")):
+            (self.q / "tasks" / f"{tid}.json").write_text(json.dumps({"lease_holder": holder, "status": status}))
+        self.assertEqual(self.next("--holder", "runner-1")[0], 3)
+        self.assertEqual([e["payload"]["in_flight"] for e in self.events("runner", "starved")], [1])
+
+    def test_a_failed_write_is_a_warning_and_keeps_the_exit_code(self):
+        (self.q / "observability" / "events.jsonl").mkdir()  # the append fails on the real path: no patch
+        code, err = self.next("--holder", "runner-1")
+        self.assertEqual(code, 3)
+        self.assertIn("warning:", err)
+        self.assertEqual(self.events("runner", "starved"), [])
+
+    def test_a_found_task_records_nothing(self):
+        self.task("0002-b", "pending", [])
+        out = io.StringIO()
+        with redirect_stdout(out), redirect_stderr(io.StringIO()), mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)}):
+            self.assertEqual(cli.main(["--root", str(self.p.root), "tasks", "next", "--holder", "runner-1"]), 0)
+        self.assertEqual(self.events("runner", "starved"), [])
+
+
+class StretchOpen(unittest.TestCase):
+    def test_what_ends_a_stretch(self):
+        s = [starved_ev(0, "runner-1")]
+        self.assertTrue(health.starved_open(s, "runner-1"))
+        self.assertFalse(health.starved_open(s, "runner-2"))
+        self.assertFalse(health.starved_open([], "runner-1"))
+        for closing, closes in ((ev(1, "lease", "set", holder="runner-1"), True),
+                                (ev(1, "lease", "set", holder="runner-2"), False),
+                                (ev(1, "lease", "clear", holder="runner-1"), False),
+                                (ev(1, "runner", "stop", name="r", reason="stop", slot="runner-1"), True),
+                                (ev(1, "runner", "stop", name="r", reason="stop", slot="runner-2"), False),
+                                (ev(1, "runner", "stop", name="r", reason="stop", slot=None), True),
+                                (ev(1, "runner", "stop", name="r", reason="stop"), True),
+                                (ev(1, "runner", "spawn", name="r", scope=[], prompt_ref="p", slot="runner-1"), True),
+                                (ev(1, "runner", "spawn", name="r", scope=[], prompt_ref="p", slot="runner-2"), False),
+                                (ev(1, "runner", "spawn", name="r", scope=[], prompt_ref="p"), True),
+                                (ev(1, "runner", "rotate", name="r", reason="r", slot="runner-1"), False)):
+            self.assertEqual(health.starved_open(s + [closing], "runner-1"), not closes, closing)
+            self.assertTrue(health.starved_open(s + [closing, starved_ev(2, "runner-1")], "runner-1"))
+
+
+class StarvedHours(QueueBase):
+    NOW = health._epoch(at(10))
+
+    def test_a_stretch_closed_by_a_stop_two_hours_later(self):
+        self.ledger(starved_ev(0, "runner-1"), ev(2, "runner", "stop", name="r", reason="stop", slot="runner-1"))
+        self.assertEqual(health.starved(self.q, None, now=self.NOW), {"slot_hours": 2.0, "stretches": 1, "open": []})
+
+    def test_a_stretch_with_no_closing_event_runs_to_now_and_is_open(self):
+        self.ledger(starved_ev(0, "runner-1"), starved_ev(4, "runner-2"), starved_ev(5, "runner-2"),
+                    ev(6, "lease", "set", holder="runner-1"))
+        self.assertEqual(health.starved(self.q, None, now=self.NOW), {"slot_hours": 12.0, "stretches": 2,
+                                                                      "open": ["runner-2"]})
+
+    def test_a_stop_with_no_slot_ends_every_stretch(self):
+        self.ledger(starved_ev(0, "runner-1"), starved_ev(1, "runner-2"), ev(3, "runner", "stop", name="r", reason="stop"))
+        self.assertEqual(health.starved(self.q, None, now=self.NOW), {"slot_hours": 5.0, "stretches": 2, "open": []})
+
+    def test_only_the_part_inside_the_window_counts(self):
+        self.ledger(starved_ev(0, "runner-1"), ev(2, "lease", "set", holder="runner-1"),
+                    starved_ev(3, "runner-1"), ev(6, "lease", "set", holder="runner-1"))
+        self.assertEqual(health.starved(self.q, health._epoch(at(4)), now=self.NOW),
+                         {"slot_hours": 2.0, "stretches": 1, "open": []})
+        self.assertEqual(health.starved(self.q, None, now=self.NOW)["stretches"], 2)
+
+    def run_health(self, *args: str) -> str:
+        out = io.StringIO()
+        with redirect_stdout(out), redirect_stderr(io.StringIO()), mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)}):
+            self.assertEqual(cli.main(["--root", str(self.p.root), "health", *args]), 0)
+        return out.getvalue()
+
+    def test_the_idle_slots_line_with_a_stretch_and_not_without(self):
+        self.assertNotIn("Idle slots", self.run_health())
+        self.assertEqual(json.loads(self.run_health("--json"))["task_supply"]["idle_slots"],
+                         {"slot_hours": 0.0, "stretches": 0, "open": []})
+        self.ledger(starved_ev(0, "runner-1"), ev(2, "runner", "stop", name="r", reason="stop", slot="runner-1"))
+        line = next(x for x in self.run_health().splitlines() if x.startswith("Idle slots:"))
+        self.assertIn("2.0 slot-hour(s)", line)
+        self.assertIn("(1 stretch(es))", line)
+        self.assertEqual(json.loads(self.run_health("--json"))["task_supply"]["idle_slots"],
+                         {"slot_hours": 2.0, "stretches": 1, "open": []})
+        self.assertIsNone(health.idle_text(None))
+
+    def test_the_report_counts_from_since_else_from_adoption(self):
+        self.ledger(starved_ev(0, "runner-1"), ev(2, "runner", "stop", name="r", reason="stop", slot="runner-1"))
+        idle = lambda *a: json.loads(self.run_health("--json", *a))["task_supply"]["idle_slots"]  # noqa: E731
+        self.assertEqual(idle("--since", at(1.5))["slot_hours"], 0.5)
+        self.ledger(ev(1, "plane", "adopted", plane="abc", binding="written"))
+        self.assertEqual(idle()["slot_hours"], 1.0)
+        self.assertEqual(idle("--since", at(1.5))["slot_hours"], 0.5)
 
 
 if __name__ == "__main__":

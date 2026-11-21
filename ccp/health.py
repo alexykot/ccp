@@ -39,6 +39,9 @@ Everything comes from data the plane already holds; nothing here is a target or 
 - **runner rotation** (§10.2 step 4): the runner slots due for rotation and not rotated, and the ledger's
   rotations against tasks done.
 
+- **idle slots** (§27.1, §23.2): the slot-hours runner slots spent with nothing ready, from the ledger's
+  `runner`/`starved` events to each slot's next claim, stop or spawn (`task_supply.idle_slots` in --json).
+
 - **sign-off wait** (§27.1): per review point (the task file's `review_point`), the merged tasks that
   waited after their latest approving verdict on a `build` sign-off or a merge gate's decision, with
   the median and the longest wait, in whole minutes; a wait under one minute is left out
@@ -1163,6 +1166,11 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
             out["task_supply"] = {"untasked_decisions": adr.untasked(cfg, tasks)}
         except Exception:  # noqa: BLE001
             out["task_supply"] = None
+        if out["task_supply"] is not None:  # §27.1: the idle slots, over the window the report reads
+            try:  # nor does a damaged ledger
+                out["task_supply"]["idle_slots"] = starved(q, s if since else window) if q else None
+            except Exception:  # noqa: BLE001
+                out["task_supply"]["idle_slots"] = None
         try:  # §24.6: nor does a damaged usage sink
             out["usage_advice"], out["usage_advice_since"] = usage_advice(cfg, q, s) if q else (None, None)
         except Exception:  # noqa: BLE001
@@ -1245,6 +1253,79 @@ def supply_text(ts: dict[str, Any] | None) -> str | None:
     return f"Task supply: {sum(len(u['decisions']) for u in items)} accepted decision(s) not tasked ({shown}{more})"
 
 
+def _starved_slot(ev: dict[str, Any]) -> str | None:
+    """The slot a `runner`/`starved` event opens a stretch for, else None."""
+    p = ev.get("payload")
+    if (ev.get("type"), ev.get("op")) != ("runner", "starved") or not isinstance(p, dict) or not p.get("slot"):
+        return None
+    return str(p["slot"])
+
+
+def _closes(ev: dict[str, Any], slot: str) -> bool:
+    """§23.2, §27.1: whether the event ends `slot`'s stretch: a `lease`/`set` with that holder, or a
+    `runner`/`stop` or `runner`/`spawn` for that slot or carrying no slot (every slot)."""
+    p = ev.get("payload") if isinstance(ev.get("payload"), dict) else {}
+    kind = (ev.get("type"), ev.get("op"))
+    if kind == ("lease", "set"):
+        return str(p.get("holder") or "") == slot
+    if kind in (("runner", "stop"), ("runner", "spawn")):
+        return not p.get("slot") or str(p["slot"]) == slot
+    return False
+
+
+def starved_open(events: list[dict[str, Any]], slot: str) -> bool:
+    """§23.2: whether `slot`'s latest event among its `runner`/`starved` events and those that end a
+    stretch is a `runner`/`starved` one, so its stretch is already open (`ccp tasks next --holder`
+    writes no second one)."""
+    for ev in reversed(events):
+        if _starved_slot(ev) == slot:
+            return True
+        if _closes(ev, slot):
+            return False
+    return False
+
+
+def slot_starved(q: Path, slot: str) -> bool:
+    """`starved_open` over the queue's ledger."""
+    return starved_open(_jsonl(_events_path(q)), slot)
+
+
+def starved_stretches(events: list[dict[str, Any]], start: float | None, now: float) -> dict[str, Any]:
+    """§27.1: each stretch runs from a slot's `runner`/`starved` event to its next closing event (`_closes`),
+    or to `now` when none has come; the part at or after `start` (None: all of it) counts. `slot_hours` (2
+    decimals), `stretches` (those with a part in the window) and `open` (the slots still starved, sorted)."""
+    opened: dict[str, float] = {}
+    spans: list[tuple[float, float]] = []
+    for ev in events:
+        at = _epoch(str(ev.get("at") or ""))
+        if at is None:
+            continue
+        slot = _starved_slot(ev)
+        if slot is not None:
+            opened.setdefault(slot, at)  # a second one inside a stretch continues it
+            continue
+        for s in [s for s in opened if _closes(ev, s)]:
+            spans.append((opened.pop(s), at))
+    spans += [(t, now) for t in opened.values()]
+    lo = start if start is not None else float("-inf")
+    inside = [(max(a, lo), b) for a, b in spans if b > lo or a >= lo]
+    return {"slot_hours": round(sum(max(0.0, b - a) for a, b in inside) / 3600, 2), "stretches": len(inside),
+            "open": sorted(opened)}
+
+
+def starved(q: Path, window: float | None, now: float | None = None) -> dict[str, Any]:
+    """§27.1: the idle runner slots of the queue's ledger in the window starting at `window` (epoch seconds;
+    None: the whole ledger), as `starved_stretches` gives them."""
+    return starved_stretches(_jsonl(_events_path(q)), window, time.time() if now is None else now)
+
+
+def idle_text(idle: dict[str, Any] | None) -> str | None:
+    """§27.1: "Idle slots: 2.0 slot-hour(s) with nothing ready (1 stretch(es))"; None with no stretch."""
+    if not idle or not idle.get("stretches"):
+        return None
+    return f"Idle slots: {idle['slot_hours']:.1f} slot-hour(s) with nothing ready ({idle['stretches']} stretch(es))"
+
+
 def _table(report: dict[str, Any]) -> str:
     rows = report["tasks"]
     w = max([28] + [len(r["task_id"]) for r in rows])
@@ -1312,6 +1393,8 @@ def main(cfg: Config, a: Any) -> int:
         print(f"Budget over: {b}")
     if st := supply_text(report.get("task_supply")):
         print(st)
+    if it := idle_text((report.get("task_supply") or {}).get("idle_slots")):
+        print(it)
     for line in rotation_text(report.get("rotation")):
         print(line)
     for line in report.get("usage_advice") or []:

@@ -108,8 +108,9 @@ before anything else.
    recorded `phase`, after reading its `progress/<task_id>/*-report.md` files: a report may have
    arrived after the last runner stopped. Subagents do not survive a restart: launch the phase's
    worker again with a new `ccp prompt` (with `--supersede` if its run was opened and never started).
-2. **Next task.** `ccp tasks next`: while you are running, its scope is `work.json`'s (the lead may
-   widen or narrow it while you run). Exit 3, none ready: stop (below); with a runner slot, idle without a
+2. **Next task.** `ccp tasks next --holder <your slot>` (the single runner `--holder runner`; every `next` you
+   run names it, so a stretch with nothing ready is recorded, SPEC §23.2): while you are running, its scope
+   is `work.json`'s (the lead may widen or narrow it while you run). Exit 3, none ready: stop (below); with a runner slot, idle without a
    report while other runners still hold tasks (`work.json` `in_flight`). Exit 7: idle (several runners). **Exit 4: the architect
    blocks `next`** (below): handle it, then ask `next` again. Read its `architect:` lines on stderr
    too, and act on them now. Always take `next`'s pick: it already honours the lead's preference
@@ -208,7 +209,7 @@ runners, each holding one task. Otherwise ignore this section.
 
 1. **Your worktree.** First `ccp tasks worktree --runner <your slot>`; run every `ccp` command from the
    worktree it prints. `ccp tasks close` merges and reconciles from there, never from another runner's.
-2. **One task, claimed as your slot.** `ccp tasks next`, then `ccp tasks claim <task> --holder <your slot>`.
+2. **One task, claimed as your slot.** `ccp tasks next --holder <your slot>`, then `ccp tasks claim <task> --holder <your slot>`.
    Resume only the task your slot holds (`tasks/<id>.json` `lease_holder`).
    - `next` exit 7: nothing you may take now. Idle; another runner or the lead wakes you.
    - `claim` exit 3 "held by <slot>": another runner won the race for it. Run `next` again.
@@ -260,7 +261,7 @@ runs with `QUEUE_ROOT` set and `--root` your runner worktree.
   lead, so stop and report (below).
 - **An `architect:` notice on stderr** (a pass due within its grace, a report awaiting triage):
   do the same now, without waiting for the block.
-- `ccp tasks next --allow-overdue "<reason>"` overrides one block. Use it only when the lead tells
+- `ccp tasks next --holder <your slot> --allow-overdue "<reason>"` overrides one block. Use it only when the lead tells
   you to, with the lead's reason; it is recorded as a friction note for the next pass.
 - You never triage, create tasks from a report, or edit the house rules: the lead does.
 

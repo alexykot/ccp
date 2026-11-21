@@ -99,6 +99,28 @@ def _architect_gate(cfg: config.Config, a: argparse.Namespace, scope: list[str] 
     return 4
 
 
+def _record_starved(cfg: config.Config, a: argparse.Namespace, q: str | None, scope: list[str] | None,
+                    sel: dict) -> None:
+    """§23.2, §27.1: `next --holder <slot>` found nothing ready (exit 3): one `runner`/`starved` event per
+    stretch, none while the slot's stretch is open (`health.starved_open`). A failed write is a warning."""
+    slot = getattr(a, "holder", None)
+    if not slot or not q:
+        return
+    from ccp import health  # noqa: PLC0415
+    from ccp.queue import emit, load_task_state  # noqa: PLC0415
+    try:
+        root = Path(q)
+        if not root.is_dir():
+            raise QueueError(f"QUEUE_ROOT {q} is not a directory")
+        if health.slot_starved(root, slot):
+            return
+        states = [load_task_state(root, t) for t in sel["in_flight"]]
+        held = [st for st in states if st.get("lease_holder") == slot and st.get("status") != "done"]
+        emit(root, cfg, "", "runner", "starved", {"slot": slot, "scope": list(scope or []), "in_flight": len(held)})
+    except Exception as e:  # noqa: BLE001  (never changes next's exit code)
+        print(f"ccp tasks next: warning: could not record the starved slot {slot}: {e}", file=sys.stderr)
+
+
 def cmd_tasks_next(cfg: config.Config, a: argparse.Namespace) -> int:
     from ccp import selection  # noqa: PLC0415  (the board's ready queue reads the same function, §20)
     try:  # §8.1, §10.3, §14.1: no gate lane names no task (exit 2); a warning in the grace release
@@ -144,9 +166,12 @@ def cmd_tasks_next(cfg: config.Config, a: argparse.Namespace) -> int:
             "rule_refs": tasklog._as_list(t.get("rule_refs")),
             "review_refs": tasklog._as_list(t.get("review_refs")), "checks": t["_checks"],
             "passed_over": choice["passed_over"]}, indent=2))
+        if not t:
+            _record_starved(cfg, a, q, scope, sel)
         return 0 if t else 3
     if not t:
         print("nothing ready" + (" in scope" if scope else "") + ": " + _nothing_ready_why(sel))
+        _record_starved(cfg, a, q, scope, sel)
         return 3
     print(f"{t['task_id']}  {t.get('title')}")
     print(f"  file:      {cfg.rel(t['_file'])}")
@@ -985,6 +1010,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="override an exit-4 block once; recorded as a friction note (SPEC §19.6)")
     p.add_argument("--explain", action="store_true",
                    help="also list the full ranked queue on stderr, held tasks marked (SPEC §10.4)")
+    p.add_argument("--holder", metavar="SLOT",
+                   help="the asking runner's slot: exit 3 records a runner/starved event (SPEC §23.2, §27.1)")
     p.set_defaults(fn=cmd_tasks_next)
     p = t.add_parser("check", help="validate the log and the index")
     p.add_argument("--lease", action="store_true",
