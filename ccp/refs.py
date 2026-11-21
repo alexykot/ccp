@@ -34,6 +34,10 @@ ANY_TASK_ID = rf"[0-9]+-{SLUG}"
 STAMP_ID = r"[0-9]{8}T[0-9]{6}Z-[0-9a-f]{4}"
 REVIEW_ID = rf"(?:ar|sh)-{STAMP_ID}(?:#F[0-9]+)?"
 QUESTION_ID = rf"sm-{STAMP_ID}"
+# A worker report's follow-up (§13.4), `<run_id>#<n>`, `n` counting from 1 in the report's order: the run id
+# part is `ccp.runs`' to read (its phases are that module's), so here it is anything up to the `#`.
+FOLLOW_UP_ID = r"(?P<run>[^#\s]+)#(?P<n>[1-9][0-9]*)"
+_FOLLOW_UP_ID_RE = re.compile(rf"^{FOLLOW_UP_ID}$")
 
 
 @dataclass(frozen=True)
@@ -233,6 +237,17 @@ def number_prefix(s: Any) -> str:
     """The leading digits of an id (`0042-x` → `0042`), whatever the width; empty when there are none."""
     m = re.match(r"\d+", str(s or ""))
     return m.group(0) if m else ""
+
+
+def follow_up_id(run_id: str, n: int) -> str:
+    """The id of the `n`th follow-up of run `run_id`'s report."""
+    return f"{run_id}#{n}"
+
+
+def parse_follow_up_id(s: Any) -> tuple[str, int] | None:
+    """`<run_id>#<n>` → (run_id, n); anything else → None. The run id itself is checked by its reader."""
+    m = _FOLLOW_UP_ID_RE.match(str(s or "").strip())
+    return (m.group("run"), int(m.group("n"))) if m else None
 
 
 def from_config(given: dict[str, Any] | None) -> Ids:
