@@ -1050,10 +1050,13 @@ failed. A failed result reopens nothing.
 
 The runner merges a PR only when `ccp verify merge-ok <pr> --task <task_id>` exits 0, and then pinned
 to that head: plane.json `merge.command`, a template naming `{pr}`, `{head_sha}` (required) and
-`{task_id}`; null means `gh pr merge {pr} --squash --match-head-commit {head_sha}`, with the PR's full
-head `merge-ok` prints (`match_head_commit`). Close confirms the PR merged through `gh` (the merge
-commit is the one `gh pr view` names; a merge `gh` accepts without merging, such as a merge queue,
-stops it). `merge-ok` reads the PR with `gh` and refuses unless the PR is open, its head is the
+`{task_id}`; null means the PR host's merge, pinned to the PR's full head `merge-ok` prints
+(`match_head_commit`). Close confirms the merge through the PR host (the merge commit is the one the
+host names; a merge the host accepts without merging, such as a merge queue, stops it). The plane
+reaches the PR host only through one interface (open, view, diff, edit, merge, confirm; ADR-0040),
+which workers and the runner use as `ccp pr open|view|diff|edit|merge`, each given the PR number
+except open, never a forge's CLI. `merge-ok`
+reads the PR through the host and refuses unless the PR is open, its head is the
 record's `head_sha` or a head recorded as its catch-up (§16.5 rule 4), the record passes `ccp
 verify`'s rules and is `approve` with no failed check, it carries the verifier's `gate` with every
 run at exit 0, its `task_id` names the record it is in, and it was written no earlier than its
@@ -1061,7 +1064,7 @@ run at exit 0, its `task_id` names the record it is in, and it was written no ea
 approval was recorded before or after the merge. `merge-ok` lists `unrun_checks`, `gate_runs` and
 `match_head_commit`. A PR that is not a task's (a reconcile, a SPEC or ADR PR, a docs-only PR) is
 approved in `verification/pr-<n>.json`, whose verdict's `task_id` is exactly `pr-<n>`. `ccp verify
-check <task_id> --head <sha>` serves a merge step that has no `gh`.
+check <task_id> --head <sha>` serves a merge step that does not read the PR host.
 
 ### 15.6 Merge and verify rules
 

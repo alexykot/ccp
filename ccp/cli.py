@@ -490,6 +490,63 @@ def cmd_auth(cfg: config.Config, a: argparse.Namespace) -> int:
     return 0 if body["ok"] else 1
 
 
+def _pr_number(raw: str) -> str:
+    """`ccp pr`'s PR argument: the PR number, never a branch, so no call reaches the current branch's PR."""
+    if not raw.isdigit() or int(raw) < 1:
+        raise argparse.ArgumentTypeError(f"takes the PR number, not {raw!r}")
+    return str(int(raw))
+
+
+def _body_text(path: str) -> str:
+    """`--body-file`: the file's text, or stdin for `-`; a file that cannot be read is a usage error."""
+    if path == "-":
+        return sys.stdin.read()
+    try:
+        return Path(path).read_text()
+    except OSError as e:
+        raise QueueError(f"--body-file {path}: {e.strerror or e}", 2) from None
+
+
+def cmd_pr(cfg: config.Config, a: argparse.Namespace) -> int:
+    """SPEC §15.5, ADR-0040 D1: the PR-host interface for workers and the runner, each call given the PR
+    number (open names the branch). Exit 1 on a host error, naming it; 2 on a usage error."""
+    import dataclasses  # noqa: PLC0415
+    from ccp import prhost, queue  # noqa: PLC0415
+    try:
+        if a.cmd == "open":
+            body = _body_text(a.body_file)
+            print(prhost.open(cfg, a.branch, queue.integration_branch(queue.root()), a.title, body))
+        elif a.cmd == "view":
+            facts = prhost.view(cfg, a.pr, with_body=True)
+            if a.json:
+                print(json.dumps(dataclasses.asdict(facts), indent=2, ensure_ascii=False))
+            else:
+                for k, v in dataclasses.asdict(facts).items():
+                    if k != "body":
+                        print(f"{k}: {'' if v is None else v}")
+                if facts.body:
+                    print(f"\n{facts.body}")
+        elif a.cmd == "diff":
+            sys.stdout.write(prhost.diff(cfg, a.pr))
+        elif a.cmd == "edit":
+            prhost.edit(cfg, a.pr, _body_text(a.body_file))
+            print(f"PR #{a.pr}: body replaced")
+        else:
+            r = prhost.merge(cfg, a.pr, a.head, a.task)
+            if not r.ok:
+                why = " (a conflict with what merged since)" if r.conflict else ""
+                print(f"ccp pr merge: PR #{a.pr} not merged{why}: {r.message}", file=sys.stderr)
+                return 1
+            print(f"PR #{a.pr}: merge at {a.head} accepted" + (f": {r.message}" if r.message else ""))
+    except QueueError as e:
+        print(f"ccp pr {a.cmd}: {e}", file=sys.stderr)
+        return e.code
+    except prhost.HostError as e:
+        print(f"ccp pr {a.cmd}: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def cmd_adr(cfg: config.Config, a: argparse.Namespace) -> int:
     """SPEC §6.6: the ADR tool. `ccp docs adr index|list` is the same command."""
     from ccp import adr  # noqa: PLC0415
@@ -1509,6 +1566,32 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--base", help="spec-text: the ref the branch's diff is taken from (default: origin/<integration "
                                   "branch>)")
     p.set_defaults(fn=cmd_verify)
+
+    pr = sub.add_parser("pr", help="the PR host's operations, the same on every host (SPEC §15.5, ADR-0040): "
+                                   "open | view | diff | edit | merge; each takes the PR number, open the branch") \
+        .add_subparsers(dest="cmd", required=True)
+    p = pr.add_parser("open", help="open a PR for a pushed branch against the integration branch; prints its number "
+                                   "(needs QUEUE_ROOT)")
+    p.add_argument("--branch", required=True, help="the pushed task branch")
+    p.add_argument("--title", required=True)
+    p.add_argument("--body-file", required=True, help="the PR body's file (- for stdin)")
+    p.set_defaults(fn=cmd_pr)
+    p = pr.add_parser("view", help="the PR's number, state, head, branch, merged_at, merge_commit and body")
+    p.add_argument("pr", type=_pr_number, metavar="PR_NUMBER", help="the PR number")
+    p.add_argument("--json", action="store_true", help="the facts as one JSON object")
+    p.set_defaults(fn=cmd_pr)
+    p = pr.add_parser("diff", help="the PR's diff against its base")
+    p.add_argument("pr", type=_pr_number, metavar="PR_NUMBER", help="the PR number")
+    p.set_defaults(fn=cmd_pr)
+    p = pr.add_parser("edit", help="replace the PR's body")
+    p.add_argument("pr", type=_pr_number, metavar="PR_NUMBER", help="the PR number")
+    p.add_argument("--body-file", required=True, help="the new body's file (- for stdin)")
+    p.set_defaults(fn=cmd_pr)
+    p = pr.add_parser("merge", help="the PR host's merge pinned to a head (plane.json merge.command when set)")
+    p.add_argument("pr", type=_pr_number, metavar="PR_NUMBER", help="the PR number")
+    p.add_argument("--head", required=True, help="the full head sha the merge is pinned to")
+    p.add_argument("--task", required=True, help="the task id, for merge.command's {task_id}")
+    p.set_defaults(fn=cmd_pr)
 
     p = sub.add_parser("health", help="delivery measurements; note and record add to them (SPEC §27.1)")
     p.add_argument("action", nargs="?", choices=("show", "note", "record"), default="show")

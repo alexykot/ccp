@@ -39,11 +39,24 @@ argument takes the full id or its number.
 | `ccp runs gc [--dry-run]` | lead, runner | §11.1 |
 | `ccp verify record FILE` | verifier | §15.4, §15.6, §6.7 |
 | `ccp verify merge-ok <pr> [--task <task_id>]` | runner | §15.5 |
-| `ccp verify check <task_id> --head <sha>` | a merge step without `gh` | §15.5 |
+| `ccp verify check <task_id> --head <sha>` | a merge step that does not read the PR host | §15.5 |
 | `ccp verify spec-text <task_id> [--base <ref>] [--head <ref>]` | reviewer, verifier | §15.2, §3.5 |
 | `ccp verify later <task_id> --check <id> --pass\|--fail --evidence "…" --produced-by <seat> [--operator-step <gate id>]` | lead, runner | §15.4 |
 | `ccp verify deferred [--task <task_id>] [--json]` | lead, runner | §15.4 |
 | `ccp auth check` | runner, lead | §10.5 |
+
+## Pull requests
+
+Each takes the PR number, never the current branch's PR; open names the pushed branch. Exit 1 on a PR-host
+error, naming it; 2 on a usage error.
+
+| Command | Who | SPEC |
+|---|---|---|
+| `ccp pr open --branch <branch> --title <title> --body-file <file>` (`-` for stdin) | implementer | §15.5 (against the integration branch; prints the PR number) |
+| `ccp pr view <pr> [--json]` | reviewer, verifier, runner | §15.5 (`--json`: the PR's facts as one object) |
+| `ccp pr diff <pr>` | reviewer, verifier | §15.5 |
+| `ccp pr edit <pr> --body-file <file>` (`-` for stdin) | runner | §15.5, §15.2 |
+| `ccp pr merge <pr> --head <sha> --task <task_id>` | runner | §15.5 |
 
 ## Test runs
 
