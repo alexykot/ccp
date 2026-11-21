@@ -3,12 +3,11 @@
 # role-neutral orientation (plugin/orientation.md) as additional context, in projects the plane
 # manages (their docs/delivery/plane.json names a project_id). In the plane's own repo it says one
 # line pointing at CLAUDE.md instead. Anywhere else it says nothing.
-# After the orientation it lists the product's pending notices (SPEC §3.6, `ccp notify pending`), so the
-# lead finds what fired while it was away, an `upgrade` notice a release left (§29.3) among them. It asks
-# the `ccp` beside the plugin (the plane checkout it is in), else `ccp` on PATH; no queue, no notices.
-# That call gets 3 s: a slow queue drops the notices, never the orientation (the hook's own limit is 10 s).
-# It also asks `ccp allowance status` (3 s) whether usage is read; when no allowance command is set, it adds the
-# warning `ccp` gives (SPEC §25.1: no usage is read and nothing bounds spend).
+# After the orientation it appends what `ccp orientation --tail` prints (SPEC §9.3): the product's pending
+# notices (§3.6), an `upgrade` notice a release left (§29.3) among them, and the allowance warning (§25.1: no
+# usage is read and nothing bounds spend); `ccp` builds that text. It asks the `ccp` beside the plugin (the
+# plane checkout it is in), else `ccp` on PATH; no queue, no tail. That one call gets 3 s: a slow queue drops
+# the tail, never the orientation (the hook's own limit is 10 s).
 # It always exits 0.
 set -u
 root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
@@ -27,41 +26,14 @@ python3 - "$doc" "$ccp" "$root" <<'PY' || true
 import json, re, subprocess, sys
 text = open(sys.argv[1]).read()
 text = re.sub(r"^<!--.*?-->\s*", "", text, flags=re.S)
-rows = []
-if sys.argv[2]:
-    try:
-        res = subprocess.run([sys.argv[2], "--root", sys.argv[3], "notify", "pending"], capture_output=True,
-                           text=True, stdin=subprocess.DEVNULL, timeout=3)
-        rows = json.loads(res.stdout).get("pending") or []
-    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
-        rows = []
-warn = ""
-if sys.argv[2]:
-    try:
-        res = subprocess.run([sys.argv[2], "--root", sys.argv[3], "allowance", "status"], capture_output=True,
-                             text=True, stdin=subprocess.DEVNULL, timeout=3)
-        warn = str(json.loads(res.stdout).get("warning") or "")[:600]
-    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
-        warn = ""
 notes = ""
-if rows:
-    head = ("\n\n## Pending notices\n\nFired and not yet sent (plane SPEC §3.6). The lead sends each over the "
-            "product's channel and records it with the `ccp notify sent` call shown; `ccp notify pending` "
-            "lists them in full.\n")
-    lines = []
-    for r in rows:
-        reason = str(r.get("reason") or "")
-        reason = f" — {reason[:500]}…" if len(reason) > 500 else (f" — {reason}" if reason else "")
-        lines.append(f"- {r.get('subject') or r.get('trigger')}{reason}. Record: `{r.get('record', '')}`")
-    body, cap = "", 2400
-    for i, ln in enumerate(lines):
-        if len(body) + len(ln) + 1 > cap:
-            body += f"- … {len(lines) - i} more: `ccp notify pending`\n"
-            break
-        body += ln + "\n"
-    notes = head + body
-if warn:
-    notes += f"\n\n## Warning\n\n{warn}\n"
+if sys.argv[2]:
+    try:
+        res = subprocess.run([sys.argv[2], "--root", sys.argv[3], "orientation", "--tail"], capture_output=True,
+                             text=True, stdin=subprocess.DEVNULL, timeout=3)
+        notes = res.stdout if res.returncode == 0 else ""
+    except (OSError, subprocess.SubprocessError, ValueError):
+        notes = ""
 text = text[:9500 - len(notes)].rstrip("\n") + notes if notes else text[:9500]
 print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}))
 PY
