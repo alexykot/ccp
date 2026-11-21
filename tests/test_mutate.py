@@ -799,6 +799,14 @@ class Together(MutateFixture, unittest.TestCase):
     def test_together_a_substitution_whose_old_text_an_earlier_one_removed_is_refused(self):
         self.refused("calc.py:a + b=>a - b", "calc.py:return a + b=>return 0")
 
+    def test_together_two_spellings_of_one_file_are_one_file(self):
+        self.refused("calc.py:a + b=>a - b", "./calc.py:return a + b=>return 0")
+        patch = self.patch_file({"calc.py": CALC.replace("a * 2", "a * 3")})
+        self.assertIn("calc.py", self.refused(str(patch), "./calc.py:a + b=>a - b"))
+        code, _, _, err = self.mutate("calc.py:a + b=>a ^ b", "./calc.py:a ^ b=>a % b", together=True)
+        self.assertEqual((code, [(r["files"], r["outcome"]) for r in self.rows()]), (0, [(["calc.py"], "killed")]), err)
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+
     def test_together_with_one_mutant_is_refused(self):
         self.refused("calc.py:a + b=>a - b")
 

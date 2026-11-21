@@ -161,9 +161,15 @@ def parse_file(root: Path, spec: str, cwd: Path, count: bool = True) -> dict[str
     return _substitution(root, label, rel, old, new, count)
 
 
+def _key(rel: str) -> str:
+    """One spelling per file for `--together`'s checks: `./calc.py` and `calc.py` are one file."""
+    return Path(os.path.normpath(rel)).as_posix()
+
+
 def together(parts: list[dict[str, Any]], texts: dict[str, bytes]) -> dict[str, Any]:
     """`--together`: the parsed parts (at least two, in order) as one mutant. `texts` holds the unmutated
-    bytes of every file a substitution names. Substitutions on one file are checked in order, each old text
+    bytes of every file a substitution names, keyed by `_key`. Files are told apart by `_key`, so two
+    spellings of one file are one file. Substitutions on one file are checked in order, each old text
     exactly once in what the earlier ones leave (a lone one: in the unmutated file); a file any other part
     shares with another refuses the call (exit 2). Nothing is written."""
     if len(parts) < 2:
@@ -172,7 +178,7 @@ def together(parts: list[dict[str, Any]], texts: dict[str, bytes]) -> dict[str, 
     on: dict[str, list[int]] = {}
     for i, p in enumerate(parts):
         for rel in p["files"]:
-            on.setdefault(rel, []).append(i)
+            on.setdefault(_key(rel), []).append(i)
     for rel, idx in on.items():
         kinds = [parts[i]["kind"] for i in idx]
         if len(idx) > 1 and any(k != "text" for k in kinds):
@@ -566,7 +572,7 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
             base = wt.merge_base(cfg, q, head)
         parsed += [parse_revert(root, r, base) for r in reverts]
     if as_one:
-        texts = {p["files"][0]: (root / p["files"][0]).read_bytes() for p in parsed if p["kind"] == "text"}
+        texts = {_key(p["files"][0]): (root / p["files"][0]).read_bytes() for p in parsed if p["kind"] == "text"}
         parsed = [together(parsed, texts)]
     line = fill(mu["command"], {"test": shlex.quote(test)})
     timeout = int(mu["timeout_seconds"])
