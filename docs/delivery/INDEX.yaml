@@ -1213,7 +1213,7 @@ tasks:
     depends_on: []
     path: tasks/0242-retire-restructure-scaffolding-and-queue-markers.md
   - id: 0243-one-source-for-syntax-events-and-config
-    status: pending
+    status: done
     title: One source for plane.json reads, command syntax, the event registry and the detached launch, and multi-line schemas
     depends_on: [0203-follow-up-fixes]
     path: tasks/0243-one-source-for-syntax-events-and-config.md

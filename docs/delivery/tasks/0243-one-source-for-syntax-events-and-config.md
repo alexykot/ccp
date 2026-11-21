@@ -1,7 +1,7 @@
 ---
 task_id: 0243-one-source-for-syntax-events-and-config
 title: One source for plane.json reads, command syntax, the event registry and the detached launch, and multi-line schemas
-status: pending
+status: done
 kind: refactor
 depends_on: ["0203-follow-up-fixes"]
 review_refs: ["ar-20261120T234012Z-27eb#F03", "ar-20261120T234012Z-27eb#F05", "ar-20261120T234012Z-27eb#F06", "ar-20261120T234012Z-27eb#F20", "ar-20261120T234012Z-27eb#F21"]
@@ -189,3 +189,5 @@ because their checks fail or do not exist until this task is built. Measured at 
   `worktrees.dir` fallback in `runner_worktree` is pinned there too.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #250 head `9cf6f72` (squash `4acaf57`): APPROVE. Passed: one-01, one-02, one-03, one-04, one-05, one-06. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -q (the dod_check modules, 16 modules)` exit 0, `ccp wt exec -- tasks check` exit 0, `ccp wt exec -- docs check` exit 0. Record: verification/0243-one-source-for-syntax-events-and-config.json.
+
