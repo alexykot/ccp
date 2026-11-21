@@ -7,7 +7,7 @@ depends_on: []
 spec_refs: ["S19"]
 review_refs: ["ar-20261121T111633Z-4e26#F01"]
 review_point: R22
-paths: ["ccp/architect.py", "ccp/quality.py", "ccp/board.py", "ccp/board_page.html", "contracts/plane_config.schema.json", "docs/spec/03-quality.md", "docs/design/board.md", "tests/test_architect_default_on.py", "tests/test_architect.py", "tests/test_board_quality.py"]
+paths: ["ccp/architect.py", "ccp/quality.py", "ccp/board.py", "ccp/board_page.html", "contracts/plane_config.schema.json", "docs/spec/03-quality.md", "docs/design/board.md", "docs/design/architect.md", "tests/test_architect_default_on.py", "tests/test_architect.py", "tests/test_board_quality.py"]
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
@@ -60,6 +60,8 @@ Measured at `8020446` unless a line says otherwise.
 - **Tests this changes** (`git grep -n 'friction note(s)\|notes_due' -- tests` at `8020446`): `tests/test_architect.py` `"def test_acceptance_2_notes_reach_the_prompt"` (three notes on one task make a pass due), `tests/test_architect_default_on.py` `"def test_new_work_still_triggers"` and `"def test_after_a_pass_the_notes_of_any_task_count"` (after a pass, notes with no task count; this task reverses that), `tests/test_board_quality.py` (the friction block's `notes_due`).
 - The test fixtures set `parallel.max_in_flight` 1 (`git grep -n '"max_in_flight": 1' -- tests/helpers.py` at `8020446`: 1 line), so the threshold there stays 3 (`git grep -n '"notes_due": 3' -- ccp/config.py`).
 - `python3 -B -m unittest tests.test_architect_default_on tests.test_architect tests.test_board_quality` at `8020446`: 101 tests, OK.
+- `docs/design/architect.md`'s acceptance walk-through 2 ("Three `ccp health note` lines make `ccp architect due` exit 0") becomes false with this task (`git grep -n 'Three .ccp health note. lines' -- docs/design/architect.md` at `8020446`: 1 line).
+- Folded in by area: the board's tasks-figure stale denominator is 0211's follow-up, not part of F01; it adds no rule and no SPEC text.
 - No pending task edits §19.6 item 3 or `due_info`'s friction code (`git grep -ln 'Friction notes' -- docs/delivery/tasks`
   at `8020446`: two files, both `done`). Pending tasks that share a file change other logic in it, so
   none is a clash: 0254 (`ccp/architect.py`'s pass worktree), 0262 (`ccp/board.py`'s docstring), 0191,
@@ -91,7 +93,7 @@ Measured at `8020446` unless a line says otherwise.
   line), `ccp/quality.py`, `ccp/board.py` (`"def _quality_lines"`), `ccp/board_page.html`,
   `contracts/plane_config.schema.json` (the `notes_due` description: "Constant, 3 (SPEC §29.3): Or
   friction notes from this many tasks, times parallel.max_in_flight, since the last pass. …", the
-  rest unchanged), `docs/design/board.md` (the architect paragraph's `every_n_tasks`, `notes_due`),
+  rest unchanged), `docs/design/board.md` (the architect paragraph's `every_n_tasks`, `notes_due`), `docs/design/architect.md` (acceptance walk-through 2: worker notes on 3 distinct tasks, `ccp health note --task`, with one slot),
   `tests/test_architect_default_on.py`, `tests/test_architect.py`, `tests/test_board_quality.py`.
 - **Tests:**
   - with slots 1, worker notes on 3 distinct tasks make the reason; 9 notes on 2 tasks do not;

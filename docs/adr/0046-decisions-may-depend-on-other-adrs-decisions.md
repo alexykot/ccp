@@ -11,7 +11,7 @@ notes: |-
   (listed under Consequences), so the operator decides it.
   2026-11-20: status proposed → accepted: Operator: "accept 0044, 0045, 0046" (2026-11-20)
   2026-11-21: D2 narrowed as task 0251 built it: a target in a rejected or withdrawn ADR fails only
-  when that ADR is not the link's own (a link inside a dead ADR rests on nothing live). Operator:
+  when that ADR is not the link's own (a link between decisions of one dead ADR rests on nothing live). Operator:
   "0251 narrowing - (a)" (2026-11-21)
 decisions:
   - "D1 built"
