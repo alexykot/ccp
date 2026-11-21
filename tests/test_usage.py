@@ -388,15 +388,15 @@ class SessionRouting(unittest.TestCase):
             return json.loads(resp.read())
 
     def test_project_id_comes_first(self):
-        transcript(self.claude, self.real, "sess-wi-0001")
-        self.post("/v1/logs", logs("demo", req("r1", 1, session__id="sess-wi-0001")))
+        transcript(self.claude, self.real, "sess-p1-0001")
+        self.post("/v1/logs", logs("demo", req("r1", 1, session__id="sess-p1-0001")))
         self.assertEqual([r["routed_by"] for r in self.rows(self.demoq)], ["project_id"])
         self.assertEqual(self.rows(self.prodq), [])
 
     def test_routes_by_session_cwd_through_a_symlinked_root(self):
         # The binding names the symlinked path, the transcript the real one: realpaths are compared.
-        transcript(self.claude, self.real, "sess-wi-0001")
-        self.post("/v1/logs", logs(None, req("r1", 1, session__id="sess-wi-0001")))
+        transcript(self.claude, self.real, "sess-p1-0001")
+        self.post("/v1/logs", logs(None, req("r1", 1, session__id="sess-p1-0001")))
         (row,) = self.rows(self.prodq)
         self.assertEqual((row["project_id"], row["routed_by"], row["cwd"], row["request_id"]),
                          ("example-product", "session", str(self.real), "r1"))
@@ -481,9 +481,9 @@ class SessionRouting(unittest.TestCase):
         self.assertEqual((st["written_by_sink"], st["unresolved"]), ({"project": 0, "system": 2}, 1))
 
     def test_status_counts_per_sink_and_route(self):
-        transcript(self.claude, self.real, "sess-wi-0001")
+        transcript(self.claude, self.real, "sess-p1-0001")
         self.post("/v1/logs", logs("demo", req("r1", 1)))
-        self.post("/v1/logs", logs(None, req("r2", 2, session__id="sess-wi-0001"), req("r3", 3, session__id="nosuchsession")))
+        self.post("/v1/logs", logs(None, req("r2", 2, session__id="sess-p1-0001"), req("r3", 3, session__id="nosuchsession")))
         self.sink.tick(flush=True)
         st = self.status()
         self.assertEqual(st["written"], 3)
@@ -524,10 +524,10 @@ class SessionRouting(unittest.TestCase):
         self.assertEqual([(r["request_id"], r["project_id"]) for r in self.rows(self.demoq)], [("r3", "other")])
 
     def test_project_id_rows_keep_their_session_cwd(self):
-        transcript(self.claude, self.real, "sess-wi-0001")
-        self.post("/v1/logs", logs("demo", req("r1", 1, session__id="sess-wi-0001")))
+        transcript(self.claude, self.real, "sess-p1-0001")
+        self.post("/v1/logs", logs("demo", req("r1", 1, session__id="sess-p1-0001")))
         (row,) = self.rows(self.demoq)
-        self.assertEqual((row["session_id"], row["cwd"]), ("sess-wi-0001", str(self.real)))
+        self.assertEqual((row["session_id"], row["cwd"]), ("sess-p1-0001", str(self.real)))
 
     def test_old_system_day_files_are_pruned(self):
         self.sys.mkdir()
