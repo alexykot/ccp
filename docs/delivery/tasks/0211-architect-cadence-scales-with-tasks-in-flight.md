@@ -1,7 +1,7 @@
 ---
 task_id: 0211-architect-cadence-scales-with-tasks-in-flight
 title: The architect's cadence scales with tasks in flight, and a budget breach a pending task already fixes makes no pass due
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S19", "S20"]
@@ -10,7 +10,7 @@ paths: ["ccp/architect.py", "docs/spec/03-quality.md", "tests/test_architect_def
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0211-architect-cadence-scales-with-tasks-in-flight
@@ -165,4 +165,20 @@ PROPOSED:
 
 ## Implementation notes
 
+- `ccp/architect.py`: `_cadence(cfg)` is `every_n_tasks` times the slots (`parallel.max_in_flight` when
+  `parallel.enabled`, else 1); `due_info` uses it for the cadence reason, its due count and the not-due
+  reason, and reports it as `cadence_tasks`. `_tasked_rules(tasks)` is the `rule_refs` ids of `pending`
+  tasks; `due_info` leaves a breach with one of those ids out of `new_budgets` (it stays in
+  `budget_failures`), and a pass's `last.budget_ids` leaves those ids out too, taken from the task log
+  read at the pass's start, so the breach calls a pass once the citing task is done.
+- The pre-first-pass `budget_baseline` is unchanged: a breach already failing when the seat first
+  checked stays in the baseline whether or not a task cites it (the narrowest reading of the Scope).
+- The test fixture's `BASE_PLANE` sets `parallel.max_in_flight` 1, so
+  `test_cadence_from_the_adoption_point` (now `every_n_tasks * max_in_flight` merges) still merges 4
+  there; the 3-slot and 1-slot cadence tests set the slot count themselves.
+- The board's architect line and tile (`ccp/board.py`, `ccp/board_page.html`) still show
+  `done_since_last/every_n_tasks`; they are outside this task's paths.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #259 head `1a06d61` (squash `aaf50a1`): APPROVE. Passed: ca-01, ca-02, ca-03, ca-04, suite-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0211-architect-cadence-scales-with-tasks-in-flight.json.
+

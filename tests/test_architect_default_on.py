@@ -13,11 +13,19 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import architect, cli, config, quality, rules, tasklog
+from ccp import architect, cli, config, parallel, quality, rules, tasklog
 from tests.helpers import Product
+from tests.test_architect import Harness
 from tests.test_upgrade import UpgradeFixture
 
 REFACTOR = "kind: refactor\n"
+E7 = "E7: app/big.py has 9 lines > 5"
+
+
+def cite(f: Path, *rule_ids: str) -> None:
+    """Give the task file `f` a `rule_refs` list of `rule_ids`."""
+    refs = ", ".join(f'"{r}"' for r in rule_ids)
+    f.write_text(f.read_text().replace('spec_refs: ["S1"]', f'spec_refs: ["S1"]\nrule_refs: [{refs}]'))
 
 
 class Seat(unittest.TestCase):
@@ -276,7 +284,8 @@ class NoPassOwedAtAdoption(Seat):
         self.assertEqual(self.ccp(self.p, "architect", "due")[0], 3)
 
     def test_cadence_from_the_adoption_point(self):
-        for n in range(11, 11 + self.p.cfg.architect["every_n_tasks"]):
+        cfg = self.p.cfg
+        for n in range(11, 11 + cfg.architect["every_n_tasks"] * int(parallel.settings(cfg)["max_in_flight"])):
             self.merge(self.p, n)
         self.note(self.notes_due + 5, "0003-t3")
         info = self.info(budgets=["E7: app/big.py has 9 lines > 5"])
@@ -326,6 +335,70 @@ class NoPassOwedAtAdoption(Seat):
         self.assertEqual(info["reasons"], [f"budget check fails: {b}"])
         self.assertEqual(self.info(budgets=[a])["reasons"], [])  # the baseline is kept, not rewritten
         self.assertEqual(self.state()["budget_baseline"], ["a"])
+
+    def test_a_breach_a_pending_task_cites_calls_no_pass_until_that_task_is_done(self):
+        self.assertEqual(self.info()["reasons"], [])  # the baseline: no budget failing
+        cite(self.p.task("0016-t16", "pending"), "E8")  # a pending task citing another rule leaves the breach new
+        self.p.index()
+        self.assertEqual(self.info(budgets=[E7])["reasons"], [f"budget check fails: {E7}"])
+        cite(self.p.task("0016-t16", "pending"), "E8", "E7")
+        self.p.index()
+        info = self.info(budgets=[E7])
+        self.assertEqual((info["reasons"], info["budget_failures"]), ([], [E7]))  # still listed, calls no pass
+        cite(self.p.task("0016-t16", "done"), "E8", "E7")
+        self.p.index()
+        self.assertEqual(self.info(budgets=[E7])["reasons"], [f"budget check fails: {E7}"])
+
+
+class CadenceScalesWithSlots(Seat):
+    """§19.6: the cadence waits for `every_n_tasks` times the tasks the product runs at once."""
+
+    def slots(self, n: int) -> Product:
+        return self.make({"shape_from_task": "0011", "every_n_tasks": 4},
+                         parallel={"max_in_flight": n, "schedule": "paths"})
+
+    def test_three_slots_wait_for_twelve_merges(self):
+        p = self.slots(3)
+        for n in range(11, 22):
+            self.merge(p, n)
+        d = self.due(p)
+        self.assertEqual((d["due"], d["reasons"], d["cadence_tasks"]), (False, [], 12))
+        self.assertIn("11 of 12 tasks done", d["reason"])
+        self.merge(p, 22)
+        d = self.due(p)
+        self.assertEqual((d["due"], len(d["reasons"]), d["merges_since_due"]), (True, 1, 0), d["reasons"])
+        self.assertIn("12 task(s) done since none", d["reasons"][0])
+        self.merge(p, 23)  # the merges since it fell due count from the twelfth
+        self.assertEqual(self.due(p)["merges_since_due"], 1)
+
+    def test_one_slot_waits_for_four_merges(self):
+        p = self.slots(1)
+        for n in (11, 12, 13):
+            self.merge(p, n)
+        d = self.due(p)
+        self.assertEqual((d["due"], d["cadence_tasks"]), (False, 4))
+        self.merge(p, 14)
+        d = self.due(p)
+        self.assertEqual((d["due"], len(d["reasons"])), (True, 1), d["reasons"])
+        self.assertIn("4 task(s) done since none", d["reasons"][0])
+
+
+class APassAndATaskedBreach(Harness):
+    """A pass does not record a breach a pending task cites as seen (§19.6), so the breach calls the next pass
+    once that task is done."""
+
+    def test_the_breach_calls_a_pass_once_the_citing_task_is_done(self):
+        e9 = "E9: app/other.py has 9 lines > 5"
+        cite(self.p.task("0008-t8"), "E7")
+        self.merge(1)
+        self.stub_report([])
+        with mock.patch.object(architect.rules, "budget_failures", return_value=[E7, e9]):
+            code, res, _ = self.dpj("architect", "run", "--force")
+            self.assertEqual((code, res["outcome"]), (0, "no_findings"), res)
+            self.assertEqual(self.state()["last"]["budget_ids"], ["E9"])
+            self.assertEqual(architect.due_info(self.p.cfg, self.q)["reasons"], [])
+            self.merge(8)
+            self.assertEqual(architect.due_info(self.p.cfg, self.q)["reasons"], [f"budget check fails: {E7}"])
 
 
 class Adoption(Seat):
