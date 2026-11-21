@@ -10,11 +10,15 @@ the working directory).
 | `ccp tasks check` | Hold the task log to the canonical format | Free | §21.1 |
 | `ccp docs check` | Package-doc rules, opted-in generic rules, house rules' shape, `architect.checks`, `docs.checks`, the ADR check and `ccp tasks check` | Free | §21.2 |
 | `ccp docs history-paths [--attr A]` | Tracked paths carrying the history attribute, one per line | Free | §21.6 |
-| `ccp architect due \| run [--mode pass\|shape] [--lens L,…] [--adr ID[,ID…]\|due] [--force] [--detach] [--scope IDS] \| triage <id> [--backfill <id> <sha>] \| status` | The architect seat. Needs `QUEUE_ROOT` | `run` launches one Claude session per pass, one per ADR for a shape | §19 |
-| `ccp budgets check --base REF` | House-rule budgets on the files this change grew | Free | §20.2 |
+| `ccp architect due [--scope IDS]` | The architect seat: whether a pass is due. Needs `QUEUE_ROOT` | Free | §19 |
+| `ccp architect run [--mode pass\|shape] [--lens L,…] [--adr ID[,ID…]\|due] [--force] [--detach] [--scope IDS] [--actor A]` | The architect seat: run a pass, or with `--mode shape` shape ADRs. Needs `QUEUE_ROOT` | One Claude session per pass, one per ADR for a shape | §19 |
+| `ccp architect triage <id> [--backfill <id> <sha>] [--apply <id>]` | The architect seat: a report's triage. Needs `QUEUE_ROOT` | Free | §19 |
+| `ccp architect status` | The architect seat: the state of its passes. Needs `QUEUE_ROOT` | Free | §19 |
+| `ccp budgets check --base REF [--json]` | House-rule budgets on the files this change grew | Free | §20.2 |
 | `ccp mutate --run RUN_ID --test ID [--mutant M …] [--mutant-file PATH …] [--revert PATH[:N[-M]] …] [--together]` | In the seat's `impl`, `mut`, `rev` or `ver` worktree, apply each mutant (`<file>:<old>=><new>`, a mutant file holding the path, `=== old`, the old text, `=== new` and the new text, a patch file, or a revert to the merge base's version of a file or line range) alone, or with `--together` all of them applied as one mutant, run plane.json `mutate.command` for the test (one id, which may name a single method; for a product whose tests are whole scripts, `sh {test}` with the script's path as the id), restore the tree and record killed or survived on the run, or `unbuilt` for a failing run with a line plane.json `mutate.unbuilt_re` matches. Needs `QUEUE_ROOT` | Runs the product's test once per mutant, plus once unmutated | §20.6 |
-| `ccp health note --text T [--task ID]` / `ccp health record --task ID --metric k=v …` | Record a worker's friction line or metric. Needs `QUEUE_ROOT` | Free | §19.6 |
-| `ccp review-points [list\|show R<n>] [--json]` | Read the register | Free, read-only | §22.8 |
+| `ccp health note --text T [--task ID] [--by WHO]` / `ccp health record --task ID --metric k=v …` | Record a worker's friction line or metric. Needs `QUEUE_ROOT` | Free | §19.6 |
+| `ccp review-points [list] [--json]` | Read the register | Free, read-only | §22.8 |
+| `ccp review-points show R<n> [--json]` | Read one point of the register | Free, read-only | §22.8 |
 | `ccp review-points tag R<n> [ID …] [--from-work] [--dry-run]` | Attach tasks to a point (working tree only); in short, `ccp review-points tag R<n> …` | Free | §22.4 |
 | `ccp review-points migrate --from OLD --to R<n> [--dry-run] [--merge]` | Rename a point used before the register | Free | §22.7 |
 | `ccp tasks backfill-review-points [--dry-run] [--json]` | Stamp tasks closed before the stamp at close (working tree only) | Free | §22.6 |

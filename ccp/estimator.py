@@ -35,7 +35,6 @@ import re
 import shutil
 import socket
 import subprocess
-import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -47,7 +46,7 @@ from ccp import adr, config, models, tasklog
 from ccp.refs import ids as _ids
 from ccp.refs import number_prefix
 from ccp.config import Config
-from ccp.queue import PLANE, append_jsonl, iso, read_json
+from ccp.queue import PLANE, append_jsonl, iso, read_json, spawn_detached
 
 SEAT = "estimator"
 # The plane's default, like architecture_review.HEADLESS_MODEL, from the role table (`models.ROLES`; operator,
@@ -768,12 +767,9 @@ def spawn(cfg: Config, q: Path, max_n: int = MAX_DEFAULT, actor: str = "system")
     d = q / DIR
     d.mkdir(parents=True, exist_ok=True)
     log = d / f"{run_id}.log"
-    boot = f"import sys; sys.path.insert(0, {str(PLANE)!r}); from ccp.cli import main; sys.exit(main(sys.argv[1:]))"
     with log.open("w") as fh:
-        p = subprocess.Popen([sys.executable, "-c", boot, "--root", str(cfg.root), "tasks", "estimate", "--all",
-                              "--max", str(max_n), "--run-id", run_id, "--actor", actor, "--json"],
-                             stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT, cwd=cfg.root,
-                             env={**os.environ, "QUEUE_ROOT": str(q)}, start_new_session=True)
+        p = spawn_detached(cfg.root, q, ["tasks", "estimate", "--all", "--max", str(max_n), "--run-id", run_id,
+                                         "--actor", actor, "--json"], stdout=fh, stderr=subprocess.STDOUT)
     return {"outcome": "started", "run_id": run_id, "pid": p.pid, "log": str(log)}
 
 

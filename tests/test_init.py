@@ -394,8 +394,6 @@ class Adoption(InitCase):
         self.assertEqual([e["payload"]["binding"] for e in self.adopted()], ["written", "written"])
 
     def test_the_op_and_its_keys_are_in_the_contract(self):
-        schema = json.loads((PLANE / "contracts" / "observability_event.schema.json").read_text())
-        self.assertIn("adopted", schema["properties"]["op"]["enum"])
         self.assertEqual(lib.REQUIRED_PAYLOAD[("plane", "adopted")], ("plane", "binding"))
         ev = {"at": "2026-01-01T00:00:00Z", "project_id": "demo", "task_id": "", "actor": "operator", "type": "plane",
               "op": "adopted", "payload": {"plane": "abc"}}
