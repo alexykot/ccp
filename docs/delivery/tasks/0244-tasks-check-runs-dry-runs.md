@@ -1,7 +1,7 @@
 ---
 task_id: 0244-tasks-check-runs-dry-runs
 title: A dod_check's dry run is run and recorded by ccp, stale measured Context is flagged, and quoted rulings raise no number warning
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S5", "S10", "S21"]
@@ -128,4 +128,42 @@ From architect pass `ar-20261120T234012Z-27eb`, findings F12, F13 and F14, triag
 
 ## Implementation notes
 
+- `ccp/dryrun.py` (new) holds `ccp tasks dry-run`: the refusal, the record and the printout on plain values,
+  then the wiring. The tip is `wt.tip` (a fetch, then `origin/<integration_branch>`); the worktree is a
+  temp directory outside the product, made with `git worktree add --detach`, `worktrees.links` linked in, and
+  removed (`worktree remove --force`, the directory, `worktree prune`) in a `finally`. Each step runs as
+  `bash -c` in its own process group, stdin closed, under `STEP_TIMEOUT_S`; the first output line kept
+  is capped at `FIRST_LINE_CAP` characters.
+- Choices the task left open, each the narrowest reading: the command needs `QUEUE_ROOT` (the claim and
+  the integration branch live in the queue and the binding), exit 2 without it; a done, dropped or claimed
+  task exits 3 (§10.6 "nothing ready"), writing nothing; "claimed" is a live lease as §10.5 defines it
+  (`lease_holder` set, queue status neither done nor dropped). A step counts as one backticked command and
+  nothing else when its text, line breaks folded to spaces, is `Run` (any case), one code span and an
+  optional full stop. The record is ``dry run (`<7-char tip sha>`): step N exited C, L lines, first: `…`.``
+  (`no output` for an empty one, `timed out after … s` on timeout), steps joined by `; `; a record with no
+  line before it is added after the check's last indented line, at its keys' indent. No ledger event is
+  written: the command changes no delivery state.
+- `ccp/tasklog.py`: `check_blocks` is now the one splitter of `## dod_checks` (house rule E22); the
+  dry-run presence check and the refactor-gate check use it. `check_steps` and `with_dry_runs` read and
+  write the steps and the record. `stale_context` warns (first ``Measured at `<sha>` `` in Context, the
+  task's `paths`, `git log --format=%h <sha>..HEAD -- <paths>`), naming `STALE_NAMED` commits, then a
+  count; no paths, an unknown sha or no git gives none. `unmeasured_numbers` skips a line matching
+  `QUOTED_RE` (`>` then a space or the line's end); `NOT_MEASURED_RE` is unchanged.
+- `config.load` takes a `Path` or a str.
+- Fix round 1 (review): `DryRunCommand` now pins that the steps run at the integration tip in the
+  temporary worktree (a file committed but not pushed is absent there, and `git rev-parse HEAD` prints
+  `origin/main`, not the clone's HEAD), and that the command exits 2 without `QUEUE_ROOT`, writing
+  nothing. `RunStep` pins the step time limit and the process-group kill: a step whose child holds the
+  output pipe returns `None` within the limit. `dryrun.claimed` uses `tasklog.TERMINAL`. The
+  writing-tasks skill keeps the `task_log.dry_run` condition and says the tool runs only ``Run `…`.``
+  steps, the writer records any other command step.
+- Fix round 2 (review-2): `check_steps` folds only a line break and the indent around it into one
+  space (`LINE_BREAK_RE`), so a run of spaces inside a command on one line is run and recorded as
+  written. A step whose output starts with a blank line is recorded as `first line blank`, not an
+  empty code span. `--write` re-reads the task file after the steps ran and sets the records in that
+  text, so an edit made meanwhile is kept. The insertion tests now cover a check whose keys are
+  indented by 4 and a paragraph after the last check.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #276 head `b35b841` (squash `c17cae3`): APPROVE. Passed: dry-01, dry-02, dry-03, dry-04, dry-05. Gate: `scripts/gate.sh (ccp suite run --lane gate)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0244-tasks-check-runs-dry-runs.json.
+

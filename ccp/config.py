@@ -1872,7 +1872,9 @@ def _warn_once(where: str, msg: str) -> None:
         print(f"ccp: warning: {msg}", file=sys.stderr)
 
 
-def load(root: Path) -> Config:
+def load(root: Path | str) -> Config:
+    """The product's plane.json at `root` (a path or a str), loaded and checked (§8.1)."""
+    root = Path(root)
     p = root / CONFIG_REL
     if not p.is_file():
         raise ConfigError(f"no {CONFIG_REL} in {root}: this product has not adopted ccp "

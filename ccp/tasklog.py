@@ -98,6 +98,12 @@ DRY_RUN_LINE_RE = re.compile(r"^[ \t]*dry run\b.*$", re.I | re.M)
 INDEX_ID_RE = re.compile(r"^  - id: (\S+)$", re.M)
 # §21.1: a check's `steps:`, up to its `expect:` or a dry-run record, read for the commands it runs.
 STEPS_RE = re.compile(r"^[ \t]*steps:(.*?)(?=^[ \t]*(?:expect:|dry run\b)|\Z)", re.I | re.M | re.S)
+# §21.1 `ccp tasks dry-run`: a numbered step, and the one shape of step it runs: one backticked command and
+# nothing else (`N. Run `…`.`), read on the step's text with each line break and the indent around it made one
+# space; a run of spaces within a line is kept, as a code span keeps it.
+STEP_RE = re.compile(r"^[ \t]*(\d+)[.)][ \t]+", re.M)
+LINE_BREAK_RE = re.compile(r"[ \t]*\n[ \t]*")
+SOLE_COMMAND_RE = re.compile(r"run (`+)(?!`)((?:(?!\1).)+?)(?<!`)\1\.?", re.I)
 # The lane roles a refactor's own checks never re-run (§20.3): the verifier's gate already runs them.
 WHOLE_SUITE_ROLES = ("gate", "full")
 SHELL_CONTROL = frozenset({";", "&", "&&", "|", "||", "(", ")"})
@@ -131,6 +137,12 @@ LIST_MARKER_RE = re.compile(r"^([ \t]*)\d+[.)](?=[ \t])")
 _MONTH = (r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|"
           r"Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?")
 WORD_DATE_RE = re.compile(rf"\b(?:\d{{1,2}}[ \t]+{_MONTH}(?:[ \t]+\d{{4}})?|{_MONTH}[ \t]+\d{{1,2}}(?:,?[ \t]+\d{{4}})?)\b")
+# §10.5, §5.5: a line of a quoted block, where a ruling written verbatim goes; not read for numbers.
+QUOTED_RE = re.compile(r"^[ \t]*>(?:[ \t]|$)")
+# §21.1: the commit a task's Context was measured at, its first ``Measured at `<sha>` ``; a stale-Context
+# warning names this many of the commits since, then counts the rest.
+MEASURED_AT_RE = re.compile(r"\bMeasured at `([0-9a-f]{7,40})`", re.I)
+STALE_NAMED = 3
 # §21.1: a task file with no frontmatter, as `check` and `ccp tasks list` name it.
 NO_FRONTMATTER = ("no frontmatter: an earlier plane generation's task file? convert it with "
                   "`ccp tasks migrate`")
@@ -234,6 +246,73 @@ def _section(text: str, name: str) -> str | None:
     heading; None when the heading is absent."""
     at = _section_at(text, name)
     return at[1] if at else None
+
+
+def check_blocks(text: str) -> list[tuple[str, int, int]]:
+    """§5.5: each dod_check of a task file's text, in order: its id, and where its body (after its `- id:`
+    line, up to the next check or the section's end) starts and ends in `text`. The one splitter of the
+    section (house rule E22)."""
+    at = _section_at(text, SEC_CHECKS)
+    if at is None:
+        return []
+    start, body = at
+    heads = list(CHECK_RE.finditer(body))
+    return [(m.group(1), start + m.end(), start + (heads[i + 1].start() if i + 1 < len(heads) else len(body)))
+            for i, m in enumerate(heads)]
+
+
+def check_steps(block: str) -> list[tuple[str, str | None]]:
+    """§21.1 `ccp tasks dry-run`: each numbered step of a check's body, as its number and, when the step is
+    one backticked command and nothing else (`N. Run `…`.`), that command; None for any other step."""
+    out: list[tuple[str, str | None]] = []
+    for s in STEPS_RE.finditer(block):
+        steps = s.group(1)
+        items = list(STEP_RE.finditer(steps))
+        for i, m in enumerate(items):
+            raw = steps[m.end(): items[i + 1].start() if i + 1 < len(items) else len(steps)]
+            text = LINE_BREAK_RE.sub(" ", raw.strip())
+            sole = SOLE_COMMAND_RE.fullmatch(text)
+            out.append((m.group(1), sole.group(2).strip() if sole and sole.group(2).strip() else None))
+    return out
+
+
+def _check_lines_end(text: str, start: int, end: int) -> int:
+    """Where a check's last line ends: the last non-blank line of its body that belongs to it (indented),
+    before any unindented text after the checks."""
+    last, pos = start, start
+    for line in text[start:end].split("\n")[1:]:
+        pos += 1
+        if line.strip() and not line[:1].isspace():
+            break
+        pos += len(line)
+        if line.strip():
+            last = pos
+    return last
+
+
+def with_dry_runs(text: str, sha: str, records: dict[str, str]) -> str:
+    """§21.1 `ccp tasks dry-run --write`: `text` with the dry-run record of each check `records` names set to
+    ``dry run (`<sha>`): <record>``, replacing the one already there (its wrapped lines too), else added
+    after the check's last line, at its keys' indent. Nothing else in `text` changes."""
+    for cid, start, end in reversed(check_blocks(text)):
+        if cid not in records:
+            continue
+        old = DRY_RUN_LINE_RE.search(text, start, end)
+        if old:
+            indent = old.group(0)[: len(old.group(0)) - len(old.group(0).lstrip())]
+            stop = old.end()
+            while stop < end:
+                nxt = text.find("\n", stop + 1)
+                line = text[stop + 1: end if nxt == -1 or nxt > end else nxt]
+                if not line.strip() or len(line) - len(line.lstrip()) <= len(indent):
+                    break
+                stop += 1 + len(line)
+            text = f"{text[:old.start()]}{indent}dry run (`{sha}`): {records[cid]}{text[stop:]}"
+        else:
+            key = re.search(r"^([ \t]+)(?:expect|steps|setup|story):", text[start:end], re.M)
+            at = _check_lines_end(text, start, end)
+            text = f"{text[:at]}\n{key.group(1) if key else '  '}dry run (`{sha}`): {records[cid]}{text[at:]}"
+    return text
 
 
 def load(cfg: Config, texts: dict[Path, str] | None = None) -> list[dict[str, Any]]:
@@ -486,13 +565,11 @@ def _check_dry_runs(t: dict[str, Any], rel: str) -> list[str]:
     that the line is there is checked; reading its output against `expect` stays the writer's."""
     if t.get("status") in TERMINAL:
         return []
-    body = _section(t["_text"], SEC_CHECKS) or ""
-    heads = list(CHECK_RE.finditer(body))
     errs = []
-    for i, m in enumerate(heads):
-        block = body[m.end(): heads[i + 1].start() if i + 1 < len(heads) else len(body)]
+    for cid, start, end in check_blocks(t["_text"]):
+        block = t["_text"][start:end]
         if RUN_STEP_RE.search(block) and not (DRY_RUN_RE.search(block) or DRY_RUN_NA_RE.search(block)):
-            errs.append(f"{rel}: dod_check `{m.group(1)}` runs a command but records no `dry run (<commit>):` "
+            errs.append(f"{rel}: dod_check `{cid}` runs a command but records no `dry run (<commit>):` "
                         "line from its writer's run, nor `dry run: n/a — <reason>` (task_log.dry_run, WRITING-tasks.md)")
     return errs
 
@@ -587,17 +664,14 @@ def _check_refactor_gate(cfg: Config, t: dict[str, Any], rel: str) -> list[str]:
     judged = [(role, lane, lanes[lane]) for role, lane in judged if lane in lanes]
     if not judged:
         return []
-    body = _section(t["_text"], SEC_CHECKS) or ""
-    heads = list(CHECK_RE.finditer(body))
     errs = []
-    for i, m in enumerate(heads):
-        block = body[m.end(): heads[i + 1].start() if i + 1 < len(heads) else len(body)]
-        steps = "".join(s.group(1) for s in STEPS_RE.finditer(block))
+    for cid, start, end in check_blocks(t["_text"]):
+        steps = "".join(s.group(1) for s in STEPS_RE.finditer(t["_text"][start:end]))
         runs = [_tokens(span.group(0).strip("`")) for span in CODE_SPAN_RE.finditer(steps)]
         hit = [f"{role} lane `{lane}`" for role, lane, decl in judged
                if any(_runs_lane(w, lane) or (lane_stages(decl) is None and _runs_argv(w, decl)) for w in runs)]
         if hit:
-            errs.append(f"{rel}: dod_check `{m.group(1)}` of a refactor runs the {' and the '.join(hit)} — a refactor "
+            errs.append(f"{rel}: dod_check `{cid}` of a refactor runs the {' and the '.join(hit)} — a refactor "
                         "proves itself by its own checks; the verifier's gate already runs the whole suite (§20.3, §21.1)")
     return errs
 
@@ -620,10 +694,10 @@ def _check_placeholders(t: dict[str, Any], rel: str) -> list[str]:
 
 def unmeasured_numbers(t: dict[str, Any], rel: str) -> list[str]:
     """§5: a task not yet done or dropped whose Context states a number on a line with no backticked
-    command, named with its line. Fenced blocks and code spans are quoted text, not read for numbers, nor
-    is a stated limit or a protocol code: a number right after `at most`, `at least`, `up to`, `no more
-    than`, `no less than`, `within` or `under`, or after `status`, `status code`, `HTTP`, `exit`, `exits`
-    or `exit code` (any case)."""
+    command, named with its line. Fenced blocks, code spans and the lines of a quoted block (`> `, where a
+    ruling written verbatim goes, §10.5) are quoted text, not read for numbers, nor is a stated limit or a
+    protocol code: a number right after `at most`, `at least`, `up to`, `no more than`, `no less than`,
+    `within` or `under`, or after `status`, `status code`, `HTTP`, `exit`, `exits` or `exit code` (any case)."""
     if t.get("status") in TERMINAL:
         return []
     at = _section_at(t["_text"], SEC_CONTEXT)
@@ -634,6 +708,8 @@ def unmeasured_numbers(t: dict[str, Any], rel: str) -> list[str]:
     unfenced = FENCE_RE.sub(_blank, body)
     out = []
     for n, line in enumerate(unfenced.split("\n")):
+        if QUOTED_RE.match(line):
+            continue
         if any(len(span.group(0).strip("`").split()) > 1 for span in CODE_SPAN_RE.finditer(line)):
             continue
         prose = WORD_DATE_RE.sub(_blank, LIST_MARKER_RE.sub(r"\1", CODE_SPAN_RE.sub(_blank, line)))
@@ -643,6 +719,30 @@ def unmeasured_numbers(t: dict[str, Any], rel: str) -> list[str]:
             out.append(f"{rel}:{first + n}: Context states a number ({', '.join(nums)}) with no backticked command on "
                        "its line: name the command that measured it and the commit it ran at (§5)")
     return out
+
+
+def stale_warning(rel: str, sha: str, commits: list[str]) -> list[str]:
+    """§21.1: the warning for a task whose Context was measured at `sha` when `commits` (newest first) have
+    changed its paths since: the first few named, the rest counted. None without commits."""
+    if not commits:
+        return []
+    named = ", ".join(commits[:STALE_NAMED]) + (f" and {len(commits) - STALE_NAMED} more" if len(commits) > STALE_NAMED else "")
+    return [f"{rel}: Context says Measured at `{sha}`, and {len(commits)} commit(s) since changed the task's paths "
+            f"({named}): re-read the brief against them and re-measure its figures (§21.1)"]
+
+
+def stale_context(cfg: Config, t: dict[str, Any], rel: str) -> list[str]:
+    """§21.1: a task not yet done or dropped whose Context says ``Measured at `<sha>` `` (the first one) and whose
+    `paths` a commit since that sha changed (`git log <sha>..HEAD -- <paths>`), warned about. An unknown sha, a
+    task with no paths or a checkout without git gives no warning."""
+    if t.get("status") in TERMINAL:
+        return []
+    m = MEASURED_AT_RE.search(_section(t["_text"], SEC_CONTEXT) or "")
+    paths = [str(p).strip() for p in _as_list(t.get("paths")) if str(p).strip()]
+    if not m or not paths:
+        return []
+    log = _git(cfg, "log", "--format=%h", f"{m.group(1)}..HEAD", "--", *paths)
+    return stale_warning(rel, m.group(1), (log or "").split())
 
 
 def _names_spec(path: str, spec_paths: list[str]) -> bool:
@@ -805,6 +905,7 @@ def warnings(cfg: Config) -> list[str]:
            for t in tasks if t.get("_legacy_status")]
     for t in tasks:
         out += unmeasured_numbers(t, cfg.rel(t["_file"]))
+        out += stale_context(cfg, t, cfg.rel(t["_file"]))
         out += unsigned_spec_edit(cfg, t, cfg.rel(t["_file"]))
         out += missing_adopt(t, cfg.rel(t["_file"]))
         out += hidden_step(t, cfg.rel(t["_file"]))
