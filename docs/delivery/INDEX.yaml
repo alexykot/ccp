@@ -1223,7 +1223,7 @@ tasks:
     depends_on: []
     path: tasks/0244-tasks-check-runs-dry-runs.md
   - id: 0250-generic-cycles-and-closure-helpers
-    status: pending
+    status: done
     title: One cycles helper and one closure helper over a dependency map, used by the task log's walks
     depends_on: []
     path: tasks/0250-generic-cycles-and-closure-helpers.md

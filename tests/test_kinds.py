@@ -193,6 +193,18 @@ class RefactorDeps(unittest.TestCase):
         self.p.task("0003-f", deps=["0002-gone"])
         self.assertEqual(tasklog.scope_deps(tasklog.load(self.p.cfg), ["0003"]), {})
 
+    def test_the_lowest_open_scope_task_is_the_one_that_needs_a_shared_dependency(self):
+        tasks = [{"task_id": "0001-a", "status": "pending", "depends_on": ["0009-x"]},
+                 {"task_id": "0002-b", "status": "pending", "depends_on": ["0009-x"]},
+                 {"task_id": "0009-x", "status": "pending"}]
+        self.assertEqual(tasklog.scope_deps(tasks, ["0001", "0002"]), {"0009-x": "0001-a"})
+
+    def test_the_walk_stops_at_a_scope_task_and_takes_nothing_through_it(self):
+        tasks = [{"task_id": "0001-a", "status": "done", "depends_on": ["0009-c"]},
+                 {"task_id": "0002-b", "status": "pending", "depends_on": ["0001-a"]},
+                 {"task_id": "0009-c", "status": "pending"}]
+        self.assertEqual(tasklog.scope_deps(tasks, ["0001", "0002"]), {})
+
     def test_the_review_points_refactors_are_taken_first(self):
         self.p.task("0001-f")
         self.refactor("0002-r-blocked")
