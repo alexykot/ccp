@@ -1262,3 +1262,13 @@ tasks:
     title: The before-push gate block is written once for the four phases, prompt templates hold one sentence per line, and the writing-tasks skill names two check pitfalls
     depends_on: [0212-full-role-runs-the-gate-lane-and-a-pregate-lane, 0221-workers-reach-the-pr-host-through-ccp-pr, 0223-a-follow-up-is-tracked-not-left-in-notes, 0228-report-sections-as-one-table, 0233-briefs-point-at-the-evidence-rules, 0238-the-runner-runs-marked-checks-before-verify, 0240-plane-workers-run-the-head, 0244-tasks-check-runs-dry-runs]
     path: tasks/0257-one-gate-block-and-one-sentence-per-line.md
+  - id: 0258-the-plane-writes-the-pre-merge-phases
+    status: pending
+    title: The plane writes the pre-merge phases the standing DoD describes, and its contracts match what it writes
+    depends_on: [0221-workers-reach-the-pr-host-through-ccp-pr, 0242-retire-restructure-scaffolding-and-queue-markers]
+    path: tasks/0258-the-plane-writes-the-pre-merge-phases.md
+  - id: 0259-a-check-failure-already-on-the-integration-branch-is-reported
+    status: pending
+    title: A docs or tasks check failure already on the integration branch is reported, not blocking, in a task's checks and the verifier's gate
+    depends_on: [0244-tasks-check-runs-dry-runs, 0252-the-task-check-reports-a-decision-built-before-its-prerequisite]
+    path: tasks/0259-a-check-failure-already-on-the-integration-branch-is-reported.md
