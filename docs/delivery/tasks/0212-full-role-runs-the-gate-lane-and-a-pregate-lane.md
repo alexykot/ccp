@@ -157,4 +157,19 @@ PROPOSED:
 
 ## Implementation notes
 
+- `config.lane_for(cfg, "full")` returns `lane_for(cfg, "gate")` when `suite.lanes` (a dict) holds the gate
+  role's lane and not the full role's, by the names `suite.roles` gives; every other role and case is as
+  before. Every caller (`suite.py`'s no-`--lane` sites, `prompt.full_lane`, `prompt.suite_lanes`,
+  `health.cold_lanes`, `report`'s auto-fill, `tasklog`'s refactor gate) reads the role there, so all follow.
+- `config.PREGATE_LANE = "pregate"`. `prompt.build` sets `pregate_lane` to it when `suite.lanes` declares
+  it, and then leaves `architect_checks` empty; otherwise `pregate_lane` is empty and `architect_checks` is
+  rendered as before.
+- The four templates' "Fail fast first" sentence keeps its opening ("run a quick pre-gate: ") and inserts
+  `{{#pregate_lane}}the product's pre-gate lane (`ccp suite run --lane {{pregate_lane}}`, as plane.json
+  gives it) and {{/pregate_lane}}` before the house-rule checks section; the `ccp suite affected` run
+  follows in both forms.
+- SPEC §14.1 and §13.5 carry the signed text (`ccp verify spec-text 0212` exit 0).
+- Tests: `tests/test_full_lane_prompt.py` gains `GateOnlyLanes`, `FullAndGateLanes`, `DeclaredPregateLane`
+  and `NoPregateLane`.
+
 ## Verification notes
