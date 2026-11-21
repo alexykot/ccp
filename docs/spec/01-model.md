@@ -677,7 +677,7 @@ They regenerate `adr.index` when it is set. Call syntax: `docs/cli/01-model.md`.
   that resolves to no ADR or decision; a malformed or duplicate `decisions` entry, or one naming no
   body decision; a task `adr_refs` entry citing a decision (`NNNN Dn`) its ADR does not have; a
   `requires` entry that is malformed, names a decision that does not exist or one in a `rejected` or
-  `withdrawn` ADR, or closes a cycle (across ADRs included); a stale or missing index.
+  `withdrawn` ADR other than its own, or closes a cycle (across ADRs included); a stale or missing index.
 - **Warnings, failures under `adr.strict`:** a non-canonical decision marker; two `### Dn.` headings
   for one id; a missing reverse link; a link key holding prose; a `requires` target whose `retired
   by` chain ends in a decision retired with no replacement, a whole-ADR `retired by` included (the
