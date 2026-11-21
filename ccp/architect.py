@@ -515,9 +515,10 @@ def render(report: dict[str, Any]) -> str:
     return md
 
 
-def _spawn(cfg: Config, q: Path, argv: list[str]) -> int:
+def _spawn(cfg: Config, q: Path, argv: list[str], many: bool = False) -> int:
     """Run the pass in its own session so it outlives the caller (a runner's shell call is shorter
-    than a pass), and return once it is recorded as running."""
+    than a pass), and return once it is recorded as running. `many` (the several-ADR form, `--adr due`
+    included) prints `review_ids` however many ids there are."""
     rids = argv[argv.index("--review-id") + 1].split(",")
     rid = rids[0]  # several shapes run in turn: the call returns once the first is running
     log = ar.rdir(q) / f"{rid}.log"
@@ -541,8 +542,8 @@ def _spawn(cfg: Config, q: Path, argv: list[str]) -> int:
         except ValueError:
             return ar.out({"outcome": "failed", "review_id": rid, "detached": True, "exit_code": p.returncode,
                            "log": str(log)}, 1)
-    many = {"review_ids": rids} if len(rids) > 1 else {}
-    return ar.out({"outcome": "started", "review_id": rid, **many, "status": status or "starting", "pid": p.pid,
+    ids = {"review_ids": rids} if many else {}
+    return ar.out({"outcome": "started", "review_id": rid, **ids, "status": status or "starting", "pid": p.pid,
                    "log": str(log), "detail": "The pass runs on its own; task work goes on. `ccp architect status` "
                                               "shows it; `ccp tasks next` notices the report."})
 
@@ -606,7 +607,7 @@ def cmd_run(cfg: Config, q: Path, a: argparse.Namespace, actor: str) -> int:
         return _spawn(cfg, q, ["--review-id", ",".join(rids), "--mode", mode, "--lens", ",".join(lenses),
                                "--actor", actor]
                       + (["--adr", ",".join(adrs)] if adrs else []) + (["--force"] if a.force else [])
-                      + (["--scope", a.scope] if a.scope else []))
+                      + (["--scope", a.scope] if a.scope else []), many=many)
     if not many:
         return ar.out(*_run_one(cfg, q, a, actor, mode, lenses, adrs[0] if adrs else None, rids[0] if rids else None))
     runs: list[dict[str, Any]] = []

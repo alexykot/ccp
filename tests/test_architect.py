@@ -643,6 +643,18 @@ class ThePassRunsInItsOwnWorktree(Harness):
         self.assertIn(f"`{res['head'][:7]}`", body)
         self.assertNotIn("git show HEAD:", body)
 
+    def test_a_dirty_product_root_without_a_worktrees_dir_keeps_the_committed_state_line(self):
+        self.plane(worktrees={"dir": None})
+        f = self.p.root / "docs/delivery/REVIEW-TRIAGE.md"
+        f.write_text(f.read_text() + "uncommitted\n")
+        self.stub_report([])
+        code, res, _ = self.dpj("architect", "run", "--force")
+        self.assertEqual((code, res["dirty"]), (0, True), res)
+        argv = json.loads(self.stub("argv"))
+        body = argv[argv.index("-p") + 1]
+        self.assertIn("git show HEAD:", body)
+        self.assertNotIn("you are reading", body)
+
 
 class OneCallShapesEveryAdrDue(Harness):
     """§19.5: `--adr` takes several ids, comma-separated, or `due`; one call shapes each in turn."""
@@ -676,6 +688,16 @@ class OneCallShapesEveryAdrDue(Harness):
         code, res, _ = self.dpj("architect", "run", "--mode", "shape", "--adr", "31,32")
         self.assertEqual(code, 0, res)
         self.assertEqual(self.adrs([r["review_id"] for r in res["runs"]]), ["ADR-0031", "ADR-0032"])
+        code, res, _ = self.dpj("architect", "run", "--mode", "shape", "--adr", "32,31")
+        self.assertEqual(code, 0, res)
+        self.assertEqual(self.adrs([r["review_id"] for r in res["runs"]]), ["ADR-0032", "ADR-0031"])
+
+    def test_several_adrs_need_one_review_id_each(self):
+        code, out, err = self.ccp("architect", "run", "--mode", "shape", "--adr", "31,32", "--review-id",
+                                  "sh-20261014T000000Z-0001")
+        self.assertEqual((code, out), (2, ""))
+        self.assertIn("--review-id needs one id per ADR", err)
+        self.assertFalse((self.q / "architect.json").exists() and self.state()["reviews"])
 
     def test_a_failed_shape_among_several_exits_1(self):
         self.report.write_text("not json")
@@ -693,6 +715,18 @@ class OneCallShapesEveryAdrDue(Harness):
             time.sleep(0.1)
         self.assertEqual(self.adrs(rids), ["ADR-0031", "ADR-0032"])
         self.assertEqual([self.state()["reviews"][r]["status"] for r in rids], ["reported", "reported"])
+
+    def test_adr_due_detached_with_one_adr_due_still_prints_review_ids(self):
+        self.p.write("docs/delivery/reviews/sh-20261014T000000Z-0032.md", "ADR: ADR-0032\n")
+        self.assertEqual(self.dpj("architect", "due")[1]["shape_due"], ["ADR-0031"])
+        code, res, _ = self.dpj("architect", "run", "--mode", "shape", "--adr", "due", "--detach")
+        self.assertEqual((code, res["outcome"]), (0, "started"), res)
+        self.assertEqual(res["review_ids"], [res["review_id"]])
+        for _ in range(200):
+            if (self.state()["reviews"].get(res["review_id"]) or {}).get("status") == "reported":
+                break
+            time.sleep(0.1)
+        self.assertEqual(self.adrs(res["review_ids"]), ["ADR-0031"])
 
 
 class AdrPlan(unittest.TestCase):

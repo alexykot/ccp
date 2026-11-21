@@ -48,7 +48,7 @@ diagnostics, never targets.
 | Skill | The plugin's `architect` skill. It carries the structure and docs lenses that replaced the `architecture-review` and `docs-audit` skills |
 | Triage protocol | The plugin's `review-triage` skill (a product may still carry `docs/delivery/REVIEW-TRIAGE.md`) |
 | House rules | Product-owned, at `plane.json` `architect.rules_doc`; template `templates/docs-project/ENGINEERING.md` (§20.1), optional starter set `templates/docs-project/starter-rules.md` (§20.5) |
-| Driver | `ccp architect due \| run [--mode pass\|shape] [--lens L,…] [--adr ID] [--force] \| triage <id> \| status` |
+| Driver | `ccp architect due \| run [--mode pass\|shape] [--lens L,…] [--adr ID[,ID…]\|due] [--force] \| triage <id> \| status` |
 | Measurements | `ccp health [--since DATE] [--json]`, `ccp health note`, `ccp health record` (§27) |
 | Contracts | `contracts/architect_report.schema.json`: the report with `mode`, `lenses`, `rule_changes` and `metrics`; the triage contract `contracts/architecture_review_triage.schema.json` with §19.8's dispositions |
 | Binding | The `architect` block of the product-owned `docs/delivery/plane.json` (§19.11), so worktrees and verifier checkouts see it |
