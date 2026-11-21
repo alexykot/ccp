@@ -251,7 +251,7 @@ def _section(text: str, name: str) -> str | None:
     return at[1] if at else None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Check:
     """One dod_check of a task file (§5.5): its `id`; its `block`, the text after its `- id:` line up to the next
     check or the section's end; `fields`, the block's `key: value` lines by key (the first line of each, at
@@ -378,8 +378,9 @@ def lags(cfg: Config, ref: str) -> bool:
 def text_at(cfg: Config, rev: str, rel: str) -> str | None:
     """The text of the file `rel` (relative to the checkout's root) at `rev`, read from the git objects: a
     commit or ref, or "" for the index. None when `rev` does not resolve or the file is not there; the
-    checkout's copy is never read in its place, a caller that wants it says so. The one reader of a file at a
-    commit (house rule E22), but for `statuses_at`'s one batch read of many files."""
+    checkout's copy is never read in its place, a caller that wants it says so. The reader of a task or ADR file
+    at a commit for lifecycle, adr and verify; bytes are decoded as they are (a CRLF file keeps its `\\r\\n`),
+    `statuses_at` stays its own batch read of many files."""
     r = subprocess.run(["git", "-C", str(cfg.root), "show", f"{rev}:./{rel}"], capture_output=True)
     return r.stdout.decode("utf-8", errors="replace") if r.returncode == 0 else None
 

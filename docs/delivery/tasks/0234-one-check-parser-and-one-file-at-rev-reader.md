@@ -108,6 +108,18 @@ Measured at `8aefa59`.
   missing file or a bad rev, decoded with `errors="replace"`. `adr.in_force_at` keeps its fall back to the
   checkout's task (`cited(task)`), now commented at the call. `tasklog.statuses_at` stays a batch
   `cat-file --batch` read (one process for many files); the Scope names four readers, not it.
+- Fix round 1: `text_at` decodes the raw bytes, so a CRLF task file kept its `\r\n`, where `queue.git()`
+  (`text=True`) had turned it into `\n`; `lifecycle.drop` and `_says_dropped` then read no status from such a
+  file. Both callers now normalise `\r\n` to `\n` before `tasklog.frontmatter` (as `adr.in_force_at` does);
+  `text_at` itself stays byte-faithful, so ADR bodies read at the head are unchanged. A CRLF test is in
+  `tests/test_tasks_drop.py`. `Check` is `frozen=True, eq=False` (its `fields` dict makes it unhashable by
+  value); `text_at`'s docstring names what it reads (it is not "the one reader" of E22).
+- Named, accepted difference: `text_at` resolves `rel` against `cfg.root` (`git show <rev>:./<rel>`), where
+  `drop`, `adr._at` and `verify._hunks` used the toplevel-relative form. They differ only when `cfg.root` is below
+  the git toplevel (`--root`, `$CCP_ROOT`): `drop` then finds the task file instead of refusing, and
+  `in_force_at` reads the head's task instead of falling back to the checkout's; `verify._hunks` shows no change.
+  A decoding difference too: a file that is not valid UTF-8 is decoded with replacement characters, where the
+  old read raised `UnicodeDecodeError`.
 - E22 is a command check: `architect.checks` `E22`, and the rule's `check:` line says `command`.
 
 ## Verification notes

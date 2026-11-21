@@ -553,7 +553,7 @@ def drop(cfg: Config, task: str, reason: str) -> dict[str, Any]:
     if on_tip is None:
         raise QueueError(f"{cfg.rel(meta['_file'])} is not on origin/{integ}: the lead's dropped status must be "
                          "committed there first", 3)
-    durable = tasklog.frontmatter(on_tip).get("status")
+    durable = tasklog.frontmatter(on_tip.replace("\r\n", "\n")).get("status")
     if durable != "dropped":
         raise QueueError(f"{tid} is {durable or 'no status'} in its task file on origin/{integ}: only a task the "
                          "lead marked dropped (and committed) is dropped here; it edits the task file first", 3)
@@ -1354,7 +1354,7 @@ def task_log_paths(cfg: Config) -> list[str]:
 def _says_dropped(cfg: Config, rev: str, rel: str) -> bool:
     """The task file at `rev` (a commit, or "" for the index) says `status: dropped`: the lead's drop (§10.4)."""
     text = tasklog.text_at(cfg, rev, rel)
-    return text is not None and tasklog.frontmatter(text).get("status") == "dropped"
+    return text is not None and tasklog.frontmatter(text.replace("\r\n", "\n")).get("status") == "dropped"
 
 
 def _own_commit(cfg: Config, nnnn: str, subject: str, parents: str, body: str) -> bool:
