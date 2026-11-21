@@ -178,4 +178,24 @@ PROPOSED:
 
 ## Implementation notes
 
+- 2026-11-21, implementer. `ccp/verify.py`: `marked_errors` judges on plain values (the record, the marked ids,
+  the suite rows, the task's verify runs, the approved operator steps, the rulings), and `marked_refusals` reads
+  them: the marked checks from the task file at the head (`tasklog.text_at`), the rest from the queue. `judge`
+  calls it with the head it is given (so `merge-ok` and `verify check` refuse alike), and `record` calls it on an
+  approve at the record's `head_sha` (E20). A marked check's run must sit at the record's `head_sha`, also when
+  `merge-ok` judges a close catch-up head.
+- A head this checkout does not hold, or one with no task file: refused when the checkout's copy of the task
+  file marks a check (naming `git fetch`), otherwise nothing to judge. The checkout's copy only triggers the
+  refusal and never supplies the marked list; the same shape as `adr.in_force_at`'s unresolved-head rule.
+- Per-check facts (`runs.check_facts`, written by `_note_run` on the verify run as `checks`): `id`, `ran`,
+  `pass`, `produced_by`, `operator_step`, `suite_id`, ids and booleans only. A carried check keeps the
+  `operator_step` and `suite_id` of the pass it carries, taken from the latest approve at `<old>`. So a carry of a
+  carry is judged on the original pass's step and run without storing `rests_on` text. A check not run on
+  anything else keeps neither, so a later carry from it is refused.
+- The contract gives a check an optional `suite_id` (an id pattern), so `RECORD_VERSION` goes to 6
+  (`tests/test_verify.py` `KEYS_AT[6]`). The example's operator sample gets a `notes` line saying it is unmarked.
+- A carried marked check is judged only on what the run at `<old>` kept. Whether the move was an integration
+  merge, or a resolution review that does not list the check, stays the job of `ccp prompt verify` (0238) and
+  `resolution_errors`.
+
 ## Verification notes

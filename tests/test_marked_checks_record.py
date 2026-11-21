@@ -111,6 +111,10 @@ class MarkedErrors(unittest.TestCase):
     def test_a_marked_check_waived_by_a_ruling_is_accepted(self):
         self.assertEqual(self.errors(resting(STEP, seat=None), rulings=frozenset({STEP})), [])
 
+    def test_a_checks_suite_id_is_an_id(self):
+        self.assertEqual(verify.record_errors(verdict(ran())), [])
+        self.assertTrue(verify.record_errors(verdict(ran(sid="the runner's run, pasted"))))
+
     def test_a_failed_marked_check_is_left_to_the_approve_rule(self):
         self.assertEqual(self.errors(ran(passed=False)), [])
 
