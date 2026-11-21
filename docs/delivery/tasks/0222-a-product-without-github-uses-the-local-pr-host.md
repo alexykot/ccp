@@ -182,4 +182,24 @@ PROPOSED: (new lines after it)
 
 ## Implementation notes
 
+- `ccp/prhost.py`: the GitHub operations moved unchanged into a `GitHub` class, and a `Local` class serves the
+  same six; the module's functions dispatch to `adapter(cfg)`, so no caller changed. `merge.command` still
+  runs ahead of either adapter's merge.
+- Local records live in `QUEUE_ROOT/prs/<n>.json`, every write under `prs/.lock`. view, diff, merge and
+  confirm fetch the branch and the base with explicit refspecs, so a product whose origin has no default
+  fetch refspec still gets `origin/<branch>`. An open record takes its head from `origin/<branch>`, and keeps
+  the head it last saw when the branch is gone.
+- merge writes `merge_commit` only after its push lands. view and confirm record `MERGED` (with the squash
+  commit's committer time as `merged_at`) once that commit is on `origin/<base>`, so a close rerun after a
+  crash between the push and the confirmation sees the PR merged rather than squashing it again.
+- Choices the task left open (the runner was asked; no answer came before the report):
+  - under `merge.command` the plane records no merge commit, so confirm falls back to the first-parent
+    commits in `<head>..origin/<base>` whose subject is `Task <NNNN>: ... (#<n>)` (§10.7 rule 1);
+  - a product with `worktrees.dir: null` has no merge worktree, so the squash is made in a temporary
+    detached worktree that is removed afterwards;
+  - the GitHub-adapter init warning now also says that `pr_host.adapter: local` needs only an origin.
+- Not changed (outside the task's paths): close's messages in `ccp/lifecycle.py` still read
+  `gh pr merge <n>: ...` and "gh names no merge commit" under either adapter. A local PR open, merge or
+  confirm records no ledger event of its own: the ledger has no `pr` event type.
+
 ## Verification notes
