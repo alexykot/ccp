@@ -755,6 +755,14 @@ class MergeOk(unittest.TestCase):
         self.assertIn("record.schema_version", "\n".join(reasons))
         self.assertIn("unexpected key reviewed_at", "\n".join(reasons))
 
+    def test_a_pr_the_host_cannot_be_read_for_is_a_reason_not_to_merge(self):
+        for exc, needle in ((prhost.HostError("gh pr view 7: no such PR", "no such PR"), "could not read PR 7: no such PR"),
+                            (prhost.HostError("gh printed no JSON for PR 7"), "gh printed no JSON for PR 7")):
+            with mock.patch.object(prhost, "view", side_effect=exc):
+                reasons, body = verify.merge_ok(self.p.cfg, self.q, "7", "0001-a")
+            self.assertEqual(reasons, [needle])
+            self.assertNotIn("pr_head", body)
+
     def test_no_gh_is_a_configuration_error(self):
         with mock.patch.dict(os.environ, {"CCP_GH_BIN": str(self.q / "no-such-gh")}):
             code, _, err = self.ok("--task", "0001-a", host=False)

@@ -155,6 +155,19 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self.assertNotIn("merge-0002", body["removed"])  # the task is still leased: a re-run of close reuses it
         self.assertTrue(merge_wt.is_dir())
 
+class PrReadRefusals(unittest.TestCase):
+    """close and drop read the PR through the PR host: a host that cannot answer is a refusal (exit 1), a host
+    CLI that cannot run here a configuration problem (exit 2)."""
+
+    def test_a_host_error_is_a_refusal_and_an_unavailable_host_a_configuration_error(self):
+        from ccp.queue import QueueError  # noqa: PLC0415
+        for exc, code in ((prhost.HostError("gh pr view 7: boom"), 1),
+                          (prhost.HostUnavailable("gh is not installed"), 2)):
+            with mock.patch.object(prhost, "view", side_effect=exc), self.assertRaises(QueueError) as cm:
+                lifecycle._pr_state(mock.Mock(), "7")
+            self.assertEqual((cm.exception.code, str(cm.exception)), (code, str(exc)))
+
+
 class CloseListsChecksNotAsWritten(ToolkitFixture, unittest.TestCase):
     """SPEC §15.4: close prints each check verified not as written before it merges, and merges."""
 
