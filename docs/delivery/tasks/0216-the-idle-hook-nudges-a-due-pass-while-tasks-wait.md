@@ -132,4 +132,21 @@ PROPOSED:
 
 ## Implementation notes
 
+- `plugin/hooks/runner-idle.sh`: after the slot and parallel filters, with `ready` empty, no `next` asked yet
+  and the architect adopted, the hook takes the runner's own open in-flight tasks (all of `in_flight`
+  without slots, the slot's leased ones with slots); when there is at least one and none waits on `quota`
+  (as `runtime_wait` reads it, so an expired 5-hour park is no quota wait), it makes the same
+  `ccp tasks next --scope … --json` call (now one `ask_next()` helper for both calls). The existing exit-4
+  handling then applies unchanged. `task_open` and `holder` moved to module level so both branches share
+  them. The header comment's architect line says it also asks `next` while every held task waits.
+- `docs/spec/02-delivery.md` §18.2: the signed bullet, verbatim.
+- Tests (`TestIdleHook`): the five Scope cases on a shared `architect_waiting` setup, with
+  `parallel.max_in_flight` 2 and two done tasks (`every_n_tasks` 1) making the cadence due; `hook()` now
+  keeps the last stderr. The holding-nothing case gives 0002-b an unmet dependency so that `next` too
+  names no task, and the test fails if the hook asks `next` for a runner holding nothing.
+- With `parallel.max_in_flight` 1, `ccp tasks next` names the runner's held task even while it waits
+  (it does not read runtime `waiting_on`), so it never answers that a pass is due at once there and the
+  new call lets the runner idle; the nudge works with tasks in parallel or slots, where `next` leaves
+  in-flight tasks out. Raised in the implement report as an open question.
+
 ## Verification notes
