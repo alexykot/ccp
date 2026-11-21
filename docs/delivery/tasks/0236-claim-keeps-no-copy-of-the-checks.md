@@ -1,7 +1,7 @@
 ---
 task_id: 0236-claim-keeps-no-copy-of-the-checks
 title: Claim stops copying the check ids into queue state, and the task-state contract says so
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S4"]
@@ -85,3 +85,5 @@ Measured at `8aefa59`.
 - The test validates with `ccp.verify.schema_errors`, the plane's own checker of its contracts' keywords.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #255 head `e5bf38f` (squash `f5a1b23`): APPROVE. Passed: cs-01, cs-02, suite-01, mutation. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0236-claim-keeps-no-copy-of-the-checks.json.
+
