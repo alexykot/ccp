@@ -17,7 +17,7 @@
   ccp adr new TITLE | status N STATUS [--note T] | decide N Dn STATE [--by REF] [--note T]
           | supersede OLD NEW [--decisions D2,D4] [--by Dn] [--archive] | check | index [--stdout]
           | list [--json] | migrate --markers [--dry-run]                     (ADRs, SPEC §6)
-  ccp architect due | run [--mode pass|shape] [--lens L,…] [--adr ID] [--force] [--detach] [--scope IDS]
+  ccp architect due | run [--mode pass|shape] [--lens L,…] [--adr ID[,ID…]|due] [--force] [--detach] [--scope IDS]
                | triage <id> | status
   ccp health [--since DATE] [--json] | note --text T [--task ID] | record --task ID --metric k=v …
   ccp verify record FILE|- | merge-ok PR [--task ID] | check TASK_ID --head SHA
@@ -1517,7 +1517,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("review_id", nargs="?", help="triage: the report id (ar-… or sh-…)")
     p.add_argument("--mode", choices=("pass", "shape"), default="pass")
     p.add_argument("--lens", help="comma-separated lenses (structure, docs, tests, process); default all")
-    p.add_argument("--adr", help="shape: the ADR to shape")
+    p.add_argument("--adr", help="shape: the ADR(s) to shape, comma-separated, or `due` for every ADR "
+                                 "`ccp architect due` lists")
     p.add_argument("--scope", help="due, run: the runner's scope, for the review-point trigger "
                                    "(default: work.json's, while a runner is running)")
     p.add_argument("--force", action="store_true", help="run a pass even if not due (on demand)")

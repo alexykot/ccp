@@ -46,7 +46,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ccp import config, health, pkgdocs, refs, rules, tasklog
+from ccp import config, health, pkgdocs, refs, rules, tasklog, wt
 from ccp.adr import find_file as find_adr_file
 from ccp.config import ARCHITECT_DEFAULTS, Config
 
@@ -105,8 +105,16 @@ def work_scope(q: Path, given: str | None = None) -> list[str] | None:
     return list(w.get("scope") or []) or None if w.get("status") == "running" else None
 
 
+def _drop_worktree(main: str | Path, path: str | Path) -> None:
+    """Remove a pass's own worktree (§12.1 `arch-<review id>`) from the main checkout it was made in.
+    Failures are ignored: the worktree may be gone already."""
+    ar.git(str(main), "worktree", "remove", "--force", str(path))
+    ar.git(str(main), "worktree", "prune")
+
+
 def _reap(q: Path, st: dict[str, Any], actor: str) -> None:
-    """A `running` pass whose lock is gone or stale has died with its process: mark it failed."""
+    """A `running` pass whose lock is gone or stale has died with its process: mark it failed, and
+    remove its own worktree if it is still there."""
     lock = q / ARCH.lock
     try:
         cur = read_json(lock) if lock.is_file() else {}
@@ -121,10 +129,13 @@ def _reap(q: Path, st: dict[str, Any], actor: str) -> None:
         if not alive and age > STALE_AFTER_S:
             rec["error"] = "its process ended without a result (lock gone or stale)"
             ar.transition(q, st, rid, "failed", actor, ARCH)
+            if rec.get("worktree") and rec.get("main") and Path(rec["worktree"]).exists():
+                _drop_worktree(rec["main"], rec["worktree"])
 
 
 def load(q: Path, actor: str = "system", reap: bool = True) -> dict[str, Any]:
-    """The state file. `reap=False` only reads: no dead pass is marked failed (the board's view)."""
+    """The state file. `reap=False` only reads: no dead pass is marked failed and no worktree is removed
+    (the board's view)."""
     st = ar.load_state(q, ARCH)
     st.setdefault("reviews", {})
     st.setdefault("seen", {})
@@ -354,6 +365,35 @@ def adr_id(arg: str, cfg: Config | None = None) -> str:
     return refs.ids(cfg).adr_canonical(arg)
 
 
+def adr_plan(arg: str | None, mode: str, due: Any, canon: Any = adr_id) -> list[str]:
+    """The ADRs one `run` names, in order (§19.5): `--adr`'s comma-separated ids, each canonical, or `due`,
+    every ADR `due()` lists (`shape_due`, read once, when the call starts). Empty without `--adr`. `due` or
+    several ids with a mode other than `shape` is refused (SystemExit)."""
+    items = [x.strip() for x in (arg or "").split(",") if x.strip()]
+    if not items:
+        return []
+    if items == ["due"] or len(items) > 1:
+        if mode != "shape":
+            raise SystemExit("ccp architect run: --adr due or several ADRs need --mode shape (SPEC §19.5)")
+        if items == ["due"]:
+            return list(due())
+    if "due" in items:
+        raise SystemExit("ccp architect run: --adr takes ADR ids, comma-separated, or `due` alone")
+    return list(dict.fromkeys(canon(x) for x in items))
+
+
+def deny_rules(private_dirs: list[str], roots: list[str]) -> list[str]:
+    """§19.7: `Read(./<p>)` and `Read(./<p>/**)` for each private path, and the same two rules on `<p>`'s
+    absolute path under each of `roots` (the pass's cwd and the product root), in Claude Code's absolute
+    form: a rule path that begins `//` is read from the filesystem root."""
+    out: list[str] = []
+    for p in private_dirs:
+        out += [f"Read(./{p})", f"Read(./{p}/**)"]
+        for r in roots:
+            out += [f"Read(/{r.rstrip('/')}/{p})", f"Read(/{r.rstrip('/')}/{p}/**)"]
+    return list(dict.fromkeys(out))
+
+
 def _adr_path(cfg: Config, adr: str) -> str | None:
     m = re.search(r"(\d+)", adr or "")
     if not m:
@@ -363,7 +403,8 @@ def _adr_path(cfg: Config, adr: str) -> str | None:
 
 
 def prompt_for(cfg: Config, q: Path, rid: str, mode: str, lenses: list[str], head: str, base: str | None,
-               dirty: bool, adr: str | None, due_reason: str, notes_since: str | None) -> str:
+               dirty: bool, adr: str | None, due_reason: str, notes_since: str | None,
+               own_worktree: bool = False) -> str:
     a = _settings(cfg)
     rs = rules.summary(cfg)
     probe_txt = ", ".join(f"`{p}`" for p in a["probes"]) or "none (read-only git and file commands only)"
@@ -403,7 +444,9 @@ def prompt_for(cfg: Config, q: Path, rid: str, mode: str, lenses: list[str], hea
                  "Friction notes since the last pass: none.")
     lines += [f"- {n.get('at')} [{n.get('task_id') or '-'}, {n.get('by') or n.get('source') or '-'}] {n.get('text')}"
               for n in ns]
-    if dirty:
+    if dirty and own_worktree:
+        lines.append(f"The caller's checkout was dirty; you are reading `{head[:7]}`.")
+    elif dirty:
         lines.append("The working tree has uncommitted changes from other work: review the committed state "
                      "(`git show HEAD:<path>` for any modified file).")
     lines.append("Finish with the report JSON object as your final message and nothing after it.")
@@ -472,10 +515,12 @@ def render(report: dict[str, Any]) -> str:
     return md
 
 
-def _spawn(cfg: Config, q: Path, argv: list[str]) -> int:
+def _spawn(cfg: Config, q: Path, argv: list[str], many: bool = False) -> int:
     """Run the pass in its own session so it outlives the caller (a runner's shell call is shorter
-    than a pass), and return once it is recorded as running."""
-    rid = argv[argv.index("--review-id") + 1]
+    than a pass), and return once it is recorded as running. `many` (the several-ADR form, `--adr due`
+    included) prints `review_ids` however many ids there are."""
+    rids = argv[argv.index("--review-id") + 1].split(",")
+    rid = rids[0]  # several shapes run in turn: the call returns once the first is running
     log = ar.rdir(q) / f"{rid}.log"
     boot = f"import sys; sys.path.insert(0, {str(PLANE)!r}); from ccp.cli import main; sys.exit(main(sys.argv[1:]))"
     with log.open("w") as fh:
@@ -497,44 +542,114 @@ def _spawn(cfg: Config, q: Path, argv: list[str]) -> int:
         except ValueError:
             return ar.out({"outcome": "failed", "review_id": rid, "detached": True, "exit_code": p.returncode,
                            "log": str(log)}, 1)
-    return ar.out({"outcome": "started", "review_id": rid, "status": status or "starting", "pid": p.pid,
+    ids = {"review_ids": rids} if many else {}
+    return ar.out({"outcome": "started", "review_id": rid, **ids, "status": status or "starting", "pid": p.pid,
                    "log": str(log), "detail": "The pass runs on its own; task work goes on. `ccp architect status` "
                                               "shows it; `ccp tasks next` notices the report."})
 
 
-def cmd_run(cfg: Config, q: Path, a: argparse.Namespace, actor: str) -> int:
-    s = _settings(cfg)
-    mode = a.mode or "pass"
-    lenses = _lenses(a.lens)
-    adr = adr_id(a.adr, cfg) if a.adr else None
-    if mode == "shape" and not adr:
-        raise SystemExit("ccp architect run --mode shape: give --adr <id>")
+def _new_rid(mode: str, taken: set[str] | None = None) -> str:
+    """A fresh review id: `sh-…` for a shape, `ar-…` for a pass, none of `taken`."""
+    while True:
+        rid = f"{'sh' if mode == 'shape' else 'ar'}-{ar.now_utc().strftime('%Y%m%dT%H%M%SZ')}-{secrets.token_hex(2)}"
+        if rid not in (taken or set()):
+            return rid
+
+
+def _refused(cfg: Config, q: Path, a: argparse.Namespace, mode: str) -> tuple[dict[str, Any] | None, int, dict[str, Any]]:
+    """§19.6 rule 5: why a run of `mode` may not start now (the outcome object and exit 3), or None; and `due_info`."""
     info = due_info(cfg, q, work_scope(q, a.scope))
     if mode == "pass":
         if not config.architect_on(cfg) and not a.force:
-            return ar.out({"outcome": "disabled", **info}, 3)
+            return {"outcome": "disabled", **info}, 3, info
         if not a.force and not info["due"]:
-            return ar.out({"outcome": "not_due", **info}, 3)
+            return {"outcome": "not_due", **info}, 3, info
         if info["running"] or info["awaiting_triage"]:
-            return ar.out({"outcome": "blocked", "reason": info["reason"]}, 3)
+            return {"outcome": "blocked", "reason": info["reason"]}, 3, info
     elif info["running"]:
-        return ar.out({"outcome": "blocked", "reason": info["reason"]}, 3)
-    pr, pid = str(cfg.root), cfg.project_id
+        return {"outcome": "blocked", "reason": info["reason"]}, 3, info
+    return None, 0, info
+
+
+def _head(cfg: Config) -> str:
+    """§19.7 step 1: HEAD of the product root, and the architect skill present; else exit."""
+    pr = str(cfg.root)
     head = ar.git(pr, "rev-parse", "HEAD")
     if not head:
         raise SystemExit(f"ccp architect: not a git checkout: {pr}")
     if not Path(ar.architect_skill(cfg.root)).is_file():
         raise SystemExit(f"ccp architect: no architect skill: neither {SKILL} nor the plugin's (SPEC §9.1)")
-    rid = a.rid or f"{'sh' if mode == 'shape' else 'ar'}-{ar.now_utc().strftime('%Y%m%dT%H%M%SZ')}-{secrets.token_hex(2)}"
+    return head
+
+
+def cmd_run(cfg: Config, q: Path, a: argparse.Namespace, actor: str) -> int:
+    """One pass, or (§19.5) one shape per ADR when `--adr` names several or `due`, one after another."""
+    mode = a.mode or "pass"
+    lenses = _lenses(a.lens)
+    items = [x.strip() for x in (a.adr or "").split(",") if x.strip()]
+    many = items == ["due"] or len(items) > 1
+    adrs = adr_plan(a.adr, mode, lambda: shape_due(cfg, tasklog.load(cfg)), lambda x: adr_id(x, cfg))
+    if mode == "shape" and not adrs:
+        if many:
+            return ar.out({"outcome": "not_due", "shape_due": [], "reason": "no ADR awaits a shape"}, 3)
+        raise SystemExit("ccp architect run --mode shape: give --adr <id>")
+    rids = [x for x in (a.rid or "").split(",") if x]
+    if many and rids and len(rids) != len(adrs):
+        raise SystemExit("ccp architect run: --review-id needs one id per ADR")
     if a.detach:
-        return _spawn(cfg, q, ["--review-id", rid, "--mode", mode, "--lens", ",".join(lenses), "--actor", actor]
-                      + (["--adr", adr] if adr else []) + (["--force"] if a.force else [])
-                      + (["--scope", a.scope] if a.scope else []))
+        refused, code, _ = _refused(cfg, q, a, mode)
+        if refused:
+            return ar.out(refused, code)
+        _head(cfg)
+        if not rids:
+            for _ in adrs if many else [None]:
+                rids.append(_new_rid(mode, set(rids)))
+        return _spawn(cfg, q, ["--review-id", ",".join(rids), "--mode", mode, "--lens", ",".join(lenses),
+                               "--actor", actor]
+                      + (["--adr", ",".join(adrs)] if adrs else []) + (["--force"] if a.force else [])
+                      + (["--scope", a.scope] if a.scope else []), many=many)
+    if not many:
+        return ar.out(*_run_one(cfg, q, a, actor, mode, lenses, adrs[0] if adrs else None, rids[0] if rids else None))
+    runs: list[dict[str, Any]] = []
+    for i, adr in enumerate(adrs):
+        rid = rids[i] if rids else _new_rid(mode, {r.get("review_id") for r in runs})
+        runs.append(_run_one(cfg, q, a, actor, mode, lenses, adr, rid)[0])
+    return ar.out({"runs": runs}, 0 if all(r.get("outcome") == "reported" for r in runs) else 1)
+
+
+def _make_worktree(cfg: Config, main: Path, wdir: Path, path: Path, head: str) -> None:
+    """§12.1 `arch-<review id>`: made detached at `head` from the main checkout, with `worktrees.links`
+    linked in; env.setup is not run. A git error raises, and fails the pass."""
+    wt._exclude_base(main, wdir)
+    r = subprocess.run(["git", "-C", str(main), "worktree", "add", "-q", "--detach", str(path), head],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"git worktree add {path}: {(r.stderr or r.stdout).strip()[:300]}")
+    wt._link(cfg, main, path)
+
+
+def _abs_roots(*dirs: str) -> list[str]:
+    """Each directory's absolute path, as given and resolved, once each (§19.7's absolute deny rules)."""
+    return list(dict.fromkeys(x for d in dirs for x in (str(Path(d).absolute()), str(Path(d).resolve()))))
+
+
+def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str, lenses: list[str],
+             adr: str | None, rid: str | None) -> tuple[dict[str, Any], int]:
+    """One pass, synchronous (§19.7): its outcome object and exit code. Its headless call runs in its own
+    worktree, `arch-<review id>` under the worktree directory (§12.1), detached at `head` and removed when
+    the pass ends; with no worktree directory, in the product root."""
+    s = _settings(cfg)
+    refused, code, info = _refused(cfg, q, a, mode)
+    if refused:
+        return refused, code
+    pr, pid = str(cfg.root), cfg.project_id
+    head = _head(cfg)
+    rid = rid or _new_rid(mode)
     dirty = bool(ar.git(pr, "status", "--porcelain", "--untracked-files=no"))
     timeout_s = int(s["call_timeout_minutes"]) * 60
     ok, cur = ar.lock_take(q, actor, rid, timeout_s + 600, ARCH)
     if not ok:
-        return ar.out({"outcome": "locked", "lock": cur}, 3)
+        return {"outcome": "locked", "lock": cur}, 3
     st = load(q, actor)
     last = st.get("last") or {}
     base = last.get("head")
@@ -543,6 +658,11 @@ def cmd_run(cfg: Config, q: Path, a: argparse.Namespace, actor: str) -> int:
     # This pass's record, re-applied on every write so no other writer can lose it.
     rec0 = {"mode": mode, "lenses": lenses, "adr": adr, "head": head, "base": base, "done": done,
             "started_at": fmt_dt(ar.now_utc()), "due_reason": info.get("reason")}
+    # §12.1: the pass's own worktree, recorded before it is made so a pass that dies meanwhile is cleaned up.
+    wdir, main = wt.base_dir(cfg), wt.main_checkout(cfg)
+    own = wdir / f"arch-{rid}" if wdir else None
+    if own:
+        rec0.update(worktree=str(own), main=str(main))
 
     def move(to: str, **fields: Any) -> None:
         ar.transition(q, {"reviews": {rid: {**rec0, **fields}}}, rid, to, actor, ARCH)
@@ -552,10 +672,13 @@ def cmd_run(cfg: Config, q: Path, a: argparse.Namespace, actor: str) -> int:
             ar.update_state(q, ARCH, lambda f: f.__setitem__(
                 "last_attempt", {"review_id": rid, "done_count": len(done), "at": rec0["started_at"]}))
         move("running")
+        if own and wdir:
+            _make_worktree(cfg, main, wdir, own, head)
+        cwd = str(own) if own else pr
         prompt = prompt_for(cfg, q, rid, mode, lenses, head, base, dirty, adr,
-                            info["reason"] if info["due"] else "", last.get("started_at"))
+                            info["reason"] if info["due"] else "", last.get("started_at"), own_worktree=bool(own))
         tools = ar.BASE_READ_TOOLS + [f"Bash({p}:*)" for p in s["probes"]]
-        deny = [ar.DENY_TOOLS] + [r for p in s["private_dirs"] for r in (f"Read(./{p})", f"Read(./{p}/**)")]
+        deny = [ar.DENY_TOOLS] + deny_rules(list(s["private_dirs"]), _abs_roots(cwd, pr))
         argv = ["env"]
         for k in sm.STRIP_KEYS:
             argv += ["-u", k]
@@ -564,7 +687,7 @@ def cmd_run(cfg: Config, q: Path, a: argparse.Namespace, actor: str) -> int:
         audit = subprocess.run(
             ["bash", str(OBS / "write-prompt-audit.sh"), "--task-id", ARCH.audit_task, "--phase", f"architect-{mode}",
              "--prompt-file", "-", "--argv", json.dumps(argv), "--actor", actor, "--project-id", pid,
-             "--worktree", pr, "--git-head", head, "--notes", f"review_id={rid}"]
+             "--worktree", cwd, "--git-head", head, "--notes", f"review_id={rid}"]
             + (["--keep-body"] if (cfg.prompts or {}).get("keep_body") else []),  # §23.8
             input=prompt, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(q)})
         if audit.returncode != 0:
@@ -574,7 +697,7 @@ def cmd_run(cfg: Config, q: Path, a: argparse.Namespace, actor: str) -> int:
         ar.emit(q, actor, "launch", {"review_id": rid, "phase": mode, "prompt_ref": prompt_ref}, ARCH)
         env = sm.headless_env(pid, f"architect-{mode}")
         try:
-            proc = subprocess.run(argv, cwd=pr, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            proc = subprocess.run(argv, cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True, text=True,
                                   timeout=timeout_s, env=env)
             code, so, se = proc.returncode, proc.stdout, proc.stderr
         except subprocess.TimeoutExpired as exc:
@@ -587,15 +710,15 @@ def cmd_run(cfg: Config, q: Path, a: argparse.Namespace, actor: str) -> int:
         is_quota, qclass, resets = sm.detect_quota(res, so, se)
         if is_quota:
             move("quota_parked", error=f"quota ({qclass}); resets {resets}")
-            return ar.out({**result, "outcome": "quota_parked", "quota_class": qclass, "resets_at": resets,
-                           "actions": [{"action": "retry_after_reset", "detail": "Run `ccp architect run --force` after the reset."}]}, 1)
+            return {**result, "outcome": "quota_parked", "quota_class": qclass, "resets_at": resets,
+                    "actions": [{"action": "retry_after_reset", "detail": "Run `ccp architect run --force` after the reset."}]}, 1
         report = ar.last_json_object(str(res.get("result") or ""))
         errs = validate(report, rid, pid, mode, lenses, refs.ids(cfg)) if report is not None else ["no JSON report in the final message"]
         if errs:
             (ar.rdir(q) / f"{rid}.failed.txt").write_text((str(res.get("result") or se or ""))[-20000:])
             move("failed", error="; ".join(errs)[:500])
-            return ar.out({**result, "outcome": "failed", "errors": errs,
-                           "actions": [{"action": "retry_next_due", "detail": f"Raw output kept in reviews/{rid}.failed.txt."}]}, 1)
+            return {**result, "outcome": "failed", "errors": errs,
+                    "actions": [{"action": "retry_next_due", "detail": f"Raw output kept in reviews/{rid}.failed.txt."}]}, 1
         report.update({"schema_version": 1, "review_id": rid, "project_id": pid, "head": head, "base": base,
                        "mode": mode, "lenses": lenses, "rule_changes": report.get("rule_changes") or []})
         if adr:
@@ -613,15 +736,17 @@ def cmd_run(cfg: Config, q: Path, a: argparse.Namespace, actor: str) -> int:
             ar.update_state(q, ARCH, finish)
         if mode == "pass" and not report["findings"] and not report["rule_changes"]:
             move("no_findings")
-            return ar.out({**result, "outcome": "no_findings", "report": str(ar.report_path(q, rid))})
+            return {**result, "outcome": "no_findings", "report": str(ar.report_path(q, rid))}, 0
         move("reported")
-        return ar.out({**result, "outcome": "reported", "findings": len(report["findings"]),
-                       "rule_changes": len(report["rule_changes"]), "report": str(ar.report_path(q, rid)),
-                       "actions": [{"action": "triage", "cmd": f"ccp architect triage {rid}"}]})
+        return {**result, "outcome": "reported", "findings": len(report["findings"]),
+                "rule_changes": len(report["rule_changes"]), "report": str(ar.report_path(q, rid)),
+                "actions": [{"action": "triage", "cmd": f"ccp architect triage {rid}"}]}, 0
     except Exception as exc:  # noqa: BLE001
         move("failed", error=str(exc)[:500])
-        return ar.out({**result, "outcome": "failed", "errors": [str(exc)]}, 1)
+        return {**result, "outcome": "failed", "errors": [str(exc)]}, 1
     finally:
+        if own:
+            _drop_worktree(main, own)
         ar.lock_release(q, actor, rid, ARCH)
 
 

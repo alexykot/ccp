@@ -1,7 +1,7 @@
 ---
 task_id: 0198-architect-runs-in-its-own-worktree
 title: The architect runs in its own worktree at the head it names, and one call shapes every ADR due
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0200-mutate-together"]
@@ -10,7 +10,7 @@ review_point: R14
 paths: ["ccp/architect.py", "ccp/cli.py", "docs/spec/02-delivery.md", "docs/spec/03-quality.md", "docs/cli/03-quality.md", "tests/test_architect.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0198-architect-runs-in-its-own-worktree
@@ -201,4 +201,30 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- `cmd_run` is split: `cmd_run` reads `--adr` (`adr_plan`, plain values) and runs one pass or one shape per
+  ADR; `_run_one` is the single synchronous pass, returning its outcome object and exit code instead of
+  printing it. `_refused` and `_head` are the old preconditions, unchanged, shared by the detached path.
+- The pass's worktree path and `main` go into the record before `move("running")`, so a pass that dies
+  while the worktree is being made is still cleaned up by `_reap`. The worktree is made right after the
+  pass is recorded `running`; a git error raises and fails the pass before the prompt audit and launch.
+- Beyond the Scope's steps, `_make_worktree` also calls `wt._exclude_base(main, <worktrees dir>)`, as
+  `ccp wt create` does, so a `git add -A` in the product root while a pass runs cannot pick the pass's
+  worktree up as an embedded repository.
+- Choices the task left open: the new `dirty` prompt line applies when the pass has its own worktree;
+  with no `worktrees.dir` (the pass reads the product root's files) the old line stays. The absolute deny
+  rules name each root as given and resolved (`/var/…` and `/private/var/…` on macOS), once each. Several
+  ids with a mode other than `shape` are refused like `due`; `due` mixed with ids is refused; a repeated
+  id runs once. `--adr due` always prints the `{"runs": […]}` form, even when one ADR is due; the
+  detached multi-ADR start keeps `review_id` (the first) beside `review_ids`.
+- `docs/cli/03-quality.md`'s cost column for the row now says one Claude session per pass, one per ADR
+  for a shape.
+- Fix round 1 (review MINOR-1, NIT-1 to NIT-3): `cmd_run` passes `many` to `_spawn`, so a detached
+  several-ADR start, `--adr due` included, prints `review_ids` even when one ADR is due (it chose by the
+  number of ids). New tests: the order given (`--adr 32,31`), the one-`--review-id`-per-ADR refusal, and
+  the old `git show HEAD:` line on a dirty product root with no `worktrees.dir`. The §19.2 Driver row
+  shows `[--adr ID[,ID…]|due]`, a passage this change made false. NIT-4 and NIT-5 left as they are, as
+  the runner ruled.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #235 head `9e33da2` (squash `aa29672`): APPROVE. Passed: ar-01, ar-02, ar-03, ar-04, ar-05, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0198-architect-runs-in-its-own-worktree.json.
+
