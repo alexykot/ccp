@@ -16,6 +16,7 @@ from ccp import health, quality, report
 from tests.helpers import Product
 
 CACHE = {"verify": {"accept_cache": {"max_age_days": 3}}}
+LANES = {"suite": {"lanes": {"gate": ["true"], "full": ["true"]}}}  # the full role's own lane (§14.1)
 RUN = "0002-second/implement"
 TID = "0002-second"
 
@@ -36,8 +37,8 @@ class Fixture:
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.q = Path(self._tmp.name)
-        self.p = Product()
-        self.pc = Product(CACHE)
+        self.p = Product(LANES)
+        self.pc = Product({**CACHE, **LANES})
 
     def tearDown(self):
         self._tmp.cleanup()

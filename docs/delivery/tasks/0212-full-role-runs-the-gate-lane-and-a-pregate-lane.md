@@ -1,7 +1,7 @@
 ---
 task_id: 0212-full-role-runs-the-gate-lane-and-a-pregate-lane
 title: A product with no full lane runs the gate lane for the full role, and a declared pre-gate lane replaces the rendered pre-gate list
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0221-workers-reach-the-pr-host-through-ccp-pr", "0223-a-follow-up-is-tracked-not-left-in-notes", "0238-the-runner-runs-marked-checks-before-verify"]
@@ -11,7 +11,7 @@ paths: ["ccp/config.py", "ccp/prompt.py", "templates/prompts/implement.md", "tem
 adopt: "plane.json suite.lanes.pregate: a lane that runs the product's fail-fast checks, if it wants one"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0212-full-role-runs-the-gate-lane-and-a-pregate-lane
@@ -157,4 +157,25 @@ PROPOSED:
 
 ## Implementation notes
 
+- `config.lane_for(cfg, "full")` returns `lane_for(cfg, "gate")` when `suite.lanes` (a dict) holds the gate
+  role's lane and not the full role's, by the names `suite.roles` gives; every other role and case is as
+  before. Every caller (`suite.py`'s no-`--lane` sites, `prompt.full_lane`, `prompt.suite_lanes`,
+  `health.cold_lanes`, `report`'s auto-fill, `tasklog`'s refactor gate) reads the role there, so all follow.
+- `config.PREGATE_LANE = "pregate"`. `prompt.build` sets `pregate_lane` to it when `suite.lanes` declares
+  it, and then leaves `architect_checks` empty; otherwise `pregate_lane` is empty and `architect_checks` is
+  rendered as before.
+- The four templates' "Fail fast first" sentence keeps its opening ("run a quick pre-gate: ") and inserts
+  `{{#pregate_lane}}the product's pre-gate lane (`ccp suite run --lane {{pregate_lane}}`, as plane.json
+  gives it) and {{/pregate_lane}}` before the house-rule checks section; the `ccp suite affected` run
+  follows in both forms.
+- SPEC §14.1 and §13.5 carry the signed text (`ccp verify spec-text 0212` exit 0).
+- Tests: `tests/test_full_lane_prompt.py` gains `GateOnlyLanes`, `FullAndGateLanes`, `DeclaredPregateLane`
+  and `NoPregateLane`.
+- Fix round 1 (review MINOR 1): `tests/test_full_lane_prompt.py` gains `RenamedGateOnlyLanes`, a product
+  with `suite.roles.gate: "formal"`, a `formal` lane and no full lane: the full role resolves to `formal`.
+  It pins the fallback reading the gate role's lane through `suite.roles`. The review's NIT 1 (`tasklog`'s
+  refactor-gate wording) and NIT 2 (README's `suite.lanes` row) are outside the task's paths: follow-ups.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #262 head `d0b16b6` (close's catch-up of the approved `eb978bd`, gate run st-20261121T115556Z-5aad35) (squash `a4ea8b9`): APPROVE. Passed: ln-01, ln-02, ln-03, ln-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0212-full-role-runs-the-gate-lane-and-a-pregate-lane.json.
+

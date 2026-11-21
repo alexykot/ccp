@@ -1058,7 +1058,7 @@ tasks:
     depends_on: []
     path: tasks/0211-architect-cadence-scales-with-tasks-in-flight.md
   - id: 0212-full-role-runs-the-gate-lane-and-a-pregate-lane
-    status: pending
+    status: done
     title: A product with no full lane runs the gate lane for the full role, and a declared pre-gate lane replaces the rendered pre-gate list
     depends_on: []
     path: tasks/0212-full-role-runs-the-gate-lane-and-a-pregate-lane.md

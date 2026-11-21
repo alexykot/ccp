@@ -579,7 +579,7 @@ shows.
 - **Cache lifetime.** `experimental.cacheTtl: 1h` in every delivery definition covers worker
   subagents; the runner teammate's comes from `subagentPromptCacheTtl` in settings (§2.4). `ccp usage`
   shows the 1-hour cache writes (`W-1H`) per run and seat.
-- **Fail fast.** Before the full suite, the implementer and fixer run a pre-gate: the product's `architect.checks` commands (rendered from plane.json) and the run `ccp suite affected` prints on stderr (§14.7), through `ccp suite run`: the part lane, or, when it says the change reaches most of the suite, no pre-gate and the full lane. It never stands in for the full suite, which runs on the final code and must be green.
+- **Fail fast.** Before the full suite, the implementer and fixer run a pre-gate: the product's `architect.checks` commands (rendered from plane.json), or, when plane.json `suite.lanes` declares a `pregate` lane, that lane through `ccp suite run --lane pregate` in their place, and the run `ccp suite affected` prints on stderr (§14.7), through `ccp suite run`: the part lane, or, when it says the change reaches most of the suite, no pre-gate and the full lane. It never stands in for the full suite, which runs on the final code and must be green.
 - **Exploration hygiene.** What the task cites is read in full; a listing, search or log likely past
   about 200 lines goes to a scratch file and is read in slices; independent reads go as parallel tool
   calls in one turn.
@@ -603,7 +603,8 @@ gate, a subset of modules, every rerun) through
 plane reads three lane **roles**: `full` (the implementer's and fixer's full suite), `gate` (the
 verifier's formal gate, whose script picks its own lanes) and `part` (a subset, such as the
 reviewer's modules or a mutation check). Each role's lane is the `suite.lanes` lane of the role's own
-name. The gate
+name, except that a product declaring a gate lane and no full lane runs the gate lane for the full
+role too (in the briefs, and for a run with no `--lane`). The gate
 role's lane is required: every task's verify runs it, and so does its catch-up with the tip before
 review, so with none `ccp tasks claim` and `ccp tasks next` refuse (exit 2, §8.1); `ccp init --gate`
 writes it. The other roles' lanes are optional; the prompts,
