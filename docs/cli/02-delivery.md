@@ -21,7 +21,7 @@ argument takes the full id or its number.
 | `ccp tasks hold [<id> [--reason "…"] \| --clear <id>]` | lead | §10.4 |
 | `ccp tasks sign-off <id> --by <who> --words "…" [--stage brief\|build] [--head\|--from <sha>] [--at <date>]` | lead | §3.5, §10.5 |
 | `ccp tasks ruling <id> --words "…" [--check <dod_check_id>]` | lead | §17.5, §15.4 |
-| `ccp tasks follow-up <run_id>#<n> (--task <id> \| --proposal <id> \| --drop "<reason>")` | lead | §13.4, ADR-0044 D2 (refused, exit 2, for any other caller, an id that names no follow-up, a task not in the log at `origin/<integration>`, a proposal not in `plane/proposals.jsonl`, an empty reason; run again, it replaces the outcome) |
+| `ccp tasks follow-up <run_id>#<n> (--task <id> \| --proposal <id> \| --drop "<reason>")` | lead | §13.4, ADR-0044 D2 (refused, exit 2, when `ACTOR` names another seat, for an id that names no follow-up, a task not in the log at `origin/<integration>`, a proposal not in `plane/proposals.jsonl`, an empty or secret-like reason; run again, it replaces the outcome) |
 | `ccp tasks follow-ups [--open] [--json]` | lead | §13.4, ADR-0044 D4 (`<id> <task_id> <outcome or open>: <text>` per follow-up, then `<n> open`) |
 | `ccp tasks release <id> [--keep-branch] --reason "…"` | lead, runner | §10.4, §10.5, §16.5 (names `idle_runners` and `vacant_slots`, as close does) |
 | `ccp tasks drop <id> --reason "…"` | lead, runner | §10.4 |

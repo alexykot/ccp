@@ -147,6 +147,21 @@ class TheCommands(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(self.follow_ups_on_record()[0]["outcome"]["ref"], "0003-third")
 
+    def test_a_task_file_at_the_tip_with_no_status_is_refused(self):
+        self.write("docs/delivery/tasks/0004-broken.md", "No frontmatter, so no status.\n")
+        git(self.main, "add", "docs/delivery/tasks/0004-broken.md")
+        git(self.main, "commit", "-q", "-m", "a task file without a status")
+        git(self.main, "push", "-q", "origin", "main")
+        self.assertIn("0004-broken", tasklog.task_ids_at(config.load(self.main), "origin/main"))
+        self.assert_refused(self.ccp("tasks", "follow-up", f"{self.RUN}#1", "--task", "0004", root=self.main),
+                            "--task")
+
+    def test_an_id_given_with_surrounding_whitespace_resolves(self):
+        code, body, _, err = self.ccp("tasks", "follow-up", f"  {self.RUN}#2 ", "--drop", "not worth it")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(body["id"], f"{self.RUN}#2")
+        self.assertEqual(self.follow_ups_on_record()[1]["outcome"]["reason"], "not worth it")
+
     def test_the_task_ids_at_a_rev_are_its_task_files_only(self):
         self.write("docs/delivery/tasks/README.md", "Not a task.\n")
         git(self.main, "add", "docs/delivery/tasks/README.md")
