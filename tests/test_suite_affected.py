@@ -92,8 +92,9 @@ class Affected(Scratch, unittest.TestCase):
             self.p.write(rel, "import unittest\nimport pkg\n")
         code, lines, err = self.run_cli("--paths", "pkg/a.py")
         self.assertEqual((code, lines), (0, ["tests.test_a", "tests.test_b", "tests.test_filler1"]), err)
+        # the product declares a gate lane and no full lane, so the full lane it names is the gate lane (§14.1)
         self.assertEqual(err, "ccp suite affected: 3 of 8 test modules: skip the pre-gate and run the full lane: "
-                              "ccp suite run --lane full\n")
+                              "ccp suite run --lane gate\n")
 
     def test_a_quarter_of_the_suite_exactly_still_gets_the_part_lane_line(self):
         code, lines, err = self.run_cli("--paths", "pkg/a.py", "pkg/b.py")  # 2 of 8

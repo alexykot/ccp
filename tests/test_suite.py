@@ -554,6 +554,8 @@ class OutputCounts(SuiteFixture, unittest.TestCase):
 
 
 class ReportCrossCheck(SuiteFixture, unittest.TestCase):
+    # the full role's own lane is declared, so a `--lane full` run is the suite (§14.1)
+    PLANE_JSON = {**SuiteFixture.PLANE_JSON, "suite": {"lanes": {"gate": ["true"], "full": [PY, "-c", "pass"]}}}
     REPORT = f"""\
         Built it.
         Outcome: done
@@ -699,7 +701,7 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
         text = (self.q / "prompts/0002-second/implement-prompt.md").read_text()
         self.assertIn(f"QUEUE_ROOT={self.q} ", text)
         self.assertIn("suite run --run 0002-second/implement --lane <lane> -- <command>", text)
-        self.assertIn("`--lane full` for the product's full suite", text)
+        self.assertIn("`--lane full` with nothing after `--`: the product's full suite", text)
         self.assertIn("Never call `ccp suite run` inside a script", text)
         self.assertIn("never `cat` the whole log", text)
         self.assertIn("`Suite: from <suite_id>`", text)

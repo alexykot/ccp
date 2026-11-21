@@ -1,6 +1,7 @@
 """The full lane in the worker prompts (SPEC §14.1, §13.2): a lane plane.json `suite.lanes` declares is run as
 `--lane <lane>` with nothing after `--`, so a fix or merge round runs the product's own full suite; a lane it
-does not declare still takes the command after `--`."""
+does not declare still takes the command after `--`. A product declaring a gate lane and no full lane runs the gate
+lane for the full role; a declared `pregate` lane replaces the house-rule checks in the fail-fast pre-gate (§13.5)."""
 from __future__ import annotations
 
 import json
@@ -90,6 +91,116 @@ class UndeclaredFullLane(ToolkitFixture, unittest.TestCase):
         self.assertIn("--lane <lane> -- <command>`", text)
         self.assertIn("`--lane full` for the product's full suite", text)
         self.assertNotIn(DECLARED, text)
+
+
+class GateOnlyLanes(ToolkitFixture, unittest.TestCase):
+    """A product with one test command declares it once, as the gate lane: the full role runs that lane."""
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "suite": {"lanes": {"gate": ["scripts/gate.sh"]}}}
+    run_phase = test_review_gate.ReviewGate.run_phase
+
+    def test_the_full_role_resolves_to_the_declared_gate_lane(self):
+        c = config.load(self.runner)
+        self.assertEqual(config.lane_for(c, "full"), "gate")
+        self.assertEqual(config.lane_for(c, "gate"), "gate")
+        self.assertEqual(config.lane_for(c, "part"), "part")
+
+    def test_the_implement_and_fix_briefs_run_the_gate_lane_as_the_full_suite(self):
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
+        code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
+        self.assertEqual(code, 0, out + err)
+        texts = {"implement": Path(body["prompt_path"]).read_text()}
+        code, _, out, err = self.report(body["run_id"], f"Outcome: done\nPR: #7\nHead: {A}\n## Friction\nnone\n")
+        self.assertEqual(code, 0, out + err)
+        self.run_phase("review", A, "Severity: BLOCKER=1 MAJOR=0 MINOR=0 NIT=0")
+        code, body, out, err = self.ccp("prompt", "fix", "0002", "--pr", "7", "--head", A)
+        self.assertEqual(code, 0, out + err)
+        texts["fix"] = Path(body["prompt_path"]).read_text()
+        for phase, text in texts.items():
+            self.assertIn("`--lane gate` with nothing after `--`: the product's full suite", text, phase)
+            self.assertIn("suite run --lane gate`", text, phase)
+            self.assertNotIn("--lane full", text, phase)
+
+
+class RenamedGateOnlyLanes(ToolkitFixture, unittest.TestCase):
+    """The fallback reads the gate role's lane by the name `suite.roles` gives it."""
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON,
+                  "suite": {"lanes": {"formal": ["scripts/gate.sh"]}, "roles": {"gate": "formal"}}}
+
+    def test_the_full_role_resolves_to_the_renamed_gate_lane(self):
+        c = config.load(self.runner)
+        self.assertEqual(config.lane_for(c, "full"), "formal")
+        self.assertEqual(config.lane_for(c, "gate"), "formal")
+
+
+class FullAndGateLanes(ToolkitFixture, unittest.TestCase):
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "suite": {"lanes": {"gate": ["scripts/gate.sh"], "full": ["scripts/all.sh"]}}}
+
+    def test_a_declared_full_lane_stays_the_full_role(self):
+        c = config.load(self.runner)
+        self.assertEqual(config.lane_for(c, "full"), "full")
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
+        code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
+        self.assertEqual(code, 0, out + err)
+        text = Path(body["prompt_path"]).read_text()
+        self.assertIn(DECLARED, text)
+        self.assertIn("suite run --lane full`", text)
+
+
+CHECKS = [{"id": "E1", "cmd": "scripts/house-one.sh"}, {"id": "E2", "cmd": "scripts/house-two.sh"}]
+
+
+class _PregateBriefs(ToolkitFixture):
+    """The four change rounds' briefs, rendered in turn for one task."""
+    run_phase = test_review_gate.ReviewGate.run_phase
+
+    def briefs(self) -> dict[str, str]:
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
+        code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
+        self.assertEqual(code, 0, out + err)
+        texts = {"implement": Path(body["prompt_path"]).read_text()}
+        code, _, out, err = self.report(body["run_id"], f"Outcome: done\nPR: #7\nHead: {A}\n## Friction\nnone\n")
+        self.assertEqual(code, 0, out + err)
+        self.run_phase("review", A, "Severity: BLOCKER=1 MAJOR=0 MINOR=0 NIT=0")
+        steps = (("fix", A, B, ()), ("merge", B, A, ()), ("ruling", A, B, ("--note", "the field is optional")))
+        for phase, head, to, extra in steps:
+            code, body, out, err = self.ccp("prompt", phase, "0002", "--pr", "7", "--head", head, *extra)
+            self.assertEqual(code, 0, f"{phase}: {out}{err}")
+            texts[phase] = Path(body["prompt_path"]).read_text()
+            code, _, out, err = self.report(body["run_id"], f"Outcome: done\nPR: #7\nHead: {to}\n## Friction\nnone\n")
+            self.assertEqual(code, 0, f"{phase} report: {out}{err}")
+        return texts
+
+
+class DeclaredPregateLane(_PregateBriefs, unittest.TestCase):
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "architect": {"checks": CHECKS},
+                  "suite": {"lanes": {"gate": ["scripts/gate.sh"], "pregate": ["scripts/pregate.sh"]}}}
+
+    def test_the_pregate_lane_replaces_the_house_rule_checks_in_every_change_brief(self):
+        texts = self.briefs()
+        self.assertEqual(sorted(texts), ["fix", "implement", "merge", "ruling"])
+        for phase, text in texts.items():
+            self.assertIn("the product's pre-gate lane (`ccp suite run --lane pregate`, as plane.json gives it) and "
+                          "the run `", text, phase)
+            self.assertIn("suite affected --since ", text, phase)
+            for c in CHECKS:
+                self.assertNotIn(c["cmd"], text, phase)
+            self.assertNotIn("house-rule checks (", text, phase)
+
+
+class NoPregateLane(_PregateBriefs, unittest.TestCase):
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "architect": {"checks": CHECKS},
+                  "suite": {"lanes": {"gate": ["scripts/gate.sh"]}}}
+
+    def test_without_the_lane_the_briefs_render_the_house_rule_checks(self):
+        texts = self.briefs()
+        for phase, text in texts.items():
+            self.assertIn("the product's house-rule checks (`scripts/house-one.sh`, `scripts/house-two.sh`) and the run `",
+                          text, phase)
+            self.assertNotIn("--lane pregate", text, phase)
+            self.assertNotIn("pre-gate lane", text, phase)
 
 
 if __name__ == "__main__":
