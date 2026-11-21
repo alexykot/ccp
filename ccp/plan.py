@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp import adr, health, refs, reviewpoints, selection, tasklog
+from ccp import graph as depgraph
 from ccp.config import Config
 from ccp.queue import load_work, read_json
 
@@ -210,11 +211,14 @@ def chain_report(cfg: Config, tasks: list[dict[str, Any]]) -> tuple[list[str], l
             groups.setdefault(str(t.get("review_point") or "") or NO_POINT, []).append(t)
     notes, warnings = [], []
     for point, ts in groups.items():
-        if len(ts) < 2 or tasklog.dependency_cycles(ts):   # a cycle is the check's failure, named there
+        if len(ts) < 2:
             continue
         ids = [str(t.get("task_id")) for t in ts]
-        deps = {i: [d for d in map(str, tasklog._as_list(t.get("depends_on"))) if d in ids and d != i]
-                for i, t in zip(ids, ts)}
+        within = {i: [d for d in map(str, tasklog._as_list(t.get("depends_on"))) if d in ids]
+                  for i, t in zip(ids, ts)}
+        if depgraph.cycles(within):   # a cycle is the check's failure, named there
+            continue
+        deps = {i: [d for d in ds if d != i] for i, ds in within.items()}
         depth = _depths(deps)
         chain = max(depth.values()) + 1
         width = [sum(1 for d in depth.values() if d == k) for k in range(chain)]

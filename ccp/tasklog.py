@@ -11,12 +11,7 @@ A task file is never deleted and carries no runtime state: `check()` refuses run
 frontmatter, a task file that git or the committed INDEX knew and that is gone, and a number
 reused by another task (a renamed task says `renamed_from: <old id>`), each naming its fix; a task
 file with no frontmatter is one failure that names `ccp tasks migrate` (`ccp/taskmigrate.py`).
-`warnings()` names a later task cited as a prerequisite in prose, where nothing enforces it (list it in
-`depends_on` instead), a number a task's Context states with no backticked command on its line (a
-measured premise names the command and the commit it ran at), a task whose `paths` name the SPEC
-(`spec_paths`) with neither a `brief` sign-off nor `§31.1` in its Scope (§3.5), and a task whose
-`paths` name the plane.json schema or a settings template with no `adopt:` step (§5.2, ADR-0041 D1), and
-one whose `adopt:` is `none` yet names a plane.json, binding or settings key (a step hidden behind `none`).
+`warnings()` is what `check` reports without failing; §21.1 lists the warnings.
 
 A task has a kind (§20): `feature` (the default) or `refactor`. A refactor changes no rule, so it
 cites house rules or review findings (`rule_refs`, `review_refs`) instead of the spec, and proves
@@ -44,7 +39,7 @@ from typing import Any, Iterator
 
 import functools
 
-from ccp import config, refs, reviewpoints
+from ccp import config, graph, refs, reviewpoints
 from ccp.config import Config, lane_for, lane_stages
 
 NAME_RE = refs.DEFAULT.task_file_re  # the default; checks use refs.ids(cfg).task_file_re
@@ -798,14 +793,7 @@ def _restore(cfg: Config, tid: str, deletion: tuple[str, str] | None) -> str:
 
 
 def warnings(cfg: Config) -> list[str]:
-    """What `check` reports without failing: a task not yet done that names a later task as a
-    prerequisite in prose, where nothing holds it back: the prerequisite belongs in `depends_on`,
-    which may name a later task (§5); one whose Context states a number with no backticked
-    command on its line (§5); one whose paths name the SPEC with no `brief` sign-off (§3.5); one
-    whose paths name the plane.json schema or a settings template with no `adopt:` (§5.2); one whose
-    `adopt` is `none` yet names a key a product sets (§5.2); and one
-    whose branch is checked out and that cites an ADR decision still recorded `not_built` (§15.4,
-    `adr.unbuilt_cited`)."""
+    """What `check` reports without failing: the warnings §21.1 lists."""
     from ccp import adr  # noqa: PLC0415  (adr reads the task log)
 
     tasks = load(cfg)
@@ -836,31 +824,7 @@ def dependency_cycles(tasks: list[dict[str, Any]]) -> list[list[str]]:
     """§5: the cycles `depends_on` forms among the tasks, at least one through every set of tasks that
     wait on each other, each once, as the task ids along it from its lowest-numbered one (`[a, b]`: a
     depends on b, b on a; `[a]`: a depends on itself). A dependency on a missing id is not followed."""
-    deps = {str(t.get("task_id")): [str(d) for d in _as_list(t.get("depends_on"))] for t in tasks}
-    state: dict[str, int] = {}  # 1: on the walk's path, 2: finished
-    found: dict[tuple[str, ...], list[str]] = {}
-    for root in sorted(deps):
-        if root in state:
-            continue
-        path, its = [root], [iter(deps[root])]
-        state[root] = 1
-        while path:
-            d = next(its[-1], None)
-            if d is None:
-                state[path.pop()] = 2
-                its.pop()
-            elif d not in deps or state.get(d) == 2:
-                continue
-            elif state.get(d) == 1:
-                cyc = path[path.index(d):]
-                k = cyc.index(min(cyc))
-                cyc = cyc[k:] + cyc[:k]
-                found.setdefault(tuple(cyc), cyc)
-            else:
-                state[d] = 1
-                path.append(d)
-                its.append(iter(deps[d]))
-    return [found[k] for k in sorted(found)]
+    return graph.cycles({str(t.get("task_id")): [str(d) for d in _as_list(t.get("depends_on"))] for t in tasks})
 
 
 def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
@@ -1055,20 +1019,16 @@ def scope_deps(tasks: list[dict[str, Any]], scope: list[str] | None) -> dict[str
     """Every task an open (not done, not dropped) task in the scope depends on, directly or
     transitively, outside the scope, mapped to the scope task that needs it (the lowest NNNN). The
     walk stops at a dropped task: a dropped dependency never makes its own dependencies needed."""
-    deps = {str(t.get("task_id")): _as_list(t.get("depends_on")) for t in tasks}
     dropped = {str(t.get("task_id")) for t in tasks if t.get("status") == "dropped"}
+    deps = {str(t.get("task_id")): [d for d in map(str, _as_list(t.get("depends_on")))
+                                    if d not in dropped and not in_scope(d, scope)]
+            for t in tasks}
     need: dict[str, str] = {}
     for t in tasks:
         tid = str(t.get("task_id"))
-        if not scope or not in_scope(tid, scope) or t.get("status") in ("done", "dropped"):
-            continue
-        stack = list(deps.get(tid, []))
-        while stack:
-            d = stack.pop()
-            if d in need or in_scope(d, scope) or d in dropped:
-                continue
-            need[d] = tid
-            stack += deps.get(d, [])
+        if scope and in_scope(tid, scope) and t.get("status") not in ("done", "dropped"):
+            for d in graph.closure(deps, tid):
+                need.setdefault(d, tid)
     return need
 
 

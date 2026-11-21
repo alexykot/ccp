@@ -24,6 +24,7 @@ normative, and a module that disagrees with it is the bug.
 - **Measurement and the board:** `health.py`, `estimate.py`, `calibrate.py`, `forecast.py`,
   `usage.py`, `otel.py`, `seats.py`, `models.py` (each role's default model and effort, and does an observed model id match a pin, §24.5),
   `board.py`, `drill.py`, `plan.py`, `quality.py`, `backfill.py`.
+- **Helpers:** `graph.py` (the cycles in a dependency map and what a node depends on, over plain ids).
 
 ## Conventions
 
