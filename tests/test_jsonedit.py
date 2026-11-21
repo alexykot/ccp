@@ -63,6 +63,10 @@ class SetMember(Spliced):
         after = jsonedit.set_member(before, [], "a", {"z": None})
         self.spliced(before, after, before.index('{"b"'), '{"b": [1, 2]}', '{"z": null}')
 
+    def test_a_repeated_name_has_its_last_value_replaced_as_json_reads_it(self):
+        before = '{"a": 1, "a": 2}'
+        self.spliced(before, jsonedit.set_member(before, [], "a", 3), before.index("2"), "2", "3")
+
     def test_a_missing_object_on_the_path_is_made_inline(self):
         before = '{\n  "project_id": "demo",\n  "architect": false\n}\n'
         after = jsonedit.set_member(before, ["upgrade", "taken"], "0185", "kept off")
