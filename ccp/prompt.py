@@ -53,9 +53,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from ccp import models, refs, runs, tasklog, verify
+from ccp import models, prhost, refs, runs, tasklog, verify
 from ccp.config import Config, lane_for
-from ccp.envvars import envvar
 from ccp.queue import (CCP_BIN, OBS, PLANE, QueueError, git, integration_branch, load_task_state, load_work, phase_move,
                        runner_slots,
                        holder_teammate, root, task_meta)
@@ -596,32 +595,17 @@ def resolution_verify(q: Path, tid: str, phase: str, head: str) -> dict[str, Any
             "affected_checks": ", ".join(affected), "has_old": bool(old), "old_approve": old}
 
 
-GH_TIMEOUT_S = 60  # how long `ccp prompt review` waits on `gh pr view` for the PR's body
-
-
 def body_gate(cfg: Config, tid: str, phase: str, pr: str) -> list[str]:
     """§15.2: a review of a PR whose body does not contain the task id is refused (exit 2), naming the
-    task and the PR, before anything is opened: the runner repairs the body first. The body is read with
-    `gh pr view <pr> --json body` (`CCP_GH_BIN`, else `gh`); one that cannot be read is a warning,
-    returned to record on the run, and the review opens."""
+    task and the PR, before anything is opened: the runner repairs the body first. The body is read from
+    the PR host (`prhost.body`); one that cannot be read is a warning, returned to record on the run, and
+    the review opens."""
     if phase != "review":
         return []
-    gh = envvar("CCP_GH_BIN") or "gh"
-    unread = f"the PR body was not checked for {tid} (SPEC §15.2): "
     try:
-        r = subprocess.run([gh, "pr", "view", str(pr), "--json", "body"], cwd=cfg.root, capture_output=True,
-                           text=True, timeout=GH_TIMEOUT_S)
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return [unread + f"{gh} could not read PR #{pr} ({type(exc).__name__})"]
-    if r.returncode != 0:
-        why = ((r.stderr or r.stdout).strip().splitlines() or ["no output"])[-1]
-        return [unread + f"{gh} pr view {pr} exited {r.returncode}: {why}"]
-    try:
-        body = json.loads(r.stdout).get("body")
-    except (ValueError, AttributeError):
-        body = None
-    if not isinstance(body, str):
-        return [unread + f"{gh} pr view {pr} gave no body"]
+        body = prhost.body(cfg, str(pr))
+    except prhost.HostError as exc:
+        return [f"the PR body was not checked for {tid} (SPEC §15.2): {exc}"]
     if tid not in body:
         raise QueueError(f"PR #{pr}'s body does not contain the task id {tid}: it may hold another task's body. "
                          f"Repair it (`gh pr edit {pr} --body-file <file>`, naming {tid}), then run "

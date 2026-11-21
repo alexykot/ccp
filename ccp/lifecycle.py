@@ -62,8 +62,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ccp.envvars import envvar, for_child
-from ccp import config, notify, refs, runs, tasklog
+from ccp.envvars import envvar
+from ccp import config, notify, prhost, refs, runs, tasklog
 from ccp.queue import lib
 from ccp.config import Config
 from ccp.queue import (OBS, QueueError, actor, durable_statuses, emit, file_lock, git, heartbeat, integration_branch, iso,
@@ -567,7 +567,7 @@ def drop(cfg: Config, task: str, reason: str) -> dict[str, Any]:
     # a PR merged without close recording it (a close whose reconcile failed, or a merge by hand) is closed too
     prs = {str(x) for x in [st.get("pr"), st.get("merged_by_close"), *[r.get("pr") for r in runs.all_runs(q, tid)]] if x}
     for pr in sorted(prs):
-        if _pr_state(cfg, pr).get("state") == "MERGED":
+        if _pr_state(cfg, pr).state == "merged":
             raise QueueError(f"{tid}'s PR {pr} merged: it is closed (`ccp tasks close {tid} --pr {pr}`), not dropped", 3)
     what = _plan(q, tid, st, "dropped")
     if not what:
@@ -982,21 +982,6 @@ def brief_stale(cfg: Config, meta: dict[str, Any], signed: str) -> list[str]:
 
 # ---------------------------------------------------------------------------------------- close
 
-def _gh() -> str:
-    return envvar("CCP_GH_BIN") or "gh"
-
-
-def _merge(cfg: Config, pr: str, head: str, tid: str) -> subprocess.CompletedProcess[str]:
-    """§15.5: the merge pinned to the verified head: plane.json `merge.command` when set (a template
-    naming pr, head_sha, task_id), else `gh pr merge <pr> --squash --match-head-commit <head>`."""
-    cmd = (cfg.merge or {}).get("command")
-    if cmd:
-        from ccp.config import fill  # noqa: PLC0415
-        return _run(["/bin/sh", "-c", fill(cmd, {"pr": pr, "head_sha": head, "task_id": tid})], cfg.root,
-                    for_child({"CCP_GH_BIN": _gh()}))
-    return _run([_gh(), "pr", "merge", pr, "--squash", "--match-head-commit", head], cfg.root)
-
-
 def _run(cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     try:
         return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env={**os.environ, **(env or {})})
@@ -1144,17 +1129,13 @@ def _changed(cwd: Path) -> list[str]:
     return out
 
 
-def _pr_state(cfg: Config, pr: str) -> dict[str, Any]:
-    import json  # noqa: PLC0415
-
-    r = _run([_gh(), "pr", "view", pr, "--json", "state,headRefOid,headRefName,mergeCommit"], cfg.root)
-    if r.returncode != 0:
-        raise QueueError(f"gh pr view {pr}: {(r.stderr or r.stdout).strip()}", 1)
+def _pr_state(cfg: Config, pr: str) -> prhost.PrFacts:
+    """The PR's facts from the PR host; a host that cannot be read is a refusal (exit 1), one that cannot
+    run here a configuration problem (exit 2)."""
     try:
-        facts = json.loads(r.stdout)
-    except ValueError:
-        raise QueueError(f"gh printed no JSON for PR {pr}", 1) from None
-    return facts if isinstance(facts, dict) else {}
+        return prhost.view(cfg, pr)
+    except prhost.HostError as exc:
+        raise QueueError(str(exc), 2 if isinstance(exc, prhost.HostUnavailable) else 1) from None
 
 
 def _recovery(cfg: Config, q: Path, tid: str, pr: str, merge: str, what: str, pushed: bool,
@@ -1202,17 +1183,17 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
                          "(SPEC §10.5)", 2)
     try:
         reasons, body = verify.merge_ok(cfg, q, pr, tid)
-    except verify.NoGh as exc:
+    except prhost.HostUnavailable as exc:
         raise QueueError(str(exc), 2) from None
     facts = _pr_state(cfg, pr)
-    already = facts.get("state") == "MERGED"
+    already = facts.state == "merged"
     if already:
         # A re-run after a reconcile that failed: the merge stands if the record approved the head that merged.
         # An approval recorded after the merge is not one (§15.5): that refusal stays, unless this
         # command made the merge itself, after merge-ok passed (it noted so before merging).
         ours = str(load_task_state(q, tid).get("merged_by_close") or "") == str(pr)
         reasons = [r for r in reasons if not r.startswith(f"PR {pr} is merged") or ("recorded after it" in r and not ours)]
-        head = str(facts.get("headRefOid") or "")
+        head = facts.head
         approved = [str(body.get("head_sha") or "")] + ([str(body["catch_up"].get("to") or "")]
                                                           if isinstance(body.get("catch_up"), dict) else [])
         if not reasons and not any(verify.heads_match(a, head) for a in approved):
@@ -1245,20 +1226,25 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
                                  1) from None
         _print_not_as_written(q, tid)  # §15.4: before the merge
         save_task_state(q, tid, {"merged_by_close": str(pr), "merge_head": head, "phase_since": iso()})
-        r = _merge(cfg, pr, head, tid)
-        if r.returncode != 0:
+        try:
+            r = prhost.merge(cfg, pr, head, tid)
+        except prhost.HostUnavailable as exc:
+            raise QueueError(str(exc), 2) from None
+        if not r.ok:
             hint = (" (SPEC §16.5 rule 4: a conflict with what merged since: `ccp prompt merge` has the implementer "
-                    "merge the tip in and resolve it, then verify again)") if "conflict" in (r.stderr + r.stdout).lower() \
-                or "not mergeable" in (r.stderr + r.stdout).lower() else ""
+                    "merge the tip in and resolve it, then verify again)") if r.conflict else ""
             if caught:
                 hint += (f"; close's catch-up {head[:7]} is the task branch's head now, and the verification record "
                          f"covers it: run `ccp tasks close {tid} --pr {pr}` again (SPEC §16.5 rule 4)")
-            raise QueueError(f"gh pr merge {pr}: {(r.stderr or r.stdout).strip()}{hint}", 1)
-        facts = _pr_state(cfg, pr)
-        if facts.get("state") != "MERGED":
-            raise QueueError(f"gh pr merge {pr} exited 0 but the PR is {facts.get('state')} (a merge queue or auto-merge?): "
+            raise QueueError(f"gh pr merge {pr}: {r.message}{hint}", 1)
+        try:
+            facts = prhost.confirm(cfg, pr)
+        except prhost.HostError as exc:
+            raise QueueError(str(exc), 2 if isinstance(exc, prhost.HostUnavailable) else 1) from None
+        if facts.state != "merged":
+            raise QueueError(f"gh pr merge {pr} exited 0 but the PR is {facts.state} (a merge queue or auto-merge?): "
                              f"run `ccp tasks close {tid} --pr {pr}` again once it has merged", 1)
-    merge = str((facts.get("mergeCommit") or {}).get("oid") or "")
+    merge = facts.merge_commit
     if not merge:
         raise QueueError(f"PR {pr} is merged but gh names no merge commit", 1)
     progress: dict[str, bool] = {"pushed": False}
@@ -1543,7 +1529,7 @@ def catch_up_blocked(declared: list[str], tip_files: list[str], task_files: list
 
 
 def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, start: str, body: dict[str, Any],
-              integ: str, facts: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+              integ: str, facts: prhost.PrFacts) -> tuple[str, dict[str, Any]]:
     """§16.5 rule 4: close merges origin/<integ> into the PR head `start` itself, when the merge is clean or its
     only conflicts are in `parallel.shared` paths where both sides only added lines (`_union`), the file
     condition of `catch_up_blocked` holds (under `parallel.schedule: paths` the tip's new commits change no
@@ -1572,7 +1558,7 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
         raise _NoCatchUp("no merge worktree: the product has no worktrees.dir to run the gate in")
     if verify.recorded_at(q, q / "verification" / f"{tid}.json")[1] != "written":
         raise _NoCatchUp("the queue keeps its verification records in git, where close records no catch-up")
-    branch = str(facts.get("headRefName") or f"task/{tid}")
+    branch = facts.branch or f"task/{tid}"
     prior = body.get("catch_up") if isinstance(body.get("catch_up"), dict) else {}
     tips: set[str] = set(prior.get("tip_files") or []) if verify.heads_match(str(prior.get("to") or ""), start) else set()
     shared = list(parallel.settings(cfg).get("shared") or [])

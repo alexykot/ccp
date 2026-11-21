@@ -114,7 +114,7 @@ A seat writes a verdict, a test result or a report that no seat produced, or edi
   does not apply to that task. The gate lane, its scripts and the tests still come from the head
   under test, which the reviewer and the verifier read.
 - **Guard:** the merge `ccp tasks close` runs is pinned to the verified head with
-  `--match-head-commit` (`ccp/lifecycle.py`, SPEC §15.5), so the forge refuses that merge when the
+  `--match-head-commit` (`ccp/prhost.py`, SPEC §15.5), so the forge refuses that merge when the
   head moved after the verdict. The pin binds only that merge: a seat holding `gh pr` or `git push`,
   which the permission block in `ccp/init.py` allows, can merge without it or push to the
   integration branch, and the forge does not refuse.

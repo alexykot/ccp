@@ -16,7 +16,7 @@ from unittest import mock
 
 from ccp import cli
 from tests.helpers import Product
-from tests.test_verify import HEAD_A, ROOT, approve, now_iso
+from tests.test_verify import HEAD_A, ROOT, approve, decide, now_iso
 
 TASK = "0001-a"
 
@@ -34,11 +34,7 @@ class Producer(unittest.TestCase):
         self._q = tempfile.TemporaryDirectory()
         self.q = Path(self._q.name)
         (self.q / "project.yaml").write_text("project_id: demo\n")
-        self.pr = {"number": 7, "state": "OPEN", "headRefOid": HEAD_A, "mergedAt": None}
-        gh = self.q / "fake-gh"
-        gh.write_text("#!/bin/sh\ncat \"$(dirname \"$0\")/pr.json\"\n")
-        gh.chmod(0o755)
-        self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), "CCP_GH_BIN": str(gh)})
+        self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)})
         self.env.start()
 
     def tearDown(self):
@@ -258,13 +254,11 @@ class Producer(unittest.TestCase):
     def test_check_and_merge_ok_read_a_record_whose_ruling_names_no_id(self):
         rec = approve(TASK, checked_at=now_iso(),
                       checks=[check(None, ran=False, rests_on="the lead said so", **{"pass": None})])
-        (self.q / "pr.json").write_text(json.dumps(self.pr))
         self.written().parent.mkdir(exist_ok=True)
         self.written().write_text(json.dumps(rec))
         code, _, err = self.ccp("verify", "check", TASK, "--head", HEAD_A)
         self.assertEqual(code, 0, err)
-        code, _, err = self.ccp("verify", "merge-ok", "7", "--task", TASK)
-        self.assertEqual(code, 0, err)
+        self.assertEqual(decide(self.p, self.q, rec, TASK)[0], [])
 
     def test_seats_that_do_not_rule_may_produce_evidence(self):
         schema = json.loads((ROOT / "contracts/verification.schema.json").read_text())
@@ -310,17 +304,16 @@ class Producer(unittest.TestCase):
                          checks=[{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it"}])
         ruled = approve(TASK, checked_at=now_iso(), checks=[check("lead")])
         stepped = approve(TASK, checked_at=now_iso(), checks=[check("runner", operator_step=self.gate(1))])
-        (self.q / "pr.json").write_text(json.dumps(self.pr))
         self.written().parent.mkdir(exist_ok=True)
         for rec, ok in ((legacy, True), (stepped, True), (ruled, False)):
             self.written().write_text(json.dumps(rec))
             code, _, err = self.ccp("verify", "check", TASK, "--head", HEAD_A)
             self.assertEqual(code, 0 if ok else 1, err)
-            code, out, err = self.ccp("verify", "merge-ok", "7", "--task", TASK)
-            self.assertEqual(code, 0 if ok else 1, err)
+            reasons, _ = decide(self.p, self.q, rec, TASK)
+            self.assertEqual(reasons == [], ok, reasons)
             if not ok:
-                self.assertIn("produced by the lead", err)
-                self.assertIn("checks[0] (data-01)", err)
+                self.assertIn("produced by the lead", "\n".join(reasons))
+                self.assertIn("checks[0] (data-01)", "\n".join(reasons))
 
     def test_the_briefs_name_the_field(self):
         self.assertIn("produced_by", (ROOT / "plugin/agents/delivery-verifier.md").read_text())

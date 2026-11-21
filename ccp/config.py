@@ -169,7 +169,7 @@ ENV_DEFAULTS: dict[str, Any] = {"setup": None, "teardown": None, "up": None, "do
                                 "timeout_seconds": 600}
 ENV_HOOKS = ("setup", "teardown", "up", "down", "urls")
 WT_FIELDS = ("task_id", "nnnn", "kind", "seat", "tag", "worktree", "main_checkout", "name")
-# §10.5: the merge `ccp tasks close` runs (null = `gh pr merge {pr} --squash --match-head-commit {head_sha}`).
+# §10.5: the merge `ccp tasks close` runs (null = the PR host's merge, pinned to the head: ccp/prhost.py).
 # `behind_tip_ignore` (§16.5 rule 4): paths whose commits on the tip do not make a head behind it.
 MERGE_DEFAULTS: dict[str, Any] = {"command": None, "behind_tip_ignore": []}
 MERGE_FIELDS = ("pr", "head_sha", "task_id")

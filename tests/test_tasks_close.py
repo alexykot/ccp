@@ -12,7 +12,7 @@ if __name__ == "__main__":  # run as a script: the checkout's root is the import
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import tests  # noqa: F401
 
-from ccp import lifecycle  # noqa: E402
+from ccp import lifecycle, prhost  # noqa: E402
 from tests.test_toolkit import PLANE, ToolkitFixture, git  # noqa: E402
 
 
@@ -159,12 +159,12 @@ class CloseListsChecksNotAsWritten(ToolkitFixture, unittest.TestCase):
     """SPEC §15.4: close prints each check verified not as written before it merges, and merges."""
 
     def _merge_seeing_stderr(self):
-        seen, real = [], lifecycle._merge
+        seen, real = [], prhost.merge
 
         def merge(*a):
             seen.append(sys.stderr.getvalue())  # what close had printed when it merged
             return real(*a)
-        return seen, mock.patch.object(lifecycle, "_merge", side_effect=merge)
+        return seen, mock.patch.object(prhost, "merge", side_effect=merge)
 
     def test_close_lists_each_check_not_as_written_before_the_merge_and_merges(self):
         head = self._to_approved_pr()
