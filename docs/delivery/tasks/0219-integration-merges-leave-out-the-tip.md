@@ -1,7 +1,7 @@
 ---
 task_id: 0219-integration-merges-leave-out-the-tip
 title: A round's recorded integration merges leave out every commit already on the integration tip
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0223-a-follow-up-is-tracked-not-left-in-notes"]
@@ -11,7 +11,7 @@ paths: ["ccp/report.py", "docs/spec/02-delivery.md", "tests/test_health_conflict
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0219-integration-merges-leave-out-the-tip
@@ -118,4 +118,15 @@ PROPOSED:
 
 ## Implementation notes
 
+- `ccp/report.py` `round_merges`: the `rev-list` walk takes `^<integ>` after `<base>..<tip>`, so every commit
+  reachable from `origin/<integration>` is left out; the second-parent condition and the rest are unchanged. The
+  docstring says so.
+- §11.1 carries the signed PROPOSED text; the paragraph's following lines are reflowed only.
+- `tests/test_health_conflicts.py`: `test_a_branch_rebuilt_on_a_newer_tip_counts_only_its_own_merge` rebuilds the
+  task branch on a tip whose first-parent line holds a `--no-ff` merge of another branch (`checkout -B` plus a
+  cherry-pick of the task commit), gives it one clean catch-up merge, and checks the merge round records only that
+  merge. With the `^<integ>` exclusion reverted it fails (the tip's merge is counted too).
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #270 head `1a28011` (squash `41b9588`): APPROVE. Passed: im-01, im-02, im-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0219-integration-merges-leave-out-the-tip.json.
+

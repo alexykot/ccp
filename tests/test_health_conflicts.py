@@ -147,6 +147,25 @@ class RoundReport(ToolkitFixture, unittest.TestCase):
         merge = self.run_phase("merge", h1, f"PR: #7\nHead: {head}")
         self.assertEqual([x["sha"] for x in self.record(merge)["integration_merges"]], [head])
 
+    def test_a_branch_rebuilt_on_a_newer_tip_counts_only_its_own_merge(self):
+        m = self.main
+        h1 = self.branch()
+        self.implement(h1)
+        self.review(h1)
+        git(m, "checkout", "-q", "-b", "other-work", "main")  # another branch lands on the tip as a --no-ff merge
+        self.write("tip-side.txt", "side\n")
+        git(m, "add", "tip-side.txt")
+        git(m, "commit", "-q", "-m", "other work")
+        git(m, "checkout", "-q", "main")
+        self.assertEqual(sh(m, "merge", "-q", "--no-ff", "--no-edit", "other-work").returncode, 0)
+        git(m, "push", "-q", "origin", "main")
+        git(m, "checkout", "-q", "-B", "feat", "origin/main")  # the task branch rebuilt on that tip
+        self.assertEqual(sh(m, "cherry-pick", h1).returncode, 0)
+        git(m, "checkout", "-q", "main")
+        head = self.move_tip(conflict=False)  # then one catch-up merge of its own
+        merge = self.run_phase("merge", h1, f"PR: #7\nHead: {head}")
+        self.assertEqual([x["sha"] for x in self.record(merge)["integration_merges"]], [head])
+
     def test_a_round_opened_in_the_review_runs_second_is_after_review(self):
         from ccp import report
         review = {"phase": "review", "outcome": "done", "reported_at": "2026-10-22T10:05:00Z", "opened_at": "2026-10-22T10:01:00Z"}
