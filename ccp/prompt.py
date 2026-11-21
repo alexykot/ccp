@@ -591,7 +591,7 @@ def body_gate(cfg: Config, tid: str, phase: str, pr: str) -> list[str]:
         return [f"the PR body was not checked for {tid} (SPEC §15.2): {exc}"]
     if tid not in body:
         raise QueueError(f"PR #{pr}'s body does not contain the task id {tid}: it may hold another task's body. "
-                         f"Repair it (`gh pr edit {pr} --body-file <file>`, naming {tid}), then run "
+                         f"Repair it (`ccp pr edit {pr} --body-file <file>`, naming {tid}), then run "
                          f"`ccp prompt review {tid}` again (SPEC §15.2)", 2)
     return []
 
