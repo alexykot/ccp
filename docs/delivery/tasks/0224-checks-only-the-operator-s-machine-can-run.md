@@ -1,7 +1,7 @@
 ---
 task_id: 0224-checks-only-the-operator-s-machine-can-run
 title: A dod_check the workers cannot take is marked runs_on operator-machine, and the task check reads the mark
-status: pending
+status: done
 kind: feature
 depends_on: ["0234-one-check-parser-and-one-file-at-rev-reader", "0244-tasks-check-runs-dry-runs"]
 clashes_with: ["0244-tasks-check-runs-dry-runs"]
@@ -144,4 +144,22 @@ PROPOSED: (new lines after it)
 
 ## Implementation notes
 
+- 2026-11-21 (implementer): `tasklog.Check.runs_on` gives a check's `runs_on:` value as written (None when
+  unmarked) and `on_operator_machine` whether it is the one valid mark; `tasklog.runs_on_errors` names a
+  wrong value, or a `runs_on:` line that is not the key right after `setup:`, and `tasks check` reports
+  each with the task's file and the check's id, for a task of any status.
+- "Right after `setup:`" is read as the next key line at the check's key indent: `setup:`'s wrapped
+  lines (deeper in) may come between, and a `runs_on:` line deeper in than the keys (read as a wrapped
+  line, so never as the mark) is refused too.
+- `ccp tasks dry-run` skips only a check marked exactly `runs_on: operator-machine` (a misspelt mark is
+  run, and `tasks check` refuses it); it prints the check as not run and `--write` leaves its line.
+- `ccp tasks checks <task> [--json]` reads the task file in the checkout through `queue.task_meta` (no
+  queue needed); an unknown task exits 2. Text output is one `id<TAB>runs_on` line per check, `-` when
+  unmarked.
+- The skill's line about a check of a `ccp` command scopes `bin/ccp` to a head that carries one (the
+  plane's own repo) and names `ccp verify spec-text` for a product's checkout, since the skill is
+  generic.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #282 head `4b7ae00` (squash `f52b603`): APPROVE. Passed: ro-01, ro-02, ro-03, ro-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0224-checks-only-the-operator-s-machine-can-run.json.
+
