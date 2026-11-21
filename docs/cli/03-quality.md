@@ -8,6 +8,7 @@ the working directory).
 | Command | What it does | Cost | SPEC |
 | --- | --- | --- | --- |
 | `ccp tasks check` | Hold the task log to the canonical format | Free | §21.1 |
+| `ccp tasks dry-run <id> [--write]` | Run a task's dod_check commands at the integration tip, in a temporary worktree, and print what each printed; with `--write`, write each check's dry-run record. Needs `QUEUE_ROOT` | Runs each command once | §21.1 |
 | `ccp docs check` | Package-doc rules, opted-in generic rules, house rules' shape, `architect.checks`, `docs.checks`, the ADR check and `ccp tasks check` | Free | §21.2 |
 | `ccp docs history-paths [--attr A]` | Tracked paths carrying the history attribute, one per line | Free | §21.6 |
 | `ccp architect due [--scope IDS]` | The architect seat: whether a pass is due. Needs `QUEUE_ROOT` | Free | §19 |

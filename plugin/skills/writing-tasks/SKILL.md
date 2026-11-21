@@ -92,9 +92,9 @@ of reach when the sentence is edited.
 ### Commands and searches in checks
 
 - **Every command a check gives is run once by its writer** before the task is committed, against
-  the current tool. With `task_log.dry_run` on, the check records `dry run (<commit>): <what it
-  printed or its count>`, or `dry run: n/a — <why it cannot run yet>`. The writer reads that output
-  against the `expect`.
+  the current tool: `ccp tasks dry-run <id> --write` runs each step that is one backticked command
+  and writes its `dry run (<commit>): …` record (plane SPEC §21.1); a check it cannot run yet
+  records `dry run: n/a — <why>`. The writer reads that output against the `expect`.
 - **A search's pattern matches only what its expect counts**, and spells a value the way the code
   spells it. Its expected count or list is the brief's own list, item for item, stated at the head
   or at a named commit, never "at the merge base".
@@ -140,7 +140,8 @@ of reach when the sentence is edited.
 - **Copy into Context what workers cannot reach**: data only the live system, a session or the
   operator holds.
 - **A ruling or sign-off is in git before anyone acts on it**: in the task's notes or a commit,
-  verbatim where it sets SPEC text. A PR comment is not a record.
+  verbatim where it sets SPEC text. A ruling written into Context goes in as a quoted block (`> `),
+  which the number warning skips (plane SPEC §10.5). A PR comment is not a record.
 - **The docs a task touches follow the package-doc convention** (plane SPEC §21.3), which
   `ccp docs check` enforces; a brief does not restate it.
 - **Follow-ups are bundled by area.** Every task pays a fixed cost (claim, worker start-up, review,
