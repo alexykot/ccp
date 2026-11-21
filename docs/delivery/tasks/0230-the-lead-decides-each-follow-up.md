@@ -1,7 +1,7 @@
 ---
 task_id: 0230-the-lead-decides-each-follow-up
 title: The lead records each follow-up's outcome, and ccp tasks follow-ups lists them
-status: pending
+status: done
 kind: feature
 depends_on: ["0234-one-check-parser-and-one-file-at-rev-reader"]
 spec_refs: ["S13"]
@@ -135,3 +135,5 @@ Measured at `8aefa59`.
   unchanged (D2 built, D4 not_built). No code, test or doc change; `origin/main` was already merged.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #285 head `f31c953` (squash `a6210bb`): APPROVE. Passed: fd-01, fd-02, fd-03, suite-01. Gate: `ccp wt exec -- suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0230-the-lead-decides-each-follow-up.json.
+
