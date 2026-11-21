@@ -82,8 +82,10 @@ All reshape phases have landed.
   - **Stage 2, runner-driven (running):** a lead and runner teammates claim the plane's tasks
     through `ccp` (plane.json `parallel.max_in_flight`). A merge to main is a release (ADR-0024), and
     it moves the run checkout that the runner's own `ccp` calls use while other tasks are in flight.
-    How a release relates to tasks in flight has no recorded rule yet: it is a question for the
-    operator from architect pass `ar-20261121T132817Z-d5e5` (F04), to be recorded in ADR-0031.
+    How a release relates to tasks in flight has no recorded rule yet. This roadmap earlier planned
+    releases strictly between tasks (option (b) of the question below), but no SPEC or ADR text
+    records that. It is a question for the operator from architect pass `ar-20261121T132817Z-d5e5`
+    (F04), and the answer goes into ADR-0031.
 - **Done:** the plane's decision record (the operator's rulings are the plane's own ADRs, ADR-0031
   D3) and the SPEC restructure (review point R1).
 - **Merge handling (pluggable strategy):** the plane owns how a PR reaches the integration branch

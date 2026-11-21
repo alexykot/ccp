@@ -160,12 +160,12 @@ Measured at `1aa5e3f`.
 
 - id: `rv-06`
   story: As a fixer, ruling worker or merge worker, my pre-gate picks modules from my own change against the integration tip, not from everything the catch-up merge brought in.
-  setup: A checkout of the PR head; then a separate copy of it where `ccp/prompt.py` renders the fix phase's since-ref as the round's head.
+  setup: A checkout of the PR head; then a separate copy of it where the fix phase renders `--since {{head}}`, wherever it is set (`_gate.md` or `ccp/prompt.py`).
   steps:
     1. Run `git grep -n 'suite affected --since {{head}}' -- templates/prompts`.
-    2. On the head, run `python3 -B -m unittest -v tests.test_prompt_tools 2>&1 | grep -i -e fix -e ruling -e merge`.
+    2. On the head, run `python3 -B -m unittest -v tests.test_prompt_tools.PromptsNameTheTools.test_fix_ruling_and_merge_affected_since_the_tip`.
     3. In the copy, run `python3 -B -m unittest -q tests.test_prompt_tools`.
-  expect: step 1 prints nothing (exit 1); step 2 prints at least one line ending `ok` for a test that renders the fix, ruling and merge prompts and finds `suite affected --since origin/<integration>` in each and the round's head sha after `--since` in none; step 3 exits non-zero.
+  expect: step 1 prints nothing (exit 1); step 2 exits 0, its one test (the implementer names it so, in the class `PromptsNameTheTools` of `tests/test_prompt_tools.py`) rendering the fix, ruling and merge prompts and finding `suite affected --since origin/<integration>` in each and the round's head sha after `--since` in none; step 3 exits non-zero.
   dry run (`ce0f4bb`): step 1 printed 3 lines (`fix.md`, `merge.md`, `ruling.md`); steps 2 and 3 n/a — the test is new.
 
 ## Implementation notes

@@ -9,7 +9,7 @@ spec_refs: ["S14", "S16"]
 review_refs: ["ar-20261121T132817Z-d5e5#F01", "ar-20261121T132817Z-d5e5#F02", "ar-20261121T132817Z-d5e5#F05"]
 rule_refs: ["E12"]
 review_point: R20
-paths: ["docs/delivery/plane.json", "CLAUDE.md", "tests/CLAUDE.md", "ccp/suite.py", "ccp/cli.py", "docs/cli/02-delivery.md", "docs/spec/02-delivery.md", "tests/test_suite_lane_default.py"]
+paths: ["docs/delivery/plane.json", "CLAUDE.md", "tests/CLAUDE.md", "ccp/suite.py", "ccp/cli.py", "docs/spec/02-delivery.md", "tests/test_suite_lane_default.py"]
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
@@ -70,17 +70,18 @@ From architect pass `ar-20261121T132817Z-d5e5`, findings F01, F02 and F05 (the r
     `CLAUDE.md` and `tests/CLAUDE.md` (the `--lane full` parentheses name the full role's lane, as
     E1 now does).
   - `ccp/suite.py` (`run()`: the effective lane once; the wait default for a bound run; the module
-    docstring), `ccp/cli.py` (the `--wait` help names the default), `docs/cli/02-delivery.md` (if its
-    test, `tests.test_cli_reference`, needs it).
+    docstring), `ccp/cli.py` (the `--wait` help names the default).
   - `tests/test_suite_lane_default.py` (new).
-  - SPEC, signed before the claim (`sign_off: brief`): `docs/spec/02-delivery.md` §16.6, its first
-    paragraph's first three sentences, replaced:
+- **SPEC, signed before the claim (`sign_off: brief`):** `docs/spec/02-delivery.md` §16.6, its first
+  paragraph's first three sentences, replaced. Signing covers the whole passage, including its last
+  sentence ("A run whose wait ends with the lane still held exits the same way…"), which describes
+  what the code already does after an explicit `--wait`.
 
     CURRENT (`docs/spec/02-delivery.md` at `ce0f4bb`, §16.6, first paragraph):
     > plane.json `suite.exclusive_lanes` names the `ccp suite run` lanes that run one at a time in a queue (a run with no `--lane` counts as `full`). A run of an exclusive lane takes `QUEUE_ROOT/locks/suite-exclusive.lock` first. Held, `ccp suite run` exits 75 at once, saying who holds it, since when, and the holder's usual duration; the worker does other work and retries.
 
     PROPOSED:
-    > plane.json `suite.exclusive_lanes` names the `ccp suite run` lanes that run one at a time in a queue (a run with no `--lane` counts as the full role's lane, §14.1). A run of an exclusive lane takes `QUEUE_ROOT/locks/suite-exclusive.lock` first. Held, a run bound to a worker run (§14.2) and given no `--wait` waits as `--wait auto` does; any other run, and one given `--wait 0`, exits 75 at once, saying who holds it, since when, and the holder's usual duration. A run whose wait ends with the lane still held exits the same way, and the worker does other work and retries.
+    > plane.json `suite.exclusive_lanes` names the `ccp suite run` lanes that run one at a time in a queue (a run with no `--lane` counts as the full role's lane, §14.1). A run of an exclusive lane takes `QUEUE_ROOT/locks/suite-exclusive.lock` first. Held, a run given `--wait 0`, or given no `--wait` and bound to no worker run, exits 75 at once, saying who holds it, since when, and the holder's usual duration; a run bound to a worker run (§14.2) and given no `--wait` waits as `--wait auto` does. A run whose wait ends with the lane still held exits the same way, and the worker does other work and retries.
 - **Out:** the prompt templates (no `--wait` is rendered: the default covers every worker run); the
   `started` row's `lane` field; a health reader for `lane_busy`; the catch-up gate's wait.
 
