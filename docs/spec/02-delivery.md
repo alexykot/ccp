@@ -1039,7 +1039,13 @@ as: its `escalation_id` and `task_id` are those of the cited gate id, §17.9; a 
 question file as well as its answer file, §17.5), every gate closed and approved and every spec
 question answered with verdict `resolved`; a carried verdict, `approve at <sha>` (§15.6 rule 3),
 where `<sha>` resolves to a commit; or evidence the operator produced, `produced_by: operator` with
-free text. It refuses a check that names no
+free text, never for a check marked `runs_on: operator-machine`. On an approve it refuses a marked
+check that is missing from the record; that was run with evidence naming no approved `operator_step`
+(whoever produced it, `operator` included) or no `suite_id` of a passed run recorded at the record's
+head; that is `ran: false` on free-text operator evidence; or that carries a verdict it may not
+carry (§15.6 rule 3). A marked check resting on a verdict it may carry needs no run at the new head,
+and one waived by a ruling is handled as any other. `ccp verify merge-ok` reads the marked checks
+from the task file at the head it is given and refuses on the same terms. It refuses a check that names no
 `produced_by` unless it is `ran: false` with `rests_on`, and one whose evidence a seat that rules
 on the task produced (`lead`, `runner`, §2.3) unless its `operator_step` names an approved operator
 step: the task's gate `<task_id>-<n>` (§17.9) of class `operator`, closed and approved (a standing
@@ -1105,7 +1111,12 @@ They hold for every PR the runner merges, a task's or not (ADR-0011).
    as `ran: false`, `pass: null`, `rests_on: "approve at <old>"`, and puts in `findings` the command
    showing the PR's own files are unchanged (for example `git diff <old> <new> -- <the PR's files>`
    printing nothing). A merge whose own change moved is reviewed and verified in full, except that a merge with a conflict must have a resolution review, or a full round (§13.2): after a resolution review, the verifier reruns the checks that review names in `Affected checks` and runs the gate at the new head through `ccp suite run`, and records every other check `ran: false`, `pass: null`, `rests_on: "approve at <old>"`, `<old>` the head of the task's latest approve (with no approve yet, it runs every check); `ccp verify record` refuses an approve that leaves an affected check not run. A resolution the reviewer judges `beyond` the conflict hunks is reviewed and verified
-   in full. A new head needs a new verdict, except a catch-up close made itself (§16.5 rule 4).
+   in full. A new head needs a new verdict, except a catch-up close made itself (§16.5 rule 4). A
+   check marked `runs_on: operator-machine` rests on `approve at <old>` only when the verdict at
+   `<old>` held it as a pass with an approved `operator_step` and a passed run at `<old>`, or itself
+   carried it on these terms; each verify run keeps its verdict's per-check facts (id, ran, pass,
+   producer, `operator_step`, `suite_id`) for that judgement. Otherwise it is run again at the new
+   head (§15.8).
 4. **Minors before merge; reasons and the rest in the verifier's record.** A minor finding that
    could cost a later cycle is fixed before the merge. A second verify round with no fix round,
    or a merge or ruling round (§13.2), between says why in its `findings` (from the runner's
@@ -1142,7 +1153,11 @@ a product credential.
 - **Steps only the operator's machine can run.** A step needing the live store or the operator's
   machine (a live upgrade, creating a database role) that the workers cannot take is parked with
   `waiting_on=operator_step` (`set-waiting-on.sh set <task_id> operator_step --detail "<step>"`).
-  The task may merge code-only, the step listed as a follow-up. A parked step, and any check needing
+  A step that is not a dod_check (a rollout after the merge) may merge code-only, the step listed as
+  a follow-up. A dod_check that needs that machine is marked `runs_on: operator-machine` (§5.5): the
+  runner runs it, under the task's approved `operator` gate or a standing approval (§17.9), at each
+  head it hands the verifier (§10.2), and the task never merges without its result, a verdict it
+  carries (§15.6 rule 3) or a ruling that waives it (§15.4). A parked step, and any check needing
   that machine, runs in a worktree of its own at the PR head (`ccp wt create --kind mac`), never in
   the main checkout.
 - **The seat that rules does not produce its evidence.** The lead or the runner runs a task's check

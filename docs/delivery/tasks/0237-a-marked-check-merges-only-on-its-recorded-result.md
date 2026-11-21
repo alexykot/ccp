@@ -1,7 +1,7 @@
 ---
 task_id: 0237-a-marked-check-merges-only-on-its-recorded-result
 title: verify record and merge-ok refuse an approve whose marked check has no recorded pass at its head
-status: pending
+status: done
 kind: feature
 depends_on: ["0234-one-check-parser-and-one-file-at-rev-reader", "0235-one-approval-judge-for-merge-ok-and-verify-check", "0238-the-runner-runs-marked-checks-before-verify"]
 clashes_with: ["0217-a-deferred-check-is-recorded-after-close"]
@@ -178,4 +178,43 @@ PROPOSED:
 
 ## Implementation notes
 
+- 2026-11-21, implementer. `ccp/verify.py`: `marked_errors` judges on plain values (the record, the marked ids,
+  the suite rows, the task's verify runs, the approved operator steps, the rulings), and `marked_refusals` reads
+  them: the marked checks from the task file at the head (`tasklog.text_at`), the rest from the queue. `judge`
+  calls it with the head it is given (so `merge-ok` and `verify check` refuse alike), and `record` calls it on an
+  approve at the record's `head_sha` (E20). A marked check's run must sit at the record's `head_sha`, also when
+  `merge-ok` judges a close catch-up head.
+- A head this checkout does not hold, or one with no task file: refused when the checkout's copy of the task
+  file marks a check (naming `git fetch`), otherwise nothing to judge. The checkout's copy only triggers the
+  refusal and never supplies the marked list; the same shape as `adr.in_force_at`'s unresolved-head rule.
+- Per-check facts (`runs.check_facts`, written by `_note_run` on the verify run as `checks`): `id`, `ran`,
+  `pass`, `produced_by`, `operator_step`, `suite_id`, ids and booleans only. A carried check keeps the
+  `operator_step` and `suite_id` of the pass it carries, taken from the latest approve at `<old>`. So a carry of a
+  carry is judged on the original pass's step and run without storing `rests_on` text. A check not run on
+  anything else keeps neither, so a later carry from it is refused.
+- The contract gives a check an optional `suite_id` (an id pattern), so `RECORD_VERSION` goes to 6
+  (`tests/test_verify.py` `KEYS_AT[6]`). The example's operator sample gets a `notes` line saying it is unmarked.
+- A carried marked check is judged only on what the run at `<old>` kept. Whether the move was an integration
+  merge, or a resolution review that does not list the check, stays the job of `ccp prompt verify` (0238) and
+  `resolution_errors`.
+- 2026-11-21, fix round 1 (review MAJOR 1). A marked check's waiver no longer accepts operator approval as a ruling:
+  `marked_errors` refuses a `ran: false` marked check whose evidence is `produced_by: operator`, whatever its
+  `rests_on` names, and `_waiver_texts` counts a `rests_on` as a waiver only when, besides passing
+  `_ruling_refusal`, it names an id that is not a gate of class `operator` (a spec question, a lead ruling or a
+  gate of another class). An operator gate approves running a step, never skipping it, so naming the task's own
+  operator gate, bare or in prose, waives nothing. The waiver test now uses a gate of class `other`.
+- Left as they are: the head-not-fetched refusal (review NIT 1) fails closed and names `git fetch`; plane
+  worktrees share the object store. `runs.check_facts` importing `carried_from` and `heads_match` from
+  `ccp.verify` inside the function (NIT 2): moving those helpers reaches modules outside this task's paths.
+- 2026-11-21, fix round 2 (review-2 MINOR 1, NIT 1). Tests only, no code change: a record-level test that a marked
+  check waived by a recorded lead ruling (`ccp tasks ruling`) or by an answered spec question is recorded and that
+  `judge` gives no refusal for it, which pins `_waiver_texts`' question/lead-ruling branch; and a `judge` test that a
+  waiver naming a lead ruling the ledger does not hold is refused, which pins `_waiver_texts`' `_ruling_refusal`
+  guard on the path where `rests_on_errors` does not run. Left as they are: the refusal of a `ran: false` marked
+  check produced by the operator even when it names a real ruling (NIT 2) closes round 1's dodge and fails closed;
+  it is the lead's to relax. `ccp prompt verify --waived` accepting an operator gate (NIT 3) sits in
+  `ccp/prompt.py`, outside this task's paths: a follow-up.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #289 head `7b2eb45` (squash `f17d2d2`): APPROVE. Passed: mr-01, mr-02, mr-05, mr-03, mr-04, suite-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0237-a-marked-check-merges-only-on-its-recorded-result.json.
+

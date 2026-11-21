@@ -102,7 +102,7 @@
           "rests_on": {
             "type": "string",
             "minLength": 1,
-            "description": "For a check not run: what it rests on. SPEC §15.4: ccp verify record accepts exactly three forms: a ruling, naming spec question ids (sm-…), gate ids (<task_id>-<n>) or lead ruling ids (<task_id>-r<n>, SPEC §17.5) that all exist, every gate closed and approved and every spec question answered with verdict resolved; a carried verdict, `approve at <sha>` (§15.6 rule 3), the sha a commit; or, with produced_by operator, any text."
+            "description": "For a check not run: what it rests on. SPEC §15.4: ccp verify record accepts exactly three forms: a ruling, naming spec question ids (sm-…), gate ids (<task_id>-<n>) or lead ruling ids (<task_id>-r<n>, SPEC §17.5) that all exist, every gate closed and approved and every spec question answered with verdict resolved; a carried verdict, `approve at <sha>` (§15.6 rule 3), the sha a commit; or, with produced_by operator, any text, never for a check marked runs_on: operator-machine."
           },
           "as_written": {
             "type": "boolean",
@@ -135,7 +135,12 @@
           "operator_step": {
             "type": "string",
             "minLength": 1,
-            "description": "SPEC §15.4: the operator step this evidence came from, as the gate that approved it (escalation id <task_id>-<n>, class operator, decision approved; a standing approval is such a gate). Only then may a ruling seat have produced the evidence."
+            "description": "SPEC §15.4: the operator step this evidence came from, as the gate that approved it (escalation id <task_id>-<n>, class operator, decision approved; a standing approval is such a gate). Only then may a ruling seat have produced the evidence. A check marked runs_on: operator-machine that was run names one, whoever produced it."
+          },
+          "suite_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "description": "SPEC §15.4: the recorded `ccp suite run` this check's evidence came from. On an approve, a check marked runs_on: operator-machine that was run names a passed run of its lane, bound to the task, recorded at head_sha."
           },
           "evidence": {
             "type": "string"

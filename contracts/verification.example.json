@@ -1,7 +1,7 @@
 {
   "task_id": "0042-example-task",
   "project_id": "demo",
-  "schema_version": 5,
+  "schema_version": 6,
   "verdict": "approve",
   "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "access_mode": "local-cli",
@@ -27,7 +27,8 @@
       "pass": null,
       "rests_on": "The operator's live run, pasted into the task notes",
       "evidence": "needs the live store, which the verifier cannot reach",
-      "produced_by": "operator"
+      "produced_by": "operator",
+      "notes": "data-01 is not marked runs_on: operator-machine; a marked check never rests on free text (SPEC §15.4)"
     }
   ],
   "gate": {

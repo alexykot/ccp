@@ -387,6 +387,41 @@ def _same_patch(g: Any, root: str, a: str, b: str, integ: str) -> bool:
     return first == gitmerge.own_patch_id(root, b, f"origin/{integ}", g)
 
 
+def check_facts(checks: Any, earlier: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """§15.6 rule 3, ADR-0045 D3: the per-check facts a verify run keeps of the verdict recorded on it, ids and
+    booleans only (house rule E5): each check's `id`, `ran`, `pass`, `produced_by`, and the `operator_step` and
+    `suite_id` its evidence came from. A check not run keeps those two only when it carries `approve at <old>` and
+    the latest of the `earlier` verify runs that recorded an approve at `<old>` kept both for it as a pass or a
+    carry of one: so a carry of a carry is judged on the pass it carries."""
+    from ccp.verify import carried_from, heads_match  # noqa: PLC0415
+
+    out: list[dict[str, Any]] = []
+    for c in checks if isinstance(checks, list) else []:
+        if not isinstance(c, dict):
+            continue
+        ran = c.get("ran", True) is not False
+        cid = str(c.get("dod_check_id"))
+        fact: dict[str, Any] = {"id": cid, "ran": ran, "pass": c["pass"] if isinstance(c.get("pass"), bool) else None}
+        if isinstance(c.get("produced_by"), str):
+            fact["produced_by"] = c["produced_by"]
+        src: dict[str, Any] | None = c if ran else None
+        old = None if ran else carried_from(c.get("rests_on"))
+        if old is not None:
+            at = [r for r in earlier if r.get("phase") == "verify" and r.get("verdict") == "approve"
+                  and heads_match(str(r.get("head") or ""), old)]
+            kept = at[-1].get("checks") if at else None
+            got = next((f for f in kept if isinstance(f, dict) and f.get("id") == cid), None) \
+                if isinstance(kept, list) else None
+            if got and got.get("operator_step") and got.get("suite_id") \
+                    and (got.get("pass") is True or got.get("ran") is False):
+                src = got
+        for key in ("operator_step", "suite_id"):
+            if src is not None and isinstance(src.get(key), str) and src[key]:
+                fact[key] = src[key]
+        out.append(fact)
+    return out
+
+
 def is_resolution_beyond(rec: dict[str, Any]) -> bool:
     """§13.2, §15.2: a resolution review that judged the resolution `beyond` the conflict hunks."""
     return rec.get("mode") == "resolution" and rec.get("resolution") == "beyond"
