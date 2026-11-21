@@ -547,6 +547,7 @@ def analyse(cfg: Config) -> tuple[list[dict[str, Any]], list[str], list[str]]:
                 elif key == "supersedes":
                     if not index.is_retired(n, dec):
                         soft.append(f"{rel}: supersedes {s!r}, but {other['_path']} does not record D{dec} as retired")
+    _check_requires(adrs, index, ids, errs, soft)
     # the tasks that cite decisions
     try:
         tasks = tasklog.load(cfg)
@@ -576,6 +577,62 @@ def analyse(cfg: Config) -> tuple[list[dict[str, Any]], list[str], list[str]]:
         elif p.read_text() != render_index(cfg, adrs):
             errs.append(f"{cfg.rel(p)}: stale — run `ccp adr index`")
     return adrs, errs, warns
+
+
+def _check_requires(adrs: list[dict[str, Any]], index: DecisionIndex, ids: refs.Ids, errs: list[str],
+                    soft: list[str]) -> None:
+    """§6.7, the `requires` links: a failure for an entry that is malformed, whose own or target
+    decision does not exist, whose target ADR is `rejected` or `withdrawn`, or that closes a cycle
+    (across ADRs, on the links as written); a `soft` finding for a target whose `retired by` chain
+    ends with no replacement (§6.5)."""
+    from ccp import graph  # noqa: PLC0415
+
+    by_num = {m["_number"]: m for m in adrs}
+
+    def node(n: int, d: str | None) -> str:
+        return f"{ids.adr_id(n)} D{d}"
+
+    deps: dict[str, list[str]] = {}
+    where: dict[str, str] = {}
+    for m in adrs:
+        rel, me = m["_path"], m["_number"]
+        for s in _as_list(m.get("requires")):
+            r = parse_requires(s, me, ids)
+            if r is None:
+                errs.append(f"{rel}: requires entry {s!r} is not `Dn {ids.adr_prefix}NNNN Dm` or `Dn Dm`")
+                continue
+            own, (n, dec) = r
+            if own not in {d["id"] for d in m["_decisions"]}:
+                errs.append(f"{rel}: requires {s!r}: {rel} has no decision D{own}")
+                continue
+            other = by_num.get(n)
+            if other is None:
+                errs.append(f"{rel}: requires {s!r} names no ADR")
+                continue
+            if dec not in {d["id"] for d in other["_decisions"]}:
+                errs.append(f"{rel}: requires {s!r}: {other['_path']} has no decision D{dec}")
+                continue
+            deps.setdefault(node(me, own), []).append(node(n, dec))
+            where.setdefault(node(me, own), rel)
+            if other.get("status") in ("rejected", "withdrawn"):
+                errs.append(f"{rel}: requires {s!r}: {other['_path']} is {other['status']}, so D{dec} will not be built")
+                continue
+            end = index.resolve(n, dec)
+            if end.loop:
+                errs.append(f"{rel}: requires {s!r}: the `retired by` chain from {node(n, dec)} loops back to "
+                            f"{node(end.adr, end.decision)}")
+            elif end.decision is None or index.is_retired(end.adr, end.decision):
+                if end.decision is None:
+                    what = f"has a `retired by` chain ending at {ids.adr_id(end.adr)}, a whole ADR, which is no replacement"
+                elif (end.adr, end.decision) == (n, dec):
+                    what = "is retired with no replacement"
+                else:
+                    what = f"resolves through `retired by` to {node(end.adr, end.decision)}, retired with no replacement"
+                soft.append(f"{rel}: D{own} requires {node(n, dec)}, which {what}: amend, supersede or "
+                            "retire the decision that rests on it (SPEC §6.5)")
+    for cyc in graph.cycles(deps):
+        path = " → ".join([*cyc, cyc[0]])
+        errs.append(f"{where[cyc[0]]}: requires cycle: {path}")
 
 
 def check(cfg: Config) -> list[str]:
@@ -1058,6 +1115,24 @@ def decide(cfg: Config, arg: str, dec: str, state: str, by: str | None = None, n
     return {"path": meta["_path"], "decision": f"D{ident}", "state": state}
 
 
+def _refuse_cut_requires(cfg: Config, old: dict[str, Any], retiring: list[str], ids: refs.Ids) -> None:
+    """§6.5: `ccp adr supersede` without `--by` records each decision it retires as `retired by <ADR id>`,
+    a whole ADR, which is no replacement for a decision another one rests on. Refuses, naming the
+    requiring decisions, when one of `retiring` (the decisions of `old` that command newly retires) is a
+    `requires` target; a requirer that is retiring in the same move is not held."""
+    me = old["_number"]
+    adrs = load(cfg)[0]
+    index = DecisionIndex.build(adrs, ids)
+    held = []
+    for m in adrs:
+        for own, (n, dec) in index.required(m["_number"]):
+            if n == me and dec in retiring and not (m["_number"] == me and own in retiring):
+                held.append(f"{ids.adr_id(n)} D{dec} is required by {ids.adr_id(m['_number'])} D{own}")
+    if held:
+        raise AdrError(f"{old['_path']}: not superseded without --by: {'; '.join(held)}; name the replacing "
+                       "decision with `--by Dn` (SPEC §6.5)")
+
+
 def supersede(cfg: Config, old: str, new_: str, decisions: list[str] | None = None, by: str | None = None,
               archive: bool = False) -> dict[str, Any]:
     ids = refs.ids(cfg)
@@ -1073,11 +1148,15 @@ def supersede(cfg: Config, old: str, new_: str, decisions: list[str] | None = No
         raise AdrError(f"{mn['_path']} has no decision {by}")
     entries = {d["id"]: d for d in (parse_decision(s) for s in _as_list(mo.get("decisions"))) if d}
     body_ids = [d["id"] for d in mo["_decisions"]]
+    want: list[str] = []
     if decisions:
         want = [x.strip().lstrip("Dd") for x in decisions if x.strip()]
         missing = [x for x in want if x not in body_ids]
         if missing:
             raise AdrError(f"{mo['_path']} has no decision(s) {', '.join('D' + x for x in missing)}")
+    if not by:
+        _refuse_cut_requires(cfg, mo, want if decisions else [x for x in body_ids if not entries.get(x, {}).get("by")], ids)
+    if decisions:
         for x in want:
             entries[x] = {**entries.get(x, {"id": x}), "state": "retired", "by": by_ref, "note": entries.get(x, {}).get("note")}
         sup = [f"{old_id} D{x}" for x in want]
