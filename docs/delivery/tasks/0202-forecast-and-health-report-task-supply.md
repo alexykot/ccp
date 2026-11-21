@@ -129,4 +129,15 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- `adr.untasked(cfg, tasks)` in `ccp/adr.py`: the decision ids are the bare ids `decision_states` gives (`"1"`,
+  `"2a"`), `adr` is the id string (`ADR-0040`). A decision cited as `D2` is the ADR's `2`.
+- `ccp health`: `task_supply` is set in `collect`'s `files` block (so `--json` has it; the forecast's
+  `health.collect(files=False)` does not), `null` if the ADR read fails. The text line comes from
+  `health.supply_text`, printed after the budget lines; it is not in `summary_text` (the architect's view).
+  Choices the task left open: consecutive plain numbers join as a range (`D1-D6`, also `D1-D2`), ranges
+  and lone ids within one ADR are joined with `,` and no space (`D1,D3-D4`), and ADRs with `, `.
+- `ccp forecast`: `untasked_decisions` is added in `forecast.run`, not `collect`, so the board's forecast
+  is unchanged. The text line shows for the whole text and `--backlog`, not for `--point`, and not when
+  the forecast has no data (the `note` early return).
+
 ## Verification notes
