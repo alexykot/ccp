@@ -1,7 +1,7 @@
 ---
 task_id: 0238-the-runner-runs-marked-checks-before-verify
 title: The runner runs each marked check at the head it hands the verifier, and verify does not launch without it
-status: pending
+status: done
 kind: feature
 depends_on: ["0224-checks-only-the-operator-s-machine-can-run", "0233-briefs-point-at-the-evidence-rules", "0234-one-check-parser-and-one-file-at-rev-reader", "0240-plane-workers-run-the-head"]
 clashes_with: ["0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0213-a-green-tree-skips-the-lane-queue", "0221-workers-reach-the-pr-host-through-ccp-pr", "0223-a-follow-up-is-tracked-not-left-in-notes", "0228-report-sections-as-one-table"]
@@ -214,3 +214,5 @@ PROPOSED:
   brief names §15.6 rule 3 and §15.4 for the carried and waived checks instead of restating their conditions (E13).
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #286 head `3fbd51f` (squash `31baaaf`): APPROVE. Passed: ml-01, ml-02, ml-05, ml-03, ml-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0238-the-runner-runs-marked-checks-before-verify.json.
+

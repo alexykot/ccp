@@ -1188,7 +1188,7 @@ tasks:
     depends_on: [0234-one-check-parser-and-one-file-at-rev-reader, 0235-one-approval-judge-for-merge-ok-and-verify-check, 0238-the-runner-runs-marked-checks-before-verify]
     path: tasks/0237-a-marked-check-merges-only-on-its-recorded-result.md
   - id: 0238-the-runner-runs-marked-checks-before-verify
-    status: pending
+    status: done
     title: The runner runs each marked check at the head it hands the verifier, and verify does not launch without it
     depends_on: [0224-checks-only-the-operator-s-machine-can-run, 0233-briefs-point-at-the-evidence-rules, 0234-one-check-parser-and-one-file-at-rev-reader, 0240-plane-workers-run-the-head]
     path: tasks/0238-the-runner-runs-marked-checks-before-verify.md
