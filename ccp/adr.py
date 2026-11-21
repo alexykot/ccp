@@ -652,6 +652,18 @@ def warnings(cfg: Config) -> list[str]:
     return analyse(cfg)[2]
 
 
+def strict(cfg: Config) -> bool:
+    """`adr.strict`: every ADR warning is a failure."""
+    return bool(_settings(cfg).get("strict"))
+
+
+def decision_index(cfg: Config) -> DecisionIndex | None:
+    """The checkout's ADRs read into a `DecisionIndex`; None without the `adr` block or its directory."""
+    if cfg.adr is None or not adr_dir(cfg).is_dir():
+        return None
+    return DecisionIndex.build(load(cfg)[0], refs.ids(cfg))
+
+
 def unbuilt_cited(cfg: Config, tasks: list[dict[str, Any]]) -> list[str]:
     """`ccp tasks check`'s warning, before the gate (§15.4): on a task's branch (HEAD is
     `task/<id>`), each decision that task, not yet done, cites in `adr_refs` that this checkout's ADRs
@@ -844,6 +856,11 @@ class DecisionIndex:
                     recorded[(n, d["id"])] = d
             requires[n] = [r for r in (parse_requires(s, n, ids) for s in _as_list(m.get("requires"))) if r]
         return cls(recorded, body, ids, requires)
+
+    @property
+    def ids(self) -> refs.Ids:
+        """The id formats the index was read with, which also read the refs that cite its decisions."""
+        return self._ids
 
     def state(self, adr: int, d: str) -> dict[str, Any] | None:
         """The recorded `{id, state, by, note}` of decision `d` of ADR `adr`, or None."""

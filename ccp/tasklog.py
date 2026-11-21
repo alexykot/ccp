@@ -36,12 +36,15 @@ import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator
+from typing import TYPE_CHECKING, Any, Iterator
 
 import functools
 
 from ccp import config, graph, refs, reviewpoints
 from ccp.config import Config, lane_for, lane_stages
+
+if TYPE_CHECKING:
+    from ccp.adr import DecisionIndex
 
 NAME_RE = refs.DEFAULT.task_file_re  # the default; checks use refs.ids(cfg).task_file_re
 
@@ -1014,7 +1017,7 @@ def warnings(cfg: Config) -> list[str]:
                 out.append(f"{cfg.rel(t['_file'])}: {m.group(0)!r} names {later[m.group(1)]}, which has a higher number, "
                            "as a prerequisite in prose, where nothing enforces it. List it in depends_on, "
                            "which may name a higher number (SPEC §5)")
-    return out + adr.unbuilt_cited(cfg, tasks)
+    return out + _requires_lines(cfg, tasks, strict=False) + adr.unbuilt_cited(cfg, tasks)
 
 
 def dependency_cycles(tasks: list[dict[str, Any]]) -> list[list[str]]:
@@ -1022,6 +1025,75 @@ def dependency_cycles(tasks: list[dict[str, Any]]) -> list[list[str]]:
     wait on each other, each once, as the task ids along it from its lowest-numbered one (`[a, b]`: a
     depends on b, b on a; `[a]`: a depends on itself). A dependency on a missing id is not followed."""
     return graph.cycles({str(t.get("task_id")): [str(d) for d in _as_list(t.get("depends_on"))] for t in tasks})
+
+
+def _cited_decisions(t: dict[str, Any], index: DecisionIndex) -> list[tuple[int, str]]:
+    """The decisions a task's `adr_refs` cite, in order, each once: `NNNN Dn` that decision, a whole ADR
+    (no decision, no section) each of its body decisions."""
+    out: list[tuple[int, str]] = []
+    for ref in _as_list(t.get("adr_refs")):
+        r = index.ids.parse_adr_ref(ref)
+        if r is None:
+            continue
+        if r.decision is not None:
+            got = [(r.number, r.decision)]
+        elif not r.section:
+            got = [(r.number, d["id"]) for d in index.decisions(r.number)]
+        else:
+            got = []
+        out += [x for x in got if x not in out]
+    return out
+
+
+def requires_report(tasks: list[dict[str, Any]], index: DecisionIndex, strict: bool) -> list[str]:
+    """§21.1, a task that can run before a prerequisite of a decision it cites: for each pending task, each
+    decision it cites and each `requires` prerequisite of it, resolved through `retired by`
+    (`DecisionIndex.resolve`, §6.5), that is neither recorded `built` or `live` nor cited by the task or a
+    task in its `depends_on` closure, one line naming the task, the decision, the prerequisite and the
+    remedy. `index` is an `adr.DecisionIndex`; `strict` (`adr.strict`) makes the lines failures. A chain
+    that loops or ends at a whole ADR or a retired decision, or a prerequisite its ADR does not hold, is
+    `ccp adr check`'s to report (§6.7), not this one's."""
+    ids = index.ids
+    cited = {str(t.get("task_id")): _cited_decisions(t, index) for t in tasks}
+    deps = {str(t.get("task_id")): [str(d) for d in _as_list(t.get("depends_on"))] for t in tasks}
+    out: list[str] = []
+    for t in tasks:
+        tid = str(t.get("task_id"))
+        if canonical_status(t.get("status")) != "pending":
+            continue
+        covered = set(cited[tid])
+        for d in graph.closure(deps, tid):
+            covered |= set(cited.get(d, []))
+        for n, dec in cited[tid]:
+            for pn, pd in index.requires(n, dec):
+                end = index.resolve(pn, pd)
+                if end.loop or end.decision is None or index.is_retired(end.adr, end.decision) \
+                        or end.decision not in {x["id"] for x in index.decisions(end.adr)}:
+                    continue
+                pre = (end.adr, end.decision)
+                if index.is_built(*pre) or pre in covered:
+                    continue
+                via = f" (through `retired by`: {ids.adr_id(pre[0])} D{pre[1]})" if pre != (pn, pd) else ""
+                citers = [o for o, c in cited.items() if o != tid and pre in c]
+                fix = (f"add a depends_on on {', '.join(citers)}, which cites it" if citers else
+                       f"no task cites it: write one that builds it, or record it built with "
+                       f"`ccp adr decide {pre[0]} D{pre[1]} built`")
+                out.append(f"{tid}: cites {ids.adr_id(n)} D{dec}, which requires {ids.adr_id(pn)} D{pd}{via}: that "
+                           f"prerequisite is neither recorded built or live nor cited by this task or a task in its "
+                           f"depends_on closure, so the task can run before it; {fix} "
+                           f"(SPEC §21.1{', adr.strict' if strict else ''})")
+    return out
+
+
+def _requires_lines(cfg: Config, tasks: list[dict[str, Any]], strict: bool) -> list[str]:
+    """`requires_report` on the checkout's ADRs when `adr.strict` is `strict`: `check` takes the strict
+    lines, `warnings` the others. Nothing without the `adr` block."""
+    from ccp import adr  # noqa: PLC0415  (adr reads the task log)
+
+    index = adr.decision_index(cfg)
+    if index is None or adr.strict(cfg) != strict:
+        return []
+    return requires_report(tasks, index, strict)
 
 
 def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
@@ -1126,6 +1198,7 @@ def check(cfg: Config, texts: dict[Path, str] | None = None) -> list[str]:
     for cyc in dependency_cycles(tasks):
         errs.append(f"{cfg.rel(by_id[cyc[0]]['_file'])}: depends_on forms a cycle: {' → '.join(cyc + [cyc[0]])} "
                     "— no task in it can ever be ready")
+    errs += _requires_lines(cfg, tasks, strict=True)
     errs += missing_task_files(cfg)
     if not cfg.task_log.get("index", True):
         return errs  # SPEC §5.7: the product keeps no index
