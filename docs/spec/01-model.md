@@ -439,9 +439,10 @@ adopts it all the same: under plane.json `pr_host.adapter` `github` (the default
 and close need a GitHub origin. Under `local` it warns only when the product has no origin: the
 local adapter keeps each PR's record in the queue (`prs/<n>.json`) and merges by a squash commit,
 subject `Task <NNNN>: <title> (#<n>)`, pushed from close's merge worktree (ADR-0040 D3).
-Its result, and its stderr, list each required plane.json key (§8.1) still unset, as a step to take before the first task. Only `github.com` and its subdomains count as GitHub, so an origin on a GitHub
-Enterprise host on its own domain is warned about as not on GitHub. This is deliberate: the plane
-knows GitHub by that host name only, and the warning does not stop the adoption.
+Its result, and its stderr, list each required plane.json key (§8.1) still unset, as a step to take
+before the first task. Only `github.com` and its subdomains count as GitHub, so an origin on a
+GitHub Enterprise host on its own domain is warned about as not on GitHub. This is deliberate: the
+plane knows GitHub by that host name only, and the warning does not stop the adoption.
 
 - **The adoption checklist.** The plane's README lists each `plane.json` key a product may need beyond
   the minimal file, with what it is for and when a product needs it.

@@ -96,6 +96,24 @@ class LocalHost(ToolkitFixture, unittest.TestCase):
         self.assertEqual(git(self.main, "rev-parse", "origin/main"), body["reconcile_sha"])
         self.assertEqual(prhost.confirm(self.cfg(), "1").merge_commit, rec["merge_commit"])
 
+    def test_view_reads_the_head_a_later_push_gave_the_branch_and_saves_it(self):
+        self.push_work()
+        self.open_pr()
+        later = self.push_work("fix.txt")  # a fix round's push after the PR opened
+        code, _, out, err = self.ccp("pr", "view", "1", "--json")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(out)["head"], later)
+        self.assertEqual(self.record(1)["head"], later)
+
+    def test_merge_records_its_own_squash_commit(self):
+        head = self.push_work()
+        self.open_pr()
+        r = prhost.merge(self.cfg(), "1", head, "0002-second")
+        self.assertTrue(r.ok, r.message)
+        rec = self.record(1)  # read straight from the queue: no view or confirm has run since the merge
+        self.assertEqual(rec["merge_commit"], self.origin_tip())
+        self.assertEqual(rec["state"], "OPEN")
+
     def test_merge_refuses_a_head_that_is_not_the_branchs_and_records_nothing(self):
         first = self.push_work()
         self.open_pr()
@@ -182,6 +200,46 @@ class LocalHost(ToolkitFixture, unittest.TestCase):
         self.assertEqual(prhost.view(self.cfg(), "1").head, head)
         with self.assertRaises(prhost.HostReadFailed):
             prhost.view(self.cfg(), "2")
+
+
+class LocalHostWithoutWorktrees(ToolkitFixture, unittest.TestCase):
+    """A product whose plane.json sets `worktrees.dir: null` has no merge worktree: the squash is made in a
+    temporary one."""
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "pr_host": {"adapter": "local"},
+                  "worktrees": {"dir": None, "links": [".venv"]}}
+
+    def setUp(self):
+        super().setUp()
+        nogh = mock.patch.dict(os.environ, {"CCP_GH_BIN": str(Path(self._tmp.name) / "no-such-gh")})
+        nogh.start()
+        self.addCleanup(nogh.stop)
+
+    def worktrees(self) -> list[str]:
+        return [line for line in git(self.main, "worktree", "list", "--porcelain").splitlines()
+                if line.startswith("worktree ")]
+
+    def test_merge_squashes_in_a_temporary_worktree_and_removes_it(self):
+        work = Path(self._tmp.name) / "work"
+        git(self.main, "worktree", "add", "-q", "-b", BRANCH, str(work), "origin/main")
+        (work / "feature.txt").write_text("built\n")
+        git(work, "add", "feature.txt")
+        git(work, "commit", "-q", "-m", "Task 0002: feature.txt")
+        git(work, "push", "-q", "-u", "origin", BRANCH)
+        head = git(work, "rev-parse", "HEAD")
+        cfg = config.load(self.runner)
+        self.assertIsNone(cfg.worktrees["dir"])
+        self.assertEqual(prhost.open(cfg, BRANCH, "main", "Task 0002: second", "Task: 0002-second\n"), 1)
+        before, runner_head = self.worktrees(), git(self.runner, "rev-parse", "HEAD")
+
+        r = prhost.merge(cfg, "1", head, "0002-second")
+        self.assertTrue(r.ok, r.message)
+        tip = git(self.main, "ls-remote", str(self.origin), "refs/heads/main").split()[0]
+        git(self.main, "fetch", "-q", "origin")
+        self.assertEqual(git(self.main, "log", "-1", "--format=%s", tip), "Task 0002: Second (#1)")
+        self.assertEqual(git(self.main, "show", f"{tip}:feature.txt"), "built")
+        self.assertEqual(self.worktrees(), before)
+        self.assertEqual(git(self.runner, "rev-parse", "HEAD"), runner_head)
+        self.assertEqual(prhost.confirm(cfg, "1").merge_commit, tip)
 
 
 class Selection(unittest.TestCase):
