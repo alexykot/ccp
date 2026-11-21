@@ -84,10 +84,15 @@ class TextAt(unittest.TestCase):
                        check=True, capture_output=True)
 
     def test_a_file_at_a_commit_is_its_text_there_not_the_checkouts(self):
+        self.p.write("notes/a.md", "second commit\n")
+        self.git("commit", "-qam", "second")
+        self.p.write("notes/a.md", "staged\n")
+        self.git("add", "notes/a.md")
         self.p.write("notes/a.md", "edited after the commit\n")
         cfg = self.p.cfg
-        self.assertEqual(tasklog.text_at(cfg, "HEAD", "notes/a.md"), "kept at the first commit\n")
-        self.assertEqual(tasklog.text_at(cfg, "", "notes/a.md"), "kept at the first commit\n")
+        self.assertEqual(tasklog.text_at(cfg, "HEAD", "notes/a.md"), "second commit\n")
+        self.assertEqual(tasklog.text_at(cfg, "HEAD~1", "notes/a.md"), "kept at the first commit\n")
+        self.assertEqual(tasklog.text_at(cfg, "", "notes/a.md"), "staged\n")
 
     def test_a_file_missing_at_the_rev_is_none_though_the_checkout_has_it(self):
         self.p.write("notes/b.md", "only in the checkout\n")
