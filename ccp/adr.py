@@ -789,6 +789,41 @@ def decision_states(m: dict[str, Any]) -> list[dict[str, Any]]:
     return [rec.get(d["id"]) or {"id": d["id"], "state": None, "by": None, "note": None} for d in m.get("_decisions") or []]
 
 
+def untasked(cfg: Config, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """§26.4, §27.1 task supply: the `not_built` decisions of `accepted` and `in-progress` ADRs that no task
+    cites, as `[{"adr": "ADR-0040", "decisions": ["1", "2"]}]` by ADR number, each ADR's decisions in the
+    body's order. A ref with a decision (`0040 D2`) cites that decision; a ref naming only the ADR
+    (`ADR-0040`, `0040`) cites all of them; a `dropped` task cites none. Reads only; `[]` without the `adr`
+    block (or its directory)."""
+    from ccp import tasklog  # noqa: PLC0415  (as in unbuilt_cited)
+
+    if cfg.adr is None or not adr_dir(cfg).is_dir():
+        return []
+    ids = refs.ids(cfg)
+    whole: set[int] = set()
+    cited: set[tuple[int, str]] = set()
+    for t in tasks:
+        if tasklog.canonical_status(t.get("status")) == "dropped":
+            continue
+        for ref in tasklog._as_list(t.get("adr_refs")):
+            r = ids.parse_adr_ref(ref)
+            if r is None:
+                continue
+            if r.decision is None:
+                whole.add(r.number)
+            else:
+                cited.add((r.number, r.decision))
+    out: list[dict[str, Any]] = []
+    for m in sorted(load(cfg)[0], key=lambda x: x["_number"]):
+        if m.get("status") not in ("accepted", "in-progress") or m["_number"] in whole:
+            continue
+        left = [d["id"] for d in decision_states(m)
+                if d["state"] == "not_built" and (m["_number"], d["id"]) not in cited]
+        if left:
+            out.append({"adr": ids.adr_id(m["_number"]), "decisions": left})
+    return out
+
+
 # ---------------------------------------------------------------- commands
 
 class AdrError(Exception):

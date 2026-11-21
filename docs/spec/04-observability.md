@@ -485,6 +485,7 @@ review point and for the whole backlog. It is advisory.
 - **Output.** Done and remaining, completion P50 and P90, tokens and cost P50 and P90; 1,000 seeded
   trials, so the same inputs give the same figures. Held tasks and tasks waiting on a dropped or
   missing task are left out and listed (`unreached`).
+  It also lists the decisions of accepted ADRs that no task cites (`untasked_decisions`), which the backlog leaves out.
 
 ### 26.5 The allowance fit and projection
 
@@ -573,6 +574,7 @@ gates nothing.
     (§13.2), which `after_review` also counts as `resolution_reviews`.
   - `clean_merges` counts the integration merges that did not conflict; `unmeasured` counts the change
     rounds in the window with no record.
+- **Task supply:** the `not_built` decisions of `accepted` and `in-progress` ADRs that no task cites (a dropped task does not count); `task_supply` in `--json`.
 - **Diagnostic only.** Nothing here is a target for a worker or part of a DoD.
 
 ### 27.2 Suite series

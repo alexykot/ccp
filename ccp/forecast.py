@@ -81,7 +81,7 @@ from pathlib import Path
 from statistics import NormalDist
 from typing import Any
 
-from ccp import config, tasklog
+from ccp import adr, config, tasklog
 from ccp.config import Config
 
 FORECAST_V = 3         # 2: the 5-hour limit's pauses; 3: the P90_RATIO_MAX draw cap (2026-10-23)
@@ -1242,6 +1242,10 @@ def text(f: dict[str, Any], which: str | None = None) -> str:
             lines.append(f"  {b['unestimated']} task(s) without an estimate took the median")
         if b.get("unreached"):
             lines.append("  left out: " + "; ".join(f"{t} ({w})" for t, w in b["unreached"].items()))
+    nu = f.get("untasked_decisions") or []
+    if nu and which in (None, "backlog") and f.get("backlog"):
+        lines += ["", f"Not yet tasked: {sum(len(u['decisions']) for u in nu)} accepted decision(s) in {len(nu)} ADR(s); "
+                      "the backlog above leaves them out"]
     if a and not a.get("unavailable"):
         fit = a.get("fit") or {}
         lines += ["", f"Allowance: {a['pct_now']:.0f}% now (sample {a['pct_sample']:.0f}% at {_when(a['sample_at'])}, "
@@ -1285,5 +1289,10 @@ def run(cfg: Config, q: Path, point: str | None = None) -> dict[str, Any]:
         d = drill.collect(q, rows, report)
     except Exception:  # noqa: BLE001  (no history: back-to-back throughput)
         d = {}
-    return collect(cfg, q, drill=d, open_items=board._open_items(q, durable_statuses(cfg)),
-                   allowance=usage.status(cfg, q, sample=False), point=point)
+    f = collect(cfg, q, drill=d, open_items=board._open_items(q, durable_statuses(cfg)),
+                allowance=usage.status(cfg, q, sample=False), point=point)
+    try:  # §26.4: the decisions the backlog leaves out; a damaged ADR never breaks the forecast
+        f["untasked_decisions"] = adr.untasked(cfg, tasklog.load(cfg))
+    except Exception:  # noqa: BLE001
+        f["untasked_decisions"] = []
+    return f
