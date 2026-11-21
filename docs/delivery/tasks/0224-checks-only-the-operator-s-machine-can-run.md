@@ -144,4 +144,20 @@ PROPOSED: (new lines after it)
 
 ## Implementation notes
 
+- 2026-11-21 (implementer): `tasklog.Check.runs_on` gives a check's `runs_on:` value as written (None when
+  unmarked) and `on_operator_machine` whether it is the one valid mark; `tasklog.runs_on_errors` names a
+  wrong value, or a `runs_on:` line that is not the key right after `setup:`, and `tasks check` reports
+  each with the task's file and the check's id, for a task of any status.
+- "Right after `setup:`" is read as the next key line at the check's key indent: `setup:`'s wrapped
+  lines (deeper in) may come between, and a `runs_on:` line deeper in than the keys (read as a wrapped
+  line, so never as the mark) is refused too.
+- `ccp tasks dry-run` skips only a check marked exactly `runs_on: operator-machine` (a misspelt mark is
+  run, and `tasks check` refuses it); it prints the check as not run and `--write` leaves its line.
+- `ccp tasks checks <task> [--json]` reads the task file in the checkout through `queue.task_meta` (no
+  queue needed); an unknown task exits 2. Text output is one `id<TAB>runs_on` line per check, `-` when
+  unmarked.
+- The skill's line about a check of a `ccp` command scopes `bin/ccp` to a head that carries one (the
+  plane's own repo) and names `ccp verify spec-text` for a product's checkout, since the skill is
+  generic.
+
 ## Verification notes

@@ -50,7 +50,7 @@ class TheMark(unittest.TestCase):
 
     def test_a_mark_after_a_wrapped_setup_is_right_after_it(self):
         text = task_text("0001-a", marked_check().replace("  setup: the build on the device.\n",
-                                                          "  setup: the build on the device,\n    signed.\n"))
+                                                          "  setup: the build on the device,\n    signed with the key: the operator's.\n"))
         (c,) = tasklog.checks(text)
         self.assertTrue(c.on_operator_machine)
         self.assertEqual(tasklog.runs_on_errors(c), [])
@@ -70,6 +70,10 @@ class TheMark(unittest.TestCase):
             self.assertEqual(len(tasklog.runs_on_errors(c)), 1, line)
         nested = base.replace("    1. Run", f"    {MARK}\n    1. Run")  # deeper than the check's keys
         (c,) = tasklog.checks(task_text("0001-a", nested))
+        self.assertEqual(len(tasklog.runs_on_errors(c)), 1)
+        under = marked_check().replace(f"  {MARK}\n", f"    {MARK}\n")  # read as the setup's wrapped line, no key
+        (c,) = tasklog.checks(task_text("0001-a", under))
+        self.assertIsNone(c.runs_on)
         self.assertEqual(len(tasklog.runs_on_errors(c)), 1)
         first = base.replace("  story:", f"  {MARK}\n  story:")  # no key before it
         (c,) = tasklog.checks(task_text("0001-a", first))
