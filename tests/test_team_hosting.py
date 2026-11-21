@@ -523,20 +523,21 @@ class TestIdleHook(TeamCase):
         (self.q / "architect.json").write_text(json.dumps(st))
         self.assertEqual(self.hook(), 2)
 
-    def architect_waiting(self, *, wait="operator_step", held=True, every_n_tasks=1, reviews=None):
+    def architect_waiting(self, *, wait="operator_step", held=True, holder="runner", every_n_tasks=1, reviews=None,
+                          **work):
         """Two tasks in flight at most, the architect adopted, 0001-a and 0003-c merged since the adoption point
-        (a pass due at `every_n_tasks` 1), and 0002-b, the scope's one open task, waiting on `wait`; the runner
-        holds it (claimed) when `held`."""
+        (a pass due at `every_n_tasks` 1), and 0002-b, the scope's one open task, waiting on `wait`; `holder`
+        holds it (claimed) when `held`. `work` adds keys to work.json."""
         self.prod.task("0003-c", status="done")
         self.prod.index()
         self.prod.write("docs/delivery/plane.json", json.dumps({
             "project_id": "demo", "parallel": {"max_in_flight": 2},
-            "architect": {"shape_from_task": "0001", "every_n_tasks": every_n_tasks, "triage_grace_tasks": 1}}))
+            "architect": {"shape_from_task": "0001", "every_n_tasks": every_n_tasks}}))
         (self.q / "architect.json").write_text(json.dumps({"schema_version": 1, "seen": {}, "reviews": reviews or {}}))
         (self.q / "tasks" / "0002-b.json").write_text(json.dumps(
-            {"task_id": "0002-b", "waiting_on": wait, **({"lease_holder": "runner"} if held else {})}))
+            {"task_id": "0002-b", "waiting_on": wait, **({"lease_holder": holder} if held else {})}))
         w = json.loads((self.q / "work.json").read_text())
-        (self.q / "work.json").write_text(json.dumps({**w, "in_flight": ["0002-b"] if held else []}))
+        (self.q / "work.json").write_text(json.dumps({**w, "in_flight": ["0002-b"] if held else [], **work}))
 
     def test_a_due_pass_keeps_a_runner_whose_held_tasks_wait_working(self):
         self.architect_waiting()
@@ -558,6 +559,13 @@ class TestIdleHook(TeamCase):
         self.prod.task("0002-b", deps=["0004-d"])  # `next` names no task either: a due pass blocks it at once
         self.prod.index()
         self.assertEqual(self.hook(), 0)
+
+    def test_a_due_pass_keeps_only_the_slot_whose_held_tasks_wait_working(self):
+        """With several slots, the waiting task runner-1 holds is not runner-2's: runner-2 holds nothing."""
+        self.architect_waiting(holder="runner-1", runners={"runner-1": {}, "runner-2": {}})
+        self.assertEqual(self.hook("runner-2"), 0)
+        self.assertEqual(self.hook("runner-1"), 2)
+        self.assertIn("ccp architect run --detach", self.stderr)
 
     def test_a_held_quota_wait_lets_the_runner_idle_with_a_pass_due(self):
         self.architect_waiting(wait="quota")

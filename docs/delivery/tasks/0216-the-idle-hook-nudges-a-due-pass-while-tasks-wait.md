@@ -145,8 +145,15 @@ PROPOSED:
   keeps the last stderr. The holding-nothing case gives 0002-b an unmet dependency so that `next` too
   names no task, and the test fails if the hook asks `next` for a runner holding nothing.
 - With `parallel.max_in_flight` 1, `ccp tasks next` names the runner's held task even while it waits
-  (it does not read runtime `waiting_on`), so it never answers that a pass is due at once there and the
-  new call lets the runner idle; the nudge works with tasks in parallel or slots, where `next` leaves
-  in-flight tasks out. Raised in the implement report as an open question.
+  (it does not read runtime `waiting_on`), so it answers a due pass only once `architect.grace_tasks`
+  merges have passed since the pass became due; until then it names the held task and the runner idles.
+  With tasks in parallel or slots, `next` leaves in-flight tasks out and answers a due pass at once.
+  (The implement report's open question said the nudge never fires at one task in flight; the review
+  showed that premise wrong.)
+- Fix round 1: a test with two slots (`runners` in work.json, 0002-b leased to `runner-1`) pins the slot
+  filter of the new step: `runner-2`, holding nothing, idles while `runner-1` is nudged to the pass. The
+  `architect_waiting` setup takes the holder and extra work.json keys for it, and no longer sets
+  `architect.triage_grace_tasks`, a constant in code whose warning showed on every hook run; the default
+  (2) still makes the triage overdue with two merges.
 
 ## Verification notes
