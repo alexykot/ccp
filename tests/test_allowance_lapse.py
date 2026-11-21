@@ -97,7 +97,9 @@ class LapsedOnTheBoard(Fixture, unittest.TestCase):
     def test_status_text_blocker_and_page_say_the_decision_lapsed(self):
         self.seed()
         b = self.build()[0]
-        b["now"]["allowance"] = {"latest": {"seven_day": 85.0, "resets_at": W, "at": "2026-10-22T19:00:00Z"},
+        row = {"seven_day": 85.0, "resets_at": W, "at": "2026-10-22T19:00:00Z"}
+        b["now"]["allowance"] = {"latest": row, "latest_good": row, "in_force": True,
+                                 "weekly_over": {"window": "seven_day", "pct": 85.0, "checkpoint": 80.0},
                                  "checkpoint": 80.0, "project_checkpoint": 80, "counter_resets": ["2026-10-22T08:09:57Z"],
                                  "decision_lapsed_at": "2026-10-22T08:09:57Z",
                                  "decisions": [{"at": "2026-10-21T20:35:57Z", "by": "design-seat", "to": 95.0,
