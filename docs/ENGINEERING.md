@@ -92,9 +92,7 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   check: pass — the architect compares the refusal lists of the merge-time judges
 - **E22** One parser per durable grammar: a task file's dod_checks are split and read by one tasklog
   function; no other module matches `CHECK_RE` or re-splits the section.
-  check: pass — the architect looks for check-grammar readers outside tasklog; it becomes a command
-  check (architect.checks `E22`: `! git grep -n CHECK_RE -- ccp ':(exclude)ccp/tasklog.py'`) once
-  the parser is in
+  check: command — architect.checks `E22`: `! git grep -n CHECK_RE -- ccp ':(exclude)ccp/tasklog.py'`
 - **E23** One parser per reference form: an ADR-decision link (`<ADR id>[ Dn]`, as `adr_refs`,
   `requires` and `retired by` write it) and a task-id reference are parsed by ccp/refs.py; no other
   module holds a regex for either.

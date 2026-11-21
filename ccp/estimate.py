@@ -235,7 +235,7 @@ def features(cfg: Config, t: dict[str, Any], rev: str | None = None) -> dict[str
     paths = cited(text, cfg)
     lines = _lines_at(cfg.root, rev, paths) if rev else _lines_now(cfg.root, paths)
     areas = sorted({_area(p) for p in paths if p in lines or (cfg.root / p.split("/")[0]).is_dir()})
-    checks = tasklog.CHECK_RE.findall(tasklog._section(text, tasklog.SEC_CHECKS) or "")
+    checks = [c.id for c in tasklog.checks(text)]
     kinds: dict[str, int] = {}
     for c in checks:
         k = c.rsplit("-", 1)[0]

@@ -549,11 +549,11 @@ def drop(cfg: Config, task: str, reason: str) -> dict[str, Any]:
     tid = str(meta["task_id"])
     integ = integration_branch(q)
     git(cfg.root, "fetch", "-q", "origin", integ)  # a runner's worktree may be behind the lead's commit (§16)
-    r = git(cfg.root, "show", f"origin/{integ}:{cfg.rel(meta['_file'])}")
-    if r.returncode != 0:
+    on_tip = tasklog.text_at(cfg, f"origin/{integ}", cfg.rel(meta["_file"]))
+    if on_tip is None:
         raise QueueError(f"{cfg.rel(meta['_file'])} is not on origin/{integ}: the lead's dropped status must be "
                          "committed there first", 3)
-    durable = tasklog.frontmatter(r.stdout).get("status")
+    durable = tasklog.frontmatter(on_tip.replace("\r\n", "\n").replace("\r", "\n")).get("status")
     if durable != "dropped":
         raise QueueError(f"{tid} is {durable or 'no status'} in its task file on origin/{integ}: only a task the "
                          "lead marked dropped (and committed) is dropped here; it edits the task file first", 3)
@@ -1353,8 +1353,8 @@ def task_log_paths(cfg: Config) -> list[str]:
 
 def _says_dropped(cfg: Config, rev: str, rel: str) -> bool:
     """The task file at `rev` (a commit, or "" for the index) says `status: dropped`: the lead's drop (§10.4)."""
-    r = git(cfg.root, "show", f"{rev}:./{rel}")
-    return r.returncode == 0 and tasklog.frontmatter(r.stdout).get("status") == "dropped"
+    text = tasklog.text_at(cfg, rev, rel)
+    return text is not None and tasklog.frontmatter(text.replace("\r\n", "\n").replace("\r", "\n")).get("status") == "dropped"
 
 
 def _own_commit(cfg: Config, nnnn: str, subject: str, parents: str, body: str) -> bool:
