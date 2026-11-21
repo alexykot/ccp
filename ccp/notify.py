@@ -245,11 +245,13 @@ TAIL_REASON = 500  # one notice's reason, in characters
 TAIL_WARNING = 600  # the allowance warning, in characters
 
 
-def orientation_tail(rows: list[dict[str, Any]], warning: str) -> str:
+def orientation_tail(rows: list[dict[str, Any]], warning: str, open_follow_ups: int = 0) -> str:
     """What the SessionStart hook appends after the orientation (SPEC §9.3), on plain values: the
     "Pending notices" section for `rows` (`pending`'s rows: a heading, one line per notice, its reason cut
     at TAIL_REASON, the body held to TAIL_CAP with a "more" line for the rest), then the `warning`
-    `ccp allowance status` gives (cut at TAIL_WARNING). Empty when there is neither."""
+    `ccp allowance status` gives (cut at TAIL_WARNING), then, when `open_follow_ups` is above zero, the one
+    line with that count and the command that lists them (ADR-0044 D4; not a notice). Empty when there is none
+    of these."""
     out = ""
     if rows:
         out = ("\n\n## Pending notices\n\nFired and not yet sent (plane SPEC §3.6). The lead sends each over the "
@@ -271,6 +273,9 @@ def orientation_tail(rows: list[dict[str, Any]], warning: str) -> str:
     warning = str(warning or "")[:TAIL_WARNING]
     if warning:
         out += f"\n\n## Warning\n\n{warning}\n"
+    if open_follow_ups > 0:
+        noun = "follow-up" if open_follow_ups == 1 else "follow-ups"
+        out += f"\n\n{open_follow_ups} {noun} open: `ccp tasks follow-ups --open`\n"
     return out
 
 

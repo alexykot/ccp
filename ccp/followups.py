@@ -1,7 +1,7 @@
 """Worker follow-ups (SPEC §13.4, §22.2, ADR-0044 D1 to D4): a worker report states them (`## Follow-ups`, read by
 `ccp report`), the lead records what became of each (`ccp tasks follow-up`), `ccp tasks follow-ups` lists them
-across tasks, and `ccp tasks check --closed-points` and the spawn's readiness check fail while a closed review point
-holds an undecided one.
+across tasks, orientation shows how many are open, and `ccp tasks check --closed-points` and the spawn's readiness
+check fail while a closed review point holds an undecided one.
 
 A follow-up lives on its run record (`follow_ups`, each with its id `<run_id>#<n>`, refs.py) beside the
 lead's `outcome`. `undecided`, `listing`, `carry` and `closed_point_errors` work on plain values; `undecided` is the one list of open
@@ -39,6 +39,12 @@ def _rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def undecided(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The follow-ups on `records` with no outcome recorded, as `listing` gives them."""
     return [r for r in _rows(records) if r["outcome"] is None]
+
+
+def open_count(q: Path) -> int:
+    """§9.3, ADR-0044 D4: how many follow-ups on queue `q`'s run records have no outcome, the count orientation
+    shows."""
+    return len(undecided(runs.all_runs(q)))
 
 
 def listing(records: list[dict[str, Any]], open_only: bool) -> list[dict[str, Any]]:
@@ -168,4 +174,4 @@ def decide(q: Path, cfg: Config, fid: str, kind: str, ref_or_reason: str, by: st
     return {"ok": True, "id": fid, "task_id": task_id, "outcome": outcome, "replaced": replaced}
 
 
-__all__ = ["KINDS", "LEAD", "carry", "closed_point_errors", "closed_points", "decide", "line", "listing", "outcome_word", "resolve_task", "undecided"]
+__all__ = ["KINDS", "LEAD", "carry", "closed_point_errors", "closed_points", "decide", "line", "listing", "open_count", "outcome_word", "resolve_task", "undecided"]

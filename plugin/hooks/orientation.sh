@@ -5,7 +5,8 @@
 # line pointing at CLAUDE.md instead. Anywhere else it says nothing.
 # After the orientation it appends what `ccp orientation --tail` prints (SPEC §9.3): the product's pending
 # notices (§3.6), an `upgrade` notice a release left (§29.3) among them, and the allowance warning (§25.1: no
-# usage is read and nothing bounds spend); `ccp` builds that text. It asks the `ccp` beside the plugin (the
+# usage is read and nothing bounds spend), then how many worker follow-ups are open and the command that lists
+# them, while any is; `ccp` builds that text. It asks the `ccp` beside the plugin (the
 # plane checkout it is in), else `ccp` on PATH; no queue, no tail. That one call gets 3 s: a slow queue drops
 # the tail, never the orientation (the hook's own limit is 10 s).
 # It always exits 0.
