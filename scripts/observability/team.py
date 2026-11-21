@@ -277,7 +277,8 @@ def refuse_without_integration_ref(root: Path, paths: list[str | None]) -> None:
 def readiness(root: Path, rc: dict[str, str], scope: list[str], single: bool) -> list[dict[str, Any]]:
     """SPEC §16.5, `runner spawn --dry-run`: the §10.2 readiness checks a lead runs before a spawn, those
     a machine can answer, as {check, ok, detail}: every scope entry names a task in the product's task
-    log, `ccp tasks check` is clean, and (one runner) the runner worktree is a
+    log, `ccp tasks check` is clean, no review point the register records closed holds an undecided follow-up
+    (§22.2), and (one runner) the runner worktree is a
     working tree or can be made (a missing `origin/<integration_branch>` has refused the spawn before
     this). Reads only: it makes no worktree and fetches nothing."""
     if str(HERE.parents[1]) not in sys.path:
@@ -300,6 +301,15 @@ def readiness(root: Path, rc: dict[str, str], scope: list[str], single: bool) ->
         checks.append({"check": "tasks_check", "ok": not errs,
                        "detail": f"`ccp tasks check`: {len(errs)} failure(s): " + "; ".join(errs[:5]) if errs
                        else "`ccp tasks check` is clean"})
+        from ccp import followups  # noqa: PLC0415
+        from ccp.queue import QueueError  # noqa: PLC0415
+        try:
+            held = followups.closed_points(cfg, root)
+        except QueueError as e:  # an unreadable run record: named, not ready
+            held = [str(e)]
+        checks.append({"check": "closed_points", "ok": not held,
+                       "detail": f"`ccp tasks check --closed-points`: {len(held)} failure(s): " + "; ".join(held[:5])
+                       if held else "no closed review point holds an undecided follow-up"})
     prod = sm.product_root(root)
     if single and rc.get("worktree") and prod:
         from ccp import wt  # noqa: PLC0415

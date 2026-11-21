@@ -251,9 +251,25 @@ def cmd_tasks_check(cfg: config.Config, a: argparse.Namespace) -> int:
     if getattr(a, "staged", False) and not getattr(a, "lease", False):
         print("ccp tasks check: --staged goes with --lease", file=sys.stderr)
         return 2
+    if getattr(a, "closed_points", False) and getattr(a, "lease", False):
+        print("ccp tasks check: --closed-points does not go with --lease", file=sys.stderr)
+        return 2
     if getattr(a, "lease", False):
         return cmd_tasks_lease_check(cfg, a)
     errs = tasklog.check(cfg)
+    no_queue = None
+    if getattr(a, "closed_points", False):  # §22.2: the lead's check, never a worker's gate
+        from ccp import followups, queue  # noqa: PLC0415
+        try:
+            q = queue.root()
+        except QueueError as e:
+            no_queue = f"--closed-points read no queue ({e}): no closed review point was checked (SPEC §22.2)"
+        else:
+            try:
+                errs = errs + followups.closed_points(cfg, q)
+            except QueueError as e:
+                print(f"ccp tasks check --closed-points: {e}", file=sys.stderr)
+                return e.code
     code = _print_errs("tasks", errs, f" ({len(tasklog.load(cfg))} tasks)")
     from ccp import reviewpoints  # noqa: PLC0415
     from ccp import parallel  # noqa: PLC0415
@@ -263,7 +279,7 @@ def cmd_tasks_check(cfg: config.Config, a: argparse.Namespace) -> int:
     for w in tasklog.warnings(cfg) + reviewpoints.notes(cfg) + parallel.scope_warnings(cfg, tasks) + chain_warnings:
         print(f"  warning: {w}")
     from ccp import estimator  # noqa: PLC0415  (§26.3: advisory; never changes the exit code)
-    for n in chain_notes + estimator.notice(cfg):
+    for n in chain_notes + estimator.notice(cfg) + ([no_queue] if no_queue else []):
         print(f"  note: {n}")
     return code
 
@@ -1135,6 +1151,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--staged", action="store_true",
                    help="with --lease: judge the staged change instead, when HEAD is on the integration branch "
                         "(the commit hook)")
+    p.add_argument("--closed-points", action="store_true",
+                   help="also fail on a review point the register records closed while a follow-up of one of its "
+                        "tasks is undecided (reads QUEUE_ROOT; without it, a note; SPEC §22.2)")
     p.set_defaults(fn=cmd_tasks_check)
     p = t.add_parser("dry-run", help="run each dod_check step that is one backticked command, at the integration tip "
                                      "in a temporary worktree, and print what it printed (SPEC §21.1; needs QUEUE_ROOT; "

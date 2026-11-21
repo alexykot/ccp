@@ -139,4 +139,18 @@ PROPOSED: (same line, after it)
 
 ## Implementation notes
 
+- `followups.closed_point_errors` works on plain values; `followups.closed_points(cfg, q)` feeds it the register
+  (`reviewpoints.load`), each point's tasks and the queue's run records. A point's tasks are the task files'
+  `review_point` values grouped (`reviewpoints.task_rows`), not `summary()`'s `ids`: those leave out dropped tasks and
+  stop at 200, so a dropped task's follow-ups and a large point would go unchecked.
+- `ccp tasks check --closed-points` adds the errors to the usual ones; without a readable `QUEUE_ROOT` it prints a
+  `note:` and keeps the usual exit code; an unreadable run record is named and exits 1. With `--lease` it is refused
+  (exit 2), since `--lease` checks only the lease.
+- The spawn's readiness (`team.sh runner spawn --dry-run`, `readiness()`) adds `closed_points`; an unreadable run
+  record fails it, named.
+- ADR-0044 D3's text names plain `ccp tasks check`; the shaped brief (F01) narrows it to `--closed-points` and the
+  spawn. D3 is recorded `built`; its body is unchanged.
+- Fix round 1 (review MINOR 1): a plain-values test with two closed points, the undecided follow-up on the second
+  one's task, so a loop that checks only the first register entry fails a test.
+
 ## Verification notes
