@@ -109,4 +109,14 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- `ccp/pkgdocs.py`: one helper, `_is_doc(cfg, f)`, true for the product's `doc_name` or the name `doc_for`
+  gives the file's directory (`CLAUDE.md` in a listed one). `source_dirs`' `source(f)` and `_source_lines`
+  both use it. `doc_name` stays excluded everywhere, as before (a `.claude.md` in a listed directory is
+  not counted either); an unlisted directory's `CLAUDE.md` is still a `.md` source file.
+- `docs/delivery/plane.json`: `scripts/git-hooks` added to `claude_md_dirs`, in sorted place.
+- Premises re-run at `aaa81b2`: two `f.name != pd["doc_name"]` sites, the 8-line doc, one
+  `half its directory` line in the SPEC: as the task states.
+- `ccp` on PATH runs the run checkout, so before release `ccp --root . docs check` shows the old
+  failure (`8 lines against 8 of source`); `bin/ccp` of the worktree prints `docs: clean`.
+
 ## Verification notes
