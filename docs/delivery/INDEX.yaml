@@ -1233,7 +1233,7 @@ tasks:
     depends_on: [0225-decisions-may-depend-on-other-adrs-decisions, 0250-generic-cycles-and-closure-helpers]
     path: tasks/0251-adr-check-holds-the-requires-links.md
   - id: 0252-the-task-check-reports-a-decision-built-before-its-prerequisite
-    status: pending
+    status: done
     title: ccp tasks check reports a pending task that could build a decision before its prerequisite
     depends_on: [0251-adr-check-holds-the-requires-links, 0250-generic-cycles-and-closure-helpers]
     path: tasks/0252-the-task-check-reports-a-decision-built-before-its-prerequisite.md

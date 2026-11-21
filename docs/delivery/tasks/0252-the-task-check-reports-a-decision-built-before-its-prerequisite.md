@@ -1,7 +1,7 @@
 ---
 task_id: 0252-the-task-check-reports-a-decision-built-before-its-prerequisite
 title: ccp tasks check reports a pending task that could build a decision before its prerequisite
-status: pending
+status: done
 kind: feature
 depends_on: ["0251-adr-check-holds-the-requires-links", "0250-generic-cycles-and-closure-helpers"]
 clashes_with: ["0224-checks-only-the-operator-s-machine-can-run", "0231-a-review-point-does-not-close-over-an-undecided-follow-up", "0244-tasks-check-runs-dry-runs"]
@@ -161,3 +161,5 @@ PROPOSED: (a new paragraph after it)
     decision; the term names the chains left to `ccp adr check`).
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #293 head `a624038` (squash `4250e49`): APPROVE. Passed: tr-01, tr-02, tr-03, tr-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0252-the-task-check-reports-a-decision-built-before-its-prerequisite.json.
+
