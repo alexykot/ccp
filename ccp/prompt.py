@@ -201,10 +201,13 @@ def render(template: str, values: dict[str, Any]) -> str:
 
 def ccp_command(cfg: Config) -> str:
     """`ccp` on PATH for a product on the plugin (SPEC §29.4). A product still on managed copies
-    keeps the full path its permission allowlist names, until it moves to the plugin (§9)."""
+    keeps the full path its permission allowlist names, until it moves to the plugin (§9). A product
+    whose checkout carries its own `bin/ccp` (the plane itself) gets that command's `wt exec --`, so
+    a worker's commands run the head of the worktree it works in (§12.1)."""
     import shutil  # noqa: PLC0415
     own = (cfg.root / ".claude" / "agents" / "delivery-implementer.md").is_file()
-    return "ccp" if shutil.which("ccp") and not own else str(CCP_BIN)
+    base = "ccp" if shutil.which("ccp") and not own else str(CCP_BIN)
+    return f"{base} wt exec --" if (cfg.root / "bin" / "ccp").is_file() else base
 
 
 def main_checkout(cfg: Config) -> Path:

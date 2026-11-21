@@ -22,7 +22,8 @@ ADR-0023 and ADR-0024 carry the reasons.
 - No one develops in the run checkout. Development happens in the development clone and its
   worktrees, which no product runs.
 - **After a merge** the plane session runs the release, which pulls the run checkout. `ccp` warns on
-  stderr when the run checkout has local changes, is not on `main`, or is behind `origin/main`.
+  stderr when the run checkout has local changes, is not on `main`, or is behind `origin/main`; a
+  `ccp wt exec` child, which runs a worktree's head on purpose (§12.1), gives no such warning.
 - The per-product bindings (`projects/<project_id>.yaml`) are local and gitignored in the run
   checkout; a release never loses them.
 - The plane runs on Python 3.9 or newer, standard library only (`requires-python` in

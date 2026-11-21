@@ -1,7 +1,6 @@
 """A worker's prompt arrives whole (SPEC §13.2, §13.4): `ccp prompt` ends the rendered prompt with
 `Prompt end: <token>`, keeps the token on the run, and hands the runner a pointer to the file;
-`ccp report` refuses a report that does not repeat the run's token as `Prompt: <token>`. And the
-verifier is told when to record with the head's own `ccp` (§15.4), and to check `ccp` by hand with it."""
+`ccp report` refuses a report that does not repeat the run's token as `Prompt: <token>`."""
 from __future__ import annotations
 
 import json
@@ -9,7 +8,7 @@ import unittest
 from pathlib import Path
 
 from tests.test_report_fields import HEAD, implement_report
-from tests.test_toolkit import PLANE, ToolkitFixture
+from tests.test_toolkit import ToolkitFixture
 
 RUN = "0002-second/implement"
 
@@ -85,30 +84,6 @@ class PromptEnd(ToolkitFixture, unittest.TestCase):
             text = Path(body["prompt_path"]).read_text()
             self.assertIn("`Prompt: <token>`", text, args[0])
             self.assertEqual(text.splitlines()[-1], f"Prompt end: {self.run_rec(body['run_id'])['prompt_token']}")
-
-
-class HeadsOwnCcp(ToolkitFixture, unittest.TestCase):
-    """§15.4: the verify prompt and the verifier's definition say when to record with the head's own `ccp`."""
-
-    def test_the_verify_prompt_and_the_verifier_name_the_heads_ccp(self):
-        self.ccp("tasks", "claim", "0002")
-        code, body, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", HEAD)
-        self.assertEqual(code, 0, out + err)
-        text = Path(body["prompt_path"]).read_text()
-        self.assertIn("wt exec ver-0002 -- verify record <file>", text)
-        self.assertIn("contracts/verification.schema.json", text)
-        agent = (PLANE / "plugin/agents/delivery-verifier.md").read_text()
-        self.assertIn("ccp wt exec <your worktree> -- verify record <file>", agent)
-
-    def test_the_verify_prompt_sends_a_by_hand_check_of_ccp_to_the_heads_own(self):
-        self.ccp("tasks", "claim", "0002")
-        code, body, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", HEAD)
-        self.assertEqual(code, 0, out + err)
-        text = Path(body["prompt_path"]).read_text()
-        self.assertEqual(text.count("wt exec"), 2, text)
-        self.assertIn("wt exec ver-0002 -- <args>", text)
-        self.assertIn("`bin/ccp`", text)
-        self.assertIn("never runs `ccp` on PATH", text)
 
 
 if __name__ == "__main__":

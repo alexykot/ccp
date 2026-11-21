@@ -71,6 +71,7 @@ OUT_CAP = 20000
 SHALLOW_KINDS = ("rev", "ver", "mut", "mac")  # §12.1: `--shallow` makes one of these a depth-1 clone of its sha
 BASE_REFUSED = 125  # §12.1: a base run's own refusal or failure, never one of its command's codes (as timeout(1))
 BASE_TIMED_OUT = 124  # §12.1: the base run's command outlived --timeout and was killed with its process group
+EXEC_CHILD = "CCP_WT_EXEC"  # §29.2: set for a `ccp wt exec` child, which then gives no checkout warning
 SIGTERM_HOLD_SECONDS = 30  # how long a base run's SIGTERM waits on a worktree being made before it is acted on
 
 
@@ -1141,9 +1142,10 @@ def own_ccp(root: Path | None, name: str | None = None) -> Path:
 
 
 def exec_ccp(exe: Path, args: list[str]) -> int:
-    """Run `exe` with `args`, in the caller's working directory and environment, its output the caller's.
-    Returns its exit code (128 + N when signal N ended it)."""
-    code = subprocess.call([sys.executable, str(exe), *args])
+    """Run `exe` with `args`, in the caller's working directory and environment, its output the caller's,
+    with EXEC_CHILD set: the child runs a worktree's head on purpose, so it gives no checkout warning
+    (§29.2). Returns its exit code (128 + N when signal N ended it)."""
+    code = subprocess.call([sys.executable, str(exe), *args], env={**os.environ, **for_child({EXEC_CHILD: "1"})})
     return code if code >= 0 else 128 - code
 
 

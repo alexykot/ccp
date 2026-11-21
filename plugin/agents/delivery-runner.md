@@ -69,13 +69,12 @@ phase), and the prompt: a pointer to the rendered file ("Your full instructions 
 file in full first and follow it exactly."). Pass that pointer as printed, **never the file's text retyped**:
 a retyped prompt loses its tail. The file's last line is `Prompt end: <token>`, and the worker's report
 repeats it as `Prompt: <token>` (SPEC §13.2, §13.4). `--note "<text>"` adds
-up to 4000 characters of your own for this run (`--note-file PATH` reads a longer, multi-line note from a file); a note you keep repeating is a plane proposal.
+text of your own for this run, and `--note-file PATH` reads a multi-line note from a file (SPEC §13.2); a note you keep repeating is a plane proposal.
 `ccp prompt` refuses while a run of the same agent type is still pending (opened, its agent not
-started); `--supersede` abandons it when that launch never happened (and, after a 120-second grace,
-another task's pending run of the same agent type). With a runner slot, pass `--holder <your slot>` to
-every `ccp prompt`, as you do to claim: only the slot holding the task's lease opens its rounds (SPEC
-§16.4). Exit 3 means one of: your slot does not hold the task; another slot's round of that phase is
-still running; or another runner's pending run is about to launch. Read the message.
+started); `--supersede` abandons it when that launch never happened (SPEC §11.1, §16.4). With a runner
+slot, pass `--holder <your slot>` to every `ccp prompt`, as you do to claim: only the slot holding the
+task's lease opens its rounds (SPEC §16.4). Its exit 3 is a refusal under §11.1 or §16.4, and its message names
+the condition that failed: read it.
 
 The Agent call returns when the worker ends (a teammate cannot run background agents: SPEC §16.1), and
 its handback may still be lost. So the prompt tells each worker to report two ways, and you rely on
