@@ -40,9 +40,12 @@ From architect pass `ar-20261120T234012Z-27eb`, findings F01 and F15, triaged by
   runs in (`--root`, else `$CCP_ROOT`, else the working directory's git toplevel, §12.1). Every
   worker runs in its own worktree, so this is the head it changes. Templates keep saying `{{ccp}}`;
   §29.4's "say `ccp`" still holds. The runner itself keeps `ccp` on PATH for claim, close and merge.
-- **Literal `ccp` in the templates.** `git grep -nE 'ccp [a-z]' -- templates/prompts` at `8aefa59`: 21 lines (`git grep -cE 'ccp [a-z]' -- templates/prompts`: 7 in `_common.md`, 6 in `verify.md`, 3 in `review.md`, 2 in `merge.md`, 1 each in `fix.md`,
-  `implement.md` and `ruling.md`) name `ccp` literally instead of `{{ccp}}`. Ruling (the lead, on the
-  triage review): every one becomes `{{ccp}}`, so §12.1's "every `ccp` a worker prompt names" holds.
+- **Literal `ccp` in the templates.** `git grep -nE 'ccp (suite|report|mutate|verify) ' -- templates/prompts` at `8aefa59`: 12 lines (`git grep -cE 'ccp (suite|report|mutate|verify) ' -- templates/prompts`: 4 in `_common.md`, 3 in `verify.md`, 1 each in `fix.md`, `implement.md`, `merge.md`,
+  `review.md` and `ruling.md`) name a command the worker runs (`ccp suite run`, `ccp report`,
+  `ccp mutate`, `ccp verify record`) literally instead of `{{ccp}}`. Ruling (the lead, on the triage
+  review): each of those becomes `{{ccp}}`, so §12.1's "every `ccp` a worker prompt names" holds for
+  the commands a worker runs. Prose naming the runner's or the lead's own commands (`ccp tasks close`,
+  `ccp tasks ruling`, `ccp plane propose`) stays `ccp`: those run on PATH (Out).
 - **The warning.** `ccp/cli.py` `"def checkout_warning"` warns when the checkout `ccp` runs from is
   off `main`, silenced only by `CCP_DEV=1`. `ccp/wt.py` `"def exec_ccp"` runs the child with the
   caller's environment unchanged. Ruling: `exec_ccp` sets one variable for the child through
@@ -72,7 +75,7 @@ From architect pass `ar-20261120T234012Z-27eb`, findings F01 and F15, triaged by
 
 - **In:**
   - `ccp/prompt.py` (`ccp_command`), `ccp/wt.py` (`exec_ccp`), `ccp/cli.py` (`checkout_warning`).
-  - `templates/prompts/`: every literal `ccp` command becomes `{{ccp}}`; `verify.md` and
+  - `templates/prompts/`: every literal `ccp` command the worker runs becomes `{{ccp}}`; `verify.md` and
     `review.md` keep the rendered by-hand rule; the `wt exec` workaround paragraphs removed.
   - `plugin/agents/delivery-reviewer.md`, `plugin/agents/delivery-verifier.md`: the workarounds
     replaced by "run a check's `ccp` command as the prompt's `{{ccp}}` renders it".
@@ -134,12 +137,12 @@ From architect pass `ar-20261120T234012Z-27eb`, findings F01 and F15, triaged by
   expect: step 1 exits 0; step 2 exits non-zero.
   dry run: n/a — `tests/test_plane_workers_run_head.py` is new.
 - id: `head-06`
-  story: As a worker, every `ccp` command my prompt names is the rendered one.
+  story: As a worker, every `ccp` command my prompt has me run is the rendered one.
   setup: a checkout of the PR head.
   steps:
-    1. Run `git grep -nE 'ccp [a-z]' -- templates/prompts`.
+    1. Run `git grep -nE 'ccp (suite|report|mutate|verify) ' -- templates/prompts`.
   expect: it prints nothing.
-  dry run (`8aefa59`): 21 lines.
+  dry run (`8aefa59`): 12 lines.
 
 ## Implementation notes
 
