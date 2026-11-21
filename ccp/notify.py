@@ -240,6 +240,40 @@ def pending(cfg: Config, q: Path) -> list[dict[str, Any]]:
     return out
 
 
+TAIL_CAP = 2400  # the pending-notices section's body, in characters
+TAIL_REASON = 500  # one notice's reason, in characters
+TAIL_WARNING = 600  # the allowance warning, in characters
+
+
+def orientation_tail(rows: list[dict[str, Any]], warning: str) -> str:
+    """What the SessionStart hook appends after the orientation (SPEC §9.3), on plain values: the
+    "Pending notices" section for `rows` (`pending`'s rows: a heading, one line per notice, its reason cut
+    at TAIL_REASON, the body held to TAIL_CAP with a "more" line for the rest), then the `warning`
+    `ccp allowance status` gives (cut at TAIL_WARNING). Empty when there is neither."""
+    out = ""
+    if rows:
+        out = ("\n\n## Pending notices\n\nFired and not yet sent (plane SPEC §3.6). The lead sends each over the "
+               "product's channel and records it with the `ccp notify sent` call shown; `ccp notify pending` "
+               "lists them in full.\n")
+        lines = []
+        for r in rows:
+            reason = str(r.get("reason") or "")
+            reason = (f" — {reason[:TAIL_REASON]}…" if len(reason) > TAIL_REASON
+                      else (f" — {reason}" if reason else ""))
+            lines.append(f"- {r.get('subject') or r.get('trigger')}{reason}. Record: `{r.get('record', '')}`")
+        body = ""
+        for i, ln in enumerate(lines):
+            if len(body) + len(ln) + 1 > TAIL_CAP:
+                body += f"- … {len(lines) - i} more: `ccp notify pending`\n"
+                break
+            body += ln + "\n"
+        out += body
+    warning = str(warning or "")[:TAIL_WARNING]
+    if warning:
+        out += f"\n\n## Warning\n\n{warning}\n"
+    return out
+
+
 def upgrade_reason(steps: list[dict[str, Any]]) -> str:
     """The `upgrade` notice's reason: `<task>: <adopt step>` for each step, `; ` between them, one line
     within NOTE_MAX; the steps that do not fit are counted and left to `ccp upgrade status`."""

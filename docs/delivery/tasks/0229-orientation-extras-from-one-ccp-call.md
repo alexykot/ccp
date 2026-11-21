@@ -87,4 +87,19 @@ Measured at `8aefa59`.
 
 ## Implementation notes
 
+- `notify.orientation_tail(rows, warning) -> str` (in `ccp/notify.py`) holds the text the hook used to build
+  inline: the "Pending notices" heading, one line per notice (reason cut at 500), the 2400-character body cap
+  with the "more" line, then the warning cut at 600. The text is byte-for-byte what the hook appended, leading
+  blank lines included, so the hook's 9500-character cut of the orientation is unchanged.
+- `ccp orientation --tail` (`cli._orientation_tail`) reads `notify.pending` and `usage.status` (no sample, so it
+  writes nothing) and prints that text. A part it cannot read is left out; with no `QUEUE_ROOT` it prints nothing
+  and exits 1, as the two old calls each gave nothing there. The hook appends stdout only on exit 0.
+- The hook makes the one call with one 3-second timeout (`grep -c 'timeout=3'` prints 1).
+- Existing tests whose stand-in `ccp` answered `notify pending` / `allowance status`
+  (`tests/test_notify_upgrade.py` `OrientationHookNotices`, `tests/test_machine_account.py`
+  `SessionStartCheck`) now answer `orientation --tail` with the text `notify.orientation_tail` builds from the same
+  rows and warning; their expectations are unchanged.
+- `tests/test_orientation_tail.py` has the four Scope tests plus a cut-reason test and three `--tail` command tests
+  (warning from the allowance status, a fired notice, no queue).
+
 ## Verification notes
