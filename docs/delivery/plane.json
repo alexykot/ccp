@@ -9,10 +9,6 @@
         "cmd": "test -z \"$(git branch --list 'state/*')\""
       },
       {
-        "id": "E12",
-        "cmd": "python3 -B -m unittest -q tests.test_plane_config_defaults tests.test_event_registry"
-      },
-      {
         "id": "E3",
         "cmd": "scripts/leak-check.sh"
       },
@@ -27,6 +23,10 @@
       {
         "id": "E18",
         "cmd": "! git grep -n unittest -- ccp ':(exclude)ccp/doclang'"
+      },
+      {
+        "id": "E19",
+        "cmd": "! git grep -nE 'CCP_GH_BIN|headRefOid|mergeCommit' -- ccp ':(exclude)ccp/prhost.py'"
       },
       {
         "id": "E25",

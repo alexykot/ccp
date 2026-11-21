@@ -102,3 +102,8 @@ review_points:
     goal: "The operator's rulings of 2026-11-21: the plane writes the pre-merge phases §13.1, §15.1 and the standing DoD describe (the review record, formal-submit, the implemented, reviewed and submitted phases), its contracts match what it writes, and a whole-tree check failure already on the integration branch is reported rather than failing a task's docs check or the verifier's gate."
     status: planned
     opened: "2026-11-21"
+  - id: R19
+    name: third architect pass fixes
+    goal: "Findings of architect pass ar-20261121T111633Z-4e26: reviewers get the affected-modules command and a base checkout, the tests-for-new-behaviour section in the report table, a parallel part lane, module docstrings without usage tables and house-rule checks without bare test runs, writers checked against their contracts, and one parser for signed blocks and task-id patterns."
+    status: planned
+    opened: "2026-11-21"
