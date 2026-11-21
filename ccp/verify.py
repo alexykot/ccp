@@ -59,25 +59,12 @@ Under `adr.strict`, `record` also refuses an approve of a head on which a decisi
 cite is still recorded `not_built` (§6.7's in-force check, run before the verdict rather than only once
 close has marked the task done), naming the decision and the `ccp adr decide` that flips it.
 
-Each check names the seat that produced its evidence (`produced_by`, §2.3, §15.4). `record` refuses
-a check without one (a check a ruling closed, `ran: false` with `rests_on`, may leave it out), and
-evidence produced by a seat that rules on the task (the lead, the runner) unless its `operator_step`
-names an approved `operator` gate of the task (§17.9); `merge-ok` and `check` read a record written
-before the field, and still refuse a ruling seat's evidence.
-
-A check not run (`ran: false`) rests on one of three things, and `record` refuses anything else
-(`rests_on_errors`): a ruling, named by spec question (`sm-…`) or gate (`<task_id>-<n>`) ids that all
-exist (a gate's file is the gate it is cited as, its `escalation_id` and `task_id` those of the cited
-id; a question has its question file as well as its answer), each gate closed and approved and each
-question answered `resolved`; a carried verdict, `approve at <sha>` (§15.6 rule 3), the sha a commit
-of the product checkout; or evidence the operator produced (`produced_by: operator`), with any text. `merge-ok` and `check` do not apply it, so a record
-written before the rule is still read.
-
-A check the verifier ran whose expectation cannot hold as written is `as_written: false` (§15.4), still a
-pass or a fail, with `held_instead`, what the verifier checked in its place, and `ruling`, the spec question,
-gate or lead ruling ids that let it, in the ruling form a check not run may rest on; `record` refuses one
-without both, with another ruling, or on a check not run (`as_written_errors`). `not_as_written` lists them, for
-`ccp tasks close` to print before it merges.
+A check's evidence is §15.4's rule, and `record` holds a verdict to it: `producer_errors` (the seat that
+produced a check's evidence), `rests_on_errors` (what a check not run rests on) and `as_written_errors` (a check
+that cannot hold as written, which `not_as_written` lists for `ccp tasks close` to print before it merges).
+`merge-ok` and `check` read a record written before `produced_by` and still refuse a ruling seat's evidence;
+neither applies `rests_on_errors`, so a record written before that rule is still read. The one sample record
+is `contracts/verification.example.json`.
 
 A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_round`) carries the
 runner's `--note` as its reason; `record` adds that reason to the record's `findings` when no finding

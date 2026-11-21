@@ -10,7 +10,7 @@ from ccp import config, drill, report, suite, tasklog
 from tests.test_suite import PY, SuiteFixture
 from tests.test_toolkit import PLANE, ToolkitFixture, git
 
-ORIGINAL = ("A check you did not run is not a pass: record it as not run, resting on one of the three forms below. "
+ORIGINAL = ("A check you did not run is not a pass: record it as not run, resting on what SPEC §15.4 allows. "
             "Be adversarial:")
 CACHE = {"max_age_days": 3, "cold_tasks": ["*-rollout"]}
 
