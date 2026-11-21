@@ -98,7 +98,9 @@ is never rejected as intentional without the operator's word.
 `ccp architect due` exits 0 when a pass is due. A **merge** is a task reaching `done` in the task
 log. A pass is due when **any** of these holds (the cadence's task count is a setting, §19.11):
 
-1. **Cadence.** `every_n_tasks` tasks numbered from the adoption point (§19.11) have merged since the last pass, or 14 days
+1. **Cadence.** `every_n_tasks` times the product's `parallel.max_in_flight` (1 when tasks run one at
+   a time, §16.2) tasks numbered from the adoption point (§19.11) have merged since the last pass, so
+   a pass comes after about as much wall time whatever the number of tasks in flight, or 14 days
    have passed with at least one merge. Each pass records the done set at its start;
    with no pass yet, every done task from the adoption point counts.
 2. **A review point closes.** Every task in the runner's scope is `done`. The scope's closing pass
@@ -111,11 +113,13 @@ log. A pass is due when **any** of these holds (the cadence's task count is a se
    notes go to the next pass as leads.
 4. **Health drift.** `ccp health` finds the median active time of the last 5 tasks above
    1.5 times the median of the 10 before them (drift needs 15 timed tasks),
-   or a house-rule budget (§20.2) over its limit on the integration branch. A task's active time is
-   its wall time less its waits: every interval §23.3's `wait_hours` counts, whatever it waited on,
-   plus its suite runs' waits on an exclusive lane (§16.6), each instant counted once and only inside
-   its wall time. Time spent waiting does not count as slower work. Drift and budget triggers fire
-   only when the last pass did not see them, so a lasting drift does not call a pass at every merge.
+   or a house-rule budget (§20.2) over its limit on the integration branch that no `pending` task
+   cites in its `rule_refs` (a breach already tasked calls no pass; once that task is done, a breach
+   that remains does). A task's active time is its wall time less its waits: every interval §23.3's
+   `wait_hours` counts, whatever it waited on, plus its suite runs' waits on an exclusive lane
+   (§16.6), each instant counted once and only inside its wall time. Time spent waiting does not
+   count as slower work. Drift and budget triggers fire only when the last pass did not see them, so
+   a lasting drift does not call a pass at every merge.
 5. **On demand.** The owner or the operator runs `ccp architect run --force`. It works with the
    seat off (`"architect": false`) too (an on-demand pass needs no scheduled reviews), but it is still refused
    while a pass is running or a report awaits triage; a `shape` run is refused only while one is
@@ -336,8 +340,9 @@ the operator recorded, goes to the operator (`needs_operator`).
 `max_bytes` per named doc, measured over tracked files.
 
 - **Budgets are not in the verifier's gate.** They are diagnostics: `ccp architect due` measures
-  them, where a breach on the integration branch makes a pass due with a reason naming the budget
-  (§19.6), and `ccp health` reports them. One file growing never fails an unrelated task's verifier.
+  them, where a breach on the integration branch makes a pass due with a reason naming the budget,
+  unless a `pending` task cites the budget's id in its `rule_refs` (§19.6), and `ccp health` reports
+  them all. One file growing never fails an unrelated task's verifier.
 - **A change's own budgets.** `ccp budgets check --base <ref>` judges the budgets on the files the
   change touches: the working tree (commits, edits, new files) against the merge base of HEAD and
   `<ref>`. A touched file over its budget fails it (exit 1, naming the file, its size and the

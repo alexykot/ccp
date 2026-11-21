@@ -165,4 +165,18 @@ PROPOSED:
 
 ## Implementation notes
 
+- `ccp/architect.py`: `_cadence(cfg)` is `every_n_tasks` times the slots (`parallel.max_in_flight` when
+  `parallel.enabled`, else 1); `due_info` uses it for the cadence reason, its due count and the not-due
+  reason, and reports it as `cadence_tasks`. `_tasked_rules(tasks)` is the `rule_refs` ids of `pending`
+  tasks; `due_info` leaves a breach with one of those ids out of `new_budgets` (it stays in
+  `budget_failures`), and a pass's `last.budget_ids` leaves those ids out too, taken from the task log
+  read at the pass's start, so the breach calls a pass once the citing task is done.
+- The pre-first-pass `budget_baseline` is unchanged: a breach already failing when the seat first
+  checked stays in the baseline whether or not a task cites it (the narrowest reading of the Scope).
+- The test fixture's `BASE_PLANE` sets `parallel.max_in_flight` 1, so
+  `test_cadence_from_the_adoption_point` (now `every_n_tasks * max_in_flight` merges) still merges 4
+  there; the 3-slot and 1-slot cadence tests set the slot count themselves.
+- The board's architect line and tile (`ccp/board.py`, `ccp/board_page.html`) still show
+  `done_since_last/every_n_tasks`; they are outside this task's paths.
+
 ## Verification notes
