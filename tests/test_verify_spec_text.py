@@ -433,13 +433,14 @@ class SpecText(unittest.TestCase):
                          ["contracts/x.schema.json"])
         self.assertEqual(names(contract_scope("`notes.md`, a file at the root.")), [None])  # no `/`
         self.assertEqual(names(contract_scope("See `contracts/x.schema.json`.")), [None])  # not opening the line
-        # A second block with no CURRENT of its own takes neither the first's CURRENT nor its file.
-        second = contract_scope("`contracts/x.schema.json`, its `description`.").replace(
-            "\n\n- **Out:**", "\nPROPOSED:\n> A second passage.\n\n- **Out:**")
-        self.assertEqual(names(second), ["contracts/x.schema.json", None])
         inline = ("## Scope\n\n`contracts/x.schema.json`, its `description`.\n"
                   "- CURRENT (`contracts/y.schema.json` at `abc1234`): \"older\". PROPOSED:\n> Newer.\n")
         self.assertEqual(names(inline), ["contracts/y.schema.json"])  # the locator, not the line above
+        # A second block with no CURRENT of its own takes neither the first's CURRENT nor its file.
+        self.assertEqual(names(inline + "\nPROPOSED:\n> A second passage.\n"), ["contracts/y.schema.json", None])
+        second = contract_scope("`contracts/x.schema.json`, its `description`.").replace(
+            "\n\n- **Out:**", "\nPROPOSED:\n> A second passage.\n\n- **Out:**")
+        self.assertEqual(names(second), ["contracts/x.schema.json", None])
 
 
 class Prompts(ToolkitFixture, unittest.TestCase):
