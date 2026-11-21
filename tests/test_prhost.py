@@ -64,9 +64,7 @@ class View(HostCase):
         self.say({"FAKE_OUT": gh_json()})
         facts = prhost.view(self.p.cfg, "7")
         self.assertEqual(facts, prhost.PrFacts(number=7, state="open", head=HEAD, branch="task/0001-a"))
-        argv = self.calls()[0].split()
-        self.assertEqual(argv[:3], ["pr", "view", "7"])
-        self.assertEqual(argv[3], "--json")
+        self.assertEqual(self.calls(), ["pr view 7 --json number,state,headRefOid,headRefName,mergeCommit,mergedAt"])
 
     def test_a_merged_pr_carries_its_time_and_merge_commit(self):
         self.say({"FAKE_OUT": gh_json(state="MERGED", mergedAt="2026-10-16T21:33:30Z", mergeCommit={"oid": MERGE})})
@@ -95,6 +93,7 @@ class View(HostCase):
         with self.assertRaises(prhost.HostError) as cm:
             prhost.view(self.p.cfg, "7")
         self.assertNotIsInstance(cm.exception, prhost.HostUnavailable)
+        self.assertIsInstance(cm.exception, prhost.HostReadFailed)
         self.assertEqual(cm.exception.detail, "no such PR")
 
     def test_output_that_is_not_a_json_object_is_a_host_error(self):

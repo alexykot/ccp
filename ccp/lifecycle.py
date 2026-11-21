@@ -1242,7 +1242,7 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
         except prhost.HostError as exc:
             raise QueueError(str(exc), 2 if isinstance(exc, prhost.HostUnavailable) else 1) from None
         if facts.state != "merged":
-            raise QueueError(f"gh pr merge {pr} exited 0 but the PR is {facts.state} (a merge queue or auto-merge?): "
+            raise QueueError(f"gh pr merge {pr} exited 0 but the PR is {facts.state.upper()} (a merge queue or auto-merge?): "
                              f"run `ccp tasks close {tid} --pr {pr}` again once it has merged", 1)
     merge = facts.merge_commit
     if not merge:

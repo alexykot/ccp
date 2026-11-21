@@ -407,10 +407,10 @@ def approve(task: str = "0001-a", **fields: object) -> dict:
 
 
 def decide(p: Product, queue: Path, rec: dict, rid: str = "0001-a", recorded: tuple | None = None,
-           **facts: object) -> tuple[list[str], dict]:
+           pr: str = "7", **facts: object) -> tuple[list[str], dict]:
     """The merge-ok decision on plain values: an open PR at HEAD_A (`facts` override), `rec` recorded just now."""
-    pr = prhost.PrFacts(**{"number": 7, "state": "open", "head": HEAD_A, **facts})
-    return verify.merge_ok_reasons(p.cfg, queue, pr, rec, rid, recorded or (datetime.now(timezone.utc), "written"))
+    got = prhost.PrFacts(**{"number": 7, "state": "open", "head": HEAD_A, **facts})
+    return verify.merge_ok_reasons(p.cfg, queue, pr, got, rec, rid, recorded or (datetime.now(timezone.utc), "written"))
 
 
 class Record(unittest.TestCase):
@@ -756,18 +756,23 @@ class MergeOk(unittest.TestCase):
         self.assertIn("unexpected key reviewed_at", "\n".join(reasons))
 
     def test_a_pr_the_host_cannot_be_read_for_is_a_reason_not_to_merge(self):
-        for exc, needle in ((prhost.HostError("gh pr view 7: no such PR", "no such PR"), "could not read PR 7: no such PR"),
+        for exc, needle in ((prhost.HostReadFailed("gh pr view 7: no such PR", "no such PR"), "could not read PR 7: no such PR"),
+                            (prhost.HostReadFailed("gh pr view 7: "), "could not read PR 7: "),
                             (prhost.HostError("gh printed no JSON for PR 7"), "gh printed no JSON for PR 7")):
             with mock.patch.object(prhost, "view", side_effect=exc):
                 reasons, body = verify.merge_ok(self.p.cfg, self.q, "7", "0001-a")
             self.assertEqual(reasons, [needle])
             self.assertNotIn("pr_head", body)
 
+    def test_a_reason_names_the_pr_as_the_caller_gave_it(self):
+        reasons, _ = decide(self.p, self.q, approve(checked_at=now_iso()), pr="07", state="closed")
+        self.assertEqual(reasons, ["PR 07 is closed"])
+
     def test_no_gh_is_a_configuration_error(self):
         with mock.patch.dict(os.environ, {"CCP_GH_BIN": str(self.q / "no-such-gh")}):
             code, _, err = self.ok("--task", "0001-a", host=False)
         self.assertEqual(code, 2)
-        self.assertIn("is not installed", err)
+        self.assertIn("is not installed: merge-ok reads the PR with gh", err)
 
 
 def now_iso() -> str:

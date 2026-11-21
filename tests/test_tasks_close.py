@@ -74,6 +74,33 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self.assertEqual(body["committed"].count("hook-ran"), 0)
         self.assertFalse(merge_wt.exists())
 
+    def test_a_rerun_after_a_failed_reconcile_takes_the_pr_number_as_it_was_given(self):
+        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
+        cfg["reconcile"]["hooks"] = ["test -f hook-ok"]
+        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        git(self.runner, "commit", "-qam", "a hook that fails first")
+        git(self.runner, "push", "-q", "origin", "HEAD:main")
+        git(self.main, "pull", "-q", "origin", "main")
+        self._to_approved_pr()
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", root=self.main)
+        self.assertEqual(code, 1, out + err)
+        cfg["reconcile"]["hooks"] = []
+        (self.main / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        git(self.main, "commit", "-qam", "the hook fixed")
+        git(self.main, "pull", "-q", "--rebase", "origin", "main")
+        git(self.main, "push", "-q", "origin", "main")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "07", root=self.main)  # the host reads 07 as 7
+        self.assertEqual(code, 0, out + err)
+        self.assertFalse(body["merged_now"])
+
+    def test_a_merge_the_host_has_not_completed_names_the_hosts_own_state_word(self):
+        head = self._to_approved_pr()
+        queued = prhost.PrFacts(number=7, state="open", head=head)
+        with mock.patch.object(prhost, "confirm", return_value=queued):
+            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", root=self.main)
+        self.assertEqual(code, 1, out + err)
+        self.assertIn("exited 0 but the PR is OPEN (a merge queue or auto-merge?)", err)
+
     def test_a_detached_main_checkout_keeps_its_head_too(self):
         self._to_approved_pr()
         git(self.main, "checkout", "-q", "--detach")

@@ -1058,10 +1058,12 @@ def merge_ok(cfg: Config, queue: Path, pr: str, task_id: str | None) -> tuple[li
     body: dict[str, Any] = {"pr": pr, "record": f"verification/{rid}.json"}
     try:
         facts = prhost.view(cfg, pr)
-    except prhost.HostUnavailable:
-        raise
+    except prhost.HostUnavailable as exc:
+        raise prhost.HostUnavailable(f"{exc}: merge-ok reads the PR with gh") from None
+    except prhost.HostReadFailed as exc:
+        return [f"could not read PR {pr}: {exc.detail}"], body
     except prhost.HostError as exc:
-        return [f"could not read PR {pr}: {exc.detail}" if exc.detail else str(exc)], body
+        return [str(exc)], body
     body["pr_head"] = facts.head
     if not path.is_file():
         return [f"no verification record verification/{rid}.json"
@@ -1069,14 +1071,14 @@ def merge_ok(cfg: Config, queue: Path, pr: str, task_id: str | None) -> tuple[li
     rec = _load(path)
     if isinstance(rec, str):
         return [rec], body
-    reasons, found = merge_ok_reasons(cfg, queue, facts, rec, rid, recorded_at(queue, path))
+    reasons, found = merge_ok_reasons(cfg, queue, pr, facts, rec, rid, recorded_at(queue, path))
     return reasons, {**body, **found}
 
 
-def merge_ok_reasons(cfg: Config, queue: Path, facts: prhost.PrFacts, rec: dict[str, Any], rid: str,
+def merge_ok_reasons(cfg: Config, queue: Path, pr: str, facts: prhost.PrFacts, rec: dict[str, Any], rid: str,
                      recorded: tuple[datetime | None, str]) -> tuple[list[str], dict[str, Any]]:
-    """The merge-ok decision on plain values: the PR's facts, the verification record `rec` for `rid`, and
-    when and how it was recorded (`recorded_at`). Its reasons (none means the PR may merge) and what it
+    """The merge-ok decision on plain values: the PR as the caller named it (`pr`, which its reasons use), its
+    facts, the verification record `rec` for `rid`, and when and how it was recorded (`recorded_at`). Its reasons (none means the PR may merge) and what it
     checked; the record's producers and catch-up are read from `queue`."""
     body: dict[str, Any] = {}
     head = facts.head
@@ -1115,7 +1117,7 @@ def merge_ok_reasons(cfg: Config, queue: Path, facts: prhost.PrFacts, rec: dict[
         order = ""
         if merged and when:
             order = f"; the approval was recorded {'before' if when <= merged else 'after'} it"
-        reasons.append(f"PR {facts.number} is {facts.state}{when_s}{order}")
+        reasons.append(f"PR {pr} is {facts.state}{when_s}{order}")
     body["unrun_checks"] = [c.get("dod_check_id") for c in rec.get("checks") or []
                             if isinstance(c, dict) and c.get("ran", True) is False]
     body["head_sha"] = recorded_head

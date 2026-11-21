@@ -33,6 +33,10 @@ class HostUnavailable(HostError):
     """The host's CLI cannot run here: a configuration problem, not a refusal."""
 
 
+class HostReadFailed(HostError):
+    """The host's CLI ran and exited non-zero reading a PR; `detail` is its own words, possibly none."""
+
+
 @dataclass(frozen=True)
 class PrFacts:
     """A PR as the plane sees it. `state` is one of `STATES`; `head` is the full head sha; `branch` is
@@ -74,11 +78,11 @@ def _words(r: subprocess.CompletedProcess[str]) -> str:
 
 
 def view(cfg: Config, pr: str) -> PrFacts:
-    """The PR's facts, read from the host. Raises HostUnavailable when the CLI is missing, HostError
-    when the read fails or names no PR state."""
+    """The PR's facts, read from the host. Raises HostUnavailable when the CLI is missing, HostReadFailed
+    when the read exits non-zero, HostError when it names no PR state or no JSON."""
     r = _run(cfg, [_gh(), "pr", "view", str(pr), "--json", _VIEW_FIELDS])
     if r.returncode != 0:
-        raise HostError(f"gh pr view {pr}: {_words(r)}", _words(r))
+        raise HostReadFailed(f"gh pr view {pr}: {_words(r)}", _words(r))
     try:
         got = json.loads(r.stdout)
     except ValueError:
