@@ -11,18 +11,12 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config
-from tests import test_review_gate
+from tests.review_flow import PROOF, SKIP_REVIEW_PLANE, SkipFlow
 from tests.test_toolkit import PLANE, ToolkitFixture, git
 
-PROOF = '#!/bin/sh\necho "$@" >> "$PROOF_LOG"\nsleep "${PROOF_SLEEP:-0}"\nexit "${PROOF_EXIT:-0}"\n'
 
-
-class SkipReview(ToolkitFixture, unittest.TestCase):
-    PLANE_JSON = {**ToolkitFixture.PLANE_JSON,
-                  "verify": {"skip_review": {"paths": ["tests"], "proof": '"$PROOF_BIN" {task_id} {reviewed} {head} {from}'}}}
-    run_phase = test_review_gate.ReviewGate.run_phase
-    review = test_review_gate.ReviewGate.review
-    verdict = test_review_gate.ReviewGate.verdict
+class SkipReview(SkipFlow, ToolkitFixture, unittest.TestCase):
+    PLANE_JSON = SKIP_REVIEW_PLANE
 
     def setUp(self):
         super().setUp()
@@ -38,40 +32,11 @@ class SkipReview(ToolkitFixture, unittest.TestCase):
         self.ccp("tasks", "claim", "0002")
         self.wt = self.main / config.WORKTREES_DIR / "impl-0002"  # the claim made it, on task/0002-second
 
-    def commit(self, rel: str, text: str, wt: Path | None = None) -> str:
-        wt = wt or self.wt
-        (wt / rel).parent.mkdir(parents=True, exist_ok=True)
-        (wt / rel).write_text(text)
-        git(wt, "add", rel)
-        git(wt, "commit", "-q", "-m", f"change {rel}")
-        return git(wt, "rev-parse", "HEAD")
-
-    def push(self) -> str:
-        git(self.wt, "push", "-q", "-u", "origin", "task/0002-second")
-        return git(self.wt, "rev-parse", "HEAD")
-
-    def reviewed(self) -> str:
-        self.commit("feature.txt", "built\n")
-        self.commit("tests/test_feature.txt", "check it\n")
-        head = self.push()
-        self.review(head)
-        return head
-
-    def fix(self, rel: str = "tests/test_feature.txt", text: str = "check it  # comment fixed\n") -> str:
-        reviewed = git(self.wt, "rev-parse", "HEAD")
-        self.commit(rel, text)
-        head = self.push()
-        self.run_phase("fix", reviewed, f"PR: #7\nHead: {head}")
-        return head
-
     def on_main(self, rel: str, text: str) -> None:
         other = self.main / config.WORKTREES_DIR / "other"  # another task merges to main meanwhile
         git(self.main, "worktree", "add", "-q", "--detach", str(other), "origin/main")
         self.commit(rel, text, other)
         git(other, "push", "-q", "origin", "HEAD:main")
-
-    def verify(self, head: str, *extra: str):
-        return self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", head, *extra)
 
     def refused(self, head: str, why: str) -> str:
         code, _, out, err = self.verify(head)

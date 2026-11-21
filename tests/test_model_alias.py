@@ -10,7 +10,7 @@ from pathlib import Path
 
 from ccp import config, models, runs, seats, usage
 from tests.test_board_seats import Base, req as seat_req
-from tests import test_usage
+from tests.helpers import FoldRuns
 from tests.test_usage import req
 
 SONNET, OPUS = "claude-sonnet-5-5", "claude-opus-5-5"
@@ -36,10 +36,9 @@ class Matches(unittest.TestCase):
             self.assertFalse(models.matches(full, "mystery"), full)
 
 
-class UsageFold(unittest.TestCase):
+class UsageFold(FoldRuns, unittest.TestCase):
     """Two implement runs pinned to `sonnet`: one observed on a full Sonnet id (through the window
     join, no span), one on a full Opus id (through its span)."""
-    mkrun, write, rows = test_usage.Fold.mkrun, test_usage.Fold.write, test_usage.Fold.rows
 
     def setUp(self):
         self._d = tempfile.TemporaryDirectory()

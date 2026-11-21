@@ -13,6 +13,10 @@
         "cmd": "scripts/leak-check.sh"
       },
       {
+        "id": "E4",
+        "cmd": "! git grep -nE '= test_[a-z_]+\\.[A-Z][A-Za-z]+\\.[a-z_]+' -- tests"
+      },
+      {
         "id": "E14",
         "cmd": "! git grep -n -e merge-tree -e patch-id -e remerge-diff -- ccp ':(exclude)ccp/gitmerge.py'"
       },

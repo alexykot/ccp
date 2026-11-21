@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, health, report, runs, verify
-from tests import test_review_gate
+from tests.review_flow import ReviewFlow
 from tests.test_toolkit import GIT_ENV, PLANE, ToolkitFixture, git
 
 SECOND_CHECK = """- id: `cmd-02`
@@ -52,11 +52,7 @@ class BeyondReason(unittest.TestCase):
         self.assertEqual((errs, got["resolution"]), ([], "contained"))
 
 
-class Resolution(ToolkitFixture, unittest.TestCase):
-    run_phase = test_review_gate.ReviewGate.run_phase
-    review = test_review_gate.ReviewGate.review
-    verify_round = test_review_gate.RepeatVerify.verify_round
-    verdict = test_review_gate.ReviewGate.verdict
+class Resolution(ReviewFlow, ToolkitFixture, unittest.TestCase):
 
     def setUp(self):
         super().setUp()

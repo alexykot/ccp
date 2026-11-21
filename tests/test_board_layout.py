@@ -1,16 +1,13 @@
 """§28 layout: the header strip on every tab, five hash-routed tabs, each section in its tab."""
 from __future__ import annotations
 
-import json
 import re
 import shutil
-import subprocess
 import unittest
 
-from ccp import board
-from tests.helpers import machine_file
+from tests.helpers import BoardPage, machine_file
 from tests.test_board import good_then_failed
-from tests.test_board_drill import HASH_STUB, Fixture
+from tests.test_board_drill import Fixture
 from tests.test_board_quality import HOSTILE, _hostile
 
 PANES = re.compile(r'<div class="pane grid" id="pane-(\w+)"[^>]*?( hidden)?>')
@@ -24,16 +21,7 @@ WHERE = {"performance": ["<h2>Seats</h2>", "Tokens by seat", "Tokens per day, by
 
 
 @unittest.skipUnless(shutil.which("node"), "node is not installed")
-class Layout(Fixture, unittest.TestCase):
-    def page(self, b, h: str = "", patch=None):
-        js = (patch or (lambda t: t))(board.PAGE.read_text()).replace("/*__BOARD__*/null", board.embed(b)).split("<script>", 1)[1].split("</script>", 1)[0]
-        loc = "globalThis.location = {hash: %s, pathname: '/b', search: ''};\n" % json.dumps(h)
-        r = subprocess.run(["node", "-e", HASH_STUB + loc + js + "\nprocess.stdout.write(JSON.stringify({out: out.join(''), panel}));"],
-                           capture_output=True, text=True, timeout=60)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        d = json.loads(r.stdout)
-        return d["out"], d["panel"]
-
+class Layout(BoardPage, Fixture, unittest.TestCase):
     def shown(self, html: str) -> list[str]:
         return [k for k, hid in PANES.findall(html) if not hid]
 

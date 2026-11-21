@@ -11,12 +11,11 @@ from unittest import mock
 
 from ccp import config
 from tests.helpers import binding
+from tests.review_flow import A, B, ReviewFlow
 from tests.test_toolkit import PLANE, ToolkitFixture, git
 
-A, B = "a" * 40, "b" * 40
 
-
-class ReviewGate(ToolkitFixture, unittest.TestCase):
+class ReviewGate(ReviewFlow, ToolkitFixture, unittest.TestCase):
     def setUp(self):
         super().setUp()
         # runs open a minute apart: `opened_at` has one-second resolution, and the gate orders by it
@@ -25,30 +24,6 @@ class ReviewGate(ToolkitFixture, unittest.TestCase):
         patch.start()
         self.addCleanup(patch.stop)
         self.ccp("tasks", "claim", "0002")
-
-    def run_phase(self, phase: str, head: str, lines: str, *extra: str):
-        code, body, out, err = self.ccp("prompt", phase, "0002", "--pr", "7", "--head", head, *extra)
-        self.assertEqual(code, 0, f"{phase}: {out}{err}")
-        beyond = "## Spec beyond intent\nnone\n" if phase == "review" else ""  # §3.5: a review says what it found
-        code, _, out, err = self.report(body["run_id"], f"Outcome: done\n{lines}\n{beyond}## Friction\nnone\n")
-        self.assertEqual(code, 0, f"{phase} report: {out}{err}")
-        return body["run_id"]
-
-    def review(self, head: str = A):
-        return self.run_phase("review", head, "Severity: BLOCKER=0 MAJOR=1 MINOR=0 NIT=0")
-
-    def fix(self, head: str = A, to: str = B):
-        return self.run_phase("fix", head, f"PR: #7\nHead: {to}")
-
-    def verdict(self, head: str, verdict: str = "approve"):
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
-        rec.update(task_id="0002-second", head_sha=head, verdict=verdict)
-        rec.pop("checked_at", None)
-        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": verdict == "approve", "evidence": "ran it",
-                          "produced_by": "verifier"}]
-        f = Path(self._tmp.name) / "verdict.json"
-        f.write_text(json.dumps(rec))
-        return self.ccp("verify", "record", str(f))
 
     def test_a_fix_after_the_review_is_refused(self):
         self.review()
@@ -140,13 +115,9 @@ class ReviewGate(ToolkitFixture, unittest.TestCase):
 
 
 
-class RepeatVerify(ToolkitFixture, unittest.TestCase):
+class RepeatVerify(ReviewFlow, ToolkitFixture, unittest.TestCase):
     """SPEC §15.6 rule 4: a verify round with no fix round since the last says why, from the
     runner's `--note`, and the reason reaches the verifier's record."""
-    run_phase = ReviewGate.run_phase
-    review = ReviewGate.review
-    fix = ReviewGate.fix
-    verdict = ReviewGate.verdict
 
     def setUp(self):
         super().setUp()
@@ -155,16 +126,6 @@ class RepeatVerify(ToolkitFixture, unittest.TestCase):
         patch.start()
         self.addCleanup(patch.stop)
         self.ccp("tasks", "claim", "0002")
-
-    def verify_round(self, head: str = A, verdict: str = "reject"):
-        code, body, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", head)
-        self.assertEqual(code, 0, out + err)
-        code, _, out, err = self.verdict(head, verdict)
-        self.assertEqual(code, 0, out + err)
-        code, _, out, err = self.report(body["run_id"], f"Outcome: done\nVerdict: {verdict}\nHead: {head}\n"
-                                                         "## Friction\nnone\n")
-        self.assertEqual(code, 0, out + err)
-        return body["run_id"]
 
     def test_a_second_verify_with_no_fix_since_needs_a_note(self):
         self.review()
@@ -296,11 +257,9 @@ class RepeatVerify(ToolkitFixture, unittest.TestCase):
         self.assertFalse(any("first look" in f for f in rec.get("findings") or []))
 
 
-class MergeIn(ToolkitFixture, unittest.TestCase):
+class MergeIn(ReviewFlow, ToolkitFixture, unittest.TestCase):
     """§15.2: merging the integration branch in, the PR's own change
     unchanged, needs no new review; a changed diff still does."""
-    run_phase = ReviewGate.run_phase
-    review = ReviewGate.review
 
     def setUp(self):
         super().setUp()
@@ -310,12 +269,6 @@ class MergeIn(ToolkitFixture, unittest.TestCase):
         self.addCleanup(patch.stop)
         self.ccp("tasks", "claim", "0002")
         (self.q / "project.yaml").write_text((self.q / "project.yaml").read_text() + binding(project_id=None, product_root=self.main))
-
-    def commit(self, wt, rel, text, msg):
-        (wt / rel).write_text(text)
-        git(wt, "add", rel)
-        git(wt, "commit", "-q", "-m", msg)
-        return git(wt, "rev-parse", "HEAD")
 
     def test_a_merge_in_with_the_same_change_needs_no_new_review(self):
         wt = self.main / config.WORKTREES_DIR / "impl-0002"

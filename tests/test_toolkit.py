@@ -43,35 +43,72 @@ class ToolkitFixture:
     }
     PR = "1"  # the number the local PR host gives the fixture's first PR (`open_pr`)
 
+    # Each test class builds the three repositories once, in `setUpClass`, into a template under its own temp
+    # directory (with its own `PLANE_JSON`), and each test copies that tree. `SHARED_REPO = False` keeps the
+    # build per test, for a class that changes the build before `setUp` ends.
+    SHARED_REPO = True
+    _template: tempfile.TemporaryDirectory | None = None
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._template = None
+        if cls.SHARED_REPO:
+            cls._template = tempfile.TemporaryDirectory()
+            cls.addClassCleanup(cls._template.cleanup)
+            with mock.patch.dict(os.environ, GIT_ENV):
+                cls._build_repos(Path(cls._template.name).resolve())
+
+    @classmethod
+    def _build_repos(cls, t: Path) -> None:
+        """The bare origin, the main clone (holding the runner worktree) and the first commit, under `t`."""
+        origin = t / "origin.git"
+        git(t, "init", "-q", "--template=", "--bare", "-b", "main", str(origin))
+        main = t / "product"
+        git(t, "clone", "-q", "--template=", str(origin), str(main))
+        git(main, "checkout", "-q", "-b", "main")
+
+        def put(rel: str, text: str) -> None:
+            p = main / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(text)
+        put("docs/delivery/plane.json", json.dumps(cls.PLANE_JSON))
+        put("docs/delivery/WORKERS.md", "Use the scratch database helper for every test run.")
+        put("docs/LOG.md", "# Log\n\n**2026-10-20 (runner):** older entry.\n")
+        put("docs/delivery/tasks/0001-first.md", TASK.format(tid="0001-first", title="First", status="done", deps="",
+                                                             ver="- 2026-09-30 — `cmd-01` pass — ran it"))
+        put("docs/delivery/tasks/0002-second.md", TASK.format(tid="0002-second", title="Second", status="pending",
+                                                              deps='"0001-first"', ver="*Append-only, per check id: pass or fail, with evidence.*"))
+        put(".venv/marker", "")
+        put(".gitignore", f".venv/\n{config.WORKTREES_DIR}/\nclosed-*\n")
+        (main / ".claude/agents").mkdir(parents=True)
+        for a in ("implementer", "reviewer", "verifier"):
+            shutil.copy(PLANE / f"plugin/agents/delivery-{a}.md", main / f".claude/agents/delivery-{a}.md")
+        from ccp import tasklog
+        tasklog.write_index(config.load(main))
+        git(main, "add", "-A")
+        git(main, "commit", "-q", "-m", "init")
+        git(main, "push", "-q", "-u", "origin", "main")
+        git(main, "worktree", "add", "-q", "--detach", str(main / config.WORKTREES_DIR / "runner"), "origin/main")
+        for repo in (origin, main):  # packed, so each test copies a dozen fewer files
+            git(repo, "gc", "-q")
+
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         t = Path(self._tmp.name).resolve()
         self.env = mock.patch.dict(os.environ, {**GIT_ENV, "QUEUE_ROOT": str(t / "queue"), "ACTOR": "task-runner"})
         self.env.start()
         self.origin = t / "origin.git"
-        git(t, "init", "-q", "--bare", "-b", "main", str(self.origin))
         self.main = t / "product"
-        git(t, "clone", "-q", str(self.origin), str(self.main))
-        git(self.main, "checkout", "-q", "-b", "main")
-        self.write("docs/delivery/plane.json", json.dumps(self.PLANE_JSON))
-        self.write("docs/delivery/WORKERS.md", "Use the scratch database helper for every test run.")
-        self.write("docs/LOG.md", "# Log\n\n**2026-10-20 (runner):** older entry.\n")
-        self.write("docs/delivery/tasks/0001-first.md", TASK.format(tid="0001-first", title="First", status="done", deps="",
-                                                                    ver="- 2026-09-30 — `cmd-01` pass — ran it"))
-        self.write("docs/delivery/tasks/0002-second.md", TASK.format(tid="0002-second", title="Second", status="pending",
-                                                                     deps='"0001-first"', ver="*Append-only, per check id: pass or fail, with evidence.*"))
-        self.write(".venv/marker", "")
-        self.write(".gitignore", f".venv/\n{config.WORKTREES_DIR}/\nclosed-*\n")
-        (self.main / ".claude/agents").mkdir(parents=True)
-        for a in ("implementer", "reviewer", "verifier"):
-            shutil.copy(PLANE / f"plugin/agents/delivery-{a}.md", self.main / f".claude/agents/delivery-{a}.md")
-        from ccp import tasklog
-        tasklog.write_index(config.load(self.main))
-        git(self.main, "add", "-A")
-        git(self.main, "commit", "-q", "-m", "init")
-        git(self.main, "push", "-q", "-u", "origin", "main")
         self.runner = self.main / config.WORKTREES_DIR / "runner"
-        git(self.main, "worktree", "add", "-q", "--detach", str(self.runner), "origin/main")
+        if self.SHARED_REPO:
+            template = type(self)._template
+            self.assertIsNotNone(template, "ToolkitFixture comes before TestCase in the bases, so its setUpClass runs")
+            shutil.copytree(template.name, t, symlinks=True, dirs_exist_ok=True, copy_function=shutil.copy)  # no times or xattrs: faster
+            git(self.main, "remote", "set-url", "origin", str(self.origin))
+            git(self.main, "worktree", "repair", str(self.runner))
+        else:
+            self._build_repos(t)
         self.q = t / "queue"
         self.q.mkdir()
         (self.q / "project.yaml").write_text(binding(integration_branch="main", product_root=self.main))

@@ -10,16 +10,15 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, prompt as prompt_mod
-from tests import test_review_gate
+from tests.review_flow import ReviewFlow
 from tests.test_toolkit import ToolkitFixture
 
 A, B = "a" * 40, "b" * 40
 DECLARED = "`--lane full` with nothing after `--`"
 
 
-class DeclaredFullLane(ToolkitFixture, unittest.TestCase):
+class DeclaredFullLane(ReviewFlow, ToolkitFixture, unittest.TestCase):
     PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "suite": {"lanes": {"full": ["scripts/gate.sh"]}}}
-    run_phase = test_review_gate.ReviewGate.run_phase
 
     def setUp(self):
         super().setUp()
@@ -93,10 +92,9 @@ class UndeclaredFullLane(ToolkitFixture, unittest.TestCase):
         self.assertNotIn(DECLARED, text)
 
 
-class GateOnlyLanes(ToolkitFixture, unittest.TestCase):
+class GateOnlyLanes(ReviewFlow, ToolkitFixture, unittest.TestCase):
     """A product with one test command declares it once, as the gate lane: the full role runs that lane."""
     PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "suite": {"lanes": {"gate": ["scripts/gate.sh"]}}}
-    run_phase = test_review_gate.ReviewGate.run_phase
 
     def test_the_full_role_resolves_to_the_declared_gate_lane(self):
         c = config.load(self.runner)
@@ -151,9 +149,8 @@ class FullAndGateLanes(ToolkitFixture, unittest.TestCase):
 CHECKS = [{"id": "E1", "cmd": "scripts/house-one.sh"}, {"id": "E2", "cmd": "scripts/house-two.sh"}]
 
 
-class _PregateBriefs(ToolkitFixture):
+class _PregateBriefs(ReviewFlow, ToolkitFixture):
     """The four change rounds' briefs, rendered in turn for one task."""
-    run_phase = test_review_gate.ReviewGate.run_phase
 
     def briefs(self) -> dict[str, str]:
         code, _, out, err = self.ccp("tasks", "claim", "0002")
