@@ -90,3 +90,8 @@ review_points:
     goal: "Findings of architect pass ar-20261120T234012Z-27eb: plane workers run the head under test, a faster gate, pre-ccp holdovers removed, one source for command syntax, events and config, and task checks that run their dry runs."
     status: planned
     opened: "2026-11-21"
+  - id: R17
+    name: second architect pass fixes
+    goal: "Findings of architect pass ar-20261121T020523Z-1d5f: one wait-reason table with the steerer only read, close and the architect sharing wt's worktree helper, cheaper and self-contained test fixtures, a closed run refused by suite run, and one gate block in one-sentence-per-line templates."
+    status: planned
+    opened: "2026-11-21"

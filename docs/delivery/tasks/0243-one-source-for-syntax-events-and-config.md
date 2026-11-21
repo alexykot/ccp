@@ -28,7 +28,7 @@ file. Nothing the plane does changes.
 ## Context (not checked)
 
 From architect pass `ar-20261120T234012Z-27eb`, findings F03, F05, F06, F20 and F21, triaged by the
-lead on 2026-11-21, with the triage's rule changes to E16, E12 and the new E19, which land here
+lead on 2026-11-21, with the triage's rule changes to E16, E12 and the new E25, which land here
 because their checks fail or do not exist until this task is built. Measured at `8aefa59`.
 `depends_on` 0203 because it also edits `scripts/observability/lib.py`.
 
@@ -78,9 +78,9 @@ because their checks fail or do not exist until this task is built. Measured at 
     required payloads with contracts/observability_event.schema.json, and one compares the agent
     definitions' models with the role table." Check and `architect.checks` `E12`:
     `python3 -B -m unittest -q tests.test_plane_config_defaults tests.test_event_registry`.
-  - E19 (new, under Architecture) text: "The parser is the one source of the command surface. Call
+  - E25 (new, under Architecture) text: "The parser is the one source of the command surface. Call
     syntax is written by hand in one place (docs/cli), held to the parser by a test; no module
-    docstring carries a usage table." Check and `architect.checks` `E19`:
+    docstring carries a usage table." Check and `architect.checks` `E25`:
     `python3 -B -m unittest -q tests.test_cli_reference`.
 
 ## Scope
@@ -91,8 +91,8 @@ because their checks fail or do not exist until this task is built. Measured at 
   - `tests/test_event_registry.py` (new); the four modules' per-op assertions removed.
   - The six one-line schemas, pretty-printed; `tests/test_contract_layout.py` (new).
   - `ccp/queue.py` (the detached-launch helper), `ccp/architect.py`, `ccp/board.py`, `ccp/estimator.py`.
-  - `docs/ENGINEERING.md` (E12, E16 amended, E19 added) and `docs/delivery/plane.json`
-    (`architect.checks` E12, E16 changed, E19 added).
+  - `docs/ENGINEERING.md` (E12, E16 amended, E25 added) and `docs/delivery/plane.json`
+    (`architect.checks` E12, E16 changed, E25 added).
 - **Out:**
   - Moving lib.py into the `ccp` package (F17, deferred to the roadmap).
   - Help strings that restate exit codes.
@@ -148,8 +148,8 @@ because their checks fail or do not exist until this task is built. Measured at 
   story: As the architect, the amended house rules and their checks are in force.
   setup: a checkout of the PR head; `QUEUE_ROOT` an empty temp dir.
   steps:
-    1. Run `python3 -B -c "import json; c={x['id']: x['cmd'] for x in json.load(open('docs/delivery/plane.json'))['architect']['checks']}; print('CONFIG_REL' in c['E16'], 'test_event_registry' in c['E12'], 'test_cli_reference' in c.get('E19', ''))"`.
-    2. Run `grep -c '^- \*\*E19\*\*' docs/ENGINEERING.md`.
+    1. Run `python3 -B -c "import json; c={x['id']: x['cmd'] for x in json.load(open('docs/delivery/plane.json'))['architect']['checks']}; print('CONFIG_REL' in c['E16'], 'test_event_registry' in c['E12'], 'test_cli_reference' in c.get('E25', ''))"`.
+    2. Run `grep -c '^- \*\*E25\*\*' docs/ENGINEERING.md`.
     3. Run `ccp wt exec -- docs check`.
   expect: step 1 prints `True True True`; step 2 prints `1`; step 3 exits 0.
   dry run (`8aefa59`): step 1 printed `False False False`; step 2 printed `0`.
