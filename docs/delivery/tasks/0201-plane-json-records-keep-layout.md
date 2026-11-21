@@ -1,7 +1,7 @@
 ---
 task_id: 0201-plane-json-records-keep-layout
 title: Commands that record into plane.json change only their own key and keep the file's layout
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S8", "S29"]
@@ -9,7 +9,7 @@ review_point: R14
 paths: ["ccp/jsonedit.py", "ccp/upgrade.py", "ccp/CLAUDE.md", "tests/test_jsonedit.py", "tests/test_upgrade.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0201-plane-json-records-keep-layout
@@ -145,3 +145,5 @@ Measured at `58cf1d0`.
   what keeps the second drop's offsets right; the one case before left the stale offsets valid by chance.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #237 head `8b4191c` (squash `e274ef4`): APPROVE. Passed: je-01, je-02, je-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0201-plane-json-records-keep-layout.json.
+

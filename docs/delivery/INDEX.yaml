@@ -1003,7 +1003,7 @@ tasks:
     depends_on: []
     path: tasks/0200-mutate-together.md
   - id: 0201-plane-json-records-keep-layout
-    status: pending
+    status: done
     title: Commands that record into plane.json change only their own key and keep the file's layout
     depends_on: []
     path: tasks/0201-plane-json-records-keep-layout.md
