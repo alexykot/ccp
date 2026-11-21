@@ -158,4 +158,23 @@ PROPOSED:
 
 ## Implementation notes
 
+- `ccp/lifecycle.py` `claim`: on a failed probe it calls `notify.fire(cfg, q, "blocker", task_id=tid,
+  reason="reauth")` and then raises exit 8. The message now reads `auth probe(s) failed: <ids>. The
+  operator was notified (blocker); raise a reauth gate to the lead (SPEC §30); ccp auth check shows
+  each`, with the fire's first `notify:` warning appended after a `. ` as the checkpoint does. The probes,
+  `auth/status.json`, exit 8 and the resumed claim (no probe, no notice) are unchanged.
+- `ccp/notify.py`: the module docstring names the refused claim among the `blocker` triggers.
+- `plugin/agents/delivery-runner.md` step 4 **Auth**: the notice has already gone; raise the `reauth`
+  gate, pass on a `notify:` warning, set no wait, wait for the lead's word before claiming again.
+- SPEC §3.6, §10.5 and §30.1 carry the signed text (a, b, c).
+- Three tests in `tests/test_notify.py` (`Channel`, on `ChannelFixture`): the refused claim's one
+  `blocker` line with reason `reauth` and the new wording, no notice when the probes pass, and a
+  failing notify command's warning on the refusal.
+- Fix round 2 (review MINOR and NIT 3):
+  - `queue/README.md` **Auth**: the passage still told the runner to set `waiting_on=reauth`, which
+    this change made false; it now says the claim refuses with exit 8 and fires the operator's
+    `blocker` notice, and the runner raises a `reauth` gate to the lead.
+  - `tests/test_notify.py`: a fourth test pins that a resumed claim runs no probe and fires no notice
+    (claim, then a failing probe, then the same claim again: resumed, exit 0, nothing sent).
+
 ## Verification notes
