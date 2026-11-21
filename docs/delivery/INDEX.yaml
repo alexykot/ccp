@@ -1073,7 +1073,7 @@ tasks:
     depends_on: []
     path: tasks/0214-an-exclusive-path-keeps-apart-only-its-own-tasks.md
   - id: 0215-a-reused-runner-worktree-moves-to-the-tip
-    status: pending
+    status: done
     title: A reused runner worktree that holds no task is brought to the integration tip
     depends_on: []
     path: tasks/0215-a-reused-runner-worktree-moves-to-the-tip.md

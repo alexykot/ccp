@@ -221,14 +221,15 @@ def product_log(root: Path, quiet: bool = False) -> tuple[Any, list[dict[str, An
 
 def single_runner_worktree(root: Path, rc: dict[str, str]) -> dict[str, Any] | None:
     """SPEC §12.1: the one runner's worktree (the derived one, `lib.runner_worktree`), made at its spawn when
-    missing, detached at `origin/<integration_branch>`; an existing one is left alone. None when the
-    binding names no product root. A missing `origin/<integration_branch>` has
+    missing, detached at `origin/<integration_branch>`; an existing one that holds no task is fetched and
+    moved there (`moved`), one on a branch or with changes is kept as it is (`kept` naming why, which the
+    spawn warns about). None when the binding names no product root. A missing `origin/<integration_branch>` has
     refused the spawn before this (`refuse_without_integration_ref`). One it cannot make otherwise (a
     directory there that is no working tree) is a warning, `made: false` with `error`: the spawn goes on, and the
     runner's `ccp tasks worktree` makes it once the cause is fixed. The spawn makes it after its
     refusals and before its runtime writes (the prompt audit, the ledger, work.json): a spawn that
     then fails, on a prompt audit that cannot be written, leaves the worktree made, and the next spawn
-    leaves it alone."""
+    moves it to the tip if it still holds no task."""
     prod = sm.product_root(root)
     if not rc.get("worktree") or not prod:
         return None
@@ -236,10 +237,10 @@ def single_runner_worktree(root: Path, rc: dict[str, str]) -> dict[str, Any] | N
     from ccp import wt  # noqa: PLC0415
     from ccp.queue import QueueError, integration_branch  # noqa: PLC0415
     try:
-        path, made = wt.runner_worktree(wt.main_of(Path(prod)), rc["worktree"], integration_branch(root))
+        path, made, moved, kept = wt.runner_worktree(wt.main_of(Path(prod)), rc["worktree"], integration_branch(root))
     except QueueError as e:
         return {"path": rc["worktree"], "made": False, "error": str(e)}
-    return {"path": str(path), "made": made}
+    return {"path": str(path), "made": made, "moved": moved, **({"kept": kept} if kept else {})}
 
 
 def refuse_without_integration_ref(root: Path, paths: list[str | None]) -> None:
@@ -785,6 +786,9 @@ def cmd_runner(args: argparse.Namespace) -> int:
                        "takes one out.")
         if not rp:
             detail += " " + NO_REVIEW_POINT
+        if made and made.get("kept"):  # §12.1: single_runner_worktree put the plane on sys.path
+            from ccp.wt import kept_warning  # noqa: PLC0415
+            rp_warnings.append(kept_warning(made["path"], made["kept"]))
         if made and made.get("error"):
             rp_warnings.append(f"the runner worktree {made['path']} is not made ({made['error']}); fix that, then "
                                "the runner's `ccp tasks worktree` makes it (SPEC §12.1)")

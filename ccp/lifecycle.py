@@ -700,7 +700,8 @@ def vacant_slots(q: Path) -> list[str]:
 
 def runner_worktree(cfg: Config, slot: str | None) -> dict[str, Any]:
     """§12.1, §16.5 rule 1: a runner's own merge worktree, made when missing, detached at the integration
-    tip. With a slot: work.json `runners.<slot>.worktree`, else the derived runner worktree (`lib.runner_worktree`)
+    tip, and an existing one that holds no task moved there (one kept as it is is a warning on stderr).
+    With a slot: work.json `runners.<slot>.worktree`, else the derived runner worktree (`lib.runner_worktree`)
     plus `-<slot>`. Without one (one runner, no slots recorded): the derived worktree itself."""
     from ccp import wt as _wt  # noqa: PLC0415
     from ccp.prompt import main_checkout  # noqa: PLC0415
@@ -718,8 +719,9 @@ def runner_worktree(cfg: Config, slot: str | None) -> dict[str, Any]:
             what = "put the runners' worktrees beside" if slot is not None else "make the runner's worktree at"
             raise QueueError(f"the binding names no product_root to {what} (SPEC §12.1)", 2)
         path = worktree + (f"-{slot}" if slot is not None else "")
-    wt, made = _wt.runner_worktree(main_checkout(cfg), path, integration_branch(q))
-    return {"ok": True, "slot": slot, "worktree": str(wt), "made": made,
+    wt, made, moved, kept = _wt.runner_worktree(main_checkout(cfg), path, integration_branch(q))
+    return {"ok": True, "slot": slot, "worktree": str(wt), "made": made, "moved": moved,
+            **({"kept": kept, "warnings": [_wt.kept_warning(wt, kept)]} if kept else {}),
             "next": f"cd {wt} && run every ccp command from there (SPEC §16.5)"}
 
 

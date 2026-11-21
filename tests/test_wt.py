@@ -596,8 +596,9 @@ sys.exit(2)
 
 
 class SingleRunnerWorktree(WtFixture, unittest.TestCase):
-    """§12.1: the one runner's worktree (derived, §8.3) is made by its spawn or by
-    `ccp tasks worktree` without a slot, detached at the integration tip; an existing one is left alone."""
+    """§12.1: the one runner's worktree (derived, §8.3) is made by its spawn or by `ccp tasks worktree`
+    without a slot, detached at the integration tip; an existing one that holds no task is moved to the
+    tip, and one that holds something is kept as it is, with a warning."""
 
     def setUp(self):
         super().setUp()
@@ -607,8 +608,8 @@ class SingleRunnerWorktree(WtFixture, unittest.TestCase):
         git(self.main, "worktree", "remove", "--force", str(self.runner))  # the fixture's: the spawn makes its own
         self.solo = self.main / ".plane-runtime" / "runner"  # `worktrees.dir` is the constant; the runner is `runner` in it (§8.3)
 
-    def spawn(self):
-        r = subprocess.run(["bash", str(PLANE / "scripts" / "team.sh"), "runner", "spawn", "--scope", "0002-second"],
+    def spawn(self, *extra: str):
+        r = subprocess.run(["bash", str(PLANE / "scripts" / "team.sh"), "runner", "spawn", "--scope", "0002-second", *extra],
                            capture_output=True, text=True, env=dict(os.environ))
         return r.returncode, (json.loads(r.stdout) if r.stdout.strip().startswith("{") else None), r.stderr
 
@@ -616,25 +617,70 @@ class SingleRunnerWorktree(WtFixture, unittest.TestCase):
         return subprocess.run(["git", "-C", str(path), "symbolic-ref", "-q", "HEAD"], capture_output=True).returncode == 1
 
     def advance_tip(self) -> str:
+        """A new commit on origin only, as a merge on the forge lands: the main checkout's
+        `origin/main` is put back to the old tip, so only a fetch brings the new one in. The new tip."""
+        old = self.head()
         self.write("later.txt", "later\n")
         git(self.main, "add", "later.txt")
         git(self.main, "commit", "-q", "-m", "later")
         git(self.main, "push", "-q", "origin", "main")
-        return self.head()
+        new = git(self.main, "rev-parse", "HEAD")
+        git(self.main, "update-ref", "refs/remotes/origin/main", old)
+        return new
 
-    def test_the_spawn_makes_it_at_the_tip_and_a_respawn_leaves_it_alone(self):
+    def made_at_the_old_tip(self) -> str:
+        """The runner worktree made by `ccp tasks worktree`, then the tip advanced past it; the old tip."""
+        self.assertEqual(self.ccp("tasks", "worktree", root=self.main)[0], 0)
+        tip = self.head()
+        self.assertNotEqual(self.advance_tip(), tip)
+        return tip
+
+    def test_the_spawn_makes_it_at_the_tip_and_a_respawn_moves_it_to_the_new_tip(self):
         self.assertFalse(self.solo.exists())
         tip = self.head()
         code, res, err = self.spawn()
         self.assertEqual(code, 0, err)
-        self.assertEqual(res["runner_worktree"], {"path": str(self.solo), "made": True})
+        self.assertEqual(res["runner_worktree"], {"path": str(self.solo), "made": True, "moved": False})
         self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
         self.assertTrue(self.detached(self.solo))
-        self.assertNotEqual(self.advance_tip(), tip)
+        new = self.advance_tip()
+        self.assertNotEqual(new, tip)
         code, res, err = self.spawn()
         self.assertEqual(code, 0, err)
-        self.assertEqual(res["runner_worktree"], {"path": str(self.solo), "made": False})
+        self.assertEqual(res["runner_worktree"], {"path": str(self.solo), "made": False, "moved": True})
+        self.assertEqual(git(self.solo, "rev-parse", "HEAD"), new)
+        self.assertTrue(self.detached(self.solo))
+        self.assertNotIn("left as it is", err)
+        code, res, err = self.spawn()  # at the tip already: nothing to move
+        self.assertEqual((code, res["runner_worktree"]["moved"]), (0, False), err)
+
+    def test_a_spawn_dry_run_after_the_tip_advances_leaves_it_where_it_was(self):
+        tip = self.made_at_the_old_tip()
+        code, _, err = self.spawn("--dry-run")
+        self.assertEqual(code, 0, err)
         self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
+
+    def test_a_spawn_keeps_one_with_an_untracked_file_and_warns(self):
+        tip = self.made_at_the_old_tip()
+        (self.solo / "note.txt").write_text("left by a step\n")
+        code, res, err = self.spawn()
+        self.assertEqual(code, 0, err)
+        self.assertEqual(res["runner_worktree"],
+                         {"path": str(self.solo), "made": False, "moved": False, "kept": "has changes"})
+        self.assertIn(wt.kept_warning(self.solo, "has changes"), res["warnings"])
+        self.assertIn(wt.kept_warning(self.solo, "has changes"), err)
+        self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
+        self.assertTrue((self.solo / "note.txt").is_file())
+
+    def test_a_spawn_keeps_one_on_a_branch_and_warns(self):
+        tip = self.made_at_the_old_tip()
+        git(self.solo, "checkout", "-q", "-b", "side")
+        code, res, err = self.spawn()
+        self.assertEqual(code, 0, err)
+        self.assertEqual(res["runner_worktree"]["kept"], "on branch side")
+        self.assertIn(wt.kept_warning(self.solo, "on branch side"), res["warnings"])
+        self.assertEqual((git(self.solo, "rev-parse", "HEAD"), git(self.solo, "symbolic-ref", "--short", "HEAD")),
+                         (tip, "side"))
 
     def test_a_spawn_that_cannot_make_it_warns_and_goes_on(self):
         self.solo.mkdir(parents=True)
@@ -648,17 +694,65 @@ class SingleRunnerWorktree(WtFixture, unittest.TestCase):
         self.assertEqual(sorted(p.name for p in self.solo.iterdir()), ["x"])  # the directory is left as it was
         self.assertEqual(json.loads((self.q / "work.json").read_text())["status"], "running")
 
-    def test_tasks_worktree_without_a_slot_makes_the_one_runners(self):
+    def test_tasks_worktree_without_a_slot_makes_the_one_runners_and_moves_it_to_the_new_tip(self):
         code, body, out, err = self.ccp("tasks", "worktree", root=self.main)
         self.assertEqual(code, 0, out + err)
-        self.assertEqual((body["worktree"], body["made"], body["slot"]), (str(self.solo), True, None))
+        self.assertEqual((body["worktree"], body["made"], body["moved"], body["slot"]), (str(self.solo), True, False, None))
         self.assertEqual(git(self.solo, "rev-parse", "HEAD"), self.head())
         self.assertTrue(self.detached(self.solo))
-        tip = self.head()
-        self.advance_tip()
-        code, body, _, _ = self.ccp("tasks", "worktree", root=self.main)
-        self.assertEqual((code, body["made"]), (0, False))
+        new = self.advance_tip()
+        code, body, _, err = self.ccp("tasks", "worktree", root=self.main)
+        self.assertEqual((code, body["made"], body["moved"]), (0, False, True), err)
+        self.assertNotIn("kept", body)
+        self.assertEqual(git(self.solo, "rev-parse", "HEAD"), new)
+        self.assertTrue(self.detached(self.solo))
+
+    def test_tasks_worktree_keeps_one_that_holds_something_and_warns_on_stderr(self):
+        tip = self.made_at_the_old_tip()
+        (self.solo / "note.txt").write_text("left by a step\n")
+        code, body, _, err = self.ccp("tasks", "worktree", root=self.main)
+        self.assertEqual((code, body["moved"], body["kept"]), (0, False, "has changes"), err)
+        self.assertIn(f"warning: {wt.kept_warning(self.solo, 'has changes')}", err)
         self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
+        (self.solo / "note.txt").unlink()
+        git(self.solo, "checkout", "-q", "-b", "side")
+        code, body, _, err = self.ccp("tasks", "worktree", root=self.main)
+        self.assertEqual((code, body["kept"]), (0, "on branch side"), err)
+        self.assertIn(f"warning: {wt.kept_warning(self.solo, 'on branch side')}", err)
+        self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
+
+    def test_a_failed_fetch_or_checkout_keeps_it_with_the_git_error(self):
+        tip = self.made_at_the_old_tip()
+        path, made, moved, kept = wt.runner_worktree(self.main, str(self.solo), "no-such-branch")
+        self.assertEqual((path, made, moved), (self.solo, False, False))
+        self.assertTrue(kept and "\n" not in kept, kept)
+        self.assertIn("origin/no-such-branch", kept)  # git's own error, naming what it could not check out
+        git(self.main, "remote", "set-url", "origin", str(self.main / "no-such-origin"))
+        _, _, moved, kept = wt.runner_worktree(self.main, str(self.solo), "main")
+        self.assertFalse(moved)
+        self.assertTrue(kept and "\n" not in kept, kept)
+        self.assertIn("no-such-origin", kept)  # git's own error, naming the remote it could not fetch
+        self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
+
+    def test_a_status_that_fails_keeps_it_with_the_git_error(self):
+        tip = self.made_at_the_old_tip()
+        real = wt.git
+
+        def failing_status(cwd, *args, **kw):
+            if args[:1] == ("status",):
+                return subprocess.CompletedProcess(["git", *args], 128, "", "fatal: index file corrupt\nmore\n")
+            return real(cwd, *args, **kw)
+        with mock.patch.object(wt, "git", failing_status):
+            _, made, moved, kept = wt.runner_worktree(self.main, str(self.solo), "main")
+        self.assertEqual((made, moved, kept), (False, False, "fatal: index file corrupt"))
+        self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
+
+    def test_what_an_existing_runner_worktree_holds(self):
+        self.assertIsNone(wt.runner_worktree_holds("", ""))
+        self.assertEqual(wt.runner_worktree_holds("refs/heads/side", ""), "on branch side")
+        self.assertEqual(wt.runner_worktree_holds("refs/heads/side", "?? x\n"), "on branch side")
+        self.assertEqual(wt.runner_worktree_holds("", "?? x\n"), "has changes")
+        self.assertEqual(wt.runner_worktree_holds("", " M a.txt\n"), "has changes")
 
     def test_tasks_worktree_without_a_slot_refuses_beside_slots_or_with_no_product_root(self):
         w = json.loads((self.q / "work.json").read_text())

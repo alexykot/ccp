@@ -1,7 +1,7 @@
 ---
 task_id: 0215-a-reused-runner-worktree-moves-to-the-tip
 title: A reused runner worktree that holds no task is brought to the integration tip
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12", "S16"]
@@ -10,7 +10,7 @@ paths: ["ccp/wt.py", "ccp/lifecycle.py", "scripts/observability/team.py", "docs/
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0215-a-reused-runner-worktree-moves-to-the-tip
@@ -143,4 +143,24 @@ PROPOSED:
 
 ## Implementation notes
 
+- `ccp/wt.py`: `runner_worktree` returns `(path, made, moved, kept)`. For an existing working tree,
+  `_runner_to_tip` reads `git symbolic-ref -q HEAD` and `git status --porcelain` in the worktree; the
+  pure `runner_worktree_holds(branch, porcelain)` decides `on branch <b>` / `has changes` / nothing
+  (E15). A worktree that holds no task gets `git fetch -q origin` in the main checkout and
+  `git checkout -q --detach origin/<integ>`; `moved` compares HEAD before and after. A status, fetch or
+  checkout that fails is `kept` with the git error's first line, never a refusal. `kept_warning`
+  holds the one warning text both callers print.
+- `ccp tasks worktree` adds `moved` to its JSON, and `kept` plus a `warnings` entry when set (the
+  toolkit wrapper prints it on stderr as `warning: runner worktree <path> left as it is: <why>`).
+- The spawn's `runner_worktree` adds `moved`, and `kept` when set, which also goes into the spawn's
+  `warnings`. The dry run never calls `single_runner_worktree`, so it moves nothing, as before.
+- Narrowest choice: the spawn's `error` dict (a path that is no working tree) is unchanged, with no
+  `moved`: nothing ran on it.
+- Fix round 1 (review): `advance_tip` now puts the main checkout's `origin/main` back to the old tip
+  after the push, so the tip advances on origin only, as a forge merge does, and only the fetch
+  brings it in (a fetch that updates no ref used to pass). The failed fetch/checkout test asserts
+  that `kept` is git's own error: it names `origin/no-such-branch`, or the missing `no-such-origin`.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #266 head `dec59c6` (squash `6b7d5f1`): APPROVE. Passed: rw-01, rw-02, rw-03, rw-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0215-a-reused-runner-worktree-moves-to-the-tip.json.
+
