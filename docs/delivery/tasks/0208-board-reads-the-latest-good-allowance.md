@@ -103,4 +103,18 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- `board._allowance` builds `now.allowance`: `usage.status(cfg, q, sample=False)` plus `weekly_over`
+  (`{window, pct, checkpoint}` from `usage.weekly_over(cfg, q, usage.latest_good(q), usage.now())`, or
+  None). `_blockers` adds the checkpoint blocker from `weekly_over` alone; `status_text` takes the weekly
+  figure from `latest_good` and appends `(last good reading <at>)` when `in_force` is false.
+- The page's `last = a.latest` became `good = a.latest_good || {}`. The Health tab's Allowance card shared
+  that variable, so its weekly, 5-hour and "read <ago>" figures now come from the latest good reading
+  too, matching the tile. The tile's `last good reading` suffix is left off when `usage_read` is false,
+  so `usage unread` shows as before.
+- Like the blocker before it, `weekly_over` on the board is not gated on `usage_read` (the claim's
+  `checkpoint_stop` is): without an allowance command no samples are written, so the two agree in practice.
+- `tests/test_allowance_lapse.py` and `tests/test_board_layout.py`'s throwing-card test built
+  `now.allowance` by hand with `latest` only; they now carry `latest_good` (and `weekly_over` for the
+  lapsed-decision blocker).
+
 ## Verification notes

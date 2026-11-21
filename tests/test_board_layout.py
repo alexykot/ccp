@@ -102,7 +102,9 @@ class Layout(Fixture, unittest.TestCase):
         machine_file(self, allowance_cmd="false", allowance_stop_weekly=90)
         good_then_failed(self.q, 86400)
         b = self.build()[0]
-        head = self.page(b)[0].split('<div class="pane grid"', 1)[0]
+        html = self.page(b, "#tab=health")[0]
+        head = html.split('<div class="pane grid"', 1)[0]
+        self.assertIn("Weekly: <b>95%</b> · 5-hour: 10% · read 2.0 h ago", html.split("<h2>Allowance</h2>", 1)[1])
         tile = re.search(r'<div class="k">Weekly allowance</div><div class="v">(.*?)</div>.*?<div class="d">(.*?)</div>', head, re.S)
         self.assertEqual(tile.group(1), "95%")
         self.assertIn("checkpoint 90%", tile.group(2))
