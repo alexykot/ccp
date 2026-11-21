@@ -1,7 +1,7 @@
 ---
 task_id: 0218-idle-runner-slots-are-recorded-and-measured
 title: A runner slot left with nothing ready is recorded, and health reports the slot-hours idle
-status: pending
+status: done
 kind: feature
 depends_on: ["0202-forecast-and-health-report-task-supply"]
 clashes_with: ["0243-one-source-for-syntax-events-and-config"]
@@ -11,7 +11,7 @@ paths: ["ccp/cli.py", "ccp/health.py", "scripts/observability/lib.py", "contract
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0218-idle-runner-slots-are-recorded-and-measured
@@ -173,4 +173,22 @@ PROPOSED:
 
 ## Implementation notes
 
+- 2026-11-21 (implementer): `ccp tasks next --holder SLOT` writes `runner`/`starved` on both exit-3 paths
+  through `_record_starved` in `ccp/cli.py`; the guard and the stretches are plain functions in
+  `ccp/health.py` (`starved_open`, `starved_stretches`, both over a list of events; `slot_starved` and
+  `starved` read the ledger). `in_flight` counts the work.json `in_flight` tasks whose `lease_holder` is
+  the slot and whose status is not `done`. `scope` is the scope's ids as `next` holds them (as given, or
+  work.json's), `[]` with none.
+- Choices the task left open: the window is the one the report reads (`--since` when given, else the
+  adoption window); a second `runner`/`starved` inside an open stretch (a race) continues it; a stretch
+  counts when any part of it lies in the window; `slot_hours` is rounded to 2 decimals and printed to 1;
+  with no queue `task_supply.idle_slots` is `null`, and when the ADR read fails `task_supply` stays `null`
+  as before. A `QUEUE_ROOT` that is not a directory is a failed write (a warning).
+- 2026-11-21 (fix round 1): the failed-write test patched `ccp.queue.emit`; `ccp.lifecycle`, first imported
+  inside that patch, kept the mock, and every later claim or close in the same process failed. The test
+  now makes the ledger a directory, so the append fails on the real path with nothing patched. The
+  runner definition's `--allow-overdue` example now passes `--holder <your slot>`.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #269 head `e57a3bd` (squash `fe80e1a`): APPROVE. Passed: st-01, st-02, st-03, st-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0218-idle-runner-slots-are-recorded-and-measured.json.
+

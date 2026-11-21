@@ -37,6 +37,7 @@ runner, `task-verifier` for the verifier subagent), `operator` and `system`.
 | `waiting_on` | `set` | `reason` (`quota`, `reauth`, `operator_decision`, `runner`, `steerer`, `spec_maintainer`, `null-class`, `operator_step`), `resets_at?` (RFC3339), `quota_class?` (`session`, `credit`), `detail?` |
 | `waiting_on` | `clear` | `reason` (what cleared it), `was` |
 | `lease` | `set`, `clear` | `holder`, `expires_at?` |
+| `runner` | `starved` (the lead's `runner` ops: §23.7) | `slot`, `scope`, `in_flight` (`ccp tasks next --holder <slot>` found nothing ready, exit 3; once per stretch, which the slot's next `lease`/`set`, or a `runner`/`stop` or `runner`/`spawn` for the slot or for every slot, ends, §27.1) |
 | `claude` | `launch` | `session_id?`, `phase`, `prompt_ref` (a path under `prompts/…`), `pid?`, `argv_digest?` |
 | `claude` | `exit` | `session_id?`, `exit_code`, `api_error_status?`, `result_summary?` (no secrets) |
 | `auth` | `transition` | `overall`, `failed_checks?` |
@@ -116,7 +117,7 @@ its task file is resolved, never a blocker; the board lists it as queue-against-
 | File | Writer |
 |---|---|
 | `work.json`, `tasks/<id>.json`, the lease | the runner, through `ccp` |
-| `events.jsonl` | the runner (task events); the lead (`question`/`answered`, `gate`/`decided`, `runner`/`spawn`, `bound`, `scope`, `rotate`, `stop`) |
+| `events.jsonl` | the runner (task events, and `runner`/`starved` through `ccp tasks next --holder`); the lead (`question`/`answered`, `gate`/`decided`, `runner`/`spawn`, `bound`, `scope`, `rotate`, `stop`) |
 | `progress/<id>.json`, the verifier packet | the runner |
 | `progress/<id>/<phase>-report.md` (`progress/<task_id>/<phase>-report.md`) | each worker submits its full report with `ccp report <run_id> FILE`, then tells the runner by `SendMessage` |
 | `verification/<id>.json` | the verifier subagent, through `ccp verify record` |
@@ -583,6 +584,9 @@ gates nothing.
   - `clean_merges` counts the integration merges that did not conflict; `unmeasured` counts the change
     rounds in the window with no record.
 - **Task supply:** the `not_built` decisions of `accepted` and `in-progress` ADRs that no task cites (a dropped task does not count); `task_supply` in `--json`.
+- **Idle slots:** the slot-hours in the window that runner slots spent with nothing ready, from each
+  `runner`/`starved` event to the slot's next `lease`/`set`, `runner`/`stop` or `runner`/`spawn` (or
+  now), with the stretches counted and those still open named; `task_supply.idle_slots` in `--json`.
 - **Diagnostic only.** Nothing here is a target for a worker or part of a DoD.
 
 ### 27.2 Suite series
