@@ -18,7 +18,7 @@ queue or subprocess, test a function on plain values instead (`test_catch_up_dec
   Most modules build on it.
 - `helpers.py`'s `binding(**keys)`: the text of a binding, `project_id: demo` first, then each key. A test
   that needs a binding writes it with this; only a test of the binding's format or of `ccp init`'s output
-  keeps literal text. A test names the worktrees directory as `config.WORKTREES_DIR`, never `.plane-runtime`.
+  keeps literal text. A test names the worktrees directory as `config.WORKTREES_DIR`, never as a copied literal.
 - `test_toolkit.py`'s `ToolkitFixture`: a git product (a bare origin, a main clone and a runner worktree), a
   queue and a fake `gh`. The most reused one: for close, claim, verify and
   every test that runs `ccp` against a real repository.

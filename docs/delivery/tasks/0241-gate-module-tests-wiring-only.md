@@ -105,4 +105,31 @@ through the code or a fixture helper). Measured at `8aefa59`.
 
 ## Implementation notes
 
+- **F11.** `tests/helpers.py` gains `binding(**keys)`: `project_id: demo` first, then each key as `key: value`, a dict as an
+  indented block, `None` leaves a key out (`project_id=None` for a test that appends to a binding already written).
+  Every module that only needs a binding uses it; the five modules the task names keep literal text.
+  A test names the worktrees directory as `config.WORKTREES_DIR`; the only literals left are the constants table and the
+  pin of the constant's own value in `tests/test_plane_json_constants.py` (2 occurrences, 1 module).
+  `tests/CLAUDE.md` names both helpers.
+- **F02, kept end to end** (14 tests in `tests/test_behind_tip_catch_up.py`, `grep -c 'def test'` prints 14; the two inline
+  product test modules are built by `product_test`, since a `def test` inside a string counts): caught up, gated and
+  merged; one overlap refusal; red gate; tip moving during the gate, and a tip that keeps moving; the gate's environment;
+  no gate lane, no worktrees dir, a lane held, a queue in git; a refused push; a refused merge and a failed reconcile
+  closed by a rerun; a carried build sign-off held across a rerun (now also asserting the record's and the event's
+  `sign_off_carried`, as the dropped carry test did). The first test also asserts a catch-up with no sign-off due
+  carries none. Alone, the module ran in 43 s on this machine.
+- **F02, moved to `tests/test_catch_up_decision.py`** (27 tests became 54): the merge commit and its shared-file union,
+  both sides' files with renames, and the task's own patch under `clashes` (far hunk, near hunk, a union in a shared path)
+  run on a throwaway repository built on `Product` (`_catch_up_commit`, `_tip_files`, `_task_files`, `_own_patches`), with
+  no queue, gate or pull request; `_task_worktree_env` (the two missing-field cases and the full one) on a temp queue;
+  `sign_off_gaps` for a build sign-off for another head, stale unless a catch-up carried it; the
+  `sign_off_carried` reader and `MergeOkReadsTheCatchUp` (moved whole, both plain values); and a task with no declared
+  paths under `clashes`. A verdict carrying a catch-up is refused: `tests/test_verify.py` `Record`.
+- **Deleted as already held** by a plain-value test in the decision module: declared path the diff leaves, no declared
+  paths (paths schedule), a tip changing a shared file elsewhere is no overlap (`catch_up_blocked` shared), the
+  sign-off-not-carried-over-a-shared-file and -declared-path cases, the sign-off carried under `clashes` cases, the brief
+  sign-off and `spec_beyond_intent` carry cases (`due_stages`, already in `tests/test_sign_off_beyond_intent.py`).
+- Open choices: the throwaway-repo tests sit in the decision module rather than a new module (each takes about 0.1 s);
+  `test_a_tip_that_keeps_moving_refuses_after_three_catch_ups` is kept unpatched (three gate runs) as the one cap test.
+
 ## Verification notes
