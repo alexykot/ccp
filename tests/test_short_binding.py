@@ -178,7 +178,7 @@ class Limits(BindingDir):
         self.assertEqual(limits, {"after_tasks": 2, "at_context_tokens": 100000, "idle_limit": 5})
         self.assertEqual(len(err.splitlines()), 3, err)
         self.assertIn("runner.rotate_after_tasks is a constant in code (4); the value 2 set here still applies", err)
-        self.assertIn("runner.rotate_at_context_tokens is a constant in code (None); the value 100000", err)
+        self.assertIn("runner.rotate_at_context_tokens is a constant in code (off); the value 100000", err)
         self.assertIn("runner.idle_block_limit is a constant in code (3); the value 5", err)
         self.assertEqual(lifecycle.rotation_knobs(self.queue), (2, 100000))
 
@@ -265,10 +265,17 @@ class Upgrade(UpgradeFixture, unittest.TestCase):
         self.assertEqual((listed["runner.rotate_after_tasks"]["outcome"], listed["runner.rotate_after_tasks"]["constant"],
                           listed["runner.rotate_after_tasks"]["set"]), ("constant", 4, "2"))
         self.assertIn("delete `production_branch`: it is removed", step["change"])
-        self.assertIn("delete `runner.rotate_after_tasks`: it is a constant, 4, and yours is '2'", step["change"])
-        self.assertIn("delete `runner.rotate_at_context_tokens`: it is a constant, None, which is what yours already is",
+        self.assertIn("delete `runner.rotate_after_tasks`: it is a constant, 4, and yours is 2;", step["change"])
+        self.assertIn("delete `runner.rotate_at_context_tokens`: it is a constant, off, which is what yours already is",
                       step["change"])
         self.assertIn("move `lead.auto_compact_window` to the product's .claude/settings.json", step["change"])
+
+    def test_a_constant_in_words_is_named_in_words(self):
+        step = self.binding_step("runner:\n  rotate_at_context_tokens: 100000\n  idle_block_limit: lots\n")
+        self.assertIn("delete `runner.rotate_at_context_tokens`: it is a constant, off, and yours is 100000;",
+                      step["change"])
+        self.assertIn("delete `runner.idle_block_limit`: it is a constant, 3, and yours is 'lots';", step["change"])
+        self.assertNotIn("None", step["change"])
 
     def test_a_short_binding_or_none_has_no_such_step(self):
         self.assertIsNone(self.binding_step(None))

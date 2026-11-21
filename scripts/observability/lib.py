@@ -850,10 +850,10 @@ def _config() -> Any:
 
 def binding_constants() -> dict[str, Any]:
     """The runner's constants (§29.3) as `config.constant_override`'s registry: each `RUNNER_LIMITS` key with
-    its value (`rotate_at_context_tokens` is None: off)."""
+    its value (`rotate_at_context_tokens` is None, shown as off)."""
     c = _config()
     return {"runner.rotate_after_tasks": c.Outcome(c.CONSTANT, value=4),
-            "runner.rotate_at_context_tokens": c.Outcome(c.CONSTANT, value=None),
+            "runner.rotate_at_context_tokens": c.Outcome(c.CONSTANT, value=None, shown="off"),
             "runner.idle_block_limit": c.Outcome(c.CONSTANT, value=3)}
 
 
