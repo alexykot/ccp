@@ -50,7 +50,11 @@ only through its single writer (`ccp tasks wait|resume`, which call `set-waiting
    others (§20).
 2. **Run.** The runner loops: `ccp tasks next` (§10.3) → `ccp tasks claim` (§10.5) → `ccp prompt`
    and the worker (implement, then the PR in the same worker) → review → fix and review again while
-   needed → verify (§15) → `ccp tasks close` (merge pinned to the verified head, §10.5) → the operator step,
+   needed → each `runs_on: operator-machine` check run at the head the runner hands the verifier,
+   after any catch-up, once per such head, as `ccp suite run --lane <check_id> --task <task_id> --
+   <the check's command>` in a `ccp wt create --kind mac` worktree at that head, by the runner or,
+   for a check only the operator can run by hand, by the operator; not for a check that carries an
+   earlier approve (§15.6 rule 3) or that a ruling waives (§15.8) → verify (§15) → `ccp tasks close` (merge pinned to the verified head, §10.5) → the operator step,
    if the task has one and it is approved (§15.8, §17.9) → reconcile → next. Each step is a `ccp` command (§10.6). Implementers never merge; the runner merges. When
    the harness denies any of the runner's agents an action, no agent of the runner's performs it:
    the runner opens a gate and tells the lead (§17.9).
@@ -481,7 +485,10 @@ reviewer, fixer and verifier prompt from four parts, in order, writes the prompt
    own rules (for example scratch resources, suite limits, paths that must not be written). It is
    product-owned and reviewed like product code.
 3. **The task:** id, task file path, cited SPEC and ADR sections, the house rules (`rules_doc`), the
-   PR and head for review and verify, the verifier's fixed packet, and the bound name of the runner
+   PR and head for review and verify, the verifier's fixed packet, for implement and verify the
+   checks marked `runs_on: operator-machine` as not the worker's to run (`ccp prompt verify` refuses
+   while one has no passed suite run recorded at the head, unless it carries an earlier approve or a
+   ruling waives it, §15.8), and the bound name of the runner
    that holds the task (its `lease_holder` slot's `bound_name`), so each worker messages its own
    runner.
 4. **The note:** at most 4000 characters of runner text for this run, from `--note` or
@@ -760,7 +767,7 @@ them (§14.3; on the row only, never the event), and
 `proven_skips` when a prover skipped a stage (§14.2: the prover's name, exit code and the run id, never
 its command). A staged
 lane's `started` row has `cmd` `stages` and its stage count as `argc`. A run from a git checkout with
-nothing to commit adds `tree`, the `HEAD^{tree}` it ran (§16.6), and a run that skipped an exclusive
+nothing to commit adds `tree`, the `HEAD^{tree}` it ran (§16.6), and `head`, the `HEAD` it ran (§10.2), and a run that skipped an exclusive
 lane's lock adds `lane_skipped` and `green_from`. Never the command's arguments,
 never its output; the event carries the numbers, `cold` and the stages, not the path. A row naming `modules_ran` and `modules_cached` reads as `ran` and `cached`.
 
