@@ -1538,6 +1538,10 @@ The lead gets the runners' idle and failure notices. The `TeammateIdle` hook
   `pending`, or a legacy `blocked` read as pending, with its dependencies done) and not held by
   its runtime `waiting_on`, an open question's `blocks`, or an undecided gate. `work.json`'s own
   `waiting_on` is not a scope-wide stop.
+- With the architect seat adopted (§19.11), it also exits 2 when nothing is ready but the runner
+  (its slot, with several) holds in-flight tasks that all wait, none on `quota`, and `ccp tasks
+  next` answers that a pass is due (§19.6): the runner starts the pass with `ccp architect run
+  --detach` meanwhile. A held task waiting on `quota`, or a triage overdue, lets it idle.
 - It lets the runner go idle when its slot's rotation is due, after 3
   consecutive blocks on the same ready set (the value `ccp where` reports as `idle_limit`), and while a task is parked on a session window
   (`waiting_on: quota`, `quota_class: session`) with its `planned_resume_at` still ahead. A park past

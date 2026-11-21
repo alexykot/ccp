@@ -554,6 +554,9 @@ class TestIdleHook(TeamCase):
 
     def test_a_due_pass_leaves_a_runner_holding_nothing_idle(self):
         self.architect_waiting(held=False)
+        self.prod.task("0004-d")
+        self.prod.task("0002-b", deps=["0004-d"])  # `next` names no task either: a due pass blocks it at once
+        self.prod.index()
         self.assertEqual(self.hook(), 0)
 
     def test_a_held_quota_wait_lets_the_runner_idle_with_a_pass_due(self):
