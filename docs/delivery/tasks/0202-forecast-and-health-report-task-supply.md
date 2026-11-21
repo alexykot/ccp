@@ -1,7 +1,7 @@
 ---
 task_id: 0202-forecast-and-health-report-task-supply
 title: The forecast and health name the accepted decisions that no task cites yet
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0204-spec-descriptions-catch-up"]
@@ -10,7 +10,7 @@ review_point: R14
 paths: ["ccp/adr.py", "ccp/forecast.py", "ccp/health.py", "docs/spec/04-observability.md", "tests/test_task_supply.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0202-forecast-and-health-report-task-supply
@@ -154,3 +154,5 @@ Fix round 2 (review-2 of PR #240):
   leaves the decisions listed; file refs take them out.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #240 head `0088c7c` (squash `cd17b0c`): APPROVE. Passed: ts-01, ts-02, ts-03, ts-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0202-forecast-and-health-report-task-supply.json.
+
