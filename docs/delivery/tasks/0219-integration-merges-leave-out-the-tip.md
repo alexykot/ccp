@@ -1,7 +1,7 @@
 ---
 task_id: 0219-integration-merges-leave-out-the-tip
 title: A round's recorded integration merges leave out every commit already on the integration tip
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0223-a-follow-up-is-tracked-not-left-in-notes"]
@@ -11,7 +11,7 @@ paths: ["ccp/report.py", "docs/spec/02-delivery.md", "tests/test_health_conflict
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0219-integration-merges-leave-out-the-tip
@@ -128,3 +128,5 @@ PROPOSED:
   merge. With the `^<integ>` exclusion reverted it fails (the tip's merge is counted too).
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #270 head `1a28011` (squash `41b9588`): APPROVE. Passed: im-01, im-02, im-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0219-integration-merges-leave-out-the-tip.json.
+
