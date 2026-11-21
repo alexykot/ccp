@@ -12,6 +12,7 @@ import unittest
 
 from ccp import config, suite
 from tests.test_suite import CCP, PY, SuiteFixture
+from tests.test_toolkit import git
 
 
 def _killpg(p: subprocess.Popen) -> None:
@@ -176,6 +177,98 @@ class Lanes(SuiteFixture, unittest.TestCase):
         r = self.run_suite("--lane", "gate", "--", PY, "-c", "print(1)")
         self.assertEqual(r.returncode, 0, r.stderr)
         holder.wait(timeout=30)
+
+    # §16.6: a run of a tree a passing run of the lane already ran does not queue for the lock
+
+    PASS = "import sys; print('Ran 3 tests in 0.1s', file=sys.stderr)"
+
+    def commit(self, rel: str = "docs/delivery/plane.json", text: str | None = None) -> str:
+        """Commit the runner checkout's state (after writing `text` to `rel`): clean, its tree returned."""
+        if text is not None:
+            (self.runner / rel).write_text(text)
+        git(self.runner, "add", "--", rel)
+        git(self.runner, "commit", "-q", "-m", "state")
+        return git(self.runner, "rev-parse", "HEAD^{tree}")
+
+    def started_rows(self) -> list[dict]:
+        return [x for x in self.rows() if x.get("op") == "started"]
+
+    def test_a_passing_run_of_this_tree_runs_past_the_held_lane(self):
+        tree = self.commit()
+        r = self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        green = self.started_rows()[-1]
+        self.assertEqual(green.get("tree"), tree)
+        holder = self.hold(seconds=60)  # its argument count differs: it takes the lock
+        r = self.run_suite("--lane", "gate", "--", PY, "-c", "import sys; sys.exit(3)", "x")
+        self.assertEqual(r.returncode, 3, r.stderr)
+        mine = self.started_rows()[-1]
+        self.assertEqual((mine.get("lane_skipped"), mine.get("green_from")), (suite.GREEN_TREE, green["suite_id"]))
+        self.assertIn(green["suite_id"].encode(), r.stderr)
+        self.assertFalse(any(x.get("op") == "busy" for x in self.rows()))
+        _killpg(holder)
+        holder.wait(timeout=30)
+
+    def test_a_failed_run_another_tree_or_another_lane_leaves_the_lane_held(self):
+        self.commit()
+        self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS + "; sys.exit(1)", "x")  # failed
+        self.run_suite("--lane", "full", "--", PY, "-c", self.PASS, "x")  # another lane, this tree
+        self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")  # this lane, a tree about to change
+        self.commit("docs/LOG.md", "# Log\n\nchanged\n")
+        holder = self.hold(seconds=60)
+        r = self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")
+        self.assertEqual(r.returncode, suite.BUSY_EXIT, r.stderr)
+        _killpg(holder)
+        holder.wait(timeout=30)
+
+    def test_an_uncommitted_change_records_no_tree_and_queues(self):
+        self.commit()
+        r = self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        holder = self.hold(seconds=60)
+        (self.runner / "untracked.txt").write_text("x")
+        r = self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")
+        self.assertEqual(r.returncode, suite.BUSY_EXIT, r.stderr)
+        (self.runner / "untracked.txt").unlink()
+        (self.runner / "docs/LOG.md").write_text("edited\n")
+        r = self.run_suite("--", PY, "-c", self.PASS, "x")  # the full lane, recorded but busy
+        self.assertEqual(r.returncode, suite.BUSY_EXIT, r.stderr)
+        r = self.run_suite("--lane", "unit", "--", PY, "-c", self.PASS, "x")  # not exclusive: it runs and records
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn("tree", self.started_rows()[-1])
+        _killpg(holder)
+        holder.wait(timeout=30)
+
+    def test_a_run_bound_to_a_cold_gate_task_queues(self):
+        cfg = json.loads((self.runner / "docs/delivery/plane.json").read_text())
+        cfg["verify"] = {"accept_cache": {"max_age_days": 3, "cold_tasks": ["0002-*"]}}
+        self.commit(text=json.dumps(cfg))
+        r = self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        holder = self.hold(seconds=60)
+        r = self.run_suite("--lane", "gate", "--run", "0002-second/implement", "--", PY, "-c", self.PASS, "x")
+        self.assertEqual(r.returncode, suite.BUSY_EXIT, r.stderr)
+        r = self.run_suite("--lane", "gate", "--run", "0001-first/implement", "--", PY, "-c", self.PASS, "x")
+        self.assertEqual(r.returncode, 0, r.stderr)  # its gate is not cold
+        _killpg(holder)
+        holder.wait(timeout=30)
+
+    def test_green_run_matches_lane_tree_command_and_a_clean_pass(self):
+        mine = {"lane": "gate", "tree": "t1", "cmd": "python3", "argc": 2}
+
+        def rows(sid: str, ended: dict, **started) -> list[dict]:
+            return [{"op": "started", "suite_id": sid, **{**mine, **started}},
+                    {"op": "ended", "suite_id": sid, **{"exit_code": 0, "tests": 3, "interrupted": None, **ended}}]
+        self.assertEqual(suite.green_run(rows("a", {}), mine, "full"), "a")
+        self.assertEqual(suite.green_run(rows("a", {}) + rows("b", {}), mine, "full"), "b")  # the latest
+        self.assertIsNone(suite.green_run(rows("a", {}), {**mine, "tree": None}, "full"))
+        for ended, started in (({"exit_code": 1}, {}), ({"tests": 0}, {}), ({"tests": None}, {}), ({"tests": True}, {}),
+                               ({"interrupted": "SIGTERM"}, {}), ({}, {"tree": "t2"}), ({}, {"lane": "full"}),
+                               ({}, {"cmd": "sh"}), ({}, {"argc": 3}), ({}, {"tree": None})):
+            self.assertIsNone(suite.green_run(rows("a", ended, **started), mine, "full"), (ended, started))
+        self.assertIsNone(suite.green_run(rows("a", {})[:1], mine, "full"))  # never ended
+        self.assertEqual(suite.green_run(rows("a", {}, lane=None), {**mine, "lane": "full"}, "full"), "a")  # no lane: full
+        self.assertIsNone(suite.green_run(["junk", {"op": "ended"}], mine, "full"))
 
     def test_config_is_checked(self):
         cfg = json.loads((self.runner / "docs/delivery/plane.json").read_text())
