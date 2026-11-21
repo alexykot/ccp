@@ -9,7 +9,7 @@ argument takes the full id or its number.
 | Command | Who | SPEC |
 |---|---|---|
 | `ccp tasks list [--status S] [--json]` | anyone | every task, in number order |
-| `ccp tasks next [--scope IDS] [--json] [--allow-overdue REASON]` (also `--explain`) | runner | §10.3, §16.3 (a task passed over for a path in flight is named on stderr, `passed over <id>: <why>`, and in `--json` `passed_over`) |
+| `ccp tasks next [--scope IDS] [--json] [--allow-overdue REASON] [--holder <slot>]` (also `--explain`) | runner | §10.3, §16.3 (a task passed over for a path in flight is named on stderr, `passed over <id>: <why>`, and in `--json` `passed_over`); §23.2 (with `--holder`, exit 3 records `runner`/`starved`, once per stretch) |
 | `ccp tasks index [--stdout]` | lead | regenerates `INDEX.yaml` (§5) |
 | `ccp tasks migrate [--dry-run] [--drop-open]` | lead | §5.3 (converts an earlier plane generation's task files in place; exit 1 when one cannot be converted) |
 | `ccp tasks claim <id> [--holder <slot>]` | runner | §10.5, §16.3 |

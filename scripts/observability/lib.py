@@ -72,6 +72,7 @@ EVENT_OPS = (
     "scope",
     "rotate",
     "stop",
+    "starved",
     "switch",
     "bound",
     "stopped",
@@ -172,6 +173,7 @@ REQUIRED_PAYLOAD = {
     ("runner", "rotate"): ("name", "reason"),
     ("runner", "stop"): ("name", "reason"),
     ("runner", "bound"): ("name", "previous"),
+    ("runner", "starved"): ("slot", "scope", "in_flight"),  # §23.2: ccp tasks next --holder, nothing ready
     # §23.2 the toolkit's ledger
     ("run", "opened"): ("run_id", "phase", "round", "agent_type", "expected_model", "expected_effort"),
     ("run", "bound"): ("run_id", "agent_id"),
