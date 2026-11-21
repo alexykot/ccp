@@ -1,7 +1,7 @@
 ---
 task_id: 0223-a-follow-up-is-tracked-not-left-in-notes
 title: A worker report states its follow-ups, and the run keeps them for the lead to decide
-status: pending
+status: done
 kind: feature
 depends_on: ["0228-report-sections-as-one-table", "0230-the-lead-decides-each-follow-up"]
 clashes_with: ["0203-follow-up-fixes", "0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0219-integration-merges-leave-out-the-tip", "0221-workers-reach-the-pr-host-through-ccp-pr", "0233-briefs-point-at-the-evidence-rules", "0238-the-runner-runs-marked-checks-before-verify"]
@@ -221,3 +221,5 @@ PROPOSED:
   refusal, so the signed §13.4 reading is unchanged.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #288 head `ed5d6ef` (squash `d6fe17d`): APPROVE. Passed: fu-01, fu-02, fu-03, fu-04, suite-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0223-a-follow-up-is-tracked-not-left-in-notes.json.
+
