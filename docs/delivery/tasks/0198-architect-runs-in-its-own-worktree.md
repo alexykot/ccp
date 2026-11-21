@@ -218,5 +218,11 @@ Measured at `58cf1d0`.
   detached multi-ADR start keeps `review_id` (the first) beside `review_ids`.
 - `docs/cli/03-quality.md`'s cost column for the row now says one Claude session per pass, one per ADR
   for a shape.
+- Fix round 1 (review MINOR-1, NIT-1 to NIT-3): `cmd_run` passes `many` to `_spawn`, so a detached
+  several-ADR start, `--adr due` included, prints `review_ids` even when one ADR is due (it chose by the
+  number of ids). New tests: the order given (`--adr 32,31`), the one-`--review-id`-per-ADR refusal, and
+  the old `git show HEAD:` line on a dirty product root with no `worktrees.dir`. The §19.2 Driver row
+  shows `[--adr ID[,ID…]|due]`, a passage this change made false. NIT-4 and NIT-5 left as they are, as
+  the runner ruled.
 
 ## Verification notes
