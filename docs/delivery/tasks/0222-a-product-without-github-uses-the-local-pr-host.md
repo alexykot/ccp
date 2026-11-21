@@ -201,5 +201,16 @@ PROPOSED: (new lines after it)
 - Not changed (outside the task's paths): close's messages in `ccp/lifecycle.py` still read
   `gh pr merge <n>: ...` and "gh names no merge commit" under either adapter. A local PR open, merge or
   confirm records no ledger event of its own: the ledger has no `pr` event type.
+- Fix round 1 (review MINOR 1, MINOR 2, NIT 1, NIT 2):
+  - tests.test_prhost_local now pins view's head refresh (a push after open is read by `ccp pr view` and
+    saved in the record), merge writing its own `merge_commit` (read straight from the record, before any
+    view or confirm, since the §10.7 subject fallback would mask it), and the merge of a product with
+    `worktrees.dir: null` (the squash lands on origin, the temporary worktree is gone, the caller's
+    checkout keeps its HEAD). The three mutants the review saw survive are now killed. No code changed.
+  - The long line in SPEC §4.5's init paragraph and the README's `--permissions` paragraph are rewrapped
+    to the surrounding width; the words are unchanged.
+  - Left as they were: close's `gh pr merge` messages in `ccp/lifecycle.py` (outside the task's paths),
+    and a ledger event for the local adapter's record writes (review MINOR 3: an observability contract
+    change, which the runner takes to the lead as a follow-up).
 
 ## Verification notes
