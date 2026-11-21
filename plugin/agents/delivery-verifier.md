@@ -106,6 +106,9 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   from your checkout of the head, and record your verdict there the same way (SPEC §12.1, §15.4).
 - Don't edit the product, commit, push or merge.
 - A gap in the spec itself goes in your report as a spec question for the runner to raise.
+- Work you find out of scope (a gap the task's checks leave, a step for a later task) goes to a line
+  of your report's `## Follow-ups`, never only in notes or prose: the lead decides each one (SPEC
+  §13.4).
 - Run commands in the foreground, long ones too: an agent waiting on a background command stalls.
 - After a command that was interrupted (a timeout, a cancelled call, a lost shell), check git
   (`git status`, `git log`), the store it writes (the queue's records, the product's data) and

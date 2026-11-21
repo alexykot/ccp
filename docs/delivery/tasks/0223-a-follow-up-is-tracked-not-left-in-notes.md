@@ -200,4 +200,24 @@ PROPOSED:
 
 ## Implementation notes
 
+- `report.SECTIONS` gains `follow_ups` (every phase, not required, secret-checked), read by
+  `report.follow_ups`: `- ` items (an indented continuation joins its item, as Friction's does), or the single
+  line `none`; a missing or empty section reads as `none`. Refused: a line that is neither (a `* ` item
+  included, since §13.4 names `- ` lines only), and `none` beside items, as Friction refuses it.
+- `ccp report` stores `follow_ups` on every report, `[]` when there are none, each
+  `{"id": "<run_id>#<n>", "text", "outcome": null}`. A correction renumbers them and calls
+  `followups.carry(old, new)`: each earlier outcome goes to the first identical line not yet given one, and each
+  that finds none is named in a warning (stderr). The reply carries the stored list.
+- Briefs: the implementer's and the implement prompt send rule text to `## Follow-ups`; the implementer's,
+  reviewer's and verifier's say other out-of-scope work goes there, never only in notes; the runner's tells the
+  lead when a report carries follow-ups. Friction's tool-need route is unchanged.
+- `tests/test_prompt_tools.py` pinned the old proposal route in the implement prompt: updated.
+- ADR-0044 D1 recorded `built`.
+- Fix round 1 (review MINOR 1-2, NIT 3-5): tests now pin that every phase's report reads the section and that
+  a review report's follow-ups are stored on its run; that an empty section and the single line `- none` store
+  none; the `none`-beside-items refusal by its own message. A heading that looks like the section but is not
+  read as it (`### Follow-ups`, `## Follow ups`, `## Followups`) is no longer lost silently: `ccp report`
+  stores no follow-ups, as before, and warns on stderr that only `## Follow-ups` is read. A warning, not a
+  refusal, so the signed §13.4 reading is unchanged.
+
 ## Verification notes

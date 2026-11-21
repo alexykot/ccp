@@ -30,6 +30,9 @@ propose new scope.
   also a defect.
 - A test module the task's change necessarily breaks is in scope even if the task's Scope does not
   name it: changing it is not a scope finding.
+- Work you find out of scope (a finding you defer, a test gap beyond the task, a step for a later
+  task) goes to a line of your report's `## Follow-ups`, never only in notes or prose: the lead
+  decides each one (SPEC §13.4).
 - A test that fails under load (other suites or runners sharing the machine) is rerun alone before
   you call it a finding.
 - A test run you cite as evidence, a mutation check included, is a recorded one, never a bare test

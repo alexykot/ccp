@@ -100,6 +100,10 @@ the result: read the file and act on it. Never wait for a
 handback and never ask a worker to resend its report. If you are woken with neither, check the file
 before anything else.
 
+When a report carries follow-ups (its `## Follow-ups` lines, which `ccp report` keeps on the run with
+ids), tell the lead in one line: the run and how many. The lead decides each one with
+`ccp tasks follow-up`; you never decide one, and never act on one yourself (SPEC §13.4).
+
 ## Your loop
 
 1. **Resume first.** Read `$QUEUE_ROOT/work.json` (with a runner slot: only the task your slot holds,

@@ -1,8 +1,9 @@
-"""Worker follow-ups (SPEC §13.4, ADR-0044 D2 and D4): the lead records what became of each follow-up a
-worker report states (`ccp tasks follow-up`), and `ccp tasks follow-ups` lists them across tasks.
+"""Worker follow-ups (SPEC §13.4, ADR-0044 D1, D2 and D4): a worker report states them (`## Follow-ups`, read by
+`ccp report`), the lead records what became of each (`ccp tasks follow-up`), and `ccp tasks follow-ups` lists them
+across tasks.
 
 A follow-up lives on its run record (`follow_ups`, each with its id `<run_id>#<n>`, refs.py) beside the
-lead's `outcome`. `undecided` and `listing` work on plain run records; `undecided` is the one list of open
+lead's `outcome`. `undecided`, `listing` and `carry` work on plain values; `undecided` is the one list of open
 follow-ups that every reader counts.
 """
 from __future__ import annotations
@@ -42,6 +43,22 @@ def undecided(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def listing(records: list[dict[str, Any]], open_only: bool) -> list[dict[str, Any]]:
     """Every follow-up on `records`, or with `open_only` the undecided ones."""
     return undecided(records) if open_only else _rows(records)
+
+
+def carry(old: list[Any], new: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """§13.4, ADR-0044 D1: a corrected report's follow-ups `new` (numbered afresh, undecided), each given the
+    outcome of an earlier follow-up in `old` whose text is identical (each earlier outcome to one line at most, the
+    first such line in order); and the earlier follow-ups whose outcome found no such line, to be named as dropped.
+    An earlier entry with no outcome, or that is not a follow-up, carries nothing and is not dropped."""
+    pool = [fu for fu in old if isinstance(fu, dict) and isinstance(fu.get("outcome"), dict) and fu["outcome"]]
+    out: list[dict[str, Any]] = []
+    for fu in new:
+        hit = next((o for o in pool if o.get("text") == fu.get("text")), None)
+        if hit is not None:
+            pool.remove(hit)
+            fu = {**fu, "outcome": hit["outcome"]}
+        out.append(fu)
+    return out, pool
 
 
 def outcome_word(outcome: dict[str, Any] | None) -> str:
@@ -120,4 +137,4 @@ def decide(q: Path, cfg: Config, fid: str, kind: str, ref_or_reason: str, by: st
     return {"ok": True, "id": fid, "task_id": task_id, "outcome": outcome, "replaced": replaced}
 
 
-__all__ = ["KINDS", "LEAD", "decide", "line", "listing", "outcome_word", "resolve_task", "undecided"]
+__all__ = ["KINDS", "LEAD", "carry", "decide", "line", "listing", "outcome_word", "resolve_task", "undecided"]

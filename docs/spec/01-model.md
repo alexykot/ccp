@@ -211,8 +211,8 @@ of each passage and declares `sign_off: brief`, so the operator signs the words 
 `ccp tasks check` warns on a task not yet `done` or `dropped` whose `paths` name a SPEC file
 (plane.json `spec_paths`, default `["docs/SPEC.md", "SPEC.md", "docs/spec/", "spec/"]`; a path meets an entry it equals or, for an entry ending in `/`, lies under, so `docs/spec` without its `/` meets none) and that neither declares a
 `brief` sign-off nor says in its Scope that its SPEC text only describes its own feature (the word
-`§31.1` on a Scope line). Rule text the build finds that the brief does not carry goes to a follow-up
-proposal (`ccp plane propose`), and the PR merges on the signed text. Only text without which the
+`§31.1` on a Scope line). Rule text the build finds that the brief does not carry goes to a line of the report's
+`## Follow-ups` (§13.4), and the PR merges on the signed text. Only text without which the
 code cannot be correct goes to the lead as a spec question, and then a `build` sign-off is due
 (below).
 
