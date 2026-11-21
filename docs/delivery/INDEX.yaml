@@ -1038,7 +1038,7 @@ tasks:
     depends_on: []
     path: tasks/0207-sync-product-docs-finds-the-binding-through-lib.md
   - id: 0208-board-reads-the-latest-good-allowance
-    status: pending
+    status: done
     title: The board reads the latest good allowance reading for the weekly tile and the checkpoint blocker
     depends_on: []
     path: tasks/0208-board-reads-the-latest-good-allowance.md

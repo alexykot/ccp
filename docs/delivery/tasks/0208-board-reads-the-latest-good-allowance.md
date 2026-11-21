@@ -1,7 +1,7 @@
 ---
 task_id: 0208-board-reads-the-latest-good-allowance
 title: The board reads the latest good allowance reading for the weekly tile and the checkpoint blocker
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S25", "S28"]
@@ -9,7 +9,7 @@ review_point: R14
 paths: ["ccp/board.py", "ccp/board_page.html", "tests/test_board.py", "tests/test_board_layout.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0208-board-reads-the-latest-good-allowance
@@ -123,3 +123,5 @@ Measured at `58cf1d0`.
   and the tile judge one reading.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #247 head `d5f673e` (squash `655749c`): APPROVE. Passed: bd-01, bd-02, bd-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0208-board-reads-the-latest-good-allowance.json.
+
