@@ -183,5 +183,9 @@ because their checks fail or do not exist until this task is built. Measured at 
   `test_the_cli_docstring_carries_no_usage_table`, which says what it checks. `DERIVED_KEYS` no longer writes the
   default task-log directory into its text. docs/cli/02-delivery.md writes `[--detail …]` on the `tasks resume` half
   of the wait row.
+- Fix round 2: `lib._product_config` restores `ccp.config._WARNED` after its silent load, so the process's later
+  `config.load` calls (`refactor_log`, `product_log`, `review_point_scope`, `spec_maintainer`) still print each
+  moved-key and unknown-key warning once, as before the task. Pinned in `tests/test_short_binding.py`. The null
+  `worktrees.dir` fallback in `runner_worktree` is pinned there too.
 
 ## Verification notes

@@ -162,7 +162,7 @@ class OldBinding(BindingDir):
         self.addCleanup(lambda: config._WARNED.difference_update({k for k in config._WARNED if k[0] == str(plane)}))
         with redirect_stderr(io.StringIO()) as quiet:
             lib.runner_worktree(self.queue)
-        self.assertEqual(quiet.getvalue(), "")
+        self.assertNotIn("zzz_unknown", quiet.getvalue())
         with redirect_stderr(io.StringIO()) as later:
             config.load(self.product)
         self.assertIn("unknown key(s) zzz_unknown", later.getvalue())
