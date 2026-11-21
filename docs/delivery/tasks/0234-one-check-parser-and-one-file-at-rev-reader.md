@@ -111,7 +111,7 @@ Measured at `8aefa59`.
 - Fix round 1: `text_at` decodes the raw bytes, so a CRLF task file kept its `\r\n`, where `queue.git()`
   (`text=True`) had turned it into `\n`; `lifecycle.drop` and `_says_dropped` then read no status from such a
   file. Both callers now normalise `\r\n` to `\n` before `tasklog.frontmatter` (as `adr.in_force_at` does);
-  `text_at` itself stays byte-faithful, so ADR bodies read at the head are unchanged. A CRLF test is in
+  `text_at` itself stays byte-faithful, so ADR bodies read at the head are unchanged. CRLF tests are in `tests/test_lease_edits.py` (`_says_dropped`) and
   `tests/test_tasks_drop.py`. `Check` is `frozen=True, eq=False` (its `fields` dict makes it unhashable by
   value); `text_at`'s docstring names what it reads (it is not "the one reader" of E22).
 - Named, accepted difference: `text_at` resolves `rel` against `cfg.root` (`git show <rev>:./<rel>`), where

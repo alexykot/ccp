@@ -111,6 +111,18 @@ class LeaseEdits(ToolkitFixture, unittest.TestCase):
         code, out = self.check()
         self.assertEqual(code, 0, out)
 
+    def test_the_leads_drop_committed_with_crlf_line_ends_is_not_an_edit(self):
+        self.claim()
+        text = TASK.format(tid="0002-second", title="Second, amended", status="dropped", deps='"0001-first"',
+                           ver="*Append-only.*")
+        git(self.main, "config", "core.autocrlf", "false")
+        (self.main / FILE).write_bytes(text.replace("\n", "\r\n").encode())
+        git(self.main, "add", FILE)
+        with mock.patch.dict(os.environ, {"GIT_COMMITTER_DATE": f"@{int(time.time()) + 5} +0000"}):
+            git(self.main, "commit", "-qm", "Drop 0002")
+        code, out = self.check()
+        self.assertEqual(code, 0, out)
+
     def test_a_pushed_edit_is_seen_from_a_checkout_whose_local_main_lacks_it(self):
         self.claim()
         self.commit_on_main("Amend 0002")
