@@ -1461,11 +1461,22 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_architect)
 
     p = sub.add_parser("verify", help="the verifier's record and the runner's merge gate (SPEC §15.3; needs QUEUE_ROOT), "
-                                      "and the check of a PR's SPEC lines against the signed text (spec-text, §15.2)")
-    p.add_argument("action", choices=("record", "merge-ok", "check", "spec-text"))
-    p.add_argument("target", help="record: the verdict JSON file (- for stdin); merge-ok: the PR number; "
-                                  "check, spec-text: the task id")
-    p.add_argument("--task", help="merge-ok: the task whose record approves this PR (default: pr-<PR>)")
+                                      "the check of a PR's SPEC lines against the signed text (spec-text, §15.2), "
+                                      "and a deferred check's result recorded after close (later, deferred, §15.4)")
+    p.add_argument("action", choices=("record", "merge-ok", "check", "spec-text", "later", "deferred"))
+    p.add_argument("target", nargs="?", help="record: the verdict JSON file (- for stdin); merge-ok: the PR number; "
+                                             "check, spec-text, later: the task id; deferred: none")
+    p.add_argument("--task", help="merge-ok: the task whose record approves this PR (default: pr-<PR>); "
+                                  "deferred: only this task's checks")
+    p.add_argument("--check", help="later: the id of the check run after its task closed (§15.4)")
+    result = p.add_mutually_exclusive_group()
+    result.add_argument("--pass", dest="passed", action="store_const", const=True, help="later: the check passed")
+    result.add_argument("--fail", dest="passed", action="store_const", const=False, help="later: the check failed")
+    p.add_argument("--evidence", help="later: one line, what the run showed")
+    p.add_argument("--produced-by", dest="produced_by", help="later: the seat that produced the evidence")
+    p.add_argument("--operator-step", dest="operator_step",
+                   help="later: the approved operator gate (<task_id>-<n>) a ruling seat's evidence came from")
+    p.add_argument("--json", action="store_true", help="deferred: a JSON list")
     p.add_argument("--head", help="check: the PR head the runner would merge; spec-text: the commit whose SPEC "
                                   "change is checked (default: HEAD)")
     p.add_argument("--base", help="spec-text: the ref the branch's diff is taken from (default: origin/<integration "

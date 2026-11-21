@@ -1037,6 +1037,15 @@ It is still a pass or a fail. `ccp verify record` refuses one
 without both, or on a check not run, naming the check. `ccp tasks close` lists each one (its id,
 `held_instead` and `ruling`) before it merges, and does not refuse on it.
 
+A check recorded `ran: false` that does not rest on a carried verdict may be run after its task
+closed: the lead or the runner records the result with `ccp verify later <task_id> --check <id>
+--pass|--fail --evidence "<one line>" --produced-by <seat> [--operator-step <gate>]`, appended to
+`verification/<task_id>.later.jsonl`, never to the verdict record. It refuses a task not done, a
+check not recorded so, evidence that is empty, over 500 characters, on more than one line or looks
+like a secret, and a producer the verdict record would refuse (a ruling seat without an approved
+operator step). `ccp verify deferred` lists each such check of a done task as open, passed or
+failed. A failed result reopens nothing.
+
 ### 15.5 Merge
 
 The runner merges a PR only when `ccp verify merge-ok <pr> --task <task_id>` exits 0, and then pinned
