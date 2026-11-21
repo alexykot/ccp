@@ -48,6 +48,15 @@ All reshape phases have landed.
 - **Accepted, to be tasked after R12:** ADR-0044 (a follow-up is tracked, not left in notes),
   ADR-0045 (checks only the operator's machine can run) and ADR-0046 (decisions may depend on other
   ADRs' decisions).
+- **Deferred from architect pass `ar-20261120T234012Z-27eb`** (record in `docs/delivery/reviews/`):
+  - F10: replace the tests' sentence assertions (hundreds of them, across most modules) with the
+    token each guards, and derive the template flags' defaults from the templates. Too large for one
+    task; house rule E4 keeps new tests clean meanwhile.
+  - F17: move `scripts/observability/lib.py` and `architecture_review.py` into the `ccp` package, so
+    `ccp` imports nothing from `scripts/` (the E7 amendment comes with it). After R14's 0203 and
+    0207, which touch the same files.
+  - F16: check how health attributes tokens to catch-up rounds before review (about 20 times those
+    after review). Taken up when R15's integration-merges task lands.
 - **Considered and declined:** continuing past the weekly allowance into paid extra usage (the plane
   runs on the prepaid allowance only, ADR-0026), and a separate task-drafting seat (the lead drafts
   tasks, with a writer subagent when several land at once).
