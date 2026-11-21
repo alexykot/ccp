@@ -1,7 +1,7 @@
 ---
 task_id: 0206-package-doc-is-not-its-own-source
 title: A package doc listed in claude_md_dirs does not count its own lines as source
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S21"]
@@ -9,7 +9,7 @@ review_point: R14
 paths: ["ccp/pkgdocs.py", "docs/delivery/plane.json", "tests/test_pkgdocs_config.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0206-package-doc-is-not-its-own-source
@@ -109,4 +109,19 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- `ccp/pkgdocs.py`: one helper, `_is_doc(cfg, f)`, true for the product's `doc_name` or the name `doc_for`
+  gives the file's directory (`CLAUDE.md` in a listed one). `source_dirs`' `source(f)` and `_source_lines`
+  both use it. `doc_name` stays excluded everywhere, as before (a `.claude.md` in a listed directory is
+  not counted either); an unlisted directory's `CLAUDE.md` is still a `.md` source file.
+- `docs/delivery/plane.json`: `scripts/git-hooks` added to `claude_md_dirs`, in sorted place.
+- Premises re-run at `aaa81b2`: two `f.name != pd["doc_name"]` sites, the 8-line doc, one
+  `half its directory` line in the SPEC: as the task states.
+- `ccp` on PATH runs the run checkout, so before release `ccp --root . docs check` shows the old
+  failure (`8 lines against 8 of source`); `bin/ccp` of the worktree prints `docs: clean`.
+- Fix round 1 (review MINOR): the one test holding all three Scope cases is now three, so `unittest -v`
+  lists each. A small `check_listed` helper in the test module builds the product, once from files and once
+  from a checkout, and yields the errors. No code change.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #244 head `f303fb7` (squash `942df9f`): APPROVE. Passed: pd-01, pd-02, pd-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp wt exec ver-0206 -- --root . docs check` exit 0. Record: verification/0206-package-doc-is-not-its-own-source.json.
+
