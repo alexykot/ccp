@@ -24,7 +24,7 @@ class LocalHost(ToolkitFixture, unittest.TestCase):
         nogh = mock.patch.dict(os.environ, {"CCP_GH_BIN": str(Path(self._tmp.name) / "no-such-gh")})
         nogh.start()
         self.addCleanup(nogh.stop)
-        self.wt = self.main / ".plane-runtime" / "impl-0002"
+        self.wt = self.main / config.WORKTREES_DIR / "impl-0002"
 
     def cfg(self) -> config.Config:
         return config.load(self.runner)

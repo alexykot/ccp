@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, runs, tasklog, wt
-from tests.helpers import Product
+from tests.helpers import Product, binding
 
 PLANE = Path(__file__).resolve().parents[1]
 PLUGIN = PLANE / "plugin"
@@ -180,7 +180,7 @@ class Lookup(unittest.TestCase):
         self.q = self.plane / "queue"
         self.q.mkdir()
         (self.plane / "projects").mkdir()
-        (self.plane / "projects/demo.yaml").write_text(f"project_id: demo\nproduct_root: {self.p.root}\nqueue_root: {self.q}\n")
+        (self.plane / "projects/demo.yaml").write_text(binding(product_root=self.p.root, queue_root=self.q))
 
     def tearDown(self):
         self.p.cleanup()
@@ -208,11 +208,11 @@ class Lookup(unittest.TestCase):
         real = str((self.plane / "projects/demo.yaml").resolve())
         self.assertEqual(self.where({"CCP_NO_BINDING_QUEUE": "0"})["binding"], real)
         self.assertEqual(self.where({})["binding"], real)  # no queue: still named
-        (self.plane / "projects/demo.yaml").write_text(f"project_id: demo\nproduct_root: /elsewhere\nqueue_root: {self.q}\n")
+        (self.plane / "projects/demo.yaml").write_text(binding(product_root="/elsewhere", queue_root=self.q))
         self.assertIsNone(self.where({})["binding"])
 
     def test_a_scratch_clone_naming_a_live_project_gets_nothing(self):
-        (self.plane / "projects/demo.yaml").write_text(f"project_id: demo\nproduct_root: /elsewhere\nqueue_root: {self.q}\n")
+        (self.plane / "projects/demo.yaml").write_text(binding(product_root="/elsewhere", queue_root=self.q))
         self.assertIsNone(self.where({"CCP_NO_BINDING_QUEUE": "0"})["queue_root"])
 
     def test_a_project_id_cannot_walk_out_of_projects(self):
@@ -413,7 +413,7 @@ class SyncInPluginMode(unittest.TestCase):
             mine.parent.mkdir(parents=True)
             mine.write_text("my own runner, no header\n")
             yml = Path(d) / "demo.yaml"
-            yml.write_text(f"project_id: demo\nproduct_root: {root}\n")
+            yml.write_text(binding(product_root=root))
             sync = [str(PLANE / "scripts/sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--allow-dirty"]
             r = run(["bash", *sync[0:1], *sync[1:], "--check"])
             self.assertIn("DRIFT docs/delivery/REVIEW-TRIAGE.md: retired", r.stdout, r.stdout + r.stderr)
@@ -468,7 +468,7 @@ class SyncFlagsStaleHookEntries(unittest.TestCase):
             (root / ".claude/settings.local.json").write_text(json.dumps({"hooks": {"TeammateIdle": [{"hooks": [
                 {"type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/runner-idle.sh --queue-root /q"}]}]}}))
             yml = Path(d) / "demo.yaml"
-            yml.write_text(f"project_id: demo\nproduct_root: {root}\n")
+            yml.write_text(binding(product_root=root))
             r = run(["bash", str(PLANE / "scripts/sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--check"])
             self.assertIn("DRIFT .claude/settings.local.json: stale_hooks", r.stdout, r.stdout + r.stderr)
 
@@ -484,7 +484,7 @@ class BindingNeedsNoChange(unittest.TestCase):
         p = Product()
         try:
             with tempfile.TemporaryDirectory() as q:
-                Path(q, "project.yaml").write_text(f"project_id: demo\nproduct_root: {p.root}\n")
+                Path(q, "project.yaml").write_text(binding(product_root=p.root))
                 self.assertEqual(team.runner_cfg(Path(q))["agent_type"], "ccp:delivery-runner")
                 self.assertEqual(Path(sm.protocol_doc_path({}, Path(q))), PLUGIN / "skills/spec-maintainer/SKILL.md")
                 p.write(".claude/agents/delivery-runner.md", "---\nname: delivery-runner\n---\n")

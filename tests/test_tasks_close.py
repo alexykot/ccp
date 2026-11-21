@@ -12,7 +12,7 @@ if __name__ == "__main__":  # run as a script: the checkout's root is the import
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import tests  # noqa: F401
 
-from ccp import lifecycle, prhost  # noqa: E402
+from ccp import config, lifecycle, prhost  # noqa: E402
 from tests.test_toolkit import PLANE, ToolkitFixture, git  # noqa: E402
 
 
@@ -33,7 +33,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self.assertEqual(git(self.main, "rev-parse", "origin/main"), body["reconcile_sha"])
         self.assertTrue(git(self.main, "log", "-1", "--format=%s", "origin/main").startswith("Reconcile 0002"))
         self.assertIn("status: done", git(self.main, "show", "origin/main:docs/delivery/tasks/0002-second.md"))
-        self.assertFalse((self.main / ".plane-runtime" / "merge-0002").exists())
+        self.assertFalse((self.main / config.WORKTREES_DIR / "merge-0002").exists())
 
     def test_close_from_the_runner_worktree_ends_it_at_the_reconcile_and_leaves_the_main_checkout(self):
         self._to_approved_pr()
@@ -58,7 +58,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", root=self.main)
         self.assertEqual(code, 1, out + err)
         self.assertEqual(self._state(self.main), before)
-        merge_wt = self.main / ".plane-runtime" / "merge-0002"
+        merge_wt = self.main / config.WORKTREES_DIR / "merge-0002"
         self.assertTrue((merge_wt / "hook-ran").exists())  # the half-done reconcile is in close's own worktree
         cfg["reconcile"]["hooks"] = []
         (self.main / "docs/delivery/plane.json").write_text(json.dumps(cfg))
@@ -112,14 +112,14 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
 
     def test_a_merge_worktree_path_taken_by_something_else_stops_the_reconcile_and_touches_nothing(self):
         self._to_approved_pr()
-        (self.main / ".plane-runtime" / "merge-0002").mkdir(parents=True)
-        (self.main / ".plane-runtime" / "merge-0002" / "keep.txt").write_text("not ours\n")
+        (self.main / config.WORKTREES_DIR / "merge-0002").mkdir(parents=True)
+        (self.main / config.WORKTREES_DIR / "merge-0002" / "keep.txt").write_text("not ours\n")
         before = self._state(self.main)
         code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7", root=self.main)
         self.assertEqual(code, 1, out + err)
         self.assertIn("merge-0002", err)
         self.assertEqual(self._state(self.main), before)
-        self.assertEqual((self.main / ".plane-runtime" / "merge-0002" / "keep.txt").read_text(), "not ours\n")
+        self.assertEqual((self.main / config.WORKTREES_DIR / "merge-0002" / "keep.txt").read_text(), "not ours\n")
         self.assertFalse(git(self.main, "log", "-1", "--format=%s", "origin/main").startswith("Reconcile"))
 
     def test_without_a_worktrees_dir_the_reconcile_is_made_in_the_checkout_close_runs_from(self):
@@ -146,7 +146,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self._to_approved_pr()
         code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(cwd.read_text().strip(), str((self.main / ".plane-runtime" / "merge-0002").resolve()))
+        self.assertEqual(cwd.read_text().strip(), str((self.main / config.WORKTREES_DIR / "merge-0002").resolve()))
 
     def test_the_reconcile_hooks_see_the_worktrees_links_paths(self):
         seen = self.main.parent / "hook-seen"
@@ -172,7 +172,7 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self._to_approved_pr()
         code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", "7")
         self.assertEqual(code, 1, out + err)
-        merge_wt = self.main / ".plane-runtime" / "merge-0002"
+        merge_wt = self.main / config.WORKTREES_DIR / "merge-0002"
         code, _, out, err = self.ccp("wt", "list", "--task", "0002")
         self.assertEqual(code, 0, err)
         listed = {r["name"]: r for r in json.loads(out)}
@@ -251,7 +251,7 @@ class CloseNamesCarriedChecks(ToolkitFixture, unittest.TestCase):
 
     def test_the_verification_line_names_the_checks_carried_from_an_earlier_approval(self):
         head = self._to_approved_pr()
-        earlier = git(self.main / ".plane-runtime" / "impl-0002", "rev-parse", "HEAD~1")
+        earlier = git(self.main / config.WORKTREES_DIR / "impl-0002", "rev-parse", "HEAD~1")
         rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
         rec.update(task_id="0002-second", head_sha=head)
         rec.pop("checked_at", None)

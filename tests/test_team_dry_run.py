@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from ccp import config
 from tests.test_review_points import REGISTER, _tagged
 from tests.test_team_hosting import TeamCase
 
@@ -104,8 +105,8 @@ class TestSpawnDryRun(TeamCase):
         code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
         self.assertEqual(code, 0, err)
         self.assertEqual((res["ready"], self.check(res, "runner_worktree")["ok"]), (True, True))
-        self.assertFalse((self.prod.root / ".plane-runtime").exists())
-        self.prod.write(".plane-runtime/runner/stray.txt", "x")
+        self.assertFalse((self.prod.root / config.WORKTREES_DIR).exists())
+        self.prod.write(f"{config.WORKTREES_DIR}/runner/stray.txt", "x")
         code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
         self.assertEqual(code, 1, err)
         self.assertEqual((res["ready"], self.check(res, "runner_worktree")["ok"]), (False, False))
@@ -150,7 +151,7 @@ class TestSpawnNeedsTheIntegrationRef(TeamCase):
                         "runner-2": {"bound_name": "runner-2", "tasks_done": 0}}}))
 
     def made(self):
-        runtime = self.prod.root / ".plane-runtime"  # the derived runner worktree is `runner` under it (§8.3)
+        runtime = self.prod.root / config.WORKTREES_DIR  # the derived runner worktree is `runner` under it (§8.3)
         return [p.name for p in runtime.iterdir()] if runtime.is_dir() else []
 
     def test_one_runner_refuses_dry_run_and_real(self):
@@ -173,7 +174,7 @@ class TestSpawnNeedsTheIntegrationRef(TeamCase):
     def test_an_existing_runner_worktree_needs_no_ref(self):
         self.origin(push=False)
         from tests.test_toolkit import git  # noqa: PLC0415
-        git(self.prod.root, "worktree", "add", "-q", "--detach", str(self.prod.root / ".plane-runtime" / "runner"), "HEAD")
+        git(self.prod.root, "worktree", "add", "-q", "--detach", str(self.prod.root / config.WORKTREES_DIR / "runner"), "HEAD")
         code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
         self.assertEqual(code, 0, err)
         self.assertTrue(self.check(res, "runner_worktree")["ok"])
@@ -191,7 +192,7 @@ class TestSpawnNeedsTheIntegrationRef(TeamCase):
         code, _res, err = self.team("runner", "spawn", "--scope", "0001-a")
         self.assertEqual(code, 0, err)
         self.assertEqual(self.made(), ["runner"])
-        self.assertEqual(git(self.prod.root / ".plane-runtime" / "runner", "rev-parse", "HEAD"),
+        self.assertEqual(git(self.prod.root / config.WORKTREES_DIR / "runner", "rev-parse", "HEAD"),
                          git(self.prod.root, "rev-parse", "main"))
 
     def check(self, res, name):

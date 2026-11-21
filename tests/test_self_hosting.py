@@ -8,6 +8,8 @@ import sys
 import unittest
 from pathlib import Path
 
+from tests.helpers import binding
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -83,7 +85,7 @@ class ReviewFixes(unittest.TestCase):
             q = self.tmp / f"q-{name}"
             (q / "board").mkdir(parents=True)
             (q / "board/usage-requests.jsonl").write_text("{}\n")
-            (b / f"{name}.yaml").write_text(f"project_id: {name}\nproduct_root: {root}\nqueue_root: {q}\n")
+            (b / f"{name}.yaml").write_text(binding(project_id=name, product_root=root, queue_root=q))
             qs[name] = q
         with mock.patch.dict(os.environ, {"CCP_BINDINGS_DIR": str(b), "CCP_TELEMETRY_DIR": str(sink)}):
             plane_paths, sink_paths = forecast.telemetry_paths(qs["prod"])

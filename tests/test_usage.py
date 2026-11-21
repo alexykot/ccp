@@ -12,8 +12,8 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli, otel, usage
-from tests.helpers import Product
+from ccp import cli, config, otel, usage
+from tests.helpers import Product, binding
 
 PLANE = Path(__file__).resolve().parents[1]
 
@@ -58,7 +58,7 @@ class Receiver(unittest.TestCase):
         self.q = d / "queue"
         self.q.mkdir()
         (d / "projects").mkdir()
-        (d / "projects/demo.yaml").write_text(f"project_id: demo\nqueue_root: {self.q}\n")
+        (d / "projects/demo.yaml").write_text(binding(queue_root=self.q))
         self.sys = d / "telemetry"
         self.patch = mock.patch.dict(os.environ, {"CCP_BINDINGS_DIR": str(d / "projects"),
                                                   "CCP_TELEMETRY_DIR": str(self.sys),
@@ -144,7 +144,7 @@ class Fold(unittest.TestCase):
     def setUp(self):
         self._d = tempfile.TemporaryDirectory()
         self.q = Path(self._d.name)
-        (self.q / "project.yaml").write_text("project_id: demo\n")
+        (self.q / "project.yaml").write_text(binding())
         (self.q / "board").mkdir()
         self.mkrun("0001-a/implement", "implementer", "claude-opus-5-5", "high", agent="a1", start=0, stop=100)
         self.mkrun("0001-a/review", "reviewer", "claude-sonnet-5-5", "high", agent=None, start=200, stop=300)
@@ -218,12 +218,12 @@ class Fold(unittest.TestCase):
     def test_every_runner_slots_worktree_is_the_runner_seat(self):
         """§16.7: with several runners, each slot's own checkout (`<the runner's worktree>-<slot>`) is the runner seat."""
         root = Path(self._d.name) / "prod"
-        (root / ".plane-runtime").mkdir(parents=True)
-        (self.q / "project.yaml").write_text(f"project_id: demo\nproduct_root: {root}\n")
+        (root / config.WORKTREES_DIR).mkdir(parents=True)
+        (self.q / "project.yaml").write_text(binding(product_root=root))
         (self.q / "work.json").write_text(json.dumps({"runners": {"runner-1": {}, "runner-2": {"worktree": "x2"}}}))  # relative
         main = dict(source="repl_main_thread")
         self.write("usage-requests.jsonl", self.rows(
-            req("a", 1, session__id="s1", cwd=f"{root}/.plane-runtime/runner-runner-1", out=5, **main),
+            req("a", 1, session__id="s1", cwd=f"{root}/{config.WORKTREES_DIR}/runner-runner-1", out=5, **main),
             req("b", 2, session__id="s2", cwd=f"{root}/x2", out=6, **main)))
         self.write("usage-spans.jsonl", [{"request_id": "a"}, {"request_id": "b"}])
         r = usage.fold(self.q)
@@ -277,17 +277,17 @@ class Fold(unittest.TestCase):
         """§24: headless sessions (and their subagents) are their kind's seat; calls without an agent_id go by
         their session's cwd: the product root is the design seat, the runner's checkout the runner, else other-sessions."""
         root = Path(self._d.name) / "prod"
-        (root / ".plane-runtime/runner").mkdir(parents=True)
+        (root / config.WORKTREES_DIR / "runner").mkdir(parents=True)
         (root / "scratch-wt").mkdir()
-        (self.q / "project.yaml").write_text(f"project_id: demo\nproduct_root: {root}\n")
+        (self.q / "project.yaml").write_text(binding(product_root=root))
         usage.record_headless(self.q, "architect-pass", "ar-1", {"session_id": "hs-0001"})
         main = dict(source="repl_main_thread")
         self.write("usage-requests.jsonl", self.rows(
             req("h1", 1, session__id="hs-0001", cwd=str(root), **main),            # the headless pass itself
             req("h2", 2, session__id="hs-0001", cwd=str(root)),                    # its subagent
             req("d1", 3, session__id="docs-0001", cwd=str(root), seat="docs-audit", **main),  # tagged by ccp.seat
-            req("r1", 4, session__id="run-0001", cwd=f"{root}/.plane-runtime/runner", model="claude-sonnet-5-5", out=7, **main),
-            req("w1", 10, session__id="run-0001", cwd=f"{root}/.plane-runtime/runner"),  # a worker inside the runner
+            req("r1", 4, session__id="run-0001", cwd=f"{root}/{config.WORKTREES_DIR}/runner", model="claude-sonnet-5-5", out=7, **main),
+            req("w1", 10, session__id="run-0001", cwd=f"{root}/{config.WORKTREES_DIR}/runner"),  # a worker inside the runner
             req("s1", 5, session__id="adhoc-001", cwd=f"{root}/scratch-wt", model="claude-haiku-5-5", out=11, **main),
             req("l1", 6, session__id="lead-0001", cwd=str(root), model="claude-opus-5-5", effort="xhigh", out=3, **main)))
         self.write("usage-spans.jsonl", [{"request_id": "h1"}, {"request_id": "h2", "agent_id": "a-sub"},
@@ -351,8 +351,8 @@ class SessionRouting(unittest.TestCase):
         self.demoq.mkdir()
         (d / "projects").mkdir()
         (d / "projects/example-product.yaml").write_text(
-            f"project_id: example-product\nproduct_root: {d / 'link/real/Product'}\nqueue_root: {self.prodq}\n")
-        (d / "projects/demo.yaml").write_text(f"project_id: demo\nqueue_root: {self.demoq}\n")
+            binding(project_id="example-product", product_root=d / "link/real/Product", queue_root=self.prodq))
+        (d / "projects/demo.yaml").write_text(binding(queue_root=self.demoq))
         self.claude = d / "claude-projects"
         self.claude.mkdir()
         self.sys = d / "telemetry"
@@ -402,14 +402,14 @@ class SessionRouting(unittest.TestCase):
                          ("example-product", "session", str(self.real), "r1"))
         # And the other way round: a transcript under the symlink, a binding on the real path.
         (self.d / "projects/example-product.yaml").write_text(
-            f"project_id: example-product\nproduct_root: {self.real}\nqueue_root: {self.prodq}\n")
+            binding(project_id="example-product", product_root=self.real, queue_root=self.prodq))
         self.sink._binds = None
         transcript(self.claude, self.d / "link/real/Product", "sess-ex-0002")
         self.post("/v1/logs", logs(None, req("r2", 2, session__id="sess-ex-0002")))
         self.assertEqual([r["request_id"] for r in self.rows(self.prodq)], ["r1", "r2"])
 
     def test_a_worktree_under_the_root_and_a_git_worktree_elsewhere_route_to_the_project(self):
-        wt = self.real / ".plane-runtime" / "impl-0233"
+        wt = self.real / config.WORKTREES_DIR / "impl-0233"
         wt.mkdir(parents=True)
         transcript(self.claude, wt, "sess-wt-0001")
         gitwt = self.real / ".git" / "worktrees" / "spike"
@@ -516,7 +516,7 @@ class SessionRouting(unittest.TestCase):
         transcript(self.claude, other, "sess-other-1")
         self.post("/v1/logs", logs(None, req("r1", 1, session__id="sess-other-1")))
         self.assertEqual(len(self.system_rows()), 1)
-        (self.d / "projects/other.yaml").write_text(f"project_id: other\nproduct_root: {other}\nqueue_root: {self.demoq}\n")
+        (self.d / "projects/other.yaml").write_text(binding(project_id="other", product_root=other, queue_root=self.demoq))
         self.post("/v1/logs", logs(None, req("r2", 2, session__id="sess-other-1")))
         self.assertEqual(len(self.system_rows()), 2, "within the bindings TTL the cached route holds")
         self.sink._binds_at -= self.sink.bindings_ttl
@@ -605,7 +605,7 @@ class OtelCli(unittest.TestCase):
 
     def test_env_for_a_project_splits_the_project_and_user_blocks(self):
         with tempfile.TemporaryDirectory() as d:
-            (Path(d) / "demo.yaml").write_text("project_id: demo\nproduct_root: /work/demo\n")
+            (Path(d) / "demo.yaml").write_text(binding(product_root="/work/demo"))
             with mock.patch.dict(os.environ, {"CCP_BINDINGS_DIR": d}):
                 out, err = io.StringIO(), io.StringIO()
                 with redirect_stdout(out), redirect_stderr(err):
@@ -770,7 +770,7 @@ class OtelCli(unittest.TestCase):
             root = Path(d) / "prod"
             (root / ".claude").mkdir(parents=True)
             yml = Path(d) / "demo.yaml"
-            yml.write_text(f"project_id: demo\nproduct_root: {root}\n")
+            yml.write_text(binding(product_root=root))
             sync = ["bash", str(PLANE / "scripts/sync-product-docs.sh"), "demo", "--project-yaml", str(yml), "--check"]
             (root / ".claude/settings.json").write_text(json.dumps({"enabledPlugins": {"ccp@ccp": True}}))
             clean = subprocess.run(sync, capture_output=True, text=True)

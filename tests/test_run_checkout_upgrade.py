@@ -10,6 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.helpers import binding
 from tests.test_sync_on_release import GIT_ENV, PLANE, SCRIPT, git, run
 
 TASK = """---
@@ -102,7 +103,7 @@ class ReleaseLeavesAnUpgradeNotice(unittest.TestCase):
         git(root, "commit", "-qm", "conforming")
         q.mkdir(parents=True)
         (self.run_dir / "projects" / f"{name}.yaml").write_text(
-            f"project_id: {name}\nintegration_branch: main\nproduct_root: {root}\nqueue_root: {q}\n")
+            binding(project_id=name, integration_branch="main", product_root=root, queue_root=q))
         return root, q
 
     def ccp(self, root: Path, q: Path, *args: str) -> subprocess.CompletedProcess:

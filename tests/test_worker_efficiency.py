@@ -9,7 +9,7 @@ import re
 import unittest
 from pathlib import Path
 
-from ccp import otel, prompt, runs, usage
+from ccp import config, otel, prompt, runs, usage
 from tests.test_toolkit import PLANE, git
 from tests.test_verify_cache import CacheFixture
 
@@ -106,7 +106,7 @@ class Templates(unittest.TestCase):
 
     def test_review_and_verify_report_before_removing_their_checkout(self):
         for phase in ("review", "verify"):
-            text = render(phase, own_worktree="/m/.plane-runtime/rev-0002", worktree_links="")
+            text = render(phase, own_worktree=f"/m/{config.WORKTREES_DIR}/rev-0002", worktree_links="")
             self.assertNotIn("Remove it when you are done", text, phase)
             self.assertIn("Remove it last, after `ccp report` has accepted your report, with", text)
             self.assertIn("(run `report` from inside it first", text)

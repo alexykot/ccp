@@ -11,7 +11,7 @@ import time
 import unittest
 from pathlib import Path
 
-from tests.helpers import Product
+from tests.helpers import Product, binding
 
 PLANE = Path(__file__).resolve().parents[1]
 TEAM = PLANE / "scripts" / "team.sh"
@@ -30,9 +30,7 @@ class TeamCase(unittest.TestCase):
         self.prod.write("docs/delivery/REVIEW-TRIAGE.md", "# triage\n")
         self._q = tempfile.TemporaryDirectory()
         self.q = Path(self._q.name)
-        (self.q / "project.yaml").write_text(
-            "project_id: demo\n"
-            f"product_root: {self.prod.root}\n")
+        (self.q / "project.yaml").write_text(binding(product_root=self.prod.root))
         (self.q / "work.json").write_text(json.dumps({"project_id": "demo", "status": "idle"}))
         (self.q / "tasks").mkdir()
         for tid in ("0001-a", "0002-b"):  # claimed tasks have a runtime file (the runner writes it at claim)
@@ -678,7 +676,7 @@ class TestKeepBodyImport(unittest.TestCase):
         self.addCleanup(prod.cleanup)
         q = tempfile.TemporaryDirectory()
         self.addCleanup(q.cleanup)
-        (Path(q.name) / "project.yaml").write_text(f"project_id: demo\nproduct_root: {prod.root}\n")
+        (Path(q.name) / "project.yaml").write_text(binding(product_root=prod.root))
         with mock.patch.object(sys, "path", list(sys.path)):
             spec = importlib.util.spec_from_file_location("team_keep_body", PLANE / "scripts/observability/team.py")
             team = importlib.util.module_from_spec(spec)

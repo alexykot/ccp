@@ -10,6 +10,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.helpers import binding
+
 PLANE = Path(__file__).resolve().parents[1]
 SCRIPT = str(PLANE / "scripts/run-checkout.sh")
 GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
@@ -84,7 +86,7 @@ class ReleaseChecksProducts(unittest.TestCase):
 
     def bind(self, name: str, root: Path, branch: str = "main") -> None:
         (self.run_dir / "projects" / f"{name}.yaml").write_text(
-            f"project_id: {name}\nproduct_root: {root}  # the checkout\nintegration_branch: '{branch}'\n")
+            binding(project_id=name, product_root=f"{root}  # the checkout", integration_branch=f"'{branch}'"))
 
     def update(self) -> subprocess.CompletedProcess:
         r = run([SCRIPT, "update"], env=self.env)

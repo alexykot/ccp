@@ -9,7 +9,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ccp import otel, usage
+from ccp import config, otel, usage
+from tests.helpers import binding
 from tests.test_team_hosting import TeamCase
 from tests.test_usage import req
 
@@ -26,9 +27,9 @@ class RunnerSeatModel(unittest.TestCase):
         self._d = tempfile.TemporaryDirectory()
         self.q = Path(self._d.name) / "queue"
         root = Path(self._d.name) / "prod"
-        (root / ".plane-runtime/runner").mkdir(parents=True)
+        (root / config.WORKTREES_DIR / "runner").mkdir(parents=True)
         (self.q / "board").mkdir(parents=True)
-        (self.q / "project.yaml").write_text(f"project_id: demo\nproduct_root: {root}\n")
+        (self.q / "project.yaml").write_text(binding(product_root=root))
         self.root = root
 
     def tearDown(self):
@@ -43,9 +44,9 @@ class RunnerSeatModel(unittest.TestCase):
         model, other = declared_model(), "claude-other-9-9"
         self.assertNotEqual(model, other)
         rows = [req("t1", 1, model=model, out=40),                                     # the runner teammate
-                req("h1", 2, model=other, source="sdk", session__id="hs-1", cwd=f"{self.root}/.plane-runtime/runner", out=7),
+                req("h1", 2, model=other, source="sdk", session__id="hs-1", cwd=f"{self.root}/{config.WORKTREES_DIR}/runner", out=7),
                 req("m1", 3, model=model, source="repl_main_thread", session__id="rs-1",  # a session in its checkout
-                    cwd=f"{self.root}/.plane-runtime/runner", out=5)]
+                    cwd=f"{self.root}/{config.WORKTREES_DIR}/runner", out=5)]
         self.write("usage-requests.jsonl", [{k.replace("__", "_"): v for k, v in r.items() if k != "t"}
                                             | {"at": otel._iso(r["t"])} for r in rows])
         self.write("usage-spans.jsonl", [{"request_id": "t1", "agent_id": "runner@session-abc"},

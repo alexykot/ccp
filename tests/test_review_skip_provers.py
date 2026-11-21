@@ -47,7 +47,7 @@ class ReviewProvers(ToolkitFixture, unittest.TestCase):
         self.log = t / "proof.log"
         os.environ.update(PROOF_BIN=str(t / "proof"), PROOF_LOG=str(self.log))  # the fixture's env patch restores it
         self.ccp("tasks", "claim", "0002")
-        self.wt = self.main / ".plane-runtime" / "impl-0002"  # the claim made it, on task/0002-second
+        self.wt = self.main / config.WORKTREES_DIR / "impl-0002"  # the claim made it, on task/0002-second
 
     def plane(self, body: dict, **files: str) -> None:
         """plane.json on the integration branch, where `ccp` reads the skip rules, with `files` (a path with

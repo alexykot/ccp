@@ -14,7 +14,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
 from ccp import cli, config
-from tests.helpers import Product, machine_file
+from tests.helpers import Product, binding, machine_file
 from tests.test_notify import PLANE, ChannelFixture
 from tests.test_toolkit import ToolkitFixture
 
@@ -277,7 +277,7 @@ class Gates(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.q = Path(tmp.name) / "queue"
         (self.q / "tasks").mkdir(parents=True)
-        (self.q / "project.yaml").write_text(f"project_id: demo\nproduct_root: {self.prod.root}\n")
+        (self.q / "project.yaml").write_text(binding(product_root=self.prod.root))
         (self.q / "work.json").write_text(json.dumps({"project_id": "demo", "status": "idle"}))
         (self.q / "tasks/0001-a.json").write_text(json.dumps({"task_id": "0001-a", "waiting_on": None}))
         self.env = {**os.environ, "QUEUE_ROOT": str(self.q)}

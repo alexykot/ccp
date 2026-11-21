@@ -15,8 +15,8 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import architect, cli
-from tests.helpers import Product
+from ccp import architect, cli, config
+from tests.helpers import Product, binding
 
 STUB = """#!/usr/bin/env bash
 # Stub claude: answer with the report in $DA_STUB_REPORT, as `claude -p --output-format json` would.
@@ -76,8 +76,7 @@ class Harness(unittest.TestCase):
         git(self.p.root, "commit", "-qm", "init")
         self._q = tempfile.TemporaryDirectory()
         self.q = Path(self._q.name)
-        (self.q / "project.yaml").write_text(
-            f"project_id: demo\nproduct_root: {self.p.root}\n")
+        (self.q / "project.yaml").write_text(binding(product_root=self.p.root))
         stub = self.q / "claude-stub"
         stub.write_text(STUB)
         stub.chmod(0o755)
@@ -522,7 +521,7 @@ class ThePassRunsInItsOwnWorktree(Harness):
         return Path(f"{self.report}.{name}").read_text()
 
     def own(self, rid: str) -> Path:
-        return (self.p.root / ".plane-runtime" / f"arch-{rid}").resolve()
+        return (self.p.root / config.WORKTREES_DIR / f"arch-{rid}").resolve()
 
     def plane(self, **blocks):
         pj = self.p.root / "docs/delivery/plane.json"
@@ -625,7 +624,7 @@ class ThePassRunsInItsOwnWorktree(Harness):
         self.assertEqual(json.loads(self.stub("reads")), ["one\n", "one\n"])
 
     def test_a_worktree_that_cannot_be_made_fails_the_pass(self):
-        self.p.write(".plane-runtime", "a file where the worktree directory goes\n")
+        self.p.write(config.WORKTREES_DIR, "a file where the worktree directory goes\n")
         self.stub_report([])
         code, res, _ = self.dpj("architect", "run", "--force")
         self.assertEqual((code, res["outcome"]), (1, "failed"), res)
