@@ -1,7 +1,7 @@
 ---
 task_id: 0207-sync-product-docs-finds-the-binding-through-lib
 title: scripts/sync-product-docs.sh finds a product's binding through the one binding module
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S8", "S9"]
@@ -10,7 +10,7 @@ review_point: R14
 paths: ["scripts/sync-product-docs.sh", "tests/test_binding_reader.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0207-sync-product-docs-finds-the-binding-through-lib
@@ -98,3 +98,5 @@ Measured at `58cf1d0`.
 - The premise figures held at `56c65cc`: one `"projects"` line, 23 tests in the module before the change.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #246 head `12ae8f2` (squash `b864812`): APPROVE. Passed: sy-01, sy-02, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0207-sync-product-docs-finds-the-binding-through-lib.json.
+
