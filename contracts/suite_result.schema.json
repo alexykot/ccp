@@ -46,6 +46,7 @@
       }
     },
     "failed_stage": {"type": ["string", "null"], "description": "SPEC \u00a714.2: set by ccp: the stage whose non-zero exit stopped the run, the first stage a signal kept from starting, or null."},
+    "head": {"type": "string", "description": "SPEC \u00a714.4: set by ccp, not the command, on the run's `started` row: the `HEAD` commit of the git checkout the run started in, recorded only when that checkout has nothing to commit (as `tree` is), so a run of a check marked `runs_on: operator-machine` names the head it ran at (\u00a710.2; `ccp prompt verify` looks for a passed run at the head it is given, \u00a713.2). Absent otherwise. A command's own value is ignored."},
     "cold": {"type": ["boolean", "null"], "description": "SPEC \u00a714.6: set by ccp, not the command: true when the run counted nothing cached (cached 0), false when any unit was cached, null when it gave no cached count. A command's own value is ignored."}
   }
 }

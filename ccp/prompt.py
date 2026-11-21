@@ -34,6 +34,9 @@ a head behind by a clean merge is reviewed.
 full review (§13.2): refused, exit 2, nothing opened, without a done review, over a round that is not a merge
 round, for a head that is not a merge commit or whose resolution is empty; any other phase refuses `--mode`.
 The verify that follows a contained resolution review lists the checks it names to rerun (§15.6 rule 3).
+The implement and verify prompts list the checks marked `runs_on: operator-machine` as not the worker's to run; a
+verify is refused, exit 1, nothing opened, while one has no passed suite run at the head, unless it rests on an
+earlier approve or a ruling `--waived` names (§10.2, §13.2).
 
 `ccp prompt env <worktree>` renders the product's `prompts.worker_env` for a worktree `ccp wt` recorded and
 prints the `export` lines its workers would get, opening no run and writing nothing (§13.3).
@@ -510,6 +513,123 @@ def tip_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> list[str]:
                      f"tip in first: {merge_in}, then verify the new head (SPEC §13.2, §16.5 rule 4)", 4)
 
 
+def marked_checks(meta: dict[str, Any]) -> list[str]:
+    """§13.2: the task's dod_checks marked `runs_on: operator-machine` (§5.5), in order: not the worker's to run."""
+    return [c.id for c in tasklog.checks(str(meta.get("_text") or "")) if c.on_operator_machine]
+
+
+def parse_waived(values: list[str] | None) -> dict[str, str]:
+    """`--waived <check_id>=<ruling id>` (repeatable), by check id; exit 2 for one that is not in that form."""
+    out: dict[str, str] = {}
+    for v in values or []:
+        cid, sep, ruling = str(v).partition("=")
+        if not sep or not cid.strip() or not ruling.strip():
+            raise QueueError(f"--waived {v!r}: give it as <check_id>=<ruling id> (SPEC §15.4)", 2)
+        out[cid.strip()] = ruling.strip()
+    return out
+
+
+def check_run(suites: list[dict[str, Any]], check_id: str, tid: str, head: str) -> tuple[str | None, str]:
+    """§10.2: the suite id of the latest passed run (`suite.fold`'s `passed`) of the lane `check_id`, bound to
+    `tid`, whose recorded `head` (§14.4) is `head`, and ""; with none, None and why: no such run, its latest run at
+    the head did not pass, or its runs ran at another head (or recorded none: a checkout with something to commit)."""
+    mine = [s for s in suites if s.get("lane") == check_id and s.get("task_id") == tid]
+    at = [s for s in mine if verify.heads_match(str(s.get("head") or ""), head)]
+    passed = [s for s in at if s.get("state") == "passed"]
+    if passed:
+        return str(passed[-1]["suite_id"]), ""
+    if at:
+        return None, f"its run {at[-1]['suite_id']} at the head is {at[-1].get('state') or 'unfinished'}"
+    if mine:
+        ran = str(mine[-1].get("head") or "")
+        return None, (f"its run {mine[-1]['suite_id']} ran at " + (ran[:12] if ran else "no recorded head (a checkout "
+                                                                     "with something to commit)") + ", not the head")
+    return None, "no suite run of its lane is recorded for the task"
+
+
+def carried_by(check_id: str, old: str, same_patch: bool, affected: list[str] | None) -> bool:
+    """§15.6 rule 3, ADR-0045 D2: a marked check rests on the task's latest approve at `old`, so it needs no run at
+    the new head, when a contained resolution review judged the head and its `affected` checks do not name it, or,
+    with no such review (`affected` None), when the PR's own change is unchanged since `old` (`same_patch`: the
+    head moved only by an integration merge). Never without an approve."""
+    if not old:
+        return False
+    if affected is not None:
+        return check_id not in affected
+    return same_patch
+
+
+def _resolution_at(q: Path, tid: str, head: str) -> tuple[dict[str, Any] | None, str]:
+    """§15.6 rule 3: the task's latest review that reported done when it is a resolution review that judged `head`
+    and found the resolution `contained` (else None), and the head of the task's latest approve ("" with none)."""
+    rs = [r for r in runs.all_runs(q, tid) if runs.state(r) != "abandoned"]
+    done = [r for r in rs if r.get("phase") == "review" and runs.state(r) == "reported" and r.get("outcome") == "done"]
+    last = done[-1] if done else None
+    approves = [r for r in runs.all_runs(q, tid) if r.get("phase") == "verify" and r.get("verdict") == "approve"
+                and r.get("head")]
+    old = str(approves[-1]["head"]) if approves else ""
+    if not last or last.get("mode") != "resolution" or last.get("resolution") != "contained" \
+            or not verify.heads_match(str(last.get("head") or ""), head):
+        return None, old
+    return last, old
+
+
+def marked_gate(q: Path, tid: str, phase: str, a: Any, meta: dict[str, Any]) -> list[str]:
+    """§10.2, §13.2, ADR-0045 D2: a verify is refused (exit 1, nothing opened) while a check marked `runs_on:
+    operator-machine` has no passed suite run of its lane, bound to the task, at the head (`check_run`), unless it
+    rests on the task's latest approve (`carried_by`) or `--waived <check_id>=<ruling id>` names a ruling in the form
+    §15.4's `rests_on` accepts. Returns, for the verify prompt, one line per marked check saying what it rests on.
+    `--waived` is for verify only, and names a marked check of the task (exit 2 otherwise)."""
+    waived = parse_waived(getattr(a, "waived", None))
+    if phase != "verify":
+        if waived:
+            raise QueueError("--waived is for `ccp prompt verify` only", 2)
+        return []
+    marked = marked_checks(meta)
+    unknown = sorted(set(waived) - set(marked))
+    if unknown:
+        raise QueueError(f"--waived {', '.join(unknown)}: no check of {tid} marked `runs_on: operator-machine` has "
+                         "that id (SPEC §5.5)", 2)
+    if not marked:
+        return []
+    from ccp import suite  # noqa: PLC0415
+    head = str(a.head).strip()
+    suites = suite.fold(q)
+    facts: dict[str, Any] = {}  # read once, only when a check has no run at the head
+
+    def carries(cid: str) -> bool:
+        if not facts:
+            review, old = _resolution_at(q, tid, head)
+            facts.update(old=old, affected=[str(x) for x in review.get("affected_checks") or []] if review else None)
+            facts["same"] = bool(old) and review is None and (verify.heads_match(old, head) or runs.same_change(q, old, head))
+        return carried_by(cid, facts["old"], facts["same"], facts["affected"])
+
+    lines: list[str] = []
+    missing: list[str] = []
+    for cid in marked:
+        if cid in waived:
+            why = verify._ruling_refusal(q, waived[cid])  # noqa: SLF001  (§15.4's ruling form, as `rests_on` takes it)
+            if why is None:
+                lines.append(f"`{cid}`: waived by the ruling {waived[cid]}")
+            else:
+                missing.append(f"{cid}: --waived {waived[cid]} is not a ruling §15.4 accepts ({why})")
+            continue
+        sid, why = check_run(suites, cid, tid, head)
+        if sid:
+            lines.append(f"`{cid}`: the suite run {sid} at the head")
+        elif carries(cid):
+            lines.append(f"`{cid}`: rests on the approve at {facts['old']} (SPEC §15.6 rule 3)")
+        else:
+            missing.append(f"{cid}: {why}")
+    if missing:
+        raise QueueError(
+            f"a check marked `runs_on: operator-machine` has no passed suite run at the head {head[:12]}: "
+            + "; ".join(missing) + f". Run each in a mac worktree at the head (`ccp wt create --kind mac --task {tid} "
+            f"--sha {head}`) as `ccp suite run --lane <check_id> --task {tid} -- <the check's command>`, under the "
+            "task's approved operator gate, then ask again (SPEC §10.2, §13.2)", 1)
+    return lines
+
+
 def resolution_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> bool:
     """§13.2: `--mode resolution` opens a resolution review of a conflicted integration merge. True for it,
     False with no `--mode`. Refused (exit 2, nothing opened): any phase but review; a task with no review that
@@ -555,27 +675,25 @@ def resolution_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> bool:
     return True
 
 
-def resolution_verify(q: Path, tid: str, phase: str, head: str) -> dict[str, Any]:
+def resolution_verify(q: Path, tid: str, phase: str, head: str, marked: list[str] | None = None) -> dict[str, Any]:
     """§15.6 rule 3: the verify prompt's view of a contained resolution review: set when the task's latest
     review that reported `done` is a resolution review that judged `head` and found the resolution `contained`.
-    The checks it names to rerun, and the head of the task's latest approve (`old`) the other checks rest
-    on; with no approve yet, every check runs."""
+    The checks it names for the verifier to rerun, those it names that are `marked` `runs_on: operator-machine`
+    apart (§13.2: the runner's to run, not the verifier's), and the head of the task's latest approve (`old`) the
+    other checks rest on; with no approve yet, every check runs."""
     none: dict[str, Any] = {"resolved_verify": False, "resolution_run": "", "has_affected": False,
-                            "affected_checks": "", "has_old": False, "old_approve": ""}
+                            "affected_checks": "", "affected_marked": "", "has_old": False, "old_approve": ""}
     if phase != "verify":
         return none
-    rs = [r for r in runs.all_runs(q, tid) if runs.state(r) != "abandoned"]
-    done = [r for r in rs if r.get("phase") == "review" and runs.state(r) == "reported" and r.get("outcome") == "done"]
-    last = done[-1] if done else None
-    if not last or last.get("mode") != "resolution" or last.get("resolution") != "contained" \
-            or not verify.heads_match(str(last.get("head") or ""), head):
+    last, old = _resolution_at(q, tid, head)
+    if not last:
         return none
-    affected = [str(x) for x in last.get("affected_checks") or []]
-    approves = [r for r in runs.all_runs(q, tid) if r.get("phase") == "verify" and r.get("verdict") == "approve"
-                and r.get("head")]
-    old = str(approves[-1]["head"]) if approves else ""
+    named = [str(x) for x in last.get("affected_checks") or []]
+    affected = [c for c in named if c not in (marked or [])]
     return {"resolved_verify": True, "resolution_run": str(last["run_id"]), "has_affected": bool(affected),
-            "affected_checks": ", ".join(affected), "has_old": bool(old), "old_approve": old}
+            "affected_checks": ", ".join(affected),
+            "affected_marked": ", ".join(f"`{c}`" for c in named if c in (marked or [])),
+            "has_old": bool(old), "old_approve": old}
 
 
 def body_gate(cfg: Config, tid: str, phase: str, pr: str) -> list[str]:
@@ -644,6 +762,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     override, skipped = review_gate(cfg, q, tid, phase, a)
     repeat = repeat_gate(q, tid, phase, note)
     tip_warn = tip_gate(cfg, q, tid, phase, a)
+    marked_evidence = marked_gate(q, tid, phase, a, meta)
     body_warn = body_gate(cfg, tid, phase, a.pr)
     runs.check_pending(q, runs.AGENT_TYPE[phase], a.supersede, caller)
     runs.check_running_rounds(q, tid, phase, caller, a.supersede)
@@ -721,7 +840,10 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "budgets": bool((cfg.architect or {}).get("budgets")),  # §20.2: `ccp budgets check` in the gates
         **minor_only(q, skipped),  # §15.2: a fix of a clean review's minor findings, verified with no new review
         "resolution": resolution,  # §13.2: a resolution review of a conflicted integration merge
-        **resolution_verify(q, tid, phase, a.head or ""),  # §15.6 rule 3: the verify after a contained one
+        **resolution_verify(q, tid, phase, a.head or "", marked_checks(meta)),  # §15.6 rule 3: the verify after a contained one
+        # §13.2: the checks marked `runs_on: operator-machine`, not the worker's to run, and what each rests on
+        "marked_checks": ", ".join(f"`{c}`" for c in marked_checks(meta)),
+        "marked_evidence": "; ".join(marked_evidence),
     }
     body = render((TEMPLATES / f"{phase}.md").read_text(), values).rstrip() + "\n\n" \
         + render((TEMPLATES / "_common.md").read_text(), values).rstrip() + "\n"

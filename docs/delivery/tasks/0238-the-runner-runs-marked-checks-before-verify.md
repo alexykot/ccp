@@ -1,7 +1,7 @@
 ---
 task_id: 0238-the-runner-runs-marked-checks-before-verify
 title: The runner runs each marked check at the head it hands the verifier, and verify does not launch without it
-status: pending
+status: done
 kind: feature
 depends_on: ["0224-checks-only-the-operator-s-machine-can-run", "0233-briefs-point-at-the-evidence-rules", "0234-one-check-parser-and-one-file-at-rev-reader", "0240-plane-workers-run-the-head"]
 clashes_with: ["0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0213-a-green-tree-skips-the-lane-queue", "0221-workers-reach-the-pr-host-through-ccp-pr", "0223-a-follow-up-is-tracked-not-left-in-notes", "0228-report-sections-as-one-table"]
@@ -181,4 +181,38 @@ PROPOSED:
 
 ## Implementation notes
 
+- **The suite row's `head`.** `suite.checkout_ids` replaces `checkout_tree`: one `git status` and one `git rev-parse`
+  give `tree` and `head` together, recorded only when the checkout has nothing to commit, so the two never disagree.
+  Described in `contracts/suite_result.schema.json` (set by ccp, on the `started` row) and in §14.4's field list
+  (§31.1: text describing this task's feature).
+- **The launch refusal** is `prompt.marked_gate`, after `tip_gate` in `build`: exit 1, nothing opened, naming each
+  marked check, why (no run, the run at the head that did not pass, or the run at another head) and the command.
+  The decisions are plain functions: `check_run` (the latest passed run of the check's lane, bound to the task, at
+  the head, from `suite.fold`) and `carried_by`.
+- **Carried verdicts (a choice, flagged).** When a contained resolution review judged the head, its `Affected
+  checks` alone decide (a check it names needs a run even if the own patch id happens to match); otherwise the
+  own patch id unchanged from the latest approve (`runs.same_change`) carries. This is the narrower reading of the
+  Scope's "or": ADR-0045 D3 says a check the review lists is run again. `_resolution_at` is shared with
+  `resolution_verify`.
+- **`--waived <check_id>=<ruling id>`** (verify only, repeatable): the ruling must pass §15.4's ruling form
+  (`verify._ruling_refusal`); one that does not leaves the check unwaived, so the launch is refused (exit 1) naming
+  why. A waiver of an id that is no marked check of the task, a value not in that form, or the flag on another
+  phase is exit 2. `ccp/cli.py` and `docs/cli/02-delivery.md` carry the flag (outside the task's paths, needed for
+  it and for `tests.test_cli_reference`).
+- **The prompts** list the marked checks (`marked_checks`); the verify prompt adds what each rests on: its suite run
+  at the head (`suite_id`), the approve it carries, or the ruling that waives it. Unmarked tasks render as before.
+- **The briefs.** The runner's step 8 runs each marked check before `ccp prompt verify` (gate, `ccp wt create --kind
+  mac`, `ccp suite run --lane <check_id> --task <task_id> -- …` from inside it, the gate id in the verify note); step
+  10 is now only a step that is not a dod_check, after the merge. The implementer's and verifier's briefs say the
+  checks are not theirs. Steps were not renumbered: `ccp` messages cite "runner brief step 7".
+- ADR-0045 D2 recorded `built`.
+- **Fix round 1** (review MINOR 1, NITs 1-2). After a contained resolution review, the verify prompt's rerun list
+  (`resolution_verify`, now given the marked checks) leaves out the checks it names that are marked `runs_on:
+  operator-machine`, and a clause says those are not the verifier's to rerun and rest on the marked-checks section:
+  before, it told the verifier to rerun a check the next section said was not its own. That section now says each
+  marked check "rests on what follows", not that the runner ran it (false for a carried or waived one). The runner's
+  brief names §15.6 rule 3 and §15.4 for the carried and waived checks instead of restating their conditions (E13).
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #286 head `3fbd51f` (squash `31baaaf`): APPROVE. Passed: ml-01, ml-02, ml-05, ml-03, ml-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0238-the-runner-runs-marked-checks-before-verify.json.
+
