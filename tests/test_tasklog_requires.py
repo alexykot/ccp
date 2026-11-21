@@ -71,6 +71,8 @@ class RequiresReport(unittest.TestCase):
         self.assertIn("ADR-0001 D1", lines[0])
         tasks = [task("0001-a", ["0001"]), task("0002-b", ["0002"], ["0001-a"])]
         self.assertEqual(tasklog.requires_report(tasks, self.idx, strict=False), [])
+        # a section citation names no decision
+        self.assertEqual(tasklog.requires_report([task("0002-b", ["0002 Context"])], self.idx, strict=False), [])
 
     def test_a_retired_prerequisite_resolves_to_its_replacement(self):
         idx = self.index(decision_adr(1, ["retired by ADR-0003 D1"]),

@@ -135,4 +135,20 @@ PROPOSED: (a new paragraph after it)
 
 ## Implementation notes
 
+- `tasklog.requires_report(tasks, index, strict)` is the one home of ADR-0046 D3, on plain values;
+  `_requires_lines` wires it into `check()` when `adr.strict` is on and into `warnings()` when it is
+  off. `adr.py` gains `strict(cfg)`, `decision_index(cfg)` and `DecisionIndex.ids` (the id formats
+  that read the citing refs and name the ADRs in the line).
+- A whole-ADR citation is a ref with no decision and no section (`0046`, `ADR-0046`); a section
+  citation (`0028 Some section`) cites no decision.
+- A cited prerequisite means the decision at the end of its `retired by` chain: a task citing only
+  the retired decision does not clear it.
+- Narrow choices, flagged: a prerequisite whose chain loops, ends at a whole ADR or at a decision
+  retired with no replacement, or that names a decision its ADR does not hold, is left to
+  `ccp adr check` (§6.7 already reports each), so this check gives no remedy it cannot act on. Any
+  task in the closure clears the report whatever its status, and the remedy names every other task
+  that cites the prerequisite, as D3 words it.
+- The line names the task by its id, not its file, since the function reads plain values.
+- ADR-0046 D3 recorded `built`.
+
 ## Verification notes
