@@ -213,5 +213,11 @@ PROPOSED:
   lead when a report carries follow-ups. Friction's tool-need route is unchanged.
 - `tests/test_prompt_tools.py` pinned the old proposal route in the implement prompt: updated.
 - ADR-0044 D1 recorded `built`.
+- Fix round 1 (review MINOR 1-2, NIT 3-5): tests now pin that every phase's report reads the section and that
+  a review report's follow-ups are stored on its run; that an empty section and the single line `- none` store
+  none; the `none`-beside-items refusal by its own message. A heading that looks like the section but is not
+  read as it (`### Follow-ups`, `## Follow ups`, `## Followups`) is no longer lost silently: `ccp report`
+  stores no follow-ups, as before, and warns on stderr that only `## Follow-ups` is read. A warning, not a
+  refusal, so the signed §13.4 reading is unchanged.
 
 ## Verification notes
