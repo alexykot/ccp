@@ -75,6 +75,11 @@ the parser, which this task's new flag must satisfy.
   event types 0243 adds as lib's read-only values, and drop "alias table".
 - No SPEC rule beyond the §23.2 row changes: §10.1 already lists `design_seat` and says `steerer` is
   only read.
+- **Lead's rulings on spec question `sm-20261121T225816Z-2535`** (ruling round 1), verbatim:
+
+  > Ruling 0253-one-wait-reason-table-r1: wr-02 step 1 holds as "prints at least 1", since argparse prints each flag twice.
+  >
+  > Ruling 0253-one-wait-reason-table-r2: (a) the writer's unknown-reason refusal exits 2, steerer included, and set_wait passes 2 through: keep the change. (b) Only --quota-class goes on `ccp tasks wait`; planned_resume_at stays a set_wait parameter that usage.py calls directly.
 
 ## Scope
 
@@ -172,5 +177,10 @@ the parser, which this task's new flag must satisfy.
 - `tests/test_session_park.py` patched `usage._set_wait`; it now patches `lifecycle.set_wait`.
 - wr-02 step 1: argparse prints a flag on the usage line and under options, so `grep -c -- --quota-class`
   prints 2, as `--until` does at the base; the flag is there once, as one option.
+- Ruling round 1 (`0253-one-wait-reason-table-r1`, `-r2`, on `sm-20261121T225816Z-2535`) confirms the
+  code as built: wr-02 step 1 reads as "at least 1"; the writer's exit 2 on an unknown reason, `steerer`
+  included, and `set_wait` passing 2 through stay; `ccp tasks wait` takes `--quota-class` only and
+  `planned_resume_at` stays a `set_wait` parameter usage.py passes. No code, test or doc changed in this
+  round; the rulings are recorded in Context.
 
 ## Verification notes
