@@ -1,7 +1,7 @@
 ---
 task_id: 0262-module-docstrings-and-house-rule-checks
 title: Module docstrings and the standing DoD carry no usage tables or restated rules, house-rule checks hold no bare test run, and E4's check holds the long-literal count
-status: pending
+status: done
 kind: refactor
 depends_on: ["0255-test-fixtures-shared-helpers-and-one-repo-build"]
 clashes_with: ["0213-a-green-tree-skips-the-lane-queue", "0214-an-exclusive-path-keeps-apart-only-its-own-tasks", "0240-plane-workers-run-the-head", "0256-suite-run-refuses-a-closed-run-and-config-reads", "0265-one-gate-lane-and-worker-runs-wait-for-it"]
@@ -180,3 +180,5 @@ Measured at `1aa5e3f`.
   product, queue and stubs, which E2 does not state.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #295 head `b059779` (close's catch-up of the approved `a325899`, gate run st-20261121T234322Z-e68641) (squash `52ae0d1`): APPROVE. Passed: dc-01, dc-02, dc-03, dc-04, dc-05, dc-06. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0262-module-docstrings-and-house-rule-checks.json.
+

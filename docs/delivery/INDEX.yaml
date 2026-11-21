@@ -1283,7 +1283,7 @@ tasks:
     depends_on: []
     path: tasks/0261-a-declared-part-lane-runs-the-affected-modules.md
   - id: 0262-module-docstrings-and-house-rule-checks
-    status: pending
+    status: done
     title: Module docstrings and the standing DoD carry no usage tables or restated rules, house-rule checks hold no bare test run, and E4's check holds the long-literal count
     depends_on: [0255-test-fixtures-shared-helpers-and-one-repo-build]
     path: tasks/0262-module-docstrings-and-house-rule-checks.md
