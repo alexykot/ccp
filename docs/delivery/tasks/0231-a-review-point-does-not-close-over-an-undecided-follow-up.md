@@ -1,7 +1,7 @@
 ---
 task_id: 0231-a-review-point-does-not-close-over-an-undecided-follow-up
 title: A review point recorded closed while a follow-up is undecided fails the lead's checks
-status: pending
+status: done
 kind: feature
 depends_on: ["0223-a-follow-up-is-tracked-not-left-in-notes", "0230-the-lead-decides-each-follow-up"]
 clashes_with: ["0244-tasks-check-runs-dry-runs"]
@@ -154,3 +154,5 @@ PROPOSED: (same line, after it)
   one's task, so a loop that checks only the first register entry fails a test.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #290 head `90d493d` (squash `983ad26`): APPROVE. Passed: cp-01, cp-02, cp-03, cp-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0231-a-review-point-does-not-close-over-an-undecided-follow-up.json.
+
