@@ -93,7 +93,7 @@ With `QUEUE_ROOT` set, `ccp tasks check --closed-points` fails when the register
 point `closed` while a follow-up from a run of one of its tasks is undecided. It names each one, with
 the command that decides it. The lead runs it, and the spawn's readiness check (§10.2, `team.sh
 runner spawn --dry-run`) names it; plain `ccp tasks check`, a worker's gate, does not read the queue
-for it. Without a queue the check says nothing, so fenced tests and CI stay quiet. Closing a task
+for it. Without a queue it passes with a note, so fenced tests and CI stay quiet. Closing a task
 does not change.
 
 ### D4. The lead sees the open count

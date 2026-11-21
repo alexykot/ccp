@@ -699,7 +699,7 @@ review_points:
   dependency.
 - `ccp tasks check` and `ccp docs check` validate it.
 - `ccp tasks check --closed-points`, with `QUEUE_ROOT` set, and the spawn's readiness check
-  (`team.sh runner spawn [--dry-run]`) also fail while the register records a point `closed` and a
+  (`team.sh runner spawn --dry-run`) also fail while the register records a point `closed` and a
   run of one of its tasks holds a follow-up with no outcome (§13.4), naming each and the command that
   decides it. Plain `ccp tasks check`, `ccp docs check` and a worker's gate do not run it, and closing
   a task does not wait for one.
