@@ -92,9 +92,11 @@ of reach when the sentence is edited.
 ### Commands and searches in checks
 
 - **Every command a check gives is run once by its writer** before the task is committed, against
-  the current tool: `ccp tasks dry-run <id> --write` runs each step that is one backticked command
-  and writes its `dry run (<commit>): …` record (plane SPEC §21.1); a check it cannot run yet
-  records `dry run: n/a — <why>`. The writer reads that output against the `expect`.
+  the current tool. With `task_log.dry_run` on, each such check records `dry run (<commit>): <what
+  it printed or its count>`, or `dry run: n/a — <why it cannot run yet>`. `ccp tasks dry-run <id>
+  --write` runs only the steps that are one backticked command and nothing else (``Run `…`.``) and
+  writes their checks' records (plane SPEC §21.1); the writer runs and records any other command
+  step (such as "On the head, run `…`") by hand. The writer reads that output against the `expect`.
 - **A search's pattern matches only what its expect counts**, and spells a value the way the code
   spells it. Its expected count or list is the brief's own list, item for item, stated at the head
   or at a named commit, never "at the merge base".

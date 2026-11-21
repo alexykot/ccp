@@ -3,7 +3,12 @@ worktree, their output printed and, with `--write`, written as each check's dry-
 or claimed task is refused (§10.5)."""
 from __future__ import annotations
 
+import os
+import tempfile
+import time
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from ccp import config, dryrun, tasklog
 from tests.helpers import TASK, Product
@@ -75,6 +80,16 @@ class StepsAndRecords(unittest.TestCase):
         self.assertFalse(dryrun.claimed({"lease_holder": None}))
 
 
+class RunStep(unittest.TestCase):
+    def test_a_step_past_its_time_limit_is_killed_with_its_children(self):
+        tmp = tempfile.mkdtemp(prefix="ccp-run-step-")
+        self.addCleanup(os.rmdir, tmp)
+        start = time.monotonic()
+        code, _ = dryrun.run_step("sleep 30; echo late", Path(tmp), timeout=1)  # bash forks sleep, which holds the pipe
+        self.assertIsNone(code)
+        self.assertLess(time.monotonic() - start, 15)
+
+
 class ConfigLoad(unittest.TestCase):
     def test_a_check_may_load_the_config_from_a_str(self):
         p = Product()
@@ -138,6 +153,34 @@ class DryRunCommand(ToolkitFixture, unittest.TestCase):
         code, out, err = self.dry_run("0001", "--write")
         self.assertEqual(code, dryrun.REFUSED, out + err)
         self.assertEqual(git(self.main, "status", "--porcelain"), "")
+
+    def test_the_commands_run_at_the_integration_tip_not_in_the_checkout(self):
+        self.write("local-only.txt", "not pushed\n")
+        git(self.main, "add", "local-only.txt")
+        git(self.main, "commit", "-qm", "local only")
+        self.write(FILE, (self.main / FILE).read_text().replace(
+            "  dry run: n/a — a prose step.\n", "  dry run: n/a — a prose step.\n\n- id: `cmd-03`\n  story: s.\n"
+            "  steps:\n    1. Run `test -e local-only.txt; echo $?`.\n    2. Run `git rev-parse HEAD`.\n"
+            "  expect: e.\n"))
+        code, out, err = self.dry_run("0003")
+        self.assertEqual(code, 0, out + err)
+        lines = out.splitlines()
+        at = lines.index("  cmd-03:")
+        self.assertIn("first: `1`", lines[at + 1])
+        tip = git(self.main, "rev-parse", "origin/main")
+        self.assertNotEqual(git(self.main, "rev-parse", "HEAD"), tip)
+        self.assertIn(f"first: `{tip}`", lines[at + 2])
+
+    def test_without_a_queue_it_exits_2_and_writes_nothing(self):
+        before = (self.main / FILE).read_text()
+        worktrees = git(self.main, "worktree", "list")
+        env = {k: v for k, v in os.environ.items() if k != "QUEUE_ROOT"}
+        with mock.patch.dict(os.environ, env, clear=True):
+            code, out, err = self.dry_run("0003", "--write")
+        self.assertEqual(code, 2, out + err)
+        self.assertIn("QUEUE_ROOT", err)
+        self.assertEqual((self.main / FILE).read_text(), before)
+        self.assertEqual(git(self.main, "worktree", "list"), worktrees)
 
     def cfg_main(self):
         return config.load(self.main)

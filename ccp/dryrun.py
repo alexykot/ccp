@@ -49,7 +49,7 @@ def refusal(tid: str, status: object, claimed: bool) -> str | None:
 def claimed(st: dict[str, object]) -> bool:
     """§10.5: the queue holds a live lease on the task (`lease_holder` set, its queue status neither done
     nor dropped)."""
-    return bool(st.get("lease_holder")) and st.get("status") not in ("done", "dropped")
+    return bool(st.get("lease_holder")) and st.get("status") not in tasklog.TERMINAL
 
 
 def outcome(step: str, command: str, code: int | None, output: str) -> Ran:
