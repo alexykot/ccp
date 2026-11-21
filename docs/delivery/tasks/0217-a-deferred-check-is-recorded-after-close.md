@@ -172,5 +172,9 @@ PROPOSED: (new lines after it)
 - `target` on `ccp verify` is now optional (argparse `nargs="?"`) so `deferred` takes none; every other
   action refuses a missing target, exit 2, as argparse did before.
 - No ledger event is written for a result: the Scope puts it Out.
+- Fix round 1 (review): `deferred` given a positional target is refused, exit 2, naming `--task`, rather
+  than dropping it and listing every task; `later` on a task whose queue file is not valid JSON is
+  refused with the queue's message, exit 2, nothing written, rather than a traceback; the line-break
+  refusal's `\r` half now has a test.
 
 ## Verification notes

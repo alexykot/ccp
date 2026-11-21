@@ -1547,7 +1547,10 @@ def record_later(queue: Path, task_id: str, check_id: str, passed: bool, evidenc
 
     if not SAFE_ID_RE.match(task_id):
         return [f"task id {task_id!r} is not a file name"], None
-    status = qmod.load_task_state(queue, task_id).get("status")
+    try:
+        status = qmod.load_task_state(queue, task_id).get("status")
+    except qmod.QueueError as exc:
+        return [str(exc)], None
     errs = later_errors(str(status) if status else None, _read_record(queue, task_id), check_id, evidence, seat,
                         step, lambda s: _operator_step_refusal(queue, task_id, s), _seats())
     if errs:
@@ -1623,6 +1626,9 @@ def _queue() -> Path | None:
 
 
 def main(cfg: Config, a: Any) -> int:
+    if a.action == "deferred" and getattr(a, "target", None) is not None:
+        print("ccp verify deferred: give the task with --task", file=sys.stderr)
+        return 2
     if a.action != "deferred" and not str(getattr(a, "target", None) or "").strip():
         what = {"record": "the verdict file", "merge-ok": "the PR number"}.get(a.action, "the task id")
         print(f"ccp verify {a.action}: give {what}", file=sys.stderr)

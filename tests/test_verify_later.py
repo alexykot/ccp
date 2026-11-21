@@ -180,6 +180,7 @@ class Later(unittest.TestCase):
 
     def test_evidence_on_more_than_one_line_is_refused(self):
         self.assert_refused(self.later(evidence="ok\nand more"), "line break")
+        self.assert_refused(self.later(evidence="ok\rand more"), "line break")
 
     def test_evidence_that_looks_like_a_secret_is_refused(self):
         self.assert_refused(self.later(evidence="used ghp_" + "A" * 36), "secret")
@@ -216,6 +217,15 @@ class Later(unittest.TestCase):
     def test_the_other_actions_still_need_their_target(self):
         for action in ("record", "merge-ok", "check", "spec-text", "later"):
             self.assertEqual(self.ccp("verify", action)[0], 2, action)
+
+    def test_deferred_refuses_a_task_given_as_a_positional(self):
+        code, out, err = self.ccp("verify", "deferred", TASK)
+        self.assertEqual((code, out), (2, ""), err)
+        self.assertIn("--task", err)
+
+    def test_later_on_a_task_whose_queue_file_is_not_json_is_refused(self):
+        (self.q / "tasks" / f"{TASK}.json").write_text("{not json")
+        self.assert_refused(self.later(), f"{TASK}.json")
 
 
 class LaterRules(unittest.TestCase):
