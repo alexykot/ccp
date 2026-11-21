@@ -96,4 +96,20 @@ Measured at `8aefa59`.
 
 ## Implementation notes
 
+- `judge(cfg, queue, rec, rid, head, facts=None, recorded=None, pr=None)` returns `(reasons, body)`, the
+  shape `merge_ok_reasons` had (it is that function, renamed and given the facts and the recorded time as
+  optional), not the bare list of the Scope's sketch: `merge-ok` prints the body (`catch_up`, `gate_runs`,
+  `match_head_commit`). It takes `cfg` (the project's id, the gate lane `catch_up_refusal` reads) and `rid`
+  (the task id the record must name) besides the Scope's `queue`, `rec`, `head`, `facts`.
+- With `facts=None` the PR's state is not judged; with `recorded=None` the `checked_at` against recorded-time
+  rule is not (it needs `recorded_at`, a read of the queue's git state, which `check` never did).
+- `refusal` (`ccp verify check`) takes `cfg` now and returns the judge's reasons joined by `; `. Its head
+  message is `merge-ok`'s (`is not the approved head ... (the head differs from head_sha)`), keeping the
+  word the existing check tests pin. A `check` now also refuses a wrong project, a wrong task id, an approve
+  with a failed check or no gate, and takes a head `close` caught up through `catch_up`: what `merge-ok` did.
+- `write_record` keeps calling `approve_errors` itself: that is the one place `judge` and `record` overlap
+  (`record` has no head to judge against and holds producers to `require=True`).
+- `tests/test_verify.py`: the missing-head test is renamed and expects exit 1 naming `head_sha`; the
+  `MergeGate.verdict` helper carries a gate, since `check` now holds an approve to one.
+
 ## Verification notes
