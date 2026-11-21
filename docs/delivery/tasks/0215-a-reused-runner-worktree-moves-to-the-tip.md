@@ -1,7 +1,7 @@
 ---
 task_id: 0215-a-reused-runner-worktree-moves-to-the-tip
 title: A reused runner worktree that holds no task is brought to the integration tip
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12", "S16"]
@@ -10,7 +10,7 @@ paths: ["ccp/wt.py", "ccp/lifecycle.py", "scripts/observability/team.py", "docs/
 adopt: "none"
 sign_off: brief
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0215-a-reused-runner-worktree-moves-to-the-tip
@@ -162,3 +162,5 @@ PROPOSED:
   that `kept` is git's own error: it names `origin/no-such-branch`, or the missing `no-such-origin`.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #266 head `dec59c6` (squash `6b7d5f1`): APPROVE. Passed: rw-01, rw-02, rw-03, rw-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0215-a-reused-runner-worktree-moves-to-the-tip.json.
+
