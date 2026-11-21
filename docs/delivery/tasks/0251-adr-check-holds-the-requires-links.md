@@ -1,7 +1,7 @@
 ---
 task_id: 0251-adr-check-holds-the-requires-links
 title: ccp adr check holds requires links to live decisions with no cycle, resolving retired ones through retired by
-status: pending
+status: done
 kind: feature
 depends_on: ["0225-decisions-may-depend-on-other-adrs-decisions", "0250-generic-cycles-and-closure-helpers"]
 spec_refs: ["S6"]
@@ -168,3 +168,5 @@ PROPOSED:
   to avoid).
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #287 head `40f84a3` (squash `1d32b90`): APPROVE. Passed: rc-01, rc-02, rc-03, rc-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0251-adr-check-holds-the-requires-links.json.
+
