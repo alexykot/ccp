@@ -263,6 +263,9 @@ SUITE_DEFAULTS: dict[str, Any] = {"lanes": {}, "count_re": None, "summary": None
                                   # suite), `gate` (the formal gate), `part` (a subset of the tests)
                                   "roles": {"full": "full", "gate": "gate", "part": "part"}}
 SUITE_ROLES = ("full", "gate", "part")
+# §13.5: a lane of this name in `suite.lanes` is the product's fail-fast pre-gate; the briefs name it in place
+# of the rendered `architect.checks`
+PREGATE_LANE = "pregate"
 # `log_keep_days`: summary-mode logs in the queue older than this are removed when a run starts.
 # `suite.summary` (§14.1): what `ccp suite run` reads from the output when the gate writes no
 # result file (CCP_SUITE_RESULT, contracts/suite_result.schema.json). Each `*_re` is a regular
@@ -939,9 +942,18 @@ def gate_limits(cfg: Any) -> tuple[float, float]:
 
 
 def lane_for(cfg: Any, role: str) -> str:
-    """The lane name the product gives a role (`full`, `gate`, `part`; plane.json `suite.roles`)."""
-    roles = ((getattr(cfg, "suite", None) or {}).get("roles") or {}) if cfg is not None else {}
-    return str(roles.get(role) or SUITE_DEFAULTS["roles"][role])
+    """The lane name the product gives a role (`full`, `gate`, `part`; plane.json `suite.roles`). §14.1: a
+    product whose `suite.lanes` declares the gate role's lane and not the full role's runs the gate lane for
+    the full role too."""
+    suite = (getattr(cfg, "suite", None) or {}) if cfg is not None else {}
+    roles = suite.get("roles") or {}
+    lane = str(roles.get(role) or SUITE_DEFAULTS["roles"][role])
+    if role == "full":
+        lanes = suite.get("lanes")
+        gate = lane_for(cfg, "gate")
+        if isinstance(lanes, dict) and gate in lanes and lane not in lanes:
+            return gate
+    return lane
 
 
 def architect_on(cfg: Any) -> bool:

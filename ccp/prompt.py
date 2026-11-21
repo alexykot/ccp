@@ -54,7 +54,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp import models, prhost, refs, report, runs, tasklog, verify
-from ccp.config import Config, lane_for
+from ccp.config import PREGATE_LANE, Config, lane_for
 from ccp.queue import (CCP_BIN, OBS, PLANE, QueueError, git, integration_branch, load_task_state, load_work, phase_move,
                        runner_slots,
                        holder_teammate, root, task_meta)
@@ -676,6 +676,8 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "main_checkout": str(main_checkout(cfg)), "queue_root": str(q), "project_id": cfg.project_id})
     verdicts_run, verdicts = reported_verdicts(cfg, q, tid) if phase == "review" else ("", {})
     runner = holder_teammate(q, tid)
+    lanes = (cfg.suite or {}).get("lanes")
+    pregate = isinstance(lanes, dict) and PREGATE_LANE in lanes
     cited = tasklog._as_list(meta.get("spec_refs")) + tasklog._as_list(meta.get("adr_refs")) \
         + tasklog._as_list(meta.get("rule_refs")) + tasklog._as_list(meta.get("review_refs"))
     values: dict[str, Any] = {
@@ -710,8 +712,9 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "brief_sign_off": "brief" in tasklog.sign_off_stages(meta),
         # §15.3: the reviewer's touched modules through the same cache, when the product says so
         "review_cache": bool((verify.cache_rule(cfg) or {}).get("review")),
-        # §15.2: the fail-fast pre-gate names the product's house-rule checks
-        "architect_checks": ", ".join(f"`{c['cmd']}`" for c in (cfg.architect or {}).get("checks") or []),
+        # §13.5: the fail-fast pre-gate names the product's declared pre-gate lane, else its house-rule checks
+        "pregate_lane": PREGATE_LANE if pregate else "",
+        "architect_checks": "" if pregate else ", ".join(f"`{c['cmd']}`" for c in (cfg.architect or {}).get("checks") or []),
         "budgets": bool((cfg.architect or {}).get("budgets")),  # §20.2: `ccp budgets check` in the gates
         **minor_only(q, skipped),  # §15.2: a fix of a clean review's minor findings, verified with no new review
         "resolution": resolution,  # §13.2: a resolution review of a conflicted integration merge
