@@ -1,7 +1,7 @@
 ---
 task_id: 0226-one-pr-host-module-github-only
 title: One PR-host module owns every gh call and returns normalised PR facts, behaviour unchanged
-status: pending
+status: done
 kind: refactor
 depends_on: []
 review_refs: ["sh-20261120T235116Z-eb9f#F01", "sh-20261120T235116Z-eb9f#F05", "sh-20261120T235116Z-eb9f#F07"]
@@ -143,3 +143,5 @@ Measured at `8aefa59`.
 - Baseline: 3076 tests, 1 skipped, passing on the head (`st-20261121T044424Z-4c669c`).
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #251 head `b515357` (close's catch-up of the approved `c0ec702`, gate run st-20261121T054425Z-053394) (squash `6174213`): APPROVE. Passed: pm-01, pm-02, pm-03, pm-04. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0226-one-pr-host-module-github-only.json.
+
