@@ -1123,7 +1123,7 @@ tasks:
     depends_on: [0234-one-check-parser-and-one-file-at-rev-reader, 0244-tasks-check-runs-dry-runs]
     path: tasks/0224-checks-only-the-operator-s-machine-can-run.md
   - id: 0225-decisions-may-depend-on-other-adrs-decisions
-    status: pending
+    status: done
     title: An ADR names the decisions each of its decisions rests on, and accepting it waits for theirs
     depends_on: [0239-one-adr-reference-parser-and-a-decision-index]
     path: tasks/0225-decisions-may-depend-on-other-adrs-decisions.md

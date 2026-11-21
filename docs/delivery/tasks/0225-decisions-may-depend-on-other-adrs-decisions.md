@@ -1,7 +1,7 @@
 ---
 task_id: 0225-decisions-may-depend-on-other-adrs-decisions
 title: An ADR names the decisions each of its decisions rests on, and accepting it waits for theirs
-status: pending
+status: done
 kind: feature
 depends_on: ["0239-one-adr-reference-parser-and-a-decision-index"]
 spec_refs: ["S6"]
@@ -125,4 +125,29 @@ PROPOSED:
 
 ## Implementation notes
 
+- `adr.parse_requires(s, adr, ids)` reads one entry: the leading `Dn` is split off and each part goes
+  through `refs.Ids.adr_link` (F02); the own decision and a same-ADR target are read as
+  `adr_link("<this ADR's id> Dn")`, so no new reference regex. An entry of neither form, or one naming a
+  whole ADR, gives None and is left out of the index (0251's check reports it).
+- `DecisionIndex.build` reads each ADR's `requires`: `required(adr)` gives the ADR's entries in file
+  order as (own decision, (ADR, decision)), `requires(adr, d)` one decision's prerequisites. `requires`
+  is in `OPTIONAL` (no undeclared-key warning) and not in `LINK_KEYS`, so it needs no reverse entry and
+  no `<ADR id>[ Dn]` reading; it is not in `LIST_KEYS` either, so a scalar reads as one entry and no new
+  check failure is added (the check is 0251's).
+- `ccp adr status N accepted` (any move to `accepted`, after the transition check) refuses with exit 2,
+  nothing written, while a target in another ADR is in a `proposed` ADR, naming each such entry and the
+  target's file. A target in the ADR itself, by either form, never holds it (F09); a target naming no ADR
+  does not either (the check's to report).
+- Schema: `requires`, an array of `$defs/requirement` (`D<n>[ <ADR id>] D<m>`).
+- ADR-0046 D1 recorded `built`. D2 is recorded `built` too, with a note that only the accept refusal is
+  built: the task cites `0046 D2` and this repo runs `adr.strict`, so `ccp verify record` refuses an
+  approve while it is `not_built`, and a done task citing it would fail `ccp adr check` on main
+  (flagged to the runner; 0251 records it built again when the check's part lands).
+- Fix round 1 (review MINOR 1): `test_other_moves_and_settled_prerequisites_do_not_wait` also gives
+  the accepted ADR a target in a `withdrawn` ADR, so only a `proposed` target holds acceptance is pinned
+  (a refusal on any target that is not `accepted` now fails it). The NIT (a pure helper split) is left,
+  as the runner asked.
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #272 head `80bfd5b` (squash `4c7b5e7`): APPROVE. Passed: rq-01, rq-02, rq-03, rq-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0225-decisions-may-depend-on-other-adrs-decisions.json.
+
