@@ -14,9 +14,11 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   leaves a `state/*` branch behind.
   check: command — scripts/gate.sh fails on a leftover `state/*` branch; fencing in tests/__init__.py
 - **E4** A test checks behaviour, not wording: no assertion on prose, help text or prompt text beyond
-  the token it pins. A fixture class other modules reuse holds no test methods; a class with tests
-  is never imported into another module (it would run twice).
-  check: pass
+  the token it pins. A test names a plane constant or shared fixture fact (the worktrees directory, a
+  binding) through the code or a fixture helper, never as a copied literal. A fixture class other
+  modules reuse holds no test methods; a class with tests is never imported into another module (it
+  would run twice).
+  check: pass — the architect counts long string-literal assertions and constants copied into tests
 - **E15** Decision logic is separate from git, process and file I/O, so each branch is unit-tested on
   plain values. End-to-end tests cover the wiring, not every branch.
   check: pass — the architect looks for branches reachable only through a fixture repo; the health
@@ -43,8 +45,9 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   check: pass
 - **E9** Readers accept every value a live queue may hold; writers emit only the current one. A
   renamed value stays as a deprecated alias in code and schema until the managed products have
-  rewritten their data; then the alias is removed (the role's old names went this way, task 0025).
-  check: pass
+  rewritten their data; then the alias is removed. A contract no code writes or reads is removed,
+  not kept.
+  check: pass — the architect lists contracts with no writer or reader
 - **E12** One source per enumerated concept: a list of values (round phases, event types,
   plane.json's blocks, their keys and defaults, the roles and their default models) is defined once in
   code. Other code derives from it; one test compares every plane.json block's keys and defaults with
@@ -63,7 +66,7 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - **E18** A language's facts (its doc conventions, test-output patterns, test command and import
   reading) live in its language pack (ccp/doclang). Core code names no language and no test runner.
   check: command — `! git grep -n unittest -- ccp ':(exclude)ccp/doclang'` (architect.checks
-  `E18`), once the pack owns the patterns
+  `E18`)
 
 ## Docs
 
