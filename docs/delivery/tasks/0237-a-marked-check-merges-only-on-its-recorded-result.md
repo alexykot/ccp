@@ -206,5 +206,13 @@ PROPOSED:
 - Left as they are: the head-not-fetched refusal (review NIT 1) fails closed and names `git fetch`; plane
   worktrees share the object store. `runs.check_facts` importing `carried_from` and `heads_match` from
   `ccp.verify` inside the function (NIT 2): moving those helpers reaches modules outside this task's paths.
+- 2026-11-21, fix round 2 (review-2 MINOR 1, NIT 1). Tests only, no code change: a record-level test that a marked
+  check waived by a recorded lead ruling (`ccp tasks ruling`) or by an answered spec question is recorded and that
+  `judge` gives no refusal for it, which pins `_waiver_texts`' question/lead-ruling branch; and a `judge` test that a
+  waiver naming a lead ruling the ledger does not hold is refused, which pins `_waiver_texts`' `_ruling_refusal`
+  guard on the path where `rests_on_errors` does not run. Left as they are: the refusal of a `ran: false` marked
+  check produced by the operator even when it names a real ruling (NIT 2) closes round 1's dodge and fails closed;
+  it is the lead's to relax. `ccp prompt verify --waived` accepting an operator gate (NIT 3) sits in
+  `ccp/prompt.py`, outside this task's paths: a follow-up.
 
 ## Verification notes

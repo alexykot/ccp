@@ -286,6 +286,31 @@ class RecordAndMerge(unittest.TestCase):
         code, out = self.record(resting(f"waived under {RULING}, beside {STEP}"))
         self.assertEqual(code, 0, out)
 
+    def test_a_waiver_by_a_lead_ruling_or_an_answered_spec_question_is_recorded_and_judged_waived(self):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err), mock.patch.dict(os.environ, {"ACTOR": "task-lead"}):
+            code = cli.main(["--root", str(self.p.root), "tasks", "ruling", TID, "--words", "skip it this round"])
+        self.assertEqual(code, 0, out.getvalue() + err.getvalue())
+        qid = "sm-20261121T120000Z-abcd"
+        (self.q / "questions").mkdir()
+        (self.q / "questions" / f"{qid}.json").write_text(json.dumps({"question_id": qid, "status": "open"}))
+        (self.q / "questions" / f"{qid}.answer.json").write_text(json.dumps({"schema_version": 1, "question_id": qid,
+                                                                           "verdict": "resolved"}))
+        (self.q / "runs").mkdir(exist_ok=True)
+        self.put_run("verify", "2026-10-22T10:00:00Z")
+        for on in (f"waived by the lead's ruling {TID}-r1", qid):
+            code, out = self.record(resting(on))
+            self.assertEqual(code, 0, (on, out))
+            self.assertEqual(verify.judge(self.p.cfg, self.q, verdict(resting(on), head=self.head), TID, self.head)[0],
+                             [], on)
+
+    def test_judge_refuses_a_waiver_naming_a_lead_ruling_the_ledger_does_not_hold(self):
+        rec = verdict(resting(f"waived by the lead's ruling {TID}-r9"), head=self.head)
+        reasons = verify.judge(self.p.cfg, self.q, rec, TID, self.head)[0]
+        self.assertEqual(len(reasons), 1, reasons)
+        self.assertIn(CID, reasons[0])
+        self.assertIn("no ruling that waives it", reasons[0])
+
     def test_a_carry_after_an_integration_merge_is_recorded_with_no_run_at_the_new_head(self):
         self.earlier_approve()
         self.put_run("verify-2", "2026-10-22T11:00:00Z")
