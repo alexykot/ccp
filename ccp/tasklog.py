@@ -11,7 +11,7 @@ A task file is never deleted and carries no runtime state: `check()` refuses run
 frontmatter, a task file that git or the committed INDEX knew and that is gone, and a number
 reused by another task (a renamed task says `renamed_from: <old id>`), each naming its fix; a task
 file with no frontmatter is one failure that names `ccp tasks migrate` (`ccp/taskmigrate.py`).
-`warnings()` is what `check` reports without failing; §21.1 lists the warnings.
+`warnings()` is what `check` reports without failing (§21.1); each warning is stated with its rule's §.
 
 A task has a kind (§20): `feature` (the default) or `refactor`. A refactor changes no rule, so it
 cites house rules or review findings (`rule_refs`, `review_refs`) instead of the spec, and proves
@@ -793,7 +793,7 @@ def _restore(cfg: Config, tid: str, deletion: tuple[str, str] | None) -> str:
 
 
 def warnings(cfg: Config) -> list[str]:
-    """What `check` reports without failing: the warnings §21.1 lists."""
+    """What `check` reports without failing (§21.1); each warning is stated with its rule's §."""
     from ccp import adr  # noqa: PLC0415  (adr reads the task log)
 
     tasks = load(cfg)

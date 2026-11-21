@@ -129,6 +129,11 @@ class Chain(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual((notes, warns), ([], []))
 
+    def test_a_group_whose_only_cycle_is_a_task_depending_on_itself_is_left_to_the_check(self):
+        ts = [{"task_id": "a", "status": "pending", "review_point": "R1", "depends_on": ["a"]},
+              {"task_id": "b", "status": "pending", "review_point": "R1"}]
+        self.assertEqual(plan.chain_report(self.p.cfg, ts), ([], []))
+
     def test_the_report_reads_the_loaded_tasks_and_the_thresholds_are_the_rules(self):
         self.assertEqual((plan.CHAIN_WARN_MIN, plan.CHAIN_WARN_WIDTH), (3, 2))
         ts = [{"task_id": "a", "status": "pending", "review_point": "R1"},

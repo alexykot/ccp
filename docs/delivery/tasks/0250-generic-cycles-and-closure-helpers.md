@@ -81,5 +81,6 @@ Measured at `8aefa59`.
 - `graph.closure(deps, start)` returns what `start` depends on, a dependency that is not a key included and not followed, `start` itself only through a cycle. `scope_deps` prunes the map to out-of-scope, non-dropped dependencies and takes the closure for each open scope task, lowest number first with `setdefault`: the same set and the same needing task as the old stack walk.
 - The planner's `chain_report` builds one map within the group (self-dependencies kept) for `graph.cycles`, and derives the self-free map `_depths` reads. `_depths` stays: it is a longest-chain computation, neither of the two helpers.
 - The module docstring and `warnings()` name §21.1; `ccp/CLAUDE.md` lists `graph.py` under Helpers.
+- Fix round 1: the two §21.1 mentions in `ccp/tasklog.py` now say "(§21.1); each warning is stated with its rule's §", since §21.1 states only one of the warnings. Added pins for what the rewrites preserved: two `scope_deps` tests in `tests/test_kinds.py` (the lowest open scope task is the needing one; the walk does not go through a scope task) and a self-dependency group case in `tests/test_tasks_check_chain.py`. NIT 1 (gr-01's `tail -8`) is the task file's check and is left as written.
 
 ## Verification notes
