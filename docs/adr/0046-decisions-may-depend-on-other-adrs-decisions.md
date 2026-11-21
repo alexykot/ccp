@@ -10,6 +10,9 @@ notes: |-
   ADR, and nothing records it or orders the work by it. It changes the ADR format and SPEC rules
   (listed under Consequences), so the operator decides it.
   2026-11-20: status proposed → accepted: Operator: "accept 0044, 0045, 0046" (2026-11-20)
+  2026-11-21: D2 narrowed as task 0251 built it: a target in a rejected or withdrawn ADR fails only
+  when that ADR is not the link's own (a link between decisions of one dead ADR rests on nothing live). Operator:
+  "0251 narrowing - (a)" (2026-11-21)
 decisions:
   - "D1 built"
   - "D2 built"
@@ -65,7 +68,7 @@ prerequisite.
 ### D2. `ccp adr check` checks the links
 
 - **Failures:** an entry whose own decision or target decision does not exist; a target in a
-  `rejected` or `withdrawn` ADR; a cycle, across ADRs included.
+  `rejected` or `withdrawn` ADR other than its own; a cycle, across ADRs included.
 - **Warnings, failures under `adr.strict`:** a target whose replacement chain (D4) ends in a retired
   decision with no replacement.
 - `ccp adr status N accepted` refuses while a target's ADR is still `proposed`, naming it: the

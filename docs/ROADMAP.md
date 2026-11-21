@@ -86,12 +86,9 @@ All reshape phases have landed.
     (the plugin anchor lives in the gitignored `.claude/settings.local.json` until publication), and a test that runs the plane's checks on itself. `examples/` is
     removed.
   - **Stage 2, runner-driven (running):** a lead and runner teammates claim the plane's tasks
-    through `ccp` (plane.json `parallel.max_in_flight`). A merge to main is a release (ADR-0024), and
-    it moves the run checkout that the runner's own `ccp` calls use while other tasks are in flight.
-    How a release relates to tasks in flight has no recorded rule yet. This roadmap earlier planned
-    releases strictly between tasks (option (b) of the question below), but no SPEC or ADR text
-    records that. It is a question for the operator from architect pass `ar-20261121T132817Z-d5e5`
-    (F04), and the answer goes into ADR-0031.
+    through `ccp` (plane.json `parallel.max_in_flight`). A merge to main is a release (ADR-0024),
+    made at any time (ADR-0031 D4): tasks in flight carry on, their workers run the head they change,
+    and only the runners' and the lead's own `ccp` calls move to the new release.
 - **Done:** the plane's decision record (the operator's rulings are the plane's own ADRs, ADR-0031
   D3) and the SPEC restructure (review point R1).
 - **Merge handling (pluggable strategy):** the plane owns how a PR reaches the integration branch
