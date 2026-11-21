@@ -4,7 +4,12 @@ change (with a build sign-off due, none the task's own diff changes, a parallel.
 catch-up carries the sign-off) and the product has a gate lane: it merges the tip in, runs the gate lane on the
 merge as a recorded run, re-checks the tip, pushes the merge and merges it. Otherwise it refuses `behind_tip`,
 naming the condition, with the task branch unchanged. Under `parallel.schedule: clashes` the file condition is the
-task's own patch unchanged by the merge (`git patch-id --stable`), declared paths or none."""
+task's own patch unchanged by the merge (`git patch-id --stable`), declared paths or none.
+
+This module runs close end to end, one test for each path through it: caught up, gated and merged; a refusal
+that names what it found; a red gate; the tip moving during the gate; the gate's environment; a rerun that closes
+what a failed push, merge or reconcile left. Each decision branch is tested on plain values in
+`tests.test_catch_up_decision`."""
 from __future__ import annotations
 
 import json
@@ -14,7 +19,6 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest import mock
 
 from ccp import config, lifecycle, suite, tasklog, verify
@@ -35,8 +39,14 @@ PY = shlex.quote(sys.executable)
 GATE = (f'if [ -n "$CATCH_UP_GATE_HOOK" ]; then {PY} "$CATCH_UP_GATE_HOOK" || exit 9; fi; '
         f'exec {PY} -m unittest discover -q -s ptests -t .')
 SHARED = "".join(f"line {i}\n" for i in range(1, 11))
+
+
+def product_test(cls: str, name: str, body: str, imports: str = "") -> str:
+    """The text of a test module of the product's own suite (the gate's `ptests`): one test in one class."""
+    return f"import unittest\n\n{imports}\n\n\nclass {cls}(unittest.TestCase):\n    def {name}(self):\n        {body}\n"
+
+
 PATHS = 'paths: ["feature.txt", "ptests/test_feature.py", "shared.txt", "area/"]'
-README = "# Package a\n\nIntro.\n\n## Files\n- `one.py`: one\n- `two.py`: two\n"
 
 
 class CatchUp(ToolkitFixture, unittest.TestCase):
@@ -49,8 +59,7 @@ class CatchUp(ToolkitFixture, unittest.TestCase):
         self.write("lib/__init__.py", "")
         self.write("lib/helper.py", "def helper():\n    return 1\n")
         self.write("ptests/__init__.py", "")
-        self.write("ptests/test_base.py", "import unittest\n\n\nclass T(unittest.TestCase):\n"
-                                          "    def test_it(self):\n        self.assertTrue(True)\n")
+        self.write("ptests/test_base.py", product_test("T", "test_it", "self.assertTrue(True)"))
         self.write("shared.txt", SHARED)
         self.write("area/x.txt", "x\n")
         git(self.main, "add", "-A")
@@ -75,28 +84,20 @@ class CatchUp(ToolkitFixture, unittest.TestCase):
         git(self.main, "commit", "-qam", "plane.json")
         git(self.main, "push", "-q", "origin", "main")
 
-    def approved(self, paths: bool = True, sign_off: str | None = None, brief_signed: bool = False,
-                 extra: dict[str, str] | None = None) -> str:
-        """0002 claimed, built (feature.txt, a test importing lib.helper, line 1 of shared.txt, and each
-        `extra` file with its text), pushed and approved: its head. `brief_signed` records the brief sign-off
-        before the claim."""
-        self.frontmatter(*([PATHS] if paths else []), *([f"sign_off: {sign_off}"] if sign_off else []))
+    def approved(self, sign_off: str | None = None) -> str:
+        """0002 claimed, built (feature.txt, a test importing lib.helper, line 1 of shared.txt), pushed and
+        approved: its head."""
+        self.frontmatter(PATHS, *([f"sign_off: {sign_off}"] if sign_off else []))
         git(self.runner, "fetch", "-q", "origin")
         git(self.runner, "checkout", "-q", "--detach", "origin/main")
-        if brief_signed:
-            code, _, out, err = self.ccp("tasks", "sign-off", "0002", "--stage", "brief", "--by", "op", "--words", "go")
-            self.assertEqual(code, 0, out + err)
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
         wt = self.main / config.WORKTREES_DIR / "impl-0002"
         (wt / "feature.txt").write_text("built\n")
         (wt / "ptests/test_feature.py").write_text(
-            "import unittest\n\nfrom lib.helper import helper\n\n\nclass F(unittest.TestCase):\n"
-            "    def test_feature(self):\n        self.assertEqual(helper(), 1)\n")
+            product_test("F", "test_feature", "self.assertEqual(helper(), 1)", "from lib.helper import helper"))
         (wt / "shared.txt").write_text(SHARED.replace("line 1\n", "line one, built\n", 1))
-        for rel, text in (extra or {}).items():
-            (wt / rel).write_text(text)
-        git(wt, "add", "feature.txt", "ptests/test_feature.py", "shared.txt", *(extra or {}))
+        git(wt, "add", "feature.txt", "ptests/test_feature.py", "shared.txt")
         git(wt, "commit", "-q", "-m", "Task 0002: build it")
         git(wt, "push", "-q", "-u", "origin", "task/0002-second")
         head = git(wt, "rev-parse", "HEAD")
@@ -199,6 +200,7 @@ if done < {moves}:
         self.assertEqual([r["suite_id"] for r in runs], [cu["gate_run"]])
         self.assertEqual((runs[0]["state"], runs[0]["phase"]), ("passed", "verify"))
         self.assertEqual(self.record()["schema_version"], verify.RECORD_VERSION)
+        self.assertNotIn("sign_off_carried", cu)  # no build sign-off was due: none is carried
         git(self.main, "fetch", "-q", "origin")
         squash = body["merge_sha"]
         self.assertEqual(git(self.main, "show", f"{squash}:other/b.txt"), "b")
@@ -206,6 +208,7 @@ if done < {moves}:
         self.assertFalse((self.main / config.WORKTREES_DIR / "merge-0002").exists())
         caught = [e for e in self.events() if (e["type"], e["op"]) == ("verify", "set")]
         self.assertEqual([e["payload"]["to"] for e in caught], [merged])
+        self.assertNotIn("sign_off_carried", caught[0]["payload"])
         note = git(self.main, "show", "origin/main:docs/delivery/tasks/0002-second.md")
         self.assertIn(cu["gate_run"], note)  # the Verification notes line names the catch-up's gate run
 
@@ -248,33 +251,6 @@ if done < {moves}:
         got, merge_wt = self.seen(seen)
         self.assertEqual(got, [merge_wt, "merge", "merge-0002", "0002-second", "0002", "impl", "merge_0002"])
 
-    def test_an_impl_record_missing_a_field_gives_that_variable_empty(self):
-        seen = self.gate_env()
-        self.approved()
-        rec = self.q / "worktrees" / "impl-0002.json"
-        st = json.loads(rec.read_text())
-        del st["seat"]
-        rec.write_text(json.dumps(st))
-        self.tip(self.put("other/b.txt", "b\n"))
-        code, body, out, err = self.close_bare()
-        self.assertEqual(code, 0, out + err)
-        self.assertNotIn("KeyError", out + err)
-        self.assertTrue(body["merged_now"])
-        got, merge_wt = self.seen(seen)
-        self.assertEqual(got, [merge_wt, "merge", "merge-0002", "0002-second", "0002", "", "merge_0002"])
-
-    def test_with_no_recorded_impl_worktree_the_gate_gets_the_merge_worktree_s_fields_and_says_so(self):
-        seen = self.gate_env()
-        self.approved()
-        (self.q / "worktrees" / "impl-0002.json").unlink()
-        self.tip(self.put("other/b.txt", "b\n"))
-        code, body, out, err = self.close_bare()
-        self.assertEqual(code, 0, out + err)
-        self.assertTrue(body["merged_now"])
-        self.assertIn("no recorded impl worktree", err)
-        got, merge_wt = self.seen(seen)
-        self.assertEqual(got, [merge_wt, "merge", "merge-0002", "0002-second", "0002", "", "merge_0002"])
-
     def test_a_tip_that_moves_during_the_gate_is_caught_up_again(self):
         self.approved()
         self.tip(self.put("other/b.txt", "b\n"))
@@ -307,185 +283,6 @@ if done < {moves}:
         self.refused(code, out, err, head, "overlap", "shared.txt")
         self.assertEqual(self.gate_runs(), [])
 
-    def test_a_tip_renaming_a_file_the_task_changes_refuses_naming_overlap(self):
-        head = self.approved()
-        self.tip(lambda c: git(c, "mv", "shared.txt", "renamed.txt"))
-        code, _, out, err = self.close()
-        self.refused(code, out, err, head, "overlap", "shared.txt")
-
-    def test_a_tip_changing_a_declared_path_the_diff_leaves_refuses_naming_overlap(self):
-        head = self.approved()
-        self.tip(self.put("area/x.txt", "changed\n"))
-        code, _, out, err = self.close()
-        self.refused(code, out, err, head, "overlap", "area/x.txt")
-
-    def test_a_task_with_no_declared_paths_refuses_naming_it(self):
-        head = self.approved(paths=False)
-        self.tip(self.put("other/b.txt", "b\n"))
-        code, _, out, err = self.close()
-        self.refused(code, out, err, head, "no declared paths")
-
-    def test_a_conflicting_tip_refuses_naming_the_conflict(self):
-        head = self.approved()
-        self.tip(self.put("shared.txt", SHARED.replace("line 1\n", "line one, other\n", 1)))
-        code, _, out, err = self.close()
-        self.refused(code, out, err, head, "conflict", "shared.txt")
-        self.assertEqual(self.gate_runs(), [])
-
-    # ------------------------------------------------------------------ parallel.shared files
-
-    def shared_readme(self, text: str = README) -> None:
-        """docs/a/README.md on main, covered by plane.json parallel.shared."""
-        self.write("docs/a/README.md", text)
-        git(self.main, "add", "docs")
-        git(self.main, "commit", "-q", "-m", "a package doc")
-        git(self.main, "push", "-q", "origin", "main")
-        self.plane_json(lambda c: c["parallel"].update(shared=["docs/*/README.md"]))
-
-    def test_lines_both_sides_append_to_a_shared_file_merge_tip_first(self):
-        self.shared_readme()
-        head = self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
-        tip = self.tip(self.put("docs/a/README.md", README + "- `tip.py`: the tip's\n"))
-        code, body, out, err = self.close()
-        self.assertEqual(code, 0, out + err)
-        self.assertTrue(body["merged_now"])
-        cu = self.record()["catch_up"]
-        self.assertEqual((cu["from"], cu["tip"], cu["merge_tree"]), (head, tip, "union"))
-        self.assertEqual(cu["tip_files"], ["docs/a/README.md"])
-        self.assertEqual(git(self.main, "rev-list", "--parents", "-n1", cu["to"]).split()[1:], [head, tip])
-        self.assertEqual([r["state"] for r in self.gate_runs()], ["passed"])
-        git(self.main, "fetch", "-q", "origin")
-        self.assertEqual(git(self.main, "show", f"{body['merge_sha']}:docs/a/README.md") + "\n",
-                         README + "- `tip.py`: the tip's\n- `task.py`: the task's\n")
-
-    def test_lines_appended_at_several_places_keep_their_places(self):
-        self.shared_readme()
-        task_text = README.replace("## Files\n", "## Files\n- `a.py`: the task's\n") + "the task's end\n"
-        tip_text = README.replace("## Files\n", "## Files\n- `b.py`: the tip's\n") + "the tip's end\n"
-        self.approved(extra={"docs/a/README.md": task_text})
-        self.tip(self.put("docs/a/README.md", tip_text))
-        code, body, out, err = self.close()
-        self.assertEqual(code, 0, out + err)
-        git(self.main, "fetch", "-q", "origin")
-        self.assertEqual(git(self.main, "show", f"{body['merge_sha']}:docs/a/README.md") + "\n",
-                         README.replace("## Files\n", "## Files\n- `b.py`: the tip's\n- `a.py`: the task's\n")
-                         + "the tip's end\nthe task's end\n")
-
-    def test_a_tip_changing_a_shared_file_elsewhere_is_no_overlap(self):
-        self.shared_readme()
-        self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
-        self.tip(self.put("docs/a/README.md", README.replace("# Package a\n", "# Package a, renamed\n")))
-        code, body, out, err = self.close()
-        self.assertEqual(code, 0, out + err)
-        self.assertEqual(self.record()["catch_up"]["merge_tree"], "clean")
-
-    def test_a_changed_line_in_a_shared_file_still_refuses_naming_it(self):
-        self.shared_readme()
-        head = self.approved(extra={"docs/a/README.md": README.replace("- `one.py`: one\n", "- `one.py`: uno\n")})
-        self.tip(self.put("docs/a/README.md", README.replace("- `one.py`: one\n", "- `one.py`: first\n")))
-        code, _, out, err = self.close()
-        self.refused(code, out, err, head, "conflicts in", "docs/a/README.md")
-        self.assertEqual(self.gate_runs(), [])
-
-    def test_a_side_that_removes_a_line_of_a_shared_file_refuses(self):
-        self.shared_readme()
-        head = self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
-        self.tip(self.put("docs/a/README.md", README.replace("- `one.py`: one\n", "") + "- `tip.py`: the tip's\n"))
-        code, _, out, err = self.close()
-        self.refused(code, out, err, head, "conflicts in", "docs/a/README.md")
-
-    def test_appended_lines_in_a_file_not_shared_beside_a_shared_one_still_refuse(self):
-        self.write("docs/notes.md", "notes\n")
-        self.shared_readme()
-        head = self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n",
-                                    "docs/notes.md": "notes\nthe task's\n"})
-
-        def change(c: Path) -> None:
-            (c / "docs/a/README.md").write_text(README + "- `tip.py`: the tip's\n")
-            (c / "docs/notes.md").write_text("notes\nthe tip's\n")
-        self.tip(change)
-        code, _, out, err = self.close()
-        self.refused(code, out, err, head, "conflicts in", "docs/notes.md")
-
-    def test_appended_lines_conflict_when_the_file_is_not_shared(self):
-        self.write("docs/a/README.md", README)
-        git(self.main, "add", "docs/a/README.md")
-        git(self.main, "commit", "-q", "-m", "a package doc")
-        git(self.main, "push", "-q", "origin", "main")
-        head = self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
-        self.tip(self.put("docs/a/README.md", README + "- `tip.py`: the tip's\n"))
-        code, _, out, err = self.close()
-        self.refused(code, out, err, head, "conflicts in", "docs/a/README.md")
-
-    # ------------------------------------------------------------------ parallel.schedule: clashes
-
-    def clashes(self) -> None:
-        """The fixture product schedules by clashes: close's file condition is the patch test alone."""
-        self.plane_json(lambda c: c["parallel"].update(schedule="clashes"))
-
-    def test_under_clashes_a_tip_edit_far_from_the_task_s_hunks_is_caught_up(self):
-        self.clashes()
-        head = self.approved()
-        tip = self.tip(self.put("shared.txt", SHARED.replace("line 10\n", "line ten\n")))  # a file the task changes
-        code, body, out, err = self.close()
-        self.assertEqual(code, 0, out + err)
-        self.assertTrue(body["merged_now"])
-        cu = self.record()["catch_up"]
-        self.assertEqual((cu["from"], cu["tip"], cu["merge_tree"]), (head, tip, "clean"))
-        self.assertEqual(cu["tip_files"], ["shared.txt"])
-        self.assertEqual([r["suite_id"] for r in self.gate_runs()], [cu["gate_run"]])
-        self.assertIn(f"--match-head-commit {cu['to']}", (self.ghstate / "merge-called").read_text())
-
-    def test_under_clashes_a_tip_edit_near_the_task_s_hunks_refuses_naming_the_patch(self):
-        self.clashes()
-        head = self.approved()
-        self.tip(self.put("shared.txt", SHARED.replace("line 3\n", "line three\n")))  # inside the hunk's context
-        code, _, out, err = self.close()
-        self.refused(code, out, err, head, "patch changed")
-        self.assertEqual(self.gate_runs(), [])
-
-    def test_under_clashes_a_task_with_no_declared_paths_is_caught_up(self):
-        self.clashes()
-        head = self.approved(paths=False)
-        tip = self.tip(self.put("other/b.txt", "b\n"))
-        code, body, out, err = self.close()
-        self.assertEqual(code, 0, out + err)
-        cu = self.record()["catch_up"]
-        self.assertEqual((cu["from"], cu["tip"]), (head, tip))
-        self.assertEqual(body["caught_up"], cu)
-        self.assertEqual(git(self.main, "rev-list", "--parents", "-n1", cu["to"]).split()[1:], [head, tip])
-
-    def test_under_clashes_a_union_in_a_shared_path_is_caught_up(self):
-        self.shared_readme()
-        self.clashes()
-        head = self.approved(extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
-        tip = self.tip(self.put("docs/a/README.md", README + "- `tip.py`: the tip's\n"))
-        code, body, out, err = self.close()
-        self.assertEqual(code, 0, out + err)
-        cu = self.record()["catch_up"]
-        self.assertEqual((cu["from"], cu["tip"], cu["merge_tree"]), (head, tip, "union"))
-        self.assertNotIn("sign_off_carried", cu)
-
-    def test_under_clashes_a_build_sign_off_is_not_carried_over_a_union_in_a_shared_path(self):
-        self.shared_readme()
-        self.clashes()
-        head = self.approved(sign_off="build", extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
-        self.sign_build()
-        self.tip(self.put("docs/a/README.md", README + "- `tip.py`: the tip's\n"))
-        code, _, out, err = self.close()
-        self.refused(code, out, err, head, "build sign-off")
-        self.assertEqual(self.gate_runs(), [])
-
-    def test_under_clashes_a_build_sign_off_is_carried_when_the_whole_patch_is_unchanged(self):
-        self.clashes()
-        head = self.approved(sign_off="build")
-        self.sign_build()
-        tip = self.tip(self.put("shared.txt", SHARED.replace("line 10\n", "line ten\n")))
-        code, body, out, err = self.close()
-        self.assertEqual(code, 0, out + err)
-        cu = self.record()["catch_up"]
-        self.assertEqual((cu["from"], cu["tip"], cu["sign_off_carried"]), (head, tip, head))
-
     def test_a_red_gate_on_the_merge_refuses_naming_the_gate_run(self):
         head = self.approved()
         self.tip(self.put("lib/helper.py", "def other():\n    return 2\n"))  # A's test imports helper
@@ -502,83 +299,18 @@ if done < {moves}:
     def sign_offs_recorded(self) -> list[dict]:
         return [e for e in self.events() if (e["type"], e["op"]) == ("sign_off", "recorded")]
 
-    def test_a_build_sign_off_is_carried_across_a_catch_up_that_changes_nothing_it_covers(self):
+    def test_a_rerun_after_the_carried_merge_holds_the_sign_off(self):
+        self.plane_json(lambda c: c["reconcile"].update(hooks=["exit 3"]))
         head = self.approved(sign_off="build")
         self.sign_build()
         tip = self.tip(self.put("other/b.txt", "b\n"))
-        code, body, out, err = self.close()
-        self.assertEqual(code, 0, out + err)
-        self.assertTrue(body["merged_now"])
-        cu = self.record()["catch_up"]
-        self.assertEqual((cu["from"], cu["tip"], cu["sign_off_carried"]), (head, tip, head))
-        self.assertEqual(body["caught_up"], cu)
-        self.assertIn(f"--match-head-commit {cu['to']}", (self.ghstate / "merge-called").read_text())
-        self.assertEqual(len(self.sign_offs_recorded()), 1)  # no new sign-off was recorded
-        self.assertEqual(self.record()["schema_version"], verify.RECORD_VERSION)
-        caught = [e for e in self.events() if (e["type"], e["op"]) == ("verify", "set")]
-        self.assertEqual([e["payload"]["sign_off_carried"] for e in caught], [head])
-
-    def test_a_build_sign_off_due_from_the_verdict_s_spec_beyond_intent_is_carried_too(self):
-        head = self.approved()
-        rec = self.record()
-        rec.pop("checked_at")
-        rec["spec_beyond_intent"] = ["docs/spec/01-model.md §3: a new rule"]
-        f = Path(self._tmp.name) / "beyond.json"
-        f.write_text(json.dumps(rec))
-        code, _, out, err = self.ccp("verify", "record", str(f))
-        self.assertEqual(code, 0, out + err)
-        self.sign_build()
-        self.tip(self.put("other/b.txt", "b\n"))
-        code, _, out, err = self.close()
-        self.assertEqual(code, 0, out + err)
-        self.assertEqual(self.record()["catch_up"]["sign_off_carried"], head)
-
-    def test_a_catch_up_with_no_build_sign_off_due_carries_none(self):
-        self.approved()
-        self.tip(self.put("other/b.txt", "b\n"))
-        code, _, out, err = self.close()
-        self.assertEqual(code, 0, out + err)
-        self.assertNotIn("sign_off_carried", self.record()["catch_up"])
-        caught = [e for e in self.events() if (e["type"], e["op"]) == ("verify", "set")]
-        self.assertNotIn("sign_off_carried", caught[0]["payload"])
-
-    def test_a_build_sign_off_is_not_carried_over_a_change_to_a_shared_file_the_task_changes(self):
-        self.shared_readme()
-        head = self.approved(sign_off="build", extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
-        self.sign_build()
-        self.tip(self.put("docs/a/README.md", README + "- `tip.py`: the tip's\n"))  # a union merge without a sign-off
-        code, _, out, err = self.close()
-        self.refused(code, out, err, head, "build sign-off", "docs/a/README.md")
-        self.assertEqual(self.gate_runs(), [])
-
-    def test_a_build_sign_off_is_not_carried_over_a_declared_path_the_diff_leaves(self):
-        head = self.approved(sign_off="build")
-        self.sign_build()
-        self.tip(self.put("area/x.txt", "changed\n"))
-        code, _, out, err = self.close()
-        self.refused(code, out, err, head, "overlap", "area/x.txt")
-
-    def test_a_build_sign_off_for_another_head_is_stale_and_a_catch_up_does_not_carry_it(self):
-        head = self.approved(sign_off="build")
-        code, _, out, err = self.ccp("tasks", "sign-off", "0002", "--stage", "build", "--by", "op", "--words", "ship it",
-                                     "--head", "1" * 40)
-        self.assertEqual(code, 0, out + err)
-        self.tip(self.put("other/b.txt", "b\n"))
-        code, _, out, err = self.close()
-        self.assertEqual(code, 1, out + err)
-        self.assertIn("build sign-off is stale", err)
-        self.assertFalse((self.ghstate / "merge-called").exists())
-        self.assertEqual(self.branch(), head)
-        self.assertNotIn("catch_up", self.record())
-
-    def test_a_rerun_after_the_carried_merge_holds_the_sign_off(self):
-        self.plane_json(lambda c: c["reconcile"].update(hooks=["exit 3"]))
-        self.approved(sign_off="build")
-        self.sign_build()
-        self.tip(self.put("other/b.txt", "b\n"))
         code, _, out, err = self.close(root=self.main)
         self.assertEqual(code, 1, out + err)
         self.assertEqual(json.loads((self.ghstate / "pr.json").read_text())["state"], "MERGED")
+        cu = self.record()["catch_up"]
+        self.assertEqual((cu["from"], cu["tip"], cu["sign_off_carried"]), (head, tip, head))
+        caught = [e for e in self.events() if (e["type"], e["op"]) == ("verify", "set")]
+        self.assertEqual([e["payload"]["sign_off_carried"] for e in caught], [head])
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
         cfg["reconcile"]["hooks"] = []
         self.write("docs/delivery/plane.json", json.dumps(cfg))
@@ -590,39 +322,7 @@ if done < {moves}:
         self.assertNotIn("is stale", err)
         self.assertFalse(body["merged_now"])
         self.assertTrue(body["reconciled_now"])
-        self.assertEqual(len(self.sign_offs_recorded()), 1)
-
-    def test_sign_off_carried_is_read_only_from_a_catch_up_that_starts_at_the_signed_head_and_ends_at_the_head(self):
-        a, b, c = "a" * 40, "b" * 40, "c" * 40
-        (self.q / "verification").mkdir(exist_ok=True)
-
-        def put(verdict="approve", **cu):
-            (self.q / "verification/0002-second.json").write_text(json.dumps({
-                "verdict": verdict, "head_sha": a,
-                "catch_up": {"from": a, "to": b, "sign_off_carried": a, **cu}}))
-        put(verdict="reject")  # a catch-up on a record that is not an approve carries nothing
-        self.assertFalse(verify.sign_off_carried(self.q, "0002-second", a, b))
-        put()
-        self.assertTrue(verify.sign_off_carried(self.q, "0002-second", a, b))
-        self.assertTrue(verify.sign_off_carried(self.q, "0002-second", a[:12], b[:12]))
-        self.assertFalse(verify.sign_off_carried(self.q, "0002-second", a, c))  # another head than the catch-up's
-        self.assertFalse(verify.sign_off_carried(self.q, "0002-second", c, b))  # another head signed
-        put(sign_off_carried=c)
-        self.assertFalse(verify.sign_off_carried(self.q, "0002-second", a, b))
-        put(**{"from": c})  # the catch-up starts elsewhere than the signed head
-        self.assertFalse(verify.sign_off_carried(self.q, "0002-second", a, b))
-        (self.q / "verification/0002-second.json").write_text(json.dumps({
-            "verdict": "approve", "head_sha": a, "catch_up": {"from": a, "to": b}}))  # no sign_off_carried
-        self.assertFalse(verify.sign_off_carried(self.q, "0002-second", a, b))
-        self.assertFalse(verify.sign_off_carried(self.q, "0009-none", a, b))
-
-    def test_a_brief_sign_off_is_carried_across_a_catch_up(self):
-        head = self.approved(sign_off="brief", brief_signed=True)
-        self.tip(self.put("other/b.txt", "b\n"))
-        code, body, out, err = self.close()
-        self.assertEqual(code, 0, out + err)
-        self.assertTrue(body["merged_now"])
-        self.assertEqual(self.record()["catch_up"]["from"], head)
+        self.assertEqual(len(self.sign_offs_recorded()), 1)  # no new sign-off was recorded
 
     def test_a_product_with_no_gate_lane_refuses_and_never_skips_the_run(self):
         self.plane_json(lambda c: c.pop("suite"))
@@ -706,61 +406,6 @@ if done < {moves}:
         self.assertEqual(code, 0, out + err)
         self.assertFalse(body["merged_now"])
         self.assertTrue(body["reconciled_now"])
-
-    def test_a_verdict_cannot_carry_a_catch_up(self):
-        head = self.approved()
-        rec = self.record()
-        rec.pop("checked_at")
-        rec["catch_up"] = {"from": head, "to": head, "tip": head, "gate_run": "st-x", "merge_tree": "clean",
-                           "tip_files": [], "task_files": []}
-        f = Path(self._tmp.name) / "forged.json"
-        f.write_text(json.dumps(rec))
-        code, _, out, err = self.ccp("verify", "record", str(f))
-        self.assertEqual(code, 1, out + err)
-        self.assertIn("catch_up", err)
-
-
-class MergeOkReadsTheCatchUp(unittest.TestCase):
-    """`ccp verify merge-ok` takes a caught-up head only through a catch-up from the approved head whose gate run
-    is a passed run of the gate lane bound to the task."""
-
-    H, M = "a" * 40, "b" * 40
-
-    def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.q = Path(self._tmp.name)
-        (self.q / "runs").mkdir()
-        self.cfg = SimpleNamespace(suite={"roles": {"gate": "gate"}})
-        self.rows = []
-
-    def tearDown(self):
-        self._tmp.cleanup()
-
-    def run_(self, sid, task="0002-second", lane="gate", code=0):
-        at = "2026-11-13T10:00:00Z"
-        self.rows += [{"op": "started", "suite_id": sid, "at": at, "lane": lane, "task_id": task, "run_id": None},
-                      {"op": "ended", "suite_id": sid, "at": at, "exit_code": code}]
-        (self.q / "runs/_suites.jsonl").write_text("".join(json.dumps(r) + "\n" for r in self.rows))
-
-    def why(self, gate_run="st-ok", frm=None, to=None, head=None):
-        rec = {"head_sha": self.H, "catch_up": {"from": frm or self.H, "to": to or self.M, "tip": "c" * 40,
-                                                "gate_run": gate_run, "merge_tree": "clean", "tip_files": [],
-                                                "task_files": []}}
-        return verify.catch_up_refusal(self.cfg, self.q, rec, "0002-second", head or self.M)
-
-    def test_a_passed_gate_run_of_the_task_covers_the_catch_up(self):
-        self.run_("st-ok")
-        self.assertIsNone(self.why())
-
-    def test_every_other_catch_up_is_refused(self):
-        self.run_("st-ok")
-        self.run_("st-red", code=1)
-        self.run_("st-other", task="0003-third")
-        self.run_("st-full", lane="full")
-        for case, want in ((dict(gate_run="st-none"), "not recorded"), (dict(gate_run="st-red"), "did not pass"),
-                           (dict(gate_run="st-other"), "0003-third"), (dict(gate_run="st-full"), "gate lane"),
-                           (dict(frm="d" * 40), "approved head"), (dict(head="e" * 40), "not eeeeeee")):
-            self.assertIn(want, self.why(**case) or "", case)
 
 
 if __name__ == "__main__":

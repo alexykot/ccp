@@ -454,6 +454,14 @@ class Record(unittest.TestCase):
         code, out, err = self.record(rec)
         self.assertEqual(code, 0, out + err)
 
+    def test_a_verdict_cannot_carry_a_catch_up(self):
+        catch_up = {"from": HEAD_A, "to": HEAD_B, "tip": HEAD_B, "gate_run": "st-x", "merge_tree": "clean",
+                    "tip_files": [], "task_files": []}
+        code, _, err = self.record(approve(catch_up=catch_up))
+        self.assertEqual(code, 1, err)
+        self.assertIn("catch_up: only `ccp tasks close` records a catch-up", err)
+        self.assertFalse(self.written().exists())
+
     def test_an_invalid_record_is_refused_and_nothing_is_written(self):
         # PROC-23: 9 of 84 record versions failed the contract.
         for bad, needle in (
