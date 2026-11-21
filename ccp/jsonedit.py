@@ -1,4 +1,4 @@
-"""Edit one member of a JSON object in its text, keeping every other byte (SPEC §29.3, §8.1).
+"""Edit one member of a JSON object in its text, keeping every other byte (SPEC §29.3).
 
 The commands that record into a product's plane.json (`ccp upgrade take` and `decline`) change one entry
 and nothing else: the file's own layout (compact lists, inline objects, its indent) stays as the product
