@@ -617,11 +617,16 @@ class SingleRunnerWorktree(WtFixture, unittest.TestCase):
         return subprocess.run(["git", "-C", str(path), "symbolic-ref", "-q", "HEAD"], capture_output=True).returncode == 1
 
     def advance_tip(self) -> str:
+        """A new commit on origin only, as a merge on the forge lands: the main checkout's
+        `origin/main` is put back to the old tip, so only a fetch brings the new one in. The new tip."""
+        old = self.head()
         self.write("later.txt", "later\n")
         git(self.main, "add", "later.txt")
         git(self.main, "commit", "-q", "-m", "later")
         git(self.main, "push", "-q", "origin", "main")
-        return self.head()
+        new = git(self.main, "rev-parse", "HEAD")
+        git(self.main, "update-ref", "refs/remotes/origin/main", old)
+        return new
 
     def made_at_the_old_tip(self) -> str:
         """The runner worktree made by `ccp tasks worktree`, then the tip advanced past it; the old tip."""
@@ -721,10 +726,12 @@ class SingleRunnerWorktree(WtFixture, unittest.TestCase):
         path, made, moved, kept = wt.runner_worktree(self.main, str(self.solo), "no-such-branch")
         self.assertEqual((path, made, moved), (self.solo, False, False))
         self.assertTrue(kept and "\n" not in kept, kept)
+        self.assertIn("origin/no-such-branch", kept)  # git's own error, naming what it could not check out
         git(self.main, "remote", "set-url", "origin", str(self.main / "no-such-origin"))
         _, _, moved, kept = wt.runner_worktree(self.main, str(self.solo), "main")
         self.assertFalse(moved)
         self.assertTrue(kept and "\n" not in kept, kept)
+        self.assertIn("no-such-origin", kept)  # git's own error, naming the remote it could not fetch
         self.assertEqual(git(self.solo, "rev-parse", "HEAD"), tip)
 
     def test_a_status_that_fails_keeps_it_with_the_git_error(self):
