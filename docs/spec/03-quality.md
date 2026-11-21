@@ -521,7 +521,8 @@ Choosing mutants is the seat's; the plane ships no mutation operators.
 It warns, without failing, when a task not yet done names a later task as a prerequisite in prose:
 the prerequisite goes in `depends_on` instead. It also warns about a task not yet done whose Context says ``Measured at `<sha>` `` when a commit since that sha changed one of the task's `paths`, naming the commits. For each review point with pending tasks it also notes the
 longest `depends_on` chain and the width at each depth, and warns when the chain is at least 3 tasks and
-the point has fewer than 2 tasks per depth on average. Inline `# comments` in frontmatter are ignored.
+the point has fewer than 2 tasks per depth on average. Inline `# comments` in frontmatter are ignored. With `--closed-points` it also fails on a closed review point holding an undecided follow-up
+(§22.2).
 
 **`ccp tasks dry-run <id> [--write]`** runs, in a temporary worktree detached at `origin/<integration_branch>` and removed afterwards, each `dod_check` step that is one backticked command and nothing else, and prints, per check, each command's exit code, its output's line count and its first line; any other step is listed as not run. With `--write` it writes each check's ``dry run (`<tip sha>`): …`` line from that output, replacing one already there, and changes nothing else in the file. It refuses a task that is `done`, `dropped` or claimed (§10.5).
 
@@ -697,6 +698,11 @@ review_points:
   plane's own frontmatter reader (plain, quoted and `|-` values); the plane takes no YAML
   dependency.
 - `ccp tasks check` and `ccp docs check` validate it.
+- `ccp tasks check --closed-points`, with `QUEUE_ROOT` set, and the spawn's readiness check
+  (`team.sh runner spawn --dry-run`) also fail while the register records a point `closed` and a
+  run of one of its tasks holds a follow-up with no outcome (§13.4), naming each and the command that
+  decides it. Plain `ccp tasks check`, `ccp docs check` and a worker's gate do not run it, and closing
+  a task does not wait for one.
 
 ### 22.3 Two regimes
 

@@ -11,10 +11,13 @@ notes: |-
   the review point instead (see Options). It changes SPEC rules (listed under Consequences), so the
   operator decides it.
   2026-11-20: status proposed → accepted: Operator: "accept 0044, 0045, 0046" (2026-11-20)
+  2026-11-21: D3 text aligned with shape F01 as built by task 0231: the check is `ccp tasks check
+  --closed-points` and the spawn readiness, not plain `tasks check`. Operator: "accept the shape
+  recommendations" (2026-11-21).
 decisions:
   - "D1 built"
   - "D2 built"
-  - "D3 not_built"
+  - "D3 built"
   - "D4 not_built"
 ---
 # ADR-0044 — A follow-up is tracked, not left in notes
@@ -86,11 +89,12 @@ The command refuses an id that does not resolve. Running it again replaces the o
 
 ### D3. A review point does not close over an undecided follow-up
 
-With `QUEUE_ROOT` set, `ccp tasks check` fails when the register (§22.2) records a point `closed`
-while a follow-up from a run of one of its tasks is undecided. It names each one, with the command
-that decides it. So the register edit that closes the point fails the check, and the lead's
-readiness check before a scope (§10.2) and `team.sh runner spawn --dry-run` name it. Without a queue
-the check says nothing, so fenced tests and CI stay quiet. Closing a task does not change.
+With `QUEUE_ROOT` set, `ccp tasks check --closed-points` fails when the register (§22.2) records a
+point `closed` while a follow-up from a run of one of its tasks is undecided. It names each one, with
+the command that decides it. The lead runs it, and the spawn's readiness check (§10.2, `team.sh
+runner spawn --dry-run`) names it; plain `ccp tasks check`, a worker's gate, does not read the queue
+for it. Without a queue it passes with a note, so fenced tests and CI stay quiet. Closing a task
+does not change.
 
 ### D4. The lead sees the open count
 

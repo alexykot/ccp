@@ -1153,7 +1153,7 @@ tasks:
     depends_on: [0234-one-check-parser-and-one-file-at-rev-reader]
     path: tasks/0230-the-lead-decides-each-follow-up.md
   - id: 0231-a-review-point-does-not-close-over-an-undecided-follow-up
-    status: pending
+    status: done
     title: A review point recorded closed while a follow-up is undecided fails the lead's checks
     depends_on: [0223-a-follow-up-is-tracked-not-left-in-notes, 0230-the-lead-decides-each-follow-up]
     path: tasks/0231-a-review-point-does-not-close-over-an-undecided-follow-up.md
