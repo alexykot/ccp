@@ -155,9 +155,9 @@ before anything else.
    and from inside it run the check's command as `ccp suite run --lane <check_id> --task <task_id> -- <the check's command>`;
    the run records the head it ran at. A check only the operator can run by hand (a credential you may not use), the
    operator runs with the same command in that worktree, under the same gate. Remove the worktree with `ccp wt
-   remove <name>` after the run. Pass the gate's id in the verify `--note`. A check that rests on an earlier approve
-   (the head moved only by an integration merge, or a resolution review that does not list it) or that a ruling
-   waives (`ccp prompt verify … --waived <check_id>=<ruling id>`) is not run again.
+   remove <name>` after the run. Pass the gate's id in the verify `--note`. A check that carries an earlier approve
+   (SPEC §15.6 rule 3) or that a ruling waives (`--waived <check_id>=<ruling id>`, §15.4) is not run again; `ccp
+   prompt verify` says which.
    Then `ccp prompt verify <task_id> --pr <n> --head <sha>`: a fresh `delivery-verifier` subagent
    with the fixed packet. It refuses (exit 1, nothing opened) while a marked check has no passed run at the head,
    naming the check. It writes its verdict with `ccp verify record` and reports APPROVE or REJECT with the

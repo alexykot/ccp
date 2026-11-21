@@ -206,5 +206,11 @@ PROPOSED:
   10 is now only a step that is not a dod_check, after the merge. The implementer's and verifier's briefs say the
   checks are not theirs. Steps were not renumbered: `ccp` messages cite "runner brief step 7".
 - ADR-0045 D2 recorded `built`.
+- **Fix round 1** (review MINOR 1, NITs 1-2). After a contained resolution review, the verify prompt's rerun list
+  (`resolution_verify`, now given the marked checks) leaves out the checks it names that are marked `runs_on:
+  operator-machine`, and a clause says those are not the verifier's to rerun and rest on the marked-checks section:
+  before, it told the verifier to rerun a check the next section said was not its own. That section now says each
+  marked check "rests on what follows", not that the runner ran it (false for a carried or waived one). The runner's
+  brief names §15.6 rule 3 and §15.4 for the carried and waived checks instead of restating their conditions (E13).
 
 ## Verification notes

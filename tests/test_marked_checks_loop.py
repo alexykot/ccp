@@ -263,13 +263,17 @@ class MarkedLoop(ReviewFlow, ToolkitFixture, unittest.TestCase):
 
     def test_a_resolution_review_that_lists_the_check_needs_a_new_run(self):
         _, h2 = self.approved(conflict=True)
-        self.contained(h2, CHECK)
+        self.contained(h2, f"cmd-01, {CHECK}")
         code, _, out, err = self.verify(h2, "--note", "conflicted merge, resolution review")
         self.assertEqual(code, 1, out + err)
         self.assertIn(CHECK, err)
-        self.run_check(h2)
-        code, _, out, err = self.verify(h2, "--note", "conflicted merge, resolution review")
+        sid = self.run_check(h2)
+        code, body, out, err = self.verify(h2, "--note", "conflicted merge, resolution review")
         self.assertEqual(code, 0, out + err)
+        text = Path(body["prompt_path"]).read_text()
+        self.assertIn("Rerun the checks that review names in `Affected checks`: cmd-01 (the checks it names that are "
+                      f"marked `runs_on: operator-machine`, `{CHECK}`, are not yours to rerun", text)
+        self.assertIn(sid, text)  # the runner's run is its evidence
 
     def test_a_waiver_names_an_approved_ruling(self):
         h1 = self.start()

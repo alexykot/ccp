@@ -675,21 +675,25 @@ def resolution_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> bool:
     return True
 
 
-def resolution_verify(q: Path, tid: str, phase: str, head: str) -> dict[str, Any]:
+def resolution_verify(q: Path, tid: str, phase: str, head: str, marked: list[str] | None = None) -> dict[str, Any]:
     """§15.6 rule 3: the verify prompt's view of a contained resolution review: set when the task's latest
     review that reported `done` is a resolution review that judged `head` and found the resolution `contained`.
-    The checks it names to rerun, and the head of the task's latest approve (`old`) the other checks rest
-    on; with no approve yet, every check runs."""
+    The checks it names for the verifier to rerun, those it names that are `marked` `runs_on: operator-machine`
+    apart (§13.2: the runner's to run, not the verifier's), and the head of the task's latest approve (`old`) the
+    other checks rest on; with no approve yet, every check runs."""
     none: dict[str, Any] = {"resolved_verify": False, "resolution_run": "", "has_affected": False,
-                            "affected_checks": "", "has_old": False, "old_approve": ""}
+                            "affected_checks": "", "affected_marked": "", "has_old": False, "old_approve": ""}
     if phase != "verify":
         return none
     last, old = _resolution_at(q, tid, head)
     if not last:
         return none
-    affected = [str(x) for x in last.get("affected_checks") or []]
+    named = [str(x) for x in last.get("affected_checks") or []]
+    affected = [c for c in named if c not in (marked or [])]
     return {"resolved_verify": True, "resolution_run": str(last["run_id"]), "has_affected": bool(affected),
-            "affected_checks": ", ".join(affected), "has_old": bool(old), "old_approve": old}
+            "affected_checks": ", ".join(affected),
+            "affected_marked": ", ".join(f"`{c}`" for c in named if c in (marked or [])),
+            "has_old": bool(old), "old_approve": old}
 
 
 def body_gate(cfg: Config, tid: str, phase: str, pr: str) -> list[str]:
@@ -836,7 +840,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "budgets": bool((cfg.architect or {}).get("budgets")),  # §20.2: `ccp budgets check` in the gates
         **minor_only(q, skipped),  # §15.2: a fix of a clean review's minor findings, verified with no new review
         "resolution": resolution,  # §13.2: a resolution review of a conflicted integration merge
-        **resolution_verify(q, tid, phase, a.head or ""),  # §15.6 rule 3: the verify after a contained one
+        **resolution_verify(q, tid, phase, a.head or "", marked_checks(meta)),  # §15.6 rule 3: the verify after a contained one
         # §13.2: the checks marked `runs_on: operator-machine`, not the worker's to run, and what each rests on
         "marked_checks": ", ".join(f"`{c}`" for c in marked_checks(meta)),
         "marked_evidence": "; ".join(marked_evidence),
