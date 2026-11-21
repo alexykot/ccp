@@ -322,9 +322,8 @@ class Starved(QueueBase):
         self.assertEqual([e["payload"]["in_flight"] for e in self.events("runner", "starved")], [1])
 
     def test_a_failed_write_is_a_warning_and_keeps_the_exit_code(self):
-        from ccp.queue import QueueError
-        with mock.patch("ccp.queue.emit", side_effect=QueueError("disk full")):
-            code, err = self.next("--holder", "runner-1")
+        (self.q / "observability" / "events.jsonl").mkdir()  # the append fails on the real path: no patch
+        code, err = self.next("--holder", "runner-1")
         self.assertEqual(code, 3)
         self.assertIn("warning:", err)
         self.assertEqual(self.events("runner", "starved"), [])

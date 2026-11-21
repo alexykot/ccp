@@ -261,7 +261,7 @@ runs with `QUEUE_ROOT` set and `--root` your runner worktree.
   lead, so stop and report (below).
 - **An `architect:` notice on stderr** (a pass due within its grace, a report awaiting triage):
   do the same now, without waiting for the block.
-- `ccp tasks next --allow-overdue "<reason>"` overrides one block. Use it only when the lead tells
+- `ccp tasks next --holder <your slot> --allow-overdue "<reason>"` overrides one block. Use it only when the lead tells
   you to, with the lead's reason; it is recorded as a friction note for the next pass.
 - You never triage, create tasks from a report, or edit the house rules: the lead does.
 

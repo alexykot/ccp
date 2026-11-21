@@ -184,5 +184,9 @@ PROPOSED:
   counts when any part of it lies in the window; `slot_hours` is rounded to 2 decimals and printed to 1;
   with no queue `task_supply.idle_slots` is `null`, and when the ADR read fails `task_supply` stays `null`
   as before. A `QUEUE_ROOT` that is not a directory is a failed write (a warning).
+- 2026-11-21 (fix round 1): the failed-write test patched `ccp.queue.emit`; `ccp.lifecycle`, first imported
+  inside that patch, kept the mock, and every later claim or close in the same process failed. The test
+  now makes the ledger a directory, so the append fails on the real path with nothing patched. The
+  runner definition's `--allow-overdue` example now passes `--holder <your slot>`.
 
 ## Verification notes
