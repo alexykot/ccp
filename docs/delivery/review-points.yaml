@@ -80,6 +80,11 @@ review_points:
     goal: Follow-ups and accepted proposals that change no SPEC rule - defects found in R10-R12, suite and mutate speedups, architect isolation, task-supply reporting, and SPEC descriptions caught up with built behaviour.
     status: planned
     opened: "2026-11-20"
+  - id: R15
+    name: signed rules
+    goal: "Accepted proposals and decisions that change SPEC rules, each signed by the operator: claim and lane rules, the architect cadence, an idle hook that starts a due pass while tasks wait, runner worktrees, deferred checks, idle-slot reporting, the integration merges a round counts, the PR-host interface, and the rules of ADR-0044 to ADR-0046."
+    status: planned
+    opened: "2026-11-20"
   - id: R16
     name: architect pass fixes
     goal: "Findings of architect pass ar-20261120T234012Z-27eb: plane workers run the head under test, a faster gate, pre-ccp holdovers removed, one source for command syntax, events and config, and task checks that run their dry runs."
