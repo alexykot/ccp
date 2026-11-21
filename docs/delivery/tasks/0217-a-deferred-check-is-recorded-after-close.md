@@ -159,4 +159,18 @@ PROPOSED: (new lines after it)
 
 ## Implementation notes
 
+- `ccp/verify.py`: `later_errors` decides on plain values (the task's queue status, its verdict record,
+  the check, the evidence, the seat and step, with the step's refusal passed in as a callable that
+  `record_later` binds to `_operator_step_refusal`); `record_later` appends the row through
+  `queue.append_jsonl` (under the file's lock); `deferred` and `deferred_states` list the checks. All
+  refusals are named at once, exit 2.
+- Narrowest readings where the Scope left it open: `--produced-by` must also be one of the verdict
+  contract's seats (the schema's `produced_by` enum), since the verdict record refuses any other; the
+  task argument (and `deferred --task`) takes the full id or its number, as `docs/cli/02-delivery.md`
+  says of every task argument, resolved through the task log; the stored evidence is stripped;
+  `deferred --json` rows carry `task_id`, `dod_check_id` and `state` only.
+- `target` on `ccp verify` is now optional (argparse `nargs="?"`) so `deferred` takes none; every other
+  action refuses a missing target, exit 2, as argparse did before.
+- No ledger event is written for a result: the Scope puts it Out.
+
 ## Verification notes

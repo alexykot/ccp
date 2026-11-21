@@ -82,6 +82,12 @@ itself, ran the gate lane on the result and pushed it as the task branch's new h
 that head, `catch_up.to`, in place of `head_sha` only when `catch_up.from` is `head_sha` and its
 `gate_run` is a passed `ccp suite run` of the product's gate lane bound to the task (`catch_up_refusal`).
 
+`later` and `deferred` (§15.4) are for a check the verifier recorded not run that does not rest on a carried
+verdict: after its task closed, the lead or the runner records the check's result (`record_later`, refused on
+`later_errors`, the producer held as a verdict's check is) in `verification/<task_id>.later.jsonl`, never in the
+verdict record, and `deferred` lists each such check of a done task as open, passed or failed by its latest
+result. `merge-ok`, `check` and close never read those results.
+
 `spec-text` (§15.2) checks a PR's SPEC edits against the words the operator signed (§3.5): each
 `PROPOSED:` marker followed by `> ` blockquote lines in the task's Scope, or in a section whose heading
 begins `Rule changes`, is a signed passage (`signed_passages`; one carried in both is listed once), and
@@ -1426,6 +1432,188 @@ def spec_text(cfg: Config, task: str, base: str | None = None, head: str | None 
                                    "missing": [r["line"] for r in missing]}
 
 
+# §15.4: the result of a check verify could not run, recorded after its task closed.
+LATER_SUFFIX = ".later.jsonl"
+EVIDENCE_MAX = 500
+LATER_STATES = ("open", "passed", "failed")
+
+
+def later_path(queue: Path, task_id: str) -> Path:
+    """`verification/<task_id>.later.jsonl`: the results recorded after close, one row each."""
+    return queue / "verification" / f"{task_id}{LATER_SUFFIX}"
+
+
+def _deferred(c: Any) -> bool:
+    """A check recorded not run (`ran: false`) that does not rest on a carried verdict."""
+    return isinstance(c, dict) and c.get("ran", True) is False and carried_from(c.get("rests_on")) is None
+
+
+def deferred_ids(rec: Any) -> list[str]:
+    """The ids of the record's checks that may be run after close, in the record's order."""
+    checks = rec.get("checks") if isinstance(rec, dict) else None
+    out: list[str] = []
+    for c in checks if isinstance(checks, list) else []:
+        cid = str(c.get("dod_check_id")) if isinstance(c, dict) else ""
+        if _deferred(c) and cid not in out:
+            out.append(cid)
+    return out
+
+
+def _seats() -> tuple[str, ...]:
+    """The seats a check's `produced_by` may name: the verdict record's contract."""
+    props = json.loads(SCHEMA.read_text())["properties"]["checks"]["items"]["properties"]
+    return tuple(props["produced_by"]["enum"])
+
+
+def later_errors(status: str | None, rec: Any, check_id: str, evidence: str, seat: str, step: str | None,
+                 step_refusal: Callable[[str], str | None], seats: tuple[str, ...]) -> list[str]:
+    """Why a result recorded after close is refused (§15.4), an empty list when it is not. `status` is the
+    task's queue status, `rec` its verdict record (None when it has none), `step_refusal` why an
+    `operator_step` is not an approved operator gate of the task (None when it is)."""
+    from ccp import health  # noqa: PLC0415
+
+    errs: list[str] = []
+    if status != "done":
+        errs.append(f"the task is {status or 'not in the queue'}, not done: a check is recorded here only after "
+                    "its task closed")
+    if not isinstance(rec, dict):
+        errs.append("the task has no verification record (verification/<task_id>.json)")
+    else:
+        checks = [c for c in rec.get("checks") or [] if isinstance(c, dict)
+                  and str(c.get("dod_check_id")) == check_id]
+        if not checks:
+            errs.append(f"the verification record holds no check {check_id!r}")
+        elif not any(_deferred(c) for c in checks):
+            c = checks[0]
+            why = (f"it rests on a carried verdict ({c.get('rests_on')}), run at an earlier head"
+                   if c.get("ran", True) is False else "it was run at verify")
+            errs.append(f"check {check_id!r} is not one verify deferred: {why}")
+    text = evidence.strip()
+    if not text:
+        errs.append("--evidence is empty: say what the run showed")
+    if "\n" in evidence or "\r" in evidence:
+        errs.append("--evidence holds a line break: give one line")
+    if len(text) > EVIDENCE_MAX:
+        errs.append(f"--evidence is {len(text)} characters; the limit is {EVIDENCE_MAX}")
+    if text and health.looks_like_secret(text):
+        errs.append("--evidence looks like it holds a secret; say it without the value")
+    if seat not in seats:
+        errs.append(f"--produced-by {seat!r} is not a seat ({', '.join(seats)})")
+    elif seat in RULING_SEATS and not step:
+        errs.append(f"the evidence was produced by the {seat}, a seat that rules on the task: name the approved "
+                    "operator step it came from (--operator-step <task_id>-<n>, §15.4)")
+    if step:
+        why = step_refusal(step)
+        if why:
+            errs.append(f"produced by the {seat}: {why}")
+    return errs
+
+
+def later_rows(queue: Path, task_id: str) -> list[dict[str, Any]]:
+    """The results recorded after close, in order; a line that is not a JSON object is passed over."""
+    try:
+        lines = later_path(queue, task_id).read_text().splitlines()
+    except OSError:
+        return []
+    rows = []
+    for line in lines:
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
+    return rows
+
+
+def deferred_states(task_id: str, rec: Any, rows: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Each deferred check of the record, `open` with no row, else `passed` or `failed` by its latest row."""
+    latest = {str(r.get("dod_check_id")): r.get("pass") for r in rows}
+    return [{"task_id": task_id, "dod_check_id": cid,
+             "state": "open" if cid not in latest else ("passed" if latest[cid] is True else "failed")}
+            for cid in deferred_ids(rec)]
+
+
+def _read_record(queue: Path, task_id: str) -> dict[str, Any] | None:
+    loaded = _load(queue / "verification" / f"{task_id}.json")
+    return loaded if isinstance(loaded, dict) else None
+
+
+def record_later(queue: Path, task_id: str, check_id: str, passed: bool, evidence: str, seat: str,
+                 step: str | None, now: datetime) -> tuple[list[str], dict[str, Any] | None]:
+    """`ccp verify later`: append one result to `verification/<task_id>.later.jsonl`, or the refusals and
+    nothing written."""
+    from ccp import queue as qmod  # noqa: PLC0415
+
+    if not SAFE_ID_RE.match(task_id):
+        return [f"task id {task_id!r} is not a file name"], None
+    status = qmod.load_task_state(queue, task_id).get("status")
+    errs = later_errors(str(status) if status else None, _read_record(queue, task_id), check_id, evidence, seat,
+                        step, lambda s: _operator_step_refusal(queue, task_id, s), _seats())
+    if errs:
+        return errs, None
+    row = {"task_id": task_id, "dod_check_id": check_id, "pass": passed, "evidence": evidence.strip(),
+           "produced_by": seat, "operator_step": step or None, "at": _iso(now), "by": qmod.actor()}
+    qmod.append_jsonl(later_path(queue, task_id), row)
+    return [], row
+
+
+def deferred(queue: Path, task_id: str | None = None) -> list[dict[str, str]]:
+    """`ccp verify deferred`: each deferred check of each done task with a verification record."""
+    from ccp import queue as qmod  # noqa: PLC0415
+
+    out: list[dict[str, str]] = []
+    vdir = queue / "verification"
+    for path in sorted(vdir.glob("*.json")) if vdir.is_dir() else []:
+        tid = path.stem
+        if (task_id and tid != task_id) or not SAFE_ID_RE.match(tid):
+            continue
+        try:
+            done = qmod.load_task_state(queue, tid).get("status") == "done"
+        except qmod.QueueError:
+            done = False
+        if done:
+            out += deferred_states(tid, _read_record(queue, tid), later_rows(queue, tid))
+    return out
+
+
+def _full_task_id(cfg: Config, task_id: str) -> str:
+    """The task's full id, for its number too; as given when the task log holds no such task."""
+    from ccp import queue as qmod  # noqa: PLC0415
+    try:
+        return str(qmod.task_meta(cfg, task_id).get("task_id") or task_id)
+    except qmod.QueueError:
+        return task_id
+
+
+def _later_main(cfg: Config, queue: Path, a: Any) -> int:
+    missing = [flag for flag, v in (("--check", a.check), ("--pass or --fail", a.passed),
+                                    ("--evidence", a.evidence), ("--produced-by", a.produced_by)) if v is None]
+    if missing:
+        print(f"ccp verify later: give {', '.join(missing)}", file=sys.stderr)
+        return 2
+    errs, row = record_later(queue, _full_task_id(cfg, a.target), a.check, a.passed, a.evidence, a.produced_by,
+                             a.operator_step, _now())
+    if errs:
+        print("ccp verify later: refused, nothing written", file=sys.stderr)
+        for e in errs:
+            print(f"  {e}", file=sys.stderr)
+        return 2
+    print(json.dumps({"ok": True, **(row or {})}, indent=2, ensure_ascii=False))
+    return 0
+
+
+def _deferred_main(cfg: Config, queue: Path, a: Any) -> int:
+    rows = deferred(queue, _full_task_id(cfg, a.task) if a.task else None)
+    if a.json:
+        print(json.dumps(rows, indent=2))
+        return 0
+    for r in rows:
+        print(f"{r['task_id']} {r['dod_check_id']} {r['state']}")
+    print(f"{sum(r['state'] == 'open' for r in rows)} open, {sum(r['state'] == 'failed' for r in rows)} failed")
+    return 0
+
+
 def _queue() -> Path | None:
     q = os.environ.get("QUEUE_ROOT")
     if not q or not Path(q).is_dir():
@@ -1435,6 +1623,10 @@ def _queue() -> Path | None:
 
 
 def main(cfg: Config, a: Any) -> int:
+    if a.action != "deferred" and not str(getattr(a, "target", None) or "").strip():
+        what = {"record": "the verdict file", "merge-ok": "the PR number"}.get(a.action, "the task id")
+        print(f"ccp verify {a.action}: give {what}", file=sys.stderr)
+        return 2
     if a.action == "spec-text":  # reads the task log and git only: no queue
         code, body = spec_text(cfg, a.target, getattr(a, "base", None), getattr(a, "head", None))
         if body.get("error"):
@@ -1448,6 +1640,10 @@ def main(cfg: Config, a: Any) -> int:
     queue = _queue()
     if queue is None:
         return 2
+    if a.action == "later":
+        return _later_main(cfg, queue, a)
+    if a.action == "deferred":
+        return _deferred_main(cfg, queue, a)
     if a.action == "record":
         try:
             rec = json.loads(sys.stdin.read() if a.target == "-" else Path(a.target).read_text())
