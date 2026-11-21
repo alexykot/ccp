@@ -155,4 +155,22 @@ the parser, which this task's new flag must satisfy.
 
 ## Implementation notes
 
+- `scripts/observability/lib.py` holds `WAIT_REASONS` (what `set` accepts, no `steerer`) and
+  `WAIT_READ_ONLY = ("steerer",)`; its docstring and `scripts/observability/CLAUDE.md` name
+  `WAIT_READ_ONLY` and `LEGACY_EVENT_TYPES` as the values only read, in place of the "alias table".
+- `set-waiting-on.sh` imports `WAIT_REASONS` from lib and refuses any other reason on `set`, `steerer`
+  included, with exit 2 (it was lib's `die` default, exit 1, for every unknown reason; the ruling asks for
+  exit 2). `clear` takes any reason, so a `steerer` wait from an older queue still clears. Its usage text
+  points at SPEC §10.1 instead of listing the reasons.
+- `ccp/lifecycle.py` `set_wait` builds every `ccp` call to the writer: `actor`, `task_only`, `quota_class`,
+  `resets_at`, `detail`, and also `planned_resume_at`, which the session park passes (§25.4). A writer exit
+  1 or 2 passes through, any other failure (and a writer silent for 30 s, the timeout usage.py had) is exit
+  1. `wait`, `_apply` (sync), `release` and usage.py's `clear_park` and `_park` call it; usage.py's
+  `_set_wait` is gone. `ccp tasks wait` gains `--quota-class {session,credit}` only, as ruled.
+- `contracts/observability_now.schema.json` is removed, with its lines in `docs/design/observability.md`
+  and `scripts/observability/README.md`.
+- `tests/test_session_park.py` patched `usage._set_wait`; it now patches `lifecycle.set_wait`.
+- wr-02 step 1: argparse prints a flag on the usage line and under options, so `grep -c -- --quota-class`
+  prints 2, as `--until` does at the base; the flag is there once, as one option.
+
 ## Verification notes
