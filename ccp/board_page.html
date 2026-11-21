@@ -880,10 +880,10 @@ function setFavicon(level) {
 
 function render() {
   if (!B) { document.getElementById("app").append($(`<p>No board data. Run <code>ccp board build</code>.</p>`)); return; }
-  const n = B.now || {}, u = B.usage || {}, w = n.work || {}, a = n.allowance || {}, last = a.latest || {};
+  const n = B.now || {}, u = B.usage || {}, w = n.work || {}, a = n.allowance || {}, good = a.latest_good || {};  // §25.1: a failed sample is never judged
   let weekTok = null;
   try { weekTok = Object.entries(u.daily || {}).sort().slice(-7).reduce((x, [, d]) => x + Object.values(d).reduce((p, q) => p + q, 0), 0); } catch (e) {}
-  const seven = last.seven_day, cp = a.checkpoint;
+  const seven = good.seven_day, cp = a.checkpoint;
   const merged7 = B.trend?.tasks_merged_7d ?? 0;
   const tr = B.trend || {};
   const rw = n.refactors_waiting;  // §20.4: outstanding refactors outside the scope (null without the architect seat)
@@ -907,7 +907,7 @@ function render() {
   const tiles = safe("Tiles", () => `<div class="tiles">
     <div class="tile"><div class="k">Weekly allowance</div><div class="v">${u.usage_read === false ? "usage unread" : seven == null ? "?" : seven.toFixed(0) + "%"}</div>
       <div class="meter" aria-hidden="true"><div class="fill" style="width:${Math.min(100, seven || 0)}%"></div>${cp != null ? `<div class="mark" style="left:${cp}%"></div>` : ""}</div>
-      <div class="d">checkpoint ${cp ?? "–"}%${a.decision_lapsed_at ? ` · decision lapsed at the counter reset ${esc(String(a.decision_lapsed_at).slice(0, 16).replace("T", " "))}` : ""} · ${last.resets_at ? "resets " + new Date(last.resets_at).toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"}) : "reset unknown"}</div>
+      <div class="d">checkpoint ${cp ?? "–"}%${a.decision_lapsed_at ? ` · decision lapsed at the counter reset ${esc(String(a.decision_lapsed_at).slice(0, 16).replace("T", " "))}` : ""} · ${good.resets_at ? "resets " + new Date(good.resets_at).toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"}) : "reset unknown"}${u.usage_read !== false && a.in_force === false && a.latest_good ? ` · last good reading ${esc(ago(good.at))}` : ""}</div>
       ${(() => { try { const t = fcAllowLine(B.forecast, true); return t ? `<div class="d" title="estimate, advisory (SPEC §26.4)">${t}</div>` : ""; } catch (e) { return ""; } })()}</div>
     <div class="tile"><div class="k">Tokens, last 7 days</div><div class="v">${fmtTok(weekTok)}</div><div class="d">cost estimate $${(u.total?.cost_usd ?? 0).toFixed(2)} all time</div></div>
     <div class="tile"><div class="k">Attributed to runs or seats</div><div class="v">${u.coverage == null ? "–" : (u.coverage * 100).toFixed(1) + "%"}</div><div class="d">${u.traces ? "from trace spans" : "no traces: time windows only"}</div></div>
@@ -972,7 +972,7 @@ function render() {
       <li>Headless runs recorded: ${(B.headless || []).length}</li>
       <li>Last rebuild failure: ${h.last_rebuild_failure ? esc(typeof h.last_rebuild_failure === "string" ? h.last_rebuild_failure : JSON.stringify(h.last_rebuild_failure)) : "none"}</li>
     </ul></div></div></section>`) + safe("Allowance", () => { const dec = Array.isArray(a.decisions) ? a.decisions : [];
-  return `<section class="card"><h2>Allowance</h2><ul class="plain"><li>Weekly: <b>${seven == null ? "?" : seven.toFixed(0) + "%"}</b> · 5-hour: ${last.five_hour == null ? (seven != null ? "no limit" : "?") : Number(last.five_hour).toFixed(0) + "%"} · read ${last.at ? esc(ago(last.at)) : "never"}</li>
+  return `<section class="card"><h2>Allowance</h2><ul class="plain"><li>Weekly: <b>${seven == null ? "?" : seven.toFixed(0) + "%"}</b> · 5-hour: ${good.five_hour == null ? (seven != null ? "no limit" : "?") : Number(good.five_hour).toFixed(0) + "%"} · read ${good.at ? esc(ago(good.at)) : "never"}</li>
     <li>Checkpoint in force: ${cp ?? "–"}%${a.project_checkpoint != null ? ` <span class="muted">(project's own ${esc(a.project_checkpoint)}%)</span>` : ""}${a.decision_lapsed_at ? ` · decision lapsed at the counter reset ${esc(String(a.decision_lapsed_at).slice(0, 16).replace("T", " "))}` : ""}</li>
     ${safe("Allowance fit", () => allowanceFitLines(B.forecast))}</ul>
     <h3>Checkpoint decisions this week</h3>${dec.length ? `<ol class="notes">${dec.slice().reverse().map((d) => `<li><span class="muted">${esc(String(d.at || "").slice(0, 16).replace("T", " "))} · ${esc(d.by || "-")} · to ${esc(d.to ?? "–")}% at ${esc(d.seven_day_then ?? "–")}%${d.lapsed_at ? ` · lapsed at the counter reset ${esc(String(d.lapsed_at).slice(0, 16).replace("T", " "))}` : ""}</span><br>${esc(d.reason || "")}</li>`).join("")}</ol>` : `<p class="muted">None.</p>`}</section>`; }));

@@ -308,6 +308,15 @@ def _holds(work: dict[str, Any]) -> list[dict[str, Any]]:
     return [{"task_id": t, **(v if isinstance(v, dict) else {})} for t, v in sorted(held.items())]
 
 
+def _allowance(cfg: Config, q: Path) -> dict[str, Any]:
+    """§25.3, §28: `ccp allowance status` and `weekly_over`, the claim's own judge on the latest good sample:
+    {window, pct, checkpoint} of the first weekly window at or past its checkpoint with its reset ahead, or None."""
+    a = usage.status(cfg, q, sample=False)
+    over = usage.weekly_over(cfg, q, a["latest_good"], usage.now())  # the row the tile shows: one read of the log
+    a["weekly_over"] = {"window": over[0]["name"], "pct": float(over[0]["pct"]), "checkpoint": over[1]} if over else None
+    return a
+
+
 def build(cfg: Config, q: Path) -> dict[str, Any]:
     report = usage.fold(q, None, config.design_seat(cfg))
     work = load_work(q)
@@ -340,7 +349,7 @@ def build(cfg: Config, q: Path) -> dict[str, Any]:
                 "next_tasks": ({"tasks": ids, "by": work.get("next_task_by"), "at": work.get("next_task_at"),
                                 "reason": work.get("next_task_reason") or ""} if (ids := preferred_ids(work)) else None),
                 "held": _holds(work),
-                "allowance": usage.status(cfg, q, sample=False), "seats": _seats(cfg, q, report, work)},
+                "allowance": _allowance(cfg, q), "seats": _seats(cfg, q, report, work)},
         "usage": {**{k: report[k] for k in ("seats", "unattributed", "total", "how", "coverage", "traces", "advice",
                                             "unattributed_sources", "daily")},
                   "usage_read": usage.usage_read(cfg)},  # §25.1: false without an allowance command
@@ -529,9 +538,8 @@ def _blockers(b: dict[str, Any]) -> list[str]:
     out += [f"question {q['id']} open" for q in b["now"]["questions"]]
     out += [f"stale source: {s}" for s in b["health"]["stale_sources"]]
     a = b["now"]["allowance"]
-    seven = (a.get("latest") or {}).get("seven_day")
-    if a.get("checkpoint") is not None and seven is not None and seven >= a["checkpoint"]:
-        out.append(f"allowance at the checkpoint: {seven:g}% of {a['checkpoint']:g}%"
+    if over := a.get("weekly_over"):  # the claim's judge (§25.3): the latest good sample, its reset still ahead
+        out.append(f"allowance at the checkpoint: {over['pct']:g}% of {over['checkpoint']:g}%"
                    + (f" (decision lapsed at the counter reset {a['decision_lapsed_at']})" if a.get("decision_lapsed_at") else ""))
     return out
 
@@ -579,11 +587,14 @@ def write(q: Path, board: dict[str, Any]) -> dict[str, str]:
 def status_text(b: dict[str, Any]) -> str:
     w = b["now"]["work"]
     a = b["now"]["allowance"]
-    seven = (a.get("latest") or {}).get("seven_day")
+    good = a.get("latest_good")
+    seven = (good or {}).get("seven_day")  # §25.1: a failed sample is never judged
     lines = [f"{b['project_id']}  board {b['generated_at']}  plane {b['plane']['head']}",
              f"runner {w.get('status') or '-'}  "
              f"task {w.get('task_id') or '-'}  phase {w.get('phase') or '-'} since {w.get('phase_since') or '-'}",
-             f"allowance weekly {seven if seven is not None else '?'}%  checkpoint "
+             f"allowance weekly {seven if seven is not None else '?'}%"
+             + (f" (last good reading {good.get('at')})" if good and a.get("in_force") is False else "")
+             + "  checkpoint "
              f"{a.get('checkpoint') if a.get('checkpoint') is not None else '-'}%"
              + (f"  decision lapsed at the counter reset {a['decision_lapsed_at']}" if a.get("decision_lapsed_at") else ""),
              f"usage coverage {b['usage']['coverage'] * 100:.1f}%" if b["usage"]["coverage"] is not None

@@ -8,6 +8,8 @@ import subprocess
 import unittest
 
 from ccp import board
+from tests.helpers import machine_file
+from tests.test_board import good_then_failed
 from tests.test_board_drill import HASH_STUB, Fixture
 from tests.test_board_quality import HOSTILE, _hostile
 
@@ -95,10 +97,31 @@ class Layout(Fixture, unittest.TestCase):
         self.assertNotIn("untriaged 7+ days", new)
         self.assertRegex(html, r'id="tab-health"[^>]*>.*?<span class="badge warn"[^>]*>1</span>')
 
+    def test_the_weekly_tile_shows_the_latest_good_figure_and_its_age_after_a_failed_read(self):
+        self.seed()
+        machine_file(self, allowance_cmd="false", allowance_stop_weekly=90)
+        good_then_failed(self.q, 86400)
+        b = self.build()[0]
+        html = self.page(b, "#tab=health")[0]
+        head = html.split('<div class="pane grid"', 1)[0]
+        self.assertRegex(html.split("<h2>Allowance</h2>", 1)[1], r"Weekly: <b>95%</b> · 5-hour: 10% · read 2\.\d h ago")
+        tile = re.search(r'<div class="k">Weekly allowance</div><div class="v">(.*?)</div>(.*?)<div class="d">(.*?)</div>', head, re.S)
+        self.assertEqual(tile.group(1), "95%")
+        self.assertIn('style="width:95%"', tile.group(2))  # the meter, from the good reading too
+        self.assertIn("checkpoint 90%", tile.group(3))
+        self.assertIn(" · resets ", tile.group(3))  # the good reading's weekly reset, not "reset unknown"
+        self.assertNotIn("reset unknown", tile.group(3))
+        self.assertRegex(tile.group(3), r"last good reading 2\.\d h ago")
+        self.assertIn("allowance at the checkpoint: 95% of 90%", head)
+        b["usage"]["usage_read"] = False  # no allowance command: the tile says so, as before
+        head = self.page(b)[0].split('<div class="pane grid"', 1)[0]
+        self.assertIn('<div class="v">usage unread</div>', head)
+        self.assertNotIn("last good reading", head)
+
     def test_a_card_that_throws_shows_its_banner_and_the_rest_renders(self):
         self.seed()
         b = self.build()[0]
-        b["now"]["allowance"] = {"latest": {"seven_day": "x"}}  # .toFixed throws: the tiles and the Allowance card
+        b["now"]["allowance"] = {"latest_good": {"seven_day": "x"}}  # .toFixed throws: the tiles and the Allowance card
         b["usage"]["usage_read"] = True  # an allowance command is set: the tile shows the weekly figure
         b["usage"]["seats"] = {"implementer": None}
         b["runs"] = [{}]
