@@ -1,7 +1,7 @@
 ---
 task_id: 0255-test-fixtures-shared-helpers-and-one-repo-build
 title: Test helpers other modules borrow move to test-free mixins, and ToolkitFixture builds its repositories once per test class
-status: pending
+status: done
 kind: refactor
 depends_on: ["0227-the-test-fixture-uses-the-local-pr-host", "0241-gate-module-tests-wiring-only"]
 clashes_with: ["0208-board-reads-the-latest-good-allowance", "0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0219-integration-merges-leave-out-the-tip"]
@@ -110,4 +110,34 @@ modules and `tests/helpers.py`), so this task builds on both.
 
 ## Implementation notes
 
+- **F06.** `tests/review_flow.py` (new) holds `ReviewFlow` (`run_phase`, `review`, `fix`, `verdict`, `verify_round`, and
+  `MergeIn`'s `commit`) and `SkipFlow(ReviewFlow)` (`SkipReview`'s `commit`, `fix`, `push`, `reviewed`, `verify`; its
+  `commit` and `fix` replace `ReviewFlow`'s, which take other arguments). `Fold`'s helpers are `FoldRuns` and `Layout`'s
+  `page` is `BoardPage`, both in `tests/helpers.py`. The defining classes (`ReviewGate`, `RepeatVerify`, `MergeIn`,
+  `SkipReview`, `Fold`, `Layout`) and the 10 borrowing modules inherit them. Four things moved with them because a
+  borrower reached them through the test module: `A`, `B` (to `review_flow`), `PROOF` and the skip product's plane
+  (`SKIP_REVIEW_PLANE`, which `test_review_skip_clean` built on as `SkipReview.PLANE_JSON`), and `T0` (to `helpers`,
+  `test_usage` imports it). `BoardPage.page` imports `HASH_STUB` from `test_board_drill` inside the method: that module
+  imports `helpers` (a top-level import would be circular), and moving the constant would touch modules outside Scope.
+- **F07.** `ToolkitFixture.setUpClass` builds the repositories once into a template under its own temp directory
+  (`_build_repos`, with the class's `PLANE_JSON`, then `git gc` on both repositories so a copy has fewer files) and
+  `addClassCleanup` removes it. `setUp` copies the tree (`shutil.copytree`, symlinks kept, `shutil.copy` as the copy
+  function: no times or xattrs, which was the slow part on macOS), then `git remote set-url` and `git worktree repair`,
+  then writes the queue and environment as before. `SHARED_REPO = False` keeps the per-test build; `test_report_sections`'
+  `Prompts` sets it, because its `setUp` sets the commit dates before the build so the first commit hashes alike in
+  two dumps. A class whose bases put `TestCase` before the fixture fails on an assertion naming the order.
+- Measured at 91 to 110 load average on this Mac, so wall time is not the idle figure: 0.11 to 0.12 s per test by fx-03's
+  command (0.37 to 0.40 s with `SHARED_REPO = False` in the same minutes); CPU seconds per test (self and children) 0.095,
+  against 0.24 per-test build. `--template=` on `git init` and `clone` cut files but dropped `hooks/`, which the push-refusal
+  tests write into; not used.
+- `tests/test_toolkit.py` gains `SharedRepo`, `OwnPlaneJson` and `PerTestRepo` (the copy points at itself, a commit in one
+  test is not seen by another, a class's own `PLANE_JSON` reaches its template, `SHARED_REPO = False` builds per test).
+- `architect.checks` `E4` added to `docs/delivery/plane.json` as the task gives it. `tests/CLAUDE.md` names the mixins
+  and the template and rewords the reuse rule; its sentence avoids the pattern E4 greps for.
+- Context premises re-run at 31357f0: 38 lines (36 stated) of the borrowed-helper pattern, in the same 10 modules; 70
+  modules (63) use `ToolkitFixture`; 24 (21) override `PLANE_JSON`. The counts grew with merged tasks; the sites are the same.
+
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #283 head `724394f` (squash `5b23f26`): APPROVE. Passed: fx-01, fx-02, fx-03, fx-04. Gate: `ccp wt exec -- suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0255-test-fixtures-shared-helpers-and-one-repo-build.json.
+

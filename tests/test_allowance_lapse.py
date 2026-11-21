@@ -9,8 +9,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from ccp import board, usage
+from tests.helpers import BoardPage
 from tests.test_board_drill import Fixture
-from tests import test_board_layout
 
 W = "2026-10-27T04:00:00.24Z"   # this week's window, as a product read it
 W2 = "2026-10-27T03:59:59.52Z"  # the same window, jittered
@@ -91,9 +91,7 @@ class Lapse(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node is not installed")
-class LapsedOnTheBoard(Fixture, unittest.TestCase):
-    page = test_board_layout.Layout.page
-
+class LapsedOnTheBoard(BoardPage, Fixture, unittest.TestCase):
     def test_status_text_blocker_and_page_say_the_decision_lapsed(self):
         self.seed()
         b = self.build()[0]

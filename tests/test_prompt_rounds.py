@@ -9,8 +9,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, report, runs, verify
-from tests import test_review_gate
 from tests.helpers import binding
+from tests.review_flow import ReviewFlow
 from tests.test_report_fields import HEAD, MIGRATION, implement_report
 from tests.test_toolkit import ToolkitFixture, git
 
@@ -18,12 +18,7 @@ A, B = "a" * 40, "b" * 40
 RULING = "Lead ruling: the field is optional."
 
 
-class Rounds(ToolkitFixture, unittest.TestCase):
-    run_phase = test_review_gate.ReviewGate.run_phase
-    review = test_review_gate.ReviewGate.review
-    fix = test_review_gate.ReviewGate.fix
-    verdict = test_review_gate.ReviewGate.verdict
-    verify_round = test_review_gate.RepeatVerify.verify_round
+class Rounds(ReviewFlow, ToolkitFixture, unittest.TestCase):
 
     def setUp(self):
         super().setUp()
@@ -168,12 +163,9 @@ class Rounds(ToolkitFixture, unittest.TestCase):
         self.round_since_the_last_verify("ruling")
 
 
-class MergeInRealGit(ToolkitFixture, unittest.TestCase):
+class MergeInRealGit(ReviewFlow, ToolkitFixture, unittest.TestCase):
     """§15.2 through a merge round, judged by real patch ids: the tip merged in, the reviewed change
     unchanged, needs no new review; a merge round that also changed the task's own code does."""
-    run_phase = test_review_gate.ReviewGate.run_phase
-    review = test_review_gate.ReviewGate.review
-    commit = test_review_gate.MergeIn.commit
 
     def setUp(self):
         super().setUp()

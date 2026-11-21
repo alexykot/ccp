@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, otel, usage
-from tests.helpers import Product, binding
+from tests.helpers import T0, FoldRuns, Product, binding
 
 PLANE = Path(__file__).resolve().parents[1]
 
@@ -42,7 +42,6 @@ def spans(project, *records):
                                                           "attributes": kv(**r)} for r in records]}]}]}
 
 
-T0 = 1_800_000_000 * 10**9  # 2027-01-15
 
 
 def req(rid, t, model="claude-opus-5-5", effort="high", source="agent:custom", out=100, **more):
@@ -140,7 +139,7 @@ class Receiver(unittest.TestCase):
         self.assertEqual(row["cost_usd"], 0.25)
 
 
-class Fold(unittest.TestCase):
+class Fold(FoldRuns, unittest.TestCase):
     def setUp(self):
         self._d = tempfile.TemporaryDirectory()
         self.q = Path(self._d.name)
@@ -151,29 +150,6 @@ class Fold(unittest.TestCase):
 
     def tearDown(self):
         self._d.cleanup()
-
-    def mkrun(self, rid, seat, model, effort, agent, start, stop):
-        from datetime import datetime, timezone
-        f = lambda s: datetime.fromtimestamp(T0 / 1e9 + s, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        task, phase = rid.split("/")
-        p = self.q / "runs" / task / f"{phase}.json"
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps({"run_id": rid, "task_id": task, "phase": phase, "seat": seat, "agent_type": f"delivery-{seat}",
-                                 "expected_model": model, "expected_effort": effort, "agent_id": agent,
-                                 "opened_at": f(start), "started_at": f(start), "stopped_at": f(stop)}))
-
-    def write(self, name, rows):
-        with (self.q / "board" / name).open("a") as fh:
-            for r in rows:
-                fh.write(json.dumps(r) + "\n")
-
-    def rows(self, *rs):
-        out = []
-        for r in rs:
-            r = dict(r)
-            t = r.pop("t")
-            out.append({k.replace("__", "_"): v for k, v in r.items()} | {"at": otel._iso(t)})
-        return out
 
     def test_the_join(self):
         self.write("usage-requests.jsonl", self.rows(

@@ -12,18 +12,15 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config
-from tests import test_review_gate, test_review_skip
+from tests.review_flow import PROOF, SKIP_REVIEW_PLANE, ReviewFlow, SkipFlow
 from tests.test_toolkit import PLANE, ToolkitFixture
 
 A, B, C = "a" * 40, "b" * 40, "c" * 40
 CLEAN = "Severity: BLOCKER=0 MAJOR=0 MINOR=2 NIT=0"
 
 
-class Rounds(ToolkitFixture):
+class Rounds(ReviewFlow, ToolkitFixture):
     """A claimed task whose runs open a minute apart, with the rounds the gate orders by."""
-
-    run_phase = test_review_gate.ReviewGate.run_phase
-    verdict = test_review_gate.ReviewGate.verdict
 
     def setUp(self):
         super().setUp()
@@ -191,17 +188,12 @@ class SkipAfterClean(Rounds, unittest.TestCase):
         self.assertNotIn("verify.skip_review_after_clean", Path(body["prompt_path"]).read_text())
 
 
-class BothSkipKnobs(ToolkitFixture, unittest.TestCase):
+class BothSkipKnobs(SkipFlow, ToolkitFixture, unittest.TestCase):
     """`verify.skip_review` and `verify.skip_review_after_clean` both on, against real commits: the proof is
     tried first; when it does not apply, a fix of a clean review's minor findings still skips."""
 
-    PLANE_JSON = {**test_review_skip.SkipReview.PLANE_JSON,
-                  "verify": {**test_review_skip.SkipReview.PLANE_JSON["verify"], "skip_review_after_clean": True}}
-    run_phase = test_review_gate.ReviewGate.run_phase
-    commit = test_review_skip.SkipReview.commit
-    push = test_review_skip.SkipReview.push
-    fix = test_review_skip.SkipReview.fix
-    verify = test_review_skip.SkipReview.verify
+    PLANE_JSON = {**SKIP_REVIEW_PLANE,
+                  "verify": {**SKIP_REVIEW_PLANE["verify"], "skip_review_after_clean": True}}
 
     def setUp(self):
         super().setUp()
@@ -210,7 +202,7 @@ class BothSkipKnobs(ToolkitFixture, unittest.TestCase):
         patch.start()
         self.addCleanup(patch.stop)
         t = Path(self._tmp.name)
-        (t / "proof").write_text(test_review_skip.PROOF)
+        (t / "proof").write_text(PROOF)
         (t / "proof").chmod(0o755)
         self.log = t / "proof.log"
         os.environ.update(PROOF_BIN=str(t / "proof"), PROOF_LOG=str(self.log))  # the fixture's env patch restores it

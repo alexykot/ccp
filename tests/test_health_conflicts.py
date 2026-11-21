@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import gitmerge, health, runs
-from tests import test_review_gate
+from tests.review_flow import ReviewFlow
 from tests.test_toolkit import GIT_ENV, ToolkitFixture, git
 
 
@@ -20,9 +20,7 @@ def sh(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True, env={**os.environ, **GIT_ENV})
 
 
-class RoundReport(ToolkitFixture, unittest.TestCase):
-    run_phase = test_review_gate.ReviewGate.run_phase
-    review = test_review_gate.ReviewGate.review
+class RoundReport(ReviewFlow, ToolkitFixture, unittest.TestCase):
 
     def setUp(self):
         super().setUp()
