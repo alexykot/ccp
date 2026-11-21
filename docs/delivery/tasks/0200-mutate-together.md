@@ -147,5 +147,10 @@ Measured at `58cf1d0`.
   apply (exit 2, tree restored), and `together` on plain parts.
 - The move test alone does not catch "`--together` applies only its first part" (deleting the step
   already fails its test); the two-file test does (mt-02 asks for one of the two).
+- Fix round 1 (review MINOR-1): `together` and `_run`'s `texts` key files by `_key(rel)`
+  (`os.path.normpath`, POSIX separators), so `./calc.py` and `calc.py` are one file for the in-order
+  check and the file-sharing refusal; the row's `files` holds that one spelling. A single mutant's
+  `files` and every part's digest keep the path as given. Test:
+  `test_together_two_spellings_of_one_file_are_one_file`.
 
 ## Verification notes
