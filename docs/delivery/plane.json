@@ -29,6 +29,10 @@
         "cmd": "! git grep -nE 'CCP_GH_BIN|headRefOid|mergeCommit' -- ccp ':(exclude)ccp/prhost.py' && ! git grep -n 'gh pr' -- templates plugin/agents"
       },
       {
+        "id": "E22",
+        "cmd": "! git grep -n CHECK_RE -- ccp ':(exclude)ccp/tasklog.py'"
+      },
+      {
         "id": "E25",
         "cmd": "python3 -B -m unittest -q tests.test_cli_reference"
       }

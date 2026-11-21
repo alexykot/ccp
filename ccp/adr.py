@@ -632,11 +632,6 @@ def unbuilt_cited(cfg: Config, tasks: list[dict[str, Any]]) -> list[str]:
     return out
 
 
-def _at(cfg: Config, head: str, rel: str) -> str | None:
-    r = subprocess.run(["git", "-C", str(cfg.root), "show", f"{head}:{rel}"], capture_output=True)
-    return r.stdout.decode("utf-8", errors="replace") if r.returncode == 0 else None
-
-
 def in_force_at(cfg: Config, task: dict[str, Any], head: str) -> list[str]:
     """§6.7's in-force check run on a task's PR head before its verdict (§15.4): closing the task marks
     it done, so each decision its `adr_refs` cite that the head's ADRs record as `not_built` would fail
@@ -670,7 +665,7 @@ def in_force_at(cfg: Config, task: dict[str, Any], head: str) -> list[str]:
         return [f"{tid} cites ADR decisions, and the PR head {head[:12] or '(none)'} is not in this checkout "
                 "(git fetch it): the in-force ADR check (SPEC §6.7) runs on the head before an approve"]
     head = resolved.stdout.strip()
-    text = _at(cfg, head, rel)
+    text = tasklog.text_at(cfg, head, rel)  # None: the head has no such file (the checkout's task, below)
     decisions = cited(tasklog.frontmatter(text.replace("\r\n", "\n")) if text is not None else task)
     if not decisions:
         return []
@@ -685,7 +680,7 @@ def in_force_at(cfg: Config, task: dict[str, Any], head: str) -> list[str]:
     errs: list[str] = []
     for n, dec in decisions:
         path = by_num.get(n)
-        body = _at(cfg, head, path) if path else None
+        body = tasklog.text_at(cfg, head, path) if path else None
         try:
             fm = split(body)[0] if body is not None else None
             meta = parse(fm) if fm is not None else {}

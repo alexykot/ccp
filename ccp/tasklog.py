@@ -34,6 +34,7 @@ import fnmatch
 import re
 import shlex
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -59,6 +60,8 @@ SECTION_ALIASES = {SEC_CONTEXT: ("Context (not verified)",)}
 NOTES_SECTIONS = (SEC_IMPL, SEC_VERIFY)
 # A dod_check opens `- id: `kind-NN``: a lowercase kind and a number.
 CHECK_RE = re.compile(r"^- id: `([a-z]+-\d+)`[ \t]*(?:#.*)?$", re.M)
+# A key line of a check's block: an indent, a lowercase key (`dry run (`sha`)` is the key `dry run`), a colon.
+FIELD_RE = re.compile(r"^([ \t]+)([a-z_]+(?: [a-z_]+)*)(?: \([^)\n]*\))?:[ \t]*(.*)$", re.M)
 # The statuses a task file carries: knowledge and outcomes. Who is working on a task, and in which
 # phase, is runtime state in the queue (§4).
 STATUSES = ("pending", "done", "dropped")
@@ -248,17 +251,46 @@ def _section(text: str, name: str) -> str | None:
     return at[1] if at else None
 
 
-def check_blocks(text: str) -> list[tuple[str, int, int]]:
-    """§5.5: each dod_check of a task file's text, in order: its id, and where its body (after its `- id:`
-    line, up to the next check or the section's end) starts and ends in `text`. The one splitter of the
-    section (house rule E22)."""
+@dataclass(frozen=True)
+class Check:
+    """One dod_check of a task file (§5.5): its `id`; its `block`, the text after its `- id:` line up to the next
+    check or the section's end; `fields`, the block's `key: value` lines by key (the first line of each, at
+    the indent of the block's first key, a key a lowercase word or words: `runs_on`, `expect`, `dry run`); and
+    where the block starts and ends in the file's text (`start`, `end`)."""
+    id: str
+    block: str
+    fields: dict[str, str]
+    start: int
+    end: int
+
+
+def _fields(block: str) -> dict[str, str]:
+    """The `key: value` lines of a check's block, at the indent of its first one; a key repeated keeps its
+    first line. A line deeper in (a step, a wrapped value) is no key."""
+    out: dict[str, str] = {}
+    indent: str | None = None
+    for m in FIELD_RE.finditer(block):
+        if indent is None:
+            indent = m.group(1)
+        if m.group(1) == indent:
+            out.setdefault(m.group(2), m.group(3).strip())
+    return out
+
+
+def checks(text: str) -> list[Check]:
+    """§5.5: each dod_check of a task file's text, in order. The one parser of the section (house rule E22):
+    every reader of a check's id, block or fields (`tasks check`, the estimates, `tasks dry-run`, a check's
+    `runs_on`) reads it here. No `dod_checks` section: none."""
     at = _section_at(text, SEC_CHECKS)
     if at is None:
         return []
     start, body = at
     heads = list(CHECK_RE.finditer(body))
-    return [(m.group(1), start + m.end(), start + (heads[i + 1].start() if i + 1 < len(heads) else len(body)))
-            for i, m in enumerate(heads)]
+    out = []
+    for i, m in enumerate(heads):
+        lo, hi = start + m.end(), start + (heads[i + 1].start() if i + 1 < len(heads) else len(body))
+        out.append(Check(m.group(1), text[lo:hi], _fields(text[lo:hi]), lo, hi))
+    return out
 
 
 def check_steps(block: str) -> list[tuple[str, str | None]]:
@@ -294,7 +326,8 @@ def with_dry_runs(text: str, sha: str, records: dict[str, str]) -> str:
     """§21.1 `ccp tasks dry-run --write`: `text` with the dry-run record of each check `records` names set to
     ``dry run (`<sha>`): <record>``, replacing the one already there (its wrapped lines too), else added
     after the check's last line, at its keys' indent. Nothing else in `text` changes."""
-    for cid, start, end in reversed(check_blocks(text)):
+    for c in reversed(checks(text)):
+        cid, start, end = c.id, c.start, c.end
         if cid not in records:
             continue
         old = DRY_RUN_LINE_RE.search(text, start, end)
@@ -327,7 +360,7 @@ def load(cfg: Config, texts: dict[Path, str] | None = None) -> list[dict[str, An
             meta["status"] = canonical_status(meta["status"])
         meta["_file"] = f
         meta["_text"] = text
-        meta["_checks"] = CHECK_RE.findall(_section(text, SEC_CHECKS) or "")
+        meta["_checks"] = [c.id for c in checks(text)]
         out.append(meta)
     return out
 
@@ -340,6 +373,15 @@ def lags(cfg: Config, ref: str) -> bool:
     r = subprocess.run(["git", "-C", str(cfg.root), "merge-base", "--is-ancestor", ref, "HEAD"],
                        capture_output=True, text=True)
     return r.returncode == 1
+
+
+def text_at(cfg: Config, rev: str, rel: str) -> str | None:
+    """The text of the file `rel` (relative to the checkout's root) at `rev`, read from the git objects: a
+    commit or ref, or "" for the index. None when `rev` does not resolve or the file is not there; the
+    checkout's copy is never read in its place, a caller that wants it says so. The one reader of a file at a
+    commit (house rule E22), but for `statuses_at`'s one batch read of many files."""
+    r = subprocess.run(["git", "-C", str(cfg.root), "show", f"{rev}:./{rel}"], capture_output=True)
+    return r.stdout.decode("utf-8", errors="replace") if r.returncode == 0 else None
 
 
 def statuses_at(cfg: Config, ref: str, ids: list[str]) -> dict[str, str]:
@@ -566,8 +608,8 @@ def _check_dry_runs(t: dict[str, Any], rel: str) -> list[str]:
     if t.get("status") in TERMINAL:
         return []
     errs = []
-    for cid, start, end in check_blocks(t["_text"]):
-        block = t["_text"][start:end]
+    for c in checks(t["_text"]):
+        block, cid = c.block, c.id
         if RUN_STEP_RE.search(block) and not (DRY_RUN_RE.search(block) or DRY_RUN_NA_RE.search(block)):
             errs.append(f"{rel}: dod_check `{cid}` runs a command but records no `dry run (<commit>):` "
                         "line from its writer's run, nor `dry run: n/a — <reason>` (task_log.dry_run, WRITING-tasks.md)")
@@ -665,8 +707,9 @@ def _check_refactor_gate(cfg: Config, t: dict[str, Any], rel: str) -> list[str]:
     if not judged:
         return []
     errs = []
-    for cid, start, end in check_blocks(t["_text"]):
-        steps = "".join(s.group(1) for s in STEPS_RE.finditer(t["_text"][start:end]))
+    for c in checks(t["_text"]):
+        cid = c.id
+        steps = "".join(s.group(1) for s in STEPS_RE.finditer(c.block))
         runs = [_tokens(span.group(0).strip("`")) for span in CODE_SPAN_RE.finditer(steps)]
         hit = [f"{role} lane `{lane}`" for role, lane, decl in judged
                if any(_runs_lane(w, lane) or (lane_stages(decl) is None and _runs_argv(w, decl)) for w in runs)]
