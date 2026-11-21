@@ -1327,3 +1327,28 @@ tasks:
     title: The architect's friction trigger counts distinct tasks with a worker note, leaves out override notes, and scales with tasks in flight
     depends_on: []
     path: tasks/0270-the-friction-trigger-counts-noted-tasks-and-scales-with-tasks-in-flight.md
+  - id: 0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests
+    status: pending
+    title: ccp mutate takes several tests, refuses a mutant that changes nothing, names the failing tests, and its refusals are tested on plain values
+    depends_on: [0267-mutate-falls-back-to-the-language-pack]
+    path: tasks/0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests.md
+  - id: 0272-the-lead-s-records-share-one-guard-and-one-actor-id
+    status: pending
+    title: The lead's three records refuse another seat through one guard, a ruling counts only when the lead recorded it, and the lead's actor id is named once
+    depends_on: [0253-one-wait-reason-table]
+    path: tasks/0272-the-lead-s-records-share-one-guard-and-one-actor-id.md
+  - id: 0273-verify-refuses-early-what-record-would-refuse
+    status: pending
+    title: ccp prompt verify refuses a not_built citation and a waiver that verify record would refuse, and the per-check facts move to the judge
+    depends_on: []
+    path: tasks/0273-verify-refuses-early-what-record-would-refuse.md
+  - id: 0274-briefs-state-each-rule-once-and-tasks-name-the-mutation-copy
+    status: pending
+    title: Worker briefs stop restating the follow-up and marked-check instructions, and the writing-tasks skill names the tool for a planted-fault copy
+    depends_on: [0257-one-gate-block-and-one-sentence-per-line]
+    path: tasks/0274-briefs-state-each-rule-once-and-tasks-name-the-mutation-copy.md
+  - id: 0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope
+    status: pending
+    title: Stale-Context warnings reach the lead at the spawn and the implementer in its prompt, not every seat's task check, and a same-point respawn keeps the tasks the lead added
+    depends_on: [0257-one-gate-block-and-one-sentence-per-line]
+    path: tasks/0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope.md
