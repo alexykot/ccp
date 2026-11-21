@@ -42,8 +42,9 @@ the parser, which this task's new flag must satisfy.
   already does for the lock) and validates against `WAIT_REASONS`; its usage text names the reasons by
   pointing at §10.1 instead of listing them. The new `tests/test_wait_reasons.py` asserts that the
   schema's `waiting_on` enum, less `null`, equals `WAIT_REASONS` plus `WAIT_READ_ONLY`, and reads the
-  §23.2 `waiting_on` `set` row of `docs/spec/04-observability.md`: the backticked reasons before its
-  `;` equal `WAIT_REASONS`, and those after it equal `WAIT_READ_ONLY`.
+  §23.2 `waiting_on` `set` row of `docs/spec/04-observability.md`: of the backticked names inside the
+  parentheses after `reason`, those before the `;` equal `WAIT_REASONS` and those after it equal
+  `WAIT_READ_ONLY`.
 - **F02, the callers.** `git grep -n 'OBS / "set-waiting-on.sh"' -- ccp` at `aaa81b2`: 4 lines
   (`ccp/lifecycle.py` 3, `ccp/usage.py` 1). `ccp tasks wait` takes `--until` and `--detail` only
   (`./bin/ccp tasks wait -h | grep -c -- --quota-class` at `aaa81b2`: 0), so `ccp/usage.py`
