@@ -17,23 +17,15 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config
-from tests import test_review_gate, test_review_skip
+from tests.review_flow import PROOF, SkipFlow
 from tests.test_toolkit import ToolkitFixture, git
 
 PROVE = '"$PROOF_BIN" {task_id} {reviewed} {head} {from}'
 
 
-class ReviewProvers(ToolkitFixture, unittest.TestCase):
+class ReviewProvers(SkipFlow, ToolkitFixture, unittest.TestCase):
     PLANE_JSON = {**ToolkitFixture.PLANE_JSON,
                   "verify": {"provers": [{"name": "comments", "command": PROVE, "skips": "review"}]}}
-    run_phase = test_review_gate.ReviewGate.run_phase
-    review = test_review_gate.ReviewGate.review
-    verdict = test_review_gate.ReviewGate.verdict
-    commit = test_review_skip.SkipReview.commit
-    push = test_review_skip.SkipReview.push
-    reviewed = test_review_skip.SkipReview.reviewed
-    fix = test_review_skip.SkipReview.fix
-    verify = test_review_skip.SkipReview.verify
 
     def setUp(self):
         super().setUp()
@@ -42,7 +34,7 @@ class ReviewProvers(ToolkitFixture, unittest.TestCase):
         patch.start()
         self.addCleanup(patch.stop)
         t = Path(self._tmp.name)
-        (t / "proof").write_text(test_review_skip.PROOF)
+        (t / "proof").write_text(PROOF)
         (t / "proof").chmod(0o755)
         self.log = t / "proof.log"
         os.environ.update(PROOF_BIN=str(t / "proof"), PROOF_LOG=str(self.log))  # the fixture's env patch restores it

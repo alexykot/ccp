@@ -40,6 +40,7 @@ class Prompts(ToolkitFixture, unittest.TestCase):
 
     PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "report": {"required_fields": [DOWNTIME]}}
     ccp_bin: str | None = None
+    SHARED_REPO = False  # the dates below are set before the build, so the first commit's hash is the same in each dump
 
     def setUp(self):
         dates = mock.patch.dict(os.environ, DATES)  # the same commits, so the same hashes, in each dump

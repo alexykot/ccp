@@ -4,11 +4,13 @@ from __future__ import annotations
 import copy
 import json
 import os
+import subprocess
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
-from ccp import config, tasklog
+from ccp import board, config, otel, tasklog
 
 TASK = """---
 task_id: {tid}
@@ -140,3 +142,49 @@ class Product:
 
     def index(self) -> None:
         tasklog.write_index(self.cfg)
+
+
+T0 = 1_800_000_000 * 10**9  # 2027-01-15, in nanoseconds: the epoch the usage tests' times count from
+
+
+class FoldRuns:
+    """Mixin for a `TestCase` whose `self.q` is a temp queue: `mkrun` writes a run record (`start` and `stop`
+    seconds from `T0`), `write` appends rows to a board file and `rows` makes usage-request rows (a `t` in
+    seconds from `T0`)."""
+
+    def mkrun(self, rid, seat, model, effort, agent, start, stop):
+        f = lambda s: datetime.fromtimestamp(T0 / 1e9 + s, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        task, phase = rid.split("/")
+        p = self.q / "runs" / task / f"{phase}.json"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps({"run_id": rid, "task_id": task, "phase": phase, "seat": seat, "agent_type": f"delivery-{seat}",
+                                 "expected_model": model, "expected_effort": effort, "agent_id": agent,
+                                 "opened_at": f(start), "started_at": f(start), "stopped_at": f(stop)}))
+
+    def write(self, name, rows):
+        with (self.q / "board" / name).open("a") as fh:
+            for r in rows:
+                fh.write(json.dumps(r) + "\n")
+
+    def rows(self, *rs):
+        out = []
+        for r in rs:
+            r = dict(r)
+            t = r.pop("t")
+            out.append({k.replace("__", "_"): v for k, v in r.items()} | {"at": otel._iso(t)})
+        return out
+
+
+class BoardPage:
+    """Mixin for a `TestCase`: `page` runs the board page's script under node against a built board and
+    returns the html it wrote and the drill panels it opened."""
+
+    def page(self, b, h: str = "", patch=None):
+        from tests.test_board_drill import HASH_STUB  # noqa: PLC0415 (test_board_drill imports this module)
+        js = (patch or (lambda t: t))(board.PAGE.read_text()).replace("/*__BOARD__*/null", board.embed(b)).split("<script>", 1)[1].split("</script>", 1)[0]
+        loc = "globalThis.location = {hash: %s, pathname: '/b', search: ''};\n" % json.dumps(h)
+        r = subprocess.run(["node", "-e", HASH_STUB + loc + js + "\nprocess.stdout.write(JSON.stringify({out: out.join(''), panel}));"],
+                           capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        d = json.loads(r.stdout)
+        return d["out"], d["panel"]

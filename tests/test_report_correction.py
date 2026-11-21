@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import runs
-from tests import test_review_gate
+from tests.review_flow import ReviewFlow
 from tests.test_report_fields import HEAD, implement_report
 from tests.test_toolkit import ToolkitFixture
 
@@ -23,8 +23,7 @@ def review_report(beyond: str, severity: str = "BLOCKER=0 MAJOR=1 MINOR=0 NIT=0"
             "## Friction\n- the review brief named a stale path\n")
 
 
-class Correction(ToolkitFixture, unittest.TestCase):
-    verdict = test_review_gate.ReviewGate.verdict
+class Correction(ReviewFlow, ToolkitFixture, unittest.TestCase):
 
     def setUp(self):
         super().setUp()
