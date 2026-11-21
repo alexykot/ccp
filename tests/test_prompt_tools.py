@@ -86,9 +86,10 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
             self.assertIn("timeout: 600000", text, phase)
             self.assertIn("suite wait <suite_id>", text, phase)
 
-    def test_the_implementer_sends_rule_text_the_task_does_not_carry_to_a_proposal(self):
+    def test_the_implementer_sends_rule_text_the_task_does_not_carry_to_a_follow_up(self):
         _run_id, text = self.render("implement", "--base", "abc1234")
-        self.assertIn("plane propose`), not the PR", text)
+        self.assertIn("`## Follow-ups`, not the PR", text)
+        self.assertNotIn("plane propose`), not the PR", text)
         self.assertIn("only text without which the code cannot be correct goes to the lead, as a spec question", text)
 
     def test_the_verify_prompt_names_the_record_s_project_id_its_findings_list_and_an_example_that_exists(self):

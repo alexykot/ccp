@@ -271,10 +271,10 @@ resolve. It reads git and the task log only and writes nothing; it blocks no pus
 A **run** is one launch of one worker for one phase of one task: the unit time and tokens are
 reported in.
 
-- **Id:** `<task_id>/<phase>[-<n>]`, phase `implement`, `pr`, `review`, `fix`, `verify`, `merge` or `ruling`,
-  the same name as its report file `progress/<task_id>/<phase>[-<n>].md`. Runs outside a task:
+- **Id:** `<task_id>/<phase>[-<n>]`, phase `implement`, `fix`, `merge`, `ruling`, `review` or `verify`,
+  the same name as its report file `progress/<task_id>/<phase>[-<n>]-report.md`. Runs outside a task:
   `_runner/spawn-<n>`, `_architect/<review_id>`, `_triage/<review_id>`.
-- **Record:** `QUEUE_ROOT/runs/<task_id>/<phase>[-<n>].json` (`contracts/run.schema.json`):
+- **Record:** `QUEUE_ROOT/runs/<task_id>/<phase>[-<n>].json`, with these fields:
   `run_id`, `task_id`, `phase`, `round`, `seat`, `agent_type`, `expected_model`,
   `expected_effort`, `prompt_ref`, `mode` (`resolution` on a resolution review, §13.2), `resolution` and
   `affected_checks` (a resolution review's report lines, §13.4), `opened_at`, `opened_by` (the runner slot), `agent_id`,
@@ -282,7 +282,8 @@ reported in.
   `abandoned_reason`, `abandoned_by`, `outcome`, `suite_tests`, `suite_seconds`, `severity`
   (BLOCKER, MAJOR, MINOR, NIT counts), `friction_count`, `usage` (§24), `observed_models`,
   `observed_efforts`, `integration_merges` and `before_review` (a done implement, fix, merge or ruling
-  round with a head).
+  round with a head), and `follow_ups` (the report's lines, each with its id and the lead's
+  `outcome`, §13.4).
   `ccp report` computes them when the round reports, never from the report's prose: `integration_merges` lists,
   oldest first, the merge commits on the head's first-parent line, from the task's previous done change round's
   reported head (for its first, from `origin/<integration>`) to this head, whose second parent is an ancestor of
@@ -456,7 +457,8 @@ The runner's workers are subagents of fixed agent types (§2): the implementer, 
 verifier. The implementer writes the change and, **in the same worker** (resumed by name), opens the
 PR with `/mk-pr`; a cold `/mk-pr` is forbidden. The review is a clean separate worker, never the
 implementer's session. Every worker runs the PATH `claude`, never `--bare`. Workers never merge,
-never edit a task's checks and never create a task: a follow-up a worker finds goes to the lead.
+never edit a task's checks and never create a task: a follow-up a worker finds goes to the lead,
+as a line of its report's `## Follow-ups` (§13.4), never only in notes or prose.
 Each worker reports through `ccp report` and a `SendMessage` to its runner (§13.4).
 
 The implementer, reviewer and verifier definitions each state four generic rules, worded for the
@@ -542,7 +544,7 @@ looks like a secret, as `ccp prompt` does.
 ### 13.4 Reports
 
 A worker submits its report with `ccp report <run_id> FILE`, which checks its shape, stores it at the
-run's report path (`progress/<task_id>/<phase>[-<n>].md`), closes the run, and records the suite
+run's report path (`progress/<task_id>/<phase>[-<n>]-report.md`), closes the run, and records the suite
 metrics and every friction line. A run already reported takes a corrected report, checked like a first
 one, until a later run of its task opens (by then the runner may have acted on the report, so the
 correction is refused naming that run): the run's report fields become the corrected report's, the earlier stored report is
@@ -560,6 +562,12 @@ and suite filing stay the first submission's. Report lines:
 - `Suite:` when the full suite ran, or `Suite: from <suite_id>`, or none (filled from the run's
   record, §14.4);
 - `## Friction` as `- ` (or `* `) lines, or `none`;
+- `## Follow-ups`, in any worker report, as `- ` lines, or `none` (missing reads as `none`): a line
+  that is neither, or one that looks like a secret, is refused (exit 1, nothing written). The run
+  keeps them as `follow_ups`, each with the id `<run_id>#<n>`; a corrected report renumbers them,
+  an outcome carrying over only to a line whose text is identical, and `ccp report` names each one
+  it drops. The lead alone records each one's outcome, with `ccp tasks follow-up <run_id>#<n>
+  --task <id> | --proposal <id> | --drop "<reason>"`, and `ccp tasks follow-ups [--open]` lists them;
 - `Prompt: <token>` always, the token on the last line of the run's prompt (§13.2). A report with none,
   or with a token that is not the run's, is refused (exit 2, nothing written, the run left open), naming
   the run's token and saying the prompt the worker read was probably cut; the runner launches the
