@@ -988,7 +988,7 @@ tasks:
     depends_on: [0186-account-facts-on-the-machine]
     path: tasks/0197-usage-read-once-per-machine.md
   - id: 0198-architect-runs-in-its-own-worktree
-    status: pending
+    status: done
     title: The architect runs in its own worktree at the head it names, and one call shapes every ADR due
     depends_on: []
     path: tasks/0198-architect-runs-in-its-own-worktree.md

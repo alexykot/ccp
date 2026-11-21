@@ -1,7 +1,7 @@
 ---
 task_id: 0198-architect-runs-in-its-own-worktree
 title: The architect runs in its own worktree at the head it names, and one call shapes every ADR due
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0200-mutate-together"]
@@ -10,7 +10,7 @@ review_point: R14
 paths: ["ccp/architect.py", "ccp/cli.py", "docs/spec/02-delivery.md", "docs/spec/03-quality.md", "docs/cli/03-quality.md", "tests/test_architect.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0198-architect-runs-in-its-own-worktree
@@ -226,3 +226,5 @@ Measured at `58cf1d0`.
   the runner ruled.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #235 head `9e33da2` (squash `aa29672`): APPROVE. Passed: ar-01, ar-02, ar-03, ar-04, ar-05, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0198-architect-runs-in-its-own-worktree.json.
+
