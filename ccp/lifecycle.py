@@ -321,7 +321,7 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
         state = {"task_id": tid, "project_id": cfg.project_id, "title": meta.get("title"),
                  "kind": tasklog.kind_of(meta), "durable_path": cfg.rel(meta["_file"]),
                  "spec_refs": tasklog._as_list(meta.get("spec_refs")), "adr_refs": tasklog._as_list(meta.get("adr_refs")),
-                 "depends_on": tasklog._as_list(meta.get("depends_on")), "dod_checks": meta["_checks"],
+                 "depends_on": tasklog._as_list(meta.get("depends_on")),
                  "integration_branch": integration_branch(q), "status": "leased", "lease_holder": holder,
                  "lease_since": iso(t), "claimed_at": st.get("claimed_at") or iso(t), "pr": None, "merge_sha": None,
                  "waiting_on": None, "branch": f"task/{tid}", "worktree_path": wt["path"] if wt else None}

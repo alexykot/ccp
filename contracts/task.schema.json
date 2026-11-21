@@ -8,9 +8,7 @@
     "task_id",
     "project_id",
     "title",
-    "goal",
-    "status",
-    "created_at"
+    "status"
   ],
   "properties": {
     "task_id": {
@@ -54,38 +52,6 @@
       },
       "default": []
     },
-    "dod_checks": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "id",
-          "description"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string",
-            "description": "Short title; full walkthrough lives in durable task markdown under dod_checks."
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "api",
-              "ui",
-              "data",
-              "other"
-            ],
-            "default": "other"
-          }
-        }
-      },
-      "default": [],
-      "description": "Task-specific verifier walkthroughs. Each item: stable id + description; durable markdown should expand to user-story form (story, setup, steps, expect). No dependencies or non-observable policy here."
-    },
     "depends_on": {
       "type": "array",
       "items": {
@@ -93,6 +59,50 @@
       },
       "default": [],
       "description": "task_id list that must be done (or waived) before claim/verify. Authoritative for gating — never only mentioned inside dod_checks prose."
+    },
+    "adr_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "kind": {
+      "type": "string",
+      "description": "The task file's kind (plane.json task_log.kinds), feature when it names none"
+    },
+    "branch": {
+      "type": "string",
+      "description": "The task branch, task/<task_id>"
+    },
+    "worktree_path": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The implementer worktree claim made, or null when the product makes none"
+    },
+    "claimed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "The first claim; a later claim of a released task keeps it"
+    },
+    "lease_since": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pr": {
+      "type": [
+        "integer",
+        "string",
+        "null"
+      ]
+    },
+    "merge_sha": {
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "durable_path": {
       "type": "string",
