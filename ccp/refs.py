@@ -161,13 +161,11 @@ class Ids:
         n = self.adr_number(raw)
         if n is None:
             return None
+        found = re.search(r"\bD(\d+[a-z]?)\b", raw)
         link = self.adr_link(raw)
-        # `adr_link` reads `d2` and `D2A` as decisions; a ref has always cited only `D2` / `D2a`.
-        if link and link[1] and re.fullmatch(r"\d+[a-z]?", link[1]) and re.search(rf"\bD{link[1]}\b", raw):
-            d = link[1]
-        else:
-            found = re.search(r"\bD(\d+[a-z]?)\b", raw)
-            d = found.group(1) if found else None
+        # `adr_link` also reads `d2`, `D2A`, and a prefix ending in `D` run into its number; a ref has
+        # always cited the first capital `D2` / `D2a` it holds, so the link counts only when it agrees.
+        d = link[1] if link and found and link[1] == found.group(1) else (found.group(1) if found else None)
         rest = re.sub(rf"^\s*(?:{re.escape(self.adr_prefix.rstrip('-'))}[- ]?)?0*\d+\s*", "", raw, flags=re.I).strip()
         section = None if d or not rest or rest.startswith("adr/") else rest
         return AdrRef(n, d, section, raw)

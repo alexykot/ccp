@@ -80,6 +80,14 @@ class UnbuiltDecisionWarning(unittest.TestCase):
         self.assertEqual([w for w in tasklog.warnings(self.p.cfg) if "not_built" in w], [])
         self.assertEqual(adr.unbuilt_cited(self.p.cfg, tasklog.load(self.p.cfg)), [])
 
+    def test_two_files_sharing_a_number_are_each_read_on_their_own_record(self):
+        # 0001-a records D1 not_built; 0001-b (the one the number resolves to) records only D2, its body has both
+        self.adr("not_built")
+        self.p.write("docs/adr/0001-b.md", adr.emit({"id": "ADR-0001", "title": "T", "status": "accepted",
+                                                      "date": "2026-01-01", "decisions": ["D2 built"]}) + ADR_BODY)
+        self.task("0001-a", ["0001 D1"])
+        self.assertEqual(adr.unbuilt_cited(self.p.cfg, tasklog.load(self.p.cfg)), [])
+
     def test_a_done_or_dropped_task_is_not_warned_here(self):
         self.adr("not_built")
         self.task("0001-a", ["0001 D1"], status="dropped")

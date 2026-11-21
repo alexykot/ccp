@@ -611,7 +611,6 @@ def unbuilt_cited(cfg: Config, tasks: list[dict[str, Any]]) -> list[str]:
     ids = refs.ids(cfg)
     adrs = load(cfg)[0]
     by_num = {m["_number"]: m for m in adrs}
-    index = DecisionIndex.build(adrs, ids)
     out: list[str] = []
     for t in tasks:
         if str(t.get("task_id") or t["_file"].stem) != head[len("task/"):]:
@@ -623,7 +622,9 @@ def unbuilt_cited(cfg: Config, tasks: list[dict[str, Any]]) -> list[str]:
             m = by_num.get(r.number) if r is not None and r.decision is not None else None
             if m is None:
                 continue
-            if r.decision in {d["id"] for d in m["_decisions"]} and index.blocks_done(r.number, r.decision):
+            # this file's own record, as `decision_states(m)` read it (two files may share a number)
+            own = DecisionIndex.build([m], ids)
+            if r.decision in {d["id"] for d in m["_decisions"]} and own.blocks_done(r.number, r.decision):
                 out.append(f"{cfg.rel(t['_file'])}: cites {ref!r} ({ids.adr_id(r.number)} D{r.decision}), which "
                            f"{m['_path']} records as not_built: once the task builds it, run "
                            f"`ccp adr decide {r.number} D{r.decision} built` in its PR (SPEC §6.7, §15.4)")

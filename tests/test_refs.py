@@ -50,7 +50,7 @@ class Defaults(unittest.TestCase):
                     "docs/adr/0012-x.md", "see ADR-0007", "ADR 0007", "ADR-0007, ADR-0008"):
             self.assertIsNone(D.adr_link(ref), ref)
 
-    def test_parse_adr_ref_reads_a_link_through_adr_link(self):
+    def test_parse_adr_ref_reads_a_whole_link_and_a_loose_ref_as_the_base_did(self):
         self.assertEqual(D.parse_adr_ref("ADR-0007 D2"), refs.AdrRef(7, "2", None, "ADR-0007 D2"))
         self.assertEqual(D.parse_adr_ref("ADR-0007"), refs.AdrRef(7, None, None, "ADR-0007"))
         self.assertEqual(D.parse_adr_ref("0040 D2 and more").decision, "2")  # not a whole link: the loose reading
@@ -63,6 +63,13 @@ class Defaults(unittest.TestCase):
                           ("0040 D2a", refs.AdrRef(40, "2a", None, "0040 D2a"))):
             self.assertEqual(D.parse_adr_ref(raw), want, raw)
             self.assertIsNotNone(D.adr_link(raw), raw)
+
+    def test_parse_adr_ref_keeps_the_first_capital_d_for_a_prefix_ending_in_d(self):
+        # `adr_link` reads `D0040 D2` with prefix `D-` as ADR 40, decision 2; a ref has always cited its first `D<n>`
+        r = refs.Ids(adr_prefix="D-").parse_adr_ref("D0040 D2")
+        self.assertEqual((r.number, r.decision, r.section), (40, "0040", None))
+        self.assertEqual(refs.Ids(adr_prefix="D-").adr_link("D0040 D2"), (40, "2"))
+        self.assertEqual(refs.Ids(adr_prefix="D-").parse_adr_ref("D-0040 D2").decision, "2")
 
     def test_spec_rule_review_point(self):
         self.assertEqual(D.spec_ref_re.search("see S3–S5 here").groups(), ("3", "5"))
