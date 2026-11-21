@@ -1,7 +1,7 @@
 ---
 task_id: 0200-mutate-together
 title: ccp mutate --together applies the given mutants as one, so a mutant can move lines
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0198-architect-runs-in-its-own-worktree"]
@@ -10,7 +10,7 @@ review_point: R14
 paths: ["ccp/mutate.py", "ccp/cli.py", "docs/spec/03-quality.md", "docs/cli/03-quality.md", "tests/test_mutate.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0200-mutate-together
@@ -154,3 +154,5 @@ Measured at `58cf1d0`.
   `test_together_two_spellings_of_one_file_are_one_file`.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #239 head `c055e83` (squash `da1607f`): APPROVE. Passed: mt-01, mt-02, mt-03, mt-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0200-mutate-together.json.
+
