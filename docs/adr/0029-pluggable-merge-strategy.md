@@ -6,12 +6,15 @@ date: "2026-11-05"
 deciders: operator
 spec_refs: [S15]
 decisions:
-  - "D1 not_built"
+  - "D1 retired by ADR-0040 D1"
   - "D2 not_built"
   - "D3 not_built"
   - "D4 not_built"
   - "D5 not_built"
-notes: "2026-11-05: status proposed → accepted"
+notes: |-
+  2026-11-05: status proposed → accepted
+  2026-11-21: D1 superseded by ADR-0040 D1, on the operator's answer to shape sh-20261120T235116Z-eb9f
+  (F06), in the lead session: "accept the shape recommendations".
 ---
 # ADR-0029 — Pluggable merge strategy
 

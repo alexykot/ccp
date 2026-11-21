@@ -33,4 +33,6 @@ normative, and a module that disagrees with it is the bug.
 - A product fact is read from the product's plane.json or reported by the product as JSON; never parsed from
   product prose.
 - Headless children strip `ANTHROPIC_API_KEY`, `CLAUDE_API_KEY` and `ANTHROPIC_AUTH_TOKEN`.
-- Telemetry and records carry numbers and ids, never prompt, response or file content.
+- Telemetry carries numbers and ids, never prompt, response or file content. A queue record may hold a
+  worker's own short statement lines (friction, follow-ups, a proposal's need), refused when they look
+  like a secret and never sent to telemetry (E5).
