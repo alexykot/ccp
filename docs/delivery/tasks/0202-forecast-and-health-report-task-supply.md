@@ -129,4 +129,28 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- `adr.untasked(cfg, tasks)` in `ccp/adr.py`: the decision ids are the bare ids `decision_states` gives (`"1"`,
+  `"2a"`), `adr` is the id string (`ADR-0040`). A decision cited as `D2` is the ADR's `2`.
+- `ccp health`: `task_supply` is set in `collect`'s `files` block (so `--json` has it; the forecast's
+  `health.collect(files=False)` does not), `null` if the ADR read fails. The text line comes from
+  `health.supply_text`, printed after the budget lines; it is not in `summary_text` (the architect's view).
+  Choices the task left open: consecutive plain numbers join as a range (`D1-D6`, also `D1-D2`), ranges
+  and lone ids within one ADR are joined with `,` and no space (`D1,D3-D4`), and ADRs with `, `.
+- `ccp forecast`: `untasked_decisions` is added in `forecast.run`, not `collect`, so the board's forecast
+  is unchanged. The text line shows for the whole text and `--backlog`, not for `--point`.
+
+Fix round 1 (review of PR #240):
+- The forecast's `note` path (no open task, or none with an estimate) now prints the `Not yet tasked:` line
+  after the note when the list is non-empty and the view is not `--point`: that is the starvation case the
+  line is for. It replaces the earlier choice above to leave the line out there.
+- Tests added: the `--point` view, both `note` cases and the `note` case with every decision cited for the
+  forecast; a `D2a`-style decision id in the health line. The text tests now assert the count and the ADR
+  list, not the whole prose line.
+
+Fix round 2 (review-2 of PR #240):
+- `adr.untasked`: a ref with a section anchor (`0023 Implementation 10`, §7's third ref shape) now cites no
+  decision; before, it took every decision of its ADR out of the list. A ref naming the ADR file
+  (`docs/adr/0023-x.md`, `adr/0023-x.md`) still cites the whole ADR, as §7 says. Tests: a section-anchor ref
+  leaves the decisions listed; file refs take them out.
+
 ## Verification notes

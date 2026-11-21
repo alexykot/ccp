@@ -93,7 +93,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ccp import refs, runs, tasklog
+from ccp import adr, refs, runs, tasklog
 from ccp.config import ARCHITECT_DEFAULTS, HEALTH_DEFAULTS, USAGE_DEFAULTS, Config
 from ccp.config import spec_paths as spec_paths_of
 from ccp.queue import QueueError
@@ -1159,6 +1159,10 @@ def collect(cfg: Config, q: Path | None, since: str | None = None, files: bool =
             out["sign_off_wait"] = sign_off_wait(q, out_rows, tasks) if q else None
         except Exception:  # noqa: BLE001
             out["sign_off_wait"] = None
+        try:  # §27.1: nor does a damaged ADR
+            out["task_supply"] = {"untasked_decisions": adr.untasked(cfg, tasks)}
+        except Exception:  # noqa: BLE001
+            out["task_supply"] = None
         try:  # §24.6: nor does a damaged usage sink
             out["usage_advice"], out["usage_advice_since"] = usage_advice(cfg, q, s) if q else (None, None)
         except Exception:  # noqa: BLE001
@@ -1211,6 +1215,34 @@ def summary_text(report: dict[str, Any], n: int = 10) -> str:
                      f" verify rounds {r.get('verify_rounds', '-')}, {r['files']} files / {r['lines']} lines {r['areas']},"
                      f" prompts {r.get('prompt_chars', '-')} chars" + (f", {r['metrics']}" if r.get("metrics") else ""))
     return "\n".join(lines)
+
+
+SUPPLY_ADRS = 5  # the ADRs the task-supply line names; the rest are `…`
+
+
+def _decision_runs(decisions: list[str]) -> str:
+    """["1", "2", "3", "5", "6a"] -> "D1-D3,D5,D6a": consecutive plain numbers join as a range."""
+    nums = sorted(int(d) for d in decisions if d.isdigit())
+    parts: list[str] = []
+    i = 0
+    while i < len(nums):
+        j = i
+        while j + 1 < len(nums) and nums[j + 1] == nums[j] + 1:
+            j += 1
+        parts.append(f"D{nums[i]}" if i == j else f"D{nums[i]}-D{nums[j]}")
+        i = j + 1
+    return ",".join(parts + [f"D{d}" for d in decisions if not d.isdigit()])
+
+
+def supply_text(ts: dict[str, Any] | None) -> str | None:
+    """§27.1: "Task supply: 7 accepted decision(s) not tasked (ADR-0040 D1-D6, ADR-0041 D1)"; None when
+    every accepted decision is cited."""
+    items = (ts or {}).get("untasked_decisions") or []
+    if not items:
+        return None
+    shown = ", ".join(f"{u['adr']} {_decision_runs(u['decisions'])}" for u in items[:SUPPLY_ADRS])
+    more = ", …" if len(items) > SUPPLY_ADRS else ""
+    return f"Task supply: {sum(len(u['decisions']) for u in items)} accepted decision(s) not tasked ({shown}{more})"
 
 
 def _table(report: dict[str, Any]) -> str:
@@ -1278,6 +1310,8 @@ def main(cfg: Config, a: Any) -> int:
     print(summary_text(report, 0))
     for b in report["budget_failures"]:
         print(f"Budget over: {b}")
+    if st := supply_text(report.get("task_supply")):
+        print(st)
     for line in rotation_text(report.get("rotation")):
         print(line)
     for line in report.get("usage_advice") or []:
