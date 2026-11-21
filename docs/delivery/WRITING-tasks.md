@@ -12,4 +12,4 @@ this product. Where a rule here is stricter, it wins.
   (`tests/helpers.py`), never a live queue, a product repo, GitHub or launchd.
 - **A SPEC change cites its rule and the operator's approval** (SPEC §31). The task carries the
   CURRENT → PROPOSED text.
-
+- **A check runs the head's own `ccp`** (house rule E21).
