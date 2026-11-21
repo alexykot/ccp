@@ -1,7 +1,7 @@
 ---
 task_id: 0242-retire-restructure-scaffolding-and-queue-markers
 title: Retire the SPEC restructure's scaffolding and the queue state markers, and fix stale package and design docs
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S10", "S31"]
@@ -159,3 +159,5 @@ Measured at `8aefa59`.
   ``default `dev.ccp` ``, `estimate.auto` (default `true`)) are left as they were.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #275 head `e3d3530` (squash `bf29434`): APPROVE. Passed: ret-01, ret-02, ret-03, ret-04, ret-05, ret-06. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0242-retire-restructure-scaffolding-and-queue-markers.json.
+
