@@ -1265,7 +1265,8 @@ task's holder.
 `team.sh runner spawn --dry-run` (with any of the spawn's other flags) runs the spawn's refusals and
 prints what the spawn would print, its `actions` included, with `dry_run: true`, and the readiness
 checks of §10.2 that a machine can answer: every scope entry names a task in the task log, `ccp tasks
-check` is clean, and the one runner's worktree (§12.1) is a working tree or can be made: its path
+check` is clean, no closed review point holds an undecided follow-up (`ccp tasks check
+--closed-points`, §22.2), and the one runner's worktree (§12.1) is a working tree or can be made: its path
 is absent or an empty directory. A runner worktree that is not a working tree yet needs
 `origin/<integration_branch>`: when that ref does not resolve, the dry run is refused before the
 checks, as the spawn is (exit 3, §12.1). It exits 0 with `ready: true` when every check passes, and 1
