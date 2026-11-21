@@ -27,7 +27,8 @@ sets `"architect": false`; until then it proposes the product's next task number
 plane.json `upgrade.declined` leaves a task's step out; `upgrade.taken` leaves out a step the product took
 in a way the command cannot see, and lists it under `taken` with its reason. A step the command checked and
 found taken is listed under `detected`. `decline` and `take` write those two objects, each removing the task
-from the other; they rewrite plane.json and commit nothing.
+from the other; they change only that entry in plane.json, keeping every other byte (`jsonedit`), and commit
+nothing.
 The proposals a task answers are those the plane session closed as built by it (`ccp plane built`).
 `status` ends with one more step, `plane.json keys`, when plane.json sets a key the plane removed, merged or
 made a constant (`config.KEY_OUTCOMES`, §29.3): it lists each such key with its outcome (a removed key to
@@ -46,7 +47,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from ccp import config, refs, tasklog
+from ccp import config, jsonedit, refs, tasklog
 from ccp.config import Config
 from ccp.queue import QueueError, lib
 
@@ -315,7 +316,8 @@ def status(cfg: Config, _a: Any) -> dict[str, Any]:
 def _record(cfg: Config, a: Any, key: str, other: str) -> dict[str, Any]:
     """Set plane.json `upgrade.<key>.<task id>` to the reason and remove the id from `upgrade.<other>`.
     Refused (exit 2, nothing written): a blank reason, a task that is not a merged plane task or whose step
-    asks nothing, and a plane.json that does not load before or would not load after the change."""
+    asks nothing, a plane.json that does not load before or would not load after the change, and one the
+    editor cannot change in place (`jsonedit` raises). Every byte of the file outside the entry is kept."""
     reason = a.reason or ""
     if not reason.strip():
         raise QueueError(f"{a.cmd}: give the reason with --reason", 2)
@@ -330,21 +332,26 @@ def _record(cfg: Config, a: Any, key: str, other: str) -> dict[str, Any]:
     path = cfg.root / config.CONFIG_REL
     try:
         config.load(cfg.root)
-        data = json.loads(path.read_text())
+        text = path.read_bytes().decode("utf-8")  # bytes, so a line ending the file holds is kept as it is
+        data = json.loads(text)
     except (config.ConfigError, OSError, ValueError) as e:
         raise QueueError(f"{a.cmd}: {config.CONFIG_REL} does not load: {e}", 2) from e
-    upgrade = data.setdefault("upgrade", {})
-    if not isinstance(upgrade, dict) or not isinstance(upgrade.setdefault(key, {}), dict):
+    upgrade = data.get("upgrade", {})
+    if not isinstance(upgrade, dict) or not isinstance(upgrade.get(key, {}), dict):
         raise QueueError(f"{a.cmd}: {config.CONFIG_REL} `upgrade.{key}` is not an object", 2)
-    upgrade[key][tid] = reason
-    if isinstance(upgrade.get(other), dict):
-        upgrade[other].pop(tid, None)
+    try:  # only the entry changes: every other byte of the file stays as the product wrote it
+        new = jsonedit.set_member(text, ["upgrade", key], tid, reason)
+        if isinstance(upgrade.get(other), dict) and tid in upgrade[other]:
+            new = jsonedit.delete_member(new, ["upgrade", other], tid)
+    except ValueError as e:
+        raise QueueError(f"{a.cmd}: {config.CONFIG_REL} could not be edited in place: {e}", 2) from e
     try:
-        config._parse(cfg.root, json.dumps(data))  # noqa: SLF001  (the file as it would be, checked as `load` does)
+        config._parse(cfg.root, new)  # noqa: SLF001  (the file as it would be, checked as `load` does)
     except config.ConfigError as e:
         raise QueueError(f"{a.cmd}: {config.CONFIG_REL} would not load after the change: {e}", 2) from e
-    from ccp import queue  # noqa: PLC0415
-    queue.write_json(path, data)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_bytes(new.encode("utf-8"))
+    tmp.replace(path)
     return {"ok": True, "task": tid, "recorded": key, "reason": reason}
 
 
