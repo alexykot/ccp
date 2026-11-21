@@ -116,5 +116,10 @@ Measured at `58cf1d0`.
 - `tests/test_allowance_lapse.py` and `tests/test_board_layout.py`'s throwing-card test built
   `now.allowance` by hand with `latest` only; they now carry `latest_good` (and `weekly_over` for the
   lapsed-decision blocker).
+- Fix round 1 (review MINOR-1, NIT-1, NIT-2): the tile test also checks the meter (`width:95%`) and that
+  the `d` line says `resets …`, not `reset unknown`, so both stay on the good reading; its ages match
+  `2.\d h ago`, so a slow render cannot turn them to `2.1 h`. `_allowance` passes `usage.status`'s own
+  `latest_good` to `weekly_over` instead of reading the samples log again: the same row, so the blocker
+  and the tile judge one reading.
 
 ## Verification notes
