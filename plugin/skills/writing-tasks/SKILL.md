@@ -86,9 +86,29 @@ of reach when the sentence is edited.
 - At most six checks. More, or a scope with "and then also", is two tasks. Findings bundled in one
   area are not "and then also": they are one task, a check per finding (see *Writing the brief*).
 - Never re-list the standing DoD (`docs/delivery/standing-dod.md`): it always applies.
-- Each check names the seat that can run it. A step only the operator's machine can run is marked
-  as such in its `setup`. An operator prerequisite (a new key, role or grant) is done before the
-  claim, so every seat gates the branch as it will run.
+- Each check names the seat that can run it. An operator prerequisite (a new key, role or grant) is
+  done before the claim, so every seat gates the branch as it will run.
+
+### A check only the operator's machine can run
+
+A check the workers cannot take (a real device, a signed build, a live account) carries
+`runs_on: operator-machine` on the line after `setup:` (plane SPEC §5.5). It holds only the steps that
+machine runs: a check that mixes them with steps the workers can take is split in two, one marked and
+one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line says why:
+
+```markdown
+- id: `dev-02`
+  story: As an operator, an export reaches the live account.
+  setup: The PR head's build installed on the operator's machine, signed in to the live account.
+  runs_on: operator-machine
+  steps:
+    1. Run `tool exports send --pending`, then open the account's inbox.
+  expect: The two queued exports are in the inbox; exit code 0.
+  dry run: n/a — runs on the operator's machine
+```
+
+`ccp tasks check` refuses another value, or the line anywhere but right after `setup:`.
+`ccp tasks checks <id> --json` lists a task's checks with their `runs_on`.
 
 ### Commands and searches in checks
 
@@ -110,6 +130,10 @@ of reach when the sentence is edited.
   the behaviour, named, plus a mutation showing they bite. A check that changes a tracked file (a
   planted fault) does it in a separate copy, never in the branch's own worktree.
 - **A speed check states an absolute target**, never "as fast as before".
+- **A check of a `ccp` command runs the head's `bin/ccp`** where the head carries one (the plane's own
+  repo), never `ccp` on PATH, which is the released plane. Signed SPEC text is checked with
+  `bin/ccp verify spec-text <task>` (`ccp verify spec-text <task>` in a product's checkout), never by a
+  grep for a sentence.
 
 ## Writing the brief
 
@@ -214,6 +238,7 @@ status other than `pending`, `done` or `dropped` (a legacy `in_progress` or `blo
 pending, with a warning), a dependency that doesn't exist, a cycle of `depends_on` (named), a task
 citing nothing, zero or more than `max_checks` checks, duplicate check ids, soft language inside `## dod_checks` ("should",
 "may", "gracefully", "robust"), a `done` task with no verification note, runtime state in frontmatter,
+a `runs_on:` line with a value other than `operator-machine` or not right after `setup:`,
 a task file that is gone (restore it; convert an earlier generation's file with
 `ccp tasks migrate`), a number held by another file without `renamed_from`, a kind's ref rules broken, and (with `shape_adrs`) a new task citing an unshaped ADR
 without a waiver. A `review_point` not in the register (or, without one, not matching

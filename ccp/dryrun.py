@@ -21,7 +21,7 @@ from ccp.config import Config
 
 STEP_TIMEOUT_S = 300  # each step's time limit; its process group is killed on timeout
 FIRST_LINE_CAP = 160  # characters of a step's first output line kept in the printout and the record
-NOT_RUN = "not run"   # a step that is not one backticked command and nothing else
+NOT_RUN = "not run"   # a step that is not one backticked command and nothing else, or a marked check's
 REFUSED = 3           # §10.6: a task that is done, dropped or claimed has no dry run
 
 
@@ -92,13 +92,23 @@ def plan(text: str) -> list[tuple[str, list[tuple[str, str | None]]]]:
     return [(c.id, tasklog.check_steps(c.block)) for c in tasklog.checks(text)]
 
 
+def marked(text: str) -> set[str]:
+    """§5.5: the ids of the checks marked `runs_on: operator-machine`, which a dry run does not run: the workers
+    cannot take them, and their dry-run line stays as it is."""
+    return {c.id for c in tasklog.checks(text) if c.on_operator_machine}
+
+
 def printout(tid: str, sha: str, ref: str, checks: list[tuple[str, list[tuple[str, str | None]]]],
-             runs: dict[str, list[Ran]]) -> list[str]:
+             runs: dict[str, list[Ran]], skip: set[str] | frozenset[str] = frozenset()) -> list[str]:
     """The lines `ccp tasks dry-run` prints: per check, each step run (its command, exit code, line count and
-    first line) and each other step as not run."""
+    first line) and each other step as not run; a check in `skip` (marked, §5.5) as not run, whole."""
     out = [f"tasks dry-run {tid} at {sha} ({ref})"]
     for cid, steps in checks:
         out.append(f"  {cid}:")
+        if cid in skip:
+            out.append(f"    {NOT_RUN}: runs on the operator's machine "
+                       f"(`{tasklog.RUNS_ON_KEY}: {tasklog.RUNS_ON_OPERATOR}`, SPEC §5.5)")
+            continue
         done = {r.step: r for r in runs.get(cid, [])}
         if not steps:
             out.append(f"    no numbered step: {NOT_RUN}")
@@ -152,6 +162,7 @@ def dry_run(cfg: Config, task: str, write: bool) -> int:
     path: Path = meta["_file"]
     text = path.read_text()
     checks = plan(text)
+    skip = marked(text)
     sha = wt.tip(cfg, q)
     ref = f"origin/{queue.integration_branch(q)}"
     main = wt.main_checkout(cfg)
@@ -164,7 +175,7 @@ def dry_run(cfg: Config, task: str, write: bool) -> int:
             raise queue.QueueError(f"git worktree add {tree}: {(r.stderr or r.stdout).strip()[:300]}", 1)
         wt._link(cfg, main, tree)  # noqa: SLF001  (§12.1: the worktrees.links paths, as in any plane worktree)
         for cid, steps in checks:
-            for n, cmd in steps:
+            for n, cmd in [] if cid in skip else steps:
                 if cmd is not None:
                     runs.setdefault(cid, []).append(outcome(n, cmd, *run_step(cmd, tree)))
     finally:
@@ -172,7 +183,7 @@ def dry_run(cfg: Config, task: str, write: bool) -> int:
         shutil.rmtree(tmp, ignore_errors=True)
         _git(main, "worktree", "prune")
     short = sha[:7]
-    for line in printout(tid, short, ref, checks, runs):
+    for line in printout(tid, short, ref, checks, runs, skip):
         print(line)
     if write:
         records = {cid: record(ran) for cid, ran in runs.items()}

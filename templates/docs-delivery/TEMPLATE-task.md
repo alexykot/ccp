@@ -60,6 +60,20 @@ verifier can perform: setup → steps → an observable result. At most six; no 
   expect: <concrete, observable result>
   dry run (`<commit>`): <what each command step printed, or its count. Only on a check with a step that runs a command; if it cannot run yet: `dry run: n/a — <why>`>
 
+A check only the operator's machine can run (a real device, a signed build, a live account) carries
+`runs_on: operator-machine` on the line after `setup:` and holds only the steps that machine runs; a
+check that mixes them with the workers' steps is split in two (plane SPEC §5.5). Delete this example
+when the task has no such check.
+
+- id: `dev-02`
+  story: As a <role>, I <action> on <what only the operator's machine reaches> …
+  setup: <preconditions on the operator's machine>
+  runs_on: operator-machine
+  steps:
+    1. …
+  expect: <concrete, observable result>
+  dry run: n/a — runs on the operator's machine
+
 ## Implementation notes
 
 *Append-only, newest last.* The runner, from the implementer's report.
