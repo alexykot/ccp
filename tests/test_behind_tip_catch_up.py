@@ -46,6 +46,7 @@ def product_test(cls: str, name: str, body: str, imports: str = "") -> str:
     return f"import unittest\n\n{imports}\n\n\nclass {cls}(unittest.TestCase):\n    def {name}(self):\n        {body}\n"
 
 
+README = "# Package a\n\nIntro.\n\n## Files\n- `one.py`: one\n- `two.py`: two\n"
 PATHS = 'paths: ["feature.txt", "ptests/test_feature.py", "shared.txt", "area/"]'
 
 
@@ -84,10 +85,18 @@ class CatchUp(ToolkitFixture, unittest.TestCase):
         git(self.main, "commit", "-qam", "plane.json")
         git(self.main, "push", "-q", "origin", "main")
 
-    def approved(self, sign_off: str | None = None) -> str:
-        """0002 claimed, built (feature.txt, a test importing lib.helper, line 1 of shared.txt), pushed and
-        approved: its head."""
-        self.frontmatter(PATHS, *([f"sign_off: {sign_off}"] if sign_off else []))
+    def shared_readme(self) -> None:
+        """docs/a/README.md on main, covered by plane.json parallel.shared."""
+        self.write("docs/a/README.md", README)
+        git(self.main, "add", "docs")
+        git(self.main, "commit", "-q", "-m", "a package doc")
+        git(self.main, "push", "-q", "origin", "main")
+        self.plane_json(lambda c: c["parallel"].update(shared=["docs/*/README.md"]))
+
+    def approved(self, sign_off: str | None = None, paths: bool = True, extra: dict[str, str] | None = None) -> str:
+        """0002 claimed, built (feature.txt, a test importing lib.helper, line 1 of shared.txt, and each `extra`
+        file with its text), pushed and approved: its head. `paths=False` declares none."""
+        self.frontmatter(*([PATHS] if paths else []), *([f"sign_off: {sign_off}"] if sign_off else []))
         git(self.runner, "fetch", "-q", "origin")
         git(self.runner, "checkout", "-q", "--detach", "origin/main")
         code, _, out, err = self.ccp("tasks", "claim", "0002")
@@ -97,7 +106,9 @@ class CatchUp(ToolkitFixture, unittest.TestCase):
         (wt / "ptests/test_feature.py").write_text(
             product_test("F", "test_feature", "self.assertEqual(helper(), 1)", "from lib.helper import helper"))
         (wt / "shared.txt").write_text(SHARED.replace("line 1\n", "line one, built\n", 1))
-        git(wt, "add", "feature.txt", "ptests/test_feature.py", "shared.txt")
+        for rel, text in (extra or {}).items():
+            (wt / rel).write_text(text)
+        git(wt, "add", "feature.txt", "ptests/test_feature.py", "shared.txt", *(extra or {}))
         git(wt, "commit", "-q", "-m", "Task 0002: build it")
         git(wt, "push", "-q", "-u", "origin", "task/0002-second")
         head = git(wt, "rev-parse", "HEAD")
@@ -251,9 +262,11 @@ if done < {moves}:
         got, merge_wt = self.seen(seen)
         self.assertEqual(got, [merge_wt, "merge", "merge-0002", "0002-second", "0002", "impl", "merge_0002"])
 
-    def test_a_tip_that_moves_during_the_gate_is_caught_up_again(self):
-        self.approved()
-        self.tip(self.put("other/b.txt", "b\n"))
+    def test_under_clashes_a_union_in_a_shared_path_is_caught_up_again_when_the_tip_moves_during_the_gate(self):
+        self.shared_readme()
+        self.plane_json(lambda c: c["parallel"].update(schedule="clashes"))  # the product default: the patch test alone
+        head = self.approved(paths=False, extra={"docs/a/README.md": README + "- `task.py`: the task's\n"})
+        self.tip(self.put("docs/a/README.md", README + "- `tip.py`: the tip's\n"))
         self.gate_hook(moves=1)
         code, body, out, err = self.close()
         self.assertEqual(code, 0, out + err)
@@ -261,9 +274,13 @@ if done < {moves}:
         self.assertEqual(len(self.gate_runs()), 2)
         self.assertEqual(cu["gate_run"], self.gate_runs()[-1]["suite_id"])
         git(self.main, "fetch", "-q", "origin")
+        self.assertEqual(cu["from"], head)
         self.assertEqual(cu["tip"], git(self.main, "rev-parse", "origin/main~2"))  # the mover's commit; then the squash
-        self.assertEqual(cu["tip_files"], ["other/b.txt", "other/moving.txt"])
+        self.assertEqual(cu["merge_tree"], "union")
+        self.assertEqual(cu["tip_files"], ["docs/a/README.md", "other/moving.txt"])
         self.assertIn(f"--match-head-commit {cu['to']}", (self.ghstate / "merge-called").read_text())
+        self.assertEqual(git(self.main, "show", f"{body['merge_sha']}:docs/a/README.md") + "\n",
+                         README + "- `tip.py`: the tip's\n- `task.py`: the task's\n")
 
     def test_a_tip_that_keeps_moving_refuses_after_three_catch_ups(self):
         head = self.approved()

@@ -334,7 +334,7 @@ class Gates(unittest.TestCase):
         return eid, r
 
     def test_a_binding_with_no_product_root_sends_nothing_and_records_the_notice(self):
-        (self.q / "project.yaml").write_text("project_id: demo\n")
+        (self.q / "project.yaml").write_text(binding())
         eid, r = self.ask_operator()
         self.assertNotIn("warnings", json.loads(r.stdout))
         self.assertEqual(sent(self.out), [])

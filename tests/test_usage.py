@@ -58,7 +58,7 @@ class Receiver(unittest.TestCase):
         self.q = d / "queue"
         self.q.mkdir()
         (d / "projects").mkdir()
-        (d / "projects/demo.yaml").write_text(f"project_id: demo\nqueue_root: {self.q}\n")
+        (d / "projects/demo.yaml").write_text(binding(queue_root=self.q))
         self.sys = d / "telemetry"
         self.patch = mock.patch.dict(os.environ, {"CCP_BINDINGS_DIR": str(d / "projects"),
                                                   "CCP_TELEMETRY_DIR": str(self.sys),
@@ -144,7 +144,7 @@ class Fold(unittest.TestCase):
     def setUp(self):
         self._d = tempfile.TemporaryDirectory()
         self.q = Path(self._d.name)
-        (self.q / "project.yaml").write_text("project_id: demo\n")
+        (self.q / "project.yaml").write_text(binding())
         (self.q / "board").mkdir()
         self.mkrun("0001-a/implement", "implementer", "claude-opus-5-5", "high", agent="a1", start=0, stop=100)
         self.mkrun("0001-a/review", "reviewer", "claude-sonnet-5-5", "high", agent=None, start=200, stop=300)

@@ -157,7 +157,7 @@ class NoDeclaredPathsUnderClashes(unittest.TestCase):
         for tip in ([], ["other/b.txt"], ["feature.txt"]):
             self.assertIsNone(catch_up_blocked([], tip, ["feature.txt"], [], False, "clashes", True, True), tip)
 
-    def test_the_declared_paths_are_not_looked_at_whichever_the_schedule(self):
+    def test_a_task_declaring_no_paths_is_refused_under_clashes_when_its_patch_changed(self):
         why = catch_up_blocked([], ["a.py"], ["a.py"], [], False, "clashes", False, False)
         self.assertTrue(why and why.startswith("patch changed"))
 
@@ -171,7 +171,8 @@ class OnAThrowawayRepo(unittest.TestCase):
     SHARED = ["docs/*/README.md"]
 
     def setUp(self):
-        self.p = Product({"parallel": {"max_in_flight": 2, "schedule": "paths", "shared": self.SHARED}})
+        self.p = Product({"parallel": {"max_in_flight": 2, "schedule": "paths", "shared": self.SHARED},
+                          "merge": {"behind_tip_ignore": ["ignored/"]}})
         self.addCleanup(self.p.cleanup)
         self.root = self.p.root
         git(self.root, "init", "-q", "-b", "main")
@@ -280,6 +281,7 @@ class OnAThrowawayRepo(unittest.TestCase):
             self.on("tip", {"docs/a/README.md": self.README + "- `tip.py`: the tip's\n"})
         with self.assertRaises(lifecycle._NoCatchUp) as cm:
             lifecycle._catch_up_commit(self.p.cfg, head, tip, "task/0002-second", "main", [])
+        self.assertIn("conflicts in", str(cm.exception))
         self.assertIn("docs/a/README.md", str(cm.exception))
 
     # ------------------------------------------------------------------ the files each side changes
@@ -297,7 +299,8 @@ class OnAThrowawayRepo(unittest.TestCase):
 
     def test_the_task_log_and_the_ignored_paths_are_not_the_tip_s_files(self):
         head = self.on("task", {"feature.txt": "built\n"})
-        tip = self.on("tip", {"other/b.txt": "b\n", "docs/delivery/tasks/0009-other.md": "task\n"})
+        tip = self.on("tip", {"other/b.txt": "b\n", "docs/delivery/tasks/0009-other.md": "task\n",
+                              "ignored/c.txt": "c\n"})
         self.assertEqual(lifecycle._tip_files(self.p.cfg, head, tip), ["other/b.txt"])
 
     # ------------------------------------------------------------------ the task's own patch

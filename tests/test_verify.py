@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, prhost, verify
-from tests.helpers import Product
+from tests.helpers import Product, binding
 
 ROOT = Path(__file__).resolve().parents[1]
 HEAD_A = "a" * 40
@@ -35,7 +35,7 @@ class MergeGate(unittest.TestCase):
         self._q.cleanup()
 
     def binding(self) -> None:
-        (self.q / "project.yaml").write_text("project_id: demo\n")
+        (self.q / "project.yaml").write_text(binding())
 
     def verdict(self, task: str, **fields: object) -> None:
         body = {
@@ -423,7 +423,7 @@ class Record(unittest.TestCase):
         self.p = Product()
         self._q = tempfile.TemporaryDirectory()
         self.q = Path(self._q.name)
-        (self.q / "project.yaml").write_text("project_id: demo\n")
+        (self.q / "project.yaml").write_text(binding())
         self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)})
         self.env.start()
 
@@ -450,7 +450,7 @@ class Record(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertIn("gate.ci_run", err)
         self.assertFalse(self.written().exists())
-        (self.q / "project.yaml").write_text("project_id: demo\nci: github-actions\n")
+        (self.q / "project.yaml").write_text(binding(ci="github-actions"))
         code, out, err = self.record(rec)
         self.assertEqual(code, 0, out + err)
 
@@ -618,7 +618,7 @@ class MergeOk(unittest.TestCase):
         self.p = Product()
         self._q = tempfile.TemporaryDirectory()
         self.q = Path(self._q.name)
-        (self.q / "project.yaml").write_text("project_id: demo\n")
+        (self.q / "project.yaml").write_text(binding())
         self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q)})
         self.env.start()
 

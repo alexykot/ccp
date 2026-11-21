@@ -223,7 +223,7 @@ class Baseline(WtFixture, unittest.TestCase):
         self.assertFalse((self.main / config.WORKTREES_DIR / "ver-baseline").exists())
 
     def test_no_integration_tip_refuses(self):
-        (self.q / "project.yaml").write_text("project_id: demo\nintegration_branch: trunk\n")
+        (self.q / "project.yaml").write_text(binding(integration_branch="trunk"))
         code, _, _, err = self.wt("create", "--kind", "ver", "--baseline")
         self.assertEqual(code, 3)
         self.assertIn("origin/trunk", err)
@@ -762,7 +762,7 @@ class SingleRunnerWorktree(WtFixture, unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("--runner", err)
         (self.q / "work.json").write_text(json.dumps(w))
-        (self.q / "project.yaml").write_text("project_id: demo\nintegration_branch: main\n")
+        (self.q / "project.yaml").write_text(binding(integration_branch="main"))
         code, _, _, err = self.ccp("tasks", "worktree", root=self.main)
         self.assertEqual(code, 2)
         self.assertIn("names no product_root", err)

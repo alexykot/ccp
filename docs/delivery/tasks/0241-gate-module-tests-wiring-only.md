@@ -131,5 +131,15 @@ through the code or a fixture helper). Measured at `8aefa59`.
   sign-off and `spec_beyond_intent` carry cases (`due_stages`, already in `tests/test_sign_off_beyond_intent.py`).
 - Open choices: the throwaway-repo tests sit in the decision module rather than a new module (each takes about 0.1 s);
   `test_a_tip_that_keeps_moving_refuses_after_three_catch_ups` is kept unpatched (three gate runs) as the one cap test.
+- **Fix round 1** (review of PR #279, head `765ac01`):
+  - Close's catch-up under `parallel.schedule: clashes` (the product default) and the record's `merge_tree: union` lost
+    their end-to-end tests: the kept tip-moves-during-the-gate test now runs under `clashes` with a task declaring no
+    paths and a both-sides append in a `parallel.shared` file, and asserts `merge_tree == "union"`, the tip's files and the
+    merged text. Still 14 tests.
+  - Hand-written bindings left in `tests/test_wt.py`, `tests/test_usage.py`, `tests/test_verify.py` and
+    `tests/test_notify.py` now use `binding(...)`.
+  - Decision-module nits: the tip-files test sets `merge.behind_tip_ignore` and a tip commit under it; the
+    appended-lines refusal also asserts `conflicts in`; the second test of the no-declared-paths class is named for what
+    it checks (a changed patch is refused under `clashes`).
 
 ## Verification notes
