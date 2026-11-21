@@ -33,7 +33,7 @@ For example:
 
 ## Auth
 
-`ccp tasks claim` (and `ccp auth check`) runs the product's plane.json `auth_check.probes` and writes `auth/status.json` (SPEC §11). On a failure the claim refuses; the runner sets `waiting_on=reauth` and raises it to the lead.
+`ccp tasks claim` (and `ccp auth check`) runs the product's plane.json `auth_check.probes` and writes `auth/status.json` (SPEC §11). On a failure the claim refuses with exit 8 and fires the operator's `blocker` notice (SPEC §3.6); the runner raises a `reauth` gate to the lead.
 
 ## Worktrees
 

@@ -170,5 +170,11 @@ PROPOSED:
 - Three tests in `tests/test_notify.py` (`Channel`, on `ChannelFixture`): the refused claim's one
   `blocker` line with reason `reauth` and the new wording, no notice when the probes pass, and a
   failing notify command's warning on the refusal.
+- Fix round 2 (review MINOR and NIT 3):
+  - `queue/README.md` **Auth**: the passage still told the runner to set `waiting_on=reauth`, which
+    this change made false; it now says the claim refuses with exit 8 and fires the operator's
+    `blocker` notice, and the runner raises a `reauth` gate to the lead.
+  - `tests/test_notify.py`: a fourth test pins that a resumed claim runs no probe and fires no notice
+    (claim, then a failing probe, then the same claim again: resumed, exit 0, nothing sent).
 
 ## Verification notes
