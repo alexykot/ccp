@@ -93,4 +93,21 @@ Measured at `8aefa59`.
 
 ## Implementation notes
 
+- Base `200ca69` already carried 0244's `tasklog.check_blocks` and `check_steps`; `git grep -n 'CHECK_RE' -- ccp`
+  there printed 4 lines (the pattern, `check_blocks`' use, and the two `findall` readers in `tasklog.load`
+  and `ccp/estimate.py`), not the 5 the Context measured before 0244. `check_blocks` is replaced by
+  `tasklog.checks`; `with_dry_runs`, `_check_dry_runs`, `_check_refactor_gate`, `meta["_checks"]`,
+  `estimate.features` and `ccp/dryrun.plan` read it. `CHECK_RE` now occurs twice, both in `ccp/tasklog.py`.
+- `Check` carries `id`, `block` (the body after the `- id:` line), `fields` and the block's `start`/`end` in
+  the text (`with_dry_runs` edits by position). `fields` is the first line of each `key: value` at the indent of
+  the block's first key, a key lowercase words (`dry run (`sha`):` is the key `dry run`); a deeper line (a step,
+  a wrapped value) is no key and a value is its own line only. That is the narrowest reading of "the block's
+  `key:` lines"; 0224's `runs_on` will read `fields["runs_on"]`.
+- `text_at` reads `git show <rev>:./<rel>` (cwd-relative, as lifecycle's and `statuses_at`'s reads did; `adr._at`
+  and verify's used the toplevel-relative form, the same at a checkout root), "" for the index, None for a
+  missing file or a bad rev, decoded with `errors="replace"`. `adr.in_force_at` keeps its fall back to the
+  checkout's task (`cited(task)`), now commented at the call. `tasklog.statuses_at` stays a batch
+  `cat-file --batch` read (one process for many files); the Scope names four readers, not it.
+- E22 is a command check: `architect.checks` `E22`, and the rule's `check:` line says `command`.
+
 ## Verification notes
