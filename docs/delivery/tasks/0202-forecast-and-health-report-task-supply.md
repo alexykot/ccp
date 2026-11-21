@@ -137,7 +137,14 @@ Measured at `58cf1d0`.
   Choices the task left open: consecutive plain numbers join as a range (`D1-D6`, also `D1-D2`), ranges
   and lone ids within one ADR are joined with `,` and no space (`D1,D3-D4`), and ADRs with `, `.
 - `ccp forecast`: `untasked_decisions` is added in `forecast.run`, not `collect`, so the board's forecast
-  is unchanged. The text line shows for the whole text and `--backlog`, not for `--point`, and not when
-  the forecast has no data (the `note` early return).
+  is unchanged. The text line shows for the whole text and `--backlog`, not for `--point`.
+
+Fix round 1 (review of PR #240):
+- The forecast's `note` path (no open task, or none with an estimate) now prints the `Not yet tasked:` line
+  after the note when the list is non-empty and the view is not `--point`: that is the starvation case the
+  line is for. It replaces the earlier choice above to leave the line out there.
+- Tests added: the `--point` view, both `note` cases and the `note` case with every decision cited for the
+  forecast; a `D2a`-style decision id in the health line. The text tests now assert the count and the ADR
+  list, not the whole prose line.
 
 ## Verification notes

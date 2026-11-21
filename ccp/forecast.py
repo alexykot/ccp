@@ -1210,8 +1210,11 @@ def _r5(v: Any) -> str:
 def text(f: dict[str, Any], which: str | None = None) -> str:
     lines = ["Forecast (advisory, SPEC §26.4): P50 / P90 over "
              f"{f.get('trials')} seeded trials"]
+    nu = f.get("untasked_decisions") or []
+    not_tasked = ["", f"Not yet tasked: {sum(len(u['decisions']) for u in nu)} accepted decision(s) in {len(nu)} ADR(s); "
+                      "the backlog above leaves them out"]
     if f.get("note"):
-        return lines[0] + "\n" + f["note"]
+        return "\n".join([lines[0], f["note"]] + (not_tasked if nu and which != "point" else []))
     a = f.get("allowance") or {}
     for key, label in (("point", f"Review point {f.get('review_point')}"), ("backlog", "Open backlog")):
         b = f.get(key)
@@ -1242,10 +1245,8 @@ def text(f: dict[str, Any], which: str | None = None) -> str:
             lines.append(f"  {b['unestimated']} task(s) without an estimate took the median")
         if b.get("unreached"):
             lines.append("  left out: " + "; ".join(f"{t} ({w})" for t, w in b["unreached"].items()))
-    nu = f.get("untasked_decisions") or []
     if nu and which in (None, "backlog") and f.get("backlog"):
-        lines += ["", f"Not yet tasked: {sum(len(u['decisions']) for u in nu)} accepted decision(s) in {len(nu)} ADR(s); "
-                      "the backlog above leaves them out"]
+        lines += not_tasked
     if a and not a.get("unavailable"):
         fit = a.get("fit") or {}
         lines += ["", f"Allowance: {a['pct_now']:.0f}% now (sample {a['pct_sample']:.0f}% at {_when(a['sample_at'])}, "

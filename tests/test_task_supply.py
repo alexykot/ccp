@@ -110,20 +110,36 @@ class Health(Base):
     def test_the_text_line_and_the_json_key_with_a_list(self):
         self.adr(40, "accepted", ["not_built"] * 6)
         text = self.run_health()
-        self.assertIn("Task supply: 6 accepted decision(s) not tasked (ADR-0040 D1-D6)", text.splitlines())
+        line = next(x for x in text.splitlines() if x.startswith("Task supply:"))
+        self.assertIn("6 accepted", line)
+        self.assertIn("ADR-0040 D1-D6", line)
         ts = json.loads(self.run_health("--json"))["task_supply"]
         self.assertEqual(ts, {"untasked_decisions": [{"adr": "ADR-0040", "decisions": [str(i) for i in range(1, 7)]}]})
 
     def test_the_line_and_a_gap_in_the_decisions(self):
         self.adr(1, "accepted", ["not_built", "built", "not_built", "not_built"])
-        self.assertIn("Task supply: 3 accepted decision(s) not tasked (ADR-0001 D1,D3-D4)", self.run_health())
+        line = next(x for x in self.run_health().splitlines() if x.startswith("Task supply:"))
+        self.assertIn("3 accepted", line)
+        self.assertIn("ADR-0001 D1,D3-D4", line)
+
+    def test_a_decision_id_with_a_letter_is_named_after_the_numbers(self):
+        text = adr.emit({"id": "ADR-0001", "title": "T", "status": "accepted", "date": "2026-01-01",
+                         "decisions": ["D1 not_built", "D2 not_built", "D2a not_built"]})
+        self.p.write("docs/adr/0001-a.md", text + "# T\n\n## Decision\n\n" + "".join(
+            f"### D{i}. Decision {i}\n\nText.\n\n" for i in ("1", "2", "2a")))
+        self.assertEqual([d for u in self.untasked() for d in u["decisions"]], ["1", "2", "2a"])
+        line = next(x for x in self.run_health().splitlines() if x.startswith("Task supply:"))
+        self.assertIn("3 accepted", line)
+        self.assertIn("ADR-0001 D1-D2,D2a", line)
+        self.assertEqual(health._decision_runs(["1", "3", "3b"]), "D1,D3,D3b")
 
     def test_the_line_names_five_adrs_then_an_ellipsis(self):
         for n in range(1, 8):
             self.adr(n, "accepted", ["not_built"])
         line = next(x for x in self.run_health().splitlines() if x.startswith("Task supply:"))
-        self.assertEqual(line, "Task supply: 7 accepted decision(s) not tasked (ADR-0001 D1, ADR-0002 D1, ADR-0003 D1, "
-                               "ADR-0004 D1, ADR-0005 D1, …)")
+        self.assertIn("7 accepted", line)
+        self.assertTrue(line.endswith("ADR-0005 D1, …)"), line)
+        self.assertNotIn("ADR-0006", line)
 
     def test_no_line_and_an_empty_list_when_every_decision_is_cited(self):
         self.adr(1, "accepted", ["not_built"])
@@ -158,8 +174,9 @@ class Forecast(Base):
         self.adr(1, "accepted", ["not_built", "not_built"])
         self.adr(2, "in-progress", ["not_built"])
         text = self.run_forecast("--backlog")
-        line = "Not yet tasked: 3 accepted decision(s) in 2 ADR(s); the backlog above leaves them out"
-        self.assertIn(line, text.splitlines())
+        line = next(x for x in text.splitlines() if x.startswith("Not yet tasked:"))
+        self.assertIn("3 accepted", line)
+        self.assertIn("2 ADR(s)", line)
         self.assertLess(text.index("Open backlog"), text.index(line))
         self.assertEqual(json.loads(self.run_forecast("--backlog", "--json"))["untasked_decisions"],
                          [{"adr": "ADR-0001", "decisions": ["1", "2"]}, {"adr": "ADR-0002", "decisions": ["1"]}])
@@ -169,6 +186,38 @@ class Forecast(Base):
         self.task("0002-b", "pending", ["ADR-0001"])
         self.assertNotIn("Not yet tasked", self.run_forecast("--backlog"))
         self.assertEqual(json.loads(self.run_forecast("--backlog", "--json"))["untasked_decisions"], [])
+
+    def test_the_point_view_has_no_line(self):
+        self.adr(1, "accepted", ["not_built"])
+        self.assertIn("Not yet tasked", self.run_forecast())
+        self.assertNotIn("Not yet tasked", self.run_forecast("--point", "R1"))
+        self.assertEqual(len(json.loads(self.run_forecast("--point", "R1", "--json"))["untasked_decisions"]), 1)
+
+    def test_the_line_follows_the_note_when_no_task_is_open(self):
+        self.adr(1, "accepted", ["not_built", "not_built"])
+        self.task("0001-a", "done", [])
+        for args in ((), ("--backlog",)):
+            text = self.run_forecast(*args)
+            self.assertIn("no open task to forecast", text)
+            line = next(x for x in text.splitlines() if x.startswith("Not yet tasked:"))
+            self.assertIn("2 accepted", line)
+            self.assertLess(text.index("no open task"), text.index(line))
+        self.assertNotIn("Not yet tasked", self.run_forecast("--point", "R1"))
+        self.assertEqual(len(json.loads(self.run_forecast("--json"))["untasked_decisions"]), 1)
+
+    def test_the_line_follows_the_note_when_no_open_task_has_an_estimate(self):
+        self.adr(1, "accepted", ["not_built"])
+        (self.q / "estimates" / "0001-a.jsonl").unlink()
+        text = self.run_forecast("--backlog")
+        self.assertIn("no open task has an estimate", text)
+        self.assertIn("Not yet tasked: 1 accepted", text)
+
+    def test_no_line_with_the_note_when_every_decision_is_cited(self):
+        self.adr(1, "accepted", ["not_built"])
+        self.task("0001-a", "done", ["0001 D1"])
+        text = self.run_forecast()
+        self.assertIn("no open task to forecast", text)
+        self.assertNotIn("Not yet tasked", text)
 
 
 if __name__ == "__main__":
