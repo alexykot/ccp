@@ -178,6 +178,16 @@ class Refusals(PrCli):
                 self.assertEqual(code, 1)
                 self.assertIn(gone, err)
 
+    def test_a_host_refusal_exits_1_with_the_hosts_words(self):
+        self.say({"FAKE_RC": "1", "FAKE_ERR": "host said no", "FAKE_OUT": "https://example.test/o/r/pull/12"})
+        body = self.body_file("x")
+        for args in (("open", "--branch", "b", "--title", "t", "--body-file", body), ("diff", "7"),
+                     ("edit", "7", "--body-file", body)):
+            with self.subTest(args[0]):
+                code, out, err = self.ccp(*args)
+                self.assertEqual((code, out), (1, ""))
+                self.assertIn("host said no", err)
+
     def test_every_call_but_open_needs_the_pr_number(self):
         for args in (("view",), ("view", "task/0001-a"), ("diff", "0"), ("edit", "--body-file", "x"),
                      ("merge", "HEAD", "--head", HEAD, "--task", "t")):
