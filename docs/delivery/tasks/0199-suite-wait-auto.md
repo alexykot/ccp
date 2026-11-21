@@ -1,7 +1,7 @@
 ---
 task_id: 0199-suite-wait-auto
 title: ccp suite run --wait auto derives the wait from the shell limit and the lane's usual cold time
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S16"]
@@ -9,7 +9,7 @@ review_point: R14
 paths: ["ccp/suite.py", "ccp/cli.py", "docs/spec/02-delivery.md", "docs/cli/02-delivery.md", "tests/test_parallel_lanes.py"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0199-suite-wait-auto
@@ -41,6 +41,10 @@ Measured at `58cf1d0`.
 - `tests/test_parallel_lanes.py` holds the exclusive-lane tests and passes at the base
   (`python3 -B -m unittest -q tests.test_parallel_lanes` at `58cf1d0`: 8 tests).
 - The SPEC sentence below describes only this task's own option (§31.1).
+- Ruling 0199-suite-wait-auto-r1 (lead): the CLI row cell in `docs/cli/02-delivery.md` is written
+  `--wait SECONDS\|auto`, so the row keeps its column count (an unescaped `|` splits the cell). Check
+  wa-03 step 2 is held `as_written: false` against this ruling; the verifier checks
+  `grep -cF 'wait SECONDS\|auto' docs/cli/02-delivery.md` gives 1.
 
 ## Scope
 
@@ -118,4 +122,12 @@ Measured at `58cf1d0`.
 
 ## Implementation notes
 
+- `ccp/suite.py`: `usual_seconds` now delegates to `_lane_seconds(q, lane, default, cold_only)`, so the passing-run median and the cold median share one reader. `auto_wait(cfg, q, lane)` and `WAIT_AUTO_MARGIN_S = 30` are new; `run` resolves `auto` once, right after the first failed `take_lane`, prints the stderr line and then polls like `--wait SECONDS`.
+- Open points, narrowest reading taken: `wait_auto: true` goes on the busy row only (the task says "the row", after the busy row's `waited_s`); a started row records `wait_s` as today. `auto` with a known cold time but a limit it leaves under the margin gives 0 and prints `waiting up to 0 s (--wait auto: ...)` before the busy exit. `seconds` is truncated to a whole number. The busy message's hint now reads "`--wait SECONDS` or `--wait auto`".
+- `ccp/cli.py`: `_wait_arg` is the parser type (int or `auto`; anything else is `ArgumentTypeError("--wait takes seconds or auto")`, exit 2).
+
+- Fix round 1: the CLI row now reads `--wait SECONDS\|auto` (ruling r1, review MINOR-1). Review NITs done: the `auto_wait` tests assert tokens (`120 s`, `WAIT_AUTO_NO_RUN`, `560 s`, `--wait auto`) instead of whole sentences; a free lane prints no `waiting up to`, and the release test sees it exactly once (pins resolving only when the lane is held, and the `told` guard).
+
 ## Verification notes
+- 2026-11-21 — verifier, PR #233 head `4483f04` (squash `9cec44f`): APPROVE. Passed: wa-01, wa-02, wa-03, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0199-suite-wait-auto.json.
+
