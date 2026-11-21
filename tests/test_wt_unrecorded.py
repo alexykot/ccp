@@ -77,13 +77,14 @@ class Unrecorded(ToolkitFixture, unittest.TestCase):
         self.assertNotIn(self.path.name, [r["name"] for r in self.listed()])
         wt.remove_unrecorded(self.main, self.path)  # gone already: nothing raises
 
-    def test_one_removed_by_hand_is_pruned(self):
+    def test_removing_one_prunes_another_removed_by_hand(self):
+        other = self.path.with_name(f"{wt.ARCH_PREFIX}-ar-20261121T000000Z-ef01")
         wt.add_unrecorded(self.cfg, self.main, self.path, self.head)
-        shutil.rmtree(self.path)
-        self.assertIn(self.path.name, self.registered())
+        wt.add_unrecorded(self.cfg, self.main, other, self.head)
+        shutil.rmtree(other)
+        self.assertIn(other.name, self.registered())
         wt.remove_unrecorded(self.main, self.path)
-        self.assertNotIn(self.path.name, self.registered())
-
+        self.assertNotIn(other.name, self.registered())
 
 if __name__ == "__main__":
     unittest.main()
