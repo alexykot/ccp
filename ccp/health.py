@@ -1,83 +1,43 @@
 """Delivery measurements (SPEC §27.1): how long each task took, where the time went, what it touched.
 
-Everything comes from data the plane already holds; nothing here is a target or part of a DoD.
+Everything comes from data the plane already holds; nothing here is a target or part of a DoD. The SPEC
+sections named here hold each measure's rule; this holds how the code reads its sources.
 
-- **git:** the task merges on the first-parent history of HEAD (the board reads the integration
-  branch's remote ref instead, so a checkout that has not pulled still shows a merge). A merge is a merge commit, or a
-  commit whose subject ends in a pull-request number `(#N)` (a squash merge); it names a task when
-  its subject starts with the task's NNNN (`Task 0136: …`, `0133: …`) or it merged a `task/NNNN-…`
-  branch. Its files and lines are split by the `architect.areas` globs.
-- **the queue** (QUEUE_ROOT, optional), from the times it records: a task starts at its first prompt
-  audit, lease, phase or progress event (none recorded: no wall time); each phase ends when the next
-  is launched (prompt-audit stamps) and verifying ends at the verifier's `checked_at`. Where a phase
-  end is not recorded, its `progress/<task>/*-report.md` modification time stands in, and the row
-  says so (`times`).
-  Report and audit counts give the fix, merge, ruling, review and verify rounds, each kind its own
-  count (a merge or ruling round is neither a fix round nor review time); prompt audits give prompt
-  sizes.
-- **what workers add:** friction notes (`health/notes.jsonl`, `ccp health note`) and numbers
-  (`health/metrics.jsonl`, `ccp health record`), both written by the runner from worker reports.
-- **suite time** (§27.2, §14.1): `ccp report` files each passing `ccp suite run` of the run it closes
-  from `runs/_suites.jsonl`, never from the report's prose. A run in the `full` or `gate` role's lane
-  with nothing cached is the suite's size and time (`suite_seconds`, `suite_tests`); one with any
-  unit cached is `suite_seconds_warm`, a run in any other lane `suite_seconds_part`, and one that
-  cannot be shown cold or warm `suite_seconds_unverified`. Only a run with no suite record falls back
-  to its `Suite:` line.
-- **gate time** (§14.6): the latest cold run of the gate role's lane, from `runs/_suites.jsonl`, against
-  plane.json `gate`'s cut line and shell limit; over the line it is reported with its slowest stage as
-  an advisory finding, over the limit as a breach. Warm and unverified runs are not judged. A gate run
-  with no end whose elapsed time reached the shell limit, started after the latest gate run that passed
-  or failed, is reported as killed at the limit.
+- **git:** the task merges on the first-parent history of HEAD (the board reads the integration branch's
+  remote ref instead, so a checkout that has not pulled still shows a merge). A merge is a merge commit, or a
+  commit whose subject ends in a pull-request number `(#N)` (a squash merge); it names a task when its subject
+  starts with the task's NNNN (`Task 0136: …`, `0133: …`) or it merged a `task/NNNN-…` branch. Its files and
+  lines are split by the `architect.areas` globs.
+- **the queue** (QUEUE_ROOT, optional): a task starts at its first prompt audit, lease, phase or progress event
+  (none recorded: no wall time); each phase ends when the next is launched (prompt-audit stamps) and verifying
+  ends at the verifier's `checked_at`. Where a phase end is not recorded, its `progress/<task>/*-report.md`
+  modification time stands in, and the row says so (`times`). Report and audit counts give the fix, merge,
+  ruling, review and verify rounds, each kind its own (a merge or ruling round is neither a fix round nor
+  review time); prompt audits give prompt sizes.
+- **what workers add:** friction notes (`health/notes.jsonl`) and numbers (`health/metrics.jsonl`), written by
+  the runner from worker reports (`ccp health note`, `ccp health record`).
+- **suite time** (§27.2, §14.1): `ccp report` files each passing `ccp suite run` of the run it closes from
+  `runs/_suites.jsonl`, never from the report's prose (`suite_seconds`, `suite_tests`, `suite_seconds_warm`,
+  `suite_seconds_part`, `suite_seconds_unverified`); only a run with no suite record falls back to its `Suite:` line.
+- **gate time** (§14.6) and **module time** (§27.2): from the cold runs of the gate role's lane in
+  `runs/_suites.jsonl` and the `modules` their result carried (§14.3), judged against plane.json `gate`'s cut
+  line and shell limit; the slowest modules are `health.slowest_modules` (default 5), the trend the last
+  `health.suite_trend_runs` (default 10). Warm and unverified runs are not judged.
+- **small tasks, runner rotation, idle slots, sign-off wait, conflict catch-ups, usage advice** (§27.1, §10.2,
+  §23.2, §11.1, §24.6): each has its key in `--json` (`small_task_lines` default 100, `idle_slots`,
+  `sign_off_wait`, `conflict_catch_ups`, `usage_advice`).
+- **uncovered commits** (§10.7, `ccp tasks orphans`): the first-parent commits since a ref that no task covers:
+  not a task's merge (the rule above), not a reconcile commit naming a task, not named in a task's `covers:`,
+  and changing more than the task log and the SPEC files (`spec_paths`).
+- **adoption window** (§27.1, §4.5): with no `--since` the window starts at the queue's latest `plane`/`adopted`
+  event (its payload's `since` when it has one), and `before_adoption` counts the task merges left out. The usage
+  advice has its own window (`usage.advice.window_hours`); each rotation slot is judged since its own spawn.
 
-- **module time** (§27.2): from the cold gate runs whose result carried `modules` (§14.3), the latest's
-  slowest modules (`health.slowest_modules`, default 5) and the median seconds per test over the last
-  `health.suite_trend_runs` (default 10), with the first and the latest.
-
-- **small tasks** (§27.1): the share of the tasks merged in the window whose diff, lines added plus deleted
-  over all their merges, is under plane.json `health.small_task_lines` (default 100).
-
-- **runner rotation** (§10.2 step 4): the runner slots due for rotation and not rotated, and the ledger's
-  rotations against tasks done.
-
-- **idle slots** (§27.1, §23.2): the slot-hours runner slots spent with nothing ready, from the ledger's
-  `runner`/`starved` events to each slot's next claim, stop or spawn (`task_supply.idle_slots` in --json).
-
-- **sign-off wait** (§27.1): per review point (the task file's `review_point`), the merged tasks that
-  waited after their latest approving verdict on a `build` sign-off or a merge gate's decision, with
-  the median and the longest wait, in whole minutes; a wait under one minute is left out
-  (`sign_off_wait` in --json).
-
-- **conflict catch-ups** (§27.1): the integration merges `ccp report` recorded on each done change round
-  (`integration_merges`, `before_review`, §11.1) that conflicted, before the task's first review and after it,
-  with the wall time and tokens of the rounds that held them (after review, with the resolution reviews
-  that followed), the merges that did not conflict, and the change rounds with no record
-  (`conflict_catch_ups` in --json); the runs reported in the window.
-
-- **usage advice** (§24.6): `ccp usage`'s cost advice over the queue's usage, at plane.json
-  `usage.advice`'s thresholds (`usage_advice` in --json), from `--since`, else from `window_hours` back
-  (`usage_advice_since` in --json; null: every request).
-
-- **uncovered commits** (§10.7, `ccp tasks orphans`): the commits on the integration branch's
-  first-parent history since a ref that no task covers: not a task's merge (the rule above, a squash
-  naming its task only as `Task NNNN: …`, the form the implementer is asked for), not a
-  reconcile commit naming a task, not named in a task's `covers:`, and changing more than the task log
-  and the SPEC files (`spec_paths`).
-
-- **adoption window** (§27.1, §4.5): with no `--since`, `ccp health` starts its window at the queue's latest
-  `plane`/`adopted` event (`ccp init`), at its payload's `since` when it has one: the task merges, the
-  suite series, gate and module time, the rotation counts and the friction notes before it are left out,
-  and `before_adoption` counts the task merges left out. The usage advice (`ccp usage`'s) has its own window, the requests since `--since`, else
-  of plane.json `usage.advice.window_hours` back (every request when 0); the rotation slots due now judge
-  each slot since its own spawn.
-  A queue with no such event, and a `--since`, read as before.
-
-A task's **active time** is its wall time less the time it waited (`waits_s`): every `waiting_on`
-interval, set to clear, whatever it waited on (§23.3's waits; an open one runs to the merge), and its
-suite runs' waits on an exclusive lane (§16.6: a `started` row's `wait_s`, a `busy` row's `waited_s`
-in `runs/_suites.jsonl`), each instant counted once and only inside the task's wall time. The trend
-is the median active time of the last 5 timed tasks against the 10 before them; above
-`architect.drift_ratio` is drift, one of the architect's triggers (§19.6), so time spent waiting
-never reads as slower work.
+A task's **active time** is its wall time less the time it waited (`waits_s`): every `waiting_on` interval
+(§23.3; an open one runs to the merge) and its suite runs' waits on an exclusive lane (§16.6: a `started` row's
+`wait_s`, a `busy` row's `waited_s`), each instant counted once and only inside the task's wall time. The trend
+is the median active time of the last 5 timed tasks against the 10 before them; above `architect.drift_ratio`
+is drift, one of the architect's triggers (§19.6), so time spent waiting never reads as slower work.
 """
 from __future__ import annotations
 

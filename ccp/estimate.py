@@ -1,11 +1,9 @@
 """Task estimation, phase A (SPEC §26.3): estimate records, actuals at close, a reference-class
 baseline with no LLM, its accuracy, and a backfill over history.
 
-  ccp tasks estimate ID --baseline [--force] [--dry-run]   a baseline row when the task changed
-  ccp tasks estimate --all --baseline [--dry-run]          every open task that needs one
-  ccp tasks estimate show ID                               a task's rows and the latest of each source
-  ccp estimate accuracy [--json]                           estimates against actuals
-  ccp estimate backfill [--dry-run]                        baselines for history, with no leakage
+The commands are `tasks estimate --baseline`, `tasks estimate show`, `estimate accuracy` and `estimate backfill`
+(`docs/cli`): a baseline row when a task changed, a task's rows, estimates against actuals, and baselines for
+history with no leakage.
 
 **Records.** `QUEUE_ROOT/estimates/<task_id>.jsonl`, append-only. An estimate row is
 `{at, as_of, task_id, source, version, task_hash, inputs, phases, total, tokens, cost_usd, rounds,

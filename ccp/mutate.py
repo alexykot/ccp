@@ -2,9 +2,6 @@
 time in the seat's worktree, runs the product's one-test command, and records the mutant killed only
 when that test fails, and `unbuilt` when the run says the code did not build or import.
 
-  ccp mutate --run RUN_ID --test ID [--mutant M …] [--mutant-file PATH …] [--revert PATH[:N[-M]] …]
-             [--together]
-
 `--test` is one test id, passed whole as `{test}`, so it may name a single test method. A mutant is
 `<file>:<old>=><new>` (the text `old`, found exactly once in the file, relative to the worktree's
 root, becomes `new`) or the path of a patch `git apply` takes. A `--mutant-file` holds the same
@@ -17,13 +14,8 @@ from it that a range of the worktree file's lines overlaps or borders, the chang
 record holds, and with none the call is refused. The `--mutant`s come first, then the `--mutant-file`s,
 then the `--revert`s, each in the order given.
 
-`--together` makes them one mutant, numbered 1, its parts in that order; it needs at least two. Parts on
-different files are each checked against the unmutated tree. Substitutions on one file are checked in
-order on a copy of it, each `old` found exactly once in the text the earlier ones leave, so
-a move is two substitutions, one that deletes the lines and one that puts them back elsewhere.
-Any other two parts on one file (a patch or a revert with anything else) refuse the call. The parts
-are applied in order under one snapshot of all their files, the test runs once, and every file is
-restored; a part that does not apply restores the tree and refuses the call.
+`--together` makes them one mutant (§20.6: the parts are applied in order under one snapshot of all their files, and
+a part that does not apply restores the tree and refuses the call).
 
 Every mutant is checked before anything runs. Then the named test runs once unmutated: a test that
 fails already proves nothing, so the command stops there. Each mutant (a `--together` one whole) is
@@ -39,14 +31,10 @@ survived; one whose run exits non-zero with an output line plane.json `mutate.un
 `unbuilt` (the code did not build or import, which proves nothing about the test); any other is killed.
 A SIGTERM at any point of the call kills the running test, restores the files and exits 143.
 
-It runs only from a recorded `impl`, `mut`, `rev` or `ver` worktree of the run's task, and only for a
-run that is still open. Each mutant adds a row to the run record's `mutation` list: the test id, the
-mutant's number, kind, files and a digest, the outcome, the exit code and seconds (a `--together` one:
-kind `together`, its parts' kinds in `parts`, the union of their files in order of first touch, and a
-digest of the parts' digests); never the mutant's text, old or new, or the test's output, which goes
-to a log next to the run's record. The call ends with one `run`/`recorded` event. Exit 0 when every
-mutant was killed, 1 when one survived or was unbuilt or the unmutated test failed, 2 for a usage or
-configuration problem.
+It runs only from a recorded `impl`, `mut`, `rev` or `ver` worktree of the run's task, and only for a run that is
+still open. Each mutant adds a row to the run record's `mutation` list, never the mutant's text or the test's output,
+which goes to a log next to the run's record; the call ends with one `run`/`recorded` event. Exit 0 when every mutant
+was killed, 1 when one survived or was unbuilt or the unmutated test failed, 2 for a usage or configuration problem.
 """
 from __future__ import annotations
 

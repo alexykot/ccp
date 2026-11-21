@@ -1,15 +1,9 @@
 """Seats propose `ccp` tools instead of writing their own (SPEC §31.4), and the hooks that bind runs.
 
-  ccp plane propose --need TEXT --generic TEXT [--task ID] [--workaround TEXT] [--frequency per-task|per-run|once]
-  ccp plane propose --again ID                       the need came up again, done by hand
-  ccp plane triage ID --accept|--merge-into ID|--decline --reason TEXT    the plane session's call
-  ccp plane built ID --task TASK                     an accepted proposal built by a merged plane task (§29.3)
-  ccp plane list [--open]
-  ccp plane check [--archive]                        queue entries the plane does not write (§31.3): files in
-                                                     QUEUE_ROOT/scripts/ that are not the plane's, and top-level
-                                                     entries it does not keep; --archive moves them to
-                                                     QUEUE_ROOT/_legacy/<UTC date>/, deleting nothing
-  ccp agent start|stop                               the SubagentStart / SubagentStop hooks (hook JSON on stdin)
+The commands are `plane propose`, `plane triage`, `plane built`, `plane list` and `plane check`, and `agent start|stop`,
+the SubagentStart and SubagentStop hooks (`docs/cli`). `plane check` lists the queue entries the plane does not
+write (§31.3): files in QUEUE_ROOT/scripts/ that are not the plane's, and top-level entries it does not keep;
+`--archive` moves them to QUEUE_ROOT/_legacy/<UTC date>/, deleting nothing.
 
 Proposals are `QUEUE_ROOT/plane/proposals.jsonl`, append-only: a `proposed` row, then `again` and
 `triaged` rows naming its id, and a `built` row for an accepted one a merged plane task built, carrying

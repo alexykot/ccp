@@ -1,113 +1,43 @@
 """The verifier's record and the runner's merge gate (SPEC §15.3).
 
-  ccp verify record FILE|-              validate a verdict, then write verification/<task_id>.json
-  ccp verify merge-ok PR [--task ID]    may the runner merge this PR now? (exit 0 only if so)
-  ccp verify check TASK_ID --head SHA   the record covers this head (the adapter path, no `gh`)
-  ccp verify spec-text TASK_ID [--base REF] [--head REF]  the PR's SPEC lines carry the text the operator signed
+The call syntax is in `docs/cli`; the rules are in §15 and §29.3. This names the functions that hold them.
+`record` validates a verdict against `contracts/verification.schema.json` itself (a stdlib subset of JSON
+Schema, so the plane takes no dependency) and against the rules the schema cannot hold, then writes
+`verification/<task_id>.json` (`verification/pr-<n>.json`, task_id `pr-<n>`, for a PR that is not a task's).
+It stamps `schema_version` with its own `RECORD_VERSION`, whatever the input said. A reader older than the
+record passes over the keys its contract does not know, at any depth, and holds every key it knows to its
+contract; a record with no version, or one no newer than the reader, is held to the contract with no extra key,
+so a task that adds a field can be verified with the newer `ccp` and merged with the older one on PATH (§29.3).
 
-A record is validated against `contracts/verification.schema.json` itself (a stdlib subset of
-JSON Schema, so the plane takes no dependency) and against the rules the schema cannot hold:
-a check the verifier did not run is neither a pass nor a fail, `checked_at` is the clock time
-the verdict was reached.
+`merge-ok` and `check` judge a record with one function, `judge`: `check` is `merge-ok` without the PR host's
+facts (the PR's state, when the record was recorded). The merge rule it makes mechanical: the PR is open; its
+head is the record's `head_sha` (or `catch_up.to`, `catch_up_refusal`: only `ccp tasks close` writes a
+`catch_up`, `record_catch_up`); the record is an approve (one head, every check it ran passed, every
+`gate.runs` exit 0, which `record` holds an approve to); and it was recorded no earlier than its `checked_at`.
 
-A record carries the schema version of the `ccp` that wrote it (`schema_version`; `record` stamps
-`RECORD_VERSION`, whatever the input said). A reader older than the record, its own
-`RECORD_VERSION` lower, passes over keys its contract does not know, at any depth, and still holds
-every key it knows to its contract; a record with no version, or one no newer than the reader, is
-held to the contract with no extra key. So a task that adds a field to the record can be verified
-with the newer `ccp` on its PR head and merged and closed with the older one on PATH (§15.4, §29.3):
-`record`'s refusal of a key its contract does not know says so, pointing at the worker prompt's own `ccp`,
-which for the plane runs the head (§12.1).
+A gate run may name its `ccp suite run` (`suite_id`, §14.1): `record` fills its numbers, and `cold` when that
+record says nothing was cached, from the recorded run. Under `verify.accept_cache` it holds an approve to a
+gate run that says how many units ran and were cached (`ran`, `cached`; earlier records say `modules_ran`,
+`modules_cached`), and on a `cold_gate` task to a cold run. Under `adr.strict` it refuses an approve while an
+`adr_refs` decision is `not_built` (§6.7).
 
-An approve is one head, every check it ran passed, and the formal gate the verifier ran
-(`gate.runs`, every exit 0). `record` holds an approve to that, so a verdict it writes is one
-`merge-ok` accepts.
+`record` refuses an approve whose latest fix round is newer than its last review, or of a head other than the
+one that review judged (§15.2), unless the verify run carries the override, the `verify.skip_review` or
+`verify.skip_review_after_clean` skip, or a declared prover's `skips: review` that proved that head, each
+checked in a clean checkout of the integration branch's tip.
 
-`merge-ok` and `check` judge a record with one function, `judge`: `check` is `merge-ok` without the PR
-host's facts (the PR's state, when the record was recorded), so it refuses a record with no `head_sha`, no
-gate or a failed check just as `merge-ok` does.
+A check's evidence is §15.4's rule: `producer_errors`, `rests_on_errors` and `as_written_errors` (listed by
+`not_as_written`); `merge-ok` and `check` still refuse a ruling seat's evidence in an older record. A check marked
+`runs_on: operator-machine` (ADR-0045 D3) is held by `marked_refusals` and `marked_errors`. A verdict carries
+`spec_beyond_intent` (§3.5; `beyond_intent_errors`, `beyond_intent`). `later` and `deferred` (§15.4) are
+`record_later` and its `verification/<task_id>.later.jsonl`, which `merge-ok`, `check` and close never read.
+`fill_reason` adds a `repeat_round`'s `--note` to `findings`.
 
-`merge-ok` is the merge rule made mechanical: the PR is open; its head is the record's
-`head_sha`; the record is such an approve; and it was recorded (committed, when the queue is a git
-checkout; written, otherwise) no earlier than its `checked_at`. A verdict at another head, one recorded after the merge, or one relayed
-in a message is not an approval. A PR that is not a task's is approved in
-`verification/pr-<n>.json`, whose `task_id` is `pr-<n>`.
-
-A product whose plane.json sets `verify.accept_cache` lets its content-keyed test cache stand in
-for a rerun: a unit the verifier's own gate run reports as a hit on identical inputs counts as
-run. `record` then holds an approve to a gate run that says how many units ran and how many were
-cached (`ran`, `cached`; a record written earlier says `modules_ran`, `modules_cached`), and, on a
-task whose gate is cold (`cold_gate`), to a cold run with nothing cached.
-
-A gate run may name the `ccp suite run` that ran it (`suite_id`, §14.1): `record` fills its exit
-code, tests, skips, seconds and units ran and cached from that recorded run (the gate's result
-file, or the output's counts), and its `cold` when that record says `cold: true` (nothing cached, §14.6),
-so the verifier types none of them.
-
-`record` also refuses an approve of a task whose latest fix round is newer than its last review, or
-of a head other than the one that review judged (§15.2, the runner brief's step 7), unless the open
-verify run carries the override `ccp prompt verify --allow-unreviewed-fix` recorded, or the skip
-`skip_review` proved for that head: a product with `verify.skip_review` lets a fix whose diff touches only
-the declared paths, and that the product's proof command passes, go to verify with no new review, and a
-declared prover of the review (`verify.provers`, `skips: review`) whose command exits 0 on the fix diff
-does the same, its name and exit recorded on the verify run (no command text); both commands run in a
-clean checkout of the integration branch's tip, so nothing the task's diff changes alters their verdict. A
-product with `verify.skip_review_after_clean` lets the latest fix round after a clean review (no BLOCKER or
-MAJOR finding), when it reported done, go to verify with no new review, the skip recorded as `minor-only` at the verify run's head; the
-verifier confirms the fix answers only that review's findings (`skip_after_clean`).
-
-Under `adr.strict`, `record` also refuses an approve of a head on which a decision the task's `adr_refs`
-cite is still recorded `not_built` (§6.7's in-force check, run before the verdict rather than only once
-close has marked the task done), naming the decision and the `ccp adr decide` that flips it.
-
-A check's evidence is §15.4's rule, and `record` holds a verdict to it: `producer_errors` (the seat that
-produced a check's evidence), `rests_on_errors` (what a check not run rests on) and `as_written_errors` (a check
-that cannot hold as written, which `not_as_written` lists for `ccp tasks close` to print before it merges).
-`merge-ok` and `check` read a record written before `produced_by` and still refuse a ruling seat's evidence;
-neither applies `rests_on_errors`, so a record written before that rule is still read. The one sample record
-is `contracts/verification.example.json`.
-
-A check the task file at the head marks `runs_on: operator-machine` (ADR-0045 D3) is held to a result on an
-approve, by `record`, `merge-ok` and `check` alike (`marked_refusals` reads the facts, `marked_errors` judges them
-on plain values): an approved `operator_step` and the `suite_id` of a passed run of its lane at the record's head,
-a verdict it may carry (the verify run at the carried head kept the check's facts as such a pass, or a carry of
-one: `runs.check_facts`, which `record` keeps on the verify run), or a ruling that waives it; never free text.
-
-A verify round opened with no fix round since the last (§15.6 rule 4, `repeat_round`) carries the
-runner's `--note` as its reason; `record` adds that reason to the record's `findings` when no finding
-gives it yet, as its whole text or as the line it adds (`fill_reason`).
-
-A task's verdict carries `spec_beyond_intent` (§3.5): the normative text the PR adds or changes that
-the brief and its ADRs do not call for, an empty list when none; `record` refuses a task's verdict
-without it (`beyond_intent_errors`), and a `pr-<n>` verdict may leave it out. A non-empty list in the
-latest verdict (`beyond_intent`) makes a build sign-off due on the task, declared or not, which
-`ccp tasks close` holds to; a record written before the field is read as listing none.
-
-A record may carry `catch_up` (§16.5 rule 4), which only `ccp tasks close` writes (`record_catch_up`;
-`record` refuses a verdict that carries one): close merged the integration tip into the approved head
-itself, ran the gate lane on the result and pushed it as the task branch's new head. `merge-ok` accepts
-that head, `catch_up.to`, in place of `head_sha` only when `catch_up.from` is `head_sha` and its
-`gate_run` is a passed `ccp suite run` of the product's gate lane bound to the task (`catch_up_refusal`).
-
-`later` and `deferred` (§15.4) are for a check the verifier recorded not run that does not rest on a carried
-verdict: after its task closed, the lead or the runner records the check's result (`record_later`, refused on
-`later_errors`, the producer held as a verdict's check is) in `verification/<task_id>.later.jsonl`, never in the
-verdict record, and `deferred` lists each such check of a done task as open, passed or failed by its latest
-result. `merge-ok`, `check` and close never read those results.
-
-`spec-text` (§15.2) checks a PR's SPEC edits against the words the operator signed (§3.5): each
-`PROPOSED:` marker followed by `> ` blockquote lines in the task's Scope, or in a section whose heading
-begins `Rule changes`, is a signed passage (`signed_passages`; one carried in both is listed once), and
-each must appear, whitespace-normalised, in a hunk `git diff <base>...<head>` makes to a file under
-`spec_paths` (`spec_text`), read as it is at `<head>` with the unchanged lines around it up to
-the nearest blank line on each side, covering at least one line the hunk adds (`spec_hunks`). A passage
-not found there is looked for in the same way in the hunks made to the one file its own block names
-(`signed_blocks`, `named_hunks`), such as a contract the operator signed; a file under `tests/`, under the
-task log's directory or in the SPEC is never searched that way (`searchable`). The base
-defaults to `origin/<integration branch>` (the binding's with QUEUE_ROOT, else `main`), the head to
-`HEAD`; the task file is read from the checkout, and nothing is fetched. Exit 0 when every passage is
-found, 1 naming each that is not, 2 when the task has none, names no task, or `--head` names no commit or
-the base cannot be diffed. It needs no QUEUE_ROOT and writes nothing.
+`spec-text` (§15.2) checks a PR's SPEC edits against the passages the operator signed (`signed_passages`,
+`spec_text`, `spec_hunks`, `signed_blocks`, `named_hunks`, `searchable`). The base defaults to
+`origin/<integration branch>`, the head to `HEAD`; it reads the task file from the checkout, fetches nothing and
+writes nothing. Exit 0 when every passage is found, 1 naming each that is not, 2 for no passages or an
+unusable base or head.
 """
 from __future__ import annotations
 
