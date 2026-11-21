@@ -17,8 +17,10 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   the token it pins. A test names a plane constant or shared fixture fact (the worktrees directory, a
   binding) through the code or a fixture helper, never as a copied literal. A fixture class other
   modules reuse holds no test methods; a class with tests is never imported into another module (it
-  would run twice).
-  check: pass — the architect counts long string-literal assertions and constants copied into tests
+  would run twice), and no module binds another module's test-class methods as its own helpers.
+  check: pass — the architect counts long string-literal assertions and constants copied into tests;
+  it becomes also a command check (architect.checks `E4`:
+  `! git grep -nE '= test_[a-z_]+\.[A-Z][A-Za-z]+\.[a-z_]+' -- tests`) with task 0255
 - **E15** Decision logic is separate from git, process and file I/O, so each branch is unit-tested on
   plain values. End-to-end tests cover the wiring, not every branch.
   check: pass — the architect looks for branches reachable only through a fixture repo; the health
@@ -104,10 +106,11 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - **E13** Briefs and prompt templates name the command and the § that decides; they never restate a
   rule's conditions, a tool's quirk a `ccp` command can absorb, or a sample record (a sample lives in
   contracts/ as `*.example.json`, and a test runs it through the command). The report's lines and
-  sections are given once, in the rendered prompt's last part, from the parser's own table. The
-  command's refusal names the condition that failed.
+  sections are given once, in the rendered prompt's last part, from the parser's own table. An
+  instruction several phases share is written once, in `_common.md` or a shared part, and template
+  text is one sentence per line. The command's refusal names the condition that failed.
   check: pass — the architect compares plugin/agents and templates/prompts with the § rules they cite,
-  ccp/report.py's sections, and looks for inline sample records
+  ccp/report.py's sections, and looks for inline sample records and sentences repeated across templates
 - **E24** A module docstring names the § it implements and what the module is for; it never lists the
   keys, checks or formats the code or the SPEC holds.
   check: pass — the architect compares module docstrings with the constants and § they would restate
