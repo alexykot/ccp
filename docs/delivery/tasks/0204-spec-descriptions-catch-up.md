@@ -1,7 +1,7 @@
 ---
 task_id: 0204-spec-descriptions-catch-up
 title: SPEC descriptions catch up with built behaviour
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0202-forecast-and-health-report-task-supply"]
@@ -10,7 +10,7 @@ review_point: R14
 paths: ["docs/spec/02-delivery.md", "docs/spec/03-quality.md", "docs/spec/04-observability.md"]
 adopt: "none"
 created: 2026-11-20
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Task: 0204-spec-descriptions-catch-up
@@ -163,3 +163,5 @@ paragraph.
   `> ` blockquote lines, so sd-02's whitespace-normalised search is the proof.
 
 ## Verification notes
+- 2026-11-21 — verifier, PR #243 head `8ff7bec` (squash `7d13a67`): APPROVE. Passed: sd-01, sd-02, sd-03, sd-04, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -q tests.test_resolution_review tests.test_mutate tests.test_health` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0204-spec-descriptions-catch-up.json.
+
