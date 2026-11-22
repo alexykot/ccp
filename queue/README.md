@@ -41,7 +41,7 @@ For example:
 
 ## Observability
 
-`ccp board build` folds the ledger and the queue files into `board/board.json`; `ccp board status` is its summary (SPEC §23.4, §28). See `scripts/observability/README.md`.
+`ccp board build` folds the ledger and the queue files into `board/board.json`; `ccp board status` is its summary (SPEC §23.4, §28). See `scripts/observability/CLAUDE.md`.
 
 ## See also
 

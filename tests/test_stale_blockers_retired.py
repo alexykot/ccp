@@ -33,7 +33,7 @@ class StaleBlockersRetired(ToolkitFixture, unittest.TestCase):
             {**ev, "at": SUBMITTED, "payload": {"from": "implementing", "to": "submitted"}},
             {"at": OLD_WAKE, "project_id": "demo", "task_id": "", "actor": "task-runner", "type": "seat",
              "op": "heartbeat", "payload": {"seat_id": "task-runner", "wake_kind": "cron",
-                                            "action_summary": "wake", "cron_expected": "*/10 * * * *"}},
+                                            "action_summary": "wake"}},
         )))
         (self.q / "tasks").mkdir(exist_ok=True)
         (self.q / "tasks" / f"{TID}.json").write_text(json.dumps(
@@ -44,7 +44,7 @@ class StaleBlockersRetired(ToolkitFixture, unittest.TestCase):
         self.old_now = {
             "schema_version": 1, "project_id": "demo", "generated_at": "2026-11-06T19:00:00Z",
             "seats": {"task-runner": {"last_wake_at": OLD_WAKE, "wake_kind": "cron", "last_action": "wake",
-                                      "cron_expected": "*/10 * * * *", "stale": True}},
+                                      "stale": True}},
             "tasks": [{"task_id": TID, "runtime_status": "submitted"}],
             "blockers": [{"task_id": TID, "kind": "stale_seat", "since": OLD_WAKE, "detail": "task-runner stale"},
                          {"task_id": TID, "kind": "verify_stale", "since": SUBMITTED, "detail": "no verdict"}],

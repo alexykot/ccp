@@ -175,6 +175,8 @@ def root() -> Path:
 
 
 def actor(default: str = lib.RUNNER) -> str:
+    """The ACTOR a write records: `ACTOR` when it names an actor ccp writes as, else `default`. The retired
+    watchdog (`lib.LEGACY_ACTORS`, read in old rows) is not one."""
     a = os.environ.get("ACTOR") or default
     return a if a in lib.ACTORS else default
 

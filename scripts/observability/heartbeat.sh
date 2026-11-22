@@ -10,22 +10,18 @@ usage() {
 Usage:
   heartbeat.sh <seat_id> [options]
 
-Seat ids: task-runner | task-verifier | delivery-watchdog
+Seat ids: task-runner | task-verifier | design-seat
 
 Every seat is event-only and never time-stale (SPEC §18.3): a heartbeat records
 the last wake, it raises no blocker. task-verifier: --wake-kind priority --task-id <id>.
 
-On every wake (cron, priority, or manual):
+On every wake:
   1. Write $QUEUE_ROOT/observability/seats/<seat_id>.json
   2. Append a seat/heartbeat event
 
 Options:
-  --wake-kind KIND        cron | priority | manual   (default: cron)
+  --wake-kind KIND        priority | manual | cron (an old row's; none runs on a routine)   (default: manual)
   --action TEXT           last_action / action_summary
-  --cron-expected SPEC    default per seat (2026-09-24 cadence):
-                            delivery-watchdog '*/30 * * * *' (24/7)
-                            task-verifier     'event' (NO routine — event-only)
-                            task-runner       '*/10 * * * *'
   --task-id ID            optional; defaults to work.json task_id
   --actor ACTOR           default: seat_id
   --project-id ID
@@ -46,9 +42,8 @@ fi
 SEAT_ID="${1:-}"
 shift || true
 
-WAKE_KIND="cron"
+WAKE_KIND="manual"
 ACTION=""
-CRON_EXPECTED=""
 TASK_ID=""
 ACTOR_IN=""
 PROJECT_IN="${PROJECT_ID:-}"
@@ -57,7 +52,6 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --wake-kind) WAKE_KIND="${2:-}"; shift 2 ;;
     --action) ACTION="${2:-}"; shift 2 ;;
-    --cron-expected) CRON_EXPECTED="${2:-}"; shift 2 ;;
     --task-id) TASK_ID="${2:-}"; shift 2 ;;
     --actor) ACTOR_IN="${2:-}"; shift 2 ;;
     --project-id) PROJECT_IN="${2:-}"; shift 2 ;;
@@ -67,29 +61,18 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$SEAT_ID" in
-  task-runner|task-verifier|delivery-watchdog) ;;
-  *) echo "heartbeat: seat_id must be task-runner|task-verifier|delivery-watchdog" >&2; exit 2 ;;
+  task-runner|task-verifier|design-seat) ;;
+  *) echo "heartbeat: seat_id must be task-runner|task-verifier|design-seat" >&2; exit 2 ;;
 esac
 case "$WAKE_KIND" in
   cron|priority|manual) ;;
   *) echo "heartbeat: --wake-kind must be cron|priority|manual" >&2; exit 2 ;;
 esac
 
-if [[ -z "$CRON_EXPECTED" ]]; then
-  case "$SEAT_ID" in
-    delivery-watchdog) CRON_EXPECTED="*/30 * * * *" ;;
-    task-verifier) CRON_EXPECTED="event" ;;
-    *) CRON_EXPECTED="*/10 * * * *" ;;
-  esac
-fi
-if [[ "$SEAT_ID" == "task-verifier" ]]; then
-  CRON_EXPECTED="event"   # policy: Verifier never runs a recurring routine
-fi
-
 QUEUE_ROOT="${QUEUE_ROOT:?set QUEUE_ROOT to live queue dir outside product git}"
 command -v python3 >/dev/null || { echo "heartbeat: python3 required" >&2; exit 1; }
 
-export QUEUE_ROOT SEAT_ID WAKE_KIND ACTION CRON_EXPECTED TASK_ID ACTOR_IN PROJECT_IN
+export QUEUE_ROOT SEAT_ID WAKE_KIND ACTION TASK_ID ACTOR_IN PROJECT_IN
 export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
 
 python3 <<'PY'
@@ -104,7 +87,6 @@ root = Path(os.environ["QUEUE_ROOT"]).expanduser()
 seat_id = os.environ["SEAT_ID"]
 wake_kind = os.environ["WAKE_KIND"]
 action = os.environ.get("ACTION") or "wake"
-cron = os.environ.get("CRON_EXPECTED") or "*/10 * * * *"
 now_s = fmt_dt(datetime.now(timezone.utc))
 
 work = {}
@@ -131,7 +113,6 @@ seat = {
     "last_wake_at": now_s,
     "wake_kind": wake_kind,
     "last_action": action,
-    "cron_expected": cron,
     "updated_at": now_s,
 }
 write_json(root / "observability" / "seats" / f"{seat_id}.json", seat)
@@ -147,7 +128,6 @@ ev = append_event(root, {
         "seat_id": seat_id,
         "wake_kind": wake_kind,
         "action_summary": action,
-        "cron_expected": cron,
     },
 })
 print(json.dumps({"ok": True, "seat": seat, "event": ev}, separators=(",", ":")))
