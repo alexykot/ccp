@@ -31,7 +31,8 @@ once its run has stopped or reported, or after KILLED_AFTER_S. `wait` exits 0 fo
 that failed, 3 at `--timeout` (default WAIT_TIMEOUT_S) and 2 for an id with no record.
 
 `affected` prints the test modules a change touches and, on stderr, the `ccp suite run` line that runs them
-(§14.7); above AFFECTED_FULL_SHARE of the suite's modules the line says to run the full lane. REF goes through
+(§14.7) with the part lane's declared argv, else the language's command; with the language's command, above
+AFFECTED_FULL_SHARE of the suite's modules the line says to run the full lane. REF goes through
 `git rev-parse --verify` first, so one that starts with a dash is an unknown ref, never an option. `run` and
 `affected` without the product's `language` (§8.1) warn on stderr during the grace release
 (config.REQUIRED_KEYS_GRACE) and read with the pack they read with before; after it, exit 2.
@@ -48,6 +49,7 @@ import os
 import posixpath
 import re
 import secrets
+import shlex
 import shutil
 import signal
 import subprocess
@@ -1881,8 +1883,36 @@ def changed_paths(root: Path, since: str | None, given: list[str] | None) -> lis
     return sorted(set(diff) | set(_git_lines(root, "ls-files", "--others", "--exclude-standard")))
 
 
-# §14.7: past this share of the suite's test modules, the serial part lane loses to the parallel full lane
+# §14.7: past this share of the suite's test modules, the language's serial command loses to the parallel full lane
 AFFECTED_FULL_SHARE = 0.25
+
+
+def declared_part_argv(cfg: Any) -> list[str] | None:
+    """§14.7: the argv plane.json `suite.lanes` gives the part role's lane, which takes module names as its
+    last arguments; None when it gives that lane none, or gives it stages."""
+    lanes = (getattr(cfg, "suite", None) or {}).get("lanes")
+    given = lanes.get(lane_for(cfg, "part")) if isinstance(lanes, dict) else None
+    if not isinstance(given, list) or not given or lane_stages(given) is not None:
+        return None
+    return [str(x) for x in given]
+
+
+def affected_hint(cfg: Any, mods: list[str], total: int, test_command: str | None) -> str | None:
+    """§14.7: the stderr line after the list of `mods`, or None. A declared part-lane argv runs them, whatever
+    their share of the `total` test modules; else the language's `test_command` does, unless they are more
+    than AFFECTED_FULL_SHARE of the suite, when the line says to run the full role's lane instead."""
+    if not mods:
+        return None
+    if (argv := declared_part_argv(cfg)) is not None:
+        return (f"ccp suite affected: run them with: ccp suite run --lane {lane_for(cfg, 'part')} -- "
+                f"{shlex.join(argv)} " + " ".join(mods))
+    if total and len(mods) > AFFECTED_FULL_SHARE * total:
+        return (f"ccp suite affected: {len(mods)} of {total} test modules: skip the pre-gate and run the full lane: "
+                f"ccp suite run --lane {lane_for(cfg, 'full')}")
+    if test_command:
+        return (f"ccp suite affected: run them with: ccp suite run --lane {lane_for(cfg, 'part')} -- {test_command} "
+                + " ".join(mods))
+    return None
 
 
 def _tracked_files(root: Path) -> list[str]:
@@ -1918,10 +1948,8 @@ def affected(cfg: Config, since: str | None, paths: list[str] | None) -> tuple[l
 
 
 def main_affected(cfg: Config, a: Any) -> int:
-    """`ccp suite affected`: the test modules, one per line; after them, on stderr, the `ccp suite run` line
-    that runs them on the part lane, when the language pack has a command (`test_command`), or, when they
-    are more than AFFECTED_FULL_SHARE of the suite's test modules, says to run the full lane; a note on
-    stderr when there are none. A product with no `language` gets a warning during the grace release and the
+    """`ccp suite affected`: the test modules, one per line; after them, on stderr, the line `affected_hint`
+    gives; a note on stderr when there are none. A product with no `language` gets a warning during the grace release and the
     pack it was read with before; after it, exit 2 (§8.1)."""
     try:
         config.require_language(cfg, "`ccp suite affected`")
@@ -1936,15 +1964,12 @@ def main_affected(cfg: Config, a: Any) -> int:
     for m in mods:
         print(m)
     pack = doclang.for_tests(cfg)
-    total = pack.suite_size(cfg.root, _tracked_files(cfg.root)) if mods and pack.suite_size is not None else 0
-    if total and len(mods) > AFFECTED_FULL_SHARE * total:
+    total = 0
+    if mods and pack.suite_size is not None and declared_part_argv(cfg) is None:
+        total = pack.suite_size(cfg.root, _tracked_files(cfg.root))
+    if hint := affected_hint(cfg, mods, total, pack.test_command):
         sys.stdout.flush()
-        print(f"ccp suite affected: {len(mods)} of {total} test modules: skip the pre-gate and run the full lane: "
-              f"ccp suite run --lane {lane_for(cfg, 'full')}", file=sys.stderr)
-    elif mods and (cmd := pack.test_command):
-        sys.stdout.flush()
-        print(f"ccp suite affected: run them with: ccp suite run --lane {lane_for(cfg, 'part')} -- {cmd} "
-              + " ".join(mods), file=sys.stderr)
+        print(hint, file=sys.stderr)
     if not mods:
         print(f"ccp suite affected: no test module depends on the {len(changed)} changed path(s)", file=sys.stderr)
     return 0

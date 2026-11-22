@@ -3,7 +3,9 @@
 
 Runs every `tests/test_*.py` module as `python3 -m unittest tests.<module>` from the repo root,
 GATE_WORKERS at a time (default: the CPU count), the largest files first so the slowest modules do
-not start last. The modules in SERIAL run afterwards, one at a time, with nothing else running.
+not start last. Given module names (`tests.test_x`) as arguments, it runs only those, the same way
+(the part lane, SPEC §14.7); a name that is no `tests/test_*.py` module exits 2 naming it, running
+nothing. The modules in SERIAL run afterwards, one at a time, with nothing else running.
 Each module's output is printed whole when it ends, then one line:
 
   gate module tests.test_x: ok, 12.34 s, 45 tests
@@ -24,8 +26,9 @@ module. A key whose recorded result passed, no older than plane.json
 with the seconds and tests of the run that recorded it, and is not run. A miss runs; once every
 module has ended and no `state/*` branch is left (the check gate.sh fails on), each that passed
 records `{key, passed, tests, seconds, at}`: a module that leaked a branch, or ran beside one that
-did, is never served from the cache. Computing the key writes nothing to the repository: not its
-index, objects or stash list.
+did, is never served from the cache. The keys are computed over the whole suite whatever modules
+run, so a module's entry is the same in a run of some modules and in a run of all. Computing the key
+writes nothing to the repository: not its index, objects or stash list.
 
 The cache directory is GATE_CACHE_DIR, default `~/.cache/ccp-gate/<repo id>` (the repo id from its
 root commit, so every worktree and clone of the repo shares it); it must be outside the repository.
@@ -33,8 +36,8 @@ The cold option, GATE_COLD=1 (any value but empty or 0), reads and writes no cac
 runs and the run counts nothing cached. A checkout git cannot read, or an untracked file that cannot
 be read, runs with no cache, saying so (the file named).
 
-Exits 1 when any module failed or errored (a non-zero exit), 2 on a bad GATE_WORKERS or a cache
-directory inside the repository; failing on a leftover `state/*` branch is gate.sh's, after it.
+Exits 1 when any module failed or errored (a non-zero exit), 2 on a bad GATE_WORKERS, an unknown
+module name or a cache directory inside the repository; failing on a leftover `state/*` branch is gate.sh's, after it.
 """
 from __future__ import annotations
 
@@ -79,6 +82,15 @@ def workers() -> int:
 def modules() -> list[str]:
     files = sorted((ROOT / "tests").glob("test_*.py"), key=lambda p: (-p.stat().st_size, p.name))
     return [f"tests.{p.stem}" for p in files]
+
+
+def selected(suite: list[str], wanted: list[str]) -> list[str]:
+    """The suite's modules to run, in its order: all of them when `wanted` is empty, else those it names.
+    ValueError naming each name that is no module of the suite."""
+    unknown = [w for w in dict.fromkeys(wanted) if w not in suite]
+    if unknown:
+        raise ValueError(f"no tests/test_*.py module named {', '.join(unknown)}")
+    return [m for m in suite if m in wanted] if wanted else list(suite)
 
 
 def cold() -> bool:
@@ -253,14 +265,15 @@ def run_one(name: str) -> tuple[str, int, float, int]:
     return name, p.returncode, secs, tests
 
 
-def main() -> int:
+def main(argv: list[str]) -> int:
     try:
         n = workers()
+        suite = modules()
+        run = selected(suite, argv)
     except ValueError as e:
         print(f"gate: {e}", file=sys.stderr)
         return 2
     t0 = time.monotonic()
-    names = modules()
     cache: Cache | None = None
     keys: dict[str, str] = {}
     if cold():
@@ -268,10 +281,10 @@ def main() -> int:
     else:
         try:
             cache = Cache(cache_dir(), max_age_days())
-            shared = shared_tests(names)
-            leaves = {f"tests/{m.split('.', 1)[1]}.py" for m in names if m not in shared}
+            shared = shared_tests(suite)
+            leaves = {f"tests/{m.split('.', 1)[1]}.py" for m in suite if m not in shared}
             common = shared_inputs(leaves)
-            keys = {m: module_key(m, common) for m in names}
+            keys = {m: module_key(m, common) for m in run}
         except ValueError as e:
             print(f"gate: {e}", file=sys.stderr)
             return 2
@@ -279,13 +292,13 @@ def main() -> int:
             print(f"gate: no test cache this run: {e}", file=sys.stderr)
             cache, keys = None, {}
     hits: list[str] = []
-    for m in names:
+    for m in run:
         e = cache.lookup(keys[m]) if cache is not None else None
         if e is not None:
             hits.append(m)
             print(f"gate module {m}: cached, {float(e['seconds']):.2f} s, {e['tests']} tests")
     sys.stdout.flush()
-    todo = [m for m in names if m not in hits]
+    todo = [m for m in run if m not in hits]
     alone = [m for m in todo if m in SERIAL]
     together = [m for m in todo if m not in alone]
     with ThreadPoolExecutor(max_workers=n) as pool:
@@ -300,10 +313,10 @@ def main() -> int:
                 if rc == 0:
                     cache.record(keys[name], t, secs)
     tests = sum(t for *_x, t in results)
-    print(f"gate: {len(names)} modules, ran {len(results)}, cached {len(hits)}, {tests} tests, {n} workers, "
+    print(f"gate: {len(run)} modules, ran {len(results)}, cached {len(hits)}, {tests} tests, {n} workers, "
           f"{time.monotonic() - t0:.1f} s" + (f"; FAILED: {', '.join(sorted(failed))}" if failed else "; all passed"))
     return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))
