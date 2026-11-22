@@ -199,5 +199,10 @@ naming `_gate.md` edits rule text: SPEC.md says the SPEC "states rules only", an
   fails, `skip_review` fetches again: two fetches on that path.
 - Narrowest reading flagged: "the task's latest done review is still the one it judged" is checked by the review's
   head against `reviewed`, since `review_skip` names the reviewed head, not the review run.
+- Fix round 1 (review MINOR 1): `recorded_proof` also requires the latest done review to have been opened no later
+  than the fix round holding the proof, the `opened_at` test `review_proof` applies, so a review reported after
+  the proof at the old reviewed head is not taken as the one the proof judged: verify then judges afresh, finds
+  nothing to judge, and refuses (exit 4) as a fresh judgement of the same queue would. The check comes before the
+  fetch. Test: `SubmitProvenFix.test_a_review_reported_after_the_proof_at_the_reviewed_head_is_not_skipped`.
 
 ## Verification notes
