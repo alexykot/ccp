@@ -387,39 +387,12 @@ def _same_patch(g: Any, root: str, a: str, b: str, integ: str) -> bool:
     return first == gitmerge.own_patch_id(root, b, f"origin/{integ}", g)
 
 
-def check_facts(checks: Any, earlier: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """§15.6 rule 3, ADR-0045 D3: the per-check facts a verify run keeps of the verdict recorded on it, ids and
-    booleans only (house rule E5): each check's `id`, `ran`, `pass`, `produced_by`, and the `operator_step` and
-    `suite_id` its evidence came from. A check not run keeps those two only when it carries `approve at <old>` and
-    the latest of the `earlier` verify runs that recorded an approve at `<old>` kept both for it as a pass or a
-    carry of one: so a carry of a carry is judged on the pass it carries."""
-    from ccp.verify import carried_from, heads_match  # noqa: PLC0415
-
-    out: list[dict[str, Any]] = []
-    for c in checks if isinstance(checks, list) else []:
-        if not isinstance(c, dict):
-            continue
-        ran = c.get("ran", True) is not False
-        cid = str(c.get("dod_check_id"))
-        fact: dict[str, Any] = {"id": cid, "ran": ran, "pass": c["pass"] if isinstance(c.get("pass"), bool) else None}
-        if isinstance(c.get("produced_by"), str):
-            fact["produced_by"] = c["produced_by"]
-        src: dict[str, Any] | None = c if ran else None
-        old = None if ran else carried_from(c.get("rests_on"))
-        if old is not None:
-            at = [r for r in earlier if r.get("phase") == "verify" and r.get("verdict") == "approve"
-                  and heads_match(str(r.get("head") or ""), old)]
-            kept = at[-1].get("checks") if at else None
-            got = next((f for f in kept if isinstance(f, dict) and f.get("id") == cid), None) \
-                if isinstance(kept, list) else None
-            if got and got.get("operator_step") and got.get("suite_id") \
-                    and (got.get("pass") is True or got.get("ran") is False):
-                src = got
-        for key in ("operator_step", "suite_id"):
-            if src is not None and isinstance(src.get(key), str) and src[key]:
-                fact[key] = src[key]
-        out.append(fact)
-    return out
+def heads_match(approved: str, pr_head: str) -> bool:
+    """True when the two shas are the same commit. A short sha matches a full one."""
+    a, b = approved.lower(), pr_head.lower()
+    if len(a) < 7 or len(b) < 7:
+        return False
+    return a == b or a.startswith(b) or b.startswith(a)
 
 
 def is_resolution_beyond(rec: dict[str, Any]) -> bool:
@@ -436,8 +409,6 @@ def unreviewed_fix(q: Path, task_id: str, head: str | None = None) -> str | None
     resolution review (§13.2) is the review of the head it judged, with no change to compare, unless it judged the
     resolution `beyond` the conflict hunks: then the head is refused until a full review. A task
     with no runs (one before the toolkit, a PR that is not a task's) has nothing to compare and passes."""
-    from ccp.verify import heads_match  # noqa: PLC0415
-
     rs = [r for r in all_runs(q, task_id) if state(r) != "abandoned"]
     done = [r for r in rs if r.get("phase") == "review" and state(r) == "reported" and r.get("outcome") == "done"]
     if done and is_resolution_beyond(done[-1]):  # §15.2: the reviewer's word: this head gets a full review

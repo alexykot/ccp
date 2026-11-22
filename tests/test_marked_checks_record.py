@@ -14,7 +14,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli, prhost, runs, verify
+from ccp import cli, prhost, verify
 from tests.helpers import approve_verdict as approve, binding, now_iso, Product, as_lead
 
 TID = "0002-second"
@@ -111,11 +111,6 @@ class MarkedErrors(unittest.TestCase):
     def test_a_marked_check_waived_by_a_ruling_is_accepted(self):
         self.assertEqual(self.errors(resting(RULING, seat=None), rulings=frozenset({RULING})), [])
 
-    def test_operator_evidence_is_never_a_waiver_even_naming_a_ruling(self):
-        errs = self.errors(resting(RULING, seat="operator"), rulings=frozenset({RULING}))
-        self.assertEqual(len(errs), 1, errs)
-        self.assertIn("never a ruling", errs[0])
-
     def test_a_checks_suite_id_is_an_id(self):
         self.assertEqual(verify.record_errors(verdict(ran())), [])
         self.assertTrue(verify.record_errors(verdict(ran(sid="the runner's run, pasted"))))
@@ -153,24 +148,24 @@ class MarkedErrors(unittest.TestCase):
 
 
 class CheckFacts(unittest.TestCase):
-    """`runs.check_facts`: ids and booleans of each check, a carry keeping the pass it carries."""
+    """`verify.check_facts`: ids and booleans of each check, a carry keeping the pass it carries."""
 
     def test_a_run_check_keeps_its_step_and_suite_run(self):
-        facts = runs.check_facts([ran(), {"dod_check_id": "cmd-01", "pass": True, "evidence": "x"}], [])
+        facts = verify.check_facts([ran(), {"dod_check_id": "cmd-01", "pass": True, "evidence": "x"}], [])
         self.assertEqual(facts, [{"id": CID, "ran": True, "pass": True, "produced_by": "runner", "operator_step": STEP,
                                   "suite_id": "st-h"},
                                  {"id": "cmd-01", "ran": True, "pass": True}])
 
     def test_a_carry_keeps_the_pass_it_carries(self):
-        facts = runs.check_facts([resting(f"approve at {OLD[:12]}")], [approved_at(OLD, PASS_AT_OLD)])
+        facts = verify.check_facts([resting(f"approve at {OLD[:12]}")], [approved_at(OLD, PASS_AT_OLD)])
         self.assertEqual(facts, [{"id": CID, "ran": False, "pass": None, "produced_by": "verifier",
                                   "operator_step": STEP, "suite_id": "st-old"}])
 
     def test_a_check_not_run_on_anything_else_keeps_neither(self):
         free = {**resting("the operator's word", seat="operator"), "operator_step": STEP, "suite_id": "st-h"}
-        self.assertEqual(runs.check_facts([free], []), [{"id": CID, "ran": False, "pass": None,
-                                                          "produced_by": "operator"}])
-        nothing = runs.check_facts([resting(f"approve at {OLD}")], [approved_at(OLD, {"id": CID, "ran": False})])
+        self.assertEqual(verify.check_facts([free], []), [{"id": CID, "ran": False, "pass": None,
+                                                            "produced_by": "operator"}])
+        nothing = verify.check_facts([resting(f"approve at {OLD}")], [approved_at(OLD, {"id": CID, "ran": False})])
         self.assertNotIn("suite_id", nothing[0])
 
 
@@ -239,7 +234,7 @@ class RecordAndMerge(unittest.TestCase):
         (self.q / "runs").mkdir(exist_ok=True)
         self.suite_run("st-old", self.old)
         self.put_run("verify", "2026-10-22T10:00:00Z", verdict="approve", head=self.old, reported_at="2026-10-22T10:05:00Z",
-                 outcome="done", checks=runs.check_facts([ran(sid="st-old")], []))
+                 outcome="done", checks=verify.check_facts([ran(sid="st-old")], []))
 
     def record(self, *checks: dict) -> tuple[int, str]:
         src = self.q / "in.json"

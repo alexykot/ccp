@@ -956,7 +956,7 @@ def sign_off_gaps(q: Path, meta: dict[str, Any], stages: list[str], head: str | 
         elif stage == "build" and head is not None:
             from ccp import verify  # noqa: PLC0415
             signed = str(got.get("head") or "")
-            if not verify.heads_match(signed, head) and not verify.sign_off_carried(q, tid, signed, head):
+            if not runs.heads_match(signed, head) and not verify.sign_off_carried(q, tid, signed, head):
                 out.append(f"{tid}'s build sign-off is stale: signed at {signed[:12] or 'no head'}, the head to "
                            f"merge is {head[:12]}; the operator signs the new head (`ACTOR={lib.LEAD} ccp tasks "
                            f"sign-off {tid} --stage build`, SPEC §3.5)" + passages)
@@ -1204,7 +1204,7 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
         head = facts.head
         approved = [str(body.get("head_sha") or "")] + ([str(body["catch_up"].get("to") or "")]
                                                           if isinstance(body.get("catch_up"), dict) else [])
-        if not reasons and not any(verify.heads_match(a, head) for a in approved):
+        if not reasons and not any(runs.heads_match(a, head) for a in approved):
             reasons.append(f"PR {pr} merged at {head[:12]}, which is not the approved head")
     if reasons:
         raise QueueError("merge refused, nothing merged (SPEC §15.5):\n  " + "\n  ".join(reasons), 1)
@@ -1578,7 +1578,7 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
         raise _NoCatchUp(why)
     branch = facts.branch or f"task/{tid}"
     prior = body.get("catch_up") if isinstance(body.get("catch_up"), dict) else {}
-    tips: set[str] = set(prior.get("tip_files") or []) if verify.heads_match(str(prior.get("to") or ""), start) else set()
+    tips: set[str] = set(prior.get("tip_files") or []) if runs.heads_match(str(prior.get("to") or ""), start) else set()
     shared = list(parallel.settings(cfg).get("shared") or [])
     head, tip, gate_run, task_files, made, unioned = start, "", "", [], False, False
     try:
@@ -1647,7 +1647,7 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
     reasons: list[str] = []
     for i in range(PR_HEAD_POLLS):  # the hosting service moves the PR's head to the push; it may take a moment
         reasons, now_ok = verify.merge_ok(cfg, q, pr, tid)
-        if not reasons and verify.heads_match(str(now_ok.get("match_head_commit") or ""), head):
+        if not reasons and runs.heads_match(str(now_ok.get("match_head_commit") or ""), head):
             return str(now_ok["match_head_commit"]), caught
         if i + 1 < PR_HEAD_POLLS:
             time.sleep(PR_HEAD_POLL_S)

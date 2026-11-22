@@ -663,8 +663,7 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
         if s.secret and any(health.looks_like_secret(v) for v in parsed.get(s.keys[0]) or []):
             raise QueueError(f"report refused: a {s.name} line looks like it holds a secret; say it without the value", 1)
     if rec["phase"] == "verify" and rec.get("verdict") and parsed.get("outcome") == "done":
-        from ccp.verify import heads_match  # noqa: PLC0415
-        if parsed.get("verdict") != rec["verdict"] or not heads_match(str(parsed.get("head") or ""), str(rec.get("head") or "")):
+        if parsed.get("verdict") != rec["verdict"] or not runs.heads_match(str(parsed.get("head") or ""), str(rec.get("head") or "")):
             raise QueueError(f"report refused, nothing written: it says {parsed.get('verdict')} at "
                              f"{str(parsed.get('head'))[:12]}, the recorded verdict is {rec['verdict']} at "
                              f"{str(rec.get('head'))[:12]} (ccp verify record)", 1)

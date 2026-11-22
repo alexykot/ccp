@@ -56,6 +56,7 @@ from ccp import prhost, schema
 from ccp.config import Config
 from ccp.config import spec_paths as spec_paths_of
 from ccp.refs import ANY_TASK_ID, QUESTION_ID
+from ccp.runs import heads_match
 
 SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "verification.schema.json"
 # The record's schema version, stamped by `record`. A change that adds a key to the record's
@@ -561,7 +562,7 @@ def _run_refusal(sid: Any, cid: str, tid: str, suites: list[dict[str, Any]], hea
 def _carry_refusal(cid: str, old: str, tid: str, verifies: list[dict[str, Any]], suites: list[dict[str, Any]],
                    steps: set[str]) -> str | None:
     """§15.6 rule 3, ADR-0045 D3: why a marked check may not rest on `approve at <old>`, or None when it may: the
-    task's latest verify run that recorded an approve at `old` kept facts for the check (`runs.check_facts`) that
+    task's latest verify run that recorded an approve at `old` kept facts for the check (`check_facts`) that
     hold it as a pass with an approved `operator_step` and a passed run of its lane at `old`, or as a carry of
     such a pass (not run, the pass's `operator_step` and `suite_id` kept)."""
     at = [r for r in verifies if r.get("verdict") == "approve" and heads_match(str(r.get("head") or ""), old)]
@@ -590,7 +591,7 @@ def marked_errors(rec: dict[str, Any], marked: list[str], suites: list[dict[str,
     (the approved operator gates of the task), whoever produced it, or no `suite_id` of a passed run in `suites`
     (`suite.fold`'s rows) of its lane, bound to the task, at the record's `head_sha`; when it is `ran: false` on a
     `rests_on` that is neither a ruling (`rulings`, the texts `_ruling_refusal` accepts that name more than operator
-    gates, `_waiver_texts`) nor a carried verdict, or on any `rests_on` of evidence the operator produced; and
+    gates, `_waiver_texts`) nor a carried verdict, whoever produced it: free-text operator evidence waives nothing; and
     when it carries `approve at <old>` that the task's verify runs (`verifies`, oldest first) do not hold as a
     pass it may carry (`_carry_refusal`). A failed check is `approve_errors`' to refuse, and a waived one passes."""
     tid, head = str(rec.get("task_id") or ""), str(rec.get("head_sha") or "").strip()
@@ -613,12 +614,10 @@ def marked_errors(rec: dict[str, Any], marked: list[str], suites: list[dict[str,
                 if (why := _carry_refusal(cid, old, tid, verifies, suites, steps)) is not None:
                     errs.append(f"{name} carries a verdict it may not carry ({why}): run it again at the head "
                                 "(SPEC §15.6 rule 3, §15.8)")
-            elif c.get("produced_by") == "operator" or rests not in rulings:
-                what = "evidence the operator produced, never a ruling" if c.get("produced_by") == "operator" \
-                    else "no ruling that waives it"
-                errs.append(f"{name} is ran: false on {rests[:60]!r}, {what}: free-text operator evidence is never its "
-                            "evidence; it rests on a passed run at the head, a verdict it may carry or a ruling that "
-                            "waives it (SPEC §15.4)")
+            elif rests not in rulings:
+                errs.append(f"{name} is ran: false on {rests[:60]!r}, no ruling that waives it: free-text operator "
+                            "evidence is never its evidence; it rests on a passed run at the head, a verdict it may "
+                            "carry or a ruling that waives it (SPEC §15.4)")
             continue
         if c.get("pass") is False:
             continue
@@ -630,6 +629,39 @@ def marked_errors(rec: dict[str, Any], marked: list[str], suites: list[dict[str,
             errs.append(f"{name} was run, and {why}: it cites a passed run of its lane, bound to the task, recorded at "
                         f"the record's head {head[:12]} (SPEC §15.4)")
     return errs
+
+
+def check_facts(checks: Any, earlier: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """§15.6 rule 3, ADR-0045 D3: the per-check facts a verify run keeps of the verdict recorded on it, ids and
+    booleans only (house rule E5): each check's `id`, `ran`, `pass`, `produced_by`, and the `operator_step` and
+    `suite_id` its evidence came from. A check not run keeps those two only when it carries `approve at <old>` and
+    the latest of the `earlier` verify runs that recorded an approve at `<old>` kept both for it as a pass or a
+    carry of one: so a carry of a carry is judged on the pass it carries."""
+    out: list[dict[str, Any]] = []
+    for c in checks if isinstance(checks, list) else []:
+        if not isinstance(c, dict):
+            continue
+        ran = c.get("ran", True) is not False
+        cid = str(c.get("dod_check_id"))
+        fact: dict[str, Any] = {"id": cid, "ran": ran, "pass": c["pass"] if isinstance(c.get("pass"), bool) else None}
+        if isinstance(c.get("produced_by"), str):
+            fact["produced_by"] = c["produced_by"]
+        src: dict[str, Any] | None = c if ran else None
+        old = None if ran else carried_from(c.get("rests_on"))
+        if old is not None:
+            at = [r for r in earlier if r.get("phase") == "verify" and r.get("verdict") == "approve"
+                  and heads_match(str(r.get("head") or ""), old)]
+            kept = at[-1].get("checks") if at else None
+            got = next((f for f in kept if isinstance(f, dict) and f.get("id") == cid), None) \
+                if isinstance(kept, list) else None
+            if got and got.get("operator_step") and got.get("suite_id") \
+                    and (got.get("pass") is True or got.get("ran") is False):
+                src = got
+        for key in ("operator_step", "suite_id"):
+            if src is not None and isinstance(src.get(key), str) and src[key]:
+                fact[key] = src[key]
+        out.append(fact)
+    return out
 
 
 def marked_refusals(cfg: Config, queue: Path, rec: dict[str, Any], head: str) -> list[str]:
@@ -668,27 +700,35 @@ def marked_refusals(cfg: Config, queue: Path, rec: dict[str, Any], head: str) ->
     return marked_errors(rec, marked, suites, verifies, steps, _waiver_texts(queue, rec))
 
 
-def _waiver_texts(queue: Path, rec: dict[str, Any]) -> set[str]:
-    """The `rests_on` texts of `rec`'s checks that may waive a marked check (ADR-0045 D3): a ruling the queue holds
-    (`_ruling_refusal`) naming at least one id that is not a gate of class `operator`. An operator gate approves
-    running a step, never skipping it, so a text whose only ids are operator gates waives nothing."""
-    def waives(text: str) -> bool:
-        if _ruling_refusal(queue, text) is not None:
-            return False
-        if _QUESTION_TOKEN.search(text) or _RULING_TOKEN.search(text):
-            return True
-        for m in _GATE_TOKEN.finditer(text):
-            try:
-                gate = json.loads((queue / "escalations" / m.group(1) / f"{m.group(2)}.json").read_text())
-            except (OSError, json.JSONDecodeError):
-                continue
-            if isinstance(gate, dict) and gate.get("class") != "operator":
-                return True
-        return False
+def waiver_refusal(queue: Path, text: str) -> str | None:
+    """ADR-0045 D3: why `text` does not waive a check marked `runs_on: operator-machine`, or None when it does: it is
+    a ruling the queue holds (`_ruling_refusal`) naming at least one id that is not a gate of class `operator`. An
+    operator gate approves running a step, never skipping it, so a text whose only ids are operator gates waives
+    nothing. `ccp prompt verify --waived` and `verify record` (`_waiver_texts`) both judge a waiver here."""
+    why = _ruling_refusal(queue, text)
+    if why is not None:
+        return why
+    if _QUESTION_TOKEN.search(text) or _RULING_TOKEN.search(text):
+        return None
+    gates = []
+    for m in _GATE_TOKEN.finditer(text):
+        try:
+            gate = json.loads((queue / "escalations" / m.group(1) / f"{m.group(2)}.json").read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(gate, dict) and gate.get("class") != "operator":
+            return None
+        gates.append(m.group(0))
+    return (f"{', '.join(gates)} {'is an operator gate' if len(gates) == 1 else 'are operator gates'}: an operator "
+            "gate approves running a step, never skipping it")
 
+
+def _waiver_texts(queue: Path, rec: dict[str, Any]) -> set[str]:
+    """The `rests_on` texts of `rec`'s checks that may waive a marked check (ADR-0045 D3): those `waiver_refusal`
+    accepts."""
     return {str(c["rests_on"]).strip() for c in rec.get("checks") or []
             if isinstance(c, dict) and isinstance(c.get("rests_on"), str) and c["rests_on"].strip()
-            and waives(c["rests_on"])}
+            and waiver_refusal(queue, c["rests_on"]) is None}
 
 
 PROOF_TIMEOUT = 600  # seconds a proof (verify.skip_review.proof, a verify.provers command) may take; a timeout proves nothing
@@ -961,14 +1001,6 @@ def _load(path: Path) -> dict[str, Any] | str:
     return data
 
 
-def heads_match(approved: str, pr_head: str) -> bool:
-    """True when the two shas are the same commit. A short sha matches a full one."""
-    a, b = approved.lower(), pr_head.lower()
-    if len(a) < 7 or len(b) < 7:
-        return False
-    return a == b or a.startswith(b) or b.startswith(a)
-
-
 def refusal(cfg: Config, queue: Path, task_id: str, pr_head: str) -> str | None:
     """Why the runner must not merge, or None when the verdict covers this PR head. `ccp verify check`: the
     record is read from the queue and judged by `judge` with no PR facts, the PR host never read."""
@@ -1211,7 +1243,7 @@ def record_catch_up(queue: Path, task_id: str, catch_up: dict[str, Any]) -> Path
 
 
 def _note_run(cfg: Config, queue: Path, rec: dict[str, Any]) -> str | None:
-    """§10.3: the verdict on the task's open verify run, with its per-check facts (`runs.check_facts`, §15.6
+    """§10.3: the verdict on the task's open verify run, with its per-check facts (`check_facts`, §15.6
     rule 3), and a `verify/recorded` event. The verifier's
     `ccp report` closes the run. A verdict with no open run (a PR that is not a task's, a record
     written before the toolkit) is still recorded; it only has no run to note."""
@@ -1225,7 +1257,7 @@ def _note_run(cfg: Config, queue: Path, rec: dict[str, Any]) -> str | None:
         earlier = [r for r in runs.all_runs(queue, str(rec["task_id"])) if r.get("run_id") != run["run_id"]]
         # §15.6 rule 3: the verdict's per-check facts, which a later carry of a marked check is judged on
         run.update(verdict=rec["verdict"], head=rec.get("head_sha"), verdict_at=rec.get("checked_at"),
-                   checks=runs.check_facts(rec.get("checks"), earlier))
+                   checks=check_facts(rec.get("checks"), earlier))
         runs.save(queue, run)
         emit(queue, cfg, str(rec["task_id"]), "verify", "recorded",
              {"run_id": run["run_id"], "verdict": rec["verdict"], "head_sha": rec.get("head_sha") or ""}, "task-verifier")

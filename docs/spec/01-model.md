@@ -689,9 +689,10 @@ They regenerate `adr.index` when it is set. Call syntax: `docs/cli/01-model.md`.
 - **Always warnings:** undeclared keys; decisions out of number order; ADRs carrying `review_points`
   with no review-point register, one warning naming them (§22.3).
 
-The in-force check also runs before a task's verdict, on its PR head: under `adr.strict`, `ccp verify
-record` refuses an approve of a head on which a decision the task cites is recorded `not_built`
-(§15.4), so the task flips it in its own PR rather than at close.
+The in-force check also runs before a task's verdict, on its PR head: under `adr.strict`, `ccp prompt
+verify` refuses to open a verify of a head on which a decision the task cites is recorded `not_built`
+(exit 1, nothing opened), and `ccp verify record` refuses an approve of such a head (§15.4), so the
+task flips it in its own PR before a verifier starts rather than at close.
 
 ### 6.8 Register
 
