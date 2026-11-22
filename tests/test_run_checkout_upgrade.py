@@ -10,8 +10,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import binding
-from tests.test_sync_on_release import GIT_ENV, PLANE, SCRIPT, git, run
+from tests.helpers import (
+    binding,
+    GIT_ENV,
+    git_run as run,
+    PLANE_ROOT as PLANE,
+    release_git as git,
+    RUN_CHECKOUT_SCRIPT as SCRIPT,
+)
 
 TASK = """---
 task_id: {tid}

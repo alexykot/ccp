@@ -13,9 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, queue, verify
-from tests.helpers import Product
-from tests.test_verify import approve
-from tests.test_verify_as_written import held_otherwise
+from tests.helpers import approve_verdict as approve, held_otherwise, Product
 
 
 class LeadRuling(unittest.TestCase):

@@ -10,7 +10,7 @@ from unittest import mock
 
 from ccp import config, tasklog
 from tests.helpers import TASK
-from tests.test_toolkit import ToolkitFixture, git
+from tests.toolkit_fixture import ToolkitFixture, git
 
 
 class NextReadsTheTip(ToolkitFixture, unittest.TestCase):

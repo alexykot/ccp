@@ -10,9 +10,9 @@ import time
 import unittest
 
 from ccp import config
-from tests import test_parallel_claims
-from tests.test_team_hosting import TeamCase
-from tests.test_toolkit import ToolkitFixture, git
+from tests.parallel_claims_fixture import ParallelFixture
+from tests.team_hosting_fixture import TeamCase
+from tests.toolkit_fixture import ToolkitFixture, git
 
 SLOTS = {"runner-1": {"bound_name": "runner-1", "tasks_done": 0}, "runner-2": {"bound_name": "runner-2-x", "tasks_done": 0}}
 
@@ -82,7 +82,7 @@ class LeadSlots(TeamCase):
         self.assertEqual(sorted(a["name"] for a in res["actions"]), ["runner-1", "runner-2"])
 
 
-class Claims(test_parallel_claims.ParallelFixture, unittest.TestCase):
+class Claims(ParallelFixture, unittest.TestCase):
     def setUp(self):
         super().setUp()
         (self.q / "work.json").write_text(json.dumps({"status": "running", "runners": SLOTS}))

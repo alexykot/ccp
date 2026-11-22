@@ -15,8 +15,8 @@ from unittest import mock
 
 from ccp import lifecycle, prhost, prompt, verify
 from ccp.queue import QueueError
-from tests.helpers import Product
-from tests.test_toolkit import GIT_ENV, git
+from tests.helpers import GIT_ENV, Product
+from tests.toolkit_fixture import git
 
 TID = "0001-a"
 BRANCH = f"task/{TID}"

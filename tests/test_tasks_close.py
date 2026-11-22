@@ -13,7 +13,7 @@ if __name__ == "__main__":  # run as a script: the checkout's root is the import
     import tests  # noqa: F401
 
 from ccp import config, lifecycle, prhost  # noqa: E402
-from tests.test_toolkit import PLANE, ToolkitFixture, git  # noqa: E402
+from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 
 class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):

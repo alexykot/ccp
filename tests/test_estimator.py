@@ -17,9 +17,8 @@ from unittest import mock
 
 from ccp import config, estimate, estimator, models, seats
 from tests.helpers import Product
-from tests import test_estimate as te
-from tests.test_board_drill import Fixture
-from tests.test_estimate import body, entry
+from tests.board_drill_fixture import Fixture
+from tests.estimate_fixture import EstimatePage, body, entry
 
 
 def answer(**over):
@@ -384,10 +383,7 @@ class Cli(Base):
         self.assertEqual(self.go("tasks", "estimate", "0004")[0], 1)
 
 
-class SeatsAndBoard(Fixture, unittest.TestCase):
-    view = te.Page.view
-    render = te.Page.render
-
+class SeatsAndBoard(EstimatePage, Fixture, unittest.TestCase):
     def test_a_running_batch_is_a_headless_seat_with_its_pins(self):
         q = Path(tempfile.mkdtemp())
         try:
@@ -405,7 +401,7 @@ class SeatsAndBoard(Fixture, unittest.TestCase):
             shutil.rmtree(q, ignore_errors=True)
 
     def test_the_queue_shows_agent_beside_baseline_and_the_card_shows_spend(self):
-        from tests.test_board_quality import HOSTILE
+        from tests.board_quality_fixture import HOSTILE
         self.seed()
         b = self.build()[0]
         self.assertEqual(b["estimates"]["estimator"]["calls"], 0)

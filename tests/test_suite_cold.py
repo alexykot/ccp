@@ -8,10 +8,10 @@ import subprocess
 import unittest
 from pathlib import Path
 
-from tests.test_gate_cache import git
-from tests.test_gate_parallel import OK, ROOT, SCRIPTS
-from tests.test_suite import PY
-from tests.test_suite_stages import StagedFixture, _shell_py
+from tests.helpers import repo_git as git
+from tests.gate_parallel_fixture import OK, ROOT, SCRIPTS
+from tests.suite_fixture import PY
+from tests.suite_stages_fixture import StagedFixture, _shell_py
 
 SHOW = "echo cold=[$CCP_SUITE_COLD]"
 
@@ -108,7 +108,7 @@ class ThePlanesGateReadsIt(StagedFixture, unittest.TestCase):
 
 class TheVerifierAsksForItThisWay(unittest.TestCase):
     def test_a_cold_gate_and_a_check_that_asks_for_one_name_the_option_on_the_gate_lane(self):
-        from tests.test_worker_efficiency import render
+        from tests.helpers import render_phase_values as render
         for cold in (True, False):
             text = render("verify", accept_cache=True, cold_gate=cold, gate_lane="checks")
             self.assertIn("suite run --lane checks --cold", text, cold)

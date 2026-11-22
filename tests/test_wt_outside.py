@@ -9,7 +9,7 @@ from unittest import mock
 
 from ccp import config, lifecycle, prompt, wt
 from tests.helpers import Product
-from tests.test_toolkit import PLANE, ToolkitFixture, git
+from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 LEGACY_OFF = {"worktree_dir": None, "worktree_links": [".venv"], "post_close": ["touch closed-{nnnn}"]}
 

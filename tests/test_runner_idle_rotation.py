@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import time
 
-from tests.test_team_hosting import HOOK, PLANE, TeamCase
+from tests.team_hosting_fixture import HOOK, PLANE, TeamCase
 
 
 def iso(t: float) -> str:

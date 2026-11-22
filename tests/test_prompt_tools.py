@@ -9,7 +9,7 @@ from pathlib import Path
 
 from ccp import config
 from ccp import prompt as prompt_mod
-from tests.test_toolkit import PLANE, ToolkitFixture
+from tests.toolkit_fixture import PLANE, ToolkitFixture
 
 A = "a" * 40
 CHANGE_ROUNDS = (("implement", ("--base", "abc1234")),

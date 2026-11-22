@@ -15,12 +15,12 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   check: command — scripts/gate.sh fails on a leftover `state/*` branch; fencing in tests/__init__.py
 - **E4** A test checks behaviour, not wording: no assertion on prose, help text or prompt text beyond
   the token it pins. A test names a plane constant or shared fixture fact (the worktrees directory, a
-  binding) through the code or a fixture helper, never as a copied literal. A fixture class other
-  modules reuse holds no test methods; a class with tests is never imported into another module, and no
-  module binds another module's test-class methods as its own helpers.
-  check: command — architect.checks `E4`: the borrowed-helper grep, the worktrees-literal grep, and the count of
-  assertIn and assertNotIn lines on a long string literal in tests/*.py held at or below the figure in the
-  command (lowered as tasks remove them)
+  binding) through the code or a fixture helper, never as a copied literal. A fixture or helper other
+  modules reuse lives in a module that holds no tests; no module imports a test module or binds
+  another module's test-class methods.
+  check: command — architect.checks `E4`: the borrowed-helper grep, the worktrees-literal grep, the grep for
+  an import of a test module, and the count of assertIn and assertNotIn lines on a long string literal in
+  tests/*.py held at or below the figure in the command (lowered as tasks remove them)
 - **E15** Decision logic is separate from git, process and file I/O, so each branch is unit-tested on
   plain values. End-to-end tests cover the wiring, not every branch.
   check: pass — the architect looks for branches reachable only through a fixture repo; the health

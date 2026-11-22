@@ -2,9 +2,11 @@
 plane's checks. Read-only against this repo: no queue, no estimator, no denylist."""
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -31,6 +33,44 @@ class SelfHosting(unittest.TestCase):
     def test_the_docs_are_clean(self):
         r = ccp("docs", "check")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+
+def e4_import_check() -> str:
+    """The part of the architect's `E4` command that finds a test module importing another: a shell test that
+    passes when `git grep` finds none."""
+    cmd = next(c["cmd"] for c in json.loads((ROOT / "docs/delivery/plane.json").read_text())["architect"]["checks"]
+               if c["id"] == "E4")
+    parts = [p for p in cmd.split(" && ") if "from tests" in p]
+    assert len(parts) == 1, parts
+    return parts[0]
+
+
+class TestModulesImportNoTestModule(unittest.TestCase):
+    def run_check(self, cwd: Path) -> int:
+        return subprocess.run(["bash", "-c", e4_import_check()], cwd=cwd, capture_output=True, text=True).returncode
+
+    def test_no_test_module_of_the_plane_imports_another(self):
+        self.assertEqual(self.run_check(ROOT), 0)
+
+    def test_the_check_finds_each_way_to_import_a_test_module(self):
+        for line in ("from tests.test_a import X", "from tests import test_a", "import tests.test_a",
+                     "from .test_a import X", "    from tests.test_a import X"):
+            with self.subTest(line=line), tempfile.TemporaryDirectory() as d:
+                repo = Path(d)
+                (repo / "tests").mkdir()
+                (repo / "tests" / "test_b.py").write_text(line + "\n")
+                subprocess.run(["git", "init", "-q", str(repo)], check=True)
+                subprocess.run(["git", "-C", str(repo), "add", "tests"], check=True)
+                self.assertEqual(self.run_check(repo), 1)
+
+    def test_the_check_lets_a_test_import_a_fixture_module(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            (repo / "tests").mkdir()
+            (repo / "tests" / "test_b.py").write_text("from tests.a_fixture import X\nfrom tests import helpers\n")
+            subprocess.run(["git", "init", "-q", str(repo)], check=True)
+            subprocess.run(["git", "-C", str(repo), "add", "tests"], check=True)
+            self.assertEqual(self.run_check(repo), 0)
 
 
 if __name__ == "__main__":

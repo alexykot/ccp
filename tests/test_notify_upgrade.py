@@ -17,7 +17,7 @@ from unittest import mock
 from ccp import cli, notify
 from ccp.queue import lib
 from tests.helpers import Product
-from tests.test_upgrade import UpgradeFixture
+from tests.upgrade_fixture import UpgradeFixture
 
 PLANE = Path(__file__).resolve().parents[1]  # this checkout: its plugin gives the orientation
 HOOK = PLANE / "plugin" / "hooks" / "orientation.sh"

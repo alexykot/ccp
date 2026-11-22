@@ -15,7 +15,7 @@ from unittest import mock
 
 from ccp import config, estimator, tasklog
 from tests.helpers import Product
-from tests.test_upgrade import UpgradeFixture
+from tests.upgrade_fixture import UpgradeFixture
 
 SCHEMA = json.loads((Path(__file__).resolve().parents[1] / "contracts/plane_config.schema.json").read_text())
 MACHINE_SCHEMA = json.loads((Path(__file__).resolve().parents[1] / "contracts/machine.schema.json").read_text())

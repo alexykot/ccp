@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import queue, usage
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 PLANE = Path(__file__).resolve().parents[1]
 

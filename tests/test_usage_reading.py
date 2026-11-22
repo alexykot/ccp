@@ -13,7 +13,7 @@ from unittest import mock
 
 from ccp import config, usage
 from tests.helpers import TASK, machine_file
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 T0 = float(int(time.time()))
 

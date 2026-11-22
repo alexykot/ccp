@@ -167,4 +167,37 @@ Measured at `072d9f9`.
 
 ## Implementation notes
 
+- Measured again at the base (`46cdea04`) before building: 139 importing files, 223 import lines, 35 distinct source
+  names (the task's 34 and `test_marked_checks_loop`, which a later task added), 209 test modules, 36 modules in
+  `shared_tests`, 93 `test_toolkit` importers, 343 long-literal lines. Each moved a little with the base and none
+  materially, so the build went ahead.
+- Every source module's shared names moved into `tests/<name>_fixture.py` (19 new modules); a source whose shared
+  names are only small constants and functions (15 modules) moved them into `tests/helpers.py`. Where such a name
+  clashed with another or is too generic for a shared module (`git` three times with different bodies, `T0`,
+  `TASK`, `ROOT`, `HEAD`, `row`, `render`, `tree`, `req`), it is renamed for what it makes in `helpers.py`
+  (`health_git`, `repo_git`, `release_git`, `advice_row`, `file_tree`, `api_request`, `REPORT_HEAD` and the rest) and
+  the importing module aliases it back, so use sites are unchanged. `GIT_ENV`, written out six times, is defined once
+  in `helpers.py` and the fixture modules import it; `test_plugin.py` keeps its own copy.
+- Names a source's own tests also use came along (`BODY`, `_iso`, `SPANS`, `values`) and are imported back.
+- `test_estimate.Page` holds tests, so only its `view` and `render` moved, as a mixin `EstimatePage` in
+  `tests/estimate_fixture.py` that the three page classes (`test_estimate`, `test_estimator`, `test_calibrate`) list
+  before `Fixture`; `test_estimator` and `test_calibrate` no longer bind `Page`'s methods.
+- `test_notify` and the three `test_parallel_*` modules, which used `test_sandbox.SandboxCase` and
+  `test_parallel_claims.ParallelFixture` through the module, import the class from its fixture module.
+- `GateFixture` writes `.gitignore` `__pycache__/` itself and `test_gate_cache.CacheFixture` is `GateCacheFixture`
+  (no longer writing it); the `USER` fixture string is `from {pkg}.test_helper import VALUE`, written with
+  `USER.format(pkg="tests")`. The catch-up modules' docstrings name each other in words. `gate_parallel_fixture.py`
+  and `suite_fixture.py` write test modules as text, so no `def test_` stands in a fixture module: their methods
+  are spelled `def t_x` and `helpers.with_test_methods` renames them (code-02's grep reads the literal text).
+- `WorkerRules`: rule 3's tokens are now ("merge base", "may be stale"), so the rule's own token is the last, as for
+  `LESSONS`; `without_bullet` locates a rule's bullet by that token. `rule_count_errors` is new.
+- `BOLD_ID` and its test are new in `test_adr_decisions`. `ADAPTER_MODULES` is `{"ccp/prhost.py"}`.
+- E4's text is the architect's, the `check:` line names the new grep, `architect.checks` `E4` appends it.
+  `tests/test_self_hosting.py` runs that part of the command on this repo and on throwaway repositories (the
+  four forms the grep names must fail it, a fixture import must pass it); that test is beyond the task's list.
+- Fix round 1 (review of `be15bde5`): the two board fixture modules no longer share a class name: `board_quality_fixture.Base`
+  is `QualityBase` and `board_seats_fixture.Base` is `SeatsBase` (the ruling's distinct class names), with the eight
+  importers and `tests/CLAUDE.md` updated; `test_models_block` no longer aliases it. `tests/CLAUDE.md` "Shared fixtures" now has
+  one bullet per fixture module.
+
 ## Verification notes

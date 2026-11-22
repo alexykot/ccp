@@ -10,7 +10,7 @@ import unittest
 from contextlib import redirect_stderr
 
 from ccp import config
-from tests.test_init import PLANE, InitCase
+from tests.init_fixture import PLANE, InitCase
 
 
 class SessionSettings(InitCase):

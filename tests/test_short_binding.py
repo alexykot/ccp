@@ -17,10 +17,10 @@ from unittest import mock
 
 from ccp import cli, config, lifecycle, upgrade
 from ccp.queue import PLANE, lib
-from tests.test_binding_reader import BindingDir
-from tests.test_sandbox import SandboxCase
-from tests.test_team_hosting import HOOK, TeamCase
-from tests.test_upgrade import UpgradeFixture
+from tests.binding_reader_fixture import BindingDir
+from tests.sandbox_fixture import SandboxCase
+from tests.team_hosting_fixture import HOOK, TeamCase
+from tests.upgrade_fixture import UpgradeFixture
 
 SCHEMA = json.loads((PLANE / "contracts" / "project.schema.json").read_text())
 KEPT = ["project_id", "integration_branch", "product_root", "queue_root"]

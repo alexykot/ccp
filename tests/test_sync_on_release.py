@@ -10,25 +10,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import binding
+from tests.helpers import binding, git_run as run, PLANE_ROOT as PLANE, release_git as git, RUN_CHECKOUT_SCRIPT as SCRIPT
 
-PLANE = Path(__file__).resolve().parents[1]
-SCRIPT = str(PLANE / "scripts/run-checkout.sh")
-GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
-           "GIT_COMMITTER_EMAIL": "t@example.com", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
 OLD_CCP = "#!/bin/sh\nexit 0\n"  # the old rules: every check passes
 NEW_CCP = f'#!/bin/sh\nexec python3 "{PLANE}/bin/ccp" "$@"\n'  # the new rules: this plane's ccp
 BAD_ADR = "---\nstatus: bogus\n---\n# An ADR\n"
-
-
-def run(cmd, **kw):
-    return subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, **GIT_ENV, **kw.pop("env", {})}, **kw)
-
-
-def git(cwd: Path, *a: str) -> str:
-    r = run(["git", *a], cwd=cwd)
-    assert r.returncode == 0, r.stderr
-    return r.stdout.strip()
 
 
 def snapshot(root: Path) -> dict[str, tuple[int, int]]:

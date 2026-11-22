@@ -11,7 +11,7 @@ from unittest import mock
 
 from ccp import config, tasklog
 from ccp.queue import lib
-from tests.test_toolkit import PLANE, ToolkitFixture, git
+from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 TASK_FILE = "docs/delivery/tasks/0002-second.md"
 

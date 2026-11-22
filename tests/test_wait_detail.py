@@ -7,7 +7,7 @@ import json
 import unittest
 
 from ccp.lifecycle import WAIT_KEYS
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 
 class WaitDetail(ToolkitFixture, unittest.TestCase):

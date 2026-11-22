@@ -17,7 +17,7 @@ from unittest import mock
 
 from ccp import config, init, otel, sandbox
 from tests.helpers import Product
-from tests.test_init import InitCase
+from tests.init_fixture import InitCase
 
 NOTICE = "every Claude Code session on this machine"
 ROOT = Path(__file__).resolve().parents[1]

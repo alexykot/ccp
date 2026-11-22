@@ -15,23 +15,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, health, suite
-from tests.helpers import Product
-from tests.test_suite_stages import StagedFixture, _shell_py
-
-RUN = "0002-second/verify"
-
-
-def started(sid, lane="gate", at="2026-11-01T10:00:00Z"):
-    return {"op": "started", "suite_id": sid, "at": at, "lane": lane, "run_id": RUN, "task_id": "0002-second",
-            "phase": "verify"}
-
-
-def ended(sid, seconds, code=0, tests=900, cached=None, stages=None, at="2026-11-01T10:20:00Z"):
-    row = {"op": "ended", "suite_id": sid, "at": at, "exit_code": code, "seconds": seconds, "tests": tests,
-           "failed": None, "skipped": None, "ran": None, "cached": cached, "interrupted": None}
-    if stages is not None:
-        row.update(stages=[{"name": n, "seconds": s, "exit_code": 0} for n, s in stages], failed_stage=None)
-    return row
+from tests.helpers import Product, suite_ended as ended, SUITE_RUN_ID as RUN, suite_started as started
+from tests.suite_stages_fixture import StagedFixture, _shell_py
 
 
 STAGES = [("lint", 40.0), ("tests", 520.5), ("plane-docs", 12.0)]

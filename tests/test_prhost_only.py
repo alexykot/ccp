@@ -1,7 +1,7 @@
 """Only the PR-host adapter names a forge's CLI (ADR-0040 D1, D6; SPEC §18.5): the worker prompts and the
-agent briefs reach the PR host through `ccp pr`, no plane module outside the adapter (and the permission
-list in init) names `gh` or reads its override, and each rendered prompt carries its `ccp` command's `pr`
-operation. Read-only against this repo's templates, briefs and code."""
+agent briefs reach the PR host through `ccp pr`, no plane module outside the adapter names `gh` or reads its
+override, and each rendered prompt carries its `ccp` command's `pr` operation. Read-only against this repo's
+templates, briefs and code."""
 from __future__ import annotations
 
 import ast
@@ -10,12 +10,12 @@ import unittest
 from pathlib import Path
 
 from ccp import config, prompt
-from tests.test_report_fields import HEAD
-from tests.test_toolkit import ToolkitFixture
+from tests.helpers import REPORT_HEAD as HEAD
+from tests.toolkit_fixture import ToolkitFixture
 
 ROOT = Path(__file__).resolve().parents[1]
 FORGE_CLI = re.compile(r"(?<![\w-])gh (?:pr|api)\b")
-ADAPTER_MODULES = {"ccp/prhost.py", "ccp/init.py"}  # the adapter; the permission list and init warning
+ADAPTER_MODULES = {"ccp/prhost.py"}  # the adapter
 
 
 def forge_lines(paths: list[Path]) -> list[str]:

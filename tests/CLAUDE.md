@@ -6,14 +6,24 @@ runs the plane's own checks against this repo, read-only. Every test builds its 
 
 ## Shared fixtures
 
-Modules share a few fixtures; reuse one before building another. Where a check needs no repository,
+Modules share fixtures; reuse one before building another. Each lives in a module that holds no tests
+(`helpers.py`, `review_flow.py` and the `*_fixture.py` modules, one for each test module whose fixtures others
+use), and a test module imports it from there. No test module imports another. Where a check needs no repository,
 queue or subprocess, test a function on plain values instead (`test_catch_up_decision.py`).
 - `helpers.py`'s `Product`: a temp product root with a plane config and helpers to add tasks and files.
   Most modules build on it.
 - `helpers.py`'s `binding(**keys)`: the text of a binding, `project_id: demo` first, then each key. A test
   that needs a binding writes it with this; only a test of the binding's format or of `ccp init`'s output
   keeps literal text. A test names the worktrees directory as `config.WORKTREES_DIR`, never as a copied literal.
-- `test_toolkit.py`'s `ToolkitFixture`: a git product (a bare origin, a main clone and a runner worktree) and
+- `helpers.py`'s `done_report(phase, *lines)`: the text of a done report of a phase that `ccp report` accepts,
+  with the section the phase needs when done. A test that files a done report for something else writes it with this.
+- `helpers.py`'s `FoldRuns` (`mkrun`, `write`, `rows`: run records and usage rows in a temp queue) and `BoardPage`
+  (`page`: the board page's script run under node): mixins for a `TestCase`.
+- `helpers.py`'s small shared constants and builders, each named for what it makes: `GIT_ENV`, `PLANE_ROOT`,
+  `git_run` and the `*_git` runners, `ledger_event`, `approve_verdict`, `implement_report`, `api_request`, `file_tree`
+  and the rest; `with_test_methods(text)` writes the text of a test module with its `def t_x` methods named `test_x`,
+  for a fixture that writes a test module and so holds no `test_` method itself.
+- `toolkit_fixture.py`'s `ToolkitFixture`: a git product (a bare origin, a main clone and a runner worktree) and
   a queue, on the local PR host (`pr_host.adapter: local`); `open_pr()` opens the task's PR and `pr_record()`
   reads its record. The most reused one: for close, claim, verify and every test that runs `ccp` against a
   real repository. No test code stands in for a PR host; only the GitHub adapter's own tests stub `gh`.
@@ -23,19 +33,32 @@ queue or subprocess, test a function on plain values instead (`test_catch_up_dec
   fix and verify rounds (`run_phase`, `review`, `fix`, `verdict`, `verify_round`) and commits in a worktree (`commit`).
 - `review_flow.py`'s `SkipFlow`: `ReviewFlow` plus a proof command and the task's worktree, for `verify.skip_review`
   (`reviewed`, `push`, `verify`, its own `commit` and `fix`; `PROOF`, `SKIP_REVIEW_PLANE`).
-- `helpers.py`'s `done_report(phase, *lines)`: the text of a done report of a phase that `ccp report` accepts,
-  with the section the phase needs when done. A test that files a done report for something else writes it with this.
-- `helpers.py`'s `FoldRuns` (`mkrun`, `write`, `rows`: run records and usage rows in a temp queue) and `BoardPage`
-  (`page`: the board page's script run under node): mixins for a `TestCase`.
-- `test_team_hosting.py`'s `TeamCase`: a `Product` and a claude-team queue (its binding, work state and
+- `team_hosting_fixture.py`'s `TeamCase`: a `Product` and a claude-team queue (its binding, work state and
   claimed task files) with a `run_cmd` that runs a script against it.
-- `test_init.py`'s `InitCase`: a temp git repository, a temp home and bindings directory, and `ccp()` and
+- `init_fixture.py`'s `InitCase`: a temp git repository, a temp home and bindings directory, and `ccp()` and
   `init()` to run `ccp init` there.
-- `test_gate_parallel.py`'s `GateFixture`: a temp git repository holding copies of the gate scripts, and
+- `gate_parallel_fixture.py`'s `GateFixture`: a temp git repository holding copies of the gate scripts, and
   `module()`, `gate()` and `read()` to write test modules and run the gate on them.
+- `suite_fixture.py`'s `SuiteFixture`: a `ToolkitFixture` for `ccp suite run`.
+- `suite_stages_fixture.py`'s `StagedFixture`: `SuiteFixture` with a `lanes()` setter for plane.json `suite.lanes`.
+- `wt_fixture.py`'s `WtFixture`: a `ToolkitFixture` set up for the worktree tests.
+- `rotation_fixture.py`'s `RotationFixture`: a `ToolkitFixture` set up for the rotation tests.
+- `parallel_claims_fixture.py`'s `ParallelFixture`: a `ToolkitFixture` set up for the parallel-claim tests.
+- `verify_cache_fixture.py`'s `CacheFixture`: a `ToolkitFixture` set up for the verify cache tests.
+- `notify_fixture.py`'s `ChannelFixture`: a `ToolkitFixture` set up for the notification tests.
+- `upgrade_fixture.py`'s `UpgradeFixture`: a mixin of its own (no `ToolkitFixture`): a scratch plane, product and queue.
+- `board_drill_fixture.py`'s `Fixture`: the board drill-down tests' fixture, on `QualityBase`.
+- `board_quality_fixture.py`'s `QualityBase`: a `ToolkitFixture` for the board's quality tab and plan tests.
+- `board_seats_fixture.py`'s `SeatsBase`: a `ToolkitFixture` for the board's seats tab and expected-model tests.
+- `estimate_fixture.py`'s `EstimatePage`: the estimates tab under node, a mixin.
+- `sandbox_fixture.py`'s `SandboxCase`: a `TestCase` base for the sandbox tests.
+- `binding_reader_fixture.py`'s `BindingDir`: a `TestCase` base for the binding reader tests.
+- `architect_fixture.py`'s `Harness`: a `TestCase` base for the architect tests.
 
 **Reuse rule.** A fixture shared across modules is a class with no test methods (`ToolkitFixture` and the
-mixins above mix into a `TestCase`; the others are `TestCase` bases that hold no tests), imported by name. A class
-that holds tests is never imported into another module: discovery would run its tests twice. No module binds
-another module's test-class methods as its own helpers (a class attribute assigned from `test_x.Class`): the
-helper moves to a mixin or a fixture, and the architect's `E4` command check fails on the binding.
+mixins above mix into a `TestCase`; the others are `TestCase` bases that hold no tests), in a module that holds no
+tests, imported by name. No test module imports another, so an edit to one stays an input of that module alone
+(the gate's cache and `ccp suite affected` read imports); a helper a second module needs moves to a fixture
+module first. No module binds another module's test-class methods as its own helpers (a class attribute assigned
+from `test_x.Class`): the helper moves to a mixin or a fixture. The architect's `E4` command check fails on an
+import of a test module and on the binding.

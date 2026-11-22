@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 from ccp.schema import schema_errors
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "task.schema.json"
 

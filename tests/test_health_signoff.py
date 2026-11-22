@@ -13,8 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, health
-from tests.helpers import Product
-from tests.test_health import T0, commit, git
+from tests.helpers import health_commit as commit, health_git as git, HEALTH_T0 as T0, Product
 
 MIN = 60
 

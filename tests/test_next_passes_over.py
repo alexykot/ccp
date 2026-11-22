@@ -9,8 +9,8 @@ import unittest
 from unittest import mock
 
 from ccp import config, plan, tasklog
-from tests.test_parallel_claims import task
-from tests.test_toolkit import ToolkitFixture
+from tests.parallel_claims_fixture import task
+from tests.toolkit_fixture import ToolkitFixture
 
 
 class PassesOver(ToolkitFixture, unittest.TestCase):

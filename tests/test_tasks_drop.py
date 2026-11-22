@@ -7,7 +7,7 @@ import json
 import unittest
 
 from tests.helpers import TASK
-from tests.test_toolkit import ToolkitFixture, git
+from tests.toolkit_fixture import ToolkitFixture, git
 
 
 class Drop(ToolkitFixture, unittest.TestCase):

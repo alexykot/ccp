@@ -14,9 +14,8 @@ from unittest import mock
 
 from ccp import cli, config, lifecycle, prompt, report, verify
 from ccp.queue import lib
-from tests.helpers import Product
-from tests.test_toolkit import PLANE, ToolkitFixture
-from tests.test_verify import approve
+from tests.helpers import approve_verdict as approve, Product
+from tests.toolkit_fixture import PLANE, ToolkitFixture
 
 PASSAGE = "docs/spec/01-model.md §3.5: a new rule that close also waits on the lead's word"
 SECOND = "contracts/x.schema.json: a new required key"

@@ -16,7 +16,7 @@ from ccp import config, estimator, health
 from ccp import prompt as prompt_mod
 from ccp.queue import OBS
 from tests.helpers import Product
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 
 def stamp(days_ago: float) -> str:

@@ -8,7 +8,6 @@ import re
 import signal
 import subprocess
 import tempfile
-import sys
 import time
 import unittest
 from unittest import mock
@@ -16,21 +15,7 @@ from pathlib import Path
 
 from ccp import board, config, suite
 from tests.helpers import Product, done_report
-from tests.test_toolkit import ToolkitFixture
-
-PLANE = Path(__file__).resolve().parents[1]
-CCP = str(PLANE / "bin" / "ccp")
-PY = sys.executable
-
-
-def ccp_proc(cwd: Path, *args: str, env: dict | None = None, stdin: bytes | None = None,
-             unset: tuple[str, ...] = ()) -> subprocess.CompletedProcess[bytes]:
-    e = {**os.environ, **(env or {})}
-    e.pop("CCP_SUITE_ID", None) if "CCP_SUITE_ID" not in (env or {}) else None
-    e.pop("CCP_SUITE_COLD", None) if "CCP_SUITE_COLD" not in (env or {}) else None  # a cold outer run's
-    for k in unset:
-        e.pop(k, None)
-    return subprocess.run([CCP, *args], cwd=cwd, env=e, input=stdin, capture_output=True, timeout=60)
+from tests.suite_fixture import CCP, FAILING_MODULE, PLANE, PY, SuiteFixture, TALLY_SUMMARY, _start_log, ccp_proc
 
 
 def rule_item(text: str, marker: str) -> str:
@@ -50,39 +35,6 @@ def _kill(pid: int) -> None:
         os.kill(pid, signal.SIGKILL)
     except OSError:
         pass
-
-
-# A product whose gate prints its own cache tally (`<name>: N modules ran, N cached; …the cached
-# modules' last runs: N tests…`) and writes no result file keeps its counts with these knobs.
-TALLY_SUMMARY = {
-    "ran_re": r"^\S+: (\d+) modules? ran, \d+ cached",
-    "cached_re": r"^\S+: \d+ modules? ran, (\d+) cached",
-    "cached_tests_re": r"^\S+: \d+ modules? ran, .*\bcached modules' last runs: (\d+) tests?\b",
-    "show_re": [r"^\S+: \d+ modules? ran, \d+ cached", r"^\S+: failed: ", r"^exit [1-9]\d*: "],
-}
-
-
-class SuiteFixture(ToolkitFixture):
-    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "language": "python"}  # the tests below print unittest's output
-
-    def tally(self, summary: dict | None = None) -> None:
-        """Configure the product's tally regexes (the pre-contract defaults) in its plane.json."""
-        p = self.runner / "docs/delivery/plane.json"
-        cfg = json.loads(p.read_text())
-        cfg.setdefault("suite", {})["summary"] = summary or TALLY_SUMMARY
-        p.write_text(json.dumps(cfg))
-
-    def rows(self) -> list[dict]:
-        p = self.q / "runs" / "_suites.jsonl"
-        return [json.loads(x) for x in p.read_text().splitlines()] if p.is_file() else []
-
-    def run_suite(self, *args: str, **kw) -> subprocess.CompletedProcess[bytes]:
-        return ccp_proc(self.runner, "suite", "run", *args, **kw)
-
-    def implementing(self) -> None:
-        self.ccp("tasks", "claim", "0002")
-        code, _, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
-        self.assertEqual(code, 0, out + err)
 
 
 class Transparency(SuiteFixture, unittest.TestCase):
@@ -741,29 +693,6 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
             self.assertIn(f"QUEUE_ROOT={self.q} ", rule, phase)
             self.assertIn(f"mutate --run 0002-second/{phase} --test <test id>", rule, phase)
             self.assertIn("a bare test runner", rule, phase)
-
-
-FAILING_MODULE = """\
-import unittest
-class T(unittest.TestCase):
-    def test_ok(self):
-        for i in range(300):
-            print(f"noise line {i}")
-    def test_bad(self):
-        self.assertEqual(1, 2, "one is not two")
-    def test_err(self):
-        raise RuntimeError("boom")
-    @unittest.skip("later")
-    def test_skip(self):
-        pass
-"""
-
-
-def _start_log(stdout: bytes) -> Path:
-    first = stdout.decode().splitlines()[0]
-    m = re.search(r"the output goes to (\S+); a summary follows", first)
-    assert m, first
-    return Path(m.group(1))
 
 
 class Summary(SuiteFixture, unittest.TestCase):

@@ -14,8 +14,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import board, cli
-from tests.helpers import TASK, machine_file
-from tests.test_toolkit import ToolkitFixture, git
+from tests.helpers import epoch_iso as _iso, good_then_failed, machine_file, TASK
+from tests.toolkit_fixture import ToolkitFixture, git
 import unittest
 
 
@@ -114,25 +114,6 @@ class Board(ToolkitFixture, unittest.TestCase):
     def test_the_page_has_no_external_resources(self):
         page = (Path(__file__).resolve().parents[1] / "ccp/board_page.html").read_text()
         self.assertFalse(re.search(r'<(script|link)[^>]+(src|href)="https?:', page))
-
-
-def _iso(t: float) -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
-
-
-def good_then_failed(q: Path, resets_in_s: float) -> dict:
-    """The product's samples: a good reading two hours old, weekly at 95% with its reset `resets_in_s` from now,
-    then a failed read a minute ago (§25.1: the unknown sample, no figures). Returns the good row."""
-    t = time.time()
-    resets = _iso(t + resets_in_s)
-    good = {"at": _iso(t - 7200), "five_hour": 10, "seven_day": 95, "resets_at": resets, "five_hour_resets_at": None,
-            "windows": [{"name": "seven_day", "pct": 95, "resets_at": resets}, {"name": "five_hour", "pct": 10, "resets_at": None}],
-            "weekly_window": "seven_day", "session_window": "five_hour"}
-    failed = {"at": _iso(t - 60), "five_hour": None, "seven_day": None, "resets_at": None, "five_hour_resets_at": None,
-              "windows": [], "failed": True, "exit": 1}
-    (q / "board").mkdir(exist_ok=True)
-    (q / "board" / "allowance.jsonl").write_text("".join(json.dumps(r) + "\n" for r in (good, failed)))
-    return good
 
 
 class AllowanceAfterAFailedRead(ToolkitFixture, unittest.TestCase):

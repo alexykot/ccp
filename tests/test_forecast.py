@@ -21,8 +21,8 @@ from unittest import mock
 
 from ccp import board, calibrate, forecast
 from tests.helpers import TASK, Product, machine_file
-from tests.test_board_drill import HASH_STUB, Fixture
-from tests.test_board_quality import HOSTILE, _hostile
+from tests.board_drill_fixture import HASH_STUB, Fixture
+from tests.board_quality_fixture import HOSTILE, _hostile
 
 NOW = 1_800_000_000.0
 
