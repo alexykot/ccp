@@ -75,6 +75,14 @@ class RunAffected(AffectedProduct, unittest.TestCase):
         self.assertEqual([(e["suite_id"], e["tests"], e["exit_code"]) for e in ended],
                          [(started[0]["suite_id"], 1, 0)])
 
+    def test_affected_runs_from_the_product_root_and_takes_log_from_the_callers_directory(self):
+        self.p.write("pkg/a.py", "X = 3\n")
+        r = ccp_proc(self.p.root / "pkg", "suite", "run", "--affected", "--summary", "--log", "mine.log",
+                     env={"QUEUE_ROOT": str(self.q)})
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.part_args(), ["tests.test_a"])  # written in the root, where the modules are named from
+        self.assertEqual(self.rows("ended")[0]["log"], str((self.p.root / "pkg" / "mine.log").resolve()))
+
     def test_affected_since_reads_the_change_as_suite_affected_does(self):
         self.p.write("pkg/a.py", "X = 3\n")
         git(self.p.root, "commit", "-qam", "change a")
