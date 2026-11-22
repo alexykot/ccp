@@ -17,8 +17,12 @@ class LineBreak(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.root, True)
         (self.root / "calc.py").write_text("x = 1\ny = 2\n")
 
+    def mfile(self, old: str, name: str = "m.txt") -> str:
+        (self.root / name).write_text(f"calc.py\n=== old\n{old}\n=== new\nz = 3\n")
+        return name
+
     def refusal(self, old: str) -> str:
-        (self.root / "m.txt").write_text(f"calc.py\n=== old\n{old}\n=== new\nz = 3\n")
+        self.mfile(old)
         with self.assertRaises(QueueError) as cm:
             mutate.parse_file(self.root, "m.txt", self.root)
         self.assertEqual(cm.exception.code, 2)
@@ -33,6 +37,18 @@ class LineBreak(unittest.TestCase):
         msg = self.refusal("w = 9")
         self.assertIn("0 times; a mutant names one place", msg)
         self.assertNotIn("line break", msg)
+
+    def test_a_together_part_from_a_mutant_file_gets_the_same_refusal(self):
+        parts = [mutate.parse_file(self.root, self.mfile(old, f"m{i}.txt"), self.root, False)
+                 for i, old in enumerate(("x = ", "y = 2"))]
+        with self.assertRaises(QueueError) as cm:
+            mutate.together(parts, {"calc.py": (self.root / "calc.py").read_bytes()})
+        self.assertIn("ends with the line break before", str(cm.exception))
+
+    def test_a_mutant_substitution_keeps_the_plain_refusal(self):
+        with self.assertRaises(QueueError) as cm:
+            mutate.parse(self.root, "calc.py:x = \n=>z", self.root)
+        self.assertIn("0 times; a mutant names one place", str(cm.exception))
 
 
 if __name__ == "__main__":
