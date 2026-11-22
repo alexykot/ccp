@@ -24,6 +24,12 @@ HEADING = "pre-existing on main at"
 LEAK_CHECK = Path(__file__).resolve().parents[1] / "scripts" / "leak-check.sh"
 
 
+def root_guard(root: Path) -> str:
+    """A stub `ccp`'s first line: exit 2 unless it was called as `ccp --root <root> where`."""
+    return (f'[ "$1" = --root ] && [ "$(cd "$2" 2>/dev/null && pwd -P)" = "{os.path.realpath(root)}" ] '
+            '&& [ "$3" = where ] || exit 2')
+
+
 class Repo:
     """A Product made a git repository on `main`, with `origin/main` at its tip, its tests out of the
     fence that makes no run at the base."""
@@ -172,13 +178,13 @@ class BaseRun(Repo, unittest.TestCase):
         self.addCleanup(lambda: subprocess.run(["rm", "-rf", str(tmp)]))
         (tmp / "bindings").mkdir()
         (tmp / "bindings" / "leak-denylist.txt").write_text("SECRETWORD\n")
+        p = self.make({"architect": {"rules_doc": "docs/ENGINEERING.md",
+                                     "checks": [{"id": "E1", "cmd": "scripts/leak-check.sh"}]}})
         (tmp / "bin").mkdir()
         where = json.dumps({"binding": str(tmp / "bindings" / "demo.yaml"), "plane": str(tmp / "plane")})
         stub = tmp / "bin" / "ccp"
-        stub.write_text(f"#!/bin/sh\n[ \"$3\" = where ] || exit 2\necho '{where}'\n")
+        stub.write_text(f"#!/bin/sh\n{root_guard(p.root)}\necho '{where}'\n")
         stub.chmod(0o755)
-        p = self.make({"architect": {"rules_doc": "docs/ENGINEERING.md",
-                                     "checks": [{"id": "E1", "cmd": "scripts/leak-check.sh"}]}})
         (p.root / "scripts").mkdir()
         shutil.copy(LEAK_CHECK, p.root / "scripts" / "leak-check.sh")
         p.write("app/old.md", "a SECRETWORD here\n")
@@ -252,8 +258,9 @@ class HeadBindingsDir(unittest.TestCase):
         os.environ.pop("CCP_BINDINGS_DIR")
 
     def stub(self, body: str, shell: str = "/bin/sh") -> None:
+        guard = root_guard(self.cfg.root) + "\n" if shell == "/bin/sh" else ""
         stub = self.tmp / "bin" / "ccp"
-        stub.write_text(f"#!{shell}\n{body}\n")
+        stub.write_text(f"#!{shell}\n{guard}{body}\n")
         stub.chmod(0o755)
 
     def test_where_names_the_bindings_directory_by_its_binding_else_beside_the_plane(self):
