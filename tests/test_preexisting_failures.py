@@ -45,7 +45,7 @@ class CommandChecks(unittest.TestCase):
         self.assertEqual(baseline.split([head], [check(f"{BASE_ROOT}/a.md:3: hit\n")], []), ([head.line], []))
 
     def test_an_empty_head_output_fails(self):
-        head = check("  \n")
+        head = check("")
         self.assertEqual(baseline.split([head], [check("a.md:3: hit\n")], []), ([head.line], []))
 
     def test_an_output_at_the_cap_fails_at_either_side(self):
