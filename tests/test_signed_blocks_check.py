@@ -11,7 +11,7 @@ from ccp import cli, tasklog
 from tests.helpers import TASK, Product
 
 INLINE = '- `docs/spec/x.md` §1: CURRENT: "older words". PROPOSED: "newer words".'
-QUOTED = "- `docs/spec/x.md` §1. PROPOSED:\n  > newer words, with `a token` in them\n  > `only a span`"
+QUOTED = "- `docs/spec/x.md` §1. PROPOSED:\n  > newer words, with `a token` in them"
 
 
 def task_text(tid: str, scope: str, status: str = "pending", after: str = "") -> str:
@@ -49,6 +49,7 @@ class UnreadableProposed(unittest.TestCase):
     def test_a_proposed_followed_by_blockquote_lines_does_not_warn(self):
         self.task("0001-quoted", QUOTED)
         self.task("0002-flush", "PROPOSED:\n> newer words")
+        self.task("0003-span-only", "PROPOSED:\n> `a quoted token`")  # quoted text is read as written
         self.assertEqual(self.warns(), [])
 
     def test_a_proposed_in_a_rule_changes_section_warns_the_same(self):
