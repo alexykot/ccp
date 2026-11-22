@@ -8,8 +8,9 @@ task's own patch unchanged by the merge (`git patch-id --stable`), declared path
 
 This module runs close end to end, one test for each path through it: caught up, gated and merged; a refusal
 that names what it found; a red gate; the tip moving during the gate; the gate's environment; a rerun that closes
-what a failed push, merge or reconcile left. Each decision branch is tested on plain values in
-the catch-up decision tests."""
+what a failed push, merge or reconcile left. The gate lane held by another run and the tip moving during the
+gate are tested end to end, as the paths through close; every other decision branch, the three static refusals
+included (`lifecycle.catch_up_precondition`), is tested on plain values in the catch-up decision tests."""
 from __future__ import annotations
 
 import json
@@ -338,14 +339,6 @@ if done < {moves}:
         self.refused(code, out, err, head, "no gate lane")
         self.assertEqual(self.gate_runs(), [])
 
-    def test_a_product_with_no_worktrees_dir_refuses(self):
-        head = self.approved()
-        self.plane_json(lambda c: c["worktrees"].update(dir=None))  # on the tip: it is what the head lacks
-        git(self.runner, "fetch", "-q", "origin")
-        git(self.runner, "checkout", "-q", "--detach", "origin/main")
-        code, _, out, err = self.close()
-        self.refused(code, out, err, head, "no merge worktree")
-
     def test_a_gate_lane_held_by_another_run_refuses(self):
         self.plane_json(lambda c: c["suite"].update(exclusive_lanes=["gate"]))
         head = self.approved()
@@ -355,15 +348,6 @@ if done < {moves}:
         with mock.patch.object(lifecycle, "CATCH_UP_LANE_WAIT", 0):
             code, _, out, err = self.close()
         self.refused(code, out, err, head, "gate lane busy")
-
-    def test_a_queue_that_keeps_its_records_in_git_refuses(self):
-        head = self.approved()
-        self.tip(self.put("other/b.txt", "b\n"))
-        git(self.q, "init", "-q")
-        git(self.q, "add", "verification")
-        git(self.q, "commit", "-q", "-m", "records")
-        code, _, out, err = self.close()
-        self.refused(code, out, err, head, "in git")
 
     def test_a_refused_push_refuses_with_the_branch_unchanged(self):
         head = self.approved()

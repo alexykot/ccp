@@ -1532,6 +1532,23 @@ def catch_up_blocked(declared: list[str], tip_files: list[str], task_files: list
     return None
 
 
+def catch_up_precondition(has_gate_lane: bool, lane: str, has_merge_worktree: bool,
+                          records_written: bool) -> str | None:
+    """§16.5 rule 4: the first of the three static conditions that stop close catching a verified head up
+    itself before it merges anything, as the text `_catch_up` raises, or None. On plain values, with no
+    git, file or queue access; the order is behaviour: (1) the product has no gate lane (`lane`, the gate
+    role's, is named in the text); (2) it has no merge worktree (no `worktrees.dir`); (3) the queue keeps
+    its verification records in git (`records_written` is False), where close records no catch-up."""
+    if not has_gate_lane:
+        return (f"no gate lane: plane.json suite.lanes names no lane {lane!r} for the gate role "
+                "(suite.roles), so there is no gate to run on the merge")
+    if not has_merge_worktree:
+        return "no merge worktree: the product has no worktrees.dir to run the gate in"
+    if not records_written:
+        return "the queue keeps its verification records in git, where close records no catch-up"
+    return None
+
+
 def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, start: str, body: dict[str, Any],
               integ: str, facts: prhost.PrFacts) -> tuple[str, dict[str, Any]]:
     """§16.5 rule 4: close merges origin/<integ> into the PR head `start` itself, when the merge is clean or its
@@ -1543,8 +1560,9 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
     catch-up carries it (`sign_off_carried`) when `catch_up_blocked` allows; it runs the gate lane on the merge in its merge worktree as a
     recorded run, re-checks the tip (at most CATCH_UPS catch-ups), pushes the merge as the task branch's new
     head, records the catch-up on the verification record, and returns the head to merge and the catch-up.
-    Raises _NoCatchUp, with nothing pushed, naming the condition that failed (`catch_up_blocked` holds the
-    file and build sign-off conditions, in the order they are judged)."""
+    Raises _NoCatchUp, with nothing pushed, naming the condition that failed (`catch_up_precondition` holds the
+    three static ones, no gate lane, no merge worktree and records in git; `catch_up_blocked` the file and build
+    sign-off conditions, each in the order they are judged)."""
     from ccp import parallel, suite, verify  # noqa: PLC0415
     from ccp.config import lane_for  # noqa: PLC0415
     verified = str(body.get("head_sha") or start)
@@ -1554,14 +1572,10 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
     if not clashes and (why := catch_up_blocked(declared, [], [], [], signed_due)):  # only the declared paths fail here
         raise _NoCatchUp(why)
     lane = lane_for(cfg, "gate")
-    if lane not in ((cfg.suite or {}).get("lanes") or {}):
-        raise _NoCatchUp(f"no gate lane: plane.json suite.lanes names no lane {lane!r} for the gate role "
-                         "(suite.roles), so there is no gate to run on the merge")
     path = _merge_path(cfg, tid)
-    if path is None:
-        raise _NoCatchUp("no merge worktree: the product has no worktrees.dir to run the gate in")
-    if verify.recorded_at(q, q / "verification" / f"{tid}.json")[1] != "written":
-        raise _NoCatchUp("the queue keeps its verification records in git, where close records no catch-up")
+    if why := catch_up_precondition(lane in ((cfg.suite or {}).get("lanes") or {}), lane, path is not None,
+                                    verify.recorded_at(q, q / "verification" / f"{tid}.json")[1] == "written"):
+        raise _NoCatchUp(why)
     branch = facts.branch or f"task/{tid}"
     prior = body.get("catch_up") if isinstance(body.get("catch_up"), dict) else {}
     tips: set[str] = set(prior.get("tip_files") or []) if verify.heads_match(str(prior.get("to") or ""), start) else set()
