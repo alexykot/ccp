@@ -1,7 +1,7 @@
 ---
 task_id: 0277-code-leftovers-of-r15-and-r17
 title: Close the code follow-ups of R15 and R17 - one wait-writer command, close's removals through the unrecorded-worktree helper, review and question ids from refs.py, a requires remedy that never makes a cycle, and two tests that no longer depend on load or the cwd
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S7", "S10", "S12", "S21"]
@@ -221,3 +221,5 @@ Follow-ups covered (the lead's worker follow-up log): `0253-one-wait-reason-tabl
   - `requires_report`'s docstring is rewrapped near 110 columns.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #327 head `e94d67f` (squash `039d546`): APPROVE. Passed: code-01, code-02, code-03, code-04, test-01, test-02. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0277-code-leftovers-of-r15-and-r17.json.
+
