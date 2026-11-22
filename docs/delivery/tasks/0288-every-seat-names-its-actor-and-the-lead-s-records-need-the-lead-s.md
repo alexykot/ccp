@@ -155,4 +155,22 @@ that runs `ccp` as the lead), `…` there being `0272-the-lead-s-records-share-o
 
 ## Implementation notes
 
+- `queue.lead_actor(what)` reads `ACTOR` itself and returns `lib.LEAD` only on an exact match; any other value
+  (unset, empty, unknown, another seat's id) is refused, exit 2: "only the lead records {what} (ACTOR is {value or
+  `unset`}): the lead runs it as ACTOR=design-seat ccp …; any other seat tells the lead". An empty `ACTOR` prints
+  as `unset`, and the `ccp …` is literal (the guard takes only `what`, as the ruling's signature gives it).
+- `queue.sign_offs` keeps only the lead's `sign_off` `recorded` events; `queue.rulings` gains `lead_only=True`,
+  and `lifecycle.ruling` numbers from `rulings(q, tid, lead_only=False)`.
+- The six hints print `ACTOR={lib.LEAD} ccp …` (followups.py through `queue.lib`; verify.py imports `lib` in
+  `_ruling_refusal`, lazily like its other `ccp.queue` imports).
+- `run-binding.sh` runs `unset ACTOR` right after its action check; `runner-idle.sh`'s Python pops `ACTOR` from
+  `os.environ` before its first call, so all four `ccp` calls (which inherit or copy `os.environ`) run without it.
+- `tests/helpers.py` gains `LEAD_ENV` and `as_lead()`; the 17 hand-set lines use them (`**LEAD_ENV` where the
+  patch also sets `QUEUE_ROOT`), and imports left unused by the swap are removed.
+- `tests/test_seat_actor_env.py` (new): the two hooks against a stub `ccp` on PATH that logs the `ACTOR` it sees
+  (the idle hook's product turns the architect on so it asks `tasks next` too), and the fence through a child
+  `python3 -c "import tests"`.
+- Hint tests: the existing refusal tests in `test_sign_off`, `test_catch_up_decision`,
+  `test_followups_closed_point` and `test_lead_records` also pin the `ACTOR=design-seat ccp …` token.
+
 ## Verification notes
