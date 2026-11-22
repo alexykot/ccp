@@ -121,4 +121,21 @@ Measured at `1aa5e3f`.
 
 ## Implementation notes
 
+- Premises re-measured at `934e959`: still no `part` lane and no argument handling in
+  `scripts/gate_parallel.py`; the suite has grown to 202 modules (173 at `1aa5e3f`), so `--paths
+  ccp/config.py` printed `103 of 202` before the change. The build does not depend on the count.
+- `ccp/suite.py`: `declared_part_argv(cfg)` reads the part role's lane (`lane_for(cfg, "part")`) from
+  `suite.lanes`, None for no lane, an empty list or stages; `affected_hint(cfg, mods, total,
+  test_command)` decides the stderr line on plain values (E15), and `main_affected` only prints it. With a
+  declared argv the suite is not counted (the share does not apply). The argv is printed with
+  `shlex.join`, so a word with a space is quoted and the line runs as printed; for plain words it is the
+  argv joined by spaces. A declared argv is printed even where the language pack names no command.
+- `scripts/gate_parallel.py`: `selected(suite, wanted)` keeps the suite's own order (largest first) and
+  drops repeats; every unknown name is listed in one exit-2 line before anything runs (the
+  `GATE_WORKERS` check comes first, as before). The cache's shared inputs and leaves are computed over the
+  whole suite, keys only for the modules that run. The closing line's module count is the modules
+  selected. `scripts/gate.sh` passes `"$@"` through (bash 3.2 with `set -u` accepts it empty).
+- `docs/cli/02-delivery.md`: the `suite affected` row names the stderr line and where its command comes
+  from.
+
 ## Verification notes
