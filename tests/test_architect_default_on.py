@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import architect, cli, config, parallel, quality, rules, tasklog
-from tests.helpers import Product
+from tests.helpers import PLANE_ROOT, Product
 from tests.architect_fixture import Harness
 from tests.upgrade_fixture import UpgradeFixture
 
@@ -441,7 +441,7 @@ class AdoptionStep(UpgradeFixture, unittest.TestCase):
 
 class Plane(unittest.TestCase):
     def test_the_schema_accepts_false_and_a_block_and_not_true(self):
-        schema = json.loads((Path(__file__).resolve().parents[1] / "contracts/plane_config.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_text())
         arch = schema["properties"]["architect"]
         self.assertEqual(arch["type"], ["object", "boolean"])
         self.assertEqual(arch["then"], {"const": False})

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import sys
 import unittest
-from pathlib import Path
 
 from ccp import estimator, models, tasklog
+from tests.helpers import PLANE_ROOT
 
-PLUGIN = Path(__file__).resolve().parents[1] / "plugin"
+PLUGIN = PLANE_ROOT / "plugin"
 DEFINED = ("runner", "implementer", "reviewer", "verifier")
 sys.path.insert(0, str(PLUGIN.parent / "scripts" / "observability"))
 import architecture_review  # noqa: E402

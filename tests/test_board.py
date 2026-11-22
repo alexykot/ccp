@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import board, cli
-from tests.helpers import epoch_iso as _iso, good_then_failed, machine_file, TASK
+from tests.helpers import epoch_iso as _iso, good_then_failed, machine_file, PLANE_ROOT, TASK
 from tests.toolkit_fixture import ToolkitFixture, git
 import unittest
 
@@ -112,7 +112,7 @@ class Board(ToolkitFixture, unittest.TestCase):
         self.assertEqual(rw["ids"], ["0003-old", "0004-new"])
 
     def test_the_page_has_no_external_resources(self):
-        page = (Path(__file__).resolve().parents[1] / "ccp/board_page.html").read_text()
+        page = (PLANE_ROOT / "ccp/board_page.html").read_text()
         self.assertFalse(re.search(r'<(script|link)[^>]+(src|href)="https?:', page))
 
 

@@ -16,12 +16,12 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import baseline, cli, config, queue
-from tests.helpers import Product, binding
+from tests.helpers import binding, PLANE_ROOT, Product
 
 RULES = "# Rules\n\n## Words\n\n- **E1** No forbidden word.\n  check: command\n"
 GREP = "! git grep -nE 'FORBID[D]EN' -- ."
 HEADING = "pre-existing on main at"
-LEAK_CHECK = Path(__file__).resolve().parents[1] / "scripts" / "leak-check.sh"
+LEAK_CHECK = PLANE_ROOT / "scripts" / "leak-check.sh"
 
 
 def root_guard(root: Path) -> str:

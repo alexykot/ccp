@@ -6,10 +6,9 @@ import io
 import json
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
-from pathlib import Path
 
 from ccp import cli, tasklog
-from tests.helpers import TASK, Product
+from tests.helpers import PLANE_ROOT, Product, TASK
 
 
 def text(tid: str, status: str = "pending", extra: str = "") -> str:
@@ -128,7 +127,7 @@ class Adopt(unittest.TestCase):
         self.assertIn("verify.accept_cache", warned[0])
 
     def test_the_task_file_schema_carries_adopt(self):
-        schema = json.loads((Path(__file__).resolve().parents[1] / "contracts/task_file.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/task_file.schema.json").read_text())
         self.assertEqual(schema["properties"]["adopt"]["type"], "string")
 
 

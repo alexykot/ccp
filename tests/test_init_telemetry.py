@@ -16,11 +16,11 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, init, otel, sandbox
-from tests.helpers import Product
+from tests.helpers import PLANE_ROOT, Product
 from tests.init_fixture import InitCase
 
 NOTICE = "every Claude Code session on this machine"
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = PLANE_ROOT
 
 
 def args(**kw):

@@ -5,11 +5,11 @@ from __future__ import annotations
 
 import json
 import unittest
-from pathlib import Path
 
 from ccp.queue import lib
+from tests.helpers import PLANE_ROOT
 
-SCHEMA = json.loads((Path(__file__).resolve().parents[1] / "contracts/observability_event.schema.json").read_text())
+SCHEMA = json.loads((PLANE_ROOT / "contracts/observability_event.schema.json").read_text())
 TYPES = SCHEMA["properties"]["type"]["enum"]
 OPS = SCHEMA["properties"]["op"]["enum"]
 

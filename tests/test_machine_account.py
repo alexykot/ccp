@@ -18,11 +18,11 @@ from unittest import mock
 
 from ccp import board, config, notify, parallel, usage
 from ccp.queue import lib
-from tests.helpers import Product
+from tests.helpers import PLANE_ROOT, Product
 from tests.board_drill_fixture import HASH_STUB, Fixture
 from tests.upgrade_fixture import UpgradeFixture
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = PLANE_ROOT
 HOOK = ROOT / "plugin" / "hooks" / "orientation.sh"
 CCP = ROOT / "bin" / "ccp"
 MACHINE_SCHEMA = json.loads((ROOT / "contracts/machine.schema.json").read_text())

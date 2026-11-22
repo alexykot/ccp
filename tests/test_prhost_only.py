@@ -10,10 +10,10 @@ import unittest
 from pathlib import Path
 
 from ccp import config, prompt
-from tests.helpers import REPORT_HEAD as HEAD
+from tests.helpers import PLANE_ROOT, REPORT_HEAD as HEAD
 from tests.toolkit_fixture import ToolkitFixture
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = PLANE_ROOT
 FORGE_CLI = re.compile(r"(?<![\w-])gh (?:pr|api)\b")
 ADAPTER_MODULES = {"ccp/prhost.py"}  # the adapter
 

@@ -9,11 +9,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from tests.helpers import with_test_methods
+from tests.helpers import PLANE_ROOT, with_test_methods
 from tests.toolkit_fixture import ToolkitFixture
 
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT
 CCP = str(PLANE / "bin" / "ccp")
 PY = sys.executable
 

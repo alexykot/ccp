@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import json
 import unittest
-from pathlib import Path
 
 from ccp import config, tasklog
-from tests.helpers import Product
+from tests.helpers import PLANE_ROOT, Product
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = PLANE_ROOT
 TEMPLATE = ROOT / "templates/docs-delivery/TEMPLATE-task.md"
 
 

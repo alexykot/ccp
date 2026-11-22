@@ -15,7 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, health, suite
-from tests.helpers import Product, suite_ended as ended, SUITE_RUN_ID as RUN, suite_started as started
+from tests.helpers import PLANE_ROOT, Product, suite_ended as ended, SUITE_RUN_ID as RUN, suite_started as started
 from tests.suite_stages_fixture import StagedFixture, _shell_py
 
 
@@ -46,7 +46,7 @@ class GateKnobs(unittest.TestCase):
                 self.load(bad)
 
     def test_the_schema_names_the_block_and_the_cold_field(self):
-        root = Path(__file__).resolve().parents[1] / "contracts"
+        root = PLANE_ROOT / "contracts"
         props = json.loads((root / "plane_config.schema.json").read_text())["properties"]
         self.assertEqual(set(props["gate"]["properties"]), {"shell_limit_seconds", "cut_line_seconds"})
         self.assertIn("cold", json.loads((root / "suite_result.schema.json").read_text())["properties"])

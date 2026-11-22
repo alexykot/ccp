@@ -3,9 +3,10 @@ without a conflict on the whole file."""
 from __future__ import annotations
 
 import unittest
-from pathlib import Path
 
-CONTRACTS = Path(__file__).resolve().parents[1] / "contracts"
+from tests.helpers import PLANE_ROOT
+
+CONTRACTS = PLANE_ROOT / "contracts"
 
 
 class ContractLayout(unittest.TestCase):

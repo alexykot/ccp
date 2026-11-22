@@ -10,9 +10,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import binding
+from tests.helpers import binding, PLANE_ROOT
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = PLANE_ROOT
 
 
 def ccp(*args: str) -> subprocess.CompletedProcess[str]:

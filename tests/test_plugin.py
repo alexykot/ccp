@@ -14,12 +14,11 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, runs, tasklog, wt
-from tests.helpers import Product, binding
+from tests.helpers import binding, GIT_ENV, PLANE_ROOT, Product
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT
 PLUGIN = PLANE / "plugin"
-GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
-           "GIT_COMMITTER_EMAIL": "t@example.com", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
+FAKE_PLANE = "/opt/src/control-plane"  # a plane checkout path the docs check warns on
 
 
 def frontmatter(p: Path) -> dict:
@@ -300,8 +299,8 @@ class PlanePaths(unittest.TestCase):
         p = Product()
         try:
             p.index()
-            p.write("docs/RUNBOOK.md", "Run /opt/src/control-plane/bin/ccp tasks next.\n")
-            p.write("docs/delivery/tasks/notes.txt", "history: /opt/src/control-plane/bin/ccp\n")
+            p.write("docs/RUNBOOK.md", f"Run {FAKE_PLANE}/bin/ccp tasks next.\n")
+            p.write("docs/delivery/tasks/notes.txt", f"history: {FAKE_PLANE}/bin/ccp\n")
             run(["git", "init", "-q"], cwd=p.root)
             run(["git", "add", "-A"], cwd=p.root)
             out = io.StringIO()
