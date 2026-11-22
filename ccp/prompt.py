@@ -51,6 +51,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -81,7 +82,8 @@ PHASE_STATUS = {"implement": "implementing", "fix": "fixing", "merge": "fixing",
                 "review": "reviewing", "verify": "verifying"}
 # §14.1: the lane each worker labels its test runs with, by role; the names come from plane.json
 # suite.roles (`{full}`, `{gate}`, `{part}` below). A role whose lane plane.json `suite.lanes` declares is
-# written as that lane with nothing after `--` (`{<role>_for}` and `{<role>_as}` fill in the form).
+# written as that lane with nothing after `--`, save a part lane declared as an argv, written with that argv
+# and the module names after `--` (`{<role>_for}` and `{<role>_as}` fill in the form).
 SUITE_LANES = {
     "implement": "{full}{full_for}the product's full suite{full_as}, {part}{part_for}a subset of the tests{part_as}",
     "review": "{part}{part_for}the tests you run{part_as} ({full} if you run the whole suite)",
@@ -174,13 +176,20 @@ def pointer(prompt_file: Path) -> str:
 def suite_lanes(cfg: Config, phase: str) -> str:
     """§14.1: the phase's lanes, by role. A lane plane.json `suite.lanes` declares (an argv or stages) runs
     as `--lane <lane>` with nothing after `--`, so the worker runs what the product declares; a lane it does
-    not declare takes the command after `--`."""
+    not declare takes the command after `--`. The part role's lane declared as an argv takes that argv and the
+    module names after `--`, as `ccp suite affected` prints it (§14.7): with nothing after it, it runs them all."""
     from ccp.config import SUITE_ROLES, lane_for  # noqa: PLC0415
+    from ccp.suite import declared_part_argv  # noqa: PLC0415
     declared = (cfg.suite or {}).get("lanes") or {}
     v: dict[str, str] = {}
     for r in SUITE_ROLES:
         lane = lane_for(cfg, r)
         own = isinstance(declared, dict) and lane in declared
+        argv = declared_part_argv(cfg) if r == "part" else None
+        if argv is not None:
+            v[r] = f"`--lane {lane}` with `{shlex.join(argv)} <modules>` after `--`"
+            v[f"{r}_for"], v[f"{r}_as"] = ": ", ", as `ccp suite affected` prints it"
+            continue
         v[r] = f"`--lane {lane}`" + (" with nothing after `--`" if own else "")
         v[f"{r}_for"], v[f"{r}_as"] = (": ", ", as plane.json gives it") if own else (" for ", "")
     return SUITE_LANES[phase].format(**v)

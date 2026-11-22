@@ -57,6 +57,12 @@ Measured at `1aa5e3f`.
   - plane.json `suite.lanes.part` is `["scripts/gate.sh"]`; `exclusive_lanes` is unchanged, so part
     runs do not queue behind the gate.
 - **Rule text.** The §14.7 change below is signed in the brief (§31). §14.1 and §14.2 are unchanged.
+- **Lead's ruling `0261-a-declared-part-lane-runs-the-affected-modules-r1`** (fix round 1, review MAJOR 1;
+  option 1, widens the Scope for this fix round to `ccp/prompt.py` (`suite_lanes`), the lanes sentence in
+  `templates/prompts/_common.md`, and `tests/test_full_lane_prompt.py`), verbatim:
+  - suite_lanes renders the declared part lane as taking module names after `--`, as `ccp suite affected` prints it.
+  - _common.md stops saying a command after `--` is only for an undeclared lane.
+  - A test holds it. No SPEC change.
 
 ## Scope
 
@@ -137,5 +143,13 @@ Measured at `1aa5e3f`.
   selected. `scripts/gate.sh` passes `"$@"` through (bash 3.2 with `set -u` accepts it empty).
 - `docs/cli/02-delivery.md`: the `suite affected` row names the stderr line and where its command comes
   from.
+- Fix round 1 (review MAJOR 1, under ruling `-r1`): `prompt.suite_lanes` wrote every declared lane as
+  "with nothing after `--`", so with `suite.lanes.part` declared each worker prompt told the worker to run
+  `--lane part` bare, which runs the whole suite. The part role's lane, when `declared_part_argv` gives an
+  argv, is now written "`--lane part` with `<argv> <modules>` after `--`: …, as `ccp suite affected` prints
+  it" (the argv by `shlex.join`, as in the stderr line); a staged part lane keeps "with nothing after `--`",
+  since a staged lane refuses a command. `templates/prompts/_common.md` now says a command after `--` is for
+  an undeclared lane and for one the Lanes line gives with a command after `--`. Held by
+  `tests/test_full_lane_prompt.py` `DeclaredPartLane`.
 
 ## Verification notes
