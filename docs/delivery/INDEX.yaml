@@ -1367,3 +1367,8 @@ tasks:
     title: Formal-submit takes a fix that verify.skip_review or a review prover proves after any review and runs the proof once per fix round, and the SPEC names submit's exit 3, the queue files ccp writes, the shared gate part and what ccp report computes
     depends_on: []
     path: tasks/0278-submit-takes-a-proven-fix-and-the-spec-names-what-ccp-writes.md
+  - id: 0279-contract-writer-tests-for-the-answer-file-and-wt-up-down
+    status: pending
+    title: The answer file and the records ccp wt up and down write are checked against their contracts, and the two dead contracts are removed
+    depends_on: []
+    path: tasks/0279-contract-writer-tests-for-the-answer-file-and-wt-up-down.md
