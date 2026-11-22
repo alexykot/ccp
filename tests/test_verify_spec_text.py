@@ -13,7 +13,7 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
-from ccp import cli, verify
+from ccp import cli, tasklog, verify
 from tests.helpers import Product
 from tests.test_toolkit import GIT_ENV, ToolkitFixture, git
 
@@ -426,7 +426,7 @@ class SpecText(unittest.TestCase):
 
     def test_the_file_a_block_names(self):
         def names(scope: str) -> list:
-            return [f for _, _, f in verify.signed_blocks(TASK.format(scope=scope))]
+            return [f for _, _, f in tasklog.signed_blocks(TASK.format(scope=scope))]
         self.assertEqual(names(contract_scope("`contracts/x.schema.json`, its `description`.")),
                          ["contracts/x.schema.json"])
         self.assertEqual(names(contract_scope("x", "CURRENT (`contracts/x.schema.json` at `abc1234`):\n> Older.\n")),

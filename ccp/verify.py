@@ -34,7 +34,7 @@ A check's evidence is §15.4's rule: `producer_errors`, `rests_on_errors` and `a
 `fill_reason` adds a `repeat_round`'s `--note` to `findings`.
 
 `spec-text` (§15.2) checks a PR's SPEC edits against the passages the operator signed (`signed_passages`,
-`spec_text`, `spec_hunks`, `signed_blocks`, `named_hunks`, `searchable`). The base defaults to
+`spec_text`, `spec_hunks`, `named_hunks`, `searchable`), read from the task file by `tasklog.signed_blocks`. The base defaults to
 `origin/<integration branch>`, the head to `HEAD`; it reads the task file from the checkout, fetches nothing and
 writes nothing. Exit 0 when every passage is found, 1 naming each that is not, 2 for no passages or an
 unusable base or head.
@@ -1236,98 +1236,10 @@ def _note_run(cfg: Config, queue: Path, rec: dict[str, Any]) -> str | None:
         return None
 
 
-_PROPOSED_RE = re.compile(r"PROPOSED:")
-_QUOTE_RE = re.compile(r"^\s*>[ \t]?(.*)$")
-
-
-def _norm(text: str) -> str:
-    return " ".join(text.split())
-
-
-_RULE_CHANGES_RE = re.compile(r"^## Rule changes\b[^\n]*$", re.M)
-
-
-def _signed_sections(text: str) -> list[tuple[int, str]]:
-    """§15.2: the sections of a task file that carry signed passages, in file order, each as (its offset in
-    `text`, its body from just after the heading): the Scope (`tasklog._section_at`) and every `## ` section
-    whose heading begins `Rule changes`."""
-    from ccp import tasklog  # noqa: PLC0415
-    out = []
-    if (at := tasklog._section_at(text, tasklog.SEC_SCOPE)) is not None:
-        out.append(at)
-    for m in _RULE_CHANGES_RE.finditer(text):
-        nxt = re.search(r"^## ", text[m.end():], re.M)
-        out.append((m.end(), text[m.end(): m.end() + nxt.start()] if nxt else text[m.end():]))
-    return sorted(out)
-
-
-_CURRENT_RE = re.compile(r"\bCURRENT\b")
-# A block's locator, written just after its `CURRENT`: (`<path>` at `<commit>`).
-_LOCATOR_RE = re.compile(r"\bCURRENT\s*\(\s*`([^`\n]+)`\s+at\s+`[^`\n]+`\s*\)")
-# A backticked path opening a line.
-_OPENING_PATH_RE = re.compile(r"^`([^`\n]+)`")
-
-
-def _path_like(path: str) -> bool:
-    """§15.2: whether a name a block gives can name a file: it holds a `/` and no glob character."""
-    return "/" in path and not any(c in path for c in "*?[")
-
-
-def _block_names(lines: list[str], n: int) -> str | None:
-    """§15.2: the one file the block of the `PROPOSED:` marker on `lines[n]` names, or None. The block runs from
-    its `CURRENT` marker (on that line, or on the nearest line above it that is neither blank nor a `> ` quote)
-    to its quotes; with no `CURRENT`, from the `PROPOSED:` line. The name is the path in the block's
-    (`<path>` at `<commit>`) locator after its `CURRENT`, when it has one; else the backticked path opening
-    the nearest line above the block that is neither blank nor a `> ` quote. Only a path holding a `/` and
-    no glob character counts (`_path_like`); a backticked token anywhere else names nothing."""
-    def above(k: int) -> int:
-        k -= 1
-        while k >= 0 and (not lines[k].strip() or _QUOTE_RE.match(lines[k])):
-            k -= 1
-        return k
-
-    own = lines[n].split("PROPOSED:", 1)[0]  # a `CURRENT` on the marker's own line comes before it
-    cur: str | None = own if _CURRENT_RE.search(own) else None
-    start = n
-    if cur is None and (k := above(n)) >= 0 and _CURRENT_RE.search(lines[k]) and not _PROPOSED_RE.search(lines[k]):
-        cur, start = lines[k], k  # a line holding another `PROPOSED:` is another block's
-    if cur is not None and (m := _LOCATOR_RE.search(cur)):
-        return m.group(1) if _path_like(m.group(1)) else None
-    k = above(start)
-    m = _OPENING_PATH_RE.match(lines[k]) if k >= 0 else None
-    return m.group(1) if m and _path_like(m.group(1)) else None
-
-
-def signed_blocks(text: str) -> list[tuple[int, str, str | None]]:
-    """§3.5, §15.2: the passages a task file carries for the operator to sign, in its Scope or in a section
-    whose heading begins `Rule changes` (`_signed_sections`), in file order, as (line number in the file, the
-    passage with its whitespace normalised, the file its block names or None, `_block_names`): each line
-    holding `PROPOSED:` followed at once by `> ` blockquote lines, the quote marks taken off. A `PROPOSED:`
-    with no blockquote under it (one quoted inline, or the word in prose) carries none. A passage carried in
-    more than one place is listed once, at its first line."""
-    out: list[tuple[int, str, str | None]] = []
-    seen: set[str] = set()
-    for start, body in _signed_sections(text):
-        first = text.count("\n", 0, start) + 1  # `body` starts on the heading's line, after the heading
-        lines = body.split("\n")
-        for n, line in enumerate(lines):
-            if not _PROPOSED_RE.search(line):
-                continue
-            quoted = []
-            for nxt in lines[n + 1:]:
-                m = _QUOTE_RE.match(nxt)
-                if not m:
-                    break
-                quoted.append(m.group(1))
-            if (passage := _norm(" ".join(quoted))) and passage not in seen:
-                seen.add(passage)
-                out.append((first + n, passage, _block_names(lines, n)))
-    return out
-
-
 def signed_passages(text: str) -> list[tuple[int, str]]:
-    """§3.5, §15.2: `signed_blocks` without the file each block names: (line number in the file, passage)."""
-    return [(n, passage) for n, passage, _ in signed_blocks(text)]
+    """§3.5, §15.2: `tasklog.signed_blocks` without the file each block names: (line number in the file, passage)."""
+    from ccp import tasklog  # noqa: PLC0415
+    return [(n, passage) for n, passage, _ in tasklog.signed_blocks(text)]
 
 
 _HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
@@ -1335,12 +1247,12 @@ _HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 def searchable(cfg: Config, path: str) -> bool:
     """§15.2: whether a file a block names may be searched for its passage: a path holding a `/` and no glob
-    character (`_path_like`), not under `tests/`, not under the task log's directory (`cfg.tasks_dir`) and
+    character (`tasklog._path_like`), not under `tests/`, not under the task log's directory (`cfg.tasks_dir`) and
     not a SPEC file (`spec_paths`)."""
     from ccp import tasklog  # noqa: PLC0415
     p = path.strip().removeprefix("./")
     tasks = cfg.rel(cfg.tasks_dir).rstrip("/") + "/"
-    return (_path_like(p) and not p.startswith("tests/") and not p.startswith(tasks)
+    return (tasklog._path_like(p) and not p.startswith("tests/") and not p.startswith(tasks)
             and not tasklog._names_spec(p, spec_paths_of(cfg)))
 
 
@@ -1419,7 +1331,7 @@ def _found(passage: str, hunk: tuple[str, str]) -> bool:
 
 def spec_text(cfg: Config, task: str, base: str | None = None, head: str | None = None) -> tuple[int, dict[str, Any]]:
     """§15.2 `ccp verify spec-text`: whether each passage the task carries for the operator's sign-off
-    (`signed_blocks`, read from the task file in the checkout) is in the SPEC text `head` (default `HEAD`)
+    (`tasklog.signed_blocks`, read from the task file in the checkout) is in the SPEC text `head` (default `HEAD`)
     changes since `base` (`spec_hunks`), or else in the text it changes in the one file the passage's own
     block names (`named_hunks`), each hunk read with the
     unchanged lines around it up to the nearest blank line: a passage is found when it lies within one hunk's
@@ -1437,7 +1349,8 @@ def spec_text(cfg: Config, task: str, base: str | None = None, head: str | None 
         q = os.environ.get("QUEUE_ROOT")
         base = f"origin/{integration_branch(Path(q)) if q and Path(q).is_dir() else 'main'}"
     head = head or "HEAD"
-    passages = signed_blocks(meta["_text"])
+    from ccp import tasklog  # noqa: PLC0415
+    passages = tasklog.signed_blocks(meta["_text"])
     if not passages:
         return 2, {"ok": False, "task_id": tid, "base": base, "head": head,
                    "error": f"{cfg.rel(meta['_file'])} carries no PROPOSED: block (a `PROPOSED:` marker followed by "
