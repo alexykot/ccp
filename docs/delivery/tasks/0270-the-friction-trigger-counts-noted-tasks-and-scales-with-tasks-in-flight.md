@@ -11,7 +11,7 @@ paths: ["ccp/architect.py", "ccp/quality.py", "ccp/board.py", "ccp/board_page.ht
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0270-the-friction-trigger-counts-noted-tasks-and-scales-with-tasks-in-flight
@@ -29,7 +29,7 @@ triggers actually use.
 
 ## Context (not checked)
 
-Measured at `8020446` unless a line says otherwise.
+Measured at `76f41dd` unless a line says otherwise.
 
 - **Provenance.** Architect pass `ar-20261121T111633Z-4e26`, F01 (`rule-cost`), record in
   `docs/delivery/reviews/`. The operator answered its question on 2026-11-21 with "F01 - (c)":
@@ -37,12 +37,12 @@ Measured at `8020446` unless a line says otherwise.
   rather than lines, and (b), scale the threshold with `parallel.max_in_flight`. §19.6 states the
   behaviour and leaves the number to code (house rule E10). That ruling is recorded in the review
   record; the passage below is still signed in this brief (§31).
-- **The trigger today counts lines.** `ccp/architect.py` `"def due_info"`: `n_notes = len(notes)` and `if adopted and n_notes >= a["notes_due"]:` (`git grep -n 'n_notes' -- ccp/architect.py` at `8020446`: 4 lines: the count, the comparison, the reason, the `notes_since_last` key).
-- `"def notes"` in `ccp/health.py` filters by time only, never by source. Before the first pass a note with no task is already left out (`git grep -n 'a note with no task does not count' -- ccp/architect.py` at `8020446`: 1 line); after a pass it counts.
-- **Who writes notes, by source** (`git grep -n 'add_note(' -- ccp` at `8020446`: 5 lines, one the definition): `ccp/report.py` records each line of a worker report's *Friction* section with source `worker`; `ccp health note` (`ccp/health.py`) uses the default source `worker`; `ccp/cli.py` writes `allow-overdue` on `ccp tasks next --allow-overdue`; `ccp/prompt.py` writes `allow-unreviewed-fix` (§15.2). Only `worker` notes are a worker's.
-- **The threshold.** `notes_due` defaults to 3 (`git grep -n '"notes_due": 3' -- ccp/config.py` at `8020446`: 1 line); it is a deprecated plane.json constant (§29.3), which `contracts/plane_config.schema.json` describes as "Constant, 3 (SPEC §29.3): Or this many friction notes since the last pass" (`git grep -n 'this many friction notes' -- contracts` at `8020446`: 1 line).
+- **The trigger today counts lines.** `ccp/architect.py` `"def due_info"`: `n_notes = len(notes)` and `if adopted and n_notes >= a["notes_due"]:` (`git grep -n 'n_notes' -- ccp/architect.py` at `76f41dd`: 4 lines: the count, the comparison, the reason, the `notes_since_last` key).
+- `"def notes"` in `ccp/health.py` filters by time only, never by source. Before the first pass a note with no task is already left out (`git grep -n 'a note with no task does not count' -- ccp/architect.py` at `76f41dd`: 1 line); after a pass it counts.
+- **Who writes notes, by source** (`git grep -n 'add_note(' -- ccp` at `76f41dd`: 5 lines, one the definition): `ccp/report.py` records each line of a worker report's *Friction* section with source `worker`; `ccp health note` (`ccp/health.py`) uses the default source `worker`; `ccp/cli.py` writes `allow-overdue` on `ccp tasks next --allow-overdue`; `ccp/prompt.py` writes `allow-unreviewed-fix` (§15.2). Only `worker` notes are a worker's.
+- **The threshold.** `notes_due` defaults to 3 (`git grep -n '"notes_due": 3' -- ccp/config.py` at `76f41dd`: 1 line); it is a deprecated plane.json constant (§29.3), which `contracts/plane_config.schema.json` describes as "Constant, 3 (SPEC §29.3): Or this many friction notes since the last pass" (`git grep -n 'this many friction notes' -- contracts` at `76f41dd`: 1 line).
 - `"def _cadence"` in `ccp/architect.py` computes the cadence as `every_n_tasks` times the slots: `parallel.settings(cfg)["max_in_flight"]` when `parallel.enabled(cfg)`, else one.
-- This repo's plane.json sets `parallel.max_in_flight` 3 and no `notes_due` (`python3 -c "import json;d=json.load(open('docs/delivery/plane.json'));print(d['parallel'], d['architect'].get('notes_due'))"` at `8020446`: `{'max_in_flight': 3, 'schedule': 'clashes'} None`), so after this task the trigger needs 9 noted tasks here, against a 12-merge cadence (`CCP_DEV=1 ./bin/ccp --root . architect due` at `8020446`: `cadence_tasks` 12).
+- This repo's plane.json sets `parallel.max_in_flight` 3 and no `notes_due` (`python3 -c "import json;d=json.load(open('docs/delivery/plane.json'));print(d['parallel'], d['architect'].get('notes_due'))"` at `76f41dd`: `{'max_in_flight': 3, 'schedule': 'clashes'} None`), so after this task the trigger needs 9 noted tasks here, against a 12-merge cadence (`CCP_DEV=1 ./bin/ccp --root . architect due` at `76f41dd`: `cadence_tasks` 12).
 - **What the queue shows** (data workers cannot reach; measured by the lead on 2026-11-21 with the `python3 -c` script below, run in this repo's queue directory over `health/notes.jsonl` and `architect.json`; each window runs from one pass's `started_at` to the next). Lines, `allow-overdue` lines, distinct tasks with a `worker` note, lines with no task:
   - after `ar-20261120T234012Z-27eb` (`python3 -c` script below): 26, 4, 7, 0;
   - after `ar-20261121T020523Z-1d5f` (`python3 -c` script below): 79, 22, 16, 4;
@@ -55,17 +55,20 @@ Measured at `8020446` unless a line says otherwise.
   ```
   python3 -c "import json;ns=[json.loads(l) for l in open('health/notes.jsonl') if l.strip()];a=json.load(open('architect.json'));r=sorted((v['started_at'],k) for k,v in a['reviews'].items() if k.startswith('ar-') and v.get('started_at'));[print(k,len(w),sum(n.get('source')=='allow-overdue' for n in w),len({n['task_id'] for n in w if n.get('source')=='worker' and n.get('task_id')}),sum(not n.get('task_id') for n in w)) for i,(s,k) in enumerate(r) for w in [[n for n in ns if s<n['at']<=(r[i+1][0] if i+1<len(r) else '9')]]]"
   ```
-- **The board shows stale denominators.** `QUEUE_ROOT=<empty temp dir> CCP_DEV=1 ./bin/ccp --root . board status` at `8020446` prints `architect last pass none, 52/4 tasks and 0/3 notes since; pass due: 52 task(s) done since none`: the tasks figure is against `every_n_tasks`, not the cadence (0211's implementation notes left the board out of its paths), and the notes figure against `notes_due`.
-- `ccp/board.py` `"def _quality_lines"` and `ccp/board_page.html` (the architect tile, the two meters, and the friction tile's `F.notes_due`) read `settings.every_n_tasks`, `settings.notes_due` and `notes_since_last` (`git grep -n 'notes_since_last\|notes_due' -- ccp/board.py ccp/board_page.html ccp/quality.py` at `8020446`: 8 lines).
-- **Tests this changes** (`git grep -n 'friction note(s)\|notes_due' -- tests` at `8020446`): `tests/test_architect.py` `"def test_acceptance_2_notes_reach_the_prompt"` (three notes on one task make a pass due), `tests/test_architect_default_on.py` `"def test_new_work_still_triggers"` and `"def test_after_a_pass_the_notes_of_any_task_count"` (after a pass, notes with no task count; this task reverses that), `tests/test_board_quality.py` (the friction block's `notes_due`).
-- The test fixtures set `parallel.max_in_flight` 1 (`git grep -n '"max_in_flight": 1' -- tests/helpers.py` at `8020446`: 1 line), so the threshold there stays 3 (`git grep -n '"notes_due": 3' -- ccp/config.py`).
-- `python3 -B -m unittest tests.test_architect_default_on tests.test_architect tests.test_board_quality` at `8020446`: 101 tests, OK.
-- `docs/design/architect.md`'s acceptance walk-through 2 ("Three `ccp health note` lines make `ccp architect due` exit 0") becomes false with this task (`git grep -n 'Three .ccp health note. lines' -- docs/design/architect.md` at `8020446`: 1 line).
+- **The board shows stale denominators.** `QUEUE_ROOT=<empty temp dir> CCP_DEV=1 ./bin/ccp --root . board status` at `76f41dd` prints `architect last pass none, 73/4 tasks and 0/3 notes since; pass due: 73 task(s) done since none`: the tasks figure is against `every_n_tasks`, not the cadence (0211's implementation notes left the board out of its paths), and the notes figure against `notes_due`.
+- `ccp/board.py` `"def _quality_lines"` and `ccp/board_page.html` (the architect tile, the two meters, and the friction tile's `F.notes_due`) read `settings.every_n_tasks`, `settings.notes_due` and `notes_since_last` (`git grep -n 'notes_since_last\|notes_due' -- ccp/board.py ccp/board_page.html ccp/quality.py` at `76f41dd`: 8 lines).
+- **Tests this changes** (`git grep -n 'friction note(s)\|notes_due' -- tests` at `76f41dd`; it also finds `tests/test_plane_json_constants.py` and `tests/test_rules.py`, which list `notes_due` as a constant and do not change): `tests/test_architect.py` `"def test_acceptance_2_notes_reach_the_prompt"` (three notes on one task make a pass due), `tests/test_architect_default_on.py` `"def test_new_work_still_triggers"` and `"def test_after_a_pass_the_notes_of_any_task_count"` (after a pass, notes with no task count; this task reverses that), `tests/test_board_quality.py` (the friction block's `notes_due`).
+- The test fixtures set `parallel.max_in_flight` 1 (`git grep -n '"max_in_flight": 1' -- tests/helpers.py` at `76f41dd`: 1 line), so the threshold there stays 3 (`git grep -n '"notes_due": 3' -- ccp/config.py`).
+- `python3 -B -m unittest tests.test_architect_default_on tests.test_architect tests.test_board_quality` at `76f41dd`: 101 tests, OK.
+- `docs/design/architect.md`'s acceptance walk-through 2 ("Three `ccp health note` lines make `ccp architect due` exit 0") becomes false with this task (`git grep -n 'Three .ccp health note. lines' -- docs/design/architect.md` at `76f41dd`: 1 line).
 - Folded in by area: the board's tasks-figure stale denominator is 0211's follow-up, not part of F01; it adds no rule and no SPEC text.
-- No pending task edits §19.6 item 3 or `due_info`'s friction code (`git grep -ln 'Friction notes' -- docs/delivery/tasks`
-  at `8020446`: two files, both `done`). Pending tasks that share a file change other logic in it, so
-  none is a clash: 0254 (`ccp/architect.py`'s pass worktree), 0262 (`ccp/board.py`'s docstring), 0191,
-  0259 and 0267 (other sections of `docs/spec/03-quality.md`; 0191 and 0267 other keys of the schema).
+- No other pending task edits §19.6 item 3 or `due_info`'s friction code (`git grep -ln 'Friction notes' -- docs/delivery/tasks`
+  at `76f41dd`: three files, this task and two `done`). Of the tasks that shared a file when this brief was
+  first written, 0254 (`ccp/architect.py`'s pass worktree), 0262 (`ccp/board.py`'s docstring), 0259 and
+  0267 (other sections of `docs/spec/03-quality.md`) have merged, changing none of the code or text this
+  brief quotes (`git log --oneline 8020446..76f41dd -- ccp/architect.py ccp/board.py` at `76f41dd`: 2 commits, 0254's
+  and 0262's; `git diff 8020446 76f41dd -- ccp/quality.py ccp/board_page.html` at `76f41dd`: empty). 0191, still
+  pending, changes other sections of `docs/spec/03-quality.md` and another key of the schema, so it is no clash.
 
 ### Rulings for the build (the lead's)
 
@@ -110,7 +113,7 @@ Measured at `8020446` unless a line says otherwise.
 - **Signed before the claim (`sign_off: brief`, §31):** `docs/spec/03-quality.md` §19.6, item 3,
   replaced whole.
 
-    CURRENT (`docs/spec/03-quality.md` at `8020446`, §19.6 item 3):
+    CURRENT (`docs/spec/03-quality.md` at `76f41dd`, §19.6 item 3):
     > 3. **Friction notes.** 3 notes have arrived since the last pass's start. Any
     >    worker (implementer, reviewer, verifier) may report friction in the *Friction* section of its
     >    report, and the runner records each line with `ccp health note`: a fact changed in many places, a
@@ -131,7 +134,7 @@ Measured at `8020446` unless a line says otherwise.
   It retires the sentence "3 notes have arrived since the last pass's start." and the reading that
   every note line counts. No other SPEC text changes: §19.6's `--allow-overdue` paragraph ("the
   override is recorded as a friction note with source `allow-overdue`") and §15.2's
-  `allow-unreviewed-fix` note stay true (`git grep -n -i 'friction note' -- docs/spec` at `8020446`:
+  `allow-unreviewed-fix` note stay true (`git grep -n -i 'friction note' -- docs/spec` at `76f41dd`:
   6 lines: item 3, the adoption paragraph, the override paragraph, §15.2 and two board lists in
   `docs/spec/04-observability.md`; only item 3 states a count).
 
@@ -143,7 +146,7 @@ Measured at `8020446` unless a line says otherwise.
   steps:
     1. Run `python3 -B -m unittest -v tests.test_architect_default_on tests.test_architect tests.test_board_quality 2>&1 | tail -60`.
   expect: The run ends `OK`, and the Scope's tests are listed `ok`: 3 noted tasks with one slot due and 9 notes on 2 tasks not; 8 tasks with three slots not due and 9 due; override notes and notes with no task never counted; `notes_tasks` and `noted_tasks_since_last` in `due_info` and no `notes_since_last`; the board line and quality block.
-  dry run (`8020446`): 101 tests, `OK`; the new tests do not exist yet.
+  dry run (`76f41dd`): 101 tests, `OK`; the new tests do not exist yet.
 
 - id: `fr-02`
   story: As a plane developer, the tests bite on each of the three rules.
@@ -159,7 +162,7 @@ Measured at `8020446` unless a line says otherwise.
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp --root . architect due | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['cadence_tasks'], d['notes_tasks'], d['noted_tasks_since_last'], 'notes_since_last' in d)"`.
   expect: It prints `12 9 0 False` (this repo's `every_n_tasks` 4 and `notes_due` 3, each times its `max_in_flight` 3).
-  dry run (`8020446`): the script raised `KeyError: 'notes_tasks'`; `cadence_tasks` was 12.
+  dry run (`76f41dd`): the script raised `KeyError: 'notes_tasks'`; `cadence_tasks` was 12.
 
 - id: `fr-04`
   story: As the operator reading the board, the tasks and noted tasks are shown against the numbers the triggers use.
@@ -167,7 +170,7 @@ Measured at `8020446` unless a line says otherwise.
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp --root . board status 2>&1 | grep '^architect last pass'`.
   expect: One line, starting `architect last pass none, ` and holding `/12 tasks and 0/9 noted tasks since;`.
-  dry run (`8020446`): `architect last pass none, 52/4 tasks and 0/3 notes since; pass due: 52 task(s) done since none`.
+  dry run (`76f41dd`): `architect last pass none, 73/4 tasks and 0/3 notes since; pass due: 73 task(s) done since none`.
 
 - id: `fr-05`
   story: As the operator, §19.6 item 3 reads as I signed it.
@@ -175,7 +178,7 @@ Measured at `8020446` unless a line says otherwise.
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp --root . verify spec-text 0270`.
   expect: Exit 0, the PROPOSED passage found in `docs/spec/03-quality.md`.
-  dry run (simulated: this task file committed, then the PROPOSED passage applied to `docs/spec/03-quality.md` and committed, in a scratch worktree off `8020446`, `--base` the commit holding the task file): exit 0, the passage found in `docs/spec/03-quality.md`.
+  dry run (simulated: this task file committed, then the PROPOSED passage applied to `docs/spec/03-quality.md` and committed, in a scratch worktree off `76f41dd`, `--base` the commit holding the task file): exit 0, the passage found in `docs/spec/03-quality.md`.
 
 - id: `suite-01`
   story: As the plane, nothing else broke.

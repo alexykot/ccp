@@ -27,7 +27,7 @@ and §11.1 no longer reads as if `follow_ups` were computed rather than taken fr
 
 ## Context (not checked)
 
-Measured at `a80cee0` unless a line says otherwise.
+Measured at `76f41dd` unless a line says otherwise.
 
 Follow-ups covered (the lead's worker follow-up log):
 `0258-the-plane-writes-the-pre-merge-phases/implement#1`, `…/review#2`, `…/fix#3`, `…/review-2#4`
@@ -38,7 +38,7 @@ Follow-ups covered (the lead's worker follow-up log):
 `0223-a-follow-up-is-tracked-not-left-in-notes/verify#1` (§11.1);
 `0257-one-gate-block-and-one-sentence-per-line/implement#1` (§13.2, moved here from 0276 because
 naming `_gate.md` edits rule text: SPEC.md says the SPEC "states rules only", and
-`git grep -n -i 'non-normative' -- docs/spec` at `a80cee0` finds no note form).
+`git grep -n -i 'non-normative' -- docs/spec` at `76f41dd` finds no note form).
 
 - **Submit after a MAJOR review.** `"def failures"` and `"def _review_gaps"` in `ccp/submit.py` fail
   `review_artifact_present` when the latest done review found a BLOCKER or MAJOR, or when the review
@@ -51,26 +51,32 @@ naming `_gate.md` edits rule text: SPEC.md says the SPEC "states rules only", an
   and `done`).
 - **The proof runs twice.** On a proven fix of a clean review, submit's `coverage` runs
   `verify.skip_review` (the proof, then each review prover), and `ccp prompt verify`'s `review_gate`
-  runs it again for the same head. `git grep -n 'verify.skip_review(cfg' -- ccp` at `a80cee0`: 2
+  runs it again for the same head. `git grep -n 'verify.skip_review(cfg' -- ccp` at `76f41dd`: 2
   lines, `ccp/prompt.py` and `ccp/submit.py`. `test_a_proven_fix_of_a_clean_review_is_submitted`
   (`tests/test_formal_submit.py`) already logs each proof run.
 - **SPEC text to change, measured.** §15.1 says submit passes only when "the review record's review
   covers the PR head (§15.2)", so accepting a proven fix after a MAJOR review changes rule text and
   stays here, not in 0277. §15.1 does not name the exit 3 that `"def phase_refusal"` raises
-  (`git grep -n 'exit 3' -- docs/cli/02-delivery.md` at `a80cee0`: 2 lines, the `ccp tasks next` row's and the submit row's).
+  (`git grep -n 'exit 3' -- docs/cli/02-delivery.md` at `76f41dd`: 2 lines, the `ccp tasks next` row's and the submit row's).
   §23.7's `progress/<id>.json` row says "the verifier packet | the runner", but
   `"def progress_event"` (`ccp/queue.py`) writes the task's phase moves from every `phase_move`,
   including a worker's `ccp report`. The `review/` row says "the reviewer subagent", but `ccp report`
   writes `review/<task_id>.json` on a clean review.
-- **§23.2 needs no change, measured.** `git grep -n '"review", "recorded"' -- ccp/report.py` at `a80cee0`: 1 line, emitting `run_id`, `verdict` and `severity`, which is §23.2's row.
+- **§23.2 needs no change, measured.** `git grep -n '"review", "recorded"' -- ccp/report.py` at `76f41dd`: 1 line, emitting `run_id`, `verdict` and `severity`, which is §23.2's row.
   0258's first fix round dropped the `record` key that review#2 was about.
 - **§11.1.** After the field list, which ends with `follow_ups` ("the report's lines"), the next
   sentence starts "`ccp report` computes them when the round reports, never from the report's
   prose". "Them" meant `integration_merges` and `before_review` (0169 added the sentence).
-- **Other tasks.** 0275 (R23, signed) changes the third item of §13.2's list, and this task changes the first. 0264 and 0270
-  cite §15.2 but change other sections' text (`docs/spec/01-model.md`; §19.6 in `docs/spec/03-quality.md`). 0273 adds refusals to `ccp prompt verify` in `ccp/prompt.py` and
-  `ccp/verify.py` that have nothing to do with the review skip. 0276 changes only the first line of
-  `ccp/submit.py`'s docstring. That is different logic in each case: no clash.
+- **Merged since**: `git log --oneline a80cee0..76f41dd -- <this task's paths> ccp/report.py ccp/queue.py` at `76f41dd`, 10 commits:
+  0260, 0261, 0263-0266, 0268, 0269, 0272 and 0276. None does part of this task's work.
+  0276 changed only the first line of `ccp/submit.py`'s docstring; the others changed other logic in
+  `ccp/prompt.py`, `ccp/verify.py`, `ccp/report.py` and `ccp/queue.py`. The symbols this Context names
+  (`"def failures"`, `"def _review_gaps"`, `"def coverage"`, `"def phase_refusal"`, `"def submit"`,
+  `"def review_gate"`, `"def skip_review"`, `"def write_review_record"`, `"def progress_event"`) and
+  `ccp/report.py`'s clean-and-done call of `write_review_record` read as above at `76f41dd`.
+- **Other tasks.** 0275 (R23, pending) changes the third item of §13.2's list, and this task changes the first. 0270
+  cites §15.2 but changes other sections' text (§19.6 in `docs/spec/03-quality.md`). 0273 adds refusals to `ccp prompt verify` in `ccp/prompt.py` and
+  `ccp/verify.py` that have nothing to do with the review skip. That is different logic in each case: no clash.
 
 ### Rulings for the build (the lead's)
 
@@ -98,39 +104,39 @@ naming `_gate.md` edits rule text: SPEC.md says the SPEC "states rules only", an
   `docs/cli/02-delivery.md` (the submit row), `tests/test_formal_submit.py`, and the review-skip and
   review-gate test modules in `paths` where `review_gate`'s change reaches them.
 - **SPEC, signed before the claim (`sign_off: brief`):** four passages in `docs/spec/02-delivery.md`
-  and two rows in `docs/spec/04-observability.md`, each CURRENT at `a80cee0`.
+  and two rows in `docs/spec/04-observability.md`, each CURRENT at `76f41dd`.
 
-    CURRENT (`docs/spec/02-delivery.md` at `a80cee0`), §15.1, the paragraph that starts "The plane records two of these phases":
+    CURRENT (`docs/spec/02-delivery.md` at `76f41dd`), §15.1, the paragraph that starts "The plane records two of these phases":
     > Formal-submit is `ccp tasks submit <id>`, which the runner runs before `ccp prompt verify`: it exits 4, naming each failed item and moving nothing, unless the task has a PR, the review record's review covers the PR head (§15.2), and no spec question or escalation listing the task is open; a pass moves the task to `submitted`.
 
     PROPOSED:
     > Formal-submit is `ccp tasks submit <id>`, which the runner runs before `ccp prompt verify`. It refuses a task that is not mid-flight or is past `submitted` (`verifying`, `merging`), exit 3, moving nothing. Otherwise it exits 4, naming each failed item and moving nothing, unless the task has a PR, the PR head is covered, and no spec question or escalation listing the task is open; a pass moves the task to `submitted`. The head is covered when the review record's review is the task's latest review that reported `done` and covers the head (§15.2), or when `verify.skip_review` or a review prover proves the fix since that review, whatever it found (§15.2).
 
-    CURRENT (`docs/spec/02-delivery.md` at `a80cee0`), §15.2, the bullet "A declared prover of the review", its last sentence:
+    CURRENT (`docs/spec/02-delivery.md` at `76f41dd`), §15.2, the bullet "A declared prover of the review", its last sentence:
     > The verify run's `review_skip` then adds `prover` (its name) and `exit_code`, never the command text (§14.4).
 
     PROPOSED:
     > The verify run's `review_skip` then adds `prover` (its name) and `exit_code`, never the command text (§14.4). A fix round's proof runs once: when `ccp tasks submit` proves the fix (§15.1), it records `review_proof` on the fix round's run (the head, the integration tip whose plane.json it read, and the `review_skip` a verify run would record), and `ccp prompt verify` of that head takes that `review_skip`, running neither `proof` nor a prover, while `origin/<integration branch>` is still at that tip after its fetch and the task's latest review that reported `done` is still the one it judged (`reviewed`); otherwise it judges the fix again. Submit records `review_proof` only when it passes.
 
-    CURRENT (`docs/spec/02-delivery.md` at `a80cee0`), §13.2, item 1:
+    CURRENT (`docs/spec/02-delivery.md` at `76f41dd`), §13.2, item 1:
     > **The plane template** `templates/prompts/<phase>.md` (with `templates/prompts/_common.md`): the rules that hold in every product,
 
     PROPOSED:
     > **The plane template** `templates/prompts/<phase>.md` (with `templates/prompts/_common.md`, and, for a phase that pushes, the before-push part `templates/prompts/_gate.md`): the rules that hold in every product,
 
-    CURRENT (`docs/spec/02-delivery.md` at `a80cee0`), §11.1, the sentence after the field list:
+    CURRENT (`docs/spec/02-delivery.md` at `76f41dd`), §11.1, the sentence after the field list:
     > `ccp report` computes them when the round reports, never from the report's prose:
 
     PROPOSED:
     > `ccp report` computes `integration_merges` and `before_review` when the round reports, never from the report's prose (`follow_ups` are the report's own lines, §13.4):
 
-    CURRENT (`docs/spec/04-observability.md` at `a80cee0`), §23.7, the table's `progress/<id>.json` row:
+    CURRENT (`docs/spec/04-observability.md` at `76f41dd`), §23.7, the table's `progress/<id>.json` row:
     > | `progress/<id>.json`, the verifier packet | the runner |
 
     PROPOSED:
     > | `progress/<id>.json`, the task's phase moves (`contracts/progress.schema.json`) | `ccp`, at each phase move (§10.1), whichever seat's command makes it |
 
-    CURRENT (`docs/spec/04-observability.md` at `a80cee0`), §23.7, the table's `review/` row:
+    CURRENT (`docs/spec/04-observability.md` at `76f41dd`), §23.7, the table's `review/` row:
     > | `review/` | the reviewer subagent |
 
     PROPOSED:
@@ -164,14 +170,14 @@ naming `_gate.md` edits rule text: SPEC.md says the SPEC "states rules only", an
   steps:
     1. Run `python3 -B -m unittest -q tests.test_review_skip tests.test_review_skip_provers tests.test_review_skip_clean tests.test_review_gate 2>&1 | tail -1`.
   expect: prints `OK`.
-  dry run (`a80cee0`): printed `OK` (all four modules).
+  dry run (`76f41dd`): printed `OK` (all four modules).
 - id: `spec-01`
   story: As the operator, §11.1, §13.2, §15.1, §15.2 and §23.7 say what I signed.
   setup: A checkout of the PR head.
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0278`.
   expect: exit 0, all six PROPOSED passages found.
-  dry run (simulated at `a80cee0`: this task file committed, then the six passages applied, each CURRENT found once, committed in a scratch copy; `CCP_DEV=1 ./bin/ccp verify spec-text 0278 --base HEAD~1`): `"ok": true`, six passage(s) found, none missing.
+  dry run (simulated at `76f41dd`: this task file committed, then the six passages applied, each CURRENT found once, committed in a scratch copy; `CCP_DEV=1 ./bin/ccp verify spec-text 0278 --base HEAD~1`): `"ok": true`, six passage(s) found, none missing.
 
 ## Implementation notes
 
