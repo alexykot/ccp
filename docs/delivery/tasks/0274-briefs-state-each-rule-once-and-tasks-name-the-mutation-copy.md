@@ -1,7 +1,7 @@
 ---
 task_id: 0274-briefs-state-each-rule-once-and-tasks-name-the-mutation-copy
 title: Worker briefs stop restating the follow-up and marked-check instructions, and the writing-tasks skill names the tool for a planted-fault copy
-status: pending
+status: done
 kind: refactor
 depends_on: ["0257-one-gate-block-and-one-sentence-per-line"]
 clashes_with: ["0260-review-tools-and-the-tests-for-new-behaviour-section"]
@@ -11,7 +11,7 @@ review_point: R23
 paths: ["plugin/agents/delivery-implementer.md", "plugin/agents/delivery-reviewer.md", "plugin/agents/delivery-verifier.md", "plugin/skills/writing-tasks/SKILL.md"]
 adopt: "none"
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0274-briefs-state-each-rule-once-and-tasks-name-the-mutation-copy
@@ -105,4 +105,10 @@ plane's skill, which every product's task writer follows, in line.
 
 ## Implementation notes
 
+- Removed the bullets the task's rulings name: implementer (operator-machine; two follow-up bullets), reviewer and verifier (the follow-up bullet), verifier (operator-machine, four lines). Replaced the skill's planted-fault bullet with the ruled text. Nothing else touched.
+- Premise re-run at 133fbf66: the Context counts held (`## Follow-ups` 4 lines, `not yours to run` 4 lines, `separate copy` 1 line, `ccp/report.py:1`). `git grep -c 'git worktree add' -- 'docs/delivery/tasks/*.md'` now lists 51 files (task said 49 at 8020446): the two extra are tasks written since, including this one; it does not bear on the build.
+- doc-01..doc-03 run at the head: step outputs match each expect.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #306 head `0443a75` (squash `6ab44d8`): APPROVE. Passed: doc-01, doc-02, doc-03. Gate: `scripts/gate.sh (ccp suite run --lane gate)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0274-briefs-state-each-rule-once-and-tasks-name-the-mutation-copy.json.
+
