@@ -62,6 +62,11 @@ From architect pass `ar-20261121T132817Z-d5e5`, findings F01, F02 and F05 (the r
   `green_run`'s `default_lane` already reads a missing lane as the full role's). The module docstring's
   sentence "a run with no lane counts as the `full` role's lane" gains the wait default in the same
   words as §16.6.
+- **Lead's rulings** (ruling round 1), verbatim:
+
+  > Ruling 0265-one-gate-lane-and-worker-runs-wait-for-it-r1 (check cfg-01): 0261 added suite.lanes.part after this check was measured. cfg-01 holds when it prints ['gate', 'part'] ['gate']: no full lane, gate the only exclusive lane, and 0261's part lane kept.
+  >
+  > Ruling 0265-one-gate-lane-and-worker-runs-wait-for-it-r2: Keep as built: an explicit --lane full where plane.json declares no full lane is refused like any undeclared lane (exit 2). Since 0212, prompts render the full role's lane through config.lane_for, which returns gate here, so no rendered prompt names --lane full and in-flight workers are unaffected. SPEC §16.2's exclusive_lanes example is only an example; changing it is § text, left for a later signed task as a follow-up. doc-01's premise count drifting to 1 needs nothing.
 
 ## Scope
 
@@ -146,5 +151,8 @@ From architect pass `ar-20261121T132817Z-d5e5`, findings F01, F02 and F05 (the r
 - `tests/test_parallel_lanes.py`: the cold-gate test's bound run now passes `--wait 0`, since a bound run with
   a passing run of its lane recorded would otherwise wait for the holder; what it checks (a cold-gate task's run
   queues instead of skipping the lock) is unchanged.
+- Ruling round 1 (`-r1`, `-r2`, quoted in Context) changes no code: `-r1` accepts cfg-01's
+  `['gate', 'part'] ['gate']` with 0261's part lane kept; `-r2` keeps the refusal of an explicit `--lane full`
+  where no full lane is declared, and leaves §16.2's `exclusive_lanes` example to a later signed task.
 
 ## Verification notes
