@@ -177,4 +177,23 @@ clear, while a failure the branch causes fails exactly as before.
 
 ## Implementation notes
 
+- 2026-11-22 (implementer): `ccp/baseline.py` holds the decision on plain values (`split`, `comparable`,
+  `checker_changed`, `names`) and the wiring (`judge`, `run_at_base`, `emit`). `ccp docs check` and `ccp tasks
+  check` build a list of `Failure`s (rule lines, and command checks with their key, command and whole kept
+  output) and print through `cli._print_judged`. `ccp/rules.py` keeps each check command's run (`CheckRun`,
+  `run_check_runs`, `house_checks`); `run_checks`, `check_failures` and `check` return the same lines as before.
+- The run at the base is `bin/ccp --root <tmp worktree> <same argv>` with `CCP_BASE_RUN` naming a file it writes
+  its failures to as JSON (it then compares nothing itself), QUEUE_ROOT and CCP_ROOT dropped,
+  `CCP_NO_BINDING_QUEUE=1` (else `ccp` derives QUEUE_ROOT from the binding, since the base worktree's main
+  checkout is the product's) and `CCP_BINDINGS_DIR` set to `lib.bindings_dir()`. The worktree is made with
+  `wt.add_unrecorded` (the `worktrees.links` paths linked, as `tasks dry-run` does) in a `mkdtemp` directory and
+  removed in a `finally`. A base run that exits other than 0 or 1, or writes nothing readable, counts as no base.
+- `ccp where` already resolves the binding through `lib.bindings_dir()`, which honours `CCP_BINDINGS_DIR`: no
+  change to `cmd_where` or `scripts/observability/lib.py`.
+- Narrowest readings, flagged in the report: a check command that timed out at either side is never
+  pre-existing (its output is not whole); a command line names a path also after a quote, a parenthesis or
+  `=`, and either kind of line names `./<path>`; "the repository holds the `ccp` package" is
+  `ccp/__init__.py` in the product root; the changed paths are `git diff --name-only <base>...HEAD`, so an
+  uncommitted edit is not among them.
+
 ## Verification notes
