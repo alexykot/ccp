@@ -1,7 +1,7 @@
 ---
 task_id: 0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope
 title: Stale-Context warnings reach the lead at the spawn and the implementer in its prompt, not every seat's task check, and a same-point respawn keeps the tasks the lead added
-status: pending
+status: done
 kind: feature
 depends_on: ["0257-one-gate-block-and-one-sentence-per-line"]
 spec_refs: ["S13", "S16", "S21", "S22"]
@@ -160,3 +160,5 @@ change what `team.sh runner spawn` does with its scope. The SPEC passages are th
 - 2026-11-22 (fix round 1, review MINOR-1): `tests/test_stale_context_audience.py` gains a `Respawn` case for that path: with both tagged tasks done, a dry respawn on `work.json`'s point R8 spawns on the added 0002-b alone, and one on R10 (another point, none open) still exits 2 with the refusal. Moving the refusal back before the join, and removing it, are both killed by it. No code changed.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #346 head `389ffbc` (close's catch-up of the approved `56820f4`, gate run st-20261122T150701Z-998a08) (squash `0acc3bd`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope.json.
+
