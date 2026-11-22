@@ -1,7 +1,7 @@
 ---
 task_id: 0256-suite-run-refuses-a-closed-run-and-config-reads
 title: ccp suite run refuses a closed run as ccp mutate does, the sandbox reads plane.json through config, and suite busy rows lose wait_auto
-status: pending
+status: done
 kind: feature
 depends_on: ["0243-one-source-for-syntax-events-and-config"]
 clashes_with: ["0213-a-green-tree-skips-the-lane-queue", "0238-the-runner-runs-marked-checks-before-verify"]
@@ -13,7 +13,7 @@ paths: ["ccp/suite.py", "ccp/sandbox.py", "docs/spec/02-delivery.md", "docs/ENGI
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0256-suite-run-refuses-a-closed-run-and-config-reads
@@ -122,3 +122,5 @@ and its check first (to `plugin scripts` with `CONFIG_REL`); this task widens th
 - E16 text and check (ENGINEERING and `architect.checks`) as the task gives them; §14.2 sentence added.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #299 head `ad4ff6c` (squash `d50b34e`): APPROVE. Passed: sf-01, sf-02, sf-03, sf-04. Gate: `ccp suite run --lane gate (scripts/gate.sh)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0256-suite-run-refuses-a-closed-run-and-config-reads.json.
+

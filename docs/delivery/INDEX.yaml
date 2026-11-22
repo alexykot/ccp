@@ -1253,7 +1253,7 @@ tasks:
     depends_on: [0227-the-test-fixture-uses-the-local-pr-host, 0241-gate-module-tests-wiring-only]
     path: tasks/0255-test-fixtures-shared-helpers-and-one-repo-build.md
   - id: 0256-suite-run-refuses-a-closed-run-and-config-reads
-    status: pending
+    status: done
     title: ccp suite run refuses a closed run as ccp mutate does, the sandbox reads plane.json through config, and suite busy rows lose wait_auto
     depends_on: [0243-one-source-for-syntax-events-and-config]
     path: tasks/0256-suite-run-refuses-a-closed-run-and-config-reads.md
