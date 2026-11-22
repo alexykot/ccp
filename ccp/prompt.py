@@ -897,9 +897,9 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         raise QueueError(f"run id moved from {run_id} to {rec['run_id']} while rendering: run ccp prompt again", 1)
     if override:
         from ccp import health  # noqa: PLC0415
-        from ccp.queue import emit  # noqa: PLC0415
+        from ccp.queue import emit, lib  # noqa: PLC0415
         msg = f"allow-unreviewed-fix: {override['reason']} (was: {override['was']})"
-        health.add_note(q, msg, tid, os.environ.get("ACTOR") or "task-runner", "allow-unreviewed-fix")
+        health.add_note(q, msg, tid, os.environ.get("ACTOR") or lib.RUNNER, "allow-unreviewed-fix")
         emit(q, cfg, tid, "note", "set", {"message": msg, "source": "allow-unreviewed-fix", "run_id": run_id, **override})
     phase_move(q, cfg, tid, PHASE_STATUS[phase], f"{run_id} opened")
     desc = f"{nnnn} {phase}" + (f" r{n}" if n > 1 else "")

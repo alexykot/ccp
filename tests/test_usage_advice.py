@@ -15,6 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, usage
+from ccp.queue import lib
 from tests.helpers import advice_row as row, Product
 
 
@@ -79,10 +80,10 @@ class Advice(AdviceCase):
                   *(row(f"w{i}", "worker", ctx=900000, cost=1.0) for i in range(3)))
         lines = self.advice()
         self.assertEqual(len(lines), 2, lines)
-        lead = next(x for x in lines if "design-seat" in x)
+        lead = next(x for x in lines if lib.LEAD in x)
         self.assertIn("500000", lead)
         self.assertIn("autoCompactWindow", lead)
-        runner = next(x for x in lines if "design-seat" not in x)
+        runner = next(x for x in lines if lib.LEAD not in x)
         self.assertIn("runner", runner)
         self.assertIn("350000", runner)
         self.assertIn("team.sh runner rotate", runner)
@@ -117,7 +118,7 @@ class Advice(AdviceCase):
         self.sink(*(row(f"l{i}", "lead", ctx=c) for i, c in enumerate((100000, 200000, 300000))),
                   *(row(f"h{i}", "lead", ctx=1000, model="claude-haiku-4-5") for i in range(2)),
                   row("w1", "worker", cost=1.0))
-        lines = [x for x in json.loads(self.ccp("usage", "--json"))["advice"] if "design-seat" in x]
+        lines = [x for x in json.loads(self.ccp("usage", "--json"))["advice"] if lib.LEAD in x]
         self.assertEqual(len(lines), 1, lines)
         self.assertIn("median context 200000 ", lines[0])
 
@@ -128,7 +129,7 @@ class Advice(AdviceCase):
                   row("a9", "lead", ctx=1000, model="claude-haiku-4-5"),
                   row("b1", "lead", ctx=160000, model="claude-haiku-4-5", session="s2"),
                   row("w1", "worker", cost=1.0))
-        lines = [x for x in json.loads(self.ccp("usage", "--json"))["advice"] if "design-seat" in x]
+        lines = [x for x in json.loads(self.ccp("usage", "--json"))["advice"] if lib.LEAD in x]
         self.assertEqual(len(lines), 1, lines)
         self.assertIn("median context 160000 ", lines[0])
 

@@ -233,7 +233,7 @@ def release_git(cwd: Path, *a: str) -> str:
 
 
 def ledger_event(at: str, typ: str, op: str, payload: dict, task_id: str = "") -> dict:
-    return {"at": at, "project_id": "demo", "task_id": task_id, "actor": "design-seat", "type": typ, "op": op,
+    return {"at": at, "project_id": "demo", "task_id": task_id, "actor": lib.LEAD, "type": typ, "op": op,
             "payload": payload}
 
 

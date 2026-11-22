@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import adr, cli, health
+from ccp.queue import lib
 from tests.helpers import TASK, Product, as_lead
 
 
@@ -310,7 +311,7 @@ class Starved(QueueBase):
     def test_the_actor_is_the_callers(self):
         with as_lead():
             self.next("--holder", "runner")
-        self.assertEqual([e["actor"] for e in self.events("runner", "starved")], ["design-seat"])
+        self.assertEqual([e["actor"] for e in self.events("runner", "starved")], [lib.LEAD])
 
     def test_in_flight_counts_the_tasks_the_slot_holds(self):
         (self.q / "work.json").write_text(json.dumps({"in_flight": ["0002-b", "0003-c", "0004-d"]}))

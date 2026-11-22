@@ -36,6 +36,7 @@ sys.path.insert(0, str(HERE))
 
 from lib import (  # noqa: E402
     ACTORS,
+    RUNNER,
     append_event,
     apply_event,
     binding_data,
@@ -58,7 +59,7 @@ if str(HERE.parents[1]) not in sys.path:
     sys.path.insert(0, str(HERE.parents[1]))
 from ccp import refs  # noqa: E402  (the id shapes, §7)
 
-RAISERS = ("task-runner", "task-verifier")
+RAISERS = (RUNNER, "task-verifier")
 
 VERDICTS = ("resolved", "needs_operator", "not_a_spec_question")
 
@@ -516,7 +517,7 @@ def lead_message_action(root: Path, q: dict[str, Any]) -> dict[str, Any]:
 def process(root: Path, qp: Path, actor: str | None = None, extra: dict[str, Any] | None = None) -> int:
     q = read_json(qp)
     qid = q["question_id"]
-    actor = actor or env_raiser() or q.get("raised_by") or "task-runner"
+    actor = actor or env_raiser() or q.get("raised_by") or RUNNER
     if actor not in ACTORS:
         actor = "system"
     result: dict[str, Any] = dict(extra or {})

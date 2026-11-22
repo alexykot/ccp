@@ -11,6 +11,7 @@ import time
 import unittest
 from pathlib import Path
 
+from ccp.queue import lib
 from tests.helpers import Product, binding
 from tests.team_hosting_fixture import HOOK, PLANE, TEAM, TeamCase
 
@@ -29,7 +30,7 @@ class TestRunner(TeamCase):
         self.assertEqual((w["status"], w["scope"], w["runner_tasks_done"]), ("running", ["0001-a", "0002-b"], 0))
         self.assertTrue((self.q / res["prompt_ref"]).is_file())
         ev = [e for e in self.events() if e["type"] == "runner"]
-        self.assertEqual((ev[-1]["op"], ev[-1]["actor"]), ("spawn", "design-seat"))
+        self.assertEqual((ev[-1]["op"], ev[-1]["actor"]), ("spawn", lib.LEAD))
 
     def test_spawn_warns_when_close_will_not_stamp_the_review_point(self):
         """§22.1: `ccp tasks close` stamps only a review point that matches ids.review_point.pattern."""
@@ -74,7 +75,7 @@ class TestRunner(TeamCase):
         self.assertEqual(json.loads((self.q / "work.json").read_text())["scope"], ["0001-a", "0002-b", "0003-c"])
         ev = [e for e in self.events() if e["type"] == "runner"]
         self.assertEqual((ev[-1]["op"], ev[-1]["actor"], ev[-1]["payload"]["added"]),
-                         ("scope", "design-seat", ["0002-b", "0003-c"]))
+                         ("scope", lib.LEAD, ["0002-b", "0003-c"]))
         code, res, _ = self.team("runner", "scope", "--remove", "0003-c")
         self.assertEqual((code, res["scope"], res["removed"]), (0, ["0001-a", "0002-b"], ["0003-c"]))
         # refusals: not an id; empty scope; nothing to change; no running runner
