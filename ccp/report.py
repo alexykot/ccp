@@ -49,7 +49,7 @@ from typing import Any, Callable, NamedTuple
 
 from ccp import followups, health, refs, runs
 from ccp.config import Config, lane_for
-from ccp.queue import QueueError, emit, iso, phase_move, read_json, root, write_json
+from ccp.queue import QueueError, emit, iso, lib, phase_move, read_json, root, write_json
 
 # The line patterns lead with `[^\w\n]*` (a bullet, bold markers), not `\W*`: under re.M `\W` also
 # matches a newline, so a blank line above `Suite:` began the match there and lost the line's counts.
@@ -831,4 +831,4 @@ def write_review_record(cfg: Config, q: Path, review: dict[str, Any]) -> str:
 
 def _actor_for(seat: str) -> str:
     # The ledger's actors are seats; the verifier has its own id, the other workers act for the runner (§23.7).
-    return "task-verifier" if seat == "verifier" else "task-runner"
+    return "task-verifier" if seat == "verifier" else lib.RUNNER

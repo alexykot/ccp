@@ -1,7 +1,7 @@
 ---
 task_id: 0289-the-runner-s-actor-id-is-named-once-and-tests-read-the-lead-s
 title: The runner's actor id is named once in the seat table, E27's command checks it as it checks the lead's, and tests read the lead's id through lib.LEAD
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E27", "E4"]
@@ -91,4 +91,22 @@ command), `0272-the-lead-s-records-share-one-guard-and-one-actor-id/implement#3`
 
 ## Implementation notes
 
+- Premises re-measured at `663d8fd9`: the runner's literal still printed 13 lines (the 11 to replace,
+  `lib.py`'s and `write-prompt-audit.sh`'s). The tests' `"design-seat"` printed 29 lines in 10 files, not 36
+  in 14: 0288 had landed and replaced the `ACTOR` ones with `LEAD_ENV`, as the Context expected. The four
+  modules in `paths` with none left (`test_next_passes_over`, `test_review_points`, `test_session_park`,
+  `test_toolkit`) are unchanged.
+- `ccp/`: `queue.py`'s defaults read its module-level `lib`; `report.py` and `suite.py` add `lib` to their
+  `from ccp.queue import …`; `cli.py`'s `_architect_gate` and `prompt.py`'s override branch import it locally,
+  beside their other local imports; `seats.py` already had it.
+- `architecture_review.py` and `spec_maintainer.py` add `RUNNER` to their `from lib import (…)`; `RAISERS` is
+  `(RUNNER, "task-verifier")`.
+- E27's command and its `check:` line are the ruling's text. Tried in a `ccp wt create --kind mut` worktree at
+  the head: exit 0 clean; a planted `X = "task-runner"` and a planted `X = "design-seat"` in `ccp/seats.py`
+  each print the line and exit 1.
+- Tests: each `"design-seat"` reads `lib.LEAD`; the eight modules without it import `lib` from `ccp.queue`
+  (`helpers.py` and `test_wait_reasons.py` already had it).
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #337 head `2266efa` (squash `a36bb43`): APPROVE. Passed: code-01, cfg-01, test-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0289-the-runner-s-actor-id-is-named-once-and-tests-read-the-lead-s.json.
+

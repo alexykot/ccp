@@ -9,6 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from ccp import board, usage
+from ccp.queue import lib
 from tests.helpers import BoardPage
 from tests.board_drill_fixture import Fixture
 
@@ -34,7 +35,7 @@ class Lapse(unittest.TestCase):
 
     def decide(self, at, to, resets=W):
         with (self.q / "board/allowance-decisions.jsonl").open("a") as fh:
-            fh.write(json.dumps({"at": at, "by": "design-seat", "to": to, "reason": "operator: go on",
+            fh.write(json.dumps({"at": at, "by": lib.LEAD, "to": to, "reason": "operator: go on",
                                  "resets_at": resets, "seven_day_then": 80}) + "\n")
 
     def test_a_sharp_drop_is_a_reset(self):
@@ -100,7 +101,7 @@ class LapsedOnTheBoard(BoardPage, Fixture, unittest.TestCase):
                                  "weekly_over": {"window": "seven_day", "pct": 85.0, "checkpoint": 80.0},
                                  "checkpoint": 80.0, "project_checkpoint": 80, "counter_resets": ["2026-10-22T08:09:57Z"],
                                  "decision_lapsed_at": "2026-10-22T08:09:57Z",
-                                 "decisions": [{"at": "2026-10-21T20:35:57Z", "by": "design-seat", "to": 95.0,
+                                 "decisions": [{"at": "2026-10-21T20:35:57Z", "by": lib.LEAD, "to": 95.0,
                                                 "seven_day_then": 80, "reason": "go on", "resets_at": W,
                                                 "lapsed_at": "2026-10-22T08:09:57Z"}]}
         self.assertIn("decision lapsed at the counter reset 2026-10-22T08:09:57Z", board.status_text(b))

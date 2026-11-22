@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, otel, usage
+from ccp.queue import lib
 from tests.helpers import api_request as req, binding, FoldRuns, Product, T0
 
 PLANE = Path(__file__).resolve().parents[1]
@@ -159,7 +160,7 @@ class Fold(FoldRuns, unittest.TestCase):
         review = next(x for x in r["runs"] if x["run_id"] == "0001-a/review")
         self.assertEqual(review["usage"]["requests"], 1)
         self.assertEqual(r["seats"]["runner"]["output_tokens"], 50)
-        self.assertEqual(r["seats"]["design-seat"]["output_tokens"], 5)
+        self.assertEqual(r["seats"][lib.LEAD]["output_tokens"], 5)
         self.assertEqual(r["unattributed"]["requests"], 1)
         self.assertEqual(r["how"], {"headless": 0, "untagged": 0, "span": 2, "teammate": 1, "lead": 1, "session": 0, "window": 1,
                                     "nospan": 0, "none": 1})
@@ -202,7 +203,7 @@ class Fold(FoldRuns, unittest.TestCase):
         self.write("usage-spans.jsonl", [{"request_id": "w1", "agent_id": "a1"}])
         r = usage.fold(self.q)
         self.assertEqual(r["how"]["nospan"], 1)
-        self.assertNotIn("design-seat", r["seats"])
+        self.assertNotIn(lib.LEAD, r["seats"])
         self.assertLess(r["coverage"], 1)
 
     def test_duplicates_count_once_and_bad_numbers_do_not_crash(self):
@@ -267,7 +268,7 @@ class Fold(FoldRuns, unittest.TestCase):
         self.assertEqual(r["seats"]["runner"]["output_tokens"], 7)
         self.assertEqual(r["seats"]["other-sessions"]["output_tokens"], 11)
         self.assertEqual(list(r["other_sessions"]), [f"{root}/scratch-wt"])
-        self.assertEqual((r["seats"]["design-seat"]["requests"], r["seats"]["design-seat"]["output_tokens"]), (1, 3))
+        self.assertEqual((r["seats"][lib.LEAD]["requests"], r["seats"][lib.LEAD]["output_tokens"]), (1, 3))
         impl = next(x for x in r["runs"] if x["run_id"] == "0001-a/implement")
         self.assertEqual(impl["usage"]["requests"], 1)
         self.assertEqual(r["unattributed"]["requests"], 0)

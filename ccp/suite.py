@@ -65,7 +65,7 @@ from typing import Any, Iterator
 from ccp.envvars import envvar, for_child
 from ccp import config, doclang, runs
 from ccp.config import PLANE_DOCS_STAGE, SUITE_LANE_RE, Config, fill, lane_for, lane_stages, skip_rules_at
-from ccp.queue import QueueError, emit, iso, root
+from ccp.queue import QueueError, emit, iso, lib, root
 
 COLD_VAR = "CCP_SUITE_COLD"  # §14.2: `ccp suite run --cold` sets it to 1 for what the run starts
 LINE_MAX = 8192  # a partial line longer than this is dropped from the count scan, never from the output
@@ -849,7 +849,7 @@ def _bind(cfg: Config | None, q: Path, a: Any, warn: _Warn) -> dict[str, Any]:
 
 
 def _actor_for(seat: str | None) -> str:
-    return "task-verifier" if seat == "verifier" else "task-runner"
+    return "task-verifier" if seat == "verifier" else lib.RUNNER
 
 
 # The watchdog: it sits in the command's process group, ignores the signals ccp forwards, and waits

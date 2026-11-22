@@ -28,6 +28,7 @@ sys.path.insert(0, str(HERE))
 
 from lib import (  # noqa: E402
     ACTORS,
+    RUNNER,
     append_event,
     die,
     fmt_dt,
@@ -162,7 +163,7 @@ def triage_path(root: Path, rid: str) -> Path:
 
 
 def actor_of(arg: str | None) -> str:
-    a = arg or os.environ.get("ACTOR") or "task-runner"
+    a = arg or os.environ.get("ACTOR") or RUNNER
     return a if a in ACTORS else "system"
 
 

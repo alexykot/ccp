@@ -9,6 +9,7 @@ import subprocess
 import unittest
 
 from ccp import board, config, models, runs, seats, usage
+from ccp.queue import lib
 from tests.board_quality_fixture import HOSTILE, STUB, _hostile
 from tests.board_seats_fixture import SeatsBase, at, req
 
@@ -42,7 +43,7 @@ class Expected(SeatsBase, unittest.TestCase):
     def test_a_seat_quiet_for_two_hours_is_flagged(self):
         (self.q / "observability").mkdir(exist_ok=True)
         (self.q / "observability" / "events.jsonl").write_text(json.dumps(
-            {"at": at(185), "actor": "design-seat", "type": "gate", "op": "decided"}) + "\n")
+            {"at": at(185), "actor": lib.LEAD, "type": "gate", "op": "decided"}) + "\n")
         r = self.rows(self.build())
         self.assertEqual(r["design seat"]["stale"], "quiet 3 h")
         _, _, out, _ = self.ccp("board", "status", root=self.main)
@@ -152,7 +153,7 @@ class Observed(SeatsBase, unittest.TestCase):
         # a fold that still put that session's rows on the lead (or the runner): the table sets them aside
         t = at(1)
         fake = {"total": {"requests": 3}, "headless": [{"session_id": "S-pass"}], "recent": {"runs": {}, "seats": {
-            "design-seat": [{"at": t, "model": "claude-opus-5-5", "effort": "high", "tokens": 9, "session_id": "S-pass"},
+            lib.LEAD: [{"at": t, "model": "claude-opus-5-5", "effort": "high", "tokens": 9, "session_id": "S-pass"},
                             {"at": t, "model": "claude-opus-5-5", "effort": "high", "tokens": 9, "session_id": "S-pass"},
                             {"at": mine["at"], "model": "claude-opus-5-5", "effort": "xhigh", "tokens": 9, "session_id": "S-lead"}]}}}
         lead = {r["seat"]: r for r in seats.collect(config.load(self.main), self.q, fake, {})["rows"]}["design seat"]
@@ -166,7 +167,7 @@ class Observed(SeatsBase, unittest.TestCase):
         self.requests(req("r1", 5, "claude-opus-5-5", "high", query_source="sdk", session_id="S-old"),
                       req("r2", 4, "claude-opus-5-5", "high", query_source="sdk", session_id="S-old"), placed)
         rep = usage.fold(self.q, None, {"model": "claude-opus-5-5", "effort": "xhigh"})
-        self.assertEqual((rep["seats"][usage.UNTAGGED]["requests"], rep["seats"]["design-seat"]["requests"]), (2, 1))
+        self.assertEqual((rep["seats"][usage.UNTAGGED]["requests"], rep["seats"][lib.LEAD]["requests"]), (2, 1))
         self.assertEqual((rep["how"]["untagged"], rep["advice"]), (2, []))
         b = self.build()
         self.assertEqual(b["usage"]["advice"], [])
