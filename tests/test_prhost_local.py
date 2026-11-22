@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -65,7 +66,7 @@ class LocalHost(ToolkitFixture, unittest.TestCase):
         self.assertEqual((code, out.strip()), (0, "1"), err)
         rec = self.record(1)
         self.assertEqual(set(rec), set(PR_SCHEMA["required"]))
-        self.assertEqual((rec["branch"], rec["base"], rec["head"], rec["state"]), (BRANCH, "main", head, "OPEN"))
+        self.assertEqual((rec["branch"], rec["base"], rec["head"], rec["state"]), (BRANCH, "main", head, "open"))
 
         code, _, out, err = self.ccp("pr", "view", "1", "--json")
         self.assertEqual(code, 0, err)
@@ -85,7 +86,7 @@ class LocalHost(ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", "1")
         self.assertEqual(code, 0, out + err)
         rec = self.record(1)
-        self.assertEqual(rec["state"], "MERGED")
+        self.assertEqual(rec["state"], "merged")
         self.assertTrue(rec["merged_at"])
         git(self.main, "fetch", "-q", "origin")
         self.assertEqual(git(self.main, "rev-parse", "origin/main~1"), rec["merge_commit"])
@@ -103,14 +104,16 @@ class LocalHost(ToolkitFixture, unittest.TestCase):
         self.assertEqual(json.loads(out)["head"], later)
         self.assertEqual(self.record(1)["head"], later)
 
-    def test_merge_records_its_own_squash_commit(self):
+    def test_merge_records_its_own_squash_commit_as_merged_at_its_time(self):
         head = self.push_work()
         self.open_pr()
         r = prhost.merge(self.cfg(), "1", head, "0002-second")
         self.assertTrue(r.ok, r.message)
         rec = self.record(1)  # read straight from the queue: no view or confirm has run since the merge
-        self.assertEqual(rec["merge_commit"], self.origin_tip())
-        self.assertEqual(rec["state"], "OPEN")
+        tip = self.origin_tip()
+        self.assertEqual((rec["merge_commit"], rec["state"]), (tip, "merged"))
+        when = int(git(self.main, "show", "-s", "--format=%ct", tip))
+        self.assertEqual(rec["merged_at"], datetime.fromtimestamp(when, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
 
     def test_merge_refuses_a_head_that_is_not_the_branchs_and_records_nothing(self):
         first = self.push_work()
@@ -122,7 +125,7 @@ class LocalHost(ToolkitFixture, unittest.TestCase):
         self.assertIn(first[:12], r.message)
         self.assertEqual(self.origin_tip(), tip)
         rec = self.record(1)
-        self.assertEqual((rec["state"], rec["merge_commit"]), ("OPEN", ""))
+        self.assertEqual((rec["state"], rec["merge_commit"]), ("open", ""))
 
     def test_open_refuses_a_second_record_for_one_branch(self):
         self.push_work()
@@ -144,13 +147,13 @@ class LocalHost(ToolkitFixture, unittest.TestCase):
         prs = self.q / prhost.PRS_DIR
         prs.mkdir(parents=True, exist_ok=True)
         (prs / "41.json").write_text(json.dumps({**self.record_like(41), "branch": "task/0001-first",
-                                                 "state": "MERGED"}))
+                                                 "state": "merged"}))
         code, out, err = self.open_pr()
         self.assertEqual((code, out.strip()), (0, "42"), err)
 
     def record_like(self, n: int) -> dict:
         return {"number": n, "branch": BRANCH, "base": "main", "title": "t", "body": "", "head": "",
-                "state": "OPEN", "opened_at": "2026-01-01T00:00:00Z", "merged_at": None, "merge_commit": ""}
+                "state": "open", "opened_at": "2026-01-01T00:00:00Z", "merged_at": None, "merge_commit": ""}
 
     def test_a_refused_push_names_the_rerun_of_close_and_records_nothing_merged(self):
         head = self.push_work()
@@ -177,7 +180,7 @@ class LocalHost(ToolkitFixture, unittest.TestCase):
         r = prhost.merge(self.cfg(), "1", head, "0002-second")
         self.assertFalse(r.ok)
         self.assertTrue(r.conflict)
-        self.assertEqual(self.record(1)["state"], "OPEN")
+        self.assertEqual(self.record(1)["state"], "open")
 
     def test_a_merge_made_by_a_merge_command_is_confirmed_by_its_squash_subject(self):
         head = self.push_work()
@@ -190,6 +193,15 @@ class LocalHost(ToolkitFixture, unittest.TestCase):
         facts = prhost.confirm(self.cfg(), "1")
         self.assertEqual((facts.state, facts.merge_commit), ("merged", sha))
         self.assertTrue(facts.merged_at)
+
+    def test_a_record_in_the_old_uppercase_words_is_refused_naming_its_file(self):
+        prs = self.q / prhost.PRS_DIR
+        prs.mkdir(parents=True, exist_ok=True)
+        (prs / "1.json").write_text(json.dumps({**self.record_like(1), "state": "OPEN"}))
+        code, _, out, err = self.ccp("pr", "view", "1")
+        self.assertNotEqual(code, 0, out)
+        self.assertIn("1.json", err)
+        self.assertEqual(json.loads((prs / "1.json").read_text())["state"], "OPEN")
 
     def test_view_keeps_the_head_it_saw_when_the_branch_is_gone_and_refuses_an_unknown_pr(self):
         head = self.push_work()

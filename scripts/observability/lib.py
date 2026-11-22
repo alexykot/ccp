@@ -46,10 +46,11 @@ ACTORS = SEAT_IDS + ("adapter", "operator", "system", "plane-session")  # plane-
 # hold (the lead's hold on a task, work.json `held`: `ccp tasks hold`, `next` passes over it). §3.5 adds
 # sign_off (the operator's sign-off on a task's text, recorded by `ccp tasks sign-off`; claim and close read it).
 # §3.6 adds notify (pending: a trigger fired; sent: a notice sent, by `ccp` over the command or by the lead).
+# §23.2 adds pr (the local PR host's record opened, its body edited, or first recorded merged: ccp/prhost.py).
 REVIEW_EVENT_TYPES = ("architecture_review", "docs_audit", "architect")
 TEAM_EVENT_TYPES = ("gate", "runner")
 TOOLKIT_EVENT_TYPES = ("run", "review", "verify", "allowance", "plane", "suite", "prefer", "hold", "sign_off",
-                       "ruling", "notify")
+                       "ruling", "notify", "pr")
 # Read-only legacy types (E9's alias): the schema still allows them, so an old ledger validates; ccp writes none.
 LEGACY_EVENT_TYPES = ("hosting",)  # an old ledger's hosting switch (Grok hosting is gone)
 EVENT_TYPES = ("phase", "waiting_on", "lease", "claude", "auth", "seat", "durable", "note", "question", "spec_maintainer",
@@ -91,6 +92,8 @@ EVENT_OPS = (
     "sent",
     "adopted",
     "archived",
+    "edited",
+    "merged",
 )
 # §10.1's runtime waits: what set-waiting-on.sh accepts on `set`. WAIT_READ_ONLY is read from an older queue,
 # cleared like any wait, and never written (E9's alias).
@@ -201,6 +204,10 @@ REQUIRED_PAYLOAD = {
     # §31.3: `ccp plane check --archive` moved or failed to move queue entries (counts only, no paths)
     ("plane", "archived"): ("day", "archived", "not_moved"),
     ("suite", "recorded"): ("suite_id", "exit_code", "seconds"),
+    # §23.2: the local PR host's record (ccp/prhost.py `Local`), one per opening, body edit and merge
+    ("pr", "opened"): ("pr", "head"),
+    ("pr", "edited"): ("pr", "head"),
+    ("pr", "merged"): ("pr", "head", "merge_commit"),
     ("prefer", "set"): ("by", "reason"),
     ("prefer", "clear"): ("was", "reason"),
     # The retired architecture review and docs audit (§19.12): readers of old records only.

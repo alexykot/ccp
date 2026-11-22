@@ -13,9 +13,9 @@
     "title": {"type": "string"},
     "body": {"type": "string", "description": "The PR's text; `ccp pr edit` replaces it"},
     "head": {"type": "string", "description": "The head last seen on origin/<branch>"},
-    "state": {"enum": ["OPEN", "MERGED", "CLOSED"]},
+    "state": {"enum": ["open", "merged", "closed"], "description": "The plane's own state words (ccp/prhost.py `STATES`)"},
     "opened_at": {"type": "string"},
-    "merged_at": {"type": ["string", "null"], "description": "Set when the merge is confirmed on origin/<base>"},
+    "merged_at": {"type": ["string", "null"], "description": "The squash commit's time, set with the state `merged`: by the adapter's own merge, or by the read that finds a squash made by `merge.command` on origin/<base>"},
     "merge_commit": {"type": "string", "description": "The squash commit pushed to <base>; empty until the merge"}
   }
 }

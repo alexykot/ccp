@@ -2,7 +2,8 @@
 PR-host interface `ccp pr` serves to workers and the runner. Everything else sees a PR as `PrFacts`, plain
 normalised values, never a host's field names or state words. plane.json `pr_host.adapter` names the adapter
 (ADR-0040 D5): the GitHub adapter runs `gh` (`CCP_GH_BIN`, else `gh`) and holds the one merge argv; the local
-adapter keeps each PR's record in the queue and merges with git alone (ADR-0040 D3). `merge.command` in
+adapter keeps each PR's record in the queue, in `STATES`' words, records a `pr` ledger event for each opening, body
+edit and merge (§23.2), and merges with git alone (ADR-0040 D3). `merge.command` in
 plane.json still replaces the merge operation under either (SPEC §15.5)."""
 from __future__ import annotations
 
@@ -26,7 +27,6 @@ BODY_TIMEOUT_S = 60  # how long a body read waits on the host
 
 _GITHUB_STATES = {"OPEN": "open", "MERGED": "merged", "CLOSED": "closed"}
 PRS_DIR = "prs"  # ADR-0040 D3: the local adapter's records, QUEUE_ROOT/prs/<n>.json (contracts/pr_record.schema.json)
-_LOCAL_STATES = {s.upper(): s for s in STATES}  # a local record's state word, and the normalised state it reads as
 _VIEW_FIELDS = "number,state,headRefOid,headRefName,mergeCommit,mergedAt"
 
 
@@ -208,7 +208,7 @@ class Local:
             raise HostReadFailed(f"no PR #{pr} in {path.parent}", f"no record {path.name}") from None
         except (OSError, ValueError) as exc:
             raise HostError(f"{path} is not a PR record: {exc}") from None
-        if not isinstance(rec, dict) or rec.get("state") not in _LOCAL_STATES:
+        if not isinstance(rec, dict) or rec.get("state") not in STATES:
             raise HostError(f"{path} names no PR state")
         return rec
 
@@ -216,6 +216,20 @@ class Local:
         from ccp import queue  # noqa: PLC0415
 
         queue.write_json(self._dir() / f"{rec['number']}.json", rec)
+
+    def _emit(self, rec: dict[str, Any], op: str, **extra: str) -> None:
+        """§23.2: the record's `pr` event, `op` (opened, edited, merged), under the branch's task when it is `task/<id>`."""
+        from ccp import queue  # noqa: PLC0415
+
+        branch = str(rec["branch"])
+        task_id = branch.removeprefix("task/") if branch.startswith("task/") else ""
+        queue.emit(queue.root(), self.cfg, task_id, "pr", op, {"pr": int(rec["number"]), "head": str(rec["head"]), **extra})
+
+    def _merged_at(self, sha: str, cwd: Path | None = None) -> str:
+        """The squash commit's time, as a record's `merged_at`: now when git cannot read it."""
+        when = self._git("show", "-s", "--format=%ct", sha, cwd=cwd).stdout.strip()
+        at = datetime.fromtimestamp(int(when), timezone.utc) if when.isdigit() else datetime.now(timezone.utc)
+        return at.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _git(self, *args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
         return _run(self.cfg, ["git", "-C", str(cwd or self.cfg.root), *args])
@@ -245,8 +259,8 @@ class Local:
 
     def _refresh(self, rec: dict[str, Any]) -> None:
         """An open record brought up to origin: its head from origin/<branch> (kept when the branch is gone), and
-        `MERGED`, with the merge time, once its squash commit is on origin/<base>."""
-        if rec["state"] != "OPEN":
+        `merged`, with the merge time, once its squash commit is on origin/<base>."""
+        if rec["state"] != "open":
             return
         tip = self._tip(str(rec["branch"]))
         if tip:
@@ -254,24 +268,25 @@ class Local:
         self._tip(str(rec["base"]))
         sha = self._squash_of(rec)
         if sha and self._git("merge-base", "--is-ancestor", sha, f"refs/remotes/origin/{rec['base']}").returncode == 0:
-            when = self._git("show", "-s", "--format=%ct", sha).stdout.strip()
-            at = datetime.fromtimestamp(int(when), timezone.utc) if when.isdigit() else datetime.now(timezone.utc)
-            rec.update(state="MERGED", merge_commit=sha, merged_at=at.strftime("%Y-%m-%dT%H:%M:%SZ"))
+            rec.update(state="merged", merge_commit=sha, merged_at=self._merged_at(sha))
 
     def _read(self, pr: str) -> dict[str, Any]:
-        """The record, refreshed from origin and written back when that changed it."""
+        """The record, refreshed from origin and written back when that changed it; the write that first records it
+        merged (a merge made by `merge.command`) records its `merged` event."""
         with self._locked():
             rec = self._load(pr)
             before = dict(rec)
             self._refresh(rec)
             if rec != before:
                 self._save(rec)
+                if before["state"] != "merged" and rec["state"] == "merged":
+                    self._emit(rec, "merged", merge_commit=str(rec["merge_commit"]))
         return rec
 
     @staticmethod
     def _facts(rec: dict[str, Any], with_body: bool = False) -> PrFacts:
-        merged = rec["state"] == "MERGED"
-        return PrFacts(number=int(rec["number"]), state=_LOCAL_STATES[rec["state"]], head=str(rec["head"]),
+        merged = rec["state"] == "merged"
+        return PrFacts(number=int(rec["number"]), state=str(rec["state"]), head=str(rec["head"]),
                        branch=str(rec["branch"]), merged_at=rec.get("merged_at") if merged else None,
                        merge_commit=str(rec["merge_commit"]) if merged else "",
                        body=str(rec["body"]) if with_body else None)
@@ -292,11 +307,13 @@ class Local:
             numbers = [int(p.stem) for p in d.glob("*.json") if p.stem.isdigit()]
             for n in numbers:
                 rec = self._load(str(n))
-                if rec["branch"] == branch and rec["state"] == "OPEN":
+                if rec["branch"] == branch and rec["state"] == "open":
                     raise HostError(f"{branch} has an open PR already: #{n}")
             n = max(numbers, default=0) + 1
-            self._save({"number": n, "branch": branch, "base": base, "title": title, "body": body, "head": head,
-                        "state": "OPEN", "opened_at": iso(), "merged_at": None, "merge_commit": ""})
+            rec = {"number": n, "branch": branch, "base": base, "title": title, "body": body, "head": head,
+                   "state": "open", "opened_at": iso(), "merged_at": None, "merge_commit": ""}
+            self._save(rec)
+            self._emit(rec, "opened")
         return n
 
     def diff(self, pr: str) -> str:
@@ -311,6 +328,7 @@ class Local:
             rec = self._load(pr)
             rec["body"] = body
             self._save(rec)
+            self._emit(rec, "edited")
 
     @contextlib.contextmanager
     def _merge_tree(self, task_id: str, base: str) -> Iterator[Path]:
@@ -336,7 +354,7 @@ class Local:
 
         rec = self._read(pr)
         n, branch, base = rec["number"], str(rec["branch"]), str(rec["base"])
-        if rec["state"] != "OPEN":
+        if rec["state"] != "open":
             return MergeResult(False, f"PR #{n} is {rec['state']}, not open: nothing merged")
         tip = self._tip(branch)
         if not tip or tip.lower() != head.lower():
@@ -355,6 +373,7 @@ class Local:
                         return MergeResult(False, f"git {step[0]} for PR #{n}: {said}: nothing merged",
                                            step[0] == "merge" and "conflict" in said.lower())
                 sha = self._git("rev-parse", "HEAD", cwd=where).stdout.strip()
+                merged_at = self._merged_at(sha, cwd=where)
                 r = self._git("push", "-q", "origin", f"HEAD:refs/heads/{base}", cwd=where)
                 if r.returncode != 0:
                     return MergeResult(False, f"the push of PR #{n}'s squash {sha[:12]} to {base} was refused (has the "
@@ -366,8 +385,10 @@ class Local:
             return MergeResult(False, f"PR #{n}: {exc}: nothing merged")
         with self._locked():
             rec = self._load(pr)
-            rec["merge_commit"] = sha
-            self._save(rec)
+            if rec["state"] == "open":  # else a read that found the squash on the base recorded it first
+                rec.update(state="merged", merge_commit=sha, merged_at=merged_at)
+                self._save(rec)
+                self._emit({**rec, "head": tip}, "merged", merge_commit=sha)
         return MergeResult(True, f"squashed onto {base} as {sha[:12]}")
 
     def confirm(self, pr: str) -> PrFacts:
@@ -457,6 +478,6 @@ def merge(cfg: Config, pr: str, head: str, task_id: str) -> MergeResult:
 
 def confirm(cfg: Config, pr: str) -> PrFacts:
     """The PR's facts after a merge was asked for: the caller checks `state` is merged and takes
-    `merge_commit`. On GitHub it is the same read as `view`; the local adapter records `MERGED` once its
-    squash commit is on origin/<base>."""
+    `merge_commit`. On GitHub it is the same read as `view`; the local adapter's record is `merged` from its own
+    merge, or once a squash commit made by `merge.command` is on origin/<base>."""
     return adapter(cfg).confirm(str(pr))
