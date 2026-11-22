@@ -119,11 +119,11 @@ its task file is resolved, never a blocker; the board lists it as queue-against-
 |---|---|
 | `work.json`, `tasks/<id>.json`, the lease | the runner, through `ccp` |
 | `events.jsonl` | the runner (task events, and `runner`/`starved` through `ccp tasks next --holder`); the lead (`question`/`answered`, `gate`/`decided`, `runner`/`spawn`, `bound`, `scope`, `rotate`, `stop`) |
-| `progress/<id>.json`, the verifier packet | the runner |
+| `progress/<id>.json`, the task's phase moves (`contracts/progress.schema.json`) | `ccp`, at each phase move (§10.1), whichever seat's command makes it |
 | `progress/<id>/<phase>-report.md` (`progress/<task_id>/<phase>-report.md`) | each worker submits its full report with `ccp report <run_id> FILE`, then tells the runner by `SendMessage` |
 | `verification/<id>.json` | the verifier subagent, through `ccp verify record` |
 | `verification/<id>.later.jsonl` | the lead or the runner, through `ccp verify later`, after the task closed (§15.4) |
-| `review/` | the reviewer subagent |
+| `review/<id>.json`, the task's review record (§15.1) | the reviewer, through `ccp report`, when its review reports clean |
 | `prompts/<task_id>/<UTC>_<phase>.json` | the runner, before each worker launch (the audit of the prompt it passes, `session_id` replaced by the worker's name; §23.8); the lead, before each runner spawn (`phase: runner-spawn`) |
 | `questions/sm-*.json` | the runner |
 | `questions/*.answer.json` | the lead |
