@@ -1,7 +1,7 @@
 # contracts — JSON Schemas for the records the plane reads or writes
 
 One schema per format: product config (`plane_config.schema.json`), bindings, task and ADR
-frontmatter, queue records (events, snapshots, escalations, questions and answers, verification,
+frontmatter, queue records (events, escalations, questions and answers, verification,
 worktrees, prompt audits, a task's phase moves in `progress/` and its review record in `review/`),
 architect reports, and the product-reported contracts (gate results, allowance windows). A renamed
 value stays listed as a deprecated, read-only alias so old records still validate. Code and schema

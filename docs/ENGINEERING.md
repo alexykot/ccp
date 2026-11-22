@@ -136,7 +136,7 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   `_DEC_MARK` (the line grammar of a decision's heading and mark; its other decision patterns derive from them).
 
 - The gate's test cache keys every module on all the inputs it shares (every tracked and untracked
-  file but the test modules no other imports), not on what it imports: one source edit reruns every
+  file but the test modules), not on what it imports: one source edit reruns every
   module (scripts/gate_parallel.py).
 
 - Health's before-review conflict catch-up figures (`ccp/health.py` `conflict_catch_ups`) are the

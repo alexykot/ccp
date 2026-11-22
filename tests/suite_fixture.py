@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from tests.helpers import PLANE_ROOT, with_test_methods
+from tests.helpers import PLANE_ROOT
 from tests.toolkit_fixture import ToolkitFixture
 
 
@@ -61,18 +61,18 @@ class SuiteFixture(ToolkitFixture):
         self.assertEqual(code, 0, out + err)
 
 
-FAILING_MODULE = with_test_methods("""\
+FAILING_MODULE = """\
 import unittest
 class T(unittest.TestCase):
-    def t_ok(self):
+    def test_ok(self):
         for i in range(300):
             print(f"noise line {i}")
-    def t_bad(self):
+    def test_bad(self):
         self.assertEqual(1, 2, "one is not two")
-    def t_err(self):
+    def test_err(self):
         raise RuntimeError("boom")
     @unittest.skip("later")
-    def t_skip(self):
+    def test_skip(self):
         pass
 """)
 
