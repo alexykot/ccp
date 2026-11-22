@@ -101,9 +101,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   check: command — architect.checks `E22`: `! git grep -n CHECK_RE -- ccp ':(exclude)ccp/tasklog.py'`
 - **E23** One parser per reference form: an ADR-decision link (`<ADR id>[ Dn]`, as `adr_refs`,
   `requires` and `retired by` write it) and a task-id reference are parsed by ccp/refs.py; no other
-  module holds a regex for either.
-  check: pass — the architect looks for ADR-link and task-id regexes outside ccp/refs.py, the known
-  intentional ones below excepted
+  module in ccp or scripts holds a regex for either.
+  check: command — architect.checks `E23`
 - **E25** The parser is the one source of the command surface. Call syntax is written by hand in one
   place (docs/cli), held to the parser by a test; no module docstring in ccp/ carries a usage table.
   check: pass, plus the gate — tests.test_cli_reference checks the docs against the parser and every ccp

@@ -9,7 +9,7 @@ overrides it), like the architect's, with **no tools** (`--tools ""`): everythin
 anything. It runs in an empty temporary directory under `--safe-mode --setting-sources local`
 (`ISOLATION`), so no CLAUDE.md, memory, settings file, hook, plugin or MCP server, the user's or a
 product's, joins its context. Its environment drops the API keys and carries `ccp.seat=estimator`
-(`spec_maintainer.headless_env`) and the user settings' telemetry keys (`child_env`), so its
+(`headless.headless_env`) and the user settings' telemetry keys (`child_env`), so its
 telemetry is still exported and lands on its own seat.
 
 The prompt holds the task file (notes stripped), bounded excerpts of the ADR decisions and SPEC
@@ -42,11 +42,11 @@ from typing import Any
 
 from ccp.envvars import envvar
 from ccp import estimate as est
-from ccp import adr, config, models, tasklog
+from ccp import adr, config, headless, models, tasklog
 from ccp.refs import ids as _ids
 from ccp.refs import number_prefix
 from ccp.config import Config
-from ccp.queue import PLANE, append_jsonl, iso, read_json, spawn_detached
+from ccp.queue import PLANE, append_jsonl, iso, lib, read_json, spawn_detached
 
 SEAT = "estimator"
 # The plane's default, like architecture_review.HEADLESS_MODEL, from the role table (`models.ROLES`; operator,
@@ -420,15 +420,14 @@ def to_row(tid: str, version: int, thash: str, feats: dict[str, Any], b: dict[st
 
 # ------------------------------------------------------------------------------------ the call
 
-def _sm():
-    from ccp import architect  # noqa: PLC0415  (puts scripts/observability on the path)
-    return architect.sm, architect.ar
+def _ar():
+    from ccp import architect  # noqa: PLC0415  (the review kit, through the architect seat)
+    return architect.ar
 
 
 def argv_for(prompt: str, cfg: Config | None = None) -> list[str]:
-    sm, _ = _sm()
     argv = ["env"]
-    for k in sm.STRIP_KEYS:
+    for k in headless.STRIP_KEYS:
         argv += ["-u", k]
     return argv + [envvar("CCP_ESTIMATOR_CLAUDE_BIN") or "claude", "-p", prompt, *models.headless_flags(SEAT, cfg), *NO_TOOLS,
                    *ISOLATION, "--strict-mcp-config", "--no-session-persistence", "--max-budget-usd", MAX_BUDGET_USD,
@@ -441,8 +440,7 @@ def child_env(project_id: str) -> dict[str, str]:
     (`ISOLATION`): without them its usage would not be exported. A key the shell already sets wins;
     `OTEL_RESOURCE_ATTRIBUTES` keeps the settings' non-`ccp.` attributes ahead of the seat's."""
     from ccp import otel  # noqa: PLC0415
-    sm, _ = _sm()
-    env = sm.headless_env(project_id, SEAT)
+    env = headless.headless_env(project_id, SEAT)
     try:
         user = json.loads(otel.user_settings_path().read_text()).get("env")
     except (OSError, ValueError, AttributeError):
@@ -462,7 +460,6 @@ def child_env(project_id: str) -> dict[str, str]:
 def call(cfg: Config, q: Path, prompt: str, run_id: str, tid: str, actor: str = "system") -> tuple[dict[str, Any], str, int]:
     """One headless call: (the parsed `--output-format json` result, stderr, exit code). The tests
     replace this function; nothing else here starts a process that costs money."""
-    sm, _ = _sm()
     argv = argv_for(prompt, cfg)
     audit = subprocess.run(
         ["bash", str(PLANE / "scripts" / "observability" / "write-prompt-audit.sh"), "--task-id", SEAT, "--phase", "estimate",
@@ -483,7 +480,7 @@ def call(cfg: Config, q: Path, prompt: str, run_id: str, tid: str, actor: str = 
         code, se = 124, "timeout"
     finally:
         shutil.rmtree(cwd, ignore_errors=True)
-    return sm.parse_claude_json(so), se, code
+    return headless.parse_claude_json(so), se, code
 
 
 def _usage(res: dict[str, Any]) -> dict[str, Any]:
@@ -514,7 +511,7 @@ def estimate_one(cfg: Config, q: Path, t: dict[str, Any], b: dict[str, Any], poo
     """One task: render, call, validate (retry once with the errors), write the row. A failure
     writes no row; the attempt is in `estimator/calls.jsonl` and the baseline stands."""
     from ccp import usage  # noqa: PLC0415
-    _, ar = _sm()
+    ar = _ar()
     tid = str(t.get("task_id"))
     refs = reference_class(pool, b, feats)
     offered = [r["task_id"] for r in refs]
@@ -530,8 +527,7 @@ def estimate_one(cfg: Config, q: Path, t: dict[str, Any], b: dict[str, Any], poo
         u = _usage(res)
         spent.append(u)
         usage.record_headless(q, SEAT, f"{run_id}:{tid}:{attempt}", res)
-        sm, _ = _sm()
-        quota, qclass, resets = sm.detect_quota(res, "", se)
+        quota, qclass, resets = headless.detect_quota(res, "", se)
         raw = str(res.get("result") or "")
         if quota:
             errs = [f"quota ({qclass}); resets {resets}"]
@@ -611,7 +607,6 @@ def stale(cfg: Config, q: Path, tasks: list[dict[str, Any]] | None = None) -> li
 # ------------------------------------------------------------------------------------ lock
 
 def lock_take(q: Path, run_id: str, ttl_s: int) -> tuple[bool, dict[str, Any] | None]:
-    sm, _ = _sm()
     path = q / LOCK
     for _ in range(2):
         body = {"holder": SEAT, "pid": os.getpid(), "host": socket.gethostname(), "since": iso(),
@@ -620,7 +615,7 @@ def lock_take(q: Path, run_id: str, ttl_s: int) -> tuple[bool, dict[str, Any] | 
             fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
         except FileExistsError:
             cur = read_json(path, {}) or {}
-            if sm.lock_is_stale(cur):
+            if lib.lock_is_stale(cur):
                 path.unlink(missing_ok=True)
                 continue
             return False, cur
@@ -646,8 +641,7 @@ def running(q: Path) -> dict[str, Any] | None:
     cur = read_json(q / LOCK, {}) or {}
     if not isinstance(cur, dict) or not cur.get("review_id"):
         return None
-    sm, _ = _sm()
-    return None if sm.lock_is_stale(cur) else cur
+    return None if lib.lock_is_stale(cur) else cur
 
 
 # ------------------------------------------------------------------------------------ commands

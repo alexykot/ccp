@@ -23,7 +23,8 @@ Usage:
         prints the lead message (once) or "skip ahead".
 
   spec-maintainer-ask.sh blocked [--task-id ID]  Skip-ahead: tasks blocked by open questions
-                                                  (blocks + depends_on descendants).
+                                                  (blocks + their depends_on descendants, from
+                                                  the task log and the queue's tasks)
 
 Output: one JSON object on stdout. `actions` lists what the seat must still do itself
 (message the lead, durable log note, skip ahead). Exit 0 ok; 2 usage.
@@ -35,7 +36,6 @@ Env:
   PROJECT_YAML   project binding (default: the binding naming QUEUE_ROOT, SPEC §8.3)
   PROJECT_ID     optional (default: the binding's project_id)
   ACTOR          raising seat id (task-runner | task-verifier) when --raised-by/--actor omitted
-  DURABLE_DOCS   optional product docs/delivery (INDEX.yaml depends_on for `blocked`)
 
 Never: email, message agents, rewrite the binding, or put secrets in files/events.
 USAGE
