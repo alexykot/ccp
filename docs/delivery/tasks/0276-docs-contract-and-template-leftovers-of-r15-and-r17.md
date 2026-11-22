@@ -242,4 +242,20 @@ at `a80cee0` finds no non-normative note form. Naming the file means editing the
 
 ## Implementation notes
 
+- Every measured premise in Context re-ran at `b5f2273` with the figures the task states.
+- `_gate.md`: the `{{#gate_pr}}` block now opens at the end of the line before it (after "…{{/gate_merge}}.")
+  instead of at the start of the "For each `adr_refs`" line, so that closing it at the end of the "To show a test
+  fails…" line, as ruled, leaves no blank line in the fix, merge and ruling prompts. The rendered implement
+  prompt is unchanged apart from the ruled sentences.
+- `fix.md`, `merge.md` and `ruling.md` keep the blank line before `{{gate}}` that the removed `{{#refactor}}`
+  block used to leave, so their rendered layout is as before.
+- `tests/test_worker_efficiency.py`: besides the new `RefactorRounds` test (through `ccp prompt`, so the
+  `change_round` value in `ccp/prompt.py` is what it checks), two existing tests pinned the sentences the ruling
+  moves or rewords: `test_implement_and_fix_keep_context_lean_but_read_citations_in_full` rendered only the phase
+  template and now renders it with `_common.md` (helper `with_common`), and
+  `test_the_implementer_lists_each_new_behaviour_and_the_reviewer_checks_it` asserts the ruled wording (the
+  shortened "First, check your tests" clause, and the shared report-only sentence in every change round).
+- `tests/test_cli_reference.py`: the module glob the usage-line test read is now `module_docstrings()`, which
+  the new call-syntax test reads too.
+
 ## Verification notes

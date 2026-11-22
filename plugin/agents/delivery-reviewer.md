@@ -42,9 +42,9 @@ propose new scope.
   checkout.
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
   the PR's merge base before calling a citation wrong. To read or run code there, use
-  `ccp wt create --kind base --task <task_id> --sha <base> -- <command>`, `<base>` being what
-  `git merge-base origin/<integration> <PR head>` prints (SPEC §12.1). Never use a hand-made
-  checkout, `git archive` or `--kind mut` for it.
+  `ccp wt create --kind base --task <task_id> --sha <PR head> -- <command>`, which takes the merge
+  base of the head and `origin/<integration>` itself (SPEC §12.1). Never use a hand-made checkout,
+  `git archive` or `--kind mut` for it.
 - Run a check's `ccp` command by hand as your prompt renders `ccp` (its template's `{{ccp}}`),
   from your checkout of the head (SPEC §12.1).
 

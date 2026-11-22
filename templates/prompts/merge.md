@@ -11,10 +11,6 @@ Resolve a conflict so that both sides keep what they meant; where the tip change
 List each conflict you resolved and each adaptation, file by file, in your report: the review judges them.
 If the tip contradicts the task file ({{task_file}}), the cited SPEC or an ADR, do not pick silently: put it at the top of your report as an open question.
 Never weaken an expectation to make the merge pass.
-Keep your context lean: send a listing, search or log that may run past about 200 lines to a scratch file outside the repo and read the slices you need, and issue independent reads as parallel tool calls in one turn.
-{{#refactor}}
-This is a `kind: refactor` task (SPEC §20.4): behaviour is unchanged, no test expectation changes except where the task names it, and SPEC does not change.
-{{/refactor}}
+
 {{gate}}
 Run `{{ccp}} tasks index` if the merge touched the task log.
-List each adaptation with the test that covers it in your report, or say the merge adds no behaviour.

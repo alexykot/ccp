@@ -12,10 +12,6 @@ If the ruling contradicts a dod_check, the cited SPEC or an ADR, do not pick sil
 SPEC edits only as the ruling gives them.
 Never weaken an expectation.
 Read what the ruling cites in full.
-Beyond that, keep your context lean: send a listing, search or log that may run past about 200 lines to a scratch file outside the repo and read the slices you need, and issue independent reads as parallel tool calls in one turn.
-{{#refactor}}
-This is a `kind: refactor` task (SPEC §20.4): behaviour is unchanged, no test expectation changes except where the task names it, and SPEC does not change.
-{{/refactor}}
+
 {{gate}}
 Append to the task's Implementation notes what the ruling changed and why, and run `{{ccp}} tasks index` before you push.
-List each branch, field, refusal or behaviour the ruling adds or changes, with the test that fails without it, in your report (the report only: no dod_check ids or map in test names or docstrings).

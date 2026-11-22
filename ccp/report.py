@@ -1,4 +1,4 @@
-"""`ccp report <run_id> FILE` (SPEC §10): a worker submits its report, and the run closes.
+"""`ccp report` (SPEC §10): a worker submits its report, and the run closes.
 
 The report is the worker's own words plus the lines and sections `ccp` reads. `SECTIONS` holds each of them:
 the phases that carry it, when it is required, what refuses a report without it, where it lands in the run's

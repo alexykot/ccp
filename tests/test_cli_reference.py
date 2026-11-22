@@ -17,6 +17,9 @@ from ccp import cli
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs" / "cli"
 USAGE_LINE = re.compile(r"^\s*ccp [a-z]")
+# A backticked `ccp` span holding call syntax: a `<placeholder>`, a `[flag]`, a `|` alternation or an upper-case
+# metavariable. A bare command name is not call syntax.
+CALL_SYNTAX = re.compile(r"^\s*`ccp [^`]*(?:[<\[|]|\b[A-Z][A-Z_]+\b)")
 # A command that parses its own words past the parser's first (`ccp.cli.main` hands it the rest): its name is
 # held, its own subcommands and flags are `ccp otel -h`'s.
 DELEGATED = ("otel",)
@@ -153,15 +156,25 @@ def strip_action(root: Node, path: tuple[str, ...]) -> tuple[str, ...]:
     return path[:-1] if node.actions and path[-1:] and path[-1] in node.actions else path
 
 
+def module_docstrings() -> list[tuple[Path, str]]:
+    """Each ccp module's docstring, as written."""
+    paths = sorted([*(ROOT / "ccp").glob("*.py"), *(ROOT / "ccp" / "doclang").glob("*.py")])
+    return [(p, ast.get_docstring(ast.parse(p.read_text()), clean=False) or "") for p in paths]
+
+
 class CliReference(unittest.TestCase):
     def test_the_docs_hold_the_parsers_commands_and_flags_and_no_others(self):
         self.assertEqual(problems_of(DOCS), [])
 
     def test_no_module_docstring_carries_a_usage_line(self):
         found = []
-        for path in sorted([*(ROOT / "ccp").glob("*.py"), *(ROOT / "ccp" / "doclang").glob("*.py")]):
-            doc = ast.get_docstring(ast.parse(path.read_text()), clean=False) or ""
+        for path, doc in module_docstrings():
             found += [f"{path.relative_to(ROOT)}: {l.strip()}" for l in doc.splitlines() if USAGE_LINE.match(l)]
+        self.assertEqual(found, [])
+
+    def test_no_module_docstring_opens_with_call_syntax(self):
+        found = [f"{path.relative_to(ROOT)}: {doc.splitlines()[0]}" for path, doc in module_docstrings()
+                 if doc.splitlines() and CALL_SYNTAX.match(doc.splitlines()[0])]
         self.assertEqual(found, [])
 
     def copy_with(self, old: str, new: str) -> Path:
