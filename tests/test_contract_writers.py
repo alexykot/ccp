@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -15,6 +16,9 @@ from ccp.schema import schema_errors
 from tests.helpers import Product, binding
 from tests.test_toolkit import PLANE
 from tests.test_wt import WtFixture
+
+sys.path.insert(0, str(PLANE / "scripts/observability"))
+import spec_maintainer  # noqa: E402
 
 
 def contract(name: str) -> dict:
@@ -48,6 +52,36 @@ class WorktreeContract(WtFixture, unittest.TestCase):
         self.assertEqual(record["kind"], "base")
         self.assertIn("head", record)
         self.assertEqual(schema_errors(record, contract("worktree.schema.json")), [])
+
+    def test_the_record_validates_after_ccp_wt_up_and_down(self):
+        urls = """printf '[{"name": "api", "url": "http://localhost:31%s/"}, {"name": "app", "url": "http://localhost:32%s/"}]' {nnnn} {nnnn}"""
+        schema = contract("worktree.schema.json")
+
+        def record(name: str) -> dict:
+            rec = json.loads((self.q / "worktrees" / f"{name}.json").read_text())
+            self.assertEqual(schema_errors(rec, schema), [], name)
+            return rec
+
+        self.plane(env={"up": "touch up.flag", "down": "true", "urls": urls})
+        code, made, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head())
+        self.assertEqual(code, 0, err)
+        name = made["name"]
+        code, _, _, err = self.wt("up", name)
+        self.assertEqual(code, 0, err)
+        up = record(name)
+        self.assertEqual(up["state"], "up")
+        self.assertIn("up_at", up)
+        self.assertEqual(len(up["urls"]), 2)
+        code, _, _, err = self.wt("down", name)
+        self.assertEqual(code, 0, err)
+        down = record(name)
+        self.assertEqual((down["state"], down["urls"]), ("down", []))
+        self.plane(env={"up": "exit 4"})
+        code, made, _, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head(),
+                                     "--name", "ver-0002-2")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.wt("up", made["name"])[0], 1)
+        self.assertEqual(record(made["name"])["state"], "down")
 
     def test_the_kind_enum_is_the_kinds_ccp_wt_creates(self):
         self.assertEqual(contract("worktree.schema.json")["properties"]["kind"]["enum"], list(wt.KINDS))
@@ -130,6 +164,11 @@ class Examples(unittest.TestCase):
         self.assertTrue(schema_errors({"windows": [{"pct": 3}]}, schema))
         self.assertTrue(schema_errors({"five_hour": 3}, schema))
         self.assertTrue(schema_errors({"retry_after_s": 30, "windows": 1}, schema))
+
+    def test_the_question_answer_example_validates_and_the_spec_maintainer_accepts_it(self):
+        rec = contract("question_answer.example.json")
+        self.assertEqual(schema_errors(rec, contract("question_answer.schema.json")), [])
+        self.assertEqual(spec_maintainer.validate_answer(rec, rec["question_id"]), [])
 
     def test_the_triage_example_validates_and_validate_triage_returns_no_errors_for_it(self):
         rec = contract("architecture_review_triage.example.json")

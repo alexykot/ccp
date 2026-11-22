@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "question_id": "sm-0001-example",
+  "project_id": "demo",
+  "verdict": "resolved",
+  "ruling": "A task file's status changes only through ccp tasks, never by hand.",
+  "reasoning": "SPEC says the status is a queue fact; the task file's text and the SPEC agree once the command is the one writer.",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "files_changed": ["SPEC.md"],
+  "answered_by": "spec_maintainer",
+  "answered_at": "2026-01-05T09:30:00Z",
+  "written_by": "seat"
+}
