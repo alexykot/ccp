@@ -217,5 +217,11 @@ Measured at `3368264`.
   its update. Six `ReportCrossCheck` tests went (E15); `tests/test_fill_suite.py` holds 13 tests on plain rows.
 - `tests/test_suite.py` `Counting.test_a_real_unittest_run_is_counted` asserted a `--full` run's `ended` row has
   `log: None`; the ruling changes that, so it now reads the log.
+- Fix round 1 (review MINOR 1): the `--full` log copy is one `_Tee` for the whole run (its fd and one lock), passed to
+  every stage, so a pump left over from one stage cannot interleave a chunk with the next stage's. `run` closes it
+  under the lock and sets its fd to None, so a pump a background child keeps alive past the drain writes nowhere,
+  rather than into whatever file reuses the fd number next (the run's `_suites.jsonl` append, the ledger). The review's
+  NIT (`ccp/config.py` and the schema still saying "summary-mode logs") is outside the task's paths and left as a
+  follow-up.
 
 ## Verification notes
