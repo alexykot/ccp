@@ -46,7 +46,7 @@
       },
       {
         "id": "E24",
-        "cmd": "test \"$(git ls-files 'ccp/*.py' | python3 -c 'import ast,sys; print(sum(len((ast.get_docstring(ast.parse(open(p).read())) or \"\").splitlines()) > 30 for p in sys.stdin.read().split()))')\" -le 18"
+        "cmd": "test \"$(git ls-files 'ccp/*.py' | python3 -c 'import ast,sys; print(sum(len((ast.get_docstring(ast.parse(open(p).read())) or \"\").splitlines()) > 30 for p in sys.stdin.read().split()))')\" -le 15"
       },
       {
         "id": "E27",
@@ -83,7 +83,6 @@
       "skills",
       "templates",
       "queue",
-      "scripts/queue",
       "tests/data"
     ],
     "docstring_globs": [

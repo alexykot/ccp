@@ -2,26 +2,9 @@
 
 **Not** the durable task log. The durable log lives in the **product** repo under `docs/delivery/` (tasks never deleted; status and notes stay in git).
 
-This directory is **runtime only**: leases, live Claude session ids, `running.json`, auth status, transient blockers for the watchdog.
+This directory is **runtime only**: leases, live Claude session ids, auth status and the ledger. It lives outside the product's git, wherever `QUEUE_ROOT` points (for example `$HOME/projects/.delivery-queue/<project_id>`).
 
-## Layout (indicative)
-
-```
-.delivery-queue/<project_id>/
-  auth/
-    status.json          # from auth_check.probes (ccp tasks claim / ccp auth check)
-  running.json           # live Claude / shell lease (delete after assess)
-  last-session.json      # last assessed session
-  work.json              # optional hot pointer at active durable task id
-  blocker.md             # optional; Claude/runtime blocker text
-  observability/         # events.jsonl, seats/*.json
-  prompts/<task_id>/     # Layer 2 audit JSON — never commit
-  scripts/               # optional project-local copies of plane scripts
-```
-
-For example:
-
-`$HOME/projects/.delivery-queue/<project_id>`
+The queue's files and the commands that write them are SPEC §23.7.
 
 ## Rules
 
@@ -30,20 +13,3 @@ For example:
 | Put session ids, pids, auth JSON, leases here | Store the canonical task brief or DoD here |
 | Clear or rotate between slices | Delete durable `docs/delivery/` tasks because the queue was cleaned |
 | Point `QUEUE_ROOT` / `project.example.yaml` `queue_root` here | Commit this tree into any branch of the product |
-
-## Auth
-
-`ccp tasks claim` (and `ccp auth check`) runs the product's plane.json `auth_check.probes` and writes `auth/status.json` (SPEC §11). On a failure the claim refuses with exit 8 and fires the operator's `blocker` notice (SPEC §3.6); the runner raises a `reauth` gate to the lead.
-
-## Worktrees
-
-`worktrees/<name>.json`: one record per plane-made worktree (`ccp wt`, SPEC §28.29, `contracts/worktree.schema.json`).
-
-## Observability
-
-`ccp board build` folds the ledger and the queue files into `board/board.json`; `ccp board status` is its summary (SPEC §23.4, §28). See `scripts/observability/CLAUDE.md`.
-
-## See also
-
-- Durable log templates: `templates/docs-delivery/`
-- SPEC.md §5 (runtime vs durable) and §20 (observability)

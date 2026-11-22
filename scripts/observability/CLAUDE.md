@@ -10,6 +10,5 @@ single writers: `set-waiting-on.sh` (the only writer of `waiting_on`), `emit-eve
 
 Every script takes `QUEUE_ROOT` (the runtime queue, outside product git) and answers `--help`; `OBS_NOW` pins the
 clock for an example or a test. `heartbeat.sh <seat>` takes the seat ids of §18.3. An old ledger's rows of a seat
-since retired (`LEGACY_ACTORS`) are read and never written. The timer formulas are SPEC §23.3 (`lib.py`'s docstring
-repeats them); the contracts are `contracts/observability_event.schema.json` and `contracts/prompt_audit.schema.json`.
-`prompts/` (the audit files) is never committed.
+since retired (`LEGACY_ACTORS`) are read and never written. The timer formulas are SPEC §23.3; the contracts are
+`contracts/observability_event.schema.json` and `contracts/prompt_audit.schema.json`. `prompts/` (the audit files) is never committed.

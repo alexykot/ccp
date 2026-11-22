@@ -1,15 +1,8 @@
 """`ccp tasks submit` (SPEC §15.1): formal-submit, the standing DoD's local checklist the runner runs after
-the review that clears the PR head and before `ccp prompt verify`. It is not the gate: it runs no test of its own
-(the review skips' proof and provers run as `ccp prompt verify` runs them, at most once) and writes nothing but the
-task's move to `submitted` (§10.1) and, with a proven fix, the `review_proof` on the fix round's run that
-`ccp prompt verify` of that head reuses (§15.2); `ccp prompt verify` neither runs it nor requires it.
+the review that clears the PR head and before `ccp prompt verify`. It is not the gate: it runs no test of its own.
 
-The PR and its head are the ones the task's latest done implement or rework round reported (§13.4). Whether the
-head is covered is judged by the rules `ccp prompt verify` applies (§15.2): by the review record's review, or by a
-proof of the fix since the latest done review, whatever that review found. A failed item
-is refused, exit 4, naming each, with nothing moved. `unit_lint` is the verifier's own run: submit only says
-whether the round that reported the head recorded a passed `ccp suite run` on the full or gate lane. A task that is
-not mid-flight, or is already past `submitted`, is refused, exit 3, with nothing moved.
+The PR and its head are the ones the task's latest done implement or rework round reported (§13.4); whether the
+head is covered is judged by the rules `ccp prompt verify` applies (§15.2).
 """
 from __future__ import annotations
 
@@ -158,6 +151,7 @@ def unit_lint(cfg: Config, q: Path, run: dict[str, Any] | None) -> dict[str, Any
 
 
 def submit(cfg: Config, task: str) -> dict[str, Any]:
+    """Run formal-submit for `task` (§15.1)."""
     q = root()
     tid = str(task_meta(cfg, task)["task_id"])
     st = load_task_state(q, tid)

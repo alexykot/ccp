@@ -116,4 +116,26 @@ From architect pass `ar-20261122T162238Z-9098`, F02 (`duplication`), F05 (`doc-a
 
 ## Implementation notes
 
+- Premises re-measured at `aee65114`: the module docstrings (47/40/12/53 lines), E24's figure (18), the lib.py
+  matches, `queue/README.md`'s 5 lines and `scripts/queue`'s one file all read as the task states.
+- The four module docstrings are 12, 11, 5 and 9 lines, each naming its §. Facts they dropped that the SPEC and
+  docs/cli do not state moved to the docstrings of `prompt.build`, `lifecycle.claim`, `lifecycle.close`,
+  `submit.submit` and `verify.write_record` (the older-reader rule for `schema_version`, the `pr-<n>` record name,
+  the merge worktree's name, the refusal exit codes of each command). Those five functions had no docstring.
+- `queue/README.md` keeps the runtime-only paragraph (the `QUEUE_ROOT` example line folded into it) and the Rules
+  table, and points at SPEC §23.7. `lib.py`'s comment above `REVIEW_EVENT_TYPES` went whole, with its note that
+  `architecture_review` and `docs_audit` are retired types kept so an older ledger reads; `EVENT_TYPES` itself is
+  unchanged.
+- Fix round 1 (review of b94fffdf): the five function docstrings copied facts the SPEC and docs/cli already state,
+  so they were cut: `claim`, `close`, `prompt.build` and `submit.submit` are now a one-line purpose with its §,
+  and `verify.write_record`'s docstring is back to what it was at the merge base. Every fact the first round moved
+  there is stated in the SPEC (§10.2, §10.5, §13.2, §15.1, §15.5, §16.5, §29.3) or docs/cli, so no fact moved to a
+  function. `lifecycle.py`'s module docstring now says which `claim` refusals fire the operator's triggers (the
+  weekly checkpoint and a failed auth probe), as the code does.
+- Fix round 2 (review-2 of 7e392a00): `lifecycle.py`'s module docstring said `close` merges from the merge
+  worktree; it now says `close` merges through the PR host and reconciles in the merge worktree (the PR merge is
+  `prhost.merge`, the reconcile and catch-up run in `_merge_checkout`). The claim's refusals are introduced as
+  "Among the claim's refusals" since the three named are a selection. `prompt.py`'s `*_gate` list gains §13.2,
+  which `resolution_gate` and `marked_gate` refuse under. Docstring text only; no code changed.
+
 ## Verification notes

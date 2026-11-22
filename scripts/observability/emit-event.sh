@@ -18,8 +18,8 @@ Append one JSONL line to $QUEUE_ROOT/observability/events.jsonl (mkdir -p as nee
 Required event fields: at, project_id, task_id, actor, type, op, payload
 
 Options:
-  --type TYPE           phase|waiting_on|lease|claude|auth|seat|durable|note
-  --op OP               set|clear|transition|launch|exit|heartbeat|reconcile
+  --type TYPE           an event type in lib.py's EVENT_TYPES
+  --op OP               an op in lib.py's EVENT_OPS
   --task-id ID          task id (empty allowed for seat/auth)
   --actor ACTOR         default: $ACTOR or system
   --project-id ID       default: $PROJECT_ID

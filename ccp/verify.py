@@ -1,43 +1,14 @@
 """The verifier's record and the runner's merge gate (SPEC §15.3).
 
-The call syntax is in `docs/cli`; the rules are in §15 and §29.3. This names the functions that hold them.
-`record` validates a verdict against `contracts/verification.schema.json` with the plane's own checker
-(`ccp/schema.py`, a stdlib subset of JSON Schema, so the plane takes no dependency) and against the rules the
-schema cannot hold, then writes `verification/<task_id>.json` (`verification/pr-<n>.json`, task_id `pr-<n>`, for a PR that is not a task's).
-It stamps `schema_version` with its own `RECORD_VERSION`, whatever the input said. A reader older than the
-record passes over the keys its contract does not know, at any depth, and holds every key it knows to its
-contract; a record with no version, or one no newer than the reader, is held to the contract with no extra key,
-so a task that adds a field can be verified with the newer `ccp` and merged with the older one on PATH (§29.3).
+The call syntax is in `docs/cli`; the rules are in §15 and §29.3. `write_record` validates a verdict against
+`contracts/verification.schema.json` with the plane's own checker (`ccp/schema.py`) and writes
+`verification/<task_id>.json`; `record_errors` and the `*_errors` functions it calls hold the rules the schema
+cannot. `merge-ok` and `check` judge a record with one function, `judge` (§15.5).
 
-`merge-ok` and `check` judge a record with one function, `judge`: `check` is `merge-ok` without the PR host's
-facts (the PR's state, when the record was recorded). The merge rule it makes mechanical: the PR is open; its
-head is the record's `head_sha` (or `catch_up.to`, `catch_up_refusal`: only `ccp tasks close` writes a
-`catch_up`, `record_catch_up`); the record is an approve (one head, every check it ran passed, every
-`gate.runs` exit 0, which `record` holds an approve to); and it was recorded no earlier than its `checked_at`.
-
-A gate run may name its `ccp suite run` (`suite_id`, §14.1): `record` fills its numbers, and `cold` when that
-record says nothing was cached, from the recorded run. Under `verify.accept_cache` it holds an approve to a
-gate run that says how many units ran and were cached (`ran`, `cached`; earlier records say `modules_ran`,
-`modules_cached`), and on a `cold_gate` task to a cold run. Under `adr.strict` it refuses an approve while an
-`adr_refs` decision is `not_built` (§6.7).
-
-`record` refuses an approve whose latest fix round is newer than its last review, or of a head other than the
-one that review judged (§15.2), unless the verify run carries the override, the `verify.skip_review` or
-`verify.skip_review_after_clean` skip, or a declared prover's `skips: review` that proved that head, each
-checked in a clean checkout of the integration branch's tip.
-
-A check's evidence is §15.4's rule: `producer_errors`, `rests_on_errors` and `as_written_errors` (listed by
-`not_as_written`); `merge-ok` and `check` still refuse a ruling seat's evidence in an older record. A check marked
-`runs_on: operator-machine` (ADR-0045 D3) is held by `marked_refusals` and `marked_errors`. A verdict carries
-`spec_beyond_intent` (§3.5; `beyond_intent_errors`, `beyond_intent`). `later` and `deferred` (§15.4) are
-`record_later` and its `verification/<task_id>.later.jsonl`, which `merge-ok`, `check` and close never read.
-`fill_reason` adds a `repeat_round`'s `--note` to `findings`.
-
-`spec-text` (§15.2) checks a PR's SPEC edits against the passages the operator signed (`signed_passages`,
-`spec_text`, `spec_hunks`, `named_hunks`, `searchable`), read from the task file by `tasklog.signed_blocks`. The base defaults to
-`origin/<integration branch>`, the head to `HEAD`; it reads the task file from the checkout, fetches nothing and
-writes nothing. Exit 0 when every passage is found, 1 naming each that is not, 2 for no passages or an
-unusable base or head.
+The review skips and their proofs are §15.2 (`review_errors`, `review_proof`, `skip_after_clean`); the evidence
+of a check is §15.4 (`producer_errors`, `rests_on_errors`, `as_written_errors`, `marked_errors`); `later` and
+`deferred` are `record_later` (§15.4). `spec-text` (§15.2) checks a PR's SPEC edits against the passages the
+operator signed, read from the task file by `tasklog.signed_blocks` (`spec_text`).
 """
 from __future__ import annotations
 
