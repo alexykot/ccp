@@ -22,14 +22,14 @@ class A(unittest.TestCase):
     def test_one(self): self.assertTrue(True)
     @unittest.skip("not here")
     def test_two(self): pass
-""")
+"""
 MORE = """
 import unittest
 class B(unittest.TestCase):
     def test_a(self): self.assertEqual(1, 1)
     def test_b(self): self.assertEqual(2, 2)
     def test_c(self): self.assertEqual({lhs}, 3)
-""")
+"""
 
 
 class GateFixture(unittest.TestCase):

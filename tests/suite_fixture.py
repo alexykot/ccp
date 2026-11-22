@@ -74,7 +74,7 @@ class T(unittest.TestCase):
     @unittest.skip("later")
     def test_skip(self):
         pass
-""")
+"""
 
 
 def _start_log(stdout: bytes) -> Path:
