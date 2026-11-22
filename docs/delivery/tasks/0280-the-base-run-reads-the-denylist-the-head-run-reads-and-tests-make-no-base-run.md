@@ -165,4 +165,17 @@ with a prototype of `code-03`'s test added:
 
 ## Implementation notes
 
+- `head_bindings_dir(cfg)` in `ccp/baseline.py` resolves as the lead's ruling gives it; the parse of `ccp where`'s
+  JSON is a pure helper, `_where_bindings`, mirroring leak-check.sh's step 3 (an empty `binding` counts as null,
+  as `if b` does there). The timeout is the constant `WHERE_TIMEOUT` (30 s), so a test can shorten it.
+  `run_at_base` sets the base run's `CCP_BINDINGS_DIR` to it.
+- `judge` returns every failure as counting right after the no-failures case when `envvar(NO_BASE_RUN)` is set,
+  before any git call. `tests/__init__.py` sets `CCP_NO_BASE_RUN=1` under a §21.2 comment; `Repo.make` lifts it.
+- `changed_paths` runs `git diff --name-only -z <base>...HEAD` without `core.quotepath`.
+- `BaseRun.echoed` no longer patches `queue.lib.bindings_dir`: with `CCP_BINDINGS_DIR` set, that already returns
+  `bindings`, so the patch was redundant.
+- Beyond the three tests the ruling names, `HeadBindingsDir` (three unit tests in the same module) covers
+  `head_bindings_dir`'s branches the end-to-end tests do not reach: the `ccp where` parse, `CCP_BINDINGS_DIR`
+  winning over `ccp where`, and the fallbacks (no `ccp` on PATH, a non-zero exit, unparsable output, a timeout).
+
 ## Verification notes
