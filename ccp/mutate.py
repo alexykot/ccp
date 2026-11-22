@@ -101,26 +101,43 @@ def parse(root: Path, spec: str, cwd: Path, count: bool = True) -> dict[str, Any
             "digest": hashlib.sha256(patch.read_bytes()).hexdigest()[:12]}
 
 
-def _substitution(root: Path, label: str, rel: str, old: bytes, new: bytes, count: bool = True) -> dict[str, Any]:
+def _substitution(root: Path, label: str, rel: str, old: bytes, new: bytes, count: bool = True,
+                  from_file: bool = False) -> dict[str, Any]:
     """A text mutant: `old`, found exactly once in the worktree file `rel`, becomes `new`. Checked against
-    the unmutated tree (the count only with `count`); nothing is written."""
+    the unmutated tree (the count only with `count`); nothing is written. `from_file`: it came from a
+    `--mutant-file` (`_once`)."""
     if Path(rel).is_absolute() or ".." in Path(rel).parts:
         raise QueueError(f"{label}: {rel} must be a path relative to the worktree's root", 2)
     path = root / rel
     if not path.is_file() or not _inside(root, path.resolve()):
         raise QueueError(f"{label}: {rel} is not a file in the worktree", 2)
     if count:
-        _once(label, rel, path.read_bytes(), old, False)
+        _once(label, rel, path.read_bytes(), old, False, from_file)
     digest = hashlib.sha256(b"\0".join((rel.encode(), old, new))).hexdigest()[:12]
-    return {"kind": "text", "files": [rel], "old": old, "new": new, "digest": digest, "label": label}
+    return {"kind": "text", "files": [rel], "old": old, "new": new, "digest": digest, "label": label,
+            "from_file": from_file}
 
 
-def _once(label: str, rel: str, text: bytes, old: bytes, after: bool) -> None:
-    """Refuse (exit 2) unless `old` is in `text` exactly once; `after`: `text` is what earlier parts left."""
+def _once(label: str, rel: str, text: bytes, old: bytes, after: bool, from_file: bool = False) -> None:
+    """Refuse (exit 2) unless `old` is in `text` exactly once; `after`: `text` is what earlier parts left.
+    `from_file`: `old` came from a `--mutant-file`, so it ends with the line break before `=== new`; found
+    0 times but found without that line break, the refusal says so."""
     n = text.count(old)
     if n != 1:
         where = f"{rel} as the earlier parts on it leave it" if after else rel
+        bare = _without_line_break(old) if from_file and n == 0 else b""
+        if bare and (k := text.count(bare)):
+            raise QueueError(f"{label}: the old text is in {where} 0 times: it ends with the line break before "
+                             f"=== new, and without it it is in {where} {k} times; end the old text at a line end", 2)
         raise QueueError(f"{label}: the old text is in {where} {n} times; a mutant names one place", 2)
+
+
+def _without_line_break(text: bytes) -> bytes:
+    """`text` less the one line break it ends with (`\r\n`, `\n` or `\r`); empty when it ends with none."""
+    for eol in (b"\r\n", b"\n", b"\r"):
+        if text.endswith(eol):
+            return text[:-len(eol)]
+    return b""
 
 
 def parse_file(root: Path, spec: str, cwd: Path, count: bool = True) -> dict[str, Any]:
@@ -150,7 +167,7 @@ def parse_file(root: Path, spec: str, cwd: Path, count: bool = True) -> dict[str
     old, new = b"".join(lines[i + 1:j]), b"".join(lines[j + 1:])
     if not old:
         raise QueueError(f"{label}: the old text between `=== old` and `=== new` is empty", 2)
-    return _substitution(root, label, rel, old, new, count)
+    return _substitution(root, label, rel, old, new, count, from_file=True)
 
 
 def _key(rel: str) -> str:
@@ -180,7 +197,7 @@ def together(parts: list[dict[str, Any]], texts: dict[str, bytes]) -> dict[str, 
             continue
         text = texts[rel]
         for k, i in enumerate(idx):
-            _once(parts[i]["label"], rel, text, parts[i]["old"], k > 0)
+            _once(parts[i]["label"], rel, text, parts[i]["old"], k > 0, parts[i].get("from_file", False))
             text = text.replace(parts[i]["old"], parts[i]["new"], 1)
     digest = hashlib.sha256("\0".join(p["digest"] for p in parts).encode()).hexdigest()[:12]
     return {"kind": "together", "parts": [p["kind"] for p in parts], "files": list(on), "digest": digest,

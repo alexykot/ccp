@@ -54,7 +54,7 @@ import time
 from pathlib import Path
 from typing import Any, Iterator
 
-from ccp import config, refs
+from ccp import config, doclang, refs
 from ccp.envvars import for_child
 from ccp.config import CONFIG_REL, WT_FIELDS, Config, ConfigError, fill
 from ccp.queue import QueueError, git, integration_branch, iso, load_task_state, read_json, write_json
@@ -100,6 +100,11 @@ def _git_named(cfg: Config, base: Path) -> set[Path] | None:
     main = main_checkout(cfg).resolve()
     if base == main or main in base.parents:
         return None
+    return _git_listed(main)
+
+
+def _git_listed(main: Path) -> set[Path]:
+    """The worktrees `git worktree list --porcelain` in the main checkout names, resolved."""
     r = git(main, "worktree", "list", "--porcelain")
     return {Path(ln[len("worktree "):]).resolve() for ln in r.stdout.splitlines() if ln.startswith("worktree ")}
 
@@ -514,15 +519,15 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
         try:
             res = hook(cfg, q, "setup", st)
         except QueueError as e:  # its own plane.json does not load: failed like a setup
-            _rm_tree(main, path)
+            _rm_tree(main, path, _caches(cfg))
             raise QueueError(f"env.setup for {name} was not run: {e}; the worktree is removed again", 1) from None
         if res and res[0] != 0:
-            _rm_tree(main, path)
+            _rm_tree(main, path, _caches(cfg))
             raise QueueError(f"env.setup for {name} exited {res[0]}; the worktree is removed again:\n{res[1].strip()}", 1)
         save(q, st)
     except BaseException:
         if kind == "base":  # §12.1: a base worktree is never left behind, whatever stopped its making
-            _rm_tree(main, path)
+            _rm_tree(main, path, _caches(cfg))
             state_path(q, name).unlink(missing_ok=True)
         raise
     return {**st, "created": True, **({"warnings": warnings} if warnings else {})}
@@ -630,13 +635,43 @@ def _is_clone(path: Path) -> bool:
     return (path / ".git").is_dir()
 
 
-def _rm_tree(main: Path, path: Path) -> tuple[int, str]:
-    """Remove a worktree: a shallow clone by deleting it, a git worktree with `git worktree remove`."""
+def _rm_tree(main: Path, path: Path, caches: tuple[str, ...]) -> tuple[int, str]:
+    """Remove a worktree: a shallow clone by deleting it, a git worktree with `git worktree remove`. When git's
+    removal fails, git's worktree list is pruned; a path it then names no more that holds only the language's
+    caches (`caches`, the pack's directory names, which a run in the worktree may write while git removes it;
+    `_only_caches`) is deleted and the removal counts as done. Otherwise git's failure is returned."""
     if _is_clone(path) and path.resolve() != main.resolve():
         shutil.rmtree(path, ignore_errors=True)
         return (1, f"{path} could not be deleted") if path.exists() else (0, "")
     r = git(main, "worktree", "remove", "--force", str(path))
+    if r.returncode != 0:
+        git(main, "worktree", "prune")
+        if (path.exists() and path.resolve() not in _git_listed(main)
+                and _only_caches(_files_under(path), caches)):
+            shutil.rmtree(path, ignore_errors=True)
+            if not path.exists():
+                return 0, ""
     return r.returncode, (r.stderr or r.stdout)
+
+
+def _caches(cfg: Config) -> tuple[str, ...]:
+    """The directory names the product's language pack keeps its caches in (E18), for `_rm_tree`."""
+    return doclang.get(config.language_name(cfg)).file_skip_dirs
+
+
+def _files_under(path: Path) -> list[Path]:
+    """Every file under `path`, relative to it: a symlink counts as a file and is not followed."""
+    out = []
+    for d, dirs, files in os.walk(path):
+        rel = Path(d).relative_to(path)
+        out += [rel / f for f in files] + [rel / x for x in dirs if (Path(d) / x).is_symlink()]
+    return out
+
+
+def _only_caches(files: list[Path], caches: tuple[str, ...]) -> bool:
+    """Whether every file (a path relative to the tree) lies inside a directory named one of `caches`; an empty
+    tree holds only caches."""
+    return all(any(part in caches for part in f.parent.parts) for f in files)
 
 
 def _same_depth(path: Path, name: str, shallow: bool) -> None:
@@ -705,7 +740,7 @@ def remove(cfg: Config, q: Path, name: str) -> list[str]:
             if (res := hook(cfg, q, "teardown", st, env)) and res[0] != 0:
                 warnings.append(f"env.teardown for {name} exited {res[0]}: {res[1].strip()[-300:]}")
     if Path(st["path"]).is_dir():
-        rc, err = _rm_tree(main_checkout(cfg), Path(st["path"]))
+        rc, err = _rm_tree(main_checkout(cfg), Path(st["path"]), _caches(cfg))
         if rc != 0:
             warnings.append(f"worktree {st['path']}: {err.strip()}")
     state_path(q, name).unlink(missing_ok=True)
@@ -729,7 +764,7 @@ def remove_task(cfg: Config, q: Path, task_id: str) -> list[str]:
         old = sorted(base.glob(f"impl-{nnnn}")) + sorted(base.glob(f"rev-{nnnn}*")) + sorted(base.glob(f"ver-{nnnn}*"))
         for wt in old:
             if wt.is_dir() and _ours(wt, named):
-                rc, err = _rm_tree(main_checkout(cfg), wt)
+                rc, err = _rm_tree(main_checkout(cfg), wt, _caches(cfg))
                 if rc != 0:
                     warnings.append(f"worktree {wt}: {err.strip()}")
         own = merge_path(cfg, task_id)

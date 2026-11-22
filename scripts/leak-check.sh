@@ -29,7 +29,9 @@ elif [ -n "${CCP_BINDINGS_DIR:-}" ]; then
     src="bindings dir"
   fi
 else
-  dir="$( (ccp --root "$PWD" where 2>/dev/null || true) | python3 -c '
+  dir=""
+  if where="$(ccp --root "$PWD" where 2>/dev/null)"; then
+    dir="$(printf '%s\n' "$where" | python3 -c '
 import json, os, sys
 try:
     d = json.load(sys.stdin)
@@ -38,6 +40,7 @@ try:
 except Exception:
     pass
 ' 2>/dev/null || true)"
+  fi
   if [ -n "$dir" ] && [ -f "$dir/leak-denylist.txt" ]; then
     list="$dir/leak-denylist.txt"
     src="bindings dir"
