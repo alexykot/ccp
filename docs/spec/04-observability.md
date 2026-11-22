@@ -49,6 +49,7 @@ runner, `task-verifier` for the verifier subagent), `operator` and `system`.
 | `run` | `recorded` | `run_id`, `mutants`, `killed`, `unbuilt`, `survived` (one `ccp mutate` call, §20.6) |
 | `review` | `recorded` | `run_id`, `verdict`, `severity` |
 | `verify` | `recorded` | `run_id`, `verdict`, `head_sha` |
+| `pr` | `opened`, `edited`, `merged` | `pr` (the number), `head`; `merged` adds `merge_commit`. Only the local PR host writes them (§4.5), one per opening, body edit and merge: `ccp pr open`, `ccp pr edit`, and the write that first records the PR as merged, by close or on finding the merge on the base |
 | `allowance` | `sample` | the sample's gating figures (§25.1) |
 | `plane` | `proposed`, `again`, `triaged` | §31 |
 | `plane` | `adopted` | `plane` (the plane checkout's HEAD), `binding` (`written`, `kept`), `since?` (a kept binding's last change, UTC: the adoption point); `ccp init` (§4.5) |

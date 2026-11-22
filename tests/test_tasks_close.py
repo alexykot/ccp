@@ -272,7 +272,7 @@ class CloseListsChecksNotAsWritten(ToolkitFixture, unittest.TestCase):
         self.assertIn(line, seen[0])
         self.assertNotIn("check-02:", seen[0])
         self.assertTrue(body["merged_now"])
-        self.assertEqual(self.pr_record()["state"], "MERGED")
+        self.assertEqual(self.pr_record()["state"], "merged")
 
     def test_close_prints_no_list_when_every_check_held_as_written(self):
         self._to_approved_pr()

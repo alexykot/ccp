@@ -1,7 +1,7 @@
 ---
 task_id: 0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events
 title: The local PR record stores the plane's own state words, and each write of it records a pr ledger event
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0266-github-knowledge-stays-in-the-pr-host-module", "0263-writers-are-checked-against-their-contracts"]
@@ -14,7 +14,7 @@ paths: ["ccp/prhost.py", "contracts/pr_record.schema.json", "contracts/observabi
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events
@@ -133,4 +133,21 @@ local adapter's record writes record no ledger event; 0222's verification note s
 
 ## Implementation notes
 
+- `ccp/prhost.py` `Local`: the record stores and compares `STATES`' words; `_LOCAL_STATES` is gone and
+  `_GITHUB_STATES` is the one uppercase table. `_load` refuses a record whose state is not one of `STATES`
+  (an old uppercase record included) as one that names no PR state, naming its file.
+- Events go through `queue.emit` from one helper, `Local._emit`: `task_id` is the branch's id when the branch is
+  `task/<id>`, else empty; the actor is the caller's (`ACTOR`). `open` emits `opened` and `edit` emits `edited`
+  inside the record's lock, right after the write. `merge`'s write after the push sets `state`, `merge_commit`
+  and `merged_at` (the squash commit's committer time, read in the merge worktree) together and emits `merged`
+  with `head` the merged tip; if a concurrent read already recorded the merge under the lock, it writes and
+  emits nothing (the narrowest reading of "only the write that first sets the state"). `_read` emits `merged`
+  only when its refresh moved the state to `merged`; a head-only refresh emits nothing.
+- `merge` now leaves the record `merged`, so close's `confirm` read finds nothing to change and writes no second
+  event; `tests/test_prhost_local.py`'s merge test expects that state and the merge time (the behaviour change
+  the task's Context names).
+- ADR-0040 D3 was already `built` on the base; `ccp adr decide 40 D3 built` changed nothing.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #321 head `30fa63f` (squash `471adcc`): APPROVE. Passed: data-01, data-02, ev-01, ev-02, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events.json.
+
