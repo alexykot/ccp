@@ -97,12 +97,13 @@ review_points:
   - id: R17
     name: second architect pass fixes
     goal: "Findings of architect pass ar-20261121T020523Z-1d5f: one wait-reason table with the steerer only read, close and the architect sharing wt's worktree helper, cheaper and self-contained test fixtures, a closed run refused by suite run, and one gate block in one-sentence-per-line templates."
-    status: current
+    status: closed
     opened: "2026-11-21"
+    closed: "2026-11-22"
   - id: R18
     name: operator rulings
     goal: "The operator's rulings of 2026-11-21: the plane writes the pre-merge phases §13.1, §15.1 and the standing DoD describe (the review record, formal-submit, the implemented, reviewed and submitted phases), its contracts match what it writes, and a whole-tree check failure already on the integration branch is reported rather than failing a task's docs check or the verifier's gate."
-    status: planned
+    status: current
     opened: "2026-11-21"
   - id: R19
     name: third architect pass fixes
