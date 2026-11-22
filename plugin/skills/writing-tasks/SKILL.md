@@ -134,9 +134,10 @@ one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line sa
   the branch's own worktree and never a hand `git worktree add`.
 - **A speed check states an absolute target**, never "as fast as before".
 - **A check that runs tests runs them through `ccp suite run`**
-  (`bin/ccp suite run --lane <part lane> -- <test command> <tests>`), so the run is recorded, and pins a
-  named test by grepping that run's log; never a bare test runner's output. `ccp tasks check` warns on
-  a step that runs the language's test command bare.
+  (`ccp suite run --lane <part lane> -- <test command> <tests>`; `CCP_DEV=1 ./bin/ccp suite run …` in the
+  plane's own repo, as below), so the run is recorded, and pins a named test by grepping that run's
+  log; never a bare test runner's output. `ccp tasks check` warns on a step that runs the language's
+  test command bare.
 - **A check of a `ccp` command runs the head's `bin/ccp`** where the head carries one (the plane's own
   repo), never `ccp` on PATH, which is the released plane. Signed SPEC text is checked with
   `bin/ccp verify spec-text <task>` (`ccp verify spec-text <task>` in a product's checkout), never by a
