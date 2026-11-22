@@ -293,17 +293,20 @@ class NoPassOwedAtAdoption(Seat):
         self.assertIn("task(s) done since none", info["reasons"][0])
 
     def test_new_work_still_triggers(self):
-        self.note(self.notes_due, "0011-t11")
+        for n in range(11, 11 + self.notes_due):
+            self.note(1, f"{n:04d}-t{n}")
+        self.note(self.notes_due, "0003-t3")  # a task before the adoption point does not count before the first pass
         info = self.info()
         self.assertEqual(len(info["reasons"]), 1, info["reasons"])
-        self.assertIn(f"{self.notes_due} friction note(s) since none", info["reasons"][0])
+        self.assertIn(f"{self.notes_due} task(s) with a friction note since none", info["reasons"][0])
         # With a recorded pass, the notes since it count whatever their task.
         (self.q / "architect.json").write_text(json.dumps({"schema_version": 1, "reviews": {}, "last": {
             "review_id": "ar-20261020T100000Z-abcd", "started_at": "2026-10-20T10:00:00Z", "done": [],
             "health_drift": True}}))
         info = self.info()
         self.assertEqual(len(info["reasons"]), 1, info["reasons"])
-        self.assertIn(f"{self.notes_due} friction note(s) since ar-20261020T100000Z-abcd", info["reasons"][0])
+        self.assertIn(f"{self.notes_due + 1} task(s) with a friction note since ar-20261020T100000Z-abcd",
+                      info["reasons"][0])
 
     def last_pass(self, **extra) -> None:
         (self.q / "architect.json").write_text(json.dumps({"schema_version": 1, "reviews": {}, "last": {
@@ -311,11 +314,14 @@ class NoPassOwedAtAdoption(Seat):
 
     def test_after_a_pass_the_notes_of_any_task_count(self):
         self.last_pass(health_drift=True)
-        self.note(self.notes_due - 1, None)  # no task
+        self.note(self.notes_due, None)  # a note with no task never counts
         self.note(1, "0003-t3")  # a task before the adoption point
+        self.assertEqual(self.info()["reasons"], [])
+        for n in range(1, self.notes_due):
+            self.note(1, f"{n:04d}-t{n}")
         info = self.info()
         self.assertEqual(len(info["reasons"]), 1, info["reasons"])
-        self.assertIn(f"{self.notes_due} friction note(s) since ar-20261020T100000Z-abcd", info["reasons"][0])
+        self.assertIn(f"{self.notes_due} task(s) with a friction note since ar-20261020T100000Z-abcd", info["reasons"][0])
 
     def test_after_a_pass_drift_that_the_pass_did_not_see_triggers(self):
         self.last_pass()
@@ -381,6 +387,72 @@ class CadenceScalesWithSlots(Seat):
         d = self.due(p)
         self.assertEqual((d["due"], len(d["reasons"])), (True, 1), d["reasons"])
         self.assertIn("4 task(s) done since none", d["reasons"][0])
+
+
+class FrictionCountsNotedTasks(Seat):
+    """§19.6 item 3: the friction trigger counts the distinct tasks with a worker's note, `notes_due` times the
+    tasks the product runs at once; a note with no task and the plane's own override notes never count."""
+
+    def slots(self, n: int) -> Product:
+        self.p = self.make({"shape_from_task": "0011"}, parallel={"max_in_flight": n, "schedule": "paths"})
+        return self.p
+
+    def info(self) -> dict:
+        with mock.patch.object(architect.health, "trend", return_value={"drift": False}), \
+                mock.patch.object(architect.rules, "budget_failures", return_value=[]):
+            return architect.due_info(self.p.cfg, self.q, None, record=False)
+
+    def note(self, task: str | None, n: int = 1, source: str = "worker") -> None:
+        for i in range(n):
+            architect.health.add_note(self.q, f"friction {i}", task_id=task, source=source)
+
+    def tasks(self, first: int, count: int) -> list[str]:
+        return [f"{n:04d}-t{n}" for n in range(first, first + count)]
+
+    def test_one_slot_counts_tasks_not_lines(self):
+        due = self.slots(1).cfg.architect["notes_due"]
+        a, b = self.tasks(11, 2)
+        self.note(a, 3 * due)
+        self.note(b, 1)
+        info = self.info()
+        self.assertEqual((info["reasons"], info["noted_tasks_since_last"], info["notes_tasks"]), ([], 2, due))
+        for t in self.tasks(13, due - 2):
+            self.note(t)
+        info = self.info()
+        self.assertEqual(info["noted_tasks_since_last"], due)
+        self.assertEqual(len(info["reasons"]), 1, info["reasons"])
+        self.assertIn(f"{due} task(s) with a friction note since none", info["reasons"][0])
+
+    def test_three_slots_wait_for_notes_due_times_three_tasks(self):
+        want = self.slots(3).cfg.architect["notes_due"] * 3
+        for t in self.tasks(11, want - 1):
+            self.note(t)
+        info = self.info()
+        self.assertEqual((info["reasons"], info["notes_tasks"], info["noted_tasks_since_last"]), ([], want, want - 1))
+        self.note(self.tasks(11 + want - 1, 1)[0])
+        info = self.info()
+        self.assertEqual(len(info["reasons"]), 1, info["reasons"])
+        self.assertIn(f"{want} task(s) with a friction note since none", info["reasons"][0])
+
+    def test_after_a_pass_override_notes_and_notes_with_no_task_never_count(self):
+        due = self.slots(1).cfg.architect["notes_due"]
+        (self.q / "architect.json").write_text(json.dumps({"schema_version": 1, "reviews": {}, "last": {
+            "review_id": "ar-20261020T100000Z-abcd", "started_at": "2026-10-20T10:00:00Z", "done": []}}))
+        for t in self.tasks(11, due - 1):
+            self.note(t)
+        for source, first in (("allow-overdue", 20), ("allow-unreviewed-fix", 30)):
+            for t in self.tasks(first, due):
+                self.note(t, source=source)
+        self.note(None, 3 * due)
+        info = self.info()
+        self.assertEqual((info["reasons"], info["noted_tasks_since_last"]), ([], due - 1))
+        self.note(self.tasks(40, 1)[0])
+        self.assertEqual(len(self.info()["reasons"]), 1)
+
+    def test_due_reports_the_threshold_and_the_noted_tasks(self):
+        d = self.due(self.slots(3))
+        self.assertEqual((d["notes_tasks"], d["noted_tasks_since_last"]), (self.p.cfg.architect["notes_due"] * 3, 0))
+        self.assertNotIn("notes_since_last", d)
 
 
 class APassAndATaskedBreach(Harness):
