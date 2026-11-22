@@ -100,7 +100,7 @@ ADR-0026 carries the reasons.
 
 | Wallet | Pays for | Allowed |
 |---|---|---|
-| **Prepaid Claude allowance** (CLI login / subscription quota) | Implementer `claude -p`, same-session `/mk-pr`, a clean `/review`, fix loops | **Development only** |
+| **Prepaid Claude allowance** (CLI login / subscription quota) | The runner's workers: the implementer and the PR it opens, the clean review, fix loops, the verifier | **Development only** |
 | **API credits** (`ANTHROPIC_API_KEY` and similar) | The product's own runtime model calls (app, staging) | **Product only** — never Claude Code or `claude -p` |
 
 ### 30.3 No ambient keys

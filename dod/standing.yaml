@@ -19,10 +19,13 @@ phases:
   - id: same_session_mk_pr_review
     owner: implementer_reviewer
     must:
-      - mk_pr_via_implementer_resume   # --resume same Claude session; cold /mk-pr forbidden
+      - mk_pr_via_implementer_resume   # --resume same Claude session; the PR comes from the implementer's own worker
       - clean_subagent_review           # /review in separate clean context
       - safe_fixes_applied_or_filed
       - decisions_classified            # implementation | spec → questions/escalations
+    notes: >
+      A review that reports clean leaves the task's review record, review/<task_id>.json, written by
+      ccp report (contracts/review.schema.json, SPEC §15.1).
 
   - id: formal_submit
     owner: formal_gate
@@ -32,6 +35,9 @@ phases:
       - review_artifact_present
       - no_open_spec_escalation
     sets_status: submitted
+    notes: >
+      ccp tasks submit <task_id>, which the runner runs before ccp prompt verify (SPEC §15.1). It
+      reports unit_lint and never judges it: that is the verifier's own run.
 
   - id: verifier_approve
     owner: verifier

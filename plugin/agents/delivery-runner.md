@@ -151,6 +151,8 @@ ids), tell the lead in one line: the run and how many. The lead decides each one
    takes it as the fix of a clean review's MINOR and NIT findings (a verify reject since sends it back to review). Only on the lead's or the operator's word:
    `ccp prompt verify … --allow-unreviewed-fix --reason "<their words>"`, recorded as a friction note; with
    it, no proof runs.
+   After the review that clears the head, run `ccp tasks submit <task_id>` (formal-submit, SPEC §15.1). On exit 4,
+   handle each item it names as the matching refusal of `ccp prompt verify`.
 8. **Verify.** First, the checks only the operator's machine can run (SPEC §10.2, §15.8): `ccp tasks checks
    <task_id> --json` lists each dod_check with its `runs_on`. Run each marked `operator-machine` once per head you
    hand the verifier, after any catch-up, before `ccp prompt verify`: open a gate (`team.sh gate open --class

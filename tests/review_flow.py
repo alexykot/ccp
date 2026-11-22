@@ -1,6 +1,6 @@
-"""The helpers the review and verify tests share, on two mixins that hold no tests.
+"""The helpers the review and verify tests share, on mixins that hold no tests.
 
-`ReviewFlow` and `SkipFlow` mix into a `ToolkitFixture` `TestCase` (`class X(ReviewFlow, ToolkitFixture,
+`ReviewFlow`, `SkipFlow` and `PhaseFlow` mix into a `ToolkitFixture` `TestCase` (`class X(ReviewFlow, ToolkitFixture,
 unittest.TestCase)`): they drive a claimed `0002-second` through review, fix and verify rounds, so a module
 that needs a round inherits them and never borrows a method off another module's test class."""
 from __future__ import annotations
@@ -96,3 +96,53 @@ class SkipFlow(ReviewFlow):
 
     def verify(self, head: str, *extra: str):
         return self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", head, *extra)
+
+
+class PhaseFlow(ReviewFlow):
+    """`ReviewFlow` with the rounds that move a task through `implemented` and `reviewed` (SPEC §10.1): a claimed
+    `0002-second`, an implement round bound to a session and reported done with PR #7 at `A`, and reviews whose
+    workers are bound to sessions too. Every run opens a second after the last (`opened_at` has one-second
+    resolution); `start` patches the clock and claims the task."""
+
+    IMPLEMENTER_SESSION = "sess-implementer"
+
+    def start(self) -> None:
+        from unittest import mock  # noqa: PLC0415
+        clock = iter(f"2026-10-22T{10 + i // 60:02d}:{i % 60:02d}:00Z" for i in range(600))
+        for where in ("ccp.runs.iso", "ccp.report.iso"):
+            patch = mock.patch(where, side_effect=lambda: next(clock))
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.ccp("tasks", "claim", "0002")
+
+    def bind(self, agent_type: str, agent: str, session: str) -> None:
+        from ccp import config, runs  # noqa: PLC0415
+        runs.bind(self.q, config.load(self.runner), agent_type, agent, session)
+
+    def implemented(self, head: str = A) -> str:
+        code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
+        self.assertEqual(code, 0, out + err)
+        self.bind("delivery-implementer", "agent-implementer", self.IMPLEMENTER_SESSION)
+        code, _, out, err = self.report(body["run_id"], f"Outcome: done\nPR: #7\nHead: {head}\n## Friction\nnone\n")
+        self.assertEqual(code, 0, out + err)
+        return body["run_id"]
+
+    def reviewed_as(self, severity: str, head: str = A, session: str = "sess-reviewer") -> str:
+        code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", head)
+        self.assertEqual(code, 0, out + err)
+        self.bind("delivery-reviewer", f"agent-{body['run_id']}", session)
+        code, _, out, err = self.report(body["run_id"], f"Outcome: done\nSeverity: {severity}\n"
+                                                        "## Spec beyond intent\nnone\n## Friction\nnone\n")
+        self.assertEqual(code, 0, out + err)
+        return body["run_id"]
+
+    def status(self) -> str:
+        return json.loads((self.q / "tasks/0002-second.json").read_text())["status"]
+
+    def review_record(self) -> Path:
+        from ccp import report  # noqa: PLC0415
+        return report.review_record_path(self.q, "0002-second")
+
+
+CLEAN = "BLOCKER=0 MAJOR=0 MINOR=0 NIT=0"
+MAJOR = "BLOCKER=0 MAJOR=1 MINOR=0 NIT=0"

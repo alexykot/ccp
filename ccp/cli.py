@@ -734,6 +734,9 @@ def _lifecycle(cfg: config.Config, a: argparse.Namespace):
         return lifecycle.drop(cfg, a.task, (a.reason or "").strip())
     if a.cmd == "phase":
         return lifecycle.phase(cfg, a.task, a.phase, a.note or "")
+    if a.cmd == "submit":
+        from ccp import submit  # noqa: PLC0415
+        return submit.submit(cfg, a.task)
     if a.cmd in ("wait", "resume"):
         return lifecycle.wait(cfg, a.task, "set" if a.cmd == "wait" else "clear", a.reason,
                               getattr(a, "until", None), a.detail, getattr(a, "quota_class", None))
@@ -1253,6 +1256,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("task")
     p.add_argument("phase")
     p.add_argument("--note")
+    p.set_defaults(fn=life)
+    p = t.add_parser("submit", help="formal-submit, the standing DoD's checklist before the verify: exit 4 naming "
+                                    "each failed item, else the task moves to submitted (SPEC §15.1; needs QUEUE_ROOT)")
+    p.add_argument("task", help="task id or NNNN")
     p.set_defaults(fn=life)
     for name, hlp in (("wait", "set waiting_on (through set-waiting-on.sh)"), ("resume", "clear waiting_on")):
         p = t.add_parser(name, help=hlp)

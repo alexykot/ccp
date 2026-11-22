@@ -21,7 +21,9 @@ pending → leased → implementing → implemented → reviewing → reviewed �
        ↘ failed  (unrecoverable)
 ```
 
-`ccp prompt` moves a task to `implementing`, `fixing`, `reviewing` or `verifying`; `ccp tasks
+`ccp prompt` moves a task to `implementing`, `fixing`, `reviewing` or `verifying`; `ccp report`
+moves it to `implemented` when an implement round reports done with a head, and to `reviewed`
+when a review reports clean; `ccp tasks submit` moves it to `submitted` (§15.1); `ccp tasks
 phase <id> <phase>` moves it for a step with no run of its own (an operator step, waiting to
 merge). `MID_FLIGHT` is every phase from `leased` to `merging`.
 
@@ -455,7 +457,7 @@ and use those URLs for checks that need the running product, browser checks incl
 
 The runner's workers are subagents of fixed agent types (§2): the implementer, the reviewer and the
 verifier. The implementer writes the change and, **in the same worker** (resumed by name), opens the
-PR with `/mk-pr`; a cold `/mk-pr` is forbidden. The review is a clean separate worker, never the
+PR (`mk_pr_via_implementer_resume`, §15.1); a PR from any other session is forbidden. The review is a clean separate worker, never the
 implementer's session. Every worker runs the PATH `claude`, never `--bare`. Workers never merge,
 never edit a task's checks and never create a task: a follow-up a worker finds goes to the lead,
 as a line of its report's `## Follow-ups` (§13.4), never only in notes or prose.
@@ -882,6 +884,16 @@ The standing DoD (`dod/standing.yaml`) is harness-owned; a task supplies paramet
 not the gate) → verifier approve → merge (`implementer_merge`, carried out by the runner once
 `ccp verify merge-ok` exits 0). **Done** is all of them; post-merge smoke and production promotion are
 outside it.
+
+The plane records two of these phases. When a review reports clean, `ccp report` writes the
+task's review record, `review/<task_id>.json` (`contracts/review.schema.json`): the PR, the head
+reviewed, the run and session that opened the PR, the review's run and session, the rework rounds
+since the PR opened, the spec questions the task raised, the review report's path and the time.
+Formal-submit is `ccp tasks submit <id>`, which the runner runs before `ccp prompt verify`: it
+exits 4, naming each failed item and moving nothing, unless the task has a PR, the review record's
+review covers the PR head (§15.2), and no spec question or escalation listing the task is open; a
+pass moves the task to `submitted`. It also reports whether the run at the PR head recorded a
+passed `ccp suite run`, which it does not judge: `unit_lint` is the verifier's own run.
 
 The `unit_lint` gate is **the verifier's own run** of the product's unit and lint commands on the PR
 head, with `ccp tasks check` and `ccp docs check` where the product has `docs/delivery/plane.json`,
