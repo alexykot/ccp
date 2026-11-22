@@ -109,17 +109,19 @@ review_points:
   - id: R19
     name: third architect pass fixes
     goal: "Findings of architect pass ar-20261121T111633Z-4e26: reviewers get the affected-modules command and a base checkout, the tests-for-new-behaviour section in the report table, a parallel part lane, module docstrings without usage tables and house-rule checks without bare test runs, writers checked against their contracts, and one parser for signed blocks and task-id patterns."
-    status: current
+    status: closed
     opened: "2026-11-21"
+    closed: "2026-11-22"
   - id: R20
     name: fourth architect pass fixes
     goal: "Findings of architect pass ar-20261121T132817Z-d5e5: the plane's gate under one lane name, a worker's suite run that waits for a held exclusive lane, and suite run naming the lane it uses."
-    status: planned
+    status: closed
     opened: "2026-11-21"
+    closed: "2026-11-22"
   - id: R21
     name: fifth architect pass fixes
     goal: "Findings of architect pass ar-20261121T174754Z-7df5: GitHub knowledge only in the PR-host module and no direct gh pr grant, ccp mutate taking its runner and did-not-build pattern from the language pack, the local PR record in the plane's own state words with ledger events for its writes, and ccp verify taking each action's own flags with worker prompts naming each cited finding's record."
-    status: planned
+    status: current
     opened: "2026-11-21"
   - id: R22
     name: operator rulings 2
@@ -134,5 +136,10 @@ review_points:
   - id: R24
     name: follow-ups of R15 and R17
     goal: "The open worker follow-ups of the R15 and R17 tasks: docs, contract and template leftovers, code leftovers (one wait-writer command, close's removals through the unrecorded-worktree helper, ids from refs.py, a requires remedy without cycles, two load- and cwd-sensitive tests), and the signed SPEC text for formal-submit's proof path and exit 3, the queue files ccp writes, the shared gate part and what ccp report computes."
+    status: planned
+    opened: "2026-11-22"
+  - id: R25
+    name: seventh architect pass fixes
+    goal: "Findings of architect pass ar-20261122T055103Z-11aa and the open follow-ups of 0261, 0264, 0265 and 0266: ccp owning the headless-launch helpers with blocked reading the task log, the retired watchdog and seat cadences out of writers and docs, shared test fixtures in modules that hold no tests, and seats running one check as the plane does, with the plane's pre-gate lane and the signed SPEC text for the operator-gate waiver and the one-gate-lane example."
     status: planned
     opened: "2026-11-22"

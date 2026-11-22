@@ -53,12 +53,13 @@ All reshape phases have landed.
     token each guards, and derive the template flags' defaults from the templates. Too large for one
     task; house rule E4 keeps new tests clean meanwhile.
   - F17: move `scripts/observability/lib.py` and `architecture_review.py` into the `ccp` package, so
-    `ccp` imports nothing from `scripts/` (the E7 amendment comes with it). After R14's 0203 and
-    0207, which touch the same files.
+    `ccp` imports nothing from `scripts/` (the E7 amendment comes with it). Architect pass
+    `ar-20261122T055103Z-11aa` (F01) found the first trigger fired; task 0282 (R25) moves the headless
+    helpers and the open-question rule out of `spec_maintainer.py`. Tasked once 0272, 0277, 0282 and 0283,
+    which all edit lib.py or its importers, are done.
 - **Deferred from architect pass `ar-20261121T020523Z-1d5f`** (record in `docs/delivery/reviews/`):
-  - F12: the plane's own `pregate` lane (`ccp tasks check` plus `ccp docs check`, beside its
-    `architect.checks`) is a lead adopt step now that R15's 0212 has landed, so a docs-rule failure
-    shows before the full lane. No task.
+  - F12: the plane's own `pregate` lane: taken up by task 0285 (R25), after architect pass
+    `ar-20261122T055103Z-11aa` (F07) found it still undeclared.
 - **Deferred from architect pass `ar-20261121T132817Z-d5e5`** (record in `docs/delivery/reviews/`):
   - F06: taken up by task 0271 (R23), after architect pass `ar-20261121T223646Z-f0a7` (F06) found
     `tests.test_mutate` still the second slowest module after 0255.
@@ -70,6 +71,10 @@ All reshape phases have landed.
     (cli.py only dispatches) and a language-pack rule for a declared hub module.
   - F10: the six retirement-guard test modules. Re-measured after R17's 0255 makes `ToolkitFixture`
     cheap; a guard with no reader left is cut then, by one refactor task.
+- **Deferred from architect pass `ar-20261122T055103Z-11aa`** (record in `docs/delivery/reviews/`):
+  - F08: a render-only `ccp prompt` (no audit, no run), so a template refactor proves "rendered prompt
+    unchanged" with one command at base and head. Tasked if the seats of R24's 0276, the next template
+    refactor, note the same scratch render-and-compare work.
 - **Considered and declined:** continuing past the weekly allowance into paid extra usage (the plane
   runs on the prepaid allowance only, ADR-0026), and a separate task-drafting seat (the lead drafts
   tasks, with a writer subagent when several land at once).
