@@ -77,10 +77,11 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   other module calls those git subcommands.
   check: command — `git grep -n "merge-tree\|patch-id\|remerge-diff" -- ccp` lists only the helper
   module
-- **E16** Only ccp/config.py reads plane.json. A hook, script or shared library that needs a
-  setting asks `ccp` (JSON out) or takes it from ccp.config's loaded Config; it never opens the
-  file, by literal name or by `CONFIG_REL`, and never defaults a key itself.
-  check: command — `! git grep -nE '(plane\.json"|CONFIG_REL)\)\.read_text' -- plugin scripts`
+- **E16** Only ccp/config.py reads plane.json. A hook, script, shared library or ccp module that
+  needs a setting asks `ccp` (JSON out) or takes it from ccp.config's loaded Config; it never opens
+  the file, by literal name or by `CONFIG_REL`, and never defaults a key itself. A command that
+  records into plane.json edits its text through ccp/jsonedit.py.
+  check: command — `! git grep -nE '(plane\.json"|CONFIG_REL)\)\.read_text' -- ccp plugin scripts ':(exclude)ccp/config.py'`
   (architect.checks `E16`)
 - **E17** One module resolves and parses a product's binding; every other reader calls it.
   check: pass — the architect looks for binding regexes outside that module

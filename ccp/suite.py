@@ -759,10 +759,28 @@ def _inside(cwd: Path, worktree: Any) -> bool:
         return False
 
 
+class ClosedRun(QueueError):
+    """`--run` names a run that has reported or was abandoned: refused before the command starts (§14.2)."""
+
+
+def closed_run_refusal(run_id: str, state: str, open_id: str | None) -> str | None:
+    """Why `--run run_id`, a run in `state`, is refused, naming the task's open run `open_id` when it has
+    one; None when the run is open and binds."""
+    if state in runs.OPEN:
+        return None
+    return (f"run {run_id} is {state}: a suite run is recorded only on an open run, and nothing ran"
+            + (f"; the task's open run is {open_id}: run with --run {open_id}" if open_id else ""))
+
+
+def _latest_open(q: Path, task_id: str) -> dict[str, Any] | None:
+    """The task's latest open run, of any phase: the one `--task` alone binds."""
+    return next((r for r in reversed(runs.all_runs(q, task_id)) if runs.state(r) in runs.OPEN), None)
+
+
 def _bind(cfg: Config | None, q: Path, a: Any, warn: _Warn) -> dict[str, Any]:
     """The run this suite run belongs to: --run, else --task [--phase]'s latest open run, else the
     one running worker run whose worktree holds the current directory. What is known of it, when
-    nothing binds."""
+    nothing binds. Raises ClosedRun when --run names a run that is no longer open."""
     out: dict[str, Any] = {"run_id": None, "task_id": None, "phase": a.phase or None, "round": None,
                            "seat": None, "bound_by": None}
     rec = None
@@ -771,20 +789,21 @@ def _bind(cfg: Config | None, q: Path, a: Any, warn: _Warn) -> dict[str, Any]:
         out.update(task_id=task, phase=phase)
         try:
             rec = runs.load(q, a.run)
-            out["bound_by"] = "run"
         except QueueError:
             warn(f"no run {a.run} in the queue: recorded against its task, unbound")
+        if rec is not None:
+            other = _latest_open(q, task)
+            why = closed_run_refusal(a.run, runs.state(rec), str(other["run_id"]) if other else None)
+            if why:
+                raise ClosedRun(why, 2)
+            out["bound_by"] = "run"
     elif a.task:
         tid = a.task
         if cfg is not None and not runs.RUN_ID_RE.match(f"{tid}/implement"):
             from ccp.queue import task_meta  # noqa: PLC0415
             tid = str(task_meta(cfg, a.task)["task_id"])
         out["task_id"] = tid
-        if a.phase:
-            rec = runs.latest_open(q, tid, a.phase)
-        else:
-            rec = next((r for r in reversed(runs.all_runs(q, tid))
-                        if runs.state(r) in ("pending", "running", "stopped")), None)
+        rec = runs.latest_open(q, tid, a.phase) if a.phase else _latest_open(q, tid)
         out["bound_by"] = "task" if rec else None
     else:
         cwd = Path.cwd().resolve()
@@ -1141,6 +1160,9 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                           {"cmd": Path(argv[0]).name[:64], "argc": len(argv) - 1}), "output": mode, **bound}
             # §14.4: the tree and the commit a clean checkout ran (the working directory's)
             started.update(checkout_ids(Path(".")))
+    except ClosedRun as e:  # §14.2: a stale --run stops the worker before anything runs or is recorded
+        print(f"ccp suite: {e}", file=sys.stderr)
+        return e.code
     except Exception as e:  # noqa: BLE001  (recording never blocks the tests)
         warn(f"not recorded ({str(e).splitlines()[0][:200] if str(e) else type(e).__name__}): running the tests anyway")
         q = started = None
@@ -1190,8 +1212,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                 _append(q, {"op": "busy", "suite_id": suite_id, "at": iso(), "lane": a.lane or lane_for(cfg, "full"),
                             "run_id": started.get("run_id"), "task_id": started.get("task_id"),
                             "held_by": holder.get("suite_id"),
-                            **({"waited_s": round(time.monotonic() - t_wait, 1)} if wait else {}),
-                            **({"wait_auto": True} if auto else {})})
+                            **({"waited_s": round(time.monotonic() - t_wait, 1)} if wait else {})})
                 # §16.6: counted on the run, for the parallel-work measures (§16.7). Unlocked: the worker that owns
                 # the run is the one waiting in this shell, so nothing else writes it now
                 if started.get("run_id"):

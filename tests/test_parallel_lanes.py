@@ -128,8 +128,6 @@ class Lanes(SuiteFixture, unittest.TestCase):
         self.assertLess(time.monotonic() - t0, 3)
         self.assertEqual(r.returncode, 75, r.stderr)
         self.assertIn(suite.WAIT_AUTO_NO_RUN.encode(), r.stderr)
-        busy = [x for x in self.rows() if x.get("op") == "busy"][-1]
-        self.assertIs(busy.get("wait_auto"), True)
         _killpg(holder)
         holder.wait(timeout=30)
 
