@@ -5,6 +5,8 @@ os.environ["CCP_DEV"] = "1"
 os.environ["CCP_NO_BINDING_QUEUE"] = "1"
 # §28.3: no test starts a detached board build; the refresh tests mock the spawn and lift this.
 os.environ["CCP_NO_BOARD_REFRESH"] = "1"
+# §21.2: no test makes a run at the merge base (a worktree of the repo); tests.test_preexisting_checks lifts this.
+os.environ["CCP_NO_BASE_RUN"] = "1"
 # §24: no test reads Claude Code's real transcripts or user settings, writes the real system
 # telemetry sink, or plists a real run checkout; the tests that need them name temp dirs.
 os.environ["CCP_CLAUDE_PROJECTS_DIR"] = "/nonexistent/claude-projects-guard"
