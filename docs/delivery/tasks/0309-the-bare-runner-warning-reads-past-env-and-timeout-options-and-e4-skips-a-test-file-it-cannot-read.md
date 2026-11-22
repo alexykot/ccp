@@ -39,8 +39,9 @@ Covers these follow-ups (`ccp --root . tasks follow-ups --open`), and the two ni
 Measured at `ad9b4f84` (origin/main).
 
 - **The dead guard.** In `"def runs_bare"` (`ccp/tasklog.py`), `if rest[:1] and rest[0] in CCP_COMMANDS: return False`.
-  The first word of `rest` never starts with `-`, so it is always `kept[0]`, and a first word `ccp` or `bin/ccp`
-  never matches a runner starting `python3` (or any pack command not starting with `ccp`).
+  When `rest[0]` is `ccp` or `bin/ccp` it does not start with `-`, so it is kept as `kept[0]`, and it never equals a
+  runner's first word (`python3`, or that of any pack command not starting with `ccp`): the comparison already
+  answers not bare.
   `git grep -nw CCP_COMMANDS -- ccp tests` at `ad9b4f84`: 2 lines, the constant and the guard. In a scratch copy (`git archive`)
   with `CCP_COMMANDS = ()`, `python3 -B -m unittest tests.test_bare_test_runner_warning` printed `OK`: the mutant survives.
   Ruled: delete the guard, `CCP_COMMANDS` and the docstring's sentence "One that starts with `ccp` or `bin/ccp` never does."
@@ -50,16 +51,18 @@ Measured at `ad9b4f84` (origin/main).
   word starting with `-`, so `env -i python3 -m unittest` is already bare. A probe at `ad9b4f84`,
   `python3 -B -c 'from ccp import tasklog as t, doclang as d; r=t._tokens(d.get("python").test_command); print([t.runs_bare(t._tokens(c), r) for c in ("env -u X python3 -m unittest", "timeout -k 5 60 python3 -m unittest", "timeout -s KILL 60 python3 -m unittest", "env -i python3 -m unittest")])'`,
   printed `[False, False, False, True]`: an option's argument (`X`, `5`, `KILL`) is left as the first word.
-  Ruled: a constant `PREFIX_OPTION_ARGS = {"env": ("-u", "-C", "-P"), "timeout": ("-k", "-s")}`, the options whose
-  next word is their argument. After `env`, `time` or `timeout`, the walk skips each word starting with `-`, and also
+  Ruled: a constant `PREFIX_OPTION_ARGS = {"env": ("-u", "-C", "-P", "--unset", "--chdir"), "time": ("-o", "-f", "--output", "--format"), "timeout": ("-k", "-s", "--kill-after", "--signal")}`,
+  the options whose next word is their argument (a long form written `--signal=KILL` is one word). After `env`, `time` or `timeout`, the walk skips each word starting with `-`, and also
   the next word when the option is in that prefix's tuple. A `--name=value` word is one word. After `timeout` and its
   options a duration (`TIMEOUT_RE`) must follow, or the walk stops at `timeout`, as today, so `timeout python3 -m unittest`
   stays not bare. `env -S` is not read (its argument is the command string itself). A runner option that takes an
   argument (`python3 -X dev -m unittest`) stays not bare, as `RunsBare` pins it.
   The new test is `test_bare_past_env_time_and_timeout_options` in `RunsBare`, holding at least `env -u X python3 -m unittest`,
   `env -C /tmp python3 -m unittest`, `timeout -k 5 60 python3 -m unittest`, `timeout -s KILL 60 python3 -m unittest`,
-  `timeout --signal=KILL 60 python3 -m unittest`, `time -p python3 -m unittest` and
-  `env -u X A=1 time -p timeout -k 5 60 python3 -m unittest` as bare, and `timeout -k 5 python3 -m unittest` as not bare.
+  `timeout --signal=KILL 60 python3 -m unittest`, `env --unset X python3 -m unittest`, `env --chdir /tmp python3 -m unittest`,
+  `timeout --kill-after 5 60 python3 -m unittest`, `timeout --signal KILL 60 python3 -m unittest`, `time -p python3 -m unittest`,
+  `time -o out.txt python3 -m unittest`, `time -f %e python3 -m unittest`, `time --output out.txt python3 -m unittest`,
+  `time --format %e python3 -m unittest` and `env -u X A=1 time -p timeout -k 5 60 python3 -m unittest` as bare, and `timeout -k 5 python3 -m unittest` as not bare.
 - **E4's import check.** It is the `python3 -B -c` part of E4's command in `docs/delivery/plane.json` (the part holding
   `from tests`, which `e4_import_check` in `tests/test_self_hosting.py` extracts). It runs `open(f).read()` and `ast.parse`
   on each tracked `tests/*.py`. A probe at `ad9b4f84`, in a scratch repo with `tests/test_a.py` tracked then deleted from the
@@ -80,8 +83,10 @@ Measured at `ad9b4f84` (origin/main).
 - **Clashes.** A script over the pending tasks on `origin/main` and on PR #358's branch (`origin/triage-9098`), at `ad9b4f84`,
   listed those whose `paths` name `ccp/tasklog.py`, `docs/delivery/plane.json`, `tests/test_self_hosting.py` or
   `tests/test_bare_test_runner_warning.py`: 0293 (`WHOLE_SUITE_ROLES` and E27), 0304 (section finding), 0305 and 0308
-  (other `architect.checks` entries). None of them changes `runs_bare` or E4's import part
-  (`git grep -n 'runs_bare\|RUNNER_PREFIXES\|E4' -- <those task files>` names E4 only in 0293's `rule_refs`), so `clashes_with` is empty.
+  (other `architect.checks` entries). Those naming `tests/` by other files only (0191, 0296, 0297, 0299, 0300, 0302, 0303,
+  0306, 0307) were read too: none names a file of this task. None of them changes `runs_bare` or E4's import part
+  (`git grep -nw 'runs_bare\|RUNNER_PREFIXES\|E4' -- <those task files>` finds E4 only in the `rule_refs` of 0293, 0297 and 0302
+  and in 0302's Intent on its test helpers, never E4's import check), so `clashes_with` is empty.
 
 ## Scope
 
