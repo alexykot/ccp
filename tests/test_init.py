@@ -490,8 +490,9 @@ class GithubOrigin(InitCase):
         self.assertEqual(len(res["warnings"]), 1)
         for text in (res["warnings"][0], err):
             self.assertIn("GitHub", text)
-            for command in ("ccp verify merge-ok", "ccp tasks close", "gh pr"):
+            for command in ("ccp verify merge-ok", "ccp tasks close", "ccp pr"):
                 self.assertIn(command, text)
+            self.assertNotIn("gh pr", text)
 
     def test_a_local_bare_origin_is_warned_about(self):
         bare = self.repo.parent / "bare.git"

@@ -146,4 +146,22 @@ From architect pass `ar-20261121T174754Z-7df5`, findings F02 and F03 (the record
 
 ## Implementation notes
 
+- `ccp/prhost.py`: `fetch_commit(cfg, root, sha, pr, branch)` as ruled; each adapter has a static
+  `head_refs(pr)` (GitHub `refs/pull/<pr>/head`, Local none). `adapter_name(cfg)` reads plane.json
+  `pr_host.adapter` once, for `adapter()` and for `label(cfg)`, which renders `the PR host (<adapter>)`
+  for close's and merge-ok's messages.
+- `behind_tip`, `resolution_gate` and `_judge_fix` call `fetch_commit` with `task/<id>` and keep their
+  own error on False; `_judge_fix` still rev-parses for the full sha.
+- `permissions` grants no `gh` entry; `GITHUB_ONLY`'s third entry is "`ccp pr` (open, view, diff, edit,
+  merge)". The README clause is removed; nothing added in its place.
+- Measured at `3ea3a7aa`: `git grep -nwP 'gh' -- ccp/lifecycle.py ccp/verify.py ccp/prompt.py` printed
+  5 lines, not 6: `ccp/verify.py`'s usage docstring no longer names `gh`. The other premises matched.
+- `tests/test_prhost_only.py` still lists `ccp/init.py` among the modules allowed to name the forge CLI
+  (its `DENY` keeps `gh repo delete`); left as it is (not in Scope).
+- Fix round 1 (review MINOR-1): `tests/test_prhost_fetch.py` gains `EachStepFetchesItsHead`, one test
+  per call site (`behind_tip`, `resolution_gate`, `_judge_fix`). Under the GitHub adapter, a head only on
+  origin's `refs/pull/7/head`, then one only on `task/<id>`, is in the checkout after the step. The test
+  thus pins both the PR and the branch each site passes. Each subtest's commit gets its own message: the
+  origin is shared and git's dates are fixed, so equal messages would give equal shas.
+
 ## Verification notes

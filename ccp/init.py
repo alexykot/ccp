@@ -110,7 +110,7 @@ DENY = (*(f"git push {flag}" for flag in FORCE_FLAGS),
         "gh repo delete")
 # ADR-0040 D5, D7: what needs a GitHub origin and a logged-in `gh` under the GitHub adapter (`pr_host.adapter`).
 GITHUB_ONLY = ("ccp verify merge-ok", "ccp tasks close (its default merge and its merge confirmation)",
-               "the workers' `gh pr` steps (the implementer's PR, review and verify)")
+               "`ccp pr` (open, view, diff, edit, merge)")
 # ADR-0040 D3, D5: what needs an origin the plane can push to under the local adapter.
 ORIGIN_ONLY = ("`ccp pr` (open, view, diff, merge)", "ccp verify merge-ok",
                "ccp tasks close (its merge, its merge confirmation and its reconcile push)")
@@ -562,15 +562,13 @@ def _deny_rule(cmd: str) -> str:
 def permissions(cfg: config.Config, queue_root: str) -> dict[str, Any]:
     """§4.5, §18.5: the runner's and workers' permission block. Allowed: `ccp` by name (§4.3) and
     the plane's seat scripts by absolute path, each also behind the binding's `QUEUE_ROOT=` as the seats run them; git
-    by verb; `gh pr` under the GitHub adapter (`pr_host.adapter`, ADR-0040 D5); the gate lane's commands (its
-    argv, or each stage's command). Denied: `DENY`."""
+    by verb; the gate lane's commands (its argv, or each stage's command). No forge CLI under any adapter: the
+    workers reach the PR host through `ccp pr` (ADR-0040 D1). Denied: `DENY`."""
     q = shlex.quote(queue_root)
     allow: list[str] = []
     for cmd in ("ccp", *(shlex.quote(str(PLANE / s)) for s in SEAT_SCRIPTS)):
         allow += [_rule(cmd), _rule(f"QUEUE_ROOT={q} {cmd}")]
     allow += [_rule(f"git {verb}") for verb in GIT_VERBS]
-    if isinstance(prhost.adapter(cfg), prhost.GitHub):
-        allow.append(_rule("gh pr"))
     gate = ((cfg.suite or {}).get("lanes") or {}).get("gate")
     stages = config.lane_stages(gate)
     if stages is not None:

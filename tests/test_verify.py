@@ -847,7 +847,7 @@ class MergeOk(unittest.TestCase):
         with mock.patch.dict(os.environ, {"CCP_GH_BIN": str(self.q / "no-such-gh")}):
             code, _, err = self.ok("--task", "0001-a", host=False)
         self.assertEqual(code, 2)
-        self.assertIn("is not installed: merge-ok reads the PR with gh", err)
+        self.assertIn("is not installed: merge-ok reads the PR from the PR host (github)", err)
 
 
 def now_iso() -> str:

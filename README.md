@@ -272,9 +272,9 @@ ccp init --permissions
 
 It prints a JSON `permissions` block and writes nothing. The block allows `ccp` by name, and the
 plane's `team.sh` and `spec-maintainer-ask.sh` by absolute path, each also behind the queue's
-`QUEUE_ROOT=` as the seats run them; git by verb; `gh pr` under the GitHub adapter; and your gate
-lane's commands. It denies destructive commands: `git reset --hard`, `git clean`, `git branch -D`,
-`git stash`, `git checkout --`, `git restore`, `rm -rf`, `gh repo delete`, and a forced push
+`QUEUE_ROOT=` as the seats run them; git by verb; and your gate lane's commands. It denies
+destructive commands: `git reset --hard`, `git clean`, `git branch -D`, `git stash`,
+`git checkout --`, `git restore`, `rm -rf`, `gh repo delete`, and a forced push
 (`--force`, `--force-with-lease` or `-f` right after `push`, after the remote or branch, or at the
 end). The deny rules are prefix matches: they catch the spellings listed, not every spelling of the
 same act (`rm -fr`, `git -C <dir> reset --hard` or a push of a `+<branch>` refspec gets through).

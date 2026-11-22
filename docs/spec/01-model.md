@@ -451,8 +451,9 @@ plane knows GitHub by that host name only, and the warning does not stop the ado
 - **The permission list.** `ccp init --permissions` writes nothing. In an adopted product it prints the
   runner's and workers' permissions (§18.5) as a JSON `permissions` block:
   - an allowlist: `ccp` by name (§4.3), and the plane's `team.sh` and `spec-maintainer-ask.sh` by
-    absolute path, each of the three also behind the binding's `QUEUE_ROOT=`; git by verb; `gh pr`
-    only under the GitHub adapter (`pr_host.adapter`); and the gate lane's commands;
+    absolute path, each of the three also behind the binding's `QUEUE_ROOT=`; git by verb; and the gate
+    lane's commands. It grants no forge CLI under any adapter: the workers reach the PR host through
+    `ccp pr` (§15.5);
   - a deny list of destructive commands.
 
   It refuses (exit 2) another init flag, and a product without a `plane.json` that loads or without
