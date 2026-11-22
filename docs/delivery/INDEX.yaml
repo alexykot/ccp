@@ -1433,7 +1433,7 @@ tasks:
     depends_on: []
     path: tasks/0291-wt-remove-clears-a-cache-only-leftover-mutant-file-names-the-line-break-and-leak-check-reads-only-a-clean-where.md
   - id: 0292-the-review-prompt-asks-for-a-cold-run-where-review-takes-no-cache-hits
-    status: pending
+    status: done
     title: Where the product takes no cache hits for review, the review prompt asks for the reviewer's run of the touched modules with --cold
     depends_on: []
     path: tasks/0292-the-review-prompt-asks-for-a-cold-run-where-review-takes-no-cache-hits.md
