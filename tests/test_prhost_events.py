@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ccp import config
+from ccp import config, prhost
 from tests.test_toolkit import ToolkitFixture, git
 
 BRANCH = "task/0002-second"
@@ -84,6 +84,25 @@ class PrEvents(ToolkitFixture, unittest.TestCase):
         for _ in range(2):
             self.assertEqual(self.ccp("pr", "view", self.PR)[0], 0)
         self.assertEqual(len(self.new_pr_events(before)), 1)
+
+    def test_a_read_that_records_the_merge_before_merges_own_write_leaves_it_the_one_event(self):
+        self.ccp("tasks", "claim", "0002")
+        head = self.push("feature.txt")
+        self.open_by_cli()
+        locked, calls = prhost.Local._locked, []
+
+        def racing(host: prhost.Local):
+            calls.append(host)
+            if len(calls) == 2:  # merge's write after its push: a read gets the lock first and finds the squash
+                calls.append(host)
+                host._read(self.PR)
+            return locked(host)
+
+        with mock.patch.object(prhost.Local, "_locked", racing):
+            r = prhost.merge(config.load(self.runner), self.PR, head, "0002-second")
+        self.assertTrue(r.ok, r.message)
+        self.assertEqual([e["op"] for e in self.pr_events()], ["opened", "merged"])
+        self.assertEqual(self.pr_record()["state"], "merged")
 
     def test_a_merge_made_outside_the_adapter_gets_its_one_event_from_the_view_that_finds_it(self):
         self.ccp("tasks", "claim", "0002")
