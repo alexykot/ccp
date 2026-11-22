@@ -16,7 +16,6 @@ SPEC edits only as the task gives them: rule text the task does not carry goes t
 Before you build, re-run at {{base}} each command the task's Context names for a measured premise (a count, a size, a list of sites, an "already" or "never happens" claim).
 If a figure changed materially, stop before building and put it at the top of your report as a scope question: the premise, its command, the figure the task states and the one you measured.
 {{#refactor}}
-The suite and the product's scenario checks pass too.
 If the work turns out to need a behaviour or stored-data change, stop and report it.
 {{/refactor}}{{#marked_checks}}
 These dod_checks are marked `runs_on: operator-machine`: {{marked_checks}}.

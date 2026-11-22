@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, suite
+from tests.helpers import PLANE_ROOT
 from tests.suite_fixture import CCP, PY, ccp_proc
 from tests.suite_stages_fixture import StagedFixture, _shell_py
 
@@ -532,7 +533,7 @@ class ProversSkipStages(StagedFixture, unittest.TestCase):
         self.assertEqual(load([], lanes).verify["provers"], [])
 
     def test_the_contracts_name_the_provers_and_the_skips(self):
-        root = Path(__file__).resolve().parents[1]
+        root = PLANE_ROOT
         schema = json.loads((root / "contracts/plane_config.schema.json").read_text())
         item = schema["properties"]["verify"]["properties"]["provers"]["items"]
         self.assertEqual((set(item["properties"]), set(item["required"])), (config.PROVER_KEYS, config.PROVER_KEYS))
@@ -717,11 +718,11 @@ class StageConfig(unittest.TestCase):
         self.assertEqual(suite.resolve_stages(cfg, "full", None), [{"name": "full", "argv": ["make", "test"]}])
 
     def test_the_schema_takes_both_lane_forms(self):
-        schema = json.loads((Path(__file__).resolve().parents[1] / "contracts/plane_config.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_text())
         lane = schema["properties"]["suite"]["properties"]["lanes"]["additionalProperties"]
         kinds = {json.dumps(x["items"].get("type")) for x in lane["anyOf"]}
         self.assertEqual(kinds, {'"string"', '"object"'})
-        result = json.loads((Path(__file__).resolve().parents[1] / "contracts/suite_result.schema.json").read_text())
+        result = json.loads((PLANE_ROOT / "contracts/suite_result.schema.json").read_text())
         self.assertTrue({"stages", "failed_stage"} <= set(result["properties"]))
 
 

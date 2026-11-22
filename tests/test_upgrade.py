@@ -12,7 +12,7 @@ from unittest import mock
 
 from ccp import config, upgrade
 from ccp.queue import QueueError
-from tests.helpers import Product, binding
+from tests.helpers import binding, PLANE_ROOT, Product
 from tests.upgrade_fixture import UpgradeFixture
 
 
@@ -412,7 +412,7 @@ class Declined(unittest.TestCase):
             p.cleanup()
 
     def test_the_schema_carries_upgrade_declined(self):
-        schema = json.loads((Path(__file__).resolve().parents[1] / "contracts/plane_config.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_text())
         self.assertIn("declined", schema["properties"]["upgrade"]["properties"])
         self.assertIn("taken", schema["properties"]["upgrade"]["properties"])
 

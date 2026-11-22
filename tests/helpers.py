@@ -10,10 +10,11 @@ import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest import mock
 
-from ccp import board, config, otel, prhost, prompt, runs, tasklog, verify
-from ccp.queue import lib
+if TYPE_CHECKING:
+    from ccp import config
 
 TASK = """---
 task_id: {tid}
@@ -141,24 +142,27 @@ class Product:
 
     @property
     def cfg(self) -> config.Config:
+        from ccp import config  # noqa: PLC0415
         return config.load(self.root)
 
     def index(self) -> None:
+        from ccp import tasklog  # noqa: PLC0415
         tasklog.write_index(self.cfg)
 
 
 # What a done report of each phase carries besides `Outcome:`, its own lines and `## Friction` (SPEC §13.4): a
 # review's `## Spec beyond intent`, and a round that pushes a head its `## Tests for new behaviour`.
-DONE_SECTIONS = {"review": ("## Spec beyond intent", "none"),
-                 **{p: ("## Tests for new behaviour", "none: the fixture's round adds no behaviour")
-                    for p in runs.CHANGE_PHASES}}
+def done_sections() -> dict[str, tuple[str, str]]:
+    from ccp import runs  # noqa: PLC0415
+    return {"review": ("## Spec beyond intent", "none"),
+            **{p: ("## Tests for new behaviour", "none: the fixture's round adds no behaviour") for p in runs.CHANGE_PHASES}}
 
 
 def done_report(phase: str, *lines: str, friction: tuple[str, ...] = ("none",)) -> str:
     """A report of `phase` with `Outcome: done` for `ccp report`: `lines` (a round's `PR:` and `Head:`, a review's
     `Severity:`, a `Suite:` line, a `## Follow-ups` section), the section the phase needs when done, and
     `## Friction` with the lines `friction`."""
-    return "\n".join(["Outcome: done", *lines, *DONE_SECTIONS.get(phase, ()), "## Friction", *friction, ""])
+    return "\n".join(["Outcome: done", *lines, *done_sections().get(phase, ()), "## Friction", *friction, ""])
 
 
 T0 = 1_800_000_000 * 10**9  # 2027-01-15, in nanoseconds: the epoch the usage tests' times count from
@@ -184,6 +188,7 @@ class FoldRuns:
                 fh.write(json.dumps(r) + "\n")
 
     def rows(self, *rs):
+        from ccp import otel  # noqa: PLC0415
         out = []
         for r in rs:
             r = dict(r)
@@ -197,6 +202,7 @@ class BoardPage:
     returns the html it wrote and the drill panels it opened."""
 
     def page(self, b, h: str = "", patch=None):
+        from ccp import board  # noqa: PLC0415
         from tests.board_drill_fixture import HASH_STUB
         js = (patch or (lambda t: t))(board.PAGE.read_text()).replace("/*__BOARD__*/null", board.embed(b)).split("<script>", 1)[1].split("</script>", 1)[0]
         loc = "globalThis.location = {hash: %s, pathname: '/b', search: ''};\n" % json.dumps(h)
@@ -213,13 +219,24 @@ GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COM
            "GIT_COMMITTER_EMAIL": "t@example.com", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
 
 
-# §3.5, §13.4, §17.5: the environment a test runs `ccp` in as the lead (`queue.lead_actor` guards its records).
-LEAD_ENV = {"ACTOR": lib.LEAD}
+def lead_env() -> dict[str, str]:
+    """§3.5, §13.4, §17.5: the environment a test runs `ccp` in as the lead (`queue.lead_actor` guards its
+    records). Modules import it as `LEAD_ENV` (module `__getattr__`), read when first named."""
+    from ccp.queue import lib  # noqa: PLC0415
+    return {"ACTOR": lib.LEAD}
+
+
+def __getattr__(name: str):
+    """PEP 562: `LEAD_ENV` reads the lead's actor id from `ccp` when a module first names it, so importing this
+    module loads no `ccp` module."""
+    if name == "LEAD_ENV":
+        return lead_env()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def as_lead():
     """The environment with `ACTOR` naming the lead (`LEAD_ENV`), as a context manager or decorator."""
-    return mock.patch.dict(os.environ, LEAD_ENV)
+    return mock.patch.dict(os.environ, lead_env())
 
 
 def git_run(cmd, **kw):
@@ -233,6 +250,7 @@ def release_git(cwd: Path, *a: str) -> str:
 
 
 def ledger_event(at: str, typ: str, op: str, payload: dict, task_id: str = "") -> dict:
+    from ccp.queue import lib  # noqa: PLC0415
     return {"at": at, "project_id": "demo", "task_id": task_id, "actor": lib.LEAD, "type": typ, "op": op,
             "payload": payload}
 
@@ -405,6 +423,7 @@ def approve_verdict(task: str = "0001-a", **fields: object) -> dict:
 def judge_merge_ok(p: Product, queue: Path, rec: dict, rid: str = "0001-a", recorded: tuple | None = None,
                    pr: str = "7", **facts: object) -> tuple[list[str], dict]:
     """The merge-ok decision on plain values: an open PR at HEAD_A (`facts` override), `rec` recorded just now."""
+    from ccp import prhost, verify  # noqa: PLC0415
     got = prhost.PrFacts(**{"number": 7, "state": "open", "head": HEAD_A, **facts})
     return verify.judge(p.cfg, queue, rec, rid, got.head, got, recorded or (datetime.now(timezone.utc), "written"), pr)
 
@@ -426,6 +445,7 @@ PROMPT_TEMPLATES = PLANE_ROOT / "templates" / "prompts"
 
 def phase_values(**over) -> dict:
     """Every name the templates use, set to a placeholder, with the given overrides."""
+    from ccp import prompt  # noqa: PLC0415
     names = set()
     for f in PROMPT_TEMPLATES.glob("*.md"):
         t = f.read_text()
@@ -439,6 +459,7 @@ def phase_values(**over) -> dict:
 
 
 def render_phase_values(phase: str, **over) -> str:
+    from ccp import prompt  # noqa: PLC0415
     return prompt.render_phase(phase, phase_values(**over))
 
 

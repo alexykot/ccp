@@ -12,7 +12,9 @@ import textwrap
 import unittest
 from pathlib import Path
 
-PLANE = Path(__file__).resolve().parents[1]
+from tests.helpers import PLANE_ROOT
+
+PLANE = PLANE_ROOT
 TEMPLATE = PLANE / "templates/github/workflows/formal-unit-lint.yml"
 
 

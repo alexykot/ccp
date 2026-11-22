@@ -6,10 +6,9 @@ import io
 import json
 import unittest
 from contextlib import redirect_stdout
-from pathlib import Path
 
 from ccp import cli, config, tasklog
-from tests.helpers import Product
+from tests.helpers import PLANE_ROOT, Product
 
 
 class SpecEditsAreSignedAtTasking(unittest.TestCase):
@@ -90,7 +89,7 @@ class SpecEditsAreSignedAtTasking(unittest.TestCase):
         self.assertIn("docs/delivery/tasks/0002-b.md: its paths name the SPEC (spec/a.md)", ws[1])
 
     def test_the_schema_gives_the_default_the_code_applies(self):
-        schema = json.loads((Path(__file__).resolve().parents[1] / "contracts/plane_config.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_text())
         knob = schema["properties"]["spec_paths"]
         self.assertEqual(knob["default"], list(config.SPEC_PATHS_DEFAULT))
 

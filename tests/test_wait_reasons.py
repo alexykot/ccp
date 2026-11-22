@@ -19,10 +19,10 @@ from unittest import mock
 
 from ccp import lifecycle, usage
 from ccp.queue import QueueError
-from tests.helpers import as_lead
+from tests.helpers import as_lead, PLANE_ROOT
 from tests.toolkit_fixture import ToolkitFixture
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT
 sys.path.insert(0, str(PLANE / "scripts" / "observability"))
 
 import lib  # noqa: E402

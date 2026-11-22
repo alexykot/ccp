@@ -14,9 +14,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, doclang, pkgdocs, suite
-from tests.helpers import Product
+from tests.helpers import PLANE_ROOT, Product
 
-CCP = Path(__file__).resolve().parents[1] / "bin" / "ccp"
+CCP = PLANE_ROOT / "bin" / "ccp"
 
 
 def product(plane: dict) -> Product:

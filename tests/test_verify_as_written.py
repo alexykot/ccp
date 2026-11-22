@@ -12,9 +12,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, verify
-from tests.helpers import approve_verdict as approve, held_otherwise, judge_merge_ok as decide, Product
+from tests.helpers import approve_verdict as approve, held_otherwise, judge_merge_ok as decide, PLANE_ROOT, Product
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = PLANE_ROOT
 NEW_KEYS = ("as_written", "held_instead", "ruling")
 
 

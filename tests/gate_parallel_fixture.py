@@ -11,10 +11,10 @@ import textwrap
 import unittest
 from pathlib import Path
 
-from tests.helpers import with_test_methods
+from tests.helpers import PLANE_ROOT, with_test_methods
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = PLANE_ROOT
 SCRIPTS = ("gate.sh", "gate_parallel.py", "gate_result.py")
 OK = with_test_methods("""
 import unittest

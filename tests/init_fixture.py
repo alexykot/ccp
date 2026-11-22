@@ -9,9 +9,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import GIT_ENV
+from tests.helpers import GIT_ENV, PLANE_ROOT
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT
 CCP = PLANE / "bin" / "ccp"
 
 

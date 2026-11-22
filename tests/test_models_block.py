@@ -9,14 +9,14 @@ import unittest
 from pathlib import Path
 
 from ccp import architect, config, estimator, models, seats
-from tests.helpers import Product
+from tests.helpers import PLANE_ROOT, Product
 from tests.architect_fixture import Harness as ArchitectHarness
 from tests.board_seats_fixture import SeatsBase
 from tests.init_fixture import InitCase
 from tests.team_hosting_fixture import TeamCase
 from tests.toolkit_fixture import ToolkitFixture
 
-SCHEMA = json.loads((Path(__file__).resolve().parents[1] / "contracts/plane_config.schema.json").read_text())
+SCHEMA = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_text())
 ROLES = ("lead", "runner", "implementer", "implementer_small", "implementer_refactor", "reviewer", "verifier",
          "architect", "estimator")
 SONNET_ID, OPUS_ID = models.FULL_IDS["sonnet"], models.FULL_IDS["opus"]

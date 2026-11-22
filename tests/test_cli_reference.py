@@ -13,8 +13,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ccp import cli
+from tests.helpers import PLANE_ROOT
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = PLANE_ROOT
 DOCS = ROOT / "docs" / "cli"
 USAGE_LINE = re.compile(r"^\s*ccp [a-z]")
 # A backticked `ccp` span holding call syntax: a `<placeholder>`, a `[flag]`, a `|` alternation or an upper-case

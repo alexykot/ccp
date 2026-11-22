@@ -7,14 +7,14 @@ import os
 import subprocess
 import threading
 import unittest
-from pathlib import Path
 
 from unittest import mock
 
 from ccp import queue, usage
+from tests.helpers import PLANE_ROOT
 from tests.toolkit_fixture import ToolkitFixture
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT
 
 
 class WorkLock(ToolkitFixture, unittest.TestCase):

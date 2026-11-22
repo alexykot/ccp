@@ -6,11 +6,11 @@ import secrets
 import sys
 import unittest
 from datetime import datetime, timezone
-from pathlib import Path
 
 from ccp import architect
+from tests.helpers import PLANE_ROOT
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT
 sys.path.insert(0, str(PLANE / "scripts" / "observability"))
 
 import spec_maintainer as sm  # noqa: E402
