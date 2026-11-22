@@ -20,11 +20,14 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   another module's test-class methods.
   check: command — architect.checks `E4` (five greps and the long-literal count it holds at or below its figure)
 - **E15** Decision logic is separate from git, process and file I/O, so each branch is unit-tested on
-  plain values. End-to-end tests cover the wiring, not every branch.
-  check: pass — the architect looks for branches reachable only through a fixture repo; the health
-  summary's slowest modules point at them
+  plain values. End-to-end tests cover the wiring, not every branch: a change that gives a branch a
+  plain-value test cuts that branch's end-to-end test in the same change.
+  check: pass — the architect looks for branches reachable only through a fixture repo, and for refusals
+  tested both on plain values and end to end; the health summary's slowest modules point at them
 - **E21** A dod_check proves behaviour with the head's own tool: a check of a `ccp` command runs the
   checkout's `bin/ccp` (or `ccp wt exec … --`), never `ccp` on PATH, which is the released plane. A
+  check that runs tests runs them through `bin/ccp suite run --lane <part lane> -- <command>` and pins a
+  named test by that recorded run's log, never a bare test runner's output. A
   check that needs a modified copy (a planted fault) names `ccp mutate` where `mutate.command` is
   declared, or a `ccp wt create --kind mut` worktree, never a hand `git worktree add`. Signed SPEC text
   is proved by `bin/ccp verify spec-text <task>`; a doc grep pins one token, never a sentence or a table row.
