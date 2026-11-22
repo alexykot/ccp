@@ -461,9 +461,3 @@ def phase_values(**over) -> dict:
 def render_phase_values(phase: str, **over) -> str:
     from ccp import prompt  # noqa: PLC0415
     return prompt.render_phase(phase, phase_values(**over))
-
-
-def with_test_methods(text: str) -> str:
-    """The text of a test module a fixture writes, its `t_` methods named `test_`: a fixture module holds no test
-    method of its own, so it spells them `def t_x`."""
-    return text.replace("def t_", "def test_")

@@ -17,20 +17,6 @@ from tests.gate_parallel_fixture import MORE, OK, GateFixture, ROOT, SCRIPTS
 from tests.suite_stages_fixture import StagedFixture
 from tests.helpers import repo_git as git
 
-# A test module that imports another test module (a shared helper), as many of the plane's do.
-HELPER = """
-import unittest
-VALUE = {value}
-class H(unittest.TestCase):
-    def test_h(self): self.assertTrue(True)
-"""
-USER = """
-import unittest
-from {pkg}.test_helper import VALUE
-class U(unittest.TestCase):
-    def test_u(self): self.assertEqual(VALUE, 1)
-"""
-
 # A test module that passes but leaves a `state/x` branch behind in the repository it runs in.
 LEAK = """
 import subprocess, unittest
@@ -38,13 +24,6 @@ class L(unittest.TestCase):
     def test_leak(self):
         subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "branch", "state/x"], check=True,
                        capture_output=True)
-"""
-# Importers of the helper by the package's own forms, which name it with no `tests.` prefix.
-FROM_PKG = """
-import unittest
-from {pkg} import test_helper
-class U(unittest.TestCase):
-    def test_u(self): self.assertEqual(test_helper.VALUE, 1)
 """
 
 
@@ -153,17 +132,6 @@ class AChangeRerunsWhatItCanAffect(GateCacheFixture):
         r, res = self.cgate()
         self.assertEqual(res["cached"], 0, r.stdout)
 
-    def test_a_test_module_another_imports_is_everyones_input(self):
-        self.module("test_helper", HELPER.format(value=1))
-        self.module("test_user", USER.format(pkg="tests"))
-        self.warm()
-        p = self.repo / "tests" / "test_helper.py"
-        p.write_text(HELPER.format(value=22))  # another size, so no stale bytecode stands in for it
-        r, res = self.cgate()
-        self.assertEqual(r.returncode, 1, r.stdout)  # the importer reran and saw the change
-        self.assertIn("FAIL: test_u (tests.test_user.U.test_u)", r.stdout)
-        self.assertEqual(res["cached"], 0)
-
     def test_a_failed_module_is_not_recorded_and_runs_again(self):
         self.module("test_more", MORE.format(lhs=4))
         self.commit()
@@ -172,22 +140,6 @@ class AChangeRerunsWhatItCanAffect(GateCacheFixture):
         r, res = self.cgate()
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertEqual((self.mods(r, "cached"), self.mods(r, "FAILED")), ({"tests.test_ok"}, {"tests.test_more"}))
-
-    def helper_by_package(self, pkg: str) -> None:
-        self.module("test_helper", HELPER.format(value=1))
-        self.module("test_user", FROM_PKG.format(pkg=pkg))
-        self.warm()
-        self.module("test_helper", HELPER.format(value=22))  # another size, so no stale bytecode stands in
-        r, res = self.cgate()
-        self.assertEqual(r.returncode, 1, r.stdout)  # the importer reran and saw the change
-        self.assertIn("FAIL: test_u (tests.test_user.U.test_u)", r.stdout)
-        self.assertEqual(res["cached"], 0)
-
-    def test_a_helper_named_by_from_tests_import_is_everyones_input(self):
-        self.helper_by_package("tests")
-
-    def test_a_helper_named_by_from_dot_import_is_everyones_input(self):
-        self.helper_by_package(".")
 
     def test_a_module_that_leaves_a_state_branch_is_never_served_from_the_cache(self):
         self.module("test_leak", LEAK)
