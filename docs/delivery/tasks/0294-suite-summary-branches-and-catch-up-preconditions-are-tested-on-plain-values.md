@@ -98,4 +98,26 @@ Measured at `e92f362`.
 
 ## Implementation notes
 
+- `ccp/lifecycle.py`: `catch_up_precondition(has_gate_lane, lane, has_merge_worktree, records_written)` returns the
+  first of the three refusal texts, word for word and in today's order, or None; `_catch_up` computes the three facts
+  and raises `_NoCatchUp` with its result. The facts are now computed together before the judging, where each was
+  computed only once the one before it passed; `_merge_path` and `verify.recorded_at` read nothing that can fail
+  there (close has the verification record by then).
+- `ccp/suite.py` (named in the report): the thirteen tests could not read `ran`, `cached` and the zero-test rule off a
+  log without the subprocess, because `run` summed the counters and applied the all-cached rule inline. Two pure
+  functions now hold that, called by `run` where the code was: `counted(counters)` (the tests counted and each summary
+  field, summed over the streams) and `all_cached_tests(tests, fields)` (0 when none was counted and every unit was a
+  cache hit, §14.5). No behaviour changed.
+- `tests/test_suite.py`: the thirteen tests keep their names. Eight (tally and count) are in `Digest`, five (the cap, the
+  cut, the final error, the whole or empty log) in the new `RenderSummary`, on `suite.digest`, `suite.render_summary`,
+  `suite.counted` and `suite.all_cached_tests` with plain values. Where an expectation read the `ended` row it checks
+  the function's return value. Not carried over: the row, event and `fold` fields, the log's `FAIL:` count and the
+  `--full`/`log: None` row, which are wiring the remaining end-to-end tests of `Summary` and `ResultContract` hold.
+- `tests/test_catch_up_decision.py`: `StaticPreconditions`, five tests on plain values (each refusal, None, the order).
+- `tests/test_behind_tip_catch_up.py`: dropped the no-worktrees-dir and records-in-git tests (12 tests remain); the
+  docstring now names the busy and moving-tip paths as end to end and every other decision as plain values.
+- The records-in-git refusal and the no-merge-worktree refusal now have no end-to-end test: the wiring of those two
+  facts (their arguments in the `catch_up_precondition` call) is held by no test; the no-gate-lane test holds the call
+  as a whole.
+
 ## Verification notes
