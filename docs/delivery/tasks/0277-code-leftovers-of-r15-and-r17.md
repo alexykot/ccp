@@ -210,5 +210,14 @@ Follow-ups covered (the lead's worker follow-up log): `0253-one-wait-reason-tabl
   not, the remedy names only the others.
 - `group_gone` reads `ps -A -o pgid=,stat=`; its zombie test waits for the exit with `os.waitid(..., WNOWAIT)`, which
   leaves the child unreaped, and reaps it in cleanup.
+- Fix round 1 (review MINOR 1, NITs 1 and 2):
+  - The interrupt test failed once more under heavy load after the zombie fix, with no clue what was left. The
+    group's running processes now come from `group_running` (the `ps` rows: pid, stat, command; zombies left
+    out), which `group_gone` is built on, and `assert_gone` puts those rows in its failure message before the
+    SIGKILL. The interrupt's command now runs `exec sleep 60` after writing the pid file, so no fork follows it:
+    a SIGTERM can no longer land while the shell is forking the sleep.
+  - `_remove_merge`'s warning is now tested through `ccp wt gc` over a leftover `merge-0002` whose task is done,
+    with `wt.remove_unrecorded` patched to fail (`tests/test_wt_unrecorded.py`).
+  - `requires_report`'s docstring is rewrapped near 110 columns.
 
 ## Verification notes
