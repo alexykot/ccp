@@ -36,19 +36,19 @@ Covers these follow-ups (`ccp --root . tasks follow-ups --open`), and the two ni
 - NIT-2: E4's import program exits 1 with a traceback on a tracked test file it can't read, where
   0301's ruling says it "exits 0 otherwise".
 
-Measured at `ad9b4f84` (origin/main).
+Measured at `15dbfe7a` (origin/main; first at `ad9b4f84`, every figure re-ran unchanged).
 
 - **The dead guard.** In `"def runs_bare"` (`ccp/tasklog.py`), `if rest[:1] and rest[0] in CCP_COMMANDS: return False`.
   When `rest[0]` is `ccp` or `bin/ccp` it does not start with `-`, so it is kept as `kept[0]`, and it never equals a
   runner's first word (`python3`, or that of any pack command not starting with `ccp`): the comparison already
   answers not bare.
-  `git grep -nw CCP_COMMANDS -- ccp tests` at `ad9b4f84`: 2 lines, the constant and the guard. In a scratch copy (`git archive`)
+  `git grep -nw CCP_COMMANDS -- ccp tests` at `15dbfe7a`: 2 lines, the constant and the guard. In a scratch copy (`git archive`)
   with `CCP_COMMANDS = ()`, `python3 -B -m unittest tests.test_bare_test_runner_warning` printed `OK`: the mutant survives.
   Ruled: delete the guard, `CCP_COMMANDS` and the docstring's sentence "One that starts with `ccp` or `bin/ccp` never does."
   `test_a_run_through_ccp_suite_run_is_not_bare` and `test_a_ccp_command_or_another_command_is_not_bare` keep
   passing unchanged: the general rule already gives their answers.
 - **The prefix options.** Today the walk reads past `NAME=value`, `env`, `time` and `timeout N`, and then drops every
-  word starting with `-`, so `env -i python3 -m unittest` is already bare. A probe at `ad9b4f84`,
+  word starting with `-`, so `env -i python3 -m unittest` is already bare. A probe at `15dbfe7a`,
   `python3 -B -c 'from ccp import tasklog as t, doclang as d; r=t._tokens(d.get("python").test_command); print([t.runs_bare(t._tokens(c), r) for c in ("env -u X python3 -m unittest", "timeout -k 5 60 python3 -m unittest", "timeout -s KILL 60 python3 -m unittest", "env -i python3 -m unittest")])'`,
   printed `[False, False, False, True]`: an option's argument (`X`, `5`, `KILL`) is left as the first word.
   Ruled: a constant `PREFIX_OPTION_ARGS = {"env": ("-u", "-C", "-P", "--unset", "--chdir"), "time": ("-o", "-f", "--output", "--format"), "timeout": ("-k", "-s", "--kill-after", "--signal")}`,
@@ -65,7 +65,7 @@ Measured at `ad9b4f84` (origin/main).
   `time --format %e python3 -m unittest` and `env -u X A=1 time -p timeout -k 5 60 python3 -m unittest` as bare, and `timeout -k 5 python3 -m unittest` as not bare.
 - **E4's import check.** It is the `python3 -B -c` part of E4's command in `docs/delivery/plane.json` (the part holding
   `from tests`, which `e4_import_check` in `tests/test_self_hosting.py` extracts). It runs `open(f).read()` and `ast.parse`
-  on each tracked `tests/*.py`. A probe at `ad9b4f84`, in a scratch repo with `tests/test_a.py` tracked then deleted from the
+  on each tracked `tests/*.py`. A probe at `15dbfe7a`, in a scratch repo with `tests/test_a.py` tracked then deleted from the
   working tree, ran the part: `FileNotFoundError`, exit 1; with a tracked `tests/test_b.py` holding `def (`: `SyntaxError`,
   exit 1; neither printed a `<path>:<line>`.
   Ruled: a file whose `open` raises `OSError` or whose `ast.parse` raises `SyntaxError` (or `ValueError`) is skipped,
@@ -76,14 +76,14 @@ Measured at `ad9b4f84` (origin/main).
   `test_the_check_skips_a_tracked_test_file_it_cannot_read_and_says_so` in `TestModulesImportNoTestModule`: one missing and
   one unparsable tracked file beside a clean one give exit 0 and both `skipped` lines; the same with a hit in the clean file
   give exit 1 and the hit's `<path>:` on stdout.
-- **No SPEC change.** `git grep -nE 'CCP_COMMANDS|RUNNER_PREFIXES|runs_bare|timeout N' -- docs/spec` at `ad9b4f84`: no line.
+- **No SPEC change.** `git grep -nE 'CCP_COMMANDS|RUNNER_PREFIXES|runs_bare|timeout N' -- docs/spec` at `15dbfe7a`: no line.
   §21.1 (`docs/spec/03-quality.md`) says only that `ccp tasks check` warns on a step that runs the pack's test command
   outside `ccp suite run`, which this keeps. E4's rule text and its `check:` line in `docs/ENGINEERING.md` ("four greps, an
   import check over the tracked test files, and the long-literal count") stay as they are. So no sign-off.
-- **Clashes.** A script over the pending tasks on `origin/main` and on PR #358's branch (`origin/triage-9098`), at `ad9b4f84`,
-  listed those whose `paths` name `ccp/tasklog.py`, `docs/delivery/plane.json`, `tests/test_self_hosting.py` or
-  `tests/test_bare_test_runner_warning.py`: 0293 (`WHOLE_SUITE_ROLES` and E27), 0304 (section finding), 0305 and 0308
-  (other `architect.checks` entries). Those naming `tests/` by other files only (0191, 0296, 0297, 0299, 0300, 0302, 0303,
+- **Clashes.** A script over the pending tasks on `origin/main` at `15dbfe7a`, listed those whose `paths` name
+  `ccp/tasklog.py`, `docs/delivery/plane.json`, `tests/test_self_hosting.py` or `tests/test_bare_test_runner_warning.py`:
+  0304 (section finding), 0305 and 0308 (other `architect.checks` entries); 0293 (`WHOLE_SUITE_ROLES` and E27) was pending
+  at `15dbfe7a` and is done since. Those naming `tests/` by other files only (0191, 0296, 0297, 0299, 0300, 0302, 0303,
   0306, 0307) were read too: none names a file of this task. None of them changes `runs_bare` or E4's import part
   (`git grep -nw 'runs_bare\|RUNNER_PREFIXES\|E4' -- <those task files>` finds E4 only in the `rule_refs` of 0293, 0297 and 0302
   and in 0302's Intent on its test helpers, never E4's import check), so `clashes_with` is empty.
@@ -106,7 +106,7 @@ Measured at `ad9b4f84` (origin/main).
     2. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_bare_test_runner_warning`.
     3. Run `grep -e a_run_through_ccp_suite_run_is_not_bare -e a_ccp_command_or_another_command_is_not_bare -e '^OK' <the log step 2 names>`.
   expect: step 1 prints nothing (exit 1); step 2 exits 0; step 3 lists `test_a_run_through_ccp_suite_run_is_not_bare` and `test_a_ccp_command_or_another_command_is_not_bare`, each `ok`, then `OK`.
-  dry run (`ad9b4f84`): step 1 printed 2 lines (the constant and the guard); step 2 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 8 tests`; step 3 on its log listed both tests `ok`, then `OK`.
+  dry run (`15dbfe7a`): step 1 printed 2 lines (the constant and the guard); step 2 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 8 tests`; step 3 on its log listed both tests `ok`, then `OK`.
 - id: `code-02`
   story: As a task writer, a step that runs the tests bare behind an `env`, `time` or `timeout` option is warned about.
   setup: A checkout of the PR head, in your own worktree (a delivery-verifier seat), with your open run.
@@ -116,7 +116,7 @@ Measured at `ad9b4f84` (origin/main).
     3. Run `grep -e env_time_and_timeout_options -e '^OK' <the log step 2 names>`.
     4. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_bare_test_runner_warning --revert ccp/tasklog.py`.
   expect: step 1 prints `[True, True, True, True, False]`; step 2 exits 0; step 3 lists `test_bare_past_env_time_and_timeout_options` `ok`, then `OK`; step 4 prints the mutant `killed`.
-  dry run (`ad9b4f84`): step 1 printed `[False, False, False, True, False]`; step 2 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 8 tests`; step 3 on its log printed only `OK` (the test is new); step 4: n/a — `--revert` needs the branch.
+  dry run (`15dbfe7a`): step 1 printed `[False, False, False, True, False]`; step 2 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 8 tests`; step 3 on its log printed only `OK` (the test is new); step 4: n/a — `--revert` needs the branch.
 - id: `cfg-01`
   story: As the architect, E4's import check skips a tracked test file it cannot read, names it, and still finds an import in the others.
   setup: A checkout of the PR head at `<checkout>`, in your own worktree. A scratch git repo `<repo>` outside it: `tests/test_a.py` holding `x = 1`, `tests/test_b.py` holding `def (`, `tests/test_c.py` holding `x = 1`, all added (`git add tests`); then `tests/test_a.py` deleted from the working tree (not from the index).
@@ -126,7 +126,7 @@ Measured at `ad9b4f84` (origin/main).
     3. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_self_hosting.TestModulesImportNoTestModule` in `<checkout>`.
     4. Run `grep -e cannot_read -e '^OK' <the log step 3 names>`.
   expect: step 1 prints `E4: skipped tests/test_a.py: …` and `E4: skipped tests/test_b.py: …`, no traceback, then `exit 0`; step 2 prints the same two lines and `tests/test_c.py:1`, then `exit 1`; step 3 exits 0; step 4 lists `test_the_check_skips_a_tracked_test_file_it_cannot_read_and_says_so` `ok`, then `OK`.
-  dry run (`ad9b4f84`): step 1 printed a `FileNotFoundError` traceback for `tests/test_a.py`, then `exit 1`; steps 3 and 4: n/a — the test is new (step 3's module runs today, its 3 tests passing).
+  dry run (`15dbfe7a`): step 1 printed a `FileNotFoundError` traceback for `tests/test_a.py`, then `exit 1`; steps 3 and 4: n/a — the test is new (step 3's module runs today, its 3 tests passing).
 
 ## Implementation notes
 
