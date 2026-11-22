@@ -83,6 +83,19 @@ The §20.6 change below is the operator's to sign (the triage's first question).
   task, a test that fails unmutated); the others move.
 - **The briefs** keep `--test <id> …`, which stays true; no template changes.
 
+### Ruling 0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests-r1
+
+As the runner passed it (lead, 2026-11-22, spec question `sm-20261122T133927Z-2a27`):
+
+> The not-found hint goes only on 0291's case: a --mutant-file old text that is not found as written
+> but is found without its trailing line break gets 0291's message plus the --mutant hint. A
+> whole-line old text that matches nothing keeps the plain refusal, as 0291 pins: the hint would
+> mislead there, because no substitution inside one line is in play. This is the narrow reading
+> already built at 93cf6743; code-04 holds; extending 0291's RULED constant to the joined message is
+> in scope.
+> This round changes no behaviour: record this ruling in the task file's Context (not checked)
+> section on the task branch, merge origin/main if it moved, and report.
+
 ## Scope
 
 - **In:** `ccp/mutate.py` (`"def run"`, `"def _once"`, `"def _substitution"`, `"def parse_file"`,
@@ -187,5 +200,42 @@ The §20.6 change below is the operator's to sign (the triage's first question).
   dry run (simulated at `76f41dd`: this task file committed, then the six passages applied to `docs/spec/03-quality.md`, each CURRENT found once, committed in a scratch copy; `CCP_DEV=1 ./bin/ccp verify spec-text 0271 --base HEAD~1`): `"ok": true`, six passage(s) found, none missing.
 
 ## Implementation notes
+
+- **Several tests.** `--test` is argparse `append` (required, so at least one); `mutate.run` takes the list.
+  `_usage` (new, plain) refuses no test, a blank id among them, or no mutant. Each test runs unmutated in order,
+  the first failure stops the call (exit 1) naming it. Per mutant the tests run in order until one exits
+  non-zero; that run decides `killed`/`unbuilt`, the rest are not run; all passing is `survived`. The row's
+  `test` is the deciding test (else the last). The CLI's JSON body now carries `tests` (the list) in place of
+  `test`, and `baseline` is a list of `{test, exit_code, seconds, timed_out}`, one per test; the record row and
+  the `run`/`recorded` payload are as ruled.
+- **`failed`.** `_failed` reads the deciding run's output from `_test`'s offset and keeps the rest of each line a
+  `section_re` pattern matches, the match taken off and stripped, in output order, at most `MAX_FAILED` (20);
+  `[]` for a survived mutant. The patterns are `suite._summary_cfg(cfg)["section_re"]`, the function
+  `ccp suite run` reads (plane.json `suite.summary.section_re`, else the pack's), so the resolution is not
+  written twice.
+- **No-op refusal.** `_substitution` refuses `new == old` (bytes) first, before the path and count checks, so a
+  `--mutant`, a `--mutant-file` and a `--together` part (parsed without the count) are refused at parse time,
+  the first such part first. A patch is not compared.
+- **Not-found hint.** 0291 (merged after this task was measured) already built a line-break refusal for a
+  `--mutant-file` old text found 0 times but found once its trailing line break is dropped, and pinned that a
+  whole-line old text matching nothing keeps the plain refusal (`tests/test_mutant_file_line_break.py`). This
+  build appends to 0291's message that the old text includes its last line's line break and that a
+  substitution inside one line goes in `--mutant` (that test's `RULED` constant extended to match); the
+  whole-line not-found case keeps the plain refusal, as 0291 pins. Raised with the runner as a scope question.
+- **Refusal tests.** `tests/test_mutate_refusals.py` tests `_usage`, `_once`, `parse`, `parse_file`, `together`
+  and `_worktree` on plain bytes and a temp directory (worktree records written with `wt.save`); `Refusals` in
+  `tests/test_mutate.py` keeps the closed run, another task's worktree and the test that fails unmutated.
+  `tests/test_mutate_interface.py` holds the several-test, `failed` and no-op wiring on a `ToolkitFixture`
+  product whose files are committed once per class (`_build_repos`).
+- **Ruling r1 (not-found hint).** The lead ruled the scope question above: the hint goes only on 0291's
+  case (an old text not found as written but found without its trailing line break), and a whole-line old text
+  that matches nothing keeps the plain refusal. That is the reading built at `93cf6743`, so the ruling round
+  changes no code, test or doc; it records the ruling in Context (not checked) and merges `origin/main`.
+- **Fix round 1.** The review found that reading `failed` from offset 0 instead of `_test`'s offset survived:
+  the one end-to-end killed-row test had a single killed mutant, first in the log. That test now runs two killed
+  mutants (`a + b` => `a - b`, killed by the first module, then the second module's `sub` mutant) and a survived
+  one, and checks each killed row names only its own failing test; the offset mutant is killed. The `docs/cli`
+  `ccp mutate` row's refusal clause moved after the `unbuilt` clause, so "killed or survived … or `unbuilt`"
+  reads as one list.
 
 ## Verification notes
