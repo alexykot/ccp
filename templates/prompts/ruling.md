@@ -18,4 +18,4 @@ This is a `kind: refactor` task (SPEC §20.4): behaviour is unchanged, no test e
 {{/refactor}}
 {{gate}}
 Append to the task's Implementation notes what the ruling changed and why, and run `{{ccp}} tasks index` before you push.
-List each branch, field, refusal or behaviour the ruling adds or changes, with the test that fails without it, under `## Tests for new behaviour` in your report (the report only: no dod_check ids or map in test names or docstrings).
+List each branch, field, refusal or behaviour the ruling adds or changes, with the test that fails without it, in your report (the report only: no dod_check ids or map in test names or docstrings).

@@ -17,4 +17,4 @@ This is a `kind: refactor` task (SPEC §20.4): behaviour is unchanged, no test e
 {{/refactor}}
 {{gate}}
 Run `{{ccp}} tasks index` if the merge touched the task log.
-Under `## Tests for new behaviour` in your report, list each adaptation with the test that covers it, or the single line `none: the merge adds no behaviour`.
+List each adaptation with the test that covers it in your report, or say the merge adds no behaviour.

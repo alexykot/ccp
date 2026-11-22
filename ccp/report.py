@@ -70,6 +70,7 @@ FRICTION_RE = re.compile(r"^##\s+Friction[ \t]*\r?$", re.M)
 FOLLOW_UPS_RE = re.compile(r"^##\s+Follow-ups[ \t]*\r?$", re.I | re.M)  # §13.4, ADR-0044 D1
 FOLLOW_UPS_NEAR_RE = re.compile(r"^#+\s*follow.?ups\b", re.I | re.M)  # a heading `ccp report` does not read as it
 BEYOND_RE = re.compile(r"^##\s+(?:Spec beyond intent|spec_beyond_intent)[ \t]*\r?$", re.I | re.M)  # §3.5
+TESTS_RE = re.compile(r"^##\s+Tests for new behaviour[ \t]*\r?$", re.I | re.M)  # §13.4, §13.5
 FIELD_PHASES = runs.CHANGE_PHASES  # §13.4: the rounds that push a head (PR, Head) and state the declared verdicts
 RESOLUTION_RE = re.compile(r"^[^\w\n]*Resolution[ \t*_]*:[ \t*_`]*(.*?)[ \t]*\r?$", re.I | re.M)  # §13.4
 AFFECTED_RE = re.compile(r"^[^\w\n]*Affected checks[ \t*_]*:[ \t*_`]*(.*?)[ \t]*\r?$", re.I | re.M)  # §13.4
@@ -175,16 +176,20 @@ def cache_counts(line: str) -> tuple[int, int] | None:
     return int(ran), int(cached)
 
 
-def friction(text: str, heading: re.Pattern[str] = FRICTION_RE) -> list[str] | None:
+def friction(text: str, heading: re.Pattern[str] = FRICTION_RE, why: bool = False) -> list[str] | None:
     """The Friction section's lines (or another section of the same shape, `heading`: `- ` lines, or the
-    single line `none`); None when the section is missing or says nothing usable."""
+    single line `none`, which with `why` is a single line beginning `none` followed by why); None when the
+    section is missing or says nothing usable."""
     m = heading.search(text)
     if not m:
         return None
     nxt = re.search(r"^#{1,2}\s", text[m.end():], re.M)
     body = text[m.end(): m.end() + nxt.start()] if nxt else text[m.end():]
     lines = [raw for raw in body.splitlines() if raw.strip()]
-    if len(lines) == 1 and re.sub(r"^[-*]\s+", "", lines[0].strip()).rstrip(".").strip().lower() == "none":
+    single = re.sub(r"^[-*]\s+", "", lines[0].strip()) if len(lines) == 1 else ""
+    if single.rstrip(".").strip().lower() == "none" and not why:
+        return []
+    if why and re.match(r"none\b\W*\w", single, re.I):
         return []
     items: list[str] = []
     for raw in lines:
@@ -392,6 +397,11 @@ def _read_beyond(text: str, c: Ctx) -> tuple[dict[str, Any], list[str]]:
     return ({"spec_beyond_intent": len(beyond)} if beyond is not None else {}), []
 
 
+def _read_tests(text: str, c: Ctx) -> tuple[dict[str, Any], list[str]]:
+    tests = friction(text, TESTS_RE, why=True)
+    return ({"tests_for_new_behaviour": tests} if tests is not None else {}), []
+
+
 def _read_resolution(text: str, c: Ctx) -> tuple[dict[str, Any], list[str]]:
     """`Resolution:` and `Affected checks:` are read together by `resolution_lines`, a done resolution review's."""
     return resolution_lines(text, c.checks) if c.done else ({}, [])
@@ -473,6 +483,15 @@ SECTIONS: tuple[Section, ...] = (
             ("fields",), ("fields",), _read_fields, "",
             "   - When done, a line for each verdict this product requires (plane.json `report.required_fields`), "
             "with one of the values shown: {each}.\n"),
+    Section("tests", "Tests for new behaviour", "## Tests for new behaviour", FIELD_PHASES, "done", False,
+            ("tests_for_new_behaviour",), (), _read_tests,
+            "no `## Tests for new behaviour` section, or an empty one: a `- ` line for each behaviour the round's "
+            "commits add or change, with the test that fails without it, or a single line beginning `none` followed "
+            "by why (SPEC §13.4, §13.5)",
+            "   - When done: a `## Tests for new behaviour` section, a `- ` line for each branch, field, refusal or "
+            "behaviour your commits add or change, with the test that fails without it, or a single line beginning "
+            "`none` followed by why (`none: the merge adds no behaviour`). `ccp report` refuses a done report "
+            "without it.\n"),
     Section("prompt", "Prompt", "Prompt:", _ALL, "no", False, (), (), None, "",
             "   - `Prompt: <token>`, the token on this prompt's last line (`Prompt end: <token>`), copied exactly. "
             "`ccp report` refuses a report without it. If this prompt has no such last line, it reached you cut: tell "
