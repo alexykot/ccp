@@ -1,7 +1,7 @@
 ---
 task_id: 0284-shared-test-fixtures-live-in-modules-that-hold-no-tests
 title: Shared test fixtures live in modules that hold no tests, no test module imports another, and the brief-rule test counts only each rule's own token
-status: pending
+status: done
 kind: refactor
 depends_on: []
 clashes_with: ["0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events", "0270-the-friction-trigger-counts-noted-tasks-and-scales-with-tasks-in-flight", "0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope", "0276-docs-contract-and-template-leftovers-of-r15-and-r17", "0282-ccp-owns-the-headless-launch-helpers-and-blocked-reads-the-task-log"]
@@ -201,3 +201,5 @@ Measured at `072d9f9`.
   one bullet per fixture module.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #329 head `8c832c8` (squash `9101d62`): APPROVE. Passed: code-01, code-02, cmd-01, cmd-02, cmd-03, cmd-04. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0284-shared-test-fixtures-live-in-modules-that-hold-no-tests.json.
+
