@@ -1352,3 +1352,18 @@ tasks:
     title: Stale-Context warnings reach the lead at the spawn and the implementer in its prompt, not every seat's task check, and a same-point respawn keeps the tasks the lead added
     depends_on: [0257-one-gate-block-and-one-sentence-per-line]
     path: tasks/0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope.md
+  - id: 0276-docs-contract-and-template-leftovers-of-r15-and-r17
+    status: pending
+    title: Close the docs, contract and template follow-ups of R15 and R17 - the triage contract's writer, stale queue rules, call syntax in docstrings, a template line cap check and two shared template sentences
+    depends_on: []
+    path: tasks/0276-docs-contract-and-template-leftovers-of-r15-and-r17.md
+  - id: 0277-code-leftovers-of-r15-and-r17
+    status: pending
+    title: Close the code follow-ups of R15 and R17 - one wait-writer command, close's removals through the unrecorded-worktree helper, review and question ids from refs.py, a requires remedy that never makes a cycle, and two tests that no longer depend on load or the cwd
+    depends_on: []
+    path: tasks/0277-code-leftovers-of-r15-and-r17.md
+  - id: 0278-submit-takes-a-proven-fix-and-the-spec-names-what-ccp-writes
+    status: pending
+    title: Formal-submit takes a fix that verify.skip_review or a review prover proves after any review and runs the proof once per fix round, and the SPEC names submit's exit 3, the queue files ccp writes, the shared gate part and what ccp report computes
+    depends_on: []
+    path: tasks/0278-submit-takes-a-proven-fix-and-the-spec-names-what-ccp-writes.md
