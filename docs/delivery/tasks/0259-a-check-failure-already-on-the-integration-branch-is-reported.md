@@ -1,7 +1,7 @@
 ---
 task_id: 0259-a-check-failure-already-on-the-integration-branch-is-reported
 title: A docs or tasks check failure already on the integration branch is reported, not blocking, in a task's checks and the verifier's gate
-status: pending
+status: done
 kind: feature
 depends_on: ["0244-tasks-check-runs-dry-runs", "0252-the-task-check-reports-a-decision-built-before-its-prerequisite"]
 clashes_with: ["0224-checks-only-the-operator-s-machine-can-run", "0230-the-lead-decides-each-follow-up", "0234-one-check-parser-and-one-file-at-rev-reader"]
@@ -12,7 +12,7 @@ paths: ["ccp/baseline.py", "ccp/cli.py", "scripts/observability/lib.py", "ccp/ru
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0259-a-check-failure-already-on-the-integration-branch-is-reported
@@ -211,3 +211,5 @@ clear, while a failure the branch causes fails exactly as before.
     there) is not fixed here: it needs the lead's call on the §21.2 wording. It stays a follow-up.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #307 head `165b2f2` (squash `ccdcad4`): APPROVE. Passed: pe-01, pe-02, pe-03, pe-04. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0259-a-check-failure-already-on-the-integration-branch-is-reported.json.
+
