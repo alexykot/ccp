@@ -185,6 +185,7 @@ def submit(cfg: Config, task: str) -> dict[str, Any]:
         fix["review_proof"] = proof
         runs.save(q, fix)
     return {"ok": True, "task_id": tid, "from": frm, "to": "submitted", "pr": pr, "head": head,
-            "review_record": f"{report.REVIEW_DIR}/{tid}.json", "review_run_id": record["review_run_id"] if record else None,
+            "review_record": f"{report.REVIEW_DIR}/{tid}.json" if record else None,
+            "review_run_id": record["review_run_id"] if record else None,
             "unit_lint": lint, **({"review_skip": proof["review_skip"]} if proof else {}),
             **({"warnings": warnings} if warnings else {})}
