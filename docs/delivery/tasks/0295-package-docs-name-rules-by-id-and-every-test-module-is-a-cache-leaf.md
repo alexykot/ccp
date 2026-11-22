@@ -29,7 +29,9 @@ of itself alone. Behaviour of the suite and the cache does not change for any tr
 ## Context (not checked)
 
 From the triage of architect pass `ar-20261122T100027Z-dd31` (F05, F08, F09, F10, F11; the record is in
-`docs/delivery/reviews/`). Measured at `e92f362`. E26's own text and check grep were amended in that triage's PR.
+`docs/delivery/reviews/`). Measured at `954bd72` (first at `e92f362`; re-measured when the follow-ups below were folded in): every figure holds,
+except that 0290 added `tests/test_fence.py`'s docstring "shared helpers", which the F08 grep's `shared helper` matches, so `code-02` names its two files.
+E26's own text and check grep were amended in that triage's PR.
 
 - **Restated rules (F05).** `git grep -n 'only wrap\|imports another\|copied literal\|names no language' -- '*/CLAUDE.md'` at `e92f362`: 5 lines:
   `ccp/doclang/CLAUDE.md` (E18: "core code names no language and no test runner"), `scripts/CLAUDE.md` (E7: "a script here only
@@ -55,6 +57,13 @@ From the triage of architect pass `ar-20261122T100027Z-dd31` (F05, F08, F09, F10
   are "every tracked and untracked file but the test modules no other imports"; after this task that is "but the test modules".
 - **snapshots (F11).** `contracts/CLAUDE.md`'s first paragraph lists "snapshots" among the queue records with a schema;
   the snapshot schema was removed by 0253, and `git grep -il snapshot -- 'contracts/*.json'` at `e92f362`: no file.
+- **Follow-ups folded in.** `tests/CLAUDE.md` is rewritten here, so three open follow-ups about it land here too:
+  `0288-every-seat-names-its-actor-and-the-lead-s-records-need-the-lead-s/implement#1`, `/review#3` and `/fix#3` (the list of
+  `helpers.py` constants does not name `LEAD_ENV` or `as_lead()`), and
+  `0290-test-modules-share-the-plane-root-and-git-env-and-helpers-import-lazily/implement#2` (it does not say that `helpers.py`
+  loads no `ccp` module on import, or that a module takes the plane root from `PLANE_ROOT`).
+  `grep -cE 'LEAD_ENV|as_lead|loads no .ccp. module' tests/CLAUDE.md` at `954bd72`: 0. `tests/helpers.py` defines `LEAD_ENV`
+  (a PEP 562 module attribute) and `"def as_lead"`; `tests/test_fence.py`'s `test_importing_the_helpers_loads_no_ccp_module` holds the lazy import.
 - **Other tasks.** 0288, 0289 and 0293 change `tests/helpers.py` and `docs/ENGINEERING.md` (E27 only); 0290 changes `tests/helpers.py`,
   `tests/gate_parallel_fixture.py` and `tests/suite_fixture.py`. Recorded as clashes.
 
@@ -67,6 +76,9 @@ From the triage of architect pass `ar-20261122T100027Z-dd31` (F05, F08, F09, F10
   `ToolkitFixture` (with its shared build), `ReviewFlow` and `SkipFlow`, and replaces the other fixture bullets with one
   sentence: each `<name>_fixture.py` holds the fixture `test_<name>.py` and its neighbours share, and its class docstring says
   what it builds.
+- The shared-constants bullet of `tests/CLAUDE.md` names `LEAD_ENV` and `as_lead()` (the environment with the lead's `ACTOR`, for a
+  call to a command only the lead may run) and says, in one sentence, that `helpers.py` loads no `ccp` module on import, so the
+  fence in `tests/__init__.py` comes first, and that a module takes the plane root from `PLANE_ROOT` and git's identity from `GIT_ENV`.
 - The fixtures in `tests/gate_parallel_fixture.py` and `tests/suite_fixture.py` write `def test_` directly; `with_test_methods`
   and its doc mention go.
 - `scripts/gate_parallel.py`: `shared_tests` and its three regexes go; every test module of the suite is a leaf (no test module
@@ -98,8 +110,9 @@ From the triage of architect pass `ar-20261122T100027Z-dd31` (F05, F08, F09, F10
   steps:
     1. Run `wc -l < tests/CLAUDE.md`.
     2. Run `grep -c 'set up for the\|a .TestCase. base for the' tests/CLAUDE.md`.
-  expect: step 1 prints a number no greater than 40; step 2 prints `0`.
-  dry run (`e92f362`): step 1 printed `64`; step 2 printed `8`.
+    3. Run `grep -oE 'LEAD_ENV|as_lead\(\)|loads no .ccp. module|PLANE_ROOT' tests/CLAUDE.md | sort -u`.
+  expect: step 1 prints a number no greater than 40; step 2 prints `0`; step 3 prints exactly four lines, in any order: `LEAD_ENV`, `PLANE_ROOT`, `as_lead()`, and the phrase that says `helpers.py` loads no ccp module (the pattern's third alternative).
+  dry run (`e92f362`): step 1 printed `64`; step 2 printed `8`. Step 3 (`954bd72`): printed only `PLANE_ROOT`.
 - id: `doc-03`
   story: As a reader of contracts/, the package doc lists only formats the directory holds.
   setup: A checkout of the PR head.
@@ -119,7 +132,7 @@ From the triage of architect pass `ar-20261122T100027Z-dd31` (F05, F08, F09, F10
   story: As a plane developer, the gate's cache treats every test module as a leaf, and editing one still reruns only it.
   setup: A checkout of the PR head, in your own worktree.
   steps:
-    1. Run `git grep -n 'shared_tests\|DOTTED_RE\|FROM_PKG_RE\|FROM_REL_RE\|shared helper\|test_helper' -- scripts tests`.
+    1. Run `git grep -n 'shared_tests\|DOTTED_RE\|FROM_PKG_RE\|FROM_REL_RE\|shared helper\|test_helper' -- scripts/gate_parallel.py tests/test_gate_cache.py`.
     2. Run `python3 -B -m unittest -v tests.test_gate_cache 2>&1 | grep -e reruns_only_it -e '^OK'`.
     3. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_gate_cache.AChangeRerunsWhatItCanAffect.test_editing_one_test_module_reruns_only_it --mutant-file <file>`, the file's mutant making the leaf set in `scripts/gate_parallel.py` empty (every test module an input of every key).
   expect: step 1 prints nothing (exit 1); step 2 lists `test_editing_one_test_module_reruns_only_it` `ok`, then `OK`; step 3 prints the mutant `killed`.
