@@ -18,7 +18,7 @@ from unittest import mock
 
 from ccp import board, config, notify, parallel, usage
 from ccp.queue import lib
-from tests.helpers import PLANE_ROOT, Product
+from tests.helpers import GIT_ENV, PLANE_ROOT, Product
 from tests.board_drill_fixture import HASH_STUB, Fixture
 from tests.upgrade_fixture import UpgradeFixture
 
@@ -249,9 +249,8 @@ class InitWarns(MachineCase):
         self.addCleanup(shutil.rmtree, t, True)
         repo = t / "repo"
         repo.mkdir()
-        git = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
         env = {k: v for k, v in os.environ.items() if k not in ("QUEUE_ROOT", "PROJECT_YAML", "PLANE_PROJECT_YAML")}
-        env.update(git, HOME=str(t / "home"))
+        env.update(GIT_ENV, HOME=str(t / "home"))
         (t / "home").mkdir()
         subprocess.run(["git", "init", "-q", "."], cwd=repo, check=True, env=env)
         subprocess.run(["git", "remote", "add", "origin", "https://github.com/team/repo.git"], cwd=repo, check=True,

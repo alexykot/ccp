@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, rules
-from tests.helpers import Product
+from tests.helpers import PLANE_ROOT, Product
 
 RULES = """# Engineering rules
 
@@ -385,7 +385,7 @@ class TemplatesAndContracts(unittest.TestCase):
     """The house-rules template parses as `ccp docs check` reads it, and the contracts describe what
     the code accepts."""
 
-    PLANE = Path(__file__).resolve().parent.parent
+    PLANE = PLANE_ROOT
 
     def test_engineering_template_parses(self):
         text = (self.PLANE / "templates/docs-project/ENGINEERING.md").read_text()

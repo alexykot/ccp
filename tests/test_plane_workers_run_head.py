@@ -15,7 +15,7 @@ from unittest import mock
 
 from ccp import cli, prompt, wt
 from ccp.queue import CCP_BIN
-from tests.helpers import done_report, REPORT_HEAD as HEAD
+from tests.helpers import GIT_ENV, done_report, REPORT_HEAD as HEAD
 from tests.toolkit_fixture import ToolkitFixture
 
 WT_EXEC = "wt exec --"
@@ -86,9 +86,7 @@ def off_main_repo(d: Path) -> Path:
     repo.mkdir()
     for args in (["init", "-q", "-b", "topic"], ["commit", "-q", "--allow-empty", "-m", "init"]):
         subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True,
-                       env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com",
-                            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.com",
-                            "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"})
+                       env={**os.environ, **GIT_ENV})
     return repo
 
 

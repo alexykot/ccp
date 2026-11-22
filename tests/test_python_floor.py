@@ -10,7 +10,9 @@ import re
 import tempfile
 import unittest
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
+from tests.helpers import PLANE_ROOT
+
+ROOT = PLANE_ROOT
 PKG = ROOT / "ccp"
 
 
