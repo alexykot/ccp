@@ -78,8 +78,8 @@ Measured at `3368264`.
   `{{^review_cache}} --cold{{/review_cache}}` section kept on it. The tests in Context follow the new words.
 - **The `--full` log.** A `--full` run that is recorded opens its log as summary mode does (`--log`, else beside
   the run's record, else `runs/_suite-logs/`, else a temp file) and copies to it everything it copies through,
-  both streams in the order `ccp` reads them; the terminal output is otherwise unchanged. When the command ends
-  it prints one line on stderr, `ccp suite run: log <path>`. The `ended` row records `log` in both modes. A log
+  both streams in the order `ccp` reads them; what reaches the terminal is unchanged, with no line of `ccp`'s
+  added. The `ended` row records `log` in both modes, and `ccp suite list` shows it. A log
   that cannot be opened is a warning and the run streams with none, as in summary mode. Pruning (§14.4) already
   matches these paths.
 - **fill_suite.** A plain function `judge_suite(rows, run_id, phase, parsed, accept_cache, auto_lanes)` in
@@ -101,7 +101,7 @@ Measured at `3368264`.
   `docs/cli/02-delivery.md` (the `ccp suite run` and `ccp suite affected` rows), `tests/test_suite_run_affected.py`
   (new), `tests/test_suite_full_log.py` (new), `tests/test_fill_suite.py` (new), and the test modules named in
   Context.
-- **SPEC, signed before the claim (`sign_off: brief`):** five passages in `docs/spec/02-delivery.md`, each CURRENT
+- **SPEC, signed before the claim (`sign_off: brief`):** seven passages in `docs/spec/02-delivery.md`, each CURRENT
   at `3368264`.
 
     CURRENT (`docs/spec/02-delivery.md` at `3368264`), §13, the **Fail fast** item:
@@ -114,7 +114,13 @@ Measured at `3368264`.
     > is the default with a terminal on stdin: the output is copied through unchanged as it arrives; when stdout and stderr are the same file the command gets one pipe for both.
 
     PROPOSED:
-    > is the default with a terminal on stdin: the output is copied through unchanged as it arrives, and a recorded run also copies it to a log named as in summary mode, which one line on stderr names when the command ends; a log that cannot be opened is a warning, and the run streams with none. When stdout and stderr are the same file the command gets one pipe for both.
+    > is the default with a terminal on stdin: the output is copied through unchanged as it arrives, and a recorded run also copies it to a log named as in summary mode, whose path its `ended` row records (§14.4); a log that cannot be opened is a warning, and the run streams with none. When stdout and stderr are the same file the command gets one pipe for both.
+
+    CURRENT (`docs/spec/02-delivery.md` at `3368264`), §14.2, **Summary mode**, after its list:
+    > A log that cannot be opened is a warning, and the run streams as `--full` does.
+
+    PROPOSED:
+    > A log that cannot be opened is a warning, and the run's output streams through unchanged, with no log.
 
     CURRENT (`docs/spec/02-delivery.md` at `3368264`), §14.4, the `ended` row's fields:
     > `counts_from`, summary mode's `log` path, `cold` (§14.6)
@@ -128,12 +134,19 @@ Measured at `3368264`.
     PROPOSED:
     > A recording `ccp suite run` removes suite-run logs
 
-    CURRENT (`docs/spec/02-delivery.md` at `3368264`), §14.7, the opening paragraph and **The change**:
+    CURRENT (`docs/spec/02-delivery.md` at `3368264`), §14.7, the opening paragraph:
     > guessing. It runs nothing and records nothing.
 
     PROPOSED:
-    > guessing. It runs nothing and records nothing. `ccp suite run --affected [--since <ref>]` takes the same change and runs, recorded as any run (§14.4), what the stderr line below names: the part lane with the modules, or the full lane when the line says so. With no module touched it runs and records nothing, says so on stderr and exits 0; with no line to run it exits 2. It takes no `--lane` and no command after `--`, and `--since` without `--affected` exits 2, nothing run. `--since <ref>...` (three dots, nothing after) is the change since the merge base of `<ref>` and `HEAD`: the files `git diff <merge base>` names against the working tree, plus the untracked files git does not ignore, so a branch behind `<ref>` lists only its own changes; a `<ref>` with no merge base with `HEAD` exits 2.
-- **Out:** the one-ref and `<a>..<b>` forms; `ccp suite affected`'s output; `plugin/agents/delivery-implementer.md`'s
+    > guessing. It runs nothing and records nothing. `ccp suite run --affected [--since <ref>]` takes the same change and runs, recorded as any run (§14.4), what the stderr line below names: the part lane with the modules, or the full lane when the line says so. With no module touched it runs and records nothing, says so on stderr and exits 0; with no line to run it exits 2. It takes no `--lane` and no command after `--`, and `--since` without `--affected` exits 2, nothing run.
+
+    CURRENT (`docs/spec/02-delivery.md` at `3368264`), §14.7, **The change**:
+    > A range `<a>..<b>` given to `--since` is the files `git diff <a>..<b>` names, without the working tree.
+
+    PROPOSED:
+    > A range `<a>..<b>` given to `--since` is the files `git diff <a>..<b>` names, without the working tree. `<ref>...` (three dots, nothing after) is the change since the merge base of `<ref>` and `HEAD`: the files `git diff <merge base>` names against the working tree, plus the untracked files git does not ignore, so a branch behind `<ref>` lists only its own changes; a `<ref>` with no merge base with `HEAD` exits 2.
+- **Out:** `ccp/prompt.py`'s `SUITE_LANES` and `"def suite_lanes"` (their part-lane wording "as `ccp suite affected`
+  prints it" stays true, since that command and its stderr line are unchanged, and 0285 edits them); the one-ref and `<a>..<b>` forms; `ccp suite affected`'s output; `plugin/agents/delivery-implementer.md`'s
   `--since <ref>` for what a merge brought in (correct as it is); the verifier's gate; `suite.affected_map`.
 
 ## dod_checks
@@ -143,7 +156,7 @@ Measured at `3368264`.
   setup: A checkout of the PR head.
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0299`.
-  expect: exit 0, all five PROPOSED passages found.
+  expect: exit 0, all seven PROPOSED passages found.
   dry run (simulated at `d17505a`: this task file committed, then each passage applied, its CURRENT found once, committed in a scratch copy; `CCP_DEV=1 ./bin/ccp verify spec-text 0299 --base HEAD~1`): `"ok": true`, every passage found.
 - id: `cmd-01`
   story: As a worker on a branch the integration branch has moved past, the affected list holds only my own change.
@@ -170,7 +183,7 @@ Measured at `3368264`.
     1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_suite_full_log`.
     2. Run `grep -e full -e '^OK' <the log step 1 names>`.
     3. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_suite_full_log --mutant-file <file>`, the file's mutant opening the log only when the mode is `summary`, as at `3368264`.
-  expect: step 1 exits 0; step 2 lists, `ok`, a test whose name holds `full` where a recorded `--full` run of a command printing `alpha` on stdout and `beta` on stderr still prints both, its log holds both, its `ended` row's `log` names that file, and stderr's last line is `ccp suite run: log <that path>`; then `OK`. Step 3 prints the mutant `killed`.
+  expect: step 1 exits 0; step 2 lists, `ok`, a test whose name holds `full` where a recorded `--full` run of a command printing `alpha` on stdout and `beta` on stderr still prints both, its log holds both, its `ended` row's `log` names that file, and what the run printed is exactly the command's output, no line added; then `OK`. Step 3 prints the mutant `killed`.
   dry run: n/a — the module is new.
 - id: `code-01`
   story: As a plane developer, the report's suite-line fill is decided on plain rows and its branches are tested there.

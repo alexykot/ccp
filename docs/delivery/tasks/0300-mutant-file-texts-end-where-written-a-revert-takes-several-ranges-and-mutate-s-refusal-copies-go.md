@@ -40,10 +40,16 @@ Measured at `3368264`.
   0261, 0272, 0276, then 0287, 0288, 0291, 0294, 0271, 0273; queue data) describe it; 0273's notes add that a
   line with a trailing comment must be written whole. 0271's `implement#1` asks whether a whole-line old text
   that matches nothing should carry the hint too; with the line break dropped, the hint and that question go.
-- **What (a) costs.** A whole-line mutant is written as before (both texts lose their last line break, so the
-  line's own break is untouched). An old text that is also the start of another line (`x = 1` in `x = 10`) now
-  counts twice and is refused as ambiguous; the writer adds what makes it unique, or an empty line after it so
-  it keeps its line break. Deleting whole lines likewise needs an empty line before `=== new`.
+- **What (a) costs.** A whole-line substitution is written as before (both texts lose their last line break, so
+  the line's own break is untouched). Four cases change:
+  - an old text that is also the start of another line (`x = 1` in `x = 10`) now counts twice and is refused as
+    ambiguous, until the writer makes it unique or keeps its line break with an empty line after it;
+  - a text that must end with a line break needs the empty line in the new text too, or the line after it joins
+    the new text's last line;
+  - a whole-line deletion written as before (an empty new text) is not refused but leaves a blank line where the
+    lines were; deleting the line breaks too takes an empty line before `=== new`;
+  - a new text at the file's end keeps a last line break only through an empty last line, which editors often
+    strip.
 - **F04.** `tests/test_mutate.py` runs, on `MutateFixture` (a git product with a worktree, a run and a
   ledger), refusals `tests/test_mutate_refusals.py` already tests on plain files:
   `test_a_part_missing_is_refused_and_nothing_runs`, `test_old_text_absent_a_missing_target_or_no_such_file_is_refused`,
@@ -75,6 +81,8 @@ Measured at `3368264`.
   mid-line old text is found and substituted; a whole-line mutant written as before gives the same file as at
   `3368264`; an empty line before `=== new` keeps the old text's line break; CRLF files behave the same;
   `test_each_text_is_exactly_the_bytes_between_its_markers` (`tests/test_mutate.py`) moves here with the new texts.
+  `test_a_relative_path_is_read_from_the_current_directory` (`tests/test_mutate.py`, `MutantFiles`) asserts the old
+  text with its last line break, so it breaks too: it expects the text less that break.
 - **Several ranges.** `--revert <path>:<n>[-<m>][,<n>[-<m>]…]`: `RANGE_RE` reads comma-separated ranges, in any
   order, overlapping allowed; `_revert_lines` takes the list and puts back each hunk any range hits, by today's
   rule per range. Each range is checked against the file as today, naming the bad one. The digest covers the
@@ -151,9 +159,11 @@ Measured at `3368264`.
   setup: A checkout of the PR head.
   steps:
     1. Run `git grep -c -e 'def test_a_part_missing_is_refused_and_nothing_runs' -e 'def test_old_text_absent_a_missing_target_or_no_such_file_is_refused' -e 'def test_together_a_patch_and_a_substitution_on_one_file_are_refused' -e 'def test_together_a_substitution_whose_old_text_an_earlier_one_removed_is_refused' -e 'def test_together_with_one_mutant_is_refused' -- tests/test_mutate.py`.
-    2. Run `git grep -n -e 'swapped' -e 'missing.py' -e '\.\./calc.py' -- tests/test_mutate_refusals.py`.
-  expect: step 1 prints nothing (exit 1); step 2 prints at least one line for each of the three patterns, inside `"def test_a_mutant_file_with_a_part_missing"` or `"def test_a_mutant_that_is_no_file_or_leaves_the_worktree"`, the mutant-file variants.
-  dry run (`3368264`): step 1 printed `tests/test_mutate.py:5`; step 2 printed 1 line, in `"def test_a_mutant_that_is_no_file_or_leaves_the_worktree"`, naming `missing.py` and `../calc.py` as `--mutant` specs; no mutant-file variant, no `swapped`.
+    2. Run `git grep -nF -e 'missing.py\n=== old' -- tests/test_mutate_refusals.py`.
+    3. Run `git grep -nF -e '../calc.py\n=== old' -- tests/test_mutate_refusals.py`.
+    4. Run `git grep -nF -e '"calc.py\n=== new\n' -- tests/test_mutate_refusals.py`.
+  expect: step 1 prints nothing (exit 1); steps 2 and 3 each print at least one line; step 4 prints at least two lines (the existing text with no `=== old`, and the swapped markers).
+  dry run (`3368264`): step 1 printed `tests/test_mutate.py:5`; steps 2 and 3 printed nothing; step 4 printed 1 line (the text with no `=== old`).
 - id: `code-03`
   story: As a worker reading mutate's help, and a plane developer reading its code, each says what happens.
   setup: A checkout of the PR head.

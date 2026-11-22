@@ -8,7 +8,7 @@ spec_refs: ["S3", "S5", "S21"]
 rule_refs: ["E21", "E4"]
 review_refs: ["ar-20261122T141424Z-e148#F03"]
 review_point: R27
-paths: ["ccp/tasklog.py", "ccp/lifecycle.py", "plugin/skills/writing-tasks/SKILL.md", "docs/spec/01-model.md", "docs/spec/03-quality.md", "tests/test_bare_test_runner_warning.py", "tests/test_sign_off_stale_brief.py", "docs/delivery/plane.json", "tests/test_self_hosting.py"]
+paths: ["ccp/tasklog.py", "ccp/lifecycle.py", "plugin/skills/writing-tasks/SKILL.md", "docs/spec/01-model.md", "docs/spec/03-quality.md", "tests/test_bare_test_runner_warning.py", "tests/test_sign_off_stale_brief.py", "docs/delivery/plane.json", "tests/test_self_hosting.py", "docs/ENGINEERING.md"]
 adopt: "none"
 sign_off: brief
 created: 2026-11-22
@@ -30,17 +30,17 @@ such import slips past it now that the gate's cache treats every test module as 
 ## Context (not checked)
 
 From the triage of architect pass `ar-20261122T141424Z-e148` (F03) and the lead's process note on 0271 and
-0291 (the record is in `docs/delivery/reviews/`, its third question). Measured at `3368264`.
+0291 (the record is in `docs/delivery/reviews/`, its third question). Measured at `d17505a`.
 
-- **F03.** Task files 0260-0298 with a bare step (`grep -l 'Run .python3 -B -m unittest' docs/delivery/tasks/02[6-9]*.md | wc -l` at `3368264`: 28 of 39).
+- **F03.** Task files 0260-0298 with a bare step (`grep -l 'Run .python3 -B -m unittest' docs/delivery/tasks/02[6-9]*.md | wc -l` at `d17505a`: 28 of 39).
   `templates/prompts/_common.md` says "Never a bare test runner … it records
   nothing you can cite", and `plugin/agents/delivery-verifier.md` says a cited test run is a recorded one, so a
   verifier runs such a step for its output and again recorded (0294's verifier's note, queue data).
-  `grep -c 'unittest\|suite run --lane part --' plugin/skills/writing-tasks/SKILL.md` at `3368264`: 0, the skill
+  `grep -c 'unittest\|suite run --lane part --' plugin/skills/writing-tasks/SKILL.md` at `d17505a`: 0, the skill
   says nothing on how a check runs tests. The language's test command is the pack's (`doclang.for_tests(cfg).test_command`;
   Python's `python3 -m unittest`), so the check names no runner of its own (E18).
-- **Pending briefs it will name** (`grep -l 'Run .python3 -B -m unittest' $(grep -l '^status: pending' docs/delivery/tasks/*.md) | wc -l` at `3368264`: 11):
-  0275, 0278, 0283, 0285, 0286, 0292, 0293, 0295, 0296, 0297, 0298. A warning never
+- **Pending briefs it will name** (`grep -l 'Run .python3 -B -m unittest' $(grep -l '^status: pending' docs/delivery/tasks/*.md) | wc -l` at `d17505a`: 10):
+  0275, 0278, 0283, 0285, 0286, 0292, 0293, 0296, 0297, 0298. A warning never
   fails, and the signed ones keep it until they close.
 - **The process note.** 0271's brief was measured at `76f41dd` and signed at 2026-11-22T12:57:49Z (its `sign_off`
   event, head `1416898`). 0291 (`932d480`, merged 11:03:22Z) had already changed `ccp/mutate.py`, one of 0271's
@@ -48,7 +48,7 @@ From the triage of architect pass `ar-20261122T141424Z-e148` (F03) and the lead'
   question, and the lead ruled the narrow reading (0271's ruling r1), leaving follow-up `implement#1` open.
   `"def stale_context"` in `ccp/tasklog.py` would have named `932d480` at the signing, but nothing showed it then:
   `"def sign_off"` in `ccp/lifecycle.py` reads no staleness. 0285 (signed the same minute, measured at `76f41dd`)
-  rules a `--test` help text that 0271 has since overtaken. At `3368264`, `ccp tasks check` gives a stale-Context
+  rules a `--test` help text that 0271 has since overtaken. At `d17505a`, `ccp tasks check` gives a stale-Context
   warning for 7 pending tasks (`CCP_DEV=1 ./bin/ccp --root . tasks check 2>&1 | grep -c 'Measured at'`), all but
   two of them signed: the signal is coarse (any commit on a path), so a refusal would send nearly every brief back
   for a refresh before each signing; this task warns.
@@ -94,11 +94,16 @@ From the triage of architect pass `ar-20261122T141424Z-e148` (F03) and the lead'
   import from `tests` or from `.` (no module) that imports a name starting `test_`, parenthesised or not. It exits 0
   otherwise. `test_the_check_finds_each_way_to_import_a_test_module` gains `from . import test_a`,
   `from tests import a, test_a` and `from tests import (\n    a,\n    test_a,\n)`; the fixture test keeps passing.
+- **E4's `check:` line** in `docs/ENGINEERING.md` names the parts as they then are: after 0298 it reads "(five greps
+  and the long-literal count it holds at or below its figure)"; this task makes it "(four greps, an import check over
+  the tracked test files, and the long-literal count it holds at or below its figure)". E4's rule text is unchanged.
+- **The skill's clash sentence** keeps the words `pending brief rules on` on one line, as doc-01 reads them.
 
 ## Scope
 
 - **In:** `ccp/tasklog.py` (`"def warnings"`, the bare-runner reader), `ccp/lifecycle.py` (`"def sign_off"`),
-  `plugin/skills/writing-tasks/SKILL.md`, `docs/delivery/plane.json` (E4's import part), `tests/test_self_hosting.py`, `tests/test_bare_test_runner_warning.py` (new),
+  `plugin/skills/writing-tasks/SKILL.md`, `docs/delivery/plane.json` (E4's import part), `tests/test_self_hosting.py`,
+  `docs/ENGINEERING.md` (E4's `check:` line only), `tests/test_bare_test_runner_warning.py` (new),
   `tests/test_sign_off_stale_brief.py` (new).
 - **SPEC, signed before the claim (`sign_off: brief`):** one passage in `docs/spec/01-model.md` and one in
   `docs/spec/03-quality.md`, each CURRENT at `3368264`.
@@ -148,10 +153,9 @@ From the triage of architect pass `ar-20261122T141424Z-e148` (F03) and the lead'
   setup: A checkout of the PR head.
   steps:
     1. Run `grep -c -F -e '<test command> <tests>' -e 'tasks check --stale' plugin/skills/writing-tasks/SKILL.md`.
-    2. Run `grep -c -F 'ruling' plugin/skills/writing-tasks/SKILL.md`.
-  expect: step 1 prints `2` (the test-run token, and the stale-brief token in *Changing a task*); step 2 prints at least `3` (the new clash sentence adds one or more).
-  dry run (`3368264`): step 1 printed `0`; step 2 printed `2`.
-
+    2. Run `grep -c -F 'pending brief rules on' plugin/skills/writing-tasks/SKILL.md`.
+  expect: step 1 prints `2` (the test-run token, and the stale-brief token in *Changing a task*); step 2 prints `1`.
+  dry run (`d17505a`): step 1 printed `0`; step 2 printed `0`.
 - id: `cfg-01`
   story: As the architect, E4 fails on a test module importing another in any form.
   setup: A checkout of the PR head, in your own worktree.
@@ -159,8 +163,9 @@ From the triage of architect pass `ar-20261122T141424Z-e148` (F03) and the lead'
     1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_self_hosting`.
     2. Run `grep -e each_way -e fixture -e '^OK' <the log step 1 names>`.
     3. Run `bash -c "$(python3 -B -c "import json;print([c['cmd'] for c in json.load(open('docs/delivery/plane.json'))['architect']['checks'] if c['id']=='E4'][0])")"; echo "exit $?"`.
-  expect: step 1 exits 0; step 2 lists `test_the_check_finds_each_way_to_import_a_test_module` and `test_the_check_lets_a_test_import_a_fixture_module`, each `ok`, the first holding the three new forms, then `OK`; step 3 ends `exit 0`.
-  dry run (`3368264`): steps 1 and 2: n/a — the three forms are the build's; step 3 printed `exit 0`.
+    4. Run `c=$(python3 -B -c "import json;print([x['cmd'] for x in json.load(open('docs/delivery/plane.json'))['architect']['checks'] if x['id']=='E4'][0])") && d=$(mktemp -d) && mkdir "$d/tests" && printf 'from tests import (\n    a,\n    test_a,\n)\n' > "$d/tests/test_b.py" && git -C "$d" init -q && git -C "$d" add tests && (cd "$d" && bash -c "$c"); echo "exit $?"`.
+  expect: step 1 exits 0; step 2 lists `test_the_check_finds_each_way_to_import_a_test_module` and `test_the_check_lets_a_test_import_a_fixture_module`, each `ok`, the first holding the three new forms, then `OK`; step 3 ends `exit 0` (the plane's own tests import no test module); step 4 ends `exit 1` (the parenthesised import spanning lines is found).
+  dry run (`d17505a`): steps 1 and 2: n/a — the three forms are the build's; step 3 printed `exit 0`; step 4 printed `exit 0` (today's grep misses the form).
 
 ## Implementation notes
 
