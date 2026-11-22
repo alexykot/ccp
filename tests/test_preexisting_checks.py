@@ -6,25 +6,38 @@ from __future__ import annotations
 import io
 import json
 import os
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli, config, queue
+from ccp import baseline, cli, config, queue
 from tests.helpers import Product, binding
 
 RULES = "# Rules\n\n## Words\n\n- **E1** No forbidden word.\n  check: command\n"
 GREP = "! git grep -nE 'FORBID[D]EN' -- ."
 HEADING = "pre-existing on main at"
+LEAK_CHECK = Path(__file__).resolve().parents[1] / "scripts" / "leak-check.sh"
+
+
+def root_guard(root: Path) -> str:
+    """A stub `ccp`'s first line: exit 2 unless it was called as `ccp --root <root> where`."""
+    return (f'[ "$1" = --root ] && [ "$(cd "$2" 2>/dev/null && pwd -P)" = "{os.path.realpath(root)}" ] '
+            '&& [ "$3" = where ] || exit 2')
 
 
 class Repo:
-    """A Product made a git repository on `main`, with `origin/main` at its tip."""
+    """A Product made a git repository on `main`, with `origin/main` at its tip, its tests out of the
+    fence that makes no run at the base."""
 
     def make(self, cfg: dict) -> Product:
+        fence = mock.patch.dict(os.environ, {"CCP_NO_BASE_RUN": ""})
+        fence.start()
+        self.addCleanup(fence.stop)
         p = Product(cfg)
         self.addCleanup(p.cleanup)
         self.p = p
@@ -98,6 +111,19 @@ class DocsCheck(Repo, unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(self.preexisting(out), [])
 
+    def test_a_multi_path_diff_with_a_non_ascii_checker_file_leaves_the_hit_failing(self):
+        self.git("config", "core.quotepath", "true")
+        self.p.write("ccp/__init__.py", "")
+        self.commit("the repository holds its ccp")
+        self.publish()
+        self.git("checkout", "-q", "-b", "task")
+        self.p.write("app/other.md", "mine\n")
+        self.p.write("ccp/caf\u00e9.py", "")
+        self.commit("work")
+        code, out = self.ccp("docs", "check")
+        self.assertEqual(code, 1)
+        self.assertEqual(self.preexisting(out), [])
+
     def test_on_the_integration_branch_itself_the_hit_fails(self):
         code, out = self.ccp("docs", "check")
         self.assertEqual(code, 1)
@@ -126,7 +152,7 @@ class BaseRun(Repo, unittest.TestCase):
 
     def echoed(self, var: str, bindings: Path, env: dict, queue_root: Path | None = None) -> list[str]:
         """What a docs check that echoes `$<var>` and fails saw at `HEAD` and then at the base, on a task
-        branch, with the running `ccp`'s bindings directory `bindings`, `env` over the environment, and,
+        branch, with `CCP_BINDINGS_DIR` the bindings directory `bindings`, `env` over the environment, and,
         with `queue_root`, the product's binding there naming that queue."""
         marks = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: subprocess.run(["rm", "-rf", str(marks)]))
@@ -138,17 +164,59 @@ class BaseRun(Repo, unittest.TestCase):
         self.git("checkout", "-q", "-b", "task")
         p.write("app/other.md", "mine\n")
         self.commit("work")
-        with mock.patch.object(queue.lib, "bindings_dir", return_value=bindings), \
-                mock.patch.dict(os.environ, env):
+        with mock.patch.dict(os.environ, {"CCP_BINDINGS_DIR": str(bindings), **env}):
             self.assertEqual(self.ccp("docs", "check")[0], 1)
         return (marks / "seen").read_text().split()
 
     def test_the_base_run_gets_the_bindings_directory_the_head_run_resolved(self):
         bindings = Path(tempfile.mkdtemp())
         self.addCleanup(bindings.rmdir)
-        self.assertNotEqual(os.environ["CCP_BINDINGS_DIR"], str(bindings))
-        self.assertEqual(self.echoed("CCP_BINDINGS_DIR", bindings, {}),
-                         [os.environ["CCP_BINDINGS_DIR"], str(bindings)])
+        self.assertEqual(self.echoed("CCP_BINDINGS_DIR", bindings, {}), [str(bindings), str(bindings)])
+
+    def test_a_leak_on_main_is_preexisting_when_the_head_run_finds_the_denylist_through_ccp_where(self):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", str(tmp)]))
+        (tmp / "bindings").mkdir()
+        (tmp / "bindings" / "leak-denylist.txt").write_text("SECRETWORD\n")
+        p = self.make({"architect": {"rules_doc": "docs/ENGINEERING.md",
+                                     "checks": [{"id": "E1", "cmd": "scripts/leak-check.sh"}]}})
+        (tmp / "bin").mkdir()
+        where = json.dumps({"binding": str(tmp / "bindings" / "demo.yaml"), "plane": str(tmp / "plane")})
+        stub = tmp / "bin" / "ccp"
+        stub.write_text(f"#!/bin/sh\n{root_guard(p.root)}\necho '{where}'\n")
+        stub.chmod(0o755)
+        (p.root / "scripts").mkdir()
+        shutil.copy(LEAK_CHECK, p.root / "scripts" / "leak-check.sh")
+        p.write("app/old.md", "a SECRETWORD here\n")
+        self.commit("a hit on main")
+        self.publish()
+        self.git("checkout", "-q", "-b", "task")
+        p.write("app/other.md", "mine\n")
+        self.commit("work")
+        with mock.patch.dict(os.environ, {"PATH": f"{tmp / 'bin'}{os.pathsep}{os.environ['PATH']}"}), \
+                mock.patch.object(queue.lib, "bindings_dir", return_value=tmp / "no-such-bindings"):
+            os.environ.pop("CCP_BINDINGS_DIR")
+            os.environ.pop("CCP_LEAK_DENYLIST", None)
+            code, out = self.ccp("docs", "check")
+        self.assertEqual(code, 0, out)
+        self.assertEqual([ln.split(":")[0] for ln in self.preexisting(out)], ["check E1"])
+
+    def test_the_fence_makes_no_base_run(self):
+        marks = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", str(marks)]))
+        hit = {"id": "hit", "cmd": f"echo ran >> {marks}/ran; {GREP}"}
+        p = self.make({"docs": {"checks": [hit]}})
+        p.write("app/old.md", "FORBIDDEN\n")
+        self.commit("a hit on main")
+        self.publish()
+        self.git("checkout", "-q", "-b", "task")
+        p.write("app/other.md", "mine\n")
+        self.commit("work")
+        with mock.patch.dict(os.environ, {"CCP_NO_BASE_RUN": "1"}):
+            code, out = self.ccp("docs", "check")
+        self.assertEqual(code, 1)
+        self.assertNotIn(HEADING, out)
+        self.assertEqual((marks / "ran").read_text().split(), ["ran"])
 
     def test_the_base_run_takes_no_queue_from_the_products_binding(self):
         bindings, q = Path(tempfile.mkdtemp()), Path(tempfile.mkdtemp())
@@ -172,6 +240,50 @@ class BaseRun(Repo, unittest.TestCase):
             code, out = self.ccp("docs", "check")
         self.assertEqual(code, 0, out)
         self.assertEqual([ln.split(":")[0] for ln in self.preexisting(out)], ["docs check leaks"])
+
+
+class HeadBindingsDir(unittest.TestCase):
+    """The bindings directory the `HEAD` run's checks read, handed to the run at the base."""
+
+    def setUp(self):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", str(tmp)]))
+        self.tmp, self.own = tmp, tmp / "own"
+        (tmp / "bin").mkdir()
+        self.cfg = mock.Mock(root=tmp)
+        for patch in (mock.patch.dict(os.environ, {"PATH": str(tmp / "bin")}),
+                      mock.patch.object(queue.lib, "bindings_dir", return_value=self.own)):
+            patch.start()
+            self.addCleanup(patch.stop)
+        os.environ.pop("CCP_BINDINGS_DIR")
+
+    def stub(self, body: str, shell: str = "/bin/sh") -> None:
+        guard = root_guard(self.cfg.root) + "\n" if shell == "/bin/sh" else ""
+        stub = self.tmp / "bin" / "ccp"
+        stub.write_text(f"#!{shell}\n{guard}{body}\n")
+        stub.chmod(0o755)
+
+    def test_where_names_the_bindings_directory_by_its_binding_else_beside_the_plane(self):
+        self.assertEqual(baseline._where_bindings('{"binding": "/b/x.yaml", "plane": "/p"}'), Path("/b"))
+        self.assertEqual(baseline._where_bindings('{"binding": null, "plane": "/p"}'), Path("/p/projects"))
+        for text in ("", "not json", "[]", '{"binding": null}'):
+            self.assertIsNone(baseline._where_bindings(text), text)
+
+    def test_ccp_bindings_dir_wins_over_ccp_where(self):
+        self.stub(f"echo '{json.dumps({'binding': '/b/x.yaml', 'plane': '/p'})}'")
+        with mock.patch.dict(os.environ, {"CCP_BINDINGS_DIR": str(self.tmp / "set")}):
+            self.assertEqual(baseline.head_bindings_dir(self.cfg), self.tmp / "set")
+        self.assertEqual(baseline.head_bindings_dir(self.cfg), Path("/b"))
+
+    def test_with_no_answer_from_ccp_where_it_is_this_ccps_own(self):
+        self.assertEqual(baseline.head_bindings_dir(self.cfg), self.own)  # no ccp on PATH
+        where = json.dumps({"binding": "/b/x.yaml", "plane": "/p"})
+        for body in (f"echo '{where}'; exit 1", "echo not json"):
+            self.stub(body)
+            self.assertEqual(baseline.head_bindings_dir(self.cfg), self.own, body)
+        self.stub(f"import time\ntime.sleep(5)\nprint({where!r})", sys.executable)
+        with mock.patch.object(baseline, "WHERE_TIMEOUT", 0.2):
+            self.assertEqual(baseline.head_bindings_dir(self.cfg), self.own)
 
 
 class TasksCheck(Repo, unittest.TestCase):

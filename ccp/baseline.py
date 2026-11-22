@@ -5,7 +5,8 @@ verifier's gate is those two commands (§21.8), so it judges the same way.
 
 The decision (`split`, `comparable`, `names`) is on plain values; `judge` gathers its inputs from git and
 from the run at the base (`run_at_base`), which is the running `ccp` with a temporary detached worktree of
-the base as its root, writing its failures to the file `BASE_RUN` names.
+the base as its root, writing its failures to the file `BASE_RUN` names. `NO_BASE_RUN` set makes no run at
+the base, so every failure counts; the tests' fence (`tests/__init__.py`) sets it.
 """
 from __future__ import annotations
 
@@ -25,6 +26,8 @@ from ccp.envvars import envvar, for_child
 from ccp.rules import OUTPUT_CAP, CheckRun
 
 BASE_RUN = "CCP_BASE_RUN"  # set for the run at the base: the command writes its failures, as JSON, to this file
+NO_BASE_RUN = "CCP_NO_BASE_RUN"  # set: no run at the base, every failure counts
+WHERE_TIMEOUT = 30  # seconds `ccp where` may take in `head_bindings_dir`
 CHECKER_DIRS = ("bin/", "ccp/")  # the plane's own `ccp`, in a repository that holds it
 HEADING = "pre-existing on {integ} at {sha7}, not this change's: report it under Friction"
 
@@ -160,10 +163,40 @@ def integration_branch() -> str:
     return "main"
 
 
+def _where_bindings(stdout: str) -> Path | None:
+    """The bindings directory `ccp where`'s JSON names: its `binding`'s directory, else `<plane>/projects`.
+    None when it does not parse."""
+    try:
+        d = json.loads(stdout)
+        b = d.get("binding")
+        return Path(b).parent if b else Path(d["plane"]) / "projects"
+    except (ValueError, AttributeError, KeyError, TypeError):
+        return None
+
+
+def head_bindings_dir(cfg: Config) -> Path:
+    """The bindings directory the `HEAD` run's checks read, as the third step of `scripts/leak-check.sh`
+    resolves it: `CCP_BINDINGS_DIR` when set, else the one `ccp --root <root> where`, from PATH, names. With
+    no `ccp` on PATH, a non-zero exit, a timeout or output that does not parse, this `ccp`'s own."""
+    from ccp import queue  # noqa: PLC0415
+    if d := envvar("CCP_BINDINGS_DIR"):
+        return Path(d)
+    exe = shutil.which("ccp")
+    if exe:
+        try:
+            r = subprocess.run([exe, "--root", str(cfg.root), "where"], stdin=subprocess.DEVNULL,
+                               capture_output=True, text=True, timeout=WHERE_TIMEOUT)
+        except (OSError, subprocess.SubprocessError):
+            r = None
+        if r is not None and r.returncode == 0 and (found := _where_bindings(r.stdout)) is not None:
+            return found
+    return queue.lib.bindings_dir()
+
+
 def run_at_base(cfg: Config, sha: str, argv: list[str]) -> tuple[list[Failure] | None, list[tuple[str, str]]]:
     """The failures `ccp <argv>` reports at `sha`, run by this `ccp` in a temporary detached worktree
     outside the product root, removed afterwards whatever happens, with QUEUE_ROOT unset and
-    `CCP_BINDINGS_DIR` the bindings directory this run resolved; and the (worktree root, product root)
+    `CCP_BINDINGS_DIR` the bindings directory this run's checks read (`head_bindings_dir`); and the (worktree root, product root)
     pairs that normalise its output. None when the worktree cannot be made or the run reports nothing
     readable."""
     from ccp import queue, wt  # noqa: PLC0415
@@ -177,7 +210,7 @@ def run_at_base(cfg: Config, sha: str, argv: list[str]) -> tuple[list[Failure] |
         except queue.QueueError:
             return None, roots
         env = {k: v for k, v in os.environ.items() if k not in ("QUEUE_ROOT", "CCP_ROOT")}
-        env.update(for_child({BASE_RUN: str(out), "CCP_BINDINGS_DIR": str(queue.lib.bindings_dir()),
+        env.update(for_child({BASE_RUN: str(out), "CCP_BINDINGS_DIR": str(head_bindings_dir(cfg)),
                               "CCP_NO_BINDING_QUEUE": "1"}))
         r = subprocess.run([sys.executable, str(queue.CCP_BIN), "--root", str(tree), *argv], cwd=tree, env=env,
                            stdin=subprocess.DEVNULL, capture_output=True)
@@ -193,21 +226,23 @@ def _git(root: Path, *args: str) -> str | None:
 
 
 def changed_paths(root: Path, base: str) -> list[str] | None:
-    """The paths the commits since `base` change, as the failure lines print them: NUL-separated and
-    unquoted (`core.quotepath` off), so a path with non-ASCII characters is named whole. None when git
-    fails."""
-    r = subprocess.run(["git", "-C", str(root), "-c", "core.quotepath=off", "diff", "--name-only", "-z",
-                        f"{base}...HEAD"], capture_output=True, encoding="utf-8", errors="surrogateescape")
+    """The paths the commits since `base` change, as the failure lines print them: they come NUL-separated,
+    which git prints verbatim, so a non-ASCII path is named whole. None when git fails."""
+    r = subprocess.run(["git", "-C", str(root), "diff", "--name-only", "-z", f"{base}...HEAD"],
+                       capture_output=True, encoding="utf-8", errors="surrogateescape")
     return [p for p in r.stdout.split("\0") if p] if r.returncode == 0 else None
 
 
 def judge(cfg: Config, failures: list[Failure], argv: list[str]) -> Judged:
     """`failures`, the command's at `HEAD`, judged against the same command at the merge base of `HEAD` and
-    `origin/<integration>` as the checkout has it (nothing fetched). With no failures, no base, a base
-    equal to `HEAD`, a branch that changes the checker, or no run at the base: every failure counts."""
+    `origin/<integration>` as the checkout has it (nothing fetched). With no failures, `NO_BASE_RUN` set, no
+    base, a base equal to `HEAD`, a branch that changes the checker, or no run at the base: every failure
+    counts."""
     if not failures:
         return Judged([])
     lines = [f.line for f in failures]
+    if envvar(NO_BASE_RUN):
+        return Judged(lines)
     integ = integration_branch()
     head = _git(cfg.root, "rev-parse", "HEAD")
     base = _git(cfg.root, "merge-base", "HEAD", f"origin/{integ}")
