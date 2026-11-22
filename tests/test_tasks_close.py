@@ -162,6 +162,31 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self.assertEqual(seen.read_text(), "linked in\n")
         self.assertNotIn(".venv", body["committed"])
 
+    def test_a_reused_merge_worktree_gets_a_links_path_added_since_the_failed_close_made_it(self):
+        seen = self.main.parent / "hook-seen"
+        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
+        cfg["reconcile"]["hooks"] = ["exit 3"]
+        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        git(self.runner, "commit", "-qam", "a failing hook")
+        git(self.runner, "push", "-q", "origin", "HEAD:main")
+        git(self.main, "pull", "-q", "origin", "main")
+        self._to_approved_pr()
+        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
+        self.assertEqual(code, 1, out + err)
+        merge_wt = self.main / config.WORKTREES_DIR / "merge-0002"
+        self.assertTrue(merge_wt.is_dir())
+        self.write("tools/marker", "linked in\n")  # untracked and ignored, in the main checkout only
+        self.write(".gitignore", (self.main / ".gitignore").read_text() + "tools/\n")
+        cfg["worktrees"]["links"] = [".venv", "tools"]
+        cfg["reconcile"]["hooks"] = [f"cat tools/marker > {seen}"]
+        (self.main / "docs/delivery/plane.json").write_text(json.dumps(cfg))
+        git(self.main, "commit", "-qam", "a new links path and a hook that reads it")
+        git(self.main, "pull", "-q", "--rebase", "origin", "main")
+        git(self.main, "push", "-q", "origin", "main")
+        code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(seen.read_text(), "linked in\n")
+        self.assertNotIn("tools", body["committed"])
 
     def test_a_failed_close_leaves_a_merge_worktree_that_wt_list_shows_and_gc_keeps_while_leased(self):
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())

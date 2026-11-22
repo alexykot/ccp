@@ -144,10 +144,6 @@ def _kill(pid: int) -> None:
         pass
 
 
-def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True)
-
-
 def dry_run(cfg: Config, task: str, write: bool) -> int:
     """§21.1 `ccp tasks dry-run <id> [--write]`: print each check's runs; with `write`, set each check's record
     from them in the task file. Exit 3 for a done, dropped or claimed task; a QueueError for no queue, an
@@ -170,18 +166,15 @@ def dry_run(cfg: Config, task: str, write: bool) -> int:
     tree = tmp / "tree"
     runs: dict[str, list[Ran]] = {}
     try:
-        r = _git(main, "worktree", "add", "-q", "--detach", str(tree), sha)
-        if r.returncode != 0:
-            raise queue.QueueError(f"git worktree add {tree}: {(r.stderr or r.stdout).strip()[:300]}", 1)
-        wt._link(cfg, main, tree)  # noqa: SLF001  (§12.1: the worktrees.links paths, as in any plane worktree)
+        wt.add_unrecorded(cfg, main, tree, sha)  # §12.1: with the worktrees.links paths, as in any plane worktree
         for cid, steps in checks:
             for n, cmd in [] if cid in skip else steps:
                 if cmd is not None:
                     runs.setdefault(cid, []).append(outcome(n, cmd, *run_step(cmd, tree)))
     finally:
-        _git(main, "worktree", "remove", "--force", str(tree))
+        wt.remove_unrecorded(main, tree)
         shutil.rmtree(tmp, ignore_errors=True)
-        _git(main, "worktree", "prune")
+        queue.git(main, "worktree", "prune")  # a tree `worktree remove` could not drop is unregistered once deleted
     short = sha[:7]
     for line in printout(tid, short, ref, checks, runs, skip):
         print(line)
