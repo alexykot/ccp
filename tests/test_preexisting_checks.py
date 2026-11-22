@@ -14,7 +14,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli, config, queue
+from ccp import baseline, cli, config, queue
 from tests.helpers import Product, binding
 
 RULES = "# Rules\n\n## Words\n\n- **E1** No forbidden word.\n  check: command\n"
@@ -233,6 +233,48 @@ class BaseRun(Repo, unittest.TestCase):
             code, out = self.ccp("docs", "check")
         self.assertEqual(code, 0, out)
         self.assertEqual([ln.split(":")[0] for ln in self.preexisting(out)], ["docs check leaks"])
+
+
+class HeadBindingsDir(unittest.TestCase):
+    """The bindings directory the `HEAD` run's checks read, handed to the run at the base."""
+
+    def setUp(self):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", str(tmp)]))
+        self.tmp, self.own = tmp, tmp / "own"
+        (tmp / "bin").mkdir()
+        self.cfg = mock.Mock(root=tmp)
+        for patch in (mock.patch.dict(os.environ, {"PATH": str(tmp / "bin")}),
+                      mock.patch.object(queue.lib, "bindings_dir", return_value=self.own)):
+            patch.start()
+            self.addCleanup(patch.stop)
+        os.environ.pop("CCP_BINDINGS_DIR")
+
+    def stub(self, body: str) -> None:
+        stub = self.tmp / "bin" / "ccp"
+        stub.write_text(f"#!/bin/sh\n{body}\n")
+        stub.chmod(0o755)
+
+    def test_where_names_the_bindings_directory_by_its_binding_else_beside_the_plane(self):
+        self.assertEqual(baseline._where_bindings('{"binding": "/b/x.yaml", "plane": "/p"}'), Path("/b"))
+        self.assertEqual(baseline._where_bindings('{"binding": null, "plane": "/p"}'), Path("/p/projects"))
+        for text in ("", "not json", "[]", '{"binding": null}'):
+            self.assertIsNone(baseline._where_bindings(text), text)
+
+    def test_ccp_bindings_dir_wins_over_ccp_where(self):
+        self.stub(f"echo '{json.dumps({'binding': '/b/x.yaml', 'plane': '/p'})}'")
+        with mock.patch.dict(os.environ, {"CCP_BINDINGS_DIR": str(self.tmp / "set")}):
+            self.assertEqual(baseline.head_bindings_dir(self.cfg), self.tmp / "set")
+        self.assertEqual(baseline.head_bindings_dir(self.cfg), Path("/b"))
+
+    def test_with_no_answer_from_ccp_where_it_is_this_ccps_own(self):
+        self.assertEqual(baseline.head_bindings_dir(self.cfg), self.own)  # no ccp on PATH
+        for body in ("exit 1", "echo not json"):
+            self.stub(body)
+            self.assertEqual(baseline.head_bindings_dir(self.cfg), self.own, body)
+        self.stub("exec /bin/sleep 5")
+        with mock.patch.object(baseline, "WHERE_TIMEOUT", 0.2):
+            self.assertEqual(baseline.head_bindings_dir(self.cfg), self.own)
 
 
 class TasksCheck(Repo, unittest.TestCase):
