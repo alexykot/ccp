@@ -116,4 +116,15 @@ From architect pass `ar-20261122T162238Z-9098`, F02 (`duplication`), F05 (`doc-a
 
 ## Implementation notes
 
+- Premises re-measured at `aee65114`: the module docstrings (47/40/12/53 lines), E24's figure (18), the lib.py
+  matches, `queue/README.md`'s 5 lines and `scripts/queue`'s one file all read as the task states.
+- The four module docstrings are 12, 11, 5 and 9 lines, each naming its §. Facts they dropped that the SPEC and
+  docs/cli do not state moved to the docstrings of `prompt.build`, `lifecycle.claim`, `lifecycle.close`,
+  `submit.submit` and `verify.write_record` (the older-reader rule for `schema_version`, the `pr-<n>` record name,
+  the merge worktree's name, the refusal exit codes of each command). Those five functions had no docstring.
+- `queue/README.md` keeps the runtime-only paragraph (the `QUEUE_ROOT` example line folded into it) and the Rules
+  table, and points at SPEC §23.7. `lib.py`'s comment above `REVIEW_EVENT_TYPES` went whole, with its note that
+  `architecture_review` and `docs_audit` are retired types kept so an older ledger reads; `EVENT_TYPES` itself is
+  unchanged.
+
 ## Verification notes
