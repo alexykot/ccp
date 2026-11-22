@@ -1,7 +1,7 @@
 ---
 task_id: 0282-ccp-owns-the-headless-launch-helpers-and-blocked-reads-the-task-log
 title: ccp owns the headless-launch helpers and the open-question rule, and the spec-question script's blocked and task-id checks read the task log and id shape through ccp
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S17", "S24"]
@@ -172,3 +172,5 @@ Measured at `072d9f9`.
   readers instead of "formerly". Both were review findings (MINOR-1, NIT-1); NIT-2 stays a follow-up.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #331 head `0a8daff` (squash `b1425bb`): APPROVE. Passed: code-01, cmd-01, cmd-02, cmd-03, rule-01. Gate: `ccp wt exec -- suite run --lane gate` exit 0, `ccp wt exec -- tasks check` exit 0, `ccp wt exec -- docs check` exit 0. Record: verification/0282-ccp-owns-the-headless-launch-helpers-and-blocked-reads-the-task-log.json.
+

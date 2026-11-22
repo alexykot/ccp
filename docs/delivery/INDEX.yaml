@@ -1383,7 +1383,7 @@ tasks:
     depends_on: [0279-contract-writer-tests-for-the-answer-file-and-wt-up-down]
     path: tasks/0281-every-live-contract-is-checked-against-what-writes-it.md
   - id: 0282-ccp-owns-the-headless-launch-helpers-and-blocked-reads-the-task-log
-    status: pending
+    status: done
     title: ccp owns the headless-launch helpers and the open-question rule, and the spec-question script's blocked and task-id checks read the task log and id shape through ccp
     depends_on: []
     path: tasks/0282-ccp-owns-the-headless-launch-helpers-and-blocked-reads-the-task-log.md
