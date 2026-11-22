@@ -3,7 +3,7 @@
 `build` renders the plane template `templates/prompts/<phase>.md` with `_common.md` and the product's fragment
 and `--note`, writes the prompt and its audit (§23.8), opens the run (§11.1), moves the task's phase and prints
 the Agent call the runner makes. The refusals that stand between a request and an opened run are the `*_gate`
-functions (§15.2, §15.6, §16.5, §6.7); the allowance reading and the session park are §25.1 and §25.4.
+functions (§13.2, §15.2, §15.6, §16.5, §6.7); the allowance reading and the session park are §25.1 and §25.4.
 The prompt's last line is `Prompt end: <token>`, which `ccp report` checks against the report (§13.4).
 `ccp prompt env <worktree>` renders the product's `prompts.worker_env` for a worktree (§13.3).
 

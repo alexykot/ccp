@@ -1,13 +1,13 @@
 """A task's runtime lifecycle (SPEC §10.5): claim, phase, wait and resume, release, sign-off, close.
 
 Each command does the step and writes what it changed to the ledger, so a seat cannot do the one
-without the other (§10.6). The claim's refusals are §10.2 (rotation), §8.1 and §14.1 (the gate lane) and
+without the other (§10.6). Among the claim's refusals are §10.2 (rotation), §8.1 and §14.1 (the gate lane) and
 §25 (the allowance reading); `sign-off` and the sign-offs `claim` and `close` hold a task to are §3.5.
 `wait` on an operator's wait, a `claim` refused at the weekly checkpoint or by a failed auth probe, and the
 `close` that finishes a review point fire the operator's triggers (§3.6, `ccp.notify`). `close` is the merge
-and the reconcile as one step (§15.5, §16.5): it runs `verify.merge_ok` first, merges from the task's own
-merge worktree and catches a verified head up to the tip when §16.5 rule 4 allows. `rotation-due` answers the
-rotation rule for one slot, for the `TeammateIdle` hook (§18.2).
+and the reconcile as one step (§15.5, §16.5): it runs `verify.merge_ok` first, merges through the PR host,
+reconciles in the task's own merge worktree and catches a verified head up to the tip when §16.5 rule 4
+allows. `rotation-due` answers the rotation rule for one slot, for the `TeammateIdle` hook (§18.2).
 """
 from __future__ import annotations
 

@@ -132,5 +132,10 @@ From architect pass `ar-20261122T162238Z-9098`, F02 (`duplication`), F05 (`doc-a
   there is stated in the SPEC (§10.2, §10.5, §13.2, §15.1, §15.5, §16.5, §29.3) or docs/cli, so no fact moved to a
   function. `lifecycle.py`'s module docstring now says which `claim` refusals fire the operator's triggers (the
   weekly checkpoint and a failed auth probe), as the code does.
+- Fix round 2 (review-2 of 7e392a00): `lifecycle.py`'s module docstring said `close` merges from the merge
+  worktree; it now says `close` merges through the PR host and reconciles in the merge worktree (the PR merge is
+  `prhost.merge`, the reconcile and catch-up run in `_merge_checkout`). The claim's refusals are introduced as
+  "Among the claim's refusals" since the three named are a selection. `prompt.py`'s `*_gate` list gains §13.2,
+  which `resolution_gate` and `marked_gate` refuse under. Docstring text only; no code changed.
 
 ## Verification notes
