@@ -230,4 +230,20 @@ at `5fc9cb9`: no match). Whichever task merges second re-measures its anchors at
 
 ## Implementation notes
 
+- Premises re-run at `245528cb`: 21 schema files; 12 names validated through the checker (`project` for an enum only);
+  the keyword grep found the same 5 files; `ccp/verify.py` is still the one outside caller; no SPEC match for the
+  new keywords. The figures hold.
+- `ccp/schema.py`: `deprecated` and `$defs` in `_ANNOTATIONS`; `$ref`, `maxItems`, `uniqueItems`, `maximum`,
+  `exclusiveMinimum` and `propertyNames` in `_KEYWORDS`. `schema_errors` takes keyword-only `root`; `_ref` (new)
+  resolves `#/$defs/<name>` in it, and `_combined` passes it on. Messages the task leaves open: `items are not unique`,
+  `more than N item(s)`, `V is above N`, `V is not above N`, and for a `$ref` the checker cannot follow
+  `the schema's $ref "<ref>" is not a local #/$defs/<name>, which ccp verify cannot check`.
+- `uniqueItems` compares two items equal when `==` and `_kind` agree (a shallow compare: a nested `[1]` and `[true]`
+  would count as equal).
+- `maximum` and `exclusiveMinimum` judge a number only (a boolean is not one), as `minimum` already did.
+- `tests.test_contract_writers`: `Checker` (six tests), `InitContracts`, `QueueRecordContracts(ToolkitFixture)`,
+  `ReportContracts(Harness)`, `GateResultContract`, `FrontmatterContracts`, and the task-file test in `Examples`.
+- `contracts/task_file.example.md` is new; `contracts/CLAUDE.md` has the three edits.
+- `ccp sandbox create` prints `root` as the product directory; the sandbox is its parent, which `sandbox remove` takes.
+
 ## Verification notes
