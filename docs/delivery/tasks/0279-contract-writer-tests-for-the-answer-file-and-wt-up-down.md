@@ -1,7 +1,7 @@
 ---
 task_id: 0279-contract-writer-tests-for-the-answer-file-and-wt-up-down
 title: The answer file and the records ccp wt up and down write are checked against their contracts, and the two dead contracts are removed
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E9", "E12"]
@@ -158,3 +158,5 @@ of which stay true; neither removed schema is named in the SPEC. No sign-off.
   `ls contracts/*.schema.json | wc -l` 23. All as the task states.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #310 head `91788cf` (close's catch-up of the approved `7f39e24`, gate run st-20261122T050818Z-570f6a) (squash `d5ac0bd`): APPROVE. Passed: code-01, code-02, data-01, doc-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0279-contract-writer-tests-for-the-answer-file-and-wt-up-down.json.
+
