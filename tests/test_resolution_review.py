@@ -308,7 +308,7 @@ class Resolution(ReviewFlow, ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.verify_head(h2)
         self.assertEqual(code, 0, out + err)
         text = Path(body["prompt_path"]).read_text()
-        self.assertIn("cmd-01", text.split("This head follows a resolution review", 1)[1].split("\n", 1)[0])
+        self.assertIn("cmd-01", text.split("This head follows a resolution review", 1)[1].split("Rerun ", 1)[1].split("\n", 1)[0])
         self.assertIn(f'rests_on: "approve at {h1}"', text)
 
     def test_with_no_earlier_approve_every_check_runs(self):
