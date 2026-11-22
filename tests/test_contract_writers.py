@@ -355,7 +355,9 @@ class Checker(unittest.TestCase):
                          ["record: 5 is above 3"])
         self.assertEqual(schema_errors(1, {"$defs": {"x": {"dependentRequired": {}}}, "type": "integer"}), [])
         # a combined sub-schema reaches the root's `$defs` too
-        self.assertTrue(schema_errors("x", {"$defs": {"n": {"type": "integer"}}, "anyOf": [{"$ref": "#/$defs/n"}]}))
+        combined = {"$defs": {"n": {"type": "integer"}}, "anyOf": [{"$ref": "#/$defs/n"}]}
+        self.assertEqual(schema_errors(1, combined), [])
+        self.assertEqual(schema_errors("x", combined), ['record: "x" matches none of the anyOf schemas'])
         for ref in ("other.json#/$defs/n", "#/properties/a", "#/$defs/missing"):
             self.assertEqual(schema_errors(1, {"$defs": {"n": {}}, "$ref": ref}),
                              [f"record: the schema's $ref {json.dumps(ref)} is not a local #/$defs/<name>, {schema._UNCHECKABLE}"],
