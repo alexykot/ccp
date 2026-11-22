@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -79,20 +81,32 @@ class Submit(PhaseFlow, ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 3, out + err)
         self.assertEqual(self.status(), "verifying")
 
-    def test_a_passed_gate_lane_run_of_the_round_that_reported_the_head_is_reported_with_no_warning(self):
+    def submitted_after_suite_run(self, *lane: str) -> tuple[str, list[str], dict]:
+        """An implement round that records a passed `ccp suite run` (lane args as given), reports head A, a clean
+        review, then submit: (the round's run id, its suite ids, submit's body)."""
         code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
         self.assertEqual(code, 0, out + err)
         rid = body["run_id"]
-        code, _, out, err = self.ccp("suite", "run", "--run", rid, "--lane", "gate")
+        code, _, out, err = self.ccp("suite", "run", "--run", rid, *lane)
         self.assertEqual(code, 0, out + err)
         code, _, out, err = self.report(rid, f"Outcome: done\nPR: #7\nHead: {A}\n## Friction\nnone\n")
         self.assertEqual(code, 0, out + err)
         self.reviewed_as(CLEAN)
-        sid = [r["suite_id"] for r in suite.fold(self.q) if r.get("run_id") == rid]
+        sids = [r["suite_id"] for r in suite.fold(self.q) if r.get("run_id") == rid and r.get("state") == "passed"]
+        self.assertTrue(sids)
         code, body, out, err = self.ccp("tasks", "submit", "0002")
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(body["unit_lint"], {"run_id": rid, "head": A, "suite_id": sid[-1]})
+        return rid, sids, body
+
+    def test_a_passed_gate_lane_run_of_the_round_that_reported_the_head_is_reported_with_no_warning(self):
+        rid, sids, body = self.submitted_after_suite_run("--lane", "gate")
+        self.assertEqual(body["unit_lint"], {"run_id": rid, "head": A, "suite_id": sids[-1]})
         self.assertNotIn("warnings", body)
+
+    def test_a_passed_part_lane_run_is_not_the_unit_lint_and_leaves_the_warning(self):
+        rid, _, body = self.submitted_after_suite_run("--lane", "part", "--", sys.executable, "-c", "pass")
+        self.assertEqual(body["unit_lint"], {"run_id": rid, "head": A, "suite_id": None})
+        self.assertIn("unit_lint", " ".join(body["warnings"]))
 
     def test_an_open_spec_escalation_of_the_task_is_refused_and_another_class_is_not(self):
         self.implemented()
@@ -199,6 +213,14 @@ class Failures(unittest.TestCase):
     def test_failures_are_named_in_item_order(self):
         failed = submit.failures("t", self.facts(pr=None, record=None, open_refs=["sm-1"]))
         self.assertEqual([f.split(":")[0] for f in failed], list(submit.ITEMS))
+
+    def test_the_items_are_the_standing_dods_formal_submit_items(self):
+        text = (PLANE / "dod" / "standing.yaml").read_text()
+        block = re.search(r"- id: formal_submit\n(.*?)(?=\n  - id: |\Z)", text, re.S)
+        must = re.search(r"\n    must:\n((?:      - .*\n)+)", block.group(1) if block else "")
+        self.assertIsNotNone(must)
+        self.assertEqual({line.strip()[2:].split("#")[0].strip() for line in must.group(1).splitlines()},
+                         {*submit.ITEMS, "unit_lint"})
 
     def test_only_a_task_mid_flight_and_not_past_submitted_may_be_submitted(self):
         for status in sorted(submit.SUBMITTABLE):

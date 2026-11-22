@@ -153,7 +153,8 @@ ids), tell the lead in one line: the run and how many. The lead decides each one
    it, no proof runs.
    Before every `ccp prompt verify`, after the review that clears the head or after a fix round, run `ccp tasks
    submit <task_id>` (formal-submit, SPEC §15.1). On exit 4, handle each item it names as the matching refusal of
-   `ccp prompt verify`.
+   `ccp prompt verify`. Exit 3 on a task already `verifying` or `merging` (a verify re-launched) needs no submit:
+   run `ccp prompt verify`.
 8. **Verify.** First, the checks only the operator's machine can run (SPEC §10.2, §15.8): `ccp tasks checks
    <task_id> --json` lists each dod_check with its `runs_on`. Run each marked `operator-machine` once per head you
    hand the verifier, after any catch-up, before `ccp prompt verify`: open a gate (`team.sh gate open --class
