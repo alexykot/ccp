@@ -10,7 +10,7 @@ Modules share fixtures; reuse one before building another. Each lives in a modul
 (`helpers.py`, `review_flow.py` and the `*_fixture.py` modules), and a test module imports it from there (E4: a helper a
 second module needs moves to a fixture module first). Where a check needs no repository, queue or subprocess,
 test a function on plain values instead (`test_catch_up_decision.py`). Each `<name>_fixture.py` holds the fixture
-`test_<name>.py` and its neighbours share; its class docstring says what it builds. The ones worth naming:
+`test_<name>.py` and its neighbours share; its module docstring says what it builds. The ones worth naming:
 - `helpers.py`'s `Product`: a temp product root with a plane config and helpers to add tasks and files.
   Most modules build on it.
 - `helpers.py`'s `binding(**keys)`: the text of a binding, `project_id: demo` first, then each key. A test

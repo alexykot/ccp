@@ -149,5 +149,6 @@ E26's own text and check grep were amended in that triage's PR.
   exclusion of test modules is unchanged. The docstring says each test module is an input of its own key alone, by E4.
 - Removed from `tests/test_gate_cache.py`: the `HELPER`, `USER` and `FROM_PKG` templates and the three tests that built an import of one test module by another.
 - Mutation check: replacing the leaf set with `set()` is killed by `test_editing_one_test_module_reruns_only_it`.
+- Fix round 1: `tests/CLAUDE.md` said a fixture's class docstring says what it builds; 10 of the 19 fixture classes have none, but every fixture module has a module docstring, so the sentence now says module docstring.
 
 ## Verification notes
