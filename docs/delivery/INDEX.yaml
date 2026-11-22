@@ -1288,7 +1288,7 @@ tasks:
     depends_on: [0255-test-fixtures-shared-helpers-and-one-repo-build]
     path: tasks/0262-module-docstrings-and-house-rule-checks.md
   - id: 0263-writers-are-checked-against-their-contracts
-    status: pending
+    status: done
     title: One schema checker, and a test per live contract that validates what its writer writes or its reader reads
     depends_on: [0258-the-plane-writes-the-pre-merge-phases]
     path: tasks/0263-writers-are-checked-against-their-contracts.md

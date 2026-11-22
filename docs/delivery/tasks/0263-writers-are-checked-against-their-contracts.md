@@ -1,7 +1,7 @@
 ---
 task_id: 0263-writers-are-checked-against-their-contracts
 title: One schema checker, and a test per live contract that validates what its writer writes or its reader reads
-status: pending
+status: done
 kind: refactor
 depends_on: ["0258-the-plane-writes-the-pre-merge-phases"]
 clashes_with: ["0234-one-check-parser-and-one-file-at-rev-reader", "0240-plane-workers-run-the-head", "0253-one-wait-reason-table"]
@@ -11,7 +11,7 @@ review_point: R19
 paths: ["ccp/schema.py", "ccp/verify.py", "ccp/CLAUDE.md", "contracts/worktree.schema.json", "contracts/question.schema.json", "contracts/escalation.schema.json", "contracts/allowance.schema.json", "contracts/architecture_review_triage.schema.json", "contracts/escalation.example.json", "contracts/allowance.example.json", "contracts/architecture_review_triage.example.json", "contracts/CLAUDE.md", "docs/ROADMAP.md", "tests/test_contract_writers.py", "tests/test_task_state_contract.py", "tests/test_phase_contracts.py", "tests/test_verify.py"]
 adopt: "none"
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0263-writers-are-checked-against-their-contracts
@@ -125,3 +125,5 @@ Measured at `1aa5e3f`.
 - Fix round 2: `WorktreeContract.test_the_base_record_validates_while_its_command_runs` validates the `kind: base` record (made by `wt.run_on_base`, with its extra `head` key), which round 1's loop did not cover; the ruling quote in Context is the answer's `ruling` field, shortened, instead of a "verbatim" text that was not it; `contracts/CLAUDE.md` also names `tests/test_task_state_contract.py`.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #304 head `ff96a96` (squash `86141e1`): APPROVE. Passed: ct-01, ct-02, ct-03, ct-04. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0263-writers-are-checked-against-their-contracts.json.
+
