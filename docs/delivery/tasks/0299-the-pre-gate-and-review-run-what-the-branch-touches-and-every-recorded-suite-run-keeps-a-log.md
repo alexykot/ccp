@@ -1,7 +1,7 @@
 ---
 task_id: 0299-the-pre-gate-and-review-run-what-the-branch-touches-and-every-recorded-suite-run-keeps-a-log
 title: ccp suite affected reads a branch's own change from its merge base, ccp suite run --affected runs what it lists, a --full run keeps a log, and report.fill_suite's branches are tested on plain rows
-status: pending
+status: done
 kind: feature
 depends_on: ["0292-the-review-prompt-asks-for-a-cold-run-where-review-takes-no-cache-hits"]
 spec_refs: ["S13", "S14"]
@@ -225,3 +225,5 @@ Measured at `3368264`.
   follow-up.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #362 head `f45c84c` (squash `812dee0`): APPROVE. Passed: spec-01, cmd-01, cmd-02, cmd-03, code-01. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -v tests.test_suite_affected tests.test_suite_run_affected tests.test_suite_full_log tests.test_fill_suite` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0299-the-pre-gate-and-review-run-what-the-branch-touches-and-every-recorded-suite-run-keeps-a-log.json.
+
