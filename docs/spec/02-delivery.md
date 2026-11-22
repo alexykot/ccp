@@ -489,7 +489,8 @@ reviewer, fixer and verifier prompt from four parts, in order, writes the prompt
    own rules (for example scratch resources, suite limits, paths that must not be written). It is
    product-owned and reviewed like product code.
 3. **The task:** id, task file path, cited SPEC and ADR sections, the house rules (`rules_doc`), the
-   PR and head for review and verify, the verifier's fixed packet, for implement and verify the
+   PR and head for review and verify, the verifier's fixed packet, for implement the task's own
+   stale-Context warning when it has one (§21.1), for implement and verify the
    checks marked `runs_on: operator-machine` as not the worker's to run (`ccp prompt verify` refuses
    while one has no passed suite run recorded at the head, unless it carries an earlier approve or a
    ruling waives it, §15.8), and the bound name of the runner
@@ -1308,7 +1309,9 @@ check` is clean, no closed review point holds an undecided follow-up (`ccp tasks
 --closed-points`, §22.2), and the one runner's worktree (§12.1) is a working tree or can be made:
 its path is absent or an empty directory. A runner worktree that is not a working tree yet needs
 `origin/<integration_branch>`: when that ref does not resolve, the dry run is refused before the
-checks, as the spawn is (exit 3, §12.1). It exits 0 with `ready: true` when every check passes, and 1
+checks, as the spawn is (exit 3, §12.1). The spawn and its dry run print, on stderr, each scope task's
+stale-Context warning (§21.1), and the dry run lists them in `stale`; neither fails a check for them. It
+exits 0 with `ready: true` when every check passes, and 1
 with `ready: false` when any fails, naming the failing checks in `failed` and on stderr; a refusal
 exits as the spawn would. It writes nothing: no `work.json`, prompt audit, event or worktree.
 `--dry-run` with another `runner` op is refused (exit 2).
