@@ -81,7 +81,7 @@ Measured at `954bd72` (origin/main).
 - **CLI reference.** In `"def problems_of"`, each code span of a unit is read on its own: a span that names commands
   (`paths_in` on it, none of them delegated) holds its flags to every command it names, a flag no flag of one of them
   being the problem `f"{f.name}: `{fl}` is no flag of `ccp {' '.join(p)}`"` for that command, and credits them to those
-  commands only. A span that names no command keeps today's reading against its unit's commands (credited to them, checked
+  commands only. The global flags (`root.flags`) and `--help` stay allowed in every span, as in today's `known`. A span that names no command keeps today's reading against its unit's commands (credited to them, checked
   against their union). A new test, `test_a_joined_row_giving_an_action_its_siblings_flags_is_found`, makes the joined row
   of Context with `copy_with` and asserts `sorted(problems_of(d))` equals the three problems for `--dir` and `--json` on
   `ccp adr index` and `--stdout` on `ccp adr list`. The existing tests stay as they are.
@@ -137,13 +137,13 @@ Measured at `954bd72` (origin/main).
   dry run (`954bd72`): step 1 printed 2 lines in `tests/test_tasks_close.py`; step 2 printed `OK`.
 - id: `cfg-01`
   story: As the architect, E4's command fails on a test module that computes the plane root or writes git's identity itself.
-  setup: A checkout of the PR head, and a mutation worktree of it (`CCP_DEV=1 ./bin/ccp wt create --kind mut --task 0298 --sha HEAD --print`, removed afterwards with `ccp wt remove`).
+  setup: A checkout of the PR head, and a mutation worktree of it (`CCP_DEV=1 ./bin/ccp wt create --kind mut --task 0298 --sha HEAD`, its path in the printed `path`; removed afterwards with `ccp wt remove <name>`).
   steps:
     1. In the checkout, run `bash -c "$(python3 -B -c "import json;print([c['cmd'] for c in json.load(open('docs/delivery/plane.json'))['architect']['checks'] if c['id']=='E4'][0])")"; echo "exit $?"`.
     2. In the mutation worktree, append the line `ROOT = Path(__file__).resolve().parent.parent` to `tests/test_rules.py`, `git add` it, run the same command, then `git checkout HEAD -- tests/test_rules.py`.
     3. In the mutation worktree, append the line `ENV = {"GIT_AUTHOR_NAME": "t"}` to `tests/test_rules.py`, `git add` it, and run the same command.
   expect: step 1 prints `exit 0`; steps 2 and 3 each print the planted line and `exit 1`.
-  dry run (`954bd72`): step 1 printed `exit 0` (the command has no such grep); the two proposed greps at `954bd72` printed 4 and 3 lines (Context).
+  dry run (`954bd72`): the setup's `wt create` printed the worktree's JSON (`"created": true`, its `path`); step 1 printed `exit 0` (the command has no such grep); the two proposed greps at `954bd72` printed 4 and 3 lines (Context); in the worktree, each planted line was found by its proposed grep (`tests/test_rules.py:407:ROOT = Path(__file__).resolve().parent.parent`, then `tests/test_rules.py:407:ENV = {"GIT_AUTHOR_NAME": "t"}`, each exit 1).
 
 ## Implementation notes
 
