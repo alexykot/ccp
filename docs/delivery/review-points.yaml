@@ -136,3 +136,8 @@ review_points:
     goal: "The open worker follow-ups of the R15 and R17 tasks: docs, contract and template leftovers, code leftovers (one wait-writer command, close's removals through the unrecorded-worktree helper, ids from refs.py, a requires remedy without cycles, two load- and cwd-sensitive tests), and the signed SPEC text for formal-submit's proof path and exit 3, the queue files ccp writes, the shared gate part and what ccp report computes."
     status: planned
     opened: "2026-11-22"
+  - id: R25
+    name: seventh architect pass fixes
+    goal: "Findings of architect pass ar-20261122T055103Z-11aa and the open follow-ups of 0261, 0264, 0265 and 0266: ccp owning the headless-launch helpers with blocked reading the task log, the retired watchdog and seat cadences out of writers and docs, shared test fixtures in modules that hold no tests, and seats running one check as the plane does, with the plane's pre-gate lane and the signed SPEC text for the operator-gate waiver and the one-gate-lane example."
+    status: planned
+    opened: "2026-11-22"
