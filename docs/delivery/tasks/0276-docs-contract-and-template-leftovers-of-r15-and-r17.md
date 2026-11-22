@@ -1,7 +1,7 @@
 ---
 task_id: 0276-docs-contract-and-template-leftovers-of-r15-and-r17
 title: Close the docs, contract and template follow-ups of R15 and R17 - the triage contract's writer, stale queue rules, call syntax in docstrings, a template line cap check and three shared template sentences, and the reviewer brief passes the PR head to the base worktree
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S19", "S20"]
@@ -259,3 +259,5 @@ at `a80cee0` finds no non-normative note form. Naming the file means editing the
   the new call-syntax test reads too.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #325 head `3c99efa` (close's catch-up of the approved `ab098bc`, gate run st-20261122T083238Z-a1e807) (squash `35935e6`): APPROVE. Passed: doc-01, code-01, cmd-01, doc-02, cmd-02, doc-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0276-docs-contract-and-template-leftovers-of-r15-and-r17.json.
+

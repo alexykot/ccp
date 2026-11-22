@@ -1353,7 +1353,7 @@ tasks:
     depends_on: [0257-one-gate-block-and-one-sentence-per-line]
     path: tasks/0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope.md
   - id: 0276-docs-contract-and-template-leftovers-of-r15-and-r17
-    status: pending
+    status: done
     title: Close the docs, contract and template follow-ups of R15 and R17 - the triage contract's writer, stale queue rules, call syntax in docstrings, a template line cap check and three shared template sentences, and the reviewer brief passes the PR head to the base worktree
     depends_on: []
     path: tasks/0276-docs-contract-and-template-leftovers-of-r15-and-r17.md
