@@ -8,7 +8,7 @@ clashes_with: ["0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-fa
 spec_refs: ["S6", "S12", "S15", "S19", "S25", "S26", "S28"]
 rule_refs: ["E25"]
 review_point: R25
-paths: ["ccp/cli.py", "docs/cli/04-observability.md", "tests/test_verify_parser.py", "tests/test_action_parsers.py", "tests/test_wt.py", "tests/test_session_park.py"]
+paths: ["ccp/cli.py", "docs/cli/01-model.md", "docs/cli/04-observability.md", "tests/test_verify_parser.py", "tests/test_action_parsers.py", "tests/test_wt.py", "tests/test_session_park.py"]
 adopt: "none"
 created: 2026-11-22
 updated: 2026-11-22
@@ -90,6 +90,17 @@ Measured at `b5f2273` (origin/main).
     env.down hook and mark it down`, urls `the worktree's environment URLs`, gc `prune the worktrees
     of done or dropped tasks no one leases`, exec `run, or with --print print, a worktree's own bin/ccp`.
     The parent's `set_defaults` stay on the parent; `dest="action"` keeps `REFRESHES` matching.
+    `docs/cli/01-model.md`'s row `ccp docs adr index|list [--stdout] [--json] [--dir DIR]` splits into
+    `ccp docs adr index [--stdout]` and `ccp docs adr list [--json] [--dir DIR]`, each keeping the
+    row's description and § column, so each row gives only its own action's flags.
+  - Dropping `--actor` from `architect triage` and `--scope` from `architect status` is deliberate: it
+    matches §19 (`docs/spec/03-quality.md` names `ccp architect triage <id>`, `triage --backfill`,
+    `triage --apply` and a bare `ccp architect status`) and the `docs/cli/03-quality.md` rows, and nothing
+    calls those forms: `git grep -nE "architect (triage|status)[^|\`]*--(actor|scope)" -- . ':!docs/delivery/tasks'` at `b5f2273`: nothing.
+  - After the split, a flag given before the action word (for example `ccp wt --task X list`) is refused,
+    since the flag now belongs to the action's parser. No caller does this:
+    `git grep -nE "ccp (estimate|board|allowance|adr|architect|wt|docs adr) --[a-z]" -- . ':!docs/delivery/tasks'` at `b5f2273`: nothing, and
+    `git grep -nE '"(estimate|board|allowance|adr|architect|wt)", "--' -- ccp tests scripts plugin` at `b5f2273`: only `tasks estimate` calls.
   - Where a shared handler reads an attribute for an action whose parser no longer defines it, that
     action's parser supplies it with `set_defaults` at today's default (for example `architect`'s
     `actor=None` on due, triage and status, `scope=None` on status). A hand refusal that only rejects a
@@ -110,14 +121,14 @@ Measured at `b5f2273` (origin/main).
   greps for those commands: no other hit).
 - **No SPEC change:** `git grep -nE "unrecognized|own usage|exec takes none|--shallow is|non-blank|blank target" -- docs/spec docs/cli`
   at `b5f2273`: nothing; the SPEC names no parser refusal or help text. `docs/cli` changes only the
-  one estimate row (non-normative), so `tests/test_cli_reference.py` keeps holding the docs to the parser.
+  estimate row and the split `docs adr` row (non-normative), so `tests/test_cli_reference.py` keeps holding the docs to the parser.
 
 ## Scope
 
 - **In:**
   - `ccp/cli.py` (`_nonblank`, the verify action parsers' `help=` and target types, the seven parsers,
     the `pr` subparsers, the dead refusals in `_allowance`, `cmd_wt` and `cmd_wt_exec`).
-  - `docs/cli/04-observability.md` (the `estimate backfill` row).
+  - `docs/cli/01-model.md` (the `docs adr` row, split), `docs/cli/04-observability.md` (the `estimate backfill` row).
   - `tests/test_verify_parser.py`, `tests/test_action_parsers.py` (new), `tests/test_wt.py`,
     `tests/test_session_park.py`.
 - **Out:** `review-points`, `health`, `sandbox`, `agent`, `otel` (see Context); the nested subcommand
