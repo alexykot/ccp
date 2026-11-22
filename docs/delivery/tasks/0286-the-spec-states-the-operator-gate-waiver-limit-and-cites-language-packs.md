@@ -78,4 +78,8 @@ Measured at `76f41dd` (re-measured: neither SPEC file has changed since the firs
 
 ## Implementation notes
 
+- Re-measured at `7a2993b4`: `waiver_refusal` in `ccp/verify.py` still refuses a text whose only ids are operator gates; each CURRENT passage is found once (the §15.4 one wraps a line, so the edit keeps the wrap); §21.4 is still "Language packs".
+- Applied the two PROPOSED passages as given, in `docs/spec/02-delivery.md` and `docs/spec/03-quality.md`. No code change.
+- `ccp verify spec-text 0286 --base HEAD~1` on the commit: ok, 2 passages found, none missing.
+
 ## Verification notes
