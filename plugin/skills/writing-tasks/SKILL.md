@@ -133,6 +133,10 @@ one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line sa
   at the head, removed with `ccp wt remove`; never the branch's own worktree and never a hand
   `git worktree add`.
 - **A speed check states an absolute target**, never "as fast as before".
+- **A check that runs tests runs them through `ccp suite run`**
+  (`bin/ccp suite run --lane <part lane> -- <test command> <tests>`), so the run is recorded, and pins a
+  named test by grepping that run's log; never a bare test runner's output. `ccp tasks check` warns on
+  a step that runs the language's test command bare.
 - **A check of a `ccp` command runs the head's `bin/ccp`** where the head carries one (the plane's own
   repo), never `ccp` on PATH, which is the released plane. Signed SPEC text is checked with
   `bin/ccp verify spec-text <task>` (`ccp verify spec-text <task>` in a product's checkout), never by a
@@ -203,6 +207,11 @@ one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line sa
   its number. `ccp tasks check` warns on such a sentence naming a later task.
 - **Before a task is preferred**, reread its checks against these rules, refresh any check anchored
   at a commit older than what has merged since, and re-measure the counts its Context states.
+- **Before you ask the operator to sign a brief**, re-read it against the commits
+  `ccp tasks check --stale` names for it; `ccp tasks sign-off` prints them again as it records.
+- **A new task that changes logic a pending brief rules on** names it in `clashes_with` and says in
+  Context how the two rulings fit; when the pending brief is signed, the new task builds on its ruling
+  or waits for it in `depends_on`.
 - Then run `ccp tasks index` and commit the index with the task file (when the product keeps one).
 
 ## Kinds (plane SPEC §20.3, with the architect seat)
