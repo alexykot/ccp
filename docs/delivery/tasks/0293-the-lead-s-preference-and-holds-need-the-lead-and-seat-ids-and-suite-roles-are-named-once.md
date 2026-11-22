@@ -1,7 +1,7 @@
 ---
 task_id: 0293-the-lead-s-preference-and-holds-need-the-lead-and-seat-ids-and-suite-roles-are-named-once
 title: ccp tasks prefer and hold refuse any ACTOR but the lead's, the verifier's actor id and the seat-to-actor rule are named once, E27's command covers every seat id in code and tests, and the whole-suite lane roles are one tuple
-status: pending
+status: done
 kind: feature
 depends_on: ["0288-every-seat-names-its-actor-and-the-lead-s-records-need-the-lead-s", "0289-the-runner-s-actor-id-is-named-once-and-tests-read-the-lead-s"]
 spec_refs: ["S10", "S14", "S27"]
@@ -168,3 +168,5 @@ the architect's wider E27 pattern (fewer lines now that 0289 has the tests read 
   assertions included; `tests/test_seat_actors.py` gains a plain-value test of `queue.seat_actor`.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #359 head `bc8d40a` (squash `a636063`): APPROVE. Passed: code-01, code-02, cfg-01, code-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0293-the-lead-s-preference-and-holds-need-the-lead-and-seat-ids-and-suite-roles-are-named-once.json.
+

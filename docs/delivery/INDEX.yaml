@@ -1438,7 +1438,7 @@ tasks:
     depends_on: []
     path: tasks/0292-the-review-prompt-asks-for-a-cold-run-where-review-takes-no-cache-hits.md
   - id: 0293-the-lead-s-preference-and-holds-need-the-lead-and-seat-ids-and-suite-roles-are-named-once
-    status: pending
+    status: done
     title: ccp tasks prefer and hold refuse any ACTOR but the lead's, the verifier's actor id and the seat-to-actor rule are named once, E27's command covers every seat id in code and tests, and the whole-suite lane roles are one tuple
     depends_on: [0288-every-seat-names-its-actor-and-the-lead-s-records-need-the-lead-s, 0289-the-runner-s-actor-id-is-named-once-and-tests-read-the-lead-s]
     path: tasks/0293-the-lead-s-preference-and-holds-need-the-lead-and-seat-ids-and-suite-roles-are-named-once.md
