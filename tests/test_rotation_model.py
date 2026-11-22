@@ -10,9 +10,8 @@ import unittest
 from pathlib import Path
 
 from ccp import config, otel, usage
-from tests.helpers import binding
-from tests.test_team_hosting import TeamCase
-from tests.test_usage import req
+from tests.helpers import api_request as req, binding
+from tests.team_hosting_fixture import TeamCase
 
 PLANE = Path(__file__).resolve().parents[1]
 

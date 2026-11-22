@@ -9,10 +9,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import runs
-from tests.helpers import done_report
+from tests.helpers import done_report, implement_report, REPORT_HEAD as HEAD
 from tests.review_flow import ReviewFlow
-from tests.test_report_fields import HEAD, implement_report
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 A = "a" * 40
 REVIEW = "0002-second/review"

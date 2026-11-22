@@ -18,7 +18,7 @@ from unittest import mock
 
 from ccp import config
 from tests.review_flow import PROOF, SkipFlow
-from tests.test_toolkit import ToolkitFixture, git
+from tests.toolkit_fixture import ToolkitFixture, git
 
 PROVE = '"$PROOF_BIN" {task_id} {reviewed} {head} {from}'
 
@@ -334,7 +334,7 @@ class CheckoutOnASignal(unittest.TestCase):
         git(self.root, "commit", "-q", "-m", "a")
 
     def signalled(self, sig: int) -> None:
-        from tests.test_suite import PLANE
+        from tests.suite_fixture import PLANE
         out = Path(self._tmp.name) / "tree"
         before = git(self.root, "worktree", "list", "--porcelain")
         env = {**os.environ, "PYTHONPATH": str(PLANE)}

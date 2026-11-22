@@ -12,7 +12,7 @@ from unittest import mock
 
 from ccp import config
 from tests.review_flow import PROOF, SKIP_REVIEW_PLANE, SkipFlow
-from tests.test_toolkit import PLANE, ToolkitFixture, git
+from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 
 class SkipReview(SkipFlow, ToolkitFixture, unittest.TestCase):

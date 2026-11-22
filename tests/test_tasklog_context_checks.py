@@ -7,7 +7,7 @@ import unittest
 
 from ccp import tasklog
 from tests.helpers import Product
-from tests.test_toolkit import git
+from tests.toolkit_fixture import git
 
 TID = "0001-a"
 FILE = f"docs/delivery/tasks/{TID}.md"

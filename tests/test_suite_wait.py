@@ -11,7 +11,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from ccp.queue import iso
-from tests.test_suite import FAILING_MODULE, PY, SuiteFixture, _start_log, ccp_proc
+from tests.suite_fixture import FAILING_MODULE, PY, SuiteFixture, _start_log, ccp_proc
 
 
 def _secs(text: str) -> str:

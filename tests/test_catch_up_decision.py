@@ -2,7 +2,7 @@
 condition that fails, on plain values. The rest of the catch-up's decisions are tested here too, each without a
 queue, a gate or a pull request: the merge commit and its shared-file union, the files each side changes and the
 task's own patch, on a throwaway repository, and the sign-off and the record that carry a catch-up, on plain
-values. `tests.test_behind_tip_catch_up` holds the paths through close."""
+values. The close-path tests hold the paths through close."""
 from __future__ import annotations
 
 import io
@@ -16,7 +16,7 @@ from types import SimpleNamespace
 from ccp import config, lifecycle, queue, verify
 from ccp.lifecycle import catch_up_blocked
 from tests.helpers import Product
-from tests.test_toolkit import git
+from tests.toolkit_fixture import git
 
 
 class NoDeclaredPaths(unittest.TestCase):

@@ -9,7 +9,7 @@ import unittest
 from unittest import mock
 
 from ccp import config, lifecycle
-from tests.test_toolkit import ToolkitFixture, git
+from tests.toolkit_fixture import ToolkitFixture, git
 
 
 class Merging(ToolkitFixture, unittest.TestCase):

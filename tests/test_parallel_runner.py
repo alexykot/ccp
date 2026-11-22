@@ -8,11 +8,11 @@ import subprocess
 import time
 import unittest
 
-from tests import test_parallel_claims
-from tests.test_team_hosting import HOOK, PLANE, TeamCase
+from tests.parallel_claims_fixture import ParallelFixture
+from tests.team_hosting_fixture import HOOK, PLANE, TeamCase
 
 
-class Runner(test_parallel_claims.ParallelFixture, unittest.TestCase):
+class Runner(ParallelFixture, unittest.TestCase):
     def two(self):
         self.assertEqual(self.claim("0002")[0], 0)
         self.assertEqual(self.claim("0003")[0], 0)

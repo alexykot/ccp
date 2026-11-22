@@ -8,8 +8,8 @@ from unittest import mock
 
 from ccp import config, queue, refs, runs, tasklog
 from ccp.queue import QueueError, lib
-from tests.test_marked_checks_loop import CHECK, MARKED, TASK
-from tests.test_toolkit import ToolkitFixture, git
+from tests.helpers import MARKED_CHECK_ID as CHECK, MARKED_BLOCK as MARKED, MARKED_TASK_ID as TASK
+from tests.toolkit_fixture import ToolkitFixture, git
 
 TASK_FILE = "docs/delivery/tasks/0002-second.md"
 RUN = "0001-first/review"

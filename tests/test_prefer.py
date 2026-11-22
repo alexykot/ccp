@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 from tests.helpers import TASK
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 KEYS = ("next_tasks", "next_task", "next_task_by", "next_task_at", "next_task_reason")
 

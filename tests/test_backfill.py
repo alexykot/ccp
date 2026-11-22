@@ -13,23 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import backfill, cli
-from tests.helpers import Product
-
-GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
-           "GIT_COMMITTER_EMAIL": "t@example.com", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
-
-
-def ev(at: str, typ: str, op: str, payload: dict, task_id: str = "") -> dict:
-    return {"at": at, "project_id": "demo", "task_id": task_id, "actor": "design-seat", "type": typ, "op": op,
-            "payload": payload}
-
-
-def spawn(at: str, rp: str, scope: list[str]) -> dict:
-    return ev(at, "runner", "spawn", {"name": "runner", "scope": scope, "review_point": rp})
-
-
-def claim(at: str, tid: str) -> dict:
-    return ev(at, "lease", "set", {"holder": "runner"}, tid)
+from tests.helpers import GIT_ENV, lease_event as claim, ledger_event as ev, Product, spawn_event as spawn
 
 
 def done(at: str, tid: str) -> dict:

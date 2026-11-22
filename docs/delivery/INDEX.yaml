@@ -1393,7 +1393,7 @@ tasks:
     depends_on: []
     path: tasks/0283-the-retired-watchdog-and-seat-cadences-leave-the-writers-and-docs.md
   - id: 0284-shared-test-fixtures-live-in-modules-that-hold-no-tests
-    status: pending
+    status: done
     title: Shared test fixtures live in modules that hold no tests, no test module imports another, and the brief-rule test counts only each rule's own token
     depends_on: []
     path: tasks/0284-shared-test-fixtures-live-in-modules-that-hold-no-tests.md

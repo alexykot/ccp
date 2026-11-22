@@ -12,8 +12,8 @@ from pathlib import Path
 
 from ccp import board, plan, tasklog
 from tests.helpers import TASK, Product
-from tests.test_board_quality import HOSTILE, STUB, Base, _hostile
-from tests.test_toolkit import git
+from tests.board_quality_fixture import HOSTILE, STUB, QualityBase, _hostile
+from tests.toolkit_fixture import git
 
 
 def _task(p: Product, tid: str, status: str = "pending", deps: list[str] | None = None, extra: str = "",
@@ -26,7 +26,7 @@ def _task(p: Product, tid: str, status: str = "pending", deps: list[str] | None 
     p.write(f"docs/delivery/tasks/{tid}.md", text)
 
 
-class Stamp(Base, unittest.TestCase):
+class Stamp(QualityBase, unittest.TestCase):
     """`ccp tasks close` writes work.json's review point into the task file it closes (§22.1)."""
 
     def work(self, **kw):
@@ -281,7 +281,7 @@ class Plan(unittest.TestCase):
         self.assertTrue(plan.status_lines(P)[-1].startswith("plan burnup failed"))
 
 
-class Built(Base, unittest.TestCase):
+class Built(QualityBase, unittest.TestCase):
     """The section through `ccp board build`, with git's merges."""
 
     def test_board_json_has_the_plan_and_status_a_line(self):
@@ -303,7 +303,7 @@ class Built(Base, unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node is not installed")
-class Rendered(Base, unittest.TestCase):
+class Rendered(QualityBase, unittest.TestCase):
     def render(self, b):
         js = board.PAGE.read_text().replace("/*__BOARD__*/null", board.embed(b)).split("<script>", 1)[1].split("</script>", 1)[0]
         r = subprocess.run(["node", "-e", STUB + js + "\nprocess.stdout.write(out.join(''));"],

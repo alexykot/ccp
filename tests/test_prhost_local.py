@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, prhost
-from tests.test_toolkit import PLANE, ToolkitFixture, git
+from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 PR_SCHEMA = json.loads((PLANE / "contracts" / "pr_record.schema.json").read_text())
 BRANCH = "task/0002-second"

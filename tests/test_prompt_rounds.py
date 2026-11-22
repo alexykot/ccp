@@ -9,10 +9,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, report, runs, verify
-from tests.helpers import binding, done_report
+from tests.helpers import binding, done_report, implement_report, MIGRATION_FIELD as MIGRATION, REPORT_HEAD as HEAD
 from tests.review_flow import ReviewFlow
-from tests.test_report_fields import HEAD, MIGRATION, implement_report
-from tests.test_toolkit import ToolkitFixture, git
+from tests.toolkit_fixture import ToolkitFixture, git
 
 A, B = "a" * 40, "b" * 40
 RULING = "Lead ruling: the field is optional."

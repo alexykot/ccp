@@ -8,7 +8,7 @@ from pathlib import Path
 from ccp import config
 from ccp import prompt as prompt_mod
 from tests.helpers import Product
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 RECORD = "ar-20261001T120000Z-0f3c"
 FINDING = f"{RECORD}#F02"

@@ -13,7 +13,7 @@ from unittest import mock
 from ccp import config, prompt as prompt_mod
 from tests.helpers import done_report
 from tests.review_flow import ReviewFlow
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 A, B = "a" * 40, "b" * 40
 DECLARED = "`--lane full` with nothing after `--`"

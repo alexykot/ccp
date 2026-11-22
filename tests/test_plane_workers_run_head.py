@@ -15,9 +15,8 @@ from unittest import mock
 
 from ccp import cli, prompt, wt
 from ccp.queue import CCP_BIN
-from tests.helpers import done_report
-from tests.test_report_fields import HEAD
-from tests.test_toolkit import ToolkitFixture
+from tests.helpers import done_report, REPORT_HEAD as HEAD
+from tests.toolkit_fixture import ToolkitFixture
 
 WT_EXEC = "wt exec --"
 

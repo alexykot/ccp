@@ -9,7 +9,7 @@ task's own patch unchanged by the merge (`git patch-id --stable`), declared path
 This module runs close end to end, one test for each path through it: caught up, gated and merged; a refusal
 that names what it found; a red gate; the tip moving during the gate; the gate's environment; a rerun that closes
 what a failed push, merge or reconcile left. Each decision branch is tested on plain values in
-`tests.test_catch_up_decision`."""
+the catch-up decision tests."""
 from __future__ import annotations
 
 import json
@@ -23,7 +23,7 @@ from unittest import mock
 
 from ccp import config, lifecycle, suite, tasklog, verify
 from ccp.queue import lib
-from tests.test_toolkit import PLANE, ToolkitFixture, git
+from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 PY = shlex.quote(sys.executable)
 GATE = (f'if [ -n "$CATCH_UP_GATE_HOOK" ]; then {PY} "$CATCH_UP_GATE_HOOK" || exit 9; fi; '

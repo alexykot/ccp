@@ -10,8 +10,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.helpers import TASK
-from tests.test_toolkit import GIT_ENV, PLANE, ToolkitFixture, git
+from tests.helpers import GIT_ENV, TASK
+from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 FILE = "docs/delivery/tasks/0002-second.md"
 

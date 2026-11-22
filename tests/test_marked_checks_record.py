@@ -15,8 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, prhost, runs, verify
-from tests.helpers import Product, binding
-from tests.test_verify import approve, now_iso
+from tests.helpers import approve_verdict as approve, binding, now_iso, Product
 
 TID = "0002-second"
 CID = "mac-01"

@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 from tests.helpers import done_report
-from tests.test_toolkit import PLANE, ToolkitFixture, git
+from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 A, B = "a" * 40, "b" * 40
 

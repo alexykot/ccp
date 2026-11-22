@@ -12,7 +12,7 @@ from unittest import mock
 from ccp import config
 from tests.helpers import binding
 from tests.review_flow import A, B, ReviewFlow
-from tests.test_toolkit import PLANE, ToolkitFixture, git
+from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 
 class ReviewGate(ReviewFlow, ToolkitFixture, unittest.TestCase):

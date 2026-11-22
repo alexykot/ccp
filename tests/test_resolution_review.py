@@ -14,7 +14,8 @@ from unittest import mock
 
 from ccp import cli, health, report, runs, verify
 from tests.review_flow import ReviewFlow
-from tests.test_toolkit import GIT_ENV, PLANE, ToolkitFixture, git
+from tests.helpers import GIT_ENV
+from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 SECOND_CHECK = """- id: `cmd-02`
   story: As an operator, I run it again.

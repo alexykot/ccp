@@ -13,8 +13,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.test_gate_parallel import MORE, OK, GateFixture, ROOT, SCRIPTS
-from tests.test_suite_stages import StagedFixture
+from tests.gate_parallel_fixture import MORE, OK, GateFixture, ROOT, SCRIPTS
+from tests.suite_stages_fixture import StagedFixture
+from tests.helpers import repo_git as git
 
 # A test module that imports another test module (a shared helper), as many of the plane's do.
 HELPER = """
@@ -25,7 +26,7 @@ class H(unittest.TestCase):
 """
 USER = """
 import unittest
-from tests.test_helper import VALUE
+from {pkg}.test_helper import VALUE
 class U(unittest.TestCase):
     def test_u(self): self.assertEqual(VALUE, 1)
 """
@@ -47,16 +48,10 @@ class U(unittest.TestCase):
 """
 
 
-def git(repo: Path, *args: str) -> str:
-    return subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *args],
-                          capture_output=True, text=True, check=True).stdout
-
-
-class CacheFixture(GateFixture):
+class GateCacheFixture(GateFixture):
     def setUp(self):
         super().setUp()
         self.cache = Path(self._tmp.name) / "cache"
-        (self.repo / ".gitignore").write_text("__pycache__/\n")  # as the plane's own repo has it
         (self.repo / "src.py").write_text("X = 1\n")
         self.module("test_ok", OK)
         self.module("test_more", MORE.format(lhs=3))
@@ -74,7 +69,7 @@ class CacheFixture(GateFixture):
                 if ln.startswith("gate module ") and ln.split()[3].startswith(state)}
 
 
-class ARepeatRunIsServedFromTheCache(CacheFixture):
+class ARepeatRunIsServedFromTheCache(GateCacheFixture):
     def test_the_second_run_at_unchanged_inputs_runs_nothing_and_passes(self):
         self.commit()
         r1, res1 = self.cgate()
@@ -112,7 +107,7 @@ class ARepeatRunIsServedFromTheCache(CacheFixture):
         self.assertEqual(sorted(e["tests"] for e in entries), [2, 3])
 
 
-class AChangeRerunsWhatItCanAffect(CacheFixture):
+class AChangeRerunsWhatItCanAffect(GateCacheFixture):
     def warm(self) -> None:
         self.commit()
         r, res = self.cgate()
@@ -160,7 +155,7 @@ class AChangeRerunsWhatItCanAffect(CacheFixture):
 
     def test_a_test_module_another_imports_is_everyones_input(self):
         self.module("test_helper", HELPER.format(value=1))
-        self.module("test_user", USER)
+        self.module("test_user", USER.format(pkg="tests"))
         self.warm()
         p = self.repo / "tests" / "test_helper.py"
         p.write_text(HELPER.format(value=22))  # another size, so no stale bytecode stands in for it
@@ -262,7 +257,7 @@ class AChangeRerunsWhatItCanAffect(CacheFixture):
                 self.assertEqual((res["cached"], res["ran"]), (0, 2), r.stdout)
 
 
-class TheAgeTheColdOptionAndTheDirectory(CacheFixture):
+class TheAgeTheColdOptionAndTheDirectory(GateCacheFixture):
     def test_an_entry_older_than_max_age_days_is_no_hit(self):
         (self.repo / "ccp").symlink_to(ROOT / "ccp")  # the gate reads plane.json through the checkout's own ccp
         (self.repo / "docs" / "delivery").mkdir(parents=True)

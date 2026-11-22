@@ -15,23 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, usage
-from tests.helpers import Product
-
-SPANS = {"lead": {}, "runner": {"agent_id": "runner@session-abc"}, "worker": {"agent_id": "a1"}}
-
-
-def row(rid, who, ctx=None, cost=0.01, written=0, five=0, model="claude-opus-5-5", session="s1",
-        at="2027-01-15T08:00:00Z"):
-    """One request of `who` (lead, runner or worker) on `model` in `session` at `at`, sending `ctx` context
-    tokens (default: the writes and a thousand more), `written` of them cache writes, `five` of those at 5
-    minutes."""
-    ctx = written + 1000 if ctx is None else ctx
-    return ({"request_id": rid, "at": at, "session_id": session, "model": model,
-             "effort": "high", "query_source": "repl_main_thread" if who == "lead" else "agent:custom",
-             "input_tokens": 1, "output_tokens": 10, "cache_read_tokens": ctx - 1 - written,
-             "cache_creation_tokens": written, "cache_creation_5m_tokens": five,
-             "cache_creation_1h_tokens": written - five, "cost_usd": cost},
-            {"request_id": rid, **SPANS[who]})
+from tests.helpers import advice_row as row, Product
 
 
 def ago(hours: float) -> str:

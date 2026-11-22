@@ -13,8 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, verify
-from tests.helpers import Product
-from tests.test_verify import now_iso
+from tests.helpers import now_iso, Product
 
 TASK = "0001-a"
 RULED, CARRIED, RAN = "live-01", "cmd-01", "cmd-02"

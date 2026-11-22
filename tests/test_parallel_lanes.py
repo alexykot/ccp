@@ -11,8 +11,8 @@ import time
 import unittest
 
 from ccp import config, suite
-from tests.test_suite import CCP, PY, SuiteFixture
-from tests.test_toolkit import git
+from tests.suite_fixture import CCP, PY, SuiteFixture
+from tests.toolkit_fixture import git
 
 
 def _killpg(p: subprocess.Popen) -> None:

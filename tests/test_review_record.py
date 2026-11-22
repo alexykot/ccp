@@ -8,7 +8,7 @@ import unittest
 
 from ccp import report
 from tests.review_flow import CLEAN, MAJOR, PhaseFlow, A, B
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 
 class Moves(PhaseFlow, ToolkitFixture, unittest.TestCase):

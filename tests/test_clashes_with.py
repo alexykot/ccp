@@ -8,8 +8,8 @@ import unittest
 from contextlib import redirect_stderr
 
 from ccp import config, parallel, tasklog
-from tests.test_parallel_claims import task
-from tests.test_toolkit import ToolkitFixture
+from tests.parallel_claims_fixture import task
+from tests.toolkit_fixture import ToolkitFixture
 
 
 def clashing(tid: str, scope_in: str, with_: list[str], extra: str = "") -> str:

@@ -7,7 +7,7 @@ import subprocess
 import unittest
 
 from ccp import config, taskmigrate, tasklog
-from tests.test_init import InitCase
+from tests.init_fixture import InitCase
 
 TASKS = "docs/delivery/tasks"
 

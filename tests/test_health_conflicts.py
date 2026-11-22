@@ -12,9 +12,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import gitmerge, health, runs
-from tests.helpers import done_report
+from tests.helpers import done_report, GIT_ENV
 from tests.review_flow import ReviewFlow
-from tests.test_toolkit import GIT_ENV, ToolkitFixture, git
+from tests.toolkit_fixture import ToolkitFixture, git
 
 
 def sh(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:

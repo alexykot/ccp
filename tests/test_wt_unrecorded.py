@@ -11,7 +11,7 @@ from unittest import mock
 
 from ccp import architect, config, wt
 from ccp.queue import QueueError
-from tests.test_toolkit import ToolkitFixture, git
+from tests.toolkit_fixture import ToolkitFixture, git
 
 
 class ArchName(unittest.TestCase):

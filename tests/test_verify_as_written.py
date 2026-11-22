@@ -12,19 +12,10 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, verify
-from tests.helpers import Product
-from tests.test_verify import approve, decide
+from tests.helpers import approve_verdict as approve, held_otherwise, judge_merge_ok as decide, Product
 
 ROOT = Path(__file__).resolve().parents[1]
 NEW_KEYS = ("as_written", "held_instead", "ruling")
-
-
-def held_otherwise(**fields: object) -> dict:
-    """A check the verifier ran that held only in another form, under the approved gate 0001-a-1."""
-    return {"dod_check_id": "check-01", "pass": True, "as_written": False,
-            "held_instead": "ran the listing at the head in place of the removed flag: exit 0",
-            "ruling": "0001-a-1", "evidence": "the expectation names a flag the product no longer has",
-            "produced_by": "verifier", **fields}
 
 
 class NotAsWritten(unittest.TestCase):

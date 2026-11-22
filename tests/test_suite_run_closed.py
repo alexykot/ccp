@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 
 from ccp import runs, suite
-from tests.test_suite import PY, SuiteFixture
+from tests.suite_fixture import PY, SuiteFixture
 
 FIRST = "0002-second/implement"
 SECOND = "0002-second/implement-2"

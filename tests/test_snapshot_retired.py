@@ -9,7 +9,7 @@ import sys
 import unittest
 from pathlib import Path
 
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 PLANE = Path(__file__).resolve().parents[1]
 OBS = PLANE / "scripts/observability"

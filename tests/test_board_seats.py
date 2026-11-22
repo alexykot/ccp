@@ -7,53 +7,15 @@ import json
 import shutil
 import subprocess
 import unittest
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 from ccp import board, config, models, runs, seats, usage
-from tests.test_board_quality import HOSTILE, STUB, _hostile
-from tests.test_toolkit import ToolkitFixture
+from tests.board_quality_fixture import HOSTILE, STUB, _hostile
+from tests.board_seats_fixture import SeatsBase, at, req
 
 RUNNER, IMPLEMENTER = models.default("runner"), models.default("implementer")  # each role's default model and effort
 
 
-def at(minutes_ago: float) -> str:
-    return (datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-class Base(ToolkitFixture):
-    def design_seat(self, model="claude-opus-5-5", effort="xhigh"):
-        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
-        self.write("docs/delivery/plane.json", json.dumps({**cfg, "telemetry": {"design_seat": {"model": model, "effort": effort}}}))
-
-    def requests(self, *rows, spans=()):
-        b = self.q / "board"
-        b.mkdir(exist_ok=True)
-        (b / "usage-requests.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
-        if spans:
-            (b / "usage-spans.jsonl").write_text("".join(json.dumps(s) + "\n" for s in spans))
-
-    def build(self):
-        code, body, out, err = self.ccp("board", "build", root=self.main)
-        self.assertEqual(code, 0, out + err)
-        return json.loads(Path(body["board"]).read_text())
-
-    def rows(self, b):
-        return {r["seat"]: r for r in b["now"]["seats"]["rows"]}
-
-    def open_implement(self):
-        self.ccp("tasks", "claim", "0002")
-        code, _, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
-        self.assertEqual(code, 0, out + err)
-        return "0002-second/implement"
-
-
-def req(rid, minutes_ago, model, effort, out=100, **extra):
-    return {"request_id": rid, "at": at(minutes_ago), "model": model, "effort": effort, "input_tokens": 10,
-            "output_tokens": out, "cache_read_tokens": 0, "cache_creation_tokens": 0, "cost_usd": 0.01, **extra}
-
-
-class Expected(Base, unittest.TestCase):
+class Expected(SeatsBase, unittest.TestCase):
     def test_the_product_copy_wins_over_the_plugin(self):
         f = self.main / ".claude/agents/delivery-implementer.md"
         f.write_text(f.read_text().replace("effort: high", "effort: max"))
@@ -170,7 +132,7 @@ class Expected(Base, unittest.TestCase):
         self.assertIn("keeps its own model and effort", got["spec-maintainer"]["notes"][0])
 
 
-class Observed(Base, unittest.TestCase):
+class Observed(SeatsBase, unittest.TestCase):
     def test_a_known_headless_session_is_not_the_lead_and_an_interactive_sdk_call_is(self):
         """An architect pass's `claude -p` calls folded onto the design seat. A session
         the plane launched (headless-usage.jsonl names it) is set aside on the lead's row; a call
@@ -301,7 +263,7 @@ def render(b) -> str:
 
 
 @unittest.skipUnless(shutil.which("node"), "node is not installed")
-class Rendered(Base, unittest.TestCase):
+class Rendered(SeatsBase, unittest.TestCase):
     def test_every_seat_string_renders_as_text(self):
         self.design_seat()
         self.open_implement()

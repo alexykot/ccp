@@ -4,7 +4,6 @@ from __future__ import annotations
 import io
 import json
 import os
-import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -12,19 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, health
-from tests.helpers import Product
-
-T0 = 1_760_000_000  # 2025-10-09T08:53:20Z
-
-
-def git(root, *a, env=None):
-    return subprocess.run(["git", "-C", str(root), "-c", "user.email=t@t", "-c", "user.name=t", *a], check=True,
-                          capture_output=True, text=True, env={**os.environ, **(env or {})}).stdout
-
-
-def commit(root, msg, at, *extra):
-    stamp = f"@{at} +0000"
-    git(root, "commit", "-qm", msg, *extra, env={"GIT_AUTHOR_DATE": stamp, "GIT_COMMITTER_DATE": stamp})
+from tests.helpers import health_commit as commit, health_git as git, HEALTH_T0 as T0, Product
 
 
 class Merges(unittest.TestCase):
@@ -466,7 +453,7 @@ class AdoptionWindow(unittest.TestCase):
         self.assertNotIn("adopted_at", r)
 
     def test_the_queue_figures_before_adoption_are_left_out(self):
-        from tests.test_gate_time import ended, started
+        from tests.helpers import suite_ended as ended, suite_started as started
         mods = [{"name": "tests.test_a", "seconds": 1.0, "tests": 3}]
         self.rows("health/metrics.jsonl",
                   *({"at": at, "task_id": "0001-t1", "metric": "suite_seconds", "value": v, "kind": "cold"}

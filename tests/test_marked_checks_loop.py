@@ -13,20 +13,9 @@ from unittest import mock
 
 from ccp import prompt
 from tests.review_flow import ReviewFlow
-from tests.test_suite import ccp_proc
-from tests.test_toolkit import ToolkitFixture, git
-
-CHECK = "mac-01"
-TASK = "0002-second"
-MARKED = f"""- id: `{CHECK}`
-  story: As the operator, it runs on my machine.
-  setup: a checkout of the head.
-  runs_on: operator-machine
-  steps:
-    1. run it
-  expect: exit 0
-
-## Implementation notes"""
+from tests.suite_fixture import ccp_proc
+from tests.toolkit_fixture import ToolkitFixture, git
+from tests.helpers import MARKED_CHECK_ID as CHECK, MARKED_BLOCK as MARKED, MARKED_TASK_ID as TASK
 
 
 def started(head: str, lane: str = CHECK, task: str = TASK, state: str = "passed", sid: str = "st-1") -> dict:

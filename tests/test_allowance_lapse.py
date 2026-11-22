@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 from ccp import board, usage
 from tests.helpers import BoardPage
-from tests.test_board_drill import Fixture
+from tests.board_drill_fixture import Fixture
 
 W = "2026-10-27T04:00:00.24Z"   # this week's window, as a product read it
 W2 = "2026-10-27T03:59:59.52Z"  # the same window, jittered

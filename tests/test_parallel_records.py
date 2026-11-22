@@ -7,9 +7,8 @@ import json
 import unittest
 
 from ccp import board, config, forecast, lifecycle, tasklog
-from tests import test_parallel_claims
-from tests.test_parallel_claims import task
-from tests.test_toolkit import git
+from tests.parallel_claims_fixture import ParallelFixture, task
+from tests.toolkit_fixture import git
 
 NOW = 1_800_000_000.0
 
@@ -74,7 +73,7 @@ class Apart(unittest.TestCase):
         self.assertEqual(self.ends({"a": {"d"}, "b": {"zz"}})["all"], self.ends(None)["all"])
 
 
-class Records(test_parallel_claims.ParallelFixture, unittest.TestCase):
+class Records(ParallelFixture, unittest.TestCase):
     def state(self, tid):
         return json.loads((self.q / f"tasks/{tid}.json").read_text())
 

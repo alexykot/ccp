@@ -13,7 +13,7 @@ from unittest import mock
 
 from ccp import config
 from tests.review_flow import PROOF, SKIP_REVIEW_PLANE, ReviewFlow, SkipFlow
-from tests.test_toolkit import PLANE, ToolkitFixture
+from tests.toolkit_fixture import PLANE, ToolkitFixture
 
 A, B, C = "a" * 40, "b" * 40, "c" * 40
 CLEAN = "Severity: BLOCKER=0 MAJOR=0 MINOR=2 NIT=0"

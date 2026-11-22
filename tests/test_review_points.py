@@ -15,44 +15,23 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import adr, backfill, board, cli, config, plan, reviewpoints, tasklog
-from tests.helpers import TASK, Product
-from tests.test_backfill import GIT_ENV, claim, ev, spawn
-from tests.test_board_quality import HOSTILE, STUB, Base, _hostile
-from tests.test_team_hosting import TeamCase
-
-REGISTER = """# The review points (product-owned; SPEC §22)
-review_points:
-  - id: R7
-    name: the earlier team's work, reviewed
-    goal: Fold the earlier team's work into tasks.
-    status: closed
-    opened: 2026-10-20
-    closed: 2026-10-22
-  - id: R8
-    name: pre-beta   # the operator's name
-    goal: |-
-      After this review point's tasks are done,
-      we run the beta test.
-    status: current
-    opened: "2026-10-22"
-  - id: R10
-    name: "after the beta test"
-    goal: 'What the beta test teaches.'
-    status: planned
-"""
+from tests.helpers import (
+    GIT_ENV,
+    lease_event as claim,
+    ledger_event as ev,
+    Product,
+    REVIEW_REGISTER as REGISTER,
+    spawn_event as spawn,
+    tagged_task as _tagged,
+    TASK,
+)
+from tests.board_quality_fixture import HOSTILE, STUB, QualityBase, _hostile
+from tests.team_hosting_fixture import TeamCase
 
 
 def _git_init(root: Path) -> None:
     for c in (["init", "-q", "-b", "main"], ["add", "-A"], ["commit", "-q", "-m", "init"]):
         subprocess.run(["git", "-C", str(root), *c], check=True, capture_output=True, env={**os.environ, **GIT_ENV})
-
-
-def _tagged(p: Product, tid: str, status: str = "pending", rp: str | None = None, deps=None, extra: str = "") -> Path:
-    f = p.task(tid, status, deps)
-    add = (f"review_point: {rp}\n" if rp else "") + extra
-    if add:
-        f.write_text(f.read_text().replace("updated: 2026-09-30\n", "updated: 2026-09-30\n" + add))
-    return f
 
 
 class Register(unittest.TestCase):
@@ -572,7 +551,7 @@ class BackfillRenamed(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node is not installed")
-class Rendered(Base, unittest.TestCase):
+class Rendered(QualityBase, unittest.TestCase):
     def render(self, b):
         js = board.PAGE.read_text().replace("/*__BOARD__*/null", board.embed(b)).split("<script>", 1)[1].split("</script>", 1)[0]
         r = subprocess.run(["node", "-e", STUB + js + "\nprocess.stdout.write(out.join(''));"],

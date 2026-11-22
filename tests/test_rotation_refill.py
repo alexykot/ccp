@@ -10,9 +10,9 @@ import time
 import unittest
 
 from tests.helpers import TASK
-from tests.test_rotation import RotationFixture, iso
-from tests.test_team_hosting import HOOK, PLANE, TeamCase
-from tests.test_toolkit import ToolkitFixture, git
+from tests.rotation_fixture import RotationFixture, iso
+from tests.team_hosting_fixture import HOOK, PLANE, TeamCase
+from tests.toolkit_fixture import ToolkitFixture, git
 
 
 class ClaimMidRotation(RotationFixture, unittest.TestCase):
