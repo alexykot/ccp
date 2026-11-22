@@ -196,4 +196,18 @@ clear, while a failure the branch causes fails exactly as before.
   `ccp/__init__.py` in the product root; the changed paths are `git diff --name-only <base>...HEAD`, so an
   uncommitted edit is not among them.
 
+- Fix round 1 (implementer), on the review's findings:
+  - MINOR-1: two fixture tests pin the base run's environment, which the test fence's own `CCP_BINDINGS_DIR`
+    and `CCP_NO_BINDING_QUEUE` hid. One patches `lib.bindings_dir` to a directory other than the inherited
+    `CCP_BINDINGS_DIR`, and the base must echo the patched one. The other gives the product a binding naming
+    a queue, with `CCP_NO_BINDING_QUEUE` cleared, and the base must still echo QUEUE_ROOT unset.
+  - MINOR-3: the changed paths come from `changed_paths`, `git -c core.quotepath=off diff --name-only -z`,
+    split on NUL, so a path with non-ASCII characters is matched as the failure lines print it. A fixture
+    test adds `ccp/café.py` with `core.quotepath` on and expects the hit on main to keep failing.
+  - NIT-1: `emit` reads `CCP_BASE_RUN` through `envvar`.
+  - NIT-2: the CLI doc rows for `docs check` and `tasks check` say the failure is excused only when it is in
+    no file and no checker the branch changes.
+  - MINOR-2 (the base's `CCP_BINDINGS_DIR` under a worktree's own `bin/ccp`, so the leak check gets no relief
+    there) is not fixed here: it needs the lead's call on the §21.2 wording. It stays a follow-up.
+
 ## Verification notes
