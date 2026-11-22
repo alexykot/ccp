@@ -5,9 +5,9 @@ from __future__ import annotations
 import re
 import unittest
 
-from ccp import prompt
+from ccp import prompt, runs
 
-PUSHING = ("implement", "fix", "merge", "ruling")
+PUSHING = runs.CHANGE_PHASES
 
 
 def values(**over) -> dict:
@@ -25,6 +25,9 @@ def values(**over) -> dict:
 
 
 class GateBlock(unittest.TestCase):
+    def test_every_phase_that_pushes_has_its_flags_and_no_other_phase_does(self):
+        self.assertEqual(set(prompt.GATE_FLAGS), set(runs.CHANGE_PHASES))
+
     def test_each_phase_that_pushes_gets_the_block_once_and_no_other_phase_does(self):
         for phase in PUSHING:
             self.assertEqual(prompt.render_phase(phase, values()).count("Fail fast first"), 1, phase)

@@ -108,7 +108,7 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
             self.assertIn("suite run` refuses one on a lane with stages", text, phase)
 
     def test_no_template_sends_a_worker_to_a_mutation_worktree_or_a_discovery_command(self):
-        for phase in ("implement", "fix", "ruling", "merge", "verify", "_common"):
+        for phase in ("implement", "fix", "ruling", "merge", "verify", "_common", "_gate"):
             text = outside_the_fallback((PLANE / "templates/prompts" / f"{phase}.md").read_text())
             for gone in ("dependent-modules command", "mut worktree", "--kind mut"):
                 self.assertNotIn(gone, text, (phase, gone))

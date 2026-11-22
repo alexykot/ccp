@@ -119,5 +119,13 @@ before them would conflict with each, so this task runs after them, on their tex
   lines included.
 - Tests that took one line of a rendered prompt as a rule (`test_suite`, `test_resolution_review`,
   `test_worker_efficiency`) now read the list item or the sentence, the same tokens expected.
+- Fix round 1 (review findings):
+  - `render_phase` decides whether a phase pushes by `runs.CHANGE_PHASES`, the one list of those phases,
+    and takes its flags as `GATE_FLAGS[phase]`, so a pushing phase without flags raises instead of
+    rendering an empty block. The gate test loops over `runs.CHANGE_PHASES` and checks that `GATE_FLAGS`
+    names exactly those phases.
+  - `test_prompt_tools`' guard against a mutation worktree or a discovery command now reads `_gate.md` too,
+    where the before-push block moved.
+  - The module docstring of `ccp/prompt.py` is reflowed to its old line width.
 
 ## Verification notes
