@@ -1,7 +1,7 @@
 ---
 task_id: 0297-a-sign-off-wait-ends-on-the-lead-s-sign-off-and-briefs-name-the-lead-s-actor
 title: ccp health ends a sign-off wait only on the lead's build sign-off, the runner's brief and the writing-tasks skill show the lead's records with the lead's ACTOR, and tests build the lead's id into longer strings from lib.LEAD
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3", "S17", "S27"]
@@ -151,3 +151,5 @@ Measured at `15dbfe7a` (origin/main; first at `7d83efd`, then `ad9b4f84`). Every
   the id. No other wording changed.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #364 head `1de6800` (squash `5e93684`): APPROVE. Passed: code-01, doc-01, code-02. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0297-a-sign-off-wait-ends-on-the-lead-s-sign-off-and-briefs-name-the-lead-s-actor.json.
+
