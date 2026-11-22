@@ -1,7 +1,7 @@
 ---
 task_id: 0290-test-modules-share-the-plane-root-and-git-env-and-helpers-import-lazily
 title: Test modules take the plane root and the git environment from tests/helpers.py, which loads no ccp module on import, the plugin test names no plane checkout path, and the implement prompt's refactor line points back
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E4", "E13"]
@@ -134,3 +134,5 @@ line), `…` there being `0276-docs-contract-and-template-leftovers-of-r15-and-r
   fence test does), so the lazy imports hold past this task.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #339 head `1b93f2f` (squash `1e02e76`): APPROVE. Passed: test-01, test-02, docs-01, text-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0290-test-modules-share-the-plane-root-and-git-env-and-helpers-import-lazily.json.
+
