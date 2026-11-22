@@ -1,46 +1,11 @@
 """`ccp prompt` (SPEC §13.2): the worker's prompt, rendered by the plane.
 
-Four parts, in order: the plane template `templates/prompts/<phase>.md` (for a phase that pushes, with the
-before-push block `_gate.md` in it), then `_common.md` (rules for every worker and the report contract) with
-the product's fragment (`plane.json` `prompts.fragment`) and the runner's `--note`. The command writes the
-prompt beside the run (`prompts/<task>/<phase>[-n]-prompt.md`), its §23.8 audit (the full text only under
-`prompts.keep_body`; audits older than `prompts.audit_keep_days` are pruned), opens the run (§11.1) and moves
-the task's phase. The prompt's last line is `Prompt end: <token>`, the token a short hash of the run id and
-the text above it, kept on the run (`prompt_token`): the worker's report repeats it as `Prompt: <token>`, so
-`ccp report` can tell a prompt that reached the worker cut (§13.4). It prints the Agent call to make:
-the agent type, a description that starts with the run's task and phase, and the prompt: a pointer to
-the file, never its text retyped, and, when the role's model for this round (plane.json `models`, else the
-plane's default; the implementer's per task) is not the agent definition's, its alias (`model`, §2.4; the run
-expects it); otherwise the call carries no `model` and the runner passes none. For an implement round with no
-estimate for the task, it warns that the small choice cannot
-apply. Once its refusal gates pass, it takes an allowance reading (§25.1; a refused prompt reads nothing): at
-the 5-hour park % it parks the task and refuses, exit 6, writing nothing else (§25.4 the session park).
-Besides implement, fix, review and verify, a merge round only merges the integration tip into the task
-branch and a ruling round only applies a lead's ruling (its `--note`); review and verify treat their heads
-as a fix round's (§13.2). A verify of a fix round that no review has seen is refused, exit 4, nothing
-opened, unless the product's `verify.skip_review` or a review prover (`verify.provers`) proves the fix (a proof
-`ccp tasks submit` recorded for that head and tip is reused), its `verify.skip_review_after_clean` takes
-it as the fix of a clean review's minor findings (the verify prompt lists them), or the lead's word
-overrides it (§15.2).
-A review of a PR whose body does not contain the task id is refused, exit 2, nothing opened: the runner
-repairs the body first (§15.2); a body the PR host cannot read is a warning on the run, not a refusal.
-A verify round with no fix round since the task's last verify round needs `--note` with the reason
-(§15.6 rule 4): without it the command refuses, exit 4, nothing opened. A verify of a head that lacks the
-integration tip, beyond the task log and `merge.behind_tip_ignore`, refuses the same way, with one runner
-or several: merge the tip in first (§16.5 rule 4). A review of a head behind the tip refuses the same way
-only when merging the tip into it would conflict beyond the task log and `merge.behind_tip_ignore` (§15.2);
-a head behind by a clean merge is reviewed.
-`ccp prompt review --mode resolution` reviews the resolution of a conflicted integration merge in place of a
-full review (§13.2): refused, exit 2, nothing opened, without a done review, over a round that is not a merge
-round, for a head that is not a merge commit or whose resolution is empty; any other phase refuses `--mode`.
-The verify that follows a contained resolution review lists the checks it names to rerun (§15.6 rule 3).
-The implement and verify prompts list the checks marked `runs_on: operator-machine` as not the worker's to run; a
-verify is refused, exit 1, nothing opened, while one has no passed suite run at the head, unless it rests on an
-earlier approve or a ruling `--waived` names (§10.2, §13.2). Under `adr.strict`, a verify of a head that records
-a decision the task cites as `not_built` is refused the same way (§6.7).
-
-`ccp prompt env <worktree>` renders the product's `prompts.worker_env` for a worktree `ccp wt` recorded and
-prints the `export` lines its workers would get, opening no run and writing nothing (§13.3).
+`build` renders the plane template `templates/prompts/<phase>.md` with `_common.md` and the product's fragment
+and `--note`, writes the prompt and its audit (§23.8), opens the run (§11.1), moves the task's phase and prints
+the Agent call the runner makes. The refusals that stand between a request and an opened run are the `*_gate`
+functions (§15.2, §15.6, §16.5, §6.7); the allowance reading and the session park are §25.1 and §25.4.
+The prompt's last line is `Prompt end: <token>`, which `ccp report` checks against the report (§13.4).
+`ccp prompt env <worktree>` renders the product's `prompts.worker_env` for a worktree (§13.3).
 
 Templates use `{{name}}`, `{{#name}}…{{/name}}` (kept when the value is not empty) and
 `{{^name}}…{{/name}}` (kept when it is). A name the renderer does not know is an error, so a
@@ -826,6 +791,15 @@ def rules_doc_for(cfg: Config) -> str:
 
 
 def build(cfg: Config, a: Any) -> dict[str, Any]:
+    """Render the prompt for phase `a.phase`, or refuse (exit 1, 2, 4 or 6; nothing opened). Besides implement,
+    fix, review and verify, a merge round only merges the integration tip into the task branch and a ruling round
+    only applies a lead's ruling (its `--note`); review and verify treat their heads as a fix round's. Once its
+    refusal gates pass, it takes an allowance reading (a refused prompt reads nothing) and, at the 5-hour park %,
+    parks the task and refuses with exit 6. The Agent call it prints names the agent type, a description that
+    starts with the run's task and phase, and a pointer to the prompt file, never its text; it carries a `model`
+    alias only when the role's model for this round differs from the agent definition's. An implement round with
+    no estimate for the task warns that the small choice cannot apply. The prompt's token is the short hash of
+    the run id and the text above its last line, kept on the run as `prompt_token`."""
     q = root()
     phase = a.phase
     meta = task_meta(cfg, a.task)

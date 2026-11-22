@@ -6,16 +6,7 @@ values only read, never written (`WAIT_READ_ONLY`, `LEGACY_EVENT_TYPES`, `LEGACY
 task's events into its timers. The board (`ccp board`, SPEC §28) is the status; the older snapshot and
 its scripts are retired (SPEC §23.4).
 
-Timer formula (stable — SPEC §23.3):
-
-  wall_hours  = now − implementation_started_at  (null if never started)
-  wait_hours  = sum of waiting_on set→clear intervals + open wait if still waiting
-  work_hours  = sum of intervals where ALL of:
-                  • phase ∈ WORK_PHASES
-                  • waiting_on is null
-                  • a Claude launch is open (launch without matching exit)
-
-Do not change this formula without a SPEC change.
+The timers (`wall_hours`, `wait_hours`, `work_hours`) are SPEC §23.3's.
 """
 
 from __future__ import annotations
@@ -36,21 +27,6 @@ VERIFIER = "task-verifier"  # §2: the actor the verifier's records are written 
 SEAT_IDS = (RUNNER, VERIFIER, LEAD)  # §18.3
 LEGACY_ACTORS = ("delivery-watchdog",)  # the retired watchdog seat: a bound product's old rows hold it, read only (E9)
 ACTORS = SEAT_IDS + ("adapter", "operator", "system", "plane-session")  # plane-session: §31.5 triage
-# §17.8 adds question + spec_maintainer types and their ops; §19.10 adds architecture_review;
-# §21 adds docs_audit (same ops and payloads: both are §19 review kinds); §23.7 adds gate + runner
-# (gate opened/decided, runner spawn/scope/rotate/stop) and the design-seat actor;
-# §19 adds architect (a third review kind: passes and shapes). The first two are retired (§19.12):
-# their types stay so an older ledger still reads; nothing writes them any more.
-# §23.2 adds the toolkit's ledger: run (a worker launch: opened, bound, stopped, reported, abandoned;
-# recorded: the counts of one `ccp mutate` call, §20.6),
-# review and verify (recorded verdicts), allowance (samples) and plane (ccp proposals). None of them
-# moves a task phase or a timer: the `phase` events ccp writes beside them do that. §14.1 adds suite
-# (one `ccp suite run`, recorded when it ends). §10.4 adds prefer (the lead's next tasks for the runner,
-# work.json `next_tasks`: set by `ccp tasks prefer`, cleared by it; the claim that takes one removes it), and
-# hold (the lead's hold on a task, work.json `held`: `ccp tasks hold`, `next` passes over it). §3.5 adds
-# sign_off (the operator's sign-off on a task's text, recorded by `ccp tasks sign-off`; claim and close read it).
-# §3.6 adds notify (pending: a trigger fired; sent: a notice sent, by `ccp` over the command or by the lead).
-# §23.2 adds pr (the local PR host's record opened, its body edited, or first recorded merged: ccp/prhost.py).
 REVIEW_EVENT_TYPES = ("architecture_review", "docs_audit", "architect")
 TEAM_EVENT_TYPES = ("gate", "runner")
 TOOLKIT_EVENT_TYPES = ("run", "review", "verify", "allowance", "plane", "suite", "prefer", "hold", "sign_off",

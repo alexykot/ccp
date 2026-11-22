@@ -1,56 +1,12 @@
 """A task's runtime lifecycle (SPEC §10.5): claim, phase, wait and resume, release, sign-off, close.
 
 Each command does the step and writes what it changed to the ledger, so a seat cannot do the one
-without the other. They replace the claim and reconcile the runner briefs used to describe in prose,
-and the scripts runners wrote for themselves (§10.6).
-
-`sign-off` records the operator's sign-off on a task that declares one (§3.5): `claim` refuses a task
-whose `brief` sign-off is missing, and `close` one whose declared sign-off is missing or, for `build`,
-signed at another head than the one it merges. A task whose latest verdict lists `spec_beyond_intent`
-(text beyond its intent, `verify.beyond_intent`) has a `build` sign-off due, declared or not
-(`due_stages`): `sign-off` records it, and `close` refuses without it, naming the passages.
-
-`wait` on an operator's wait, `claim` refused at the weekly checkpoint and the `close` that finishes a
-review point fire the operator's triggers: a pending notice on record, and the product's notify command,
-if it names one (§3.6, `ccp.notify`).
-
-`claim` refuses a new task (exit 7) to a runner slot due for rotation and not rotated since its spawn
-(§10.2 step 4, `rotation_due`): its `tasks_done` reached the runner's task limit (4, §10.2), or its latest
-request's context reached its context limit (off unless the binding still sets one, §29.3). It refuses one too from the rotation until
-the lead binds the fresh runner (`rotation_step_left`), so the runner being rotated out takes no new task.
-A resume is never refused.
-
-`claim` refuses any claim (exit 2) of a product with no gate lane (§8.1, §14.1, `config.require_gate_lane`);
-during the grace release it warns on stderr and carries on.
-
-`rotation-due` answers the same rule for one slot without claiming: the `TeammateIdle` hook asks it
-(§18.2).
-
-`claim` takes an allowance reading first, through the shared reader (§25.1): at a weekly checkpoint, or
-with the account unread too long, a new claim refuses (exit 5, §25.3); rule 5 judges the reading in force
-(§16.3); and at the 5-hour park % any claim parks the task and refuses (exit 6, §25.4).
-
-`close` is the merge and the reconcile as one step: `ccp verify merge-ok` first (§15.5), then the
-merge pinned to the head it printed, then the task file, the product's records (`reconcile.log`,
-`reconcile.hooks`), the index, one commit pushed to the integration branch, the adapter's
-`post_close` commands and the queue. It refuses before merging when the checkout it runs from has
-changes. The reconcile is committed and pushed from the task's own merge worktree (`merge-<nnnn>` under
-`worktrees.dir`), so the checkout close runs from, the product's main checkout included, keeps its
-branch, HEAD and index; a runner worktree (detached) is then moved to the reconcile. Run it from the
-runner worktree (§12.1).
-
-With several runners, a verified head behind the integration tip is caught up by `close` itself when
-SPEC §16.5 rule 4 allows (`_catch_up`; `catch_up_blocked` holds the conditions that name the refusal):
-it merges the tip in (in its merge worktree), runs the gate lane there as a recorded `ccp suite run`
-with that worktree's environment (`_task_worktree_env`: its `CCP_WT_*` variables, kind `merge`, the task's
-seat, tag and round from its `impl` worktree's record, and `prompts.worker_env` rendered for it),
-re-checks the tip (at most CATCH_UPS times), pushes the merge as the task branch's head, records the
-catch-up on the verification record (`verify.record_catch_up`) and merges that head. Otherwise it
-refuses `behind_tip`, naming the condition that failed, with the task branch unchanged.
-
-Before it merges, `close` prints each check the verdict records as not as written (`as_written: false`,
-§15.4), with what the verifier held instead and the ruling that let it, for the runner to pass to the lead
-(`_print_not_as_written`). It never refuses on one: the ruling is already the owner's decision.
+without the other (§10.6). The claim's refusals are §10.2 (rotation), §8.1 and §14.1 (the gate lane) and
+§25 (the allowance reading); `sign-off` and the sign-offs `claim` and `close` hold a task to are §3.5.
+`wait`, a refused `claim` and the `close` that finishes a review point fire the operator's triggers (§3.6,
+`ccp.notify`). `close` is the merge and the reconcile as one step (§15.5, §16.5): it runs `verify.merge_ok`
+first, merges from the task's own merge worktree and catches a verified head up to the tip when §16.5
+rule 4 allows. `rotation-due` answers the rotation rule for one slot, for the `TeammateIdle` hook (§18.2).
 """
 from __future__ import annotations
 
@@ -232,6 +188,12 @@ def rotation_check(holder: str = "runner") -> dict[str, Any]:
 
 
 def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
+    """Take a task for `holder`, or resume one it holds. Refused before anything is written: a product with no
+    gate lane (exit 2, §8.1, §14.1; a warning during the grace release), a task whose `brief` sign-off is missing
+    (§3.5), a new task to a runner slot due for rotation (exit 7, `rotation_due`, `rotation_step_left`: the
+    runner being rotated out takes no new task), and, by the allowance reading (§25.1), a weekly checkpoint or an
+    account unread too long (exit 5, §25.3) and the 5-hour park % (the task parks, exit 6, §25.4). A resume is
+    never refused for rotation."""
     q = root()
     try:  # §8.1, §14.1: no gate lane, no task: a warning in the grace release, else exit 2, nothing taken
         if warning := config.require_gate_lane(cfg):
@@ -1179,6 +1141,15 @@ def _recovery(cfg: Config, q: Path, tid: str, pr: str, merge: str, what: str, pu
 
 
 def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
+    """Merge a verified PR and reconcile the task. `verify.merge_ok` first (§15.5), then the merge pinned to the
+    head it printed, then the task file, the product's records (`reconcile.log`, `reconcile.hooks`), the index,
+    one commit pushed to the integration branch, the adapter's `post_close` commands and the queue. It refuses
+    before merging when the checkout it runs from has changes, or a declared sign-off is missing or, for `build`,
+    signed at another head than the one it merges (`sign_off_gaps`). The reconcile is committed and pushed from
+    the task's own merge worktree (`merge-<nnnn>` under `worktrees.dir`), so the checkout close runs from keeps
+    its branch, HEAD and index; a runner worktree (detached) is then moved to the reconcile. A verified head
+    behind the tip is caught up by `_catch_up` when §16.5 rule 4 allows, otherwise refused `behind_tip`. Each
+    check the verdict records as not as written is printed first (`_print_not_as_written`); never a refusal."""
     from ccp import verify  # noqa: PLC0415
 
     q = root()
