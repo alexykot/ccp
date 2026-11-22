@@ -55,8 +55,8 @@ All reshape phases have landed.
   - F17: move `scripts/observability/lib.py` and `architecture_review.py` into the `ccp` package, so
     `ccp` imports nothing from `scripts/` (the E7 amendment comes with it). Architect pass
     `ar-20261122T055103Z-11aa` (F01) found the first trigger fired; task 0282 (R25) moves the headless
-    helpers and the open-question rule out of `spec_maintainer.py`. Tasked once 0272, 0277, 0282 and 0283,
-    which all edit lib.py or its importers, are done.
+    helpers and the open-question rule out of `spec_maintainer.py`. Tasked once 0283, 0293 and 0296, which
+    edit lib.py or its importers, are done (0272, 0277 and 0282 are; `ar-20261122T100027Z-dd31`).
 - **Deferred from architect pass `ar-20261121T020523Z-1d5f`** (record in `docs/delivery/reviews/`):
   - F12: the plane's own `pregate` lane: taken up by task 0285 (R25), after architect pass
     `ar-20261122T055103Z-11aa` (F07) found it still undeclared.

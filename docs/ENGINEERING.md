@@ -18,9 +18,7 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   binding) through the code or a fixture helper, never as a copied literal. A fixture or helper other
   modules reuse lives in a module that holds no tests; no module imports a test module or binds
   another module's test-class methods.
-  check: command — architect.checks `E4`: the borrowed-helper grep, the worktrees-literal grep, the grep for
-  an import of a test module, and the count of assertIn and assertNotIn lines on a long string literal in
-  tests/*.py held at or below the figure in the command (lowered as tasks remove them)
+  check: command — architect.checks `E4` (three greps and the long-literal count it holds at or below its figure)
 - **E15** Decision logic is separate from git, process and file I/O, so each branch is unit-tested on
   plain values. End-to-end tests cover the wiring, not every branch.
   check: pass — the architect looks for branches reachable only through a fixture repo; the health
@@ -73,32 +71,29 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   the gate (E1); no architect.checks entry, so the pre-gate never renders a bare test run
 - **E14** Git merge analysis (merge-tree, patch-id, remerge-diff) goes through one helper module; no
   other module calls those git subcommands.
-  check: command — `git grep -n "merge-tree\|patch-id\|remerge-diff" -- ccp` lists only the helper
-  module
+  check: command — architect.checks `E14`
 - **E16** Only ccp/config.py reads plane.json. A hook, script, shared library or ccp module that
   needs a setting asks `ccp` (JSON out) or takes it from ccp.config's loaded Config; it never opens
   the file, by literal name or by `CONFIG_REL`, and never defaults a key itself. A command that
   records into plane.json edits its text through ccp/jsonedit.py.
-  check: command — `! git grep -nE '(plane\.json"|CONFIG_REL)\)\.read_text' -- ccp plugin scripts ':(exclude)ccp/config.py'`
-  (architect.checks `E16`)
+  check: command — architect.checks `E16`
 - **E17** One module resolves and parses a product's binding; every other reader calls it.
   check: pass — the architect looks for binding regexes outside that module
 - **E18** A language's facts (its doc conventions, test-output patterns including the line that says the code did
   not build or import, the command that runs named tests or one test, and import reading) live in its language
   pack (ccp/doclang); plane.json may override them. Core code names no language and no test runner.
-  check: command — `! git grep -n unittest -- ccp ':(exclude)ccp/doclang'` (architect.checks `E18`)
+  check: command — architect.checks `E18`
 - **E19** Only the PR-host module (ccp/prhost.py) reaches a PR host: a forge's CLI or API, its ref
   layout (refs/pull/…), or the local PR record. Other code sees a PR as the normalised facts it returns
   (number, state, head, branch, merge commit, merge time, body), never a host's field names; prompts
   and briefs name `ccp pr`, never a forge's CLI.
-  check: command — architect.checks `E19`: `! git grep -nE 'CCP_GH_BIN|headRefOid|mergeCommit' -- ccp ':(exclude)ccp/prhost.py'`
-  and `! git grep -n 'gh pr' -- templates plugin/agents`, then `! git grep -n 'refs/pull' -- ccp ':(exclude)ccp/prhost.py'`
+  check: command — architect.checks `E19`
 - **E20** One function judges whether a verdict lets a head merge: `ccp verify merge-ok`, `ccp verify
   check` and `ccp tasks close` call it, and `ccp verify record` refuses every approve it would refuse.
   check: pass — the architect compares the refusal lists of the merge-time judges
 - **E22** One parser per durable grammar: a task file's dod_checks are split and read by one tasklog
   function; no other module matches `CHECK_RE` or re-splits the section.
-  check: command — architect.checks `E22`: `! git grep -n CHECK_RE -- ccp ':(exclude)ccp/tasklog.py'`
+  check: command — architect.checks `E22`
 - **E23** One parser per reference form: an ADR-decision link (`<ADR id>[ Dn]`, as `adr_refs`,
   `requires` and `retired by` write it) and a task-id reference are parsed by ccp/refs.py; no other
   module in ccp or scripts holds a regex for either.
@@ -117,8 +112,9 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - **E11** Durable knowledge from a change lands in the SPEC, the docs or an ADR in the same PR.
   check: pass
 - **E26** A house rule is stated once, in this doc. The standing DoD and the package docs name its id;
-  they never restate its text. The root CLAUDE.md, the session's own instructions, is exempt.
-  check: pass — the architect looks for a rule's sentence outside this doc (`git grep -n 'short statement lines'`)
+  they never restate its text, a prohibition included. The root CLAUDE.md, the session's own instructions,
+  is exempt.
+  check: pass — the architect greps each package doc for a rule's distinctive clause (`git grep -n 'only wrap\|imports another\|copied literal\|names no language' -- '*/CLAUDE.md'`)
 - **E13** Briefs and prompt templates name the command and the § that decides; they never restate a
   rule's conditions, a tool's quirk a `ccp` command can absorb, or a sample record (a sample lives in
   contracts/ as `*.example.json`, and a test runs it through the command). The report's lines and

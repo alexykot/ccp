@@ -1432,3 +1432,28 @@ tasks:
     title: ccp wt remove clears a leftover directory that holds only the language's caches, a mutant file's zero-match refusal names its trailing line break, and leak-check reads ccp where only when it exits 0
     depends_on: []
     path: tasks/0291-wt-remove-clears-a-cache-only-leftover-mutant-file-names-the-line-break-and-leak-check-reads-only-a-clean-where.md
+  - id: 0292-the-review-prompt-asks-for-a-cold-run-where-review-takes-no-cache-hits
+    status: pending
+    title: Where the product takes no cache hits for review, the review prompt asks for the reviewer's run of the touched modules with --cold
+    depends_on: []
+    path: tasks/0292-the-review-prompt-asks-for-a-cold-run-where-review-takes-no-cache-hits.md
+  - id: 0293-the-lead-s-preference-and-holds-need-the-lead-and-seat-ids-and-suite-roles-are-named-once
+    status: pending
+    title: ccp tasks prefer and hold refuse any ACTOR but the lead's, the verifier's actor id and the seat-to-actor rule are named once, E27's command covers every seat id in code and tests, and the whole-suite lane roles are one tuple
+    depends_on: [0288-every-seat-names-its-actor-and-the-lead-s-records-need-the-lead-s, 0289-the-runner-s-actor-id-is-named-once-and-tests-read-the-lead-s]
+    path: tasks/0293-the-lead-s-preference-and-holds-need-the-lead-and-seat-ids-and-suite-roles-are-named-once.md
+  - id: 0294-suite-summary-branches-and-catch-up-preconditions-are-tested-on-plain-values
+    status: pending
+    title: The suite summary's cap, cut, tally and empty-log branches and close's three static catch-up refusals are tested on plain values, leaving end-to-end tests only for the wiring
+    depends_on: []
+    path: tasks/0294-suite-summary-branches-and-catch-up-preconditions-are-tested-on-plain-values.md
+  - id: 0295-package-docs-name-rules-by-id-and-every-test-module-is-a-cache-leaf
+    status: pending
+    title: Package docs name house rules by id, tests/CLAUDE.md keeps only the fixtures worth naming, contracts/CLAUDE.md drops snapshots, fixtures write test modules with def test_, and the gate cache treats every test module as a leaf
+    depends_on: []
+    path: tasks/0295-package-docs-name-rules-by-id-and-every-test-module-is-a-cache-leaf.md
+  - id: 0296-the-spec-question-script-loads-the-product-config-once-and-reads-its-task-dir
+    status: pending
+    title: The spec-question script and lib load a product's config through one quiet loader, the task-id check reads the configured task directory (DURABLE_DOCS goes), blocked builds its dependency map once, and the architect driver no longer imports the spec-question script
+    depends_on: []
+    path: tasks/0296-the-spec-question-script-loads-the-product-config-once-and-reads-its-task-dir.md
