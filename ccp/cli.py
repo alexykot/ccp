@@ -552,6 +552,17 @@ def cmd_auth(cfg: config.Config, a: argparse.Namespace) -> int:
     return 0 if body["ok"] else 1
 
 
+class _OwnArgs(argparse.ArgumentParser):
+    """An action's parser that refuses an argument it does not take itself, with its own usage, rather than
+    leaving it to the parent parser, whose refusal shows the whole command's usage."""
+
+    def parse_known_args(self, args=None, namespace=None):  # noqa: ANN001, ANN201  (argparse's own signature)
+        known, extra = super().parse_known_args(args, namespace)
+        if extra:
+            self.error(f"unrecognized arguments: {' '.join(extra)}")
+        return known, extra
+
+
 def _pr_number(raw: str) -> str:
     """`ccp pr`'s PR argument: the PR number, never a branch, so no call reaches the current branch's PR."""
     if not raw.isdigit() or int(raw) < 1:
@@ -1681,27 +1692,41 @@ def build_parser() -> argparse.ArgumentParser:
                    help="triage: validate and finalise a triage file already committed by hand, then rebuild INDEX.yaml")
     p.set_defaults(fn=cmd_architect)
 
-    p = sub.add_parser("verify", help="the verifier's record and the runner's merge gate (SPEC §15.3; needs QUEUE_ROOT), "
-                                      "the check of a PR's SPEC lines against the signed text (spec-text, §15.2), "
-                                      "and a deferred check's result recorded after close (later, deferred, §15.4)")
-    p.add_argument("action", choices=("record", "merge-ok", "check", "spec-text", "later", "deferred"))
-    p.add_argument("target", nargs="?", help="record: the verdict JSON file (- for stdin); merge-ok: the PR number; "
-                                             "check, spec-text, later: the task id; deferred: none")
-    p.add_argument("--task", help="merge-ok: the task whose record approves this PR (default: pr-<PR>); "
-                                  "deferred: only this task's checks")
-    p.add_argument("--check", help="later: the id of the check run after its task closed (§15.4)")
-    result = p.add_mutually_exclusive_group()
-    result.add_argument("--pass", dest="passed", action="store_const", const=True, help="later: the check passed")
-    result.add_argument("--fail", dest="passed", action="store_const", const=False, help="later: the check failed")
-    p.add_argument("--evidence", help="later: one line, what the run showed")
-    p.add_argument("--produced-by", dest="produced_by", help="later: the seat that produced the evidence")
+    vf = sub.add_parser("verify", help="the verifier's record and the runner's merge gate (SPEC §15.3; needs "
+                                       "QUEUE_ROOT), the check of a PR's SPEC lines against the signed text "
+                                       "(spec-text, §15.2), and a deferred check's result recorded after close "
+                                       "(later, deferred, §15.4)") \
+        .add_subparsers(dest="action", required=True, parser_class=_OwnArgs)
+    p = vf.add_parser("record")
+    p.add_argument("target", metavar="FILE", help="the verdict JSON file (- for stdin)")
+    p.set_defaults(fn=cmd_verify)
+    p = vf.add_parser("merge-ok")
+    p.add_argument("target", type=_pr_number, metavar="PR", help="the PR number")
+    p.add_argument("--task", help="the task whose record approves this PR (default: pr-<PR>)")
+    p.set_defaults(fn=cmd_verify)
+    p = vf.add_parser("check")
+    p.add_argument("target", metavar="TASK", help="the task id")
+    p.add_argument("--head", required=True, help="the PR head the runner would merge")
+    p.set_defaults(fn=cmd_verify)
+    p = vf.add_parser("spec-text")
+    p.add_argument("target", metavar="TASK", help="the task id")
+    p.add_argument("--base", help="the ref the branch's diff is taken from (default: origin/<integration branch>)")
+    p.add_argument("--head", help="the commit whose SPEC change is checked (default: HEAD)")
+    p.set_defaults(fn=cmd_verify)
+    p = vf.add_parser("later")
+    p.add_argument("target", metavar="TASK", help="the task id")
+    p.add_argument("--check", required=True, help="the id of the check run after its task closed (§15.4)")
+    result = p.add_mutually_exclusive_group(required=True)
+    result.add_argument("--pass", dest="passed", action="store_const", const=True, help="the check passed")
+    result.add_argument("--fail", dest="passed", action="store_const", const=False, help="the check failed")
+    p.add_argument("--evidence", required=True, help="one line, what the run showed")
+    p.add_argument("--produced-by", dest="produced_by", required=True, help="the seat that produced the evidence")
     p.add_argument("--operator-step", dest="operator_step",
-                   help="later: the approved operator gate (<task_id>-<n>) a ruling seat's evidence came from")
-    p.add_argument("--json", action="store_true", help="deferred: a JSON list")
-    p.add_argument("--head", help="check: the PR head the runner would merge; spec-text: the commit whose SPEC "
-                                  "change is checked (default: HEAD)")
-    p.add_argument("--base", help="spec-text: the ref the branch's diff is taken from (default: origin/<integration "
-                                  "branch>)")
+                   help="the approved operator gate (<task_id>-<n>) a ruling seat's evidence came from")
+    p.set_defaults(fn=cmd_verify)
+    p = vf.add_parser("deferred")
+    p.add_argument("--task", help="only this task's checks")
+    p.add_argument("--json", action="store_true", help="a JSON list")
     p.set_defaults(fn=cmd_verify)
 
     pr = sub.add_parser("pr", help="the PR host's operations, the same on every host (SPEC §15.5, ADR-0040): "

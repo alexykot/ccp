@@ -1532,11 +1532,6 @@ def _full_task_id(cfg: Config, task_id: str) -> str:
 
 
 def _later_main(cfg: Config, queue: Path, a: Any) -> int:
-    missing = [flag for flag, v in (("--check", a.check), ("--pass or --fail", a.passed),
-                                    ("--evidence", a.evidence), ("--produced-by", a.produced_by)) if v is None]
-    if missing:
-        print(f"ccp verify later: give {', '.join(missing)}", file=sys.stderr)
-        return 2
     errs, row = record_later(queue, _full_task_id(cfg, a.target), a.check, a.passed, a.evidence, a.produced_by,
                              a.operator_step, _now())
     if errs:
@@ -1568,15 +1563,9 @@ def _queue() -> Path | None:
 
 
 def main(cfg: Config, a: Any) -> int:
-    if a.action == "deferred" and getattr(a, "target", None) is not None:
-        print("ccp verify deferred: give the task with --task", file=sys.stderr)
-        return 2
-    if a.action != "deferred" and not str(getattr(a, "target", None) or "").strip():
-        what = {"record": "the verdict file", "merge-ok": "the PR number"}.get(a.action, "the task id")
-        print(f"ccp verify {a.action}: give {what}", file=sys.stderr)
-        return 2
+    """`ccp verify <action>`: the parser gives each action its own arguments and refuses another action's (`ccp.cli`)."""
     if a.action == "spec-text":  # reads the task log and git only: no queue
-        code, body = spec_text(cfg, a.target, getattr(a, "base", None), getattr(a, "head", None))
+        code, body = spec_text(cfg, a.target, a.base, a.head)
         if body.get("error"):
             print(f"ccp verify spec-text: {body['error']}", file=sys.stderr)
         for r in body.get("passages") or []:
@@ -1618,9 +1607,6 @@ def main(cfg: Config, a: Any) -> int:
                           "head_sha": rec.get("head_sha"), "run_id": run_id}, indent=2))
         return 0
     if a.action == "merge-ok":
-        if not str(a.target or "").isdigit():
-            print("ccp verify merge-ok: give the PR number", file=sys.stderr)
-            return 2
         try:
             reasons, body = merge_ok(cfg, queue, a.target, a.task)
         except prhost.HostUnavailable as exc:
@@ -1631,7 +1617,7 @@ def main(cfg: Config, a: Any) -> int:
             print(f"ccp verify merge-ok: {r}", file=sys.stderr)
         print(json.dumps(body, indent=2))
         return 1 if reasons else 0
-    if not str(a.head or "").strip():
+    if not a.head.strip():
         print("ccp verify: --head is the PR head the runner would merge", file=sys.stderr)
         return 2
     reason = refusal(cfg, queue, a.target, a.head)

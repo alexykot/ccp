@@ -1,7 +1,7 @@
 ---
 task_id: 0269-verify-actions-own-their-flags-and-prompts-link-cited-findings
 title: ccp verify refuses a flag its action does not take, and a worker prompt names the record of each finding a task cites
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0262-module-docstrings-and-house-rule-checks", "0266-github-knowledge-stays-in-the-pr-host-module"]
@@ -12,7 +12,7 @@ review_point: R21
 paths: ["ccp/cli.py", "ccp/verify.py", "ccp/prompt.py", "docs/cli/02-delivery.md", "tests/test_verify_parser.py", "tests/test_verify_later.py", "tests/test_prompt_review_refs.py"]
 adopt: "none"
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0269-verify-actions-own-their-flags-and-prompts-link-cited-findings
@@ -97,4 +97,20 @@ Measured at `afb8ce6` (the figures below match `31357f0`, where the dry runs ran
 
 ## Implementation notes
 
+- `ccp verify` is one subparser per action (`dest="action"`, so `REFRESHES`' `("verify", "record")` still
+  matches), each with the arguments its `docs/cli/02-delivery.md` row gives: the row's unbracketed flags are
+  `required=True` (`check --head`; `later --check`, `--evidence`, `--produced-by`, and `--pass`/`--fail` as one
+  required group), and `merge-ok`'s PR takes `ccp pr`'s `_pr_number` type. The doc rows needed no change.
+- The action parsers are `_OwnArgs` (`ccp/cli.py`): an argument the action does not take is refused by the
+  action's own parser, so the refusal shows that action's usage, not the whole command's (argparse's default
+  leaves extras to the top-level parser, which prints `usage: ccp …`).
+- `verify.main()` loses its hand checks of the target, and `_later_main` its missing-flag check (dead once the
+  parser requires them). The blank `--head` refusal on `check` stays: a `--head ""` still parses.
+- `ccp/prompt.py` `cited_refs(cfg, meta)` builds `refs`: each `review_refs` entry is followed by
+  `(<cfg.rel(cfg.reviews_dir)>/<the part before #>.md)`; the other refs as before.
+- `tests/test_verify_later.py`: the three parser-refusal tests now expect argparse's `SystemExit(2)` (exit 2 kept,
+  nothing on stdout) instead of a returned 2 with the hand-written text.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #320 head `3d14dcc` (squash `1bdd7a5`): APPROVE. Passed: cli-01, cli-02, pr-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0269-verify-actions-own-their-flags-and-prompts-link-cited-findings.json.
+
