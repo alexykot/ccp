@@ -27,9 +27,9 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   summary's slowest modules point at them
 - **E21** A dod_check proves behaviour with the head's own tool: a check of a `ccp` command runs the
   checkout's `bin/ccp` (or `ccp wt exec … --`), never `ccp` on PATH, which is the released plane. A
-  check that needs a modified copy (a planted fault) names `ccp mutate`, or a `ccp wt create --kind mut`
-  worktree, never a hand `git worktree add`. Signed SPEC text is proved by `bin/ccp verify spec-text
-  <task>`; a doc grep pins one token, never a sentence or a table row.
+  check that needs a modified copy (a planted fault) names `ccp mutate` where `mutate.command` is
+  declared, or a `ccp wt create --kind mut` worktree, never a hand `git worktree add`. Signed SPEC text
+  is proved by `bin/ccp verify spec-text <task>`; a doc grep pins one token, never a sentence or a table row.
   check: pass — the architect and the reviewer read new tasks' dod_checks
 
 ## Publishing
