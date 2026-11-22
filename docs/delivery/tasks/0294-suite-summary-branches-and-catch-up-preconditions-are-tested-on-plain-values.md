@@ -1,7 +1,7 @@
 ---
 task_id: 0294-suite-summary-branches-and-catch-up-preconditions-are-tested-on-plain-values
 title: The suite summary's cap, cut, tally and empty-log branches and close's three static catch-up refusals are tested on plain values, leaving end-to-end tests only for the wiring
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E15"]
@@ -98,4 +98,35 @@ Measured at `e92f362`.
 
 ## Implementation notes
 
+- `ccp/lifecycle.py`: `catch_up_precondition(has_gate_lane, lane, has_merge_worktree, records_written)` returns the
+  first of the three refusal texts, word for word and in today's order, or None; `_catch_up` computes the three facts
+  and raises `_NoCatchUp` with its result. The facts are now computed together before the judging, where each was
+  computed only once the one before it passed; `_merge_path` and `verify.recorded_at` read nothing that can fail
+  there (close has the verification record by then).
+- `ccp/suite.py` (named in the report): the thirteen tests could not read `ran`, `cached` and the zero-test rule off a
+  log without the subprocess, because `run` summed the counters and applied the all-cached rule inline. Two pure
+  functions now hold that, called by `run` where the code was: `counted(counters)` (the tests counted and each summary
+  field, summed over the streams) and `all_cached_tests(tests, fields)` (0 when none was counted and every unit was a
+  cache hit, §14.5). No behaviour changed.
+- `tests/test_suite.py`: the thirteen tests keep their names. Eight (tally and count) are in `Digest`, five (the cap, the
+  cut, the final error, the whole or empty log) in the new `RenderSummary`, on `suite.digest`, `suite.render_summary`,
+  `suite.counted` and `suite.all_cached_tests` with plain values. Where an expectation read the `ended` row it checks
+  the function's return value. Not carried over: the row, event and `fold` fields, the log's `FAIL:` count and the
+  `--full`/`log: None` row, which are wiring the remaining end-to-end tests of `Summary` and `ResultContract` hold.
+- Fix round 1: that claim was false for the `--full` wiring. `Counting.test_a_real_unittest_run_is_counted` (a real
+  `--full` run) now also asserts the started row's `output` is `full` and the ended row's `log` is None, and
+  `Digest.test_full_still_counts_the_fields`'s docstring says it pins the counters only.
+- `tests/test_catch_up_decision.py`: `StaticPreconditions`, five tests on plain values (each refusal, None, the order).
+- `tests/test_behind_tip_catch_up.py`: dropped the no-worktrees-dir and records-in-git tests (12 tests remain); the
+  docstring now names the busy and moving-tip paths as end to end and every other decision as plain values.
+- The records-in-git refusal and the no-merge-worktree refusal now have no end-to-end test: the wiring of those two
+  facts (their arguments in the `catch_up_precondition` call) is held by no test; the no-gate-lane test holds the call
+  as a whole.
+- Fix round 2: the round-1 docstring on `Digest.test_full_still_counts_the_fields` is a `#` comment now, so
+  `unittest -v` prints the name and `ok` on one line and the task's grep counts 13 `ok` lines. The all-cached gate test
+  in `ReportCrossCheck` asserts that `ccp suite run` prints the product's `show_re` tally line, the one expectation the
+  plain `Digest` test no longer holds for `run`'s `digest(log, scfg, patterns)` call.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #338 head `d129173` (squash `1ec9cbc`): APPROVE. Passed: test-01, test-02, test-03. Gate: `ccp wt exec -- suite run --lane gate` exit 0, `ccp wt exec -- suite run --lane part -- scripts/gate.sh tests.test_behind_tip_catch_up tests.test_catch_up_decision tests.test_suite` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0294-suite-summary-branches-and-catch-up-preconditions-are-tested-on-plain-values.json.
+
