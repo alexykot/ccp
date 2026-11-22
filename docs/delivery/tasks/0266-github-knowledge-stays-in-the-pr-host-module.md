@@ -158,5 +158,10 @@ From architect pass `ar-20261121T174754Z-7df5`, findings F02 and F03 (the record
   5 lines, not 6: `ccp/verify.py`'s usage docstring no longer names `gh`. The other premises matched.
 - `tests/test_prhost_only.py` still lists `ccp/init.py` among the modules allowed to name the forge CLI
   (its `DENY` keeps `gh repo delete`); left as it is (not in Scope).
+- Fix round 1 (review MINOR-1): `tests/test_prhost_fetch.py` gains `EachStepFetchesItsHead`, one test
+  per call site (`behind_tip`, `resolution_gate`, `_judge_fix`). Under the GitHub adapter, a head only on
+  origin's `refs/pull/7/head`, then one only on `task/<id>`, is in the checkout after the step. The test
+  thus pins both the PR and the branch each site passes. Each subtest's commit gets its own message: the
+  origin is shared and git's dates are fixed, so equal messages would give equal shas.
 
 ## Verification notes

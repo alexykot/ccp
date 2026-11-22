@@ -1,22 +1,31 @@
 """A PR's head fetched through the PR-host module (ADR-0040 D1, E19): `prhost.fetch_commit` tries the adapter's own
-refs for the PR, then the task branch, on a fenced bare origin. Only the GitHub adapter has refs of its own."""
+refs for the PR, then the task branch, on a fenced bare origin. Only the GitHub adapter has refs of its own. The
+three steps that need a head (`behind_tip`, the resolution gate, the fix judgement) fetch it through it, with the
+PR and the task's branch."""
 from __future__ import annotations
 
+import json
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
-from ccp import prhost
+from ccp import lifecycle, prhost, prompt, verify
+from ccp.queue import QueueError
 from tests.helpers import Product
 from tests.test_toolkit import GIT_ENV, git
 
-BRANCH = "task/0001-a"
+TID = "0001-a"
+BRANCH = f"task/{TID}"
 PR = "7"
 
 
-class FetchCommit(unittest.TestCase):
+class Origin:
+    """A fenced bare origin with a main, a clone elsewhere that pushes to it, and checkouts of its main."""
+
     def setUp(self):
         env = mock.patch.dict(os.environ, GIT_ENV)
         env.start()
@@ -41,14 +50,22 @@ class FetchCommit(unittest.TestCase):
         git(p.root, "fetch", "-q", "origin", "main")
         return p
 
-    def pushed(self, ref: str, name: str) -> str:
-        """A new commit pushed to `ref` on origin only, never to main: its sha."""
-        git(self.elsewhere, "checkout", "-q", "--detach", "main")
+    def pushed(self, ref: str, name: str, on: str = "main") -> str:
+        """A new commit on `on`, pushed to `ref` on origin only, never to main: its sha."""
+        git(self.elsewhere, "checkout", "-q", "--detach", on)
         git(self.elsewhere, "commit", "-q", "--allow-empty", "-m", name)
         sha = git(self.elsewhere, "rev-parse", "HEAD")
         git(self.elsewhere, "push", "-q", "origin", f"HEAD:{ref}")
         return sha
 
+    def has(self, p: Product, sha: str) -> bool:
+        """Whether `sha` is a commit in `p`'s checkout."""
+        r = subprocess.run(["git", "-C", str(p.root), "cat-file", "-e", f"{sha}^{{commit}}"], capture_output=True,
+                           env={**os.environ, **GIT_ENV})
+        return r.returncode == 0
+
+
+class FetchCommit(Origin, unittest.TestCase):
     def fetches(self, p: Product, sha: str, pr: str | None) -> tuple[bool, list[str]]:
         """fetch_commit's answer, and each ref it fetched."""
         with mock.patch.object(prhost, "_run", wraps=prhost._run) as run:
@@ -94,6 +111,46 @@ class FetchCommit(unittest.TestCase):
         git(self.elsewhere, "commit", "-q", "--allow-empty", "-m", "never pushed")
         sha = git(self.elsewhere, "rev-parse", "HEAD")
         self.assertEqual(self.fetches(p, sha, PR), (False, [f"refs/pull/{PR}/head", BRANCH]))
+
+
+class EachStepFetchesItsHead(Origin, unittest.TestCase):
+    """Each step that needs a head not in its checkout fetches it from the PR's own ref, or from the task's branch
+    when the PR has no such ref: under the GitHub adapter, a head only on either is in the checkout after the step."""
+
+    REFS = (f"refs/pull/{PR}/head", f"refs/heads/{BRANCH}")  # a message per ref: one origin, and git's dates are fixed
+
+    def test_behind_tip_fetches_the_head(self):
+        for ref in self.REFS:
+            with self.subTest(ref=ref):
+                p = self.product("github")
+                head = self.pushed(ref, f"head on {ref}")
+                self.assertEqual(lifecycle.behind_tip(p.cfg, PR, TID, head, "main"), [])
+                self.assertTrue(self.has(p, head))
+
+    def test_the_resolution_gate_fetches_the_head(self):
+        for ref in self.REFS:
+            with self.subTest(ref=ref):
+                p = self.product("github")
+                head = self.pushed(ref, f"head on {ref}")
+                q = p.root / "queue"
+                review = {"run_id": f"{TID}/review", "phase": "review", "opened_at": "2026-11-22T10:00:00Z",
+                          "reported_at": "2026-11-22T10:30:00Z", "outcome": "done"}
+                p.write(f"queue/runs/{TID}/review.json", json.dumps(review))
+                a = SimpleNamespace(mode="resolution", head=head, pr=PR)
+                with self.assertRaises(QueueError):  # fetched, then refused: the head is not a merge commit
+                    prompt.resolution_gate(p.cfg, q, TID, "review", a)
+                self.assertTrue(self.has(p, head))
+
+    def test_the_fix_judgement_fetches_the_reviewed_head_and_the_head(self):
+        for ref in self.REFS:
+            with self.subTest(ref=ref):
+                p = self.product("github")
+                reviewed = self.pushed(ref, f"reviewed on {ref}")
+                head = self.pushed(ref, f"head on {ref}", on=reviewed)
+                tip = git(p.root, "rev-parse", "origin/main")
+                verify._judge_fix(p.cfg, p.root / "queue", TID, reviewed, head, PR, f"{TID}/fix", None, [], "main",
+                                  tip)
+                self.assertEqual((self.has(p, reviewed), self.has(p, head)), (True, True))
 
 
 if __name__ == "__main__":
