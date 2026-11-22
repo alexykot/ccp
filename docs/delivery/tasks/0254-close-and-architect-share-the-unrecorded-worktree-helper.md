@@ -1,7 +1,7 @@
 ---
 task_id: 0254-close-and-architect-share-the-unrecorded-worktree-helper
 title: Close, the architect and tasks dry-run make and remove their own worktrees through one wt helper, and wt list shows a leftover arch- worktree
-status: pending
+status: done
 kind: feature
 depends_on: ["0215-a-reused-runner-worktree-moves-to-the-tip"]
 clashes_with: ["0240-plane-workers-run-the-head"]
@@ -11,7 +11,7 @@ review_point: R17
 paths: ["ccp/wt.py", "ccp/architect.py", "ccp/lifecycle.py", "ccp/dryrun.py", "tests/test_wt_unrecorded.py", "tests/test_wt_outside.py"]
 adopt: "none"
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0254-close-and-architect-share-the-unrecorded-worktree-helper
@@ -134,3 +134,5 @@ callers in `ccp/lifecycle.py`, next to the code this task moves.
   registered (the order before this task).
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #300 head `bd3fc7b` (squash `81c0f20`): APPROVE. Passed: wt-01, wt-02, wt-03, wt-04. Gate: `scripts/gate.sh` exit 0, `ccp wt exec -- suite run --lane part -- python3 -B -m unittest -q tests.test_wt_unrecorded tests.test_architect tests.test_tasks_close tests.test_wt tests.test_wt_outside tests.test_tasks_dry_run` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0254-close-and-architect-share-the-unrecorded-worktree-helper.json.
+

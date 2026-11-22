@@ -1243,7 +1243,7 @@ tasks:
     depends_on: [0243-one-source-for-syntax-events-and-config]
     path: tasks/0253-one-wait-reason-table.md
   - id: 0254-close-and-architect-share-the-unrecorded-worktree-helper
-    status: pending
+    status: done
     title: Close, the architect and tasks dry-run make and remove their own worktrees through one wt helper, and wt list shows a leftover arch- worktree
     depends_on: [0215-a-reused-runner-worktree-moves-to-the-tip]
     path: tasks/0254-close-and-architect-share-the-unrecorded-worktree-helper.md
