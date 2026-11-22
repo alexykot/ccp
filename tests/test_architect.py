@@ -203,12 +203,12 @@ class PassIsEnforced(Harness):
 class FrictionTriggersAPass(Harness):
     def test_acceptance_2_notes_reach_the_prompt(self):
         texts = ["one fact edited in 13 files", "a test pinned the help wording", "RUNBOOK read for nothing"]
-        for i, t in enumerate(texts):
-            code, _, err = self.ccp("health", "note", "--text", t, "--task", "0001-t1", "--by", "implementer")
+        for i, t in enumerate(texts, start=1):
+            code, _, err = self.ccp("health", "note", "--text", t, "--task", f"{i:04d}-t{i}", "--by", "implementer")
             self.assertEqual(code, 0, err)
         code, info, _ = self.dpj("architect", "due")
         self.assertEqual((code, info["due"]), (0, True))
-        self.assertIn("3 friction note(s) since none", info["reason"])
+        self.assertIn("3 task(s) with a friction note since none", info["reason"])
         self.stub_report([])
         self.dpj("architect", "run")
         argv = json.loads(Path(str(self.report) + ".argv").read_text())

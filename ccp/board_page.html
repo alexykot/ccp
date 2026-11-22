@@ -602,18 +602,18 @@ function quality(Q, tasks) {
   for (const [k, e] of Object.entries(E)) html += `<div class="banner critical all" role="status"><b>⚠ ${esc(NAMES[k] || k)} section failed</b><span>${esc(e)}</span></div>`;
   const s = A?.settings || {};
   html += `<div class="tiles all">
-    ${A ? `<div class="tile"><div class="k">Architect pass</div><div class="v">${A.due ? "due" : A.running.length ? "running" : "not due"}</div><div class="d">last ${A.last ? ago(A.last.started_at) : "never"} · ${A.done_since_last ?? "–"}/${s.every_n_tasks} tasks</div></div>
+    ${A ? `<div class="tile"><div class="k">Architect pass</div><div class="v">${A.due ? "due" : A.running.length ? "running" : "not due"}</div><div class="d">last ${A.last ? ago(A.last.started_at) : "never"} · ${A.done_since_last ?? "–"}/${A.cadence_tasks} tasks</div></div>
     <div class="tile"><div class="k">Awaiting triage</div><div class="v">${A.awaiting_triage.length}</div><div class="d">${A.backfills ? A.backfills + " sha backfill(s) unfinished" : "blocks after " + s.triage_grace_tasks + " merges"}</div></div>
     <div class="tile"><div class="k">Architect tasks open</div><div class="v">${A.filed.open.length}</div><div class="d">of ${A.filed.total} filed by triage</div></div>` : ""}
     ${R ? `<div class="tile"><div class="k">Budgets over</div><div class="v">${R.budgets_over}</div><div class="d">of ${R.budgets.length} · rules doc ${R.lines}/${R.rules_max_lines} lines</div></div>` : ""}
-    ${F ? `<div class="tile"><div class="k">Friction notes, 7 days</div><div class="v">${F.last_7d}</div><div class="d">${F.since_last_pass}${F.notes_due != null ? "/" + F.notes_due : ""} since the last pass</div></div>` : ""}
+    ${F ? `<div class="tile"><div class="k">Friction notes, 7 days</div><div class="v">${F.last_7d}</div><div class="d">${F.since_last_pass} since the last pass</div></div>` : ""}
   </div>`;
   if (!A && !R && !E.architect && !E.rules) html += `<p class="muted all">The architect seat is off (<code>"architect": false</code> in <code>docs/delivery/plane.json</code>): no passes, house rules or budgets to show.</p>`;
   if (A) {
     const rows = A.passes.slice().reverse();
     html += `<section class="card s3 w4"><h2>Architect passes and triage</h2><div class="cols"><div>
-      ${meter(A.done_since_last, s.every_n_tasks, `Tasks done since the last pass: <b>${A.done_since_last ?? "–"}</b> of ${s.every_n_tasks}`)}
-      ${meter(A.notes_since_last, s.notes_due, `Friction notes since: <b>${A.notes_since_last ?? "–"}</b> of ${s.notes_due}`)}
+      ${meter(A.done_since_last, A.cadence_tasks, `Tasks done since the last pass: <b>${A.done_since_last ?? "–"}</b> of ${A.cadence_tasks}`)}
+      ${meter(A.noted_tasks_since_last, A.notes_tasks, `Tasks with a friction note since: <b>${A.noted_tasks_since_last ?? "–"}</b> of ${A.notes_tasks}`)}
       ${meter(A.days_since_last, s.max_days, `Days since: <b>${A.days_since_last ?? "–"}</b> of ${s.max_days} (with a merge)`)}
       ${A.drift && A.drift.drift_ratio != null ? meter(A.drift.drift_ratio, A.drift.drift_limit, `Active-time drift: <b>${A.drift.drift_ratio}×</b> (pass due above ${A.drift.drift_limit}×)`) : ""}
       <p class="meta">${esc(A.reason || "")}</p>

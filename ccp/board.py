@@ -627,9 +627,8 @@ def _quality_lines(qy: dict[str, Any]) -> list[str]:
     out = []
     if a:
         last = (a.get("last") or {}).get("review_id") or "none"
-        s = a["settings"]
-        out.append(f"architect last pass {last}, {a.get('done_since_last')}/{s['every_n_tasks']} tasks and "
-                   f"{a.get('notes_since_last')}/{s['notes_due']} notes since; "
+        out.append(f"architect last pass {last}, {a.get('done_since_last')}/{a.get('cadence_tasks')} tasks and "
+                   f"{a.get('noted_tasks_since_last')}/{a.get('notes_tasks')} noted tasks since; "
                    + ("pass due: " + (a.get("reason") or "") if a.get("due")
                       else a.get("reason") if a.get("running") or a.get("awaiting_triage") or a.get("due") is None
                       else "not due"))

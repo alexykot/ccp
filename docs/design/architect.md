@@ -104,8 +104,9 @@ its first `next`. Switch on in this order:
    a task. After one more merge, it exits 4 with "architect pass due: 5 task(s) done since none".
    After `ccp architect run` (stubbed with `DA_CLAUDE_BIN`), `next` names a task again. Once 2 more
    merges pass with the report untriaged, it exits 4 with "awaits triage".
-2. **Friction triggers a pass.** Three `ccp health note` lines make `ccp architect due` exit 0 with
-   a reason that names the notes. The next architect prompt contains all three.
+2. **Friction triggers a pass.** With one slot, worker notes on 3 distinct tasks
+   (`ccp health note --task`) make `ccp architect due` exit 0 with a reason that names the noted
+   tasks. The next architect prompt contains all three notes.
 3. **Shaping is checked.** With `shape_adrs` on, a new pending task citing an ADR with no `sh-`
    record fails `ccp tasks check`. It passes once a record names that ADR, or once the task carries
    `shaping: waived — …`.

@@ -1,7 +1,7 @@
 ---
 task_id: 0270-the-friction-trigger-counts-noted-tasks-and-scales-with-tasks-in-flight
 title: The architect's friction trigger counts distinct tasks with a worker note, leaves out override notes, and scales with tasks in flight
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S19"]
@@ -190,4 +190,24 @@ Measured at `76f41dd` unless a line says otherwise.
 
 ## Implementation notes
 
+- `ccp/architect.py`: `_slots(cfg)` is the slot count both `_cadence` and the new `_notes_tasks` read.
+  `noted_tasks(notes, counts)` is the pure rule (source `worker`, a task named, `counts` keeps the tasks
+  the trigger counts: from the adoption point before the first pass, any task after it). `due_info`
+  reports `notes_tasks` beside `cadence_tasks` and `noted_tasks_since_last` in place of
+  `notes_since_last`; the reason reads `{n} task(s) with a friction note since {label}`. The pass's
+  prompt still reads every note (`health.notes` in the prompt builder, unchanged).
+- A note with no `source` field does not count (only `worker` counts, as the ruling says); every
+  record in this repo's queue carries one (`add_note` has always written it).
+- `ccp/quality.py`: the architect block carries `cadence_tasks`, `notes_tasks` and
+  `noted_tasks_since_last`; `settings` is unchanged. The friction block loses `notes_due` and
+  `friction()` its argument. `ccp/board.py` and `ccp/board_page.html` read the new figures; the
+  friction tile shows the lines since the last pass with no denominator.
+- The page's JavaScript has no test that runs it (the suite runs no JS engine); the Python side of
+  each figure it reads is tested through `board.json`.
+- `tests/test_architect_default_on.py`'s `test_after_a_pass_the_notes_of_any_task_count` keeps its
+  name: after a pass a task before the adoption point still counts, and the test now also shows a note
+  with no task does not.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #341 head `80d189c` (close's catch-up of the approved `a03379d`, gate run st-20261122T132455Z-3fbefb) (squash `26e14d9`): APPROVE. Passed: fr-01, fr-02, fr-03, fr-04, fr-05, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0270-the-friction-trigger-counts-noted-tasks-and-scales-with-tasks-in-flight.json.
+

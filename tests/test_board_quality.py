@@ -40,8 +40,25 @@ class Quality(QualityBase, unittest.TestCase):
         self.assertIn("budget check fails: E1: src/big.py has 5 lines > 3", a["reason"])  # §19.6 #4
         self.assertEqual(a["last"]["review_id"], "ar-20261020T100000Z-abcd")
         status = self.ccp("board", "status", root=self.main)[2]
-        self.assertIn("architect last pass ar-20261020T100000Z-abcd, 0/4 tasks and 0/3 notes since; pass due: budget", status)
+        self.assertIn("architect last pass ar-20261020T100000Z-abcd, 0/4 tasks and 0/3 noted tasks since; pass due: budget", status)
         self.assertIn("architect tasks open 1 of 2 filed", status)
+
+    def test_the_architect_figures_are_the_ones_the_triggers_use(self):
+        slots = 3
+        cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
+        self.write("docs/delivery/plane.json", json.dumps({**cfg, "parallel": {"max_in_flight": slots, "schedule": "paths"}}))
+        self.arch_on()
+        self.a_pass()
+        for task in ("0002-second", "0002-second", "0003-tidy"):
+            self.note("2026-10-20T11:00:00Z", "reviewer", "n", task=task)
+        self.note("2026-10-20T12:00:00Z", None, "overdue", task="0004-more", source="allow-overdue")
+        a = self.build()[0]["quality"]["architect"]
+        s = a["settings"]
+        cadence, notes = s["every_n_tasks"] * slots, s["notes_due"] * slots
+        self.assertEqual((a["cadence_tasks"], a["notes_tasks"], a["noted_tasks_since_last"]), (cadence, notes, 2))
+        self.assertNotIn("notes_since_last", a)
+        status = self.ccp("board", "status", root=self.main)[2]
+        self.assertIn(f"/{cadence} tasks and 2/{notes} noted tasks since;", status)
 
     def test_an_awaiting_report_shows_and_the_board_never_reaps_or_writes_architect_state(self):
         self.arch_on()
@@ -76,7 +93,8 @@ class Quality(QualityBase, unittest.TestCase):
         self.note("2026-10-20T12:00:00Z", None, "overdue: " + "long " * 100, task=None, source="allow-overdue")
         self.a_pass()
         f = self.build()[0]["quality"]["friction"]
-        self.assertEqual((f["total"], f["since_last_pass"], f["notes_due"]), (3, 2, 3))
+        self.assertEqual((f["total"], f["since_last_pass"]), (3, 2))
+        self.assertNotIn("notes_due", f)
         self.assertEqual(f["by_seat"], {"implementer": 1, "reviewer": 1, "unknown": 1})
         self.assertEqual(f["by_source"], {"worker": 2, "allow-overdue": 1})
         self.assertEqual([n["text"][:9] for n in f["recent"]], ["overdue: ", "after the", "before th"])

@@ -123,7 +123,8 @@ Non-normative notes behind SPEC §10. The rules are in `docs/spec/04-observabili
     and the tasks its triage created with their state in the task log. Totals count triaged passes
     only. The cadence is `ccp architect due`'s own reasons, computed with `record=False`, which now
     also skips reaping a dead pass, so a board build never writes `architect.json`. It shows tasks,
-    notes and days since the last pass against `every_n_tasks`, `notes_due` and `max_days`, the
+    noted tasks and days since the last pass against the numbers the triggers use (`cadence_tasks`,
+    `notes_tasks`, `ccp architect due`'s own) and `max_days`, the
     active-time drift against `drift_ratio`, reports awaiting triage, shapes due, and feature tasks
     since the last refactor against `refactor_every`.
   - **House rules** (`null` without the block): the rules doc's lines against `rules_max_lines`,

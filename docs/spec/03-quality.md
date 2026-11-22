@@ -106,11 +106,15 @@ log. A pass is due when **any** of these holds (the cadence's task count is a se
 2. **A review point closes.** Every task in the runner's scope is `done`. The scope's closing pass
    is part of its review pack. `ccp architect due|run --scope` (default: the running runner's
    `work.json` scope) carries the scope.
-3. **Friction notes.** 3 notes have arrived since the last pass's start. Any
+3. **Friction notes.** Enough distinct tasks have a worker's friction note since the last pass's
+   start: a fixed number (a constant in code) times the product's `parallel.max_in_flight` (1 when
+   tasks run one at a time, §16.2), as for the cadence. A task counts once however many notes its
+   seats wrote. A note with no task does not count, nor does one the plane records for an override
+   (`--allow-overdue`, below; `--allow-unreviewed-fix`, §15.2). Any
    worker (implementer, reviewer, verifier) may report friction in the *Friction* section of its
    report, and the runner records each line with `ccp health note`: a fact changed in many places, a
-   test that pinned wording, a document read that did not help, a rule that forced extra work. The
-   notes go to the next pass as leads.
+   test that pinned wording, a document read that did not help, a rule that forced extra work. All
+   the notes go to the next pass as leads.
 4. **Health drift.** `ccp health` finds the median active time of the last 5 tasks above
    1.5 times the median of the 10 before them (drift needs 15 timed tasks),
    or a house-rule budget (§20.2) over its limit on the integration branch that no `pending` task

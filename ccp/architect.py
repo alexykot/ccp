@@ -11,7 +11,7 @@ the task-log owner triages it under `docs/delivery/REVIEW-TRIAGE.md`. Everything
 - **cadence:** `every_n_tasks` times the slots (`parallel.max_in_flight`, 1 when tasks run one at a time) tasks
   done since the last pass, or `max_days` with at least one;
 - **a review point closing:** every task in the scope `ccp tasks next` was given is done;
-- **friction:** `notes_due` friction notes since the last pass;
+- **friction:** `notes_due` times the slots distinct tasks with a worker's friction note since the last pass;
 - **drift:** `ccp health` drift (on active time: wall time less waits), or a budget failing, that the last
   pass did not see and no `pending` task cites in its `rule_refs`.
 
@@ -45,7 +45,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from ccp import config, headless, health, parallel, pkgdocs, refs, rules, tasklog, wt
 from ccp.adr import find_file as find_adr_file
@@ -100,10 +100,26 @@ def _tasked_rules(tasks: list[dict[str, Any]]) -> set[str]:
     return {str(r) for t in tasks if t.get("status") == "pending" for r in tasklog._as_list(t.get("rule_refs"))}
 
 
+def _slots(cfg: Config) -> int:
+    """The tasks the product runs at once (§19.6): `parallel.max_in_flight`, 1 when tasks run one at a time."""
+    return int(parallel.settings(cfg)["max_in_flight"]) if parallel.enabled(cfg) else 1
+
+
 def _cadence(cfg: Config) -> int:
     """The merges the cadence waits for (§19.6): `every_n_tasks` times the tasks the product runs at once."""
-    slots = int(parallel.settings(cfg)["max_in_flight"]) if parallel.enabled(cfg) else 1
-    return int(_settings(cfg)["every_n_tasks"]) * slots
+    return int(_settings(cfg)["every_n_tasks"]) * _slots(cfg)
+
+
+def _notes_tasks(cfg: Config) -> int:
+    """The noted tasks the friction trigger waits for (§19.6): `notes_due` times the tasks the product runs at once."""
+    return int(_settings(cfg)["notes_due"]) * _slots(cfg)
+
+
+def noted_tasks(notes: list[dict[str, Any]], counts: Callable[[str], bool]) -> set[str]:
+    """The distinct tasks with a worker's friction note (§19.6): a note with no task, or with any source but
+    `worker` (the plane's own override notes), does not count; `counts` keeps only the tasks the trigger counts."""
+    return {str(n["task_id"]) for n in notes
+            if n.get("source") == "worker" and n.get("task_id") and counts(str(n["task_id"]))}
 
 
 def work_scope(q: Path, given: str | None = None) -> list[str] | None:
@@ -232,12 +248,11 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
         scope_ids = {tid for tid in scope_ids if from_adoption(tid)}
     if adopted and scope_ids and scope_ids <= done and not _covered(st, scope_ids):
         reasons.append(("review_point", "review point closes: every task in scope is done", -1))
-    notes = health.notes(q, last.get("started_at"))
-    if not last:  # only the notes of tasks from the adoption point; a note with no task does not count
-        notes = [n for n in notes if n.get("task_id") and from_adoption(n["task_id"])]
-    n_notes = len(notes)
-    if adopted and n_notes >= a["notes_due"]:
-        reasons.append(("notes", f"{n_notes} friction note(s) since {label}", -1))
+    # Before the first pass, only the tasks from the adoption point count.
+    noted = len(noted_tasks(health.notes(q, last.get("started_at")), (lambda _: True) if last else from_adoption))
+    notes_tasks = _notes_tasks(cfg)
+    if adopted and noted >= notes_tasks:
+        reasons.append(("notes", f"{noted} task(s) with a friction note since {label}", -1))
     drift = None
     if adopted:
         drift = health.trend(health.collect(cfg, q, files=False)["tasks"], a["drift_ratio"])
@@ -297,8 +312,9 @@ def due_info(cfg: Config, q: Path, scope: list[str] | None = None, record: bool 
         failed_in_a_row += 1
     info: dict[str, Any] = {
         "enabled": config.architect_on(cfg), "done_total": len(done), "done_since_last": since,
-        "days_since_last": days, "cadence_tasks": cadence, "last_review_id": last.get("review_id"), "running": running,
-        "awaiting_triage": awaiting, "notes_since_last": n_notes, "budget_failures": budgets,
+        "days_since_last": days, "cadence_tasks": cadence, "notes_tasks": notes_tasks,
+        "last_review_id": last.get("review_id"), "running": running,
+        "awaiting_triage": awaiting, "noted_tasks_since_last": noted, "budget_failures": budgets,
         "health": drift, "reasons": [t for _, t, _ in reasons], "merges_since_due": max(waited, default=0),
         "shape_due": shape_due(cfg, tasks), "last_failure": last_failure, "failed_in_a_row": failed_in_a_row,
         "merges_since_attempt": len(done) - attempt["done_count"] if restart is not None else None,
