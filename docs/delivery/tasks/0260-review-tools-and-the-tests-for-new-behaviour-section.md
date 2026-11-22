@@ -170,4 +170,22 @@ Measured at `1aa5e3f`.
 
 ## Implementation notes
 
+- 2026-11-22, implement: `report.SECTIONS` gains `tests` for implement, fix, merge and ruling, required when
+  done, read by `friction(..., why=True)`: `- ` or `* ` items, or a single line beginning `none` followed by
+  a reason. A bare `none`, an empty section, or a line that is neither is refused like a missing one, naming
+  the section. Nothing new is stored on the run (`stored` is empty). The prompt line gives the `none` form
+  with the merge example.
+- The since-ref lived in `templates/prompts/_gate.md` as a `gate_pr` section, not in `ccp/prompt.py`. It now
+  renders `origin/{{integration}}` in every phase, and `ccp/prompt.py` is unchanged.
+- `_gate.md`, `fix.md`, `merge.md` and `ruling.md` keep the self-check and no longer name the section's
+  heading or format. `review.md` names `suite affected --since origin/{{integration}}` for the part-lane run.
+- The reviewer brief names `ccp wt create --kind base` with `<base>` from `git merge-base`. It says "merge
+  base" only once, because `test_plugin` counts that token.
+- `tests/helpers.py` `done_report(phase, *lines, friction=...)` builds the done reports. Besides the modules
+  named in Context, these also filed done change-round reports and failed without it: `review_flow.py`
+  (which `test_formal_submit`, `test_marked_checks_loop`, `test_phase_contracts`, `test_review_record`,
+  `test_review_gate` and the `test_review_skip*` modules go through), `test_formal_submit`,
+  `test_plane_workers_run_head` and `test_report_follow_ups`. `test_prompt_gate_block` pinned the old
+  since-ref. `tests/CLAUDE.md` lists the helper.
+
 ## Verification notes
