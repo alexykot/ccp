@@ -39,16 +39,21 @@ queue or subprocess, test a function on plain values instead (`test_catch_up_dec
   `init()` to run `ccp init` there.
 - `gate_parallel_fixture.py`'s `GateFixture`: a temp git repository holding copies of the gate scripts, and
   `module()`, `gate()` and `read()` to write test modules and run the gate on them.
-- `suite_fixture.py`'s `SuiteFixture` (a `ToolkitFixture` for `ccp suite run`) and `suite_stages_fixture.py`'s
-  `StagedFixture` (it, with a `lanes()` setter for plane.json `suite.lanes`).
-- `wt_fixture.py`'s `WtFixture`, `rotation_fixture.py`'s `RotationFixture`, `parallel_claims_fixture.py`'s
-  `ParallelFixture`, `verify_cache_fixture.py`'s `CacheFixture` and `notify_fixture.py`'s `ChannelFixture`: each a
-  `ToolkitFixture` set up for its feature's tests. `upgrade_fixture.py`'s `UpgradeFixture` is a mixin of its own:
-  a scratch plane, product and queue.
-- `board_drill_fixture.py`'s `Fixture`, `board_quality_fixture.py`'s `Base` and `board_seats_fixture.py`'s `Base`:
-  the board tabs' fixtures; `estimate_fixture.py`'s `EstimatePage`: the estimates tab under node, a mixin.
-- `sandbox_fixture.py`'s `SandboxCase`, `binding_reader_fixture.py`'s `BindingDir` and `architect_fixture.py`'s
-  `Harness`: a `TestCase` base for the sandbox, binding reader and architect tests.
+- `suite_fixture.py`'s `SuiteFixture`: a `ToolkitFixture` for `ccp suite run`.
+- `suite_stages_fixture.py`'s `StagedFixture`: `SuiteFixture` with a `lanes()` setter for plane.json `suite.lanes`.
+- `wt_fixture.py`'s `WtFixture`: a `ToolkitFixture` set up for the worktree tests.
+- `rotation_fixture.py`'s `RotationFixture`: a `ToolkitFixture` set up for the rotation tests.
+- `parallel_claims_fixture.py`'s `ParallelFixture`: a `ToolkitFixture` set up for the parallel-claim tests.
+- `verify_cache_fixture.py`'s `CacheFixture`: a `ToolkitFixture` set up for the verify cache tests.
+- `notify_fixture.py`'s `ChannelFixture`: a `ToolkitFixture` set up for the notification tests.
+- `upgrade_fixture.py`'s `UpgradeFixture`: a mixin of its own (no `ToolkitFixture`): a scratch plane, product and queue.
+- `board_drill_fixture.py`'s `Fixture`: the board drill-down tests' fixture, on `QualityBase`.
+- `board_quality_fixture.py`'s `QualityBase`: a `ToolkitFixture` for the board's quality tab and plan tests.
+- `board_seats_fixture.py`'s `SeatsBase`: a `ToolkitFixture` for the board's seats tab and expected-model tests.
+- `estimate_fixture.py`'s `EstimatePage`: the estimates tab under node, a mixin.
+- `sandbox_fixture.py`'s `SandboxCase`: a `TestCase` base for the sandbox tests.
+- `binding_reader_fixture.py`'s `BindingDir`: a `TestCase` base for the binding reader tests.
+- `architect_fixture.py`'s `Harness`: a `TestCase` base for the architect tests.
 
 **Reuse rule.** A fixture shared across modules is a class with no test methods (`ToolkitFixture` and the
 mixins above mix into a `TestCase`; the others are `TestCase` bases that hold no tests), in a module that holds no

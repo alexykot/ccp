@@ -10,12 +10,12 @@ import unittest
 
 from ccp import board, config, models, runs, seats, usage
 from tests.board_quality_fixture import HOSTILE, STUB, _hostile
-from tests.board_seats_fixture import Base, at, req
+from tests.board_seats_fixture import SeatsBase, at, req
 
 RUNNER, IMPLEMENTER = models.default("runner"), models.default("implementer")  # each role's default model and effort
 
 
-class Expected(Base, unittest.TestCase):
+class Expected(SeatsBase, unittest.TestCase):
     def test_the_product_copy_wins_over_the_plugin(self):
         f = self.main / ".claude/agents/delivery-implementer.md"
         f.write_text(f.read_text().replace("effort: high", "effort: max"))
@@ -132,7 +132,7 @@ class Expected(Base, unittest.TestCase):
         self.assertIn("keeps its own model and effort", got["spec-maintainer"]["notes"][0])
 
 
-class Observed(Base, unittest.TestCase):
+class Observed(SeatsBase, unittest.TestCase):
     def test_a_known_headless_session_is_not_the_lead_and_an_interactive_sdk_call_is(self):
         """An architect pass's `claude -p` calls folded onto the design seat. A session
         the plane launched (headless-usage.jsonl names it) is set aside on the lead's row; a call
@@ -263,7 +263,7 @@ def render(b) -> str:
 
 
 @unittest.skipUnless(shutil.which("node"), "node is not installed")
-class Rendered(Base, unittest.TestCase):
+class Rendered(SeatsBase, unittest.TestCase):
     def test_every_seat_string_renders_as_text(self):
         self.design_seat()
         self.open_implement()

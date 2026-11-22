@@ -23,7 +23,7 @@ RULES = """# Engineering
 HOSTILE = "x <!--<script> y </script><img src=x onerror=alert(1)> &amp;"
 
 
-class Base(ToolkitFixture):
+class QualityBase(ToolkitFixture):
     def arch_on(self, **extra):
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
         self.write("docs/delivery/plane.json", json.dumps({**cfg, "architect": {

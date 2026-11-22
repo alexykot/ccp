@@ -13,7 +13,7 @@ def at(minutes_ago: float) -> str:
     return (datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-class Base(ToolkitFixture):
+class SeatsBase(ToolkitFixture):
     def design_seat(self, model="claude-opus-5-5", effort="xhigh"):
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
         self.write("docs/delivery/plane.json", json.dumps({**cfg, "telemetry": {"design_seat": {"model": model, "effort": effort}}}))

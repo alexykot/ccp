@@ -11,7 +11,7 @@ from pathlib import Path
 from ccp import architect, config, estimator, models, seats
 from tests.helpers import Product
 from tests.architect_fixture import Harness as ArchitectHarness
-from tests.board_seats_fixture import Base as SeatsBase
+from tests.board_seats_fixture import SeatsBase
 from tests.init_fixture import InitCase
 from tests.team_hosting_fixture import TeamCase
 from tests.toolkit_fixture import ToolkitFixture

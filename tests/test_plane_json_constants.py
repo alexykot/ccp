@@ -15,7 +15,7 @@ from unittest import mock
 
 from ccp import architect, board, config, drill, estimate, forecast, health, init, prompt, tasklog, usage, wt
 from tests.helpers import advice_row as row, Product
-from tests.board_seats_fixture import Base, req
+from tests.board_seats_fixture import SeatsBase, req
 from tests.toolkit_fixture import ToolkitFixture
 from tests.upgrade_fixture import UpgradeFixture
 
@@ -341,7 +341,7 @@ class TheWorktreesDirectory(unittest.TestCase):
         self.assertEqual(schema_prop("worktrees.dir")["default"], config.WORKTREES_DIR)
 
 
-class TheLeadsExpectedModelReaders(Base, ToolkitFixture, unittest.TestCase):
+class TheLeadsExpectedModelReaders(SeatsBase, ToolkitFixture, unittest.TestCase):
     """A product with no `telemetry.design_seat` and `models.lead` on an alias other than the default, whose lead ran
     on opus: each reader of the lead's expected model reads `models.lead` (`config.design_seat`)."""
 

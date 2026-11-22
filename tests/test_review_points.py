@@ -25,7 +25,7 @@ from tests.helpers import (
     tagged_task as _tagged,
     TASK,
 )
-from tests.board_quality_fixture import HOSTILE, STUB, Base, _hostile
+from tests.board_quality_fixture import HOSTILE, STUB, QualityBase, _hostile
 from tests.team_hosting_fixture import TeamCase
 
 
@@ -551,7 +551,7 @@ class BackfillRenamed(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node is not installed")
-class Rendered(Base, unittest.TestCase):
+class Rendered(QualityBase, unittest.TestCase):
     def render(self, b):
         js = board.PAGE.read_text().replace("/*__BOARD__*/null", board.embed(b)).split("<script>", 1)[1].split("</script>", 1)[0]
         r = subprocess.run(["node", "-e", STUB + js + "\nprocess.stdout.write(out.join(''));"],

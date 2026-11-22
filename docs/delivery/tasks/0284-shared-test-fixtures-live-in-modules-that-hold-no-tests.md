@@ -195,5 +195,9 @@ Measured at `072d9f9`.
 - E4's text is the architect's, the `check:` line names the new grep, `architect.checks` `E4` appends it.
   `tests/test_self_hosting.py` runs that part of the command on this repo and on throwaway repositories (the
   four forms the grep names must fail it, a fixture import must pass it); that test is beyond the task's list.
+- Fix round 1 (review of `be15bde5`): the two board fixture modules no longer share a class name: `board_quality_fixture.Base`
+  is `QualityBase` and `board_seats_fixture.Base` is `SeatsBase` (the ruling's distinct class names), with the eight
+  importers and `tests/CLAUDE.md` updated; `test_models_block` no longer aliases it. `tests/CLAUDE.md` "Shared fixtures" now has
+  one bullet per fixture module.
 
 ## Verification notes

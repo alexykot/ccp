@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from tests.board_quality_fixture import Base
+from tests.board_quality_fixture import QualityBase
 
 
 T0 = datetime(2026, 10, 20, 9, 0, tzinfo=timezone.utc).timestamp()  # in the past: an open task runs to now
@@ -20,7 +20,7 @@ def at_s(s: float) -> str:
     return datetime.fromtimestamp(T0 + s, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-class Fixture(Base):
+class Fixture(QualityBase):
     """A run of 0002-second with telemetry and suites, in flight."""
 
     def seed(self, n_requests: int = 3, note: str = "suite runs took long", wait: str = "spec_maintainer"):

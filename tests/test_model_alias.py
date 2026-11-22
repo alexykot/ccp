@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 from ccp import config, models, runs, seats, usage
-from tests.board_seats_fixture import Base, req as seat_req
+from tests.board_seats_fixture import SeatsBase, req as seat_req
 from tests.helpers import api_request as req, FoldRuns
 
 SONNET, OPUS = "claude-sonnet-5-5", "claude-opus-5-5"
@@ -70,7 +70,7 @@ class UsageFold(FoldRuns, unittest.TestCase):
         self.assertEqual(len(usage.fold(self.q, design_seat={"model": "sonnet", "effort": "xhigh"})["advice"]), 1)
 
 
-class BoardSeats(Base, unittest.TestCase):
+class BoardSeats(SeatsBase, unittest.TestCase):
     def test_the_sonnet_run_is_on_pin_and_the_opus_run_is_a_mismatch(self):
         rid = self.open_implement()
         cfg = config.load(self.main)

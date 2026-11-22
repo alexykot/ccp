@@ -8,10 +8,10 @@ import subprocess
 import unittest
 
 from ccp import board, quality
-from tests.board_quality_fixture import Base, HOSTILE, RULES, STUB, _hostile
+from tests.board_quality_fixture import QualityBase, HOSTILE, RULES, STUB, _hostile
 
 
-class Quality(Base, unittest.TestCase):
+class Quality(QualityBase, unittest.TestCase):
 
     def test_without_the_architect_block_only_friction_shows(self):
         self.note("2026-10-20T09:00:00Z", "implementer", "a fact in three places")
@@ -183,7 +183,7 @@ class Quality(Base, unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node is not installed")
-class Rendered(Base, unittest.TestCase):
+class Rendered(QualityBase, unittest.TestCase):
     def test_every_string_in_the_board_renders_as_text(self):
         """Render the whole page in node with every board string made hostile: any interpolation
         that skips esc(), under any name, puts a raw tag into the HTML."""
