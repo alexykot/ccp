@@ -1,7 +1,7 @@
 ---
 task_id: 0301-tasks-check-warns-on-a-bare-test-runner-and-a-brief-sign-off-shows-what-changed-since-measured
 title: ccp tasks check warns on a check step that runs the language's test command outside ccp suite run, a brief sign-off of a stale brief prints what changed its paths, the writing-tasks skill says how a check runs tests and how a new task meets a pending ruling, and E4's command finds every form of a test-module import
-status: pending
+status: done
 kind: feature
 depends_on: ["0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope", "0298-the-cli-reference-reads-each-span-s-flags-and-tests-take-the-plane-root-and-git-env-from-helpers"]
 spec_refs: ["S3", "S5", "S21"]
@@ -193,3 +193,5 @@ From the triage of architect pass `ar-20261122T141424Z-e148` (F03) and the lead'
   the program could not parse.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #357 head `80a89c3` (squash `a4991e7`): APPROVE. Passed: spec-01, cmd-01, cmd-02, doc-01, cfg-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0301-tasks-check-warns-on-a-bare-test-runner-and-a-brief-sign-off-shows-what-changed-since-measured.json.
+
