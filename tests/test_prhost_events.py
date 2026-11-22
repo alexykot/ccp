@@ -54,6 +54,13 @@ class PrEvents(ToolkitFixture, unittest.TestCase):
         self.assertEqual((edited["op"], edited["task_id"], edited["payload"]), ("edited", "0002-second",
                                                                                  {"pr": 1, "head": head}))
 
+    def test_a_pr_for_a_branch_that_is_not_a_tasks_has_no_task_id_on_its_event(self):
+        git(self.runner, "push", "-q", "origin", "HEAD:refs/heads/other")
+        code, _, out, err = self.ccp("pr", "open", "--branch", "other", "--title", "t", "--body-file", "-", stdin="b\n")
+        self.assertEqual(code, 0, out + err)
+        [opened] = self.pr_events()
+        self.assertEqual((opened["op"], opened["task_id"]), ("opened", ""))
+
     def test_a_view_that_only_moves_the_head_appends_none(self):
         self.ccp("tasks", "claim", "0002")
         self.push("feature.txt")
