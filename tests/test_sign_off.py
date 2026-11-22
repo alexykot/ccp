@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, tasklog
+from ccp.queue import lib
 from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 from tests.helpers import as_lead
 
@@ -126,6 +127,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         code, _, _, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 3)
         self.assertIn("no brief sign-off", err)
+        self.assertIn(f"ACTOR={lib.LEAD} ccp tasks sign-off 0002-second", err)
         self.assertFalse((self.q / "tasks/0002-second.json").exists())
         self.assertFalse((self.main / config.WORKTREES_DIR / "impl-0002").exists())
         code, body, out, err = self.sign()
@@ -347,6 +349,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         code, tid, err = self.next_id()
         self.assertEqual((code, tid), (0, "0002-second"), err)
         self.assertIn("passed over 0001-first: no brief sign-off on record", err)
+        self.assertIn(f"ACTOR={lib.LEAD} ccp tasks sign-off 0001-first", err)
         code, _, out, err = self.lead("tasks", "sign-off", "0001", "--by", "op", "--words", "signed")
         self.assertEqual(code, 0, out + err)
         code, tid, err = self.next_id()
@@ -437,7 +440,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         code, tid, err = self.next_id()
         self.assertEqual((code, tid), (0, "0003-third"), err)
         self.assertIn("passed over 0001-first: stale brief sign-off: 0001-first's brief sign-off is stale", err)
-        self.assertIn("ccp tasks sign-off 0001-first --stage brief", err)
+        self.assertIn(f"ACTOR={lib.LEAD} ccp tasks sign-off 0001-first --stage brief", err)
         self.assertIn("passed over 0002-second: malformed sign_off: sign_off 'breif'", err)
         self.assertIn("ccp tasks check", err)
         for tid in ("0001", "0002"):  # what next passed over, claim refuses

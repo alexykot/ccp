@@ -50,7 +50,7 @@ class OnPlainValues(unittest.TestCase):
                                              [run_record("0001-a"), run_record("0002-b", DECIDED)])
         self.assertEqual(len(errs), 1)
         fid = refs.follow_up_id("0001-a/review", 1)
-        for token in ("R1", fid, f"ccp tasks follow-up {fid}"):
+        for token in ("R1", fid, f"ACTOR={lib.LEAD} ccp tasks follow-up {fid}"):
             self.assertIn(token, errs[0])
 
     def test_every_closed_point_is_checked_not_only_the_first(self):

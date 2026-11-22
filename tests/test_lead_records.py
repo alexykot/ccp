@@ -186,6 +186,7 @@ class ARulingAnotherSeatRecorded(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.verify(self.foreign)
         self.assertNotEqual(code, 0, out + err)
         self.assertIn(self.foreign, err)
+        self.assertIn(f"ACTOR={lib.LEAD} ccp tasks ruling", err)
         self.assertFalse(any(p.name.startswith("verify") for p in (self.q / "runs" / TASK).glob("*.json")))
 
     def test_the_lead_s_ruling_waives_the_check(self):

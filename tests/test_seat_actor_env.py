@@ -1,10 +1,12 @@
 """SPEC §9.1, §11.1, §18.2: the plugin's hooks drop an `ACTOR` the session exports before they run `ccp`, so each
-call records as `queue.actor`'s default whatever the session names; only the lead's own calls name the lead."""
+call records as `queue.actor`'s default whatever the session names; and the test fence (§14) drops one a developer's
+shell exports."""
 from __future__ import annotations
 
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -65,6 +67,15 @@ class TheHooksDropTheSessionsActor(unittest.TestCase):
         self.assertEqual(r.returncode, 2, r.stderr)  # 0001-a is ready: the runner is kept working
         self.assertEqual(self.calls(), {"where": "unset", "tasks rotation-due": "unset", "tasks list": "unset",
                                         "tasks next": "unset"})
+
+
+
+class TheTestFenceDropsAnExportedActor(unittest.TestCase):
+
+    def test_importing_the_tests_package_drops_actor(self):
+        r = subprocess.run([sys.executable, "-B", "-c", "import os, tests; print(os.environ.get('ACTOR'))"],
+                           capture_output=True, text=True, cwd=PLANE_ROOT, env={**os.environ, **LEAD_ENV}, timeout=60)
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, "None"), r.stderr)
 
 
 if __name__ == "__main__":

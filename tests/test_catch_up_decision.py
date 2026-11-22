@@ -406,6 +406,7 @@ class ABuildSignOffIsCarriedOnlyByTheCatchUp(unittest.TestCase):
     def test_another_head_is_stale(self):
         [why] = self.gaps(self.MERGED)
         self.assertIn("build sign-off is stale", why)
+        self.assertIn(f"ACTOR={lib.LEAD} ccp tasks sign-off", why)
 
     def test_the_head_a_catch_up_carried_the_sign_off_to_holds(self):
         self.carry()
