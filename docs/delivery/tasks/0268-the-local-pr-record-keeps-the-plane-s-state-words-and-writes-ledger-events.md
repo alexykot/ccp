@@ -1,7 +1,7 @@
 ---
 task_id: 0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events
 title: The local PR record stores the plane's own state words, and each write of it records a pr ledger event
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0266-github-knowledge-stays-in-the-pr-host-module", "0263-writers-are-checked-against-their-contracts"]
@@ -14,7 +14,7 @@ paths: ["ccp/prhost.py", "contracts/pr_record.schema.json", "contracts/observabi
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events
@@ -149,3 +149,5 @@ local adapter's record writes record no ledger event; 0222's verification note s
 - ADR-0040 D3 was already `built` on the base; `ccp adr decide 40 D3 built` changed nothing.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #321 head `30fa63f` (squash `471adcc`): APPROVE. Passed: data-01, data-02, ev-01, ev-02, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events.json.
+

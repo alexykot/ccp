@@ -1313,7 +1313,7 @@ tasks:
     depends_on: []
     path: tasks/0267-mutate-falls-back-to-the-language-pack.md
   - id: 0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events
-    status: pending
+    status: done
     title: The local PR record stores the plane's own state words, and each write of it records a pr ledger event
     depends_on: []
     path: tasks/0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events.md
