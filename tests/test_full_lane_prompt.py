@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, prompt as prompt_mod
+from tests.helpers import done_report
 from tests.review_flow import ReviewFlow
 from tests.test_toolkit import ToolkitFixture
 
@@ -37,7 +38,7 @@ class DeclaredFullLane(ReviewFlow, ToolkitFixture, unittest.TestCase):
             code, body, out, err = self.ccp("prompt", phase, "0002", "--pr", "7", "--head", head)
             self.assertEqual(code, 0, f"{phase}: {out}{err}")
             texts[phase] = Path(body["prompt_path"]).read_text()
-            code, _, out, err = self.report(body["run_id"], f"Outcome: done\nPR: #7\nHead: {to}\n## Friction\nnone\n")
+            code, _, out, err = self.report(body["run_id"], done_report(phase, "PR: #7", f"Head: {to}"))
             self.assertEqual(code, 0, f"{phase} report: {out}{err}")
         for phase, text in texts.items():
             self.assertIn(DECLARED, text, phase)
@@ -108,7 +109,7 @@ class GateOnlyLanes(ReviewFlow, ToolkitFixture, unittest.TestCase):
         code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
         self.assertEqual(code, 0, out + err)
         texts = {"implement": Path(body["prompt_path"]).read_text()}
-        code, _, out, err = self.report(body["run_id"], f"Outcome: done\nPR: #7\nHead: {A}\n## Friction\nnone\n")
+        code, _, out, err = self.report(body["run_id"], done_report("implement", "PR: #7", f"Head: {A}"))
         self.assertEqual(code, 0, out + err)
         self.run_phase("review", A, "Severity: BLOCKER=1 MAJOR=0 MINOR=0 NIT=0")
         code, body, out, err = self.ccp("prompt", "fix", "0002", "--pr", "7", "--head", A)
@@ -158,7 +159,7 @@ class _PregateBriefs(ReviewFlow, ToolkitFixture):
         code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
         self.assertEqual(code, 0, out + err)
         texts = {"implement": Path(body["prompt_path"]).read_text()}
-        code, _, out, err = self.report(body["run_id"], f"Outcome: done\nPR: #7\nHead: {A}\n## Friction\nnone\n")
+        code, _, out, err = self.report(body["run_id"], done_report("implement", "PR: #7", f"Head: {A}"))
         self.assertEqual(code, 0, out + err)
         self.run_phase("review", A, "Severity: BLOCKER=1 MAJOR=0 MINOR=0 NIT=0")
         steps = (("fix", A, B, ()), ("merge", B, A, ()), ("ruling", A, B, ("--note", "the field is optional")))
@@ -166,7 +167,7 @@ class _PregateBriefs(ReviewFlow, ToolkitFixture):
             code, body, out, err = self.ccp("prompt", phase, "0002", "--pr", "7", "--head", head, *extra)
             self.assertEqual(code, 0, f"{phase}: {out}{err}")
             texts[phase] = Path(body["prompt_path"]).read_text()
-            code, _, out, err = self.report(body["run_id"], f"Outcome: done\nPR: #7\nHead: {to}\n## Friction\nnone\n")
+            code, _, out, err = self.report(body["run_id"], done_report(phase, "PR: #7", f"Head: {to}"))
             self.assertEqual(code, 0, f"{phase} report: {out}{err}")
         return texts
 

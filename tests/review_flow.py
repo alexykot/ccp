@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from tests.helpers import done_report
 from tests.test_toolkit import PLANE, ToolkitFixture, git
 
 A, B = "a" * 40, "b" * 40
@@ -25,8 +26,7 @@ class ReviewFlow:
     def run_phase(self, phase: str, head: str, lines: str, *extra: str):
         code, body, out, err = self.ccp("prompt", phase, "0002", "--pr", "7", "--head", head, *extra)
         self.assertEqual(code, 0, f"{phase}: {out}{err}")
-        beyond = "## Spec beyond intent\nnone\n" if phase == "review" else ""  # §3.5: a review says what it found
-        code, _, out, err = self.report(body["run_id"], f"Outcome: done\n{lines}\n{beyond}## Friction\nnone\n")
+        code, _, out, err = self.report(body["run_id"], done_report(phase, lines))
         self.assertEqual(code, 0, f"{phase} report: {out}{err}")
         return body["run_id"]
 
@@ -123,7 +123,7 @@ class PhaseFlow(ReviewFlow):
         code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
         self.assertEqual(code, 0, out + err)
         self.bind("delivery-implementer", "agent-implementer", self.IMPLEMENTER_SESSION)
-        code, _, out, err = self.report(body["run_id"], f"Outcome: done\nPR: #7\nHead: {head}\n## Friction\nnone\n")
+        code, _, out, err = self.report(body["run_id"], done_report("implement", "PR: #7", f"Head: {head}"))
         self.assertEqual(code, 0, out + err)
         return body["run_id"]
 

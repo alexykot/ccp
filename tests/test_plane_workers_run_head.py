@@ -15,6 +15,7 @@ from unittest import mock
 
 from ccp import cli, prompt, wt
 from ccp.queue import CCP_BIN
+from tests.helpers import done_report
 from tests.test_report_fields import HEAD
 from tests.test_toolkit import ToolkitFixture
 
@@ -132,11 +133,11 @@ class EveryPhaseRunsTheHead(ToolkitFixture, unittest.TestCase):
     """Each worker prompt of a product whose checkout carries `bin/ccp` names the head's `ccp` for the
     commands the worker runs: the shared rules (suite runs, mutation runs, the report) and the phase's own."""
 
-    def open(self, phase: str, *args: str, report: str) -> tuple[str, str]:
+    def open(self, phase: str, *args: str, report: tuple[str, ...]) -> tuple[str, str]:
         code, body, out, err = self.ccp("prompt", phase, "0002", *args)
         self.assertEqual(code, 0, out + err)
         text = Path(body["prompt_path"]).read_text()
-        code, _, out, err = self.report(body["run_id"], f"Outcome: done\n{report}## Friction\nnone\n")
+        code, _, out, err = self.report(body["run_id"], done_report(phase, *report))
         self.assertEqual(code, 0, out + err)
         return body["run_id"], text
 
@@ -146,10 +147,9 @@ class EveryPhaseRunsTheHead(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 0, out + err)
         pr = ("--pr", "7", "--head", HEAD)
-        return {"implement": self.open("implement", "--base", "abc1234", report=f"PR: #7\nHead: {HEAD}\n"),
-                "review": self.open("review", *pr, report="Severity: BLOCKER=1 MAJOR=0 MINOR=0 NIT=0\n"
-                                                        "## Spec beyond intent\nnone\n"),
-                "fix": self.open("fix", *pr, report=f"PR: #7\nHead: {HEAD}\n")}
+        return {"implement": self.open("implement", "--base", "abc1234", report=("PR: #7", f"Head: {HEAD}")),
+                "review": self.open("review", *pr, report=("Severity: BLOCKER=1 MAJOR=0 MINOR=0 NIT=0",)),
+                "fix": self.open("fix", *pr, report=("PR: #7", f"Head: {HEAD}"))}
 
     def test_the_commands_a_worker_runs_are_the_rendered_ccp(self):
         texts = self.prompts()

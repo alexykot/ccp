@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, report, runs, verify
-from tests.helpers import binding
+from tests.helpers import binding, done_report
 from tests.review_flow import ReviewFlow
 from tests.test_report_fields import HEAD, MIGRATION, implement_report
 from tests.test_toolkit import ToolkitFixture, git
@@ -51,10 +51,10 @@ class Rounds(ReviewFlow, ToolkitFixture, unittest.TestCase):
         self.assertIn("merge round 1", prompt.read_text())
         self.assertEqual(json.loads((self.q / "tasks/0002-second.json").read_text())["status"], "fixing")
         self.assertEqual(body["agent_call"]["description"], "0002 merge")
-        code, _, out, err = self.report("0002-second/merge", "Outcome: done\nPR: #7\n## Friction\nnone\n")
+        code, _, out, err = self.report("0002-second/merge", done_report("merge", "PR: #7"))
         self.assertEqual(code, 1, out + err)
         self.assertIn("no `Head: <sha>` line", err)
-        code, _, out, err = self.report("0002-second/merge", f"Outcome: done\nPR: #7\nHead: {B}\n## Friction\nnone\n")
+        code, _, out, err = self.report("0002-second/merge", done_report("merge", "PR: #7", f"Head: {B}"))
         self.assertEqual(code, 0, out + err)
         code, body, out, err = self.ccp("prompt", "merge", "0002", "--pr", "7", "--head", B)
         self.assertEqual((code, body["run_id"]), (0, "0002-second/merge-2"), out + err)
@@ -212,7 +212,7 @@ class RunIds(unittest.TestCase):
             got, errs = report.parse(phase, "Outcome: done\n## Friction\nnone\n")
             self.assertIn("no `PR: #<number>` line", errs, phase)
             self.assertIn("no `Head: <sha>` line", errs, phase)
-            got, errs = report.parse(phase, f"Outcome: done\nPR: #7\nHead: {A}\n## Friction\nnone\n")
+            got, errs = report.parse(phase, done_report(phase, "PR: #7", f"Head: {A}"))
             self.assertEqual((errs, got["pr"], got["head"]), ([], "7", A), phase)
 
 

@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import runs
+from tests.helpers import done_report
 from tests.review_flow import ReviewFlow
 from tests.test_report_fields import HEAD, implement_report
 from tests.test_toolkit import ToolkitFixture
@@ -51,8 +52,8 @@ class Correction(ReviewFlow, ToolkitFixture, unittest.TestCase):
 
     def reported_implement(self, *lines: str) -> None:
         self.open_phase("implement", "--base", "abc1234")
-        text = "\n".join(["Outcome: done", "PR: #7", f"Head: {HEAD}", "Suite: 412 tests, 88.5 s", *lines,
-                          "## Friction", "- the same fact sits in three files", "- a test pinned an error's wording", ""])
+        text = done_report("implement", "PR: #7", f"Head: {HEAD}", "Suite: 412 tests, 88.5 s", *lines,
+                           friction=("- the same fact sits in three files", "- a test pinned an error's wording"))
         code, _, out, err = self.report(IMPLEMENT, text)
         self.assertEqual(code, 0, out + err)
 
@@ -134,8 +135,8 @@ class Correction(ReviewFlow, ToolkitFixture, unittest.TestCase):
         self.reported_implement()
         metrics = self.metrics()
         self.assertTrue(metrics)
-        code, _, out, err = self.report(IMPLEMENT, "\n".join([
-            "Outcome: done", "PR: #8", f"Head: {HEAD}", "Suite: 415 tests, 90 s", "## Friction", "none", ""]))
+        code, _, out, err = self.report(IMPLEMENT, done_report("implement", "PR: #8", f"Head: {HEAD}",
+                                                               "Suite: 415 tests, 90 s"))
         self.assertEqual(code, 0, out + err)
         self.assertEqual(self.metrics(), metrics)
         rec = self.run_rec(IMPLEMENT)

@@ -39,11 +39,11 @@ class GateBlock(unittest.TestCase):
             text = prompt.render_phase(phase, values())
             self.assertEqual("do not merge again if the tip moves" in text, phase in ("implement", "fix"), phase)
 
-    def test_the_affected_run_starts_from_the_base_in_implement_and_from_the_head_after(self):
+    def test_the_affected_run_starts_from_the_integration_tip_in_every_phase(self):
         for phase in PUSHING:
             text = prompt.render_phase(phase, values())
-            since = "origin/main" if phase == "implement" else "<head>"
-            self.assertIn(f"suite affected --since {since}`", text, phase)
+            self.assertIn("suite affected --since origin/main`", text, phase)
+            self.assertNotIn("--since <head>", text, phase)
             self.assertEqual("adr decide" in text, phase == "implement", phase)
 
     def test_only_the_merge_round_hands_a_tip_failure_to_the_report(self):

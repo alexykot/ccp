@@ -23,6 +23,8 @@ queue or subprocess, test a function on plain values instead (`test_catch_up_dec
   fix and verify rounds (`run_phase`, `review`, `fix`, `verdict`, `verify_round`) and commits in a worktree (`commit`).
 - `review_flow.py`'s `SkipFlow`: `ReviewFlow` plus a proof command and the task's worktree, for `verify.skip_review`
   (`reviewed`, `push`, `verify`, its own `commit` and `fix`; `PROOF`, `SKIP_REVIEW_PLANE`).
+- `helpers.py`'s `done_report(phase, *lines)`: the text of a done report of a phase that `ccp report` accepts,
+  with the section the phase needs when done. A test that files a done report for something else writes it with this.
 - `helpers.py`'s `FoldRuns` (`mkrun`, `write`, `rows`: run records and usage rows in a temp queue) and `BoardPage`
   (`page`: the board page's script run under node): mixins for a `TestCase`.
 - `test_team_hosting.py`'s `TeamCase`: a `Product` and a claude-team queue (its binding, work state and

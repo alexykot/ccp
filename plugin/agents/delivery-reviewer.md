@@ -41,10 +41,10 @@ propose new scope.
   above, and remove it with `ccp wt remove <name>`; never a hand edit and restore in your own
   checkout.
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
-  the PR's merge base before calling a citation wrong. To read or run code at that base, use
-  `ccp wt create --kind base --task <task_id> --sha <merge base> -- <command>`, with the merge base
-  from `git merge-base origin/<integration> <PR head>`. Never use a hand-made checkout, `git archive`
-  or `--kind mut` for it.
+  the PR's merge base before calling a citation wrong. To read or run code there, use
+  `ccp wt create --kind base --task <task_id> --sha <base> -- <command>`, `<base>` being what
+  `git merge-base origin/<integration> <PR head>` prints. Never use a hand-made checkout,
+  `git archive` or `--kind mut` for it.
 - Run a check's `ccp` command by hand as your prompt renders `ccp` (its template's `{{ccp}}`),
   from your checkout of the head (SPEC §12.1).
 
