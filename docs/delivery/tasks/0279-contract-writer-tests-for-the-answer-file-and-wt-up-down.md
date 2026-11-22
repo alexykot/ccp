@@ -1,7 +1,7 @@
 ---
 task_id: 0279-contract-writer-tests-for-the-answer-file-and-wt-up-down
 title: The answer file and the records ccp wt up and down write are checked against their contracts, and the two dead contracts are removed
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E9", "E12"]
@@ -144,4 +144,19 @@ of which stay true; neither removed schema is named in the SPEC. No sign-off.
 
 ## Implementation notes
 
+- Built as the lead's rulings give: `contracts/question_answer.example.json` (new), the two tests in
+  `tests/test_contract_writers.py` (`Examples` and `WorktreeContract`), the one sentence in
+  `contracts/CLAUDE.md`, and `contracts/architecture_review.schema.json` and `contracts/result.schema.json` removed.
+- The test module imports `spec_maintainer` at module level with the script directory put on `sys.path`, as
+  `tests/test_plugin.py` does inside its tests.
+- The second worktree (failed `up`) is created with `--name ver-0002-2`, since a `ver` worktree for the task
+  already exists and `ccp wt create` would otherwise report it again.
+- A `--mutant-file` mutant's old text is whole lines: the dod_check 3 file names the third line in full
+  (`raise QueueError(f"env.up for ...", 1)`), as a text ending mid-line matches nowhere.
+- Measured premises at `b4af31e8`: `git grep -c question_answer -- tests` no match; `git grep -n up_at -- tests` no
+  match; the architecture_review/result grep printed the two `$id` lines; `completed_at` no match;
+  `ls contracts/*.schema.json | wc -l` 23. All as the task states.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #310 head `91788cf` (close's catch-up of the approved `7f39e24`, gate run st-20261122T050818Z-570f6a) (squash `d5ac0bd`): APPROVE. Passed: code-01, code-02, data-01, doc-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0279-contract-writer-tests-for-the-answer-file-and-wt-up-down.json.
+
