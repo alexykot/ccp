@@ -47,6 +47,19 @@ class Submit(PhaseFlow, ToolkitFixture, unittest.TestCase):
         err = self.refused("no_open_spec_escalation")
         self.assertIn(qid, err)
 
+    def test_an_open_spec_escalation_of_the_task_is_refused_and_another_class_is_not(self):
+        self.implemented()
+        self.reviewed_as(CLEAN)
+        d = self.q / "escalations" / "0002-second"
+        d.mkdir(parents=True)
+        (d / "1.json").write_text(json.dumps({"task_id": "0002-second", "escalation_id": "0002-second-1",
+                                              "class": "operator", "status": "open"}))
+        code, _, out, err = self.ccp("tasks", "submit", "0002")
+        self.assertEqual(code, 0, out + err)
+        (d / "2.json").write_text(json.dumps({"task_id": "0002-second", "escalation_id": "0002-second-2",
+                                              "class": "spec", "status": "waiting_operator"}))
+        self.assertIn("0002-second-2", self.refused("no_open_spec_escalation"))
+
     def test_a_pass_with_no_suite_run_at_the_head_moves_the_task_to_submitted_and_says_so(self):
         implement = self.implemented()
         self.reviewed_as(CLEAN)

@@ -215,4 +215,20 @@ The progress and review contracts describe the records the plane writes, in the 
 
 ## Implementation notes
 
+- 2026-11-22 (implementer): `ccp report` moves a first report's task through `report.phase_after` (an implement
+  done with a head: `implemented`; a review done and clean: `reviewed`) and, on a clean review, writes
+  `review/<task_id>.json` (`report.review_record`, built on plain values from the task's runs and its raised
+  questions); the `review recorded` event names the record (`record`). A correction moves nothing; a review
+  corrected to clean writes the record again.
+- `ccp tasks submit` (`ccp/submit.py`) takes the PR and the head from the task's latest done implement or rework
+  round (nothing writes `pr` on the task's queue file before close; its `pr` is read as a fallback). Choices the
+  ruling left open, sent to the runner: `review_artifact_present` also needs the record's review to be the task's
+  latest done review, and that review clean, so an older clean record never passes over a later MAJOR review;
+  `no_open_spec_escalation` counts open spec questions whose `task_id` or `blocks` name the task and open
+  escalations of class `spec`; the `unit_lint` report looks for a passed suite run on the full or gate lane of
+  the round that reported the head.
+- `contracts/progress.schema.json`: `from` and `to` are strings, not an enum, because `ccp tasks phase` accepts any
+  phase name (the runner's `operator`), and readers accept every value a live queue holds (E9).
+- `ccp prompt verify` is unchanged.
+
 ## Verification notes
