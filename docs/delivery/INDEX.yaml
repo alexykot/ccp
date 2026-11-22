@@ -1398,7 +1398,7 @@ tasks:
     depends_on: []
     path: tasks/0284-shared-test-fixtures-live-in-modules-that-hold-no-tests.md
   - id: 0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes
-    status: pending
+    status: done
     title: Seats run one dod_check or house-rule check exactly as the plane does, the plane declares its pre-gate lane, lane and mutation text names only what the product has, a runtime SyntaxError no longer makes a mutant unbuilt, and the SPEC's one-gate-lane example
     depends_on: []
     path: tasks/0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes.md

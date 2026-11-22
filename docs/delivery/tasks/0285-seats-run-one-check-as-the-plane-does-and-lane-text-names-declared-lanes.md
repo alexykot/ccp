@@ -1,7 +1,7 @@
 ---
 task_id: 0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes
 title: Seats run one dod_check or house-rule check exactly as the plane does, the plane declares its pre-gate lane, lane and mutation text names only what the product has, a runtime SyntaxError no longer makes a mutant unbuilt, and the SPEC's one-gate-lane example
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests"]
@@ -263,3 +263,5 @@ Lead's earlier ruling: list the two edge-case changes of unreadable_proposed (a 
   body names both and the two edge-case changes of `unreadable_proposed`.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #354 head `9ca5de4` (squash `0bb5470`): APPROVE. Passed: cfg-01, cmd-01, cmd-02, cmd-03, cmd-04, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes.json.
+
