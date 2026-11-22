@@ -1,7 +1,7 @@
 ---
 task_id: 0265-one-gate-lane-and-worker-runs-wait-for-it
 title: The plane's gate is one lane, a worker's run waits for a held exclusive lane, and suite run names its lane once
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0256-suite-run-refuses-a-closed-run-and-config-reads", "0261-a-declared-part-lane-runs-the-affected-modules", "0262-module-docstrings-and-house-rule-checks"]
@@ -13,7 +13,7 @@ paths: ["docs/delivery/plane.json", "CLAUDE.md", "tests/CLAUDE.md", "ccp/suite.p
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0265-one-gate-lane-and-worker-runs-wait-for-it
@@ -160,3 +160,5 @@ From architect pass `ar-20261121T132817Z-d5e5`, findings F01, F02 and F05 (the r
   docstring now says a held lane exits 75 at once only for a run that does not wait.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #316 head `8cde87e` (squash `b0bb1e8`): APPROVE. Passed: cfg-01, doc-01, code-01, code-02, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part --cold -- scripts/gate.sh tests.test_suite_lane_default tests.test_parallel_lanes tests.test_suite_wait` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0265-one-gate-lane-and-worker-runs-wait-for-it.json.
+

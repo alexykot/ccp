@@ -1298,7 +1298,7 @@ tasks:
     depends_on: [0223-a-follow-up-is-tracked-not-left-in-notes, 0234-one-check-parser-and-one-file-at-rev-reader]
     path: tasks/0264-one-parser-for-signed-blocks-and-task-id-patterns.md
   - id: 0265-one-gate-lane-and-worker-runs-wait-for-it
-    status: pending
+    status: done
     title: The plane's gate is one lane, a worker's run waits for a held exclusive lane, and suite run names its lane once
     depends_on: []
     path: tasks/0265-one-gate-lane-and-worker-runs-wait-for-it.md
