@@ -21,16 +21,18 @@ the parts' digests.
 
 Every mutant is checked before anything runs. Then the named test runs once unmutated: a test that
 fails already proves nothing, so the command stops there. Each mutant (a `--together` one whole) is
-applied alone, the test runs (plane.json `mutate.command` with `{test}` filled in shell-quoted, in the
-worktree's root, in its own process group, killed after `mutate.timeout_seconds`, which counts as the
-test failing), and every file the mutant touched is written back byte for byte (a file or directory it made is
-removed), and checked, before the next. A mutated Python file loses its compiled `__pycache__` entries
+applied alone, the test runs (plane.json `mutate.command`, else the language pack's test command
+followed by ` {test}`, with `{test}` filled in shell-quoted, in the worktree's root, in its own process
+group, killed after `mutate.timeout_seconds`, which counts as the test failing), and every file the
+mutant touched is written back byte for byte (a file or directory it made is removed), and checked,
+before the next. A mutated Python file loses its compiled `__pycache__` entries
 before its test runs, so bytecode compiled from another source (an unchecked hash-based `.pyc`, or one
 whose recorded mtime and size happen to match) never runs in its place; a restored one loses them
 again, and every test run has `PYTHONDONTWRITEBYTECODE=1`: a same-size mutant restored within the
 second leaves no bytecode that a later run would take for the source. A mutant whose run exits 0
-survived; one whose run exits non-zero with an output line plane.json `mutate.unbuilt_re` matches is
-`unbuilt` (the code did not build or import, which proves nothing about the test); any other is killed.
+survived; one whose run exits non-zero with an output line plane.json `mutate.unbuilt_re` (else the
+language pack's did-not-build lines) matches is `unbuilt` (the code did not build or import, which proves
+nothing about the test); any other is killed.
 A SIGTERM at any point of the call kills the running test, restores the files and exits 143.
 
 It runs only from a recorded `impl`, `mut`, `rev` or `ver` worktree of the run's task, and only for a run that is
@@ -473,10 +475,21 @@ def _test(line: str, cwd: Path, timeout: int, log: Path, label: str, stop: _Stop
     return {"exit_code": code, "seconds": round(time.monotonic() - t0, 2), "timed_out": timed_out, OUTPUT_AT: start}
 
 
-def _unbuilt_patterns(mu: dict[str, Any]) -> list[re.Pattern[str]]:
-    """plane.json `mutate.unbuilt_re`, compiled: a pattern, a list of them, or none (null)."""
+def _command(mu: dict[str, Any], pack: doclang.Pack) -> str | None:
+    """The one-test command template: plane.json `mutate.command` when set, else the pack's test command
+    followed by ` {test}`; None with neither."""
+    if mu.get("command"):
+        return str(mu["command"])
+    return f"{pack.test_command} {{test}}" if pack.test_command else None
+
+
+def _unbuilt_patterns(mu: dict[str, Any], pack: doclang.Pack) -> list[re.Pattern[str]]:
+    """The did-not-build lines, compiled: plane.json `mutate.unbuilt_re` (a pattern or a list of them) when
+    set, else the pack's (none where it knows none)."""
     pats = mu.get("unbuilt_re")
-    return [re.compile(x) for x in ([pats] if isinstance(pats, str) else pats or [])]
+    if pats is None:
+        pats = list(pack.unbuilt_re)
+    return [re.compile(x) for x in ([pats] if isinstance(pats, str) else pats)]
 
 
 def _says_unbuilt(log: Path, start: int, pats: list[re.Pattern[str]]) -> bool:
@@ -528,12 +541,13 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
          as_one: bool = False) -> tuple[dict[str, Any], int]:
     mutant_files = mutant_files or []
     mu = cfg.mutate or {}
-    if not mu.get("command"):
-        runner = doclang.for_tests(cfg).test_command
-        shape = f"a per-test runner (`{runner} {{test}}`)" if runner else "a command that runs one test"
-        raise QueueError("plane.json names no mutate.command: the product has no command that runs one test "
-                         f"(§20.6). Set mutate.command to a shell template that runs the test named by {{test}}: {shape}, "
-                         "or, where each test is a whole script, `sh {test}` with --test the script's path", 2)
+    pack = doclang.for_tests(cfg)
+    command = _command(mu, pack)
+    if command is None:
+        raise QueueError(f"plane.json names no mutate.command and the language pack ({pack.name}) has no per-test "
+                         "runner: the product has no command that runs one test (§20.6). Set mutate.command to a "
+                         "shell template that runs the test named by {test}: a command that runs one test, or, "
+                         "where each test is a whole script, `sh {test}` with --test the script's path", 2)
     if not test.strip():
         raise QueueError("--test names the test a mutant is judged by", 2)
     if not mutants and not reverts and not mutant_files:
@@ -564,9 +578,9 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
     if as_one:
         texts = {_key(p["files"][0]): (root / p["files"][0]).read_bytes() for p in parsed if p["kind"] == "text"}
         parsed = [together(parsed, texts)]
-    line = fill(mu["command"], {"test": shlex.quote(test)})
+    line = fill(command, {"test": shlex.quote(test)})
     timeout = int(mu["timeout_seconds"])
-    unbuilt = _unbuilt_patterns(mu)
+    unbuilt = _unbuilt_patterns(mu, pack)
     log = log_path(q, run_id)
     out: dict[str, Any] = {"ok": True, "run_id": run_id, "worktree": st["name"], "test": test, "log": str(log)}
     if base:

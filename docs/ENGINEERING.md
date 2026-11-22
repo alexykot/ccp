@@ -85,10 +85,10 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   (architect.checks `E16`)
 - **E17** One module resolves and parses a product's binding; every other reader calls it.
   check: pass — the architect looks for binding regexes outside that module
-- **E18** A language's facts (its doc conventions, test-output patterns, test command and import
-  reading) live in its language pack (ccp/doclang). Core code names no language and no test runner.
-  check: command — `! git grep -n unittest -- ccp ':(exclude)ccp/doclang'` (architect.checks
-  `E18`)
+- **E18** A language's facts (its doc conventions, test-output patterns including the line that says the code did
+  not build or import, the command that runs named tests or one test, and import reading) live in its language
+  pack (ccp/doclang); plane.json may override them. Core code names no language and no test runner.
+  check: command — `! git grep -n unittest -- ccp ':(exclude)ccp/doclang'` (architect.checks `E18`)
 - **E19** Only the PR-host module (ccp/prhost.py) reaches a PR host: a forge's CLI or API, its ref
   layout (refs/pull/…), or the local PR record. Other code sees a PR as the normalised facts it returns
   (number, state, head, branch, merge commit, merge time, body), never a host's field names; prompts

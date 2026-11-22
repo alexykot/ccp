@@ -9,7 +9,9 @@ language is a new module registered in `__init__.py`.
 A pack also owns what the plane knows about its language's tests (house rule E18): the line that
 carries a test count (`count_re`), the `summary` patterns that read failures, skips and a failing
 test's section, the `test_glob` of a test module, the reader `affected` of the modules a change
-touches, the counter `suite_size` and the `test_command` that runs named modules. `for_tests(cfg)` is
+touches, the counter `suite_size`, the `test_command` that runs named modules or one test, and the
+`unbuilt_re` lines that say the code did not build or import; plane.json may override them (`ccp mutate`
+runs `mutate.command` and reads `mutate.unbuilt_re` when set). `for_tests(cfg)` is
 the one lookup `ccp suite` and `ccp mutate` use; core code names no language and no test runner, and
 the house rule's command check (plane.json `architect.checks` `E18`) keeps it so. All of them follow `language`; with none set
 (the grace release) they are the Python pack's, as before the key was required.

@@ -2,7 +2,6 @@
 pack's fields, the one lookup `doclang.for_tests`, and the readers in `ccp suite` and `ccp mutate` that ask it."""
 from __future__ import annotations
 
-import dataclasses
 import json
 import re
 import subprocess
@@ -35,9 +34,18 @@ class PythonPack(unittest.TestCase):
         self.assertEqual(self.pack.count_re, r"^Ran (\d+) tests? in ")
         self.assertEqual(self.pack.test_command, "python3 -m unittest")
         self.assertEqual(self.pack.test_glob, "test*.py")
+        self.assertEqual(self.pack.unbuilt_re, (r"^(?:SyntaxError|IndentationError|TabError): ",
+                                                r"^ImportError: Failed to import test module: "))
         self.assertEqual(sorted(self.pack.summary), ["failed_re", "section_re", "skipped_re"])
         self.assertIsNotNone(self.pack.affected)
         self.assertIsNotNone(self.pack.suite_size)
+
+    def test_the_did_not_build_lines_match_what_unittest_prints_when_a_module_does_not_compile_or_import(self):
+        lines = ["SyntaxError: invalid syntax", "IndentationError: unexpected indent", "TabError: inconsistent use",
+                 "ImportError: Failed to import test module: test_m"]
+        others = ["AssertionError: 3 != 2", "ImportError: cannot import name 'add' from 'calc'", "FAIL: test_a (m.T)"]
+        matches = lambda ln: any(re.search(p, ln) for p in self.pack.unbuilt_re)  # noqa: E731
+        self.assertEqual([ln for ln in lines + others if matches(ln)], lines)
 
     def test_the_summary_patterns_read_a_failing_run(self):
         failed = [re.compile(p) for p in self.pack.summary["failed_re"]]
@@ -51,6 +59,7 @@ class PythonPack(unittest.TestCase):
         none = doclang.get("none")
         self.assertEqual((none.count_re, none.summary, none.test_glob), ("", {}, ""))
         self.assertEqual((none.affected, none.suite_size, none.test_command), (None, None, None))
+        self.assertEqual(none.unbuilt_re, ())
 
     def test_the_reader_lists_the_test_modules_a_change_touches(self):
         files = ["pkg/__init__.py", "pkg/a.py", "tests/test_a.py", "tests/test_b.py", "tests/helper.py"]
@@ -121,17 +130,27 @@ class Readers(unittest.TestCase):
         self.addCleanup(mapped.cleanup)
         self.assertEqual(suite.affected(mapped.cfg, None, ["a.txt"]), (["a.txt"], ["t1"]))
 
-    def test_the_mutate_refusal_names_the_packs_command_when_the_language_has_one(self):
-        def refusal(language: str) -> str:
-            cfg = tests_cfg(language)
-            cfg = dataclasses.replace(cfg, mutate=None)
-            with self.assertRaises(QueueError) as cm:
-                mutate._run(cfg, Path("."), "x", "t", ["a:b=>c"], [], None, None)
-            return str(cm.exception)
-        self.assertIn("`python3 -m unittest {test}`", refusal("python"))
-        none = refusal("none")
-        self.assertIn("a command that runs one test, or", none)
-        self.assertNotIn("unittest", none)
+    def test_a_language_with_no_runner_is_refused(self):
+        with self.assertRaises(QueueError) as cm:
+            mutate._run(tests_cfg("none"), Path("."), "x", "t", ["a:b=>c"], [], None, None)
+        self.assertEqual(cm.exception.code, 2)
+        for named in ("mutate.command", "{test}", "sh {test}"):  # what to set, a whole-script test's form too
+            self.assertIn(named, str(cm.exception))
+        self.assertNotIn("unittest", str(cm.exception))
+
+    def test_the_mutate_command_and_did_not_build_lines_come_from_the_pack_unless_the_product_sets_them(self):
+        py, none = doclang.get("python"), doclang.get("none")
+        self.assertEqual(mutate._command({"command": None}, py), "python3 -m unittest {test}")
+        self.assertEqual(mutate._command({"command": "sh {test}"}, py), "sh {test}")
+        self.assertIsNone(mutate._command({"command": None}, none))
+        pats = mutate._unbuilt_patterns
+        self.assertEqual([p.pattern for p in pats({"unbuilt_re": None}, py)], list(py_pack.UNBUILT_RE))
+        self.assertEqual([p.pattern for p in pats({"unbuilt_re": "^BROKE"}, py)], ["^BROKE"])
+        self.assertEqual([p.pattern for p in pats({"unbuilt_re": ["^A", "^B"]}, py)], ["^A", "^B"])
+        self.assertEqual(pats({"unbuilt_re": None}, none), [])
+        fake = doclang.Pack("fake", (), (), (), test_command="run-one", unbuilt_re=("^NO BUILD",))
+        self.assertEqual(mutate._command({}, fake), "run-one {test}")
+        self.assertEqual([p.pattern for p in pats({}, fake)], ["^NO BUILD"])
 
 
 class CoreCheck(unittest.TestCase):

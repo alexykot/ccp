@@ -1308,7 +1308,7 @@ tasks:
     depends_on: []
     path: tasks/0266-github-knowledge-stays-in-the-pr-host-module.md
   - id: 0267-mutate-falls-back-to-the-language-pack
-    status: pending
+    status: done
     title: ccp mutate takes its per-test command and its did-not-build patterns from the language pack unless plane.json overrides them
     depends_on: []
     path: tasks/0267-mutate-falls-back-to-the-language-pack.md

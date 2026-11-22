@@ -1,7 +1,7 @@
 ---
 task_id: 0267-mutate-falls-back-to-the-language-pack
 title: ccp mutate takes its per-test command and its did-not-build patterns from the language pack unless plane.json overrides them
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0262-module-docstrings-and-house-rule-checks"]
@@ -13,7 +13,7 @@ paths: ["ccp/mutate.py", "ccp/doclang/__init__.py", "ccp/doclang/python.py", "cc
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0267-mutate-falls-back-to-the-language-pack
@@ -127,4 +127,19 @@ E18 (the record is in `docs/delivery/reviews/`). Measured at `afb8ce6` (the figu
 
 ## Implementation notes
 
+- `ccp/doclang`: `Pack.unbuilt_re` (default `()`); the Python pack's `UNBUILT_RE` holds the two patterns the
+  ruling names, in that order.
+- `ccp/mutate.py`: `_command(mu, pack)` is plane.json `mutate.command` when set, else the pack's
+  `test_command` plus ` {test}`, else None (the refusal, exit 2, naming `mutate.command`, `{test}` and
+  `sh {test}`, and the pack's name). `_unbuilt_patterns(mu, pack)` is plane.json `mutate.unbuilt_re` when not
+  null, else the pack's. Both are plain functions over the config block and the pack (E15).
+- `tests/test_mutate.py` `Reverts.test_a_file_the_change_added_is_removed_for_the_run` now expects
+  `unbuilt` (exit 1), not `killed`: the revert removes `limits.py`, which `calc.py` imports, so the test
+  module fails to import and the pack's import line matches. Its point, the removal and the restore, is
+  unchanged.
+- The schema's `mutate` block description ("Absent, or command null: `ccp mutate` refuses") said the
+  same as the two property descriptions, so it changed with them.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #317 head `5a14707` (squash `049b531`): APPROVE. Passed: mu-01, mu-02, mu-03, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0267-mutate-falls-back-to-the-language-pack.json.
+

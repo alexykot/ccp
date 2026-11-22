@@ -74,7 +74,10 @@ SUMMARY = {
     "skipped_re": r"^(?:OK|FAILED) \(.*\bskipped=(\d+)",
     "section_re": r"^(?:FAIL|ERROR|UNEXPECTED SUCCESS): ",
 }
-TEST_COMMAND = "python3 -m unittest"  # runs test modules by dotted name
+TEST_COMMAND = "python3 -m unittest"  # runs test modules, or one test, by dotted name
+# The lines that say the code did not build or import (§20.6): a module with a syntax error, and a test module
+# unittest could not import.
+UNBUILT_RE = (r"^(?:SyntaxError|IndentationError|TabError): ", r"^ImportError: Failed to import test module: ")
 
 
 def _py_module(rel: str) -> str | None:
@@ -180,4 +183,5 @@ PACK = Pack(
     affected=affected,
     suite_size=suite_size,
     test_command=TEST_COMMAND,
+    unbuilt_re=UNBUILT_RE,
 )
