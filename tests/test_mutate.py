@@ -561,7 +561,8 @@ class Reverts(MutateFixture, unittest.TestCase):
     def test_a_file_the_change_added_is_removed_for_the_run(self):
         before = self.tree_of(self.rev)
         code, _, _, err = self.mutate(test=ADD, root=self.rev, reverts=("limits.py",))
-        self.assertEqual((code, self.rows()[0]["outcome"]), (0, "killed"), err)
+        # calc.py imports limits, so the test module no longer imports: the pack's lines call it unbuilt
+        self.assertEqual((code, self.rows()[0]["outcome"]), (1, "unbuilt"), err)
         self.assertEqual((self.rev / "limits.py").read_text(), "FLOOR = 0\n")
         self.assertEqual(self.tree_of(self.rev), before)
 
