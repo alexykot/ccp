@@ -1406,7 +1406,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--wait", type=_wait_arg, metavar="SECONDS|auto",
                    help="an exclusive lane held by another run: wait up to this long for it instead of exiting 75 "
                         "at once; keep the wait plus the run under your shell's limit; `auto` waits as long as that "
-                        "limit allows once the lane's usual cold run and a margin are set aside (SPEC §16.6)")
+                        "limit allows once the lane's usual cold run and a margin are set aside; `0` exits at once. "
+                        "Default: `auto` for a run bound to a worker run, else 0 (SPEC §16.6)")
     p.add_argument("--cold", action="store_true",
                    help="a cold run: what it starts gets CCP_SUITE_COLD=1, the product's gate's cold option; the run is "
                         "recorded cold only when its own count shows nothing cached (SPEC §14.2)")

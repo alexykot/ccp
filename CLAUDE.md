@@ -46,7 +46,7 @@ Rules:
   and the text it replaces. Non-normative notes need no approval, and neither does text that only
   describes an accepted task's own feature (§31.1); a new rule beyond the task's intent still does.
 - **Tests are fenced** (`tests/__init__.py`): no live queue, no real plane repo, no GitHub.
-  - Run the full suite: `scripts/gate.sh` (a plane worker runs it as `ccp suite run --lane full`). It
+  - Run the full suite: `scripts/gate.sh` (a plane worker runs it through `ccp suite run` on the full role's lane). It
     runs the same modules as `python3 -m unittest discover -s tests -t .`, in parallel, with the test cache.
   - Afterwards, `git branch --list 'state/*'` must print nothing.
 - **Never write to a managed product's queue or repo.**
