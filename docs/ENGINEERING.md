@@ -62,9 +62,7 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - **E27** A seat's actor id (the lead's, the runner's) is named once, in the seat table, and code reads it
   by name. A command the SPEC gives to one seat refuses another seat's ACTOR through one shared guard,
   and a reader counts only that seat's records.
-  check: pass — the architect compares the lead's commands; it becomes also a command check with task
-  0272 (architect.checks `E27`: `! git grep -n '"design-seat"' -- ccp scripts
-  ':(exclude)ccp/board_page.html' ':(exclude)scripts/observability/lib.py'`)
+  check: pass — the architect compares the lead's commands
 - **E12** One source per enumerated concept: a list of values (round phases, event types and
   ops, plane.json's blocks, their keys and defaults, the roles and their default models) is defined
   once in code. Other code derives from it. One test compares every plane.json block's keys and
@@ -95,7 +93,6 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   and briefs name `ccp pr`, never a forge's CLI.
   check: command — architect.checks `E19`: `! git grep -nE 'CCP_GH_BIN|headRefOid|mergeCommit' -- ccp ':(exclude)ccp/prhost.py'`
   and `! git grep -n 'gh pr' -- templates plugin/agents`, then `! git grep -n 'refs/pull' -- ccp ':(exclude)ccp/prhost.py'`
-  (added by task 0266)
 - **E20** One function judges whether a verdict lets a head merge: `ccp verify merge-ok`, `ccp verify
   check` and `ccp tasks close` call it, and `ccp verify record` refuses every approve it would refuse.
   check: pass — the architect compares the refusal lists of the merge-time judges

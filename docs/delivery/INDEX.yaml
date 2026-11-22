@@ -1382,3 +1382,23 @@ tasks:
     title: Every live contract is checked against the record its writer writes, and the schema checker knows every keyword the contracts use
     depends_on: [0279-contract-writer-tests-for-the-answer-file-and-wt-up-down]
     path: tasks/0281-every-live-contract-is-checked-against-what-writes-it.md
+  - id: 0282-ccp-owns-the-headless-launch-helpers-and-blocked-reads-the-task-log
+    status: pending
+    title: ccp owns the headless-launch helpers and the open-question rule, and the spec-question script's blocked and task-id checks read the task log and id shape through ccp
+    depends_on: []
+    path: tasks/0282-ccp-owns-the-headless-launch-helpers-and-blocked-reads-the-task-log.md
+  - id: 0283-the-retired-watchdog-and-seat-cadences-leave-the-writers-and-docs
+    status: pending
+    title: The retired watchdog seat and the per-seat cron cadences leave every writer and doc, the watchdog stays a read-only actor, and the observability scripts keep one package doc
+    depends_on: []
+    path: tasks/0283-the-retired-watchdog-and-seat-cadences-leave-the-writers-and-docs.md
+  - id: 0284-shared-test-fixtures-live-in-modules-that-hold-no-tests
+    status: pending
+    title: Shared test fixtures live in modules that hold no tests, no test module imports another, and the brief-rule test counts only each rule's own token
+    depends_on: []
+    path: tasks/0284-shared-test-fixtures-live-in-modules-that-hold-no-tests.md
+  - id: 0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes
+    status: pending
+    title: Seats run one dod_check or house-rule check exactly as the plane does, the plane declares its pre-gate lane, lane text names only declared lanes, and the SPEC states the operator-gate waiver limit and the one-gate-lane example
+    depends_on: []
+    path: tasks/0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes.md
