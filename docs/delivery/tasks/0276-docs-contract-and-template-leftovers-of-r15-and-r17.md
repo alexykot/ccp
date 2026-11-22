@@ -76,6 +76,9 @@ at `a80cee0` finds no non-normative note form. Naming the file means editing the
   section; the stale-Context block). That is different logic, so there is no clash, only a possible
   text merge. 0263 adds an example for the triage contract and does not change its `description`.
   0278 changes the body of `ccp/submit.py`'s docstring. This task changes only its first line.
+  0266 (R21) rewords `ccp/prompt.py`'s module docstring (the PR host), and 0272 (R23) adds an E27 entry
+  to `architect.checks` and E27's `check:` line to `docs/ENGINEERING.md`. Those are text merges with
+  this task's docstring first line, E13 entry and E13 `check:` line, not clashes.
 
 ### Rulings for the build (the lead's)
 
@@ -90,9 +93,9 @@ at `a80cee0` finds no non-normative note form. Naming the file means editing the
   reads the first docstring line of the modules the existing usage-line test reads, with the pattern
   measured above, and expects no match.
 - **The line cap.** `docs/delivery/plane.json` `architect.checks` gets
-  `{"id": "E13", "cmd": "test -z \"$(awk 'length > 600' templates/prompts/*.md)\""}`. E13's `check:`
-  line in `docs/ENGINEERING.md` becomes:
-  "check: pass, plus command — architect.checks `E13`: `awk 'length > 600' templates/prompts/*.md` prints nothing; the
+  `{"id": "E13", "cmd": "test -z \"$(awk 'length > 600' templates/prompts/*.md)\""}`. E13's rule text
+  is unchanged. Only its `check:` line in `docs/ENGINEERING.md` changes, to:
+  "check: pass, plus command — architect.checks `E13`: `awk 'length > 600' templates/prompts/*.md` prints nothing, a proxy for one sentence per line, not a rule of its own; the
   architect compares plugin/agents and templates/prompts with the § rules they cite, ccp/report.py's
   sections, and looks for inline sample records and sentences repeated across templates".
 - **The shared sentences.** `templates/prompts/_common.md` gets a `{{#change_round}}…{{/change_round}}`
@@ -133,7 +136,7 @@ at `a80cee0` finds no non-normative note form. Naming the file means editing the
   steps:
     1. Run `git grep -n 'steerer or team lead' -- contracts/architecture_review_triage.schema.json`.
     2. Run `git grep -n -e implementation_started_at -e 'Seats stay idle' -- scripts/queue/README.md`.
-    3. Run `git grep -n 'follow-ups are open' -- plugin/hooks/orientation.sh`.
+    3. Run `git grep -n 'follow-ups are open' -- plugin/hooks/orientation.sh` (a guard: it already passes at the base, and keeps 0232's follow-ups closed).
   expect: steps 1 and 2 print nothing (exit 1); step 3 prints exactly one line, `plugin/hooks/orientation.sh:8`.
   dry run (`a80cee0`): step 1 printed 1 line (`:5`); step 2 printed 2 lines (`:54`, `:56`); step 3 printed `plugin/hooks/orientation.sh:8`.
 - id: `code-01`
@@ -147,13 +150,13 @@ at `a80cee0` finds no non-normative note form. Naming the file means editing the
 - id: `cmd-01`
   story: As the architect, a template line over 600 characters fails a command check.
   setup: A checkout of the PR head.
-  steps:
-    1. Run `python3 -c "import json; print([c['cmd'] for c in json.load(open('docs/delivery/plane.json'))['architect']['checks'] if c['id'] == 'E13'])"`.
-    2. Run that command from the checkout's root with `sh -c '<the command>'; echo $?`.
-    3. Run `d=$(mktemp -d); mkdir -p $d/templates/prompts; python3 -c "print('x'*601)" > $d/templates/prompts/x.md; (cd $d && sh -c '<the command>'); echo $?`.
+  steps (one shell, from the checkout's root):
+    1. Run `cmd=$(python3 -c "import json; print(next(c['cmd'] for c in json.load(open('docs/delivery/plane.json'))['architect']['checks'] if c['id'] == 'E13'))"); echo "$cmd"`.
+    2. Run `sh -c "$cmd"; echo $?`.
+    3. Run `d=$(mktemp -d); mkdir -p $d/templates/prompts; python3 -c "print('x'*601)" > $d/templates/prompts/x.md; (cd $d && sh -c "$cmd"); echo $?`.
     4. Run `git grep -n 'architect.checks .E13.' -- docs/ENGINEERING.md`.
-  expect: step 1 prints a one-item list holding `awk 'length > 600' templates/prompts/*.md`; step 2 prints `0`; step 3 prints `1`; step 4 prints one line, in E13's `check:` line.
-  dry run (`a80cee0`): step 1 printed `[]`; the command run by hand printed `0` in the checkout and `1` in the temp dir; step 4 printed nothing.
+  expect: step 1 prints a command holding `awk 'length > 600' templates/prompts/*.md`; step 2 prints `0`; step 3 prints `1`; step 4 prints one line, in E13's `check:` line.
+  dry run (`a80cee0`): step 1 failed (`StopIteration`: no E13 entry); with `cmd` set by hand to the ruled command, step 2 printed `0` and step 3 printed `1`; step 4 printed nothing.
 - id: `doc-02`
   story: As a plane developer, the context and refactor sentences of the change rounds are written once.
   setup: A checkout of the PR head.

@@ -6,7 +6,7 @@ kind: feature
 depends_on: []
 spec_refs: ["S7", "S10", "S12", "S21"]
 review_point: R24
-paths: ["scripts/observability/lib.py", "scripts/observability/spec_maintainer.py", "scripts/observability/architecture_review.py", "ccp/lifecycle.py", "ccp/wt.py", "ccp/tasklog.py", "tests/test_wait_reasons.py", "tests/test_wt_unrecorded.py", "tests/test_tasklog_requires.py", "tests/test_mutate.py", "tests/test_plugin.py"]
+paths: ["scripts/observability/lib.py", "scripts/observability/spec_maintainer.py", "scripts/observability/architecture_review.py", "ccp/lifecycle.py", "ccp/wt.py", "ccp/tasklog.py", "tests/test_wait_reasons.py", "tests/test_wt_unrecorded.py", "tests/test_obs_ids.py", "tests/test_tasklog_requires.py", "tests/test_mutate.py", "tests/test_plugin.py"]
 adopt: "none"
 created: 2026-11-22
 updated: 2026-11-22
@@ -99,10 +99,14 @@ Follow-ups covered (the lead's worker follow-up log): `0253-one-wait-reason-tabl
   Close's two removals in `ccp/lifecycle.py` and `wt._remove_merge` call it. The warnings keep their
   wording: `merge worktree <path>: <text>` after the reconcile, and `worktree <path>: <text>` from
   `_remove_merge`. The catch-up's cleanup still ignores a failure. The architect and the dry run
-  ignore the return value.
+  ignore the return value. `tests/test_wt_unrecorded.py` gets a test where close's removal after the
+  reconcile fails (with `wt.remove_unrecorded` patched to return a text) and close's output carries
+  the `merge worktree <path>: <text>` warning.
 - **Id shapes.** `Kind.rid_re` becomes `rf"^(?:{p})-{refs.STAMP_ID}$"`. `spec_maintainer.QID_RE`
   becomes `re.compile(rf"^{refs.QUESTION_ID}$")`, with spec_maintainer putting the plane root on
-  `sys.path` before it imports `ccp.refs`, as `architecture_review.py` does.
+  `sys.path` before it imports `ccp.refs`, as `architecture_review.py` does. `tests/test_obs_ids.py`
+  (new) holds both: each accepts a fresh id (`architect._new_rid` for the pass; an `sm-` id made the
+  way spec_maintainer makes one) and rejects a malformed one (a three-hex-digit suffix).
 - **The requires remedy.** `citers` leaves out each task whose `depends_on` closure
   (`graph.closure(deps, o)`) holds the reported task. When it leaves out every citer, the remedy reads:
   "`<ids>` cites it but depends on this task, so a depends_on would make a cycle: cite it from a task
@@ -126,7 +130,7 @@ Follow-ups covered (the lead's worker follow-up log): `0253-one-wait-reason-tabl
   (`set_wait`, `QID_RE`), `scripts/observability/architecture_review.py` (`Kind.rid_re`),
   `ccp/lifecycle.py` (`set_wait`, close's two removals), `ccp/wt.py` (`remove_unrecorded`,
   `_remove_merge`), `ccp/tasklog.py` (`requires_report`, `_requires_lines`' docstring),
-  `tests/test_wait_reasons.py`, `tests/test_wt_unrecorded.py`, `tests/test_tasklog_requires.py`,
+  `tests/test_wait_reasons.py`, `tests/test_wt_unrecorded.py`, `tests/test_obs_ids.py` (new), `tests/test_tasklog_requires.py`,
   `tests/test_mutate.py`, `tests/test_plugin.py`.
 - No SPEC change. Each concept, searched in `docs/spec` at `a80cee0`:
   `git grep -n 'set-waiting-on.sh' -- docs/spec` finds 11 lines naming the script as the single
@@ -153,7 +157,8 @@ Follow-ups covered (the lead's worker follow-up log): `0253-one-wait-reason-tabl
     1. Run `git grep -n '"worktree", "remove"' -- ccp/lifecycle.py ccp/wt.py`.
     2. Run `python3 -B -m unittest -v tests.test_wt_unrecorded 2>&1 | tail -3`.
     3. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_wt_unrecorded --mutant-file <file>`, the file's mutant making `remove_unrecorded` return None whatever git said.
-  expect: step 1 prints exactly three lines, all in `ccp/wt.py`, one of them in `def remove_unrecorded`, none in `ccp/lifecycle.py`; step 2 ends `OK` and the run lists, `ok`, a test where `remove_unrecorded` on a path git cannot remove returns a text naming that path, and on a removed worktree returns None; step 3 prints the mutant `killed`.
+    4. Run the same with a second mutant file, whose mutant makes close's removal after the reconcile (`ccp/lifecycle.py`) drop the returned text instead of adding its warning.
+  expect: step 1 prints exactly three lines, all in `ccp/wt.py`, one of them in `def remove_unrecorded`, none in `ccp/lifecycle.py`; step 2 ends `OK` and the run lists, `ok`, a test where `remove_unrecorded` on a path git cannot remove returns a text naming that path, and on a removed worktree returns None, and a test where close's removal fails and close's output carries `merge worktree <path>:` with that text; steps 3 and 4 each print the mutant `killed`.
   dry run (`a80cee0`): step 1 printed 6 lines (`ccp/lifecycle.py:1275`, `:1618`; `ccp/wt.py:355`, `:620`, `:635`, `:740`); step 2 ended `OK` (the new test n/a — it is new).
 - id: `code-03`
   story: As a plane developer, the architect pass id and the spec question id take their shape from ccp/refs.py.
@@ -161,9 +166,10 @@ Follow-ups covered (the lead's worker follow-up log): `0253-one-wait-reason-tabl
   steps:
     1. Run `git grep -nE '\[0-9\]\{\{?8' -- scripts/observability`.
     2. Run `git grep -n 'refs.STAMP_ID\|refs.QUESTION_ID' -- scripts/observability`.
-    3. Run `python3 -B -m unittest -q tests.test_wt_unrecorded tests.test_notify 2>&1 | tail -1`.
-  expect: step 1 prints nothing (exit 1); step 2 prints two lines, one in `architecture_review.py` and one in `spec_maintainer.py`; step 3 prints `OK`.
-  dry run (`a80cee0`): step 1 printed 2 lines (`architecture_review.py:63`, `spec_maintainer.py:72`); step 2 printed nothing; step 3 printed `OK`.
+    3. Run `python3 -B -m unittest -v tests.test_obs_ids tests.test_wt_unrecorded tests.test_notify 2>&1 | tail -3`.
+    4. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_obs_ids --mutant 'scripts/observability/spec_maintainer.py:QUESTION_ID=>QUESTION_ID[:-3]'`, adjusting the old text to the `QID_RE` line as built if it differs, and the same for `Kind.rid_re` with a mutant that ends the pattern before `refs.STAMP_ID`'s hex part.
+  expect: step 1 prints nothing (exit 1); step 2 prints two lines, one in `architecture_review.py` and one in `spec_maintainer.py`; step 3 ends `OK` and lists, `ok`, tests where `Kind.rid_re` and `QID_RE` each accept a fresh id and reject a malformed one; step 4 prints each mutant `killed`.
+  dry run (`a80cee0`): step 1 printed 2 lines (`architecture_review.py:63`, `spec_maintainer.py:72`); step 2 printed nothing; step 3 n/a — `tests/test_obs_ids.py` is new (`tests.test_wt_unrecorded tests.test_notify` printed `OK`).
 - id: `code-04`
   story: As the lead, the requires remedy never asks for a depends_on that makes a cycle, and the task check says why it reads ADRs from the checkout.
   setup: A checkout of the PR head, in your own worktree.

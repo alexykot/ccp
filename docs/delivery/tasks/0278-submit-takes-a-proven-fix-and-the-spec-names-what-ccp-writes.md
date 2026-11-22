@@ -6,7 +6,7 @@ kind: feature
 depends_on: []
 spec_refs: ["S11", "S13", "S15", "S23"]
 review_point: R24
-paths: ["ccp/submit.py", "ccp/verify.py", "ccp/prompt.py", "docs/spec/02-delivery.md", "docs/spec/04-observability.md", "docs/cli/02-delivery.md", "tests/test_formal_submit.py", "tests/test_review_skip.py", "tests/test_review_skip_provers.py"]
+paths: ["ccp/submit.py", "ccp/verify.py", "ccp/prompt.py", "docs/spec/02-delivery.md", "docs/spec/04-observability.md", "docs/cli/02-delivery.md", "tests/test_formal_submit.py", "tests/test_review_skip.py", "tests/test_review_skip_provers.py", "tests/test_review_skip_clean.py", "tests/test_review_gate.py"]
 adopt: "none"
 sign_off: brief
 created: 2026-11-22
@@ -67,8 +67,8 @@ naming `_gate.md` edits rule text: SPEC.md says the SPEC "states rules only", an
 - **§11.1.** After the field list, which ends with `follow_ups` ("the report's lines"), the next
   sentence starts "`ccp report` computes them when the round reports, never from the report's
   prose". "Them" meant `integration_merges` and `before_review` (0169 added the sentence).
-- **Other tasks.** 0275 (R23, signed) changes the third item of §13.2's list, and this task changes the first. 0270 and 0264
-  change other §15.2 passages. 0273 adds refusals to `ccp prompt verify` in `ccp/prompt.py` and
+- **Other tasks.** 0275 (R23, signed) changes the third item of §13.2's list, and this task changes the first. 0264 and 0270
+  cite §15.2 but change other sections' text (`docs/spec/01-model.md`; §19.6 in `docs/spec/03-quality.md`). 0273 adds refusals to `ccp prompt verify` in `ccp/prompt.py` and
   `ccp/verify.py` that have nothing to do with the review skip. 0276 changes only the first line of
   `ccp/submit.py`'s docstring. That is different logic in each case: no clash.
 
@@ -77,25 +77,26 @@ naming `_gate.md` edits rule text: SPEC.md says the SPEC "states rules only", an
 - **Submit's coverage.** `ccp tasks submit` calls the review proof at most once. When the task has a
   fix round since its latest done review, and `verify.skip_review` or a review prover proves the fix
   (the judgement `ccp prompt verify` makes, §15.2), `review_artifact_present` passes whatever that
-  review found and whether or not the review record names it. Submit's output then adds `review_skip`
+  review found, with no review record, or one naming an older review or another PR. Submit's output then adds `review_skip`
   (what the verify run would record). Without such a proof, the items stay as they are, including
   `verify.skip_review_after_clean` for a clean review's minor fix.
 - **One proof per fix round.** `ccp/verify.py` gets `review_proof(cfg, queue, task_id, head, pr)`, which
   returns what `skip_review` returns plus the integration tip whose plane.json it read.
-  `skip_review` keeps its signature and calls it. When submit proves a fix, it writes
-  `review_proof: {"head": <head>, "tip": <tip>, "review_skip": <skip>}` on that fix round's run record.
+  `skip_review` keeps its signature and calls it. When submit proves a fix and passes, it writes
+  `review_proof: {"head": <head>, "tip": <tip>, "review_skip": <skip>}` on that fix round's run record;
+  a submit that fails writes none.
   In `ccp prompt verify`, `review_gate` reads the latest rework run's `review_proof`. When its `head`
-  is the `--head` and `origin/<integration branch>`, after one fetch, is still its `tip`, it takes
-  `review_skip` as the verify run's skip and runs neither `proof` nor a prover. Otherwise it judges as
-  today.
+  is the `--head`, `origin/<integration branch>`, after one fetch, is still its `tip`, and the task's
+  latest done review is still the one it judged (`review_skip`'s `reviewed`), it takes `review_skip` as
+  the verify run's skip and runs neither `proof` nor a prover. Otherwise it judges as today.
 - **Docs.** `docs/cli/02-delivery.md`'s `ccp tasks submit` row adds "a fix `verify.skip_review` or a
   review prover proves passes after any review (§15.2)".
 
 ## Scope
 
 - **In:** `ccp/submit.py`, `ccp/verify.py` (`review_proof`), `ccp/prompt.py` (`review_gate`),
-  `docs/cli/02-delivery.md` (the submit row), `tests/test_formal_submit.py`, and the two review-skip
-  test modules in `paths` where `review_gate`'s change reaches them.
+  `docs/cli/02-delivery.md` (the submit row), `tests/test_formal_submit.py`, and the review-skip and
+  review-gate test modules in `paths` where `review_gate`'s change reaches them.
 - **SPEC, signed before the claim (`sign_off: brief`):** four passages in `docs/spec/02-delivery.md`
   and two rows in `docs/spec/04-observability.md`, each CURRENT at `a80cee0`.
 
@@ -109,13 +110,13 @@ naming `_gate.md` edits rule text: SPEC.md says the SPEC "states rules only", an
     > The verify run's `review_skip` then adds `prover` (its name) and `exit_code`, never the command text (§14.4).
 
     PROPOSED:
-    > The verify run's `review_skip` then adds `prover` (its name) and `exit_code`, never the command text (§14.4). A fix round's proof runs once: when `ccp tasks submit` proves the fix (§15.1), it records `review_proof` on the fix round's run (the head, the integration tip whose plane.json it read, and the `review_skip` a verify run would record), and `ccp prompt verify` of that head takes that `review_skip`, running neither `proof` nor a prover, while `origin/<integration branch>` is still at that tip after its fetch; otherwise it judges the fix again.
+    > The verify run's `review_skip` then adds `prover` (its name) and `exit_code`, never the command text (§14.4). A fix round's proof runs once: when `ccp tasks submit` proves the fix (§15.1), it records `review_proof` on the fix round's run (the head, the integration tip whose plane.json it read, and the `review_skip` a verify run would record), and `ccp prompt verify` of that head takes that `review_skip`, running neither `proof` nor a prover, while `origin/<integration branch>` is still at that tip after its fetch and the task's latest review that reported `done` is still the one it judged (`reviewed`); otherwise it judges the fix again. Submit records `review_proof` only when it passes.
 
     CURRENT (`docs/spec/02-delivery.md` at `a80cee0`), §13.2, item 1:
     > **The plane template** `templates/prompts/<phase>.md` (with `templates/prompts/_common.md`): the rules that hold in every product,
 
     PROPOSED:
-    > **The plane template** `templates/prompts/<phase>.md` (with `templates/prompts/_common.md`, and for a phase that pushes the before-push part `templates/prompts/_gate.md`): the rules that hold in every product,
+    > **The plane template** `templates/prompts/<phase>.md` (with `templates/prompts/_common.md`, and, for a phase that pushes, the before-push part `templates/prompts/_gate.md`): the rules that hold in every product,
 
     CURRENT (`docs/spec/02-delivery.md` at `a80cee0`), §11.1, the sentence after the field list:
     > `ccp report` computes them when the round reports, never from the report's prose:
@@ -146,7 +147,7 @@ naming `_gate.md` edits rule text: SPEC.md says the SPEC "states rules only", an
   steps:
     1. Run `python3 -B -m unittest -v tests.test_formal_submit 2>&1 | grep -e major -e '^OK'`.
     2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_formal_submit --mutant-file <file>`, the file's mutant making submit ignore the proof when the latest done review found a BLOCKER or MAJOR, as before.
-  expect: step 1 prints, each `ok`, a test where a fix after a review with `MAJOR=1`, proven by the fixture's `verify.skip_review` proof, makes `ccp tasks submit` exit 0 with `to` `submitted` and a `review_skip` in its output, and one where the proof exits 1 and submit exits 4 naming `review_artifact_present`, then `OK`; step 2 prints the mutant `killed`.
+  expect: step 1 prints, each `ok`, a test where a fix after a review with `MAJOR=1`, proven by the fixture's `verify.skip_review` proof, with no clean review ever reported (no `review/<id>.json` in the queue), makes `ccp tasks submit` exit 0 with `to` `submitted` and a `review_skip` in its output; one where a clean review was followed by a MAJOR review and a proven fix, and submit exits 0; and one where the proof exits 1 and submit exits 4 naming `review_artifact_present` and records no `review_proof` on the fix run; then `OK`. Step 2 prints the mutant `killed`.
   dry run: n/a — the tests are new.
 - id: `cmd-02`
   story: As a product with an expensive prover, a fix round's proof runs once, and again only after the tip moved.
@@ -154,15 +155,16 @@ naming `_gate.md` edits rule text: SPEC.md says the SPEC "states rules only", an
   steps:
     1. Run `python3 -B -m unittest -v tests.test_formal_submit 2>&1 | grep -e once -e moved -e '^OK'`.
     2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_formal_submit --mutant-file <file>`, the file's mutant making `review_gate` ignore the run's `review_proof`.
-  expect: step 1 prints, each `ok`, a test where, on a proven fix, `ccp tasks submit` then `ccp prompt verify` of the same head leave the proof's log with exactly one line and the verify run's `review_skip` equal to the `review_proof` submit recorded; and one where a commit pushed to the integration branch between the two makes the log hold two lines; then `OK`. Step 2 prints the mutant `killed`.
+    3. Run the same with a second mutant file, whose mutant drops the head and tip comparison from `review_gate`'s reuse condition.
+  expect: step 1 prints, each `ok`, a test where, on a proven fix, `ccp tasks submit` then `ccp prompt verify` of the same head leave the proof's log with exactly one line and the verify run's `review_skip` equal to the `review_proof` submit recorded; one where a commit pushed to the integration branch between the two makes the log hold two lines; and one where `ccp prompt verify` of a different `--head` (a later fix round's) makes the log hold two lines; then `OK`. Steps 2 and 3 each print the mutant `killed`, step 3's by the tip-moved test.
   dry run: n/a — the tests are new.
 - id: `cmd-03`
   story: As the runner, the review-skip paths of ccp prompt verify still behave as before.
   setup: A checkout of the PR head.
   steps:
-    1. Run `python3 -B -m unittest -q tests.test_review_skip tests.test_review_skip_provers tests.test_review_skip_clean 2>&1 | tail -1`.
+    1. Run `python3 -B -m unittest -q tests.test_review_skip tests.test_review_skip_provers tests.test_review_skip_clean tests.test_review_gate 2>&1 | tail -1`.
   expect: prints `OK`.
-  dry run (`a80cee0`): printed `OK`.
+  dry run (`a80cee0`): printed `OK` (all four modules).
 - id: `spec-01`
   story: As the operator, §11.1, §13.2, §15.1, §15.2 and §23.7 say what I signed.
   setup: A checkout of the PR head.
