@@ -84,7 +84,9 @@ Measured at `072d9f9`.
   `compile("def f(:", "<string>", "exec")` prints `  File "<string>", line 1` then `SyntaxError: invalid syntax`.
   Both match, so the second, a real test failure, would be recorded `unbuilt`. The line that tells them apart
   is the location frame: a real file path and no `, in <function>` (every frame a call makes ends `, in …`).
-  `tests/test_doclang_test_facts.py` pins the tuple (`self.pack.unbuilt_re`). `ccp/mutate.py`'s
+  `tests/test_doclang_test_facts.py` pins the tuple (`self.pack.unbuilt_re`).
+  `git grep -n -e SyntaxError -e unbuilt_re -- docs/spec` at `072d9f9`: 1 line, §20.6, which names
+  `mutate.unbuilt_re` and the pack's did-not-build lines generically, so the pattern change needs no SPEC text. `ccp/mutate.py`'s
   `"mu = cfg.mutate or {}"` falls back to an empty dict where `config.MUTATE_DEFAULTS` holds the defaults.
 - **SPEC text measured.** `git grep -n 'exclusive_lanes": \["gate", "full"\]' -- docs/spec` at `072d9f9`: 1 line (§16.2);
   `docs/spec/01-model.md`'s `"suite": { "lanes": { "full": ["scripts/test.sh"]` example (§8) is a
@@ -113,13 +115,16 @@ Measured at `072d9f9`.
   reads it, and still skips a `PROPOSED:` that sits in a code span or fenced block.
 - `docs/cli/03-quality.md`'s `ccp tasks dry-run` and `ccp docs check` rows name the new flags.
 - The templates, agent briefs and writing-tasks skill say `ccp mutate` runs "where the product declares
-  `mutate.command` or its language pack has a per-test runner"; the hand-mutation fallback starts "Where the
+  `mutate.command` or its language pack has a per-test runner", with `mutate.command` and `language pack`
+  on one line of each file (`cmd-03` greps line by line); the hand-mutation fallback starts "Where the
   product declares no `mutate.command` and its language pack no per-test runner", and `FALLBACK` in
   `tests/test_prompt_tools.py` matches that clause.
 - `UNBUILT_RE`'s compile-error pattern becomes `^  File "[^<"][^"]*", line \d+$` (a source location frame:
-  a file path, no function); `^ImportError: Failed to import test module: ` stays. Still one line per match,
-  as §20.6 states. The test that fails first: a mutant that makes the code under test call `compile` on a
-  bad string, which the named test catches, is `killed` (at `072d9f9` it is `unbuilt`).
+  a file path, no function); `^SyntaxError: source code (string )?cannot contain null bytes` is added (a
+  source file with a null byte, which prints no location frame); `^ImportError: Failed to import test
+  module: ` stays. Still one line per match, as §20.6 states. The test that fails first: a mutant that makes
+  the code under test call `compile` on a bad string, whose named test then errors with that SyntaxError, is
+  `killed` (at `072d9f9` it is `unbuilt`).
 - `ccp/mutate.py`'s `mu = cfg.mutate or {}` becomes `cfg.mutate or config.MUTATE_DEFAULTS`.
 - `ccp/cli.py`'s `--test` help reads "one test id, passed whole to plane.json mutate.command ({test}), or,
   unset, after the language pack's test command; it may name a single method".
@@ -183,7 +188,7 @@ Measured at `072d9f9`.
   steps:
     1. Run `python3 -B -m unittest -v tests.test_mutate tests.test_doclang_test_facts 2>&1 | grep -i -e syntax -e '^OK'`.
     2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_mutate --mutant-file <file>`, the file's mutant putting `^(?:SyntaxError|IndentationError|TabError): ` back in `UNBUILT_RE`.
-  expect: step 1 prints, each `ok`, a test where a mutant that makes the code under test call `compile` on a bad string, caught by the named test, is `killed`, and one where a mutant that breaks a lazily imported module's syntax is `unbuilt`; then `OK`. Step 2 prints the mutant `killed`.
+  expect: step 1 prints, each `ok`, a test where a mutant that makes the code under test call `compile` on a bad string, whose named test then errors with that SyntaxError, is `killed`, and one where a mutant that breaks a lazily imported module's syntax is `unbuilt`; then `OK`. Step 2 prints the mutant `killed`.
   dry run: n/a — the tests are new.
 - id: `cmd-03`
   story: As a worker, no refusal or prompt line points me at a lane the product does not declare, at a mutation check through module names, or at hand mutation where ccp mutate runs.

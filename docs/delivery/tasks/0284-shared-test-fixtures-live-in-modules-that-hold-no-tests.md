@@ -90,7 +90,9 @@ Measured at `072d9f9`.
   re-export stays in the source test module.
 - `GateFixture` writes `.gitignore` `__pycache__/` itself; `CacheFixture` no longer does.
 - `tests/test_gate_cache.py`'s fixture string `from tests.test_helper import VALUE` becomes
-  `from {pkg}.test_helper import VALUE`, as its later `from {pkg} import test_helper` string is written.
+  `from {pkg}.test_helper import VALUE`, as its later `from {pkg} import test_helper` string is written,
+  and its call site writes it with `USER.format(pkg="tests")` (`self.module("test_user", USER)` at
+  `tests/test_gate_cache.py:163`), so the module it writes is unchanged.
 - The module docstrings of `tests/test_behind_tip_catch_up.py` and `tests/test_catch_up_decision.py` name each
   other in words ("the catch-up decision tests", "the close-path tests"), not as `tests.test_…`.
 - `tests/CLAUDE.md`'s "Shared fixtures" lists every fixture module with its classes, one line each.
