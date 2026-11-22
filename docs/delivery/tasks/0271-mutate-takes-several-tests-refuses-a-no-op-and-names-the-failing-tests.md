@@ -83,6 +83,19 @@ The §20.6 change below is the operator's to sign (the triage's first question).
   task, a test that fails unmutated); the others move.
 - **The briefs** keep `--test <id> …`, which stays true; no template changes.
 
+### Ruling 0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests-r1
+
+As the runner passed it (lead, 2026-11-22, spec question `sm-20261122T133927Z-2a27`):
+
+> The not-found hint goes only on 0291's case: a --mutant-file old text that is not found as written
+> but is found without its trailing line break gets 0291's message plus the --mutant hint. A
+> whole-line old text that matches nothing keeps the plain refusal, as 0291 pins: the hint would
+> mislead there, because no substitution inside one line is in play. This is the narrow reading
+> already built at 93cf6743; code-04 holds; extending 0291's RULED constant to the joined message is
+> in scope.
+> This round changes no behaviour: record this ruling in the task file's Context (not checked)
+> section on the task branch, merge origin/main if it moved, and report.
+
 ## Scope
 
 - **In:** `ccp/mutate.py` (`"def run"`, `"def _once"`, `"def _substitution"`, `"def parse_file"`,
@@ -214,5 +227,9 @@ The §20.6 change below is the operator's to sign (the triage's first question).
   `tests/test_mutate.py` keeps the closed run, another task's worktree and the test that fails unmutated.
   `tests/test_mutate_interface.py` holds the several-test, `failed` and no-op wiring on a `ToolkitFixture`
   product whose files are committed once per class (`_build_repos`).
+- **Ruling r1 (not-found hint).** The lead ruled the scope question above: the hint goes only on 0291's
+  case (an old text not found as written but found without its trailing line break), and a whole-line old text
+  that matches nothing keeps the plain refusal. That is the reading built at `93cf6743`, so the ruling round
+  changes no code, test or doc; it records the ruling in Context (not checked) and merges `origin/main`.
 
 ## Verification notes
