@@ -312,7 +312,7 @@ def cmd_tasks_check(cfg: config.Config, a: argparse.Namespace) -> int:
 def cmd_tasks_dry_run(cfg: config.Config, a: argparse.Namespace) -> int:
     from ccp import dryrun  # noqa: PLC0415
     try:
-        return dryrun.dry_run(cfg, a.task, a.write)
+        return dryrun.dry_run(cfg, a.task, a.write, a.check, a.here)
     except QueueError as e:
         print(f"ccp tasks dry-run: {e}", file=sys.stderr)
         return e.code
@@ -405,8 +405,10 @@ def cmd_docs_history_paths(cfg: config.Config, a: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_docs_check(cfg: config.Config, _a: argparse.Namespace) -> int:
+def cmd_docs_check(cfg: config.Config, a: argparse.Namespace) -> int:
     # The task log and the house rules are part of the documentation contract: one command, one gate.
+    if getattr(a, "only", None) is not None:
+        return _docs_check_only(cfg, a.only)
     from ccp import adr  # noqa: PLC0415
     try:  # §8.1: the package-doc checks follow the language; unset, a warning in the grace release, else exit 2
         config.require_language(cfg, "`ccp docs check`")
@@ -431,6 +433,18 @@ def cmd_docs_check(cfg: config.Config, _a: argparse.Namespace) -> int:
     if warns:
         print("  (warnings are not failures: the gate is the line above)")
     return code
+
+
+def _docs_check_only(cfg: config.Config, cid: str) -> int:
+    """§20.1 `ccp docs check --only <id>`: the one `architect.checks` or `docs.checks` entry `ccp docs check` runs
+    by that id, through the same runner and judging, and nothing else; exit 2 for an id it runs no check by."""
+    kind, entry, known = rules.check_by_id(cfg, cid)
+    if entry is None:
+        print(f"ccp docs check: --only {cid}: ccp docs check runs no check {cid} (its checks: "
+              f"{', '.join(known) or 'none'})", file=sys.stderr)
+        return 2
+    failures = baseline.check_failures(kind, rules.run_check_runs(cfg, [entry]))
+    return _print_judged(cfg, "docs", failures, f": {cid} only", ["docs", "check", "--only", cid])
 
 
 def cmd_budgets_check(cfg: config.Config, a: argparse.Namespace) -> int:
@@ -1215,12 +1229,17 @@ def build_parser() -> argparse.ArgumentParser:
                    help="name each task not yet done whose Context was measured before commits that changed its "
                         "paths, in place of the other warnings, which count them (with no other flag; SPEC §21.1)")
     p.set_defaults(fn=cmd_tasks_check)
-    p = t.add_parser("dry-run", help="run each dod_check step that is one backticked command, at the integration tip "
-                                     "in a temporary worktree, and print what it printed (SPEC §21.1; needs QUEUE_ROOT; "
-                                     "exit 3: the task is done, dropped or claimed)")
+    p = t.add_parser("dry-run", help="run each dod_check step that is one backticked command, through bash -c, at the "
+                                     "integration tip in a temporary worktree, and print what it printed (SPEC §21.1; "
+                                     "needs QUEUE_ROOT; exit 2: --here with --write, or no such check; exit 3: the task "
+                                     "is done, dropped or, without --here, claimed)")
     p.add_argument("task", help="a task id or NNNN")
     p.add_argument("--write", action="store_true",
                    help="write each run check's dry-run record into the task file, replacing the one there")
+    p.add_argument("--check", metavar="CHECK_ID", help="run only this dod_check")
+    p.add_argument("--here", action="store_true",
+                   help="run the steps in this checkout at its HEAD and write nothing; takes a claimed task, so its "
+                        "worker runs a check as the dry run does")
     p.set_defaults(fn=cmd_tasks_dry_run)
     p = t.add_parser("checks", help="a task's dod_checks in the checkout, each id with where it runs: its `runs_on` "
                                     "value, null (- in text) for the workers' (SPEC §5.5; exit 2: no such task)")
@@ -1483,8 +1502,10 @@ def build_parser() -> argparse.ArgumentParser:
                                       "QUEUE_ROOT)")
     p.add_argument("--run", required=True, help="the calling seat's run (<task_id>/<phase>[-n]); it must be open")
     p.add_argument("--test", required=True, action="append",
-                   help="a test id, passed whole to plane.json mutate.command ({test}); it may name a single method; "
-                        "repeat for more, each run in the order given until one fails, which kills the mutant")
+                   help="one test id, passed whole to plane.json "
+                        "mutate.command ({test}), or, unset, after the language pack's test command; it may name a "
+                        "single method; repeat for more, each run in the order given until one fails, which kills "
+                        "the mutant")
     p.add_argument("--mutant", action="append",
                    help="<file>:<old>=><new> (the old text once in the file, relative to the worktree), or a patch "
                         "file; repeat for more")
@@ -1657,8 +1678,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true")
     p.set_defaults(fn=cmd_budgets_check)
     d = sub.add_parser("docs", help="package docs").add_subparsers(dest="cmd", required=True)
-    d.add_parser("check", help="package-doc rules + the task log (+ the ADRs' frontmatter with an adr block)") \
-        .set_defaults(fn=cmd_docs_check)
+    p = d.add_parser("check", help="package-doc rules + the task log (+ the ADRs' frontmatter with an adr block)")
+    p.add_argument("--only", metavar="CHECK_ID",
+                   help="run only this architect.checks or docs.checks entry, as the whole command runs it (SPEC "
+                        "§20.1; exit 2: no such check)")
+    p.set_defaults(fn=cmd_docs_check)
     hp = d.add_parser("history-paths", help="tracked paths carrying the history attribute (package_docs.rules."
                                             "history_attr), one per line, for a product's own absence checks")
     hp.add_argument("--attr", help="the git attribute (default: package_docs.rules.history_attr)")

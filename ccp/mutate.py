@@ -59,7 +59,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from ccp import doclang, runs
-from ccp.config import Config, fill
+from ccp.config import MUTATE_DEFAULTS, Config, fill
 from ccp.queue import QueueError, emit, git, iso
 
 SEP = "=>"
@@ -591,7 +591,7 @@ def _run(cfg: Config, q: Path, run_id: str, tests: list[str], mutants: list[str]
          cwd: Path | None, stop: _Stop, mutant_files: list[str] | None = None,
          as_one: bool = False) -> tuple[dict[str, Any], int]:
     mutant_files = mutant_files or []
-    mu = cfg.mutate or {}
+    mu = cfg.mutate or MUTATE_DEFAULTS
     pack = doclang.for_tests(cfg)
     command = _command(mu, pack)
     if command is None:

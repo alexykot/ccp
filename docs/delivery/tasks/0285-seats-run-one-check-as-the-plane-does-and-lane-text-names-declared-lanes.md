@@ -1,7 +1,7 @@
 ---
 task_id: 0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes
 title: Seats run one dod_check or house-rule check exactly as the plane does, the plane declares its pre-gate lane, lane and mutation text names only what the product has, a runtime SyntaxError no longer makes a mutant unbuilt, and the SPEC's one-gate-lane example
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests"]
@@ -138,6 +138,14 @@ Measured at `76f41dd`.
 - `ccp/cli.py`'s `--test` help reads "one test id, passed whole to plane.json mutate.command ({test}), or,
   unset, after the language pack's test command; it may name a single method".
 
+### Lead's rulings in review (verbatim)
+
+Lead's ruling 0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes-r2 (verbatim):
+1. cmd-04 stands as written. Do not edit the signed brief's checks. Keep its named test and the second added test (the one that fails at base), and name both in the PR body.
+2. Accept the null-byte match as a known limit. Say so in the comment above UNBUILT_RE (a run-time compile/eval/ast.parse of a string holding a null byte also reads unbuilt; rare).
+Also, in the same round: fix the three NITs (read HEAD in `_here` before the steps run; the unknown --check refusal tested both on plain values and end to end, E15: make the end-to-end test assert only the exit code or drop it; remove the stray blank line in tests/test_tasks_dry_run.py).
+Lead's earlier ruling: list the two edge-case changes of unreadable_proposed (a generic fenced "## " line in the Scope followed by an inline PROPOSED no longer warns; a fenced "## Rule changes" line now opens a section that warns wherever it sits) in the PR body, with the PR body naming both cmd-04's test and the second added test.
+
 ## Scope
 
 - **In:** `ccp/dryrun.py`, `ccp/cli.py` (the two parsers), `ccp/rules.py` (if the runner needs a filter),
@@ -225,4 +233,35 @@ Measured at `76f41dd`.
 
 ## Implementation notes
 
+- Premises re-measured at `b4536053` (lanes, the `lane full` and `such as a mutation check` greps, the 8
+  `mutate.command` lines, §16.2's example, the 532-character template line): unchanged.
+- The section-extents premise did not hold, then or at `76f41dd` (`unreadable_proposed` has not changed
+  since): at the base, a fenced `## ` line in the Scope followed by an inline `PROPOSED:` already warns,
+  because the blanked text keeps the Scope going. Sections now come from the raw text, as the ruling
+  says, so warnings fall exactly where `signed_blocks` reads. That case no longer warns (spec-text does
+  not read past the fenced line either), and a fenced `## Rule changes` line now opens a section that
+  warns, wherever it sits. The test cmd-04 names uses a fenced `## Rule changes` line in the Scope (it
+  warns before and after the change); the test that fails at the base puts one in another section.
+- `ccp tasks dry-run --here` still needs `QUEUE_ROOT` (it reads the queue's lease to refuse a claimed
+  task without `--here`). Its header names HEAD's short sha and `HEAD, here`. `--here --write` is refused
+  before anything is read.
+- `ccp docs check --only` runs only what it names: no language precondition, no task-log check, no rules
+  doc shape. It judges the failure against the merge base by running `docs check --only <id>` there. An
+  architect check is known only while the seat is on (`cfg.architect` is None when it is off).
+- `resolve_stages`' refusal sits in `suite.no_lane_refusal`. A full-role lane declared as stages is named
+  as "its stages", the narrowest form the ruling leaves open.
+- `UNBUILT_RE`'s source-frame pattern also matches a SyntaxError raised by `compile` on a string given a
+  real file name, which is rare.
+- `ccp/mutate.py` imports `MUTATE_DEFAULTS` by name instead of using `config.MUTATE_DEFAULTS`: the same
+  object.
+- Fix round 1 (the lead's ruling r2): `_here` reads HEAD before the steps run, so a step that commits or
+  checks out cannot change the sha the header names. The comment above `UNBUILT_RE` names the known
+  limit: a run-time `compile`, `eval` or `ast.parse` of a string holding a null byte prints the same
+  null-byte line and reads unbuilt. The end-to-end unknown `--check` test asserts only the exit code
+  (E15: `only()`'s message is tested on plain values) and is renamed to match; a stray blank line is gone.
+  cmd-04 stands as written: its named test and the test that fails at the base both stay, and the PR
+  body names both and the two edge-case changes of `unreadable_proposed`.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #354 head `9ca5de4` (squash `0bb5470`): APPROVE. Passed: cfg-01, cmd-01, cmd-02, cmd-03, cmd-04, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes.json.
+

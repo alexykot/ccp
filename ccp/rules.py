@@ -486,6 +486,19 @@ def house_checks(cfg: Config) -> tuple[list[str], list[CheckRun]]:
     return check_doc(cfg), run_check_runs(cfg, (cfg.architect or {}).get("checks") or [])
 
 
+def check_by_id(cfg: Config, cid: str) -> tuple[str, dict[str, Any] | None, list[str]]:
+    """§20.1 `ccp docs check --only`: the check command `ccp docs check` runs by `cid`, as (its kind as the failure
+    lines name it, `check` or `docs check`; the entry, None when it runs none by that id; the ids it runs, in
+    declared order): an `architect.checks` entry (none while the seat is off), else a `docs.checks` one."""
+    house = (cfg.architect or {}).get("checks") or []
+    docs = (cfg.docs or {}).get("checks") or []
+    for kind, entries in (("check", house), ("docs check", docs)):
+        for c in entries:
+            if c.get("id") == cid:
+                return kind, c, []
+    return "", None, [str(c.get("id")) for c in [*house, *docs]]
+
+
 def check(cfg: Config) -> list[str]:
     """`house_checks` as failure lines: the doc's, then `check <id>: …` for each failing check."""
     doc, runs = house_checks(cfg)

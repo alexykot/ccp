@@ -89,7 +89,7 @@ SUITE_LANES = {
     "implement": "{full}{full_for}the product's full suite{full_as}, {part}{part_for}a subset of the tests{part_as}",
     "review": "{part}{part_for}the tests you run{part_as} ({full} if you run the whole suite)",
     "verify": "{gate}{gate_for}the formal gate (the product's gate script, which picks its own lanes){gate_as}, "
-              "{part}{part_for}a subset such as a mutation check{part_as}",
+              "{part}{part_for}a subset of the tests (a mutation check runs through `ccp mutate`){part_as}",
 }
 SUITE_LANES.update({p: SUITE_LANES["implement"] for p in runs.REWORK_PHASES})
 
