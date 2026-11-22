@@ -1,7 +1,7 @@
 ---
 task_id: 0264-one-parser-for-signed-blocks-and-task-id-patterns
 title: The task check warns on a PROPOSED that verify spec-text cannot read, through one signed-block parser in tasklog, and task-id and decision-marker patterns each have one source
-status: pending
+status: done
 kind: feature
 depends_on: ["0223-a-follow-up-is-tracked-not-left-in-notes", "0234-one-check-parser-and-one-file-at-rev-reader"]
 clashes_with: ["0240-plane-workers-run-the-head", "0244-tasks-check-runs-dry-runs"]
@@ -13,7 +13,7 @@ paths: ["ccp/tasklog.py", "ccp/verify.py", "ccp/refs.py", "ccp/health.py", "ccp/
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0264-one-parser-for-signed-blocks-and-task-id-patterns
@@ -129,4 +129,30 @@ Measured at `1aa5e3f`.
 
 ## Implementation notes
 
+- `ccp/tasklog.py` holds the signed-block reader, moved from `ccp/verify.py` unchanged in what it returns
+  (`signed_blocks`, `_signed_sections`, `_block_names`, `_path_like` and their patterns); the quote lines under a
+  marker are read by one helper, `_quoted_under`, which `signed_blocks` and the new warning share.
+  `ccp/verify.py` keeps `signed_passages`, `searchable` and `spec_text`, which call `tasklog.signed_blocks` and
+  `tasklog._path_like`; `tests/test_verify_spec_text.py` now calls `tasklog.signed_blocks`.
+- `tasklog.unreadable_proposed` is the warning, called from `warnings()`: a `PROPOSED:` line in the Scope or a
+  `Rule changes` section under which `_quoted_under` finds no text. Markers are looked for in the text with fenced
+  blocks and code spans blanked (same offsets); the quote lines are read as written, so a quote that is only a code
+  span still counts. An empty `>` line under the marker warns (no passage to read); a passage repeated in a second
+  place does not (spec-text reads it at its first line).
+- `refs.Ids` gains `task_merge_subject_re` and `task_branch_re` (built from `ids.task.width`); `health.merges`
+  and `lifecycle._own_commit` use them. Health's unused `MERGE_TASK_RE`/`BRANCH_TASK_RE` defaults went with
+  `_merge_task_re`/`_branch_task_re`; `_written_task_re` stays.
+- `ccp/adr.py`: `_DEC_MARK` is one template with slots `{id}`, `{b1}`, `{note}` and `{end}`. `_dec_find` fills
+  them for finding (non-capturing groups, `end` the existing `_MARK_END`), so `_DEC_ANY` and `decision_block`
+  match as before; `_MARK_PARTS` fills them with named groups and the old rest-of-line split, and `_HEAD_PARTS`
+  is `_DEC_HEAD` with a named id plus its old tail. The compiled `_MARK_PARTS` pattern is the old one, byte for
+  byte; `_HEAD_PARTS` differs only in a capturing `(#+)`, which no caller reads.
+- Fix round 1 (review M1, N1): `tests/test_signed_blocks_check.py` pins the warning on a `PROPOSED:` whose only
+  quote line is an empty `>` (it warns once, naming the `PROPOSED:` line), so a check that looks only for a quote
+  mark fails it. The bracketed note after a decision's id is now one fragment, `adr._NOTE`, that both `_DEC_MARK`
+  and `_HEAD_PARTS` format; the compiled `_DEC_ANY`, `_MARK_PARTS` and `_HEAD_PARTS` patterns are the same strings
+  as before.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #313 head `ee03006` (squash `3fa2076`): APPROVE. Passed: sb-01, sb-02, sb-03, sb-04, sb-05. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0264-one-parser-for-signed-blocks-and-task-id-patterns.json.
+

@@ -1293,7 +1293,7 @@ tasks:
     depends_on: [0258-the-plane-writes-the-pre-merge-phases]
     path: tasks/0263-writers-are-checked-against-their-contracts.md
   - id: 0264-one-parser-for-signed-blocks-and-task-id-patterns
-    status: pending
+    status: done
     title: The task check warns on a PROPOSED that verify spec-text cannot read, through one signed-block parser in tasklog, and task-id and decision-marker patterns each have one source
     depends_on: [0223-a-follow-up-is-tracked-not-left-in-notes, 0234-one-check-parser-and-one-file-at-rev-reader]
     path: tasks/0264-one-parser-for-signed-blocks-and-task-id-patterns.md

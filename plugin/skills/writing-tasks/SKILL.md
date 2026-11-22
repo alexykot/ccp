@@ -154,7 +154,9 @@ one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line sa
   exact CURRENT → PROPOSED text of each passage in its Scope and declares `sign_off: brief`, so the
   operator signs the words before the claim. A task whose SPEC text only describes its own feature
   (§31.1) says `§31.1` on a Scope line instead. `ccp tasks check` warns on a task whose `paths` name
-  the SPEC (`spec_paths`) with neither (plane SPEC §3.5).
+  the SPEC (`spec_paths`) with neither (plane SPEC §3.5). Every PROPOSED, §31.1 text included, goes in a
+  `> ` blockquote under a `PROPOSED:` line: `ccp verify spec-text` reads no other shape (plane SPEC
+  §15.2), and `ccp tasks check` warns on one given inline.
 - **"No SPEC change" is measured:** cite a SPEC search, at a named commit, for each concept the task
   adds, renames or changes.
 - **Locate code by symbol with a short quote** (`"def export_rows"`), never by a bare `path:line`:

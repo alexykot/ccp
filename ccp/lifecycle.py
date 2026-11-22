@@ -1374,11 +1374,11 @@ def _own_commit(cfg: Config, nnnn: str, subject: str, parents: str, body: str) -
     """The task's own squash merge (`Task NNNN: … (#N)`, or a merge commit of `task/NNNN-…`) or its
     reconcile, as `ccp tasks close` writes them while the lease is still held (§10.5)."""
     from ccp import health  # noqa: PLC0415
-    w = refs.ids(cfg).task_width
+    ids = refs.ids(cfg)
     if (m := reconcile_re(cfg).match(subject)) and m.group(1) == nnnn:
         return True
     merge = len(parents.split()) > 1 or bool(health.PR_SUFFIX_RE.search(subject))
-    m = health._written_task_re(w).match(subject) or health._branch_task_re(w).search(subject + "\n" + body)
+    m = health._written_task_re(ids.task_width).match(subject) or ids.task_branch_re.search(subject + "\n" + body)
     return merge and bool(m) and m.group(1) == nnnn
 
 

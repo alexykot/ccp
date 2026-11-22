@@ -76,6 +76,17 @@ class Ids:
         """A task number at the start of a string (`0042`, `0042-slug`), not followed by another digit."""
         return re.compile(rf"^(\d{{{self.task_width}}})(?!\d)")
 
+    @cached_property
+    def task_merge_subject_re(self) -> re.Pattern[str]:
+        """A merge's subject naming a task by number at its start (`0042 …`, `task 0042 …`, any case): group 1
+        the number, not followed by another digit."""
+        return re.compile(rf"^(?:task\s+)?(\d{{{self.task_width}}})(?!\d)", re.I)
+
+    @cached_property
+    def task_branch_re(self) -> re.Pattern[str]:
+        """A task branch named in text, `task/NNNN-…`: group 1 the number."""
+        return re.compile(rf"\btask/(\d{{{self.task_width}}})-")
+
     def task_number(self, tid: Any) -> str:
         """The number part of a task id or file name (`0042-x` → `0042`); a string too short to hold one
         gives its own first characters, as the old `tid[:4]` did."""
