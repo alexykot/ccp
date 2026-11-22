@@ -39,38 +39,38 @@ The open follow-ups of 0288 and 0289 (`ccp --root . tasks follow-ups --open`), a
 
 The other 0288 follow-ups (`tests/CLAUDE.md` naming `LEAD_ENV` and `as_lead()`) go to 0295, which rewrites that doc.
 
-Measured at `a8a47f19` (this PR's commit editing `plugin/skills/writing-tasks/SKILL.md`'s run line, on `origin/main` at `15dbfe7a`; first at `7d83efd`, then `ad9b4f84`). Every figure re-ran unchanged at `a8a47f19` except where a line says so.
+Measured at `15dbfe7a` (origin/main; first at `7d83efd`, then `ad9b4f84`). Every figure re-ran unchanged at `15dbfe7a` except where a line says so, and again with this PR's edit to `plugin/skills/writing-tasks/SKILL.md`'s run line applied (that edit touches no line these figures read).
 
 - **The reader.** In `"def sign_off_wait"` (`ccp/health.py`), the line
   `if kind == ("sign_off", "recorded") and p.get("stage") == "build":` takes the event whoever recorded it
-  (no `actor` test in the function: `sed -n '/def sign_off_wait/,/^def /p' ccp/health.py | grep -c actor` at `a8a47f19`: 0).
+  (no `actor` test in the function: `sed -n '/def sign_off_wait/,/^def /p' ccp/health.py | grep -c actor` at `15dbfe7a`: 0).
   `"def sign_offs"` in `ccp/queue.py`, which `ccp tasks close` reads, already keeps only `ev.get("actor") == lib.LEAD`.
   `ccp/health.py` loads the shared library as `from lib import looks_like_secret  # noqa: E402`.
-  `git grep -n 'sign_off_wait' -- ccp scripts` at `a8a47f19`: 5 lines, all in `ccp/health.py` (the module docstring, the function, two in `collect` and the text).
+  `git grep -n 'sign_off_wait' -- ccp scripts` at `15dbfe7a`: 5 lines, all in `ccp/health.py` (the module docstring, the function, two in `collect` and the text).
 - **The tests that break.** `tests/test_health_signoff.py`'s `ev()` builds events with no `actor`:
-  `grep -c '"sign_off", "recorded"' tests/test_health_signoff.py` at `a8a47f19`: 13 lines, each a sign-off the lead must now have recorded.
-  No other test module feeds `health` a `sign_off` event: `git grep -l 'sign_off' -- tests | xargs grep -l 'health'` at `a8a47f19`: 2 files,
+  `grep -c '"sign_off", "recorded"' tests/test_health_signoff.py` at `15dbfe7a`: 13 lines, each a sign-off the lead must now have recorded.
+  No other test module feeds `health` a `sign_off` event: `git grep -l 'sign_off' -- tests | xargs grep -l 'health'` at `15dbfe7a`: 2 files,
   `tests/test_health_signoff.py` and `tests/test_health.py`, whose only match is a test name (`test_long_sign_off_waits_do_not_trip_drift`, built on
   `waiting_on` events). The module imports no `lib` yet; `tests/test_prefer.py` takes it as `from ccp.queue import lib`.
-- **The briefs.** `git grep -nE 'ccp tasks (sign-off|ruling) <' -- plugin/agents plugin/skills | grep -v 'ACTOR=design-seat ccp tasks'` at `a8a47f19`: 2 lines,
+- **The briefs.** `git grep -nE 'ccp tasks (sign-off|ruling) <' -- plugin/agents plugin/skills | grep -v 'ACTOR=design-seat ccp tasks'` at `15dbfe7a`: 2 lines,
   the invocations in `plugin/agents/delivery-runner.md` ("once the lead has recorded it with `ccp tasks sign-off <task_id> --stage build`" and
   "`ccp tasks ruling <task_id> --words "…"` (SPEC §17.5)"). The pattern reads a command with an argument (`<`), not prose:
-  `git grep -nE 'ccp tasks (sign-off|ruling)' -- plugin/agents plugin/skills` at `a8a47f19` prints 4 lines, the other two being
+  `git grep -nE 'ccp tasks (sign-off|ruling)' -- plugin/agents plugin/skills` at `15dbfe7a` prints 4 lines, the other two being
   `plugin/skills/writing-tasks/SKILL.md`'s `sign_off` row ("The lead records each with `ccp tasks sign-off`") and 0301's prose
   line ("`ccp tasks sign-off` prints them again as it records"). The row is the one this task changes, and doc-01 pins it by its words:
-  `grep -c 'records each with .ACTOR=design-seat ccp tasks sign-off' plugin/skills/writing-tasks/SKILL.md` at `a8a47f19`: 0. `plugin/orientation.md` already says the lead's three records run as
-  `ACTOR=design-seat ccp …`. No test pins these sentences: `grep -n 'sign-off\|ruling' tests/test_plugin.py tests/test_rotation_model.py` at `a8a47f19`: no line.
+  `grep -c 'records each with .ACTOR=design-seat ccp tasks sign-off' plugin/skills/writing-tasks/SKILL.md` at `15dbfe7a`: 0. `plugin/orientation.md` already says the lead's three records run as
+  `ACTOR=design-seat ccp …`. No test pins these sentences: `grep -n 'sign-off\|ruling' tests/test_plugin.py tests/test_rotation_model.py` at `15dbfe7a`: no line.
   `delivery-runner.md`'s two `ccp tasks prefer` lines are 0293's (its guard makes them need the lead's ACTOR), not this task's.
-- **The tests' longer strings.** `git grep -n 'design-seat' -- tests/test_prefer.py tests/test_usage.py tests/test_usage_advice.py | grep -v '"design-seat"'` at `a8a47f19`: 2 lines:
+- **The tests' longer strings.** `git grep -n 'design-seat' -- tests/test_prefer.py tests/test_usage.py tests/test_usage_advice.py | grep -v '"design-seat"'` at `15dbfe7a`: 2 lines:
   `tests/test_usage_advice.py` one (`"design-seat: median context"`) and `tests/test_usage.py` one (the assertion message
   `"only design-seat rows are compared with the expected lead"`). Changed since `ad9b4f84`: 0293 (`a6360636`) rewrote
   `tests/test_prefer.py`'s three, so that module needs no edit and stays in the check only to hold it. Each module
-  already reads `lib.LEAD` elsewhere (`grep -c 'lib.LEAD' tests/test_prefer.py tests/test_usage_advice.py tests/test_usage.py` at `a8a47f19`: 8, 4 and 3).
-  Over all of `tests`, `git grep -n 'design-seat' -- tests | grep -v '"design-seat"'` at `a8a47f19`: 3 lines, the third being
+  already reads `lib.LEAD` elsewhere (`grep -c 'lib.LEAD' tests/test_prefer.py tests/test_usage_advice.py tests/test_usage.py` at `15dbfe7a`: 8, 4 and 3).
+  Over all of `tests`, `git grep -n 'design-seat' -- tests | grep -v '"design-seat"'` at `15dbfe7a`: 3 lines, the third being
   `tests/test_seat_actors.py`'s docstring, which lists the seat ids (E9); it stays Out (see Scope).
 - **No SPEC change.** §3.5 already gives sign-offs to the lead ("The lead records each sign-off with `ccp tasks sign-off`",
   `docs/spec/01-model.md`), and §27.1's "Sign-off wait" (`docs/spec/04-observability.md`) says the wait runs "to the `build`
-  sign-off": `git grep -n 'Sign-off wait' -- docs/spec` at `a8a47f19`: 1 line. A record another actor wrote is no sign-off,
+  sign-off": `git grep -n 'Sign-off wait' -- docs/spec` at `15dbfe7a`: 1 line. A record another actor wrote is no sign-off,
   so the reader now matches the text. E27 (as 0288 left it) already says "a reader counts only that seat's records".
 
 ### Rulings for the build (the lead's)
@@ -97,7 +97,7 @@ Measured at `a8a47f19` (this PR's commit editing `plugin/skills/writing-tasks/SK
   `templates/prompts/implement.md` keeps `{{stale_context}}` and drops the sentence after it ("Re-run the Context's
   measurements at your base before you build; …"), which repeats the two lines above it on re-running measured premises
   (E13). `tests/test_stale_context_audience.py`'s `RERUN` assertions then pin the stale-context text itself, not the
-  dropped sentence. No SPEC text carries it: `git grep -n "Re-run the Context" -- docs/spec` at `a8a47f19`: no line.
+  dropped sentence. No SPEC text carries it: `git grep -n "Re-run the Context" -- docs/spec` at `15dbfe7a`: no line.
 - No SPEC change (measured in Context).
 - **Out:** `tests/test_seat_actors.py`, which 0303 holds in its `paths`: its docstring line naming the seat ids, and its line 79 `"design-seat.json"` as of `ad9b4f84` (0293 has rewritten that one since), are left to 0303; `tests/test_prefer.py` (0293 rewrote its strings); the merge-gate end of a wait; `ccp tasks prefer` and `hold` and their docs (0293); `tests/CLAUDE.md` (0295);
   E27's command.
@@ -112,7 +112,7 @@ Measured at `a8a47f19` (this PR's commit editing `plugin/skills/writing-tasks/SK
     2. Run `grep -e another_actor -e '^OK' -e FAIL <the log step 1 names>`.
     3. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_health_signoff --mutant 'ccp/health.py: and e.get("actor") == LEAD=>'`.
   expect: step 1 exits 0; step 2 lists `test_a_build_sign_off_another_actor_recorded_ends_no_wait` `ok`, then `OK`, and no `FAIL`; step 3 prints the mutant `killed`.
-  dry run: n/a — the test is new; at `a8a47f19` (scratch QUEUE_ROOT), step 1 printed `passed, exit 0, lane part … 6 tests` and step 2 on its log printed only `OK`.
+  dry run: n/a — the test is new; at `15dbfe7a` (scratch QUEUE_ROOT), step 1 printed `passed, exit 0, lane part … 6 tests` and step 2 on its log printed only `OK`.
 - id: `doc-01`
   story: As the runner, the brief and the writing-tasks skill show the lead's sign-off and ruling as the lead runs them.
   setup: A checkout of the PR head (any seat).
@@ -124,7 +124,7 @@ Measured at `a8a47f19` (this PR's commit editing `plugin/skills/writing-tasks/SK
     5. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_stale_context_audience`.
     6. Run `grep -e '^OK' <the log step 5 names>`.
   expect: step 1 prints exactly 2 lines, both in `plugin/agents/delivery-runner.md`; step 2 prints nothing (exit 1); step 3 prints `1`; step 4 prints `0`; step 5 exits 0; step 6 prints `OK`.
-  dry run (`a8a47f19`): step 1 printed the 2 lines; step 2 printed the same 2 lines; step 3 printed `0`; step 4 printed `1`; step 5 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 15 tests`; step 6 printed `OK`.
+  dry run (`15dbfe7a`): step 1 printed the 2 lines; step 2 printed the same 2 lines; step 3 printed `0`; step 4 printed `1`; step 5 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 15 tests`; step 6 printed `OK`.
 - id: `code-02`
   story: As a plane developer, the three test modules 0289's follow-ups named spell the lead's id inside no longer string.
   setup: A checkout of the PR head (any seat).
@@ -133,7 +133,7 @@ Measured at `a8a47f19` (this PR's commit editing `plugin/skills/writing-tasks/SK
     2. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_prefer tests.test_usage tests.test_usage_advice`.
     3. Run `grep -e '^OK' <the log step 2 names>`.
   expect: step 1 prints nothing (exit 1); step 2 exits 0; step 3 prints `OK`.
-  dry run (`a8a47f19`): step 1 printed 2 lines (`tests/test_usage_advice.py` 1, `tests/test_usage.py` 1); (scratch QUEUE_ROOT) step 2 printed `passed, exit 0, lane part … 72 tests`; step 3 printed `OK`.
+  dry run (`15dbfe7a`): step 1 printed 2 lines (`tests/test_usage_advice.py` 1, `tests/test_usage.py` 1); (scratch QUEUE_ROOT) step 2 printed `passed, exit 0, lane part … 72 tests`; step 3 printed `OK`.
 
 ## Implementation notes
 
