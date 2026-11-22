@@ -187,5 +187,9 @@ Measured at `1aa5e3f`.
   `test_review_gate` and the `test_review_skip*` modules go through), `test_formal_submit`,
   `test_plane_workers_run_head` and `test_report_follow_ups`. `test_prompt_gate_block` pinned the old
   since-ref. `tests/CLAUDE.md` lists the helper.
+- 2026-11-22, fix round 1: the `tests` entry's refusal now reads "no `## Tests for new behaviour` section of
+  `- ` lines, ..." instead of "..., or an empty one", so it also names the malformed case (a bare `none`, a
+  prose line, `none` beside items) as the Friction entry's does (E13). The reviewer brief's base-worktree
+  sentence cites SPEC §12.1.
 
 ## Verification notes

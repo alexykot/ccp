@@ -485,7 +485,7 @@ SECTIONS: tuple[Section, ...] = (
             "with one of the values shown: {each}.\n"),
     Section("tests", "Tests for new behaviour", "## Tests for new behaviour", FIELD_PHASES, "done", False,
             ("tests_for_new_behaviour",), (), _read_tests,
-            "no `## Tests for new behaviour` section, or an empty one: a `- ` line for each behaviour the round's "
+            "no `## Tests for new behaviour` section of `- ` lines, one for each behaviour the round's "
             "commits add or change, with the test that fails without it, or a single line beginning `none` followed "
             "by why (SPEC §13.4, §13.5)",
             "   - When done: a `## Tests for new behaviour` section, a `- ` line for each branch, field, refusal or "
