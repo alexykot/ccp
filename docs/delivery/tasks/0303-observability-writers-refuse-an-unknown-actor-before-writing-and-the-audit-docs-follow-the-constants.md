@@ -98,7 +98,7 @@ Measured at `7a2993b` (origin/main).
   `actor = os.environ.get("ACTOR_IN") or RUNNER` before it reads the prompt, and on an actor not in `ACTORS` calls
   `die(f"invalid actor {actor!r}")` (exit 1, as `append_event` exits), writing nothing; the audit's `"actor"` is that value.
   `ccp/prompt.py`'s `"def audit"` passes `"--actor", actor()` (`ccp.queue`'s, which falls back to the runner for an unknown `ACTOR`).
-  `"def cmd_tasks_estimate"` in `ccp/cli.py` takes `who = a.actor if a.actor in lib.ACTORS else queue.actor("system")` and passes
+  `"def cmd_tasks_estimate"` in `ccp/cli.py` takes `who = a.actor if a.actor in lib.ACTORS else "system"` and passes
   `who` to `estimator.spawn` and `estimator.run` in place of `a.actor or "system"`, so an unknown `--actor` falls back instead of
   failing the audit. `tests/test_prompt_audit.py` gains `test_an_unknown_estimate_actor_falls_back` (`estimator.run` patched,
   `ccp tasks estimate 0001 --actor nobody`, the estimator path: `run` receives `"system"`; `--actor` `lib.LEAD`: it receives `lib.LEAD`).
@@ -158,9 +158,9 @@ Measured at `7a2993b` (origin/main).
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_prompt_audit`.
     2. Run `grep -e ledger_refuses -e stray_actor -e estimate_actor -e '^OK' <the log step 1 names>`.
-    3. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_prompt_audit --revert scripts/observability/write-prompt-audit.sh --revert ccp/prompt.py`.
-  expect: step 1 exits 0; step 2 lists `test_an_actor_the_ledger_refuses_writes_no_audit` `ok` and `test_a_stray_actor_in_the_env_audits_as_the_runner` `ok` and `test_an_unknown_estimate_actor_falls_back` `ok`, then `OK`; step 3 prints both mutants `killed`.
-  dry run (`7a2993b`): the write-prompt-audit probe of Context exited 0 and wrote `"actor": "delivery-watchdog"`; step 1 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 10 tests`, and step 2 on its log printed only `OK` (both tests are new).
+    3. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_prompt_audit --revert scripts/observability/write-prompt-audit.sh --revert ccp/prompt.py --revert ccp/cli.py`.
+  expect: step 1 exits 0; step 2 lists `test_an_actor_the_ledger_refuses_writes_no_audit` `ok` and `test_a_stray_actor_in_the_env_audits_as_the_runner` `ok` and `test_an_unknown_estimate_actor_falls_back` `ok`, then `OK`; step 3 prints all three mutants `killed`.
+  dry run (`7a2993b`): the write-prompt-audit probe of Context exited 0 and wrote `"actor": "delivery-watchdog"`; step 1 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 10 tests`, and step 2 on its log printed only `OK` (all three tests are new).
 - id: `cmd-02`
   story: As a seat, a heartbeat the ledger refuses leaves no seat file.
   setup: A checkout of the PR head, in your own worktree (a delivery-verifier seat), with your open run.
