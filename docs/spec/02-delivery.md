@@ -1223,7 +1223,7 @@ window, accepted. Under `parallel.schedule: clashes`, the default, the writer's 
 
 ```json
 "parallel": { "max_in_flight": 2, "exclusive": ["db/schema.sql"], "shared": [] },
-"suite": { "exclusive_lanes": ["gate", "full"] },
+"suite": { "exclusive_lanes": ["gate"] },
 "merge": { "behind_tip_ignore": ["docs/notes"] }
 ```
 

@@ -80,8 +80,9 @@ and scenario checks pass, no test expectation changed unless the task names it, 
 - A test run you cite as evidence, a mutation check included, is a recorded one, never a bare test
   runner: `ccp suite run --run <run_id> --lane <lane> -- <command>` with the lane your prompt names,
   or `ccp mutate --run <run_id> --test <id> --revert <path>[:<lines>] …` from your own worktree
-  where the product declares `mutate.command` (SPEC §14.1, §20.6). Where it declares none, break code
-  by hand only in a mutation worktree at the head you judge
+  where the product declares `mutate.command` or its language pack has a per-test runner (SPEC
+  §14.1, §20.6). Where the product declares no `mutate.command` and its language pack no per-test
+  runner, break code by hand only in a mutation worktree at the head you judge
   (`ccp wt create --kind mut --task <id> --sha <head>`), run the test there on the part lane as
   above, and remove it with `ccp wt remove <name>`; never a hand edit and restore in your own
   worktree.

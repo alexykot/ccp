@@ -990,10 +990,10 @@ def unreadable_proposed(t: dict[str, Any], rel: str) -> list[str]:
     text = t["_text"]
     unquoted = CODE_SPAN_RE.sub(_blank, FENCE_RE.sub(_blank, text))  # same length and line breaks as `text`
     out = []
-    for start, body in _signed_sections(unquoted):
+    for start, body in _signed_sections(text):  # the sections as `signed_blocks` finds them, in the raw text
         first = text.count("\n", 0, start) + 1
-        marked = body.split("\n")
-        lines = text[start:start + len(body)].split("\n")  # the body as written: quoted text is read as it is
+        marked = unquoted[start:start + len(body)].split("\n")  # a marker quoted in a span or a fence is not read
+        lines = body.split("\n")  # the body as written: quoted text is read as it is
         out += [f"{rel}:{first + n}: a `PROPOSED:` with no `> ` blockquote under it, which `ccp verify spec-text` "
                 "cannot read (SPEC §15.2): put the signed text in `> ` blockquote lines right under the "
                 "`PROPOSED:` line (SPEC §3.5)"

@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
@@ -659,6 +660,28 @@ class Unbuilt(MutateFixture, unittest.TestCase):
         self.assertEqual((code, body["unbuilt"], body["killed"]), (1, 2, 1), err)
         self.assertEqual([r["outcome"] for r in self.rows()], ["unbuilt", "unbuilt", "killed"])
         self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+
+    def test_a_syntax_error_the_code_under_test_raises_at_run_time_is_killed(self):
+        self.set_mutate(unbuilt_re=None)
+        code, body, _, err = self.mutate("calc.py:    return a + b=>    return compile('def f(:', '<string>', 'exec')")
+        self.assertEqual((code, body["killed"], body["unbuilt"]), (0, 1, 0), err)
+        self.assertIn("SyntaxError", Path(body["log"]).read_text())
+
+    def test_a_syntax_error_in_a_lazily_imported_module_is_unbuilt(self):
+        # the new module sorts after calc.py, so the patch does not end on a blank context line the fixture's git strips
+        patch = self.patch_file({"calc.py": CALC.replace("    return a + b\n", "    import lazy\n    return a + b\n"),
+                                 "lazy.py": "def f(:\n    pass\n"})
+        self.set_mutate(unbuilt_re=None)  # after the patch, which holds the worktree's whole diff
+        code, body, _, err = self.mutate(str(patch))
+        self.assertIsNotNone(body, err)
+        self.assertEqual((code, body["unbuilt"], body["killed"]), (1, 1, 0), err)
+        self.assertNotIn("Failed to import test module", Path(body["log"]).read_text())  # the test module imported
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+
+    def test_a_config_with_no_mutate_block_runs_on_the_defaults(self):
+        cfg = replace(config.load(self.mut), mutate=None)
+        body, code = mutate.run(cfg, self.q, self.run_id, [ADD], ["calc.py:a + b=>a - b"], cwd=self.mut)
+        self.assertEqual((code, body["killed"]), (0, 1))
 
     def test_a_pattern_of_its_own_replaces_the_packs(self):
         self.set_mutate(unbuilt_re="^no line says this$")

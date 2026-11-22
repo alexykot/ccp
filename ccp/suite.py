@@ -380,8 +380,7 @@ def resolve_stages(cfg: Config | None, lane: str | None, command: list[str] | No
                              f"`--`: run `ccp suite run --lane {lane}` (SPEC §14.2)", 2)
         return [{"name": None, "argv": list(command)}]
     if lane is None:
-        raise QueueError("give the command after `--` (ccp suite run --lane full -- scripts/gate.sh), "
-                         "or a --lane that plane.json suite.lanes names", 2)
+        raise QueueError(no_lane_refusal(cfg), 2)
     if not lanes or lane not in lanes:
         known = ", ".join(sorted(lanes or {})) or "none"
         raise QueueError(f"plane.json suite.lanes names no lane {lane!r} (lanes: {known}): give the command after `--`", 2)
@@ -392,6 +391,20 @@ def resolve_stages(cfg: Config | None, lane: str | None, command: list[str] | No
     if cfg is not None and lane == lane_for(cfg, "gate"):
         out.append({"name": PLANE_DOCS_STAGE, "argv": plane_docs_argv(cfg), "staged": True})
     return out
+
+
+def no_lane_refusal(cfg: Config | None) -> str:
+    """§14.2: what a run given neither a lane nor a command is told: the full role's lane (`lane_for`) with what
+    plane.json `suite.lanes` declares for it, or, where it declares none, that lane with the command after `--`."""
+    full = lane_for(cfg, "full")
+    lanes = (cfg.suite or {}).get("lanes") if cfg else None
+    given = lanes.get(full) if isinstance(lanes, dict) else None
+    if given is None:
+        return (f"give the command after `--` (ccp suite run --lane {full} -- <command>), plane.json suite.lanes "
+                f"declaring no {full} lane, or a --lane that it names")
+    what = "its stages" if lane_stages(given) is not None else f"`{shlex.join(str(x) for x in given)}`"
+    return (f"give a --lane: ccp suite run --lane {full} runs {what}, as plane.json suite.lanes declares it; "
+            "or give the command after `--`")
 
 
 def replaced_lane_argv(cfg: Config | None, lane: str | None, command: list[str] | None) -> list[str] | None:

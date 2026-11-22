@@ -1,9 +1,10 @@
 """`ccp tasks dry-run`: a task's dod_check commands run at the integration tip, and with `--write` their
 dry-run records written into the task file from what they printed (SPEC §21.1, §5.5).
 
-The task file is read in the checkout the command runs in; the commands run in a temporary worktree
-detached at `origin/<integration_branch>`, removed afterwards. The check grammar is tasklog's (house
-rule E22); what to run, the record and the printout are worked out on plain values here (E15).
+The task file is read in the checkout the command runs in; the commands run, each through `bash -c`, in a
+temporary worktree detached at `origin/<integration_branch>`, removed afterwards, or with `--here` in that
+checkout at its HEAD, so a worker runs its own claimed task's check as the dry run does. The check grammar is
+tasklog's (house rule E22); what to run, the record and the printout are worked out on plain values here (E15).
 """
 from __future__ import annotations
 
@@ -23,6 +24,7 @@ STEP_TIMEOUT_S = 300  # each step's time limit; its process group is killed on t
 FIRST_LINE_CAP = 160  # characters of a step's first output line kept in the printout and the record
 NOT_RUN = "not run"   # a step that is not one backticked command and nothing else, or a marked check's
 REFUSED = 3           # §10.6: a task that is done, dropped or claimed has no dry run
+USAGE = 2             # §21.1: `--here` with `--write`, or a `--check` id the task does not have
 
 
 @dataclass(frozen=True)
@@ -36,14 +38,35 @@ class Ran:
     first: str
 
 
-def refusal(tid: str, status: object, claimed: bool) -> str | None:
+def refusal(tid: str, status: object, claimed: bool, here: bool = False) -> str | None:
     """§21.1: why a task has no dry run, or None. A done or dropped task's checks are walked; a claimed task's
-    file is edited only in its PR (§10.5)."""
+    file is edited only in its PR (§10.5), so only a run `--here`, which writes nothing, takes one."""
     if status in tasklog.TERMINAL:
         return f"{tid} is {status}: a dry run is for a task not yet done or dropped (SPEC §21.1)"
-    if claimed:
-        return f"{tid} is claimed: its file is edited only in its PR (SPEC §10.5)"
+    if claimed and not here:
+        return (f"{tid} is claimed: its file is edited only in its PR (SPEC §10.5); its worker runs a check in its "
+                "own checkout with --here")
     return None
+
+
+def usage_problem(write: bool, here: bool) -> str | None:
+    """§21.1: a flag pair the command refuses (exit 2), or None: `--here` writes nothing, so not with `--write`."""
+    if write and here:
+        return "--here writes nothing, so it takes no --write: a dry-run record is written from the tip (SPEC §21.1)"
+    return None
+
+
+def only(tid: str, checks: list[tuple[str, list[tuple[str, str | None]]]],
+         check: str | None) -> tuple[list[tuple[str, list[tuple[str, str | None]]]], str | None]:
+    """§21.1 `--check`: the one check named, or every check when none is named; with an id the task does not
+    have, no check and why, naming the ids it has."""
+    if check is None:
+        return checks, None
+    picked = [c for c in checks if c[0] == check]
+    if picked:
+        return picked, None
+    ids = ", ".join(cid for cid, _ in checks) or "none"
+    return [], f"{tid} has no dod_check {check} (its checks: {ids})"
 
 
 def claimed(st: dict[str, object]) -> bool:
@@ -144,21 +167,32 @@ def _kill(pid: int) -> None:
         pass
 
 
-def dry_run(cfg: Config, task: str, write: bool) -> int:
-    """§21.1 `ccp tasks dry-run <id> [--write]`: print each check's runs; with `write`, set each check's record
-    from them in the task file. Exit 3 for a done, dropped or claimed task; a QueueError for no queue, an
+def dry_run(cfg: Config, task: str, write: bool, check: str | None = None, here: bool = False) -> int:
+    """§21.1 `ccp tasks dry-run <id> [--write] [--check <check-id>] [--here]`: print each check's runs (only
+    `check`'s when given); with `write`, set each check's record from them in the task file. With `here`, the
+    steps run in this checkout at its HEAD and nothing is written. Exit 2 for `here` with `write` or a check the
+    task does not have, 3 for a done, dropped or (without `here`) claimed task; a QueueError for no queue, an
     unknown task or no integration tip."""
+    bad = usage_problem(write, here)
+    if bad:
+        print(f"ccp tasks dry-run: {bad}", file=sys.stderr)
+        return USAGE
     q = queue.root()
     meta = queue.task_meta(cfg, task)
     tid = str(meta["task_id"])
-    why = refusal(tid, tasklog.canonical_status(meta.get("status")), claimed(queue.load_task_state(q, tid)))
+    why = refusal(tid, tasklog.canonical_status(meta.get("status")), claimed(queue.load_task_state(q, tid)), here)
     if why:
         print(f"ccp tasks dry-run: {why}", file=sys.stderr)
         return REFUSED
     path: Path = meta["_file"]
     text = path.read_text()
-    checks = plan(text)
+    checks, missing = only(tid, plan(text), check)
+    if missing:
+        print(f"ccp tasks dry-run: {missing}", file=sys.stderr)
+        return USAGE
     skip = marked(text)
+    if here:
+        return _here(cfg, tid, checks, skip)
     sha = wt.tip(cfg, q)
     ref = f"origin/{queue.integration_branch(q)}"
     main = wt.main_checkout(cfg)
@@ -185,4 +219,14 @@ def dry_run(cfg: Config, task: str, write: bool) -> int:
         if new != now:
             path.write_text(new)
         print(f"wrote {len(records)} dry-run record(s) to {cfg.rel(path)}")
+    return 0
+
+
+def _here(cfg: Config, tid: str, checks: list[tuple[str, list[tuple[str, str | None]]]], skip: set[str]) -> int:
+    """§21.1 `--here`: the steps run in the checkout the command runs in, at its HEAD; nothing is written."""
+    sha = queue.git(cfg.root, "rev-parse", "HEAD", check=True).stdout.strip()  # before a step can move it
+    runs = {cid: [outcome(n, cmd, *run_step(cmd, cfg.root)) for n, cmd in steps if cmd is not None]
+            for cid, steps in checks if cid not in skip}
+    for line in printout(tid, sha[:7], "HEAD, here", checks, runs, skip):
+        print(line)
     return 0
