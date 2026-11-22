@@ -9,11 +9,12 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 from ccp import cli, config, doclang, suite
 from ccp.doclang import python as py_pack
-from tests.helpers import Product
+from tests.helpers import Product, merged_plane
 
 
 def git(root, *a):
@@ -121,6 +122,52 @@ class Affected(Scratch, unittest.TestCase):
         self.p.write("tests/test_new.py", "import unittest\n")  # untracked: a module
         self.p.write("tests/helper.py", "X = 1\n")  # not a test module
         self.assertEqual(py_pack.suite_size(self.p.root, suite._tracked_files(self.p.root)), 8)
+
+    def lanes(self, lanes: dict, roles: dict | None = None) -> None:
+        self.p.write("docs/delivery/plane.json", json.dumps(merged_plane(
+            {"language": "python", "suite": {"lanes": lanes, **({"roles": roles} if roles else {})}})))
+
+    def touch_three_of_eight(self) -> None:
+        """Make pkg/a.py touch three of the eight test modules: more than the full-lane share."""
+        self.p.write("pkg/__init__.py", "from pkg import a, b\n")
+        self.p.write(FILLERS[0], "import unittest\nimport pkg\n")
+
+    def test_a_declared_part_lane_argv_runs_the_modules_whatever_their_share(self):
+        self.lanes({"gate": ["true"], "part": ["scripts/gate.sh", "-q"]})
+        code, lines, err = self.run_cli("--paths", "pkg/a.py")
+        self.assertEqual((code, lines), (0, ["tests.test_a"]), err)
+        self.assertEqual(err, "ccp suite affected: run them with: ccp suite run --lane part -- scripts/gate.sh -q "
+                              "tests.test_a\n")
+        self.touch_three_of_eight()
+        code, lines, err = self.run_cli("--paths", "pkg/a.py")
+        self.assertEqual((code, lines), (0, ["tests.test_a", "tests.test_b", "tests.test_filler1"]), err)
+        self.assertEqual(err, "ccp suite affected: run them with: ccp suite run --lane part -- scripts/gate.sh -q "
+                              "tests.test_a tests.test_b tests.test_filler1\n")
+
+    def test_the_declared_argv_is_the_lane_the_product_gives_the_part_role(self):
+        self.lanes({"gate": ["true"], "part": ["not-this"], "quick": ["run-quick"]}, roles={"part": "quick"})
+        _, _, err = self.run_cli("--paths", "pkg/a.py")  # its first line warns that suite.roles is a constant
+        self.assertEqual(err.splitlines()[-1],
+                         "ccp suite affected: run them with: ccp suite run --lane quick -- run-quick tests.test_a")
+        self.lanes({"gate": ["true"], "part": ["not-this"]}, roles={"part": "quick"})  # the role's lane is undeclared
+        _, _, err = self.run_cli("--paths", "pkg/a.py")
+        self.assertIn("--lane quick -- python3 -m unittest tests.test_a\n", err)
+
+    def test_a_staged_part_lane_counts_as_none_declared(self):
+        self.lanes({"gate": ["true"], "part": [{"name": "unit", "cmd": "make unit"}]})
+        _, _, err = self.run_cli("--paths", "pkg/a.py")
+        self.assertIn("--lane part -- python3 -m unittest tests.test_a\n", err)
+        self.touch_three_of_eight()
+        _, _, err = self.run_cli("--paths", "pkg/a.py")
+        self.assertEqual(err, "ccp suite affected: 3 of 8 test modules: skip the pre-gate and run the full lane: "
+                              "ccp suite run --lane gate\n")
+
+    def test_a_declared_part_lane_runs_them_where_the_language_names_no_command(self):
+        self.lanes({"gate": ["true"], "part": ["scripts/gate.sh"]})
+        with mock.patch.dict(doclang.PACKS, {"python": lambda: replace(py_pack.PACK, test_command=None)}):
+            code, lines, err = self.run_cli("--paths", "pkg/a.py")
+        self.assertEqual((code, lines), (0, ["tests.test_a"]))
+        self.assertIn("--lane part -- scripts/gate.sh tests.test_a\n", err)
 
     def test_no_change_prints_nothing_and_exits_0(self):
         code, lines, _ = self.run_cli()
@@ -326,6 +373,28 @@ class Language(unittest.TestCase):
              "suite": {"affected_map": {"internal/*": ["./internal/..."], "*.SH": ["upper"]}}}))
         code, lines, err = self.run_cli("--paths", "internal/store/deep/db.go", "ops/x.sh")
         self.assertEqual((code, lines), (0, ["./internal/..."]), err)
+
+
+class Hint(unittest.TestCase):
+    """The stderr line on plain values: a declared part-lane argv, the language's command, the full lane."""
+
+    def cfg(self, lanes: dict) -> SimpleNamespace:
+        return SimpleNamespace(suite={"lanes": lanes})
+
+    def test_an_argv_word_with_a_space_is_quoted_so_the_line_runs_as_printed(self):
+        hint = suite.affected_hint(self.cfg({"part": ["run tests", "--fast"]}), ["t.a", "t.b"], 4, "py -m unittest")
+        self.assertEqual(hint, "ccp suite affected: run them with: ccp suite run --lane part -- 'run tests' --fast t.a t.b")
+
+    def test_no_modules_no_line(self):
+        self.assertIsNone(suite.affected_hint(self.cfg({"part": ["x"]}), [], 4, "py"))
+
+    def test_an_empty_or_absent_part_lane_is_none_declared(self):
+        for lanes in ({"part": []}, {"other": ["x"]}, {}):
+            with self.subTest(lanes=lanes):
+                self.assertIsNone(suite.declared_part_argv(self.cfg(lanes)))
+                self.assertEqual(suite.affected_hint(self.cfg(lanes), ["t.a", "t.b"], 4, "py"),
+                                 "ccp suite affected: 2 of 4 test modules: skip the pre-gate and run the full lane: "
+                                 "ccp suite run --lane full")
 
 
 class AffectedMap(Scratch, unittest.TestCase):

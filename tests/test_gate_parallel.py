@@ -83,10 +83,11 @@ class GateFixture(unittest.TestCase):
     def module(self, name: str, body: str) -> None:
         (self.repo / "tests" / f"{name}.py").write_text(textwrap.dedent(body))
 
-    def gate(self, workers: str | None = "2", **extra: str | None) -> subprocess.CompletedProcess[str]:
-        """Run the fixture's gate; `extra` sets a variable, or unsets it with None. Its test cache is the
-        fixture's own (GATE_CACHE_DIR), never the caller's, and it runs warm unless GATE_COLD or
-        CCP_SUITE_COLD is given."""
+    def gate(self, workers: str | None = "2", names: tuple[str, ...] = (),
+             **extra: str | None) -> subprocess.CompletedProcess[str]:
+        """Run the fixture's gate, given `names` as its arguments; `extra` sets a variable, or unsets it with
+        None. Its test cache is the fixture's own (GATE_CACHE_DIR), never the caller's, and it runs warm
+        unless GATE_COLD or CCP_SUITE_COLD is given."""
         env = {k: v for k, v in os.environ.items()
                if k not in ("GATE_WORKERS", "CCP_SUITE_RESULT", "GATE_CACHE_DIR", "GATE_COLD", "CCP_SUITE_COLD")}
         env.update(MEET_DIR=str(self.meet), CCP_SUITE_RESULT=str(self.result),
@@ -95,8 +96,8 @@ class GateFixture(unittest.TestCase):
             env["GATE_WORKERS"] = workers
         for k, v in extra.items():
             env.pop(k, None) if v is None else env.__setitem__(k, v)
-        return subprocess.run(["bash", str(self.repo / "scripts" / "gate.sh")], capture_output=True, text=True,
-                              env=env, timeout=120)
+        return subprocess.run(["bash", str(self.repo / "scripts" / "gate.sh"), *names], capture_output=True,
+                              text=True, env=env, timeout=120)
 
     def read(self) -> dict:
         return json.loads(self.result.read_text())
@@ -179,6 +180,50 @@ class TheGateRunsModulesApart(GateFixture):
                 self.assertEqual(self.read()["tests"], 0)
 
 
+class GivenNamesTheGateRunsOnlyThose(GateFixture):
+    def setUp(self):
+        super().setUp()
+        self.module("test_ok", OK)
+        self.module("test_more", MORE.format(lhs=3))
+        self.module("test_other", MORE.format(lhs=4))  # fails if it runs
+
+    def ran(self, r: subprocess.CompletedProcess[str], state: str = "") -> set[str]:
+        return {ln.split()[2].rstrip(":") for ln in r.stdout.splitlines()
+                if ln.startswith("gate module ") and ln.split()[3].startswith(state)}
+
+    def test_it_runs_the_named_modules_and_no_other(self):
+        r = self.gate(names=("tests.test_ok", "tests.test_more"), GATE_COLD="1")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.ran(r), {"tests.test_ok", "tests.test_more"})
+        self.assertIn("gate: 2 modules, ran 2,", r.stdout)
+        self.assertEqual({m["name"] for m in self.read()["modules"]}, {"tests.test_ok", "tests.test_more"})
+
+    def test_named_modules_run_at_the_same_time(self):
+        self.module("test_left", MEET.format(me="left", other="right"))
+        self.module("test_right", MEET.format(me="right", other="left"))
+        r = self.gate("2", names=("tests.test_left", "tests.test_right"), GATE_COLD="1")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.read()["tests"], 2)
+
+    def test_an_unknown_name_runs_nothing_and_exits_2_naming_it(self):
+        for bad in ("tests.test_no_such", "test_ok", "tests/test_ok.py"):
+            with self.subTest(bad=bad):
+                r = self.gate(names=("tests.test_ok", bad), GATE_COLD="1")
+                self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+                self.assertIn(bad, r.stdout)  # gate.sh tees both streams
+                self.assertEqual((self.ran(r), self.read()["tests"]), (set(), 0))
+
+    def test_a_part_runs_cache_entry_is_the_full_runs_and_back(self):
+        (self.repo / ".gitignore").write_text("__pycache__/\n")  # as the plane's own repo has it
+        r = self.gate(names=("tests.test_ok",))
+        self.assertEqual((r.returncode, self.ran(r, "ok")), (0, {"tests.test_ok"}), r.stdout + r.stderr)
+        r = self.gate()  # every module: the one the part run passed is served from the cache
+        self.assertEqual(self.ran(r, "cached"), {"tests.test_ok"}, r.stdout)
+        self.assertEqual(self.ran(r, "ok"), {"tests.test_more"}, r.stdout)
+        r = self.gate(names=("tests.test_more",))  # and the full run's entry serves a part run
+        self.assertEqual((r.returncode, self.ran(r, "cached"), self.ran(r, "ok")), (0, {"tests.test_more"}, set()))
+
+
 class TheWorkerCount(unittest.TestCase):
     def load(self):
         spec = importlib.util.spec_from_file_location("gate_parallel_under_test", ROOT / "scripts/gate_parallel.py")
@@ -199,6 +244,16 @@ class TheWorkerCount(unittest.TestCase):
         names = self.load().modules()
         self.assertEqual(sorted(names), sorted(f"tests.{p.stem}" for p in (ROOT / "tests").glob("test_*.py")))
 
+
+    def test_names_select_from_the_suite_in_its_order_and_every_unknown_one_is_named(self):
+        gp = self.load()
+        suite_ = ["tests.test_big", "tests.test_mid", "tests.test_small"]
+        self.assertEqual(gp.selected(suite_, []), suite_)
+        self.assertEqual(gp.selected(suite_, ["tests.test_small", "tests.test_big", "tests.test_small"]),
+                         ["tests.test_big", "tests.test_small"])
+        with self.assertRaises(ValueError) as e:
+            gp.selected(suite_, ["tests.test_x", "tests.test_mid", "tests.test_y"])
+        self.assertIn("tests.test_x, tests.test_y", str(e.exception))
 
     def test_a_modules_count_sums_its_ran_lines_and_is_its_share_of_the_total(self):
         gp = self.load()
