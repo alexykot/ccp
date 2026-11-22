@@ -166,5 +166,9 @@ Measured at `072d9f9`.
 - `tests/test_usage.py`'s `HeadlessEnv` moved to `tests/test_headless.py`; its half that checked the OTLP fold
   reading `ccp.seat` stays in `tests/test_usage.py` as `SeatAttribute`, since it needs that module's own
   `logs` and `kv` builders. `tests/test_estimator.py` calls `headless.headless_env`.
+- Fix round 1: `scripts/observability/README.md`'s row for `spec_maintainer.py` no longer says the script holds
+  the headless helpers; it names `ccp/headless.py` and `ccp/queue.py`, as the folder's CLAUDE.md does.
+  `docs/design/plugin.md` names `spec_maintainer.descendants` (through `ccp/tasklog.py`) among the current task-file
+  readers instead of "formerly". Both were review findings (MINOR-1, NIT-1); NIT-2 stays a follow-up.
 
 ## Verification notes
