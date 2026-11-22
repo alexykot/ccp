@@ -94,8 +94,9 @@ with a prototype of `code-03`'s test added:
   `head_bindings_dir` names the third step of leak-check.sh as the resolution it mirrors.
 - **The fence.** `NO_BASE_RUN = "CCP_NO_BASE_RUN"` in `ccp/baseline.py`. When `envvar(NO_BASE_RUN)` is set,
   `"def judge"` makes no base run and every failure counts. The module docstring names the switch and says the
-  tests' fence sets it. `tests/__init__.py` sets `os.environ["CCP_NO_BASE_RUN"] = "1"`, with a one-line comment
-  citing §21.2, beside the other `CCP_NO_*` lines. `tests/test_self_hosting.py` is not edited; it inherits the
+  tests' fence sets it. `tests/__init__.py` sets `os.environ["CCP_NO_BASE_RUN"] = "1"`, beside the other `CCP_NO_*` lines,
+  under a one-line comment citing §21.2 (the line itself names the variable, so `code-02`'s grep finds
+  exactly one line). `tests/test_self_hosting.py` is not edited; it inherits the
   fence. In `tests/test_preexisting_checks.py`, `Repo.make` lifts it for its tests:
   `mock.patch.dict(os.environ, {"CCP_NO_BASE_RUN": ""})`, started there and stopped by `addCleanup`. An empty
   value counts as unset under `envvar`.
@@ -104,7 +105,9 @@ with a prototype of `code-03`'s test added:
 - **Tests**, all in `tests/test_preexisting_checks.py`:
   - `BaseRun.test_a_leak_on_main_is_preexisting_when_the_head_run_finds_the_denylist_through_ccp_where`: the
     probe in Context as a test. The fixture repo commits a copy of `scripts/leak-check.sh` and runs it as an
-    `architect.checks` command. It expects exit 0 and `check E1` under the heading.
+    `architect.checks` command. The test removes `CCP_BINDINGS_DIR` from the environment, puts the stub `ccp`
+    first on PATH, and patches `queue.lib.bindings_dir` to return a directory that does not exist, as a
+    worktree's own `bin/ccp` would. It expects exit 0 and `check E1` under the heading.
   - `BaseRun.test_the_fence_makes_no_base_run`: with `CCP_NO_BASE_RUN=1`, a fixture with a hit on main and a
     task branch gives exit 1, no heading, and a marker file showing the failing check ran once.
   - `DocsCheck.test_a_multi_path_diff_with_a_non_ascii_checker_file_leaves_the_hit_failing`: the repo holds
@@ -113,12 +116,19 @@ with a prototype of `code-03`'s test added:
   - `BaseRun.test_the_base_run_gets_the_bindings_directory_the_head_run_resolved` changes: with
     `CCP_BINDINGS_DIR` set to a temporary directory, the base run sees that same directory. Today it expects
     the patched `lib.bindings_dir()` instead.
+  - `BaseRun.echoed` sets `CCP_BINDINGS_DIR=str(bindings)` in the environment it patches, under `env`, so
+    `head_bindings_dir` hands the base run the directory holding the fixture's binding. Without it the base
+    run gets the fence's missing directory, finds no binding, and
+    `BaseRun.test_the_base_run_takes_no_queue_from_the_products_binding` passes whether or not the base run
+    sets `CCP_NO_BINDING_QUEUE`, so it would test nothing. That test changes only through `echoed`.
 
 ## Scope
 
 - **In:** `ccp/baseline.py` (`head_bindings_dir`, the `CCP_NO_BASE_RUN` switch in `judge`, `changed_paths`
   without `core.quotepath`, the docstrings); `tests/__init__.py` (one line and its comment);
-  `tests/test_preexisting_checks.py` (three tests added, one changed, the fence lifted in `Repo.make`).
+  `tests/test_preexisting_checks.py` (three tests added; `test_the_base_run_gets_the_bindings_directory_the_head_run_resolved`
+  and, through `echoed`, `test_the_base_run_takes_no_queue_from_the_products_binding` changed; the fence
+  lifted in `Repo.make`).
 - **Out:** `scripts/leak-check.sh` and the denylist; `docs/spec/03-quality.md` (§21.2 stays); setting
   `CCP_BINDINGS_DIR` for workers (the other option the follow-ups name, not taken); `tests/test_self_hosting.py`;
   `docs/ENGINEERING.md`.
@@ -131,8 +141,9 @@ with a prototype of `code-03`'s test added:
   steps:
     1. Run `python3 -B -m unittest -v tests.test_preexisting_checks.BaseRun`.
     2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_preexisting_checks.BaseRun.test_a_leak_on_main_is_preexisting_when_the_head_run_finds_the_denylist_through_ccp_where --revert ccp/baseline.py`.
-  expect: step 1 exits 0 and lists `test_a_leak_on_main_is_preexisting_when_the_head_run_finds_the_denylist_through_ccp_where` and `test_the_base_run_gets_the_bindings_directory_the_head_run_resolved` as `ok`; step 2 prints the mutant `killed`.
-  dry run: n/a — the test is new. The fixture probe in Context exited 1 at `b4af31e`, which is what the revert brings back.
+    3. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_preexisting_checks.BaseRun.test_the_base_run_takes_no_queue_from_the_products_binding --mutant 'ccp/baseline.py:"CCP_NO_BINDING_QUEUE": "1"=>"CCP_NO_BINDING_QUEUE": ""'`.
+  expect: step 1 exits 0 and lists `test_a_leak_on_main_is_preexisting_when_the_head_run_finds_the_denylist_through_ccp_where`, `test_the_base_run_gets_the_bindings_directory_the_head_run_resolved` and `test_the_base_run_takes_no_queue_from_the_products_binding` as `ok`; steps 2 and 3 each print the mutant `killed`.
+  dry run: n/a — the test is new. The fixture probe in Context exited 1 at `b4af31e`, which is what the revert brings back. Step 3's old text occurs once in `ccp/baseline.py` (`git grep -c -F '"CCP_NO_BINDING_QUEUE": "1"' -- ccp/baseline.py` at `5fc9cb9`: 1).
 - id: `code-02`
   story: As a plane developer, the test suite never makes a worktree of the real repository for a base run.
   setup: A checkout of the PR head, any seat with QUEUE_ROOT for step 3.

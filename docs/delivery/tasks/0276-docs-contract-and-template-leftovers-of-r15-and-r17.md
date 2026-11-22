@@ -149,11 +149,16 @@ at `a80cee0` finds no non-normative note form. Naming the file means editing the
   stays. `tests/test_prompt_tools.py`'s
   `test_the_reviewer_reads_and_runs_code_at_the_merge_base_in_a_base_worktree` asserts
   `--sha <PR head> -- <command>` in the brief and `git merge-base` not in it.
-- **The self-check sentence.** `templates/prompts/_gate.md` loses, inside `{{#gate_pr}}`, the two
-  sentences "Put that list in your report, …" and "That map lives in the report only: …". In their place,
-  one line that every phase rendering `_gate.md` renders (outside every `{{#gate_*}}` block, right after the
-  `{{#gate_pr}}` block's "First, check your tests …" line and before "Fail fast first"):
-  `List each branch, field, refusal or behaviour this round's commits add or change, with the test that fails without it, in your report, as its last part asks, so the reviewer can check it; the list lives in the report only, never as dod_check ids or a map in test names or docstrings.`
+- **The self-check sentence.** In `templates/prompts/_gate.md`:
+  - The `{{#gate_pr}}` block loses the two sentences "Put that list in your report, …" and "That map lives
+    in the report only: …".
+  - Its "First, check your tests against your diff" line drops the clause ", with the test that fails
+    without it" and ends "… list each branch, field, refusal or behaviour the diff adds or changes, and write
+    the test for any that has none."
+  - The block ends with `{{/gate_pr}}` at the end of the "To show a test fails without your change, …" line.
+    The next line, which every phase rendering `_gate.md` renders, is:
+    `List each branch, field, refusal or behaviour this round's commits add or change, with the test that fails without it, in your report, as its last part asks, so the reviewer can check it; the list lives in the report only, never as dod_check ids or a map in test names or docstrings.`
+    The line after it starts "Fail fast first", which no longer carries a `{{/gate_pr}}` tag at its start.
   The "List each … in your report …" line of `fix.md`, `merge.md` and `ruling.md` (quoted in Context) is
   removed from each. `tests/test_worker_efficiency.py`'s new test (below) also checks
   that the implement, fix, merge and ruling prompts each render `dod_check ids` once.

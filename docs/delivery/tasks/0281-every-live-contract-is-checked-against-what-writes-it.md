@@ -4,6 +4,7 @@ title: Every live contract is checked against the record its writer writes, and 
 status: pending
 kind: refactor
 depends_on: ["0279-contract-writer-tests-for-the-answer-file-and-wt-up-down"]
+clashes_with: ["0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events"]
 rule_refs: ["E9", "E12"]
 review_point: R24
 paths: ["ccp/schema.py", "contracts/task_file.example.md", "contracts/CLAUDE.md", "tests/test_contract_writers.py"]
@@ -23,23 +24,25 @@ uses a keyword the schema checker cannot check, so no part of a schema passes by
 
 ## Context (not checked)
 
-Measured at `b4af31e` (origin/main). This task covers task 0263's open worker follow-up `0263-…/implement#1`
-(`ccp tasks follow-ups --open`): "`plane_config.schema.json`, `project.schema.json`, `task_file.schema.json`,
-`adr.schema.json` and the others are still validated by nothing through this checker".
+Measured at `5fc9cb9` (origin/main, after 0279 merged). Lines that name `b4af31e` were measured there first; the counts that 0279 changed are re-measured below, and the mutant anchors still occur once each at `5fc9cb9`. The class names this task adds do not exist in `tests/test_contract_writers.py` at `5fc9cb9`. This
+task covers these open worker follow-ups (`ccp tasks follow-ups --open`):
+- `0263-…/implement#1`: "`plane_config.schema.json`, `project.schema.json`, `task_file.schema.json`,
+  `adr.schema.json` and the others are still validated by nothing through this checker";
+- `0279-contract-writer-tests-for-the-answer-file-and-wt-up-down/implement#1` and `…/verify#1`: both say
+  0263 `implement#1` stays open for the ten remaining contracts.
 
-**The ten contracts.** `ls contracts/*.schema.json | wc -l` at `b4af31e`: 23.
-`git grep -ho '[a-z_]*\.schema\.json' $(git grep -l schema_errors -- tests) | sort -u` at `b4af31e`: 11
-names, and `project.schema.json` among them is read only for an enum (`tests/test_verify.py`). Task 0279
-(pending, `depends_on`) covers `question_answer` and removes `architecture_review` and `result`. That leaves
-these ten (same commands): `adr`, `architect_report`, `machine`, `observability_event`, `plane_config`,
+**The ten contracts.** `ls contracts/*.schema.json | wc -l` at `5fc9cb9`: 21 (23 at `b4af31e`; 0279
+removed `architecture_review` and `result`).
+`git grep -ho '[a-z_]*\.schema\.json' $(git grep -l schema_errors -- tests) | sort -u` at `5fc9cb9`: 12
+names (0279 added `question_answer`), and `project.schema.json` among them is read only for an enum
+(`tests/test_verify.py`). That leaves these ten (same commands): `adr`, `architect_report`, `machine`, `observability_event`, `plane_config`,
 `pr_record`, `project`, `prompt_audit`, `suite_result`, `task_file`. This is the list task 0279 measured at `254bb64`.
 
 **The checker cannot read three of them today.** `"def schema_errors"` in `ccp/schema.py` fails closed on
 a keyword outside `_ANNOTATIONS` and `_KEYWORDS`, and only for the part of the schema a record reaches.
-`git grep -cE '"(\$defs|\$ref|maxItems|uniqueItems|maximum|exclusiveMinimum|propertyNames|deprecated)"' -- 'contracts/*.schema.json'` at `b4af31e`: 6 files:
+`git grep -cE '"(\$defs|\$ref|maxItems|uniqueItems|maximum|exclusiveMinimum|propertyNames|deprecated)"' -- 'contracts/*.schema.json'` at `5fc9cb9`: 5 files (6 at `b4af31e`, with `architecture_review`):
 - `adr` uses `$defs` and `$ref`;
 - `architect_report` uses `maxItems` and `uniqueItems`;
-- `architecture_review` uses `maxItems` (removed by 0279);
 - `machine` uses `maximum` and `exclusiveMinimum`;
 - `plane_config` uses `deprecated`, `exclusiveMinimum`, `maximum`, `propertyNames` and `uniqueItems`;
 - `project` uses `deprecated`.
@@ -86,10 +89,20 @@ accepts where a seat writes it):
 
 **No SPEC change.** `git grep -nE 'maxItems|uniqueItems|propertyNames|exclusiveMinimum|\$defs' -- SPEC.md docs/spec` at `b4af31e`: no match. The checker's keyword set is not a rule.
 
-**0279's sentence.** 0279 makes contracts/CLAUDE.md's "Not yet checked: `question_answer`." read
+**0279's sentence.** 0279 (done, `5fc9cb9`) made contracts/CLAUDE.md's "Not yet checked: `question_answer`." read
 "Not yet checked by a written record: `adr`, `architect_report`, `machine`, `observability_event`,
 `plane_config`, `pr_record`, `project`, `prompt_audit`, `suite_result`, `task_file`." This task removes that
 sentence, hence `depends_on`. Both edit `tests/test_contract_writers.py`.
+
+**The clash with 0268** (pending, R21, signed). 0268 changes the local PR record's state words
+(`"OPEN"` to `open`, in `ccp/prhost.py` and `contracts/pr_record.schema.json`) and makes each write of it
+append a `pr` ledger event (`contracts/observability_event.schema.json`, `scripts/observability/lib.py`).
+This task's `QueueRecordContracts` test validates exactly those records against those contracts, and its
+mutants target `ccp/prhost.py` and `lib.append_event`. The two tasks change the same records in different
+ways, so they run in either order, never together. The clash is set here only, because 0268's file is signed and
+`clashes_with` is symmetric. `code-03`'s PR-record mutant anchors on `opened_at`, which 0268's brief leaves
+alone (`git grep -n opened_at -- docs/delivery/tasks/0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events.md`
+at `5fc9cb9`: no match). Whichever task merges second re-measures its anchors at its claim.
 
 ### Rulings for the build (the lead's)
 
@@ -183,11 +196,11 @@ sentence, hence `depends_on`. Both edit `tests/test_contract_writers.py`.
   setup: A checkout of the PR head, any seat with QUEUE_ROOT for steps 2 to 4.
   steps:
     1. Run `python3 -B -m unittest -v tests.test_contract_writers.QueueRecordContracts`.
-    2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_contract_writers.QueueRecordContracts --mutant 'ccp/prhost.py:"state": "OPEN", "opened_at"=>"state": "open", "opened_at"'`.
+    2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_contract_writers.QueueRecordContracts --mutant 'ccp/prhost.py:"opened_at": iso(), "merged_at": None,=>"opened_at": None, "merged_at": None,'`.
     3. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_contract_writers.QueueRecordContracts --mutant 'scripts/observability/write-prompt-audit.sh:"prompt_sha256": digest,=>"prompt_sha256": digest[:12],'`.
     4. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_contract_writers.QueueRecordContracts --mutant 'scripts/observability/lib.py:"at": ev["at"],=>"at": ev["at"].replace("T", " "),'`.
   expect: step 1 exits 0 with `test_the_pr_record_prompt_audit_and_events_a_claimed_task_writes_validate` `ok`; steps 2, 3 and 4 each print the mutant `killed`.
-  dry run (`b4af31e`): each old text occurs once in its file. In the scratch probe the three mutants gave `record.state: "open" is not one of OPEN, MERGED, CLOSED`, `record.prompt_sha256: … does not match ^[a-f0-9]{64}$` and `record.at: … is not an RFC 3339 date-time` on every event. Step 1 n/a — the test is new.
+  dry run (`b4af31e`): each old text occurs once in its file. A PR record with `opened_at` null gave `record.opened_at: null is not string` (at `5fc9cb9`); in the scratch probe the other two mutants gave `record.prompt_sha256: … does not match ^[a-f0-9]{64}$` and `record.at: … is not an RFC 3339 date-time` on every event. If 0268 merges first, re-measure the three anchors at the claim. Step 1 n/a — the test is new.
 - id: `code-04`
   story: As a plane developer, a change to the architect's report or the gate result that breaks its contract fails a test.
   setup: A checkout of the PR head, any seat with QUEUE_ROOT for steps 2 and 3.
@@ -213,7 +226,7 @@ sentence, hence `depends_on`. Both edit `tests/test_contract_writers.py`.
     1. Run `git grep -n 'Not yet checked' -- contracts/CLAUDE.md`.
     2. Run `git grep -n 'task_file.example.md' -- contracts/CLAUDE.md`.
   expect: step 1 prints nothing (exit 1); step 2 prints exactly one line.
-  dry run (`b4af31e`): step 1 printed 1 line (`contracts/CLAUDE.md:11`, the `question_answer` sentence 0279 rewrites); step 2 printed nothing (exit 1).
+  dry run (`5fc9cb9`): step 1 printed 1 line (`contracts/CLAUDE.md:11`, 0279's sentence); step 2 printed nothing (exit 1).
 
 ## Implementation notes
 
