@@ -1354,7 +1354,7 @@ tasks:
     path: tasks/0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope.md
   - id: 0276-docs-contract-and-template-leftovers-of-r15-and-r17
     status: pending
-    title: Close the docs, contract and template follow-ups of R15 and R17 - the triage contract's writer, stale queue rules, call syntax in docstrings, a template line cap check and two shared template sentences
+    title: Close the docs, contract and template follow-ups of R15 and R17 - the triage contract's writer, stale queue rules, call syntax in docstrings, a template line cap check and three shared template sentences, and the reviewer brief passes the PR head to the base worktree
     depends_on: []
     path: tasks/0276-docs-contract-and-template-leftovers-of-r15-and-r17.md
   - id: 0277-code-leftovers-of-r15-and-r17
@@ -1372,3 +1372,13 @@ tasks:
     title: The answer file and the records ccp wt up and down write are checked against their contracts, and the two dead contracts are removed
     depends_on: []
     path: tasks/0279-contract-writer-tests-for-the-answer-file-and-wt-up-down.md
+  - id: 0280-the-base-run-reads-the-denylist-the-head-run-reads-and-tests-make-no-base-run
+    status: pending
+    title: The run at the merge base reads the leak denylist the HEAD run reads, tests never make a base run of the real repo, and a multi-path non-ASCII diff is pinned
+    depends_on: []
+    path: tasks/0280-the-base-run-reads-the-denylist-the-head-run-reads-and-tests-make-no-base-run.md
+  - id: 0281-every-live-contract-is-checked-against-what-writes-it
+    status: pending
+    title: Every live contract is checked against the record its writer writes, and the schema checker knows every keyword the contracts use
+    depends_on: [0279-contract-writer-tests-for-the-answer-file-and-wt-up-down]
+    path: tasks/0281-every-live-contract-is-checked-against-what-writes-it.md
