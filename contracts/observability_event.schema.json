@@ -30,7 +30,7 @@
     },
     "actor": {
       "type": "string",
-      "description": "A seat id (§18.3), operator, system or plane-session. delivery-watchdog is historical: read in old rows, never written.",
+      "description": "A seat id (§18.3), adapter, operator, system or plane-session. delivery-watchdog is historical: read in old rows, never written.",
       "enum": [
         "task-runner",
         "task-verifier",

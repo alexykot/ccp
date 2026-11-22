@@ -185,4 +185,7 @@ README 140 lines, 2 README pointers, `wake_kind` unread in `ccp`/`contracts`, th
 - Judgement calls: the read-side check is a keyword on `validate_event` (the task names no signature). `heartbeat.sh` still
   writes the seat file before `append_event`, as before, so a refused `--actor` leaves the seat file (not changed here).
 
+- Fix round 1: the two contracts' `actor` descriptions now name `adapter` with the other non-seat actors (review MINOR); the
+  enums are unchanged. The review's NIT and its two follow-ups are left: the ruling asked for the read-side keyword without a caller.
+
 ## Verification notes
