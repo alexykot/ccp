@@ -28,8 +28,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   checkout's `bin/ccp` (or `ccp wt exec … --`), never `ccp` on PATH, which is the released plane. A
   check that runs tests runs them through `bin/ccp suite run --lane <part lane> -- <command>` and pins a
   named test by that recorded run's log, never a bare test runner's output. A
-  check that needs a modified copy (a planted fault) names `ccp mutate` where `mutate.command` is
-  declared, or a `ccp wt create --kind mut` worktree, never a hand `git worktree add`. Signed SPEC text
+  check that needs a modified copy (a planted fault) names `ccp mutate` where it can run one test (§20.6),
+  else a `ccp wt create --kind mut` worktree, never a hand `git worktree add`. Signed SPEC text
   is proved by `bin/ccp verify spec-text <task>`; a doc grep pins one token, never a sentence or a table row.
   check: pass — the architect and the reviewer read new tasks' dod_checks
 
@@ -98,8 +98,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   function; no other module matches `CHECK_RE` or re-splits the section.
   check: command — architect.checks `E22`
 - **E23** One parser per reference form: an ADR-decision link (`<ADR id>[ Dn]`, as `adr_refs`,
-  `requires` and `retired by` write it) and a task-id reference are parsed by ccp/refs.py; no other
-  module in ccp or scripts holds a regex for either.
+  `requires` and `retired by` write it), a task-id reference and a task merge's subject (§10.7 rule 1)
+  are parsed by ccp/refs.py; no other module in ccp or scripts holds a regex for any of them.
   check: command — architect.checks `E23`
 - **E25** The parser is the one source of the command surface. Call syntax is written by hand in one
   place (docs/cli), held to the parser by a test; no module docstring in ccp/ carries a usage table.
@@ -129,14 +129,15 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   with the § rules they cite, ccp/report.py's sections, and looks for inline sample records and sentences repeated
   across templates
 - **E24** A module docstring names the § it implements and what the module is for; it never lists the
-  keys, checks or formats the code or the SPEC holds.
-  check: pass — the architect compares module docstrings with the constants and § they would restate
+  keys, checks, refusals, exit codes or formats the code or the SPEC holds.
+  check: pass, plus command — architect.checks `E24`: the count of ccp modules whose docstring is over 30 lines
+  stays at or below its figure, lowered as docstrings are cut; the architect compares the rest with the § they restate
 
 ## Known intentional
 
-- Line grammars that are not references stay with their reader (E23): ccp/health.py's squash-subject
-  pattern `^Task (\d{width}): `, and ccp/adr.py's `DECISION_RE` (a decision's state line) and `_DEC_HEAD` and
-  `_DEC_MARK` (the line grammar of a decision's heading and mark; its other decision patterns derive from them).
+- Line grammars that are not references stay with their reader (E23): ccp/adr.py's `DECISION_RE` (a decision's
+  state line) and `_DEC_HEAD` and `_DEC_MARK` (the line grammar of a decision's heading and mark; its other decision
+  patterns derive from them).
 
 - The gate's test cache keys every module on all the inputs it shares (every tracked and untracked
   file but the test modules), not on what it imports: one source edit reruns every
