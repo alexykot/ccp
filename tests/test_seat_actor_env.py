@@ -69,7 +69,6 @@ class TheHooksDropTheSessionsActor(unittest.TestCase):
                                         "tasks next": "unset"})
 
 
-
 class TheTestFenceDropsAnExportedActor(unittest.TestCase):
 
     def test_importing_the_tests_package_drops_actor(self):

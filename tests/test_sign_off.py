@@ -179,9 +179,11 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         from ccp.queue import emit
         self.declare("brief")
         emit(self.q, config.load(self.runner), "0002-second", "sign_off", "recorded",
-             {"stage": "brief", "by": "op", "words": "signed", "head": "origin/main"})  # a ref, though it holds the text
+             {"stage": "brief", "by": "op", "words": "signed", "head": "origin/main"},  # a ref, though it holds the text
+             who=lib.LEAD)
         code, _, _, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 3, err)
+        self.assertIn("records no head", err)
         self.assertFalse((self.q / "tasks/0002-second.json").exists())
 
     def test_a_brief_sign_off_on_a_head_not_in_the_checkout_refuses_the_claim(self):
