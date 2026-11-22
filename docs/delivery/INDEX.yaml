@@ -1428,7 +1428,7 @@ tasks:
     depends_on: []
     path: tasks/0290-test-modules-share-the-plane-root-and-git-env-and-helpers-import-lazily.md
   - id: 0291-wt-remove-clears-a-cache-only-leftover-mutant-file-names-the-line-break-and-leak-check-reads-only-a-clean-where
-    status: pending
+    status: done
     title: ccp wt remove clears a leftover directory that holds only the language's caches, a mutant file's zero-match refusal names its trailing line break, and leak-check reads ccp where only when it exits 0
     depends_on: []
     path: tasks/0291-wt-remove-clears-a-cache-only-leftover-mutant-file-names-the-line-break-and-leak-check-reads-only-a-clean-where.md

@@ -1,7 +1,7 @@
 ---
 task_id: 0291-wt-remove-clears-a-cache-only-leftover-mutant-file-names-the-line-break-and-leak-check-reads-only-a-clean-where
 title: ccp wt remove clears a leftover directory that holds only the language's caches, a mutant file's zero-match refusal names its trailing line break, and leak-check reads ccp where only when it exits 0
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12", "S20"]
@@ -130,3 +130,5 @@ workers' health notes (`<queue>/health/notes.jsonl`, data only the queue holds),
   `\r\n`), which a `_without_line_break` that loses `b"\r\n"` fails.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #334 head `2401bd4` (squash `932d480`): APPROVE. Passed: code-01, code-02, cmd-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0291-wt-remove-clears-a-cache-only-leftover-mutant-file-names-the-line-break-and-leak-check-reads-only-a-clean-where.json.
+
