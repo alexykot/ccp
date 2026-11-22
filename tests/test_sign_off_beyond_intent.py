@@ -13,8 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, lifecycle, prompt, report, verify
-from ccp.queue import lib
-from tests.helpers import approve_verdict as approve, Product
+from tests.helpers import approve_verdict as approve, Product, as_lead
 from tests.toolkit_fixture import PLANE, ToolkitFixture
 
 PASSAGE = "docs/spec/01-model.md §3.5: a new rule that close also waits on the lead's word"
@@ -35,7 +34,7 @@ class CloseHolds(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
 
     def sign(self, *extra: str):
-        with mock.patch.dict(os.environ, {"ACTOR": lib.LEAD}):  # only the lead records a sign-off (§3.5)
+        with as_lead():  # only the lead records a sign-off (§3.5)
             return self.ccp("tasks", "sign-off", "0002", "--by", "op", "--words", "signed the new rule", *extra)
 
     def signed(self) -> list[dict]:

@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import adr, cli, health
-from tests.helpers import TASK, Product
+from tests.helpers import TASK, Product, as_lead
 
 
 def body(n: int) -> str:
@@ -308,7 +308,7 @@ class Starved(QueueBase):
         self.assertEqual([e["payload"]["slot"] for e in self.events("runner", "starved")], ["runner"])
 
     def test_the_actor_is_the_callers(self):
-        with mock.patch.dict(os.environ, {"ACTOR": "design-seat"}):
+        with as_lead():
             self.next("--holder", "runner")
         self.assertEqual([e["actor"] for e in self.events("runner", "starved")], ["design-seat"])
 

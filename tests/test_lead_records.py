@@ -1,14 +1,18 @@
-"""SPEC §3.5, §13.4, §17.5, §15.4: the lead's three records (a sign-off, a ruling, a follow-up's outcome) refuse a
-caller whose `ACTOR` names another seat, through one guard, and a ruling counts only when the lead recorded it."""
+"""SPEC §3.5, §13.4, §17.5, §15.4: the lead's three records (a sign-off, a ruling, a follow-up's outcome) refuse,
+through one guard, every caller whose `ACTOR` does not name the lead (unset or unknown included); a sign-off and a
+ruling count only when the lead recorded them, and a ruling id is never reused."""
 from __future__ import annotations
 
+import json
 import os
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from ccp import config, queue, refs, runs, tasklog
 from ccp.queue import QueueError, lib
-from tests.helpers import MARKED_CHECK_ID as CHECK, MARKED_BLOCK as MARKED, MARKED_TASK_ID as TASK
+from tests.helpers import MARKED_CHECK_ID as CHECK, MARKED_BLOCK as MARKED, MARKED_TASK_ID as TASK, as_lead
 from tests.toolkit_fixture import ToolkitFixture, git
 
 TASK_FILE = "docs/delivery/tasks/0002-second.md"
@@ -16,7 +20,7 @@ RUN = "0001-first/review"
 
 
 def as_actor(value: str | None):
-    """The environment with `ACTOR` set to `value`, or with no `ACTOR` at all for None."""
+    """The environment with `ACTOR` set to `value`, or with no `ACTOR` at all for None (the lead's: `as_lead`)."""
     if value is None:
         return mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != "ACTOR"}, clear=True)
     return mock.patch.dict(os.environ, {"ACTOR": value})
@@ -25,18 +29,30 @@ def as_actor(value: str | None):
 class TheGuard(unittest.TestCase):
     """`queue.lead_actor` on the environment alone."""
 
-    def test_the_lead_or_no_actor_gives_the_lead(self):
-        for value in (None, lib.LEAD):
-            with as_actor(value):
-                self.assertEqual(queue.lead_actor("a ruling"), lib.LEAD, value)
+    def test_the_lead_s_actor_gives_the_lead(self):
+        with as_lead():
+            self.assertEqual(queue.lead_actor("a ruling"), lib.LEAD)
+
+    def refusal(self, value: str | None) -> str:
+        with as_actor(value), self.assertRaises(QueueError) as cm:
+            queue.lead_actor("a ruling")
+        self.assertEqual(cm.exception.code, 2, value)
+        msg = str(cm.exception)
+        self.assertIn("only the lead records a ruling", msg)
+        self.assertIn(f"the lead runs it as ACTOR={lib.LEAD} ccp", msg)
+        return msg
 
     def test_another_known_actor_is_refused_with_exit_2(self):
         for value in (lib.RUNNER, "task-verifier", "operator"):
-            with as_actor(value), self.assertRaises(QueueError) as cm:
-                queue.lead_actor("a ruling")
-            self.assertEqual(cm.exception.code, 2)
-            self.assertIn("only the lead records a ruling", str(cm.exception))
-            self.assertIn(value, str(cm.exception))
+            self.assertIn(f"(ACTOR is {value})", self.refusal(value))
+
+    def test_an_unset_or_empty_actor_is_refused_with_exit_2(self):
+        for value in (None, ""):
+            self.assertIn("(ACTOR is unset)", self.refusal(value))
+
+    def test_an_unknown_actor_is_refused_with_exit_2(self):
+        for value in ("task-lead", "Design-Seat", f"{lib.LEAD} "):
+            self.assertIn(f"(ACTOR is {value})", self.refusal(value))
 
 
 class TheThreeRecords(ToolkitFixture, unittest.TestCase):
@@ -66,30 +82,73 @@ class TheThreeRecords(ToolkitFixture, unittest.TestCase):
         return [(e["type"] if e["type"] != "run" else e["op"], e["actor"]) for e in self.events()
                 if (e["type"], e["op"]) in (("sign_off", "recorded"), ("ruling", "recorded"), ("run", "decided"))]
 
+    def assert_refused_by_each(self, value: str | None) -> None:
+        """Each of the three, run with `ACTOR` at `value`, exits 2 naming how the lead runs it, and writes nothing."""
+        before = len(self.events())
+        with as_actor(value):
+            got = self.records()
+        for name, (code, _, out, err) in got.items():
+            self.assertEqual(code, 2, f"{name}: {out}{err}")
+            self.assertIn("only the lead records", err, name)
+            self.assertIn(f"ACTOR={lib.LEAD}", err, name)
+        self.assertEqual(self.recorded(), [])
+        self.assertEqual(len(self.events()), before)
+        self.assertIsNone(runs.load(self.q, RUN)["follow_ups"][0]["outcome"])
+
     def test_another_seat_s_actor_is_refused_by_each_and_nothing_is_written(self):
         for value in (lib.RUNNER, "task-verifier"):
-            with as_actor(value):
-                got = self.records()
-            for name, (code, _, out, err) in got.items():
-                self.assertEqual(code, 2, f"{name}: {out}{err}")
-                self.assertIn("only the lead records", err, name)
-            self.assertEqual(self.recorded(), [])
-            self.assertIsNone(runs.load(self.q, RUN)["follow_ups"][0]["outcome"])
+            self.assert_refused_by_each(value)
 
-    def test_with_no_actor_each_records_as_the_lead(self):
-        with as_actor(None):
+    def test_with_actor_unset_each_is_refused_and_nothing_is_written(self):
+        self.assert_refused_by_each(None)
+
+    def test_an_unknown_actor_is_refused_by_each_and_nothing_is_written(self):
+        self.assert_refused_by_each("task-lead")
+
+    def test_the_lead_s_actor_records_each(self):
+        with as_lead():
             got = self.records()
         for name, (code, _, out, err) in got.items():
             self.assertEqual(code, 0, f"{name}: {out}{err}")
         self.assertEqual(self.recorded(), [("sign_off", lib.LEAD), ("ruling", lib.LEAD), ("decided", lib.LEAD)])
         self.assertEqual(runs.load(self.q, RUN)["follow_ups"][0]["outcome"]["by"], lib.LEAD)
 
-    def test_the_lead_s_actor_records_each(self):
-        with as_actor(lib.LEAD):
-            got = self.records()
-        for name, (code, _, out, err) in got.items():
-            self.assertEqual(code, 0, f"{name}: {out}{err}")
-        self.assertEqual(self.recorded(), [("sign_off", lib.LEAD), ("ruling", lib.LEAD), ("decided", lib.LEAD)])
+    def test_a_ruling_is_numbered_past_one_another_actor_recorded(self):
+        foreign = f"{TASK}-r1"
+        queue.emit(self.q, config.load(self.runner), TASK, "ruling", "recorded",
+                   {"id": foreign, "n": 1, "words": "a runner's own ruling"}, lib.RUNNER)
+        with as_lead():
+            code, body, out, err = self.ccp("tasks", "ruling", "0002", "--words", "hold the count")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["id"], f"{TASK}-r2")
+        ids = [e["payload"]["id"] for e in self.events() if (e["type"], e["op"]) == ("ruling", "recorded")]
+        self.assertEqual(ids, [foreign, f"{TASK}-r2"])
+        self.assertEqual([r["id"] for r in queue.rulings(self.q, TASK)], [f"{TASK}-r2"])
+
+
+class ASignOffAnotherSeatRecorded(unittest.TestCase):
+    """`queue.sign_offs` reads only the `sign_off` `recorded` events the lead recorded: another actor's is no
+    sign-off of the operator's."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.q = Path(tmp.name)
+
+    def ledger(self, actor: str) -> None:
+        p = queue.events_path(self.q)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps({"at": "2026-11-22T10:00:00Z", "project_id": "demo", "task_id": TASK, "actor": actor,
+                                 "type": "sign_off", "op": "recorded",
+                                 "payload": {"stage": "brief", "by": "op", "words": "signed", "head": "a" * 40}}) + "\n")
+
+    def test_a_sign_off_another_actor_recorded_is_left_out(self):
+        self.ledger(lib.RUNNER)
+        self.assertNotIn("brief", queue.sign_offs(self.q, TASK))
+
+    def test_a_sign_off_the_lead_recorded_is_read(self):
+        self.ledger(lib.LEAD)
+        self.assertEqual(queue.sign_offs(self.q, TASK)["brief"]["words"], "signed")
 
 
 class ARulingAnotherSeatRecorded(ToolkitFixture, unittest.TestCase):
@@ -108,7 +167,7 @@ class ARulingAnotherSeatRecorded(ToolkitFixture, unittest.TestCase):
         git(m, "commit", "-q", "-m", "build it")
         self.head = git(m, "rev-parse", "HEAD")
         git(m, "checkout", "-q", "main")
-        with as_actor(lib.LEAD):
+        with as_lead():
             code, body, out, err = self.ccp("tasks", "ruling", "0002", "--words", "the operator waives the live check")
         self.assertEqual(code, 0, out + err)
         self.lead_ruling = body["id"]
@@ -127,6 +186,7 @@ class ARulingAnotherSeatRecorded(ToolkitFixture, unittest.TestCase):
         code, _, out, err = self.verify(self.foreign)
         self.assertNotEqual(code, 0, out + err)
         self.assertIn(self.foreign, err)
+        self.assertIn(f"ACTOR={lib.LEAD} ccp tasks ruling", err)
         self.assertFalse(any(p.name.startswith("verify") for p in (self.q / "runs" / TASK).glob("*.json")))
 
     def test_the_lead_s_ruling_waives_the_check(self):

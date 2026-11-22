@@ -15,7 +15,7 @@ from ccp import prompt
 from tests.review_flow import ReviewFlow
 from tests.suite_fixture import ccp_proc
 from tests.toolkit_fixture import ToolkitFixture, git
-from tests.helpers import MARKED_CHECK_ID as CHECK, MARKED_BLOCK as MARKED, MARKED_TASK_ID as TASK
+from tests.helpers import MARKED_CHECK_ID as CHECK, MARKED_BLOCK as MARKED, MARKED_TASK_ID as TASK, as_lead
 
 
 def started(head: str, lane: str = CHECK, task: str = TASK, state: str = "passed", sid: str = "st-1") -> dict:
@@ -266,7 +266,7 @@ class MarkedLoop(ReviewFlow, ToolkitFixture, unittest.TestCase):
 
     def test_a_waiver_names_an_approved_ruling(self):
         h1 = self.start()
-        with mock.patch.dict("os.environ", {"ACTOR": "task-lead"}):
+        with as_lead():
             code, _, out, err = self.ccp("tasks", "ruling", "0002", "--words", "the operator waives the live check")
         self.assertEqual(code, 0, out + err)
         ruling = json.loads(out)["id"]

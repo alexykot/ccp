@@ -19,6 +19,7 @@ from unittest import mock
 
 from ccp import lifecycle, usage
 from ccp.queue import QueueError
+from tests.helpers import as_lead
 from tests.toolkit_fixture import ToolkitFixture
 
 PLANE = Path(__file__).resolve().parents[1]
@@ -174,7 +175,7 @@ class SetWait(unittest.TestCase):
         self.assertEqual(call.kwargs["env"]["QUEUE_ROOT"], "/q")
 
     def test_without_options_the_actor_is_the_queue_s_and_work_json_is_not_left_alone(self) -> None:
-        with mock.patch.dict(os.environ, {"ACTOR": "design-seat"}):
+        with as_lead():
             cmd = self.call().args[0]
         self.assertEqual(cmd[cmd.index("--actor") + 1], "design-seat")
         for flag in ("--task-only", "--quota-class", "--resets-at", "--planned-resume-at", "--detail"):

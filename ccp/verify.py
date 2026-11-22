@@ -180,6 +180,7 @@ def _ruling_refusal(queue: Path, rests_on: str) -> str | None:
     and `task_id` those of the cited id, of any task, closed and approved; the question file
     `questions/<id>.json` with its answer `questions/<id>.answer.json` at verdict `resolved`, §17.5:
     an answer without its question is no ruling). The ids may sit inside prose; an unknown or unruled one beside a ruled one is refused."""
+    from ccp.queue import lib  # noqa: PLC0415
     missing, misfiled, open_, unanswered = [], [], [], []
     gates = list(_GATE_TOKEN.finditer(rests_on))
     questions = list(_QUESTION_TOKEN.finditer(rests_on))
@@ -210,7 +211,8 @@ def _ruling_refusal(queue: Path, rests_on: str) -> str | None:
         if not isinstance(answer, dict) or answer.get("verdict") != "resolved":
             unanswered.append(m.group(0))
     why = ([f"no gate or spec question {', '.join(missing)} is in the queue"] if missing else []) \
-        + ([f"no lead ruling {', '.join(unknown)} is recorded in the ledger (ccp tasks ruling)"] if unknown else []) \
+        + ([f"no lead ruling {', '.join(unknown)} is recorded in the ledger (`ACTOR={lib.LEAD} ccp tasks ruling`)"]
+           if unknown else []) \
         + ([f"gate {', '.join(misfiled)} is not filed as itself"] if misfiled else []) \
         + ([f"gate {', '.join(open_)} is not closed and approved"] if open_ else []) \
         + ([f"spec question {', '.join(unanswered)} has no answer at verdict resolved"] if unanswered else [])

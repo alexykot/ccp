@@ -4,11 +4,10 @@ keeps out (rule 3), and one whose path meets a task it passed over, naming each 
 from __future__ import annotations
 
 import json
-import os
 import unittest
-from unittest import mock
 
 from ccp import config, plan, tasklog
+from tests.helpers import as_lead
 from tests.parallel_claims_fixture import task
 from tests.toolkit_fixture import ToolkitFixture
 
@@ -33,7 +32,7 @@ class PassesOver(ToolkitFixture, unittest.TestCase):
 
     def test_a_task_meeting_nothing_in_flight_is_offered_past_one_that_clashes(self):
         self.tasks({"0003-third": "`src/c.py`", "0004-fourth": "`src/a.py`"})
-        with mock.patch.dict(os.environ, {"ACTOR": "design-seat"}):
+        with as_lead():
             self.assertEqual(self.ccp("tasks", "prefer", "0004", root=self.main)[0], 0)
         code, body, out, err = self.next()
         self.assertEqual(code, 0, out + err)

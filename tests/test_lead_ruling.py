@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, queue, verify
-from tests.helpers import approve_verdict as approve, held_otherwise, Product
+from tests.helpers import approve_verdict as approve, held_otherwise, Product, LEAD_ENV
 
 
 class LeadRuling(unittest.TestCase):
@@ -26,7 +26,7 @@ class LeadRuling(unittest.TestCase):
         self._q = tempfile.TemporaryDirectory()
         self.q = Path(self._q.name)
         (self.q / "project.yaml").write_text("project_id: demo\n")
-        self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), "ACTOR": "task-lead"})
+        self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), **LEAD_ENV})
         self.env.start()
 
     def tearDown(self):

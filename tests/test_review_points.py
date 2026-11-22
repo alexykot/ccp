@@ -16,6 +16,7 @@ from unittest import mock
 
 from ccp import adr, backfill, board, cli, config, plan, reviewpoints, tasklog
 from tests.helpers import (
+    LEAD_ENV,
     GIT_ENV,
     lease_event as claim,
     ledger_event as ev,
@@ -293,7 +294,7 @@ class Tools(unittest.TestCase):
         (self.q / "project.yaml").write_text("project_id: demo\n")
         (self.q / "work.json").write_text(json.dumps({"status": "running", "review_point": "PM", "scope": ["0003-c", "0004-d"]}))
         (self.q / "observability" / "events.jsonl").write_text(json.dumps(spawn("2026-10-22T10:00:00Z", "PM", ["0003-c"])) + "\n")
-        self.env = mock.patch.dict(os.environ, {**GIT_ENV, "QUEUE_ROOT": str(self.q), "ACTOR": "design-seat"})
+        self.env = mock.patch.dict(os.environ, {**GIT_ENV, "QUEUE_ROOT": str(self.q), **LEAD_ENV})
         self.env.start()
         self.addCleanup(self.env.stop)
 

@@ -12,6 +12,7 @@ from unittest import mock
 from ccp import config, tasklog
 from ccp.queue import lib
 from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.helpers import as_lead
 
 TASK_FILE = "docs/delivery/tasks/0002-second.md"
 
@@ -30,7 +31,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
 
     def lead(self, *args: str, **kw):
         """`ccp` as the lead, the only seat that records a sign-off (§3.5)."""
-        with mock.patch.dict(os.environ, {"ACTOR": lib.LEAD}):
+        with as_lead():
             return self.ccp(*args, **kw)
 
     def sign(self, *extra: str):
@@ -126,6 +127,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         code, _, _, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 3)
         self.assertIn("no brief sign-off", err)
+        self.assertIn(f"ACTOR={lib.LEAD} ccp tasks sign-off 0002-second", err)
         self.assertFalse((self.q / "tasks/0002-second.json").exists())
         self.assertFalse((self.main / config.WORKTREES_DIR / "impl-0002").exists())
         code, body, out, err = self.sign()
@@ -177,9 +179,11 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         from ccp.queue import emit
         self.declare("brief")
         emit(self.q, config.load(self.runner), "0002-second", "sign_off", "recorded",
-             {"stage": "brief", "by": "op", "words": "signed", "head": "origin/main"})  # a ref, though it holds the text
+             {"stage": "brief", "by": "op", "words": "signed", "head": "origin/main"},  # a ref, though it holds the text
+             who=lib.LEAD)
         code, _, _, err = self.ccp("tasks", "claim", "0002")
         self.assertEqual(code, 3, err)
+        self.assertIn("records no head", err)
         self.assertFalse((self.q / "tasks/0002-second.json").exists())
 
     def test_a_brief_sign_off_on_a_head_not_in_the_checkout_refuses_the_claim(self):
@@ -347,6 +351,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         code, tid, err = self.next_id()
         self.assertEqual((code, tid), (0, "0002-second"), err)
         self.assertIn("passed over 0001-first: no brief sign-off on record", err)
+        self.assertIn(f"ACTOR={lib.LEAD} ccp tasks sign-off 0001-first", err)
         code, _, out, err = self.lead("tasks", "sign-off", "0001", "--by", "op", "--words", "signed")
         self.assertEqual(code, 0, out + err)
         code, tid, err = self.next_id()
@@ -437,7 +442,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         code, tid, err = self.next_id()
         self.assertEqual((code, tid), (0, "0003-third"), err)
         self.assertIn("passed over 0001-first: stale brief sign-off: 0001-first's brief sign-off is stale", err)
-        self.assertIn("ccp tasks sign-off 0001-first --stage brief", err)
+        self.assertIn(f"ACTOR={lib.LEAD} ccp tasks sign-off 0001-first --stage brief", err)
         self.assertIn("passed over 0002-second: malformed sign_off: sign_off 'breif'", err)
         self.assertIn("ccp tasks check", err)
         for tid in ("0001", "0002"):  # what next passed over, claim refuses

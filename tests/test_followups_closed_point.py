@@ -17,7 +17,7 @@ from unittest import mock
 
 from ccp import cli, followups, refs, runs
 from ccp.queue import lib
-from tests.helpers import binding, Product, REVIEW_REGISTER as REGISTER, tagged_task as _tagged
+from tests.helpers import binding, Product, REVIEW_REGISTER as REGISTER, tagged_task as _tagged, LEAD_ENV
 from tests.team_hosting_fixture import TeamCase
 
 
@@ -50,7 +50,7 @@ class OnPlainValues(unittest.TestCase):
                                              [run_record("0001-a"), run_record("0002-b", DECIDED)])
         self.assertEqual(len(errs), 1)
         fid = refs.follow_up_id("0001-a/review", 1)
-        for token in ("R1", fid, f"ccp tasks follow-up {fid}"):
+        for token in ("R1", fid, f"ACTOR={lib.LEAD} ccp tasks follow-up {fid}"):
             self.assertIn(token, errs[0])
 
     def test_every_closed_point_is_checked_not_only_the_first(self):
@@ -85,7 +85,7 @@ class TheTasksCheck(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.q = Path(tmp.name)
         (self.q / "project.yaml").write_text(binding(product_root=self.p.root))
-        env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), "ACTOR": lib.LEAD})
+        env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), **LEAD_ENV})
         env.start()
         self.addCleanup(env.stop)
 

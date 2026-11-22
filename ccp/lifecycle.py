@@ -910,7 +910,7 @@ def ruling(cfg: Config, task: str, words: str, check: str | None = None) -> dict
         raise QueueError("give --words (the ruling, as the lead gave it, one line)", 2)
     if check is not None and not check.strip():
         raise QueueError("--check names a dod_check id: give one, or leave it out", 2)
-    n = len(rulings(q, tid)) + 1
+    n = len(rulings(q, tid, lead_only=False)) + 1  # every recorded ruling, so no id is reused
     payload = {"id": f"{tid}-r{n}", "n": n, **({"check": check.strip()} if check else {}), "words": words.strip()}
     ev = emit(q, cfg, tid, "ruling", "recorded", payload, who)
     return {"ok": True, "task_id": tid, "id": payload["id"], "ruling": {**payload, "at": ev.get("at")}}
@@ -951,14 +951,15 @@ def sign_off_gaps(q: Path, meta: dict[str, Any], stages: list[str], head: str | 
         got = have.get(stage)
         if got is None:
             out.append(f"{tid} has no {stage} sign-off on record: the lead records the operator's with "
-                       f"`ccp tasks sign-off {tid} --stage {stage}` (SPEC §3.5)" + (passages if stage == "build" else ""))
+                       f"`ACTOR={lib.LEAD} ccp tasks sign-off {tid} --stage {stage}` (SPEC §3.5)"
+                       + (passages if stage == "build" else ""))
         elif stage == "build" and head is not None:
             from ccp import verify  # noqa: PLC0415
             signed = str(got.get("head") or "")
             if not verify.heads_match(signed, head) and not verify.sign_off_carried(q, tid, signed, head):
                 out.append(f"{tid}'s build sign-off is stale: signed at {signed[:12] or 'no head'}, the head to "
-                           f"merge is {head[:12]}; the operator signs the new head (`ccp tasks sign-off {tid} "
-                           "--stage build`, SPEC §3.5)" + passages)
+                           f"merge is {head[:12]}; the operator signs the new head (`ACTOR={lib.LEAD} ccp tasks "
+                           f"sign-off {tid} --stage build`, SPEC §3.5)" + passages)
         elif stage == "brief" and text_in is not None:
             out += brief_stale(text_in, meta, str(got.get("head") or ""))
     return out
@@ -971,7 +972,7 @@ def brief_stale(cfg: Config, meta: dict[str, Any], signed: str) -> list[str]:
     tid, rel = str(meta["task_id"]), cfg.rel(meta["_file"])
     r = git(cfg.root, "log", "-1", "--format=%H", "--", rel)
     last = r.stdout.strip() if r.returncode == 0 else ""
-    again = f"the operator signs the text again (`ccp tasks sign-off {tid} --stage brief`, SPEC §3.5)"
+    again = f"the operator signs the text again (`ACTOR={lib.LEAD} ccp tasks sign-off {tid} --stage brief`, SPEC §3.5)"
     if not last:
         return [f"{rel} has no commit in {cfg.root}, so its brief sign-off covers no known text: commit it, then "
                 + again]
