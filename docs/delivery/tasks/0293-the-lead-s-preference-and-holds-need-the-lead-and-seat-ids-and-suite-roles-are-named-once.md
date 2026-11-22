@@ -33,7 +33,7 @@ From the triage of architect pass `ar-20261122T100027Z-dd31` (F02, F03, F12; the
 `docs/delivery/reviews/`). 0288 (the lead's guard refusing an unset or unknown ACTOR, `tests/helpers.py`'s
 `LEAD_ENV` and `as_lead()`) and 0289 (the runner's id as `lib.RUNNER`, the tests' lead id as `lib.LEAD`,
 E27's command over both ids) land first; this task builds on both; both are done. Measured at `954bd72` (first measured on `e92f362`): every figure holds except
-the architect's wider E27 pattern (91 lines on `e92f362`, 47 now that 0289 has the tests read `lib.LEAD`) and E27's own command, which
+the architect's wider E27 pattern (fewer lines now that 0289 has the tests read `lib.LEAD`; the E27 bullet below) and E27's own command, which
 0289 extended to `"task-runner"`.
 
 - **prefer and hold.** `"def prefer"` and `"def hold"` in `ccp/lifecycle.py` each set `who = actor(lib.LEAD)`,
