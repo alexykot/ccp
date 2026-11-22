@@ -47,10 +47,6 @@ and scenario checks pass, no test expectation changed unless the task names it, 
 - A check someone else ran where you cannot (a Mac-only step whose output is in the task's notes)
   is `ran: false`, `pass: null`, with `rests_on` naming what it rests on, as SPEC §15.4 allows. It is
   neither a pass nor a fail; say in `findings` whether your verdict relies on it.
-- A dod_check marked `runs_on: operator-machine` is not yours to run: the runner runs it at the head it hands
-  you, in a `--kind mac` worktree under the task's approved operator gate, as a recorded suite run (SPEC §10.2).
-  Your prompt lists each with its run's `suite_id`, or what it rests on instead; record it with that evidence,
-  `operator_step` naming the gate (SPEC §15.4).
 - Every check names the seat that produced its evidence: `produced_by` (`verifier` for what you ran,
   else `implementer`, `reviewer`, `architect`, `operator`, `runner` or `lead`). The seat that rules on
   the task never produces the evidence it rules on (SPEC §2.3, §15.4): `ccp verify record` refuses
@@ -106,9 +102,6 @@ and scenario checks pass, no test expectation changed unless the task names it, 
   from your checkout of the head, and record your verdict there the same way (SPEC §12.1, §15.4).
 - Don't edit the product, commit, push or merge.
 - A gap in the spec itself goes in your report as a spec question for the runner to raise.
-- Work you find out of scope (a gap the task's checks leave, a step for a later task) goes to a line
-  of your report's `## Follow-ups`, never only in notes or prose: the lead decides each one (SPEC
-  §13.4).
 - Run commands in the foreground, long ones too: an agent waiting on a background command stalls.
 - After a command that was interrupted (a timeout, a cancelled call, a lost shell), check git
   (`git status`, `git log`), the store it writes (the queue's records, the product's data) and
