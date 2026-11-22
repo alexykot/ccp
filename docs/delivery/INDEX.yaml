@@ -1414,13 +1414,13 @@ tasks:
     path: tasks/0287-action-parsers-own-their-flags-and-describe-their-actions.md
   - id: 0288-every-seat-names-its-actor-and-the-lead-s-records-need-the-lead-s
     status: pending
-    title: Every seat that records names its ACTOR, the lead's three records refuse a caller that does not name the lead, sign-offs count only the lead's, and a ruling id is never reused
+    title: The lead's three records refuse any caller whose ACTOR does not name the lead, the hooks and the test fence drop an inherited ACTOR, sign-offs count only the lead's, and a ruling id is never reused
     depends_on: []
     path: tasks/0288-every-seat-names-its-actor-and-the-lead-s-records-need-the-lead-s.md
   - id: 0289-the-runner-s-actor-id-is-named-once-and-tests-read-the-lead-s
     status: pending
     title: The runner's actor id is named once in the seat table, E27's command checks it as it checks the lead's, and tests read the lead's id through lib.LEAD
-    depends_on: [0288-every-seat-names-its-actor-and-the-lead-s-records-need-the-lead-s]
+    depends_on: []
     path: tasks/0289-the-runner-s-actor-id-is-named-once-and-tests-read-the-lead-s.md
   - id: 0290-test-modules-share-the-plane-root-and-git-env-and-helpers-import-lazily
     status: pending

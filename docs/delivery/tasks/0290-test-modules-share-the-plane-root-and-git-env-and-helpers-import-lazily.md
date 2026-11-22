@@ -59,6 +59,8 @@ line), `…` there being `0276-docs-contract-and-template-leftovers-of-r15-and-r
 - **Other tasks on these files.** 0288 and 0289 change `tests/helpers.py`, `implement.md`, `_common.md` and
   some of these test modules; 0270, 0271, 0275, 0282, 0283, 0285 and 0291 change one or more of the files in
   `paths` for their own ends. Recorded as clashes, since the paths overlap.
+- **Run it last in R25.** It clashes with every pending task its `clashes_with` names, so the lead prefers it after the other R25 tasks
+  (`ccp tasks prefer`), where it waits on none of them and its sweep covers the test modules they leave.
 
 ### Rulings for the build (the lead's)
 
