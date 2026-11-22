@@ -181,4 +181,23 @@ naming `_gate.md` edits rule text: SPEC.md says the SPEC "states rules only", an
 
 ## Implementation notes
 
+- Premises re-measured at `7d83efd5`: `verify.skip_review(cfg` 2 lines, `exit 3` in `docs/cli/02-delivery.md` 2
+  lines, `"review", "recorded"` 1 line, no `non-normative` in `docs/spec`, each CURRENT passage found once. Six
+  commits since `76f41dd` touch these paths (0273, 0275, 0282, 0284, 0288, 0289); none does part of this task.
+- `ccp/verify.py`: `review_proof` holds `skip_review`'s old body and returns the tip as a third value (`""` when the
+  fetch failed or no plane.json was read); `skip_review` keeps its signature and drops the tip. `fetched_tip` is
+  the one fetch-and-resolve of `origin/<integration branch>`, used by `review_proof` and by the reuse.
+- `ccp/submit.py`: `coverage` now runs whenever a head is reported (not only when the review record has no gap),
+  so a proven fix after a MAJOR review, or with no record at all, is judged; it calls `review_proof` at most once
+  and returns the `review_proof` to record. `Facts.proven` makes `_review_gaps` pass. With no review record, an
+  unproven fix's reason now follows the "no review record" line. The proof is written on the run
+  `review_skip.fix` names, after `phase_move`, so a refused submit writes none; no event of its own (the move's
+  event is the submit's record).
+- `ccp/prompt.py`: `recorded_proof` reads the latest rework run (not abandoned), fetching nothing when it records
+  no proof; `reused_proof` is the plain-value judgement (head, tip after one fetch, and the latest done review's
+  head against `review_skip.reviewed`, each by `runs.heads_match` but the tip, compared exactly). When reuse
+  fails, `skip_review` fetches again: two fetches on that path.
+- Narrowest reading flagged: "the task's latest done review is still the one it judged" is checked by the review's
+  head against `reviewed`, since `review_skip` names the reviewed head, not the review run.
+
 ## Verification notes
