@@ -1,7 +1,7 @@
 ---
 task_id: 0258-the-plane-writes-the-pre-merge-phases
 title: The plane writes the pre-merge phases the standing DoD describes, and its phase contracts match what it writes
-status: pending
+status: done
 kind: feature
 depends_on: ["0221-workers-reach-the-pr-host-through-ccp-pr", "0242-retire-restructure-scaffolding-and-queue-markers"]
 clashes_with: ["0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0219-integration-merges-leave-out-the-tip", "0223-a-follow-up-is-tracked-not-left-in-notes", "0227-the-test-fixture-uses-the-local-pr-host", "0238-the-runner-runs-marked-checks-before-verify", "0257-one-gate-block-and-one-sentence-per-line"]
@@ -11,7 +11,7 @@ review_point: R18
 paths: ["ccp/report.py", "ccp/submit.py", "ccp/cli.py", "ccp/queue.py", "ccp/CLAUDE.md", "contracts/progress.schema.json", "contracts/review.schema.json", "contracts/CLAUDE.md", "dod/standing.yaml", "plugin/agents/delivery-runner.md", "scripts/formal-submit.template.sh", "scripts/CLAUDE.md", "scripts/queue/README.md", "docs/spec/02-delivery.md", "docs/spec/05-operations.md", "docs/cli/02-delivery.md", "docs/design/observability.md", "tests/test_review_record.py", "tests/test_formal_submit.py", "tests/test_phase_contracts.py", "tests/test_release.py", "tests/test_session_park.py", "tests/test_tasks_release_keep_branch.py", "tests/test_toolkit.py", "tests/test_health.py", "tests/test_board.py"]
 adopt: "none"
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0258-the-plane-writes-the-pre-merge-phases
@@ -254,3 +254,5 @@ The progress and review contracts describe the records the plane writes, in the 
   - `contracts/CLAUDE.md` re-wrapped to its neighbours' width.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #302 head `1f55913` (squash `32d21a4`): APPROVE. Passed: fs-01, fs-02, fs-03, fs-04, fs-05. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0258-the-plane-writes-the-pre-merge-phases.json.
+
