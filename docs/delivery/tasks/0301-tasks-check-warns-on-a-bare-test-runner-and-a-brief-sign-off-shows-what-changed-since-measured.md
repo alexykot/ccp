@@ -169,4 +169,27 @@ From the triage of architect pass `ar-20261122T141424Z-e148` (F03) and the lead'
 
 ## Implementation notes
 
+- 2026-11-22 (implementer). Context re-measured at `2b60cfcf`: the bare-step grep finds 28 of the 40 task files
+  0260-0299 (`grep -l 'Run .python3 -B -m unittest' docs/delivery/tasks/02[6-9]*.md | wc -l`; 0299 is new since);
+  the pending ones it names fell to 5 (0285, 0293, 0296, 0297 and this
+  task's own Context line) as the others closed; the skill grep still printed 0. `ccp tasks check` now counts the
+  stale tasks in one line since 0275, so the `grep -c 'Measured at'` figure reads 0; `--stale` names 6. None changes
+  the build.
+- `tasklog.bare_runner(t, rel, test_command, part_lane)` is the plain-value reader (E15); `warnings` passes it the
+  pack's `test_command` and `lane_for(cfg, "part")`. `runs_bare` judges one simple command; `_step_commands` is
+  the step reading `_check_refactor_gate` already did, now shared, and `TIMEOUT_RE` names the `timeout N` pattern
+  both readers use. A step ``On the head, run `python3 -B -m unittest …` `` (0191's `gr-02`) is warned too: the
+  reader reads every backticked command of a step, as the refactor-gate check does.
+- The warning starts with the task file's path bare (`<rel>: dod_check(s) `cmd-01`, `cmd-02` run …`), as every
+  other `tasks check` warning does, where the ruling's text writes `<rel>` in backticks.
+- `env` is read past as a word; an option after it (`env -i`) is not, so `env -i A=1 python3 -m unittest` reads as
+  not bare (the ruling names `NAME=value` words and the `env` prefix only).
+- `ccp tasks sign-off` prints the warning only in the branch that reads the brief's head from the task file's last
+  commit, so a `build` stage, `--head` and `--from` print none.
+- E4's import part is one `python3 -B -c` program on one line, ending in a comment that holds the words
+  `from tests`, which `e4_import_check` looks for. `test_the_check_finds_each_way_to_import_a_test_module`'s
+  indented form is now inside a `def` (`ast` would read a bare indented line as a syntax error and exit 1 for that
+  reason), and each form's run must print `tests/test_b.py:<line>`, so a found import is told apart from a file
+  the program could not parse.
+
 ## Verification notes

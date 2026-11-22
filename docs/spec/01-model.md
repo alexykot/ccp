@@ -239,7 +239,8 @@ with its offset), which the payload keeps as `signed_at`, and `--from <commit>`,
 another name for `--head`, with the same defaults (for `brief`, the commit that last changed the task
 file). `--at` refuses (exit 2) a value that is not such a date or is later than now: a date, when it is
 later than today's UTC date, whatever the local zone. Claim and close judge it as any other sign-off.
-A later record of a stage replaces the earlier. The command refuses (exit 2) a task with no sign-off
+A later record of a stage replaces the earlier. A `brief` sign-off recorded without `--head` or `--from` for a task whose Context is stale (§21.1) prints that warning on stderr, naming the commits, and is recorded all the same, so the lead sees what has changed the brief's paths since it was measured; a brief that no longer holds is amended and signed again.
+The command refuses (exit 2) a task with no sign-off
 due (it declares no `sign_off`, and its verdict lists no `spec_beyond_intent`), a stage not due, and,
 when both are due, a call without `--stage`.
 
