@@ -12,7 +12,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli
+from ccp import cli, config, init
 from tests.test_init import PLANE, InitCase
 
 SCHEMA = PLANE / "contracts" / "plane_config.schema.json"
@@ -67,7 +67,6 @@ class Permissions(InitCase):
         self.assertTrue(team.is_absolute() and team.is_file() and ask.is_file())
         for verb in ("status", "add", "commit", "push", "merge", "worktree"):
             self.assertIn(f"Bash(git {verb}:*)", allow)
-        self.assertIn("Bash(gh pr:*)", allow)
         self.assertIn("Bash(python3 -m unittest discover -s tests:*)", allow)
         self.assertNotIn("Bash(git:*)", allow)
         for cmd in ("git push --force", "git reset --hard", "git clean"):
@@ -102,7 +101,7 @@ class Permissions(InitCase):
 
     def test_without_a_gate_lane_no_lane_command_is_allowed(self):
         self.adopt()
-        self.assertEqual(self.block()["allow"][-1], "Bash(gh pr:*)")
+        self.assertEqual(self.block()["allow"][-1], f"Bash(git {init.GIT_VERBS[-1]}:*)")
 
     def set_adapter(self, name: str) -> None:
         cfg = self.repo / "docs/delivery/plane.json"
@@ -110,17 +109,14 @@ class Permissions(InitCase):
         data["pr_host"] = {"adapter": name}
         cfg.write_text(json.dumps(data))
 
-    def test_the_github_adapter_allows_gh_pr(self):
+    def test_no_adapter_allows_a_forge_cli(self):
         self.adopt()
-        self.set_adapter("github")
-        self.assertIn("Bash(gh pr:*)", self.block()["allow"])
-
-    def test_the_local_adapter_allows_no_gh_pr(self):
-        self.adopt()
-        self.set_adapter("local")
-        allow = self.block()["allow"]
-        self.assertFalse([e for e in allow if "gh " in e], allow)
-        self.assertIn("Bash(ccp:*)", allow)
+        for name in config.PR_HOST_ADAPTERS:
+            with self.subTest(adapter=name):
+                self.set_adapter(name)
+                allow = self.block()["allow"]
+                self.assertFalse([e for e in allow if "gh " in e], allow)
+                self.assertIn("Bash(ccp:*)", allow)
 
     def test_a_queue_path_with_a_space_is_quoted_as_a_shell_would_run_it(self):
         self.adopt("--queue-root", str(self.home / "my queue"))

@@ -99,7 +99,22 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         with mock.patch.object(prhost, "confirm", return_value=queued):
             code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
         self.assertEqual(code, 1, out + err)
-        self.assertIn("exited 0 but the PR is OPEN (a merge queue or auto-merge?)", err)
+        self.assertIn(f"the PR host (local) merged PR {self.PR} without error, but it is OPEN", err)
+
+    def test_a_merge_the_host_refuses_names_the_host(self):
+        self._to_approved_pr()
+        with mock.patch.object(prhost, "merge", return_value=prhost.MergeResult(False, "refused here")):
+            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
+        self.assertEqual(code, 1, out + err)
+        self.assertIn(f"the PR host (local) did not merge PR {self.PR}: refused here", err)
+
+    def test_a_merged_pr_without_a_merge_commit_names_the_host(self):
+        head = self._to_approved_pr()
+        merged = prhost.PrFacts(number=int(self.PR), state="merged", head=head)
+        with mock.patch.object(prhost, "confirm", return_value=merged):
+            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
+        self.assertEqual(code, 1, out + err)
+        self.assertIn(f"PR {self.PR} is merged but the PR host (local) names no merge commit", err)
 
     def test_a_detached_main_checkout_keeps_its_head_too(self):
         self._to_approved_pr()
