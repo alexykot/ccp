@@ -1,7 +1,7 @@
 ---
 task_id: 0278-submit-takes-a-proven-fix-and-the-spec-names-what-ccp-writes
 title: Formal-submit takes a fix that verify.skip_review or a review prover proves after any review and runs the proof once per fix round, and the SPEC names submit's exit 3, the queue files ccp writes, the shared gate part and what ccp report computes
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S11", "S13", "S15", "S23"]
@@ -206,3 +206,5 @@ naming `_gate.md` edits rule text: SPEC.md says the SPEC "states rules only", an
   fetch. Test: `SubmitProvenFix.test_a_review_reported_after_the_proof_at_the_reviewed_head_is_not_skipped`.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #351 head `38eb602` (close's catch-up of the approved `236212f`, gate run st-20261122T160043Z-3d7287) (squash `94fc84c`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0278-submit-takes-a-proven-fix-and-the-spec-names-what-ccp-writes.json.
+
