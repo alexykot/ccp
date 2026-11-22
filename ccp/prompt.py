@@ -23,7 +23,7 @@ opened, unless the product's `verify.skip_review` or a review prover (`verify.pr
 it as the fix of a clean review's minor findings (the verify prompt lists them), or the lead's word
 overrides it (§15.2).
 A review of a PR whose body does not contain the task id is refused, exit 2, nothing opened: the runner
-repairs the body first (§15.2); a body `gh` cannot read is a warning on the run, not a refusal.
+repairs the body first (§15.2); a body the PR host cannot read is a warning on the run, not a refusal.
 A verify round with no fix round since the task's last verify round needs `--note` with the reason
 (§15.6 rule 4): without it the command refuses, exit 4, nothing opened. A verify of a head that lacks the
 integration tip, beyond the task log and `merge.behind_tip_ignore`, refuses the same way, with one runner
@@ -673,13 +673,8 @@ def resolution_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> bool:
         raise QueueError(f"{other['phase']} round {other['run_id']} is newer than the last review {last['run_id']}: a "
                          "resolution review covers merge rounds only; run `ccp prompt review` in full (SPEC §13.2)", 2)
     head = str(a.head).strip()
-    if git(cfg.root, "cat-file", "-e", f"{head}^{{commit}}").returncode != 0:  # not here: the PR's ref, then the branch
-        for ref in ([f"refs/pull/{a.pr}/head"] if a.pr else []) + [f"task/{tid}"]:
-            if git(cfg.root, "fetch", "-q", "origin", ref).returncode == 0 \
-                    and git(cfg.root, "cat-file", "-e", f"{head}^{{commit}}").returncode == 0:
-                break
-        else:
-            raise QueueError(f"the head {head[:12]} could not be read here or fetched from origin (SPEC §13.2)", 2)
+    if not prhost.fetch_commit(cfg, cfg.root, head, a.pr, f"task/{tid}"):  # not here: the PR's refs, then the branch
+        raise QueueError(f"the head {head[:12]} could not be read here or fetched from origin (SPEC §13.2)", 2)
     parents = git(cfg.root, "rev-list", "--parents", "-n", "1", head).stdout.split()[1:]
     if len(parents) < 2:
         raise QueueError(f"the head {head[:12]} is not a merge commit (it has {len(parents)} parent(s)): a resolution "

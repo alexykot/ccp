@@ -770,11 +770,8 @@ def _judge_fix(cfg: Config, queue: Path, task_id: str, reviewed: str, head: str,
 
     shas = []  # `skip_review` fetched origin
     for sha in (reviewed, head.strip()):
-        if git(cfg.root, "cat-file", "-e", f"{sha}^{{commit}}").returncode != 0:
-            for ref in ([f"refs/pull/{pr}/head"] if pr else []) + [f"task/{task_id}"]:
-                if git(cfg.root, "fetch", "-q", "origin", ref).returncode == 0 \
-                        and git(cfg.root, "cat-file", "-e", f"{sha}^{{commit}}").returncode == 0:
-                    break
+        if not prhost.fetch_commit(cfg, cfg.root, sha, pr, f"task/{task_id}"):
+            return None, f"{sha[:12]} could not be fetched"
         r = git(cfg.root, "rev-parse", "--verify", "-q", f"{sha}^{{commit}}")
         if r.returncode != 0:
             return None, f"{sha[:12]} could not be fetched"
@@ -1073,7 +1070,7 @@ def merge_ok(cfg: Config, queue: Path, pr: str, task_id: str | None) -> tuple[li
     try:
         facts = prhost.view(cfg, pr)
     except prhost.HostUnavailable as exc:
-        raise prhost.HostUnavailable(f"{exc}: merge-ok reads the PR with gh") from None
+        raise prhost.HostUnavailable(f"{exc}: merge-ok reads the PR from {prhost.label(cfg)}") from None
     except prhost.HostReadFailed as exc:
         return [f"could not read PR {pr}: {exc.detail}"], body
     except prhost.HostError as exc:

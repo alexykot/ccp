@@ -16,6 +16,9 @@ notes: |-
   any host; D3's record keeps the body and the merge time, and D4 counts six operations. ADR-0029
   D1's merge-strategy interface is this ADR's PR-host interface: `pr_host.adapter` (D5) selects the
   adapter and `merge.command` overrides its merge, two knobs rather than three.
+  2026-11-22: Consequences' third bullet amended by task 0266, on the operator's sign-off of that task
+  (architect pass ar-20261121T174754Z-7df5, F03, decided (a) on 2026-11-21): `ccp init --permissions` grants no forge
+  CLI under any adapter, where it kept `gh pr` for the GitHub adapter.
 decisions:
   - "D1 built"
   - "D2 built"
@@ -112,7 +115,7 @@ on GitHub, naming the commands that need it. The warning does not stop the adopt
 - The worker prompts and the runner's brief change once, from `gh pr` to `ccp pr`; that is a change
   to the runner's contract, so its release is followed by a runner rotation (§29.3).
 - §10.5 and §15.5 name the interface's operations instead of `gh`; `ccp init --permissions` allows
-  `ccp pr` and, for the GitHub adapter, keeps `gh pr`.
+  `ccp pr` and grants no forge CLI under any adapter.
 - In local mode nothing outside the plane shows the PR: its record lives only in the product's queue,
   and its review happens in the plane's records, not on a web page.
 - Until D2 to D6 are built, adopting a product needs GitHub, and the plane says so before the first
