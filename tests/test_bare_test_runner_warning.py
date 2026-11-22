@@ -39,7 +39,7 @@ class BareRunnerWarning(unittest.TestCase):
         self.assertIn(f"--lane {PART} --", got[0])
 
     def test_two_bare_checks_share_one_warning_and_a_clean_check_is_not_named(self):
-        got = warned(BARE_STEP, "git diff --stat", f"timeout 60 env A=1 time {BARE_STEP}")
+        got = warned(BARE_STEP, "git diff --stat", f"git fetch -q && timeout 60 env A=1 time {BARE_STEP}")
         self.assertEqual(len(got), 1, got)
         self.assertIn("`cmd-01`, `cmd-03`", got[0])
         self.assertNotIn("cmd-02", got[0])

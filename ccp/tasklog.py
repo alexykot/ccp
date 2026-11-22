@@ -792,7 +792,7 @@ def runs_bare(words: list[str], runner: list[str]) -> bool:
     if rest[:1] and rest[0] in CCP_COMMANDS:
         return False
     kept = [x for x in rest if not x.startswith("-") or x in runner]
-    return bool(runner) and kept[:len(runner)] == runner
+    return kept[:len(runner)] == runner
 
 
 def bare_runner(t: dict[str, Any], rel: str, test_command: str | None, part_lane: str) -> list[str]:
