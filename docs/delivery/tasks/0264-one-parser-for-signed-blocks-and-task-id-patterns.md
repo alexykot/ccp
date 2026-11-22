@@ -129,4 +129,23 @@ Measured at `1aa5e3f`.
 
 ## Implementation notes
 
+- `ccp/tasklog.py` holds the signed-block reader, moved from `ccp/verify.py` unchanged in what it returns
+  (`signed_blocks`, `_signed_sections`, `_block_names`, `_path_like` and their patterns); the quote lines under a
+  marker are read by one helper, `_quoted_under`, which `signed_blocks` and the new warning share.
+  `ccp/verify.py` keeps `signed_passages`, `searchable` and `spec_text`, which call `tasklog.signed_blocks` and
+  `tasklog._path_like`; `tests/test_verify_spec_text.py` now calls `tasklog.signed_blocks`.
+- `tasklog.unreadable_proposed` is the warning, called from `warnings()`: a `PROPOSED:` line in the Scope or a
+  `Rule changes` section under which `_quoted_under` finds no text. Markers are looked for in the text with fenced
+  blocks and code spans blanked (same offsets); the quote lines are read as written, so a quote that is only a code
+  span still counts. An empty `>` line under the marker warns (no passage to read); a passage repeated in a second
+  place does not (spec-text reads it at its first line).
+- `refs.Ids` gains `task_merge_subject_re` and `task_branch_re` (built from `ids.task.width`); `health.merges`
+  and `lifecycle._own_commit` use them. Health's unused `MERGE_TASK_RE`/`BRANCH_TASK_RE` defaults went with
+  `_merge_task_re`/`_branch_task_re`; `_written_task_re` stays.
+- `ccp/adr.py`: `_DEC_MARK` is one template with slots `{id}`, `{b1}`, `{note}` and `{end}`. `_dec_find` fills
+  them for finding (non-capturing groups, `end` the existing `_MARK_END`), so `_DEC_ANY` and `decision_block`
+  match as before; `_MARK_PARTS` fills them with named groups and the old rest-of-line split, and `_HEAD_PARTS`
+  is `_DEC_HEAD` with a named id plus its old tail. The compiled `_MARK_PARTS` pattern is the old one, byte for
+  byte; `_HEAD_PARTS` differs only in a capturing `(#+)`, which no caller reads.
+
 ## Verification notes
