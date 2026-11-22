@@ -1,7 +1,7 @@
 ---
 task_id: 0278-submit-takes-a-proven-fix-and-the-spec-names-what-ccp-writes
 title: Formal-submit takes a fix that verify.skip_review or a review prover proves after any review and runs the proof once per fix round, and the SPEC names submit's exit 3, the queue files ccp writes, the shared gate part and what ccp report computes
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S11", "S13", "S15", "S23"]
@@ -181,4 +181,30 @@ naming `_gate.md` edits rule text: SPEC.md says the SPEC "states rules only", an
 
 ## Implementation notes
 
+- Premises re-measured at `7d83efd5`: `verify.skip_review(cfg` 2 lines, `exit 3` in `docs/cli/02-delivery.md` 2
+  lines, `"review", "recorded"` 1 line, no `non-normative` in `docs/spec`, each CURRENT passage found once. Six
+  commits since `76f41dd` touch these paths (0273, 0275, 0282, 0284, 0288, 0289); none does part of this task.
+- `ccp/verify.py`: `review_proof` holds `skip_review`'s old body and returns the tip as a third value (`""` when the
+  fetch failed or no plane.json was read); `skip_review` keeps its signature and drops the tip. `fetched_tip` is
+  the one fetch-and-resolve of `origin/<integration branch>`, used by `review_proof` and by the reuse.
+- `ccp/submit.py`: `coverage` now runs whenever a head is reported (not only when the review record has no gap),
+  so a proven fix after a MAJOR review, or with no record at all, is judged; it calls `review_proof` at most once
+  and returns the `review_proof` to record. `Facts.proven` makes `_review_gaps` pass. With no review record, an
+  unproven fix's reason now follows the "no review record" line. The proof is written on the run
+  `review_skip.fix` names, after `phase_move`, so a refused submit writes none; no event of its own (the move's
+  event is the submit's record).
+- `ccp/prompt.py`: `recorded_proof` reads the latest rework run (not abandoned), fetching nothing when it records
+  no proof; `reused_proof` is the plain-value judgement (head, tip after one fetch, and the latest done review's
+  head against `review_skip.reviewed`, each by `runs.heads_match` but the tip, compared exactly). When reuse
+  fails, `skip_review` fetches again: two fetches on that path.
+- Narrowest reading flagged: "the task's latest done review is still the one it judged" is checked by the review's
+  head against `reviewed`, since `review_skip` names the reviewed head, not the review run.
+- Fix round 1 (review MINOR 1): `recorded_proof` also requires the latest done review to have been opened no later
+  than the fix round holding the proof, the `opened_at` test `review_proof` applies, so a review reported after
+  the proof at the old reviewed head is not taken as the one the proof judged: verify then judges afresh, finds
+  nothing to judge, and refuses (exit 4) as a fresh judgement of the same queue would. The check comes before the
+  fetch. Test: `SubmitProvenFix.test_a_review_reported_after_the_proof_at_the_reviewed_head_is_not_skipped`.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #351 head `38eb602` (close's catch-up of the approved `236212f`, gate run st-20261122T160043Z-3d7287) (squash `94fc84c`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0278-submit-takes-a-proven-fix-and-the-spec-names-what-ccp-writes.json.
+

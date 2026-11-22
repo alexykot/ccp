@@ -18,8 +18,8 @@ the 5-hour park % it parks the task and refuses, exit 6, writing nothing else (�
 Besides implement, fix, review and verify, a merge round only merges the integration tip into the task
 branch and a ruling round only applies a lead's ruling (its `--note`); review and verify treat their heads
 as a fix round's (§13.2). A verify of a fix round that no review has seen is refused, exit 4, nothing
-opened, unless the product's `verify.skip_review` or a review prover (`verify.provers`) proves the fix, its
-`verify.skip_review_after_clean` takes
+opened, unless the product's `verify.skip_review` or a review prover (`verify.provers`) proves the fix (a proof
+`ccp tasks submit` recorded for that head and tip is reused), its `verify.skip_review_after_clean` takes
 it as the fix of a clean review's minor findings (the verify prompt lists them), or the lead's word
 overrides it (§15.2).
 A review of a PR whose body does not contain the task id is refused, exit 2, nothing opened: the runner
@@ -441,8 +441,9 @@ def review_gate(cfg: Config, q: Path, tid: str, phase: str,
     product's `verify.skip_review` or a review prover proves the fix, its `verify.skip_review_after_clean` takes it as a fix of
     a clean review's minor findings, or the runner passes `--allow-unreviewed-fix --reason "<the
     lead's or the operator's words>"`. The override, when given, is taken and recorded as is, and no proof
-    runs. Returns what to record on the run: the override (a friction note and a ledger event) and the
-    proven skip, each None when it does not apply."""
+    runs. A `review_proof` that `ccp tasks submit` recorded on the latest fix round (`recorded_proof`) is taken as
+    the proven skip, with no proof run. Returns what to record on the run: the override (a friction note and a
+    ledger event) and the proven skip, each None when it does not apply."""
     allow = bool(getattr(a, "allow_unreviewed_fix", False))
     reason = (getattr(a, "reason", None) or "").strip()
     if phase != "verify":
@@ -455,6 +456,8 @@ def review_gate(cfg: Config, q: Path, tid: str, phase: str,
     if why is None:
         return None, None
     if not allow:
+        if skipped := recorded_proof(cfg, q, tid, a.head):
+            return None, skipped
         skipped, unproven = verify.skip_review(cfg, q, tid, a.head, a.pr)
         if skipped:
             return None, skipped
@@ -469,6 +472,36 @@ def review_gate(cfg: Config, q: Path, tid: str, phase: str,
     if health.looks_like_secret(reason):
         raise QueueError("--reason looks like it holds a secret; say it without the value", 2)
     return {"reason": reason, "was": why}, None
+
+
+def recorded_proof(cfg: Config, q: Path, tid: str, head: str) -> dict[str, Any] | None:
+    """§15.2: the `review_skip` of the `review_proof` `ccp tasks submit` recorded on the task's latest fix round (not
+    abandoned; a merge or ruling round counts as one), when the task's latest done review was opened before that
+    round (as `verify.review_proof` judges it) and `reused_proof` takes it at `origin/<integration branch>` after
+    one fetch; None otherwise, fetching nothing when the round records none or a review followed it."""
+    rs = [r for r in runs.all_runs(q, tid) if runs.state(r) != "abandoned"]
+    fixes = [r for r in rs if r.get("phase") in runs.REWORK_PHASES]
+    proof = fixes[-1].get("review_proof") if fixes else None
+    if not isinstance(proof, dict):
+        return None
+    reviews = [r for r in rs if r.get("phase") == "review" and runs.state(r) == "reported" and r.get("outcome") == "done"]
+    if not reviews or str(reviews[-1].get("opened_at") or "") > str(fixes[-1].get("opened_at") or ""):
+        return None
+    reviewed = str(reviews[-1].get("head") or "")
+    return reused_proof(proof, head, verify.fetched_tip(cfg, integration_branch(q)), reviewed)
+
+
+def reused_proof(proof: dict[str, Any], head: str, tip: str | None, reviewed: str) -> dict[str, Any] | None:
+    """§15.2: a submit's `review_proof`'s `review_skip`, when it judged `head` at the integration tip `tip` (None or
+    "" when none could be read) and its `reviewed` is the head the task's latest done review judged (`reviewed`);
+    None when any differs, and the fix is judged again."""
+    skip = proof.get("review_skip")
+    if not isinstance(skip, dict):
+        return None
+    if runs.heads_match(str(proof.get("head") or ""), head.strip()) and bool(tip) and proof.get("tip") == tip \
+            and runs.heads_match(str(skip.get("reviewed") or ""), reviewed.strip()):
+        return skip
+    return None
 
 
 def minor_only(q: Path, skipped: dict[str, Any] | None) -> dict[str, Any]:

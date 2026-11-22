@@ -1,10 +1,12 @@
 """`ccp tasks submit` (SPEC §15.1): formal-submit, the standing DoD's local checklist the runner runs after
 the review that clears the PR head and before `ccp prompt verify`. It is not the gate: it runs no test of its own
-(the review skips' proof and provers run as `ccp prompt verify` runs them) and writes nothing but the task's move to
-`submitted` (§10.1), and `ccp prompt verify` neither runs it nor requires it.
+(the review skips' proof and provers run as `ccp prompt verify` runs them, at most once) and writes nothing but the
+task's move to `submitted` (§10.1) and, with a proven fix, the `review_proof` on the fix round's run that
+`ccp prompt verify` of that head reuses (§15.2); `ccp prompt verify` neither runs it nor requires it.
 
 The PR and its head are the ones the task's latest done implement or rework round reported (§13.4). Whether the
-review record's review covers that head is judged by the rules `ccp prompt verify` applies (§15.2). A failed item
+head is covered is judged by the rules `ccp prompt verify` applies (§15.2): by the review record's review, or by a
+proof of the fix since the latest done review, whatever that review found. A failed item
 is refused, exit 4, naming each, with nothing moved. `unit_lint` is the verifier's own run: submit only says
 whether the round that reported the head recorded a passed `ccp suite run` on the full or gate lane. A task that is
 not mid-flight, or is already past `submitted`, is refused, exit 3, with nothing moved.
@@ -29,8 +31,9 @@ SUBMITTABLE = MID_FLIGHT - {"verifying", "merging"}
 class Facts(NamedTuple):
     """What the checklist judges, read from the queue: the PR and head the task's latest done change round
     reported, the review record (None when there is none), the task's latest done review (run id and verdict),
-    why that review does not cover the head by `ccp prompt verify`'s rules (None when it does), and the open spec
-    questions and escalations that list the task."""
+    why that review does not cover the head by `ccp prompt verify`'s rules (None when it does), the open spec
+    questions and escalations that list the task, and whether `verify.skip_review` or a review prover proved the
+    fix since that review (§15.2), which covers the head whatever that review found."""
     pr: int | None
     head: str | None
     record: dict[str, Any] | None
@@ -38,6 +41,7 @@ class Facts(NamedTuple):
     latest_clean: bool
     uncovered: str | None
     open_refs: list[str]
+    proven: bool = False
 
 
 def failures(task_id: str, f: Facts) -> list[str]:
@@ -60,10 +64,13 @@ def phase_refusal(task_id: str, status: str | None) -> str | None:
 
 
 def _review_gaps(task_id: str, f: Facts) -> list[str]:
+    if f.proven and f.head is not None:  # §15.1: a proven fix is covered, whatever the review found
+        return []
     rec = f.record
     path = f"{report.REVIEW_DIR}/{task_id}.json"
     if rec is None:
-        return [f"no review record {path}: a review that reports clean writes it"]
+        return [f"no review record {path}: a review that reports clean writes it"] \
+            + ([f.uncovered] if f.uncovered else [])
     gaps = []
     if f.latest_review != rec.get("review_run_id"):
         gaps.append(f"{path} records review {rec.get('review_run_id')}, not the latest done review "
@@ -91,22 +98,25 @@ def _latest_review(q: Path, task_id: str) -> dict[str, Any] | None:
     return done[-1] if done else None
 
 
-def coverage(cfg: Config, q: Path, task_id: str, head: str, pr: int | None) -> str | None:
+def coverage(cfg: Config, q: Path, task_id: str, head: str,
+             pr: int | None) -> tuple[str | None, dict[str, Any] | None]:
     """§15.2: why the task's latest done review does not cover `head`, by `ccp prompt verify`'s rules: a fix round
     newer than it or a head it did not judge (`runs.unreviewed_fix`), unless `verify.skip_review`, a review prover or
-    `verify.skip_review_after_clean` takes the fix; None when it covers."""
+    `verify.skip_review_after_clean` takes the fix; None when it covers. The review proof runs at most once: with
+    it, the second value is the `review_proof` to record (`head`, the integration `tip` its rules were read at, and
+    the `review_skip` a verify run would record), else None."""
     from ccp import verify  # noqa: PLC0415
     why = runs.unreviewed_fix(q, task_id, head)
     if why is None:
-        return None
-    skipped, unproven = verify.skip_review(cfg, q, task_id, head, str(pr) if pr else None)
+        return None, None
+    skipped, unproven, tip = verify.review_proof(cfg, q, task_id, head, str(pr) if pr else None)
     if skipped:
-        return None
+        return None, {"head": head, "tip": tip, "review_skip": skipped}
     skipped, unclean = verify.skip_after_clean(cfg, q, task_id, head)
     if skipped:
-        return None
+        return None, None
     return why + (f" ({unproven})" if unproven else "") \
-        + (f" (verify.skip_review_after_clean does not apply: {unclean})" if unclean else "")
+        + (f" (verify.skip_review_after_clean does not apply: {unclean})" if unclean else ""), None
 
 
 def open_refs(q: Path, task_id: str) -> list[str]:
@@ -159,9 +169,9 @@ def submit(cfg: Config, task: str) -> dict[str, Any]:
     record = _read(report.review_record_path(q, tid)) or None
     latest = _latest_review(q, tid)
     clean = latest is not None and report.review_verdict("review", latest) == "clean"
-    facts = Facts(pr, head, record, str(latest["run_id"]) if latest else None, clean, None, open_refs(q, tid))
-    if record is not None and head is not None and not _review_gaps(tid, facts):  # only then judge the head (git)
-        facts = facts._replace(uncovered=coverage(cfg, q, tid, head, pr))
+    uncovered, proof = coverage(cfg, q, tid, head, pr) if head is not None else (None, None)
+    facts = Facts(pr, head, record, str(latest["run_id"]) if latest else None, clean, uncovered, open_refs(q, tid),
+                  proven=proof is not None)
     failed = failures(tid, facts)
     if failed:
         raise QueueError("formal-submit refused, nothing moved (SPEC §15.1):\n  " + "\n  ".join(failed), 4)
@@ -170,6 +180,11 @@ def submit(cfg: Config, task: str) -> dict[str, Any]:
         f"unit_lint: {lint['run_id']} recorded no passed `ccp suite run` on the full or gate lane at {str(head)[:12]}; "
         "not judged here: the verifier's own run is the gate (SPEC §15.1)"]
     frm = phase_move(q, cfg, tid, "submitted", "ccp tasks submit")
+    if proof is not None:  # §15.2: the fix round's proof, for `ccp prompt verify` of this head to reuse
+        fix = runs.load(q, str(proof["review_skip"]["fix"]))
+        fix["review_proof"] = proof
+        runs.save(q, fix)
     return {"ok": True, "task_id": tid, "from": frm, "to": "submitted", "pr": pr, "head": head,
             "review_record": f"{report.REVIEW_DIR}/{tid}.json", "review_run_id": record["review_run_id"] if record else None,
-            "unit_lint": lint, **({"warnings": warnings} if warnings else {})}
+            "unit_lint": lint, **({"review_skip": proof["review_skip"]} if proof else {}),
+            **({"warnings": warnings} if warnings else {})}

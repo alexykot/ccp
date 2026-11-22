@@ -10,11 +10,12 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from ccp import config, submit, suite
+from ccp import config, prompt, submit, suite
 from tests.helpers import done_report
-from tests.review_flow import CLEAN, PROOF, SKIP_REVIEW_PLANE, PhaseFlow, SkipFlow, A, B
-from tests.toolkit_fixture import PLANE, ToolkitFixture
+from tests.review_flow import CLEAN, MAJOR, PROOF, SKIP_REVIEW_PLANE, PhaseFlow, SkipFlow, A, B
+from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 MINOR_ONLY = "BLOCKER=0 MAJOR=0 MINOR=2 NIT=0"
 
@@ -159,12 +160,17 @@ class SubmitAfterClean(PhaseFlow, ToolkitFixture, unittest.TestCase):
 
 
 class SubmitProvenFix(SkipFlow, ToolkitFixture, unittest.TestCase):
-    """Under `verify.skip_review`, a fix of a clean review that the proof passes is submitted with no new review."""
+    """Under `verify.skip_review`, a fix that the proof passes is submitted with no new review, whatever the review
+    found, and `ccp prompt verify` of that head reuses the proof while the integration tip stays put."""
 
     PLANE_JSON = SKIP_REVIEW_PLANE
 
     def setUp(self):
         super().setUp()
+        clock = iter(f"2026-10-22T{10 + i // 60:02d}:{i % 60:02d}:00Z" for i in range(600))
+        patch = mock.patch("ccp.runs.iso", side_effect=lambda: next(clock))  # each run opens a second after the last
+        patch.start()
+        self.addCleanup(patch.stop)
         t = Path(self._tmp.name)
         (t / "proof").write_text(PROOF)
         (t / "proof").chmod(0o755)
@@ -183,6 +189,109 @@ class SubmitProvenFix(SkipFlow, ToolkitFixture, unittest.TestCase):
         self.assertEqual((body["head"], body["to"]), (head, "submitted"))
         self.assertEqual(self.log.read_text().split()[:3], ["0002-second", reviewed, head])  # the proof ran
 
+    def submitted(self) -> tuple[str, dict]:
+        """A proven fix submitted: (its head, submit's body)."""
+        head = self.fix()
+        code, body, out, err = self.ccp("tasks", "submit", "0002")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((body["head"], body["to"], self.status()), (head, "submitted", "submitted"))
+        return head, body
+
+    def status(self) -> str:
+        return json.loads((self.q / "tasks/0002-second.json").read_text())["status"]
+
+    def run_record(self, run_id: str) -> dict:
+        task, phase = run_id.split("/")
+        return json.loads((self.q / "runs" / task / f"{phase}.json").read_text())
+
+    def proofs(self) -> int:
+        return len(self.log.read_text().splitlines())
+
+    def test_a_proven_fix_of_a_major_review_with_no_clean_review_is_submitted(self):
+        reviewed = self.reviewed()  # its review found a MAJOR
+        _, body = self.submitted()
+        from ccp import report
+        self.assertFalse(report.review_record_path(self.q, "0002-second").exists())
+        self.assertEqual((body["review_skip"]["reviewed"], body["review_skip"]["fix"]), (reviewed, "0002-second/fix"))
+
+    def test_a_proven_fix_of_a_major_review_after_a_clean_one_is_submitted(self):
+        self.commit("tests/test_feature.txt", "check it\n")
+        reviewed = self.push()
+        self.run_phase("review", reviewed, f"Severity: {CLEAN}")  # the review record names this review
+        self.run_phase("review", reviewed, f"Severity: {MAJOR}")
+        _, body = self.submitted()
+        self.assertEqual(body["review_skip"]["reviewed"], reviewed)
+
+    def test_an_unproven_fix_of_a_major_review_is_refused_and_records_no_proof(self):
+        self.reviewed()
+        self.fix()
+        os.environ["PROOF_EXIT"] = "1"
+        code, _, out, err = self.ccp("tasks", "submit", "0002")
+        self.assertEqual(code, 4, out + err)
+        self.assertIn("review_artifact_present", err)
+        self.assertNotIn("review_proof", self.run_record("0002-second/fix"))
+
+    def test_a_proven_fix_refused_for_an_open_spec_question_records_no_proof(self):
+        self.reviewed()
+        self.fix()
+        qid = "sm-20261022T100000Z-abcd"
+        (self.q / "questions").mkdir()
+        (self.q / "questions" / f"{qid}.json").write_text(json.dumps(
+            {"task_id": "0002-second", "question_id": qid, "class": "spec", "status": "open"}))
+        code, _, out, err = self.ccp("tasks", "submit", "0002")
+        self.assertEqual(code, 4, out + err)
+        self.assertIn("no_open_spec_escalation", err)
+        self.assertNotIn("review_proof", self.run_record("0002-second/fix"))
+
+    def test_an_abandoned_fix_round_after_submit_leaves_the_proof_reused(self):
+        self.reviewed()
+        head, _ = self.submitted()
+        code, body, out, err = self.ccp("prompt", "fix", "0002", "--pr", "7", "--head", head)
+        self.assertEqual(code, 0, out + err)
+        f = self.q / "runs" / f"{body['run_id']}.json"
+        f.write_text(json.dumps({**json.loads(f.read_text()), "abandoned_at": "2026-10-22T11:00:00Z"}))
+        code, _, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.proofs(), 1)
+
+    def test_submit_then_verify_of_the_same_head_runs_the_proof_once(self):
+        self.reviewed()
+        head, body = self.submitted()
+        proof = self.run_record("0002-second/fix")["review_proof"]
+        self.assertEqual((proof["head"], proof["review_skip"]), (head, body["review_skip"]))
+        code, body, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.proofs(), 1)
+        self.assertEqual(body["review_skip"], proof["review_skip"])
+        self.assertEqual(self.run_record(body["run_id"])["review_skip"], proof["review_skip"])
+
+    def test_a_tip_moved_between_submit_and_verify_runs_the_proof_again(self):
+        self.reviewed()
+        head, _ = self.submitted()
+        other = self.main / config.WORKTREES_DIR / "other"  # another task's task log lands on the integration branch
+        git(self.main, "worktree", "add", "-q", "--detach", str(other), "origin/main")
+        self.commit(ToolkitFixture.PLANE_JSON["reconcile"]["log"]["path"], "a merged task's entry\n", other)
+        git(other, "push", "-q", "origin", "HEAD:main")
+        code, _, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.proofs(), 2)
+
+    def test_a_review_reported_after_the_proof_at_the_reviewed_head_is_not_skipped(self):
+        reviewed = self.reviewed()
+        head, _ = self.submitted()
+        self.review(reviewed)  # a late review of the head the proof's fix started from
+        code, _, out, err = self.verify(head)
+        self.assertEqual(code, 4, out + err)
+        self.assertEqual(self.proofs(), 1)
+
+    def test_a_head_moved_on_by_a_later_fix_round_runs_the_proof_again(self):
+        self.reviewed()
+        self.submitted()
+        later = self.fix(text="check it  # comment fixed again\n")
+        code, body, out, err = self.verify(later)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((self.proofs(), body["review_skip"]["head"]), (2, later))
+
 
 class Failures(unittest.TestCase):
     """The checklist on plain facts."""
@@ -196,6 +305,16 @@ class Failures(unittest.TestCase):
 
     def test_all_items_met_is_no_failure(self):
         self.assertEqual(submit.failures("t", self.facts()), [])
+
+    def test_with_no_review_record_an_unproven_fix_says_why(self):
+        failed = submit.failures("t", self.facts(record=None, uncovered="the proof exited 1"))
+        self.assertIn("the proof exited 1", failed[-1])
+
+    def test_a_proven_fix_covers_the_head_whatever_the_review_record_says(self):
+        for kw in (dict(record=None), dict(latest_review="t/review-2", latest_clean=False), dict(pr=8),
+                   dict(uncovered="fix round newer")):
+            with self.subTest(kw=kw):
+                self.assertEqual(submit.failures("t", self.facts(proven=True, **kw)), [])
 
     def test_each_gap_in_the_review_record_fails_review_artifact_present(self):
         for kw, token in ((dict(record=None), "review/t.json"),
@@ -228,6 +347,24 @@ class Failures(unittest.TestCase):
             self.assertIsNone(submit.phase_refusal("t", status), status)
         for status in ("done", "pending", None, "verifying", "merging", "dropped"):
             self.assertIsNotNone(submit.phase_refusal("t", status), status)
+
+
+class ReusedProof(unittest.TestCase):
+    """`ccp prompt verify` takes a submit's `review_proof` only for the head, tip and review it judged."""
+
+    SKIP = {"reviewed": A, "head": B, "fix": "t/fix", "files": 1}
+    PROOF = {"head": B, "tip": "c" * 40, "review_skip": SKIP}
+
+    def test_the_head_tip_and_review_it_judged_reuse_its_skip(self):
+        self.assertEqual(prompt.reused_proof(self.PROOF, B[:12], "c" * 40, A), self.SKIP)
+
+    def test_another_head_tip_or_review_or_no_tip_judges_again(self):
+        for head, tip, reviewed in ((A, "c" * 40, A), (B, "d" * 40, A), (B, None, A), (B, "", A), (B, "c" * 40, B)):
+            with self.subTest(head=head[:1], tip=tip, reviewed=reviewed[:1]):
+                self.assertIsNone(prompt.reused_proof(self.PROOF, head, tip, reviewed))
+
+    def test_a_proof_with_no_skip_judges_again(self):
+        self.assertIsNone(prompt.reused_proof({"head": B, "tip": "c" * 40}, B, "c" * 40, A))
 
 
 class Script(unittest.TestCase):
