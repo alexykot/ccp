@@ -13,7 +13,7 @@ from ccp.queue import QueueError
 
 class LineBreak(unittest.TestCase):
     def setUp(self):
-        self.root = Path(tempfile.mkdtemp(prefix="ccp-mutant-line-break-"))
+        self.root = Path(tempfile.mkdtemp(prefix="ccp-mutant-line-break-")).resolve()
         self.addCleanup(shutil.rmtree, self.root, True)
         (self.root / "calc.py").write_text("x = 1\ny = 2\n")
 

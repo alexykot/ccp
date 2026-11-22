@@ -12,7 +12,9 @@ from tests.wt_fixture import WtFixture
 
 class Leftover(WtFixture, unittest.TestCase):
     def leftover(self) -> tuple[str, object]:
-        """A recorded worktree that git no longer lists, its directory holding only `pkg/<cache>/m.pyc`."""
+        """A recorded worktree that git no longer lists, its directory holding only `pkg/<cache>/m.pyc`, in a product
+        whose language pack names a cache directory."""
+        self.plane(language="python")
         code, made, body, err = self.wt("create", "--kind", "ver", "--task", "0002", "--sha", self.head())
         self.assertEqual(code, 0, body + err)
         path = wt.base_dir(config.load(self.main)) / made["name"]
