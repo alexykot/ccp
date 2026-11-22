@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, prhost, verify
+from ccp.schema import schema_errors
 from tests.helpers import Product, binding
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -660,8 +661,8 @@ class Record(unittest.TestCase):
         code, _, err = self.record(body)
         self.assertEqual(code, 1)
         self.assertIn("names no head_sha", err)
-        self.assertEqual(verify.schema_errors(1, {"oneOf": []}),
-                         ["record: the schema uses oneOf, which ccp verify cannot check"])
+        self.assertEqual(schema_errors(1, {"dependentRequired": {}}),
+                         ["record: the schema uses dependentRequired, which ccp verify cannot check"])
 
 
 class MergeOk(unittest.TestCase):

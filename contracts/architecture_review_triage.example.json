@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "review_id": "ar-20260105T090000Z-0a1b",
+  "project_id": "demo",
+  "triaged_at": "2026-01-05T11:00:00Z",
+  "commit_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "record": "docs/delivery/reviews/ar-20260105T090000Z-0a1b.md",
+  "tasks_created": ["0043-example-follow-up"],
+  "dispositions": [
+    {"finding": "F01", "disposition": "task", "target": "0043-example-follow-up", "reason": "A task fixes it."},
+    {"finding": "F02", "disposition": "defer", "target": null, "reason": "Waits for the next review point."}
+  ],
+  "question_for_operator": null,
+  "answered_by": "spec_maintainer",
+  "session_id": null,
+  "rule_changes": [
+    {"rule": "E4", "action": "amend", "disposition": "applied", "reason": "The rule's wording is tightened."}
+  ]
+}

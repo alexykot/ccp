@@ -7,7 +7,7 @@ import json
 import unittest
 from pathlib import Path
 
-from ccp import verify
+from ccp.schema import schema_errors
 from tests.test_toolkit import ToolkitFixture
 
 SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "task.schema.json"
@@ -20,7 +20,7 @@ class TaskStateContract(ToolkitFixture, unittest.TestCase):
         return json.loads((self.q / "tasks/0002-second.json").read_text())
 
     def test_a_claimed_state_validates_against_the_contract(self):
-        self.assertEqual(verify.schema_errors(self.claimed(), json.loads(SCHEMA.read_text())), [])
+        self.assertEqual(schema_errors(self.claimed(), json.loads(SCHEMA.read_text())), [])
 
     def test_a_claimed_state_has_no_copy_of_the_checks(self):
         self.assertNotIn("dod_checks", self.claimed())
