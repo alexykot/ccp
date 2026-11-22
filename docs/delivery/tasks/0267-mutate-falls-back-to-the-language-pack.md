@@ -127,4 +127,17 @@ E18 (the record is in `docs/delivery/reviews/`). Measured at `afb8ce6` (the figu
 
 ## Implementation notes
 
+- `ccp/doclang`: `Pack.unbuilt_re` (default `()`); the Python pack's `UNBUILT_RE` holds the two patterns the
+  ruling names, in that order.
+- `ccp/mutate.py`: `_command(mu, pack)` is plane.json `mutate.command` when set, else the pack's
+  `test_command` plus ` {test}`, else None (the refusal, exit 2, naming `mutate.command`, `{test}` and
+  `sh {test}`, and the pack's name). `_unbuilt_patterns(mu, pack)` is plane.json `mutate.unbuilt_re` when not
+  null, else the pack's. Both are plain functions over the config block and the pack (E15).
+- `tests/test_mutate.py` `Reverts.test_a_file_the_change_added_is_removed_for_the_run` now expects
+  `unbuilt` (exit 1), not `killed`: the revert removes `limits.py`, which `calc.py` imports, so the test
+  module fails to import and the pack's import line matches. Its point, the removal and the restore, is
+  unchanged.
+- The schema's `mutate` block description ("Absent, or command null: `ccp mutate` refuses") said the
+  same as the two property descriptions, so it changed with them.
+
 ## Verification notes
