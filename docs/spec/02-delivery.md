@@ -286,7 +286,8 @@ reported in.
   `observed_efforts`, `integration_merges` and `before_review` (a done implement, fix, merge or ruling
   round with a head), and `follow_ups` (the report's lines, each with its id and the lead's
   `outcome`, §13.4).
-  `ccp report` computes them when the round reports, never from the report's prose: `integration_merges` lists,
+  `ccp report` computes `integration_merges` and `before_review` when the round reports, never from the report's
+  prose (`follow_ups` are the report's own lines, §13.4): `integration_merges` lists,
   oldest first, the merge commits on the head's first-parent line, from the task's previous done change round's
   reported head (for its first, from `origin/<integration>`) to this head, whose second parent is an ancestor of
   `origin/<integration>`, leaving out every commit already on `origin/<integration>` (a branch rebuilt on a newer
@@ -477,7 +478,8 @@ reviewer, fixer and verifier prompt from four parts, in order, writes the prompt
 (§11.1) and prints the prompt path, the report path and the exact Agent call (agent type, no
 `model`):
 
-1. **The plane template** `templates/prompts/<phase>.md` (with `templates/prompts/_common.md`): the rules that hold
+1. **The plane template** `templates/prompts/<phase>.md` (with `templates/prompts/_common.md`, and, for a
+   phase that pushes, the before-push part `templates/prompts/_gate.md`): the rules that hold
    in every product, among them working only in one's own worktree, foreground commands only, never
    merging, the review and verify standards (adversarial; reject only on BLOCKER or MAJOR; prove an
    absence pattern on a known positive; mutation-test a test that could pass vacuously, the verifier
@@ -900,10 +902,13 @@ The plane records two of these phases. When a review reports clean, `ccp report`
 task's review record, `review/<task_id>.json` (`contracts/review.schema.json`): the PR, the head
 reviewed, the run and session that opened the PR, the review's run and session, the rework rounds
 since the PR opened, the spec questions the task raised, the review report's path and the time.
-Formal-submit is `ccp tasks submit <id>`, which the runner runs before `ccp prompt verify`: it
-exits 4, naming each failed item and moving nothing, unless the task has a PR, the review record's
-review covers the PR head (§15.2), and no spec question or escalation listing the task is open; a
-pass moves the task to `submitted`. It also reports whether the run at the PR head recorded a
+Formal-submit is `ccp tasks submit <id>`, which the runner runs before `ccp prompt verify`. It
+refuses a task that is not mid-flight or is past `submitted` (`verifying`, `merging`), exit 3, moving
+nothing. Otherwise it exits 4, naming each failed item and moving nothing, unless the task has a PR,
+the PR head is covered, and no spec question or escalation listing the task is open; a pass moves the
+task to `submitted`. The head is covered when the review record's review is the task's latest review
+that reported `done` and covers the head (§15.2), or when `verify.skip_review` or a review prover
+proves the fix since that review, whatever it found (§15.2). It also reports whether the run at the PR head recorded a
 passed `ccp suite run`, which it does not judge: `unit_lint` is the verifier's own run.
 
 The `unit_lint` gate is **the verifier's own run** of the product's unit and lint commands on the PR
@@ -965,7 +970,13 @@ result.
   as `verify.skip_review` is. `verify.skip_review`, when set, is tried first, then each such prover in
   order, all from one integration tip's checkout (§14.2); the first to prove the fix sends it straight
   to verify. The verify run's `review_skip` then adds `prover` (its name) and `exit_code`,
-  never the command text (§14.4).
+  never the command text (§14.4). A fix round's proof runs once: when `ccp tasks submit` proves the
+  fix (§15.1), it records `review_proof` on the fix round's run (the head, the integration tip whose
+  plane.json it read, and the `review_skip` a verify run would record), and `ccp prompt verify` of that
+  head takes that `review_skip`, running neither `proof` nor a prover, while `origin/<integration
+  branch>` is still at that tip after its fetch and the task's latest review that reported `done` is
+  still the one it judged (`reviewed`); otherwise it judges the fix again. Submit records
+  `review_proof` only when it passes.
 - **A fix of a clean review's minor findings needs no new review.** plane.json
   `verify.skip_review_after_clean` (boolean; false, the default, is off) lets the fix round after the
   latest review that reported `done` go straight to verify when that review recorded no BLOCKER or MAJOR
