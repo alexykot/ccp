@@ -1,7 +1,7 @@
 ---
 task_id: 0273-verify-refuses-early-what-record-would-refuse
 title: ccp prompt verify refuses a not_built citation and a waiver that verify record would refuse, and the per-check facts move to the judge
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S6", "S15"]
@@ -203,3 +203,5 @@ sign (the triage's second question).
   into module-path order.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #344 head `35bca8a` (squash `8440990`): APPROVE. Passed: code-01, code-02, code-03, code-04, test-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0273-verify-refuses-early-what-record-would-refuse.json.
+
