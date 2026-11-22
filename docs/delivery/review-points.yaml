@@ -127,12 +127,13 @@ review_points:
   - id: R22
     name: operator rulings 2
     goal: "The operator's rulings of 2026-11-21 (second set): the architect's friction trigger counts distinct tasks with a worker's note, leaves out the plane's own override notes, and scales with tasks in flight."
-    status: current
+    status: closed
     opened: "2026-11-21"
+    closed: "2026-11-22"
   - id: R23
     name: sixth architect pass fixes
     goal: "Findings of architect pass ar-20261121T223646Z-f0a7: ccp mutate taking several tests with no-op refusals and failing test ids, the lead's records behind one guard and one actor id, ccp prompt verify refusing what verify record would, worker briefs stating each rule once, and stale-Context warnings shown to the seat that acts on them."
-    status: planned
+    status: current
     opened: "2026-11-21"
   - id: R24
     name: follow-ups of R15 and R17
