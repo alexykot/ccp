@@ -100,4 +100,24 @@ before them would conflict with each, so this task runs after them, on their tex
 
 ## Implementation notes
 
+- `templates/prompts/_gate.md` holds the before-push block once: the catch-up (implement, fix), the full
+  suite with the task and docs checks and the budgets, the implement round's self-check sentences, the
+  fail-fast pre-gate and the line that it never stands in for the full suite. The four phase templates
+  carry `{{gate}}` where the block stood.
+- `ccp/prompt.py`: `GATE_FLAGS` sets three section flags per phase (`gate_catch_up` for implement and fix,
+  `gate_pr` for implement, `gate_merge` for merge); `render_phase(phase, values)` renders `_gate.md` with
+  them into `{{gate}}` (empty for a phase that does not push) and `build` renders through it.
+- Every template under `templates/prompts/` is one sentence per line; a list item's further sentences go
+  on indented continuation lines, as `_common.md` already did for the suite rule. Where two sections are
+  alternatives on one line (`{{/own_worktree}}{{^own_worktree}}`, `cold_gate`, `has_old`, `resolution`),
+  each section now carries its own line end, so no blank line is added or lost.
+- Two sentences of `_gate.md` are longer than 600 characters with their section markup, so each carries one
+  line break inside it, after a colon or a clause: "during the run:" (rendered in implement and fix) and
+  "then" before "run a quick pre-gate" (rendered in implement with budgets). No word changes.
+- Checked by rendering every template at the base and at the head under each flag off, one on, two on, all
+  but one on and all on, with whitespace collapsed inside each paragraph: all 19888 renders equal, blank
+  lines included.
+- Tests that took one line of a rendered prompt as a rule (`test_suite`, `test_resolution_review`,
+  `test_worker_efficiency`) now read the list item or the sentence, the same tokens expected.
+
 ## Verification notes
