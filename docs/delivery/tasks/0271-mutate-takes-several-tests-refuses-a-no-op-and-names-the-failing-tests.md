@@ -1,7 +1,7 @@
 ---
 task_id: 0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests
 title: ccp mutate takes several tests, refuses a mutant that changes nothing, names the failing tests, and its refusals are tested on plain values
-status: pending
+status: done
 kind: feature
 depends_on: ["0267-mutate-falls-back-to-the-language-pack"]
 spec_refs: ["S20"]
@@ -239,3 +239,5 @@ As the runner passed it (lead, 2026-11-22, spec question `sm-20261122T133927Z-2a
   reads as one list.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #343 head `effe9c6` (squash `8a6ce99`): APPROVE. Passed: code-01, code-02, code-03, code-04, test-01, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests.json.
+
