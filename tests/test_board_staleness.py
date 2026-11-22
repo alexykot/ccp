@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import board, usage
+from tests.helpers import done_report
 from tests.test_toolkit import ToolkitFixture
 
 RUN = "0002-second/implement"
@@ -97,7 +98,7 @@ class Staleness(ToolkitFixture, unittest.TestCase):
         self.assertNotIn("live", b["health"]["sources"]["work"])
 
     def test_telemetry_of_a_run_that_is_not_open_does_not_count(self):
-        self.report(RUN, "Outcome: done\nPR: #7\nHead: " + "a" * 40 + "\n## Friction\nnone\n")
+        self.report(RUN, done_report("implement", "PR: #7", "Head: " + "a" * 40))
         for f in [self.q / "work.json", *(self.q / "runs").rglob("*.json")]:
             os.utime(f, (time.time() - 70 * 60,) * 2)
         b = self.build([{"at": at(0.1)}])

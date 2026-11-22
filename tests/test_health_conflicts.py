@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import gitmerge, health, runs
+from tests.helpers import done_report
 from tests.review_flow import ReviewFlow
 from tests.test_toolkit import GIT_ENV, ToolkitFixture, git
 
@@ -53,7 +54,7 @@ class RoundReport(ReviewFlow, ToolkitFixture, unittest.TestCase):
     def implement(self, head: str) -> str:
         code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", git(self.main, "rev-parse", "origin/main"))
         self.assertEqual(code, 0, out + err)
-        code, _, out, err = self.report(body["run_id"], f"Outcome: done\nPR: #7\nHead: {head}\n## Friction\nnone\n")
+        code, _, out, err = self.report(body["run_id"], done_report("implement", "PR: #7", f"Head: {head}"))
         self.assertEqual(code, 0, out + err)
         return body["run_id"]
 
@@ -192,7 +193,7 @@ class RoundReport(ReviewFlow, ToolkitFixture, unittest.TestCase):
         merge = self.run_phase("merge", h1, f"PR: #7\nHead: {h2}")
         self.assertEqual(len(self.record(merge)["integration_merges"]), 1)
         tok = self.record(merge)["prompt_token"]
-        code, _, out, err = self.report(merge, f"Outcome: done\nPR: #7\nHead: {'deadbeef' * 5}\nPrompt: {tok}\n## Friction\nnone\n")
+        code, _, out, err = self.report(merge, done_report("merge", "PR: #7", f"Head: {'deadbeef' * 5}", f"Prompt: {tok}"))
         self.assertEqual(code, 0, out + err)
         self.assertNotIn("integration_merges", self.record(merge))
         code, body, out, err = self.ccp("prompt", "fix", "0002", "--pr", "7", "--head", h2)

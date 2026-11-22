@@ -7,6 +7,7 @@ import json
 import unittest
 
 from ccp import followups, report, runs
+from tests.helpers import done_report
 from tests.test_report_fields import HEAD
 from tests.test_toolkit import ToolkitFixture
 
@@ -17,7 +18,7 @@ TASKED = {"kind": "task", "ref": "0001-first", "at": "2026-11-21T00:00:00Z", "by
 
 
 def implement_report(*follow_up_lines: str) -> str:
-    return "\n".join(["Outcome: done", "PR: #7", f"Head: {HEAD}", "## Friction", "none", *follow_up_lines, ""])
+    return done_report("implement", "PR: #7", f"Head: {HEAD}", *follow_up_lines)
 
 
 class Table(unittest.TestCase):
@@ -97,9 +98,8 @@ class Submit(ToolkitFixture, unittest.TestCase):
 
     def test_a_near_miss_heading_stores_none_and_warns(self):
         for heading in ("### Follow-ups", "## Follow ups", "## Followups"):
-            code, _, out, err = self.report(IMPLEMENT, "\n".join([
-                "Outcome: done", "PR: #7", f"Head: {HEAD}", "## Notes", heading, "- a test gap", "## Friction", "none",
-                ""]))
+            code, _, out, err = self.report(IMPLEMENT, done_report("implement", "PR: #7", f"Head: {HEAD}", "## Notes",
+                                                                   heading, "- a test gap"))
             self.assertEqual(code, 0, f"{heading}: {out}{err}")
             self.assertEqual(self.run_rec()["follow_ups"], [], heading)
             self.assertIn(f"`{heading}` is not read as the follow-ups", err)

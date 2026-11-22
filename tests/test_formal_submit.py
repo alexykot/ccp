@@ -12,6 +12,7 @@ import unittest
 from pathlib import Path
 
 from ccp import config, submit, suite
+from tests.helpers import done_report
 from tests.review_flow import CLEAN, PROOF, SKIP_REVIEW_PLANE, PhaseFlow, SkipFlow, A, B
 from tests.test_toolkit import PLANE, ToolkitFixture
 
@@ -89,7 +90,7 @@ class Submit(PhaseFlow, ToolkitFixture, unittest.TestCase):
         rid = body["run_id"]
         code, _, out, err = self.ccp("suite", "run", "--run", rid, *lane)
         self.assertEqual(code, 0, out + err)
-        code, _, out, err = self.report(rid, f"Outcome: done\nPR: #7\nHead: {A}\n## Friction\nnone\n")
+        code, _, out, err = self.report(rid, done_report("implement", "PR: #7", f"Head: {A}"))
         self.assertEqual(code, 0, out + err)
         self.reviewed_as(CLEAN)
         sids = [r["suite_id"] for r in suite.fold(self.q) if r.get("run_id") == rid and r.get("state") == "passed"]

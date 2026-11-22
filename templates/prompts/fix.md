@@ -17,4 +17,4 @@ This is a `kind: refactor` task (SPEC §20.4): behaviour is unchanged, no test e
 {{/refactor}}
 {{gate}}
 Append to the task's Implementation notes what you changed and why.
-List each branch, field, refusal or behaviour your fix adds or changes, with the test that fails without it, under `## Tests for new behaviour` in your report, as the implementer did (the report only: no dod_check ids or map in test names or docstrings).
+List each branch, field, refusal or behaviour your fix adds or changes, with the test that fails without it, in your report, as the implementer did (the report only: no dod_check ids or map in test names or docstrings).

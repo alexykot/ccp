@@ -17,7 +17,7 @@ from unittest import mock
 from ccp import cli, config, prhost, prompt as prompt_mod
 from ccp.queue import QueueError
 from tests import helpers
-from tests.helpers import TASK, binding
+from tests.helpers import TASK, binding, done_report
 
 PLANE = Path(__file__).resolve().parents[1]
 GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
@@ -235,14 +235,8 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.ccp("tasks", "claim", "0002")
         code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
         self.assertEqual(code, 0, out + err)
-        self.report("0002-second/implement", f"""\
-            Outcome: done
-            PR: #7
-            Head: {'a' * 40}
-            ## Friction
-            none
-            """)
-        lines = {"review": "Severity: BLOCKER=0 MAJOR=1 MINOR=0 NIT=0\n## Spec beyond intent\nnone", "fix": f"PR: #7\nHead: {'a' * 40}",
+        self.report("0002-second/implement", done_report("implement", "PR: #7", f"Head: {'a' * 40}"))
+        lines = {"review": "Severity: BLOCKER=0 MAJOR=1 MINOR=0 NIT=0", "fix": f"PR: #7\nHead: {'a' * 40}",
                  "verify": f"Verdict: reject\nHead: {'a' * 40}"}
         for phase in ("review", "fix", "verify"):
             # §15.2: a verify straight after a fix is refused without the lead's override
@@ -252,7 +246,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
             text = Path(body["prompt_path"]).read_text()
             self.assertNotIn("{{", text)
             self.assertIn(f"report {body['run_id']} ", text)
-            code, _, out, err = self.report(body["run_id"], f"Outcome: done\n{lines[phase]}\n## Friction\nnone\n")
+            code, _, out, err = self.report(body["run_id"], done_report(phase, lines[phase]))
             self.assertEqual(code, 0, f"{phase} report: {out}{err}")
         fix = Path(self.ccp("prompt", "fix", "0002", "--pr", "7", "--head", "a" * 40)[1]["prompt_path"]).read_text()
         self.assertIn("0002-second/review: ", fix)
@@ -378,17 +372,9 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         for missing in ("Head:", "Friction"):
             self.assertIn(missing, err)
         self.assertFalse((self.q / "progress/0002-second/implement-report.md").exists())
-        code, body, out, err = self.report("0002-second/implement", f"""\
-            Built it.
-            Outcome: done
-            PR: #7
-            Head: {'a' * 40}
-            Suite: 412 tests, 88.5 s
-
-            ## Friction
-            - the same fact sits in three files
-            - a test pinned the wording of an error
-            """)
+        code, body, out, err = self.report("0002-second/implement", done_report(
+            "implement", "Built it.", "PR: #7", f"Head: {'a' * 40}", "Suite: 412 tests, 88.5 s",
+            friction=("- the same fact sits in three files", "- a test pinned the wording of an error")))
         self.assertEqual(code, 0, out + err)
         self.assertEqual((body["outcome"], body["pr"], body["suite_tests"], body["friction_count"]), ("done", "7", 412, 2))
         self.assertTrue((self.q / "progress/0002-second/implement-report.md").is_file())

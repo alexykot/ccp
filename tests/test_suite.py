@@ -15,7 +15,7 @@ from unittest import mock
 from pathlib import Path
 
 from ccp import board, config, suite
-from tests.helpers import Product
+from tests.helpers import Product, done_report
 from tests.test_toolkit import ToolkitFixture
 
 PLANE = Path(__file__).resolve().parents[1]
@@ -568,16 +568,7 @@ class OutputCounts(SuiteFixture, unittest.TestCase):
 class ReportCrossCheck(SuiteFixture, unittest.TestCase):
     # the full role's own lane is declared, so a `--lane full` run is the suite (§14.1)
     PLANE_JSON = {**SuiteFixture.PLANE_JSON, "suite": {"lanes": {"gate": ["true"], "full": [PY, "-c", "pass"]}}}
-    REPORT = f"""\
-        Built it.
-        Outcome: done
-        PR: #7
-        Head: {'a' * 40}
-        Suite: 12 tests, 3 s
-
-        ## Friction
-        none
-        """
+    REPORT = done_report("implement", "Built it.", "PR: #7", f"Head: {'a' * 40}", "Suite: 12 tests, 3 s")
 
     def test_a_suite_line_without_a_recorded_run_warns_and_is_accepted(self):
         self.implementing()

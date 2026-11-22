@@ -18,6 +18,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import report, runs
+from tests.helpers import done_report
 from tests.test_report_fields import DOWNTIME, HEAD, implement_report
 from tests.test_toolkit import GIT_ENV, ToolkitFixture, git
 
@@ -175,7 +176,7 @@ class Table(unittest.TestCase):
 
     def test_parse_asks_a_phase_for_its_required_sections(self):
         got, errs = report.parse("implement", "Outcome: done\n## Friction\nnone\n")
-        self.assertEqual(errs, [s.missing for s in report.SECTIONS if s.key in ("head", "pr")])
+        self.assertEqual(errs, [s.missing for s in report.SECTIONS if s.key in ("head", "pr", "tests")])
         got, errs = report.parse("verify", "Outcome: done\nHead: " + HEAD + "\nVerdict: approve\n## Friction\nnone\n")
         self.assertEqual((errs, got["verdict"], got["friction"]), ([], "approve", []))
         got, errs = report.parse("verify", "Outcome: blocked\n")  # only what is always required, when not done
@@ -198,7 +199,7 @@ class Submit(ToolkitFixture, unittest.TestCase):
         self.assertTrue(set(body) <= {"ok", "run_id", "report", "warnings", *report.RETURNED_KEYS}, body)
 
     def test_a_secret_friction_line_is_refused_and_nothing_is_written(self):
-        text = "\n".join(["Outcome: done", "PR: #7", f"Head: {HEAD}", "## Friction", "- ANTHROPIC_API_KEY=abc123", ""])
+        text = done_report("implement", "PR: #7", f"Head: {HEAD}", friction=("- ANTHROPIC_API_KEY=abc123",))
         code, _, out, err = self.report("0002-second/implement", text)
         self.assertEqual(code, 1, out + err)
         self.assertIn("a Friction line looks like it holds a secret", err)
