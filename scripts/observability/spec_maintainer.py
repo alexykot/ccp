@@ -44,7 +44,7 @@ from lib import (  # noqa: E402
     events_path,
     fmt_dt,
     load_events,
-    lock_is_stale,  # noqa: F401  (re-exported: the architect and review locks use it)
+    lock_is_stale,  # noqa: F401  (re-exported: architecture_review.py's lock reads it)
     looks_like_secret,
     new_task_state,
     parse_dt,
@@ -58,33 +58,11 @@ if str(HERE.parents[1]) not in sys.path:
     sys.path.insert(0, str(HERE.parents[1]))
 from ccp import refs  # noqa: E402  (the id shapes, §7)
 
-STRIP_KEYS = ("ANTHROPIC_API_KEY", "CLAUDE_API_KEY", "ANTHROPIC_AUTH_TOKEN")
-
-
-def headless_env(project_id: str, seat: str) -> dict[str, str]:
-    """The environment of a plane-launched `claude -p` (SPEC §24.3): ours without the API keys, plus
-    the resource attributes that route its telemetry to the project and to its seat, subagents too."""
-    env = {k: v for k, v in os.environ.items() if k not in STRIP_KEYS}
-    keep = [x.strip() for x in (env.get("OTEL_RESOURCE_ATTRIBUTES") or "").split(",")
-            if x.strip() and not x.strip().startswith("ccp.")]
-    env["OTEL_RESOURCE_ATTRIBUTES"] = ",".join(keep + [f"ccp.project_id={project_id}", f"ccp.seat={seat}"])
-    return env
-
 RAISERS = ("task-runner", "task-verifier")
 
 VERDICTS = ("resolved", "needs_operator", "not_a_spec_question")
 
 QID_RE = re.compile(rf"^{refs.QUESTION_ID}$")
-
-QUOTA_RE = re.compile(
-    r"(usage limit|session limit|limit reached|rate[ _-]?limit|credit balance|out of credits|"
-    r"quota|5-hour limit|weekly limit|resets? at)",
-    re.I,
-)
-
-ISO_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})")
-
-EPOCH_RE = re.compile(r"\b(1[7-9]\d{8})\b")
 
 
 def now_utc() -> datetime:
@@ -278,19 +256,32 @@ def waiting_for(root: Path, q: dict[str, Any], reasons: tuple[str, ...]) -> list
             out.append(tid)
     return out
 
-TASK_ID_RE = re.compile(r"^\d+-[a-z0-9]+(?:-[a-z0-9]+)*$")  # a task log id, NNNN-slug, at the product's width (ccp refs)
+def product_config(root: Path) -> Any:
+    """The product's loaded plane.json, at the product root the binding names (ccp.config); None with no
+    product root, or a plane.json that is missing or cannot be read."""
+    from ccp import config as ccp_config  # noqa: PLC0415
+    prod = product_root(root)
+    if not prod:
+        return None
+    try:
+        return ccp_config.load(Path(prod))
+    except Exception:  # noqa: BLE001  (no readable config: the caller falls back to the defaults or the queue)
+        return None
 
 
 def check_task_ids(root: Path, ids: list[str], flag: str) -> list[str]:
     """Refuse anything that is not a task id, before any write (no fragment ever becomes a task_id).
 
-    Each entry must match NNNN-slug. When the product's task log is reachable and has tasks, it must
-    also name an existing task (docs/delivery/tasks/<id>.md) or a claimed one (QUEUE_ROOT/tasks/<id>.json).
+    Each entry must match the product's task-id shape at its width (ccp refs; the default `Ids` when no
+    plane.json can be read). When the product's task log is reachable and has tasks, it must also name an
+    existing task (docs/delivery/tasks/<id>.md) or a claimed one (QUEUE_ROOT/tasks/<id>.json).
     """
-    bad = [i for i in ids if not TASK_ID_RE.match(i)]
+    shape = refs.ids(product_config(root))
+    bad = [i for i in ids if not shape.task_id_re.match(i)]
     if bad:
         die(f"{flag}: not task ids: {', '.join(repr(b) for b in bad)}. Give task ids only, comma-separated "
-            "(NNNN-slug, e.g. 0008-p1-regimes); put explanations in --text or --tried.", 2)
+            f"({'N' * shape.task_width}-slug, e.g. {shape.format_task_number(8)}-p1-regimes); put explanations "
+            "in --text or --tried.", 2)
     docs = resolve_durable_docs_dir(root)
     tdir = docs / "tasks" if docs else None
     if tdir and tdir.is_dir() and any(tdir.glob("*.md")):
@@ -437,49 +428,6 @@ def load_answer(root: Path, qid: str) -> tuple[dict[str, Any] | None, list[str]]
     return (a if not errs else None), errs
 
 
-def parse_claude_json(stdout: str) -> dict[str, Any]:
-    s = (stdout or "").strip()
-    if not s:
-        return {}
-    try:
-        obj = json.loads(s)
-        if isinstance(obj, list):
-            obj = next((x for x in reversed(obj) if isinstance(x, dict) and x.get("type") == "result"), {})
-        return obj if isinstance(obj, dict) else {}
-    except json.JSONDecodeError:
-        for line in reversed(s.splitlines()):
-            try:
-                obj = json.loads(line)
-                if isinstance(obj, dict):
-                    return obj
-            except json.JSONDecodeError:
-                continue
-    return {}
-
-
-def detect_quota(res: dict[str, Any], stdout: str, stderr: str) -> tuple[bool, str | None, str | None]:
-    text = " ".join([str(res.get("result") or ""), str(res.get("api_error_status") or ""), stdout[-4000:], stderr[-4000:]])
-    is_err = bool(res.get("is_error")) or not res
-    if not (is_err and QUOTA_RE.search(text)) and str(res.get("api_error_status") or "") != "429":
-        return False, None, None
-    qclass = "credit" if re.search(r"credit|balance", text, re.I) else "session"
-    resets = res.get("resets_at")
-    if not resets:
-        m = ISO_RE.search(text)
-        if m:
-            resets = m.group(0)
-        else:
-            m = EPOCH_RE.search(text)
-            if m:
-                resets = fmt_dt(datetime.fromtimestamp(int(m.group(1)), tz=timezone.utc))
-    if resets:
-        try:
-            resets = fmt_dt(parse_dt(resets))
-        except Exception:
-            resets = None
-    return True, qclass, resets
-
-
 def cmd_raise(args: argparse.Namespace) -> int:
     root = root_dir()
     raised_by = args.raised_by or env_raiser()
@@ -622,7 +570,16 @@ def cmd_process(args: argparse.Namespace) -> int:
 
 
 def descendants(root: Path, seeds: list[str]) -> set[str]:
+    """§17.7: the seeds plus every task whose `depends_on` closure holds one. The dependencies are the task
+    log's (through the binding's product root) united with the queue's `tasks/*.json`; with no product root,
+    or a plane.json that cannot be read, the queue's alone."""
+    from ccp import graph, tasklog  # noqa: PLC0415
     deps: dict[str, list[str]] = {}
+
+    def add(tid: str, ds: Any) -> None:
+        ds = ds if isinstance(ds, list) else ([] if ds in (None, "") else [ds])
+        deps[tid] = list(dict.fromkeys([*deps.get(tid, []), *(str(d) for d in ds)]))
+
     tdir = root / "tasks"
     if tdir.is_dir():
         for p in tdir.glob("*.json"):
@@ -631,55 +588,21 @@ def descendants(root: Path, seeds: list[str]) -> set[str]:
             except (OSError, json.JSONDecodeError):
                 continue
             if isinstance(t, dict):
-                deps[t.get("task_id") or p.stem] = list(t.get("depends_on") or [])
-    index = os.environ.get("DURABLE_DOCS")
-    if index and not (Path(index) / "INDEX.yaml").is_file() and (Path(index) / "tasks").is_dir():
-        # SPEC §5.7: no index; read depends_on from the task files' frontmatter.
-        for f in sorted((Path(index) / "tasks").glob("*.md")):
-            m = re.search(r"^depends_on:\s*\[(.*)\]", f.read_text(errors="ignore"), re.M)
-            if m:
-                deps.setdefault(f.stem, [])
-                deps[f.stem] += [x.strip().strip("'\"") for x in m.group(1).split(",") if x.strip()]
-    if index and (Path(index) / "INDEX.yaml").is_file():
-        cur = None
-        for line in (Path(index) / "INDEX.yaml").read_text().splitlines():
-            m = re.match(r"^\s*-\s+id:\s*(\S+)", line)
-            if m:
-                cur = m.group(1).strip("'\"")
-                continue
-            m = re.match(r"^\s+depends_on:\s*\[(.*)\]", line)
-            if cur and m:
-                deps.setdefault(cur, [])
-                deps[cur] += [x.strip().strip("'\"") for x in m.group(1).split(",") if x.strip()]
-    out_set = set(seeds)
-    changed = True
-    while changed:
-        changed = False
-        for tid, ds in deps.items():
-            if tid not in out_set and any(d in out_set for d in ds):
-                out_set.add(tid)
-                changed = True
-    return out_set
-
-
-def open_questions(root: Path) -> list[dict[str, Any]]:
-    res = []
-    qd = qdir(root)
-    if not qd.is_dir():
-        return res
-    for p in sorted(qd.glob("sm-*.json")):
-        if p.name.endswith(".answer.json"):
-            continue
+                add(str(t.get("task_id") or p.stem), t.get("depends_on"))
+    cfg = product_config(root)
+    if cfg is not None:
         try:
-            q = read_json(p)
-        except (OSError, json.JSONDecodeError):
-            continue
-        if isinstance(q, dict) and q.get("status") in ("open", "escalated"):
-            res.append(q)
-    return res
+            log = tasklog.load(cfg)
+        except (OSError, ValueError):
+            log = []
+        for t in log:
+            add(str(t.get("task_id") or t["_file"].stem), t.get("depends_on"))
+    want = set(seeds)
+    return want | {tid for tid in deps if graph.closure(deps, tid) & want}
 
 
 def cmd_blocked(args: argparse.Namespace) -> int:
+    from ccp.queue import open_questions  # noqa: PLC0415  (the open-question rule, §17)
     root = root_dir()
     by_q = {}
     allb: set[str] = set()

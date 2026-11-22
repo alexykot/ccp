@@ -156,7 +156,7 @@ JSON receiver.
   generation; bindings are re-read every 30 seconds. Rows routed by `ccp.project_id` also carry
   the session's cwd when it is known.
 - **Seats** (§24.3 "Attributed"). Plane-launched `claude -p` runs set `ccp.project_id` and
-  `ccp.seat` in their process environment (`spec_maintainer.headless_env`), which routes them, and
+  `ccp.seat` in their process environment (`ccp/headless.py`), which routes them, and
   their subagents, ahead of any cwd. Without that, the product root's cwd would have put them on
   the design seat. A runner started as its own top-level session (`entrypoint: sdk-cli`) has main-thread calls with no `runner@session-…`, placed by its cwd (its merge checkout).
 - **Cross-site requests.** The receiver accepts only `Content-Type: application/json` (parameters

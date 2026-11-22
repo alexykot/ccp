@@ -41,6 +41,10 @@
         "cmd": "! git grep -n CHECK_RE -- ccp ':(exclude)ccp/tasklog.py'"
       },
       {
+        "id": "E23",
+        "cmd": "! git grep -nE '\\\\d[+{][^\"]*-\\[a-z0-9\\]' -- ccp scripts ':(exclude)ccp/refs.py'"
+      },
+      {
         "id": "E27",
         "cmd": "! git grep -n '\"design-seat\"' -- ccp scripts ':(exclude)ccp/board_page.html' ':(exclude)scripts/observability/lib.py'"
       }

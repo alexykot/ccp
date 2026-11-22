@@ -47,7 +47,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ccp import config, health, parallel, pkgdocs, refs, rules, tasklog, wt
+from ccp import config, headless, health, parallel, pkgdocs, refs, rules, tasklog, wt
 from ccp.adr import find_file as find_adr_file
 from ccp.config import ARCHITECT_DEFAULTS, Config
 from ccp.queue import spawn_detached
@@ -57,8 +57,7 @@ OBS = PLANE / "scripts" / "observability"
 sys.path.insert(0, str(OBS))
 
 import architecture_review as ar  # noqa: E402  (review kinds, lock, validation, triage)
-import spec_maintainer as sm  # noqa: E402
-from lib import fmt_dt, parse_dt, read_json, write_json  # noqa: E402
+from lib import fmt_dt, lock_is_stale, parse_dt, read_json, write_json  # noqa: E402
 
 LENSES: dict[str, tuple[str, ...]] = {
     "structure": ar.CATEGORIES,
@@ -138,7 +137,7 @@ def _reap(q: Path, st: dict[str, Any], actor: str) -> None:
         if rec.get("status") != "running":
             continue
         age = (now - parse_dt(rec.get("started_at") or fmt_dt(now))).total_seconds()
-        alive = cur.get("review_id") == rid and not sm.lock_is_stale(cur, now)
+        alive = cur.get("review_id") == rid and not lock_is_stale(cur, now)
         if not alive and age > STALE_AFTER_S:
             rec["error"] = "its process ended without a result (lock gone or stale)"
             ar.transition(q, st, rid, "failed", actor, ARCH)
@@ -688,7 +687,7 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
         tools = ar.BASE_READ_TOOLS + [f"Bash({p}:*)" for p in s["probes"]]
         deny = [ar.DENY_TOOLS] + deny_rules(list(s["private_dirs"]), _abs_roots(cwd, pr))
         argv = ["env"]
-        for k in sm.STRIP_KEYS:
+        for k in headless.STRIP_KEYS:
             argv += ["-u", k]
         argv += [os.environ.get("DA_CLAUDE_BIN") or "claude", "-p", prompt, *ar.headless_flags(cfg), *ar.plugin_args(cfg.root),
                  "--output-format", "json", "--allowedTools", ",".join(tools), "--disallowedTools", ",".join(deny)]
@@ -703,7 +702,7 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
         prompt_ref = audit.stdout.strip().splitlines()[-1]
         result["prompt_ref"] = prompt_ref
         ar.emit(q, actor, "launch", {"review_id": rid, "phase": mode, "prompt_ref": prompt_ref}, ARCH)
-        env = sm.headless_env(pid, f"architect-{mode}")
+        env = headless.headless_env(pid, f"architect-{mode}")
         try:
             proc = subprocess.run(argv, cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True, text=True,
                                   timeout=timeout_s, env=env)
@@ -711,11 +710,11 @@ def _run_one(cfg: Config, q: Path, a: argparse.Namespace, actor: str, mode: str,
         except subprocess.TimeoutExpired as exc:
             so = exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
             code, se = 124, "timeout"
-        res = sm.parse_claude_json(so)
+        res = headless.parse_claude_json(so)
         ar.emit(q, actor, "exit", {"review_id": rid, "phase": mode, "exit_code": code}, ARCH)
         from ccp import usage  # noqa: PLC0415
         usage.record_headless(q, f"architect-{mode}", rid, res)
-        is_quota, qclass, resets = sm.detect_quota(res, so, se)
+        is_quota, qclass, resets = headless.detect_quota(res, so, se)
         if is_quota:
             move("quota_parked", error=f"quota ({qclass}); resets {resets}")
             return {**result, "outcome": "quota_parked", "quota_class": qclass, "resets_at": resets,

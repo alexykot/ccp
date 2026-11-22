@@ -113,9 +113,8 @@ def open_refs(q: Path, task_id: str) -> list[str]:
     """§17.3, §17.9: the open spec questions whose `task_id` or `blocks` name the task, as the spec maintainer counts
     them (`open_questions`: open, or escalated to the operator), and the open escalations of class `spec` of the
     task, by id."""
-    import spec_maintainer as sm  # noqa: PLC0415  (scripts/observability, on the path through ccp.queue)
-    from ccp.queue import lib  # noqa: PLC0415
-    out = [str(qq.get("question_id")) for qq in sm.open_questions(q)
+    from ccp.queue import lib, open_questions  # noqa: PLC0415
+    out = [str(qq.get("question_id")) for qq in open_questions(q)
            if qq.get("task_id") == task_id or task_id in (qq.get("blocks") or [])]
     ed = q / "escalations"
     for f in sorted(ed.rglob("*.json")) if ed.is_dir() else []:
