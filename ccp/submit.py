@@ -1,4 +1,4 @@
-"""`ccp tasks submit <id>` (SPEC §15.1): formal-submit, the standing DoD's local checklist the runner runs after
+"""`ccp tasks submit` (SPEC §15.1): formal-submit, the standing DoD's local checklist the runner runs after
 the review that clears the PR head and before `ccp prompt verify`. It is not the gate: it runs no test of its own
 (the review skips' proof and provers run as `ccp prompt verify` runs them) and writes nothing but the task's move to
 `submitted` (§10.1), and `ccp prompt verify` neither runs it nor requires it.

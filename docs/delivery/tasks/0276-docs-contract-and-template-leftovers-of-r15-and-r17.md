@@ -1,7 +1,7 @@
 ---
 task_id: 0276-docs-contract-and-template-leftovers-of-r15-and-r17
 title: Close the docs, contract and template follow-ups of R15 and R17 - the triage contract's writer, stale queue rules, call syntax in docstrings, a template line cap check and three shared template sentences, and the reviewer brief passes the PR head to the base worktree
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S13", "S19", "S20"]
@@ -242,4 +242,22 @@ at `a80cee0` finds no non-normative note form. Naming the file means editing the
 
 ## Implementation notes
 
+- Every measured premise in Context re-ran at `b5f2273` with the figures the task states.
+- `_gate.md`: the `{{#gate_pr}}` block now opens at the end of the line before it (after "…{{/gate_merge}}.")
+  instead of at the start of the "For each `adr_refs`" line, so that closing it at the end of the "To show a test
+  fails…" line, as ruled, leaves no blank line in the fix, merge and ruling prompts. The rendered implement
+  prompt is unchanged apart from the ruled sentences.
+- `fix.md`, `merge.md` and `ruling.md` keep the blank line before `{{gate}}` that the removed `{{#refactor}}`
+  block used to leave, so their rendered layout is as before.
+- `tests/test_worker_efficiency.py`: besides the new `RefactorRounds` test (through `ccp prompt`, so the
+  `change_round` value in `ccp/prompt.py` is what it checks), two existing tests pinned the sentences the ruling
+  moves or rewords: `test_implement_and_fix_keep_context_lean_but_read_citations_in_full` rendered only the phase
+  template and now renders it with `_common.md` (helper `with_common`), and
+  `test_the_implementer_lists_each_new_behaviour_and_the_reviewer_checks_it` asserts the ruled wording (the
+  shortened "First, check your tests" clause, and the shared report-only sentence in every change round).
+- `tests/test_cli_reference.py`: the module glob the usage-line test read is now `module_docstrings()`, which
+  the new call-syntax test reads too.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #325 head `3c99efa` (close's catch-up of the approved `ab098bc`, gate run st-20261122T083238Z-a1e807) (squash `35935e6`): APPROVE. Passed: doc-01, code-01, cmd-01, doc-02, cmd-02, doc-03. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0276-docs-contract-and-template-leftovers-of-r15-and-r17.json.
+

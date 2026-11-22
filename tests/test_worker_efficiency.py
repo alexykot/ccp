@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 from ccp import config, otel, prompt, runs, usage
-from tests.test_toolkit import PLANE, git
+from tests.test_toolkit import PLANE, ToolkitFixture, git
 from tests.test_verify_cache import CacheFixture
 
 AGENTS = PLANE / "plugin" / "agents"
@@ -85,6 +85,12 @@ def render(phase: str, **over) -> str:
     return prompt.render_phase(phase, values(**over))
 
 
+def with_common(phase: str, **over) -> str:
+    """The phase's template and then `_common.md`, both with the phase's own `change_round`."""
+    v = values(change_round=phase in runs.CHANGE_PHASES, **over)
+    return prompt.render_phase(phase, v) + "\n\n" + prompt.render((TEMPLATES / "_common.md").read_text(), v)
+
+
 class Templates(unittest.TestCase):
     def test_review_without_the_reviewer_setting_is_unchanged(self):
         base = render("review")
@@ -142,7 +148,7 @@ class Templates(unittest.TestCase):
         self.assertIn("Read what the task cites in full.", render("implement"))
         self.assertIn("Read what the findings cite in full.", render("fix"))
         for phase in ("implement", "fix"):
-            text = render(phase)
+            text = with_common(phase)
             self.assertIn("may run past about 200 lines to a scratch file outside the repo", text, phase)
             self.assertIn("issue independent reads as parallel tool calls in one turn", text, phase)
 
@@ -150,15 +156,16 @@ class Templates(unittest.TestCase):
     def test_the_implementer_lists_each_new_behaviour_and_the_reviewer_checks_it(self):
         """SPEC §13.2: the self-check before the PR."""
         text = render("implement")
-        self.assertIn("list each branch, field, refusal or behaviour the diff adds or changes, with the test that "
-                      "fails without it, and write the test for any that has none", text)
+        self.assertIn("list each branch, field, refusal or behaviour the diff adds or changes, and write the test for any "
+                      "that has none", text)
         self.assertLess(text.index("list each branch, field"), text.index("Fail fast first"))  # before the full suite
         self.assertIn("fails without it, in your report", render("fix"))
         for phase in runs.CHANGE_PHASES:  # the section's heading and format are the report table's (§13.4)
             self.assertNotIn("Tests for new behaviour", render(phase), phase)
         # The map is the report's, never test names or docstrings
-        self.assertIn("never put dod_check ids or the map in test names or docstrings", text)
-        self.assertIn("no dod_check ids or map in test names or docstrings", render("fix"))
+        for phase in runs.CHANGE_PHASES:
+            self.assertIn("the list lives in the report only, never as dod_check ids or a map in test names or docstrings",
+                          render(phase), phase)
 
         review = render("review")
         self.assertIn("check those lists against the diff (in a later round, the fix reports' lists", review)
@@ -203,6 +210,38 @@ class Rendered(CacheFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         text = (self.q / "prompts/0002-second/implement-prompt.md").read_text()
         self.assertIn("house-rule checks (`python3 -m unittest -q tests.test_x`)", text)
+
+
+class RefactorRounds(ToolkitFixture, unittest.TestCase):
+    """Through `ccp prompt`, for a `kind: refactor` task: the rules the change rounds share are stated once each."""
+
+    def setUp(self):
+        super().setUp()
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
+        (self.q / "progress/0002-second").mkdir(parents=True)
+        (self.q / "progress/0002-second/review-report.md").write_text("Outcome: done\n")  # a fix's findings
+        task = self.runner / "docs/delivery/tasks/0002-second.md"
+        task.write_text(task.read_text().replace("\nstatus:", "\nkind: refactor\nstatus:", 1))
+
+    def prompt_of(self, phase: str, *args: str) -> str:
+        code, body, out, err = self.ccp("prompt", phase, "0002", *args, "--supersede")
+        self.assertEqual(code, 0, f"{phase}: {out}{err}")
+        return Path(body["prompt_path"]).read_text()
+
+    def test_change_rounds_state_the_lean_refactor_and_self_check_rules_once_and_review_and_verify_none(self):
+        head = "a" * 40
+        # review and verify first: a verify after a fix round with no review since is refused
+        rounds = {"review": ("--pr", "7", "--head", head), "verify": ("--pr", "7", "--head", head),
+                  "implement": ("--base", "abc1234"), "fix": ("--pr", "7", "--head", head),
+                  "merge": ("--pr", "7", "--head", head), "ruling": ("--pr", "7", "--head", head, "--note", "the field is optional")}
+        self.assertEqual(sorted(rounds), sorted(runs.PHASES))
+        for phase, args in rounds.items():
+            text = self.prompt_of(phase, *args)
+            want = 1 if phase in runs.CHANGE_PHASES else 0
+            for rule in ("Keep your context lean", "no test expectation changes except where the task names it",
+                         "dod_check ids"):
+                self.assertEqual(text.count(rule), want, (phase, rule))
 
 
 class CacheSplit(unittest.TestCase):
