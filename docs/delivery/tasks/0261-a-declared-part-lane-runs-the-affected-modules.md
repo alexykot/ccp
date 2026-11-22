@@ -1,7 +1,7 @@
 ---
 task_id: 0261-a-declared-part-lane-runs-the-affected-modules
 title: A part lane plane.json declares runs the affected modules, and the plane's part lane runs them in parallel with the test cache
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0213-a-green-tree-skips-the-lane-queue", "0256-suite-run-refuses-a-closed-run-and-config-reads"]
@@ -12,7 +12,7 @@ paths: ["ccp/suite.py", "scripts/gate.sh", "scripts/gate_parallel.py", "docs/del
 adopt: "plane.json suite.lanes.part: an argv that takes test module names as its last arguments, if the product has a faster runner than the language's command"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0261-a-declared-part-lane-runs-the-affected-modules
@@ -57,6 +57,12 @@ Measured at `1aa5e3f`.
   - plane.json `suite.lanes.part` is `["scripts/gate.sh"]`; `exclusive_lanes` is unchanged, so part
     runs do not queue behind the gate.
 - **Rule text.** The §14.7 change below is signed in the brief (§31). §14.1 and §14.2 are unchanged.
+- **Lead's ruling `0261-a-declared-part-lane-runs-the-affected-modules-r1`** (fix round 1, review MAJOR 1;
+  option 1, widens the Scope for this fix round to `ccp/prompt.py` (`suite_lanes`), the lanes sentence in
+  `templates/prompts/_common.md`, and `tests/test_full_lane_prompt.py`), verbatim:
+  - suite_lanes renders the declared part lane as taking module names after `--`, as `ccp suite affected` prints it.
+  - _common.md stops saying a command after `--` is only for an undeclared lane.
+  - A test holds it. No SPEC change.
 
 ## Scope
 
@@ -121,4 +127,36 @@ Measured at `1aa5e3f`.
 
 ## Implementation notes
 
+- Premises re-measured at `934e959`: still no `part` lane and no argument handling in
+  `scripts/gate_parallel.py`; the suite has grown to 202 modules (173 at `1aa5e3f`), so `--paths
+  ccp/config.py` printed `103 of 202` before the change. The build does not depend on the count.
+- `ccp/suite.py`: `declared_part_argv(cfg)` reads the part role's lane (`lane_for(cfg, "part")`) from
+  `suite.lanes`, None for no lane, an empty list or stages; `affected_hint(cfg, mods, total,
+  test_command)` decides the stderr line on plain values (E15), and `main_affected` only prints it. With a
+  declared argv the suite is not counted (the share does not apply). The argv is printed with
+  `shlex.join`, so a word with a space is quoted and the line runs as printed; for plain words it is the
+  argv joined by spaces. A declared argv is printed even where the language pack names no command.
+- `scripts/gate_parallel.py`: `selected(suite, wanted)` keeps the suite's own order (largest first) and
+  drops repeats; every unknown name is listed in one exit-2 line before anything runs (the
+  `GATE_WORKERS` check comes first, as before). The cache's shared inputs and leaves are computed over the
+  whole suite, keys only for the modules that run. The closing line's module count is the modules
+  selected. `scripts/gate.sh` passes `"$@"` through (bash 3.2 with `set -u` accepts it empty).
+- `docs/cli/02-delivery.md`: the `suite affected` row names the stderr line and where its command comes
+  from.
+- Fix round 1 (review MAJOR 1, under ruling `-r1`): `prompt.suite_lanes` wrote every declared lane as
+  "with nothing after `--`", so with `suite.lanes.part` declared each worker prompt told the worker to run
+  `--lane part` bare, which runs the whole suite. The part role's lane, when `declared_part_argv` gives an
+  argv, is now written "`--lane part` with `<argv> <modules>` after `--`: …, as `ccp suite affected` prints
+  it" (the argv by `shlex.join`, as in the stderr line); a staged part lane keeps "with nothing after `--`",
+  since a staged lane refuses a command. `templates/prompts/_common.md` now says a command after `--` is for
+  an undeclared lane and for one the Lanes line gives with a command after `--`. Held by
+  `tests/test_full_lane_prompt.py` `DeclaredPartLane`.
+- Fix round 2 (review-2 MINOR 1): nothing pinned that a part run computes the shared test modules over
+  the whole suite (`shared_tests(suite)`): the fixture's modules named no other, so the shared set was
+  empty whichever list it got. In `test_a_part_runs_cache_entry_is_the_full_runs_and_back`, `test_more`
+  now imports `test_ok`, so `test_ok` is shared in the suite but not in a one-module selection; a part run
+  that computed it over its own selection would key differently from the full run and miss its entry.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #312 head `a6aefa0` (squash `ce568ba`): APPROVE. Passed: pl-01, pl-02, pl-03, pl-04. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0261-a-declared-part-lane-runs-the-affected-modules.json.
+

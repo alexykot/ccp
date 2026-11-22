@@ -94,6 +94,9 @@
       ],
       "full": [
         "scripts/gate.sh"
+      ],
+      "part": [
+        "scripts/gate.sh"
       ]
     },
     "exclusive_lanes": [

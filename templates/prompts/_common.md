@@ -10,7 +10,7 @@ Rules for every worker:
   `QUEUE_ROOT={{queue_root}} {{ccp}} suite run --run {{run_id}} --lane <lane> -- <command>`
   Lanes: {{suite_lanes}}.
   A lane plane.json `suite.lanes` gives a command (an argv or stages) runs as `--lane <lane>` with nothing after `--`, so you run what the product declares: a command of your own after `--` replaces an argv lane's, and `{{ccp}} suite run` refuses one on a lane with stages.
-  A command after `--` is for a lane plane.json gives none, such as a subset on `--lane {{part_lane}}`.
+  A command after `--` is for a lane plane.json gives none, and for one the Lanes line above gives with a command after `--`, such as a subset on `--lane {{part_lane}}`.
   It returns the command's exit code unchanged and writes the command's whole output to a log file.
   You get a summary: the suite run's id, the log's path, the exit code, the seconds, the tests, failures and skips, and the module counts when the product prints them.
   On a failure you also get the failing tests' sections in full and the log's last lines.

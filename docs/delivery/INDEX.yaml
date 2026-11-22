@@ -1278,7 +1278,7 @@ tasks:
     depends_on: [0255-test-fixtures-shared-helpers-and-one-repo-build, 0257-one-gate-block-and-one-sentence-per-line]
     path: tasks/0260-review-tools-and-the-tests-for-new-behaviour-section.md
   - id: 0261-a-declared-part-lane-runs-the-affected-modules
-    status: pending
+    status: done
     title: A part lane plane.json declares runs the affected modules, and the plane's part lane runs them in parallel with the test cache
     depends_on: []
     path: tasks/0261-a-declared-part-lane-runs-the-affected-modules.md
