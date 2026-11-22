@@ -138,8 +138,9 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 ## Known intentional
 
 - Line grammars that are not references stay with their reader (E23): ccp/health.py's squash-subject
-  pattern `^Task (\d{width}): `, and ccp/adr.py's `DECISION_RE` (a decision's state line),
-  `_MARK_PARTS` and `_HEAD_PARTS` (a decision's mark and heading in an ADR's body).
+  pattern `^Task (\d{width}): `, and ccp/adr.py's `DECISION_RE` (a decision's state line) and
+  `_DEC_HEAD` and `_DEC_MARK` (a decision's heading and mark in an ADR's body, the line grammar; the other
+  decision-line patterns, `_DEC_ANY`, `_HEAD_PARTS` and `_MARK_PARTS`, derive from them).
 
 - The gate's test cache keys every module on all the inputs it shares (every tracked and untracked
   file but the test modules no other imports), not on what it imports: one source edit reruns every

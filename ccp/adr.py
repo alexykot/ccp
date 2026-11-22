@@ -278,9 +278,34 @@ def canonical_heading_counts(body: str) -> dict[str, int]:
     return counts
 
 
-_MARK_PARTS = re.compile(r"^(?:[-*][ \t]+)?(?P<b1>\*\*)?D(?P<id>\d+[a-z]?)(?:[ \t]*\((?P<note>[^)\n]{0,40})\))?"
-                         r"[ \t]*(?:[.:]|—|–|-)?[ \t]*(?P<b2>\*\*)?[ \t]*(?:[.:]|—|–)?[ \t]*(?P<rest>.*)$")
-_HEAD_PARTS = re.compile(r"^#+[ \t]+D(?P<id>\d+[a-z]?)\b(?:[ \t]*\((?P<note>[^)\n]{0,40})\))?[ \t]*(?:[.:]|—|–|-)?[ \t]*(?P<rest>.*)$")
+# A numbered decision opens a line in one of the styles ADRs use: a heading (`### D1. Title`), a bold
+# bullet (`- **D1. Title.** body`), a bold lead (`**D1 — Title**`, `**D1**`) or a plain paragraph
+# (`D1. **Title**`), optionally with a bracketed note after the id (`- **D5 (F01). Title.**`). Ids may
+# carry a letter suffix (`D2a`).
+# `_DEC_HEAD` and `_DEC_MARK` are that line grammar, the one source of every decision-line pattern below. `{id}`
+# fills the id's group; in `_DEC_MARK`, `{b1}` and `{note}` open the groups of the leading bold and the bracketed
+# note, and `{end}` is what follows them: `_MARK_END`, how a mark ends, to find a decision (`_dec_find`), or the
+# rest of the line split up, to match its parts (`_MARK_PARTS`).
+_DEC_ID = r"\d+[a-z]?"
+_DEC_HEAD = r"^(#+)[ \t]+D({id})\b"
+_DEC_MARK = r"^(?:[-*][ \t]+)?({b1}\*\*)?D({id})(?:[ \t]*\(({note}[^)\n]{{0,40}})\))?{end}"
+_MARK_END = r"(?:\*\*)?(?:[ \t]*(?:[.:]|—|–)|\*\*|[ \t]+-[ \t])"
+# After a decision's id (and note), an optional separator, then the rest of the line.
+_REST = r"[ \t]*(?:[.:]|—|–|-)?[ \t]*"
+
+
+def _dec_find(template: str, ident: str = _DEC_ID) -> str:
+    """The pattern that finds decision `ident` (a pattern; any id by default) as `template` writes it: its groups
+    are the heading's `#` run (`_DEC_HEAD` only) and the id."""
+    return template.format(id=ident, b1="?:", note="?:", end=_MARK_END)
+
+
+_DEC_ANY = re.compile("|".join(_dec_find(p) for p in (_DEC_HEAD, _DEC_MARK)), re.M)
+# A decision's line matched in parts (`canonical_marker`): the grammar's groups named, the rest of the line split.
+_MARK_PARTS = re.compile(_DEC_MARK.format(id=f"?P<id>{_DEC_ID}", b1="?P<b1>", note="?P<note>",
+                                          end=rf"{_REST}(?P<b2>\*\*)?[ \t]*(?:[.:]|—|–)?[ \t]*(?P<rest>.*)$"))
+_HEAD_PARTS = re.compile(_DEC_HEAD.format(id=f"?P<id>{_DEC_ID}")
+                         + rf"(?:[ \t]*\((?P<note>[^)\n]{{0,40}})\))?{_REST}(?P<rest>.*)$")
 
 
 def _lift(inner: str, after: str) -> bool:
@@ -1232,15 +1257,6 @@ def migrate_markers(cfg: Config, dry_run: bool = False) -> dict[str, Any]:
 
 # ---------------------------------------------------------------- decisions and lookup
 
-# A numbered decision opens a line in one of the styles ADRs use: a heading (`### D1. Title`), a bold
-# bullet (`- **D1. Title.** body`), a bold lead (`**D1 — Title**`, `**D1**`) or a plain paragraph
-# (`D1. **Title**`), optionally with a bracketed note after the id (`- **D5 (F01). Title.**`). Ids may
-# carry a letter suffix (`D2a`).
-_DEC_HEAD = r"^(#+)[ \t]+D({id})\b"
-_DEC_MARK = r"^(?:[-*][ \t]+)?(?:\*\*)?D({id})(?:[ \t]*\([^)\n]{{0,40}}\))?(?:\*\*)?(?:[ \t]*(?:[.:]|—|–)|\*\*|[ \t]+-[ \t])"
-_DEC_ANY = re.compile("|".join(p.format(id=r"\d+[a-z]?") for p in (_DEC_HEAD, _DEC_MARK)), re.M)
-
-
 def find_file(cfg: Config, n: int) -> Path | None:
     """ADR number `n`'s file: at the top of the binding's `adr.dir` (default docs/adr), then in its
     subdirectories (an archive), else in any `adr/` directory in the product."""
@@ -1260,12 +1276,12 @@ def decision_block(text: str, dec: str) -> str | None:
     """The text of decision `dec` (`1`, `2a`), in whichever style the ADR writes it: under a heading,
     up to the next heading of its level or higher; otherwise up to the next decision or heading."""
     ident = re.escape(dec)
-    m = re.search(_DEC_HEAD.format(id=ident), text, re.M)
+    m = re.search(_dec_find(_DEC_HEAD, ident), text, re.M)
     if m:
         level = len(m.group(1))
         nxt = re.search(rf"^#{{1,{level}}}[ \t]", text[m.end():], re.M)
         return text[m.start():m.end() + nxt.start() if nxt else len(text)]
-    m = re.search(_DEC_MARK.format(id=ident), text, re.M)
+    m = re.search(_dec_find(_DEC_MARK, ident), text, re.M)
     if not m:
         return None
     end, pos, fenced = len(text), m.end(), False
