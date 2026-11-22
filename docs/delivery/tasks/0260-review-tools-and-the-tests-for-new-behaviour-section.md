@@ -1,7 +1,7 @@
 ---
 task_id: 0260-review-tools-and-the-tests-for-new-behaviour-section
 title: Every round names the affected-modules command against the integration tip, the reviewer brief a base checkout, and the report table asks for and checks the tests-for-new-behaviour section
-status: pending
+status: done
 kind: feature
 depends_on: ["0255-test-fixtures-shared-helpers-and-one-repo-build", "0257-one-gate-block-and-one-sentence-per-line"]
 clashes_with: ["0219-integration-merges-leave-out-the-tip", "0242-retire-restructure-scaffolding-and-queue-markers", "0256-suite-run-refuses-a-closed-run-and-config-reads", "0258-the-plane-writes-the-pre-merge-phases"]
@@ -12,7 +12,7 @@ review_point: R19
 paths: ["templates/prompts/review.md", "templates/prompts/_gate.md", "ccp/prompt.py", "templates/prompts/implement.md", "templates/prompts/fix.md", "templates/prompts/merge.md", "templates/prompts/ruling.md", "plugin/agents/delivery-reviewer.md", "ccp/report.py", "docs/spec/02-delivery.md", "tests/helpers.py", "tests/test_prompt_tools.py", "tests/test_worker_efficiency.py", "tests/test_report_tests_section.py", "tests/test_board_staleness.py", "tests/test_full_lane_prompt.py", "tests/test_health_conflicts.py", "tests/test_prompt_end.py", "tests/test_prompt_rounds.py", "tests/test_report_correction.py", "tests/test_report_fields.py", "tests/test_report_sections.py", "tests/test_resolution_review.py", "tests/test_review_gate.py", "tests/test_review_skip.py", "tests/test_review_skip_clean.py", "tests/test_review_skip_provers.py", "tests/test_suite.py", "tests/test_tasks_release_keep_branch.py", "tests/test_toolkit.py"]
 adopt: "none"
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0260-review-tools-and-the-tests-for-new-behaviour-section
@@ -193,3 +193,5 @@ Measured at `1aa5e3f`.
   sentence cites SPEC §12.1.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #309 head `c31b690` (squash `a141f5b`): APPROVE. Passed: rv-01, rv-02, rv-03, rv-04, rv-05, rv-06. Gate: `suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0260-review-tools-and-the-tests-for-new-behaviour-section.json.
+

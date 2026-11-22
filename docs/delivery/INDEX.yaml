@@ -1273,7 +1273,7 @@ tasks:
     depends_on: [0244-tasks-check-runs-dry-runs, 0252-the-task-check-reports-a-decision-built-before-its-prerequisite]
     path: tasks/0259-a-check-failure-already-on-the-integration-branch-is-reported.md
   - id: 0260-review-tools-and-the-tests-for-new-behaviour-section
-    status: pending
+    status: done
     title: Every round names the affected-modules command against the integration tip, the reviewer brief a base checkout, and the report table asks for and checks the tests-for-new-behaviour section
     depends_on: [0255-test-fixtures-shared-helpers-and-one-repo-build, 0257-one-gate-block-and-one-sentence-per-line]
     path: tasks/0260-review-tools-and-the-tests-for-new-behaviour-section.md
