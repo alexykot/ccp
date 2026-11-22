@@ -115,6 +115,11 @@ def leaves(root: Node, path: tuple[str, ...] = ()) -> list[tuple[tuple[str, ...]
     return [leaf for name, sub in root.subs.items() for leaf in leaves(sub, (*path, name))]
 
 
+def delegates(paths: list[tuple[str, ...]]) -> bool:
+    """Whether one of `paths` is a delegated command, whose own flags are its own."""
+    return any(not p[:1] or p[0] in DELEGATED for p in paths)
+
+
 def problems_of(docs: Path) -> list[str]:
     root = node_of(cli.build_parser())
     problems: list[str] = []
@@ -128,16 +133,18 @@ def problems_of(docs: Path) -> list[str]:
             every_flag |= flags
             here = [p for _, ps in spans for p in ps]
             named |= set(here)
-            nodes = [at(root, p) for p in here if p[:1] and p[0] not in DELEGATED]
-            if len(nodes) != len(here):
-                continue  # a delegated command's own flags are its own
+            nodes = [at(root, p) for p in here] if not delegates(here) else []
             allowed = root.flags | {"--help"}
             for fls, ps in spans:
-                if not ps:  # a span that names no command is read against its unit's
+                if not ps:  # a span that names no command is read against its unit's, unless one of them is delegated
+                    if delegates(here):
+                        continue
                     for p in here:
                         credited.setdefault(strip_action(root, p), set()).update(fls)
                     for fl in sorted(set(fls) - allowed - {fl for n in nodes for fl in n.flags}) if nodes else []:
                         problems.append(f"{f.name}: `{fl}` is no flag of {' / '.join('`ccp ' + ' '.join(p) + '`' for p in here)}")
+                    continue
+                if delegates(ps):
                     continue
                 for p in ps:  # a span that names commands holds its flags to each of them, and credits only them
                     credited.setdefault(strip_action(root, p), set()).update(fls)
@@ -212,6 +219,11 @@ class CliReference(unittest.TestCase):
             "01-model.md: `--json` is no flag of `ccp adr index`",
             "01-model.md: `--stdout` is no flag of `ccp adr list`",
         ])
+
+    def test_a_row_with_a_delegated_span_is_still_checked_in_its_other_spans(self):
+        d = self.copy_with("`ccp tasks index [--stdout]` | lead",
+                           "`ccp otel serve [--port N]` / `ccp tasks index [--stdout] [--no-such-flag]` | lead")
+        self.assertEqual(problems_of(d), ["02-delivery.md: `--no-such-flag` is no flag of `ccp tasks index`"])
 
     def test_a_command_the_parser_does_not_define_is_found(self):
         d = self.copy_with("`ccp tasks sync [--dry-run]` | lead", "`ccp tasks sync [--dry-run]` | lead\n| `ccp tasks no-such [--json]` | lead")

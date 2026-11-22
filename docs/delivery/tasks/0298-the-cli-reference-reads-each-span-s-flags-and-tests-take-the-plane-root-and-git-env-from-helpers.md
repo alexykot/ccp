@@ -154,5 +154,6 @@ Measured at `954bd72` (origin/main).
 - The four plane-root copies and three git-identity dicts now use `PLANE_ROOT` and `GIT_ENV`; no test turned on the email or a global git config. `test_tasklog`'s inline `from pathlib import Path` lost its only use and went.
 - E4 gains the two greps; its `check:` line reads "five greps".
 - Measured premises at `d17505a9` matched the task's figures.
+- Fix round 1 (review MINOR 1): the delegated skip is per span, as the ruling reads. A span naming a delegated command is skipped; a span naming none is skipped only when its unit names a delegated one; every other span of the unit is checked on its own. `test_a_row_with_a_delegated_span_is_still_checked_in_its_other_spans` pins it.
 
 ## Verification notes
