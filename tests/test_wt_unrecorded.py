@@ -1,11 +1,13 @@
 """The plane's unrecorded worktrees (SPEC §12.1): made with `wt.add_unrecorded`, removed with
-`wt.remove_unrecorded`, and an architect pass's `arch-<review id>` listed by `ccp wt list`."""
+`wt.remove_unrecorded` (close's own `merge-<nnnn>` too, by close or gc, with a warning when that fails), and an
+architect pass's `arch-<review id>` listed by `ccp wt list`."""
 from __future__ import annotations
 
 import json
 import shutil
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from ccp import architect, config, wt
 from ccp.queue import QueueError
@@ -77,6 +79,31 @@ class Unrecorded(ToolkitFixture, unittest.TestCase):
         self.assertNotIn(self.path.name, self.registered())
         self.assertNotIn(self.path.name, [r["name"] for r in self.listed()])
         wt.remove_unrecorded(self.main, self.path)  # gone already: nothing raises
+
+    def test_remove_unrecorded_returns_none_when_it_removes_and_git_s_text_when_git_cannot(self):
+        wt.add_unrecorded(self.cfg, self.main, self.path, self.head)
+        self.assertIsNone(wt.remove_unrecorded(self.main, self.path))
+        err = wt.remove_unrecorded(self.main, self.path)  # gone: git has no such worktree
+        self.assertIsNotNone(err)
+        self.assertIn(str(self.path), err)
+
+    def test_close_warns_when_removing_its_merge_worktree_fails(self):
+        self._to_approved_pr()
+        with mock.patch.object(wt, "remove_unrecorded", return_value="it is locked"):
+            code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, "--summary", "it is built.")
+        self.assertEqual(code, 0, out + err)
+        own = wt.merge_path(self.cfg, "0002-second")
+        self.assertIn(f"merge worktree {own}: it is locked", body["warnings"])
+
+    def test_gc_warns_when_removing_a_leftover_merge_worktree_fails(self):
+        own = self.path.with_name(f"{wt.MERGE_PREFIX}-0002")
+        wt.add_unrecorded(self.cfg, self.main, own, self.head)
+        (self.q / "tasks").mkdir(exist_ok=True)
+        (self.q / "tasks" / "0002-second.json").write_text(json.dumps({"task_id": "0002-second", "status": "done"}))
+        with mock.patch.object(wt, "remove_unrecorded", return_value="it is locked"):
+            code, body, out, err = self.ccp("wt", "gc", root=self.main)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["warnings"], [f"worktree {own}: it is locked"])
 
     def test_removing_one_prunes_another_removed_by_hand(self):
         other = self.path.with_name(f"{wt.ARCH_PREFIX}-ar-20261121T000000Z-ef01")

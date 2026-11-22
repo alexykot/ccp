@@ -66,7 +66,7 @@ from ccp.envvars import envvar, for_child
 from ccp import config, notify, prhost, queue, refs, runs, tasklog
 from ccp.queue import lib
 from ccp.config import Config
-from ccp.queue import (OBS, QueueError, actor, durable_statuses, emit, file_lock, git, heartbeat, integration_branch, iso,
+from ccp.queue import (QueueError, actor, durable_statuses, emit, file_lock, git, heartbeat, integration_branch, iso,
                        lead_actor, load_task_state, load_work, now, phase_move, preferred_ids, progress_event, root,
                        rulings, runner_slots, save_task_state, save_work, script_drift, sign_offs, task_meta,
                        task_state_path)
@@ -507,14 +507,9 @@ def set_wait(cfg: Config, q: Path, action: str, tid: str, reason: str, *, actor:
     work.json alone unless it names `tid`. The writer's exit 1 or 2 is the QueueError's code; any other
     failure is 1. The writer appends the event and writes the task file before it waits on work.json's lock, so
     a timeout can leave work.json behind the ledger."""
-    cmd = [str(OBS / "set-waiting-on.sh"), action, tid, reason, "--actor", actor or queue.actor(),
-           "--project-id", cfg.project_id]
-    for flag, value in (("--quota-class", quota_class), ("--resets-at", resets_at),
-                        ("--planned-resume-at", planned_resume_at), ("--detail", detail)):
-        if value:
-            cmd += [flag, value]
-    if task_only:
-        cmd.append("--task-only")
+    cmd = lib.wait_writer_cmd(action, tid, reason, actor=actor or queue.actor(), project_id=cfg.project_id,
+                              task_only=task_only, quota_class=quota_class, resets_at=resets_at,
+                              planned_resume_at=planned_resume_at, detail=detail)
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(q)},
                            timeout=WAIT_WRITER_TIMEOUT_S)
@@ -1275,10 +1270,11 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
         what = str(exc) if isinstance(exc, QueueError) else f"{type(exc).__name__}: {exc}"
         raise _recovery(cfg, q, tid, pr, merge, what, progress["pushed"], own, made) from None
     if own:  # the reconcile has landed: the merge worktree has done its work
+        from ccp import wt  # noqa: PLC0415
+
         main = _main_checkout(cfg)
-        r = git(main, "worktree", "remove", "--force", str(own))
-        if r.returncode != 0:
-            out["warnings"].append(f"merge worktree {own}: {(r.stderr or r.stdout).strip()[:200]}")
+        if (err := wt.remove_unrecorded(main, own)) is not None:
+            out["warnings"].append(f"merge worktree {own}: {err}")
         # a runner worktree (detached, §12.1) ends at the reconcile, as when it made it itself; the main checkout,
         # and any checkout on a branch, keeps its HEAD
         detached = git(cfg.root, "symbolic-ref", "-q", "HEAD").returncode != 0
@@ -1614,7 +1610,9 @@ def _catch_up(cfg: Config, q: Path, meta: dict[str, Any], tid: str, pr: str, sta
                              f"{(pushed.stderr or pushed.stdout).strip()[:200]}")
     except BaseException:
         if made:  # nothing of the catch-up stands: its worktree goes, as after a close
-            git(_main_checkout(cfg), "worktree", "remove", "--force", str(path))
+            from ccp import wt  # noqa: PLC0415
+
+            wt.remove_unrecorded(_main_checkout(cfg), path)
         raise
     caught = {"from": verified, "to": head, "tip": tip, "gate_run": gate_run,
               "merge_tree": "union" if unioned else "clean",

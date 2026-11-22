@@ -197,4 +197,27 @@ Follow-ups covered (the lead's worker follow-up log): `0253-one-wait-reason-tabl
 
 ## Implementation notes
 
+- The measured premises re-ran at `6c349b77` with the task's figures: 2 writer lines, 3 `sm.set_wait` calls in
+  `team.py`, 6 `"worktree", "remove"` lines, 2 restated id shapes, 1 `tasklog.check(cfg, ` caller, the SPEC counts
+  (11, 4, 0, 1), the zombie probe's `PermissionError` and the run-checkout reproducer's `FAILED (failures=2)`.
+- `lib.wait_writer_cmd` leaves out an option whose value is empty, as lifecycle's builder did; spec_maintainer used
+  to pass `--detail` whatever its value, and the writer reads an empty one as none, so nothing it records changes.
+- `wt.remove_unrecorded` truncates git's text to 200 characters, so `_remove_merge`'s warning, untruncated before,
+  is now capped like close's. Close's removal after the reconcile and the catch-up's cleanup import `wt` inside the
+  function, as every other `wt` use in `lifecycle.py` does.
+- The cycle remedy prints the citing ids bare, as the `add a depends_on on <ids>` remedy does; the ruling's
+  backticks around `<ids>` are read as placeholder markup. When some citers would make a cycle and others would
+  not, the remedy names only the others.
+- `group_gone` reads `ps -A -o pgid=,stat=`; its zombie test waits for the exit with `os.waitid(..., WNOWAIT)`, which
+  leaves the child unreaped, and reaps it in cleanup.
+- Fix round 1 (review MINOR 1, NITs 1 and 2):
+  - The interrupt test failed once more under heavy load after the zombie fix, with no clue what was left. The
+    group's running processes now come from `group_running` (the `ps` rows: pid, stat, command; zombies left
+    out), which `group_gone` is built on, and `assert_gone` puts those rows in its failure message before the
+    SIGKILL. The interrupt's command now runs `exec sleep 60` after writing the pid file, so no fork follows it:
+    a SIGTERM can no longer land while the shell is forking the sleep.
+  - `_remove_merge`'s warning is now tested through `ccp wt gc` over a leftover `merge-0002` whose task is done,
+    with `wt.remove_unrecorded` patched to fail (`tests/test_wt_unrecorded.py`).
+  - `requires_report`'s docstring is rewrapped near 110 columns.
+
 ## Verification notes

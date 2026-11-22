@@ -50,8 +50,13 @@ from lib import (  # noqa: E402
     parse_dt,
     resolve_durable_docs_dir,
     read_json,
+    wait_writer_cmd,
     write_json,
 )
+
+if str(HERE.parents[1]) not in sys.path:
+    sys.path.insert(0, str(HERE.parents[1]))
+from ccp import refs  # noqa: E402  (the id shapes, §7)
 
 STRIP_KEYS = ("ANTHROPIC_API_KEY", "CLAUDE_API_KEY", "ANTHROPIC_AUTH_TOKEN")
 
@@ -69,7 +74,7 @@ RAISERS = ("task-runner", "task-verifier")
 
 VERDICTS = ("resolved", "needs_operator", "not_a_spec_question")
 
-QID_RE = re.compile(r"^sm-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{4}$")
+QID_RE = re.compile(rf"^{refs.QUESTION_ID}$")
 
 QUOTA_RE = re.compile(
     r"(usage limit|session limit|limit reached|rate[ _-]?limit|credit balance|out of credits|"
@@ -297,12 +302,8 @@ def check_task_ids(root: Path, ids: list[str], flag: str) -> list[str]:
 
 def set_wait(root: Path, action: str, tid: str, reason: str, actor: str, pid: str, detail: str,
              resets_at: str | None = None, quota_class: str | None = None) -> None:
-    cmd = ["bash", str(HERE / "set-waiting-on.sh"), action, tid, reason, "--detail", detail,
-           "--actor", actor, "--project-id", pid]
-    if resets_at:
-        cmd += ["--resets-at", resets_at]
-    if quota_class:
-        cmd += ["--quota-class", quota_class]
+    cmd = wait_writer_cmd(action, tid, reason, actor=actor, project_id=pid, quota_class=quota_class,
+                          resets_at=resets_at, detail=detail)
     r = subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, "QUEUE_ROOT": str(root)})
     if r.returncode != 0:
         die(f"set-waiting-on {action} {tid} failed: {r.stderr.strip()}")

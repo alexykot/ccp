@@ -39,7 +39,7 @@ import spec_maintainer as sm  # noqa: E402  (lock, quota parse, Claude JSON pars
 
 if str(HERE.parents[1]) not in sys.path:
     sys.path.insert(0, str(HERE.parents[1]))
-from ccp import models  # noqa: E402  (each role's default model and effort)
+from ccp import models, refs  # noqa: E402  (each role's default model and effort; the id shapes, §7)
 
 CATEGORIES = ("holdover", "not-first-class", "duplication", "vocabulary-drift", "dead-surface",
               "incoherence", "unobserved", "cost", "rule-cost")
@@ -60,7 +60,7 @@ class Kind(NamedTuple):
     @property
     def rid_re(self) -> re.Pattern[str]:
         p = "|".join((self.prefix, *self.alt_prefixes))
-        return re.compile(rf"^(?:{p})-[0-9]{{8}}T[0-9]{{6}}Z-[0-9a-f]{{4}}$")
+        return re.compile(rf"^(?:{p})-{refs.STAMP_ID}$")
 
 
 DISPOSITIONS = ("task", "spec", "defer", "needs_operator", "duplicate", "reject")
