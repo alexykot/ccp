@@ -11,7 +11,7 @@ paths: ["ccp/mutate.py", "ccp/cli.py", "docs/spec/03-quality.md", "docs/cli/03-q
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests
@@ -28,13 +28,13 @@ the module costs less in the gate.
 
 ## Context (not checked)
 
-Measured at `8020446` unless a line says otherwise. Provenance: architect pass
+Measured at `76f41dd` unless a line says otherwise (re-measured 2026-11-22; first written at `8020446`). Provenance: architect pass
 `ar-20261121T223646Z-f0a7`, F01 (`process-cost`) and F06 (`test-cost`, the trigger of the deferred
 `ar-20261121T132817Z-d5e5` F06 in `docs/ROADMAP.md`); the record is in `docs/delivery/reviews/`.
 The §20.6 change below is the operator's to sign (the triage's first question).
 
 - **The friction.** `python3 -c` over the queue's `health/notes.jsonl`, notes since the last pass's start (`2026-11-21T17:47Z`) whose text names `mutate`: 15 (data only the queue holds); the architect classed 12 as the four gaps below.
-- **One test per call.** `grep -n '"--test", required=True' ccp/cli.py` at `8020446`: 1 line; its help says "one test id". §20.6: "`--test` is one test id, passed whole".
+- **One test per call.** `grep -n '"--test", required=True' ccp/cli.py` at `76f41dd`: 1 line; its help says "one test id". §20.6: "`--test` is one test id, passed whole".
 - **No no-op refusal.** `"def _substitution"` in `ccp/mutate.py` checks that the old text is in the
   file once (`_once`) and never compares `old` with `new`; `"def parse_revert"`'s caller refuses a
   revert that changes nothing ("the revert changes nothing").
@@ -45,13 +45,16 @@ The §20.6 change below is the operator's to sign (the triage's first question).
   `digest`, `outcome` and the run's exit code, seconds and `timed_out`. The language pack already
   says how a failing test's section starts: `ccp/doclang/python.py` `SUMMARY["section_re"]`
   (`^(?:FAIL|ERROR|UNEXPECTED SUCCESS): `), which `ccp suite run` uses for its summary through
-  plane.json `suite.summary.section_re`, else the pack's (`grep -n '"section_re": None' ccp/config.py` at `8020446`: 1 line).
-- **The module's cost.** `python3 -c` over the queue's `runs/_suites.jsonl`, the cold rows with `modules` since `2026-11-21T19:15Z` (after 0255): 26 runs, `tests.test_mutate` the second slowest module, median 72.8 s (data only the queue holds). `time python3 -B -m unittest -q tests.test_mutate.Refusals` at `8020446`: 10 tests in 11.3 s on a loaded machine; the whole module 70 tests in 102.8 s. Every `Refusals` test builds a git product (`class Refusals(MutateFixture, unittest.TestCase)`, `MutateFixture(ToolkitFixture)`), though `_once`, `parse`, `parse_file` and `together` raise on plain values.
+  plane.json `suite.summary.section_re`, else the pack's (`grep -n '"section_re": None' ccp/config.py` at `76f41dd`: 1 line).
+- **The module's cost.** `python3 -c` over the queue's `runs/_suites.jsonl`, the cold rows with `modules` since `2026-11-21T19:15Z` (after 0255): 26 runs, `tests.test_mutate` the second slowest module, median 72.8 s (data only the queue holds). `time python3 -B -m unittest -q tests.test_mutate.Refusals` at `76f41dd`: 9 tests in 12.2 s on a loaded machine (load average 75); the whole module (`time python3 -B -m unittest -q tests.test_mutate`) 72 tests in 99.6 s. At `8020446` it was 10 and 70: 0267 replaced `Refusals`' no-command refusal test with a pack-runner test in `Outcomes`, and one `Unbuilt` test with three. Every `Refusals` test builds a git product (`class Refusals(MutateFixture, unittest.TestCase)`, `MutateFixture(ToolkitFixture)`), though `_once`, `parse`, `parse_file` and `together` raise on plain values.
 - **0262 is done.** 0262 rewrote `ccp/mutate.py`'s module docstring and merged (PR #295) after this
   triage was first written, so this task edits its result and no clash is recorded.
-- **0267 first.** 0267 (R21, signed) changes `_run`'s command and the did-not-build patterns, and two
-  clauses of §20.6 that this task does not quote. This task builds on its code and text, so it
-  depends on it.
+- **0267 first, and done.** 0267 (R21, signed) changed `_run`'s command and the did-not-build
+  patterns, and two clauses of §20.6 that this task does not quote; it merged as PR #317 (`049b531`).
+  This task builds on its code and text, so it keeps the dependency. None of this task's work was in
+  it: `--test` still takes one id, the row has no `failed` field (`"row = {"` in `"def run"` at
+  `76f41dd`), and `_substitution` still never compares `old` with `new`.
+- **No other change since.** `git log --oneline 8020446..76f41dd -- ccp/mutate.py tests/test_mutate.py`: 2 commits, 0267 and 0262.
 
 ### Rulings for the build (the lead's)
 
@@ -88,40 +91,40 @@ The §20.6 change below is the operator's to sign (the triage's first question).
   `tests/test_mutate.py` (`Refusals` trimmed), `tests/test_mutate_interface.py` (new),
   `tests/test_mutate_refusals.py` (new), `tests/test_cli_reference.py` (if the row's change needs it).
 - **SPEC, signed before the claim (`sign_off: brief`):** `docs/spec/03-quality.md` §20.6, six
-  passages replaced, each CURRENT at `8020446`. 0267's two passages (the no-command sentence and the
+  passages replaced, each CURRENT at `76f41dd`. 0267's two passages (the no-command sentence and the
   `unbuilt_re` clause) are not touched.
 
-    CURRENT (`docs/spec/03-quality.md` at `8020446`, §20.6, the synopsis's first line):
+    CURRENT (`docs/spec/03-quality.md` at `76f41dd`, §20.6, the synopsis's first line):
     > `ccp mutate --run <run_id> --test <id> [--mutant <m> …] [--mutant-file <path> …]
 
     PROPOSED:
     > `ccp mutate --run <run_id> --test <id> [--test <id> …] [--mutant <m> …] [--mutant-file <path> …]
 
-    CURRENT (`docs/spec/03-quality.md` at `8020446`, §20.6, The product's command):
+    CURRENT (`docs/spec/03-quality.md` at `76f41dd`, §20.6, The product's command):
     > `--test` is one test id, passed whole, so it may name a single test method (`<module>.<Class>.<method>` for a unittest command); what runs is the command's.
 
     PROPOSED:
     > `--test` is one test id, passed whole, so it may name a single test method (`<module>.<Class>.<method>` for a unittest command); what runs is the command's. `--test` may be given more than once: each test id runs as its own command, in the order given.
 
-    CURRENT (`docs/spec/03-quality.md` at `8020446`, §20.6, A mutant):
+    CURRENT (`docs/spec/03-quality.md` at `76f41dd`, §20.6, A mutant):
     > Every mutant is checked before any test runs; one that does not apply refuses the call (exit 2), nothing run.
 
     PROPOSED:
     > Every mutant is checked before any test runs; one that does not apply, or a substitution whose new text is its old text, refuses the call (exit 2), nothing run.
 
-    CURRENT (`docs/spec/03-quality.md` at `8020446`, §20.6, Killed only when the named test fails):
+    CURRENT (`docs/spec/03-quality.md` at `76f41dd`, §20.6, Killed only when the named test fails):
     > - **Killed only when the named test fails.** The test first runs unmutated; when it fails, the call stops (exit 1), nothing applied or recorded. Then each mutant is applied alone, the test runs, and the mutant is `killed` when it exits non-zero and `survived` when it exits 0,
 
     PROPOSED:
     > - **Killed only when a named test fails.** Each named test first runs unmutated; when one fails, the call stops (exit 1), nothing applied or recorded. Then each mutant is applied alone and the named tests run in order until one exits non-zero; the mutant is `killed` when one does and `survived` when every one exits 0,
 
-    CURRENT (`docs/spec/03-quality.md` at `8020446`, §20.6, the same bullet's last sentence):
+    CURRENT (`docs/spec/03-quality.md` at `76f41dd`, §20.6, the same bullet's last sentence):
     > Another test the mutant breaks does not count.
 
     PROPOSED:
     > A test not named that the mutant breaks does not count.
 
-    CURRENT (`docs/spec/03-quality.md` at `8020446`, §20.6, Bound to the calling seat's run):
+    CURRENT (`docs/spec/03-quality.md` at `76f41dd`, §20.6, Bound to the calling seat's run):
     > Each mutant adds a row to the run record's `mutation` list: the test id, the mutant's number,
 
     PROPOSED:
@@ -129,7 +132,7 @@ The §20.6 change below is the operator's to sign (the triage's first question).
 
   The fourth passage's sentence continues, after its last comma, with 0267's `unbuilt` clause,
   unchanged; "one whose run exits non-zero" then reads as the run that decided the mutant. No other
-  SPEC text changes: `git grep -n -- '--test <id>' -- docs/spec` at `8020446` finds only §20.6's
+  SPEC text changes: `git grep -n -- '--test <id>' -- docs/spec` at `76f41dd` finds only §20.6's
   synopsis, and §13.2's `ccp mutate --run <run_id> …` stays true.
 - **Out:** the `run`/`recorded` event's payload; choosing mutants; the prompt templates and agent
   briefs; `mutate.command`, `unbuilt_re` and the timeout (0267's); the rest of `tests/test_mutate.py`.
@@ -174,14 +177,14 @@ The §20.6 change below is the operator's to sign (the triage's first question).
     2. Run `awk '/^class Refusals/{f=1;next} /^class /{f=0} f && /def test_/' tests/test_mutate.py | wc -l`.
     3. Run `python3 -B -m unittest -q tests.test_mutate_refusals 2>&1 | grep '^Ran'`.
   expect: step 1 prints nothing (exit 1); step 2 prints a number of at most 3; step 3 prints `Ran <n> tests in <s>s` with `n` at least 7 and `s` under 3.
-  dry run (`8020446`): step 1 n/a — the module is new; step 2 printed `10`; step 3 n/a.
+  dry run (`76f41dd`): step 1 n/a — the module is new; step 2 printed `9`; step 3 n/a.
 - id: `spec-01`
   story: As the operator, §20.6 says what I signed.
   setup: A checkout of the PR head.
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0271`.
   expect: exit 0, all six PROPOSED passages found in `docs/spec/03-quality.md`.
-  dry run (simulated at `8020446`: this task file committed, then the six passages applied to `docs/spec/03-quality.md`, each CURRENT found once, committed in a scratch copy; `CCP_DEV=1 ./bin/ccp verify spec-text 0271 --base HEAD~2`): `"ok": true`, six passage(s) found, none missing.
+  dry run (simulated at `76f41dd`: this task file committed, then the six passages applied to `docs/spec/03-quality.md`, each CURRENT found once, committed in a scratch copy; `CCP_DEV=1 ./bin/ccp verify spec-text 0271 --base HEAD~1`): `"ok": true`, six passage(s) found, none missing.
 
 ## Implementation notes
 
