@@ -151,4 +151,11 @@ change what `team.sh runner spawn` does with its scope. The SPEC passages are th
 
 ## Implementation notes
 
+- 2026-11-22 (implementer): the premises re-measured at `33682648`: `CCP_DEV=1 ./bin/ccp tasks check 2>&1 | grep -c 'Measured at'` gave 7 warning lines (11 at `76f41dd`: tasks closed since, not a change of design); `git log --oneline 76f41dd..33682648 -- <paths>` adds 10 commits, none of which does part of this work; `"def warnings"`, the readiness check's `ok` and `"def review_point_scope"` read as the Context says.
+- `ccp/tasklog.py`: `stale(cfg, tasks)` gives each task's `stale_context` line in task order; `stale_count(n)` the one warning `"def warnings"` now adds in their place.
+- `ccp tasks check --stale` (`ccp/cli.py`): the failures and the exit code as without it, then only the stale lines as warnings; the notes (review-point chains, the estimator) still print, as they are not warnings. With `--lease`, `--staged` or `--closed-points` it exits 2.
+- `ccp prompt implement`: the value `stale_context` is the task's own line, set for the implement phase only; `templates/prompts/implement.md`'s `{{#stale_context}}` block renders it with the re-measure sentence.
+- `team.py`: `stale_lines(root, scope)` reads the product's task log quietly (none when it does not read: the readiness checks name that) and is computed after `refactor_scope`, on the one-runner and the slots paths; the spawn prints the lines on stderr only (its JSON is unchanged), the dry run also lists them in `stale`.
+- The respawn: `respawn_scope(tagged, kept, pending, in_scope)`, a plain function. The kept entries leave out `work.json`'s `review_point_refactors`, so `refactor_scope` still puts the point's pending refactors back on top and names them in `refactors_added`, as before; otherwise a refactor kept from `work.json`'s scope would have stayed in place, unannounced. The `no open task is tagged` refusal now runs after the kept tasks join, so a respawn whose tagged tasks are all done still spawns on the tasks the lead added.
+
 ## Verification notes
