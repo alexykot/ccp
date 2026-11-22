@@ -1,7 +1,7 @@
 ---
 task_id: 0281-every-live-contract-is-checked-against-what-writes-it
 title: Every live contract is checked against the record its writer writes, and the schema checker knows every keyword the contracts use
-status: pending
+status: done
 kind: refactor
 depends_on: ["0279-contract-writer-tests-for-the-answer-file-and-wt-up-down"]
 clashes_with: ["0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events"]
@@ -247,3 +247,5 @@ at `5fc9cb9`: no match). Whichever task merges second re-measures its anchors at
 - `ccp sandbox create` prints `root` as the product directory; the sandbox is its parent, which `sandbox remove` takes.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #318 head `a1ff4b6` (close's catch-up of the approved `5325799`, gate run st-20261122T071759Z-b0efbf) (squash `44e1a61`): APPROVE. Passed: code-01, code-02, code-03, code-04, code-05, doc-01. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part --cold -- scripts/gate.sh tests.test_contract_writers tests.test_verify` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0281-every-live-contract-is-checked-against-what-writes-it.json.
+
