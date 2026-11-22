@@ -237,7 +237,7 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
                        f"{rstat} · {held[0]} {phase or ''}".strip() if held else f"{rstat} · no task",
                        rec.get("spawned_at") if work.get("status") in ("running", "draining") else work.get("updated_at"),
                        rexp, r_obs if i == 0 else None,
-                       _activity(r_obs, _ev_activity(_last_event(events, "task-runner"))) if i == 0 else None,
+                       _activity(r_obs, _ev_activity(_last_event(events, lib.RUNNER))) if i == 0 else None,
                        notes=note or None)
             if i:
                 row["observed_note"] = f"on the runner {first} row (every slot together)"
@@ -251,7 +251,7 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
     else:
         rows.append(_row(team, "runner" if rname == "runner" else f"runner ({rname})", "teammate", rstat,
                          work.get("runner_spawned_at") if work.get("status") in ("running", "draining") else work.get("updated_at"),
-                         rexp, r_obs, _activity(r_obs, _ev_activity(_last_event(events, "task-runner"))),
+                         rexp, r_obs, _activity(r_obs, _ev_activity(_last_event(events, lib.RUNNER))),
                          notes=[f"{len(r_aside)} request(s) of headless sessions set aside"] if r_aside else None))
 
     for r in runs.open_on_live_tasks(q, cfg):  # §11.1: a done or dropped task's runs are not seats

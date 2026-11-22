@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, queue, verify
+from ccp.queue import lib
 from tests.helpers import approve_verdict as approve, held_otherwise, Product, LEAD_ENV
 
 
@@ -62,8 +63,8 @@ class LeadRuling(unittest.TestCase):
         self.assertEqual((code, json.loads(out)["id"]), (0, "0002-b-r1"))
         events = [e for e in self.events() if e["type"] == "ruling"]
         self.assertEqual([(e["op"], e["task_id"], e["actor"]) for e in events],
-                         [("recorded", "0001-a", "design-seat"), ("recorded", "0001-a", "design-seat"),
-                          ("recorded", "0002-b", "design-seat")])
+                         [("recorded", "0001-a", lib.LEAD), ("recorded", "0001-a", lib.LEAD),
+                          ("recorded", "0002-b", lib.LEAD)])
         self.assertEqual(events[0]["payload"], {"id": "0001-a-r1", "n": 1, "check": "cmd-01",
                                                 "words": "hold the count at the merge base"})
         self.assertEqual(events[1]["payload"], {"id": "0001-a-r2", "n": 2, "words": "and the second thing"})

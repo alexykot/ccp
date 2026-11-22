@@ -81,6 +81,7 @@ def _architect_gate(cfg: config.Config, a: argparse.Namespace, scope: list[str] 
     """§19.6 at `next`: exit 4 (printing why and what to do) while a pass or a triage is overdue.
     None lets `next` go on; architect notices go to stderr either way."""
     from ccp import architect, health  # noqa: PLC0415  (only a product whose seat is adopted pays for it)
+    from ccp.queue import lib  # noqa: PLC0415
     q = architect.queue_root(required=False)
     if q is None:
         print("ccp tasks next: this product's architect seat is on (SPEC §19.6): set QUEUE_ROOT to its runtime "
@@ -97,7 +98,7 @@ def _architect_gate(cfg: config.Config, a: argparse.Namespace, scope: list[str] 
             return 2
         try:
             health.add_note(q, f"allow-overdue: {a.allow_overdue.strip()} (was: {g['blocked']})",
-                            str(t.get("task_id")) if t else None, os.environ.get("ACTOR") or "task-runner",
+                            str(t.get("task_id")) if t else None, os.environ.get("ACTOR") or lib.RUNNER,
                             "allow-overdue")
         except ValueError as e:
             print(f"ccp tasks next: --allow-overdue: {e}", file=sys.stderr)

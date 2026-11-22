@@ -174,7 +174,7 @@ def root() -> Path:
     return Path(q)
 
 
-def actor(default: str = "task-runner") -> str:
+def actor(default: str = lib.RUNNER) -> str:
     a = os.environ.get("ACTOR") or default
     return a if a in lib.ACTORS else default
 
@@ -452,7 +452,7 @@ def phase_move(q: Path, cfg: Config, task_id: str, to: str, note: str = "", who:
     return frm
 
 
-def heartbeat(q: Path, action: str, seat: str = "task-runner", task_id: str = "") -> None:
+def heartbeat(q: Path, action: str, seat: str = lib.RUNNER, task_id: str = "") -> None:
     """§18.3 through its single writer. A failed heartbeat never fails the command."""
     cmd = [str(OBS / "heartbeat.sh"), seat, "--wake-kind", "manual", "--action", action[:200]]
     if task_id:

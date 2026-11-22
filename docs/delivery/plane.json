@@ -46,7 +46,7 @@
       },
       {
         "id": "E27",
-        "cmd": "! git grep -n '\"design-seat\"' -- ccp scripts ':(exclude)ccp/board_page.html' ':(exclude)scripts/observability/lib.py'"
+        "cmd": "! git grep -nE '\"(design-seat|task-runner)\"' -- ccp scripts ':(exclude)ccp/board_page.html' ':(exclude)scripts/observability/lib.py' ':(exclude)scripts/observability/write-prompt-audit.sh'"
       }
     ]
   },

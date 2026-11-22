@@ -159,13 +159,13 @@ class SetWait(unittest.TestCase):
         return run.call_args
 
     def test_every_option_reaches_the_writer(self) -> None:
-        call = self.call(actor="design-seat", task_only=True, quota_class="credit", resets_at="2026-11-21T10:00:00Z",
+        call = self.call(actor=lib.LEAD, task_only=True, quota_class="credit", resets_at="2026-11-21T10:00:00Z",
                          planned_resume_at="2026-11-21T10:05:00Z", detail="why")
         cmd = call.args[0]
         self.assertEqual(Path(cmd[0]).name, WRITER.name)
         self.assertEqual(cmd[1:4], ["set", TASK, "quota"])
         pairs = dict(zip(cmd[4::2], cmd[5::2]))
-        self.assertEqual(pairs["--actor"], "design-seat")
+        self.assertEqual(pairs["--actor"], lib.LEAD)
         self.assertEqual(pairs["--project-id"], "demo")
         self.assertEqual(pairs["--quota-class"], "credit")
         self.assertEqual(pairs["--resets-at"], "2026-11-21T10:00:00Z")
@@ -177,7 +177,7 @@ class SetWait(unittest.TestCase):
     def test_without_options_the_actor_is_the_queue_s_and_work_json_is_not_left_alone(self) -> None:
         with as_lead():
             cmd = self.call().args[0]
-        self.assertEqual(cmd[cmd.index("--actor") + 1], "design-seat")
+        self.assertEqual(cmd[cmd.index("--actor") + 1], lib.LEAD)
         for flag in ("--task-only", "--quota-class", "--resets-at", "--planned-resume-at", "--detail"):
             self.assertNotIn(flag, cmd)
 
@@ -238,9 +238,9 @@ class TasksWait(ToolkitFixture, unittest.TestCase):
                 mock.patch.object(lifecycle, "set_wait", wraps=lifecycle.set_wait) as sw:
             code, _, out, err = self.ccp("tasks", "release", "0002", "--reason", "re-planned")
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(sw.call_args.kwargs, {"actor": "design-seat", "task_only": True})
+        self.assertEqual(sw.call_args.kwargs, {"actor": lib.LEAD, "task_only": True})
         clear = [e for e in self.events() if (e["type"], e["op"]) == ("waiting_on", "clear")]
-        self.assertEqual((clear[-1]["actor"], clear[-1]["payload"]["was"]), ("design-seat", "design_seat"))
+        self.assertEqual((clear[-1]["actor"], clear[-1]["payload"]["was"]), (lib.LEAD, "design_seat"))
 
 
 if __name__ == "__main__":

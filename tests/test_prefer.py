@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from ccp.queue import lib
 from tests.helpers import TASK, as_lead
 from tests.toolkit_fixture import ToolkitFixture
 
@@ -41,18 +42,18 @@ class Prefer(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         w = self.work()
         self.assertEqual((w["next_tasks"], w["next_task_by"], w["next_task_reason"]),
-                         (["0004-fourth"], "design-seat", "unblocks the demo"))
+                         (["0004-fourth"], lib.LEAD, "unblocks the demo"))
         self.assertTrue(w["next_task_at"])
         self.assertEqual(w["scope"][0], "0002-second")  # other keys kept
         code, body, _, _ = self.prefer()
-        self.assertEqual((code, body["next_tasks"]["tasks"], body["next_tasks"]["by"]), (0, ["0004-fourth"], "design-seat"))
+        self.assertEqual((code, body["next_tasks"]["tasks"], body["next_tasks"]["by"]), (0, ["0004-fourth"], lib.LEAD))
         code, body, _, _ = self.prefer("--clear")
         self.assertEqual((code, body["cleared"]["tasks"]), (0, ["0004-fourth"]))
         self.assertFalse(any(k in self.work() for k in KEYS))
         self.assertIsNone(self.prefer()[1]["next_tasks"])
         evs = [e for e in self.events() if e["type"] == "prefer"]
         self.assertEqual([(e["op"], e["task_id"], e["actor"]) for e in evs],
-                         [("set", "0004-fourth", "design-seat"), ("clear", "0004-fourth", "design-seat")])
+                         [("set", "0004-fourth", lib.LEAD), ("clear", "0004-fourth", lib.LEAD)])
         self.assertEqual((evs[1]["payload"]["was"], evs[1]["payload"]["tasks"]), ("0004-fourth", ["0004-fourth"]))
 
     def test_prefer_refuses_unknown_done_dropped_and_out_of_scope(self):
@@ -101,7 +102,7 @@ class Prefer(ToolkitFixture, unittest.TestCase):
     def test_held_and_dead_entries_are_passed_over_and_the_last_claim_empties_the_list(self):
         self.assertEqual(self.prefer("0004", "0003", "0002")[0], 0)
         self.set_work(**{**self.work(), "next_tasks": ["0005-gone", "0004-fourth", "0003-third", "0002-second"],
-                         "held": {"0004-fourth": {"by": "design-seat"}}})
+                         "held": {"0004-fourth": {"by": lib.LEAD}}})
         code, _, out, err = self.ccp("tasks", "next", root=self.main)
         self.assertTrue(out.startswith("0002-second"), out)  # 0005 dropped, 0004 held, 0003 waits on 0002
         self.assertIn("the lead's preference (4 of 4, ", out)
@@ -182,7 +183,7 @@ class Prefer(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertEqual(self.work()["next_tasks"], ["0004-fourth"])
         self.assertEqual(self.work()["task_id"], "0002-second")
-        self.set_work(scope=["0002-second"], next_task="0002-second", next_task_by="design-seat",  # a legacy next_task
+        self.set_work(scope=["0002-second"], next_task="0002-second", next_task_by=lib.LEAD,  # a legacy next_task
                       next_task_at="2026-10-21T16:00:00Z", next_task_reason="x")
         code, _, out, err = self.ccp("tasks", "claim", "0002")  # resumed: same holder
         self.assertEqual(code, 0, out + err)
