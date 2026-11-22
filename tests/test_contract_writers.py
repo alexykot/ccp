@@ -134,6 +134,8 @@ class Checker(unittest.TestCase):
         self.assertEqual(schema_errors(1, {"const": 1}), [])
         self.assertTrue(schema_errors(2, {"const": 1}))
         self.assertTrue(schema_errors(True, {"const": 1}))
+        self.assertEqual(schema_errors(1.0, {"const": 1}), [])  # one number, as JSON Schema reads it
+        self.assertTrue(schema_errors("1", {"const": 1}))
 
     def test_allof_anyof_oneof_and_not_combine_sub_schemas(self):
         a, b = {"required": ["a"]}, {"required": ["b"]}
@@ -152,6 +154,15 @@ class Checker(unittest.TestCase):
         self.assertEqual(schema_errors({"k": "z"}, schema), [])
         self.assertEqual(schema_errors({"k": "x", "y": 1}, schema), [])
         self.assertEqual(schema_errors({"k": "x"}, schema), ["record: missing y"])
+
+    def test_not_and_if_are_judged_strictly_whatever_newer_says(self):
+        closed = {"properties": {"a": {}}, "additionalProperties": False}
+        # `newer` passes over a key a schema does not name, which would make `closed` match {"a", "z"}
+        self.assertEqual(schema_errors({"a": 1, "z": 1}, {"not": closed}, newer=True), [])
+        self.assertTrue(schema_errors({"a": 1}, {"not": closed}, newer=True))
+        schema = {"if": closed, "then": {"required": ["b"]}}
+        self.assertEqual(schema_errors({"a": 1, "z": 1}, schema, newer=True), [])
+        self.assertEqual(schema_errors({"a": 1}, schema, newer=True), ["record: missing b"])
 
     def test_max_properties_and_a_schema_for_the_other_keys(self):
         self.assertTrue(schema_errors({"a": 1, "b": 2}, {"maxProperties": 1}))

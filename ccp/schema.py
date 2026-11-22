@@ -36,6 +36,14 @@ def is_type(value: Any, typ: str) -> bool:
     return isinstance(value, _TYPES[typ])
 
 
+def _kind(value: Any) -> str:
+    """The JSON type of `value`, with `1` and `1.0` both a number, so `const` compares as JSON Schema does."""
+    for typ in ("null", "boolean", "string", "number", "array", "object"):
+        if is_type(value, typ):
+            return typ
+    return type(value).__name__
+
+
 def schema_errors(value: Any, schema: dict[str, Any], at: str = "record", newer: bool = False) -> list[str]:
     """Where `value` breaks `schema`. Only the keywords the plane's contracts use are known; an
     unknown one is an error, so a contract change cannot silently weaken this check. With `newer`
@@ -50,7 +58,7 @@ def schema_errors(value: Any, schema: dict[str, Any], at: str = "record", newer:
         if not any(is_type(value, t) for t in types):
             return [f"{at}: {json.dumps(value)[:60]} is not {' or '.join(types)}"]
     errs: list[str] = []
-    if "const" in schema and (value != schema["const"] or type(value) is not type(schema["const"])):
+    if "const" in schema and (value != schema["const"] or _kind(value) != _kind(schema["const"])):
         errs.append(f"{at}: {json.dumps(value)[:60]} is not {json.dumps(schema['const'])}")
     if "enum" in schema and value not in schema["enum"]:
         errs.append(f"{at}: {json.dumps(value)[:60]} is not one of {', '.join(map(str, schema['enum']))}")
@@ -87,9 +95,10 @@ def schema_errors(value: Any, schema: dict[str, Any], at: str = "record", newer:
 
 def _combined(value: Any, schema: dict[str, Any], at: str, newer: bool) -> list[str]:
     """The keywords that combine sub-schemas: `allOf` (each holds), `anyOf` (one does), `oneOf` (exactly one),
-    `not` (it does not) and `if`/`then` (when the first holds, so does the second). A sub-schema with a keyword
+    `not` (it does not) and `if`/`then` (when the first holds, so does the second). `not` and `if` are judged
+    strictly, whatever `newer` says: a key skipped there would make the sub-schema match more. A sub-schema with a keyword
     this checker does not know is reported as it stands, never read as one that failed to match."""
-    def run(sub: dict[str, Any]) -> list[str]:
+    def run(sub: dict[str, Any], newer: bool = newer) -> list[str]:
         return schema_errors(value, sub, at, newer)
 
     def unchecked(results: list[list[str]]) -> list[str]:
@@ -109,13 +118,13 @@ def _combined(value: Any, schema: dict[str, Any], at: str, newer: bool) -> list[
             elif key == "oneOf" and held != 1:
                 errs.append(f"{at}: {json.dumps(value)[:60]} matches {held} of the oneOf schemas, not one")
     if "not" in schema:
-        inner = run(schema["not"])
+        inner = run(schema["not"], newer=False)
         if unchecked([inner]):
             errs += unchecked([inner])
         elif not inner:
             errs.append(f"{at}: {json.dumps(value)[:60]} matches a schema it must not match")
     if "if" in schema and "then" in schema:
-        cond = run(schema["if"])
+        cond = run(schema["if"], newer=False)
         if unchecked([cond]):
             errs += unchecked([cond])
         elif not cond:

@@ -5,10 +5,11 @@ frontmatter, queue records (events, snapshots, escalations, questions and answer
 worktrees, prompt audits, a task's phase moves in `progress/` and its review record in `review/`),
 architect reports, and the product-reported contracts (gate results, allowance windows). A renamed
 value stays listed as a deprecated, read-only alias so old records still validate. Code and schema
-change in the same commit; tests check that they agree: `ccp/schema.py` is the one checker, and a test
-per contract validates a record its writer writes or, where a seat or a machine command writes it, a
-`<name>.example.json` its reader accepts (`tests/test_contract_writers.py`, `tests/test_phase_contracts.py`).
+change in the same commit; tests check that they agree: `ccp/schema.py` is the one checker, and for the
+contracts the tests name a test validates a record its writer writes or, where a seat or a machine command
+writes it, a `<name>.example.json` its reader accepts (`tests/test_contract_writers.py`,
+`tests/test_phase_contracts.py`). Not yet checked: `question_answer`.
 The checker fails closed on a keyword it does not know, so a schema that needs a new one extends it.
 
-Two queue records have no schema: run records (`runs/<task>/<run>.json`) and the suite rows
-(`runs/_suites.jsonl`). Their own modules' tests (`ccp/runs.py`, `ccp/suite.py`) check them.
+Some queue records have no schema, among them run records (`runs/<task>/<run>.json`) and the suite rows
+(`runs/_suites.jsonl`). Their own modules' tests (`ccp/runs.py`, `ccp/suite.py`) check those two.

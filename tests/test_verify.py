@@ -664,6 +664,16 @@ class Record(unittest.TestCase):
         self.assertEqual(schema_errors(1, {"dependentRequired": {}}),
                          ["record: the schema uses dependentRequired, which ccp verify cannot check"])
 
+    def test_a_proof_url_that_is_not_a_string_is_refused(self):
+        for side in ("local", "verifier"):
+            body = approve(proof_urls={side: {"web": None}})
+            code, _, err = self.record(body)
+            self.assertEqual(code, 1, err)
+            self.assertIn(f"record.proof_urls.{side}.web: null is not string", err)
+            self.assertFalse(self.written().exists())
+        code, out, err = self.record(approve(proof_urls={"local": {"web": "http://localhost:8080"}}))
+        self.assertEqual(code, 0, out + err)
+
 
 class MergeOk(unittest.TestCase):
     """`ccp verify merge-ok`: a committed approval at the PR's head (PROC-12)."""
