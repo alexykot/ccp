@@ -855,8 +855,9 @@ def sign_off(cfg: Config, task: str, stage: str | None, by: str, words: str, hea
     ledger (a `sign_off` `recorded` event: stage, who, the words and the head it covers; the event's
     `at` is when). A `brief` sign-off covers the commit that last changed the task file, a `build` one
     the verified head (verification/<id>.json). One given before it could be recorded carries its date,
-    `at`, as `signed_at`. A later record of a stage replaces the earlier. Only the lead records it
-    (`queue.lead_actor`)."""
+    `at`, as `signed_at`. A later record of a stage replaces the earlier. A `brief` one given no head prints,
+    on stderr, the task's stale-Context warning (`tasklog.stale_context`, §21.1) and is recorded all the same.
+    Only the lead records it (`queue.lead_actor`)."""
     who = lead_actor("a sign-off")
     q = root()
     meta = task_meta(cfg, task)
@@ -892,6 +893,8 @@ def sign_off(cfg: Config, task: str, stage: str | None, by: str, words: str, hea
         head = r.stdout.strip() if r.returncode == 0 else ""
         if not SHA_RE.match(head):
             raise QueueError(f"{cfg.rel(meta['_file'])} has no commit to sign: commit it, or give --head (SPEC §3.5)", 2)
+        for line in tasklog.stale_context(cfg, meta, cfg.rel(meta["_file"])):  # §3.5, §21.1: seen, not refused
+            print(f"warning: {line}", file=sys.stderr)
     payload = {"stage": stage, "by": by.strip(), "words": words.strip(), "head": head,
                **({"signed_at": when} if when else {})}
     ev = emit(q, cfg, tid, "sign_off", "recorded", payload, who)

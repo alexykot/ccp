@@ -1478,7 +1478,7 @@ tasks:
     depends_on: [0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes]
     path: tasks/0300-mutant-file-texts-end-where-written-a-revert-takes-several-ranges-and-mutate-s-refusal-copies-go.md
   - id: 0301-tasks-check-warns-on-a-bare-test-runner-and-a-brief-sign-off-shows-what-changed-since-measured
-    status: pending
+    status: done
     title: ccp tasks check warns on a check step that runs the language's test command outside ccp suite run, a brief sign-off of a stale brief prints what changed its paths, the writing-tasks skill says how a check runs tests and how a new task meets a pending ruling, and E4's command finds every form of a test-module import
     depends_on: [0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope, 0298-the-cli-reference-reads-each-span-s-flags-and-tests-take-the-plane-root-and-git-env-from-helpers]
     path: tasks/0301-tasks-check-warns-on-a-bare-test-runner-and-a-brief-sign-off-shows-what-changed-since-measured.md

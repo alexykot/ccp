@@ -42,7 +42,7 @@ from typing import TYPE_CHECKING, Any, Iterator
 
 import functools
 
-from ccp import config, graph, refs, reviewpoints
+from ccp import config, doclang, graph, refs, reviewpoints
 from ccp.config import WHOLE_SUITE_ROLES, Config, lane_for, lane_stages
 
 if TYPE_CHECKING:
@@ -121,6 +121,12 @@ ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 REDIRECT_RE = re.compile(r"^[<>&]*[<>][<>&]*$")
 # Words that run the command after them: `env [-u NAME|NAME=value]…`, `bash`/`sh`, `time`, `timeout N`.
 SHELLS = frozenset({"bash", "sh"})
+TIMEOUT_RE = re.compile(r"^\d+(\.\d+)?[smhd]?$")  # `timeout N`'s duration
+# §21.1, the bare-runner warning: where a step's command splits into simple commands, the prefixes read past
+# before its first word, and the first words that make it a `ccp` command, never a bare test run.
+SIMPLE_COMMAND_SEPARATORS = frozenset({"|", "||", "&&", ";"})
+RUNNER_PREFIXES = frozenset({"env", "time"})
+CCP_COMMANDS = ("ccp", "bin/ccp")
 # §5: the plane template's placeholders. One left in a task file not yet done or dropped is a copy
 # not filled in. A placeholder inside a code span or a fenced block is quoted, not left, so it is not read.
 PLACEHOLDERS = ("NNNN-kebab-slug", "YYYY-MM-DD", "As a <role>", "<preconditions",
@@ -703,7 +709,7 @@ def _command_starts(words: list[str], k: int) -> Iterator[int]:
             while k < len(words) and (words[k] in ("-i", "-") or ASSIGNMENT_RE.match(words[k])
                                       or (words[k] == "-u" and k + 1 < len(words))):
                 k += 2 if words[k] == "-u" else 1
-        elif w == "timeout" and k + 1 < len(words) and re.match(r"^\d+(\.\d+)?[smhd]?$", words[k + 1]):
+        elif w == "timeout" and k + 1 < len(words) and TIMEOUT_RE.match(words[k + 1]):
             k += 2
         else:
             return
@@ -750,6 +756,58 @@ def _runs_lane(words: list[str], lane: str) -> bool:
     return False
 
 
+def _step_commands(c: Check) -> list[list[str]]:
+    """§21.1: the shell words (`_tokens`) of each backticked command in a check's `steps:`."""
+    steps = "".join(s.group(1) for s in STEPS_RE.finditer(c.block))
+    return [_tokens(span.group(0).strip("`")) for span in CODE_SPAN_RE.finditer(steps)]
+
+
+def _simple_commands(words: list[str]) -> list[list[str]]:
+    """A command's words split into its simple commands at `|`, `||`, `&&` and `;`; an empty one left out."""
+    out: list[list[str]] = [[]]
+    for w in words:
+        if w in SIMPLE_COMMAND_SEPARATORS:
+            out.append([])
+        else:
+            out[-1].append(w)
+    return [c for c in out if c]
+
+
+def runs_bare(words: list[str], runner: list[str]) -> bool:
+    """§21.1: a simple command's words run the test command whose words are `runner` outside `ccp suite run`:
+    past leading `NAME=value` words and an `env`, `time` or `timeout N` prefix, its words, less those that start
+    with `-` and are not among `runner`'s, start with `runner`'s. One that starts with `ccp` or `bin/ccp` never does."""
+    k = 0
+    while k < len(words):
+        w = words[k].rsplit("/", 1)[-1]
+        if ASSIGNMENT_RE.match(words[k]) or w in RUNNER_PREFIXES:
+            k += 1
+        elif w == "timeout" and k + 1 < len(words) and TIMEOUT_RE.match(words[k + 1]):
+            k += 2
+        else:
+            break
+    rest = words[k:]
+    if rest[:1] and rest[0] in CCP_COMMANDS:
+        return False
+    kept = [x for x in rest if not x.startswith("-") or x in runner]
+    return kept[:len(runner)] == runner
+
+
+def bare_runner(t: dict[str, Any], rel: str, test_command: str | None, part_lane: str) -> list[str]:
+    """§21.1: a task not yet done (or dropped) with a check step that runs the language pack's `test_command`
+    bare (`runs_bare`, on each simple command of the step's backticked commands), warned about once, naming those
+    checks and the run through `ccp suite run` on the part lane `part_lane`. No test command: no warning."""
+    if not test_command or t.get("status") in TERMINAL:
+        return []
+    runner = _tokens(test_command)
+    ids = [c.id for c in checks(t["_text"])
+           if any(runs_bare(s, runner) for w in _step_commands(c) for s in _simple_commands(w))]
+    if not ids:
+        return []
+    return [f"{rel}: dod_check(s) {', '.join(f'`{i}`' for i in ids)} run `{test_command}` outside `ccp suite run`: "
+            f"run tests through `ccp suite run --lane {part_lane} -- <command>` and cite its log (§21.1)"]
+
+
 def _check_refactor_gate(cfg: Config, t: dict[str, Any], rel: str) -> list[str]:
     """§20.3, §21.1: a refactor proves itself by its own checks; the verifier's gate already runs the
     whole suite. A refactor not yet done (or dropped) whose dod_check step runs the gate or full lane,
@@ -765,8 +823,7 @@ def _check_refactor_gate(cfg: Config, t: dict[str, Any], rel: str) -> list[str]:
     errs = []
     for c in checks(t["_text"]):
         cid = c.id
-        steps = "".join(s.group(1) for s in STEPS_RE.finditer(c.block))
-        runs = [_tokens(span.group(0).strip("`")) for span in CODE_SPAN_RE.finditer(steps)]
+        runs = _step_commands(c)
         hit = [f"{role} lane `{lane}`" for role, lane, decl in judged
                if any(_runs_lane(w, lane) or (lane_stages(decl) is None and _runs_argv(w, decl)) for w in runs)]
         if hit:
@@ -1130,6 +1187,7 @@ def warnings(cfg: Config) -> list[str]:
     tasks = load(cfg)
     ids = refs.ids(cfg)
     later = {m.group(1): t.get("task_id") for t in tasks if (m := ids.task_file_re.match(t["_file"].name))}
+    test_command, part_lane = doclang.for_tests(cfg).test_command, lane_for(cfg, "part")
     from ccp.config import config_warnings  # noqa: PLC0415
     out = config_warnings(cfg) + [f"{cfg.rel(t['_file'])}: status {t['_legacy_status']!r} is an in-flight state, which lives in the queue, "
            f"not the task file (§5): it reads as {t['status']!r}; write that"
@@ -1140,6 +1198,7 @@ def warnings(cfg: Config) -> list[str]:
         out += unreadable_proposed(t, cfg.rel(t["_file"]))
         out += missing_adopt(t, cfg.rel(t["_file"]))
         out += hidden_step(t, cfg.rel(t["_file"]))
+        out += bare_runner(t, cfg.rel(t["_file"]), test_command, part_lane)
         own = _number(t.get("task_id"), cfg)
         if own is None or t.get("status") in TERMINAL:
             continue

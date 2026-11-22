@@ -37,7 +37,7 @@ class SelfHosting(unittest.TestCase):
 
 def e4_import_check() -> str:
     """The part of the architect's `E4` command that finds a test module importing another: a shell test that
-    passes when `git grep` finds none."""
+    passes when it finds none in the test files git tracks."""
     cmd = next(c["cmd"] for c in json.loads((ROOT / "docs/delivery/plane.json").read_text())["architect"]["checks"]
                if c["id"] == "E4")
     parts = [p for p in cmd.split(" && ") if "from tests" in p]
@@ -46,22 +46,28 @@ def e4_import_check() -> str:
 
 
 class TestModulesImportNoTestModule(unittest.TestCase):
+    def check(self, cwd: Path) -> subprocess.CompletedProcess:
+        return subprocess.run(["bash", "-c", e4_import_check()], cwd=cwd, capture_output=True, text=True)
+
     def run_check(self, cwd: Path) -> int:
-        return subprocess.run(["bash", "-c", e4_import_check()], cwd=cwd, capture_output=True, text=True).returncode
+        return self.check(cwd).returncode
 
     def test_no_test_module_of_the_plane_imports_another(self):
         self.assertEqual(self.run_check(ROOT), 0)
 
     def test_the_check_finds_each_way_to_import_a_test_module(self):
         for line in ("from tests.test_a import X", "from tests import test_a", "import tests.test_a",
-                     "from .test_a import X", "    from tests.test_a import X"):
+                     "from .test_a import X", "def f():\n    from tests.test_a import X", "from . import test_a",
+                     "from tests import a, test_a", "from tests import (\n    a,\n    test_a,\n)"):
             with self.subTest(line=line), tempfile.TemporaryDirectory() as d:
                 repo = Path(d)
                 (repo / "tests").mkdir()
                 (repo / "tests" / "test_b.py").write_text(line + "\n")
                 subprocess.run(["git", "init", "-q", str(repo)], check=True)
                 subprocess.run(["git", "-C", str(repo), "add", "tests"], check=True)
-                self.assertEqual(self.run_check(repo), 1)
+                r = self.check(repo)
+                self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+                self.assertIn("tests/test_b.py:", r.stdout)  # found, not a file it could not read
 
     def test_the_check_lets_a_test_import_a_fixture_module(self):
         with tempfile.TemporaryDirectory() as d:
