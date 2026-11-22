@@ -1,7 +1,7 @@
 ---
 task_id: 0254-close-and-architect-share-the-unrecorded-worktree-helper
 title: Close, the architect and tasks dry-run make and remove their own worktrees through one wt helper, and wt list shows a leftover arch- worktree
-status: pending
+status: done
 kind: feature
 depends_on: ["0215-a-reused-runner-worktree-moves-to-the-tip"]
 clashes_with: ["0240-plane-workers-run-the-head"]
@@ -11,7 +11,7 @@ review_point: R17
 paths: ["ccp/wt.py", "ccp/architect.py", "ccp/lifecycle.py", "ccp/dryrun.py", "tests/test_wt_unrecorded.py", "tests/test_wt_outside.py"]
 adopt: "none"
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0254-close-and-architect-share-the-unrecorded-worktree-helper
@@ -110,4 +110,29 @@ callers in `ccp/lifecycle.py`, next to the code this task moves.
 
 ## Implementation notes
 
+- 2026-11-21 (implementer): `ccp/wt.py`'s `_link` is now the public `link`; `add_unrecorded(cfg, main, path, rev)`
+  names `worktrees.dir` (`base_dir(cfg)`, when set) in info/exclude, adds `path` detached at `rev` and links; a git
+  error raises `QueueError(..., 1)` naming the path. `remove_unrecorded(main, path)` is `worktree remove --force`
+  then `prune`, failures ignored. `ARCH_PREFIX`/`ARCH_RE` sit beside `MERGE_RE`; `ARCH_RE` takes `arch-` plus a
+  review id's shape (`<letters>-<8 digits>T<6 digits>Z-<4 hex>`), and a test holds it to both id kinds the
+  architect makes. `ccp wt list` (no `--task`) shows an `arch-` directory as `kind: arch`, `recorded: false`,
+  no task; with `--task` it does not, as for a pre-record worktree.
+- The architect builds its worktree's name from `wt.ARCH_PREFIX`; `_make_worktree` drops its `wdir` argument
+  (`add_unrecorded` takes the directory from the config). Its git error is now a `QueueError`, not a
+  `RuntimeError`; the pass catches either and fails the same way.
+- Close's merge worktree: a reused one is reset, cleaned and linked as before; a new one is made with
+  `add_unrecorded`, which also names the worktree directory in info/exclude (close did not before; `ccp wt create`
+  and the architect did). Close's own removal of the merge worktree is unchanged.
+- Tasks dry-run's temporary tree is made and removed through the helpers; its unused `_git` went.
+- `tests/test_wt_outside.py`: close calls `_merge_checkout` twice at this head, for the local host's squash and
+  then the reconcile, so the test pins `[merge-0002, merge-0002]`.
+- 2026-11-22 (fix round 1): `ARCH_RE` is now `arch-` plus `refs.PASS_ID`, a new constant in `ccp/refs.py` that
+  `REVIEW_ID` is built from (a pass's id without the `#F<n>` suffix): the grammar has one home, and a spec
+  question's `sm-` id no longer reads as an architect worktree. Close's reuse-branch link has its own test: a
+  `worktrees.links` path added after a failed close made the merge worktree is linked in by the rerun. Dry-run
+  prunes once more after deleting its temp directory, so a tree `worktree remove` could not drop is not left
+  registered (the order before this task).
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #300 head `bd3fc7b` (squash `81c0f20`): APPROVE. Passed: wt-01, wt-02, wt-03, wt-04. Gate: `scripts/gate.sh` exit 0, `ccp wt exec -- suite run --lane part -- python3 -B -m unittest -q tests.test_wt_unrecorded tests.test_architect tests.test_tasks_close tests.test_wt tests.test_wt_outside tests.test_tasks_dry_run` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0254-close-and-architect-share-the-unrecorded-worktree-helper.json.
+

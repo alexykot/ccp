@@ -1301,6 +1301,8 @@ def _merge_checkout(cfg: Config, tid: str, integ: str) -> Config:
     The `worktrees.links` paths are linked in, as `ccp wt create` does, for the reconcile hooks.
     The checkout close runs from keeps its HEAD, branch and index. A product with no `worktrees.dir`
     has no plane-made worktrees: there the reconcile is made in that checkout, as before."""
+    from ccp import wt  # noqa: PLC0415
+
     path = _merge_path(cfg, tid)
     if path is None:
         return cfg
@@ -1311,16 +1313,13 @@ def _merge_checkout(cfg: Config, tid: str, integ: str) -> Config:
             git(path, "rebase", "--abort")
         git(path, "reset", "-q", "--hard")
         git(path, "clean", "-fdq")
+        wt.link(cfg, main, path)  # §12.1: the reconcile hooks see the worktrees.links paths, as in any plane worktree
     else:
         if path.exists() and any(path.iterdir()):
             raise QueueError(f"{path} exists and is not a working tree of the product: move it away first", 1)
         git(main, "worktree", "prune")  # a merge worktree removed by hand, still registered, blocks the add
         git(main, "fetch", "-q", "origin", integ)
-        r = git(main, "worktree", "add", "-q", "--detach", str(path), f"origin/{integ}")
-        if r.returncode != 0:
-            raise QueueError(f"git worktree add {path}: {(r.stderr or r.stdout).strip()[:300]}", 1)
-    from ccp import wt  # noqa: PLC0415
-    wt._link(cfg, main, path)  # §12.1: the reconcile hooks see the worktrees.links paths, as in any plane worktree
+        wt.add_unrecorded(cfg, main, path, f"origin/{integ}")  # links worktrees.links in too
     from dataclasses import replace  # noqa: PLC0415
     return replace(cfg, root=path)
 

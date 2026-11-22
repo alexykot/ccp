@@ -22,7 +22,9 @@ by `ccp tasks worktree` and the single runner's spawn, which move an existing on
 the tip; it is not a task's, so it is not recorded.
 `ccp tasks close`'s own `merge-<nnnn>` (`merge_path`, §10.5) is not recorded either: one a failed
 close left behind is listed, removed with the rest of its task's worktrees, and removed by gc once
-its task is done or dropped and leased by no one.
+its task is done or dropped and leased by no one. It, an architect pass's `arch-<review id>` (§19.7)
+and tasks dry-run's temporary tree are made with `add_unrecorded`; the last two are removed with
+`remove_unrecorded`, and an `arch-` one a failed removal left is listed, with no task.
 
 What a product needs beyond a git worktree (a database branch, a local stack) is a hook in plane.json
 `env`: `setup` and `teardown` run when a worktree is made and removed, `up` and `down` start and stop
@@ -66,6 +68,8 @@ NAME_RE = re.compile(rf"^(?:(impl|rev|ver|mut|mac|base)-[0-9]+(?:-[0-9]+)?|{BASE
 ROUND_RE = re.compile(r"^[a-z]+-[0-9]+-([0-9]+)$")  # §12.1: a name ending `-<n>` is the worktree's round n
 MERGE_PREFIX = "merge"  # §10.5: close's own worktree for the reconcile, `merge-<nnnn>`; not a `ccp wt` kind
 MERGE_RE = re.compile(rf"^{MERGE_PREFIX}-([0-9]+)$")
+ARCH_PREFIX = "arch"  # §12.1: an architect pass's own worktree, `arch-<review id>`; not a `ccp wt` kind
+ARCH_RE = re.compile(rf"^{ARCH_PREFIX}-{refs.PASS_ID}$")
 URL_RE = re.compile(r"^[a-z][a-z0-9+.-]*://\S+$")
 OUT_CAP = 20000
 SHALLOW_KINDS = ("rev", "ver", "mut", "mac")  # §12.1: `--shallow` makes one of these a depth-1 clone of its sha
@@ -320,15 +324,36 @@ def _exclude_base(main: Path, base: Path) -> None:
         _exclude(main, [base.relative_to(root).as_posix()], "worktrees directory")
 
 
-def _link(cfg: Config, main: Path, path: Path) -> None:
+def link(cfg: Config, main: Path, path: Path) -> None:
     """Link `worktrees.links` from the main checkout into `path`, named in the info/exclude of the
     repository `path` belongs to: the main one's, or a shallow clone's own."""
     links = list((cfg.worktrees or {}).get("links") or [])
     _exclude(path if _is_clone(path) else main, links)
-    for link in links:
-        src, dst = main / link, path / link
+    for one in links:
+        src, dst = main / one, path / one
         if src.exists() and not dst.exists():
             dst.symlink_to(src)
+
+
+def add_unrecorded(cfg: Config, main: Path, path: Path, rev: str) -> None:
+    """A worktree the plane makes for itself and records nowhere (§12.1: close's `merge-<nnnn>`, an
+    architect pass's `arch-<review id>`, tasks dry-run's temporary tree): the worktree directory named
+    in info/exclude, `path` added detached at `rev` from the main checkout, then `link`. A git error
+    raises a QueueError naming `path`."""
+    base = base_dir(cfg)
+    if base:
+        _exclude_base(main, base)
+    r = git(main, "worktree", "add", "-q", "--detach", str(path), rev)
+    if r.returncode != 0:
+        raise QueueError(f"git worktree add {path}: {(r.stderr or r.stdout).strip()[:300]}", 1)
+    link(cfg, main, path)
+
+
+def remove_unrecorded(main: Path, path: Path) -> None:
+    """Remove a worktree `add_unrecorded` made, then prune git's worktree list. Failures are ignored:
+    the worktree may be gone already."""
+    git(main, "worktree", "remove", "--force", str(path))
+    git(main, "worktree", "prune")
 
 
 def _free_name(cfg: Config, q: Path, kind: str, nnnn: str) -> str:
@@ -482,7 +507,7 @@ def create(cfg: Config, q: Path, task_id: str, kind: str, sha: str | None = None
     if rc != 0:
         raise QueueError(f"{'a shallow clone' if shallow else 'git worktree add'} {name}: {err.strip()}", 1)
     try:
-        _link(cfg, main, path)
+        link(cfg, main, path)
         try:
             res = hook(cfg, q, "setup", st)
         except QueueError as e:  # its own plane.json does not load: failed like a setup
@@ -1063,8 +1088,9 @@ def down(cfg: Config, q: Path, name: str) -> dict[str, Any]:
 
 def listing(cfg: Config, q: Path, task_id: str | None = None) -> list[dict[str, Any]]:
     """The records (of one task with `task_id`), then the worktrees under `worktrees.dir` that have
-    none: one made before records (without `task_id` only) and a merge worktree a close left (§10.5),
-    `kind: merge`, for its task too; outside the main checkout, only those git names (`_git_named`)."""
+    none: one made before records and an architect pass's a failed removal left (`kind: arch`, §12.1),
+    both without `task_id` only, and a merge worktree a close left (§10.5), `kind: merge`, for its task
+    too; outside the main checkout, only those git names (`_git_named`)."""
     recs = [s for s in records(q) if not task_id or s.get("task_id") == task_id]
     out = [{**s, "exists": Path(s["path"]).is_dir()} for s in recs]
     base = base_dir(cfg)
@@ -1077,6 +1103,8 @@ def listing(cfg: Config, q: Path, task_id: str | None = None) -> list[dict[str, 
                 continue
             if MERGE_RE.match(p.name) and (not task_id or (own and p.name == own.name)):
                 out.append({"name": p.name, "kind": MERGE_PREFIX, "path": str(p), "exists": True, "recorded": False})
+            elif ARCH_RE.match(p.name) and not task_id:
+                out.append({"name": p.name, "kind": ARCH_PREFIX, "path": str(p), "exists": True, "recorded": False})
             elif NAME_RE.match(p.name) and not task_id:
                 out.append({"name": p.name, "path": str(p), "exists": True, "recorded": False})
     return out

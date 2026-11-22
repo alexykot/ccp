@@ -32,7 +32,8 @@ ANY_TASK_ID = rf"[0-9]+-{SLUG}"
 # pass (`ar-…`, `sh-…`), with `#F<n>` naming one of its findings, and a spec question (`sm-…`), whose
 # answer is a ruling.
 STAMP_ID = r"[0-9]{8}T[0-9]{6}Z-[0-9a-f]{4}"
-REVIEW_ID = rf"(?:ar|sh)-{STAMP_ID}(?:#F[0-9]+)?"
+PASS_ID = rf"(?:ar|sh)-{STAMP_ID}"
+REVIEW_ID = rf"{PASS_ID}(?:#F[0-9]+)?"
 QUESTION_ID = rf"sm-{STAMP_ID}"
 # A worker report's follow-up (§13.4), `<run_id>#<n>`, `n` counting from 1 in the report's order: the run id
 # part is `ccp.runs`' to read (its phases are that module's), so here it is anything up to the `#`.
