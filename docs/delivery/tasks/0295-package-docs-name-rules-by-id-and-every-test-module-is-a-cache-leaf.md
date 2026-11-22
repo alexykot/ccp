@@ -1,7 +1,7 @@
 ---
 task_id: 0295-package-docs-name-rules-by-id-and-every-test-module-is-a-cache-leaf
 title: Package docs name house rules by id, tests/CLAUDE.md keeps only the fixtures worth naming, contracts/CLAUDE.md drops snapshots, fixtures write test modules with def test_, and the gate cache treats every test module as a leaf
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E26", "E4"]
@@ -152,3 +152,5 @@ E26's own text and check grep were amended in that triage's PR.
 - Fix round 1: `tests/CLAUDE.md` said a fixture's class docstring says what it builds; 10 of the 19 fixture classes have none, but every fixture module has a module docstring, so the sentence now says module docstring.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #345 head `f267c43` (squash `d66ffbe`): APPROVE. Passed: doc-01, doc-02, doc-03, code-01, code-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0295-package-docs-name-rules-by-id-and-every-test-module-is-a-cache-leaf.json.
+
