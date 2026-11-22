@@ -1,7 +1,7 @@
 ---
 task_id: 0286-the-spec-states-the-operator-gate-waiver-limit-and-cites-language-packs
 title: The SPEC states that an operator gate never waives a marked check, and §20.6 cites the language packs' section for the per-test runner
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S15", "S20", "S21"]
@@ -83,3 +83,5 @@ Measured at `76f41dd` (re-measured: neither SPEC file has changed since the firs
 - `ccp verify spec-text 0286 --base HEAD~1` on the commit: ok, 2 passages found, none missing.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #353 head `04791ad` (squash `e62dbc6`): APPROVE. Passed: spec-01, doc-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0286-the-spec-states-the-operator-gate-waiver-limit-and-cites-language-packs.json.
+

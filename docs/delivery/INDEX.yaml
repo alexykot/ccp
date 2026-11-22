@@ -1403,7 +1403,7 @@ tasks:
     depends_on: []
     path: tasks/0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes.md
   - id: 0286-the-spec-states-the-operator-gate-waiver-limit-and-cites-language-packs
-    status: pending
+    status: done
     title: The SPEC states that an operator gate never waives a marked check, and §20.6 cites the language packs' section for the per-test runner
     depends_on: []
     path: tasks/0286-the-spec-states-the-operator-gate-waiver-limit-and-cites-language-packs.md
