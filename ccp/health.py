@@ -57,7 +57,7 @@ from pathlib import Path
 from typing import Any
 
 from ccp import adr, refs, runs, tasklog
-from ccp.config import ARCHITECT_DEFAULTS, HEALTH_DEFAULTS, USAGE_DEFAULTS, Config
+from ccp.config import ARCHITECT_DEFAULTS, HEALTH_DEFAULTS, USAGE_DEFAULTS, WHOLE_SUITE_ROLES, Config
 from ccp.config import spec_paths as spec_paths_of
 from ccp.queue import QueueError
 from ccp.rules import budget_failures, glob_re
@@ -68,12 +68,11 @@ from lib import looks_like_secret  # noqa: E402
 PR_SUFFIX_RE = re.compile(r"\(#\d+\)\s*$")
 STAMP_RE = re.compile(r"^(\d{8}T\d{6}Z)_(.*)\.json$")
 SUITE_KINDS = ("cold", "warm", "part", "unverified")
-COLD_ROLES = ("full", "gate")  # §27.2: runs in these roles' lanes (plane.json suite.roles) can be cold or warm
 
 
 def cold_lanes(cfg: Config | None) -> tuple[str, ...]:
     from ccp.config import lane_for  # noqa: PLC0415
-    return tuple(lane_for(cfg, r) for r in COLD_ROLES)
+    return tuple(lane_for(cfg, r) for r in WHOLE_SUITE_ROLES)
 LAST, BEFORE = 5, 10
 
 
@@ -383,7 +382,7 @@ def cache_start(cfg: Config | None, q: Path, suites: list[dict[str, Any]], first
 
 
 def classify(s: dict[str, Any], cache: bool, said: str | None = None,
-             lanes: tuple[str, ...] = COLD_ROLES) -> str | None:
+             lanes: tuple[str, ...] = WHOLE_SUITE_ROLES) -> str | None:
     """Which suite series a recorded `ccp suite run` belongs to (§27.2); None when it did not pass.
     A run in a cold-capable lane (`lanes`: the full and gate roles') is warm when any unit was cached
     (`cached` > 0); cold when it counted tests and either says nothing was cached (`cached` 0) or the
@@ -405,7 +404,7 @@ def classify(s: dict[str, Any], cache: bool, said: str | None = None,
 
 
 def _target(mine: list[dict[str, Any]], tests: Any = None, suite_from: str | None = None,
-            lanes: tuple[str, ...] = COLD_ROLES) -> dict[str, Any] | None:
+            lanes: tuple[str, ...] = WHOLE_SUITE_ROLES) -> dict[str, Any] | None:
     """The recorded run a report's `Suite:` line describes: the one it cites, else the latest passing
     one with its test count, else the run's latest passing `full` or `gate` run."""
     passed = [s for s in mine if s.get("state") == "passed"]

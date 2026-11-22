@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, lifecycle
+from ccp.queue import lib
 from tests.sandbox_fixture import SandboxCase
 from tests.helpers import Product, binding, machine_file
 from tests.toolkit_fixture import ToolkitFixture, git
@@ -326,7 +327,7 @@ class Gates(unittest.TestCase):
         self.assertEqual(self.pending(), [("demo", "decision", "0001-a", eid)])
 
     def test_a_needs_operator_answer_notifies_once(self):
-        res = self.run_script("spec-maintainer-ask.sh", "raise", "--raised-by", "task-runner", "--task-id", "0001-a",
+        res = self.run_script("spec-maintainer-ask.sh", "raise", "--raised-by", lib.RUNNER, "--task-id", "0001-a",
                               "--text", "Which?", "--inconsistency", "task vs SPEC", "--spec-refs", "S1", "--tried", "x")
         qid = res["question_id"]
         self.assertEqual(sent(self.out), [])  # a question for the lead is not the operator's
@@ -341,7 +342,7 @@ class Gates(unittest.TestCase):
         self.assertNotIn("A or B", self.out.read_text())
 
     def test_a_needs_operator_answer_already_recorded_sends_no_second_decision(self):
-        res = self.run_script("spec-maintainer-ask.sh", "raise", "--raised-by", "task-runner", "--task-id", "0001-a",
+        res = self.run_script("spec-maintainer-ask.sh", "raise", "--raised-by", lib.RUNNER, "--task-id", "0001-a",
                               "--text", "Which?", "--inconsistency", "task vs SPEC", "--spec-refs", "S1", "--tried", "x")
         qid = res["question_id"]
         (self.q / "questions" / f"{qid}.answer.json").write_text(json.dumps({

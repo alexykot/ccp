@@ -285,7 +285,7 @@ class TestGates(TeamCase):
 
 class TestTeamLeadQuestions(TeamCase):
     def raise_q(self):
-        r = self.run_cmd("bash", ASK, "raise", "--raised-by", "task-runner", "--task-id", "0001-a", "--text", "Which?",
+        r = self.run_cmd("bash", ASK, "raise", "--raised-by", lib.RUNNER, "--task-id", "0001-a", "--text", "Which?",
                          "--inconsistency", "task vs SPEC", "--spec-refs", "S1", "--tried", "read both")
         self.assertEqual(r.returncode, 0, r.stderr)
         return json.loads(r.stdout)
@@ -337,7 +337,7 @@ class TestTeamLeadQuestions(TeamCase):
         self.assertEqual(self.task_wait("0001-a"), "operator_decision")
 
     def test_blocks_must_be_task_ids(self):
-        r = self.run_cmd("bash", ASK, "raise", "--raised-by", "task-runner", "--task-id", "0001-a", "--text", "Which?",
+        r = self.run_cmd("bash", ASK, "raise", "--raised-by", lib.RUNNER, "--task-id", "0001-a", "--text", "Which?",
                          "--inconsistency", "x", "--spec-refs", "S1", "--tried", "y",
                          "--blocks", "0002-b, Merge of 0008 (after the fix), which can run.")
         self.assertEqual(r.returncode, 2)
@@ -348,11 +348,11 @@ class TestTeamLeadQuestions(TeamCase):
         # With a task log present, the ids must exist; whitespace around real ids is fine.
         self.prod.task("0001-a")
         self.prod.task("0002-b")
-        bad = self.run_cmd("bash", ASK, "raise", "--raised-by", "task-runner", "--task-id", "0001-a", "--text", "Q",
+        bad = self.run_cmd("bash", ASK, "raise", "--raised-by", lib.RUNNER, "--task-id", "0001-a", "--text", "Q",
                            "--inconsistency", "x", "--spec-refs", "S1", "--tried", "y", "--blocks", "0009-nope")
         self.assertEqual(bad.returncode, 2)
         self.assertIn("no such task: 0009-nope", bad.stderr)
-        ok = self.run_cmd("bash", ASK, "raise", "--raised-by", "task-runner", "--task-id", "0001-a", "--text", "Q",
+        ok = self.run_cmd("bash", ASK, "raise", "--raised-by", lib.RUNNER, "--task-id", "0001-a", "--text", "Q",
                           "--inconsistency", "x", "--spec-refs", "S1", "--tried", "y", "--blocks", " 0002-b , 0001-a")
         self.assertEqual(ok.returncode, 0, ok.stderr)
         self.assertEqual(json.loads(ok.stdout)["blocks"], ["0002-b", "0001-a"])

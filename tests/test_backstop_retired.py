@@ -7,6 +7,7 @@ import json
 import unittest
 from pathlib import Path
 
+from ccp.queue import lib
 from tests.toolkit_fixture import ToolkitFixture
 
 TID = "0002-second"
@@ -19,7 +20,7 @@ class BackstopRetired(ToolkitFixture, unittest.TestCase):
         obs = self.q / "observability"
         obs.mkdir(exist_ok=True)
         events = [
-            {"at": STARTED, "project_id": "demo", "task_id": TID, "actor": "task-runner",
+            {"at": STARTED, "project_id": "demo", "task_id": TID, "actor": lib.RUNNER,
              "type": "phase", "op": "transition", "payload": {"from": "leased", "to": "implementing"}},
         ]
         (obs / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in events))

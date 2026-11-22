@@ -140,6 +140,7 @@ def _record_starved(cfg: config.Config, a: argparse.Namespace, q: str | None, sc
 
 def cmd_tasks_next(cfg: config.Config, a: argparse.Namespace) -> int:
     from ccp import selection  # noqa: PLC0415  (the board's ready queue reads the same function, §20)
+    from ccp.queue import lib  # noqa: PLC0415
     try:  # §8.1, §10.3, §14.1: no gate lane names no task (exit 2); a warning in the grace release
         if warning := config.require_gate_lane(cfg):
             print(f"ccp tasks next: warning: {warning}", file=sys.stderr)
@@ -157,7 +158,7 @@ def cmd_tasks_next(cfg: config.Config, a: argparse.Namespace) -> int:
     for tid in sel["passed_over"]:  # §10.4: the lead's holds
         h = sel["held"].get(tid) or {}
         print(f"ccp tasks next: passed over {tid}: held ({', '.join(x for x in (h.get('by') or '?', h.get('reason')) if x)}; "
-              f"`ccp tasks hold --clear {tid}`)", file=sys.stderr)
+              f"`ACTOR={lib.LEAD} ccp tasks hold --clear {tid}`)", file=sys.stderr)
     for tid in sel["unsigned"]:  # §10.3, §3.5: claim would refuse it (missing, stale or malformed)
         print(f"ccp tasks next: passed over {tid}: {sel['unsigned_why'][tid]['why']}", file=sys.stderr)
     if getattr(a, "explain", False):

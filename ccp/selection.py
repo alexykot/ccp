@@ -66,7 +66,7 @@ def inputs(cfg: Config, q: Path | None, scope: list[str] | None = None,
             if state != "ready":
                 notes.append(f"preferred {tid} is {state}: skipped for now, keeping its place")
         else:
-            notes.append(f"preferred {tid} is {state}: ignored (`ccp tasks prefer` a new list, or --clear)")
+            notes.append(f"preferred {tid} is {state}: ignored (`ACTOR={lib.LEAD} ccp tasks prefer` a new list, or --clear)")
     flight = [str(x) for x in w.get("in_flight") or []]
     if w.get("task_id") and str(w["task_id"]) not in flight:
         flight.append(str(w["task_id"]))
@@ -160,7 +160,7 @@ def pick(cfg: Config, q: Path | None, scope: list[str] | None = None,
     for p in i["prefer"]:
         if (tid := str(p[0].get("task_id"))) in skip:
             i["prefer_notes"] = [n for n in i["prefer_notes"] if not n.startswith(f"preferred {tid} ")]
-            i["prefer_notes"].append(f"preferred {tid} is held: passed over (`ccp tasks hold --clear {tid}`)"
+            i["prefer_notes"].append(f"preferred {tid} is held: passed over (`ACTOR={lib.LEAD} ccp tasks hold --clear {tid}`)"
                                      if tid in held else f"preferred {tid} {_WAITS[why[tid]['kind']]}: passed over "
                                      f"({why[tid]['why']})")
     for st in i["preferred"] or []:

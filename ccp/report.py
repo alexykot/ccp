@@ -48,8 +48,8 @@ from pathlib import Path
 from typing import Any, Callable, NamedTuple
 
 from ccp import followups, health, refs, runs
-from ccp.config import Config, lane_for
-from ccp.queue import QueueError, emit, iso, lib, phase_move, read_json, root, write_json
+from ccp.config import WHOLE_SUITE_ROLES, Config, lane_for
+from ccp.queue import QueueError, emit, iso, phase_move, read_json, root, seat_actor, write_json
 
 # The line patterns lead with `[^\w\n]*` (a bullet, bold markers), not `\W*`: under re.M `\W` also
 # matches a newline, so a blank line above `Suite:` began the match there and lost the line's counts.
@@ -65,7 +65,6 @@ SUITE_RE = re.compile(r"^[^\w\n]*Suite:[\s*_]*(\d+)\s*tests?\s*,\s*(\d+(?:\.\d+)
 SUITE_CACHE_RE = re.compile(r"\bran\s+(\d+)\s*,\s*cached\s+(\d+)\b|\b(\d+)\s+modules?\s+ran\s*,\s*(\d+)\s+cached\b", re.I)
 SUITE_FROM_RE = re.compile(r"^[^\w\n]*Suite:[\s*_]*from\s+(st-[A-Za-z0-9-]+)", re.I | re.M)
 SUITE_ANY_RE = re.compile(r"^[^\w\n]*Suite:.*$", re.I | re.M)
-AUTO_ROLES = ("full", "gate")  # a report with no Suite: line takes its run's latest of these roles' lanes (§14.1)
 FRICTION_RE = re.compile(r"^##\s+Friction[ \t]*\r?$", re.M)
 FOLLOW_UPS_RE = re.compile(r"^##\s+Follow-ups[ \t]*\r?$", re.I | re.M)  # §13.4, ADR-0044 D1
 FOLLOW_UPS_NEAR_RE = re.compile(r"^#+\s*follow.?ups\b", re.I | re.M)  # a heading `ccp report` does not read as it
@@ -247,7 +246,7 @@ def _from_suite(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def fill_suite(q: Path, run_id: str, phase: str, parsed: dict[str, Any], accept_cache: bool,
-               auto_lanes: tuple[str, ...] = AUTO_ROLES) -> tuple[list[str], list[str]]:
+               auto_lanes: tuple[str, ...] = WHOLE_SUITE_ROLES) -> tuple[list[str], list[str]]:
     """§14.1: `Suite: from <suite_id>` takes the numbers from that recorded run, which must be this
     run's and have ended with a test count. With no `Suite:` line at all, the run's latest ended
     `full` or `gate` lane run with a count fills it in (`suite_filled: auto`), only when it passed:
@@ -655,7 +654,7 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
     parsed, errs = parse(rec["phase"], text, accept_cache=bool(cache_rule(cfg)),
                          declared=(cfg.report or {}).get("required_fields") or [], mode=rec.get("mode"), checks=checks)
     fill_errs, fill_warnings = fill_suite(q, run_id, rec["phase"], parsed, bool(cache_rule(cfg)),
-                                          tuple(lane_for(cfg, r) for r in AUTO_ROLES))
+                                          tuple(lane_for(cfg, r) for r in WHOLE_SUITE_ROLES))
     errs += fill_errs
     if errs:
         raise QueueError("report refused, nothing written:\n  " + "\n  ".join(errs), 1)
@@ -726,16 +725,16 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
                **{k: parsed[k] for k in PARSED_KEYS if k in parsed})
     runs.save(q, rec)
     emit(q, cfg, tid, "run", "reported",
-         {"run_id": run_id, "outcome": rec["outcome"], **({"corrected": True} if correcting else {})}, _actor_for(rec["seat"]))
+         {"run_id": run_id, "outcome": rec["outcome"], **({"corrected": True} if correcting else {})}, seat_actor(rec["seat"]))
     verdict = review_verdict(rec["phase"], parsed)
     if verdict is not None:
         if verdict == "clean" and parsed.get("outcome") == "done":  # §15.1: the task's review record
             write_review_record(cfg, q, rec)
         emit(q, cfg, tid, "review", "recorded", {"run_id": run_id, "verdict": verdict, "severity": parsed["severity"]},
-             _actor_for(rec["seat"]))
+             seat_actor(rec["seat"]))
     to = None if correcting else phase_after(rec["phase"], parsed)  # §10.1, §13.4: a correction moves nothing again
     if to is not None:
-        phase_move(q, cfg, tid, to, f"{run_id} reported", _actor_for(rec["seat"]))
+        phase_move(q, cfg, tid, to, f"{run_id} reported", seat_actor(rec["seat"]))
     return {"ok": True, "run_id": run_id, "report": str(dest), **{k: v for k, v in rec.items() if k in RETURNED_KEYS},
             **({"warnings": warnings} if warnings else {})}
 
@@ -826,8 +825,3 @@ def write_review_record(cfg: Config, q: Path, review: dict[str, Any]) -> str:
     rec = review_record(cfg.project_id, review, runs.all_runs(q, tid), raised_questions(q, tid), iso())
     write_json(review_record_path(q, tid), rec)
     return f"{REVIEW_DIR}/{tid}.json"
-
-
-def _actor_for(seat: str) -> str:
-    # The ledger's actors are seats; the verifier has its own id, the other workers act for the runner (§23.7).
-    return "task-verifier" if seat == "verifier" else lib.RUNNER

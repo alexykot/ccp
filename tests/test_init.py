@@ -321,7 +321,7 @@ class Adoption(InitCase):
     def test_a_kept_binding_on_a_queue_with_no_event_records_one_as_kept(self):
         self.assertEqual(self.init("--project-id", "demo")[0], 0)
         ledger = lib.events_path(self.queue)
-        older = {"at": "2026-01-01T00:00:00Z", "project_id": "demo", "task_id": "0001-a", "actor": "task-runner",
+        older = {"at": "2026-01-01T00:00:00Z", "project_id": "demo", "task_id": "0001-a", "actor": lib.RUNNER,
                  "type": "lease", "op": "set", "payload": {"holder": "r"}}
         ledger.write_text(json.dumps(older) + "\n")  # the queue as it was before the event existed
         self.assertEqual(self.init("--project-id", "demo")[0], 0)

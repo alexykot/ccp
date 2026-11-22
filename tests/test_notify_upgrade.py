@@ -63,7 +63,7 @@ class UpgradeNotice(UpgradeFixture, unittest.TestCase):
         self.assertNotIn("0004-skip", n["reason"])
         self.assertNotIn("0001-old", n["reason"])  # merged before the release
         self.assertIn(self.release, n["subject"])
-        self.assertEqual([(e["op"], e["actor"]) for e in self.notice_rows()], [("pending", "task-runner")])
+        self.assertEqual([(e["op"], e["actor"]) for e in self.notice_rows()], [("pending", lib.RUNNER)])
 
     def test_a_product_that_took_every_step_gets_no_notice(self):
         self.product_json(verify={"accept_cache": {"max_age_days": 7}, "skip_review_after_clean": True})

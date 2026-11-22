@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ccp import board, config, drill, runs, seats
+from ccp.queue import lib
 from tests.toolkit_fixture import ToolkitFixture, git
 
 HEAD = "a" * 40
@@ -54,7 +55,7 @@ class Abandon(ToolkitFixture, unittest.TestCase):
         self.assertEqual(body["run_id"], "0002-second/review-2")
         old = self.run_rec("0002-second/review")
         self.assertEqual(runs.state(old), "abandoned")
-        self.assertEqual((old["abandoned_reason"], old["abandoned_by"]), ("superseded by 0002-second/review-2", "task-runner"))
+        self.assertEqual((old["abandoned_reason"], old["abandoned_by"]), ("superseded by 0002-second/review-2", lib.RUNNER))
         self.assertTrue(old["abandoned_at"])
         self.assertEqual(self.abandoned(), [{"run_id": "0002-second/review", "reason": "superseded by 0002-second/review-2"}])
         self.assertEqual([ln for ln in err.splitlines() if "warning" in ln and "behind_tip not checked" not in ln], [])

@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, prhost
+from ccp.queue import lib
 
 from tests import helpers
 from tests.helpers import binding, GIT_ENV, PLANE_ROOT, TASK
@@ -95,7 +96,7 @@ class ToolkitFixture:
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         t = Path(self._tmp.name).resolve()
-        self.env = mock.patch.dict(os.environ, {**GIT_ENV, "QUEUE_ROOT": str(t / "queue"), "ACTOR": "task-runner"})
+        self.env = mock.patch.dict(os.environ, {**GIT_ENV, "QUEUE_ROOT": str(t / "queue"), "ACTOR": lib.RUNNER})
         self.env.start()
         self.origin = t / "origin.git"
         self.main = t / "product"

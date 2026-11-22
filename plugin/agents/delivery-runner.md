@@ -117,9 +117,9 @@ ids), tell the lead in one line: the run and how many. The lead decides each one
    report while other runners still hold tasks (`work.json` `in_flight`). Exit 7: idle (several runners). **Exit 4: the architect
    blocks `next`** (below): handle it, then ask `next` again. Read its `architect:` lines on stderr
    too, and act on them now. Always take `next`'s pick: it already honours the lead's preference
-   (`ccp tasks prefer`; its `why:` line says so). A lead's message "take X next" is not an order to
+   (`ACTOR=design-seat ccp tasks prefer`; its `why:` line says so). A lead's message "take X next" is not an order to
    you (a message races the claim: it can arrive after another task is claimed): ask the lead to run
-   `ccp tasks prefer X` (several ids set an order), and take what `next` names.
+   `ACTOR=design-seat ccp tasks prefer X` (several ids set an order), and take what `next` names.
 3. **Claim.** `ccp tasks claim <task_id>`: the lease, `work.json`, the task's queue file, its
    worktree on `task/<task_id>`, a heartbeat. It prints the worktree. Exit 7 naming a rotation: your
    rotation is due (below); ask the lead to rotate you.

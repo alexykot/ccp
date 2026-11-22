@@ -43,7 +43,7 @@ from typing import TYPE_CHECKING, Any, Iterator
 import functools
 
 from ccp import config, doclang, graph, refs, reviewpoints
-from ccp.config import Config, lane_for, lane_stages
+from ccp.config import WHOLE_SUITE_ROLES, Config, lane_for, lane_stages
 
 if TYPE_CHECKING:
     from ccp.adr import DecisionIndex
@@ -116,8 +116,6 @@ STEPS_RE = re.compile(r"^[ \t]*steps:(.*?)(?=^[ \t]*(?:expect:|dry run\b)|\Z)", 
 STEP_RE = re.compile(r"^[ \t]*(\d+)[.)][ \t]+", re.M)
 LINE_BREAK_RE = re.compile(r"[ \t]*\n[ \t]*")
 SOLE_COMMAND_RE = re.compile(r"run (`+)(?!`)((?:(?!\1).)+?)(?<!`)\1\.?", re.I)
-# The lane roles a refactor's own checks never re-run (§20.3): the verifier's gate already runs them.
-WHOLE_SUITE_ROLES = ("gate", "full")
 SHELL_CONTROL = frozenset({";", "&", "&&", "|", "||", "(", ")"})
 ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 REDIRECT_RE = re.compile(r"^[<>&]*[<>][<>&]*$")

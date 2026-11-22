@@ -1266,7 +1266,7 @@ def _note_run(cfg: Config, queue: Path, rec: dict[str, Any]) -> str | None:
     `ccp report` closes the run. A verdict with no open run (a PR that is not a task's, a record
     written before the toolkit) is still recorded; it only has no run to note."""
     from ccp import runs  # noqa: PLC0415
-    from ccp.queue import QueueError, emit  # noqa: PLC0415
+    from ccp.queue import QueueError, emit, lib  # noqa: PLC0415
 
     try:
         run = runs.latest_open(queue, str(rec["task_id"]), "verify")
@@ -1278,7 +1278,7 @@ def _note_run(cfg: Config, queue: Path, rec: dict[str, Any]) -> str | None:
                    checks=check_facts(rec.get("checks"), earlier))
         runs.save(queue, run)
         emit(queue, cfg, str(rec["task_id"]), "verify", "recorded",
-             {"run_id": run["run_id"], "verdict": rec["verdict"], "head_sha": rec.get("head_sha") or ""}, "task-verifier")
+             {"run_id": run["run_id"], "verdict": rec["verdict"], "head_sha": rec.get("head_sha") or ""}, lib.VERIFIER)
         return run["run_id"]
     except QueueError as exc:
         print(f"ccp verify record: the verdict is written; noting it on its run failed: {exc}", file=sys.stderr)

@@ -65,7 +65,7 @@ from typing import Any, Iterator
 from ccp.envvars import envvar, for_child
 from ccp import config, doclang, runs
 from ccp.config import PLANE_DOCS_STAGE, SUITE_LANE_RE, Config, fill, lane_for, lane_stages, skip_rules_at
-from ccp.queue import QueueError, emit, iso, lib, root
+from ccp.queue import QueueError, emit, iso, root, seat_actor
 
 COLD_VAR = "CCP_SUITE_COLD"  # §14.2: `ccp suite run --cold` sets it to 1 for what the run starts
 LINE_MAX = 8192  # a partial line longer than this is dropped from the count scan, never from the output
@@ -861,10 +861,6 @@ def _bind(cfg: Config | None, q: Path, a: Any, warn: _Warn) -> dict[str, Any]:
     return out
 
 
-def _actor_for(seat: str | None) -> str:
-    return "task-verifier" if seat == "verifier" else lib.RUNNER
-
-
 # The watchdog: it sits in the command's process group, ignores the signals ccp forwards, and waits
 # on a pipe only ccp writes. EOF without the "done" byte means ccp died (SIGKILL, a harness killing
 # ccp's group): it ends the command's group, which would otherwise run on unwatched.
@@ -1575,7 +1571,7 @@ def _finish(cfg: Config | None, q: Path | None, started: dict[str, Any] | None, 
                   "cold": cold, "counts_from": source, "interrupted": name,
                   **({"stages": stages, "failed_stage": failed_stage} if stages is not None else {}),
                   **({"proven_skips": proven} if proven else {})},
-                 _actor_for(started.get("seat")))
+                 seat_actor(started.get("seat")))
     except Exception as e:  # noqa: BLE001
         warn(f"the run's end was not recorded ({str(e).splitlines()[0][:200] if str(e) else type(e).__name__})")
         return

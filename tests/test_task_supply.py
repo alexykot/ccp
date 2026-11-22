@@ -253,7 +253,7 @@ def at(hours: float) -> str:
 
 
 def ev(hours: float, typ: str, op: str, **payload) -> dict:
-    return {"at": at(hours), "project_id": "demo", "task_id": "", "actor": "task-runner", "type": typ, "op": op,
+    return {"at": at(hours), "project_id": "demo", "task_id": "", "actor": lib.RUNNER, "type": typ, "op": op,
             "payload": payload}
 
 

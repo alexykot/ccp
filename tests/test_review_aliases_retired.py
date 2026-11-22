@@ -10,6 +10,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from ccp import cli
+from ccp.queue import lib
 from tests.toolkit_fixture import ToolkitFixture
 
 AR_ID = "ar-20261001T120000Z-abcd"
@@ -22,7 +23,7 @@ REPORT = {"schema_version": 1, "review_id": AR_ID, "project_id": "demo", "head":
 
 
 def _event(at: str, typ: str, op: str, payload: dict) -> dict:
-    return {"at": at, "project_id": "demo", "task_id": "", "actor": "task-runner", "type": typ, "op": op,
+    return {"at": at, "project_id": "demo", "task_id": "", "actor": lib.RUNNER, "type": typ, "op": op,
             "payload": payload}
 
 

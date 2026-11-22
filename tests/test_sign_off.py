@@ -360,7 +360,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
 
     def test_with_only_an_unsigned_task_ready_nothing_is_ready(self):
         self.two_ready()
-        self.assertEqual(self.ccp("tasks", "hold", "0002", "--reason", "later")[0], 0)
+        self.assertEqual(self.lead("tasks", "hold", "0002", "--reason", "later")[0], 0)
         code, tid, err = self.next_id()
         self.assertEqual(code, 3, err)
         self.assertIn("passed over 0001-first: no brief sign-off", err)
@@ -374,7 +374,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
 
     def test_an_empty_next_counts_the_unsigned_and_the_held(self):
         self.two_ready()
-        self.assertEqual(self.ccp("tasks", "hold", "0002", "--reason", "later")[0], 0)
+        self.assertEqual(self.lead("tasks", "hold", "0002", "--reason", "later")[0], 0)
         code, _, out, err = self.ccp("tasks", "next")
         self.assertEqual(code, 3, out + err)
         self.assertEqual(out.strip(), "nothing ready: 1 waits on a brief sign-off, 1 held (stderr names them)")
@@ -390,7 +390,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
 
     def test_a_preferred_unsigned_task_is_passed_over_and_explained(self):
         self.two_ready()
-        self.assertEqual(self.ccp("tasks", "prefer", "0001")[0], 0)
+        self.assertEqual(self.lead("tasks", "prefer", "0001")[0], 0)
         code, tid, err = self.next_id("--explain")
         self.assertEqual((code, tid), (0, "0002-second"), err)
         self.assertIn("preferred 0001-first awaits its brief sign-off: passed over", err)
@@ -450,7 +450,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
 
     def test_next_explains_each_kind_and_a_preferred_one(self):
         self.three_pending()
-        self.assertEqual(self.ccp("tasks", "prefer", "0002", "0001")[0], 0)
+        self.assertEqual(self.lead("tasks", "prefer", "0002", "0001")[0], 0)
         code, tid, err = self.next_id("--explain")
         self.assertEqual((code, tid), (0, "0003-third"), err)
         self.assertIn("preferred 0002-second has a malformed sign_off value: passed over (malformed sign_off", err)

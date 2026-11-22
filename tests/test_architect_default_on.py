@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import architect, cli, config, parallel, quality, rules, tasklog
+from ccp.queue import lib
 from tests.helpers import PLANE_ROOT, Product
 from tests.architect_fixture import Harness
 from tests.upgrade_fixture import UpgradeFixture
@@ -45,7 +46,7 @@ class Seat(unittest.TestCase):
         q = tempfile.TemporaryDirectory()
         self.addCleanup(q.cleanup)
         self.q = Path(q.name)
-        env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), "ACTOR": "task-runner"})
+        env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), "ACTOR": lib.RUNNER})
         env.start()
         self.addCleanup(env.stop)
         return p

@@ -109,19 +109,19 @@ class WriterCommand(unittest.TestCase):
     """lib.wait_writer_cmd, the one builder of the writer's argv."""
 
     def test_the_writer_then_the_three_words_then_the_seat_then_each_option_set(self) -> None:
-        cmd = lib.wait_writer_cmd("set", TASK, "quota", actor="task-runner", project_id="demo", task_only=True,
+        cmd = lib.wait_writer_cmd("set", TASK, "quota", actor=lib.RUNNER, project_id="demo", task_only=True,
                                   quota_class="credit", resets_at="2026-11-21T10:00:00Z",
                                   planned_resume_at="2026-11-21T10:05:00Z", detail="why")
         self.assertEqual(Path(cmd[0]), WRITER)
-        self.assertEqual(cmd[1:8], ["set", TASK, "quota", "--actor", "task-runner", "--project-id", "demo"])
+        self.assertEqual(cmd[1:8], ["set", TASK, "quota", "--actor", lib.RUNNER, "--project-id", "demo"])
         self.assertEqual(cmd[-1], "--task-only")
         self.assertEqual(dict(zip(cmd[8:-1:2], cmd[9:-1:2])),
                          {"--quota-class": "credit", "--resets-at": "2026-11-21T10:00:00Z",
                           "--planned-resume-at": "2026-11-21T10:05:00Z", "--detail": "why"})
 
     def test_an_option_not_set_is_left_out(self) -> None:
-        cmd = lib.wait_writer_cmd("clear", TASK, "released", actor="task-runner", project_id="demo", detail="")
-        self.assertEqual(cmd[1:], ["clear", TASK, "released", "--actor", "task-runner", "--project-id", "demo"])
+        cmd = lib.wait_writer_cmd("clear", TASK, "released", actor=lib.RUNNER, project_id="demo", detail="")
+        self.assertEqual(cmd[1:], ["clear", TASK, "released", "--actor", lib.RUNNER, "--project-id", "demo"])
 
 
 class SpecQuestionSetWait(unittest.TestCase):
@@ -130,14 +130,14 @@ class SpecQuestionSetWait(unittest.TestCase):
     def call(self, code: int = 0):
         done = subprocess.CompletedProcess([], code, "", "observability: no")
         with mock.patch.object(sm.subprocess, "run", return_value=done) as run:
-            sm.set_wait(Path("/q"), "set", TASK, "spec_maintainer", "task-runner", "demo", "sm-1",
+            sm.set_wait(Path("/q"), "set", TASK, "spec_maintainer", lib.RUNNER, "demo", "sm-1",
                         resets_at="2026-11-21T10:00:00Z", quota_class="session")
         return run.call_args
 
     def test_it_runs_lib_s_command(self) -> None:
         call = self.call()
         self.assertEqual(call.args[0], lib.wait_writer_cmd(
-            "set", TASK, "spec_maintainer", actor="task-runner", project_id="demo", quota_class="session",
+            "set", TASK, "spec_maintainer", actor=lib.RUNNER, project_id="demo", quota_class="session",
             resets_at="2026-11-21T10:00:00Z", detail="sm-1"))
         self.assertEqual(call.kwargs["env"]["QUEUE_ROOT"], "/q")
 

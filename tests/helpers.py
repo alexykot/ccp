@@ -239,6 +239,13 @@ def as_lead():
     return mock.patch.dict(os.environ, lead_env())
 
 
+def as_actor(value: str | None):
+    """The environment with `ACTOR` set to `value`, or with no `ACTOR` at all for None (the lead's: `as_lead`)."""
+    if value is None:
+        return mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != "ACTOR"}, clear=True)
+    return mock.patch.dict(os.environ, {"ACTOR": value})
+
+
 def git_run(cmd, **kw):
     return subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, **GIT_ENV, **kw.pop("env", {})}, **kw)
 

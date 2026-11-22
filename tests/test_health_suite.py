@@ -84,8 +84,8 @@ class Classify(unittest.TestCase):
         self.assertEqual(health.classify(ok, cache=True), "part")
         self.assertEqual(health.classify(ok, cache=True, lanes=("ci", "gate")), "cold")
         cfg = type("C", (), {"suite": {"roles": {"full": "ci", "gate": "gate", "part": "part"}}})()
-        self.assertEqual(health.cold_lanes(cfg), ("ci", "gate"))
-        self.assertEqual(health.cold_lanes(None), ("full", "gate"))
+        self.assertEqual(set(health.cold_lanes(cfg)), {"ci", "gate"})
+        self.assertEqual(set(health.cold_lanes(None)), {"full", "gate"})
 
     def test_line_kind_and_both_wordings(self):
         self.assertEqual(report.cache_counts("Suite: 40 tests, 12 s, ran 3, cached 90"), (3, 90))
