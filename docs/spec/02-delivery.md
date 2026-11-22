@@ -1031,7 +1031,7 @@ globs>], "review": <bool>}`):
   The verifier still runs its own gate.
 
 `ccp prompt verify` renders the exception only for such a product, and `ccp prompt review` the
-reviewer's only with `review: true`; without the setting each prompt is unchanged.
+reviewer's only with `review: true`; without the setting the verify prompt is unchanged, and the review prompt gives the reviewer's run of the modules the PR touches with `--cold` (§14.2), so a cache entry another run wrote never stands for it.
 
 ### 15.4 The verdict record
 
