@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Iterable
 
 from ccp.config import Config
-from ccp.envvars import for_child
+from ccp.envvars import envvar, for_child
 from ccp.rules import OUTPUT_CAP, CheckRun
 
 BASE_RUN = "CCP_BASE_RUN"  # set for the run at the base: the command writes its failures, as JSON, to this file
@@ -133,7 +133,7 @@ def split(head: list[Failure], base: list[Failure] | None, changed: list[str], h
 def emit(failures: list[Failure]) -> bool:
     """In the run at a base (`BASE_RUN` set): write `failures` to the file it names and return True;
     elsewhere False, writing nothing."""
-    out = os.environ.get(BASE_RUN)
+    out = envvar(BASE_RUN)
     if not out:
         return False
     Path(out).write_text(json.dumps([asdict(f) for f in failures]))
@@ -192,6 +192,15 @@ def _git(root: Path, *args: str) -> str | None:
     return r.stdout.strip() if r.returncode == 0 else None
 
 
+def changed_paths(root: Path, base: str) -> list[str] | None:
+    """The paths the commits since `base` change, as the failure lines print them: NUL-separated and
+    unquoted (`core.quotepath` off), so a path with non-ASCII characters is named whole. None when git
+    fails."""
+    r = subprocess.run(["git", "-C", str(root), "-c", "core.quotepath=off", "diff", "--name-only", "-z",
+                        f"{base}...HEAD"], capture_output=True, encoding="utf-8", errors="surrogateescape")
+    return [p for p in r.stdout.split("\0") if p] if r.returncode == 0 else None
+
+
 def judge(cfg: Config, failures: list[Failure], argv: list[str]) -> Judged:
     """`failures`, the command's at `HEAD`, judged against the same command at the merge base of `HEAD` and
     `origin/<integration>` as the checkout has it (nothing fetched). With no failures, no base, a base
@@ -204,10 +213,9 @@ def judge(cfg: Config, failures: list[Failure], argv: list[str]) -> Judged:
     base = _git(cfg.root, "merge-base", "HEAD", f"origin/{integ}")
     if not comparable(base, head):
         return Judged(lines)
-    diff = _git(cfg.root, "diff", "--name-only", f"{base}...HEAD")
-    if diff is None:
+    changed = changed_paths(cfg.root, str(base))
+    if changed is None:
         return Judged(lines)
-    changed = diff.splitlines()
     holds_ccp = (cfg.root / "ccp" / "__init__.py").is_file()
     if checker_changed(changed, holds_ccp):
         return Judged(lines)

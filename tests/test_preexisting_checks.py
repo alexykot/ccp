@@ -13,8 +13,8 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli, config
-from tests.helpers import Product
+from ccp import cli, config, queue
+from tests.helpers import Product, binding
 
 RULES = "# Rules\n\n## Words\n\n- **E1** No forbidden word.\n  check: command\n"
 GREP = "! git grep -nE 'FORBID[D]EN' -- ."
@@ -86,6 +86,18 @@ class DocsCheck(Repo, unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(self.preexisting(out), [])
 
+    def test_a_branch_adding_a_non_ascii_file_to_the_checker_leaves_the_hit_failing(self):
+        self.git("config", "core.quotepath", "true")
+        self.p.write("ccp/__init__.py", "")
+        self.commit("the repository holds its ccp")
+        self.publish()
+        self.git("checkout", "-q", "-b", "task")
+        self.p.write("ccp/caf\u00e9.py", "")
+        self.commit("work")
+        code, out = self.ccp("docs", "check")
+        self.assertEqual(code, 1)
+        self.assertEqual(self.preexisting(out), [])
+
     def test_on_the_integration_branch_itself_the_hit_fails(self):
         code, out = self.ccp("docs", "check")
         self.assertEqual(code, 1)
@@ -111,6 +123,38 @@ class BaseRun(Repo, unittest.TestCase):
             self.assertEqual(self.ccp("docs", "check")[0], 1)
         self.assertEqual((marks / "added").read_text().split(), ["ran"])
         self.assertEqual((marks / "queue").read_text().split(), [str(q), "unset"])
+
+    def echoed(self, var: str, bindings: Path, env: dict, queue_root: Path | None = None) -> list[str]:
+        """What a docs check that echoes `$<var>` and fails saw at `HEAD` and then at the base, on a task
+        branch, with the running `ccp`'s bindings directory `bindings`, `env` over the environment, and,
+        with `queue_root`, the product's binding there naming that queue."""
+        marks = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", str(marks)]))
+        echo = {"id": "echo", "cmd": f'echo "${{{var}:-unset}}" >> {marks}/seen; exit 1'}
+        p = self.make({"docs": {"checks": [echo]}})
+        if queue_root is not None:
+            (bindings / "demo.yaml").write_text(binding(product_root=p.root, queue_root=queue_root))
+        self.publish()
+        self.git("checkout", "-q", "-b", "task")
+        p.write("app/other.md", "mine\n")
+        self.commit("work")
+        with mock.patch.object(queue.lib, "bindings_dir", return_value=bindings), \
+                mock.patch.dict(os.environ, env):
+            self.assertEqual(self.ccp("docs", "check")[0], 1)
+        return (marks / "seen").read_text().split()
+
+    def test_the_base_run_gets_the_bindings_directory_the_head_run_resolved(self):
+        bindings = Path(tempfile.mkdtemp())
+        self.addCleanup(bindings.rmdir)
+        self.assertNotEqual(os.environ["CCP_BINDINGS_DIR"], str(bindings))
+        self.assertEqual(self.echoed("CCP_BINDINGS_DIR", bindings, {}),
+                         [os.environ["CCP_BINDINGS_DIR"], str(bindings)])
+
+    def test_the_base_run_takes_no_queue_from_the_products_binding(self):
+        bindings, q = Path(tempfile.mkdtemp()), Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", str(bindings), str(q)]))
+        seen = self.echoed("QUEUE_ROOT", bindings, {"CCP_NO_BINDING_QUEUE": ""}, q)
+        self.assertEqual(seen, [str(q), "unset"])
 
     def test_a_leak_style_list_outside_git_is_read_at_both_through_the_bindings_dir(self):
         bindings = Path(tempfile.mkdtemp())
