@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, estimate
-from tests.helpers import TASK, Product
+from tests.helpers import GIT_ENV, TASK, Product
 from tests.board_drill_fixture import Fixture
 from tests.board_quality_fixture import HOSTILE
 from tests.toolkit_fixture import ToolkitFixture, git
@@ -55,8 +55,7 @@ class Features(unittest.TestCase):
     def test_lines_are_read_at_a_commit_for_the_backfill(self):
         r = self.p.root
         subprocess.run(["git", "init", "-q", str(r)], check=True)
-        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t",
-               "GIT_COMMITTER_EMAIL": "t@t"}
+        env = {**os.environ, **GIT_ENV}
         subprocess.run(["git", "-C", str(r), "add", "-A"], check=True, env=env)
         subprocess.run(["git", "-C", str(r), "commit", "-qm", "one"], check=True, env=env)
         first = subprocess.run(["git", "-C", str(r), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()

@@ -4,6 +4,7 @@ warning."""
 from __future__ import annotations
 
 import shutil
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -54,6 +55,22 @@ class Leftover(WtFixture, unittest.TestCase):
         self.assertTrue(out["warnings"][0].startswith(f"worktree {path}:"), out["warnings"])
         self.assertTrue((path / "notes.txt").is_file())
 
+    def test_a_symlinked_directory_beside_a_cache_stays_and_its_target_is_untouched(self):
+        name, path = self.leftover()
+        cache = doclang.get(config.language_name(config.load(self.main))).file_skip_dirs[0]
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        target = Path(tmp.name)
+        (target / cache).mkdir()
+        (target / cache / "m.pyc").write_bytes(b"\0")  # only a cache: a followed link would leave the leftover only caches
+        (path / ".venv").symlink_to(target, target_is_directory=True)
+        code, out, body, err = self.wt("remove", name)
+        self.assertEqual(code, 0, body + err)
+        self.assertEqual(len(out["warnings"]), 1, out["warnings"])
+        self.assertTrue(path.is_dir())
+        self.assertTrue((path / ".venv").is_symlink())
+        self.assertTrue((target / cache / "m.pyc").is_file())
+
     def test_a_worktree_whose_git_file_is_gone_is_pruned_then_cleared(self):
         name, path = self.made()
         self.only_a_cache(path)  # its `.git` file goes too: git's removal fails, and only its prune unlists it
@@ -82,6 +99,20 @@ class OnlyCaches(unittest.TestCase):
         self.assertFalse(wt._only_caches([Path("c/m"), Path("a/n")], ("c",)))
         self.assertFalse(wt._only_caches([Path("a/c")], ("c",)))
         self.assertFalse(wt._only_caches([Path("c/m")], ()))
+
+
+class FilesUnder(unittest.TestCase):
+    def test_a_symlinked_directory_counts_as_one_file_and_is_not_followed(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        tree, elsewhere = Path(tmp.name) / "tree", Path(tmp.name) / "elsewhere"
+        (tree / "a").mkdir(parents=True)
+        (tree / "a" / "f").write_text("x")
+        (elsewhere / "sub").mkdir(parents=True)
+        (elsewhere / "g").write_text("x")
+        (elsewhere / "sub" / "h").write_text("x")
+        (tree / "l").symlink_to(elsewhere, target_is_directory=True)
+        self.assertEqual(sorted(wt._files_under(tree)), [Path("a/f"), Path("l")])
 
 
 if __name__ == "__main__":

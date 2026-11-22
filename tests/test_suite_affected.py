@@ -14,7 +14,7 @@ from unittest import mock
 
 from ccp import cli, config, doclang, suite
 from ccp.doclang import python as py_pack
-from tests.helpers import Product, merged_plane
+from tests.helpers import PLANE_ROOT, Product, merged_plane
 
 
 def git(root, *a):
@@ -438,7 +438,7 @@ class AffectedMapConfig(unittest.TestCase):
         self.assertEqual(plain.cfg.suite["affected_map"], {})
 
     def test_the_schema_lists_the_key(self):
-        schema = json.loads((Path(__file__).resolve().parent.parent / "contracts/plane_config.schema.json").read_text())
+        schema = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_text())
         self.assertEqual(schema["properties"]["suite"]["properties"]["affected_map"]["default"], {})
 
 

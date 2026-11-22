@@ -14,7 +14,7 @@
       },
       {
         "id": "E4",
-        "cmd": "! git grep -nE '= test_[a-z_]+\\.[A-Z][A-Za-z]+\\.[a-z_]+' -- tests && ! git grep -n '\\.plane-runtime' -- 'tests/test_*.py' ':(exclude)tests/test_plane_json_constants.py' && test \"$(LC_ALL=C git grep -hE 'assert(Not)?In\\(\"[^\"]{40,}' -- 'tests/*.py' | wc -l)\" -le 345 && ! git grep -nE '^[[:space:]]*(from tests\\.test_|from tests import test_|import tests\\.test_|from \\.test_)' -- tests"
+        "cmd": "! git grep -nE '= test_[a-z_]+\\.[A-Z][A-Za-z]+\\.[a-z_]+' -- tests && ! git grep -n '\\.plane-runtime' -- 'tests/test_*.py' ':(exclude)tests/test_plane_json_constants.py' && test \"$(LC_ALL=C git grep -hE 'assert(Not)?In\\(\"[^\"]{40,}' -- 'tests/*.py' | wc -l)\" -le 345 && ! git grep -nE '^[[:space:]]*(from tests\\.test_|from tests import test_|import tests\\.test_|from \\.test_)' -- tests && ! git grep -nF '__file__).resolve().parent' -- 'tests/*.py' ':(exclude)tests/helpers.py' && ! git grep -nw GIT_AUTHOR_NAME -- 'tests/*.py' ':(exclude)tests/helpers.py'"
       },
       {
         "id": "E13",

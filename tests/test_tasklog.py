@@ -6,7 +6,7 @@ import subprocess
 import unittest
 
 from ccp import tasklog
-from tests.helpers import Product
+from tests.helpers import PLANE_ROOT, Product
 
 
 class TaskLogTest(unittest.TestCase):
@@ -500,8 +500,7 @@ class TemplatesStayValid(unittest.TestCase):
 
     def test_examples(self):
         import shutil
-        from pathlib import Path
-        dd = Path(__file__).resolve().parent.parent / "templates" / "docs-delivery"
+        dd = PLANE_ROOT / "templates" / "docs-delivery"
         p = Product()
         try:
             shutil.copy(dd / "example-plane.json", p.root / "docs/delivery/plane.json")
