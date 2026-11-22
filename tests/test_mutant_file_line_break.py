@@ -11,7 +11,8 @@ from ccp import mutate
 from ccp.queue import QueueError
 
 RULED = ("mutant file 'm.txt': the old text is in calc.py 0 times: it ends with the line break before === new, and "
-         "without it it is in calc.py 1 times; end the old text at a line end")
+         "without it it is in calc.py 1 times; end the old text at a line end (the old text includes its last line's line "
+         "break), or put a substitution inside one line in --mutant")
 
 
 class LineBreak(unittest.TestCase):

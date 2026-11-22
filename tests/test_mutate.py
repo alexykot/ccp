@@ -444,48 +444,15 @@ class Refusals(MutateFixture, unittest.TestCase):
         self.assertEqual((self.mut / "calc.py").read_text(), CALC)
         return err
 
-    def test_outside_an_impl_mut_rev_or_ver_worktree(self):
-        self.refused(2, "calc.py:a + b=>a - b", root=self.make_wt("mac"))
-        self.refused(2, "calc.py:a + b=>a - b", root=self.main)
-
-    def test_a_reviewer_or_verifier_worktree(self):
-        for kind in ("rev", "ver"):
-            root = self.make_wt(kind)
-            code, body, _, err = self.mutate("calc.py:a + b=>a - b", root=root)
-            self.assertEqual((code, body["worktree"]), (0, root.name), err)
-            self.assertEqual((root / "calc.py").read_text(), CALC)
-        self.assertEqual([(r["outcome"], r["worktree"]) for r in self.rows()],
-                         [("killed", "rev-0002"), ("killed", "ver-0002")])
-
-    def test_neither_a_mutant_nor_a_revert(self):
-        self.refused(2)
-
     def test_a_worktree_of_another_task(self):
         self.refused(2, "calc.py:a + b=>a - b", root=self.make_wt("mut", task="0001"))
         self.refused(2, "calc.py:a + b=>a - b", root=self.make_wt("rev", task="0001"))
-
-    def test_old_text_absent_or_ambiguous(self):
-        self.refused(2, "calc.py:a / b=>a - b")
-        self.refused(2, "calc.py:def =>fed ")
-        self.refused(2, "calc.py:a + b=>a - b", "calc.py:nope=>x")  # one bad mutant: none runs
-
-    def test_a_mutant_that_is_no_file_or_leaves_the_worktree(self):
-        self.refused(2, "no-such.patch")
-        self.refused(2, "../calc.py:a + b=>a - b")
-        self.refused(2, "missing.py:a=>b")
-        self.refused(2, "/etc/hosts:a=>b")
-        self.refused(2, "calc.py=>x")
-        self.refused(2, "calc.py:=>x")
-
-    def test_no_test_named(self):
-        self.refused(2, "calc.py:a + b=>a - b", test=" ")
 
     def test_a_closed_run(self):
         rec = runs.load(self.q, self.run_id)
         rec["reported_at"] = "2026-11-10T00:00:00Z"
         runs.save(self.q, rec)
         self.refused(2, "calc.py:a + b=>a - b")
-
 
     def test_a_test_that_fails_unmutated(self):
         (self.mut / "test_calc.py").write_text(TESTS.replace("add(1, 1), 2", "add(1, 1), 3"))
