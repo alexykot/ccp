@@ -121,18 +121,18 @@ of which stay true; neither removed schema is named in the SPEC. No sign-off.
   steps:
     1. Run `python3 -B -m unittest -v tests.test_contract_writers.WorktreeContract`.
     2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_contract_writers.WorktreeContract.test_the_record_validates_after_ccp_wt_up_and_down --mutant 'ccp/wt.py:up_at=iso()=>up_at=0'`.
-    3. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_contract_writers.WorktreeContract.test_the_record_validates_after_ccp_wt_up_and_down --mutant-file <file>`, the file's mutant making `"def down"` write `urls={}` in place of `urls=[]` (its old text the three lines from `st.update(state="down", urls=[])` to `return {"ok": True`, which occur once).
+    3. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_contract_writers.WorktreeContract.test_the_record_validates_after_ccp_wt_up_and_down --mutant-file <file>`, the file's mutant making the failed-up branch of `"def up"` write `state="stopped"` in place of `state="down"` (its old text the three lines from `st.update(state="down", urls=[])` to `raise QueueError(`, which occur once).
   expect: step 1 exits 0 and lists `test_the_record_validates_after_ccp_wt_up_and_down` as `ok`; steps 2 and 3 each print the mutant `killed`.
   dry run: n/a — the test is new. The premise probe is in Context.
 - id: `data-01`
   story: As a plane developer, contracts/ holds no schema that nothing writes or reads.
   setup: A checkout of the PR head.
   steps:
-    1. Run `git grep -nP "(architecture_review|(?<!suite_)result)\.schema\.json" origin/main -- . ':!docs/delivery/tasks' ':!docs/delivery/reviews'`.
+    1. Run `git grep -nP "(architecture_review|(?<!suite_)result)\.schema\.json" 254bb64 -- . ':!docs/delivery/tasks' ':!docs/delivery/reviews'`.
     2. Run `git grep -nP "(architecture_review|(?<!suite_)result)\.schema\.json" -- . ':!docs/delivery/tasks' ':!docs/delivery/reviews'`.
     3. Run `ls contracts/architecture_review.schema.json contracts/result.schema.json`.
-  expect: step 1 prints the two `$id` lines (the pattern finds the files); step 2 prints nothing (exit 1); step 3 exits non-zero, reporting both missing.
-  dry run (`254bb64`): step 1 printed 2 lines (`origin/main:contracts/architecture_review.schema.json:3`, `origin/main:contracts/result.schema.json:3`); step 2 printed the same 2 lines without the ref prefix; step 3 listed both files, exit 0.
+  expect: step 1 prints exactly two lines, `254bb64:contracts/architecture_review.schema.json:3` and `254bb64:contracts/result.schema.json:3` (the pattern finds the files); step 2 prints nothing (exit 1); step 3 exits non-zero, reporting both missing.
+  dry run (`254bb64`): step 1 printed 2 lines (`254bb64:contracts/architecture_review.schema.json:3`, `254bb64:contracts/result.schema.json:3`); step 2 printed the same 2 lines without the ref prefix; step 3 listed both files, exit 0.
 - id: `doc-01`
   story: As a plane developer, contracts/CLAUDE.md names the contracts still unchecked, and question_answer is not among them.
   setup: A checkout of the PR head.
