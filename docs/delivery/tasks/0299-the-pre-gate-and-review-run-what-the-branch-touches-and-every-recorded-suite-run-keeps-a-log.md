@@ -1,7 +1,7 @@
 ---
 task_id: 0299-the-pre-gate-and-review-run-what-the-branch-touches-and-every-recorded-suite-run-keeps-a-log
 title: ccp suite affected reads a branch's own change from its merge base, ccp suite run --affected runs what it lists, a --full run keeps a log, and report.fill_suite's branches are tested on plain rows
-status: pending
+status: done
 kind: feature
 depends_on: ["0292-the-review-prompt-asks-for-a-cold-run-where-review-takes-no-cache-hits"]
 spec_refs: ["S13", "S14"]
@@ -198,4 +198,32 @@ Measured at `3368264`.
 
 ## Implementation notes
 
+- `ccp/suite.py`: `changed_paths` takes `<ref>...` (nothing after the dots) as the diff from `_merge_base(<ref>, HEAD)`
+  against the working tree plus untracked files; an unknown ref or no merge base exits 2 naming the `--since`.
+  `affected_plan` is the one decision of what runs the modules (lane, argv or None for the lane's own, the text the
+  line prints); `affected_hint` formats its line from it, unchanged, and `ccp suite run --affected` runs it.
+  `affected_modules` is what both commands work from. `main_run` refuses `--since` without `--affected`, and
+  `--affected` with `--lane` or a command, before loading anything (`affected_usage`); then `affected_run` works out
+  the lane and command, and the run goes on as any run.
+- Choices the rulings leave open, the narrowest: `ccp suite run --affected` runs from the product root (the modules are
+  named from it, as a named lane runs there), resolving a relative `--log` from the caller's directory first; before
+  the run it prints one stderr line naming the `ccp suite run --lane …` it runs. The leading-dash `--since` rewrite in
+  `cli.main` now applies to `suite run` too, so `--since -x` is an unknown ref, not an option.
+- The `--full` log is opened only for a recorded run (a queue and a `started` row), as the ruling says; an unrecorded
+  `--full` run keeps none, `--log` or not. Both streams are copied to it by the pumps under one lock, chunk by chunk;
+  staged lanes' stage marks stay on stderr (they are `ccp`'s lines, not copied output). The log is not read back and
+  no summary is printed in `--full`.
+- `ccp/report.py`: `judge_suite` holds every branch of the old `fill_suite`; `fill_suite` folds, calls it and applies
+  its update. Six `ReportCrossCheck` tests went (E15); `tests/test_fill_suite.py` holds 13 tests on plain rows.
+- `tests/test_suite.py` `Counting.test_a_real_unittest_run_is_counted` asserted a `--full` run's `ended` row has
+  `log: None`; the ruling changes that, so it now reads the log.
+- Fix round 1 (review MINOR 1): the `--full` log copy is one `_Tee` for the whole run (its fd and one lock), passed to
+  every stage, so a pump left over from one stage cannot interleave a chunk with the next stage's. `run` closes it
+  under the lock and sets its fd to None, so a pump a background child keeps alive past the drain writes nowhere,
+  rather than into whatever file reuses the fd number next (the run's `_suites.jsonl` append, the ledger). The review's
+  NIT (`ccp/config.py` and the schema still saying "summary-mode logs") is outside the task's paths and left as a
+  follow-up.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #362 head `f45c84c` (squash `812dee0`): APPROVE. Passed: spec-01, cmd-01, cmd-02, cmd-03, code-01. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part -- python3 -B -m unittest -v tests.test_suite_affected tests.test_suite_run_affected tests.test_suite_full_log tests.test_fill_suite` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0299-the-pre-gate-and-review-run-what-the-branch-touches-and-every-recorded-suite-run-keeps-a-log.json.
+

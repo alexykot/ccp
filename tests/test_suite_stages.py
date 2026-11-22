@@ -176,6 +176,27 @@ class StagesRunInOrder(StagedFixture, unittest.TestCase):
                 self.assertEqual([(s["name"], s["exit_code"]) for s in row["stages"]], [("first", 0)])
                 self.assertIn("second", "".join(said).split("not run:")[1])
 
+    def test_a_full_runs_stages_share_one_log_copy_closed_when_the_run_ends(self):
+        self.lanes({"fast": [{"name": "first", "cmd": "true"}, {"name": "second", "cmd": "true"}]})
+        real = suite._run_stage
+        tees: list = []
+
+        def run_stage(*args, **kw):
+            tees.append(args[7] if len(args) > 7 else kw.get("tee"))
+            return real(*args, **kw)
+        cwd = os.getcwd()
+        self.addCleanup(os.chdir, cwd)
+        cfg = config.load(self.runner)
+        a = type("A", (), {"lane": "fast", "phase": None, "run": None, "task": None, "root": None,
+                           "output": "full", "log": None, "wait": None})()
+        with mock.patch.object(suite, "_run_stage", run_stage):
+            self.assertEqual(suite.run(cfg, a, None), 0)
+        self.assertEqual(len(tees), 2)
+        self.assertIsNotNone(tees[0])
+        self.assertIs(tees[0], tees[1])  # one lock for every stage's pumps: a chunk lands whole
+        self.assertIsNone(tees[0].fd)  # closed: a pump that outlives the run writes nowhere
+        self.assertIsNotNone(self.ended()["log"])
+
     def test_a_signal_a_stage_survives_stops_the_run_before_the_next(self):
         later = self.runner / "later-ran"
         for sig, code in ((signal.SIGTERM, 143), (signal.SIGINT, 130)):

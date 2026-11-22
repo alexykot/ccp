@@ -245,52 +245,62 @@ def _from_suite(row: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def fill_suite(q: Path, run_id: str, phase: str, parsed: dict[str, Any], accept_cache: bool,
-               auto_lanes: tuple[str, ...] = WHOLE_SUITE_ROLES) -> tuple[list[str], list[str]]:
-    """§14.1: `Suite: from <suite_id>` takes the numbers from that recorded run, which must be this
+def judge_suite(rows: list[dict[str, Any]], run_id: str, phase: str, parsed: dict[str, Any], accept_cache: bool,
+                auto_lanes: tuple[str, ...] = WHOLE_SUITE_ROLES
+                ) -> tuple[list[str], list[str], dict[str, Any]]:
+    """§14.1: what the report's suite line takes from the folded suite `rows` (`suite.fold`); reads and
+    writes nothing. `Suite: from <suite_id>` takes the numbers from that recorded run, which must be this
     run's and have ended with a test count. With no `Suite:` line at all, the run's latest ended
     `full` or `gate` lane run with a count fills it in (`suite_filled: auto`), only when it passed:
     after a failed one, nothing is filled and a warning says so. A hand-written line stays as
-    written. Errors (a refusal) and warnings."""
-    from ccp import suite  # noqa: PLC0415
+    written. Errors (a refusal), warnings, and the fields to set on `parsed`."""
     sid = parsed.get("suite_from")
     if sid is None and "suite_tests" in parsed:
-        return [], []
+        return [], [], {}
     if "suite_unparsed" in parsed:  # the worker's line stays as written; nothing is filled over it
         return [], [f"the report's `{parsed['suite_unparsed']}` line is neither `Suite: <n> tests, <s> s` nor "
-                    "`Suite: from <suite_id>`: no suite numbers were recorded from it"]
-    try:
-        rows = suite.fold(q)
-    except Exception:  # noqa: BLE001  (a damaged suites file: nothing to fill from)
-        rows = []
+                    "`Suite: from <suite_id>`: no suite numbers were recorded from it"], {}
     ended = [r for r in rows if r.get("state") in ("passed", "failed", "interrupted")]
     if sid is not None:
         row = next((r for r in rows if r.get("suite_id") == sid), None)
         if row is None:
-            return [f"`Suite: from {sid}`: no suite run {sid} is recorded (ccp suite list)"], []
+            return [f"`Suite: from {sid}`: no suite run {sid} is recorded (ccp suite list)"], [], {}
         if row.get("run_id") != run_id:
             return [f"`Suite: from {sid}`: that suite run is recorded against {row.get('run_id') or 'no run'}, "
-                    f"not {run_id}"], []
+                    f"not {run_id}"], [], {}
         if row not in ended or row.get("tests") is None:
             return [f"`Suite: from {sid}`: that suite run has not ended with a test count; "
-                    "write `Suite: <n> tests, <s> s`"], []
+                    "write `Suite: <n> tests, <s> s`"], [], {}
         got = _from_suite(row)
         if phase == "verify" and accept_cache and "suite_ran" not in got:
-            return [NO_CACHE_COUNTS + f" (suite run {sid} recorded none)"], []
-        parsed.update(got, suite_filled="from", suite_passed=row.get("state") == "passed")
-        return [], []
+            return [NO_CACHE_COUNTS + f" (suite run {sid} recorded none)"], [], {}
+        return [], [], {**got, "suite_filled": "from", "suite_passed": row.get("state") == "passed"}
     mine = [r for r in ended if r.get("run_id") == run_id and r.get("lane") in auto_lanes and r.get("tests") is not None]
     if not mine:
-        return [], []
+        return [], [], {}
     last = mine[-1]
     if last.get("state") != "passed":
         return [], [f"no `Suite:` line, and this run's latest {last.get('lane')} suite run ({last['suite_id']}) "
                     f"{last.get('state')} with exit {last.get('exit_code')}: nothing was filled in; write "
-                    f"`Suite: <n> tests, <s> s` or `Suite: from <suite_id>`"]
+                    f"`Suite: <n> tests, <s> s` or `Suite: from <suite_id>`"], {}
     got = _from_suite(last)
-    if not (phase == "verify" and accept_cache and "suite_ran" not in got):
-        parsed.update(got, suite_from=last["suite_id"], suite_filled="auto", suite_passed=True)
-    return [], []
+    if phase == "verify" and accept_cache and "suite_ran" not in got:
+        return [], [], {}
+    return [], [], {**got, "suite_from": last["suite_id"], "suite_filled": "auto", "suite_passed": True}
+
+
+def fill_suite(q: Path, run_id: str, phase: str, parsed: dict[str, Any], accept_cache: bool,
+               auto_lanes: tuple[str, ...] = WHOLE_SUITE_ROLES) -> tuple[list[str], list[str]]:
+    """§14.1: the report's suite line, filled on `parsed` from the queue's recorded suite runs as `judge_suite`
+    decides. Errors (a refusal) and warnings."""
+    from ccp import suite  # noqa: PLC0415
+    try:
+        rows = suite.fold(q)
+    except Exception:  # noqa: BLE001  (a damaged suites file: nothing to fill from)
+        rows = []
+    errors, warnings, update = judge_suite(rows, run_id, phase, parsed, accept_cache, auto_lanes)
+    parsed.update(update)
+    return errors, warnings
 
 
 def resolution_lines(text: str, checks: list[str] | None) -> tuple[dict[str, Any], list[str]]:

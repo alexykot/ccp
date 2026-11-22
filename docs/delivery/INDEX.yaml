@@ -1468,7 +1468,7 @@ tasks:
     depends_on: []
     path: tasks/0298-the-cli-reference-reads-each-span-s-flags-and-tests-take-the-plane-root-and-git-env-from-helpers.md
   - id: 0299-the-pre-gate-and-review-run-what-the-branch-touches-and-every-recorded-suite-run-keeps-a-log
-    status: pending
+    status: done
     title: ccp suite affected reads a branch's own change from its merge base, ccp suite run --affected runs what it lists, a --full run keeps a log, and report.fill_suite's branches are tested on plain rows
     depends_on: [0292-the-review-prompt-asks-for-a-cold-run-where-review-takes-no-cache-hits]
     path: tasks/0299-the-pre-gate-and-review-run-what-the-branch-touches-and-every-recorded-suite-run-keeps-a-log.md

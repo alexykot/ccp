@@ -114,22 +114,18 @@ class Templates(unittest.TestCase):
         for phase in ("implement", "fix"):
             text = render(phase, architect_checks="`python -m unittest tests.test_a`")
             self.assertIn("run a quick pre-gate: the product's house-rule checks (`python -m unittest tests.test_a`) "
-                          "and the run `<ccp> suite affected --since", text, phase)
-            self.assertIn("prints on stderr, through `<ccp> suite run` (the part lane, or the full lane when it says so)",
-                          text, phase)
+                          "and `<ccp> suite run --affected --since", text, phase)
             self.assertNotIn("the test modules that depend on the paths", text, phase)
             self.assertNotIn("a cheap failure shows in seconds", text, phase)
             self.assertIn("The pre-gate never stands in for the full suite", text, phase)
             plain = render(phase)
             self.assertNotIn("house-rule checks", plain, phase)
-            self.assertIn("run a quick pre-gate: the run `<ccp> suite affected --since", plain)
+            self.assertIn("run a quick pre-gate: `<ccp> suite run --affected --since", plain)
 
     def test_the_four_pre_gate_briefs_name_the_command_and_do_not_restate_the_rule(self):
         for phase in ("implement", "fix", "merge", "ruling"):
             text = render(phase)
-            self.assertIn("the run `<ccp> suite affected --since", text, phase)
-            self.assertIn("prints on stderr, through `<ccp> suite run` (the part lane, or the full lane when it says so)",
-                          text, phase)
+            self.assertIn("`<ccp> suite run --affected --since", text, phase)
             self.assertNotIn("the test modules that depend on the paths", text, phase)
             self.assertNotIn("a cheap failure shows in seconds", text, phase)
             self.assertEqual(text.count("The pre-gate never stands in for the full suite"), 1, phase)
