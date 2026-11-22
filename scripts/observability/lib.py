@@ -30,7 +30,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-SEAT_IDS = ("task-runner", "task-verifier", "delivery-watchdog", "design-seat")
+LEAD = "design-seat"  # §2: the actor the lead's commands record as (queue.lead_actor guards its records)
+RUNNER = "task-runner"  # §2: the actor the runner's commands record as
+SEAT_IDS = (RUNNER, "task-verifier", "delivery-watchdog", LEAD)
 ACTORS = SEAT_IDS + ("adapter", "operator", "system", "plane-session")  # plane-session: §31.5 triage
 # §17.8 adds question + spec_maintainer types and their ops; §19.10 adds architecture_review;
 # §21 adds docs_audit (same ops and payloads: both are §19 review kinds); §23.7 adds gate + runner
@@ -237,10 +239,10 @@ DEFAULT_CRON = "*/10 * * * *"
 # (§18.3).
 EVENT_ONLY = "event"
 SEAT_DEFAULT_CRON = {
-    "task-runner": DEFAULT_CRON,
+    RUNNER: DEFAULT_CRON,
     "task-verifier": EVENT_ONLY,
     "delivery-watchdog": "*/30 * * * *",
-    "design-seat": EVENT_ONLY,
+    LEAD: EVENT_ONLY,
 }
 # §18.3: no seat runs on a routine (the team lead sees idle and failure notices directly), so
 # every seat is event-only: there is no stale rule for seats and no verifier-progress timer.

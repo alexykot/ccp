@@ -179,6 +179,16 @@ def actor(default: str = "task-runner") -> str:
     return a if a in lib.ACTORS else default
 
 
+def lead_actor(what: str) -> str:
+    """§3.5, §13.4, §17.5: the lead's actor id, for a record only the lead makes (`what`, as the refusal names it):
+    `ACTOR` unset, or naming the lead, gives it, as `actor` reads `ACTOR`; one naming another known actor is refused
+    (exit 2), before the caller reads or writes anything."""
+    a = actor(lib.LEAD)
+    if a != lib.LEAD:
+        raise QueueError(f"only the lead records {what} (ACTOR is {a}): tell the lead", 2)
+    return a
+
+
 def runner_teammate(q: Path) -> str:
     """§10.2: the live runner teammate's actual name. The harness gives a fresh spawn a suffixed name
     (`runner-2`) while the old teammate still holds the asked-for one; the lead binds the actual name
@@ -294,11 +304,12 @@ def sign_offs(q: Path, task_id: str) -> dict[str, dict[str, Any]]:
 
 
 def rulings(q: Path, task_id: str) -> list[dict[str, Any]]:
-    """§17.5: the lead rulings recorded on the task, in order, from the ledger's `ruling` `recorded` events:
-    the payload (`id`, `n`, `check?`, `words`) with the event's `at`."""
+    """§17.5: the lead rulings recorded on the task, in order, from the ledger's `ruling` `recorded` events the lead
+    recorded: the payload (`id`, `n`, `check?`, `words`) with the event's `at`. One another actor recorded is no
+    lead ruling (§15.4) and is left out."""
     return [{**ev["payload"], "at": ev.get("at")} for ev in lib.load_events(events_path(q))
             if ev.get("task_id") == task_id and ev.get("type") == "ruling" and ev.get("op") == "recorded"
-            and isinstance(ev.get("payload"), dict) and ev["payload"].get("id")]
+            and ev.get("actor") == lib.LEAD and isinstance(ev.get("payload"), dict) and ev["payload"].get("id")]
 
 
 def read_json(path: Path, default: Any = None) -> Any:

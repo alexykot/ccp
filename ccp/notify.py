@@ -168,7 +168,7 @@ def record_sent(q: Path, cfg: Config, trigger: str, task_id: str = "", ident: st
     if trigger == "other" and not note:
         raise ValueError("a notice on the lead's own judgment (other) needs --note: ids and a short reason, one line")
     task_id, ident = _one_line("--task", (task_id or "").strip()), _one_line("--id", (ident or "").strip())
-    by = who or queue.actor("design-seat")
+    by = who or queue.actor(queue.lib.LEAD)
     payload = {"trigger": trigger, "project": cfg.project_id, "task": task_id, "id": ident, "via": via, "by": by,
                "ok": bool(ok), **({"note": note} if note else {})}
     return _emit(q, cfg, "sent", task_id, payload, by)

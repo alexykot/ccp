@@ -143,11 +143,11 @@ def _main_seat(row: dict[str, Any], root: str | None, runner_wts: set[str]) -> s
     if not cwd and sdk:
         return UNTAGGED
     if not cwd or not root:
-        return "design-seat"
+        return lib.LEAD
     real = os.path.realpath(str(cwd))
     if real in runner_wts:
         return UNTAGGED if sdk else "runner"
-    return "design-seat" if real == root else "other-sessions"
+    return lib.LEAD if real == root else "other-sessions"
 
 
 SINCE_FORMS = "YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ"
@@ -223,14 +223,14 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
             seat, how_key = ("runner" if name in rnames else f"teammate:{name}"), "teammate"
         elif span and not aid:
             seat = _main_seat(req, root, runner_wts)
-            how_key = "lead" if seat == "design-seat" else "untagged" if seat == UNTAGGED else "session"
+            how_key = "lead" if seat == lib.LEAD else "untagged" if seat == UNTAGGED else "session"
         elif not span and str(req.get("query_source") or "").startswith("agent:"):
             run, how_key = _window(all_runs, req), "window"
             if run is None:
                 how_key = "none"
         elif not span and not traced:
             seat = _main_seat(req, root, runner_wts)  # no traces at all: a main-thread call, placed by its cwd
-            how_key = "lead" if seat == "design-seat" else "untagged" if seat == UNTAGGED else "session"
+            how_key = "lead" if seat == lib.LEAD else "untagged" if seat == UNTAGGED else "session"
         elif not span:
             how_key = "nospan"  # traces exist but this call has none (lost or late): not counted as attributed
         else:
@@ -253,7 +253,7 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
             if run is not None:
                 adv_runs.add(run["run_id"])
             ctx = sum(int(_n(req.get(k))) for k in CONTEXT_TOKENS)
-            if run is None and seat == "design-seat":
+            if run is None and seat == lib.LEAD:
                 lead_calls.append((str(req.get("session_id") or ""), req.get("model"),
                                    sum(int(_n(req.get(k))) for k in TOKENS), ctx))
             else:
@@ -306,7 +306,7 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
                 tt["requests"] += per_run[r["run_id"]]["requests"]
         task_total = _out(tt)
     advice = []
-    lead = seats.get("design-seat")
+    lead = seats.get(lib.LEAD)
     if design_seat and lead and lead["requests"]:
         # §24.5: advice only. The lead also makes small helper calls (titles) on other models: compare the
         # model of most of its tokens, and every effort it used.
@@ -317,7 +317,7 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
             advice.append(f"the design seat ran at effort {', '.join(sorted(lead['efforts']))}; the operator expects {design_seat['effort']}")
     if knobs is not None:
         if lead_calls:
-            contexts["design-seat"] = main_model_contexts(lead_calls)
+            contexts[lib.LEAD] = main_model_contexts(lead_calls)
         start = f" (requests since {_utc(advice_since)})" if advice_since is not None else " (every request)"
         advice += [line + start for line in
                    cost_advice({k: _out(v) for k, v in adv_seats.items()}, contexts, knobs, worker_runs=len(adv_runs))]
@@ -332,8 +332,8 @@ def fold(q: Path, task_id: str | None = None, design_seat: dict[str, str] | None
             "traces": bool(spans), "headless": headless}
 
 
-COORDINATION = ("design-seat", "runner")  # the lead and the runner: the seats that coordinate the workers (§24.6)
-CONTEXT_SETTING = {"design-seat": "with autoCompactWindow (.claude/settings.json)",
+COORDINATION = (lib.LEAD, "runner")  # the lead and the runner: the seats that coordinate the workers (§24.6)
+CONTEXT_SETTING = {lib.LEAD: "with autoCompactWindow (.claude/settings.json)",
                    "runner": "by rotating it sooner (`team.sh runner rotate`, SPEC §10.2)"}
 
 
@@ -1036,14 +1036,14 @@ def continue_(cfg: Config, q: Path, to: float, reason: str) -> dict[str, Any]:
     cur = checkpoint(cfg, q, last["resets_at"], win)
     if cur is not None and to <= cur:
         raise QueueError(f"--to {to:g}% does not raise the checkpoint in force ({cur:g}%)", 2)
-    rec = {"at": iso(), "by": "design-seat", "to": to, "reason": reason.strip(), "resets_at": last["resets_at"],
+    rec = {"at": iso(), "by": lib.LEAD, "to": to, "reason": reason.strip(), "resets_at": last["resets_at"],
            "window": win, "seven_day_then": last.get("seven_day")}
     p = q / "board" / "allowance-decisions.jsonl"
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a") as fh:
         fh.write(json.dumps(rec) + "\n")
     emit(q, cfg, "", "allowance", "decided", {"to": to, "reason": rec["reason"][:200], "resets_at": rec["resets_at"]},
-         "design-seat")
+         lib.LEAD)
     return {"ok": True, **rec}
 
 
@@ -1387,7 +1387,7 @@ def session_armed(cfg: Config, q: Path) -> dict[str, Any]:
     if w.get("armed"):
         return {"ok": True, "already": True, "armed": w["armed"]}
     reset = w["five_hour_resets_at"] if (_ts(w["five_hour_resets_at"]) or 0) > now() else None
-    rec = {"at": iso(), "by": actor("design-seat"), "five_hour_resets_at": reset, "wake_at": w["wake_at"],
+    rec = {"at": iso(), "by": actor(lib.LEAD), "five_hour_resets_at": reset, "wake_at": w["wake_at"],
            "wake_local": w["wake_local"], "cron": w["cron"], "five_hour": w.get("five_hour")}
     from ccp.queue import append_jsonl  # noqa: PLC0415
     append_jsonl(q / "board" / WAKES, rec)
@@ -1448,7 +1448,7 @@ def session_fire(cfg: Config, q: Path) -> dict[str, Any]:
     if out["still_parked"]:
         out["wake"] = session_wake(cfg, q)
     emit(q, cfg, "", "allowance", "fired", {"five_hour": five, "unparked": [p["task_id"] for p in out["unparked"]]},
-         actor("design-seat"))
+         actor(lib.LEAD))
     return out
 
 

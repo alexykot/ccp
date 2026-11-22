@@ -12,11 +12,12 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import cli, followups, notify, refs, runs
+from ccp import cli, notify, refs, runs
+from ccp.queue import lib
 from tests.helpers import Product
 
 LIST = "`ccp tasks follow-ups --open`"
-DROPPED = {"kind": "drop", "reason": "not worth it", "at": "2026-11-21T00:00:00Z", "by": followups.LEAD}
+DROPPED = {"kind": "drop", "reason": "not worth it", "at": "2026-11-21T00:00:00Z", "by": lib.LEAD}
 
 
 def notice() -> dict:
