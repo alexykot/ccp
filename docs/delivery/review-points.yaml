@@ -129,3 +129,8 @@ review_points:
     goal: "Findings of architect pass ar-20261121T223646Z-f0a7: ccp mutate taking several tests with no-op refusals and failing test ids, the lead's records behind one guard and one actor id, ccp prompt verify refusing what verify record would, worker briefs stating each rule once, and stale-Context warnings shown to the seat that acts on them."
     status: planned
     opened: "2026-11-21"
+  - id: R24
+    name: follow-ups of R15 and R17
+    goal: "The open worker follow-ups of the R15 and R17 tasks: docs, contract and template leftovers, code leftovers (one wait-writer command, close's removals through the unrecorded-worktree helper, ids from refs.py, a requires remedy without cycles, two load- and cwd-sensitive tests), and the signed SPEC text for formal-submit's proof path and exit 3, the queue files ccp writes, the shared gate part and what ccp report computes."
+    status: planned
+    opened: "2026-11-22"
