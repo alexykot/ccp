@@ -1,7 +1,7 @@
 ---
 task_id: 0264-one-parser-for-signed-blocks-and-task-id-patterns
 title: The task check warns on a PROPOSED that verify spec-text cannot read, through one signed-block parser in tasklog, and task-id and decision-marker patterns each have one source
-status: pending
+status: done
 kind: feature
 depends_on: ["0223-a-follow-up-is-tracked-not-left-in-notes", "0234-one-check-parser-and-one-file-at-rev-reader"]
 clashes_with: ["0240-plane-workers-run-the-head", "0244-tasks-check-runs-dry-runs"]
@@ -13,7 +13,7 @@ paths: ["ccp/tasklog.py", "ccp/verify.py", "ccp/refs.py", "ccp/health.py", "ccp/
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0264-one-parser-for-signed-blocks-and-task-id-patterns
@@ -154,3 +154,5 @@ Measured at `1aa5e3f`.
   as before.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #313 head `ee03006` (squash `3fa2076`): APPROVE. Passed: sb-01, sb-02, sb-03, sb-04, sb-05. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0264-one-parser-for-signed-blocks-and-task-id-patterns.json.
+
