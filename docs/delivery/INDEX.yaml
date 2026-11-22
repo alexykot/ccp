@@ -1482,3 +1482,13 @@ tasks:
     title: ccp tasks check warns on a check step that runs the language's test command outside ccp suite run, a brief sign-off of a stale brief prints what changed its paths, the writing-tasks skill says how a check runs tests and how a new task meets a pending ruling, and E4's command finds every form of a test-module import
     depends_on: [0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope, 0298-the-cli-reference-reads-each-span-s-flags-and-tests-take-the-plane-root-and-git-env-from-helpers]
     path: tasks/0301-tasks-check-warns-on-a-bare-test-runner-and-a-brief-sign-off-shows-what-changed-since-measured.md
+  - id: 0302-submit-names-no-review-record-it-lacks-and-skip-tests-share-one-integration-commit-helper
+    status: pending
+    title: ccp tasks submit names no review record when none exists, the CLI reference test proves a span's flags credit only that span's commands, and the skip tests commit to the integration branch through one SkipFlow helper
+    depends_on: []
+    path: tasks/0302-submit-names-no-review-record-it-lacks-and-skip-tests-share-one-integration-commit-helper.md
+  - id: 0303-observability-writers-refuse-an-unknown-actor-before-writing-and-the-audit-docs-follow-the-constants
+    status: pending
+    title: The prompt-audit writer refuses an actor the ledger would refuse, heartbeat.sh validates before it writes the seat file, validate_event loses its unused reading keyword while a test holds the schemas' actor enums, and the audit docs describe keep_body and audit_keep_days as constants
+    depends_on: []
+    path: tasks/0303-observability-writers-refuse-an-unknown-actor-before-writing-and-the-audit-docs-follow-the-constants.md
