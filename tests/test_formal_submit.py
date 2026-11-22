@@ -231,6 +231,29 @@ class SubmitProvenFix(SkipFlow, ToolkitFixture, unittest.TestCase):
         self.assertIn("review_artifact_present", err)
         self.assertNotIn("review_proof", self.run_record("0002-second/fix"))
 
+    def test_a_proven_fix_refused_for_an_open_spec_question_records_no_proof(self):
+        self.reviewed()
+        self.fix()
+        qid = "sm-20261022T100000Z-abcd"
+        (self.q / "questions").mkdir()
+        (self.q / "questions" / f"{qid}.json").write_text(json.dumps(
+            {"task_id": "0002-second", "question_id": qid, "class": "spec", "status": "open"}))
+        code, _, out, err = self.ccp("tasks", "submit", "0002")
+        self.assertEqual(code, 4, out + err)
+        self.assertIn("no_open_spec_escalation", err)
+        self.assertNotIn("review_proof", self.run_record("0002-second/fix"))
+
+    def test_an_abandoned_fix_round_after_submit_leaves_the_proof_reused(self):
+        self.reviewed()
+        head, _ = self.submitted()
+        code, body, out, err = self.ccp("prompt", "fix", "0002", "--pr", "7", "--head", head)
+        self.assertEqual(code, 0, out + err)
+        f = self.q / "runs" / f"{body['run_id']}.json"
+        f.write_text(json.dumps({**json.loads(f.read_text()), "abandoned_at": "2026-10-22T11:00:00Z"}))
+        code, _, out, err = self.verify(head)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.proofs(), 1)
+
     def test_submit_then_verify_of_the_same_head_runs_the_proof_once(self):
         self.reviewed()
         head, body = self.submitted()
@@ -274,6 +297,10 @@ class Failures(unittest.TestCase):
 
     def test_all_items_met_is_no_failure(self):
         self.assertEqual(submit.failures("t", self.facts()), [])
+
+    def test_with_no_review_record_an_unproven_fix_says_why(self):
+        failed = submit.failures("t", self.facts(record=None, uncovered="the proof exited 1"))
+        self.assertIn("the proof exited 1", failed[-1])
 
     def test_a_proven_fix_covers_the_head_whatever_the_review_record_says(self):
         for kw in (dict(record=None), dict(latest_review="t/review-2", latest_clean=False), dict(pr=8),
