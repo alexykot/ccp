@@ -10,6 +10,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
+from ccp.queue import lib
 from tests.helpers import PLANE_ROOT
 from tests.toolkit_fixture import ToolkitFixture
 
@@ -27,12 +28,12 @@ class StaleBlockersRetired(ToolkitFixture, unittest.TestCase):
         super().setUp()
         obs = self.q / "observability"
         (obs / "seats").mkdir(parents=True, exist_ok=True)
-        ev = {"project_id": "demo", "task_id": TID, "actor": "task-runner", "type": "phase", "op": "transition"}
+        ev = {"project_id": "demo", "task_id": TID, "actor": lib.RUNNER, "type": "phase", "op": "transition"}
         (obs / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in (
             {**ev, "at": "2026-11-06T09:00:00Z", "payload": {"from": "leased", "to": "implementing"}},
             {**ev, "at": SUBMITTED, "payload": {"from": "implementing", "to": "submitted"}},
-            {"at": OLD_WAKE, "project_id": "demo", "task_id": "", "actor": "task-runner", "type": "seat",
-             "op": "heartbeat", "payload": {"seat_id": "task-runner", "wake_kind": "cron",
+            {"at": OLD_WAKE, "project_id": "demo", "task_id": "", "actor": lib.RUNNER, "type": "seat",
+             "op": "heartbeat", "payload": {"seat_id": lib.RUNNER, "wake_kind": "cron",
                                             "action_summary": "wake"}},
         )))
         (self.q / "tasks").mkdir(exist_ok=True)
@@ -43,10 +44,10 @@ class StaleBlockersRetired(ToolkitFixture, unittest.TestCase):
             "project_id: demo\nqueue_root: /tmp/q\ncadence:\n  verifier: event\n  verify_stale_minutes: 1\n")
         self.old_now = {
             "schema_version": 1, "project_id": "demo", "generated_at": "2026-11-06T19:00:00Z",
-            "seats": {"task-runner": {"last_wake_at": OLD_WAKE, "wake_kind": "cron", "last_action": "wake",
+            "seats": {lib.RUNNER: {"last_wake_at": OLD_WAKE, "wake_kind": "cron", "last_action": "wake",
                                       "stale": True}},
             "tasks": [{"task_id": TID, "runtime_status": "submitted"}],
-            "blockers": [{"task_id": TID, "kind": "stale_seat", "since": OLD_WAKE, "detail": "task-runner stale"},
+            "blockers": [{"task_id": TID, "kind": "stale_seat", "since": OLD_WAKE, "detail": f"{lib.RUNNER} stale"},
                          {"task_id": TID, "kind": "verify_stale", "since": SUBMITTED, "detail": "no verdict"}],
         }
         (obs / "now.json").write_text(json.dumps(self.old_now))
@@ -92,12 +93,12 @@ class StaleBlockersRetired(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
 
     def test_heartbeats_are_still_written(self):
-        r = self.run_obs("heartbeat.sh", "task-verifier", "--wake-kind", "priority", "--task-id", TID)
+        r = self.run_obs("heartbeat.sh", lib.VERIFIER, "--wake-kind", "priority", "--task-id", TID)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        seat = json.loads((self.q / "observability" / "seats" / "task-verifier.json").read_text())
+        seat = json.loads((self.q / "observability" / "seats" / f"{lib.VERIFIER}.json").read_text())
         self.assertTrue(seat["last_wake_at"])
         last = json.loads((self.q / "observability" / "events.jsonl").read_text().splitlines()[-1])
-        self.assertEqual((last["type"], last["op"], last["payload"]["seat_id"]), ("seat", "heartbeat", "task-verifier"))
+        self.assertEqual((last["type"], last["op"], last["payload"]["seat_id"]), ("seat", "heartbeat", lib.VERIFIER))
         code, _, out, err = self.ccp("board", "status")
         self.assertEqual(code, 0, out + err)
 

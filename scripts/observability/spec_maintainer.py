@@ -37,6 +37,7 @@ sys.path.insert(0, str(HERE))
 from lib import (  # noqa: E402
     ACTORS,
     RUNNER,
+    VERIFIER,
     append_event,
     apply_event,
     binding_data,
@@ -59,7 +60,7 @@ if str(HERE.parents[1]) not in sys.path:
     sys.path.insert(0, str(HERE.parents[1]))
 from ccp import refs  # noqa: E402  (the id shapes, §7)
 
-RAISERS = (RUNNER, "task-verifier")
+RAISERS = (RUNNER, VERIFIER)
 
 VERDICTS = ("resolved", "needs_operator", "not_a_spec_question")
 

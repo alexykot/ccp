@@ -115,7 +115,7 @@ class QueueWriters(unittest.TestCase):
         return json.loads(r.stdout)
 
     def test_a_question_the_spec_maintainer_writer_writes_validates(self):
-        qid = self.script("spec-maintainer-ask.sh", "raise", "--raised-by", "task-runner", "--task-id", "0001-a",
+        qid = self.script("spec-maintainer-ask.sh", "raise", "--raised-by", lib.RUNNER, "--task-id", "0001-a",
                           "--text", "Which?", "--inconsistency", "task vs SPEC", "--spec-refs", "S1",
                           "--tried", "read both")["question_id"]
         written = json.loads((self.q / "questions" / f"{qid}.json").read_text())
@@ -123,7 +123,7 @@ class QueueWriters(unittest.TestCase):
         self.assertEqual(schema_errors(written, contract("question.schema.json")), [])
 
     def test_a_question_the_writer_sent_to_the_lead_validates(self):
-        qid = self.script("spec-maintainer-ask.sh", "raise", "--raised-by", "task-verifier", "--task-id", "0001-a",
+        qid = self.script("spec-maintainer-ask.sh", "raise", "--raised-by", lib.VERIFIER, "--task-id", "0001-a",
                           "--text", "Which?", "--inconsistency", "x", "--spec-refs", "S1,S2", "--tried", "y",
                           "--blocks", "0001-a")["question_id"]
         self.script("spec-maintainer-ask.sh", "process", qid)

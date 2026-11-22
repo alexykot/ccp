@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
+from ccp.queue import lib
 from tests.board_quality_fixture import QualityBase
 
 
@@ -59,7 +60,7 @@ class Fixture(QualityBase):
             for e in ({"type": "lease", "op": "set", "at": at_s(0), "payload": {"holder": "runner"}},
                       {"type": "waiting_on", "op": "set", "at": at_s(500), "payload": {"reason": wait, "detail": "sm-1"}},
                       {"type": "waiting_on", "op": "clear", "at": at_s(800), "payload": {"reason": "spec_resolved", "was": wait}}):
-                fh.write(json.dumps({"project_id": "demo", "task_id": "0002-second", "actor": "task-runner", **e}) + "\n")
+                fh.write(json.dumps({"project_id": "demo", "task_id": "0002-second", "actor": lib.RUNNER, **e}) + "\n")
         self.note(at_s(1990), "implementer", note)
         return rid
 

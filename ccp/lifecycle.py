@@ -377,7 +377,7 @@ def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
     held = w.get("held") if isinstance(w.get("held"), dict) else {}
     hold_warn = [f"{tid} is held by {held[tid].get('by') or '?'}"
                  + (f" ({held[tid]['reason']})" if held[tid].get("reason") else "")
-                 + f": claimed anyway; `ccp tasks hold --clear {tid}` once that is settled"] if tid in held else []
+                 + f": claimed anyway; `ACTOR={lib.LEAD} ccp tasks hold --clear {tid}` once that is settled"] if tid in held else []
     return {"ok": True, "task_id": tid, "resumed": resumed, "worktree": wt, "kind": tasklog.kind_of(meta),
             "warnings": script_drift(q) + read_warn + hold_warn
             + session_warn}
@@ -405,7 +405,7 @@ def prefer(cfg: Config, tasks: list[str], reason: str, clear: bool) -> dict[str,
         return {"ok": True, "next_tasks": _preference(w)}
     if tasks and clear:
         raise QueueError("give tasks to prefer, or --clear, not both")
-    who = actor(lib.LEAD)
+    who = lead_actor("a preference")
     if clear:
         was = _preference(w)
         if was:
@@ -461,7 +461,7 @@ def hold(cfg: Config, task: str | None, reason: str, clear: str | None) -> dict[
         return {"ok": True, "held": [{"task_id": t, **v} for t, v in sorted(held.items())]}
     if task is not None and clear is not None:
         raise QueueError("give a task to hold, or --clear ID, not both")
-    who = actor(lib.LEAD)
+    who = lead_actor("a hold")
     if clear is not None:
         tid = str(task_meta(cfg, clear)["task_id"]) if clear not in held else clear
         was = held.pop(tid, None)

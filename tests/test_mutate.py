@@ -1032,7 +1032,7 @@ class RevertLines(unittest.TestCase):
 
 class Ledger(unittest.TestCase):
     def test_a_mutate_event_needs_its_counts(self):
-        ev = {"at": "2026-11-11T00:00:00Z", "project_id": "demo", "task_id": "0002-second", "actor": "task-runner",
+        ev = {"at": "2026-11-11T00:00:00Z", "project_id": "demo", "task_id": "0002-second", "actor": lib.RUNNER,
               "type": "run", "op": "recorded",
               "payload": {"run_id": "r", "mutants": 3, "killed": 1, "unbuilt": 1, "survived": 1}}
         self.assertEqual(lib.validate_event(ev), [])

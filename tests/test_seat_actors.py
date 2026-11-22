@@ -63,7 +63,7 @@ class SeatActors(unittest.TestCase):
         self.assertFalse(lib.events_path(self.q).exists())
 
     def test_the_watchdog_is_no_seat_and_no_actor_ccp_records_as(self) -> None:
-        self.assertEqual(lib.SEAT_IDS, ("task-runner", "task-verifier", "design-seat"))
+        self.assertEqual(lib.SEAT_IDS, (lib.RUNNER, lib.VERIFIER, lib.LEAD))
         self.assertNotIn(RETIRED, lib.ACTORS)
         self.assertIn(RETIRED, lib.LEGACY_ACTORS)
         with mock.patch.dict(os.environ, {"ACTOR": RETIRED}):
@@ -74,20 +74,20 @@ class SeatActors(unittest.TestCase):
         r = self.heartbeat(RETIRED, "--wake-kind", "manual")
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assertFalse((self.q / "observability" / "seats" / f"{RETIRED}.json").exists())
-        r = self.heartbeat("design-seat", "--wake-kind", "manual")
+        r = self.heartbeat(lib.LEAD, "--wake-kind", "manual")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        seat = json.loads((self.q / "observability" / "seats" / "design-seat.json").read_text())
+        seat = json.loads((self.q / "observability" / "seats" / f"{lib.LEAD}.json").read_text())
         self.assertEqual((seat["wake_kind"], seat["last_action"]), ("manual", "wake"))
         self.assertNotIn("cron_expected", seat)
         row = json.loads(lib.events_path(self.q).read_text().splitlines()[-1])
         self.assertNotIn("cron_expected", row["payload"])
 
     def test_heartbeat_defaults_to_a_manual_wake_and_takes_no_cadence_option(self) -> None:
-        r = self.heartbeat("task-runner")
+        r = self.heartbeat(lib.RUNNER)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual(json.loads((self.q / "observability" / "seats" / "task-runner.json").read_text())["wake_kind"],
+        self.assertEqual(json.loads((self.q / "observability" / "seats" / f"{lib.RUNNER}.json").read_text())["wake_kind"],
                          "manual")
-        r = self.heartbeat("task-runner", "--cron-expected", "event")
+        r = self.heartbeat(lib.RUNNER, "--cron-expected", "event")
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assertIn("unknown arg", r.stderr)
 

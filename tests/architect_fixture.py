@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli
+from ccp.queue import lib
 
 from tests.helpers import Product, binding
 
@@ -79,7 +80,7 @@ class Harness(unittest.TestCase):
         self.report = self.q / "stub-report.json"
         self.env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), "PROJECT_YAML": str(self.q / "project.yaml"),
                                                 "DA_CLAUDE_BIN": str(stub), "DA_STUB_REPORT": str(self.report),
-                                                "ACTOR": "task-runner"})
+                                                "ACTOR": lib.RUNNER})
         self.env.start()
 
     def tearDown(self):

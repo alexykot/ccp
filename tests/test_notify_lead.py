@@ -80,10 +80,10 @@ class LeadChannel(ToolkitFixture, unittest.TestCase):
              "ok": True, "note": "unexpected outage"}])
 
     def test_sent_records_the_seat_it_was_run_as(self):
-        code, _, _, err = self.notify("sent", "blocker", "--task", "0002-second", "--via", "lead", actor="task-runner")
+        code, _, _, err = self.notify("sent", "blocker", "--task", "0002-second", "--via", "lead", actor=lib.RUNNER)
         self.assertEqual(code, 0, err)
-        self.assertEqual(self.notices("sent")[0]["payload"]["by"], "task-runner")
-        self.assertEqual(self.notices("sent")[0]["actor"], "task-runner")
+        self.assertEqual(self.notices("sent")[0]["payload"]["by"], lib.RUNNER)
+        self.assertEqual(self.notices("sent")[0]["actor"], lib.RUNNER)
 
     def test_sent_refuses_other_without_a_note_and_a_note_of_more_than_one_line(self):
         for extra in ([], ["--note", " "], ["--note", "a\nb"], ["--note", "x" * 4001]):
@@ -181,7 +181,7 @@ class CommandChannel(ChannelFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertEqual([e["payload"] for e in self.notices("sent")],
                          [{"trigger": "blocker", "project": "demo", "task": "0002-second", "id": "", "via": "command",
-                           "by": "task-runner", "ok": True}])
+                           "by": lib.RUNNER, "ok": True}])
         self.assertEqual(self.ccp("notify", "pending", root=self.main)[1]["pending"], [])
         self.assertIn("sent by the product's notify command", err)
 
@@ -305,7 +305,7 @@ class Gates(unittest.TestCase):
         self.assertIn(f"ccp notify sent decision --task 0001-a --id {eid} --via lead", r.stderr)
 
     def test_a_needs_operator_answer_records_one_pending_decision(self):
-        r = subprocess.run(["bash", str(PLANE / "scripts/spec-maintainer-ask.sh"), "raise", "--raised-by", "task-runner",
+        r = subprocess.run(["bash", str(PLANE / "scripts/spec-maintainer-ask.sh"), "raise", "--raised-by", lib.RUNNER,
                             "--task-id", "0001-a", "--text", "Which?", "--inconsistency", "task vs SPEC",
                             "--spec-refs", "S1", "--tried", "x"], capture_output=True, text=True, env=self.env)
         self.assertEqual(r.returncode, 0, r.stderr)

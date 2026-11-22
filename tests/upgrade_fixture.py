@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli
+from ccp.queue import lib
 
 from tests.helpers import GIT_ENV, Product, TASK
 
@@ -34,7 +35,7 @@ class UpgradeFixture:
         self.q.mkdir()
         self.bindings = t / "bindings"
         self.bindings.mkdir()
-        self.env = mock.patch.dict(os.environ, {**GIT_ENV, "QUEUE_ROOT": str(self.q), "ACTOR": "task-runner",
+        self.env = mock.patch.dict(os.environ, {**GIT_ENV, "QUEUE_ROOT": str(self.q), "ACTOR": lib.RUNNER,
                                                 "CCP_BINDINGS_DIR": str(self.bindings)})
         self.env.start()
         self.plane = Product()

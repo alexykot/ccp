@@ -32,7 +32,8 @@ from typing import Any
 
 LEAD = "design-seat"  # §2: the actor the lead's commands record as (queue.lead_actor guards its records)
 RUNNER = "task-runner"  # §2: the actor the runner's commands record as
-SEAT_IDS = (RUNNER, "task-verifier", LEAD)  # §18.3
+VERIFIER = "task-verifier"  # §2: the actor the verifier's records are written as (queue.seat_actor)
+SEAT_IDS = (RUNNER, VERIFIER, LEAD)  # §18.3
 LEGACY_ACTORS = ("delivery-watchdog",)  # the retired watchdog seat: a bound product's old rows hold it, read only (E9)
 ACTORS = SEAT_IDS + ("adapter", "operator", "system", "plane-session")  # plane-session: §31.5 triage
 # §17.8 adds question + spec_maintainer types and their ops; §19.10 adds architecture_review;

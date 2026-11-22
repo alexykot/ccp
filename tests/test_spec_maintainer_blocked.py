@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from ccp.queue import lib
 from tests.helpers import PLANE_ROOT, Product, binding
 
 ASK = PLANE_ROOT / "scripts" / "spec-maintainer-ask.sh"
@@ -66,7 +67,7 @@ class SkipAhead(unittest.TestCase):
         self.assertEqual(self.blocked()["blocked"], ["0001-a", "0002-b", "0003-c"])
 
     def raise_for(self, tid: str) -> subprocess.CompletedProcess:
-        return self.ask("raise", "--raised-by", "task-runner", "--task-id", tid, "--text", "Which?",
+        return self.ask("raise", "--raised-by", lib.RUNNER, "--task-id", tid, "--text", "Which?",
                         "--inconsistency", "task vs SPEC", "--spec-refs", "S1")
 
     def empty_log(self) -> None:

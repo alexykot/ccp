@@ -192,6 +192,12 @@ def lead_actor(what: str) -> str:
     return a
 
 
+def seat_actor(seat: str | None) -> str:
+    """§23.7: the actor a run's records are written as. The ledger's actors are seats: the verifier has its own id,
+    and every other worker acts for the runner."""
+    return lib.VERIFIER if seat == "verifier" else lib.RUNNER
+
+
 def runner_teammate(q: Path) -> str:
     """§10.2: the live runner teammate's actual name. The harness gives a fresh spawn a suffixed name
     (`runner-2`) while the old teammate still holds the asked-for one; the lead binds the actual name

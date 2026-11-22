@@ -128,7 +128,7 @@ class TheCommands(ToolkitFixture, unittest.TestCase):
         self.assertEqual(self.follow_ups_on_record()[1]["outcome"]["ref"], made["id"])
 
     def test_a_caller_other_than_the_lead_is_refused(self):
-        with mock.patch.dict(os.environ, {"ACTOR": "task-runner"}):
+        with mock.patch.dict(os.environ, {"ACTOR": lib.RUNNER}):
             self.assert_refused(self.decide(1, "--drop", "not worth it"))
 
     def test_an_id_that_resolves_to_no_follow_up_is_refused(self):

@@ -22,9 +22,10 @@ test a function on plain values instead (`test_catch_up_decision.py`). Each `<na
   (`page`: the board page's script run under node): mixins for a `TestCase`.
 - `helpers.py`'s small shared constants and builders, each named for what it makes: `GIT_ENV`, `PLANE_ROOT`,
   `LEAD_ENV` and `as_lead()` (the environment with the lead's `ACTOR`, for a call to a command only the lead may
-  run), `git_run` and the `*_git` runners, `ledger_event`, `approve_verdict`, `implement_report`, `api_request`,
-  `file_tree` and the rest. `helpers.py` loads no `ccp` module on import, so the fence in `tests/__init__.py`
-  comes first; a module takes the plane root from `PLANE_ROOT` and git's identity from `GIT_ENV`.
+  run), `as_actor(value)` (`ACTOR` set to another value, or unset), `git_run` and the `*_git` runners,
+  `ledger_event`, `approve_verdict`, `implement_report`, `api_request`, `file_tree` and the rest. `helpers.py`
+  loads no `ccp` module on import, so the fence in `tests/__init__.py` comes first; a module takes the plane root
+  from `PLANE_ROOT` and git's identity from `GIT_ENV`.
 - `toolkit_fixture.py`'s `ToolkitFixture`: a git product (a bare origin, a main clone and a runner worktree) and
   a queue, on the local PR host (`pr_host.adapter: local`); `open_pr()` opens the task's PR and `pr_record()`
   reads its record. The most reused one: for close, claim, verify and every test that runs `ccp` against a

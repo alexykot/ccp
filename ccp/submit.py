@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from ccp import report, runs
-from ccp.config import Config, lane_for
+from ccp.config import WHOLE_SUITE_ROLES, Config, lane_for
 from ccp.queue import MID_FLIGHT, QueueError, load_task_state, phase_move, read_json, root, task_meta
 
 # The standing DoD's `formal_submit` items submit judges, in the order it names a failure (dod/standing.yaml);
@@ -148,7 +148,7 @@ def unit_lint(cfg: Config, q: Path, run: dict[str, Any] | None) -> dict[str, Any
     `{run_id, head, suite_id}` (`suite_id` None when there is none). Reported, never judged."""
     from ccp import suite  # noqa: PLC0415
     rid = str((run or {}).get("run_id") or "") or None
-    lanes = {lane_for(cfg, r) for r in report.AUTO_ROLES}
+    lanes = {lane_for(cfg, r) for r in WHOLE_SUITE_ROLES}
     try:
         rows = suite.fold(q)
     except Exception:  # noqa: BLE001  (a damaged suites file: nothing recorded to report)

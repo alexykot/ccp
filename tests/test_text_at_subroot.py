@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import adr, cli, config, tasklog
-from ccp.queue import task_meta
+from ccp.queue import lib, task_meta
 from tests.helpers import GIT_ENV, TASK, binding, merged_plane
 from tests.toolkit_fixture import git
 
@@ -39,7 +39,7 @@ class SubRoot(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         t = Path(self._tmp.name).resolve()
-        env = mock.patch.dict(os.environ, {**GIT_ENV, "QUEUE_ROOT": str(t / "queue"), "ACTOR": "task-runner"})
+        env = mock.patch.dict(os.environ, {**GIT_ENV, "QUEUE_ROOT": str(t / "queue"), "ACTOR": lib.RUNNER})
         env.start()
         self.addCleanup(env.stop)
         git(t, "init", "-q", "--bare", "-b", "main", str(t / "origin.git"))

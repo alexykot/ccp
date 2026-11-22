@@ -117,7 +117,7 @@ class Expected(SeatsBase, unittest.TestCase):
         self.assertEqual(json.loads((self.q / "architect.json").read_text()), st)
         self.assertEqual(r["stale"], "lock gone")  # no lock, past the reaper's grace: shown, not reaped
         import os, socket
-        (self.q / "architect.lock").write_text(json.dumps({"holder": "task-runner", "pid": os.getpid(), "host": socket.gethostname(),
+        (self.q / "architect.lock").write_text(json.dumps({"holder": lib.RUNNER, "pid": os.getpid(), "host": socket.gethostname(),
                                                            "since": at(5), "ttl_seconds": 3600, "review_id": "ar-20261021T100000Z-abcd"}))
         self.assertIsNone(self.rows(self.build())["architect pass ar-20261021T100000Z-abcd"]["stale"])
         # its telemetry seat (the `ccp.seat` tag of §24) is its observed value, and not a row of its own

@@ -4,26 +4,17 @@ ruling count only when the lead recorded them, and a ruling id is never reused."
 from __future__ import annotations
 
 import json
-import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
 
 from ccp import config, queue, refs, runs, tasklog
 from ccp.queue import QueueError, lib
-from tests.helpers import MARKED_CHECK_ID as CHECK, MARKED_BLOCK as MARKED, MARKED_TASK_ID as TASK, as_lead
+from tests.helpers import MARKED_CHECK_ID as CHECK, MARKED_BLOCK as MARKED, MARKED_TASK_ID as TASK, as_actor, as_lead
 from tests.toolkit_fixture import ToolkitFixture, git
 
 TASK_FILE = "docs/delivery/tasks/0002-second.md"
 RUN = "0001-first/review"
-
-
-def as_actor(value: str | None):
-    """The environment with `ACTOR` set to `value`, or with no `ACTOR` at all for None (the lead's: `as_lead`)."""
-    if value is None:
-        return mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != "ACTOR"}, clear=True)
-    return mock.patch.dict(os.environ, {"ACTOR": value})
 
 
 class TheGuard(unittest.TestCase):
@@ -43,7 +34,7 @@ class TheGuard(unittest.TestCase):
         return msg
 
     def test_another_known_actor_is_refused_with_exit_2(self):
-        for value in (lib.RUNNER, "task-verifier", "operator"):
+        for value in (lib.RUNNER, lib.VERIFIER, "operator"):
             self.assertIn(f"(ACTOR is {value})", self.refusal(value))
 
     def test_an_unset_or_empty_actor_is_refused_with_exit_2(self):
@@ -96,7 +87,7 @@ class TheThreeRecords(ToolkitFixture, unittest.TestCase):
         self.assertIsNone(runs.load(self.q, RUN)["follow_ups"][0]["outcome"])
 
     def test_another_seat_s_actor_is_refused_by_each_and_nothing_is_written(self):
-        for value in (lib.RUNNER, "task-verifier"):
+        for value in (lib.RUNNER, lib.VERIFIER):
             self.assert_refused_by_each(value)
 
     def test_with_actor_unset_each_is_refused_and_nothing_is_written(self):

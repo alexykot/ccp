@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import architect, config
+from ccp.queue import lib
 from tests.architect_fixture import FINDING, Harness, git
 
 
@@ -83,7 +84,7 @@ class PassIsEnforced(Harness):
         st = {"schema_version": 1, "seen": {}, "reviews": {"ar-20261014T000000Z-abcd": {
             "status": "running", "mode": "pass", "done": [], "started_at": "2026-10-14T00:00:00Z"}}}
         (self.q / "architect.lock").write_text(json.dumps({
-            "holder": "task-runner", "pid": 1, "since": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "holder": lib.RUNNER, "pid": 1, "since": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "ttl_seconds": 3600, "review_id": "ar-20261014T000000Z-abcd"}))
         (self.q / "architect.json").write_text(json.dumps(st))
         self.assertEqual(self.ccp("tasks", "next")[0], 0)  # running: work goes on beside it

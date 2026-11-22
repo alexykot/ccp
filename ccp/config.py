@@ -266,6 +266,10 @@ SUITE_DEFAULTS: dict[str, Any] = {"lanes": {}, "count_re": None, "summary": None
                                   # suite), `gate` (the formal gate), `part` (a subset of the tests)
                                   "roles": {"full": "full", "gate": "gate", "part": "part"}}
 SUITE_ROLES = ("full", "gate", "part")
+# The roles whose lanes run the whole suite: a run in one can be cold or warm (§27.2), a report with no Suite: line
+# takes its run's latest (§14.1), and a refactor's own checks never re-run one (§20.3). Gate first: tasklog's
+# refusals name the gate lane before the full one.
+WHOLE_SUITE_ROLES = ("gate", "full")
 # §13.5: a lane of this name in `suite.lanes` is the product's fail-fast pre-gate; the briefs name it in place
 # of the rendered `architect.checks`
 PREGATE_LANE = "pregate"
