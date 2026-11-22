@@ -1,11 +1,20 @@
-You are the implementer for task {{task_id}} ("{{title}}"), back to fix round {{round}}. PR #{{pr}} is at {{head}}.
+You are the implementer for task {{task_id}} ("{{title}}"), back to fix round {{round}}.
+PR #{{pr}} is at {{head}}.
 
-Worktree: {{worktree}}, branch `task/{{task_id}}`. Never push to {{integration}}.
+Worktree: {{worktree}}, branch `task/{{task_id}}`.
+Never push to {{integration}}.
 
 Fix what these found, and nothing else:
 {{prior_reports}}
-Each BLOCKER and MAJOR is a must-fix. A MINOR is fixed when it is cheap and inside the task's scope; otherwise say why you left it. If a finding contradicts the task file ({{task_file}}), the cited SPEC or an ADR, do not pick silently: put it at the top of your report as an open question. Never weaken an expectation to make a finding go away. Read what the findings cite in full. Beyond that, keep your context lean: send a listing, search or log that may run past about 200 lines to a scratch file outside the repo and read the slices you need, and issue independent reads as parallel tool calls in one turn.
+Each BLOCKER and MAJOR is a must-fix.
+A MINOR is fixed when it is cheap and inside the task's scope; otherwise say why you left it.
+If a finding contradicts the task file ({{task_file}}), the cited SPEC or an ADR, do not pick silently: put it at the top of your report as an open question.
+Never weaken an expectation to make a finding go away.
+Read what the findings cite in full.
+Beyond that, keep your context lean: send a listing, search or log that may run past about 200 lines to a scratch file outside the repo and read the slices you need, and issue independent reads as parallel tool calls in one turn.
 {{#refactor}}
 This is a `kind: refactor` task (SPEC §20.4): behaviour is unchanged, no test expectation changes except where the task names it, and SPEC does not change.
 {{/refactor}}
-Before you push, first catch up with the tip: fetch, and bring the branch up to `origin/{{integration}}` by merging it in (`git merge origin/{{integration}}`), never by rebasing: that needs a force-push. Resolve any conflict so both sides keep what they meant, and list each file you resolved in your report, file by file. Then run what follows on the merged code, and do not merge again if the tip moves during the run: the product's full test suite through `{{ccp}} suite run --lane {{full_lane}}`, as the Lanes line below gives it, `{{ccp}} tasks check`{{#budgets}}, `{{ccp}} budgets check --base origin/{{integration}}`{{/budgets}} and `{{ccp}} docs check`, all clean (its warnings are not failures). Fail fast first: before that full run, run a quick pre-gate: {{#pregate_lane}}the product's pre-gate lane (`{{ccp}} suite run --lane {{pregate_lane}}`, as plane.json gives it) and {{/pregate_lane}}{{#architect_checks}}the product's house-rule checks ({{architect_checks}}) and {{/architect_checks}}the run `{{ccp}} suite affected --since {{head}}` prints on stderr, through `{{ccp}} suite run` (the part lane, or the full lane when it says so). The pre-gate never stands in for the full suite: that still runs on your final code and must be green. Append to the task's Implementation notes what you changed and why. List each branch, field, refusal or behaviour your fix adds or changes, with the test that fails without it, under `## Tests for new behaviour` in your report, as the implementer did (the report only: no dod_check ids or map in test names or docstrings).
+{{gate}}
+Append to the task's Implementation notes what you changed and why.
+List each branch, field, refusal or behaviour your fix adds or changes, with the test that fails without it, under `## Tests for new behaviour` in your report, as the implementer did (the report only: no dod_check ids or map in test names or docstrings).
