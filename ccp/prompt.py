@@ -1,4 +1,4 @@
-"""`ccp prompt <phase> <task>` (SPEC §13.2): the worker's prompt, rendered by the plane.
+"""`ccp prompt` (SPEC §13.2): the worker's prompt, rendered by the plane.
 
 Four parts, in order: the plane template `templates/prompts/<phase>.md` (for a phase that pushes, with the
 before-push block `_gate.md` in it), then `_common.md` (rules for every worker and the report contract) with
@@ -833,6 +833,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "project_id": cfg.project_id, "run_id": run_id, "task_id": tid, "nnnn": nnnn,
         "title": meta.get("title") or "", "task_file": cfg.rel(meta["_file"]), "round": n,
         "refactor": tasklog.kind_of(meta) == "refactor", "refs": cited_refs(cfg, meta),
+        "change_round": phase in runs.CHANGE_PHASES,  # §13.5: the rules the four change rounds share, in `_common.md`
         "worktree": worktree or "(the runner names it)", "own_worktree": own or "",
         "own_worktree_name": Path(own).name if own else "",
         "env_up": bool((cfg.env or {}).get("up") or (cfg.env or {}).get("urls")),

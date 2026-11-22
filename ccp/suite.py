@@ -1,4 +1,4 @@
-"""`ccp suite run|wait|list|affected` (SPEC §10, §14.1, §14.2, §14.7): workers run their tests through `ccp`,
+"""`ccp suite` (SPEC §10, §14.1, §14.2, §14.7): workers run their tests through `ccp`,
 which records how long each run took, wait on a run's summary, and ask it which test modules a change touches.
 The call syntax is in `docs/cli`; the rules are in the SPEC sections named here. This holds what only the code does.
 

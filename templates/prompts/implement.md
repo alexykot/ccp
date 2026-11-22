@@ -7,7 +7,6 @@ Push with `git push -u origin task/{{task_id}}`; never push to {{integration}}.
 The task file {{task_file}} is binding: its Intent, Context, Scope and every dod_check.
 Read it first, then what it cites ({{refs}}: SPEC and ADR sections, house rules, review findings), docs/delivery/standing-dod.md and CLAUDE.md.
 Read what the task cites in full.
-Beyond that, keep your context lean: send a listing, search or log that may run past about 200 lines to a scratch file outside the repo and read the slices you need, and issue independent reads as parallel tool calls in one turn.
 The plan is made: build exactly what the task says, diligently, and do not redesign around it.
 Never weaken an expectation.
 Where the task leaves something open, write the narrowest rule consistent with it and flag it in your report.
@@ -17,8 +16,7 @@ SPEC edits only as the task gives them: rule text the task does not carry goes t
 Before you build, re-run at {{base}} each command the task's Context names for a measured premise (a count, a size, a list of sites, an "already" or "never happens" claim).
 If a figure changed materially, stop before building and put it at the top of your report as a scope question: the premise, its command, the figure the task states and the one you measured.
 {{#refactor}}
-This is a `kind: refactor` task (SPEC §20.4): behaviour is unchanged.
-The suite and the product's scenario checks pass, no test expectation changes except where the task names it, and SPEC does not change.
+The suite and the product's scenario checks pass too.
 If the work turns out to need a behaviour or stored-data change, stop and report it.
 {{/refactor}}{{#marked_checks}}
 These dod_checks are marked `runs_on: operator-machine`: {{marked_checks}}.

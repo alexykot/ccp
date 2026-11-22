@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:control-plane:contracts:architecture_review_triage.schema.json",
   "title": "ControlPlaneArchitectureReviewTriage",
-  "description": "SPEC §19.8. Written by the task-log owner (spec maintainer, steerer or team lead) to QUEUE_ROOT/reviews/<review_id>.triage.json after following docs/delivery/REVIEW-TRIAGE.md. For an architect report (§19.8): every rule-cost finding is needs_operator, and every proposed rule change has a rule_changes entry. An applied change needs a commit sha, or commit_sha \"pending\" plus pending_change so triage can finalise before that commit is on the integration branch. No secrets.",
+  "description": "SPEC §19.8. Written by the task-log owner (the team lead) to QUEUE_ROOT/reviews/<review_id>.triage.json after following docs/delivery/REVIEW-TRIAGE.md. For an architect report (§19.8): every rule-cost finding is needs_operator, and every proposed rule change has a rule_changes entry. An applied change needs a commit sha, or commit_sha \"pending\" plus pending_change so triage can finalise before that commit is on the integration branch. No secrets.",
   "type": "object",
   "additionalProperties": true,
   "required": [

@@ -1,4 +1,4 @@
-"""`ccp tasks backfill-review-points [--dry-run]` (SPEC §22, §22.6): the review point of each done
+"""`ccp tasks backfill-review-points` (SPEC §22, §22.6): the review point of each done
 task closed before `ccp tasks close` stamped one, rebuilt from the queue's history.
 
 The ledger's `runner` events are the runner's history: each `spawn` carries the review point and the

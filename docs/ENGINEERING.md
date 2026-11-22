@@ -126,8 +126,10 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   sections are given once, in the rendered prompt's last part, from the parser's own table. An
   instruction several phases share is written once, in `_common.md` or a shared part, and template
   text is one sentence per line. The command's refusal names the condition that failed.
-  check: pass — the architect compares plugin/agents and templates/prompts with the § rules they cite,
-  ccp/report.py's sections, and looks for inline sample records and sentences repeated across templates
+  check: pass, plus command — architect.checks `E13`: `awk 'length > 600' templates/prompts/*.md` prints nothing, a
+  proxy for one sentence per line, not a rule of its own; the architect compares plugin/agents and templates/prompts
+  with the § rules they cite, ccp/report.py's sections, and looks for inline sample records and sentences repeated
+  across templates
 - **E24** A module docstring names the § it implements and what the module is for; it never lists the
   keys, checks or formats the code or the SPEC holds.
   check: pass — the architect compares module docstrings with the constants and § they would restate

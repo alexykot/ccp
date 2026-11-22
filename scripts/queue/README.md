@@ -51,6 +51,4 @@ Observability (SPEC §23): `../observability/` — `emit-event.sh`, `set-waiting
 ## Rules
 
 - Never store secrets in queue JSON or emails.
-- `implementation_started_at` is set **once**; the wall timer does **not** reset on reject.
 - The PR comes from the implementer's own worker; the review record keeps that run and its session (`contracts/review.schema.json`).
-- Seats stay idle when there is no durable pending task in product `docs/delivery/` + matching `tasks/*.json`.
