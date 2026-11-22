@@ -147,4 +147,12 @@ Measured at `954bd72` (origin/main).
 
 ## Implementation notes
 
+- `problems_of` reads each span of a unit on its own: a span naming commands holds its flags to each command it names and credits them to those only; a span naming none is read against its unit's commands as before. The delegated-command skip stays unit-wide, as before (a unit naming `ccp otel` is not checked), the narrowest reading of the ruling.
+- `test_a_joined_row_giving_an_action_its_siblings_flags_is_found` joins the two `ccp adr` rows of `docs/cli/01-model.md` into one `ccp adr index\|list` row and asserts the three problems.
+- `tests/test_wt_leftover.py`: the symlink test in `Leftover` and `FilesUnder`, as ruled.
+- `tests/test_tasks_close.py`: the script-mode block is gone; `sys` and `Path` are still used.
+- The four plane-root copies and three git-identity dicts now use `PLANE_ROOT` and `GIT_ENV`; no test turned on the email or a global git config. `test_tasklog`'s inline `from pathlib import Path` lost its only use and went.
+- E4 gains the two greps; its `check:` line reads "five greps".
+- Measured premises at `d17505a9` matched the task's figures.
+
 ## Verification notes
