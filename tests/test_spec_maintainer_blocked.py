@@ -69,7 +69,12 @@ class SkipAhead(unittest.TestCase):
         return self.ask("raise", "--raised-by", "task-runner", "--task-id", tid, "--text", "Which?",
                         "--inconsistency", "task vs SPEC", "--spec-refs", "S1")
 
+    def empty_log(self) -> None:
+        for f in (self.prod.root / "docs/delivery/tasks").glob("*.md"):
+            f.unlink()
+
     def test_raise_refuses_an_id_at_the_wrong_width(self):
+        self.empty_log()  # no task to look the id up in: the shape alone refuses it
         r = self.raise_for("00001-x")
         self.assertEqual(r.returncode, 2, r.stderr)
         self.assertIn("00001-x", r.stderr)
@@ -78,8 +83,7 @@ class SkipAhead(unittest.TestCase):
     def test_raise_takes_the_id_shape_from_the_product(self):
         plane = json.loads((self.prod.root / "docs/delivery/plane.json").read_text())
         self.prod.write("docs/delivery/plane.json", json.dumps({**plane, "ids": {"task": {"width": 5}}}))
-        for f in (self.prod.root / "docs/delivery/tasks").glob("*.md"):
-            f.unlink()
+        self.empty_log()
         r = self.raise_for("0001-x")
         self.assertEqual(r.returncode, 2, r.stderr)
         self.assertIn("NNNNN-slug", r.stderr)

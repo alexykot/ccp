@@ -11,11 +11,11 @@ from ccp import headless
 
 class HeadlessEnv(unittest.TestCase):
     def test_tags_project_and_seat_and_keeps_other_attributes(self):
-        keys = {k: "k" for k in headless.STRIP_KEYS}
+        keys = {k: "k" for k in ("ANTHROPIC_API_KEY", "CLAUDE_API_KEY", "ANTHROPIC_AUTH_TOKEN")}
         with mock.patch.dict(os.environ, {"OTEL_RESOURCE_ATTRIBUTES": "team=x,ccp.project_id=old", **keys}):
             env = headless.headless_env("demo", "docs-audit")
         self.assertEqual(env["OTEL_RESOURCE_ATTRIBUTES"], "team=x,ccp.project_id=demo,ccp.seat=docs-audit")
-        for k in ("ANTHROPIC_API_KEY", "CLAUDE_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
+        for k in keys:
             self.assertNotIn(k, env)
 
 
