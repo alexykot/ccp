@@ -45,6 +45,10 @@
         "cmd": "! git grep -nE '\\\\d[+{][^\"]*-\\[a-z0-9\\]' -- ccp scripts ':(exclude)ccp/refs.py'"
       },
       {
+        "id": "E24",
+        "cmd": "test \"$(git ls-files 'ccp/*.py' | python3 -c 'import ast,sys; print(sum(len((ast.get_docstring(ast.parse(open(p).read())) or \"\").splitlines()) > 30 for p in sys.stdin.read().split()))')\" -le 18"
+      },
+      {
         "id": "E27",
         "cmd": "! git grep -nE '\"(design-seat|task-runner)\"' -- ccp scripts ':(exclude)ccp/board_page.html' ':(exclude)scripts/observability/lib.py' ':(exclude)scripts/observability/write-prompt-audit.sh'"
       }
