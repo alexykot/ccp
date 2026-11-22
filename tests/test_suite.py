@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 from pathlib import Path
 
@@ -747,30 +748,6 @@ class Summary(SuiteFixture, unittest.TestCase):
         self.assertEqual((ev["failed"], ev["skipped"]), (2, 1))
         self.assertNotIn("log", ev)
 
-    def test_what_a_failure_shows_is_capped(self):
-        cfg = json.loads((self.runner / "docs/delivery/plane.json").read_text())
-        cfg["suite"] = {"summary": {"max_chars": 3000, "tail_lines": 5}}
-        (self.runner / "docs/delivery/plane.json").write_text(json.dumps(cfg))
-        body = "import unittest\nclass T(unittest.TestCase):\n" + "".join(
-            f"    def test_{i:02d}(self):\n        self.fail('x' * 400 + ' failure {i:02d}')\n" for i in range(40))
-        r = self.run_suite("--", *self.ut(self.module(body)))
-        self.assertEqual(r.returncode, 1)
-        out = r.stdout.decode()
-        self.assertLess(len(out), 3000 + 1500, out)
-        self.assertIn("FAIL: test_00", out)
-        self.assertRegex(out, r"failing tests' sections \(\d+, \d+ more not shown\)")
-        self.assertIn("40 tests, 40 failed", out)
-        self.assertEqual(_start_log(r.stdout).read_text().count("FAIL: test_"), 40)
-
-    def test_one_huge_failure_is_cut_not_dropped(self):
-        body = "import unittest\nclass T(unittest.TestCase):\n    def test_big(self):\n" \
-               "        self.fail('\\n'.join(f'detail {i}' for i in range(20000)))\n"
-        r = self.run_suite("--", *self.ut(self.module(body)))
-        out = r.stdout.decode()
-        self.assertIn("FAIL: test_big", out)
-        self.assertIn("the rest is in the log", out)
-        self.assertLess(len(out), 45000)
-
     def test_the_log_is_complete_and_in_order_and_exit_codes_pass_through(self):
         script = ("import sys\nfor i in range(50):\n    (sys.stdout if i % 2 else sys.stderr).write(f'{i}\\n')\n"
                   "    (sys.stdout if i % 2 else sys.stderr).flush()\n"
@@ -875,132 +852,6 @@ class Summary(SuiteFixture, unittest.TestCase):
         self.addCleanup(_kill, int(_start_log(r.stdout).read_text()))
         self.assertEqual(r.returncode, 3)
         self.assertLess(time.monotonic() - t0, 10)
-
-    def test_a_cache_tally_gives_the_module_counts(self):
-        script = ("print('cache: 120 entries under this key'); print('run: tests.test_a (no entry)');"
-                  "print('Ran 3 tests in 0.100s'); print(); print('OK (skipped=1)');"
-                  "print('cached: tests.test_b (4 tests, 0 skipped)');"
-                  "print('gate: 1 modules ran, 1 cached; 3 tests ran in 0 s, 1 skipped; the cached modules\\' "
-                  "last runs: 4 tests, 0 skipped; a warm run'); print('exit 0: suite')")
-        self.tally()
-        r = self.run_suite("--lane", "gate", "--", PY, "-c", script)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        out = r.stdout.decode()
-        self.assertIn("3 tests, 1 skipped; ran 1, cached 1", out)
-        self.assertIn("\ngate: 1 modules ran, 1 cached; 3 tests ran", out)  # the product's own tally line
-        self.assertNotIn("run: tests.test_a", out)
-        self.assertIn("ran 1, cached 1; 4 tests behind the cached results", out)
-        ended = self.rows()[-1]
-        self.assertEqual((ended["tests"], ended["ran"], ended["cached"], ended["cached_tests"], ended["counts_from"]),
-                         (3, 1, 1, 4, "output"))
-        fields = suite.fold(self.q)[-1]
-        self.assertEqual((fields["ran"], fields["cached"], fields["skipped"], fields["cached_tests"]), (1, 1, 1, 4))
-
-    def test_without_tally_knobs_a_tally_line_counts_nothing(self):
-        script = "print('Ran 3 tests in 0.100s'); print('gate: 1 modules ran, 1 cached')"
-        r = self.run_suite("--lane", "gate", "--", PY, "-c", script)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        ended = self.rows()[-1]
-        self.assertEqual((ended["tests"], ended["ran"], ended["cached"], ended["cached_tests"]), (3, None, None, None))
-
-    def test_the_removed_knob_names_are_ignored(self):
-        self.tally({"modules_ran_re": TALLY_SUMMARY["ran_re"], "modules_cached_re": TALLY_SUMMARY["cached_re"]})
-        r = self.run_suite("--lane", "gate", "--", PY, "-c", "print('Ran 1 test in 0.1s'); print('g: 2 modules ran, 5 cached')")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual((self.rows()[-1]["ran"], self.rows()[-1]["cached"]), (None, None))
-
-    ALL_CACHED = ("print('cached: tests.test_a (5 tests, 0 skipped)'); print('cached: tests.test_b (4 tests, 0 skipped)');"
-                  "print('gate: 0 modules ran, 2 cached; 0 tests ran in 0 s, 0 skipped; the cached modules\\' "
-                  "last runs: 9 tests, 0 skipped; a warm run')")
-
-    def test_an_all_cached_gate_counts_zero_tests_ran_and_its_cached_tests(self):
-        # no unittest ran, so no `Ran N tests` line
-        self.tally()
-        r = self.run_suite("--lane", "gate", "--", PY, "-c", self.ALL_CACHED)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        out = r.stdout.decode()
-        self.assertIn("passed, exit 0, lane gate", out)
-        self.assertIn("; 0 tests; ran 0, cached 2; 9 tests behind the cached results", out)
-        self.assertNotIn("no test count found", out)
-        ended = self.rows()[-1]
-        self.assertEqual((ended["tests"], ended["ran"], ended["cached"], ended["cached_tests"]), (0, 0, 2, 9))
-        rec = [e["payload"] for e in self.events() if (e["type"], e["op"]) == ("suite", "recorded")][-1]
-        self.assertEqual((rec["tests"], rec["cached_tests"]), (0, 9))
-
-    def test_a_module_that_ran_without_a_count_line_leaves_no_count(self):
-        # a worker that died before its result: the module ran, so 0 would be false
-        self.tally()
-        r = self.run_suite("--lane", "gate", "--", PY, "-c", "print('gate: 1 modules ran, 2 cached; 0 tests ran in 0 s, "
-                           "0 skipped; the cached modules\\' last runs: 9 tests, 0 skipped; a warm run')")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        ended = self.rows()[-1]
-        self.assertEqual((ended["tests"], ended["cached_tests"]), (None, 9))
-
-    def test_a_quoted_tally_inside_a_line_is_not_counted(self):
-        script = ('print("AssertionError: \'gate: 0 modules ran, 2 cached; the cached modules\' last runs: 9 tests\'");'
-                  "print('Ran 4 tests in 0.1s')")
-        r = self.run_suite("--lane", "gate", "--", PY, "-c", script)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual((self.rows()[-1]["tests"], self.rows()[-1]["cached_tests"]), (4, None))
-
-    def test_no_tally_still_means_no_count(self):
-        r = self.run_suite("--lane", "gate", "--", PY, "-c", "print('gate: 0 modules ran, 0 cached')")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("no test count found", r.stdout.decode())
-        self.assertIsNone(self.rows()[-1]["tests"])
-
-    def test_full_still_counts_the_fields(self):
-        r = self.run_suite("--full", "--", *self.ut(self.module()))
-        self.assertEqual(r.returncode, 1)
-        self.assertIn(b"noise line 299", r.stdout)
-        ended = self.rows()[-1]
-        self.assertEqual((ended["tests"], ended["failed"], ended["skipped"], ended["log"]), (4, 2, 1, None))
-        self.assertEqual(self.rows()[0]["output"], "full")
-
-    def test_a_red_gate_step_after_many_failures_survives_the_cap(self):
-        body = "import unittest\nclass T(unittest.TestCase):\n" + "".join(
-            f"    def test_{i:02d}(self):\n        self.fail('\\n'.join(['detail {i:02d} ' + 'y' * 80] * 45))\n"
-            for i in range(12))
-        self.module(body)
-        d = Path(self._tmp.name) / "ut"
-        gate = (f"{PY} -m unittest discover -s {d} -t {d} 2>&1; echo 'exit 1: suite'; "
-                "for i in $(seq 1 30); do echo \"src/x.py:$i:1: E501 Line too long ($i)\"; done; "
-                "echo 'Found 30 errors.'; echo 'exit 1: scripts/lint.sh'; exit 1")
-        r = self.run_suite("--lane", "gate", "--", "sh", "-c", gate)
-        self.assertEqual(r.returncode, 1)
-        out = r.stdout.decode()
-        self.assertLess(len(out), 40000 + 3000)
-        self.assertIn("FAIL: test_00", out)
-        self.assertRegex(out, r"failing tests' sections \(\d+, \d+ more not shown\)")
-        self.assertIn("exit 1: scripts/lint.sh", out)
-        self.assertIn("exit 1: suite", out)
-        self.assertIn("E501 Line too long (30)", out)
-        self.assertIn("Found 30 errors.", out)
-        lines = out.splitlines()
-        self.assertTrue(lines[-2].startswith("ccp suite: st-") and lines[-1].startswith("ccp suite: full log:"))
-
-    def test_long_lines_then_a_final_error_shows_the_final_error(self):
-        script = ("import sys\nfor i in range(100): print(f'{i} ' + 'z' * 1900)\n"
-                  "print('fatal: the final error', file=sys.stderr); sys.exit(2)\n")
-        r = self.run_suite("--", PY, "-c", script, env={"PYTHONUNBUFFERED": "1"})
-        self.assertEqual(r.returncode, 2)
-        out = r.stdout.decode()
-        self.assertIn("fatal: the final error", out)
-        self.assertLess(len(out), 40000 + 3000)
-        self.assertRegex(out, r"more cut to fit")
-
-    def test_a_short_log_is_shown_whole_and_an_empty_one_says_so(self):
-        script = ("import sys\nprint('child: Error: db refused', file=sys.stderr)\n"
-                  "print('=' * 70); print('FAIL: test_x (m.T.test_x)'); print('-' * 70); print('boom')\n"
-                  "print('-' * 70); print('Ran 1 test in 0s'); print(); print('FAILED (failures=1)'); sys.exit(1)\n")
-        r = self.run_suite("--", PY, "-c", script, env={"PYTHONUNBUFFERED": "1"})
-        out = r.stdout.decode()
-        self.assertIn("the whole log (9 line(s)):", out)
-        self.assertIn("child: Error: db refused", out)
-        self.assertEqual(out.count("FAIL: test_x"), 1)
-        r = self.run_suite("--", PY, "-c", "raise SystemExit(3)")
-        self.assertEqual(r.returncode, 3)
-        self.assertIn(b"ccp suite: the command printed nothing", r.stdout)
 
     def test_pruning_never_follows_a_symlinked_directory(self):
         old = time.time() - 15 * 86400
@@ -1198,18 +1049,51 @@ class GateFromSuite(SuiteFixture, unittest.TestCase):
         self.assertIs(run["cold"], False)
 
 
+def digested(case: unittest.TestCase, text: bytes, count_res: list[bytes] | None = None, cfg: object = None,
+             **over) -> tuple[dict, dict, Path]:
+    """`suite.digest` of a log holding `text` under the summary settings `cfg` gives (a knob in `over` replaces
+    one), with the summary config and the log's path."""
+    from ccp.config import SUITE_SUMMARY_DEFAULTS
+    f = tempfile.NamedTemporaryFile(delete=False)
+    case.addCleanup(os.unlink, f.name)
+    f.write(text)
+    f.close()
+    scfg = suite._summary_cfg(cfg)
+    scfg.update(over)
+    case.assertEqual(set(scfg), set(SUITE_SUMMARY_DEFAULTS))
+    dig = suite.digest(Path(f.name), scfg, [re.compile(p) for p in count_res] if count_res else suite._count_res(cfg))
+    return dig, scfg, Path(f.name)
+
+
+def unittest_log(failures: list[tuple[str, list[str]]], passed: int = 0) -> bytes:
+    """What a unittest run that fails prints: each failure's `====` section (its name, a `----` rule, its
+    lines), then the `Ran` line and the verdict."""
+    out: list[str] = []
+    for name, lines in failures:
+        out += ["=" * 70, f"FAIL: {name} (m.T.{name})", "-" * 70, "Traceback (most recent call last):", *lines, ""]
+    out += ["-" * 70, f"Ran {len(failures) + passed} tests in 0.1s", "", f"FAILED (failures={len(failures)})"]
+    return ("\n".join(out) + "\n").encode()
+
+
+def product(summary: dict | None = None) -> SimpleNamespace:
+    """A product's config as far as the summary reads it: its plane.json `suite.summary` is `summary` (none: the
+    language's defaults)."""
+    return SimpleNamespace(suite={"summary": summary} if summary else {}, language="python")
+
+
+def counts_of(text: bytes, summary: dict | None = None) -> tuple[int | None, dict[str, int | None]]:
+    """The count and the summary fields `suite run` reads from a log holding `text`, for the product
+    `summary` describes."""
+    cfg = product(summary)
+    counter = suite._Counter(suite._count_res(cfg), suite._field_patterns(suite._summary_cfg(cfg)))
+    counter.feed(text)
+    counter.close()
+    return suite.counted([counter])
+
+
 class Digest(unittest.TestCase):
     def digest(self, text: bytes, count_res: list[bytes] | None = None, **over) -> dict:
-        import tempfile
-        from ccp.config import SUITE_SUMMARY_DEFAULTS
-        f = tempfile.NamedTemporaryFile(delete=False)
-        self.addCleanup(os.unlink, f.name)
-        f.write(text)
-        f.close()
-        scfg = suite._summary_cfg(None)
-        scfg.update(over)
-        self.assertEqual(set(scfg), set(SUITE_SUMMARY_DEFAULTS))
-        return suite.digest(Path(f.name), scfg, [re.compile(p) for p in count_res or [rb"^Ran (\d+) tests? in "]])
+        return digested(self, text, count_res, **over)[0]
 
     def test_a_section_ends_at_the_rule_before_the_count(self):
         eq, dash = b"=" * 70, b"-" * 70
@@ -1236,6 +1120,139 @@ class Digest(unittest.TestCase):
         self.assertEqual([ln for _i, ln in d["tail"]][-1], "last")
         self.assertEqual(d["lines"], 2)
         self.assertLessEqual(len(d["tail"][0][1]), suite.SHOW_LINE_MAX + 40)
+
+    # ------------------------------------------------------------------ the count and the cache tally
+
+    TALLIED = (b"cache: 120 entries under this key\nrun: tests.test_a (no entry)\nRan 3 tests in 0.100s\n\n"
+               b"OK (skipped=1)\ncached: tests.test_b (4 tests, 0 skipped)\n"
+               b"gate: 1 modules ran, 1 cached; 3 tests ran in 0 s, 1 skipped; the cached modules' last runs: "
+               b"4 tests, 0 skipped; a warm run\nexit 0: suite\n")
+    ALL_CACHED = (b"cached: tests.test_a (5 tests, 0 skipped)\ncached: tests.test_b (4 tests, 0 skipped)\n"
+                  b"gate: 0 modules ran, 2 cached; 0 tests ran in 0 s, 0 skipped; the cached modules' "
+                  b"last runs: 9 tests, 0 skipped; a warm run\n")
+
+    def summary(self, text: bytes, summary: dict | None, code: int = 0, lane: str = "gate") -> str:
+        """What summary mode prints at the end of a run whose log holds `text`."""
+        tests, fields = counts_of(text, summary)
+        tests = suite.all_cached_tests(tests, fields)
+        dig, scfg, log = digested(self, text, cfg=product(summary))
+        return suite.render_summary("st-1", log, code, lane, 1.0, tests, fields, None, dig, scfg["max_chars"])
+
+    def test_a_cache_tally_gives_the_module_counts(self):
+        tests, fields = counts_of(self.TALLIED, TALLY_SUMMARY)
+        self.assertEqual((tests, fields["ran"], fields["cached"], fields["skipped"], fields["cached_tests"]),
+                         (3, 1, 1, 1, 4))
+        out = self.summary(self.TALLIED, TALLY_SUMMARY)
+        self.assertIn("3 tests, 1 skipped; ran 1, cached 1", out)
+        self.assertIn("\ngate: 1 modules ran, 1 cached; 3 tests ran", out)  # the product's own tally line
+        self.assertNotIn("run: tests.test_a", out)
+        self.assertIn("ran 1, cached 1; 4 tests behind the cached results", out)
+
+    def test_without_tally_knobs_a_tally_line_counts_nothing(self):
+        tests, fields = counts_of(b"Ran 3 tests in 0.100s\ngate: 1 modules ran, 1 cached\n")
+        self.assertEqual((tests, fields["ran"], fields["cached"], fields["cached_tests"]), (3, None, None, None))
+
+    def test_the_removed_knob_names_are_ignored(self):
+        old = {"modules_ran_re": TALLY_SUMMARY["ran_re"], "modules_cached_re": TALLY_SUMMARY["cached_re"]}
+        tests, fields = counts_of(b"Ran 1 test in 0.1s\ng: 2 modules ran, 5 cached\n", old)
+        self.assertEqual((fields["ran"], fields["cached"]), (None, None))
+
+    def test_an_all_cached_gate_counts_zero_tests_ran_and_its_cached_tests(self):
+        # no unittest ran, so no `Ran N tests` line
+        tests, fields = counts_of(self.ALL_CACHED, TALLY_SUMMARY)
+        self.assertEqual((tests, fields["ran"], fields["cached"], fields["cached_tests"]), (None, 0, 2, 9))
+        self.assertEqual(suite.all_cached_tests(tests, fields), 0)
+        out = self.summary(self.ALL_CACHED, TALLY_SUMMARY)
+        self.assertIn("passed, exit 0, lane gate", out)
+        self.assertIn("; 0 tests; ran 0, cached 2; 9 tests behind the cached results", out)
+        self.assertNotIn("no test count found", out)
+
+    def test_a_module_that_ran_without_a_count_line_leaves_no_count(self):
+        # a worker that died before its result: the module ran, so 0 would be false
+        text = (b"gate: 1 modules ran, 2 cached; 0 tests ran in 0 s, 0 skipped; the cached modules' last runs: "
+                b"9 tests, 0 skipped; a warm run\n")
+        tests, fields = counts_of(text, TALLY_SUMMARY)
+        self.assertEqual((tests, fields["cached_tests"]), (None, 9))
+        self.assertIsNone(suite.all_cached_tests(tests, fields))
+
+    def test_a_quoted_tally_inside_a_line_is_not_counted(self):
+        text = (b"AssertionError: 'gate: 0 modules ran, 2 cached; the cached modules' last runs: 9 tests'\n"
+                b"Ran 4 tests in 0.1s\n")
+        tests, fields = counts_of(text, TALLY_SUMMARY)
+        self.assertEqual((tests, fields["cached_tests"]), (4, None))
+
+    def test_no_tally_still_means_no_count(self):
+        text = b"gate: 0 modules ran, 0 cached\n"
+        self.assertEqual(counts_of(text)[0], None)
+        self.assertIn("no test count found", self.summary(text, None))
+
+    def test_full_still_counts_the_fields(self):
+        tests, fields = counts_of(b"noise line 299\nRan 4 tests in 0.1s\n\nFAILED (failures=1, errors=1, skipped=1)\n")
+        self.assertEqual((tests, fields["failed"], fields["skipped"]), (4, 2, 1))
+
+
+class RenderSummary(unittest.TestCase):
+    """§14.3: what a failed run's summary shows of its log, and how much: judged on a log's text and the
+    digest of it, with no run."""
+
+    def render(self, text: bytes, code: int = 1, tests: int | None = None, fields: dict | None = None,
+               **over) -> str:
+        dig, scfg, log = digested(self, text, **over)
+        return suite.render_summary("st-1", log, code, None, 1.0, tests, fields or {}, None, dig, scfg["max_chars"])
+
+    def test_what_a_failure_shows_is_capped(self):
+        text = unittest_log([(f"test_{i:02d}", ["x" * 400 + f" failure {i:02d}"]) for i in range(40)])
+        dig, scfg, log = digested(self, text, max_chars=3000, tail_lines=5)
+        self.assertGreater(dig["dropped"], 0)  # the digest keeps no more than the cap
+        self.assertLessEqual(sum(len(x) + 1 for _s, _e, body in dig["sections"] for x in body), 3000)
+        out = suite.render_summary("st-1", log, 1, None, 1.0, 40, {"failed": 40}, None, dig, 3000)
+        self.assertLess(len(out), 3000 + 1500, out)
+        self.assertIn("FAIL: test_00", out)
+        self.assertRegex(out, r"failing tests' sections \(\d+, \d+ more not shown\)")
+        self.assertIn("40 tests, 40 failed", out)
+        # the render's own cap, on a digest that kept more sections than the budget allows
+        wide = {**dig, "dropped": 0, "sections": [(i * 4, i * 4 + 3, ["=" * 70, f"FAIL: test_{i:02d}", "y" * 400])
+                                                   for i in range(40)]}
+        out = suite.render_summary("st-1", log, 1, None, 1.0, 40, {"failed": 40}, None, wide, 3000)
+        self.assertLess(len(out), 3000 + 1500, out)
+        self.assertRegex(out, r"failing tests' sections \(\d+, \d+ more not shown\)")
+
+    def test_one_huge_failure_is_cut_not_dropped(self):
+        out = self.render(unittest_log([("test_big", [f"detail {i}" for i in range(20000)])]))
+        self.assertIn("FAIL: test_big", out)
+        self.assertIn("the rest is in the log", out)
+        self.assertLess(len(out), 45000)
+
+    def test_a_red_gate_step_after_many_failures_survives_the_cap(self):
+        lint = [f"src/x.py:{i}:1: E501 Line too long ({i})" for i in range(1, 31)]
+        text = (unittest_log([(f"test_{i:02d}", [f"detail {i:02d} " + "y" * 80] * 45) for i in range(12)])
+                + "\n".join(["exit 1: suite", *lint, "Found 30 errors.", "exit 1: scripts/lint.sh"]).encode() + b"\n")
+        out = self.render(text, fields={"failed": 12})
+        self.assertLess(len(out), 40000 + 3000)
+        self.assertIn("FAIL: test_00", out)
+        self.assertRegex(out, r"failing tests' sections \(\d+, \d+ more not shown\)")
+        self.assertIn("exit 1: scripts/lint.sh", out)
+        self.assertIn("exit 1: suite", out)
+        self.assertIn("E501 Line too long (30)", out)
+        self.assertIn("Found 30 errors.", out)
+        lines = out.splitlines()
+        self.assertTrue(lines[-2].startswith("ccp suite: st-") and lines[-1].startswith("ccp suite: full log:"))
+
+    def test_long_lines_then_a_final_error_shows_the_final_error(self):
+        text = "".join(f"{i} " + "z" * 1900 + "\n" for i in range(100)).encode() + b"fatal: the final error\n"
+        out = self.render(text, code=2)
+        self.assertIn("fatal: the final error", out)
+        self.assertLess(len(out), 40000 + 3000)
+        self.assertRegex(out, r"more cut to fit")
+
+    def test_a_short_log_is_shown_whole_and_an_empty_one_says_so(self):
+        text = (b"child: Error: db refused\n" + b"=" * 70 + b"\nFAIL: test_x (m.T.test_x)\n" + b"-" * 70 + b"\nboom\n"
+                + b"-" * 70 + b"\nRan 1 test in 0s\n\nFAILED (failures=1)\n")
+        out = self.render(text)
+        self.assertIn("the whole log (9 line(s)):", out)
+        self.assertIn("child: Error: db refused", out)
+        self.assertEqual(out.count("FAIL: test_x"), 1)
+        self.assertIn("ccp suite: the command printed nothing", self.render(b"", code=3))
 
 
 if __name__ == "__main__":

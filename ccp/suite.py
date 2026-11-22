@@ -549,6 +549,25 @@ def digest(log: Path, scfg: dict[str, Any], count_res: list[re.Pattern[bytes]]) 
             "tail": tail, "lines": n + 1}
 
 
+def counted(counters: list[_Counter]) -> tuple[int | None, dict[str, int | None]]:
+    """What the output's counters read: the tests counted (None when no line counted any) and each summary
+    field summed over the streams (None when no line gave it)."""
+    totals = [c.total for c in counters if c.total is not None]
+    fields: dict[str, int | None] = {}
+    for f in SUMMARY_FIELDS:
+        vals = [c.sums[f] for c in counters if f in c.sums]
+        fields[f] = sum(vals) if vals else None
+    return (sum(totals) if totals else None), fields
+
+
+def all_cached_tests(tests: int | None, fields: dict[str, int | None]) -> int | None:
+    """`tests`, or 0 when none was counted and every unit was a cache hit: no test ran, and that is a count
+    (§14.5)."""
+    if tests is None and fields.get("ran") == 0 and fields.get("cached"):
+        return 0
+    return tests
+
+
 def _fmt_count(v: Any, word: str) -> str | None:
     return None if v is None else f"{v} {word}"
 
@@ -1395,12 +1414,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
             dig = digest(log, scfg, patterns)
         except Exception as e:  # noqa: BLE001
             warn(f"could not read the log back ({type(e).__name__}): see {log}")
-    totals = [c.total for c in counters if c.total is not None]
-    tests = sum(totals) if totals else None
-    fields: dict[str, int | None] = {}
-    for f in SUMMARY_FIELDS:
-        vals = [c.sums[f] for c in counters if f in c.sums]
-        fields[f] = sum(vals) if vals else None
+    tests, fields = counted(counters)
     source = "output"
     valid = [r for r, _p in results if r is not None]
     problem = next((p for _r, p in results if p), None)
@@ -1420,8 +1434,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                     if isinstance(x, dict) and x.get("id")]
         if any("modules" in r for r in valid):  # §14.3: every stage's modules, in order
             mods = [m for r in valid for m in r.get("modules") or []][:MODULES_MAX]
-    if tests is None and fields.get("ran") == 0 and fields.get("cached"):
-        tests = 0  # every unit was a cache hit: no test ran, and that is a count (§14.5)
+    tests = all_cached_tests(tests, fields)
     stage_text = stages_line(suite_id, done, not_run, proven) if staged else None
     if log is not None:
         _say(render_summary(suite_id, log, code, a.lane, seconds, tests, fields, _sig_name(sig), dig,

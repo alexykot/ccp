@@ -1,5 +1,6 @@
 """Whether close may catch a verified head up itself (§16.5 rule 4) is `lifecycle.catch_up_blocked`: the first
-condition that fails, on plain values. The rest of the catch-up's decisions are tested here too, each without a
+condition that fails, on plain values, and, before it merges anything, `lifecycle.catch_up_precondition`: no gate
+lane, no merge worktree, records in git. The rest of the catch-up's decisions are tested here too, each without a
 queue, a gate or a pull request: the merge commit and its shared-file union, the files each side changes and the
 task's own patch, on a throwaway repository, and the sign-off and the record that carry a catch-up, on plain
 values. The close-path tests hold the paths through close."""
@@ -14,7 +15,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from ccp import config, lifecycle, queue, verify
-from ccp.lifecycle import catch_up_blocked
+from ccp.lifecycle import catch_up_blocked, catch_up_precondition
 from ccp.queue import lib
 from tests.helpers import Product
 from tests.toolkit_fixture import git
@@ -79,6 +80,31 @@ class Order(unittest.TestCase):
     def test_an_overlap_is_named_before_the_sign_off_with_a_shared_file_changed_by_both(self):
         why = catch_up_blocked(["ccp/a.py"], ["ccp/a.py", "s.txt"], ["ccp/a.py", "s.txt"], ["s.txt"], True)
         self.assertTrue(why and why.startswith("overlap:") and "s.txt" not in why)
+
+
+class StaticPreconditions(unittest.TestCase):
+    """The three refusals `_catch_up` makes before it merges anything, from facts about the product and the
+    queue, not from the tip: `catch_up_precondition`."""
+
+    def test_a_product_with_every_precondition_met_is_not_refused(self):
+        self.assertIsNone(catch_up_precondition(True, "gate", True, True))
+
+    def test_the_precondition_of_a_gate_lane_names_the_role_s_lane(self):
+        why = catch_up_precondition(False, "ship", True, True)
+        self.assertEqual(why, "no gate lane: plane.json suite.lanes names no lane 'ship' for the gate role "
+                              "(suite.roles), so there is no gate to run on the merge")
+
+    def test_the_precondition_of_a_merge_worktree_is_refused_without_one(self):
+        self.assertEqual(catch_up_precondition(True, "gate", False, True),
+                         "no merge worktree: the product has no worktrees.dir to run the gate in")
+
+    def test_the_precondition_of_written_records_is_refused_for_records_in_git(self):
+        self.assertEqual(catch_up_precondition(True, "gate", True, False),
+                         "the queue keeps its verification records in git, where close records no catch-up")
+
+    def test_the_precondition_order_is_the_gate_lane_then_the_worktree_then_the_records(self):
+        self.assertTrue(catch_up_precondition(False, "gate", False, False).startswith("no gate lane:"))
+        self.assertTrue(catch_up_precondition(True, "gate", False, False).startswith("no merge worktree:"))
 
 
 class FiveFiles(unittest.TestCase):
