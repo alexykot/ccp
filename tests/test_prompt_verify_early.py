@@ -73,6 +73,13 @@ class EarlyRefusal(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["run_id"], f"{TASK}/review")
 
+    def test_a_head_the_checkout_lacks_is_refused_with_nothing_to_flip(self):
+        task = self.runner / f"docs/delivery/tasks/{TASK}.md"
+        task.write_text(task.read_text().replace('spec_refs: ["S1"]\n', 'spec_refs: ["S1"]\nadr_refs: ["ADR-0001 D1"]\n', 1))
+        got = self.verify("0123456789abcdef0123456789abcdef01234567")
+        self.assert_refused(got, "not in this checkout", "Fetch the head")
+        self.assertNotIn("ccp prompt fix", got[3])
+
     def test_a_decision_the_task_does_not_cite_is_not_judged(self):
         code, _, out, err = self.verify(self.head("not_built", cites=False))
         self.assertEqual(code, 0, out + err)

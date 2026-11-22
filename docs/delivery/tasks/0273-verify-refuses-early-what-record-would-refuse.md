@@ -196,5 +196,10 @@ sign (the triage's second question).
 - `check_facts` moved to `ccp/verify.py` unchanged; `heads_match` moved to `ccp/runs.py` unchanged, imported by
   `ccp/verify.py` at module level; `ccp/lifecycle.py`, `ccp/prompt.py` and `ccp/report.py` call `runs.heads_match`.
 - `docs/cli/02-delivery.md`'s `ccp prompt` row also cites §6.7.
+- Fix round 1: a head this checkout does not hold is still refused when the task cites a decision, but
+  `adr_gate` now tells it apart from a `not_built` line (the head does not resolve) and asks the runner to fetch the
+  head and ask again, not to send the task back for a fix round that would flip nothing (`tip_gate` only warns when
+  its fetch fails, so a network blip reaches this path). `ccp/verify.py`'s `from ccp.runs import heads_match` moved
+  into module-path order.
 
 ## Verification notes

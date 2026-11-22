@@ -53,10 +53,10 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ccp import prhost, schema
-from ccp.runs import heads_match
 from ccp.config import Config
 from ccp.config import spec_paths as spec_paths_of
 from ccp.refs import ANY_TASK_ID, QUESTION_ID
+from ccp.runs import heads_match
 
 SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "verification.schema.json"
 # The record's schema version, stamped by `record`. A change that adds a key to the record's

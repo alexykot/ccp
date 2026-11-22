@@ -659,14 +659,19 @@ def marked_gate(q: Path, tid: str, phase: str, a: Any, meta: dict[str, Any]) -> 
 def adr_gate(cfg: Config, phase: str, a: Any, meta: dict[str, Any]) -> None:
     """§6.7, §15.4: under `adr.strict`, a verify of a head on which a decision the task cites is recorded `not_built`
     (`adr.in_force_at`, each line naming its `ccp adr decide`) is refused (exit 1, nothing opened), as `verify record`
-    would refuse its approve, so the task flips it in its own PR before a verifier starts."""
+    would refuse its approve, so the task flips it in its own PR before a verifier starts. A head this checkout
+    does not hold is refused too, with nothing to flip: the runner fetches it and asks again."""
     if phase != "verify":
         return
     from ccp import adr  # noqa: PLC0415
-    lines = adr.in_force_at(cfg, meta, str(a.head).strip())
-    if lines:
-        raise QueueError("; ".join(lines) + ". Send the task back to flip each in its PR (`ccp prompt fix`), then ask "
-                         "again (SPEC §6.7, §15.4)", 1)
+    head = str(a.head).strip()
+    lines = adr.in_force_at(cfg, meta, head)
+    if not lines:
+        return
+    if git(cfg.root, "rev-parse", "--verify", "-q", f"{head}^{{commit}}").returncode != 0:
+        raise QueueError("; ".join(lines) + ". Fetch the head into this checkout, then ask again (SPEC §6.7, §15.4)", 1)
+    raise QueueError("; ".join(lines) + ". Send the task back to flip each in its PR (`ccp prompt fix`), then ask "
+                     "again (SPEC §6.7, §15.4)", 1)
 
 
 def resolution_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> bool:
