@@ -151,5 +151,10 @@ Measured at `1aa5e3f`.
   since a staged lane refuses a command. `templates/prompts/_common.md` now says a command after `--` is for
   an undeclared lane and for one the Lanes line gives with a command after `--`. Held by
   `tests/test_full_lane_prompt.py` `DeclaredPartLane`.
+- Fix round 2 (review-2 MINOR 1): nothing pinned that a part run computes the shared test modules over
+  the whole suite (`shared_tests(suite)`): the fixture's modules named no other, so the shared set was
+  empty whichever list it got. In `test_a_part_runs_cache_entry_is_the_full_runs_and_back`, `test_more`
+  now imports `test_ok`, so `test_ok` is shared in the suite but not in a one-module selection; a part run
+  that computed it over its own selection would key differently from the full run and miss its entry.
 
 ## Verification notes

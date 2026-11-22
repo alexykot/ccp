@@ -215,6 +215,8 @@ class GivenNamesTheGateRunsOnlyThose(GateFixture):
 
     def test_a_part_runs_cache_entry_is_the_full_runs_and_back(self):
         (self.repo / ".gitignore").write_text("__pycache__/\n")  # as the plane's own repo has it
+        # test_more names test_ok, so test_ok is shared: a run of either alone must still find it in the suite
+        self.module("test_more", "from tests import test_ok  # noqa: F401\n" + MORE.format(lhs=3))
         r = self.gate(names=("tests.test_ok",))
         self.assertEqual((r.returncode, self.ran(r, "ok")), (0, {"tests.test_ok"}), r.stdout + r.stderr)
         r = self.gate()  # every module: the one the part run passed is served from the cache
