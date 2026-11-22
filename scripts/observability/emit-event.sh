@@ -36,8 +36,8 @@ Env:
 Examples:
   emit-event.sh --type phase --op transition --task-id ex-0001 \
     --payload '{"from":"leased","to":"implementing"}'
-  emit-event.sh --type seat --op heartbeat --actor delivery-watchdog \
-    --payload '{"seat_id":"delivery-watchdog","wake_kind":"cron","action_summary":"tick"}'
+  emit-event.sh --type seat --op heartbeat --actor task-runner \
+    --payload '{"seat_id":"task-runner","wake_kind":"manual","action_summary":"tick"}'
 EOF
 }
 
