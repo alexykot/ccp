@@ -1,7 +1,7 @@
 ---
 task_id: 0270-the-friction-trigger-counts-noted-tasks-and-scales-with-tasks-in-flight
 title: The architect's friction trigger counts distinct tasks with a worker note, leaves out override notes, and scales with tasks in flight
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S19"]
@@ -209,3 +209,5 @@ Measured at `76f41dd` unless a line says otherwise.
   with no task does not.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #341 head `80d189c` (close's catch-up of the approved `a03379d`, gate run st-20261122T132455Z-3fbefb) (squash `26e14d9`): APPROVE. Passed: fr-01, fr-02, fr-03, fr-04, fr-05, suite-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0270-the-friction-trigger-counts-noted-tasks-and-scales-with-tasks-in-flight.json.
+
