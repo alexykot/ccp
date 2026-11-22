@@ -41,7 +41,7 @@ class DecisionBlock(unittest.TestCase):
 
     def test_bold_lead_closing_right_after_the_id(self):
         self.check(BOLD_ID)
-        self.assertEqual([x.split("*")[0].strip() for x in adr.decision_titles(BOLD_ID)], ["D1", "D2"])
+        self.assertEqual(adr.decision_titles(BOLD_ID), ["D1: First", "D2 Second"])
 
     def test_paragraph_style(self):
         self.check(PARA)

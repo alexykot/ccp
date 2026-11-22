@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
+from tests.init_fixture import CCP, InitCase, PLANE
+
 TEAM = PLANE / "scripts" / "team.sh"
 HOOK = PLANE / "plugin" / "hooks" / "runner-idle.sh"
 sys.path.insert(0, str(PLANE / "scripts" / "observability"))
@@ -19,7 +21,6 @@ import lib  # noqa: E402
 
 from ccp import config  # noqa: E402
 from ccp import init as ccp_init  # noqa: E402
-from tests.init_fixture import CCP, InitCase, PLANE
 
 FOOTPRINT = ("docs/PROJECT.md", "docs/SPEC.md", "docs/delivery/plane.json", "docs/delivery/TEMPLATE-task.md",
              "docs/delivery/WRITING-tasks.md", "docs/delivery/standing-dod.md", "docs/delivery/INDEX.yaml")
