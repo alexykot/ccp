@@ -265,6 +265,10 @@ def cmd_tasks_lease_check(cfg: config.Config, a: argparse.Namespace) -> int:
 
 
 def cmd_tasks_check(cfg: config.Config, a: argparse.Namespace) -> int:
+    stale = getattr(a, "stale", False)
+    if stale and (getattr(a, "lease", False) or getattr(a, "staged", False) or getattr(a, "closed_points", False)):
+        print("ccp tasks check: --stale goes with no other flag", file=sys.stderr)
+        return 2
     if getattr(a, "staged", False) and not getattr(a, "lease", False):
         print("ccp tasks check: --staged goes with --lease", file=sys.stderr)
         return 2
@@ -294,7 +298,10 @@ def cmd_tasks_check(cfg: config.Config, a: argparse.Namespace) -> int:
     from ccp import plan  # noqa: PLC0415  (§21.1: advisory; never changes the exit code)
     tasks = tasklog.load(cfg)
     chain_notes, chain_warnings = plan.chain_report(cfg, tasks)
-    for w in tasklog.warnings(cfg) + reviewpoints.notes(cfg) + parallel.scope_warnings(cfg, tasks) + chain_warnings:
+    # §21.1: `--stale` names each stale-Context task, in place of every other warning (the count among them)
+    warns = tasklog.stale(cfg, tasks) if stale else \
+        tasklog.warnings(cfg) + reviewpoints.notes(cfg) + parallel.scope_warnings(cfg, tasks) + chain_warnings
+    for w in warns:
         print(f"  warning: {w}")
     from ccp import estimator  # noqa: PLC0415  (§26.3: advisory; never changes the exit code)
     for n in chain_notes + estimator.notice(cfg) + ([no_queue] if no_queue else []):
@@ -1204,6 +1211,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--closed-points", action="store_true",
                    help="also fail on a review point the register records closed while a follow-up of one of its "
                         "tasks is undecided (reads QUEUE_ROOT; without it, a note; SPEC §22.2)")
+    p.add_argument("--stale", action="store_true",
+                   help="name each task not yet done whose Context was measured before commits that changed its "
+                        "paths, in place of the other warnings, which count them (with no other flag; SPEC §21.1)")
     p.set_defaults(fn=cmd_tasks_check)
     p = t.add_parser("dry-run", help="run each dod_check step that is one backticked command, at the integration tip "
                                      "in a temporary worktree, and print what it printed (SPEC §21.1; needs QUEUE_ROOT; "
