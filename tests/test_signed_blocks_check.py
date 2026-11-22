@@ -52,6 +52,13 @@ class UnreadableProposed(unittest.TestCase):
         self.task("0003-span-only", "PROPOSED:\n> `a quoted token`")  # quoted text is read as written
         self.assertEqual(self.warns(), [])
 
+    def test_a_proposed_over_an_empty_quote_line_warns(self):
+        text = self.task("0001-empty-quote", "- the change:\nPROPOSED:\n>")  # a quote mark with no text to read
+        warned = self.warns()
+        self.assertEqual(len(warned), 1, warned)
+        self.assertTrue(warned[0].startswith(f"docs/delivery/tasks/0001-empty-quote.md:{line_of(text, 'PROPOSED:')}: "),
+                        warned)
+
     def test_a_proposed_in_a_rule_changes_section_warns_the_same(self):
         rule = 'The §2 sentence. PROPOSED: "newer words".'
         text = self.task("0001-rules", "- **In:** it", after=f"## Rule changes (signed)\n\n{rule}\n\n")

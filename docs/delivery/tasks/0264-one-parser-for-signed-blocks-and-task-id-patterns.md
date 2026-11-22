@@ -147,5 +147,10 @@ Measured at `1aa5e3f`.
   match as before; `_MARK_PARTS` fills them with named groups and the old rest-of-line split, and `_HEAD_PARTS`
   is `_DEC_HEAD` with a named id plus its old tail. The compiled `_MARK_PARTS` pattern is the old one, byte for
   byte; `_HEAD_PARTS` differs only in a capturing `(#+)`, which no caller reads.
+- Fix round 1 (review M1, N1): `tests/test_signed_blocks_check.py` pins the warning on a `PROPOSED:` whose only
+  quote line is an empty `>` (it warns once, naming the `PROPOSED:` line), so a check that looks only for a quote
+  mark fails it. The bracketed note after a decision's id is now one fragment, `adr._NOTE`, that both `_DEC_MARK`
+  and `_HEAD_PARTS` format; the compiled `_DEC_ANY`, `_MARK_PARTS` and `_HEAD_PARTS` patterns are the same strings
+  as before.
 
 ## Verification notes

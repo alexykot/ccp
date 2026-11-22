@@ -288,7 +288,9 @@ def canonical_heading_counts(body: str) -> dict[str, int]:
 # rest of the line split up, to match its parts (`_MARK_PARTS`).
 _DEC_ID = r"\d+[a-z]?"
 _DEC_HEAD = r"^(#+)[ \t]+D({id})\b"
-_DEC_MARK = r"^(?:[-*][ \t]+)?({b1}\*\*)?D({id})(?:[ \t]*\(({note}[^)\n]{{0,40}})\))?{end}"
+# The bracketed note after a decision's id, in both a mark and a heading (`_HEAD_PARTS`); `{note}` opens its group.
+_NOTE = r"(?:[ \t]*\(({note}[^)\n]{{0,40}})\))?"
+_DEC_MARK = r"^(?:[-*][ \t]+)?({b1}\*\*)?D({id})" + _NOTE + "{end}"
 _MARK_END = r"(?:\*\*)?(?:[ \t]*(?:[.:]|—|–)|\*\*|[ \t]+-[ \t])"
 # After a decision's id (and note), an optional separator, then the rest of the line.
 _REST = r"[ \t]*(?:[.:]|—|–|-)?[ \t]*"
@@ -304,8 +306,8 @@ _DEC_ANY = re.compile("|".join(_dec_find(p) for p in (_DEC_HEAD, _DEC_MARK)), re
 # A decision's line matched in parts (`canonical_marker`): the grammar's groups named, the rest of the line split.
 _MARK_PARTS = re.compile(_DEC_MARK.format(id=f"?P<id>{_DEC_ID}", b1="?P<b1>", note="?P<note>",
                                           end=rf"{_REST}(?P<b2>\*\*)?[ \t]*(?:[.:]|—|–)?[ \t]*(?P<rest>.*)$"))
-_HEAD_PARTS = re.compile(_DEC_HEAD.format(id=f"?P<id>{_DEC_ID}")
-                         + rf"(?:[ \t]*\((?P<note>[^)\n]{{0,40}})\))?{_REST}(?P<rest>.*)$")
+_HEAD_PARTS = re.compile((_DEC_HEAD + _NOTE).format(id=f"?P<id>{_DEC_ID}", note="?P<note>")
+                         + rf"{_REST}(?P<rest>.*)$")
 
 
 def _lift(inner: str, after: str) -> bool:
