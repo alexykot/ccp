@@ -1,7 +1,7 @@
 ---
 task_id: 0302-submit-names-no-review-record-it-lacks-and-skip-tests-share-one-integration-commit-helper
 title: ccp tasks submit names no review record when none exists, the CLI reference test proves a span's flags credit only that span's commands, and the skip tests commit to the integration branch through one SkipFlow helper
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S15"]
@@ -138,3 +138,5 @@ Measured at `7a2993b` (origin/main).
   fails the clean-review test; `update(flags)` in `problems_of`'s crediting branch fails the new CLI reference test.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #361 head `0937a33` (squash `b474741`): APPROVE. Passed: cmd-01, code-01, code-02. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0302-submit-names-no-review-record-it-lacks-and-skip-tests-share-one-integration-commit-helper.json.
+
