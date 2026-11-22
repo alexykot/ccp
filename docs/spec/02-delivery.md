@@ -727,6 +727,8 @@ has a `Suite:` line but no suite run is recorded for its run.
   and the `ended` row and its event record `cold` from the run's own count alone (§14.6): asking for a cold run does not make it one.
 - The run it belongs to is `--run`, else `--task` (and `--phase`)'s latest open run, else the one
   running worker run whose worktree holds the current directory; otherwise it is recorded unbound.
+  A `--run` naming a run that is reported or abandoned is refused (exit 2) before the command starts,
+  with nothing recorded, and the refusal names the task's open run when it has one.
 
 ### 14.3 Counts: the gate-result contract and the output
 

@@ -68,11 +68,11 @@ def sandbox_of(directory: Path) -> Path | None:
 
 def _binding(root: Path, sandbox: Path) -> Path | None:
     """The sandbox's binding for the product at `root`: `<project_id>.yaml` in its bindings directory,
-    the id from the checkout's plane.json; None when either is missing."""
+    the id from the checkout's loaded plane.json; None when it does not load or the binding is missing."""
     from ccp import config  # noqa: PLC0415
     try:
-        pid = json.loads((root / config.CONFIG_REL).read_text()).get("project_id")
-    except (OSError, ValueError, AttributeError):
+        pid = config.load(root).project_id
+    except Exception:  # noqa: BLE001  (no binding when plane.json does not load, whatever the reason)
         return None
     if not isinstance(pid, str) or not config.PROJECT_ID_RE.match(pid):
         return None

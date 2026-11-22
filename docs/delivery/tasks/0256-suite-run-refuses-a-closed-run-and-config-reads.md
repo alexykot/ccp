@@ -1,7 +1,7 @@
 ---
 task_id: 0256-suite-run-refuses-a-closed-run-and-config-reads
 title: ccp suite run refuses a closed run as ccp mutate does, the sandbox reads plane.json through config, and suite busy rows lose wait_auto
-status: pending
+status: done
 kind: feature
 depends_on: ["0243-one-source-for-syntax-events-and-config"]
 clashes_with: ["0213-a-green-tree-skips-the-lane-queue", "0238-the-runner-runs-marked-checks-before-verify"]
@@ -13,7 +13,7 @@ paths: ["ccp/suite.py", "ccp/sandbox.py", "docs/spec/02-delivery.md", "docs/ENGI
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0256-suite-run-refuses-a-closed-run-and-config-reads
@@ -108,4 +108,19 @@ and its check first (to `plugin scripts` with `CONFIG_REL`); this task widens th
 
 ## Implementation notes
 
+- `ccp/suite.py`: `_bind`'s `--run` branch, once the record loads, asks `closed_run_refusal(run_id, state,
+  open_id)` (plain values, E15) and raises `ClosedRun` (a `QueueError`, exit 2) when the run is not in
+  `runs.OPEN`. The open run named is `_latest_open(q, task)`, the helper the `--task` branch now uses
+  too, so the refusal names the run `--task` alone would bind. `cmd_run` catches `ClosedRun` ahead of the
+  catch-all that lets recording never block the tests, prints it and returns 2: no `started` row, no
+  lane taken, the command never started. A `--run` naming no run keeps its warning and unbound record.
+  No refusal applies where nothing is recorded (no `QUEUE_ROOT`, a nested run).
+- `ccp/sandbox.py`: `_binding` takes `config.load(root).project_id`, None when the load raises.
+  Behaviour change at the edge: a plane.json that is valid JSON with a valid `project_id` but fails
+  `config.load` on another key now gives no sandbox binding, where the raw read gave one.
+- `wait_auto` removed from the busy row and its assertion from `tests/test_parallel_lanes.py`.
+- E16 text and check (ENGINEERING and `architect.checks`) as the task gives them; §14.2 sentence added.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #299 head `ad4ff6c` (squash `d50b34e`): APPROVE. Passed: sf-01, sf-02, sf-03, sf-04. Gate: `ccp suite run --lane gate (scripts/gate.sh)` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0256-suite-run-refuses-a-closed-run-and-config-reads.json.
+
