@@ -1413,7 +1413,7 @@ tasks:
     depends_on: []
     path: tasks/0287-action-parsers-own-their-flags-and-describe-their-actions.md
   - id: 0288-every-seat-names-its-actor-and-the-lead-s-records-need-the-lead-s
-    status: pending
+    status: done
     title: The lead's three records refuse any caller whose ACTOR does not name the lead, the hooks and the test fence drop an inherited ACTOR, sign-offs count only the lead's, and a ruling id is never reused
     depends_on: []
     path: tasks/0288-every-seat-names-its-actor-and-the-lead-s-records-need-the-lead-s.md

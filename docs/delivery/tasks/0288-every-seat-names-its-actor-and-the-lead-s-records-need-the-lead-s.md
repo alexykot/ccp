@@ -1,7 +1,7 @@
 ---
 task_id: 0288-every-seat-names-its-actor-and-the-lead-s-records-need-the-lead-s
 title: The lead's three records refuse any caller whose ACTOR does not name the lead, the hooks and the test fence drop an inherited ACTOR, sign-offs count only the lead's, and a ruling id is never reused
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S3", "S13", "S17", "S23"]
@@ -178,3 +178,5 @@ that runs `ccp` as the lead), `…` there being `0272-the-lead-s-records-share-o
   asserts "records no head" in the refusal. One extra blank line dropped in `test_seat_actor_env`.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #336 head `fd9bb56` (squash `15aaea8`): APPROVE. Passed: code-01, code-02, code-03, code-04, code-05, test-01. Gate: `ccp wt exec -- suite run --lane gate` exit 0, `ccp wt exec -- tasks check` exit 0, `ccp wt exec -- docs check` exit 0. Record: verification/0288-every-seat-names-its-actor-and-the-lead-s-records-need-the-lead-s.json.
+
