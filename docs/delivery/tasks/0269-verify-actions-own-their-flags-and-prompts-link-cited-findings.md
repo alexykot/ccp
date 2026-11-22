@@ -1,7 +1,7 @@
 ---
 task_id: 0269-verify-actions-own-their-flags-and-prompts-link-cited-findings
 title: ccp verify refuses a flag its action does not take, and a worker prompt names the record of each finding a task cites
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0262-module-docstrings-and-house-rule-checks", "0266-github-knowledge-stays-in-the-pr-host-module"]
@@ -12,7 +12,7 @@ review_point: R21
 paths: ["ccp/cli.py", "ccp/verify.py", "ccp/prompt.py", "docs/cli/02-delivery.md", "tests/test_verify_parser.py", "tests/test_verify_later.py", "tests/test_prompt_review_refs.py"]
 adopt: "none"
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0269-verify-actions-own-their-flags-and-prompts-link-cited-findings
@@ -112,3 +112,5 @@ Measured at `afb8ce6` (the figures below match `31357f0`, where the dry runs ran
   nothing on stdout) instead of a returned 2 with the hand-written text.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #320 head `3d14dcc` (squash `1bdd7a5`): APPROVE. Passed: cli-01, cli-02, pr-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0269-verify-actions-own-their-flags-and-prompts-link-cited-findings.json.
+
