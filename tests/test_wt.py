@@ -195,10 +195,12 @@ class Baseline(WtFixture, unittest.TestCase):
                      ("create", "--kind", "ver", "--baseline", "--sha", self.head()),
                      ("create", "--kind", "ver", "--baseline", "--name", "ver-0002"),
                      ("create", "--kind", "rev", "--baseline"),
-                     ("create", "--baseline"),
-                     ("list", "--baseline")):
+                     ("create", "--baseline")):
             with self.subTest(args=args):
                 self.assertEqual(self.wt(*args)[0], 2)
+        with self.assertRaises(SystemExit) as e:  # list takes no --baseline: the parser refuses it
+            self.wt("list", "--baseline")
+        self.assertEqual(e.exception.code, 2)
         self.assertFalse((self.main / config.WORKTREES_DIR / "ver-baseline").exists())
 
     def test_its_name_is_not_a_task_worktree_name(self):
@@ -787,12 +789,10 @@ class ExecOwnCcp(WtFixture, unittest.TestCase):
 
     def test_a_timeout_is_refused_and_nothing_runs(self):
         name, path = self.made()
-        for value in ("abc", "5"):
-            code, _, body, err = self.wt("exec", name, "--timeout", value, "--", "hello")
-            self.assertEqual((code, body), (2, ""), err)
-            self.assertIn("--timeout", err)
-            self.assertNotIn("Traceback", err)
-        self.assertEqual(self.wt("exec", name, "--timeout", "abc", "--print")[:3:2], (2, ""))
+        for args in (("--timeout", "abc", "--", "hello"), ("--timeout", "5", "--", "hello"), ("--timeout", "abc", "--print")):
+            with self.subTest(args=args), self.assertRaises(SystemExit) as e:  # exec takes no --timeout
+                self.wt("exec", name, *args)
+            self.assertEqual(e.exception.code, 2)
         self.assertFalse((path / "bin" / "ran.json").exists())
 
     def test_a_signal_ending_it_is_128_plus_the_signal(self):
@@ -907,7 +907,9 @@ class Shallow(WtFixture, unittest.TestCase):
         self.assertFalse((self.main / config.WORKTREES_DIR / "impl-0002").exists())
         code, _, _, err = self.wt("create", "--kind", "base", "--task", "0002", "--sha", head, "--shallow", "--", "true")
         self.assertEqual(code, 125, err)
-        self.assertEqual(self.wt("list", "--shallow")[0], 2)
+        with self.assertRaises(SystemExit) as e:
+            self.wt("list", "--shallow")
+        self.assertEqual(e.exception.code, 2)
         self.assertEqual(self.wt("create", "--kind", "ver", "--baseline", "--shallow")[0], 2)
         code, _, _, err = self.shallow("f" * 40)
         self.assertEqual(code, 1, err)
@@ -1141,8 +1143,10 @@ class OwnHooks(WtFixture, unittest.TestCase):
         self.assertEqual(code, 3, err)
         self.assertEqual(self.wt("create", "--kind", "ver", "--baseline", "--own-hooks")[0], 2)
         self.assertFalse((self.main / config.WORKTREES_DIR / "ver-baseline").exists())
-        self.assertEqual(self.wt("list", "--own-hooks")[0], 2)
-        self.assertEqual(self.wt("remove", "ver-0002", "--own-hooks")[0], 2)
+        for args in (("list", "--own-hooks"), ("remove", "ver-0002", "--own-hooks")):
+            with self.subTest(args=args), self.assertRaises(SystemExit) as e:
+                self.wt(*args)
+            self.assertEqual(e.exception.code, 2)
         self.assertTrue((self.main / config.WORKTREES_DIR / "ver-0002").is_dir())
 
 

@@ -12,7 +12,8 @@ Call syntax and flags for the commands of SPEC part `docs/spec/01-model.md`. The
 | `ccp adr index [--stdout]` | regenerate the ADR index | §6.6 |
 | `ccp adr list [--json] [--dir DIR]` | every ADR's frontmatter | §6.6 |
 | `ccp adr migrate --markers [--dry-run]` | rewrite non-canonical decision markers | §6.3 |
-| `ccp docs adr index\|list [--stdout] [--json] [--dir DIR]` | the same as `ccp adr index\|list` | §6.6 |
+| `ccp docs adr index [--stdout]` | the same as `ccp adr index\|list` | §6.6 |
+| `ccp docs adr list [--json] [--dir DIR]` | the same as `ccp adr index\|list` | §6.6 |
 | `ccp tasks index [--stdout]` | regenerate `INDEX.yaml` | §5.7 |
 | `ccp init [--project-id ID] [--queue-root DIR] [--integration-branch B] [--language L] [--gate CMD] [--no-starter-rules] [--telemetry on\|off] [--force]` | adopt this repository: the templates, `plane.json` (with `--language` the product's language, the architect's adoption point; the result names each required key still unset), `.gitignore`, the plugin anchor and the `CLAUDE.md` line, the binding and its queue; the starter house rules and their settings are written unless the product has `docs/ENGINEERING.md` or `--no-starter-rules` says not (`--starter-rules` is accepted and changes nothing); keeps existing files unless `--force` | §4.3, §4.5, §8.3, §20.5 |
 | `ccp init --rules-doc PATH [--adopt]` | list each house rule with no `check:` line and point at the starter rules; `--adopt` gives each `check: pass`, refused over `rules_max_lines`; writes nothing else | §4.5, §20.1, §20.5 |

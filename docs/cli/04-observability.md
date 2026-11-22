@@ -21,7 +21,7 @@ command follows are in the SPEC, not here.
 | `ccp tasks estimate ID [--baseline] [--force] [--dry-run] [--json] [--print-prompt ID]` | Estimate one task (§26.3) |
 | `ccp tasks estimate --all [--baseline] [--max N] [--detach]` | Estimate every task that needs it |
 | `ccp tasks estimate show ID` | A task's rows, latest of each source, raw and calibrated |
-| `ccp estimate backfill [--dry-run]` | Baselines and actuals for merged tasks (§26.3) |
+| `ccp estimate backfill [--dry-run] [--json]` | Baselines and actuals for merged tasks (§26.3) |
 | `ccp estimate accuracy [--json]` | The accuracy panel |
 | `ccp estimate calibration [--json]` | The calibration factors and rolling check (§26.6) |
 | `ccp forecast [--point R<n> \| --backlog] [--json]` | The completion forecast and allowance projection (§26.4) |

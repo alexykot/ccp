@@ -460,13 +460,13 @@ def cmd_wt(cfg: config.Config, a: argparse.Namespace) -> int:
             raise QueueError("--timeout bounds the command of `ccp wt create --kind base`", 2)
         if timeout is not None and not (re.fullmatch(r"[0-9]+", timeout) and int(timeout) >= 1):  # ASCII digits only
             raise QueueError(f"--timeout {timeout!r}: give a whole number of seconds, at least 1", 2)
-        if getattr(a, "shallow", False) and (a.action != "create" or base_run or getattr(a, "baseline", False)):
+        if getattr(a, "shallow", False) and (base_run or getattr(a, "baseline", False)):
             raise QueueError("--shallow is for `ccp wt create --kind rev|ver|mut|mac --task ID --sha SHA`", 2)
         own_hooks = bool(getattr(a, "own_hooks", False))
-        if own_hooks and (a.action != "create" or getattr(a, "baseline", False)):  # §12.2
+        if own_hooks and getattr(a, "baseline", False):  # §12.2
             raise QueueError("--own-hooks is for `ccp wt create --kind KIND --task ID`, not --baseline", 2)
         if getattr(a, "baseline", False):  # §12.1: the adopting lead's gate run on the tip, no task
-            if a.action != "create" or a.kind != "ver":
+            if a.kind != "ver":
                 raise QueueError("--baseline is for `ccp wt create --kind ver --baseline`", 2)
             given = [f for f, v in (("--task", a.task), ("--sha", a.sha), ("--name", a.name)) if v]
             if given:
@@ -523,9 +523,6 @@ def cmd_wt_exec(a: argparse.Namespace, args: list[str]) -> int:
     installed ccp cannot load can still be tried."""
     from ccp import wt  # noqa: PLC0415
     try:
-        if getattr(a, "timeout", None) is not None:  # §12.1: only a base run's command has a time limit
-            raise QueueError(f"--timeout {a.timeout!r}: wt exec takes none; it bounds the command of "
-                             "`ccp wt create --kind base`", 2)
         if a.print_path and args:
             raise QueueError("--print runs nothing: give no arguments after `--`", 2)
         exe = wt.own_ccp(None if a.name_arg is not None else config.find_root(a.root), a.name_arg)
@@ -568,6 +565,13 @@ def _pr_number(raw: str) -> str:
     if not raw.isdigit() or int(raw) < 1:
         raise argparse.ArgumentTypeError(f"takes the PR number, not {raw!r}")
     return str(int(raw))
+
+
+def _nonblank(raw: str) -> str:
+    """`ccp verify`'s FILE and TASK: any value but a blank one, which no file or task could be."""
+    if not raw.strip():
+        raise argparse.ArgumentTypeError("takes a non-blank value, not " + repr(raw))
+    return raw
 
 
 def _full_sha(raw: str) -> str:
@@ -1157,6 +1161,15 @@ def cmd_tasks_migrate(cfg: config.Config, a: argparse.Namespace) -> int:
     return code
 
 
+def _adr_index_list(actions: argparse._SubParsersAction) -> None:  # noqa: SLF001  (argparse's own type)
+    """`ccp adr index|list` and their alias `ccp docs adr index|list`: each action's own flags (SPEC §6.6)."""
+    actions.add_parser("index", help="regenerate the ADR index") \
+        .add_argument("--stdout", action="store_true", help="index: print instead of writing")
+    p = actions.add_parser("list", help="every ADR's frontmatter")
+    p.add_argument("--json", action="store_true", help="list: JSON")
+    p.add_argument("--dir", help="list: the ADR directory (default: plane.json adr.dir, else docs/adr)")
+
+
 def build_parser() -> argparse.ArgumentParser:
     # No abbreviations of --root: `ccp suite run`'s `--` split reads the words past it (§14.1).
     ap = argparse.ArgumentParser(prog="ccp", description="Control-plane product tool (SPEC §8)", allow_abbrev=False)
@@ -1344,10 +1357,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("estimate", help="estimates against actuals (SPEC §26.6; needs QUEUE_ROOT): accuracy | calibration "
                                         "| backfill")
-    p.add_argument("action", choices=("accuracy", "calibration", "backfill"))
+    p.set_defaults(fn=cmd_estimate)
+    es = p.add_subparsers(dest="action", required=True, parser_class=_OwnArgs)
+    for action, text in (("accuracy", "The accuracy panel"),
+                         ("calibration", "The calibration factors and rolling check (§26.6)")):
+        es.add_parser(action, help=text).add_argument("--json", action="store_true")
+    p = es.add_parser("backfill", help="Baselines and actuals for merged tasks (§26.3)")
     p.add_argument("--dry-run", action="store_true", help="backfill: say what would be written, write nothing")
     p.add_argument("--json", action="store_true")
-    p.set_defaults(fn=cmd_estimate)
 
     p = sub.add_parser("forecast", help="when the review point and the backlog finish, their tokens, cost and weekly %% "
                                         "(P50/P90, advisory; SPEC §26.4; needs QUEUE_ROOT)")
@@ -1540,22 +1557,32 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_usage)
 
     p = sub.add_parser("board", help="the project board (SPEC §28.3): build | status | task ID | install | uninstall | timer")
-    p.add_argument("action", choices=("build", "status", "task", "install", "uninstall", "timer"))
-    p.add_argument("task_id", nargs="?", help="task: the task id or its NNNN")
+    p.set_defaults(fn=cmd_board)
+    bo = p.add_subparsers(dest="action", required=True, parser_class=_OwnArgs)
+    p = bo.add_parser("build", help="Fold the sources into board/board.json, the page and the day's snapshot (§28)")
     p.add_argument("--quiet", action="store_true", help="build: print nothing (the launchd timer)")
     p.add_argument("--drain", action="store_true", help=argparse.SUPPRESS)  # board.refresh's detached build
-    p.set_defaults(fn=cmd_board)
+    bo.add_parser("status", help="Terminal summary; exits non-zero on an open blocker (§23.4)")
+    bo.add_parser("task", help="One task's drill-down in the terminal") \
+        .add_argument("task_id", nargs="?", help="task: the task id or its NNNN")
+    for action in ("install", "uninstall", "timer"):
+        bo.add_parser(action, help="The per-project rebuild timer")
 
     p = sub.add_parser("allowance", help="the weekly checkpoint and the 5-hour session wake (SPEC §25.4): status, the "
                                          "lead records the operator's decision, or session-wake [--sample | --armed | --fire]")
-    p.add_argument("action", choices=("status", "continue", "session-wake"))
+    p.set_defaults(fn=_toolkit(_allowance))
+    al = p.add_subparsers(dest="action", required=True, parser_class=_OwnArgs)
+    sample = "status, session-wake: take a fresh sample first"
+    al.add_parser("status", help="Latest sample, checkpoint in force, resets and decisions (§25.3)") \
+        .add_argument("--sample", action="store_true", help=sample)
+    p = al.add_parser("continue", help="Record the operator's decision past the checkpoint")
     p.add_argument("--to", type=float, help="continue: the next checkpoint, in percent of the weekly allowance")
     p.add_argument("--reason", help="continue: the operator's decision, in their words")
-    p.add_argument("--sample", action="store_true", help="status, session-wake: take a fresh sample first")
+    p = al.add_parser("session-wake", help="The session wake (§25.4)")
+    p.add_argument("--sample", action="store_true", help=sample)
     p.add_argument("--armed", action="store_true", help="session-wake: the lead records the wake it armed (CronCreate)")
     p.add_argument("--fire", action="store_true", help="session-wake: the wake fired; un-park the tasks once the "
                                                        "5-hour window has reset, and say how to resume the runner")
-    p.set_defaults(fn=_toolkit(_allowance))
 
     sub.add_parser("where", help="this product's project id, binding, queue root and plane checkout (SPEC §9.2)") \
         .set_defaults(fn=cmd_where)
@@ -1625,20 +1652,19 @@ def build_parser() -> argparse.ArgumentParser:
     hp.add_argument("--attr", help="the git attribute (default: package_docs.rules.history_attr)")
     hp.set_defaults(fn=cmd_docs_history_paths)
     p = d.add_parser("adr", help="alias of `ccp adr index|list` (SPEC §6.7)")
-    p.add_argument("action", choices=("index", "list"))
-    p.add_argument("--dir", help="list: the ADR directory (default: plane.json adr.dir, else docs/adr)")
-    p.add_argument("--stdout", action="store_true", help="index: print instead of writing")
-    p.add_argument("--json", action="store_true", help="list: JSON")
     p.set_defaults(fn=cmd_adr, args=[], note=None, by=None, decisions=None, archive=False, markers=False, dry_run=False)
+    _adr_index_list(p.add_subparsers(dest="action", required=True, parser_class=_OwnArgs))
     p = sub.add_parser("wt", help="worktrees and environments (SPEC §12.1): create | remove | list | up | down | urls | gc | "
                                   "exec")
-    p.add_argument("action", choices=("create", "remove", "list", "up", "down", "urls", "gc", "exec"))
-    p.add_argument("name_arg", nargs="?", metavar="NAME", help="remove, up, down, urls: the worktree (e.g. ver-0042); "
-                                                              "exec: the worktree whose ccp runs (default this checkout)")
+    p.set_defaults(fn=cmd_wt, command=[])
+    wts = p.add_subparsers(dest="action", required=True, parser_class=_OwnArgs)
+    task_help = "create: the task; list: only its worktrees"
+    p = wts.add_parser("create", help="make a task's worktree (base: run the command after -- at the merge base, then "
+                                      "remove it; ver --baseline: the adoption baseline)")
     p.add_argument("--kind", choices=("impl", "rev", "ver", "mut", "mac", "base"),
                    help="create: the worktree's kind (base: run the command after `--` at the merge base of --sha "
                         "and the integration branch, then remove it)")
-    p.add_argument("--task", help="create: the task; list: only its worktrees")
+    p.add_argument("--task", help=task_help)
     p.add_argument("--sha", help="create: the head a rev/ver/mut/mac worktree is detached at; base: the head whose "
                                  "merge base it checks out")
     p.add_argument("--name", help="create: the name (default <kind>-<nnnn>, then -2, -3, …)")
@@ -1655,67 +1681,94 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--timeout", metavar="SECONDS",
                    help="create --kind base: kill the command with its process group after this many seconds "
                         "(exit 124; default plane.json env.timeout_seconds)")
+    name_help = "remove, up, down, urls: the worktree (e.g. ver-0042); exec: the worktree whose ccp runs (default this checkout)"
+    wts.add_parser("remove", help="remove a worktree").add_argument("name_arg", nargs="?", metavar="NAME", help=name_help)
+    wts.add_parser("list", help="the recorded worktrees, or one task's").add_argument("--task", help=task_help)
+    for action, text in (("up", "run the worktree's env.up hook"), ("down", "run the worktree's env.down hook and mark it down"),
+                         ("urls", "the worktree's environment URLs")):
+        wts.add_parser(action, help=text).add_argument("name_arg", nargs="?", metavar="NAME", help=name_help)
+    wts.add_parser("gc", help="prune the worktrees of done or dropped tasks no one leases")
+    p = wts.add_parser("exec", help="run, or with --print print, a worktree's own bin/ccp")
+    p.add_argument("name_arg", nargs="?", metavar="NAME", help=name_help)
     p.add_argument("--print", dest="print_path", action="store_true", help="exec: print the path of its bin/ccp, run nothing")
-    p.set_defaults(fn=cmd_wt, command=[])
     p = sub.add_parser("auth", help="auth probes (SPEC §30)").add_subparsers(dest="cmd", required=True)
     p.add_parser("check", help="run plane.json auth_check.probes; exit 1 when one fails").set_defaults(fn=cmd_auth)
     p = sub.add_parser("adr", help="ADRs (SPEC §6.4): new | status | decide | supersede | check | index | list | migrate")
-    p.add_argument("action", choices=("new", "status", "decide", "supersede", "check", "index", "list", "migrate"))
-    p.add_argument("args", nargs="*", help="new: TITLE; status: N STATUS; decide: N Dn STATE; supersede: OLD NEW")
-    p.add_argument("--note", help="status, decide: a note (status: kept in the ADR's `notes`, dated)")
-    p.add_argument("--by", help="decide: the ADR (decision) that retired or replaced it; supersede: the new ADR's decision")
+    p.set_defaults(fn=cmd_adr)
+    ad = p.add_subparsers(dest="action", required=True, parser_class=_OwnArgs)
+    args_help = "new: TITLE; status: N STATUS; decide: N Dn STATE; supersede: OLD NEW"
+    note_help = "status, decide: a note (status: kept in the ADR's `notes`, dated)"
+    by_help = "decide: the ADR (decision) that retired or replaced it; supersede: the new ADR's decision"
+    ad.add_parser("new", help="the next ADR, from the template, proposed").add_argument("args", nargs="*", help=args_help)
+    p = ad.add_parser("status", help="an allowed status move")
+    p.add_argument("args", nargs="*", help=args_help)
+    p.add_argument("--note", help=note_help)
+    p = ad.add_parser("decide", help="one decision's build state")
+    p.add_argument("args", nargs="*", help=args_help)
+    p.add_argument("--note", help=note_help)
+    p.add_argument("--by", help=by_help)
+    p = ad.add_parser("supersede", help="links both ways; retires the decisions or the ADR")
+    p.add_argument("args", nargs="*", help=args_help)
+    p.add_argument("--by", help=by_help)
     p.add_argument("--decisions", help="supersede: only these decisions of OLD (D2,D4); OLD keeps its status")
     p.add_argument("--archive", action="store_true", help="supersede: move OLD into adr.dir/archive (git mv)")
+    ad.add_parser("check", help="the ADR checks")
+    _adr_index_list(ad)
+    p = ad.add_parser("migrate", help="rewrite non-canonical decision markers")
     p.add_argument("--markers", action="store_true", help="migrate: rewrite decisions to `### Dn. Title`")
     p.add_argument("--dry-run", action="store_true", help="migrate: write nothing, say what would change")
-    p.add_argument("--stdout", action="store_true", help="index: print instead of writing")
-    p.add_argument("--json", action="store_true", help="list: JSON")
-    p.add_argument("--dir", help="list: the ADR directory (default: plane.json adr.dir, else docs/adr)")
-    p.set_defaults(fn=cmd_adr)
 
     p = sub.add_parser("architect", help="the architect seat: passes, shapes and their triage (needs QUEUE_ROOT)")
-    p.add_argument("action", choices=("due", "run", "triage", "status"))
-    p.add_argument("review_id", nargs="?", help="triage: the report id (ar-… or sh-…)")
+    p.set_defaults(fn=cmd_architect)
+    arc = p.add_subparsers(dest="action", required=True, parser_class=_OwnArgs)
+    scope_help = "due, run: the runner's scope, for the review-point trigger (default: work.json's, while a runner is running)"
+    p = arc.add_parser("due", help="The architect seat: whether a pass is due. Needs QUEUE_ROOT")
+    p.add_argument("--scope", help=scope_help)
+    p.set_defaults(actor=None)  # architect.main reads the actor for every action
+    p = arc.add_parser("run", help="The architect seat: run a pass, or with --mode shape shape ADRs. Needs QUEUE_ROOT")
     p.add_argument("--mode", choices=("pass", "shape"), default="pass")
     p.add_argument("--lens", help="comma-separated lenses (structure, docs, tests, process); default all")
     p.add_argument("--adr", help="shape: the ADR(s) to shape, comma-separated, or `due` for every ADR "
                                  "`ccp architect due` lists")
-    p.add_argument("--scope", help="due, run: the runner's scope, for the review-point trigger "
-                                   "(default: work.json's, while a runner is running)")
+    p.add_argument("--scope", help=scope_help)
     p.add_argument("--force", action="store_true", help="run a pass even if not due (on demand)")
     p.add_argument("--detach", action="store_true",
                    help="start the pass in its own session and return once it is running")
     p.add_argument("--actor")
     p.add_argument("--review-id", dest="rid", help=argparse.SUPPRESS)
+    p = arc.add_parser("triage", help="The architect seat: a report's triage. Needs QUEUE_ROOT")
+    p.add_argument("review_id", nargs="?", help="triage: the report id (ar-… or sh-…)")
     p.add_argument("--backfill", nargs=2, metavar=("ID", "SHA"),
                    help="triage: record the integration-branch sha for a finalised triage whose commit_sha is pending")
     p.add_argument("--apply", metavar="ID",
                    help="triage: validate and finalise a triage file already committed by hand, then rebuild INDEX.yaml")
-    p.set_defaults(fn=cmd_architect)
+    p.set_defaults(actor=None)
+    arc.add_parser("status", help="The architect seat: the state of its passes. Needs QUEUE_ROOT") \
+        .set_defaults(actor=None, scope=None)
 
     vf = sub.add_parser("verify", help="the verifier's record and the runner's merge gate (SPEC §15.3; needs "
                                        "QUEUE_ROOT), the check of a PR's SPEC lines against the signed text "
                                        "(spec-text, §15.2), and a deferred check's result recorded after close "
                                        "(later, deferred, §15.4)") \
         .add_subparsers(dest="action", required=True, parser_class=_OwnArgs)
-    p = vf.add_parser("record")
-    p.add_argument("target", metavar="FILE", help="the verdict JSON file (- for stdin)")
+    p = vf.add_parser("record", help="record the verifier's verdict from its JSON file (- for stdin)")
+    p.add_argument("target", type=_nonblank, metavar="FILE", help="the verdict JSON file (- for stdin)")
     p.set_defaults(fn=cmd_verify)
-    p = vf.add_parser("merge-ok")
+    p = vf.add_parser("merge-ok", help="the runner's merge gate: whether the task's record approves the PR")
     p.add_argument("target", type=_pr_number, metavar="PR", help="the PR number")
     p.add_argument("--task", help="the task whose record approves this PR (default: pr-<PR>)")
     p.set_defaults(fn=cmd_verify)
-    p = vf.add_parser("check")
-    p.add_argument("target", metavar="TASK", help="the task id")
+    p = vf.add_parser("check", help="the merge gate's judgement at a given head, without the PR host")
+    p.add_argument("target", type=_nonblank, metavar="TASK", help="the task id")
     p.add_argument("--head", required=True, help="the PR head the runner would merge")
     p.set_defaults(fn=cmd_verify)
-    p = vf.add_parser("spec-text")
-    p.add_argument("target", metavar="TASK", help="the task id")
+    p = vf.add_parser("spec-text", help="check the branch's SPEC lines against the signed text (§15.2)")
+    p.add_argument("target", type=_nonblank, metavar="TASK", help="the task id")
     p.add_argument("--base", help="the ref the branch's diff is taken from (default: origin/<integration branch>)")
     p.add_argument("--head", help="the commit whose SPEC change is checked (default: HEAD)")
     p.set_defaults(fn=cmd_verify)
-    p = vf.add_parser("later")
-    p.add_argument("target", metavar="TASK", help="the task id")
+    p = vf.add_parser("later", help="record the result of a deferred check run after its task closed (§15.4)")
+    p.add_argument("target", type=_nonblank, metavar="TASK", help="the task id")
     p.add_argument("--check", required=True, help="the id of the check run after its task closed (§15.4)")
     result = p.add_mutually_exclusive_group(required=True)
     result.add_argument("--pass", dest="passed", action="store_const", const=True, help="the check passed")
@@ -1725,14 +1778,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--operator-step", dest="operator_step",
                    help="the approved operator gate (<task_id>-<n>) a ruling seat's evidence came from")
     p.set_defaults(fn=cmd_verify)
-    p = vf.add_parser("deferred")
+    p = vf.add_parser("deferred", help="the deferred checks still to record (§15.4)")
     p.add_argument("--task", help="only this task's checks")
     p.add_argument("--json", action="store_true", help="a JSON list")
     p.set_defaults(fn=cmd_verify)
 
     pr = sub.add_parser("pr", help="the PR host's operations, the same on every host (SPEC §15.5, ADR-0040): "
                                    "open | view | diff | edit | merge; each takes the PR number, open the branch") \
-        .add_subparsers(dest="cmd", required=True)
+        .add_subparsers(dest="cmd", required=True, parser_class=_OwnArgs)
     p = pr.add_parser("open", help="open a PR for a pushed branch against the integration branch; prints its number "
                                    "(needs QUEUE_ROOT)")
     p.add_argument("--branch", required=True, help="the pushed task branch")
@@ -1836,8 +1889,6 @@ def _allowance(cfg: config.Config, a: argparse.Namespace):
     from ccp import usage  # noqa: PLC0415
     from ccp.queue import root  # noqa: PLC0415
     q = root()
-    if (a.armed or a.fire) and a.action != "session-wake":
-        raise QueueError("--armed and --fire are for session-wake", 2)
     if a.action == "status":
         a.board_dirty = a.sample  # a fresh sample is new state; the board's own build never samples
         return usage.status(cfg, q, a.sample)
