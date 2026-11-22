@@ -1,7 +1,7 @@
 ---
 task_id: 0257-one-gate-block-and-one-sentence-per-line
 title: The before-push gate block is written once for the four phases, prompt templates hold one sentence per line, and the writing-tasks skill names two check pitfalls
-status: pending
+status: done
 kind: feature
 depends_on: ["0212-full-role-runs-the-gate-lane-and-a-pregate-lane", "0221-workers-reach-the-pr-host-through-ccp-pr", "0223-a-follow-up-is-tracked-not-left-in-notes", "0228-report-sections-as-one-table", "0233-briefs-point-at-the-evidence-rules", "0238-the-runner-runs-marked-checks-before-verify", "0240-plane-workers-run-the-head", "0244-tasks-check-runs-dry-runs"]
 spec_refs: ["S5", "S13"]
@@ -11,7 +11,7 @@ review_point: R17
 paths: ["templates/prompts/", "ccp/prompt.py", "plugin/skills/writing-tasks/SKILL.md", "tests/test_prompt_gate_block.py"]
 adopt: "none"
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0257-one-gate-block-and-one-sentence-per-line
@@ -129,3 +129,5 @@ before them would conflict with each, so this task runs after them, on their tex
   - The module docstring of `ccp/prompt.py` is reflowed to its old line width.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #301 head `b98f08f` (squash `1795fd2`): APPROVE. Passed: tp-01, tp-02, tp-03, tp-04. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0257-one-gate-block-and-one-sentence-per-line.json.
+

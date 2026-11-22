@@ -1258,7 +1258,7 @@ tasks:
     depends_on: [0243-one-source-for-syntax-events-and-config]
     path: tasks/0256-suite-run-refuses-a-closed-run-and-config-reads.md
   - id: 0257-one-gate-block-and-one-sentence-per-line
-    status: pending
+    status: done
     title: The before-push gate block is written once for the four phases, prompt templates hold one sentence per line, and the writing-tasks skill names two check pitfalls
     depends_on: [0212-full-role-runs-the-gate-lane-and-a-pregate-lane, 0221-workers-reach-the-pr-host-through-ccp-pr, 0223-a-follow-up-is-tracked-not-left-in-notes, 0228-report-sections-as-one-table, 0233-briefs-point-at-the-evidence-rules, 0238-the-runner-runs-marked-checks-before-verify, 0240-plane-workers-run-the-head, 0244-tasks-check-runs-dry-runs]
     path: tasks/0257-one-gate-block-and-one-sentence-per-line.md
