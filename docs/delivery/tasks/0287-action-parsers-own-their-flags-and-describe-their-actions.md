@@ -1,7 +1,7 @@
 ---
 task_id: 0287-action-parsers-own-their-flags-and-describe-their-actions
 title: ccp verify -h describes its actions and refuses a blank target, and the flat action parsers and ccp pr refuse another action's flag with the called action's usage
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests", "0272-the-lead-s-records-share-one-guard-and-one-actor-id", "0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope", "0284-shared-test-fixtures-live-in-modules-that-hold-no-tests", "0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes"]
@@ -212,3 +212,5 @@ Measured at `b5f2273` (origin/main).
   refuses.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #333 head `a747d12` (squash `4a47074`): APPROVE. Passed: cli-01, cli-02, cli-03, cli-04, test-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0287-action-parsers-own-their-flags-and-describe-their-actions.json.
+
