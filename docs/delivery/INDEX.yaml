@@ -1457,3 +1457,13 @@ tasks:
     title: The spec-question script and lib load a product's config through one quiet loader, the task-id check reads the configured task directory (DURABLE_DOCS goes), blocked builds its dependency map once, and the architect driver no longer imports the spec-question script
     depends_on: []
     path: tasks/0296-the-spec-question-script-loads-the-product-config-once-and-reads-its-task-dir.md
+  - id: 0297-a-sign-off-wait-ends-on-the-lead-s-sign-off-and-briefs-name-the-lead-s-actor
+    status: pending
+    title: ccp health ends a sign-off wait only on the lead's build sign-off, the runner's brief and the writing-tasks skill show the lead's records with the lead's ACTOR, and tests build the lead's id into longer strings from lib.LEAD
+    depends_on: []
+    path: tasks/0297-a-sign-off-wait-ends-on-the-lead-s-sign-off-and-briefs-name-the-lead-s-actor.md
+  - id: 0298-the-cli-reference-reads-each-span-s-flags-and-tests-take-the-plane-root-and-git-env-from-helpers
+    status: pending
+    title: The CLI reference test holds each call span's flags to the commands that span names, the cache-leftover rule's symlink branch has tests, test_tasks_close drops its script mode, and E4 fails on a copied plane root or git identity
+    depends_on: []
+    path: tasks/0298-the-cli-reference-reads-each-span-s-flags-and-tests-take-the-plane-root-and-git-env-from-helpers.md

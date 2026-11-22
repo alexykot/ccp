@@ -53,7 +53,8 @@ All reshape phases have landed.
     token each guards, and derive the template flags' defaults from the templates. Too large for one
     task; house rule E4 keeps new tests clean meanwhile.
   - F17: move `scripts/observability/lib.py` and `architecture_review.py` into the `ccp` package, so
-    `ccp` imports nothing from `scripts/` (the E7 amendment comes with it). Architect pass
+    `ccp` imports nothing from `scripts/`. The move also amends E7 ("`ccp` imports nothing from scripts/", with a
+    command check; operator, 2026-11-22). Architect pass
     `ar-20261122T055103Z-11aa` (F01) found the first trigger fired; task 0282 (R25) moves the headless
     helpers and the open-question rule out of `spec_maintainer.py`. Tasked once 0283, 0293 and 0296, which
     edit lib.py or its importers, are done (0272, 0277 and 0282 are; `ar-20261122T100027Z-dd31`).
