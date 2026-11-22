@@ -129,8 +129,9 @@ one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line sa
 - **A behaviour-preserving change** (move, rename, split) is checked by the tests that already hold
   the behaviour, named, plus a mutation showing they bite. A check that changes a tracked file (a
   planted fault) names the copy: `ccp mutate --mutant` (or `--mutant-file`) when a test judges the
-  fault, otherwise a `ccp wt create --kind mut` worktree at the head, removed with `ccp wt remove`;
-  never the branch's own worktree and never a hand `git worktree add`.
+  fault and the product declares `mutate.command`, otherwise a `ccp wt create --kind mut` worktree
+  at the head, removed with `ccp wt remove`; never the branch's own worktree and never a hand
+  `git worktree add`.
 - **A speed check states an absolute target**, never "as fast as before".
 - **A check of a `ccp` command runs the head's `bin/ccp`** where the head carries one (the plane's own
   repo), never `ccp` on PATH, which is the released plane. Signed SPEC text is checked with
