@@ -231,5 +231,11 @@ As the runner passed it (lead, 2026-11-22, spec question `sm-20261122T133927Z-2a
   case (an old text not found as written but found without its trailing line break), and a whole-line old text
   that matches nothing keeps the plain refusal. That is the reading built at `93cf6743`, so the ruling round
   changes no code, test or doc; it records the ruling in Context (not checked) and merges `origin/main`.
+- **Fix round 1.** The review found that reading `failed` from offset 0 instead of `_test`'s offset survived:
+  the one end-to-end killed-row test had a single killed mutant, first in the log. That test now runs two killed
+  mutants (`a + b` => `a - b`, killed by the first module, then the second module's `sub` mutant) and a survived
+  one, and checks each killed row names only its own failing test; the offset mutant is killed. The `docs/cli`
+  `ccp mutate` row's refusal clause moved after the `unbuilt` clause, so "killed or survived … or `unbuilt`"
+  reads as one list.
 
 ## Verification notes

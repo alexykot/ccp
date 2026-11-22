@@ -105,12 +105,14 @@ class SeveralTests(ToolkitFixture, unittest.TestCase):
         self.assertEqual(self.rows(), [])
         self.assertNotIn("mutant 1 ", self.log())
 
-    def test_a_killed_row_names_its_failing_test_and_a_survived_row_none(self):
-        code, _, _, err = self.mutate(SUB_MUTANT, UNUSED_MUTANT)
+    def test_each_killed_row_names_its_own_failing_tests_and_a_survived_row_none(self):
+        code, _, _, err = self.mutate("calc.py:a + b=>a - b", SUB_MUTANT, UNUSED_MUTANT)
         self.assertEqual(code, 1, err)
-        killed, survived = self.rows()
-        self.assertEqual(len(killed["failed"]), 1, killed)
-        self.assertTrue(killed["failed"][0].startswith(f"test_sub ({SECOND}.TwoTest"), killed["failed"])
+        first, second, survived = self.rows()
+        self.assertEqual(len(first["failed"]), 1, first)
+        self.assertTrue(first["failed"][0].startswith(f"test_add ({FIRST}.OneTest"), first["failed"])
+        self.assertEqual(len(second["failed"]), 1, second)
+        self.assertTrue(second["failed"][0].startswith(f"test_sub ({SECOND}.TwoTest"), second["failed"])
         self.assertEqual((survived["outcome"], survived["failed"]), ("survived", []))
 
     def test_the_product_s_section_pattern_replaces_the_pack_s(self):
