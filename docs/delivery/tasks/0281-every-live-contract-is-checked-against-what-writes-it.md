@@ -1,7 +1,7 @@
 ---
 task_id: 0281-every-live-contract-is-checked-against-what-writes-it
 title: Every live contract is checked against the record its writer writes, and the schema checker knows every keyword the contracts use
-status: pending
+status: done
 kind: refactor
 depends_on: ["0279-contract-writer-tests-for-the-answer-file-and-wt-up-down"]
 clashes_with: ["0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events"]
@@ -230,4 +230,22 @@ at `5fc9cb9`: no match). Whichever task merges second re-measures its anchors at
 
 ## Implementation notes
 
+- Premises re-run at `245528cb`: 21 schema files; 12 names validated through the checker (`project` for an enum only);
+  the keyword grep found the same 5 files; `ccp/verify.py` is still the one outside caller; no SPEC match for the
+  new keywords. The figures hold.
+- `ccp/schema.py`: `deprecated` and `$defs` in `_ANNOTATIONS`; `$ref`, `maxItems`, `uniqueItems`, `maximum`,
+  `exclusiveMinimum` and `propertyNames` in `_KEYWORDS`. `schema_errors` takes keyword-only `root`; `_ref` (new)
+  resolves `#/$defs/<name>` in it, and `_combined` passes it on. Messages the task leaves open: `items are not unique`,
+  `more than N item(s)`, `V is above N`, `V is not above N`, and for a `$ref` the checker cannot follow
+  `the schema's $ref "<ref>" is not a local #/$defs/<name>, which ccp verify cannot check`.
+- `uniqueItems` compares two items equal when `==` and `_kind` agree (a shallow compare: a nested `[1]` and `[true]`
+  would count as equal).
+- `maximum` and `exclusiveMinimum` judge a number only (a boolean is not one), as `minimum` already did.
+- `tests.test_contract_writers`: `Checker` (six tests), `InitContracts`, `QueueRecordContracts(ToolkitFixture)`,
+  `ReportContracts(Harness)`, `GateResultContract`, `FrontmatterContracts`, and the task-file test in `Examples`.
+- `contracts/task_file.example.md` is new; `contracts/CLAUDE.md` has the three edits.
+- `ccp sandbox create` prints `root` as the product directory; the sandbox is its parent, which `sandbox remove` takes.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #318 head `a1ff4b6` (close's catch-up of the approved `5325799`, gate run st-20261122T071759Z-b0efbf) (squash `44e1a61`): APPROVE. Passed: code-01, code-02, code-03, code-04, code-05, doc-01. Gate: `ccp suite run --lane gate` exit 0, `ccp suite run --lane part --cold -- scripts/gate.sh tests.test_contract_writers tests.test_verify` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0281-every-live-contract-is-checked-against-what-writes-it.json.
+

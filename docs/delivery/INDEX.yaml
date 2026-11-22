@@ -1378,7 +1378,7 @@ tasks:
     depends_on: []
     path: tasks/0280-the-base-run-reads-the-denylist-the-head-run-reads-and-tests-make-no-base-run.md
   - id: 0281-every-live-contract-is-checked-against-what-writes-it
-    status: pending
+    status: done
     title: Every live contract is checked against the record its writer writes, and the schema checker knows every keyword the contracts use
     depends_on: [0279-contract-writer-tests-for-the-answer-file-and-wt-up-down]
     path: tasks/0281-every-live-contract-is-checked-against-what-writes-it.md
