@@ -90,6 +90,8 @@ class Transparency(SuiteFixture, unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn(b"Ran 2 tests", r.stderr)
         self.assertEqual(self.rows()[-1]["tests"], 2)
+        self.assertEqual(self.rows()[0]["output"], "full")
+        self.assertIsNone(self.rows()[-1]["log"])
 
 
 class Binding(SuiteFixture, unittest.TestCase):
@@ -1187,6 +1189,9 @@ class Digest(unittest.TestCase):
         self.assertIn("no test count found", self.summary(text, None))
 
     def test_full_still_counts_the_fields(self):
+        """Pins the counters a `--full` run relies on (tests, failed, skipped from the output's own lines); the
+        run's wiring (the started row's `output`, the ended row's `log: None`) is held by
+        `Counting.test_a_real_unittest_run_is_counted`."""
         tests, fields = counts_of(b"noise line 299\nRan 4 tests in 0.1s\n\nFAILED (failures=1, errors=1, skipped=1)\n")
         self.assertEqual((tests, fields["failed"], fields["skipped"]), (4, 2, 1))
 

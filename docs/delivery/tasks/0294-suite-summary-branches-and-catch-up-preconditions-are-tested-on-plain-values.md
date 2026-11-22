@@ -113,6 +113,9 @@ Measured at `e92f362`.
   `suite.counted` and `suite.all_cached_tests` with plain values. Where an expectation read the `ended` row it checks
   the function's return value. Not carried over: the row, event and `fold` fields, the log's `FAIL:` count and the
   `--full`/`log: None` row, which are wiring the remaining end-to-end tests of `Summary` and `ResultContract` hold.
+- Fix round 1: that claim was false for the `--full` wiring. `Counting.test_a_real_unittest_run_is_counted` (a real
+  `--full` run) now also asserts the started row's `output` is `full` and the ended row's `log` is None, and
+  `Digest.test_full_still_counts_the_fields`'s docstring says it pins the counters only.
 - `tests/test_catch_up_decision.py`: `StaticPreconditions`, five tests on plain values (each refusal, None, the order).
 - `tests/test_behind_tip_catch_up.py`: dropped the no-worktrees-dir and records-in-git tests (12 tests remain); the
   docstring now names the busy and moving-tip paths as end to end and every other decision as plain values.
