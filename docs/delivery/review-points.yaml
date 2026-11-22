@@ -146,6 +146,6 @@ review_points:
     opened: "2026-11-22"
   - id: R26
     name: eighth architect pass fixes
-    goal: "Findings of architect pass ar-20261122T100027Z-dd31 and the open follow-ups of 0282: a cold reviewer run where review takes no cache hits, the lead's preference and holds behind the lead's guard with every seat id and the whole-suite roles named once, the suite summary and catch-up refusals tested on plain values, package docs naming rules by id with every test module a cache leaf, and the spec-question script loading the product config once."
+    goal: "Findings of architect pass ar-20261122T100027Z-dd31 and the open follow-ups of 0282: a cold reviewer run where review takes no cache hits, the lead's preference and holds behind the lead's guard with every seat id and the whole-suite roles named once, the suite summary and catch-up refusals tested on plain values, package docs naming rules by id with every test module a cache leaf, and the spec-question script loading the product config once; and the open follow-ups of 0287 to 0291: a sign-off wait ending only on the lead's sign-off with the briefs naming the lead's ACTOR, and the CLI reference reading each span's flags, a test for the cache rule's symlink branch and E4 catching a copied plane root or git identity."
     status: planned
     opened: "2026-11-22"
