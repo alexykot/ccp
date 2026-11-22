@@ -32,12 +32,6 @@ class SkipReview(SkipFlow, ToolkitFixture, unittest.TestCase):
         self.ccp("tasks", "claim", "0002")
         self.wt = self.main / config.WORKTREES_DIR / "impl-0002"  # the claim made it, on task/0002-second
 
-    def on_main(self, rel: str, text: str) -> None:
-        other = self.main / config.WORKTREES_DIR / "other"  # another task merges to main meanwhile
-        git(self.main, "worktree", "add", "-q", "--detach", str(other), "origin/main")
-        self.commit(rel, text, other)
-        git(other, "push", "-q", "origin", "HEAD:main")
-
     def refused(self, head: str, why: str) -> str:
         code, _, out, err = self.verify(head)
         self.assertEqual(code, 4, out + err)
@@ -109,7 +103,7 @@ class SkipReview(SkipFlow, ToolkitFixture, unittest.TestCase):
         self.assertEqual(body["review_skip"]["files"], 2)
 
     def test_a_setting_only_the_head_or_the_checkout_declares_does_not_apply(self):
-        self.on_main("docs/delivery/plane.json", json.dumps(ToolkitFixture.PLANE_JSON))  # the integration branch drops it
+        self.on_main({"docs/delivery/plane.json": json.dumps(ToolkitFixture.PLANE_JSON)})  # the integration branch drops it
         git(self.wt, "fetch", "-q", "origin")
         git(self.wt, "merge", "-q", "--no-edit", "origin/main")
         self.reviewed()
@@ -122,11 +116,9 @@ class SkipReview(SkipFlow, ToolkitFixture, unittest.TestCase):
 
     def test_a_fix_that_edits_the_proofs_script_gets_the_integration_branchs_verdict(self):
         proof = '"$PROOF_BIN" {task_id} {reviewed} {head} {from} && sh tests/check.sh'
-        self.on_main("tests/check.sh", "exit 1\n")  # the integration branch's script proves nothing
-        other = self.main / config.WORKTREES_DIR / "other"
-        self.commit("docs/delivery/plane.json", json.dumps(
-            {**self.PLANE_JSON, "verify": {"skip_review": {"paths": ["tests"], "proof": proof}}}), other)
-        git(other, "push", "-q", "origin", "HEAD:main")
+        self.on_main({"tests/check.sh": "exit 1\n",  # the integration branch's script proves nothing
+                      "docs/delivery/plane.json": json.dumps(
+                          {**self.PLANE_JSON, "verify": {"skip_review": {"paths": ["tests"], "proof": proof}}})})
         git(self.wt, "fetch", "-q", "origin")
         git(self.wt, "merge", "-q", "--no-edit", "origin/main")
         self.reviewed()
@@ -150,7 +142,7 @@ class SkipReview(SkipFlow, ToolkitFixture, unittest.TestCase):
 
     def test_an_integration_merge_after_the_review_is_not_the_fixs(self):
         reviewed = self.reviewed()
-        self.on_main("other.txt", "x\n")
+        self.on_main({"other.txt": "x\n"})
         git(self.wt, "fetch", "-q", "origin")
         git(self.wt, "merge", "-q", "--no-edit", "origin/main")
         head = self.fix()
@@ -160,7 +152,7 @@ class SkipReview(SkipFlow, ToolkitFixture, unittest.TestCase):
 
     def test_a_reviewed_change_that_conflicts_with_the_new_base_is_reviewed(self):
         self.reviewed()
-        self.on_main("feature.txt", "built elsewhere\n")
+        self.on_main({"feature.txt": "built elsewhere\n"})
         git(self.wt, "fetch", "-q", "origin")
         r = subprocess.run(["git", "-C", str(self.wt), "merge", "-q", "--no-edit", "origin/main"],
                            capture_output=True, text=True)

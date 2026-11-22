@@ -15,7 +15,7 @@ from unittest import mock
 from ccp import config, prompt, submit, suite
 from tests.helpers import done_report
 from tests.review_flow import CLEAN, MAJOR, PROOF, SKIP_REVIEW_PLANE, PhaseFlow, SkipFlow, A, B
-from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.toolkit_fixture import PLANE, ToolkitFixture
 
 MINOR_ONLY = "BLOCKER=0 MAJOR=0 MINOR=2 NIT=0"
 
@@ -130,6 +130,7 @@ class Submit(PhaseFlow, ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertEqual((body["from"], body["to"], self.status()), ("reviewed", "submitted", "submitted"))
         self.assertEqual(body["unit_lint"], {"run_id": implement, "head": A, "suite_id": None})
+        self.assertEqual(body["review_record"], "review/0002-second.json")
         self.assertIn("unit_lint", err)
 
     def test_prompt_verify_opens_a_verify_for_a_task_never_submitted(self):
@@ -212,6 +213,7 @@ class SubmitProvenFix(SkipFlow, ToolkitFixture, unittest.TestCase):
         _, body = self.submitted()
         from ccp import report
         self.assertFalse(report.review_record_path(self.q, "0002-second").exists())
+        self.assertEqual((body["review_record"], body["review_run_id"]), (None, None))
         self.assertEqual((body["review_skip"]["reviewed"], body["review_skip"]["fix"]), (reviewed, "0002-second/fix"))
 
     def test_a_proven_fix_of_a_major_review_after_a_clean_one_is_submitted(self):
@@ -268,10 +270,7 @@ class SubmitProvenFix(SkipFlow, ToolkitFixture, unittest.TestCase):
     def test_a_tip_moved_between_submit_and_verify_runs_the_proof_again(self):
         self.reviewed()
         head, _ = self.submitted()
-        other = self.main / config.WORKTREES_DIR / "other"  # another task's task log lands on the integration branch
-        git(self.main, "worktree", "add", "-q", "--detach", str(other), "origin/main")
-        self.commit(ToolkitFixture.PLANE_JSON["reconcile"]["log"]["path"], "a merged task's entry\n", other)
-        git(other, "push", "-q", "origin", "HEAD:main")
+        self.on_main({ToolkitFixture.PLANE_JSON["reconcile"]["log"]["path"]: "a merged task's entry\n"})
         code, _, out, err = self.verify(head)
         self.assertEqual(code, 0, out + err)
         self.assertEqual(self.proofs(), 2)

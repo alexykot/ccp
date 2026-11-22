@@ -1,7 +1,7 @@
 ---
 task_id: 0302-submit-names-no-review-record-it-lacks-and-skip-tests-share-one-integration-commit-helper
 title: ccp tasks submit names no review record when none exists, the CLI reference test proves a span's flags credit only that span's commands, and the skip tests commit to the integration branch through one SkipFlow helper
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S15"]
@@ -123,4 +123,20 @@ Measured at `7a2993b` (origin/main).
 
 ## Implementation notes
 
+- `ccp/submit.py`: `review_record` is the record's path only when `record` holds one, else `None`, beside
+  `review_run_id`; the key stays, so the output's shape is unchanged.
+- `tests/test_formal_submit.py`: the two assertions of the ruling; `SubmitProvenFix`'s inline integration commit is one
+  `self.on_main({...})` call, and the module's now unused `git` import goes.
+- `tests/test_cli_reference.py`: `test_a_flag_left_out_of_one_span_is_not_credited_from_its_siblings`, as ruled;
+  `problems_of` is unchanged.
+- `tests/review_flow.py`: `SkipFlow.on_main(files)`, a detached worktree at `origin/main` in a fresh
+  `tempfile.mkdtemp(dir=self._tmp.name)`, each file committed in order, one push. `SkipReview.on_main` goes; the
+  proof-script test's two commits are one call; `ReviewProvers.plane` passes its `__`-mapped files, then plane.json, and
+  keeps its fetch and merge. No test turned on where the worktree lives (the provers' worktree-list checks compare
+  before and after the judgement, both taken after `plane`).
+- Mutants (`ccp mutate`): reverting `ccp/submit.py` fails the no-clean-review test; `"review_record": None` always
+  fails the clean-review test; `update(flags)` in `problems_of`'s crediting branch fails the new CLI reference test.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #361 head `0937a33` (squash `b474741`): APPROVE. Passed: cmd-01, code-01, code-02. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0302-submit-names-no-review-record-it-lacks-and-skip-tests-share-one-integration-commit-helper.json.
+

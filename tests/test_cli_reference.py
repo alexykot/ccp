@@ -220,6 +220,10 @@ class CliReference(unittest.TestCase):
             "01-model.md: `--stdout` is no flag of `ccp adr list`",
         ])
 
+    def test_a_flag_left_out_of_one_span_is_not_credited_from_its_siblings(self):
+        d = self.copy_with("`ccp tasks resume <id> [--detail …]`", "`ccp tasks resume <id>`")
+        self.assertEqual(problems_of(d), ["docs/cli gives `ccp tasks resume` no `--detail`"])
+
     def test_a_row_with_a_delegated_span_is_still_checked_in_its_other_spans(self):
         d = self.copy_with("`ccp tasks index [--stdout]` | lead",
                            "`ccp otel serve [--port N]` / `ccp tasks index [--stdout] [--no-such-flag]` | lead")
