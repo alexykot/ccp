@@ -60,6 +60,10 @@ class TheGateRunsModulesApart(GateFixture):
         self.assertTrue(all(isinstance(m["seconds"], float) and m["seconds"] >= 0 for m in mods.values()))
         self.assertEqual(sum(m["tests"] for m in res["modules"]), res["tests"])
 
+    def test_the_fixture_repository_ignores_bytecode_as_the_planes_repo_does(self):
+        r = subprocess.run(["git", "-C", str(self.repo), "check-ignore", "-q", "tests/__pycache__/test_ok.cpython-313.pyc"])
+        self.assertEqual(r.returncode, 0)
+
     def test_modules_run_at_the_same_time(self):
         self.module("test_left", MEET.format(me="left", other="right"))
         self.module("test_right", MEET.format(me="right", other="left"))
