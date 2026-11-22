@@ -34,6 +34,7 @@ class TestSpawnDryRun(TeamCase):
         self.assertEqual(snapshot(self.q), before)
         self.assertEqual((res["dry_run"], res["ready"]), (True, True))
         self.assertNotIn("failed", res)
+        self.assertEqual(res["stale"], [])  # §16.5: no scope task was measured before a change to its paths
         act = res["actions"][-1]
         self.assertEqual((act["action"], act["name"], act["subagent_type"]), ("spawn_teammate", "runner", "ccp:delivery-runner"))
         self.assertNotIn("prompt_ref", res)

@@ -1,6 +1,6 @@
 """SPEC §21.1, §5.5, §10.5: what `ccp tasks check` warns about in a task's Context: measured figures gone
-stale since the commit they were measured at, and numbers stated with no command, which a ruling written
-as a quoted block does not raise."""
+stale since the commit they were measured at (counted in its warnings, named by `--stale`), and numbers stated
+with no command, which a ruling written as a quoted block does not raise."""
 from __future__ import annotations
 
 import unittest
@@ -39,13 +39,19 @@ class StaleContext(unittest.TestCase):
         return git(self.p.root, "rev-parse", "--short", "HEAD")
 
     def stale(self) -> list[str]:
-        return [w for w in tasklog.warnings(self.p.cfg) if w.startswith(FILE) and self.base in w]
+        return [w for w in tasklog.stale(self.p.cfg) if w.startswith(FILE) and self.base in w]
 
     def test_a_commit_since_the_measurement_that_changed_a_declared_path_warns_naming_it(self):
         sha = self.commit("src/a.py", "change a")
         ws = self.stale()
         self.assertEqual(len(ws), 1, ws)
         self.assertIn(sha, ws[0])
+
+    def test_the_task_check_warnings_count_it_instead_of_naming_it(self):
+        self.commit("src/a.py", "change a")
+        ws = tasklog.warnings(self.p.cfg)
+        self.assertIn(tasklog.stale_count(1)[0], ws)
+        self.assertEqual([w for w in ws if w.startswith(FILE) and self.base in w], [])
 
     def test_a_commit_that_changed_only_an_undeclared_path_does_not_warn(self):
         self.commit("src/b.py", "change b")

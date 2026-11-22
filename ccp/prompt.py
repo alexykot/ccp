@@ -893,6 +893,8 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         # §13.2: the checks marked `runs_on: operator-machine`, not the worker's to run, and what each rests on
         "marked_checks": ", ".join(f"`{c}`" for c in marked_checks(meta)),
         "marked_evidence": "; ".join(marked_evidence),
+        # §13.2, §21.1: the task's own stale-Context warning, for the implementer to re-measure at its base
+        "stale_context": "\n".join(tasklog.stale_context(cfg, meta, cfg.rel(meta["_file"]))) if phase == "implement" else "",
     }
     body = render_phase(phase, values).rstrip() + "\n\n" \
         + render((TEMPLATES / "_common.md").read_text(), values).rstrip() + "\n"

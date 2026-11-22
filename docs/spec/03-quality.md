@@ -532,7 +532,7 @@ It reports a pending task citing a decision whose prerequisite (`requires`, reso
 tasks next` does not read `requires`.
 
 It warns, without failing, when a task not yet done names a later task as a prerequisite in prose:
-the prerequisite goes in `depends_on` instead. It also warns about a task not yet done whose Context says ``Measured at `<sha>` `` when a commit since that sha changed one of the task's `paths`, naming the commits. For each review point with pending tasks it also notes the
+the prerequisite goes in `depends_on` instead. It also counts, in one warning, the tasks not yet done whose Context says ``Measured at `<sha>` `` when a commit since that sha changed one of the task's `paths`; `ccp tasks check --stale` names each such task with the commits, and the lead sees them at the spawn (§16.5) and the implementer in its prompt (§13.2). For each review point with pending tasks it also notes the
 longest `depends_on` chain and the width at each depth, and warns when the chain is at least 3 tasks and
 the point has fewer than 2 tasks per depth on average. Inline `# comments` in frontmatter are ignored. With `--closed-points` it also fails on a closed review point holding an undecided follow-up
 (§22.2).
@@ -763,7 +763,9 @@ its ids; without one, the pattern.
 ### 22.5 The runner's scope
 
 With a register, `team.sh runner spawn --review-point R` without `--scope` takes the open tasks
-tagged R, plus the waiting refactors on top (§20.4). With `--scope`, it warns about scope tasks not
+tagged R, plus the waiting refactors on top (§20.4); when R is `work.json`'s review point, it also keeps
+`work.json`'s scope tasks that are still pending, so a respawn keeps the tasks the lead added (`team.sh
+runner scope --add`). With `--scope`, it warns about scope tasks not
 tagged R and about open R tasks left out. Without a register, the scope is `--scope` or `work.json`'s
 scope, with a warning for a point the pattern refuses. A review point counts as new when
 `--review-point` is given and differs from `work.json`'s; the spawn reads the product's `plane.json`
