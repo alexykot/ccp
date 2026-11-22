@@ -10,6 +10,9 @@ from pathlib import Path
 from ccp import mutate
 from ccp.queue import QueueError
 
+RULED = ("mutant file 'm.txt': the old text is in calc.py 0 times: it ends with the line break before === new, and "
+         "without it it is in calc.py 1 times; end the old text at a line end")
+
 
 class LineBreak(unittest.TestCase):
     def setUp(self):
@@ -29,9 +32,14 @@ class LineBreak(unittest.TestCase):
         return str(cm.exception)
 
     def test_an_old_text_ending_mid_line_is_refused_naming_the_line_break(self):
-        msg = self.refusal("x = ")
-        self.assertIn("ends with the line break before", msg)
-        self.assertIn("1 times", msg)
+        self.assertEqual(self.refusal("x = "), RULED)
+
+    def test_with_crlf_line_ends_the_same_refusal_names_the_line_break(self):
+        (self.root / "calc.py").write_bytes(b"x = 1\r\ny = 2\r\n")
+        (self.root / "m.txt").write_bytes(b"calc.py\r\n=== old\r\nx = \r\n=== new\r\nz = 3\r\n")
+        with self.assertRaises(QueueError) as cm:
+            mutate.parse_file(self.root, "m.txt", self.root)
+        self.assertEqual(str(cm.exception), RULED)
 
     def test_a_whole_line_old_text_that_matches_nothing_keeps_the_plain_refusal(self):
         msg = self.refusal("w = 9")

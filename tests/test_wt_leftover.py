@@ -54,6 +54,15 @@ class Leftover(WtFixture, unittest.TestCase):
         self.assertTrue(out["warnings"][0].startswith(f"worktree {path}:"), out["warnings"])
         self.assertTrue((path / "notes.txt").is_file())
 
+    def test_a_worktree_whose_git_file_is_gone_is_pruned_then_cleared(self):
+        name, path = self.made()
+        self.only_a_cache(path)  # its `.git` file goes too: git's removal fails, and only its prune unlists it
+        self.assertIn(str(path.resolve()), git(self.main, "worktree", "list", "--porcelain"))
+        code, out, body, err = self.wt("remove", name)
+        self.assertEqual(code, 0, body + err)
+        self.assertEqual(out["warnings"], [])
+        self.assertFalse(path.exists())
+
     def test_a_directory_git_still_lists_is_never_deleted(self):
         name, path = self.made()
         git(self.main, "worktree", "lock", str(path))  # git refuses to remove it and its prune keeps it listed
