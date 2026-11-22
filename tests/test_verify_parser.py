@@ -83,6 +83,27 @@ class VerifyParser(unittest.TestCase):
         a, code, err = parse("merge-ok", "task/0001-a")
         self.assertEqual((a, code), (None, 2), err)
 
+    def test_each_action_says_what_it_does(self):
+        sub = next(x for x in cli.build_parser()._actions if isinstance(x, argparse._SubParsersAction))  # noqa: SLF001
+        verify = sub.choices["verify"]
+        actions = next(x for x in verify._actions if isinstance(x, argparse._SubParsersAction))  # noqa: SLF001
+        helps = {c.dest: c.help for c in actions._choices_actions}  # noqa: SLF001  (argparse keeps no public list)
+        self.assertEqual(set(helps), set(OWN))
+        self.assertEqual([a for a, h in helps.items() if not (h or "").strip()], [])
+
+    def test_a_blank_target_is_refused_naming_the_argument(self):
+        for words, metavar in ((["record", ""], "FILE"), (["record", " "], "FILE"), (["check", "", "--head", "abc1234"], "TASK"),
+                               (["spec-text", " "], "TASK"),
+                               (["later", "", "--check", "c-01", "--pass", "--evidence", "e", "--produced-by", "verifier"],
+                                "TASK")):
+            a, code, err = parse(*words)
+            self.assertEqual((a, code), (None, 2), f"{words}: {err}")
+            self.assertIn(f"argument {metavar}: takes a non-blank value", err)
+
+    def test_a_target_keeps_its_value(self):
+        a, code, err = parse("check", " 0001-a", "--head", "abc1234")
+        self.assertEqual((code, a.target), (0, " 0001-a"), err)
+
     def test_a_parsed_verify_record_still_refreshes_the_board(self):
         for words, fires in ((["record", "verdict.json"], True), (["check", "0001-a", "--head", "abc1234"], False)):
             a, code, err = parse(*words)
