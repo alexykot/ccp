@@ -89,4 +89,8 @@ record); signing this brief chooses this. Measured at `e92f362`.
 
 ## Implementation notes
 
+- The template and SPEC §15.3 sentence are as the task gives them.
+- `test_review_with_it_runs_touched_modules_through_the_cache` compared the review brief with and without `review_cache` as "one sentence added, nothing else moved"; the no-setting brief now holds ` --cold`, so that test strips it from its base before the comparison. The comparison otherwise stands.
+- `test_review_without_the_reviewer_setting_is_unchanged` keeps its "no cache" and verifier-rule equality assertions and gains the `--cold` expectation; the new test `test_review_asks_for_a_cold_run_only_where_it_takes_no_cache_hits` pins both sides.
+
 ## Verification notes
