@@ -97,4 +97,18 @@ Measured at `afb8ce6` (the figures below match `31357f0`, where the dry runs ran
 
 ## Implementation notes
 
+- `ccp verify` is one subparser per action (`dest="action"`, so `REFRESHES`' `("verify", "record")` still
+  matches), each with the arguments its `docs/cli/02-delivery.md` row gives: the row's unbracketed flags are
+  `required=True` (`check --head`; `later --check`, `--evidence`, `--produced-by`, and `--pass`/`--fail` as one
+  required group), and `merge-ok`'s PR takes `ccp pr`'s `_pr_number` type. The doc rows needed no change.
+- The action parsers are `_OwnArgs` (`ccp/cli.py`): an argument the action does not take is refused by the
+  action's own parser, so the refusal shows that action's usage, not the whole command's (argparse's default
+  leaves extras to the top-level parser, which prints `usage: ccp …`).
+- `verify.main()` loses its hand checks of the target, and `_later_main` its missing-flag check (dead once the
+  parser requires them). The blank `--head` refusal on `check` stays: a `--head ""` still parses.
+- `ccp/prompt.py` `cited_refs(cfg, meta)` builds `refs`: each `review_refs` entry is followed by
+  `(<cfg.rel(cfg.reviews_dir)>/<the part before #>.md)`; the other refs as before.
+- `tests/test_verify_later.py`: the three parser-refusal tests now expect argparse's `SystemExit(2)` (exit 2 kept,
+  nothing on stdout) instead of a returned 2 with the hand-written text.
+
 ## Verification notes
