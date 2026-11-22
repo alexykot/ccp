@@ -105,4 +105,8 @@ plane's skill, which every product's task writer follows, in line.
 
 ## Implementation notes
 
+- Removed the bullets the task's rulings name: implementer (operator-machine; two follow-up bullets), reviewer and verifier (the follow-up bullet), verifier (operator-machine, four lines). Replaced the skill's planted-fault bullet with the ruled text. Nothing else touched.
+- Premise re-run at 133fbf66: the Context counts held (`## Follow-ups` 4 lines, `not yours to run` 4 lines, `separate copy` 1 line, `ccp/report.py:1`). `git grep -c 'git worktree add' -- 'docs/delivery/tasks/*.md'` now lists 51 files (task said 49 at 8020446): the two extra are tasks written since, including this one; it does not bear on the build.
+- doc-01..doc-03 run at the head: step outputs match each expect.
+
 ## Verification notes

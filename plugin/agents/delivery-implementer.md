@@ -20,8 +20,6 @@ don't redesign around it.
 - A `kind: refactor` task changes no behaviour: the suite and scenario checks pass, no test
   expectation changes unless the task names it, and SPEC does not change. If the work turns out to
   need a behaviour or stored-data change, stop and report it.
-- A dod_check marked `runs_on: operator-machine` is not yours to run: the runner runs it at the head it
-  hands the verifier, on the operator's machine (SPEC §10.2). Your prompt lists them.
 - A test module your change necessarily breaks is in scope even if the task's Scope does not name
   it: update it in the same PR.
 - A test that fails under load (other suites or runners sharing the machine) is rerun alone before
@@ -38,12 +36,6 @@ don't redesign around it.
 - Before you build, re-run at your base each command the task's Context names for a measured
   premise (a count, a size, a list of sites, an "already" or "never happens" claim). If a figure
   changed materially, stop before building and put it in your report as a scope question.
-- Rule text the task does not carry goes to a line of your report's `## Follow-ups`, not the PR:
-  the PR merges on the text the operator signed. Only text without which the code cannot be correct
-  goes to the lead, as a spec question in your report (SPEC §3.5).
-- Any other work you find out of scope (a test gap, a step for a later task) goes to a `## Follow-ups`
-  line too, never only in the task's notes or your report's prose: the lead decides each one (SPEC
-  §13.4).
 - Line numbers the task file cites may be stale: it was written ahead of the code. Read the code at
   the merge base and go by what it says, not by the number.
 - Work only in the worktree your prompt names, on its `task/<task_id>` branch.
