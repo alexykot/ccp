@@ -33,6 +33,18 @@ def ccp_proc(cwd: Path, *args: str, env: dict | None = None, stdin: bytes | None
     return subprocess.run([CCP, *args], cwd=cwd, env=e, input=stdin, capture_output=True, timeout=60)
 
 
+def rule_item(text: str, marker: str) -> str:
+    """The prompt's list item holding `marker`: its line and the indented lines that continue it."""
+    lines = text.splitlines()
+    i = next((n for n, ln in enumerate(lines) if marker in ln), None)
+    if i is None:
+        return ""
+    end = i + 1
+    while end < len(lines) and lines[end].startswith("  "):
+        end += 1
+    return "\n".join(lines[i:end])
+
+
 def _kill(pid: int) -> None:
     try:
         os.kill(pid, signal.SIGKILL)
@@ -734,7 +746,7 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
             self.assertEqual(code, 0, out + err)
             texts[phase] = (self.q / f"prompts/0002-second/{phase}-prompt.md").read_text()
         for phase, text in texts.items():
-            rule = next((ln for ln in text.splitlines() if "cite as evidence" in ln), "")
+            rule = rule_item(text, "cite as evidence")
             self.assertIn(f"QUEUE_ROOT={self.q} ", rule, phase)
             self.assertIn(f"mutate --run 0002-second/{phase} --test <test id>", rule, phase)
             self.assertIn("a bare test runner", rule, phase)
@@ -1534,5 +1546,4 @@ class LaneRoles(SuiteFixture, unittest.TestCase):
             code, _, out, err = self.ccp("prompt", phase, "0002", "--pr", "7", "--head", "a" * 40)
             self.assertEqual(code, 0, out + err)
             text = (self.q / f"prompts/0002-second/{phase}-prompt.md").read_text()
-            line = next(ln for ln in text.splitlines() if marker in ln)
-            self.assertIn("`--lane subset`", line, phase)
+            self.assertIn("`--lane subset`", rule_item(text, marker), phase)

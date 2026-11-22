@@ -1,13 +1,13 @@
 """`ccp prompt <phase> <task>` (SPEC §13.2): the worker's prompt, rendered by the plane.
 
-Four parts, in order: the plane template `templates/prompts/<phase>.md`, then `_common.md` (rules for
-every worker and the report contract) with the product's fragment (`plane.json` `prompts.fragment`)
-and the runner's `--note`. The command writes the prompt beside the run (`prompts/<task>/<phase>[-n]-prompt.md`),
-its §23.8 audit (the full text only under `prompts.keep_body`; audits older than
-`prompts.audit_keep_days` are pruned), opens the run (§11.1) and moves the task's phase. The prompt's
-last line is `Prompt end: <token>`, the token a short hash of the run id and the text above it, kept on
-the run (`prompt_token`): the worker's report repeats it as `Prompt: <token>`, so `ccp report` can tell
-a prompt that reached the worker cut (§13.4). It prints the Agent call to make:
+Four parts, in order: the plane template `templates/prompts/<phase>.md` (for a phase that pushes, with the
+before-push block `_gate.md` in it), then `_common.md` (rules for every worker and the report contract) with
+the product's fragment (`plane.json` `prompts.fragment`) and the runner's `--note`. The command writes the
+prompt beside the run (`prompts/<task>/<phase>[-n]-prompt.md`), its §23.8 audit (the full text only under
+`prompts.keep_body`; audits older than `prompts.audit_keep_days` are pruned), opens the run (§11.1) and moves
+the task's phase. The prompt's last line is `Prompt end: <token>`, the token a short hash of the run id and
+the text above it, kept on the run (`prompt_token`): the worker's report repeats it as `Prompt: <token>`, so
+`ccp report` can tell a prompt that reached the worker cut (§13.4). It prints the Agent call to make:
 the agent type, a description that starts with the run's task and phase, and the prompt: a pointer to
 the file, never its text retyped, and, when the role's model for this round (plane.json `models`, else the
 plane's default; the implementer's per task) is not the agent definition's, its alias (`model`, §2.4; the run
@@ -68,6 +68,14 @@ VAR_RE = re.compile(r"\{\{(\w+)\}\}")
 AUDIT_RE = re.compile(r"^(\d{8}T\d{6}Z)_.+\.json$")  # §23.8: prompts/<task_id>/<UTC>_<phase>.json
 NOTE_MAX = 4000  # §13.2; 500 until 2026-10-22
 PROMPT_END = "Prompt end: "  # §13.2: the rendered prompt's last line, before its token
+# §13.5: the phases that push (`runs.CHANGE_PHASES`) carry the before-push block, `_gate.md`, in their `{{gate}}`;
+# what differs between them is a section flag there, set here per phase
+GATE_FLAGS = {
+    "implement": {"gate_catch_up": True, "gate_pr": True, "gate_merge": False},
+    "fix": {"gate_catch_up": True, "gate_pr": False, "gate_merge": False},
+    "merge": {"gate_catch_up": False, "gate_pr": False, "gate_merge": True},
+    "ruling": {"gate_catch_up": False, "gate_pr": False, "gate_merge": False},
+}
 # §13.2: a merge or ruling round reworks the open PR, as a fix round does
 PHASE_STATUS = {"implement": "implementing", "fix": "fixing", "merge": "fixing", "ruling": "fixing",
                 "review": "reviewing", "verify": "verifying"}
@@ -200,6 +208,13 @@ def render(template: str, values: dict[str, Any]) -> str:
         return str(values[m.group(1)])
 
     return VAR_RE.sub(var, template)
+
+
+def render_phase(phase: str, values: dict[str, Any]) -> str:
+    """The phase's template, with the before-push block rendered into its `{{gate}}` (empty for a phase that does not push)."""
+    flags = GATE_FLAGS[phase] if phase in runs.CHANGE_PHASES else None
+    gate = render((TEMPLATES / "_gate.md").read_text(), {**values, **flags}).rstrip("\n") if flags else ""
+    return render((TEMPLATES / f"{phase}.md").read_text(), {**values, "gate": gate})
 
 
 def ccp_command(cfg: Config) -> str:
@@ -845,7 +860,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
         "marked_checks": ", ".join(f"`{c}`" for c in marked_checks(meta)),
         "marked_evidence": "; ".join(marked_evidence),
     }
-    body = render((TEMPLATES / f"{phase}.md").read_text(), values).rstrip() + "\n\n" \
+    body = render_phase(phase, values).rstrip() + "\n\n" \
         + render((TEMPLATES / "_common.md").read_text(), values).rstrip() + "\n"
     token = prompt_token(run_id, body)  # §13.2: the last line proves the worker got the whole prompt
     body += f"\n{PROMPT_END}{token}\n"

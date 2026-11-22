@@ -134,6 +134,10 @@ one not. `ccp tasks dry-run` does not run a marked check, so its dry-run line sa
   repo), never `ccp` on PATH, which is the released plane. Signed SPEC text is checked with
   `bin/ccp verify spec-text <task>` (`ccp verify spec-text <task>` in a product's checkout), never by a
   grep for a sentence.
+- **A doc presence check pins the token the rule turns on** (the flag, the key, the § cite), never a
+  whole sentence or a table row; signed SPEC text is proved by `ccp verify spec-text`.
+- **An expect counts only what the task changes**, never a figure that moves when another task lands
+  (another task's status, frontmatter or count).
 
 ## Writing the brief
 
