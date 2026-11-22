@@ -90,6 +90,23 @@ class RequiresReport(unittest.TestCase):
             self.assertNotIn("0001-a", lines[0])
             self.assertIn("`ccp adr decide 1 D1 built`", lines[0])
 
+    def test_a_citer_that_depends_on_the_task_is_never_the_remedy_since_it_would_make_a_cycle(self):
+        direct = [task("0001-a", ["0001 D1"], ["0002-b"]), task("0002-b", ["0002 D1"])]
+        through = [task("0001-a", ["0001 D1"], ["0003-c"]), task("0003-c", [], ["0002-b"]), task("0002-b", ["0002 D1"])]
+        for tasks in (direct, through):
+            lines = tasklog.requires_report(tasks, self.idx, strict=False)
+            self.assertEqual(len(lines), 1, lines)
+            for token in ("0001-a", "would make a cycle", "`ccp adr decide 1 D1 built`"):
+                self.assertIn(token, lines[0])
+            self.assertNotIn("add a depends_on on", lines[0])
+
+    def test_with_another_citer_the_remedy_names_only_the_one_without_a_cycle(self):
+        tasks = [task("0001-a", ["0001 D1"], ["0002-b"]), task("0004-d", ["0001 D1"]), task("0002-b", ["0002 D1"])]
+        lines = tasklog.requires_report(tasks, self.idx, strict=False)
+        self.assertEqual(len(lines), 1, lines)
+        self.assertIn("add a depends_on on 0004-d, which", lines[0])
+        self.assertNotIn("0001-a", lines[0])
+
     def test_a_retired_prerequisite_resolves_to_its_replacement(self):
         idx = self.index(decision_adr(1, ["retired by ADR-0003 D1"]),
                          decision_adr(2, ["not_built"], ["D1 ADR-0001 D1"]),

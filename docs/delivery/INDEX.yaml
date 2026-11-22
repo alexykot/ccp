@@ -1358,7 +1358,7 @@ tasks:
     depends_on: []
     path: tasks/0276-docs-contract-and-template-leftovers-of-r15-and-r17.md
   - id: 0277-code-leftovers-of-r15-and-r17
-    status: pending
+    status: done
     title: Close the code follow-ups of R15 and R17 - one wait-writer command, close's removals through the unrecorded-worktree helper, review and question ids from refs.py, a requires remedy that never makes a cycle, and two tests that no longer depend on load or the cwd
     depends_on: []
     path: tasks/0277-code-leftovers-of-r15-and-r17.md

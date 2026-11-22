@@ -292,6 +292,22 @@ def looks_like_secret(text: str) -> bool:
     return bool(SECRET_VALUE_RE.search(text or ""))
 
 
+def wait_writer_cmd(action: str, tid: str, reason: str, *, actor: str, project_id: str, task_only: bool = False,
+                    quota_class: str | None = None, resets_at: str | None = None,
+                    planned_resume_at: str | None = None, detail: str | None = None) -> list[str]:
+    """The argv of one call to `waiting_on`'s single writer, set-waiting-on.sh beside this module (§10.1): each
+    option that is set, and `--task-only` when asked. Each caller runs it and handles its failure itself."""
+    cmd = [str(Path(__file__).resolve().parent / "set-waiting-on.sh"), action, tid, reason, "--actor", actor,
+           "--project-id", project_id]
+    for flag, value in (("--quota-class", quota_class), ("--resets-at", resets_at),
+                        ("--planned-resume-at", planned_resume_at), ("--detail", detail)):
+        if value:
+            cmd += [flag, value]
+    if task_only:
+        cmd.append("--task-only")
+    return cmd
+
+
 def queue_root() -> Path:
     raw = os.environ.get("QUEUE_ROOT")
     if not raw:

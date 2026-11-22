@@ -1176,9 +1176,10 @@ def requires_report(tasks: list[dict[str, Any]], index: DecisionIndex, strict: b
     decision it cites and each `requires` prerequisite of it, resolved through `retired by`
     (`DecisionIndex.resolve`, §6.5), that is neither recorded `built` or `live` nor cited by the task or a
     task in its `depends_on` closure (a `dropped` task cites none), one line naming the task, the decision,
-    the prerequisite and the remedy. `index` is an `adr.DecisionIndex`; `strict` (`adr.strict`) makes the lines failures. A chain
-    that loops or ends at a whole ADR or a retired decision, or a prerequisite its ADR does not hold, is
-    `ccp adr check`'s to report (§6.7), not this one's."""
+    the prerequisite and the remedy, never a depends_on that would make a cycle. `index` is an
+    `adr.DecisionIndex`; `strict` (`adr.strict`) makes the lines failures. A chain that loops or ends at a
+    whole ADR or a retired decision, or a prerequisite its ADR does not hold, is `ccp adr check`'s to report
+    (§6.7), not this one's."""
     ids = index.ids
     cited = {str(t.get("task_id")): _cited_decisions(t, index) for t in tasks}
     deps = {str(t.get("task_id")): [str(d) for d in _as_list(t.get("depends_on"))] for t in tasks}
@@ -1202,10 +1203,17 @@ def requires_report(tasks: list[dict[str, Any]], index: DecisionIndex, strict: b
                 if index.is_built(*pre) or pre in covered:
                     continue
                 via = f" (through `retired by`: {ids.adr_id(pre[0])} D{pre[1]})" if pre != (pn, pd) else ""
-                citers = [o for o, c in cited.items() if o != tid and pre in c]
-                fix = (f"add a depends_on on {', '.join(citers)}, which cites it" if citers else
-                       f"no task cites it: write one that builds it, or record it built with "
-                       f"`ccp adr decide {pre[0]} D{pre[1]} built`")
+                others = [o for o, c in cited.items() if o != tid and pre in c]
+                # a citer that already depends on this task would close a cycle (§21.1): never the remedy
+                citers = [o for o in others if tid not in graph.closure(deps, o)]
+                decide = f"`ccp adr decide {pre[0]} D{pre[1]} built`"
+                if citers:
+                    fix = f"add a depends_on on {', '.join(citers)}, which cites it"
+                elif others:
+                    fix = (f"{', '.join(others)} cites it but depends on this task, so a depends_on would make a "
+                           f"cycle: cite it from a task this one can depend on, or record it built with {decide}")
+                else:
+                    fix = f"no task cites it: write one that builds it, or record it built with {decide}"
                 out.append(f"{tid}: cites {ids.adr_id(n)} D{dec}, which requires {ids.adr_id(pn)} D{pd}{via}: that "
                            f"prerequisite is neither recorded built or live nor cited by this task or a task in its "
                            f"depends_on closure, so the task can run before it; {fix} "
@@ -1215,7 +1223,9 @@ def requires_report(tasks: list[dict[str, Any]], index: DecisionIndex, strict: b
 
 def _requires_lines(cfg: Config, tasks: list[dict[str, Any]], strict: bool) -> list[str]:
     """`requires_report` on the checkout's ADRs when `adr.strict` is `strict`: `check` takes the strict
-    lines, `warnings` the others. Nothing without the `adr` block."""
+    lines, `warnings` the others. Nothing without the `adr` block. `check`'s `texts` stand in for task files
+    only (its one caller, `ccp tasks migrate`, rewrites task files and no ADR), so the ADRs are read from the
+    checkout."""
     from ccp import adr  # noqa: PLC0415  (adr reads the task log)
 
     index = adr.decision_index(cfg)
