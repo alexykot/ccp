@@ -122,5 +122,9 @@ Measured at `e92f362`.
 - The records-in-git refusal and the no-merge-worktree refusal now have no end-to-end test: the wiring of those two
   facts (their arguments in the `catch_up_precondition` call) is held by no test; the no-gate-lane test holds the call
   as a whole.
+- Fix round 2: the round-1 docstring on `Digest.test_full_still_counts_the_fields` is a `#` comment now, so
+  `unittest -v` prints the name and `ok` on one line and the task's grep counts 13 `ok` lines. The all-cached gate test
+  in `ReportCrossCheck` asserts that `ccp suite run` prints the product's `show_re` tally line, the one expectation the
+  plain `Digest` test no longer holds for `run`'s `digest(log, scfg, patterns)` call.
 
 ## Verification notes

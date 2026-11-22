@@ -571,6 +571,7 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
                   "last runs: 11 tests, 0 skipped; a warm run')")
         r = self.run_suite("--run", "0002-second/implement", "--lane", "gate", "--", PY, "-c", script)
         self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(b"\ngate: 0 modules ran, 3 cached", r.stdout)  # the product's show_re line, from its plane.json
         sid = self.rows()[-1]["suite_id"]
         code, body, out, err = self.fill_report(f"Suite: from {sid}")
         self.assertEqual(code, 0, out + err)
@@ -1189,9 +1190,9 @@ class Digest(unittest.TestCase):
         self.assertIn("no test count found", self.summary(text, None))
 
     def test_full_still_counts_the_fields(self):
-        """Pins the counters a `--full` run relies on (tests, failed, skipped from the output's own lines); the
-        run's wiring (the started row's `output`, the ended row's `log: None`) is held by
-        `Counting.test_a_real_unittest_run_is_counted`."""
+        # Pins the counters a `--full` run relies on (tests, failed, skipped from the output's own lines); the
+        # run's wiring (the started row's `output`, the ended row's `log: None`) is held by
+        # `Counting.test_a_real_unittest_run_is_counted`.
         tests, fields = counts_of(b"noise line 299\nRan 4 tests in 0.1s\n\nFAILED (failures=1, errors=1, skipped=1)\n")
         self.assertEqual((tests, fields["failed"], fields["skipped"]), (4, 2, 1))
 
