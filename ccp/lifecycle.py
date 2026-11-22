@@ -1245,17 +1245,18 @@ def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
             if caught:
                 hint += (f"; close's catch-up {head[:7]} is the task branch's head now, and the verification record "
                          f"covers it: run `ccp tasks close {tid} --pr {pr}` again (SPEC §16.5 rule 4)")
-            raise QueueError(f"gh pr merge {pr}: {r.message}{hint}", 1)
+            raise QueueError(f"{prhost.label(cfg)} did not merge PR {pr}: {r.message}{hint}", 1)
         try:
             facts = prhost.confirm(cfg, pr)
         except prhost.HostError as exc:
             raise QueueError(str(exc), 2 if isinstance(exc, prhost.HostUnavailable) else 1) from None
         if facts.state != "merged":
-            raise QueueError(f"gh pr merge {pr} exited 0 but the PR is {facts.state.upper()} (a merge queue or auto-merge?): "
+            raise QueueError(f"{prhost.label(cfg)} merged PR {pr} without error, but it is {facts.state.upper()} "
+                             "(a merge queue or auto-merge?): "
                              f"run `ccp tasks close {tid} --pr {pr}` again once it has merged", 1)
     merge = facts.merge_commit
     if not merge:
-        raise QueueError(f"PR {pr} is merged but gh names no merge commit", 1)
+        raise QueueError(f"PR {pr} is merged but {prhost.label(cfg)} names no merge commit", 1)
     progress: dict[str, bool] = {"pushed": False}
     # §10.5: the reconcile is made in a worktree of close's own, so the checkout close runs from keeps its HEAD
     own = _merge_path(cfg, tid)
@@ -1449,18 +1450,13 @@ class Unjudged(Exception):
 def behind_tip(cfg: Config, pr: str | None, tid: str, head: str, integ: str) -> list[str]:
     """§16.5 rule 4: the commits on origin/<integ> that `head` lacks and that change anything outside the
     task log (its task files, INDEX.yaml, the reconcile log) and the product's `merge.behind_tip_ignore`
-    paths; [] when there are none. Fetches the tip, and the head when it is not here (the PR's head ref,
-    then the task branch). Raises Unjudged when either cannot be read."""
+    paths; [] when there are none. Fetches the tip, and the head when it is not here (through the PR host:
+    the PR's own refs, then the task branch). Raises Unjudged when either cannot be read."""
     f = git(cfg.root, "fetch", "-q", "origin", integ)
     if f.returncode != 0:
         raise Unjudged("tip", f"origin/{integ} could not be fetched ({(f.stderr or f.stdout).strip()[:200]})")
-    if git(cfg.root, "cat-file", "-e", f"{head}^{{commit}}").returncode != 0:
-        for ref in ([f"refs/pull/{pr}/head"] if pr else []) + [f"task/{tid}"]:
-            if git(cfg.root, "fetch", "-q", "origin", ref).returncode == 0 \
-                    and git(cfg.root, "cat-file", "-e", f"{head}^{{commit}}").returncode == 0:
-                break
-        else:
-            raise Unjudged("head", f"the head {head[:7]} could not be fetched")
+    if not prhost.fetch_commit(cfg, cfg.root, head, pr, f"task/{tid}"):
+        raise Unjudged("head", f"the head {head[:7]} could not be fetched")
     r = git(cfg.root, "log", "--format=%h", f"{head}..origin/{integ}", "--", ".", *_tip_pathspec(cfg))
     return r.stdout.split() if r.returncode == 0 else []
 

@@ -166,6 +166,11 @@ class GitHub:
     def confirm(self, pr: str) -> PrFacts:
         return self.view(pr)
 
+    @staticmethod
+    def head_refs(pr: str) -> list[str]:
+        """The refs on origin besides the task branch that hold the PR's head: GitHub's `refs/pull/<pr>/head`."""
+        return [f"refs/pull/{pr}/head"]
+
 
 class Local:
     """ADR-0040 D3: the plane keeps each PR's record in the queue (`PRS_DIR`) and reads and merges it with git
@@ -368,13 +373,42 @@ class Local:
     def confirm(self, pr: str) -> PrFacts:
         return self._facts(self._read(pr))
 
+    @staticmethod
+    def head_refs(pr: str) -> list[str]:
+        """None: a local PR's head is on its branch."""
+        return []
+
 
 _ADAPTERS: dict[str, type[GitHub] | type[Local]] = {"github": GitHub, "local": Local}  # by config.PR_HOST_ADAPTERS
 
 
+def adapter_name(cfg: Config) -> str:
+    """ADR-0040 D5: plane.json `pr_host.adapter`, the adapter's name."""
+    return str((cfg.pr_host or PR_HOST_DEFAULTS)["adapter"])
+
+
 def adapter(cfg: Config) -> GitHub | Local:
     """ADR-0040 D5: the adapter plane.json `pr_host.adapter` names."""
-    return _ADAPTERS[(cfg.pr_host or PR_HOST_DEFAULTS)["adapter"]](cfg)
+    return _ADAPTERS[adapter_name(cfg)](cfg)
+
+
+def label(cfg: Config) -> str:
+    """How a message names the PR host it used: `the PR host (<adapter>)`."""
+    return f"the PR host ({adapter_name(cfg)})"
+
+
+def fetch_commit(cfg: Config, root: Path, sha: str, pr: str | int | None, branch: str) -> bool:
+    """Whether `sha` is a commit in the checkout `root`, fetching it when it is not: from `origin`, in order, the
+    adapter's own refs for `pr` (none when `pr` is None or empty) and then `branch`, stopping once it is there."""
+    def here() -> bool:
+        return _run(cfg, ["git", "-C", str(root), "cat-file", "-e", f"{sha}^{{commit}}"]).returncode == 0
+
+    if here():
+        return True
+    for ref in (adapter(cfg).head_refs(str(pr)) if pr else []) + [branch]:
+        if _run(cfg, ["git", "-C", str(root), "fetch", "-q", "origin", ref]).returncode == 0 and here():
+            return True
+    return False
 
 
 def view(cfg: Config, pr: str, with_body: bool = False) -> PrFacts:
