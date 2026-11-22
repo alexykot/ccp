@@ -322,8 +322,16 @@ class _Counter:
                         pass
 
 
-def _pump(src: Any, fd: int, counter: _Counter) -> None:
-    """Copy a pipe to fd as it arrives. A closed reader (`| head`) stops the copy, not the drain."""
+def _write_all(fd: int, chunk: bytes) -> None:
+    view = memoryview(chunk)
+    while view:
+        view = view[os.write(fd, view):]
+
+
+def _pump(src: Any, fd: int, counter: _Counter, tee: tuple[int, threading.Lock] | None = None) -> None:
+    """Copy a pipe to fd as it arrives, and to the `tee` log (its fd, and the lock the pumps share so a chunk
+    lands whole) when given. A closed reader (`| head`) stops the copy, not the drain; a log write that fails
+    stops the log's copy alone."""
     out_ok = True
     while True:
         try:
@@ -334,12 +342,15 @@ def _pump(src: Any, fd: int, counter: _Counter) -> None:
             break
         if out_ok:
             try:
-                view = memoryview(chunk)
-                while view:
-                    n = os.write(fd, view)
-                    view = view[n:]
+                _write_all(fd, chunk)
             except OSError:
                 out_ok = False
+        if tee is not None:
+            try:
+                with tee[1]:
+                    _write_all(tee[0], chunk)
+            except OSError:
+                tee = None
         try:
             counter.feed(chunk)
         except Exception:  # noqa: BLE001  (counting never costs the output)
@@ -715,8 +726,8 @@ def render_summary(suite_id: str, log: Path, code: int, lane: str | None, second
 
 
 def log_path(q: Path | None, started: dict[str, Any] | None, suite_id: str, given: str | None) -> Path:
-    """Where summary mode writes the command's output: --log, else next to the run's record
-    (QUEUE_ROOT/runs/<task>/<phase>[-n]-suite-<id>.log), else the queue's runs/_suite-logs/ for an
+    """Where a run's log goes (summary mode's output, a recorded --full run's copy): --log, else next to the
+    run's record (QUEUE_ROOT/runs/<task>/<phase>[-n]-suite-<id>.log), else the queue's runs/_suite-logs/ for an
     unbound run, else a temp file (no queue to write to), in CCP_SUITE_LOG_DIR when that is set."""
     if given:
         return Path(given).expanduser().resolve()
@@ -736,7 +747,7 @@ PRUNE_MAX = 5000  # files looked at per run, at most: pruning stays cheap on any
 
 
 def prune_logs(q: Path, keep_days: int, now: float | None = None) -> int:
-    """Remove summary-mode logs older than keep_days from the queue: `runs/<task>/*-suite-st-*.log`
+    """Remove suite-run logs older than keep_days from the queue: `runs/<task>/*-suite-st-*.log`
     and `runs/_suite-logs/st-*.log`, nothing else, no symlink. Never raises; how many it removed."""
     cutoff = (time.time() if now is None else now) - keep_days * 86400
     removed = seen = 0
@@ -936,10 +947,11 @@ def _same_file(a: int, b: int) -> bool:
 
 
 def _run_stage(argv: list[str], env: dict[str, str], log_fd: int | None, merged: bool, own_group: bool,
-               counters: list[_Counter], current: dict[str, Any]) -> tuple[int, float]:
+               counters: list[_Counter], current: dict[str, Any], tee_fd: int | None = None) -> tuple[int, float]:
     """Run one stage's command to its end: (its return code, as Popen gives it, and its seconds). Its
-    output goes to the log, or is copied through and counted as it arrives. A command that cannot
-    start returns 127 (not found) or 126 and says why."""
+    output goes to the log (`log_fd`), or is copied through and counted as it arrives, and copied to
+    `tee_fd` too when given (§14.2's `--full` log). A command that cannot start returns 127 (not found) or
+    126 and says why."""
     t0 = time.monotonic()
     if log_fd is not None:  # the file itself, both streams: the order is the command's own
         pipes: dict[str, Any] = {"stdout": log_fd, "stderr": subprocess.STDOUT, "env": env}
@@ -966,9 +978,10 @@ def _run_stage(argv: list[str], env: dict[str, str], log_fd: int | None, merged:
             dog_w = None
     pumps = []
     if log_fd is None:
-        pumps.append(threading.Thread(target=_pump, args=(proc.stdout, 1, counters[0]), daemon=True))
+        tee = (tee_fd, threading.Lock()) if tee_fd is not None else None
+        pumps.append(threading.Thread(target=_pump, args=(proc.stdout, 1, counters[0], tee), daemon=True))
         if not merged:
-            pumps.append(threading.Thread(target=_pump, args=(proc.stderr, 2, counters[1]), daemon=True))
+            pumps.append(threading.Thread(target=_pump, args=(proc.stderr, 2, counters[1], tee), daemon=True))
     try:
         for t in pumps:
             t.start()
@@ -1293,21 +1306,29 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
     scfg = _summary_cfg(cfg)
     fpats = _field_patterns(scfg)
     # Summary mode (§14.3, 2026-10-22): the output goes to a log file, and ccp prints a start line,
-    # then the counts and, on a failure, the failing sections. A log that cannot be opened is a
-    # warning: the run streams as --full does.
+    # then the counts and, on a failure, the failing sections. A recorded --full run copies what it streams
+    # to a log too (§14.2), adding nothing to the terminal. A log that cannot be opened is a warning: the
+    # run streams with none.
     log: Path | None = None
-    log_fd: int | None = None
-    if mode == "summary":
+    log_fd: int | None = None  # summary mode: the command writes here
+    tee_fd: int | None = None  # --full: a copy of what is copied through
+    if mode == "summary" or (q is not None and started is not None):
         try:
             log = log_path(q, started, suite_id, log_arg)
-            log_fd = _open_log(log)
+            fd = _open_log(log)
         except Exception as e:  # noqa: BLE001  (never stands between a worker and its tests)
-            warn(f"no log file ({str(e).splitlines()[0][:200] if str(e) else type(e).__name__}): streaming the output")
-            log = log_fd = None
+            warn(f"no log file ({str(e).splitlines()[0][:200] if str(e) else type(e).__name__}): streaming the output"
+                 + ("" if mode == "summary" else " with none"))
+            log = fd = None
+        if mode == "summary":
+            log_fd = fd
+        else:
+            tee_fd = fd
+    summarised = log is not None and mode == "summary"
     t0 = time.monotonic()
     got: list[int] = []
     _flush()
-    if log is not None:
+    if summarised:
         _say(f"ccp suite: {suite_id}: the output goes to {log}; a summary follows when it ends (--full streams it)\n")
     # Its own process group, so a signal reaches every process of the suite (a script's children
     # too), except under a terminal, where the command must stay in the foreground group.
@@ -1385,7 +1406,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
             result_path = Path(tempfile.gettempdir()) / f"ccp-suite-result-{suite_id}{f'-{i}' if i else ''}.json"
             env = {**(os.environ if caller_env is None else caller_env), **wt_env, **cold_env,
                    **for_child({"CCP_SUITE_ID": suite_id, "CCP_SUITE_RESULT": str(result_path)})}
-            rc, s_secs = _run_stage(stage["argv"], env, log_fd, merged, own_group, counters, current)
+            rc, s_secs = _run_stage(stage["argv"], env, log_fd, merged, own_group, counters, current, tee_fd)
             code = 128 - rc if rc < 0 else rc
             results.append(read_result(result_path))
             if stage["name"] is not None:
@@ -1402,8 +1423,9 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                 signal.signal(s, h)
             except (ValueError, OSError):
                 pass
-        if log_fd is not None:
-            os.close(log_fd)
+        for fd in (log_fd, tee_fd):
+            if fd is not None:
+                os.close(fd)
     seconds = time.monotonic() - t0
     sig = got[0] if got else (-rc if rc < 0 else None)
     failed_stage = done[-1]["name"] if done and code != 0 else None
@@ -1414,7 +1436,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         failed_stage = stages[cut]["name"]
     not_run = [st["name"] for st in stages[reached:]] if staged else []
     dig = None
-    if log is not None:
+    if summarised and log is not None:
         try:  # the counts and the failure's text, from the log; reading it never costs the exit code
             with log.open("rb") as fh:
                 while chunk := fh.read(65536):
@@ -1445,7 +1467,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
             mods = [m for r in valid for m in r.get("modules") or []][:MODULES_MAX]
     tests = all_cached_tests(tests, fields)
     stage_text = stages_line(suite_id, done, not_run, proven) if staged else None
-    if log is not None:
+    if summarised and log is not None:
         _say(render_summary(suite_id, log, code, a.lane, seconds, tests, fields, _sig_name(sig), dig,
                             scfg["max_chars"], stage_text))
     elif stage_text:
@@ -1588,6 +1610,9 @@ def main_run(a: Any, command: list[str] | None) -> int:
     product or its config stops a lane lookup and the recording, never a command given after `--`."""
     warn = _Warn()
     caller_env = dict(os.environ)  # before ccp sets anything for itself
+    if problem := affected_usage(a, command):  # §14.7: nothing runs
+        print(f"ccp suite: {problem}", file=sys.stderr)
+        return 2
     cfg = None
     try:
         from ccp import cli, config  # noqa: PLC0415
@@ -1603,6 +1628,13 @@ def main_run(a: Any, command: list[str] | None) -> int:
                 os.environ["QUEUE_ROOT"] = q
         except Exception:  # noqa: BLE001
             pass
+    if cfg is not None and getattr(a, "affected", False):  # §14.7: the lane and command `ccp suite affected` names
+        code, a.lane, command = affected_run(cfg, a)
+        if code is not None:
+            return code
+        if getattr(a, "log", None):
+            a.log = str(Path(a.log).expanduser().absolute())  # from the caller's directory, before the chdir
+        os.chdir(cfg.root)  # the modules are named from the root, as a named lane runs there
     return run(cfg, a, command, warn, record=cfg is not None,  # no config, no project id: nothing to record
                caller_env=caller_env)
 
@@ -1888,13 +1920,28 @@ def _commit_tree(root: Path, ref: str, shown: str) -> str:
     return r.stdout.strip()
 
 
+def _merge_base(root: Path, ref: str, shown: str) -> str:
+    """The merge base of `ref` and HEAD, as a commit id; exit 2 when git cannot resolve `ref` or the two
+    share no history, naming the `--since` as given (`shown`)."""
+    r = subprocess.run(["git", "-C", str(root), "rev-parse", "--verify", "--quiet", "--end-of-options",
+                        f"{ref}^{{commit}}"], capture_output=True, text=True)
+    if r.returncode != 0 or not r.stdout.strip():
+        raise QueueError(f"--since {shown!r}: git knows no such ref", 2)
+    mb = subprocess.run(["git", "-C", str(root), "merge-base", r.stdout.strip(), "HEAD"], capture_output=True,
+                        text=True)
+    if mb.returncode != 0 or not mb.stdout.strip():
+        raise QueueError(f"--since {shown!r}: {ref} has no merge base with HEAD", 2)
+    return mb.stdout.strip()
+
+
 def changed_paths(root: Path, since: str | None, given: list[str] | None) -> list[str]:
     """`--paths` normalised (relative to the root: `./` stripped, `..` collapsed, an absolute path made
     relative), else what `git diff <since>` names against the working tree (renames as both paths) plus the
     untracked files git does not ignore; `since` defaults to HEAD. A range `<a>..<b>` (both ends given;
-    `...` is no range) is what `git diff <a>..<b>` names, without the working tree. A path outside the
-    root, or a `since` git cannot resolve (one starting with a dash included: it is never read as an
-    option), exits 2."""
+    `<a>...<b>` is no range) is what `git diff <a>..<b>` names, without the working tree. `<ref>...` (nothing
+    after the dots) diffs from the merge base of `<ref>` and HEAD instead of from `<ref>`. A path outside the
+    root, a `since` git cannot resolve (one starting with a dash included: it is never read as an option), or
+    a `<ref>...` with no merge base with HEAD, exits 2."""
     if given:
         out = []
         for p in given:
@@ -1915,7 +1962,10 @@ def changed_paths(root: Path, since: str | None, given: list[str] | None) -> lis
     if dots and a and b and not b.startswith("."):  # §14.7: a range, the files changed in it
         frm, to = _commit_tree(root, a, ref), _commit_tree(root, b, ref)
         return sorted(set(_git_lines(root, "diff", "--name-only", "--no-renames", "--relative", frm, to, "--")))
-    tree = _commit_tree(root, ref, ref)
+    if ref.endswith("...") and len(ref) > 3:  # §14.7: the branch's own change, from its merge base with <ref>
+        tree = _commit_tree(root, _merge_base(root, ref[:-3], ref), ref)
+    else:
+        tree = _commit_tree(root, ref, ref)
     diff = _git_lines(root, "diff", "--name-only", "--no-renames", "--relative", tree, "--")
     return sorted(set(diff) | set(_git_lines(root, "ls-files", "--others", "--exclude-standard")))
 
@@ -1934,22 +1984,32 @@ def declared_part_argv(cfg: Any) -> list[str] | None:
     return [str(x) for x in given]
 
 
-def affected_hint(cfg: Any, mods: list[str], total: int, test_command: str | None) -> str | None:
-    """§14.7: the stderr line after the list of `mods`, or None. A declared part-lane argv runs them, whatever
-    their share of the `total` test modules; else the language's `test_command` does, unless they are more
-    than AFFECTED_FULL_SHARE of the suite, when the line says to run the full role's lane instead."""
+def affected_plan(cfg: Any, mods: list[str], total: int, test_command: str | None
+                  ) -> tuple[str, list[str] | None, str] | None:
+    """§14.7: what runs `mods`, or None: (the lane, the command after `--` or None for the lane's own, that
+    command as the stderr line prints it). A declared part-lane argv runs them, whatever their share of the
+    `total` test modules; else the language's `test_command` does, unless they are more than
+    AFFECTED_FULL_SHARE of the suite, when the full role's lane runs instead."""
     if not mods:
         return None
     if (argv := declared_part_argv(cfg)) is not None:
-        return (f"ccp suite affected: run them with: ccp suite run --lane {lane_for(cfg, 'part')} -- "
-                f"{shlex.join(argv)} " + " ".join(mods))
+        return lane_for(cfg, "part"), [*argv, *mods], f"{shlex.join(argv)} " + " ".join(mods)
     if total and len(mods) > AFFECTED_FULL_SHARE * total:
-        return (f"ccp suite affected: {len(mods)} of {total} test modules: skip the pre-gate and run the full lane: "
-                f"ccp suite run --lane {lane_for(cfg, 'full')}")
+        return lane_for(cfg, "full"), None, ""
     if test_command:
-        return (f"ccp suite affected: run them with: ccp suite run --lane {lane_for(cfg, 'part')} -- {test_command} "
-                + " ".join(mods))
+        return lane_for(cfg, "part"), [*shlex.split(test_command), *mods], f"{test_command} " + " ".join(mods)
     return None
+
+
+def affected_hint(cfg: Any, mods: list[str], total: int, test_command: str | None) -> str | None:
+    """§14.7: the stderr line after the list of `mods`, naming what `affected_plan` runs, or None."""
+    if (plan := affected_plan(cfg, mods, total, test_command)) is None:
+        return None
+    lane, command, shown = plan
+    if command is None:
+        return (f"ccp suite affected: {len(mods)} of {total} test modules: skip the pre-gate and run the full lane: "
+                f"ccp suite run --lane {lane}")
+    return f"ccp suite affected: run them with: ccp suite run --lane {lane} -- {shown}"
 
 
 def _tracked_files(root: Path) -> list[str]:
@@ -1984,6 +2044,19 @@ def affected(cfg: Config, since: str | None, paths: list[str] | None) -> tuple[l
     return changed, sorted(found | _mapped(amap, changed))
 
 
+def affected_modules(cfg: Config, since: str | None, paths: list[str] | None
+                     ) -> tuple[list[str], list[str], int, str | None]:
+    """(the changed paths, the test modules they touch, the suite's test-module count when `affected_plan`
+    needs it (else 0), the language's test command): what `ccp suite affected` and `ccp suite run --affected`
+    both work from. A QueueError when the change or its tests cannot be read."""
+    changed, mods = affected(cfg, since, paths)
+    pack = doclang.for_tests(cfg)
+    total = 0
+    if mods and pack.suite_size is not None and declared_part_argv(cfg) is None:
+        total = pack.suite_size(cfg.root, _tracked_files(cfg.root))
+    return changed, mods, total, pack.test_command
+
+
 def main_affected(cfg: Config, a: Any) -> int:
     """`ccp suite affected`: the test modules, one per line; after them, on stderr, the line `affected_hint`
     gives; a note on stderr when there are none. A product with no `language` gets a warning during the grace release and the
@@ -1994,19 +2067,60 @@ def main_affected(cfg: Config, a: Any) -> int:
         print(f"ccp suite affected: {e}", file=sys.stderr)
         return 2
     try:
-        changed, mods = affected(cfg, a.since, a.paths)
+        changed, mods, total, test_command = affected_modules(cfg, a.since, a.paths)
     except QueueError as e:
         print(f"ccp suite affected: {e}", file=sys.stderr)
         return e.code
     for m in mods:
         print(m)
-    pack = doclang.for_tests(cfg)
-    total = 0
-    if mods and pack.suite_size is not None and declared_part_argv(cfg) is None:
-        total = pack.suite_size(cfg.root, _tracked_files(cfg.root))
-    if hint := affected_hint(cfg, mods, total, pack.test_command):
+    if hint := affected_hint(cfg, mods, total, test_command):
         sys.stdout.flush()
         print(hint, file=sys.stderr)
     if not mods:
         print(f"ccp suite affected: no test module depends on the {len(changed)} changed path(s)", file=sys.stderr)
     return 0
+
+
+AFFECTED_RUN = "ccp suite run --affected"
+
+
+def affected_usage(a: Any, command: list[str] | None) -> str | None:
+    """§14.7: why `ccp suite run`'s `--affected` and `--since` cannot go with what else was given, or None."""
+    if getattr(a, "since", None) is not None and not getattr(a, "affected", False):
+        return "--since is the change `--affected` runs the tests of: give it with --affected"
+    if not getattr(a, "affected", False):
+        return None
+    if a.lane is not None:
+        return "--affected picks the lane itself: give no --lane"
+    if command:
+        return "--affected runs the command `ccp suite affected` names: give no command after `--`"
+    return None
+
+
+def affected_run(cfg: Config, a: Any) -> tuple[int | None, str | None, list[str] | None]:
+    """§14.7: what `ccp suite run --affected [--since <ref>]` runs, worked out as `ccp suite affected` does:
+    (None, the lane, the command after `--` or None for the lane's own); or (an exit code, None, None) when it
+    runs nothing: 0 with no test module touched, 2 when the change cannot be read or nothing can run the
+    modules. Says why on stderr either way."""
+    try:
+        config.require_language(cfg, f"`{AFFECTED_RUN}`")
+        _changed, mods, total, test_command = affected_modules(cfg, getattr(a, "since", None), None)
+    except config.MissingKey as e:
+        print(f"{AFFECTED_RUN}: {e}", file=sys.stderr)
+        return 2, None, None
+    except QueueError as e:
+        print(f"{AFFECTED_RUN}: {e}", file=sys.stderr)
+        return e.code, None, None
+    if not mods:
+        print(f"{AFFECTED_RUN}: no test module touched", file=sys.stderr)
+        return 0, None, None
+    if (plan := affected_plan(cfg, mods, total, test_command)) is None:
+        print(f"{AFFECTED_RUN}: {len(mods)} test module(s) touched, and nothing runs them: plane.json suite.lanes "
+              f"gives the {lane_for(cfg, 'part')} lane no argv and the language "
+              f"{doclang.for_tests(cfg).name!r} names no test command (SPEC §14.7)", file=sys.stderr)
+        return 2, None, None
+    lane, command, shown = plan
+    print(f"{AFFECTED_RUN}: {len(mods)} test module(s): running ccp suite run --lane {lane}"
+          + (f" -- {shown}" if command is not None else f", the full lane ({len(mods)} of {total} test modules)"),
+          file=sys.stderr, flush=True)
+    return None, lane, command
