@@ -137,4 +137,17 @@ Measured at `15dbfe7a` (origin/main; first at `7d83efd`, then `ad9b4f84`). Every
 
 ## Implementation notes
 
+- Every Context figure re-ran unchanged at `10e36a47` (the base).
+- `ccp/health.py`: built as ruled. The import reads `LEAD` from the shared library, the sign-off branch adds
+  `and e.get("actor") == LEAD`, and the docstring says "the first `build` sign-off the lead recorded". The merge-gate
+  branch is unchanged.
+- `tests/test_health_signoff.py`: `ev()` gives each event `"actor": lib.LEAD` (`from ccp.queue import lib`, as
+  `tests/test_prefer.py` takes it). The new test builds the runner's sign-offs as `{**ev(...), "actor": lib.RUNNER}`.
+- `plugin/agents/delivery-runner.md` and `plugin/skills/writing-tasks/SKILL.md`: the three lines read as ruled.
+- `templates/prompts/implement.md`: the `{{#stale_context}}` block keeps `{{stale_context}}` and drops the sentence
+  after it. `tests/test_stale_context_audience.py`'s `RERUN` is now `"re-measure its figures"`, the ask in the
+  stale-Context line `tasklog.stale_context` writes, so its assertions pin that line and not the dropped sentence.
+- `tests/test_usage.py` and `tests/test_usage_advice.py`: each string is an f-string with `{lib.LEAD}` in place of
+  the id. No other wording changed.
+
 ## Verification notes
