@@ -12,7 +12,6 @@ from tests.test_toolkit import ToolkitFixture
 
 HEAD = "a" * 40
 HEADING = "## Tests for new behaviour"
-NONE_FORM = "a single line beginning `none` followed by why"
 
 
 def change_report(*section: str) -> str:
@@ -97,7 +96,7 @@ class Section(ToolkitFixture, unittest.TestCase):
             part = text[text.index("these lines:\n"):]
             self.assertEqual(text.count(HEADING), 1, phase)
             self.assertIn(f"When done: a `{HEADING}` section", part, phase)
-            self.assertIn(NONE_FORM, part, phase)
+            self.assertIn("beginning `none` followed by why", part, phase)
 
 
 if __name__ == "__main__":

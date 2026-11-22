@@ -94,6 +94,11 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
         self.assertIn("suite affected --since origin/main`", text)
         self.assertNotIn(f"--since {A[:7]}", text)
 
+    def test_the_reviewer_reads_and_runs_code_at_the_merge_base_in_a_base_worktree(self):
+        brief = (PLANE / "plugin/agents/delivery-reviewer.md").read_text()
+        self.assertIn("wt create --kind base --task <task_id>", brief)
+        self.assertIn("git merge-base origin/<integration>", brief)
+
     def test_every_worker_prompt_gives_long_commands_the_full_timeout_and_names_suite_wait(self):
         for phase, args in (("verify", ("--pr", "7", "--head", A)), ("review", ("--pr", "7", "--head", A)), *CHANGE_ROUNDS):
             _run_id, text = self.render(phase, *args)
