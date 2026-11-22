@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import gitmerge, queue
-from tests.test_toolkit import git
+from tests.toolkit_fixture import git
 
 
 class Repo(unittest.TestCase):

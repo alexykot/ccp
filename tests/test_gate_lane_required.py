@@ -10,9 +10,9 @@ from unittest import mock
 
 from ccp import config
 from tests.helpers import Product
-from tests.test_init import InitCase
-from tests.test_toolkit import ToolkitFixture
-from tests.test_upgrade import UpgradeFixture
+from tests.init_fixture import InitCase
+from tests.toolkit_fixture import ToolkitFixture
+from tests.upgrade_fixture import UpgradeFixture
 
 NO_SUITE = {k: v for k, v in ToolkitFixture.PLANE_JSON.items() if k != "suite"}
 TASK = "0002-second"

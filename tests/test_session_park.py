@@ -15,7 +15,7 @@ from unittest import mock
 
 from ccp import config, lifecycle, usage
 from tests.helpers import machine_file
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 
 def utc(t: float, frac: str = "") -> str:

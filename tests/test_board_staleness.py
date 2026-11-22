@@ -13,7 +13,7 @@ from unittest import mock
 
 from ccp import board, usage
 from tests.helpers import done_report
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 RUN = "0002-second/implement"
 

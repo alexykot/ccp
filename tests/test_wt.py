@@ -15,25 +15,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, lifecycle, wt
-from tests.helpers import binding
-from tests.test_toolkit import GIT_ENV, PLANE, ToolkitFixture, git
-
-
-class WtFixture(ToolkitFixture):
-    """The toolkit product with plane.json rewritten in the main checkout (ccp runs with --root main)."""
-
-    def plane(self, **blocks) -> None:
-        body = {**self.PLANE_JSON, **blocks}
-        self.write("docs/delivery/plane.json", json.dumps(body))
-
-    def head(self) -> str:
-        return git(self.main, "rev-parse", "origin/main")
-
-    def wt(self, *args: str):
-        code, parsed, body, err = self.ccp("wt", *args, root=self.main)
-        if parsed is None and body.strip().startswith("["):
-            parsed = json.loads(body)
-        return code, parsed, body, err
+from tests.helpers import binding, GIT_ENV
+from tests.toolkit_fixture import PLANE, git
+from tests.wt_fixture import WtFixture
 
 
 class Create(WtFixture, unittest.TestCase):
@@ -494,7 +478,6 @@ class MergeAndAuth(WtFixture, unittest.TestCase):
     def test_no_probes_means_auth_check_is_ok(self):
         code, body, _, _ = self.ccp("auth", "check", root=self.main)
         self.assertEqual((code, body["ok"]), (0, True))
-
 
 
 class ReviewFixes(WtFixture, unittest.TestCase):

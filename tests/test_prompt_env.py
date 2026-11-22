@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.test_toolkit import ToolkitFixture, git
+from tests.toolkit_fixture import ToolkitFixture, git
 
 ENV = {"TAG": "{{nnnn}}-{{seat}}-{{kind}}", "WT": "{{worktree}}", "RUN": "{{run_id}}|{{phase}}|{{task_id}}",
        "Q": "{{queue_root}}", "MAIN": "{{main_checkout}}/x y", "P": "{{project_id}}"}

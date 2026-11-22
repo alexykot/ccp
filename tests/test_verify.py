@@ -15,11 +15,16 @@ from unittest import mock
 
 from ccp import cli, prhost, verify
 from ccp.schema import schema_errors
-from tests.helpers import Product, binding
-
-ROOT = Path(__file__).resolve().parents[1]
-HEAD_A = "a" * 40
-HEAD_B = "b" * 40
+from tests.helpers import (
+    approve_verdict as approve,
+    binding,
+    HEAD_A,
+    HEAD_B,
+    judge_merge_ok as decide,
+    now_iso,
+    PLANE_ROOT as ROOT,
+    Product,
+)
 
 
 class MergeGate(unittest.TestCase):
@@ -450,26 +455,6 @@ def version_errors(keys: set, version: int, keys_at: dict) -> list[str]:
     return errs
 
 
-def approve(task: str = "0001-a", **fields: object) -> dict:
-    """A verdict that passes every rule: what the verifier writes for an approve at HEAD_A."""
-    return {
-        "task_id": task, "project_id": "demo", "verdict": "approve", "head_sha": HEAD_A,
-        "checks": [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it", "produced_by": "verifier"}],
-        "spec_beyond_intent": [],
-        "gate": {"runs": [{"command": "scripts/unit.sh", "exit_code": 0, "tests_run": 412,
-                           "tests_skipped": 0, "seconds": 88.5},
-                          {"command": "scripts/lint.sh", "exit_code": 0}]},
-        **fields,
-    }
-
-
-def decide(p: Product, queue: Path, rec: dict, rid: str = "0001-a", recorded: tuple | None = None,
-           pr: str = "7", **facts: object) -> tuple[list[str], dict]:
-    """The merge-ok decision on plain values: an open PR at HEAD_A (`facts` override), `rec` recorded just now."""
-    got = prhost.PrFacts(**{"number": 7, "state": "open", "head": HEAD_A, **facts})
-    return verify.judge(p.cfg, queue, rec, rid, got.head, got, recorded or (datetime.now(timezone.utc), "written"), pr)
-
-
 class Record(unittest.TestCase):
     """`ccp verify record`: the schema and the rules it cannot hold, before anything is written."""
 
@@ -848,10 +833,6 @@ class MergeOk(unittest.TestCase):
             code, _, err = self.ok("--task", "0001-a", host=False)
         self.assertEqual(code, 2)
         self.assertIn("is not installed: merge-ok reads the PR from the PR host (github)", err)
-
-
-def now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 if __name__ == "__main__":

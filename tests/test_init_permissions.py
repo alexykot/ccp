@@ -9,23 +9,13 @@ import os
 import re
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
-from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, init
-from tests.test_init import PLANE, InitCase
+from tests.init_fixture import PLANE, InitCase
+from tests.helpers import file_tree as tree
 
 SCHEMA = PLANE / "contracts" / "plane_config.schema.json"
-
-
-def tree(*roots: Path) -> dict[str, bytes]:
-    """Every file under `roots` (git's own directory aside) with its bytes, and every directory."""
-    out: dict[str, bytes] = {}
-    for root in roots:
-        for p in root.rglob("*") if root.exists() else []:
-            if ".git" not in p.relative_to(root).parts:
-                out[str(p)] = p.read_bytes() if p.is_file() else b"<dir>"
-    return out
 
 
 def denied(rule: str, cmd: str) -> bool:

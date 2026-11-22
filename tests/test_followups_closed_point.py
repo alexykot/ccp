@@ -17,9 +17,8 @@ from unittest import mock
 
 from ccp import cli, followups, refs, runs
 from ccp.queue import lib
-from tests.helpers import Product, binding
-from tests.test_review_points import REGISTER, _tagged
-from tests.test_team_hosting import TeamCase
+from tests.helpers import binding, Product, REVIEW_REGISTER as REGISTER, tagged_task as _tagged
+from tests.team_hosting_fixture import TeamCase
 
 
 def seed(q: Path, task_id: str, decided: bool = False) -> str:

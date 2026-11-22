@@ -4,45 +4,14 @@ from __future__ import annotations
 
 import json
 import unittest
-from pathlib import Path
 
 from ccp import config, drill, report, suite, tasklog
-from tests.test_suite import PY, SuiteFixture
-from tests.test_toolkit import PLANE, ToolkitFixture, git
+from tests.suite_fixture import PY, SuiteFixture
+from tests.toolkit_fixture import PLANE
+from tests.verify_cache_fixture import CacheFixture
 
 SECTION = "`verify.accept_cache`"
 CACHE = {"max_age_days": 3, "cold_tasks": ["*-rollout"]}
-
-
-class CacheFixture(ToolkitFixture):
-    def plane(self, accept_cache=None, commit=True) -> None:
-        body = dict(self.PLANE_JSON)
-        if accept_cache is not None:
-            body["verify"] = {"accept_cache": accept_cache}
-        self.write("docs/delivery/plane.json", json.dumps(body))
-        if commit:
-            git(self.main, "add", "-A")
-            git(self.main, "commit", "-q", "-m", "plane.json")
-            git(self.main, "push", "-q", "origin", "main")
-            git(self.runner, "fetch", "-q", "origin")
-            git(self.runner, "checkout", "-q", "--detach", "origin/main")
-
-    def verify_prompt(self) -> str:
-        self.ccp("tasks", "claim", "0002")
-        code, _, out, err = self.ccp("prompt", "verify", "0002", "--pr", "7", "--head", "a" * 40)
-        self.assertEqual(code, 0, out + err)
-        return (self.q / "prompts/0002-second/verify-prompt.md").read_text()
-
-    def record(self, gate_runs: list[dict]):
-        rec = json.loads((PLANE / "contracts/verification.example.json").read_text())
-        rec.update(task_id="0002-second", project_id="demo", head_sha="a" * 40)
-        rec.pop("checked_at", None)
-        rec["checks"] = [{"dod_check_id": "cmd-01", "pass": True, "evidence": "ran it",
-                          "produced_by": "verifier"}]
-        rec["gate"] = {"runs": gate_runs}
-        f = Path(self._tmp.name) / "verdict.json"
-        f.write_text(json.dumps(rec))
-        return self.ccp("verify", "record", str(f))
 
 
 WARM = {"command": "scripts/gate.sh main", "exit_code": 0, "tests_run": 40, "seconds": 12,

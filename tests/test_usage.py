@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, otel, usage
-from tests.helpers import T0, FoldRuns, Product, binding
+from tests.helpers import api_request as req, binding, FoldRuns, Product, T0
 
 PLANE = Path(__file__).resolve().parents[1]
 
@@ -40,14 +40,6 @@ def spans(project, *records):
                                "scopeSpans": [{"spans": [{"name": "claude_code.llm_request",
                                                           "startTimeUnixNano": str(r.pop("t")),
                                                           "attributes": kv(**r)} for r in records]}]}]}
-
-
-
-
-def req(rid, t, model="claude-opus-5-5", effort="high", source="agent:custom", out=100, **more):
-    return {"t": T0 + t * 10**9, "event__name": "api_request", "request_id": rid, "model": model, "effort": effort,
-            "query_source": source, "input_tokens": 2, "output_tokens": out, "cache_read_tokens": 1000,
-            "cache_creation_tokens": 10, "cost_usd": 0.01, "session__id": "s1", **more}
 
 
 class Receiver(unittest.TestCase):

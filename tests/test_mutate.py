@@ -16,7 +16,7 @@ from unittest import mock
 
 from ccp import config, mutate, runs
 from ccp.queue import QueueError
-from tests.test_toolkit import PLANE, ToolkitFixture, git
+from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 sys.path.insert(0, str(PLANE / "scripts" / "observability"))
 import lib  # noqa: E402

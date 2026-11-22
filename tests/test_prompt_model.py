@@ -14,7 +14,7 @@ from contextlib import redirect_stderr, redirect_stdout
 
 from ccp import cli, config, models
 from tests.helpers import Product
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 SONNET = "sonnet"
 NO_ESTIMATE = "cannot apply"

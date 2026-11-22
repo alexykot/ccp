@@ -8,18 +8,8 @@ import unittest
 from pathlib import Path
 
 from ccp import config, report
-from tests.helpers import done_report
-from tests.test_toolkit import ToolkitFixture
-
-MIGRATION = {"name": "migration", "values": ["required", "not required"]}
-DOWNTIME = {"name": "downtime", "values": ["yes", "no"]}
-HEAD = "a" * 40
-
-
-def implement_report(*lines: str, outcome: str = "done") -> str:
-    if outcome == "done":
-        return done_report("implement", "PR: #7", f"Head: {HEAD}", *lines)
-    return "\n".join([f"Outcome: {outcome}", "PR: #7", f"Head: {HEAD}", *lines, "## Friction", "none", ""])
+from tests.toolkit_fixture import ToolkitFixture
+from tests.helpers import DOWNTIME_FIELD as DOWNTIME, REPORT_HEAD as HEAD, MIGRATION_FIELD as MIGRATION, implement_report
 
 
 class Declared(ToolkitFixture, unittest.TestCase):

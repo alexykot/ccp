@@ -10,7 +10,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from ccp import cli
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 AR_ID = "ar-20261001T120000Z-abcd"
 DA_ID = "da-20261002T120000Z-beef"

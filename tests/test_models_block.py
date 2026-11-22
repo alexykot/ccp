@@ -10,11 +10,11 @@ from pathlib import Path
 
 from ccp import architect, config, estimator, models, seats
 from tests.helpers import Product
-from tests.test_architect import Harness as ArchitectHarness
-from tests.test_board_seats import Base as SeatsBase
-from tests.test_init import InitCase
-from tests.test_team_hosting import TeamCase
-from tests.test_toolkit import ToolkitFixture
+from tests.architect_fixture import Harness as ArchitectHarness
+from tests.board_seats_fixture import Base as SeatsBase
+from tests.init_fixture import InitCase
+from tests.team_hosting_fixture import TeamCase
+from tests.toolkit_fixture import ToolkitFixture
 
 SCHEMA = json.loads((Path(__file__).resolve().parents[1] / "contracts/plane_config.schema.json").read_text())
 ROLES = ("lead", "runner", "implementer", "implementer_small", "implementer_refactor", "reviewer", "verifier",

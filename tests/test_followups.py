@@ -9,7 +9,7 @@ from unittest import mock
 
 from ccp import config, followups, refs, runs, tasklog
 from ccp.queue import lib
-from tests.test_toolkit import ToolkitFixture, git
+from tests.toolkit_fixture import ToolkitFixture, git
 
 
 def record(run_id: str, *texts: str, outcomes: dict[int, dict] | None = None) -> dict:

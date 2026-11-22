@@ -13,6 +13,7 @@ HEADING = "# ADR-0001 — H\n\n## Decision\n\n### D1. First\n\nbody one\n\n### D
 BULLET = ("# ADR-0002 — B\n\n## Decision\n\n- **D1. First.** body one\n  continued\n- **D2. Second.** body two\n"
           "- **D2a. Variant.** body two-a\n\n## Consequences\n\nc\n")
 BOLD = "# ADR-0003 — P\n\n## Decision\n\n**D1 — First**\n\nbody one\n\n**D2 — Second**\n\nbody two\n"
+BOLD_ID = "# ADR-0005 — R\n\n## Decision\n\n**D1**: First\n\nbody one\n\n**D2** Second\n\nbody two\n"
 PARA = "# ADR-0004 — Q\n\n## Decision\n\nD1. **First.** body one\n\nD2. **Second.** body two\n"
 
 
@@ -37,6 +38,10 @@ class DecisionBlock(unittest.TestCase):
 
     def test_bold_lead_style(self):
         self.check(BOLD)
+
+    def test_bold_lead_closing_right_after_the_id(self):
+        self.check(BOLD_ID)
+        self.assertEqual([x.split("*")[0].strip() for x in adr.decision_titles(BOLD_ID)], ["D1", "D2"])
 
     def test_paragraph_style(self):
         self.check(PARA)

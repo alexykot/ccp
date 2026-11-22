@@ -7,14 +7,11 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
-PLANE = Path(__file__).resolve().parents[1]
-CCP = PLANE / "bin" / "ccp"
 TEAM = PLANE / "scripts" / "team.sh"
 HOOK = PLANE / "plugin" / "hooks" / "runner-idle.sh"
 sys.path.insert(0, str(PLANE / "scripts" / "observability"))
@@ -22,50 +19,10 @@ import lib  # noqa: E402
 
 from ccp import config  # noqa: E402
 from ccp import init as ccp_init  # noqa: E402
+from tests.init_fixture import CCP, InitCase, PLANE
 
-GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
-           "GIT_COMMITTER_EMAIL": "t@example.com", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
 FOOTPRINT = ("docs/PROJECT.md", "docs/SPEC.md", "docs/delivery/plane.json", "docs/delivery/TEMPLATE-task.md",
              "docs/delivery/WRITING-tasks.md", "docs/delivery/standing-dod.md", "docs/delivery/INDEX.yaml")
-
-
-class InitCase(unittest.TestCase):
-    def setUp(self):
-        self._d = tempfile.TemporaryDirectory()
-        base = Path(self._d.name).resolve()
-        self.home, self.bindings, self.repo = base / "home", base / "bindings", base / "repo"
-        self.home.mkdir()
-        self.repo.mkdir()
-        self.git("init", "-q", ".")
-        self.env = {k: v for k, v in os.environ.items() if k not in ("QUEUE_ROOT", "PROJECT_YAML", "PLANE_PROJECT_YAML")}
-        self.env.update(GIT_ENV, HOME=str(self.home), CCP_BINDINGS_DIR=str(self.bindings))
-
-    def tearDown(self):
-        self._d.cleanup()
-
-    def git(self, *args, cwd=None):
-        subprocess.run(["git", *args], cwd=cwd or self.repo, check=True, capture_output=True, env={**os.environ, **GIT_ENV})
-
-    def ccp(self, *args, cwd=None, **env):
-        return subprocess.run([str(CCP), *args], cwd=cwd or self.repo, capture_output=True, text=True,
-                              env={**self.env, **env})
-
-    def init(self, *args, cwd=None):
-        r = self.ccp("init", *args, cwd=cwd)
-        return r.returncode, (json.loads(r.stdout) if r.returncode == 0 else r.stderr)
-
-    def machine_reads_usage(self) -> None:
-        """The machine file sets an allowance command, so init has no unread-usage warning to count (§25.1)."""
-        self.bindings.mkdir(exist_ok=True)
-        (self.bindings / "machine.json").write_text(json.dumps({"allowance_cmd": "true"}))
-
-    @property
-    def binding(self) -> Path:
-        return self.bindings / "demo.yaml"
-
-    @property
-    def queue(self) -> Path:
-        return self.home / ".delivery-queue" / "demo"
 
 
 class Adopt(InitCase):

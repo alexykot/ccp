@@ -15,9 +15,10 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import calibrate, config, estimate, estimator, forecast
+from tests.estimate_fixture import EstimatePage
 from tests.helpers import Product
-from tests.test_board_drill import Fixture
-from tests.test_board_quality import HOSTILE
+from tests.board_drill_fixture import Fixture
+from tests.board_quality_fixture import HOSTILE
 
 T0 = datetime(2026, 9, 1, tzinfo=timezone.utc)
 INF = {"half_life": 1e9, "min_pairs": 8, "k": None}
@@ -458,11 +459,7 @@ class Config(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node is not installed")
-class Page(Fixture, unittest.TestCase):
-    from tests.test_estimate import Page as _P
-    view = _P.view
-    render = _P.render
-
+class Page(EstimatePage, Fixture, unittest.TestCase):
     def calibrated(self):
         h = HOSTILE
         v = self.view("0002-second")

@@ -14,7 +14,7 @@ from pathlib import Path
 from ccp import config, submit, suite
 from tests.helpers import done_report
 from tests.review_flow import CLEAN, PROOF, SKIP_REVIEW_PLANE, PhaseFlow, SkipFlow, A, B
-from tests.test_toolkit import PLANE, ToolkitFixture
+from tests.toolkit_fixture import PLANE, ToolkitFixture
 
 MINOR_ONLY = "BLOCKER=0 MAJOR=0 MINOR=2 NIT=0"
 

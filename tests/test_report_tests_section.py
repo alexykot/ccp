@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 from ccp import runs
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 HEAD = "a" * 40
 HEADING = "## Tests for new behaviour"

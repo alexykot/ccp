@@ -7,7 +7,7 @@ import json
 import unittest
 from pathlib import Path
 
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 TID = "0002-second"
 STARTED = "2026-11-05T02:00:00Z"   # long before any run of this test: past the retired twelve-hour line

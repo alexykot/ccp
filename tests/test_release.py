@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from unittest import mock
 
 from ccp import backfill, cli, drill, health, lifecycle, queue
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 
 class Release(ToolkitFixture, unittest.TestCase):

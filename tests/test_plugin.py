@@ -64,17 +64,29 @@ class ThePlugin(unittest.TestCase):
         self.assertTrue(text.startswith("# CCP — Claude Control Plane"))
 
 
-# SPEC §13.1: the generic rules every worker brief states, each by the tokens its bullet carries.
+# SPEC §13.1: the generic rules every worker brief states, each by the tokens its bullet carries; the last
+# token is the one only that rule uses, so it appears once (the others may be common phrases, used twice).
 WORKER_RULES = {
     "a test module the change necessarily breaks is in scope": ("necessarily breaks", "is in scope"),
     "a test failing under load is rerun alone first": ("fails under load", "rerun alone"),
-    "a task file's line numbers may be stale": ("may be stale", "merge base"),
+    "a task file's line numbers may be stale": ("merge base", "may be stale"),
     "a test run cited as evidence is recorded": ("cite as evidence", "ccp suite run --run", "ccp mutate --run"),
 }
 
 
 def missing_rules(text: str) -> list[str]:
     return [r for r, tokens in WORKER_RULES.items() if not all(t in text for t in tokens)]
+
+
+def rule_count_errors(text: str) -> list[str]:
+    """What a brief's text gets wrong about the rules: each token a rule names that is absent, and each rule whose
+    own (last) token is not stated exactly once."""
+    errors = []
+    for rule, tokens in WORKER_RULES.items():
+        errors += [f"{rule}: {t!r} is absent" for t in tokens if t not in text]
+        if tokens[-1] in text and text.count(tokens[-1]) != 1:
+            errors.append(f"{rule}: {tokens[-1]!r} appears {text.count(tokens[-1])} times")
+    return errors
 
 
 def without_bullet(text: str, token: str) -> str:
@@ -87,11 +99,22 @@ class WorkerRules(unittest.TestCase):
     def test_each_worker_brief_states_each_rule_once(self):
         for a in ("implementer", "reviewer", "verifier"):
             text = (PLUGIN / "agents" / f"delivery-{a}.md").read_text()
-            self.assertEqual(missing_rules(text), [], a)
+            self.assertEqual(rule_count_errors(text), [], a)
             for rule, tokens in WORKER_RULES.items():
-                for t in tokens:
-                    self.assertEqual(text.count(t), 1, (a, t))
-                self.assertEqual(missing_rules(without_bullet(text, tokens[0])), [rule], (a, rule))
+                self.assertEqual(missing_rules(without_bullet(text, tokens[-1])), [rule], (a, rule))
+
+    def test_rule_count_lets_a_common_phrase_stand_twice(self):
+        text = "\n".join(t for tokens in WORKER_RULES.values() for t in tokens) + "\nmerge base\n"
+        self.assertEqual(text.count("merge base"), 2)
+        self.assertEqual(rule_count_errors(text), [])
+
+    def test_rule_count_names_a_rule_whose_own_token_stands_twice(self):
+        text = "\n".join(t for tokens in WORKER_RULES.values() for t in tokens) + "\nmay be stale\n"
+        self.assertEqual(rule_count_errors(text), ["a task file's line numbers may be stale: 'may be stale' appears 2 times"])
+
+    def test_rule_count_names_a_token_that_is_absent(self):
+        text = "\n".join(t for tokens in WORKER_RULES.values() for t in tokens).replace("fails under load", "")
+        self.assertEqual(rule_count_errors(text), ["a test failing under load is rerun alone first: 'fails under load' is absent"])
 
 
 # SPEC §2, §13, §16: the team's lessons, each by the tokens it carries; the last token is the one

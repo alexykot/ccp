@@ -17,7 +17,7 @@ from unittest import mock
 
 from ccp import lifecycle, usage
 from ccp.queue import QueueError
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 PLANE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLANE / "scripts" / "observability"))

@@ -19,8 +19,8 @@ from unittest import mock
 from ccp import board, config, notify, parallel, usage
 from ccp.queue import lib
 from tests.helpers import Product
-from tests.test_board_drill import HASH_STUB, Fixture
-from tests.test_upgrade import UpgradeFixture
+from tests.board_drill_fixture import HASH_STUB, Fixture
+from tests.upgrade_fixture import UpgradeFixture
 
 ROOT = Path(__file__).resolve().parents[1]
 HOOK = ROOT / "plugin" / "hooks" / "orientation.sh"

@@ -15,8 +15,8 @@ from unittest import mock
 
 from ccp import architect, cli, config, parallel, quality, rules, tasklog
 from tests.helpers import Product
-from tests.test_architect import Harness
-from tests.test_upgrade import UpgradeFixture
+from tests.architect_fixture import Harness
+from tests.upgrade_fixture import UpgradeFixture
 
 REFACTOR = "kind: refactor\n"
 E7 = "E7: app/big.py has 9 lines > 5"

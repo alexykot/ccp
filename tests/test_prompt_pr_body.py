@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.test_toolkit import ToolkitFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 BODY_GH = r'''#!/usr/bin/env python3
 """A stand-in for gh: `pr view <n> --json body` prints the body in STUB_BODY_FILE, and logs its argv."""

@@ -19,9 +19,9 @@ from ccp import adr, architect, cli, config, schema, tasklog, usage, verify, wt
 from ccp.queue import lib
 from ccp.schema import schema_errors
 from tests.helpers import Product, binding
-from tests.test_architect import FINDING, Harness
-from tests.test_toolkit import PLANE, ToolkitFixture, git
-from tests.test_wt import WtFixture
+from tests.architect_fixture import FINDING, Harness
+from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.wt_fixture import WtFixture
 
 sys.path.insert(0, str(PLANE / "scripts/observability"))
 import spec_maintainer  # noqa: E402

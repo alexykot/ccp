@@ -6,7 +6,7 @@ import json
 import unittest
 
 from ccp.queue import lib
-from tests.test_upgrade import UpgradeFixture
+from tests.upgrade_fixture import UpgradeFixture
 
 
 class Built(UpgradeFixture, unittest.TestCase):

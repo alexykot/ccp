@@ -12,8 +12,8 @@ import unittest
 from unittest import mock
 
 from ccp import config, parallel
-from tests.test_parallel_claims import ParallelFixture, task
-from tests.test_team_hosting import HOOK, PLANE, TeamCase
+from tests.parallel_claims_fixture import ParallelFixture, task
+from tests.team_hosting_fixture import HOOK, PLANE, TeamCase
 
 
 class NoParallelBlock(ParallelFixture, unittest.TestCase):

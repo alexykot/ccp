@@ -14,8 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli
-from tests.helpers import Product
-from tests.test_verify import HEAD_A, ROOT, approve, decide, now_iso
+from tests.helpers import approve_verdict as approve, HEAD_A, judge_merge_ok as decide, now_iso, PLANE_ROOT as ROOT, Product
 
 TASK = "0001-a"
 

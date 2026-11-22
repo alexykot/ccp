@@ -16,8 +16,8 @@ from unittest import mock
 from ccp import cli, config
 from ccp.queue import lib
 from tests.helpers import Product, binding, machine_file
-from tests.test_notify import PLANE, ChannelFixture
-from tests.test_toolkit import ToolkitFixture
+from tests.notify_fixture import PLANE, ChannelFixture
+from tests.toolkit_fixture import ToolkitFixture
 
 LEAD = {"tool": "mail-send", "to": "operator@example.invalid"}
 

@@ -5,10 +5,9 @@ import re
 import shutil
 import unittest
 
-from tests.helpers import BoardPage, machine_file
-from tests.test_board import good_then_failed
-from tests.test_board_drill import Fixture
-from tests.test_board_quality import HOSTILE, _hostile
+from tests.helpers import BoardPage, good_then_failed, machine_file
+from tests.board_drill_fixture import Fixture
+from tests.board_quality_fixture import HOSTILE, _hostile
 
 PANES = re.compile(r'<div class="pane grid" id="pane-(\w+)"[^>]*?( hidden)?>')
 # The pane a section's heading must sit in, and the header strip's headings (before the first pane).

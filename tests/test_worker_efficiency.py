@@ -10,11 +10,11 @@ import unittest
 from pathlib import Path
 
 from ccp import config, otel, prompt, runs, usage
-from tests.test_toolkit import PLANE, ToolkitFixture, git
-from tests.test_verify_cache import CacheFixture
+from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.verify_cache_fixture import CacheFixture
+from tests.helpers import PROMPT_TEMPLATES as TEMPLATES, render_phase_values as render, phase_values as values
 
 AGENTS = PLANE / "plugin" / "agents"
-TEMPLATES = PLANE / "templates" / "prompts"
 WORKER_TOOLS = {
     "implementer": "Bash, Read, Edit, Write, Grep, Glob, SendMessage, ToolSearch",
     "reviewer": "Bash, Read, Write, Grep, Glob, SendMessage, ToolSearch",
@@ -65,24 +65,6 @@ class Definitions(unittest.TestCase):
         text = (AGENTS / "delivery-verifier.md").read_text()
         self.assertIn("A result you did not run is not a pass, except as your prompt's test-cache rule allows", text)
         self.assertNotIn("modules_cached", text)  # the template, not the definition, says what to record
-
-
-def values(**over) -> dict:
-    """Every name the templates use, set to a placeholder, with the given overrides."""
-    names = set()
-    for f in TEMPLATES.glob("*.md"):
-        t = f.read_text()
-        names |= set(prompt.VAR_RE.findall(t)) | {m[1] for m in re.findall(r"\{\{([#^/])(\w+)\}\}", t)}
-    v = {n: f"<{n}>" for n in names}
-    v.update(refactor=False, prior_reports="", note="", worker_env="", rules_doc="", fragment="", main_checkout="/m",
-             accept_cache=False, review_cache=False, cold_gate=False, architect_checks="", pregate_lane="", cache_max_age_days="",
-             budgets=False, resolution=False, resolved_verify=False, has_affected=False, has_old=False)
-    v.update(over)
-    return v
-
-
-def render(phase: str, **over) -> str:
-    return prompt.render_phase(phase, values(**over))
 
 
 def with_common(phase: str, **over) -> str:

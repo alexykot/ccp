@@ -8,7 +8,7 @@ import subprocess
 import time
 import unittest
 
-from tests.test_team_hosting import HOOK, PLANE, TeamCase
+from tests.team_hosting_fixture import HOOK, PLANE, TeamCase
 
 
 class SlotHook(TeamCase):

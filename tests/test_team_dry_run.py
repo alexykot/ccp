@@ -7,8 +7,8 @@ import json
 from pathlib import Path
 
 from ccp import config
-from tests.test_review_points import REGISTER, _tagged
-from tests.test_team_hosting import TeamCase
+from tests.helpers import REVIEW_REGISTER as REGISTER, tagged_task as _tagged
+from tests.team_hosting_fixture import TeamCase
 
 
 def snapshot(q: Path) -> dict[str, str]:
@@ -173,14 +173,14 @@ class TestSpawnNeedsTheIntegrationRef(TeamCase):
 
     def test_an_existing_runner_worktree_needs_no_ref(self):
         self.origin(push=False)
-        from tests.test_toolkit import git  # noqa: PLC0415
+        from tests.toolkit_fixture import git
         git(self.prod.root, "worktree", "add", "-q", "--detach", str(self.prod.root / config.WORKTREES_DIR / "runner"), "HEAD")
         code, res, err = self.team("runner", "spawn", "--dry-run", "--scope", "0001-a")
         self.assertEqual(code, 0, err)
         self.assertTrue(self.check(res, "runner_worktree")["ok"])
 
     def test_a_ref_pushed_but_not_yet_fetched_is_fetched_before_the_check(self):
-        from tests.test_toolkit import git  # noqa: PLC0415
+        from tests.toolkit_fixture import git
         self.origin()
         git(self.prod.root, "update-ref", "-d", "refs/remotes/origin/main")  # pushed from elsewhere, never fetched
         before = snapshot(self.q)

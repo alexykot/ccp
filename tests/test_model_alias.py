@@ -9,9 +9,8 @@ import unittest
 from pathlib import Path
 
 from ccp import config, models, runs, seats, usage
-from tests.test_board_seats import Base, req as seat_req
-from tests.helpers import FoldRuns
-from tests.test_usage import req
+from tests.board_seats_fixture import Base, req as seat_req
+from tests.helpers import api_request as req, FoldRuns
 
 SONNET, OPUS = "claude-sonnet-5-5", "claude-opus-5-5"
 

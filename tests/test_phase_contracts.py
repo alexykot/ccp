@@ -8,7 +8,7 @@ import unittest
 from ccp import queue
 from ccp.schema import schema_errors
 from tests.review_flow import CLEAN, PhaseFlow
-from tests.test_toolkit import PLANE, ToolkitFixture
+from tests.toolkit_fixture import PLANE, ToolkitFixture
 
 
 def schema(name: str) -> dict:

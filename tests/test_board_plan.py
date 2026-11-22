@@ -12,8 +12,8 @@ from pathlib import Path
 
 from ccp import board, plan, tasklog
 from tests.helpers import TASK, Product
-from tests.test_board_quality import HOSTILE, STUB, Base, _hostile
-from tests.test_toolkit import git
+from tests.board_quality_fixture import HOSTILE, STUB, Base, _hostile
+from tests.toolkit_fixture import git
 
 
 def _task(p: Product, tid: str, status: str = "pending", deps: list[str] | None = None, extra: str = "",

@@ -7,8 +7,8 @@ import json
 from pathlib import Path
 
 from ccp import rules
-from tests.test_init import InitCase
-from tests.test_init_permissions import tree
+from tests.init_fixture import InitCase
+from tests.helpers import file_tree as tree
 
 RULES = """# Engineering rules
 
