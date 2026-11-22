@@ -172,5 +172,9 @@ that runs `ccp` as the lead), `…` there being `0272-the-lead-s-records-share-o
   `python3 -c "import tests"`.
 - Hint tests: the existing refusal tests in `test_sign_off`, `test_catch_up_decision`,
   `test_followups_closed_point` and `test_lead_records` also pin the `ACTOR=design-seat ccp …` token.
+- Fix round 1: `test_sign_off`'s not-a-sha brief sign-off test wrote its fixture event as `task-runner`, which
+  `sign_offs` now ignores, so the claim was refused for a missing sign-off and the test passed without reaching
+  `brief_stale`'s "records no head" check. The fixture event is now the lead's (`who=lib.LEAD`), and the test
+  asserts "records no head" in the refusal. One extra blank line dropped in `test_seat_actor_env`.
 
 ## Verification notes
