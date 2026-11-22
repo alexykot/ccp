@@ -8,8 +8,8 @@ spec_refs: ["S10", "S14", "S27"]
 rule_refs: ["E27", "E12", "E4"]
 review_refs: ["ar-20261122T100027Z-dd31#F02", "ar-20261122T100027Z-dd31#F03", "ar-20261122T100027Z-dd31#F12"]
 review_point: R26
-paths: ["ccp/lifecycle.py", "ccp/queue.py", "ccp/report.py", "ccp/suite.py", "ccp/verify.py", "ccp/health.py", "ccp/tasklog.py", "ccp/submit.py", "ccp/config.py", "scripts/observability/lib.py", "scripts/observability/spec_maintainer.py", "plugin/orientation.md", "docs/cli/02-delivery.md", "docs/delivery/plane.json", "docs/ENGINEERING.md", "tests/test_lead_state_guard.py", "tests/test_prefer.py", "tests/test_next_passes_over.py", "tests/test_sign_off.py", "tests/architect_fixture.py", "tests/board_drill_fixture.py", "tests/test_architect.py", "tests/test_architect_default_on.py", "tests/test_backstop_retired.py", "tests/test_board_seats.py", "tests/test_contract_writers.py", "tests/test_followups.py", "tests/test_init.py", "tests/test_lead_records.py", "tests/test_mutate.py", "tests/test_notify.py", "tests/test_notify_lead.py", "tests/test_notify_upgrade.py", "tests/test_review_aliases_retired.py", "tests/test_run_abandon.py", "tests/test_spec_maintainer_blocked.py", "tests/test_stale_blockers_retired.py", "tests/test_task_supply.py", "tests/test_team_hosting.py", "tests/test_wait_reasons.py", "tests/toolkit_fixture.py", "tests/upgrade_fixture.py"]
-clashes_with: ["0191-the-grace-release-ends", "0270-the-friction-trigger-counts-noted-tasks-and-scales-with-tasks-in-flight", "0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests", "0273-verify-refuses-early-what-record-would-refuse", "0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope", "0278-submit-takes-a-proven-fix-and-the-spec-names-what-ccp-writes", "0283-the-retired-watchdog-and-seat-cadences-leave-the-writers-and-docs", "0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes", "0290-test-modules-share-the-plane-root-and-git-env-and-helpers-import-lazily"]
+paths: ["ccp/lifecycle.py", "ccp/cli.py", "ccp/selection.py", "ccp/queue.py", "ccp/report.py", "ccp/suite.py", "ccp/verify.py", "ccp/health.py", "ccp/tasklog.py", "ccp/submit.py", "ccp/config.py", "scripts/observability/lib.py", "scripts/observability/spec_maintainer.py", "plugin/orientation.md", "docs/cli/02-delivery.md", "docs/delivery/plane.json", "docs/ENGINEERING.md", "tests/test_lead_state_guard.py", "tests/test_prefer.py", "tests/test_next_passes_over.py", "tests/test_sign_off.py", "tests/architect_fixture.py", "tests/board_drill_fixture.py", "tests/test_architect.py", "tests/test_architect_default_on.py", "tests/test_backstop_retired.py", "tests/test_board_seats.py", "tests/test_contract_writers.py", "tests/test_followups.py", "tests/test_init.py", "tests/test_lead_records.py", "tests/test_mutate.py", "tests/test_notify.py", "tests/test_notify_lead.py", "tests/test_notify_upgrade.py", "tests/test_review_aliases_retired.py", "tests/test_run_abandon.py", "tests/test_spec_maintainer_blocked.py", "tests/test_stale_blockers_retired.py", "tests/test_task_supply.py", "tests/test_team_hosting.py", "tests/test_wait_reasons.py", "tests/toolkit_fixture.py", "tests/upgrade_fixture.py"]
+clashes_with: ["0191-the-grace-release-ends", "0270-the-friction-trigger-counts-noted-tasks-and-scales-with-tasks-in-flight", "0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests", "0273-verify-refuses-early-what-record-would-refuse", "0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope", "0278-submit-takes-a-proven-fix-and-the-spec-names-what-ccp-writes", "0283-the-retired-watchdog-and-seat-cadences-leave-the-writers-and-docs", "0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes", "0287-action-parsers-own-their-flags-and-describe-their-actions", "0290-test-modules-share-the-plane-root-and-git-env-and-helpers-import-lazily"]
 adopt: "none"
 created: 2026-11-22
 updated: 2026-11-22
@@ -43,6 +43,9 @@ E27's command over both ids) land first; this task builds on both. Measured at `
   runner turn a lead's "take X next" back to the lead as `ccp tasks prefer X`; `docs/cli/02-delivery.md` gives both rows
   the seat `lead`. `plugin/orientation.md` tells the lead to run `ccp tasks prefer`; no hook or template runs either:
   `git grep -n 'tasks prefer\|tasks hold' -- plugin/hooks templates` at `e92f362`: 0 lines.
+- **The hints.** `git grep -nE 'ccp tasks hold --clear|ccp tasks prefer. a new list' -- ccp` at `e92f362`: 4 lines, each telling a reader to run one
+  of them: `ccp/cli.py` (`tasks next`'s passed-over line for a held task), `ccp/lifecycle.py` (the claim's warning on a held task) and
+  `ccp/selection.py` (an ignored preference, and a held preferred task). 0288 prefixes its own hints with `ACTOR={lib.LEAD} `.
 - **Tests that call them.** `git grep -lE '"(prefer|hold)"' -- tests` at `e92f362`: 3 files (`tests/test_prefer.py`, `tests/test_next_passes_over.py`,
   `tests/test_sign_off.py`); after the guard they run as the lead through 0288's `LEAD_ENV`.
 - **The verifier's id.** `git grep -n '"task-verifier"' -- ccp scripts ':(exclude)ccp/board_page.html' ':(exclude,glob)scripts/**/*.sh'` at `e92f362`: 6 lines:
@@ -69,6 +72,8 @@ E27's command over both ids) land first; this task builds on both. Measured at `
 
 - **The guard.** `"def prefer"` sets `who = lead_actor("a preference")` and `"def hold"` `who = lead_actor("a hold")`, after
   the no-argument listing returns, so listing needs no `ACTOR` and `--clear` needs the lead's. `release` keeps `actor(lib.LEAD)`.
+- **The hints.** The four hint lines above print the command with `ACTOR={lib.LEAD} ` before `ccp`, built from `lib.LEAD`,
+  as 0288 does for its hints (`ACTOR=design-seat ccp tasks hold --clear <id>`, `ACTOR=design-seat ccp tasks prefer`).
 - **The docs.** The `ccp tasks prefer` and `ccp tasks hold` rows of `docs/cli/02-delivery.md` add "needs `ACTOR=design-seat` to
   write; refused, exit 2, when `ACTOR` is unset or names any other value; listing needs none". The orientation line 0288 adds
   names `ccp tasks prefer` and `ccp tasks hold` beside the three records, and the existing prefer line reads
@@ -94,10 +99,11 @@ E27's command over both ids) land first; this task builds on both. Measured at `
 
 ## Scope
 
-- **In:** `ccp/lifecycle.py` (prefer, hold), `ccp/queue.py` (`seat_actor`), `ccp/report.py`, `ccp/suite.py`, `ccp/verify.py`,
+- **In:** `ccp/lifecycle.py` (prefer, hold, the claim's hint), `ccp/cli.py` and `ccp/selection.py` (the hints), `ccp/queue.py` (`seat_actor`), `ccp/report.py`, `ccp/suite.py`, `ccp/verify.py`,
   `ccp/health.py`, `ccp/tasklog.py`, `ccp/submit.py`, `ccp/config.py`, `scripts/observability/lib.py`,
   `scripts/observability/spec_maintainer.py`, `plugin/orientation.md`, `docs/cli/02-delivery.md`, `docs/delivery/plane.json`
-  (E27's command), `docs/ENGINEERING.md` (E27), `tests/test_lead_state_guard.py` (new), and the test files in `paths`.
+  (E27's command), `docs/ENGINEERING.md` (E27), `tests/test_lead_state_guard.py` (new), the test files in `paths`, and any other
+  test file the E27 command names at the build's base (0288's new `tests/test_seat_actor_env.py`, for one).
 - No SPEC change (measured in Context).
 - **Out:** `ccp tasks release` and `drop` (lead or runner, §10.4); the shell writers; `ccp/board_page.html`;
   `ccp/usage.py`'s actor; what any event other than prefer and hold records.
@@ -108,9 +114,9 @@ E27's command over both ids) land first; this task builds on both. Measured at `
   story: As the lead, only a caller whose ACTOR names me sets the runner's preference or a hold; listing them needs no ACTOR.
   setup: A checkout of the PR head, in your own worktree.
   steps:
-    1. Run `python3 -B -m unittest -v tests.test_lead_state_guard 2>&1 | grep -e refus -e list -e '^OK'`.
+    1. Run `python3 -B -m unittest -v tests.test_lead_state_guard 2>&1 | grep -e refus -e list -e hint -e '^OK'`.
     2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_lead_state_guard --mutant 'ccp/lifecycle.py:who = lead_actor("a preference")=>who = actor(lib.LEAD)'`.
-  expect: step 1 lists, each `ok`, a test where `ccp tasks prefer <id>` with `ACTOR=task-runner` and with `ACTOR` unset each exits 2 with `only the lead records` and leaves `work.json` unchanged, the same for `ccp tasks hold <id>`, each name holding `refus`, and one where `ccp tasks prefer` and `ccp tasks hold` with no argument and no `ACTOR` exit 0 and print the list, its name holding `list`; then `OK`. Step 2 prints the mutant `killed`.
+  expect: step 1 lists, each `ok`, a test where `ccp tasks prefer <id>` with `ACTOR=task-runner` and with `ACTOR` unset each exits 2 with `only the lead records` and leaves `work.json` unchanged, the same for `ccp tasks hold <id>`, each name holding `refus`, and one where `ccp tasks prefer` and `ccp tasks hold` with no argument and no `ACTOR` exit 0 and print the list, its name holding `list`, and one where `ccp tasks next` passing over a held task prints on stderr `ACTOR=design-seat ccp tasks hold --clear <id>`, its name holding `hint`; then `OK`. Step 2 prints the mutant `killed`.
   dry run: n/a — the module is new.
 - id: `code-02`
   story: As a plane developer, the verifier's actor id and the seat-to-actor rule are each written once.

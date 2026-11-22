@@ -114,7 +114,7 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
 - **E26** A house rule is stated once, in this doc. The standing DoD and the package docs name its id;
   they never restate its text, a prohibition included. The root CLAUDE.md, the session's own instructions,
   is exempt.
-  check: pass — the architect greps each package doc for a rule's distinctive clause (`git grep -n 'only wrap\|imports another\|copied literal' -- '*/CLAUDE.md'`)
+  check: pass — the architect greps each package doc for a rule's distinctive clause (`git grep -n 'only wrap\|imports another\|copied literal\|names no language' -- '*/CLAUDE.md'`)
 - **E13** Briefs and prompt templates name the command and the § that decides; they never restate a
   rule's conditions, a tool's quirk a `ccp` command can absorb, or a sample record (a sample lives in
   contracts/ as `*.example.json`, and a test runs it through the command). The report's lines and
