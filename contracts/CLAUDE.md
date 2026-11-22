@@ -8,7 +8,7 @@ value stays listed as a deprecated, read-only alias so old records still validat
 change in the same commit; tests check that they agree: `ccp/schema.py` is the one checker, and for the
 contracts the tests name a test validates a record its writer writes or, where a seat or a machine command
 writes it, a `<name>.example.json` its reader accepts (`tests/test_contract_writers.py`,
-`tests/test_phase_contracts.py`). Not yet checked: `question_answer`.
+`tests/test_phase_contracts.py`, `tests/test_task_state_contract.py`). Not yet checked: `question_answer`.
 The checker fails closed on a keyword it does not know, so a schema that needs a new one extends it.
 
 Some queue records have no schema, among them run records (`runs/<task>/<run>.json`) and the suite rows

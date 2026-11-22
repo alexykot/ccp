@@ -39,6 +39,16 @@ class WorktreeContract(WtFixture, unittest.TestCase):
         for f in written:
             self.assertEqual(schema_errors(json.loads(f.read_text()), schema), [], f.name)
 
+    def test_the_base_record_validates_while_its_command_runs(self):
+        # a base worktree is removed with its command, so the record is read from inside the command
+        code, _, out, err = self.wt("create", "--kind", "base", "--task", "0002", "--sha", self.head(), "--",
+                                    "sh", "-c", f'cat "{self.q}"/worktrees/base-*.json')
+        self.assertEqual(code, 0, out + err)
+        record, _ = json.JSONDecoder().raw_decode(out[out.index("{"):])  # the command's output, then ccp's result
+        self.assertEqual(record["kind"], "base")
+        self.assertIn("head", record)
+        self.assertEqual(schema_errors(record, contract("worktree.schema.json")), [])
+
     def test_the_kind_enum_is_the_kinds_ccp_wt_creates(self):
         self.assertEqual(contract("worktree.schema.json")["properties"]["kind"]["enum"], list(wt.KINDS))
 
