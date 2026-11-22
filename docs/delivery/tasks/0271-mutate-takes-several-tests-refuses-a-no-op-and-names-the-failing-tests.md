@@ -188,4 +188,31 @@ The §20.6 change below is the operator's to sign (the triage's first question).
 
 ## Implementation notes
 
+- **Several tests.** `--test` is argparse `append` (required, so at least one); `mutate.run` takes the list.
+  `_usage` (new, plain) refuses no test, a blank id among them, or no mutant. Each test runs unmutated in order,
+  the first failure stops the call (exit 1) naming it. Per mutant the tests run in order until one exits
+  non-zero; that run decides `killed`/`unbuilt`, the rest are not run; all passing is `survived`. The row's
+  `test` is the deciding test (else the last). The CLI's JSON body now carries `tests` (the list) in place of
+  `test`, and `baseline` is a list of `{test, exit_code, seconds, timed_out}`, one per test; the record row and
+  the `run`/`recorded` payload are as ruled.
+- **`failed`.** `_failed` reads the deciding run's output from `_test`'s offset and keeps the rest of each line a
+  `section_re` pattern matches, the match taken off and stripped, in output order, at most `MAX_FAILED` (20);
+  `[]` for a survived mutant. The patterns are `suite._summary_cfg(cfg)["section_re"]`, the function
+  `ccp suite run` reads (plane.json `suite.summary.section_re`, else the pack's), so the resolution is not
+  written twice.
+- **No-op refusal.** `_substitution` refuses `new == old` (bytes) first, before the path and count checks, so a
+  `--mutant`, a `--mutant-file` and a `--together` part (parsed without the count) are refused at parse time,
+  the first such part first. A patch is not compared.
+- **Not-found hint.** 0291 (merged after this task was measured) already built a line-break refusal for a
+  `--mutant-file` old text found 0 times but found once its trailing line break is dropped, and pinned that a
+  whole-line old text matching nothing keeps the plain refusal (`tests/test_mutant_file_line_break.py`). This
+  build appends to 0291's message that the old text includes its last line's line break and that a
+  substitution inside one line goes in `--mutant` (that test's `RULED` constant extended to match); the
+  whole-line not-found case keeps the plain refusal, as 0291 pins. Raised with the runner as a scope question.
+- **Refusal tests.** `tests/test_mutate_refusals.py` tests `_usage`, `_once`, `parse`, `parse_file`, `together`
+  and `_worktree` on plain bytes and a temp directory (worktree records written with `wt.save`); `Refusals` in
+  `tests/test_mutate.py` keeps the closed run, another task's worktree and the test that fails unmutated.
+  `tests/test_mutate_interface.py` holds the several-test, `failed` and no-op wiring on a `ToolkitFixture`
+  product whose files are committed once per class (`_build_repos`).
+
 ## Verification notes
