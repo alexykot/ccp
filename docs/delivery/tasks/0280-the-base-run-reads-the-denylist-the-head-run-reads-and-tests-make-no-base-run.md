@@ -1,7 +1,7 @@
 ---
 task_id: 0280-the-base-run-reads-the-denylist-the-head-run-reads-and-tests-make-no-base-run
 title: The run at the merge base reads the leak denylist the HEAD run reads, tests never make a base run of the real repo, and a multi-path non-ASCII diff is pinned
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S21"]
@@ -183,3 +183,5 @@ with a prototype of `code-03`'s test added:
   directory still matches. A wrong or missing `--root` then falls back to `bindings_dir()` and the tests fail.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #330 head `5071af9` (squash `d4cb19d`): APPROVE. Passed: code-01, code-02, code-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0280-the-base-run-reads-the-denylist-the-head-run-reads-and-tests-make-no-base-run.json.
+

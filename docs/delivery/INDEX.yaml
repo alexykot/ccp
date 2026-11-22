@@ -1373,7 +1373,7 @@ tasks:
     depends_on: []
     path: tasks/0279-contract-writer-tests-for-the-answer-file-and-wt-up-down.md
   - id: 0280-the-base-run-reads-the-denylist-the-head-run-reads-and-tests-make-no-base-run
-    status: pending
+    status: done
     title: The run at the merge base reads the leak denylist the HEAD run reads, tests never make a base run of the real repo, and a multi-path non-ASCII diff is pinned
     depends_on: []
     path: tasks/0280-the-base-run-reads-the-denylist-the-head-run-reads-and-tests-make-no-base-run.md
