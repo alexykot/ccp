@@ -18,7 +18,7 @@ from tests.review_flow import A, ReviewFlow
 from tests.team_hosting_fixture import TeamCase
 from tests.toolkit_fixture import ToolkitFixture, git
 
-RERUN = "Re-run the Context's measurements"
+RERUN = "re-measure its figures"  # the stale-Context line's ask (tasklog.stale_context)
 
 
 def measured(f: Path, sha: str, path: str) -> None:
