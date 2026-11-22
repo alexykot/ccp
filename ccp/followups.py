@@ -16,7 +16,6 @@ from ccp import health, plane, queue, refs, reviewpoints, runs, tasklog
 from ccp.config import Config
 from ccp.queue import QueueError
 
-LEAD = "design-seat"  # §2: the actor the lead's commands record as, and the only one that decides a follow-up
 KINDS = ("task", "proposal", "drop")  # an outcome: a task in the log, a plane proposal, or dropped with a reason
 
 
@@ -130,11 +129,9 @@ def _find(rec: Any, fid: str) -> dict[str, Any] | None:
 
 def decide(q: Path, cfg: Config, fid: str, kind: str, ref_or_reason: str, by: str) -> dict[str, Any]:
     """§13.4, ADR-0044 D2: record follow-up `fid`'s outcome on its run record, replacing any earlier one, and a
-    `run` `decided` event. Refused (exit 2, nothing written) for a caller other than the lead, an id that
-    resolves to no follow-up, a task not in the task log at `origin/<integration>`, a proposal not in
-    `plane/proposals.jsonl`, and an empty or secret-like drop reason."""
-    if by != LEAD:
-        raise QueueError(f"only the lead records a follow-up's outcome (ACTOR is {by}): tell the lead", 2)
+    `run` `decided` event, as `by` (the lead, whom the caller has checked with `queue.lead_actor`). Refused (exit 2,
+    nothing written) for an id that resolves to no follow-up, a task not in the task log at `origin/<integration>`,
+    a proposal not in `plane/proposals.jsonl`, and an empty or secret-like drop reason."""
     if kind not in KINDS:
         raise QueueError(f"an outcome is one of {', '.join(KINDS)}", 2)
     parsed = refs.parse_follow_up_id(fid)
@@ -174,4 +171,4 @@ def decide(q: Path, cfg: Config, fid: str, kind: str, ref_or_reason: str, by: st
     return {"ok": True, "id": fid, "task_id": task_id, "outcome": outcome, "replaced": replaced}
 
 
-__all__ = ["KINDS", "LEAD", "carry", "closed_point_errors", "closed_points", "decide", "line", "listing", "open_count", "outcome_word", "resolve_task", "undecided"]
+__all__ = ["KINDS", "carry", "closed_point_errors", "closed_points", "decide", "line", "listing", "open_count", "outcome_word", "resolve_task", "undecided"]

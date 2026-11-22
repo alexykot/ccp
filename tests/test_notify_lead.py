@@ -14,6 +14,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
 from ccp import cli, config
+from ccp.queue import lib
 from tests.helpers import Product, binding, machine_file
 from tests.test_notify import PLANE, ChannelFixture
 from tests.test_toolkit import ToolkitFixture
@@ -74,8 +75,8 @@ class LeadChannel(ToolkitFixture, unittest.TestCase):
         got = [e["payload"] for e in self.notices("sent")]
         self.assertEqual(got, [
             {"trigger": "decision", "project": "demo", "task": "0001-first", "id": "0001-first-1", "via": "lead",
-             "by": "design-seat", "ok": True},
-            {"trigger": "other", "project": "demo", "task": "", "id": "", "via": "lead", "by": "design-seat",
+             "by": lib.LEAD, "ok": True},
+            {"trigger": "other", "project": "demo", "task": "", "id": "", "via": "lead", "by": lib.LEAD,
              "ok": True, "note": "unexpected outage"}])
 
     def test_sent_records_the_seat_it_was_run_as(self):
@@ -259,11 +260,11 @@ class LeadConfig(unittest.TestCase):
 class Contract(unittest.TestCase):
     def test_the_ledger_contract_and_its_validator_accept_the_notify_events(self):
         from ccp import queue
-        ev = {"at": "2026-11-11T00:00:00Z", "project_id": "demo", "task_id": "", "actor": "design-seat",
+        ev = {"at": "2026-11-11T00:00:00Z", "project_id": "demo", "task_id": "", "actor": lib.LEAD,
               "type": "notify", "op": "sent", "payload": {"trigger": "other"}}
         self.assertTrue(any("payload missing" in e for e in queue.lib.validate_event(ev)))
         ev["payload"] = {"trigger": "other", "project": "demo", "task": "", "id": "", "via": "lead",
-                         "by": "design-seat", "ok": True}
+                         "by": lib.LEAD, "ok": True}
         self.assertEqual(queue.lib.validate_event(ev), [])
 
 
@@ -295,7 +296,7 @@ class Gates(unittest.TestCase):
         r = self.run_script("gate", "ask-operator", eid)
         evs = [json.loads(x) for x in (self.q / "observability/events.jsonl").read_text().splitlines()]
         got = [(e["actor"], e["payload"]) for e in evs if e["type"] == "notify"]
-        self.assertEqual(got, [("design-seat", {"trigger": "decision", "project": "demo", "task": "0001-a",
+        self.assertEqual(got, [(lib.LEAD, {"trigger": "decision", "project": "demo", "task": "0001-a",
                                                 "id": eid, "reason": ""})])
         self.assertIn("[demo] decision: 0001-a", r.stderr)
         self.assertNotIn("paid cycle", r.stderr)

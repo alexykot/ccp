@@ -492,11 +492,11 @@ def migrate(cfg: Config, old: str, new: str, dry_run: bool = False, merge: bool 
                                      body["written"])
     qb = body["queue"]
     if q is not None and (qb["work_json"]["change"] or (qb["ledger"]["events"] and not qb["ledger"]["renamed"])):
-        from ccp.queue import emit, save_work  # noqa: PLC0415
+        from ccp.queue import emit, lib, save_work  # noqa: PLC0415
         # One rename event: a re-run that finds it already recorded adds none.
         if not qb["ledger"]["renamed"]:
             emit(q, cfg, "", "runner", "set", {"field": "review_point", "from": old, "to": new,
-                                               "why": "ccp review-points migrate (SPEC §22)"}, who="design-seat")
+                                               "why": "ccp review-points migrate (SPEC §22)"}, who=lib.LEAD)
         if qb["work_json"]["change"]:
             save_work(q, {"review_point": new})
         qb["written"] = ["work.json"] if qb["work_json"]["change"] else []

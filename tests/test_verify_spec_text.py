@@ -14,6 +14,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
 from ccp import cli, tasklog, verify
+from ccp.queue import lib
 from tests.helpers import Product
 from tests.test_toolkit import GIT_ENV, ToolkitFixture, git
 
@@ -461,7 +462,8 @@ class Prompts(ToolkitFixture, unittest.TestCase):
         git(self.main, "push", "-q", "origin", "main")
         git(self.runner, "fetch", "-q", "origin")
         git(self.runner, "checkout", "-q", "--detach", "origin/main")
-        code, _, out, err = self.ccp("tasks", "sign-off", "0002", "--by", "op", "--words", "signed")
+        with mock.patch.dict(os.environ, {"ACTOR": lib.LEAD}):  # only the lead records a sign-off (§3.5)
+            code, _, out, err = self.ccp("tasks", "sign-off", "0002", "--by", "op", "--words", "signed")
         self.assertEqual(code, 0, out + err)
         for text in self.prompts():
             self.assertIn("verify spec-text 0002-second --base origin/main", text)

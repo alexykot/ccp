@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, config, lifecycle, prompt, report, verify
+from ccp.queue import lib
 from tests.helpers import Product
 from tests.test_toolkit import PLANE, ToolkitFixture
 from tests.test_verify import approve
@@ -35,7 +36,8 @@ class CloseHolds(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
 
     def sign(self, *extra: str):
-        return self.ccp("tasks", "sign-off", "0002", "--by", "op", "--words", "signed the new rule", *extra)
+        with mock.patch.dict(os.environ, {"ACTOR": lib.LEAD}):  # only the lead records a sign-off (§3.5)
+            return self.ccp("tasks", "sign-off", "0002", "--by", "op", "--words", "signed the new rule", *extra)
 
     def signed(self) -> list[dict]:
         return [e for e in self.events() if (e["type"], e["op"]) == ("sign_off", "recorded")]

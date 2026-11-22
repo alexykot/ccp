@@ -16,6 +16,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, followups, refs, runs
+from ccp.queue import lib
 from tests.helpers import Product, binding
 from tests.test_review_points import REGISTER, _tagged
 from tests.test_team_hosting import TeamCase
@@ -26,7 +27,7 @@ def seed(q: Path, task_id: str, decided: bool = False) -> str:
     id."""
     run_id = f"{task_id}/implement"
     fid = refs.follow_up_id(run_id, 1)
-    outcome = {"kind": "drop", "reason": "not worth it", "at": "2026-11-21T00:00:00Z", "by": followups.LEAD} \
+    outcome = {"kind": "drop", "reason": "not worth it", "at": "2026-11-21T00:00:00Z", "by": lib.LEAD} \
         if decided else None
     runs.save(q, {"run_id": run_id, "task_id": task_id, "phase": "implement",
                   "follow_ups": [{"id": fid, "text": "a test gap out of scope", "outcome": outcome}]})
@@ -39,7 +40,7 @@ def run_record(task_id: str, outcome: dict | None = None) -> dict:
             "follow_ups": [{"id": refs.follow_up_id(run_id, 1), "text": "later", "outcome": outcome}]}
 
 
-DECIDED = {"kind": "task", "ref": "0009-z", "at": "2026-11-21T00:00:00Z", "by": followups.LEAD}
+DECIDED = {"kind": "task", "ref": "0009-z", "at": "2026-11-21T00:00:00Z", "by": lib.LEAD}
 POINTS = [{"id": "R1", "status": "closed"}, {"id": "R2", "status": "current"}, {"id": "R3", "status": "planned"}]
 
 
@@ -85,7 +86,7 @@ class TheTasksCheck(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.q = Path(tmp.name)
         (self.q / "project.yaml").write_text(binding(product_root=self.p.root))
-        env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), "ACTOR": followups.LEAD})
+        env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), "ACTOR": lib.LEAD})
         env.start()
         self.addCleanup(env.stop)
 

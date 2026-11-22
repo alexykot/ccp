@@ -33,7 +33,7 @@ from typing import Any
 
 from ccp import config, models, runs
 from ccp.config import Config
-from ccp.queue import read_json
+from ccp.queue import lib, read_json
 from ccp.usage import UNTAGGED  # the fold's seat for `claude -p` rows with no tag and no placement
 
 WINDOW_MINUTES = 30
@@ -196,7 +196,7 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
     headless_sids = {str(h.get("session_id")) for h in report.get("headless") or [] if h.get("session_id")}
     headless_sids |= {str(x.get("session_id")) for k, v in recent["seats"].items() if _tagged(k)
                       for x in v if x.get("session_id")}
-    lead_reqs, lead_aside = _split(recent["seats"].get("design-seat"), headless_sids)
+    lead_reqs, lead_aside = _split(recent["seats"].get(lib.LEAD), headless_sids)
     lead_obs = observed(lead_reqs)
     active = lead_obs and (_t(lead_obs["at"]) or 0) >= now - WINDOW_MINUTES * 60
     notes = []
@@ -211,7 +211,7 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
                      {"model": ds.get("model"), "effort": ds.get("effort"),
                       "source": "docs/delivery/plane.json telemetry.design_seat (a constant; advisory, §24.5)" if set_here
                       else "docs/delivery/plane.json models.lead (advisory, §24.5)"},
-                     lead_obs, _activity(lead_obs, _ev_activity(_last_event(events, "design-seat"))),
+                     lead_obs, _activity(lead_obs, _ev_activity(_last_event(events, lib.LEAD))),
                      advisory=True, prefix=True, notes=notes))
 
     rname = work.get("runner") or lib.RUNNER_NAME  # §10.2: the bound name after a rotation
@@ -271,7 +271,7 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
     rows += headless
 
     # `other-sessions` aggregates every session outside the seats (§24): not one seat, not a row.
-    known = {"design-seat", "runner", *runs.SEAT.values(), "worker", "other-sessions", UNTAGGED, *claimed}
+    known = {lib.LEAD, "runner", *runs.SEAT.values(), "worker", "other-sessions", UNTAGGED, *claimed}
     for seat, reqs in sorted(recent["seats"].items()):
         if seat in known:
             continue
@@ -289,7 +289,7 @@ def collect(cfg: Config, q: Path, report: dict[str, Any], work: dict[str, Any]) 
 
 def _tagged(seat: str) -> bool:
     """A seat the receiver tagged from a plane-launched `claude -p` (§24), not an interactive one."""
-    return not (seat in ("design-seat", "runner", "other-sessions", "worker", UNTAGGED)
+    return not (seat in (lib.LEAD, "runner", "other-sessions", "worker", UNTAGGED)
                 or seat in runs.SEAT.values() or seat.startswith("teammate:"))
 
 

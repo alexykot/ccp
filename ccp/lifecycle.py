@@ -67,7 +67,7 @@ from ccp import config, notify, prhost, queue, refs, runs, tasklog
 from ccp.queue import lib
 from ccp.config import Config
 from ccp.queue import (OBS, QueueError, actor, durable_statuses, emit, file_lock, git, heartbeat, integration_branch, iso,
-                       load_task_state, load_work, now, phase_move, preferred_ids, progress_event, root,
+                       lead_actor, load_task_state, load_work, now, phase_move, preferred_ids, progress_event, root,
                        rulings, runner_slots, save_task_state, save_work, script_drift, sign_offs, task_meta,
                        task_state_path)
 
@@ -405,7 +405,7 @@ def prefer(cfg: Config, tasks: list[str], reason: str, clear: bool) -> dict[str,
         return {"ok": True, "next_tasks": _preference(w)}
     if tasks and clear:
         raise QueueError("give tasks to prefer, or --clear, not both")
-    who = actor("design-seat")
+    who = actor(lib.LEAD)
     if clear:
         was = _preference(w)
         if was:
@@ -461,7 +461,7 @@ def hold(cfg: Config, task: str | None, reason: str, clear: str | None) -> dict[
         return {"ok": True, "held": [{"task_id": t, **v} for t, v in sorted(held.items())]}
     if task is not None and clear is not None:
         raise QueueError("give a task to hold, or --clear ID, not both")
-    who = actor("design-seat")
+    who = actor(lib.LEAD)
     if clear is not None:
         tid = str(task_meta(cfg, clear)["task_id"]) if clear not in held else clear
         was = held.pop(tid, None)
@@ -754,7 +754,7 @@ def release(cfg: Config, task: str, reason: str, keep_branch: bool = False) -> d
         _releasable_keeping_branch(q, tid, st)
     else:
         _releasable_unworked(q, tid, st)
-    who = actor("design-seat")
+    who = actor(lib.LEAD)
     from ccp.health import RELEASE_NOTE  # noqa: PLC0415
     note = f"{RELEASE_NOTE} {reason}"
     # the events are checked before anything is written, so a refused one leaves the task as it was
@@ -860,7 +860,9 @@ def sign_off(cfg: Config, task: str, stage: str | None, by: str, words: str, hea
     ledger (a `sign_off` `recorded` event: stage, who, the words and the head it covers; the event's
     `at` is when). A `brief` sign-off covers the commit that last changed the task file, a `build` one
     the verified head (verification/<id>.json). One given before it could be recorded carries its date,
-    `at`, as `signed_at`. A later record of a stage replaces the earlier."""
+    `at`, as `signed_at`. A later record of a stage replaces the earlier. Only the lead records it
+    (`queue.lead_actor`)."""
+    who = lead_actor("a sign-off")
     q = root()
     meta = task_meta(cfg, task)
     tid = str(meta["task_id"])
@@ -897,15 +899,16 @@ def sign_off(cfg: Config, task: str, stage: str | None, by: str, words: str, hea
             raise QueueError(f"{cfg.rel(meta['_file'])} has no commit to sign: commit it, or give --head (SPEC §3.5)", 2)
     payload = {"stage": stage, "by": by.strip(), "words": words.strip(), "head": head,
                **({"signed_at": when} if when else {})}
-    ev = emit(q, cfg, tid, "sign_off", "recorded", payload, actor("design-seat"))
+    ev = emit(q, cfg, tid, "sign_off", "recorded", payload, who)
     return {"ok": True, "task_id": tid, "sign_off": {**payload, "at": ev.get("at")}}
 
 
 def ruling(cfg: Config, task: str, words: str, check: str | None = None) -> dict[str, Any]:
     """§17.5 `ccp tasks ruling`: the lead records a ruling it gave a runner by message as a `ruling` `recorded`
     event in the ledger (the check it concerns, when given, and the words), id `<task_id>-r<n>`, `n` counting
-    from 1 per task. A verdict cites the id wherever it cites a ruling (§15.4). Exit 2 for an unknown task or
-    empty words."""
+    from 1 per task. A verdict cites the id wherever it cites a ruling (§15.4). Exit 2 for a caller other than the
+    lead (`queue.lead_actor`), an unknown task or empty words."""
+    who = lead_actor("a ruling")
     q = root()
     tid = str(task_meta(cfg, task)["task_id"])
     if not words.strip():
@@ -914,7 +917,7 @@ def ruling(cfg: Config, task: str, words: str, check: str | None = None) -> dict
         raise QueueError("--check names a dod_check id: give one, or leave it out", 2)
     n = len(rulings(q, tid)) + 1
     payload = {"id": f"{tid}-r{n}", "n": n, **({"check": check.strip()} if check else {}), "words": words.strip()}
-    ev = emit(q, cfg, tid, "ruling", "recorded", payload, actor("design-seat"))
+    ev = emit(q, cfg, tid, "ruling", "recorded", payload, who)
     return {"ok": True, "task_id": tid, "id": payload["id"], "ruling": {**payload, "at": ev.get("at")}}
 
 
