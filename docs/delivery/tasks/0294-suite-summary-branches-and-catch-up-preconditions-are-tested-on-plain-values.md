@@ -1,7 +1,7 @@
 ---
 task_id: 0294-suite-summary-branches-and-catch-up-preconditions-are-tested-on-plain-values
 title: The suite summary's cap, cut, tally and empty-log branches and close's three static catch-up refusals are tested on plain values, leaving end-to-end tests only for the wiring
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E15"]
@@ -128,3 +128,5 @@ Measured at `e92f362`.
   plain `Digest` test no longer holds for `run`'s `digest(log, scfg, patterns)` call.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #338 head `d129173` (squash `1ec9cbc`): APPROVE. Passed: test-01, test-02, test-03. Gate: `ccp wt exec -- suite run --lane gate` exit 0, `ccp wt exec -- suite run --lane part -- scripts/gate.sh tests.test_behind_tip_catch_up tests.test_catch_up_decision tests.test_suite` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0294-suite-summary-branches-and-catch-up-preconditions-are-tested-on-plain-values.json.
+
