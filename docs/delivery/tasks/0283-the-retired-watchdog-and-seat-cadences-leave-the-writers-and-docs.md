@@ -1,7 +1,7 @@
 ---
 task_id: 0283-the-retired-watchdog-and-seat-cadences-leave-the-writers-and-docs
 title: The retired watchdog seat and the per-seat cron cadences leave every writer and doc, the watchdog stays a read-only actor, and the observability scripts keep one package doc
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S18", "S23"]
@@ -189,3 +189,5 @@ README 140 lines, 2 README pointers, `wake_kind` unread in `ccp`/`contracts`, th
   enums are unchanged. The review's NIT and its two follow-ups are left: the ruling asked for the read-side keyword without a caller.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #352 head `7224ae3` (squash `5071c58`): APPROVE. Passed: code-01, cmd-01, doc-01, cmd-02, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0283-the-retired-watchdog-and-seat-cadences-leave-the-writers-and-docs.json.
+
