@@ -118,4 +118,19 @@ line), `…` there being `0276-docs-contract-and-template-leftovers-of-r15-and-r
 
 ## Implementation notes
 
+- 2026-11-22 (implementer). Premises re-measured at `deca5ed2`: 56 lines in 53 files, the same files as `paths`; 2
+  `GIT_ENV` lines; 27 `ccp` modules on importing `tests.helpers`; docs check 1 warning on `tests/test_plugin.py`.
+  Two module-level constants in `tests/helpers.py` read `ccp` at import, not only functions: `DONE_SECTIONS`
+  (`runs.CHANGE_PHASES`, already so at `329ff75`) and `LEAD_ENV` (`lib.LEAD`, added by 0288). `DONE_SECTIONS`, used
+  only by `done_report`, became the function `done_sections()`; `LEAD_ENV` is served by a module `__getattr__`
+  (PEP 562) backed by `lead_env()`, so the four modules that import it stay unchanged. `config.Config` in the `cfg`
+  annotation is imported under `TYPE_CHECKING`.
+- `tests/test_tasks_close.py` computes the root only in its run-as-a-script bootstrap, before `tests` is
+  importable: it now imports `PLANE_ROOT` as `helpers` (the script's directory leads `sys.path`), which loads only
+  the standard library, then puts the root on `sys.path` as before.
+- The modules that had no `tests.helpers` import gained `from tests.helpers import PLANE_ROOT`; `from pathlib
+  import Path` was dropped where nothing else used it.
+- `tests/test_fence.py` gains a test that importing `tests.helpers` loads no `ccp` module (a subprocess, as the
+  fence test does), so the lazy imports hold past this task.
+
 ## Verification notes
