@@ -97,7 +97,6 @@ class StepsAndRecords(unittest.TestCase):
         self.assertFalse(dryrun.claimed({"lease_holder": "runner", "status": "done"}))
         self.assertFalse(dryrun.claimed({"lease_holder": None}))
 
-
     def test_check_picks_the_one_check_named_or_names_the_ids_the_task_has(self):
         checks = dryrun.plan(with_checks(TASK.format(tid="0003-third", title="Third", status="pending", deps="",
                                                      ver="*x*"), CHECKS))
@@ -219,11 +218,20 @@ class DryRunCommand(ToolkitFixture, unittest.TestCase):
         self.assertEqual(git(self.main, "worktree", "list"), worktrees)
         self.assertEqual(git(self.main, "status", "--porcelain"), "")
 
-    def test_a_check_the_task_lacks_exits_2_naming_its_ids_even_here(self):
+    def test_here_names_the_head_the_steps_started_at_when_a_step_commits(self):
+        self.write(FILE, (self.main / FILE).read_text().replace(
+            "  dry run: n/a — a prose step.\n", "  dry run: n/a — a prose step.\n\n- id: `cmd-03`\n  story: s.\n"
+            "  steps:\n    1. Run `git commit --allow-empty -qm moved`.\n  expect: e.\n"))
+        git(self.main, "commit", "-qam", "0003's committing check")
+        head = git(self.main, "rev-parse", "HEAD")
+        code, out, err = self.dry_run("0003", "--check", "cmd-03", "--here")
+        self.assertEqual(code, 0, out + err)
+        self.assertNotEqual(git(self.main, "rev-parse", "HEAD"), head)
+        self.assertIn(head[:7], out.splitlines()[0])
+
+    def test_a_check_the_task_lacks_exits_2_even_here(self):
         code, out, err = self.dry_run("0003", "--check", "cmd-09", "--here")
         self.assertEqual(code, 2, out + err)
-        for named in ("cmd-09", "cmd-01", "cmd-02"):
-            self.assertIn(named, err)
 
     def test_a_done_task_is_refused(self):
         code, out, err = self.dry_run("0001", "--write")

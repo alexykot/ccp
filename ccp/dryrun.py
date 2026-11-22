@@ -224,9 +224,9 @@ def dry_run(cfg: Config, task: str, write: bool, check: str | None = None, here:
 
 def _here(cfg: Config, tid: str, checks: list[tuple[str, list[tuple[str, str | None]]]], skip: set[str]) -> int:
     """§21.1 `--here`: the steps run in the checkout the command runs in, at its HEAD; nothing is written."""
+    sha = queue.git(cfg.root, "rev-parse", "HEAD", check=True).stdout.strip()  # before a step can move it
     runs = {cid: [outcome(n, cmd, *run_step(cmd, cfg.root)) for n, cmd in steps if cmd is not None]
             for cid, steps in checks if cid not in skip}
-    sha = queue.git(cfg.root, "rev-parse", "HEAD", check=True).stdout.strip()
     for line in printout(tid, sha[:7], "HEAD, here", checks, runs, skip):
         print(line)
     return 0

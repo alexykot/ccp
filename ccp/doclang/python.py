@@ -78,7 +78,9 @@ TEST_COMMAND = "python3 -m unittest"  # runs test modules, or one test, by dotte
 # The lines that say the code did not build or import (§20.6): the source location frame a module's syntax error
 # prints (a file path and no function: every frame of a call ends `, in <function>`, so a SyntaxError the code under
 # test raises at run time, from `compile` or `eval` on a string, is not one), a source file holding a null byte
-# (which prints no such frame), and a test module unittest could not import.
+# (which prints no such frame), and a test module unittest could not import. A known limit: a run-time `compile`,
+# `eval` or `ast.parse` of a string holding a null byte prints the same null-byte line, so it also reads unbuilt
+# (rare).
 UNBUILT_RE = (r'^  File "[^<"][^"]*", line \d+$', r"^SyntaxError: source code (string )?cannot contain null bytes",
               r"^ImportError: Failed to import test module: ")
 
