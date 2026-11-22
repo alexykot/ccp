@@ -109,4 +109,23 @@ Measured at `8020446` unless a line says otherwise. Provenance: architect pass
 
 ## Implementation notes
 
+- Premises re-measured at `5fa9ff03`: the literal grep printed 28 lines in 8 files, the `LEAD` grep 2 lines,
+  `queue.actor(followups.LEAD)` and `CHECK=RULING` 1 line each in `ccp/cli.py`, the SPEC grep 3 lines; every
+  `ruling` and `sign_off` `recorded` event in both bound queues' ledgers has actor `design-seat`.
+- `scripts/observability/lib.py` holds `LEAD` and `RUNNER`, on two lines; `SEAT_IDS` and `SEAT_DEFAULT_CRON`
+  are built from them. team.py imports both from `lib`; every other module reads `lib.LEAD` (notify.py through
+  its lazy `queue` import).
+- `queue.lead_actor(what)` reads `ACTOR` as `queue.actor(lib.LEAD)` does, so an `ACTOR` that names no known
+  actor still records as the lead, as before; only another known actor is refused. `lifecycle.sign_off` and
+  `lifecycle.ruling` call it first, before `root()` and any read; `ccp tasks follow-up` calls it in cli.py
+  before `queue.root()`, and `followups.decide` no longer checks its caller.
+- `lifecycle.ruling` still numbers a ruling from `queue.rulings`, now the lead's only: a ruling another actor
+  recorded takes no number, so a later lead ruling may reuse its id. No ledger holds one (measured above),
+  and the guard writes none from now on.
+- Only the `"design-seat"` literals moved; the other `"task-runner"` literals in `ccp/` are untouched (the
+  task's checks and E27's command name only the lead's).
+- Test modules that recorded a sign-off as the fixture's `task-runner` now record it as the lead
+  (`lib.LEAD`); the follow-up modules and `test_notify_lead` read `lib.LEAD` in place of the old constant or
+  the literal.
+
 ## Verification notes
