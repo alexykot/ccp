@@ -429,7 +429,7 @@ where the check is mechanical it is a `docs` check. No starter rule is mandatory
 
 ### 20.6 Mutation checks (`ccp mutate`)
 
-`ccp mutate --run <run_id> --test <id> [--mutant <m> …] [--mutant-file <path> …]
+`ccp mutate --run <run_id> --test <id> [--test <id> …] [--mutant <m> …] [--mutant-file <path> …]
 [--revert <path>[:<lines>] …] [--together]` tells "the test passes" from "the test checks something", in any
 language. It runs in the calling seat's own worktree (the implementer's `impl`, the reviewer's `rev`
 or the verifier's `ver`) or a mutation worktree (`ccp wt create --kind mut`, §12.1), and changes
@@ -438,7 +438,8 @@ nothing else.
 - **The product's command.** plane.json `mutate.command` is a shell template that runs one test,
   `{test}` (required) filled in shell-quoted; exit 0 means the test passed. `--test` is one test id,
   passed whole, so it may name a single test method (`<module>.<Class>.<method>` for a unittest
-  command); what runs is the command's. It runs in the worktree's root, in its own process group,
+  command); what runs is the command's. `--test` may be given more than once: each test id runs as its
+  own command, in the order given. It runs in the worktree's root, in its own process group,
   killed after 600 seconds; a run killed at the limit counts as the test
   failing. With no command it runs the language pack's per-test runner (§14.1), its test command followed by the test id; with neither, `ccp mutate` refuses (exit 2). Its test runs are not suite runs (§14.1): `ccp mutate` runs the command itself, and
   records them in its own rows and log, not as `suite` events. A product whose tests are whole
@@ -451,7 +452,7 @@ nothing else.
   and the new text, separated by lines `=== old` and `=== new`, each text exactly what lies between
   its marker line and the next (or the file's end); a file without the path, either marker or the
   old text refuses the call (exit 2). Every mutant is checked before any test runs; one that does not
-  apply refuses the call (exit 2), nothing run.
+  apply, or a substitution whose new text is its old text, refuses the call (exit 2), nothing run.
 - **A revert** (`--revert <path>[:<n>[-<m>]]`) is a mutant that puts back the merge base's version
   of the file (the merge base of HEAD and `origin/<integration>`, §12.1; a file the change added is
   removed). With a line range (1-based, inclusive, lines of the worktree's file) it puts back only
@@ -465,10 +466,11 @@ nothing else.
   `old` found exactly once in what the earlier ones leave, so a move is two substitutions, one that
   deletes the lines and one that puts them back elsewhere. Any other two parts on one file refuse
   the call (exit 2), as does a call with fewer than two.
-- **Killed only when the named test fails.** The test first runs unmutated; when it fails, the call
-  stops (exit 1), nothing applied or recorded. Then each mutant is applied alone, the test runs, and
-  the mutant is `killed` when it exits non-zero and `survived` when it exits 0, except that one whose run exits non-zero with an output line matching plane.json `mutate.unbuilt_re` (a regular expression or a list of them; unset, the language pack's did-not-build lines) is `unbuilt`: the code did not build or import, which proves nothing about the test. Another test the
-  mutant breaks does not count.
+- **Killed only when a named test fails.** Each named test first runs unmutated; when one fails, the
+  call stops (exit 1), nothing applied or recorded. Then each mutant is applied alone and the named
+  tests run in order until one exits non-zero; the mutant is `killed` when one does and `survived`
+  when every one exits 0, except that one whose run exits non-zero with an output line matching plane.json `mutate.unbuilt_re` (a regular expression or a list of them; unset, the language pack's did-not-build lines) is `unbuilt`: the code did not build or import, which proves nothing about the test. A test not named that
+  the mutant breaks does not count.
 - **The tree is restored** after each mutant: every file it touched is written back byte for byte
   (a file it made is removed, with any directory it made) and checked before the next. A file that
   cannot be restored stops the call (exit 1). A SIGTERM at any point of the call kills the running
@@ -476,7 +478,9 @@ nothing else.
 - **Bound to the calling seat's run.** `--run` names the run, which must be open (not reported or
   abandoned), and the worktree must be a recorded `impl`, `mut`, `rev` or `ver` worktree of the run's task;
   otherwise it refuses (exit 2). Each mutant adds a row to the run record's `mutation` list: the
-  test id, the mutant's number, `kind` (`text`, `patch`, `revert` or `together`), the files it
+  id of the test whose run decided its outcome (the one that failed, else the last), the ids of the
+  failing tests that run's output names (the text after each line's `section_re` match, §14.2), the
+  mutant's number, `kind` (`text`, `patch`, `revert` or `together`), the files it
   touched, a 12-character digest, the outcome, the exit code, the seconds, `timed_out` and the worktree's name;
   never the mutant's text, old or new, or the test's output, which goes to `<run record>-mutate.log`
   beside the run record.
