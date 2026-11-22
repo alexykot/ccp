@@ -17,14 +17,14 @@ One JSON object per line. Append-only; never rewrite history. Contract: `contrac
   "at": "2026-09-18T07:34:39Z",
   "project_id": "example",
   "task_id": "0007-example-task",
-  "actor": "task-runner|task-verifier|delivery-watchdog|adapter|operator|system",
+  "actor": "task-runner|task-verifier|design-seat|adapter|operator|system|plane-session",
   "type": "phase|waiting_on|lease|claude|auth|seat|durable|note|question|spec_maintainer",
   "op": "set|clear|transition|launch|exit|heartbeat|reconcile|raised|answered|escalated|resolved_by_operator|rebound",
   "payload": {}
 }
 ```
 
-Seat ids / actors for the three operational seats: `task-runner`, `task-verifier`, `delivery-watchdog`. `task_id` may be empty on seat-only or project-level auth events.
+Seat ids are the three of §18.3: `task-runner`, `task-verifier` and `design-seat`; an old ledger may hold rows of a seat since retired, which are read and never written (`lib.LEGACY_ACTORS`). `task_id` may be empty on seat-only or project-level auth events.
 
 #### The retired snapshot
 

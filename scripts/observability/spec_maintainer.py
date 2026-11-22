@@ -100,7 +100,7 @@ def project_id(root: Path, q: dict[str, Any] | None = None) -> str:
 
 
 def env_raiser() -> str | None:
-    """$ACTOR only counts when it names a raising seat (ambient ACTOR=delivery-watchdog must not leak in)."""
+    """$ACTOR only counts when it names a raising seat (an ambient ACTOR that names no raising seat must not leak in)."""
     a = os.environ.get("ACTOR")
     return a if a in RAISERS else None
 

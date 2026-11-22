@@ -1,7 +1,7 @@
 ---
 task_id: 0283-the-retired-watchdog-and-seat-cadences-leave-the-writers-and-docs
 title: The retired watchdog seat and the per-seat cron cadences leave every writer and doc, the watchdog stays a read-only actor, and the observability scripts keep one package doc
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S18", "S23"]
@@ -155,4 +155,39 @@ in `docs/delivery/reviews/`. Measured at `76f41dd`.
 
 ## Implementation notes
 
+Premises re-measured at `d1c39aff`: 17 `delivery-watchdog` lines, 14 `cron_expected` lines, `SEAT_IDS =` 1 line,
+README 140 lines, 2 README pointers, `wake_kind` unread in `ccp`/`contracts`, the code-01 grep 25 lines: all as the task states.
+
+- `lib.py`: `SEAT_IDS = (RUNNER, "task-verifier", LEAD)`; new `LEGACY_ACTORS = ("delivery-watchdog",)`, outside `ACTORS`.
+  `validate_event` gained a keyword `reading` (default False): `reading=True` accepts `ACTORS + LEGACY_ACTORS`, the
+  default (what `append_event`, `queue.emit` and the lifecycle's pre-check call) refuses a legacy actor. Nothing in the
+  tree validated a row on load, so no caller passes `reading=True` yet; the keyword is the read-side check the ruling names.
+  `DEFAULT_CRON`, `EVENT_ONLY`, `SEAT_DEFAULT_CRON`, `default_cron` and the cadence comment are gone; the fold ignores an
+  old row's `cron_expected`; `empty_seat()` lost its `sid` parameter. The docstring cites §23.3.
+- `heartbeat.sh`: seat ids `task-runner|task-verifier|design-seat`; `--cron-expected` and the cadence defaults removed
+  (the option is now an unknown arg, exit 2); no `cron_expected` in the seat file or the event; `--wake-kind` defaults to
+  `manual`, `cron` still accepted. `emit-event.sh`'s example emits as `task-verifier` (the house check on seat-id literals
+  in `scripts` refuses `"task-runner"` outside lib.py). `spec_maintainer.py`'s docstring no longer names the watchdog.
+- `ccp/queue.py`: a docstring on `actor()` only; a legacy actor falls back since it is not in `ACTORS`.
+- Contracts: each `actor` property has a description (historical: read in old rows, never written); the enums are unchanged.
+- `docs/design/observability.md`: actor list is the §18.3 seats plus `adapter|operator|system|plane-session`; the seat-id line
+  names the three seats and says old rows of a retired seat are read, never written (no seat name). `queue/README.md`
+  points at `scripts/observability/CLAUDE.md`. SPEC §23.1 and §23.3: the two signed passages, applied verbatim.
+- `tests/test_stale_blockers_retired.py`: fixture rows lose `cron_expected` (a `cron` wake kind stays: an old row's).
+  `tests/test_seat_actors.py` is new.
+- README sections, where each went: intro (queue outside product git, retired snapshot) and Layout: SPEC §23.1, §23.4; Seat
+  ids: §18.3, `heartbeat.sh --help`; Scripts table and shell examples: each script's `--help` and the CLAUDE.md that names them;
+  Spec questions: §17 and `spec-maintainer-ask.sh`; Timer formula: §23.3 and `lib.py`'s docstring; Single-writer: §23.2;
+  Auth precedence ("Watchdog Wake B" retired): §23.2 Precedence and §23.5; Seat liveness (the 2026-09-24 cadence): retired,
+  §18.3 states no stale rule; Layer 2 prompt audit: §23.8 and `docs/design/observability.md`; Secrets: §23.8 and `lib.looks_like_secret`;
+  Contracts: CLAUDE.md. Added to `scripts/observability/CLAUDE.md` (6 lines): `QUEUE_ROOT`/`--help`/`OBS_NOW`, the seat ids
+  of `heartbeat.sh`, `LEGACY_ACTORS` read-only, the formulas' home, the two contracts, `prompts/` never committed.
+- Judgement calls: the read-side check is a keyword on `validate_event` (the task names no signature). `heartbeat.sh` still
+  writes the seat file before `append_event`, as before, so a refused `--actor` leaves the seat file (not changed here).
+
+- Fix round 1: the two contracts' `actor` descriptions now name `adapter` with the other non-seat actors (review MINOR); the
+  enums are unchanged. The review's NIT and its two follow-ups are left: the ruling asked for the read-side keyword without a caller.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #352 head `7224ae3` (squash `5071c58`): APPROVE. Passed: code-01, cmd-01, doc-01, cmd-02, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0283-the-retired-watchdog-and-seat-cadences-leave-the-writers-and-docs.json.
+

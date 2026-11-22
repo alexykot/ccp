@@ -17,7 +17,7 @@ happening and why it is slow) and the **prompt audit** (§23.8: exactly what eac
 | --- | --- | --- |
 | Event ledger | `observability/events.jsonl` | **Canonical**, append-only record of timers and state transitions |
 | Board | `board/board.json`, page `board/index.html` | The derived current view (§28) |
-| Seat heartbeats | `observability/seats/<seat_id>.json` | Last wake and action of a scheduled seat (`event` for an event-only seat) |
+| Seat heartbeats | `observability/seats/<seat_id>.json` | A seat's last wake and action (§18.3) |
 
 The durable task log under `docs/delivery/` is the permanent record. It is not authoritative for
 what is happening now until it is reconciled (§23.5). The runtime queue files (leases, `work.json`,
@@ -72,7 +72,7 @@ runner, `task-verifier` for the verifier subagent), `operator` and `system`.
 
 ### 23.3 Timers
 
-Folded from the ledger (the formulas are fixed; `scripts/observability/README.md` documents them):
+Folded from the ledger (the formulas are fixed):
 
 - `wall_hours` = now − `implementation_started_at` (null if never started).
 - `wait_hours` = the sum of the intervals where `waiting_on != null` (set → clear), plus the open

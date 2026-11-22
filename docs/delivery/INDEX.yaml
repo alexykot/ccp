@@ -1388,7 +1388,7 @@ tasks:
     depends_on: []
     path: tasks/0282-ccp-owns-the-headless-launch-helpers-and-blocked-reads-the-task-log.md
   - id: 0283-the-retired-watchdog-and-seat-cadences-leave-the-writers-and-docs
-    status: pending
+    status: done
     title: The retired watchdog seat and the per-seat cron cadences leave every writer and doc, the watchdog stays a read-only actor, and the observability scripts keep one package doc
     depends_on: []
     path: tasks/0283-the-retired-watchdog-and-seat-cadences-leave-the-writers-and-docs.md
