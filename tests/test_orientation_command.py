@@ -13,9 +13,9 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli
-from tests.helpers import Product
+from tests.helpers import PLANE_ROOT, Product
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT
 HOOK = PLANE / "plugin" / "hooks" / "orientation.sh"
 
 

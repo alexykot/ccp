@@ -14,8 +14,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ccp import queue
+from tests.helpers import PLANE_ROOT
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT
 CCP = PLANE / "bin" / "ccp"
 
 

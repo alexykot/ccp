@@ -10,10 +10,10 @@ import unittest
 from pathlib import Path
 
 from ccp import config, otel, usage
-from tests.helpers import api_request as req, binding
+from tests.helpers import api_request as req, binding, PLANE_ROOT
 from tests.team_hosting_fixture import TeamCase
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT
 
 
 def declared_model() -> str:

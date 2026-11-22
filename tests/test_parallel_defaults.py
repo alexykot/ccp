@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import unittest
-from pathlib import Path
 
 from ccp import config, parallel
+from tests.helpers import PLANE_ROOT
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT
 
 
 class ParallelDefaults(unittest.TestCase):

@@ -5,12 +5,12 @@ from __future__ import annotations
 
 import json
 import unittest
-from pathlib import Path
 
 from ccp.schema import schema_errors
+from tests.helpers import PLANE_ROOT
 from tests.toolkit_fixture import ToolkitFixture
 
-SCHEMA = Path(__file__).resolve().parents[1] / "contracts" / "task.schema.json"
+SCHEMA = PLANE_ROOT / "contracts" / "task.schema.json"
 
 
 class TaskStateContract(ToolkitFixture, unittest.TestCase):

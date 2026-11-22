@@ -11,7 +11,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-PLANE = Path(__file__).resolve().parents[1]
+from tests.helpers import PLANE_ROOT
+
+PLANE = PLANE_ROOT
 sys.path.insert(0, str(PLANE / "scripts" / "observability"))
 
 import lib  # noqa: E402

@@ -13,7 +13,7 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
 from ccp import cli, config, models
-from tests.helpers import Product
+from tests.helpers import PLANE_ROOT, Product
 from tests.toolkit_fixture import ToolkitFixture
 
 SONNET = "sonnet"
@@ -199,8 +199,7 @@ class Knob(unittest.TestCase):
             self.assertIn(alias, err.getvalue().replace("claude-sonnet-5-5", ""))
 
     def test_the_schema_names_the_knobs(self):
-        schema = json.loads((config.Path(__file__).resolve().parents[1] / "contracts" / "plane_config.schema.json")
-                            .read_text())
+        schema = json.loads((PLANE_ROOT / "contracts" / "plane_config.schema.json").read_text())
         w = schema["properties"]["workers"]["properties"]
         self.assertEqual(set(w), set(config.WORKERS_DEFAULTS))
         self.assertEqual(set(w["implementer_model"]["properties"]), set(config.WORKER_MODEL_ARMS))

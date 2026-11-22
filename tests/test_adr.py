@@ -8,14 +8,14 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from ccp import adr, cli, config, plan, tasklog
-from tests.helpers import TASK, Product
+from tests.helpers import PLANE_ROOT, Product, TASK
 
 try:
     import yaml  # only to cross-check the subset this module writes; the plane never imports it
 except ImportError:  # pragma: no cover
     yaml = None
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = PLANE_ROOT
 
 
 def fm(**kw) -> str:

@@ -1,4 +1,6 @@
-"""The test fence (tests/__init__.py): a caller's exported queue and binding never reach a test (§14)."""
+"""The test fence (tests/__init__.py): a caller's exported queue and binding never reach a test (§14); and the
+shared helpers (tests/helpers.py) load no `ccp` module on import, so a module that imports them for a path pays
+nothing for it."""
 import os
 import subprocess
 import sys
@@ -6,7 +8,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+from tests.helpers import PLANE_ROOT
+
+REPO = PLANE_ROOT
 
 
 class FenceTest(unittest.TestCase):
@@ -19,6 +23,16 @@ class FenceTest(unittest.TestCase):
                 cwd=REPO, env=env, capture_output=True, text=True, timeout=60)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.split(), ["None", "None"])
+
+
+class SharedHelpersTest(unittest.TestCase):
+    def test_importing_the_helpers_loads_no_ccp_module(self):
+        r = subprocess.run(
+            [sys.executable, "-B", "-c",
+             "import sys, tests.helpers; print(sorted(m for m in sys.modules if m.split('.')[0] == 'ccp'))"],
+            cwd=REPO, capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.strip(), "[]")
 
 
 if __name__ == "__main__":

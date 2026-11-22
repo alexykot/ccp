@@ -16,10 +16,10 @@ from unittest import mock
 from ccp import cli, config, prhost
 
 from tests import helpers
-from tests.helpers import binding, GIT_ENV, TASK
+from tests.helpers import binding, GIT_ENV, PLANE_ROOT, TASK
 
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT
 
 
 def git(cwd: Path, *a: str) -> str:

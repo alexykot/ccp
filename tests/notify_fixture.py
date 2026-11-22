@@ -8,6 +8,7 @@ from unittest import mock
 
 from ccp import config, tasklog
 
+from tests.helpers import PLANE_ROOT
 from tests.toolkit_fixture import ToolkitFixture, git
 
 
@@ -46,4 +47,4 @@ class ChannelFixture(ToolkitFixture):
         git(self.runner, "checkout", "-q", "--detach", "origin/main")
 
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT

@@ -32,7 +32,7 @@ Rules for every worker:
 {{/worker_env}}- Stage by path; never `git add -A`, never `git stash`, never reset or discard changes you did not make.
   Never commit secrets, `.env` files or anything the product's rules exclude.
 {{#change_round}}- Keep your context lean: send a listing, search or log that may run past about 200 lines to a scratch file outside the repo and read the slices you need, and issue independent reads as parallel tool calls in one turn.
-{{#refactor}}- This is a `kind: refactor` task (SPEC §20.4): behaviour is unchanged, no test expectation changes except where the task names it, and SPEC does not change.
+{{#refactor}}- This is a `kind: refactor` task (SPEC §20.4): behaviour is unchanged, no test expectation changes except where the task names it, and SPEC does not change; the suite and the product's scenario checks pass.
 {{/refactor}}{{/change_round}}- Never merge a PR.
   The runner merges after the verifier approves.
 - If Claude Code denies you an action, do not reach the same effect another way: stop that line of work and say so in your report.

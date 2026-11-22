@@ -10,9 +10,10 @@ import subprocess
 import unittest
 from pathlib import Path
 
+from tests.helpers import PLANE_ROOT
 from tests.toolkit_fixture import ToolkitFixture
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT
 OBS = PLANE / "scripts/observability"
 TID = "0002-second"
 NOW = "2026-11-06T20:00:00Z"

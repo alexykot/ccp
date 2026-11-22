@@ -5,12 +5,12 @@ from __future__ import annotations
 
 import json
 import unittest
-from pathlib import Path
 from typing import Any
 
 from ccp import config
+from tests.helpers import PLANE_ROOT
 
-SCHEMA = json.loads((Path(__file__).resolve().parents[1] / "contracts/plane_config.schema.json").read_text())
+SCHEMA = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_text())
 
 # The nested objects whose defaults the code keeps in a dict of their own, not inside the block's: the block,
 # the key, the dict, and the extra keys the schema lists besides it (the keys the plane removed or merged, which

@@ -1423,7 +1423,7 @@ tasks:
     depends_on: []
     path: tasks/0289-the-runner-s-actor-id-is-named-once-and-tests-read-the-lead-s.md
   - id: 0290-test-modules-share-the-plane-root-and-git-env-and-helpers-import-lazily
-    status: pending
+    status: done
     title: Test modules take the plane root and the git environment from tests/helpers.py, which loads no ccp module on import, the plugin test names no plane checkout path, and the implement prompt's refactor line points back
     depends_on: []
     path: tasks/0290-test-modules-share-the-plane-root-and-git-env-and-helpers-import-lazily.md

@@ -9,16 +9,15 @@ import io
 import json
 import unittest
 from contextlib import redirect_stderr
-from pathlib import Path
 from typing import Any
 from unittest import mock
 
 from ccp import config, estimator, tasklog
-from tests.helpers import Product
+from tests.helpers import PLANE_ROOT, Product
 from tests.upgrade_fixture import UpgradeFixture
 
-SCHEMA = json.loads((Path(__file__).resolve().parents[1] / "contracts/plane_config.schema.json").read_text())
-MACHINE_SCHEMA = json.loads((Path(__file__).resolve().parents[1] / "contracts/machine.schema.json").read_text())
+SCHEMA = json.loads((PLANE_ROOT / "contracts/plane_config.schema.json").read_text())
+MACHINE_SCHEMA = json.loads((PLANE_ROOT / "contracts/machine.schema.json").read_text())
 
 # A test-only constant: a real key (so the loader knows it), registered here as the constant it is not in the plane.
 CONSTANT_KEY = "board.refresh_minutes"

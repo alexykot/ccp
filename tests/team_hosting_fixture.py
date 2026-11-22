@@ -9,10 +9,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import Product, binding
+from tests.helpers import binding, PLANE_ROOT, Product
 
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT
 TEAM = PLANE / "scripts" / "team.sh"
 HOOK = PLANE / "plugin" / "hooks" / "runner-idle.sh"
 

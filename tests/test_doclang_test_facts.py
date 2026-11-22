@@ -13,9 +13,9 @@ from unittest import mock
 from ccp import config, doclang, mutate, suite
 from ccp.doclang import python as py_pack
 from ccp.queue import QueueError
-from tests.helpers import Product
+from tests.helpers import PLANE_ROOT, Product
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = PLANE_ROOT
 
 
 def tests_cfg(language: str | None = None, extra: dict | None = None) -> config.Config:

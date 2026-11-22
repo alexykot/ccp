@@ -14,9 +14,9 @@ from unittest import mock
 
 from ccp import cli, config, otel, usage
 from ccp.queue import lib
-from tests.helpers import api_request as req, binding, FoldRuns, Product, T0
+from tests.helpers import api_request as req, binding, FoldRuns, PLANE_ROOT, Product, T0
 
-PLANE = Path(__file__).resolve().parents[1]
+PLANE = PLANE_ROOT
 
 
 def kv(**a):
