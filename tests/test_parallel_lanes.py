@@ -249,7 +249,8 @@ class Lanes(SuiteFixture, unittest.TestCase):
         r = self.run_suite("--lane", "gate", "--", PY, "-c", self.PASS, "x")
         self.assertEqual(r.returncode, 0, r.stderr)
         holder = self.hold(seconds=60)
-        r = self.run_suite("--lane", "gate", "--run", "0002-second/implement", "--", PY, "-c", self.PASS, "x")
+        r = self.run_suite("--lane", "gate", "--run", "0002-second/implement", "--wait", "0", "--", PY, "-c", self.PASS,
+                           "x")
         self.assertEqual(r.returncode, suite.BUSY_EXIT, r.stderr)
         r = self.run_suite("--lane", "gate", "--run", "0001-first/implement", "--", PY, "-c", self.PASS, "x")
         self.assertEqual(r.returncode, 0, r.stderr)  # its gate is not cold

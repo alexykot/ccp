@@ -1364,9 +1364,11 @@ exits as the spawn would. It writes nothing: no `work.json`, prompt audit, event
 ### 16.6 Exclusive test lanes
 
 plane.json `suite.exclusive_lanes` names the `ccp suite run` lanes that run one at a time in a queue
-(a run with no `--lane` counts as `full`). A run of an exclusive lane takes
-`QUEUE_ROOT/locks/suite-exclusive.lock` first. Held, `ccp suite run` exits 75 at once, saying who
-holds it, since when, and the holder's usual duration; the worker does other work and retries.
+(a run with no `--lane` counts as the full role's lane, §14.1). A run of an exclusive lane takes
+`QUEUE_ROOT/locks/suite-exclusive.lock` first. Held, a run given `--wait 0`, or given no `--wait` and
+bound to no worker run, exits 75 at once, saying who holds it, since when, and the holder's usual
+duration; a run bound to a worker run (§14.2) and given no `--wait` waits as `--wait auto` does. A run
+whose wait ends with the lane still held exits the same way, and the worker does other work and retries.
 `--wait SECONDS` waits up to that bound instead (the wait plus the run stay under the worker shell's
 600 s limit), recorded as `wait_s` apart from the run's time. `--wait auto` takes the bound from that
 limit (§14.6) less the lane's usual cold run (the median of its last ten passing cold runs, else of

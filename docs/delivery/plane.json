@@ -92,16 +92,12 @@
       "gate": [
         "scripts/gate.sh"
       ],
-      "full": [
-        "scripts/gate.sh"
-      ],
       "part": [
         "scripts/gate.sh"
       ]
     },
     "exclusive_lanes": [
-      "gate",
-      "full"
+      "gate"
     ]
   },
   "auth_check": {

@@ -17,8 +17,10 @@ against `suite.count_re` and `suite.summary`'s patterns. Failure ids are shown i
 (§14.6). A `ccp suite run` started inside another one's command (CCP_SUITE_ID set) records nothing and writes no
 log: it becomes its command, so the outer run captures the output.
 
-An exclusive lane (§16.6) holds one run at a time: a run that finds it held exits 75, counts `lane_busy`, and
-with `--wait SECONDS|auto` waits instead. A run that records nothing takes no lock: recording never blocks tests.
+An exclusive lane (§16.6) holds one run at a time; a run with no lane counts as the full role's lane (§14.1). A run
+that finds it held, given `--wait 0`, or given no `--wait` and bound to no worker run, exits 75 and counts
+`lane_busy`; a run bound to a worker run (§14.2) and given no `--wait` waits as `--wait auto` does, and
+`--wait SECONDS|auto` waits as given. A run that records nothing takes no lock: recording never blocks tests.
 Without `-- COMMAND` a lane runs what plane.json `suite.lanes` names (§14.2) and records `stages` and
 `failed_stage`. On the gate role's staged lane, a recorded run that names its task runs the declared provers
 first (§14.4, `proven_skips`); they read plane.json from `origin/<integration branch>`, never from the checkout
@@ -78,7 +80,7 @@ BUSY_EXIT = 75  # SPEC §16.6: an exclusive lane is held by another run; run it 
 
 def _exclusive(cfg: Config | None, lane: str | None) -> bool:
     """§16.6: this run's lane is one of plane.json `suite.exclusive_lanes` (a run with no lane counts as the
-    `full` role's lane, `suite.roles`)."""
+    full role's lane, §14.1)."""
     return (lane or lane_for(cfg, "full")) in ((cfg.suite or {}).get("exclusive_lanes") or []) if cfg is not None else False
 
 
@@ -168,6 +170,15 @@ def auto_wait(cfg: Config | None, q: Path, lane: str | None) -> tuple[int, str]:
     limit = config.gate_limits(cfg)[0]
     return (max(0, int(limit - cold - WAIT_AUTO_MARGIN_S)),
             f"limit {limit:g} s, the lane's usual cold run {cold:.0f} s, margin {WAIT_AUTO_MARGIN_S} s")
+
+
+def lane_wait(given: int | str | None, bound_by: str | None) -> int | str:
+    """§16.6: the wait a run of a held exclusive lane takes: `--wait` as given, else `auto` for a run bound to a
+    worker run (§14.2's binding) and 0, an exit at once, for one bound to none. `given` is None when the flag is
+    absent, so an explicit `--wait 0` stays 0 whatever the binding."""
+    if given is not None:
+        return given
+    return "auto" if bound_by else 0
 
 
 GREEN_TREE = "green_tree"  # §16.6: the `lane_skipped` value of a run that a passing run of its tree let skip the lock
@@ -1108,6 +1119,7 @@ def _passthrough_stages(stages: list[dict[str, Any]], env: dict[str, str] | None
 def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | None = None, record: bool = True,
         caller_env: dict[str, str] | None = None) -> int:
     warn = warn or _Warn()
+    lane = a.lane or lane_for(cfg, "full")  # §16.6: the lane this run uses; the `started` row keeps `a.lane` as given
     problem = _usage_problem(a)
     if problem and not command:
         print(f"ccp suite: {problem}", file=sys.stderr)
@@ -1169,33 +1181,34 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
         warn(f"not recorded ({str(e).splitlines()[0][:200] if str(e) else type(e).__name__}): running the tests anyway")
         q = started = None
     lane_fd: int | None = None
-    green = _green_from(cfg, q, started) if q is not None and started is not None and _exclusive(cfg, a.lane) else None
+    green = _green_from(cfg, q, started) if q is not None and started is not None and _exclusive(cfg, lane) else None
     if green and started is not None:
         # §16.6: a passing run of this tree in this lane is recorded; the product's test cache answers most of it
         started.update(lane_skipped=GREEN_TREE, green_from=green)
-        print(f"ccp suite: lane {a.lane or 'full'}: a passing run of this tree is recorded ({green}): running without "
+        print(f"ccp suite: lane {lane}: a passing run of this tree is recorded ({green}): running without "
               f"the lock", file=sys.stderr)
-    elif q is not None and started is not None and _exclusive(cfg, a.lane):
+    elif q is not None and started is not None and _exclusive(cfg, lane):
         # §16.6: one exclusive-lane run at a time in this queue; a held lane answers at once, or after
         # `--wait SECONDS` at most, the wait recorded apart from the run's time
-        mine = {"suite_id": suite_id, "pid": os.getpid(), "at": started["at"], "lane": a.lane or lane_for(cfg, "full"),
+        mine = {"suite_id": suite_id, "pid": os.getpid(), "at": started["at"], "lane": lane,
                 "run_id": started.get("run_id"), "task_id": started.get("task_id")}
-        auto = getattr(a, "wait", None) == "auto"
-        wait = 0 if auto else max(0, int(getattr(a, "wait", None) or 0))
+        given = lane_wait(getattr(a, "wait", None), started.get("bound_by"))
+        auto = given == "auto"
+        wait = 0 if auto else max(0, int(given or 0))
         t_wait = time.monotonic()
         try:
             lane_fd, holder = take_lane(q, mine)
             told = False
             if auto and lane_fd is None:  # resolved once, when the lane turns out to be held
-                wait, why = auto_wait(cfg, q, a.lane or lane_for(cfg, "full"))
-                held = f"ccp suite: lane {a.lane or 'full'} is held by {holder.get('suite_id') or 'another run'}; "
+                wait, why = auto_wait(cfg, q, lane)
+                held = f"ccp suite: lane {lane} is held by {holder.get('suite_id') or 'another run'}; "
                 print(held + (f"--wait auto: {why}" if why == WAIT_AUTO_NO_RUN
                               else f"waiting up to {wait} s (--wait auto: {why})"), file=sys.stderr)
                 told = True
             while lane_fd is None and time.monotonic() - t_wait < wait:
                 mine["at"] = iso()  # a holder's record dates from when it took the lane
                 if not told:
-                    print(f"ccp suite: lane {a.lane or 'full'} is held by {holder.get('suite_id') or 'another run'}; "
+                    print(f"ccp suite: lane {lane} is held by {holder.get('suite_id') or 'another run'}; "
                           f"waiting up to {wait} s (--wait)", file=sys.stderr)
                     told = True
                 time.sleep(min(2.0, max(0.1, wait - (time.monotonic() - t_wait))))
@@ -1207,11 +1220,11 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
             warn(f"the exclusive lane could not be locked ({e}): running without it")
             lane_fd, holder = -1, {}
         if holder.get("took_over"):
-            warn(f"lane {a.lane or 'full'}: its last holder {holder['took_over']} ended without releasing it; taken over")
+            warn(f"lane {lane}: its last holder {holder['took_over']} ended without releasing it; taken over")
         if lane_fd is None:
             usual = usual_seconds(q, holder.get("lane"), lane_for(cfg, "full"))
             try:
-                _append(q, {"op": "busy", "suite_id": suite_id, "at": iso(), "lane": a.lane or lane_for(cfg, "full"),
+                _append(q, {"op": "busy", "suite_id": suite_id, "at": iso(), "lane": lane,
                             "run_id": started.get("run_id"), "task_id": started.get("task_id"),
                             "held_by": holder.get("suite_id"),
                             **({"waited_s": round(time.monotonic() - t_wait, 1)} if wait else {})})
@@ -1223,7 +1236,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                     runs.save(q, rec)
             except Exception:  # noqa: BLE001  (a record that fails never changes the answer)
                 pass
-            print(f"ccp suite: busy: lane {a.lane or 'full'} is exclusive (plane.json suite.exclusive_lanes, SPEC §16.6) "
+            print(f"ccp suite: busy: lane {lane} is exclusive (plane.json suite.exclusive_lanes, SPEC §16.6) "
                   f"and held by {holder.get('suite_id') or 'another run'}"
                   + (f" (task {holder['task_id']})" if holder.get("task_id") else "")
                   + (f" since {holder['at']}" if holder.get("at") else "")
