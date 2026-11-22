@@ -8,8 +8,9 @@ A pack declares the source suffixes and directory names it brings to the core, t
 it runs over `package_docs.docstring_globs`, opt-in per-file checks a product enables by naming
 them in `package_docs.rules`, and how it reads a file's code comments, which the core's
 delivery-id check searches. It also owns what the plane knows about the language's tests (house rule
-E18): how its test runner prints a count and a failure, how a test module is found and what it
-imports, and the command that runs named modules; `for_tests` is the one lookup of them. Adding a
+E18): how its test runner prints a count and a failure and says the code did not build or import, how
+a test module is found and what it imports, and the command that runs named modules or one test;
+`for_tests` is the one lookup of them. Adding a
 language is adding a module here and a line to PACKS; `language: none` turns the package-doc checks off
 and knows no test output.
 """
@@ -47,13 +48,15 @@ class Pack:
     # `failed_re`, `skipped_re` and `section_re`, how the runner prints failures, skips and a failing test's
     # section; both empty where the pack knows none. `test_glob`: a test module's file name. `affected`: the
     # reader of the modules a change touches, `suite_size` the counter of the suite's modules, `test_command`
-    # the command that runs modules by name; each None where the pack has none.
+    # the command that runs modules, or one test, by name; each None where the pack has none. `unbuilt_re`
+    # (§20.6): the lines that say the code did not build or import; empty where the pack knows none.
     count_re: str = ""
     summary: dict[str, Any] = field(default_factory=dict)
     test_glob: str = ""
     affected: AffectedReader | None = None
     suite_size: SuiteSizer | None = None
     test_command: str | None = None
+    unbuilt_re: tuple[str, ...] = ()
 
 
 def _python() -> Pack:

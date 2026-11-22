@@ -314,10 +314,11 @@ ACCEPT_CACHE_DEFAULTS: dict[str, Any] = {"max_age_days": None, "cold_tasks": [],
 SKIP_REVIEW_KEYS = {"paths", "proof"}
 SKIP_REVIEW_FIELDS = ("task_id", "reviewed", "head", "from")
 # §20.6 `ccp mutate`: `command` runs one named test (a shell template naming `{test}`, filled in
-# shell-quoted; null, the default, means the product has none and `ccp mutate` refuses);
-# `timeout_seconds` bounds one run of it (a mutant that hangs the test is killed); `unbuilt_re`, a
-# regular expression or a list of them (null, the default, matches nothing), is a line the command
-# prints when the code does not build or import: a failing run that prints one records the mutant `unbuilt`.
+# shell-quoted; null, the default, means unset: `ccp mutate` runs the language pack's test command followed
+# by the test id, and refuses where the pack has none); `timeout_seconds` bounds one run of it (a mutant
+# that hangs the test is killed); `unbuilt_re`, a regular expression or a list of them (null, the default,
+# means unset: the language pack's did-not-build lines), is a line the command prints when the code does not
+# build or import: a failing run that prints one records the mutant `unbuilt`.
 MUTATE_DEFAULTS: dict[str, Any] = {"command": None, "timeout_seconds": 600, "unbuilt_re": None}
 # §13.4: verdict lines every done implement or fix report must state, each `{name, values}`: the line
 # is `<name>: <one of values>`. `ccp report` refuses a report missing one; none by default.
