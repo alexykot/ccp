@@ -128,4 +128,23 @@ From architect pass `ar-20261121T132817Z-d5e5`, findings F01, F02 and F05 (the r
 
 ## Implementation notes
 
+- `ccp/suite.py` `run()` works out the effective lane once, right after the arguments are read
+  (`lane = a.lane or lane_for(cfg, "full")`); the five messages, the lock holder, the auto wait, the busy row
+  and the two `_exclusive` calls use it. The `started` row still records `a.lane` as given.
+- The wait default is a plain function, `suite.lane_wait(given, bound_by)`: `--wait` as given (an explicit `0`
+  included), else `auto` when `_bind` set `bound_by` (`run`, `task` or `worktree`), else 0. `run()` feeds it
+  the parsed `--wait` (None when absent) and the binding; the rest of the wait loop is unchanged, so a busy row
+  carries `waited_s` only when a wait above 0 was taken. The catch-up gate's explicit `--wait` is untouched.
+- The module docstring's exclusive-lane sentence now says which lane a run with no lane counts as and the
+  wait default, in §16.6's words; `_exclusive`'s docstring names the full role's lane (§14.1). `--wait`'s help
+  in `ccp/cli.py` names the default.
+- `docs/delivery/plane.json`: `suite.lanes.full` and its `exclusive_lanes` entry removed. The `part` lane that
+  task 0261 added after this task was measured stays, so cfg-01's command prints `['gate', 'part'] ['gate']`,
+  not the `['gate'] ['gate']` its expect names (raised with the runner as a scope question).
+- `CLAUDE.md`: the `--lane full` parenthesis now names the full role's lane, as E1 does. `tests/CLAUDE.md` no
+  longer held a `--lane full` line at the base, so it is unchanged.
+- `tests/test_parallel_lanes.py`: the cold-gate test's bound run now passes `--wait 0`, since a bound run with
+  a passing run of its lane recorded would otherwise wait for the holder; what it checks (a cold-gate task's run
+  queues instead of skipping the lock) is unchanged.
+
 ## Verification notes
