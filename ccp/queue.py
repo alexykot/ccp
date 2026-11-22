@@ -312,6 +312,25 @@ def rulings(q: Path, task_id: str) -> list[dict[str, Any]]:
             and ev.get("actor") == lib.LEAD and isinstance(ev.get("payload"), dict) and ev["payload"].get("id")]
 
 
+def open_questions(q: Path) -> list[dict[str, Any]]:
+    """§17: the spec questions still open, in id order: `questions/sm-*.json` whose status is `open` or
+    `escalated` (to the operator). An answer file, or a question file that cannot be read, is skipped."""
+    res: list[dict[str, Any]] = []
+    qd = q / "questions"
+    if not qd.is_dir():
+        return res
+    for p in sorted(qd.glob("sm-*.json")):
+        if p.name.endswith(".answer.json"):
+            continue
+        try:
+            qq = lib.read_json(p)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(qq, dict) and qq.get("status") in ("open", "escalated"):
+            res.append(qq)
+    return res
+
+
 def read_json(path: Path, default: Any = None) -> Any:
     if not path.is_file():
         return default

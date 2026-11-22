@@ -563,6 +563,7 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
     respawned (`rotated_at` set) `vacant`: it holds no runner until `spawn --slot` runs."""
     slots = slots_of(w)
     if args.op == "status":
+        from ccp.queue import open_questions  # noqa: PLC0415
         def phase(t: str) -> Any:
             try:
                 return (read_json(root / "tasks" / f"{t}.json") or {}).get("status")
@@ -574,7 +575,7 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
                     "runners": {k: {**v, "vacant": bool(v.get("rotated_at")),
                                     "tasks": {t: phase(t) for t in slot_tasks(root, w, k)}}
                                 for k, v in sorted(slots.items())},
-                    "open_gates": gates, "open_questions": [q["question_id"] for q in sm.open_questions(root)]})
+                    "open_gates": gates, "open_questions": [q["question_id"] for q in open_questions(root)]})
     if args.op == "spawn":
         scope = split_ids(args.scope) or list(w.get("scope") or [])
         rp = args.review_point or w.get("review_point")
@@ -718,8 +719,9 @@ def cmd_runner(args: argparse.Namespace) -> int:
     if args.op == "status" and slots_of(w):
         return cmd_slots(args, root, rc, w)
     if args.op == "status":
+        from ccp.queue import open_questions  # noqa: PLC0415
         gates = [g for g in iter_gates(root) if g.get("status") in OPEN_GATE_STATUSES]
-        qs = [q["question_id"] for q in sm.open_questions(root)]
+        qs = [q["question_id"] for q in open_questions(root)]
         keys = ("status", "phase", "task_id", "scope", "review_point", "runner", "runner_tasks_done",
                 "waiting_on", "waiting_on_detail", "updated_at")
         return out({"work": {k: w.get(k) for k in keys}, "open_gates": [g["escalation_id"] for g in gates],

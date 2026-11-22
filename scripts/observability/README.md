@@ -36,7 +36,7 @@ Seat ids (match actor enum): `task-runner`, `task-verifier`, `delivery-watchdog`
 | `heartbeat.sh` | Write `seats/<id>.json` + `seat/heartbeat` event (every wake). |
 | `write-prompt-audit.sh` | Layer 2 file; prints `prompt_ref` for `claude/launch`. |
 | `prune-prompts.sh` | Prune audits on demand. Retention by age is plane.json `prompts.audit_keep_days`, applied by `ccp prompt`. |
-| `spec_maintainer.py` | SPEC §17 logic behind `../spec-maintainer-ask.sh` (question file, waits, answer validation and application); also the headless-`claude -p` helpers the architect and reviews use |
+| `spec_maintainer.py` | SPEC §17 logic behind `../spec-maintainer-ask.sh` (question file, waits, answer validation and application); the headless launch is `ccp/headless.py`'s, the open-question rule `ccp/queue.py`'s |
 
 Every script accepts `-h` / `--help`.
 

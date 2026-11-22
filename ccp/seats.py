@@ -308,9 +308,8 @@ def _quiet(last: dict[str, Any] | None, now: float) -> str | None:
 
 def _lock_alive(q: Path, lock_name: str, rid: str) -> bool:
     """The read-only half of architect._reap: the pass's lock names it and is not stale (§11.2)."""
-    from ccp import architect  # noqa: PLC0415
     cur = read_json(q / lock_name, {}) or {}
-    return isinstance(cur, dict) and cur.get("review_id") == rid and not architect.sm.lock_is_stale(cur)
+    return isinstance(cur, dict) and cur.get("review_id") == rid and not lib.lock_is_stale(cur)
 
 
 def _headless(cfg: Config, q: Path, team: str, recent: dict[str, Any], now: float) -> tuple[list[dict[str, Any]], set[str]]:

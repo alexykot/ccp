@@ -160,7 +160,7 @@ Prompt, response, command or file content leaves a session through telemetry or 
 
 A `claude -p` the plane launches picks up an API key and spends API credits, or exposes the key.
 
-- **Boundary:** `STRIP_KEYS` in `scripts/observability/spec_maintainer.py`: the architect
+- **Boundary:** `STRIP_KEYS` in `ccp/headless.py`: the architect
   (`ccp/architect.py`) and the estimator (`ccp/estimator.py`) launch `claude -p` with
   `ANTHROPIC_API_KEY`, `CLAUDE_API_KEY` and `ANTHROPIC_AUTH_TOKEN` removed from its environment
   (SPEC §30.3).

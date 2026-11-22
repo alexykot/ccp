@@ -15,7 +15,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from ccp import config, estimate, estimator, models, seats
+from ccp import config, estimate, estimator, headless, models, seats
 from tests.helpers import Product
 from tests.board_drill_fixture import Fixture
 from tests.estimate_fixture import EstimatePage, body, entry
@@ -112,9 +112,8 @@ class Prompt(Base):
         self.assertEqual(argv[argv.index("--setting-sources") + 1], "local")  # no user settings file
         self.assertNotIn("--bare", argv)                              # it would drop the OAuth login
         self.assertEqual(estimator.pins()["model"], models.default("estimator")[0])
-        from ccp import architect
         with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k", "OTEL_RESOURCE_ATTRIBUTES": "a=b,ccp.seat=old"}):
-            env = architect.sm.headless_env("demo", estimator.SEAT)
+            env = headless.headless_env("demo", estimator.SEAT)
         self.assertNotIn("ANTHROPIC_API_KEY", env)
         self.assertIn("ccp.seat=estimator", env["OTEL_RESOURCE_ATTRIBUTES"])
 

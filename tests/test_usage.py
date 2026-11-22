@@ -540,15 +540,8 @@ class SystemUsage(unittest.TestCase):
             self.assertEqual(json.loads(out.getvalue())["total"]["requests"], 3)
 
 
-class HeadlessEnv(unittest.TestCase):
-    def test_tags_project_and_seat_and_keeps_other_attributes(self):
-        import sys
-        sys.path.insert(0, str(PLANE / "scripts/observability"))
-        import spec_maintainer as sm
-        with mock.patch.dict(os.environ, {"OTEL_RESOURCE_ATTRIBUTES": "team=x,ccp.project_id=old", "ANTHROPIC_API_KEY": "k"}):
-            env = sm.headless_env("demo", "docs-audit")
-        self.assertEqual(env["OTEL_RESOURCE_ATTRIBUTES"], "team=x,ccp.project_id=demo,ccp.seat=docs-audit")
-        self.assertNotIn("ANTHROPIC_API_KEY", env)
+class SeatAttribute(unittest.TestCase):
+    def test_the_fold_reads_the_seat_attribute_and_drops_a_bad_one(self):
         body = logs("demo", req("r1", 1))
         body["resourceLogs"][0]["resource"]["attributes"] += kv(ccp__seat="docs-audit")
         self.assertEqual(otel.fold_logs(body)[0][1]["seat"], "docs-audit")

@@ -144,4 +144,31 @@ Measured at `072d9f9`.
 
 ## Implementation notes
 
+- `ccp/headless.py` holds `STRIP_KEYS`, `headless_env`, `parse_claude_json` and `detect_quota` (with the quota,
+  ISO and epoch patterns only `detect_quota` reads), moved unchanged; it takes `fmt_dt` and `parse_dt` from lib
+  through `from ccp.queue import lib`, as `ccp/seats.py` already does, so it adds no `sys.path` edit.
+- `open_questions(q)` is in `ccp/queue.py`; `ccp/submit.py`, `scripts/observability/team.py` (both status ops)
+  and the script's `cmd_blocked` import it. `ccp/architect.py` takes `lock_is_stale` from lib with `fmt_dt`;
+  `ccp/estimator.py` and `ccp/seats.py` call `lib.lock_is_stale` (lib through `ccp.queue`, as seats already
+  took it). The estimator's `_sm()` became `_ar()`, the review kit alone.
+- `spec_maintainer.py` keeps the `lock_is_stale` re-export: `scripts/observability/architecture_review.py`
+  (outside this task's paths) reads `sm.lock_is_stale`. The re-export's comment names that reader.
+- `descendants` and `check_task_ids` read the product's config through a new `product_config(root)`
+  (the binding's product root, `ccp.config.load`; None with no root or an unreadable plane.json).
+  `descendants` unions the queue's `tasks/*.json` with `tasklog.load` and returns the seeds plus every task
+  whose `graph.closure` holds one. `check_task_ids` refuses with `refs.ids(cfg).task_id_re` and names the
+  shape as `N` repeated to the width, `-slug`; its task-existence check is unchanged.
+- Usage text: the `DURABLE_DOCS` env line (it named only `blocked`) is gone; the `blocked` line says the
+  descendants come from the task log and the queue's tasks.
+- Docs that named `spec_maintainer.headless_env` or `STRIP_KEYS` in the script now name `ccp/headless.py`:
+  `docs/design/allowance.md`, `docs/design/telemetry.md`, `docs/design/threat-model.md` and the estimator's
+  module docstring (outside `paths`, but they would be wrong after the move).
+- `tests/test_usage.py`'s `HeadlessEnv` moved to `tests/test_headless.py`; its half that checked the OTLP fold
+  reading `ccp.seat` stays in `tests/test_usage.py` as `SeatAttribute`, since it needs that module's own
+  `logs` and `kv` builders. `tests/test_estimator.py` calls `headless.headless_env`.
+- Fix round 1: `scripts/observability/README.md`'s row for `spec_maintainer.py` no longer says the script holds
+  the headless helpers; it names `ccp/headless.py` and `ccp/queue.py`, as the folder's CLAUDE.md does.
+  `docs/design/plugin.md` names `spec_maintainer.descendants` (through `ccp/tasklog.py`) among the current task-file
+  readers instead of "formerly". Both were review findings (MINOR-1, NIT-1); NIT-2 stays a follow-up.
+
 ## Verification notes

@@ -126,7 +126,7 @@ baseline, no accuracy rule and nothing that gates.
   about $0.04–0.07. A read-only allowlist (`Read, Grep, Glob`) was the
   alternative; it was not taken because it adds turns and cost and makes the answer depend on
   what the model chose to open. The environment drops `ANTHROPIC_API_KEY`, `CLAUDE_API_KEY` and
-  `ANTHROPIC_AUTH_TOKEN` and carries `ccp.seat=estimator` (`spec_maintainer.headless_env`, §24);
+  `ANTHROPIC_AUTH_TOKEN` and carries `ccp.seat=estimator` (`ccp/headless.py`, §24);
   the prompt is audited (`prompts/estimator/`, phase `estimate`); the call's `modelUsage` goes to
   `board/headless-usage.jsonl` (kind `estimator`). The live-seats panel (§28.3) shows a running
   batch as a headless row with these pins.
