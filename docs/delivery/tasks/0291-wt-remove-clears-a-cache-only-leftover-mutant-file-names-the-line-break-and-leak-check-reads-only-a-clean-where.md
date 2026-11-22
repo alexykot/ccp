@@ -1,7 +1,7 @@
 ---
 task_id: 0291-wt-remove-clears-a-cache-only-leftover-mutant-file-names-the-line-break-and-leak-check-reads-only-a-clean-where
 title: ccp wt remove clears a leftover directory that holds only the language's caches, a mutant file's zero-match refusal names its trailing line break, and leak-check reads ccp where only when it exits 0
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S12", "S20"]
@@ -105,4 +105,30 @@ workers' health notes (`<queue>/health/notes.jsonl`, data only the queue holds),
 
 ## Implementation notes
 
+- `ccp/wt.py`: `_rm_tree(main, path, caches)` takes the pack's cache directory names, which every caller passes
+  as `_caches(cfg)` (`doclang.get(config.language_name(cfg)).file_skip_dirs`). On a failed `git worktree remove
+  --force` it prunes, and deletes the path only when it still exists, `git worktree list --porcelain` names it no
+  more (`_git_listed`, split out of `_git_named`) and `_only_caches` holds on its files (`_files_under`: a symlink
+  counts as a file and is not followed). It reports success only when the path is then gone; otherwise git's
+  failure, as before. `_only_caches` is a function on plain values (E15): a file lies inside a cache directory when
+  one of its parent directories has the name; a file that itself has the name does not count.
+- `ccp/mutate.py`: a substitution from a `--mutant-file` carries `from_file`, which `_once` reads, from
+  `_substitution` and from `together` alike. Found 0 times, its old text less the one trailing line break
+  (`\r\n`, `\n` or `\r`) is counted, and a count above 0 gets the ruling's message. In a `--together` mutant whose
+  earlier parts changed the file, both places in the message read `where` (`<rel> as the earlier parts on it leave
+  it`), as the plain refusal does; the ruling names only `{rel}`, which is the same text for a lone part.
+- `scripts/leak-check.sh`: step 3 runs `ccp --root "$PWD" where` in an `if` and parses its output only when it
+  exits 0; the header is unchanged.
+- Tests beyond the ruling's: a locked worktree (git refuses to remove it and its prune keeps it listed) holding
+  only a cache stays; `_only_caches` on plain values; a `--together` part from a mutant file gets the new refusal;
+  a `--mutant` whose old text ends with a line break keeps the plain one.
+- Fix round 1 (review MINOR 1, NITs 1 and 2; tests only): `tests/test_wt_leftover.py` gains a made, unlocked
+  worktree whose `.git` file goes with everything but the cache, so git's removal fails and only the prune unlists
+  it; `ccp wt remove` leaves no directory and no warning, and a mutant dropping the prune is killed.
+  `tests/test_mutant_file_line_break.py` checks the ruled refusal whole with `assertEqual` (the ruling fixes its
+  text, so a change to its lead or tail is caught), and gains a CRLF case (target file and mutant file both
+  `\r\n`), which a `_without_line_break` that loses `b"\r\n"` fails.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #334 head `2401bd4` (squash `932d480`): APPROVE. Passed: code-01, code-02, cmd-01. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0291-wt-remove-clears-a-cache-only-leftover-mutant-file-names-the-line-break-and-leak-check-reads-only-a-clean-where.json.
+

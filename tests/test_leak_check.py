@@ -33,12 +33,12 @@ class LeakCheckLookup(unittest.TestCase):
         path.write_text(pattern + "\n")
         return path
 
-    def stub_ccp(self, binding: Path | None, plane: Path) -> None:
-        """A `ccp` whose `--root <repo> where` prints a binding (or none) and a plane."""
+    def stub_ccp(self, binding: Path | None, plane: Path, exit_code: int = 0) -> None:
+        """A `ccp` whose `--root <repo> where` prints a binding (or none) and a plane, then exits `exit_code`."""
         import json
         out = json.dumps({"binding": str(binding) if binding else None, "plane": str(plane)})
         stub = self.bin / "ccp"
-        stub.write_text(f"#!/bin/sh\n[ \"$1\" = --root ] && [ \"$3\" = where ] && echo '{out}'\n")
+        stub.write_text(f"#!/bin/sh\n[ \"$1\" = --root ] && [ \"$3\" = where ] && echo '{out}'\nexit {exit_code}\n")
         stub.chmod(0o755)
 
     def run_check(self, **env_set):
@@ -94,6 +94,15 @@ class LeakCheckLookup(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("leak-check: denylist found (bindings dir)", r.stdout)
         self.assertNotIn(str(installation), r.stdout + r.stderr)
+
+    def test_a_failing_ccp_where_is_not_read_even_when_it_names_a_binding(self):
+        installation = self.tmp / "installation"
+        installation.mkdir()
+        self.denylist(installation)  # would match
+        self.stub_ccp(installation / "p.yaml", self.tmp / "no-plane", exit_code=1)
+        r = self.run_check()
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("nothing checked", r.stdout)
 
     def test_ccp_where_plane_projects_is_searched_when_it_names_no_binding(self):
         plane = self.tmp / "plane"
