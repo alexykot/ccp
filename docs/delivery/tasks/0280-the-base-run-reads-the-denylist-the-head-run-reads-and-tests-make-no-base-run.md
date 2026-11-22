@@ -1,7 +1,7 @@
 ---
 task_id: 0280-the-base-run-reads-the-denylist-the-head-run-reads-and-tests-make-no-base-run
 title: The run at the merge base reads the leak denylist the HEAD run reads, tests never make a base run of the real repo, and a multi-path non-ASCII diff is pinned
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S21"]
@@ -165,4 +165,23 @@ with a prototype of `code-03`'s test added:
 
 ## Implementation notes
 
+- `head_bindings_dir(cfg)` in `ccp/baseline.py` resolves as the lead's ruling gives it; the parse of `ccp where`'s
+  JSON is a pure helper, `_where_bindings`, mirroring leak-check.sh's step 3 (an empty `binding` counts as null,
+  as `if b` does there). The timeout is the constant `WHERE_TIMEOUT` (30 s), so a test can shorten it.
+  `run_at_base` sets the base run's `CCP_BINDINGS_DIR` to it.
+- `judge` returns every failure as counting right after the no-failures case when `envvar(NO_BASE_RUN)` is set,
+  before any git call. `tests/__init__.py` sets `CCP_NO_BASE_RUN=1` under a §21.2 comment; `Repo.make` lifts it.
+- `changed_paths` runs `git diff --name-only -z <base>...HEAD` without `core.quotepath`.
+- `BaseRun.echoed` no longer patches `queue.lib.bindings_dir`: with `CCP_BINDINGS_DIR` set, that already returns
+  `bindings`, so the patch was redundant.
+- Beyond the three tests the ruling names, `HeadBindingsDir` (three unit tests in the same module) covers
+  `head_bindings_dir`'s branches the end-to-end tests do not reach: the `ccp where` parse, `CCP_BINDINGS_DIR`
+  winning over `ccp where`, and the fallbacks (no `ccp` on PATH, a non-zero exit, unparsable output, a timeout).
+- Fix round 1 (review MINOR 1): nothing pinned the `--root` that `head_bindings_dir` passes to `ccp where`. The
+  stub `ccp` in the leak test and in `HeadBindingsDir`'s shell stubs now starts with `root_guard`, which exits 2
+  unless it was called as `ccp --root <root> where`, the root compared after `pwd -P` so a symlinked temp
+  directory still matches. A wrong or missing `--root` then falls back to `bindings_dir()` and the tests fail.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #330 head `5071af9` (squash `d4cb19d`): APPROVE. Passed: code-01, code-02, code-03. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0280-the-base-run-reads-the-denylist-the-head-run-reads-and-tests-make-no-base-run.json.
+
