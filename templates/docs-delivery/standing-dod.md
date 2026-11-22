@@ -4,7 +4,8 @@ Applies to **every** task. Never restate any of this in a task's `dod_checks`: t
 is extra for that task. Items 1–6 are the plane's (plane SPEC §5, §15); the product adds its own
 below.
 
-1. **`ccp docs check` is clean**, which includes `ccp tasks check`.
+1. **`ccp docs check` is clean**, which includes `ccp tasks check`; a failure already on the
+   integration branch, outside the task's diff, is reported, not the task's (plane SPEC §21.2).
 2. **New behaviour is in the SPEC, cited by its rule.** The SPEC text comes from the task (its
    CURRENT → PROPOSED edit) or a recorded ruling; an implementer writes none of its own.
 3. **The implementer appends implementation notes to the task file and changes nothing else in it**,

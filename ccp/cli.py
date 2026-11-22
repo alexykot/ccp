@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 from ccp.envvars import envvar
-from ccp import config, pkgdocs, refs, rules, runs, tasklog
+from ccp import baseline, config, pkgdocs, refs, rules, runs, tasklog
 from ccp.queue import QueueError
 
 
@@ -35,6 +35,22 @@ def _print_errs(label: str, errs: list[str], clean: str) -> int:
     for e in errs:
         print(f"  {e}")
     return 1
+
+
+def _print_judged(cfg: config.Config, label: str, failures: list[baseline.Failure], clean: str,
+                  argv: list[str]) -> int:
+    """§21.2: print a check command's failures and return its exit code. In the run at a merge base the
+    failures are written for the caller and printed as they are; elsewhere a failure already on the
+    integration branch prints after the others, under its heading, and leaves the exit code alone."""
+    if baseline.emit(failures):
+        return _print_errs(label, [f.line for f in failures], clean)
+    judged = baseline.judge(cfg, failures, argv)
+    code = _print_errs(label, judged.failing, clean)
+    if judged.preexisting:
+        print(f"  {judged.heading}")
+        for line in judged.preexisting:
+            print(f"    {line}")
+    return code
 
 
 def cmd_tasks_list(cfg: config.Config, a: argparse.Namespace) -> int:
@@ -270,7 +286,8 @@ def cmd_tasks_check(cfg: config.Config, a: argparse.Namespace) -> int:
             except QueueError as e:
                 print(f"ccp tasks check --closed-points: {e}", file=sys.stderr)
                 return e.code
-    code = _print_errs("tasks", errs, f" ({len(tasklog.load(cfg))} tasks)")
+    argv = ["tasks", "check"] + (["--closed-points"] if getattr(a, "closed_points", False) else [])
+    code = _print_judged(cfg, "tasks", baseline.rule_failures(errs), f" ({len(tasklog.load(cfg))} tasks)", argv)
     from ccp import reviewpoints  # noqa: PLC0415
     from ccp import parallel  # noqa: PLC0415
     from ccp import plan  # noqa: PLC0415  (§21.1: advisory; never changes the exit code)
@@ -388,9 +405,13 @@ def cmd_docs_check(cfg: config.Config, _a: argparse.Namespace) -> int:
     except config.MissingKey as e:
         print(f"ccp docs check: {e}", file=sys.stderr)
         return 2
-    docs_checks = [f"docs check {e}" for e in rules.run_checks(cfg, cfg.docs["checks"])]  # §21.5 docs.checks
-    code = _print_errs("docs", config.unknown_key_errors(cfg) + pkgdocs.check(cfg) + tasklog.check(cfg)
-                       + rules.check(cfg) + rules.starter_check(cfg) + adr.check(cfg) + docs_checks, "")
+    docs_runs = rules.run_check_runs(cfg, cfg.docs["checks"])  # §21.5 docs.checks
+    doc_errs, house_runs = rules.house_checks(cfg)
+    failures = (baseline.rule_failures(config.unknown_key_errors(cfg) + pkgdocs.check(cfg) + tasklog.check(cfg) + doc_errs)
+                + baseline.check_failures("check", house_runs)
+                + baseline.rule_failures(rules.starter_check(cfg) + adr.check(cfg))
+                + baseline.check_failures("docs check", docs_runs))
+    code = _print_judged(cfg, "docs", failures, "", ["docs", "check"])
     for n in rules.starter_notes(cfg):  # §20.5: what the product declined, and the checks that skips
         print(f"  {n}")
     from ccp import reviewpoints  # noqa: PLC0415
