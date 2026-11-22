@@ -219,6 +219,17 @@ class Respawn(TeamCase):
         code, res, err = self.team("runner", "spawn", "--review-point", "R8", "--dry-run")
         self.assertEqual((code, res["scope"]), (0, ["0001-a"]), err)
 
+    def test_a_respawn_whose_tagged_tasks_are_done_spawns_on_the_added_ones_and_another_point_still_refuses(self):
+        self.spawn_and_add()
+        _tagged(self.prod, "0001-a", "done", "R8")
+        _tagged(self.prod, "0003-c", "done", "R10")
+        self.prod.index()
+        code, res, err = self.team("runner", "spawn", "--review-point", "R8", "--dry-run")
+        self.assertEqual((code, res["scope"]), (0, ["0002-b"]), err)
+        code, _, err = self.team("runner", "spawn", "--review-point", "R10", "--dry-run")
+        self.assertEqual(code, 2, err)
+        self.assertIn("no open task is tagged review_point: R10", err)
+
     def test_a_new_point_takes_only_its_tagged_tasks(self):
         self.spawn_and_add()
         code, res, err = self.team("runner", "spawn", "--review-point", "R10", "--dry-run")
