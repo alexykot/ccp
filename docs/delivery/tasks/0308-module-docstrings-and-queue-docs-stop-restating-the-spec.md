@@ -1,7 +1,7 @@
 ---
 task_id: 0308-module-docstrings-and-queue-docs-stop-restating-the-spec
 title: The prompt, verify, submit, lifecycle and observability-lib docstrings name their § and purpose only, emit-event's help names the registry, and the queue's layout is described once, in the SPEC
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E24", "E10", "E12"]
@@ -139,3 +139,5 @@ From architect pass `ar-20261122T162238Z-9098`, F02 (`duplication`), F05 (`doc-a
   which `resolution_gate` and `marked_gate` refuse under. Docstring text only; no code changed.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #363 head `ace4fc0` (squash `6e0cb52`): APPROVE. Passed: doc-01, cfg-01, doc-02, doc-03, code-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0308-module-docstrings-and-queue-docs-stop-restating-the-spec.json.
+

@@ -1513,7 +1513,7 @@ tasks:
     depends_on: [0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes]
     path: tasks/0307-seats-are-told-how-to-run-one-check-and-the-spec-names-the-language-pack-s-test-command.md
   - id: 0308-module-docstrings-and-queue-docs-stop-restating-the-spec
-    status: pending
+    status: done
     title: The prompt, verify, submit, lifecycle and observability-lib docstrings name their § and purpose only, emit-event's help names the registry, and the queue's layout is described once, in the SPEC
     depends_on: []
     path: tasks/0308-module-docstrings-and-queue-docs-stop-restating-the-spec.md
