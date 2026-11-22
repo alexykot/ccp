@@ -13,7 +13,8 @@ normative, and a module that disagrees with it is the bug.
 - **Durable formats:** `tasklog.py` (task files, §5.6), `dryrun.py` (`ccp tasks dry-run`: a task's check commands run at the
   integration tip and their dry-run records written, §21.1), `taskmigrate.py` (an earlier plane generation's task
   files, converted in place, §5.3), `adr.py` (ADRs, §6), `reviewpoints.py`,
-  `rules.py` (house rules, the starter set and budgets), `pkgdocs.py`, `docrules.py` and `doclang/` (doc checks).
+  `rules.py` (house rules, the starter set and budgets), `pkgdocs.py`, `docrules.py` and `doclang/` (doc checks),
+  `baseline.py` (a docs or tasks check failure already at the merge base, reported as pre-existing, §21.2).
 - **The runtime queue:** `queue.py` (QUEUE_ROOT, the ledger, the runner's work.json), `lifecycle.py` (claim,
   phase, wait, release, close), `selection.py` and `parallel.py` (what the runner may take),
   `prhost.py` (the one module that reaches a PR host; the rest see `PrFacts`, house rule E19),

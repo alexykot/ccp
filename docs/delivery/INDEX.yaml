@@ -1268,7 +1268,7 @@ tasks:
     depends_on: [0221-workers-reach-the-pr-host-through-ccp-pr, 0242-retire-restructure-scaffolding-and-queue-markers]
     path: tasks/0258-the-plane-writes-the-pre-merge-phases.md
   - id: 0259-a-check-failure-already-on-the-integration-branch-is-reported
-    status: pending
+    status: done
     title: A docs or tasks check failure already on the integration branch is reported, not blocking, in a task's checks and the verifier's gate
     depends_on: [0244-tasks-check-runs-dry-runs, 0252-the-task-check-reports-a-decision-built-before-its-prerequisite]
     path: tasks/0259-a-check-failure-already-on-the-integration-branch-is-reported.md
