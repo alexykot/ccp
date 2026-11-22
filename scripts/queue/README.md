@@ -15,8 +15,8 @@ Live queue state lives **outside** product git (e.g. `$HOME/projects/.delivery-q
 ```
 <queue_root>/
   tasks/<task_id>.json
-  progress/<task_id>.json
-  review/<task_id>.json
+  progress/<task_id>.json             # the task's phase moves (contracts/progress.schema.json)
+  review/<task_id>.json               # the task's review record, from ccp report on a clean review (contracts/review.schema.json)
   questions/<task_id>/<n>.json          # implementation-class questions the Runner answers itself
   questions/sm-<UTC>-<hex>.json         # SPEC §17 spec-maintainer question (flat; raised via ../spec-maintainer-ask.sh)
   questions/sm-<UTC>-<hex>.answer.json  # spec-maintainer answer (contracts/question_answer.schema.json)
@@ -41,7 +41,7 @@ Live queue state lives **outside** product git (e.g. `$HOME/projects/.delivery-q
 | Script | Purpose |
 | --- | --- |
 | `ccp tasks claim\|phase\|wait\|resume\|release\|drop\|close` | Every task-state change (SPEC §10.5): the lease, the phase, waits, and the ledger events |
-| `../formal-submit.template.sh` | Unit/lint + PR + review artifact; no spec judgement |
+| `../formal-submit.template.sh` | Formal-submit (SPEC §15.1): runs `ccp tasks submit <task_id>` and exits with its code |
 | `../spec-maintainer-ask.sh` | SPEC §17 spec question: `raise`, `<qid>` (apply the lead's answer), `blocked` |
 
 Contracts: `../../contracts/*.schema.json`.
@@ -52,5 +52,5 @@ Observability (SPEC §23): `../observability/` — `emit-event.sh`, `set-waiting
 
 - Never store secrets in queue JSON or emails.
 - `implementation_started_at` is set **once**; the wall timer does **not** reset on reject.
-- Same-session `/mk-pr`: persist `claude_session_id` on the task before mk-pr/merge resumes.
+- The PR comes from the implementer's own worker; the review record keeps that run and its session (`contracts/review.schema.json`).
 - Seats stay idle when there is no durable pending task in product `docs/delivery/` + matching `tasks/*.json`.

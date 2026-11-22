@@ -215,4 +215,42 @@ The progress and review contracts describe the records the plane writes, in the 
 
 ## Implementation notes
 
+- 2026-11-22 (implementer): `ccp report` moves a first report's task through `report.phase_after` (an implement
+  done with a head: `implemented`; a review done and clean: `reviewed`) and, on a clean review, writes
+  `review/<task_id>.json` (`report.review_record`, built on plain values from the task's runs and its raised
+  questions); the `review recorded` event names the record (`record`). A correction moves nothing; a review
+  corrected to clean writes the record again.
+- `ccp tasks submit` (`ccp/submit.py`) takes the PR and the head from the task's latest done implement or rework
+  round (nothing writes `pr` on the task's queue file before close; its `pr` is read as a fallback). Choices the
+  ruling left open, sent to the runner: `review_artifact_present` also needs the record's review to be the task's
+  latest done review, and that review clean, so an older clean record never passes over a later MAJOR review;
+  `no_open_spec_escalation` counts open spec questions whose `task_id` or `blocks` name the task and open
+  escalations of class `spec`; the `unit_lint` report looks for a passed suite run on the full or gate lane of
+  the round that reported the head.
+- `contracts/progress.schema.json`: `from` and `to` are strings, not an enum, because `ccp tasks phase` accepts any
+  phase name (the runner's `operator`), and readers accept every value a live queue holds (E9).
+- `ccp prompt verify` is unchanged.
+- 2026-11-22 (implementer, fix round 1, review findings):
+  - `no_open_spec_escalation` counts the spec questions `spec_maintainer.open_questions` counts (status `open` or
+    `escalated`, answer file or not), read from there rather than re-derived, so a question the lead sent to the
+    operator (`needs_operator`) keeps the task from `submitted`.
+  - `ccp tasks submit` refuses, exit 3 and nothing moved, a task whose queue status is not mid-flight or is past
+    `submitted` (`verifying`, `merging`): a done or released task is never moved back (`submit.phase_refusal`).
+  - The runner's step 7 runs `ccp tasks submit` before every `ccp prompt verify`, after a fix round too, so §15.1's
+    "before `ccp prompt verify`" holds on the review-skip paths.
+  - The `review recorded` event no longer carries a `record` key: SPEC §23.2's payload table does not list it.
+  - A review corrected away from clean leaves the review record as it is (said in `ccp/report.py`'s docstring);
+    submit's latest-clean-review check keeps it from passing.
+  - Tests added for the escalated and the answered question, the exit-3 refusal, a passed gate-lane run reported
+    by `unit_lint`, the fix of a clean review under `verify.skip_review_after_clean` and under `verify.skip_review`,
+    and the record a correction to clean writes; the `Failures` cases pin ids, not reason prose.
+- 2026-11-22 (implementer, fix round 2, review-2 findings):
+  - A test that a passed part-lane `ccp suite run` of the round that reported the head is not taken as
+    `unit_lint` (the warning stays): `unit_lint` reads only the full or gate lane.
+  - A test that `submit.ITEMS` plus `unit_lint` are the standing DoD's `formal_submit.must`, so a renamed item in
+    `dod/standing.yaml` fails a test instead of leaving submit naming the old one.
+  - The runner's step 7 says that submit's exit 3 on a task already `verifying` or `merging` (a re-launched
+    verify) needs no submit, and `ccp prompt verify` follows.
+  - `contracts/CLAUDE.md` re-wrapped to its neighbours' width.
+
 ## Verification notes

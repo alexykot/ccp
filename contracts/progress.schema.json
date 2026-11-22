@@ -2,89 +2,50 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:control-plane:contracts:progress.schema.json",
   "title": "ControlPlaneProgress",
+  "description": "QUEUE_ROOT/progress/<task_id>.json: the task's phase moves, one event each, which ccp health reads for start times (SPEC §10.1, §23.7).",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "task_id",
-    "project_id",
-    "status",
+    "events",
     "updated_at"
   ],
   "properties": {
     "task_id": {
       "type": "string"
     },
-    "project_id": {
-      "type": "string"
-    },
-    "status": {
-      "type": "string",
-      "enum": [
-        "pending",
-        "leased",
-        "implementing",
-        "implemented",
-        "reviewing",
-        "fixing",
-        "reviewed",
-        "submitted",
-        "verifying",
-        "merging",
-        "done",
-        "blocked",
-        "failed",
-        "dropped"
-      ]
-    },
-    "phase": {
-      "type": "string",
-      "enum": [
-        "claim",
-        "env_up",
-        "implement",
-        "mk_pr",
-        "review",
-        "formal_submit",
-        "verify",
-        "merge",
-        "idle",
-        "blocked"
-      ]
-    },
-    "percent": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 100
-    },
-    "summary": {
-      "type": "string"
-    },
-    "last_event": {
-      "type": "string"
-    },
     "events": {
       "type": "array",
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "at",
-          "message"
+          "from",
+          "to",
+          "note"
         ],
-        "additionalProperties": false,
         "properties": {
           "at": {
             "type": "string",
             "format": "date-time"
           },
-          "actor": {
-            "type": "string"
+          "from": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The SPEC §10.1 phase the task left; null for its first move"
           },
-          "message": {
+          "to": {
+            "type": "string",
+            "description": "The SPEC §10.1 phase the task moved to"
+          },
+          "note": {
             "type": "string"
           }
         }
-      },
-      "default": []
+      }
     },
     "updated_at": {
       "type": "string",

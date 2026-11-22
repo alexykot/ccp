@@ -17,6 +17,9 @@ record, and the line the prompt asks for it in (§13.4). The rest of what a repo
   review prompt; whether a verdict is right is not judged (§13.4);
 - `## Follow-ups`, any report's: each line is kept on the run (`follow_ups`) with its id `<run_id>#<n>` and no
   outcome, for the lead to decide (`ccp tasks follow-up`); the plane never interprets the text (§13.4, ADR-0044 D1).
+- an implement round reported done with a head moves its task to `implemented`, and a review reported done and
+  clean to `reviewed`, which also writes the task's review record (`review/<task_id>.json`, §15.1); a rework
+  round moves nothing new (§10.1).
 
 A report that lacks one is refused with what is missing, and nothing is written. An accepted one
 is stored at the run's report path, its friction lines are recorded for `ccp health` (what the
@@ -30,8 +33,10 @@ A run already reported takes a corrected report while no later run of its task h
 `runs.opened_after`): nothing has acted on it yet. The correction is checked like a first report; the
 stored one is kept beside it as `<stem>.superseded-<k>.md`, the run's `corrections` gets `{at, superseded}`,
 its report fields are the corrected report's, and the `run reported` event (`corrected: true`) and a
-review's `review recorded` event are written again. Its friction lines and suite filing are not recorded
-again: those are the first submission's. Its follow-ups replace the run's, numbered afresh: an outcome the lead
+review's `review recorded` event are written again, as is the review record of a review corrected to clean; a
+review corrected away from clean leaves the record as it is (`ccp tasks submit` asks that the record's review be
+the latest done review and clean). Its friction lines, suite filing and phase move are not recorded again: those
+are the first submission's. Its follow-ups replace the run's, numbered afresh: an outcome the lead
 recorded carries over to a line whose text is identical (`followups.carry`), and each one that does not is named
 in a warning.
 """
@@ -44,7 +49,7 @@ from typing import Any, Callable, NamedTuple
 
 from ccp import followups, health, refs, runs
 from ccp.config import Config, lane_for
-from ccp.queue import QueueError, emit, iso, root
+from ccp.queue import QueueError, emit, iso, phase_move, read_json, root, write_json
 
 # The line patterns lead with `[^\w\n]*` (a bullet, bold markers), not `\W*`: under re.M `\W` also
 # matches a newline, so a blank line above `Suite:` began the match there and lost the line's counts.
@@ -704,12 +709,105 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
     runs.save(q, rec)
     emit(q, cfg, tid, "run", "reported",
          {"run_id": run_id, "outcome": rec["outcome"], **({"corrected": True} if correcting else {})}, _actor_for(rec["seat"]))
-    if rec["phase"] == "review" and "severity" in parsed:
-        verdict = "changes" if parsed["severity"]["BLOCKER"] or parsed["severity"]["MAJOR"] else "clean"
+    verdict = review_verdict(rec["phase"], parsed)
+    if verdict is not None:
+        if verdict == "clean" and parsed.get("outcome") == "done":  # §15.1: the task's review record
+            write_review_record(cfg, q, rec)
         emit(q, cfg, tid, "review", "recorded", {"run_id": run_id, "verdict": verdict, "severity": parsed["severity"]},
              _actor_for(rec["seat"]))
+    to = None if correcting else phase_after(rec["phase"], parsed)  # §10.1, §13.4: a correction moves nothing again
+    if to is not None:
+        phase_move(q, cfg, tid, to, f"{run_id} reported", _actor_for(rec["seat"]))
     return {"ok": True, "run_id": run_id, "report": str(dest), **{k: v for k, v in rec.items() if k in RETURNED_KEYS},
             **({"warnings": warnings} if warnings else {})}
+
+
+def review_verdict(phase: str, parsed: dict[str, Any]) -> str | None:
+    """§15.2: a review report's verdict, `changes` when it counts a BLOCKER or MAJOR finding, else `clean`; None for a
+    report of another phase or one with no `Severity:` counts."""
+    sev = parsed.get("severity") if phase == "review" else None
+    if not isinstance(sev, dict):
+        return None
+    return "changes" if sev.get("BLOCKER") or sev.get("MAJOR") else "clean"
+
+
+def phase_after(phase: str, parsed: dict[str, Any]) -> str | None:
+    """§10.1: the phase a first report moves its task to: `implemented` for an implement round done with a head,
+    `reviewed` for a review done and clean; None for any other (a rework round, a verify, an outcome not done)."""
+    if parsed.get("outcome") != "done":
+        return None
+    if phase == "implement" and parsed.get("head"):
+        return "implemented"
+    if review_verdict(phase, parsed) == "clean":
+        return "reviewed"
+    return None
+
+
+REVIEW_DIR = "review"  # §15.1: QUEUE_ROOT/review/<task_id>.json, the task's review record
+
+
+def review_record_path(q: Path, task_id: str) -> Path:
+    """§15.1: the task's review record, one per task, replaced by each clean review."""
+    return q / REVIEW_DIR / f"{task_id}.json"
+
+
+def pr_number(value: Any) -> int | None:
+    """A PR number as a run records it (`7`, `#7`), or None when it is none."""
+    s = str(value or "").strip().lstrip("#")
+    return int(s) if s.isdigit() and int(s) > 0 else None
+
+
+def review_record(project_id: str, review: dict[str, Any], rs: list[dict[str, Any]], questions: list[str],
+                  at: str) -> dict[str, Any]:
+    """§15.1: the review record of the clean review `review` (its run record, reported), from the task's runs `rs`
+    (in opened order) and the ids of the spec questions the task raised: the PR the review judged (else the PR the
+    latest done change round reported), the head it judged, the implement or rework round that first reported that
+    PR and its session (`mk_pr_*`), the rework rounds reported since that one and before the review
+    (`safe_fixes_applied`), the questions as `decisions`, the review's report path and `at`. Ids, numbers, paths
+    and times only (house rule E5)."""
+    live = [r for r in rs if runs.state(r) != "abandoned"]
+    done = [r for r in live if r.get("phase") in runs.CHANGE_PHASES and runs.state(r) == "reported"
+            and r.get("outcome") == "done" and pr_number(r.get("pr"))]
+    pr = pr_number(review.get("pr")) or (pr_number(done[-1].get("pr")) if done else None)
+    first = next((r for r in done if pr_number(r.get("pr")) == pr), None)
+    since = str((first or {}).get("reported_at") or "")
+    before = str(review.get("opened_at") or "")
+    fixes = [str(r["run_id"]) for r in live if r.get("phase") in runs.REWORK_PHASES and runs.state(r) == "reported"
+             and since <= str(r.get("reported_at") or "") <= before]
+    return {"task_id": str(review["task_id"]), "project_id": project_id, "pr": pr,
+            "head": str(review.get("head") or "") or None,
+            "mk_pr_run_id": str(first["run_id"]) if first else None,
+            "mk_pr_session_id": (first or {}).get("session_id") or None,
+            "review_run_id": str(review["run_id"]), "review_session_id": review.get("session_id") or None,
+            "safe_fixes_applied": fixes,
+            "decisions": [{"class": "spec", "question_ref": ref} for ref in questions],
+            "review_artifact_path": str(review.get("report") or "") or None, "reviewed_at": at}
+
+
+def raised_questions(q: Path, task_id: str) -> list[str]:
+    """§17.3: the ids of the spec questions the task raised (`questions/sm-*.json` whose `task_id` is it), in id
+    order, answered or not."""
+    d = q / "questions"
+    out = []
+    for f in sorted(d.glob("sm-*.json")) if d.is_dir() else []:
+        if f.name.endswith(".answer.json"):
+            continue
+        try:
+            qq = read_json(f, {})
+        except QueueError:
+            continue
+        if isinstance(qq, dict) and qq.get("task_id") == task_id:
+            out.append(str(qq.get("question_id") or f.stem))
+    return out
+
+
+def write_review_record(cfg: Config, q: Path, review: dict[str, Any]) -> str:
+    """§15.1: write the task's review record for the clean review `review`, replacing an earlier one; its path
+    relative to QUEUE_ROOT."""
+    tid = str(review["task_id"])
+    rec = review_record(cfg.project_id, review, runs.all_runs(q, tid), raised_questions(q, tid), iso())
+    write_json(review_record_path(q, tid), rec)
+    return f"{REVIEW_DIR}/{tid}.json"
 
 
 def _actor_for(seat: str) -> str:

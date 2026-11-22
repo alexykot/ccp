@@ -2,12 +2,21 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:control-plane:contracts:review.schema.json",
   "title": "ControlPlaneReview",
+  "description": "QUEUE_ROOT/review/<task_id>.json: the task's review record, written by ccp report when a review reports clean and replaced by each clean review (SPEC §15.1). Ids, numbers, paths and times only.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "task_id",
     "project_id",
-    "pr_url",
+    "pr",
+    "head",
+    "mk_pr_run_id",
+    "mk_pr_session_id",
+    "review_run_id",
+    "review_session_id",
+    "safe_fixes_applied",
+    "decisions",
+    "review_artifact_path",
     "reviewed_at"
   ],
   "properties": {
@@ -17,71 +26,80 @@
     "project_id": {
       "type": "string"
     },
-    "pr_url": {
-      "type": "string"
+    "pr": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "description": "The PR number the review judged"
+    },
+    "head": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The head the review judged"
+    },
+    "mk_pr_run_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The implement or rework run that first reported this PR (mk_pr_via_implementer_resume)"
     },
     "mk_pr_session_id": {
       "type": [
         "string",
         "null"
       ],
-      "description": "Must be the implementer session (--resume), not a cold /mk-pr"
+      "description": "That run's session"
+    },
+    "review_run_id": {
+      "type": "string"
     },
     "review_session_id": {
       "type": [
         "string",
         "null"
-      ],
-      "description": "Clean sub-agent /review session"
+      ]
     },
     "safe_fixes_applied": {
       "type": "array",
       "items": {
         "type": "string"
       },
-      "default": []
+      "description": "The run ids of the rework rounds reported after the PR opened and before this review"
     },
     "decisions": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "text",
-          "class"
-        ],
         "additionalProperties": false,
+        "required": [
+          "class",
+          "question_ref"
+        ],
         "properties": {
-          "text": {
-            "type": "string"
-          },
           "class": {
             "type": "string",
             "enum": [
-              "implementation",
               "spec"
             ]
           },
           "question_ref": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "escalation_ref": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": "string",
+            "description": "A spec question the task raised (questions/<question_id>.json)"
           }
         }
-      },
-      "default": []
+      }
     },
     "review_artifact_path": {
       "type": [
         "string",
         "null"
-      ]
+      ],
+      "description": "The stored review report"
     },
     "reviewed_at": {
       "type": "string",

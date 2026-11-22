@@ -4,7 +4,7 @@ Non-normative notes behind SPEC §23. The rules are in `docs/spec/04-observabili
 
 ## Examples
 
-A `phase` event's `from` and `to` are the phase or status names of `progress.schema` and the task status enum.
+A `phase` event's `from` and `to` are the SPEC §10.1 phase names, as the task's `progress/<task_id>.json` (`contracts/progress.schema.json`) records them.
 
 #### Event log schema (`events.jsonl`)
 
