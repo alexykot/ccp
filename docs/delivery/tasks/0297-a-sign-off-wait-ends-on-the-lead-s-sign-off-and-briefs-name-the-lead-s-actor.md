@@ -7,7 +7,7 @@ depends_on: []
 spec_refs: ["S3", "S17", "S27"]
 rule_refs: ["E27", "E4"]
 review_point: R26
-paths: ["ccp/health.py", "plugin/agents/delivery-runner.md", "plugin/skills/writing-tasks/SKILL.md", "tests/test_health_signoff.py", "tests/test_prefer.py", "tests/test_usage.py", "tests/test_usage_advice.py"]
+paths: ["ccp/health.py", "plugin/agents/delivery-runner.md", "plugin/skills/writing-tasks/SKILL.md", "templates/prompts/implement.md", "tests/test_health_signoff.py", "tests/test_prefer.py", "tests/test_stale_context_audience.py", "tests/test_usage.py", "tests/test_usage_advice.py"]
 clashes_with: ["0191-the-grace-release-ends", "0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes", "0293-the-lead-s-preference-and-holds-need-the-lead-and-seat-ids-and-suite-roles-are-named-once"]
 adopt: "none"
 created: 2026-11-22
@@ -85,7 +85,13 @@ Measured at `954bd72` (origin/main).
 
 - **In:** `ccp/health.py` (`sign_off_wait` and its import), `plugin/agents/delivery-runner.md` (the sign-off and ruling lines),
   `plugin/skills/writing-tasks/SKILL.md` (the `sign_off` row), `tests/test_health_signoff.py`, `tests/test_prefer.py`,
-  `tests/test_usage.py`, `tests/test_usage_advice.py`.
+  `tests/test_usage.py`, `tests/test_usage_advice.py`, `templates/prompts/implement.md` (the `{{#stale_context}}` block),
+  `tests/test_stale_context_audience.py`.
+- **Ruling (lead, 2026-11-22, 0275 follow-ups review#1/verify#1):** the `{{#stale_context}}` block of
+  `templates/prompts/implement.md` keeps `{{stale_context}}` and drops the sentence after it ("Re-run the Context's
+  measurements at your base before you build; …"), which repeats the two lines above it on re-running measured premises
+  (E13). `tests/test_stale_context_audience.py`'s `RERUN` assertions then pin the stale-context text itself, not the
+  dropped sentence.
 - No SPEC change (measured in Context).
 - **Out:** the merge-gate end of a wait; `ccp tasks prefer` and `hold` and their docs (0293); `tests/CLAUDE.md` (0295);
   E27's command.
@@ -106,8 +112,9 @@ Measured at `954bd72` (origin/main).
   steps:
     1. Run `git grep -nE 'ccp tasks (sign-off|ruling)' -- plugin/agents plugin/skills`.
     2. Run `git grep -nE 'ccp tasks (sign-off|ruling)' -- plugin/agents plugin/skills | grep -v 'ACTOR=design-seat ccp tasks'`.
-  expect: step 1 prints exactly 3 lines (2 in `plugin/agents/delivery-runner.md`, 1 in `plugin/skills/writing-tasks/SKILL.md`); step 2 prints nothing (exit 1).
-  dry run (`954bd72`): step 1 printed the 3 lines; step 2 printed the same 3 lines.
+    3. Run `grep -c "Re-run the Context's measurements" templates/prompts/implement.md; python3 -B -m unittest -q tests.test_stale_context_audience 2>&1 | tail -1`.
+  expect: step 1 prints exactly 3 lines (2 in `plugin/agents/delivery-runner.md`, 1 in `plugin/skills/writing-tasks/SKILL.md`); step 2 prints nothing (exit 1); step 3 prints `0` then `OK`.
+  dry run (`954bd72`): step 1 printed the 3 lines; step 2 printed the same 3 lines. Step 3 at `7d83efd`: printed `1` then `OK`.
 - id: `code-02`
   story: As a plane developer, no test spells the lead's id inside a longer string.
   setup: A checkout of the PR head (any seat).
