@@ -56,8 +56,6 @@ All reshape phases have landed.
     `ccp` imports nothing from `scripts/` (the E7 amendment comes with it). After R14's 0203 and
     0207, which touch the same files.
 - **Deferred from architect pass `ar-20261121T020523Z-1d5f`** (record in `docs/delivery/reviews/`):
-  - F08: taken up by task 0263 (R19), after architect pass `ar-20261121T111633Z-4e26` (F06) found
-    the validator already in `ccp/verify.py`.
   - F12: the plane's own `pregate` lane (`ccp tasks check` plus `ccp docs check`, beside its
     `architect.checks`) is a lead adopt step now that R15's 0212 has landed, so a docs-rule failure
     shows before the full lane. No task.

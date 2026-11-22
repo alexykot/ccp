@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, prhost, verify
+from ccp.schema import schema_errors
 from tests.helpers import Product, binding
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -660,8 +661,18 @@ class Record(unittest.TestCase):
         code, _, err = self.record(body)
         self.assertEqual(code, 1)
         self.assertIn("names no head_sha", err)
-        self.assertEqual(verify.schema_errors(1, {"oneOf": []}),
-                         ["record: the schema uses oneOf, which ccp verify cannot check"])
+        self.assertEqual(schema_errors(1, {"dependentRequired": {}}),
+                         ["record: the schema uses dependentRequired, which ccp verify cannot check"])
+
+    def test_a_proof_url_that_is_not_a_string_is_refused(self):
+        for side in ("local", "verifier"):
+            body = approve(proof_urls={side: {"web": None}})
+            code, _, err = self.record(body)
+            self.assertEqual(code, 1, err)
+            self.assertIn(f"record.proof_urls.{side}.web: null is not string", err)
+            self.assertFalse(self.written().exists())
+        code, out, err = self.record(approve(proof_urls={"local": {"web": "http://localhost:8080"}}))
+        self.assertEqual(code, 0, out + err)
 
 
 class MergeOk(unittest.TestCase):

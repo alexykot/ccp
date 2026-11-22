@@ -1,9 +1,9 @@
 """The verifier's record and the runner's merge gate (SPEC §15.3).
 
 The call syntax is in `docs/cli`; the rules are in §15 and §29.3. This names the functions that hold them.
-`record` validates a verdict against `contracts/verification.schema.json` itself (a stdlib subset of JSON
-Schema, so the plane takes no dependency) and against the rules the schema cannot hold, then writes
-`verification/<task_id>.json` (`verification/pr-<n>.json`, task_id `pr-<n>`, for a PR that is not a task's).
+`record` validates a verdict against `contracts/verification.schema.json` with the plane's own checker
+(`ccp/schema.py`, a stdlib subset of JSON Schema, so the plane takes no dependency) and against the rules the
+schema cannot hold, then writes `verification/<task_id>.json` (`verification/pr-<n>.json`, task_id `pr-<n>`, for a PR that is not a task's).
 It stamps `schema_version` with its own `RECORD_VERSION`, whatever the input said. A reader older than the
 record passes over the keys its contract does not know, at any depth, and holds every key it knows to its
 contract; a record with no version, or one no newer than the reader, is held to the contract with no extra key,
@@ -52,7 +52,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any, Callable
 
-from ccp import prhost
+from ccp import prhost, schema
 from ccp.config import Config
 from ccp.config import spec_paths as spec_paths_of
 from ccp.refs import ANY_TASK_ID, QUESTION_ID
@@ -65,9 +65,6 @@ RECORD_VERSION = 6  # 2: `catch_up` (§16.5 rule 4); 3: `spec_beyond_intent` (§
 # Clocks on two machines differ a little; a minute is the slack, not a rounding allowance.
 SKEW = timedelta(seconds=60)
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
-_TYPES = {"object": dict, "array": list, "string": str, "boolean": bool, "null": type(None)}
-# Keywords that only describe; every other keyword must be one `schema_errors` enforces.
-_ANNOTATIONS = {"$schema", "$id", "title", "description", "default"}
 
 
 def _ci(queue: Path) -> bool:
@@ -84,77 +81,16 @@ def _iso(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _parse_dt(value: Any) -> datetime | None:
-    if not isinstance(value, str) or not re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$", value):
-        return None
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-
-
-def _is(value: Any, typ: str) -> bool:
-    if typ == "integer":
-        return isinstance(value, int) and not isinstance(value, bool)
-    if typ == "number":
-        return isinstance(value, (int, float)) and not isinstance(value, bool)
-    return isinstance(value, _TYPES[typ])
-
-
-def schema_errors(value: Any, schema: dict[str, Any], at: str = "record", newer: bool = False) -> list[str]:
-    """Where `value` breaks `schema`. Only the keywords the plane's contracts use are known; an
-    unknown one is an error, so a contract change cannot silently weaken this check. With `newer`
-    (a record written by a newer version) a key the schema does not name is passed over; every key
-    it names is still checked."""
-    unknown = set(schema) - _ANNOTATIONS - {"type", "enum", "required", "properties", "additionalProperties",
-                                            "items", "minItems", "minLength", "minimum", "pattern", "format"}
-    if unknown:
-        return [f"{at}: the schema uses {', '.join(sorted(unknown))}, which ccp verify cannot check"]
-    types = schema.get("type")
-    if types is not None:
-        types = [types] if isinstance(types, str) else types
-        if not any(_is(value, t) for t in types):
-            return [f"{at}: {json.dumps(value)[:60]} is not {' or '.join(types)}"]
-    errs: list[str] = []
-    if "enum" in schema and value not in schema["enum"]:
-        errs.append(f"{at}: {json.dumps(value)[:60]} is not one of {', '.join(map(str, schema['enum']))}")
-    if isinstance(value, str):
-        if len(value) < schema.get("minLength", 0):
-            errs.append(f"{at}: shorter than {schema['minLength']}")
-        if "pattern" in schema and not re.search(schema["pattern"], value):
-            errs.append(f"{at}: {value!r} does not match {schema['pattern']}")
-        if schema.get("format") == "date-time" and _parse_dt(value) is None:
-            errs.append(f"{at}: {value!r} is not an RFC 3339 date-time")
-    if "minimum" in schema and _is(value, "number") and value < schema["minimum"]:
-        errs.append(f"{at}: {value} is below {schema['minimum']}")
-    if isinstance(value, list):
-        if len(value) < schema.get("minItems", 0):
-            errs.append(f"{at}: fewer than {schema['minItems']} item(s)")
-        for i, item in enumerate(value):
-            errs += schema_errors(item, schema.get("items", {}), f"{at}[{i}]", newer)
-    if isinstance(value, dict):
-        props = schema.get("properties", {})
-        for k in schema.get("required", []):
-            if k not in value:
-                errs.append(f"{at}: missing {k}")
-        for k, v in value.items():
-            if k in props:
-                errs += schema_errors(v, props[k], f"{at}.{k}", newer)
-            elif schema.get("additionalProperties") is False and not newer:
-                errs.append(f"{at}: unexpected key {k}")
-    return errs
-
-
 def written_by_newer(rec: Any) -> bool:
     """The record says a newer `ccp` wrote it: its `schema_version` is an integer above `RECORD_VERSION`."""
     version = rec.get("schema_version") if isinstance(rec, dict) else None
-    return _is(version, "integer") and version > RECORD_VERSION
+    return schema.is_type(version, "integer") and version > RECORD_VERSION
 
 
 def record_errors(rec: Any, now: datetime | None = None) -> list[str]:
     """The schema, then what it cannot say. With `now`, a `checked_at` later than now fails. A record
     whose `schema_version` is newer than this reader's may carry keys its contract does not know."""
-    errs = schema_errors(rec, json.loads(SCHEMA.read_text()), newer=written_by_newer(rec))
+    errs = schema.schema_errors(rec, json.loads(SCHEMA.read_text()), newer=written_by_newer(rec))
     if not isinstance(rec, dict):
         return errs
     for i, c in enumerate(rec.get("checks") or []):
@@ -169,7 +105,7 @@ def record_errors(rec: Any, now: datetime | None = None) -> list[str]:
                             "the three forms of §15.4")
         elif c.get("pass") is None:
             errs.append(f"{name}: pass is null, so ran is false and rests_on says what it rests on")
-    checked = _parse_dt(rec.get("checked_at"))
+    checked = schema.parse_dt(rec.get("checked_at"))
     if now is not None and checked is not None and checked > now + SKEW:
         errs.append(f"checked_at {rec.get('checked_at')} is later than now ({_iso(now)}): "
                     "it is the clock time the verdict was reached")
@@ -1194,12 +1130,12 @@ def judge(cfg: Config, queue: Path, rec: dict[str, Any], rid: str, head: str,
             reasons.append(how)
         else:
             body["recorded_at"] = _iso(when)
-            checked = _parse_dt(rec.get("checked_at"))
+            checked = schema.parse_dt(rec.get("checked_at"))
             if checked is not None and checked > when + SKEW:
                 reasons.append(f"checked_at {rec.get('checked_at')} is after the record was recorded "
                                f"({_iso(when)}): checked_at is the clock time the verdict was reached")
     if facts is not None and facts.state != "open":
-        merged = _parse_dt(facts.merged_at)
+        merged = schema.parse_dt(facts.merged_at)
         when_s = f" at {_iso(merged)}" if merged else ""
         order = ""
         if merged and when:
@@ -1265,7 +1201,7 @@ def record_catch_up(queue: Path, task_id: str, catch_up: dict[str, Any]) -> Path
     if rec.get("verdict") != "approve":
         raise ValueError(f"the verdict is {rec.get('verdict')!r}, not approve")
     was = rec.get("schema_version")
-    rec = {**rec, "catch_up": catch_up, "schema_version": max(RECORD_VERSION, was if _is(was, "integer") else 0)}
+    rec = {**rec, "catch_up": catch_up, "schema_version": max(RECORD_VERSION, was if schema.is_type(was, "integer") else 0)}
     errs = record_errors(rec)
     if errs:
         raise ValueError("; ".join(errs))

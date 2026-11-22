@@ -1,0 +1,19 @@
+{
+  "task_id": "0042-example-task",
+  "project_id": "demo",
+  "escalation_id": "0042-example-task-1",
+  "class": "operator",
+  "to": "design_seat",
+  "brief": "Run the migration against the staging database, which only the operator can reach.",
+  "status": "closed",
+  "resolution": "Run on staging; the output was attached to the task.",
+  "question_ref": null,
+  "created_at": "2026-01-05T09:00:00Z",
+  "updated_at": "2026-01-05T09:30:00Z",
+  "decision": "approved",
+  "decided_by": "operator_via_design_seat",
+  "authority": "the operator's answer in session",
+  "ask": "Run `make migrate` against staging and report its exit code.",
+  "decided_at": "2026-01-05T09:30:00Z",
+  "raised_by": "task-runner"
+}
