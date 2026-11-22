@@ -846,6 +846,20 @@ def stale_context(cfg: Config, t: dict[str, Any], rel: str) -> list[str]:
     return stale_warning(rel, m.group(1), (log or "").split())
 
 
+def stale(cfg: Config, tasks: list[dict[str, Any]] | None = None) -> list[str]:
+    """§21.1: each stale-Context warning (`stale_context`) of the task log, in task order: what
+    `ccp tasks check --stale` names and the spawn shows the lead (§16.5)."""
+    return [w for t in (load(cfg) if tasks is None else tasks) for w in stale_context(cfg, t, cfg.rel(t["_file"]))]
+
+
+def stale_count(n: int) -> list[str]:
+    """§21.1: the one warning `ccp tasks check` gives for `n` stale-Context tasks; none for none."""
+    if n < 1:
+        return []
+    return [f"{n} task(s) not yet done were measured before commits that changed their paths: "
+            "`ccp tasks check --stale` names them (§21.1)"]
+
+
 def _names_spec(path: str, spec_paths: list[str]) -> bool:
     """§3.5: whether a path names a SPEC file: it equals an entry of `spec_paths` or, for an entry
     ending in `/`, lies under it; an entry without its `/` is exact (`docs/spec` meets no file under it)."""
@@ -1124,7 +1138,6 @@ def warnings(cfg: Config) -> list[str]:
            for t in tasks if t.get("_legacy_status")]
     for t in tasks:
         out += unmeasured_numbers(t, cfg.rel(t["_file"]))
-        out += stale_context(cfg, t, cfg.rel(t["_file"]))
         out += unsigned_spec_edit(cfg, t, cfg.rel(t["_file"]))
         out += unreadable_proposed(t, cfg.rel(t["_file"]))
         out += missing_adopt(t, cfg.rel(t["_file"]))
@@ -1138,6 +1151,7 @@ def warnings(cfg: Config) -> list[str]:
                 out.append(f"{cfg.rel(t['_file'])}: {m.group(0)!r} names {later[m.group(1)]}, which has a higher number, "
                            "as a prerequisite in prose, where nothing enforces it. List it in depends_on, "
                            "which may name a higher number (SPEC §5)")
+    out += stale_count(len(stale(cfg, tasks)))  # §21.1: counted here; `ccp tasks check --stale` names them
     return out + _requires_lines(cfg, tasks, strict=False) + adr.unbuilt_cited(cfg, tasks)
 
 

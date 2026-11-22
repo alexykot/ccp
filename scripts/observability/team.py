@@ -380,10 +380,12 @@ def keep_body(root: Path) -> list[str]:
     return ["--keep-body"] if on else []
 
 
-def review_point_scope(root: Path, args: argparse.Namespace, scope: list[str], rp: str | None) -> tuple[list[str], list[str]]:
+def review_point_scope(root: Path, args: argparse.Namespace, scope: list[str], rp: str | None,
+                       w: dict[str, Any]) -> tuple[list[str], list[str]]:
     """SPEC §22, at spawn: the scope and the review-point warnings. With the product's
     review-point register: `--review-point` must be R<n> in it (exit 2, before any write), and without
-    `--scope` the scope is the point's open tagged tasks. Without a register, the rule before it,
+    `--scope` the scope is the point's open tagged tasks, and on work.json's own point the tasks work.json's
+    scope still holds pending too (§22.5, `respawn_scope`). Without a register, the rule before it,
     unchanged: a point that `ids.review_point.pattern` refuses is a warning (close will not stamp
     it), and the missing register is named once on stderr."""
     prod = sm.product_root(root)
@@ -413,6 +415,11 @@ def review_point_scope(root: Path, args: argparse.Namespace, scope: list[str], r
             die(f"runner spawn --review-point: {problem}", 2)
         if not args.scope:
             scope = tagged_open(tasks, args.review_point)
+            if args.review_point == w.get("review_point"):  # §22.5: a respawn keeps the tasks the lead added
+                from ccp import tasklog  # noqa: PLC0415
+                kept = [str(s) for s in w.get("scope") or [] if s not in (w.get("review_point_refactors") or [])]
+                scope = respawn_scope(scope, kept, [str(t.get("task_id")) for t in tasks if t.get("status") == "pending"],
+                                      tasklog.in_scope)
             if not scope:
                 die(f"no open task is tagged review_point: {args.review_point}; tag the point's tasks "
                     f"(`ccp review-points tag {args.review_point} …`) or pass --scope (SPEC §22)", 2)
@@ -423,6 +430,25 @@ def review_point_scope(root: Path, args: argparse.Namespace, scope: list[str], r
         return scope, [f"work.json's {problem}; `ccp tasks close` will not stamp it. Respawn with --review-point "
                        "R<n> (`ccp review-points migrate` renames it, SPEC §22.4)"]
     return scope, []
+
+
+def respawn_scope(tagged: list[str], kept: list[str], pending: list[str], in_scope: Any) -> list[str]:
+    """§22.5: the scope of a respawn on work.json's review point: the point's open tagged tasks, then each
+    entry of work.json's scope (`kept`, its review point's refactors left to `refactor_scope`) that names a
+    still-pending task not among them, in work.json's order."""
+    return tagged + [s for s in kept if any(in_scope(p, [s]) for p in pending)
+                     and not any(in_scope(t, [s]) for t in tagged)]
+
+
+def stale_lines(root: Path, scope: list[str]) -> list[str]:
+    """§16.5, §21.1: each scope task's stale-Context warning, in task order, for the lead at the spawn; none
+    when the product's task log does not read (the readiness checks name that)."""
+    log = product_log(root, quiet=True)
+    if not log:
+        return []
+    cfg, tasks, _ = log
+    from ccp import tasklog  # noqa: PLC0415
+    return tasklog.stale(cfg, [t for t in tasks if scope and tasklog.in_scope(str(t.get("task_id")), scope)])
 
 
 def tagged_open(tasks: list[dict[str, Any]], rp: str) -> list[str]:
@@ -579,10 +605,11 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
     if args.op == "spawn":
         scope = split_ids(args.scope) or list(w.get("scope") or [])
         rp = args.review_point or w.get("review_point")
-        scope, rp_warnings = review_point_scope(root, args, scope, rp)
+        scope, rp_warnings = review_point_scope(root, args, scope, rp, w)
         if not scope:
             die("--scope required (task ids, comma-separated)", 2)
         scope, added, rp_refactors = refactor_scope(root, args, w, scope)
+        stale = stale_lines(root, scope)  # §16.5: after the refactors are added
         cap = max_in_flight(root)
         if args.slot:
             if args.slot not in slots:
@@ -616,11 +643,11 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
             f"time, and work from your own worktree: `ccp tasks worktree --runner {slot}` makes it and prints it "
             "(SPEC §16.5). Resume only the task your slot holds.\n") for slot in new}
         if args.dry_run:  # §16.5: the refusals above ran; nothing below is written
-            for rpw in rp_warnings:
+            for rpw in rp_warnings + stale:
                 print(f"warning: {rpw}", file=sys.stderr)
             return dry_run_out(readiness(root, rc, scope, single=False), {
                 "slots": new, "scope": scope, "review_point": rp, "refactors_added": added,
-                **({"warnings": rp_warnings} if rp_warnings else {}),
+                **({"warnings": rp_warnings} if rp_warnings else {}), "stale": stale,
                 "actions": [{"action": "spawn_teammate", "name": slot, "subagent_type": rc["agent_type"], **model_arg(root, rc),
                              "prompt": prompts[slot], **no_rp_detail(rp)} for slot in new]})
         actions = []
@@ -647,7 +674,7 @@ def cmd_slots(args: argparse.Namespace, root: Path, rc: dict[str, str], w: dict[
                                                f"gave> --as {slot}`, whatever the name.")})
         save_work(root, {"status": "running", "scope": scope, "review_point": rp,
                          "review_point_refactors": rp_refactors, "runners": slots})
-        for rpw in rp_warnings:
+        for rpw in rp_warnings + stale:
             print(f"warning: {rpw}", file=sys.stderr)
         return out({"outcome": "spawn_recorded", "slots": new, "scope": scope, "review_point": rp,
                     "refactors_added": added, "actions": actions,
@@ -736,7 +763,7 @@ def cmd_runner(args: argparse.Namespace) -> int:
     rp = args.review_point or w.get("review_point")
     rp_warnings: list[str] = []
     if args.op in ("spawn", "prompt"):
-        scope, rp_warnings = review_point_scope(root, args, scope, rp)
+        scope, rp_warnings = review_point_scope(root, args, scope, rp, w)
     if args.op == "prompt":
         for rpw in rp_warnings:
             print(f"warning: {rpw}", file=sys.stderr)
@@ -749,6 +776,7 @@ def cmd_runner(args: argparse.Namespace) -> int:
         if not scope:
             die("--scope required (task ids, comma-separated)", 2)
         scope, added, rp_refactors = refactor_scope(root, args, w, scope)
+        stale = stale_lines(root, scope)  # §16.5: after the refactors are added
         # §10.2: after a rotation the old teammate may still hold the name, so the harness may name the
         # fresh one otherwise; until the lead binds it, the hook nudges no one.
         pending = bool(w.get("runner_rotated_at")) and str(w.get("runner_rotated_at")) >= str(w.get("runner_spawned_at") or "")
@@ -757,11 +785,11 @@ def cmd_runner(args: argparse.Namespace) -> int:
         old = live_name(rc, w) if w.get("status") in ("running", "draining") and not pending else None
         refuse_without_integration_ref(root, [rc.get("worktree")])
         if args.dry_run:  # §16.5: the refusals above ran; nothing below is written
-            for rpw in rp_warnings:
+            for rpw in rp_warnings + stale:
                 print(f"warning: {rpw}", file=sys.stderr)
             return dry_run_out(readiness(root, rc, scope, single=True), {
                 "scope": scope, "review_point": rp, "refactors_added": added,
-                **({"warnings": rp_warnings} if rp_warnings else {}),
+                **({"warnings": rp_warnings} if rp_warnings else {}), "stale": stale,
                 **({"would_stop": old} if old else {}),
                 "actions": ([{"action": "shutdown_teammate", "name": old}] if old else []) + [
                     {"action": "spawn_teammate", "name": rc["name"], "subagent_type": rc["agent_type"], **model_arg(root, rc),
@@ -803,7 +831,7 @@ def cmd_runner(args: argparse.Namespace) -> int:
         if made and made.get("error"):
             rp_warnings.append(f"the runner worktree {made['path']} is not made ({made['error']}); fix that, then "
                                "the runner's `ccp tasks worktree` makes it (SPEC §12.1)")
-        for rpw in rp_warnings:
+        for rpw in rp_warnings + stale:
             print(f"warning: {rpw}", file=sys.stderr)
         stop = [{"action": "shutdown_teammate", "name": old,
                  "detail": f"First, before the spawn: send {old} the shutdown_request and wait for its "

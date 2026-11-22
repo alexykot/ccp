@@ -1348,7 +1348,7 @@ tasks:
     depends_on: [0257-one-gate-block-and-one-sentence-per-line]
     path: tasks/0274-briefs-state-each-rule-once-and-tasks-name-the-mutation-copy.md
   - id: 0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope
-    status: pending
+    status: done
     title: Stale-Context warnings reach the lead at the spawn and the implementer in its prompt, not every seat's task check, and a same-point respawn keeps the tasks the lead added
     depends_on: [0257-one-gate-block-and-one-sentence-per-line]
     path: tasks/0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope.md

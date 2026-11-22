@@ -1,7 +1,7 @@
 ---
 task_id: 0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope
 title: Stale-Context warnings reach the lead at the spawn and the implementer in its prompt, not every seat's task check, and a same-point respawn keeps the tasks the lead added
-status: pending
+status: done
 kind: feature
 depends_on: ["0257-one-gate-block-and-one-sentence-per-line"]
 spec_refs: ["S13", "S16", "S21", "S22"]
@@ -151,4 +151,14 @@ change what `team.sh runner spawn` does with its scope. The SPEC passages are th
 
 ## Implementation notes
 
+- 2026-11-22 (implementer): the premises re-measured at `33682648`: `CCP_DEV=1 ./bin/ccp tasks check 2>&1 | grep -c 'Measured at'` gave 7 warning lines (11 at `76f41dd`: tasks closed since, not a change of design); `git log --oneline 76f41dd..33682648 -- <paths>` adds 10 commits, none of which does part of this work; `"def warnings"`, the readiness check's `ok` and `"def review_point_scope"` read as the Context says.
+- `ccp/tasklog.py`: `stale(cfg, tasks)` gives each task's `stale_context` line in task order; `stale_count(n)` the one warning `"def warnings"` now adds in their place.
+- `ccp tasks check --stale` (`ccp/cli.py`): the failures and the exit code as without it, then only the stale lines as warnings; the notes (review-point chains, the estimator) still print, as they are not warnings. With `--lease`, `--staged` or `--closed-points` it exits 2.
+- `ccp prompt implement`: the value `stale_context` is the task's own line, set for the implement phase only; `templates/prompts/implement.md`'s `{{#stale_context}}` block renders it with the re-measure sentence.
+- `team.py`: `stale_lines(root, scope)` reads the product's task log quietly (none when it does not read: the readiness checks name that) and is computed after `refactor_scope`, on the one-runner and the slots paths; the spawn prints the lines on stderr only (its JSON is unchanged), the dry run also lists them in `stale`.
+- The respawn: `respawn_scope(tagged, kept, pending, in_scope)`, a plain function. The kept entries leave out `work.json`'s `review_point_refactors`, so `refactor_scope` still puts the point's pending refactors back on top and names them in `refactors_added`, as before; otherwise a refactor kept from `work.json`'s scope would have stayed in place, unannounced. The `no open task is tagged` refusal now runs after the kept tasks join, so a respawn whose tagged tasks are all done still spawns on the tasks the lead added.
+- 2026-11-22 (fix round 1, review MINOR-1): `tests/test_stale_context_audience.py` gains a `Respawn` case for that path: with both tagged tasks done, a dry respawn on `work.json`'s point R8 spawns on the added 0002-b alone, and one on R10 (another point, none open) still exits 2 with the refusal. Moving the refusal back before the join, and removing it, are both killed by it. No code changed.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #346 head `389ffbc` (close's catch-up of the approved `56820f4`, gate run st-20261122T150701Z-998a08) (squash `0acc3bd`): APPROVE. Passed: cmd-01, cmd-02, cmd-03, cmd-04, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0275-stale-briefs-reach-who-acts-and-a-respawn-keeps-the-lead-s-scope.json.
+

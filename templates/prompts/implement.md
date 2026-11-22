@@ -17,7 +17,10 @@ Before you build, re-run at {{base}} each command the task's Context names for a
 If a figure changed materially, stop before building and put it at the top of your report as a scope question: the premise, its command, the figure the task states and the one you measured.
 {{#refactor}}
 If the work turns out to need a behaviour or stored-data change, stop and report it.
-{{/refactor}}{{#marked_checks}}
+{{/refactor}}{{#stale_context}}
+{{stale_context}}
+Re-run the Context's measurements at your base before you build; a figure that changed materially is a scope question in your report.
+{{/stale_context}}{{#marked_checks}}
 These dod_checks are marked `runs_on: operator-machine`: {{marked_checks}}.
 They are not yours to run: the runner runs each at the head it hands the verifier, as a recorded suite run on the operator's machine (SPEC §10.2, §13.2).
 Build and test the code they check as for any other change, and record no result for them.
