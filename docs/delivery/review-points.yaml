@@ -156,3 +156,13 @@ review_points:
     goal: "Findings of architect pass ar-20261122T141424Z-e148 and the open follow-ups of 0271: the pre-gate and review running what the branch's own change touches through one command, every recorded suite run keeping a log, and the report's suite fill decided on plain rows; mutant-file texts ending where written, reverts taking several ranges and mutate's end-to-end refusal copies cut; and the task log warning on bare test runners in checks, with a brief sign-off showing what changed its paths since it was measured."
     status: planned
     opened: "2026-11-22"
+  - id: R28
+    name: tenth architect pass fixes
+    goal: "Findings of architect pass ar-20261122T162238Z-9098 and the lead's notes on it: a task file's sections ending only at real headings so signed text after a fenced heading line is checked, one task-merge rule for health, the plan and close with close's merge-outcome refusals judged on plain values, verify record refusing a mistyped head first with the unused re-verify packet removed, the worker prompts naming how to run one check with the SPEC naming the language pack's test command, and module docstrings and queue docs that stop restating the SPEC."
+    status: planned
+    opened: "2026-11-22"
+  - id: R29
+    name: bare-runner warning follow-ups
+    goal: "The open follow-ups of 0301: the bare-runner warning reading past the options of an env or timeout prefix with its dead ccp guard removed, and E4's import check skipping, and naming, a tracked test file it cannot read."
+    status: planned
+    opened: "2026-11-22"

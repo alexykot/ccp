@@ -1492,3 +1492,33 @@ tasks:
     title: The prompt-audit writer refuses an actor the ledger would refuse, heartbeat.sh validates before it writes the seat file, validate_event loses its unused reading keyword while a test holds the schemas' actor enums, and the audit docs describe keep_body and audit_keep_days as constants
     depends_on: []
     path: tasks/0303-observability-writers-refuse-an-unknown-actor-before-writing-and-the-audit-docs-follow-the-constants.md
+  - id: 0304-a-task-s-sections-end-at-real-headings-so-a-fenced-heading-line-neither-hides-nor-opens-signed-text
+    status: pending
+    title: A task file's sections end only at real headings, so a fenced `## ` line neither hides a signed passage from ccp verify spec-text nor opens a signed section
+    depends_on: [0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes]
+    path: tasks/0304-a-task-s-sections-end-at-real-headings-so-a-fenced-heading-line-neither-hides-nor-opens-signed-text.md
+  - id: 0305-a-task-s-merge-is-read-one-way-and-close-s-merge-outcome-refusals-are-judged-on-plain-values
+    status: pending
+    title: Health, the plan and close read a task's merge only in the §10.7 form, from one pattern in ccp/refs.py, and close's three refusals on the PR host's merge outcome are judged by plain functions
+    depends_on: []
+    path: tasks/0305-a-task-s-merge-is-read-one-way-and-close-s-merge-outcome-refusals-are-judged-on-plain-values.md
+  - id: 0306-verify-record-refuses-a-head-that-is-not-the-verify-run-s-first-and-the-unused-re-verify-packet-goes
+    status: pending
+    title: ccp verify record refuses, first and by name, a head_sha that is not its open verify run's head, and the re-verify packet contract nothing writes or reads goes with the brief line and refusal text that name it
+    depends_on: []
+    path: tasks/0306-verify-record-refuses-a-head-that-is-not-the-verify-run-s-first-and-the-unused-re-verify-packet-goes.md
+  - id: 0307-seats-are-told-how-to-run-one-check-and-the-spec-names-the-language-pack-s-test-command
+    status: pending
+    title: Worker prompts name ccp tasks dry-run --check --here and ccp docs check --only, and §21.4 names the language pack's test command and did-not-build lines that §20.6 cites
+    depends_on: [0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-declared-lanes]
+    path: tasks/0307-seats-are-told-how-to-run-one-check-and-the-spec-names-the-language-pack-s-test-command.md
+  - id: 0308-module-docstrings-and-queue-docs-stop-restating-the-spec
+    status: pending
+    title: The prompt, verify, submit, lifecycle and observability-lib docstrings name their § and purpose only, emit-event's help names the registry, and the queue's layout is described once, in the SPEC
+    depends_on: []
+    path: tasks/0308-module-docstrings-and-queue-docs-stop-restating-the-spec.md
+  - id: 0309-the-bare-runner-warning-reads-past-env-and-timeout-options-and-e4-skips-a-test-file-it-cannot-read
+    status: pending
+    title: ccp tasks check's bare-runner warning reads past the options of an env, time or timeout prefix and loses its dead ccp guard, and E4's import check skips a tracked test file it cannot read and says so
+    depends_on: []
+    path: tasks/0309-the-bare-runner-warning-reads-past-env-and-timeout-options-and-e4-skips-a-test-file-it-cannot-read.md

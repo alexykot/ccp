@@ -69,13 +69,22 @@ All reshape phases have landed.
     affected, so `ccp suite affected` says to run the full lane. Re-measured after R19's 0261 runs a
     declared part lane in parallel: if a cli or config task's part run still takes longer than the
     gate lane, the lead chooses between each command module registering its own parser and handler
-    (cli.py only dispatches) and a language-pack rule for a declared hub module.
+    (cli.py only dispatches) and a language-pack rule for a declared hub module. Other widely read files
+    bring the part-lane pre-gate near a full gate too: `ccp suite affected` at `ad9b4f84` names 44 of
+    226 test modules for `ccp/tasklog.py`, 99 for `docs/delivery/plane.json`, 127 for 0301's change.
   - F10: the six retirement-guard test modules. Re-measured after R17's 0255 makes `ToolkitFixture`
     cheap; a guard with no reader left is cut then, by one refactor task.
 - **Deferred from architect pass `ar-20261122T055103Z-11aa`** (record in `docs/delivery/reviews/`):
   - F08: a render-only `ccp prompt` (no audit, no run), so a template refactor proves "rendered prompt
     unchanged" with one command at base and head. Tasked if the seats of R24's 0276, the next template
     refactor, note the same scratch render-and-compare work.
+- **Deferred from architect pass `ar-20261122T162238Z-9098`** (record in `docs/delivery/reviews/`):
+  - F09 and F11: `tests/helpers.py` is imported by most test modules, so an edit to it makes the part lane
+    nearly the whole suite, and tests keep private git runners (the shared one strips its output) beside it.
+    Split `tests/helpers.py` by concern and give it one git runner with a raw-output option, by one refactor
+    task, once the R26 tasks that edit shared test fixtures (0293, 0302) are done. The language pack selecting only a
+    changed name's importers is not taken: a test reaches a changed helper through another helper of the
+    same module, so it would miss tests.
 - **Considered and declined:** continuing past the weekly allowance into paid extra usage (the plane
   runs on the prepaid allowance only, ADR-0026), and a separate task-drafting seat (the lead drafts
   tasks, with a writer subagent when several land at once).
