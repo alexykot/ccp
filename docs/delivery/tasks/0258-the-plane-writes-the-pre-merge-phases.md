@@ -244,5 +244,13 @@ The progress and review contracts describe the records the plane writes, in the 
   - Tests added for the escalated and the answered question, the exit-3 refusal, a passed gate-lane run reported
     by `unit_lint`, the fix of a clean review under `verify.skip_review_after_clean` and under `verify.skip_review`,
     and the record a correction to clean writes; the `Failures` cases pin ids, not reason prose.
+- 2026-11-22 (implementer, fix round 2, review-2 findings):
+  - A test that a passed part-lane `ccp suite run` of the round that reported the head is not taken as
+    `unit_lint` (the warning stays): `unit_lint` reads only the full or gate lane.
+  - A test that `submit.ITEMS` plus `unit_lint` are the standing DoD's `formal_submit.must`, so a renamed item in
+    `dod/standing.yaml` fails a test instead of leaving submit naming the old one.
+  - The runner's step 7 says that submit's exit 3 on a task already `verifying` or `merging` (a re-launched
+    verify) needs no submit, and `ccp prompt verify` follows.
+  - `contracts/CLAUDE.md` re-wrapped to its neighbours' width.
 
 ## Verification notes
