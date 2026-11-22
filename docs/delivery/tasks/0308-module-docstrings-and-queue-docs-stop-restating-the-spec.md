@@ -110,9 +110,9 @@ From architect pass `ar-20261122T162238Z-9098`, F02 (`duplication`), F05 (`doc-a
   story: As a plane developer, cutting the docstrings changed no code.
   setup: A checkout of the PR head (any seat).
   steps:
-    1. Run `for f in ccp/prompt.py ccp/verify.py ccp/submit.py ccp/lifecycle.py scripts/observability/lib.py; do diff <(git show origin/main:$f | python3 -c 'import ast,sys; t=ast.parse(sys.stdin.read()); [setattr(n, "body", n.body[1:]) for n in ast.walk(t) if isinstance(n, (ast.Module, ast.FunctionDef, ast.ClassDef)) and n.body and isinstance(n.body[0], ast.Expr) and isinstance(getattr(n.body[0], "value", None), ast.Constant) and isinstance(n.body[0].value.value, str)]; print(ast.dump(t))') <(python3 -c 'import ast,sys; t=ast.parse(open(sys.argv[1]).read()); [setattr(n, "body", n.body[1:]) for n in ast.walk(t) if isinstance(n, (ast.Module, ast.FunctionDef, ast.ClassDef)) and n.body and isinstance(n.body[0], ast.Expr) and isinstance(getattr(n.body[0], "value", None), ast.Constant) and isinstance(n.body[0].value.value, str)]; print(ast.dump(t))' $f) >/dev/null && echo "$f same" || echo "$f differs"; done`.
-  expect: five lines, each `<file> same`: with every docstring set aside, each module's syntax tree is the one on origin/main.
-  dry run (`0f44fb3`): printed the five `same` lines (the checkout is origin/main).
+    1. Run `for f in ccp/prompt.py ccp/verify.py ccp/submit.py ccp/lifecycle.py scripts/observability/lib.py; do diff <(git show $(git merge-base origin/main HEAD):$f | python3 -c 'import ast,sys; t=ast.parse(sys.stdin.read()); [setattr(n, "body", n.body[1:]) for n in ast.walk(t) if isinstance(n, (ast.Module, ast.FunctionDef, ast.ClassDef)) and n.body and isinstance(n.body[0], ast.Expr) and isinstance(getattr(n.body[0], "value", None), ast.Constant) and isinstance(n.body[0].value.value, str)]; print(ast.dump(t))') <(python3 -c 'import ast,sys; t=ast.parse(open(sys.argv[1]).read()); [setattr(n, "body", n.body[1:]) for n in ast.walk(t) if isinstance(n, (ast.Module, ast.FunctionDef, ast.ClassDef)) and n.body and isinstance(n.body[0], ast.Expr) and isinstance(getattr(n.body[0], "value", None), ast.Constant) and isinstance(n.body[0].value.value, str)]; print(ast.dump(t))' $f) >/dev/null && echo "$f same" || echo "$f differs"; done`.
+  expect: five lines, each `<file> same`: with every docstring set aside, each module's syntax tree is the one at the merge base.
+  dry run (`0f44fb3`): printed the five `same` lines (the checkout is its own merge base).
 
 ## Implementation notes
 

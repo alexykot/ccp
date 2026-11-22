@@ -10,7 +10,7 @@ review_refs: ["ar-20261122T162238Z-9098#F01", "ar-20261122T162238Z-9098#F08"]
 review_point: R28
 clashes_with: ["0191-the-grace-release-ends", "0293-the-lead-s-preference-and-holds-need-the-lead-and-seat-ids-and-suite-roles-are-named-once", "0297-a-sign-off-wait-ends-on-the-lead-s-sign-off-and-briefs-name-the-lead-s-actor", "0301-tasks-check-warns-on-a-bare-test-runner-and-a-brief-sign-off-shows-what-changed-since-measured", "0308-module-docstrings-and-queue-docs-stop-restating-the-spec"]
 paths: ["ccp/refs.py", "ccp/health.py", "ccp/lifecycle.py", "docs/delivery/plane.json", "tests/test_refs.py", "tests/test_health.py", "tests/test_tasks_close.py", "tests/test_close_merge_outcome.py"]
-adopt: "none"
+adopt: "a product whose task merges predate §10.7's `Task <NNNN>: ` subject loses those merges' rows from ccp health and calibration; old calibration rows age out and nothing is migrated"
 created: 2026-11-22
 updated: 2026-11-22
 ---
@@ -57,6 +57,7 @@ From architect pass `ar-20261122T162238Z-9098`, F01 (`incoherence`) and F08 (`te
   `CloseReadsAMalformedRunnerCount` runs two whole closes for a count `tests/test_rotation.py`'s
   `test_a_tasks_done_that_is_no_number_reads_as_zero_with_a_warning` and
   `test_one_runners_tasks_done_that_is_no_number_reads_as_zero_too` hold on plain values.
+- **Older merge subjects.** A product whose early task merges carry a subject without the `Task ` prefix (`NNNN: title (#n)`, before §10.7's form) has them read by today's loose pattern and not by §10.7's: `git log --first-parent --format=%s <integration>` on one bound product, counted with the loose pattern and not the written one, gives about 40 such merges. The lead's ruling: accept the drop. Those rows leave health and calibration; nothing is migrated, and old calibration rows age out (the `adopt` line says so).
 - **No SPEC change.** §10.7 rule 1 already defines a task's merge; §27.1's source is "the merges that name a task" (`git grep -n 'merges that name a task' -- docs/spec` at `0f44fb3`: 1 line, `docs/spec/04-observability.md`). The refusal texts do not change.
 - **Other tasks.** 0293 and 0301 (claimed) and 0191 (pending) change other code in `ccp/lifecycle.py`, 0297
   (pending) `sign_off_wait` in `ccp/health.py`, 0293 E27's command in `docs/delivery/plane.json`, and 0308 (pending)

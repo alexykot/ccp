@@ -7,7 +7,7 @@ depends_on: ["0285-seats-run-one-check-as-the-plane-does-and-lane-text-names-dec
 spec_refs: ["S21", "S20", "S13"]
 rule_refs: ["E13", "E18"]
 review_point: R28
-clashes_with: ["0191-the-grace-release-ends", "0299-the-pre-gate-and-review-run-what-the-branch-touches-and-every-recorded-suite-run-keeps-a-log"]
+clashes_with: ["0191-the-grace-release-ends", "0299-the-pre-gate-and-review-run-what-the-branch-touches-and-every-recorded-suite-run-keeps-a-log", "0300-mutant-file-texts-end-where-written-a-revert-takes-several-ranges-and-mutate-s-refusal-copies-go", "0301-tasks-check-warns-on-a-bare-test-runner-and-a-brief-sign-off-shows-what-changed-since-measured"]
 paths: ["templates/prompts/_common.md", "tests/test_prompt_tools.py", "docs/spec/03-quality.md"]
 adopt: "none"
 sign_off: brief
@@ -39,7 +39,8 @@ items (c) and (e). Measured at `0f44fb3` (origin/main) unless a line says otherw
   The line goes in `_common.md`, the part every worker prompt shares, so it is written once.
 - **§21.4 and the pack's test command.** §20.6 (`docs/spec/03-quality.md`, the **The product's command** bullet) says "With no command it runs the language pack's per-test runner (§21.4), its test command followed by the test id", and the `unbuilt` rule reads "unset, the language pack's did-not-build lines". §21.4 says the pack "reads the product's test output (§14.1) and the tests a change touches (§14.7)", and nothing of a test command or did-not-build lines: `git grep -n -e 'test command' -e 'did-not-build' -e 'did not build' -- docs/spec/03-quality.md` at `0f44fb3`: 2 lines, both in §20.6. The pack's fields are `ccp/doclang/__init__.py` `Pack.test_command` and `Pack.unbuilt_re` (since 0267). No value is named in the SPEC (house rule E10: a default lives in code).
 - **Other tasks.** 0299 (pending, signed) changes the prompts' affected run and its tests in
-  `tests/test_prompt_tools.py`; 0191 (pending) lists test globs. Different logic; recorded as clashes since the
+  `tests/test_prompt_tools.py`; 0300 (pending, signed) and 0301 (claimed) change other passages of
+  `docs/spec/03-quality.md`; 0191 (pending) lists test globs. Different logic; recorded as clashes since the
   files meet.
 
 ### Rulings for the build (the lead's)
@@ -47,7 +48,7 @@ items (c) and (e). Measured at `0f44fb3` (origin/main) unless a line says otherw
 - `templates/prompts/_common.md` gains one line, right after the bullet that starts "Give `{{ccp}} suite run` and
   `{{ccp}} mutate` the Bash tool's full limit" and its sub-lines, reading as quoted here (not signed text):
 
-  > - To walk one of your task's dod_checks at your own head as the dry run does, run `{{ccp}} tasks dry-run {{task_id}} --check <check id> --here` (SPEC §21.1); to run one house-rule or docs check by its id as `{{ccp}} docs check` does, run `{{ccp}} docs check --only <id>` (SPEC §20.1).
+  > - To walk one of your task's dod_checks at your own head as the dry run does, run `QUEUE_ROOT={{queue_root}} {{ccp}} tasks dry-run {{task_id}} --check <check id> --here` (SPEC §21.1); to run one house-rule or docs check by its id as `{{ccp}} docs check` does, run `{{ccp}} docs check --only <id>` (SPEC §20.1).
 
   No other template or brief changes.
 - `tests/test_prompt_tools.py` gains `test_every_worker_prompt_names_how_to_run_one_check` in
@@ -64,7 +65,7 @@ items (c) and (e). Measured at `0f44fb3` (origin/main) unless a line says otherw
     > The pack also reads the product's test output (§14.1) and the tests a change touches (§14.7).
 
     PROPOSED:
-    > The pack also reads the product's test output (§14.1) and the tests a change touches (§14.7), and gives the language's test command, which runs test modules, or one test, by name (the per-test runner `ccp mutate` falls back to), and the lines that say the code did not build or import (§20.6).
+    > The pack also reads the product's test output (§14.1) and the tests a change touches (§14.7), and gives the language's test command, where it has one, which runs test modules, or one test, by name (the per-test runner `ccp mutate` falls back to), and the lines that say the code did not build or import (§20.6).
 - **Out:** the agent briefs and the writing-tasks skill; `ccp tasks dry-run` and `ccp docs check` themselves
   (0285); the packs' values; §20.6's text.
 
@@ -83,7 +84,7 @@ items (c) and (e). Measured at `0f44fb3` (origin/main) unless a line says otherw
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_prompt_tools`.
     2. Run `grep -e how_to_run_one_check -e '^OK' <the log step 1 names>`.
-    3. Run `git grep -c -e 'tasks dry-run {{task_id}} --check <check id> --here' -e 'docs check --only <id>' -- templates/prompts/_common.md`.
+    3. Run `git grep -c -e 'QUEUE_ROOT={{queue_root}} {{ccp}} tasks dry-run {{task_id}} --check <check id> --here' -e 'docs check --only <id>' -- templates/prompts/_common.md`.
   expect: step 1 exits 0; step 2 lists `test_every_worker_prompt_names_how_to_run_one_check` `ok`, then `OK`; step 3 prints `templates/prompts/_common.md:1` (both on the one line).
   dry run (`0f44fb3`): step 3 printed nothing (exit 1); steps 1 and 2: n/a — the test is new.
 

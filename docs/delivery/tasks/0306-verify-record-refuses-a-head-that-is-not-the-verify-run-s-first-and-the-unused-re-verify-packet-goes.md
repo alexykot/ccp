@@ -8,7 +8,7 @@ spec_refs: ["S15"]
 rule_refs: ["E13", "E9"]
 review_refs: ["ar-20261122T162238Z-9098#F04", "ar-20261122T162238Z-9098#F07"]
 review_point: R28
-clashes_with: ["0191-the-grace-release-ends", "0293-the-lead-s-preference-and-holds-need-the-lead-and-seat-ids-and-suite-roles-are-named-once", "0308-module-docstrings-and-queue-docs-stop-restating-the-spec"]
+clashes_with: ["0191-the-grace-release-ends", "0293-the-lead-s-preference-and-holds-need-the-lead-and-seat-ids-and-suite-roles-are-named-once", "0299-the-pre-gate-and-review-run-what-the-branch-touches-and-every-recorded-suite-run-keeps-a-log", "0308-module-docstrings-and-queue-docs-stop-restating-the-spec"]
 paths: ["ccp/verify.py", "docs/spec/02-delivery.md", "contracts/reverify_packet.schema.json", "contracts/reverify_packet.example.json", "plugin/agents/delivery-verifier.md", "tests/test_verify.py", "tests/test_verify_record_head.py"]
 adopt: "none"
 sign_off: brief
@@ -35,7 +35,7 @@ From architect pass `ar-20261122T162238Z-9098`, F07 (`incoherence`) and F04 (`ho
 - **The order.** `ccp/verify.py` `"def main"`, the `record` action: `fill_gate`, then `cache_errors`, then `review_errors`, … No step compares the record's `head_sha` with the open verify run's `head` (the run `ccp prompt verify --head` opened, `ccp/prompt.py` `extra={"pr": a.pr or None, "head": a.head or None, …}`): `git grep -n 'latest_open' -- ccp/verify.py` at `0f44fb3`: 3 lines, in `review_errors`, `fill_reason` and `_note_run`, none comparing the run's `head` with the record's. `review_errors` calls `runs.unreviewed_fix` with the record's head; its `since` branch returns "fix round … is newer than the last review … run `ccp prompt review` first" before it compares heads, and the skip exemption (`heads_match(str(skipped.get("head") or ""), judged)`) fails on the mistyped head. Friction, 0298's verifier (15:08:23Z): "`verify record` refused first with a message about an unreviewed fix round when my record carried a mistyped head sha … The refusal text did not name the sha mismatch." `ccp health` gives 0298 2 verify rounds.
 - **The packet.** `git grep -n -i -e 'reverify_packet' -e 're-verify packet' -- ccp plugin contracts tests templates docs/spec docs/cli` at `0f44fb3`: 10 lines in `ccp/verify.py` (1: `"(re-verify packet)"` in `merge_ok`'s head refusal), `contracts/reverify_packet.schema.json` (2), `plugin/agents/delivery-verifier.md` (2: the bullet "A re-verify after a fix-up, or after that head moved, uses `contracts/reverify_packet.schema.json` …") and `tests/test_verify.py` (5: the module docstring and `test_reverify_example_matches_the_schema_and_the_briefs_name_it`). `git ls-files contracts | grep -c reverify` at `0f44fb3`: 2. No code writes or reads a packet; the runner re-verifies with `ccp prompt verify --head <new> --note …` (`plugin/agents/delivery-runner.md`). House rule E9: "A contract no code writes or reads is removed, not kept." No SPEC text names it: `git grep -n -i 'reverify\|re-verify packet' -- docs/spec` at `0f44fb3`: no line.
 - **Other tasks.** 0293 (claimed) edits `ccp/verify.py` for seat ids; 0308 (pending) cuts its module docstring;
-  0191 (pending) lists test globs. Different logic; recorded as clashes since the files meet.
+  0299 (pending, signed) changes another passage of `docs/spec/02-delivery.md`; 0191 (pending) lists test globs. Different logic; recorded as clashes since the files meet.
 
 ### Rulings for the build (the lead's)
 
