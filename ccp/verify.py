@@ -1010,13 +1010,9 @@ NEWER_CONTRACT = ("if the task's head carries a newer record contract (contracts
 
 
 def write_record(root: Path, queue: Path, rec: Any, now: datetime) -> tuple[list[str], Path | None]:
-    """Validate `rec` and write it to verification/<task_id>.json (verification/pr-<n>.json, task_id `pr-<n>`,
-    for a PR that is not a task's). Nothing is written on an error. It stamps `schema_version` with its own
-    `RECORD_VERSION`, whatever the input said. A reader older than the record passes over the keys its contract
-    does not know, at any depth, and holds every key it knows to its contract; a record with no version, or one no
-    newer than the reader, is held to the contract with no extra key, so a task that adds a field can be verified
-    with the newer `ccp` and merged with the older one on PATH (§29.3). A refusal for a key the contract does not
-    know adds a line: a head with a newer contract records with its own `ccp` (§15.4)."""
+    """Validate `rec` and write it to verification/<task_id>.json. Nothing is written on an error. A
+    refusal for a key the contract does not know adds a line: a head with a newer contract records with its
+    own `ccp` (§15.4)."""
     if isinstance(rec, dict) and "checked_at" not in rec:
         rec = {**rec, "checked_at": _iso(now)}
     if isinstance(rec, dict):

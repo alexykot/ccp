@@ -151,12 +151,7 @@ def unit_lint(cfg: Config, q: Path, run: dict[str, Any] | None) -> dict[str, Any
 
 
 def submit(cfg: Config, task: str) -> dict[str, Any]:
-    """Run formal-submit for `task`. A task not mid-flight, or already past `submitted`, is refused (exit 3);
-    a failed item is refused (exit 4), naming each, with nothing moved. It writes only the task's move to
-    `submitted` (§10.1) and, with a proven fix, the `review_proof` on the fix round's run that
-    `ccp prompt verify` of that head reuses (§15.2); `ccp prompt verify` neither runs it nor requires it.
-    `unit_lint` is the verifier's own run: submit only says whether the round that reported the head recorded a
-    passed `ccp suite run` on the full or gate lane."""
+    """Run formal-submit for `task` (§15.1)."""
     q = root()
     tid = str(task_meta(cfg, task)["task_id"])
     st = load_task_state(q, tid)

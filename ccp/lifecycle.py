@@ -3,10 +3,11 @@
 Each command does the step and writes what it changed to the ledger, so a seat cannot do the one
 without the other (§10.6). The claim's refusals are §10.2 (rotation), §8.1 and §14.1 (the gate lane) and
 §25 (the allowance reading); `sign-off` and the sign-offs `claim` and `close` hold a task to are §3.5.
-`wait`, a refused `claim` and the `close` that finishes a review point fire the operator's triggers (§3.6,
-`ccp.notify`). `close` is the merge and the reconcile as one step (§15.5, §16.5): it runs `verify.merge_ok`
-first, merges from the task's own merge worktree and catches a verified head up to the tip when §16.5
-rule 4 allows. `rotation-due` answers the rotation rule for one slot, for the `TeammateIdle` hook (§18.2).
+`wait` on an operator's wait, a `claim` refused at the weekly checkpoint or by a failed auth probe, and the
+`close` that finishes a review point fire the operator's triggers (§3.6, `ccp.notify`). `close` is the merge
+and the reconcile as one step (§15.5, §16.5): it runs `verify.merge_ok` first, merges from the task's own
+merge worktree and catches a verified head up to the tip when §16.5 rule 4 allows. `rotation-due` answers the
+rotation rule for one slot, for the `TeammateIdle` hook (§18.2).
 """
 from __future__ import annotations
 
@@ -188,12 +189,7 @@ def rotation_check(holder: str = "runner") -> dict[str, Any]:
 
 
 def claim(cfg: Config, task: str, holder: str = "runner") -> dict[str, Any]:
-    """Take a task for `holder`, or resume one it holds. Refused before anything is written: a product with no
-    gate lane (exit 2, §8.1, §14.1; a warning during the grace release), a task whose `brief` sign-off is missing
-    (§3.5), a new task to a runner slot due for rotation (exit 7, `rotation_due`, `rotation_step_left`: the
-    runner being rotated out takes no new task), and, by the allowance reading (§25.1), a weekly checkpoint or an
-    account unread too long (exit 5, §25.3) and the 5-hour park % (the task parks, exit 6, §25.4). A resume is
-    never refused for rotation."""
+    """Take a task for `holder`, or resume one it holds (§10.2, §10.5)."""
     q = root()
     try:  # §8.1, §14.1: no gate lane, no task: a warning in the grace release, else exit 2, nothing taken
         if warning := config.require_gate_lane(cfg):
@@ -1141,15 +1137,7 @@ def _recovery(cfg: Config, q: Path, tid: str, pr: str, merge: str, what: str, pu
 
 
 def close(cfg: Config, task: str, pr: str, summary: str) -> dict[str, Any]:
-    """Merge a verified PR and reconcile the task. `verify.merge_ok` first (§15.5), then the merge pinned to the
-    head it printed, then the task file, the product's records (`reconcile.log`, `reconcile.hooks`), the index,
-    one commit pushed to the integration branch, the adapter's `post_close` commands and the queue. It refuses
-    before merging when the checkout it runs from has changes, or a declared sign-off is missing or, for `build`,
-    signed at another head than the one it merges (`sign_off_gaps`). The reconcile is committed and pushed from
-    the task's own merge worktree (`merge-<nnnn>` under `worktrees.dir`), so the checkout close runs from keeps
-    its branch, HEAD and index; a runner worktree (detached) is then moved to the reconcile. A verified head
-    behind the tip is caught up by `_catch_up` when §16.5 rule 4 allows, otherwise refused `behind_tip`. Each
-    check the verdict records as not as written is printed first (`_print_not_as_written`); never a refusal."""
+    """Merge a verified PR and reconcile the task (§10.5, §15.5, §16.5)."""
     from ccp import verify  # noqa: PLC0415
 
     q = root()

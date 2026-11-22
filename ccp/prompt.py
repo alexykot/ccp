@@ -791,15 +791,7 @@ def rules_doc_for(cfg: Config) -> str:
 
 
 def build(cfg: Config, a: Any) -> dict[str, Any]:
-    """Render the prompt for phase `a.phase`, or refuse (exit 1, 2, 4 or 6; nothing opened). Besides implement,
-    fix, review and verify, a merge round only merges the integration tip into the task branch and a ruling round
-    only applies a lead's ruling (its `--note`); review and verify treat their heads as a fix round's. Once its
-    refusal gates pass, it takes an allowance reading (a refused prompt reads nothing) and, at the 5-hour park %,
-    parks the task and refuses with exit 6. The Agent call it prints names the agent type, a description that
-    starts with the run's task and phase, and a pointer to the prompt file, never its text; it carries a `model`
-    alias only when the role's model for this round differs from the agent definition's. An implement round with
-    no estimate for the task warns that the small choice cannot apply. The prompt's token is the short hash of
-    the run id and the text above its last line, kept on the run as `prompt_token`."""
+    """Render the prompt for phase `a.phase`, or refuse (§13.2)."""
     q = root()
     phase = a.phase
     meta = task_meta(cfg, a.task)

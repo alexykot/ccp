@@ -126,5 +126,11 @@ From architect pass `ar-20261122T162238Z-9098`, F02 (`duplication`), F05 (`doc-a
   table, and points at SPEC §23.7. `lib.py`'s comment above `REVIEW_EVENT_TYPES` went whole, with its note that
   `architecture_review` and `docs_audit` are retired types kept so an older ledger reads; `EVENT_TYPES` itself is
   unchanged.
+- Fix round 1 (review of b94fffdf): the five function docstrings copied facts the SPEC and docs/cli already state,
+  so they were cut: `claim`, `close`, `prompt.build` and `submit.submit` are now a one-line purpose with its §,
+  and `verify.write_record`'s docstring is back to what it was at the merge base. Every fact the first round moved
+  there is stated in the SPEC (§10.2, §10.5, §13.2, §15.1, §15.5, §16.5, §29.3) or docs/cli, so no fact moved to a
+  function. `lifecycle.py`'s module docstring now says which `claim` refusals fire the operator's triggers (the
+  weekly checkpoint and a failed auth probe), as the code does.
 
 ## Verification notes
