@@ -1,7 +1,7 @@
 ---
 task_id: 0261-a-declared-part-lane-runs-the-affected-modules
 title: A part lane plane.json declares runs the affected modules, and the plane's part lane runs them in parallel with the test cache
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0213-a-green-tree-skips-the-lane-queue", "0256-suite-run-refuses-a-closed-run-and-config-reads"]
@@ -12,7 +12,7 @@ paths: ["ccp/suite.py", "scripts/gate.sh", "scripts/gate_parallel.py", "docs/del
 adopt: "plane.json suite.lanes.part: an argv that takes test module names as its last arguments, if the product has a faster runner than the language's command"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0261-a-declared-part-lane-runs-the-affected-modules
@@ -158,3 +158,5 @@ Measured at `1aa5e3f`.
   that computed it over its own selection would key differently from the full run and miss its entry.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #312 head `a6aefa0` (squash `ce568ba`): APPROVE. Passed: pl-01, pl-02, pl-03, pl-04. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0261-a-declared-part-lane-runs-the-affected-modules.json.
+
