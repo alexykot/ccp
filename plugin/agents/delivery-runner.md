@@ -191,7 +191,7 @@ ids), tell the lead in one line: the run and how many. The lead decides each one
    A close refused for a missing build sign-off (SPEC §3.5) names the text that needs it: a task that
    declares one, or a verdict that lists `spec_beyond_intent`, text beyond the task's intent. Tell the
    lead which text the operator must sign (the passages close names, and the verified head), and close
-   again once the lead has recorded it with `ccp tasks sign-off <task_id> --stage build`.
+   again once the lead has recorded it with `ACTOR=design-seat ccp tasks sign-off <task_id> --stage build`.
 
    **Merge rules** (SPEC §15.2; the tip rule is Several runners rule 4):
    - Review only once open spec questions are answered and their rulings are on the PR.
@@ -301,7 +301,7 @@ branch (SPEC §10.5): pass it verbatim in the next implementer or fix prompt (`-
 implementer writes it into the task file's `Context (not checked)` section on the task branch, so it
 lands in the task's PR.
 A ruling the lead gives you by message, outside a spec question, the lead records with
-`ccp tasks ruling <task_id> --words "…"` (SPEC §17.5): it has the id `<task_id>-r<n>`. Pass that id on with
+`ACTOR=design-seat ccp tasks ruling <task_id> --words "…"` (SPEC §17.5): it has the id `<task_id>-r<n>`. Pass that id on with
 the ruling, to the implementer and to the verifier, which cites it on a check it holds `as_written: false`.
 
 ## Gates (SPEC §17.9)

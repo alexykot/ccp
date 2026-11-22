@@ -228,7 +228,7 @@ class Window(AdviceCase):
                   row("w1", "worker", cost=0.5, at=ago(72)),
                   row("l9", "lead", ctx=1000, cost=0.3, at=ago(0.5)), row("r1", "runner", cost=0.2, at=ago(0.5)))
         every = self.usage("--since", "2000-01-01")
-        self.assertEqual(sum("design-seat: median context" in x for x in every["advice"]), 1, every["advice"])
+        self.assertEqual(sum(f"{lib.LEAD}: median context" in x for x in every["advice"]), 1, every["advice"])
         self.assertEqual(sum("coordination" in x for x in every["advice"]), 1, every["advice"])
         r = self.usage()
         self.assertEqual(r["advice"], [])

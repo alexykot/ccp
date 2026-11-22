@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, health
+from ccp.queue import lib
 from tests.helpers import health_commit as commit, health_git as git, HEALTH_T0 as T0, Product
 
 MIN = 60
@@ -23,7 +24,8 @@ def at(off: int) -> str:
 
 
 def ev(off: int, tid: str, typ: str, op: str, **payload) -> dict:
-    return {"at": at(off), "task_id": tid, "type": typ, "op": op, "payload": payload}
+    """An event the lead recorded."""
+    return {"at": at(off), "task_id": tid, "type": typ, "op": op, "actor": lib.LEAD, "payload": payload}
 
 
 class SignOffWait(unittest.TestCase):
@@ -146,6 +148,21 @@ class SignOffWait(unittest.TestCase):
         self.assertEqual(list(w), ["R1", "R2"])
         self.assertEqual([(t["task_id"], t["wait_s"]) for t in w["R1"]["tasks"]], [("0001-signed", 20 * MIN)])
         self.assertEqual([(t["task_id"], t["wait_s"]) for t in w["R2"]["tasks"]], [("0005-later", 10 * MIN)])
+
+    def test_a_build_sign_off_another_actor_recorded_ends_no_wait(self):
+        self.ledger(
+            # 0001: the runner's build sign-off 10 minutes after the approve, the lead's 40 minutes after it
+            ev(1000, "0001-signed", "verify", "recorded", verdict="approve"),
+            {**ev(1000 + 10 * MIN, "0001-signed", "sign_off", "recorded", stage="build"), "actor": lib.RUNNER},
+            ev(1000 + 40 * MIN, "0001-signed", "sign_off", "recorded", stage="build"),
+            # 0002: its only build sign-off is the runner's
+            ev(2000, "0002-gated", "verify", "recorded", verdict="approve"),
+            {**ev(2000 + 30 * MIN, "0002-gated", "sign_off", "recorded", stage="build"), "actor": lib.RUNNER},
+        )
+        w = health.collect(self.p.cfg, self.q)["sign_off_wait"]
+        self.assertEqual(list(w), ["R1"])
+        self.assertEqual([(t["task_id"], t["wait_s"], t["on"]) for t in w["R1"]["tasks"]],
+                         [("0001-signed", 40 * MIN, "sign_off")])
 
     def test_since_keeps_only_the_tasks_merged_in_the_window(self):
         self.ledger(*self.three_in_r1())

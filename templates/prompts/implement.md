@@ -19,7 +19,6 @@ If a figure changed materially, stop before building and put it at the top of yo
 If the work turns out to need a behaviour or stored-data change, stop and report it.
 {{/refactor}}{{#stale_context}}
 {{stale_context}}
-Re-run the Context's measurements at your base before you build; a figure that changed materially is a scope question in your report.
 {{/stale_context}}{{#marked_checks}}
 These dod_checks are marked `runs_on: operator-machine`: {{marked_checks}}.
 They are not yours to run: the runner runs each at the head it hands the verifier, as a recorded suite run on the operator's machine (SPEC §10.2, §13.2).
