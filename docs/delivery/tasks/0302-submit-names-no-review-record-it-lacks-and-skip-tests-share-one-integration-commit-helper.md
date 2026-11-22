@@ -98,26 +98,28 @@ Measured at `7a2993b` (origin/main).
   story: As the runner, submitting a proven fix with no clean review names no review record, and a clean review's record is named.
   setup: A checkout of the PR head, in your own worktree (a delivery-verifier seat), with your open run.
   steps:
-    1. Run `python3 -B -m unittest -v tests.test_formal_submit 2>&1 | grep -e no_clean_review_is_submitted -e no_suite_run_at_the_head -e '^OK'`.
-    2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_formal_submit --revert ccp/submit.py`.
-  expect: step 1 lists `test_a_proven_fix_of_a_major_review_with_no_clean_review_is_submitted` `ok` and `test_a_pass_with_no_suite_run_at_the_head_moves_the_task_to_submitted_and_says_so` `ok`, then `OK`; step 2 prints the mutant `killed`.
-  dry run (`7a2993b`): `git grep -n '"review_record": f"' -- ccp/submit.py` printed 1 line, the unconditional path; `python3 -B -m unittest -q tests.test_formal_submit` printed `OK`.
+    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_formal_submit`.
+    2. Run `grep -e no_clean_review_is_submitted -e no_suite_run_at_the_head -e '^OK' <the log step 1 names>`.
+    3. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_formal_submit --revert ccp/submit.py`.
+  expect: step 1 exits 0; step 2 lists `test_a_proven_fix_of_a_major_review_with_no_clean_review_is_submitted` `ok` and `test_a_pass_with_no_suite_run_at_the_head_moves_the_task_to_submitted_and_says_so` `ok`, then `OK`; step 3 prints the mutant `killed`.
+  dry run (`7a2993b`): `git grep -n '"review_record": f"' -- ccp/submit.py` printed 1 line, the unconditional path; step 1 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 33 tests`, and step 2 on its log lists `test_a_proven_fix_of_a_major_review_with_no_clean_review_is_submitted` and `test_a_pass_with_no_suite_run_at_the_head_moves_the_task_to_submitted_and_says_so` `ok` and `OK` (neither asserts `review_record` yet).
 - id: `code-01`
   story: As a docs writer, a span that loses a flag its sibling span keeps is still told it lacks it.
   setup: A checkout of the PR head, in your own worktree (a delivery-verifier seat), with your open run.
   steps:
-    1. Run `python3 -B -m unittest -v tests.test_cli_reference 2>&1 | grep -e not_credited_from_its_siblings -e '^OK'`.
-    2. Write a mutant file: first line `tests/test_cli_reference.py`, then `=== old`, the two lines `credits only them` (the end of the comment on the line `for p in ps:  # a span that names commands holds its flags to each of them, and credits only them`) and the next line `                    credited.setdefault(strip_action(root, p), set()).update(fls)`, then `=== new`, the same two lines with `update(flags)`. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_cli_reference --mutant-file <file>`.
-  expect: step 1 lists `test_a_flag_left_out_of_one_span_is_not_credited_from_its_siblings` `ok`, then `OK`; step 2 prints the mutant `killed`.
-  dry run (`7a2993b`): the same substitution in a scratch worktree, then `python3 -B -m unittest -q tests.test_cli_reference`, printed `OK` (it survives today); the probe of Context printed the one problem for the edited row, and `[]` for the mutant.
+    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_cli_reference`.
+    2. Run `grep -e not_credited_from_its_siblings -e '^OK' <the log step 1 names>`.
+    3. Write a mutant file: first line `tests/test_cli_reference.py`, then `=== old`, the two lines `credits only them` (the end of the comment on the line `for p in ps:  # a span that names commands holds its flags to each of them, and credits only them`) and the next line `                    credited.setdefault(strip_action(root, p), set()).update(fls)`, then `=== new`, the same two lines with `update(flags)`. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_cli_reference --mutant-file <file>`.
+  expect: step 1 exits 0; step 2 lists `test_a_flag_left_out_of_one_span_is_not_credited_from_its_siblings` `ok`, then `OK`; step 3 prints the mutant `killed`.
+  dry run (`7a2993b`): step 1 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 9 tests`, and step 2 on its log printed only `OK` (the test is new); the same substitution as step 3 in a scratch worktree left the module passing (it survives today); the probe of Context printed the one problem for the edited row, and `[]` for the mutant.
 - id: `code-02`
   story: As a plane developer, every SkipFlow test that lands a commit on the integration branch does it through one helper.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `git grep -n -e 'def on_main' -e '"worktree", "add", "-q", "--detach", str(other), "origin/main"' -- tests/review_flow.py tests/test_review_skip.py tests/test_formal_submit.py tests/test_review_skip_provers.py` (the `ReviewFlow` copies of Scope **Out** are not in it).
-    2. Run `python3 -B -m unittest -q tests.test_review_skip tests.test_formal_submit tests.test_review_skip_provers 2>&1 | tail -1`.
-  expect: step 1 prints exactly two lines, both in `tests/review_flow.py` (the `def on_main` line and its worktree line); step 2 prints `OK`.
-  dry run (`7a2993b`): step 1 printed 4 lines (`tests/test_review_skip.py` twice, `tests/test_formal_submit.py`, `tests/test_review_skip_provers.py`); step 2 printed `OK`. A scratch worktree at `7a2993b` with this task's submit change and 0303's changes in it ran `GATE_COLD=1 scripts/gate.sh`: 222 modules, 3837 tests, all passed (no other module reads submit's `review_record`).
+    2. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_review_skip tests.test_formal_submit tests.test_review_skip_provers`.
+  expect: step 1 prints exactly two lines, both in `tests/review_flow.py` (the `def on_main` line and its worktree line); step 2 exits 0 and its summary says `passed`.
+  dry run (`7a2993b`): step 1 printed 4 lines (`tests/test_review_skip.py` twice, `tests/test_formal_submit.py`, `tests/test_review_skip_provers.py`); step 2 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 76 tests`. A scratch worktree at `7a2993b` with this task's submit change and 0303's changes in it ran `GATE_COLD=1 scripts/gate.sh`: 222 modules, 3837 tests, all passed (no other module reads submit's `review_record`).
 
 ## Implementation notes
 
