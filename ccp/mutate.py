@@ -1,44 +1,45 @@
-"""`ccp mutate` (SPEC §20.6): does the named test check what it claims? It applies one mutant at a
-time in the seat's worktree, runs the product's one-test command, and records the mutant killed only
-when that test fails, and `unbuilt` when the run says the code did not build or import.
+"""`ccp mutate` (SPEC §20.6): do the named tests check what they claim? It applies one mutant at a time in the
+seat's worktree, runs the product's one-test command for each named test, and records the mutant killed only
+when one of them fails, and `unbuilt` when that run says the code did not build or import.
 
-`--test` is one test id, passed whole as `{test}`, so it may name a single test method. A mutant is
-`<file>:<old>=><new>` (the text `old`, found exactly once in the file, relative to the worktree's
-root, becomes `new`) or the path of a patch `git apply` takes. A `--mutant-file` holds the same
-substitution without shell quoting, for a mutant that spans lines: the file's path on its first line,
-then a line `=== old`, the old text, a line `=== new` and the new text, each text exactly what lies
-between its marker line and the next (or the file's end); a part missing refuses the call. A `--revert` mutant puts back the
-merge base's version (HEAD's merge base with the integration branch) of a file, or of every change
-from it that a range of the worktree file's lines overlaps or borders, the changes being the hunks
-`git diff -U0` shows between the two; in a shallow worktree (§12.1) the merge base is the one its
-record holds, and with none the call is refused. The `--mutant`s come first, then the `--mutant-file`s,
-then the `--revert`s, each in the order given.
+`--test` is one test id, passed whole as `{test}`, so it may name a single test method; it may repeat, each id
+its own run, in the order given. A mutant is `<file>:<old>=><new>` (the text `old`, found exactly once in the
+file, relative to the worktree's root, becomes `new`, which must differ from it) or the path of a patch `git apply`
+takes. A `--mutant-file` holds the same substitution without shell quoting, for a mutant that spans
+lines: the file's path on its first line, then a line `=== old`, the old text, a line `=== new` and the new
+text, each text exactly what lies between its marker line and the next (or the file's end); a part missing
+refuses the call. A `--revert` mutant puts back the merge base's version (HEAD's merge base with the
+integration branch) of a file, or of every change from it that a range of the worktree file's lines overlaps
+or borders, the changes being the hunks `git diff -U0` shows between the two; in a shallow worktree (§12.1)
+the merge base is the one its record holds, and with none the call is refused. The `--mutant`s come first,
+then the `--mutant-file`s, then the `--revert`s, each in the order given.
 
-`--together` makes them one mutant: its parts are applied in order under one snapshot of all their files, and a
-part that does not apply restores the tree and refuses the call. Parts on different files are each checked against
-the unmutated tree. Its files are the union of its parts' files in order of first touch, and its digest is a digest of
-the parts' digests.
+`--together` makes them one mutant: its parts are applied in order under one snapshot of all their files, and
+a part that does not apply restores the tree and refuses the call. Parts on different files are each checked
+against the unmutated tree. Its files are the union of its parts' files in order of first touch, and its
+digest is a digest of the parts' digests.
 
-Every mutant is checked before anything runs. Then the named test runs once unmutated: a test that
-fails already proves nothing, so the command stops there. Each mutant (a `--together` one whole) is
-applied alone, the test runs (plane.json `mutate.command`, else the language pack's test command
-followed by ` {test}`, with `{test}` filled in shell-quoted, in the worktree's root, in its own process
-group, killed after `mutate.timeout_seconds`, which counts as the test failing), and every file the
-mutant touched is written back byte for byte (a file or directory it made is removed), and checked,
-before the next. A mutated Python file loses its compiled `__pycache__` entries
-before its test runs, so bytecode compiled from another source (an unchecked hash-based `.pyc`, or one
-whose recorded mtime and size happen to match) never runs in its place; a restored one loses them
-again, and every test run has `PYTHONDONTWRITEBYTECODE=1`: a same-size mutant restored within the
-second leaves no bytecode that a later run would take for the source. A mutant whose run exits 0
-survived; one whose run exits non-zero with an output line plane.json `mutate.unbuilt_re` (else the
-language pack's did-not-build lines) matches is `unbuilt` (the code did not build or import, which proves
-nothing about the test); any other is killed.
-A SIGTERM at any point of the call kills the running test, restores the files and exits 143.
+Every mutant is checked before anything runs. Then each named test runs once unmutated: a test that fails
+already proves nothing, so the command stops there. Each mutant (a `--together` one whole) is applied alone
+and the tests run in order until one fails (plane.json `mutate.command`, else the language pack's test command
+followed by ` {test}`, with `{test}` filled in shell-quoted, in the worktree's root, in its own process group,
+killed after `mutate.timeout_seconds`, which counts as the test failing), and every file the mutant touched is
+written back byte for byte (a file or directory it made is removed), and checked, before the next. A mutated
+Python file loses its compiled `__pycache__` entries before its test runs, so bytecode compiled from another
+source (an unchecked hash-based `.pyc`, or one whose recorded mtime and size happen to match) never runs in
+its place; a restored one loses them again, and every test run has `PYTHONDONTWRITEBYTECODE=1`: a same-size
+mutant restored within the second leaves no bytecode that a later run would take for the source. A mutant
+every test's run passes survived; one whose deciding run exits non-zero with an output line plane.json
+`mutate.unbuilt_re` (else the language pack's did-not-build lines) matches is `unbuilt` (the code did not
+build or import, which proves nothing about the test); any other is killed. A SIGTERM at any point of the call
+kills the running test, restores the files and exits 143.
 
-It runs only from a recorded `impl`, `mut`, `rev` or `ver` worktree of the run's task, and only for a run that is
-still open. Each mutant adds a row to the run record's `mutation` list, never the mutant's text or the test's output,
-which goes to a log next to the run's record; the call ends with one `run`/`recorded` event. Exit 0 when every mutant
-was killed, 1 when one survived or was unbuilt or the unmutated test failed, 2 for a usage or configuration problem.
+It runs only from a recorded `impl`, `mut`, `rev` or `ver` worktree of the run's task, and only for a run that
+is still open. Each mutant adds a row to the run record's `mutation` list, naming the test whose run decided
+it and the failing tests that run's output names (`section_re`, as `ccp suite run` reads it), never the
+mutant's text or the test's output, which goes to a log next to the run's record; the call ends with one
+`run`/`recorded` event. Exit 0 when every mutant was killed, 1 when one survived or was unbuilt or the
+unmutated test failed, 2 for a usage or configuration problem.
 """
 from __future__ import annotations
 
@@ -66,6 +67,7 @@ OUTPUT_AT = "_output_at"  # `_test`'s offset in the log where the run's own outp
 OLD_MARK, NEW_MARK = b"=== old", b"=== new"  # a --mutant-file's part separators, each a line of its own
 WORKTREE_KINDS = ("impl", "mut", "rev", "ver")  # the seats' worktrees a call may run in (§20.6)
 RANGE_RE = re.compile(r"([1-9][0-9]*)(?:-([1-9][0-9]*))?")
+MAX_FAILED = 20  # the failing test ids a mutation row keeps
 HUNK_RE = re.compile(rb"^@@ -([0-9]+)(?:,([0-9]+))? \+([0-9]+)(?:,([0-9]+))? @@", re.M)  # a `git diff` hunk header
 
 
@@ -103,9 +105,11 @@ def parse(root: Path, spec: str, cwd: Path, count: bool = True) -> dict[str, Any
 
 def _substitution(root: Path, label: str, rel: str, old: bytes, new: bytes, count: bool = True,
                   from_file: bool = False) -> dict[str, Any]:
-    """A text mutant: `old`, found exactly once in the worktree file `rel`, becomes `new`. Checked against
-    the unmutated tree (the count only with `count`); nothing is written. `from_file`: it came from a
-    `--mutant-file` (`_once`)."""
+    """A text mutant: `old`, found exactly once in the worktree file `rel`, becomes `new`; one whose `new` is
+    `old`, byte for byte, changes nothing and is refused (exit 2). Checked against the unmutated tree (the
+    count only with `count`); nothing is written. `from_file`: it came from a `--mutant-file` (`_once`)."""
+    if old == new:
+        raise QueueError(f"{label}: the new text is the old text, so the mutant changes nothing", 2)
     if Path(rel).is_absolute() or ".." in Path(rel).parts:
         raise QueueError(f"{label}: {rel} must be a path relative to the worktree's root", 2)
     path = root / rel
@@ -121,14 +125,17 @@ def _substitution(root: Path, label: str, rel: str, old: bytes, new: bytes, coun
 def _once(label: str, rel: str, text: bytes, old: bytes, after: bool, from_file: bool = False) -> None:
     """Refuse (exit 2) unless `old` is in `text` exactly once; `after`: `text` is what earlier parts left.
     `from_file`: `old` came from a `--mutant-file`, so it ends with the line break before `=== new`; found
-    0 times but found without that line break, the refusal says so."""
+    0 times but found without that line break, the refusal says so, and that a substitution inside one line
+    goes in `--mutant`."""
     n = text.count(old)
     if n != 1:
         where = f"{rel} as the earlier parts on it leave it" if after else rel
         bare = _without_line_break(old) if from_file and n == 0 else b""
         if bare and (k := text.count(bare)):
             raise QueueError(f"{label}: the old text is in {where} 0 times: it ends with the line break before "
-                             f"=== new, and without it it is in {where} {k} times; end the old text at a line end", 2)
+                             f"=== new, and without it it is in {where} {k} times; end the old text at a line end "
+                             "(the old text includes its last line's line break), or put a substitution inside one "
+                             "line in --mutant", 2)
         raise QueueError(f"{label}: the old text is in {where} {n} times; a mutant names one place", 2)
 
 
@@ -519,6 +526,33 @@ def _says_unbuilt(log: Path, start: int, pats: list[re.Pattern[str]]) -> bool:
     return any(p.search(ln) for ln in text.splitlines() for p in pats)
 
 
+def _failed(log: Path, start: int, pats: list[re.Pattern[str]]) -> list[str]:
+    """The failing tests one run's output (the log from `start`) names: the rest of each line a `section_re`
+    pattern matches, the match taken off and stripped, in output order, at most `MAX_FAILED`."""
+    if not pats:
+        return []
+    with log.open("rb") as f:
+        f.seek(start)
+        text = f.read().decode(errors="replace")
+    out: list[str] = []
+    for ln in text.splitlines():
+        m = next((m for p in pats if (m := p.search(ln))), None)
+        if m is not None:
+            out.append(ln[m.end():].strip())
+            if len(out) == MAX_FAILED:
+                break
+    return out
+
+
+def _usage(tests: list[str], mutants: list[str], reverts: list[str], mutant_files: list[str]) -> None:
+    """Refuse (exit 2) a call that names no test, a blank test id, or no mutant."""
+    if not tests or not all(t.strip() for t in tests):
+        raise QueueError("--test names the test a mutant is judged by; give one or more, none blank", 2)
+    if not mutants and not reverts and not mutant_files:
+        raise QueueError("give at least one --mutant <file>:<old>=><new> or patch file, --mutant-file <path>, "
+                         "or --revert <path>[:<lines>]", 2)
+
+
 def _worktree(cfg: Config, q: Path, task_id: str) -> dict[str, Any]:
     from ccp import wt  # noqa: PLC0415
 
@@ -546,14 +580,14 @@ def log_path(q: Path, run_id: str) -> Path:
     return p.with_name(f"{p.stem}-mutate.log")
 
 
-def run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], cwd: Path | None = None,
+def run(cfg: Config, q: Path, run_id: str, tests: list[str], mutants: list[str], cwd: Path | None = None,
         reverts: list[str] | None = None, mutant_files: list[str] | None = None,
         together: bool = False) -> tuple[dict[str, Any], int]:
     with _on_sigterm() as stop:
-        return _run(cfg, q, run_id, test, mutants, reverts or [], cwd, stop, mutant_files or [], together)
+        return _run(cfg, q, run_id, tests, mutants, reverts or [], cwd, stop, mutant_files or [], together)
 
 
-def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], reverts: list[str],
+def _run(cfg: Config, q: Path, run_id: str, tests: list[str], mutants: list[str], reverts: list[str],
          cwd: Path | None, stop: _Stop, mutant_files: list[str] | None = None,
          as_one: bool = False) -> tuple[dict[str, Any], int]:
     mutant_files = mutant_files or []
@@ -565,11 +599,7 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
                          "runner: the product has no command that runs one test (§20.6). Set mutate.command to a "
                          "shell template that runs the test named by {test}: a command that runs one test, or, "
                          "where each test is a whole script, `sh {test}` with --test the script's path", 2)
-    if not test.strip():
-        raise QueueError("--test names the test a mutant is judged by", 2)
-    if not mutants and not reverts and not mutant_files:
-        raise QueueError("give at least one --mutant <file>:<old>=><new> or patch file, --mutant-file <path>, "
-                         "or --revert <path>[:<lines>]", 2)
+    _usage(tests, mutants, reverts, mutant_files)
     runs.parse_id(run_id)
     rec = runs.load(q, run_id)
     if runs.state(rec) not in runs.OPEN:
@@ -595,32 +625,42 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
     if as_one:
         texts = {_key(p["files"][0]): (root / p["files"][0]).read_bytes() for p in parsed if p["kind"] == "text"}
         parsed = [together(parsed, texts)]
-    line = fill(command, {"test": shlex.quote(test)})
+    commands = [(t, fill(command, {"test": shlex.quote(t)})) for t in tests]
     timeout = int(mu["timeout_seconds"])
     unbuilt = _unbuilt_patterns(mu, pack)
+    from ccp import suite  # noqa: PLC0415
+
+    sections = suite._summary_cfg(cfg)["section_re"]  # noqa: SLF001  (the patterns `ccp suite run` reads, §14.2)
     log = log_path(q, run_id)
-    out: dict[str, Any] = {"ok": True, "run_id": run_id, "worktree": st["name"], "test": test, "log": str(log)}
+    out: dict[str, Any] = {"ok": True, "run_id": run_id, "worktree": st["name"], "tests": tests, "log": str(log),
+                           "baseline": []}
     if base:
         out["merge_base"] = base
     stop.check("before the unmutated run; nothing was run, applied or recorded")
-    unmutated = _test(line, root, timeout, log, f"{test} unmutated", stop)
-    unmutated.pop(OUTPUT_AT)
-    out["baseline"] = unmutated
-    stop.check("in the unmutated run; nothing was applied or recorded")
-    if unmutated["exit_code"] != 0:
-        raise QueueError(f"the test {test} fails with no mutant (exit {unmutated['exit_code']}), so it cannot tell a "
-                         f"mutant; nothing was applied or recorded. Its output: {log}", 1)
+    for test, line in commands:
+        unmutated = _test(line, root, timeout, log, f"{test} unmutated", stop)
+        unmutated.pop(OUTPUT_AT)
+        out["baseline"].append({"test": test, **unmutated})
+        stop.check("in the unmutated run; nothing was applied or recorded")
+        if unmutated["exit_code"] != 0:
+            raise QueueError(f"the test {test} fails with no mutant (exit {unmutated['exit_code']}), so it cannot "
+                             f"tell a mutant; nothing was applied or recorded. Its output: {log}", 1)
     rows: list[dict[str, Any]] = []
     for n, m in enumerate(parsed, 1):
         stop.check(f"before mutant {n} of {len(parsed)}; {len(rows)} mutant(s) recorded")
         snap = _snapshot(root, m["files"])
         res: dict[str, Any] | None = None
+        decided = tests[-1]
         try:
             _apply(root, m)
             for rel in m["files"]:  # a stale compiled entry would run in place of the mutated source
                 _drop_bytecode(root, rel)
-            if not stop.hit:
-                res = _test(line, root, timeout, log, f"{test} mutant {n} ({m['digest']})", stop)
+            for test, line in commands:  # in order until one fails: that run decides the mutant
+                if stop.hit:
+                    break
+                res, decided = _test(line, root, timeout, log, f"{test} mutant {n} ({m['digest']})", stop), test
+                if res["exit_code"] != 0:
+                    break
         except QueueError:
             if not stop.hit:
                 raise
@@ -634,9 +674,10 @@ def _run(cfg: Config, q: Path, run_id: str, test: str, mutants: list[str], rever
         assert res is not None
         at = res.pop(OUTPUT_AT)
         outcome = "survived" if res["exit_code"] == 0 else "unbuilt" if _says_unbuilt(log, at, unbuilt) else "killed"
+        failed = [] if outcome == "survived" else _failed(log, at, sections)
         parts = {"parts": m["parts"]} if "parts" in m else {}  # a --together mutant's parts' kinds
-        row = {"at": iso(), "test": test, "mutant": n, "kind": m["kind"], **parts, "files": m["files"],
-               "digest": m["digest"], "outcome": outcome, **res}
+        row = {"at": iso(), "test": decided, "mutant": n, "kind": m["kind"], **parts, "files": m["files"],
+               "digest": m["digest"], "outcome": outcome, "failed": failed, **res}
         rec = runs.load(q, run_id)
         rec.setdefault("mutation", []).append({**row, "worktree": st["name"]})
         runs.save(q, rec)

@@ -1469,11 +1469,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_suite_affected)
 
     p = sub.add_parser("mutate", help="does a test bite: apply each mutant in the seat's impl, mut, rev or ver worktree, "
-                                      "run the named test, record killed or survived on the run (SPEC §20.6; needs "
+                                      "run the named tests, record killed or survived on the run (SPEC §20.6; needs "
                                       "QUEUE_ROOT)")
     p.add_argument("--run", required=True, help="the calling seat's run (<task_id>/<phase>[-n]); it must be open")
-    p.add_argument("--test", required=True,
-                   help="one test id, passed whole to plane.json mutate.command ({test}); it may name a single method")
+    p.add_argument("--test", required=True, action="append",
+                   help="a test id, passed whole to plane.json mutate.command ({test}); it may name a single method; "
+                        "repeat for more, each run in the order given until one fails, which kills the mutant")
     p.add_argument("--mutant", action="append",
                    help="<file>:<old>=><new> (the old text once in the file, relative to the worktree), or a patch "
                         "file; repeat for more")
