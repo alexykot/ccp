@@ -190,7 +190,7 @@ if done < {moves}:
         self.assertEqual(body["caught_up"], cu)
         self.assertEqual((cu["from"], cu["tip"], cu["merge_tree"]), (head, tip, "clean"))
         self.assertEqual(git(self.main, "rev-list", "--parents", "-n1", merged).split()[1:], [head, tip])
-        self.assertEqual((self.pr_record()["state"], self.pr_record()["head"]), ("MERGED", merged))  # merged at the caught-up head
+        self.assertEqual((self.pr_record()["state"], self.pr_record()["head"]), ("merged", merged))  # merged at the caught-up head
         self.assertEqual(cu["tip_files"], ["other/b.txt"])
         self.assertEqual(cu["task_files"], ["feature.txt", "ptests/test_feature.py", "shared.txt"])
         runs = self.gate_runs()
@@ -264,7 +264,7 @@ if done < {moves}:
         self.assertEqual(cu["tip"], git(self.main, "rev-parse", "origin/main~2"))  # the mover's commit; then the squash
         self.assertEqual(cu["merge_tree"], "union")
         self.assertEqual(cu["tip_files"], ["docs/a/README.md", "other/moving.txt"])
-        self.assertEqual((self.pr_record()["state"], self.pr_record()["head"]), ("MERGED", cu["to"]))
+        self.assertEqual((self.pr_record()["state"], self.pr_record()["head"]), ("merged", cu["to"]))
         self.assertEqual(git(self.main, "show", f"{body['merge_sha']}:docs/a/README.md") + "\n",
                          README + "- `tip.py`: the tip's\n- `task.py`: the task's\n")
 
@@ -309,7 +309,7 @@ if done < {moves}:
         tip = self.tip(self.put("other/b.txt", "b\n"))
         code, _, out, err = self.close(root=self.main)
         self.assertEqual(code, 1, out + err)
-        self.assertEqual(self.pr_record()["state"], "MERGED")
+        self.assertEqual(self.pr_record()["state"], "merged")
         cu = self.record()["catch_up"]
         self.assertEqual((cu["from"], cu["tip"], cu["sign_off_carried"]), (head, tip, head))
         caught = [e for e in self.events() if (e["type"], e["op"]) == ("verify", "set")]
@@ -391,7 +391,7 @@ if done < {moves}:
         self.assertEqual(json.loads(out)["match_head_commit"], merged)
         code, body, out, err = self.close()
         self.assertEqual(code, 0, out + err)
-        self.assertEqual((self.pr_record()["state"], self.pr_record()["head"]), ("MERGED", merged))
+        self.assertEqual((self.pr_record()["state"], self.pr_record()["head"]), ("merged", merged))
         self.assertEqual(self.record()["catch_up"]["from"], head)
         self.assertEqual(len(self.gate_runs()), 1)
 
@@ -401,7 +401,7 @@ if done < {moves}:
         self.tip(self.put("other/b.txt", "b\n"))
         code, _, out, err = self.close(root=self.main)
         self.assertEqual(code, 1, out + err)
-        self.assertEqual(self.pr_record()["state"], "MERGED")
+        self.assertEqual(self.pr_record()["state"], "merged")
         cfg = json.loads((self.main / "docs/delivery/plane.json").read_text())
         cfg["reconcile"]["hooks"] = []
         self.write("docs/delivery/plane.json", json.dumps(cfg))

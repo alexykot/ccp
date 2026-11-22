@@ -132,7 +132,7 @@ class ToolkitFixture:
     def assert_pr_not_merged(self) -> None:
         """The local PR host's record shows no merge: still open, no squash commit recorded."""
         rec = self.pr_record()
-        self.assertEqual((rec["state"], rec["merge_commit"]), ("OPEN", ""))
+        self.assertEqual((rec["state"], rec["merge_commit"]), ("open", ""))
 
     def pr_record(self, number: str | None = None) -> dict:
         """The local PR host's record of PR `number` (`PR` by default)."""
@@ -518,7 +518,7 @@ class Toolkit(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertFalse(body["merged_now"])
         self.assertTrue(body["reconciled_now"])
-        self.assertEqual((self.pr_record()["state"], self.pr_record()["merge_commit"]), ("MERGED", merged))  # not merged again
+        self.assertEqual((self.pr_record()["state"], self.pr_record()["merge_commit"]), ("merged", merged))  # not merged again
         self.assertIn("status: done", git(self.main, "show", "origin/main:docs/delivery/tasks/0002-second.md"))
         code, body, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)  # a third run changes nothing
         self.assertEqual(code, 0, out + err)
