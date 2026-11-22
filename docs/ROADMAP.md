@@ -62,10 +62,8 @@ All reshape phases have landed.
     `architect.checks`) is a lead adopt step now that R15's 0212 has landed, so a docs-rule failure
     shows before the full lane. No task.
 - **Deferred from architect pass `ar-20261121T132817Z-d5e5`** (record in `docs/delivery/reviews/`):
-  - F06: test `ccp mutate`'s argument and mutant-text refusals on plain values (`_once`,
-    `parse_file`) instead of through a git fixture. Re-measured after R17's 0255 makes
-    `ToolkitFixture` cheap; tasked only if `tests.test_mutate` still stands out in the health
-    summary's slowest modules.
+  - F06: taken up by task 0271 (R23), after architect pass `ar-20261121T223646Z-f0a7` (F06) found
+    `tests.test_mutate` still the second slowest module after 0255.
 - **Deferred from architect pass `ar-20261121T174754Z-7df5`** (record in `docs/delivery/reviews/`):
   - F01: a change to `ccp/cli.py` or `ccp/config.py` names more than a quarter of the test modules as
     affected, so `ccp suite affected` says to run the full lane. Re-measured after R19's 0261 runs a

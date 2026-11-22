@@ -26,9 +26,10 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   check: pass — the architect looks for branches reachable only through a fixture repo; the health
   summary's slowest modules point at them
 - **E21** A dod_check proves behaviour with the head's own tool: a check of a `ccp` command runs the
-  checkout's `bin/ccp` (or `ccp wt exec … --`), never `ccp` on PATH, which is the released plane.
-  Signed SPEC text is proved by `bin/ccp verify spec-text <task>`; a doc grep pins one token, never a
-  sentence or a table row.
+  checkout's `bin/ccp` (or `ccp wt exec … --`), never `ccp` on PATH, which is the released plane. A
+  check that needs a modified copy (a planted fault) names `ccp mutate`, or a `ccp wt create --kind mut`
+  worktree, never a hand `git worktree add`. Signed SPEC text is proved by `bin/ccp verify spec-text
+  <task>`; a doc grep pins one token, never a sentence or a table row.
   check: pass — the architect and the reviewer read new tasks' dod_checks
 
 ## Publishing
@@ -58,6 +59,12 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   rewritten their data; then the alias is removed. A contract no code writes or reads is removed,
   not kept.
   check: pass — the architect lists contracts with no writer or reader
+- **E27** A seat's actor id (the lead's, the runner's) is named once, in the seat table, and code reads it
+  by name. A command the SPEC gives to one seat refuses another seat's ACTOR through one shared guard,
+  and a reader counts only that seat's records.
+  check: pass — the architect compares the lead's commands; it becomes also a command check with task
+  0272 (architect.checks `E27`: `! git grep -n '"design-seat"' -- ccp scripts
+  ':(exclude)ccp/board_page.html' ':(exclude)scripts/observability/lib.py'`)
 - **E12** One source per enumerated concept: a list of values (round phases, event types and
   ops, plane.json's blocks, their keys and defaults, the roles and their default models) is defined
   once in code. Other code derives from it. One test compares every plane.json block's keys and
