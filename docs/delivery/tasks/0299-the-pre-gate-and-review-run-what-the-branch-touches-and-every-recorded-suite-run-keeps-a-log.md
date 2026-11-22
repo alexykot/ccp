@@ -198,4 +198,24 @@ Measured at `3368264`.
 
 ## Implementation notes
 
+- `ccp/suite.py`: `changed_paths` takes `<ref>...` (nothing after the dots) as the diff from `_merge_base(<ref>, HEAD)`
+  against the working tree plus untracked files; an unknown ref or no merge base exits 2 naming the `--since`.
+  `affected_plan` is the one decision of what runs the modules (lane, argv or None for the lane's own, the text the
+  line prints); `affected_hint` formats its line from it, unchanged, and `ccp suite run --affected` runs it.
+  `affected_modules` is what both commands work from. `main_run` refuses `--since` without `--affected`, and
+  `--affected` with `--lane` or a command, before loading anything (`affected_usage`); then `affected_run` works out
+  the lane and command, and the run goes on as any run.
+- Choices the rulings leave open, the narrowest: `ccp suite run --affected` runs from the product root (the modules are
+  named from it, as a named lane runs there), resolving a relative `--log` from the caller's directory first; before
+  the run it prints one stderr line naming the `ccp suite run --lane …` it runs. The leading-dash `--since` rewrite in
+  `cli.main` now applies to `suite run` too, so `--since -x` is an unknown ref, not an option.
+- The `--full` log is opened only for a recorded run (a queue and a `started` row), as the ruling says; an unrecorded
+  `--full` run keeps none, `--log` or not. Both streams are copied to it by the pumps under one lock, chunk by chunk;
+  staged lanes' stage marks stay on stderr (they are `ccp`'s lines, not copied output). The log is not read back and
+  no summary is printed in `--full`.
+- `ccp/report.py`: `judge_suite` holds every branch of the old `fill_suite`; `fill_suite` folds, calls it and applies
+  its update. Six `ReportCrossCheck` tests went (E15); `tests/test_fill_suite.py` holds 13 tests on plain rows.
+- `tests/test_suite.py` `Counting.test_a_real_unittest_run_is_counted` asserted a `--full` run's `ended` row has
+  `log: None`; the ruling changes that, so it now reads the log.
+
 ## Verification notes
