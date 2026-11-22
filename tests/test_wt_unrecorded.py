@@ -19,7 +19,8 @@ class ArchName(unittest.TestCase):
                 self.assertRegex(f"{wt.ARCH_PREFIX}-{architect._new_rid(mode)}", wt.ARCH_RE)
 
     def test_a_name_without_a_review_id_is_not_one(self):
-        for name in (wt.ARCH_PREFIX, f"{wt.ARCH_PREFIX}-x", f"{wt.ARCH_PREFIX}-0002", f"{wt.MERGE_PREFIX}-0002"):
+        for name in (wt.ARCH_PREFIX, f"{wt.ARCH_PREFIX}-x", f"{wt.ARCH_PREFIX}-0002", f"{wt.MERGE_PREFIX}-0002",
+                     f"{wt.ARCH_PREFIX}-sm-20261121T000000Z-abcd"):  # a spec question's id, not a pass's
             with self.subTest(name=name):
                 self.assertNotRegex(name, wt.ARCH_RE)
 
@@ -85,6 +86,7 @@ class Unrecorded(ToolkitFixture, unittest.TestCase):
         self.assertIn(other.name, self.registered())
         wt.remove_unrecorded(self.main, self.path)
         self.assertNotIn(other.name, self.registered())
+
 
 if __name__ == "__main__":
     unittest.main()

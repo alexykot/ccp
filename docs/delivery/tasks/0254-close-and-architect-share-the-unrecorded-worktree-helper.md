@@ -126,5 +126,11 @@ callers in `ccp/lifecycle.py`, next to the code this task moves.
 - Tasks dry-run's temporary tree is made and removed through the helpers; its unused `_git` went.
 - `tests/test_wt_outside.py`: close calls `_merge_checkout` twice at this head, for the local host's squash and
   then the reconcile, so the test pins `[merge-0002, merge-0002]`.
+- 2026-11-22 (fix round 1): `ARCH_RE` is now `arch-` plus `refs.PASS_ID`, a new constant in `ccp/refs.py` that
+  `REVIEW_ID` is built from (a pass's id without the `#F<n>` suffix): the grammar has one home, and a spec
+  question's `sm-` id no longer reads as an architect worktree. Close's reuse-branch link has its own test: a
+  `worktrees.links` path added after a failed close made the merge worktree is linked in by the rerun. Dry-run
+  prunes once more after deleting its temp directory, so a tree `worktree remove` could not drop is not left
+  registered (the order before this task).
 
 ## Verification notes

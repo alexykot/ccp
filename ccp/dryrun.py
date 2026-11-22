@@ -174,6 +174,7 @@ def dry_run(cfg: Config, task: str, write: bool) -> int:
     finally:
         wt.remove_unrecorded(main, tree)
         shutil.rmtree(tmp, ignore_errors=True)
+        queue.git(main, "worktree", "prune")  # a tree `worktree remove` could not drop is unregistered once deleted
     short = sha[:7]
     for line in printout(tid, short, ref, checks, runs, skip):
         print(line)
