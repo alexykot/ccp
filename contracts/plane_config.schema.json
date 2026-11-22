@@ -401,7 +401,7 @@
           "minimum": 1,
           "default": 3,
           "deprecated": true,
-          "description": "Constant, 3 (SPEC §29.3): Or this many friction notes since the last pass. A value set here other than the constant still applies, with a warning, until the key is deleted."
+          "description": "Constant, 3 (SPEC §29.3): Or friction notes from this many tasks, times parallel.max_in_flight, since the last pass. A value set here other than the constant still applies, with a warning, until the key is deleted."
         },
         "drift_ratio": {
           "type": "number",

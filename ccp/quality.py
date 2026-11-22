@@ -144,7 +144,8 @@ def _architect_view(cfg: Config, a: dict[str, Any], due: dict[str, Any], tasks: 
                                        "triage_grace_tasks", "refactor_every")},
         "due": due.get("due"), "reason": _cut(due.get("reason"), 300), "reasons": [_cut(r, 200) for r in due.get("reasons") or []],
         "done_since_last": due.get("done_since_last"), "days_since_last": due.get("days_since_last"),
-        "notes_since_last": due.get("notes_since_last"), "running": due.get("running") or [],
+        "cadence_tasks": due.get("cadence_tasks"), "notes_tasks": due.get("notes_tasks"),
+        "noted_tasks_since_last": due.get("noted_tasks_since_last"), "running": due.get("running") or [],
         "awaiting_triage": due.get("awaiting_triage") or [], "shape_due": due.get("shape_due") or [],
         "failed_in_a_row": due.get("failed_in_a_row") or 0,
         "drift": {k: drift.get(k) for k in ("drift_ratio", "drift_limit", "drift", "timed_tasks")} if drift else None,
@@ -182,7 +183,7 @@ def house_rules(cfg: Config) -> dict[str, Any] | None:
             "budgets_over": sum(1 for b in budgets if b["over"] or b["missing"])}
 
 
-def friction(q: Path, since: str | None, notes_due: int | None) -> dict[str, Any]:
+def friction(q: Path, since: str | None) -> dict[str, Any]:
     """Friction notes: how many, when, from which seat and source, and the latest few."""
     ns = health.notes(q)
     now = datetime.now(timezone.utc)
@@ -202,7 +203,7 @@ def friction(q: Path, since: str | None, notes_due: int | None) -> dict[str, Any
     s = _epoch(since) if since else None
     week_ago = (now - timedelta(days=7)).timestamp()
     return {"total": len(ns), "since_last_pass": sum(1 for n in ns if s is None or (_epoch(n.get("at")) or 0) > s),
-            "notes_due": notes_due, "last_7d": sum(1 for n in ns if (_epoch(n.get("at")) or 0) >= week_ago),
+            "last_7d": sum(1 for n in ns if (_epoch(n.get("at")) or 0) >= week_ago),
             "per_day": per_day, "per_week": dict(sorted(weeks.items())[-12:]),
             "by_seat": dict(Counter(str(n.get("by") or "unknown") for n in ns).most_common()),
             "by_source": dict(Counter(str(n.get("source") or "unknown") for n in ns).most_common()),
@@ -234,7 +235,7 @@ def collect(cfg: Config, q: Path, scope: list[str] | None = None) -> dict[str, A
     last = ((arch or {}).get("last") or {}).get("started_at")
     return {"architect": arch, "rules": _guard(errors, "rules", house_rules, cfg),
             "suite": _guard(errors, "suite", suite_series, q),
-            "friction": _guard(errors, "friction", friction, q, last, (cfg.architect or {}).get("notes_due")),
+            "friction": _guard(errors, "friction", friction, q, last),
             "errors": errors}
 
 
