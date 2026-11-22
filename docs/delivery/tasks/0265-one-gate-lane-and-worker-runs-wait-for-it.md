@@ -154,5 +154,9 @@ From architect pass `ar-20261121T132817Z-d5e5`, findings F01, F02 and F05 (the r
 - Ruling round 1 (`-r1`, `-r2`, quoted in Context) changes no code: `-r1` accepts cfg-01's
   `['gate', 'part'] ['gate']` with 0261's part lane kept; `-r2` keeps the refusal of an explicit `--lane full`
   where no full lane is declared, and leaves §16.2's `exclusive_lanes` example to a later signed task.
+- Fix round 1 (review NITs): the busy line no longer offers `--wait SECONDS` or `--wait auto` to a run that
+  has just used a wait above 0 (an explicit `--wait SECONDS` or a bound run's default auto wait); it names the
+  wait taken instead. A run that never waited still gets the offer. `tests/test_parallel_lanes.py`'s module
+  docstring now says a held lane exits 75 at once only for a run that does not wait.
 
 ## Verification notes

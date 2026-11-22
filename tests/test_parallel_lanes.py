@@ -1,5 +1,5 @@
 """SPEC §16.6 (step 4 of the parallel-runners build): exclusive test lanes. A lane plane.json `suite.exclusive_lanes` names
-runs one at a time in the queue; a run that finds it held exits 75 at once, runs nothing, says who
+runs one at a time in the queue; a run that finds it held and does not wait (§16.6) exits 75 at once, runs nothing, says who
 holds it, and counts `lane_busy` on its run. Other lanes, and products without the key, are unchanged."""
 from __future__ import annotations
 
@@ -82,6 +82,7 @@ class Lanes(SuiteFixture, unittest.TestCase):
         holder = self.hold(seconds=3)
         r = self.run_suite("--lane", "gate", "--wait", "1", "--", PY, "-c", "print(1)")
         self.assertEqual(r.returncode, 75, r.stderr)  # held longer than it waits
+        self.assertNotIn(b"`--wait SECONDS`", r.stderr)  # its wait is used up: no offer to wait
         r = self.run_suite("--lane", "gate", "--wait", "30", "--", PY, "-c", "print(1)")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn(b"waiting up to 30 s", r.stderr)

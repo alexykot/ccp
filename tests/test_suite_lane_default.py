@@ -106,6 +106,7 @@ class GateOnlyProduct(SuiteFixture, unittest.TestCase):
         self.assertLess(time.monotonic() - t0, 5)
         self.assertEqual(r.returncode, suite.BUSY_EXIT, r.stderr)
         self.assertNotIn(b"--wait auto:", r.stderr)
+        self.assertIn(b"`--wait SECONDS`", r.stderr)  # it never waited: the busy line offers a wait
         self.assertNotIn("waited_s", self.busy_rows()[-1])
         _killpg(holder)
         holder.wait(timeout=30)

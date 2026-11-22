@@ -1241,8 +1241,10 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                   + (f" (task {holder['task_id']})" if holder.get("task_id") else "")
                   + (f" since {holder['at']}" if holder.get("at") else "")
                   + (f"; its usual run is {usual:.0f} s" if usual is not None else "")
-                  + f". Nothing ran. Do other work, then run it again, or wait for it with `--wait SECONDS` or `--wait auto` "
-                  f"(exit {BUSY_EXIT}).", file=sys.stderr)
+                  + (f". Nothing ran after waiting {wait} s. Do other work, then run it again " if wait  # its wait is used up
+                     else ". Nothing ran. Do other work, then run it again, or wait for it with `--wait SECONDS` or "
+                          "`--wait auto` ")
+                  + f"(exit {BUSY_EXIT}).", file=sys.stderr)
             return BUSY_EXIT
     if q is not None and started is not None:
         try:
