@@ -9,4 +9,4 @@
   products not on the plugin), `formal-submit.template.sh` (formal-submit, a wrapper of `ccp tasks submit`, §15.1).
 - `observability/` holds the ledger writers (§23) that `ccp` and the hooks share.
 
-New behaviour goes into `ccp`, not into a new script: a script here only wraps `ccp` or Git.
+New behaviour goes into `ccp`, not into a new script (E7).

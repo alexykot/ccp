@@ -11,25 +11,25 @@ import textwrap
 import unittest
 from pathlib import Path
 
-from tests.helpers import PLANE_ROOT, with_test_methods
+from tests.helpers import PLANE_ROOT
 
 
 ROOT = PLANE_ROOT
 SCRIPTS = ("gate.sh", "gate_parallel.py", "gate_result.py")
-OK = with_test_methods("""
+OK = """
 import unittest
 class A(unittest.TestCase):
-    def t_one(self): self.assertTrue(True)
+    def test_one(self): self.assertTrue(True)
     @unittest.skip("not here")
-    def t_two(self): pass
-""")
-MORE = with_test_methods("""
+    def test_two(self): pass
+"""
+MORE = """
 import unittest
 class B(unittest.TestCase):
-    def t_a(self): self.assertEqual(1, 1)
-    def t_b(self): self.assertEqual(2, 2)
-    def t_c(self): self.assertEqual({lhs}, 3)
-""")
+    def test_a(self): self.assertEqual(1, 1)
+    def test_b(self): self.assertEqual(2, 2)
+    def test_c(self): self.assertEqual({lhs}, 3)
+"""
 
 
 class GateFixture(unittest.TestCase):

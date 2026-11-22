@@ -18,10 +18,9 @@ The test cache (SPEC §15.3, plane.json `verify.accept_cache`). Before a module 
 up: the SHA-256 of the module file's content, its name, the interpreter's version and the inputs every
 module shares. The shared inputs are `git ls-files -s` of every tracked path, with uncommitted edits
 (tracked files changed in the working tree, and untracked files git does not ignore) folded in by
-their content, except the test modules no other test module imports: those are no input of another
-module. An untracked directory git lists whole (a nested repository) is folded in file by file, its
-own `.git` left out. A test module some test module imports (a shared helper) is an input of every
-module. A key whose recorded result passed, no older than plane.json
+their content, except the test modules: a test module imports no other (E4), so each is an input of
+its own key alone. An untracked directory git lists whole (a nested repository) is folded in file by file, its
+own `.git` left out. A key whose recorded result passed, no older than plane.json
 `verify.accept_cache.max_age_days` (no limit when unset), is a hit: the module is reported `cached`,
 with the seconds and tests of the run that recorded it, and is not run. A miss runs; once every
 module has ended and no `state/*` branch is left (the check gate.sh fails on), each that passed
@@ -62,11 +61,6 @@ ROOT = Path(__file__).resolve().parent.parent
 SERIAL: list[str] = []
 RAN_RE = re.compile(r"^Ran (\d+) tests? in ", re.M)
 KEY_VERSION = "ccp-gate-cache 1"
-# What names another test module in a test module's text: `tests.test_x` anywhere (an import, a dotted
-# name in a string), and the names after `from tests import` or `from . import`, and `from .test_x`.
-DOTTED_RE = re.compile(r"\btests\.(test_\w+)")
-FROM_PKG_RE = re.compile(r"^\s*from\s+(?:tests|\.)\s+import\s+(\([^)]*\)|[^\n#]+)", re.M)
-FROM_REL_RE = re.compile(r"^\s*from\s+\.(test_\w+)", re.M)
 _print = threading.Lock()
 
 
@@ -118,22 +112,6 @@ def cache_dir() -> Path:
     return d
 
 
-def shared_tests(names: list[str]) -> set[str]:
-    """The test modules (dotted) that some test module names, so that their content is everyone's input."""
-    stems = {n.split(".", 1)[1] for n in names}
-    named: set[str] = set()
-    for n in names:
-        try:
-            text = (ROOT / "tests" / f"{n.split('.', 1)[1]}.py").read_text(errors="replace")
-        except OSError:
-            continue
-        found = set(DOTTED_RE.findall(text)) | set(FROM_REL_RE.findall(text))
-        for group in FROM_PKG_RE.findall(text):
-            found |= set(re.findall(r"\b(test_\w+)", group))
-        named |= {s for s in found if s in stems and s != n.split(".", 1)[1]}
-    return {f"tests.{s}" for s in named}
-
-
 def _blob(path: Path) -> tuple[str, str] | None:
     """A working-tree file as git would stage it, unfiltered: its mode and blob id; None when it is gone.
     An unchanged file gives its index entry's own values, so the key does not hang on stat data. A file
@@ -162,8 +140,8 @@ def _files_under(rel: str) -> list[str]:
 def shared_inputs(leaves: set[str]) -> str:
     """The digest of what every module may read: the index's entry for every tracked path, with the
     working tree's edits to tracked paths and its untracked, unignored files folded in by content.
-    Paths in `leaves` (a test module no other imports) are left out. Read-only: nothing is written to
-    git, its index or its objects."""
+    Paths in `leaves` (every test module of the suite) are left out. Read-only: nothing is written to git,
+    its index or its objects."""
     entries: dict[str, list[str]] = {}
     for raw in _git("ls-files", "-s", "-z").split(b"\0"):
         if raw:
@@ -281,8 +259,7 @@ def main(argv: list[str]) -> int:
     else:
         try:
             cache = Cache(cache_dir(), max_age_days())
-            shared = shared_tests(suite)
-            leaves = {f"tests/{m.split('.', 1)[1]}.py" for m in suite if m not in shared}
+            leaves = {f"tests/{m.split('.', 1)[1]}.py" for m in suite}
             common = shared_inputs(leaves)
             keys = {m: module_key(m, common) for m in run}
         except ValueError as e:

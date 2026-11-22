@@ -1,7 +1,7 @@
 ---
 task_id: 0295-package-docs-name-rules-by-id-and-every-test-module-is-a-cache-leaf
 title: Package docs name house rules by id, tests/CLAUDE.md keeps only the fixtures worth naming, contracts/CLAUDE.md drops snapshots, fixtures write test modules with def test_, and the gate cache treats every test module as a leaf
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E26", "E4"]
@@ -140,4 +140,17 @@ E26's own text and check grep were amended in that triage's PR.
 
 ## Implementation notes
 
+- Premises re-measured at `097a6560`: restated-rule grep 5 lines; `tests/CLAUDE.md` 64 lines and 8 one-liners; `with_test_methods|def t_` 18 lines;
+  the shared-test-module grep 17 lines (16 plus `tests/test_fence.py`'s docstring, as the Context says); no `ccp` module reads `shared_tests`;
+  no snapshot file under `contracts/`; the `LEAD_ENV|as_lead` count in `tests/CLAUDE.md` 0. Every figure held.
+- `tests/CLAUDE.md` is 37 lines. Its **Reuse rule.** paragraph is gone: the intro names E4 in one sentence (a helper a second module needs
+  moves to a fixture module first). The old sentence on binding another module's test-class methods is not restated: E4's command check holds it.
+- `scripts/gate_parallel.py`: `leaves` is every test module of the suite; `shared_inputs`' `leaves` parameter is kept, so the digest's
+  exclusion of test modules is unchanged. The docstring says each test module is an input of its own key alone, by E4.
+- Removed from `tests/test_gate_cache.py`: the `HELPER`, `USER` and `FROM_PKG` templates and the three tests that built an import of one test module by another.
+- Mutation check: replacing the leaf set with `set()` is killed by `test_editing_one_test_module_reruns_only_it`.
+- Fix round 1: `tests/CLAUDE.md` said a fixture's class docstring says what it builds; 10 of the 19 fixture classes have none, but every fixture module has a module docstring, so the sentence now says module docstring.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #345 head `f267c43` (squash `d66ffbe`): APPROVE. Passed: doc-01, doc-02, doc-03, code-01, code-02. Gate: `scripts/gate.sh` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0295-package-docs-name-rules-by-id-and-every-test-module-is-a-cache-leaf.json.
+
