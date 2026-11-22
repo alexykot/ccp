@@ -23,8 +23,8 @@ the tip; it is not a task's, so it is not recorded.
 `ccp tasks close`'s own `merge-<nnnn>` (`merge_path`, §10.5) is not recorded either: one a failed
 close left behind is listed, removed with the rest of its task's worktrees, and removed by gc once
 its task is done or dropped and leased by no one. It, an architect pass's `arch-<review id>` (§19.7)
-and tasks dry-run's temporary tree are made with `add_unrecorded`; the last two are removed with
-`remove_unrecorded`, and an `arch-` one a failed removal left is listed, with no task.
+and tasks dry-run's temporary tree are made with `add_unrecorded` and removed with `remove_unrecorded`,
+and an `arch-` one a failed removal left is listed, with no task.
 
 What a product needs beyond a git worktree (a database branch, a local stack) is a hook in plane.json
 `env`: `setup` and `teardown` run when a worktree is made and removed, `up` and `down` start and stop
@@ -349,11 +349,14 @@ def add_unrecorded(cfg: Config, main: Path, path: Path, rev: str) -> None:
     link(cfg, main, path)
 
 
-def remove_unrecorded(main: Path, path: Path) -> None:
-    """Remove a worktree `add_unrecorded` made, then prune git's worktree list. Failures are ignored:
-    the worktree may be gone already."""
-    git(main, "worktree", "remove", "--force", str(path))
+def remove_unrecorded(main: Path, path: Path) -> str | None:
+    """Remove an unrecorded worktree (one `add_unrecorded` made, or close's `merge-<nnnn>`), then prune git's
+    worktree list, whether the removal worked or not. Returns git's failure text (stripped, at most 200
+    characters) when `git worktree remove` fails, else None; a caller that does not warn ignores it (the
+    worktree may be gone already)."""
+    r = git(main, "worktree", "remove", "--force", str(path))
     git(main, "worktree", "prune")
+    return (r.stderr or r.stdout).strip()[:200] if r.returncode != 0 else None
 
 
 def _free_name(cfg: Config, q: Path, kind: str, nnnn: str) -> str:
@@ -737,8 +740,8 @@ def remove_task(cfg: Config, q: Path, task_id: str) -> list[str]:
 
 def _remove_merge(cfg: Config, path: Path) -> list[str]:
     """Remove a merge worktree (§10.5) a failed close left behind; a failure is a warning."""
-    r = git(main_checkout(cfg), "worktree", "remove", "--force", str(path))
-    return [f"worktree {path}: {(r.stderr or r.stdout).strip()}"] if r.returncode != 0 else []
+    err = remove_unrecorded(main_checkout(cfg), path)
+    return [f"worktree {path}: {err}"] if err is not None else []
 
 
 # ---------------------------------------------------------------- a command on the merge base

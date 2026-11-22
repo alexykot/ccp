@@ -27,6 +27,8 @@ def frontmatter(p: Path) -> dict:
 
 
 def run(cmd, **kw):
+    """`cmd`, run in the plane checkout unless the call names a `cwd`: never in the process's own, which may be gone."""
+    kw.setdefault("cwd", PLANE)
     return subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, **GIT_ENV, **kw.pop("env", {})}, **kw)
 
 

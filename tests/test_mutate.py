@@ -339,6 +339,29 @@ class NoStaleBytecode(MutateFixture, unittest.TestCase):
         self.assertEqual(self.cached(), [])
 
 
+def group_gone(pgid: int) -> bool:
+    """No process of group `pgid` runs: `ps` lists none of it but zombies. A zombie waits for its reaper, which
+    under load may be late, and `os.killpg(pgid, 0)` on a group of zombies alone is refused on macOS, so it
+    cannot tell them from a running process."""
+    out = subprocess.run(["ps", "-A", "-o", "pgid=,stat="], capture_output=True, text=True, check=True).stdout
+    rows = (line.split() for line in out.splitlines())
+    return not any(len(r) >= 2 and r[0] == str(pgid) and not r[1].startswith("Z") for r in rows)
+
+
+class GroupGone(unittest.TestCase):
+    def test_a_group_whose_only_member_is_an_unreaped_zombie_is_gone(self):
+        p = subprocess.Popen(["sleep", "0"], start_new_session=True)
+        self.addCleanup(p.wait)
+        os.waitid(os.P_PID, p.pid, os.WEXITED | os.WNOWAIT)  # it has exited, and stays unreaped
+        self.assertTrue(group_gone(p.pid))
+
+    def test_a_group_running_a_process_is_not_gone(self):
+        p = subprocess.Popen(["sleep", "30"], start_new_session=True)
+        self.addCleanup(p.wait)
+        self.addCleanup(p.kill)
+        self.assertFalse(group_gone(p.pid))
+
+
 class Interrupted(MutateFixture, unittest.TestCase):
     """`ccp mutate` in its own process, sent a SIGTERM while the test command runs."""
 
@@ -369,16 +392,13 @@ class Interrupted(MutateFixture, unittest.TestCase):
         return code, group
 
     def assert_gone(self, group: int) -> None:
-        deadline = time.monotonic() + 10
-        while True:
-            try:
-                os.killpg(group, 0)
-            except ProcessLookupError:
-                return
-            except PermissionError:
-                pass
+        deadline = time.monotonic() + 30
+        while not group_gone(group):
             if time.monotonic() > deadline:
-                os.killpg(group, signal.SIGKILL)
+                try:
+                    os.killpg(group, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
                 self.fail("the test command was left running")
             time.sleep(0.05)
 
