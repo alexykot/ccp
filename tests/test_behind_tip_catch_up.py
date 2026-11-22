@@ -22,7 +22,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, lifecycle, suite, tasklog, verify
-from ccp.queue import lib
+from tests.helpers import as_lead
 from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 PY = shlex.quote(sys.executable)
@@ -297,7 +297,7 @@ if done < {moves}:
         self.assertFalse((self.main / config.WORKTREES_DIR / "merge-0002").exists())
 
     def sign_build(self) -> None:
-        with mock.patch.dict(os.environ, {"ACTOR": lib.LEAD}):  # only the lead records a sign-off (§3.5)
+        with as_lead():  # only the lead records a sign-off (§3.5)
             code, _, out, err = self.ccp("tasks", "sign-off", "0002", "--stage", "build", "--by", "op", "--words",
                                          "ship it")
         self.assertEqual(code, 0, out + err)

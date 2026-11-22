@@ -34,6 +34,8 @@ exec python3 - "$@" <<'PY'
 import contextlib, datetime, io, json, os, re, shutil, subprocess, sys
 from pathlib import Path
 
+# An ACTOR the session exports never reaches the `ccp` calls below: each records as ccp's default actor.
+os.environ.pop("ACTOR", None)
 args = sys.argv[1:]
 def arg(name, default=None):
     return args[args.index(name) + 1] if name in args and args.index(name) + 1 < len(args) else default

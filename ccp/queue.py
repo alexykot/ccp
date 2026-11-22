@@ -181,11 +181,12 @@ def actor(default: str = "task-runner") -> str:
 
 def lead_actor(what: str) -> str:
     """§3.5, §13.4, §17.5: the lead's actor id, for a record only the lead makes (`what`, as the refusal names it):
-    `ACTOR` unset, or naming the lead, gives it, as `actor` reads `ACTOR`; one naming another known actor is refused
-    (exit 2), before the caller reads or writes anything."""
-    a = actor(lib.LEAD)
+    given only when `ACTOR` is exactly the lead's. Unset, empty, unknown or another seat's id is refused (exit 2),
+    before the caller reads or writes anything."""
+    a = os.environ.get("ACTOR")
     if a != lib.LEAD:
-        raise QueueError(f"only the lead records {what} (ACTOR is {a}): tell the lead", 2)
+        raise QueueError(f"only the lead records {what} (ACTOR is {a or 'unset'}): the lead runs it as "
+                         f"ACTOR={lib.LEAD} ccp …; any other seat tells the lead", 2)
     return a
 
 
@@ -293,23 +294,25 @@ def events_path(q: Path) -> Path:
 
 def sign_offs(q: Path, task_id: str) -> dict[str, dict[str, Any]]:
     """§3.5: the task's latest recorded sign-off per stage (`brief`, `build`), from the ledger's
-    `sign_off` `recorded` events: the payload (`stage`, `by`, `words`, `head`) with the event's `at`."""
+    `sign_off` `recorded` events the lead recorded: the payload (`stage`, `by`, `words`, `head`) with the event's
+    `at`. One another actor recorded is no sign-off and is left out."""
     out: dict[str, dict[str, Any]] = {}
     for ev in lib.load_events(events_path(q)):
         p = ev.get("payload") or {}
         if ev.get("task_id") == task_id and ev.get("type") == "sign_off" and ev.get("op") == "recorded" \
-                and isinstance(p, dict) and p.get("stage"):
+                and ev.get("actor") == lib.LEAD and isinstance(p, dict) and p.get("stage"):
             out[str(p["stage"])] = {**p, "at": ev.get("at")}
     return out
 
 
-def rulings(q: Path, task_id: str) -> list[dict[str, Any]]:
+def rulings(q: Path, task_id: str, lead_only: bool = True) -> list[dict[str, Any]]:
     """§17.5: the lead rulings recorded on the task, in order, from the ledger's `ruling` `recorded` events the lead
     recorded: the payload (`id`, `n`, `check?`, `words`) with the event's `at`. One another actor recorded is no
-    lead ruling (§15.4) and is left out."""
+    lead ruling (§15.4) and is left out, unless `lead_only` is False (`lifecycle.ruling` numbers from every one)."""
     return [{**ev["payload"], "at": ev.get("at")} for ev in lib.load_events(events_path(q))
             if ev.get("task_id") == task_id and ev.get("type") == "ruling" and ev.get("op") == "recorded"
-            and ev.get("actor") == lib.LEAD and isinstance(ev.get("payload"), dict) and ev["payload"].get("id")]
+            and (not lead_only or ev.get("actor") == lib.LEAD)
+            and isinstance(ev.get("payload"), dict) and ev["payload"].get("id")]
 
 
 def open_questions(q: Path) -> list[dict[str, Any]]:

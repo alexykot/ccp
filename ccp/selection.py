@@ -25,7 +25,7 @@ from typing import Any
 
 from ccp import config, tasklog
 from ccp.config import Config
-from ccp.queue import QueueError, load_task_state, load_work, preferred_ids, sign_offs
+from ccp.queue import QueueError, lib, load_task_state, load_work, preferred_ids, sign_offs
 
 
 def _work(q: Path | None) -> dict[str, Any]:
@@ -127,7 +127,8 @@ def unsigned(cfg: Config, q: Path | None, tasks: list[dict[str, Any]]) -> dict[s
             continue
         elif (got := sign_offs(q, tid).get("brief")) is None:
             out[tid] = {"kind": "missing", "why": "no brief sign-off on record (the lead records the operator's "
-                                                  f"with `ccp tasks sign-off {tid} --stage brief`, SPEC §3.5)"}
+                                                  f"with `ACTOR={lib.LEAD} ccp tasks sign-off {tid} --stage brief`, "
+                                                  "SPEC §3.5)"}
         elif stale := lifecycle.brief_stale(cfg, t, str(got.get("head") or "")):
             out[tid] = {"kind": "stale", "why": "stale brief sign-off: " + "; ".join(stale)}
     return out

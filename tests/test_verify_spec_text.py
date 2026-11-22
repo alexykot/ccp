@@ -14,8 +14,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
 from ccp import cli, tasklog, verify
-from ccp.queue import lib
-from tests.helpers import GIT_ENV, Product
+from tests.helpers import GIT_ENV, Product, as_lead
 from tests.toolkit_fixture import ToolkitFixture, git
 
 PASSAGE = ("A task whose brief sign-off is due and not recorded is passed over the same way, and stderr names "
@@ -462,7 +461,7 @@ class Prompts(ToolkitFixture, unittest.TestCase):
         git(self.main, "push", "-q", "origin", "main")
         git(self.runner, "fetch", "-q", "origin")
         git(self.runner, "checkout", "-q", "--detach", "origin/main")
-        with mock.patch.dict(os.environ, {"ACTOR": lib.LEAD}):  # only the lead records a sign-off (§3.5)
+        with as_lead():  # only the lead records a sign-off (§3.5)
             code, _, out, err = self.ccp("tasks", "sign-off", "0002", "--by", "op", "--words", "signed")
         self.assertEqual(code, 0, out + err)
         for text in self.prompts():

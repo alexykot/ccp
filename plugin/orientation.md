@@ -83,6 +83,8 @@ Role docs come from the ccp plugin: agents `ccp:delivery-*`, skills
 - Working as the **team lead** (the spec maintainer): the spec-maintainer protocol governs you.
   When asked to triage an architect report or a review, the review-triage protocol governs that
   triage. Writing or amending a task: writing-tasks.
+  The lead's three records (`ccp tasks sign-off`, `tasks ruling`, `tasks follow-up`) run as
+  `ACTOR=design-seat ccp …`, per command; never export ACTOR in the session.
   To direct the runner's next tasks, the lead runs `ccp tasks prefer <id> [<id>…] --reason "…"`, never a
   "take X next" message, which races the claim: `ccp tasks next` returns the first ready one, and its
   claim removes only that one (SPEC §10.4). A new list replaces the old; `--clear` empties it.

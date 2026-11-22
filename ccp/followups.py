@@ -82,8 +82,8 @@ def closed_point_errors(entries: list[dict[str, Any]] | None, point_tasks: dict[
         for r in open_rows:
             if r["task_id"] in tasks:
                 errs.append(f"review point {rp} is closed, but follow-up {r['id']} of {r['task_id']} is undecided: "
-                            f"the lead decides it with `ccp tasks follow-up {r['id']} --task <id> | --proposal <id> "
-                            '| --drop "<reason>"` (SPEC §22.2)')
+                            f"the lead decides it with `ACTOR={queue.lib.LEAD} ccp tasks follow-up {r['id']} "
+                            '--task <id> | --proposal <id> | --drop "<reason>"` (SPEC §22.2)')
     return errs
 
 

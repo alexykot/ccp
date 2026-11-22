@@ -9,6 +9,7 @@ from unittest import mock
 
 from ccp import config, followups, refs, runs, tasklog
 from ccp.queue import lib
+from tests.helpers import as_lead
 from tests.toolkit_fixture import ToolkitFixture, git
 
 
@@ -75,7 +76,7 @@ class TheCommands(ToolkitFixture, unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.lead = mock.patch.dict(os.environ, {"ACTOR": lib.LEAD})
+        self.lead = as_lead()
         self.lead.start()
         runs.save(self.q, record(self.RUN, "a test gap out of scope", "a step for a later task"))
 

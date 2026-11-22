@@ -8,10 +8,12 @@
 # agent's type (opened by `ccp prompt`) to the agent, or stops it. Without arguments `ccp` finds the
 # project's queue itself (`--root` is the session's project directory, and QUEUE_ROOT comes from the
 # plane's binding for the project in its docs/delivery/plane.json). It always exits 0: a hook never
-# blocks or fails the agent it watches. Errors land in <queue>/runs/_unbound.jsonl.
+# blocks or fails the agent it watches. Errors land in <queue>/runs/_unbound.jsonl. An ACTOR the session
+# exports is dropped, so `ccp` records as its default actor, whatever the session names.
 set -u
 action="${1:-}"; queue="${2:-}"; plane="${3:-}"
 case "$action" in start|stop) ;; *) exit 0 ;; esac
+unset ACTOR
 input="$(cat)"
 root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 if [ -n "$queue" ]; then

@@ -17,7 +17,7 @@ from unittest import mock
 
 from ccp import cli, followups, refs, runs
 from ccp.queue import lib
-from tests.helpers import binding, Product, REVIEW_REGISTER as REGISTER, tagged_task as _tagged
+from tests.helpers import binding, Product, REVIEW_REGISTER as REGISTER, tagged_task as _tagged, LEAD_ENV
 from tests.team_hosting_fixture import TeamCase
 
 
@@ -85,7 +85,7 @@ class TheTasksCheck(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.q = Path(tmp.name)
         (self.q / "project.yaml").write_text(binding(product_root=self.p.root))
-        env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), "ACTOR": lib.LEAD})
+        env = mock.patch.dict(os.environ, {"QUEUE_ROOT": str(self.q), **LEAD_ENV})
         env.start()
         self.addCleanup(env.stop)
 

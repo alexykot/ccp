@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import board, config, otel, prhost, prompt, runs, tasklog, verify
+from ccp.queue import lib
 
 TASK = """---
 task_id: {tid}
@@ -210,6 +211,15 @@ PLANE_ROOT = Path(__file__).resolve().parents[1]
 RUN_CHECKOUT_SCRIPT = str(PLANE_ROOT / "scripts/run-checkout.sh")
 GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com", "GIT_COMMITTER_NAME": "t",
            "GIT_COMMITTER_EMAIL": "t@example.com", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
+
+
+# §3.5, §13.4, §17.5: the environment a test runs `ccp` in as the lead (`queue.lead_actor` guards its records).
+LEAD_ENV = {"ACTOR": lib.LEAD}
+
+
+def as_lead():
+    """The environment with `ACTOR` naming the lead (`LEAD_ENV`), as a context manager or decorator."""
+    return mock.patch.dict(os.environ, LEAD_ENV)
 
 
 def git_run(cmd, **kw):

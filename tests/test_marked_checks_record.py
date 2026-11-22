@@ -15,7 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import cli, prhost, runs, verify
-from tests.helpers import approve_verdict as approve, binding, now_iso, Product
+from tests.helpers import approve_verdict as approve, binding, now_iso, Product, as_lead
 
 TID = "0002-second"
 CID = "mac-01"
@@ -287,7 +287,7 @@ class RecordAndMerge(unittest.TestCase):
 
     def test_a_waiver_by_a_lead_ruling_or_an_answered_spec_question_is_recorded_and_judged_waived(self):
         out, err = io.StringIO(), io.StringIO()
-        with redirect_stdout(out), redirect_stderr(err), mock.patch.dict(os.environ, {"ACTOR": "task-lead"}):
+        with redirect_stdout(out), redirect_stderr(err), as_lead():
             code = cli.main(["--root", str(self.p.root), "tasks", "ruling", TID, "--words", "skip it this round"])
         self.assertEqual(code, 0, out.getvalue() + err.getvalue())
         qid = "sm-20261121T120000Z-abcd"

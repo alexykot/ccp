@@ -11,7 +11,7 @@ from unittest import mock
 from ccp import config, prompt as prompt_mod
 from ccp.queue import QueueError
 from tests import helpers
-from tests.helpers import TASK, binding, done_report
+from tests.helpers import TASK, binding, done_report, as_lead
 from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 
@@ -550,7 +550,7 @@ class Checkpoint(ToolkitFixture, unittest.TestCase):
         self.assertIn("--reason", err)
         code, _, _, err = self.ccp("allowance", "continue", "--to", "75", "--reason", "x")
         self.assertEqual(code, 2)  # does not raise the checkpoint
-        with mock.patch.dict(os.environ, {"ACTOR": "design-seat"}):
+        with as_lead():
             code, body, out, err = self.ccp("allowance", "continue", "--to", "90", "--reason", "go on: 2 tasks left, resets Tuesday")
         self.assertEqual(code, 0, out + err)
         code, _, out, err = self.ccp("tasks", "claim", "0002")

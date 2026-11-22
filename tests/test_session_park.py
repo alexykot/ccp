@@ -5,7 +5,6 @@ reading's reset, never from now + 5 h."""
 from __future__ import annotations
 
 import json
-import os
 import time
 import unittest
 from datetime import datetime, timezone
@@ -14,7 +13,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from ccp import config, lifecycle, usage
-from tests.helpers import machine_file
+from tests.helpers import machine_file, as_lead
 from tests.toolkit_fixture import ToolkitFixture
 
 
@@ -51,7 +50,7 @@ class SessionFixture(ToolkitFixture):
         return json.loads(p.read_text()) if p.is_file() else {}
 
     def wake(self, *flags):
-        with mock.patch.dict(os.environ, {"ACTOR": "design-seat"}):
+        with as_lead():
             return self.ccp("allowance", "session-wake", *flags)
 
 
@@ -146,7 +145,7 @@ class Park(SessionFixture, unittest.TestCase):
         self.reading(96, reset_in=40 * 60)
         self.assertEqual(self.ccp("tasks", "claim", "0002")[0], 6)
         self.reading_file.write_text(json.dumps({"seven_day": {"utilization": 20, "resets_at": "2099-10-27T04:00:00Z"}}))
-        with mock.patch.dict(os.environ, {"ACTOR": "design-seat"}):
+        with as_lead():
             code, body, out, err = self.ccp("allowance", "session-wake", "--fire")
         self.assertEqual(code, 0, out + err)
         self.assertTrue(body["reset"])

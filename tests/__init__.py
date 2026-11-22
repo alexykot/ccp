@@ -21,8 +21,8 @@ os.environ["CCP_BINDINGS_DIR"] = "/nonexistent/control-plane-bindings-guard"
 os.environ["CCP_ALLOWANCE_UNSHARED"] = "1"
 # §15.2, §15.5: no test calls the real gh (GitHub); the tests that read a PR name a stand-in.
 os.environ["CCP_GH_BIN"] = "/nonexistent/gh-guard"
-# §14: a seat's exported queue and binding never reach a test; the tests that need one set their own.
-for _k in ("QUEUE_ROOT", "PROJECT_YAML"):
+# §14: a seat's exported queue, binding and actor never reach a test; the tests that need one set their own.
+for _k in ("QUEUE_ROOT", "PROJECT_YAML", "ACTOR"):
     os.environ.pop(_k, None)
 # §24: `ccp otel status` warns on these in the shell; a developer's own settings must not reach the tests.
 for _k in ("OTEL_LOG_USER_PROMPTS", "OTEL_LOG_TOOL_DETAILS"):

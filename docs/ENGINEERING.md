@@ -60,8 +60,8 @@ format is the one `ccp` reads (SPEC §20.1). The command rules run through `arch
   not kept.
   check: pass — the architect lists contracts with no writer or reader
 - **E27** A seat's actor id (the lead's, the runner's) is named once, in the seat table, and code reads it
-  by name. A command the SPEC gives to one seat refuses another seat's ACTOR through one shared guard,
-  and a reader counts only that seat's records.
+  by name. A command the SPEC gives to one seat refuses, through one shared guard, every ACTOR that does
+  not name that seat (unset or unknown included), and a reader counts only that seat's records.
   check: command — architect.checks `E27`: `! git grep -n '"design-seat"' -- ccp scripts ':(exclude)ccp/board_page.html' ':(exclude)scripts/observability/lib.py'`; pass for the guard (the architect compares the lead's commands)
 - **E12** One source per enumerated concept: a list of values (round phases, event types and
   ops, plane.json's blocks, their keys and defaults, the roles and their default models) is defined

@@ -4,12 +4,11 @@ its own entry, a legacy `next_task`, the board."""
 from __future__ import annotations
 
 import json
-import os
 import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.helpers import TASK
+from tests.helpers import TASK, as_lead
 from tests.toolkit_fixture import ToolkitFixture
 
 KEYS = ("next_tasks", "next_task", "next_task_by", "next_task_at", "next_task_reason")
@@ -25,7 +24,7 @@ class Prefer(ToolkitFixture, unittest.TestCase):
         self.write("docs/delivery/tasks/0005-gone.md", t("0005-gone", status="dropped"))
         self.write("docs/delivery/tasks/0006-other.md", t("0006-other"))
         self.set_work(scope=["0002-second", "0003-third", "0004-fourth", "0005-gone"])
-        self.lead = mock.patch.dict(os.environ, {"ACTOR": "design-seat"})
+        self.lead = as_lead()
 
     def set_work(self, **kw):
         (self.q / "work.json").write_text(json.dumps({"status": "running", **kw}))

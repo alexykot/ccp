@@ -10,8 +10,8 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, tasklog
-from ccp.queue import lib
 from tests.toolkit_fixture import PLANE, ToolkitFixture, git
+from tests.helpers import as_lead
 
 TASK_FILE = "docs/delivery/tasks/0002-second.md"
 
@@ -30,7 +30,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
 
     def lead(self, *args: str, **kw):
         """`ccp` as the lead, the only seat that records a sign-off (§3.5)."""
-        with mock.patch.dict(os.environ, {"ACTOR": lib.LEAD}):
+        with as_lead():
             return self.ccp(*args, **kw)
 
     def sign(self, *extra: str):

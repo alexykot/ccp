@@ -15,6 +15,7 @@ from types import SimpleNamespace
 
 from ccp import config, lifecycle, queue, verify
 from ccp.lifecycle import catch_up_blocked
+from ccp.queue import lib
 from tests.helpers import Product
 from tests.toolkit_fixture import git
 
@@ -388,7 +389,7 @@ class ABuildSignOffIsCarriedOnlyByTheCatchUp(unittest.TestCase):
         ev = queue.events_path(self.q)
         ev.parent.mkdir(parents=True, exist_ok=True)
         ev.write_text(json.dumps({"type": "sign_off", "op": "recorded", "task_id": "0002-second", "at": "2026-11-13T10:00:00Z",
-                                  "payload": {"stage": "build", "by": "op", "words": "ship it", "head": self.SIGNED}}) + "\n")
+                                  "actor": lib.LEAD, "payload": {"stage": "build", "by": "op", "words": "ship it", "head": self.SIGNED}}) + "\n")
 
     def carry(self, **cu) -> None:
         (self.q / "verification").mkdir(exist_ok=True)
