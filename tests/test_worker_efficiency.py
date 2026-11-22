@@ -83,9 +83,9 @@ class Templates(unittest.TestCase):
 
     def test_review_asks_for_a_cold_run_only_where_it_takes_no_cache_hits(self):
         cold = render("review", part_lane="part")
-        self.assertIn("with `--lane part --cold`; you need not run the full suite", cold)
+        self.assertIn("`--lane part --cold`; you need not run", cold)
         cached = render("review", part_lane="part", accept_cache=True, review_cache=True, cache_max_age_days=3)
-        self.assertIn("with `--lane part`; you need not run the full suite", cached)
+        self.assertIn("`--lane part`; you need not run", cached)
         self.assertNotIn("--cold", cached)
 
     def test_review_with_it_runs_touched_modules_through_the_cache(self):

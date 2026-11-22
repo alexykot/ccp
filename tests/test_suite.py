@@ -1485,8 +1485,9 @@ class LaneRoles(SuiteFixture, unittest.TestCase):
         cfg.setdefault("suite", {})["roles"] = {"part": "subset"}
         p.write_text(json.dumps(cfg))
         self.ccp("tasks", "claim", "0002")
-        for phase, marker in (("review", "and any mutation run"), ("verify", "is mutation-tested")):
+        for phase, marker, lane in (("review", "and any mutation run", "`--lane subset --cold`"),  # §15.3: no cache hits
+                                    ("verify", "is mutation-tested", "`--lane subset`")):
             code, _, out, err = self.ccp("prompt", phase, "0002", "--pr", "7", "--head", "a" * 40)
             self.assertEqual(code, 0, out + err)
             text = (self.q / f"prompts/0002-second/{phase}-prompt.md").read_text()
-            self.assertIn("`--lane subset`", rule_item(text, marker), phase)
+            self.assertIn(lane, rule_item(text, marker), phase)
