@@ -1,11 +1,13 @@
 """`ccp tasks submit <id>` (SPEC §15.1): formal-submit, the standing DoD's local checklist the runner runs after
-the review that clears the PR head and before `ccp prompt verify`. It is not the gate: it runs no test and writes
-nothing but the task's move to `submitted` (§10.1), and `ccp prompt verify` neither runs it nor requires it.
+the review that clears the PR head and before `ccp prompt verify`. It is not the gate: it runs no test of its own
+(the review skips' proof and provers run as `ccp prompt verify` runs them) and writes nothing but the task's move to
+`submitted` (§10.1), and `ccp prompt verify` neither runs it nor requires it.
 
 The PR and its head are the ones the task's latest done implement or rework round reported (§13.4). Whether the
 review record's review covers that head is judged by the rules `ccp prompt verify` applies (§15.2). A failed item
 is refused, exit 4, naming each, with nothing moved. `unit_lint` is the verifier's own run: submit only says
-whether the round that reported the head recorded a passed `ccp suite run` on the full or gate lane.
+whether the round that reported the head recorded a passed `ccp suite run` on the full or gate lane. A task that is
+not mid-flight, or is already past `submitted`, is refused, exit 3, with nothing moved.
 """
 from __future__ import annotations
 
@@ -14,11 +16,14 @@ from typing import Any, NamedTuple
 
 from ccp import report, runs
 from ccp.config import Config, lane_for
-from ccp.queue import QueueError, load_task_state, phase_move, read_json, root, task_meta
+from ccp.queue import MID_FLIGHT, QueueError, load_task_state, phase_move, read_json, root, task_meta
 
 # The standing DoD's `formal_submit` items submit judges, in the order it names a failure (dod/standing.yaml);
 # its fourth, `unit_lint`, is reported, never judged.
 ITEMS = ("pr_exists", "review_artifact_present", "no_open_spec_escalation")
+
+# §10.1: the phases a task is submitted from, mid-flight and not past `submitted`.
+SUBMITTABLE = MID_FLIGHT - {"verifying", "merging"}
 
 
 class Facts(NamedTuple):
@@ -45,6 +50,13 @@ def failures(task_id: str, f: Facts) -> list[str]:
     if f.open_refs:
         out.append(f"no_open_spec_escalation: open, listing {task_id}: {', '.join(f.open_refs)}")
     return out
+
+
+def phase_refusal(task_id: str, status: str | None) -> str | None:
+    """§10.1: why a task in `status` is not submitted (closed, released, verifying or merging); None when it may be."""
+    if status in SUBMITTABLE:
+        return None
+    return f"{task_id} is {status or 'pending'}: only a task mid-flight and not past `submitted` is submitted"
 
 
 def _review_gaps(task_id: str, f: Facts) -> list[str]:
@@ -98,18 +110,13 @@ def coverage(cfg: Config, q: Path, task_id: str, head: str, pr: int | None) -> s
 
 
 def open_refs(q: Path, task_id: str) -> list[str]:
-    """§17.3, §17.9: the open spec questions (`questions/sm-*.json`, no answer, status open) whose `task_id` or
-    `blocks` name the task, and the open escalations of class `spec` of the task, by id."""
+    """§17.3, §17.9: the open spec questions whose `task_id` or `blocks` name the task, as the spec maintainer counts
+    them (`open_questions`: open, or escalated to the operator), and the open escalations of class `spec` of the
+    task, by id."""
+    import spec_maintainer as sm  # noqa: PLC0415  (scripts/observability, on the path through ccp.queue)
     from ccp.queue import lib  # noqa: PLC0415
-    out = []
-    qd = q / "questions"
-    for f in sorted(qd.glob("sm-*.json")) if qd.is_dir() else []:
-        if f.name.endswith(".answer.json") or (qd / f"{f.stem}.answer.json").exists():
-            continue
-        qq = _read(f)
-        listed = qq.get("task_id") == task_id or task_id in (qq.get("blocks") or [])
-        if listed and qq.get("status", "open") == "open":
-            out.append(str(qq.get("question_id") or f.stem))
+    out = [str(qq.get("question_id")) for qq in sm.open_questions(q)
+           if qq.get("task_id") == task_id or task_id in (qq.get("blocks") or [])]
     ed = q / "escalations"
     for f in sorted(ed.rglob("*.json")) if ed.is_dir() else []:
         g = _read(f)
@@ -144,8 +151,11 @@ def unit_lint(cfg: Config, q: Path, run: dict[str, Any] | None) -> dict[str, Any
 def submit(cfg: Config, task: str) -> dict[str, Any]:
     q = root()
     tid = str(task_meta(cfg, task)["task_id"])
+    st = load_task_state(q, tid)
+    if why := phase_refusal(tid, st.get("status")):
+        raise QueueError(f"formal-submit refused, nothing moved (SPEC §15.1): {why}", 3)
     last = _latest_change(q, tid)
-    pr = report.pr_number((last or {}).get("pr")) or report.pr_number(load_task_state(q, tid).get("pr"))
+    pr = report.pr_number((last or {}).get("pr")) or report.pr_number(st.get("pr"))
     head = str(last["head"]) if last else None
     record = _read(report.review_record_path(q, tid)) or None
     latest = _latest_review(q, tid)

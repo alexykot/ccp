@@ -42,7 +42,7 @@ class Moves(PhaseFlow, ToolkitFixture, unittest.TestCase):
         self.assertEqual((rec["review_run_id"], rec["review_session_id"], rec["pr"], rec["head"]),
                          (review, "sess-reviewer", 7, A))
         recorded = [e["payload"] for e in self.events() if (e["type"], e["op"]) == ("review", "recorded")]
-        self.assertEqual(recorded[-1]["record"], "review/0002-second.json")
+        self.assertEqual(recorded[-1]["verdict"], "clean")
 
     def test_a_review_with_a_major_finding_writes_no_record(self):
         self.implemented()
@@ -67,6 +67,7 @@ class Moves(PhaseFlow, ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertEqual(self.status(), "reviewing")
         self.assertEqual(self.transitions(), before)
+        self.assertEqual(json.loads(self.review_record().read_text())["review_run_id"], review)  # corrected to clean
 
 
 class PhaseAfter(unittest.TestCase):

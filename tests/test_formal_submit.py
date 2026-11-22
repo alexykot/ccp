@@ -9,9 +9,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ccp import submit
-from tests.review_flow import CLEAN, PhaseFlow, A, B
+from ccp import config, submit, suite
+from tests.review_flow import CLEAN, PROOF, SKIP_REVIEW_PLANE, PhaseFlow, SkipFlow, A, B
 from tests.test_toolkit import PLANE, ToolkitFixture
+
+MINOR_ONLY = "BLOCKER=0 MAJOR=0 MINOR=2 NIT=0"
 
 
 class Submit(PhaseFlow, ToolkitFixture, unittest.TestCase):
@@ -47,6 +49,51 @@ class Submit(PhaseFlow, ToolkitFixture, unittest.TestCase):
         err = self.refused("no_open_spec_escalation")
         self.assertIn(qid, err)
 
+    def question(self, qid: str, status: str, answer: dict | None = None) -> None:
+        (self.q / "questions").mkdir(exist_ok=True)
+        (self.q / "questions" / f"{qid}.json").write_text(json.dumps(
+            {"task_id": "0001-first", "question_id": qid, "class": "spec", "status": status, "blocks": ["0002-second"]}))
+        if answer is not None:
+            (self.q / "questions" / f"{qid}.answer.json").write_text(json.dumps({"question_id": qid, **answer}))
+
+    def test_a_spec_question_escalated_to_the_operator_is_refused_though_answered(self):
+        self.implemented()
+        self.reviewed_as(CLEAN)
+        qid = "sm-20261022T100000Z-beef"
+        self.question(qid, "escalated", {"verdict": "needs_operator"})
+        self.assertIn(qid, self.refused("no_open_spec_escalation"))
+
+    def test_an_answered_spec_question_does_not_refuse(self):
+        self.implemented()
+        self.reviewed_as(CLEAN)
+        self.question("sm-20261022T100000Z-cafe", "answered")
+        code, _, out, err = self.ccp("tasks", "submit", "0002")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.status(), "submitted")
+
+    def test_a_task_past_submitted_is_refused_exit_3_and_not_moved(self):
+        self.implemented()
+        self.reviewed_as(CLEAN)
+        self.ccp("tasks", "phase", "0002", "verifying")
+        code, _, out, err = self.ccp("tasks", "submit", "0002")
+        self.assertEqual(code, 3, out + err)
+        self.assertEqual(self.status(), "verifying")
+
+    def test_a_passed_gate_lane_run_of_the_round_that_reported_the_head_is_reported_with_no_warning(self):
+        code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
+        self.assertEqual(code, 0, out + err)
+        rid = body["run_id"]
+        code, _, out, err = self.ccp("suite", "run", "--run", rid, "--lane", "gate")
+        self.assertEqual(code, 0, out + err)
+        code, _, out, err = self.report(rid, f"Outcome: done\nPR: #7\nHead: {A}\n## Friction\nnone\n")
+        self.assertEqual(code, 0, out + err)
+        self.reviewed_as(CLEAN)
+        sid = [r["suite_id"] for r in suite.fold(self.q) if r.get("run_id") == rid]
+        code, body, out, err = self.ccp("tasks", "submit", "0002")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["unit_lint"], {"run_id": rid, "head": A, "suite_id": sid[-1]})
+        self.assertNotIn("warnings", body)
+
     def test_an_open_spec_escalation_of_the_task_is_refused_and_another_class_is_not(self):
         self.implemented()
         self.reviewed_as(CLEAN)
@@ -77,6 +124,51 @@ class Submit(PhaseFlow, ToolkitFixture, unittest.TestCase):
         self.assertEqual((body["run_id"], self.status()), ("0002-second/verify", "verifying"))
 
 
+class SubmitAfterClean(PhaseFlow, ToolkitFixture, unittest.TestCase):
+    """Under `verify.skip_review_after_clean`, the fix of a clean review's MINOR findings is submitted with no new
+    review, as `ccp prompt verify` would open its verify."""
+
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "verify": {"skip_review_after_clean": True}}
+
+    def setUp(self):
+        super().setUp()
+        self.start()
+
+    def test_the_fix_of_a_clean_review_with_minor_findings_is_submitted(self):
+        self.implemented()
+        self.reviewed_as(MINOR_ONLY)
+        self.fix(A, B)
+        code, body, out, err = self.ccp("tasks", "submit", "0002")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((body["head"], self.status()), (B, "submitted"))
+
+
+class SubmitProvenFix(SkipFlow, ToolkitFixture, unittest.TestCase):
+    """Under `verify.skip_review`, a fix of a clean review that the proof passes is submitted with no new review."""
+
+    PLANE_JSON = SKIP_REVIEW_PLANE
+
+    def setUp(self):
+        super().setUp()
+        t = Path(self._tmp.name)
+        (t / "proof").write_text(PROOF)
+        (t / "proof").chmod(0o755)
+        self.log = t / "proof.log"
+        os.environ.update(PROOF_BIN=str(t / "proof"), PROOF_LOG=str(self.log))  # the fixture's env patch restores it
+        self.ccp("tasks", "claim", "0002")
+        self.wt = self.main / config.WORKTREES_DIR / "impl-0002"  # the claim made it, on task/0002-second
+
+    def test_a_proven_fix_of_a_clean_review_is_submitted(self):
+        self.commit("feature.txt", "built\n")
+        reviewed = self.push()
+        self.run_phase("review", reviewed, f"Severity: {CLEAN}")
+        head = self.fix()
+        code, body, out, err = self.ccp("tasks", "submit", "0002")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((body["head"], body["to"]), (head, "submitted"))
+        self.assertEqual(self.log.read_text().split()[:3], ["0002-second", reviewed, head])  # the proof ran
+
+
 class Failures(unittest.TestCase):
     """The checklist on plain facts."""
 
@@ -91,21 +183,28 @@ class Failures(unittest.TestCase):
         self.assertEqual(submit.failures("t", self.facts()), [])
 
     def test_each_gap_in_the_review_record_fails_review_artifact_present(self):
-        for kw, word in ((dict(record=None), "no review record"),
-                         (dict(latest_review="t/review-2"), "t/review-2"),
-                         (dict(latest_clean=False), "BLOCKER or MAJOR"),
-                         (dict(pr=8), "PR 8"),
-                         (dict(head=None), "no round reported a head"),
-                         (dict(uncovered="fix round newer"), "fix round newer")):
+        for kw, token in ((dict(record=None), "review/t.json"),
+                          (dict(latest_review="t/review-2"), "t/review-2"),
+                          (dict(latest_clean=False), "t/review"),
+                          (dict(pr=8), "PR 8"),
+                          (dict(head=None), None),
+                          (dict(uncovered="fix round newer"), "fix round newer")):
             with self.subTest(kw=kw):
                 failed = submit.failures("t", self.facts(**kw))
                 self.assertEqual([f.split(":")[0] for f in failed if not f.startswith("pr_exists")],
                                  ["review_artifact_present"])
-                self.assertIn(word, failed[-1])
+                if token:
+                    self.assertIn(token, failed[-1])
 
     def test_failures_are_named_in_item_order(self):
         failed = submit.failures("t", self.facts(pr=None, record=None, open_refs=["sm-1"]))
         self.assertEqual([f.split(":")[0] for f in failed], list(submit.ITEMS))
+
+    def test_only_a_task_mid_flight_and_not_past_submitted_may_be_submitted(self):
+        for status in sorted(submit.SUBMITTABLE):
+            self.assertIsNone(submit.phase_refusal("t", status), status)
+        for status in ("done", "pending", None, "verifying", "merging", "dropped"):
+            self.assertIsNotNone(submit.phase_refusal("t", status), status)
 
 
 class Script(unittest.TestCase):

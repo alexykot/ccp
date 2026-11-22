@@ -33,8 +33,10 @@ A run already reported takes a corrected report while no later run of its task h
 `runs.opened_after`): nothing has acted on it yet. The correction is checked like a first report; the
 stored one is kept beside it as `<stem>.superseded-<k>.md`, the run's `corrections` gets `{at, superseded}`,
 its report fields are the corrected report's, and the `run reported` event (`corrected: true`) and a
-review's `review recorded` event are written again, as is the review record of a review corrected to clean. Its
-friction lines, suite filing and phase move are not recorded again: those are the first submission's. Its follow-ups replace the run's, numbered afresh: an outcome the lead
+review's `review recorded` event are written again, as is the review record of a review corrected to clean; a
+review corrected away from clean leaves the record as it is (`ccp tasks submit` asks that the record's review be
+the latest done review and clean). Its friction lines, suite filing and phase move are not recorded again: those
+are the first submission's. Its follow-ups replace the run's, numbered afresh: an outcome the lead
 recorded carries over to a line whose text is identical (`followups.carry`), and each one that does not is named
 in a warning.
 """
@@ -709,11 +711,10 @@ def submit(cfg: Config, run_id: str, file: str) -> dict[str, Any]:
          {"run_id": run_id, "outcome": rec["outcome"], **({"corrected": True} if correcting else {})}, _actor_for(rec["seat"]))
     verdict = review_verdict(rec["phase"], parsed)
     if verdict is not None:
-        written = None
         if verdict == "clean" and parsed.get("outcome") == "done":  # §15.1: the task's review record
-            written = write_review_record(cfg, q, rec)
-        emit(q, cfg, tid, "review", "recorded", {"run_id": run_id, "verdict": verdict, "severity": parsed["severity"],
-                                                 **({"record": written} if written else {})}, _actor_for(rec["seat"]))
+            write_review_record(cfg, q, rec)
+        emit(q, cfg, tid, "review", "recorded", {"run_id": run_id, "verdict": verdict, "severity": parsed["severity"]},
+             _actor_for(rec["seat"]))
     to = None if correcting else phase_after(rec["phase"], parsed)  # §10.1, §13.4: a correction moves nothing again
     if to is not None:
         phase_move(q, cfg, tid, to, f"{run_id} reported", _actor_for(rec["seat"]))

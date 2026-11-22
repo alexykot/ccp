@@ -136,8 +136,8 @@ ids), tell the lead in one line: the run and how many. The lead decides each one
 7. **Review.** `ccp prompt review <task_id> --pr <n> --head <sha>`: a fresh `delivery-reviewer` subagent with
    no implementer context. It refuses (exit 2) a PR whose body does not contain the task id: repair the
    body first (`ccp pr edit <n> --body-file <file>`), then ask again. It also refuses (exit 4) a head whose merge of the tip would conflict (SPEC §15.2): `ccp prompt merge` first, then review the new head. When it finds a BLOCKER or MAJOR, `ccp prompt fix <task_id> --pr <n> --head <sha>`
-   launches the implementer on the findings. After a fix round, run `ccp prompt verify <task_id> --pr <n> --head
-   <new sha>` first: it opens the verify when the fix needs no new review (a clean review's MINOR and NIT fix
+   launches the implementer on the findings. After a fix round, run `ccp tasks submit <task_id>` (below), then `ccp
+   prompt verify <task_id> --pr <n> --head <new sha>`: it opens the verify when the fix needs no new review (a clean review's MINOR and NIT fix
    under `verify.skip_review_after_clean`, or a fix `verify.skip_review` or a review prover proves), and
    refuses (exit 4), naming why, when it needs one: then run `ccp prompt review` on the new head. Two rounds of the implementer have their
    own kind, never an `implement-N` with a note: `ccp prompt merge <task_id> --pr <n> --head <sha>` only
@@ -151,8 +151,9 @@ ids), tell the lead in one line: the run and how many. The lead decides each one
    takes it as the fix of a clean review's MINOR and NIT findings (a verify reject since sends it back to review). Only on the lead's or the operator's word:
    `ccp prompt verify … --allow-unreviewed-fix --reason "<their words>"`, recorded as a friction note; with
    it, no proof runs.
-   After the review that clears the head, run `ccp tasks submit <task_id>` (formal-submit, SPEC §15.1). On exit 4,
-   handle each item it names as the matching refusal of `ccp prompt verify`.
+   Before every `ccp prompt verify`, after the review that clears the head or after a fix round, run `ccp tasks
+   submit <task_id>` (formal-submit, SPEC §15.1). On exit 4, handle each item it names as the matching refusal of
+   `ccp prompt verify`.
 8. **Verify.** First, the checks only the operator's machine can run (SPEC §10.2, §15.8): `ccp tasks checks
    <task_id> --json` lists each dod_check with its `runs_on`. Run each marked `operator-machine` once per head you
    hand the verifier, after any catch-up, before `ccp prompt verify`: open a gate (`team.sh gate open --class
