@@ -7,10 +7,10 @@ the working directory).
 
 | Command | What it does | Cost | SPEC |
 | --- | --- | --- | --- |
-| `ccp tasks check [--closed-points]` | Hold the task log to the canonical format; with `--closed-points`, also fail on a review point the register records closed while a follow-up of one of its tasks is undecided. That reads `QUEUE_ROOT`; without it, a note | Free | §21.1, §22.2 |
+| `ccp tasks check [--closed-points]` | Hold the task log to the canonical format; with `--closed-points`, also fail on a review point the register records closed while a follow-up of one of its tasks is undecided. That reads `QUEUE_ROOT`; without it, a note. A failure the merge base with `origin/<integration>` shows too prints after the others, under `pre-existing on <integration> at <sha>, …`, and does not fail it | Free; on a failure, the command again at the merge base | §21.1, §21.2, §22.2 |
 | `ccp tasks dry-run <id> [--write]` | Run a task's dod_check commands at the integration tip, in a temporary worktree, and print what each printed; with `--write`, write each check's dry-run record. Needs `QUEUE_ROOT` | Runs each command once | §21.1 |
 | `ccp tasks checks <id> [--json]` | A task's dod_checks in the checkout, each id with its `runs_on` value, or null for a check the workers run; exit 2 for an unknown task | Free | §5.5 |
-| `ccp docs check` | Package-doc rules, opted-in generic rules, house rules' shape, `architect.checks`, `docs.checks`, the ADR check and `ccp tasks check` | Free | §21.2 |
+| `ccp docs check` | Package-doc rules, opted-in generic rules, house rules' shape, `architect.checks`, `docs.checks`, the ADR check and `ccp tasks check`. A failure the merge base with `origin/<integration>` shows too prints after the others, under `pre-existing on <integration> at <sha>, …`, and does not fail it | Free; on a failure, the command again at the merge base | §21.2 |
 | `ccp docs history-paths [--attr A]` | Tracked paths carrying the history attribute, one per line | Free | §21.6 |
 | `ccp architect due [--scope IDS]` | The architect seat: whether a pass is due. Needs `QUEUE_ROOT` | Free | §19 |
 | `ccp architect run [--mode pass\|shape] [--lens L,…] [--adr ID[,ID…]\|due] [--force] [--detach] [--scope IDS] [--actor A]` | The architect seat: run a pass, or with `--mode shape` shape ADRs. Needs `QUEUE_ROOT` | One Claude session per pass, one per ADR for a shape | §19 |

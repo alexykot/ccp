@@ -31,6 +31,7 @@ import re
 import signal
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -404,11 +405,32 @@ def check_failures(cfg: Config) -> list[str]:
     return run_checks(cfg, (cfg.architect or {}).get("checks") or [])
 
 
-def run_checks(cfg: Config, checks: list[dict[str, Any]]) -> list[str]:
+@dataclass(frozen=True)
+class CheckRun:
+    """One product check command's run: its id and command, its exit code (None after a timeout) and the
+    kept tail of its output, which `ccp docs check` compares with the run at the merge base (§21.2)."""
+    id: str
+    cmd: str
+    code: int | None
+    output: str
+    timeout: int
+
+    @property
+    def failure(self) -> str | None:
+        """The failure line, `<id>: `<cmd>` exited N: <last lines>`; None when the check passed."""
+        if self.code is None:
+            return f"{self.id}: `{self.cmd}` timed out after {self.timeout}s"
+        if self.code == 0:
+            return None
+        tail = " | ".join(self.output.strip().splitlines()[-3:])
+        return f"{self.id}: `{self.cmd}` exited {self.code}" + (f": {tail}" if tail else "")
+
+
+def run_check_runs(cfg: Config, checks: list[dict[str, Any]]) -> list[CheckRun]:
     """Run product check commands (`{id, cmd, timeout_seconds?}`) in the root, as `architect.checks`
     and `docs.checks` both are: exit 0 passes; a non-zero exit or a timeout is a failure. All of them
     run at once, or up to `docs.workers` when it is a number (§21.5), each under its own timeout; the
-    failures come back in the order the checks are declared, whichever finishes first."""
+    runs come back in the order the checks are declared, whichever finishes first."""
     cap = (cfg.docs or {}).get("workers")
     workers = len(checks) if cap is None else min(int(cap), len(checks))
     run = lambda c: run_command(cfg, c["cmd"], c.get("timeout_seconds", 600))  # noqa: E731
@@ -417,14 +439,13 @@ def run_checks(cfg: Config, checks: list[dict[str, Any]]) -> list[str]:
             results = list(pool.map(run, checks))
     else:
         results = [run(c) for c in checks]
-    out: list[str] = []
-    for c, (code, text) in zip(checks, results):
-        if code is None:
-            out.append(f"{c['id']}: `{c['cmd']}` timed out after {c.get('timeout_seconds', 600)}s")
-        elif code != 0:
-            tail = " | ".join(text.strip().splitlines()[-3:])
-            out.append(f"{c['id']}: `{c['cmd']}` exited {code}" + (f": {tail}" if tail else ""))
-    return out
+    return [CheckRun(c["id"], c["cmd"], code, text, c.get("timeout_seconds", 600))
+            for c, (code, text) in zip(checks, results)]
+
+
+def run_checks(cfg: Config, checks: list[dict[str, Any]]) -> list[str]:
+    """The failure lines of `run_check_runs`, in declared order."""
+    return [r.failure for r in run_check_runs(cfg, checks) if r.failure]
 
 
 OUTPUT_CAP = 20_000  # characters of a check's output kept (its tail)
@@ -456,12 +477,19 @@ def run_command(cfg: Config, cmd: str, timeout: int, cwd: Path | None = None) ->
     return code, (raw or b"").decode(errors="replace")[-OUTPUT_CAP:]
 
 
-def check(cfg: Config) -> list[str]:
-    """What §20 puts in the verifier's gate: the rules doc's shape and the product's checks. Not
-    the budgets (see the module doc). [] when the seat is off (`"architect": false`)."""
+def house_checks(cfg: Config) -> tuple[list[str], list[CheckRun]]:
+    """What §20 puts in the verifier's gate: the rules doc's shape (failure lines) and the runs of the
+    product's checks (`architect.checks`). Not the budgets (see the module doc). Nothing when the seat
+    is off (`"architect": false`)."""
     if not config.architect_on(cfg):
-        return []
-    return check_doc(cfg) + [f"check {e}" for e in check_failures(cfg)]
+        return [], []
+    return check_doc(cfg), run_check_runs(cfg, (cfg.architect or {}).get("checks") or [])
+
+
+def check(cfg: Config) -> list[str]:
+    """`house_checks` as failure lines: the doc's, then `check <id>: …` for each failing check."""
+    doc, runs = house_checks(cfg)
+    return doc + [f"check {r.failure}" for r in runs if r.failure]
 
 
 def summary(cfg: Config) -> dict[str, Any]:

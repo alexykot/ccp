@@ -543,6 +543,23 @@ It is free and deterministic. It is part of the verifier's gate (§15), run by t
 the PR head, and `ccp docs check` clean is part of the standing DoD where the product declares it.
 A gate lane declared as stages also runs it as its last stage, `plane-docs` (§14.2).
 
+**Failures already on the integration branch.** When `ccp docs check` or `ccp tasks check` fails
+on a branch whose merge base with `origin/<integration>` is not `HEAD`, it runs the same command
+at that merge base, in a temporary worktree it removes afterwards: the running `ccp` with the
+base as its root and the base's own config, QUEUE_ROOT unset, and `CCP_BINDINGS_DIR` set to the
+bindings directory the `HEAD` run resolved, so an input outside git, such as a denylist, is the
+same at both. A rule-failure line is pre-existing when the base prints it too and it names no
+file the branch changes. A check command (`architect.checks`, `docs.checks`) is pre-existing
+only when it fails at the base too, its output at `HEAD` is not empty, and every line of that
+output, with the worktree root normalised, also appears in the base's; an output that reached
+the kept-output cap counts as new. When the branch changes the checker (the repository's own
+`ccp`, or a file a check's command names), its failures all count. Pre-existing failures are
+printed under `pre-existing on <integration> at <sha>, not this change's: report it under
+Friction` and do not fail the command; every other failure fails it as before. With no such
+base, on the integration tip itself, or when the base cannot be checked out, every failure
+counts. The verifier's gate therefore rejects only on failures new against the integration tip
+the PR head last merged.
+
 ### 21.3 Package-doc rules: the core
 
 The plane owns the package-doc convention; a product's docs and the plane's own instructions point
@@ -663,7 +680,7 @@ architect's `docs` lens (§19.4).
 | Seat | Duty |
 | --- | --- |
 | Runner | `ccp tasks index` in the same commit as every durable status change, where the product keeps an index |
-| Verifier | `ccp tasks check && ccp docs check` in the submitted checkout before walking a task's `dod_checks`, recorded in its verdict's `gate` (§15). A failure is a reject with its output |
+| Verifier | `ccp tasks check && ccp docs check` in the submitted checkout before walking a task's `dod_checks`, recorded in its verdict's `gate` (§15). A failure is a reject with its output; a pre-existing one (§21.2) passes the commands and is no reject |
 | Implementer | `ccp docs check` clean, where the product declares it in its standing DoD |
 | Task-log owner | Triage of the docs lens's findings, as for any pass (§19.8) |
 
