@@ -273,7 +273,7 @@ class Fold(FoldRuns, unittest.TestCase):
         self.assertEqual(impl["usage"]["requests"], 1)
         self.assertEqual(r["unattributed"]["requests"], 0)
         self.assertEqual(r["coverage"], 1.0)
-        self.assertEqual(r["advice"], [], "only design-seat rows are compared with the expected lead")
+        self.assertEqual(r["advice"], [], f"only {lib.LEAD} rows are compared with the expected lead")
         self.assertEqual((r["how"]["headless"], r["how"]["session"], r["how"]["lead"]), (3, 2, 1))
 
     def test_a_lead_on_another_model_or_effort_is_advised(self):

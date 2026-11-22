@@ -63,7 +63,7 @@ from ccp.queue import QueueError
 from ccp.rules import budget_failures, glob_re
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "observability"))
-from lib import looks_like_secret  # noqa: E402
+from lib import LEAD, looks_like_secret  # noqa: E402
 
 PR_SUFFIX_RE = re.compile(r"\(#\d+\)\s*$")
 STAMP_RE = re.compile(r"^(\d{8}T\d{6}Z)_(.*)\.json$")
@@ -900,7 +900,7 @@ def _verdict_times(q: Path, evs: list[dict[str, Any]]) -> dict[str, list[float]]
 def sign_off_wait(q: Path, rows: list[dict[str, Any]], tasks: list[dict[str, Any]]) -> dict[str, Any]:
     """§27.1: per review point, the merged tasks that waited after their verified approve on an operator
     sign-off or a merge gate. A task's wait runs from its latest approving verdict to the first `build`
-    sign-off (`sign_off`/`recorded`, stage `build`) or merge-gate decision (`gate`/`decided` on a gate
+    sign-off the lead recorded (`sign_off`/`recorded`, stage `build`) or merge-gate decision (`gate`/`decided` on a gate
     opened with class `merge`; a standing approval waits on no one) at or after it. A task with neither,
     whose task file names no `review_point`, or whose wait is under one minute, is in no point. Each wait
     is in seconds (`wait_s`) and in whole minutes, half up (`wait_min`); so are the median and the longest."""
@@ -914,7 +914,7 @@ def sign_off_wait(q: Path, rows: list[dict[str, Any]], tasks: list[dict[str, Any
         if not e.get("task_id") or at is None:
             continue
         kind = e.get("type"), e.get("op")
-        if kind == ("sign_off", "recorded") and p.get("stage") == "build":
+        if kind == ("sign_off", "recorded") and p.get("stage") == "build" and e.get("actor") == LEAD:
             ends.setdefault(str(e["task_id"]), []).append((at, "sign_off"))
         elif kind == ("gate", "decided") and str(p.get("escalation_id")) in merge_gates \
                 and p.get("decided_by") != "standing":
