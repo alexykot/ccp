@@ -122,5 +122,11 @@ workers' health notes (`<queue>/health/notes.jsonl`, data only the queue holds),
 - Tests beyond the ruling's: a locked worktree (git refuses to remove it and its prune keeps it listed) holding
   only a cache stays; `_only_caches` on plain values; a `--together` part from a mutant file gets the new refusal;
   a `--mutant` whose old text ends with a line break keeps the plain one.
+- Fix round 1 (review MINOR 1, NITs 1 and 2; tests only): `tests/test_wt_leftover.py` gains a made, unlocked
+  worktree whose `.git` file goes with everything but the cache, so git's removal fails and only the prune unlists
+  it; `ccp wt remove` leaves no directory and no warning, and a mutant dropping the prune is killed.
+  `tests/test_mutant_file_line_break.py` checks the ruled refusal whole with `assertEqual` (the ruling fixes its
+  text, so a change to its lead or tail is caught), and gains a CRLF case (target file and mutant file both
+  `\r\n`), which a `_without_line_break` that loses `b"\r\n"` fails.
 
 ## Verification notes
