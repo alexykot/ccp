@@ -6,6 +6,7 @@ that needs a round inherits them and never borrows a method off another module's
 from __future__ import annotations
 
 import json
+import tempfile
 from pathlib import Path
 
 from tests.helpers import done_report
@@ -65,7 +66,7 @@ class ReviewFlow:
 
 class SkipFlow(ReviewFlow):
     """`ReviewFlow` for a task claimed into `self.wt`, its worktree, with a proof command: `commit`, `fix`
-    and `push` here replace `ReviewFlow`'s, which take other arguments, and `reviewed` and `verify` are new.
+    and `push` here replace `ReviewFlow`'s, which take other arguments, and `on_main`, `reviewed` and `verify` are new.
     A class using it sets `wt` and `log` in `setUp` and `PLANE_JSON = SKIP_REVIEW_PLANE`."""
 
     def commit(self, rel: str, text: str, wt: Path | None = None) -> str:
@@ -75,6 +76,15 @@ class SkipFlow(ReviewFlow):
         git(wt, "add", rel)
         git(wt, "commit", "-q", "-m", f"change {rel}")
         return git(wt, "rev-parse", "HEAD")
+
+    def on_main(self, files: dict[str, str]) -> None:
+        """Another task's merge landing on the integration branch: each `rel: text` of `files` committed in order in
+        a detached worktree at `origin/main`, then pushed to `main` once."""
+        other = Path(tempfile.mkdtemp(dir=self._tmp.name))
+        git(self.main, "worktree", "add", "-q", "--detach", str(other), "origin/main")
+        for rel, text in files.items():
+            self.commit(rel, text, other)
+        git(other, "push", "-q", "origin", "HEAD:main")
 
     def push(self) -> str:
         git(self.wt, "push", "-q", "-u", "origin", "task/0002-second")

@@ -45,12 +45,8 @@ class ReviewProvers(SkipFlow, ToolkitFixture, unittest.TestCase):
         """plane.json on the integration branch, where `ccp` reads the skip rules, with `files` (a path with
         `__` for `/`) beside it: pushed to origin/main and merged into the task branch, so the head is not
         behind the tip."""
-        other = Path(tempfile.mkdtemp(dir=self._tmp.name))
-        git(self.main, "worktree", "add", "-q", "--detach", str(other), "origin/main")
-        for rel, text in files.items():
-            self.commit(rel.replace("__", "/"), text, other)
-        self.commit("docs/delivery/plane.json", json.dumps(body), other)
-        git(other, "push", "-q", "origin", "HEAD:main")
+        self.on_main({**{rel.replace("__", "/"): text for rel, text in files.items()},
+                      "docs/delivery/plane.json": json.dumps(body)})
         git(self.wt, "fetch", "-q", "origin")
         git(self.wt, "merge", "-q", "--no-edit", "origin/main")
 
