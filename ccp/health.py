@@ -65,16 +65,6 @@ from ccp.rules import budget_failures, glob_re
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "observability"))
 from lib import looks_like_secret  # noqa: E402
 
-def _merge_task_re(width: int) -> re.Pattern[str]:
-    """A squash subject naming a task by number: `0042 …`, `task 0042 …`."""
-    return re.compile(rf"^(?:task\s+)?(\d{{{width}}})(?!\d)", re.I)
-
-
-def _branch_task_re(width: int) -> re.Pattern[str]:
-    return re.compile(rf"\btask/(\d{{{width}}})-")
-
-
-MERGE_TASK_RE, BRANCH_TASK_RE = _merge_task_re(4), _branch_task_re(4)  # the defaults (refs.py ids.task)
 PR_SUFFIX_RE = re.compile(r"\(#\d+\)\s*$")
 STAMP_RE = re.compile(r"^(\d{8}T\d{6}Z)_(.*)\.json$")
 SUITE_KINDS = ("cold", "warm", "part", "unverified")
@@ -127,9 +117,10 @@ def merges(cfg: Config, tasks: list[dict[str, Any]] | None = None, rev: str = "H
     """Task merges on the first-parent history of `rev` (HEAD, or a range), oldest first. With
     `written`, a squash names its task only in the form the plane writes (`Task 0042: …`)."""
     tasks = tasks if tasks is not None else tasklog.load(cfg)
-    by_num = {refs.ids(cfg).task_number(t.get("task_id")): str(t.get("task_id")) for t in tasks}
-    w = refs.ids(cfg).task_width
-    merge_re, branch_re = (_written_task_re(w) if written else _merge_task_re(w)), _branch_task_re(w)
+    ids = refs.ids(cfg)
+    by_num = {ids.task_number(t.get("task_id")): str(t.get("task_id")) for t in tasks}
+    merge_re = _written_task_re(ids.task_width) if written else ids.task_merge_subject_re
+    branch_re = ids.task_branch_re
     out = []
     for rec in _git(cfg.root, "log", "--first-parent", "--reverse", "--format=%x01%H%x1f%P%x1f%ct%x1f%s%x1f%b",
                     rev).split("\x01")[1:]:

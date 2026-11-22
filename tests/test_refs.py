@@ -23,6 +23,16 @@ class Defaults(unittest.TestCase):
         self.assertEqual(D.family("0042-sf-store"), "sf")
         self.assertEqual(D.family("0042"), "")
 
+    def test_a_merge_subject_and_a_task_branch_name_the_task_number(self):
+        for subject, n in (("0042 sf store (#7)", "0042"), ("Task 0042: sf store", "0042"),
+                           ("TASK  0042-sf", "0042"), ("00421 too wide", None), ("Reconcile 0042", None)):
+            m = D.task_merge_subject_re.match(subject)
+            self.assertEqual(m.group(1) if m else None, n, subject)
+        for text, n in (("Merge branch 'task/0042-sf-store'", "0042"), ("origin/task/0042-sf", "0042"),
+                        ("task/0042 no slug", None), ("subtask/0042-sf", None)):
+            m = D.task_branch_re.search(text)
+            self.assertEqual(m.group(1) if m else None, n, text)
+
     def test_adr_refs(self):
         for ref, n in (("0031 D2", 31), ("ADR-0007", 7), ("adr-7", 7), ("see docs/adr/0012-x.md", 12),
                        ("0031-x", 31), ("2026-10-01", None), ("nothing", None)):
@@ -147,6 +157,13 @@ class NonDefaultIds(unittest.TestCase):
         self.assertEqual(tasklog.next_number(self.p.cfg), "00003")
         self.p.task("0003-short")
         self.assertTrue(any("0003-short" in e for e in tasklog.check(self.p.cfg)))
+
+    def test_merge_subject_and_branch_patterns_read_the_width(self):
+        ids = refs.ids(self.p.cfg)
+        self.assertEqual(ids.task_merge_subject_re.match("task 00042 x").group(1), "00042")
+        self.assertIsNone(ids.task_merge_subject_re.match("0042 x"))
+        self.assertEqual(ids.task_branch_re.search("task/00042-x").group(1), "00042")
+        self.assertIsNone(ids.task_branch_re.search("task/0042-x"))
 
     def test_adr_check_and_refs_use_the_prefix_and_width(self):
         adrs, errs = adr.load(self.p.cfg)

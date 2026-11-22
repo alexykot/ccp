@@ -12,6 +12,8 @@ frontmatter, a task file that git or the committed INDEX knew and that is gone, 
 reused by another task (a renamed task says `renamed_from: <old id>`), each naming its fix; a task
 file with no frontmatter is one failure that names `ccp tasks migrate` (`ccp/taskmigrate.py`).
 `warnings()` is what `check` reports without failing (§21.1); each warning is stated with its rule's §.
+`signed_blocks()` is the one reader of the passages a task carries for the operator's sign-off (§3.5, §15.2):
+`ccp verify spec-text` searches for them, and `check` warns on a `PROPOSED:` it carries none from.
 
 A task has a kind (§20): `feature` (the default) or `refactor`. A refactor changes no rule, so it
 cites house rules or review findings (`rule_refs`, `review_refs`) instead of the spec, and proves
@@ -867,6 +869,124 @@ def unsigned_spec_edit(cfg: Config, t: dict[str, Any], rel: str) -> list[str]:
             "describes its own feature says `§31.1` in its Scope (SPEC §3.5)"]
 
 
+# ---------------------------------------------------------------- signed blocks (SPEC §3.5, §15.2)
+# The one reader of the passages a task carries for the operator's sign-off: `ccp verify spec-text` looks for
+# them in the PR's diff, and `check` warns on a `PROPOSED:` it would find no passage under.
+_PROPOSED_RE = re.compile(r"PROPOSED:")
+_QUOTE_RE = re.compile(r"^\s*>[ \t]?(.*)$")
+
+
+def _norm(text: str) -> str:
+    return " ".join(text.split())
+
+
+_RULE_CHANGES_RE = re.compile(r"^## Rule changes\b[^\n]*$", re.M)
+
+
+def _signed_sections(text: str) -> list[tuple[int, str]]:
+    """§15.2: the sections of a task file that carry signed passages, in file order, each as (its offset in
+    `text`, its body from just after the heading): the Scope (`_section_at`) and every `## ` section
+    whose heading begins `Rule changes`."""
+    out = []
+    if (at := _section_at(text, SEC_SCOPE)) is not None:
+        out.append(at)
+    for m in _RULE_CHANGES_RE.finditer(text):
+        nxt = re.search(r"^## ", text[m.end():], re.M)
+        out.append((m.end(), text[m.end(): m.end() + nxt.start()] if nxt else text[m.end():]))
+    return sorted(out)
+
+
+_CURRENT_RE = re.compile(r"\bCURRENT\b")
+# A block's locator, written just after its `CURRENT`: (`<path>` at `<commit>`).
+_LOCATOR_RE = re.compile(r"\bCURRENT\s*\(\s*`([^`\n]+)`\s+at\s+`[^`\n]+`\s*\)")
+# A backticked path opening a line.
+_OPENING_PATH_RE = re.compile(r"^`([^`\n]+)`")
+
+
+def _path_like(path: str) -> bool:
+    """§15.2: whether a name a block gives can name a file: it holds a `/` and no glob character."""
+    return "/" in path and not any(c in path for c in "*?[")
+
+
+def _block_names(lines: list[str], n: int) -> str | None:
+    """§15.2: the one file the block of the `PROPOSED:` marker on `lines[n]` names, or None. The block runs from
+    its `CURRENT` marker (on that line, or on the nearest line above it that is neither blank nor a `> ` quote)
+    to its quotes; with no `CURRENT`, from the `PROPOSED:` line. The name is the path in the block's
+    (`<path>` at `<commit>`) locator after its `CURRENT`, when it has one; else the backticked path opening
+    the nearest line above the block that is neither blank nor a `> ` quote. Only a path holding a `/` and
+    no glob character counts (`_path_like`); a backticked token anywhere else names nothing."""
+    def above(k: int) -> int:
+        k -= 1
+        while k >= 0 and (not lines[k].strip() or _QUOTE_RE.match(lines[k])):
+            k -= 1
+        return k
+
+    own = lines[n].split("PROPOSED:", 1)[0]  # a `CURRENT` on the marker's own line comes before it
+    cur: str | None = own if _CURRENT_RE.search(own) else None
+    start = n
+    if cur is None and (k := above(n)) >= 0 and _CURRENT_RE.search(lines[k]) and not _PROPOSED_RE.search(lines[k]):
+        cur, start = lines[k], k  # a line holding another `PROPOSED:` is another block's
+    if cur is not None and (m := _LOCATOR_RE.search(cur)):
+        return m.group(1) if _path_like(m.group(1)) else None
+    k = above(start)
+    m = _OPENING_PATH_RE.match(lines[k]) if k >= 0 else None
+    return m.group(1) if m and _path_like(m.group(1)) else None
+
+
+def _quoted_under(lines: list[str], n: int) -> str:
+    """§15.2: the passage the `PROPOSED:` marker on `lines[n]` carries: the `> ` blockquote lines that follow it at
+    once, the quote marks taken off, whitespace-normalised; empty when no quoted text follows."""
+    quoted = []
+    for nxt in lines[n + 1:]:
+        m = _QUOTE_RE.match(nxt)
+        if not m:
+            break
+        quoted.append(m.group(1))
+    return _norm(" ".join(quoted))
+
+
+def signed_blocks(text: str) -> list[tuple[int, str, str | None]]:
+    """§3.5, §15.2: the passages a task file carries for the operator to sign, in its Scope or in a section
+    whose heading begins `Rule changes` (`_signed_sections`), in file order, as (line number in the file, the
+    passage with its whitespace normalised, the file its block names or None, `_block_names`): each line
+    holding `PROPOSED:` followed at once by `> ` blockquote lines, the quote marks taken off (`_quoted_under`). A `PROPOSED:`
+    with no blockquote under it (one quoted inline, or the word in prose) carries none. A passage carried in
+    more than one place is listed once, at its first line."""
+    out: list[tuple[int, str, str | None]] = []
+    seen: set[str] = set()
+    for start, body in _signed_sections(text):
+        first = text.count("\n", 0, start) + 1  # `body` starts on the heading's line, after the heading
+        lines = body.split("\n")
+        for n, line in enumerate(lines):
+            if not _PROPOSED_RE.search(line):
+                continue
+            if (passage := _quoted_under(lines, n)) and passage not in seen:
+                seen.add(passage)
+                out.append((first + n, passage, _block_names(lines, n)))
+    return out
+
+
+def unreadable_proposed(t: dict[str, Any], rel: str) -> list[str]:
+    """§3.5: a task not yet done or dropped whose Scope, or a section whose heading begins `Rule changes`
+    (`_signed_sections`), has a line holding `PROPOSED:` with no `> ` blockquote text under it, which
+    `signed_blocks`, and so `ccp verify spec-text`, carries no passage from: one quoted inline, or the word in
+    prose. Named with its line. A `PROPOSED:` inside a code span or a fenced block is quoted, not read. A warning."""
+    if t.get("status") in TERMINAL:
+        return []
+    text = t["_text"]
+    unquoted = CODE_SPAN_RE.sub(_blank, FENCE_RE.sub(_blank, text))  # same length and line breaks as `text`
+    out = []
+    for start, body in _signed_sections(unquoted):
+        first = text.count("\n", 0, start) + 1
+        marked = body.split("\n")
+        lines = text[start:start + len(body)].split("\n")  # the body as written: quoted text is read as it is
+        out += [f"{rel}:{first + n}: a `PROPOSED:` with no `> ` blockquote under it, which `ccp verify spec-text` "
+                "cannot read (SPEC §15.2): put the signed text in `> ` blockquote lines right under the "
+                "`PROPOSED:` line (SPEC §3.5)"
+                for n, line in enumerate(marked) if _PROPOSED_RE.search(line) and not _quoted_under(lines, n)]
+    return out
+
+
 def _spec_hint(lists: list[str]) -> str:
     """The hint for a task that cites none of `lists`, when spec_refs is one of them."""
     return SPEC_REFS_HINT if "spec_refs" in lists else ""
@@ -1006,6 +1126,7 @@ def warnings(cfg: Config) -> list[str]:
         out += unmeasured_numbers(t, cfg.rel(t["_file"]))
         out += stale_context(cfg, t, cfg.rel(t["_file"]))
         out += unsigned_spec_edit(cfg, t, cfg.rel(t["_file"]))
+        out += unreadable_proposed(t, cfg.rel(t["_file"]))
         out += missing_adopt(t, cfg.rel(t["_file"]))
         out += hidden_step(t, cfg.rel(t["_file"]))
         own = _number(t.get("task_id"), cfg)
