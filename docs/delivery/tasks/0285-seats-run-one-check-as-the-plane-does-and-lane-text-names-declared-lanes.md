@@ -225,4 +225,26 @@ Measured at `76f41dd`.
 
 ## Implementation notes
 
+- Premises re-measured at `b4536053` (lanes, the `lane full` and `such as a mutation check` greps, the 8
+  `mutate.command` lines, §16.2's example, the 532-character template line): unchanged.
+- The section-extents premise did not hold, then or at `76f41dd` (`unreadable_proposed` has not changed
+  since): at the base, a fenced `## ` line in the Scope followed by an inline `PROPOSED:` already warns,
+  because the blanked text keeps the Scope going. Sections now come from the raw text, as the ruling
+  says, so warnings fall exactly where `signed_blocks` reads. That case no longer warns (spec-text does
+  not read past the fenced line either), and a fenced `## Rule changes` line now opens a section that
+  warns, wherever it sits. The test cmd-04 names uses a fenced `## Rule changes` line in the Scope (it
+  warns before and after the change); the test that fails at the base puts one in another section.
+- `ccp tasks dry-run --here` still needs `QUEUE_ROOT` (it reads the queue's lease to refuse a claimed
+  task without `--here`). Its header names HEAD's short sha and `HEAD, here`. `--here --write` is refused
+  before anything is read.
+- `ccp docs check --only` runs only what it names: no language precondition, no task-log check, no rules
+  doc shape. It judges the failure against the merge base by running `docs check --only <id>` there. An
+  architect check is known only while the seat is on (`cfg.architect` is None when it is off).
+- `resolve_stages`' refusal sits in `suite.no_lane_refusal`. A full-role lane declared as stages is named
+  as "its stages", the narrowest form the ruling leaves open.
+- `UNBUILT_RE`'s source-frame pattern also matches a SyntaxError raised by `compile` on a string given a
+  real file name, which is rare.
+- `ccp/mutate.py` imports `MUTATE_DEFAULTS` by name instead of using `config.MUTATE_DEFAULTS`: the same
+  object.
+
 ## Verification notes
