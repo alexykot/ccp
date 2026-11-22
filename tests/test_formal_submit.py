@@ -276,6 +276,14 @@ class SubmitProvenFix(SkipFlow, ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertEqual(self.proofs(), 2)
 
+    def test_a_review_reported_after_the_proof_at_the_reviewed_head_is_not_skipped(self):
+        reviewed = self.reviewed()
+        head, _ = self.submitted()
+        self.review(reviewed)  # a late review of the head the proof's fix started from
+        code, _, out, err = self.verify(head)
+        self.assertEqual(code, 4, out + err)
+        self.assertEqual(self.proofs(), 1)
+
     def test_a_head_moved_on_by_a_later_fix_round_runs_the_proof_again(self):
         self.reviewed()
         self.submitted()

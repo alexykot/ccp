@@ -476,15 +476,18 @@ def review_gate(cfg: Config, q: Path, tid: str, phase: str,
 
 def recorded_proof(cfg: Config, q: Path, tid: str, head: str) -> dict[str, Any] | None:
     """§15.2: the `review_skip` of the `review_proof` `ccp tasks submit` recorded on the task's latest fix round (not
-    abandoned; a merge or ruling round counts as one), when `reused_proof` takes it at `origin/<integration
-    branch>` after one fetch; None otherwise, fetching nothing when the round records none."""
+    abandoned; a merge or ruling round counts as one), when the task's latest done review was opened before that
+    round (as `verify.review_proof` judges it) and `reused_proof` takes it at `origin/<integration branch>` after
+    one fetch; None otherwise, fetching nothing when the round records none or a review followed it."""
     rs = [r for r in runs.all_runs(q, tid) if runs.state(r) != "abandoned"]
     fixes = [r for r in rs if r.get("phase") in runs.REWORK_PHASES]
     proof = fixes[-1].get("review_proof") if fixes else None
     if not isinstance(proof, dict):
         return None
     reviews = [r for r in rs if r.get("phase") == "review" and runs.state(r) == "reported" and r.get("outcome") == "done"]
-    reviewed = str(reviews[-1].get("head") or "") if reviews else ""
+    if not reviews or str(reviews[-1].get("opened_at") or "") > str(fixes[-1].get("opened_at") or ""):
+        return None
+    reviewed = str(reviews[-1].get("head") or "")
     return reused_proof(proof, head, verify.fetched_tip(cfg, integration_branch(q)), reviewed)
 
 
