@@ -1,7 +1,7 @@
 ---
 task_id: 0298-the-cli-reference-reads-each-span-s-flags-and-tests-take-the-plane-root-and-git-env-from-helpers
 title: The CLI reference test holds each call span's flags to the commands that span names, the cache-leftover rule's symlink branch has tests, test_tasks_close drops its script mode, and E4 fails on a copied plane root or git identity
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E25", "E15", "E4"]
@@ -147,4 +147,15 @@ Measured at `954bd72` (origin/main).
 
 ## Implementation notes
 
+- `problems_of` reads each span of a unit on its own: a span naming commands holds its flags to each command it names and credits them to those only; a span naming none is read against its unit's commands as before. The delegated-command skip stays unit-wide, as before (a unit naming `ccp otel` is not checked), the narrowest reading of the ruling.
+- `test_a_joined_row_giving_an_action_its_siblings_flags_is_found` joins the two `ccp adr` rows of `docs/cli/01-model.md` into one `ccp adr index\|list` row and asserts the three problems.
+- `tests/test_wt_leftover.py`: the symlink test in `Leftover` and `FilesUnder`, as ruled.
+- `tests/test_tasks_close.py`: the script-mode block is gone; `sys` and `Path` are still used.
+- The four plane-root copies and three git-identity dicts now use `PLANE_ROOT` and `GIT_ENV`; no test turned on the email or a global git config. `test_tasklog`'s inline `from pathlib import Path` lost its only use and went.
+- E4 gains the two greps; its `check:` line reads "five greps".
+- Measured premises at `d17505a9` matched the task's figures.
+- Fix round 1 (review MINOR 1): the delegated skip is per span, as the ruling reads. A span naming a delegated command is skipped; a span naming none is skipped only when its unit names a delegated one; every other span of the unit is checked on its own. `test_a_row_with_a_delegated_span_is_still_checked_in_its_other_spans` pins it.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #348 head `64ae9d9` (close's catch-up of the approved `fd9da26`, gate run st-20261122T152529Z-d3dce8) (squash `5831c6b`): APPROVE. Passed: code-01, code-02, code-03, cfg-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0298-the-cli-reference-reads-each-span-s-flags-and-tests-take-the-plane-root-and-git-env-from-helpers.json.
+

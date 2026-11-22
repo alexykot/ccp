@@ -8,12 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-if __name__ == "__main__":  # run as a script: the checkout's root is the import root, and the tests' fence comes first
-    from helpers import PLANE_ROOT  # this file's directory leads sys.path; helpers loads no ccp module
-    sys.path.insert(0, str(PLANE_ROOT))
-    import tests  # noqa: F401
-
-from ccp import config, lifecycle, prhost  # noqa: E402
+from ccp import config, lifecycle, prhost
 from tests.toolkit_fixture import PLANE, ToolkitFixture, git
 
 
