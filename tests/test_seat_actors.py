@@ -70,6 +70,11 @@ class SeatActors(unittest.TestCase):
             self.assertEqual(queue.actor(), lib.RUNNER)
             self.assertEqual(queue.actor(lib.LEAD), lib.LEAD)
 
+    def test_a_run_s_seat_maps_to_the_verifier_s_actor_or_else_the_runner_s(self) -> None:
+        self.assertEqual(queue.seat_actor("verifier"), lib.VERIFIER)
+        for seat in ("implementer", "reviewer", "runner", None):
+            self.assertEqual(queue.seat_actor(seat), lib.RUNNER, seat)
+
     def test_heartbeat_refuses_the_watchdog_and_writes_the_lead_with_no_cadence(self) -> None:
         r = self.heartbeat(RETIRED, "--wake-kind", "manual")
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)

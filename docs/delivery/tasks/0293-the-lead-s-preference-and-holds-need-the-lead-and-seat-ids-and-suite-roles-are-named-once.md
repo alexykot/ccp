@@ -151,4 +151,20 @@ the architect's wider E27 pattern (fewer lines now that 0289 has the tests read 
 
 ## Implementation notes
 
+- Re-measured at `0f44fb35`: every figure holds except the tests' literals, which grew with two modules landed
+  since (`tests/test_seat_actors.py`, `tests/test_text_at_subroot.py`): `"task-runner"` 42 lines in 24 files,
+  `"task-verifier"` 6 in 4, the wider E27 pattern 52 lines. Both modules are in Scope as files the E27 command
+  names at the base. `docs/spec` also mentions `ccp tasks prefer` once in §20 (`03-quality.md`), unchanged.
+- `prefer` and `hold` take `queue.lead_actor` in place of `actor(lib.LEAD)`, after the no-argument listing and the
+  "not both" refusal; `release` is unchanged. The four hints print `ACTOR={lib.LEAD} ccp …`.
+- `lib.VERIFIER` sits beside `lib.RUNNER`; `queue.seat_actor` replaces both `_actor_for`, and `report.py` and
+  `suite.py` no longer import `lib`.
+- `config.WHOLE_SUITE_ROLES = ("gate", "full")` replaces `COLD_ROLES`, `AUTO_ROLES` and tasklog's tuple. Every
+  reader but tasklog's judged list tests membership only, so `health.cold_lanes` now returns the gate lane first;
+  `tests/test_health_suite.py` compares its result as a set.
+- `as_actor` moved from `tests/test_lead_records.py` to `tests/helpers.py`, which the new
+  `tests/test_lead_state_guard.py` also uses (E4: a helper a second module needs lives in a fixture module).
+- Tests read the three ids by name, the embedded ones in `tests/test_prefer.py`'s and `tests/test_seat_actors.py`'s
+  assertions included; `tests/test_seat_actors.py` gains a plain-value test of `queue.seat_actor`.
+
 ## Verification notes
