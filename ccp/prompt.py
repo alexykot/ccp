@@ -36,7 +36,8 @@ round, for a head that is not a merge commit or whose resolution is empty; any o
 The verify that follows a contained resolution review lists the checks it names to rerun (§15.6 rule 3).
 The implement and verify prompts list the checks marked `runs_on: operator-machine` as not the worker's to run; a
 verify is refused, exit 1, nothing opened, while one has no passed suite run at the head, unless it rests on an
-earlier approve or a ruling `--waived` names (§10.2, §13.2).
+earlier approve or a ruling `--waived` names (§10.2, §13.2). Under `adr.strict`, a verify of a head that records
+a decision the task cites as `not_built` is refused the same way (§6.7).
 
 `ccp prompt env <worktree>` renders the product's `prompts.worker_env` for a worktree `ccp wt` recorded and
 prints the `export` lines its workers would get, opening no run and writing nothing (§13.3).
@@ -558,7 +559,7 @@ def check_run(suites: list[dict[str, Any]], check_id: str, tid: str, head: str) 
     `tid`, whose recorded `head` (§14.4) is `head`, and ""; with none, None and why: no such run, its latest run at
     the head did not pass, or its runs ran at another head (or recorded none: a checkout with something to commit)."""
     mine = [s for s in suites if s.get("lane") == check_id and s.get("task_id") == tid]
-    at = [s for s in mine if verify.heads_match(str(s.get("head") or ""), head)]
+    at = [s for s in mine if runs.heads_match(str(s.get("head") or ""), head)]
     passed = [s for s in at if s.get("state") == "passed"]
     if passed:
         return str(passed[-1]["suite_id"]), ""
@@ -593,7 +594,7 @@ def _resolution_at(q: Path, tid: str, head: str) -> tuple[dict[str, Any] | None,
                 and r.get("head")]
     old = str(approves[-1]["head"]) if approves else ""
     if not last or last.get("mode") != "resolution" or last.get("resolution") != "contained" \
-            or not verify.heads_match(str(last.get("head") or ""), head):
+            or not runs.heads_match(str(last.get("head") or ""), head):
         return None, old
     return last, old
 
@@ -601,9 +602,10 @@ def _resolution_at(q: Path, tid: str, head: str) -> tuple[dict[str, Any] | None,
 def marked_gate(q: Path, tid: str, phase: str, a: Any, meta: dict[str, Any]) -> list[str]:
     """§10.2, §13.2, ADR-0045 D2: a verify is refused (exit 1, nothing opened) while a check marked `runs_on:
     operator-machine` has no passed suite run of its lane, bound to the task, at the head (`check_run`), unless it
-    rests on the task's latest approve (`carried_by`) or `--waived <check_id>=<ruling id>` names a ruling in the form
-    §15.4's `rests_on` accepts. Returns, for the verify prompt, one line per marked check saying what it rests on.
-    `--waived` is for verify only, and names a marked check of the task (exit 2 otherwise)."""
+    rests on the task's latest approve (`carried_by`) or `--waived <check_id>=<ruling id>` names a ruling that waives
+    it (`verify.waiver_refusal`, which `verify record` judges its `rests_on` by). Returns, for the verify prompt, one
+    line per marked check saying what it rests on. `--waived` is for verify only, and names a marked check of the
+    task (exit 2 otherwise)."""
     waived = parse_waived(getattr(a, "waived", None))
     if phase != "verify":
         if waived:
@@ -625,18 +627,18 @@ def marked_gate(q: Path, tid: str, phase: str, a: Any, meta: dict[str, Any]) -> 
         if not facts:
             review, old = _resolution_at(q, tid, head)
             facts.update(old=old, affected=[str(x) for x in review.get("affected_checks") or []] if review else None)
-            facts["same"] = bool(old) and review is None and (verify.heads_match(old, head) or runs.same_change(q, old, head))
+            facts["same"] = bool(old) and review is None and (runs.heads_match(old, head) or runs.same_change(q, old, head))
         return carried_by(cid, facts["old"], facts["same"], facts["affected"])
 
     lines: list[str] = []
     missing: list[str] = []
     for cid in marked:
         if cid in waived:
-            why = verify._ruling_refusal(q, waived[cid])  # noqa: SLF001  (§15.4's ruling form, as `rests_on` takes it)
+            why = verify.waiver_refusal(q, waived[cid])  # as `verify record` judges the `rests_on` that waives it
             if why is None:
                 lines.append(f"`{cid}`: waived by the ruling {waived[cid]}")
             else:
-                missing.append(f"{cid}: --waived {waived[cid]} is not a ruling §15.4 accepts ({why})")
+                missing.append(f"{cid}: --waived {waived[cid]} does not waive it ({why})")
             continue
         sid, why = check_run(suites, cid, tid, head)
         if sid:
@@ -652,6 +654,19 @@ def marked_gate(q: Path, tid: str, phase: str, a: Any, meta: dict[str, Any]) -> 
             f"--sha {head}`) as `ccp suite run --lane <check_id> --task {tid} -- <the check's command>`, under the "
             "task's approved operator gate, then ask again (SPEC §10.2, §13.2)", 1)
     return lines
+
+
+def adr_gate(cfg: Config, phase: str, a: Any, meta: dict[str, Any]) -> None:
+    """§6.7, §15.4: under `adr.strict`, a verify of a head on which a decision the task cites is recorded `not_built`
+    (`adr.in_force_at`, each line naming its `ccp adr decide`) is refused (exit 1, nothing opened), as `verify record`
+    would refuse its approve, so the task flips it in its own PR before a verifier starts."""
+    if phase != "verify":
+        return
+    from ccp import adr  # noqa: PLC0415
+    lines = adr.in_force_at(cfg, meta, str(a.head).strip())
+    if lines:
+        raise QueueError("; ".join(lines) + ". Send the task back to flip each in its PR (`ccp prompt fix`), then ask "
+                         "again (SPEC §6.7, §15.4)", 1)
 
 
 def resolution_gate(cfg: Config, q: Path, tid: str, phase: str, a: Any) -> bool:
@@ -792,6 +807,7 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     repeat = repeat_gate(q, tid, phase, note)
     tip_warn = tip_gate(cfg, q, tid, phase, a)
     marked_evidence = marked_gate(q, tid, phase, a, meta)
+    adr_gate(cfg, phase, a, meta)
     body_warn = body_gate(cfg, tid, phase, a.pr)
     runs.check_pending(q, runs.AGENT_TYPE[phase], a.supersede, caller)
     runs.check_running_rounds(q, tid, phase, caller, a.supersede)
