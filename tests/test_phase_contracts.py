@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import unittest
 
-from ccp import queue, verify
+from ccp import queue
+from ccp.schema import schema_errors
 from tests.review_flow import CLEAN, PhaseFlow
 from tests.test_toolkit import PLANE, ToolkitFixture
 
@@ -25,7 +26,7 @@ class Contracts(PhaseFlow, ToolkitFixture, unittest.TestCase):
         queue.progress_event(self.q, "0002-second", "leased", "implementing")
         written = json.loads((self.q / "progress/0002-second.json").read_text())
         self.assertGreaterEqual(len(written["events"]), 3)  # the claim's move, then these two
-        self.assertEqual(verify.schema_errors(written, schema("progress.schema.json")), [])
+        self.assertEqual(schema_errors(written, schema("progress.schema.json")), [])
 
     def test_a_review_record_ccp_report_writes_validates(self):
         qid = "sm-20261022T100000Z-abcd"
@@ -36,7 +37,7 @@ class Contracts(PhaseFlow, ToolkitFixture, unittest.TestCase):
         self.reviewed_as(CLEAN)
         written = json.loads(self.review_record().read_text())
         self.assertEqual(written["decisions"], [{"class": "spec", "question_ref": qid}])
-        self.assertEqual(verify.schema_errors(written, schema("review.schema.json")), [])
+        self.assertEqual(schema_errors(written, schema("review.schema.json")), [])
 
 
 if __name__ == "__main__":
