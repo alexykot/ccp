@@ -102,27 +102,31 @@ Measured at `7d83efd` (origin/main).
   story: As the operator reading `ccp health`, a task's sign-off wait ends only when the lead records the build sign-off.
   setup: A checkout of the PR head, in your own worktree (a delivery-verifier seat).
   steps:
-    1. Run `python3 -B -m unittest -v tests.test_health_signoff 2>&1 | grep -e another_actor -e '^OK' -e FAIL`.
-    2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_health_signoff --mutant 'ccp/health.py: and e.get("actor") == LEAD=>'`.
-  expect: step 1 lists `test_a_build_sign_off_another_actor_recorded_ends_no_wait` `ok`, then `OK`, and no `FAIL`; step 2 prints the mutant `killed`.
-  dry run: n/a — the test is new; at `7d83efd`, `python3 -B -m unittest -q tests.test_health_signoff` printed `OK`.
+    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_health_signoff`.
+    2. Run `grep -e another_actor -e '^OK' -e FAIL <the log step 1 names>`.
+    3. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_health_signoff --mutant 'ccp/health.py: and e.get("actor") == LEAD=>'`.
+  expect: step 1 exits 0; step 2 lists `test_a_build_sign_off_another_actor_recorded_ends_no_wait` `ok`, then `OK`, and no `FAIL`; step 3 prints the mutant `killed`.
+  dry run: n/a — the test is new; at `ad9b4f84` (scratch QUEUE_ROOT), step 1 printed `passed, exit 0, lane part … 6 tests` and step 2 on its log printed only `OK`.
 - id: `doc-01`
   story: As the runner, the brief and the writing-tasks skill show the lead's sign-off and ruling as the lead runs them.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `git grep -nE 'ccp tasks (sign-off|ruling)' -- plugin/agents plugin/skills`.
     2. Run `git grep -nE 'ccp tasks (sign-off|ruling)' -- plugin/agents plugin/skills | grep -v 'ACTOR=design-seat ccp tasks'`.
-    3. Run `grep -c "Re-run the Context's measurements" templates/prompts/implement.md; python3 -B -m unittest -q tests.test_stale_context_audience 2>&1 | tail -1`.
-  expect: step 1 prints exactly 3 lines (2 in `plugin/agents/delivery-runner.md`, 1 in `plugin/skills/writing-tasks/SKILL.md`); step 2 prints nothing (exit 1); step 3 prints `0` then `OK`.
-  dry run (`7d83efd`): step 1 printed the 3 lines; step 2 printed the same 3 lines; step 3 printed `1` then `OK`.
+    3. Run `grep -c "Re-run the Context's measurements" templates/prompts/implement.md`.
+    4. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_stale_context_audience`.
+    5. Run `grep -e '^OK' <the log step 4 names>`.
+  expect: step 1 prints exactly 3 lines (2 in `plugin/agents/delivery-runner.md`, 1 in `plugin/skills/writing-tasks/SKILL.md`); step 2 prints nothing (exit 1); step 3 prints `0`; step 4 exits 0; step 5 prints `OK`.
+  dry run (`7d83efd`): step 1 printed the 3 lines; step 2 printed the same 3 lines. At `ad9b4f84`: step 3 printed `1`; step 4 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 15 tests`; step 5 printed `OK`.
 - id: `code-02`
   story: As a plane developer, no test spells the lead's id inside a longer string.
   setup: A checkout of the PR head (any seat).
   steps:
     1. Run `git grep -n 'design-seat' -- tests | grep -v '"design-seat"'`.
-    2. Run `python3 -B -m unittest -q tests.test_prefer tests.test_usage tests.test_usage_advice 2>&1 | tail -1`.
-  expect: step 1 prints nothing (exit 1); step 2 prints `OK`.
-  dry run (`7d83efd`): step 1 printed 5 lines (`tests/test_prefer.py` 3, `tests/test_usage_advice.py` 1, `tests/test_usage.py` 1); step 2 printed `OK`.
+    2. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_prefer tests.test_usage tests.test_usage_advice`.
+    3. Run `grep -e '^OK' <the log step 2 names>`.
+  expect: step 1 prints nothing (exit 1); step 2 exits 0; step 3 prints `OK`.
+  dry run (`7d83efd`): step 1 printed 5 lines (`tests/test_prefer.py` 3, `tests/test_usage_advice.py` 1, `tests/test_usage.py` 1). At `ad9b4f84` (scratch QUEUE_ROOT): step 2 printed `passed, exit 0, lane part … 72 tests`; step 3 printed `OK`.
 
 ## Implementation notes
 

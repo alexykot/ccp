@@ -10,7 +10,7 @@ review_point: R13
 paths: ["ccp/config.py", "ccp/lifecycle.py", "ccp/models.py", "ccp/prompt.py", "ccp/seats.py", "ccp/usage.py", "ccp/init.py", "ccp/upgrade.py", "scripts/observability/lib.py", "plugin/agents/delivery-runner.md", "contracts/plane_config.schema.json", "contracts/project.schema.json", "docs/spec/01-model.md", "docs/spec/02-delivery.md", "docs/spec/03-quality.md", "docs/spec/04-observability.md", "docs/adr/0043-opinionated-defaults-short-configuration.md", "docs/adr/INDEX.md", "tests/test_grace_ended.py", "tests/"]
 adopt: "required: the ADR-0043 steps ccp upgrade status lists (plane.json language and suite.lanes.gate; move every key it names from its old place)"
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-22
 ---
 
 # Task: 0191-the-grace-release-ends
@@ -75,12 +75,13 @@ is ignored with a warning instead. The code that read the old places is gone.
   dry run (`e9ff0fc`): exit 0, `0001-first  Do the first thing`.
 - id: `gr-02`
   story: As an operator, a key at its old place is no longer used, and I am told where it goes.
-  setup: a checkout of the PR head; then a separate copy where `package_docs.language` is still read as `language`.
+  setup: a checkout of the PR head, in your own worktree; then a separate copy where `package_docs.language` is still read as `language`.
   steps:
-    1. On the head, run `python3 -B -m unittest -q tests.test_grace_ended`.
-    2. In the copy, run the same.
-  expect: step 1 exits 0, its tests covering for each old place (`package_docs.language`, `workers.implementer_model`, plane.json `telemetry.allowance_cmd`, `task_log.spec_paths`, `adapter.post_close`, `task_log.review_point_pattern`, binding `lead.auto_compact_window`) that the value is not used and one warning names the replacement, and `ccp docs check` exiting 2 on a product with no `language`; step 2 exits non-zero.
-  dry run: n/a — new module.
+    1. On the head, run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_grace_ended`.
+    2. Run `grep -e '^Ran ' -e '^OK' <the log step 1 names>`.
+    3. In the copy, run step 1's command.
+  expect: step 1 exits 0 and step 2 prints the `Ran` line then `OK`, the module's tests covering for each old place (`package_docs.language`, `workers.implementer_model`, plane.json `telemetry.allowance_cmd`, `task_log.spec_paths`, `adapter.post_close`, `task_log.review_point_pattern`, binding `lead.auto_compact_window`) that the value is not used and one warning names the replacement, and `ccp docs check` exiting 2 on a product with no `language`; step 3 exits non-zero.
+  dry run: n/a — new module; at `ad9b4f84` (scratch QUEUE_ROOT) step 1's command printed `FAILED, exit 1, lane part … 1 tests, 1 failed` and exited 1, its log naming `ModuleNotFoundError: No module named 'tests.test_grace_ended'`.
 - id: `gr-03`
   story: As a plane developer, no code reads the old places by name.
   setup: a checkout of the PR head.

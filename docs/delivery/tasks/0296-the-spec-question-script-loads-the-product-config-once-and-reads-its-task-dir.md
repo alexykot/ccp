@@ -93,26 +93,29 @@ record's "Worker follow-ups" table): `0282-ccp-owns-the-headless-launch-helpers-
   setup: A checkout of the PR head, in your own worktree.
   steps:
     1. Run `git grep -n 'ccp_config.load\|cfg.load(' -- scripts/observability/spec_maintainer.py scripts/observability/lib.py`.
-    2. Run `python3 -B -m unittest -v tests.test_spec_maintainer_task_ids 2>&1 | grep -e warning -e '^OK'`.
-  expect: step 1 prints exactly one line, in `scripts/observability/lib.py`'s `_product_config`; step 2 lists, `ok`, a test where `check_task_ids` on a product whose plane.json carries a key that makes `ccp.config.load` warn writes nothing to stderr, its name holding `warning`, then `OK`.
-  dry run (`e92f362`): step 1 printed 3 lines; step 2: n/a — the module is new.
+    2. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_spec_maintainer_task_ids`.
+    3. Run `grep -e warning -e '^OK' <the log step 2 names>`.
+  expect: step 1 prints exactly one line, in `scripts/observability/lib.py`'s `_product_config`; step 2 exits 0; step 3 lists, `ok`, a test where `check_task_ids` on a product whose plane.json carries a key that makes `ccp.config.load` warn writes nothing to stderr, its name holding `warning`, then `OK`.
+  dry run (`e92f362`): step 1 printed 3 lines; steps 2 and 3: n/a — the module is new (at `ad9b4f84`, scratch QUEUE_ROOT, step 2 printed `FAILED, exit 1` with `ModuleNotFoundError` in its log).
 - id: `code-03`
   story: As a runner raising a spec question, a blocked task id is checked against the task directory the product's config names, whatever DURABLE_DOCS says.
   setup: A checkout of the PR head, in your own worktree.
   steps:
     1. Run `git grep -n 'DURABLE_DOCS\|resolve_durable_docs_dir' -- ccp scripts tests`.
-    2. Run `python3 -B -m unittest -v tests.test_spec_maintainer_task_ids 2>&1 | grep -e task_dir -e '^OK'`.
-    3. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_spec_maintainer_task_ids --mutant-file <file>`, the file's mutant making `check_task_ids` look in `<product root>/docs/delivery/tasks` whatever the config says.
-  expect: step 1 prints nothing (exit 1); step 2 lists, each `ok`, a test where a product whose plane.json sets `task_log.dir` to another directory has a task id found there accepted and an unknown id refused (exit 2, `no such task`, naming that directory), with `DURABLE_DOCS` set to an unrelated path, its name holding `task_dir`, then `OK`; step 3 prints the mutant `killed`.
-  dry run (`e92f362`): step 1 printed 16 lines in 6 files; steps 2 and 3: n/a — the module is new.
+    2. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_spec_maintainer_task_ids`.
+    3. Run `grep -e task_dir -e '^OK' <the log step 2 names>`.
+    4. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_spec_maintainer_task_ids --mutant-file <file>`, the file's mutant making `check_task_ids` look in `<product root>/docs/delivery/tasks` whatever the config says.
+  expect: step 1 prints nothing (exit 1); step 2 exits 0; step 3 lists, each `ok`, a test where a product whose plane.json sets `task_log.dir` to another directory has a task id found there accepted and an unknown id refused (exit 2, `no such task`, naming that directory), with `DURABLE_DOCS` set to an unrelated path, its name holding `task_dir`, then `OK`; step 4 prints the mutant `killed`.
+  dry run (`e92f362`): step 1 printed 16 lines in 6 files; steps 2 to 4: n/a — the module is new.
 - id: `code-04`
   story: As a runner asking what is blocked, blocked reads the task log once however many questions are open.
   setup: A checkout of the PR head, in your own worktree.
   steps:
-    1. Run `python3 -B -m unittest -v tests.test_spec_maintainer_blocked 2>&1 | grep -e once -e '^OK'`.
-    2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_spec_maintainer_blocked --mutant-file <file>`, the file's mutant making `cmd_blocked` build the dependency map inside its loop over questions.
-  expect: step 1 lists, `ok`, a test where with three open questions `blocked` calls `tasklog.load` exactly once and prints the same `blocked` and `by_question` as before, its name holding `once`, then `OK`; step 2 prints the mutant `killed`.
-  dry run (`e92f362`): step 1 printed only `OK` (no test names `once` yet).
+    1. Run `CCP_DEV=1 ./bin/ccp suite run --lane part --summary -- python3 -B -m unittest -v tests.test_spec_maintainer_blocked`.
+    2. Run `grep -e once -e '^OK' <the log step 1 names>`.
+    3. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_spec_maintainer_blocked --mutant-file <file>`, the file's mutant making `cmd_blocked` build the dependency map inside its loop over questions.
+  expect: step 1 exits 0; step 2 lists, `ok`, a test where with three open questions `blocked` calls `tasklog.load` exactly once and prints the same `blocked` and `by_question` as before, its name holding `once`, then `OK`; step 3 prints the mutant `killed`.
+  dry run (`ad9b4f84`): step 1 (scratch QUEUE_ROOT) printed `passed, exit 0, lane part … 6 tests`; step 2 on its log printed only `OK` (no test names `once` yet).
 
 ## Implementation notes
 

@@ -69,7 +69,9 @@ All reshape phases have landed.
     affected, so `ccp suite affected` says to run the full lane. Re-measured after R19's 0261 runs a
     declared part lane in parallel: if a cli or config task's part run still takes longer than the
     gate lane, the lead chooses between each command module registering its own parser and handler
-    (cli.py only dispatches) and a language-pack rule for a declared hub module.
+    (cli.py only dispatches) and a language-pack rule for a declared hub module. Other widely read files
+    bring the part-lane pre-gate near a full gate too: `ccp suite affected` at `ad9b4f84` names 44 of
+    226 test modules for `ccp/tasklog.py`, 99 for `docs/delivery/plane.json`, 127 for 0301's change.
   - F10: the six retirement-guard test modules. Re-measured after R17's 0255 makes `ToolkitFixture`
     cheap; a guard with no reader left is cut then, by one refactor task.
 - **Deferred from architect pass `ar-20261122T055103Z-11aa`** (record in `docs/delivery/reviews/`):
