@@ -82,7 +82,7 @@ def values(**over) -> dict:
 
 
 def render(phase: str, **over) -> str:
-    return prompt.render((TEMPLATES / f"{phase}.md").read_text(), values(**over))
+    return prompt.render_phase(phase, values(**over))
 
 
 class Templates(unittest.TestCase):
@@ -100,7 +100,7 @@ class Templates(unittest.TestCase):
         self.assertIn("Run uncached any check of test order (any-order or reverse-order runs) and every mutation run",
                       text)
         self.assertIn("how many units ran and how many were cached (`ran <r>, cached <c>`).", text)
-        start = text.index(" " + REVIEW_RULE)
+        start = text.index("\n" + REVIEW_RULE)  # the rule starts its own line (one sentence per line)
         end = text.index("cached <c>`).", start) + len("cached <c>`).")
         self.assertEqual(text[:start] + text[end:], base)  # one sentence added, nothing else moved
 
