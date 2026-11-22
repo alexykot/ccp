@@ -3,11 +3,15 @@ pass moves the task to `submitted` and reports the suite run it does not judge; 
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 
 from ccp import submit
 from tests.review_flow import CLEAN, PhaseFlow, A, B
-from tests.test_toolkit import ToolkitFixture
+from tests.test_toolkit import PLANE, ToolkitFixture
 
 
 class Submit(PhaseFlow, ToolkitFixture, unittest.TestCase):
@@ -89,6 +93,20 @@ class Failures(unittest.TestCase):
     def test_failures_are_named_in_item_order(self):
         failed = submit.failures("t", self.facts(pr=None, record=None, open_refs=["sm-1"]))
         self.assertEqual([f.split(":")[0] for f in failed], list(submit.ITEMS))
+
+
+class Script(unittest.TestCase):
+    """The kept script only runs `ccp tasks submit` and exits with its code."""
+
+    def test_the_script_runs_ccp_tasks_submit_with_the_task_and_exits_with_its_code(self):
+        with tempfile.TemporaryDirectory() as d:
+            stub = Path(d) / "ccp"
+            stub.write_text('#!/bin/sh\necho "$@" > "$(dirname "$0")/argv"\nexit 4\n')
+            stub.chmod(0o755)
+            r = subprocess.run(["bash", str(PLANE / "scripts/formal-submit.template.sh"), "0009-x"], capture_output=True,
+                               text=True, env={**os.environ, "PATH": f"{d}:{os.environ['PATH']}"})
+            self.assertEqual(r.returncode, 4, r.stderr)
+            self.assertEqual((Path(d) / "argv").read_text().split(), ["tasks", "submit", "0009-x"])
 
 
 if __name__ == "__main__":
