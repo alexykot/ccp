@@ -328,10 +328,30 @@ def _write_all(fd: int, chunk: bytes) -> None:
         view = view[os.write(fd, view):]
 
 
-def _pump(src: Any, fd: int, counter: _Counter, tee: tuple[int, threading.Lock] | None = None) -> None:
-    """Copy a pipe to fd as it arrives, and to the `tee` log (its fd, and the lock the pumps share so a chunk
-    lands whole) when given. A closed reader (`| head`) stops the copy, not the drain; a log write that fails
-    stops the log's copy alone."""
+class _Tee:
+    """§14.2's `--full` log, one for the whole run, every stage's pumps writing to it under one lock, so a
+    chunk lands whole. Once closed it takes nothing: a pump a background child keeps alive past the drain
+    may outlive the log, and its fd number may by then name another file."""
+
+    def __init__(self, fd: int) -> None:
+        self.fd: int | None = fd
+        self.lock = threading.Lock()
+
+    def write(self, chunk: bytes) -> None:
+        with self.lock:
+            if self.fd is not None:
+                _write_all(self.fd, chunk)
+
+    def close(self) -> None:
+        with self.lock:
+            fd, self.fd = self.fd, None
+            if fd is not None:
+                os.close(fd)
+
+
+def _pump(src: Any, fd: int, counter: _Counter, tee: _Tee | None = None) -> None:
+    """Copy a pipe to fd as it arrives, and to the `tee` log when given. A closed reader (`| head`) stops the
+    copy, not the drain; a log write that fails stops the log's copy alone."""
     out_ok = True
     while True:
         try:
@@ -347,8 +367,7 @@ def _pump(src: Any, fd: int, counter: _Counter, tee: tuple[int, threading.Lock] 
                 out_ok = False
         if tee is not None:
             try:
-                with tee[1]:
-                    _write_all(tee[0], chunk)
+                tee.write(chunk)
             except OSError:
                 tee = None
         try:
@@ -947,10 +966,10 @@ def _same_file(a: int, b: int) -> bool:
 
 
 def _run_stage(argv: list[str], env: dict[str, str], log_fd: int | None, merged: bool, own_group: bool,
-               counters: list[_Counter], current: dict[str, Any], tee_fd: int | None = None) -> tuple[int, float]:
+               counters: list[_Counter], current: dict[str, Any], tee: _Tee | None = None) -> tuple[int, float]:
     """Run one stage's command to its end: (its return code, as Popen gives it, and its seconds). Its
     output goes to the log (`log_fd`), or is copied through and counted as it arrives, and copied to
-    `tee_fd` too when given (§14.2's `--full` log). A command that cannot start returns 127 (not found) or
+    `tee` too when given (§14.2's `--full` log). A command that cannot start returns 127 (not found) or
     126 and says why."""
     t0 = time.monotonic()
     if log_fd is not None:  # the file itself, both streams: the order is the command's own
@@ -978,7 +997,6 @@ def _run_stage(argv: list[str], env: dict[str, str], log_fd: int | None, merged:
             dog_w = None
     pumps = []
     if log_fd is None:
-        tee = (tee_fd, threading.Lock()) if tee_fd is not None else None
         pumps.append(threading.Thread(target=_pump, args=(proc.stdout, 1, counters[0], tee), daemon=True))
         if not merged:
             pumps.append(threading.Thread(target=_pump, args=(proc.stderr, 2, counters[1], tee), daemon=True))
@@ -1311,7 +1329,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
     # run streams with none.
     log: Path | None = None
     log_fd: int | None = None  # summary mode: the command writes here
-    tee_fd: int | None = None  # --full: a copy of what is copied through
+    tee: _Tee | None = None  # --full: a copy of what is copied through
     if mode == "summary" or (q is not None and started is not None):
         try:
             log = log_path(q, started, suite_id, log_arg)
@@ -1322,8 +1340,8 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
             log = fd = None
         if mode == "summary":
             log_fd = fd
-        else:
-            tee_fd = fd
+        elif fd is not None:
+            tee = _Tee(fd)
     summarised = log is not None and mode == "summary"
     t0 = time.monotonic()
     got: list[int] = []
@@ -1406,7 +1424,7 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
             result_path = Path(tempfile.gettempdir()) / f"ccp-suite-result-{suite_id}{f'-{i}' if i else ''}.json"
             env = {**(os.environ if caller_env is None else caller_env), **wt_env, **cold_env,
                    **for_child({"CCP_SUITE_ID": suite_id, "CCP_SUITE_RESULT": str(result_path)})}
-            rc, s_secs = _run_stage(stage["argv"], env, log_fd, merged, own_group, counters, current, tee_fd)
+            rc, s_secs = _run_stage(stage["argv"], env, log_fd, merged, own_group, counters, current, tee)
             code = 128 - rc if rc < 0 else rc
             results.append(read_result(result_path))
             if stage["name"] is not None:
@@ -1423,9 +1441,10 @@ def run(cfg: Config | None, a: Any, command: list[str] | None, warn: _Warn | Non
                 signal.signal(s, h)
             except (ValueError, OSError):
                 pass
-        for fd in (log_fd, tee_fd):
-            if fd is not None:
-                os.close(fd)
+        if log_fd is not None:
+            os.close(log_fd)
+        if tee is not None:
+            tee.close()
     seconds = time.monotonic() - t0
     sig = got[0] if got else (-rc if rc < 0 else None)
     failed_stage = done[-1]["name"] if done and code != 0 else None

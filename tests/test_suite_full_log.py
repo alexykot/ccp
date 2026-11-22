@@ -4,10 +4,14 @@ records the log's path; a log that cannot be opened is a warning, and the run st
 from __future__ import annotations
 
 import json
+import os
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 
+from ccp import suite
 from tests.helpers import Product, repo_git as git
 from tests.suite_fixture import PY, ccp_proc
 
@@ -53,6 +57,41 @@ class FullLog(unittest.TestCase):
         self.assertIn(b"beta\n", r.stderr)
         self.assertIn(b"no log file", r.stderr)
         self.assertIsNone(self.ended()[0]["log"])
+
+
+class ClosedLog(unittest.TestCase):
+    def test_a_pump_outliving_the_closed_log_writes_nothing_to_the_file_its_fd_number_names_next(self):
+        d = tempfile.TemporaryDirectory()
+        self.addCleanup(d.cleanup)
+        log, other = Path(d.name) / "run.log", Path(d.name) / "other"
+        tee = suite._Tee(os.open(log, os.O_WRONLY | os.O_CREAT, 0o600))
+        num = tee.fd
+        src_r, src_w = os.pipe()  # the command's output, still held open (a background child)
+        out_r, out_w = os.pipe()  # where the pump copies it through
+        src = os.fdopen(src_r, "rb", buffering=0)
+        pump = threading.Thread(target=suite._pump, args=(src, out_w, suite._Counter([]), tee), daemon=True)
+        pump.start()
+        os.write(src_w, b"one\n")
+        deadline = time.monotonic() + 10
+        while log.read_bytes() != b"one\n" and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertEqual(log.read_bytes(), b"one\n")
+        tee.close()  # the run ends with the pump still waiting on the pipe
+        reused = os.open(other, os.O_WRONLY | os.O_CREAT, 0o600)
+        if reused != num:  # the fd number the log had now names another file, as the next open in ccp makes it
+            os.dup2(reused, num)
+            os.close(reused)
+        try:
+            os.write(src_w, b"two\n")
+            os.close(src_w)
+            pump.join(10)
+            self.assertFalse(pump.is_alive())
+        finally:
+            os.close(num)
+        self.assertEqual((log.read_bytes(), other.read_bytes()), (b"one\n", b""))
+        os.close(out_w)
+        with os.fdopen(out_r, "rb") as f:
+            self.assertEqual(f.read(), b"one\ntwo\n")  # the copy-through goes on
 
 
 if __name__ == "__main__":
