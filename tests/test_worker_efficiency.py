@@ -77,11 +77,19 @@ class Templates(unittest.TestCase):
     def test_review_without_the_reviewer_setting_is_unchanged(self):
         base = render("review")
         self.assertNotIn("cache", base)
+        self.assertIn("--lane <part_lane> --cold`;", base)  # a run no cache entry stands for
         # the verifier's rule alone leaves the review brief byte for byte as it is without any rule
         self.assertEqual(render("review", accept_cache=True, cache_max_age_days=3), base)
 
+    def test_review_asks_for_a_cold_run_only_where_it_takes_no_cache_hits(self):
+        cold = render("review", part_lane="part")
+        self.assertIn("with `--lane part --cold`; you need not run the full suite", cold)
+        cached = render("review", part_lane="part", accept_cache=True, review_cache=True, cache_max_age_days=3)
+        self.assertIn("with `--lane part`; you need not run the full suite", cached)
+        self.assertNotIn("--cold", cached)
+
     def test_review_with_it_runs_touched_modules_through_the_cache(self):
-        base = render("review")
+        base = render("review").replace(" --cold", "")  # the cold run is the no-setting prompt's own
         text = render("review", accept_cache=True, review_cache=True, cache_max_age_days=3)
         self.assertIn(REVIEW_RULE, text)
         self.assertIn("no more than 3 days old) counts as run, and as passed", text)
