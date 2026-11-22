@@ -28,30 +28,29 @@ cadences, watchdog rules and dated operator records.
 ## Context (not checked)
 
 From architect pass `ar-20261122T055103Z-11aa`, F03 (`holdover`) and F04 (`doc-history`); the record is
-in `docs/delivery/reviews/`. Measured at `245528c`.
+in `docs/delivery/reviews/`. Measured at `072d9f9`.
 
-- **The watchdog in writers and docs.** `git grep -n 'delivery-watchdog' -- ':!docs/delivery/tasks' ':!docs/delivery/reviews'` at `245528c`: 17 lines:
+- **The watchdog in writers and docs.** `git grep -n 'delivery-watchdog' -- ':!docs/delivery/tasks' ':!docs/delivery/reviews'` at `072d9f9`: 17 lines:
   lib.py (`SEAT_IDS` and the cadence comment and table), heartbeat.sh (usage, the seat check, the cron
   default), emit-event.sh (its usage example), spec_maintainer.py (a docstring), the README, the design
-  note and the two contracts' `actor` enums; per file, `git grep -c delivery-watchdog -- scripts docs/design contracts` at `245528c`.
-- **Rows that still hold it.** Read-only, the bound products' queues at `245528c`:
-  `grep -c '"delivery-watchdog"' <queue>/observability/events.jsonl` gives 91 for one product's ledger (the latest row from 2026-09-25), and the same queue holds a
-  `seats/delivery-watchdog.json`; this plane's own ledger holds none. So the actor stays readable (E9).
+  note and the two contracts' `actor` enums; per file, `git grep -c delivery-watchdog -- scripts docs/design contracts` at `072d9f9`.
+- **Rows that still hold it.** Read-only, a bound product's ledger still holds watchdog rows, and this
+  plane's own ledger holds none. So the actor stays readable (E9).
 - **Who accepts an actor.** `lib.ACTORS` (`SEAT_IDS` plus four) is read by `"def validate_event"`
   (every row read or appended), `ccp/queue.py`'s `"def actor"` (the ACTOR a write records), and the actor
   pickers of `spec_maintainer.py` and `architecture_review.py`.
-- **cron_expected.** `git grep -n 'cron_expected\|cron-expected\|default_cron\|SEAT_DEFAULT_CRON' -- ':!docs/delivery/tasks' ':!docs/delivery/reviews'` at `245528c`: 14 lines,
+- **cron_expected.** `git grep -n 'cron_expected\|cron-expected\|default_cron\|SEAT_DEFAULT_CRON' -- ':!docs/delivery/tasks' ':!docs/delivery/reviews'` at `072d9f9`: 14 lines,
   all writers or docs (lib's fold and `empty_seat`, `heartbeat.sh`'s option, defaults and two writes,
-  the README, and `tests/test_stale_blockers_retired.py`'s fixture rows). `git grep -n cron_expected -- ccp contracts` at `245528c`: no lines,
+  the README, and `tests/test_stale_blockers_retired.py`'s fixture rows). `git grep -n cron_expected -- ccp contracts` at `072d9f9`: no lines,
   so nothing reads it. No contract describes `seats/<id>.json`.
 - **The seat ids §18.3 names.** "`design-seat`, `task-runner` and `task-verifier` are seat ids". `heartbeat.sh`'s
   seat check accepts `task-runner|task-verifier|delivery-watchdog`; `ccp/queue.py`'s heartbeat call passes
   the seat it is given.
-- **The README.** `wc -l scripts/observability/README.md` at `245528c`: 140 lines, beside the 9-line
+- **The README.** `wc -l scripts/observability/README.md` at `072d9f9`: 140 lines, beside the 9-line
   `CLAUDE.md`; `package_docs.claude_md_dirs` judges `CLAUDE.md` only. Its sections: the runtime layout,
   the scripts table, shell examples, spec questions, the timer formula ("LOCKED"), the single-writer
   rule, auth precedence (with "Watchdog Wake B"), seat liveness (the dated 2026-09-24 cadence), the
-  prompt audit, secrets, contracts. `git grep -n 'observability/README' -- ':!docs/delivery/tasks' ':!docs/delivery/reviews'` at `245528c`: 2 lines,
+  prompt audit, secrets, contracts. `git grep -n 'observability/README' -- ':!docs/delivery/tasks' ':!docs/delivery/reviews'` at `072d9f9`: 2 lines,
   §23.3 (`docs/spec/04-observability.md`, "`scripts/observability/README.md` documents them") and `queue/README.md`.
   §23.3 states the three timer formulas itself, so dropping its pointer loses nothing.
 - **A probe at `65065dc`** (a scratch copy: `delivery-watchdog` out of `SEAT_IDS`, the fold's and
@@ -74,11 +73,16 @@ in `docs/delivery/reviews/`. Measured at `245528c`.
 - `DEFAULT_CRON`, `EVENT_ONLY`, `SEAT_DEFAULT_CRON`, `default_cron` and the cadence comment leave lib.py;
   `empty_seat` and the fold record no `cron_expected` (an old row's field is ignored).
   `heartbeat.sh` loses `--cron-expected` and its defaults, writes no `cron_expected`, and accepts the seat
-  ids of §18.3. `emit-event.sh`'s usage example emits as `task-runner`.
+  ids of §18.3. Its `--wake-kind` default becomes `manual` (no seat runs on a routine); `cron` stays an
+  accepted value, since old rows hold it. `git grep -n wake_kind -- ccp contracts` at `072d9f9`: no lines, so
+  no reader depends on `cron`; lib's fold only copies the value, and `ccp/queue.py`'s heartbeat passes `manual`. `emit-event.sh`'s usage example emits as `task-runner`.
 - `scripts/observability/README.md` is removed. What in it is current and is neither in the SPEC, in a
   script's `--help`, nor in `scripts/observability/CLAUDE.md` goes into that CLAUDE.md, in at most 6 added
   lines; the implementation notes list each README section and where its content now lives, or that it
-  was retired. `queue/README.md`'s pointer names `scripts/observability/CLAUDE.md`.
+  was retired. `queue/README.md`'s pointer names `scripts/observability/CLAUDE.md`, and lib.py's module
+  docstring stops citing the README (`git grep -n README -- scripts/observability` at `072d9f9`: lib.py's
+  "Timer formula (stable — see README.md):" and "Do not change this formula without a SPEC + README note.",
+  besides the README itself); it cites §23.3 instead.
   `docs/design/observability.md`'s actor list and seat-id line drop the watchdog and name the §18.3 seats.
 
 ## Scope
@@ -89,15 +93,15 @@ in `docs/delivery/reviews/`. Measured at `245528c`.
   `contracts/observability_event.schema.json`, `contracts/prompt_audit.schema.json` (descriptions only),
   `docs/design/observability.md`, `queue/README.md`, `tests/test_stale_blockers_retired.py`,
   and `tests/test_seat_actors.py` (new).
-- **SPEC, signed before the claim (`sign_off: brief`):** two passages in `docs/spec/04-observability.md`, each CURRENT at `245528c`.
+- **SPEC, signed before the claim (`sign_off: brief`):** two passages in `docs/spec/04-observability.md`, each CURRENT at `072d9f9`.
 
-    CURRENT (`docs/spec/04-observability.md` at `245528c`), §23.1, the table's seat-heartbeat row:
+    CURRENT (`docs/spec/04-observability.md` at `072d9f9`), §23.1, the table's seat-heartbeat row:
     > | Seat heartbeats | `observability/seats/<seat_id>.json` | Last wake and action of a scheduled seat (`event` for an event-only seat) |
 
     PROPOSED:
     > | Seat heartbeats | `observability/seats/<seat_id>.json` | A seat's last wake and action (§18.3) |
 
-    CURRENT (`docs/spec/04-observability.md` at `245528c`), §23.3, its first line:
+    CURRENT (`docs/spec/04-observability.md` at `072d9f9`), §23.3, its first line:
     > Folded from the ledger (the formulas are fixed; `scripts/observability/README.md` documents them):
 
     PROPOSED:
@@ -112,7 +116,7 @@ in `docs/delivery/reviews/`. Measured at `245528c`.
   steps:
     1. Run `git grep -n -e delivery-watchdog -e cron_expected -e cron-expected -e default_cron -- ccp scripts plugin templates docs/design queue`.
   expect: prints exactly one line, `scripts/observability/lib.py`'s `LEGACY_ACTORS`.
-  dry run (`245528c`): printed 25 lines (lib.py, heartbeat.sh, emit-event.sh, spec_maintainer.py, README.md, docs/design/observability.md).
+  dry run (`072d9f9`): printed 25 lines (lib.py, heartbeat.sh, emit-event.sh, spec_maintainer.py, README.md, docs/design/observability.md).
 - id: `cmd-01`
   story: As a reader of an old ledger, a watchdog row still folds, and as a writer I cannot record one.
   setup: A checkout of the PR head.
@@ -125,24 +129,24 @@ in `docs/delivery/reviews/`. Measured at `245528c`.
   story: As a reader of the observability scripts, there is one package doc and nothing points at the removed README.
   setup: A checkout of the PR head.
   steps:
-    1. Run `test -e scripts/observability/README.md; echo "exists=$?"; git grep -n 'observability/README' -- ':!docs/delivery/tasks' ':!docs/delivery/reviews'`.
+    1. Run `test -e scripts/observability/README.md; echo "exists=$?"; git grep -n 'observability/README' -- ':!docs/delivery/tasks' ':!docs/delivery/reviews'; git grep -n README -- scripts/observability`.
     2. Run `CCP_DEV=1 ./bin/ccp docs check 2>&1 | tail -1`.
   expect: step 1 prints only `exists=1`; step 2's last line reports no failure.
-  dry run (`245528c`): step 1 printed `exists=0` and 2 lines (§23.3 and `queue/README.md`).
+  dry run (`072d9f9`): step 1 printed `exists=0`, 2 lines (§23.3 and `queue/README.md`), then lib.py's 2 lines.
 - id: `cmd-02`
   story: As the plane's maintainer, the tests that read seats and the ledger still pass.
   setup: A checkout of the PR head.
   steps:
     1. Run `python3 -B -m unittest -q tests.test_stale_blockers_retired tests.test_event_registry tests.test_contract_writers tests.test_operator_rename 2>&1 | tail -1`.
   expect: prints `OK`.
-  dry run (`245528c`): printed `OK`.
+  dry run (`072d9f9`): printed `OK`.
 - id: `spec-01`
   story: As the operator, §23.1 and §23.3 say what I signed.
   setup: A checkout of the PR head.
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0283`.
   expect: exit 0, both PROPOSED passages found.
-  dry run (simulated at `245528c`: this task file committed, then the 2 passages applied, each CURRENT found once, committed in a scratch copy; `CCP_DEV=1 ./bin/ccp verify spec-text 0283 --base HEAD~1`): `"ok": true`, 2 passage(s) found, none missing.
+  dry run (simulated at `072d9f9`: this task file committed, then the 2 passages applied, each CURRENT found once, committed in a scratch copy; `CCP_DEV=1 ./bin/ccp verify spec-text 0283 --base HEAD~1`): `"ok": true`, 2 passage(s) found, none missing.
 
 ## Implementation notes
 

@@ -31,31 +31,31 @@ is in `docs/delivery/reviews/`. Also the worker follow-up
 `0264-one-parser-for-signed-blocks-and-task-id-patterns/implement#1` (`ccp/CLAUDE.md` could say that
 `tasklog.py` holds the signed-block reader), since this task edits `ccp/CLAUDE.md` anyway.
 
-Measured at `245528c`.
+Measured at `072d9f9`.
 
-- **What ccp borrows.** `git grep -nP 'import spec_maintainer|\bsm\.(STRIP_KEYS|headless_env|parse_claude_json|detect_quota|lock_is_stale|open_questions)\b|\barchitect\.sm\b' -- ccp` at `245528c`: 16 lines in `ccp/architect.py` (the import and 5 uses),
+- **What ccp borrows.** `git grep -nP 'import spec_maintainer|\bsm\.(STRIP_KEYS|headless_env|parse_claude_json|detect_quota|lock_is_stale|open_questions)\b|\barchitect\.sm\b' -- ccp` at `072d9f9`: 16 lines in `ccp/architect.py` (the import and 5 uses),
   `ccp/estimator.py` (7 lines: `return architect.sm, architect.ar` and 6 uses), `ccp/seats.py` (1, `architect.sm.lock_is_stale`) and `ccp/submit.py`
   (the import and `sm.open_questions`). `lock_is_stale` is lib's, re-exported by `spec_maintainer.py`
   (`"lock_is_stale,  # noqa: F401  (re-exported"`).
-- **No caller inside the script.** `git grep -c 'headless_env\|parse_claude_json\|detect_quota' -- scripts/observability/spec_maintainer.py` at `245528c`: 3, the three `def` lines.
+- **No caller inside the script.** `git grep -c 'headless_env\|parse_claude_json\|detect_quota' -- scripts/observability/spec_maintainer.py` at `072d9f9`: 3, the three `def` lines.
   `open_questions` is called by `cmd_blocked` in the script and twice in `scripts/observability/team.py`.
 - **The open-question rule.** `"def open_questions"` keeps a question whose `status` is `open` or
   `escalated`. `ccp/board.py`'s `_open_questions` keeps only `open` (its own reader of `questions/`).
   The board is Out: changing which questions it shows is a board behaviour change no finding asks for.
 - **blocked.** `"def descendants"` reads `depends_on` from the queue's `tasks/*.json` and, only when the
   `DURABLE_DOCS` variable is set, from `INDEX.yaml` or the task files' frontmatter, each with its own
-  regex, and computes its own closure. A probe at `245528c` (`env -u DURABLE_DOCS python3 -B -c '…sm.descendants(<empty queue>, ["0001-a"])'`):
+  regex, and computes its own closure. A probe at `072d9f9` (`env -u DURABLE_DOCS python3 -B -c '…sm.descendants(<empty queue>, ["0001-a"])'`):
   returned `{'0001-a'}`, so a task-log descendant of a blocked task is not listed. `ccp/graph.py`'s
   `closure` gives what a node depends on; the dependents are the closure over the reversed map.
-- **The task-id regex.** `"TASK_ID_RE = re.compile"` in the script has no width: a probe at `245528c`
+- **The task-id regex.** `"TASK_ID_RE = re.compile"` in the script has no width: a probe at `072d9f9`
   (`python3 -B -c '…sm.TASK_ID_RE.match("00001-x")'`) matched `1-x` and `00001-x`. `ccp/refs.py`'s
   `Ids.task_id_re` carries the product's width (`ids.task.width`). The proposed E23 command,
-  `git grep -nE '\\d[+{][^"]*-\[a-z0-9\]' -- ccp scripts ':(exclude)ccp/refs.py'` at `245528c`: 1 line, the script's `TASK_ID_RE`.
-- **Tests that reach the moved names.** `git grep -n 'headless_env' -- tests` at `245528c`: 2 lines,
+  `git grep -nE '\\d[+{][^"]*-\[a-z0-9\]' -- ccp scripts ':(exclude)ccp/refs.py'` at `072d9f9`: 1 line, the script's `TASK_ID_RE`.
+- **Tests that reach the moved names.** `git grep -n 'headless_env' -- tests` at `072d9f9`: 2 lines,
   `tests/test_usage.py` (`class HeadlessEnv`, through `import spec_maintainer as sm`) and `tests/test_estimator.py`
-  (`architect.sm.headless_env`). `git grep -n 'detect_quota\|parse_claude_json\|open_questions\|descendants\|check_task_ids' -- tests` at `245528c`: no lines.
+  (`architect.sm.headless_env`). `git grep -n 'detect_quota\|parse_claude_json\|open_questions\|descendants\|check_task_ids' -- tests` at `072d9f9`: no lines.
   `tests/test_team_hosting.py` runs `spec-maintainer-ask.sh blocked` only for its no-binding refusal, which stays.
-- **No SPEC change.** `git grep -n 'DURABLE_DOCS\|spec_maintainer.py\|headless_env' -- docs/spec SPEC.md` at `245528c`: no lines.
+- **No SPEC change.** `git grep -n 'DURABLE_DOCS\|spec_maintainer.py\|headless_env' -- docs/spec SPEC.md` at `072d9f9`: no lines.
   §17.7 already says the blocked tasks are "the tasks in its `blocks`, plus their `depends_on` descendants",
   and §24.3 says what a headless session's environment carries, not where the code lives.
 - **E7 is not amended here.** Its amendment ("`ccp` imports nothing from scripts/") is a question for the
@@ -110,7 +110,7 @@ Measured at `245528c`.
     1. Run `git grep -nP 'import spec_maintainer|\bsm\.(STRIP_KEYS|headless_env|parse_claude_json|detect_quota|lock_is_stale|open_questions)\b|\barchitect\.sm\b' -- ccp`.
     2. Run `git grep -nP 'def (headless_env|parse_claude_json|detect_quota|open_questions)\b|^STRIP_KEYS\b' -- ccp scripts`.
   expect: step 1 prints nothing; step 2 prints exactly five lines: `STRIP_KEYS`, `def headless_env`, `def parse_claude_json` and `def detect_quota` in `ccp/headless.py`, and `def open_questions` in `ccp/queue.py`.
-  dry run (`245528c`): step 1 printed 16 lines (the measured borrowings); step 2 printed 5 lines, all in `scripts/observability/spec_maintainer.py`.
+  dry run (`072d9f9`): step 1 printed 16 lines (the measured borrowings); step 2 printed 5 lines, all in `scripts/observability/spec_maintainer.py`.
 - id: `cmd-01`
   story: As a headless seat's launcher, the child environment still has no API key and carries the project and seat.
   setup: A checkout of the PR head.
@@ -140,7 +140,7 @@ Measured at `245528c`.
     1. Run `python3 -B -c "import json;print([c['id'] for c in json.load(open('docs/delivery/plane.json'))['architect']['checks'] if c['id']=='E23'])"`.
     2. Run `git grep -nE '\\d[+{][^"]*-\[a-z0-9\]' -- ccp scripts ':(exclude)ccp/refs.py'; echo "exit=$?"`.
   expect: step 1 prints `['E23']`; step 2 prints only `exit=1`.
-  dry run (`245528c`): step 1 printed `[]`; step 2 printed the `TASK_ID_RE` line of `scripts/observability/spec_maintainer.py` and `exit=0`.
+  dry run (`072d9f9`): step 1 printed `[]`; step 2 printed the `TASK_ID_RE` line of `scripts/observability/spec_maintainer.py` and `exit=0`.
 
 ## Implementation notes
 
