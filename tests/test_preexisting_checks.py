@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -250,9 +251,9 @@ class HeadBindingsDir(unittest.TestCase):
             self.addCleanup(patch.stop)
         os.environ.pop("CCP_BINDINGS_DIR")
 
-    def stub(self, body: str) -> None:
+    def stub(self, body: str, shell: str = "/bin/sh") -> None:
         stub = self.tmp / "bin" / "ccp"
-        stub.write_text(f"#!/bin/sh\n{body}\n")
+        stub.write_text(f"#!{shell}\n{body}\n")
         stub.chmod(0o755)
 
     def test_where_names_the_bindings_directory_by_its_binding_else_beside_the_plane(self):
@@ -269,10 +270,11 @@ class HeadBindingsDir(unittest.TestCase):
 
     def test_with_no_answer_from_ccp_where_it_is_this_ccps_own(self):
         self.assertEqual(baseline.head_bindings_dir(self.cfg), self.own)  # no ccp on PATH
-        for body in ("exit 1", "echo not json"):
+        where = json.dumps({"binding": "/b/x.yaml", "plane": "/p"})
+        for body in (f"echo '{where}'; exit 1", "echo not json"):
             self.stub(body)
             self.assertEqual(baseline.head_bindings_dir(self.cfg), self.own, body)
-        self.stub("exec /bin/sleep 5")
+        self.stub(f"import time\ntime.sleep(5)\nprint({where!r})", sys.executable)
         with mock.patch.object(baseline, "WHERE_TIMEOUT", 0.2):
             self.assertEqual(baseline.head_bindings_dir(self.cfg), self.own)
 
