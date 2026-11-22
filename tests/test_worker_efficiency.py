@@ -152,9 +152,10 @@ class Templates(unittest.TestCase):
         text = render("implement")
         self.assertIn("list each branch, field, refusal or behaviour the diff adds or changes, with the test that "
                       "fails without it, and write the test for any that has none", text)
-        self.assertIn("`## Tests for new behaviour`", text)
-        self.assertLess(text.index("Tests for new behaviour"), text.index("Fail fast first"))  # before the full suite
-        self.assertIn("under `## Tests for new behaviour` in your report", render("fix"))
+        self.assertLess(text.index("list each branch, field"), text.index("Fail fast first"))  # before the full suite
+        self.assertIn("fails without it, in your report", render("fix"))
+        for phase in runs.CHANGE_PHASES:  # the section's heading and format are the report table's (§13.4)
+            self.assertNotIn("Tests for new behaviour", render(phase), phase)
         # The map is the report's, never test names or docstrings
         self.assertIn("never put dod_check ids or the map in test names or docstrings", text)
         self.assertIn("no dod_check ids or map in test names or docstrings", render("fix"))

@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
-from ccp import board, config, otel, tasklog
+from ccp import board, config, otel, runs, tasklog
 
 TASK = """---
 task_id: {tid}
@@ -142,6 +142,20 @@ class Product:
 
     def index(self) -> None:
         tasklog.write_index(self.cfg)
+
+
+# What a done report of each phase carries besides `Outcome:`, its own lines and `## Friction` (SPEC §13.4): a
+# review's `## Spec beyond intent`, and a round that pushes a head its `## Tests for new behaviour`.
+DONE_SECTIONS = {"review": ("## Spec beyond intent", "none"),
+                 **{p: ("## Tests for new behaviour", "none: the fixture's round adds no behaviour")
+                    for p in runs.CHANGE_PHASES}}
+
+
+def done_report(phase: str, *lines: str, friction: tuple[str, ...] = ("none",)) -> str:
+    """A report of `phase` with `Outcome: done` for `ccp report`: `lines` (a round's `PR:` and `Head:`, a review's
+    `Severity:`, a `Suite:` line, a `## Follow-ups` section), the section the phase needs when done, and
+    `## Friction` with the lines `friction`."""
+    return "\n".join(["Outcome: done", *lines, *DONE_SECTIONS.get(phase, ()), "## Friction", *friction, ""])
 
 
 T0 = 1_800_000_000 * 10**9  # 2027-01-15, in nanoseconds: the epoch the usage tests' times count from

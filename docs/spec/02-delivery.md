@@ -575,7 +575,10 @@ and suite filing stay the first submission's. Report lines:
   the run's token and saying the prompt the worker read was probably cut; the runner launches the
   worker again with the pointer (`--supersede` when the run never started). A run with no token
   recorded (opened before it) is not held to it;
-- for implement, fix, merge and ruling, `## Tests for new behaviour` (§13.5);
+- for implement, fix, merge and ruling with `Outcome: done`, `## Tests for new behaviour` (§13.5): a
+  `- ` line for each behaviour the round's commits add or change, with the test that fails without
+  it, or a single line beginning `none` followed by why; a done report without it, or with the
+  section empty, is refused;
 - for implement, fix, merge and ruling with `Outcome: done`, each verdict the product declares in plane.json
   `report.required_fields` (a list of `{name, values}`, default none), as `<name>: <value>` with one
   of its declared values. A report missing one, or giving another value, is refused with the field

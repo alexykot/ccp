@@ -1,5 +1,6 @@
 """`ccp prompt` (SPEC §13.2, §13.5, §20.6): the worker prompts name the tools the workers run, `ccp mutate`
-from the worker's own worktree and `ccp suite affected` for the pre-gate's test modules."""
+from the worker's own worktree and `ccp suite affected` against the integration tip for the test modules a
+change touches, in every change round's pre-gate and the reviewer's part-lane run."""
 from __future__ import annotations
 
 import re
@@ -11,10 +12,10 @@ from ccp import prompt as prompt_mod
 from tests.test_toolkit import PLANE, ToolkitFixture
 
 A = "a" * 40
-CHANGE_ROUNDS = (("implement", ("--base", "abc1234"), "origin/main"),
-                 ("fix", ("--pr", "7", "--head", A), A),
-                 ("merge", ("--pr", "7", "--head", A), A),
-                 ("ruling", ("--pr", "7", "--head", A, "--note", "the field is optional"), A))
+CHANGE_ROUNDS = (("implement", ("--base", "abc1234")),
+                 ("fix", ("--pr", "7", "--head", A)),
+                 ("merge", ("--pr", "7", "--head", A)),
+                 ("ruling", ("--pr", "7", "--head", A, "--note", "the field is optional")))
 
 
 # The one place a prompt names a mutation worktree: where the product declares no `mutate.command`,
@@ -73,15 +74,33 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
                 self.assertIn(named, brief, (a, named))
 
     def test_the_change_rounds_name_mutate_and_suite_affected(self):
-        for phase, args, since in CHANGE_ROUNDS:
+        for phase, args in CHANGE_ROUNDS:
             run_id, text = self.render(phase, *args)
             self.assertIn(f"mutate --run {run_id} --test <test id>", text, phase)
-            self.assertIn(f"suite affected --since {since}`", text, phase)
+            self.assertIn("suite affected --since origin/main`", text, phase)
             self.assertNotIn("dependent-modules", text, phase)
 
+    def test_fix_ruling_and_merge_affected_since_the_tip(self):
+        """After their catch-up merge, the round's own change is its diff against the integration tip; its starting
+        head would also name every file the tip brought in."""
+        for phase, args in CHANGE_ROUNDS[1:]:
+            _run_id, text = self.render(phase, *args)
+            self.assertIn("suite affected --since origin/main`", text, phase)
+            self.assertNotIn(f"--since {A}", text, phase)
+            self.assertNotIn(f"--since {A[:7]}", text, phase)
+
+    def test_the_review_prompt_names_suite_affected_since_the_tip(self):
+        _run_id, text = self.render("review", "--pr", "7", "--head", A)
+        self.assertIn("suite affected --since origin/main`", text)
+        self.assertNotIn(f"--since {A[:7]}", text)
+
+    def test_the_reviewer_reads_and_runs_code_at_the_merge_base_in_a_base_worktree(self):
+        brief = (PLANE / "plugin/agents/delivery-reviewer.md").read_text()
+        self.assertIn("wt create --kind base --task <task_id>", brief)
+        self.assertIn("git merge-base origin/<integration>", brief)
+
     def test_every_worker_prompt_gives_long_commands_the_full_timeout_and_names_suite_wait(self):
-        for phase, args, _since in (("verify", ("--pr", "7", "--head", A), A), ("review", ("--pr", "7", "--head", A), A),
-                                    *CHANGE_ROUNDS):
+        for phase, args in (("verify", ("--pr", "7", "--head", A)), ("review", ("--pr", "7", "--head", A)), *CHANGE_ROUNDS):
             _run_id, text = self.render(phase, *args)
             self.assertIn("timeout: 600000", text, phase)
             self.assertIn("suite wait <suite_id>", text, phase)

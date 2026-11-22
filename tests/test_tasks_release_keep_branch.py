@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 from ccp import config
+from tests.helpers import done_report
 from tests.test_toolkit import ToolkitFixture, git
 
 
@@ -31,7 +32,7 @@ class ReleaseKeepingBranch(ToolkitFixture, unittest.TestCase):
         git(wt, "commit", "-q", "-m", "Task 0002: build it")
         git(wt, "push", "-q", "-u", "origin", "task/0002-second")
         head = git(wt, "rev-parse", "HEAD")
-        code, _, out, err = self.report("0002-second/implement", f"Outcome: done\nPR: #7\nHead: {head}\n## Friction\nnone\n")
+        code, _, out, err = self.report("0002-second/implement", done_report("implement", "PR: #7", f"Head: {head}"))
         self.assertEqual(code, 0, out + err)
         return head
 

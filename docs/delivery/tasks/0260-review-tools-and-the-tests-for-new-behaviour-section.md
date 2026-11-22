@@ -1,7 +1,7 @@
 ---
 task_id: 0260-review-tools-and-the-tests-for-new-behaviour-section
 title: Every round names the affected-modules command against the integration tip, the reviewer brief a base checkout, and the report table asks for and checks the tests-for-new-behaviour section
-status: pending
+status: done
 kind: feature
 depends_on: ["0255-test-fixtures-shared-helpers-and-one-repo-build", "0257-one-gate-block-and-one-sentence-per-line"]
 clashes_with: ["0219-integration-merges-leave-out-the-tip", "0242-retire-restructure-scaffolding-and-queue-markers", "0256-suite-run-refuses-a-closed-run-and-config-reads", "0258-the-plane-writes-the-pre-merge-phases"]
@@ -12,7 +12,7 @@ review_point: R19
 paths: ["templates/prompts/review.md", "templates/prompts/_gate.md", "ccp/prompt.py", "templates/prompts/implement.md", "templates/prompts/fix.md", "templates/prompts/merge.md", "templates/prompts/ruling.md", "plugin/agents/delivery-reviewer.md", "ccp/report.py", "docs/spec/02-delivery.md", "tests/helpers.py", "tests/test_prompt_tools.py", "tests/test_worker_efficiency.py", "tests/test_report_tests_section.py", "tests/test_board_staleness.py", "tests/test_full_lane_prompt.py", "tests/test_health_conflicts.py", "tests/test_prompt_end.py", "tests/test_prompt_rounds.py", "tests/test_report_correction.py", "tests/test_report_fields.py", "tests/test_report_sections.py", "tests/test_resolution_review.py", "tests/test_review_gate.py", "tests/test_review_skip.py", "tests/test_review_skip_clean.py", "tests/test_review_skip_provers.py", "tests/test_suite.py", "tests/test_tasks_release_keep_branch.py", "tests/test_toolkit.py"]
 adopt: "none"
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0260-review-tools-and-the-tests-for-new-behaviour-section
@@ -170,4 +170,28 @@ Measured at `1aa5e3f`.
 
 ## Implementation notes
 
+- 2026-11-22, implement: `report.SECTIONS` gains `tests` for implement, fix, merge and ruling, required when
+  done, read by `friction(..., why=True)`: `- ` or `* ` items, or a single line beginning `none` followed by
+  a reason. A bare `none`, an empty section, or a line that is neither is refused like a missing one, naming
+  the section. Nothing new is stored on the run (`stored` is empty). The prompt line gives the `none` form
+  with the merge example.
+- The since-ref lived in `templates/prompts/_gate.md` as a `gate_pr` section, not in `ccp/prompt.py`. It now
+  renders `origin/{{integration}}` in every phase, and `ccp/prompt.py` is unchanged.
+- `_gate.md`, `fix.md`, `merge.md` and `ruling.md` keep the self-check and no longer name the section's
+  heading or format. `review.md` names `suite affected --since origin/{{integration}}` for the part-lane run.
+- The reviewer brief names `ccp wt create --kind base` with `<base>` from `git merge-base`. It says "merge
+  base" only once, because `test_plugin` counts that token.
+- `tests/helpers.py` `done_report(phase, *lines, friction=...)` builds the done reports. Besides the modules
+  named in Context, these also filed done change-round reports and failed without it: `review_flow.py`
+  (which `test_formal_submit`, `test_marked_checks_loop`, `test_phase_contracts`, `test_review_record`,
+  `test_review_gate` and the `test_review_skip*` modules go through), `test_formal_submit`,
+  `test_plane_workers_run_head` and `test_report_follow_ups`. `test_prompt_gate_block` pinned the old
+  since-ref. `tests/CLAUDE.md` lists the helper.
+- 2026-11-22, fix round 1: the `tests` entry's refusal now reads "no `## Tests for new behaviour` section of
+  `- ` lines, ..." instead of "..., or an empty one", so it also names the malformed case (a bare `none`, a
+  prose line, `none` beside items) as the Friction entry's does (E13). The reviewer brief's base-worktree
+  sentence cites SPEC §12.1.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #309 head `c31b690` (squash `a141f5b`): APPROVE. Passed: rv-01, rv-02, rv-03, rv-04, rv-05, rv-06. Gate: `suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0260-review-tools-and-the-tests-for-new-behaviour-section.json.
+
