@@ -1,7 +1,7 @@
 ---
 task_id: 0289-the-runner-s-actor-id-is-named-once-and-tests-read-the-lead-s
 title: The runner's actor id is named once in the seat table, E27's command checks it as it checks the lead's, and tests read the lead's id through lib.LEAD
-status: pending
+status: done
 kind: refactor
 depends_on: []
 rule_refs: ["E27", "E4"]
@@ -108,3 +108,5 @@ command), `0272-the-lead-s-records-share-one-guard-and-one-actor-id/implement#3`
   (`helpers.py` and `test_wait_reasons.py` already had it).
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #337 head `2266efa` (squash `a36bb43`): APPROVE. Passed: code-01, cfg-01, test-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0289-the-runner-s-actor-id-is-named-once-and-tests-read-the-lead-s.json.
+
