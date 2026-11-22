@@ -208,6 +208,28 @@ class Affected(Scratch, unittest.TestCase):
         self.assertEqual(self.affected("--since", f"{a}..{c}"), ["tests.test_a", "tests.test_b"])
         self.assertEqual(self.affected("--since", b), ["tests.test_a", "tests.test_b", "tests.test_new"])
 
+    def test_since_ref_dots_takes_the_branchs_own_change_from_the_merge_base(self):
+        git(self.p.root, "checkout", "-qb", "work")
+        self.p.write("pkg/b.py", "Y = 3\n")
+        self.commit("the branch changes b")
+        git(self.p.root, "checkout", "-q", "main")
+        self.p.write("pkg/a.py", "X = 3\n")
+        self.commit("main gains a change to a after the branch was cut")
+        git(self.p.root, "checkout", "-q", "work")
+        self.assertEqual(self.affected("--since", "main"), ["tests.test_a", "tests.test_b"])  # the tip's tree
+        self.assertEqual(self.affected("--since", "main..."), ["tests.test_b"])
+        self.p.write("tests/test_new.py", "import unittest\n")  # the working tree and untracked files count
+        self.assertEqual(self.affected("--since", "main..."), ["tests.test_b", "tests.test_new"])
+
+    def test_since_ref_dots_with_no_merge_base_exits_2_naming_it(self):
+        empty = git(self.p.root, "hash-object", "-t", "tree", "/dev/null")
+        git(self.p.root, "branch", "lonely", git(self.p.root, "commit-tree", empty, "-m", "no shared history"))
+        for since in ("lonely...", "no-such-ref..."):
+            code, lines, err = self.run_cli("--since", since)
+            self.assertEqual((code, lines), (2, []), since)
+            self.assertIn(repr(since), err)
+        self.assertIn("no merge base", self.run_cli("--since", "lonely...")[2])
+
     def test_a_range_with_an_end_git_cannot_read_is_refused(self):
         b = git(self.p.root, "rev-parse", "HEAD")
         for since in (f"{b}..no-such-ref", f"no-such-ref..{b}", f"{b}..-x", f"-x..{b}", f"{b}...{b}"):

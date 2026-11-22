@@ -42,7 +42,7 @@ class GateBlock(unittest.TestCase):
     def test_the_affected_run_starts_from_the_integration_tip_in_every_phase(self):
         for phase in PUSHING:
             text = prompt.render_phase(phase, values())
-            self.assertIn("suite affected --since origin/main`", text, phase)
+            self.assertIn("suite run --affected --since origin/main...`", text, phase)
             self.assertNotIn("--since <head>", text, phase)
             self.assertEqual("adr decide" in text, phase == "implement", phase)
 

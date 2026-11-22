@@ -608,7 +608,7 @@ shows.
 - **Cache lifetime.** `experimental.cacheTtl: 1h` in every delivery definition covers worker
   subagents; the runner teammate's comes from `subagentPromptCacheTtl` in settings (§2.4). `ccp usage`
   shows the 1-hour cache writes (`W-1H`) per run and seat.
-- **Fail fast.** Before the full suite, the implementer and fixer run a pre-gate: the product's `architect.checks` commands (rendered from plane.json), or, when plane.json `suite.lanes` declares a `pregate` lane, that lane through `ccp suite run --lane pregate` in their place, and the run `ccp suite affected` prints on stderr (§14.7), through `ccp suite run`: the part lane, or, when it says the change reaches most of the suite, no pre-gate and the full lane. It never stands in for the full suite, which runs on the final code and must be green.
+- **Fail fast.** Before the full suite, the implementer and fixer run a pre-gate: the product's `architect.checks` commands (rendered from plane.json), or, when plane.json `suite.lanes` declares a `pregate` lane, that lane through `ccp suite run --lane pregate` in their place, and `ccp suite run --affected --since origin/<integration>...` (§14.7), which runs the part lane on the modules the branch's own change touches or, when that change reaches most of the suite, the full lane in place of the pre-gate. It never stands in for the full suite, which runs on the final code and must be green.
 - **Exploration hygiene.** What the task cites is read in full; a listing, search or log likely past
   about 200 lines goes to a scratch file and is read in slices; independent reads go as parallel tool
   calls in one turn.
@@ -702,9 +702,11 @@ has a `Suite:` line but no suite run is recorded for its run.
     path. A gate that wrote a result file with failures gets one line naming the failing ids (at most
     20).
 
-  A log that cannot be opened is a warning, and the run streams as `--full` does.
+  A log that cannot be opened is a warning, and the run's output streams through unchanged, with no log.
 - **`--full`** is the default with a terminal on stdin: the output is copied through unchanged as it
-  arrives; when stdout and stderr are the same file the command gets one pipe for both.
+  arrives, and a recorded run also copies it to a log named as in summary mode, whose path its `ended`
+  row records (§14.4); a log that cannot be opened is a warning, and the run streams with none. When
+  stdout and stderr are the same file the command gets one pipe for both.
 - When the options do not parse (an unknown flag, an option missing its value or given a bad one,
   `--full` with `--summary`), nothing runs: `ccp` exits 2, naming the problem, even with a command
   after `--`.
@@ -779,8 +781,8 @@ has a `Suite:` line but no suite run is recorded for its run.
 `QUEUE_ROOT/runs/_suites.jsonl`, append-only: a `started` and an `ended` row per run sharing a
 `suite_id`, and a `suite/recorded` event at the end. Numbers, ids and short labels only: the lane,
 the output mode (`output`), the command's basename and argument count; the `ended` row adds `tests`,
-`failed`, `skipped`, `ran`, `cached`, `cached_tests` (null when not found), `counts_from`, summary
-mode's `log` path, `cold` (§14.6) and, for a lane plane.json names, `stages` and `failed_stage` (§14.3), `modules` when the result gave
+`failed`, `skipped`, `ran`, `cached`, `cached_tests` (null when not found), `counts_from`, the run's
+`log` path, `cold` (§14.6) and, for a lane plane.json names, `stages` and `failed_stage` (§14.3), `modules` when the result gave
 them (§14.3; on the row only, never the event), and
 `proven_skips` when a prover skipped a stage (§14.2: the prover's name, exit code and the run id, never
 its command). A staged
@@ -803,7 +805,7 @@ never its output; the event carries the numbers, `cold` and the stages, not the 
   the task's latest verify run. A differing `exit_code`, an unknown, unfinished or unbound run,
   another phase's, or an earlier verify round's is refused. `cold` is filled as `true` when the cited
   run has `cached == 0` and the entry leaves it out; an explicit `cold` from the verifier wins.
-- **Logs are pruned.** A recording `ccp suite run` removes summary-mode logs
+- **Logs are pruned.** A recording `ccp suite run` removes suite-run logs
   (`runs/<task>/*-suite-st-*.log`, `runs/_suite-logs/st-*.log`) older than 14 days: no other file, no symlink, nothing outside `runs/`, at most 5,000 looked at, a failure
   ignored.
 - **Totals.** A `started` row with no end is `open` while the run may still be going and `killed`
@@ -857,7 +859,8 @@ Claude Code). A cold gate run must fit that limit with room to spare.
 
 `ccp suite affected [--since <ref> | --paths <path>…]` prints the test modules a change touches, one
 per line, sorted, so a worker picks the `part` lane from them after a merge or a fix instead of
-guessing. It runs nothing and records nothing. After the list it prints, on stderr, the command that runs them on the `part` role's lane
+guessing. It runs nothing and records nothing. `ccp suite run --affected [--since <ref>]` takes the same change and runs, recorded as any run (§14.4), what the stderr line below names: the part lane with the modules, or the full lane when the line says so. With no module touched it runs and records nothing, says so on stderr and exits 0; with no line to run it exits 2. It takes no `--lane` and no command after `--`, and `--since` without `--affected` exits 2, nothing run.
+After the list it prints, on stderr, the command that runs them on the `part` role's lane
 (`ccp suite run --lane <part lane> -- <command> <modules>`). The `<command>` is the argv
 plane.json `suite.lanes` gives the part role's lane, when it gives one as an argv, which then
 takes the module names as its last arguments; else the language's command, for a language whose
@@ -872,7 +875,10 @@ slower than the full lane. A declared part lane, and a product that maps tests w
   collapsed, an absolute path made relative), else the files `git diff <ref>` names against the
   working tree (a rename as both its paths) plus the untracked files git does not ignore; `--since`
   defaults to `HEAD`, the uncommitted change. A range `<a>..<b>` given to `--since` is the files
-  `git diff <a>..<b>` names, without the working tree.
+  `git diff <a>..<b>` names, without the working tree. `<ref>...` (three dots, nothing after) is the
+  change since the merge base of `<ref>` and `HEAD`: the files `git diff <merge base>` names against the
+  working tree, plus the untracked files git does not ignore, so a branch behind `<ref>` lists only its
+  own changes; a `<ref>` with no merge base with `HEAD` exits 2.
 - **The product's language pack reads the tests** (`language`, §8.1). A pack with no test reader (`none`) exits 2 unless plane.json `suite.affected_map` is set, which then reads the tests alone.
 - **Python.** A test module is a `test*.py` file git tracks or does not ignore, named by its dotted
   path from the root (`tests/test_a.py` is `tests.test_a`). It is touched when it changed itself;

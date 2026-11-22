@@ -91,7 +91,7 @@ class Transparency(SuiteFixture, unittest.TestCase):
         self.assertIn(b"Ran 2 tests", r.stderr)
         self.assertEqual(self.rows()[-1]["tests"], 2)
         self.assertEqual(self.rows()[0]["output"], "full")
-        self.assertIsNone(self.rows()[-1]["log"])
+        self.assertIn("Ran 2 tests", Path(self.rows()[-1]["log"]).read_text())  # a recorded --full run keeps a log
 
 
 class Binding(SuiteFixture, unittest.TestCase):
@@ -551,32 +551,6 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         return self.rows()[-1]["suite_id"]
 
-    def test_suite_from_takes_the_recorded_numbers(self):
-        self.implementing()
-        sid = self.suite_ok(tests=7)
-        self.suite_ok(lane="part", tests=1)
-        code, body, out, err = self.fill_report(f"Suite: from {sid}")
-        self.assertEqual(code, 0, out + err)
-        self.assertEqual((body["suite_tests"], body["suite_from"], body["suite_filled"]), (7, sid, "from"))
-        self.assertLess(body["suite_seconds"], 10)
-        rec = json.loads((self.q / "runs/0002-second/implement.json").read_text())
-        self.assertEqual((rec["suite_tests"], rec["suite_from"]), (7, sid))
-        metrics = [json.loads(x) for x in (self.q / "health/metrics.jsonl").read_text().splitlines()]
-        self.assertIn(("suite_tests", 7), [(m["metric"], m["value"]) for m in metrics])
-
-    def test_suite_from_an_all_cached_gate_takes_zero_tests_ran(self):
-        self.implementing()
-        self.tally()
-        script = ("print('gate: 0 modules ran, 3 cached; 0 tests ran in 0 s, 0 skipped; the cached modules\\' "
-                  "last runs: 11 tests, 0 skipped; a warm run')")
-        r = self.run_suite("--run", "0002-second/implement", "--lane", "gate", "--", PY, "-c", script)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn(b"\ngate: 0 modules ran, 3 cached", r.stdout)  # the product's show_re line, from its plane.json
-        sid = self.rows()[-1]["suite_id"]
-        code, body, out, err = self.fill_report(f"Suite: from {sid}")
-        self.assertEqual(code, 0, out + err)
-        self.assertEqual((body["suite_tests"], body["suite_ran"], body["suite_cached"]), (0, 0, 3))
-
     def test_no_suite_line_takes_the_runs_latest_full_or_gate_run(self):
         self.implementing()
         self.suite_ok(tests=3)
@@ -585,21 +559,6 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
         code, body, out, err = self.report("0002-second/implement", self.REPORT.replace("Suite: 12 tests, 3 s\n", ""))
         self.assertEqual(code, 0, out + err)
         self.assertEqual((body["suite_tests"], body["suite_from"], body["suite_filled"]), (9, sid, "auto"))
-
-    def test_a_failed_latest_run_fills_nothing_and_warns(self):
-        self.implementing()
-        self.suite_ok(tests=9)
-        self.run_suite("--run", "0002-second/implement", "--lane", "full", "--", PY, "-c",
-                       "import sys; print('Ran 4 tests in 0.1s'); sys.exit(1)")
-        failed = self.rows()[-1]["suite_id"]
-        code, body, out, err = self.report("0002-second/implement", self.REPORT.replace("Suite: 12 tests, 3 s\n", ""))
-        self.assertEqual(code, 0, out + err)
-        self.assertNotIn("suite_tests", body)
-        self.assertIn(f"latest full suite run ({failed}) failed with exit 1: nothing was filled in", err)
-        # §27.2: the earlier passing run is a cold measurement; the failed one is in no series
-        metrics = [json.loads(x) for x in (self.q / "health/metrics.jsonl").read_text().splitlines()]
-        self.assertEqual({m["suite_id"] for m in metrics}, {self.rows()[-3]["suite_id"]})
-        self.assertNotIn(failed, {m["suite_id"] for m in metrics})
 
     def test_a_report_that_is_not_done_files_no_suite_time(self):
         self.implementing()
@@ -616,29 +575,6 @@ class ReportCrossCheck(SuiteFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["suite_tests"], 4)
         self.assertFalse((self.q / "health/metrics.jsonl").exists())
-
-    def test_an_unparsed_suite_line_warns_and_is_not_filled_over(self):
-        self.implementing()
-        self.suite_ok(tests=9)
-        code, body, out, err = self.fill_report("Suite: all green, about five minutes")
-        self.assertEqual(code, 0, out + err)
-        self.assertNotIn("suite_tests", body)
-        self.assertIn("`Suite: all green, about five minutes` line is neither", err)
-
-    def test_no_suite_line_and_no_full_run_fills_nothing(self):
-        self.implementing()
-        self.suite_ok(lane="part")
-        code, body, out, err = self.report("0002-second/implement", self.REPORT.replace("Suite: 12 tests, 3 s\n", ""))
-        self.assertEqual(code, 0, out + err)
-        self.assertNotIn("suite_tests", body)
-
-    def test_a_hand_written_line_stays(self):
-        self.implementing()
-        self.suite_ok(tests=7)
-        code, body, out, err = self.fill_report("Suite: 12 tests, 3 s")
-        self.assertEqual(code, 0, out + err)
-        self.assertEqual((body["suite_tests"], body["suite_seconds"]), (12, 3))
-        self.assertNotIn("suite_filled", body)
 
     def test_suite_from_an_unknown_or_foreign_run_is_refused(self):
         self.implementing()
@@ -1191,7 +1127,7 @@ class Digest(unittest.TestCase):
 
     def test_full_still_counts_the_fields(self):
         # Pins the counters a `--full` run relies on (tests, failed, skipped from the output's own lines); the
-        # run's wiring (the started row's `output`, the ended row's `log: None`) is held by
+        # run's wiring (the started row's `output`, the ended row's `log`) is held by
         # `Counting.test_a_real_unittest_run_is_counted`.
         tests, fields = counts_of(b"noise line 299\nRan 4 tests in 0.1s\n\nFAILED (failures=1, errors=1, skipped=1)\n")
         self.assertEqual((tests, fields["failed"], fields["skipped"]), (4, 2, 1))

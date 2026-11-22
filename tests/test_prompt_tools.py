@@ -1,6 +1,6 @@
 """`ccp prompt` (SPEC §13.2, §13.5, §20.6): the worker prompts name the tools the workers run, `ccp mutate`
-from the worker's own worktree and `ccp suite affected` against the integration tip for the test modules a
-change touches, in every change round's pre-gate and the reviewer's part-lane run."""
+from the worker's own worktree and `ccp suite run --affected` since the merge base with the integration tip for
+the test modules a change touches, in every change round's pre-gate and the reviewer's part-lane run."""
 from __future__ import annotations
 
 import re
@@ -74,25 +74,25 @@ class PromptsNameTheTools(ToolkitFixture, unittest.TestCase):
             for named in ("ccp wt create --kind mut", "ccp wt remove <name>"):
                 self.assertIn(named, brief, (a, named))
 
-    def test_the_change_rounds_name_mutate_and_suite_affected(self):
+    def test_the_change_rounds_name_mutate_and_suite_run_affected(self):
         for phase, args in CHANGE_ROUNDS:
             run_id, text = self.render(phase, *args)
             self.assertIn(f"mutate --run {run_id} --test <test id>", text, phase)
-            self.assertIn("suite affected --since origin/main`", text, phase)
+            self.assertIn("suite run --affected --since origin/main...`", text, phase)
             self.assertNotIn("dependent-modules", text, phase)
 
     def test_fix_ruling_and_merge_affected_since_the_tip(self):
-        """After their catch-up merge, the round's own change is its diff against the integration tip; its starting
-        head would also name every file the tip brought in."""
+        """After their catch-up merge, the round's own change is its diff from its merge base with the integration
+        tip; its starting head would also name every file the tip brought in."""
         for phase, args in CHANGE_ROUNDS[1:]:
             _run_id, text = self.render(phase, *args)
-            self.assertIn("suite affected --since origin/main`", text, phase)
+            self.assertIn("suite run --affected --since origin/main...`", text, phase)
             self.assertNotIn(f"--since {A}", text, phase)
             self.assertNotIn(f"--since {A[:7]}", text, phase)
 
-    def test_the_review_prompt_names_suite_affected_since_the_tip(self):
+    def test_the_review_prompt_names_suite_run_affected_since_the_merge_base_with_the_tip(self):
         _run_id, text = self.render("review", "--pr", "7", "--head", A)
-        self.assertIn("suite affected --since origin/main`", text)
+        self.assertIn("suite run --affected --since origin/main...", text)
         self.assertNotIn(f"--since {A[:7]}", text)
 
     def test_the_reviewer_reads_and_runs_code_at_the_merge_base_in_a_base_worktree(self):

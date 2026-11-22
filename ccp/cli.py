@@ -1457,9 +1457,14 @@ def build_parser() -> argparse.ArgumentParser:
     su = sub.add_parser("suite", help="run tests through ccp, which records their time (SPEC §14.1)") \
         .add_subparsers(dest="cmd", required=True)
     p = su.add_parser("run", help="run a test command transparently and record its time, exit code and test count",
-                      usage="ccp suite run [--lane NAME] [--run RUN_ID | --task ID [--phase P]] [--wait S|auto] [--cold] [--full | --summary] "
-                            "[--log PATH] [-- COMMAND ...]")
+                      usage="ccp suite run [--lane NAME | --affected [--since REF]] [--run RUN_ID | --task ID [--phase P]] "
+                            "[--wait S|auto] [--cold] [--full | --summary] [--log PATH] [-- COMMAND ...]")
     p.add_argument("--lane", help="a short label; alone, the argv plane.json suite.lanes names for it")
+    p.add_argument("--affected", action="store_true",
+                   help="run what `ccp suite affected` names on stderr: the part lane with the test modules the change "
+                        "touches, or the full lane when it says so; no --lane and no command after `--` (SPEC §14.7)")
+    p.add_argument("--since", metavar="REF", help="with --affected, the change, as `ccp suite affected --since` reads "
+                                                  "it; REF... is the change since REF's merge base with HEAD")
     p.add_argument("--run", help="the run it belongs to (<task_id>/<phase>[-n], as the prompt names it)")
     p.add_argument("--task", help="else the task: its latest open run (of --phase)")
     p.add_argument("--phase", help="implement, fix, review or verify")
@@ -1477,7 +1482,7 @@ def build_parser() -> argparse.ArgumentParser:
     out.add_argument("--summary", dest="output", action="store_const", const="summary",
                      help="write the output to a log file and print a summary: the counts, and on a failure the "
                           "failing tests' sections (the default without a terminal on stdin)")
-    p.add_argument("--log", help="summary mode's log file (default: next to the run's record in the queue)")
+    p.add_argument("--log", help="the run's log file (default: next to the run's record in the queue)")
     p.set_defaults(fn=None)
     p = su.add_parser("wait", help="wait for a recorded run to end: its summary, then exit 0 when it passed and 1 "
                                    "when it failed; still running at the timeout, its elapsed time and exit 3 "
@@ -1494,7 +1499,8 @@ def build_parser() -> argparse.ArgumentParser:
     ch = p.add_mutually_exclusive_group()
     ch.add_argument("--since", metavar="REF", help="the change: what git diff REF names against the working tree, "
                                                    "plus untracked files (default: HEAD); a range A..B is what "
-                                                   "git diff A..B names, without the working tree")
+                                                   "git diff A..B names, without the working tree; REF... diffs "
+                                                   "from REF's merge base with HEAD")
     ch.add_argument("--paths", nargs="+", metavar="PATH", help="the change: these paths, relative to the product root")
     p.set_defaults(fn=cmd_suite_affected)
 
@@ -2135,8 +2141,9 @@ def main(argv: list[str] | None = None) -> int:
     elif "--" in raw and _words(raw[:raw.index("--")])[:2] in (["wt", "exec"], ["wt", "create"]):
         passthru, raw = raw[raw.index("--") + 1:], raw[:raw.index("--")]  # §12.1: its ccp's arguments, or the
         # command a base worktree runs, verbatim
-    if _words(raw)[:2] == ["suite", "affected"] and "--since" in raw[:-1]:  # §14.7: the word after --since is
-        i = raw.index("--since")  # its ref, one starting with a dash too (git then calls it unknown)
+    if _words(raw)[:2] in (["suite", "affected"], ["suite", "run"]) and "--since" in raw[:-1]:
+        i = raw.index("--since")  # §14.7: the word after --since is its ref, one starting with a dash too (git then
+        # calls it unknown)
         raw = [*raw[:i], f"--since={raw[i + 1]}", *raw[i + 2:]]
     try:
         a = build_parser().parse_args(raw)

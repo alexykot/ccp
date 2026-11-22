@@ -210,9 +210,8 @@ class DeclaredPregateLane(_PregateBriefs, unittest.TestCase):
         texts = self.briefs()
         self.assertEqual(sorted(texts), ["fix", "implement", "merge", "ruling"])
         for phase, text in texts.items():
-            self.assertIn("suite run --lane pregate`, as plane.json gives it) and "
-                          "the run `", text, phase)
-            self.assertIn("suite affected --since ", text, phase)
+            self.assertIn("suite run --lane pregate`, as plane.json gives it) and `", text, phase)
+            self.assertIn("suite run --affected --since ", text, phase)
             for c in CHECKS:
                 self.assertNotIn(c["cmd"], text, phase)
             self.assertNotIn("house-rule checks (", text, phase)
@@ -225,7 +224,7 @@ class NoPregateLane(_PregateBriefs, unittest.TestCase):
     def test_without_the_lane_the_briefs_render_the_house_rule_checks(self):
         texts = self.briefs()
         for phase, text in texts.items():
-            self.assertIn("the product's house-rule checks (`scripts/house-one.sh`, `scripts/house-two.sh`) and the run `",
+            self.assertIn("the product's house-rule checks (`scripts/house-one.sh`, `scripts/house-two.sh`) and `",
                           text, phase)
             self.assertNotIn("--lane pregate", text, phase)
             self.assertNotIn("pre-gate lane", text, phase)
