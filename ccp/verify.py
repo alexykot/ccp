@@ -750,6 +750,24 @@ def review_proof_label(found: dict[str, Any]) -> str:
 
 
 def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | None) -> tuple[dict[str, Any] | None, str]:
+    """§15.2: `review_proof`'s judgement of the fix, without the integration tip it was read at."""
+    rec, why, _ = review_proof(cfg, queue, task_id, head, pr)
+    return rec, why
+
+
+def fetched_tip(cfg: Config, integ: str) -> str | None:
+    """`origin/<integ>`'s commit once `origin` is fetched: None when the fetch fails, "" when the branch does not
+    resolve."""
+    from ccp.queue import git  # noqa: PLC0415
+
+    if git(cfg.root, "fetch", "-q", "origin").returncode != 0:
+        return None
+    at = git(cfg.root, "rev-parse", "--verify", "-q", f"origin/{integ}^{{commit}}")
+    return at.stdout.strip() if at.returncode == 0 else ""
+
+
+def review_proof(cfg: Config, queue: Path, task_id: str, head: str,
+                 pr: str | None) -> tuple[dict[str, Any] | None, str, str]:
     """§15.2: may a verify of `head` skip the review of the task's latest fix round? Only with plane.json
     `verify.skip_review` set, or a `verify.provers` entry that skips `review`, both read from plane.json on
     `origin/<integration branch>` once `origin` is fetched (never from the checkout or the head under test,
@@ -767,38 +785,38 @@ def skip_review(cfg: Config, queue: Path, task_id: str, head: str, pr: str | Non
     `{reviewed}`, `{head}` and `{from}` (the tree the fix diff starts from) filled in. Returns what to
     record on the verify run (a prover's skip adds its `prover` name and `exit_code`, never its command
     text, §14.4), or None and why not, as "<the settings> does not apply: <why>" or "nothing is skipped:
-    <why>" ("" when neither is set or there is no fix to judge).
+    <why>" ("" when neither is set or there is no fix to judge), and the integration tip whose plane.json it
+    read ("" when none was read), which `ccp tasks submit` records with a proof (§15.1).
 
     The probe needs git 2.38 or later. It reports a conflict; any other failure, such as an older git that
     lacks the option, is named as such, and the review stands either way."""
     from ccp import runs  # noqa: PLC0415
     from ccp.config import skip_rules_at  # noqa: PLC0415
-    from ccp.queue import git, integration_branch  # noqa: PLC0415
+    from ccp.queue import integration_branch  # noqa: PLC0415
 
     integ = integration_branch(queue)
-    if git(cfg.root, "fetch", "-q", "origin").returncode != 0:
-        return None, f"nothing is skipped: the fetch of origin/{integ} failed, so no skip rule was read"
-    at = git(cfg.root, "rev-parse", "--verify", "-q", f"origin/{integ}^{{commit}}")
-    tip = at.stdout.strip() if at.returncode == 0 else ""
+    tip = fetched_tip(cfg, integ)
+    if tip is None:
+        return None, f"nothing is skipped: the fetch of origin/{integ} failed, so no skip rule was read", ""
     found, unread = skip_rules_at(cfg.root, tip, f"origin/{integ}") if tip else ({}, "")
     if unread:  # a plane.json that does not load there sets none
-        return None, f"nothing is skipped: {unread}, so it sets no skip rule"
+        return None, f"nothing is skipped: {unread}, so it sets no skip rule", tip
     rule = found.get("skip_review")
     provers = review_provers(found)
     if not rule and not provers:
-        return None, ""
+        return None, "", tip
     label = review_proof_label(found)
     rs = [r for r in runs.all_runs(queue, task_id) if runs.state(r) != "abandoned"]
     fixes = [r for r in rs if r.get("phase") in runs.REWORK_PHASES]
     reviews = [r for r in rs if r.get("phase") == "review" and runs.state(r) == "reported" and r.get("outcome") == "done"]
     if not fixes or not reviews or str(reviews[-1].get("opened_at") or "") > str(fixes[-1].get("opened_at") or ""):
-        return None, ""
+        return None, "", tip
     reviewed = str(reviews[-1].get("head") or "").strip()
     if not reviewed:
-        return None, ""
+        return None, "", tip
     rec, why = _judge_fix(cfg, queue, task_id, reviewed, head, pr, str(fixes[-1]["run_id"]), rule, provers, integ,
                           tip)
-    return rec, (f"{label} does not apply: {why}" if why else "")
+    return rec, (f"{label} does not apply: {why}" if why else ""), tip
 
 
 def _judge_fix(cfg: Config, queue: Path, task_id: str, reviewed: str, head: str, pr: str | None, fix: str,
