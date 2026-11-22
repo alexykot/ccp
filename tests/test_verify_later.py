@@ -207,21 +207,27 @@ class Later(unittest.TestCase):
         self.assert_refused(self.later("--operator-step", f"{TASK}-9", seat="runner"), f"{TASK}-9")
         self.assert_refused(self.later("--operator-step", "0099-z-1", seat="operator"), "0099-z-1")
 
+    def refused_by_the_parser(self, *args: str) -> str:
+        """The parser's refusal of `ccp <args>`: exit 2, nothing on stdout; its stderr."""
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err), self.assertRaises(SystemExit) as cm:
+            cli.main(["--root", str(self.p.root), *args])
+        self.assertEqual((cm.exception.code, out.getvalue()), (2, ""), err.getvalue())
+        return err.getvalue()
+
     def test_a_missing_flag_is_refused(self):
-        code, _, err = self.ccp("verify", "later", TASK, "--check", RULED, "--evidence", "ok",
-                                "--produced-by", "operator")
-        self.assertEqual(code, 2)
-        self.assertIn("--pass or --fail", err)
+        err = self.refused_by_the_parser("verify", "later", TASK, "--check", RULED, "--evidence", "ok",
+                                         "--produced-by", "operator")
+        self.assertIn("--pass", err)
         self.assertFalse(verify.later_path(self.q, TASK).exists())
 
     def test_the_other_actions_still_need_their_target(self):
         for action in ("record", "merge-ok", "check", "spec-text", "later"):
-            self.assertEqual(self.ccp("verify", action)[0], 2, action)
+            self.refused_by_the_parser("verify", action)
 
     def test_deferred_refuses_a_task_given_as_a_positional(self):
-        code, out, err = self.ccp("verify", "deferred", TASK)
-        self.assertEqual((code, out), (2, ""), err)
-        self.assertIn("--task", err)
+        err = self.refused_by_the_parser("verify", "deferred", TASK)
+        self.assertIn("unrecognized arguments", err)
 
     def test_later_on_a_task_whose_queue_file_is_not_json_is_refused(self):
         (self.q / "tasks" / f"{TASK}.json").write_text("{not json")

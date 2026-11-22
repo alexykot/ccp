@@ -755,6 +755,16 @@ def opener(q: Path, tid: str, st: dict[str, Any], holder: str | None) -> str | N
     return held
 
 
+def cited_refs(cfg: Config, meta: dict[str, Any]) -> str:
+    """The prompt's `refs`: what the task cites, each review finding with the record that holds its evidence
+    (`<review_id>.md` in the reviews directory, §19.2), so a worker reads the finding before judging the task."""
+    reviews = cfg.rel(cfg.reviews_dir)
+    cited = tasklog._as_list(meta.get("spec_refs")) + tasklog._as_list(meta.get("adr_refs")) \
+        + tasklog._as_list(meta.get("rule_refs")) \
+        + [f"{ref} ({reviews}/{str(ref).split('#', 1)[0]}.md)" for ref in tasklog._as_list(meta.get("review_refs"))]
+    return ", ".join(cited) or "none"
+
+
 def rules_doc_for(cfg: Config) -> str:
     """The house rules doc a worker is told to read (§19.11): the architect's `rules_doc` while the file exists.
     The default names a file a product may not have yet, and a worker is never sent to read one that is absent."""
@@ -819,12 +829,10 @@ def build(cfg: Config, a: Any) -> dict[str, Any]:
     runner = holder_teammate(q, tid)
     lanes = (cfg.suite or {}).get("lanes")
     pregate = isinstance(lanes, dict) and PREGATE_LANE in lanes
-    cited = tasklog._as_list(meta.get("spec_refs")) + tasklog._as_list(meta.get("adr_refs")) \
-        + tasklog._as_list(meta.get("rule_refs")) + tasklog._as_list(meta.get("review_refs"))
     values: dict[str, Any] = {
         "project_id": cfg.project_id, "run_id": run_id, "task_id": tid, "nnnn": nnnn,
         "title": meta.get("title") or "", "task_file": cfg.rel(meta["_file"]), "round": n,
-        "refactor": tasklog.kind_of(meta) == "refactor", "refs": ", ".join(cited) or "none",
+        "refactor": tasklog.kind_of(meta) == "refactor", "refs": cited_refs(cfg, meta),
         "worktree": worktree or "(the runner names it)", "own_worktree": own or "",
         "own_worktree_name": Path(own).name if own else "",
         "env_up": bool((cfg.env or {}).get("up") or (cfg.env or {}).get("urls")),
