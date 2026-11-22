@@ -68,6 +68,11 @@ class EarlyRefusal(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertEqual(body["run_id"], f"{TASK}/verify")
 
+    def test_a_review_of_that_head_is_not_held_back(self):
+        code, body, out, err = self.ccp("prompt", "review", "0002", "--pr", "7", "--head", self.head("not_built"))
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(body["run_id"], f"{TASK}/review")
+
     def test_a_decision_the_task_does_not_cite_is_not_judged(self):
         code, _, out, err = self.verify(self.head("not_built", cites=False))
         self.assertEqual(code, 0, out + err)
