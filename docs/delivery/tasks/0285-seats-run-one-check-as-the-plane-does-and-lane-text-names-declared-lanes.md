@@ -4,7 +4,7 @@ title: Seats run one dod_check or house-rule check exactly as the plane does, th
 status: pending
 kind: feature
 depends_on: []
-clashes_with: ["0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests", "0276-docs-contract-and-template-leftovers-of-r15-and-r17"]
+clashes_with: ["0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests"]
 spec_refs: ["S14", "S16", "S20", "S21"]
 review_refs: ["ar-20261122T055103Z-11aa#F07", "ar-20261122T055103Z-11aa#F09"]
 review_point: R25
@@ -44,9 +44,9 @@ extents, `…` there being `0264-one-parser-for-signed-blocks-and-task-id-patter
 there being `0267-mutate-falls-back-to-the-language-pack`, and the lead's note on `ccp/mutate.py`'s defaults.
 §15.4's operator-gate limit, asked in the same triage, is task 0286.
 
-Measured at `072d9f9`.
+Measured at `76f41dd`.
 
-- **F07.** `python3 -B -c "import json;print(sorted(json.load(open('docs/delivery/plane.json'))['suite']['lanes']))"` at `072d9f9`:
+- **F07.** `python3 -B -c "import json;print(sorted(json.load(open('docs/delivery/plane.json'))['suite']['lanes']))"` at `76f41dd`:
   `['gate', 'part']`. `ccp/prompt.py` renders the declared `pregate` lane in place of the `architect.checks`
   commands (`"pregate = isinstance(lanes, dict) and PREGATE_LANE in lanes"`), and `ccp docs check`
   (`"def cmd_docs_check"`) runs the task-log check, the house rules' shape and line budget and every
@@ -56,48 +56,57 @@ Measured at `072d9f9`.
   into their tool shell (zsh: `2>&1 >/dev/null` and an unquoted `$VAR` behave differently, per two 0261
   reviewer notes). `ccp tasks dry-run` refuses a claimed task (`"def refusal"`), so a worker cannot run its
   own task's check through it. House-rule checks run with `shell=True` in `ccp/rules.py` (`"def run_check_runs"`),
-  and `ccp docs check` takes no check id. `git grep -n -i 'zsh\|bash -c' -- plugin/skills/writing-tasks templates/prompts plugin/agents docs/spec` at `072d9f9`: no lines.
+  and `ccp docs check` takes no check id. `git grep -n -i 'zsh\|bash -c' -- plugin/skills/writing-tasks templates/prompts plugin/agents docs/spec` at `76f41dd`: no lines.
 - **The no-lane refusal.** `ccp/suite.py` `"def resolve_stages"`: "give the command after `--` (ccp suite
   run --lane full -- scripts/gate.sh), …". After 0265 this repo declares no `full` lane, and `full` is not in
   `exclusive_lanes`, so a run that follows the example skips the exclusive lock. `config.lane_for(cfg, "full")`
-  at `072d9f9`: `gate`. `git grep -n 'lane full' -- ccp templates` at `072d9f9`: 1 line, this one; the
+  at `76f41dd`: `gate`. `git grep -n 'lane full' -- ccp templates` at `76f41dd`: 1 line, this one; the
   prompts render each role's lane through `lane_for` (`"def suite_lanes"`), so 0265's `ruling#2`,
   `fix#1`, `review#1` and `verify#1` need no code (see the review record).
 - **The verify part line.** `ccp/prompt.py` `SUITE_LANES["verify"]`: "{part}{part_for}a subset such as a
   mutation check{part_as}"; with this repo's declared part argv it renders `scripts/gate.sh <modules>`,
   which takes module names, not a mutation check, which runs through `ccp mutate`.
-  `git grep -n 'such as a mutation check' -- tests` at `072d9f9`: no lines.
+  `git grep -n 'such as a mutation check' -- tests` at `76f41dd`: no lines.
 - **Section extents.** `ccp/tasklog.py` `"def unreadable_proposed"` finds the signed sections in the text
   with fences and code spans blanked, while `"def signed_blocks"` (what `ccp verify spec-text` reads)
   finds them in the raw text. A fenced line starting `## ` inside the Scope ends the section for
   `signed_blocks` only, so a quoted-inline `PROPOSED:` after it raises no warning.
 - **The mutation wording.** Since 0267, `ccp mutate` with no `mutate.command` runs the language pack's
-  per-test runner (§20.6). `git grep -n 'mutate.command' -- templates plugin ccp/cli.py | grep -vc 'language pack'` at `072d9f9`: 8,
+  per-test runner (§20.6). `git grep -n 'mutate.command' -- templates plugin ccp/cli.py | grep -vc 'language pack'` at `76f41dd`: 8,
   the two `templates/prompts/_common.md` lines, `templates/prompts/verify.md`, the three agent briefs,
   `plugin/skills/writing-tasks/SKILL.md` and `ccp/cli.py`'s `--test` help ("passed whole to plane.json
   mutate.command ({test})"). `tests/test_prompt_tools.py`'s `FALLBACK` regex matches the clause "Where the
   product declares no `mutate.command`", so its wording moves with the templates.
 - **The did-not-build pattern.** `ccp/doclang/python.py` `UNBUILT_RE`'s first pattern is
   `^(?:SyntaxError|IndentationError|TabError): `, matched per output line (`"def _says_unbuilt"`). Run at
-  `072d9f9` (Python 3.15, a scratch package, `python3 -B -m unittest`): a test whose lazy `import calc` hits a
-  broken `calc.py` prints `  File "<path>/calc.py", line 1` then `SyntaxError: expected ':'`; a test calling
+  `76f41dd` (Python 3.15, a scratch package, `python3 -B -m unittest`): a test whose lazy `import calc` hits a
+  broken `calc.py` (`def f(:`) prints `  File "<path>/calc.py", line 1` then `SyntaxError: invalid syntax`; a test calling
   `compile("def f(:", "<string>", "exec")` prints `  File "<string>", line 1` then `SyntaxError: invalid syntax`.
   Both match, so the second, a real test failure, would be recorded `unbuilt`. The line that tells them apart
   is the location frame: a real file path and no `, in <function>` (every frame a call makes ends `, in …`).
   `tests/test_doclang_test_facts.py` pins the tuple (`self.pack.unbuilt_re`).
-  `git grep -n -e SyntaxError -e unbuilt_re -- docs/spec` at `072d9f9`: 1 line, §20.6, which names
+  `git grep -n -e SyntaxError -e unbuilt_re -- docs/spec` at `76f41dd`: 1 line, §20.6, which names
   `mutate.unbuilt_re` and the pack's did-not-build lines generically, so the pattern change needs no SPEC text. `ccp/mutate.py`'s
   `"mu = cfg.mutate or {}"` falls back to an empty dict where `config.MUTATE_DEFAULTS` holds the defaults.
-- **SPEC text measured.** `git grep -n 'exclusive_lanes": \["gate", "full"\]' -- docs/spec` at `072d9f9`: 1 line (§16.2);
+- **SPEC text measured.** `git grep -n 'exclusive_lanes": \["gate", "full"\]' -- docs/spec` at `76f41dd`: 1 line (§16.2);
   `docs/spec/01-model.md`'s `"suite": { "lanes": { "full": ["scripts/test.sh"]` example (§8) is a
   product's own lane name and stays.
-- **Other tasks.** 0276 (R24) edits `ccp/suite.py` and `ccp/prompt.py` docstrings and template text; 0269
-  (R21) changes `ccp verify`'s flags in `ccp/cli.py`; 0275 (R23, signed) changes `ccp tasks check`'s stale
-  warnings in `ccp/tasklog.py`. Each is different logic from this task's. Two do clash (a `python3` scan
-  of each pending task's `paths` against this one's at `072d9f9`): 0271 (signed) rewrites `ccp/mutate.py`'s
-  run and `--test` (several tests) in `ccp/cli.py` and `tests/test_mutate.py`, and 0276 rewrites the shared
-  sentences of `templates/prompts/_common.md` and `tests/test_prompt_tools.py`. `clashes_with` names both;
-  whichever lands second keeps the other's wording and adds its own.
+- **Merged since `072d9f9`** (`git log --oneline 072d9f9..76f41dd -- <this task's paths>` at `76f41dd`: 3
+  commits). 0276 (PR #325) edited `ccp/suite.py`'s and `ccp/prompt.py`'s docstrings, `templates/prompts/_common.md`
+  (the change rounds' shared rules), `plugin/agents/delivery-reviewer.md` (the base worktree) and
+  `tests/test_prompt_tools.py`; 0269 (PR #320) changed `ccp verify`'s flags in `ccp/cli.py` and added
+  `"def cited_refs"` to `ccp/prompt.py`; 0272 (PR #323) added house-rule checks E13 (no template line over 600
+  characters) and E27 to `docs/delivery/plane.json`'s `architect.checks`. None did any of this task's work:
+  every figure above is unchanged since `072d9f9`. E13 now holds this task's template edits: the longest
+  `templates/prompts/_common.md` or `verify.md` line is 532 characters (`awk '{print length}' templates/prompts/_common.md templates/prompts/verify.md | sort -n | tail -1` at `76f41dd`).
+- **Other tasks.** 0275 (R23, signed) changes `ccp tasks check`'s stale warnings in `ccp/tasklog.py`: different
+  logic from this task's. One pending task clashes (a `python3` scan of each pending task's `paths` against
+  this one's at `76f41dd`, then a search of the overlapping briefs for `SUITE_LANES`, `unreadable_proposed`,
+  `resolve_stages`, `pregate`, `UNBUILT_RE`, `cmd_docs_check` and `tasks dry-run`: none names them): 0271
+  (signed) rewrites `ccp/mutate.py`'s run and `--test` (several tests) in `ccp/cli.py` and `tests/test_mutate.py`.
+  `clashes_with` names it; whichever lands second keeps the other's wording and adds its own. 0287 records
+  its own clash with this task (the parsers in `ccp/cli.py`), which holds for both. 0276, named here before,
+  is done, so this task keeps its wording of `templates/prompts/_common.md` and `tests/test_prompt_tools.py`.
 
 ### Rulings for the build (the lead's)
 
@@ -124,7 +133,7 @@ Measured at `072d9f9`.
   source file with a null byte, which prints no location frame); `^ImportError: Failed to import test
   module: ` stays. Still one line per match, as §20.6 states. The test that fails first: a mutant that makes
   the code under test call `compile` on a bad string, whose named test then errors with that SyntaxError, is
-  `killed` (at `072d9f9` it is `unbuilt`).
+  `killed` (at `76f41dd` it is `unbuilt`).
 - `ccp/mutate.py`'s `mu = cfg.mutate or {}` becomes `cfg.mutate or config.MUTATE_DEFAULTS`.
 - `ccp/cli.py`'s `--test` help reads "one test id, passed whole to plane.json mutate.command ({test}), or,
   unset, after the language pack's test command; it may name a single method".
@@ -140,21 +149,21 @@ Measured at `072d9f9`.
   `plugin/skills/writing-tasks/SKILL.md`, `tests/test_prompt_tools.py`, `ccp/doclang/python.py`
   (`UNBUILT_RE`), `ccp/mutate.py` (the defaults), `tests/test_doclang_test_facts.py`, `tests/test_mutate.py`.
 - **SPEC, signed before the claim (`sign_off: brief`):** one passage in `docs/spec/02-delivery.md` and
-  two in `docs/spec/03-quality.md`, each CURRENT at `072d9f9`.
+  two in `docs/spec/03-quality.md`, each CURRENT at `76f41dd`.
 
-    CURRENT (`docs/spec/02-delivery.md` at `072d9f9`), §16.2, the second line of the knob's example:
+    CURRENT (`docs/spec/02-delivery.md` at `76f41dd`), §16.2, the second line of the knob's example:
     > "suite": { "exclusive_lanes": ["gate", "full"] },
 
     PROPOSED:
     > "suite": { "exclusive_lanes": ["gate"] },
 
-    CURRENT (`docs/spec/03-quality.md` at `072d9f9`), §21.1, the paragraph on `ccp tasks dry-run`:
+    CURRENT (`docs/spec/03-quality.md` at `76f41dd`), §21.1, the paragraph on `ccp tasks dry-run`:
     > **`ccp tasks dry-run <id> [--write]`** runs, in a temporary worktree detached at `origin/<integration_branch>` and removed afterwards, each `dod_check` step that is one backticked command and nothing else, and prints, per check, each command's exit code, its output's line count and its first line; any other step is listed as not run. With `--write` it writes each check's ``dry run (`<tip sha>`): …`` line from that output, replacing one already there, and changes nothing else in the file. It refuses a task that is `done`, `dropped` or claimed (§10.5).
 
     PROPOSED:
     > **`ccp tasks dry-run <id> [--write] [--check <check-id>] [--here]`** runs, in a temporary worktree detached at `origin/<integration_branch>` and removed afterwards, each `dod_check` step that is one backticked command and nothing else, through `bash -c`, and prints, per check, each command's exit code, its output's line count and its first line; any other step is listed as not run. `--check` runs only the named check. With `--write` it writes each check's ``dry run (`<tip sha>`): …`` line from that output, replacing one already there, and changes nothing else in the file. It refuses a task that is `done`, `dropped` or, without `--here`, claimed (§10.5). With `--here` it runs the steps in the checkout it is run in, at its HEAD, and writes nothing (it refuses `--write`), so a worker runs its own task's check as the dry run does.
 
-    CURRENT (`docs/spec/03-quality.md` at `072d9f9`), §20.1, the `command` bullet's last clause:
+    CURRENT (`docs/spec/03-quality.md` at `76f41dd`), §20.1, the `command` bullet's last clause:
     > exit 0 = pass, run inside `ccp docs check` so the verifier gates on it (§21.2);
 
     PROPOSED:
@@ -171,7 +180,7 @@ Measured at `072d9f9`.
     1. Run `python3 -B -c "import json;print(json.load(open('docs/delivery/plane.json'))['suite']['lanes'].get('pregate'))"`.
     2. Run `CCP_DEV=1 ./bin/ccp docs check >/dev/null 2>&1; echo "exit=$?"`.
   expect: step 1 prints `['bin/ccp', 'docs', 'check']`; step 2 prints `exit=0`.
-  dry run (`072d9f9`): step 1 printed `None`; step 2 printed `exit=0`.
+  dry run (`76f41dd`): step 1 printed `None`; step 2 printed `exit=0`.
 - id: `cmd-01`
   story: As a worker or reviewer, I run one of my claimed task's checks at my head as the dry run would, and one house-rule check by id as ccp docs check runs it.
   setup: A checkout of the PR head.
@@ -181,7 +190,7 @@ Measured at `072d9f9`.
     3. Run `CCP_DEV=1 ./bin/ccp docs check --only E22; echo "exit=$?"`.
     4. Run `CCP_DEV=1 ./bin/ccp docs check --only E99 2>&1 >/dev/null | head -1; python3 -B -m unittest -q tests.test_docs_check_only 2>&1 | tail -1`.
   expect: step 1 prints, each `ok`, a test where a claimed task's check whose step is `` `echo a 2>&1 >/dev/null; echo "$0"` `` run with `--check <id> --here` prints that check alone, its first line `bash`, from a commit only the current checkout holds, and leaves the task file unchanged; one where `--here --write` exits 2; and one where `--check` with an id the task lacks exits 2 naming its ids; then `OK`. Step 2 prints the mutant `killed`. Step 3 ends `exit=0` and names E22 and no other check; step 4's first line names `E99` and the known ids, then `OK`.
-  dry run (`072d9f9`): steps 1 and 2: n/a (the tests are new); step 3 printed argparse's unrecognized-arguments error and `exit=2`; step 4: n/a (the test module is new).
+  dry run (`76f41dd`): steps 1 and 2: n/a (the tests are new); step 3 printed argparse's unrecognized-arguments error and `exit=2`; step 4: n/a (the test module is new).
 - id: `cmd-02`
   story: As a reviewer reading a mutation record, a mutant whose test fails on a SyntaxError the code raises at run time counts as killed, and one whose code does not compile as unbuilt.
   setup: A checkout of the PR head.
@@ -198,7 +207,7 @@ Measured at `072d9f9`.
     2. Run `python3 -B -m unittest -q tests.test_suite_lane_default tests.test_prompt_lanes tests.test_prompt_tools 2>&1 | tail -1`.
     3. Run `git grep -n 'mutate.command' -- templates plugin ccp/cli.py | grep -vc 'language pack'`.
   expect: step 1 prints only `exit=1`; step 3 prints `0`; step 2 prints `OK`, with `tests.test_prompt_lanes` holding a test that the no-lane refusal in a product declaring only `gate` and `part` names `--lane gate`, and one that the rendered verify prompt's part item names `ccp mutate`.
-  dry run (`072d9f9`): step 1 printed 2 lines (`ccp/suite.py`, `ccp/prompt.py`) and `exit=0`; step 2: n/a (`tests.test_prompt_lanes` is new); step 3 printed `8`.
+  dry run (`76f41dd`): step 1 printed 2 lines (`ccp/suite.py`, `ccp/prompt.py`) and `exit=0`; step 2: n/a (`tests.test_prompt_lanes` is new); step 3 printed `8`.
 - id: `cmd-04`
   story: As a task writer, ccp tasks check warns on an unreadable PROPOSED wherever spec-text reads the section.
   setup: A checkout of the PR head.
@@ -212,7 +221,7 @@ Measured at `072d9f9`.
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0285`.
   expect: exit 0, all three PROPOSED passages found.
-  dry run (simulated at `072d9f9`: this task file committed, then the 3 passages applied, each CURRENT found once, committed in a scratch copy; `CCP_DEV=1 ./bin/ccp verify spec-text 0285 --base HEAD~1`): `"ok": true`, 3 passage(s) found, none missing.
+  dry run (simulated at `76f41dd`: this task file committed, then the 3 passages applied, each CURRENT found once, committed in a scratch copy; `CCP_DEV=1 ./bin/ccp verify spec-text 0285 --base HEAD~1`): `"ok": true`, 3 passage(s) found, none missing.
 
 ## Implementation notes
 
