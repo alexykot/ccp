@@ -195,4 +195,20 @@ Measured at `b5f2273` (origin/main).
 
 ## Implementation notes
 
+- `ccp/cli.py`: `_nonblank` beside `_pr_number`; verify's six action parsers carry the ruled `help=` texts and
+  FILE/TASK take `type=_nonblank`; `pr`'s subparsers take `parser_class=_OwnArgs`.
+- The seven (`estimate`, `board`, `allowance`, `docs adr`, `wt`, `adr`, `architect`) are each
+  `add_subparsers(dest="action", required=True, parser_class=_OwnArgs)`, one parser per action in the old
+  `choices` order, each flag with today's type, default, choices and help string (a flag shared by two
+  actions keeps its one help string, which names both). `ccp adr index|list` and `ccp docs adr index|list`
+  share one builder, `_adr_index_list`. The parents keep their `set_defaults`; `architect` due, triage and
+  status set `actor=None`, status `scope=None` too.
+- Gone: `_allowance`'s `--armed and --fire are for session-wake`, `cmd_wt`'s `a.action != "create"` clauses
+  (the checks within create stay), `cmd_wt_exec`'s `--timeout` refusal.
+- Docs: the `docs adr` row split in `docs/cli/01-model.md`; `estimate backfill` gains `[--json]` in
+  `docs/cli/04-observability.md`.
+- Tests: `tests/test_action_parsers.py` (new); `tests/test_verify_parser.py` gains the help and blank-target
+  tests; `tests/test_wt.py` and `tests/test_session_park.py` assert `SystemExit` code 2 where the parser now
+  refuses.
+
 ## Verification notes

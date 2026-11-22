@@ -277,7 +277,9 @@ class Wake(SessionFixture, unittest.TestCase):
         self.assertIn("parked", body["reason"])
 
     def test_flags_are_for_session_wake_and_one_at_a_time(self):
-        self.assertEqual(self.ccp("allowance", "status", "--armed")[0], 2)
+        with self.assertRaises(SystemExit) as e:  # status takes no --armed: the parser refuses it
+            self.ccp("allowance", "status", "--armed")
+        self.assertEqual(e.exception.code, 2)
         self.assertEqual(self.wake("--armed", "--fire")[0], 2)
         self.assertEqual(self.wake("--fire", "--sample")[0], 2)
 
