@@ -1,7 +1,7 @@
 ---
 task_id: 0266-github-knowledge-stays-in-the-pr-host-module
 title: A PR's head is fetched through the PR-host module, init grants no gh pr, and close's messages name the PR host
-status: pending
+status: done
 kind: feature
 depends_on: []
 clashes_with: ["0254-close-and-architect-share-the-unrecorded-worktree-helper", "0268-the-local-pr-record-keeps-the-plane-s-state-words-and-writes-ledger-events"]
@@ -14,7 +14,7 @@ paths: ["ccp/prhost.py", "ccp/lifecycle.py", "ccp/prompt.py", "ccp/verify.py", "
 adopt: ".claude/settings.json permissions.allow: remove `Bash(gh pr:*)` where `ccp init --permissions` put it"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0266-github-knowledge-stays-in-the-pr-host-module
@@ -165,3 +165,5 @@ From architect pass `ar-20261121T174754Z-7df5`, findings F02 and F03 (the record
   origin is shared and git's dates are fixed, so equal messages would give equal shas.
 
 ## Verification notes
+- 2026-11-22 — verifier, PR #315 head `58776c2` (squash `061cc6d`): APPROVE. Passed: pr-01, pr-02, pr-03, pr-04, spec-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0266-github-knowledge-stays-in-the-pr-host-module.json.
+

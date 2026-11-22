@@ -1303,7 +1303,7 @@ tasks:
     depends_on: []
     path: tasks/0265-one-gate-lane-and-worker-runs-wait-for-it.md
   - id: 0266-github-knowledge-stays-in-the-pr-host-module
-    status: pending
+    status: done
     title: A PR's head is fetched through the PR-host module, init grants no gh pr, and close's messages name the PR host
     depends_on: []
     path: tasks/0266-github-knowledge-stays-in-the-pr-host-module.md
