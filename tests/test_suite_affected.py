@@ -127,6 +127,11 @@ class Affected(Scratch, unittest.TestCase):
         self.p.write("docs/delivery/plane.json", json.dumps(merged_plane(
             {"language": "python", "suite": {"lanes": lanes, **({"roles": roles} if roles else {})}})))
 
+    @staticmethod
+    def ran_with(err: str) -> str:
+        """The `ccp suite run` arguments stderr's last line hands, or '' when it hands none."""
+        return err.splitlines()[-1].partition("ccp suite run ")[2] if err else ""
+
     def touch_three_of_eight(self) -> None:
         """Make pkg/a.py touch three of the eight test modules: more than the full-lane share."""
         self.p.write("pkg/__init__.py", "from pkg import a, b\n")
@@ -151,12 +156,12 @@ class Affected(Scratch, unittest.TestCase):
                          "ccp suite affected: run them with: ccp suite run --lane quick -- run-quick tests.test_a")
         self.lanes({"gate": ["true"], "part": ["not-this"]}, roles={"part": "quick"})  # the role's lane is undeclared
         _, _, err = self.run_cli("--paths", "pkg/a.py")
-        self.assertIn("--lane quick -- python3 -m unittest tests.test_a\n", err)
+        self.assertEqual(self.ran_with(err), "--lane quick -- python3 -m unittest tests.test_a")
 
     def test_a_staged_part_lane_counts_as_none_declared(self):
         self.lanes({"gate": ["true"], "part": [{"name": "unit", "cmd": "make unit"}]})
         _, _, err = self.run_cli("--paths", "pkg/a.py")
-        self.assertIn("--lane part -- python3 -m unittest tests.test_a\n", err)
+        self.assertEqual(self.ran_with(err), "--lane part -- python3 -m unittest tests.test_a")
         self.touch_three_of_eight()
         _, _, err = self.run_cli("--paths", "pkg/a.py")
         self.assertEqual(err, "ccp suite affected: 3 of 8 test modules: skip the pre-gate and run the full lane: "
@@ -167,7 +172,7 @@ class Affected(Scratch, unittest.TestCase):
         with mock.patch.dict(doclang.PACKS, {"python": lambda: replace(py_pack.PACK, test_command=None)}):
             code, lines, err = self.run_cli("--paths", "pkg/a.py")
         self.assertEqual((code, lines), (0, ["tests.test_a"]))
-        self.assertIn("--lane part -- scripts/gate.sh tests.test_a\n", err)
+        self.assertEqual(self.ran_with(err), "--lane part -- scripts/gate.sh tests.test_a")
 
     def test_no_change_prints_nothing_and_exits_0(self):
         code, lines, _ = self.run_cli()
