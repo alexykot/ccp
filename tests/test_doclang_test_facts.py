@@ -34,16 +34,23 @@ class PythonPack(unittest.TestCase):
         self.assertEqual(self.pack.count_re, r"^Ran (\d+) tests? in ")
         self.assertEqual(self.pack.test_command, "python3 -m unittest")
         self.assertEqual(self.pack.test_glob, "test*.py")
-        self.assertEqual(self.pack.unbuilt_re, (r"^(?:SyntaxError|IndentationError|TabError): ",
+        self.assertEqual(self.pack.unbuilt_re, (r'^  File "[^<"][^"]*", line \d+$',
+                                                r"^SyntaxError: source code (string )?cannot contain null bytes",
                                                 r"^ImportError: Failed to import test module: "))
         self.assertEqual(sorted(self.pack.summary), ["failed_re", "section_re", "skipped_re"])
         self.assertIsNotNone(self.pack.affected)
         self.assertIsNotNone(self.pack.suite_size)
 
     def test_the_did_not_build_lines_match_what_unittest_prints_when_a_module_does_not_compile_or_import(self):
-        lines = ["SyntaxError: invalid syntax", "IndentationError: unexpected indent", "TabError: inconsistent use",
+        # a source file's syntax error prints its location frame, a file path and no function; one the code raises
+        # at run time (`compile`, `eval`, `ast.parse` on a string) prints a frame of a string, and every frame of a
+        # call ends `, in <function>`
+        lines = ['  File "/p/calc.py", line 1', "SyntaxError: source code cannot contain null bytes",
+                 "SyntaxError: source code string cannot contain null bytes",
                  "ImportError: Failed to import test module: test_m"]
-        others = ["AssertionError: 3 != 2", "ImportError: cannot import name 'add' from 'calc'", "FAIL: test_a (m.T)"]
+        others = ["SyntaxError: invalid syntax", '  File "<string>", line 1', '  File "<unknown>", line 1',
+                  '  File "/p/test_m.py", line 5, in test_a', "AssertionError: 3 != 2",
+                  "ImportError: cannot import name 'add' from 'calc'", "FAIL: test_a (m.T)"]
         matches = lambda ln: any(re.search(p, ln) for p in self.pack.unbuilt_re)  # noqa: E731
         self.assertEqual([ln for ln in lines + others if matches(ln)], lines)
 

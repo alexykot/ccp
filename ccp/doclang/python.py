@@ -75,9 +75,12 @@ SUMMARY = {
     "section_re": r"^(?:FAIL|ERROR|UNEXPECTED SUCCESS): ",
 }
 TEST_COMMAND = "python3 -m unittest"  # runs test modules, or one test, by dotted name
-# The lines that say the code did not build or import (§20.6): a module with a syntax error, and a test module
-# unittest could not import.
-UNBUILT_RE = (r"^(?:SyntaxError|IndentationError|TabError): ", r"^ImportError: Failed to import test module: ")
+# The lines that say the code did not build or import (§20.6): the source location frame a module's syntax error
+# prints (a file path and no function: every frame of a call ends `, in <function>`, so a SyntaxError the code under
+# test raises at run time, from `compile` or `eval` on a string, is not one), a source file holding a null byte
+# (which prints no such frame), and a test module unittest could not import.
+UNBUILT_RE = (r'^  File "[^<"][^"]*", line \d+$', r"^SyntaxError: source code (string )?cannot contain null bytes",
+              r"^ImportError: Failed to import test module: ")
 
 
 def _py_module(rel: str) -> str | None:

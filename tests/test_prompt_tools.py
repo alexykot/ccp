@@ -18,9 +18,10 @@ CHANGE_ROUNDS = (("implement", ("--base", "abc1234")),
                  ("ruling", ("--pr", "7", "--head", A, "--note", "the field is optional")))
 
 
-# The one place a prompt names a mutation worktree: where the product declares no `mutate.command`,
-# up to the clause's end (`;` or a sentence's `.`).
-FALLBACK = re.compile(r"Where the product declares no `mutate\.command`.*?(?:;|\.(?=\s|$))")
+# The one place a prompt names a mutation worktree: where the product declares no `mutate.command` and its
+# language pack no per-test runner, up to the clause's end (`;` or a sentence's `.`).
+FALLBACK = re.compile(r"Where the product declares no `mutate\.command` and its language pack no per-test runner"
+                      r".*?(?:;|\.(?=\s|$))")
 
 
 def outside_the_fallback(text: str) -> str:

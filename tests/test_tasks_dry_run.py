@@ -1,12 +1,15 @@
 """SPEC §21.1 `ccp tasks dry-run`: a task's dod_check commands run at the integration tip in a temporary
 worktree, their output printed and, with `--write`, written as each check's dry-run record; a done, dropped
-or claimed task is refused (§10.5)."""
+or claimed task is refused (§10.5). `--check` runs one check; `--here` runs in the checkout at its HEAD and writes
+nothing, so it takes a claimed task."""
 from __future__ import annotations
 
+import io
 import os
 import tempfile
 import time
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 from unittest import mock
 
@@ -87,9 +90,32 @@ class StepsAndRecords(unittest.TestCase):
         for status in tasklog.TERMINAL:
             self.assertIsNotNone(dryrun.refusal("t", status, False))
         self.assertIsNotNone(dryrun.refusal("t", "pending", True))
+        self.assertIsNone(dryrun.refusal("t", "pending", True, here=True))  # --here writes nothing
+        for status in tasklog.TERMINAL:
+            self.assertIsNotNone(dryrun.refusal("t", status, False, here=True))
         self.assertTrue(dryrun.claimed({"lease_holder": "runner", "status": "implementing"}))
         self.assertFalse(dryrun.claimed({"lease_holder": "runner", "status": "done"}))
         self.assertFalse(dryrun.claimed({"lease_holder": None}))
+
+
+    def test_check_picks_the_one_check_named_or_names_the_ids_the_task_has(self):
+        checks = dryrun.plan(with_checks(TASK.format(tid="0003-third", title="Third", status="pending", deps="",
+                                                     ver="*x*"), CHECKS))
+        self.assertEqual(dryrun.only("t", checks, None), (checks, None))
+        picked, why = dryrun.only("t", checks, "cmd-02")
+        self.assertEqual(([cid for cid, _ in picked], why), (["cmd-02"], None))
+        picked, why = dryrun.only("t", checks, "cmd-09")
+        self.assertEqual(picked, [])
+        for named in ("cmd-09", "cmd-01", "cmd-02"):
+            self.assertIn(named, why)
+
+    def test_here_with_write_exits_2_before_anything_runs(self):
+        self.assertIsNone(dryrun.usage_problem(True, False))
+        self.assertIsNone(dryrun.usage_problem(False, True))
+        err = io.StringIO()
+        with redirect_stderr(err):  # refused before the queue, the task or the tip is read
+            self.assertEqual(dryrun.dry_run(None, "0003", write=True, here=True), 2)  # type: ignore[arg-type]
+        self.assertIn("--here", err.getvalue())
 
 
 class RunStep(unittest.TestCase):
@@ -172,6 +198,32 @@ class DryRunCommand(ToolkitFixture, unittest.TestCase):
         self.assertEqual((self.main / "docs/delivery/tasks/0002-second.md").read_text(), before)
         self.assertEqual(git(self.main, "worktree", "list"), worktrees)
         self.assertEqual(git(self.main, "status", "--porcelain"), "")
+
+    def test_a_claimed_tasks_check_run_here_alone_prints_bash_from_a_commit_only_this_checkout_holds(self):
+        rel = "docs/delivery/tasks/0002-second.md"
+        self.write(rel, with_checks((self.main / rel).read_text(), CHECKS + (
+            "\n- id: `cmd-09`\n  story: s.\n  steps:\n    1. Run `echo a 2>&1 >/dev/null; echo \"$0\"`.\n"
+            "    2. Run `git rev-parse HEAD`.\n  expect: e.\n")))
+        git(self.main, "commit", "-qam", "0002's own check, not pushed")
+        head, before = git(self.main, "rev-parse", "HEAD"), (self.main / rel).read_text()
+        worktrees = git(self.main, "worktree", "list")
+        code, out, err = self.dry_run("0002", "--check", "cmd-09", "--here")
+        self.assertEqual(code, 0, out + err)
+        lines = out.splitlines()
+        self.assertIn(head[:7], lines[0])
+        self.assertEqual([ln.strip() for ln in lines if ln.startswith("  cmd-")], ["cmd-09:"])
+        self.assertIn("exited 0, 1 line, first: `bash`", lines[2])
+        self.assertIn(f"first: `{head}`", lines[3])
+        self.assertNotEqual(head, git(self.main, "rev-parse", "origin/main"))
+        self.assertEqual((self.main / rel).read_text(), before)
+        self.assertEqual(git(self.main, "worktree", "list"), worktrees)
+        self.assertEqual(git(self.main, "status", "--porcelain"), "")
+
+    def test_a_check_the_task_lacks_exits_2_naming_its_ids_even_here(self):
+        code, out, err = self.dry_run("0003", "--check", "cmd-09", "--here")
+        self.assertEqual(code, 2, out + err)
+        for named in ("cmd-09", "cmd-01", "cmd-02"):
+            self.assertIn(named, err)
 
     def test_a_done_task_is_refused(self):
         code, out, err = self.dry_run("0001", "--write")

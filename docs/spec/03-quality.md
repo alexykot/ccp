@@ -324,7 +324,7 @@ lines, which `ccp docs check` enforces.
 
 - `budget`: a `ccp` budget in `architect.budgets` with the rule's id;
 - `command`: a product command in `architect.checks` (`{id, cmd, timeout_seconds?}`, each run
-  under a time limit of 600 seconds unless the check sets `timeout_seconds`), exit 0 = pass, run inside `ccp docs check` so the verifier gates on it (§21.2);
+  under a time limit of 600 seconds unless the check sets `timeout_seconds`), exit 0 = pass, run inside `ccp docs check` so the verifier gates on it (§21.2), and alone by `ccp docs check --only <id>`, which runs that one `architect.checks` or `docs.checks` entry as `ccp docs check` does and nothing else;
 - `docs`: a rule `ccp docs check` runs, named after a dash by its `plane.json` key, several
   separated by commas: `package_docs` (§21.3, §21.4) or `package_docs.rules.<name>` (§21.6);
 - `pass`: the architect judges it.
@@ -537,7 +537,7 @@ longest `depends_on` chain and the width at each depth, and warns when the chain
 the point has fewer than 2 tasks per depth on average. Inline `# comments` in frontmatter are ignored. With `--closed-points` it also fails on a closed review point holding an undecided follow-up
 (§22.2).
 
-**`ccp tasks dry-run <id> [--write]`** runs, in a temporary worktree detached at `origin/<integration_branch>` and removed afterwards, each `dod_check` step that is one backticked command and nothing else, and prints, per check, each command's exit code, its output's line count and its first line; any other step is listed as not run. With `--write` it writes each check's ``dry run (`<tip sha>`): …`` line from that output, replacing one already there, and changes nothing else in the file. It refuses a task that is `done`, `dropped` or claimed (§10.5).
+**`ccp tasks dry-run <id> [--write] [--check <check-id>] [--here]`** runs, in a temporary worktree detached at `origin/<integration_branch>` and removed afterwards, each `dod_check` step that is one backticked command and nothing else, through `bash -c`, and prints, per check, each command's exit code, its output's line count and its first line; any other step is listed as not run. `--check` runs only the named check. With `--write` it writes each check's ``dry run (`<tip sha>`): …`` line from that output, replacing one already there, and changes nothing else in the file. It refuses a task that is `done`, `dropped` or, without `--here`, claimed (§10.5). With `--here` it runs the steps in the checkout it is run in, at its HEAD, and writes nothing (it refuses `--write`), so a worker runs its own task's check as the dry run does.
 
 ### 21.2 `ccp docs check`
 
