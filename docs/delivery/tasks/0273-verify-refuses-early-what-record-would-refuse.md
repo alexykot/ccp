@@ -11,7 +11,7 @@ paths: ["ccp/prompt.py", "ccp/verify.py", "ccp/runs.py", "ccp/lifecycle.py", "cc
 adopt: "none"
 sign_off: brief
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0273-verify-refuses-early-what-record-would-refuse
@@ -30,13 +30,13 @@ ADR files at a commit correctly, and a test holds it.
 
 ## Context (not checked)
 
-Measured at `8020446` unless a line says otherwise. Provenance: architect pass
+Measured at `76f41dd` unless a line says otherwise (re-measured 2026-11-22; first written at `8020446`). Provenance: architect pass
 `ar-20261121T223646Z-f0a7`, F07 and F08 (record in `docs/delivery/reviews/`), and three items of the
 lead's follow-up log, folded here because they sit in the same judge: after 0237, `--waived` and the
 `produced_by: operator` refusal; after 0234, the sub-root test. The §6.7 change is the operator's to
 sign (the triage's second question).
 
-- **F07, the late refusal.** `git grep -n 'adr_errors\|in_force_at' -- ccp` at `8020446`: 5 lines,
+- **F07, the late refusal.** `git grep -n 'adr_errors\|in_force_at' -- ccp` at `76f41dd`: 5 lines,
   all in `ccp/adr.py` (the definition) and `ccp/verify.py` (`"def adr_errors"` and its one call inside
   `"def record"`). `ccp/prompt.py` never calls `adr.in_force_at`. For 0230 that cost a ruling round, a
   second review and a second verify (the queue's run records of 0230, read by the architect; data only
@@ -53,17 +53,24 @@ sign (the triage's second question).
   (follow-up log) that such a check is accepted: the refusal keys on `rests_on`, not on `produced_by`.
 - **F08.** `"def check_facts"` in `ccp/runs.py` imports `carried_from` and `heads_match` from
   `ccp.verify` inside the function, and `"def unreviewed_fix"` imports `heads_match` the same way
-  (`grep -n 'from ccp.verify import' ccp/runs.py` at `8020446`: 2 lines). `heads_match` is a plain sha
-  comparison, called from three other modules: `git grep -c 'verify.heads_match\|from ccp.verify import heads_match' -- ccp/lifecycle.py ccp/prompt.py ccp/report.py` at `8020446`: 4, 3 and 1 lines;
-  `git grep -n 'check_facts' -- ccp` at `8020446`: its definition and three lines in `ccp/verify.py`
-  (two docstrings, one call in `"def _note_run"`). `tests/test_marked_checks_record.py` calls `runs.check_facts` (`git grep -c 'runs.check_facts' -- tests/test_marked_checks_record.py` at `8020446`: 5).
+  (`grep -n 'from ccp.verify import' ccp/runs.py` at `76f41dd`: 2 lines). `heads_match` is a plain sha
+  comparison, called from three other modules: `git grep -c 'verify.heads_match\|from ccp.verify import heads_match' -- ccp/lifecycle.py ccp/prompt.py ccp/report.py` at `76f41dd`: 4, 3 and 1 lines;
+  `git grep -n 'check_facts' -- ccp` at `76f41dd`: its definition and three lines in `ccp/verify.py`
+  (two docstrings, one call in `"def _note_run"`). `tests/test_marked_checks_record.py` calls `runs.check_facts` (`git grep -c 'runs.check_facts' -- tests/test_marked_checks_record.py` at `76f41dd`: 6; it was 6 at `8020446` too, where this line first said 5).
 - **0234, sub-root.** `"def text_at"` in `ccp/tasklog.py` runs `git -C <root> show <rev>:./<rel>`, so a
   root below the git toplevel resolves; `"def drop"` in `ccp/lifecycle.py` and `adr.in_force_at` read
-  through it. `git grep -ln 'text_at' -- tests` at `8020446`: no test module, so nothing holds the
-  sub-root case.
-- **Other tasks on these files** change other logic: 0260 and 0269 (`ccp/prompt.py`'s tools and
-  verify's parser), 0263, 0264, 0266 (`ccp/verify.py`'s schema, signed blocks, PR fetch). PR #297
-  (R22, merged) edited §6.7's Failures bullet, not the paragraph quoted below.
+  through it. `git grep -ln 'text_at' -- tests` at `76f41dd`: 1 module, `tests/test_tasklog_checks.py` (0234's,
+  already there at `8020446`, where this line first said none), whose `text_at` tests use a product at
+  the git toplevel (`grep -c 'subdirectory' tests/test_tasklog_checks.py` at `76f41dd`: 0), so nothing
+  holds the sub-root case.
+- **Other tasks on these files** changed other logic and have all merged since this brief was first
+  written: 0260 and 0269 (`ccp/prompt.py`'s tools and verify's parser), 0263, 0264, 0266
+  (`ccp/verify.py`'s schema, signed blocks, PR fetch), 0272 (the lead's records' guard). None did any
+  of this task's work: `ccp/prompt.py` still calls no `adr.in_force_at` and `marked_gate` still calls
+  `verify._ruling_refusal` itself (`grep -n '_ruling_refusal\|in_force_at' ccp/prompt.py` at `76f41dd`:
+  1 line, the `_ruling_refusal` call), `"def marked_errors"` still keys on `produced_by`, and
+  `check_facts` and `heads_match` have not moved. PR #297 (R22, merged) edited §6.7's Failures bullet,
+  not the paragraph quoted below.
 - **Existing drift, not this task's to settle.** §15.4 accepts a ruling naming gate ids "every gate
   closed and approved", with no limit on the gate's class. The rule that an operator gate approves
   running a step, never skipping it, exists only in `"def _waiver_texts"` (0237's fix round). This
@@ -106,11 +113,11 @@ sign (the triage's second question).
 - **SPEC, signed before the claim (`sign_off: brief`):** `docs/spec/01-model.md` §6.7, its last
   paragraph, replaced whole. The `produced_by` change needs no SPEC text: §15.4's "`ran: false` on free-text operator evidence"
   already says what the code will do (`git grep -n 'free-text operator evidence' -- docs/spec` at
-  `8020446`: 1 line). The `--waived` change adds no SPEC text either: it makes `ccp prompt verify`
+  `76f41dd`: 1 line). The `--waived` change adds no SPEC text either: it makes `ccp prompt verify`
   refuse what `ccp verify record` already refuses, a code rule §15.4 does not state (see Context,
   existing drift).
 
-    CURRENT (`docs/spec/01-model.md` at `8020446`, §6.7, last paragraph):
+    CURRENT (`docs/spec/01-model.md` at `76f41dd`, §6.7, last paragraph):
     > The in-force check also runs before a task's verdict, on its PR head: under `adr.strict`, `ccp verify
     > record` refuses an approve of a head on which a decision the task cites is recorded `not_built`
     > (§15.4), so the task flips it in its own PR rather than at close.
@@ -147,7 +154,7 @@ sign (the triage's second question).
     1. Run `python3 -B -m unittest -v tests.test_marked_checks_record 2>&1 | tail -3`.
     2. Run `python3 -B -m unittest -v tests.test_prompt_verify_early`.
   expect: step 1 ends `OK`; step 2 lists, `ok`, a test where `verify.marked_errors` on a `ran: false`, `produced_by: operator` check whose `rests_on` names a recorded lead ruling returns no line, and one where the same check with free-text `rests_on` returns one line containing `free-text operator evidence`.
-  dry run (`8020446`): step 1 ended `OK`; step 2 n/a — the module is new.
+  dry run (`76f41dd`): step 1 ran 27 tests and ended `OK`; step 2 n/a — the module is new.
 - id: `code-04`
   story: As a plane developer, the run store imports nothing from the judge.
   setup: A checkout of the PR head.
@@ -155,7 +162,7 @@ sign (the triage's second question).
     1. Run `git grep -n 'ccp.verify\|from ccp import.*verify' -- ccp/runs.py`.
     2. Run `git grep -n 'def check_facts' -- ccp`.
   expect: step 1 prints nothing (exit 1); step 2 prints one line, in `ccp/verify.py`.
-  dry run (`8020446`): step 1 printed 2 lines (`ccp/runs.py:396`, `ccp/runs.py:439`); step 2 printed `ccp/runs.py:390`.
+  dry run (`76f41dd`): step 1 printed 2 lines (`ccp/runs.py:396`, `ccp/runs.py:439`); step 2 printed `ccp/runs.py:390`.
 - id: `test-01`
   story: As a product whose root sits below its git toplevel, task and ADR files read at a commit come from the right path.
   setup: A checkout of the PR head, in your own worktree.
@@ -163,14 +170,14 @@ sign (the triage's second question).
     1. Run `python3 -B -m unittest -v tests.test_text_at_subroot`.
     2. Run `CCP_DEV=1 ./bin/ccp mutate --run <your run> --test tests.test_text_at_subroot --mutant 'ccp/tasklog.py:f"{rev}:./{rel}"=>f"{rev}:{rel}"'`.
   expect: step 1 exits 0 and lists, `ok`, tests for `text_at`, `ccp tasks drop` and `adr.in_force_at` with the product root a subdirectory of the git repo. Step 2 prints the mutant `killed`.
-  dry run (`8020446`): step 1 n/a — the module is new; the mutant's old text is in `ccp/tasklog.py` once (`grep -c 'f"{rev}:./{rel}"' ccp/tasklog.py`: 1).
+  dry run (`76f41dd`): step 1 n/a — the module is new; the mutant's old text is in `ccp/tasklog.py` once (`grep -c 'f"{rev}:./{rel}"' ccp/tasklog.py`: 1).
 - id: `spec-01`
   story: As the operator, §6.7 says what I signed.
   setup: A checkout of the PR head.
   steps:
     1. Run `CCP_DEV=1 ./bin/ccp verify spec-text 0273`.
   expect: exit 0, the PROPOSED passage found in `docs/spec/01-model.md`.
-  dry run (simulated at `8020446`: this task file committed, then the passage applied to `docs/spec/01-model.md`, each CURRENT found once, committed in a scratch copy; `CCP_DEV=1 ./bin/ccp verify spec-text 0273 --base HEAD~2`): `"ok": true`, one passage(s) found, none missing.
+  dry run (simulated at `76f41dd`: this task file committed, then the passage applied to `docs/spec/01-model.md`, each CURRENT found once, committed in a scratch copy; `CCP_DEV=1 ./bin/ccp verify spec-text 0273 --base HEAD~1`): `"ok": true`, one passage(s) found, none missing.
 
 ## Implementation notes
 
