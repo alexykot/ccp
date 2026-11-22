@@ -445,7 +445,7 @@ nothing else.
   command); what runs is the command's. `--test` may be given more than once: each test id runs as its
   own command, in the order given. It runs in the worktree's root, in its own process group,
   killed after 600 seconds; a run killed at the limit counts as the test
-  failing. With no command it runs the language pack's per-test runner (§14.1), its test command followed by the test id; with neither, `ccp mutate` refuses (exit 2). Its test runs are not suite runs (§14.1): `ccp mutate` runs the command itself, and
+  failing. With no command it runs the language pack's per-test runner (§21.4), its test command followed by the test id; with neither, `ccp mutate` refuses (exit 2). Its test runs are not suite runs (§14.1): `ccp mutate` runs the command itself, and
   records them in its own rows and log, not as `suite` events. A product whose tests are whole
   scripts sets `mutate.command` to `sh {test}` (or the interpreter its scripts need) and names the
   script as `--test`.

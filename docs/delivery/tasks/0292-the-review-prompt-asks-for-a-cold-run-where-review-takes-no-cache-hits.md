@@ -1,7 +1,7 @@
 ---
 task_id: 0292-the-review-prompt-asks-for-a-cold-run-where-review-takes-no-cache-hits
 title: Where the product takes no cache hits for review, the review prompt asks for the reviewer's run of the touched modules with --cold
-status: pending
+status: done
 kind: feature
 depends_on: []
 spec_refs: ["S14", "S15"]
@@ -89,4 +89,10 @@ record); signing this brief chooses this. Measured at `e92f362`.
 
 ## Implementation notes
 
+- The template and SPEC §15.3 sentence are as the task gives them.
+- `test_review_with_it_runs_touched_modules_through_the_cache` compared the review brief with and without `review_cache` as "one sentence added, nothing else moved"; the no-setting brief now holds ` --cold`, so that test strips it from its base before the comparison. The comparison otherwise stands.
+- `test_review_without_the_reviewer_setting_is_unchanged` keeps its "no cache" and verifier-rule equality assertions and gains the `--cold` expectation; the new test `test_review_asks_for_a_cold_run_only_where_it_takes_no_cache_hits` pins both sides.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #356 head `e57c3ef` (squash `3ab0a04`): APPROVE. Passed: spec-01, code-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0292-the-review-prompt-asks-for-a-cold-run-where-review-takes-no-cache-hits.json.
+

@@ -1031,7 +1031,7 @@ globs>], "review": <bool>}`):
   The verifier still runs its own gate.
 
 `ccp prompt verify` renders the exception only for such a product, and `ccp prompt review` the
-reviewer's only with `review: true`; without the setting each prompt is unchanged.
+reviewer's only with `review: true`; without the setting the verify prompt is unchanged, and the review prompt gives the reviewer's run of the modules the PR touches with `--cold` (§14.2), so a cache entry another run wrote never stands for it.
 
 ### 15.4 The verdict record
 
@@ -1080,7 +1080,8 @@ check that is missing from the record; that was run with evidence naming no appr
 (whoever produced it, `operator` included) or no `suite_id` of a passed run recorded at the record's
 head; that is `ran: false` on free-text operator evidence; or that carries a verdict it may not
 carry (§15.6 rule 3). A marked check resting on a verdict it may carry needs no run at the new head,
-and one waived by a ruling is handled as any other. `ccp verify merge-ok` reads the marked checks
+and one waived by a ruling is handled as any other, save that the ruling must name at least one id
+that is not a gate of class `operator`: an operator gate approves running a step, never skipping it. `ccp verify merge-ok` reads the marked checks
 from the task file at the head it is given and refuses on the same terms. It refuses a check that names no
 `produced_by` unless it is `ran: false` with `rests_on`, and one whose evidence a seat that rules
 on the task produced (`lead`, `runner`, §2.3) unless its `operator_step` names an approved operator
