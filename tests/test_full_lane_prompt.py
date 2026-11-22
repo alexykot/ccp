@@ -4,6 +4,7 @@ does not declare still takes the command after `--`. A product declaring a gate 
 lane for the full role; a declared `pregate` lane replaces the house-rule checks in the fail-fast pre-gate (§13.5)."""
 from __future__ import annotations
 
+import dataclasses
 import json
 import unittest
 from pathlib import Path
@@ -91,6 +92,35 @@ class UndeclaredFullLane(ToolkitFixture, unittest.TestCase):
         self.assertIn("--lane <lane> -- <command>`", text)
         self.assertIn("`--lane full` for the product's full suite", text)
         self.assertNotIn(DECLARED, text)
+
+
+PART_ARGV = "`--lane part` with `scripts/gate.sh <modules>` after `--`"
+PART_EMPTY = "`--lane part` with nothing after `--`"
+
+
+class DeclaredPartLane(ToolkitFixture, unittest.TestCase):
+    PLANE_JSON = {**ToolkitFixture.PLANE_JSON, "suite": {"lanes": {"part": ["scripts/gate.sh"]}}}
+
+    def test_a_declared_part_argv_takes_the_module_names_after_it(self):
+        c = config.load(self.runner)
+        for phase in ("implement", "fix", "merge", "ruling", "review", "verify"):
+            lanes = prompt_mod.suite_lanes(c, phase)
+            self.assertIn(PART_ARGV, lanes, phase)
+            self.assertIn(", as `ccp suite affected` prints it", lanes, phase)
+            self.assertNotIn(PART_EMPTY, lanes, phase)
+        code, _, out, err = self.ccp("tasks", "claim", "0002")
+        self.assertEqual(code, 0, out + err)
+        code, body, out, err = self.ccp("prompt", "implement", "0002", "--base", "abc1234")
+        self.assertEqual(code, 0, out + err)
+        text = Path(body["prompt_path"]).read_text()
+        self.assertIn(PART_ARGV, text)
+        self.assertIn("and for one the Lanes line above gives with a command after `--`", text)
+
+    def test_a_staged_part_lane_still_runs_with_nothing_after_it(self):
+        staged = {"lanes": {"part": [{"name": "unit", "cmd": "true"}]}}
+        lanes = prompt_mod.suite_lanes(dataclasses.replace(config.load(self.runner), suite=staged), "implement")
+        self.assertIn(PART_EMPTY, lanes)
+        self.assertNotIn("<modules>", lanes)
 
 
 class GateOnlyLanes(ReviewFlow, ToolkitFixture, unittest.TestCase):

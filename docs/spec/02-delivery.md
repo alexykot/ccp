@@ -854,9 +854,16 @@ Claude Code). A cold gate run must fit that limit with room to spare.
 
 `ccp suite affected [--since <ref> | --paths <path>…]` prints the test modules a change touches, one
 per line, sorted, so a worker picks the `part` lane from them after a merge or a fix instead of
-guessing. It runs nothing and records nothing. After the list it prints, on stderr, the command that
-runs them on the `part` role's lane (`ccp suite run --lane <part lane> -- <command> <modules>`), for a
-language whose command it names (Python: `python3 -m unittest`); stdout keeps the list alone. When the list holds more than a fixed share of the suite's test modules (a constant in code; the pack counts the suite), the stderr line says instead to skip the pre-gate and run the `full` role's lane: the part lane runs its modules one after another, and past that share it is slower than the full lane. A product that maps tests with `suite.affected_map` alone has no suite count and always gets the part-lane line.
+guessing. It runs nothing and records nothing. After the list it prints, on stderr, the command that runs them on the `part` role's lane
+(`ccp suite run --lane <part lane> -- <command> <modules>`). The `<command>` is the argv
+plane.json `suite.lanes` gives the part role's lane, when it gives one as an argv, which then
+takes the module names as its last arguments; else the language's command, for a language whose
+command it names (Python: `python3 -m unittest`); stdout keeps the list alone. With the language's
+command, when the list holds more than a fixed share of the suite's test modules (a constant in
+code; the pack counts the suite), the stderr line says instead to skip the pre-gate and run the
+`full` role's lane: that command runs its modules one after another, and past that share it is
+slower than the full lane. A declared part lane, and a product that maps tests with
+`suite.affected_map` alone (it has no suite count), always get the part-lane line.
 
 - **The change** is `--paths`, normalised relative to the product root (`./` stripped, `..`
   collapsed, an absolute path made relative), else the files `git diff <ref>` names against the
