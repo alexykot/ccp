@@ -1412,3 +1412,23 @@ tasks:
     title: ccp verify -h describes its actions and refuses a blank target, and the flat action parsers and ccp pr refuse another action's flag with the called action's usage
     depends_on: []
     path: tasks/0287-action-parsers-own-their-flags-and-describe-their-actions.md
+  - id: 0288-every-seat-names-its-actor-and-the-lead-s-records-need-the-lead-s
+    status: pending
+    title: The lead's three records refuse any caller whose ACTOR does not name the lead, the hooks and the test fence drop an inherited ACTOR, sign-offs count only the lead's, and a ruling id is never reused
+    depends_on: []
+    path: tasks/0288-every-seat-names-its-actor-and-the-lead-s-records-need-the-lead-s.md
+  - id: 0289-the-runner-s-actor-id-is-named-once-and-tests-read-the-lead-s
+    status: pending
+    title: The runner's actor id is named once in the seat table, E27's command checks it as it checks the lead's, and tests read the lead's id through lib.LEAD
+    depends_on: []
+    path: tasks/0289-the-runner-s-actor-id-is-named-once-and-tests-read-the-lead-s.md
+  - id: 0290-test-modules-share-the-plane-root-and-git-env-and-helpers-import-lazily
+    status: pending
+    title: Test modules take the plane root and the git environment from tests/helpers.py, which loads no ccp module on import, the plugin test names no plane checkout path, and the implement prompt's refactor line points back
+    depends_on: []
+    path: tasks/0290-test-modules-share-the-plane-root-and-git-env-and-helpers-import-lazily.md
+  - id: 0291-wt-remove-clears-a-cache-only-leftover-mutant-file-names-the-line-break-and-leak-check-reads-only-a-clean-where
+    status: pending
+    title: ccp wt remove clears a leftover directory that holds only the language's caches, a mutant file's zero-match refusal names its trailing line break, and leak-check reads ccp where only when it exits 0
+    depends_on: []
+    path: tasks/0291-wt-remove-clears-a-cache-only-leftover-mutant-file-names-the-line-break-and-leak-check-reads-only-a-clean-where.md
