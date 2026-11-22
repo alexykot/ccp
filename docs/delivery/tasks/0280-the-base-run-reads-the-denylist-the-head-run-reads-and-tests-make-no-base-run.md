@@ -177,5 +177,9 @@ with a prototype of `code-03`'s test added:
 - Beyond the three tests the ruling names, `HeadBindingsDir` (three unit tests in the same module) covers
   `head_bindings_dir`'s branches the end-to-end tests do not reach: the `ccp where` parse, `CCP_BINDINGS_DIR`
   winning over `ccp where`, and the fallbacks (no `ccp` on PATH, a non-zero exit, unparsable output, a timeout).
+- Fix round 1 (review MINOR 1): nothing pinned the `--root` that `head_bindings_dir` passes to `ccp where`. The
+  stub `ccp` in the leak test and in `HeadBindingsDir`'s shell stubs now starts with `root_guard`, which exits 2
+  unless it was called as `ccp --root <root> where`, the root compared after `pwd -P` so a symlinked temp
+  directory still matches. A wrong or missing `--root` then falls back to `bindings_dir()` and the tests fail.
 
 ## Verification notes
