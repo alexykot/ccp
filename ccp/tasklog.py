@@ -1176,9 +1176,10 @@ def requires_report(tasks: list[dict[str, Any]], index: DecisionIndex, strict: b
     decision it cites and each `requires` prerequisite of it, resolved through `retired by`
     (`DecisionIndex.resolve`, §6.5), that is neither recorded `built` or `live` nor cited by the task or a
     task in its `depends_on` closure (a `dropped` task cites none), one line naming the task, the decision,
-    the prerequisite and the remedy, never a depends_on that would make a cycle. `index` is an `adr.DecisionIndex`; `strict` (`adr.strict`) makes the lines failures. A chain
-    that loops or ends at a whole ADR or a retired decision, or a prerequisite its ADR does not hold, is
-    `ccp adr check`'s to report (§6.7), not this one's."""
+    the prerequisite and the remedy, never a depends_on that would make a cycle. `index` is an
+    `adr.DecisionIndex`; `strict` (`adr.strict`) makes the lines failures. A chain that loops or ends at a
+    whole ADR or a retired decision, or a prerequisite its ADR does not hold, is `ccp adr check`'s to report
+    (§6.7), not this one's."""
     ids = index.ids
     cited = {str(t.get("task_id")): _cited_decisions(t, index) for t in tasks}
     deps = {str(t.get("task_id")): [str(d) for d in _as_list(t.get("depends_on"))] for t in tasks}

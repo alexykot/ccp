@@ -339,13 +339,19 @@ class NoStaleBytecode(MutateFixture, unittest.TestCase):
         self.assertEqual(self.cached(), [])
 
 
+def group_running(pgid: int) -> list[str]:
+    """The `ps` rows (pid, stat, command) of the processes of group `pgid` that run: every one but zombies."""
+    out = subprocess.run(["ps", "-A", "-o", "pgid=,pid=,stat=,command="], capture_output=True, text=True,
+                         check=True).stdout
+    rows = (line.split(None, 1) for line in out.splitlines())
+    return [r[1] for r in rows if len(r) == 2 and r[0] == str(pgid) and not r[1].split()[1].startswith("Z")]
+
+
 def group_gone(pgid: int) -> bool:
     """No process of group `pgid` runs: `ps` lists none of it but zombies. A zombie waits for its reaper, which
     under load may be late, and `os.killpg(pgid, 0)` on a group of zombies alone is refused on macOS, so it
     cannot tell them from a running process."""
-    out = subprocess.run(["ps", "-A", "-o", "pgid=,stat="], capture_output=True, text=True, check=True).stdout
-    rows = (line.split() for line in out.splitlines())
-    return not any(len(r) >= 2 and r[0] == str(pgid) and not r[1].startswith("Z") for r in rows)
+    return not group_running(pgid)
 
 
 class GroupGone(unittest.TestCase):
@@ -361,6 +367,15 @@ class GroupGone(unittest.TestCase):
         self.addCleanup(p.kill)
         self.assertFalse(group_gone(p.pid))
 
+    def test_a_running_group_s_rows_name_each_process_its_state_and_command(self):
+        p = subprocess.Popen(["sleep", "30"], start_new_session=True)
+        self.addCleanup(p.wait)
+        self.addCleanup(p.kill)
+        [row] = group_running(p.pid)
+        pid, stat, command = row.split(None, 2)
+        self.assertEqual((pid, command), (str(p.pid), "sleep 30"))
+        self.assertNotIn("Z", stat)
+
 
 class Interrupted(MutateFixture, unittest.TestCase):
     """`ccp mutate` in its own process, sent a SIGTERM while the test command runs."""
@@ -369,7 +384,8 @@ class Interrupted(MutateFixture, unittest.TestCase):
         """Send the call a SIGTERM once the command is asleep (it sleeps when `sleep_when`, a shell
         test, holds); its exit code and the sleeping command's process group."""
         pid = Path(self._tmp.name) / "child.pid"
-        self.set_mutate(command=f"if {sleep_when}; then echo $$ > {shlex.quote(str(pid))}; sleep 60; fi; " + COMMAND)
+        self.set_mutate(command=f"if {sleep_when}; then echo $$ > {shlex.quote(str(pid))}; exec sleep 60; fi; "
+                        + COMMAND)  # exec: no fork follows the pid file
         args = [sys.executable, str(PLANE / "bin/ccp"), "--root", str(self.mut), "mutate", "--run", self.run_id,
                 "--test", ADD]
         for m in mutants:
@@ -393,13 +409,13 @@ class Interrupted(MutateFixture, unittest.TestCase):
 
     def assert_gone(self, group: int) -> None:
         deadline = time.monotonic() + 30
-        while not group_gone(group):
+        while running := group_running(group):
             if time.monotonic() > deadline:
                 try:
                     os.killpg(group, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
-                self.fail("the test command was left running")
+                self.fail("the test command was left running: " + "; ".join(running))
             time.sleep(0.05)
 
     def test_during_a_mutant_test(self):
