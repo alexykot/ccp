@@ -440,7 +440,7 @@ nothing else.
   passed whole, so it may name a single test method (`<module>.<Class>.<method>` for a unittest
   command); what runs is the command's. It runs in the worktree's root, in its own process group,
   killed after 600 seconds; a run killed at the limit counts as the test
-  failing. With no command `ccp mutate` refuses (exit 2). Its test runs are not suite runs (§14.1): `ccp mutate` runs the command itself, and
+  failing. With no command it runs the language pack's per-test runner (§14.1), its test command followed by the test id; with neither, `ccp mutate` refuses (exit 2). Its test runs are not suite runs (§14.1): `ccp mutate` runs the command itself, and
   records them in its own rows and log, not as `suite` events. A product whose tests are whole
   scripts sets `mutate.command` to `sh {test}` (or the interpreter its scripts need) and names the
   script as `--test`.
@@ -467,7 +467,7 @@ nothing else.
   the call (exit 2), as does a call with fewer than two.
 - **Killed only when the named test fails.** The test first runs unmutated; when it fails, the call
   stops (exit 1), nothing applied or recorded. Then each mutant is applied alone, the test runs, and
-  the mutant is `killed` when it exits non-zero and `survived` when it exits 0, except that one whose run exits non-zero with an output line matching plane.json `mutate.unbuilt_re` (a regular expression or a list of them; null, the default, matches nothing) is `unbuilt`: the code did not build or import, which proves nothing about the test. Another test the
+  the mutant is `killed` when it exits non-zero and `survived` when it exits 0, except that one whose run exits non-zero with an output line matching plane.json `mutate.unbuilt_re` (a regular expression or a list of them; unset, the language pack's did-not-build lines) is `unbuilt`: the code did not build or import, which proves nothing about the test. Another test the
   mutant breaks does not count.
 - **The tree is restored** after each mutant: every file it touched is written back byte for byte
   (a file it made is removed, with any directory it made) and checked before the next. A file that

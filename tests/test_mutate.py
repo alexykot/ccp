@@ -144,6 +144,17 @@ class Outcomes(MutateFixture, unittest.TestCase):
                          [(self.run_id, 1, 0)])
         self.assertIn("FAIL: test_add", Path(body["log"]).read_text())
 
+    def test_no_command_runs_the_packs_runner(self):
+        p = self.mut / "docs/delivery/plane.json"
+        body = json.loads(p.read_text())
+        del body["mutate"]
+        p.write_text(json.dumps(body))
+        code, body, _, err = self.mutate("calc.py:a + b=>a - b", "calc.py:a * 2=>a * 3")
+        self.assertEqual((code, body["killed"], body["survived"]), (1, 1, 1), err)
+        self.assertEqual([r["outcome"] for r in self.rows()], ["killed", "survived"])
+        self.assertIn("FAIL: test_add", Path(body["log"]).read_text())
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+
     def test_a_method_id_runs_that_method_alone(self):
         code, body, _, err = self.mutate("calc.py:a + b=>a - b", test=ADD)
         self.assertEqual((code, self.rows()[0]["outcome"]), (0, "killed"), err)
@@ -439,14 +450,6 @@ class Refusals(MutateFixture, unittest.TestCase):
         runs.save(self.q, rec)
         self.refused(2, "calc.py:a + b=>a - b")
 
-    def test_no_command(self):
-        p = self.mut / "docs/delivery/plane.json"
-        body = json.loads(p.read_text())
-        del body["mutate"]
-        p.write_text(json.dumps(body))
-        err = self.refused(2, "calc.py:a + b=>a - b")
-        for named in ("mutate.command", "{test}", "sh {test}"):  # what to set, a whole-script test's form too
-            self.assertIn(named, err)
 
     def test_a_test_that_fails_unmutated(self):
         (self.mut / "test_calc.py").write_text(TESTS.replace("add(1, 1), 2", "add(1, 1), 3"))
@@ -558,7 +561,8 @@ class Reverts(MutateFixture, unittest.TestCase):
     def test_a_file_the_change_added_is_removed_for_the_run(self):
         before = self.tree_of(self.rev)
         code, _, _, err = self.mutate(test=ADD, root=self.rev, reverts=("limits.py",))
-        self.assertEqual((code, self.rows()[0]["outcome"]), (0, "killed"), err)
+        # calc.py imports limits, so the test module no longer imports: the pack's lines call it unbuilt
+        self.assertEqual((code, self.rows()[0]["outcome"]), (1, "unbuilt"), err)
         self.assertEqual((self.rev / "limits.py").read_text(), "FLOOR = 0\n")
         self.assertEqual(self.tree_of(self.rev), before)
 
@@ -621,6 +625,7 @@ class Unbuilt(MutateFixture, unittest.TestCase):
     `unbuilt`, never a kill."""
 
     IMPORT_BREAK = "calc.py:def add(a, b):=>def plus(a, b):"  # `from calc import add` fails: an ImportError
+    SYNTAX_BREAK = "calc.py:def add(a, b):=>def add(a, b)"  # calc.py no longer compiles: a SyntaxError
 
     def setUp(self):
         super().setUp()
@@ -645,11 +650,24 @@ class Unbuilt(MutateFixture, unittest.TestCase):
         ev = [e["payload"] for e in self.events() if (e["type"], e["op"]) == ("run", "recorded")]
         self.assertEqual([(e["mutants"], e["killed"], e["unbuilt"], e["survived"]) for e in ev], [(2, 1, 1, 0)])
 
-    def test_with_no_pattern_the_same_mutant_is_a_kill(self):
+    def test_with_no_pattern_the_packs_lines_mark_a_syntax_error_and_a_failed_import_unbuilt(self):
         self.set_mutate(unbuilt_re=None)
-        code, body, _, err = self.mutate(self.IMPORT_BREAK)
-        self.assertEqual((code, body["killed"], body["unbuilt"], body["survived"]), (0, 1, 0, 0), err)
-        self.assertEqual(self.rows()[0]["outcome"], "killed")
+        code, body, _, err = self.mutate(self.SYNTAX_BREAK, self.IMPORT_BREAK, "calc.py:a + b=>a - b")
+        self.assertEqual((code, body["unbuilt"], body["killed"]), (1, 2, 1), err)
+        self.assertEqual([r["outcome"] for r in self.rows()], ["unbuilt", "unbuilt", "killed"])
+        self.assertEqual((self.mut / "calc.py").read_text(), CALC)
+
+    def test_a_pattern_of_its_own_replaces_the_packs(self):
+        self.set_mutate(unbuilt_re="^no line says this$")
+        code, body, _, err = self.mutate(self.SYNTAX_BREAK)
+        self.assertEqual((code, body["killed"], body["unbuilt"]), (0, 1, 0), err)
+
+    def test_a_language_whose_pack_has_no_lines_counts_the_same_mutant_a_kill(self):
+        p = self.mut / "docs/delivery/plane.json"
+        p.write_text(json.dumps({**json.loads(p.read_text()), "language": "none"}))
+        self.set_mutate(unbuilt_re=None)
+        code, body, _, err = self.mutate(self.SYNTAX_BREAK)
+        self.assertEqual((code, body["killed"], body["unbuilt"]), (0, 1, 0), err)
 
     def test_a_list_of_patterns_any_of_which_marks_a_syntax_error_unbuilt(self):
         self.set_mutate(unbuilt_re=["Failed to import test module", "^SyntaxError: "])
