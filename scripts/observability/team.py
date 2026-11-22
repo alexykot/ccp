@@ -25,11 +25,10 @@ from typing import Any
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from lib import (OPEN_GATE_STATUSES, RUNNER_NAME, die, fmt_dt, looks_like_secret,  # noqa: E402
+from lib import (LEAD, OPEN_GATE_STATUSES, RUNNER, RUNNER_NAME, die, fmt_dt, looks_like_secret,  # noqa: E402
                  read_json, runner_worktree, utcnow, work_lock, write_json)
 import spec_maintainer as sm  # noqa: E402
 
-LEAD, RUNNER = "design-seat", "task-runner"
 GATE_CLASSES = ("operator", "spend", "merge", "credential", "security", "reauth", "other")
 DECIDERS = ("design_seat", "operator_via_design_seat")
 RUNNER_AUDIT_TASK = "_runner"

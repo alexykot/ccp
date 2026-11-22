@@ -7,14 +7,15 @@ import json
 import unittest
 
 from ccp import followups, report, runs
+from ccp.queue import lib
 from tests.helpers import done_report
 from tests.test_report_fields import HEAD
 from tests.test_toolkit import ToolkitFixture
 
 IMPLEMENT = "0002-second/implement"
 REVIEW = "0002-second/review"
-DROPPED = {"kind": "drop", "reason": "not worth it", "at": "2026-11-21T00:00:00Z", "by": followups.LEAD}
-TASKED = {"kind": "task", "ref": "0001-first", "at": "2026-11-21T00:00:00Z", "by": followups.LEAD}
+DROPPED = {"kind": "drop", "reason": "not worth it", "at": "2026-11-21T00:00:00Z", "by": lib.LEAD}
+TASKED = {"kind": "task", "ref": "0001-first", "at": "2026-11-21T00:00:00Z", "by": lib.LEAD}
 
 
 def implement_report(*follow_up_lines: str) -> str:

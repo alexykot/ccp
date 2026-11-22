@@ -1,7 +1,7 @@
 ---
 task_id: 0272-the-lead-s-records-share-one-guard-and-one-actor-id
 title: The lead's three records refuse another seat through one guard, a ruling counts only when the lead recorded it, and the lead's actor id is named once
-status: pending
+status: done
 kind: feature
 depends_on: ["0253-one-wait-reason-table"]
 spec_refs: ["S3", "S13", "S17"]
@@ -11,7 +11,7 @@ review_point: R23
 paths: ["scripts/observability/lib.py", "scripts/observability/team.py", "ccp/followups.py", "ccp/lifecycle.py", "ccp/queue.py", "ccp/cli.py", "ccp/notify.py", "ccp/reviewpoints.py", "ccp/seats.py", "ccp/usage.py", "docs/delivery/plane.json", "docs/ENGINEERING.md", "docs/cli/02-delivery.md", "tests/test_lead_records.py", "tests/test_sign_off.py", "tests/test_sign_off_beyond_intent.py", "tests/test_verify_spec_text.py", "tests/test_behind_tip_catch_up.py", "tests/test_followups.py", "tests/test_followups_closed_point.py", "tests/test_notify_lead.py", "tests/test_orientation_follow_ups.py", "tests/test_report_follow_ups.py"]
 adopt: "none"
 created: 2026-11-21
-updated: 2026-11-21
+updated: 2026-11-22
 ---
 
 # Task: 0272-the-lead-s-records-share-one-guard-and-one-actor-id
@@ -109,4 +109,25 @@ Measured at `8020446` unless a line says otherwise. Provenance: architect pass
 
 ## Implementation notes
 
+- Premises re-measured at `5fa9ff03`: the literal grep printed 28 lines in 8 files, the `LEAD` grep 2 lines,
+  `queue.actor(followups.LEAD)` and `CHECK=RULING` 1 line each in `ccp/cli.py`, the SPEC grep 3 lines; every
+  `ruling` and `sign_off` `recorded` event in both bound queues' ledgers has actor `design-seat`.
+- `scripts/observability/lib.py` holds `LEAD` and `RUNNER`, on two lines; `SEAT_IDS` and `SEAT_DEFAULT_CRON`
+  are built from them. team.py imports both from `lib`; every other module reads `lib.LEAD` (notify.py through
+  its lazy `queue` import).
+- `queue.lead_actor(what)` reads `ACTOR` as `queue.actor(lib.LEAD)` does, so an `ACTOR` that names no known
+  actor still records as the lead, as before; only another known actor is refused. `lifecycle.sign_off` and
+  `lifecycle.ruling` call it first, before `root()` and any read; `ccp tasks follow-up` calls it in cli.py
+  before `queue.root()`, and `followups.decide` no longer checks its caller.
+- `lifecycle.ruling` still numbers a ruling from `queue.rulings`, now the lead's only: a ruling another actor
+  recorded takes no number, so a later lead ruling may reuse its id. No ledger holds one (measured above),
+  and the guard writes none from now on.
+- Only the `"design-seat"` literals moved; the other `"task-runner"` literals in `ccp/` are untouched (the
+  task's checks and E27's command name only the lead's).
+- Test modules that recorded a sign-off as the fixture's `task-runner` now record it as the lead
+  (`lib.LEAD`); the follow-up modules and `test_notify_lead` read `lib.LEAD` in place of the old constant or
+  the literal.
+
 ## Verification notes
+- 2026-11-22 — verifier, PR #323 head `8aac417` (squash `6155916`): APPROVE. Passed: code-01, code-02, code-03, cfg-01. Gate: `ccp suite run --lane gate` exit 0, `ccp tasks check` exit 0, `ccp docs check` exit 0. Record: verification/0272-the-lead-s-records-share-one-guard-and-one-actor-id.json.
+

@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 from ccp import config, tasklog
+from ccp.queue import lib
 from tests.test_toolkit import PLANE, ToolkitFixture, git
 
 TASK_FILE = "docs/delivery/tasks/0002-second.md"
@@ -27,8 +28,13 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         git(self.runner, "fetch", "-q", "origin")
         git(self.runner, "checkout", "-q", "--detach", "origin/main")
 
+    def lead(self, *args: str, **kw):
+        """`ccp` as the lead, the only seat that records a sign-off (§3.5)."""
+        with mock.patch.dict(os.environ, {"ACTOR": lib.LEAD}):
+            return self.ccp(*args, **kw)
+
     def sign(self, *extra: str):
-        return self.ccp("tasks", "sign-off", "0002", "--by", "op", "--words", "signed as written", *extra)
+        return self.lead("tasks", "sign-off", "0002", "--by", "op", "--words", "signed as written", *extra)
 
     def recorded(self) -> list[dict]:
         return [e for e in self.events() if (e["type"], e["op"]) == ("sign_off", "recorded")]
@@ -160,7 +166,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         text = (self.main / TASK_FILE).read_text().replace("0002-second", "0003-third").replace("title: Second", "title: Third")
         (self.runner / rel).write_text(text.replace("depends_on:", "sign_off: brief\ndepends_on:", 1))  # never committed
         tip = git(self.runner, "rev-parse", "HEAD")
-        code, _, out, err = self.ccp("tasks", "sign-off", "0003", "--by", "op", "--words", "signed", "--head", tip)
+        code, _, out, err = self.lead("tasks", "sign-off", "0003", "--by", "op", "--words", "signed", "--head", tip)
         self.assertEqual(code, 0, out + err)
         code, _, _, err = self.ccp("tasks", "claim", "0003")
         self.assertEqual(code, 3)
@@ -216,7 +222,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         self.assertEqual(self.sign()[0], 2)  # both declared: which one
         self.assertEqual(self.sign("--stage", "build")[0], 2)  # nothing verified, no --head
         self.assertEqual(self.sign("--stage", "brief", "--head", "not-a-sha")[0], 2)
-        self.assertEqual(self.ccp("tasks", "sign-off", "0002", "--by", "op", "--words", " ", "--stage", "brief")[0], 2)
+        self.assertEqual(self.lead("tasks", "sign-off", "0002", "--by", "op", "--words", " ", "--stage", "brief")[0], 2)
         self.assertEqual(self.recorded(), [])
 
     def test_sign_off_refuses_a_stage_the_task_does_not_declare(self):
@@ -236,7 +242,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
 
     def test_a_past_sign_off_carries_its_date_and_the_task_files_commit_and_holds_the_claim(self):
         self.declare("brief")
-        code, body, out, err = self.ccp("tasks", "sign-off", "0002", "--by", "operator", "--words", "approved",
+        code, body, out, err = self.lead("tasks", "sign-off", "0002", "--by", "operator", "--words", "approved",
                                         "--at", "2026-01-01")
         self.assertEqual(code, 0, out + err)
         task_commit = git(self.main, "log", "-1", "--format=%H", "--", TASK_FILE)
@@ -341,7 +347,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
         code, tid, err = self.next_id()
         self.assertEqual((code, tid), (0, "0002-second"), err)
         self.assertIn("passed over 0001-first: no brief sign-off on record", err)
-        code, _, out, err = self.ccp("tasks", "sign-off", "0001", "--by", "op", "--words", "signed")
+        code, _, out, err = self.lead("tasks", "sign-off", "0001", "--by", "op", "--words", "signed")
         self.assertEqual(code, 0, out + err)
         code, tid, err = self.next_id()
         self.assertEqual((code, tid), (0, "0001-first"), err)
@@ -370,7 +376,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
 
     def test_an_empty_next_with_nothing_passed_over_says_blocked_or_done(self):
         self.declare("brief")
-        self.assertEqual(self.ccp("tasks", "sign-off", "0002", "--by", "op", "--words", "signed")[0], 0)
+        self.assertEqual(self.lead("tasks", "sign-off", "0002", "--by", "op", "--words", "signed")[0], 0)
         self.assertEqual(self.ccp("tasks", "claim", "0002")[0], 0)
         code, _, out, err = self.ccp("tasks", "next", "--scope", "0001")
         self.assertEqual(code, 3, out + err)
@@ -417,7 +423,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
             "docs/delivery/INDEX.yaml")
         git(self.main, "commit", "-q", "-m", "three tasks")
         for tid in ("0001", "0003"):
-            code, _, out, err = self.ccp("tasks", "sign-off", tid, "--by", "op", "--words", "signed", root=self.main)
+            code, _, out, err = self.lead("tasks", "sign-off", tid, "--by", "op", "--words", "signed", root=self.main)
             self.assertEqual(code, 0, out + err)
         first.write_text(first.read_text().replace("title: First", "title: First, reworded", 1))
         tasklog.write_index(config.load(self.main))
@@ -464,7 +470,7 @@ class SignOff(ToolkitFixture, unittest.TestCase):
 
     def test_a_signed_task_whose_sign_off_holds_is_not_passed_over(self):
         self.three_pending()
-        self.assertEqual(self.ccp("tasks", "sign-off", "0001", "--by", "op", "--words", "again")[0], 0)
+        self.assertEqual(self.lead("tasks", "sign-off", "0001", "--by", "op", "--words", "again")[0], 0)
         code, tid, err = self.next_id()
         self.assertEqual((code, tid), (0, "0001-first"), err)
         self.assertNotIn("passed over 0001", err)

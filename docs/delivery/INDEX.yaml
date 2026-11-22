@@ -1333,7 +1333,7 @@ tasks:
     depends_on: [0267-mutate-falls-back-to-the-language-pack]
     path: tasks/0271-mutate-takes-several-tests-refuses-a-no-op-and-names-the-failing-tests.md
   - id: 0272-the-lead-s-records-share-one-guard-and-one-actor-id
-    status: pending
+    status: done
     title: The lead's three records refuse another seat through one guard, a ruling counts only when the lead recorded it, and the lead's actor id is named once
     depends_on: [0253-one-wait-reason-table]
     path: tasks/0272-the-lead-s-records-share-one-guard-and-one-actor-id.md

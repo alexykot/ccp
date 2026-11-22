@@ -8,6 +8,7 @@ import unittest
 from unittest import mock
 
 from ccp import config, followups, refs, runs, tasklog
+from ccp.queue import lib
 from tests.test_toolkit import ToolkitFixture, git
 
 
@@ -19,7 +20,7 @@ def record(run_id: str, *texts: str, outcomes: dict[int, dict] | None = None) ->
                            for n, t in enumerate(texts, 1)]}
 
 
-DROPPED = {"kind": "drop", "reason": "not worth it", "at": "2026-11-21T00:00:00Z", "by": followups.LEAD}
+DROPPED = {"kind": "drop", "reason": "not worth it", "at": "2026-11-21T00:00:00Z", "by": lib.LEAD}
 
 
 class OnPlainRecords(unittest.TestCase):
@@ -48,7 +49,7 @@ class OnPlainRecords(unittest.TestCase):
 
     def test_a_line_names_the_id_the_task_the_outcome_or_open_and_the_text(self):
         rows = followups.listing([record("0001-a/implement", "gap one", "gap two", "gap three", outcomes={
-            1: DROPPED, 2: {"kind": "task", "ref": "0009-z", "at": "t", "by": followups.LEAD}})], False)
+            1: DROPPED, 2: {"kind": "task", "ref": "0009-z", "at": "t", "by": lib.LEAD}})], False)
         self.assertEqual([followups.line(r) for r in rows],
                          ["0001-a/implement#1 0001-a drop: gap one", "0001-a/implement#2 0001-a task:0009-z: gap two",
                           "0001-a/implement#3 0001-a open: gap three"])
@@ -74,7 +75,7 @@ class TheCommands(ToolkitFixture, unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.lead = mock.patch.dict(os.environ, {"ACTOR": followups.LEAD})
+        self.lead = mock.patch.dict(os.environ, {"ACTOR": lib.LEAD})
         self.lead.start()
         runs.save(self.q, record(self.RUN, "a test gap out of scope", "a step for a later task"))
 
@@ -100,13 +101,13 @@ class TheCommands(ToolkitFixture, unittest.TestCase):
         code, body, _, err = self.decide(1, "--task", "0001")
         self.assertEqual(code, 0, err)
         outcome = self.follow_ups_on_record()[0]["outcome"]
-        self.assertEqual((outcome["kind"], outcome["ref"], outcome["by"]), ("task", "0001-first", followups.LEAD))
+        self.assertEqual((outcome["kind"], outcome["ref"], outcome["by"]), ("task", "0001-first", lib.LEAD))
         self.assertTrue(outcome["at"])
         self.assertIsNone(self.follow_ups_on_record()[1]["outcome"])
         self.assertEqual(body["outcome"], outcome)
         ev = [e for e in self.events() if (e["type"], e["op"]) == ("run", "decided")]
         self.assertEqual([(e["task_id"], e["actor"], e["payload"]) for e in ev],
-                         [("0002-second", followups.LEAD, {"run_id": self.RUN, "follow_up": f"{self.RUN}#1",
+                         [("0002-second", lib.LEAD, {"run_id": self.RUN, "follow_up": f"{self.RUN}#1",
                                                             "kind": "task", "ref": "0001-first"})])
 
     def test_a_second_decision_replaces_the_first(self):

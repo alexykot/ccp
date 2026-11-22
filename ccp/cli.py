@@ -759,9 +759,10 @@ def _lifecycle(cfg: config.Config, a: argparse.Namespace):
         return lifecycle.ruling(cfg, a.task, a.words or "", a.check)
     if a.cmd == "follow-up":
         from ccp import followups, queue  # noqa: PLC0415
+        by = queue.lead_actor("a follow-up's outcome")
         kind, value = next((k, v) for k, v in (("task", a.task), ("proposal", a.proposal), ("drop", a.drop))
                            if v is not None)
-        return followups.decide(queue.root(), cfg, a.follow_up, kind, value, queue.actor(followups.LEAD))
+        return followups.decide(queue.root(), cfg, a.follow_up, kind, value, by)
     if a.cmd == "drop":
         return lifecycle.drop(cfg, a.task, (a.reason or "").strip())
     if a.cmd == "phase":
