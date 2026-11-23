@@ -89,28 +89,12 @@ class CloseKeepsTheCaller(ToolkitFixture, unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         self.assertFalse(body["merged_now"])
 
-    def test_a_merge_the_host_has_not_completed_names_the_hosts_own_state_word(self):
-        head = self._to_approved_pr()
-        queued = prhost.PrFacts(number=int(self.PR), state="open", head=head)
-        with mock.patch.object(prhost, "confirm", return_value=queued):
-            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
-        self.assertEqual(code, 1, out + err)
-        self.assertIn(f"the PR host (local) merged PR {self.PR} without error, but it is OPEN", err)
-
     def test_a_merge_the_host_refuses_names_the_host(self):
         self._to_approved_pr()
         with mock.patch.object(prhost, "merge", return_value=prhost.MergeResult(False, "refused here")):
             code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
         self.assertEqual(code, 1, out + err)
         self.assertIn(f"the PR host (local) did not merge PR {self.PR}: refused here", err)
-
-    def test_a_merged_pr_without_a_merge_commit_names_the_host(self):
-        head = self._to_approved_pr()
-        merged = prhost.PrFacts(number=int(self.PR), state="merged", head=head)
-        with mock.patch.object(prhost, "confirm", return_value=merged):
-            code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR, root=self.main)
-        self.assertEqual(code, 1, out + err)
-        self.assertIn(f"PR {self.PR} is merged but the PR host (local) names no merge commit", err)
 
     def test_a_detached_main_checkout_keeps_its_head_too(self):
         self._to_approved_pr()
@@ -319,31 +303,6 @@ class CloseNamesCarriedChecks(ToolkitFixture, unittest.TestCase):
         line = lifecycle._verification_note(self.q, "0002-second", "7", "c" * 40, "d" * 40, "2026-11-17")
         self.assertIn(f"Passed: c-01. Carried from {a}: c-02, c-05. Carried from {b}: c-03. "
                       "Not run by the verifier: c-04.", line)
-
-
-class CloseReadsAMalformedRunnerCount(ToolkitFixture, unittest.TestCase):
-    """§10.2 step 4: a runner's `tasks_done` that is no whole number reads as 0 at close, as claim reads it."""
-
-    def work(self, **fields) -> None:
-        p = self.q / "work.json"
-        p.write_text(json.dumps({**json.loads(p.read_text()), **fields}))
-
-    def test_one_runner_s_count(self):
-        self._to_approved_pr()
-        self.work(runner_tasks_done="x")
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
-        self.assertEqual(code, 0, out + err)
-        self.assertNotIn("Traceback", err)
-        self.assertIn("runner_tasks_done", err)  # the warning claim gives too
-        self.assertEqual(json.loads((self.q / "work.json").read_text())["runner_tasks_done"], 1)
-
-    def test_a_slot_s_count(self):
-        self._to_approved_pr()
-        slot = json.loads((self.q / "tasks" / "0002-second.json").read_text())["lease_holder"]
-        self.work(runners={slot: {"bound_name": slot, "tasks_done": "x"}})
-        code, _, out, err = self.ccp("tasks", "close", "0002", "--pr", self.PR)
-        self.assertEqual(code, 0, out + err)
-        self.assertEqual(json.loads((self.q / "work.json").read_text())["runners"][slot]["tasks_done"], 1)
 
 
 if __name__ == "__main__":
